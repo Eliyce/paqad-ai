@@ -87,23 +87,26 @@ jobs:
       # Neither directory has a publish API: the ChatGPT directory needs a person to upload the zip
       # (O11, O23) and the Claude directory is published by a reviewer from the public repo (C10). So
       # these steps produce an artifact and push the public repo; the final submission stays manual
-      # (hosts/claude.md, Directory submission). The zip below packs the whole dist folder (every
-      # host branch: combined root, hosts/chatgpt, hosts/claude and hosts/codex); the ChatGPT
-      # directory upload is taken from it by hand.
+      # (hosts/chatgpt.md and hosts/claude.md, Directory submission). The ChatGPT upload is the
+      # dedicated native zip: build/package_chatgpt.py packs only the plugin root of
+      # dist/hosts/chatgpt-directory under one top-level folder. A zip of the whole dist folder is
+      # the wrong shape for the portal (several plugin roots, rejected as plugin_root_ambiguous).
 
-      # Build the directory submission zip and keep it as a workflow artifact for the manual upload.
-      - name: CI-16 build the directory submission zip
+      # Build the ChatGPT directory submission zip and run the pre-submission check, which fails
+      # the release on any error (necessary, not sufficient: the portal may enforce more).
+      - name: CI-16 build and check the ChatGPT directory submission zip
         if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
         run: |
-          VERSION="v${{ steps.version.outputs.value }}"
-          (cd dist && zip -r "../paqad-product-discovery-directory-$VERSION.zip" .)
+          ZIP="paqad-product-discovery-chatgpt-v${{ steps.version.outputs.value }}.zip"
+          python build/package_chatgpt.py --dist dist --out "$ZIP"
+          python build/check_chatgpt_submission.py --zip "$ZIP"
 
-      - name: CI-16 upload the directory submission zip artifact
+      - name: CI-16 upload the ChatGPT directory submission zip artifact
         if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
         uses: actions/upload-artifact@v4
         with:
-          name: directory-submission-zip
-          path: paqad-product-discovery-directory-v${{ steps.version.outputs.value }}.zip
+          name: chatgpt-directory-submission-zip
+          path: paqad-product-discovery-chatgpt-v${{ steps.version.outputs.value }}.zip
 
       # Push the Claude branch to the PUBLIC distribution repo the Claude directory reads
       # (Eliyce/paqad-product-discovery-plugin). Its root is the content of dist/hosts/claude: the

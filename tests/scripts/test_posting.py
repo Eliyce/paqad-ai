@@ -21,12 +21,18 @@ check_readback proves the match, partial and mismatch verdicts after normalisati
 export_csv proves the exact PUB-8 columns and epics-before-stories order.
 """
 
+import contextlib
 import copy
 import csv
 import io
+import json
 import os
+import runpy
+import shutil
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -516,6 +522,295 @@ class ExternalDependencyTest(unittest.TestCase):
         plan = self._plan_with_external_dep(("createIssue",))
         rendered = {(line["ticket"], line["depends_on"]) for line in plan["depends_on_lines"]}
         self.assertIn(("E1-T3", "PROJ-123"), rendered)
+
+
+def _run_script(test, module, argv):
+    """Run a script file as __main__; return (exit code, stdout, stderr)."""
+    out, err = io.StringIO(), io.StringIO()
+    with mock.patch.object(sys, "argv", [module.__file__] + list(argv)), \
+            contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        with test.assertRaises(SystemExit) as ctx:
+            runpy.run_path(module.__file__, run_name="__main__")
+    return ctx.exception.code, out.getvalue(), err.getvalue()
+
+
+def _run_main(module, argv):
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = module.main(argv)
+    return code, out.getvalue()
+
+
+class TempDirTestCase(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def _json(self, name, data):
+        path = os.path.join(self.tmp, name)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+        return path
+
+    def _load(self, name):
+        with open(os.path.join(self.tmp, name), encoding="utf-8") as handle:
+            return json.load(handle)
+
+
+class PostingGuardTest(unittest.TestCase):
+    """The PUB-5 guards refuse every out-of-order or malformed write with a named reason."""
+
+    def test_unknown_internal_dependency_is_not_linked(self):
+        ts = posting_set()
+        ts["epics"][0]["tickets"][2]["depends_on"] = ["E9-T9"]
+        ts = seal(ts)
+        plan = plan_posting.build_plan(ts, {"run_label": RUN_LABEL},
+                                       {"actions": ["createIssueLink"]})
+        items = [op["item_ref"] for op in plan["operations"] if op["kind"] == "link"]
+        self.assertNotIn("E1-T3->E9-T9", items)
+        self.assertEqual(len(items), 2)
+
+    def test_plan_digest_tracks_the_operations(self):
+        state = fresh_state()
+        first = plan_posting.plan_digest(state["plan"])
+        self.assertEqual(first, plan_posting.plan_digest(copy.deepcopy(state["plan"])))
+        state["plan"]["operations"].pop()
+        self.assertNotEqual(first, plan_posting.plan_digest(state["plan"]))
+
+    def test_resolve_requires_a_verified_receipt(self):
+        ref = {"$result": {"operation": "create-E1", "path": ["key"]}}
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.resolve(ref, {"create-E1": {"status": "uncertain"}})
+        self.assertIn("without a verified success receipt", str(ctx.exception))
+
+    def test_resolve_refuses_a_non_scalar_target(self):
+        ref = {"$result": {"operation": "create-E1", "path": ["result"]}}
+        receipts = {"create-E1": {"status": "created", "result": {"result": {"key": "ABC-1"}}}}
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.resolve(ref, receipts)
+        self.assertIn("scalar identifier", str(ctx.exception))
+
+    def test_resolve_walks_nested_lists_and_dicts(self):
+        receipts = {"create-E1": {"status": "created", "result": {"key": "ABC-1"}}}
+        value = {"keys": [{"$result": {"operation": "create-E1", "path": ["key"]}}, "x"], "n": 3}
+        self.assertEqual(plan_posting.resolve(value, receipts), {"keys": ["ABC-1", "x"], "n": 3})
+
+    def test_next_operation_needs_a_plan(self):
+        state = fresh_state()
+        state["plan"] = None
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.next_operation(state)
+        self.assertIn("No plan yet", str(ctx.exception))
+
+    def test_unknown_operation_id_refused(self):
+        state = fresh_state()
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.record_receipt(state, "create-E7", {"status": "created"})
+        self.assertIn("Unknown operation id: create-E7", str(ctx.exception))
+
+    def test_receipt_status_must_be_known(self):
+        state = fresh_state()
+        plan_posting.claim(state)
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.record_receipt(state, "create-E1", {"status": "done"})
+        self.assertIn("must be created, uncertain or not_applied", str(ctx.exception))
+
+    def test_success_needs_a_prior_claim(self):
+        state = fresh_state()
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.record_receipt(state, "create-E1",
+                                        {"status": "created", "result": {"key": "ABC-1"}})
+        self.assertIn("Claim the operation", str(ctx.exception))
+        self.assertEqual(state["posted"]["issues"], [])
+
+    def test_reconcile_refuses_a_non_uncertain_operation(self):
+        state = fresh_state()
+        plan_posting.claim(state)
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.reconcile(state, "create-E1", [])
+        self.assertIn("only to an uncertain operation", str(ctx.exception))
+
+    def test_reconcile_updates_an_existing_posted_row_in_place(self):
+        state = fresh_state()
+        state["posted"]["issues"].append({"ref": "E1", "issue_key": None, "status": "uncertain"})
+        plan_posting.claim(state)
+        plan_posting.record_receipt(state, "create-E1", {"status": "uncertain"})
+        plan_posting.reconcile(state, "create-E1", [
+            {"key": "ABC-5", "labels": ["other-run"], "item_ref": "E1"},
+            {"key": "ABC-6", "labels": [RUN_LABEL], "item_ref": "E1"}])
+        self.assertEqual(state["posted"]["issues"],
+                         [{"ref": "E1", "issue_key": "ABC-6", "status": "created"}])
+
+    def test_all_operations_completed(self):
+        state = fresh_state()
+        for op in state["plan"]["operations"]:
+            state["receipts"][op["id"]] = {"status": "not_applied"}
+        with self.assertRaises(ValueError) as ctx:
+            plan_posting.next_operation(state)
+        self.assertIn("already completed", str(ctx.exception))
+
+
+class PostingCliTest(TempDirTestCase):
+    """plan_posting.py drives the run through its state file: plan, next, claim, record and
+    reconcile each print JSON and persist the state; a refusal exits 1 with the reason on stderr."""
+
+    def _state_file(self):
+        state = fresh_state()
+        state.pop("plan")
+        return self._json("state.json", state)
+
+    def test_plan_next_claim_record_round_trip(self):
+        path = self._state_file()
+        code, out = _run_main(plan_posting, ["plan", "--state", path])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out)["operations"][0]["id"], "create-E1")
+        self.assertEqual(self._load("state.json")["plan"], json.loads(out))
+
+        code, out = _run_main(plan_posting, ["next", "--state", path])
+        self.assertEqual((code, json.loads(out)["id"]), (0, "create-E1"))
+        self.assertEqual(self._load("state.json")["receipts"], {}, "next must not claim")
+
+        code, out = _run_main(plan_posting, ["claim", "--state", path])
+        self.assertEqual(json.loads(out)["id"], "create-E1")
+        self.assertEqual(json.loads(out)["action"], "createIssue")
+        self.assertEqual(self._load("state.json")["receipts"]["create-E1"]["status"], "in_flight")
+
+        receipt = self._json("receipt.json", {"status": "created", "result": {"key": "ABC-1"}})
+        code, out = _run_main(plan_posting, ["record", "--state", path,
+                                             "--operation", "create-E1", "--receipt", receipt])
+        self.assertEqual((code, json.loads(out)["status"]), (0, "created"))
+        posted = self._load("state.json")["posted"]["issues"]
+        self.assertEqual(posted, [{"ref": "E1", "issue_key": "ABC-1", "status": "created"}])
+
+    def test_reconcile_with_and_without_tracker_issues(self):
+        path = self._state_file()
+        _run_main(plan_posting, ["plan", "--state", path])
+        _run_main(plan_posting, ["claim", "--state", path])
+        receipt = self._json("receipt.json", {"status": "uncertain", "evidence": "timeout"})
+        _run_main(plan_posting, ["record", "--state", path,
+                                 "--operation", "create-E1", "--receipt", receipt])
+        code, out = _run_main(plan_posting, ["reconcile", "--state", path,
+                                             "--operation", "create-E1"])
+        self.assertEqual((code, json.loads(out)["status"]), (0, "ask_user"))
+        issues = self._json("issues.json",
+                            [{"key": "ABC-3", "labels": [RUN_LABEL], "item_ref": "E1"}])
+        code, out = _run_main(plan_posting, ["reconcile", "--state", path, "--operation",
+                                             "create-E1", "--tracker-issues", issues])
+        self.assertEqual(json.loads(out)["issue_key"], "ABC-3")
+        self.assertTrue(self._load("state.json")["receipts"]["create-E1"]["reconciled"])
+
+    def test_script_refuses_without_a_plan_and_leaves_state(self):
+        path = self._state_file()
+        before = self._load("state.json")
+        code, out, err = _run_script(self, plan_posting, ["claim", "--state", path])
+        self.assertEqual((code, out), (1, ""))
+        self.assertEqual(json.loads(err),
+                         {"ok": False, "error": "No plan yet. Build the plan first."})
+        self.assertEqual(self._load("state.json"), before)
+
+    def test_script_next_exits_zero_once_planned(self):
+        path = self._state_file()
+        _run_main(plan_posting, ["plan", "--state", path])
+        code, out, err = _run_script(self, plan_posting, ["next", "--state", path])
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(json.loads(out)["id"], "create-E1")
+
+
+class ReadbackEdgeTest(TempDirTestCase):
+    def _created_from(self, ticket_set):
+        return ReadbackTest._created_from(self, ticket_set)
+
+    def test_missing_label_and_link_are_named_diffs(self):
+        approved = posting_set()
+        created = self._created_from(approved)
+        for issue in created:
+            if issue["ref"] == "E1":
+                issue["labels"] = [RUN_LABEL]
+            if issue["ref"] == "E1-T2":
+                issue["links"] = []
+        status, differences = check_readback.compare(approved, created)
+        self.assertEqual(status, "partial")
+        by_path = {d["path"]: d for d in differences}
+        self.assertEqual(set(by_path), {"E1", "E1-T2"})
+        self.assertEqual(by_path["E1"]["code"], "DIFF")
+        self.assertTrue(by_path["E1"]["message"].endswith(": labels"))
+        self.assertTrue(by_path["E1-T2"]["message"].endswith(": links"))
+
+    def test_extra_created_issue_is_flagged(self):
+        approved = posting_set()
+        created = self._created_from(approved) + [{"ref": "E3", "title": "stray"}]
+        status, differences = check_readback.compare(approved, created)
+        self.assertEqual(status, "partial")
+        self.assertEqual([d["code"] for d in differences], ["EXTRA"])
+
+    def test_change_set_append_comment_absent_and_unknown_field(self):
+        edited = {"ref": "ABC-1", "title": "t", "body": "b", "comments": ["something else"]}
+        change_set = {"ticket_key": "ABC-1", "new_children": [], "changes": [
+            {"field": "description", "after": "added note", "op": "append_comment"},
+            {"field": "description", "after": "added note", "op": "append_section"},
+            {"field": "story_points", "after": 3, "op": "replace"}]}
+        status, differences = check_readback.compare(change_set, [{"title": "no ref"}, edited])
+        self.assertEqual(status, "mismatch")
+        self.assertEqual(len(differences), 1)
+        self.assertEqual(differences[0]["code"], "DIFF")
+        self.assertIn("description, description, story_points", differences[0]["message"])
+
+    def test_cli_exit_codes_follow_the_verdict(self):
+        approved = posting_set()
+        approved_path = self._json("approved.json", approved)
+        created_path = self._json("created.json", self._created_from(approved))
+        code, out = _run_main(check_readback, ["--approved", approved_path,
+                                               "--created", created_path])
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out), {"ok": True, "status": "match", "differences": []})
+        empty_path = self._json("empty.json", [])
+        code, out, _err = _run_script(self, check_readback, ["--approved", approved_path,
+                                                             "--created", empty_path])
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(out)["status"], "mismatch")
+
+    def test_cli_reports_unreadable_input_on_stderr(self):
+        missing = os.path.join(self.tmp, "nope.json")
+        code, out, err = _run_script(self, check_readback, ["--approved", missing,
+                                                            "--created", missing])
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("nope.json", json.loads(err)["error"])
+
+
+class ExportCliTest(TempDirTestCase):
+    def test_writes_csv_to_the_out_file(self):
+        ts_path = self._json("ts.json", posting_set())
+        out_path = os.path.join(self.tmp, "export.csv")
+        code, stdout = _run_main(export_csv, ["--ticket-set", ts_path, "--out", out_path])
+        self.assertEqual((code, stdout), (0, ""))
+        with open(out_path, encoding="utf-8", newline="") as handle:
+            self.assertEqual(handle.read(), export_csv.to_csv(posting_set()))
+
+    def test_markdown_to_stdout(self):
+        ts_path = self._json("ts.json", posting_set())
+        code, stdout = _run_main(export_csv, ["--ticket-set", ts_path, "--format", "markdown"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stdout, export_csv.to_markdown(posting_set()))
+
+    def test_markdown_cells_escape_pipes_and_newlines(self):
+        ts = posting_set()
+        ts["epics"][0]["title"] = "Refunds | returns"
+        ts["epics"][0]["body_markdown"] = "line one\nline two"
+        md = export_csv.render(ts, "markdown")
+        self.assertIn("Refunds \\| returns", md)
+        self.assertIn("line one line two", md)
+        self.assertEqual(export_csv.render(ts, "csv"), export_csv.to_csv(ts))
+
+    def test_script_exits_zero_and_one(self):
+        ts_path = self._json("ts.json", posting_set())
+        code, out, err = _run_script(self, export_csv, ["--ticket-set", ts_path])
+        self.assertEqual((code, err), (0, ""))
+        self.assertTrue(out.startswith("Work type,Work item id,Summary"))
+        code, out, err = _run_script(self, export_csv, ["--ticket-set",
+                                                        os.path.join(self.tmp, "missing.json")])
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn('"ok": false', err)
+        self.assertIn("missing.json", err)
 
 
 if __name__ == "__main__":

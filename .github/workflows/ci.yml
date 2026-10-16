@@ -36,6 +36,17 @@ jobs:
       - name: Build dist once
         run: python build/build.py --dist dist
 
+      # CI-16: the ChatGPT directory submission zip (the native package under
+      # dist/hosts/chatgpt-directory) must pack byte-identically twice in one job and pass the
+      # documented pre-submission rules. The check is necessary, not sufficient: the portal may
+      # enforce rules it does not document. Any non-zero exit fails the job.
+      - name: CI-16 ChatGPT submission zip is deterministic and passes the pre-submission check
+        run: |
+          python build/package_chatgpt.py --dist dist --out /tmp/chatgpt-a.zip
+          python build/package_chatgpt.py --dist dist --out /tmp/chatgpt-b.zip
+          cmp /tmp/chatgpt-a.zip /tmp/chatgpt-b.zip
+          python build/check_chatgpt_submission.py --zip /tmp/chatgpt-a.zip
+
       # CI-1, CI-2, CI-4, CI-5, CI-11, CI-20: tests/scripts/test_authoring.py enforces frontmatter,
       # skill size, neutral wording, em and en dash, trigger hygiene and the voice block. The same
       # discover run also executes the new CI-script tests (test_ci_checks, test_bump_version) and

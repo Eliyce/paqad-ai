@@ -15,10 +15,16 @@ Proves:
   U-14   an unsettable sprint field returns the plan as a by-hand list.
 """
 
+import contextlib
+import io
 import json
 import os
+import runpy
+import shutil
 import sys
+import tempfile
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -189,6 +195,144 @@ class FixturePlanTest(unittest.TestCase):
         not_ready = {row["ref"] for row in plan["not_ready"]}
         self.assertIn("DEX-30", not_ready)
         self.assertIn("DEX-31", not_ready)
+
+
+class TargetAndReadinessTest(unittest.TestCase):
+    def test_named_target_sprint_is_found_or_absent(self):
+        sprints = [{"id": "S5", "state": "future"}, {"id": "S6", "state": "Planned"},
+                   {"id": "S4", "state": "closed"}]
+        self.assertEqual(fit_sprint.find_target_sprint(sprints, "S6")["id"], "S6")
+        self.assertEqual(fit_sprint.find_target_sprint(sprints)["id"], "S5")
+        # A closed sprint is never a target, even when it is named.
+        self.assertIsNone(fit_sprint.find_target_sprint(sprints, "S4"))
+        self.assertIsNone(fit_sprint.find_target_sprint(sprints, "S9"))
+
+    def test_build_plan_into_a_named_sprint(self):
+        doc = candidates()
+        doc["sprints"].append({"id": "S6", "state": "upcoming", "settable": True})
+        plan, code = fit_sprint.build_plan(SPRINT_FIELD, doc, history(), target_sprint="S6")
+        self.assertEqual((code, plan["sprint"]), (0, "S6"))
+        plan, code = fit_sprint.build_plan(SPRINT_FIELD, doc, history(), target_sprint="S9")
+        self.assertEqual((code, plan["ok"]), (1, False))
+
+    def test_failing_checks_and_finished_or_in_sprint_deps(self):
+        ready, needs = fit_sprint.readiness(
+            {"size": 3, "checks_pass": False, "dependencies": []}, "S5")
+        self.assertFalse(ready)
+        self.assertEqual(needs, ["its checks to pass"])
+        ready, needs = fit_sprint.readiness(
+            {"size": 3, "checks_pass": True,
+             "dependencies": [{"ref": "D1", "done": True}, {"ref": "D2", "in_sprint": True}]},
+            "S5")
+        self.assertEqual((ready, needs), (True, []))
+
+    def test_capacity_from_a_list_or_nothing(self):
+        self.assertEqual(fit_sprint.derive_capacity([]), {"value": 0, "derived_from": []})
+        cap = fit_sprint.derive_capacity([{"id": "S1", "delivered": 4}, {"id": "S2"}])
+        self.assertEqual(cap["value"], 2)
+        self.assertEqual(cap["derived_from"], [{"sprint": "S1", "count": 4},
+                                               {"sprint": "S2", "count": 0}])
+
+    def test_short_history_is_a_named_risk_and_empty_fit_has_its_own_goal(self):
+        doc = {"sprints": [{"id": "S5", "state": "future"}], "candidates": []}
+        plan, code = fit_sprint.build_plan(SPRINT_FIELD, doc, {"sprints": [{"id": "S4"}]})
+        self.assertEqual(code, 0)
+        self.assertEqual(plan["chosen"], [])
+        self.assertEqual(plan["goal"], "No ready item fits S5; capacity is 0.")
+        self.assertEqual(plan["risks"],
+                         ["Capacity is derived from fewer than three completed sprints."])
+
+    def test_no_risk_line_when_everything_fits(self):
+        doc = {"sprints": [{"id": "S5", "state": "future"}], "candidates": [
+            {"ref": "C1", "priority": 1, "size": 5, "checks_pass": True}]}
+        plan, _ = fit_sprint.build_plan(SPRINT_FIELD, doc, history())
+        self.assertEqual(plan["risks"], ["No capacity or readiness risks detected."])
+        self.assertFalse(plan["by_hand"])
+        # No sprint field means the plan can only be set by hand.
+        plan, _ = fit_sprint.build_plan("", doc, history())
+        self.assertTrue(plan["by_hand"])
+
+
+class ApplyReadBackVerdictTest(unittest.TestCase):
+    def _plan(self):
+        plan, _ = fit_sprint.build_plan(SPRINT_FIELD, candidates(), history())
+        return plan
+
+    def test_partial_when_one_chosen_ticket_did_not_land(self):
+        plan = self._plan()
+        result, code = fit_sprint.apply_plan(plan, plan["digest"], {"c1": "S5", "C2": "S4"})
+        self.assertEqual(code, 0)
+        self.assertEqual(result["read_back"],
+                         {"status": "partial", "confirmed": ["C1"], "missing": ["C2"]})
+
+    def test_mismatch_when_nothing_landed(self):
+        plan = self._plan()
+        result, _ = fit_sprint.apply_plan(plan, plan["digest"], {})
+        self.assertEqual(result["read_back"]["status"], "mismatch")
+        self.assertEqual(result["read_back"]["missing"], ["C1", "C2"])
+
+
+class SprintCliTest(unittest.TestCase):
+    """fit_sprint.py plan/apply print JSON and exit 0, 1 on no future sprint or a bad digest, and
+    report unreadable input on stderr."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def _json(self, name, data):
+        path = os.path.join(self.tmp, name)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(data, handle)
+        return path
+
+    def _main(self, *argv):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            code = fit_sprint.main(list(argv))
+        return code, json.loads(out.getvalue())
+
+    def _script(self, *argv):
+        out, err = io.StringIO(), io.StringIO()
+        with mock.patch.object(sys, "argv", [fit_sprint.__file__] + list(argv)), \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            with self.assertRaises(SystemExit) as ctx:
+                runpy.run_path(fit_sprint.__file__, run_name="__main__")
+        return ctx.exception.code, out.getvalue(), err.getvalue()
+
+    def test_plan_then_apply_with_tracker_state(self):
+        cand = self._json("candidates.json", candidates())
+        hist = self._json("history.json", history())
+        code, plan = self._main("plan", "--sprint-field", SPRINT_FIELD,
+                                "--candidates", cand, "--history", hist)
+        self.assertEqual((code, plan["chosen"]), (0, ["C1", "C2"]))
+        plan_path = self._json("plan.json", plan)
+        state = self._json("state.json", {"C1": "S5", "C2": "S5"})
+        code, result = self._main("apply", "--plan", plan_path,
+                                  "--expect-digest", plan["digest"], "--tracker-state", state)
+        self.assertEqual((code, result["read_back"]["status"]), (0, "match"))
+        code, result = self._main("apply", "--plan", plan_path, "--expect-digest", plan["digest"])
+        self.assertEqual((code, result["read_back"]["status"]), (0, "skipped"))
+
+    def test_script_exit_codes(self):
+        cand = self._json("candidates.json", candidates(future=False))
+        hist = self._json("history.json", history())
+        code, out, _err = self._script("plan", "--sprint-field", SPRINT_FIELD,
+                                       "--target-sprint", "S5",
+                                       "--candidates", cand, "--history", hist)
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(out)["created"], [])
+        plan, _ = fit_sprint.build_plan(SPRINT_FIELD, candidates(), history())
+        plan_path = self._json("plan.json", plan)
+        code, out, _err = self._script("apply", "--plan", plan_path, "--expect-digest", "x")
+        self.assertEqual(code, 1)
+        self.assertEqual(json.loads(out)["applied"], [])
+
+    def test_script_reports_unreadable_input_on_stderr(self):
+        missing = os.path.join(self.tmp, "nope.json")
+        code, out, err = self._script("apply", "--plan", missing, "--expect-digest", "x")
+        self.assertEqual((code, out), (1, ""))
+        self.assertIn("nope.json", json.loads(err)["error"])
 
 
 if __name__ == "__main__":

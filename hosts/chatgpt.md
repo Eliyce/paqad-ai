@@ -24,6 +24,46 @@ below starts as the token `pending` and a person fills it in after installing.
    recording verdicts below. (These are the published `paqad-` names; the source folders are
    `ask-project`, `front-door` and `product-discovery`.)
 
+## Directory submission
+
+The ChatGPT plugin directory takes a zip upload, not a repo. The zip is the native Agent Plugins
+package the build writes to `dist/hosts/chatgpt-directory/plugins/paqad-product-discovery`: a root
+`plugin.json` with `$schema` and `extensions.com.openai.interface`, the skills, `README.md`,
+`LICENSE`, `PRIVACY.md` and `assets/logo.png`. It is not the `.claude-plugin` layout above, which
+stays for workspace import only. Every listing value comes from `build/skills.yml`.
+
+Before the first upload, the owner needs an OpenAI organization with Apps Management write access
+and a verified identity. Then, for every release:
+
+1. Build: `python3 build/build.py`.
+2. Package: `python3 build/package_chatgpt.py`. It writes
+   `paqad-product-discovery-chatgpt-v<version>.zip` at the repo root (gitignored), holding one
+   top-level folder with the plugin root and nothing else. Two runs give the same bytes.
+3. Check: `python3 build/check_chatgpt_submission.py --zip paqad-product-discovery-chatgpt-v<version>.zip`.
+   It prints a JSON report and exits 0 only when `errors` is empty. Warnings, such as a
+   `metadata` key in a skill's frontmatter, do not fail it. With `--package <folder>` it checks a
+   folder instead; with no argument it checks the built package.
+4. Upload the checked zip in the OpenAI portal at platform.openai.com/plugins. The portal runs its
+   own checks, then review; the owner publishes once it is approved.
+5. If the check or the portal names an error, fix it at the source (a `skills.yml` value, a
+   source `SKILL.md`, or `build/build.py`, as the message says), then build, package and check
+   again. Never edit the zip or the built folder by hand.
+6. Every skill change needs a new zip and a new submission; the directory does not read a repo.
+   `release.yml` (CI-16) builds and checks the same zip as the artifact
+   `chatgpt-directory-submission-zip` when `ENABLE_PUBLIC_RELEASE` is set.
+
+What the check covers, from OpenAI's submission docs and the Agent Plugins schema (fetched
+2026-10-16): the zip shape (one plugin root, size and entry limits, safe paths with no `..` or `.`
+segment, no duplicate entry, no symlink), excluded content (apps, MCP config, hooks, commands,
+plugin-level agents, `bin/`, `CLAUDE.md`, reviewer files, secrets), the `plugin.json` keys, the
+interface field limits, the logo, and every `SKILL.md`. Skill descriptions are double-quoted in
+the frontmatter, and the check rejects an unquoted value that contains `: ` or ` #` or ends with
+`:`, because a strict YAML reader refuses those.
+
+The check is necessary, not sufficient. It covers only the documented rules, and the portal may
+enforce rules it does not document. When an upload shows a new portal error, add it to the check
+as a new rule with a failing-fixture test in `tests/scripts/test_chatgpt_submission.py`.
+
 ## Unknowns that apply to ChatGPT web
 
 Applies here: U-1, U-2, U-3, U-4, U-7, U-8, U-9, U-10, U-11, U-14, U-15, U-16, U-17. Shared

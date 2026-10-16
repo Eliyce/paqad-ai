@@ -7,7 +7,8 @@ under extensions.com.openai; two consecutive builds are byte-identical; a skill 
 undeclared shared import fails the build; dist/ has no forbidden content; voice.md is copied
 into each skill. The Claude branch alone carries the directory listing fields and the publish
 files (README.md, LICENSE, PRIVACY.md), and a bad listing scalar or a missing publish file fails
-the build.
+the build. The ChatGPT directory branch is enumerated with the other branches, and every bad
+ChatGPT directory scalar fails load_config before any dist file is written.
 """
 
 import json
@@ -39,6 +40,8 @@ LISTING_PLUGIN_KEYS = (
     "supportUrl",
     "privacyPolicyUrl",
 )
+# Every per-host branch under dist/hosts/ (PLG-12).
+HOSTS = ("claude", "chatgpt", "codex", "chatgpt-directory")
 # Every source tree a temp-source build needs (the build reads publish/ and docs/ too).
 SOURCE_DIRS = ("skills", "shared", "build", "publish", "docs")
 FORBIDDEN = (
@@ -214,7 +217,7 @@ class HostBranchTest(unittest.TestCase):
         return {rel for rel in list_relpaths(root) if not rel.startswith(skills_prefix)}
 
     def test_all_three_branches_exist(self):
-        for host in ("claude", "chatgpt", "codex"):
+        for host in HOSTS:
             self.assertTrue(
                 os.path.isdir(self._branch_root(host)), "missing branch: {0}".format(host)
             )
@@ -238,6 +241,13 @@ class HostBranchTest(unittest.TestCase):
             "codex": {
                 ".agents/plugins/marketplace.json",
                 "plugins/{0}/plugin.json".format(PLUGIN_NAME),
+            },
+            "chatgpt-directory": {
+                "plugins/{0}/plugin.json".format(PLUGIN_NAME),
+                "plugins/{0}/README.md".format(PLUGIN_NAME),
+                "plugins/{0}/LICENSE".format(PLUGIN_NAME),
+                "plugins/{0}/PRIVACY.md".format(PLUGIN_NAME),
+                "plugins/{0}/assets/logo.png".format(PLUGIN_NAME),
             },
         }
         for host, files in expected.items():
@@ -263,7 +273,7 @@ class HostBranchTest(unittest.TestCase):
         self.assertIn("skills", openai["extensions"]["com.openai"])
 
     def test_each_branch_is_skills_only(self):
-        for host in ("claude", "chatgpt", "codex"):
+        for host in HOSTS:
             for rel in list_relpaths(self._branch_root(host)):
                 parts = rel.split("/")
                 for token in FORBIDDEN:
@@ -278,7 +288,7 @@ class HostBranchTest(unittest.TestCase):
     def test_branch_skills_tree_matches_combined(self):
         combined = self._skills_relpaths(self.dist)
         self.assertTrue(combined, "combined dist has no skills tree")
-        for host in ("claude", "chatgpt", "codex"):
+        for host in HOSTS:
             branch_skills = self._skills_relpaths(self._branch_root(host))
             self.assertEqual(
                 branch_skills, combined, "branch {0} skills set differs".format(host)
@@ -340,6 +350,11 @@ class HostBranchTest(unittest.TestCase):
             os.path.join(self._branch_root("codex"), "plugins", PLUGIN_NAME, "plugin.json")
         )
         self.assertEqual(codex_plugin, openai_manifest)
+        directory_plugin = read_json(
+            os.path.join(self._branch_root("chatgpt-directory"), "plugins", PLUGIN_NAME,
+                         "plugin.json")
+        )
+        self.assertEqual(directory_plugin, build.build_chatgpt_directory_manifest(self.config))
 
     def test_combined_root_still_intact(self):
         # INV-1: the combined dist root manifests are unchanged by the branch emission.
@@ -617,6 +632,48 @@ class ListingFailureTest(unittest.TestCase):
     def test_a_missing_publish_file_fails(self):
         os.remove(os.path.join(self.source, "publish", "claude", "README.md"))
         self.assert_build_fails("publish/claude/README.md")
+
+    def test_a_missing_chatgpt_readme_fails(self):
+        os.remove(os.path.join(self.source, "publish", "chatgpt", "README.md"))
+        self.assert_build_fails("publish/chatgpt/README.md")
+
+    def test_each_bad_chatgpt_directory_scalar_fails_before_any_dist_file(self):
+        # AC-5: each bad scalar fails load_config naming the field, main() exits non-zero and no
+        # dist file is written.
+        original = read_text(self.skills_yml)
+        many = " | ".join("c{0}".format(i) for i in range(21))
+        cases = [(key, "", key) for key in build.CHATGPT_DIRECTORY_SCALARS] + [
+            ("short_description", 'short_description: ""\n', "short_description"),
+            ("category", 'category: "Tools"\n', "category"),
+            ("short_description", 'short_description: "{0}"\n'.format("s" * 31),
+             "short_description"),
+            ("long_description", 'long_description: "{0}"\n'.format("l" * 4001),
+             "long_description"),
+            ("default_prompts", 'default_prompts: "a | b | c | d"\n', "default_prompts"),
+            ("default_prompts", 'default_prompts: "a | a"\n', "default_prompts"),
+            ("default_prompts", 'default_prompts: "ask @team"\n', "default_prompts"),
+            ("default_prompts", 'default_prompts: "{0}"\n'.format("p" * 129), "default_prompts"),
+            ("capabilities", 'capabilities: "{0}"\n'.format(many), "capabilities"),
+            ("capabilities", 'capabilities: "{0}"\n'.format("c" * 121), "capabilities"),
+            ("capabilities", 'capabilities: "a || b"\n', "capabilities"),
+            ("default_prompts", 'default_prompts: "a | "\n', "default_prompts"),
+            ("display_name", 'display_name: "{0}"\n'.format("d" * 31), "display_name"),
+            ("author", 'author: "{0}"\n'.format("a" * 81), "author"),
+        ]
+        dist = os.path.join(self.tmp, "dist")
+        for key, line, field in cases:
+            with self.subTest(key=key, line=line[:40]):
+                with open(self.skills_yml, "w", encoding="utf-8") as handle:
+                    handle.write(original)
+                self.set_scalar(key, line)
+                with self.assertRaises(build.BuildError) as ctx:
+                    build.load_config(self.skills_yml)
+                self.assertIn("'{0}'".format(field), str(ctx.exception))
+                self.assertEqual(build.main(["--source", self.source, "--dist", dist]), 1)
+                self.assertFalse(os.path.exists(dist))
+
+    def test_pipe_lists_are_trimmed(self):
+        self.assertEqual(build.parse_pipe_list(" a | b,c |d ", "x"), ["a", "b,c", "d"])
 
 class DeterminismTest(unittest.TestCase):
     def test_two_builds_byte_identical(self):

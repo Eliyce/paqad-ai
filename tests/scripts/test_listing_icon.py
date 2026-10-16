@@ -2,7 +2,8 @@
 
 The directory reads .claude-plugin/icon.png in the plugin folder: a square PNG or JPEG, 512 to 2048 px
 on each side, under 2 MB. The build copies publish/claude/icon.png there, into the Claude branch only,
-and adds no icon key to any manifest.
+and adds no icon key to any manifest. The ChatGPT directory branch alone carries the same image as
+assets/logo.png, the listing logo its plugin.json names.
 """
 
 import json
@@ -22,6 +23,7 @@ import build  # noqa: E402
 PLUGIN_NAME = "paqad-product-discovery"
 SOURCE = os.path.join(REPO_ROOT, "publish", "claude", "icon.png")
 ICON_REL = ("plugins", PLUGIN_NAME, ".claude-plugin", "icon.png")
+LOGO_REL = ("plugins", PLUGIN_NAME, "assets", "logo.png")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -61,11 +63,21 @@ class ListingIconTest(unittest.TestCase):
 
     def test_other_branches_and_the_combined_root_carry_no_icon(self):
         for root in (self.dist, os.path.join(self.dist, "hosts", "chatgpt"),
-                     os.path.join(self.dist, "hosts", "codex")):
+                     os.path.join(self.dist, "hosts", "codex"),
+                     os.path.join(self.dist, "hosts", "chatgpt-directory")):
             for dirpath, _, names in os.walk(root):
                 if dirpath.startswith(self.claude):
                     continue
                 self.assertNotIn("icon.png", names, dirpath)
+
+    def test_logo_png_is_only_in_the_chatgpt_directory_branch(self):
+        directory = os.path.join(self.dist, "hosts", "chatgpt-directory")
+        self.assertEqual(read_bytes(os.path.join(directory, *LOGO_REL)), read_bytes(SOURCE))
+        found = []
+        for dirpath, _, names in os.walk(self.dist):
+            if "logo.png" in names:
+                found.append(os.path.relpath(os.path.join(dirpath, "logo.png"), self.dist))
+        self.assertEqual(found, [os.path.join("hosts", "chatgpt-directory", *LOGO_REL)])
 
     def test_no_manifest_gains_an_icon_key(self):
         for dirpath, _, names in os.walk(self.dist):

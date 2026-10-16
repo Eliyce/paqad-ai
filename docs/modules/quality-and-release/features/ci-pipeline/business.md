@@ -10,15 +10,15 @@ Three automated workflows guard every change, check the conversation nightly, an
 |---|---|
 | Delivery lead or product owner | Knows exactly which checks protect a change and which are switched off |
 | Contributor | Sees a pass or fail on each pull request |
-| Release owner | Cuts releases and publishes the Claude branch to the public repository the Claude plugin directory reads |
+| Release owner | Cuts releases, publishes the Claude branch to the public repository the Claude plugin directory reads, and uploads the checked ChatGPT zip to the ChatGPT plugin directory |
 
 ## User Flows
 
 | Workflow | When it runs | What it does |
 |---|---|---|
-| Pull request checks | Every pull request, or by hand | Runs all unit tests, scans for forbidden content and secrets, checks size budgets and host verdicts, builds twice to prove identical output, and checks 90 percent branch coverage on two Python versions. When switched on, also runs the official Claude plugin validator in strict mode on the Claude branch |
+| Pull request checks | Every pull request, or by hand | Runs all unit tests, scans for forbidden content and secrets, checks size budgets and host verdicts, builds twice to prove identical output, packs the ChatGPT directory zip twice to prove identical bytes and runs the pre-submission check on it, and checks 90 percent branch coverage on two Python versions. When switched on, also runs the official Claude plugin validator in strict mode on the Claude branch |
 | Verify | Nightly at 03:00 UTC, or by hand | Checks structural parity across entry points and host branches and that the scenarios cover the acceptance list |
-| Release | By hand | Bumps the version and rebuilds. When switched on: tags, attaches a zip, pushes to the private distribution repository, builds a directory submission zip, and pushes the Claude branch to the public repository |
+| Release | By hand | Bumps the version and rebuilds. When switched on: tags, attaches a zip, pushes to the private distribution repository, builds and checks the ChatGPT directory submission zip, and pushes the Claude branch to the public repository |
 
 ## Business Rules
 
@@ -29,7 +29,10 @@ Three automated workflows guard every change, check the conversation nightly, an
 | Only the built Claude branch goes public | Source, tests, docs and the other host branches stay private |
 | The public push always lands on `main` and clears old files first | The privacy policy link points at `main`, and removed files never linger |
 | Re-running a release is safe | It commits only when something changed and tags only when the tag is new |
-| Directory submission stays a manual step | Neither directory has a publish API; the steps are in `hosts/claude.md` |
+| Directory submission stays a manual step | Neither directory has a publish API; the steps are in `hosts/claude.md` and `hosts/chatgpt.md` |
+| The ChatGPT zip holds one plugin and nothing else | The ChatGPT directory rejects a zip with more than one plugin root, so the whole build folder cannot be uploaded |
+| A failed ChatGPT check stops the release | A zip the directory would reject never becomes the release artifact |
+| The ChatGPT check is necessary, not sufficient | It covers only OpenAI's published rules; the directory may still reject the zip, and each new rejection becomes a new check |
 
 ## Triggers and Side Effects
 
@@ -37,7 +40,7 @@ Three automated workflows guard every change, check the conversation nightly, an
 |---|---|
 | Pull request | Pass or fail status; build output written to temporary folders only |
 | Release with `ENABLE_RELEASE` | Version tag, GitHub release zip, push to the private distribution repository |
-| Release with `ENABLE_PUBLIC_RELEASE` | Directory submission zip artifact; the Claude branch pushed to `Eliyce/paqad-product-discovery-plugin` on `main` with a version tag |
+| Release with `ENABLE_PUBLIC_RELEASE` | Checked ChatGPT directory submission zip as an artifact; the Claude branch pushed to `Eliyce/paqad-product-discovery-plugin` on `main` with a version tag |
 
 ## Error States
 
@@ -45,6 +48,7 @@ Three automated workflows guard every change, check the conversation nightly, an
 |---|---|
 | A check fails | The pull request check fails |
 | Strict validation finds a warning | The CI-9 step fails, same as an error |
+| The ChatGPT check finds an error | The pull request check or the release fails; the report names what to fix |
 | A switched-off step | Skipped; it enforces nothing until an owner turns it on |
 
 ## Glossary
@@ -55,5 +59,7 @@ Three automated workflows guard every change, check the conversation nightly, an
 | Changeset | A small file describing a change and its version bump |
 | Distribution repository | Where built output is pushed for hosts to sync |
 | Public repository | The repository the Claude plugin directory reads; its root is the Claude branch |
+| ChatGPT submission zip | The one file uploaded to the ChatGPT plugin directory; it holds the native ChatGPT package only |
+| Pre-submission check | A local check of the ChatGPT zip against OpenAI's published rules, run before upload |
 
-Sources: .github/workflows/, .changeset/README.md, hosts/claude.md
+Sources: .github/workflows/, .changeset/README.md, hosts/claude.md, hosts/chatgpt.md

@@ -10,6 +10,7 @@ request, the no-files fallback kept), AC-9 (keep moving, no carry-on pause) and 
 Text is compared with whitespace folded, so a rule wrapped across lines still matches.
 """
 
+import json
 import os
 import unittest
 
@@ -55,12 +56,21 @@ def source_files():
     return paths
 
 
+def unquote_scalar(value):
+    """Return a one-line frontmatter value without its YAML quotes (double or single)."""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return json.loads(value)
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    return value
+
+
 def frontmatter_description(path):
     """Return the one-line description from a SKILL.md frontmatter."""
     with open(path, "r", encoding="utf-8") as handle:
         for line in handle:
             if line.startswith("description:"):
-                return line.partition(":")[2].strip()
+                return unquote_scalar(line.partition(":")[2].strip())
     return ""
 
 

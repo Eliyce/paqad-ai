@@ -95,16 +95,25 @@ Published name shown first, source folder in parentheses.
 - `skills/<skill-name>/` - each skill source (`SKILL.md` plus any `references/`, `assets/`,
   `scripts/`).
 - `build/skills.yml` - the single source of truth for name, version, description, license,
-  display text, the directory listing values (author, links, keywords), and each skill's declared
-  shared imports.
+  display text, the directory listing values (author, links, keywords, and the ChatGPT directory
+  short and long description, category, default prompts and capabilities), and each skill's
+  declared shared imports.
 - `publish/claude/` - the end-user `README.md` and the `LICENSE` that the build copies into the
   Claude branch only. `docs/privacy-policy.md` is copied there too, as `PRIVACY.md`.
+- `publish/chatgpt/README.md` - the end-user README the build copies into the ChatGPT directory
+  package only. That package reuses the Claude `LICENSE`, the privacy policy and `icon.png` (as
+  `assets/logo.png`).
 - `build/build.py` - assembles `dist/` from that single source and generates every manifest.
+- `build/package_chatgpt.py` - packs the ChatGPT directory package into the submission zip.
+- `build/check_chatgpt_submission.py` - the pre-submission check for that zip or folder.
 - `hosts/{claude,chatgpt,codex}.md` - per-host manual install notes and the recording harness
   for the cross-host unknowns (U-1..U-17). Not shipped in the plugin.
 - `tests/scripts/` - standard-library unit tests for every skill script.
 - `tests/evals/fixture-repo/`, `tests/evals/scenarios/` - evaluation fixtures and scenarios.
-- `dist/` - generated plugin output (produced by the build; gitignored, not hand-edited).
+- `dist/` - generated plugin output (produced by the build; gitignored, not hand-edited). Besides
+  the combined root it holds one branch per host under `dist/hosts/`: `claude`, `chatgpt`
+  (workspace import), `codex`, and `chatgpt-directory`, the native package for the ChatGPT plugin
+  directory.
 - `.changeset/`, `.github/workflows/{ci,release,verify}.yml` - release tracking and CI.
 
 ## Requirements
@@ -122,6 +131,17 @@ python3 build/build.py
 This reads `build/skills.yml`, copies each skill plus its declared shared imports, and writes
 the generated plugin into `dist/`. Runs are deterministic: two consecutive runs on a clean
 tree produce byte-identical `dist/` output. `dist/` is gitignored built output.
+
+The build never writes a zip. To make and check the ChatGPT directory submission zip:
+
+```
+python3 build/package_chatgpt.py
+python3 build/check_chatgpt_submission.py --zip paqad-product-discovery-chatgpt-v<version>.zip
+```
+
+The first writes `paqad-product-discovery-chatgpt-v<version>.zip` at the repo root (gitignored)
+from `dist/hosts/chatgpt-directory`. The second prints a JSON report and exits 0 only when there
+is no error.
 
 ## Test
 
@@ -142,6 +162,15 @@ npx -y @anthropic-ai/claude-code@2.1.300 plugin validate --strict dist/hosts/cla
 
 `release.yml` (CI-16) pushes that branch to the public repo when `ENABLE_PUBLIC_RELEASE` and
 `PUBLIC_DISTRIBUTION_REPO` are set. The directory submission steps are in `hosts/claude.md`.
+
+The ChatGPT plugin directory takes a zip upload instead. The zip holds only the native Agent
+Plugins package from `dist/hosts/chatgpt-directory` (a root `plugin.json` with `$schema` and
+`extensions.com.openai.interface`), built by `build/package_chatgpt.py` and checked by
+`build/check_chatgpt_submission.py`. Every pull request packs it twice, compares the bytes and runs
+the check (CI-16 in `ci.yml`); `release.yml` builds and checks the same zip as the artifact
+`chatgpt-directory-submission-zip` when `ENABLE_PUBLIC_RELEASE` is set. The check covers only
+OpenAI's documented rules, so it is necessary, not sufficient. The upload steps are in
+`hosts/chatgpt.md`, Directory submission.
 
 ## Host verification
 

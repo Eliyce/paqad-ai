@@ -119,6 +119,15 @@ def skill_dirs():
     )
 
 
+def unquote_scalar(value):
+    """Return a one-line frontmatter value without its YAML quotes (double or single)."""
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return json.loads(value)
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    return value
+
+
 def split_frontmatter(text):
     """Return (frontmatter_dict, body_text). Raises AssertionError on a malformed header."""
     lines = text.splitlines()
@@ -128,7 +137,7 @@ def split_frontmatter(text):
     while i < len(lines) and lines[i].strip() != "---":
         key, sep, value = lines[i].partition(":")
         if sep:
-            fm[key.strip()] = value.strip()
+            fm[key.strip()] = unquote_scalar(value.strip())
         i += 1
     assert i < len(lines), "SKILL.md frontmatter is not closed with ---"
     body = "\n".join(lines[i + 1:])

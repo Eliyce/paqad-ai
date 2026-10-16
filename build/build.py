@@ -7,6 +7,10 @@ copies each skill plus its declared shared imports into dist/, and generates all
 from those values so no two manifests can disagree (PLG-11). The Claude branch alone also gets
 listing manifests (author, homepage, repository, keywords, display name and the documentation,
 support and privacy links) plus the publish files README.md, LICENSE and PRIVACY.md (PLG-12).
+The ChatGPT directory branch (dist/hosts/chatgpt-directory) is a native Agent Plugins package: a
+root plugin.json with $schema and extensions.com.openai.interface, the same skills tree, a README,
+the LICENSE, the privacy policy and assets/logo.png. The directory limits that package must meet
+are defined once here; build/check_chatgpt_submission.py imports them.
 
 Guarantees:
   - Fails with a clear error naming the offending import when a SKILL.md references a shared
@@ -31,6 +35,104 @@ import sys
 OPENAI_EXTENSION_KEY = "com.openai"
 
 REQUIRED_SCALARS = ("name", "version", "description", "license", "display_name")
+
+# The ChatGPT directory branch key under dist/hosts/ (PLG-12), named once so the build, the zip
+# packer and the pre-submission check all point at the same folder.
+CHATGPT_DIRECTORY_HOST = "chatgpt-directory"
+
+# The Agent Plugins manifest schema the ChatGPT directory package declares in "$schema" (O11).
+AGENT_PLUGINS_SCHEMA_URL = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+
+# The only top-level keys the Agent Plugins schema allows, in the order the package writes them.
+AGENT_PLUGINS_MANIFEST_KEYS = (
+    "$schema",
+    "name",
+    "version",
+    "description",
+    "author",
+    "homepage",
+    "repository",
+    "license",
+    "keywords",
+    "extensions",
+)
+
+# The interface keys the package writes, in order. screenshots, brandColor, brandColorDark,
+# composerIcon and termsOfServiceURL are deliberately absent (screenshots are rejected for a
+# skills-only package; the others have no owner value).
+CHATGPT_INTERFACE_KEYS = (
+    "displayName",
+    "shortDescription",
+    "longDescription",
+    "developerName",
+    "category",
+    "capabilities",
+    "defaultPrompt",
+    "websiteURL",
+    "supportURL",
+    "privacyPolicyURL",
+    "logo",
+)
+
+# The listing logo inside the package, relative to the plugin root. publish/claude/icon.png fills it.
+CHATGPT_LOGO_PATH = "./assets/logo.png"
+
+# The ChatGPT directory categories (exact case).
+CHATGPT_CATEGORIES = (
+    "Productivity",
+    "Creativity",
+    "Developer Tools",
+    "Business & Operations",
+    "Data & Analytics",
+    "Communication",
+    "Education & Research",
+    "Security",
+    "Finance",
+    "Healthcare",
+    "Travel",
+    "Entertainment",
+    "Other",
+)
+
+# Every documented ChatGPT directory limit (OpenAI plugin submission docs and the Agent Plugins
+# schema, fetched 2026-10-16), defined once. Lengths are characters, sizes are bytes.
+CHATGPT_LIMITS = {
+    "display_name": 30,
+    "short_description": 30,
+    "long_description": 4000,
+    "developer_name": 80,
+    "capabilities_count": 20,
+    "capability_length": 120,
+    "default_prompts_count": 3,
+    "default_prompt_length": 128,
+    "manifest_name": 64,
+    "manifest_version": 64,
+    "manifest_description": 1024,
+    "author_name": 120,
+    "author_email": 320,
+    "manifest_url": 2048,
+    "interface_url": 1024,
+    "zip_compressed_bytes": 100000000,
+    "zip_uncompressed_bytes": 536870912,
+    "zip_entries": 5000,
+    "path_segments": 20,
+    "asset_bytes": 5242880,
+    "asset_min_px": 48,
+    "asset_max_px": 4096,
+    "brand_contrast": 2.0,
+    "qualified_skill_name": 64,
+    "skill_description": 1024,
+}
+
+# The ChatGPT directory listing scalars (PLG-11). Each must be non-empty; there is no silent
+# default. default_prompts and capabilities are pipe-separated lists.
+CHATGPT_DIRECTORY_SCALARS = (
+    "short_description",
+    "long_description",
+    "category",
+    "default_prompts",
+    "capabilities",
+)
 
 # The directory listing scalars (PLG-11). Each must be non-empty; there is no silent default.
 LISTING_SCALARS = (
@@ -71,7 +173,8 @@ HOSTS_DIR = "hosts"
 # manifest fills it: "marketplace" and "plugin" are the .claude-plugin layout the ChatGPT branch
 # reads; "claude_marketplace" and "claude_plugin" are the same manifests plus the documented
 # directory listing fields, for the Claude branch only; "openai" is the OpenAI primary manifest
-# (extensions.com.openai) the Codex branch reads. No branch emits agents/, hooks/, commands/, bin/,
+# (extensions.com.openai) the Codex branch reads; "chatgpt_directory" is the native Agent Plugins
+# manifest of the ChatGPT directory package. No branch emits agents/, hooks/, commands/, bin/,
 # .mcp.json, mcp.json or .app.json.
 HOST_BRANCHES = {
     "claude": [
@@ -86,17 +189,31 @@ HOST_BRANCHES = {
         (".agents/plugins/marketplace.json", "marketplace"),
         ("{plugins}/{name}/plugin.json", "openai"),
     ],
+    CHATGPT_DIRECTORY_HOST: [
+        ("{plugins}/{name}/plugin.json", "chatgpt_directory"),
+    ],
 }
 
+# Manifest kinds written in their documented key order instead of sorted keys. Insertion order is
+# fixed by the generator, so the output stays deterministic.
+ORDERED_MANIFEST_KINDS = ("chatgpt_directory",)
+
 # Per-host publish files (PLG-12): each source file, relative to the source root, is copied to
-# every listed target inside dist/hosts/<host>/. Only the Claude branch has any; it is the root of
-# the public directory repo, so it needs a README, a LICENSE and the privacy policy.
+# every listed target inside dist/hosts/<host>/. The Claude branch is the root of the public
+# directory repo, so it needs a README, a LICENSE and the privacy policy. The ChatGPT directory
+# branch carries the same files inside its plugin root, which is what the submission zip packs.
 HOST_PUBLISH_FILES = {
     "claude": [
         ("publish/claude/README.md", ("README.md", "{plugins}/{name}/README.md")),
         ("publish/claude/LICENSE", ("LICENSE", "{plugins}/{name}/LICENSE")),
         ("docs/privacy-policy.md", ("PRIVACY.md",)),
         ("publish/claude/icon.png", ("{plugins}/{name}/.claude-plugin/icon.png",)),
+    ],
+    CHATGPT_DIRECTORY_HOST: [
+        ("publish/chatgpt/README.md", ("{plugins}/{name}/README.md",)),
+        ("publish/claude/LICENSE", ("{plugins}/{name}/LICENSE",)),
+        ("docs/privacy-policy.md", ("{plugins}/{name}/PRIVACY.md",)),
+        ("publish/claude/icon.png", ("{plugins}/{name}/" + CHATGPT_LOGO_PATH[2:],)),
     ],
 }
 
@@ -233,6 +350,73 @@ def parse_keywords(text):
     return keywords
 
 
+def parse_pipe_list(text, field):
+    """Split a pipe-separated list scalar into trimmed entries; an empty entry fails the build."""
+    entries = [part.strip() for part in text.split("|")]
+    if any(not entry for entry in entries):
+        raise BuildError(
+            "skills.yml '{0}' has an empty entry after splitting on '|'; remove the extra "
+            "'|' or fill the entry".format(field)
+        )
+    return entries
+
+
+def _check_length(field, value, limit):
+    if len(value) > limit:
+        raise BuildError(
+            "skills.yml '{0}' is {1} characters; the limit is {2}".format(field, len(value), limit)
+        )
+
+
+def check_chatgpt_directory_scalars(config):
+    """Require the ChatGPT directory scalars and hold them, display_name and author to the
+    directory limits (CHATGPT_LIMITS). Replaces the two list scalars with their parsed lists."""
+    for field in CHATGPT_DIRECTORY_SCALARS:
+        if not config.get(field):
+            raise BuildError("skills.yml is missing a non-empty '{0}'".format(field))
+    if config["category"] not in CHATGPT_CATEGORIES:
+        raise BuildError(
+            "skills.yml 'category' must be one of {0}, got {1!r}".format(
+                ", ".join(CHATGPT_CATEGORIES), config["category"]
+            )
+        )
+    _check_length("display_name", config["display_name"], CHATGPT_LIMITS["display_name"])
+    _check_length("author", config["author"], CHATGPT_LIMITS["developer_name"])
+    _check_length(
+        "short_description", config["short_description"], CHATGPT_LIMITS["short_description"]
+    )
+    _check_length(
+        "long_description", config["long_description"], CHATGPT_LIMITS["long_description"]
+    )
+    prompts = parse_pipe_list(config["default_prompts"], "default_prompts")
+    if len(prompts) > CHATGPT_LIMITS["default_prompts_count"]:
+        raise BuildError(
+            "skills.yml 'default_prompts' has {0} entries; the limit is {1}".format(
+                len(prompts), CHATGPT_LIMITS["default_prompts_count"]
+            )
+        )
+    if len(set(prompts)) != len(prompts):
+        raise BuildError("skills.yml 'default_prompts' has a duplicate entry")
+    for prompt in prompts:
+        if "@" in prompt:
+            raise BuildError(
+                "skills.yml 'default_prompts' entry {0!r} contains '@'; prompts may not "
+                "mention anything".format(prompt)
+            )
+        _check_length("default_prompts", prompt, CHATGPT_LIMITS["default_prompt_length"])
+    capabilities = parse_pipe_list(config["capabilities"], "capabilities")
+    if len(capabilities) > CHATGPT_LIMITS["capabilities_count"]:
+        raise BuildError(
+            "skills.yml 'capabilities' has {0} entries; the limit is {1}".format(
+                len(capabilities), CHATGPT_LIMITS["capabilities_count"]
+            )
+        )
+    for capability in capabilities:
+        _check_length("capabilities", capability, CHATGPT_LIMITS["capability_length"])
+    config["default_prompts"] = prompts
+    config["capabilities"] = capabilities
+
+
 def check_listing_scalars(config):
     """Require every listing scalar (no default) and https on every listing link."""
     for field in LISTING_SCALARS:
@@ -255,6 +439,7 @@ def load_config(skills_yml_path):
             raise BuildError("skills.yml is missing a non-empty '{0}'".format(field))
     check_listing_scalars(config)
     config["keywords"] = parse_keywords(config["keywords"])
+    check_chatgpt_directory_scalars(config)
     if not config.get("skills"):
         raise BuildError("skills.yml declares no skills")
     return config
@@ -307,8 +492,8 @@ def copy_tree(src, dst):
             shutil.copyfile(os.path.join(dirpath, name), os.path.join(target_dir, name))
 
 
-def write_json(path, data):
-    text = json.dumps(data, sort_keys=True, indent=2, separators=(",", ": ")) + "\n"
+def write_json(path, data, sort_keys=True):
+    text = json.dumps(data, sort_keys=sort_keys, indent=2, separators=(",", ": ")) + "\n"
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(text)
@@ -382,6 +567,42 @@ def build_claude_listing_manifests(config):
     return marketplace, plugin_manifest
 
 
+def build_chatgpt_directory_manifest(config):
+    """Return the native Agent Plugins plugin.json of the ChatGPT directory package.
+
+    Exactly the AGENT_PLUGINS_MANIFEST_KEYS at the top level and the CHATGPT_INTERFACE_KEYS under
+    extensions.com.openai.interface, in that order, every value read from skills.yml or from one
+    constant in this file (PLG-11). author carries no url because skills.yml has no source for it.
+    """
+    interface_values = {
+        "displayName": config["display_name"],
+        "shortDescription": config["short_description"],
+        "longDescription": config["long_description"],
+        "developerName": config["author"],
+        "category": config["category"],
+        "capabilities": list(config["capabilities"]),
+        "defaultPrompt": list(config["default_prompts"]),
+        "websiteURL": config["homepage"],
+        "supportURL": config["support_url"],
+        "privacyPolicyURL": config["privacy_policy_url"],
+        "logo": CHATGPT_LOGO_PATH,
+    }
+    interface = {key: interface_values[key] for key in CHATGPT_INTERFACE_KEYS}
+    values = {
+        "$schema": AGENT_PLUGINS_SCHEMA_URL,
+        "name": config["name"],
+        "version": config["version"],
+        "description": config["description"],
+        "author": {"name": config["author"], "email": config["author_email"]},
+        "homepage": config["homepage"],
+        "repository": config["repository"],
+        "license": config["license"],
+        "keywords": list(config["keywords"]),
+        "extensions": {OPENAI_EXTENSION_KEY: {"interface": interface}},
+    }
+    return {key: values[key] for key in AGENT_PLUGINS_MANIFEST_KEYS}
+
+
 # --------------------------------------------------------------------------- host branches
 
 
@@ -405,7 +626,7 @@ def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
     and description as the combined dist (PLG-11), and reuses copy_tree() to copy the already
     assembled combined skills tree into each branch so every branch's skills tree is byte-identical
     to the combined dist. The combined dist/ root is left untouched. Each branch then gets its
-    host's publish files (HOST_PUBLISH_FILES), so far only the Claude branch.
+    host's publish files (HOST_PUBLISH_FILES): the Claude and ChatGPT directory branches.
     """
     name = config["name"]
     marketplace, plugin_manifest, openai_manifest = build_manifests(config)
@@ -416,6 +637,7 @@ def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
         "openai": openai_manifest,
         "claude_marketplace": claude_marketplace,
         "claude_plugin": claude_plugin,
+        "chatgpt_directory": build_chatgpt_directory_manifest(config),
     }
     combined_skills = os.path.join(combined_plugin_dir, "skills")
     for host in sorted(HOST_BRANCHES):
@@ -424,7 +646,11 @@ def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
         copy_tree(combined_skills, os.path.join(branch_plugin, "skills"))
         for rel_template, which in HOST_BRANCHES[host]:
             rel = rel_template.format(plugins=PLUGINS_DIR, name=name)
-            write_json(os.path.join(branch_root, *rel.split("/")), manifests[which])
+            write_json(
+                os.path.join(branch_root, *rel.split("/")),
+                manifests[which],
+                sort_keys=which not in ORDERED_MANIFEST_KINDS,
+            )
         copy_publish_files(source_root, branch_root, host, name)
 
 
