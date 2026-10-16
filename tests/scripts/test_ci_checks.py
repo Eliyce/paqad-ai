@@ -140,7 +140,10 @@ class ScenarioCoverageCheckTest(unittest.TestCase):
         covered = check_scenarios.scenario_covered(only_repo_selection)
         self.assertEqual(covered, set(range(49, 56)))
         self.assertLessEqual(set(range(49, 56)), conv)
-        self.assertIn(56, script)
+        # Generic mode (GM-1): not-set-up is reinterpreted as the code-only level, so AC-56 is now a
+        # conversation-shape scenario covered in generic-mode.yml, not a script-proven stop.
+        self.assertIn(56, conv)
+        self.assertNotIn(56, script)
 
     def test_fails_when_a_required_scenario_is_removed(self):
         tmp = tempfile.mkdtemp()

@@ -15,7 +15,7 @@ Proves the plugin behaves as specified and gets it to users: script and authorin
 | Feature | What it does | Docs |
 |---|---|---|
 | Script and authoring tests | Standard-library unit tests over every script, the build, the CI checks and the authoring rules, including the offline AC-20 parity harness | [business](../features/unit-tests/business.md), [technical](../features/unit-tests/technical.md) |
-| Conversation eval scenarios | 48 declarative conversation scenarios plus the S2 ChatGPT and Codex parity scenarios (AC-20) and a fictional onboarded repository and tracker; the conversation scenarios are authored but not yet run, while the structural half of the parity scenarios runs offline in the unit suite | [business](../features/conversation-evals/business.md), [technical](../features/conversation-evals/technical.md) |
+| Conversation eval scenarios | 56 declarative conversation scenarios plus the S2 ChatGPT and Codex parity scenarios (AC-20), a fictional paqad-documented repository and tracker and a code-only repository; the conversation scenarios are authored but not yet run, while the structural half of the parity scenarios runs offline in the unit suite | [business](../features/conversation-evals/business.md), [technical](../features/conversation-evals/technical.md) |
 | CI and release workflows | Pull request checks (unit tests and deterministic build run today), nightly evals and release, the rest as labelled placeholders | [business](../features/ci-pipeline/business.md), [technical](../features/ci-pipeline/technical.md) |
 | Manual host verification | Install steps and a verdict table per host for the open unknowns; every verdict is still pending | [business](../features/host-verification/business.md), [technical](../features/host-verification/technical.md) |
 
@@ -23,10 +23,11 @@ Proves the plugin behaves as specified and gets it to users: script and authorin
 
 | Path | Role |
 |---|---|
-| `tests/scripts/` | 17 unit test files |
-| `tests/evals/scenarios/` | `s1.yml`, `s1b.yml`, `repo-selection.yml`, `evidence-rules.yml`, `s2.yml`, `README.md` |
+| `tests/scripts/` | 18 unit test files |
+| `tests/evals/scenarios/` | `s1.yml`, `s1b.yml`, `repo-selection.yml`, `evidence-rules.yml`, `generic-mode.yml`, `s2.yml`, `README.md` |
 | `tests/evals/run_parity.py` | Offline AC-20 structural-parity harness |
-| `tests/evals/fixture-repo/` | Fictional onboarded `docs/`, fixture tracker, invented code stubs (`app/`, `tests/`, `vendor/points-kit/`) and a root `Requirements.md` |
+| `tests/evals/fixture-repo/` | Fictional paqad-documented `docs/`, fixture tracker, invented code stubs (`app/`, `tests/`, `vendor/points-kit/`) and a root `Requirements.md` |
+| `tests/evals/fixture-repo-code-only/` | Fictional repository with real code (`app/Bookings/`, `app/Reminders/`, `tests/`) and no paqad docs, for the code-only level |
 | `.github/workflows/ci.yml` | Pull request checks |
 | `.github/workflows/verify.yml` | Nightly conversation evals |
 | `.github/workflows/release.yml` | Release |

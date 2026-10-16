@@ -60,9 +60,11 @@ documented, never as missing features (GRD-8, `connect-repository.md`).
 
 | Exit | Meaning | What the skill does |
 |---|---|---|
-| 0 | Ready or partly ready | Continue; on partly ready, say the message once and rank areas with `find_related.py --modules-dir docs/modules` |
-| 1 | Not set up | Refuse with the exact message; draft or answer nothing |
+| 0 | Ready or partly ready | Read by the instructions as the project-docs level (ready) or the docs-and-code level (partly ready). Continue; on partly ready, say the message once and rank areas with `find_related.py --modules-dir docs/modules` |
+| 1 | Not set up | Read by the instructions as the code-only level, not a stop: answer from the code by names with the "paqad, from code only" source line; the exact message appears only as the optional at-most-once nudge. The only stop is nothing readable at all (GRD-12) |
 | 2 | Usage error | Not a repository state: the call itself was wrong (usage on stderr, nothing on stdout) |
+
+The script is byte-identical (GM-8); only the instructions' reading of its three states changed, to the three evidence levels in `references/evidence-levels.md`.
 
 ### Change from the earlier contract
 

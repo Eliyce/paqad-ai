@@ -17,7 +17,7 @@ The coordinator guides an idea or problem through seven numbered steps (0 to 6),
 |---|---|---|
 | 0. Get connected | Documents and tracker checked | setup |
 | 1. Your idea | Goal, who benefits, success, constraints | idea |
-| 2. What exists today | Related areas from the project documents | today |
+| 2. What exists today | Related areas at the best evidence level (project docs, docs and code, or code only) | today |
 | 3. Shape it | Playback, lenses, options, recommendation | playback |
 | 4. Decide | Open choices settled | decisions, outcome |
 | 5. Draft and check | Tickets drafted and checked | ticket_set_ref, readiness |

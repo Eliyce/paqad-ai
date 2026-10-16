@@ -19,6 +19,7 @@ Each block below shows its fields. A block is empty until the step that owns it 
   "setup": {
     "repository": "",
     "repository_state": "",
+    "evidence_level": "",
     "tracker_kind": "jira",
     "project_key": "ABC",
     "epic_type": "Epic",
@@ -41,8 +42,8 @@ Each block below shows its fields. A block is empty until the step that owns it 
     { "user_term": "", "project_term": "" }
   ],
   "today": [
-    { "area": "", "source_path": "", "section_status": { "roles": "real", "rules": "template" } },
-    { "area": "", "source_path": "", "section_status": { "summary": "missing" }, "code_suggests": "", "code_source_path": "" }
+    { "area": "", "source_path": "", "evidence_level": "project-docs", "section_status": { "roles": "real", "rules": "template" } },
+    { "area": "", "source_path": "", "evidence_level": "code-only", "section_status": { "summary": "missing" }, "code_suggests": "", "code_source_path": "" }
   ],
   "playback": {
     "goal_first_playback": "",
@@ -105,18 +106,24 @@ Each block below shows its fields. A block is empty until the step that owns it 
 - setup comes from the step 0 tracker and project discovery (PUB-1). run_label is the run id in
   lowercase.
 - setup.repository is the chosen repository's name as the tool or attachment shows it (empty when
-  none is shown), and setup.repository_state is ready or partly-ready. get-connected sets both at
-  step 0, or the first docs-reading step sets them in a refine or size run; a switch the user asks
-  for patches them. Setup sits outside the go-back chain, so both survive going back. Neither holds
-  credentials (REC-6).
+  none is shown), and setup.repository_state is ready or partly-ready. setup.evidence_level is the
+  level the repository was read at, one of project-docs, docs-and-code or code-only
+  (references/evidence-levels.md); project-docs maps to the ready state, docs-and-code to
+  partly-ready, and code-only to a repository with reachable code but no paqad docs. get-connected
+  sets all three at step 0, or the first docs-reading step sets them in a refine or size run; a
+  switch the user asks for patches them. Setup sits outside the go-back chain, so they survive going
+  back. None holds credentials (REC-6).
 - idea is the step 1 output. glossary pairs the user's term with the project's term (GRD-6).
-- today lists each related area, its source path, and per section whether it is real or template
-  (GRD-4). playback is the step 3 output; its outcome type is one of build, experiment, already
+- today lists each related area, its source path, its evidence_level and per section whether it is
+  real or template (GRD-4). The per-entry evidence_level (project-docs, docs-and-code or code-only)
+  is the provenance of that entry, so a code-only or docs-and-code line keeps its level into playback
+  and tickets. playback is the step 3 output; its outcome type is one of build, experiment, already
   exists, process change, defer or stop (CON-8).
 - An entry for an area the documents do not cover may add code_suggests, one plain line that itself
-  contains "the code suggests", and code_source_path, the code folder it came from (GRD-11).
-  source_path then names where the area was found (docs/modules/<area>/ when the folder exists,
-  otherwise the modules list). Both fields are left out when the code was not checked.
+  contains "the code suggests", and code_source_path, the code folder it came from (GRD-11); its
+  evidence_level is code-only or docs-and-code. source_path then names where the area was found
+  (docs/modules/<area>/ when the folder exists, otherwise the modules list or the code folder). Both
+  code fields are left out when the code was not checked.
 - decisions records each settled choice with who decided and why. assumptions holds accepted
   defaults, each labelled an assumption.
 - ticket_set_ref.digest is the sha256 of the canonical ticket set with the digest field excluded.

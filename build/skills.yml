@@ -33,6 +33,7 @@ skills:
       - references/paqad-docs-map.md
       - references/template-markers.md
       - references/connect-repository.md
+      - references/evidence-levels.md
       - scripts/check_onboarded.py
       - scripts/find_related.py
       - scripts/detect_placeholder.py
@@ -40,6 +41,7 @@ skills:
     imports:
       - references/voice.md
       - references/connect-repository.md
+      - references/evidence-levels.md
       - references/tracker-profiles-jira.md
       - references/tracker-profiles-github.md
       - scripts/check_onboarded.py
@@ -52,6 +54,7 @@ skills:
       - references/paqad-docs-map.md
       - references/template-markers.md
       - references/connect-repository.md
+      - references/evidence-levels.md
       - scripts/check_onboarded.py
       - scripts/find_related.py
       - scripts/detect_placeholder.py
@@ -59,6 +62,7 @@ skills:
     imports:
       - references/voice.md
       - references/paqad-docs-map.md
+      - references/evidence-levels.md
   - name: decide-together
     imports:
       - references/voice.md
@@ -88,6 +92,7 @@ skills:
       - references/tracker-profiles-jira.md
       - references/paqad-docs-map.md
       - references/connect-repository.md
+      - references/evidence-levels.md
       - scripts/canonical.py
       - scripts/record.py
       - scripts/check_record.py
@@ -99,6 +104,7 @@ skills:
       - references/tracker-profiles-jira.md
       - references/paqad-docs-map.md
       - references/connect-repository.md
+      - references/evidence-levels.md
       - scripts/canonical.py
       - scripts/record.py
       - scripts/check_record.py

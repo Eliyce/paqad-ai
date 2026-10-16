@@ -6,7 +6,8 @@ contents. Product spec: [REQUIREMENTS.md](../../../REQUIREMENTS.md).
 ## What this repository is
 
 The source and build for the `paqad-product-discovery` plugin: a skills-only plugin that
-business users install in an AI chat host to ask questions about a paqad-onboarded product,
+business users install in an AI chat host to ask questions about a product on any repository (at
+the best evidence level it can reach, from project docs, from docs and code, or from code only),
 shape ideas into tickets, refine tickets, size work and plan sprints. It is plugin source, not
 an application. There is no server, no database, no UI and no web framework.
 

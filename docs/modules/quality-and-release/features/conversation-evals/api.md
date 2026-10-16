@@ -1,7 +1,8 @@
 # Conversation eval scenarios: API
 
 This feature has no API and no runtime entry point yet. Its surface is the scenario files under
-`tests/evals/scenarios/` and the fixtures under `tests/evals/fixture-repo/`.
+`tests/evals/scenarios/` and the fixtures under `tests/evals/fixture-repo/` (paqad-documented) and
+`tests/evals/fixture-repo-code-only/` (real code, no paqad docs).
 
 ## Scenario shape
 

@@ -4,7 +4,7 @@
 # host eval runner executes them against the built plugin, the fixture repository under
 # tests/evals/fixture-repo, and a fake tracker (CI-12). Each scenario below maps one-to-one to a
 # conversation-shape acceptance scenario in the frozen spec. The script-proven acceptance criteria
-# (AC-1, AC-7, AC-8, AC-11 to AC-14, AC-16, AC-18, AC-19) are covered by the unit suite and need no
+# (AC-7, AC-8, AC-11 to AC-14, AC-16, AC-18, AC-19) are covered by the unit suite and need no
 # scenario here.
 #
 # Schema (one entry per scenario):

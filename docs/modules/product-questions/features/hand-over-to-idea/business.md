@@ -42,7 +42,7 @@ When an answer shows a real problem or opportunity, the plugin adds one short li
 | Situation | What happens |
 |---|---|
 | User declines or ignores the offer | Nothing changes; the conversation continues as questions |
-| Project not set up | No answer is given, so there is nothing to hand over. A partly ready project still gets an answer, so it can be handed over |
+| Nothing readable at all | No answer is given, so there is nothing to hand over. Any repository with readable code is answered at the code-only level or better, so its answer can be handed over |
 
 ## Glossary
 

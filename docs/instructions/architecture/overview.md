@@ -28,23 +28,26 @@ User message
    +-- "what fits the sprint?" -> plan-sprint
 ```
 
-Every path reads the target project's onboarded `docs/` and, where needed, the tracker, through
-the host's own connectors. Which repository to read is settled once by one shared rule
-(`shared/references/connect-repository.md`, GRD-3) and its state checked by one shared script
-(`shared/scripts/check_onboarded.py`, GRD-1). Nothing in this repository talks to a network.
+Every path reads the target repository at the best evidence level it can reach (from project docs,
+from docs and code, or from code only) and, where needed, the tracker, through the host's own
+connectors. Which repository to read is settled once by one shared rule
+(`shared/references/connect-repository.md`, GRD-3); the evidence level is defined once in
+`shared/references/evidence-levels.md` (GRD-12) and the readiness it rests on is checked by one
+shared script (`shared/scripts/check_onboarded.py`, GRD-1). Nothing in this repository talks to a
+network.
 
 ## Source layout
 
 | Path | Role |
 |---|---|
 | `skills/<name>/` | One skill: `SKILL.md` plus optional `references/`, `assets/`, `scripts/` |
-| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, docs map, template markers, repository choice and onboarded check, Jira and GitHub profiles) |
-| `shared/scripts/` | Python modules held once and copied into skills at build time (record, digests, prose and read-back checks, onboarded check, related-module ranking, placeholder detection) |
+| `shared/references/` | Text held once and copied into skills at build time (voice, consulting stance, plain language, writing rules, docs map, evidence levels, template markers, repository choice and readiness check, Jira and GitHub profiles) |
+| `shared/scripts/` | Python modules held once and copied into skills at build time (record, digests, prose and read-back checks, readiness check, related-module ranking, placeholder detection) |
 | `build/skills.yml` | Single source of truth: plugin metadata and each skill's declared shared imports |
 | `build/build.py` | Assembles `dist/` and generates every manifest |
 | `hosts/*.md` | Human install notes and manual verdict harness per host; not shipped |
 | `tests/scripts/` | Unit tests for every script, the build and the authoring rules |
-| `tests/evals/` | Fixture onboarded repo, fake tracker data, and conversation scenarios |
+| `tests/evals/` | Fixture repos (a paqad-documented one and a code-only one), fake tracker data, and conversation scenarios |
 | `.github/workflows/` | CI, nightly verify, release |
 | `dist/` | Generated output; gitignored |
 

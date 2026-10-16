@@ -21,7 +21,8 @@ instead of rewriting it here (EDT-3).
 Refine each ticket in order. The full procedure, with every rule, is in
 `references/refine-procedure.md`; the rich-content rule is in `references/rich-content.md`; Jira
 actions and tool-name variants are in `references/tracker-profiles-jira.md`. When you read the
-project documents, get them as in `references/connect-repository.md`.
+project documents, get them as in `references/connect-repository.md`, at the best evidence level the
+repository allows (`references/evidence-levels.md`), and carry the level into each finding.
 
 1. Read and snapshot (EDT-1). Read each ticket in full: summary, description, type, parent, labels,
    links, status, assignee, sprint and size field. Keep a snapshot with its last-updated time in the
@@ -34,7 +35,9 @@ project documents, get them as in `references/connect-repository.md`.
    contradiction that rests on a document's status line names it as what the docs say; a missing or
    template document is never a finding that the feature is missing; when whether the area exists
    matters to a finding and the code is reachable, check that area's code and label the finding
-   "the code suggests"; all as in "What the documents prove" in `references/paqad-docs-map.md`.
+   "the code suggests"; all as in "What the documents prove" in `references/paqad-docs-map.md`. Each
+   finding carries the evidence level it rests on; in code-only mode say the diagnosis is from code
+   only and never claim a new area from missing documents.
 3. Preserve intent (EDT-3). Keep the original meaning and the author's words where they are clear.
    Never turn a ticket into something else.
 4. Propose a field-by-field change set (EDT-4, EDT-8). Show each changed field as before and after,
