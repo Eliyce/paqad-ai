@@ -479,7 +479,10 @@ describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 
       const { result, envFile, launcher } = await runFromScriptRoot(link, dir);
       expect(result.exitCode).toBe(0);
       expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
-      expect(statSync(launcher).mode & 0o111).not.toBe(0);
+      // POSIX only — ensureBinOnPath deliberately skips chmod on Windows (no exec bit there).
+      if (process.platform !== 'win32') {
+        expect(statSync(launcher).mode & 0o111).not.toBe(0);
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
@@ -493,7 +496,10 @@ describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 
       const { result, envFile, launcher } = await runFromScriptRoot(link, dir);
       expect(result.exitCode).toBe(0);
       expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
-      expect(statSync(launcher).mode & 0o111).not.toBe(0);
+      // POSIX only — ensureBinOnPath deliberately skips chmod on Windows (no exec bit there).
+      if (process.platform !== 'win32') {
+        expect(statSync(launcher).mode & 0o111).not.toBe(0);
+      }
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
