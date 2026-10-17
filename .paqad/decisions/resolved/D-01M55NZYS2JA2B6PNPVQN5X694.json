@@ -1,0 +1,26 @@
+{
+  "id": "D-01M55NZYS2JA2B6PNPVQN5X694",
+  "category": "shared-abstraction",
+  "title": "Gap1 plugin-link rule: shared impl or mirrored copies (bootstrap.ts vs plugin-session-start.mjs)",
+  "context": "bootstrap.ts (TypeScript, compiled to dist) must gain the same 'never take over a working npm link; only fill a missing/dangling link and point it at CLAUDE_PLUGIN_DATA/runtime when running as a plugin' rule that plugin-session-start.mjs already implements in repointFrameworkLink(). The .mjs runtime hooks are deliberately dist-less and dependency-free (they run before dist resolves); the TS path runs from compiled dist. bootstrap.ts already mirrors small helpers from the hook (symlinkType, frameworkHome).",
+  "options": [
+    {
+      "option_key": "mirror",
+      "label": "Mirror the rule in both files (add a plugin-aware branch to bootstrap.ts), add a consistency test asserting they agree"
+    },
+    {
+      "option_key": "shared-mjs",
+      "label": "Extract the rule into one shared .mjs module imported by both the hook and the TS at runtime"
+    },
+    {
+      "option_key": "shared-ts-generated",
+      "label": "Single TS source of truth; generate/copy the .mjs at build time"
+    }
+  ],
+  "recommendation": "mirror",
+  "created_at": "2026-10-17T19:39:03.842Z",
+  "status": "resolved",
+  "chosen": "mirror",
+  "rationale": "The .mjs runtime hooks are dist-less and cannot import compiled TS; mirror matches the existing TS/.mjs duplication pattern. Add a consistency test.",
+  "resolved_at": "2026-10-17T19:42:30.333Z"
+}
