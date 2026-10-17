@@ -305,6 +305,20 @@ const TASK_NOTIFICATION = [
   '</task-notification>',
 ].join('\n');
 
+// Issue #615 (Part 2) — on the Desktop app a finished background agent arrives as a prompt
+// that OPENS with a banner line and only then carries the element. Representative shape (the
+// real captured Desktop payload is a manual check noted in the PR). It mentions issue numbers
+// in its body, which is exactly what used to trip routing and ticket intake.
+const DESKTOP_BANNER_NOTIFICATION = [
+  '[SYSTEM NOTIFICATION - NOT USER INPUT]',
+  'This is an automated background-task event, NOT a message from the user.',
+  '',
+  '<task-notification>',
+  '<task-id>a1b2c3</task-id>',
+  '<summary>Background agent finished reviewing #409 and #582</summary>',
+  '</task-notification>',
+].join('\n');
+
 describe('isSystemNotificationPrompt (#540)', () => {
   it('recognises every wrapper element the host injects', () => {
     for (const element of SYSTEM_NOTIFICATION_ELEMENTS) {
@@ -325,6 +339,18 @@ describe('isSystemNotificationPrompt (#540)', () => {
     );
     expect(isSystemNotificationPrompt('verify and fix issue 540')).toBe(false);
     expect(isSystemNotificationPrompt('')).toBe(false);
+  });
+
+  it('recognises the Desktop banner-led background notice (issue #615, Part 2)', () => {
+    expect(isSystemNotificationPrompt(DESKTOP_BANNER_NOTIFICATION)).toBe(true);
+    // Case-insensitive and tolerant of leading whitespace, like the element anchor.
+    expect(isSystemNotificationPrompt('\n  [system notification - not user input]\nx')).toBe(true);
+  });
+
+  it('leaves a human prompt that only MENTIONS the banner routable (issue #615)', () => {
+    expect(
+      isSystemNotificationPrompt('what is the [SYSTEM NOTIFICATION - NOT USER INPUT] banner?'),
+    ).toBe(false);
   });
 });
 
@@ -364,6 +390,22 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       adapter: ADAPTER,
     });
     expect(result.notification).toBeUndefined();
+  });
+
+  it('treats a Desktop banner-led notice as a notification (issue #615, Part 2)', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: DESKTOP_BANNER_NOTIFICATION,
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result).toEqual({
+      routed: 'no-workflow',
+      lane: null,
+      resumed: null,
+      narration: null,
+      notification: true,
+    });
   });
 
   it('leaves an in-flight feature-development route exactly as it was (AC-6)', async () => {

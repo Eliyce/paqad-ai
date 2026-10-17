@@ -77,6 +77,14 @@ export const SYSTEM_NOTIFICATION_ELEMENTS: readonly string[] = [
   'background-task-notification',
 ];
 
+/**
+ * The banner the Desktop app prepends to a background-task event (issue #615, Part 2). A
+ * finished background agent arrives on `UserPromptSubmit` as a prompt that opens with this
+ * line and only then carries a `<task-notification>` element, so the start-anchored element
+ * match alone misses it. Compared case-insensitively against the trimmed prompt head.
+ */
+export const SYSTEM_NOTIFICATION_BANNER = '[system notification - not user input]';
+
 // Bare ticket/URL detection (issue #602, FR-5). A URL, or a tracker ref like `#123` or
 // `PROJ-123`. Non-global for `.test()` (no lastIndex state); a global twin for stripping.
 const BARE_LINK_SOURCE = 'https?://\\S+|#\\d+|\\b[A-Z][A-Z0-9]+-\\d+\\b';
@@ -206,9 +214,17 @@ export function isBareTicketPrompt(prompt: string): boolean {
  * "why did the `<task-notification>` open a change?", the prompt that filed this very
  * issue — still routes normally. The host emits the element as the whole payload, so the
  * anchor costs nothing and keeps a real question routable.
+ *
+ * On the Desktop app a background-task event opens with the `[SYSTEM NOTIFICATION - NOT
+ * USER INPUT]` banner before the element (issue #615, Part 2), so the banner is a second
+ * start anchor. Both are start-anchored, so a human question that only mentions either one
+ * still routes.
  */
 export function isSystemNotificationPrompt(prompt: string): boolean {
   const head = prompt.trimStart().toLowerCase();
+  if (head.startsWith(SYSTEM_NOTIFICATION_BANNER)) {
+    return true;
+  }
   return SYSTEM_NOTIFICATION_ELEMENTS.some((element) => head.startsWith(`<${element}>`));
 }
 

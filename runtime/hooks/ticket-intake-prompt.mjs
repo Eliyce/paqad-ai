@@ -31,6 +31,14 @@ async function main(rawInput) {
   if (!prompt) return 0;
 
   try {
+    // Issue #615 (Part 2) — a Desktop system notice (banner- or element-led) is not a ticket
+    // intake. Reuse the one matcher from the routing seam (imported from dist, the same way the
+    // detector below is) so routing and intake agree on what a notification is; a banner-led
+    // background report that merely mentions #409/#582 must not arm intake.
+    const laneUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
+    const { isSystemNotificationPrompt } = await import(laneUrl.href);
+    if (isSystemNotificationPrompt(prompt)) return 0;
+
     const distUrl = new URL('../../dist/planning/ticket-ref-detect.js', import.meta.url);
     const { detectTicketRefs, armIntakeNarration } = await import(distUrl.href);
     // 'generic' matches both Jira- and GitHub-style refs — a project that has not
