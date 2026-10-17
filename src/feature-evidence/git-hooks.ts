@@ -14,6 +14,7 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
+import { toPosixPath } from '@/core/path-utils.js';
 import { getPackageRoot } from '@/core/runtime-paths.js';
 
 /** Marker that identifies (and de-dupes) the paqad block inside a hook file. */
@@ -21,7 +22,9 @@ export const GIT_HOOK_MARKER = '# paqad-ai delivery-link (issue #339)';
 
 /** The running paqad copy's own CLI entry, for the hook's PATH-less fallback (issue #616, Part 6). */
 export function distCliPath(): string {
-  return join(getPackageRoot(), 'dist', 'cli', 'index.js');
+  // Forward slashes: the block runs in `#!/bin/sh` (git bash on Windows too), where a backslash
+  // path would break (issue #616 Part 6 — Windows CI).
+  return toPosixPath(join(getPackageRoot(), 'dist', 'cli', 'index.js'));
 }
 
 const HOOKS: ReadonlyArray<{ name: string; verb: 'commit' | 'merge' }> = [

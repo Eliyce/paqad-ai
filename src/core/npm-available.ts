@@ -13,7 +13,11 @@ let cached: boolean | undefined;
 export function isNpmAvailable(): boolean {
   if (cached === undefined) {
     try {
-      execFileSync('npm', ['--version'], { stdio: 'ignore' });
+      // Pass the whole command as one shell string (no args array) so Windows resolves `npm.cmd`
+      // via the shell — execFileSync('npm', [...]) misses the .cmd shim and would wrongly report npm
+      // absent, narrowing providers to claude-code (issue #616 Part 8). A fixed literal, no input, so
+      // the single-string shell form carries no injection risk and avoids Node's DEP0190 warning.
+      execFileSync('npm --version', { stdio: 'ignore', shell: true });
       cached = true;
     } catch {
       cached = false;
