@@ -14,7 +14,16 @@
 // Dist-less and dependency-free (like the other runtime hooks' bootstrap path): it must work before
 // any dist is resolvable. It NEVER throws — a plugin bootstrap failure must not wedge the session.
 
-import { appendFileSync, chmodSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  appendFileSync,
+  chmodSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 
@@ -40,8 +49,12 @@ function readPackageVersion(dir) {
 
 /** Compare two `x.y.z` versions: 1 if a>b, -1 if a<b, 0 if equal/unparseable-equal. */
 function compareVersions(a, b) {
-  const pa = String(a).split('.').map((n) => Number.parseInt(n, 10) || 0);
-  const pb = String(b).split('.').map((n) => Number.parseInt(n, 10) || 0);
+  const pa = String(a)
+    .split('.')
+    .map((n) => Number.parseInt(n, 10) || 0);
+  const pb = String(b)
+    .split('.')
+    .map((n) => Number.parseInt(n, 10) || 0);
   for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
     const d = (pa[i] ?? 0) - (pb[i] ?? 0);
     if (d !== 0) return d > 0 ? 1 : -1;

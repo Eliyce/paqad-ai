@@ -12,7 +12,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { bootstrapFramework, bootstrapFrameworkHome, frameworkSymlinkType } from '@/install/bootstrap';
+import {
+  bootstrapFramework,
+  bootstrapFrameworkHome,
+  frameworkSymlinkType,
+} from '@/install/bootstrap';
 import { getRuntimeRoot } from '@/core/runtime-paths';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema';
 import { clearEngineLogger, engineLog, getConsumerLogger } from '@/core/logger-registry';

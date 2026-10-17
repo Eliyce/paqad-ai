@@ -35,7 +35,9 @@ describe('buildPluginHookChain (issue #616, Part 3)', () => {
 
   it('prepends the plugin-only SessionStart bootstrap before the other session hooks', () => {
     const sessionStart = chain.filter((h) => h.nativeEvent === 'SessionStart');
-    expect(sessionStart[0].command).toBe(`node "${PLUGIN_RUNTIME_ROOT}/hooks/${PLUGIN_SESSION_START_HOOK}"`);
+    expect(sessionStart[0].command).toBe(
+      `node "${PLUGIN_RUNTIME_ROOT}/hooks/${PLUGIN_SESSION_START_HOOK}"`,
+    );
     expect(sessionStart.length).toBeGreaterThan(1);
   });
 

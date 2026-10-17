@@ -143,6 +143,8 @@ describe('ensureBinOnPath (issue #616, Part 5)', () => {
     const binDir = join(pluginRuntime, 'claude-plugin', 'bin');
     mkdirSync(binDir, { recursive: true });
     writeFileSync(join(binDir, 'paqad-ai'), '#!/bin/sh\n', { mode: 0o644 });
-    expect(() => ensureBinOnPath(pluginRuntime, { PATH: '/usr/bin' } as NodeJS.ProcessEnv)).not.toThrow();
+    expect(() =>
+      ensureBinOnPath(pluginRuntime, { PATH: '/usr/bin' } as NodeJS.ProcessEnv),
+    ).not.toThrow();
   });
 });

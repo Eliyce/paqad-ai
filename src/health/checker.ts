@@ -756,7 +756,10 @@ export class HealthChecker {
     }
     const version = info.version ?? 'unknown';
     const copyLabel = info.copy === 'unknown' ? 'framework' : info.copy;
-    return pass(name, `Framework link points at the ${copyLabel} copy (v${version}) at ${info.linkTarget}.`);
+    return pass(
+      name,
+      `Framework link points at the ${copyLabel} copy (v${version}) at ${info.linkTarget}.`,
+    );
   }
 
   private checkBrokenScaffold(projectRoot: string): HealthCheckResult {

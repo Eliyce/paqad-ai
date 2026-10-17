@@ -115,10 +115,14 @@ describe('plugin dist is self-contained (issue #616, Part 2)', () => {
         // Spawn a fresh node whose module resolution is anchored at the sandbox, so the import
         // cannot fall back to the repo's node_modules.
         expect(() =>
-          execFileSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(target)});`], {
-            cwd: sandbox,
-            stdio: 'pipe',
-          }),
+          execFileSync(
+            process.execPath,
+            ['--input-type=module', '-e', `await import(${JSON.stringify(target)});`],
+            {
+              cwd: sandbox,
+              stdio: 'pipe',
+            },
+          ),
         ).not.toThrow();
       });
     }

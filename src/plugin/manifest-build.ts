@@ -32,7 +32,9 @@ export function serializePluginHooksJson(): string {
  * files are generated from.
  */
 export function pluginAgentPaths(): string[] {
-  return renderClaudePluginStageAgents().map((agent) => `./runtime/claude-plugin/agents/${agent.name}`);
+  return renderClaudePluginStageAgents().map(
+    (agent) => `./runtime/claude-plugin/agents/${agent.name}`,
+  );
 }
 
 /**
