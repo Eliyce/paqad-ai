@@ -17,6 +17,12 @@ jobs:
   ci:
     name: Node ${{ matrix.node }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # tsup generates .d.ts in a worker thread whose heap defaults to ~2 GB (the worker does
+    # not auto-size to the runner's RAM), so the DTS build hit ERR_WORKER_OUT_OF_MEMORY on the
+    # macOS Node 22 runner (issue #615). Raise the heap for the whole job — the worker inherits
+    # the parent's --max-old-space-size — so the build and the coverage run have headroom.
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     strategy:
       fail-fast: false
       matrix:

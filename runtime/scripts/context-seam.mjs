@@ -42,9 +42,68 @@ export const DEFAULT_BUDGET_MS = 50;
  */
 export const DEFAULT_MAX_BYTES = 128 * 1024;
 
+/**
+ * Host output cap for a UserPromptSubmit hook (issue #615, Part 3). Claude Code caps a
+ * hook's `additionalContext` / `systemMessage` / plain stdout at 10,000 CHARACTERS; anything
+ * longer is saved to a file and replaced with a preview the model never reads. This budget
+ * leaves ~1,000 characters of headroom under that cap, so the prompt gate's whole output
+ * (route line + context block + nudge) stays visible. Counted in characters, not bytes.
+ */
+export const HOOK_OUTPUT_BUDGET_CHARS = 9000;
+
+/** The verbatim line that replaces the trimmed tail of the context block (issue #615, Part 3). */
+export const CONTEXT_TRIM_NOTICE =
+  '> Context trimmed to stay under the host limit. Read .paqad/context/session-context.md for the rest.';
+
 /** The fenced block markers the host injects verbatim. */
 export const BLOCK_OPEN = '[paqad-context]';
 export const BLOCK_CLOSE = '[/paqad-context]';
+
+/**
+ * Fit the prompt hook's output under {@link HOOK_OUTPUT_BUDGET_CHARS} (issue #615, Part 3).
+ * `before` (the route line(s)) and `after` (the spec-pipeline nudge) are kept whole; only the
+ * `[paqad-context]` BODY is trimmed, to the longest prefix that still leaves room for the
+ * markers, the trim notice, and the kept pieces. The context block ends with the trim notice.
+ * Lengths are counted in characters. Returns the full string to emit.
+ *
+ * @param {string} before   text emitted before the context block (route line / session prefix).
+ * @param {string} contextBlock  the `[paqad-context]…[/paqad-context]` block (may end in a newline).
+ * @param {string} after    text emitted after the context block (the nudge line).
+ * @param {number} [budget] the character budget (defaults to the host cap headroom).
+ * @returns {string}
+ */
+export function fitHookOutput(before, contextBlock, after, budget = HOOK_OUTPUT_BUDGET_CHARS) {
+  const full = `${before}${contextBlock}${after}`;
+  if (full.length <= budget) {
+    return full;
+  }
+  const open = contextBlock.indexOf(BLOCK_OPEN);
+  const close = contextBlock.indexOf(BLOCK_CLOSE);
+  if (open === -1 || close === -1 || close < open) {
+    // No parseable context block to trim; the route line and nudge are already small, so there
+    // is nothing more we can safely drop — emit what we have.
+    return full;
+  }
+  const trailing = contextBlock.slice(close + BLOCK_CLOSE.length); // usually a trailing "\n"
+  const body = contextBlock
+    .slice(open + BLOCK_OPEN.length, close)
+    .replace(/^\n/, '')
+    .replace(/\n$/, '');
+  // Everything except the trimmed body: the kept pieces, the markers, the three newlines, and
+  // the trim notice. The body gets whatever budget remains.
+  const fixed =
+    before.length +
+    after.length +
+    BLOCK_OPEN.length +
+    BLOCK_CLOSE.length +
+    trailing.length +
+    CONTEXT_TRIM_NOTICE.length +
+    3; // "\n" after open, "\n" after body, "\n" after the notice
+  const bodyBudget = budget - fixed;
+  const trimmedBody = bodyBudget > 0 ? body.slice(0, bodyBudget) : '';
+  const rebuilt = `${BLOCK_OPEN}\n${trimmedBody}\n${CONTEXT_TRIM_NOTICE}\n${BLOCK_CLOSE}${trailing}`;
+  return `${before}${rebuilt}${after}`;
+}
 
 /** `rag_enabled` tokens that mean ON (mirrors the framework-config boolean parse). */
 const RAG_TRUTHY = new Set(['true', '1', 'yes', 'on']);

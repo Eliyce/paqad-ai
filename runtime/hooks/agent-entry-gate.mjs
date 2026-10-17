@@ -31,7 +31,8 @@ import {
   stampSessionSentinel,
 } from './lib/agent-entry-sentinel.mjs';
 import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { gateFailureMessage } from './lib/gate-failure.mjs';
+import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 /** True when the pending tool call writes the agent-entry sentinel itself. The
  *  bootstrap's final step IS a Write of `.paqad/.agent-entry-loaded` — gating it
@@ -64,8 +65,8 @@ export function isSentinelWrite(input) {
   }
 }
 
-export function main(input) {
-  const projectRoot = resolveProjectRoot();
+function evaluateEntryGate(input) {
+  const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block, write nothing. Disabled converges with a missing
@@ -132,6 +133,20 @@ export function main(input) {
     ].join('\n'),
   );
   return 2;
+}
+
+/**
+ * The PreToolUse entry gate, failing CLOSED (issue #615, Part 6): an unexpected error blocks the
+ * edit (exit 2) with a doctor-pointing message rather than letting it through. The known soft
+ * conditions (disabled, fresh sentinel, sentinel-write) still return 0 from inside the body.
+ */
+export function main(input) {
+  try {
+    return evaluateEntryGate(input);
+  } catch (error) {
+    process.stderr.write(`${gateFailureMessage('agent-entry', error)}\n`);
+    return 2;
+  }
 }
 
 // Drain stdin (the host pipes the PreToolUse payload; the sentinel-write exemption

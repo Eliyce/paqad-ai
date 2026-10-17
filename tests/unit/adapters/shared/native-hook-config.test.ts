@@ -220,3 +220,49 @@ describe('buildNativeHookConfigFile transform (issue #566)', () => {
     ).toThrow();
   });
 });
+
+// Issue #615 (Part 6) — the three pre-mutation edit gates fail closed on Claude only.
+describe('fail-closed edit gates (issue #615, Part 6)', () => {
+  it('Claude renders onFailure:block + timeout:10 on exactly the three edit gates', () => {
+    const chain = buildHostHookChain('claude-code', ENV);
+    const withPolicy = chain.filter((hook) => hook.onFailure !== undefined);
+    expect(withPolicy).toHaveLength(3);
+    for (const hook of withPolicy) {
+      expect(hook.onFailure).toBe('block');
+      expect(hook.timeout).toBe(10);
+    }
+    const commands = withPolicy.map((hook) => hook.command);
+    expect(commands.some((cmd) => cmd.includes('agent-entry-gate.mjs'))).toBe(true);
+    expect(commands.some((cmd) => cmd.includes('decision-pause-gate.mjs'))).toBe(true);
+    expect(
+      commands.some((cmd) => cmd.includes('capability-gate.mjs') && cmd.includes('pre-mutation')),
+    ).toBe(true);
+    // The completion capability-gate (a Stop seam) is NOT fail-closed.
+    const completion = chain.find(
+      (hook) => hook.command.includes('capability-gate.mjs') && hook.command.includes('completion'),
+    );
+    expect(completion?.onFailure).toBeUndefined();
+  });
+
+  it('Codex renders no fail-closed policy (byte-identical to before)', () => {
+    const chain = buildHostHookChain('codex-cli', ENV);
+    expect(chain.every((hook) => hook.onFailure === undefined && hook.timeout === undefined)).toBe(
+      true,
+    );
+  });
+
+  it('mergeNativeHooks emits onFailure/timeout onto the rendered gate entry', () => {
+    const chain = buildHostHookChain('claude-code', ENV);
+    const merged = mergeNativeHooks({}, chain) as {
+      hooks: {
+        PreToolUse: Array<{
+          hooks: Array<{ command: string; onFailure?: string; timeout?: number }>;
+        }>;
+      };
+    };
+    const entries = merged.hooks.PreToolUse.flatMap((group) => group.hooks);
+    const entry = entries.find((hook) => hook.command.includes('agent-entry-gate.mjs'));
+    expect(entry?.onFailure).toBe('block');
+    expect(entry?.timeout).toBe(10);
+  });
+});

@@ -21,7 +21,7 @@
 
 import process from 'node:process';
 
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
@@ -68,8 +68,9 @@ async function recordMarkers(projectRoot, rawInput) {
 
 async function main(rawInput) {
   // One resolved root for both the marker rows and the backstop fold, so they can
-  // never key on different projects (honors PAQAD_PROJECT_ROOT, cwd fallback).
-  const projectRoot = resolveProjectRoot();
+  // never key on different projects (worktree payload cwd, then PAQAD_PROJECT_ROOT /
+  // cwd fallback).
+  const projectRoot = resolveProjectRoot(process.env, parseHookPayload(rawInput));
   // Skip marker recording when paqad is disabled. The backstop also short-circuits
   // internally when disabled (verify-backstop.mjs), but it additionally records a
   // disabled-session audit row, so it is still invoked below.

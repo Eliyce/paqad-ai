@@ -19,7 +19,7 @@
 import process from 'node:process';
 
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
-import { resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
@@ -42,6 +42,22 @@ process.stdin.on('end', () => {
 process.stdin.resume();
 
 async function main() {
+  // Fix #1 — resolve the project root the host is operating on (worktree payload cwd, then
+  // CLAUDE_PROJECT_DIR / PAQAD_PROJECT_ROOT / cwd) via the shared helper, matching the sibling
+  // Stop hooks. Raw process.cwd() missed the disable flag stored in the project's .paqad/.config
+  // whenever the host launched the hook from a subdirectory.
+  const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
+
+  // Issue #615 (Part 4) — on Desktop/VS Code the orchestrator's turn can end while a dispatched
+  // `paqad-<stage>` agent is still running in the background. Judging the change now would grade a
+  // half-finished one. When a stage agent is still in `background_tasks`, step aside: record a
+  // `completion-deferred` breadcrumb, run no backstop, and exit 0. The stage agent's completion
+  // notice (Part 2) later drives the change on.
+  if (await deferredForBackgroundStage(projectRoot)) {
+    process.exit(0);
+    return;
+  }
+
   // Issue #409 — the turn transcript, so the backstop can check whether the stages it
   // recorded were ever spoken in VISIBLE text. On Codex the Stop payload may carry no
   // readable transcript_path, so fall back to the session rollout jsonl (#313). Empty
@@ -50,11 +66,7 @@ async function main() {
   const code = await runVerificationBackstop({
     origin: 'hook-completion',
     softFail: true,
-    // Fix #1 — resolve the project root the host is operating on (CLAUDE_PROJECT_DIR
-    // / PAQAD_PROJECT_ROOT, cwd fallback) via the shared helper, matching the sibling
-    // Stop hooks. Raw process.cwd() missed the disable flag stored in the project's
-    // .paqad/.config whenever the host launched the hook from a subdirectory.
-    projectRoot: resolveProjectRoot(),
+    projectRoot,
     hostSessionId: sessionIdFromStdin(input),
     // Fix #2 — pass the host's `stop_hook_active` so a block downgrades to advisory
     // once we are already inside a Stop-hook continuation loop (see loop-guard.mjs).
@@ -62,4 +74,31 @@ async function main() {
     transcriptText,
   });
   process.exit(code);
+}
+
+/**
+ * Issue #615 (Part 4) — true when a `paqad-<stage>` agent is still running in the Stop payload's
+ * `background_tasks` (or, for a payload shape with no agent type, a background task is running
+ * while this session owns an open stage). Appends the `completion-deferred` row as a side effect.
+ * Cheap and best-effort: no `background_tasks` → no dist import, returns false; any error falls
+ * through to the normal verdict below (which itself soft-fails).
+ */
+async function deferredForBackgroundStage(projectRoot) {
+  const payload = parseHookPayload(input);
+  const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
+  if (tasks.length === 0) {
+    return false;
+  }
+  try {
+    const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
+    const { deferCompletionForBackgroundStage } = await import(distUrl.href);
+    return deferCompletionForBackgroundStage({
+      projectRoot,
+      backgroundTasks: tasks,
+      sessionId: sessionIdFromStdin(input),
+      adapter: ADAPTER ?? 'claude-code',
+    }).deferred;
+  } catch {
+    return false;
+  }
 }

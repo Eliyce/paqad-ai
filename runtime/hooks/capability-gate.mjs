@@ -26,7 +26,13 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { editTargets } from './lib/edit-targets.mjs';
-import { isPaqadDisabled, readFlooredMode, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { gateFailureMessage } from './lib/gate-failure.mjs';
+import {
+  isPaqadDisabled,
+  parseHookPayload,
+  readFlooredMode,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 
 // Mirrors PATHS.RULE_SCRIPT_MAP — kept in sync by hand (runtime mjs has no dist).
@@ -109,10 +115,44 @@ function parsePayload(input) {
   }
 }
 
+/**
+ * Issue #615 (Part 4) — true when a `paqad-<stage>` agent is still running in the Stop payload's
+ * `background_tasks` (appending the `completion-deferred` breadcrumb as a side effect). Cheap and
+ * best-effort: no `background_tasks` → no dist import, returns false; any error returns false so
+ * the kernel still runs.
+ */
+async function deferredForBackgroundStage(projectRoot, input) {
+  const payload = parseHookPayload(input);
+  const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
+  if (tasks.length === 0) {
+    return false;
+  }
+  try {
+    const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
+    const { deferCompletionForBackgroundStage } = await import(distUrl.href);
+    return deferCompletionForBackgroundStage({
+      projectRoot,
+      backgroundTasks: tasks,
+      sessionId: payload?.session_id,
+      adapter: ADAPTER ?? 'claude-code',
+    }).deferred;
+  } catch {
+    return false;
+  }
+}
+
 export async function main(input, seam = SEAM) {
   try {
-    const projectRoot = resolveProjectRoot();
+    const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
     if (isPaqadDisabled(projectRoot)) return 0;
+
+    // Issue #615 (Part 4) — on the completion seam, don't run the capability kernel (which
+    // includes rule-scripts) while a `paqad-<stage>` agent is still working in the background:
+    // defer, record a breadcrumb, and exit 0. The pre-mutation seam is unaffected.
+    if (seam === 'completion' && (await deferredForBackgroundStage(projectRoot, input))) {
+      return 0;
+    }
+
     if (!seamHasWork(projectRoot, seam)) return 0;
 
     // Lazy-load the compiled executor only once there is real work. Resolved
@@ -175,9 +215,16 @@ export async function main(input, seam = SEAM) {
       );
     }
     return 0;
-  } catch {
-    // Soft-fail: an infra error (missing build, import failure) must never wedge
-    // the agent. Enforcement still happens at the next seam / completion run.
+  } catch (error) {
+    // Issue #615 (Part 6) — the pre-mutation edit gate fails CLOSED: an unexpected exception
+    // (missing build, import failure, a thrown gate) blocks the edit (exit 2) with a
+    // doctor-pointing message, instead of silently letting it through. The completion seam still
+    // soft-fails (exit 0): a Stop hook must never wedge the turn, and onFailure has no effect on
+    // Stop anyway.
+    if (seam === 'pre-mutation') {
+      process.stderr.write(`${gateFailureMessage('capability', error)}\n`);
+      return 2;
+    }
     return 0;
   }
 }

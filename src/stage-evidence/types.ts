@@ -32,7 +32,8 @@ export type StageEvidenceKind =
   | 'close'
   | 'stage-agent'
   | 'spec-step'
-  | 'spec-correction';
+  | 'spec-correction'
+  | 'completion-deferred';
 
 /** The row kind recording one dispatched stage agent (issue #581, replaces context-efficiency.jsonl). */
 export const STAGE_AGENT_KIND = 'stage-agent';
@@ -42,6 +43,13 @@ export const SPEC_STEP_KIND = 'spec-step';
 
 /** The row kind recording a later edit to a frozen spec (issue #581, replaces corrections.jsonl). */
 export const SPEC_CORRECTION_KIND = 'spec-correction';
+
+/**
+ * The row kind recording that a Stop seam declined to compute a verdict because a `paqad-<stage>`
+ * subagent was still running in the background (issue #615, Part 4). The fold ignores it; it is a
+ * breadcrumb that the completion check deliberately stepped aside, not a stage event.
+ */
+export const COMPLETION_DEFERRED_KIND = 'completion-deferred';
 
 /** How a recorded spec-pipeline step ended: run, skipped as empty, or cleared by a redo. */
 export const SPEC_STEP_OUTCOMES = ['complete', 'skipped', 'redone'] as const;

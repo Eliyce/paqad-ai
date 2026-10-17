@@ -9,7 +9,9 @@ exports[`native hook-config byte-identity (issue #566) > renders the Claude sett
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-gate.mjs\\""
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/agent-entry-gate.mjs\\"",
+            "onFailure": "block",
+            "timeout": 10
           }
         ]
       },
@@ -27,7 +29,9 @@ exports[`native hook-config byte-identity (issue #566) > renders the Claude sett
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"/fake/home/.paqad-ai/current/hooks/decision-pause-gate.mjs\\""
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/decision-pause-gate.mjs\\"",
+            "onFailure": "block",
+            "timeout": 10
           }
         ]
       },
@@ -36,7 +40,9 @@ exports[`native hook-config byte-identity (issue #566) > renders the Claude sett
         "hooks": [
           {
             "type": "command",
-            "command": "node \\"/fake/home/.paqad-ai/current/hooks/capability-gate.mjs\\" pre-mutation"
+            "command": "node \\"/fake/home/.paqad-ai/current/hooks/capability-gate.mjs\\" pre-mutation",
+            "onFailure": "block",
+            "timeout": 10
           }
         ]
       }

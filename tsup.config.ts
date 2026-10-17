@@ -66,6 +66,11 @@ export default defineConfig({
     // context-efficiency row when a paqad stage agent finishes, the same dedicated-entry
     // pattern as the other runtime hooks.
     'stage-isolation/subagent-completion': 'src/stage-isolation/subagent-completion.ts',
+    // Background-stage completion deferral (issue #615, Part 4) — lazy-imported by the
+    // runtime/hooks/verification-completion.mjs and capability-gate.mjs Stop seams to defer the
+    // verdict while a paqad stage agent is still running in background_tasks. Dedicated entry,
+    // same light-import pattern as the other runtime hooks.
+    'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
   },
   format: ['esm'],
   dts: true,

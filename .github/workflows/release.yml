@@ -54,6 +54,10 @@ jobs:
 
       - name: Build
         run: pnpm run build
+        # Match CI (issue #615): give tsup's DTS worker heap headroom so the release build never
+        # hits ERR_WORKER_OUT_OF_MEMORY.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
 
       - name: Create release PR or publish to npm
         id: changesets

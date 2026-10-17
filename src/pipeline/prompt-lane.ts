@@ -77,6 +77,14 @@ export const SYSTEM_NOTIFICATION_ELEMENTS: readonly string[] = [
   'background-task-notification',
 ];
 
+/**
+ * The banner the Desktop app prepends to a background-task event (issue #615, Part 2). A
+ * finished background agent arrives on `UserPromptSubmit` as a prompt that opens with this
+ * line and only then carries a `<task-notification>` element, so the start-anchored element
+ * match alone misses it. Compared case-insensitively against the trimmed prompt head.
+ */
+export const SYSTEM_NOTIFICATION_BANNER = '[system notification - not user input]';
+
 // Bare ticket/URL detection (issue #602, FR-5). A URL, or a tracker ref like `#123` or
 // `PROJ-123`. Non-global for `.test()` (no lastIndex state); a global twin for stripping.
 const BARE_LINK_SOURCE = 'https?://\\S+|#\\d+|\\b[A-Z][A-Z0-9]+-\\d+\\b';
@@ -206,10 +214,50 @@ export function isBareTicketPrompt(prompt: string): boolean {
  * "why did the `<task-notification>` open a change?", the prompt that filed this very
  * issue — still routes normally. The host emits the element as the whole payload, so the
  * anchor costs nothing and keeps a real question routable.
+ *
+ * On the Desktop app a background-task event opens with the `[SYSTEM NOTIFICATION - NOT
+ * USER INPUT]` banner before the element (issue #615, Part 2), so the banner is a second
+ * start anchor. Both are start-anchored, so a human question that only mentions either one
+ * still routes.
  */
 export function isSystemNotificationPrompt(prompt: string): boolean {
   const head = prompt.trimStart().toLowerCase();
+  if (head.startsWith(SYSTEM_NOTIFICATION_BANNER)) {
+    return true;
+  }
   return SYSTEM_NOTIFICATION_ELEMENTS.some((element) => head.startsWith(`<${element}>`));
+}
+
+/**
+ * Slash commands that map to a workflow route (issue #615, Part 5). Since Claude Code 2.1.299 the
+ * UserPromptSubmit hook sees a slash command as the raw typed line BEFORE it expands, so without
+ * this map the classifier would read it as prose. One exported constant so adding a command is a
+ * data change; the key is the command NAME (the part after the last `:`, so a plugin-scoped
+ * `paqad-product-discovery:paqad-discover` resolves to `paqad-discover`). A command not in this
+ * map leaves the stored route unchanged (see runPromptRouteSeam), so `/code-review` or `/compact`
+ * never pauses an in-flight change.
+ */
+export const SLASH_COMMAND_ROUTES: Readonly<Record<string, RoutedWorkflow>> = {
+  'paqad-discover': 'discovery',
+  'paqad-ask': 'project-question',
+};
+
+/** `^/<name>` at the start of the (trimmed) prompt, so a `/path/like/this` mid-sentence is ignored. */
+const SLASH_COMMAND_RE = /^\/([A-Za-z0-9:_-]+)(\s|$)/;
+
+/**
+ * The command name of a slash-command prompt, or `null` when the prompt is not a slash command
+ * (issue #615, Part 5). The name is the segment after the last `:`, so a plugin-scoped command
+ * resolves to its bare name.
+ */
+export function slashCommandName(prompt: string): string | null {
+  const match = SLASH_COMMAND_RE.exec(prompt.trimStart());
+  if (!match) {
+    return null;
+  }
+  const full = match[1]!;
+  const lastColon = full.lastIndexOf(':');
+  return lastColon === -1 ? full : full.slice(lastColon + 1);
 }
 
 /** Injectable classify/route seam, so the outcome→lane branches are all testable. */
@@ -328,7 +376,32 @@ export async function runPromptRouteSeam(
       notification: true,
     };
   }
-  const { routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps);
+
+  // Issue #615 (Part 5) — a slash command reaches this seam as the raw typed line. Route a known
+  // one by NAME (never by classifying it as prose, which could arm the edit gates), and leave an
+  // unknown one's stored route untouched — the same shape as a notification, so `/compact` or
+  // `/loop` never pauses an in-flight feature-development change.
+  const slashName = slashCommandName(input.request);
+  let routed: RoutedWorkflow;
+  let lane: Lane | null;
+  let reason: string;
+  if (slashName !== null) {
+    const slashRoute = SLASH_COMMAND_ROUTES[slashName];
+    if (slashRoute === undefined) {
+      return {
+        routed: 'no-workflow',
+        lane: null,
+        resumed: null,
+        narration: null,
+        notification: true,
+      };
+    }
+    routed = slashRoute;
+    lane = null;
+    reason = ROUTE_REASON[slashRoute];
+  } else {
+    ({ routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps));
+  }
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
 
   // Record the outcome as evidence and preserve pause/resume across messages (#336).

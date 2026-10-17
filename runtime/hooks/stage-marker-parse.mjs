@@ -14,7 +14,7 @@
 
 import process from 'node:process';
 
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 
 // The host that invoked the hook (issue #566): `claude-code` (default) or `codex-cli`.
@@ -22,7 +22,7 @@ const ADAPTER = process.argv[2] || undefined;
 
 async function main(input) {
   try {
-    const projectRoot = resolveProjectRoot();
+    const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
     if (isPaqadDisabled(projectRoot)) return 0;
 
     let payload;

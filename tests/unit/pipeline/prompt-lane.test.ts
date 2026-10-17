@@ -10,6 +10,8 @@ import {
   isSystemNotificationPrompt,
   resolvePromptRoute,
   runPromptRouteSeam,
+  slashCommandName,
+  SLASH_COMMAND_ROUTES,
   SYSTEM_NOTIFICATION_ELEMENTS,
 } from '@/pipeline/prompt-lane.js';
 import { readSessionRoute } from '@/pipeline/session-route.js';
@@ -305,6 +307,20 @@ const TASK_NOTIFICATION = [
   '</task-notification>',
 ].join('\n');
 
+// Issue #615 (Part 2) — on the Desktop app a finished background agent arrives as a prompt
+// that OPENS with a banner line and only then carries the element. Representative shape (the
+// real captured Desktop payload is a manual check noted in the PR). It mentions issue numbers
+// in its body, which is exactly what used to trip routing and ticket intake.
+const DESKTOP_BANNER_NOTIFICATION = [
+  '[SYSTEM NOTIFICATION - NOT USER INPUT]',
+  'This is an automated background-task event, NOT a message from the user.',
+  '',
+  '<task-notification>',
+  '<task-id>a1b2c3</task-id>',
+  '<summary>Background agent finished reviewing #409 and #582</summary>',
+  '</task-notification>',
+].join('\n');
+
 describe('isSystemNotificationPrompt (#540)', () => {
   it('recognises every wrapper element the host injects', () => {
     for (const element of SYSTEM_NOTIFICATION_ELEMENTS) {
@@ -325,6 +341,18 @@ describe('isSystemNotificationPrompt (#540)', () => {
     );
     expect(isSystemNotificationPrompt('verify and fix issue 540')).toBe(false);
     expect(isSystemNotificationPrompt('')).toBe(false);
+  });
+
+  it('recognises the Desktop banner-led background notice (issue #615, Part 2)', () => {
+    expect(isSystemNotificationPrompt(DESKTOP_BANNER_NOTIFICATION)).toBe(true);
+    // Case-insensitive and tolerant of leading whitespace, like the element anchor.
+    expect(isSystemNotificationPrompt('\n  [system notification - not user input]\nx')).toBe(true);
+  });
+
+  it('leaves a human prompt that only MENTIONS the banner routable (issue #615)', () => {
+    expect(
+      isSystemNotificationPrompt('what is the [SYSTEM NOTIFICATION - NOT USER INPUT] banner?'),
+    ).toBe(false);
   });
 });
 
@@ -364,6 +392,22 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       adapter: ADAPTER,
     });
     expect(result.notification).toBeUndefined();
+  });
+
+  it('treats a Desktop banner-led notice as a notification (issue #615, Part 2)', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: DESKTOP_BANNER_NOTIFICATION,
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result).toEqual({
+      routed: 'no-workflow',
+      lane: null,
+      resumed: null,
+      narration: null,
+      notification: true,
+    });
   });
 
   it('leaves an in-flight feature-development route exactly as it was (AC-6)', async () => {
@@ -427,5 +471,97 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       },
     );
     expect(classified).toBe(0);
+  });
+});
+
+// Issue #615 (Part 5) — slash commands reach the seam as the raw typed line.
+describe('slashCommandName (issue #615, Part 5)', () => {
+  it('extracts the command name, including the segment after the last colon', () => {
+    expect(slashCommandName('/code-review high')).toBe('code-review');
+    expect(slashCommandName('/paqad-discover add an export button')).toBe('paqad-discover');
+    expect(slashCommandName('/paqad-product-discovery:paqad-discover shape it')).toBe(
+      'paqad-discover',
+    );
+    expect(slashCommandName('/simplify')).toBe('simplify');
+  });
+
+  it('returns null for a non-slash prompt or a mid-sentence path', () => {
+    expect(slashCommandName('fix the bug')).toBeNull();
+    expect(slashCommandName('open the file at /path/like/this please')).toBeNull();
+    expect(slashCommandName('')).toBeNull();
+  });
+
+  it('keeps the route map as the single source of truth', () => {
+    expect(SLASH_COMMAND_ROUTES['paqad-discover']).toBe('discovery');
+    expect(SLASH_COMMAND_ROUTES['paqad-ask']).toBe('project-question');
+    expect(SLASH_COMMAND_ROUTES['code-review']).toBeUndefined();
+  });
+});
+
+describe('runPromptRouteSeam with slash commands (issue #615, Part 5)', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-route-slash-'));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('leaves the stored route unchanged for an unknown slash command', async () => {
+    let classified = 0;
+    const result = await runPromptRouteSeam(
+      { projectRoot: root, request: '/code-review high', sessionId: SESSION, adapter: ADAPTER },
+      {
+        classify: async () => {
+          classified += 1;
+          return classificationWith('feature-development');
+        },
+      },
+    );
+    expect(result).toEqual({
+      routed: 'no-workflow',
+      lane: null,
+      resumed: null,
+      narration: null,
+      notification: true,
+    });
+    expect(classified).toBe(0); // never classified as prose
+  });
+
+  it('routes /paqad-discover to discovery', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: '/paqad-discover add an export button',
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result.routed).toBe('discovery');
+    expect(result.lane).toBeNull();
+    expect(result.notification).toBeUndefined();
+    expect(result.narration).toContain('discovery');
+  });
+
+  it('routes /paqad-ask to project-question', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: '/paqad-ask what does this project do?',
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result.routed).toBe('project-question');
+  });
+
+  it('still routes a prose prompt that contains a mid-sentence path', async () => {
+    const result = await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'update the config at /etc/app/config.yaml',
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      },
+      { classify: async () => classificationWith('feature-development') },
+    );
+    // Went through normal routing (not the slash short-circuit), so it is not flagged.
+    expect(result.notification).toBeUndefined();
   });
 });

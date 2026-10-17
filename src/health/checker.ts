@@ -60,6 +60,7 @@ export class HealthChecker {
       this.checkIndexesCurrent(projectRoot),
       this.checkAdapterConfig(projectRoot),
       this.checkCodexHooks(projectRoot),
+      this.checkGateFailClosed(projectRoot),
       this.checkProviderEntryBootstrapPointer(projectRoot),
       this.checkProviderEntryFallbackClause(projectRoot),
       this.checkStackCommands(profile),
@@ -469,6 +470,73 @@ export class HealthChecker {
       name,
       'All four Codex events carry paqad hooks. If a gate never fires, run /hooks in Codex and approve them (project hooks load only when the .codex/ layer is trusted).',
     );
+  }
+
+  /**
+   * Edit gates fail closed (issue #615, Part 6). The three Claude Code pre-mutation edit gates
+   * (agent-entry, decision-pause, capability pre-mutation) should render `onFailure: "block"` so a
+   * gate that cannot start, times out, or throws blocks the edit instead of letting it through. A
+   * project onboarded before Claude Code 2.1.295 support has them without `onFailure`; that WARNS
+   * (never fails — the old config still enforces via exit 2) and names the re-onboard fix. A
+   * non-Claude project (no `.claude/settings.json`) passes with nothing to check.
+   */
+  private checkGateFailClosed(projectRoot: string): HealthCheckResult {
+    const name = 'Edit gates fail closed';
+    const settingsPath = join(projectRoot, '.claude', 'settings.json');
+    if (!existsSync(settingsPath)) {
+      return pass(name, 'No .claude/settings.json — not a Claude Code project, nothing to check.');
+    }
+    let preTool: Array<{ hooks?: Array<{ command?: unknown; onFailure?: unknown }> }>;
+    try {
+      const parsed = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+        hooks?: { PreToolUse?: unknown };
+      };
+      preTool = Array.isArray(parsed.hooks?.PreToolUse)
+        ? (parsed.hooks!.PreToolUse as typeof preTool)
+        : [];
+    } catch {
+      return warn(
+        name,
+        '.claude/settings.json is unreadable JSON.',
+        'Re-run onboarding to regenerate .claude/settings.json.',
+      );
+    }
+    // Each gate, identified by a command marker. capability-gate.mjs also wires a completion entry,
+    // so the pre-mutation one is disambiguated by its ` pre-mutation` seam argv.
+    const gates: ReadonlyArray<readonly [string, (cmd: string) => boolean]> = [
+      ['agent-entry-gate', (cmd) => cmd.includes('agent-entry-gate.mjs')],
+      ['decision-pause-gate', (cmd) => cmd.includes('decision-pause-gate.mjs')],
+      [
+        'capability-gate (pre-mutation)',
+        (cmd) => cmd.includes('capability-gate.mjs') && cmd.includes('pre-mutation'),
+      ],
+    ];
+    const missing: string[] = [];
+    for (const [label, matches] of gates) {
+      let found = false;
+      let hasOnFailure = false;
+      for (const group of preTool) {
+        for (const hook of group.hooks ?? []) {
+          if (typeof hook.command === 'string' && matches(hook.command)) {
+            found = true;
+            if (hook.onFailure !== undefined) {
+              hasOnFailure = true;
+            }
+          }
+        }
+      }
+      if (found && !hasOnFailure) {
+        missing.push(label);
+      }
+    }
+    if (missing.length > 0) {
+      return warn(
+        name,
+        `These Claude edit gates are missing onFailure (an install onboarded before #615): ${missing.join(', ')}.`,
+        'Re-run onboarding to regenerate .claude/settings.json with fail-closed edit gates.',
+      );
+    }
+    return pass(name, 'The Claude edit gates render onFailure: "block" with a timeout.');
   }
 
   private checkProviderEntryBootstrapPointer(projectRoot: string): HealthCheckResult {

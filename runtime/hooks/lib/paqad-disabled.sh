@@ -51,7 +51,28 @@ __paqad_resolve_enable() {
   printf '%s' "${value}"
 }
 
-# 0 = disabled, 1 = enabled. No args.
+# Echo the project root the host is operating on, mirroring resolveProjectRoot in
+# paqad-disabled.mjs (issue #615, Part 1). When $1 (a hook payload's cwd) is non-empty,
+# walk up from it to the first directory that contains a `.paqad/` directory and echo that;
+# otherwise fall back to CLAUDE_PROJECT_DIR, PAQAD_PROJECT_ROOT, then the current directory.
+__paqad_resolve_project_root() {
+  local cwd="${1:-}" dir parent
+  if [ -n "${cwd}" ]; then
+    dir="${cwd}"
+    while :; do
+      if [ -d "${dir}/.paqad" ]; then
+        printf '%s' "${dir}"
+        return 0
+      fi
+      parent="$(dirname "${dir}")"
+      [ "${parent}" = "${dir}" ] && break # reached the filesystem root
+      dir="${parent}"
+    done
+  fi
+  printf '%s' "${CLAUDE_PROJECT_DIR:-${PAQAD_PROJECT_ROOT:-$(pwd)}}"
+}
+
+# 0 = disabled, 1 = enabled. Optional $1 = the hook payload's cwd (worktree-aware).
 paqad_is_disabled() {
   # 1. env hard override — identical truthy set to the .mjs/.ts primitives.
   case "$(printf '%s' "${PAQAD_DISABLED:-}" | tr '[:upper:]' '[:lower:]')" in
@@ -62,7 +83,7 @@ paqad_is_disabled() {
 
   # 2. layered `paqad_enable` resolution. A falsy token means off.
   local root resolved
-  root="${CLAUDE_PROJECT_DIR:-${PAQAD_PROJECT_ROOT:-$(pwd)}}"
+  root="$(__paqad_resolve_project_root "${1:-}")"
   resolved=$(__paqad_resolve_enable "${root}")
   case "${resolved}" in
     false | 0 | no | off)
