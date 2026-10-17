@@ -77,7 +77,7 @@ export function detectUnusedDependencies(
           corroborated
             ? `Corroborated by knip.`
             : `Source: .paqad/indexes/code-knowledge.json (dependencies[].imported === false).`,
-          `Reproduce: npx paqad-ai index build && npx paqad-ai index query ${dependency.name}`,
+          `Reproduce: paqad-ai index build && paqad-ai index query ${dependency.name}`,
         ],
         suggestion: {
           action: 'remove' as const,
@@ -108,7 +108,7 @@ export function detectDeadCode(index: CodeKnowledgeIndex): HealthCandidate[] {
       evidence: [
         `code-knowledge index: ${file.path} is imported by 0 files and is not an entry point.`,
         `Source: .paqad/indexes/code-knowledge.json (files[].orphan === true).`,
-        `Reproduce: npx paqad-ai index query ${file.path}`,
+        `Reproduce: paqad-ai index query ${file.path}`,
       ],
       suggestion: {
         action: 'remove',
@@ -136,7 +136,7 @@ export function detectDeadCode(index: CodeKnowledgeIndex): HealthCandidate[] {
       evidence: [
         `code-knowledge index: exported ${symbol.kind} ${symbol.name} at ${symbol.file}:${symbol.line} has 0 callers in production code.`,
         `Source: .paqad/indexes/code-knowledge.json (symbols[].caller_count === 0).`,
-        `Reproduce: npx paqad-ai index query ${symbol.name}`,
+        `Reproduce: paqad-ai index query ${symbol.name}`,
       ],
       suggestion: {
         action: 'remove',
@@ -341,7 +341,7 @@ export function detectAiSlop(
         evidence: [
           `Exported ${symbol.kind} ${symbol.name} at ${symbol.file}:${symbol.line} has exactly one caller — often a needless indirection.`,
           `Source: .paqad/indexes/code-knowledge.json (symbols[].caller_count === 1).`,
-          `Reproduce: npx paqad-ai index query ${symbol.name}`,
+          `Reproduce: paqad-ai index query ${symbol.name}`,
         ],
         suggestion: {
           action: 'rewrite',

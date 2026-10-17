@@ -225,7 +225,7 @@ describe('stages capability — block-forward at pre-mutation', () => {
     it('the block message names only remediations that exist on an onboarded project', async () => {
       const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
       expect(result.summary).toContain('paqad:stage planning start');
-      expect(result.summary).toContain('npx paqad-ai stage start planning');
+      expect(result.summary).toContain('paqad-ai stage start planning');
       expect(result.summary).not.toContain('se-mark');
     });
   });

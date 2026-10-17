@@ -386,7 +386,7 @@ describe('feature development policy', () => {
 
     it('AC-4: the default policy object tells the review stage to build and read the digest', () => {
       const instruction = reviewDigestInstruction();
-      expect(instruction).toContain('npx paqad-ai review digest');
+      expect(instruction).toContain('paqad-ai review digest');
       expect(instruction).toContain('.paqad/session/review-digest.md');
       expect(instruction).toContain('judgment-only');
       expect(instruction).toContain(

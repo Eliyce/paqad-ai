@@ -29,16 +29,16 @@ so every row and artifact you write is recorded under the one change identity.
 
 1. Read the `planning` stage's `read:` list and `instructions` from
    `docs/instructions/workflows/feature-development.yaml`, plus the previous pillar file(s).
-2. `npx paqad-ai stage start planning` (with `SE_SESSION` exported).
+2. `paqad-ai stage start planning` (with `SE_SESSION` exported).
 3. Do the stage work, then write its rigid artifact with the stage verb
    (`plan compile` / `spec freeze` / `rules load` / `review record` / `checks run`), or make the
    edits for a mutation stage.
-4. `npx paqad-ai stage end planning --artifact <the-rigid-file>` (mutation stages need no artifact).
+4. `paqad-ai stage end planning --artifact <the-rigid-file>` (mutation stages need no artifact).
 
 ## Hard rules
 
 - **Never ask the human.** If you hit a decision pause, create the packet with
-  `npx paqad-ai decision create …` and return immediately with `paused: D-<id>` — the
+  `paqad-ai decision create …` and return immediately with `paused: D-<id>` — the
   orchestrator asks the human and re-dispatches you.
 - **Never write into a feature bundle directory by hand.** Only the stage verbs write there.
 - **Never skip a CLI verb** because "the orchestrator will do it" — it will not.

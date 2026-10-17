@@ -135,65 +135,65 @@ A hook \`{systemMessage}\` used to be invisible on Desktop, so paqad kept a narr
 
 **Per host — who speaks.** On **Claude Code and Codex** YOU speak. Both are the pre-and-completion tier (issue #566): the stage and gate hooks fire on your edits and at turn end, they block before a mutating edit and write the ledger — but they no longer narrate in chat. Their \`{systemMessage}\` echo was removed once Claude Code began rendering a hook \`{systemMessage}\` on Desktop (a Stop one as \`Stop says:\` lines, a PreToolUse one as \`PreToolUse:<Tool> says:\` lines), because it duplicated the narration you already speak and leaked framework prose to the developer on every edit. Before that it was the opposite failure — the echo was recorded and never shown on Desktop (issue #409: a full six-stage run emitted eleven stage lines and the developer saw none of them, while the evidence bundle was complete). Either way the lesson holds. Never treat a hook as having spoken for you. On **Gemini** the record hook is deliberately record-only — it writes the ledger at turn end but says nothing in chat and cannot block — so there too YOU must narrate your own \`▸ paqad\` stage lines and speak the end-of-change verdict in prose. On **advisory hosts** (JetBrains "Claude Agent" / AI Assistant, Cursor, Windsurf, Copilot, Continue, Aider, Antigravity) **no native hook fires at all** — nothing blocks an edit, nothing writes the ledger for you, nothing speaks a verdict. Never rely on a hook-spoken line or a hook-written ledger row on an advisory host. Narrating alone is **not enough**: a narrated-but-unrecorded stage leaves the ledger empty, exactly the JetBrains Claude Agent gap (issue #389) — "framework followed" but "no evidence".
 
-**Advisory-host stage protocol — run the CLI, do not just narrate.** On an advisory host, for any **feature-development** change you MUST populate the ledger yourself by running the host-independent CLI (plain \`npx paqad-ai …\` in the IDE's shell — no hook required), in this order, and narrate each \`▸ paqad\` stage line as you go:
+**Advisory-host stage protocol — run the CLI, do not just narrate.** On an advisory host, for any **feature-development** change you MUST populate the ledger yourself by running the host-independent CLI (plain \`paqad-ai …\` in the IDE's shell — no hook required), in this order, and narrate each \`▸ paqad\` stage line as you go. If \`paqad-ai\` is not found, use \`npx paqad-ai\` instead.
 
 \`\`\`
-npx paqad-ai stage start planning
+paqad-ai stage start planning
 … planning work …
-npx paqad-ai plan compile <plan-template.json>            # writes plan.json into the active feature bundle
+paqad-ai plan compile <plan-template.json>            # writes plan.json into the active feature bundle
                                                           # the template MUST carry a "reuse" section (#357)
-npx paqad-ai stage end planning --artifact <plan.json>
+paqad-ai stage end planning --artifact <plan.json>
 
-npx paqad-ai stage start specification
+paqad-ai stage start specification
 … write the spec …
-npx paqad-ai spec freeze <spec.md> --confirm-invariants   # copies spec.md and writes specification.json into the bundle
-npx paqad-ai stage end specification --artifact <specification.json>
+paqad-ai spec freeze <spec.md> --confirm-invariants   # copies spec.md and writes specification.json into the bundle
+paqad-ai stage end specification --artifact <specification.json>
 
 # Load the rules before you edit code (issue #557): prints the full text of the rules that
 # apply to your changed files and writes rules-loaded.json into the bundle. Required — the
 # first source edit is blocked and the completion check fails until this record exists.
-npx paqad-ai rules load
+paqad-ai rules load
 
-npx paqad-ai stage start review
+paqad-ai stage start review
 … review the change …
-npx paqad-ai review record <review-template.json>         # writes review.json into the bundle
-npx paqad-ai stage end review --artifact <review.json>
+paqad-ai review record <review-template.json>         # writes review.json into the bundle
+paqad-ai stage end review --artifact <review.json>
 
 # development / checks / documentation_sync record from the files you edit where a hook
 # exists; on an advisory host mark them the same way.
 \`\`\`
 
-The plan template must record what existing code you checked before building (issue #357): \`reuse.consulted\` (≥1 entry), \`reuse.reusing\` (may be empty), and \`reuse.new_constructs\` (every new exported construct, justified). \`plan compile\` refuses a template without it, so run \`npx paqad-ai index query <name>\` — or read the Existing surface section — before you compile.
+The plan template must record what existing code you checked before building (issue #357): \`reuse.consulted\` (≥1 entry), \`reuse.reusing\` (may be empty), and \`reuse.new_constructs\` (every new exported construct, justified). \`plan compile\` refuses a template without it, so run \`paqad-ai index query <name>\` — or read the Existing surface section — before you compile.
 
 Then speak the end-of-change verdict (${PAQAD_VERDICT.pass} / ${PAQAD_VERDICT.fail} / ${PAQAD_VERDICT.inconclusive}) in prose, one line per stage with its honest evidence state. Skipping these calls is what leaves the ledger without planning/specification artifacts. If you want the stages **hook-enforced** in a JetBrains IDE rather than self-recorded, use the **Claude Code [Beta] plugin** (it runs the real \`claude\` CLI, so paqad's PreToolUse/Stop hooks fire) — "Claude Agent" in AI Assistant is advisory and structurally exposes no hook layer.
 
 **The end-of-turn check follows the session that owns the change (issue #582).** When a turn ends, paqad checks a change only in the session that made it: the session whose own stage rows, stamped with its own session id, sit in an unfinished feature bundle. A session that owns no change is skipped, so a question asked in a second window is never held to another window's work. An owner whose turn was not feature-development and who edited nothing that turn is skipped too; the paused change is checked again on the turn that resumes it. Rule-scripts at turn end follow the same decision. So put \`SE_SESSION=<your session id>\` in front of every \`paqad-ai\` call (a feature-development prompt prints the exact line). A call without it can land on another session's id and never counts as your edit.
 
-**A thinking stage must point at its RIGID bundle artifact.** planning, specification, and review each prove their work with a script-written file: end them as \`paqad:stage <stage> end -- <artifact-path>\` (or \`npx paqad-ai stage end <stage> --artifact <path>\`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with \`paqad-ai plan compile\`, freeze the spec with \`paqad-ai spec freeze\`, and record the review with \`paqad-ai review record\` (they write \`plan.json\` / \`specification.json\` / \`review.json\` into the active feature's bundle; the legacy \`.paqad/plans/*.md\` and \`.paqad/specs\` free-writes are retired), then end the stage against that file. Any OTHER path is rejected, so a hand-written notes file can never stand in for the real artifact. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
+**A thinking stage must point at its RIGID bundle artifact.** planning, specification, and review each prove their work with a script-written file: end them as \`paqad:stage <stage> end -- <artifact-path>\` (or \`paqad-ai stage end <stage> --artifact <path>\`). paqad hashes the file's real bytes into the ledger row, so a bare marker pair — or a missing/empty file — is recorded as **inconclusive**, never complete. Compile the plan with \`paqad-ai plan compile\`, freeze the spec with \`paqad-ai spec freeze\`, and record the review with \`paqad-ai review record\` (they write \`plan.json\` / \`specification.json\` / \`review.json\` into the active feature's bundle; the legacy \`.paqad/plans/*.md\` and \`.paqad/specs\` free-writes are retired), then end the stage against that file. Any OTHER path is rejected, so a hand-written notes file can never stand in for the real artifact. (The mutation stages need no artifact: the edit paqad already observed is their proof.)
 
 **Never write into a feature bundle directory.** \`.paqad/ledger/feature-evidence/<change>/\` holds only its rigid, script-written artifacts plus the generated \`report.html\`. Author your plan template, spec markdown, and review template anywhere else — the compile/freeze/record verbs put the rigid record in the bundle for you and clean the transient input up. A stage artifact pointing at a non-rigid file inside a bundle dir is rejected, and an Edit or Write aimed inside a bundle dir is denied with the name of the verb that writes that file (issue #581).
 
-**Code edits are gated on this.** Until \`planning\` and \`specification\` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, \`npx paqad-ai stage start <stage>\` / \`npx paqad-ai stage end <stage> --artifact <path>\` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the \`▸ paqad\` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
+**Code edits are gated on this.** Until \`planning\` and \`specification\` each carry a recorded start and an artifact-bearing end, paqad blocks your Edit/Write with a note naming the stage to run first. Mark the stage — the markers above are parsed before the next edit, so they clear the block in the same turn; from a shell, \`paqad-ai stage start <stage>\` / \`paqad-ai stage end <stage> --artifact <path>\` does the same — and the edit proceeds. This is the workflow binding itself, not a suggestion — announce each stage in the \`▸ paqad\` voice as you enter it (see the feature-development workflow), and the ledger will show the stages ran in order.
 
 ### Specification through the pipeline (issue #512)
 
 When \`spec_pipeline_enabled\` is on for the project, the specification stage is not "write a spec by hand". Run the pipeline and let it produce the spec:
 
 \`\`\`
-npx paqad-ai spec pipeline start --request-file <request.md>   # or --ticket <ref>; S0 ground + S1 label in one go
+paqad-ai spec pipeline start --request-file <request.md>   # or --ticket <ref>; S0 ground + S1 label in one go
 # experts (only when spec_pipeline_experts_enabled is on):
 #   run the expert-need-detector skill, then
-npx paqad-ai spec pipeline experts record <need.json>          # records the roster in experts.json
-#   print each brief with \`npx paqad-ai spec pipeline experts brief <role>\` (never a file),
+paqad-ai spec pipeline experts record <need.json>          # records the roster in experts.json
+#   print each brief with \`paqad-ai spec pipeline experts brief <role>\` (never a file),
 #   run the expert-notes skill once per brief, then
-npx paqad-ai spec pipeline experts notes <notes.json>
+paqad-ai spec pipeline experts notes <notes.json>
 #   run the expert-synthesis skill (the chief architect), then
-npx paqad-ai spec pipeline experts synthesis <synthesis.json>  # each conflict becomes a decision packet
-npx paqad-ai spec pipeline record questions <batch.json>       # skipped when nothing needs asking
-npx paqad-ai spec pipeline record task <task.json>
-npx paqad-ai spec pipeline record craft <spec.md> --trace <trace.json>
-npx paqad-ai spec pipeline finish
-npx paqad-ai spec freeze <spec.md> --from-pipeline --signed-off-by <name> --confirm-invariants
+paqad-ai spec pipeline experts synthesis <synthesis.json>  # each conflict becomes a decision packet
+paqad-ai spec pipeline record questions <batch.json>       # skipped when nothing needs asking
+paqad-ai spec pipeline record task <task.json>
+paqad-ai spec pipeline record craft <spec.md> --trace <trace.json>
+paqad-ai spec pipeline finish
+paqad-ai spec freeze <spec.md> --from-pipeline --signed-off-by <name> --confirm-invariants
 \`\`\`
 
 Speak one \`▸ paqad\` line when experts are seated, naming the standing four and the on-call picks and why (issue #558): "▸ paqad · seated the standing experts (product-owner, application-architect, user-flow-writer, qa-engineer) and brought in db-expert and security-auditor: this reads invoices in bulk and exports a customer's financial data." Under \`spec_pipeline_adoption=strict\` the freeze refuses a spec the pipeline did not produce; \`--manual --reason "<why>"\` is the only exit and it is recorded. Under \`warn\` a hand-written spec still freezes and the receipt says the pipeline was skipped.

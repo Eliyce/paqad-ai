@@ -53,7 +53,7 @@ Do **not** run this when `checks plan` already shows `parallel`, `native`, or a 
 4. When `available`, build `test_parallel` from `test_command` by adding only tokens listed in
    `references/allowed-flags.md`, with `<processes>` exactly once. Never add any other token.
 5. Write `<scratch>/test-runner.json` (see Output Contract) and hand it to the pipeline:
-   `npx paqad-ai checks record-runner <scratch>/test-runner.json`. That verb runs the deterministic
+   `paqad-ai checks record-runner <scratch>/test-runner.json`. That verb runs the deterministic
    guard and rejects anything outside the allowlist — do not re-implement that check here.
 
 ## Output Contract

@@ -98,7 +98,7 @@ export function createPlanCommand(): Command {
       for (const decisionId of result.armedDecisions ?? []) {
         console.warn(
           `▸ paqad · I hit a reuse-or-create choice that's yours to make — answer ${decisionId} ` +
-            `(\`npx paqad-ai decision resolve ${decisionId} <option>\`), then I'll continue.`,
+            `(\`paqad-ai decision resolve ${decisionId} <option>\`), then I'll continue.`,
         );
       }
       // Issue #579 — the readiness pause also blocks the next edit; name it and its options.
@@ -106,7 +106,7 @@ export function createPlanCommand(): Command {
         const id = result.readinessDecision;
         console.warn(
           `▸ paqad · Visual evidence is on, but I can't capture screenshots here yet. Answer ${id} ` +
-            `(\`npx paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`,
+            `(\`paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`,
         );
       }
       // Transient scratch: the filled template is deleted so only the rigid JSON
