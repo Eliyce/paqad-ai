@@ -58,8 +58,10 @@ export interface InventoryReport {
 }
 
 export interface InventoryOptions {
-  /** Override for the user-level paqad home (defaults to ~/.paqad-ai). */
+  /** Override for the legacy user-level paqad home (defaults to ~/.paqad-ai). */
   paqadHome?: string;
+  /** Override for the shared paqad home where packs/patterns are actually written (defaults to ~/.paqad). */
+  paqadSharedHome?: string;
   now?: number;
 }
 
@@ -162,6 +164,10 @@ export function buildInventory(
   options: InventoryOptions = {},
 ): InventoryReport {
   const paqadHome = options.paqadHome ?? join(homedir(), '.paqad-ai');
+  // Issue #616 Part 8b — packs/patterns are written under ~/.paqad/ (the shared home, same as the
+  // models cache), but the inventory read ~/.paqad-ai/ and always showed zero. Read the shared home
+  // first and fall back to the legacy one.
+  const paqadShared = options.paqadSharedHome ?? join(homedir(), '.paqad');
   const at = (relative: string): string => join(projectRoot, relative);
 
   const profile = parseYamlFile(at(PATHS.PROJECT_PROFILE));
@@ -184,8 +190,11 @@ export function buildInventory(
   ].filter((entry) => existsSync(at(entry)));
 
   const packCount =
-    countEntries(join(paqadHome, 'packs')) + countEntries(at(join('.paqad', 'packs')));
-  const patternCount = countFilesRecursive(join(paqadHome, 'patterns'), ['.json', '.md', '.yaml']);
+    (countEntries(join(paqadShared, 'packs')) || countEntries(join(paqadHome, 'packs'))) +
+    countEntries(at(join('.paqad', 'packs')));
+  const patternCount =
+    countFilesRecursive(join(paqadShared, 'patterns'), ['.json', '.md', '.yaml']) ||
+    countFilesRecursive(join(paqadHome, 'patterns'), ['.json', '.md', '.yaml']);
 
   const driftReport = (() => {
     if (!existsSync(at(PATHS.MODULE_MAP_DRIFT))) return null;
@@ -294,7 +303,7 @@ export function buildInventory(
       managedBy: 'you',
       area: 'setup',
       route: '#/setup',
-      source: '~/.paqad-ai/packs',
+      source: '~/.paqad/packs',
       state: counted(packCount, 'pack installed', 'packs installed', 'No packs installed'),
     },
     {
@@ -351,7 +360,7 @@ export function buildInventory(
       managedBy: 'shared',
       area: 'build',
       route: '#/build',
-      source: '~/.paqad-ai/patterns',
+      source: '~/.paqad/patterns',
       state: counted(patternCount, 'pattern stored', 'patterns stored', 'No patterns yet'),
     },
     {

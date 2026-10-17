@@ -7,6 +7,11 @@ import { createGzip, gzipSync } from 'node:zlib';
 import { exportAuditEvents, SIEM_FORMATS, type SiemFormat } from '@/audit/index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { DecisionPacketCorruptError } from '@/core/errors/engine-errors.js';
+import {
+  SchemaVersionError,
+  SCHEMA_VERSION_UPDATE_HINT,
+} from '@/core/errors/schema-version-error.js';
+import { checkSchemaCompatibility, readSchemaMarkerSync } from '@/core/schema-version.js';
 import { engineLog } from '@/core/logger-registry.js';
 import { createGraphRoutes } from '@/graph/routes.js';
 import { VERSION } from '@/index.js';
@@ -384,6 +389,13 @@ export async function startDashboardServer(
       writeJson(res, req, { error: 'Mutations are accepted from this machine only.' }, 403);
       return 403;
     }
+    // Issue #616 Part 8b — a layout written by a newer paqad cannot be safely written by this
+    // engine. Refuse every mutation with 409 and the doctor update line rather than corrupting it.
+    const marker = readSchemaMarkerSync(options.projectRoot);
+    if (marker && checkSchemaCompatibility(marker) === 'future') {
+      writeJson(res, req, { error: SCHEMA_VERSION_UPDATE_HINT }, 409);
+      return 409;
+    }
     return null;
   }
 
@@ -406,6 +418,10 @@ export async function startDashboardServer(
     }
     if (err instanceof ApprovalConflictError || err instanceof DecisionPacketCorruptError) {
       writeJson(res, req, { error: err.message }, 409);
+      return;
+    }
+    if (err instanceof SchemaVersionError) {
+      writeJson(res, req, { error: SCHEMA_VERSION_UPDATE_HINT }, 409);
       return;
     }
     if (err instanceof PathNotAllowedError) {

@@ -18,6 +18,8 @@ interface DashboardCommandOptions {
   readOnly: boolean;
   projectRoot: string;
   staticDir?: string;
+  printUrl?: boolean;
+  openUrl?: string;
 }
 
 const DEFAULT_PORT = 5372;
@@ -50,6 +52,11 @@ export function createDashboardCommand(): Command {
     .option('--read-only', 'Disable every mutation endpoint (for shared or CI usage)', false)
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--static-dir <path>', 'Override the bundled frontend directory')
+    .option(
+      '--print-url',
+      'Print exactly one line with the dashboard URL once the server is listening',
+    )
+    .option('--open-url <url>', 'Open this URL in the browser instead of the dashboard URL')
     .action(async (options: DashboardCommandOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const paqadDir = join(projectRoot, PATHS.AGENCY_DIR);
@@ -95,13 +102,17 @@ export function createDashboardCommand(): Command {
       });
 
       const dashboardUrl = `${server.url}/#/dashboard`;
-      if (!options.quiet) {
+      // Issue #616 Part 8b — --print-url is the programmatic contract for the dashboard skill: one
+      // exact line with the server root, and nothing else on stdout.
+      if (options.printUrl) {
+        process.stdout.write(`paqad dashboard: ${server.url}/\n`);
+      } else if (!options.quiet) {
         process.stdout.write(`paqad-ai dashboard listening at ${dashboardUrl}\n`);
       } else {
         process.stdout.write(`${dashboardUrl}\n`);
       }
 
-      const opened = openBrowser({ url: dashboardUrl, skip: !options.open });
+      const opened = openBrowser({ url: options.openUrl ?? dashboardUrl, skip: !options.open });
       if (!opened.opened && !options.quiet && opened.reason) {
         process.stdout.write(`(browser not opened: ${opened.reason})\n`);
       }

@@ -182,4 +182,24 @@ describe('buildInventory', () => {
     const report = buildInventory(root, { paqadHome: home, now: 1750000000000 });
     expect(report.generatedAt).toBe(new Date(1750000000000).toISOString());
   });
+  // Issue #616 Part 8b — packs/patterns live under the shared ~/.paqad home; the inventory read the
+  // legacy ~/.paqad-ai home and always showed zero. Read shared first, fall back to legacy.
+  it('counts packs/patterns from the shared ~/.paqad home', () => {
+    const shared = mkdtempSync(join(tmpdir(), 'paqad-inventory-shared-'));
+    mkdirSync(join(shared, 'packs', 'react'), { recursive: true });
+    mkdirSync(join(shared, 'patterns'), { recursive: true });
+    writeFileSync(join(shared, 'patterns', 'p.json'), '{}');
+    const { items } = buildInventory(root, { paqadHome: home, paqadSharedHome: shared });
+    expect(byKey(items, 'packs').state.count).toBe(1);
+    expect(byKey(items, 'patterns').state.count).toBe(1);
+    rmSync(shared, { recursive: true, force: true });
+  });
+
+  it('falls back to the legacy ~/.paqad-ai home when the shared home has none', () => {
+    mkdirSync(join(home, 'packs', 'vue'), { recursive: true });
+    const shared = mkdtempSync(join(tmpdir(), 'paqad-inventory-shared-empty-'));
+    const { items } = buildInventory(root, { paqadHome: home, paqadSharedHome: shared });
+    expect(byKey(items, 'packs').state.count).toBe(1);
+    rmSync(shared, { recursive: true, force: true });
+  });
 });
