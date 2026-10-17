@@ -7,6 +7,7 @@ import Ajv, { type ValidateFunction } from 'ajv';
 import { ENVELOPE_HEADER_PROPERTIES } from '@/feature-evidence/schema.js';
 
 import {
+  COMPLETION_DEFERRED_KIND,
   SPEC_CORRECTION_KIND,
   SPEC_STEP_KIND,
   SPEC_STEP_OUTCOMES,
@@ -76,9 +77,19 @@ export const STAGE_EVIDENCE_SCHEMA = {
     // Issue #581 (FR-7) — `spec-step` (one spec-pipeline step, replacing the run's log.jsonl)
     // and `spec-correction` (a later edit to a frozen spec, replacing corrections.jsonl).
     kind: {
-      enum: [...STAGE_FAMILY_KIND_LIST, STAGE_AGENT_KIND, SPEC_STEP_KIND, SPEC_CORRECTION_KIND],
+      enum: [
+        ...STAGE_FAMILY_KIND_LIST,
+        STAGE_AGENT_KIND,
+        SPEC_STEP_KIND,
+        SPEC_CORRECTION_KIND,
+        COMPLETION_DEFERRED_KIND,
+      ],
     },
     ...ROW_PROPERTIES,
+    // The `completion-deferred` fields (issue #615, Part 4): why the Stop seam stepped aside and
+    // how many background tasks were in flight when it did.
+    reason: { type: 'string', minLength: 1 },
+    tasks: { type: 'integer', minimum: 0 },
     // The `stage-agent` fields: tokens the stage agent used (input + output), the carried
     // history the orchestrator did not re-send, and whether those counts are estimated.
     tokens_used: { type: 'integer', minimum: 0 },
@@ -108,6 +119,10 @@ export const STAGE_EVIDENCE_SCHEMA = {
     {
       if: { properties: { kind: { const: SPEC_CORRECTION_KIND } }, required: ['kind'] },
       then: { required: ['spec_id', 'changed_sections'] },
+    },
+    {
+      if: { properties: { kind: { const: COMPLETION_DEFERRED_KIND } }, required: ['kind'] },
+      then: { required: ['reason', 'tasks'] },
     },
   ],
 } as const;
