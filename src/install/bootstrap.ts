@@ -86,7 +86,7 @@ function ensureFrameworkSymlink(runtimeRoot: string, frameworkHome: string): voi
   removeConflictingFrameworkPath(frameworkHome);
 
   try {
-    symlinkSync(runtimeRoot, frameworkHome);
+    symlinkSync(runtimeRoot, frameworkHome, frameworkSymlinkType());
   } catch (error) {
     if (
       error instanceof Error &&
@@ -98,6 +98,16 @@ function ensureFrameworkSymlink(runtimeRoot: string, frameworkHome: string): voi
     }
     throw error;
   }
+}
+
+/**
+ * The symlink type for the framework link. On Windows a plain directory symlink needs Developer
+ * Mode or admin and throws EPERM otherwise, so use a JUNCTION there — it needs neither, and points
+ * at a directory just the same (issue #616, Part 4; the plugin's SessionStart uses the same rule).
+ * POSIX passes `undefined`, the default. `symlinkSync` ignores the type argument on POSIX.
+ */
+export function frameworkSymlinkType(): 'junction' | undefined {
+  return process.platform === 'win32' ? 'junction' : undefined;
 }
 
 function removeConflictingFrameworkPath(frameworkHome: string): void {

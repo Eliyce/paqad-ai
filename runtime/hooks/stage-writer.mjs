@@ -18,7 +18,12 @@
 import process from 'node:process';
 
 import { editTargets } from './lib/edit-targets.mjs';
-import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  isPaqadDisabled,
+  npmHookStepsAside,
+  parseHookPayload,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 
 // The host that invoked the hook (issue #566). `claude-code` is the default so an
 // existing Claude installation is unaffected; Codex passes `codex-cli`.
@@ -27,7 +32,7 @@ const ADAPTER_TYPE = process.argv[2] || undefined;
 async function main(input) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (isPaqadDisabled(projectRoot)) return 0;
+    if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) return 0;
 
     let payload;
     try {

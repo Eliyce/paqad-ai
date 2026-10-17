@@ -14,8 +14,18 @@ import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
+import { toPosixPath } from '@/core/path-utils.js';
+import { getPackageRoot } from '@/core/runtime-paths.js';
+
 /** Marker that identifies (and de-dupes) the paqad block inside a hook file. */
 export const GIT_HOOK_MARKER = '# paqad-ai delivery-link (issue #339)';
+
+/** The running paqad copy's own CLI entry, for the hook's PATH-less fallback (issue #616, Part 6). */
+export function distCliPath(): string {
+  // Forward slashes: the block runs in `#!/bin/sh` (git bash on Windows too), where a backslash
+  // path would break (issue #616 Part 6 — Windows CI).
+  return toPosixPath(join(getPackageRoot(), 'dist', 'cli', 'index.js'));
+}
 
 const HOOKS: ReadonlyArray<{ name: string; verb: 'commit' | 'merge' }> = [
   { name: 'post-commit', verb: 'commit' },
@@ -89,12 +99,19 @@ export function resolveHooksDir(projectRoot: string): string | null {
   return isAbsolute(rel) ? rel : join(projectRoot, rel);
 }
 
-/** The paqad hook block for one verb — a marker line plus a best-effort CLI call. */
-export function hookBlock(verb: 'commit' | 'merge'): string {
+/**
+ * The paqad hook block for one verb — a marker line plus a best-effort CLI call. It keeps the
+ * `command -v paqad-ai` guard (the npm path) and adds a `node "<resolved>/dist/cli/index.js"`
+ * fallback (issue #616, Part 6), so the plugin — which puts `paqad-ai` on PATH only inside a Claude
+ * Code session, not in the git process that fires the hook — still records the commit trail. Both
+ * arms are best-effort (`|| true`): a git operation is never blocked by paqad.
+ */
+export function hookBlock(verb: 'commit' | 'merge', cliPath: string = distCliPath()): string {
   return (
     `${GIT_HOOK_MARKER}\n` +
-    `command -v paqad-ai >/dev/null 2>&1 && ` +
-    `paqad-ai delivery-link ${verb} >/dev/null 2>&1 || true`
+    `if command -v paqad-ai >/dev/null 2>&1; then paqad-ai delivery-link ${verb} >/dev/null 2>&1 || true; ` +
+    `elif command -v node >/dev/null 2>&1 && [ -f "${cliPath}" ]; then ` +
+    `node "${cliPath}" delivery-link ${verb} >/dev/null 2>&1 || true; fi`
   );
 }
 

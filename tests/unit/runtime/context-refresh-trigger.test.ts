@@ -1,19 +1,21 @@
 import { execFileSync } from 'node:child_process';
 import {
-  chmodSync,
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const TRIGGER = resolve(__dirname, '../../../runtime/hooks/context-refresh-trigger.mjs');
+const RUNTIME_HOOKS = resolve(__dirname, '../../../runtime/hooks');
+const TRIGGER = join(RUNTIME_HOOKS, 'context-refresh-trigger.mjs');
 const MARKER_REL = '.paqad/locks/rule-context.marker';
 
 function run(projectRoot: string, env: NodeJS.ProcessEnv = {}): number {
@@ -72,21 +74,31 @@ describe('runtime/hooks/context-refresh-trigger.mjs', () => {
   });
 
   // Issue #582 — the prompt gate passes the session id; the trigger forwards it as --session so
-  // the worker reads that session's route. A stub `paqad-ai` on PATH records the argv it got.
+  // the worker reads that session's route. Issue #616 Part 6 — the trigger now runs THIS copy's
+  // own CLI (`node <pkg>/dist/cli/index.js`), two levels above the hook, not a `paqad-ai` on PATH.
+  // Stage a fake package with a stub dist/cli that records the argv it is spawned with.
   it.skipIf(process.platform === 'win32')(
-    'forwards the session id to refresh-context as --session',
+    'runs its own dist/cli and forwards the session id as --session',
     async () => {
-      const bin = join(projectRoot, 'bin');
-      const argsFile = join(projectRoot, 'args.txt');
-      mkdirSync(bin, { recursive: true });
-      writeFileSync(join(bin, 'paqad-ai'), `#!/bin/sh\nprintf '%s ' "$@" > '${argsFile}'\n`);
-      chmodSync(join(bin, 'paqad-ai'), 0o755);
-      execFileSync('node', [TRIGGER, 'ses-582'], {
-        env: {
-          ...process.env,
-          CLAUDE_PROJECT_DIR: projectRoot,
-          PATH: `${bin}:${process.env.PATH ?? ''}`,
-        },
+      const pkg = mkdtempSync(join(tmpdir(), 'paqad-trigger-pkg-'));
+      const hookDir = join(pkg, 'runtime', 'hooks');
+      mkdirSync(hookDir, { recursive: true });
+      // Copy the trigger (its realpath must live under the fake package so dist resolves there),
+      // and symlink its relative deps back to the real runtime tree.
+      copyFileSync(TRIGGER, join(hookDir, 'context-refresh-trigger.mjs'));
+      symlinkSync(join(RUNTIME_HOOKS, 'lib'), join(hookDir, 'lib'));
+      symlinkSync(resolve(RUNTIME_HOOKS, '../scripts'), join(pkg, 'runtime', 'scripts'));
+      // The stub CLI records the argv it received.
+      const argsFile = join(pkg, 'args.txt');
+      const cli = join(pkg, 'dist', 'cli', 'index.js');
+      mkdirSync(dirname(cli), { recursive: true });
+      writeFileSync(
+        cli,
+        `require('node:fs').writeFileSync(process.env.ARGS_FILE, process.argv.slice(2).join(' '));\n`,
+      );
+
+      execFileSync('node', [join(hookDir, 'context-refresh-trigger.mjs'), 'ses-582'], {
+        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot, ARGS_FILE: argsFile },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
       await vi.waitFor(() => expect(existsSync(argsFile)).toBe(true), { timeout: 5000 });
@@ -96,6 +108,7 @@ describe('runtime/hooks/context-refresh-trigger.mjs', () => {
           timeout: 5000,
         },
       );
+      rmSync(pkg, { recursive: true, force: true });
     },
   );
 });

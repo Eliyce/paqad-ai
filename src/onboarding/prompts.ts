@@ -1,5 +1,7 @@
 import { checkbox, select } from '@inquirer/prompts';
 
+import { isNpmAvailable } from '@/core/npm-available.js';
+
 import {
   buildDetectedStackProfile,
   getPrimaryStack,
@@ -256,6 +258,11 @@ async function promptInteractiveSelections(input: {
 }
 
 async function promptProviders(defaultProviders?: AdapterType[]): Promise<AdapterType[]> {
+  // Issue #616 Part 8 — without npm, only the Claude Code plugin can be wired; the other providers
+  // ship through the npm package. Offer just claude-code rather than a single-choice prompt.
+  if (!isNpmAvailable()) {
+    return ['claude-code'];
+  }
   const selected = await checkbox<AdapterType>({
     message: 'Which AI provider(s) do you want to use?',
     choices: [

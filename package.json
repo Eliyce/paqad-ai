@@ -58,6 +58,7 @@
   "files": [
     "dist",
     "runtime",
+    ".claude-plugin/plugin.json",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -71,8 +72,8 @@
   },
   "scripts": {
     "postinstall": "node runtime/scripts/postinstall.mjs",
-    "build": "tsup && pnpm run graph-ui:build",
-    "build:server": "tsup",
+    "build": "tsup && node scripts/build-plugin-manifest.mjs && pnpm run graph-ui:build",
+    "build:server": "tsup && node scripts/build-plugin-manifest.mjs",
     "dev": "tsup --watch",
     "graph-ui:install": "cd graph-ui && pnpm install",
     "graph-ui:dev": "cd graph-ui && pnpm dev",
@@ -87,7 +88,8 @@
     "typecheck": "tsc --noEmit",
     "check:surface-orphans": "node scripts/check-surface-orphans.mjs",
     "check:surface-drift": "node scripts/check-surface-drift.mjs",
-    "ci": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run graph-ui:test && pnpm run build",
+    "plugin:validate": "node scripts/validate-plugin.mjs",
+    "ci": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:coverage && pnpm run graph-ui:test && pnpm run build && pnpm run plugin:validate",
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "pnpm run build && changeset publish",

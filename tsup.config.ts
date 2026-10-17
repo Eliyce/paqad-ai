@@ -71,6 +71,11 @@ export default defineConfig({
     // verdict while a paqad stage agent is still running in background_tasks. Dedicated entry,
     // same light-import pattern as the other runtime hooks.
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
+    // Claude Code plugin build-time generator (issue #616) — imported by
+    // scripts/build-plugin-manifest.mjs from dist to generate runtime/claude-plugin/hooks.json,
+    // the bundled stage agents, and the plugin.json version. Dedicated entry so the generator
+    // reuses the real hook renderer and stage-agent template, not a copy.
+    'plugin/manifest-build': 'src/plugin/manifest-build.ts',
   },
   format: ['esm'],
   dts: true,
@@ -79,7 +84,34 @@ export default defineConfig({
   target: 'node22',
   splitting: false,
   shims: true,
+  // A CJS dependency bundled into the ESM output (e.g. `yaml`'s CJS build) keeps internal
+  // `require(...)` calls; esbuild turns them into a `__require` shim that THROWS "Dynamic require
+  // of X is not supported" when it can't find a real `require`. With `node_modules` absent (the
+  // Claude Code plugin), that crashes the import. Inject a `createRequire`-based `require` so the
+  // shim resolves builtins and bundled CJS loads standalone (issue #616, Part 2).
+  banner: {
+    js: "import { createRequire as __paqadCreateRequire } from 'module'; const require = __paqadCreateRequire(import.meta.url);",
+  },
+  // Only the heavy, lazy-imported embedding engines stay external — they are optional at
+  // runtime (resolved through `resolveOptionalPackage`) and would bloat the bundle. Everything
+  // else is bundled (issue #616, Part 2) so `dist/` is self-contained and the Claude Code plugin
+  // works the moment it is downloaded, with no `node_modules` install step.
   external: ['@huggingface/transformers', 'openai', 'voyageai'],
+  // Pure-JS runtime dependencies bundled into `dist/` so no npm install is needed in plugin mode.
+  // tsup externalises every `dependencies` entry by default; these must be forced back in.
+  noExternal: [
+    'ajv',
+    'execa',
+    'fast-glob',
+    'pathe',
+    'yaml',
+    'handlebars',
+    'chalk',
+    '@inquirer/prompts',
+    'commander',
+    'ora',
+    'gifenc',
+  ],
   outDir: 'dist',
   // Inject package version at build time so VERSION never drifts from
   // package.json. Vitest has its own define block in vitest.config.ts.

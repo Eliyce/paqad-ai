@@ -25,6 +25,11 @@ const CHARS_PER_TOKEN = 4;
 /** The `paqad-` prefix every stage agent's name carries. */
 const STAGE_AGENT_PREFIX = 'paqad-';
 
+/** The extra `paqad:` namespace a Claude Code *plugin* agent carries before its name
+ *  (`paqad:paqad-development`), stripped so plugin and npm agents derive the same stage
+ *  (issue #616, Part 3). */
+const PLUGIN_AGENT_NAMESPACE = 'paqad:';
+
 /** Estimate a token count from text length (bytes/4), never negative. */
 export function estimateTokens(text: string | null | undefined): number {
   if (!text) return 0;
@@ -33,17 +38,25 @@ export function estimateTokens(text: string | null | undefined): number {
 
 /**
  * Derive the feature-development stage a stage agent ran from its host agent type. A paqad
- * stage agent is named `paqad-<stage>` (e.g. `paqad-development`), so the stage is the name
- * with the prefix stripped. Returns null for anything that is not a paqad stage agent, so a
- * stray SubagentStop for another agent records nothing (belt and braces behind the matcher).
+ * stage agent is named `paqad-<stage>` (e.g. `paqad-development`) as an npm install, and
+ * `paqad:paqad-<stage>` when the Claude Code plugin supplies it (issue #616, Part 3). The optional
+ * `paqad:` namespace is stripped first, then the `paqad-` prefix, so both forms derive the same
+ * stage. Returns null for anything that is not a paqad stage agent, so a stray SubagentStop for
+ * another agent records nothing (belt and braces behind the matcher).
  */
 export function stageFromAgentType(agentType: string | null | undefined): string | null {
-  if (typeof agentType !== 'string' || !agentType.startsWith(STAGE_AGENT_PREFIX)) {
+  if (typeof agentType !== 'string') {
+    return null;
+  }
+  const withoutNamespace = agentType.startsWith(PLUGIN_AGENT_NAMESPACE)
+    ? agentType.slice(PLUGIN_AGENT_NAMESPACE.length)
+    : agentType;
+  if (!withoutNamespace.startsWith(STAGE_AGENT_PREFIX)) {
     return null;
   }
   // Agent names use hyphens (`paqad-documentation-sync`); the ledger stage names use
   // underscores (`documentation_sync`, from STAGE_ORDER), so normalize to the canonical form.
-  const stage = agentType.slice(STAGE_AGENT_PREFIX.length).trim().replace(/-/g, '_');
+  const stage = withoutNamespace.slice(STAGE_AGENT_PREFIX.length).trim().replace(/-/g, '_');
   return stage.length > 0 ? stage : null;
 }
 

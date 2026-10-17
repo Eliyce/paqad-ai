@@ -161,6 +161,7 @@ describe('paqad-ai join', () => {
       '--interactive',
       '--no-rag',
       '--yes',
+      '--non-interactive',
     ]);
   });
 

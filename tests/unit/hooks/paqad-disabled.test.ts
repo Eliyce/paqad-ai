@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -8,9 +8,16 @@ import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  appendHooksLog,
   findProjectRootFromCwd,
+  isPluginActiveForSession,
+  isSchemaVersionError,
+  npmHookStepsAside,
   parseHookPayload,
+  pluginActiveMarkerDir,
   resolveProjectRoot,
+  sessionIdFrom,
+  writePluginActiveMarker,
 } from '../../../runtime/hooks/lib/paqad-disabled.mjs';
 
 const SH = resolve(__dirname, '../../../runtime/hooks/lib/paqad-disabled.sh');
@@ -185,5 +192,77 @@ describe('resolveProjectRoot — worktree payload cwd (issue #615, Part 1)', () 
     } finally {
       rmSync(noPaqad, { recursive: true, force: true });
     }
+  });
+});
+
+describe('one-copy handshake (issue #616, Part 7)', () => {
+  let projectRoot;
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-handshake-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('sessionIdFrom prefers the payload, then CLAUDE_SESSION_ID', () => {
+    expect(sessionIdFrom({ session_id: 'abc' }, {})).toBe('abc');
+    expect(sessionIdFrom(undefined, { CLAUDE_SESSION_ID: 'env-sid' })).toBe('env-sid');
+    expect(sessionIdFrom(undefined, {})).toBe('');
+  });
+
+  it('writePluginActiveMarker claims a session that isPluginActiveForSession then sees', () => {
+    const env = { CLAUDE_PROJECT_DIR: projectRoot };
+    const payload = { session_id: 'ses-1' };
+    expect(isPluginActiveForSession(payload, env)).toBe(false);
+    writePluginActiveMarker(payload, env);
+    expect(existsSync(join(pluginActiveMarkerDir(projectRoot), 'ses-1'))).toBe(true);
+    expect(isPluginActiveForSession(payload, env)).toBe(true);
+    // A different session is not claimed by this marker (per-session, INV-4).
+    expect(isPluginActiveForSession({ session_id: 'ses-2' }, env)).toBe(false);
+  });
+
+  it('writePluginActiveMarker is a no-op without a session id', () => {
+    writePluginActiveMarker(undefined, { CLAUDE_PROJECT_DIR: projectRoot });
+    expect(existsSync(pluginActiveMarkerDir(projectRoot))).toBe(false);
+  });
+
+  it('npmHookStepsAside only when the plugin claimed the session and this is a npm hook', () => {
+    const env = { CLAUDE_PROJECT_DIR: projectRoot };
+    const payload = { session_id: 'ses-1' };
+    expect(npmHookStepsAside(payload, env)).toBe(false); // no marker
+    writePluginActiveMarker(payload, env);
+    expect(npmHookStepsAside(payload, env)).toBe(true); // npm hook steps aside
+    // A plugin-reached hook (CLAUDE_PLUGIN_ROOT set) never steps aside here.
+    expect(npmHookStepsAside(payload, { ...env, CLAUDE_PLUGIN_ROOT: '/plugin' })).toBe(false);
+  });
+});
+
+describe('future-schema handling (issue #616, Part 9)', () => {
+  let projectRoot;
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-schemaerr-'));
+  });
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('isSchemaVersionError matches by code or name', () => {
+    expect(isSchemaVersionError({ code: 'SCHEMA_VERSION_INCOMPATIBLE' })).toBe(true);
+    expect(isSchemaVersionError({ name: 'SchemaVersionError' })).toBe(true);
+    expect(isSchemaVersionError(new Error('nope'))).toBe(false);
+    expect(isSchemaVersionError(null)).toBe(false);
+  });
+
+  it('appendHooksLog writes one timestamped line to .paqad/logs/hooks.log', () => {
+    appendHooksLog(projectRoot, 'first line');
+    appendHooksLog(projectRoot, 'second line');
+    const log = readFileSync(join(projectRoot, '.paqad', 'logs', 'hooks.log'), 'utf8');
+    expect(log).toContain('first line');
+    expect(log).toContain('second line');
+    expect(log.trim().split('\n')).toHaveLength(2);
   });
 });

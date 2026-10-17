@@ -11,8 +11,8 @@
 // on the NEXT prompt (stale-while-revalidate); the always-resident manifest is
 // already present meanwhile.
 //
-// Always exits 0 and stays silent: a missing `paqad-ai` on PATH (e.g. a dev tree)
-// or any error just means no refresh this turn — never a broken prompt.
+// Always exits 0 and stays silent: a missing `dist/` (an unbuilt dev tree) or any
+// error just means no refresh this turn — never a broken prompt.
 //
 // Issue #582: the prompt gate passes the host session id as argv[2], and it is forwarded
 // as `--session <id>` so the worker reads the route of the session that fired it.
@@ -20,6 +20,7 @@
 import { spawn } from 'node:child_process';
 import { mkdirSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { isLeanRulesEnabledValue, isRagEnabledValue } from '../scripts/context-seam.mjs';
@@ -80,12 +81,23 @@ function main() {
     if (typeof sessionId === 'string' && sessionId.trim().length > 0) {
       args.push('--session', sessionId.trim());
     }
-    const child = spawn('paqad-ai', args, {
+    // Issue #616, Part 6 — run THIS copy's CLI with the current node, not a `paqad-ai` that may be
+    // absent (the plugin only puts it on a Claude Code session's PATH, not a hook's) or a different
+    // copy. dist/ sits two levels above this hook (runtime/hooks/ → package root → dist/).
+    const cliPath = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+      '..',
+      'dist',
+      'cli',
+      'index.js',
+    );
+    const child = spawn(process.execPath, [cliPath, ...args], {
       detached: true,
       stdio: 'ignore',
       windowsHide: true,
     });
-    child.on('error', () => {}); // paqad-ai not on PATH (dev tree) → silently skip
+    child.on('error', () => {}); // dist missing (unbuilt dev tree) → silently skip
     child.unref();
   } catch {
     // Never break a turn.

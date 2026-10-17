@@ -33,7 +33,7 @@ describe('gateFailureMessage', () => {
   it('names the gate, the error, and the two remedies', () => {
     const msg = gateFailureMessage('agent-entry', new Error('boom'));
     expect(msg).toContain('paqad could not run its agent-entry check (boom)');
-    expect(msg).toContain('Run "npx paqad-ai doctor" to repair the install');
+    expect(msg).toContain('Run "paqad-ai doctor" to repair the install');
     expect(msg).toContain('PAQAD_DISABLED=1');
   });
 
@@ -57,7 +57,7 @@ describe('edit gates fail closed on an unexpected throw (issue #615, Part 6)', (
     cap.restore();
     expect(code).toBe(2);
     expect(cap.text()).toContain('agent-entry');
-    expect(cap.text()).toContain('npx paqad-ai doctor');
+    expect(cap.text()).toContain('paqad-ai doctor');
     vi.doUnmock(DISABLED_MOD);
   });
 
@@ -70,7 +70,7 @@ describe('edit gates fail closed on an unexpected throw (issue #615, Part 6)', (
     cap.restore();
     expect(code).toBe(2);
     expect(cap.text()).toContain('decision-pause');
-    expect(cap.text()).toContain('npx paqad-ai doctor');
+    expect(cap.text()).toContain('paqad-ai doctor');
     vi.doUnmock(DISABLED_MOD);
   });
 
@@ -85,7 +85,7 @@ describe('edit gates fail closed on an unexpected throw (issue #615, Part 6)', (
     cap.restore();
     expect(blocked).toBe(2);
     expect(text).toContain('capability');
-    expect(text).toContain('npx paqad-ai doctor');
+    expect(text).toContain('paqad-ai doctor');
     expect(soft).toBe(0);
     vi.doUnmock(DISABLED_MOD);
   });

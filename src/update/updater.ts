@@ -16,12 +16,16 @@ import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js'
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
+import { isPluginInstalled } from '@/health/plugin-install.js';
 import { VERSION } from '@/index.js';
 import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
+
+/** The Claude-specific hook artifacts the plugin owns — skipped on update when it is installed. */
+const CLAUDE_HOOK_ARTIFACTS = new Set(['.claude/settings.json', '.claude/settings.hooks.json']);
 
 export type UpdateCandidate = GeneratedFile;
 
@@ -75,7 +79,14 @@ export class FrameworkUpdater {
     const skipped: UpdateDiff[] = [];
     const newScripts: string[] = [];
 
+    // Issue #616 Part 7 — when the Claude Code plugin is installed, it owns the Claude hooks and the
+    // stage agents. The npm updater must not re-write them, or the two copies would double-wire.
+    const pluginInstalled = isPluginInstalled();
+
     for (const candidate of candidates) {
+      if (pluginInstalled && CLAUDE_HOOK_ARTIFACTS.has(toPosixPath(candidate.path))) {
+        continue;
+      }
       // Normalize the reported path for user-facing fields (regenerated,
       // skipped, new_scripts). Use native `candidate.path` for filesystem
       // ops since Node accepts mixed separators on Windows.
@@ -124,10 +135,12 @@ export class FrameworkUpdater {
     // SubagentStop hook pointing at six agents that were never written on any upgraded
     // machine. Best-effort with the same contract as the install path: the agents are inert
     // until the orchestrator dispatches them, so a render fault must not fail the update.
-    try {
-      writeStageAgents();
-    } catch {
-      /* best-effort: stage-agent generation never blocks install/update */
+    if (!pluginInstalled) {
+      try {
+        writeStageAgents();
+      } catch {
+        /* best-effort: stage-agent generation never blocks install/update */
+      }
     }
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });

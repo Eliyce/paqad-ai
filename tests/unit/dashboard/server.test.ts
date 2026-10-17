@@ -11,6 +11,8 @@ import { PATHS } from '@/core/constants/paths.js';
 import type { VerificationEvidence } from '@/core/types/verification-evidence';
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import { startDashboardServer, type RunningDashboardServer } from '@/dashboard/server';
+import { schemaMarkerPath } from '@/core/schema-version.js';
+import { SCHEMA_VERSION_UPDATE_HINT } from '@/core/errors/schema-version-error.js';
 import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { featureFilePath, formatFeatureDirName } from '@/feature-evidence/paths.js';
 import { VERSION } from '@/index.js';
@@ -259,6 +261,29 @@ describe('startDashboardServer', () => {
     });
     return server;
   }
+
+  describe('schema compatibility (issue #616, Part 8b)', () => {
+    it('refuses a mutation with 409 and the update hint when the layout is from the future', async () => {
+      bootstrap(root);
+      writeFileSync(
+        schemaMarkerPath(root),
+        JSON.stringify({
+          paqad_schema_version: '999.0.0',
+          written_at: new Date().toISOString(),
+          written_by_engine_version: '999.0.0',
+        }),
+      );
+      await startServer();
+      const res = await fetch(`${server!.url}/api/decisions/D-1/resolve`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ chosen_option_key: 'y' }),
+      });
+      expect(res.status).toBe(409);
+      const body = (await res.json()) as { error: string };
+      expect(body.error).toBe(SCHEMA_VERSION_UPDATE_HINT);
+    });
+  });
 
   describe('approvals endpoints', () => {
     it('serves the unified inbox feed on GET /api/decisions', async () => {

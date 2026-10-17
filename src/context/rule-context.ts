@@ -72,7 +72,7 @@ export const DECISION_PAUSE_REMINDER =
   '## Decision pause is active\n' +
   '> Before a create-vs-reuse, shared-abstraction, architecture-path, component-reuse, ' +
   'workflow-or-tool, or ux-pattern choice, write a decision packet and pause for the human ' +
-  '(`npx paqad-ai decision create …`) — do not decide it unilaterally.';
+  '(`paqad-ai decision create …`) — do not decide it unilaterally.';
 
 export interface RuleSelection {
   /** Rules that apply to every change (`**` / untriggered). */

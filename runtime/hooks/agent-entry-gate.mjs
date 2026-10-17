@@ -32,7 +32,12 @@ import {
 } from './lib/agent-entry-sentinel.mjs';
 import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
-import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  isPaqadDisabled,
+  npmHookStepsAside,
+  parseHookPayload,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 
 /** True when the pending tool call writes the agent-entry sentinel itself. The
  *  bootstrap's final step IS a Write of `.paqad/.agent-entry-loaded` — gating it
@@ -71,7 +76,7 @@ function evaluateEntryGate(input) {
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block, write nothing. Disabled converges with a missing
   // package (a vanilla baseline). Checked before any blocking logic.
-  if (isPaqadDisabled(projectRoot)) {
+  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) {
     return 0;
   }
 

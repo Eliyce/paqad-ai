@@ -319,6 +319,6 @@ function humanReason(reason: string): string {
   if (reason === 'too-few-cores') return 'fewer than 4 cores';
   if (reason.startsWith('harness-failure')) return 'the parallel harness failed';
   if (reason === 'unknown')
-    return 'parallel mode unknown; run the test-runner-discovery skill, then npx paqad-ai checks record-runner <file>';
+    return 'parallel mode unknown; run the test-runner-discovery skill, then paqad-ai checks record-runner <file>';
   return reason;
 }

@@ -28,6 +28,10 @@ describe('installGitHooks', () => {
       const body = readFileSync(join(dir, hook), 'utf8');
       expect(body).toContain(GIT_HOOK_MARKER);
       expect(body).toContain('paqad-ai delivery-link');
+      // Issue #616 Part 6 — keeps the PATH guard and adds a node + dist/cli fallback.
+      expect(body).toContain('command -v paqad-ai');
+      expect(body).toContain('command -v node');
+      expect(body).toContain('dist/cli/index.js');
     }
   });
 

@@ -1,0 +1,334 @@
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+// The hook keeps its logic in `__test` so each branch is exercised without touching the real home.
+import { __test, runPluginSessionStart } from '../../../runtime/hooks/plugin-session-start.mjs';
+
+const { compareVersions, readPackageVersion, repointFrameworkLink, ensureBinOnPath } = __test;
+
+let root: string;
+
+function makeRuntime(dir: string, version: string): string {
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ version }), 'utf8');
+  const runtime = join(dir, 'runtime');
+  mkdirSync(runtime, { recursive: true });
+  return runtime;
+}
+
+beforeEach(() => {
+  root = mkdtempSync(join(tmpdir(), 'paqad-plugin-session-'));
+});
+
+afterEach(() => {
+  rmSync(root, { recursive: true, force: true });
+});
+
+describe('compareVersions', () => {
+  it('orders semantic versions and treats unparseable parts as 0', () => {
+    expect(compareVersions('2.0.0', '1.9.9')).toBe(1);
+    expect(compareVersions('1.0.0', '1.0.1')).toBe(-1);
+    expect(compareVersions('1.2.3', '1.2.3')).toBe(0);
+    expect(compareVersions('1.95.1', '1.95')).toBe(1);
+  });
+});
+
+describe('readPackageVersion', () => {
+  it('reads the version or returns null when absent/malformed', () => {
+    const dir = join(root, 'pkg');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version: '3.1.4' }), 'utf8');
+    expect(readPackageVersion(dir)).toBe('3.1.4');
+    expect(readPackageVersion(join(root, 'nope'))).toBeNull();
+  });
+});
+
+describe('repointFrameworkLink (issue #616, Part 4)', () => {
+  function env(home: string): NodeJS.ProcessEnv {
+    return { PAQAD_FRAMEWORK_HOME: home } as NodeJS.ProcessEnv;
+  }
+
+  it('creates the link when it is missing', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const home = join(root, 'current');
+    repointFrameworkLink(pluginRuntime, env(home));
+    expect(readlinkSync(home)).toBe(pluginRuntime);
+  });
+
+  it('re-points a dangling link', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const home = join(root, 'current');
+    symlinkSync(join(root, 'gone', 'runtime'), home);
+    repointFrameworkLink(pluginRuntime, env(home));
+    expect(readlinkSync(home)).toBe(pluginRuntime);
+  });
+
+  it('takes over from an OLDER npm copy', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const npmRuntime = makeRuntime(join(root, 'npm'), '1.0.0');
+    const home = join(root, 'current');
+    symlinkSync(npmRuntime, home);
+    repointFrameworkLink(pluginRuntime, env(home));
+    expect(readlinkSync(home)).toBe(pluginRuntime);
+  });
+
+  it('leaves a NEWER npm copy in place', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const npmRuntime = makeRuntime(join(root, 'npm'), '3.0.0');
+    const home = join(root, 'current');
+    symlinkSync(npmRuntime, home);
+    repointFrameworkLink(pluginRuntime, env(home));
+    expect(readlinkSync(home)).toBe(npmRuntime);
+  });
+
+  it('leaves a link already pointing at the plugin runtime', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const home = join(root, 'current');
+    symlinkSync(pluginRuntime, home);
+    repointFrameworkLink(pluginRuntime, env(home));
+    expect(readlinkSync(home)).toBe(pluginRuntime);
+  });
+
+  it('never replaces a real directory', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const home = join(root, 'current');
+    mkdirSync(home, { recursive: true });
+    writeFileSync(join(home, 'keep.txt'), 'mine', 'utf8');
+    repointFrameworkLink(pluginRuntime, env(home));
+    expect(lstatSync(home).isDirectory()).toBe(true);
+    expect(lstatSync(home).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(home, 'keep.txt'), 'utf8')).toBe('mine');
+  });
+});
+
+describe('ensureBinOnPath (issue #616, Part 5)', () => {
+  it('chmods the launcher and prepends its dir to CLAUDE_ENV_FILE PATH', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const binDir = join(pluginRuntime, 'claude-plugin', 'bin');
+    mkdirSync(binDir, { recursive: true });
+    const launcher = join(binDir, 'paqad-ai');
+    writeFileSync(launcher, '#!/bin/sh\n', { mode: 0o644 });
+    const envFile = join(root, 'env');
+    writeFileSync(envFile, '', 'utf8');
+
+    ensureBinOnPath(pluginRuntime, {
+      CLAUDE_ENV_FILE: envFile,
+      PATH: '/usr/bin',
+    } as NodeJS.ProcessEnv);
+
+    const line = readFileSync(envFile, 'utf8');
+    expect(line).toContain(`PATH=${binDir}`);
+    expect(line).toContain('/usr/bin');
+    expect(line.startsWith('export ')).toBe(false);
+    if (process.platform !== 'win32') {
+      expect(statSync(launcher).mode & 0o777).toBe(0o755);
+    }
+  });
+
+  it('does nothing harmful when CLAUDE_ENV_FILE is unset', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
+    const binDir = join(pluginRuntime, 'claude-plugin', 'bin');
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(join(binDir, 'paqad-ai'), '#!/bin/sh\n', { mode: 0o644 });
+    expect(() =>
+      ensureBinOnPath(pluginRuntime, { PATH: '/usr/bin' } as NodeJS.ProcessEnv),
+    ).not.toThrow();
+  });
+});
+
+describe('one-copy handshake (issue #616, Part 7)', () => {
+  const {
+    paqadHookScriptPath,
+    hasLiveNpmHookLines,
+    removeDeadNpmHookLines,
+    removeHomeStageAgents,
+  } = __test;
+
+  function settings(dir: string, commands: string[]): string {
+    const path = join(dir, 'settings.json');
+    writeFileSync(
+      path,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [{ matcher: '*', hooks: commands.map((command) => ({ command })) }],
+        },
+      }),
+    );
+    return path;
+  }
+
+  it('paqadHookScriptPath extracts a paqad .mjs path and ignores non-paqad commands', () => {
+    expect(paqadHookScriptPath('node "/x/hooks/paqad/agent-entry-gate.mjs"')).toBe(
+      '/x/hooks/paqad/agent-entry-gate.mjs',
+    );
+    expect(paqadHookScriptPath('node "/x/other.mjs"')).toBeNull();
+    expect(paqadHookScriptPath('echo hi')).toBeNull();
+  });
+
+  it('hasLiveNpmHookLines is true only when a paqad hook script still exists', () => {
+    const live = join(root, 'live.paqad.mjs');
+    writeFileSync(live, '');
+    expect(hasLiveNpmHookLines(settings(root, [`node "${live}"`]))).toBe(true);
+    expect(hasLiveNpmHookLines(settings(root, [`node "${join(root, 'gone.paqad.mjs')}"`]))).toBe(
+      false,
+    );
+    expect(hasLiveNpmHookLines(join(root, 'missing.json'))).toBe(false);
+  });
+
+  it('removeDeadNpmHookLines prunes dangling paqad hooks but keeps live + non-paqad ones', () => {
+    const live = join(root, 'keep.paqad.mjs');
+    writeFileSync(live, '');
+    const path = settings(root, [
+      `node "${live}"`,
+      `node "${join(root, 'dead.paqad.mjs')}"`,
+      'echo not-paqad',
+    ]);
+    removeDeadNpmHookLines(path);
+    const after = JSON.parse(readFileSync(path, 'utf8')) as {
+      hooks: { PreToolUse: { hooks: { command: string }[] }[] };
+    };
+    const commands = after.hooks.PreToolUse[0].hooks.map((h) => h.command);
+    expect(commands).toContain(`node "${live}"`);
+    expect(commands).toContain('echo not-paqad');
+    expect(commands.some((c) => c.includes('dead.paqad.mjs'))).toBe(false);
+  });
+
+  it('removeHomeStageAgents deletes the six paqad agent files', () => {
+    const agentsDir = join(root, 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    for (const name of ['paqad-planning.md', 'paqad-review.md', 'keep-me.md']) {
+      writeFileSync(join(agentsDir, name), '');
+    }
+    removeHomeStageAgents(agentsDir);
+    expect(existsSync(join(agentsDir, 'paqad-planning.md'))).toBe(false);
+    expect(existsSync(join(agentsDir, 'paqad-review.md'))).toBe(false);
+    expect(existsSync(join(agentsDir, 'keep-me.md'))).toBe(true);
+  });
+
+  function pluginEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
+    const pluginRoot = join(root, 'plugin');
+    mkdirSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin'), { recursive: true });
+    writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '2.0.0' }));
+    writeFileSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai'), '#!/bin/sh\n');
+    const projectRoot = join(root, 'project');
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    const configDir = join(root, 'claude-config');
+    mkdirSync(configDir, { recursive: true });
+    return {
+      CLAUDE_PLUGIN_ROOT: pluginRoot,
+      PAQAD_FRAMEWORK_HOME: join(root, 'current'),
+      CLAUDE_PROJECT_DIR: projectRoot,
+      CLAUDE_CONFIG_DIR: configDir,
+      ...overrides,
+    } as NodeJS.ProcessEnv;
+  }
+
+  it('claims the session (writes the marker) when no live npm hook lines exist', () => {
+    const env = pluginEnv();
+    runPluginSessionStart(env, { session_id: 's1', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      's1',
+    );
+    expect(existsSync(marker)).toBe(true);
+  });
+
+  it('stays passive (no marker) when a live npm hook is still wired', () => {
+    const env = pluginEnv();
+    const live = join(root, 'live2.paqad.mjs');
+    writeFileSync(live, '');
+    settings(env.CLAUDE_CONFIG_DIR as string, [`node "${live}"`]);
+    runPluginSessionStart(env, { session_id: 's2', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      's2',
+    );
+    expect(existsSync(marker)).toBe(false);
+  });
+});
+
+describe('version refresh (issue #616, Part 9)', () => {
+  const { shouldRefreshVersion, frameworkVersionTxtVersion, maybeRefreshVersion } = __test;
+
+  function pluginRoot(version: string): string {
+    const dir = join(root, 'plugin');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version }));
+    return dir;
+  }
+
+  function projectWithVersion(version: string | null): string {
+    const proj = join(root, 'project');
+    mkdirSync(join(proj, '.paqad'), { recursive: true });
+    if (version !== null) {
+      writeFileSync(
+        join(proj, '.paqad', 'framework-version.txt'),
+        `version=${version}\nupdated_at=1970-01-01T00:00:00Z\n`,
+      );
+    }
+    return proj;
+  }
+
+  it('shouldRefreshVersion only upgrades, never downgrades', () => {
+    expect(shouldRefreshVersion('2.0.0', '1.0.0')).toBe(true);
+    expect(shouldRefreshVersion('2.0.0', '2.0.0')).toBe(false);
+    expect(shouldRefreshVersion('2.0.0', '3.0.0')).toBe(false);
+    expect(shouldRefreshVersion('2.0.0', null)).toBe(true);
+    expect(shouldRefreshVersion(null, '1.0.0')).toBe(false);
+  });
+
+  it('frameworkVersionTxtVersion reads the recorded version, or null when absent', () => {
+    expect(frameworkVersionTxtVersion(projectWithVersion('1.2.3'))).toBe('1.2.3');
+    expect(frameworkVersionTxtVersion(join(root, 'nope'))).toBeNull();
+  });
+
+  it('starts a background update when the plugin is newer, writing the lock', () => {
+    const run = vi.fn();
+    const proj = projectWithVersion('1.0.0');
+    expect(maybeRefreshVersion(pluginRoot('2.0.0'), proj, { runUpdate: run, now: () => 0 })).toBe(
+      'started',
+    );
+    expect(run).toHaveBeenCalledOnce();
+    expect(existsSync(join(proj, '.paqad', 'locks', 'update.lock'))).toBe(true);
+  });
+
+  it('does nothing when the recorded version is current or newer', () => {
+    const run = vi.fn();
+    expect(
+      maybeRefreshVersion(pluginRoot('2.0.0'), projectWithVersion('2.0.0'), { runUpdate: run }),
+    ).toBe('current');
+    expect(
+      maybeRefreshVersion(pluginRoot('2.0.0'), projectWithVersion('3.0.0'), { runUpdate: run }),
+    ).toBe('current');
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('throttles a second refresh while the lock is fresh', () => {
+    const run = vi.fn();
+    const proj = projectWithVersion('1.0.0');
+    const pr = pluginRoot('2.0.0');
+    maybeRefreshVersion(pr, proj, { runUpdate: run, now: () => 1000 });
+    expect(maybeRefreshVersion(pr, proj, { runUpdate: run, now: () => 2000 })).toBe('throttled');
+    expect(run).toHaveBeenCalledOnce();
+  });
+});

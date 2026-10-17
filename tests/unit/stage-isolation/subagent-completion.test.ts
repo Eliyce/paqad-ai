@@ -44,9 +44,17 @@ describe('stageFromAgentType', () => {
     expect(stageFromAgentType('paqad-documentation-sync')).toBe('documentation_sync');
   });
 
+  it('strips the optional paqad: plugin namespace before the paqad- prefix (issue #616)', () => {
+    expect(stageFromAgentType('paqad:paqad-development')).toBe('development');
+    expect(stageFromAgentType('paqad:paqad-documentation-sync')).toBe('documentation_sync');
+  });
+
   it('returns null for a non-paqad agent or an empty stage', () => {
     expect(stageFromAgentType('general-purpose')).toBeNull();
     expect(stageFromAgentType('paqad-')).toBeNull();
+    // A bare `paqad:` namespace with no stage agent after it is not a stage agent.
+    expect(stageFromAgentType('paqad:general-purpose')).toBeNull();
+    expect(stageFromAgentType('paqad:paqad-')).toBeNull();
     expect(stageFromAgentType(null)).toBeNull();
     expect(stageFromAgentType(undefined)).toBeNull();
   });

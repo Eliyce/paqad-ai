@@ -334,14 +334,14 @@ function formatMissingStageSummary(stage: string, mode: StagesMode): string {
     ? `\`paqad:stage ${stage} end -- <artifact-path>\` (a real, non-empty file — e.g. a plan/spec/findings file)`
     : `\`paqad:stage ${stage} end\``;
   const endCli = isArtifactBearingStage(stage)
-    ? `\`npx paqad-ai stage end ${stage} --artifact <artifact-path>\``
-    : `\`npx paqad-ai stage end ${stage}\``;
+    ? `\`paqad-ai stage end ${stage} --artifact <artifact-path>\``
+    : `\`paqad-ai stage end ${stage}\``;
   return (
     `**▸ paqad** · run ${stage} before you change code\n` +
     `> ${glyph} ${verb} — the feature-development workflow needs the **${stage}** stage recorded ` +
     `before this edit. Mark it: emit \`paqad:stage ${stage} start\` and ${endMarker} ` +
     `each on its own line (parsed before the next edit, so they clear this block in the same turn), ` +
-    `or run \`npx paqad-ai stage start ${stage}\` then ${endCli}. Set ` +
+    `or run \`paqad-ai stage start ${stage}\` then ${endCli}. Set ` +
     `stages_mode=warn/off in .paqad/configs/.config.policy to adopt the workflow before ` +
     `enforcing.${tail}`
   );

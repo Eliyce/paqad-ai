@@ -111,7 +111,7 @@ exports[`native hook-config byte-identity (issue #566) > renders the Claude sett
     ],
     "SubagentStop": [
       {
-        "matcher": "^paqad-",
+        "matcher": "^(paqad:)?paqad-",
         "hooks": [
           {
             "type": "command",

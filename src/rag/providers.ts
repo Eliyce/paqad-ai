@@ -3,6 +3,7 @@ import { rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { loadOptionalPackage } from '@/core/optional-package.js';
 import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import type { EmbeddingProviderName, IntelligenceConfig } from '@/core/types/project-profile.js';
@@ -145,7 +146,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
         : `Preparing local embedding model ${this.model}. This shared download only happens once.`,
     });
     try {
-      const { pipeline, env } = (await import('@huggingface/transformers')) as {
+      const { pipeline, env } = await loadOptionalPackage<{
         pipeline: (
           task: 'feature-extraction',
           model: string,
@@ -158,7 +159,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
           },
         ) => Promise<LocalEmbeddingExtractor>;
         env: TransformersRuntimeEnv;
-      };
+      }>('@huggingface/transformers');
       // Posix-normalized so the configured cache location is separator-stable
       // across platforms (transformers accepts forward slashes on Windows).
       const modelsDir = toPosixPath(join(homedir(), '.paqad', 'models'));
@@ -238,9 +239,9 @@ export class OpenAiEmbeddingProvider implements EmbeddingProvider {
     if (!apiKey) {
       throw providerError('openai', 'missing_api_key', 'Missing OPENAI_API_KEY');
     }
-    const { OpenAI } = (await import('openai')) as {
+    const { OpenAI } = await loadOptionalPackage<{
       OpenAI: new (options: { apiKey: string }) => OpenAiEmbeddingClient;
-    };
+    }>('openai');
     return new OpenAI({ apiKey });
   }
 }
@@ -288,9 +289,9 @@ export class VoyageEmbeddingProvider implements EmbeddingProvider {
     if (!apiKey) {
       throw providerError('voyageai', 'missing_api_key', 'Missing VOYAGE_API_KEY');
     }
-    const { VoyageAIClient } = (await import('voyageai')) as {
+    const { VoyageAIClient } = await loadOptionalPackage<{
       VoyageAIClient: new (options: { apiKey: string }) => VoyageEmbeddingClient;
-    };
+    }>('voyageai');
     return new VoyageAIClient({ apiKey });
   }
 }

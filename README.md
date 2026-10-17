@@ -50,6 +50,27 @@ Ready. Your AI agents now understand your project, and your rules.
 
 No account, no API key, no subscription. Prefer not to install anything? Run `npx paqad-ai onboard`.
 
+## Install in Claude Code (plugin)
+
+Inside Claude Code you can install paqad as a plugin, with no npm package and no separate setup:
+
+```text
+/plugin marketplace add Eliyce/paqad-ai
+/plugin install paqad@eliyce
+```
+
+Then use it:
+
+- `/paqad:onboard` if you are setting the project up for your team (the lead).
+- `/paqad:join` if the project is already onboarded and you are setting up your own machine.
+
+A few things worth knowing:
+
+- This is Claude Code only. If you also use Codex, Gemini, Cursor, or another tool on the same project, keep the npm package (`npm install -g paqad-ai`) so those tools stay wired. Removing npm is fine when Claude Code is the only tool you use here.
+- The plugin keeps itself current. Claude Code updates it through `/plugin`, so you do not run an update command by hand.
+- The optional RAG engine installs on first use, in the background, only if you turn RAG on. To remove it later, delete `~/.paqad/` (the shared model and engine cache).
+- To open the dashboard, run `paqad-ai dashboard` from a terminal in the project. The plugin puts `paqad-ai` on your shell path inside a Claude Code session.
+
 ## What you get, at a glance
 
 | Area                         | What it means for you                                                                  |

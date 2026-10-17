@@ -28,7 +28,10 @@ import { pathToFileURL } from 'node:url';
 import { editTargets } from './lib/edit-targets.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
+  appendHooksLog,
   isPaqadDisabled,
+  isSchemaVersionError,
+  npmHookStepsAside,
   parseHookPayload,
   readFlooredMode,
   resolveProjectRoot,
@@ -144,7 +147,7 @@ async function deferredForBackgroundStage(projectRoot, input) {
 export async function main(input, seam = SEAM) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (isPaqadDisabled(projectRoot)) return 0;
+    if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) return 0;
 
     // Issue #615 (Part 4) — on the completion seam, don't run the capability kernel (which
     // includes rule-scripts) while a `paqad-<stage>` agent is still working in the background:
@@ -216,6 +219,19 @@ export async function main(input, seam = SEAM) {
     }
     return 0;
   } catch (error) {
+    // Issue #616 Part 9 — a future-schema project (set up by a newer paqad) must never crash or
+    // block a hook. Log one diagnosable line and exit 0; doctor + the dashboard point to the update.
+    if (isSchemaVersionError(error)) {
+      try {
+        appendHooksLog(
+          resolveProjectRoot(process.env, parseHookPayload(input)),
+          'capability-gate skipped: .paqad layout written by a newer paqad; run `claude plugin update paqad@eliyce`',
+        );
+      } catch {
+        /* best-effort */
+      }
+      return 0;
+    }
     // Issue #615 (Part 6) — the pre-mutation edit gate fails CLOSED: an unexpected exception
     // (missing build, import failure, a thrown gate) blocks the edit (exit 2) with a
     // doctor-pointing message, instead of silently letting it through. The completion seam still

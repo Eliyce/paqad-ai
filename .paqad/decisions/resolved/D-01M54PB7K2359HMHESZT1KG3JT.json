@@ -1,0 +1,24 @@
+{
+  "id": "D-01M54PB7K2359HMHESZT1KG3JT",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on scope",
+  "context": "Chief architect: The two scope findings are complementary, not contradictory: one bounds the change in time (launch only, migration is #621) and the other bounds it by host (Claude Code only, other tools stay on npm). Both hold; the time-bound is the canonical scope statement because it is the gate the whole PR hangs on, and the host-bound is folded in as the second non-goal.\n\nTarget: scope\n- product-owner: This issue only LAUNCHES the plugin for Claude Code; automatic migration of existing users is #621 and out of scope, gated on manual sign-off.\n- product-owner: Codex, Gemini, Cursor and every other host keep using the npm package exactly as today; only Claude Code gains the plugin path.\n\n[expert-conflict-fork:1727ab3cc59c159a]",
+  "options": [
+    {
+      "option_key": "this-issue-only-launches-the-plugin-for-",
+      "label": "This issue only LAUNCHES the plugin for Claude Code; automatic migration of existing users is #621 and out of scope, gated on manual sign-off. — product-owner"
+    },
+    {
+      "option_key": "codex-gemini-cursor-and-every-other-host",
+      "label": "Codex, Gemini, Cursor and every other host keep using the npm package exactly as today; only Claude Code gains the plugin path. — product-owner"
+    }
+  ],
+  "recommendation": "this-issue-only-launches-the-plugin-for-",
+  "created_at": "2026-10-17T10:25:58.882Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M54NY8V9VF6FEEK86DN8WNK9",
+  "chosen": "this-issue-only-launches-the-plugin-for-",
+  "rationale": "Both scope statements hold and are complementary (launch-only in time; Claude Code only by host); kept as two non-goals in the spec. The time-bound is canonical because the whole PR is gated on it (#621 migration follows sign-off).",
+  "resolved_at": "2026-10-17T10:26:25.648Z"
+}

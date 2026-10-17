@@ -76,6 +76,22 @@ language ([`stack-detection-engine`](stack-detection-engine/index/summary.md),
   `.paqad/.config` (local wins), and `PAQAD_*` env — and the onboarding manifest
   ([`project-profile-schema`](project-profile-schema/index/summary.md)).
 
+On **Claude Code only**, the framework can also install as a **plugin** instead of
+the npm package (issue #616). The plugin ships its own manifest
+([`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json)) and a marketplace
+([`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json)), both
+generated at build by [`scripts/build-plugin-manifest.mjs`](../../scripts/build-plugin-manifest.mjs)
+from the one hook renderer and stage-agent template (no second copy). It needs **no
+install step**: `dist/` bundles every pure-JS dependency (`tsup.config.ts` `noExternal`),
+so it works the moment it is downloaded. Its hooks
+([`runtime/claude-plugin/hooks.json`](../../runtime/claude-plugin/hooks.json)) are the
+same live chain, rooted at `${CLAUDE_PLUGIN_ROOT}/runtime`, plus a plugin-only
+SessionStart bootstrap ([`runtime/hooks/plugin-session-start.mjs`](../../runtime/hooks/plugin-session-start.mjs))
+that keeps `~/.paqad-ai/current` pointing at a copy that exists (a Windows junction, never
+replacing a real directory) and puts the plugin's own `paqad-ai`
+([`runtime/claude-plugin/bin/`](../../runtime/claude-plugin/bin)) on the session PATH.
+Every other host keeps using the npm package exactly as today. The same bootstrap claims the session with a per-session marker so exactly one copy runs when an npm copy is also wired (the npm hooks step aside), prunes dead npm hook lines and the home stage agents, and refreshes the project in the background when the plugin is newer. The plugin ships the `/paqad:onboard`, `/paqad:join`, and `/paqad:dashboard` skills ([`runtime/claude-plugin/skills/`](../../runtime/claude-plugin/skills)), and the heavy RAG engines resolve on demand through [`src/core/optional-package.ts`](../../src/core/optional-package.ts), installing into `${CLAUDE_PLUGIN_DATA}` in the background when they are missing.
+
 ### 1b. Every session loads the contract before it can edit
 
 When the provider opens a session it reads the entry file, resolves
