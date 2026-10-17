@@ -319,5 +319,27 @@ describe('FrameworkUpdater', () => {
       expect(existsSync(join(projectRoot, '.claude/agents'))).toBe(false);
       expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
     });
+
+    // Issue #616 Part 7 — when the plugin is installed it owns the stage agents + Claude hooks, so
+    // the npm updater must not re-write them. (Injected candidates isolate the updater's own
+    // writeStageAgents call from the candidate-generation onboard.)
+    it('writes home stage agents on update by default', async () => {
+      await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+      expect(existsSync(join(userHome, '.claude/agents'))).toBe(true);
+    });
+
+    it('skips stage-agent generation when the plugin is installed', async () => {
+      const pluginsDir = join(userHome, '.claude/plugins');
+      mkdirSync(pluginsDir, { recursive: true });
+      writeFileSync(
+        join(pluginsDir, 'installed_plugins.json'),
+        JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }),
+      );
+
+      await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+      expect(existsSync(join(userHome, '.claude/agents'))).toBe(false);
+      expect(existsSync(join(userHome, '.codex/agents'))).toBe(false);
+    });
   });
 });

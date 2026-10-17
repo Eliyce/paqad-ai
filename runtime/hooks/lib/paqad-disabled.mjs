@@ -16,7 +16,7 @@
 // Deliberately dist-less and dependency-free (a raw read, no parser import) so a
 // disabled-and-uninstalled project can still evaluate its own toggle.
 
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 /** PAQAD_DISABLED values that mean "off" — identical to the .sh/.ts primitives. */
@@ -100,6 +100,63 @@ export function isPaqadDisabled(projectRoot = resolveProjectRoot(), env = proces
   }
   const resolved = resolvePaqadEnable(projectRoot, env);
   return resolved !== undefined && FALSY.has(resolved);
+}
+
+// ─── One-copy handshake (issue #616, Part 7) ────────────────────────────────────────────────────
+//
+// Inside Claude Code the plugin and a globally-installed npm copy can both be wired to run paqad's
+// hooks. To keep EXACTLY ONE copy active (INV-3) the plugin's SessionStart claims the session by
+// writing a per-session marker; every npm-reached hook (no CLAUDE_PLUGIN_ROOT) then steps aside for
+// that session. The marker is per-session (INV-4) so two sessions never ungate each other, and the
+// default is to stay active — a hook with no evidence that the other copy owns the session keeps
+// running (never silently off).
+
+/** The per-session plugin-active marker directory for a project. */
+export function pluginActiveMarkerDir(projectRoot) {
+  return join(projectRoot, '.paqad', 'session', 'plugin-active.d');
+}
+
+/** The session id from the hook payload, falling back to CLAUDE_SESSION_ID, or '' when neither. */
+export function sessionIdFrom(payload, env = process.env) {
+  const fromPayload =
+    payload && typeof payload.session_id === 'string' ? payload.session_id.trim() : '';
+  if (fromPayload) return fromPayload;
+  const fromEnv = env.CLAUDE_SESSION_ID;
+  return typeof fromEnv === 'string' ? fromEnv.trim() : '';
+}
+
+/** True when the plugin has claimed THIS session (its per-session marker exists). */
+export function isPluginActiveForSession(payload, env = process.env) {
+  const sid = sessionIdFrom(payload, env);
+  if (!sid) return false;
+  const projectRoot = resolveProjectRoot(env, payload);
+  try {
+    return statSync(join(pluginActiveMarkerDir(projectRoot), sid)).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/** Claim this session for the plugin by writing its per-session marker. Best-effort, never throws. */
+export function writePluginActiveMarker(payload, env = process.env) {
+  const sid = sessionIdFrom(payload, env);
+  if (!sid) return;
+  const projectRoot = resolveProjectRoot(env, payload);
+  try {
+    const dir = pluginActiveMarkerDir(projectRoot);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, sid), new Date().toISOString());
+  } catch {
+    // Best-effort — a failed claim just leaves both copies active (fail-safe to ON, INV-4).
+  }
+}
+
+/**
+ * True when a npm-reached hook (no CLAUDE_PLUGIN_ROOT) should step aside because the plugin has
+ * claimed this session. A plugin-reached hook (CLAUDE_PLUGIN_ROOT set) never steps aside here.
+ */
+export function npmHookStepsAside(payload, env = process.env) {
+  return !env.CLAUDE_PLUGIN_ROOT && isPluginActiveForSession(payload, env);
 }
 
 /**

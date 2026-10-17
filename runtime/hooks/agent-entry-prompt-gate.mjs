@@ -47,6 +47,7 @@ import { emitContext, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { logHookFailure } from './lib/hook-log.mjs';
 import {
   isPaqadDisabled,
+  npmHookStepsAside,
   parseHookPayload,
   readLayeredKey,
   resolveProjectRoot,
@@ -176,7 +177,7 @@ async function main(stdin) {
   // Issue #220 — when paqad is disabled, the gate is a pure no-op. This MUST
   // short-circuit before any stdout: an injected `[paqad]`/`[paqad-context]` line
   // would contaminate the OFF arm of an A/B comparison.
-  if (isPaqadDisabled(projectRoot)) {
+  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(stdin))) {
     return 0;
   }
 

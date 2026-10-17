@@ -50,7 +50,7 @@ import {
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { isPaqadDisabled, readLayeredKey } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, npmHookStepsAside, readLayeredKey } from './lib/paqad-disabled.mjs';
 
 const DEFAULT_INTERVAL_HOURS = 12;
 const STALE_LOCK_MS = 60 * 60 * 1000; // reap a lock left by a killed run after 60 min
@@ -64,7 +64,9 @@ function main() {
   // version seed, no version check, and above all no background
   // `npm install -g paqad-ai@latest`. A disabled install stays exactly as the
   // user left it.
-  if (isPaqadDisabled(projectRoot)) {
+  // Issue #616 Part 7 — when the plugin owns this session, the npm silent-update stands down;
+  // the plugin manages the version (Part 9). The session id comes from CLAUDE_SESSION_ID.
+  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(undefined)) {
     return;
   }
 

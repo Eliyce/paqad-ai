@@ -1,4 +1,5 @@
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
@@ -15,7 +16,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // The hook keeps its logic in `__test` so each branch is exercised without touching the real home.
-import { __test } from '../../../runtime/hooks/plugin-session-start.mjs';
+import { __test, runPluginSessionStart } from '../../../runtime/hooks/plugin-session-start.mjs';
 
 const { compareVersions, readPackageVersion, repointFrameworkLink, ensureBinOnPath } = __test;
 
@@ -146,5 +147,122 @@ describe('ensureBinOnPath (issue #616, Part 5)', () => {
     expect(() =>
       ensureBinOnPath(pluginRuntime, { PATH: '/usr/bin' } as NodeJS.ProcessEnv),
     ).not.toThrow();
+  });
+});
+
+describe('one-copy handshake (issue #616, Part 7)', () => {
+  const {
+    paqadHookScriptPath,
+    hasLiveNpmHookLines,
+    removeDeadNpmHookLines,
+    removeHomeStageAgents,
+  } = __test;
+
+  function settings(dir: string, commands: string[]): string {
+    const path = join(dir, 'settings.json');
+    writeFileSync(
+      path,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [{ matcher: '*', hooks: commands.map((command) => ({ command })) }],
+        },
+      }),
+    );
+    return path;
+  }
+
+  it('paqadHookScriptPath extracts a paqad .mjs path and ignores non-paqad commands', () => {
+    expect(paqadHookScriptPath('node "/x/hooks/paqad/agent-entry-gate.mjs"')).toBe(
+      '/x/hooks/paqad/agent-entry-gate.mjs',
+    );
+    expect(paqadHookScriptPath('node "/x/other.mjs"')).toBeNull();
+    expect(paqadHookScriptPath('echo hi')).toBeNull();
+  });
+
+  it('hasLiveNpmHookLines is true only when a paqad hook script still exists', () => {
+    const live = join(root, 'live.paqad.mjs');
+    writeFileSync(live, '');
+    expect(hasLiveNpmHookLines(settings(root, [`node "${live}"`]))).toBe(true);
+    expect(hasLiveNpmHookLines(settings(root, [`node "${join(root, 'gone.paqad.mjs')}"`]))).toBe(
+      false,
+    );
+    expect(hasLiveNpmHookLines(join(root, 'missing.json'))).toBe(false);
+  });
+
+  it('removeDeadNpmHookLines prunes dangling paqad hooks but keeps live + non-paqad ones', () => {
+    const live = join(root, 'keep.paqad.mjs');
+    writeFileSync(live, '');
+    const path = settings(root, [
+      `node "${live}"`,
+      `node "${join(root, 'dead.paqad.mjs')}"`,
+      'echo not-paqad',
+    ]);
+    removeDeadNpmHookLines(path);
+    const after = JSON.parse(readFileSync(path, 'utf8')) as {
+      hooks: { PreToolUse: { hooks: { command: string }[] }[] };
+    };
+    const commands = after.hooks.PreToolUse[0].hooks.map((h) => h.command);
+    expect(commands).toContain(`node "${live}"`);
+    expect(commands).toContain('echo not-paqad');
+    expect(commands.some((c) => c.includes('dead.paqad.mjs'))).toBe(false);
+  });
+
+  it('removeHomeStageAgents deletes the six paqad agent files', () => {
+    const agentsDir = join(root, 'agents');
+    mkdirSync(agentsDir, { recursive: true });
+    for (const name of ['paqad-planning.md', 'paqad-review.md', 'keep-me.md']) {
+      writeFileSync(join(agentsDir, name), '');
+    }
+    removeHomeStageAgents(agentsDir);
+    expect(existsSync(join(agentsDir, 'paqad-planning.md'))).toBe(false);
+    expect(existsSync(join(agentsDir, 'paqad-review.md'))).toBe(false);
+    expect(existsSync(join(agentsDir, 'keep-me.md'))).toBe(true);
+  });
+
+  function pluginEnv(overrides: Record<string, string> = {}): NodeJS.ProcessEnv {
+    const pluginRoot = join(root, 'plugin');
+    mkdirSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin'), { recursive: true });
+    writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '2.0.0' }));
+    writeFileSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai'), '#!/bin/sh\n');
+    const projectRoot = join(root, 'project');
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    const configDir = join(root, 'claude-config');
+    mkdirSync(configDir, { recursive: true });
+    return {
+      CLAUDE_PLUGIN_ROOT: pluginRoot,
+      PAQAD_FRAMEWORK_HOME: join(root, 'current'),
+      CLAUDE_PROJECT_DIR: projectRoot,
+      CLAUDE_CONFIG_DIR: configDir,
+      ...overrides,
+    } as NodeJS.ProcessEnv;
+  }
+
+  it('claims the session (writes the marker) when no live npm hook lines exist', () => {
+    const env = pluginEnv();
+    runPluginSessionStart(env, { session_id: 's1', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      's1',
+    );
+    expect(existsSync(marker)).toBe(true);
+  });
+
+  it('stays passive (no marker) when a live npm hook is still wired', () => {
+    const env = pluginEnv();
+    const live = join(root, 'live2.paqad.mjs');
+    writeFileSync(live, '');
+    settings(env.CLAUDE_CONFIG_DIR as string, [`node "${live}"`]);
+    runPluginSessionStart(env, { session_id: 's2', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      's2',
+    );
+    expect(existsSync(marker)).toBe(false);
   });
 });

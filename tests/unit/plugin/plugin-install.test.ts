@@ -8,6 +8,7 @@ import {
   classifyFrameworkCopy,
   describeFrameworkLink,
   frameworkLinkHome,
+  isPluginInstalled,
   readPackageVersion,
 } from '@/health/plugin-install.js';
 
@@ -95,5 +96,26 @@ describe('describeFrameworkLink (issue #616, Part 4.6)', () => {
     expect(info.copy).toBe('directory');
     expect(info.targetExists).toBe(true);
     expect(info.version).toBe('2.2.2');
+  });
+});
+
+describe('isPluginInstalled (issue #616, Part 7)', () => {
+  it('is true when installed_plugins.json lists paqad@eliyce', () => {
+    const path = join(root, 'installed_plugins.json');
+    writeFileSync(path, JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }));
+    expect(isPluginInstalled(path)).toBe(true);
+  });
+
+  it('is false when the plugin is not listed', () => {
+    const path = join(root, 'installed_plugins.json');
+    writeFileSync(path, JSON.stringify({ plugins: { 'other@someone': {} } }));
+    expect(isPluginInstalled(path)).toBe(false);
+  });
+
+  it('is false when the file is missing or unparseable', () => {
+    expect(isPluginInstalled(join(root, 'nope.json'))).toBe(false);
+    const bad = join(root, 'bad.json');
+    writeFileSync(bad, 'not json');
+    expect(isPluginInstalled(bad)).toBe(false);
   });
 });

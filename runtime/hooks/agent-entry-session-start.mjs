@@ -21,11 +21,14 @@ import { rmSync } from 'node:fs';
 import process from 'node:process';
 
 import { clearAgentEntryMarkers, sentinelPath } from './lib/agent-entry-sentinel.mjs';
-import { parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { npmHookStepsAside, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 
 async function main(input) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
+
+  // Issue #616 Part 7 — step aside when the plugin owns this session (no double SessionStart work).
+  if (npmHookStepsAside(parseHookPayload(input))) return 0;
 
   try {
     rmSync(sentinelPath(projectRoot, sessionIdFromStdin(input)), { force: true });

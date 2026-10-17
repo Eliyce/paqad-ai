@@ -17,15 +17,23 @@
 import {
   appendFileSync,
   chmodSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   readlinkSync,
   rmSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
+
+import {
+  isPluginActiveForSession,
+  parseHookPayload,
+  writePluginActiveMarker,
+} from './lib/paqad-disabled.mjs';
 
 /** The framework link every project's `.paqad/framework-path.txt` resolves to. */
 function frameworkHome(env = process.env) {
@@ -146,14 +154,139 @@ function ensureBinOnPath(pluginRuntime, env = process.env) {
   }
 }
 
-export function runPluginSessionStart(env = process.env) {
+/** The six stage-agent files the npm copy writes under ~/.claude/agents/ (issue #616, Part 7). */
+const HOME_STAGE_AGENTS = [
+  'paqad-planning.md',
+  'paqad-specification.md',
+  'paqad-development.md',
+  'paqad-review.md',
+  'paqad-checks.md',
+  'paqad-documentation-sync.md',
+];
+
+/** Claude Code's config dir — honours CLAUDE_CONFIG_DIR (set by the host), else ~/.claude. */
+function claudeDir(env = process.env) {
+  return env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
+}
+function claudeSettingsPath(env = process.env) {
+  return join(claudeDir(env), 'settings.json');
+}
+function claudeAgentsDir(env = process.env) {
+  return join(claudeDir(env), 'agents');
+}
+
+/** The absolute `.mjs` script path a paqad hook command runs, or null when it is not a paqad hook. */
+function paqadHookScriptPath(command) {
+  if (typeof command !== 'string' || !command.includes('paqad')) return null;
+  const m = command.match(/"([^"]+\.mjs)"|(\S+\.mjs)/);
+  const path = m ? (m[1] ?? m[2]) : null;
+  return path && path.includes('paqad') ? path : null;
+}
+
+/** Walk every hook command in a parsed settings object, yielding [eventKey, index, command]. */
+function eachHookCommand(settings) {
+  const out = [];
+  const hooks = settings && typeof settings === 'object' ? settings.hooks : undefined;
+  if (!hooks || typeof hooks !== 'object') return out;
+  for (const [event, entries] of Object.entries(hooks)) {
+    if (!Array.isArray(entries)) continue;
+    entries.forEach((entry, ei) => {
+      const inner = entry && Array.isArray(entry.hooks) ? entry.hooks : [];
+      inner.forEach((hk, hi) => out.push({ event, ei, hi, command: hk && hk.command }));
+    });
+  }
+  return out;
+}
+
+/**
+ * Part 7 — true when ~/.claude/settings.json still wires a LIVE paqad hook: one whose `.mjs`
+ * script exists on disk. A live npm copy owns the session, so the plugin stays passive.
+ */
+function hasLiveNpmHookLines(settingsPath = claudeSettingsPath()) {
+  let settings;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return false;
+  }
+  return eachHookCommand(settings).some(({ command }) => {
+    const script = paqadHookScriptPath(command);
+    return script !== null && existsSync(script);
+  });
+}
+
+/**
+ * Part 7 — prune DEAD paqad hook lines (their `.mjs` script is gone, e.g. the npm copy was
+ * uninstalled) from ~/.claude/settings.json, so stale wiring never fires. Live lines are kept.
+ */
+function removeDeadNpmHookLines(settingsPath = claudeSettingsPath()) {
+  let settings;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return;
+  }
+  const hooks = settings && typeof settings === 'object' ? settings.hooks : undefined;
+  if (!hooks || typeof hooks !== 'object') return;
+  let changed = false;
+  for (const [event, entries] of Object.entries(hooks)) {
+    if (!Array.isArray(entries)) continue;
+    for (const entry of entries) {
+      if (!entry || !Array.isArray(entry.hooks)) continue;
+      const kept = entry.hooks.filter((hk) => {
+        const script = paqadHookScriptPath(hk && hk.command);
+        if (script === null) return true; // not a paqad hook — leave it
+        return existsSync(script); // paqad hook: keep only when its script still exists
+      });
+      if (kept.length !== entry.hooks.length) {
+        entry.hooks = kept;
+        changed = true;
+      }
+    }
+    hooks[event] = entries.filter(
+      (entry) => !entry || !Array.isArray(entry.hooks) || entry.hooks.length > 0,
+    );
+    if (hooks[event].length !== entries.length) changed = true;
+  }
+  if (changed) {
+    try {
+      writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+/** Part 7 — remove the six `~/.claude/agents/paqad-*.md` the npm copy wrote; the plugin ships its own. */
+function removeHomeStageAgents(agentsDir = claudeAgentsDir()) {
+  for (const name of HOME_STAGE_AGENTS) {
+    try {
+      rmSync(join(agentsDir, name), { force: true });
+    } catch {
+      /* best-effort */
+    }
+  }
+}
+
+export function runPluginSessionStart(env = process.env, payload = undefined) {
   const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
   if (!pluginRoot) {
     return; // not running as a plugin (e.g. imported by a test without the env set)
   }
   const pluginRuntime = join(pluginRoot, 'runtime');
+  // Part 4 — always safe (only re-points a missing/dangling/older link).
   repointFrameworkLink(pluginRuntime, env);
-  ensureBinOnPath(pluginRuntime, env);
+
+  // Part 7 — the one-copy handshake. Stay passive only when THIS session is not already claimed
+  // AND a live npm copy is still wired to run its own hooks; otherwise the plugin claims the
+  // session (INV-4 fails safe to active). A claimed session re-runs the idempotent cleanup.
+  if (!isPluginActiveForSession(payload, env) && hasLiveNpmHookLines(claudeSettingsPath(env))) {
+    return;
+  }
+  writePluginActiveMarker(payload, env);
+  ensureBinOnPath(pluginRuntime, env); // Part 5
+  removeDeadNpmHookLines(claudeSettingsPath(env));
+  removeHomeStageAgents(claudeAgentsDir(env));
 }
 
 // Exported for unit tests; the internal helpers are re-exported so each branch is testable without
@@ -165,12 +298,23 @@ export const __test = {
   ensureBinOnPath,
   frameworkHome,
   symlinkType,
+  hasLiveNpmHookLines,
+  removeDeadNpmHookLines,
+  removeHomeStageAgents,
+  paqadHookScriptPath,
+  claudeDir,
 };
 
 // Run when invoked as the hook entry (not when imported by a test).
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
   try {
-    runPluginSessionStart();
+    let payload;
+    try {
+      payload = parseHookPayload(readFileSync(0, 'utf8'));
+    } catch {
+      payload = undefined;
+    }
+    runPluginSessionStart(process.env, payload);
   } catch {
     /* fail open */
   }

@@ -29,6 +29,28 @@ export function frameworkLinkHome(env: NodeJS.ProcessEnv = process.env): string 
   return env.PAQAD_FRAMEWORK_HOME ?? join(homedir(), '.paqad-ai', 'current');
 }
 
+/** The plugin's marketplace-qualified id, as Claude Code records it (issue #616, Part 7). */
+export const PLUGIN_ID = 'paqad@eliyce';
+
+/** Claude Code's record of installed plugins. */
+export function installedPluginsPath(): string {
+  return join(homedir(), '.claude', 'plugins', 'installed_plugins.json');
+}
+
+/**
+ * True when the paqad Claude Code plugin (`paqad@eliyce`) is installed. The updater reads this to
+ * skip the Claude-specific writes (stage agents + `.claude` hooks) that the plugin now owns, so an
+ * upgraded npm copy never double-wires them (issue #616, Part 7).
+ */
+export function isPluginInstalled(path: string = installedPluginsPath()): boolean {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    return JSON.stringify(parsed).includes(PLUGIN_ID);
+  } catch {
+    return false;
+  }
+}
+
 /** Read `<dir>/package.json`'s version, or null when absent/unreadable/malformed. */
 export function readPackageVersion(dir: string): string | null {
   try {

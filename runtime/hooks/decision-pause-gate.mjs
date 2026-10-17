@@ -17,7 +17,12 @@ import { join } from 'node:path';
 import process from 'node:process';
 
 import { gateFailureMessage } from './lib/gate-failure.mjs';
-import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  isPaqadDisabled,
+  npmHookStepsAside,
+  parseHookPayload,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 
 /** Ids of the pending decision packets (D-*.json) under .paqad/decisions/pending. */
 function pendingPacketIds(projectRoot) {
@@ -37,7 +42,7 @@ function evaluateDecisionPauseGate(input) {
 
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block on a pending packet, write nothing.
-  if (isPaqadDisabled(projectRoot)) {
+  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) {
     return 0;
   }
 
