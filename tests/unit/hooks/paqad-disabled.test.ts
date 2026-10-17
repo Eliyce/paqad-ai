@@ -14,6 +14,8 @@ import {
   isSchemaVersionError,
   npmHookStepsAside,
   parseHookPayload,
+  isProjectOnboarded,
+  pluginStandsDownUnonboarded,
   pluginActiveMarkerDir,
   resolveProjectRoot,
   sessionIdFrom,
@@ -264,5 +266,33 @@ describe('future-schema handling (issue #616, Part 9)', () => {
     expect(log).toContain('first line');
     expect(log).toContain('second line');
     expect(log.trim().split('\n')).toHaveLength(2);
+  });
+});
+
+describe('isProjectOnboarded / pluginStandsDownUnonboarded (issue #636 bug 1)', () => {
+  it('isProjectOnboarded is true only when .paqad/framework-path.txt exists', () => {
+    const root = makeRoot();
+    expect(isProjectOnboarded(root)).toBe(false);
+    writeFileSync(join(root, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
+    expect(isProjectOnboarded(root)).toBe(true);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('pluginStandsDownUnonboarded is false for an npm-reached hook (no CLAUDE_PLUGIN_ROOT)', () => {
+    const root = makeRoot();
+    // No onboarding pointer, but also not a plugin hook -> never stand down (npm wires only onboarded).
+    expect(
+      pluginStandsDownUnonboarded(undefined, { CLAUDE_PROJECT_DIR: root } as NodeJS.ProcessEnv),
+    ).toBe(false);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it('pluginStandsDownUnonboarded is true for a plugin hook in an un-onboarded project', () => {
+    const root = makeRoot();
+    const env = { CLAUDE_PLUGIN_ROOT: '/plugin', CLAUDE_PROJECT_DIR: root } as NodeJS.ProcessEnv;
+    expect(pluginStandsDownUnonboarded(undefined, env)).toBe(true);
+    writeFileSync(join(root, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
+    expect(pluginStandsDownUnonboarded(undefined, env)).toBe(false);
+    rmSync(root, { recursive: true, force: true });
   });
 });

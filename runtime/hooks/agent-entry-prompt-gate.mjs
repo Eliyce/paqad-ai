@@ -49,6 +49,7 @@ import {
   isPaqadDisabled,
   npmHookStepsAside,
   parseHookPayload,
+  pluginStandsDownUnonboarded,
   readLayeredKey,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
@@ -177,7 +178,11 @@ async function main(stdin) {
   // Issue #220 — when paqad is disabled, the gate is a pure no-op. This MUST
   // short-circuit before any stdout: an injected `[paqad]`/`[paqad-context]` line
   // would contaminate the OFF arm of an A/B comparison.
-  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(stdin))) {
+  if (
+    isPaqadDisabled(projectRoot) ||
+    npmHookStepsAside(parseHookPayload(stdin)) ||
+    pluginStandsDownUnonboarded(parseHookPayload(stdin))
+  ) {
     return 0;
   }
 
