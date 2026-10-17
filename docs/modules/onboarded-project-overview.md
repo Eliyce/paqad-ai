@@ -90,7 +90,7 @@ SessionStart bootstrap ([`runtime/hooks/plugin-session-start.mjs`](../../runtime
 that keeps `~/.paqad-ai/current` pointing at a copy that exists (a Windows junction, never
 replacing a real directory) and puts the plugin's own `paqad-ai`
 ([`runtime/claude-plugin/bin/`](../../runtime/claude-plugin/bin)) on the session PATH.
-Every other host keeps using the npm package exactly as today.
+Every other host keeps using the npm package exactly as today. The same bootstrap claims the session with a per-session marker so exactly one copy runs when an npm copy is also wired (the npm hooks step aside), prunes dead npm hook lines and the home stage agents, and refreshes the project in the background when the plugin is newer. The plugin ships the `/paqad:onboard`, `/paqad:join`, and `/paqad:dashboard` skills ([`runtime/claude-plugin/skills/`](../../runtime/claude-plugin/skills)), and the heavy RAG engines resolve on demand through [`src/core/optional-package.ts`](../../src/core/optional-package.ts), installing into `${CLAUDE_PLUGIN_DATA}` in the background when they are missing.
 
 ### 1b. Every session loads the contract before it can edit
 
