@@ -16,9 +16,9 @@
 //   0  → allow the tool call
 //   2  → block the tool call (the host surfaces stderr to the model)
 
-import { realpathSync } from 'node:fs';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
+
+import { isDirectEntry } from './lib/direct-entry.mjs';
 
 import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive.mjs';
 import { editTargets } from './lib/edit-targets.mjs';
@@ -36,6 +36,7 @@ import {
   isPaqadDisabled,
   npmHookStepsAside,
   parseHookPayload,
+  pluginStandsDownUnonboarded,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 
@@ -76,7 +77,11 @@ function evaluateEntryGate(input) {
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block, write nothing. Disabled converges with a missing
   // package (a vanilla baseline). Checked before any blocking logic.
-  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) {
+  if (
+    isPaqadDisabled(projectRoot) ||
+    npmHookStepsAside(parseHookPayload(input)) ||
+    pluginStandsDownUnonboarded(parseHookPayload(input))
+  ) {
     return 0;
   }
 
@@ -160,7 +165,7 @@ export function main(input) {
 // realpathSync (the host invokes hooks through the symlinked install, and macOS
 // aliases /tmp → /private/tmp) — a raw argv[1] compare would MISS and silently
 // no-op the gate (the #303 gotcha).
-if (isDirectEntry()) {
+if (isDirectEntry(import.meta.url)) {
   let input = '';
   process.stdin.on('data', (chunk) => {
     input += chunk;
@@ -169,15 +174,4 @@ if (isDirectEntry()) {
     process.exit(main(input));
   });
   process.stdin.resume();
-}
-
-/** True when this module is the process entry point, symlink-safe (see above). */
-function isDirectEntry() {
-  const entry = process.argv[1];
-  if (!entry) return false;
-  try {
-    return import.meta.url === pathToFileURL(realpathSync(entry)).href;
-  } catch {
-    return false;
-  }
 }

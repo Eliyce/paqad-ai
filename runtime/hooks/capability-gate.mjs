@@ -20,10 +20,11 @@
 // capability currently folded into the seam (rule-scripts); as F6 folds in
 // stages/decision-pause/delivery, this pre-check generalises per-capability.
 
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
-import { pathToFileURL } from 'node:url';
+
+import { isDirectEntry } from './lib/direct-entry.mjs';
 
 import { editTargets } from './lib/edit-targets.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
@@ -33,6 +34,7 @@ import {
   isSchemaVersionError,
   npmHookStepsAside,
   parseHookPayload,
+  pluginStandsDownUnonboarded,
   readFlooredMode,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
@@ -147,7 +149,12 @@ async function deferredForBackgroundStage(projectRoot, input) {
 export async function main(input, seam = SEAM) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) return 0;
+    if (
+      isPaqadDisabled(projectRoot) ||
+      npmHookStepsAside(parseHookPayload(input)) ||
+      pluginStandsDownUnonboarded(parseHookPayload(input))
+    )
+      return 0;
 
     // Issue #615 (Part 4) — on the completion seam, don't run the capability kernel (which
     // includes rule-scripts) while a `paqad-<stage>` agent is still working in the background:
@@ -252,7 +259,7 @@ export async function main(input, seam = SEAM) {
 // (~/.paqad-ai/current → the package runtime), and macOS also aliases /tmp →
 // /private/tmp, so a raw argv[1] compare would MISS the match and silently no-op
 // the whole gate. Comparing realpaths is symlink-safe.
-if (isDirectEntry()) {
+if (isDirectEntry(import.meta.url)) {
   let input = '';
   process.stdin.on('data', (chunk) => {
     input += chunk;
@@ -261,15 +268,4 @@ if (isDirectEntry()) {
     main(input).then((code) => process.exit(code));
   });
   process.stdin.resume();
-}
-
-/** True when this module is the process entry point, symlink-safe (see above). */
-function isDirectEntry() {
-  const entry = process.argv[1];
-  if (!entry) return false;
-  try {
-    return import.meta.url === pathToFileURL(realpathSync(entry)).href;
-  } catch {
-    return false;
-  }
 }
