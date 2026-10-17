@@ -595,3 +595,20 @@ describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 
     }
   });
 });
+
+describe('plugin-seen marker (issue #621)', () => {
+  const { writePluginSeen, pluginSeenPath } = __test;
+
+  it('records version, timestamp and root at ~/.paqad-ai/plugin-seen.json', () => {
+    const pluginRoot = join(root, 'plugin');
+    mkdirSync(pluginRoot, { recursive: true });
+    writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '1.96.1' }));
+    // PAQAD_FRAMEWORK_HOME dir hosts the marker, so the test controls where it lands.
+    const env = { PAQAD_FRAMEWORK_HOME: join(root, 'current') };
+    writePluginSeen(pluginRoot, env);
+    const seen = JSON.parse(readFileSync(pluginSeenPath(env), 'utf8'));
+    expect(seen.version).toBe('1.96.1');
+    expect(seen.root).toBe(pluginRoot);
+    expect(typeof seen.at).toBe('string');
+  });
+});

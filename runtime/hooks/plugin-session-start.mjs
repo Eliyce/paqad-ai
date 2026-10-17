@@ -341,6 +341,34 @@ function removeDeadNpmHookLines(settingsPath = claudeSettingsPath()) {
   }
 }
 
+/**
+ * Issue #621 (Part 4/5) — the machine-level marker the npm→plugin migration reads to confirm the
+ * plugin actually loaded this session (`~/.paqad-ai/plugin-seen.json`). Written whenever the
+ * plugin's SessionStart runs at all — before the passive/active handshake — because "the plugin
+ * loaded" is true even when it then stands down beside a live npm copy. `root` lets the migration
+ * tell a claude.ai synced plugin (`…/plugins/synced/…`) apart from a marketplace install.
+ */
+function pluginSeenPath(env = process.env) {
+  const data = env.PAQAD_FRAMEWORK_HOME
+    ? dirname(env.PAQAD_FRAMEWORK_HOME)
+    : join(homedir(), '.paqad-ai');
+  return join(data, 'plugin-seen.json');
+}
+function writePluginSeen(pluginRoot, env = process.env) {
+  try {
+    const path = pluginSeenPath(env);
+    mkdirSync(dirname(path), { recursive: true });
+    const payload = {
+      version: readPackageVersion(pluginRoot),
+      at: new Date().toISOString(),
+      root: pluginRoot,
+    };
+    writeFileSync(path, JSON.stringify(payload));
+  } catch {
+    /* best-effort: a failed marker write must not wedge the session */
+  }
+}
+
 /** Part 7 — remove the six `~/.claude/agents/paqad-*.md` the npm copy wrote; the plugin ships its own. */
 function removeHomeStageAgents(agentsDir = claudeAgentsDir()) {
   for (const name of HOME_STAGE_AGENTS) {
@@ -420,6 +448,9 @@ export function runPluginSessionStart(env = process.env, payload = undefined) {
     return; // not running as a plugin (e.g. imported by a test without the env set)
   }
   const pluginRuntime = join(pluginRoot, 'runtime');
+  // Issue #621 — record that the plugin loaded this session (machine-level, global) so the
+  // npm→plugin migration can confirm the plugin runs before the npm copy steps aside.
+  writePluginSeen(pluginRoot, env);
   // Part 4 — keep the shared framework link pointing at a copy that exists. Global work (no
   // <project>/.paqad/ write), so it runs in every repo (onboarded or not).
   repointFrameworkLink(pluginRuntime, env);
@@ -467,6 +498,8 @@ export const __test = {
   hasLiveNpmHookLines,
   projectClaudeSettingsPaths,
   anyLiveNpmHookLines,
+  pluginSeenPath,
+  writePluginSeen,
   removeDeadNpmHookLines,
   removeHomeStageAgents,
   paqadHookScriptPath,
