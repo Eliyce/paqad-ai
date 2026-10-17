@@ -460,7 +460,10 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
           '[paqad] session route-582: prefix paqad-ai commands with SE_SESSION=route-582';
         expect(result.stdout.includes(line)).toBe(named);
       } finally {
-        rmSync(projectRoot, { recursive: true, force: true });
+        // The prompt gate fires a DETACHED context-refresh child that keeps writing into
+        // projectRoot after the gate returns, so on Windows an immediate rmdir races it and
+        // throws ENOTEMPTY (issue #615). rmSync's built-in retry waits out the child.
+        rmSync(projectRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
       }
     },
   );
