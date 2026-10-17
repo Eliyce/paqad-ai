@@ -11,7 +11,10 @@ import {
   BLOCK_CLOSE,
   BLOCK_OPEN,
   CONTEXT_ARTIFACT_RELPATH,
+  CONTEXT_TRIM_NOTICE,
+  HOOK_OUTPUT_BUDGET_CHARS,
   buildInjection,
+  fitHookOutput,
   formatContextBlock,
   isLeanRulesEnabledValue,
   isRagEnabledValue,
@@ -208,6 +211,45 @@ describe('buildInjection (filesystem)', () => {
   it('exports a stable module path so the hook can import it', () => {
     // Normalise separators so the assertion holds on Windows (backslash paths) too.
     expect(SEAM_PATH.replace(/\\/g, '/')).toMatch(/runtime\/scripts\/context-seam\.mjs$/);
+  });
+});
+
+// Issue #615 (Part 3) — keep the prompt hook's output under the host's 10,000-char cap.
+describe('fitHookOutput (issue #615, Part 3)', () => {
+  const ROUTE = '[paqad] Routed to feature-development — full lane (risky).\n';
+  const NUDGE = '[paqad] Spec pipeline: ON.\n';
+
+  it('returns the pieces unchanged when the total is under budget', () => {
+    const block = formatContextBlock('small body');
+    const out = fitHookOutput(ROUTE, `${block}\n`, NUDGE);
+    expect(out).toBe(`${ROUTE}${block}\n${NUDGE}`);
+  });
+
+  it('trims a 50,000-char context block under the budget and keeps route + nudge whole', () => {
+    const block = formatContextBlock('x'.repeat(50_000));
+    const out = fitHookOutput(ROUTE, `${block}\n`, NUDGE);
+
+    expect(out.length).toBeLessThanOrEqual(HOOK_OUTPUT_BUDGET_CHARS);
+    expect(out.length).toBeLessThanOrEqual(10_000);
+    // Route line and nudge survive verbatim.
+    expect(out.startsWith(ROUTE)).toBe(true);
+    expect(out.endsWith(NUDGE)).toBe(true);
+    // The context block ends with the trim notice, just before its close marker.
+    expect(out).toContain(`${CONTEXT_TRIM_NOTICE}\n${BLOCK_CLOSE}`);
+    // The block is still well-formed.
+    expect(out).toContain(`${BLOCK_OPEN}\n`);
+  });
+
+  it('counts characters, not bytes (multibyte body still fits the char budget)', () => {
+    const block = formatContextBlock('😀'.repeat(20_000));
+    const out = fitHookOutput(ROUTE, `${block}\n`, NUDGE);
+    expect([...out].length).toBeLessThanOrEqual(HOOK_OUTPUT_BUDGET_CHARS);
+    expect(out).toContain(CONTEXT_TRIM_NOTICE);
+  });
+
+  it('returns the full string when there is no parseable context block to trim', () => {
+    const before = 'a'.repeat(12_000);
+    expect(fitHookOutput(before, '', '')).toBe(before);
   });
 });
 

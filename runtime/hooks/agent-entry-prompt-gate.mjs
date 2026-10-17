@@ -42,6 +42,7 @@ import {
   specPipelineNudge,
 } from './lib/agent-entry-directive.mjs';
 import { entryFile, sentinelRelative, sentinelState } from './lib/agent-entry-sentinel.mjs';
+import { fitHookOutput } from '../scripts/context-seam.mjs';
 import { emitContext, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { logHookFailure } from './lib/hook-log.mjs';
 import {
@@ -206,28 +207,28 @@ async function main(stdin) {
   }
 
   // Fresh: the framework is loaded — route THIS prompt + record the outcome, then inject
-  // the precomputed [paqad-context] block (F2). On Codex the pieces are buffered and
-  // delivered as one additionalContext envelope; on Claude each is written straight to
-  // stdout, so the route line now comes before the context block.
+  // the precomputed [paqad-context] block (F2).
+  //
+  // Issue #615 (Part 3) — buffer EVERY piece on EVERY adapter, then emit once under the host's
+  // 10,000-character output cap (anything over is saved to a file the model never reads). The
+  // route line and the nudge are kept whole; only the [paqad-context] body is trimmed, ending
+  // the block with the trim notice (see fitHookOutput). On Codex the single assembled string is
+  // still wrapped in the additionalContext envelope by emitInjection.
   //
   // Issue #582 — the artifact is shared by every session in the checkout and may have been
   // composed for another session's feature-development prompt. Routing first lets a prompt
   // that is NOT feature-development drop the rule manifest, loaded rule text and existing
   // surface. When routing gave no answer the full block is kept, exactly as before.
-  let buffer = '';
-  const sink = ADAPTER === 'codex-cli' ? (text) => (buffer += text) : (text) => emitInjection(text);
-  const routed = await emitRoute(stdin, projectRoot, sink);
+  let routeBuf = '';
+  const routed = await emitRoute(stdin, projectRoot, (text) => (routeBuf += text));
   fireContextRefresh(sessionId);
   const stripRules = typeof routed === 'string' && routed !== 'feature-development';
-  emitContext(stdin, projectRoot, sink, { stripRules });
+  let contextBuf = '';
+  emitContext(stdin, projectRoot, (text) => (contextBuf += text), { stripRules });
   // Issue #547 (FR-1.4) — one spec-pipeline nudge when the pipeline is on; silent otherwise.
   const nudge = specPipelineNudge(readLayeredKey, projectRoot);
-  if (nudge) {
-    sink(`${nudge}\n`);
-  }
-  if (ADAPTER === 'codex-cli') {
-    emitInjection(buffer);
-  }
+  const after = nudge ? `${nudge}\n` : '';
+  emitInjection(fitHookOutput(routeBuf, contextBuf, after));
   return 0;
 }
 
