@@ -75,17 +75,35 @@ export class ClaudeCodeAdapter extends BaseAdapter {
   }
 }
 
+/**
+ * True when onboarding is running from the Claude Code plugin (issue #641, Gap 2). The plugin
+ * installs at user scope and ships its own hook chain via `runtime/claude-plugin/hooks.json`,
+ * so writing the npm chain into the project's `.claude/settings.json` too would make every
+ * paqad hook fire twice. Onboarding from the npm package (no `CLAUDE_PLUGIN_ROOT`) is unchanged.
+ */
+function isRunningUnderPlugin(env: NodeJS.ProcessEnv): boolean {
+  const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
+  return typeof pluginRoot === 'string' && pluginRoot.length > 0;
+}
+
 // Render the full #117/#566 live hook chain into Claude's settings.json shape via
 // the one shared renderer, then fold in the attribution block. `mergeAgentEntryGate`
 // and its per-event merge/prune helpers were retired here — that logic now lives in
 // `native-hook-config.ts`, the single renderer both hook-capable hosts share.
-function buildClaudeSettings(projectRoot: string): GeneratedFile {
+function buildClaudeSettings(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): GeneratedFile {
   return buildNativeHookConfigFile({
     projectRoot,
     settingsPath: CLAUDE_SETTINGS_FILE,
     // Issue #567 — the SubagentStop hook renders unconditionally; stage isolation is
     // core-engine behavior with no config knob.
-    chain: buildFullHookChain('claude-code', process.env),
+    // Issue #641 (Gap 2) — when onboarding runs under the plugin, the plugin already supplies
+    // the full chain, so emit NO npm chain here (an empty chain); the legacy prune and the
+    // attribution transform still run. This keeps exactly one hook chain per plugin-onboarded
+    // repo. Onboarding from npm (no CLAUDE_PLUGIN_ROOT) writes the chain exactly as before.
+    chain: isRunningUnderPlugin(env) ? [] : buildFullHookChain('claude-code', env),
     pruneExact: LEGACY_HOOK_COMMANDS,
     pruneBasenames: RETIRED_HOOK_FILES,
     transform: (merged) => mergeAttribution(merged, projectRoot),
