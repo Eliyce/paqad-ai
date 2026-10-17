@@ -58,6 +58,15 @@ export interface PaqadLiveHookSpec {
    * change. Every non-default host (Codex) gets the argv.
    */
   hostArgv?: boolean;
+  /**
+   * Fail CLOSED (issue #615, Part 6): a Claude Code edit gate that cannot start, times out, exits
+   * with a code other than 0/2, or prints invalid output BLOCKS the action, via `onFailure: "block"`.
+   * Set only on the three pre-mutation edit gates, and rendered only for Claude Code (2.1.295+);
+   * the Codex renderer never emits it, so its output stays byte-identical.
+   */
+  failClosed?: boolean;
+  /** Hard timeout in seconds for the hook command (issue #615, Part 6). Rendered for Claude only. */
+  timeoutSec?: number;
   description: string;
 }
 
@@ -210,6 +219,9 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     // Host-agnostic: the sentinel-write exemption reads the edited path(s) from the
     // payload via the shared extractor, which understands both Claude's `file_path`
     // and Codex's `apply_patch` text, so no host argv is needed.
+    // Issue #615 (Part 6) — an edit gate: fail closed with a 10s timeout on Claude.
+    failClosed: true,
+    timeoutSec: 10,
     description: 'Block a mutating edit until the framework entry file is loaded (Part 0).',
   },
   {
@@ -227,6 +239,9 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     event: 'pre-tool-mutation',
     hookFile: 'decision-pause-gate.mjs',
     // Reads only the pending-packet dir, no edit target — host-agnostic, no argv.
+    // Issue #615 (Part 6) — an edit gate: fail closed with a 10s timeout on Claude.
+    failClosed: true,
+    timeoutSec: 10,
     description: 'Block mutating tools while a decision packet is unresolved (#117 C-3).',
   },
   {
@@ -235,6 +250,9 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     hookFile: 'capability-gate.mjs',
     capabilitySeam: 'pre-mutation',
     hostArgv: true,
+    // Issue #615 (Part 6) — an edit gate: fail closed with a 10s timeout on Claude.
+    failClosed: true,
+    timeoutSec: 10,
     description: 'Run the capability kernel (rules-loaded, stages) before a mutating edit (F3).',
   },
   {
@@ -311,6 +329,10 @@ export interface RenderedHook {
   nativeEvent: string;
   matcher?: string;
   command: string;
+  /** Issue #615 (Part 6) — Claude Code fail-closed policy; set only for Claude's edit gates. */
+  onFailure?: 'block';
+  /** Issue #615 (Part 6) — Claude Code hook timeout in seconds; set only for Claude's edit gates. */
+  timeout?: number;
 }
 
 /** Render one spec's command for a host: the capability seam, plus the host argv for
@@ -349,10 +371,15 @@ export function buildHostHookChain(
       if (spec.event !== event) {
         continue;
       }
+      // Issue #615 (Part 6) — the fail-closed policy is Claude-only, so Codex (and any other host)
+      // renders byte-identically to before. Only a spec marked failClosed carries it.
+      const failClosed = spec.failClosed === true && adapterType === DEFAULT_HOOK_ADAPTER;
       chain.push({
         nativeEvent: host.nativeEvent[event],
         matcher: matcherForEvent(event, host),
         command: renderHookCommand(spec, adapterType, env),
+        ...(failClosed ? { onFailure: 'block' as const } : {}),
+        ...(failClosed && spec.timeoutSec !== undefined ? { timeout: spec.timeoutSec } : {}),
       });
     }
   }

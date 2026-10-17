@@ -27,6 +27,10 @@ import { buildHostHookChain, completionRecordCommand, type RenderedHook } from '
 interface HookEntry {
   type: string;
   command: string;
+  // Issue #615 (Part 6) — Claude Code 2.1.295 fail-closed policy + timeout, emitted only on the
+  // edit-gate entries the chain marks (Claude host only; Codex output is unchanged).
+  onFailure?: string;
+  timeout?: number;
 }
 
 interface HookMatcher {
@@ -120,7 +124,16 @@ export function mergeNativeHooks(
       }
       merged.push({
         ...(entry.matcher !== undefined ? { matcher: entry.matcher } : {}),
-        hooks: [{ type: 'command', command: entry.command }],
+        hooks: [
+          {
+            type: 'command',
+            command: entry.command,
+            // Issue #615 (Part 6) — fail-closed policy + timeout, present only when the chain
+            // marked this entry (Claude edit gates); absent everywhere else, so Codex is unchanged.
+            ...(entry.onFailure !== undefined ? { onFailure: entry.onFailure } : {}),
+            ...(entry.timeout !== undefined ? { timeout: entry.timeout } : {}),
+          },
+        ],
       });
     }
     nextHooks[event] = merged;

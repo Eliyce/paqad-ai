@@ -16,6 +16,7 @@ import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
+import { gateFailureMessage } from './lib/gate-failure.mjs';
 import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 /** Ids of the pending decision packets (D-*.json) under .paqad/decisions/pending. */
@@ -29,7 +30,7 @@ function pendingPacketIds(projectRoot) {
   }
 }
 
-export function main(input) {
+function evaluateDecisionPauseGate(input) {
   // Issue #615 (Part 1) — resolve the worktree root from the PreToolUse payload's cwd
   // so a worktree session reads the worktree's pending packets, not the main checkout's.
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
@@ -54,6 +55,20 @@ export function main(input) {
     ].join('\n'),
   );
   return 2;
+}
+
+/**
+ * The PreToolUse decision-pause gate, failing CLOSED (issue #615, Part 6): an unexpected error
+ * blocks the edit (exit 2) with a doctor-pointing message rather than letting it through. The known
+ * soft conditions (disabled, no pending packet) still return 0 from inside the body.
+ */
+export function main(input) {
+  try {
+    return evaluateDecisionPauseGate(input);
+  } catch (error) {
+    process.stderr.write(`${gateFailureMessage('decision-pause', error)}\n`);
+    return 2;
+  }
 }
 
 // Drain stdin (the host pipes the PreToolUse payload; its `cwd` locates the worktree,

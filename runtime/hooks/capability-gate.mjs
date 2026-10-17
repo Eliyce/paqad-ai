@@ -26,6 +26,7 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { editTargets } from './lib/edit-targets.mjs';
+import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
   isPaqadDisabled,
   parseHookPayload,
@@ -214,9 +215,16 @@ export async function main(input, seam = SEAM) {
       );
     }
     return 0;
-  } catch {
-    // Soft-fail: an infra error (missing build, import failure) must never wedge
-    // the agent. Enforcement still happens at the next seam / completion run.
+  } catch (error) {
+    // Issue #615 (Part 6) — the pre-mutation edit gate fails CLOSED: an unexpected exception
+    // (missing build, import failure, a thrown gate) blocks the edit (exit 2) with a
+    // doctor-pointing message, instead of silently letting it through. The completion seam still
+    // soft-fails (exit 0): a Stop hook must never wedge the turn, and onFailure has no effect on
+    // Stop anyway.
+    if (seam === 'pre-mutation') {
+      process.stderr.write(`${gateFailureMessage('capability', error)}\n`);
+      return 2;
+    }
     return 0;
   }
 }
