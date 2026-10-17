@@ -278,6 +278,28 @@ function hasLiveNpmHookLines(settingsPath = claudeSettingsPath()) {
 }
 
 /**
+ * The project-level Claude settings files the npm onboard writes its hook chain into
+ * (issue #641, Gap 2): onboarding wires `<project>/.claude/settings.json` (and a developer
+ * may add `settings.local.json`), NOT the user file. Both are checked so the handshake sees
+ * the npm wiring wherever it actually lives.
+ */
+function projectClaudeSettingsPaths(projectRoot) {
+  return [
+    join(projectRoot, '.claude', 'settings.json'),
+    join(projectRoot, '.claude', 'settings.local.json'),
+  ];
+}
+
+/**
+ * Part 7 / issue #641 — true when ANY of the given settings files still wires a LIVE paqad
+ * hook. The one-copy handshake stays passive whenever a live npm copy is wired at EITHER the
+ * user level or in the project, so an npm-onboarded repo never runs both chains.
+ */
+function anyLiveNpmHookLines(settingsPaths) {
+  return settingsPaths.some((path) => hasLiveNpmHookLines(path));
+}
+
+/**
  * Part 7 — prune DEAD paqad hook lines (their `.mjs` script is gone, e.g. the npm copy was
  * uninstalled) from ~/.claude/settings.json, so stale wiring never fires. Live lines are kept.
  */
@@ -415,7 +437,11 @@ export function runPluginSessionStart(env = process.env, payload = undefined) {
   // Part 7 — the one-copy handshake (onboarded projects only). Stay passive only when THIS session is
   // not already claimed AND a live npm copy is still wired to run its own hooks; otherwise the plugin
   // claims the session (INV-4 fails safe to active). A claimed session re-runs the idempotent cleanup.
-  if (!isPluginActiveForSession(payload, env) && hasLiveNpmHookLines(claudeSettingsPath(env))) {
+  // Issue #641 (Gap 2) — the npm onboard writes its hook chain into the PROJECT's .claude/settings.json
+  // (not the user file), so the handshake inspects the user settings AND the project settings; checking
+  // only the user file made the plugin seize every npm-onboarded repo and run both chains.
+  const npmWiredSettings = [claudeSettingsPath(env), ...projectClaudeSettingsPaths(projectRoot)];
+  if (!isPluginActiveForSession(payload, env) && anyLiveNpmHookLines(npmWiredSettings)) {
     return;
   }
   writePluginActiveMarker(payload, env);
@@ -439,6 +465,8 @@ export const __test = {
   frameworkHome,
   symlinkType,
   hasLiveNpmHookLines,
+  projectClaudeSettingsPaths,
+  anyLiveNpmHookLines,
   removeDeadNpmHookLines,
   removeHomeStageAgents,
   paqadHookScriptPath,
