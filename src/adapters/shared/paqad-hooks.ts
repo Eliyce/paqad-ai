@@ -75,16 +75,34 @@ export interface PaqadLiveHookSpec {
  *  the absolute, interpreter-explicit `hookCommand()` form below (issue #240). */
 export const PAQAD_RUNTIME_PREFIX = '~/.paqad-ai/current';
 
+/**
+ * The runtime root a Claude Code *plugin* hook command is written against (issue #616, Part 3).
+ * Claude Code expands `${CLAUDE_PLUGIN_ROOT}` to the installed plugin directory at hook time, so a
+ * plugin `hooks.json` command is `node "${CLAUDE_PLUGIN_ROOT}/runtime/hooks/<file>"` — machine-
+ * independent, unlike the onboard-time absolute `~/.paqad-ai/current` form. It is a literal string
+ * the host substitutes, never resolved here.
+ */
+export const PLUGIN_RUNTIME_ROOT = '${CLAUDE_PLUGIN_ROOT}/runtime';
+
+/** The plugin-only SessionStart bootstrap hook (issue #616): re-points the framework link, puts the
+ *  plugin's `paqad-ai` on PATH, settles the one-copy handshake, and refreshes the project. */
+export const PLUGIN_SESSION_START_HOOK = 'plugin-session-start.mjs';
+
+/** Hook files the plugin does NOT render: `silent-update.mjs` is the npm copy's self-updater; the
+ *  plugin channel updates the plugin, so it is left out (issue #616, Part 3.1). */
+const PLUGIN_EXCLUDED_HOOK_FILES: ReadonlySet<string> = new Set(['silent-update.mjs']);
+
 /** The canonical mutating-tool matcher used by paqad's Claude pre-tool gates. */
 export const PAQAD_MUTATING_TOOL_MATCHER = 'Edit|Write|NotebookEdit';
 
 /**
  * The agent-type matcher for the `subagent-completion` hook (issue #567). paqad's stage
- * agents are all named `paqad-<stage>`, so this anchored prefix fires the hook only for
- * them and never for a user's own subagents (or the built-in `general-purpose`/`Explore`/
- * `Plan` agents).
+ * agents are named `paqad-<stage>` as an npm install, and `paqad:paqad-<stage>` when the
+ * Claude Code plugin supplies them (issue #616, Part 3). The optional `paqad:` prefix fires
+ * the hook for both forms and never for a user's own subagents (or the built-in
+ * `general-purpose`/`Explore`/`Plan` agents).
  */
-export const PAQAD_STAGE_AGENT_MATCHER = '^paqad-';
+export const PAQAD_STAGE_AGENT_MATCHER = '^(paqad:)?paqad-';
 
 /** The default host whose shared scripts run without a host argv (issue #566). */
 export const DEFAULT_HOOK_ADAPTER = 'claude-code';
@@ -160,8 +178,15 @@ export function frameworkHomeAbsolute(env: NodeJS.ProcessEnv = process.env): str
  * because it is recomputed from the local home dir each time the host config is
  * generated.
  */
-export function hookCommand(hookFile: string, env: NodeJS.ProcessEnv = process.env): string {
-  return `node "${frameworkHomeAbsolute(env)}/hooks/${hookFile}"`;
+export function hookCommand(
+  hookFile: string,
+  env: NodeJS.ProcessEnv = process.env,
+  root?: string,
+): string {
+  // `root` overrides the install-dir base so the Claude Code plugin can render
+  // `${CLAUDE_PLUGIN_ROOT}/runtime`-rooted commands through this same builder (issue #616, Part 3),
+  // instead of the absolute `~/.paqad-ai/current` the onboard-time config bakes in.
+  return `node "${root ?? frameworkHomeAbsolute(env)}/hooks/${hookFile}"`;
 }
 
 /**
@@ -176,8 +201,9 @@ export function capabilityGateCommand(
   seam: 'pre-mutation' | 'completion',
   adapterType?: string,
   env: NodeJS.ProcessEnv = process.env,
+  root?: string,
 ): string {
-  const base = `${hookCommand('capability-gate.mjs', env)} ${seam}`;
+  const base = `${hookCommand('capability-gate.mjs', env, root)} ${seam}`;
   return adapterType && adapterType !== DEFAULT_HOOK_ADAPTER ? `${base} ${adapterType}` : base;
 }
 
@@ -341,12 +367,13 @@ export function renderHookCommand(
   spec: PaqadLiveHookSpec,
   adapterType: string,
   env: NodeJS.ProcessEnv = process.env,
+  root?: string,
 ): string {
   const argv = spec.hostArgv && adapterType !== DEFAULT_HOOK_ADAPTER ? adapterType : undefined;
   if (spec.capabilitySeam) {
-    return capabilityGateCommand(spec.capabilitySeam, argv, env);
+    return capabilityGateCommand(spec.capabilitySeam, argv, env, root);
   }
-  const base = hookCommand(spec.hookFile, env);
+  const base = hookCommand(spec.hookFile, env, root);
   return argv ? `${base} ${argv}` : base;
 }
 
@@ -395,6 +422,44 @@ function matcherForEvent(event: PaqadHookEvent, host: HostHookEventMap): string 
     return host.subagentMatcher;
   }
   return undefined;
+}
+
+/**
+ * The hook chain the Claude Code *plugin* renders into its shipped `runtime/claude-plugin/hooks.json`
+ * (issue #616, Part 3). It is the `claude-code` live chain with three plugin-specific differences:
+ *   1. Every command is rooted at `${CLAUDE_PLUGIN_ROOT}/runtime` (via {@link PLUGIN_RUNTIME_ROOT}),
+ *      so the host resolves it to the installed plugin dir rather than the npm install.
+ *   2. A plugin-only `SessionStart` bootstrap ({@link PLUGIN_SESSION_START_HOOK}) is prepended, so it
+ *      runs before the other session-start hooks (it re-points the link and sets PATH they rely on).
+ *   3. `silent-update.mjs` is left out, and NO `onFailure`/`timeout` is emitted — plugin hooks fail
+ *      OPEN in this issue (Part 3.2); the fail-closed policy (#615 Part 6) is deferred to after
+ *      manual sign-off.
+ * It reuses {@link renderHookCommand}/{@link hookCommand} so there is one hook-command builder
+ * (RULE-13), only with the plugin root.
+ */
+export function buildPluginHookChain(env: NodeJS.ProcessEnv = process.env): RenderedHook[] {
+  const host = NATIVE_HOOK_EVENTS[DEFAULT_HOOK_ADAPTER];
+  const chain: RenderedHook[] = [];
+  for (const event of PAQAD_HOOK_EVENT_ORDER) {
+    if (event === 'session-start') {
+      chain.push({
+        nativeEvent: host.nativeEvent['session-start'],
+        command: hookCommand(PLUGIN_SESSION_START_HOOK, env, PLUGIN_RUNTIME_ROOT),
+      });
+    }
+    for (const spec of PAQAD_LIVE_HOOKS) {
+      if (spec.event !== event || PLUGIN_EXCLUDED_HOOK_FILES.has(spec.hookFile)) {
+        continue;
+      }
+      chain.push({
+        nativeEvent: host.nativeEvent[event],
+        matcher: matcherForEvent(event, host),
+        command: renderHookCommand(spec, DEFAULT_HOOK_ADAPTER, env, PLUGIN_RUNTIME_ROOT),
+        // No onFailure/timeout: plugin hooks fail open in this issue (#616 Part 3.2).
+      });
+    }
+  }
+  return chain;
 }
 
 /**

@@ -71,6 +71,11 @@ export default defineConfig({
     // verdict while a paqad stage agent is still running in background_tasks. Dedicated entry,
     // same light-import pattern as the other runtime hooks.
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
+    // Claude Code plugin build-time generator (issue #616) — imported by
+    // scripts/build-plugin-manifest.mjs from dist to generate runtime/claude-plugin/hooks.json,
+    // the bundled stage agents, and the plugin.json version. Dedicated entry so the generator
+    // reuses the real hook renderer and stage-agent template, not a copy.
+    'plugin/manifest-build': 'src/plugin/manifest-build.ts',
   },
   format: ['esm'],
   dts: true,

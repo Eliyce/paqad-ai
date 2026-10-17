@@ -90,3 +90,40 @@ export function writeStageAgents(options: WriteStageAgentsOptions = {}): string[
   }
   return written;
 }
+
+/**
+ * Render the six Claude stage agents as `{ name, content }` pairs from the same template and stage
+ * list `writeStageAgents` uses (issue #616, Part 1). The Claude Code plugin ships these under
+ * `runtime/claude-plugin/agents/` so it supplies the stage agents itself (Claude Code namespaces
+ * them `paqad:paqad-<stage>`), instead of the npm install writing them into `~/.claude/agents`.
+ * Pure, so the build generator and a golden test can both call it.
+ */
+export function renderClaudePluginStageAgents(): { name: string; content: string }[] {
+  const templatesRoot = getRuntimeTemplatesRoot();
+  const host = STAGE_AGENT_HOSTS.find((candidate) => candidate.adapter === 'claude-code');
+  /* v8 ignore next 3 -- the claude-code host is a static list entry; this guard is defensive */
+  if (!host) {
+    throw new Error('no claude-code stage-agent host configured');
+  }
+  const templateSource = readFileSync(join(templatesRoot, 'stage-agents', host.template), 'utf8');
+  const template = Handlebars.compile(templateSource);
+  return MANDATORY_STAGE_AGENTS.map((def) => ({
+    name: `${def.agentName}.${host.extension}`,
+    content: template(agentContext(def)),
+  }));
+}
+
+/**
+ * Write the six Claude stage agents into `destDir` for the plugin's bundled `agents/` directory
+ * (issue #616, Part 1). Returns the POSIX paths written. Deterministic, so a re-run is byte-identical.
+ */
+export function writeClaudePluginStageAgents(destDir: string): string[] {
+  mkdirSync(destDir, { recursive: true });
+  const written: string[] = [];
+  for (const { name, content } of renderClaudePluginStageAgents()) {
+    const filePath = join(destDir, name);
+    writeFileSync(filePath, content, 'utf8');
+    written.push(toPosixPath(filePath));
+  }
+  return written;
+}

@@ -75,14 +75,14 @@ describe('paqad-hooks command builders (issue #566)', () => {
     // SubagentStop is appended last, after Stop, matching the full event order.
     expect(distinctEvents(chain).at(-1)).toBe('SubagentStop');
     const subagent = chain.find((hook) => hook.nativeEvent === 'SubagentStop');
-    expect(subagent?.matcher).toBe('^paqad-');
+    expect(subagent?.matcher).toBe('^(paqad:)?paqad-');
     expect(subagent?.command).toContain('stage-agent-completion.mjs');
   });
 
   it('the Codex chain gets the same SubagentStop matcher and host argv', () => {
     const chain = buildHostHookChain('codex-cli', ENV);
     const subagent = chain.find((hook) => hook.nativeEvent === 'SubagentStop');
-    expect(subagent?.matcher).toBe('^paqad-');
+    expect(subagent?.matcher).toBe('^(paqad:)?paqad-');
     expect(subagent?.command).toContain('stage-agent-completion.mjs');
     expect(subagent?.command).toMatch(/ codex-cli$/);
   });
