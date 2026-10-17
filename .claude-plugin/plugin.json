@@ -1,0 +1,17 @@
+{
+  "name": "paqad",
+  "description": "Your team's rules, enforced at edit time, with evidence for every change.",
+  "version": "1.95.1",
+  "author": {
+    "name": "Eliyce"
+  },
+  "hooks": "./runtime/claude-plugin/hooks.json",
+  "agents": [
+    "./runtime/claude-plugin/agents/paqad-planning.md",
+    "./runtime/claude-plugin/agents/paqad-specification.md",
+    "./runtime/claude-plugin/agents/paqad-development.md",
+    "./runtime/claude-plugin/agents/paqad-review.md",
+    "./runtime/claude-plugin/agents/paqad-checks.md",
+    "./runtime/claude-plugin/agents/paqad-documentation-sync.md"
+  ]
+}

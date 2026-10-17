@@ -71,12 +71,18 @@ describe('plugin manifest-build generators (issue #616)', () => {
     expect(Object.keys(parsed.hooks)).toContain('PreToolUse');
   });
 
-  it('builds a manifest whose version comes from package.json', () => {
+  it('builds a manifest whose version comes from package.json, in the schema Claude Code accepts', () => {
     const manifest = buildPluginManifest('9.9.9');
     expect(manifest.name).toBe('paqad');
     expect(manifest.version).toBe('9.9.9');
     expect(manifest.hooks).toBe('./runtime/claude-plugin/hooks.json');
-    expect(manifest.agents).toBe('./runtime/claude-plugin/agents/');
+    // agents is an array of .md file paths (a dir string is rejected by the plugin schema).
+    expect(Array.isArray(manifest.agents)).toBe(true);
+    expect(manifest.agents).toHaveLength(6);
+    expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-development.md');
+    // displayName is an unrecognized key — it must NOT be present.
+    expect(manifest).not.toHaveProperty('displayName');
+    expect(manifest.author).toEqual({ name: 'Eliyce' });
   });
 
   it('renders the six Claude stage agents from the shared template', () => {

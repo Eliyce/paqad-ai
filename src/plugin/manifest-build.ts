@@ -25,15 +25,29 @@ export function serializePluginHooksJson(): string {
   return `${JSON.stringify(buildPluginHooksConfig(), null, 2)}\n`;
 }
 
-/** The committed plugin manifest, with `version` taken from `package.json` (Part 1). */
+/**
+ * The relative paths of the plugin's bundled agent files, in stage order. Claude Code's plugin
+ * schema wants `agents` as an array of individual `.md` file paths, not a directory (verified
+ * against `claude plugin validate`), so this derives the list from the same stage-agent set the
+ * files are generated from.
+ */
+export function pluginAgentPaths(): string[] {
+  return renderClaudePluginStageAgents().map((agent) => `./runtime/claude-plugin/agents/${agent.name}`);
+}
+
+/**
+ * The committed plugin manifest, with `version` taken from `package.json` (Part 1). The shape is
+ * what the installed Claude Code schema accepts: no `displayName` (an unrecognized key), `agents` as
+ * an array of file paths, and `author` for attribution.
+ */
 export function buildPluginManifest(packageVersion: string): Record<string, unknown> {
   return {
     name: 'paqad',
-    displayName: 'paqad',
     description: "Your team's rules, enforced at edit time, with evidence for every change.",
     version: packageVersion,
+    author: { name: 'Eliyce' },
     hooks: './runtime/claude-plugin/hooks.json',
-    agents: './runtime/claude-plugin/agents/',
+    agents: pluginAgentPaths(),
   };
 }
 
