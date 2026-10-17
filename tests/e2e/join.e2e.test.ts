@@ -65,6 +65,10 @@ function seedTrackedOnboarding(root: string): void {
   write(join(root, 'docs/instructions/rules/constitution.md'), '# Constitution\n\n- Safe.\n');
   write(join(root, '.gitignore'), '.codex/cache.json\n.codex/memory.json\n');
   write(join(root, 'AGENTS.md'), 'tracked agent entry\n');
+  // Issue #615 (Part 1) — onboarding now writes a repo-root `.worktreeinclude` carrying
+  // `.paqad/.config`, so a realistically onboarded repo has it committed. With it present, join's
+  // idempotent writeWorktreeInclude is a no-op, keeping join's zero-tracked-writes contract.
+  write(join(root, '.worktreeinclude'), '.paqad/.config\n');
 }
 
 describe('paqad-ai join — cloned project', () => {
