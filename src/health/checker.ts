@@ -10,6 +10,7 @@ import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js'
 import { visualEvidenceReadiness } from '@/visual-evidence/readiness.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { getSecretPermissionWarning } from '@/rag/secrets.js';
+import { describeFrameworkLink } from '@/health/plugin-install.js';
 import { RagService } from '@/rag/service.js';
 import { FileVectorIndex } from '@/rag/vector-index.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
@@ -67,6 +68,7 @@ export class HealthChecker {
       this.checkTestRunnerParallel(profile),
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
+      this.checkFrameworkInstall(),
       this.checkBrokenScaffold(projectRoot),
       this.checkUiDocs(projectRoot, modules),
       this.checkApiDocs(projectRoot, modules),
@@ -723,6 +725,38 @@ export class HealthChecker {
           'Reinstall the framework to a stable user-level path and re-run onboarding.',
         )
       : pass('Stable framework paths only', 'Framework path is stable');
+  }
+
+  /**
+   * Report what the `~/.paqad-ai/current` framework link resolves to (issue #616, Part 4.6): which
+   * copy (npm or plugin) and its version. A missing link or a dangling target is a warning, not a
+   * fault — a Claude Code plugin re-points it at the next session start, and an npm reinstall fixes
+   * the npm case; either way doctor names the fix instead of reading broken.
+   */
+  private checkFrameworkInstall(): HealthCheckResult {
+    const name = 'Framework install';
+    const info = describeFrameworkLink();
+
+    if (info.copy === 'directory') {
+      return pass(name, `Framework home is a directory at ${info.home}.`);
+    }
+    if (info.linkTarget === null) {
+      return warn(
+        name,
+        `Framework link ${info.home} is missing.`,
+        'Reinstall paqad-ai (`npm i -g paqad-ai`), or start a Claude Code session with the plugin installed, to re-point it.',
+      );
+    }
+    if (!info.targetExists) {
+      return warn(
+        name,
+        `Framework link ${info.home} points at a missing target (${info.linkTarget}).`,
+        'Start a Claude Code session with the paqad plugin installed, or reinstall paqad-ai, to re-point the link.',
+      );
+    }
+    const version = info.version ?? 'unknown';
+    const copyLabel = info.copy === 'unknown' ? 'framework' : info.copy;
+    return pass(name, `Framework link points at the ${copyLabel} copy (v${version}) at ${info.linkTarget}.`);
   }
 
   private checkBrokenScaffold(projectRoot: string): HealthCheckResult {

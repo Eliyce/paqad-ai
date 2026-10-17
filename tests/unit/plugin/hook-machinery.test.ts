@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
 
 import {
   PLUGIN_RUNTIME_ROOT,
@@ -12,6 +16,7 @@ import {
   renderClaudePluginStageAgents,
   serializePluginHooksJson,
 } from '@/plugin/manifest-build.js';
+import { writeClaudePluginStageAgents } from '@/stage-isolation/agent-writer.js';
 
 // Issue #616, Part 3 — the Claude Code plugin renders the live hook chain against
 // `${CLAUDE_PLUGIN_ROOT}/runtime`, prepends its own SessionStart bootstrap, drops silent-update,
@@ -89,5 +94,23 @@ describe('plugin manifest-build generators (issue #616)', () => {
       expect(agent.content).toContain('name:');
       expect(agent.content.length).toBeGreaterThan(0);
     }
+  });
+
+  describe('writeClaudePluginStageAgents', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'paqad-plugin-agents-'));
+    afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+    it('writes the six stage-agent files into the destination dir', () => {
+      const written = writeClaudePluginStageAgents(dir);
+      expect(written).toHaveLength(6);
+      expect(readdirSync(dir).sort()).toEqual([
+        'paqad-checks.md',
+        'paqad-development.md',
+        'paqad-documentation-sync.md',
+        'paqad-planning.md',
+        'paqad-review.md',
+        'paqad-specification.md',
+      ]);
+    });
   });
 });

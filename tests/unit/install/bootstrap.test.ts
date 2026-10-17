@@ -12,7 +12,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { bootstrapFramework, bootstrapFrameworkHome } from '@/install/bootstrap';
+import { bootstrapFramework, bootstrapFrameworkHome, frameworkSymlinkType } from '@/install/bootstrap';
 import { getRuntimeRoot } from '@/core/runtime-paths';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema';
 import { clearEngineLogger, engineLog, getConsumerLogger } from '@/core/logger-registry';
@@ -244,5 +244,20 @@ describe('bootstrapFramework', () => {
       expect(existsSync(join(projectRoot, '.claude'))).toBe(false);
       expect(existsSync(join(projectRoot, '.codex'))).toBe(false);
     });
+  });
+});
+
+describe('frameworkSymlinkType (issue #616, Part 4)', () => {
+  const original = process.platform;
+  const setPlatform = (value: string) =>
+    Object.defineProperty(process, 'platform', { value, configurable: true });
+
+  afterEach(() => setPlatform(original));
+
+  it('is a junction on Windows and the default elsewhere', () => {
+    setPlatform('win32');
+    expect(frameworkSymlinkType()).toBe('junction');
+    setPlatform('darwin');
+    expect(frameworkSymlinkType()).toBeUndefined();
   });
 });

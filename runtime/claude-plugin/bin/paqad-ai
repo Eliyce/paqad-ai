@@ -1,0 +1,8 @@
+#!/bin/sh
+# The `paqad-ai` command the Claude Code plugin carries (issue #616, Part 5), so hooks and CLI
+# calls inside Claude Code run the plugin's own dist rather than re-downloading via npx. Lives under
+# runtime/ (never a top-level bin/, which claude.ai org sharing and Cowork reject). plugin-session-
+# start.mjs prepends this directory to Claude's shell PATH. Resolves dist relative to this file:
+# runtime/claude-plugin/bin -> ../../../dist = the package root's dist.
+d=$(cd "$(dirname "$0")" && pwd -P)
+exec node "$d/../../../dist/cli/index.js" "$@"
