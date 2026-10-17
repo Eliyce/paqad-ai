@@ -16,8 +16,8 @@
 // Deliberately dist-less and dependency-free (a raw read, no parser import) so a
 // disabled-and-uninstalled project can still evaluate its own toggle.
 
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 
 /** PAQAD_DISABLED values that mean "off" — identical to the .sh/.ts primitives. */
 const ENV_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
@@ -30,8 +30,63 @@ export function isEnvDisabled(env = process.env) {
   return typeof raw === 'string' && ENV_TRUTHY.has(raw.trim().toLowerCase());
 }
 
-/** Resolve the project root the host is operating on (env-driven, cwd fallback). */
-export function resolveProjectRoot(env = process.env) {
+/**
+ * Best-effort parse of a hook's raw stdin payload into an object, or `undefined`.
+ * `resolveProjectRoot` reads `payload.cwd` from it (issue #615, Part 1); every other
+ * field is ignored here. A missing, empty, or malformed payload yields `undefined`, so a
+ * call site that threads it keeps today's behavior when the host sends nothing readable.
+ */
+export function parseHookPayload(input) {
+  if (typeof input !== 'string' || input.trim() === '') {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(input);
+    return parsed && typeof parsed === 'object' ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Walk up from `startDir` to the first directory that contains a `.paqad/` directory,
+ * returning that directory, or `undefined` when none is found before the filesystem root.
+ */
+export function findProjectRootFromCwd(startDir) {
+  let dir = startDir;
+  // Bounded by the filesystem root: dirname('/') === '/', so the loop terminates.
+  for (;;) {
+    try {
+      if (statSync(join(dir, '.paqad')).isDirectory()) {
+        return dir;
+      }
+    } catch {
+      // No `.paqad/` here (or an unreadable entry) — keep walking up.
+    }
+    const parent = dirname(dir);
+    if (parent === dir) {
+      return undefined;
+    }
+    dir = parent;
+  }
+}
+
+/**
+ * Resolve the project root the host is operating on. In a worktree session Claude Code
+ * sets `CLAUDE_PROJECT_DIR` to the MAIN checkout and only the hook payload's `cwd` holds
+ * the worktree path (issue #615, Part 1), so when `payload.cwd` is a non-empty string we
+ * walk up from it to the nearest `.paqad/` and use that. Otherwise — and when the walk
+ * finds nothing — we fall back to the env-driven resolution, then `process.cwd()`, exactly
+ * as before. A call site with no payload keeps today's behavior.
+ */
+export function resolveProjectRoot(env = process.env, payload = undefined) {
+  const cwd = payload && typeof payload.cwd === 'string' ? payload.cwd.trim() : '';
+  if (cwd) {
+    const found = findProjectRootFromCwd(cwd);
+    if (found) {
+      return found;
+    }
+  }
   return env.CLAUDE_PROJECT_DIR || env.PAQAD_PROJECT_ROOT || process.cwd();
 }
 

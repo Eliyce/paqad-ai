@@ -44,7 +44,12 @@ import {
 import { entryFile, sentinelRelative, sentinelState } from './lib/agent-entry-sentinel.mjs';
 import { emitContext, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { logHookFailure } from './lib/hook-log.mjs';
-import { isPaqadDisabled, readLayeredKey, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  isPaqadDisabled,
+  parseHookPayload,
+  readLayeredKey,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -165,7 +170,7 @@ async function emitRoute(stdin, projectRoot, sink) {
 }
 
 async function main(stdin) {
-  const projectRoot = resolveProjectRoot();
+  const projectRoot = resolveProjectRoot(process.env, parseHookPayload(stdin));
 
   // Issue #220 — when paqad is disabled, the gate is a pure no-op. This MUST
   // short-circuit before any stdout: an injected `[paqad]`/`[paqad-context]` line

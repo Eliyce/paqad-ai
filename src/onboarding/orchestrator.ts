@@ -59,6 +59,7 @@ import { type EntryStub, wireEntryStubs } from './entry-stub-writer.js';
 import { planGeneratedFiles, writeGeneratedFiles } from './file-writer.js';
 import { removeObsoleteContractDocs } from './obsolete-cleanup.js';
 import { writeGitignore } from './gitignore-writer.js';
+import { writeWorktreeInclude } from './worktree-include-writer.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import {
@@ -323,6 +324,9 @@ export class OnboardingOrchestrator {
         );
       }
       writeGitignore(options.projectRoot);
+      // Issue #615 (Part 1) — ensure `.paqad/.config` follows into new git worktrees so a
+      // worktree session keeps the dev-local config. Idempotent; preserves the user's own lines.
+      writeWorktreeInclude(options.projectRoot);
       // Issue #339 — install the native git-linkage hooks (post-commit/post-merge) so a
       // feature's delivery.json gets its commit trail on every clone. Chains an existing
       // hook, is idempotent, and no-ops on a non-git dir — safe to run every onboarding.

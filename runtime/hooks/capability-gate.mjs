@@ -26,7 +26,12 @@ import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
 import { editTargets } from './lib/edit-targets.mjs';
-import { isPaqadDisabled, readFlooredMode, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  isPaqadDisabled,
+  parseHookPayload,
+  readFlooredMode,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 
 // Mirrors PATHS.RULE_SCRIPT_MAP — kept in sync by hand (runtime mjs has no dist).
@@ -111,7 +116,7 @@ function parsePayload(input) {
 
 export async function main(input, seam = SEAM) {
   try {
-    const projectRoot = resolveProjectRoot();
+    const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
     if (isPaqadDisabled(projectRoot)) return 0;
     if (!seamHasWork(projectRoot, seam)) return 0;
 

@@ -16,7 +16,7 @@ import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import process from 'node:process';
 
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 /** Ids of the pending decision packets (D-*.json) under .paqad/decisions/pending. */
 function pendingPacketIds(projectRoot) {
@@ -29,8 +29,10 @@ function pendingPacketIds(projectRoot) {
   }
 }
 
-function main() {
-  const projectRoot = resolveProjectRoot();
+export function main(input) {
+  // Issue #615 (Part 1) — resolve the worktree root from the PreToolUse payload's cwd
+  // so a worktree session reads the worktree's pending packets, not the main checkout's.
+  const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block on a pending packet, write nothing.
@@ -54,4 +56,17 @@ function main() {
   return 2;
 }
 
-process.exit(main());
+// Drain stdin (the host pipes the PreToolUse payload; its `cwd` locates the worktree,
+// issue #615 Part 1) then gate. If stdin is already closed (no pipe), `end` may not fire —
+// guard with resume so the process never hangs.
+let input = '';
+process.stdin.on('data', (chunk) => {
+  input += chunk;
+});
+process.stdin.on('end', () => {
+  process.exit(main(input));
+});
+process.stdin.on('error', () => {
+  process.exit(main(input));
+});
+process.stdin.resume();

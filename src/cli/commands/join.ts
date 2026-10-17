@@ -39,6 +39,7 @@ import {
   writeDetectionReport,
   writeFrameworkVersionPreservingTimestamp,
 } from '@/onboarding/manifest-writer.js';
+import { writeWorktreeInclude } from '@/onboarding/worktree-include-writer.js';
 import { compileRules, writeCompiledRules } from '@/planning/index.js';
 import { RagService } from '@/rag/service.js';
 import { Resolver } from '@/resolver/resolver.js';
@@ -111,6 +112,12 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
   const providers = deriveRecordedProviders(manifest);
   await recreateLocalArtifacts(projectRoot, profile, providers);
   await regenerateMachineArtifacts(projectRoot);
+
+  // Issue #615 (Part 1) — ensure the repo-root `.worktreeinclude` lists `.paqad/.config` so
+  // the dev-local config follows into new git worktrees. Idempotent: when onboarding already
+  // committed the line (the normal case for a joined repo) this is a no-op, so join's
+  // "no tracked files changed" contract holds; it only writes to repair a missing line.
+  writeWorktreeInclude(projectRoot);
 
   if (options.rag !== false) {
     const shouldContinue = await joinRag(projectRoot, options);

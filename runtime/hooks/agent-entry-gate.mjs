@@ -31,7 +31,7 @@ import {
   stampSessionSentinel,
 } from './lib/agent-entry-sentinel.mjs';
 import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 /** True when the pending tool call writes the agent-entry sentinel itself. The
  *  bootstrap's final step IS a Write of `.paqad/.agent-entry-loaded` — gating it
@@ -65,7 +65,7 @@ export function isSentinelWrite(input) {
 }
 
 export function main(input) {
-  const projectRoot = resolveProjectRoot();
+  const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block, write nothing. Disabled converges with a missing

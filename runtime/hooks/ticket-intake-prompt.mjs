@@ -14,10 +14,10 @@
 import process from 'node:process';
 
 import { logHookFailure } from './lib/hook-log.mjs';
-import { isPaqadDisabled, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import { isPaqadDisabled, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 
 async function main(rawInput) {
-  const projectRoot = resolveProjectRoot();
+  const projectRoot = resolveProjectRoot(process.env, parseHookPayload(rawInput));
   // Disabled → pure no-op (no stdout), so an OFF A/B arm is never contaminated.
   if (isPaqadDisabled(projectRoot)) return 0;
 
