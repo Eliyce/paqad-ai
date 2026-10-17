@@ -6,6 +6,8 @@
 // (declared external in tsup.config.ts); when it is unavailable we fall back to
 // the character/4 heuristic and report a `tokenizer_version` of `"heuristic"`.
 
+import { loadOptionalPackage } from '@/core/optional-package.js';
+
 /** Sentinel version reported when the native tokenizer could not be loaded. */
 export const HEURISTIC_TOKENIZER_VERSION = 'heuristic';
 
@@ -42,8 +44,9 @@ function heuristicTokenizer(): LoadedTokenizer {
 
 async function loadTokenizer(version: string): Promise<LoadedTokenizer> {
   try {
-    const { AutoTokenizer } =
-      (await import('@huggingface/transformers')) as unknown as AutoTokenizerModule;
+    const { AutoTokenizer } = await loadOptionalPackage<AutoTokenizerModule>(
+      '@huggingface/transformers',
+    );
     const native = await AutoTokenizer.from_pretrained(version);
     return {
       tokenizer_version: version,

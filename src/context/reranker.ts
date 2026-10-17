@@ -1,3 +1,5 @@
+import { loadOptionalPackage } from '@/core/optional-package.js';
+
 import type { Chunk } from './types.js';
 
 export interface RerankResult {
@@ -62,13 +64,13 @@ export class LocalReranker implements Reranker {
   }
 
   private async loadPipeline(): Promise<CrossEncoderPipeline> {
-    const { pipeline } = (await import('@huggingface/transformers')) as {
+    const { pipeline } = await loadOptionalPackage<{
       pipeline: (
         task: string,
         model: string,
         options?: { dtype?: 'q8' },
       ) => Promise<CrossEncoderPipeline>;
-    };
+    }>('@huggingface/transformers');
     // Pin q8 so the quantized cross-encoder loads as under the @xenova v2
     // default (@huggingface v3+ otherwise defaults to fp32).
     return pipeline('text-classification', this.model, { dtype: 'q8' });
