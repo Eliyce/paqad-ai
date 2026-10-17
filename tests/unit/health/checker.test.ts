@@ -1,8 +1,10 @@
 import {
   chmodSync,
   existsSync,
+  lstatSync,
   mkdirSync,
   rmSync,
+  symlinkSync,
   readFileSync,
   unlinkSync,
   utimesSync,
@@ -962,5 +964,52 @@ describe('HealthChecker', () => {
   it('passes the schema version check when no marker is present', async () => {
     const report = await new HealthChecker().run(projectRoot);
     expect(report.checks.find((c) => c.name === 'Schema version')?.status).toBe('pass');
+  });
+});
+
+describe('doctor framework-link repair (issue #636 bug 3)', () => {
+  const CMD = 'ln -sfn "$(npm root -g)/paqad-ai/runtime" ~/.paqad-ai/current';
+  let saved: string | undefined;
+  let link: string;
+
+  beforeEach(() => {
+    saved = process.env.PAQAD_FRAMEWORK_HOME;
+    link = join(tmpdir(), `paqad-dangling-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  });
+  afterEach(() => {
+    try {
+      if (lstatSync(link)) rmSync(link, { force: true });
+    } catch {
+      /* not created */
+    }
+    if (saved === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
+    else process.env.PAQAD_FRAMEWORK_HOME = saved;
+  });
+
+  it('warns and prints the exact repair command for a DANGLING framework link', async () => {
+    symlinkSync(join(tmpdir(), 'paqad-gone-target-does-not-exist'), link);
+    process.env.PAQAD_FRAMEWORK_HOME = link;
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-doctor-'));
+    try {
+      const report = await new HealthChecker().run(projectRoot);
+      const check = report.checks.find((c) => c.name === 'Framework install');
+      expect(check?.status).toBe('warning');
+      expect(check?.remediation).toContain(CMD);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('prints the exact repair command for a MISSING framework link too', async () => {
+    process.env.PAQAD_FRAMEWORK_HOME = join(tmpdir(), `paqad-missing-${Date.now()}`);
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-doctor-'));
+    try {
+      const report = await new HealthChecker().run(projectRoot);
+      const check = report.checks.find((c) => c.name === 'Framework install');
+      expect(check?.status).toBe('warning');
+      expect(check?.remediation).toContain(CMD);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
   });
 });

@@ -32,10 +32,12 @@ import { delimiter, dirname, join } from 'node:path';
 
 import {
   isPluginActiveForSession,
+  isProjectOnboarded,
   parseHookPayload,
   resolveProjectRoot,
   writePluginActiveMarker,
 } from './lib/paqad-disabled.mjs';
+import { isDirectEntry } from './lib/direct-entry.mjs';
 
 /** The framework link every project's `.paqad/framework-path.txt` resolves to. */
 function frameworkHome(env = process.env) {
@@ -90,11 +92,63 @@ function linkTarget(path) {
   }
 }
 
+/** True when a resolved runtime path belongs to an npm install (lives under a node_modules tree). */
+function isNpmRuntime(target) {
+  return typeof target === 'string' && target.includes('node_modules');
+}
+
+/** True when a resolved runtime path belongs to a Claude Code plugin cache (lives under …/plugins/…). */
+function isPluginCacheRuntime(target) {
+  return (
+    typeof target === 'string' && (target.includes('/plugins/') || target.includes('\\plugins\\'))
+  );
+}
+
 /**
- * Part 4 — re-point `~/.paqad-ai/current` at the plugin's runtime when the link is missing, its
- * target is gone, or the npm copy it points at is older than the plugin. A link already pointing at
- * the plugin runtime, or at a newer npm copy, is left alone so other tools keep their copy. A real
- * directory at the path is never replaced.
+ * The stable, version-independent location the plugin keeps pointing at its current runtime, or null
+ * when CLAUDE_PLUGIN_DATA is unset (then the shared link falls back to the cache runtime directly).
+ */
+function stableRuntimeHome(env = process.env) {
+  const data = env.CLAUDE_PLUGIN_DATA;
+  return typeof data === 'string' && data.length > 0 ? join(data, 'runtime') : null;
+}
+
+/**
+ * Issue #636 (bug 3) — keep a stable plugin-owned link (`${CLAUDE_PLUGIN_DATA}/runtime` -> the
+ * current plugin runtime) so the shared framework link can point at a path that does not change as
+ * Claude Code churns the version-specific cache folder. Returns the stable path to point at, or the
+ * plugin runtime itself when no plugin-data dir is available. Best-effort; never throws.
+ */
+function ensureStablePluginRuntime(pluginRuntime, env = process.env) {
+  const stable = stableRuntimeHome(env);
+  if (!stable) {
+    return pluginRuntime;
+  }
+  try {
+    if (linkTarget(stable) === pluginRuntime) {
+      return stable; // already current
+    }
+    const st = lstatSafe(stable);
+    if (st && st.isDirectory() && !st.isSymbolicLink()) {
+      return stable; // a real directory placed here — leave it and point at it
+    }
+    mkdirSync(dirname(stable), { recursive: true });
+    rmSync(stable, { force: true, recursive: false });
+    symlinkSync(pluginRuntime, stable, symlinkType());
+    return stable;
+  } catch {
+    return pluginRuntime; // fail open to pointing at the cache runtime directly
+  }
+}
+
+/**
+ * Part 4 — keep `~/.paqad-ai/current` pointing at a copy that EXISTS, without dangling when the
+ * version-specific plugin cache folder is later removed (issue #636, bug 3). The plugin NEVER takes
+ * over a link that resolves to a working npm install — that copy keeps serving every host (Codex,
+ * Gemini, Cursor), so an uninstalled/cleaned plugin cache can no longer break npm-onboarded projects.
+ * When the plugin DOES fill a missing or dangling link (or refreshes its own earlier cache takeover),
+ * it points at a stable plugin-owned location that survives cache version churn. A real directory at
+ * the path is never replaced.
  */
 function repointFrameworkLink(pluginRuntime, env = process.env) {
   const home = frameworkHome(env);
@@ -104,29 +158,35 @@ function repointFrameworkLink(pluginRuntime, env = process.env) {
     return; // a real directory — never replace it (matches bootstrap.ts)
   }
 
+  const stable = ensureStablePluginRuntime(pluginRuntime, env);
+
   if (stat && stat.isSymbolicLink()) {
     const target = linkTarget(home);
     if (target) {
-      if (target === pluginRuntime) {
-        return; // already the plugin runtime
+      if (target === stable) {
+        return; // already pointing at our stable location
       }
       const targetStat = lstatSafe(target);
       if (targetStat) {
-        // Target exists: only take over from an OLDER npm copy; leave a newer one serving others.
-        const npmVersion = readPackageVersion(dirname(target));
-        const pluginVersion = readPackageVersion(dirname(pluginRuntime));
-        if (npmVersion && pluginVersion && compareVersions(npmVersion, pluginVersion) >= 0) {
+        // The target resolves to a working copy. NEVER take over a working npm install (bug 3): it
+        // keeps serving every host. Leave an unknown working directory alone too, conservatively;
+        // only a working plugin-cache target (an earlier takeover) or the plugin runtime itself is
+        // refreshed to the stable location below.
+        if (isNpmRuntime(target)) {
+          return;
+        }
+        if (!isPluginCacheRuntime(target) && target !== pluginRuntime) {
           return;
         }
       }
-      // else: dangling link → fall through and re-point.
+      // else: dangling link (target gone) → fall through and re-point to the stable location.
     }
   }
 
   try {
     mkdirSync(dirname(home), { recursive: true });
     rmSync(home, { force: true, recursive: false });
-    symlinkSync(pluginRuntime, home, symlinkType());
+    symlinkSync(stable, home, symlinkType());
   } catch {
     /* fail open — a failed re-point must not wedge the session */
   }
@@ -338,12 +398,23 @@ export function runPluginSessionStart(env = process.env, payload = undefined) {
     return; // not running as a plugin (e.g. imported by a test without the env set)
   }
   const pluginRuntime = join(pluginRoot, 'runtime');
-  // Part 4 — always safe (only re-points a missing/dangling/older link).
+  // Part 4 — keep the shared framework link pointing at a copy that exists. Global work (no
+  // <project>/.paqad/ write), so it runs in every repo (onboarded or not).
   repointFrameworkLink(pluginRuntime, env);
 
-  // Part 7 — the one-copy handshake. Stay passive only when THIS session is not already claimed
-  // AND a live npm copy is still wired to run its own hooks; otherwise the plugin claims the
-  // session (INV-4 fails safe to active). A claimed session re-runs the idempotent cleanup.
+  // Issue #636 (bug 1) — the plugin installs at USER scope and runs in EVERY repo. In a project that
+  // was never onboarded, do no per-project work: write no <project>/.paqad/ marker and run no
+  // refresh. Part 5 (put the plugin's paqad-ai on PATH) is global and still runs, so /paqad:onboard
+  // can bootstrap a fresh repo.
+  const projectRoot = resolveProjectRoot(env, payload);
+  if (!isProjectOnboarded(projectRoot)) {
+    ensureBinOnPath(pluginRuntime, env); // Part 5 (global)
+    return;
+  }
+
+  // Part 7 — the one-copy handshake (onboarded projects only). Stay passive only when THIS session is
+  // not already claimed AND a live npm copy is still wired to run its own hooks; otherwise the plugin
+  // claims the session (INV-4 fails safe to active). A claimed session re-runs the idempotent cleanup.
   if (!isPluginActiveForSession(payload, env) && hasLiveNpmHookLines(claudeSettingsPath(env))) {
     return;
   }
@@ -351,7 +422,7 @@ export function runPluginSessionStart(env = process.env, payload = undefined) {
   ensureBinOnPath(pluginRuntime, env); // Part 5
   removeDeadNpmHookLines(claudeSettingsPath(env));
   removeHomeStageAgents(claudeAgentsDir(env));
-  maybeRefreshVersion(pluginRoot, resolveProjectRoot(env, payload)); // Part 9
+  maybeRefreshVersion(pluginRoot, projectRoot); // Part 9
 }
 
 // Exported for unit tests; the internal helpers are re-exported so each branch is testable without
@@ -360,6 +431,10 @@ export const __test = {
   compareVersions,
   readPackageVersion,
   repointFrameworkLink,
+  ensureStablePluginRuntime,
+  stableRuntimeHome,
+  isNpmRuntime,
+  isPluginCacheRuntime,
   ensureBinOnPath,
   frameworkHome,
   symlinkType,
@@ -374,7 +449,7 @@ export const __test = {
 };
 
 // Run when invoked as the hook entry (not when imported by a test).
-if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {
+if (isDirectEntry(import.meta.url)) {
   try {
     let payload;
     try {
