@@ -1,0 +1,27 @@
+{
+  "id": "D-01M55AZSY796ZZZ6Z7G0FH5EN6",
+  "category": "architecture-path",
+  "title": "Bug 3: when may the plugin take over the shared ~/.paqad-ai/current link?",
+  "context": "The plugin's SessionStart currently re-points the shared link at its version-specific cache runtime whenever the link is missing, dangling, or points at an OLDER npm copy. Removing that cache (uninstall/cleanup) then dangles the link and blocks edits in every npm-onboarded project (also Codex/Gemini). The link is shared across hosts.",
+  "options": [
+    {
+      "option_key": "fill_only",
+      "label": "Only fill a missing or dangling link; never take over a link that resolves to a working npm install (npm keeps owning when present)"
+    },
+    {
+      "option_key": "fill_plus_stable",
+      "label": "fill_only PLUS, when the plugin must fill, point at a stable plugin-owned location that survives cache version churn (not the version-specific cache)"
+    },
+    {
+      "option_key": "keep_current",
+      "label": "Keep today's behaviour (take over an older npm copy / cache)"
+    }
+  ],
+  "recommendation": "fill_plus_stable",
+  "created_at": "2026-10-17T16:26:44.552Z",
+  "status": "resolved",
+  "change": "01M55ANFC6ZP69HHQFVS3H88Y0",
+  "chosen": "fill_plus_stable",
+  "rationale": "Owner chose fill-only + a stable plugin-owned location under CLAUDE_PLUGIN_DATA; never take over a working npm install",
+  "resolved_at": "2026-10-17T16:28:46.803Z"
+}

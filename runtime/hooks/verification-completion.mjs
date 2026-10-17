@@ -19,7 +19,11 @@
 import process from 'node:process';
 
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
-import { parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  parseHookPayload,
+  pluginStandsDownUnonboarded,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
@@ -47,6 +51,13 @@ async function main() {
   // Stop hooks. Raw process.cwd() missed the disable flag stored in the project's .paqad/.config
   // whenever the host launched the hook from a subdirectory.
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
+
+  // Issue #636 (bug 1) — a plugin-reached completion hook in a project that was never onboarded is a
+  // pure no-op (the plugin installs at user scope and runs in every repo).
+  if (pluginStandsDownUnonboarded(parseHookPayload(input))) {
+    process.exit(0);
+    return;
+  }
 
   // Issue #615 (Part 4) — on Desktop/VS Code the orchestrator's turn can end while a dispatched
   // `paqad-<stage>` agent is still running in the background. Judging the change now would grade a

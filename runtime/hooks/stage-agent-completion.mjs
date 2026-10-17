@@ -19,6 +19,7 @@ import {
   isPaqadDisabled,
   npmHookStepsAside,
   parseHookPayload,
+  pluginStandsDownUnonboarded,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
@@ -30,7 +31,12 @@ const ADAPTER = process.argv[2] || 'claude-code';
 async function main(input) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) return 0;
+    if (
+      isPaqadDisabled(projectRoot) ||
+      npmHookStepsAside(parseHookPayload(input)) ||
+      pluginStandsDownUnonboarded(parseHookPayload(input))
+    )
+      return 0;
 
     let payload;
     try {

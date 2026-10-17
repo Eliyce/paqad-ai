@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -13,12 +14,14 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 // The hook keeps its logic in `__test` so each branch is exercised without touching the real home.
 import { __test, runPluginSessionStart } from '../../../runtime/hooks/plugin-session-start.mjs';
 
 const { compareVersions, readPackageVersion, repointFrameworkLink, ensureBinOnPath } = __test;
+const { ensureStablePluginRuntime, stableRuntimeHome, isNpmRuntime, isPluginCacheRuntime } = __test;
 
 let root: string;
 
@@ -77,18 +80,18 @@ describe('repointFrameworkLink (issue #616, Part 4)', () => {
     expect(readlinkSync(home)).toBe(pluginRuntime);
   });
 
-  it('takes over from an OLDER npm copy', () => {
+  it('leaves an OLDER npm copy in place — never takes over a working npm install (issue #636 bug 3)', () => {
     const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
-    const npmRuntime = makeRuntime(join(root, 'npm'), '1.0.0');
+    const npmRuntime = makeRuntime(join(root, 'npm', 'node_modules', 'paqad-ai'), '1.0.0');
     const home = join(root, 'current');
     symlinkSync(npmRuntime, home);
     repointFrameworkLink(pluginRuntime, env(home));
-    expect(readlinkSync(home)).toBe(pluginRuntime);
+    expect(readlinkSync(home)).toBe(npmRuntime);
   });
 
   it('leaves a NEWER npm copy in place', () => {
     const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
-    const npmRuntime = makeRuntime(join(root, 'npm'), '3.0.0');
+    const npmRuntime = makeRuntime(join(root, 'npm', 'node_modules', 'paqad-ai'), '3.0.0');
     const home = join(root, 'current');
     symlinkSync(npmRuntime, home);
     repointFrameworkLink(pluginRuntime, env(home));
@@ -226,6 +229,8 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     writeFileSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai'), '#!/bin/sh\n');
     const projectRoot = join(root, 'project');
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    // Issue #636 (bug 1) — the one-copy handshake and version refresh only run in an onboarded project.
+    writeFileSync(join(projectRoot, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
     const configDir = join(root, 'claude-config');
     mkdirSync(configDir, { recursive: true });
     return {
@@ -330,5 +335,173 @@ describe('version refresh (issue #616, Part 9)', () => {
     maybeRefreshVersion(pr, proj, { runUpdate: run, now: () => 1000 });
     expect(maybeRefreshVersion(pr, proj, { runUpdate: run, now: () => 2000 })).toBe('throttled');
     expect(run).toHaveBeenCalledOnce();
+  });
+});
+
+describe('stable link location + self-heal (issue #636 bug 3)', () => {
+  function env(home, data) {
+    return { PAQAD_FRAMEWORK_HOME: home, CLAUDE_PLUGIN_DATA: data } as NodeJS.ProcessEnv;
+  }
+
+  it('classifies npm vs plugin-cache runtimes', () => {
+    expect(isNpmRuntime('/x/node_modules/paqad-ai/runtime')).toBe(true);
+    expect(isNpmRuntime('/x/plugins/cache/eliyce/paqad/1.0.0/runtime')).toBe(false);
+    expect(isPluginCacheRuntime('/x/plugins/cache/eliyce/paqad/1.0.0/runtime')).toBe(true);
+    expect(isPluginCacheRuntime('/x/node_modules/paqad-ai/runtime')).toBe(false);
+  });
+
+  it('stableRuntimeHome is CLAUDE_PLUGIN_DATA/runtime, or null when unset', () => {
+    expect(stableRuntimeHome({ CLAUDE_PLUGIN_DATA: '/d' } as NodeJS.ProcessEnv)).toBe(
+      join('/d', 'runtime'),
+    );
+    expect(stableRuntimeHome({} as NodeJS.ProcessEnv)).toBeNull();
+  });
+
+  it('ensureStablePluginRuntime links CLAUDE_PLUGIN_DATA/runtime at the plugin runtime', () => {
+    const pluginRuntime = makeRuntime(join(root, 'plugin'), '1.0.0');
+    const data = join(root, 'data');
+    const stable = ensureStablePluginRuntime(pluginRuntime, { CLAUDE_PLUGIN_DATA: data });
+    expect(stable).toBe(join(data, 'runtime'));
+    expect(readlinkSync(stable)).toBe(pluginRuntime);
+  });
+
+  it('fills a MISSING link at the stable location (not the version-specific cache)', () => {
+    const pluginRuntime = makeRuntime(
+      join(root, 'plugins', 'cache', 'eliyce', 'paqad', '1.0.0'),
+      '1.0.0',
+    );
+    const home = join(root, 'current');
+    const data = join(root, 'data');
+    repointFrameworkLink(pluginRuntime, env(home, data));
+    expect(readlinkSync(home)).toBe(join(data, 'runtime'));
+    expect(readlinkSync(join(data, 'runtime'))).toBe(pluginRuntime);
+  });
+
+  it('self-heals after the plugin cache version is removed (link does not dangle)', () => {
+    const v1 = makeRuntime(join(root, 'plugins', 'cache', 'eliyce', 'paqad', '1.0.0'), '1.0.0');
+    const home = join(root, 'current');
+    const data = join(root, 'data');
+    repointFrameworkLink(v1, env(home, data));
+    expect(existsSync(home)).toBe(true);
+    // The cache version goes away (uninstall / cleanup).
+    rmSync(join(root, 'plugins', 'cache', 'eliyce', 'paqad', '1.0.0'), {
+      recursive: true,
+      force: true,
+    });
+    // A later plugin session on a new cache version re-points the stable link.
+    const v2 = makeRuntime(join(root, 'plugins', 'cache', 'eliyce', 'paqad', '1.1.0'), '1.1.0');
+    repointFrameworkLink(v2, env(home, data));
+    expect(existsSync(home)).toBe(true);
+    expect(readlinkSync(join(data, 'runtime'))).toBe(v2);
+  });
+});
+
+describe('runPluginSessionStart in a project that was never onboarded (issue #636 bug 1)', () => {
+  it('writes no <project>/.paqad/ marker but still runs global PATH setup', () => {
+    const pluginRoot = join(root, 'plugin');
+    mkdirSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin'), { recursive: true });
+    writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '2.0.0' }));
+    writeFileSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai'), '#!/bin/sh\n');
+    const projectRoot = join(root, 'pristine');
+    mkdirSync(projectRoot, { recursive: true }); // NO .paqad/ -> never onboarded
+    const envFile = join(root, 'env-file');
+    writeFileSync(envFile, '');
+    runPluginSessionStart(
+      {
+        CLAUDE_PLUGIN_ROOT: pluginRoot,
+        PAQAD_FRAMEWORK_HOME: join(root, 'current'),
+        CLAUDE_PROJECT_DIR: projectRoot,
+        CLAUDE_CONFIG_DIR: join(root, 'cfg'),
+        CLAUDE_ENV_FILE: envFile,
+      } as NodeJS.ProcessEnv,
+      { session_id: 'sNo', cwd: projectRoot },
+    );
+    // No per-project .paqad/ created at all.
+    expect(existsSync(join(projectRoot, '.paqad'))).toBe(false);
+    // But the global PATH line was written so /paqad:onboard can run.
+    expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
+  });
+});
+
+describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 2)', () => {
+  // The hook SCRIPT is the real repo file, reached through a symlink (and/or a path with a space) so
+  // process.argv[1] differs from the resolved import.meta.url — the exact case the raw guard missed,
+  // silently skipping the main block. CLAUDE_PLUGIN_ROOT points at a separate test plugin dir.
+  function onboardedPluginRoot(dir) {
+    const pluginRoot = join(dir, 'plugin');
+    mkdirSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin'), { recursive: true });
+    writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '2.0.0' }));
+    const launcher = join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai');
+    writeFileSync(launcher, '#!/bin/sh\n');
+    chmodSync(launcher, 0o644); // the npm tarball may drop the exec bit
+    const projectRoot = join(dir, 'project');
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
+    return { pluginRoot, projectRoot, launcher };
+  }
+
+  async function runFromScriptRoot(scriptRoot, dir) {
+    const { pluginRoot, projectRoot, launcher } = onboardedPluginRoot(dir);
+    const envFile = join(dir, 'env-file');
+    writeFileSync(envFile, '');
+    const result = await execa(
+      process.execPath,
+      [join(scriptRoot, 'runtime', 'hooks', 'plugin-session-start.mjs')],
+      {
+        reject: false,
+        input: JSON.stringify({
+          session_id: 'sEG',
+          cwd: projectRoot,
+          hook_event_name: 'SessionStart',
+          source: 'startup',
+        }),
+        env: {
+          ...process.env,
+          HOME: join(dir, 'home'),
+          USERPROFILE: join(dir, 'home'),
+          CLAUDE_PLUGIN_ROOT: pluginRoot,
+          PAQAD_FRAMEWORK_HOME: join(dir, 'current'),
+          CLAUDE_PROJECT_DIR: projectRoot,
+          CLAUDE_CONFIG_DIR: join(dir, 'cfg'),
+          CLAUDE_PLUGIN_DATA: join(dir, 'data'),
+          CLAUDE_ENV_FILE: envFile,
+        } as NodeJS.ProcessEnv,
+      },
+    );
+    return { result, envFile, launcher };
+  }
+
+  it('runs its main block through a SYMLINKED script path (PATH line + executable launcher)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'paqad-eg-sym-'));
+    try {
+      const link = join(dir, 'repo-link');
+      symlinkSync(process.cwd(), link); // run the real hook through a symlink to the repo
+      const { result, envFile, launcher } = await runFromScriptRoot(link, dir);
+      expect(result.exitCode).toBe(0);
+      expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
+      // POSIX only — ensureBinOnPath deliberately skips chmod on Windows (no exec bit there).
+      if (process.platform !== 'win32') {
+        expect(statSync(launcher).mode & 0o111).not.toBe(0);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('runs its main block through a script path containing a SPACE', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'paqad eg space-'));
+    try {
+      const link = join(dir, 'repo link'); // both the temp dir and the link name carry a space
+      symlinkSync(process.cwd(), link);
+      const { result, envFile, launcher } = await runFromScriptRoot(link, dir);
+      expect(result.exitCode).toBe(0);
+      expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
+      // POSIX only — ensureBinOnPath deliberately skips chmod on Windows (no exec bit there).
+      if (process.platform !== 'win32') {
+        expect(statSync(launcher).mode & 0o111).not.toBe(0);
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });

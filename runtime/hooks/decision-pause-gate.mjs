@@ -21,6 +21,7 @@ import {
   isPaqadDisabled,
   npmHookStepsAside,
   parseHookPayload,
+  pluginStandsDownUnonboarded,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 
@@ -42,7 +43,11 @@ function evaluateDecisionPauseGate(input) {
 
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block on a pending packet, write nothing.
-  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(input))) {
+  if (
+    isPaqadDisabled(projectRoot) ||
+    npmHookStepsAside(parseHookPayload(input)) ||
+    pluginStandsDownUnonboarded(parseHookPayload(input))
+  ) {
     return 0;
   }
 

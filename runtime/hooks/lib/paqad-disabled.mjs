@@ -109,6 +109,38 @@ export function isPaqadDisabled(projectRoot = resolveProjectRoot(), env = proces
   return resolved !== undefined && FALSY.has(resolved);
 }
 
+// ─── Plugin-only onboarding guard (issue #636, bug 1) ────────────────────────────────────────────
+//
+// `claude plugin install` defaults to USER scope, so the plugin's hooks run in EVERY Claude Code
+// session, in every repo — including repos that were never onboarded. The npm package never had this
+// problem: it wires its hooks into each onboarded project's own `.claude/settings.json`, so an
+// npm-reached hook (no CLAUDE_PLUGIN_ROOT) only ever runs inside an onboarded project. A plugin-
+// reached hook (CLAUDE_PLUGIN_ROOT set) must restore that boundary explicitly: in a project that was
+// never onboarded it is a pure no-op (never block, never write `.paqad/`). Onboarded-ness uses the
+// same signal the framework bootstrap resolves — `.paqad/framework-path.txt` at the project root.
+
+/** True when the project at `projectRoot` was onboarded (its `.paqad/framework-path.txt` exists). */
+export function isProjectOnboarded(projectRoot = resolveProjectRoot()) {
+  try {
+    return statSync(join(projectRoot, '.paqad', 'framework-path.txt')).isFile();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * True when a plugin-reached hook must stand down because the project was never onboarded. This is a
+ * plugin-only guard: an npm-reached hook (no CLAUDE_PLUGIN_ROOT) is left unchanged, because npm wires
+ * its hooks only into onboarded projects. When CLAUDE_PLUGIN_ROOT is set and the resolved project has
+ * no onboarding pointer, every plugin hook becomes a pure no-op (issue #636, bug 1).
+ */
+export function pluginStandsDownUnonboarded(payload = undefined, env = process.env) {
+  if (!env.CLAUDE_PLUGIN_ROOT) {
+    return false;
+  }
+  return !isProjectOnboarded(resolveProjectRoot(env, payload));
+}
+
 // ─── One-copy handshake (issue #616, Part 7) ────────────────────────────────────────────────────
 //
 // Inside Claude Code the plugin and a globally-installed npm copy can both be wired to run paqad's

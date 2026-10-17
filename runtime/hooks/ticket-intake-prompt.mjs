@@ -18,13 +18,19 @@ import {
   isPaqadDisabled,
   npmHookStepsAside,
   parseHookPayload,
+  pluginStandsDownUnonboarded,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 
 async function main(rawInput) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(rawInput));
   // Disabled → pure no-op (no stdout), so an OFF A/B arm is never contaminated.
-  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(parseHookPayload(rawInput))) return 0;
+  if (
+    isPaqadDisabled(projectRoot) ||
+    npmHookStepsAside(parseHookPayload(rawInput)) ||
+    pluginStandsDownUnonboarded(parseHookPayload(rawInput))
+  )
+    return 0;
 
   let payload;
   try {

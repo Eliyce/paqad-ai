@@ -1,0 +1,23 @@
+{
+  "id": "D-01M55AZVCG40Z7C1ABXNG8FN5Y",
+  "category": "architecture-path",
+  "title": "Bug 3: should npm-written hook commands fail OPEN when the hook script is missing?",
+  "context": "npm wires hooks as node \"~/.paqad-ai/current/hooks/<file>\" with onFailure:block. If the link dangles, every Edit/Write is blocked with MODULE_NOT_FOUND until repaired by hand. A fail-open guard (run only if the script exists) degrades a broken link to 'paqad off' instead of 'all edits blocked', trading the fail-closed guarantee for availability. doctor gains the exact repair command either way.",
+  "options": [
+    {
+      "option_key": "keep_fail_closed",
+      "label": "Keep fail-closed (onFailure:block); rely on the link-policy fix + doctor repair to prevent dangling. A dangling link still blocks all edits until repaired"
+    },
+    {
+      "option_key": "fail_open_guard",
+      "label": "Add a fail-open guard to npm hook commands so a missing script = paqad off (no block); broad change across Claude/Codex/Gemini command strings + tests"
+    }
+  ],
+  "recommendation": "keep_fail_closed",
+  "created_at": "2026-10-17T16:26:46.032Z",
+  "status": "resolved",
+  "change": "01M55ANFC6ZP69HHQFVS3H88Y0",
+  "chosen": "keep_fail_closed",
+  "rationale": "Owner keeps the fail-closed guarantee; rely on the link policy + doctor repair command; no cross-host hook-command change",
+  "resolved_at": "2026-10-17T16:28:48.308Z"
+}

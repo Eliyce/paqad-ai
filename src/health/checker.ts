@@ -748,14 +748,14 @@ export class HealthChecker {
       return warn(
         name,
         `Framework link ${info.home} is missing.`,
-        'Reinstall paqad-ai (`npm i -g paqad-ai`), or start a Claude Code session with the plugin installed, to re-point it.',
+        'Restore it with `ln -sfn "$(npm root -g)/paqad-ai/runtime" ~/.paqad-ai/current` (npm copy), or start a Claude Code session with the paqad plugin installed, to re-point it.',
       );
     }
     if (!info.targetExists) {
       return warn(
         name,
         `Framework link ${info.home} points at a missing target (${info.linkTarget}).`,
-        'Start a Claude Code session with the paqad plugin installed, or reinstall paqad-ai, to re-point the link.',
+        'Restore it with `ln -sfn "$(npm root -g)/paqad-ai/runtime" ~/.paqad-ai/current` (npm copy), or start a Claude Code session with the paqad plugin installed, to re-point the link.',
       );
     }
     const version = info.version ?? 'unknown';
