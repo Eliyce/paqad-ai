@@ -1,0 +1,22 @@
+---
+name: join
+description: Set up an already-onboarded paqad project on your own machine. Builds your local RAG index if the team uses one, and changes no tracked files. Use when you cloned a repo that already has a committed .paqad/ and you are not the lead.
+---
+
+# Join an onboarded paqad project
+
+The project is already onboarded (it has a committed `.paqad/`). This sets up only your machine.
+
+1. Run:
+
+   ```
+   paqad-ai join
+   ```
+
+2. If the team uses RAG, this builds your local index. It stays on your machine and is never committed. In a terminal it may confirm first; for a scripted run add `--non-interactive` to build without a prompt (or `--no-rag` to skip it).
+
+3. It writes no tracked files. When it reports it is ready, your machine is set up.
+
+Do not run `onboard` to join an existing project; that is the lead's command and it rewrites the team configuration.
+
+If `paqad-ai` is not found, use `npx paqad-ai` instead.

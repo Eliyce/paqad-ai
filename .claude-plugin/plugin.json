@@ -13,5 +13,6 @@
     "./runtime/claude-plugin/agents/paqad-review.md",
     "./runtime/claude-plugin/agents/paqad-checks.md",
     "./runtime/claude-plugin/agents/paqad-documentation-sync.md"
-  ]
+  ],
+  "skills": "./runtime/claude-plugin/skills"
 }

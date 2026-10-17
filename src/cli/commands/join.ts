@@ -68,6 +68,7 @@ export interface JoinProjectOptions {
   interactive?: boolean;
   rag?: boolean;
   yes?: boolean;
+  nonInteractive?: boolean;
 }
 
 export function createJoinCommand(): Command {
@@ -77,6 +78,10 @@ export function createJoinCommand(): Command {
     .option('--interactive', 'Opt in to prompts')
     .option('--no-rag', 'Skip the RAG step')
     .option('--yes', 'Accept the RAG build without confirming')
+    .option(
+      '--non-interactive',
+      'Never prompt; build the RAG index without confirming (exit 2 with missing --yes if --interactive is set with no TTY and no --yes)',
+    )
     .action(async (options: JoinProjectOptions) => joinProject(options));
 }
 
@@ -296,7 +301,7 @@ async function regenerateMachineArtifacts(projectRoot: string): Promise<void> {
 
 async function joinRag(
   projectRoot: string,
-  options: Pick<JoinProjectOptions, 'interactive' | 'yes'>,
+  options: Pick<JoinProjectOptions, 'interactive' | 'yes' | 'nonInteractive'>,
 ): Promise<boolean> {
   const intelligence = resolveFrameworkConfig(projectRoot).intelligence;
   if (!intelligence.rag_enabled) {
@@ -311,7 +316,9 @@ async function joinRag(
     return true;
   }
 
-  if (options.interactive && !options.yes) {
+  // Issue #616 Part 8 — --non-interactive never starts a prompt (it builds without confirming), so a
+  // scripted join with no TTY cannot hang on the confirm. --interactive stays the explicit opt-in.
+  if (options.interactive && !options.yes && !options.nonInteractive) {
     const accepted = await confirm({
       message: 'Build the local RAG index now?',
       default: true,

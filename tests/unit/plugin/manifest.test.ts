@@ -41,6 +41,15 @@ describe('plugin manifest + marketplace (issue #616, Part 1)', () => {
     }
   });
 
+  it('ships the onboard, join, and dashboard skills under the declared skills dir', () => {
+    const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as { skills: string };
+    expect(manifest.skills).toBe('./runtime/claude-plugin/skills');
+    for (const name of ['onboard', 'join', 'dashboard']) {
+      const skill = read(`runtime/claude-plugin/skills/${name}/SKILL.md`);
+      expect(skill).toContain(`name: ${name}`);
+    }
+  });
+
   it('declares the eliyce marketplace with the npm-source paqad plugin', () => {
     const marketplace = JSON.parse(read('.claude-plugin/marketplace.json')) as {
       name: string;

@@ -3,6 +3,7 @@
 // The plugin ships three generated things under `runtime/claude-plugin/`:
 //   - `hooks.json`   — the live hook chain, rooted at `${CLAUDE_PLUGIN_ROOT}/runtime` (Part 3)
 //   - `agents/`      — the six stage agents (Part 1)
+//   - `skills/`      — the onboard / join / dashboard skills (Parts 8 + 8b)
 // and it keeps `.claude-plugin/plugin.json`'s `version` in sync with `package.json` (Part 1).
 //
 // This module holds the pure builders so BOTH the build script
@@ -50,6 +51,7 @@ export function buildPluginManifest(packageVersion: string): Record<string, unkn
     author: { name: 'Eliyce' },
     hooks: './runtime/claude-plugin/hooks.json',
     agents: pluginAgentPaths(),
+    skills: './runtime/claude-plugin/skills',
   };
 }
 
