@@ -6,6 +6,7 @@ import { AdapterFactory } from '@/adapters/factory.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { describeOptionalEngine, ENGINE_INSTALL_NETWORK_HINT } from '@/core/optional-package.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { visualEvidenceReadiness } from '@/visual-evidence/readiness.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
@@ -1379,6 +1380,38 @@ export class HealthChecker {
             'Restrict `.paqad/secrets.env` to owner-only access.',
           ),
     );
+
+    // Issue #616 Part 2b — one line for the on-demand embedding engine. In the plugin the heavy
+    // engine installs in the background on first use; while it is missing retrieval falls back to
+    // text search, so this is a warning (degraded), never a hard failure.
+    const engine = describeOptionalEngine();
+    if (engine.state === 'ready') {
+      results.push(pass('RAG engine installed', 'The embedding engine is installed'));
+    } else if (engine.state === 'installing') {
+      results.push(
+        warn(
+          'RAG engine installed',
+          'The embedding engine is installing in the background; retrieval uses text search until it is ready',
+          'Re-run `paqad-ai doctor` shortly to confirm it finished.',
+        ),
+      );
+    } else if (engine.state === 'install failed') {
+      results.push(
+        warn(
+          'RAG engine installed',
+          `The embedding engine install failed: ${engine.detail ?? 'unknown error'}`,
+          engine.hint ?? ENGINE_INSTALL_NETWORK_HINT,
+        ),
+      );
+    } else {
+      results.push(
+        warn(
+          'RAG engine installed',
+          'The embedding engine is not installed; retrieval uses text search',
+          'It installs automatically on first use inside Claude Code; otherwise run `paqad-ai rag rebuild`.',
+        ),
+      );
+    }
 
     return results;
   }
