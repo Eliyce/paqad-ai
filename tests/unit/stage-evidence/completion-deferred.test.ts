@@ -219,4 +219,15 @@ describe('deferCompletionForBackgroundStage (issue #615, Part 4)', () => {
       tasks: 1,
     });
   });
+
+  it('resolves a session id when none is given (no active bundle)', () => {
+    const root = tempRoot();
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ type: 'paqad-development' }],
+      adapter: 'claude-code',
+      now: NOW,
+    });
+    expect(result.deferred).toBe(true);
+  });
 });
