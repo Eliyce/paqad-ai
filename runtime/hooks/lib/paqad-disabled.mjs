@@ -16,7 +16,14 @@
 // Deliberately dist-less and dependency-free (a raw read, no parser import) so a
 // disabled-and-uninstalled project can still evaluate its own toggle.
 
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 /** PAQAD_DISABLED values that mean "off" — identical to the .sh/.ts primitives. */
@@ -266,4 +273,31 @@ function readKeyFromConfigsDir(projectRoot, key) {
     }
   }
   return value;
+}
+
+// ─── Future-schema handling for hooks (issue #616, Part 9) ───────────────────────────────────────
+//
+// When a hook loads the built dist and the project's .paqad/ layout was written by a NEWER paqad,
+// the engine throws SchemaVersionError. A hook must never crash on that: it exits 0 (fails open) and
+// appends ONE diagnosable line to .paqad/logs/hooks.log so the situation is visible. `doctor` then
+// prints the verbatim update line. The predicate matches by the stable error code/name so a
+// dist-less hook need not import the dist error class.
+
+/** True when an error is paqad's future-schema refusal (matched without importing the dist class). */
+export function isSchemaVersionError(err) {
+  if (!err || typeof err !== 'object') return false;
+  const code = /** @type {{ code?: unknown; name?: unknown }} */ (err).code;
+  const name = /** @type {{ code?: unknown; name?: unknown }} */ (err).name;
+  return code === 'SCHEMA_VERSION_INCOMPATIBLE' || name === 'SchemaVersionError';
+}
+
+/** Append one line to `.paqad/logs/hooks.log`, best-effort (never throws). */
+export function appendHooksLog(projectRoot, line) {
+  try {
+    const dir = join(projectRoot, '.paqad', 'logs');
+    mkdirSync(dir, { recursive: true });
+    appendFileSync(join(dir, 'hooks.log'), `${new Date().toISOString()} ${line}\n`);
+  } catch {
+    // Logging is best-effort; a failure must not wedge the hook.
+  }
 }

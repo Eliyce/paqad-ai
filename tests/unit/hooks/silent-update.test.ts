@@ -94,12 +94,14 @@ describe('silent-update.mjs', () => {
   it('self-heals: seeds framework-version.txt from the installed package, then exits', async () => {
     const root = makeRoot();
     try {
-      // A teammate who never onboarded has no local version file. Point the
-      // framework home at a fake install carrying a version.
-      const frameworkHome = join(root, 'framework-home');
+      // A teammate who never onboarded has no local version file. Point the framework home at a
+      // fake install's `runtime` dir, with package.json ONE LEVEL ABOVE it (issue #616 Part 9 —
+      // the link resolves to <pkg>/runtime and package.json lives at <pkg>/package.json).
+      const installDir = join(root, 'install');
+      const frameworkHome = join(installDir, 'runtime');
       mkdirSync(frameworkHome, { recursive: true });
       writeFileSync(
-        join(frameworkHome, 'package.json'),
+        join(installDir, 'package.json'),
         JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
       );
 

@@ -7,6 +7,8 @@ import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { describeOptionalEngine, ENGINE_INSTALL_NETWORK_HINT } from '@/core/optional-package.js';
+import { SCHEMA_VERSION_UPDATE_HINT } from '@/core/errors/schema-version-error.js';
+import { checkSchemaCompatibility, readSchemaMarkerSync } from '@/core/schema-version.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
 import { visualEvidenceReadiness } from '@/visual-evidence/readiness.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
@@ -70,6 +72,7 @@ export class HealthChecker {
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
       this.checkFrameworkInstall(),
+      this.checkSchemaVersion(projectRoot),
       this.checkBrokenScaffold(projectRoot),
       this.checkUiDocs(projectRoot, modules),
       this.checkApiDocs(projectRoot, modules),
@@ -760,6 +763,24 @@ export class HealthChecker {
     return pass(
       name,
       `Framework link points at the ${copyLabel} copy (v${version}) at ${info.linkTarget}.`,
+    );
+  }
+
+  /**
+   * Issue #616 Part 9 — warn when the `.paqad/` layout was written by a NEWER paqad than this
+   * engine understands, with the verbatim update line. A missing or compatible marker passes; an
+   * older one is a routine migration handled elsewhere, not a doctor warning.
+   */
+  private checkSchemaVersion(projectRoot: string): HealthCheckResult {
+    const name = 'Schema version';
+    const marker = readSchemaMarkerSync(projectRoot);
+    if (!marker || checkSchemaCompatibility(marker) !== 'future') {
+      return pass(name, 'The .paqad/ layout matches this paqad version.');
+    }
+    return warn(
+      name,
+      `The .paqad/ layout was written by a newer paqad (schema ${marker.paqad_schema_version}).`,
+      SCHEMA_VERSION_UPDATE_HINT,
     );
   }
 

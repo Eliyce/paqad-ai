@@ -266,3 +266,69 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     expect(existsSync(marker)).toBe(false);
   });
 });
+
+describe('version refresh (issue #616, Part 9)', () => {
+  const { shouldRefreshVersion, frameworkVersionTxtVersion, maybeRefreshVersion } = __test;
+
+  function pluginRoot(version: string): string {
+    const dir = join(root, 'plugin');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ version }));
+    return dir;
+  }
+
+  function projectWithVersion(version: string | null): string {
+    const proj = join(root, 'project');
+    mkdirSync(join(proj, '.paqad'), { recursive: true });
+    if (version !== null) {
+      writeFileSync(
+        join(proj, '.paqad', 'framework-version.txt'),
+        `version=${version}\nupdated_at=1970-01-01T00:00:00Z\n`,
+      );
+    }
+    return proj;
+  }
+
+  it('shouldRefreshVersion only upgrades, never downgrades', () => {
+    expect(shouldRefreshVersion('2.0.0', '1.0.0')).toBe(true);
+    expect(shouldRefreshVersion('2.0.0', '2.0.0')).toBe(false);
+    expect(shouldRefreshVersion('2.0.0', '3.0.0')).toBe(false);
+    expect(shouldRefreshVersion('2.0.0', null)).toBe(true);
+    expect(shouldRefreshVersion(null, '1.0.0')).toBe(false);
+  });
+
+  it('frameworkVersionTxtVersion reads the recorded version, or null when absent', () => {
+    expect(frameworkVersionTxtVersion(projectWithVersion('1.2.3'))).toBe('1.2.3');
+    expect(frameworkVersionTxtVersion(join(root, 'nope'))).toBeNull();
+  });
+
+  it('starts a background update when the plugin is newer, writing the lock', () => {
+    const run = vi.fn();
+    const proj = projectWithVersion('1.0.0');
+    expect(maybeRefreshVersion(pluginRoot('2.0.0'), proj, { runUpdate: run, now: () => 0 })).toBe(
+      'started',
+    );
+    expect(run).toHaveBeenCalledOnce();
+    expect(existsSync(join(proj, '.paqad', 'locks', 'update.lock'))).toBe(true);
+  });
+
+  it('does nothing when the recorded version is current or newer', () => {
+    const run = vi.fn();
+    expect(
+      maybeRefreshVersion(pluginRoot('2.0.0'), projectWithVersion('2.0.0'), { runUpdate: run }),
+    ).toBe('current');
+    expect(
+      maybeRefreshVersion(pluginRoot('2.0.0'), projectWithVersion('3.0.0'), { runUpdate: run }),
+    ).toBe('current');
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('throttles a second refresh while the lock is fresh', () => {
+    const run = vi.fn();
+    const proj = projectWithVersion('1.0.0');
+    const pr = pluginRoot('2.0.0');
+    maybeRefreshVersion(pr, proj, { runUpdate: run, now: () => 1000 });
+    expect(maybeRefreshVersion(pr, proj, { runUpdate: run, now: () => 2000 })).toBe('throttled');
+    expect(run).toHaveBeenCalledOnce();
+  });
+});

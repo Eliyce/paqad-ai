@@ -26,12 +26,14 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import { spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { delimiter, dirname, join } from 'node:path';
 
 import {
   isPluginActiveForSession,
   parseHookPayload,
+  resolveProjectRoot,
   writePluginActiveMarker,
 } from './lib/paqad-disabled.mjs';
 
@@ -268,6 +270,68 @@ function removeHomeStageAgents(agentsDir = claudeAgentsDir()) {
   }
 }
 
+// ─── Part 9 (issue #616, FR-15): keep the version file current ────────────────────────────────────
+//
+// When the plugin is newer than the project's recorded framework-version, run `update --silent` in
+// the background (the plugin's OWN CLI, under a single-flight lock) so the project's managed
+// artifacts track the plugin. It never downgrades, never blocks, and never prints.
+
+const UPDATE_THROTTLE_MS = 6 * 60 * 60 * 1000; // at most one background refresh per 6h
+
+/** The version recorded in `.paqad/framework-version.txt`, or null when absent/unreadable. */
+function frameworkVersionTxtVersion(projectRoot) {
+  try {
+    const txt = readFileSync(join(projectRoot, '.paqad', 'framework-version.txt'), 'utf8');
+    const m = txt.match(/^version=(.*)$/m);
+    return m ? m[1].trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when the plugin is newer than the recorded framework version (never downgrade). */
+function shouldRefreshVersion(pluginVersion, frameworkVersion) {
+  if (!pluginVersion) return false;
+  if (!frameworkVersion) return true; // nothing recorded yet → let the update seed it
+  return compareVersions(pluginVersion, frameworkVersion) > 0;
+}
+
+/* v8 ignore start -- spawns the real detached `update --silent`; the decision around it is unit
+   tested through the injected runUpdate seam and the real run is covered by manual sign-off. */
+function spawnSilentUpdate(pluginRoot, projectRoot) {
+  const cli = join(pluginRoot, 'dist', 'cli', 'index.js');
+  const child = spawn(
+    process.execPath,
+    [cli, 'update', '--silent', '--project-root', projectRoot],
+    { detached: true, stdio: 'ignore', windowsHide: true },
+  );
+  child.unref();
+}
+/* v8 ignore stop */
+
+/**
+ * Part 9 — refresh the project's framework artifacts in the background when the plugin is newer than
+ * the recorded version, under a single-flight lock throttled to {@link UPDATE_THROTTLE_MS}.
+ */
+function maybeRefreshVersion(pluginRoot, projectRoot, deps = {}) {
+  const now = deps.now ?? Date.now;
+  const runUpdate = deps.runUpdate ?? spawnSilentUpdate;
+  const pluginVersion = readPackageVersion(pluginRoot);
+  const frameworkVersion = frameworkVersionTxtVersion(projectRoot);
+  if (!shouldRefreshVersion(pluginVersion, frameworkVersion)) return 'current';
+  const lock = join(projectRoot, '.paqad', 'locks', 'update.lock');
+  const existing = lstatSafe(lock);
+  if (existing && now() - existing.mtimeMs < UPDATE_THROTTLE_MS) return 'throttled';
+  try {
+    mkdirSync(dirname(lock), { recursive: true });
+    writeFileSync(lock, String(process.pid));
+  } catch {
+    return 'throttled';
+  }
+  runUpdate(pluginRoot, projectRoot);
+  return 'started';
+}
+
 export function runPluginSessionStart(env = process.env, payload = undefined) {
   const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
   if (!pluginRoot) {
@@ -287,6 +351,7 @@ export function runPluginSessionStart(env = process.env, payload = undefined) {
   ensureBinOnPath(pluginRuntime, env); // Part 5
   removeDeadNpmHookLines(claudeSettingsPath(env));
   removeHomeStageAgents(claudeAgentsDir(env));
+  maybeRefreshVersion(pluginRoot, resolveProjectRoot(env, payload)); // Part 9
 }
 
 // Exported for unit tests; the internal helpers are re-exported so each branch is testable without
@@ -303,6 +368,9 @@ export const __test = {
   removeHomeStageAgents,
   paqadHookScriptPath,
   claudeDir,
+  shouldRefreshVersion,
+  frameworkVersionTxtVersion,
+  maybeRefreshVersion,
 };
 
 // Run when invoked as the hook entry (not when imported by a test).

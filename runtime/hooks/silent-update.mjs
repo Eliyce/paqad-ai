@@ -43,6 +43,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   rmdirSync,
   statSync,
   writeFileSync,
@@ -151,7 +152,16 @@ function main() {
 
 function seedVersionFile(versionFile) {
   const frameworkHome = process.env.PAQAD_FRAMEWORK_HOME || join(homedir(), '.paqad-ai', 'current');
-  const pkg = readFileSafe(join(frameworkHome, 'package.json'));
+  // Issue #616 Part 9 — the link resolves to <pkg>/runtime; package.json lives ONE LEVEL ABOVE it.
+  // Reading join(frameworkHome, 'package.json') found nothing (that is the runtime dir), so the
+  // version file was never seeded. Resolve the link, then read its parent's package.json.
+  let pkgRoot;
+  try {
+    pkgRoot = dirname(realpathSync(frameworkHome));
+  } catch {
+    return;
+  }
+  const pkg = readFileSafe(join(pkgRoot, 'package.json'));
   if (!pkg) return;
   let version;
   try {

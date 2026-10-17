@@ -942,4 +942,25 @@ describe('HealthChecker', () => {
       mcp_usage_rate: 0,
     });
   });
+  // Issue #616 Part 9 — doctor warns, with the verbatim update line, when the layout is from the future.
+  it('warns when the .paqad layout was written by a newer paqad', async () => {
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.paqad', 'schema-version.json'),
+      JSON.stringify({
+        paqad_schema_version: '999.0.0',
+        written_at: new Date().toISOString(),
+        written_by_engine_version: '999.0.0',
+      }),
+    );
+    const report = await new HealthChecker().run(projectRoot);
+    const check = report.checks.find((c) => c.name === 'Schema version');
+    expect(check?.status).toBe('warning');
+    expect(check?.remediation).toContain('claude plugin update paqad@eliyce');
+  });
+
+  it('passes the schema version check when no marker is present', async () => {
+    const report = await new HealthChecker().run(projectRoot);
+    expect(report.checks.find((c) => c.name === 'Schema version')?.status).toBe('pass');
+  });
 });
