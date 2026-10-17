@@ -11,14 +11,16 @@
 # avoid any third-party dependency.
 #
 # The listing scalars (author, author_email, repository, homepage, documentation_url, support_url,
-# privacy_policy_url, keywords) are required. They fill the directory listing fields that only the
-# Claude branch manifests carry. Quote every URL. keywords is one comma-separated scalar because
+# privacy_policy_url, terms_of_service_url, keywords) are required. They fill the directory listing
+# fields the Claude branch and the ChatGPT package manifests carry. Quote every URL. keywords is one
+# comma-separated scalar because
 # the reader has no top-level lists; build.py splits it.
 #
 # The ChatGPT directory scalars (short_description, long_description, category, default_prompts,
 # capabilities) are required too. They fill extensions.com.openai.interface in the native package
 # under dist/hosts/chatgpt-directory, together with display_name (displayName, at most 30
-# characters), author (developerName, at most 80), homepage, support_url and privacy_policy_url.
+# characters), author (developerName, at most 80), homepage, support_url, privacy_policy_url and
+# terms_of_service_url (termsOfServiceURL, required by the directory).
 # short_description is one line of at most 30 characters, long_description one line of at most
 # 4000, and category one of the directory categories listed in build.py (CHATGPT_CATEGORIES).
 # default_prompts and capabilities are each one scalar with the entries separated by a pipe (|),
@@ -38,6 +40,7 @@ homepage: "https://github.com/Eliyce/paqad-product-discovery-plugin#readme"
 documentation_url: "https://github.com/Eliyce/paqad-product-discovery-plugin#readme"
 support_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/issues"
 privacy_policy_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/blob/main/PRIVACY.md"
+terms_of_service_url: "https://github.com/Eliyce/paqad-product-discovery-plugin/blob/main/TERMS.md"
 keywords: "product-discovery, product-management, user-stories, tickets, jira, backlog, sprint-planning"
 short_description: "Ideas to ready tickets"
 long_description: "Paqad Product Discovery helps product owners, business analysts and delivery leads understand a product and plan work on it without reading code. Ask what the product does today and get a plain answer with its sources, shape a rough idea into clear user-story epics and tickets, refine an existing ticket without losing its intent, get a size suggestion based on comparable finished work, and propose a sprint plan. Answers come from the repository's own documents and code. Limitations: it only reads and never changes code; it needs the repository documents or code through a connected source or uploaded files; it posts tickets to a tracker only through the tracker connector and only after you approve them."

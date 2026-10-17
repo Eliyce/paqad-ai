@@ -29,8 +29,14 @@ below starts as the token `pending` and a person fills it in after installing.
 The ChatGPT plugin directory takes a zip upload, not a repo. The zip is the native Agent Plugins
 package the build writes to `dist/hosts/chatgpt-directory/plugins/paqad-product-discovery`: a root
 `plugin.json` with `$schema` and `extensions.com.openai.interface`, the skills, `README.md`,
-`LICENSE`, `PRIVACY.md` and `assets/logo.png`. It is not the `.claude-plugin` layout above, which
-stays for workspace import only. Every listing value comes from `build/skills.yml`.
+`LICENSE`, `PRIVACY.md`, `TERMS.md` and `assets/logo.png`. It is not the `.claude-plugin` layout
+above, which stays for workspace import only. Every listing value comes from `build/skills.yml`.
+
+The interface carries `websiteURL`, `supportURL`, `privacyPolicyURL` and `termsOfServiceURL`. The
+portal requires a terms-of-service URL even for a skills-only package, so `terms_of_service_url` is
+a required listing scalar in `skills.yml` and the terms document ships as `TERMS.md` (from
+`docs/terms-of-service.md`), the same way `PRIVACY.md` does. The public repo must carry the file the
+URL points at, so publishing the Claude branch (which also ships `TERMS.md`) populates it.
 
 Before the first upload, the owner needs an OpenAI organization with Apps Management write access
 and a verified identity. Then, for every release:
@@ -63,6 +69,14 @@ the frontmatter, and the check rejects an unquoted value that contains `: ` or `
 The check is necessary, not sufficient. It covers only the documented rules, and the portal may
 enforce rules it does not document. When an upload shows a new portal error, add it to the check
 as a new rule with a failing-fixture test in `tests/scripts/test_chatgpt_submission.py`.
+
+Known portal state (observed 17 October 2026). A validation upload of this package produced two
+findings. "Terms of service URL is required" is fixed here: the package now carries
+`termsOfServiceURL`. "We are not accepting more skills-only submissions at this time" is an OpenAI
+policy gate on skills-only plugins, not a package problem; the public-directory submission waits
+until OpenAI reopens skills-only submissions. Until then, the package can still be installed and
+tested privately through a local marketplace in the ChatGPT desktop app, or workspace-published by
+an org admin.
 
 ## Unknowns that apply to ChatGPT web
 

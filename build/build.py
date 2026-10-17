@@ -57,9 +57,9 @@ AGENT_PLUGINS_MANIFEST_KEYS = (
     "extensions",
 )
 
-# The interface keys the package writes, in order. screenshots, brandColor, brandColorDark,
-# composerIcon and termsOfServiceURL are deliberately absent (screenshots are rejected for a
-# skills-only package; the others have no owner value).
+# The interface keys the package writes, in order. screenshots, brandColor, brandColorDark and
+# composerIcon are deliberately absent (screenshots are rejected for a skills-only package; the
+# others have no owner value). termsOfServiceURL is included because the directory requires it.
 CHATGPT_INTERFACE_KEYS = (
     "displayName",
     "shortDescription",
@@ -71,6 +71,7 @@ CHATGPT_INTERFACE_KEYS = (
     "websiteURL",
     "supportURL",
     "privacyPolicyURL",
+    "termsOfServiceURL",
     "logo",
 )
 
@@ -143,6 +144,7 @@ LISTING_SCALARS = (
     "documentation_url",
     "support_url",
     "privacy_policy_url",
+    "terms_of_service_url",
     "keywords",
 )
 
@@ -153,6 +155,7 @@ LISTING_URL_SCALARS = (
     "documentation_url",
     "support_url",
     "privacy_policy_url",
+    "terms_of_service_url",
 )
 
 # The plugins-directory convention, defined once (a plugin lives at plugins/<name>) so the two
@@ -207,12 +210,14 @@ HOST_PUBLISH_FILES = {
         ("publish/claude/README.md", ("README.md", "{plugins}/{name}/README.md")),
         ("publish/claude/LICENSE", ("LICENSE", "{plugins}/{name}/LICENSE")),
         ("docs/privacy-policy.md", ("PRIVACY.md",)),
+        ("docs/terms-of-service.md", ("TERMS.md",)),
         ("publish/claude/icon.png", ("{plugins}/{name}/.claude-plugin/icon.png",)),
     ],
     CHATGPT_DIRECTORY_HOST: [
         ("publish/chatgpt/README.md", ("{plugins}/{name}/README.md",)),
         ("publish/claude/LICENSE", ("{plugins}/{name}/LICENSE",)),
         ("docs/privacy-policy.md", ("{plugins}/{name}/PRIVACY.md",)),
+        ("docs/terms-of-service.md", ("{plugins}/{name}/TERMS.md",)),
         ("publish/claude/icon.png", ("{plugins}/{name}/" + CHATGPT_LOGO_PATH[2:],)),
     ],
 }
@@ -559,6 +564,7 @@ def build_claude_listing_manifests(config):
             "documentationUrl": config["documentation_url"],
             "supportUrl": config["support_url"],
             "privacyPolicyUrl": config["privacy_policy_url"],
+            "termsOfServiceUrl": config["terms_of_service_url"],
         }
     )
     marketplace = dict(base_marketplace)
@@ -585,6 +591,7 @@ def build_chatgpt_directory_manifest(config):
         "websiteURL": config["homepage"],
         "supportURL": config["support_url"],
         "privacyPolicyURL": config["privacy_policy_url"],
+        "termsOfServiceURL": config["terms_of_service_url"],
         "logo": CHATGPT_LOGO_PATH,
     }
     interface = {key: interface_values[key] for key in CHATGPT_INTERFACE_KEYS}

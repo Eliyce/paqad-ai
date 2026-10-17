@@ -39,6 +39,7 @@ LISTING_PLUGIN_KEYS = (
     "documentationUrl",
     "supportUrl",
     "privacyPolicyUrl",
+    "termsOfServiceUrl",
 )
 # Every per-host branch under dist/hosts/ (PLG-12).
 HOSTS = ("claude", "chatgpt", "codex", "chatgpt-directory")
@@ -230,6 +231,7 @@ class HostBranchTest(unittest.TestCase):
                 "README.md",
                 "LICENSE",
                 "PRIVACY.md",
+                "TERMS.md",
                 "plugins/{0}/README.md".format(PLUGIN_NAME),
                 "plugins/{0}/LICENSE".format(PLUGIN_NAME),
                 "plugins/{0}/.claude-plugin/icon.png".format(PLUGIN_NAME),
@@ -247,6 +249,7 @@ class HostBranchTest(unittest.TestCase):
                 "plugins/{0}/README.md".format(PLUGIN_NAME),
                 "plugins/{0}/LICENSE".format(PLUGIN_NAME),
                 "plugins/{0}/PRIVACY.md".format(PLUGIN_NAME),
+                "plugins/{0}/TERMS.md".format(PLUGIN_NAME),
                 "plugins/{0}/assets/logo.png".format(PLUGIN_NAME),
             },
         }
@@ -355,6 +358,12 @@ class HostBranchTest(unittest.TestCase):
                          "plugin.json")
         )
         self.assertEqual(directory_plugin, build.build_chatgpt_directory_manifest(self.config))
+        # AC-1: the directory interface carries termsOfServiceURL from skills.yml (the portal
+        # requires a terms-of-service URL even for a skills-only package).
+        interface = directory_plugin["extensions"]["com.openai"]["interface"]
+        self.assertEqual(
+            interface["termsOfServiceURL"], self.config["terms_of_service_url"]
+        )
 
     def test_combined_root_still_intact(self):
         # INV-1: the combined dist root manifests are unchanged by the branch emission.
@@ -413,7 +422,8 @@ class ListingManifestTest(unittest.TestCase):
             "product-discovery", "product-management", "user-stories", "tickets", "jira",
             "backlog", "sprint-planning"])
         self.assertEqual(plugin["displayName"], "Paqad Product Discovery")
-        for key in ("homepage", "repository", "documentationUrl", "supportUrl", "privacyPolicyUrl"):
+        for key in ("homepage", "repository", "documentationUrl", "supportUrl", "privacyPolicyUrl",
+                    "termsOfServiceUrl"):
             self.assertTrue(plugin[key].startswith(PUBLIC_REPO), key)
         self.assertNotIn("paqad" + ".dev", json.dumps(plugin))
         for key in ("name", "version", "description"):
@@ -488,6 +498,7 @@ class PublishFilesTest(unittest.TestCase):
             ("publish/claude/LICENSE", "LICENSE"),
             ("publish/claude/LICENSE", self.plugin_rel + "/LICENSE"),
             ("docs/privacy-policy.md", "PRIVACY.md"),
+            ("docs/terms-of-service.md", "TERMS.md"),
         ]
 
     def test_targets_are_byte_identical_to_their_sources(self):
