@@ -56,6 +56,14 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (advisory guards)', () => {
     expect(result.stdout).toBe('');
   });
 
+  it('prints no ticket-intake line for a slash command (issue #615, Part 5)', () => {
+    // Dist-less guard: a '/'-prefixed prompt is suppressed before any dist import, so this holds
+    // even in a fresh checkout where dist/ is absent.
+    const result = run(projectRoot, { prompt: '/claude-api managed-agents-onboard #409' });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+  });
+
   it('prints no ticket-intake line for a Desktop banner-led notice (issue #615, Part 2)', () => {
     const payload = {
       prompt: [

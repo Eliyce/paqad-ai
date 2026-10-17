@@ -228,6 +228,38 @@ export function isSystemNotificationPrompt(prompt: string): boolean {
   return SYSTEM_NOTIFICATION_ELEMENTS.some((element) => head.startsWith(`<${element}>`));
 }
 
+/**
+ * Slash commands that map to a workflow route (issue #615, Part 5). Since Claude Code 2.1.299 the
+ * UserPromptSubmit hook sees a slash command as the raw typed line BEFORE it expands, so without
+ * this map the classifier would read it as prose. One exported constant so adding a command is a
+ * data change; the key is the command NAME (the part after the last `:`, so a plugin-scoped
+ * `paqad-product-discovery:paqad-discover` resolves to `paqad-discover`). A command not in this
+ * map leaves the stored route unchanged (see runPromptRouteSeam), so `/code-review` or `/compact`
+ * never pauses an in-flight change.
+ */
+export const SLASH_COMMAND_ROUTES: Readonly<Record<string, RoutedWorkflow>> = {
+  'paqad-discover': 'discovery',
+  'paqad-ask': 'project-question',
+};
+
+/** `^/<name>` at the start of the (trimmed) prompt, so a `/path/like/this` mid-sentence is ignored. */
+const SLASH_COMMAND_RE = /^\/([A-Za-z0-9:_-]+)(\s|$)/;
+
+/**
+ * The command name of a slash-command prompt, or `null` when the prompt is not a slash command
+ * (issue #615, Part 5). The name is the segment after the last `:`, so a plugin-scoped command
+ * resolves to its bare name.
+ */
+export function slashCommandName(prompt: string): string | null {
+  const match = SLASH_COMMAND_RE.exec(prompt.trimStart());
+  if (!match) {
+    return null;
+  }
+  const full = match[1]!;
+  const lastColon = full.lastIndexOf(':');
+  return lastColon === -1 ? full : full.slice(lastColon + 1);
+}
+
 /** Injectable classify/route seam, so the outcome→lane branches are all testable. */
 export interface PromptRouteDeps {
   classify?: (input: { request: string }) => Promise<ClassificationResult>;
@@ -344,7 +376,32 @@ export async function runPromptRouteSeam(
       notification: true,
     };
   }
-  const { routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps);
+
+  // Issue #615 (Part 5) — a slash command reaches this seam as the raw typed line. Route a known
+  // one by NAME (never by classifying it as prose, which could arm the edit gates), and leave an
+  // unknown one's stored route untouched — the same shape as a notification, so `/compact` or
+  // `/loop` never pauses an in-flight feature-development change.
+  const slashName = slashCommandName(input.request);
+  let routed: RoutedWorkflow;
+  let lane: Lane | null;
+  let reason: string;
+  if (slashName !== null) {
+    const slashRoute = SLASH_COMMAND_ROUTES[slashName];
+    if (slashRoute === undefined) {
+      return {
+        routed: 'no-workflow',
+        lane: null,
+        resumed: null,
+        narration: null,
+        notification: true,
+      };
+    }
+    routed = slashRoute;
+    lane = null;
+    reason = ROUTE_REASON[slashRoute];
+  } else {
+    ({ routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps));
+  }
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
 
   // Record the outcome as evidence and preserve pause/resume across messages (#336).

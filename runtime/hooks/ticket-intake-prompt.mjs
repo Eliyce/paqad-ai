@@ -30,6 +30,11 @@ async function main(rawInput) {
   const prompt = typeof payload?.prompt === 'string' ? payload.prompt : '';
   if (!prompt) return 0;
 
+  // Issue #615 (Part 5) — a slash command (/code-review, /claude-api, …) reaches this hook as the
+  // raw typed line before the host expands it. It is never a ticket, so arm nothing. Dist-less and
+  // checked before any import, so it holds even when the compiled seam is unavailable.
+  if (prompt.trimStart().startsWith('/')) return 0;
+
   try {
     // Issue #615 (Part 2) — a Desktop system notice (banner- or element-led) is not a ticket
     // intake. Reuse the one matcher from the routing seam (imported from dist, the same way the
