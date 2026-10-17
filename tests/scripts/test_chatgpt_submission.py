@@ -163,7 +163,8 @@ class PackageLayoutTest(TempCase):
         self.assertEqual(os.listdir(os.path.join(branch, "plugins")), [PLUGIN_NAME])
         package = STATE["package"]
         self.assertEqual(sorted(os.listdir(package)),
-                         ["LICENSE", "PRIVACY.md", "README.md", "assets", "plugin.json", "skills"])
+                         ["LICENSE", "PRIVACY.md", "README.md", "TERMS.md", "assets",
+                          "plugin.json", "skills"])
         self.assertEqual(os.listdir(os.path.join(package, "assets")), ["logo.png"])
         expected = sorted(build.published_name(s) for s in STATE["config"]["skills"])
         self.assertEqual(sorted(os.listdir(os.path.join(package, "skills"))), expected)
@@ -178,6 +179,7 @@ class PackageLayoutTest(TempCase):
         for source, target in (("publish/chatgpt/README.md", "README.md"),
                                ("publish/claude/LICENSE", "LICENSE"),
                                ("docs/privacy-policy.md", "PRIVACY.md"),
+                               ("docs/terms-of-service.md", "TERMS.md"),
                                ("publish/claude/icon.png", "assets/logo.png")):
             self.assertEqual(read_bytes(os.path.join(STATE["package"], *target.split("/"))),
                              read_bytes(os.path.join(REPO_ROOT, *source.split("/"))), target)
@@ -202,12 +204,12 @@ class PackageLayoutTest(TempCase):
         pairs = (("displayName", "display_name"), ("longDescription", "long_description"),
                  ("developerName", "author"), ("capabilities", "capabilities"),
                  ("defaultPrompt", "default_prompts"), ("websiteURL", "homepage"),
-                 ("supportURL", "support_url"), ("privacyPolicyURL", "privacy_policy_url"))
+                 ("supportURL", "support_url"), ("privacyPolicyURL", "privacy_policy_url"),
+                 ("termsOfServiceURL", "terms_of_service_url"))
         for key, scalar in pairs:
             self.assertEqual(interface[key], config[scalar], key)
         self.assertEqual(interface["logo"], "./assets/logo.png")
-        for absent in ("screenshots", "brandColor", "brandColorDark", "composerIcon",
-                       "termsOfServiceURL"):
+        for absent in ("screenshots", "brandColor", "brandColorDark", "composerIcon"):
             self.assertNotIn(absent, interface)
 
     def test_readme_is_an_end_user_guide_with_no_version_or_dash(self):

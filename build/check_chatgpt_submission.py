@@ -98,8 +98,10 @@ SKILLS_YML_SOURCES = {
     "websiteURL": "homepage",
     "supportURL": "support_url",
     "privacyPolicyURL": "privacy_policy_url",
+    "termsOfServiceURL": "terms_of_service_url",
 }
-INTERFACE_REQUIRED = ("displayName", "shortDescription", "longDescription", "developerName", "logo")
+INTERFACE_REQUIRED = ("displayName", "shortDescription", "longDescription", "developerName",
+                      "termsOfServiceURL", "logo")
 INTERFACE_LENGTHS = (
     ("displayName", "display_name"),
     ("shortDescription", "short_description"),
