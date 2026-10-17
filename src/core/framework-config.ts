@@ -71,6 +71,15 @@ const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
  * other enforcement knobs, so a team that commits `strip` cannot have it lowered locally.
  */
 const AI_ATTRIBUTION_MODES = ['keep', 'strip'] as const;
+/**
+ * Claude Code install-migration knobs (issue #621). `plugin_migration` is the fleet-wide
+ * on/off switch for moving existing npm Claude Code users to the paqad plugin (default `off`
+ * until manual sign-off). `claude_install_mode` is the per-project override: `settings` never
+ * migrates, `plugin` forces the migration even while `plugin_migration` is `off` (test machines),
+ * `auto` follows `plugin_migration`.
+ */
+const PLUGIN_MIGRATION_MODES = ['on', 'off'] as const;
+const CLAUDE_INSTALL_MODES = ['auto', 'plugin', 'settings'] as const;
 /** Tokens that mean boolean true / false in a config value (case-insensitive). */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const FALSY = new Set(['0', 'false', 'no', 'off']);
@@ -316,6 +325,32 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment:
       'Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container ' +
       'limits).',
+  },
+  {
+    key: 'plugin_migration',
+    env: 'PAQAD_PLUGIN_MIGRATION',
+    type: 'enum',
+    enumValues: PLUGIN_MIGRATION_MODES,
+    default: 'off',
+    group: 'app',
+    section: 'Claude Code plugin migration (issue #621)',
+    comment:
+      'on | off — fleet-wide switch to move existing npm Claude Code users to the paqad plugin ' +
+      'automatically in the background. Default off until manual sign-off; Claude Code only, npm ' +
+      'is never removed and stays the fallback.',
+  },
+  {
+    key: 'claude_install_mode',
+    env: 'PAQAD_CLAUDE_INSTALL_MODE',
+    type: 'enum',
+    enumValues: CLAUDE_INSTALL_MODES,
+    default: 'auto',
+    group: 'app',
+    section: 'Claude Code plugin migration (issue #621)',
+    comment:
+      'auto | plugin | settings — per-project override of the plugin migration. settings never ' +
+      'migrates (stay on npm hooks); plugin forces the migration even while plugin_migration is ' +
+      'off; auto follows plugin_migration.',
   },
 
   // ── rag group ──────────────────────────────────────────────────────────
@@ -1041,6 +1076,37 @@ export function configSaysPaqadDisabled(
 ): boolean {
   const raw = layeredConfigMap(projectRoot, env).get('paqad_enable');
   return raw !== undefined && FALSY.has(raw.trim().toLowerCase());
+}
+
+/** Resolved Claude Code install-migration knobs (issue #621), across the four config surfaces. */
+export interface PluginMigrationConfig {
+  /** `on` | `off` — the fleet-wide migration switch. */
+  migration: (typeof PLUGIN_MIGRATION_MODES)[number];
+  /** `auto` | `plugin` | `settings` — the per-project override. */
+  install_mode: (typeof CLAUDE_INSTALL_MODES)[number];
+}
+
+/**
+ * Resolve the plugin-migration knobs (issue #621) from the layered config. Bad/absent values
+ * fall back to the registry defaults (`off` / `auto`), so a hand-trimmed config never throws.
+ */
+export function resolvePluginMigrationConfig(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): PluginMigrationConfig {
+  const raw = layeredConfigMap(projectRoot, env);
+  return {
+    migration: asEnum(
+      raw.get('plugin_migration'),
+      PLUGIN_MIGRATION_MODES,
+      defOf('plugin_migration') as (typeof PLUGIN_MIGRATION_MODES)[number],
+    ),
+    install_mode: asEnum(
+      raw.get('claude_install_mode'),
+      CLAUDE_INSTALL_MODES,
+      defOf('claude_install_mode') as (typeof CLAUDE_INSTALL_MODES)[number],
+    ),
+  };
 }
 
 function escapeRegExp(input: string): string {
@@ -1989,6 +2055,14 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'visual_evidence_mode',
       'checks_flaky_under_parallel',
     ],
+  },
+  // Claude Code install-migration knobs (issue #621). Config-only — they drive install
+  // behaviour, are read directly from the layered map by the migration module, and are
+  // never derived from or synced to a profile section (present: false). Listed here so the
+  // registry-coverage invariant (every spec key appears in exactly one section) holds.
+  {
+    present: () => false,
+    keys: ['plugin_migration', 'claude_install_mode'],
   },
 ];
 
