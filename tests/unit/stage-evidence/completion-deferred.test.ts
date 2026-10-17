@@ -183,4 +183,40 @@ describe('deferCompletionForBackgroundStage (issue #615, Part 4)', () => {
     });
     expect(result).toEqual({ deferred: false });
   });
+
+  it('does not fall back when a bundle exists but every stage has ended', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    endStage(
+      root,
+      'development',
+      {},
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW },
+    );
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ id: 'bg-1' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+    expect(result).toEqual({ deferred: false });
+    expect(deferredRows(root, dirName)).toHaveLength(0);
+  });
+
+  it('defers for a running stage agent even with no active bundle, writing no row', () => {
+    const root = tempRoot(); // no bundle opened, so nothing to record against
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ type: 'paqad-development' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+    expect(result).toEqual({
+      deferred: true,
+      reason: 'stage agent running in background',
+      tasks: 1,
+    });
+  });
 });
