@@ -1,5 +1,28 @@
 # paqad-ai
 
+## 1.97.0
+
+### Minor Changes
+
+- f235574: Add the automatic npm → paqad-plugin migration for Claude Code users (#621), **off by default**.
+
+  - New layered config knobs `plugin_migration` (`on`|`off`, default `off`) and `claude_install_mode` (`auto`|`plugin`|`settings`, default `auto`).
+  - `maybeMigrateToPlugin()` runs best-effort at the end of `paqad-ai update --silent`: it evaluates the skip conditions (migration off, install mode `settings`, no `claude-code` provider, CI/headless, already present, managed policy, retry rules), takes a single-flight machine lock, and installs via the `claude` CLI (Path A) or a safe additive merge into the user's `~/.claude/settings.json` (Path B). It never throws, never blocks, never prints in a session, and never touches a tracked project file or the npm package.
+  - Confirms the plugin actually loaded (via `plugin-seen.json`) before the npm copy steps aside, and undoes the move after 3 npm sessions with no sign of it (`rolled-back`). Supports the claude.ai synced route.
+  - `paqad-ai plugin rollback` undoes the move, pins `claude_install_mode=settings`, and prints the documented message; `paqad-ai doctor` reports the Claude Code install line.
+  - Guardrail: a new `tests/e2e/stage-enforcement-contract.e2e.test.ts` fences every paqad stage hook's block/allow behavior on both the npm and plugin routes.
+
+  The fleet-wide default flip (`plugin_migration` → `on`) and the manual sign-off scenarios are intentionally out of scope and ship separately.
+
+### Patch Changes
+
+- f235574: Fix #641: onboarding through the Claude Code plugin no longer takes over the shared npm framework link, and npm-onboarded repos run a single hook chain.
+
+  - `bootstrap.ts` now applies the same plugin-aware rule as the plugin's SessionStart when `onboard`/`join`/`install` run from the plugin bin: a link pointing at a working npm install is left untouched, and a missing or dangling link is pointed at `${CLAUDE_PLUGIN_DATA}/runtime` rather than the version-specific cache runtime. Running from the npm install is unchanged.
+  - The plugin's one-copy handshake (`hasLiveNpmHookLines`) now also inspects the project's `.claude/settings.json` and `.claude/settings.local.json`, so the plugin stays passive in a repo the npm copy already wires — each paqad hook fires once per event, not twice.
+  - Onboarding under the plugin omits the npm hook chain from the project's `.claude/settings.json`, since the plugin supplies its own.
+  - `onboard --stack <bad>` now lists the valid stacks instead of an opaque schema error, and the `onboard` skill documents the `--detect --json` null-stack case.
+
 ## 1.96.1
 
 ### Patch Changes
