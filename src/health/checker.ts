@@ -14,6 +14,7 @@ import { visualEvidenceReadiness } from '@/visual-evidence/readiness.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { getSecretPermissionWarning } from '@/rag/secrets.js';
 import { describeFrameworkLink } from '@/health/plugin-install.js';
+import { describeClaudeInstall } from '@/install/plugin-migration.js';
 import { RagService } from '@/rag/service.js';
 import { FileVectorIndex } from '@/rag/vector-index.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
@@ -72,6 +73,7 @@ export class HealthChecker {
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
       this.checkFrameworkInstall(),
+      this.checkClaudeInstall(),
       this.checkSchemaVersion(projectRoot),
       this.checkBrokenScaffold(projectRoot),
       this.checkUiDocs(projectRoot, modules),
@@ -737,6 +739,11 @@ export class HealthChecker {
    * fault — a Claude Code plugin re-points it at the next session start, and an npm reinstall fixes
    * the npm case; either way doctor names the fix instead of reading broken.
    */
+  /** Issue #621 (Part 7) — the Claude Code install line: npm, or the plugin-migration state. */
+  private checkClaudeInstall(): HealthCheckResult {
+    return pass('Claude Code install', describeClaudeInstall());
+  }
+
   private checkFrameworkInstall(): HealthCheckResult {
     const name = 'Framework install';
     const info = describeFrameworkLink();

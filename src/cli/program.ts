@@ -13,6 +13,7 @@ import { createDeliveryLinkCommand } from './commands/delivery-link.js';
 import { createDiscoveryCommand } from './commands/discovery.js';
 import { createDisableCommand } from './commands/disable.js';
 import { createDoctorCommand } from './commands/doctor.js';
+import { createPluginCommand } from './commands/plugin.js';
 import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createFeatureCommand } from './commands/feature.js';
@@ -75,6 +76,7 @@ export function createProgram(): Command {
   program.addCommand(createComplianceCommand());
   program.addCommand(createDashboardCommand());
   program.addCommand(createDoctorCommand());
+  program.addCommand(createPluginCommand());
   program.addCommand(createEvidenceCommand());
   program.addCommand(createFeatureCommand());
   program.addCommand(createAuditCommand());

@@ -305,6 +305,55 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
       1,
     );
   });
+
+  // Issue #641 (Gap 2) — onboarding under the plugin must NOT write the npm hook chain into the
+  // project settings; the plugin supplies its own chain, and writing both makes every hook fire
+  // twice. The attribution/permissions still merge; only the paqad hook commands are omitted.
+  describe('skip-when-plugin (issue #641, Gap 2)', () => {
+    const prev = process.env.CLAUDE_PLUGIN_ROOT;
+    afterEach(() => {
+      if (prev === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+      else process.env.CLAUDE_PLUGIN_ROOT = prev;
+    });
+
+    it('writes no paqad hook chain when onboarding under the plugin', async () => {
+      process.env.CLAUDE_PLUGIN_ROOT = '/some/plugin/root';
+      const adapter = new ClaudeCodeAdapter();
+      const files = await adapter.generateConfig({
+        frameworkPath: '.paqad/framework-path.txt',
+        rulesPath: 'docs/instructions/rules',
+        projectRoot,
+      });
+      const settings = files.find((file) => file.path === '.claude/settings.json');
+      expect(settings).toBeDefined();
+      const parsed = JSON.parse(settings!.content) as {
+        hooks?: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+      };
+      const commands = Object.values(parsed.hooks ?? {})
+        .flat()
+        .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+      expect(commands.some((command) => command.includes('paqad'))).toBe(false);
+      expect(commands.some((command) => command.includes('agent-entry-gate.mjs'))).toBe(false);
+    });
+
+    it('writes the full paqad hook chain when onboarding from npm (no CLAUDE_PLUGIN_ROOT)', async () => {
+      delete process.env.CLAUDE_PLUGIN_ROOT;
+      const adapter = new ClaudeCodeAdapter();
+      const files = await adapter.generateConfig({
+        frameworkPath: '.paqad/framework-path.txt',
+        rulesPath: 'docs/instructions/rules',
+        projectRoot,
+      });
+      const settings = files.find((file) => file.path === '.claude/settings.json');
+      const parsed = JSON.parse(settings!.content) as {
+        hooks: Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+      };
+      const commands = Object.values(parsed.hooks)
+        .flat()
+        .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+      expect(commands.some((command) => command.includes('agent-entry-gate.mjs'))).toBe(true);
+    });
+  });
 });
 
 /** True when `command` launches the capability-gate hook at the given seam. The

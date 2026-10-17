@@ -59,4 +59,20 @@ describe('paqad-ai onboard (issue #616, Part 8)', () => {
     expect(process.exitCode).toBe(2);
     expect(existsSync(join(root, '.paqad', 'project-profile.yaml'))).toBe(false);
   });
+
+  // Issue #641 — a bad --stack value lists the valid stacks instead of an opaque schema error.
+  it('--stack with an unknown value exits 2 and lists the valid stacks', async () => {
+    const { err } = await runOnboard([
+      '--stack',
+      'node',
+      '--project-root',
+      root,
+      '--non-interactive',
+    ]);
+    expect(err).toContain('unknown stack "node"');
+    expect(err).toContain('node-library');
+    expect(err).toContain('node-cli');
+    expect(process.exitCode).toBe(2);
+    expect(existsSync(join(root, '.paqad', 'project-profile.yaml'))).toBe(false);
+  });
 });

@@ -1,0 +1,22 @@
+{
+  "id": "D-01M55NZZ1V1192F6VR3C85HM3G",
+  "category": "architecture-path",
+  "title": "Gap2: onboarding FROM the plugin should skip writing the npm hook chain into project .claude/settings.json?",
+  "context": "The plugin supplies its own hook chain via runtime/claude-plugin/hooks.json. Today onboard/join/install always writes the npm hook chain into the project's .claude/settings.json (claude-adapter.ts). When onboard runs under the plugin (CLAUDE_PLUGIN_ROOT set) and still writes it, every plugin-onboarded repo becomes npm-wired too and both chains fire. Gap2 part 1 separately fixes the handshake to detect project settings so the plugin stands down when npm hooks are present.",
+  "options": [
+    {
+      "option_key": "skip-when-plugin",
+      "label": "When running under CLAUDE_PLUGIN_ROOT, the Claude adapter omits the project hook chain (plugin supplies it); all other onboarding artifacts unchanged"
+    },
+    {
+      "option_key": "always-write",
+      "label": "Keep writing the npm chain; rely only on the Part-7 handshake for exactly-one-chain"
+    }
+  ],
+  "recommendation": "skip-when-plugin",
+  "created_at": "2026-10-17T19:39:04.124Z",
+  "status": "resolved",
+  "chosen": "skip-when-plugin",
+  "rationale": "Plugin supplies its own hook chain; writing the npm chain too makes both fire. Omit it when onboarding under CLAUDE_PLUGIN_ROOT.",
+  "resolved_at": "2026-10-17T19:42:30.612Z"
+}

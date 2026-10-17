@@ -157,6 +157,8 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
   const {
     paqadHookScriptPath,
     hasLiveNpmHookLines,
+    projectClaudeSettingsPaths,
+    anyLiveNpmHookLines,
     removeDeadNpmHookLines,
     removeHomeStageAgents,
   } = __test;
@@ -269,6 +271,94 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
       's2',
     );
     expect(existsSync(marker)).toBe(false);
+  });
+
+  // ── Gap 2 (issue #641): the npm onboard wires the PROJECT's .claude/settings.json ──────────
+  function projectClaudeSettings(projectRoot: string, file: string, commands: string[]): string {
+    const dir = join(projectRoot, '.claude');
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, file);
+    writeFileSync(
+      path,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [{ matcher: '*', hooks: commands.map((command) => ({ command })) }],
+        },
+      }),
+    );
+    return path;
+  }
+
+  it('projectClaudeSettingsPaths returns the project settings.json and settings.local.json', () => {
+    const projectRoot = join(root, 'p');
+    expect(projectClaudeSettingsPaths(projectRoot)).toEqual([
+      join(projectRoot, '.claude', 'settings.json'),
+      join(projectRoot, '.claude', 'settings.local.json'),
+    ]);
+  });
+
+  it('anyLiveNpmHookLines is true when ANY listed settings file wires a live paqad hook', () => {
+    const live = join(root, 'any-live.paqad.mjs');
+    writeFileSync(live, '');
+    mkdirSync(join(root, 'user'), { recursive: true });
+    const userSettings = settings(join(root, 'user'), []);
+    mkdirSync(join(root, 'proj'), { recursive: true });
+    const projSettings = projectClaudeSettings(join(root, 'proj'), 'settings.json', [
+      `node "${live}"`,
+    ]);
+    expect(anyLiveNpmHookLines([userSettings, projSettings])).toBe(true);
+    expect(anyLiveNpmHookLines([userSettings])).toBe(false);
+    expect(anyLiveNpmHookLines([join(root, 'none.json')])).toBe(false);
+  });
+
+  it('stays passive when the live npm hook is wired in the PROJECT settings only (Gap 2)', () => {
+    const env = pluginEnv();
+    const live = join(root, 'proj-live.paqad.mjs');
+    writeFileSync(live, '');
+    // User config has NO paqad hooks; the npm chain lives in the project's .claude/settings.json.
+    projectClaudeSettings(env.CLAUDE_PROJECT_DIR as string, 'settings.json', [`node "${live}"`]);
+    runPluginSessionStart(env, { session_id: 's3', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      's3',
+    );
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('stays passive when the live npm hook is wired in project settings.local.json (Gap 2)', () => {
+    const env = pluginEnv();
+    const live = join(root, 'proj-local-live.paqad.mjs');
+    writeFileSync(live, '');
+    projectClaudeSettings(env.CLAUDE_PROJECT_DIR as string, 'settings.local.json', [
+      `node "${live}"`,
+    ]);
+    runPluginSessionStart(env, { session_id: 's4', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      's4',
+    );
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it('claims the session when NO live npm hook is wired in user OR project settings', () => {
+    const env = pluginEnv();
+    // Project .claude/settings.json exists but wires a non-paqad hook only → not a live npm copy.
+    projectClaudeSettings(env.CLAUDE_PROJECT_DIR as string, 'settings.json', ['echo hi']);
+    runPluginSessionStart(env, { session_id: 's5', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      's5',
+    );
+    expect(existsSync(marker)).toBe(true);
   });
 });
 
@@ -503,5 +593,22 @@ describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('plugin-seen marker (issue #621)', () => {
+  const { writePluginSeen, pluginSeenPath } = __test;
+
+  it('records version, timestamp and root at ~/.paqad-ai/plugin-seen.json', () => {
+    const pluginRoot = join(root, 'plugin');
+    mkdirSync(pluginRoot, { recursive: true });
+    writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '1.96.1' }));
+    // PAQAD_FRAMEWORK_HOME dir hosts the marker, so the test controls where it lands.
+    const env = { PAQAD_FRAMEWORK_HOME: join(root, 'current') };
+    writePluginSeen(pluginRoot, env);
+    const seen = JSON.parse(readFileSync(pluginSeenPath(env), 'utf8'));
+    expect(seen.version).toBe('1.96.1');
+    expect(seen.root).toBe(pluginRoot);
+    expect(typeof seen.at).toBe('string');
   });
 });

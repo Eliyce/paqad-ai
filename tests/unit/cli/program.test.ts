@@ -26,6 +26,7 @@ describe('createProgram', () => {
       'compliance',
       'dashboard',
       'doctor',
+      'plugin',
       'evidence',
       'feature',
       'audit',
