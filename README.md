@@ -70,6 +70,8 @@ A few things worth knowing:
 - The plugin keeps itself current. Claude Code updates it through `/plugin`, so you do not run an update command by hand.
 - The optional RAG engine installs on first use, in the background, only if you turn RAG on. To remove it later, delete `~/.paqad/` (the shared model and engine cache).
 - To open the dashboard, run `paqad-ai dashboard` from a terminal in the project. The plugin puts `paqad-ai` on your shell path inside a Claude Code session.
+- **Already on the npm setup?** paqad can move you to the plugin automatically in the background, with nothing to do on your side — the npm package stays installed as a fallback and paqad is never off at any point. It is off by default today; `paqad-ai plugin rollback` moves a machine back to the npm setup, and `claude_install_mode=settings` in your team config keeps a project on npm.
+- **Organizations (Team or Enterprise):** add the `paqad` plugin in Organization settings > Plugins & skills and set it to Installed by default or Required. Members then do nothing and nothing on their machine is edited by paqad.
 
 ## What you get, at a glance
 

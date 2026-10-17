@@ -71,6 +71,9 @@ export default defineConfig({
         'src/verification/gates/gate.interface.ts',
         'src/workflows/types.ts',
         'src/cli/commands/refresh.ts',
+        // Issue #621 — a thin commander wrapper; its logic (rollbackPlugin) is unit-tested in
+        // tests/unit/install/plugin-migration.test.ts.
+        'src/cli/commands/plugin.ts',
         // Issue #551 — the visual-evidence CLI orchestrates the excluded impure capture path
         // (runner/provision/boot); its resolution/formatting is covered via the pure modules it
         // calls (trigger, resolve-plan) and their own tests.
