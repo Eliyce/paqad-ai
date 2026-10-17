@@ -2,7 +2,7 @@ import { Command } from 'commander';
 
 import { isNpmAvailable } from '@/core/npm-available.js';
 import type { AdapterType } from '@/core/types/adapter.js';
-import type { Capability, Stack } from '@/core/types/domain.js';
+import { STACKS, type Capability, type Stack } from '@/core/types/domain.js';
 import { Detector } from '@/detection/detector.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 
@@ -70,6 +70,17 @@ export function createOnboardCommand(): Command {
             `Suggested capabilities: ${report.detected_capabilities.join(', ') || 'none'}\n`,
           );
         }
+        return;
+      }
+
+      // Issue #641 — a bad `--stack` used to surface the opaque schema error
+      // "must be equal to one of the allowed values". Validate it here and name the valid
+      // stacks so the fix is obvious (e.g. `node` → `node-library` / `node-cli` / `node-service`).
+      if (options.stack && !(STACKS as readonly string[]).includes(options.stack)) {
+        process.stderr.write(
+          `unknown stack "${options.stack}". Valid stacks: ${STACKS.join(', ')}\n`,
+        );
+        process.exitCode = 2;
         return;
       }
 
