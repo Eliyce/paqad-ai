@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { defineConfig } from 'vitest/config';
 
+import { DurationSequencer } from './tests/shared/duration-sequencer';
+
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string };
 
 export default defineConfig({
@@ -16,6 +18,10 @@ export default defineConfig({
     // Every test file gets a throwaway HOME, so onboarding/join/update never write the
     // developer's real ~/.paqad-ai, ~/.claude or ~/.codex (tests/shared/isolate-home.ts).
     setupFiles: ['tests/shared/isolate-home.ts'],
+    // CI splits the run with `--shard` (issue #654). This sequencer balances the shards by each
+    // file's recorded duration (tests/shard-timings.json) instead of an equal file count. An
+    // unsharded run, like local `pnpm run ci`, never calls it and keeps the default order.
+    sequence: { sequencer: DurationSequencer },
     // Windows runners are noticeably slower than Linux/macOS — bump the
     // default 5s test timeout and 10s hook timeout so e2e cases that build
     // the CLI or chunk a small corpus don't fail spuriously.
