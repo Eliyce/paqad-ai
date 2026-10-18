@@ -592,8 +592,9 @@ describe('paqad-ai spec command', () => {
     });
 
     // Issue #640 (INV-18) — the fast lane never runs the pipeline, so even strict adoption with
-    // the pipeline on freezes a fast-lane spec exactly as the pipeline-off path does.
-    it('freezes a fast-lane spec under strict with no pipeline sections (issue #640)', async () => {
+    // the pipeline on freezes a fast-lane spec with no pipeline run. The pipeline section records
+    // that the fast lane skipped it, so a lane raised later still owes the pipeline files.
+    it('freezes a fast-lane spec under strict, marking the pipeline as skipped (issue #640)', async () => {
       const dir = openFeatureChange(root, SES, {
         adapter: 'claude-code',
         title: 'fast copy fix',
@@ -606,7 +607,8 @@ describe('paqad-ai spec command', () => {
       const { err } = await run('freeze', path, '--session', SES, '--confirm-invariants');
       expect(process.exitCode ?? 0, err.join('\n')).toBe(0);
       const stored = readFeatureSpecification(root, dir)!;
-      for (const key of ['provenance', 'task', 'grounding', 'pipeline', 'trace']) {
+      expect(stored.pipeline).toEqual({ produced: false, skipped: 'fast-lane' });
+      for (const key of ['provenance', 'task', 'grounding', 'trace']) {
         expect(key in stored, key).toBe(false);
       }
     });

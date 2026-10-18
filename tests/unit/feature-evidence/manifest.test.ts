@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BUNDLE_MANIFEST,
+  FAST_LANE_REFREEZE_HINT,
   isBundleFileRequired,
   isSpecFrozenBeforePipeline,
+  isSpecFrozenOnFastLane,
   laneRunsSpecPipeline,
   requiredBundleFiles,
   specPipelineApplies,
@@ -80,9 +82,31 @@ describe('validateSpecificationAdoption', () => {
     expect(
       readSpecAdoption({ provenance: { pipeline_produced: false, manual_reason: 'r' } }),
     ).toEqual({ produced: false, manual_reason: 'r' });
+    expect(readSpecAdoption({ pipeline: { produced: false, skipped: 'fast-lane' } })).toEqual({
+      produced: false,
+      fast_lane: true,
+    });
+    expect(readSpecAdoption({ pipeline: { produced: false, skipped: 'other' } })).toEqual({
+      produced: false,
+    });
     expect(readSpecAdoption({ pipeline: null })).toBeNull();
     expect(readSpecAdoption(null)).toBeNull();
     expect(readSpecAdoption('x')).toBeNull();
+  });
+
+  // Issue #640 — a fast-lane freeze records that the fast lane skipped the pipeline, so it is not
+  // a pre-pipeline spec, and the strict check (only reached off the fast lane) asks for a re-freeze.
+  it('reads a fast-lane freeze as recorded, not pre-pipeline, and asks for a re-freeze', () => {
+    const fast = { pipeline: { produced: false, skipped: 'fast-lane' } };
+    expect(isSpecFrozenBeforePipeline(fast)).toBe(false);
+    expect(isSpecFrozenOnFastLane(fast)).toBe(true);
+    expect(isSpecFrozenOnFastLane({ pipeline: { produced: false } })).toBe(false);
+    expect(isSpecFrozenOnFastLane({ spec_file: 'spec.md' })).toBe(false);
+    expect(isSpecFrozenOnFastLane(null)).toBe(false);
+    const failure = validateSpecificationAdoption(JSON.stringify(fast));
+    expect(failure.ok).toBe(false);
+    expect(failure.error).toContain(FAST_LANE_REFREEZE_HINT);
+    expect(failure.error).toMatch(/lane was raised after a fast-lane freeze/);
   });
 
   it('passes a pipeline-produced spec', () => {

@@ -36,7 +36,9 @@ import {
 import { readFeatureRecord, featureRecordIsUntitled } from '@/feature-evidence/feature-record.js';
 import {
   BUNDLE_MANIFEST,
+  FAST_LANE_REFREEZE_HINT,
   isBundleFileRequired,
+  isSpecFrozenOnFastLane,
   specPipelineStrictApplies,
   validateBundleFileContent,
   validateSpecificationAdoption,
@@ -376,8 +378,23 @@ function assertRequired(
     return;
   }
 
-  state.missing.push({ file: entry.file, writer: entry.writer });
+  // Issue #640 — a pipeline file owed only because the lane was raised after a fast-lane freeze
+  // cannot be written on its own: the spec has to be re-frozen through the pipeline, so say so.
+  const refreeze =
+    PIPELINE_FILE_KEYS.has(entry.key) &&
+    isSpecFrozenOnFastLane(readSpecificationRecord(input.projectRoot, dirName));
+  state.missing.push({
+    file: entry.file,
+    writer: refreeze ? FAST_LANE_REFREEZE_HINT : entry.writer,
+  });
 }
+
+/** The bundle files only the spec pipeline writes (issue #640). */
+const PIPELINE_FILE_KEYS: ReadonlySet<BundleManifestEntry['key']> = new Set([
+  'request',
+  'clarification',
+  'experts',
+]);
 
 /**
  * Where a present file's envelope `content_hash` no longer matches its bytes (issue #581,

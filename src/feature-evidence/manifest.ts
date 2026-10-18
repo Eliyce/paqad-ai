@@ -349,14 +349,14 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
  * How a frozen spec says it was produced: the `pipeline` section of a record frozen since issue
  * #581 (`produced`, `manual_reason`), else the `provenance` block of an older one
  * (`pipeline_produced`, `manual_reason`), so both read the same (INV-8). Null when the record
- * carries neither.
+ * carries neither. `fast_lane` is true when the fast lane skipped the pipeline (issue #640).
  */
 export function readSpecAdoption(
   spec: unknown,
-): { produced: boolean; manual_reason?: string } | null {
+): { produced: boolean; manual_reason?: string; fast_lane?: true } | null {
   if (typeof spec !== 'object' || spec === null) return null;
   const record = spec as {
-    pipeline?: { produced?: unknown; manual_reason?: unknown };
+    pipeline?: { produced?: unknown; manual_reason?: unknown; skipped?: unknown };
     provenance?: { pipeline_produced?: unknown; manual_reason?: unknown };
   };
   const section = record.pipeline ?? record.provenance;
@@ -367,19 +367,35 @@ export function readSpecAdoption(
   return {
     produced: produced === true,
     ...(typeof section.manual_reason === 'string' ? { manual_reason: section.manual_reason } : {}),
+    ...(record.pipeline?.skipped === 'fast-lane' ? { fast_lane: true as const } : {}),
   };
 }
 
 /**
  * Whether a parsed specification.json was frozen while the spec pipeline was off (issue #640):
  * a record with no `pipeline` or `provenance` section. Any freeze with the pipeline on writes
- * one, even a hand-written `--manual --reason` spec (`produced: false` plus the reason), so
- * only a spec frozen before the switch reads true. Not a record (absent, corrupt) is false, so
- * a change whose spec is not frozen yet still needs the pipeline files.
+ * one, even a hand-written `--manual --reason` spec (`produced: false` plus the reason) and a
+ * fast-lane freeze (`skipped: 'fast-lane'`), so only a spec frozen before the switch reads true.
+ * Not a record (absent, corrupt) is false, so a change whose spec is not frozen yet still needs
+ * the pipeline files.
  */
 export function isSpecFrozenBeforePipeline(spec: unknown): boolean {
   return typeof spec === 'object' && spec !== null && readSpecAdoption(spec) === null;
 }
+
+/**
+ * Whether a parsed specification.json was frozen on the fast lane with the pipeline on (issue
+ * #640). Once the lane is raised to graduated or full, its pipeline files are owed, and the only
+ * way to produce them is to re-freeze the spec through the pipeline.
+ */
+export function isSpecFrozenOnFastLane(spec: unknown): boolean {
+  return readSpecAdoption(spec)?.fast_lane === true;
+}
+
+/** What a change whose lane was raised after a fast-lane freeze must do (issue #640). */
+export const FAST_LANE_REFREEZE_HINT =
+  'the lane was raised after a fast-lane freeze: re-freeze the spec through the spec pipeline ' +
+  '(paqad-ai spec pipeline start, then spec freeze --from-pipeline)';
 
 /**
  * The strict-adoption content check for `specification.json` (issue #547, FR-10.2). When
@@ -406,6 +422,13 @@ export function validateSpecificationAdoption(content: string | null): {
   }
   if (!adoption) return failure;
   if (adoption.produced) return { ok: true };
+  // Only reached off the fast lane: a fast-lane freeze checked here means the lane was raised.
+  if (adoption.fast_lane) {
+    return {
+      ok: false,
+      error: `specification.json was frozen on the fast lane; ${FAST_LANE_REFREEZE_HINT}`,
+    };
+  }
   if (adoption.manual_reason !== undefined && adoption.manual_reason.trim().length > 0) {
     return { ok: true };
   }

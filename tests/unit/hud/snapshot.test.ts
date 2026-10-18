@@ -328,6 +328,20 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     expect(snapshot.flags.map((flag) => flag.id)).toContain('high-table-skipped');
   });
 
+  it('a fast-lane freeze shows no High Table at all, not a skipped one (issue #640)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-fast-freeze';
+    const dir = openChange(root, S, 'fast', 'ORD-778 fast spec');
+    writeBundleJson(root, dir, 'specification', {
+      pipeline: { produced: false, skipped: 'fast-lane' },
+    });
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.table).toBeNull();
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('high-table-skipped');
+  });
+
   it('a paused change with nothing active reads paused, with no stages or ship', () => {
     const root = onboardedRoot();
     const S = 'ses-paused';

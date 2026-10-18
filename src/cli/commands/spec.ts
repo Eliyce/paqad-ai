@@ -164,22 +164,23 @@ export function createSpecCommand(): Command {
         // or records in the `pipeline` section why it did not; under strict adoption a
         // hand-written spec is refused unless `--manual --reason` is given. With the pipeline off,
         // freeze writes none of those sections and behaves exactly as before. Issue #640: the
-        // fast lane never runs the pipeline (INV-18), so a fast-lane change freezes as if the
-        // pipeline were off, whatever the config says; an unresolved lane counts as full.
+        // fast lane never runs the pipeline (INV-18), so a fast-lane change freezes without it,
+        // whatever the config says; an unresolved lane counts as full. With the pipeline on, the
+        // record says the fast lane skipped it, so a lane raised later still owes the pipeline.
         const freezeSession = resolveSessionId(
           options.projectRoot,
           options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
         );
         const freezeFeature = currentFeature(options.projectRoot, freezeSession);
         const pipelineConfig = readPipelineConfig(options.projectRoot);
-        const pipelineOnHere =
-          pipelineConfig.enabled &&
-          laneRunsSpecPipeline(
-            freezeFeature ? readChangeConstants(options.projectRoot, freezeFeature).lane : null,
-          );
+        const freezeLaneRunsPipeline = laneRunsSpecPipeline(
+          freezeFeature ? readChangeConstants(options.projectRoot, freezeFeature).lane : null,
+        );
         let sections: FreezeSpecInput['sections'];
         let frozenWithoutPipeline = false;
-        if (pipelineOnHere) {
+        if (pipelineConfig.enabled && !freezeLaneRunsPipeline) {
+          sections = { pipeline: { produced: false, skipped: 'fast-lane' } };
+        } else if (pipelineConfig.enabled) {
           if (options.fromPipeline) {
             const dirName = freezeFeature;
             if (!dirName) {

@@ -257,8 +257,9 @@ function buildTable(projectRoot: string, dirName: string, specJson: unknown): Hu
   const experts = asRecord(readJsonFile(join(projectRoot, featureFilePath(dirName, 'experts'))));
   const roster = Array.isArray(experts?.roster) ? experts.roster : null;
   const adoption = readSpecAdoption(specJson);
-  // A spec frozen by hand while the pipeline ran shows the High Table as skipped (Q11).
-  const skipped = adoption !== null && !adoption.produced;
+  // A spec frozen by hand while the pipeline ran shows the High Table as skipped (Q11). A
+  // fast-lane freeze never had a High Table to skip (issue #640), so it shows none.
+  const skipped = adoption !== null && !adoption.produced && !adoption.fast_lane;
   if (!roster) return skipped ? { seats: [], skipped } : null;
   const seats: HudSeat[] = roster.map((entry) => {
     const seat = asRecord(entry) ?? {};

@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
 import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import {
   chatRagPath,
   featureDir,
@@ -750,6 +751,38 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
     const gate = run(root, config);
     expect(gate!.status).toBe('pass');
     expect(gate!.detail).toContain('Not required on the fast lane:');
+    expect(gate!.detail).not.toContain('Spec frozen before the spec pipeline was on');
+  });
+
+  // A fast-lane freeze records that the fast lane skipped the pipeline. On the fast lane it needs
+  // nothing; once the lane is raised the files are owed, and only a re-freeze can write them.
+  it('passes a fast-lane freeze on the fast lane, then asks for a re-freeze once the lane is raised', () => {
+    const root = tempRoot();
+    const fastSpec = { spec_file: 'spec.md', pipeline: { produced: false, skipped: 'fast-lane' } };
+    const fast = frozenConfigFor(root, 'fast', fastSpec);
+    expect(fast.specFrozenBeforePipeline).toBe(false);
+    const fastGate = run(root, fast);
+    expect(fastGate!.status).toBe('pass');
+    expect(fastGate!.detail).toContain('Not required on the fast lane:');
+
+    // `paqad-ai lane set graduated` on the same bundle.
+    recordChangeConstants(root, LANE_DIR, { lane: 'graduated' });
+    const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
+    expect(built.lane).toBe('graduated');
+    expect(built.specFrozenBeforePipeline).toBe(false);
+    const raised = {
+      ...fast,
+      lane: built.lane,
+      specFrozenBeforePipeline: built.specFrozenBeforePipeline,
+    };
+    const gate = run(root, raised);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain(
+      'request.md (run: the lane was raised after a fast-lane freeze: re-freeze the spec through the spec pipeline',
+    );
+    expect(gate!.detail).toContain('clarification.json (run: the lane was raised');
+    // Strict adoption (the default) names the re-freeze too, never the pipeline being off.
+    expect(gate!.detail).toContain('specification.json was frozen on the fast lane');
     expect(gate!.detail).not.toContain('Spec frozen before the spec pipeline was on');
   });
 

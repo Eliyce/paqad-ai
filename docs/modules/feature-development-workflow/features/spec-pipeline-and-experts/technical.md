@@ -66,7 +66,7 @@ The `chief-architect` is never picked; it runs once any expert fired. The model 
 
 `paqad-ai spec freeze <spec.md> --from-pipeline` merges the staged run into `specification.json`: a `task` section, a `grounding` section, a `pipeline` section (`produced`, `outcome`, `reason`, `a5_live`, the enforcement block once, and `manual_reason` for a manual freeze) and a `trace` map keyed by item id. It copies the signed source into the bundle as `spec.md`, then deletes the staging dir and every `.paqad/tmp/` input the record verbs were handed.
 
-- Under **strict** adoption (the default), a non-pipeline spec is refused unless `--manual --reason` is given. A fast-lane change is never refused: it freezes as if the pipeline were off.
+- Under **strict** adoption (the default), a non-pipeline spec is refused unless `--manual --reason` is given. A fast-lane change is never refused: it freezes without the pipeline, and its `pipeline` section records `skipped: "fast-lane"`. If the lane is later raised to graduated or full, the pipeline files are owed again and the completeness gate asks for a re-freeze through the spec pipeline.
 - There is no `specification.md`. The feature report renders the spec from `specification.json`.
 - The completeness gate **fails closed** under strict adoption for a non-pipeline spec with no manual reason, on the graduated and full lanes.
 
