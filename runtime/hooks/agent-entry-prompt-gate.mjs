@@ -133,7 +133,8 @@ function fireContextRefresh(sessionId) {
 // deterministic classifier, record it against the REAL host so the session-route row
 // carries the adapter (AC-8), and append the ONE lean `[paqad]` outcome line to `sink`.
 // Thin by contract: all logic lives in dist/pipeline/prompt-lane.js. Returns the routed
-// workflow, or null when the prompt was empty or routing failed (issue #582).
+// workflow and its lane (issue #640: the spec-pipeline nudge reads the lane), or null when the
+// prompt was empty or routing failed (issue #582).
 async function emitRoute(stdin, projectRoot, sink) {
   try {
     const parsed = JSON.parse(stdin);
@@ -144,7 +145,7 @@ async function emitRoute(stdin, projectRoot, sink) {
     const sessionId = typeof parsed?.session_id === 'string' ? parsed.session_id : null;
     const distUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
     const { runPromptRouteSeam } = await import(distUrl.href);
-    const { routed, narration, notification } = await runPromptRouteSeam({
+    const { routed, lane, narration, notification } = await runPromptRouteSeam({
       projectRoot,
       request,
       sessionId,
@@ -163,7 +164,7 @@ async function emitRoute(stdin, projectRoot, sink) {
     if (routed === 'feature-development' && sessionId) {
       sink(`[paqad] session ${sessionId}: prefix paqad-ai commands with SE_SESSION=${sessionId}\n`);
     }
-    return routed;
+    return { routed, lane: lane ?? null };
   } catch (error) {
     // Best-effort for the HOST — the prompt still goes through — but never silent again
     // (issue #573). A swallowed ERR_MODULE_NOT_FOUND here hid a total routing outage for
@@ -227,13 +228,16 @@ async function main(stdin) {
   // that is NOT feature-development drop the rule manifest, loaded rule text and existing
   // surface. When routing gave no answer the full block is kept, exactly as before.
   let routeBuf = '';
-  const routed = await emitRoute(stdin, projectRoot, (text) => (routeBuf += text));
+  const route = await emitRoute(stdin, projectRoot, (text) => (routeBuf += text));
   fireContextRefresh(sessionId);
+  const routed = route?.routed ?? null;
   const stripRules = typeof routed === 'string' && routed !== 'feature-development';
   let contextBuf = '';
   emitContext(stdin, projectRoot, (text) => (contextBuf += text), { stripRules });
   // Issue #547 (FR-1.4) — one spec-pipeline nudge when the pipeline is on; silent otherwise.
-  const nudge = specPipelineNudge(readLayeredKey, projectRoot);
+  // Issue #640 (FR-14) — and silent on the fast lane and on a route that is not
+  // feature-development. With no route (routing gave no answer) it behaves as before.
+  const nudge = specPipelineNudge(readLayeredKey, projectRoot, process.env, route);
   const after = nudge ? `${nudge}\n` : '';
   emitInjection(fitHookOutput(routeBuf, contextBuf, after));
   return 0;

@@ -474,6 +474,39 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
       }
     },
   );
+
+  // Issue #640 (FR-14, AC-21) — the spec pipeline is on by default, but the fast lane never runs
+  // it, so the prompt gate nudges only a feature-development prompt off the fast lane.
+  it.each([
+    ['fix a one-line typo in a code comment', false],
+    ['implement a schema migration adding a pii payment column and a breaking api change', true],
+    ['what does this project do', false],
+  ])('prints the spec-pipeline nudge by lane (%s)', (prompt, nudged) => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-prompt-nudge-'));
+    try {
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
+      writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
+      writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+      const sentinel = join(projectRoot, '.paqad/.agent-entry-loaded.d/nudge-640');
+      mkdirSync(join(projectRoot, '.paqad/.agent-entry-loaded.d'), { recursive: true });
+      writeFileSync(sentinel, '{"loaded_at":"now"}');
+      const future = new Date(Date.now() + 60_000);
+      utimesSync(sentinel, future, future);
+
+      const result = runPromptGateWithInput(
+        projectRoot,
+        JSON.stringify({ prompt, session_id: 'nudge-640' }),
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stdout.includes('Spec pipeline: ON (experts: ON, adoption: strict)')).toBe(
+        nudged,
+      );
+    } finally {
+      removeTempProject(projectRoot);
+    }
+  });
 });
 
 describe('runtime/hooks/agent-entry-session-start.mjs', () => {

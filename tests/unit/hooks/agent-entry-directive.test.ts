@@ -88,6 +88,37 @@ describe('specPipelineNudge (FR-1.4)', () => {
   });
 });
 
+// Issue #640 (FR-14, AC-21) — the nudge follows this prompt's route and lane.
+describe('specPipelineNudge by route and lane (issue #640, FR-14)', () => {
+  const env = {};
+  it('is silent on the fast lane', () => {
+    expect(
+      specPipelineNudge(reader({}), '/x', env, { routed: 'feature-development', lane: 'fast' }),
+    ).toBeNull();
+  });
+
+  it('is silent on a route that is not feature-development', () => {
+    expect(
+      specPipelineNudge(reader({}), '/x', env, { routed: 'project-question', lane: null }),
+    ).toBeNull();
+  });
+
+  it.each(['graduated', 'full', null])('nudges on the %s lane with the defaults', (lane) => {
+    expect(
+      specPipelineNudge(reader({}), '/x', env, { routed: 'feature-development', lane }),
+    ).toMatch(/Spec pipeline: ON \(experts: ON, adoption: strict\)/);
+  });
+
+  it('stays null on the graduated lane when the project switched the pipeline off', () => {
+    expect(
+      specPipelineNudge(reader({ spec_pipeline_enabled: 'false' }), '/x', env, {
+        routed: 'feature-development',
+        lane: 'graduated',
+      }),
+    ).toBeNull();
+  });
+});
+
 // Issue #640 (AC-24) — the hook cannot import TypeScript, so it mirrors the three defaults. This
 // test is the drift guard: change one side without the other and it fails.
 describe('spec-pipeline default mirror (issue #640, AC-24)', () => {

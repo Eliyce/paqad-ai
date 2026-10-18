@@ -89,12 +89,18 @@ function switchOn(raw, fallback) {
  * prompt-gate output is byte-identical to before (INV-1). The cross-host path is the router
  * (FR-1.3); this is the Claude Code convenience.
  *
+ * Issue #640 (FR-14): the fast lane never runs the pipeline, so the nudge is silent there, and on
+ * a route that is not feature-development. An unresolved lane counts as full. With no route at
+ * all (routing gave no answer) it behaves as before.
+ *
  * @param {(projectRoot: string, key: string, envName: string, env?: NodeJS.ProcessEnv) => string | undefined} readKey
  * @param {string} projectRoot
  * @param {NodeJS.ProcessEnv} [env]
+ * @param {{ routed: string, lane: string | null } | null} [route] this prompt's route and lane
  * @returns {string | null}
  */
-export function specPipelineNudge(readKey, projectRoot, env = process.env) {
+export function specPipelineNudge(readKey, projectRoot, env = process.env, route = null) {
+  if (route && (route.routed !== 'feature-development' || route.lane === 'fast')) return null;
   const defaults = SPEC_PIPELINE_DEFAULTS_MIRROR;
   const enabled = readKey(projectRoot, 'spec_pipeline_enabled', 'PAQAD_SPEC_PIPELINE_ENABLED', env);
   if (!switchOn(enabled, defaults.spec_pipeline_enabled)) return null;
