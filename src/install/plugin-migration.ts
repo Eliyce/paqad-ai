@@ -60,8 +60,11 @@ export interface MigrationRecord {
   npm_sessions_since_install?: number;
   /** When the state last became `installed`; plugin-seen freshness is judged against it (B4). */
   installed_at?: string;
-  /** The last npm session id counted toward the rollback, so one session counts once (B4). */
-  last_counted_session?: string;
+  /**
+   * The npm session ids counted toward the rollback since `installed` (the last
+   * {@link MAX_COUNTED_SESSIONS}), so one session counts once even when sessions interleave (B4).
+   */
+  counted_sessions?: string[];
   /**
    * When and why the last REAL write happened (anything but a config skip). A config skip
    * rewrites `last_attempt_at` and `reason`, so the retry window of a real prior attempt is
@@ -102,6 +105,8 @@ const RETRY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MANAGED_POLICY_RECHECK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const ROLLBACK_AFTER_NPM_SESSIONS = 3;
+/** Bound on the remembered session ids; well above the rollback threshold. */
+const MAX_COUNTED_SESSIONS = 10;
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 
@@ -516,7 +521,10 @@ function record(
     last_attempt_at: nowIso,
   };
   // A fresh move into `installed` restarts the freshness clock; a counter bump keeps it.
-  if (patch.state === 'installed' && prior?.state !== 'installed') next.installed_at = nowIso;
+  if (patch.state === 'installed' && prior?.state !== 'installed') {
+    next.installed_at = nowIso;
+    next.counted_sessions = [];
+  }
   // Only a real write moves the retry baseline; a config skip keeps the prior one (B7).
   if (!isConfigSkip(next.state, next.reason)) {
     next.last_real_attempt_at = nowIso;
@@ -742,7 +750,8 @@ function tickInstalled(
   if (input.source === 'plugin' || isPluginSeenFresh(prior, readPluginSeen(deps.home))) {
     return confirmDone(deps, prior);
   }
-  if (input.sessionId && prior.last_counted_session === input.sessionId) {
+  const counted = prior.counted_sessions ?? [];
+  if (input.sessionId && counted.includes(input.sessionId)) {
     return { state: prior.state, path: prior.path, reason: 'session-already-counted' };
   }
   const sessions = (prior.npm_sessions_since_install ?? 0) + 1;
@@ -752,7 +761,9 @@ function tickInstalled(
   return record(deps, prior, {
     state: 'installed',
     npm_sessions_since_install: sessions,
-    last_counted_session: input.sessionId,
+    counted_sessions: input.sessionId
+      ? [...counted, input.sessionId].slice(-MAX_COUNTED_SESSIONS)
+      : counted,
   });
 }
 

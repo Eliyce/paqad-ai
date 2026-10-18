@@ -727,8 +727,45 @@ describe('recordMigrationSession — real sessions move the migration (B4)', () 
     expect(await tick('npm', 's1')).toMatchObject({ reason: 'session-already-counted' });
     expect(readMigrationState(home)).toMatchObject({
       npm_sessions_since_install: 1,
-      last_counted_session: 's1',
+      counted_sessions: ['s1'],
     });
+  });
+  it('interleaved sessions A, B, A count twice, not three times (INV-8)', async () => {
+    installed();
+    await tick('npm', 'A');
+    await tick('npm', 'B');
+    expect(await tick('npm', 'A')).toMatchObject({
+      state: 'installed',
+      reason: 'session-already-counted',
+    });
+    expect(readMigrationState(home)).toMatchObject({
+      npm_sessions_since_install: 2,
+      counted_sessions: ['A', 'B'],
+    });
+  });
+  it('remembers at most the last 10 session ids', async () => {
+    installed({
+      npm_sessions_since_install: 0,
+      counted_sessions: Array.from({ length: 10 }, (_, i) => `old-${i}`),
+    });
+    await tick('npm', 'new');
+    const ids = readMigrationState(home)?.counted_sessions ?? [];
+    expect(ids).toHaveLength(10);
+    expect(ids.at(-1)).toBe('new');
+    expect(ids).not.toContain('old-0');
+  });
+  it('a fresh install forgets the sessions counted before it', async () => {
+    manifestClaudeCode();
+    writeMigrationState(home, {
+      state: 'rolled-back',
+      reason: 'plugin-never-loaded',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-16T00:00:00Z',
+      counted_sessions: ['A', 'B', 'C'],
+    });
+    maybeMigrateToPlugin(projectRoot, baseDeps());
+    expect(readMigrationState(home)).toMatchObject({ state: 'installed', counted_sessions: [] });
   });
   it('counts a session with no id (nothing to dedupe on)', async () => {
     installed({ npm_sessions_since_install: undefined });
