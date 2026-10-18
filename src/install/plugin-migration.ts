@@ -58,6 +58,10 @@ export interface MigrationRecord {
   version: string;
   /** npm SessionStarts seen since `installed` with no sign of the plugin (Part 4 rollback count). */
   npm_sessions_since_install?: number;
+  /** When the state last became `installed`; plugin-seen freshness is judged against it (B4). */
+  installed_at?: string;
+  /** The last npm session id counted toward the rollback, so one session counts once (B4). */
+  last_counted_session?: string;
 }
 
 /** Injectable seams so the state machine is testable without a real environment. */
@@ -465,14 +469,17 @@ function record(
   prior: MigrationRecord | null,
   patch: Partial<MigrationRecord> & { state: MigrationState },
 ): MigrationResult {
+  const nowIso = deps.now().toISOString();
   const next: MigrationRecord = {
     attempts: prior?.attempts ?? 0,
     npm_sessions_since_install: prior?.npm_sessions_since_install,
     ...prior,
     ...patch,
     version: deps.version,
-    last_attempt_at: deps.now().toISOString(),
+    last_attempt_at: nowIso,
   };
+  // A fresh move into `installed` restarts the freshness clock; a counter bump keeps it.
+  if (patch.state === 'installed' && prior?.state !== 'installed') next.installed_at = nowIso;
   writeMigrationState(deps.home, next);
   return { state: next.state, path: next.path, reason: next.reason };
 }
@@ -500,9 +507,11 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
     return { state: prior.state, path: prior.path, reason: prior.reason };
   }
 
-  // Already installed by paqad: confirm it ran, or undo after enough quiet npm sessions (Part 4/9).
+  // Already installed by paqad: confirm it ran (Part 4/9). The update path never counts a session;
+  // only a real SessionStart does, through recordMigrationSession (B4).
   if (prior && prior.state === 'installed') {
-    return confirmOrUndo(deps, prior);
+    if (isPluginSeenFresh(prior, readPluginSeen(deps.home))) return confirmDone(deps, prior);
+    return { state: prior.state, path: prior.path, reason: prior.reason };
   }
 
   const cfg = resolvePluginMigrationConfig(projectRoot, deps.env);
@@ -598,25 +607,98 @@ function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): Migr
   return record(deps, prior, { state: result.state, reason: result.reason, attempts });
 }
 
+type PluginSeen = ReturnType<typeof readPluginSeen>;
+
 /**
- * Part 4 / Part 9 — once `installed`, confirm the plugin actually runs (`plugin-seen.json` newer
- * than the install) and move to `done`, or after {@link ROLLBACK_AFTER_NPM_SESSIONS} npm sessions
- * with no sign of it, undo the move and record `rolled-back`.
+ * True when the plugin wrote `plugin-seen.json` after the move into `installed`. Older records
+ * have no `installed_at`, so they fall back to `last_attempt_at` (B4).
  */
-function confirmOrUndo(deps: ResolvedDeps, prior: MigrationRecord): MigrationResult {
+function isPluginSeenFresh(prior: MigrationRecord, seen: PluginSeen): boolean {
+  if (!seen?.at) return false;
+  const since = prior.installed_at ?? prior.last_attempt_at;
+  const installedAt = since ? new Date(since).getTime() : 0;
+  return new Date(seen.at).getTime() >= installedAt;
+}
+
+/** Move `installed` to `done` (Part 4/9); `synced` when the plugin ran from the claude.ai cache. */
+function confirmDone(deps: ResolvedDeps, prior: MigrationRecord): MigrationResult {
   const seen = readPluginSeen(deps.home);
-  const installedAt = prior.last_attempt_at ? new Date(prior.last_attempt_at).getTime() : 0;
-  if (seen?.at && new Date(seen.at).getTime() >= installedAt) {
-    return record(deps, prior, {
-      state: 'done',
-      path: isSyncedRoot(seen.root) ? 'synced' : prior.path,
-    });
+  return record(deps, prior, {
+    state: 'done',
+    path: isSyncedRoot(seen?.root) ? 'synced' : prior.path,
+  });
+}
+
+/** Which copy's SessionStart reported the session. */
+export type SessionSource = 'npm' | 'plugin';
+
+/** Seams for {@link recordMigrationSession}, on top of the migration seams. */
+export interface SessionTickDeps extends MigrationDeps {
+  /** How long an npm tick waits for a parallel plugin SessionStart to write plugin-seen. */
+  settleMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const DEFAULT_SETTLE_MS = 2000;
+
+/**
+ * Part 4 / Part 9 — the one place a real Claude Code session moves the migration (B4). A plugin
+ * session, or an npm session that finds a fresh plugin-seen, moves `installed` to `done`. An npm
+ * session with no sign of the plugin bumps the counter once per distinct session id, and at
+ * {@link ROLLBACK_AFTER_NPM_SESSIONS} runs the automatic rollback. Takes the machine lock (does
+ * nothing when it is held) and never throws.
+ */
+export async function recordMigrationSession(
+  input: { source: SessionSource; sessionId?: string },
+  deps: SessionTickDeps = {},
+): Promise<MigrationResult> {
+  try {
+    const resolved = resolveDeps(deps);
+    const initial = readMigrationState(resolved.home);
+    if (initial?.state !== 'installed') return noTick(initial);
+    if (input.source === 'npm') {
+      // The plugin and npm SessionStart hooks run in parallel; give plugin-seen a moment to land.
+      const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+      await sleep(deps.settleMs ?? DEFAULT_SETTLE_MS);
+    }
+    if (!acquireLock(resolved.home)) return { state: initial.state, reason: 'locked' };
+    try {
+      return tickInstalled(resolved, input);
+    } finally {
+      releaseLock(resolved.home);
+    }
+  } catch (error) {
+    return { state: 'skipped', reason: `error:${(error as Error).message}` };
+  }
+}
+
+/** The no-op result when there is nothing for a session to move. */
+function noTick(prior: MigrationRecord | null): MigrationResult {
+  return { state: prior?.state ?? 'pending', path: prior?.path, reason: 'nothing-to-record' };
+}
+
+/** Under the lock: re-read the state, then confirm, count, or roll back. */
+function tickInstalled(
+  deps: ResolvedDeps,
+  input: { source: SessionSource; sessionId?: string },
+): MigrationResult {
+  const prior = readMigrationState(deps.home);
+  if (prior?.state !== 'installed') return noTick(prior);
+  if (input.source === 'plugin' || isPluginSeenFresh(prior, readPluginSeen(deps.home))) {
+    return confirmDone(deps, prior);
+  }
+  if (input.sessionId && prior.last_counted_session === input.sessionId) {
+    return { state: prior.state, path: prior.path, reason: 'session-already-counted' };
   }
   const sessions = (prior.npm_sessions_since_install ?? 0) + 1;
   if (sessions >= ROLLBACK_AFTER_NPM_SESSIONS) {
     return autoRollback(deps, prior, sessions);
   }
-  return record(deps, prior, { state: 'installed', npm_sessions_since_install: sessions });
+  return record(deps, prior, {
+    state: 'installed',
+    npm_sessions_since_install: sessions,
+    last_counted_session: input.sessionId,
+  });
 }
 
 /**

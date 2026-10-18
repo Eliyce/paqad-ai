@@ -20,6 +20,7 @@ import {
   projectTargetsClaudeCode,
   pluginSeenPath,
   readMigrationState,
+  recordMigrationSession,
   releaseLock,
   retryAllowed,
   rollbackPlugin,
@@ -593,23 +594,193 @@ describe('maybeMigrateToPlugin — confirm or undo (Part 4)', () => {
     const r = maybeMigrateToPlugin(projectRoot, baseDeps());
     expect(r.state).toBe('done');
   });
-  it('rolls back after 3 npm sessions with no plugin', () => {
+  it('update --silent never bumps the session counter (AC-10)', () => {
     manifestClaudeCode();
+    installed({ npm_sessions_since_install: 2 });
+    for (let i = 0; i < 5; i += 1) {
+      expect(maybeMigrateToPlugin(projectRoot, baseDeps())).toEqual({
+        state: 'installed',
+        path: 'settings',
+        reason: undefined,
+      });
+    }
+    expect(readMigrationState(home)?.npm_sessions_since_install).toBe(2);
+  });
+});
+
+/** One SessionStart tick with an instant settle. */
+function tick(
+  source: 'npm' | 'plugin',
+  sessionId?: string,
+  over: Partial<MigrationDeps> = {},
+): ReturnType<typeof recordMigrationSession> {
+  return recordMigrationSession(
+    { source, sessionId },
+    { ...baseDeps(over), sleep: async () => {} },
+  );
+}
+
+describe('recordMigrationSession — real sessions move the migration (B4)', () => {
+  function installed(extra: Record<string, unknown> = {}): void {
+    writeMigrationState(home, {
+      state: 'installed',
+      path: 'settings',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-17T11:30:00Z',
+      installed_at: '2026-10-17T10:00:00Z',
+      npm_sessions_since_install: 0,
+      ...extra,
+    });
+  }
+  function seen(at: string, root?: string): void {
+    mkdirSync(join(home, '.paqad-ai'), { recursive: true });
+    writeFileSync(pluginSeenPath(home), JSON.stringify({ version: '1', at, root }));
+  }
+  it('rolls back on the third distinct npm session and uninstalls (AC-8)', async () => {
+    installed();
+    writeInstalledRecord();
     mkdirSync(join(home, '.claude'), { recursive: true });
     writeFileSync(userSettings(), JSON.stringify({ enabledPlugins: { 'paqad@eliyce': true } }));
-    installed({ npm_sessions_since_install: 2 });
-    const r = maybeMigrateToPlugin(projectRoot, baseDeps());
-    expect(r.state).toBe('rolled-back');
-    expect(r.reason).toBe('plugin-never-loaded');
+    const runClaudeUninstall = vi.fn();
+    expect((await tick('npm', 's1', { runClaudeUninstall })).state).toBe('installed');
+    expect((await tick('npm', 's2', { runClaudeUninstall })).state).toBe('installed');
+    expect(runClaudeUninstall).not.toHaveBeenCalled();
+    expect(await tick('npm', 's3', { runClaudeUninstall })).toMatchObject({
+      state: 'rolled-back',
+      reason: 'plugin-never-loaded',
+    });
+    expect(runClaudeUninstall).toHaveBeenCalledWith(home);
     const after = JSON.parse(readFileSync(userSettings(), 'utf8'));
     expect(after.enabledPlugins['paqad@eliyce']).toBeUndefined();
   });
-  it('counts a session without rolling back before the threshold', () => {
-    manifestClaudeCode();
-    installed({ npm_sessions_since_install: 0 });
-    const r = maybeMigrateToPlugin(projectRoot, baseDeps());
-    expect(r.state).toBe('installed');
+  it('counts a repeated session id once (INV-8)', async () => {
+    installed();
+    await tick('npm', 's1');
+    expect(await tick('npm', 's1')).toMatchObject({ reason: 'session-already-counted' });
+    expect(readMigrationState(home)).toMatchObject({
+      npm_sessions_since_install: 1,
+      last_counted_session: 's1',
+    });
+  });
+  it('counts a session with no id (nothing to dedupe on)', async () => {
+    installed({ npm_sessions_since_install: undefined });
+    await tick('npm');
     expect(readMigrationState(home)?.npm_sessions_since_install).toBe(1);
+  });
+  it('a plugin session moves installed to done without counting (AC-9)', async () => {
+    installed();
+    expect(await tick('plugin', 'p1')).toMatchObject({ state: 'done', path: 'settings' });
+    expect(readMigrationState(home)?.npm_sessions_since_install).toBe(0);
+  });
+  it('a plugin session from the claude.ai cache records done via synced', async () => {
+    installed();
+    seen('2026-10-17T09:00:00Z', '/u/.claude/plugins/synced/paqad');
+    expect(await tick('plugin')).toMatchObject({ state: 'done', path: 'synced' });
+  });
+  it('an npm session that finds plugin-seen newer than installed_at confirms done (AC-9)', async () => {
+    installed();
+    // Newer than installed_at even though last_attempt_at (rewritten by a counter bump) is later.
+    seen('2026-10-17T11:00:00Z');
+    expect(await tick('npm', 's1')).toMatchObject({ state: 'done' });
+    expect(readMigrationState(home)?.npm_sessions_since_install).toBe(0);
+  });
+  it('a stale plugin-seen (older than installed_at) still counts the npm session', async () => {
+    installed();
+    seen('2026-10-17T09:00:00Z');
+    expect(await tick('npm', 's1')).toMatchObject({ state: 'installed' });
+    expect(readMigrationState(home)?.npm_sessions_since_install).toBe(1);
+  });
+  it('falls back to last_attempt_at for a record with no installed_at', async () => {
+    installed({ installed_at: undefined });
+    seen('2026-10-17T11:00:00Z'); // older than last_attempt_at 11:30
+    expect((await tick('npm', 's1')).state).toBe('installed');
+    seen('2026-10-17T12:30:00Z');
+    expect((await tick('npm', 's2')).state).toBe('done');
+  });
+  it('treats a record with no timestamps as epoch (any seen confirms)', async () => {
+    installed({ installed_at: undefined, last_attempt_at: undefined });
+    seen('2026-10-17T11:00:00Z');
+    expect((await tick('npm', 's1')).state).toBe('done');
+  });
+  it('waits the settle before reading plugin-seen on an npm tick only', async () => {
+    installed();
+    const sleep = vi.fn(async () => {});
+    await recordMigrationSession({ source: 'npm', sessionId: 's1' }, { ...baseDeps(), sleep });
+    expect(sleep).toHaveBeenCalledWith(2000);
+    installed();
+    sleep.mockClear();
+    await recordMigrationSession({ source: 'plugin' }, { ...baseDeps(), sleep });
+    expect(sleep).not.toHaveBeenCalled();
+  });
+  it('uses the real timer when no sleep is injected', async () => {
+    installed();
+    const r = await recordMigrationSession(
+      { source: 'npm', sessionId: 's1' },
+      { ...baseDeps(), settleMs: 1 },
+    );
+    expect(r.state).toBe('installed');
+  });
+  it('a plugin-seen that lands during the settle is honoured', async () => {
+    installed();
+    const r = await recordMigrationSession(
+      { source: 'npm', sessionId: 's1' },
+      { ...baseDeps(), sleep: async () => seen('2026-10-17T11:59:00Z') },
+    );
+    expect(r.state).toBe('done');
+  });
+  it('does nothing while the machine lock is held', async () => {
+    installed();
+    acquireLock(home);
+    expect(await tick('npm', 's1')).toEqual({ state: 'installed', reason: 'locked' });
+    releaseLock(home);
+    expect(readMigrationState(home)?.npm_sessions_since_install).toBe(0);
+  });
+  it('is a no-op for any state other than installed, and for no record', async () => {
+    expect(await tick('npm', 's1')).toEqual({
+      state: 'pending',
+      path: undefined,
+      reason: 'nothing-to-record',
+    });
+    for (const state of ['done', 'failed', 'skipped', 'rolled-back', 'declined'] as const) {
+      writeMigrationState(home, { state, attempts: 1, version: '1' });
+      expect((await tick('npm', 's1')).reason).toBe('nothing-to-record');
+    }
+  });
+  it('re-reads the state under the lock (another tick finished during the settle)', async () => {
+    installed();
+    const r = await recordMigrationSession(
+      { source: 'npm', sessionId: 's1' },
+      {
+        ...baseDeps(),
+        sleep: async () =>
+          writeMigrationState(home, { state: 'done', path: 'settings', attempts: 1, version: '1' }),
+      },
+    );
+    expect(r).toMatchObject({ state: 'done', reason: 'nothing-to-record' });
+  });
+  it('never throws; an internal error is reported as skipped', async () => {
+    installed();
+    const r = await recordMigrationSession(
+      { source: 'npm' },
+      {
+        ...baseDeps(),
+        sleep: async () => {
+          throw new Error('boom');
+        },
+      },
+    );
+    expect(r).toEqual({ state: 'skipped', reason: 'error:boom' });
+  });
+  it('an install records installed_at and a counter bump keeps it', async () => {
+    manifestClaudeCode();
+    maybeMigrateToPlugin(projectRoot, baseDeps());
+    expect(readMigrationState(home)?.installed_at).toBe('2026-10-17T12:00:00.000Z');
+    await tick('npm', 's1', { now: () => new Date('2026-10-17T13:00:00Z') });
+    expect(readMigrationState(home)).toMatchObject({
+      installed_at: '2026-10-17T12:00:00.000Z',
+      last_attempt_at: '2026-10-17T13:00:00.000Z',
+    });
   });
 });
 
@@ -674,8 +845,7 @@ describe('automatic rollback is retryable (B3)', () => {
     writeFileSync(userSettings(), JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }));
     expect(maybeMigrateToPlugin(projectRoot, baseDeps()).state).toBe('declined');
   });
-  it('the automatic rollback uninstalls a listed plugin so the retry starts clean', () => {
-    manifestClaudeCode();
+  it('the automatic rollback uninstalls a listed plugin so the retry starts clean', async () => {
     writeInstalledRecord();
     writeMigrationState(home, {
       state: 'installed',
@@ -686,9 +856,20 @@ describe('automatic rollback is retryable (B3)', () => {
       npm_sessions_since_install: 2,
     });
     const runClaudeUninstall = vi.fn();
-    const r = maybeMigrateToPlugin(projectRoot, baseDeps({ runClaudeUninstall }));
+    const r = await tick('npm', 's3', { runClaudeUninstall });
     expect(r).toMatchObject({ state: 'rolled-back', reason: 'plugin-never-loaded' });
     expect(runClaudeUninstall).toHaveBeenCalledWith(home);
+  });
+  it('the automatic rollback without an uninstall runner still completes', async () => {
+    writeInstalledRecord();
+    writeMigrationState(home, {
+      state: 'installed',
+      path: 'cli',
+      attempts: 1,
+      version: '1',
+      npm_sessions_since_install: 2,
+    });
+    expect((await tick('npm', 's3')).state).toBe('rolled-back');
   });
 });
 
@@ -776,6 +957,12 @@ describe('runClaudePluginUninstall (B6)', () => {
       runClaudePluginUninstall(home, { claudeVersion: () => '2.1.300', exec: throwing }),
     ).not.toThrow();
     expect(readFileSync(migrationLogPath(home), 'utf8')).toContain('error (spawn blew up)');
+  });
+  it('the default exec reports a missing claude binary instead of throwing', () => {
+    // An empty PATH means the real spawn cannot find claude: 'error' (posix) or 'exit' (cmd.exe).
+    const log = vi.fn();
+    runClaudePluginUninstall(home, { claudeVersion: () => '2.1.300', env: { PATH: '' }, log });
+    expect(log).toHaveBeenCalledWith(expect.stringMatching(/^uninstall via cli: (error|exit)$/));
   });
   it('a failing uninstall still lets the rollback complete', () => {
     writeInstalledRecord();
@@ -879,7 +1066,7 @@ describe('coverage: edge branches', () => {
     );
     expect(r).toMatchObject({ state: 'installed', path: 'settings' });
   });
-  it('confirmOrUndo treats a missing install timestamp as epoch (still confirms a newer seen)', () => {
+  it('the update confirm treats a missing install timestamp as epoch (still confirms a newer seen)', () => {
     manifestClaudeCode();
     writeMigrationState(home, {
       state: 'installed',
@@ -892,7 +1079,7 @@ describe('coverage: edge branches', () => {
     writeFileSync(pluginSeenPath(home), JSON.stringify({ at: '2026-10-17T11:00:00Z' }));
     expect(maybeMigrateToPlugin(projectRoot, baseDeps()).state).toBe('done');
   });
-  it('confirmOrUndo marks done+synced when the seen plugin is synced', () => {
+  it('the update confirm marks done+synced when the seen plugin is synced', () => {
     manifestClaudeCode();
     writeMigrationState(home, {
       state: 'installed',
@@ -954,18 +1141,7 @@ describe('coverage: edge branches', () => {
     maybeMigrateToPlugin(projectRoot, deps);
     expect(existsSync(migrationLogPath(home))).toBe(true);
   });
-  it('confirmOrUndo counts a session when npm_sessions_since_install is undefined', () => {
-    manifestClaudeCode();
-    writeMigrationState(home, {
-      state: 'installed',
-      path: 'settings',
-      attempts: 1,
-      version: '1',
-      last_attempt_at: '2026-10-17T10:00:00Z',
-    });
-    maybeMigrateToPlugin(projectRoot, baseDeps());
-    expect(readMigrationState(home)?.npm_sessions_since_install).toBe(1);
-  });
+
   it('versionAtLeast treats a non-numeric segment as 0', () => {
     expect(versionAtLeast('2.x.0', '2.0.0')).toBe(true); // both parse to [2,0,0]
     expect(versionAtLeast('2.0.0', '2.x.9')).toBe(false); // [2,0,0] < [2,0,9]

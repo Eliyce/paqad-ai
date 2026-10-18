@@ -244,6 +244,32 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     } as NodeJS.ProcessEnv;
   }
 
+  it('reports a plugin-source migration tick with the plugin CLI (issue #648, B4)', () => {
+    const env = pluginEnv();
+    const calls: unknown[] = [];
+    runPluginSessionStart(
+      env,
+      { session_id: 's-tick', cwd: env.CLAUDE_PROJECT_DIR },
+      { tick: (args: unknown) => calls.push(args) },
+    );
+    expect(calls).toEqual([
+      {
+        source: 'plugin',
+        sessionId: 's-tick',
+        cliPath: join(env.CLAUDE_PLUGIN_ROOT as string, 'dist', 'cli', 'index.js'),
+        env,
+      },
+    ]);
+  });
+
+  it('ticks even in a project that was never onboarded (a plugin-only machine still confirms)', () => {
+    const env = pluginEnv({ CLAUDE_PROJECT_DIR: join(root, 'not-onboarded') });
+    mkdirSync(env.CLAUDE_PROJECT_DIR as string, { recursive: true });
+    const calls: unknown[] = [];
+    runPluginSessionStart(env, undefined, { tick: (args: unknown) => calls.push(args) });
+    expect(calls).toHaveLength(1);
+  });
+
   it('claims the session (writes the marker) when no live npm hook lines exist', () => {
     const env = pluginEnv();
     runPluginSessionStart(env, { session_id: 's1', cwd: env.CLAUDE_PROJECT_DIR });
