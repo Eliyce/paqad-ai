@@ -5,10 +5,11 @@
 // throws to a caller that did not ask for it: the HUD is a view, and a failed view write must
 // never change a hook's decision (issue #639, guardrail rule 3).
 
-import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 
 /** A session id made safe for a filename (no separators, no traversal). */
 function safeSessionId(sessionId: string): string {
@@ -36,7 +37,7 @@ export function writeFileAtomic(target: string, content: string): void {
   const temp = `${target}.tmp-${process.pid}-${tempSeq}`;
   try {
     writeFileSync(temp, content, 'utf8');
-    renameSync(temp, target);
+    renameWithRetrySync(temp, target);
   } catch (error) {
     rmSync(temp, { force: true });
     throw error;
