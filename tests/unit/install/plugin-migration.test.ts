@@ -613,6 +613,85 @@ describe('maybeMigrateToPlugin — confirm or undo (Part 4)', () => {
   });
 });
 
+describe('automatic rollback is retryable (B3)', () => {
+  function autoRolledBack(extra: Record<string, unknown> = {}): void {
+    writeMigrationState(home, {
+      state: 'rolled-back',
+      reason: 'plugin-never-loaded',
+      path: 'settings',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-16T11:00:00Z', // 25h before baseDeps' now
+      ...extra,
+    });
+  }
+  it('retries and installs again once the 24h window has passed (AC-6)', () => {
+    manifestClaudeCode();
+    autoRolledBack();
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps());
+    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+    expect(readMigrationState(home)).toMatchObject({ attempts: 2, npm_sessions_since_install: 0 });
+  });
+  it('reports retry-not-due inside the 24h window (AC-7)', () => {
+    manifestClaudeCode();
+    autoRolledBack({ last_attempt_at: '2026-10-17T06:00:00Z' });
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps())).toEqual({
+      state: 'rolled-back',
+      reason: 'retry-not-due',
+    });
+  });
+  it('stops retrying at 5 attempts (AC-7)', () => {
+    manifestClaudeCode();
+    autoRolledBack({ attempts: 5 });
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps()).reason).toBe('retry-not-due');
+    expect(retryAllowed(readMigrationState(home), new Date('2026-10-17T12:00:00Z'))).toBe(false);
+  });
+  it('never retries a manual rollback (INV-6)', () => {
+    manifestClaudeCode();
+    autoRolledBack({ reason: 'manual' });
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps())).toEqual({
+      state: 'rolled-back',
+      path: 'settings',
+      reason: 'manual',
+    });
+    expect(existsSync(userSettings())).toBe(false);
+  });
+  it('re-adds the settings keys when a leftover install record is present on retry', () => {
+    manifestClaudeCode();
+    autoRolledBack();
+    writeInstalledRecord();
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps());
+    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+    const settings = JSON.parse(readFileSync(userSettings(), 'utf8'));
+    expect(settings.enabledPlugins['paqad@eliyce']).toBe(true);
+    expect(settings.extraKnownMarketplaces.eliyce.source.repo).toBe('Eliyce/paqad-ai');
+  });
+  it('records declined when the user set the plugin false and the record is still present', () => {
+    manifestClaudeCode();
+    autoRolledBack();
+    writeInstalledRecord();
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    writeFileSync(userSettings(), JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }));
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps()).state).toBe('declined');
+  });
+  it('the automatic rollback uninstalls a listed plugin so the retry starts clean', () => {
+    manifestClaudeCode();
+    writeInstalledRecord();
+    writeMigrationState(home, {
+      state: 'installed',
+      path: 'cli',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-17T10:00:00Z',
+      npm_sessions_since_install: 2,
+    });
+    const runClaudeUninstall = vi.fn();
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps({ runClaudeUninstall }));
+    expect(r).toMatchObject({ state: 'rolled-back', reason: 'plugin-never-loaded' });
+    expect(runClaudeUninstall).toHaveBeenCalledWith(home);
+  });
+});
+
 describe('maybeMigrateToPlugin — settled + lock', () => {
   it('never retries a done/rolled-back/declined machine', () => {
     for (const state of ['done', 'rolled-back', 'declined'] as const) {

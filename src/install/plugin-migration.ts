@@ -72,6 +72,8 @@ export interface MigrationDeps {
   claudeVersion?: () => string | null;
   /** Path A: run the `claude plugin` install; returns ok + an optional failure reason. */
   runClaudeInstall?: (home: string, env: NodeJS.ProcessEnv) => { ok: boolean; reason?: string };
+  /** `claude plugin uninstall`, run by the automatic rollback when Claude Code lists the plugin. */
+  runClaudeUninstall?: (home: string) => void;
   /** The managed-settings files to inspect (defaults per-OS); injectable for tests. */
   managedSettingsPaths?: string[];
   /** Best-effort logger (defaults to the migration log file). */
@@ -266,13 +268,24 @@ const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
   'ci-or-headless',
 ]);
 
+/** The reason an automatic rollback records; it is retried, unlike a manual rollback (B3). */
+const AUTO_ROLLBACK_REASON = 'plugin-never-loaded';
+
+/**
+ * A settled record is never retried: `done`, `declined`, or a `rolled-back` that was not the
+ * automatic undo (a manual rollback stays final). An automatic rollback goes back through the
+ * retry window and attempt cap, so a later run completes once access is back (B3).
+ */
+function isSettled(record: MigrationRecord): boolean {
+  if (record.state === 'rolled-back') return record.reason !== AUTO_ROLLBACK_REASON;
+  return record.state === 'done' || record.state === 'declined';
+}
+
 /** Whether the retry rules (Part 5) allow another attempt now. */
 export function retryAllowed(record: MigrationRecord | null, now: Date): boolean {
   if (!record) return true;
   if (record.state === 'skipped' && CONFIG_SKIP_REASONS.has(record.reason ?? '')) return true;
-  if (record.state === 'done' || record.state === 'rolled-back' || record.state === 'declined') {
-    return false;
-  }
+  if (isSettled(record)) return false;
   if (record.attempts >= MAX_ATTEMPTS) return false;
   if (!record.last_attempt_at) return true;
   const since = now.getTime() - new Date(record.last_attempt_at).getTime();
@@ -391,6 +404,7 @@ interface ResolvedDeps {
   version: string;
   claudeVersion: () => string | null;
   runClaudeInstall: (home: string, env: NodeJS.ProcessEnv) => { ok: boolean; reason?: string };
+  runClaudeUninstall: (home: string) => void;
   managedSettingsPaths: string[];
   log: (message: string) => void;
 }
@@ -404,6 +418,7 @@ function resolveDeps(deps: MigrationDeps): ResolvedDeps {
     version: deps.version ?? VERSION,
     claudeVersion: deps.claudeVersion ?? defaultClaudeVersion,
     runClaudeInstall: deps.runClaudeInstall ?? defaultRunClaudeInstall,
+    runClaudeUninstall: deps.runClaudeUninstall ?? (() => {}),
     managedSettingsPaths: deps.managedSettingsPaths ?? defaultManagedSettingsPaths(),
     log: deps.log ?? ((message: string) => appendMigrationLog(home, message)),
   };
@@ -480,11 +495,8 @@ export function maybeMigrateToPlugin(
 function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult {
   const prior = readMigrationState(deps.home);
 
-  // Already settled — never retry (Part 5).
-  if (
-    prior &&
-    (prior.state === 'done' || prior.state === 'rolled-back' || prior.state === 'declined')
-  ) {
+  // Already settled — never retry (Part 5). An automatic rollback is not settled (B3).
+  if (prior && isSettled(prior)) {
     return { state: prior.state, path: prior.path, reason: prior.reason };
   }
 
@@ -516,9 +528,17 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
     if (isSyncedRoot(readPluginSeen(deps.home)?.root)) {
       return record(deps, prior, { state: 'done', path: 'synced' });
     }
+    // Re-declare the settings keys so a leftover install record (a retry after an automatic
+    // rollback with no claude to uninstall) is enabled again; an explicit user false is declined.
+    const attempts = (prior?.attempts ?? 0) + 1;
+    const settings = installViaSettings(deps.home);
+    if (settings.state !== 'installed') {
+      return record(deps, prior, { state: settings.state, reason: settings.reason, attempts });
+    }
     return record(deps, prior, {
       state: 'installed',
       path: 'settings',
+      attempts,
       npm_sessions_since_install: 0,
     });
   }
@@ -594,11 +614,28 @@ function confirmOrUndo(deps: ResolvedDeps, prior: MigrationRecord): MigrationRes
   }
   const sessions = (prior.npm_sessions_since_install ?? 0) + 1;
   if (sessions >= ROLLBACK_AFTER_NPM_SESSIONS) {
-    undoViaSettings(deps.home);
-    deps.log(`rolled back after ${sessions} npm sessions with no plugin`);
-    return record(deps, prior, { state: 'rolled-back', reason: 'plugin-never-loaded' });
+    return autoRollback(deps, prior, sessions);
   }
   return record(deps, prior, { state: 'installed', npm_sessions_since_install: sessions });
+}
+
+/**
+ * The automatic undo (Part 4): remove the plugin when Claude Code lists it, drop the settings
+ * keys, and record a retryable `rolled-back` so a later run starts clean (B3).
+ */
+function autoRollback(
+  deps: ResolvedDeps,
+  prior: MigrationRecord,
+  sessions: number,
+): MigrationResult {
+  if (isPluginInstalledRecord(deps.home)) deps.runClaudeUninstall(deps.home);
+  undoViaSettings(deps.home);
+  deps.log(`rolled back after ${sessions} npm sessions with no plugin`);
+  return record(deps, prior, {
+    state: 'rolled-back',
+    reason: AUTO_ROLLBACK_REASON,
+    npm_sessions_since_install: sessions,
+  });
 }
 
 // ── Lock (Part 2) ──────────────────────────────────────────────────────────
