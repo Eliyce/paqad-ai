@@ -288,7 +288,11 @@ describe('runPromptRouteSeam (#336)', () => {
     // A second prompt (continuing the same workflow) moves the stamp to its own turn.
     await ask('2026-03-01T11:30:00.000Z');
     expect(readWorkflowState(root, sessionId)).toEqual({
-      active: { workflow: 'project-question' },
+      // Issue #639, Part 7 — the router's reason is saved with the route.
+      active: {
+        workflow: 'project-question',
+        reason: 'a question about the project — no code change',
+      },
       paused: [],
       turn_started_at: '2026-03-01T11:30:00.000Z',
     });
