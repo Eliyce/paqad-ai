@@ -38,3 +38,7 @@ docs/tracker/
 
 # Site Map capability buildout tracker (cross-session continuity scratch; not part of the PR)
 /site-map-buildout/
+
+# Claude Code lays its own type declarations beside a plugin it loads from a folder it watches
+# (a `--plugin-dir` session of this repo, issue #639). The engine writes them; they are never ours.
+.claude-plugin/types/

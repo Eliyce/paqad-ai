@@ -58,6 +58,8 @@
   "files": [
     "dist",
     "runtime",
+    "!runtime/claude-plugin/mod/**/*.test.ts",
+    "!runtime/claude-plugin/mod/test",
     ".claude-plugin/plugin.json",
     "README.md",
     "LICENSE",
