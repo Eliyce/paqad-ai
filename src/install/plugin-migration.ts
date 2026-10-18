@@ -18,6 +18,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
@@ -811,14 +812,37 @@ function autoRollback(
 
 // ── Lock (Part 2) ──────────────────────────────────────────────────────────
 
-export function acquireLock(home: string): boolean {
+/**
+ * A lock older than this was left by a killed run. The longest hold is a Path A install
+ * (marketplace add 120s + install 180s = 5 min), so 15 min is safely above any live holder.
+ */
+export const STALE_MIGRATION_LOCK_MS = 15 * 60 * 1000;
+
+export function acquireLock(home: string, now: () => number = Date.now): boolean {
   const dir = migrationLockDir(home);
   try {
     mkdirSync(dirname(dir), { recursive: true });
     mkdirSync(dir); // atomic: fails if it already exists
     return true;
   } catch {
-    return false;
+    return reapStaleLock(dir, now);
+  }
+}
+
+/**
+ * Reap a lock left behind by a killed run, then take it once. The stale dir is renamed aside
+ * first (atomic), so two reapers cannot both remove it; the loser's mkdir then fails.
+ */
+function reapStaleLock(dir: string, now: () => number): boolean {
+  try {
+    if (now() - statSync(dir).mtimeMs <= STALE_MIGRATION_LOCK_MS) return false;
+    const aside = `${dir}.stale-${process.pid}-${now()}`;
+    renameSync(dir, aside);
+    rmSync(aside, { recursive: true, force: true });
+    mkdirSync(dir);
+    return true;
+  } catch {
+    return false; // vanished, raced, or unreadable: treat as held
   }
 }
 export function releaseLock(home: string): void {

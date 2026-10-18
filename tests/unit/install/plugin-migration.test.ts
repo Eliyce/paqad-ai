@@ -1,6 +1,15 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -15,6 +24,7 @@ import {
   managedPolicyBlockReason,
   maybeMigrateToPlugin,
   type MigrationDeps,
+  migrationLockDir,
   migrationLogPath,
   migrationStatePath,
   projectTargetsClaudeCode,
@@ -26,6 +36,7 @@ import {
   rollbackPlugin,
   runClaudePluginInstall,
   runClaudePluginUninstall,
+  STALE_MIGRATION_LOCK_MS,
   type ClaudeExec,
   type ClaudeExecOutcome,
   undoViaSettings,
@@ -92,6 +103,22 @@ describe('lock (Part 2)', () => {
     expect(acquireLock(home)).toBe(false);
     releaseLock(home);
     expect(acquireLock(home)).toBe(true);
+  });
+  it('reaps a lock older than the stale bound and takes it', () => {
+    expect(acquireLock(home)).toBe(true);
+    const lockAge = statSync(migrationLockDir(home)).mtimeMs;
+    expect(acquireLock(home, () => lockAge + STALE_MIGRATION_LOCK_MS)).toBe(false); // at the bound
+    expect(acquireLock(home, () => lockAge + STALE_MIGRATION_LOCK_MS + 1)).toBe(true);
+    expect(existsSync(migrationLockDir(home))).toBe(true);
+    // The reaper now holds a fresh lock, so a normal acquire still fails.
+    expect(acquireLock(home)).toBe(false);
+    expect(readdirSync(dirname(migrationLockDir(home)))).toEqual(['plugin-migration.lock']);
+  });
+  it('treats an unreadable lock path as held', () => {
+    // The parent "locks" is a FILE: mkdir fails and stat cannot reach the lock either.
+    mkdirSync(join(home, '.paqad-ai'), { recursive: true });
+    writeFileSync(join(home, '.paqad-ai', 'locks'), 'x');
+    expect(acquireLock(home, () => Number.MAX_SAFE_INTEGER)).toBe(false);
   });
 });
 
