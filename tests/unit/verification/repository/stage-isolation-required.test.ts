@@ -31,6 +31,7 @@ import {
   stageIsolationExpected,
   stageIsolationStatus,
 } from '@/verification/repository/run-repository-verification.js';
+import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 
 import { appendLegacyStageRow } from '../../../shared/legacy-stage-row.js';
 
@@ -162,6 +163,30 @@ describe('stageIsolationExpected (issue #573)', () => {
   it('is false without a session or a change', () => {
     expect(stageIsolationExpected(root, null, bundle('full-claude'))).toBe(false);
     expect(stageIsolationExpected(root, SESSION, null)).toBe(false);
+  });
+
+  it('is false for a bundle whose ledger cannot be read, and its lane reads unresolved', () => {
+    // A stage ledger that is a directory makes the constants read throw.
+    const dir = bundle('unreadable');
+    mkdirSync(
+      join(root, '.paqad/ledger/feature-evidence', dir, FEATURE_BUNDLE_FILES.stageEvidence),
+      {
+        recursive: true,
+      },
+    );
+    expect(stageIsolationExpected(root, SESSION, dir)).toBe(false);
+    // Issue #640 — the shared builder reads the same constants once; an unreadable bundle has
+    // no lane, which the manifest treats as full (fails safe).
+    expect(buildBundleCompletenessConfig(root, SESSION, dir).lane).toBeNull();
+  });
+
+  it('reads the lane once for the builder, with or without a session (issue #640)', () => {
+    bundleWith('full-claude', 'full', 'claude-code');
+    const withSession = buildBundleCompletenessConfig(root, SESSION, bundle('full-claude'));
+    expect([withSession.lane, withSession.stageIsolationExpected]).toEqual(['full', true]);
+    // No session: isolation cannot be judged, but the lane still decides the pipeline files.
+    const noSession = buildBundleCompletenessConfig(root, null, bundle('full-claude'));
+    expect([noSession.lane, noSession.stageIsolationExpected]).toEqual(['full', false]);
   });
 });
 
