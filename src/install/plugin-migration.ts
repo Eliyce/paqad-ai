@@ -830,7 +830,8 @@ function autoRollback(
 
 /**
  * A lock older than this was left by a killed run. The longest hold is a Path A install
- * (marketplace add 120s + install 180s = 5 min), so 15 min is safely above any live holder.
+ * (`claude --version` probe 120s + marketplace add 120s + install 180s = 7 min), so 15 min is
+ * safely above any live holder.
  */
 export const STALE_MIGRATION_LOCK_MS = 15 * 60 * 1000;
 
