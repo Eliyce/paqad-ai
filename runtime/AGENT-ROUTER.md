@@ -6,7 +6,7 @@ You reach this file from the framework gate (`AGENT-BOOTSTRAP.md`) once enableme
 
 ## 1. Route first — pick one workflow, then load only what it needs
 
-Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 12 workflows by intent, and narrate the pick in one `▸ paqad` line (see the narration contract):
+Before loading the project contract, decide what this message is. As your FIRST action, pick **exactly one** of these 12 workflows by intent, and narrate the pick in one `**▸ paqad** ·` line (see the narration contract):
 
 1. **feature-development** — any change to code. This includes bug fixes, refactors, cleanups, and migrations; the name is just "development". Scope is every code change **except** a change confined to the `docs/` and `.paqad/` directories: a change that touches any other directory is feature-development even when it also edits files under `docs/` or `.paqad/`, and only a change made entirely within `docs/` and/or `.paqad/` is out of scope.
 2. **project-question** — answer a question about the project. Check `docs/` first, then the code. No code change.
@@ -27,7 +27,7 @@ How to decide:
 - **Any code change is feature-development**, however it is phrased.
 - **An uncertain idea or a no-code refinement brief is discovery**, but keep a factual question in project-question and a clear code request in feature-development. Do not route to discovery on the words "research", "plan", or "delivery" alone — route on whether the idea still needs shaping.
 - **Understand intent, not keywords.** "run a security review", "let's do a pentest", and "check the app for vulnerabilities" all mean pentest. Typos do not matter.
-- **Correct a wrong label.** The hook's `[paqad] Routed to …` line is a deterministic guess. If it names a different workflow than the one you picked, run `paqad-ai route set <your pick>` before any other tool call, so enforcement follows your route and not the hook's.
+- **Correct a wrong label.** The hook's `**▸ paqad** · routed to …` line is a deterministic guess. If it names a different workflow than the one you picked, run `paqad-ai route set <your pick>` before any other tool call, so enforcement follows your route and not the hook's.
 - **Ask only when genuinely torn.** If two real workflows are equally likely, ask the user (via `AskUserQuestion` on Claude Code, inline on other hosts) and offer "no workflow".
 
 Routing runs on **every** message, and it is stateful — it does not reset:
@@ -236,7 +236,7 @@ paqad-ai spec pipeline finish
 paqad-ai spec freeze <spec.md> --from-pipeline --signed-off-by <name> --confirm-invariants
 ```
 
-Speak one `▸ paqad` line when experts are seated, naming the standing four and the on-call picks and why (issue #558): "▸ paqad · seated the standing experts (product-owner, application-architect, user-flow-writer, qa-engineer) and brought in db-expert and security-auditor: this reads invoices in bulk and exports a customer's financial data." Under `spec_pipeline_adoption=strict` the freeze refuses a spec the pipeline did not produce; `--manual --reason "<why>"` is the only exit and it is recorded. Under `warn` a hand-written spec still freezes and the receipt says the pipeline was skipped.
+Speak one `▸ paqad` line when experts are seated, naming the standing four and the on-call picks and why (issue #558): "**▸ paqad** · seated the standing experts (product-owner, application-architect, user-flow-writer, qa-engineer) and brought in db-expert and security-auditor: this reads invoices in bulk and exports a customer's financial data." Under `spec_pipeline_adoption=strict` the freeze refuses a spec the pipeline did not produce; `--manual --reason "<why>"` is the only exit and it is recorded. Under `warn` a hand-written spec still freezes and the receipt says the pipeline was skipped.
 
 ## Plain-English translations
 

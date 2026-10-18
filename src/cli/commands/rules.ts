@@ -25,7 +25,7 @@ export function createRulesCommand(): Command {
     .action((options: { projectRoot: string; silent: boolean }) => {
       const result = compileRuleScripts(options.projectRoot);
       console.log(
-        `▸ paqad · compiled the rule-script map — ${result.ruleCount} ` +
+        `**▸ paqad** · compiled the rule-script map — ${result.ruleCount} ` +
           `rule${result.ruleCount === 1 ? '' : 's'} listed, ${result.scriptedCount} ` +
           `script-enforced. The deterministic gate is armed.`,
       );
@@ -64,7 +64,7 @@ export function createRulesCommand(): Command {
 
       if (!applicability.hasStore) {
         console.log(
-          '▸ paqad · no compiled rules for this project — nothing to load. Run ' +
+          '**▸ paqad** · no compiled rules for this project — nothing to load. Run ' +
             '`paqad-ai rules compile` if you expected rules here.',
         );
         if (!options.silent) {
@@ -89,7 +89,7 @@ export function createRulesCommand(): Command {
 
       if (!record) {
         console.log(
-          '▸ paqad · loaded the applicable rules, but no feature is active so nothing was ' +
+          '**▸ paqad** · loaded the applicable rules, but no feature is active so nothing was ' +
             'recorded — run `paqad-ai stage start planning` to open the change first.',
         );
         if (!options.silent) {
@@ -102,7 +102,7 @@ export function createRulesCommand(): Command {
 
       const dirName = currentFeature(options.projectRoot, sessionId);
       console.log(
-        `▸ paqad · loaded and recorded ${record.applicable_rules.length} applicable ` +
+        `**▸ paqad** · loaded and recorded ${record.applicable_rules.length} applicable ` +
           `rule${record.applicable_rules.length === 1 ? '' : 's'} for this change.`,
       );
       if (!options.silent) {

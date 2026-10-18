@@ -91,13 +91,13 @@ export function createPlanCommand(): Command {
         return;
       }
       for (const warning of result.warnings ?? []) {
-        console.warn(`▸ paqad · ${warning}`);
+        console.warn(`**▸ paqad** · ${warning}`);
       }
       // Issue #361 — an evidence-armed pause blocks the next edit, so say so plainly rather
       // than letting the developer discover it as a mystery block.
       for (const decisionId of result.armedDecisions ?? []) {
         console.warn(
-          `▸ paqad · I hit a reuse-or-create choice that's yours to make — answer ${decisionId} ` +
+          `**▸ paqad** · I hit a reuse-or-create choice that's yours to make — answer ${decisionId} ` +
             `(\`paqad-ai decision resolve ${decisionId} <option>\`), then I'll continue.`,
         );
       }
@@ -105,7 +105,7 @@ export function createPlanCommand(): Command {
       if (result.readinessDecision) {
         const id = result.readinessDecision;
         console.warn(
-          `▸ paqad · Visual evidence is on, but I can't capture screenshots here yet. Answer ${id} ` +
+          `**▸ paqad** · Visual evidence is on, but I can't capture screenshots here yet. Answer ${id} ` +
             `(\`paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`,
         );
       }
@@ -118,7 +118,7 @@ export function createPlanCommand(): Command {
           /* best-effort: a leftover template is harmless, never fail the compile for it */
         }
       }
-      console.log(`▸ paqad · compiled ${result.path}`);
+      console.log(`**▸ paqad** · compiled ${result.path}`);
       console.log(
         JSON.stringify({
           compiled: true,

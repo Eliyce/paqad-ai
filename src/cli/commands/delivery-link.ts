@@ -152,7 +152,7 @@ export function createDeliveryLinkCommand(): Command {
         return;
       }
       console.log(
-        `▸ paqad · git linkage hooks ready (${result.installed.join(', ') || 'up to date'})`,
+        `**▸ paqad** · git linkage hooks ready (${result.installed.join(', ') || 'up to date'})`,
       );
       console.log(JSON.stringify({ installed: result.installed, skipped: result.skipped }));
     });

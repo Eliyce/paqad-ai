@@ -156,7 +156,7 @@ export function createVisualEvidenceCommand(): Command {
       ) => {
         const { projectRoot } = options;
         const refuse = (reason: string): void => {
-          console.error(`▸ paqad · visual evidence attach refused: ${reason}`);
+          console.error(`**▸ paqad** · visual evidence attach refused: ${reason}`);
           process.exitCode = 1;
         };
         if (!visualEvidenceFlagOn(projectRoot)) {
@@ -182,13 +182,13 @@ export function createVisualEvidenceCommand(): Command {
             ...(options.label ? { label: options.label } : {}),
           });
           if (result.acWarning) {
-            console.error(`▸ paqad · visual evidence attach: ${result.acWarning}`);
+            console.error(`**▸ paqad** · visual evidence attach: ${result.acWarning}`);
           }
           const attached =
             result.manifest?.steps.filter((step) => step.journey_id === AGENT_ATTACHED_JOURNEY)
               .length ?? 0;
           console.log(
-            `▸ paqad · visual evidence: attached ${files.length} screenshot(s); ${attached} agent-attached step(s) in the bundle (source: ${result.manifest?.source ?? 'agent-attached'}).`,
+            `**▸ paqad** · visual evidence: attached ${files.length} screenshot(s); ${attached} agent-attached step(s) in the bundle (source: ${result.manifest?.source ?? 'agent-attached'}).`,
           );
         } catch (error) {
           if (!(error instanceof VisualEvidenceAttachError)) throw error;

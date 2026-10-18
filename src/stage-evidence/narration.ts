@@ -45,7 +45,7 @@ export const STAGE_NARRATION: Record<StageId, string> = {
 /** The branded status line for entering `stage`, or '' for an unknown stage id. */
 export function stageNarrationLine(stage: string): string {
   const text = STAGE_NARRATION[stage as StageId];
-  return text ? `▸ paqad · ${text}` : '';
+  return text ? `**▸ paqad** · ${text}` : '';
 }
 
 export interface NarrateStageInput {

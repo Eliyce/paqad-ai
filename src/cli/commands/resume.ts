@@ -47,7 +47,7 @@ export function createResumeCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      console.log(`▸ paqad · resumed ${resumed}`);
+      console.log(`**▸ paqad** · resumed ${resumed}`);
       // Machine-readable confirmation. Deliberately omits the resolved session id
       // (environment-tainted; echoing it is flagged as clear-text logging, CodeQL
       // js/clear-text-logging) — the caller already knows its own session.

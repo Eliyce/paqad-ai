@@ -64,7 +64,7 @@ export function createReviewCommand(): Command {
         return;
       }
       console.log(
-        `▸ paqad · ${result.path} — ${result.findings} machine finding(s) for the review to confirm or contest`,
+        `**▸ paqad** · ${result.path} — ${result.findings} machine finding(s) for the review to confirm or contest`,
       );
       console.log(JSON.stringify({ written: true, path: result.path, findings: result.findings }));
     });
@@ -131,7 +131,7 @@ export function createReviewCommand(): Command {
           /* best-effort: a leftover template is harmless, never fail the record for it */
         }
       }
-      console.log(`▸ paqad · recorded ${result.path}`);
+      console.log(`**▸ paqad** · recorded ${result.path}`);
       console.log(JSON.stringify({ recorded: true, path: result.path }));
     });
 
