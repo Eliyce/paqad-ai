@@ -13,6 +13,8 @@ import { readFileSync, realpathSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+const PLUGIN_ID = 'paqad@eliyce';
+
 /** Parse a small JSON file, or null when absent/unreadable/malformed. */
 function readJson(path) {
   try {
@@ -37,10 +39,17 @@ export function frameworkPackageRoot(env = process.env) {
   }
 }
 
-/** True when the machine migration state means a session has something to record. */
+/**
+ * True when the machine migration state means a session has something to record: a move in flight
+ * (`installed`), or a `done` machine whose user settings now turn the plugin off (B5). The settings
+ * file is read only for a `done` machine.
+ */
 export function migrationTickDue(home = homedir()) {
   const record = readJson(join(home, '.paqad-ai', 'plugin-migration.json'));
-  return record?.state === 'installed';
+  if (record?.state === 'installed') return true;
+  if (record?.state !== 'done') return false;
+  const settings = readJson(join(home, '.claude', 'settings.json'));
+  return settings?.enabledPlugins?.[PLUGIN_ID] === false;
 }
 
 /**

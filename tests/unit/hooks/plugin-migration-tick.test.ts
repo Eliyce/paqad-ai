@@ -44,6 +44,21 @@ describe('migrationTickDue', () => {
       expect(migrationTickDue(home)).toBe(false);
     }
   });
+  it('is true for a done machine whose user settings turn the plugin off (B5)', () => {
+    writeState('done');
+    expect(migrationTickDue(home)).toBe(false); // no settings file
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    const settings = join(home, '.claude', 'settings.json');
+    writeFileSync(settings, JSON.stringify({ enabledPlugins: { 'paqad@eliyce': true } }));
+    expect(migrationTickDue(home)).toBe(false);
+    writeFileSync(settings, JSON.stringify({ theme: 'dark' }));
+    expect(migrationTickDue(home)).toBe(false);
+    writeFileSync(settings, JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }));
+    expect(migrationTickDue(home)).toBe(true);
+    const { spawn } = fakeSpawn();
+    expect(maybeSpawnMigrationTick({ source: 'npm', cliPath: '/x', home, spawn })).toBe(true);
+    expect(spawn).toHaveBeenCalledOnce();
+  });
   it('is false for a corrupt file or a JSON scalar', () => {
     mkdirSync(join(home, '.paqad-ai'), { recursive: true });
     writeFileSync(join(home, '.paqad-ai', 'plugin-migration.json'), '{ nope');

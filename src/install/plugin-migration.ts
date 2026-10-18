@@ -184,6 +184,25 @@ function isPluginInstalledRecord(home: string): boolean {
   }
 }
 
+/** True when the user's own Claude settings turn the paqad plugin off (`enabledPlugins` false). */
+function userDisabledPlugin(home: string): boolean {
+  try {
+    const settings = JSON.parse(readFileSync(userClaudeSettingsPath(home), 'utf8')) as {
+      enabledPlugins?: Record<string, unknown>;
+    };
+    return settings.enabledPlugins?.[PLUGIN_ID] === false;
+  } catch {
+    return false; // absent or unreadable settings are not an opt-out
+  }
+}
+
+/** A settled `done` the user then turned off: paqad records it as declined and never re-adds (B5). */
+function doneButDisabled(record: MigrationRecord | null, home: string): boolean {
+  return record?.state === 'done' && userDisabledPlugin(home);
+}
+
+const USER_DISABLED_REASON = 'user-disabled';
+
 // ── Skip conditions (Part 2) ──────────────────────────────────────────────────
 
 function isCiOrHeadless(env: NodeJS.ProcessEnv): boolean {
@@ -502,6 +521,10 @@ export function maybeMigrateToPlugin(
 function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult {
   const prior = readMigrationState(deps.home);
 
+  // The user turned the plugin off after the move: record declined, touch nothing (B5).
+  if (doneButDisabled(prior, deps.home)) {
+    return record(deps, prior, { state: 'declined', reason: USER_DISABLED_REASON });
+  }
   // Already settled — never retry (Part 5). An automatic rollback is not settled (B3).
   if (prior && isSettled(prior)) {
     return { state: prior.state, path: prior.path, reason: prior.reason };
@@ -655,7 +678,9 @@ export async function recordMigrationSession(
   try {
     const resolved = resolveDeps(deps);
     const initial = readMigrationState(resolved.home);
-    if (initial?.state !== 'installed') return noTick(initial);
+    if (!initial || (initial.state !== 'installed' && !doneButDisabled(initial, resolved.home))) {
+      return noTick(initial);
+    }
     if (input.source === 'npm') {
       // The plugin and npm SessionStart hooks run in parallel; give plugin-seen a moment to land.
       const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
@@ -683,6 +708,9 @@ function tickInstalled(
   input: { source: SessionSource; sessionId?: string },
 ): MigrationResult {
   const prior = readMigrationState(deps.home);
+  if (doneButDisabled(prior, deps.home)) {
+    return record(deps, prior, { state: 'declined', reason: USER_DISABLED_REASON });
+  }
   if (prior?.state !== 'installed') return noTick(prior);
   if (input.source === 'plugin' || isPluginSeenFresh(prior, readPluginSeen(deps.home))) {
     return confirmDone(deps, prior);
@@ -794,6 +822,8 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
 export function describeClaudeInstall(home: string = homedir()): string {
   const record = readMigrationState(home);
   if (!record || record.state === 'pending') return 'npm';
+  // Read-only: the next update or session records the declined state; doctor shows it at once.
+  if (doneButDisabled(record, home)) return `npm (migration declined: ${USER_DISABLED_REASON})`;
   if (record.state === 'done') {
     if (record.path === 'synced') return 'plugin (synced from claude.ai)';
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';

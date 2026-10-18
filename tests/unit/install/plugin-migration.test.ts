@@ -873,6 +873,78 @@ describe('automatic rollback is retryable (B3)', () => {
   });
 });
 
+describe('turning the plugin off after done is declined (B5)', () => {
+  function done(): void {
+    writeMigrationState(home, {
+      state: 'done',
+      path: 'cli',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-17T10:00:00Z',
+    });
+  }
+  function enabled(value: boolean | undefined): void {
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    writeFileSync(
+      userSettings(),
+      JSON.stringify(
+        value === undefined
+          ? { theme: 'dark' }
+          : { theme: 'dark', enabledPlugins: { 'paqad@eliyce': value } },
+        null,
+        2,
+      ),
+    );
+  }
+  it('update records declined/user-disabled and leaves settings byte-identical (AC-13)', () => {
+    manifestClaudeCode();
+    done();
+    enabled(false);
+    const before = readFileSync(userSettings(), 'utf8');
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps())).toMatchObject({
+      state: 'declined',
+      reason: 'user-disabled',
+    });
+    // A later update is settled and still touches nothing (INV-7).
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps()).state).toBe('declined');
+    expect(readFileSync(userSettings(), 'utf8')).toBe(before);
+  });
+  it('a session tick records declined/user-disabled (AC-13)', async () => {
+    done();
+    enabled(false);
+    expect(await tick('npm', 's1')).toMatchObject({ state: 'declined', reason: 'user-disabled' });
+    expect(readMigrationState(home)).toMatchObject({ state: 'declined', reason: 'user-disabled' });
+  });
+  it('the doctor line shows declined at once, before any state write (AC-13)', () => {
+    done();
+    enabled(false);
+    expect(describeClaudeInstall(home)).toBe('npm (migration declined: user-disabled)');
+    expect(readMigrationState(home)?.state).toBe('done');
+  });
+  it('done with the plugin on, or unset, or unreadable settings stays done (AC-14)', async () => {
+    manifestClaudeCode();
+    for (const value of [true, undefined] as const) {
+      done();
+      enabled(value);
+      expect(maybeMigrateToPlugin(projectRoot, baseDeps()).state).toBe('done');
+      expect((await tick('npm', 's1')).reason).toBe('nothing-to-record');
+      expect(describeClaudeInstall(home)).toBe('plugin (migrated 2026-10-17, via cli)');
+    }
+    done();
+    writeFileSync(userSettings(), '{ broken');
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps()).state).toBe('done');
+  });
+  it('the tick re-checks under the lock (the user turned it back on during the settle)', async () => {
+    done();
+    enabled(false);
+    const r = await recordMigrationSession(
+      { source: 'npm', sessionId: 's1' },
+      { ...baseDeps(), sleep: async () => enabled(true) },
+    );
+    expect(r).toMatchObject({ state: 'done', reason: 'nothing-to-record' });
+  });
+});
+
 describe('maybeMigrateToPlugin — settled + lock', () => {
   it('never retries a done/rolled-back/declined machine', () => {
     for (const state of ['done', 'rolled-back', 'declined'] as const) {
