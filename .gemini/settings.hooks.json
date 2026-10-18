@@ -102,9 +102,6 @@
     "source": "hooks/ticket-intake-prompt.mjs"
   },
   {
-    "source": "hooks/track-file-changes.sh"
-  },
-  {
     "source": "hooks/verification-completion.mjs"
   },
   {
