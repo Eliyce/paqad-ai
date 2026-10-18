@@ -586,8 +586,11 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
   // Already installed by paqad: confirm it ran (Part 4/9). The update path never counts a session;
   // only a real SessionStart does, through recordMigrationSession (B4).
   if (prior && prior.state === 'installed') {
-    if (isPluginSeenFresh(prior, readPluginSeen(deps.home))) return confirmDone(deps, prior);
-    return { state: prior.state, path: prior.path, reason: prior.reason };
+    const installed = withInstalledAt(deps.home, prior);
+    if (isPluginSeenFresh(installed, readPluginSeen(deps.home))) {
+      return confirmDone(deps, installed);
+    }
+    return { state: installed.state, path: installed.path, reason: installed.reason };
   }
 
   const cfg = resolvePluginMigrationConfig(projectRoot, deps.env);
@@ -691,14 +694,26 @@ function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): Migr
 type PluginSeen = ReturnType<typeof readPluginSeen>;
 
 /**
- * True when the plugin wrote `plugin-seen.json` after the move into `installed`. Older records
- * have no `installed_at`, so they fall back to `last_attempt_at` (B4).
+ * An `installed` record written before `installed_at` existed: seed it ONCE from the record's own
+ * `last_attempt_at` (the epoch when that is missing too) and persist it, so later counter bumps,
+ * which rewrite `last_attempt_at`, never move the freshness baseline (B4).
  */
-function isPluginSeenFresh(prior: MigrationRecord, seen: PluginSeen): boolean {
+type InstalledRecord = MigrationRecord & { installed_at: string };
+
+function withInstalledAt(home: string, record: MigrationRecord): InstalledRecord {
+  if (record.installed_at) return { ...record, installed_at: record.installed_at };
+  const seeded = {
+    ...record,
+    installed_at: record.last_attempt_at ?? new Date(0).toISOString(),
+  };
+  writeMigrationState(home, seeded);
+  return seeded;
+}
+
+/** True when the plugin wrote `plugin-seen.json` after the move into `installed` (B4). */
+function isPluginSeenFresh(prior: InstalledRecord, seen: PluginSeen): boolean {
   if (!seen?.at) return false;
-  const since = prior.installed_at ?? prior.last_attempt_at;
-  const installedAt = since ? new Date(since).getTime() : 0;
-  return new Date(seen.at).getTime() >= installedAt;
+  return new Date(seen.at).getTime() >= new Date(prior.installed_at).getTime();
 }
 
 /** Move `installed` to `done` (Part 4/9); `synced` when the plugin ran from the claude.ai cache. */
@@ -765,11 +780,12 @@ function tickInstalled(
   deps: ResolvedDeps,
   input: { source: SessionSource; sessionId?: string },
 ): MigrationResult {
-  const prior = readMigrationState(deps.home);
-  if (doneButDisabled(prior, deps.home)) {
-    return record(deps, prior, { state: 'declined', reason: USER_DISABLED_REASON });
+  const current = readMigrationState(deps.home);
+  if (doneButDisabled(current, deps.home)) {
+    return record(deps, current, { state: 'declined', reason: USER_DISABLED_REASON });
   }
-  if (prior?.state !== 'installed') return noTick(prior);
+  if (current?.state !== 'installed') return noTick(current);
+  const prior = withInstalledAt(deps.home, current);
   if (input.source === 'plugin' || isPluginSeenFresh(prior, readPluginSeen(deps.home))) {
     return confirmDone(deps, prior);
   }

@@ -876,6 +876,25 @@ describe('recordMigrationSession — real sessions move the migration (B4)', () 
     seen('2026-10-17T12:30:00Z');
     expect((await tick('npm', 's2')).state).toBe('done');
   });
+  it('seeds installed_at once on an older record so counter bumps never move it', async () => {
+    installed({ installed_at: undefined, last_attempt_at: '2026-10-17T10:00:00Z' });
+    await tick('npm', 's1', { now: () => new Date('2026-10-17T11:00:00Z') });
+    expect(readMigrationState(home)).toMatchObject({
+      installed_at: '2026-10-17T10:00:00Z',
+      last_attempt_at: '2026-10-17T11:00:00.000Z',
+    });
+    // A plugin-seen from after the install but before the bump still counts as fresh.
+    seen('2026-10-17T10:30:00Z');
+    expect((await tick('npm', 's2', { now: () => new Date('2026-10-17T12:00:00Z') })).state).toBe(
+      'done',
+    );
+  });
+  it('the update path persists the seeded installed_at too', () => {
+    manifestClaudeCode();
+    installed({ installed_at: undefined, last_attempt_at: '2026-10-17T10:00:00Z' });
+    maybeMigrateToPlugin(projectRoot, baseDeps());
+    expect(readMigrationState(home)?.installed_at).toBe('2026-10-17T10:00:00Z');
+  });
   it('treats a record with no timestamps as epoch (any seen confirms)', async () => {
     installed({ installed_at: undefined, last_attempt_at: undefined });
     seen('2026-10-17T11:00:00Z');
