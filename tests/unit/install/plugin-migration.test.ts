@@ -1082,6 +1082,13 @@ describe('automatic rollback is retryable (B3)', () => {
     expect(r).toMatchObject({ state: 'installed', path: 'cli' });
     expect(runClaudeInstall).toHaveBeenCalledOnce();
   });
+  it('a plugin-seen that cannot be removed never breaks the rollback', () => {
+    mkdirSync(join(pluginSeenPath(home), 'nested'), { recursive: true }); // a dir: rm throws
+    expect(() =>
+      rollbackPlugin(projectRoot, { home, writeInstallModeSettings: () => {} }),
+    ).not.toThrow();
+    expect(readMigrationState(home)?.state).toBe('rolled-back');
+  });
   it('the manual rollback drops plugin-seen too', () => {
     mkdirSync(join(home, '.paqad-ai'), { recursive: true });
     writeFileSync(pluginSeenPath(home), JSON.stringify({ at: '2026-10-01T00:00:00Z' }));
