@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 
-import { maybeMigrateToPlugin, spawnClaudePluginInstall } from '@/install/plugin-migration.js';
+import { maybeMigrateToPlugin, runClaudePluginInstall } from '@/install/plugin-migration.js';
 import { appendAuditLog, appendAuditLogFailure } from '@/update/audit.js';
 import { FrameworkUpdater } from '@/update/index.js';
 import { VERSION } from '@/index.js';
@@ -22,7 +22,7 @@ export function createUpdateCommand(): Command {
         if (options.silent) {
           try {
             maybeMigrateToPlugin(options.projectRoot, {
-              runClaudeInstall: spawnClaudePluginInstall,
+              runClaudeInstall: runClaudePluginInstall,
             });
           } catch {
             /* best-effort: the migration never breaks the update */

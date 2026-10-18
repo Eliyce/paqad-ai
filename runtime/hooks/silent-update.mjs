@@ -43,15 +43,20 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
-  realpathSync,
   rmdirSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-import { isPaqadDisabled, npmHookStepsAside, readLayeredKey } from './lib/paqad-disabled.mjs';
+import {
+  isPaqadDisabled,
+  npmHookStepsAside,
+  parseHookPayload,
+  readLayeredKey,
+  sessionIdFrom,
+} from './lib/paqad-disabled.mjs';
+import { frameworkPackageRoot, maybeSpawnMigrationTick } from './lib/plugin-migration-tick.mjs';
 
 const DEFAULT_INTERVAL_HOURS = 12;
 const STALE_LOCK_MS = 60 * 60 * 1000; // reap a lock left by a killed run after 60 min
@@ -65,9 +70,18 @@ function main() {
   // version seed, no version check, and above all no background
   // `npm install -g paqad-ai@latest`. A disabled install stays exactly as the
   // user left it.
+  if (isPaqadDisabled(projectRoot)) {
+    return;
+  }
+  // Issue #648 (B4) — this is the one npm hook that runs at every Claude Code SessionStart, so it
+  // reports the session to the plugin migration BEFORE stepping aside for the plugin. Only for a
+  // Claude Code session (CLAUDE_PROJECT_DIR set): a Codex SessionStart never counts.
+  if (process.env.CLAUDE_PROJECT_DIR) {
+    tickPluginMigration();
+  }
   // Issue #616 Part 7 — when the plugin owns this session, the npm silent-update stands down;
   // the plugin manages the version (Part 9). The session id comes from CLAUDE_SESSION_ID.
-  if (isPaqadDisabled(projectRoot) || npmHookStepsAside(undefined)) {
+  if (npmHookStepsAside(undefined)) {
     return;
   }
 
@@ -150,17 +164,29 @@ function main() {
   }
 }
 
+/**
+ * Read the SessionStart payload and spawn the detached migration tick when there is work to do.
+ * A compact SessionStart is the same session continuing, so it never counts. Never throws.
+ */
+function tickPluginMigration() {
+  try {
+    const payload = parseHookPayload(readFileSync(0, 'utf8'));
+    if (payload?.source === 'compact') return;
+    maybeSpawnMigrationTick({
+      source: npmHookStepsAside(payload) ? 'plugin' : 'npm',
+      sessionId: sessionIdFrom(payload),
+    });
+  } catch {
+    // best-effort: the migration tick never affects the session
+  }
+}
+
 function seedVersionFile(versionFile) {
-  const frameworkHome = process.env.PAQAD_FRAMEWORK_HOME || join(homedir(), '.paqad-ai', 'current');
   // Issue #616 Part 9 — the link resolves to <pkg>/runtime; package.json lives ONE LEVEL ABOVE it.
   // Reading join(frameworkHome, 'package.json') found nothing (that is the runtime dir), so the
   // version file was never seeded. Resolve the link, then read its parent's package.json.
-  let pkgRoot;
-  try {
-    pkgRoot = dirname(realpathSync(frameworkHome));
-  } catch {
-    return;
-  }
+  const pkgRoot = frameworkPackageRoot();
+  if (!pkgRoot) return;
   const pkg = readFileSafe(join(pkgRoot, 'package.json'));
   if (!pkg) return;
   let version;

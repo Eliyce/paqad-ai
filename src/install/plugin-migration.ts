@@ -10,7 +10,7 @@
 // managed-settings paths) so the whole state machine is unit-testable against a sandboxed home
 // without a real Claude Code install.
 
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -18,6 +18,7 @@ import {
   readdirSync,
   renameSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
@@ -31,8 +32,13 @@ import { VERSION } from '@/index.js';
 import { PLUGIN_ID } from '../health/plugin-install.js';
 
 /** The marketplace the plugin ships from (the claude.ai / CLI source). */
-export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-plugin';
+export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-ai';
 const MARKETPLACE_KEY = 'eliyce';
+
+/** Bounded timeouts for the synchronous `claude plugin` runs, so a hung CLI never holds the update. */
+const MARKETPLACE_ADD_TIMEOUT_MS = 120_000;
+const INSTALL_TIMEOUT_MS = 180_000;
+const UNINSTALL_TIMEOUT_MS = 120_000;
 
 /** Minimum `claude` version whose `plugin` subcommands this migration drives (Part 3, Path A). */
 export const MIN_CLAUDE_VERSION = '2.1.295';
@@ -53,6 +59,20 @@ export interface MigrationRecord {
   version: string;
   /** npm SessionStarts seen since `installed` with no sign of the plugin (Part 4 rollback count). */
   npm_sessions_since_install?: number;
+  /** When the state last became `installed`; plugin-seen freshness is judged against it (B4). */
+  installed_at?: string;
+  /**
+   * The npm session ids counted toward the rollback since `installed` (the last
+   * {@link MAX_COUNTED_SESSIONS}), so one session counts once even when sessions interleave (B4).
+   */
+  counted_sessions?: string[];
+  /**
+   * When and why the last REAL write happened (anything but a config skip). A config skip
+   * rewrites `last_attempt_at` and `reason`, so the retry window of a real prior attempt is
+   * judged from these instead (B7).
+   */
+  last_real_attempt_at?: string;
+  last_real_reason?: string;
 }
 
 /** Injectable seams so the state machine is testable without a real environment. */
@@ -65,8 +85,10 @@ export interface MigrationDeps {
   version?: string;
   /** `claude --version` → the semver string, or null when there is no usable `claude` on PATH. */
   claudeVersion?: () => string | null;
-  /** Path A: run the detached `claude plugin` install; returns ok + an optional failure reason. */
+  /** Path A: run the `claude plugin` install; returns ok + an optional failure reason. */
   runClaudeInstall?: (home: string, env: NodeJS.ProcessEnv) => { ok: boolean; reason?: string };
+  /** `claude plugin uninstall`, run by the automatic rollback when Claude Code lists the plugin. */
+  runClaudeUninstall?: (home: string) => void;
   /** The managed-settings files to inspect (defaults per-OS); injectable for tests. */
   managedSettingsPaths?: string[];
   /** Best-effort logger (defaults to the migration log file). */
@@ -84,6 +106,8 @@ const RETRY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MANAGED_POLICY_RECHECK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const ROLLBACK_AFTER_NPM_SESSIONS = 3;
+/** Bound on the remembered session ids; well above the rollback threshold. */
+const MAX_COUNTED_SESSIONS = 10;
 
 // ── Paths ────────────────────────────────────────────────────────────────────
 
@@ -146,6 +170,19 @@ export function readPluginSeen(
   }
 }
 
+/**
+ * Remove `plugin-seen.json` after a rollback, so a stale marker from before the undo cannot make
+ * the next retry look "already present" and skip the real install. The plugin rewrites it the
+ * next time it runs. Best-effort; never throws.
+ */
+function clearPluginSeen(home: string): void {
+  try {
+    rmSync(pluginSeenPath(home), { force: true });
+  } catch {
+    /* best-effort: a leftover marker only costs one extra confirmation pass */
+  }
+}
+
 /** True when a plugin root path is a claude.ai synced-plugin cache (Part 9.3). */
 export function isSyncedRoot(root: string | undefined): boolean {
   return (
@@ -160,16 +197,37 @@ export function isSyncedRoot(root: string | undefined): boolean {
  * the plugin's own marker is the second signal — Part 9.2).
  */
 export function isPluginPresent(home: string): boolean {
+  return isPluginInstalledRecord(home) || readPluginSeen(home) !== null;
+}
+
+/** True when Claude Code's `installed_plugins.json` lists the paqad plugin. */
+function isPluginInstalledRecord(home: string): boolean {
   const installed = join(home, '.claude', 'plugins', 'installed_plugins.json');
   try {
-    if (JSON.stringify(JSON.parse(readFileSync(installed, 'utf8'))).includes(PLUGIN_ID)) {
-      return true;
-    }
+    return JSON.stringify(JSON.parse(readFileSync(installed, 'utf8'))).includes(PLUGIN_ID);
   } catch {
-    /* fall through to the plugin-seen signal */
+    return false; // absent or unreadable → no install record
   }
-  return readPluginSeen(home) !== null;
 }
+
+/** True when the user's own Claude settings turn the paqad plugin off (`enabledPlugins` false). */
+function userDisabledPlugin(home: string): boolean {
+  try {
+    const settings = JSON.parse(readFileSync(userClaudeSettingsPath(home), 'utf8')) as {
+      enabledPlugins?: Record<string, unknown>;
+    };
+    return settings.enabledPlugins?.[PLUGIN_ID] === false;
+  } catch {
+    return false; // absent or unreadable settings are not an opt-out
+  }
+}
+
+/** A settled `done` the user then turned off: paqad records it as declined and never re-adds (B5). */
+function doneButDisabled(record: MigrationRecord | null, home: string): boolean {
+  return record?.state === 'done' && userDisabledPlugin(home);
+}
+
+const USER_DISABLED_REASON = 'user-disabled';
 
 // ── Skip conditions (Part 2) ──────────────────────────────────────────────────
 
@@ -248,17 +306,51 @@ function marketplaceReferenced(list: unknown[]): boolean {
   return list.some((entry) => JSON.stringify(entry).includes(PLUGIN_MARKETPLACE_REPO));
 }
 
+/**
+ * Skips that record a config or environment decision, not a real attempt. They never start a retry
+ * window of their own, so a Developer who opts in a minute after a skip is not made to wait a day
+ * (B7). They never erase one either: the attempt cap and a real prior attempt's window still hold.
+ */
+const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
+  'migration-off',
+  'install-mode-settings',
+  'no-claude-code-provider',
+  'ci-or-headless',
+]);
+
+/** The reason an automatic rollback records; it is retried, unlike a manual rollback (B3). */
+const AUTO_ROLLBACK_REASON = 'plugin-never-loaded';
+
+/**
+ * A settled record is never retried: `done`, `declined`, or a `rolled-back` that was not the
+ * automatic undo (a manual rollback stays final). An automatic rollback goes back through the
+ * retry window and attempt cap, so a later run completes once access is back (B3).
+ */
+function isSettled(record: MigrationRecord): boolean {
+  if (record.state === 'rolled-back') return record.reason !== AUTO_ROLLBACK_REASON;
+  return record.state === 'done' || record.state === 'declined';
+}
+
 /** Whether the retry rules (Part 5) allow another attempt now. */
 export function retryAllowed(record: MigrationRecord | null, now: Date): boolean {
   if (!record) return true;
-  if (record.state === 'done' || record.state === 'rolled-back' || record.state === 'declined') {
-    return false;
-  }
+  if (isSettled(record)) return false;
   if (record.attempts >= MAX_ATTEMPTS) return false;
-  if (!record.last_attempt_at) return true;
-  const since = now.getTime() - new Date(record.last_attempt_at).getTime();
-  const window = record.reason === 'managed-policy' ? MANAGED_POLICY_RECHECK_MS : RETRY_WINDOW_MS;
+  // A config skip is judged by the last real attempt before it (none → allowed at once).
+  const configSkip = isConfigSkip(record.state, record.reason);
+  const at = configSkip
+    ? record.last_real_attempt_at
+    : (record.last_real_attempt_at ?? record.last_attempt_at);
+  if (!at) return true;
+  const reason = configSkip ? record.last_real_reason : record.reason;
+  const since = now.getTime() - new Date(at).getTime();
+  const window = reason === 'managed-policy' ? MANAGED_POLICY_RECHECK_MS : RETRY_WINDOW_MS;
   return since >= window;
+}
+
+/** True for a skip that records a config or environment decision (B7). */
+function isConfigSkip(state: MigrationState, reason: string | undefined): boolean {
+  return state === 'skipped' && CONFIG_SKIP_REASONS.has(reason ?? '');
 }
 
 // ── Install paths (Part 3) ────────────────────────────────────────────────────
@@ -372,6 +464,7 @@ interface ResolvedDeps {
   version: string;
   claudeVersion: () => string | null;
   runClaudeInstall: (home: string, env: NodeJS.ProcessEnv) => { ok: boolean; reason?: string };
+  runClaudeUninstall: (home: string) => void;
   managedSettingsPaths: string[];
   log: (message: string) => void;
 }
@@ -385,6 +478,7 @@ function resolveDeps(deps: MigrationDeps): ResolvedDeps {
     version: deps.version ?? VERSION,
     claudeVersion: deps.claudeVersion ?? defaultClaudeVersion,
     runClaudeInstall: deps.runClaudeInstall ?? defaultRunClaudeInstall,
+    runClaudeUninstall: deps.runClaudeUninstall ?? (() => {}),
     managedSettingsPaths: deps.managedSettingsPaths ?? defaultManagedSettingsPaths(),
     log: deps.log ?? ((message: string) => appendMigrationLog(home, message)),
   };
@@ -410,6 +504,9 @@ function defaultClaudeVersion(): string | null {
       encoding: 'utf8',
       timeout: 120_000,
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      // claude is a .cmd shim on Windows; static args only, so the shell is safe.
+      shell: process.platform === 'win32',
     });
     const match = out.match(/(\d+\.\d+\.\d+)/);
     return match ? match[1]! : null;
@@ -428,21 +525,40 @@ function record(
   prior: MigrationRecord | null,
   patch: Partial<MigrationRecord> & { state: MigrationState },
 ): MigrationResult {
+  const nowIso = deps.now().toISOString();
   const next: MigrationRecord = {
     attempts: prior?.attempts ?? 0,
     npm_sessions_since_install: prior?.npm_sessions_since_install,
     ...prior,
     ...patch,
     version: deps.version,
-    last_attempt_at: deps.now().toISOString(),
+    last_attempt_at: nowIso,
   };
+  // installed and done carry no failure reason; drop one left over from an earlier state.
+  if ((patch.state === 'installed' || patch.state === 'done') && !('reason' in patch)) {
+    delete next.reason;
+  }
+  // A fresh move into `installed` restarts the freshness clock; a counter bump keeps it.
+  if (patch.state === 'installed' && prior?.state !== 'installed') {
+    next.installed_at = nowIso;
+    next.counted_sessions = [];
+  }
+  // Only a real write moves the retry baseline; a config skip keeps the prior one (B7).
+  if (!isConfigSkip(next.state, next.reason)) {
+    next.last_real_attempt_at = nowIso;
+    next.last_real_reason = next.reason;
+  } else if (prior && !prior.last_real_attempt_at && !isConfigSkip(prior.state, prior.reason)) {
+    // An older record (written before these fields existed): its own write was the real one.
+    next.last_real_attempt_at = prior.last_attempt_at;
+    next.last_real_reason = prior.reason;
+  }
   writeMigrationState(deps.home, next);
   return { state: next.state, path: next.path, reason: next.reason };
 }
 
 /**
  * The migration entry the background update calls (Part 2). Best-effort, synchronous decision; the
- * real Path-A install is spawned detached by the injected runner. Never throws.
+ * Path-A install runs through the injected runner (synchronous, bounded). Never throws.
  */
 export function maybeMigrateToPlugin(
   projectRoot: string,
@@ -458,17 +574,23 @@ export function maybeMigrateToPlugin(
 function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult {
   const prior = readMigrationState(deps.home);
 
-  // Already settled — never retry (Part 5).
-  if (
-    prior &&
-    (prior.state === 'done' || prior.state === 'rolled-back' || prior.state === 'declined')
-  ) {
+  // The user turned the plugin off after the move: record declined, touch nothing (B5).
+  if (doneButDisabled(prior, deps.home)) {
+    return record(deps, prior, { state: 'declined', reason: USER_DISABLED_REASON });
+  }
+  // Already settled — never retry (Part 5). An automatic rollback is not settled (B3).
+  if (prior && isSettled(prior)) {
     return { state: prior.state, path: prior.path, reason: prior.reason };
   }
 
-  // Already installed by paqad: confirm it ran, or undo after enough quiet npm sessions (Part 4/9).
+  // Already installed by paqad: confirm it ran (Part 4/9). The update path never counts a session;
+  // only a real SessionStart does, through recordMigrationSession (B4).
   if (prior && prior.state === 'installed') {
-    return confirmOrUndo(deps, prior);
+    const installed = withInstalledAt(deps.home, prior);
+    if (isPluginSeenFresh(installed, readPluginSeen(deps.home))) {
+      return confirmDone(deps, installed);
+    }
+    return { state: installed.state, path: installed.path, reason: installed.reason };
   }
 
   const cfg = resolvePluginMigrationConfig(projectRoot, deps.env);
@@ -494,9 +616,17 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
     if (isSyncedRoot(readPluginSeen(deps.home)?.root)) {
       return record(deps, prior, { state: 'done', path: 'synced' });
     }
+    // Re-declare the settings keys so a leftover install record (a retry after an automatic
+    // rollback with no claude to uninstall) is enabled again; an explicit user false is declined.
+    const attempts = (prior?.attempts ?? 0) + 1;
+    const settings = installViaSettings(deps.home);
+    if (settings.state !== 'installed') {
+      return record(deps, prior, { state: settings.state, reason: settings.reason, attempts });
+    }
     return record(deps, prior, {
       state: 'installed',
       path: 'settings',
+      attempts,
       npm_sessions_since_install: 0,
     });
   }
@@ -522,6 +652,11 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
 
 /** Run the install (Path A when a usable `claude` exists, else Path B) and record `installed`. */
 function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {
+  // An explicit user opt-out wins over both paths: never install against it (B5, INV-7).
+  if (userDisabledPlugin(deps.home)) {
+    deps.log('user turned the plugin off; not installing');
+    return record(deps, prior, { state: 'declined', reason: 'user-opted-out' });
+  }
   const attempts = (prior?.attempts ?? 0) + 1;
   const version = deps.claudeVersion();
   const pathA = version !== null && versionAtLeast(version, MIN_CLAUDE_VERSION);
@@ -539,7 +674,7 @@ function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): Migr
         npm_sessions_since_install: 0,
       });
     }
-    deps.log(`path A failed to start (${run.reason ?? 'unknown'}); falling back to settings`);
+    deps.log(`path A failed (${run.reason ?? 'unknown'}); falling back to settings`);
   }
 
   const result = installViaSettings(deps.home);
@@ -556,39 +691,175 @@ function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): Migr
   return record(deps, prior, { state: result.state, reason: result.reason, attempts });
 }
 
+type PluginSeen = ReturnType<typeof readPluginSeen>;
+
 /**
- * Part 4 / Part 9 — once `installed`, confirm the plugin actually runs (`plugin-seen.json` newer
- * than the install) and move to `done`, or after {@link ROLLBACK_AFTER_NPM_SESSIONS} npm sessions
- * with no sign of it, undo the move and record `rolled-back`.
+ * An `installed` record written before `installed_at` existed: seed it ONCE from the record's own
+ * `last_attempt_at` (the epoch when that is missing too) and persist it, so later counter bumps,
+ * which rewrite `last_attempt_at`, never move the freshness baseline (B4).
  */
-function confirmOrUndo(deps: ResolvedDeps, prior: MigrationRecord): MigrationResult {
+type InstalledRecord = MigrationRecord & { installed_at: string };
+
+function withInstalledAt(home: string, record: MigrationRecord): InstalledRecord {
+  if (record.installed_at) return { ...record, installed_at: record.installed_at };
+  const seeded = {
+    ...record,
+    installed_at: record.last_attempt_at ?? new Date(0).toISOString(),
+  };
+  writeMigrationState(home, seeded);
+  return seeded;
+}
+
+/** True when the plugin wrote `plugin-seen.json` after the move into `installed` (B4). */
+function isPluginSeenFresh(prior: InstalledRecord, seen: PluginSeen): boolean {
+  if (!seen?.at) return false;
+  return new Date(seen.at).getTime() >= new Date(prior.installed_at).getTime();
+}
+
+/** Move `installed` to `done` (Part 4/9); `synced` when the plugin ran from the claude.ai cache. */
+function confirmDone(deps: ResolvedDeps, prior: MigrationRecord): MigrationResult {
   const seen = readPluginSeen(deps.home);
-  const installedAt = prior.last_attempt_at ? new Date(prior.last_attempt_at).getTime() : 0;
-  if (seen?.at && new Date(seen.at).getTime() >= installedAt) {
-    return record(deps, prior, {
-      state: 'done',
-      path: isSyncedRoot(seen.root) ? 'synced' : prior.path,
-    });
+  return record(deps, prior, {
+    state: 'done',
+    path: isSyncedRoot(seen?.root) ? 'synced' : prior.path,
+  });
+}
+
+/** Which copy's SessionStart reported the session. */
+export type SessionSource = 'npm' | 'plugin';
+
+/** Seams for {@link recordMigrationSession}, on top of the migration seams. */
+export interface SessionTickDeps extends MigrationDeps {
+  /** How long an npm tick waits for a parallel plugin SessionStart to write plugin-seen. */
+  settleMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const DEFAULT_SETTLE_MS = 2000;
+
+/**
+ * Part 4 / Part 9 — the one place a real Claude Code session moves the migration (B4). A plugin
+ * session, or an npm session that finds a fresh plugin-seen, moves `installed` to `done`. An npm
+ * session with no sign of the plugin bumps the counter once per distinct session id, and at
+ * {@link ROLLBACK_AFTER_NPM_SESSIONS} runs the automatic rollback. Takes the machine lock (does
+ * nothing when it is held) and never throws.
+ */
+export async function recordMigrationSession(
+  input: { source: SessionSource; sessionId?: string },
+  deps: SessionTickDeps = {},
+): Promise<MigrationResult> {
+  try {
+    const resolved = resolveDeps(deps);
+    const initial = readMigrationState(resolved.home);
+    if (!initial || (initial.state !== 'installed' && !doneButDisabled(initial, resolved.home))) {
+      return noTick(initial);
+    }
+    if (input.source === 'npm') {
+      // The plugin and npm SessionStart hooks run in parallel; give plugin-seen a moment to land.
+      const sleep = deps.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+      await sleep(deps.settleMs ?? DEFAULT_SETTLE_MS);
+    }
+    if (!acquireLock(resolved.home)) return { state: initial.state, reason: 'locked' };
+    try {
+      return tickInstalled(resolved, input);
+    } finally {
+      releaseLock(resolved.home);
+    }
+  } catch (error) {
+    return { state: 'skipped', reason: `error:${(error as Error).message}` };
+  }
+}
+
+/** The no-op result when there is nothing for a session to move. */
+function noTick(prior: MigrationRecord | null): MigrationResult {
+  return { state: prior?.state ?? 'pending', path: prior?.path, reason: 'nothing-to-record' };
+}
+
+/** Under the lock: re-read the state, then confirm, count, or roll back. */
+function tickInstalled(
+  deps: ResolvedDeps,
+  input: { source: SessionSource; sessionId?: string },
+): MigrationResult {
+  const current = readMigrationState(deps.home);
+  if (doneButDisabled(current, deps.home)) {
+    return record(deps, current, { state: 'declined', reason: USER_DISABLED_REASON });
+  }
+  if (current?.state !== 'installed') return noTick(current);
+  const prior = withInstalledAt(deps.home, current);
+  if (input.source === 'plugin' || isPluginSeenFresh(prior, readPluginSeen(deps.home))) {
+    return confirmDone(deps, prior);
+  }
+  const counted = prior.counted_sessions ?? [];
+  if (input.sessionId && counted.includes(input.sessionId)) {
+    return { state: prior.state, path: prior.path, reason: 'session-already-counted' };
   }
   const sessions = (prior.npm_sessions_since_install ?? 0) + 1;
   if (sessions >= ROLLBACK_AFTER_NPM_SESSIONS) {
-    undoViaSettings(deps.home);
-    deps.log(`rolled back after ${sessions} npm sessions with no plugin`);
-    return record(deps, prior, { state: 'rolled-back', reason: 'plugin-never-loaded' });
+    return autoRollback(deps, prior, sessions);
   }
-  return record(deps, prior, { state: 'installed', npm_sessions_since_install: sessions });
+  return record(deps, prior, {
+    state: 'installed',
+    npm_sessions_since_install: sessions,
+    counted_sessions: input.sessionId
+      ? [...counted, input.sessionId].slice(-MAX_COUNTED_SESSIONS)
+      : counted,
+  });
+}
+
+/**
+ * The automatic undo (Part 4): remove the plugin when Claude Code lists it, drop the settings
+ * keys, and record a retryable `rolled-back` so a later run starts clean (B3).
+ */
+function autoRollback(
+  deps: ResolvedDeps,
+  prior: MigrationRecord,
+  sessions: number,
+): MigrationResult {
+  if (isPluginInstalledRecord(deps.home)) deps.runClaudeUninstall(deps.home);
+  undoViaSettings(deps.home);
+  clearPluginSeen(deps.home);
+  deps.log(`rolled back after ${sessions} npm sessions with no plugin`);
+  return record(deps, prior, {
+    state: 'rolled-back',
+    reason: AUTO_ROLLBACK_REASON,
+    npm_sessions_since_install: sessions,
+  });
 }
 
 // ── Lock (Part 2) ──────────────────────────────────────────────────────────
 
-export function acquireLock(home: string): boolean {
+/**
+ * A lock older than this was left by a killed run. The longest hold is a Path A install
+ * (`claude --version` probe 120s + marketplace add 120s + install 180s = 7 min), so 15 min is
+ * safely above any live holder.
+ */
+export const STALE_MIGRATION_LOCK_MS = 15 * 60 * 1000;
+
+export function acquireLock(home: string, now: () => number = Date.now): boolean {
   const dir = migrationLockDir(home);
   try {
     mkdirSync(dirname(dir), { recursive: true });
     mkdirSync(dir); // atomic: fails if it already exists
     return true;
   } catch {
-    return false;
+    return reapStaleLock(dir, now);
+  }
+}
+
+/**
+ * Reap a lock left behind by a killed run, then take it once. The stale dir is renamed aside
+ * first (atomic), so two reapers cannot both remove it; the loser's mkdir then fails.
+ */
+function reapStaleLock(dir: string, now: () => number): boolean {
+  try {
+    if (now() - statSync(dir).mtimeMs <= STALE_MIGRATION_LOCK_MS) return false;
+    const aside = `${dir}.stale-${process.pid}-${now()}`;
+    renameSync(dir, aside);
+    rmSync(aside, { recursive: true, force: true });
+    mkdirSync(dir);
+    return true;
+  } catch {
+    return false; // vanished, raced, or unreadable: treat as held
   }
 }
 export function releaseLock(home: string): void {
@@ -608,24 +879,26 @@ export interface RollbackDeps {
   home?: string;
   now?: () => Date;
   version?: string;
-  /** Path A uninstall (`claude plugin uninstall`); injected for tests. */
+  /** `claude plugin uninstall`, run when Claude Code lists the plugin (any path); injected for tests. */
   runClaudeUninstall?: (home: string) => void;
   /** Writes `claude_install_mode=settings` to the project's local `.paqad/.config`. */
   writeInstallModeSettings?: (projectRoot: string) => void;
 }
 
 /**
- * `paqad-ai plugin rollback` — undo the move by the recorded path, record `rolled-back` (reason
- * `manual`), pin `claude_install_mode=settings` locally so it never re-migrates, and return the
- * message to print verbatim.
+ * `paqad-ai plugin rollback` — remove the plugin, undo the settings keys, record `rolled-back`
+ * (reason `manual`), pin `claude_install_mode=settings` locally so it never re-migrates, and
+ * return the message to print verbatim. The uninstall runs whenever Claude Code lists the plugin,
+ * on any path, because Claude Code may have installed it from the settings keys too (B6).
  */
 export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): string {
   const home = deps.home ?? homedir();
   const prior = readMigrationState(home);
-  if (prior?.path === 'cli' && deps.runClaudeUninstall) {
+  if (deps.runClaudeUninstall && isPluginInstalledRecord(home)) {
     deps.runClaudeUninstall(home);
   }
   undoViaSettings(home);
+  clearPluginSeen(home);
   writeMigrationState(home, {
     attempts: prior?.attempts ?? 0,
     ...prior,
@@ -652,6 +925,8 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
 export function describeClaudeInstall(home: string = homedir()): string {
   const record = readMigrationState(home);
   if (!record || record.state === 'pending') return 'npm';
+  // Read-only: the next update or session records the declined state; doctor shows it at once.
+  if (doneButDisabled(record, home)) return `npm (migration declined: ${USER_DISABLED_REASON})`;
   if (record.state === 'done') {
     if (record.path === 'synced') return 'plugin (synced from claude.ai)';
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';
@@ -660,24 +935,92 @@ export function describeClaudeInstall(home: string = homedir()): string {
   return `npm (migration ${record.state}: ${record.reason ?? 'n/a'})`;
 }
 
-// ── Detached `claude plugin` install (Path A real implementation) ─────────────
-// Exported so the update wiring can pass it as the default runner; kept out of the unit path
-// (always injected in tests) because it spawns a real child process.
+// ── `claude plugin` runners (Path A real implementation) ─────────────────────
+// They run synchronously: `update --silent` is already a detached background process, so waiting
+// for the CLI here never blocks a session, and it lets us check the result (B2).
 
-/* v8 ignore start -- spawns the real detached `claude plugin` commands; covered by manual sign-off. */
-export function spawnClaudePluginInstall(home: string, env: NodeJS.ProcessEnv): { ok: boolean } {
-  try {
-    mkdirSync(dirname(migrationLogPath(home)), { recursive: true });
-  } catch {
-    /* best-effort */
-  }
-  const child = spawn('claude', ['plugin', 'install', PLUGIN_ID, '--scope', 'user'], {
-    detached: true,
+/** How one `claude` run ended. */
+export type ClaudeExecOutcome = 'ok' | 'exit' | 'timeout' | 'error';
+
+/** Runs `claude <args>` and reports how it ended; never throws. Injected in tests. */
+export type ClaudeExec = (
+  args: readonly string[],
+  options: { timeoutMs: number; env: NodeJS.ProcessEnv },
+) => ClaudeExecOutcome;
+
+/* v8 ignore start -- the one real process-spawning binding; every branch above it is unit tested
+   through the injected exec seam. */
+export function defaultClaudeExec(
+  args: readonly string[],
+  options: { timeoutMs: number; env: NodeJS.ProcessEnv },
+): ClaudeExecOutcome {
+  const result = spawnSync('claude', [...args], {
+    env: options.env,
+    timeout: options.timeoutMs,
     stdio: 'ignore',
     windowsHide: true,
-    env,
+    // claude is a .cmd shim on Windows; static args only, so the shell is safe.
+    shell: process.platform === 'win32',
   });
-  child.unref();
-  return { ok: true };
+  if (result.error) {
+    return (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT' ? 'timeout' : 'error';
+  }
+  return result.status === 0 ? 'ok' : 'exit';
 }
 /* v8 ignore stop */
+
+/**
+ * Path A: register the marketplace, install the plugin at user scope, and confirm Claude Code
+ * recorded it. A failed `marketplace add` is tolerated (it may already be registered); the
+ * install exit code plus the `installed_plugins.json` record decide success. Never throws.
+ */
+export function runClaudePluginInstall(
+  home: string,
+  env: NodeJS.ProcessEnv,
+  exec: ClaudeExec = defaultClaudeExec,
+  log: (message: string) => void = (message) => appendMigrationLog(home, message),
+): { ok: boolean; reason?: string } {
+  const added = exec(['plugin', 'marketplace', 'add', PLUGIN_MARKETPLACE_REPO], {
+    timeoutMs: MARKETPLACE_ADD_TIMEOUT_MS,
+    env,
+  });
+  if (added !== 'ok') {
+    log(`marketplace add ${PLUGIN_MARKETPLACE_REPO} did not succeed (${added}); continuing`);
+  }
+  const installed = exec(['plugin', 'install', PLUGIN_ID, '--scope', 'user'], {
+    timeoutMs: INSTALL_TIMEOUT_MS,
+    env,
+  });
+  if (installed !== 'ok') return { ok: false, reason: `cli-install-failed:${installed}` };
+  if (!isPluginInstalledRecord(home)) return { ok: false, reason: 'cli-install-unconfirmed' };
+  return { ok: true };
+}
+
+/** Injectable seams for {@link runClaudePluginUninstall}. */
+export interface UninstallDeps {
+  env?: NodeJS.ProcessEnv;
+  claudeVersion?: () => string | null;
+  exec?: ClaudeExec;
+  log?: (message: string) => void;
+}
+
+/**
+ * Run `claude plugin uninstall paqad@eliyce --scope user` when a `claude` is on PATH. Logs the
+ * outcome and never throws; with no `claude` it runs nothing (the settings undo still applies).
+ */
+export function runClaudePluginUninstall(home: string, deps: UninstallDeps = {}): void {
+  const log = deps.log ?? ((message: string) => appendMigrationLog(home, message));
+  try {
+    if ((deps.claudeVersion ?? defaultClaudeVersion)() === null) {
+      log('uninstall skipped: no claude on PATH');
+      return;
+    }
+    const outcome = (deps.exec ?? defaultClaudeExec)(
+      ['plugin', 'uninstall', PLUGIN_ID, '--scope', 'user'],
+      { timeoutMs: UNINSTALL_TIMEOUT_MS, env: deps.env ?? process.env },
+    );
+    log(`uninstall via cli: ${outcome}`);
+  } catch (error) {
+    log(`uninstall via cli: error (${(error as Error).message})`);
+  }
+}

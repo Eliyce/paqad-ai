@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { mkdtempSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { HealthChecker } from '@/health/checker.js';
@@ -1008,6 +1008,35 @@ describe('doctor framework-link repair (issue #636 bug 3)', () => {
       const check = report.checks.find((c) => c.name === 'Framework install');
       expect(check?.status).toBe('warning');
       expect(check?.remediation).toContain(CMD);
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('doctor Claude Code install line (issue #648, B5)', () => {
+  // HOME is sandboxed per test file (tests/shared/isolate-home.ts), so these writes stay in a temp dir.
+  afterEach(() => {
+    rmSync(join(homedir(), '.paqad-ai', 'plugin-migration.json'), { force: true });
+    rmSync(join(homedir(), '.claude', 'settings.json'), { force: true });
+  });
+
+  it('shows declined at once when the user turned the plugin off after the move', async () => {
+    mkdirSync(join(homedir(), '.paqad-ai'), { recursive: true });
+    writeFileSync(
+      join(homedir(), '.paqad-ai', 'plugin-migration.json'),
+      JSON.stringify({ state: 'done', path: 'cli', attempts: 1, version: '1' }),
+    );
+    mkdirSync(join(homedir(), '.claude'), { recursive: true });
+    writeFileSync(
+      join(homedir(), '.claude', 'settings.json'),
+      JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }),
+    );
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-doctor-'));
+    try {
+      const report = await new HealthChecker().run(projectRoot);
+      const check = report.checks.find((c) => c.name === 'Claude Code install');
+      expect(check?.detail).toBe('npm (migration declined: user-disabled)');
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }
