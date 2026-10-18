@@ -87,6 +87,15 @@ a Stop `{systemMessage}` as `Stop says:` lines, an echo there would only duplica
 agent's receipt and leak model-only advisories. The agent's final message is the sole
 developer-facing channel; enforcement rides `{decision:'block'}` plus the git/CI backstop.
 
+### paqad keeps its own receipt every turn (issue #639, Part 6)
+
+The in-session Stop backstop (`runtime/scripts/verify-backstop.mjs`, `hook-completion`)
+still prints nothing on a clean or Inconclusive turn. It now writes the composed receipt,
+the same text the git and CI backstop prints, to `.paqad/session/hud/<session>.receipt.md`,
+and the verdict (word, kind, passed, reasons) to `.paqad/session/hud/<session>.verdict.json`,
+through `writeHudReceipt` in `src/hud/receipt-file.ts`. A failed write is logged to
+`.paqad/logs/hook-failures.log` and never changes the `{decision:'block'}` or the exit code.
+
 ## One verdict rule (issue #639, Part 4)
 
 `verdictKindFor` in `src/verification/verdict-kind.ts` decides the verdict word for every
