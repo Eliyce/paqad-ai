@@ -218,6 +218,52 @@ describe('paqad-ai route set command', () => {
     expect(readRouteOverrides(root, SES)[0]?.hook_label).toBe('pentest');
   });
 
+  it('resumes a paused feature-development entry instead of opening a fresh one (AC-15)', async () => {
+    const sessionId = resolveSessionId(root, SES);
+    const paused = {
+      workflow: 'feature-development' as const,
+      changeKey: `${sessionId}#2`,
+      lane: 'graduated' as const,
+      specId: 'spec-1',
+    };
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'pentest' },
+      paused: [
+        { workflow: 'feature-development', changeKey: `${sessionId}#1`, lane: 'fast' },
+        { workflow: 'documentation-update' },
+        paused,
+      ],
+    });
+
+    await routeSet('feature-development');
+
+    const state = readWorkflowState(root, sessionId);
+    // The most recent paused entry comes back with its anchors; the mislabel is dropped.
+    expect(state.active).toEqual(paused);
+    expect(state.paused).toEqual([
+      { workflow: 'feature-development', changeKey: `${sessionId}#1`, lane: 'fast' },
+      { workflow: 'documentation-update' },
+    ]);
+  });
+
+  it('leaves no feature-development entry paused when it was the only one', async () => {
+    const sessionId = resolveSessionId(root, SES);
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'project-question' },
+      paused: [{ workflow: 'feature-development', lane: 'full', specId: 'spec-2' }],
+    });
+
+    await routeSet('feature-development');
+
+    const state = readWorkflowState(root, sessionId);
+    expect(state.active).toEqual({
+      workflow: 'feature-development',
+      lane: 'full',
+      specId: 'spec-2',
+    });
+    expect(state.paused.some((entry) => entry.workflow === 'feature-development')).toBe(false);
+  });
+
   it('preserves the paused stack (rewrites the active entry, does not pause)', async () => {
     const sessionId = resolveSessionId(root, SES);
     writeWorkflowState(root, sessionId, {

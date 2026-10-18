@@ -8,7 +8,11 @@ import {
 import { appendRouteOverride } from '@/pipeline/route-override-log.js';
 import { editedDevelopmentThisTurn } from '@/pipeline/session-ownership.js';
 import { readSessionRoute, writeSessionRoute } from '@/pipeline/session-route.js';
-import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
+import {
+  readWorkflowState,
+  writeWorkflowState,
+  type WorkflowState,
+} from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { clearPendingLane } from '@/stage-evidence/pending-lane.js';
 
@@ -42,14 +46,34 @@ function explicitSessionHint(option: string | undefined): string | null {
 }
 
 /**
+ * The workflow state after correcting the active route to `target`. The mislabelled active
+ * entry is replaced, never paused: it was a wrong label, not real work. When `target` sits in
+ * the paused stack (issue #623 FR-9), the most recent matching entry is resumed with its plan,
+ * spec and lane anchors and taken off the stack, so no phantom paused copy is left behind.
+ * Otherwise a fresh active entry is set and the paused stack is untouched, so a real change
+ * paused behind a question still resumes later.
+ */
+function correctedState(state: WorkflowState, target: RoutedWorkflow): WorkflowState {
+  const pausedIndex = state.paused.map((entry) => entry.workflow).lastIndexOf(target);
+  if (pausedIndex === -1) {
+    return { ...state, active: { workflow: target } };
+  }
+  return {
+    ...state,
+    active: state.paused[pausedIndex]!,
+    paused: state.paused.filter((_, index) => index !== pausedIndex),
+  };
+}
+
+/**
  * `paqad-ai route set <workflow> [--reason]` — correct the route the hook's deterministic
  * classifier picked (issue #580). The agent routes by intent (AGENT-ROUTER.md); when the
  * `**▸ paqad** · routed to …` line names a different workflow than the one the agent picked, this
  * verb rewrites the ACTIVE per-session route to the agent's pick.
  *
- * It rewrites the active workflow-state entry (it does NOT push a pause), updates the
- * `.session-route.json` pointer, clears any lane the hook stashed when the new route is not
- * feature-development, and appends an `agent-override` audit row. It refuses to LEAVE
+ * It rewrites the active workflow-state entry (it does NOT push a pause, and it resumes a paused
+ * entry for the same workflow), updates the `.session-route.json` pointer, clears any lane the
+ * hook stashed when the new route is not feature-development, and appends an `agent-override` audit row. It refuses to LEAVE
  * feature-development once THIS session has edited source files this turn (issue #623: its own
  * `development` rows, never the shared git tree, so another session in the same checkout cannot
  * block the correction). When no session id was given at all, the correction is allowed and the
@@ -105,12 +129,7 @@ export function createRouteCommand(): Command {
         return;
       }
 
-      // Rewrite the ACTIVE entry in place (not a pause). The paused stack is untouched, so a
-      // real feature-development change paused behind a question still resumes later.
-      writeWorkflowState(root, sessionId, {
-        ...state,
-        active: { workflow: target },
-      });
+      writeWorkflowState(root, sessionId, correctedState(state, target));
 
       // Keep the detached context worker's pointer in step; preserve its query/adapter.
       const priorRoute = readSessionRoute(root, sessionId);
