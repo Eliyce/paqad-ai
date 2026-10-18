@@ -262,6 +262,37 @@ describe('retryAllowed (Part 5)', () => {
   });
 });
 
+describe('installed and done records carry no stale reason', () => {
+  it('a retry after a failure installs with the old reason cleared', () => {
+    manifestClaudeCode();
+    writeMigrationState(home, {
+      state: 'failed',
+      reason: 'user-settings-write-failed',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-16T00:00:00Z',
+    });
+    expect(maybeMigrateToPlugin(projectRoot, baseDeps())).toEqual({
+      state: 'installed',
+      path: 'settings',
+      reason: undefined,
+    });
+    expect(readMigrationState(home)?.reason).toBeUndefined();
+  });
+  it('a confirmation to done clears the reason too', async () => {
+    writeMigrationState(home, {
+      state: 'installed',
+      path: 'settings',
+      reason: 'leftover',
+      attempts: 1,
+      version: '1',
+    });
+    await tick('plugin');
+    expect(readMigrationState(home)).toMatchObject({ state: 'done' });
+    expect(readMigrationState(home)?.reason).toBeUndefined();
+  });
+});
+
 describe('config skips do not throttle a later opt-in (B7)', () => {
   it('toggling claude_install_mode cannot bypass the cap or a real attempt window', () => {
     manifestClaudeCode();

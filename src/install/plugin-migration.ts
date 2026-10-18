@@ -520,6 +520,10 @@ function record(
     version: deps.version,
     last_attempt_at: nowIso,
   };
+  // installed and done carry no failure reason; drop one left over from an earlier state.
+  if ((patch.state === 'installed' || patch.state === 'done') && !('reason' in patch)) {
+    delete next.reason;
+  }
   // A fresh move into `installed` restarts the freshness clock; a counter bump keeps it.
   if (patch.state === 'installed' && prior?.state !== 'installed') {
     next.installed_at = nowIso;
