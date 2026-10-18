@@ -70,7 +70,12 @@ A few things worth knowing:
 - The plugin keeps itself current. Claude Code updates it through `/plugin`, so you do not run an update command by hand.
 - The optional RAG engine installs on first use, in the background, only if you turn RAG on. To remove it later, delete `~/.paqad/` (the shared model and engine cache).
 - To open the dashboard, run `paqad-ai dashboard` from a terminal in the project. The plugin puts `paqad-ai` on your shell path inside a Claude Code session.
-- **Already on the npm setup?** paqad can move you to the plugin automatically in the background, with nothing to do on your side — the npm package stays installed as a fallback and paqad is never off at any point. It is off by default today; `paqad-ai plugin rollback` moves a machine back to the npm setup, and `claude_install_mode=settings` in your team config keeps a project on npm.
+- **Already on the npm setup?** paqad can move you to the plugin automatically in the background, with nothing to do on your side. The npm package stays installed as a fallback, so paqad is never off at any point. It is off by default today; `plugin_migration=on` or `claude_install_mode=plugin` turns it on, `paqad-ai plugin rollback` moves a machine back to the npm setup and removes the plugin, and `claude_install_mode=settings` in your team config keeps a project on npm.
+  - When `claude` is on your path, paqad runs `claude plugin marketplace add Eliyce/paqad-ai` and `claude plugin install paqad@eliyce --scope user`, then checks that Claude Code recorded the plugin. Otherwise, or if that fails, it adds the marketplace and the plugin to your own `~/.claude/settings.json`. It never edits a project file.
+  - paqad then watches your next Claude Code sessions. Once the plugin runs, the move is done. After three sessions with no sign of it, paqad undoes the move and tries again a day later, up to five attempts.
+  - If you turn the plugin off in your Claude settings, paqad records that you declined it and never turns it back on.
+  - `paqad-ai doctor` shows where the move stands, and `~/.paqad-ai/logs/plugin-migration.log` has the details.
+  - Manual check: in a headless `claude -p` session, Claude Code registered the marketplace from the settings but did not install the plugin over three sessions. Whether the Claude Code Desktop app installs a plugin declared in settings on its own is still a manual check, so paqad prefers the `claude` command route whenever `claude` is on your path.
 - **Organizations (Team or Enterprise):** add the `paqad` plugin in Organization settings > Plugins & skills and set it to Installed by default or Required. Members then do nothing and nothing on their machine is edited by paqad.
 
 ## What you get, at a glance

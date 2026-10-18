@@ -53,17 +53,88 @@ function writeFakeNpmVersion(dir: string, version: string): void {
 
 const STALE = '2020-01-01T00:00:00Z';
 
-async function runHook(root: string, fakeBinDir?: string) {
+/**
+ * Session variables a test run inside Claude Code inherits. Each would point the hook at the
+ * developer's real project, session, or framework install, so every spawn drops them unless the
+ * test sets them itself.
+ */
+const INHERITED_SESSION_VARS = [
+  'CLAUDE_PROJECT_DIR',
+  'CLAUDE_SESSION_ID',
+  'CLAUDE_PLUGIN_ROOT',
+  'CLAUDE_ENV_FILE',
+  'PAQAD_FRAMEWORK_HOME',
+  'PAQAD_PROJECT_ROOT',
+];
+
+/**
+ * Run the hook with a sandboxed HOME/USERPROFILE (so the developer's real ~/.paqad-ai is never
+ * read and the real CLI is never spawned), none of the inherited session variables, and an empty
+ * stdin, or the given SessionStart payload. CLAUDE_PROJECT_DIR is the test root unless overridden.
+ * Every spawn in this file goes through here.
+ */
+async function runHook(
+  root: string,
+  fakeBinDir?: string,
+  options: { input?: string; env?: Record<string, string | undefined> } = {},
+) {
+  const home = join(root, 'home');
+  mkdirSync(home, { recursive: true });
+  const inherited: Record<string, string | undefined> = { ...process.env };
+  for (const name of INHERITED_SESSION_VARS) delete inherited[name];
   return execa('node', [SCRIPT], {
     reject: false,
     cwd: root,
+    input: options.input ?? '',
     env: {
-      ...process.env,
+      ...inherited,
       ...(fakeBinDir ? { PATH: `${fakeBinDir}:${process.env.PATH}` } : {}),
+      HOME: home,
+      USERPROFILE: home,
       CLAUDE_PROJECT_DIR: root,
+      ...options.env,
     },
+    extendEnv: false,
     timeout: 10000,
   });
+}
+
+/**
+ * A fake installed package whose dist/cli/index.js records its argv to `<root>/tick-argv.json`,
+ * plus an `installed` migration state in the sandboxed home. Returns the framework link env.
+ */
+function fakeTickPackage(root: string, state = 'installed'): Record<string, string> {
+  const pkg = join(root, 'pkg');
+  mkdirSync(join(pkg, 'runtime'), { recursive: true });
+  mkdirSync(join(pkg, 'dist', 'cli'), { recursive: true });
+  writeFileSync(
+    join(pkg, 'dist', 'cli', 'index.js'),
+    `require('node:fs').writeFileSync(${JSON.stringify(join(root, 'tick-argv.json'))}, JSON.stringify(process.argv.slice(2)));\n`,
+  );
+  const home = join(root, 'home');
+  mkdirSync(join(home, '.paqad-ai'), { recursive: true });
+  writeFileSync(
+    join(home, '.paqad-ai', 'plugin-migration.json'),
+    JSON.stringify({ state, attempts: 1, version: '1' }),
+  );
+  return { PAQAD_FRAMEWORK_HOME: join(pkg, 'runtime') };
+}
+
+/** Wait (bounded) for the detached fake CLI to record its argv; null when it never ran. */
+async function readTickArgv(root: string, waitMs = 3000): Promise<string[] | null> {
+  const path = join(root, 'tick-argv.json');
+  const deadline = Date.now() + waitMs;
+  while (Date.now() < deadline) {
+    if (existsSync(path)) {
+      try {
+        return JSON.parse(readFileSync(path, 'utf8')) as string[];
+      } catch {
+        // partially written; retry
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return null;
 }
 
 function readAuditLog(root: string): string {
@@ -79,11 +150,7 @@ describe('silent-update.mjs', () => {
       // seed from — the hook must still exit cleanly, exactly as before.
       const emptyHome = join(root, 'no-framework');
       mkdirSync(emptyHome, { recursive: true });
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: emptyHome },
-      });
+      const result = await runHook(root, undefined, { env: { PAQAD_FRAMEWORK_HOME: emptyHome } });
       expect(result.exitCode).toBe(0);
       expect(existsSync(join(root, '.paqad', 'framework-version.txt'))).toBe(false);
     } finally {
@@ -105,10 +172,8 @@ describe('silent-update.mjs', () => {
         JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
       );
 
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: frameworkHome },
+      const result = await runHook(root, undefined, {
+        env: { PAQAD_FRAMEWORK_HOME: frameworkHome },
       });
 
       expect(result.exitCode).toBe(0);
@@ -130,7 +195,7 @@ describe('silent-update.mjs', () => {
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, '.paqad', '.config'), 'version_check_interval_hours=12\n');
 
-      const result = await execa('node', [SCRIPT], { reject: false, cwd: root });
+      const result = await runHook(root, undefined, { env: { CLAUDE_PROJECT_DIR: undefined } });
       expect(result.exitCode).toBe(0);
       // Nothing should have been logged or spawned within the window.
       expect(readAuditLog(root)).toBe('');
@@ -148,7 +213,7 @@ describe('silent-update.mjs', () => {
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, '.paqad', '.config'), 'auto_update=false\n');
 
-      const result = await execa('node', [SCRIPT], { reject: false, cwd: root });
+      const result = await runHook(root, undefined, { env: { CLAUDE_PROJECT_DIR: undefined } });
       expect(result.exitCode).toBe(0);
       expect(readAuditLog(root)).toBe('');
     } finally {
@@ -177,10 +242,8 @@ describe('silent-update.mjs', () => {
         JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
       );
 
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: frameworkHome },
+      const result = await runHook(root, undefined, {
+        env: { PAQAD_FRAMEWORK_HOME: frameworkHome },
       });
 
       expect(result.exitCode).toBe(0);
@@ -194,11 +257,7 @@ describe('silent-update.mjs', () => {
   it('does nothing when PAQAD_DISABLED=1 (no seed, no spawn)', async () => {
     const root = makeRoot();
     try {
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_DISABLED: '1' },
-      });
+      const result = await runHook(root, undefined, { env: { PAQAD_DISABLED: '1' } });
 
       expect(result.exitCode).toBe(0);
       expect(readAuditLog(root)).toBe('');
@@ -315,6 +374,119 @@ describe('silent-update.mjs', () => {
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+
+  describe('plugin migration tick (issue #648, B4)', () => {
+    it('spawns plugin tick --source npm with the payload session id', async () => {
+      const root = makeRoot();
+      try {
+        writeVersionFile(root, '0.1.0', new Date().toISOString());
+        const env = fakeTickPackage(root);
+        const result = await runHook(root, undefined, {
+          input: JSON.stringify({ session_id: 'sess-1', source: 'startup' }),
+          env,
+        });
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toBe('');
+        expect(result.stderr).toBe('');
+        expect(await readTickArgv(root)).toEqual([
+          'plugin',
+          'tick',
+          '--source',
+          'npm',
+          '--session',
+          'sess-1',
+        ]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('reports source plugin when the plugin claimed the session (still before step-aside)', async () => {
+      const root = makeRoot();
+      try {
+        writeVersionFile(root, '0.1.0', new Date().toISOString());
+        const env = fakeTickPackage(root);
+        mkdirSync(join(root, '.paqad', 'session', 'plugin-active.d'), { recursive: true });
+        writeFileSync(join(root, '.paqad', 'session', 'plugin-active.d', 'sess-2'), 'x');
+        await runHook(root, undefined, {
+          input: JSON.stringify({ session_id: 'sess-2', source: 'resume' }),
+          env: { ...env, CLAUDE_SESSION_ID: 'sess-2', CLAUDE_PLUGIN_ROOT: undefined },
+        });
+        expect(await readTickArgv(root)).toEqual([
+          'plugin',
+          'tick',
+          '--source',
+          'plugin',
+          '--session',
+          'sess-2',
+        ]);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('spawns nothing for a compact SessionStart (AC-11)', async () => {
+      const root = makeRoot();
+      try {
+        writeVersionFile(root, '0.1.0', new Date().toISOString());
+        const env = fakeTickPackage(root);
+        await runHook(root, undefined, {
+          input: JSON.stringify({ session_id: 'sess-3', source: 'compact' }),
+          env,
+        });
+        expect(await readTickArgv(root, 750)).toBeNull();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('spawns nothing outside Claude Code (CLAUDE_PROJECT_DIR unset, e.g. Codex) (AC-11)', async () => {
+      const root = makeRoot();
+      try {
+        writeVersionFile(root, '0.1.0', new Date().toISOString());
+        const env = fakeTickPackage(root);
+        await runHook(root, undefined, {
+          input: JSON.stringify({ session_id: 'sess-4', source: 'startup' }),
+          env: { ...env, CLAUDE_PROJECT_DIR: undefined, PAQAD_PROJECT_ROOT: root },
+        });
+        expect(await readTickArgv(root, 750)).toBeNull();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('spawns nothing when the machine has no migration in flight', async () => {
+      const root = makeRoot();
+      try {
+        writeVersionFile(root, '0.1.0', new Date().toISOString());
+        const env = fakeTickPackage(root, 'done');
+        const result = await runHook(root, undefined, {
+          input: JSON.stringify({ session_id: 'sess-5' }),
+          env,
+        });
+        expect(result.exitCode).toBe(0);
+        expect(await readTickArgv(root, 750)).toBeNull();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+
+    it('exits 0 silently on a malformed payload', async () => {
+      const root = makeRoot();
+      try {
+        writeVersionFile(root, '0.1.0', new Date().toISOString());
+        const env = fakeTickPackage(root);
+        const result = await runHook(root, undefined, { input: '{ not json', env });
+        expect(result.exitCode).toBe(0);
+        expect(result.stdout).toBe('');
+        expect(result.stderr).toBe('');
+        // No payload → no session id, still an npm session.
+        expect(await readTickArgv(root)).toEqual(['plugin', 'tick', '--source', 'npm']);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
   });
 
   it.skipIf(process.platform === 'win32')('script file exists and is executable', () => {

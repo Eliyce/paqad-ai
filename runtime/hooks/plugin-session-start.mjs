@@ -35,9 +35,11 @@ import {
   isProjectOnboarded,
   parseHookPayload,
   resolveProjectRoot,
+  sessionIdFrom,
   writePluginActiveMarker,
 } from './lib/paqad-disabled.mjs';
 import { isDirectEntry } from './lib/direct-entry.mjs';
+import { maybeSpawnMigrationTick } from './lib/plugin-migration-tick.mjs';
 
 /** The framework link every project's `.paqad/framework-path.txt` resolves to. */
 function frameworkHome(env = process.env) {
@@ -442,7 +444,7 @@ function maybeRefreshVersion(pluginRoot, projectRoot, deps = {}) {
   return 'started';
 }
 
-export function runPluginSessionStart(env = process.env, payload = undefined) {
+export function runPluginSessionStart(env = process.env, payload = undefined, deps = {}) {
   const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
   if (!pluginRoot) {
     return; // not running as a plugin (e.g. imported by a test without the env set)
@@ -451,6 +453,14 @@ export function runPluginSessionStart(env = process.env, payload = undefined) {
   // Issue #621 — record that the plugin loaded this session (machine-level, global) so the
   // npm→plugin migration can confirm the plugin runs before the npm copy steps aside.
   writePluginSeen(pluginRoot, env);
+  // Issue #648 (B4) — report this plugin session to the migration, so a machine with no npm hooks
+  // wired still moves installed → done. Detached and silent; nothing is spawned when there is no work.
+  (deps.tick ?? maybeSpawnMigrationTick)({
+    source: 'plugin',
+    sessionId: sessionIdFrom(payload, env),
+    cliPath: join(pluginRoot, 'dist', 'cli', 'index.js'),
+    env,
+  });
   // Part 4 — keep the shared framework link pointing at a copy that exists. Global work (no
   // <project>/.paqad/ write), so it runs in every repo (onboarded or not).
   repointFrameworkLink(pluginRuntime, env);
