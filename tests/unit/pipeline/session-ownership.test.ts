@@ -10,7 +10,11 @@ import {
   closeActiveFeature,
   openFeatureChange,
 } from '@/feature-evidence/stage-ledger.js';
-import { classifyCompletionEnforcement, sessionOwnedRows } from '@/pipeline/session-ownership.js';
+import {
+  classifyCompletionEnforcement,
+  editedDevelopmentThisTurn,
+  sessionOwnedRows,
+} from '@/pipeline/session-ownership.js';
 import { writeWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
@@ -270,5 +274,37 @@ describe('classifyCompletionEnforcement', () => {
     route(root, A, { active: null, paused: [], turn_started_at: TURN });
     classifyCompletionEnforcement(root, A);
     expect(classifyCompletionEnforcement(root, null).reason).toBe('owner-unknown-route');
+  });
+});
+
+// Issue #623 — `route set` refuses only on this session's own development edit this turn.
+describe('editedDevelopmentThisTurn', () => {
+  it('is true for this session’s development row written this turn', () => {
+    const root = tempRoot();
+    ownChange(root, A, AFTER);
+    route(root, A, { active: null, paused: [], turn_started_at: TURN });
+    expect(editedDevelopmentThisTurn(root, A)).toBe(true);
+  });
+
+  it('ignores another session’s edits and rows from before the turn', () => {
+    const root = tempRoot();
+    ownChange(root, B, AFTER);
+    ownChange(root, A, BEFORE);
+    route(root, A, { active: null, paused: [], turn_started_at: TURN });
+    expect(editedDevelopmentThisTurn(root, A)).toBe(false);
+  });
+
+  it('ignores a non-development row written this turn', () => {
+    const root = tempRoot();
+    const dirName = openFeatureChange(root, A, { adapter: 'claude-code', title: 'x', issue: null });
+    startStage(root, 'checks', { sessionId: A, dirName, adapter: 'claude-code', now: AFTER });
+    route(root, A, { active: null, paused: [], turn_started_at: TURN });
+    expect(editedDevelopmentThisTurn(root, A)).toBe(false);
+  });
+
+  it('counts any owned development row when the turn was never stamped', () => {
+    const root = tempRoot();
+    ownChange(root, A, BEFORE);
+    expect(editedDevelopmentThisTurn(root, A)).toBe(true);
   });
 });

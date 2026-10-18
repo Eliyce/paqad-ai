@@ -88,6 +88,26 @@ function editedThisTurn(owned: readonly SessionLedgerRow[], state: WorkflowState
 }
 
 /**
+ * Whether `sessionId` itself made a source edit this turn (issue #623): one of its own
+ * agent-authored `development` rows in an unclosed bundle was written at or after the
+ * turn's `turn_started_at`. `paqad-ai route set` reads this instead of the shared git tree,
+ * so another session editing the same checkout never blocks this session's route correction.
+ * It applies the same rules as the completion check: a row recorded against a session id
+ * read from the shared cache file does not count, and with no usable turn stamp (a state
+ * file written before the stamp existed) any owned `development` row counts, the cautious
+ * reading for a session that did edit.
+ */
+export function editedDevelopmentThisTurn(projectRoot: string, sessionId: string): boolean {
+  const development = sessionOwnedRows(projectRoot, sessionId).filter(
+    (row) => row.stage === 'development',
+  );
+  if (development.length === 0) {
+    return false;
+  }
+  return editedThisTurn(development, readWorkflowState(projectRoot, sessionId));
+}
+
+/**
  * Decide whether the completion seam verifies this session's turn:
  *
  * | owns | edited this turn | active route  | result                          |

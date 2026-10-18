@@ -1,17 +1,16 @@
 import { Command } from 'commander';
 
-import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import {
   ROUTED_WORKFLOWS,
   isFeatureDevelopmentRoute,
   type RoutedWorkflow,
 } from '@/pipeline/routed-workflow.js';
 import { appendRouteOverride } from '@/pipeline/route-override-log.js';
+import { editedDevelopmentThisTurn } from '@/pipeline/session-ownership.js';
 import { readSessionRoute, writeSessionRoute } from '@/pipeline/session-route.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { clearPendingLane } from '@/stage-evidence/pending-lane.js';
-import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 
 interface RouteSetOptions {
   projectRoot: string;
@@ -23,6 +22,25 @@ function isRoutedWorkflow(value: string): value is RoutedWorkflow {
   return (ROUTED_WORKFLOWS as readonly string[]).includes(value);
 }
 
+/** The audit reason recorded when no session id was given (issue #623 FR-6). */
+export const UNRESOLVED_SESSION_REASON =
+  'session could not be resolved (no --session, SE_SESSION or CLAUDE_SESSION_ID), so the edited-this-turn check was skipped';
+
+/**
+ * The session id the caller named: `--session`, then `SE_SESSION`, then `CLAUDE_SESSION_ID`,
+ * skipping blank values. Null when none was given, so the caller can tell an explicit session
+ * from the shared cache file's guess.
+ */
+function explicitSessionHint(option: string | undefined): string | null {
+  for (const candidate of [option, process.env.SE_SESSION, process.env.CLAUDE_SESSION_ID]) {
+    const cleaned = candidate?.trim();
+    if (cleaned) {
+      return cleaned;
+    }
+  }
+  return null;
+}
+
 /**
  * `paqad-ai route set <workflow> [--reason]` — correct the route the hook's deterministic
  * classifier picked (issue #580). The agent routes by intent (AGENT-ROUTER.md); when the
@@ -32,8 +50,10 @@ function isRoutedWorkflow(value: string): value is RoutedWorkflow {
  * It rewrites the active workflow-state entry (it does NOT push a pause), updates the
  * `.session-route.json` pointer, clears any lane the hook stashed when the new route is not
  * feature-development, and appends an `agent-override` audit row. It refuses to LEAVE
- * feature-development once source files have been edited this turn — a change already under
- * way stays governed as a change.
+ * feature-development once THIS session has edited source files this turn (issue #623: its own
+ * `development` rows, never the shared git tree, so another session in the same checkout cannot
+ * block the correction). When no session id was given at all, the correction is allowed and the
+ * audit row says why the check was skipped.
  */
 export function createRouteCommand(): Command {
   const command = new Command('route').description(
@@ -50,7 +70,7 @@ export function createRouteCommand(): Command {
       'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
     )
     .option('--reason <text>', 'Why the hook label was wrong (recorded in the audit row)')
-    .action(async (workflow: string, options: RouteSetOptions) => {
+    .action((workflow: string, options: RouteSetOptions) => {
       if (!isRoutedWorkflow(workflow)) {
         console.error(
           `unknown workflow "${workflow}" — expected one of: ${ROUTED_WORKFLOWS.join(', ')}`,
@@ -60,21 +80,22 @@ export function createRouteCommand(): Command {
       }
       const target: RoutedWorkflow = workflow;
       const root = options.projectRoot;
-      const sessionId = resolveSessionId(
-        root,
-        options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-      );
+      const hint = explicitSessionHint(options.session);
+      const sessionId = resolveSessionId(root, hint);
 
       const state = readWorkflowState(root, sessionId);
       const current = state.active?.workflow ?? null;
       const hookLabel = current ?? readSessionRoute(root, sessionId)?.workflow ?? null;
 
       // AC-5 — a change already under way cannot be downgraded out of feature-development once
-      // source files have been edited this turn. The edit made it a real change; keep it governed.
+      // this session has edited source files this turn. The edit made it a real change; keep it
+      // governed. With no session named, the cached id may be another session's, so the check is
+      // skipped: being stuck on a wrong label is worse than an honest, logged correction.
       if (
+        hint !== null &&
         current === 'feature-development' &&
         !isFeatureDevelopmentRoute(target) &&
-        changeIsFeatureDev((await loadChangeEvidence(root)).files, root)
+        editedDevelopmentThisTurn(root, sessionId)
       ) {
         console.error(
           `cannot leave feature-development: source files were edited this turn. ` +
@@ -109,10 +130,14 @@ export function createRouteCommand(): Command {
         clearPendingLane(root, sessionId);
       }
 
+      const reasons = [
+        options.reason,
+        hint === null ? UNRESOLVED_SESSION_REASON : undefined,
+      ].filter((part): part is string => part !== undefined);
       appendRouteOverride(root, sessionId, {
         hookLabel,
         agentLabel: target,
-        ...(options.reason === undefined ? {} : { reason: options.reason }),
+        ...(reasons.length === 0 ? {} : { reason: reasons.join('; ') }),
       });
 
       console.log(`**▸ paqad** · route set to ${target}`);

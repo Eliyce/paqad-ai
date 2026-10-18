@@ -4,12 +4,19 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createRouteCommand } from '@/cli/commands/route.js';
+import { UNRESOLVED_SESSION_REASON, createRouteCommand } from '@/cli/commands/route.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
+import { readSessionRoute, writeSessionRoute } from '@/pipeline/session-route.js';
 import { readRouteOverrides } from '@/pipeline/route-override-log.js';
-import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
+import {
+  readWorkflowState,
+  writeWorkflowState,
+  type WorkflowState,
+} from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { readPendingLane, writePendingLane } from '@/stage-evidence/pending-lane.js';
+import { startStage } from '@/stage-evidence/recorder.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 // `paqad-ai route set <workflow>` — let the agent correct the hook's deterministic label (#580).
@@ -24,6 +31,7 @@ describe('paqad-ai route set command', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
     process.exitCode = undefined;
     rmSync(root, { recursive: true, force: true });
   });
@@ -67,26 +75,147 @@ describe('paqad-ai route set command', () => {
     });
   });
 
-  it('refuses to leave feature-development once source files were edited this turn (AC-5)', async () => {
-    const sessionId = resolveSessionId(root, SES);
-    writeWorkflowState(root, sessionId, {
-      active: { workflow: 'feature-development', lane: 'fast' },
-      paused: [],
+  describe('session-scoped refusal (#623)', () => {
+    const OTHER = 'ses_cli_route_other';
+    const TURN = '2026-03-01T10:00:00.000Z';
+    const BEFORE = () => new Date('2026-03-01T09:00:00.000Z');
+    const AFTER = () => new Date('2026-03-01T10:05:00.000Z');
+
+    /** `session` opens an in-flight bundle and live-marks a development edit at `now`. */
+    function editSource(session: string, now: () => Date): void {
+      const dirName = openFeatureChange(root, session, {
+        adapter: 'claude-code',
+        title: `change by ${session}`,
+        issue: null,
+        now,
+      });
+      startStage(root, 'development', { sessionId: session, dirName, adapter: 'claude-code', now });
+    }
+
+    function onFeatureDev(session: string, extra: Partial<WorkflowState> = {}): void {
+      writeWorkflowState(root, session, {
+        active: { workflow: 'feature-development', lane: 'fast' },
+        paused: [],
+        turn_started_at: TURN,
+        ...extra,
+      });
+    }
+
+    it('refuses to leave feature-development once this session edited source this turn (AC-11)', async () => {
+      onFeatureDev(SES);
+      editSource(SES, AFTER);
+
+      const lines = await routeSet('project-question');
+
+      expect(process.exitCode).toBe(1);
+      expect(lines.join('\n')).toContain(
+        'cannot leave feature-development: source files were edited this turn.',
+      );
+      // The route is unchanged and no override was written.
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
+      expect(readRouteOverrides(root, SES)).toHaveLength(0);
     });
-    // A real source edit this turn.
-    seedGitChangedFiles(root, ['src/app.ts']);
 
-    await routeSet('project-question');
+    it('lets session B correct its route while session A edits the same checkout (AC-10)', async () => {
+      onFeatureDev(OTHER);
+      editSource(OTHER, AFTER);
+      onFeatureDev(SES);
 
-    expect(process.exitCode).toBe(1);
-    // The route is unchanged and no override was written.
-    expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
-    expect(readRouteOverrides(root, sessionId)).toHaveLength(0);
+      await routeSet('project-question');
+
+      expect(process.exitCode).toBeUndefined();
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+    });
+
+    it('does not refuse for a development row written before this turn started', async () => {
+      onFeatureDev(SES);
+      editSource(SES, BEFORE);
+
+      await routeSet('project-question');
+
+      expect(process.exitCode).toBeUndefined();
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+    });
+
+    it('refuses on an owned development row when the turn was never stamped', async () => {
+      writeWorkflowState(root, SES, {
+        active: { workflow: 'feature-development', lane: 'fast' },
+        paused: [],
+      });
+      editSource(SES, BEFORE);
+
+      await routeSet('project-question');
+
+      expect(process.exitCode).toBe(1);
+    });
+
+    it('no longer refuses for a dirty git tree alone', async () => {
+      onFeatureDev(SES);
+      seedGitChangedFiles(root, ['src/app.ts']);
+
+      await routeSet('project-question');
+
+      expect(process.exitCode).toBeUndefined();
+      expect(readWorkflowState(root, SES).active?.workflow).toBe('project-question');
+    });
+
+    it('allows the correction and logs why when no session id is given (AC-12)', async () => {
+      vi.stubEnv('SE_SESSION', '');
+      vi.stubEnv('CLAUDE_SESSION_ID', '');
+      // The shared cache names a session that did edit this turn: it must not be trusted.
+      const cached = resolveSessionId(root, SES);
+      onFeatureDev(cached);
+      editSource(cached, AFTER);
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await createRouteCommand().parseAsync(
+        ['set', 'project-question', '--project-root', root, '--reason', 'a question'],
+        { from: 'user' },
+      );
+
+      expect(process.exitCode).toBeUndefined();
+      expect(readWorkflowState(root, cached).active?.workflow).toBe('project-question');
+      const overrides = readRouteOverrides(root, cached);
+      expect(overrides).toHaveLength(1);
+      expect(overrides[0]?.reason).toBe(`a question; ${UNRESOLVED_SESSION_REASON}`);
+    });
+
+    it('takes the session from SE_SESSION when --session is not given', async () => {
+      vi.stubEnv('SE_SESSION', SES);
+      onFeatureDev(SES);
+      editSource(SES, AFTER);
+      vi.spyOn(console, 'log').mockImplementation(() => undefined);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+      await createRouteCommand().parseAsync(['set', 'project-question', '--project-root', root], {
+        from: 'user',
+      });
+
+      expect(process.exitCode).toBe(1);
+    });
   });
 
   it('rejects an unknown workflow', async () => {
     await routeSet('not-a-workflow');
     expect(process.exitCode).toBe(1);
+  });
+
+  it('reads the hook label from the route pointer and keeps its query and adapter', async () => {
+    writeSessionRoute(
+      root,
+      { workflow: 'pentest', query: 'run a pentest', adapter: 'claude-code' },
+      SES,
+    );
+
+    await routeSet('project-question');
+
+    expect(readSessionRoute(root, SES)).toEqual({
+      workflow: 'project-question',
+      query: 'run a pentest',
+      adapter: 'claude-code',
+    });
+    expect(readRouteOverrides(root, SES)[0]?.hook_label).toBe('pentest');
   });
 
   it('preserves the paused stack (rewrites the active entry, does not pause)', async () => {
