@@ -402,4 +402,58 @@ describe('PreClassifier · talking about work (#623)', () => {
       expect(result.unresolved, `"${request}" is left unresolved`).toContain('workflow');
     }
   });
+
+  // Real code requests that mention a work noun must never be claimed as work talk.
+  it.each([
+    'add a CSV export to the orders report',
+    'update the report page header',
+    'add a link to the docs page in the footer',
+    'check the plan selector renders on mobile',
+  ])('does not route the code request "%s" to project-question', async (request) => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    expect(isAboutWorkPrompt(request)).toBe(false);
+    const result = await new PreClassifier(process.cwd()).classify({ request });
+    expect(result.resolved.workflow).not.toBe('project-question');
+  });
+
+  it('keeps "add a CSV export to the orders report" on feature-development', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    const root = mkdtempSync(join(tmpdir(), 'paqad-about-work-'));
+    try {
+      const result = await resolvePromptRoute(root, 'add a CSV export to the orders report');
+      expect(result.routed).toBe('feature-development');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    'add the findings to this report',
+    'add these notes to the draft',
+    'add the open questions to our pull request',
+    'post the summary and link the ticket',
+    'please recheck and confirm the plan',
+  ])('keeps the work talk "%s" on project-question', async (request) => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    const result = await new PreClassifier(process.cwd()).classify({ request });
+    expect(result.resolved.workflow).toBe('project-question');
+  });
+
+  it('counts "add ... to" only when a work noun follows "to"', () => {
+    expect(isAboutWorkPrompt('add the RAG points to the rewrite file')).toBe(true);
+    // A work noun elsewhere, but "to" leads to something else and there is no other work verb.
+    expect(isAboutWorkPrompt('add the report totals to the orders summary')).toBe(false);
+    // "label bug" names an issue label, so "bug" is not read as a code surface there.
+    expect(isAboutWorkPrompt('post the issue, label bug')).toBe(true);
+    expect(isAboutWorkPrompt('post the issue about the login bug')).toBe(false);
+  });
 });

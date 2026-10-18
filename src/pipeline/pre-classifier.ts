@@ -328,11 +328,7 @@ function resolveWorkflow(
   // 4. Nothing above matched, but the prompt asks for work-tracking steps ("Please file
   //    remaining, you can recheck and reconfirm") and names no source path. That is talk
   //    about the work, not a change to code (issue #623). It never outranks a code keyword.
-  if (
-    hasWorkVerb(normalized) &&
-    !STRONG_CODE_VERB_RE.test(normalized) &&
-    !namesSourcePath(requestText)
-  ) {
+  if (hasWorkVerb(normalized) && !namesCode(requestText, normalized)) {
     return 'project-question';
   }
 
@@ -563,8 +559,65 @@ const WORK_VERBS = new Set([
   'reconfirming',
 ]);
 
-/** "add ... to" ("add the points to the rewrite"), the one work verb that needs a partner. */
-const ADD_TO_RE = /\b(?:add|adds|added|adding)\b.*\bto\b/;
+/**
+ * "add ... to <work noun>" ("add the points to the rewrite file"), the one work verb that
+ * needs a partner. It counts only when a work noun follows `to`, after at most one
+ * determiner, so "add a CSV export to the orders report" is not work talk.
+ */
+const ADD_TO_RE = new RegExp(
+  String.raw`\b(?:add|adds|added|adding)\b.*\bto (?:(?:the|this|that|a|an|my|our|your) )?(?:` +
+    [...WORK_NOUN_PHRASES, ...WORK_NOUNS].join('|') +
+    String.raw`)\b`,
+);
+
+/**
+ * Nouns that name a UI or code surface (issue #623). A prompt that names one is about the
+ * product, so the about-work signal stays off and the prompt falls through to the code tiers:
+ * "update the report page header" is a code change even though "report" is a work noun.
+ * "migration" is left out on purpose: "For automatic user migration, can you add another
+ * issue and link" names a topic, not a code surface.
+ */
+const CODE_SURFACE_NOUNS = new Set([
+  'page',
+  'pages',
+  'screen',
+  'button',
+  'component',
+  'endpoint',
+  'api',
+  'function',
+  'method',
+  'class',
+  'field',
+  'column',
+  'form',
+  'modal',
+  'footer',
+  'header',
+  'navbar',
+  'sidebar',
+  'route',
+  'query',
+  'schema',
+  'test',
+  'tests',
+  'bug',
+  'error',
+  'crash',
+  'feature',
+  'export',
+  'import',
+  'selector',
+  'renders',
+  'mobile',
+  'desktop',
+  'css',
+  'style',
+  'layout',
+]);
+
+/** "label bug" names an issue label, not a code surface, so the word after "label" is skipped. */
+const LABEL_PAIR_RE = /\blabel(?:s|ed|led)? [a-z0-9]+/g;
 
 /**
  * Words that mark a real code change even when work nouns are around ("fix the typo in the
@@ -583,6 +636,18 @@ function namesSourcePath(requestText: string): boolean {
   return SOURCE_PATH_RE.test(requestText);
 }
 
+/**
+ * Whether the request points at code: a source path or file, a strong code verb, or a UI or
+ * code surface noun. Any of them keeps both about-work tiers off.
+ */
+function namesCode(requestText: string, normalized: string): boolean {
+  if (namesSourcePath(requestText) || STRONG_CODE_VERB_RE.test(normalized)) {
+    return true;
+  }
+  const withoutLabels = normalized.replace(LABEL_PAIR_RE, ' ').trim();
+  return withoutLabels.split(/\s+/).some((token) => CODE_SURFACE_NOUNS.has(token));
+}
+
 function hasWorkVerb(normalized: string): boolean {
   const tokens = normalized.length > 0 ? normalized.split(' ') : [];
   return tokens.some((token) => WORK_VERBS.has(token)) || ADD_TO_RE.test(normalized);
@@ -594,15 +659,13 @@ function hasWorkVerb(normalized: string): boolean {
  * plan, doc, rewrite), uses a work verb (post, file, draft, link, add ... to, update,
  * rewrite, check, confirm) and names no source path. "Post it to GitHub as drafted, label
  * bug." is about the issue, not the bug. A prompt that also uses a strong code verb (fix,
- * implement, build, refactor, develop) is left to the code-change tier. Takes the RAW request
- * because source paths and extensions are lost to normalization.
+ * implement, build, refactor, develop) or names a UI or code surface (page, button, header,
+ * ...) is left to the code tiers. Takes the RAW request because source paths and extensions
+ * are lost to normalization.
  */
 export function isAboutWorkPrompt(requestText: string): boolean {
-  if (namesSourcePath(requestText)) {
-    return false;
-  }
   const normalized = normalizeText(requestText);
-  if (STRONG_CODE_VERB_RE.test(normalized)) {
+  if (namesCode(requestText, normalized)) {
     return false;
   }
   const tokens = normalized.length > 0 ? normalized.split(' ') : [];
