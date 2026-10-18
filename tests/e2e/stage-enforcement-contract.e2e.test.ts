@@ -109,7 +109,8 @@ async function runHook(
   // An empty CLAUDE_PLUGIN_ROOT must read as unset to the hooks.
   if (env.CLAUDE_PLUGIN_ROOT === '') delete env.CLAUDE_PLUGIN_ROOT;
   const result = await execa('node', [script, ...argv], {
-    input: JSON.stringify(payload),
+    // A string payload is piped as-is, so a case can send a malformed (non-JSON) body.
+    input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     env,
     reject: false,
     extendEnv: false,
@@ -289,12 +290,19 @@ describe('contract: feature-bundle write (capability-gate pre-mutation)', () => 
 // tests/unit/hooks/gate-fail-closed.test.ts (it mocks the resolver to throw and
 // asserts exit 2 for all three edit gates). Here we assert the complementary
 // contract from the real script: a malformed payload is never silently allowed —
-// agent-entry-gate returns a block (exit 2), never 0.
+// agent-entry-gate returns a block (exit 2), never 0. It runs against a fresh temp
+// repo like every other case: a malformed payload carries no session id, so the gate
+// falls back to the legacy .paqad/.agent-entry-loaded, and an in-process call would
+// read the developer's own repo and allow whenever a real session left that file.
 describe('contract: gates fail closed (never silently allow on bad input)', () => {
-  it('agent-entry-gate blocks (exit 2) on a malformed payload', async () => {
-    const { main } = await import('../../runtime/hooks/agent-entry-gate.mjs');
-    expect(main('not-json-at-all')).toBe(2);
-  });
+  for (const route of ROUTES) {
+    it(`[${route.name}] agent-entry-gate blocks (exit 2) on a malformed payload`, async () => {
+      const root = freshRepo();
+      const r = await runHook(AGENT_ENTRY, 'not-json-at-all', route.env(root));
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain('load the paqad framework');
+    });
+  }
 });
 
 // ── Case 8: Stop with a mandatory stage missing ───────────────────────────────
