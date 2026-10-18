@@ -52,6 +52,6 @@ The technical contract lives at [`technical.md`](./technical.md).
 
 ## Glossary
 
-- *working set / files in play* — the changed files from the session tracker or git status.
+- *working set / files in play* — the changed files git reports: your uncommitted edits plus what the branch has committed since it left `main` or `master`.
 - *always-load* — a rule with a `**` trigger or none; applies to every change.
 - *stale-while-revalidate* — serve the last-good context while a fresh one builds.

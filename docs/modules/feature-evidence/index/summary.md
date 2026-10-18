@@ -166,7 +166,7 @@ any turn the session-ownership check skips (see below).
 - **Plan step files** (issue #579): a plan step may list the `files` it expects to touch
   (project-relative, posix). The field is optional and additive in `PLAN_SCHEMA`, so an older
   `plan.json` stays valid. `plan compile` and `spec freeze` union those files with the
-  git-reconciled changed files to tell a frontend change apart before any code exists, which
+  git-reported changed files to tell a frontend change apart before any code exists, which
   drives the visual-evidence readiness pause and the `(proof: visual)` freeze requirement
   (see [visual-evidence](../../visual-evidence/index/summary.md)).
 - **Visual evidence in the bundle** (issue #551, #579): `visual-evidence.json` plus the
