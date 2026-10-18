@@ -150,6 +150,38 @@ describe('evidenceExistenceGate (issue #468 Phase C)', () => {
     const metricRows = readChangeMetrics(root, dir);
     expect(metricRows).toHaveLength(1);
     expect(metricRows[0].backfilled).toBe(true);
+    // A cached report without its results list mints no findings list (issue #639, Gate 3).
+    expect(ruleRows.find((r) => r.kind === 'findings')).not.toHaveProperty('findings');
+  });
+
+  it('backfills the cached findings by name into the rule-run row (issue #639, Part 12)', () => {
+    writeJson(PATHS.RULE_SCRIPTS_REPORT, {
+      counts: { deterministic: 1, heuristic: 0, skipped: 0 },
+      blocking: true,
+      results: [
+        {
+          rule_id: 'no-debugger',
+          script: 's.mjs',
+          kind: 'deterministic',
+          findings: [{ file: 'src/a.ts', line: 4, message: 'debugger', severity: 'blocker' }],
+        },
+      ],
+    });
+    evidenceExistenceGate(baseInput());
+    const row = readRuleRun(root, dir).find((r) => r.kind === 'findings');
+    expect(row).toMatchObject({
+      backfilled: true,
+      findings: [
+        {
+          rule_id: 'no-debugger',
+          file: 'src/a.ts',
+          line: 4,
+          message: 'debugger',
+          severity: 'blocker',
+        },
+      ],
+      findings_overflow: 0,
+    });
   });
 
   it('reports Inconclusive naming rag.jsonl when RAG is enabled but no retrieval row exists', () => {

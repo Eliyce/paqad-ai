@@ -18,7 +18,7 @@ import { DEFAULT_SOURCE_GLOBS, scanWorkingTree } from '@/core/fs/gitignore-scan.
 import { executeRuleScript, missingBinaries, type Finding } from './execute.js';
 import { parseScriptHeader } from './header.js';
 import { loadRuleScriptMap } from './map.js';
-import { appendRuleRun } from '@/feature-evidence/bundle-ledgers.js';
+import { appendRuleRun, type RuleRunFinding } from '@/feature-evidence/bundle-ledgers.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { RuleScriptMap, ScriptEntry } from './types.js';
 
@@ -136,6 +136,9 @@ export function runRuleScripts(opts: RunOptions): RunReport {
     cached.script_files_hash === scriptHash &&
     cached.target_files_hash === targetHash
   ) {
+    // Issue #639 (Part 12) — a cache hit is still a run of the rules on this change, so it
+    // still leaves a row, marked `from_cache`, with the cached findings and counts.
+    recordRuleRun(opts.projectRoot, cached, true);
     return { ...cached, from_cache: true };
   }
 
@@ -211,15 +214,45 @@ export function runRuleScripts(opts: RunOptions): RunReport {
   // `rule-run.jsonl` bundle file now; the retired project-scoped `rule-evidence` ledger
   // write is gone (the dashboard + SIEM read the bundle since Phase B). `report.json`
   // stays as the engine's hash-cache. A no-op when no feature is active. Best-effort.
-  appendRuleRun(
-    opts.projectRoot,
-    resolveSessionId(
-      opts.projectRoot,
-      process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-    ),
-    { kind: 'findings', counts: report.counts, blocking: report.blocking },
-  );
+  recordRuleRun(opts.projectRoot, report, false);
   return report;
+}
+
+/**
+ * Issue #639 (Part 12) — every finding of a report, each with the rule that raised it, in
+ * the shape a `rule-run.jsonl` row keeps. Skipped scripts carry no findings and add none, so
+ * the list's length always equals the report's deterministic plus heuristic counts. A cached
+ * report with no `results` list gives `undefined`, so the row records no findings at all
+ * rather than an empty list that would read as a clean run.
+ */
+export function ruleRunFindings(report: RunReport): RuleRunFinding[] | undefined {
+  if (!Array.isArray(report.results)) return undefined;
+  return report.results
+    .filter((result) => !result.skipped)
+    .flatMap((result) =>
+      result.findings.map((finding) => ({
+        rule_id: result.rule_id,
+        file: finding.file,
+        line: finding.line ?? null,
+        message: finding.message,
+        severity: finding.severity,
+      })),
+    );
+}
+
+/** Append the report's row into the active feature's `rule-run.jsonl` (a no-op with none). */
+function recordRuleRun(projectRoot: string, report: RunReport, fromCache: boolean): void {
+  appendRuleRun(
+    projectRoot,
+    resolveSessionId(projectRoot, process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null),
+    {
+      kind: 'findings',
+      counts: report.counts,
+      blocking: report.blocking,
+      findings: ruleRunFindings(report),
+      from_cache: fromCache,
+    },
+  );
 }
 
 export function readReport(projectRoot: string): RunReport | null {

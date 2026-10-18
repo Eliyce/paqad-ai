@@ -55,7 +55,7 @@ import { sha256Hex } from '@/compliance/markdown.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import { hasStageAgentEvidence } from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
-import { readReport } from '@/rule-scripts/runner.js';
+import { readReport, ruleRunFindings } from '@/rule-scripts/runner.js';
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -133,6 +133,7 @@ function backfill(entry: BundleManifestEntry, input: BundleCompletenessGateInput
         kind: 'findings',
         counts: report.counts as unknown as Record<string, number>,
         blocking: report.blocking,
+        findings: ruleRunFindings(report),
         backfilled: true,
       });
       minted = true;

@@ -9,6 +9,7 @@ import {
   appendDuplicationRun,
   appendFeatureEvidenceRows,
   appendRuleRun,
+  BUNDLE_FINDINGS_CAP,
   mirrorRagRow,
   readChangeMetrics,
   readDuplication,
@@ -143,6 +144,75 @@ describe('per-feature rule-run.jsonl', () => {
   it('is a no-op (null) when no feature is active', () => {
     const root = tempRoot();
     expect(appendRuleRun(root, 'ses_1', { kind: 'drift', counts: {}, blocking: false })).toBeNull();
+  });
+
+  it('keeps each finding by name and marks a cached run (issue #639, AC-26, AC-28)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    appendRuleRun(root, 'ses_1', {
+      kind: 'findings',
+      counts: { deterministic: 1, heuristic: 0, skipped: 0 },
+      blocking: true,
+      findings: [
+        {
+          rule_id: 'no-console',
+          file: 'src/app.ts',
+          line: 7,
+          message: 'Remove console.log.',
+          severity: 'high',
+        },
+      ],
+      from_cache: true,
+    });
+    const [row] = readRuleRun(root, dir);
+    expect(row).toMatchObject({
+      findings: [
+        {
+          rule_id: 'no-console',
+          file: 'src/app.ts',
+          line: 7,
+          message: 'Remove console.log.',
+          severity: 'high',
+        },
+      ],
+      findings_overflow: 0,
+      from_cache: true,
+    });
+  });
+
+  it('keeps exactly the cap and counts the overflow (issue #639, AC-29)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const findings = Array.from({ length: BUNDLE_FINDINGS_CAP + 3 }, (_, i) => ({
+      rule_id: 'r',
+      file: `src/f${i}.ts`,
+      line: null,
+      message: 'm',
+      severity: 'low',
+    }));
+    appendRuleRun(root, 'ses_1', {
+      kind: 'findings',
+      counts: { deterministic: 0, heuristic: findings.length, skipped: 0 },
+      blocking: false,
+      findings,
+    });
+    const [row] = readRuleRun(root, dir) as unknown as Array<Record<string, unknown>>;
+    expect(row!.findings).toHaveLength(BUNDLE_FINDINGS_CAP);
+    expect(row!.findings_overflow).toBe(3);
+    // Gate 3 (AC-30): the kept findings plus the overflow equal the counts.
+    expect((row!.findings as unknown[]).length + (row!.findings_overflow as number)).toBe(
+      findings.length,
+    );
+    expect(row).not.toHaveProperty('from_cache');
+  });
+
+  it('writes no findings keys on a drift row', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    appendRuleRun(root, 'ses_1', { kind: 'drift', counts: { RS: 1 }, blocking: false });
+    const [row] = readRuleRun(root, dir);
+    expect(row).not.toHaveProperty('findings');
+    expect(row).not.toHaveProperty('findings_overflow');
   });
 });
 
