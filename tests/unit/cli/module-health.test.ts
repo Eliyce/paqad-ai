@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createModuleHealthCommand } from '@/cli/commands/module-health.js';
+import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 describe('module-health command', () => {
   let root: string;
@@ -24,7 +25,7 @@ describe('module-health command', () => {
 
   it('syncs changed-file evidence and prints the result by default', async () => {
     writeFileSync(join(root, '.paqad-session-placeholder'), '');
-    await mkdirChangedFiles(root, ['src/planning/cli.ts']);
+    seedGitChangedFiles(root, ['src/planning/cli.ts']);
 
     await createModuleHealthCommand().parseAsync(
       [
@@ -187,13 +188,3 @@ describe('module-health command', () => {
     expect(event.signals.tests).toEqual({ status: 'fail', failed: 2 });
   });
 });
-
-async function mkdirChangedFiles(root: string, files: string[]): Promise<void> {
-  const fs = await import('node:fs/promises');
-  await fs.mkdir(join(root, '.paqad/session'), { recursive: true });
-  await fs.writeFile(
-    join(root, '.paqad/session/changed-files.json'),
-    JSON.stringify(files),
-    'utf8',
-  );
-}

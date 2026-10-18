@@ -12,15 +12,12 @@ import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
 import { ownInFlightChange } from '../shared.fixture.js';
+import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
 function makeProject(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-repo-ctx-'));
   mkdirSync(join(root, '.paqad/session'), { recursive: true });
   return root;
-}
-
-function setChangedFiles(root: string, files: string[]): void {
-  writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(files));
 }
 
 function writeSpecReview(root: string, slug: string, report: SpecReviewReport): void {
@@ -103,7 +100,7 @@ function makePacket(): DecisionPacket {
 describe('buildRepositoryVerificationContext', () => {
   it('computes a blocking implementation-review finding from an unresolved decision', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['src/feature.ts']);
+    seedGitChangedFiles(root, ['src/feature.ts']);
     new DecisionStore(root).writePending(makePacket());
 
     const { context } = await buildRepositoryVerificationContext({
@@ -128,7 +125,7 @@ describe('buildRepositoryVerificationContext', () => {
 
   it('fails spec-review on an unresolved critical defect discovered by glob', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['src/feature.ts']);
+    seedGitChangedFiles(root, ['src/feature.ts']);
     writeSpecReview(root, 'feature-spec', {
       metadata: { spec_hash: 'h', test_files_hash: 't' },
       defects: [{ defect_id: 'SR-9', severity: 'critical', status: 'new' }],
@@ -145,7 +142,7 @@ describe('buildRepositoryVerificationContext', () => {
 
   it('derives a spec boundary and flags an out-of-boundary change as drift', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['src/feature/a.ts', 'src/unrelated/x.ts']);
+    seedGitChangedFiles(root, ['src/feature/a.ts', 'src/unrelated/x.ts']);
     writeMap(root, frozenAcMap(['src/feature/a.ts']));
 
     const { context } = await buildRepositoryVerificationContext({
@@ -168,7 +165,7 @@ describe('buildRepositoryVerificationContext', () => {
 
   it('leaves the spec boundary undefined when a frozen spec delivers no directories', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['src/feature.ts']);
+    seedGitChangedFiles(root, ['src/feature.ts']);
     // Frozen AC present (so hasFrozenSpec) but no delivering directories.
     const map = frozenAcMap([]);
     map.forward[0].delivering_code = ['bare-file-no-dir'];
@@ -184,7 +181,7 @@ describe('buildRepositoryVerificationContext', () => {
 
   it('escalates (without blocking) when code changed but no spec is on record', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['src/feature.ts']);
+    seedGitChangedFiles(root, ['src/feature.ts']);
 
     const { context, escalations } = await buildRepositoryVerificationContext({
       projectRoot: root,
@@ -200,7 +197,7 @@ describe('buildRepositoryVerificationContext', () => {
     // test-evidence strength is unprovable here. It must surface as an escalation
     // (visible), not a false "incomplete" block. (issue #307 dogfood)
     const root = makeProject();
-    setChangedFiles(root, ['src/feature.ts']);
+    seedGitChangedFiles(root, ['src/feature.ts']);
 
     const { context, escalations } = await buildRepositoryVerificationContext({
       projectRoot: root,
@@ -213,7 +210,7 @@ describe('buildRepositoryVerificationContext', () => {
 
   it('does not escalate test-evidence when no code changed', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['docs/modules/feature/index/summary.md']);
+    seedGitChangedFiles(root, ['docs/modules/feature/index/summary.md']);
 
     const { escalations } = await buildRepositoryVerificationContext({
       projectRoot: root,
@@ -228,7 +225,7 @@ describe('buildRepositoryVerificationContext', () => {
   // code by verification, or the completion gate loops demanding test evidence for logs.
   it('excludes generated .paqad/ artifacts from the changed-file scan (issue #205)', async () => {
     const root = makeProject();
-    setChangedFiles(root, [
+    seedGitChangedFiles(root, [
       'runtime/base/.paqad/audit.log',
       'runtime/base/.paqad/logs/module-health.log',
       'runtime/base/.paqad/module-health-evidence/mh-40ca14cd.json',
@@ -258,7 +255,7 @@ describe('buildRepositoryVerificationContext', () => {
 
   it('keeps real code while dropping .paqad/ artifacts in a mixed change (issue #205)', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['src/feature.ts', 'runtime/base/.paqad/audit.log']);
+    seedGitChangedFiles(root, ['src/feature.ts', 'runtime/base/.paqad/audit.log']);
 
     const { context } = await buildRepositoryVerificationContext({
       projectRoot: root,

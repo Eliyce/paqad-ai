@@ -75,7 +75,7 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-evidence-sess');
     // Issue #187 — the ledger is opt-in; enable it for this assertion.
@@ -117,7 +117,7 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
   it('projects the per-feature receipt + ai-bom into the active feature bundle (#343 B)', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-feature-sess');
     enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: true });
@@ -138,7 +138,7 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
   it('per-feature honours the enterprise gating: ai_bom-only writes only the bundle ai-bom.json (#343 B)', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-feature-aibom');
     enableEnterprise(context.project_root, { enabled: true, evidence_ledger: false, ai_bom: true });
@@ -160,7 +160,7 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
   it('projects NO receipt/ai-bom/report for a non-feature route even with an active pointer', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { sessionId, dir } = openFeature(context.project_root, 'rv-nonfeature-route');
     // The session's route is a non-feature workflow.
@@ -187,7 +187,7 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
   it('renders the feature report for a feature-development route', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { sessionId, dir } = openFeature(context.project_root, 'rv-feature-route');
     writeWorkflowState(context.project_root, sessionId, {
@@ -242,7 +242,7 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
   it('writes only evidence.jsonl to the bundle when no enterprise block is present', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-ent-none');
 
@@ -261,7 +261,7 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
   it('master switch off forces every sub-flag off (no receipt, no AI-BOM)', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-ent-off');
     enableEnterprise(context.project_root, {
@@ -284,7 +284,7 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
   it('ai_bom on with evidence_ledger off writes the bundle ai-bom.json but no receipt', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-ent-aibom');
     enableEnterprise(context.project_root, {
@@ -306,7 +306,7 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
   it('compliance_citations off omits the citations field from the bundle receipt', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-ent-cite');
     enableEnterprise(context.project_root, {
@@ -330,7 +330,7 @@ describe('runRepositoryVerification — late gates on the bundle ledger (issue #
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-late-gates-sess');
     enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: false });
@@ -359,7 +359,7 @@ describe('runRepositoryVerification — late gates on the bundle ledger (issue #
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-late-m0-sess');
 
@@ -390,7 +390,7 @@ describe('runRepositoryVerification — evidence.jsonl and the completeness gate
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-evidence-first-sess');
     const evidencePath = join(context.project_root, featureFilePath(dir, 'evidence'));
@@ -417,7 +417,7 @@ describe('runRepositoryVerification — the receipt seals evidence.jsonl (issue 
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-seal-sess');
     enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: false });

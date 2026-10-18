@@ -20,6 +20,7 @@ import * as ruleCompiler from '@/planning/rule-compiler.js';
 import { captureSessionDirtyBaseline } from '@/pipeline/dirty-baseline.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
+import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 function rule(partial: Partial<CompiledRule> & { rule_id: string }): CompiledRule {
   return {
@@ -506,15 +507,11 @@ describe('resolveRuleApplicabilityForChange matches only the change own files (#
   afterEach(() => rmSync(projectRoot, { recursive: true, force: true }));
 
   it('AC-1: decision packets and session markers match no rule', async () => {
-    mkdirSync(join(projectRoot, '.paqad/session'), { recursive: true });
-    writeFileSync(
-      join(projectRoot, PATHS.CHANGED_FILES),
-      JSON.stringify([
-        '.paqad/decisions/pending/D-01M56ZKBVQZ66MMA23A25JE9Q9.json',
-        '.paqad/session/ledger-session-id',
-        'src/a.ts',
-      ]),
-    );
+    seedGitChangedFiles(projectRoot, [
+      '.paqad/decisions/pending/D-01M56ZKBVQZ66MMA23A25JE9Q9.json',
+      '.paqad/session/ledger-session-id',
+      'src/a.ts',
+    ]);
 
     const result = await resolveRuleApplicabilityForChange(projectRoot);
 

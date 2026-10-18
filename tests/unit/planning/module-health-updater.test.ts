@@ -19,6 +19,7 @@ import {
 } from '@/planning/module-health-updater.js';
 import { readModuleHealth, writeModuleHealth } from '@/planning/module-health.js';
 import type { GateResult, VerificationContext } from '@/core/types/verification.js';
+import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 describe('module-health-updater', () => {
   let root: string;
@@ -32,11 +33,7 @@ describe('module-health-updater', () => {
   });
 
   it('updates change velocity from tracked changed files without inventing coverage', async () => {
-    mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(
-      join(root, '.paqad/session/changed-files.json'),
-      JSON.stringify(['src/planning/a.ts']),
-    );
+    seedGitChangedFiles(root, ['src/planning/a.ts']);
 
     const result = await syncModuleHealth({
       projectRoot: root,
@@ -57,11 +54,7 @@ describe('module-health-updater', () => {
   });
 
   it('counts repeated provider sessions with the same changed files as distinct velocity events', async () => {
-    mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(
-      join(root, '.paqad/session/changed-files.json'),
-      JSON.stringify(['src/planning/a.ts']),
-    );
+    seedGitChangedFiles(root, ['src/planning/a.ts']);
 
     await syncModuleHealth({
       projectRoot: root,
@@ -86,7 +79,7 @@ describe('module-health-updater', () => {
     // Use a path that maps to no module so the collected evidence is not
     // consumed (and therefore not deleted) in the same sync — this test only
     // verifies collection metadata, not consumption.
-    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['README.md']));
+    seedGitChangedFiles(root, ['README.md']);
 
     await syncModuleHealth({
       projectRoot: root,
@@ -427,7 +420,7 @@ describe('module-health-updater', () => {
     await expect(readModuleHealth(root, 'planning')).resolves.toMatchObject({ tier: 'stable' });
   });
 
-  it('reports malformed evidence and ignores non-array changed-file artifacts', async () => {
+  it('reports malformed evidence and ignores a leftover changed-file cache', async () => {
     mkdirSync(join(root, '.paqad/session'), { recursive: true });
     writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify({ files: [] }));
     mkdirSync(join(root, '.paqad/module-health-evidence'), { recursive: true });
@@ -531,8 +524,7 @@ describe('module-health-updater', () => {
   });
 
   it('throws in non-silent mode when evidence cannot be written and audits the failure', async () => {
-    mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/a.ts']));
+    seedGitChangedFiles(root, ['src/a.ts']);
     mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(join(root, '.paqad/module-health-evidence'), '');
 
@@ -541,8 +533,7 @@ describe('module-health-updater', () => {
   });
 
   it('returns failure details in silent mode when evidence cannot be written', async () => {
-    mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/a.ts']));
+    seedGitChangedFiles(root, ['src/a.ts']);
     mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(join(root, '.paqad/module-health-evidence'), '');
 
@@ -585,7 +576,7 @@ function createVerificationContext(
     project_root: '/tmp/project',
     modules: ['planning'],
     changed_files: ['src/planning/a.ts'],
-    changed_files_source: 'session-artifact',
+    changed_files_source: 'git',
     code_changed: true,
     test_files_changed: false,
     documentation_files_changed: false,

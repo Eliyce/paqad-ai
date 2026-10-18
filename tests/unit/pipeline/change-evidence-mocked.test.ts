@@ -44,7 +44,7 @@ describe('loadChangeEvidence (mocked execa)', () => {
     const root = makeTmpRoot();
     const result = await loadChangeEvidence(root);
 
-    expect(result.source).toBe('git-status');
+    expect(result.source).toBe('git');
     expect(result.files).toContain('src/file.ts');
     expect(result.files).not.toContain('??');
   });
@@ -68,7 +68,7 @@ describe('loadChangeEvidence (mocked execa)', () => {
     const root = makeTmpRoot();
     const result = await loadChangeEvidence(root);
 
-    expect(result.source).toBe('git-status');
+    expect(result.source).toBe('git');
     expect(result.files).toContain('package.json');
     expect(result.files).not.toContain('ackage.json');
     expect(result.files).toContain('runtime/scripts/postinstall.mjs');

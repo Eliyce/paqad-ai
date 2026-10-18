@@ -20,6 +20,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { PATHS } from '@/core/constants/paths.js';
 
 import { createVerificationContext, ownInFlightChange } from '../shared.fixture.js';
+import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
 const roots: string[] = [];
 
@@ -28,10 +29,6 @@ function makeProject(): string {
   roots.push(root);
   mkdirSync(join(root, '.paqad/session'), { recursive: true });
   return root;
-}
-
-function setChangedFiles(root: string, files: string[]): void {
-  writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(files));
 }
 
 function writeTraceabilityMap(root: string, map: TraceabilityMap): void {
@@ -153,7 +150,7 @@ describe('runRepositoryVerification mandatory-stage reconcile (#472)', () => {
       code_changed: true,
       test_files_changed: true,
       changed_files: ['src/feature.ts', 'tests/feature.test.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
       structured_test_results: [passingChecks()],
       modules: [],
       expected_ui_modules: [],
@@ -292,7 +289,7 @@ describe('runRepositoryVerification (prebuilt context)', () => {
       verification_stage: 'backstop-completion',
       code_changed: true,
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
       ac_test_mapping_passed: false,
     });
 
@@ -341,7 +338,7 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
       verification_stage: 'backstop-completion',
       code_changed: true,
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
       // No structured_test_results → `paqad-ai checks run` was never run this change.
     });
 
@@ -366,7 +363,7 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
       verification_stage: 'backstop-completion',
       code_changed: false,
       changed_files: ['docs/thing.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     ownInFlightChange(context.project_root);
 
@@ -394,7 +391,7 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
       verification_stage: 'backstop-completion',
       code_changed: true,
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     // A compiled rule store with an always-load rule → the change has applicable rules.
     mkdirSync(join(context.project_root, '.paqad'), { recursive: true });
@@ -449,7 +446,7 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
       verification_stage: 'backstop-completion',
       code_changed: true,
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     // Issue #468 Phase C — the change-metrics row lands in the ACTIVE feature's bundle now
     // (the retired project-scoped ledger write is gone), so open a feature under a known session.
@@ -482,7 +479,7 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
       verification_stage: 'backstop-completion',
       code_changed: false,
       changed_files: ['docs/thing.md'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
     // Open a feature so the bundle assertion is meaningful: even with an active bundle, a
     // docs-only (non-feature-dev) change computes no metrics, so no row lands (issue #468 Phase C).
@@ -510,7 +507,7 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
 describe('runRepositoryVerification (built from repository reality)', () => {
   it('passes for a clean change in a freshly onboarded project and writes evidence', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['README.md']);
+    seedGitChangedFiles(root, ['README.md']);
 
     const verdict = await runRepositoryVerification({ projectRoot: root, origin: 'ci-backstop' });
 
@@ -521,7 +518,7 @@ describe('runRepositoryVerification (built from repository reality)', () => {
 
   it('blocks when a frozen acceptance criterion has no proving check', async () => {
     const root = makeProject();
-    setChangedFiles(root, ['src/feature.ts']);
+    seedGitChangedFiles(root, ['src/feature.ts']);
     writeTraceabilityMap(root, {
       schema_version: '1.0.0',
       generated_at: '2026-01-01T00:00:00.000Z',

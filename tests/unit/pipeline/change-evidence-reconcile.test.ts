@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -14,20 +14,14 @@ vi.mock('@/rag/git-state.js', () => ({
 
 import { execa } from 'execa';
 
-import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { loadChangeEvidence, readGitChangedFiles } from '@/pipeline/change-evidence.js';
 import { readGitState } from '@/rag/git-state.js';
 
 const mockedExeca = vi.mocked(execa);
 const mockedReadGitState = vi.mocked(readGitState);
 
 function makeTmpRoot(): string {
-  return mkdtempSync(join(tmpdir(), 'paqad-ce-reconcile-'));
-}
-
-function writeChangedFiles(root: string, files: string[]): void {
-  const dir = join(root, '.paqad', 'session');
-  mkdirSync(dir, { recursive: true });
-  writeFileSync(join(dir, 'changed-files.json'), JSON.stringify(files));
+  return mkdtempSync(join(tmpdir(), 'paqad-ce-git-'));
 }
 
 function gitResult(stdout: string, exitCode = 0): Awaited<ReturnType<typeof execa>> {
@@ -43,10 +37,10 @@ function gitResult(stdout: string, exitCode = 0): Awaited<ReturnType<typeof exec
   } as Awaited<ReturnType<typeof execa>>;
 }
 
-describe('loadChangeEvidence reconciliation (mocked git-state + execa, issue #450)', () => {
+describe('readGitChangedFiles (mocked git-state + execa, issue #646)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // A resolvable git state with a base branch, so reconciliation engages.
+    // A resolvable git state with a base branch, so committed-since-base engages.
     mockedReadGitState.mockReturnValue({
       branch: 'feature',
       head_commit: 'HEAD_SHA',
@@ -55,54 +49,79 @@ describe('loadChangeEvidence reconciliation (mocked git-state + execa, issue #45
     });
   });
 
-  it('degrades to working-tree-only when the committed-since-base diff exits non-zero', async () => {
-    const root = makeTmpRoot();
-    writeChangedFiles(root, ['src/a.ts']);
+  it('unions working-tree status with files committed since the base, sorted and de-duplicated', async () => {
     mockedExeca
-      .mockResolvedValueOnce(gitResult(' M src/a.ts\n')) // status: a.ts is dirty
-      .mockResolvedValueOnce(gitResult('', 1)); // diff base..HEAD: non-zero -> empty committed set
+      .mockResolvedValueOnce(gitResult(' M src/b.ts\n?? src/a.ts\n')) // status
+      .mockResolvedValueOnce(gitResult('src/c.ts\nsrc/b.ts\n')); // diff base..HEAD
 
-    const result = await loadChangeEvidence(root);
-
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toEqual(['src/a.ts']);
+    await expect(readGitChangedFiles(makeTmpRoot())).resolves.toEqual([
+      'src/a.ts',
+      'src/b.ts',
+      'src/c.ts',
+    ]);
+    expect(mockedExeca).toHaveBeenCalledWith(
+      'git',
+      ['diff', '--name-only', 'BASE_SHA..HEAD'],
+      expect.anything(),
+    );
   });
 
-  it('degrades to working-tree-only when the committed-since-base diff throws', async () => {
-    const root = makeTmpRoot();
-    writeChangedFiles(root, ['src/a.ts']);
+  it('degrades to working-tree status when the committed-since-base diff exits non-zero', async () => {
     mockedExeca
-      .mockResolvedValueOnce(gitResult(' M src/a.ts\n')) // status: a.ts is dirty
-      .mockRejectedValueOnce(new Error('spawn ENOENT')); // diff throws -> caught -> empty
+      .mockResolvedValueOnce(gitResult(' M src/a.ts\n'))
+      .mockResolvedValueOnce(gitResult('', 1));
 
-    const result = await loadChangeEvidence(root);
+    const result = await loadChangeEvidence(makeTmpRoot());
 
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toEqual(['src/a.ts']);
+    expect(result).toEqual({ files: ['src/a.ts'], source: 'git' });
   });
 
-  it('keeps an entry present only in the committed-since-base diff', async () => {
-    const root = makeTmpRoot();
-    writeChangedFiles(root, ['src/b.ts']);
+  it('degrades to working-tree status when the committed-since-base diff throws', async () => {
     mockedExeca
-      .mockResolvedValueOnce(gitResult('')) // status: clean
-      .mockResolvedValueOnce(gitResult('src/b.ts\n')); // diff base..HEAD: b.ts committed on branch
+      .mockResolvedValueOnce(gitResult(' M src/a.ts\n'))
+      .mockRejectedValueOnce(new Error('spawn ENOENT'));
 
-    const result = await loadChangeEvidence(root);
+    const result = await loadChangeEvidence(makeTmpRoot());
 
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toEqual(['src/b.ts']);
+    expect(result).toEqual({ files: ['src/a.ts'], source: 'git' });
   });
 
-  it('skips reconciliation and trusts the artifact when git has no base commit', async () => {
-    const root = makeTmpRoot();
-    writeChangedFiles(root, ['src/a.ts']);
+  it('returns branch-committed files on a clean tree', async () => {
+    mockedExeca.mockResolvedValueOnce(gitResult('')).mockResolvedValueOnce(gitResult('src/b.ts\n'));
+
+    const result = await loadChangeEvidence(makeTmpRoot());
+
+    expect(result).toEqual({ files: ['src/b.ts'], source: 'git' });
+  });
+
+  it('reads working-tree status only when git has no base commit', async () => {
     mockedReadGitState.mockReturnValueOnce({ head_commit: 'HEAD_SHA' }); // no base_commit
+    mockedExeca.mockResolvedValueOnce(gitResult(' M src/a.ts\n'));
 
-    const result = await loadChangeEvidence(root);
+    const result = await loadChangeEvidence(makeTmpRoot());
 
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toEqual(['src/a.ts']);
-    expect(mockedExeca).not.toHaveBeenCalled();
+    expect(result).toEqual({ files: ['src/a.ts'], source: 'git' });
+    expect(mockedExeca).toHaveBeenCalledTimes(1);
+  });
+
+  it('reads working-tree status only when git has no head commit', async () => {
+    mockedReadGitState.mockReturnValueOnce({ base_commit: 'BASE_SHA' }); // unborn branch
+    mockedExeca.mockResolvedValueOnce(gitResult(''));
+
+    const result = await loadChangeEvidence(makeTmpRoot());
+
+    expect(result).toEqual({ files: [], source: 'none' });
+    expect(mockedExeca).toHaveBeenCalledTimes(1);
+  });
+
+  it('is none, never a throw, when every git call fails', async () => {
+    mockedExeca
+      .mockRejectedValueOnce(new Error('spawn ENOENT'))
+      .mockRejectedValueOnce(new Error('spawn ENOENT'));
+
+    await expect(loadChangeEvidence(makeTmpRoot())).resolves.toEqual({
+      files: [],
+      source: 'none',
+    });
   });
 });

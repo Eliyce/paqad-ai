@@ -9,7 +9,7 @@ describe('CodeTestsLintGate', () => {
     const result = await new CodeTestsLintGate().check(
       createVerificationContext({
         changed_files: ['src/billing/service.ts'],
-        changed_files_source: 'git-status',
+        changed_files_source: 'git',
         code_changed: true,
         test_files_changed: false,
       }),

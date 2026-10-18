@@ -19,6 +19,8 @@ import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
+import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
+
 // Issue #336 / #582 — rule-scripts run at the completion seam only for a session that
 // OWNS the change (a live-mark stage row stamped with its id), so a completion-seam test
 // must record a feature-development route AND make the session own an in-flight change.
@@ -119,7 +121,7 @@ describe('runCapabilityGate', () => {
     const session = markFeatureDevelopment(root, 'sess-completion');
     // Issue #580 — the completion seam enforces diff-scoped: the violating file must be part
     // of the turn's change for it to block (an empty diff skips — see the next test).
-    write(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/app.ts']));
+    seedGitChangedFiles(root, ['src/app.ts']);
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'completion',

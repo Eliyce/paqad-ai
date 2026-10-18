@@ -65,7 +65,7 @@ describe('buildChangeClosureSummary', () => {
         project_root: '/tmp/project',
         modules: ['verification'],
         changed_files: ['src/verification/gates/code-tests-lint.ts'],
-        changed_files_source: 'git-status',
+        changed_files_source: 'git',
         code_changed: true,
         test_files_changed: false,
         documentation_files_changed: false,

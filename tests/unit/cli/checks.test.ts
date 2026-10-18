@@ -8,6 +8,7 @@ import { createChecksCommand } from '@/cli/commands/checks.js';
 import { createProgram } from '@/cli/program.js';
 import { readChecksReport, readFeatureChecks } from '@/checks/report-store.js';
 import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
+import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 // `paqad-ai checks run` end to end over real subprocesses (deterministic `node -e`
 // exit codes), asserting the verb blocks on red and persists the report the
@@ -17,8 +18,8 @@ describe('paqad-ai checks command', () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-cli-checks-'));
-    mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/app.ts']));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    seedGitChangedFiles(root, ['src/app.ts']);
   });
 
   afterEach(() => {
