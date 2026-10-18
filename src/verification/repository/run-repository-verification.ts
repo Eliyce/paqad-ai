@@ -109,6 +109,7 @@ import {
   formatVerdictSummary,
   type RepositoryVerificationVerdict,
 } from './verdict.js';
+import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 
 /**
  * The gates the backstop runs. It deliberately omits the pure model-judgment
@@ -801,6 +802,25 @@ export async function runRepositoryVerification(
     }
   }
 
+  // Issue #639, Part 4 — the one verdict rule. The same kind drives the chat summary above,
+  // the report.html pill (re-rendered below) and, through the persisted stage gaps, the PR
+  // comment, so the three surfaces can never say different words for one run.
+  const verdictStageGaps =
+    isFeatureDev && fold ? unrecordedMandatoryStages(fold, checksVerified) : [];
+  verdict.kind = verdictKindFor(verdict.gates, verdictStageGaps);
+  if (verdictStageGaps.length > 0) {
+    evidence.unrecorded_mandatory_stages = verdictStageGaps;
+    try {
+      evidencePath = await writeVerificationEvidence(evidence, {
+        project_root: context.project_root,
+      });
+      /* v8 ignore next 4 -- best-effort: the in-memory verdict is unaffected */
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      engineLog('warn', `paqad: could not record stage gaps in evidence (${message})`);
+    }
+  }
+
   const receiptFeature = currentFeature(
     context.project_root,
     resolveSessionId(context.project_root, options.hostSessionId ?? null),
@@ -832,6 +852,18 @@ export async function runRepositoryVerification(
       ? summarizeStageIsolation(context.project_root, receiptFeature)
       : null,
   });
+
+  // Issue #639, Part 4 — re-render report.html with the final verdict. The first render ran
+  // before the late gates existed, so its pill could not see them.
+  if (reportPath) {
+    renderActiveFeatureReport(
+      context.project_root,
+      options.hostSessionId ?? null,
+      completedAt,
+      verifierVersion(),
+      verdict.kind,
+    );
+  }
 
   // Issue #581 — close a passing change LAST. Until now every writer above read the active
   // feature; closing before them (as the finalizer used to) left the passing turn with no
@@ -895,6 +927,7 @@ function renderActiveFeatureReport(
   hostSessionId: string | null,
   completedAt: string,
   paqadVersion: string,
+  verdict?: VerdictKind,
 ): string | null {
   try {
     const sessionId = resolveSessionId(projectRoot, hostSessionId);
@@ -912,6 +945,7 @@ function renderActiveFeatureReport(
       sessionId,
       generatedAt: completedAt,
       paqadVersion,
+      ...(verdict ? { verdict } : {}),
     }).path;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

@@ -25,6 +25,7 @@ import { exportFeatureBundle } from './export.js';
 import { featureChangeKey, featureReportPath, parseFeatureDirName } from './paths.js';
 import { renderFeatureReportHtml } from './report.js';
 import { foldFeature, resolveFeatureRef } from './stage-ledger.js';
+import type { VerdictKind } from '@/verification/verdict-kind.js';
 
 /** Doc type of a bundle's `report.html` header (`paqad.<file-stem>`, issue #581). */
 export const REPORT_DOC_TYPE = 'paqad.report';
@@ -45,6 +46,8 @@ export interface WriteFeatureReportOptions {
   paqadVersion?: string | null;
   /** Write elsewhere than the bundle dir's `report.html`. */
   outPath?: string;
+  /** The verification verdict, when known; it wins over the bundle-derived one (issue #639). */
+  verdict?: VerdictKind;
 }
 
 export interface WriteFeatureReportResult {
@@ -83,6 +86,7 @@ export function writeFeatureReport(
     generatedAt,
     paqadVersion: options.paqadVersion ?? null,
     decisions: readIndexedDecisionViews(projectRoot, dirName),
+    ...(options.verdict ? { verdict: options.verdict } : {}),
   });
   const header = buildTextHeader({
     docType: REPORT_DOC_TYPE,

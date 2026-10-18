@@ -55,4 +55,10 @@ export interface VerificationEvidence {
   overall_status: EvidenceOverallStatus;
   first_failure_gate: VerificationGate | null;
   gates: VerificationEvidenceGate[];
+  /**
+   * Mandatory feature-development stages with no recorded evidence (issue #472), persisted so
+   * the PR comment reads the same verdict word as the chat receipt (issue #639, Part 4).
+   * Absent when every mandatory stage was recorded or the change is not feature-development.
+   */
+  unrecorded_mandatory_stages?: string[];
 }

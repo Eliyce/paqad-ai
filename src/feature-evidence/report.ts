@@ -52,6 +52,7 @@ import type { FeatureBundleExport } from './export.js';
 import { parseFeatureDirName } from './paths.js';
 import type { DecisionIndexEntry, IndexedDecisionView } from './decisions-index.js';
 import { splitReceiptEvidenceRows } from './receipt.js';
+import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 
 export interface RenderFeatureReportOptions {
   /** ISO timestamp stamped into the page; supplied so the render is deterministic. */
@@ -63,6 +64,12 @@ export interface RenderFeatureReportOptions {
    * so the renderer stays free of file reads. Absent, the panel lists the index alone.
    */
   decisions?: IndexedDecisionView[];
+  /**
+   * The verification verdict for this change, when the caller has it (issue #639, Part 4).
+   * It wins over the bundle-derived verdict so the page says the same word as the chat
+   * receipt and the PR comment.
+   */
+  verdict?: VerdictKind;
 }
 
 // ── Small pure helpers ──────────────────────────────────────────────────────
@@ -170,7 +177,6 @@ function readReceiptIntegrity(bundle: FeatureBundleExport): ReceiptIntegrity {
 
 // ── Verdict derivation ────────────────────────────────────────────────────────
 
-type VerdictKind = 'pass' | 'fail' | 'inconclusive';
 
 /**
  * The headline verdict, in the contract words. Derived from the same signals the
@@ -187,12 +193,22 @@ export function deriveReportVerdict(
   const hasFailedStage = fold.stages.some((stage) => stage.state === 'failed');
   // A failed gate needs attention whether or not the seal covers it.
   const { rows, unsealedRows } = receiptRowsOf(receiptStatement, evidenceRows);
+  // Issue #639, Part 4 — the gate rows go through the one verdict rule, so an inconclusive
+  // gate reads Inconclusive here exactly as it does in the chat receipt.
+  // With no sealed receipt (enterprise off) the bundle's own gate rows are the only record,
+  // so they count too; before, an unsealed change could not read anything but its stages.
+  const gateRows = receiptStatement?.predicate
+    ? [...rows, ...unsealedRows]
+    : (asRows(evidenceRows) as ReceiptRow[]);
+  const gateKind = verdictKindFor(
+    gateRows.map((row) => ({ status: String(row.verdict).toLowerCase() })),
+  );
   const hasFailedGate =
-    [...rows, ...unsealedRows].some((row) => String(row.verdict).toLowerCase() === 'fail') ||
+    gateKind === 'fail' ||
     String(receiptStatement?.predicate?.verification_result ?? '').toUpperCase() === 'FAILED';
   if (hasFailedStage || hasFailedGate) return 'fail';
   const verdict = fold.completeness.verdict;
-  if (verdict === 'complete' || verdict === 'recovered') return 'pass';
+  if (verdict === 'complete' || verdict === 'recovered') return gateKind;
   if (verdict === 'cannot-verify') return 'inconclusive';
   return 'fail';
 }
@@ -1314,7 +1330,8 @@ export function renderFeatureReportHtml(
       c.toUpperCase(),
     );
   const integrity = readReceiptIntegrity(bundle);
-  const verdict = deriveReportVerdict(fold, integrity.statement, bundle.files.evidence);
+  const verdict =
+    options.verdict ?? deriveReportVerdict(fold, integrity.statement, bundle.files.evidence);
   const rawStageRows = asRows(bundle.files.stageEvidence);
 
   const headerMeta = [
