@@ -9,6 +9,7 @@ import {
   defaultManagedSettingsPaths,
   describeClaudeInstall,
   installViaSettings,
+  PLUGIN_MARKETPLACE_REPO,
   isPluginPresent,
   isSyncedRoot,
   managedPolicyBlockReason,
@@ -137,16 +138,26 @@ describe('managedPolicyBlockReason (Part 2.7)', () => {
     ).toBe('managed-policy');
     expect(
       managedPolicyBlockReason([
-        policyFile({ blockedMarketplaces: [{ repo: 'Eliyce/paqad-plugin' }] }),
+        policyFile({ blockedMarketplaces: [{ repo: 'Eliyce/paqad-ai' }] }),
       ]),
     ).toBe('managed-policy');
   });
   it('does not block when strictKnownMarketplaces allows the paqad source', () => {
     expect(
       managedPolicyBlockReason([
-        policyFile({ strictKnownMarketplaces: [{ repo: 'Eliyce/paqad-plugin' }] }),
+        policyFile({ strictKnownMarketplaces: [{ repo: 'Eliyce/paqad-ai' }] }),
       ]),
     ).toBeNull();
+  });
+  it('blocks when strictKnownMarketplaces lists only the old, wrong repo (B1)', () => {
+    expect(
+      managedPolicyBlockReason([
+        policyFile({ strictKnownMarketplaces: [{ repo: 'Eliyce/paqad-plugin' }] }),
+      ]),
+    ).toBe('managed-policy');
+  });
+  it('the marketplace constant is the real paqad marketplace repo (B1)', () => {
+    expect(PLUGIN_MARKETPLACE_REPO).toBe('Eliyce/paqad-ai');
   });
 });
 
@@ -204,7 +215,7 @@ describe('installViaSettings / undoViaSettings (Path B)', () => {
     expect(after.model).toBe('opus');
     expect(after.enabledPlugins['other@x']).toBe(true);
     expect(after.enabledPlugins['paqad@eliyce']).toBe(true);
-    expect(after.extraKnownMarketplaces.eliyce.source.repo).toBe('Eliyce/paqad-plugin');
+    expect(after.extraKnownMarketplaces.eliyce.source.repo).toBe('Eliyce/paqad-ai');
     expect(after.extraKnownMarketplaces.eliyce.autoUpdate).toBe(true);
   });
   it('creates the file when absent', () => {

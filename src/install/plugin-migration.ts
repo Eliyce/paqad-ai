@@ -31,7 +31,7 @@ import { VERSION } from '@/index.js';
 import { PLUGIN_ID } from '../health/plugin-install.js';
 
 /** The marketplace the plugin ships from (the claude.ai / CLI source). */
-export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-plugin';
+export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-ai';
 const MARKETPLACE_KEY = 'eliyce';
 
 /** Minimum `claude` version whose `plugin` subcommands this migration drives (Part 3, Path A). */
