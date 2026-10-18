@@ -16,7 +16,14 @@ import { join } from 'node:path';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
 import { GATE_STRENGTH_TIER } from '@/evidence/grading.js';
-import { readFeatureEvidence } from '@/feature-evidence/bundle-ledgers.js';
+import {
+  readDuplication,
+  readFeatureEvidence,
+  readRuleRun,
+  type DuplicationRowFinding,
+  type RuleRunFinding,
+} from '@/feature-evidence/bundle-ledgers.js';
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import {
@@ -84,6 +91,32 @@ export interface HudSeat {
   tokens_used: number | null;
 }
 
+/**
+ * What one scan found on this change. A scan with no row reads `did not run`, never `clean`:
+ * a clean result needs a row whose counts say zero (Gate 3).
+ */
+export type HudFindingsStatus = 'open' | 'clean' | 'did not run';
+
+export interface HudFindingsScan<T> {
+  status: HudFindingsStatus;
+  /** Deterministic plus heuristic findings from the row's counts; `null` when it did not run. */
+  total: number | null;
+  counts: Record<string, number> | null;
+  blocking: boolean;
+  /** True when the row came from a cached run. */
+  from_cache: boolean;
+  /** The findings the row kept, or `null` when the row kept none (an older row). */
+  items: T[] | null;
+  /** Findings past the row's cap, counted but not kept. */
+  overflow: number;
+  recorded_at: string | null;
+}
+
+export interface HudFindings {
+  rules: HudFindingsScan<RuleRunFinding>;
+  near_copies: HudFindingsScan<DuplicationRowFinding>;
+}
+
 export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
@@ -111,6 +144,11 @@ export interface HudSnapshot {
   gates: HudGate[];
   flags: HudFlag[];
   rules: { recorded: boolean; applicable: number | null; loaded_at: string | null };
+  /**
+   * Issue #639 (Part 12) — the rule findings and near-copies the change's latest bundle rows
+   * keep. `null` when neither scan left a row for this change.
+   */
+  findings: HudFindings | null;
   decisions: {
     pending: Array<{ id: string; category: string; question: string }>;
     resolved: number;
@@ -282,6 +320,48 @@ function buildEvidenceExpected(
   }));
 }
 
+/** A scan summary built from its latest row, or `did not run` when there is none. */
+function findingsScan<T>(row: Record<string, unknown> | undefined): HudFindingsScan<T> {
+  if (!row) {
+    return {
+      status: 'did not run',
+      total: null,
+      counts: null,
+      blocking: false,
+      from_cache: false,
+      items: null,
+      overflow: 0,
+      recorded_at: null,
+    };
+  }
+  const counts = asRecord(row.counts) as Record<string, number> | null;
+  const total = (num(counts?.deterministic) ?? 0) + (num(counts?.heuristic) ?? 0);
+  return {
+    status: total > 0 ? 'open' : 'clean',
+    total,
+    counts,
+    blocking: row.blocking === true,
+    from_cache: row.from_cache === true,
+    items: Array.isArray(row.findings) ? (row.findings as T[]) : null,
+    overflow: num(row.findings_overflow) ?? 0,
+    recorded_at: rowRecordedAt(row),
+  };
+}
+
+function buildFindings(projectRoot: string, dirName: string): HudFindings | null {
+  // The latest findings row wins; a drift row from the reconciler is not a rule scan.
+  const ruleRow = readRuleRun(projectRoot, dirName)
+    .filter((row) => row.kind === 'findings')
+    .at(-1) as Record<string, unknown> | undefined;
+  const dupRow = readDuplication(projectRoot, dirName).at(-1) as
+    Record<string, unknown> | undefined;
+  if (!ruleRow && !dupRow) return null;
+  return {
+    rules: findingsScan<RuleRunFinding>(ruleRow),
+    near_copies: findingsScan<DuplicationRowFinding>(dupRow),
+  };
+}
+
 function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRecord | null {
   const record = asRecord(readJsonFile(hudVerdictPath(projectRoot, sessionId)));
   return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
@@ -325,6 +405,8 @@ export function computeHudFlags(input: {
   tableSkipped: boolean;
   isolationStatus: string;
   isolatedStages: number;
+  /** Issue #639 (Part 12) — an open finding raises a flag; the band shows only its count. */
+  findings?: HudFindings | null;
 }): HudFlag[] {
   const flags: HudFlag[] = [];
   const touchedCode = input.stages.some(
@@ -351,6 +433,24 @@ export function computeHudFlags(input: {
     flags.push({
       id: 'lane-unresolved',
       text: 'The lane was never set, so isolation is unproven.',
+    });
+  }
+  const ruleFindings = input.findings?.rules.total ?? 0;
+  if (ruleFindings > 0) {
+    flags.push({
+      id: 'rule-findings',
+      text:
+        ruleFindings === 1 ? '1 rule finding is open.' : `${ruleFindings} rule findings are open.`,
+    });
+  }
+  const nearCopies = input.findings?.near_copies.total ?? 0;
+  if (nearCopies > 0) {
+    flags.push({
+      id: 'near-copies',
+      text:
+        nearCopies === 1
+          ? '1 near-copy of existing code is open.'
+          : `${nearCopies} near-copies of existing code are open.`,
     });
   }
   return flags;
@@ -461,6 +561,7 @@ export function buildHudSnapshot(
       gates: [],
       flags: [],
       rules: { recorded: false, applicable: null, loaded_at: null },
+      findings: null,
       decisions,
       questions: null,
       last_block: null,
@@ -483,6 +584,7 @@ export function buildHudSnapshot(
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
   const isolationSummary = summarizeStageIsolation(projectRoot, dirName);
+  const findings = buildFindings(projectRoot, dirName);
   const flags = computeHudFlags({
     stages,
     gates,
@@ -490,6 +592,7 @@ export function buildHudSnapshot(
     tableSkipped: table?.skipped ?? false,
     isolationStatus,
     isolatedStages: isolationSummary?.stages ?? 0,
+    findings,
   });
   const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
 
@@ -529,6 +632,7 @@ export function buildHudSnapshot(
       applicable: rulesLoaded ? rulesLoaded.applicable_rules.length : null,
       loaded_at: rulesLoaded?.recorded_at ?? null,
     },
+    findings,
     decisions,
     questions: buildQuestions(projectRoot, dirName),
     last_block: null,
