@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": []
+  },
+  "include": [
+    "runtime/claude-plugin/mod/*.ts",
+    "runtime/claude-plugin/mod/types/*.d.ts",
+    "runtime/claude-plugin/mod/test/fixtures.ts"
+  ],
+  "exclude": ["runtime/claude-plugin/mod/*.test.ts"]
+}

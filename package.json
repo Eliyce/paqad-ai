@@ -85,7 +85,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.mod.json",
     "check:surface-orphans": "node scripts/check-surface-orphans.mjs",
     "check:surface-drift": "node scripts/check-surface-drift.mjs",
     "plugin:validate": "node scripts/validate-plugin.mjs",
