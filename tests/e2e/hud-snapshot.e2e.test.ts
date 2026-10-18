@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 import { execa } from 'execa';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -14,7 +15,8 @@ import { ensureBuiltDist } from './helpers/ensure-built.js';
 
 const REPO = process.cwd();
 const STAGE_WRITER = resolve(REPO, 'runtime/hooks/stage-writer.mjs');
-const REFRESH = resolve(REPO, 'dist/hud/refresh.js');
+// A file URL, not a path: `import()` rejects a bare Windows path such as C:\... .
+const REFRESH = pathToFileURL(resolve(REPO, 'dist/hud/refresh.js')).href;
 
 beforeAll(async () => {
   await ensureBuiltDist();
@@ -96,11 +98,20 @@ describe('HUD snapshot from the real hooks (#639 Part 7)', () => {
     while (running) {
       const path = hudPath(root, 'ses-race');
       if (existsSync(path)) {
-        reads += 1;
+        let text: string | null = null;
         try {
-          JSON.parse(readFileSync(path, 'utf8'));
+          text = readFileSync(path, 'utf8');
         } catch {
-          broken += 1;
+          // Windows can refuse a read that lands mid-rename (EPERM/EBUSY). That is a missed
+          // read, not a broken file, so it is skipped rather than counted.
+        }
+        if (text !== null) {
+          reads += 1;
+          try {
+            JSON.parse(text);
+          } catch {
+            broken += 1;
+          }
         }
       }
       await new Promise((r) => setTimeout(r, 1));
