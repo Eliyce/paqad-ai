@@ -196,6 +196,70 @@ describe('retryAllowed (Part 5)', () => {
     expect(retryAllowed(rec, now)).toBe(false); // 2d < 7d
     expect(retryAllowed({ ...rec, last_attempt_at: '2026-10-09T12:00:00Z' }, now)).toBe(true); // 8d
   });
+  it('never throttles a config or environment skip (B7)', () => {
+    for (const reason of [
+      'migration-off',
+      'install-mode-settings',
+      'no-claude-code-provider',
+      'ci-or-headless',
+    ]) {
+      expect(
+        retryAllowed(
+          {
+            state: 'skipped',
+            reason,
+            attempts: 5,
+            version: '1',
+            last_attempt_at: '2026-10-17T11:59:00Z',
+          },
+          now,
+        ),
+      ).toBe(true);
+    }
+  });
+  it('still throttles a skipped record with no reason', () => {
+    expect(
+      retryAllowed(
+        { state: 'skipped', attempts: 1, version: '1', last_attempt_at: '2026-10-17T11:59:00Z' },
+        now,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('config skips do not throttle a later opt-in (B7)', () => {
+  it('installs at once after a migration-off skip a minute earlier', () => {
+    manifestClaudeCode();
+    writeMigrationState(home, {
+      state: 'skipped',
+      reason: 'migration-off',
+      attempts: 0,
+      version: '1',
+      last_attempt_at: '2026-10-17T11:59:00Z',
+    });
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({ env: { PAQAD_CLAUDE_INSTALL_MODE: 'plugin' } }),
+    );
+    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+  });
+  it('install-mode-settings skips without writing settings, then installs on switch (AC-17)', () => {
+    manifestClaudeCode();
+    const first = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({ env: { PAQAD_CLAUDE_INSTALL_MODE: 'settings' } }),
+    );
+    expect(first).toEqual({ state: 'skipped', reason: 'install-mode-settings' });
+    expect(existsSync(userSettings())).toBe(false);
+    const second = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({
+        env: { PAQAD_CLAUDE_INSTALL_MODE: 'plugin' },
+        now: () => new Date('2026-10-17T12:01:00Z'),
+      }),
+    );
+    expect(second).toMatchObject({ state: 'installed' });
+  });
 });
 
 describe('installViaSettings / undoViaSettings (Path B)', () => {

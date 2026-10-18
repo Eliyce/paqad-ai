@@ -248,9 +248,21 @@ function marketplaceReferenced(list: unknown[]): boolean {
   return list.some((entry) => JSON.stringify(entry).includes(PLUGIN_MARKETPLACE_REPO));
 }
 
+/**
+ * Skips that record a config or environment decision, not a real attempt. They never throttle the
+ * next run, so a Developer who opts in a minute after a skip is not made to wait a day (B7).
+ */
+const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
+  'migration-off',
+  'install-mode-settings',
+  'no-claude-code-provider',
+  'ci-or-headless',
+]);
+
 /** Whether the retry rules (Part 5) allow another attempt now. */
 export function retryAllowed(record: MigrationRecord | null, now: Date): boolean {
   if (!record) return true;
+  if (record.state === 'skipped' && CONFIG_SKIP_REASONS.has(record.reason ?? '')) return true;
   if (record.state === 'done' || record.state === 'rolled-back' || record.state === 'declined') {
     return false;
   }
