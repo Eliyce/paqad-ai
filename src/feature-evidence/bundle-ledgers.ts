@@ -236,7 +236,8 @@ export interface RuleRunEntry {
  * Append a rule-run row into the ACTIVE feature's `rule-run.jsonl`, recording which
  * rules fired on this change. A no-op (returns null) when no feature is active — a
  * rule run outside a feature-development change has no bundle to attach to. Best-effort:
- * a failure never breaks enforcement. Returns the stamped row (or null).
+ * a failure never breaks enforcement. Returns the stamped row (or null). A cache hit whose
+ * row would repeat the last row's content exactly is skipped and also returns null.
  */
 export function appendRuleRun(
   projectRoot: string,
@@ -248,20 +249,26 @@ export function appendRuleRun(
     return null;
   }
   try {
+    const payload = {
+      kind: entry.kind,
+      counts: entry.counts,
+      blocking: entry.blocking,
+      note: entry.note ?? null,
+      ...(entry.findings ? capFindings(entry.findings) : {}),
+      ...(entry.from_cache ? { from_cache: true } : {}),
+      ...(entry.backfilled ? { backfilled: true } : {}),
+    };
+    // A repeated cache hit says nothing new, so it is not appended again: the bundle would
+    // otherwise grow by a full findings list on every edit.
+    if (entry.from_cache && repeatsLastRuleRun(projectRoot, dirName, payload)) {
+      return null;
+    }
     const stamped = stampFeatureRow(
       dirName,
       sessionId,
       RULE_RUN_DOC_TYPE,
       RULE_RUN_SCHEMA_VERSION,
-      {
-        kind: entry.kind,
-        counts: entry.counts,
-        blocking: entry.blocking,
-        note: entry.note ?? null,
-        ...(entry.findings ? capFindings(entry.findings) : {}),
-        ...(entry.from_cache ? { from_cache: true } : {}),
-        ...(entry.backfilled ? { backfilled: true } : {}),
-      },
+      payload,
       entry.now,
     );
     appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'ruleRun'), stamped);
@@ -269,6 +276,18 @@ export function appendRuleRun(
   } catch {
     return null;
   }
+}
+
+/** Whether the bundle's last rule-run row carries exactly this content. */
+function repeatsLastRuleRun(
+  projectRoot: string,
+  dirName: string,
+  payload: Record<string, unknown>,
+): boolean {
+  const last = readRuleRun(projectRoot, dirName).at(-1);
+  if (!last) return false;
+  const keys = new Set([...Object.keys(payload), 'findings', 'findings_overflow', 'backfilled']);
+  return [...keys].every((key) => JSON.stringify(last[key]) === JSON.stringify(payload[key]));
 }
 
 /** Tolerant read of a feature's `rule-run.jsonl` rows. */

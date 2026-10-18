@@ -226,6 +226,9 @@ describe('rule-run.jsonl rows (issue #639, Part 12)', () => {
     // The returned report is the cached report, unchanged apart from the cache mark.
     expect({ ...cached, from_cache: undefined }).toEqual({ ...fresh, from_cache: undefined });
 
+    // A second identical cache hit does not grow the bundle.
+    runRuleScripts({ projectRoot: root, mode: 'strict', changedFiles: ['src/app.ts'] });
+
     const rows = readRuleRun(root, dir) as unknown as Array<Record<string, unknown>>;
     expect(rows).toHaveLength(2);
     const finding = {

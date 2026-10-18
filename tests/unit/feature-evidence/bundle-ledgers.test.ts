@@ -181,6 +181,38 @@ describe('per-feature rule-run.jsonl', () => {
     });
   });
 
+  it('does not append a cache hit that repeats the last row (issue #639 review)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const finding = {
+      rule_id: 'no-console',
+      file: 'src/app.ts',
+      line: 7,
+      message: 'Remove console.log.',
+      severity: 'high',
+    };
+    const hit = {
+      kind: 'findings' as const,
+      counts: { deterministic: 1, heuristic: 0, skipped: 0 },
+      blocking: true,
+      findings: [finding],
+      from_cache: true,
+    };
+    // A fresh run, then its first cache hit: both are recorded.
+    appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
+    expect(appendRuleRun(root, 'ses_1', hit)).not.toBeNull();
+    // The same cache hit again adds nothing.
+    expect(appendRuleRun(root, 'ses_1', hit)).toBeNull();
+    expect(readRuleRun(root, dir)).toHaveLength(2);
+    // A cache hit with different content is still recorded.
+    appendRuleRun(root, 'ses_1', { ...hit, blocking: false });
+    expect(readRuleRun(root, dir)).toHaveLength(3);
+    // A fresh run is always recorded, even when it repeats the last row.
+    appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
+    appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
+    expect(readRuleRun(root, dir)).toHaveLength(5);
+  });
+
   it('keeps exactly the cap and counts the overflow (issue #639, AC-29)', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
