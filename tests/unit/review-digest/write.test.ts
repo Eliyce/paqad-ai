@@ -9,6 +9,12 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { writeReviewDigest } from '@/review-digest/index.js';
 
+import {
+  DELIVERED_FILES,
+  makeRepoWithStaleCache,
+  writeRepoFile,
+} from '../pipeline/changed-files.fixture.js';
+
 // Issue #360 — the write seam reads the cached inputs and persists the digest. It must
 // never throw on a missing input (every source degrades to "none recorded") and must never
 // write inside a feature bundle directory (INV-3).
@@ -38,8 +44,8 @@ describe('writeReviewDigest', () => {
     });
   }
 
-  it('writes an honest digest in a project with nothing recorded at all', () => {
-    const result = writeReviewDigest(root, SES, NOW);
+  it('writes an honest digest in a project with nothing recorded at all', async () => {
+    const result = await writeReviewDigest(root, SES, NOW);
 
     expect(result.path).toBe(PATHS.REVIEW_DIGEST);
     expect(result.feature).toBeNull();
@@ -49,7 +55,7 @@ describe('writeReviewDigest', () => {
     expect(onDisk).toContain('No machine findings recorded');
   });
 
-  it('reads the active feature, its frozen criteria, its stages and the machine findings', () => {
+  it('reads the active feature, its frozen criteria, its stages and the machine findings', async () => {
     const dirName = activeFeature();
     writeFileSync(
       join(root, featureFilePath(dirName, 'specification')),
@@ -72,7 +78,7 @@ describe('writeReviewDigest', () => {
       ],
     });
 
-    const result = writeReviewDigest(root, SES, NOW);
+    const result = await writeReviewDigest(root, SES, NOW);
 
     expect(result.feature).toBe(dirName);
     expect(result.findings).toBe(1);
@@ -84,43 +90,95 @@ describe('writeReviewDigest', () => {
     expect(result.markdown).toMatch(/- Stages: \w+=/);
   });
 
-  it('degrades a corrupt changed-file list and a corrupt specification to "none recorded"', () => {
+  it('degrades a corrupt changed-file list and a corrupt specification to "none recorded"', async () => {
     const dirName = activeFeature();
     mkdirSync(dirname(join(root, PATHS.CHANGED_FILES)), { recursive: true });
     writeFileSync(join(root, PATHS.CHANGED_FILES), '{not json', 'utf8');
     writeFileSync(join(root, featureFilePath(dirName, 'specification')), 'not json', 'utf8');
 
-    const result = writeReviewDigest(root, SES, NOW);
+    const result = await writeReviewDigest(root, SES, NOW);
 
     expect(result.markdown).toContain('- Changed files: none recorded');
     expect(result.markdown).toContain('No frozen acceptance criteria on record');
   });
 
-  it('ignores a changed-file list that is valid JSON but not a list of strings', () => {
+  it('ignores a changed-file list that is valid JSON but not a list of strings', async () => {
     write(PATHS.CHANGED_FILES, { files: ['src/a.ts'] });
-    expect(writeReviewDigest(root, SES, NOW).markdown).toContain('- Changed files: none recorded');
+    expect((await writeReviewDigest(root, SES, NOW)).markdown).toContain(
+      '- Changed files: none recorded',
+    );
 
     write(PATHS.CHANGED_FILES, ['src/a.ts', 7]);
-    expect(writeReviewDigest(root, SES, NOW).markdown).toContain('- Changed files (1):');
+    expect((await writeReviewDigest(root, SES, NOW)).markdown).toContain('- Changed files (1):');
   });
 
-  it('skips criteria when the frozen spec records none', () => {
+  it('skips criteria when the frozen spec records none', async () => {
     activeFeature();
-    const dirName = writeReviewDigest(root, SES, NOW).feature!;
+    const dirName = (await writeReviewDigest(root, SES, NOW)).feature!;
     writeFileSync(
       join(root, featureFilePath(dirName, 'specification')),
       JSON.stringify({ behaviour: ['x'] }),
       'utf8',
     );
-    expect(writeReviewDigest(root, SES, NOW).markdown).toContain(
+    expect((await writeReviewDigest(root, SES, NOW)).markdown).toContain(
       'No frozen acceptance criteria on record',
     );
   });
 
-  it('writes outside every feature bundle directory (INV-3)', () => {
+  it('writes outside every feature bundle directory (INV-3)', async () => {
     const dirName = activeFeature();
-    writeReviewDigest(root, SES, NOW);
+    await writeReviewDigest(root, SES, NOW);
     expect(PATHS.REVIEW_DIGEST.startsWith('.paqad/session/')).toBe(true);
     expect(PATHS.REVIEW_DIGEST).not.toContain(dirName);
+  });
+});
+
+// Issue #544 — the digest reads changed files through the one reconciling reader, so it can
+// never again be headed by files an already-merged change left in the session cache.
+describe('writeReviewDigest changed files (issue #544)', () => {
+  const SES = 'ses_review_digest_544';
+  const NOW = () => new Date('2026-10-18T08:00:00.000Z');
+  let root: string;
+
+  beforeEach(() => {
+    root = makeRepoWithStaleCache();
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('AC-1: does not list cached files that are clean and already in base history', async () => {
+    const { markdown } = await writeReviewDigest(root, SES, NOW);
+
+    for (const file of DELIVERED_FILES) expect(markdown).not.toContain(file);
+    expect(markdown).toContain('- Changed files: none recorded');
+  });
+
+  it("AC-2: lists the branch's real changes, not the stale cache", async () => {
+    writeRepoFile(root, 'src/new-work.ts', 'export const work = 1;\n');
+    writeRepoFile(root, 'tests/new-work.test.ts', 'it.todo("work");\n');
+
+    const { markdown } = await writeReviewDigest(root, SES, NOW);
+
+    expect(markdown).toContain('- Changed files (2):');
+    expect(markdown).toContain('  - src/new-work.ts');
+    expect(markdown).toContain('  - tests/new-work.test.ts');
+    for (const file of DELIVERED_FILES) expect(markdown).not.toContain(file);
+  });
+
+  it('keeps a cached entry the branch really changed and drops the delivered rest', async () => {
+    writeRepoFile(root, DELIVERED_FILES[0]!, 'export const delivered = 2;\n');
+
+    const { markdown } = await writeReviewDigest(root, SES, NOW);
+
+    expect(markdown).toContain('- Changed files (1):');
+    expect(markdown).toContain(`  - ${DELIVERED_FILES[0]}`);
+    expect(markdown).not.toContain(DELIVERED_FILES[1]);
+  });
+
+  it('AC-6: with no cache and a clean tree, still reads "none recorded"', async () => {
+    rmSync(join(root, PATHS.CHANGED_FILES));
+
+    const { markdown } = await writeReviewDigest(root, SES, NOW);
+
+    expect(markdown).toContain('- Changed files: none recorded');
   });
 });
