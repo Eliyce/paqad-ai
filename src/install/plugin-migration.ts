@@ -10,7 +10,7 @@
 // managed-settings paths) so the whole state machine is unit-testable against a sandboxed home
 // without a real Claude Code install.
 
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -33,6 +33,10 @@ import { PLUGIN_ID } from '../health/plugin-install.js';
 /** The marketplace the plugin ships from (the claude.ai / CLI source). */
 export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-ai';
 const MARKETPLACE_KEY = 'eliyce';
+
+/** Bounded timeouts for the synchronous `claude plugin` runs, so a hung CLI never holds the update. */
+const MARKETPLACE_ADD_TIMEOUT_MS = 120_000;
+const INSTALL_TIMEOUT_MS = 180_000;
 
 /** Minimum `claude` version whose `plugin` subcommands this migration drives (Part 3, Path A). */
 export const MIN_CLAUDE_VERSION = '2.1.295';
@@ -65,7 +69,7 @@ export interface MigrationDeps {
   version?: string;
   /** `claude --version` → the semver string, or null when there is no usable `claude` on PATH. */
   claudeVersion?: () => string | null;
-  /** Path A: run the detached `claude plugin` install; returns ok + an optional failure reason. */
+  /** Path A: run the `claude plugin` install; returns ok + an optional failure reason. */
   runClaudeInstall?: (home: string, env: NodeJS.ProcessEnv) => { ok: boolean; reason?: string };
   /** The managed-settings files to inspect (defaults per-OS); injectable for tests. */
   managedSettingsPaths?: string[];
@@ -160,15 +164,17 @@ export function isSyncedRoot(root: string | undefined): boolean {
  * the plugin's own marker is the second signal — Part 9.2).
  */
 export function isPluginPresent(home: string): boolean {
+  return isPluginInstalledRecord(home) || readPluginSeen(home) !== null;
+}
+
+/** True when Claude Code's `installed_plugins.json` lists the paqad plugin. */
+function isPluginInstalledRecord(home: string): boolean {
   const installed = join(home, '.claude', 'plugins', 'installed_plugins.json');
   try {
-    if (JSON.stringify(JSON.parse(readFileSync(installed, 'utf8'))).includes(PLUGIN_ID)) {
-      return true;
-    }
+    return JSON.stringify(JSON.parse(readFileSync(installed, 'utf8'))).includes(PLUGIN_ID);
   } catch {
-    /* fall through to the plugin-seen signal */
+    return false; // absent or unreadable → no install record
   }
-  return readPluginSeen(home) !== null;
 }
 
 // ── Skip conditions (Part 2) ──────────────────────────────────────────────────
@@ -422,6 +428,9 @@ function defaultClaudeVersion(): string | null {
       encoding: 'utf8',
       timeout: 120_000,
       stdio: ['ignore', 'pipe', 'ignore'],
+      windowsHide: true,
+      // claude is a .cmd shim on Windows; static args only, so the shell is safe.
+      shell: process.platform === 'win32',
     });
     const match = out.match(/(\d+\.\d+\.\d+)/);
     return match ? match[1]! : null;
@@ -454,7 +463,7 @@ function record(
 
 /**
  * The migration entry the background update calls (Part 2). Best-effort, synchronous decision; the
- * real Path-A install is spawned detached by the injected runner. Never throws.
+ * Path-A install runs through the injected runner (synchronous, bounded). Never throws.
  */
 export function maybeMigrateToPlugin(
   projectRoot: string,
@@ -551,7 +560,7 @@ function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): Migr
         npm_sessions_since_install: 0,
       });
     }
-    deps.log(`path A failed to start (${run.reason ?? 'unknown'}); falling back to settings`);
+    deps.log(`path A failed (${run.reason ?? 'unknown'}); falling back to settings`);
   }
 
   const result = installViaSettings(deps.home);
@@ -672,24 +681,63 @@ export function describeClaudeInstall(home: string = homedir()): string {
   return `npm (migration ${record.state}: ${record.reason ?? 'n/a'})`;
 }
 
-// ── Detached `claude plugin` install (Path A real implementation) ─────────────
-// Exported so the update wiring can pass it as the default runner; kept out of the unit path
-// (always injected in tests) because it spawns a real child process.
+// ── `claude plugin` runners (Path A real implementation) ─────────────────────
+// They run synchronously: `update --silent` is already a detached background process, so waiting
+// for the CLI here never blocks a session, and it lets us check the result (B2).
 
-/* v8 ignore start -- spawns the real detached `claude plugin` commands; covered by manual sign-off. */
-export function spawnClaudePluginInstall(home: string, env: NodeJS.ProcessEnv): { ok: boolean } {
-  try {
-    mkdirSync(dirname(migrationLogPath(home)), { recursive: true });
-  } catch {
-    /* best-effort */
-  }
-  const child = spawn('claude', ['plugin', 'install', PLUGIN_ID, '--scope', 'user'], {
-    detached: true,
+/** How one `claude` run ended. */
+export type ClaudeExecOutcome = 'ok' | 'exit' | 'timeout' | 'error';
+
+/** Runs `claude <args>` and reports how it ended; never throws. Injected in tests. */
+export type ClaudeExec = (
+  args: readonly string[],
+  options: { timeoutMs: number; env: NodeJS.ProcessEnv },
+) => ClaudeExecOutcome;
+
+/* v8 ignore start -- the one real process-spawning binding; every branch above it is unit tested
+   through the injected exec seam. */
+export function defaultClaudeExec(
+  args: readonly string[],
+  options: { timeoutMs: number; env: NodeJS.ProcessEnv },
+): ClaudeExecOutcome {
+  const result = spawnSync('claude', [...args], {
+    env: options.env,
+    timeout: options.timeoutMs,
     stdio: 'ignore',
     windowsHide: true,
-    env,
+    // claude is a .cmd shim on Windows; static args only, so the shell is safe.
+    shell: process.platform === 'win32',
   });
-  child.unref();
-  return { ok: true };
+  if (result.error) {
+    return (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT' ? 'timeout' : 'error';
+  }
+  return result.status === 0 ? 'ok' : 'exit';
 }
 /* v8 ignore stop */
+
+/**
+ * Path A: register the marketplace, install the plugin at user scope, and confirm Claude Code
+ * recorded it. A failed `marketplace add` is tolerated (it may already be registered); the
+ * install exit code plus the `installed_plugins.json` record decide success. Never throws.
+ */
+export function runClaudePluginInstall(
+  home: string,
+  env: NodeJS.ProcessEnv,
+  exec: ClaudeExec = defaultClaudeExec,
+  log: (message: string) => void = (message) => appendMigrationLog(home, message),
+): { ok: boolean; reason?: string } {
+  const added = exec(['plugin', 'marketplace', 'add', PLUGIN_MARKETPLACE_REPO], {
+    timeoutMs: MARKETPLACE_ADD_TIMEOUT_MS,
+    env,
+  });
+  if (added !== 'ok') {
+    log(`marketplace add ${PLUGIN_MARKETPLACE_REPO} did not succeed (${added}); continuing`);
+  }
+  const installed = exec(['plugin', 'install', PLUGIN_ID, '--scope', 'user'], {
+    timeoutMs: INSTALL_TIMEOUT_MS,
+    env,
+  });
+  if (installed !== 'ok') return { ok: false, reason: `cli-install-failed:${installed}` };
+  if (!isPluginInstalledRecord(home)) return { ok: false, reason: 'cli-install-unconfirmed' };
+  return { ok: true };
+}

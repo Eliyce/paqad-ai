@@ -23,6 +23,9 @@ import {
   releaseLock,
   retryAllowed,
   rollbackPlugin,
+  runClaudePluginInstall,
+  type ClaudeExec,
+  type ClaudeExecOutcome,
   undoViaSettings,
   versionAtLeast,
   writeMigrationState,
@@ -442,6 +445,127 @@ describe('maybeMigrateToPlugin — install (Part 3)', () => {
     writeFileSync(userSettings(), JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }));
     const r = maybeMigrateToPlugin(projectRoot, baseDeps());
     expect(r.state).toBe('declined');
+  });
+});
+
+/** Write Claude Code's install record for the paqad plugin into the sandboxed home. */
+function writeInstalledRecord(): void {
+  const p = join(home, '.claude', 'plugins');
+  mkdirSync(p, { recursive: true });
+  writeFileSync(join(p, 'installed_plugins.json'), JSON.stringify({ 'paqad@eliyce': {} }));
+}
+
+/** An injected `claude` runner: returns the scripted outcome per subcommand and records argv. */
+function fakeExec(
+  outcomes: {
+    marketplace?: ClaudeExecOutcome;
+    install?: ClaudeExecOutcome;
+    uninstall?: ClaudeExecOutcome;
+  },
+  onInstall?: () => void,
+): { exec: ClaudeExec; calls: { args: string[]; timeoutMs: number }[] } {
+  const calls: { args: string[]; timeoutMs: number }[] = [];
+  const exec: ClaudeExec = (args, options) => {
+    calls.push({ args: [...args], timeoutMs: options.timeoutMs });
+    if (args[1] === 'marketplace') return outcomes.marketplace ?? 'ok';
+    if (args[1] === 'install') {
+      const outcome = outcomes.install ?? 'ok';
+      if (outcome === 'ok') onInstall?.();
+      return outcome;
+    }
+    return outcomes.uninstall ?? 'ok';
+  };
+  return { exec, calls };
+}
+
+describe('runClaudePluginInstall (Path A, B2)', () => {
+  it('adds the marketplace, then installs at user scope, with exact args and bounded timeouts', () => {
+    const { exec, calls } = fakeExec({}, writeInstalledRecord);
+    const log = vi.fn();
+    expect(runClaudePluginInstall(home, {}, exec, log)).toEqual({ ok: true });
+    expect(calls).toEqual([
+      { args: ['plugin', 'marketplace', 'add', 'Eliyce/paqad-ai'], timeoutMs: 120_000 },
+      { args: ['plugin', 'install', 'paqad@eliyce', '--scope', 'user'], timeoutMs: 180_000 },
+    ]);
+    expect(log).not.toHaveBeenCalled();
+  });
+  it('tolerates a failed marketplace add (already registered) and still installs', () => {
+    const { exec } = fakeExec({ marketplace: 'exit' }, writeInstalledRecord);
+    const log = vi.fn();
+    expect(runClaudePluginInstall(home, {}, exec, log)).toEqual({ ok: true });
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('marketplace add'));
+  });
+  it('reports each install failure kind', () => {
+    for (const outcome of ['exit', 'timeout', 'error'] as const) {
+      const { exec } = fakeExec({ install: outcome });
+      expect(runClaudePluginInstall(home, {}, exec, () => {})).toEqual({
+        ok: false,
+        reason: `cli-install-failed:${outcome}`,
+      });
+    }
+  });
+  it('reports cli-install-unconfirmed when exit 0 leaves no install record', () => {
+    const { exec } = fakeExec({});
+    expect(runClaudePluginInstall(home, {}, exec, () => {})).toEqual({
+      ok: false,
+      reason: 'cli-install-unconfirmed',
+    });
+  });
+  it('logs to the migration log by default', () => {
+    const { exec } = fakeExec({ marketplace: 'error' }, writeInstalledRecord);
+    runClaudePluginInstall(home, {}, exec);
+    expect(readFileSync(migrationLogPath(home), 'utf8')).toContain('marketplace add');
+  });
+});
+
+describe('maybeMigrateToPlugin — Path A result is checked (B2)', () => {
+  function pathADeps(exec: ClaudeExec, log: (m: string) => void): MigrationDeps {
+    return baseDeps({
+      claudeVersion: () => '2.1.300',
+      runClaudeInstall: (h, env) => runClaudePluginInstall(h, env, exec, log),
+      log,
+    });
+  }
+  it('installs via cli when marketplace add fails but install succeeds with a record (AC-1)', () => {
+    manifestClaudeCode();
+    const { exec } = fakeExec({ marketplace: 'exit' }, writeInstalledRecord);
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      pathADeps(exec, () => {}),
+    );
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
+  });
+  it('falls back to settings and logs the reason when install exits non-zero (AC-4)', () => {
+    manifestClaudeCode();
+    const lines: string[] = [];
+    const { exec } = fakeExec({ install: 'exit' });
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      pathADeps(exec, (m) => lines.push(m)),
+    );
+    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+    expect(lines).toContain('path A failed (cli-install-failed:exit); falling back to settings');
+    expect(
+      JSON.parse(readFileSync(userSettings(), 'utf8')).extraKnownMarketplaces.eliyce.source.repo,
+    ).toBe('Eliyce/paqad-ai');
+  });
+  it('falls back on an unconfirmed install or a timeout (AC-5)', () => {
+    for (const [outcome, reason] of [
+      ['ok', 'cli-install-unconfirmed'],
+      ['timeout', 'cli-install-failed:timeout'],
+    ] as const) {
+      rmSync(home, { recursive: true, force: true });
+      mkdirSync(home, { recursive: true });
+      manifestClaudeCode();
+      const lines: string[] = [];
+      const { exec } = fakeExec({ install: outcome });
+      const r = maybeMigrateToPlugin(
+        projectRoot,
+        pathADeps(exec, (m) => lines.push(m)),
+      );
+      expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+      expect(lines).toContain(`path A failed (${reason}); falling back to settings`);
+    }
   });
 });
 
