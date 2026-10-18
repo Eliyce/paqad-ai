@@ -35,7 +35,7 @@ describe('active implementation session helpers', () => {
       ],
       {
         files: ['src/pipeline/classifier.ts', 'tests/unit/pipeline/classifier.test.ts'],
-        source: 'session-artifact',
+        source: 'git',
       },
     );
 
@@ -57,7 +57,7 @@ describe('active implementation session helpers', () => {
       [],
       {
         files: ['tests/unit/pipeline/classifier.test.ts'],
-        source: 'session-artifact',
+        source: 'git',
       },
     );
 
@@ -90,7 +90,7 @@ describe('active implementation session helpers', () => {
       ],
       {
         files: ['src/pipeline/classifier.ts', 'docs/modules/pipeline/index/summary.md'],
-        source: 'session-artifact',
+        source: 'git',
       },
     );
 
@@ -123,7 +123,7 @@ describe('active implementation session helpers', () => {
         scope: 'multi-module',
         affected_modules: ['src/pipeline', 'src/session'],
         changed_files: ['src/pipeline/classifier.ts'],
-        changed_files_source: 'session-artifact',
+        changed_files_source: 'git',
         has_code_changes: true,
         pending_verification: true,
         pending_documentation: true,
@@ -160,7 +160,7 @@ describe('active implementation session helpers', () => {
         scope: 'single-module',
         affected_modules: ['src/session'],
         changed_files: ['src/session/active-implementation.ts'],
-        changed_files_source: 'session-artifact',
+        changed_files_source: 'git',
         has_code_changes: true,
         pending_verification: true,
         pending_documentation: true,
@@ -192,7 +192,7 @@ describe('active implementation session helpers', () => {
         scope: 'single-module',
         affected_modules: ['src/pipeline'],
         changed_files: ['src/pipeline/classifier.ts'],
-        changed_files_source: 'session-artifact',
+        changed_files_source: 'git',
         has_code_changes: true,
         pending_verification: true,
         pending_documentation: true,
@@ -224,7 +224,7 @@ describe('active implementation session helpers', () => {
         scope: 'single-module',
         affected_modules: ['src/pipeline'],
         changed_files: ['src/pipeline/classifier.ts'],
-        changed_files_source: 'session-artifact',
+        changed_files_source: 'git',
         has_code_changes: true,
         pending_verification: true,
         pending_documentation: true,
@@ -259,7 +259,7 @@ describe('active implementation session helpers', () => {
         scope: null,
         affected_modules: [],
         changed_files: ['src/pipeline/classifier.ts'],
-        changed_files_source: 'session-artifact',
+        changed_files_source: 'git',
         has_code_changes: true,
         pending_verification: true,
         pending_documentation: false,
@@ -290,7 +290,7 @@ describe('active implementation session helpers', () => {
       'full',
       'implementation',
       [],
-      { files: ['src/pipeline/classifier.ts'], source: 'session-artifact' },
+      { files: ['src/pipeline/classifier.ts'], source: 'git' },
     );
 
     await writeActiveImplementationSession(root, artifact);

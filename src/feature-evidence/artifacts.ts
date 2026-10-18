@@ -141,7 +141,7 @@ export interface CompiledArtifact<T> {
 
 /** Extra, non-template inputs to {@link writeFeaturePlan}. */
 export interface WriteFeaturePlanOptions {
-  /** The git-reconciled changed files, unioned with the plan step files for the frontend test. */
+  /** The git-reported changed files, unioned with the plan step files for the frontend test. */
   changedFiles?: readonly string[];
 }
 

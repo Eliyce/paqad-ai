@@ -36,6 +36,7 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 import { writeVisualEvidenceManifest } from '@/visual-evidence/manifest.js';
 
 import { createVerificationContext } from '../verification/shared.fixture.js';
+import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 export type OracleCase = 'M0' | 'M1' | 'M2' | 'M3' | 'M4' | 'M5';
 
@@ -170,7 +171,7 @@ export async function runBundleFixture(
     verification_origin: 'hook-completion',
     verification_stage: 'backstop-completion',
     changed_files: [sourceFile],
-    changed_files_source: 'git-status',
+    changed_files_source: 'git',
     code_changed: true,
   });
   const root = context.project_root;
@@ -399,12 +400,8 @@ export async function runBundleFixture(
         : 'export function checkoutTotal(total: number): string {\n  return total.toFixed(2);\n}\n',
       'utf8',
     );
-    // The edit hook records the changed file for the verbs that read change evidence.
-    mkdirSync(join(root, '.paqad', 'session'), { recursive: true });
-    writeFileSync(
-      join(root, '.paqad', 'session', 'changed-files.json'),
-      JSON.stringify([sourceFile]),
-    );
+    // The verbs that read change evidence see the source edit through git (issue #646).
+    seedGitChangedFiles(root, [sourceFile]);
     afterStep('source edit');
     await cli(createStageCommand, ['end', 'development']);
     if (flagOn(caseId, 'visual_evidence=true')) {

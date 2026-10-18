@@ -7,11 +7,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
+import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { writeReviewDigest } from '@/review-digest/index.js';
 
 import {
   DELIVERED_FILES,
+  STALE_CACHE_PATH,
+  commitAll,
+  git,
   makeRepoWithStaleCache,
+  writeChangedFilesCache,
   writeRepoFile,
 } from '../pipeline/changed-files.fixture.js';
 
@@ -66,7 +71,9 @@ describe('writeReviewDigest', () => {
       }),
       'utf8',
     );
-    write(PATHS.CHANGED_FILES, ['src/a.ts']);
+    git(root, ['init', '-q']);
+    writeRepoFile(root, '.gitignore', '.paqad/\n');
+    writeRepoFile(root, 'src/a.ts', 'export const a = 1;\n');
     write(PATHS.RULE_SCRIPTS_REPORT, {
       results: [
         {
@@ -90,10 +97,8 @@ describe('writeReviewDigest', () => {
     expect(result.markdown).toMatch(/- Stages: \w+=/);
   });
 
-  it('degrades a corrupt changed-file list and a corrupt specification to "none recorded"', async () => {
+  it('degrades a non-git project and a corrupt specification to "none recorded"', async () => {
     const dirName = activeFeature();
-    mkdirSync(dirname(join(root, PATHS.CHANGED_FILES)), { recursive: true });
-    writeFileSync(join(root, PATHS.CHANGED_FILES), '{not json', 'utf8');
     writeFileSync(join(root, featureFilePath(dirName, 'specification')), 'not json', 'utf8');
 
     const result = await writeReviewDigest(root, SES, NOW);
@@ -102,14 +107,11 @@ describe('writeReviewDigest', () => {
     expect(result.markdown).toContain('No frozen acceptance criteria on record');
   });
 
-  it('ignores a changed-file list that is valid JSON but not a list of strings', async () => {
-    write(PATHS.CHANGED_FILES, { files: ['src/a.ts'] });
+  it('never reads a leftover session cache (issue #646)', async () => {
+    writeChangedFilesCache(root, ['src/a.ts']);
     expect((await writeReviewDigest(root, SES, NOW)).markdown).toContain(
       '- Changed files: none recorded',
     );
-
-    write(PATHS.CHANGED_FILES, ['src/a.ts', 7]);
-    expect((await writeReviewDigest(root, SES, NOW)).markdown).toContain('- Changed files (1):');
   });
 
   it('skips criteria when the frozen spec records none', async () => {
@@ -133,10 +135,11 @@ describe('writeReviewDigest', () => {
   });
 });
 
-// Issue #544 — the digest reads changed files through the one reconciling reader, so it can
-// never again be headed by files an already-merged change left in the session cache.
-describe('writeReviewDigest changed files (issue #544)', () => {
-  const SES = 'ses_review_digest_544';
+// Issue #544 / #646 — the digest reads changed files from git alone, so it can never be
+// headed by files an already-merged change left in the session cache, nor have edited
+// files hidden by a stale cache entry that happens to still be dirty.
+describe('writeReviewDigest changed files (issues #544, #646)', () => {
+  const SES = 'ses_review_digest_646';
   const NOW = () => new Date('2026-10-18T08:00:00.000Z');
   let root: string;
 
@@ -145,14 +148,14 @@ describe('writeReviewDigest changed files (issue #544)', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  it('AC-1: does not list cached files that are clean and already in base history', async () => {
+  it('does not list cached files that are clean and already in base history', async () => {
     const { markdown } = await writeReviewDigest(root, SES, NOW);
 
     for (const file of DELIVERED_FILES) expect(markdown).not.toContain(file);
     expect(markdown).toContain('- Changed files: none recorded');
   });
 
-  it("AC-2: lists the branch's real changes, not the stale cache", async () => {
+  it("lists the branch's real changes, not the stale cache", async () => {
     writeRepoFile(root, 'src/new-work.ts', 'export const work = 1;\n');
     writeRepoFile(root, 'tests/new-work.test.ts', 'it.todo("work");\n');
 
@@ -164,21 +167,61 @@ describe('writeReviewDigest changed files (issue #544)', () => {
     for (const file of DELIVERED_FILES) expect(markdown).not.toContain(file);
   });
 
-  it('keeps a cached entry the branch really changed and drops the delivered rest', async () => {
-    writeRepoFile(root, DELIVERED_FILES[0]!, 'export const delivered = 2;\n');
+  it('AC-3: lists files only committed on the branch when the tree is clean', async () => {
+    writeRepoFile(root, 'src/branch-work.ts', 'export const work = 1;\n');
+    commitAll(root, 'branch work');
 
     const { markdown } = await writeReviewDigest(root, SES, NOW);
 
     expect(markdown).toContain('- Changed files (1):');
-    expect(markdown).toContain(`  - ${DELIVERED_FILES[0]}`);
-    expect(markdown).not.toContain(DELIVERED_FILES[1]);
+    expect(markdown).toContain('  - src/branch-work.ts');
   });
 
-  it('AC-6: with no cache and a clean tree, still reads "none recorded"', async () => {
-    rmSync(join(root, PATHS.CHANGED_FILES));
+  it('with no cache and a clean tree, still reads "none recorded"', async () => {
+    rmSync(join(root, STALE_CACHE_PATH));
 
     const { markdown } = await writeReviewDigest(root, SES, NOW);
 
     expect(markdown).toContain('- Changed files: none recorded');
+  });
+});
+
+// Issue #646 AC-6 — the #644 scenario: a stale cache of many entries, one of them with a
+// mode-only change, and 12 other source files edited. The old reconcile kept only the
+// mode-changed entry and hid the 12 real edits; the digest must list every edited file.
+describe('writeReviewDigest on the #644 scenario (issue #646 AC-6)', () => {
+  const SES = 'ses_review_digest_644';
+  const NOW = () => new Date('2026-10-18T08:00:00.000Z');
+  const CACHED = Array.from({ length: 8 }, (_, index) => `src/cached-${index}.ts`);
+  const EDITED = Array.from({ length: 12 }, (_, index) => `src/edited-${index}.ts`);
+  let root: string;
+
+  beforeEach(() => {
+    root = makeRepoWithStaleCache([...CACHED, ...EDITED.slice(0, 6)]);
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('lists every edited file, not just the mode-changed cache entry', async () => {
+    // A mode-only change, staged so it shows on every platform (core.fileMode varies).
+    git(root, ['update-index', '--chmod=+x', CACHED[0]!]);
+    // Six committed files modified in place, six brand-new files.
+    for (const file of EDITED) writeRepoFile(root, file, 'export const edited = 2;\n');
+
+    const expected = [CACHED[0]!, ...EDITED].sort();
+    await expect(loadChangeEvidence(root)).resolves.toEqual({ files: expected, source: 'git' });
+
+    const { markdown } = await writeReviewDigest(root, SES, NOW);
+
+    // The header counts every edited file; the digest shows the first 12 and folds the
+    // rest into an "…and N more" line, so together they account for all 13.
+    expect(markdown).toContain(`- Changed files (${expected.length}):`);
+    const listed = markdown
+      .split('\n')
+      .filter((line) => line.startsWith('  - src/'))
+      .map((line) => line.slice('  - '.length));
+    expect(listed).toEqual(expected.slice(0, listed.length));
+    expect(markdown).toContain(`  - …and ${expected.length - listed.length} more`);
+    expect(listed).toContain(CACHED[0]);
+    for (const file of CACHED.slice(1)) expect(markdown).not.toContain(file);
   });
 });

@@ -11,7 +11,7 @@ import { Detector } from '@/detection/detector.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
 import { removeObsoleteContractDocs } from '@/onboarding/obsolete-cleanup.js';
-import { loadReconciledChangedFiles } from '@/pipeline/change-evidence.js';
+import { readGitChangedFiles } from '@/pipeline/change-evidence.js';
 import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
 import { refreshProjectRules, type RulesRefreshReport } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
@@ -241,7 +241,7 @@ async function resolveChangedFiles(
     return [...new Set(contextChangedFiles)].sort();
   }
 
-  // Issue #544: the session cache, reconciled against git, so entries an
-  // already-delivered change left behind never drive a differential refresh.
-  return loadReconciledChangedFiles(projectRoot);
+  // Issue #646: the change's files straight from git (working tree plus branch
+  // commits). A clean tree with no branch commits means no differential refresh.
+  return readGitChangedFiles(projectRoot);
 }

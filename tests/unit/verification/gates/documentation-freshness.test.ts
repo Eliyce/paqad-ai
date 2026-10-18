@@ -34,7 +34,7 @@ describe('DocumentationFreshnessGate', () => {
   it('fails when the diff implies stale canonical docs that were not updated', async () => {
     const context = createVerificationContext({
       changed_files: ['src/pipeline/router.ts'],
-      changed_files_source: 'session-artifact',
+      changed_files_source: 'git',
       code_changed: true,
       stale_doc_targets: [
         {
@@ -63,7 +63,7 @@ describe('DocumentationFreshnessGate', () => {
     const result = await gate.check(
       createVerificationContext({
         changed_files: ['src/pipeline/router.ts'],
-        changed_files_source: 'session-artifact',
+        changed_files_source: 'git',
         code_changed: true,
         stale_doc_targets: [
           {
@@ -82,7 +82,7 @@ describe('DocumentationFreshnessGate', () => {
   it('fails when a directly edited stale canonical target is still invalid', async () => {
     const context = createVerificationContext({
       changed_files: ['src/pipeline/router.ts', 'docs/maintainers/architecture-map.md'],
-      changed_files_source: 'session-artifact',
+      changed_files_source: 'git',
       code_changed: true,
       stale_doc_targets: [
         {

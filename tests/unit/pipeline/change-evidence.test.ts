@@ -158,94 +158,36 @@ describe('isPaqadArtifactPath (issue #205)', () => {
   });
 });
 
-describe('loadChangeEvidence', () => {
-  it('returns session-artifact when changed-files.json exists with content', async () => {
+describe('loadChangeEvidence (git only, issue #646)', () => {
+  it('is none in a directory that is not a git work tree', async () => {
     const root = makeTmpRoot();
-    writeChangedFiles(root, ['src/foo.ts', 'tests/unit/foo.test.ts']);
 
-    const result = await loadChangeEvidence(root);
-
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toContain('src/foo.ts');
-    expect(result.files).toContain('tests/unit/foo.test.ts');
+    await expect(loadChangeEvidence(root)).resolves.toEqual({ files: [], source: 'none' });
 
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('falls back to git-status when no session artifact exists', async () => {
+  it('ignores a leftover changed-files.json cache outside git', async () => {
     const root = makeTmpRoot();
+    writeChangedFiles(root, ['src/foo.ts']);
 
-    const result = await loadChangeEvidence(root);
-
-    expect(['git-status', 'none']).toContain(result.source);
-    expect(Array.isArray(result.files)).toBe(true);
+    await expect(loadChangeEvidence(root)).resolves.toEqual({ files: [], source: 'none' });
 
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('returns none when session artifact is empty and git has no changes', async () => {
-    const root = makeTmpRoot();
-    writeChangedFiles(root, []);
-
-    const result = await loadChangeEvidence(root);
-
-    expect(['none', 'git-status']).toContain(result.source);
-
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it('handles malformed changed-files.json gracefully', async () => {
-    const root = makeTmpRoot();
-    const dir = join(root, '.paqad', 'session');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'changed-files.json'), 'NOT_JSON');
-
-    const result = await loadChangeEvidence(root);
-
-    expect(['git-status', 'none']).toContain(result.source);
-
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it('handles non-array changed-files.json gracefully', async () => {
-    const root = makeTmpRoot();
-    const dir = join(root, '.paqad', 'session');
-    mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, 'changed-files.json'), JSON.stringify({ files: ['src/foo.ts'] }));
-
-    const result = await loadChangeEvidence(root);
-
-    expect(['git-status', 'none']).toContain(result.source);
-
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it('deduplicates and sorts files from session artifact', async () => {
-    const root = makeTmpRoot();
-    writeChangedFiles(root, ['src/b.ts', 'src/a.ts', 'src/a.ts']);
-
-    const result = await loadChangeEvidence(root);
-
-    expect(result.files).toEqual(['src/a.ts', 'src/b.ts']);
-
-    rmSync(root, { recursive: true, force: true });
-  });
-});
-
-describe('loadChangeEvidence (git-status path)', () => {
-  it('returns git-status source when no session artifact but git has modified files', async () => {
+  it('returns git source when the working tree has an untracked file', async () => {
     const root = makeGitRoot();
     writeFileSync(join(root, 'src.ts'), 'export const x = 1;');
 
     const result = await loadChangeEvidence(root);
 
-    expect(result.source).toBe('git-status');
-    expect(result.files.length).toBeGreaterThan(0);
+    expect(result).toEqual({ files: ['src.ts'], source: 'git' });
 
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('returns none when git repo is clean and no session artifact', async () => {
+  it('returns none when git repo is clean', async () => {
     const root = makeGitRoot();
     writeFileSync(join(root, 'init.ts'), 'export const x = 1;');
     execSync('git add .', { cwd: root });
@@ -268,87 +210,25 @@ describe('loadChangeEvidence (git-status path)', () => {
 
     const result = await loadChangeEvidence(root);
 
-    expect(result.source).toBe('git-status');
+    expect(result.source).toBe('git');
     expect(result.files).toContain('new.ts');
 
     rmSync(root, { recursive: true, force: true });
   });
-});
 
-describe('loadChangeEvidence (git reconciliation, issue #450)', () => {
-  function commitAllOnMain(root: string, message: string): void {
-    execSync('git add -A', { cwd: root });
-    execSync(`git commit -m "${message}"`, { cwd: root });
-    // Normalize the branch name so main/master base detection is deterministic
-    // across git versions/configs.
-    execSync('git branch -M main', { cwd: root });
-  }
-
-  it('drops an artifact entry that is committed and clean, then falls through to git-status (AC-1)', async () => {
+  it('never reports a committed, clean file from base history', async () => {
     const root = makeGitRoot();
     writeFileSync(join(root, 'delivered.ts'), 'export const x = 1;');
-    commitAllOnMain(root, 'deliver');
-    // The stale artifact still names the already-delivered, now-clean file.
-    writeChangedFiles(root, ['delivered.ts']);
-    // An unrelated untracked file is the session's real (docs) change.
+    execSync('git add -A', { cwd: root });
+    execSync('git commit -m "deliver"', { cwd: root });
+    execSync('git branch -M main', { cwd: root });
+    writeChangedFiles(root, ['delivered.ts']); // stale cache, ignored
     writeFileSync(join(root, 'note.txt'), 'later session');
 
     const result = await loadChangeEvidence(root);
 
-    expect(result.source).toBe('git-status');
     expect(result.files).not.toContain('delivered.ts');
     expect(result.files).toContain('note.txt');
-
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it('keeps an artifact entry that is dirty in the working tree (AC-2)', async () => {
-    const root = makeGitRoot();
-    writeFileSync(join(root, 'feature.ts'), 'export const x = 1;');
-    commitAllOnMain(root, 'init');
-    writeFileSync(join(root, 'feature.ts'), 'export const x = 2;'); // now modified
-    writeChangedFiles(root, ['feature.ts']);
-
-    const result = await loadChangeEvidence(root);
-
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toEqual(['feature.ts']);
-
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it('keeps an artifact entry committed on this branch since the merge-base (AC-3)', async () => {
-    const root = makeGitRoot();
-    writeFileSync(join(root, 'base.ts'), 'export const x = 1;');
-    commitAllOnMain(root, 'base');
-    execSync('git checkout -b feature', { cwd: root });
-    writeFileSync(join(root, 'branch-work.ts'), 'export const y = 2;');
-    execSync('git add -A', { cwd: root });
-    execSync('git commit -m "branch work"', { cwd: root });
-    writeChangedFiles(root, ['branch-work.ts']); // clean tree, committed on the branch
-
-    const result = await loadChangeEvidence(root);
-
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toEqual(['branch-work.ts']);
-
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it('trusts the artifact unchanged when there is no main/master base branch (AC-5)', async () => {
-    const root = makeGitRoot();
-    // Switch to a non-main/master branch BEFORE the first commit, so neither
-    // main nor master ever gets a ref and the divergence cannot be bounded.
-    execSync('git checkout -b develop', { cwd: root });
-    writeFileSync(join(root, 'delivered.ts'), 'export const x = 1;');
-    execSync('git add -A', { cwd: root });
-    execSync('git commit -m "deliver"', { cwd: root });
-    writeChangedFiles(root, ['delivered.ts']); // clean + committed, yet trusted
-
-    const result = await loadChangeEvidence(root);
-
-    expect(result.source).toBe('session-artifact');
-    expect(result.files).toEqual(['delivered.ts']);
 
     rmSync(root, { recursive: true, force: true });
   });

@@ -4,7 +4,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  rmSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -12,6 +11,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { NO_CONTEXT_REFRESH_ENV, removeTempProject } from './temp-project.js';
 
 const GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.mjs');
 const PROMPT_GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
@@ -26,7 +27,7 @@ interface RunResult {
 function runGate(projectRoot: string, input?: string): RunResult {
   try {
     const stdout = execFileSync('node', [GATE_SCRIPT], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
       ...(input === undefined ? { stdio: ['ignore', 'pipe', 'pipe'] as const } : { input }),
     });
     return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
@@ -41,7 +42,11 @@ function runGate(projectRoot: string, input?: string): RunResult {
 }
 
 function runPromptGate(projectRoot: string, mode?: 'soft' | 'hard'): RunResult {
-  const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_PROJECT_DIR: projectRoot };
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...NO_CONTEXT_REFRESH_ENV,
+    CLAUDE_PROJECT_DIR: projectRoot,
+  };
   if (mode) env.PAQAD_AGENT_ENTRY_MODE = mode;
   else delete env.PAQAD_AGENT_ENTRY_MODE;
   try {
@@ -72,7 +77,7 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removeTempProject(projectRoot);
   });
 
   it('blocks with exit code 2 when the sentinel is missing', () => {
@@ -267,7 +272,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removeTempProject(projectRoot);
   });
 
   it('soft mode (default) prints a reminder on stdout and exits 0 when the sentinel is missing', () => {
@@ -380,7 +385,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
   function runPromptGateWithInput(projectRoot: string, input: string): RunResult {
     try {
       const stdout = execFileSync('node', [PROMPT_GATE_SCRIPT], {
-        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
         input,
       });
       return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
@@ -425,7 +430,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
       // The gap this fixes: the per-session workflow-state now exists after the first prompt.
       expect(existsSync(workflowStatePath(projectRoot, sessionId))).toBe(true);
     } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
+      removeTempProject(projectRoot);
     }
   });
 
@@ -460,10 +465,9 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
           '[paqad] session route-582: prefix paqad-ai commands with SE_SESSION=route-582';
         expect(result.stdout.includes(line)).toBe(named);
       } finally {
-        // The prompt gate fires a DETACHED context-refresh child that keeps writing into
-        // projectRoot after the gate returns, so on Windows an immediate rmdir races it and
-        // throws ENOTEMPTY (issue #615). rmSync's built-in retry waits out the child.
-        rmSync(projectRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+        // NO_CONTEXT_REFRESH_ENV keeps the gate from spawning its detached context-refresh
+        // child, so nothing writes into projectRoot after the gate returns (issues #615, #649).
+        removeTempProject(projectRoot);
       }
     },
   );
@@ -485,7 +489,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       writeFileSync(join(projectRoot, 'src.ts'), 'export const a = 2;\n');
 
       execFileSync('node', [RESET_SCRIPT], {
-        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
         input: JSON.stringify({ session_id: 'baseline-1' }),
       });
 
@@ -499,7 +503,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       };
       expect(baseline.files['src.ts']).toBeTypeOf('string');
     } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
+      removeTempProject(projectRoot);
     }
   });
 
@@ -511,13 +515,13 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       // A leftover per-agent marker from a prior session (issue #567).
       writeFileSync(join(projectRoot, '.paqad/session/agent-entry/agent_x'), '{}');
       execFileSync('node', [RESET_SCRIPT], {
-        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
         stdio: 'ignore',
       });
       expect(existsSync(join(projectRoot, '.paqad/.agent-entry-loaded'))).toBe(false);
       expect(existsSync(join(projectRoot, '.paqad/session/agent-entry'))).toBe(false);
     } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
+      removeTempProject(projectRoot);
     }
   });
 });
@@ -545,14 +549,14 @@ describe('per-session entry sentinel (issue #582)', () => {
 
   function runSessionStart(input: string): void {
     execFileSync('node', [RESET_SCRIPT], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
       input,
     });
   }
 
   function runPromptGateFor(input: string): RunResult {
     const stdout = execFileSync('node', [PROMPT_GATE_SCRIPT], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
       input,
     });
     return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
@@ -567,7 +571,7 @@ describe('per-session entry sentinel (issue #582)', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removeTempProject(projectRoot);
   });
 
   it('SessionStart for session B leaves session A sentinel, and A can still edit (AC-10)', () => {

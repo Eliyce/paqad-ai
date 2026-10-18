@@ -25,7 +25,7 @@
 
 - Always-load = `trigger_patterns` is empty or contains `**`.
 - A scoped rule is loaded when `ruleTriggersMatch(rule, changedPaths)`.
-- Working-set paths come from `loadChangeEvidence` (session tracker → git status).
+- Working-set paths come from `loadChangeEvidence`: git working-tree status plus files committed on the branch since its base (issue #646).
 - Loaded text uses each rule's `raw_text` (falls back to `summary`).
 
 ## API / Interface Contract

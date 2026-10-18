@@ -77,7 +77,7 @@ describe('#368 E2E — an incomplete change surfaces a visible "Needs your atten
       verification_stage: 'backstop-completion',
       code_changed: true,
       changed_files: ['src/feature.ts'],
-      changed_files_source: 'git-status',
+      changed_files_source: 'git',
     });
 
     // (1) Real verdict from the real verification path over the real ledger.

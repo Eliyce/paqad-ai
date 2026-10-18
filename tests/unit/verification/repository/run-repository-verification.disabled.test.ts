@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
+import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
 // Issue #220 — when paqad is disabled, the verification backstop is a pure
 // no-op: it returns an ok verdict and writes NOTHING under .paqad (no
@@ -41,7 +42,7 @@ describe('runRepositoryVerification is a clean no-op when disabled', () => {
     mkdirSync(join(root, '.paqad/session'), { recursive: true });
     // A changed file: if verification actually ran it would compute digests and
     // write evidence/module-health, dirtying the tree.
-    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/x.ts']));
+    seedGitChangedFiles(root, ['src/x.ts']);
     originalEnv = process.env.PAQAD_DISABLED;
     delete process.env.PAQAD_DISABLED;
   });

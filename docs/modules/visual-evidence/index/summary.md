@@ -23,7 +23,7 @@ reports `skipped`.
 ## How a change flows through it
 
 1. **Trigger** (`trigger.ts`) — the change is *frontend-triggering* when a changed file
-   (from the git-reconciled change evidence) matches an active stack pack's
+   (from the git-reported change evidence) matches an active stack pack's
    `visual_evidence.frontend_globs`. Non-frontend ⇒ everything downstream is `not-frontend`.
    If the profile declares frameworks but paqad loads none of its built-in packs, that is an
    install fault (`PackRegistryEmptyError`), not a clean change: the gate reads `fail` under

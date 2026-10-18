@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { gatherTraceabilityInputs } from '@/traceability/inputs.js';
 import { buildTraceabilityMap } from '@/traceability/map-builder.js';
 
+import { seedGitChangedFiles, writeChangedFilesCache } from '../pipeline/changed-files.fixture.js';
+
 describe('gatherTraceabilityInputs — rebuilt from reality', () => {
   let root: string;
 
@@ -86,5 +88,23 @@ describe('gatherTraceabilityInputs — rebuilt from reality', () => {
 
     const input = await gatherTraceabilityInputs({ projectRoot: root, lane: 'full' });
     expect(input.proofs).toContainEqual({ promise_id: 'AC-7', checks: ['gate:tests'] });
+  });
+
+  it('reads changed files from git and ignores a leftover session cache (issue #646)', async () => {
+    write('src/base.ts', 'export const b = 1;\n');
+    write('src/edited.ts', 'export const e = 1;\n');
+    seedGitChangedFiles(root, ['src/edited.ts']);
+    writeChangedFilesCache(root, ['src/base.ts']);
+
+    const input = await gatherTraceabilityInputs({ projectRoot: root, lane: 'graduated' });
+    expect(input.changedFiles).toEqual(['src/edited.ts']);
+  });
+
+  it('has no changed files on a clean tree with no branch commits (issue #646)', async () => {
+    write('src/base.ts', 'export const b = 1;\n');
+    seedGitChangedFiles(root, []);
+
+    const input = await gatherTraceabilityInputs({ projectRoot: root, lane: 'graduated' });
+    expect(input.changedFiles).toEqual([]);
   });
 });

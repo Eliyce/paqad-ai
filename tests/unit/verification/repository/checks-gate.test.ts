@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -18,6 +18,7 @@ import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 
 import { createVerificationContext, ownInFlightChange } from '../shared.fixture.js';
+import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
 function structuredResult(runnerId: string, failed: number): StructuredTestResult {
   return {
@@ -116,8 +117,7 @@ describe('buildRepositoryVerificationContext reads the persisted report (#318)',
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-ctx-checks-'));
-    mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/app.ts']));
+    seedGitChangedFiles(root, ['src/app.ts']);
   });
 
   afterEach(() => {

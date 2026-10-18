@@ -72,15 +72,18 @@ anchoring check.
 
 ## Honest limits
 
-- The changed-file header comes from `loadChangeEvidence`, the one reader that reconciles
-  the cached `.paqad/session/changed-files.json` against git (issue #544). A cache left
-  over from an already-merged change once headed a digest with six files from that change;
-  now entries that are clean and already in base history are dropped, and with nothing left
-  the header falls back to `git status`. That costs a few read-only git queries, never a
-  model call. A clean tree with no cache still renders `none recorded`.
-- When some cached entries survive the reconcile, the header lists those entries only,
-  exactly as the completion gates see the change. It does not merge in other `git status`
-  files.
+- The changed-file header comes from `loadChangeEvidence`, which reads git alone
+  (issue #646): the working-tree changes plus every file committed on the branch since it
+  left `main` or `master`, exactly as the completion gates see the change. The old
+  `.paqad/session/changed-files.json` cache is never read, so a leftover copy can neither
+  head the digest with files from an already-merged change nor hide files you edited. That
+  costs a few read-only git queries, never a model call.
+- When git cannot tell where the branch started (no `main` or `master`, or no commits yet),
+  the header lists the working-tree changes only, so files already committed on that branch
+  are missing. Outside a git repository, and on a clean tree with no branch commits, it
+  renders `none recorded`.
+- The header shows the first 12 changed files and folds the rest into an `…and N more`
+  line; the count beside the header always covers every file.
 - Doc drift reaches the digest through the canonical-docs gate's failures, not by running
   the stale-doc detector (also a subprocess). Before verification has run once, doc drift
   is **absent** from the digest rather than proven clean.

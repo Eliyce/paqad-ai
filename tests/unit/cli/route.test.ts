@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -10,6 +10,7 @@ import { readRouteOverrides } from '@/pipeline/route-override-log.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { readPendingLane, writePendingLane } from '@/stage-evidence/pending-lane.js';
+import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 // `paqad-ai route set <workflow>` — let the agent correct the hook's deterministic label (#580).
 describe('paqad-ai route set command', () => {
@@ -73,8 +74,7 @@ describe('paqad-ai route set command', () => {
       paused: [],
     });
     // A real source edit this turn.
-    mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    writeFileSync(join(root, '.paqad/session/changed-files.json'), JSON.stringify(['src/app.ts']));
+    seedGitChangedFiles(root, ['src/app.ts']);
 
     await routeSet('project-question');
 

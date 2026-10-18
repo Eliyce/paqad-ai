@@ -187,7 +187,7 @@ describe('evaluateFrontendTrigger', () => {
   it('triggers when a changed file matches a frontend glob and reports what matched', async () => {
     loadChange.mockResolvedValue({
       files: ['src/pages/Goals.tsx', 'README.md'],
-      source: 'git-status',
+      source: 'git',
     });
     const result = await evaluateFrontendTrigger('/root');
     expect(result.triggered).toBe(true);
@@ -197,14 +197,14 @@ describe('evaluateFrontendTrigger', () => {
   });
 
   it('does not trigger for a non-frontend change', async () => {
-    loadChange.mockResolvedValue({ files: ['src/server/api.ts'], source: 'git-status' });
+    loadChange.mockResolvedValue({ files: ['src/server/api.ts'], source: 'git' });
     const result = await evaluateFrontendTrigger('/root');
     expect(result.triggered).toBe(false);
     expect(result.matched_files).toEqual([]);
   });
 
   it('normalizes windows separators to posix before matching', async () => {
-    loadChange.mockResolvedValue({ files: ['src\\pages\\Goals.tsx'], source: 'git-status' });
+    loadChange.mockResolvedValue({ files: ['src\\pages\\Goals.tsx'], source: 'git' });
     const result = await evaluateFrontendTrigger('/root');
     expect(result.triggered).toBe(true);
     expect(result.matched_files).toEqual(['src/pages/Goals.tsx']);
