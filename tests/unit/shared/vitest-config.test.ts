@@ -33,6 +33,15 @@ describe('vitest.config.ts', () => {
     expect(config.test.coverage.thresholds).toBeUndefined();
   });
 
+  it.each(['0', 'false', 'yes', ''])(
+    'keeps the floors on when PAQAD_TEST_SHARD is %j, not exactly 1',
+    async (value) => {
+      vi.stubEnv('PAQAD_TEST_SHARD', value);
+      const config = await loadConfig();
+      expect(config.test.coverage.thresholds).toMatchObject({ branches: 95 });
+    },
+  );
+
   it('balances shards with the duration sequencer', async () => {
     const config = await loadConfig();
     // Module reset loads a fresh copy of the class, so compare it with the copy the config saw.
