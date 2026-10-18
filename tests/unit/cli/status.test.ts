@@ -4,7 +4,14 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { collectDriftSignals, createStatusCommand, driftSignalsTrip } from '@/cli/commands/status';
+import {
+  collectDriftSignals,
+  createStatusCommand,
+  driftSignalsTrip,
+  renderHudText,
+} from '@/cli/commands/status';
+import type { HudSnapshot } from '@/hud/snapshot';
+import { writeWorkflowState } from '@/pipeline/workflow-state';
 import { writeDecision } from '@/module-decisions/store';
 import { formatDecisionId, ttlExpiresAt } from '@/module-decisions/schema';
 
@@ -39,6 +46,56 @@ describe('createStatusCommand', () => {
     stdout.mockRestore();
     stderr.mockRestore();
     process.exitCode = undefined;
+  });
+
+  // Issue #639, Part 7 (AC-9) — the HUD snapshot through the status command.
+  it('--hud --format json prints the HUD snapshot object for the session', async () => {
+    writeWorkflowState(root, 'ses-hud', {
+      active: { workflow: 'codebase-health', reason: 'a health check' },
+      paused: [],
+    });
+    const cmd = createStatusCommand();
+    await cmd.parseAsync(
+      ['--hud', '--format', 'json', '--session', 'ses-hud', '--project-root', root],
+      { from: 'user' },
+    );
+    const snapshot = JSON.parse(writes.join(''));
+    expect(snapshot).toMatchObject({
+      schema: 'paqad.hud/2',
+      session_id: 'ses-hud',
+      route: 'codebase-health',
+      lane_reason: 'a health check',
+      headline: { text: 'Working on codebase health.', tone: 'working' },
+    });
+  });
+
+  it('--hud prints the snapshot as plain text by default', async () => {
+    writeWorkflowState(root, 'ses-hud', { active: null, paused: [] });
+    const cmd = createStatusCommand();
+    await cmd.parseAsync(['--hud', '--session', 'ses-hud', '--project-root', root], {
+      from: 'user',
+    });
+    expect(writes.join('')).toBe('paqad · Ready. No change in progress.\n');
+  });
+
+  it('renders the change, stages, flags and waiting decisions as text', () => {
+    const text = renderHudText({
+      headline: { text: 'Needs you: 1 decision waiting.', tone: 'needs-you' },
+      change: { dir: 'd', id: null, issue: '1', title: 'A change', branch: null, status: null },
+      lane: 'graduated',
+      stages: [{ stage: 'planning', state: 'complete' }],
+      flags: [{ id: 'f', text: 'A flag.' }],
+      decisions: { pending: [{ id: 'D-1', category: 'c', question: 'q' }], resolved: 0 },
+    } as unknown as HudSnapshot);
+    expect(text).toBe(
+      [
+        'paqad · Needs you: 1 decision waiting.',
+        'change: A change · graduated lane',
+        '- planning: complete',
+        'flag: A flag.',
+        'decisions waiting: 1',
+      ].join('\n'),
+    );
   });
 
   function bootstrap(): void {
