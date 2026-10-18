@@ -27,7 +27,8 @@ import { TEST_OUTPUT_SMOKE_FIXTURES } from '@/test-output/fixtures.js';
 import { deriveHealthTier } from '@/planning/module-health.js';
 import { isCompiledRulesStale } from '@/planning/rule-compiler.js';
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
-import { readPipelineConfig, standingBudgetSum } from '@/spec-pipeline/config.js';
+import { expertsActive, readPipelineConfig, standingBudgetSum } from '@/spec-pipeline/config.js';
+import { resolveEffectiveConfig } from '@/cli/commands/config.js';
 import { EXPERT_ROLES } from '@/spec-pipeline/experts/roster.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { checkSpecShape, PARITY_CORPUS } from '@/spec-pipeline/parser-parity.js';
@@ -88,6 +89,7 @@ export class HealthChecker {
       this.checkClassificationOverrideRate(projectRoot),
       ...(await this.checkRag(projectRoot, profile)),
       this.checkSpecPipeline(projectRoot),
+      this.checkSpecPipelineSettings(projectRoot),
       ...this.checkExpertRoster(projectRoot),
       ...this.checkVisualEvidence(projectRoot),
     ];
@@ -1129,6 +1131,41 @@ export class HealthChecker {
   }
 
   /**
+   * The three spec-pipeline switches with their effective value and where each came from
+   * (issue #640, FR-15): "default", the env variable, or the config file that set it. Since
+   * #640 the pipeline, the experts and strict adoption are on by default, so a team can see here
+   * why the High Table now runs, what it costs and how to switch it off. Always a pass: this is
+   * information, not a problem.
+   */
+  private checkSpecPipelineSettings(projectRoot: string): HealthCheckResult {
+    const config = readPipelineConfig(projectRoot);
+    const from = specPipelineSources(projectRoot);
+    const onOff = (on: boolean): string => (on ? 'on' : 'off');
+    const values =
+      `spec pipeline ${onOff(config.enabled)} (${from.spec_pipeline_enabled}), ` +
+      `experts ${onOff(config.experts_enabled)} (${from.spec_pipeline_experts_enabled}), ` +
+      `adoption ${config.adoption} (${from.spec_pipeline_adoption}).`;
+    if (!config.enabled) {
+      return pass(
+        'Spec pipeline settings',
+        `${values} The pipeline is off, so specs are written by hand and no experts run.`,
+      );
+    }
+    const kTokens = (n: number): string => `${Math.round(n / 1000)}k`;
+    const cost = expertsActive(config)
+      ? ` The ${config.standing_experts.length} standing experts carry about ` +
+        `${kTokens(standingBudgetSum(config))} tokens of budget per spec ` +
+        `(ceiling ${kTokens(config.token_ceiling)}).`
+      : '';
+    return pass(
+      'Spec pipeline settings',
+      `${values} It runs on the graduated and full lanes; the fast lane never runs it.${cost} ` +
+        'To switch off: spec_pipeline_enabled=false, spec_pipeline_experts_enabled=false or ' +
+        'spec_pipeline_adoption=warn in .paqad/configs/.config.* or .paqad/.config.',
+    );
+  }
+
+  /**
    * Visual-evidence coherence (issue #551, Part A.5). Warns (never fails) when the feature is
    * on but a prerequisite is missing, so a team that turned it on but cannot yet capture sees
    * exactly why. Fully silent when the flag is off.
@@ -1159,9 +1196,16 @@ export class HealthChecker {
     const name = 'Expert roster config is coherent';
     const config = readPipelineConfig(projectRoot);
     const results: HealthCheckResult[] = [];
+    // Issue #640 — the experts and strict adoption are on by default. A project that switched
+    // only the pipeline off has not "turned the experts on", so a default value never warns.
+    const from = specPipelineSources(projectRoot);
 
     // The coherence result is ALWAYS emitted (pass or warn), so `name` never goes missing.
-    if (config.experts_enabled && !config.enabled) {
+    if (
+      config.experts_enabled &&
+      !config.enabled &&
+      from.spec_pipeline_experts_enabled !== 'default'
+    ) {
       results.push(
         warn(
           name,
@@ -1169,7 +1213,7 @@ export class HealthChecker {
           'Enable the pipeline (spec_pipeline_enabled=true), or turn the experts flag off.',
         ),
       );
-    } else if (config.experts_enabled && config.clarification === 'off') {
+    } else if (expertsActive(config) && config.clarification === 'off') {
       results.push(
         warn(
           name,
@@ -1181,7 +1225,7 @@ export class HealthChecker {
       results.push(
         pass(
           name,
-          config.experts_enabled
+          expertsActive(config)
             ? 'Expert roster is enabled and its config is coherent.'
             : 'Expert roster is off; nothing to enforce.',
         ),
@@ -1189,7 +1233,11 @@ export class HealthChecker {
     }
 
     // (a) adoption strict but the pipeline is off (FR-12.2a).
-    if (config.adoption === 'strict' && !config.enabled) {
+    if (
+      config.adoption === 'strict' &&
+      !config.enabled &&
+      from.spec_pipeline_adoption !== 'default'
+    ) {
       results.push(
         warn(
           'Spec pipeline adoption is coherent',
@@ -1531,6 +1579,30 @@ export class HealthChecker {
       return fail(input.name, `${input.relativePath} is unreadable`, input.invalidRemediation);
     }
   }
+}
+
+type SpecPipelineSwitchKey =
+  'spec_pipeline_enabled' | 'spec_pipeline_experts_enabled' | 'spec_pipeline_adoption';
+
+/**
+ * Where each spec-pipeline switch got its value (issue #640, FR-15), in plain words: "default",
+ * the env variable's name, or the config file. Read from the same resolver `config effective`
+ * uses, so the two never disagree.
+ */
+function specPipelineSources(projectRoot: string): Record<SpecPipelineSwitchKey, string> {
+  const knobs = resolveEffectiveConfig(projectRoot);
+  const sourceOf = (key: string): string => {
+    const surface = knobs.find((knob) => knob.key === key)!.surface;
+    if (surface.startsWith('env:')) return surface.slice('env:'.length);
+    if (surface.startsWith('local ')) return surface.slice('local '.length);
+    if (surface.startsWith('team ')) return `.paqad/${surface.slice('team '.length)}`;
+    return surface;
+  };
+  return {
+    spec_pipeline_enabled: sourceOf('spec_pipeline_enabled'),
+    spec_pipeline_experts_enabled: sourceOf('spec_pipeline_experts_enabled'),
+    spec_pipeline_adoption: sourceOf('spec_pipeline_adoption'),
+  };
 }
 
 function pass(name: string, detail: string): HealthCheckResult {

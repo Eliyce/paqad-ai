@@ -37,11 +37,11 @@ describe('paqad-ai config effective (#326)', () => {
     expect(k?.value).toBe('9');
   });
 
-  it('resolves the tracked team surface when only it sets a knob', () => {
+  it('resolves the tracked team surface, naming the file, when only it sets a knob', () => {
     mkdirSync(join(root, '.paqad/configs'), { recursive: true });
     writeFileSync(join(root, '.paqad/configs/.config.rag'), 'rag_max_file_size=1234\n');
     const k = knob('rag_max_file_size');
-    expect(k?.surface).toBe('team configs/.config.*');
+    expect(k?.surface).toBe('team configs/.config.rag');
     expect(k?.value).toBe('1234');
   });
 
@@ -68,6 +68,10 @@ describe('paqad-ai config effective (#326)', () => {
 
   it('maps a genuinely-consumed knob to its consumer', () => {
     expect(knob('rag_enabled')?.consumed_by).toContain('context seam');
+    // Issue #640 — the spec-pipeline knobs that were missing a consumer.
+    expect(knob('spec_pipeline_experts_enabled')?.consumed_by).toContain('expert roster');
+    expect(knob('spec_pipeline_adoption')?.consumed_by).toContain('spec freeze');
+    expect(knob('spec_pipeline_standing_experts')?.consumed_by).toContain('standing experts');
     expect(knob('model_default')?.consumed_by).toContain('model');
   });
 

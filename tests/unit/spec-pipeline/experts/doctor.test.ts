@@ -143,3 +143,77 @@ describe('doctor: Expert roster check', () => {
     expect(check).toBeUndefined();
   });
 });
+
+// Issue #640 (FR-15, AC-23) — doctor shows each spec-pipeline switch, its source and the cost.
+describe('doctor: Spec pipeline settings (issue #640)', () => {
+  let root: string;
+  let home: string;
+  let prevHome: string | undefined;
+  const NAME = 'Spec pipeline settings';
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-sp-settings-'));
+    home = join(tmpdir(), `paqad-sp-settings-home-${Date.now()}`);
+    prevHome = process.env.PAQAD_FRAMEWORK_HOME;
+    process.env.PAQAD_FRAMEWORK_HOME = home;
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
+    if (prevHome === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
+    else process.env.PAQAD_FRAMEWORK_HOME = prevHome;
+    delete process.env.PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED;
+  });
+
+  function teamPolicy(body: string): void {
+    mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
+    writeFileSync(join(root, '.paqad', 'configs', '.config.policy'), body, 'utf8');
+  }
+  async function check(): Promise<{ status: string; detail: string }> {
+    const report = await new HealthChecker().run(root);
+    return report.checks.find((c) => c.name === NAME) as { status: string; detail: string };
+  }
+
+  it('shows the defaults, the standing experts budget and how to switch off', async () => {
+    const result = await check();
+    expect(result.status).toBe('pass');
+    expect(result.detail).toContain(
+      'spec pipeline on (default), experts on (default), adoption strict (default).',
+    );
+    expect(result.detail).toContain('the fast lane never runs it');
+    expect(result.detail).toContain(
+      'The 4 standing experts carry about 24k tokens of budget per spec (ceiling 40k).',
+    );
+    expect(result.detail).toContain('spec_pipeline_enabled=false');
+  });
+
+  it('names the file that set one key and "default" for the two unset (AC-23)', async () => {
+    teamPolicy('spec_pipeline_adoption=warn\n');
+    const result = await check();
+    expect(result.detail).toContain(
+      'spec pipeline on (default), experts on (default), adoption warn (.paqad/configs/.config.policy).',
+    );
+  });
+
+  it('names the env variable when the env set it', async () => {
+    process.env.PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED = 'false';
+    const result = await check();
+    expect(result.detail).toContain('experts off (PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)');
+    expect(result.detail).not.toContain('standing experts carry');
+  });
+
+  it('says the pipeline is off, and default experts or adoption raise no warning', async () => {
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, '.paqad', '.config'), 'spec_pipeline_enabled=false\n');
+    const report = await new HealthChecker().run(root);
+    const settings = report.checks.find((c) => c.name === NAME)!;
+    expect(settings.detail).toContain('spec pipeline off (.paqad/.config)');
+    expect(settings.detail).toContain('no experts run');
+    const roster = report.checks.find((c) => c.name === 'Expert roster config is coherent')!;
+    expect(roster.status).toBe('pass');
+    expect(roster.detail).toMatch(/Expert roster is off; nothing to enforce/);
+    expect(
+      report.checks.find((c) => c.name === 'Spec pipeline adoption is coherent'),
+    ).toBeUndefined();
+  });
+});

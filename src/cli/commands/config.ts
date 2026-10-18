@@ -1,3 +1,5 @@
+import { basename } from 'node:path';
+
 import { Command } from 'commander';
 
 import { FRAMEWORK_CONFIG_SPECS, readConfigsDir, readDotConfig } from '@/core/framework-config.js';
@@ -80,6 +82,9 @@ const KNOB_CONSUMERS: Record<string, string> = {
   spec_pipeline_clarification: 'spec pipeline (question-round gate)',
   spec_pipeline_final_review: 'spec pipeline (finish gate)',
   spec_pipeline_token_ceiling: 'spec pipeline (per-run token ceiling)',
+  spec_pipeline_experts_enabled: 'spec pipeline (expert roster, the High Table)',
+  spec_pipeline_adoption: 'spec freeze (strict adoption) + bundle-completeness gate',
+  spec_pipeline_standing_experts: 'spec pipeline (standing experts at every spec)',
   checks_parallel: 'checks stage (scheduler + parallel test plan)',
   checks_max_processes: 'checks stage (parallel process cap)',
   checks_flaky_under_parallel: 'checks isolated-re-run verdict (pass-alone policy)',
@@ -98,7 +103,8 @@ export function resolveEffectiveConfig(
   env: NodeJS.ProcessEnv = process.env,
 ): EffectiveKnob[] {
   const localMap = readDotConfig(projectRoot);
-  const teamMap = readConfigsDir(projectRoot).merged;
+  const team = readConfigsDir(projectRoot);
+  const teamMap = team.merged;
 
   return FRAMEWORK_CONFIG_SPECS.map((spec) => {
     const envVal = env[spec.env];
@@ -112,7 +118,8 @@ export function resolveEffectiveConfig(
       surface = 'local .paqad/.config';
     } else if (teamMap.has(spec.key)) {
       value = teamMap.get(spec.key) ?? '';
-      surface = 'team configs/.config.*';
+      // Issue #640 — name the team file that set it, so doctor can say where a value came from.
+      surface = `team configs/${basename(team.sources.get(spec.key)!)}`;
     } else {
       value = spec.default === undefined ? '(unset)' : String(spec.default);
       surface = 'default';

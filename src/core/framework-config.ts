@@ -1001,10 +1001,12 @@ export interface ConfigsCollision {
  * filenames in sorted order so a later file wins deterministically. Keys are
  * meant to be globally unique across the files (the split is organizational), so
  * any key set by two files is reported as a collision for the caller to surface.
+ * `sources` names, per key, the file whose value won (issue #640: doctor names it).
  */
 export function readConfigsDir(projectRoot: string): {
   merged: Map<string, string>;
   collisions: ConfigsCollision[];
+  sources: Map<string, string>;
 } {
   const merged = new Map<string, string>();
   const seenIn = new Map<string, string[]>();
@@ -1021,12 +1023,14 @@ export function readConfigsDir(projectRoot: string): {
     }
   }
   const collisions: ConfigsCollision[] = [];
+  const sources = new Map<string, string>();
   for (const [key, files] of seenIn) {
+    sources.set(key, files[files.length - 1]!);
     if (files.length > 1) {
       collisions.push({ key, files });
     }
   }
-  return { merged, collisions };
+  return { merged, collisions, sources };
 }
 
 /**
