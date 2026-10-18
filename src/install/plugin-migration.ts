@@ -631,6 +631,11 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
 
 /** Run the install (Path A when a usable `claude` exists, else Path B) and record `installed`. */
 function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {
+  // An explicit user opt-out wins over both paths: never install against it (B5, INV-7).
+  if (userDisabledPlugin(deps.home)) {
+    deps.log('user turned the plugin off; not installing');
+    return record(deps, prior, { state: 'declined', reason: 'user-opted-out' });
+  }
   const attempts = (prior?.attempts ?? 0) + 1;
   const version = deps.claudeVersion();
   const pathA = version !== null && versionAtLeast(version, MIN_CLAUDE_VERSION);

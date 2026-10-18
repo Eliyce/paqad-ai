@@ -515,6 +515,22 @@ describe('maybeMigrateToPlugin — install (Part 3)', () => {
     const r = maybeMigrateToPlugin(projectRoot, baseDeps());
     expect(r.state).toBe('declined');
   });
+  it('never runs Path A against an explicit opt-out, and the decline is final', () => {
+    manifestClaudeCode();
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    writeFileSync(userSettings(), JSON.stringify({ enabledPlugins: { 'paqad@eliyce': false } }));
+    const before = readFileSync(userSettings(), 'utf8');
+    const runClaudeInstall = vi.fn(() => ({ ok: true }));
+    const deps = baseDeps({ claudeVersion: () => '2.1.300', runClaudeInstall });
+    expect(maybeMigrateToPlugin(projectRoot, deps)).toMatchObject({
+      state: 'declined',
+      reason: 'user-opted-out',
+    });
+    expect(maybeMigrateToPlugin(projectRoot, deps).state).toBe('declined');
+    expect(runClaudeInstall).not.toHaveBeenCalled();
+    expect(readFileSync(userSettings(), 'utf8')).toBe(before);
+    expect(readMigrationState(home)?.attempts).toBe(0);
+  });
 });
 
 /** Write Claude Code's install record for the paqad plugin into the sandboxed home. */
