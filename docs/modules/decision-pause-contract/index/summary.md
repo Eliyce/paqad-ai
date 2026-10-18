@@ -10,6 +10,21 @@ flagged choice the agent writes a Decision Packet to
 packet exists. Routed through the interactive question UI when
 available.
 
+### One packet shape (issue #639, Part 3)
+
+`paqad-ai decision create` (`createPendingDecision` in `src/decisions/authoring.ts`) writes a
+packet that keeps every contract field (`id`, `title`, `options`, `chosen` once resolved) and
+also carries the rich `DecisionPacket` fields (`decision_id`, `question`, `fingerprint`,
+`human_response` once resolved). So Approvals, the completion gate, decision precedents and
+the spec pipeline's auto-answer all see the same packet the edit gate counts. A packet that
+cannot be a `DecisionPacket` (a category outside the canonical list, or more than five
+options) is stored in contract shape alone.
+
+`readAnyDecisionPacket` (`src/decisions/packet-shape.ts`) is the one tolerant reader:
+`DecisionStore` and the precedent scan read through it, so a contract-only packet written
+before this change is upgraded in memory, never rewritten. A malformed pending file belongs
+to no task, so it no longer blocks `writePending`.
+
 ### Decision-precedent enrichment (RAG buildout F25)
 
 When a pause opens, `DecisionStore.writePending` enriches the packet's context with the

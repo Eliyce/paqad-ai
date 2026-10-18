@@ -263,8 +263,9 @@ describe('evidence-armed packet fields (#361)', () => {
     const stored = readContractDecisions(root).find((row) => row.packet.id === id);
     expect(stored?.packet.origin).toBe('evidence-armed');
     expect(stored?.packet.options[0].evidence).toEqual(evidence);
-    // An option without evidence stays clean rather than carrying an empty block.
-    expect(stored?.packet.options[1].evidence).toBeUndefined();
+    // An option without evidence carries an empty block: the one packet shape (#639 Part 3)
+    // is also a valid DecisionPacket, whose options always hold an evidence object.
+    expect(stored?.packet.options[1].evidence).toEqual({});
 
     const { packet } = resolvePendingDecision(root, id, 'reuse');
     expect(packet.origin).toBe('evidence-armed');
