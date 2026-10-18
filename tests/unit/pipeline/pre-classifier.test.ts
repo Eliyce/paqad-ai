@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as deltaDetector from '@/pipeline/delta-detector.js';
 import * as ruleTriggerMatcher from '@/pipeline/rule-trigger-matcher.js';
@@ -377,7 +377,16 @@ describe('PreClassifier · talking about work (#623)', () => {
   it('needs a work noun, a work verb and no source path', () => {
     expect(isAboutWorkPrompt('Post it to GitHub as drafted, label bug.')).toBe(true);
     expect(isAboutWorkPrompt('update the pull request description')).toBe(true);
-    expect(isAboutWorkPrompt('add the findings to the report')).toBe(true);
+    expect(isAboutWorkPrompt('post the findings to the report')).toBe(true);
+    expect(isAboutWorkPrompt('update the plan on GitHub')).toBe(true);
+    expect(isAboutWorkPrompt('update the draft')).toBe(true);
+    // A soft work noun (report, plan) with a code keyword and no tracker word is a code request.
+    expect(isAboutWorkPrompt('add the findings to the report')).toBe(false);
+    // A soft work noun with only an everyday verb and no tracker target is not work talk.
+    expect(isAboutWorkPrompt('update the plans table to include a trial flag')).toBe(false);
+    // "rewrite" used as a verb asks for a code change; used as a noun it names the work.
+    expect(isAboutWorkPrompt('rewrite the auth flow in streaming mode')).toBe(false);
+    expect(isAboutWorkPrompt('do a rewrite of the auth flow')).toBe(false);
     // No work verb.
     expect(isAboutWorkPrompt('the issue is still open')).toBe(false);
     // No work noun.
@@ -434,7 +443,7 @@ describe('PreClassifier · talking about work (#623)', () => {
   });
 
   it.each([
-    'add the findings to this report',
+    'post the findings to this report',
     'add these notes to the draft',
     'add the open questions to our pull request',
     'post the summary and link the ticket',
@@ -455,5 +464,55 @@ describe('PreClassifier · talking about work (#623)', () => {
     // "label bug" names an issue label, so "bug" is not read as a code surface there.
     expect(isAboutWorkPrompt('post the issue, label bug')).toBe(true);
     expect(isAboutWorkPrompt('post the issue about the login bug')).toBe(false);
+  });
+});
+
+// Issue #623 review: a real code request that mentions a report, plan, doc or research must
+// never be routed away from feature-development.
+describe('PreClassifier · code requests that name a soft work noun (#623)', () => {
+  beforeEach(() => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+  });
+
+  async function routeOf(request: string): Promise<string | null> {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-about-work-'));
+    try {
+      return (await resolvePromptRoute(root, request)).routed;
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it.each([
+    'add retry logic to the report generator',
+    'add pagination to the reports list',
+    'add a plan picker to checkout',
+    'add a doc preview to the file uploader',
+    'add a trial badge to the plans overview',
+    'implement the scheduled report emails',
+  ])('keeps "%s" on feature-development', async (request) => {
+    expect(isAboutWorkPrompt(request)).toBe(false);
+    expect(await routeOf(request)).toBe('feature-development');
+  });
+
+  it.each([
+    'rewrite the report export in streaming mode',
+    'rewrite the plans module so it streams',
+  ])('never routes the code rewrite "%s" to project-question', async (request) => {
+    expect(isAboutWorkPrompt(request)).toBe(false);
+    expect(await routeOf(request)).not.toBe('project-question');
+  });
+
+  it.each([
+    'update the login timeout to 30 minutes',
+    'check the cart totals',
+    'draft a welcome message for new users',
+    'rename the config file',
+  ])('leaves "%s" unresolved, as before the about-work tiers', async (request) => {
+    const result = await new PreClassifier(process.cwd()).classify({ request });
+    expect(result.unresolved).toContain('workflow');
   });
 });
