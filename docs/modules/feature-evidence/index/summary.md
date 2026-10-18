@@ -81,9 +81,9 @@ change, so the live feature-development stage spine is untouched:
 | `plan.json` | always | `paqad-ai plan compile` |
 | `specification.json` | always | `paqad-ai spec freeze` |
 | `spec.md` | always (issue #581) | `paqad-ai spec freeze` (the signed source, header in front matter) |
-| `request.md` | `spec_pipeline_enabled` | `paqad-ai spec pipeline start` |
-| `clarification.json` | `spec_pipeline_enabled` | `paqad-ai spec pipeline` (label + questions) |
-| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` | `paqad-ai spec pipeline experts` |
+| `request.md` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline start` |
+| `clarification.json` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline` (label + questions) |
+| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` (both on by default), graduated or full lane | `paqad-ai spec pipeline experts` |
 | `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
@@ -113,7 +113,10 @@ attention), naming the file and its writer, and blocks via the Stop-hook path; `
 surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
 `evidence_existence_gate`. A file recovered by cache backfill is reported `backfilled`
 (never a clean pass); a RAG gap is unrecoverable and reads Inconclusive; a flag-off file is
-`skipped`. No-active-bundle and non-local (CI) turns skip the gate entirely, and so does
+`skipped`. The spec-pipeline files and the strict spec-provenance check apply only on the
+graduated and full lanes (issue #640): the gate reads the change's recorded `lane` through
+the shared `buildBundleCompletenessConfig`, an unresolved lane counts as full, and on the
+fast lane the detail lists them as "not required on the fast lane". No-active-bundle and non-local (CI) turns skip the gate entirely, and so does
 any turn the session-ownership check skips (see below).
 - **Session ownership at turn end** (`src/pipeline/session-ownership.ts`, issue #582) —
   `classifyCompletionEnforcement` decides whether this session's turn is checked at all.

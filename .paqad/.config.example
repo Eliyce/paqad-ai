@@ -57,6 +57,12 @@
 # Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
 # checks_max_processes=0
 
+# ── Claude Code plugin migration (issue #621) ───────────────
+# on | off — fleet-wide switch to move existing npm Claude Code users to the paqad plugin automatically in the background. Default off until manual sign-off; Claude Code only, npm is never removed and stays the fallback. (env: PAQAD_PLUGIN_MIGRATION)
+# plugin_migration=off
+# auto | plugin | settings — per-project override of the plugin migration. settings never migrates (stay on npm hooks); plugin forces the migration even while plugin_migration is off; auto follows plugin_migration. (env: PAQAD_CLAUDE_INSTALL_MODE)
+# claude_install_mode=auto
+
 # ── Intelligence / RAG ──────────────────────────────────────
 # Enable retrieval-augmented context loading. (env: PAQAD_RAG_ENABLED)
 # rag_enabled=false
@@ -145,18 +151,18 @@
 # keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs (issue #538). strip (default) suppresses it where the provider exposes a project-level knob (Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level only). paqad's own delivery footer is never touched by this knob. (env: PAQAD_AI_ATTRIBUTION)
 # ai_attribution=strip
 
-# ── Spec pipeline (issue #512 — optional, off by default) ───
-# Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: with it off, feature-development is byte-identical to today (FR-11). It sits upstream of the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on. (env: PAQAD_SPEC_PIPELINE_ENABLED)
-# spec_pipeline_enabled=false
+# ── Spec pipeline (issue #512) ──────────────────────────────
+# The grounded prompt->spec pipeline (`paqad-ai spec pipeline`). On by default on the graduated and full lanes (issue #640); the fast lane never runs it. Set it to false to switch it off: feature-development then works as it did before the pipeline (FR-11). It sits upstream of the edit lock and feeds `spec freeze`. (env: PAQAD_SPEC_PIPELINE_ENABLED)
+# spec_pipeline_enabled=true
 # off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask and hold until answered or explicitly deferred. off: never ask. The fixed spine (grounding, no-invented-requirements, traceability) is never switchable. (env: PAQAD_SPEC_PIPELINE_CLARIFICATION)
 # spec_pipeline_clarification=warn
 # off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): a human must approve before freeze, recording a named human. Independent of the A5 gate. (env: PAQAD_SPEC_PIPELINE_FINAL_REVIEW)
 # spec_pipeline_final_review=off
 # Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes. (env: PAQAD_SPEC_PIPELINE_TOKEN_CEILING)
 # spec_pipeline_token_ceiling=40000
-# Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
-# spec_pipeline_experts_enabled=false
-# warn | strict: how firmly the specification stage adopts the pipeline once spec_pipeline_enabled is on. warn (default): the stage tells the agent to produce the spec through `paqad-ai spec pipeline`; a hand-written spec still freezes, recorded as pipeline.produced=false and shown in the receipt. strict: `spec freeze` refuses a spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is recorded on the frozen spec. No effect while spec_pipeline_enabled is off. (env: PAQAD_SPEC_PIPELINE_ADOPTION)
-# spec_pipeline_adoption=warn
+# The Phase 2 expert roster (issue #521): a fast-tier skill decides which experts (db, security, ui, ...) a request needs, and their notes feed the crafted spec. On by default on the graduated and full lanes (issue #640). Set it to false to switch it off: then zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs spec_pipeline_enabled on to have any effect. (env: PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED)
+# spec_pipeline_experts_enabled=true
+# warn | strict: how firmly the specification stage adopts the pipeline once spec_pipeline_enabled is on. strict (default since issue #640): `spec freeze` refuses a spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is recorded on the frozen spec. Set it to warn to soften this: the stage still tells the agent to produce the spec through `paqad-ai spec pipeline`, but a hand-written spec freezes, recorded as pipeline.produced=false and shown in the receipt. No effect while spec_pipeline_enabled is off. (env: PAQAD_SPEC_PIPELINE_ADOPTION)
+# spec_pipeline_adoption=strict
 # Comma-separated expert roles that sit at the table on EVERY spec run once spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay on call and are picked per request. Empty means no standing experts (the detector alone decides, as before). A role outside the expert roster is ignored with a doctor warning. No effect while the pipeline or the experts are off. (env: PAQAD_SPEC_PIPELINE_STANDING_EXPERTS)
 # spec_pipeline_standing_experts=product-owner,application-architect,user-flow-writer,qa-engineer

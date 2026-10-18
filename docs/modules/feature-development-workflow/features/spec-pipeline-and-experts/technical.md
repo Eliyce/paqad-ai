@@ -35,12 +35,16 @@ Expert briefs are never stored. `paqad-ai spec pipeline experts brief <role>` pr
 
 | Flag | Effect |
 |---|---|
-| `spec_pipeline_enabled` | Master switch. Off, and the change is exactly as before. |
-| `spec_pipeline_experts_enabled` | Gates the roster. Off, and the `experts` step completes by skip. |
+| `spec_pipeline_enabled` | Master switch, default `true` (issue #640). Set `false`, and the change is exactly as before. |
+| `spec_pipeline_experts_enabled` | Gates the roster, default `true` (issue #640). Set `false`, and the `experts` step completes by skip. |
 | `spec_pipeline_clarification` | Gates the `questions` step. |
 | `spec_pipeline_final_review` | Gates the chief architect's readiness pass. |
-| `spec_pipeline_token_ceiling` | Per-run token budget. Overruns are recorded as ceiling warnings, not hard stops. |
-| `spec_pipeline_adoption` | `warn` \| `strict`, default `warn`. Controls how strict the freeze is (see Freeze). |
+| `spec_pipeline_token_ceiling` | Per-run token budget, default 40000. Overruns are recorded as ceiling warnings, not hard stops. |
+| `spec_pipeline_adoption` | `warn` \| `strict`, default `strict` (issue #640). Controls how strict the freeze is (see Freeze). |
+
+The three defaults live in one place, `SPEC_PIPELINE_DEFAULTS` in `src/core/framework-config.ts`. `readPipelineConfig`, `readSpecPipelineFlags` and the prompt-gate nudge (`runtime/hooks/lib/agent-entry-directive.mjs`, which mirrors the values and is guarded by a drift test) all read an unset key as that default. A value set in any layer wins, in the usual order: `PAQAD_*` env, then `.paqad/.config`, then `.paqad/configs/.config.*`. `paqad-ai update` never writes a default into a config file.
+
+The defaults apply only on the graduated and full lanes. The fast lane never runs the pipeline: the prompt gate prints no nudge there, `spec freeze` treats a fast-lane change as if the pipeline were off, and the completeness gate does not ask for `request.md`, `clarification.json` or `experts.json` (see `laneRunsSpecPipeline` in `src/feature-evidence/manifest.ts`; an unresolved lane counts as full). `paqad-ai doctor` shows each switch, where its value came from, and the standing experts' budget (about 24k tokens per spec against the 40k ceiling).
 
 ## The expert roster and lenses
 
@@ -62,9 +66,9 @@ The `chief-architect` is never picked; it runs once any expert fired. The model 
 
 `paqad-ai spec freeze <spec.md> --from-pipeline` merges the staged run into `specification.json`: a `task` section, a `grounding` section, a `pipeline` section (`produced`, `outcome`, `reason`, `a5_live`, the enforcement block once, and `manual_reason` for a manual freeze) and a `trace` map keyed by item id. It copies the signed source into the bundle as `spec.md`, then deletes the staging dir and every `.paqad/tmp/` input the record verbs were handed.
 
-- Under **strict** adoption, a non-pipeline spec is refused unless `--manual --reason` is given.
+- Under **strict** adoption (the default), a non-pipeline spec is refused unless `--manual --reason` is given. A fast-lane change is never refused: it freezes as if the pipeline were off.
 - There is no `specification.md`. The feature report renders the spec from `specification.json`.
-- The completeness gate **fails closed** under strict adoption for a non-pipeline spec with no manual reason.
+- The completeness gate **fails closed** under strict adoption for a non-pipeline spec with no manual reason, on the graduated and full lanes.
 
 ## Metrics
 

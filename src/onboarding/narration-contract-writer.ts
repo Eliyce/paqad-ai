@@ -177,7 +177,7 @@ Then speak the end-of-change verdict (${PAQAD_VERDICT.pass} / ${PAQAD_VERDICT.fa
 
 ### Specification through the pipeline (issue #512)
 
-When \`spec_pipeline_enabled\` is on for the project, the specification stage is not "write a spec by hand". Run the pipeline and let it produce the spec:
+When \`spec_pipeline_enabled\` is on for the project (the default since issue #640, together with the experts and strict adoption) and the change is on the graduated or full lane, the specification stage is not "write a spec by hand". A fast-lane change never runs the pipeline and freezes a hand-written spec. A project switches these off with \`spec_pipeline_enabled=false\`, \`spec_pipeline_experts_enabled=false\` or \`spec_pipeline_adoption=warn\`. Otherwise, run the pipeline and let it produce the spec:
 
 \`\`\`
 paqad-ai spec pipeline start --request-file <request.md>   # or --ticket <ref>; S0 ground + S1 label in one go
