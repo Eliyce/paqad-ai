@@ -13,26 +13,96 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# tsup generates .d.ts in a worker thread whose heap defaults to ~2 GB (the worker does
+# not auto-size to the runner's RAM), so the DTS build hit ERR_WORKER_OUT_OF_MEMORY on the
+# macOS Node 22 runner (issue #615). Raise the heap for every job — the worker inherits
+# the parent's --max-old-space-size — so the build and the coverage run have headroom.
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+# The test run is split into shards so the slowest OS finishes inside 7 minutes (issue #654):
+#
+#   static  typecheck, lint, format, graph-ui tests, build and plugin checks, once on ubuntu
+#   test    each OS runs its share of the vitest files (tests/shared/duration-sequencer.ts
+#           balances them by tests/shard-timings.json) and uploads a blob report
+#   merge   each OS merges its own blobs, on that same OS, and enforces the coverage floors
+#   gate    one job per required check, under the exact names branch protection expects,
+#           red unless static, every test shard and every merge succeeded
+#
+# Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
 jobs:
-  ci:
-    name: Node ${{ matrix.node }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    # tsup generates .d.ts in a worker thread whose heap defaults to ~2 GB (the worker does
-    # not auto-size to the runner's RAM), so the DTS build hit ERR_WORKER_OUT_OF_MEMORY on the
-    # macOS Node 22 runner (issue #615). Raise the heap for the whole job — the worker inherits
-    # the parent's --max-old-space-size — so the build and the coverage run have headroom.
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
     env:
-      NODE_OPTIONS: --max-old-space-size=4096
+      # Claude Code is installed only to run `claude plugin validate` and `claude plugin test`,
+      # which work offline with no login. Keep it on the pinned version.
+      DISABLE_AUTOUPDATER: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install graph-ui dependencies
+        run: pnpm --dir graph-ui install --frozen-lockfile
+
+      # Without the `claude` CLI, plugin:validate and plugin:test print a skip note and pass,
+      # so install it here to make them really run.
+      - name: Install Claude Code for the plugin checks
+        run: npm install -g @anthropic-ai/claude-code@2.1.302
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Lint
+        run: pnpm run lint
+
+      - name: Format check
+        run: pnpm run format:check
+
+      - name: graph-ui tests
+        run: pnpm run graph-ui:test
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Validate the plugin
+        run: pnpm run plugin:validate
+
+      - name: Run the plugin tests
+        run: pnpm run plugin:test
+
+  test:
+    name: Shard ${{ matrix.shard }}/${{ matrix.total }}, Node ${{ matrix.node }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        node: [22, 24]
         include:
-          - os: macos-latest
-            node: 22
-          - os: windows-latest
-            node: 22
+          - { os: windows-latest, node: 22, shard: 1, total: 4 }
+          - { os: windows-latest, node: 22, shard: 2, total: 4 }
+          - { os: windows-latest, node: 22, shard: 3, total: 4 }
+          - { os: windows-latest, node: 22, shard: 4, total: 4 }
+          - { os: ubuntu-latest, node: 22, shard: 1, total: 3 }
+          - { os: ubuntu-latest, node: 22, shard: 2, total: 3 }
+          - { os: ubuntu-latest, node: 22, shard: 3, total: 3 }
+          - { os: ubuntu-latest, node: 24, shard: 1, total: 3 }
+          - { os: ubuntu-latest, node: 24, shard: 2, total: 3 }
+          - { os: ubuntu-latest, node: 24, shard: 3, total: 3 }
+          - { os: macos-latest, node: 22, shard: 1, total: 3 }
+          - { os: macos-latest, node: 22, shard: 2, total: 3 }
+          - { os: macos-latest, node: 22, shard: 3, total: 3 }
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -60,8 +130,110 @@ jobs:
       - name: Install graph-ui dependencies
         run: pnpm --dir graph-ui install --frozen-lockfile
 
-      - name: Pre-build (so e2e tests skip their own build step)
+      - name: Build (so e2e tests skip their own build step)
         run: pnpm run build
 
-      - name: Run full CI script
-        run: pnpm run ci
+      # PAQAD_TEST_SHARD turns the coverage floors off for this shard only: a shard sees part
+      # of the code, and the merge job checks the floors on the whole result. The blob report
+      # carries the results and coverage to the merge job; the JSON report feeds the budget check.
+      - name: Run test shard ${{ matrix.shard }}/${{ matrix.total }}
+        env:
+          PAQAD_TEST_SHARD: '1'
+        run: >-
+          pnpm exec vitest run --coverage --reporter=blob --reporter=json
+          --outputFile.json=.vitest-durations/durations-${{ matrix.shard }}.json
+          --shard=${{ matrix.shard }}/${{ matrix.total }}
+
+      - name: Upload the shard report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: blob-${{ matrix.os }}-node${{ matrix.node }}-${{ matrix.shard }}
+          path: |
+            .vitest-reports
+            .vitest-durations
+          include-hidden-files: true
+          retention-days: 1
+
+  merge:
+    name: Merge, Node ${{ matrix.node }} / ${{ matrix.os }}
+    needs: test
+    # Runs even when a shard failed, so the merged report lists every failure in one place.
+    # The gate still goes red: it needs every shard to have succeeded.
+    if: ${{ !cancelled() }}
+    # Coverage thresholds match paths relative to the project root, and blob paths are not
+    # remapped, so each OS merges its own blobs on that same OS.
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, node: 22, total: 4 }
+          - { os: ubuntu-latest, node: 22, total: 3 }
+          - { os: ubuntu-latest, node: 24, total: 3 }
+          - { os: macos-latest, node: 22, total: 3 }
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node ${{ matrix.node }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Download the shard reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: blob-${{ matrix.os }}-node${{ matrix.node }}-*
+          merge-multiple: true
+
+      # A shard that died before writing its report would leave its tests out of the merge.
+      - name: Check every shard sent a report
+        shell: bash
+        run: |
+          shopt -s nullglob
+          blobs=(.vitest-reports/blob-*.json)
+          echo "Found ${#blobs[@]} of ${{ matrix.total }} shard reports."
+          test "${#blobs[@]}" -eq "${{ matrix.total }}"
+
+      # PAQAD_TEST_SHARD is not set here, so the 95% global and 100% src/stage-evidence/**
+      # floors apply to the merged coverage, and a failed test in any shard fails this step.
+      - name: Merge the shard reports and check coverage
+        run: pnpm exec vitest run --merge-reports --coverage
+
+      - name: Check the shard time budget
+        if: ${{ !cancelled() }}
+        run: node scripts/check-shard-budget.mjs --os "Node ${{ matrix.node }} / ${{ matrix.os }}"
+
+  gate:
+    # These four names are the required status checks in branch protection. Keep them exact.
+    name: Node ${{ matrix.node }} / ${{ matrix.os }}
+    needs: [static, test, merge]
+    # Always runs: a job skipped because a dependency failed would count as passing, so the
+    # gate runs anyway and fails unless every job it needs succeeded. GitHub reports a matrix
+    # job's result as one value for all its legs, so a failing shard on any OS turns all four
+    # gates red; the failing leg is the red `Shard i/n, Node x / os` job above.
+    if: always()
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, node: 22 }
+          - { os: ubuntu-latest, node: 24 }
+          - { os: macos-latest, node: 22 }
+          - { os: windows-latest, node: 22 }
+    steps:
+      - name: Require static checks, every test shard and every merge to pass
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
