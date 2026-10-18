@@ -37,6 +37,7 @@ import { readFeatureRecord, featureRecordIsUntitled } from '@/feature-evidence/f
 import {
   BUNDLE_MANIFEST,
   isBundleFileRequired,
+  specPipelineStrictApplies,
   validateBundleFileContent,
   validateSpecificationAdoption,
   type BundleCompletenessConfig,
@@ -170,6 +171,8 @@ interface GateState {
   missing: { file: string; writer: string }[];
   ragMissing: boolean;
   flagSkipped: string[];
+  /** Issue #640 — files their flag requires but the fast lane does not need. */
+  laneSkipped: string[];
   /** Issue #602 (FR-4) — the lane never resolved on a subagent-capable feature-dev change and
    *  no isolation ran, so isolation could not be verified. Surfaced (Inconclusive), never a
    *  hard block. */
@@ -211,6 +214,7 @@ export function bundleCompletenessGate(
     missing: [],
     ragMissing: false,
     flagSkipped: [],
+    laneSkipped: [],
     isolationUnverified: false,
   };
 
@@ -227,7 +231,13 @@ export function bundleCompletenessGate(
         continue;
       }
       if (!isBundleFileRequired(entry, input.config)) {
-        state.flagSkipped.push(entry.file);
+        // Issue #640 — a file the fast lane does not need is "not required on the fast lane",
+        // not "flag off": the flag may well be on.
+        if (isBundleFileRequired(entry, { ...input.config, lane: 'full' })) {
+          state.laneSkipped.push(entry.file);
+        } else {
+          state.flagSkipped.push(entry.file);
+        }
         continue;
       }
       assertRequired(entry, input, dirName, sessionId, state);
@@ -307,7 +317,7 @@ function assertRequired(
       // Strict-adoption content check (issue #547, FR-10.2): under strict adoption the frozen spec
       // must record that the pipeline produced it, or a manual reason. Not applied under warn or
       // with the pipeline off, so the gate is unchanged there.
-      if (input.config.specPipelineStrict) {
+      if (specPipelineStrictApplies(input.config)) {
         const adoption = validateSpecificationAdoption(content);
         if (!adoption.ok) {
           state.missing.push({
@@ -444,9 +454,12 @@ function legacySpecProjectionPresent(projectRoot: string, dirName: string): bool
 
 function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvidenceGate {
   const skipNote =
-    state.flagSkipped.length > 0
+    (state.flagSkipped.length > 0
       ? ` Skipped (flag off): ${[...state.flagSkipped].sort().join(', ')}.`
-      : '';
+      : '') +
+    (state.laneSkipped.length > 0
+      ? ` Not required on the fast lane: ${[...state.laneSkipped].sort().join(', ')}.`
+      : '');
   const backfillNote =
     state.backfilled.length > 0
       ? ` Backfilled (live write missed): ${state.backfilled.join(', ')}.`

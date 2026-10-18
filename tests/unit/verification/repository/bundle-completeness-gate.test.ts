@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
+import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
 import {
   chatRagPath,
@@ -38,6 +39,7 @@ const UNTITLED = 'change-01JABCDEFGHJKMNPQRSTVWXYZ1';
 
 /** Config where only the `always` files are required (every flag off). */
 const ONLY_ALWAYS: BundleCompletenessConfig = {
+  lane: 'full',
   ruleComplianceOn: false,
   metricsEnabled: false,
   duplicationOn: false,
@@ -653,6 +655,79 @@ describe('spec pipeline files (issue #581, M2/M3/M5)', () => {
     expect(run(root, ONLY_ALWAYS)!.detail).not.toContain('decisions.json');
     write(root, featureFilePath(DIR, 'decisions'), '{}');
     expect(run(root, ONLY_ALWAYS)!.status).toBe('pass');
+  });
+});
+
+// Issue #640 (FR-13, AC-20) — the pipeline files and the strict provenance check apply only on
+// the graduated and full lanes (an unresolved lane counts as full). The lane comes from the
+// change's own feature.json through the shared builder, with the pipeline on by default.
+describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
+  const LANE_DIR = '640-lane-01JABCDEFGHJKMNPQRSTVWXYZ2';
+
+  /** The real builder's lane and pipeline flags (nothing set, so the #640 defaults apply). */
+  function configFor(root: string, lane: 'fast' | 'graduated' | 'full' | null) {
+    seedFeatureRecord(root, LANE_DIR, { adapter: 'claude-code', sessionId: 'ses_1', lane });
+    const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
+    expect(built.lane).toBe(lane);
+    return {
+      ...ONLY_ALWAYS,
+      lane: built.lane,
+      specPipelineEnabled: built.specPipelineEnabled,
+      specPipelineStrict: built.specPipelineStrict,
+      expertsEnabled: built.expertsEnabled,
+    };
+  }
+  const run = (root: string, config: BundleCompletenessConfig) =>
+    bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: LANE_DIR,
+      mode: 'strict',
+      config,
+    });
+
+  it('passes a fast-lane change with no request.md, clarification.json or experts.json', () => {
+    const root = tempRoot();
+    const config = configFor(root, 'fast');
+    expect([config.specPipelineEnabled, config.expertsEnabled]).toEqual([true, true]);
+    writeAlwaysFiles(root, LANE_DIR);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).toContain(
+      'Not required on the fast lane: clarification.json, experts.json, request.md.',
+    );
+    expect(gate!.detail).not.toContain('Skipped (flag off): clarification.json');
+  });
+
+  it.each([
+    ['graduated', 'graduated'],
+    ['unresolved', null],
+  ] as const)('fails a %s-lane change without them, naming each missing file', (_n, lane) => {
+    const root = tempRoot();
+    const config = configFor(root, lane);
+    writeAlwaysFiles(root, LANE_DIR);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('request.md (run: paqad-ai spec pipeline start)');
+    expect(gate!.detail).toContain('clarification.json');
+    expect(gate!.detail).toContain('experts.json');
+  });
+
+  it('applies the strict provenance check off the fast lane only', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR); // specification.json records no provenance
+    const strict = { ...ONLY_ALWAYS, specPipelineStrict: true };
+    const gateFor = (lane: BundleCompletenessConfig['lane']) =>
+      bundleCompletenessGate({
+        ...base,
+        projectRoot: root,
+        dirName: DIR,
+        mode: 'strict',
+        config: { ...strict, lane },
+      });
+    expect(gateFor('fast')!.status).toBe('pass');
+    expect(gateFor('graduated')!.detail).toMatch(/spec_pipeline_adoption=strict/);
+    expect(gateFor(null)!.status).toBe('fail');
   });
 });
 

@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   BUNDLE_MANIFEST,
   isBundleFileRequired,
+  laneRunsSpecPipeline,
   requiredBundleFiles,
+  specPipelineApplies,
+  specPipelineStrictApplies,
   validateBundleFileContent,
   readSpecAdoption,
   validateSpecificationAdoption,
@@ -13,6 +16,7 @@ import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
 
 /** All flags on — every predicate-required file is required. */
 const ALL_ON: BundleCompletenessConfig = {
+  lane: 'full',
   ruleComplianceOn: true,
   metricsEnabled: true,
   duplicationOn: true,
@@ -30,6 +34,7 @@ const ALL_ON: BundleCompletenessConfig = {
 
 /** All flags off — only the `always` files are required. */
 const ALL_OFF: BundleCompletenessConfig = {
+  lane: 'full',
   ruleComplianceOn: false,
   metricsEnabled: false,
   duplicationOn: false,
@@ -298,5 +303,49 @@ describe('the #581 M0-M5 required file sets', () => {
     const all = BUNDLE_MANIFEST.map((entry) => entry.file);
     expect(all).not.toContain('specification.md');
     expect(all).not.toContain('context-efficiency.jsonl');
+  });
+});
+
+// Issue #640 (FR-13) — the spec-pipeline files and the strict provenance check apply only on the
+// graduated and full lanes; an unresolved lane fails safe to full; the fast lane never needs them.
+describe('lane-aware spec-pipeline requiredness (issue #640, FR-13)', () => {
+  const PIPELINE_FILES = ['request.md', 'clarification.json', 'experts.json'];
+  const pipelineFilesFor = (config: BundleCompletenessConfig): string[] =>
+    requiredBundleFiles(config)
+      .map((entry) => entry.file)
+      .filter((file) => PIPELINE_FILES.includes(file))
+      .sort();
+
+  it.each([
+    ['graduated', 'graduated'],
+    ['full', 'full'],
+    ['unresolved (null)', null],
+  ] as const)('requires the pipeline files on the %s lane', (_name, lane) => {
+    expect(pipelineFilesFor({ ...ALL_ON, lane })).toEqual([...PIPELINE_FILES].sort());
+    expect(specPipelineStrictApplies({ ...ALL_ON, lane })).toBe(true);
+  });
+
+  it('never requires them on the fast lane, even with every flag on (INV-18)', () => {
+    const fast: BundleCompletenessConfig = { ...ALL_ON, lane: 'fast' };
+    expect(pipelineFilesFor(fast)).toEqual([]);
+    expect(specPipelineApplies(fast)).toBe(false);
+    expect(specPipelineStrictApplies(fast)).toBe(false);
+    // Everything else the flags turn on is still required on the fast lane.
+    expect(requiredBundleFiles(fast).length).toBe(requiredBundleFiles(ALL_ON).length - 3);
+  });
+
+  it('keeps the pipeline files off on every lane when the pipeline is off', () => {
+    for (const lane of ['fast', 'graduated', 'full', null] as const) {
+      expect(pipelineFilesFor({ ...ALL_OFF, lane })).toEqual([]);
+      expect(specPipelineStrictApplies({ ...ALL_OFF, lane })).toBe(false);
+    }
+  });
+
+  it('treats only the fast lane as one that skips the pipeline', () => {
+    expect(laneRunsSpecPipeline('fast')).toBe(false);
+    expect(laneRunsSpecPipeline('graduated')).toBe(true);
+    expect(laneRunsSpecPipeline('full')).toBe(true);
+    expect(laneRunsSpecPipeline(null)).toBe(true);
+    expect(laneRunsSpecPipeline(undefined)).toBe(true);
   });
 });

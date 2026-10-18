@@ -10,10 +10,19 @@
 // asserts every FEATURE_BUNDLE_FILES key (plus report.html) has an entry here — so a new
 // file cannot be added without declaring its expectation.
 
+import type { StageLane } from '@/stage-evidence/types.js';
+
 import { FEATURE_BUNDLE_FILES, type FeatureBundleFile } from './paths.js';
 
 /** The resolved config flags a manifest `required` predicate reads. */
 export interface BundleCompletenessConfig {
+  /**
+   * Issue #640 (FR-13) — the change's recorded lane, read once by the shared builder from the
+   * bundle's own constants. The spec-pipeline files and the strict spec-provenance check apply
+   * only on the graduated and full lanes; the fast lane never needs them. An unresolved lane
+   * (null) counts as full, failing safe.
+   */
+  lane: StageLane;
   /** rule_compliance mode !== 'off'. */
   ruleComplianceOn: boolean;
   /** metrics_enabled. */
@@ -104,6 +113,28 @@ export interface BundleManifestEntry {
 }
 
 /**
+ * Whether the change's lane runs the spec pipeline (issue #640, FR-13): graduated, full or
+ * unresolved (which fails safe to full). The fast lane needs no frozen spec, so it never runs
+ * the pipeline and never needs its files, whatever the config says (INV-18).
+ */
+export function laneRunsSpecPipeline(lane: StageLane | undefined): boolean {
+  return lane !== 'fast';
+}
+
+/** Whether the spec-pipeline files are required for this change: pipeline on, lane not fast. */
+export function specPipelineApplies(config: BundleCompletenessConfig): boolean {
+  return config.specPipelineEnabled && laneRunsSpecPipeline(config.lane);
+}
+
+/**
+ * Whether the strict spec-provenance check applies to this change (issue #547 FR-10.2, lane
+ * aware since issue #640): strict adoption on and the lane not fast.
+ */
+export function specPipelineStrictApplies(config: BundleCompletenessConfig): boolean {
+  return config.specPipelineStrict && laneRunsSpecPipeline(config.lane);
+}
+
+/**
  * The bundle manifest — every file a finished feature-development change may leave, with
  * its required-when predicate, its writer, and its content check. Keyed so the coverage
  * test can assert it covers every {@link FEATURE_BUNDLE_FILES} key plus `report`.
@@ -142,23 +173,23 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
   {
     key: 'request',
     file: FEATURE_BUNDLE_FILES.request,
-    required: (config) => config.specPipelineEnabled,
+    required: specPipelineApplies,
     writer: 'paqad-ai spec pipeline start',
     validate: 'nonempty',
   },
   {
     key: 'clarification',
     file: FEATURE_BUNDLE_FILES.clarification,
-    required: (config) => config.specPipelineEnabled,
+    required: specPipelineApplies,
     writer: 'paqad-ai spec pipeline (label + questions)',
     validate: 'json',
   },
   {
     // Experts only run inside the pipeline, so experts-on with the pipeline off (M5) never
-    // requires the file (AC-21).
+    // requires the file (AC-21), and neither does the fast lane (issue #640).
     key: 'experts',
     file: FEATURE_BUNDLE_FILES.experts,
-    required: (config) => config.specPipelineEnabled && config.expertsEnabled,
+    required: (config) => specPipelineApplies(config) && config.expertsEnabled,
     writer: 'paqad-ai spec pipeline experts',
     validate: 'json',
   },

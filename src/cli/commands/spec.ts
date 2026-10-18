@@ -16,6 +16,8 @@ import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { visualAcRequiredFiles } from '@/visual-evidence/readiness.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { laneRunsSpecPipeline } from '@/feature-evidence/manifest.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
@@ -161,17 +163,25 @@ export function createSpecCommand(): Command {
         // staged run (`--from-pipeline`, issue #581: task, grounding, pipeline and trace sections)
         // or records in the `pipeline` section why it did not; under strict adoption a
         // hand-written spec is refused unless `--manual --reason` is given. With the pipeline off,
-        // freeze writes none of those sections and behaves exactly as before.
+        // freeze writes none of those sections and behaves exactly as before. Issue #640: the
+        // fast lane never runs the pipeline (INV-18), so a fast-lane change freezes as if the
+        // pipeline were off, whatever the config says; an unresolved lane counts as full.
+        const freezeSession = resolveSessionId(
+          options.projectRoot,
+          options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+        );
+        const freezeFeature = currentFeature(options.projectRoot, freezeSession);
         const pipelineConfig = readPipelineConfig(options.projectRoot);
+        const pipelineOnHere =
+          pipelineConfig.enabled &&
+          laneRunsSpecPipeline(
+            freezeFeature ? readChangeConstants(options.projectRoot, freezeFeature).lane : null,
+          );
         let sections: FreezeSpecInput['sections'];
         let frozenWithoutPipeline = false;
-        if (pipelineConfig.enabled) {
+        if (pipelineOnHere) {
           if (options.fromPipeline) {
-            const sessionId = resolveSessionId(
-              options.projectRoot,
-              options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-            );
-            const dirName = currentFeature(options.projectRoot, sessionId);
+            const dirName = freezeFeature;
             if (!dirName) {
               console.error('no active feature — run `paqad-ai stage start planning` first');
               process.exitCode = 1;
@@ -223,11 +233,6 @@ export function createSpecCommand(): Command {
 
         // Issue #579 (FR-14) — a frontend change under visual evidence needs a (proof: visual)
         // criterion. Frontend-ness comes from the active plan's step files and the changed files.
-        const freezeSession = resolveSessionId(
-          options.projectRoot,
-          options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
-        );
-        const freezeFeature = currentFeature(options.projectRoot, freezeSession);
         const planFiles = freezeFeature
           ? (readFeaturePlan(options.projectRoot, freezeFeature)?.steps ?? []).flatMap(
               (step) => step.files ?? [],

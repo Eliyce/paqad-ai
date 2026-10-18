@@ -152,6 +152,10 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     );
     expect(expected['feature.json']).toBe('always');
     expect(expected['checks.json']).toBe('if present');
+    // Issue #640 (FR-13): the pipeline is on by default, but the fast lane never needs its files.
+    expect(expected['request.md']).toBe('off here');
+    expect(expected['clarification.json']).toBe('off here');
+    expect(expected['experts.json']).toBe('off here');
     expect(snapshot.evidence_expected.find((e) => e.file === 'feature.json')?.present).toBe(true);
   });
 
@@ -209,6 +213,12 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     });
     expect(snapshot.isolation?.status).toBe('expected');
     expect(snapshot.flags.map((flag) => flag.id)).toContain('isolation-missing');
+    // Issue #640 (FR-13): on the graduated lane the default-on pipeline needs its files.
+    const expected = Object.fromEntries(
+      snapshot.evidence_expected.map((entry) => [entry.file, entry.expectation]),
+    );
+    expect(expected['request.md']).toBe('on here');
+    expect(expected['experts.json']).toBe('on here');
   });
 
   it('ORD-501 full lane: Safe to merge with an open flag reads amber, never green (Q19)', () => {

@@ -11,7 +11,7 @@ import {
   resolveSpecPipelineSwitches,
 } from '@/core/framework-config.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
-import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { readChangeConstants, type ChangeConstants } from '@/feature-evidence/feature-record.js';
 import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
@@ -38,19 +38,44 @@ export function stageIsolationStatus(
   dirName: string | null,
 ): StageIsolationStatus {
   if (!sessionId || !dirName) return 'not-applicable';
+  return isolationStatusFrom(readChangeConstantsSafe(projectRoot, dirName));
+}
+
+/** The change's session constants, or null when there is no bundle or it cannot be read. */
+function readChangeConstantsSafe(
+  projectRoot: string,
+  dirName: string | null,
+): ChangeConstants | null {
+  if (!dirName) return null;
   try {
-    const { lane, adapter } = readChangeConstants(projectRoot, dirName);
-    // A host that cannot dispatch subagents could never isolate, so isolation is never asked of
-    // it — whatever the lane.
-    if (!isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS)) return 'not-applicable';
-    if (lane === 'graduated' || lane === 'full') return 'expected';
-    // A null lane is unresolved — surfaced, not silent (issue #602). A fast lane is genuinely
-    // not-applicable.
-    return lane === null ? 'unresolved' : 'not-applicable';
+    return readChangeConstants(projectRoot, dirName);
   } catch {
-    // A missing or unreadable bundle cannot prove anything about isolation.
-    return 'not-applicable';
+    // A missing or unreadable bundle cannot prove anything about the change.
+    return null;
   }
+}
+
+function isolationStatusFrom(constants: ChangeConstants | null): StageIsolationStatus {
+  if (!constants) return 'not-applicable';
+  const { lane, adapter } = constants;
+  // A host that cannot dispatch subagents could never isolate, so isolation is never asked of
+  // it — whatever the lane.
+  if (!isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS)) return 'not-applicable';
+  if (lane === 'graduated' || lane === 'full') return 'expected';
+  // A null lane is unresolved — surfaced, not silent (issue #602). A fast lane is genuinely
+  // not-applicable.
+  return lane === null ? 'unresolved' : 'not-applicable';
+}
+
+/** The two isolation flags for one status, so `expected` and `unresolved` never both hold. */
+function isolationFlags(status: StageIsolationStatus): {
+  stageIsolationExpected: boolean;
+  stageIsolationUnresolved: boolean;
+} {
+  return {
+    stageIsolationExpected: status === 'expected',
+    stageIsolationUnresolved: status === 'unresolved',
+  };
 }
 
 /**
@@ -78,11 +103,7 @@ export function isolationConfig(
   sessionId: string | null,
   dirName: string | null,
 ): { stageIsolationExpected: boolean; stageIsolationUnresolved: boolean } {
-  const status = stageIsolationStatus(projectRoot, sessionId, dirName);
-  return {
-    stageIsolationExpected: status === 'expected',
-    stageIsolationUnresolved: status === 'unresolved',
-  };
+  return isolationFlags(stageIsolationStatus(projectRoot, sessionId, dirName));
 }
 
 /**
@@ -101,7 +122,13 @@ export function buildBundleCompletenessConfig(
   // src/spec-pipeline) so the FR-11 import ban holds: src/verification/** must not import the
   // pipeline.
   const pipelineFlags = readSpecPipelineFlags(projectRoot);
+  // The change's own constants, read ONCE here (issue #640, FR-13): the lane decides whether the
+  // spec-pipeline files apply, and lane + host decide stage isolation. The completeness gate and
+  // the HUD snapshot both get them from this builder, so they can never disagree.
+  const constants = readChangeConstantsSafe(projectRoot, dirName);
   return {
+    // An unread or unrecorded lane is null, which the manifest treats as full (fails safe).
+    lane: constants?.lane ?? null,
     ruleComplianceOn: resolveRuleComplianceMode(projectRoot) !== 'off',
     metricsEnabled: frameworkConfig.features.metrics_enabled,
     duplicationOn: resolveDuplicationMode(projectRoot) !== 'off',
@@ -118,7 +145,7 @@ export function buildBundleCompletenessConfig(
     // isolation applied is a property of the change, not a project setting. `expected`
     // hard-requires the proof; `unresolved` surfaces its absence as Inconclusive (a lost or
     // first-glance-only label is loud, not silent) without ever false-failing (INV-5).
-    ...isolationConfig(projectRoot, sessionId, dirName),
+    ...isolationFlags(sessionId ? isolationStatusFrom(constants) : 'not-applicable'),
   };
 }
 
