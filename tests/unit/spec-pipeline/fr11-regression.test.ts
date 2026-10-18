@@ -11,34 +11,42 @@ import {
   renderDefaultFeatureDevelopmentPolicyYaml,
 } from '@/pipeline/feature-development-policy.js';
 
-// FR-11 (supercritical): with the pipeline disabled (the default), feature-development behaves
-// exactly as today. The pipeline is opt-in and sits UPSTREAM of the edit lock as a separate
+// FR-11 (supercritical): with the pipeline switched off, feature-development behaves exactly as
+// before the pipeline. Since issue #640 the pipeline is on by default, so "off" now means a
+// project set spec_pipeline_enabled=false. It sits UPSTREAM of the edit lock as a separate
 // `spec pipeline` command; nothing in the feature-development execution path may reach it, so
 // a feature-dev change produces the same bundle artifacts / stage ledger whether or not the
 // pipeline exists.
-describe('FR-11: pipeline is off by default and never runs in the feature-dev flow', () => {
+describe('FR-11: a switched-off pipeline never runs in the feature-dev flow', () => {
   const roots: string[] = [];
   afterEach(() => {
     while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
   });
 
-  it('is disabled by default (code default, independent of any repo override)', () => {
-    // Test the CODE default, not this repo's own committed config: a project that sets no
-    // spec_pipeline_enabled must read false. Reading process.cwd() here would instead assert
-    // "the dogfood repo carries no override", which is a different (and repo-coupled) claim —
-    // a project may deliberately opt in without weakening the off-by-default guarantee.
-    const clean = mkdtempSync(join(tmpdir(), 'paqad-fr11-'));
+  it('is disabled when the project switches it off (independent of any repo override)', () => {
+    // Test a temp project, not this repo's own committed config, so the claim is not coupled to
+    // the dogfood repo's settings.
+    const off = mkdtempSync(join(tmpdir(), 'paqad-fr11-'));
+    roots.push(off);
+    mkdirSync(join(off, '.paqad'), { recursive: true });
+    writeFileSync(join(off, '.paqad', '.config'), 'spec_pipeline_enabled=false\n');
+    expect(readPipelineConfig(off, {}).enabled).toBe(false);
+  });
+
+  it('is enabled by default when nothing is set (issue #640, code default)', () => {
+    const clean = mkdtempSync(join(tmpdir(), 'paqad-fr11-default-'));
     roots.push(clean);
-    const cfg = readPipelineConfig(clean, {});
-    expect(cfg.enabled).toBe(false);
+    expect(readPipelineConfig(clean, {}).enabled).toBe(true);
   });
 
   it('the specification stage text is identical whether the pipeline flag is on or off (AC-1)', () => {
     const off = mkdtempSync(join(tmpdir(), 'paqad-fr11-off-'));
     const on = mkdtempSync(join(tmpdir(), 'paqad-fr11-on-'));
     roots.push(off, on);
-    // The ON root actually carries the flags on; the OFF root carries nothing.
+    // The ON root actually carries the flags on; the OFF root switches the pipeline off.
     mkdirSync(join(on, '.paqad'), { recursive: true });
+    mkdirSync(join(off, '.paqad'), { recursive: true });
+    writeFileSync(join(off, '.paqad', '.config'), 'spec_pipeline_enabled=false\n');
     writeFileSync(
       join(on, '.paqad', '.config'),
       ['spec_pipeline_enabled=true', 'spec_pipeline_adoption=strict'].join('\n'),

@@ -1183,7 +1183,7 @@ export class HealthChecker {
           name,
           config.experts_enabled
             ? 'Expert roster is enabled and its config is coherent.'
-            : 'Expert roster is off (default); nothing to enforce.',
+            : 'Expert roster is off; nothing to enforce.',
         ),
       );
     }

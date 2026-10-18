@@ -37,6 +37,7 @@ import { writeVisualEvidenceManifest } from '@/visual-evidence/manifest.js';
 
 import { createVerificationContext } from '../verification/shared.fixture.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
+import { withSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
 export type OracleCase = 'M0' | 'M1' | 'M2' | 'M3' | 'M4' | 'M5';
 
@@ -199,7 +200,9 @@ export async function runBundleFixture(
   mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
   writeFileSync(
     join(root, '.paqad', 'configs', '.config.app'),
-    `${CASE_CONFIG[caseId].join('\n')}\n`,
+    // Issue #640: the spec-pipeline switches default on, so every switch a case leaves unset is
+    // pinned off here, keeping the oracle table's meaning (a case names what it turns on).
+    `${withSpecPipelineOff(CASE_CONFIG[caseId]).join('\n')}\n`,
     'utf8',
   );
   writeFileSync(

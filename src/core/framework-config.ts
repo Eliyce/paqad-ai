@@ -57,6 +57,25 @@ const CHECKS_FLAKY_MODES = ['pass', 'warn', 'fail'] as const;
 // The spec-pipeline adoption knob is warn-or-strict only (issue #547): there is no "off"
 // — "off" is expressed by turning spec_pipeline_enabled off, not by a third adoption level.
 const SPEC_PIPELINE_ADOPTION_MODES = ['warn', 'strict'] as const;
+/** How firmly the specification stage adopts the spec pipeline (issue #547). */
+export type SpecPipelineAdoptionMode = (typeof SPEC_PIPELINE_ADOPTION_MODES)[number];
+
+/**
+ * The code defaults for the three spec-pipeline switches (issue #640): the pipeline, the
+ * experts and strict adoption are on unless a project switches them off. The registry below,
+ * `readPipelineConfig`, `readSpecPipelineFlags` and the hook mirror in
+ * `runtime/hooks/lib/agent-entry-directive.mjs` all use these values, and a unit test fails if
+ * the hook mirror drifts. The fast lane never runs the pipeline whatever these say.
+ */
+export const SPEC_PIPELINE_DEFAULTS: Readonly<{
+  spec_pipeline_enabled: boolean;
+  spec_pipeline_experts_enabled: boolean;
+  spec_pipeline_adoption: SpecPipelineAdoptionMode;
+}> = Object.freeze({
+  spec_pipeline_enabled: true,
+  spec_pipeline_experts_enabled: true,
+  spec_pipeline_adoption: 'strict',
+});
 const VISUAL_EVIDENCE_MODES = ['warn', 'strict'] as const;
 /**
  * Evidence-existence-gate modes (issue #468 Phase C). Deliberately has NO `strict` tier:
@@ -770,13 +789,14 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     key: 'spec_pipeline_enabled',
     env: 'PAQAD_SPEC_PIPELINE_ENABLED',
     type: 'boolean',
-    default: false,
+    default: SPEC_PIPELINE_DEFAULTS.spec_pipeline_enabled,
     group: 'policy',
-    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    section: 'Spec pipeline (issue #512)',
     comment:
-      'Opt into the grounded prompt->spec pipeline (`paqad-ai spec pipeline`). Off by default: ' +
-      'with it off, feature-development is byte-identical to today (FR-11). It sits upstream of ' +
-      'the edit lock and feeds `spec freeze`; nothing downstream hard-depends on it being on.',
+      'The grounded prompt->spec pipeline (`paqad-ai spec pipeline`). On by default on the ' +
+      'graduated and full lanes (issue #640); the fast lane never runs it. Set it to false to ' +
+      'switch it off: feature-development then works as it did before the pipeline (FR-11). It ' +
+      'sits upstream of the edit lock and feeds `spec freeze`.',
   },
   {
     key: 'spec_pipeline_clarification',
@@ -785,7 +805,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     enumValues: STAGE_RULE_MODES,
     default: 'warn',
     group: 'policy',
-    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    section: 'Spec pipeline (issue #512)',
     comment:
       'off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). ' +
       'warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask ' +
@@ -799,7 +819,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     enumValues: STAGE_RULE_MODES,
     default: 'off',
     group: 'policy',
-    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    section: 'Spec pipeline (issue #512)',
     comment:
       'off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). ' +
       'off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): ' +
@@ -811,7 +831,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     type: 'number',
     default: 40000,
     group: 'policy',
-    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    section: 'Spec pipeline (issue #512)',
     comment:
       'Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a ' +
       'recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes.',
@@ -820,30 +840,32 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     key: 'spec_pipeline_experts_enabled',
     env: 'PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED',
     type: 'boolean',
-    default: false,
+    default: SPEC_PIPELINE_DEFAULTS.spec_pipeline_experts_enabled,
     group: 'policy',
-    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    section: 'Spec pipeline (issue #512)',
     comment:
-      'Opt into the Phase 2 expert roster (issue #521): a fast-tier skill decides which experts ' +
-      '(db, security, ui, ...) a request needs, and their notes feed the crafted spec. Off by ' +
-      'default: with it off, zero Phase 2 code runs and a pipeline run is byte-identical to v1 ' +
-      '(P2-INV-1). Needs spec_pipeline_enabled on to have any effect.',
+      'The Phase 2 expert roster (issue #521): a fast-tier skill decides which experts ' +
+      '(db, security, ui, ...) a request needs, and their notes feed the crafted spec. On by ' +
+      'default on the graduated and full lanes (issue #640). Set it to false to switch it off: ' +
+      'then zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs ' +
+      'spec_pipeline_enabled on to have any effect.',
   },
   {
     key: 'spec_pipeline_adoption',
     env: 'PAQAD_SPEC_PIPELINE_ADOPTION',
     type: 'enum',
     enumValues: SPEC_PIPELINE_ADOPTION_MODES,
-    default: 'warn',
+    default: SPEC_PIPELINE_DEFAULTS.spec_pipeline_adoption,
     group: 'policy',
-    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    section: 'Spec pipeline (issue #512)',
     comment:
       'warn | strict: how firmly the specification stage adopts the pipeline once ' +
-      'spec_pipeline_enabled is on. warn (default): the stage tells the agent to produce the ' +
-      'spec through `paqad-ai spec pipeline`; a hand-written spec still freezes, recorded as ' +
-      'pipeline.produced=false and shown in the receipt. strict: `spec freeze` refuses a spec ' +
-      'the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is ' +
-      'recorded on the frozen spec. No effect while spec_pipeline_enabled is off.',
+      'spec_pipeline_enabled is on. strict (default since issue #640): `spec freeze` refuses a ' +
+      'spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is ' +
+      'recorded on the frozen spec. Set it to warn to soften this: the stage still tells the ' +
+      'agent to produce the spec through `paqad-ai spec pipeline`, but a hand-written spec ' +
+      'freezes, recorded as pipeline.produced=false and shown in the receipt. No effect while ' +
+      'spec_pipeline_enabled is off.',
   },
   {
     key: 'spec_pipeline_standing_experts',
@@ -851,7 +873,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     type: 'string',
     default: 'product-owner,application-architect,user-flow-writer,qa-engineer',
     group: 'policy',
-    section: 'Spec pipeline (issue #512 — optional, off by default)',
+    section: 'Spec pipeline (issue #512)',
     comment:
       'Comma-separated expert roles that sit at the table on EVERY spec run once ' +
       'spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: ' +
@@ -1231,6 +1253,36 @@ function asEnum<T extends string>(raw: string | undefined, allowed: readonly T[]
   }
   const t = raw.trim();
   return (allowed as readonly string[]).includes(t) ? (t as T) : def;
+}
+
+/** The three spec-pipeline switches as resolved from a layered config map (issue #640). */
+export interface SpecPipelineSwitches {
+  enabled: boolean;
+  experts_enabled: boolean;
+  adoption: SpecPipelineAdoptionMode;
+}
+
+/**
+ * Resolve the three spec-pipeline switches from a layered (LOCAL-WINS) config map. An unset
+ * key, or a value that is not a recognised token, takes its {@link SPEC_PIPELINE_DEFAULTS}
+ * value (RULE-16: a hand-trimmed config never breaks). One resolver so `readPipelineConfig`
+ * and `readSpecPipelineFlags` can never disagree about a default.
+ */
+export function resolveSpecPipelineSwitches(
+  map: ReadonlyMap<string, string>,
+): SpecPipelineSwitches {
+  return {
+    enabled: asBool(map.get('spec_pipeline_enabled'), SPEC_PIPELINE_DEFAULTS.spec_pipeline_enabled),
+    experts_enabled: asBool(
+      map.get('spec_pipeline_experts_enabled'),
+      SPEC_PIPELINE_DEFAULTS.spec_pipeline_experts_enabled,
+    ),
+    adoption: asEnum(
+      map.get('spec_pipeline_adoption')?.toLowerCase(),
+      SPEC_PIPELINE_ADOPTION_MODES,
+      SPEC_PIPELINE_DEFAULTS.spec_pipeline_adoption,
+    ),
+  };
 }
 
 function asOptEnum<T extends string>(

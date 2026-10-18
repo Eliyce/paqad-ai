@@ -16,11 +16,15 @@ import {
   stagingDir,
   writeRequest,
 } from '@/spec-pipeline/run-store.js';
+import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-experts-cli-'));
   roots.push(r);
+  // Pin the spec-pipeline switches off (issue #640 made them default on); a test's own
+  // .paqad/.config lines still win.
+  pinSpecPipelineOff(r);
   return r;
 }
 afterEach(() => {

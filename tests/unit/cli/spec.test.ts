@@ -27,6 +27,7 @@ import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { writeStagedJson, writeStagedText } from '@/spec-pipeline/run-store.js';
+import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
 // sign-off engine (issue #317). It reimplements no freeze logic; it wires
@@ -52,6 +53,8 @@ describe('paqad-ai spec command', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-cli-spec-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
+    // These tests prove freeze with the pipeline switched off unless a test turns it on.
+    pinSpecPipelineOff(root);
   });
 
   afterEach(() => {

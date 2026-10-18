@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { HealthChecker } from '@/health/checker.js';
 
+import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
+
 // Issue #521, FR-9 / AC-6 — the doctor expert-roster coherence check.
 describe('doctor: Expert roster check', () => {
   let root: string;
@@ -15,6 +17,7 @@ describe('doctor: Expert roster check', () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-expert-doctor-'));
+    pinSpecPipelineOff(root);
     home = join(tmpdir(), `paqad-expert-doctor-home-${Date.now()}`);
     prevHome = process.env.PAQAD_FRAMEWORK_HOME;
     process.env.PAQAD_FRAMEWORK_HOME = home;
@@ -31,11 +34,11 @@ describe('doctor: Expert roster check', () => {
     writeFileSync(join(root, '.paqad', '.config'), body, 'utf8');
   }
 
-  it('passes with the default off config (nothing to enforce)', async () => {
+  it('passes with the experts switched off (nothing to enforce)', async () => {
     const report = await new HealthChecker().run(root);
     const check = report.checks.find((c) => c.name === NAME);
     expect(check?.status).toBe('pass');
-    expect(check?.detail).toMatch(/off \(default\)/);
+    expect(check?.detail).toMatch(/Expert roster is off; nothing to enforce/);
   });
 
   it('warns when experts are on but the pipeline itself is off (AC-6)', async () => {

@@ -5,7 +5,11 @@
 
 import { readProjectProfile } from '@/core/project-profile.js';
 import { resolveEnterprisePolicy } from '@/core/enterprise-policy.js';
-import { layeredConfigMap, resolveFrameworkConfig } from '@/core/framework-config.js';
+import {
+  layeredConfigMap,
+  resolveFrameworkConfig,
+  resolveSpecPipelineSwitches,
+} from '@/core/framework-config.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
@@ -131,16 +135,17 @@ export interface SpecPipelineFlags {
 /**
  * Read the spec-pipeline flags from the layered config map. Read here, not through
  * src/spec-pipeline, so the FR-11 import ban holds (src/verification/** must not import the
- * pipeline). Unset flags are off, matching the pipeline's own defaults.
+ * pipeline). An unset flag takes its SPEC_PIPELINE_DEFAULTS value through the same resolver
+ * the pipeline uses (issue #640), so the two can never disagree.
  */
-export function readSpecPipelineFlags(projectRoot: string): SpecPipelineFlags {
-  const map = layeredConfigMap(projectRoot);
-  const truthy = new Set(['1', 'true', 'yes', 'on']);
-  const on = (key: string): boolean => truthy.has((map.get(key) ?? '').trim().toLowerCase());
-  const enabled = on('spec_pipeline_enabled');
+export function readSpecPipelineFlags(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+): SpecPipelineFlags {
+  const switches = resolveSpecPipelineSwitches(layeredConfigMap(projectRoot, env));
   return {
-    enabled,
-    strict: enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict',
-    experts: on('spec_pipeline_experts_enabled'),
+    enabled: switches.enabled,
+    strict: switches.enabled && switches.adoption === 'strict',
+    experts: switches.experts_enabled,
   };
 }
