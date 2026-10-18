@@ -43,8 +43,9 @@ import {
   findDecisionPrecedents,
   formatDecisionPrecedents,
 } from './decision-precedents.js';
+import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
+
 import {
-  isDecisionPacket,
   isStrictDecisionId,
   validateDecisionPacket,
   type DecisionHumanResponse,
@@ -411,18 +412,16 @@ export class DecisionStore {
   }
 
   findPendingDecisionForTask(taskSessionId: string): string | null {
-    const ids = this.listPendingDecisionIds();
-    let malformedFallback: string | null = null;
-    for (const decisionId of ids) {
+    // Issue #639, Part 3 — a malformed pending packet belongs to no task, so it never blocks
+    // writePending. Before, a lone unreadable packet was returned as this task's pending
+    // decision and every later writePending threw "already has a pending decision".
+    for (const decisionId of this.listPendingDecisionIds()) {
       const result = this.readPendingResult(decisionId);
       if (result.packet?.task_session_id === taskSessionId) {
         return decisionId;
       }
-      if (!result.packet && result.error && ids.length === 1) {
-        malformedFallback = decisionId;
-      }
     }
-    return malformedFallback;
+    return null;
   }
 
   expireResolvedDecision(decisionId: string): string {
@@ -464,7 +463,10 @@ export class DecisionStore {
       return null;
     }
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-    if (!isDecisionPacket(parsed)) {
+    // Issue #639, Part 3 — one reader for both shapes: a `decision create` packet written
+    // before the shapes were unified is upgraded in memory instead of reading as corrupt.
+    const packet = readAnyDecisionPacket(parsed);
+    if (packet === null) {
       const reasons = validateDecisionPacket(parsed).join('; ');
       // PQD-107: surface the stable taxonomy code so a consumer can route the
       // corrupt-packet failure mode without parsing the message. Message text
@@ -479,7 +481,7 @@ export class DecisionStore {
         packet_path: relative(this.projectRoot, path),
       });
     }
-    return parsed;
+    return packet;
   }
 
   private readReusableDecision(decisionId: string): DecisionPacket | null {
