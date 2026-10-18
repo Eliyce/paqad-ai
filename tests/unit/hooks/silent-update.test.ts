@@ -54,8 +54,24 @@ function writeFakeNpmVersion(dir: string, version: string): void {
 const STALE = '2020-01-01T00:00:00Z';
 
 /**
+ * Session variables a test run inside Claude Code inherits. Each would point the hook at the
+ * developer's real project, session, or framework install, so every spawn drops them unless the
+ * test sets them itself.
+ */
+const INHERITED_SESSION_VARS = [
+  'CLAUDE_PROJECT_DIR',
+  'CLAUDE_SESSION_ID',
+  'CLAUDE_PLUGIN_ROOT',
+  'CLAUDE_ENV_FILE',
+  'PAQAD_FRAMEWORK_HOME',
+  'PAQAD_PROJECT_ROOT',
+];
+
+/**
  * Run the hook with a sandboxed HOME/USERPROFILE (so the developer's real ~/.paqad-ai is never
- * read and the real CLI is never spawned) and an empty stdin, or the given SessionStart payload.
+ * read and the real CLI is never spawned), none of the inherited session variables, and an empty
+ * stdin, or the given SessionStart payload. CLAUDE_PROJECT_DIR is the test root unless overridden.
+ * Every spawn in this file goes through here.
  */
 async function runHook(
   root: string,
@@ -64,12 +80,14 @@ async function runHook(
 ) {
   const home = join(root, 'home');
   mkdirSync(home, { recursive: true });
+  const inherited: Record<string, string | undefined> = { ...process.env };
+  for (const name of INHERITED_SESSION_VARS) delete inherited[name];
   return execa('node', [SCRIPT], {
     reject: false,
     cwd: root,
     input: options.input ?? '',
     env: {
-      ...process.env,
+      ...inherited,
       ...(fakeBinDir ? { PATH: `${fakeBinDir}:${process.env.PATH}` } : {}),
       HOME: home,
       USERPROFILE: home,
@@ -132,12 +150,7 @@ describe('silent-update.mjs', () => {
       // seed from — the hook must still exit cleanly, exactly as before.
       const emptyHome = join(root, 'no-framework');
       mkdirSync(emptyHome, { recursive: true });
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        input: '',
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: emptyHome },
-      });
+      const result = await runHook(root, undefined, { env: { PAQAD_FRAMEWORK_HOME: emptyHome } });
       expect(result.exitCode).toBe(0);
       expect(existsSync(join(root, '.paqad', 'framework-version.txt'))).toBe(false);
     } finally {
@@ -159,11 +172,8 @@ describe('silent-update.mjs', () => {
         JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
       );
 
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        input: '',
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: frameworkHome },
+      const result = await runHook(root, undefined, {
+        env: { PAQAD_FRAMEWORK_HOME: frameworkHome },
       });
 
       expect(result.exitCode).toBe(0);
@@ -185,7 +195,7 @@ describe('silent-update.mjs', () => {
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, '.paqad', '.config'), 'version_check_interval_hours=12\n');
 
-      const result = await execa('node', [SCRIPT], { reject: false, input: '', cwd: root });
+      const result = await runHook(root, undefined, { env: { CLAUDE_PROJECT_DIR: undefined } });
       expect(result.exitCode).toBe(0);
       // Nothing should have been logged or spawned within the window.
       expect(readAuditLog(root)).toBe('');
@@ -203,7 +213,7 @@ describe('silent-update.mjs', () => {
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, '.paqad', '.config'), 'auto_update=false\n');
 
-      const result = await execa('node', [SCRIPT], { reject: false, input: '', cwd: root });
+      const result = await runHook(root, undefined, { env: { CLAUDE_PROJECT_DIR: undefined } });
       expect(result.exitCode).toBe(0);
       expect(readAuditLog(root)).toBe('');
     } finally {
@@ -232,11 +242,8 @@ describe('silent-update.mjs', () => {
         JSON.stringify({ name: 'paqad-ai', version: '3.4.5' }),
       );
 
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        input: '',
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_FRAMEWORK_HOME: frameworkHome },
+      const result = await runHook(root, undefined, {
+        env: { PAQAD_FRAMEWORK_HOME: frameworkHome },
       });
 
       expect(result.exitCode).toBe(0);
@@ -250,12 +257,7 @@ describe('silent-update.mjs', () => {
   it('does nothing when PAQAD_DISABLED=1 (no seed, no spawn)', async () => {
     const root = makeRoot();
     try {
-      const result = await execa('node', [SCRIPT], {
-        reject: false,
-        input: '',
-        cwd: root,
-        env: { ...process.env, CLAUDE_PROJECT_DIR: root, PAQAD_DISABLED: '1' },
-      });
+      const result = await runHook(root, undefined, { env: { PAQAD_DISABLED: '1' } });
 
       expect(result.exitCode).toBe(0);
       expect(readAuditLog(root)).toBe('');
