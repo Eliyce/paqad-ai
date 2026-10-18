@@ -100,6 +100,15 @@ change, so the live feature-development stage spine is untouched:
 | `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
 | `visual-evidence.json` | checked-when-present | `paqad-ai visual-evidence run` |
 
+A `rule-run.jsonl` findings row and a `duplication.jsonl` row keep the findings themselves, not
+just their counts (issue #639, Part 12): each rule finding as `{rule_id, file, line, message,
+severity}` and each near-copy as `{file, line_range, matched_file, matched_symbol,
+matched_line_range, similarity, matched_callers, kind}`. A row keeps the first 50
+(`BUNDLE_FINDINGS_CAP`) and counts the rest in `findings_overflow`, so the kept findings plus the
+overflow equal the row's counts. A rule run served from the cache still writes a row, marked
+`from_cache: true`. A row backfilled from a cache that has no findings list writes no `findings`
+key at all, so it never reads as a clean run.
+
 No other file belongs in a bundle. `specification.md` and `context-efficiency.jsonl` are no longer written, and the retired per-feature spec scratch folder is gone.
 
 `paqad-ai evidence migrate [--dry-run] [--session <id>]` moves an old project's spec runs into their bundles. Update and onboarding run it too, every time the old folder is still there, and a failure there only prints a warning, so it can never stop an update. It carries over the request, the question round, the experts, one row per logged step, and one `spec-correction` row per old correction (a rerun adds none twice). Archived redo copies are dropped. `--session` names your own session (it defaults to `SE_SESSION`), so a change you have open is not mistaken for one another session is still writing; a change open in another session is skipped and migrated on a later run, once that session closes it or has been idle for a day.
@@ -357,11 +366,18 @@ screen. It writes one file per session, `.paqad/session/hud/<session>.json` (sch
 `paqad.hud/2`), built only from records paqad already keeps: the routed workflow and its saved
 reason, this bundle's `feature.json`, folded stages, `experts.json`, `clarification.json`,
 `specification.json`, `evidence.jsonl` (with `GATE_STRENGTH_TIER`), `rules-loaded.json`,
-`delivery.json`, the decision folders, the bundle manifest (with the shared
+`rule-run.jsonl`, `duplication.jsonl`, `delivery.json`, the decision folders, the bundle manifest (with the shared
 `buildBundleCompletenessConfig`) and the in-session receipt. A field whose source does not
 exist yet (live High Table seats, claims, the last rule stop, push/PR/CI, cost) is `null` or
 empty, never guessed. The headline and the flags are decided in one place
 (`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+
+The `findings` field (issue #639, Part 12) comes from the change's latest `rule-run.jsonl`
+findings row and latest `duplication.jsonl` row: for each scan its status (`open`, `clean` or
+`did not run`), counts, whether it blocks, whether it came from the cache, the kept findings and
+the overflow. It is `null` when neither scan left a row. A scan with no row reads `did not run`,
+never `clean`. An open finding raises a flag (`2 rule findings are open.`, `1 near-copy of
+existing code is open.`), so the band shows findings only as a count in the flag pill.
 
 - **Who writes it.** The verbs that move a change (`decision create|resolve`, `rules load`,
   `lane set`, `route set`, `stage`, `plan compile`, `spec pipeline experts …`,
