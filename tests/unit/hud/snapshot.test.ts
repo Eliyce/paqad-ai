@@ -151,6 +151,7 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
       state: 'complete',
       proof_file: 'plan-490.json',
       mandatory: true,
+      duration_unreliable: false,
     });
     expect(snapshot.stages.find((stage) => stage.stage === 'ticket_intake')?.mandatory).toBe(false);
     expect(snapshot.flags.map((flag) => flag.id)).toEqual(['rules-not-loaded']);
@@ -546,6 +547,7 @@ describe('computeHudHeadline', () => {
     started_at: null,
     ended_at: null,
     duration_ms: null,
+    duration_unreliable: false,
     agent: null,
     proof_file: null,
   });

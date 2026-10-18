@@ -63,6 +63,11 @@ export interface HudStage {
   started_at: string | null;
   ended_at: string | null;
   duration_ms: number | null;
+  /**
+   * True when the fold found the stage's start and end implausible (near-zero or inverted). The
+   * receipt reads such a stage as marked, never done, so the band must too (#639 AC-45).
+   */
+  duration_unreliable: boolean;
   /** Who recorded the stage's last row: `orchestrator`, `paqad-<stage>`, or a hook writer. */
   agent: string | null;
   /** The artifact the stage ended against, when it named one. */
@@ -216,6 +221,7 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
       started_at: stage.started_at,
       ended_at: stage.ended_at,
       duration_ms: stage.duration_ms,
+      duration_unreliable: stage.duration_unreliable,
       agent: str(last?.agent),
       proof_file: Array.isArray(artifacts) ? (str(artifacts[0]) ?? null) : null,
     };
