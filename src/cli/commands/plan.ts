@@ -67,7 +67,7 @@ export function createPlanCommand(): Command {
         root,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
-      // Issue #579 — the git-reconciled changed files feed the visual-evidence readiness check.
+      // Issue #579 — the git-reported changed files feed the visual-evidence readiness check.
       const changedFiles = (await loadChangeEvidence(root)).files;
       let result;
       try {

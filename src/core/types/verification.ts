@@ -93,7 +93,7 @@ export interface VerificationContext {
   verification_stage?: 'provider-completion' | 'backstop-completion' | 'other';
   modules: string[];
   changed_files: string[];
-  changed_files_source: 'session-artifact' | 'git-status' | 'none';
+  changed_files_source: 'git' | 'none';
   /**
    * Issue #117 (C-4) — the path prefixes a change is allowed to touch, derived
    * from the frozen spec boundary and the attributed modules

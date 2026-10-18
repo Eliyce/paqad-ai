@@ -1,86 +1,47 @@
-import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { execa } from 'execa';
 
-import { PATHS } from '@/core/constants/paths.js';
 import type { CanonicalDocOwnershipKind, CanonicalDocTarget } from '@/core/types/verification.js';
 import { readGitState } from '@/rag/git-state.js';
 
 export interface ChangeEvidence {
   files: string[];
-  source: 'session-artifact' | 'git-status' | 'none';
+  source: 'git' | 'none';
 }
 
+/**
+ * The files the current change touches, read from git alone (issue #646). The
+ * old `.paqad/session/changed-files.json` cache is never read: nothing writes
+ * it any more, and a leftover copy with one still-dirty entry used to hide every
+ * other edit. A non-empty set is `source: 'git'`; nothing changed is `'none'`.
+ */
 export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvidence> {
-  const reconciled = await loadReconciledChangedFiles(projectRoot);
-  if (reconciled.length > 0) {
-    return { files: reconciled, source: 'session-artifact' };
-  }
-  // No cache, or every cached entry is stale (clean and already in base
-  // history): fall through to git reality instead of an empty session-artifact.
-
-  const gitFiles = await readGitStatusFiles(projectRoot);
-  if (gitFiles.length > 0) {
-    return { files: gitFiles, source: 'git-status' };
-  }
-
-  return { files: [], source: 'none' };
+  const files = await readGitChangedFiles(projectRoot);
+  return files.length > 0 ? { files, source: 'git' } : { files: [], source: 'none' };
 }
 
 /**
- * The cached changed-file list, reconciled against git, with NO git-status
- * fallback. For consumers whose honest degradation on an absent cache is "no
- * changed files" (module-health session evidence, differential refresh,
- * traceability), not "whatever git status says" (issue #544).
- *
- * Issue #450: never trust the session artifact blindly. A `changed-files.json`
- * left over from an already-delivered change (its files committed and clean)
- * would otherwise be attributed to a later, unrelated session. Keep only the
- * entries git still considers part of the current change.
- */
-export async function loadReconciledChangedFiles(projectRoot: string): Promise<string[]> {
-  const tracked = readChangedFilesArtifact(projectRoot);
-  if (tracked.length === 0) {
-    return [];
-  }
-  return reconcileTrackedWithGit(projectRoot, tracked);
-}
-
-/**
- * Intersect the tracked-file artifact with what git currently considers changed.
- * Returns the tracked list unchanged when git cannot bound the current change
- * (not a work tree, or no resolvable base branch), so non-git and base-less
- * repositories keep their prior behavior. Otherwise drops any entry that is
- * neither dirty in the working tree nor committed on this branch since the
- * merge-base — i.e. entries that git already treats as delivered base history.
- */
-async function reconcileTrackedWithGit(projectRoot: string, tracked: string[]): Promise<string[]> {
-  const changed = await gitChangedSet(projectRoot);
-  if (changed === null) {
-    return tracked;
-  }
-  return tracked.filter((filePath) => changed.has(filePath));
-}
-
-/**
- * The set of files git considers changed for the current branch: the union of
+ * The files git considers changed for the current branch: the union of
  * working-tree status and everything committed since the merge-base with the
- * base branch. Returns `null` when the divergence cannot be bounded — a non-git
- * directory, a detached HEAD, or a repo with no `main`/`master` base — signalling
- * "cannot reconcile, trust the artifact".
+ * base branch (`main`, else `master`), normalized, de-duplicated and sorted.
+ *
+ * When git cannot bound the branch (no head commit, or no `main`/`master` base)
+ * this is the working-tree status alone; outside a git work tree it is empty.
+ * A clean tree with no commits on the branch is therefore no files. Never throws:
+ * a failing git call degrades to fewer sources.
  */
-async function gitChangedSet(projectRoot: string): Promise<Set<string> | null> {
+export async function readGitChangedFiles(projectRoot: string): Promise<string[]> {
   const gitState = readGitState(projectRoot);
   if (!gitState.head_commit || !gitState.base_commit) {
-    return null;
+    return readGitStatusFiles(projectRoot);
   }
 
   const [statusFiles, committedFiles] = await Promise.all([
     readGitStatusFiles(projectRoot),
     readCommittedSinceBase(projectRoot, gitState.base_commit),
   ]);
-  return new Set([...statusFiles, ...committedFiles]);
+  return normalizePaths([...statusFiles, ...committedFiles]);
 }
 
 /** Files changed between `baseCommit` and HEAD (committed on this branch). */
@@ -190,33 +151,6 @@ export async function detectStaleDocTargets(
 
     const parsed = JSON.parse(result.stdout) as unknown;
     return normalizeCanonicalDocTargets(parsed, relevantFiles);
-  } catch {
-    return [];
-  }
-}
-
-/**
- * The raw `.paqad/session/changed-files.json` cache: a bare JSON array of
- * project-relative paths, normalized, de-duplicated and sorted. This is the ONLY
- * reader of `PATHS.CHANGED_FILES` in the codebase (issue #544): four hand-rolled
- * parsers of one file is how one of them drifted to a `{ files }` shape and read
- * nothing for its whole life. Callers almost always want the reconciled view
- * (`loadReconciledChangedFiles` / `loadChangeEvidence`), never this raw cache,
- * which can describe an already-delivered change. An absent, unreadable or
- * non-array file is an empty list, never a throw.
- */
-export function readChangedFilesArtifact(projectRoot: string): string[] {
-  const target = join(projectRoot, PATHS.CHANGED_FILES);
-  if (!existsSync(target)) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(readFileSync(target, 'utf8')) as unknown;
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-    return normalizePaths(parsed.filter((value): value is string => typeof value === 'string'));
   } catch {
     return [];
   }

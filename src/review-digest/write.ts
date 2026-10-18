@@ -6,11 +6,11 @@
 // rigid `review.json`.
 //
 // Every read here is a direct read of a known path (INV-1), except the changed-file
-// list. That comes from `loadChangeEvidence`, the one reader that reconciles the cached
-// `.paqad/session/changed-files.json` against git (issue #544): trusting the raw cache
-// once headed a digest with six files from an already-merged change. The reconcile costs
-// a few read-only git queries, never a model call, and a clean tree with no cache still
-// degrades to an honest "none recorded".
+// list. That comes from `loadChangeEvidence`, which reads git alone (issue #646): the
+// working-tree status plus everything committed on the branch since its base. The old
+// session cache is never read, so a stale copy can no longer hide edited files. It costs
+// a few read-only git queries, never a model call, and a clean tree with no branch
+// commits degrades to an honest "none recorded".
 
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

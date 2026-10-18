@@ -24,7 +24,7 @@ export interface FrontendTrigger {
   /** All changed files considered (posix form). */
   changed_files: string[];
   /** How the changed files were sourced; `none` means the change could not be determined. */
-  source: 'session-artifact' | 'git-status' | 'none';
+  source: 'git' | 'none';
 }
 
 /**
@@ -190,7 +190,7 @@ export function frontendTriggerOrFault(
 }
 
 /**
- * Evaluate the frontend trigger for the current change. Reads the git-reconciled changed
+ * Evaluate the frontend trigger for the current change. Reads the git-reported changed
  * files (issue #450) and matches them against the active packs' frontend globs.
  */
 export async function evaluateFrontendTrigger(projectRoot: string): Promise<FrontendTrigger> {

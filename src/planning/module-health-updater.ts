@@ -8,7 +8,7 @@ import fg from 'fast-glob';
 import { PATHS } from '@/core/constants/paths.js';
 import type { ModuleHealthMetrics, ModuleHealthProfile } from '@/core/types/planning.js';
 import type { GateResult, VerificationContext } from '@/core/types/verification.js';
-import { loadReconciledChangedFiles } from '@/pipeline/change-evidence.js';
+import { readGitChangedFiles } from '@/pipeline/change-evidence.js';
 
 import {
   deriveHealthTier,
@@ -388,13 +388,12 @@ function resolveEvidenceSessionId(options: ModuleHealthSyncOptions): string | un
 }
 
 /**
- * The session's changed files, reconciled against git (issue #544): entries an
- * already-delivered change left behind (clean, in base history) are dropped, so
- * session evidence is never attributed to files this session did not touch. An
- * absent cache stays an empty list, which skips session evidence as before.
+ * The change's files as git reports them (issue #646): working-tree status plus
+ * branch commits since the base. A clean tree with no branch commits is an empty
+ * list, which skips session evidence.
  */
 async function readChangedFiles(projectRoot: string): Promise<string[]> {
-  return normalizeList(await loadReconciledChangedFiles(projectRoot));
+  return normalizeList(await readGitChangedFiles(projectRoot));
 }
 
 async function readEvidence(projectRoot: string): Promise<ModuleHealthEvidence[]> {

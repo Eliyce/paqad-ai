@@ -30,7 +30,6 @@ export const PATHS = {
   AGENT_ENTRY_SENTINEL: '.paqad/.agent-entry-loaded',
   GLOSSARY: '.paqad/glossary.md',
   HANDOFF: '.paqad/session/handoff.md',
-  CHANGED_FILES: '.paqad/session/changed-files.json',
   ACTIVE_IMPLEMENTATION_SESSION: '.paqad/session/active-implementation.json',
   CONTEXT_HIT_LOG: '.paqad/session/context-hit-log.json',
   // Issue #360 — the machine-built evidence digest the review stage reads before

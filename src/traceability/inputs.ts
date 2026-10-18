@@ -12,7 +12,7 @@ import fg from 'fast-glob';
 
 import { scanImports } from '@/graph/import-scanner.js';
 import { discoverSourceRoots } from '@/module-map/source-roots.js';
-import { loadReconciledChangedFiles } from '@/pipeline/change-evidence.js';
+import { readGitChangedFiles } from '@/pipeline/change-evidence.js';
 import type { ComplianceReport } from '@/compliance/types.js';
 import type { VerificationEvidence } from '@/core/types/verification-evidence.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence.js';
@@ -180,9 +180,9 @@ export async function gatherTraceabilityInputs(
     proofs,
     edges,
     codeUniverse,
-    // Issue #544: the bare-array session cache, reconciled against git. This
-    // used to parse a `{ files }` shape nothing writes, so it was always empty.
-    changedFiles: await loadReconciledChangedFiles(projectRoot),
+    // Issue #646: the change's files straight from git (working tree plus branch
+    // commits); a clean tree with no branch commits is an empty list.
+    changedFiles: await readGitChangedFiles(projectRoot),
     markers,
   };
 }
