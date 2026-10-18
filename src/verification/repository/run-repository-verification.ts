@@ -805,7 +805,7 @@ export async function runRepositoryVerification(
   if (verdictStageGaps.length > 0) {
     evidence.unrecorded_mandatory_stages = verdictStageGaps;
     try {
-      evidencePath = await writeVerificationEvidence(evidence, {
+      await writeVerificationEvidence(evidence, {
         project_root: context.project_root,
       });
       /* v8 ignore next 4 -- best-effort: the in-memory verdict is unaffected */
