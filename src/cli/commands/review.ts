@@ -50,14 +50,14 @@ export function createReviewCommand(): Command {
       '--session <id>',
       'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
     )
-    .action((options: ReviewDigestOptions) => {
+    .action(async (options: ReviewDigestOptions) => {
       const sessionId = resolveSessionId(
         options.projectRoot,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
       let result;
       try {
-        result = writeReviewDigest(options.projectRoot, sessionId);
+        result = await writeReviewDigest(options.projectRoot, sessionId);
       } catch (error) {
         console.error(`could not write the review digest: ${(error as Error).message}`);
         process.exitCode = 1;
