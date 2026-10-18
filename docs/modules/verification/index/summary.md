@@ -87,6 +87,21 @@ a Stop `{systemMessage}` as `Stop says:` lines, an echo there would only duplica
 agent's receipt and leak model-only advisories. The agent's final message is the sole
 developer-facing channel; enforcement rides `{decision:'block'}` plus the git/CI backstop.
 
+## One verdict rule (issue #639, Part 4)
+
+`verdictKindFor` in `src/verification/verdict-kind.ts` decides the verdict word for every
+surface: any failed gate is Needs your attention; otherwise any inconclusive gate, or any
+unrecorded mandatory stage, is Inconclusive; otherwise Safe to merge. Skipped gates never
+move it.
+
+- The chat receipt (`formatVerdictSummary`) uses it.
+- `report.html` is re-rendered after the final verdict with that word, since its first
+  render runs before the late gates exist. Rendered on its own (`paqad-ai feature report`),
+  it applies the same rule to the bundle's gate rows, sealed or not.
+- The `paqad-ai evidence` PR comment uses it on the evidence gates plus the persisted
+  `unrecorded_mandatory_stages`. `overall_status`, which folds inconclusive into `fail` for
+  `--fail-on-red` and CI blocking, is unchanged; only the printed word follows the rule.
+
 ## The gate bank
 
 The gates under `src/verification/gates/` cover correctness, completeness, quality,

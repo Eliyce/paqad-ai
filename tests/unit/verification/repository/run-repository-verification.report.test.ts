@@ -1,9 +1,10 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 import { featureReportPath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
@@ -53,6 +54,21 @@ describe('runRepositoryVerification — feature report (AC-5)', () => {
     expect(existsSync(reportAbs)).toBe(true);
     expect(verdict.reportPath).toBe(reportAbs);
     expect(verdict.receipt).toContain('Report: ');
+  });
+
+  it('re-renders report.html with the final verdict word the receipt carries (#639 Part 4)', async () => {
+    const root = makeProject();
+    const dir = openFeatureChange(root, SES, {
+      adapter: 'claude-code',
+      title: 'A change',
+      issue: null,
+    });
+    const verdict = await run(root);
+    const html = readFileSync(join(root, featureReportPath(dir)), 'utf8');
+
+    expect(verdict.kind).toBeDefined();
+    expect(html).toContain(`verdict-pill ${verdict.kind}"`);
+    expect(verdict.summary.split('\n')[0]).toContain(PAQAD_VERDICT[verdict.kind!]);
   });
 
   it('does NOT write the report when feature_report is off', async () => {
