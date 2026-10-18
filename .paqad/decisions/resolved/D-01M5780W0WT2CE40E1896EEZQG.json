@@ -1,0 +1,22 @@
+{
+  "id": "D-01M5780W0WT2CE40E1896EEZQG",
+  "category": "architecture-path",
+  "title": "How should loadChangeEvidence treat a stale changed-files cache?",
+  "context": "Nothing writes .paqad/session/changed-files.json any more, so any cache is stale. Today one surviving entry hides every other live edit from the rules-loaded gate and the capability gate. Non-git or base-less repos keep today's behaviour under either option (working-tree status, else none).",
+  "options": [
+    {
+      "option_key": "git-only",
+      "label": "Stop reading the cache; derive changed files from git only (working tree plus committed since merge-base)"
+    },
+    {
+      "option_key": "union",
+      "label": "Union the surviving cache entries with git (working tree plus committed since base)"
+    }
+  ],
+  "recommendation": "git-only",
+  "created_at": "2026-10-18T10:13:22.588Z",
+  "status": "resolved",
+  "chosen": "git-only",
+  "rationale": "No writer exists, so the cache is dead input; git (working tree + committed since merge-base) is the one honest source. Non-git/base-less repos keep working-tree status, else none.",
+  "resolved_at": "2026-10-18T10:14:49.660Z"
+}
