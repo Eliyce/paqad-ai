@@ -187,21 +187,26 @@ export default defineConfig({
         'src/workflows/template-loader.ts',
         'src/workflows/template-validator.ts',
       ],
-      thresholds: {
-        branches: 95,
-        functions: 95,
-        lines: 95,
-        statements: 95,
-        // The stages workflow is the delivery-critical spine (issue #307): the
-        // block-forward gate, marker parse, live writer and narration must never
-        // regress unseen, so stage-evidence holds a 100% floor, not the repo's 95%.
-        'src/stage-evidence/**': {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
-      },
+      // CI runs the suite in shards and merges their coverage afterwards (issue #654). A shard
+      // sees only part of the code, so it sets PAQAD_TEST_SHARD=1 and checks no thresholds. The
+      // merge run and local `pnpm run ci` leave it unset and enforce these floors in full.
+      thresholds: process.env.PAQAD_TEST_SHARD
+        ? undefined
+        : {
+            branches: 95,
+            functions: 95,
+            lines: 95,
+            statements: 95,
+            // The stages workflow is the delivery-critical spine (issue #307): the
+            // block-forward gate, marker parse, live writer and narration must never
+            // regress unseen, so stage-evidence holds a 100% floor, not the repo's 95%.
+            'src/stage-evidence/**': {
+              branches: 100,
+              functions: 100,
+              lines: 100,
+              statements: 100,
+            },
+          },
     },
   },
   resolve: {
