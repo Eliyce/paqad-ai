@@ -2,21 +2,44 @@
 set -euo pipefail
 
 # Changed files come from git (issue #651): uncommitted work, plus everything committed on this
-# branch since it left main. Without git, or when git reports nothing, run the full refresh.
+# branch since it left the default branch. Without git, or when git reports nothing, run the
+# full refresh.
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "No git repository here, so no changed files to read. Running full refresh."
   exec "$(dirname "$0")/refresh-registry.sh"
 fi
 
-BASE="$(git merge-base HEAD main 2>/dev/null || true)"
-CHANGED="$(
-  {
-    git -c core.quotePath=false status --porcelain --untracked-files=all | sed -E 's/^.{3}//; s/^.* -> //'
-    if [ -n "$BASE" ]; then
-      git -c core.quotePath=false diff --name-only "$BASE"..HEAD
-    fi
-  } | sed '/^$/d' | sort -u
-)"
+# The default branch: what origin/HEAD points at, else main, else master.
+DEFAULT_BRANCH="$(git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null || true)"
+DEFAULT_BRANCH="${DEFAULT_BRANCH#origin/}"
+BASE=""
+for candidate in "$DEFAULT_BRANCH" main master; do
+  [ -n "$candidate" ] || continue
+  for ref in "$candidate" "origin/$candidate"; do
+    BASE="$(git merge-base HEAD "$ref" 2>/dev/null || true)"
+    [ -n "$BASE" ] && break 2
+  done
+done
+
+# NUL-separated git output, so paths with spaces or quotes come through as they are.
+list_changed() {
+  local entry status
+  git status --porcelain -z --untracked-files=all | while IFS= read -r -d '' entry; do
+    status="${entry:0:2}"
+    printf '%s\n' "${entry:3}"
+    # A rename or copy is followed by its original path, which is not a changed file here.
+    case "$status" in
+      R* | C*) IFS= read -r -d '' _ || true ;;
+    esac
+  done
+  if [ -n "$BASE" ]; then
+    git diff --name-only -z "$BASE"..HEAD | while IFS= read -r -d '' entry; do
+      printf '%s\n' "$entry"
+    done
+  fi
+}
+
+CHANGED="$(list_changed | sed '/^$/d' | sort -u)"
 
 if [ -z "$CHANGED" ]; then
   echo "Git reports no changed files. Running full refresh."
