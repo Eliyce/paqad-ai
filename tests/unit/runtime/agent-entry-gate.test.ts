@@ -12,7 +12,7 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { removeTempProject } from './temp-project.js';
+import { NO_CONTEXT_REFRESH_ENV, removeTempProject } from './temp-project.js';
 
 const GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.mjs');
 const PROMPT_GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
@@ -27,7 +27,7 @@ interface RunResult {
 function runGate(projectRoot: string, input?: string): RunResult {
   try {
     const stdout = execFileSync('node', [GATE_SCRIPT], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
       ...(input === undefined ? { stdio: ['ignore', 'pipe', 'pipe'] as const } : { input }),
     });
     return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
@@ -42,7 +42,11 @@ function runGate(projectRoot: string, input?: string): RunResult {
 }
 
 function runPromptGate(projectRoot: string, mode?: 'soft' | 'hard'): RunResult {
-  const env: NodeJS.ProcessEnv = { ...process.env, CLAUDE_PROJECT_DIR: projectRoot };
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    ...NO_CONTEXT_REFRESH_ENV,
+    CLAUDE_PROJECT_DIR: projectRoot,
+  };
   if (mode) env.PAQAD_AGENT_ENTRY_MODE = mode;
   else delete env.PAQAD_AGENT_ENTRY_MODE;
   try {
@@ -381,7 +385,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
   function runPromptGateWithInput(projectRoot: string, input: string): RunResult {
     try {
       const stdout = execFileSync('node', [PROMPT_GATE_SCRIPT], {
-        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
         input,
       });
       return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
@@ -461,8 +465,8 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
           '[paqad] session route-582: prefix paqad-ai commands with SE_SESSION=route-582';
         expect(result.stdout.includes(line)).toBe(named);
       } finally {
-        // The prompt gate fires a DETACHED context-refresh child that keeps writing into
-        // projectRoot after the gate returns (issues #615, #649); removeTempProject waits it out.
+        // NO_CONTEXT_REFRESH_ENV keeps the gate from spawning its detached context-refresh
+        // child, so nothing writes into projectRoot after the gate returns (issues #615, #649).
         removeTempProject(projectRoot);
       }
     },
@@ -485,7 +489,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       writeFileSync(join(projectRoot, 'src.ts'), 'export const a = 2;\n');
 
       execFileSync('node', [RESET_SCRIPT], {
-        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
         input: JSON.stringify({ session_id: 'baseline-1' }),
       });
 
@@ -511,7 +515,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       // A leftover per-agent marker from a prior session (issue #567).
       writeFileSync(join(projectRoot, '.paqad/session/agent-entry/agent_x'), '{}');
       execFileSync('node', [RESET_SCRIPT], {
-        env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
         stdio: 'ignore',
       });
       expect(existsSync(join(projectRoot, '.paqad/.agent-entry-loaded'))).toBe(false);
@@ -545,14 +549,14 @@ describe('per-session entry sentinel (issue #582)', () => {
 
   function runSessionStart(input: string): void {
     execFileSync('node', [RESET_SCRIPT], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
       input,
     });
   }
 
   function runPromptGateFor(input: string): RunResult {
     const stdout = execFileSync('node', [PROMPT_GATE_SCRIPT], {
-      env: { ...process.env, CLAUDE_PROJECT_DIR: projectRoot },
+      env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
       input,
     });
     return { status: 0, stdout: stdout.toString('utf8'), stderr: '' };
