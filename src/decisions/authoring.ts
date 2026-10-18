@@ -37,6 +37,8 @@ import { PATHS } from '@/core/constants/paths.js';
 import { ulid } from '@/core/ids/ulid.js';
 import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/decision-packet.js';
 
+import { richFieldsFor } from './packet-shape.js';
+
 /**
  * How a packet came to exist. Absent on a packet the agent opened by hand through
  * `paqad-ai decision create`; `evidence-armed` on one the machine minted from computed
@@ -202,7 +204,7 @@ export function createPendingDecision(
   };
 
   const path = packetPath(projectRoot, PATHS.DECISIONS_PENDING_DIR, id);
-  atomicWriteJson(path, packet);
+  atomicWriteJson(path, withRichFields(packet));
   return { id, path };
 }
 
@@ -242,9 +244,46 @@ export function resolvePendingDecision(
   };
 
   const resolvedPath = packetPath(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, id);
-  atomicWriteJson(resolvedPath, resolved);
+  atomicWriteJson(resolvedPath, withRichFields(resolved));
   unlinkSync(pendingPath);
   return { path: resolvedPath, packet: resolved };
+}
+
+/**
+ * The stored form of a contract packet (issue #639, Part 3): every contract field, plus the
+ * rich `DecisionPacket` fields when the packet can carry them, so Approvals, the completion
+ * gate and auto-answer read the same packet the contract readers do. A packet that cannot be a
+ * `DecisionPacket` (a category outside the canonical list, or more than five options) is
+ * stored in contract shape alone, exactly as before.
+ */
+function withRichFields(packet: PendingContractDecision | ResolvedContractDecision): object {
+  const contractOnly = { ...packet, options: packet.options.map(contractOption) };
+  for (const key of RICH_ONLY_KEYS) delete (contractOnly as Record<string, unknown>)[key];
+  const rich = richFieldsFor(contractOnly);
+  return rich === null ? contractOnly : { ...contractOnly, ...rich };
+}
+
+/** The rich-only keys, dropped before re-deriving so a stale copy never lingers. */
+const RICH_ONLY_KEYS = [
+  'decision_id',
+  'fingerprint',
+  'question',
+  'recommendation_reason',
+  'confidence',
+  'requested_by',
+  'task_session_id',
+  'ttl_until',
+  'invalidation_watch',
+  'human_response',
+] as const;
+
+/** An option reduced to its contract fields. */
+function contractOption(option: ContractDecisionOption): ContractDecisionOption {
+  return {
+    option_key: option.option_key,
+    label: option.label,
+    ...(option.evidence !== undefined ? { evidence: option.evidence } : {}),
+  };
 }
 
 /** A compact listing row for `paqad-ai decision list`. */
@@ -330,7 +369,7 @@ export function addWriteInOption(projectRoot: string, id: string, label: string)
     key = `other-${suffix++}`;
   }
   pending.options = [...pending.options, { option_key: key, label }];
-  atomicWriteJson(pendingPath, pending);
+  atomicWriteJson(pendingPath, withRichFields(pending));
   return key;
 }
 
