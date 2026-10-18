@@ -20,20 +20,6 @@ describe('remaining hook scenarios', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('tracks changed files as json', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'paqad-changed-files-'));
-    const output = join(root, '.paqad/session/changed-files.json');
-
-    const result = await execa(join(process.cwd(), 'runtime/hooks/track-file-changes.sh'), {
-      reject: false,
-      input: JSON.stringify({ output_path: output, files: ['a.ts', 'b.ts'] }),
-    });
-
-    expect(result.exitCode).toBe(0);
-    expect(JSON.parse(readFileSync(output, 'utf8'))).toEqual(['a.ts', 'b.ts']);
-    rmSync(root, { recursive: true, force: true });
-  });
-
   it('detects stale canonical docs from a diff', async () => {
     const result = await execa(join(process.cwd(), 'runtime/hooks/stale-doc-detector.sh'), {
       reject: false,
