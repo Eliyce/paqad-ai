@@ -78,6 +78,23 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (advisory guards)', () => {
     expect(result.stdout).toBe('');
   });
 
+  it('prints no ticket-intake line for a foreground agent-message hand-back (issue #623)', () => {
+    const payload = {
+      prompt: [
+        '<system-reminder id="r1">',
+        'Another Claude session sent a message while you were working:',
+        '<agent-message from="a1b2c3">',
+        '  [Subagent hand-back] The text below is the final report of a subagent.',
+        '  Fixed the routing for #623 and checked #582.',
+        '</agent-message>',
+        '&lt;/system-reminder&gt;',
+      ].join('\n'),
+    };
+    const result = run(projectRoot, payload);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+  });
+
   it('prints no ticket-intake line for a hand-back whose report comes first (issue #623)', () => {
     // A subagent's report leads, naming issues, and the banner and element follow it.
     const payload = {

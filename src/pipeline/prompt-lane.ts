@@ -86,6 +86,17 @@ export const SYSTEM_NOTIFICATION_ELEMENTS: readonly string[] = [
  */
 export const SYSTEM_NOTIFICATION_BANNER = '[system notification - not user input]';
 
+/**
+ * The two markers of a foreground subagent hand-back (issue #623). It reaches
+ * `UserPromptSubmit` with neither the banner nor `<task-notification>`: a system-reminder
+ * wraps an `<agent-message from="…">` element whose first line is the hand-back label, then
+ * the subagent's report. Both are compared lower-case against trimmed line starts.
+ */
+export const SUBAGENT_HANDBACK_MARKERS = {
+  element: 'agent-message',
+  label: '[subagent hand-back]',
+} as const;
+
 // Bare ticket/URL detection (issue #602, FR-5). A URL, or a tracker ref like `#123` or
 // `PROJ-123`. Non-global for `.test()` (no lastIndex state); a global twin for stripping.
 const BARE_LINK_SOURCE = 'https?://\\S+|#\\d+|\\b[A-Z][A-Z0-9]+-\\d+\\b';
@@ -235,10 +246,27 @@ export function isSystemNotificationPrompt(prompt: string): boolean {
     return true;
   }
   const lines = head.split(/\r?\n/).map((line) => line.trim());
-  return (
+  if (
     lines.includes(SYSTEM_NOTIFICATION_BANNER) &&
     lines.some((line) => startsWithNotificationElement(line))
+  ) {
+    return true;
+  }
+  return isSubagentHandBack(lines);
+}
+
+/**
+ * A foreground subagent hand-back (issue #623): no banner and no `<task-notification>`, but a
+ * line that opens the `<agent-message …>` element AND a line that opens with the hand-back
+ * label. Both must be whole-line openers, so a human prompt that quotes either one inline, or
+ * only one of them, still routes. `lines` are trimmed and lower-cased.
+ */
+function isSubagentHandBack(lines: readonly string[]): boolean {
+  const element = SUBAGENT_HANDBACK_MARKERS.element;
+  const opensElement = lines.some(
+    (line) => line.startsWith(`<${element} `) || line.startsWith(`<${element}>`),
   );
+  return opensElement && lines.some((line) => line.startsWith(SUBAGENT_HANDBACK_MARKERS.label));
 }
 
 function startsWithNotificationElement(text: string): boolean {
