@@ -51,6 +51,7 @@ import { createStageCommand } from './commands/stage.js';
 import { createStatusCommand } from './commands/status.js';
 import { createVisualEvidenceCommand } from './commands/visual-evidence.js';
 import { createUpdateCommand } from './commands/update.js';
+import { isHudRefreshVerb, refreshHudSnapshot } from '@/hud/refresh.js';
 
 export function createProgram(): Command {
   const program = new Command();
@@ -115,7 +116,29 @@ export function createProgram(): Command {
   program.addCommand(createDiscoveryCommand());
   program.addCommand(createStatusCommand());
 
+  // Issue #639, Part 7 — the verbs that move a change refresh the session's HUD snapshot when
+  // they finish. Best-effort: refreshHudSnapshot never throws and never sets an exit code.
+  program.hook('postAction', (_program, actionCommand) => {
+    const commandPath = commandPathOf(actionCommand);
+    if (!isHudRefreshVerb(commandPath)) return;
+    const opts = actionCommand.opts<{ projectRoot?: string; session?: string }>();
+    refreshHudSnapshot(
+      opts.projectRoot ?? process.cwd(),
+      opts.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+      `cli:${commandPath}`,
+    );
+  });
+
   return program;
+}
+
+/** The space-joined command path below the program, e.g. `spec pipeline experts notes`. */
+function commandPathOf(command: Command): string {
+  const names: string[] = [];
+  for (let current: Command | null = command; current?.parent; current = current.parent) {
+    names.unshift(current.name());
+  }
+  return names.join(' ');
 }
 
 const COMPAT_OPTION_ALIASES: Record<string, Record<string, string>> = {

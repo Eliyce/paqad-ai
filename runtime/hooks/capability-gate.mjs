@@ -39,6 +39,7 @@ import {
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
+import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 // Mirrors PATHS.RULE_SCRIPT_MAP — kept in sync by hand (runtime mjs has no dist).
 const RULE_SCRIPT_MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
@@ -265,7 +266,13 @@ if (isDirectEntry(import.meta.url)) {
     input += chunk;
   });
   process.stdin.on('end', () => {
-    main(input).then((code) => process.exit(code));
+    main(input).then(async (code) => {
+      // Issue #639 (Part 7) — refresh the HUD snapshot at the completion seam once the
+      // decision is final. Not at pre-mutation: it runs before every edit, and nothing it
+      // records reaches the snapshot until the rule-stop record (Part 18).
+      if (SEAM === 'completion') await refreshHudFromHook(input, 'capability-gate-completion');
+      process.exit(code);
+    });
   });
   process.stdin.resume();
 }

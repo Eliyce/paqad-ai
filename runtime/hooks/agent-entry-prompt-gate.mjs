@@ -53,6 +53,7 @@ import {
   readLayeredKey,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
+import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -243,9 +244,15 @@ const chunks = [];
 const run = () => {
   if (done) return;
   done = true;
-  main(Buffer.concat(chunks).toString('utf8'))
+  const text = Buffer.concat(chunks).toString('utf8');
+  main(text)
+    // Issue #639 (Part 7) — refresh the HUD snapshot once the route is recorded and the
+    // decision is final. refreshHudFromHook never rejects.
+    .then(async (code) => {
+      await refreshHudFromHook(text, 'agent-entry-prompt-gate');
+      process.exit(code);
+    })
     // Never surface an error to the host; fall through and exit cleanly (code 0).
-    .then((code) => process.exit(code))
     .catch(() => process.exit(0));
 };
 
