@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 // The runtime .mjs directive module (issue #547, FR-1.4). Imported directly; it takes a config
 // reader so the test needs no filesystem.
-import { loadSteps, specPipelineNudge } from '../../../runtime/hooks/lib/agent-entry-directive.mjs';
+import {
+  loadSteps,
+  SPEC_PIPELINE_DEFAULTS_MIRROR,
+  specPipelineNudge,
+} from '../../../runtime/hooks/lib/agent-entry-directive.mjs';
+import { SPEC_PIPELINE_DEFAULTS } from '@/core/framework-config.js';
 
 /** A fake layered-config reader backed by a plain record. */
 function reader(values: Record<string, string>) {
@@ -39,16 +44,35 @@ describe('loadSteps sentinel path (issue #582)', () => {
 });
 
 describe('specPipelineNudge (FR-1.4)', () => {
-  it('is null when the pipeline is off (byte-identical output, INV-1)', () => {
-    expect(specPipelineNudge(reader({}), '/x')).toBeNull();
+  it('is null when the pipeline is switched off (byte-identical output, INV-1)', () => {
     expect(specPipelineNudge(reader({ spec_pipeline_enabled: 'false' }), '/x')).toBeNull();
+    expect(specPipelineNudge(reader({ spec_pipeline_enabled: 'OFF' }), '/x')).toBeNull();
   });
 
-  it('reports experts OFF and adoption warn by default', () => {
-    const line = specPipelineNudge(reader({ spec_pipeline_enabled: 'true' }), '/x');
-    expect(line).toBe(
-      '[paqad] Spec pipeline: ON (experts: OFF, adoption: warn). For a code change, the specification stage runs `paqad-ai spec pipeline start`, not a hand-written spec.',
+  it('reports the pipeline ON, experts ON and adoption strict when nothing is set (#640 AC-16)', () => {
+    expect(specPipelineNudge(reader({}), '/x')).toBe(
+      '[paqad] Spec pipeline: ON (experts: ON, adoption: strict). For a code change, the specification stage runs `paqad-ai spec pipeline start`, not a hand-written spec.',
     );
+  });
+
+  it('degrades unrecognised values to the defaults (RULE-16)', () => {
+    const line = specPipelineNudge(
+      reader({
+        spec_pipeline_enabled: 'maybe',
+        spec_pipeline_experts_enabled: 'perhaps',
+        spec_pipeline_adoption: 'banana',
+      }),
+      '/x',
+    );
+    expect(line).toMatch(/experts: ON, adoption: strict/);
+  });
+
+  it('reports experts OFF and adoption warn when the project set them so (AC-18)', () => {
+    const line = specPipelineNudge(
+      reader({ spec_pipeline_experts_enabled: 'no', spec_pipeline_adoption: 'Warn' }),
+      '/x',
+    );
+    expect(line).toMatch(/Spec pipeline: ON \(experts: OFF, adoption: warn\)/);
   });
 
   it('reports experts ON and adoption strict when set', () => {
@@ -61,5 +85,13 @@ describe('specPipelineNudge (FR-1.4)', () => {
       '/x',
     );
     expect(line).toMatch(/experts: ON, adoption: strict/);
+  });
+});
+
+// Issue #640 (AC-24) — the hook cannot import TypeScript, so it mirrors the three defaults. This
+// test is the drift guard: change one side without the other and it fails.
+describe('spec-pipeline default mirror (issue #640, AC-24)', () => {
+  it('matches SPEC_PIPELINE_DEFAULTS exactly', () => {
+    expect({ ...SPEC_PIPELINE_DEFAULTS_MIRROR }).toEqual({ ...SPEC_PIPELINE_DEFAULTS });
   });
 });

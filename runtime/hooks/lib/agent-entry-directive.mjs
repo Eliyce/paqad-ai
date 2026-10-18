@@ -51,13 +51,43 @@ export function loadSteps(entryFile, sentinelRel = '.paqad/.agent-entry-loaded')
 }
 
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
+const FALSY = new Set(['0', 'false', 'no', 'off']);
 
 /**
- * The spec-pipeline nudge (issue #547, FR-1.4). When paqad is ON and `spec_pipeline_enabled` is
- * on, one belt-and-braces line telling the agent the specification stage runs the pipeline, not a
- * hand-written spec. Returns null when the pipeline is off, so a flag-off project's prompt-gate
- * output is byte-identical to before (INV-1). The cross-host path is the router (FR-1.3); this is
- * the Claude Code convenience.
+ * The spec-pipeline defaults, mirrored from `SPEC_PIPELINE_DEFAULTS` in
+ * `src/core/framework-config.ts` (issue #640). This hook cannot import TypeScript, so the three
+ * values are copied here; `tests/unit/hooks/agent-entry-directive.test.ts` fails if they drift.
+ */
+export const SPEC_PIPELINE_DEFAULTS_MIRROR = Object.freeze({
+  spec_pipeline_enabled: true,
+  spec_pipeline_experts_enabled: true,
+  spec_pipeline_adoption: 'strict',
+});
+
+/**
+ * Read one boolean switch the way the TypeScript resolver does: a truthy or falsy token wins,
+ * and an unset or unrecognised value takes the default.
+ *
+ * @param {string | undefined} raw
+ * @param {boolean} fallback
+ * @returns {boolean}
+ */
+function switchOn(raw, fallback) {
+  const value = String(raw ?? '')
+    .trim()
+    .toLowerCase();
+  if (TRUTHY.has(value)) return true;
+  if (FALSY.has(value)) return false;
+  return fallback;
+}
+
+/**
+ * The spec-pipeline nudge (issue #547, FR-1.4). When paqad is ON and the spec pipeline is on (the
+ * default since issue #640, unless the project set `spec_pipeline_enabled` off), one
+ * belt-and-braces line telling the agent the specification stage runs the pipeline, not a
+ * hand-written spec. Returns null when the pipeline is switched off, so that project's
+ * prompt-gate output is byte-identical to before (INV-1). The cross-host path is the router
+ * (FR-1.3); this is the Claude Code convenience.
  *
  * @param {(projectRoot: string, key: string, envName: string, env?: NodeJS.ProcessEnv) => string | undefined} readKey
  * @param {string} projectRoot
@@ -65,22 +95,25 @@ const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
  * @returns {string | null}
  */
 export function specPipelineNudge(readKey, projectRoot, env = process.env) {
+  const defaults = SPEC_PIPELINE_DEFAULTS_MIRROR;
   const enabled = readKey(projectRoot, 'spec_pipeline_enabled', 'PAQAD_SPEC_PIPELINE_ENABLED', env);
-  if (!enabled || !TRUTHY.has(String(enabled).trim().toLowerCase())) return null;
+  if (!switchOn(enabled, defaults.spec_pipeline_enabled)) return null;
   const experts = readKey(
     projectRoot,
     'spec_pipeline_experts_enabled',
     'PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED',
     env,
   );
-  const expertsOn = Boolean(experts) && TRUTHY.has(String(experts).trim().toLowerCase());
-  const adoptionRaw = readKey(
-    projectRoot,
-    'spec_pipeline_adoption',
-    'PAQAD_SPEC_PIPELINE_ADOPTION',
-    env,
-  );
-  const adoption = String(adoptionRaw ?? 'warn').trim() === 'strict' ? 'strict' : 'warn';
+  const expertsOn = switchOn(experts, defaults.spec_pipeline_experts_enabled);
+  const adoptionRaw = String(
+    readKey(projectRoot, 'spec_pipeline_adoption', 'PAQAD_SPEC_PIPELINE_ADOPTION', env) ?? '',
+  )
+    .trim()
+    .toLowerCase();
+  const adoption =
+    adoptionRaw === 'warn' || adoptionRaw === 'strict'
+      ? adoptionRaw
+      : defaults.spec_pipeline_adoption;
   return (
     `[paqad] Spec pipeline: ON (experts: ${expertsOn ? 'ON' : 'OFF'}, adoption: ${adoption}). ` +
     'For a code change, the specification stage runs `paqad-ai spec pipeline start`, not a hand-written spec.'

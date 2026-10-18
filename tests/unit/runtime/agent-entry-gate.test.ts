@@ -333,6 +333,9 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
   });
 
   it('stays silent and exits 0 when the sentinel is fresh', () => {
+    // The spec-pipeline nudge is its own line (issue #640 turned it on by default); this test is
+    // about the load directive, so the pipeline is switched off here.
+    writeFileSync(join(projectRoot, '.paqad/.config'), 'spec_pipeline_enabled=false\n');
     writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
     const future = new Date(Date.now() + 60_000);
     utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), future, future);
