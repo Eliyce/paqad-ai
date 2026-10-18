@@ -15,6 +15,7 @@
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
+import { logHookFailure } from '../hooks/lib/hook-log.mjs';
 import { isPaqadDisabled } from '../hooks/lib/paqad-disabled.mjs';
 
 /**
@@ -137,6 +138,15 @@ export async function runVerificationBackstop({
       // own final message; enforcement rides the `{decision:'block'}` reason below, which
       // is NOT rendered on either host (it reaches the model only), plus the git/CI
       // backstop.
+      // Issue #639, Part 6 — keep paqad's own receipt every turn, clean, Inconclusive or
+      // failing, so the HUD shows the receipt paqad computed rather than the model's
+      // retelling. Best-effort and silent: a failed write is logged and changes nothing
+      // about the decision below or the exit code.
+      try {
+        api.writeHudReceipt(projectRoot, hostSessionId ?? null, verdict);
+      } catch (error) {
+        logHookFailure(projectRoot, 'verify-backstop:hud-receipt', error);
+      }
       const payload = {};
       // Give the gate real teeth on a HARD failure (a gate reported `fail`, e.g. a
       // mandatory stage missing or a red checks report): tell the model to keep working

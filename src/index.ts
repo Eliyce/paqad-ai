@@ -19,6 +19,7 @@ export * from './detection/index.js';
 export * from './event-bus/index.js';
 export * from './design-tokens/index.js';
 export * from './health/index.js';
+export * from './hud/index.js';
 export * from './install/index.js';
 export * from './introspection/index.js';
 export * from './mcp/index.js';

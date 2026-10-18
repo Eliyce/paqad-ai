@@ -37,6 +37,10 @@ export const PATHS = {
   // it writes findings. An INPUT to the review, never an artifact: the review
   // stage's artifact stays the bundle's rigid review.json.
   REVIEW_DIGEST: '.paqad/session/review-digest.md',
+  // Issue #639 — the paqad HUD's per-session files: the snapshot (`<session>.json`), the
+  // in-session receipt (`<session>.receipt.md`) and its verdict (`<session>.verdict.json`).
+  // Git-ignored session state, rewritten as the change moves, never evidence.
+  HUD_DIR: '.paqad/session/hud',
   PROJECT_QUESTION_ANSWER: '.paqad/session/project-question-answer.json',
   AUDIT_LOG: '.paqad/audit.log',
   DECISIONS_DIR: '.paqad/decisions',
