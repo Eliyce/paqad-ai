@@ -75,7 +75,7 @@ A few things worth knowing:
   - paqad then watches your next Claude Code sessions. Once the plugin runs, the move is done. After three sessions with no sign of it, paqad undoes the move and tries again a day later, up to five attempts.
   - If you turn the plugin off in your Claude settings, paqad records that you declined it and never turns it back on.
   - `paqad-ai doctor` shows where the move stands, and `~/.paqad-ai/logs/plugin-migration.log` has the details.
-  - Manual check: in a headless `claude -p` session, Claude Code registered the marketplace from the settings but did not install the plugin over three sessions. The interactive app is not verified yet, so paqad prefers the `claude` command route whenever `claude` is on your path.
+  - Manual check: in a headless `claude -p` session, Claude Code registered the marketplace from the settings but did not install the plugin over three sessions. Whether the Claude Code Desktop app installs a plugin declared in settings on its own is still a manual check, so paqad prefers the `claude` command route whenever `claude` is on your path.
 - **Organizations (Team or Enterprise):** add the `paqad` plugin in Organization settings > Plugins & skills and set it to Installed by default or Required. Members then do nothing and nothing on their machine is edited by paqad.
 
 ## What you get, at a glance
