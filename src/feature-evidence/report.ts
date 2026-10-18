@@ -177,7 +177,6 @@ function readReceiptIntegrity(bundle: FeatureBundleExport): ReceiptIntegrity {
 
 // ── Verdict derivation ────────────────────────────────────────────────────────
 
-
 /**
  * The headline verdict, in the contract words. Derived from the same signals the
  * completion gate uses: a failed stage or a failed receipt gate is "Needs your
