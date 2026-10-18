@@ -128,7 +128,7 @@ describe('paqad-ai stage command', () => {
 
   it('narrates the mark in the ▸ paqad voice (ledger writes are never silent)', async () => {
     const startLines = await run('start', 'planning');
-    expect(startLines.some((line) => line.startsWith('▸ paqad'))).toBe(true);
+    expect(startLines.some((line) => line.startsWith('**▸ paqad** · '))).toBe(true);
 
     // #325 — the end boundary is no longer spoken (muted to cut the duplicate line);
     // the ledger write is still surfaced as the recorded confirmation, so it is never

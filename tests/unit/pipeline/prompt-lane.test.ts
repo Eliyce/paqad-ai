@@ -268,7 +268,7 @@ describe('runPromptRouteSeam (#336)', () => {
       lane: 'full',
       specId: 'sp',
     });
-    expect(result.narration).toContain('Resumed');
+    expect(result.narration).toContain('resumed');
   });
 
   it('stamps turn_started_at on every routed prompt (#582)', async () => {

@@ -340,7 +340,7 @@ describe('prompt gate injects rule sections only for a feature-development promp
     const result = runGateWith('implement a schema migration adding a pii payment column');
     expect(result.stdout).toContain('## paqad rule manifest');
     expect(result.stdout).toContain('## Loaded rule text');
-    const route = result.stdout.indexOf('[paqad] Routed to feature-development');
+    const route = result.stdout.indexOf('**▸ paqad** · routed to feature-development');
     expect(route).toBeGreaterThanOrEqual(0);
     expect(route).toBeLessThan(result.stdout.indexOf('[paqad-context]'));
     expect(lastRagRow().injected_sections).toEqual(['rules', 'retrieval']);

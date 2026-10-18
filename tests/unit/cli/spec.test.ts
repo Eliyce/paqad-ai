@@ -122,7 +122,7 @@ describe('paqad-ai spec command', () => {
     // The retired sidecar dir is never created.
     expect(existsSync(join(root, '.paqad/specs'))).toBe(false);
     // Narrated in the ▸ paqad voice + machine-readable confirmation; no bundle when no feature.
-    expect(out.some((line) => line.startsWith('▸ paqad'))).toBe(true);
+    expect(out.some((line) => line.startsWith('**▸ paqad** · '))).toBe(true);
     expect(out.some((line) => line.includes('"frozen":true'))).toBe(true);
     expect(out.some((line) => line.includes('"specification":null'))).toBe(true);
   });

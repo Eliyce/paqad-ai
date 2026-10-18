@@ -24,8 +24,8 @@ describe('STAGE_NARRATION + stageNarrationLine', () => {
   });
 
   it('renders the branded status line for a known stage', () => {
-    expect(stageNarrationLine('development')).toBe('▸ paqad · building it to the spec');
-    expect(stageNarrationLine('checks')).toContain('▸ paqad · ');
+    expect(stageNarrationLine('development')).toBe('**▸ paqad** · building it to the spec');
+    expect(stageNarrationLine('checks')).toContain('**▸ paqad** · ');
   });
 
   it('returns an empty string for an unknown stage id', () => {
@@ -106,7 +106,7 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
   it('narrates the first code edit once the pre-code stages are recorded', () => {
     seedPreCode();
     const line = narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/a.ts' });
-    expect(line).toBe('▸ paqad · building it to the spec');
+    expect(line).toBe('**▸ paqad** · building it to the spec');
   });
 
   it('does NOT re-narrate a stage already entered this change (idempotent)', () => {
