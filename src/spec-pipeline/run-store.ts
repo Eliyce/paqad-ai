@@ -19,18 +19,11 @@
 //
 // Nothing here creates or reads the retired per-feature scratch folder (INV-1).
 
-import {
-  mkdirSync,
-  readFileSync,
-  realpathSync,
-  renameSync,
-  rmdirSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
+import { mkdirSync, readFileSync, realpathSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 
 import { dirname, join, relative, resolve } from 'pathe';
 
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import type { AgentRole } from '@/core/types/agent.js';
 import type {
   SpecGroundingSection,
@@ -143,7 +136,7 @@ function atomicWrite(abs: string, text: string): void {
   mkdirSync(dirname(abs), { recursive: true });
   const tmp = `${abs}.tmp-${process.pid}`;
   writeFileSync(tmp, text, 'utf8');
-  renameSync(tmp, abs);
+  renameWithRetrySync(tmp, abs);
 }
 
 // ── Staging ─────────────────────────────────────────────────────────────────────────────

@@ -4,10 +4,11 @@
 // structured results here; the backstop reads them so its verdict proves the
 // checks ran instead of assuming they passed.
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import { stampFeatureDocument } from '@/feature-evidence/bundle-document.js';
 import { ENVELOPE_HEADER_KEYS, type EnvelopeHeader } from '@/feature-evidence/envelope.js';
@@ -115,7 +116,7 @@ function atomicWriteReport(target: string, report: ChecksReport): string {
   mkdirSync(dirname(target), { recursive: true });
   const tmp = `${target}.tmp`;
   writeFileSync(tmp, JSON.stringify(report, null, 2) + '\n', 'utf8');
-  renameSync(tmp, target);
+  renameWithRetrySync(tmp, target);
   return target;
 }
 

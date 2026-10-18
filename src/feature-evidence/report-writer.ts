@@ -12,10 +12,11 @@
 // `<script type="application/json" id="paqad-header">` tag in its `<head>`. Its `content_hash`
 // is the SHA-256 of the page as rendered, before the tag is added.
 
-import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 
 import { documentSessionId } from './bundle-document.js';
 import { listFeatureDirs } from './delivery.js';
@@ -105,7 +106,7 @@ export function writeFeatureReport(
   mkdirSync(dirname(abs), { recursive: true });
   const tmp = `${abs}.tmp-${process.pid}`;
   writeFileSync(tmp, html, 'utf8');
-  renameSync(tmp, abs);
+  renameWithRetrySync(tmp, abs);
   return { path: abs, html };
 }
 
