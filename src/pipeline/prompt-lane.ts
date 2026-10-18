@@ -220,13 +220,29 @@ export function isBareTicketPrompt(prompt: string): boolean {
  * USER INPUT]` banner before the element (issue #615, Part 2), so the banner is a second
  * start anchor. Both are start-anchored, so a human question that only mentions either one
  * still routes.
+ *
+ * A subagent hand-back can arrive with the subagent's report FIRST and the banner and element
+ * after it (issue #623, FR-8), so the start anchors miss it. Such a prompt also counts when the
+ * banner is a line of its own AND some line opens with a wrapper element. A human prompt that
+ * quotes only one of them, or quotes either one inline, still routes.
  */
 export function isSystemNotificationPrompt(prompt: string): boolean {
   const head = prompt.trimStart().toLowerCase();
   if (head.startsWith(SYSTEM_NOTIFICATION_BANNER)) {
     return true;
   }
-  return SYSTEM_NOTIFICATION_ELEMENTS.some((element) => head.startsWith(`<${element}>`));
+  if (startsWithNotificationElement(head)) {
+    return true;
+  }
+  const lines = head.split(/\r?\n/).map((line) => line.trim());
+  return (
+    lines.includes(SYSTEM_NOTIFICATION_BANNER) &&
+    lines.some((line) => startsWithNotificationElement(line))
+  );
+}
+
+function startsWithNotificationElement(text: string): boolean {
+  return SYSTEM_NOTIFICATION_ELEMENTS.some((element) => text.startsWith(`<${element}>`));
 }
 
 /**

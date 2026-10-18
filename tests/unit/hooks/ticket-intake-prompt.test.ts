@@ -77,4 +77,24 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (advisory guards)', () => {
     expect(result.status).toBe(0);
     expect(result.stdout).toBe('');
   });
+
+  it('prints no ticket-intake line for a hand-back whose report comes first (issue #623)', () => {
+    // A subagent's report leads, naming issues, and the banner and element follow it.
+    const payload = {
+      prompt: [
+        'Status: completed. Fixed the routing for #623 and checked #582.',
+        '',
+        '[SYSTEM NOTIFICATION - NOT USER INPUT]',
+        'This is an automated background-task event, NOT a message from the user.',
+        '',
+        '<task-notification>',
+        '<task-id>a1b2c3</task-id>',
+        '<summary>Agent "paqad-development" finished</summary>',
+        '</task-notification>',
+      ].join('\n'),
+    };
+    const result = run(projectRoot, payload);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+  });
 });
