@@ -24,6 +24,7 @@ import {
   retryAllowed,
   rollbackPlugin,
   runClaudePluginInstall,
+  runClaudePluginUninstall,
   type ClaudeExec,
   type ClaudeExecOutcome,
   undoViaSettings,
@@ -643,11 +644,70 @@ describe('rollbackPlugin (Part 6)', () => {
     ).toBeUndefined();
     expect(writeInstallModeSettings).toHaveBeenCalledWith(projectRoot);
   });
-  it('calls the claude uninstall for a cli-path machine', () => {
+  it('uninstalls on any path when Claude Code lists the plugin, printing the verbatim line (AC-15)', () => {
+    for (const path of ['cli', 'settings'] as const) {
+      writeMigrationState(home, { state: 'installed', path, attempts: 1, version: '1' });
+      writeInstalledRecord();
+      const runClaudeUninstall = vi.fn();
+      const message = rollbackPlugin(projectRoot, {
+        home,
+        runClaudeUninstall,
+        writeInstallModeSettings: () => {},
+      });
+      expect(runClaudeUninstall).toHaveBeenCalledWith(home);
+      expect(message).toBe(
+        'paqad now runs from the npm package in Claude Code again. The plugin was removed.',
+      );
+      expect(readMigrationState(home)).toMatchObject({ state: 'rolled-back', reason: 'manual' });
+    }
+  });
+  it('does not uninstall when Claude Code does not list the plugin', () => {
     writeMigrationState(home, { state: 'installed', path: 'cli', attempts: 1, version: '1' });
     const runClaudeUninstall = vi.fn();
     rollbackPlugin(projectRoot, { home, runClaudeUninstall, writeInstallModeSettings: () => {} });
-    expect(runClaudeUninstall).toHaveBeenCalledOnce();
+    expect(runClaudeUninstall).not.toHaveBeenCalled();
+  });
+});
+
+describe('runClaudePluginUninstall (B6)', () => {
+  it('runs the exact uninstall command and logs the outcome', () => {
+    const { exec, calls } = fakeExec({ uninstall: 'ok' });
+    const log = vi.fn();
+    runClaudePluginUninstall(home, { claudeVersion: () => '2.1.300', exec, log, env: {} });
+    expect(calls).toEqual([
+      { args: ['plugin', 'uninstall', 'paqad@eliyce', '--scope', 'user'], timeoutMs: 120_000 },
+    ]);
+    expect(log).toHaveBeenCalledWith('uninstall via cli: ok');
+  });
+  it('runs nothing when there is no claude on PATH (AC-16)', () => {
+    const { exec, calls } = fakeExec({});
+    const log = vi.fn();
+    runClaudePluginUninstall(home, { claudeVersion: () => null, exec, log });
+    expect(calls).toEqual([]);
+    expect(log).toHaveBeenCalledWith('uninstall skipped: no claude on PATH');
+  });
+  it('logs a failing uninstall and never throws (AC-16)', () => {
+    const { exec } = fakeExec({ uninstall: 'exit' });
+    runClaudePluginUninstall(home, { claudeVersion: () => '2.1.300', exec });
+    expect(readFileSync(migrationLogPath(home), 'utf8')).toContain('uninstall via cli: exit');
+    const throwing: ClaudeExec = () => {
+      throw new Error('spawn blew up');
+    };
+    expect(() =>
+      runClaudePluginUninstall(home, { claudeVersion: () => '2.1.300', exec: throwing }),
+    ).not.toThrow();
+    expect(readFileSync(migrationLogPath(home), 'utf8')).toContain('error (spawn blew up)');
+  });
+  it('a failing uninstall still lets the rollback complete', () => {
+    writeInstalledRecord();
+    const { exec } = fakeExec({ uninstall: 'timeout' });
+    const message = rollbackPlugin(projectRoot, {
+      home,
+      runClaudeUninstall: (h) => runClaudePluginUninstall(h, { claudeVersion: () => '1', exec }),
+      writeInstallModeSettings: () => {},
+    });
+    expect(message).toContain('The plugin was removed.');
+    expect(readMigrationState(home)?.state).toBe('rolled-back');
   });
 });
 

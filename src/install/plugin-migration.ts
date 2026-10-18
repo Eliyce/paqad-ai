@@ -37,6 +37,7 @@ const MARKETPLACE_KEY = 'eliyce';
 /** Bounded timeouts for the synchronous `claude plugin` runs, so a hung CLI never holds the update. */
 const MARKETPLACE_ADD_TIMEOUT_MS = 120_000;
 const INSTALL_TIMEOUT_MS = 180_000;
+const UNINSTALL_TIMEOUT_MS = 120_000;
 
 /** Minimum `claude` version whose `plugin` subcommands this migration drives (Part 3, Path A). */
 export const MIN_CLAUDE_VERSION = '2.1.295';
@@ -629,21 +630,22 @@ export interface RollbackDeps {
   home?: string;
   now?: () => Date;
   version?: string;
-  /** Path A uninstall (`claude plugin uninstall`); injected for tests. */
+  /** `claude plugin uninstall`, run when Claude Code lists the plugin (any path); injected for tests. */
   runClaudeUninstall?: (home: string) => void;
   /** Writes `claude_install_mode=settings` to the project's local `.paqad/.config`. */
   writeInstallModeSettings?: (projectRoot: string) => void;
 }
 
 /**
- * `paqad-ai plugin rollback` — undo the move by the recorded path, record `rolled-back` (reason
- * `manual`), pin `claude_install_mode=settings` locally so it never re-migrates, and return the
- * message to print verbatim.
+ * `paqad-ai plugin rollback` — remove the plugin, undo the settings keys, record `rolled-back`
+ * (reason `manual`), pin `claude_install_mode=settings` locally so it never re-migrates, and
+ * return the message to print verbatim. The uninstall runs whenever Claude Code lists the plugin,
+ * on any path, because Claude Code may have installed it from the settings keys too (B6).
  */
 export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): string {
   const home = deps.home ?? homedir();
   const prior = readMigrationState(home);
-  if (prior?.path === 'cli' && deps.runClaudeUninstall) {
+  if (deps.runClaudeUninstall && isPluginInstalledRecord(home)) {
     deps.runClaudeUninstall(home);
   }
   undoViaSettings(home);
@@ -740,4 +742,33 @@ export function runClaudePluginInstall(
   if (installed !== 'ok') return { ok: false, reason: `cli-install-failed:${installed}` };
   if (!isPluginInstalledRecord(home)) return { ok: false, reason: 'cli-install-unconfirmed' };
   return { ok: true };
+}
+
+/** Injectable seams for {@link runClaudePluginUninstall}. */
+export interface UninstallDeps {
+  env?: NodeJS.ProcessEnv;
+  claudeVersion?: () => string | null;
+  exec?: ClaudeExec;
+  log?: (message: string) => void;
+}
+
+/**
+ * Run `claude plugin uninstall paqad@eliyce --scope user` when a `claude` is on PATH. Logs the
+ * outcome and never throws; with no `claude` it runs nothing (the settings undo still applies).
+ */
+export function runClaudePluginUninstall(home: string, deps: UninstallDeps = {}): void {
+  const log = deps.log ?? ((message: string) => appendMigrationLog(home, message));
+  try {
+    if ((deps.claudeVersion ?? defaultClaudeVersion)() === null) {
+      log('uninstall skipped: no claude on PATH');
+      return;
+    }
+    const outcome = (deps.exec ?? defaultClaudeExec)(
+      ['plugin', 'uninstall', PLUGIN_ID, '--scope', 'user'],
+      { timeoutMs: UNINSTALL_TIMEOUT_MS, env: deps.env ?? process.env },
+    );
+    log(`uninstall via cli: ${outcome}`);
+  } catch (error) {
+    log(`uninstall via cli: error (${(error as Error).message})`);
+  }
 }

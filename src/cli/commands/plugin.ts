@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 
-import { rollbackPlugin } from '@/install/plugin-migration.js';
+import { rollbackPlugin, runClaudePluginUninstall } from '@/install/plugin-migration.js';
 
 /**
  * `paqad-ai plugin …` — manage the Claude Code plugin migration (issue #621).
@@ -17,7 +17,9 @@ export function createPluginCommand(): Command {
     .description('Move this machine back to the npm setup in Claude Code and stop re-migrating')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action((options: { projectRoot: string }) => {
-      const message = rollbackPlugin(options.projectRoot);
+      const message = rollbackPlugin(options.projectRoot, {
+        runClaudeUninstall: runClaudePluginUninstall,
+      });
       console.log(message);
     });
 
