@@ -1011,6 +1011,37 @@ describe('automatic rollback is retryable (B3)', () => {
     expect(r).toMatchObject({ state: 'rolled-back', reason: 'plugin-never-loaded' });
     expect(runClaudeUninstall).toHaveBeenCalledWith(home);
   });
+  it('the automatic rollback drops a stale plugin-seen so the retry runs Path A', async () => {
+    manifestClaudeCode();
+    mkdirSync(join(home, '.paqad-ai'), { recursive: true });
+    writeFileSync(pluginSeenPath(home), JSON.stringify({ at: '2026-10-01T00:00:00Z' }));
+    writeMigrationState(home, {
+      state: 'installed',
+      path: 'cli',
+      attempts: 1,
+      version: '1',
+      installed_at: '2026-10-16T10:00:00Z',
+      npm_sessions_since_install: 2,
+    });
+    await tick('npm', 's3', { now: () => new Date('2026-10-16T11:00:00Z') });
+    expect(existsSync(pluginSeenPath(home))).toBe(false);
+    const runClaudeInstall = vi.fn(() => {
+      writeInstalledRecord();
+      return { ok: true };
+    });
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({ claudeVersion: () => '2.1.300', runClaudeInstall }),
+    );
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
+    expect(runClaudeInstall).toHaveBeenCalledOnce();
+  });
+  it('the manual rollback drops plugin-seen too', () => {
+    mkdirSync(join(home, '.paqad-ai'), { recursive: true });
+    writeFileSync(pluginSeenPath(home), JSON.stringify({ at: '2026-10-01T00:00:00Z' }));
+    rollbackPlugin(projectRoot, { home, writeInstallModeSettings: () => {} });
+    expect(existsSync(pluginSeenPath(home))).toBe(false);
+  });
   it('the automatic rollback without an uninstall runner still completes', async () => {
     writeInstalledRecord();
     writeMigrationState(home, {

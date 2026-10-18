@@ -169,6 +169,19 @@ export function readPluginSeen(
   }
 }
 
+/**
+ * Remove `plugin-seen.json` after a rollback, so a stale marker from before the undo cannot make
+ * the next retry look "already present" and skip the real install. The plugin rewrites it the
+ * next time it runs. Best-effort; never throws.
+ */
+function clearPluginSeen(home: string): void {
+  try {
+    rmSync(pluginSeenPath(home), { force: true });
+  } catch {
+    /* best-effort: a leftover marker only costs one extra confirmation pass */
+  }
+}
+
 /** True when a plugin root path is a claude.ai synced-plugin cache (Part 9.3). */
 export function isSyncedRoot(root: string | undefined): boolean {
   return (
@@ -787,6 +800,7 @@ function autoRollback(
 ): MigrationResult {
   if (isPluginInstalledRecord(deps.home)) deps.runClaudeUninstall(deps.home);
   undoViaSettings(deps.home);
+  clearPluginSeen(deps.home);
   deps.log(`rolled back after ${sessions} npm sessions with no plugin`);
   return record(deps, prior, {
     state: 'rolled-back',
@@ -843,6 +857,7 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
     deps.runClaudeUninstall(home);
   }
   undoViaSettings(home);
+  clearPluginSeen(home);
   writeMigrationState(home, {
     attempts: prior?.attempts ?? 0,
     ...prior,
