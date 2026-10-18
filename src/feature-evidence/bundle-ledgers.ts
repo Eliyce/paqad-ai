@@ -31,6 +31,7 @@ import {
 
 import type { ChangeMetrics } from '@/change-metrics/types.js';
 import type { DuplicationReport } from '@/duplication/report.js';
+import type { DuplicationFinding } from '@/duplication/types.js';
 
 import { ENVELOPE_HEADER_KEYS, stampBundleRow } from './envelope.js';
 import { chatRagPath, featureChangeKey, featureFilePath } from './paths.js';
@@ -188,6 +189,20 @@ export interface DuplicationRowFinding {
   kind: 'deterministic' | 'heuristic';
 }
 
+/** The fields of a near-copy a bundle row keeps; the long message is rebuilt from them. */
+function duplicationRowFinding(finding: DuplicationFinding): DuplicationRowFinding {
+  return {
+    file: finding.file,
+    line_range: finding.line_range,
+    matched_file: finding.matched_file,
+    matched_symbol: finding.matched_symbol ?? null,
+    matched_line_range: finding.matched_line_range,
+    similarity: finding.similarity,
+    matched_callers: finding.matched_callers,
+    kind: finding.kind,
+  };
+}
+
 /** Keep the first {@link BUNDLE_FINDINGS_CAP} findings and count the rest. */
 function capFindings<T>(all: readonly T[]): { findings: T[]; findings_overflow: number } {
   return {
@@ -267,6 +282,10 @@ export function readRuleRun(projectRoot: string, dirName: string): SessionLedger
  * no-op (returns null) when no feature is active, mirroring {@link appendRuleRun}. The
  * payload fields match the old-home `recordDuplicationRun` row so the parity window can
  * prove the two agree. Additive and best-effort: a failure never breaks the scan.
+ *
+ * Issue #639 (Part 12) — the row also keeps each near-copy (capped, overflow counted), so
+ * the change's evidence names what was copied after the scan cache is overwritten. A cached
+ * report with no findings list records none, rather than an empty list that reads as clean.
  */
 export function appendDuplicationRun(
   projectRoot: string,
@@ -291,6 +310,9 @@ export function appendDuplicationRun(
         min_lines: report.min_lines,
         mode: report.mode,
         blocking: report.blocking,
+        ...(Array.isArray(report.findings)
+          ? capFindings(report.findings.map(duplicationRowFinding))
+          : {}),
         ...(backfilled ? { backfilled: true } : {}),
       },
       now,

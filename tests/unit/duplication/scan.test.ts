@@ -71,6 +71,21 @@ describe('runDuplicationScan', () => {
     const rows = readDuplication(root, dir);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ mode: 'strict', blocking: report.blocking });
+    // Issue #639 (AC-27) — the row names the near-copy, not just its count.
+    const finding = report.findings[0]!;
+    expect(rows[0]).toMatchObject({
+      findings: [
+        {
+          file: 'src/stamp.ts',
+          matched_file: 'src/dates.ts',
+          matched_symbol: finding.matched_symbol ?? null,
+          similarity: finding.similarity,
+          matched_callers: finding.matched_callers,
+          kind: 'deterministic',
+        },
+      ],
+      findings_overflow: 0,
+    });
     // The old-home cache write is untouched.
     expect(readDuplicationReport(root)).toEqual(report);
   });

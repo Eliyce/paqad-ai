@@ -24,6 +24,7 @@ import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { readUnitFile, stampSessionRow } from '@/session-ledger/ledger.js';
 import type { ChangeMetrics } from '@/change-metrics/types.js';
 import type { DuplicationReport } from '@/duplication/report.js';
+import type { DuplicationFinding } from '@/duplication/types.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -287,6 +288,57 @@ describe('per-feature duplication.jsonl (issue #468)', () => {
   it('is a no-op (null) when no feature is active', () => {
     const root = tempRoot();
     expect(appendDuplicationRun(root, 'ses_1', duplicationReport())).toBeNull();
+  });
+
+  it('keeps each near-copy by name, capped with the overflow counted (issue #639, AC-27, AC-29)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const nearCopy = (i: number, symbol?: string): DuplicationFinding => ({
+      file: `src/new${i}.ts`,
+      line_range: { start: 1, end: 9 },
+      matched_file: 'src/old.ts',
+      ...(symbol ? { matched_symbol: symbol } : {}),
+      matched_line_range: { start: 10, end: 18 },
+      similarity: 0.93,
+      matched_callers: 4,
+      corroborated: false,
+      kind: 'deterministic',
+      message: 'a long message the row does not keep',
+    });
+    const findings = [
+      nearCopy(0, 'formatPrice'),
+      ...Array.from({ length: BUNDLE_FINDINGS_CAP }, (_, i) => nearCopy(i + 1)),
+    ];
+    appendDuplicationRun(root, 'ses_1', {
+      ...duplicationReport(),
+      findings,
+      counts: { deterministic: findings.length, heuristic: 0 },
+    });
+    const [row] = readDuplication(root, dir) as unknown as Array<Record<string, unknown>>;
+    const kept = row!.findings as Array<Record<string, unknown>>;
+    expect(kept).toHaveLength(BUNDLE_FINDINGS_CAP);
+    expect(row!.findings_overflow).toBe(1);
+    expect(kept[0]).toEqual({
+      file: 'src/new0.ts',
+      line_range: { start: 1, end: 9 },
+      matched_file: 'src/old.ts',
+      matched_symbol: 'formatPrice',
+      matched_line_range: { start: 10, end: 18 },
+      similarity: 0.93,
+      matched_callers: 4,
+      kind: 'deterministic',
+    });
+    expect(kept[1]!.matched_symbol).toBeNull();
+  });
+
+  it('records no findings list for a cached report without one', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const partial = { ...duplicationReport(), findings: undefined } as unknown as DuplicationReport;
+    appendDuplicationRun(root, 'ses_1', partial);
+    const [row] = readDuplication(root, dir);
+    expect(row).not.toHaveProperty('findings');
+    expect(row).toMatchObject({ counts: { deterministic: 1, heuristic: 2 } });
   });
 
   it('swallows an internal failure (best-effort) and returns null', () => {
