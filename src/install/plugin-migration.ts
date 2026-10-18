@@ -62,6 +62,13 @@ export interface MigrationRecord {
   installed_at?: string;
   /** The last npm session id counted toward the rollback, so one session counts once (B4). */
   last_counted_session?: string;
+  /**
+   * When and why the last REAL write happened (anything but a config skip). A config skip
+   * rewrites `last_attempt_at` and `reason`, so the retry window of a real prior attempt is
+   * judged from these instead (B7).
+   */
+  last_real_attempt_at?: string;
+  last_real_reason?: string;
 }
 
 /** Injectable seams so the state machine is testable without a real environment. */
@@ -281,8 +288,9 @@ function marketplaceReferenced(list: unknown[]): boolean {
 }
 
 /**
- * Skips that record a config or environment decision, not a real attempt. They never throttle the
- * next run, so a Developer who opts in a minute after a skip is not made to wait a day (B7).
+ * Skips that record a config or environment decision, not a real attempt. They never start a retry
+ * window of their own, so a Developer who opts in a minute after a skip is not made to wait a day
+ * (B7). They never erase one either: the attempt cap and a real prior attempt's window still hold.
  */
 const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
   'migration-off',
@@ -307,13 +315,23 @@ function isSettled(record: MigrationRecord): boolean {
 /** Whether the retry rules (Part 5) allow another attempt now. */
 export function retryAllowed(record: MigrationRecord | null, now: Date): boolean {
   if (!record) return true;
-  if (record.state === 'skipped' && CONFIG_SKIP_REASONS.has(record.reason ?? '')) return true;
   if (isSettled(record)) return false;
   if (record.attempts >= MAX_ATTEMPTS) return false;
-  if (!record.last_attempt_at) return true;
-  const since = now.getTime() - new Date(record.last_attempt_at).getTime();
-  const window = record.reason === 'managed-policy' ? MANAGED_POLICY_RECHECK_MS : RETRY_WINDOW_MS;
+  // A config skip is judged by the last real attempt before it (none → allowed at once).
+  const configSkip = isConfigSkip(record.state, record.reason);
+  const at = configSkip
+    ? record.last_real_attempt_at
+    : (record.last_real_attempt_at ?? record.last_attempt_at);
+  if (!at) return true;
+  const reason = configSkip ? record.last_real_reason : record.reason;
+  const since = now.getTime() - new Date(at).getTime();
+  const window = reason === 'managed-policy' ? MANAGED_POLICY_RECHECK_MS : RETRY_WINDOW_MS;
   return since >= window;
+}
+
+/** True for a skip that records a config or environment decision (B7). */
+function isConfigSkip(state: MigrationState, reason: string | undefined): boolean {
+  return state === 'skipped' && CONFIG_SKIP_REASONS.has(reason ?? '');
 }
 
 // ── Install paths (Part 3) ────────────────────────────────────────────────────
@@ -499,6 +517,15 @@ function record(
   };
   // A fresh move into `installed` restarts the freshness clock; a counter bump keeps it.
   if (patch.state === 'installed' && prior?.state !== 'installed') next.installed_at = nowIso;
+  // Only a real write moves the retry baseline; a config skip keeps the prior one (B7).
+  if (!isConfigSkip(next.state, next.reason)) {
+    next.last_real_attempt_at = nowIso;
+    next.last_real_reason = next.reason;
+  } else if (prior && !prior.last_real_attempt_at && !isConfigSkip(prior.state, prior.reason)) {
+    // An older record (written before these fields existed): its own write was the real one.
+    next.last_real_attempt_at = prior.last_attempt_at;
+    next.last_real_reason = prior.reason;
+  }
   writeMigrationState(deps.home, next);
   return { state: next.state, path: next.path, reason: next.reason };
 }

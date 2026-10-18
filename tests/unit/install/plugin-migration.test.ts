@@ -213,7 +213,7 @@ describe('retryAllowed (Part 5)', () => {
           {
             state: 'skipped',
             reason,
-            attempts: 5,
+            attempts: 1,
             version: '1',
             last_attempt_at: '2026-10-17T11:59:00Z',
           },
@@ -221,6 +221,36 @@ describe('retryAllowed (Part 5)', () => {
         ),
       ).toBe(true);
     }
+  });
+  it('a config skip still honours the attempt cap', () => {
+    expect(
+      retryAllowed({ state: 'skipped', reason: 'migration-off', attempts: 5, version: '1' }, now),
+    ).toBe(false);
+  });
+  it('a config skip keeps the window of the real attempt before it', () => {
+    const skip = {
+      state: 'skipped' as const,
+      reason: 'install-mode-settings',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-17T11:59:00Z',
+    };
+    // A failed attempt 6h ago: 24h window still running.
+    expect(retryAllowed({ ...skip, last_real_attempt_at: '2026-10-17T06:00:00Z' }, now)).toBe(
+      false,
+    );
+    expect(retryAllowed({ ...skip, last_real_attempt_at: '2026-10-16T06:00:00Z' }, now)).toBe(true);
+    // A managed-policy skip 2 days ago keeps its 7-day window through a config skip.
+    expect(
+      retryAllowed(
+        {
+          ...skip,
+          last_real_attempt_at: '2026-10-15T12:00:00Z',
+          last_real_reason: 'managed-policy',
+        },
+        now,
+      ),
+    ).toBe(false);
   });
   it('still throttles a skipped record with no reason', () => {
     expect(
@@ -233,6 +263,43 @@ describe('retryAllowed (Part 5)', () => {
 });
 
 describe('config skips do not throttle a later opt-in (B7)', () => {
+  it('toggling claude_install_mode cannot bypass the cap or a real attempt window', () => {
+    manifestClaudeCode();
+    const at = (iso: string) => () => new Date(iso);
+    // A real failed attempt one hour ago, at the cap.
+    writeMigrationState(home, {
+      state: 'failed',
+      reason: 'user-settings-write-failed',
+      attempts: 5,
+      version: '1',
+      last_attempt_at: '2026-10-17T11:00:00Z',
+    });
+    const toggle = (mode: string) =>
+      maybeMigrateToPlugin(
+        projectRoot,
+        baseDeps({ env: { PAQAD_CLAUDE_INSTALL_MODE: mode }, now: at('2026-10-17T12:00:00Z') }),
+      );
+    expect(toggle('plugin').reason).toBe('retry-not-due');
+    expect(toggle('settings').reason).toBe('install-mode-settings');
+    expect(toggle('plugin').reason).toBe('retry-not-due');
+    expect(readMigrationState(home)?.attempts).toBe(5);
+    // Below the cap, the 24h window of the failed attempt survives the toggle.
+    writeMigrationState(home, {
+      state: 'failed',
+      reason: 'user-settings-write-failed',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-17T11:00:00Z',
+    });
+    toggle('settings');
+    expect(toggle('plugin').reason).toBe('retry-not-due');
+    expect(
+      maybeMigrateToPlugin(
+        projectRoot,
+        baseDeps({ env: { PAQAD_CLAUDE_INSTALL_MODE: 'plugin' }, now: at('2026-10-18T11:30:00Z') }),
+      ).state,
+    ).toBe('installed');
+  });
   it('installs at once after a migration-off skip a minute earlier', () => {
     manifestClaudeCode();
     writeMigrationState(home, {
