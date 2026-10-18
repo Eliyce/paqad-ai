@@ -4,7 +4,6 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  rmSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -12,6 +11,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { removeTempProject } from './temp-project.js';
 
 const GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.mjs');
 const PROMPT_GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
@@ -72,7 +73,7 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removeTempProject(projectRoot);
   });
 
   it('blocks with exit code 2 when the sentinel is missing', () => {
@@ -267,7 +268,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removeTempProject(projectRoot);
   });
 
   it('soft mode (default) prints a reminder on stdout and exits 0 when the sentinel is missing', () => {
@@ -425,7 +426,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
       // The gap this fixes: the per-session workflow-state now exists after the first prompt.
       expect(existsSync(workflowStatePath(projectRoot, sessionId))).toBe(true);
     } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
+      removeTempProject(projectRoot);
     }
   });
 
@@ -461,9 +462,8 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
         expect(result.stdout.includes(line)).toBe(named);
       } finally {
         // The prompt gate fires a DETACHED context-refresh child that keeps writing into
-        // projectRoot after the gate returns, so on Windows an immediate rmdir races it and
-        // throws ENOTEMPTY (issue #615). rmSync's built-in retry waits out the child.
-        rmSync(projectRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+        // projectRoot after the gate returns (issues #615, #649); removeTempProject waits it out.
+        removeTempProject(projectRoot);
       }
     },
   );
@@ -499,7 +499,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       };
       expect(baseline.files['src.ts']).toBeTypeOf('string');
     } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
+      removeTempProject(projectRoot);
     }
   });
 
@@ -517,7 +517,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       expect(existsSync(join(projectRoot, '.paqad/.agent-entry-loaded'))).toBe(false);
       expect(existsSync(join(projectRoot, '.paqad/session/agent-entry'))).toBe(false);
     } finally {
-      rmSync(projectRoot, { recursive: true, force: true });
+      removeTempProject(projectRoot);
     }
   });
 });
@@ -567,7 +567,7 @@ describe('per-session entry sentinel (issue #582)', () => {
   });
 
   afterEach(() => {
-    rmSync(projectRoot, { recursive: true, force: true });
+    removeTempProject(projectRoot);
   });
 
   it('SessionStart for session B leaves session A sentinel, and A can still edit (AC-10)', () => {

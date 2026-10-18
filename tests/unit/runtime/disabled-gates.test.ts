@@ -1,9 +1,11 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+
+import { removeTempProject } from './temp-project.js';
 
 // Issue #220 — when paqad is disabled (PAQAD_DISABLED=1 or paqad_enable=false in
 // .paqad/.config), every shell gate must be a pure no-op: exit 0, never block, and
@@ -54,7 +56,7 @@ describe('gates are a no-op when paqad is disabled', () => {
   });
 
   afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
+    removeTempProject(root);
   });
 
   it('control: the entry gate blocks (exit 2) when enabled and the sentinel is missing', () => {
