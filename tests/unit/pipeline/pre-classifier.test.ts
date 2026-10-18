@@ -1,14 +1,20 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import * as deltaDetector from '@/pipeline/delta-detector.js';
 import * as ruleTriggerMatcher from '@/pipeline/rule-trigger-matcher.js';
 import * as scopeResolver from '@/pipeline/scope-resolver.js';
 import { ModuleResolver } from '@/pipeline/module-resolver.js';
+import { resolvePromptRoute } from '@/pipeline/prompt-lane.js';
 import {
   PreClassifier,
   isQuestionRoute,
   hasCodeNegation,
   isCreateArtifactAsk,
+  isAboutWorkPrompt,
 } from '@/pipeline/pre-classifier.js';
 
 describe('PreClassifier', () => {
@@ -316,5 +322,84 @@ describe('isQuestionRoute / hasCodeNegation / isCreateArtifactAsk (#580 helpers)
     expect(isCreateArtifactAsk('write up the postmortem')).toBe(true);
     expect(isCreateArtifactAsk('file an issue and implement the fix')).toBe(false);
     expect(isCreateArtifactAsk('add a logout button')).toBe(false);
+  });
+});
+
+// Issue #623 — prompts that talk about the work (issues, drafts, reports) are not code changes.
+const ABOUT_WORK_FIXTURES: Array<[string, string]> = [
+  ['Post it to GitHub as drafted, label bug.', 'project-question'],
+  ["Add the RAG points to the rewrite file only. Don't change GitHub yet.", 'project-question'],
+  ['So user need to add the plugin, by hand?', 'project-question'],
+  ['For automatic user migration, can you add another issue and link', 'project-question'],
+  ['Please file remaining, you can recheck and reconfirm', 'project-question'],
+  // Controls: real code changes stay feature-development.
+  ['fix the null check in src/api/users.ts', 'feature-development'],
+  ['add a dark mode toggle to the settings page', 'feature-development'],
+];
+
+describe('PreClassifier · talking about work (#623)', () => {
+  it.each(ABOUT_WORK_FIXTURES)(
+    'routes "%s" through the prompt route to %s (AC-9)',
+    async (request, routed) => {
+      vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+        modules: [],
+        source: 'default',
+      });
+      const root = mkdtempSync(join(tmpdir(), 'paqad-about-work-'));
+      try {
+        const result = await resolvePromptRoute(root, request);
+        expect(result.routed).toBe(routed);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it('resolves the issue fixtures in the pre-classifier itself', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    const expected: Array<[string, string]> = [
+      ['Post it to GitHub as drafted, label bug.', 'project-question'],
+      ["Add the RAG points to the rewrite file only. Don't change GitHub yet.", 'project-question'],
+      ['For automatic user migration, can you add another issue and link', 'project-question'],
+      ['Please file remaining, you can recheck and reconfirm', 'project-question'],
+      ['fix the null check in src/api/users.ts', 'bug-fix'],
+      ['add a dark mode toggle to the settings page', 'feature-development'],
+    ];
+    for (const [request, workflow] of expected) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow, `"${request}" → ${workflow}`).toBe(workflow);
+    }
+  });
+
+  it('needs a work noun, a work verb and no source path', () => {
+    expect(isAboutWorkPrompt('Post it to GitHub as drafted, label bug.')).toBe(true);
+    expect(isAboutWorkPrompt('update the pull request description')).toBe(true);
+    expect(isAboutWorkPrompt('add the findings to the report')).toBe(true);
+    // No work verb.
+    expect(isAboutWorkPrompt('the issue is still open')).toBe(false);
+    // No work noun.
+    expect(isAboutWorkPrompt('add a dark mode toggle to the settings page')).toBe(false);
+    // A source path or a source file keeps it a code change.
+    expect(isAboutWorkPrompt('update the issue for src/api/users.ts')).toBe(false);
+    expect(isAboutWorkPrompt('link the issue to lib/cart')).toBe(false);
+    expect(isAboutWorkPrompt('update the plan in checkout.py')).toBe(false);
+    // A strong code verb keeps it a code change.
+    expect(isAboutWorkPrompt('fix the typo in the report and update the PR')).toBe(false);
+    expect(isAboutWorkPrompt('')).toBe(false);
+  });
+
+  it('leaves a work-verb prompt that names code to the code tiers', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    // A work verb alone does not claim a prompt that names a source file or a code verb.
+    for (const request of ['check src/cart.ts', 'refactor and recheck the cart']) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.unresolved, `"${request}" is left unresolved`).toContain('workflow');
+    }
   });
 });

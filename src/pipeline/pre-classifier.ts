@@ -305,10 +305,14 @@ function resolveWorkflow(
   //    code" or "file an issue" ask is also a project-question (FR-4/FR-5). All of these run
   //    BEFORE the code-change tier, and a polite code request ("Can you add a logout button?")
   //    is deliberately excluded so it still routes to feature-development (AC-2).
+  //    A prompt that talks about the work itself (posting an issue, updating a draft) rather
+  //    than about code is a project-question too, so the code-change tier cannot win for it
+  //    (issue #623 FR-7).
   if (
     isQuestionRoute(requestText) ||
     hasCodeNegation(normalized) ||
-    isCreateArtifactAsk(normalized)
+    isCreateArtifactAsk(normalized) ||
+    isAboutWorkPrompt(requestText)
   ) {
     return 'project-question';
   }
@@ -319,6 +323,17 @@ function resolveWorkflow(
   );
   if (codeChange) {
     return codeChange;
+  }
+
+  // 4. Nothing above matched, but the prompt asks for work-tracking steps ("Please file
+  //    remaining, you can recheck and reconfirm") and names no source path. That is talk
+  //    about the work, not a change to code (issue #623). It never outranks a code keyword.
+  if (
+    hasWorkVerb(normalized) &&
+    !STRONG_CODE_VERB_RE.test(normalized) &&
+    !namesSourcePath(requestText)
+  ) {
+    return 'project-question';
   }
 
   return undefined;
@@ -471,6 +486,130 @@ export function isCreateArtifactAsk(normalized: string): boolean {
   }
   const alsoImplements = /\b(implement|and (?:fix|add|build|change|update))\b/.test(normalized);
   return !alsoImplements;
+}
+
+/** Nouns that name a piece of work-tracking, not code (issue #623 FR-7), with plurals. */
+const WORK_NOUNS = new Set([
+  'issue',
+  'issues',
+  'ticket',
+  'tickets',
+  'pr',
+  'prs',
+  'draft',
+  'drafts',
+  // "post it as drafted" points at the draft itself.
+  'drafted',
+  'report',
+  'reports',
+  'research',
+  'plan',
+  'plans',
+  'doc',
+  'docs',
+  'rewrite',
+  'rewrites',
+]);
+
+/** Multi-word work nouns, matched as whole-word sequences. */
+const WORK_NOUN_PHRASES = ['pull request', 'pull requests'];
+
+/**
+ * Verbs that act on work-tracking (issue #623 FR-7), with inflections, plus the re- forms
+ * people use for a second pass ("recheck and reconfirm"). "add ... to" is matched separately.
+ */
+const WORK_VERBS = new Set([
+  'post',
+  'posts',
+  'posted',
+  'posting',
+  'repost',
+  'file',
+  'files',
+  'filed',
+  'filing',
+  'draft',
+  'drafts',
+  'drafted',
+  'drafting',
+  'link',
+  'links',
+  'linked',
+  'linking',
+  'update',
+  'updates',
+  'updated',
+  'updating',
+  'rewrite',
+  'rewrites',
+  'rewrote',
+  'rewritten',
+  'rewriting',
+  'check',
+  'checks',
+  'checked',
+  'checking',
+  'recheck',
+  'rechecks',
+  'rechecked',
+  'rechecking',
+  'confirm',
+  'confirms',
+  'confirmed',
+  'confirming',
+  'reconfirm',
+  'reconfirms',
+  'reconfirmed',
+  'reconfirming',
+]);
+
+/** "add ... to" ("add the points to the rewrite"), the one work verb that needs a partner. */
+const ADD_TO_RE = /\b(?:add|adds|added|adding)\b.*\bto\b/;
+
+/**
+ * Words that mark a real code change even when work nouns are around ("fix the typo in the
+ * report"). Their presence keeps the about-work signal off, so a code change is never routed
+ * away from feature-development by it.
+ */
+const STRONG_CODE_VERB_RE =
+  /\b(?:fix|fixes|fixing|fixed|implement|implements|implementing|implemented|build|builds|building|built|refactor|refactors|refactoring|refactored|develop|develops|developing|developed)\b/;
+
+/** A source path or source-language file name: `src/`, `lib/`, `app/`, `runtime/`, `tests/`. */
+const SOURCE_PATH_RE =
+  /\b(?:src|lib|app|runtime|tests)\/|\.(?:ts|tsx|js|jsx|mjs|cjs|py|php|rb|go|rs|java|kt|swift|cs|vue|svelte|dart)\b/i;
+
+/** Whether the RAW request names a source path or a source-language file (issue #623 FR-7). */
+function namesSourcePath(requestText: string): boolean {
+  return SOURCE_PATH_RE.test(requestText);
+}
+
+function hasWorkVerb(normalized: string): boolean {
+  const tokens = normalized.length > 0 ? normalized.split(' ') : [];
+  return tokens.some((token) => WORK_VERBS.has(token)) || ADD_TO_RE.test(normalized);
+}
+
+/**
+ * Whether the request talks about the work rather than asking to change code (issue #623
+ * FR-7): it names a work noun (issue, ticket, PR, pull request, draft, report, research,
+ * plan, doc, rewrite), uses a work verb (post, file, draft, link, add ... to, update,
+ * rewrite, check, confirm) and names no source path. "Post it to GitHub as drafted, label
+ * bug." is about the issue, not the bug. A prompt that also uses a strong code verb (fix,
+ * implement, build, refactor, develop) is left to the code-change tier. Takes the RAW request
+ * because source paths and extensions are lost to normalization.
+ */
+export function isAboutWorkPrompt(requestText: string): boolean {
+  if (namesSourcePath(requestText)) {
+    return false;
+  }
+  const normalized = normalizeText(requestText);
+  if (STRONG_CODE_VERB_RE.test(normalized)) {
+    return false;
+  }
+  const tokens = normalized.length > 0 ? normalized.split(' ') : [];
+  const hasNoun =
+    tokens.some((token) => WORK_NOUNS.has(token)) ||
+    WORK_NOUN_PHRASES.some((phrase) => matchesWholeWord(normalized, phrase));
+  return hasNoun && hasWorkVerb(normalized);
 }
 
 function normalizeText(value: string): string {
