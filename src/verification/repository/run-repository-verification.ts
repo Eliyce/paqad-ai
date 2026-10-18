@@ -40,10 +40,7 @@ import { reuseCounts } from '@/feature-evidence/reuse.js';
 import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
-import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
-import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
-import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
@@ -57,7 +54,7 @@ import { changeIsFeatureDev } from '@/stage-evidence/scope.js';
 import { runDuplicationScan } from '@/duplication/scan.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
 import { computeChangeMetrics, type ChangeMetrics } from '@/change-metrics/index.js';
-import { layeredConfigMap, resolveFrameworkConfig } from '@/core/framework-config.js';
+import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
@@ -109,6 +106,18 @@ import {
   formatVerdictSummary,
   type RepositoryVerificationVerdict,
 } from './verdict.js';
+import { buildBundleCompletenessConfig } from './bundle-completeness-config.js';
+// Moved to their own module (issue #639, Part 7) so the HUD snapshot can share the builder
+// without loading the whole verification run; re-exported so existing callers read unchanged.
+export {
+  buildBundleCompletenessConfig,
+  isolationConfig,
+  readSpecPipelineFlags,
+  stageIsolationExpected,
+  stageIsolationStatus,
+  type SpecPipelineFlags,
+  type StageIsolationStatus,
+} from './bundle-completeness-config.js';
 import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 
 /**
@@ -605,7 +614,6 @@ export async function runRepositoryVerification(
     // Issue #547 (FR-10.1) / #581 — the spec-pipeline flags, read via layeredConfigMap (not
     // src/spec-pipeline) so the FR-11 import ban holds: src/verification/** must not import the
     // pipeline.
-    const pipelineFlags = readSpecPipelineFlags(context.project_root);
     const completenessGate = bundleCompletenessGate({
       projectRoot: context.project_root,
       sessionId: completenessSession,
@@ -613,25 +621,11 @@ export async function runRepositoryVerification(
       mode: completenessMode,
       origin,
       isFeatureDev,
-      config: {
-        ruleComplianceOn: resolveRuleComplianceMode(context.project_root) !== 'off',
-        metricsEnabled: frameworkConfig.features.metrics_enabled,
-        duplicationOn: resolveDuplicationMode(context.project_root) !== 'off',
-        featureReport: frameworkConfig.features.feature_report,
-        ragEnabled: frameworkConfig.intelligence.rag_enabled,
-        enterprise: policy.enabled,
-        evidenceLedger: policy.evidence_ledger,
-        aiBom: policy.ai_bom,
-        specPipelineStrict: pipelineFlags.strict,
-        specPipelineEnabled: pipelineFlags.enabled,
-        expertsEnabled: pipelineFlags.experts,
-        // Issue #573 / #602 — how stage isolation stands for this change, read from the
-        // bundle's own constants (lane + recorded host adapter), never from config: whether
-        // isolation applied is a property of the change, not a project setting. `expected`
-        // hard-requires the proof; `unresolved` surfaces its absence as Inconclusive (a lost or
-        // first-glance-only label is loud, not silent) without ever false-failing (INV-5).
-        ...isolationConfig(context.project_root, completenessSession, completenessDir),
-      },
+      config: buildBundleCompletenessConfig(
+        context.project_root,
+        completenessSession,
+        completenessDir,
+      ),
       changeMetrics,
       // Issue #581 — the late-gate rows (this gate's included) are appended to evidence.jsonl
       // below whenever a row target was set, so the file is written by this run.
@@ -986,100 +980,6 @@ const STAGE_EVIDENCE_HARD_ORIGINS: ReadonlySet<VerificationOrigin> = new Set([
  *   ledger) → `skipped` (informational; never breaks a fresh CI checkout, and
  *   `off`/`warn` let a team adopt the workflow before turning the teeth on).
  */
-/**
- * How stage isolation stands for a change (issues #573, #602), on a subagent-capable host:
- *   - `expected`    — a graduated or full lane: isolation should have run, and its absence is a
- *                     hard failure.
- *   - `unresolved`  — the lane never resolved (null): isolation could not be judged, so its
- *                     absence must be SURFACED (Inconclusive), never a clean green and never a
- *                     hard block (issue #602, FR-4). A lost or first-glance-only label lands
- *                     here instead of silently reading "no scrutiny needed".
- *   - `not-applicable` — the fast lane, a host with no subagent dispatch, or no bundle to read.
- *
- * The lane and host are the bundle's own session constants (`feature.json`, else a pre-#581
- * bundle's open row), so a change is judged by what it actually recorded.
- */
-export type StageIsolationStatus = 'expected' | 'unresolved' | 'not-applicable';
-
-export function stageIsolationStatus(
-  projectRoot: string,
-  sessionId: string | null,
-  dirName: string | null,
-): StageIsolationStatus {
-  if (!sessionId || !dirName) return 'not-applicable';
-  try {
-    const { lane, adapter } = readChangeConstants(projectRoot, dirName);
-    // A host that cannot dispatch subagents could never isolate, so isolation is never asked of
-    // it — whatever the lane.
-    if (!isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS)) return 'not-applicable';
-    if (lane === 'graduated' || lane === 'full') return 'expected';
-    // A null lane is unresolved — surfaced, not silent (issue #602). A fast lane is genuinely
-    // not-applicable.
-    return lane === null ? 'unresolved' : 'not-applicable';
-  } catch {
-    // A missing or unreadable bundle cannot prove anything about isolation.
-    return 'not-applicable';
-  }
-}
-
-/**
- * Whether stage isolation was EXPECTED for a change (issue #573): the `expected` case above.
- * Kept as a thin predicate so existing callers read unchanged.
- *
- * Returns false for an unresolved lane. That is deliberate — a null lane must not manufacture a
- * blocking requirement out of nothing (INV-5); the `unresolved` status surfaces it instead.
- */
-export function stageIsolationExpected(
-  projectRoot: string,
-  sessionId: string | null,
-  dirName: string | null,
-): boolean {
-  return stageIsolationStatus(projectRoot, sessionId, dirName) === 'expected';
-}
-
-/**
- * The two isolation flags the bundle-completeness manifest reads (issue #602), from ONE status
- * read so `expected` and `unresolved` can never both be set. `expected` hard-requires the
- * isolation proof; `unresolved` surfaces its absence as Inconclusive.
- */
-export function isolationConfig(
-  projectRoot: string,
-  sessionId: string | null,
-  dirName: string | null,
-): { stageIsolationExpected: boolean; stageIsolationUnresolved: boolean } {
-  const status = stageIsolationStatus(projectRoot, sessionId, dirName);
-  return {
-    stageIsolationExpected: status === 'expected',
-    stageIsolationUnresolved: status === 'unresolved',
-  };
-}
-
-/** The spec-pipeline flags the bundle-completeness manifest reads (issues #547, #581). */
-export interface SpecPipelineFlags {
-  /** spec_pipeline_enabled. */
-  enabled: boolean;
-  /** spec_pipeline_enabled && spec_pipeline_adoption === 'strict'. */
-  strict: boolean;
-  /** spec_pipeline_experts_enabled (the manifest pairs it with `enabled`). */
-  experts: boolean;
-}
-
-/**
- * Read the spec-pipeline flags from the layered config map. Read here, not through
- * src/spec-pipeline, so the FR-11 import ban holds (src/verification/** must not import the
- * pipeline). Unset flags are off, matching the pipeline's own defaults.
- */
-export function readSpecPipelineFlags(projectRoot: string): SpecPipelineFlags {
-  const map = layeredConfigMap(projectRoot);
-  const truthy = new Set(['1', 'true', 'yes', 'on']);
-  const on = (key: string): boolean => truthy.has((map.get(key) ?? '').trim().toLowerCase());
-  const enabled = on('spec_pipeline_enabled');
-  return {
-    enabled,
-    strict: enabled && (map.get('spec_pipeline_adoption') ?? 'warn').trim() === 'strict',
-    experts: on('spec_pipeline_experts_enabled'),
-  };
-}
 
 /**
  * Render ordering violations as `before -> after` pairs for a gate message (issue #573).
