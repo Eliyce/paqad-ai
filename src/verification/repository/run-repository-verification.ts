@@ -712,6 +712,7 @@ export async function runRepositoryVerification(
       projectRoot: context.project_root,
       dirName: completenessDir,
       isFeatureDev,
+      sessionId: completenessSession,
     });
     if (rulesGate) {
       evidence.gates.push(rulesGate);

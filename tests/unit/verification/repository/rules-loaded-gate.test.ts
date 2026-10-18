@@ -40,6 +40,28 @@ function record(ruleIds: string[]): RulesLoadedRecord {
 const base = { projectRoot: '/x', dirName: 'bundle', isFeatureDev: true };
 
 describe('rulesLoadedGate (issue #557)', () => {
+  it('resolves applicability for the owning session, the same one rules load used (#639 Part 2)', async () => {
+    const sessions: Array<string | null> = [];
+    await rulesLoadedGate(
+      { ...base, sessionId: 'ses-owner' },
+      {
+        resolveApplicability: async (_root, sessionId) => {
+          sessions.push(sessionId);
+          return applicability();
+        },
+        readRecord: () => record(['RULE-2']),
+      },
+    );
+    await rulesLoadedGate(base, {
+      resolveApplicability: async (_root, sessionId) => {
+        sessions.push(sessionId);
+        return applicability();
+      },
+      readRecord: () => record(['RULE-2']),
+    });
+    expect(sessions).toEqual(['ses-owner', null]);
+  });
+
   it('returns null on a non-feature-development change', async () => {
     const gate = await rulesLoadedGate(
       { ...base, isFeatureDev: false },
