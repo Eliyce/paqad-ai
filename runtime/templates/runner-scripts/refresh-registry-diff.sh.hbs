@@ -1,11 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-CHANGED_FILES=".paqad/session/changed-files.json"
-
-if [ ! -f "$CHANGED_FILES" ]; then
-  echo "No changed files log found. Running full refresh."
+# Changed files come from git (issue #651): uncommitted work, plus everything committed on this
+# branch since it left main. Without git, or when git reports nothing, run the full refresh.
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "No git repository here, so no changed files to read. Running full refresh."
   exec "$(dirname "$0")/refresh-registry.sh"
 fi
 
-echo "Diff refresh for {{projectName}}"
+BASE="$(git merge-base HEAD main 2>/dev/null || true)"
+CHANGED="$(
+  {
+    git -c core.quotePath=false status --porcelain --untracked-files=all | sed -E 's/^.{3}//; s/^.* -> //'
+    if [ -n "$BASE" ]; then
+      git -c core.quotePath=false diff --name-only "$BASE"..HEAD
+    fi
+  } | sed '/^$/d' | sort -u
+)"
+
+if [ -z "$CHANGED" ]; then
+  echo "Git reports no changed files. Running full refresh."
+  exec "$(dirname "$0")/refresh-registry.sh"
+fi
+
+echo "Diff refresh for {{projectName}} ($(printf '%s\n' "$CHANGED" | wc -l | tr -d ' ') changed files)"
+printf '%s\n' "$CHANGED"
