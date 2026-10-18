@@ -1,5 +1,4 @@
-import { existsSync } from 'node:fs';
-import { readFile } from 'node:fs/promises';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { execa } from 'execa';
@@ -14,20 +13,12 @@ export interface ChangeEvidence {
 }
 
 export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvidence> {
-  const tracked = await readTrackedFiles(projectRoot);
-  if (tracked.length > 0) {
-    // Issue #450: never trust the session artifact blindly. A `changed-files.json`
-    // left over from an already-delivered change (its files committed and clean)
-    // would otherwise be attributed to a later, unrelated session and force the
-    // full feature-development gate onto out-of-scope work. Keep only the entries
-    // git still considers part of the current change.
-    const reconciled = await reconcileTrackedWithGit(projectRoot, tracked);
-    if (reconciled.length > 0) {
-      return { files: reconciled, source: 'session-artifact' };
-    }
-    // Every tracked entry is stale (clean and already in base history): fall
-    // through to git reality instead of returning an empty session-artifact.
+  const reconciled = await loadReconciledChangedFiles(projectRoot);
+  if (reconciled.length > 0) {
+    return { files: reconciled, source: 'session-artifact' };
   }
+  // No cache, or every cached entry is stale (clean and already in base
+  // history): fall through to git reality instead of an empty session-artifact.
 
   const gitFiles = await readGitStatusFiles(projectRoot);
   if (gitFiles.length > 0) {
@@ -35,6 +26,25 @@ export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvi
   }
 
   return { files: [], source: 'none' };
+}
+
+/**
+ * The cached changed-file list, reconciled against git, with NO git-status
+ * fallback. For consumers whose honest degradation on an absent cache is "no
+ * changed files" (module-health session evidence, differential refresh,
+ * traceability), not "whatever git status says" (issue #544).
+ *
+ * Issue #450: never trust the session artifact blindly. A `changed-files.json`
+ * left over from an already-delivered change (its files committed and clean)
+ * would otherwise be attributed to a later, unrelated session. Keep only the
+ * entries git still considers part of the current change.
+ */
+export async function loadReconciledChangedFiles(projectRoot: string): Promise<string[]> {
+  const tracked = readChangedFilesArtifact(projectRoot);
+  if (tracked.length === 0) {
+    return [];
+  }
+  return reconcileTrackedWithGit(projectRoot, tracked);
 }
 
 /**
@@ -185,15 +195,24 @@ export async function detectStaleDocTargets(
   }
 }
 
-async function readTrackedFiles(projectRoot: string): Promise<string[]> {
+/**
+ * The raw `.paqad/session/changed-files.json` cache: a bare JSON array of
+ * project-relative paths, normalized, de-duplicated and sorted. This is the ONLY
+ * reader of `PATHS.CHANGED_FILES` in the codebase (issue #544): four hand-rolled
+ * parsers of one file is how one of them drifted to a `{ files }` shape and read
+ * nothing for its whole life. Callers almost always want the reconciled view
+ * (`loadReconciledChangedFiles` / `loadChangeEvidence`), never this raw cache,
+ * which can describe an already-delivered change. An absent, unreadable or
+ * non-array file is an empty list, never a throw.
+ */
+export function readChangedFilesArtifact(projectRoot: string): string[] {
   const target = join(projectRoot, PATHS.CHANGED_FILES);
   if (!existsSync(target)) {
     return [];
   }
 
   try {
-    const raw = await readFile(target, 'utf8');
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(readFileSync(target, 'utf8')) as unknown;
     if (!Array.isArray(parsed)) {
       return [];
     }

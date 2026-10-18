@@ -26,7 +26,7 @@ function isRoutedWorkflow(value: string): value is RoutedWorkflow {
 /**
  * `paqad-ai route set <workflow> [--reason]` — correct the route the hook's deterministic
  * classifier picked (issue #580). The agent routes by intent (AGENT-ROUTER.md); when the
- * `[paqad] Routed to …` line names a different workflow than the one the agent picked, this
+ * `**▸ paqad** · routed to …` line names a different workflow than the one the agent picked, this
  * verb rewrites the ACTIVE per-session route to the agent's pick.
  *
  * It rewrites the active workflow-state entry (it does NOT push a pause), updates the
@@ -115,7 +115,7 @@ export function createRouteCommand(): Command {
         ...(options.reason === undefined ? {} : { reason: options.reason }),
       });
 
-      console.log(`▸ paqad · route set to ${target}`);
+      console.log(`**▸ paqad** · route set to ${target}`);
       console.log(JSON.stringify({ routed: target, was: hookLabel, source: 'agent-override' }));
     });
 

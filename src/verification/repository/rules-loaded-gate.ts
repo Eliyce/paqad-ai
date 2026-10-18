@@ -35,11 +35,20 @@ export interface RulesLoadedGateInput {
   dirName: string | null;
   /** Whether the change is a feature-development code change (changeIsFeatureDev). */
   isFeatureDev: boolean;
+  /**
+   * The session that owns the change (issue #639, Part 2). Passed to the applicability
+   * resolver so the check subtracts the same inherited dirt `rules load` did; null keeps
+   * the session-less working set.
+   */
+  sessionId?: string | null;
 }
 
 /** Readers injected for deterministic tests; production uses the real disk-backed ones. */
 export interface RulesLoadedGateDeps {
-  resolveApplicability?: (projectRoot: string) => Promise<ChangeRuleApplicability>;
+  resolveApplicability?: (
+    projectRoot: string,
+    sessionId: string | null,
+  ) => Promise<ChangeRuleApplicability>;
   readRecord?: (projectRoot: string, dirName: string) => RulesLoadedRecord | null;
 }
 
@@ -57,7 +66,7 @@ export async function rulesLoadedGate(
   if (!input.isFeatureDev || !input.dirName) {
     return null;
   }
-  const applicability = await resolveApplicability(input.projectRoot);
+  const applicability = await resolveApplicability(input.projectRoot, input.sessionId ?? null);
   if (!applicability.hasStore || applicability.applicable.length === 0) {
     return {
       name: GATE_NAME,

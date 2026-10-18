@@ -19,7 +19,9 @@ import { join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { tokenize } from '@/rag/lexical-bm25.js';
 
-import { isDecisionPacket, type DecisionPacket } from './decision-packet.js';
+import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
+
+import type { DecisionPacket } from './decision-packet.js';
 
 /** A prior resolved decision surfaced as advisory context for a new pause. */
 export interface DecisionPrecedent {
@@ -111,9 +113,13 @@ function readResolvedPackets(projectRoot: string): DecisionPacket[] {
       continue;
     }
     try {
-      const parsed = JSON.parse(readFileSync(join(dir, file), 'utf8')) as unknown;
-      if (isDecisionPacket(parsed)) {
-        packets.push(parsed);
+      // Issue #639, Part 3 — the one tolerant reader, so an answer recorded with
+      // `decision resolve` is a precedent too.
+      const packet = readAnyDecisionPacket(
+        JSON.parse(readFileSync(join(dir, file), 'utf8')) as unknown,
+      );
+      if (packet) {
+        packets.push(packet);
       }
     } catch {
       // A corrupt packet file must never break precedent surfacing.

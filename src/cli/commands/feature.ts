@@ -107,7 +107,7 @@ export function createFeatureCommand(): Command {
           // plain absolute path so it stays copyable everywhere.
           const ESC = String.fromCharCode(27);
           const link = `${ESC}]8;;${url}${ESC}\\report.html${ESC}]8;;${ESC}\\`;
-          console.log(`▸ paqad · report: ${link}`);
+          console.log(`**▸ paqad** · report: ${link}`);
           console.log(result.path);
         }
         console.log(JSON.stringify({ rendered: true, feature: dirName, path: result.path }));
@@ -129,7 +129,7 @@ export function createFeatureCommand(): Command {
       }
       const result = pruneFeatureBundles(options.projectRoot, keep);
       console.log(
-        `▸ paqad · pruned ${result.removed.length} old feature bundle${result.removed.length === 1 ? '' : 's'}`,
+        `**▸ paqad** · pruned ${result.removed.length} old feature bundle${result.removed.length === 1 ? '' : 's'}`,
       );
       console.log(JSON.stringify({ removed: result.removed.length, kept: result.kept.length }));
     });

@@ -11,6 +11,7 @@ import { Detector } from '@/detection/detector.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
 import { StackIntrospector } from '@/introspection/stack-introspector.js';
 import { removeObsoleteContractDocs } from '@/onboarding/obsolete-cleanup.js';
+import { loadReconciledChangedFiles } from '@/pipeline/change-evidence.js';
 import { writeGeneratedFiles } from '@/onboarding/file-writer.js';
 import { refreshProjectRules, type RulesRefreshReport } from '@/onboarding/rules-refresh.js';
 import { RagService } from '@/rag/service.js';
@@ -162,7 +163,7 @@ export function createRefreshCommand(): Command {
         }
 
         if (profile?.efficiency.differential_refresh) {
-          const changedFiles = resolveChangedFiles(options.projectRoot, contextChangedFiles);
+          const changedFiles = await resolveChangedFiles(options.projectRoot, contextChangedFiles);
           const differential = await new DifferentialRefresh().refresh(changedFiles);
           writeRefreshDrift(options.projectRoot, {
             differential_refresh: {
@@ -232,26 +233,15 @@ function readExistingJson(path: string): Record<string, unknown> | null {
   }
 }
 
-function resolveChangedFiles(projectRoot: string, contextChangedFiles: string[]): string[] {
+async function resolveChangedFiles(
+  projectRoot: string,
+  contextChangedFiles: string[],
+): Promise<string[]> {
   if (contextChangedFiles.length > 0) {
     return [...new Set(contextChangedFiles)].sort();
   }
 
-  const trackedPath = join(projectRoot, PATHS.CHANGED_FILES);
-  if (!existsSync(trackedPath)) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(readFileSync(trackedPath, 'utf8'));
-    if (!Array.isArray(parsed)) {
-      return [];
-    }
-
-    return [
-      ...new Set(parsed.filter((value): value is string => typeof value === 'string')),
-    ].sort();
-  } catch {
-    return [];
-  }
+  // Issue #544: the session cache, reconciled against git, so entries an
+  // already-delivered change left behind never drive a differential refresh.
+  return loadReconciledChangedFiles(projectRoot);
 }

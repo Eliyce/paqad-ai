@@ -262,7 +262,7 @@ export function createSpecCommand(): Command {
         });
 
         if (frozenWithoutPipeline) {
-          console.log('▸ paqad · frozen without the pipeline; the record says so');
+          console.log('**▸ paqad** · frozen without the pipeline; the record says so');
         }
 
         // Issue #343 (Phase-7 cutover) — the frozen spec's ONLY home is the active feature's
@@ -315,7 +315,7 @@ export function createSpecCommand(): Command {
           clearFrozenRun(options.projectRoot, bundleDir, options.keepInput ? [relSpec] : []);
         }
 
-        console.log(`▸ paqad · spec ${specId} frozen and signed off — sign-off recorded`);
+        console.log(`**▸ paqad** · spec ${specId} frozen and signed off — sign-off recorded`);
         console.log(
           JSON.stringify({
             frozen: true,

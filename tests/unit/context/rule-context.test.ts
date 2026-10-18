@@ -17,6 +17,7 @@ import {
   selectTriggeredRules,
 } from '@/context/rule-context.js';
 import * as ruleCompiler from '@/planning/rule-compiler.js';
+import { captureSessionDirtyBaseline } from '@/pipeline/dirty-baseline.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
 
@@ -483,5 +484,71 @@ describe('resolveRuleApplicabilityForChange (issue #557)', () => {
     expect(result.hasStore).toBe(true);
     expect(result.applicable.map((r) => r.rule_id)).toEqual(['ALWAYS']);
     expect(result.ruleTextHash).toBe(hashRuleText(result.loadedRuleText));
+  });
+});
+
+// Issue #639, Part 2 — rules match the change's own files: never paqad's own `.paqad/`
+// artifacts, and (with a session) never dirt the session inherited unchanged.
+describe('resolveRuleApplicabilityForChange matches only the change own files (#639 Part 2)', () => {
+  const RULES = store([
+    rule({ rule_id: 'PAQAD-ONLY', trigger_patterns: ['.paqad/'] }),
+    rule({ rule_id: 'SRC', trigger_patterns: ['src/'] }),
+    rule({ rule_id: 'LEGACY', trigger_patterns: ['legacy/'] }),
+  ]);
+  let projectRoot: string;
+  const git = (args: string[]) => execFileSync('git', args, { cwd: projectRoot, stdio: 'ignore' });
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-639-p2-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    writeFileSync(join(projectRoot, PATHS.COMPILED_RULES), JSON.stringify(RULES));
+  });
+  afterEach(() => rmSync(projectRoot, { recursive: true, force: true }));
+
+  it('AC-1: decision packets and session markers match no rule', async () => {
+    mkdirSync(join(projectRoot, '.paqad/session'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, PATHS.CHANGED_FILES),
+      JSON.stringify([
+        '.paqad/decisions/pending/D-01M56ZKBVQZ66MMA23A25JE9Q9.json',
+        '.paqad/session/ledger-session-id',
+        'src/a.ts',
+      ]),
+    );
+
+    const result = await resolveRuleApplicabilityForChange(projectRoot);
+
+    expect(result.applicable.map((r) => r.rule_id)).toEqual(['SRC']);
+    expect(result.changedPaths).toEqual(['src/a.ts']);
+  });
+
+  it('subtracts inherited dirt the session never touched, and keeps it once edited', async () => {
+    git(['init', '-q', '-b', 'main']);
+    git(['config', 'user.email', 'test@paqad.dev']);
+    git(['config', 'user.name', 'paqad test']);
+    git(['config', 'commit.gpgsign', 'false']);
+    writeFileSync(join(projectRoot, '.gitignore'), '.paqad/\n');
+    mkdirSync(join(projectRoot, 'legacy'), { recursive: true });
+    mkdirSync(join(projectRoot, 'src'), { recursive: true });
+    writeFileSync(join(projectRoot, 'legacy/old.ts'), 'export const a = 1;\n');
+    git(['add', '-A']);
+    git(['commit', '-qm', 'base']);
+    // Dirty before the session starts, then the session edits only src/.
+    writeFileSync(join(projectRoot, 'legacy/old.ts'), 'export const a = 2;\n');
+    await captureSessionDirtyBaseline(projectRoot, 'ses-p2');
+    writeFileSync(join(projectRoot, 'src/new.ts'), 'export const b = 1;\n');
+
+    const scoped = await resolveRuleApplicabilityForChange(projectRoot, 'ses-p2');
+    expect(scoped.applicable.map((r) => r.rule_id)).toEqual(['SRC']);
+    expect(scoped.changedPaths).toEqual(['src/new.ts']);
+
+    // Without a session the working set is unchanged from before (#557 behaviour).
+    const unscoped = await resolveRuleApplicabilityForChange(projectRoot);
+    expect(unscoped.applicable.map((r) => r.rule_id).sort()).toEqual(['LEGACY', 'SRC']);
+
+    // Once the session edits the inherited file it is the change's own again.
+    writeFileSync(join(projectRoot, 'legacy/old.ts'), 'export const a = 3;\n');
+    const edited = await resolveRuleApplicabilityForChange(projectRoot, 'ses-p2');
+    expect(edited.applicable.map((r) => r.rule_id).sort()).toEqual(['LEGACY', 'SRC']);
   });
 });

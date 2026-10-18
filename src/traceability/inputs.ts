@@ -10,9 +10,9 @@ import { join } from 'node:path';
 
 import fg from 'fast-glob';
 
-import { PATHS } from '@/core/constants/paths.js';
 import { scanImports } from '@/graph/import-scanner.js';
 import { discoverSourceRoots } from '@/module-map/source-roots.js';
+import { loadReconciledChangedFiles } from '@/pipeline/change-evidence.js';
 import type { ComplianceReport } from '@/compliance/types.js';
 import type { VerificationEvidence } from '@/core/types/verification-evidence.js';
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence.js';
@@ -63,18 +63,6 @@ async function listSourceFiles(projectRoot: string, roots: string[]): Promise<st
     followSymbolicLinks: false,
   });
   return files.map(toPosixPath).sort();
-}
-
-function readChangedFiles(projectRoot: string): string[] {
-  const path = join(projectRoot, PATHS.CHANGED_FILES);
-  if (!existsSync(path)) return [];
-  try {
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as { files?: unknown };
-    if (!Array.isArray(parsed.files)) return [];
-    return parsed.files.filter((f): f is string => typeof f === 'string').map(toPosixPath);
-  } catch {
-    return [];
-  }
 }
 
 function readComplianceReports(projectRoot: string): ComplianceReport[] {
@@ -192,7 +180,9 @@ export async function gatherTraceabilityInputs(
     proofs,
     edges,
     codeUniverse,
-    changedFiles: readChangedFiles(projectRoot),
+    // Issue #544: the bare-array session cache, reconciled against git. This
+    // used to parse a `{ files }` shape nothing writes, so it was always empty.
+    changedFiles: await loadReconciledChangedFiles(projectRoot),
     markers,
   };
 }

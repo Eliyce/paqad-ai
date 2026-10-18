@@ -21,6 +21,7 @@ import {
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
+import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 // The host that invoked the hook (issue #566): `claude-code` (default) or `codex-cli`.
 const ADAPTER = process.argv[2] || undefined;
@@ -66,6 +67,10 @@ process.stdin.on('data', (chunk) => {
   input += chunk;
 });
 process.stdin.on('end', () => {
-  main(input).then((code) => process.exit(code));
+  // Issue #639 (Part 7) — refresh the HUD snapshot once the decision is final.
+  main(input).then(async (code) => {
+    await refreshHudFromHook(input, 'stage-marker-parse');
+    process.exit(code);
+  });
 });
 process.stdin.resume();

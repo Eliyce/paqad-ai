@@ -216,7 +216,7 @@ describe('buildInjection (filesystem)', () => {
 
 // Issue #615 (Part 3) — keep the prompt hook's output under the host's 10,000-char cap.
 describe('fitHookOutput (issue #615, Part 3)', () => {
-  const ROUTE = '[paqad] Routed to feature-development — full lane (risky).\n';
+  const ROUTE = '**▸ paqad** · routed to feature-development, full lane (risky)\n';
   const NUDGE = '[paqad] Spec pipeline: ON.\n';
 
   it('returns the pieces unchanged when the total is under budget', () => {

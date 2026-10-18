@@ -91,7 +91,7 @@ describe('paqad-ai visual-evidence attach', () => {
     await attach(png('shot.png'), '--ac', 'AC-9');
     expect(process.exitCode).toBeUndefined();
     expect(errors).toEqual([
-      '▸ paqad · visual evidence attach: no frozen spec in this bundle, so AC-9 was not checked against its acceptance criteria.',
+      '**▸ paqad** · visual evidence attach: no frozen spec in this bundle, so AC-9 was not checked against its acceptance criteria.',
     ]);
     expect(readVisualEvidenceManifest(root, dir)!.steps[0]!.ac).toBe('AC-9');
   });
@@ -113,7 +113,7 @@ describe('paqad-ai visual-evidence attach', () => {
     await attach(png('shot.png'), '--ac', 'AC-7');
     expect(process.exitCode).toBe(1);
     expect(errors).toEqual([
-      '▸ paqad · visual evidence attach refused: AC-7 is not an acceptance criterion of the frozen spec. Valid ids: AC-1, AC-2.',
+      '**▸ paqad** · visual evidence attach refused: AC-7 is not an acceptance criterion of the frozen spec. Valid ids: AC-1, AC-2.',
     ]);
     expect(existsSync(join(root, featureDir(dir), 'screenshots'))).toBe(false);
     expect(existsSync(join(root, featureFilePath(dir, 'visualEvidence')))).toBe(false);
@@ -134,7 +134,7 @@ describe('paqad-ai visual-evidence attach', () => {
     await attach(png('shot.png'));
     expect(process.exitCode).toBe(1);
     expect(errors).toEqual([
-      '▸ paqad · visual evidence attach refused: visual evidence is off (flag off or coding capability absent).',
+      '**▸ paqad** · visual evidence attach refused: visual evidence is off (flag off or coding capability absent).',
     ]);
     expect(existsSync(join(root, featureFilePath(dir, 'visualEvidence')))).toBe(false);
   });

@@ -50,21 +50,21 @@ export function createReviewCommand(): Command {
       '--session <id>',
       'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
     )
-    .action((options: ReviewDigestOptions) => {
+    .action(async (options: ReviewDigestOptions) => {
       const sessionId = resolveSessionId(
         options.projectRoot,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
       let result;
       try {
-        result = writeReviewDigest(options.projectRoot, sessionId);
+        result = await writeReviewDigest(options.projectRoot, sessionId);
       } catch (error) {
         console.error(`could not write the review digest: ${(error as Error).message}`);
         process.exitCode = 1;
         return;
       }
       console.log(
-        `▸ paqad · ${result.path} — ${result.findings} machine finding(s) for the review to confirm or contest`,
+        `**▸ paqad** · ${result.path} — ${result.findings} machine finding(s) for the review to confirm or contest`,
       );
       console.log(JSON.stringify({ written: true, path: result.path, findings: result.findings }));
     });
@@ -131,7 +131,7 @@ export function createReviewCommand(): Command {
           /* best-effort: a leftover template is harmless, never fail the record for it */
         }
       }
-      console.log(`▸ paqad · recorded ${result.path}`);
+      console.log(`**▸ paqad** · recorded ${result.path}`);
       console.log(JSON.stringify({ recorded: true, path: result.path }));
     });
 

@@ -27,6 +27,7 @@ import {
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
+import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 // The host that invoked the hook (issue #566): `claude-code` (default) or `codex-cli`.
 const ADAPTER = process.argv[2] || undefined;
@@ -84,6 +85,9 @@ async function main() {
     loopActive: stopHookActiveFromStdin(input),
     transcriptText,
   });
+  // Issue #639 (Part 7) — refresh the HUD snapshot after the backstop wrote its receipt, so
+  // the snapshot carries this turn's verdict. The code above is already final.
+  await refreshHudFromHook(input, 'verification-completion');
   process.exit(code);
 }
 

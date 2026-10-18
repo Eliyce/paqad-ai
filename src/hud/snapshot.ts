@@ -1,0 +1,593 @@
+// The paqad HUD snapshot (issue #639, Part 7).
+//
+// One file per session, `.paqad/session/hud/<session>.json` (schema `paqad.hud/2`), that the
+// Claude Code mod reads instead of asking the model or starting a process. It is built only
+// from records paqad already keeps: the routed workflow, the change's feature bundle, the
+// decision folders, the evidence rows and the in-session receipt. A field whose source is not
+// ready yet (the High Table's live seats, claims, rule-stop details, cost) is `null` or empty,
+// never guessed. The headline and the flags are computed here, in one tested place.
+//
+// Writes are best-effort by contract: `writeHudSnapshotSafe` never throws, so a hook or verb
+// that refreshes the snapshot can never have its decision or exit code changed by it.
+
+import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { readContractDecisions } from '@/decisions/authoring.js';
+import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
+import { GATE_STRENGTH_TIER } from '@/evidence/grading.js';
+import { readFeatureEvidence } from '@/feature-evidence/bundle-ledgers.js';
+import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import {
+  BUNDLE_MANIFEST,
+  isBundleFileRequired,
+  readSpecAdoption,
+} from '@/feature-evidence/manifest.js';
+import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
+import {
+  currentFeature,
+  foldFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { readWorkflowState } from '@/pipeline/workflow-state.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
+import { isMandatoryStage } from '@/stage-evidence/stages.js';
+import type { FoldedChange } from '@/stage-evidence/types.js';
+import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
+import {
+  buildBundleCompletenessConfig,
+  stageIsolationStatus,
+} from '@/verification/repository/bundle-completeness-config.js';
+import type { VerificationGate } from '@/core/types/verification.js';
+
+import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
+import type { HudVerdictRecord } from './receipt-file.js';
+
+export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
+
+export type HudTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';
+
+export interface HudStage {
+  stage: string;
+  state: string;
+  mandatory: boolean;
+  started_at: string | null;
+  ended_at: string | null;
+  duration_ms: number | null;
+  /** Who recorded the stage's last row: `orchestrator`, `paqad-<stage>`, or a hook writer. */
+  agent: string | null;
+  /** The artifact the stage ended against, when it named one. */
+  proof_file: string | null;
+}
+
+export type HudGateVerdict = 'pass' | 'fail' | 'inconclusive' | 'not-required' | 'pending';
+
+export interface HudGate {
+  name: string;
+  required: boolean;
+  strength: 'deterministic' | 'llm-judged' | null;
+  verdict: HudGateVerdict;
+}
+
+export interface HudFlag {
+  id: string;
+  text: string;
+}
+
+export interface HudSeat {
+  role: string;
+  reason: string | null;
+  origin: string | null;
+  budget_tokens: number | null;
+  tokens_used: number | null;
+}
+
+export interface HudSnapshot {
+  schema: typeof HUD_SNAPSHOT_SCHEMA;
+  session_id: string;
+  generated_at: string;
+  /** True when a feature-development change is in progress in this session. */
+  active: boolean;
+  route: string | null;
+  lane: string | null;
+  lane_reason: string | null;
+  headline: { text: string; tone: HudTone };
+  change: {
+    dir: string;
+    id: string | null;
+    issue: string | null;
+    title: string | null;
+    branch: string | null;
+    status: string | null;
+  } | null;
+  paused: Array<{ workflow: string; lane: string | null }>;
+  stages: HudStage[];
+  /** The High Table as recorded so far; live seat state arrives with Part 13. */
+  table: { seats: HudSeat[]; skipped: boolean } | null;
+  /** Fix-protocol claims arrive with Part 15. */
+  claims: [];
+  gates: HudGate[];
+  flags: HudFlag[];
+  rules: { recorded: boolean; applicable: number | null; loaded_at: string | null };
+  decisions: {
+    pending: Array<{ id: string; category: string; question: string }>;
+    resolved: number;
+  };
+  questions: { asked: number; answered: number; auto_answered: number; deferred: number } | null;
+  /** The last rule stop arrives with Part 18. */
+  last_block: null;
+  ship: {
+    commits: number;
+    commit_decision: string | null;
+    merge_commit: string | null;
+    /** Push, PR, CI and the own-vs-inherited split arrive with Part 16. */
+    push: null;
+    pr: null;
+    ci: null;
+  } | null;
+  verdict: HudVerdictRecord | null;
+  receipt: { path: string } | null;
+  evidence_expected: Array<{
+    file: string;
+    expectation: 'always' | 'on here' | 'if present' | 'off here';
+    present: boolean;
+  }>;
+  isolation: { status: string; stages: number; tokens_not_recarried: number } | null;
+  /** The change's cost arrives with Part 23. */
+  cost: null;
+}
+
+// ── small tolerant readers ────────────────────────────────────────────────────
+
+function readJsonFile(path: string): unknown {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+}
+
+function str(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function num(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+// ── field builders ────────────────────────────────────────────────────────────
+
+function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): HudStage[] {
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  return fold.stages.map((stage) => {
+    const own = rows.filter((row) => row.stage === stage.stage);
+    const last = own.at(-1) as (Record<string, unknown> & { agent?: unknown }) | undefined;
+    const end = [...own].reverse().find((row) => row.kind === 'stage_end') as
+      Record<string, unknown> | undefined;
+    const artifacts = end?.artifact_paths;
+    return {
+      stage: stage.stage,
+      state: stage.state,
+      mandatory: isMandatoryStage(stage.stage),
+      started_at: stage.started_at,
+      ended_at: stage.ended_at,
+      duration_ms: stage.duration_ms,
+      agent: str(last?.agent),
+      proof_file: Array.isArray(artifacts) ? (str(artifacts[0]) ?? null) : null,
+    };
+  });
+}
+
+function buildGates(projectRoot: string, dirName: string): HudGate[] {
+  // The latest row per gate wins: a gate re-run later in the change supersedes its first verdict.
+  const latest = new Map<string, Record<string, unknown>>();
+  for (const row of readFeatureEvidence(projectRoot, dirName)) {
+    if (row.engine !== 'verification-gate') continue;
+    latest.set(row.code, row as unknown as Record<string, unknown>);
+  }
+  return [...latest.entries()].map(([code, row]) => {
+    const raw = String(row.verdict ?? '').toLowerCase();
+    const verdict: HudGateVerdict =
+      raw === 'pass' || raw === 'fail' || raw === 'inconclusive'
+        ? raw
+        : raw === 'skipped'
+          ? 'not-required'
+          : 'pending';
+    const tier = GATE_STRENGTH_TIER[code as VerificationGate];
+    const strength =
+      tier ??
+      (row.strength_class === 'deterministic' || row.strength_class === 'llm-judged'
+        ? row.strength_class
+        : null);
+    return { name: code, required: verdict !== 'not-required', strength, verdict };
+  });
+}
+
+function buildTable(projectRoot: string, dirName: string, specJson: unknown): HudSnapshot['table'] {
+  const experts = asRecord(readJsonFile(join(projectRoot, featureFilePath(dirName, 'experts'))));
+  const roster = Array.isArray(experts?.roster) ? experts.roster : null;
+  const adoption = readSpecAdoption(specJson);
+  // A spec frozen by hand while the pipeline ran shows the High Table as skipped (Q11).
+  const skipped = adoption !== null && !adoption.produced;
+  if (!roster) return skipped ? { seats: [], skipped } : null;
+  const seats: HudSeat[] = roster.map((entry) => {
+    const seat = asRecord(entry) ?? {};
+    return {
+      role: str(seat.role) ?? 'unknown',
+      reason: str(seat.reason),
+      origin: str(seat.origin),
+      budget_tokens: num(seat.budget_tokens),
+      tokens_used: num(seat.tokens_used),
+    };
+  });
+  return { seats, skipped };
+}
+
+function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['questions'] {
+  const clarification = asRecord(
+    readJsonFile(join(projectRoot, featureFilePath(dirName, 'clarification'))),
+  );
+  const counts = asRecord(asRecord(clarification?.questions)?.counts);
+  if (!counts) return null;
+  return {
+    asked: num(counts.asked) ?? 0,
+    answered: num(counts.answered) ?? 0,
+    auto_answered: num(counts.auto_answered) ?? 0,
+    deferred: num(counts.deferred) ?? 0,
+  };
+}
+
+function buildDecisions(projectRoot: string): HudSnapshot['decisions'] {
+  const pending: HudSnapshot['decisions']['pending'] = [];
+  let resolved = 0;
+  for (const { packet, status } of readContractDecisions(projectRoot)) {
+    if (status === 'resolved') {
+      resolved += 1;
+      continue;
+    }
+    const rich = readAnyDecisionPacket(packet);
+    const raw = packet as unknown as Record<string, unknown>;
+    pending.push({
+      id: rich?.decision_id ?? str(raw.id) ?? str(raw.decision_id) ?? 'unknown',
+      category: rich?.category ?? str(raw.category) ?? 'unknown',
+      question: rich?.question ?? str(raw.title) ?? str(raw.question) ?? '',
+    });
+  }
+  return { pending, resolved };
+}
+
+function buildEvidenceExpected(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string,
+): HudSnapshot['evidence_expected'] {
+  const config = buildBundleCompletenessConfig(projectRoot, sessionId, dirName);
+  return BUNDLE_MANIFEST.map((entry) => ({
+    file: entry.file,
+    expectation:
+      entry.required === 'always'
+        ? ('always' as const)
+        : entry.required === 'optional'
+          ? ('if present' as const)
+          : isBundleFileRequired(entry, config)
+            ? ('on here' as const)
+            : ('off here' as const),
+    present: existsSync(join(projectRoot, featureDir(dirName), entry.file)),
+  }));
+}
+
+function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRecord | null {
+  const record = asRecord(readJsonFile(hudVerdictPath(projectRoot, sessionId)));
+  return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
+}
+
+// ── headline and flags: the one place they are decided ────────────────────────
+
+const STAGE_WORDS: Record<string, string> = {
+  ticket_intake: 'Intake',
+  planning: 'Planning',
+  specification: 'Spec',
+  development: 'Build',
+  review: 'Review',
+  checks: 'Checks',
+  documentation_sync: 'Docs',
+  delivery: 'Deliver',
+};
+
+function stageWord(stage: string): string {
+  return STAGE_WORDS[stage] ?? stage;
+}
+
+export interface HudHeadlineInput {
+  route: string | null;
+  active: boolean;
+  stages: HudStage[];
+  pendingDecisions: number;
+  verdict: HudVerdictRecord | null;
+  flags: HudFlag[];
+  paused: number;
+}
+
+/**
+ * The flags: something weak that a reader should see even at Safe to merge. Each one comes
+ * from a recorded fact, never an opinion.
+ */
+export function computeHudFlags(input: {
+  stages: HudStage[];
+  gates: HudGate[];
+  rulesRecorded: boolean;
+  tableSkipped: boolean;
+  isolationStatus: string;
+  isolatedStages: number;
+}): HudFlag[] {
+  const flags: HudFlag[] = [];
+  const touchedCode = input.stages.some(
+    (stage) => stage.stage === 'development' && stage.state !== 'missing',
+  );
+  if (touchedCode && !input.rulesRecorded) {
+    flags.push({ id: 'rules-not-loaded', text: 'The rules for this change were never loaded.' });
+  }
+  for (const gate of input.gates) {
+    if (gate.verdict === 'inconclusive') {
+      flags.push({ id: `gate:${gate.name}`, text: `${gate.name} could not reach a result.` });
+    }
+  }
+  if (input.tableSkipped) {
+    flags.push({
+      id: 'high-table-skipped',
+      text: 'The spec was written by hand, so the High Table never sat.',
+    });
+  }
+  if (input.isolationStatus === 'expected' && input.isolatedStages === 0) {
+    flags.push({ id: 'isolation-missing', text: 'No stage ran in its own agent on this lane.' });
+  }
+  if (input.isolationStatus === 'unresolved') {
+    flags.push({
+      id: 'lane-unresolved',
+      text: 'The lane was never set, so isolation is unproven.',
+    });
+  }
+  return flags;
+}
+
+/**
+ * The one headline sentence: what just changed and what is next. Its tone drives the band's
+ * colour: any open flag turns a Safe to merge amber (decision Q19).
+ */
+export function computeHudHeadline(input: HudHeadlineInput): { text: string; tone: HudTone } {
+  if (input.pendingDecisions > 0) {
+    const n = input.pendingDecisions;
+    return { text: `Needs you: ${n} decision${n === 1 ? '' : 's'} waiting.`, tone: 'needs-you' };
+  }
+  if (!input.active) {
+    if (input.paused > 0) {
+      return { text: 'A change is paused. Say "continue" to pick it up.', tone: 'neutral' };
+    }
+    if (input.route && input.route !== 'no-workflow') {
+      return { text: `Working on ${input.route.replace(/-/g, ' ')}.`, tone: 'working' };
+    }
+    return { text: 'Ready. No change in progress.', tone: 'neutral' };
+  }
+  const running = input.stages.find((stage) => stage.state === 'running');
+  if (running) {
+    const next = input.stages.find(
+      (stage) =>
+        stage.mandatory &&
+        stage.state === 'missing' &&
+        input.stages.indexOf(stage) > input.stages.indexOf(running),
+    );
+    return {
+      text: `${stageWord(running.stage)} in progress.${next ? ` Next: ${stageWord(next.stage)}.` : ''}`,
+      tone: 'working',
+    };
+  }
+  if (input.verdict) {
+    const flagged = input.flags.length;
+    const tone: HudTone =
+      input.verdict.kind === 'fail'
+        ? 'bad'
+        : input.verdict.kind === 'inconclusive' || flagged > 0
+          ? 'warn'
+          : 'good';
+    const suffix = flagged > 0 ? ` ${flagged} flag${flagged === 1 ? '' : 's'} open.` : '';
+    return { text: `${input.verdict.word}.${suffix}`, tone };
+  }
+  const next = input.stages.find((stage) => stage.mandatory && stage.state === 'missing');
+  const done = [...input.stages].reverse().find((stage) => stage.state === 'complete');
+  if (next) {
+    return {
+      text: `${done ? `${stageWord(done.stage)} done. ` : ''}Next: ${stageWord(next.stage)}.`,
+      tone: 'working',
+    };
+  }
+  return { text: 'Every stage is recorded. Waiting for the verdict.', tone: 'working' };
+}
+
+// ── build and write ───────────────────────────────────────────────────────────
+
+export interface BuildHudSnapshotOptions {
+  now?: () => Date;
+}
+
+/** Build the snapshot for `sessionHint` from disk. Pure reads; throws only on a programming error. */
+export function buildHudSnapshot(
+  projectRoot: string,
+  sessionHint: string | null,
+  options: BuildHudSnapshotOptions = {},
+): HudSnapshot {
+  const now = options.now ?? (() => new Date());
+  const sessionId = resolveSessionId(projectRoot, sessionHint);
+  const workflow = readWorkflowState(projectRoot, sessionId);
+  const route = workflow.active?.workflow ?? null;
+  const paused = workflow.paused.map((entry) => ({
+    workflow: entry.workflow,
+    lane: entry.lane ?? null,
+  }));
+  const dirName = currentFeature(projectRoot, sessionId);
+  const verdict = readVerdictRecord(projectRoot, sessionId);
+  const decisions = buildDecisions(projectRoot);
+  const receiptPath = hudReceiptPath(projectRoot, sessionId);
+  const receipt = existsSync(receiptPath) ? { path: receiptPath } : null;
+
+  if (!dirName) {
+    return {
+      schema: HUD_SNAPSHOT_SCHEMA,
+      session_id: sessionId,
+      generated_at: now().toISOString(),
+      active: false,
+      route,
+      lane: workflow.active?.lane ?? null,
+      lane_reason: workflow.active?.reason ?? null,
+      headline: computeHudHeadline({
+        route,
+        active: false,
+        stages: [],
+        pendingDecisions: decisions.pending.length,
+        verdict: null,
+        flags: [],
+        paused: paused.length,
+      }),
+      change: null,
+      paused,
+      stages: [],
+      table: null,
+      claims: [],
+      gates: [],
+      flags: [],
+      rules: { recorded: false, applicable: null, loaded_at: null },
+      decisions,
+      questions: null,
+      last_block: null,
+      ship: null,
+      verdict,
+      receipt,
+      evidence_expected: [],
+      isolation: null,
+      cost: null,
+    };
+  }
+
+  const record = readFeatureRecord(projectRoot, dirName);
+  const fold = foldFeature(projectRoot, sessionId, dirName);
+  const stages = buildStages(projectRoot, dirName, fold);
+  const gates = buildGates(projectRoot, dirName);
+  const specJson = readJsonFile(join(projectRoot, featureFilePath(dirName, 'specification')));
+  const table = buildTable(projectRoot, dirName, specJson);
+  const rulesLoaded = readRulesLoaded(projectRoot, dirName);
+  const delivery = readFeatureDelivery(projectRoot, dirName);
+  const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
+  const isolationSummary = summarizeStageIsolation(projectRoot, dirName);
+  const flags = computeHudFlags({
+    stages,
+    gates,
+    rulesRecorded: rulesLoaded !== null,
+    tableSkipped: table?.skipped ?? false,
+    isolationStatus,
+    isolatedStages: isolationSummary?.stages ?? 0,
+  });
+  const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
+
+  return {
+    schema: HUD_SNAPSHOT_SCHEMA,
+    session_id: sessionId,
+    generated_at: now().toISOString(),
+    active: true,
+    route,
+    lane,
+    lane_reason: workflow.active?.reason ?? null,
+    headline: computeHudHeadline({
+      route,
+      active: true,
+      stages,
+      pendingDecisions: decisions.pending.length,
+      verdict,
+      flags,
+      paused: paused.length,
+    }),
+    change: {
+      dir: dirName,
+      id: record?.change ?? null,
+      issue: record?.issue ?? null,
+      title: record?.title ?? null,
+      branch: record?.branch ?? null,
+      status: record?.status ?? null,
+    },
+    paused,
+    stages,
+    table,
+    claims: [],
+    gates,
+    flags,
+    rules: {
+      recorded: rulesLoaded !== null,
+      applicable: rulesLoaded ? rulesLoaded.applicable_rules.length : null,
+      loaded_at: rulesLoaded?.recorded_at ?? null,
+    },
+    decisions,
+    questions: buildQuestions(projectRoot, dirName),
+    last_block: null,
+    ship: {
+      commits: delivery.commits.length,
+      commit_decision: delivery.commit_decision?.answer ?? null,
+      merge_commit: delivery.merge_commit,
+      push: null,
+      pr: null,
+      ci: null,
+    },
+    verdict,
+    receipt,
+    evidence_expected: buildEvidenceExpected(projectRoot, sessionId, dirName),
+    isolation: {
+      status: isolationStatus,
+      stages: isolationSummary?.stages ?? 0,
+      tokens_not_recarried: isolationSummary?.tokensNotRecarried ?? 0,
+    },
+    cost: null,
+  };
+}
+
+/** Build and atomically write the snapshot. Throws on failure; prefer {@link writeHudSnapshotSafe}. */
+export function writeHudSnapshot(
+  projectRoot: string,
+  sessionHint: string | null,
+  options: BuildHudSnapshotOptions = {},
+): { path: string; snapshot: HudSnapshot } {
+  const snapshot = buildHudSnapshot(projectRoot, sessionHint, options);
+  const path = hudSnapshotPath(projectRoot, snapshot.session_id);
+  writeFileAtomic(path, `${JSON.stringify(snapshot, null, 2)}\n`);
+  return { path, snapshot };
+}
+
+/**
+ * Refresh the snapshot, never throwing: a failure is appended to `.paqad/logs/hook-failures.log`
+ * (the hooks' shared failure log) and `null` is returned. This is the form every hook and verb
+ * calls, so a HUD write can never change what they decide.
+ */
+export function writeHudSnapshotSafe(
+  projectRoot: string,
+  sessionHint: string | null,
+  source: string,
+): string | null {
+  try {
+    return writeHudSnapshot(projectRoot, sessionHint).path;
+  } catch (error) {
+    try {
+      const logs = join(projectRoot, '.paqad', 'logs');
+      mkdirSync(logs, { recursive: true });
+      const message = error instanceof Error ? error.message : String(error);
+      appendFileSync(
+        join(logs, 'hook-failures.log'),
+        `[${new Date().toISOString()}] ERROR hud-snapshot (${source}): ${message}\n`,
+      );
+    } catch {
+      // The caller's path outranks the log line: a read-only tree must not turn into a throw.
+    }
+    return null;
+  }
+}

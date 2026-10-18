@@ -5,17 +5,20 @@
 // the digest is an INPUT to the review, and the review's artifact is still the bundle's
 // rigid `review.json`.
 //
-// Every read here is a direct read of a known path (INV-1). The changed-file list comes
-// from the cached `.paqad/session/changed-files.json` and nothing else — no `git status`
-// subprocess — so an absent list degrades to an honest "none recorded" rather than
-// quietly making the digest expensive.
+// Every read here is a direct read of a known path (INV-1), except the changed-file
+// list. That comes from `loadChangeEvidence`, the one reader that reconciles the cached
+// `.paqad/session/changed-files.json` against git (issue #544): trusting the raw cache
+// once headed a digest with six files from an already-merged change. The reconcile costs
+// a few read-only git queries, never a model call, and a clean tree with no cache still
+// degrades to an honest "none recorded".
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { readFeatureSpecification } from '@/feature-evidence/artifacts.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 
 import { buildReviewDigest, type DigestCriterion, type DigestStage } from './digest.js';
 import { collectMachineFindings, type MachineFinding } from './sources.js';
@@ -28,18 +31,6 @@ export interface WrittenDigest {
   /** How many machine-finding rows the digest carries. */
   findings: number;
   markdown: string;
-}
-
-/** The cached changed-file list, or an empty list when none has been recorded. */
-function readChangedFiles(projectRoot: string): string[] {
-  const target = join(projectRoot, PATHS.CHANGED_FILES);
-  if (!existsSync(target)) return [];
-  try {
-    const parsed: unknown = JSON.parse(readFileSync(target, 'utf8'));
-    return Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === 'string') : [];
-  } catch {
-    return [];
-  }
 }
 
 /** The folded per-stage state for the active feature; empty when nothing folds. */
@@ -75,11 +66,11 @@ function readCriteria(projectRoot: string, feature: string | null): DigestCriter
  * degrades to nothing and the digest says so — so the only failure mode is being unable to
  * write the file itself, which the caller surfaces.
  */
-export function writeReviewDigest(
+export async function writeReviewDigest(
   projectRoot: string,
   sessionId: string,
   now: () => Date = () => new Date(),
-): WrittenDigest {
+): Promise<WrittenDigest> {
   let feature: string | null;
   try {
     feature = currentFeature(projectRoot, sessionId);
@@ -89,10 +80,11 @@ export function writeReviewDigest(
   }
 
   const findings: MachineFinding[] = collectMachineFindings(projectRoot);
+  const { files: changedFiles } = await loadChangeEvidence(projectRoot);
   const markdown = buildReviewDigest({
     feature,
     generated_at: now().toISOString(),
-    changed_files: readChangedFiles(projectRoot),
+    changed_files: changedFiles,
     stages: readStages(projectRoot, sessionId, feature),
     criteria: readCriteria(projectRoot, feature),
     findings,

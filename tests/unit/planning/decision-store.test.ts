@@ -627,14 +627,15 @@ describe('DecisionStore', () => {
     ).toBe(false);
   });
 
-  it('covers single-malformed fallback, invalid status reuse, invalid packet writes, missing directories, and missing supersede targets', () => {
+  it('covers a lone malformed pending packet, invalid status reuse, invalid packet writes, missing directories, and missing supersede targets', () => {
     const bareRoot = mkdtempSync(join(tmpdir(), 'paqad-decisions-bare-'));
     try {
       const bareStore = new DecisionStore(bareRoot);
       expect(bareStore.nextDecisionId()).toMatch(ULID_DECISION_ID);
       mkdirSync(join(bareRoot, PATHS.DECISIONS_PENDING_DIR), { recursive: true });
       writeFileSync(join(bareRoot, PATHS.DECISIONS_PENDING_DIR, 'D-9.json'), '{bad', 'utf8');
-      expect(bareStore.findPendingDecisionForTask('missing')).toBe('D-9');
+      // Issue #639, Part 3: a lone malformed packet belongs to no task, so it never blocks.
+      expect(bareStore.findPendingDecisionForTask('missing')).toBeNull();
     } finally {
       rmSync(bareRoot, { recursive: true, force: true });
     }

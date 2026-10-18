@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -386,5 +386,103 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
       // The advisory rides the model-only reason, not a user-facing systemMessage.
       expect(parsed.systemMessage).toBeUndefined();
     });
+  });
+});
+
+// Issue #639, Part 6 — the in-session Stop keeps paqad's own receipt every turn. It writes the
+// composed receipt and the verdict to the session's HUD files, prints nothing new, and a failed
+// write changes nothing about the decision or the exit code.
+describe('runtime/scripts/verify-backstop.mjs — keeps the receipt every turn (#639 Part 6)', () => {
+  let projectRoot: string;
+  const SES = 'ses-hud-receipt';
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-verify-hud-'));
+    vi.resetModules();
+  });
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+    vi.doUnmock(DIST);
+  });
+
+  async function runWith(verdict: Record<string, unknown>, writeHudReceipt: unknown) {
+    vi.doMock(DIST, () => ({
+      runRepositoryVerification: async () => verdict,
+      writeHudReceipt,
+    }));
+    const { runVerificationBackstop } = await loadBackstop();
+    const out = capture();
+    const err = capture();
+    const code = await runVerificationBackstop({
+      origin: 'hook-completion',
+      softFail: true,
+      projectRoot,
+      hostSessionId: SES,
+      loopActive: false,
+      stdout: out.stream,
+      stderr: err.stream,
+    });
+    return { code, out: out.read(), err: err.read() };
+  }
+
+  const CASES = [
+    {
+      name: 'green',
+      verdict: { ok: true, summary: 's', receipt: '**▸ paqad** · Safe to merge', gates: [] },
+      word: 'Safe to merge',
+      prints: false,
+    },
+    {
+      name: 'failing',
+      verdict: {
+        ok: false,
+        summary: 's',
+        receipt: '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]',
+        gates: [{ gate: 'stage-evidence', status: 'fail', detail: 'missing [review]' }],
+      },
+      word: 'Needs your attention',
+      prints: true,
+    },
+    {
+      name: 'Inconclusive',
+      verdict: {
+        ok: false,
+        summary: 's',
+        receipt: '**▸ paqad** · Inconclusive\n> 🟡 code-tests-lint: not verified',
+        gates: [{ gate: 'code-tests-lint', status: 'inconclusive', detail: 'not verified' }],
+      },
+      word: 'Inconclusive',
+      prints: false,
+    },
+  ];
+
+  for (const { name, verdict, word, prints } of CASES) {
+    it(`AC-7: a ${name} turn writes the composed receipt and its verdict`, async () => {
+      const { writeHudReceipt } = await import('@/hud/receipt-file.js');
+      const { hudReceiptPath, hudVerdictPath } = await import('@/hud/files.js');
+
+      const result = await runWith(verdict, writeHudReceipt);
+
+      expect(result.code).toBe(0);
+      expect(result.err).toBe('');
+      // Prints nothing new: output only on the pre-existing hard-fail block.
+      expect(result.out === '').toBe(!prints);
+      expect(readFileSync(hudReceiptPath(projectRoot, SES), 'utf8')).toBe(`${verdict.receipt}\n`);
+      const record = JSON.parse(readFileSync(hudVerdictPath(projectRoot, SES), 'utf8'));
+      expect(record).toMatchObject({ session_id: SES, word, passed: word === 'Safe to merge' });
+    });
+  }
+
+  it('a failed receipt write is logged and never changes the decision or exit code', async () => {
+    const failing = CASES[1]!.verdict;
+    const result = await runWith(failing, () => {
+      throw new Error('disk full');
+    });
+
+    expect(result.code).toBe(0);
+    expect(JSON.parse(result.out).decision).toBe('block');
+    const log = readFileSync(join(projectRoot, '.paqad/logs/hook-failures.log'), 'utf8');
+    expect(log).toContain('verify-backstop:hud-receipt');
+    expect(log).toContain('disk full');
   });
 });

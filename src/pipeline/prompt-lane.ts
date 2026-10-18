@@ -19,6 +19,7 @@
 import type { ClassificationResult } from '@/core/types/classification.js';
 import type { Lane } from '@/core/types/routing.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { writePendingLane } from '@/stage-evidence/pending-lane.js';
 
 import { RequestClassifier } from './classifier.js';
@@ -345,11 +346,13 @@ function narrateRoute(
   if (routed === 'no-workflow') {
     return null;
   }
-  const verb = resumed ? 'Resumed' : 'Routed to';
+  // Issue #639, Part 5 — the route line leads with the same `**▸ paqad** ·` frame as every
+  // other paqad line (it was the one `[paqad]` holdout).
+  const verb = resumed ? 'resumed' : 'routed to';
   if (routed === 'feature-development' && lane !== null) {
-    return `[paqad] ${verb} feature-development — ${lane} lane (${reason}).`;
+    return paqadFrameLead(`${verb} feature-development, ${lane} lane (${reason})`);
   }
-  return `[paqad] ${verb} ${routed} — ${reason}.`;
+  return paqadFrameLead(`${verb} ${routed} (${reason})`);
 }
 
 /**
@@ -406,7 +409,8 @@ export async function runPromptRouteSeam(
 
   // Record the outcome as evidence and preserve pause/resume across messages (#336).
   const prior = readWorkflowState(input.projectRoot, sessionId);
-  const anchors = lane === null ? {} : { lane };
+  // Issue #639, Part 7 — the reason is saved with the route, so the HUD can say why.
+  const anchors = lane === null ? { reason } : { lane, reason };
   const transition = routeWorkflow(prior, routed, anchors);
   // Issue #582 — stamp when this turn began, so the completion check can tell a stage row
   // written during THIS turn from one left over from an earlier turn. A background

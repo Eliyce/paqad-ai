@@ -6,6 +6,7 @@
 
 import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import type { VerificationGate } from '@/core/types/verification.js';
+import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 import type {
   EvidenceGateStatus,
   VerificationEvidence,
@@ -34,6 +35,11 @@ export interface RepositoryVerificationVerdict {
    *  evidence + delivery state, composed at the completion seam. Falls back to
    *  `summary` when no stage fold is available. */
   receipt?: string;
+  /**
+   * The verdict kind from the one verdict rule (issue #639, Part 4), set by the repository
+   * verification once the stage gaps are known. Every surface that prints a word reads it.
+   */
+  kind?: VerdictKind;
   /** The model-facing narration advisory (issue #409): set when this change recorded
    *  stages the agent never spoke in visible text, empty otherwise. Advisory by
    *  contract — it never contributes to `ok`, because a silent turn is a voice defect,
@@ -135,11 +141,13 @@ export function formatVerdictSummary(input: {
   const stageGaps = input.unrecordedMandatoryStages ?? [];
 
   const lines: string[] = [];
+  // Issue #639, Part 4 — the word comes from the one verdict rule every surface shares.
+  const kind = verdictKindFor(input.gates, stageGaps);
 
-  if (input.ok && stageGaps.length === 0) {
+  if (kind === 'pass') {
     lines.push(paqadFrameLead(PAQAD_VERDICT.pass));
     lines.push(`> ${PAQAD_STATUS_GLYPH.good} ${passed}/${ran.length} checks held for you.`);
-  } else if (input.ok) {
+  } else if (kind === 'inconclusive' && inconclusive.length === 0) {
     // Issue #472 — gates passed, but mandatory feature-development stages have no evidence.
     // The gate headline over-claims relative to the stage block, so read Inconclusive (the
     // over-trust guard) while still crediting the gates that held.
@@ -149,7 +157,7 @@ export function formatVerdictSummary(input: {
       `> ${PAQAD_STATUS_GLYPH.needsLook} needs a look — mandatory stage(s) not recorded: ` +
         `${stageGaps.join(', ')}. Mark them so the change is provably complete.`,
     );
-  } else if (failing.length > 0) {
+  } else if (kind === 'fail') {
     lines.push(paqadFrameLead(PAQAD_VERDICT.fail));
     for (const gate of [...failing, ...inconclusive]) {
       const glyph =

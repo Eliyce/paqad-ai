@@ -3,6 +3,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { execaSync } from 'execa';
 import YAML from 'yaml';
 
 import { createRefreshCommand } from '@/cli/commands/refresh.js';
@@ -222,6 +223,34 @@ describe('refresh command', () => {
       changed_files: ['app/Http/Controllers/UserController.php'],
       registries: ['api-registry.md'],
     });
+  });
+
+  it('drops cached changed files an already-delivered change left behind (issue #544, AC-5)', async () => {
+    // The project is a git repo on a branch off `main`, where the cached file is
+    // committed and clean: it is base history, not this change.
+    const git = (args: string[]) => execaSync('git', args, { cwd: projectRoot });
+    git(['init', '-q', '-b', 'main']);
+    git(['config', 'user.email', 'test@paqad.dev']);
+    git(['config', 'user.name', 'paqad test']);
+    git(['config', 'commit.gpgsign', 'false']);
+    writeFileSync(join(projectRoot, '.gitignore'), '.paqad/\n');
+    mkdirSync(join(projectRoot, 'app'), { recursive: true });
+    writeFileSync(join(projectRoot, 'app/Delivered.php'), '<?php\n');
+    git(['add', '-A']);
+    git(['commit', '-qm', 'delivered']);
+    git(['switch', '-q', '-c', 'feat/next']);
+    mkdirSync(join(projectRoot, '.paqad/session'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.paqad/session/changed-files.json'),
+      JSON.stringify(['app/Delivered.php']),
+    );
+
+    const command = createRefreshCommand();
+    await command.parseAsync(['node', 'refresh', '--project-root', projectRoot, '--stack'], {
+      from: 'node',
+    });
+
+    expect(DifferentialRefresh.prototype.refresh).toHaveBeenCalledWith([]);
   });
 
   it('refreshes context indexes only when --context is passed explicitly', async () => {

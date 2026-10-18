@@ -273,7 +273,8 @@ describe('armDecisionFromPlan', () => {
       (option) => option.option_key === CREATE_NEW_OPTION_KEY,
     );
     expect(createOption?.label).toContain('need the relative form');
-    expect(createOption?.evidence).toBeUndefined();
+    // No evidence behind create-new: an empty block, as the one packet shape requires (#639).
+    expect(createOption?.evidence).toEqual({});
   });
 
   it('recommends nothing when the existing symbol has too few callers to argue from', () => {

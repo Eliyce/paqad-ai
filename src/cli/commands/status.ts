@@ -6,12 +6,35 @@ import { collectModuleDecisions } from '@/dashboard/collectors/module-decisions.
 import { collectModuleHealth } from '@/dashboard/collectors/module-health.js';
 import { renderMarkdown } from '@/dashboard/markdown.js';
 import { buildReport } from '@/dashboard/report.js';
+import { buildHudSnapshot, type HudSnapshot } from '@/hud/snapshot.js';
 import { readDriftReport, driftReportHasFindings } from '@/module-map/reconciler.js';
 
 interface StatusCommandOptions {
   format: string;
   projectRoot: string;
   failOnDrift: boolean;
+  hud: boolean;
+  session?: string;
+}
+
+/**
+ * The HUD snapshot as plain text (issue #639): the headline, then one line per stage, readable
+ * with every glyph removed. The JSON form is the snapshot object itself.
+ */
+export function renderHudText(snapshot: HudSnapshot): string {
+  const lines = [`paqad · ${snapshot.headline.text}`];
+  if (snapshot.change) {
+    const lane = snapshot.lane ? ` · ${snapshot.lane} lane` : '';
+    lines.push(`change: ${snapshot.change.title ?? snapshot.change.dir}${lane}`);
+  }
+  for (const stage of snapshot.stages) {
+    lines.push(`- ${stage.stage}: ${stage.state}`);
+  }
+  for (const flag of snapshot.flags) lines.push(`flag: ${flag.text}`);
+  if (snapshot.decisions.pending.length > 0) {
+    lines.push(`decisions waiting: ${snapshot.decisions.pending.length}`);
+  }
+  return lines.join('\n');
 }
 
 export interface DriftSignals {
@@ -61,6 +84,15 @@ export function createStatusCommand(): Command {
     .option('--format <fmt>', 'Output format: markdown | json', 'markdown')
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
+      '--hud',
+      'Print the paqad HUD snapshot for this session (issue #639) instead of the dashboard report',
+      false,
+    )
+    .option(
+      '--session <id>',
+      'Session id for --hud (defaults to SE_SESSION / CLAUDE_SESSION_ID, then the shared ledger-session cache)',
+    )
+    .option(
       '--fail-on-drift',
       'Exit non-zero when module-map drift, stale module-health, expired MD-XXXX decisions, or MM-DOC-MISSING findings are present',
       false,
@@ -73,6 +105,15 @@ export function createStatusCommand(): Command {
           `error: invalid --format value '${options.format}' (expected markdown or json)\n`,
         );
         process.exitCode = 2;
+        return;
+      }
+      if (options.hud) {
+        const snapshot = buildHudSnapshot(
+          projectRoot,
+          options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+        );
+        const out = fmt === 'json' ? JSON.stringify(snapshot, null, 2) : renderHudText(snapshot);
+        process.stdout.write(`${out}\n`);
         return;
       }
       const report = buildReport(projectRoot);

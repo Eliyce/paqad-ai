@@ -8,7 +8,6 @@ import type {
 } from '@/core/types/evidence-ledger.js';
 import type {
   EvidenceGateStatus,
-  EvidenceOverallStatus,
   VerificationEvidence,
   VerificationEvidenceFailure,
   VerificationEvidenceGate,
@@ -17,6 +16,7 @@ import { latestReceiptAuthorship, latestReceiptTrustExtras } from '@/evidence/re
 import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from './evidence.js';
+import { verdictKindFor, type VerdictKind } from './verdict-kind.js';
 
 // Glyph + verdict vocabulary comes from the canonical paqad-voice spec
 // (src/core/constants/paqad-voice.ts), so the PR comment, the dashboard, and
@@ -29,17 +29,22 @@ const GATE_GLYPHS: Record<EvidenceGateStatus, string> = {
   skipped: PAQAD_STATUS_GLYPH.skipped,
 };
 
-const OVERALL_GLYPHS: Record<EvidenceOverallStatus, string> = {
+const VERDICT_GLYPHS: Record<VerdictKind, string> = {
   pass: PAQAD_STATUS_GLYPH.good,
   fail: PAQAD_STATUS_GLYPH.failed,
-  error: PAQAD_STATUS_GLYPH.needsLook,
+  inconclusive: PAQAD_STATUS_GLYPH.needsLook,
 };
 
-const OVERALL_HEADLINE: Record<EvidenceOverallStatus, string> = {
-  pass: PAQAD_VERDICT.pass,
-  fail: PAQAD_VERDICT.fail,
-  error: PAQAD_VERDICT.inconclusive,
-};
+/**
+ * The comment's verdict, from the one verdict rule (issue #639, Part 4). `overall_status`
+ * folds an inconclusive gate into `fail` (it drives `--fail-on-red` and CI blocking, which
+ * stay as they are), so reading the word from it said "Needs your attention" where the chat
+ * receipt said Inconclusive. An `error` run never reached the gates: Inconclusive.
+ */
+function commentVerdict(evidence: VerificationEvidence): VerdictKind {
+  if (evidence.overall_status === 'error') return 'inconclusive';
+  return verdictKindFor(evidence.gates, evidence.unrecorded_mandatory_stages ?? []);
+}
 
 // Human labels for the gates surfaced in the summary. Gates not listed are
 // humanised from their kebab id.
@@ -209,10 +214,10 @@ export function renderEvidenceMarkdown(
 ): string {
   const lines: string[] = [];
   const sha = shortSha(options.sha);
-  const overall = evidence.overall_status;
+  const verdict = commentVerdict(evidence);
   const headerSuffix = sha ? ` — ${sha}` : '';
   lines.push(
-    `## paqad evidence${headerSuffix}  ${OVERALL_GLYPHS[overall]} ${OVERALL_HEADLINE[overall]}`,
+    `## paqad evidence${headerSuffix}  ${VERDICT_GLYPHS[verdict]} ${PAQAD_VERDICT[verdict]}`,
   );
   lines.push('');
 
@@ -258,7 +263,7 @@ export function renderEvidenceMarkdown(
   }
 
   lines.push(
-    overall === 'pass'
+    verdict === 'pass'
       ? '> Attests paqad’s gates passed for this run — not that the change is correct.'
       : '> paqad’s gates did not all pass. Resolve the blocking items above before merge.',
   );

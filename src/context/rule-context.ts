@@ -23,7 +23,8 @@ import { releaseLock, tryAcquireLock } from '@/background/single-flight-lock.js'
 import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
 import { generateRuleManifest, scriptedSourcePaths } from '@/context/rule-manifest.js';
-import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { isPaqadArtifactPath, loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { subtractUnchangedBaselineFiles } from '@/pipeline/dirty-baseline.js';
 import { isAlwaysLoadRule, ruleTriggersMatch } from '@/pipeline/rule-trigger-matcher.js';
 import {
   compileRules,
@@ -179,6 +180,22 @@ export function computeRuleApplicability(
 }
 
 /**
+ * The change's own files, the working set rules are matched against (issue #639, Part 2).
+ * paqad's own `.paqad/` artifacts (decision packets, session markers, evidence) are never
+ * the project's source, so they must not pull a rule in. With a session id, a file that was
+ * already dirty when the session started and is byte-identical since is inherited dirt,
+ * not this change, the same subtraction the completion backstop applies (issue #576).
+ * `rules load` and the rules-loaded gate both call this with one session, so the load and
+ * the check can never disagree about which rules apply.
+ */
+async function changeOwnPaths(projectRoot: string, sessionId: string | null): Promise<string[]> {
+  const files = (await loadChangeEvidence(projectRoot)).files.filter(
+    (filePath) => !isPaqadArtifactPath(filePath),
+  );
+  return sessionId === null ? files : subtractUnchangedBaselineFiles(projectRoot, sessionId, files);
+}
+
+/**
  * Resolve the applicable rules for the CURRENT change from disk (issue #557): read the
  * compiled rule store and the changed-file working set, then compute the applicability.
  * Route-independent — it reads the compiled store directly, so `paqad-ai rules load` works
@@ -188,9 +205,10 @@ export function computeRuleApplicability(
  */
 export async function resolveRuleApplicabilityForChange(
   projectRoot: string,
+  sessionId: string | null = null,
 ): Promise<ChangeRuleApplicability> {
   const store = await readCompiledRules(projectRoot);
-  const changedPaths = (await loadChangeEvidence(projectRoot)).files;
+  const changedPaths = await changeOwnPaths(projectRoot, sessionId);
   const rules = store?.rules ?? [];
   if (rules.length === 0) {
     return {

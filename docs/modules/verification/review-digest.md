@@ -72,9 +72,15 @@ anchoring check.
 
 ## Honest limits
 
-- The changed-file header reads the cached `.paqad/session/changed-files.json` only.
-  Reading `git status` would be a subprocess and break the cached-reads-only budget, so an
-  absent list renders `none recorded` rather than making the digest expensive.
+- The changed-file header comes from `loadChangeEvidence`, the one reader that reconciles
+  the cached `.paqad/session/changed-files.json` against git (issue #544). A cache left
+  over from an already-merged change once headed a digest with six files from that change;
+  now entries that are clean and already in base history are dropped, and with nothing left
+  the header falls back to `git status`. That costs a few read-only git queries, never a
+  model call. A clean tree with no cache still renders `none recorded`.
+- When some cached entries survive the reconcile, the header lists those entries only,
+  exactly as the completion gates see the change. It does not merge in other `git status`
+  files.
 - Doc drift reaches the digest through the canonical-docs gate's failures, not by running
   the stale-doc detector (also a subprocess). Before verification has run once, doc drift
   is **absent** from the digest rather than proven clean.

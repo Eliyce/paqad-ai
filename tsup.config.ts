@@ -71,6 +71,11 @@ export default defineConfig({
     // verdict while a paqad stage agent is still running in background_tasks. Dedicated entry,
     // same light-import pattern as the other runtime hooks.
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
+    // HUD snapshot refresh (issue #639, Part 7) — lazy-imported by
+    // runtime/hooks/lib/hud-snapshot.mjs at the end of the stage and gate hooks to rewrite the
+    // session's .paqad/session/hud/<session>.json. Dedicated entry, same light-import pattern;
+    // a missing entry would throw ERR_MODULE_NOT_FOUND (logged, never a changed decision).
+    'hud/refresh': 'src/hud/refresh.ts',
     // Claude Code plugin build-time generator (issue #616) — imported by
     // scripts/build-plugin-manifest.mjs from dist to generate runtime/claude-plugin/hooks.json,
     // the bundled stage agents, and the plugin.json version. Dedicated entry so the generator

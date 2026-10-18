@@ -39,7 +39,7 @@ describe('paqad-ai rules command', () => {
     await createRulesCommand().parseAsync(['compile', '--project-root', root], { from: 'user' });
 
     expect(existsSync(ruleScriptMapPath(root))).toBe(true);
-    expect(out.some((line) => line.startsWith('▸ paqad'))).toBe(true);
+    expect(out.some((line) => line.startsWith('**▸ paqad** · '))).toBe(true);
     expect(out.some((line) => line.includes('armed'))).toBe(true);
     expect(out.some((line) => line.includes('"compiled":true'))).toBe(true);
   });
@@ -148,6 +148,6 @@ describe('paqad-ai rules command', () => {
     );
     expect(existsSync(join(root, featureFilePath(dir, 'rulesLoaded')))).toBe(true);
     expect(out.some((line) => line.includes('"recorded":true'))).toBe(false);
-    expect(out.some((line) => line.startsWith('▸ paqad'))).toBe(true);
+    expect(out.some((line) => line.startsWith('**▸ paqad** · '))).toBe(true);
   });
 });

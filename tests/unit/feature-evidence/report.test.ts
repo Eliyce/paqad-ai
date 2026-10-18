@@ -16,6 +16,11 @@ import {
 import { foldRowsWithKey } from '@/stage-evidence/fold.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import type { FoldedChange } from '@/stage-evidence/types.js';
+import type { VerificationEvidence } from '@/core/types/verification-evidence.js';
+import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
+import { renderEvidenceMarkdown } from '@/verification/evidence-markdown.js';
+import { formatVerdictSummary } from '@/verification/repository/verdict.js';
+import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 
 const DIR = '353-code-knowledge-index-01KXD47JQ2AKEF8C3KCMA977NB';
 const AT = '2026-07-13T10:00:00.000Z';
@@ -57,7 +62,7 @@ function completeStageRows(): Partial<SessionLedgerRow>[] {
   ];
 }
 
-function gradedRows(verdict: 'pass' | 'fail'): EvidenceLedgerRow[] {
+function gradedRows(verdict: 'pass' | 'fail' | 'inconclusive'): EvidenceLedgerRow[] {
   const row = (ts: string): EvidenceLedgerRow =>
     ({
       schema_version: 1,
@@ -189,6 +194,93 @@ describe('deriveReportVerdict', () => {
       },
     ] as Partial<SessionLedgerRow>[];
     expect(deriveReportVerdict(fold(rows), null)).toBe('fail');
+  });
+});
+
+// Issue #639, Part 4 — one verdict rule. The chat receipt, report.html and the PR comment
+// must print the same word for the same run, including an inconclusive gate and a missing stage.
+describe('one verdict rule across chat, report and PR comment (#639 Part 4, AC-5)', () => {
+  type Status = 'pass' | 'fail' | 'inconclusive' | 'skipped';
+  function evidence(statuses: Status[], gaps?: string[]): VerificationEvidence {
+    return {
+      schema_version: 1,
+      run_id: 'r',
+      started_at: AT,
+      completed_at: AT,
+      // overall_status folds inconclusive into fail, as the evidence writer does.
+      overall_status: statuses.some((s) => s === 'fail' || s === 'inconclusive') ? 'fail' : 'pass',
+      first_failure_gate: null,
+      gates: statuses.map((status, i) => ({
+        name: `gate-${i}` as never,
+        status,
+        detail: `detail ${i}`,
+        remediation: null,
+        failures: [],
+      })),
+      ...(gaps ? { unrecorded_mandatory_stages: gaps } : {}),
+    } as VerificationEvidence;
+  }
+  function chatWord(statuses: Status[], gaps: string[] = []): string {
+    const gates = statuses.map((status, i) => ({
+      gate: `gate-${i}` as never,
+      status,
+      detail: `detail ${i}`,
+      remediation: null,
+    }));
+    const ok = !statuses.some((s) => s === 'fail' || s === 'inconclusive');
+    return formatVerdictSummary({ ok, gates, escalations: [], unrecordedMandatoryStages: gaps });
+  }
+  function reportPill(kind: VerdictKind): string {
+    return renderFeatureReportHtml(fullBundle(), fold(completeStageRows()), {
+      generatedAt: AT,
+      verdict: kind,
+    });
+  }
+
+  const CASES: Array<{ name: string; statuses: Status[]; gaps: string[]; word: string }> = [
+    { name: 'all green', statuses: ['pass', 'skipped'], gaps: [], word: PAQAD_VERDICT.pass },
+    {
+      name: 'an inconclusive gate',
+      statuses: ['pass', 'inconclusive'],
+      gaps: [],
+      word: PAQAD_VERDICT.inconclusive,
+    },
+    {
+      name: 'a missing stage',
+      statuses: ['pass'],
+      gaps: ['review'],
+      word: PAQAD_VERDICT.inconclusive,
+    },
+    {
+      name: 'a failed gate',
+      statuses: ['fail', 'inconclusive'],
+      gaps: [],
+      word: PAQAD_VERDICT.fail,
+    },
+  ];
+
+  for (const { name, statuses, gaps, word } of CASES) {
+    it(`prints "${word}" everywhere for ${name}`, () => {
+      const kind = verdictKindFor(
+        statuses.map((status) => ({ status })),
+        gaps,
+      );
+      expect(PAQAD_VERDICT[kind]).toBe(word);
+      expect(chatWord(statuses, gaps).split('\n')[0]).toContain(word);
+      expect(renderEvidenceMarkdown(evidence(statuses, gaps)).split('\n')[0]).toContain(word);
+      expect(reportPill(kind)).toMatch(new RegExp(`verdict-pill ${kind}"[^>]*>[^<]*${word}`));
+    });
+  }
+
+  it('derives Inconclusive from an inconclusive bundle row when no verdict is passed in', () => {
+    const complete = fold(completeStageRows());
+    expect(deriveReportVerdict(complete, null, gradedRows('inconclusive'))).toBe('inconclusive');
+    expect(deriveReportVerdict(complete, null, gradedRows('pass'))).toBe('pass');
+  });
+
+  it('reads an evidence run that errored as Inconclusive, never a pass', () => {
+    const errored = { ...evidence(['pass']), overall_status: 'error' } as VerificationEvidence;
+    expect(renderEvidenceMarkdown(errored).split('\n')[0]).toContain(PAQAD_VERDICT.inconclusive);
   });
 });
 

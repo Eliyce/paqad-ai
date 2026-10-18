@@ -38,6 +38,11 @@ export interface WorkflowEntry {
    * resumes to its exact run instead of guessing the latest directory.
    */
   discoveryRunId?: string;
+  /**
+   * The plain-language reason the router gave for this route and lane (issue #639, Part 7),
+   * saved so the HUD can show why without re-classifying. Only narrated before this.
+   */
+  reason?: string;
 }
 
 /** The active routed workflow plus a stack of paused ones (most-recent last). */
@@ -99,6 +104,9 @@ function toEntry(value: unknown): WorkflowEntry | null {
   }
   if (typeof record.discoveryRunId === 'string') {
     entry.discoveryRunId = record.discoveryRunId;
+  }
+  if (typeof record.reason === 'string') {
+    entry.reason = record.reason;
   }
   return entry;
 }
@@ -195,6 +203,9 @@ function stripUndefined(anchors: Omit<WorkflowEntry, 'workflow'>): Omit<Workflow
   }
   if (anchors.discoveryRunId !== undefined) {
     out.discoveryRunId = anchors.discoveryRunId;
+  }
+  if (anchors.reason !== undefined) {
+    out.reason = anchors.reason;
   }
   return out;
 }

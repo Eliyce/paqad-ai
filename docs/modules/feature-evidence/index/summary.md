@@ -347,9 +347,37 @@ onto this base.
   #388 removed the auto-open-on-completion behaviour, the manual `--open` opener, and their
   config knob).
 
+### The HUD snapshot (issue #639, Part 7)
+
+`src/hud/` is the data layer of the paqad HUD, the Claude Code mod that keeps the change on
+screen. It writes one file per session, `.paqad/session/hud/<session>.json` (schema
+`paqad.hud/2`), built only from records paqad already keeps: the routed workflow and its saved
+reason, this bundle's `feature.json`, folded stages, `experts.json`, `clarification.json`,
+`specification.json`, `evidence.jsonl` (with `GATE_STRENGTH_TIER`), `rules-loaded.json`,
+`delivery.json`, the decision folders, the bundle manifest (with the shared
+`buildBundleCompletenessConfig`) and the in-session receipt. A field whose source does not
+exist yet (live High Table seats, claims, the last rule stop, push/PR/CI, cost) is `null` or
+empty, never guessed. The headline and the flags are decided in one place
+(`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+
+- **Who writes it.** The verbs that move a change (`decision create|resolve`, `rules load`,
+  `lane set`, `route set`, `stage`, `plan compile`, `spec pipeline experts …`,
+  `spec freeze`, `review record`, `checks run`, `delivery-link`, `deliver`) through one
+  commander post-action hook, and the hooks `agent-entry-prompt-gate`, `stage-writer`,
+  `stage-marker-parse`, `verification-completion`, `stage-agent-completion` and
+  `capability-gate completion` at their exit, after the decision is final
+  (`runtime/hooks/lib/hud-snapshot.mjs`). `capability-gate pre-mutation` does not refresh:
+  it runs before every edit and nothing it records reaches the snapshot yet.
+- **Never changes a decision.** Every write is atomic (temp file, then rename) and
+  best-effort; a failure is logged to `.paqad/logs/hook-failures.log`. Measured cost on the
+  stage-writer hook: about 43 ms per run.
+- **Stands down** in a project that was never onboarded and while paqad is disabled.
+- **Read it** with `paqad-ai status --hud` (text) or `--hud --format json` (the object).
+
 ## Source Footprint
 
 - `src/feature-evidence`
+- `src/hud`
 
 ## Authority
 
