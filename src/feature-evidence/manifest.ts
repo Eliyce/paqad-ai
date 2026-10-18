@@ -52,6 +52,15 @@ export interface BundleCompletenessConfig {
    */
   expertsEnabled: boolean;
   /**
+   * Issue #640 — the change's spec was frozen while the spec pipeline was off: its
+   * specification.json exists and carries no `pipeline` (or older `provenance`) section. A
+   * change already open when the pipeline default flipped on never ran the pipeline, so its
+   * pipeline files and strict provenance are not asked of it. False when the spec is not
+   * frozen yet (a new change still needs them) and when the freeze recorded any adoption,
+   * including a `--manual --reason` freeze under strict adoption.
+   */
+  specFrozenBeforePipeline: boolean;
+  /**
    * Issue #573 — whether stage isolation was EXPECTED for this change: the recorded lane
    * is graduated or full AND the recorded host adapter can dispatch subagents. Derived
    * from the bundle's own open row, not from config, because whether isolation applied is
@@ -121,17 +130,29 @@ export function laneRunsSpecPipeline(lane: StageLane | undefined): boolean {
   return lane !== 'fast';
 }
 
-/** Whether the spec-pipeline files are required for this change: pipeline on, lane not fast. */
+/**
+ * Whether the spec-pipeline files are required for this change: pipeline on, lane not fast,
+ * and the spec not frozen before the pipeline was on (issue #640).
+ */
 export function specPipelineApplies(config: BundleCompletenessConfig): boolean {
-  return config.specPipelineEnabled && laneRunsSpecPipeline(config.lane);
+  return (
+    config.specPipelineEnabled &&
+    laneRunsSpecPipeline(config.lane) &&
+    !config.specFrozenBeforePipeline
+  );
 }
 
 /**
  * Whether the strict spec-provenance check applies to this change (issue #547 FR-10.2, lane
- * aware since issue #640): strict adoption on and the lane not fast.
+ * aware since issue #640): strict adoption on, the lane not fast, and the spec not frozen
+ * before the pipeline was on.
  */
 export function specPipelineStrictApplies(config: BundleCompletenessConfig): boolean {
-  return config.specPipelineStrict && laneRunsSpecPipeline(config.lane);
+  return (
+    config.specPipelineStrict &&
+    laneRunsSpecPipeline(config.lane) &&
+    !config.specFrozenBeforePipeline
+  );
 }
 
 /**
@@ -347,6 +368,17 @@ export function readSpecAdoption(
     produced: produced === true,
     ...(typeof section.manual_reason === 'string' ? { manual_reason: section.manual_reason } : {}),
   };
+}
+
+/**
+ * Whether a parsed specification.json was frozen while the spec pipeline was off (issue #640):
+ * a record with no `pipeline` or `provenance` section. Any freeze with the pipeline on writes
+ * one, even a hand-written `--manual --reason` spec (`produced: false` plus the reason), so
+ * only a spec frozen before the switch reads true. Not a record (absent, corrupt) is false, so
+ * a change whose spec is not frozen yet still needs the pipeline files.
+ */
+export function isSpecFrozenBeforePipeline(spec: unknown): boolean {
+  return typeof spec === 'object' && spec !== null && readSpecAdoption(spec) === null;
 }
 
 /**

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   BUNDLE_MANIFEST,
   isBundleFileRequired,
+  isSpecFrozenBeforePipeline,
   laneRunsSpecPipeline,
   requiredBundleFiles,
   specPipelineApplies,
@@ -28,6 +29,7 @@ const ALL_ON: BundleCompletenessConfig = {
   specPipelineStrict: true,
   specPipelineEnabled: true,
   expertsEnabled: true,
+  specFrozenBeforePipeline: false,
   stageIsolationExpected: true,
   stageIsolationUnresolved: false,
 };
@@ -46,6 +48,7 @@ const ALL_OFF: BundleCompletenessConfig = {
   specPipelineStrict: false,
   specPipelineEnabled: false,
   expertsEnabled: false,
+  specFrozenBeforePipeline: false,
   stageIsolationExpected: false,
   stageIsolationUnresolved: false,
 };
@@ -334,6 +337,13 @@ describe('lane-aware spec-pipeline requiredness (issue #640, FR-13)', () => {
     expect(requiredBundleFiles(fast).length).toBe(requiredBundleFiles(ALL_ON).length - 3);
   });
 
+  it('does not ask a spec frozen before the pipeline was on for its files (issue #640)', () => {
+    const preSwitch: BundleCompletenessConfig = { ...ALL_ON, specFrozenBeforePipeline: true };
+    expect(pipelineFilesFor(preSwitch)).toEqual([]);
+    expect(specPipelineApplies(preSwitch)).toBe(false);
+    expect(specPipelineStrictApplies(preSwitch)).toBe(false);
+  });
+
   it('keeps the pipeline files off on every lane when the pipeline is off', () => {
     for (const lane of ['fast', 'graduated', 'full', null] as const) {
       expect(pipelineFilesFor({ ...ALL_OFF, lane })).toEqual([]);
@@ -347,5 +357,27 @@ describe('lane-aware spec-pipeline requiredness (issue #640, FR-13)', () => {
     expect(laneRunsSpecPipeline('full')).toBe(true);
     expect(laneRunsSpecPipeline(null)).toBe(true);
     expect(laneRunsSpecPipeline(undefined)).toBe(true);
+  });
+});
+
+// Issue #640 — a spec frozen while the pipeline was off carries no pipeline record at all.
+describe('isSpecFrozenBeforePipeline', () => {
+  it('reads a frozen record with no pipeline or provenance section as pre-switch', () => {
+    expect(isSpecFrozenBeforePipeline({ spec_file: 'spec.md', spec_hash: 'abc' })).toBe(true);
+  });
+
+  it('never reads a record that names how it was produced as pre-switch', () => {
+    expect(isSpecFrozenBeforePipeline({ pipeline: { produced: true } })).toBe(false);
+    // A hand-written spec frozen with the pipeline on (warn, or strict with --manual --reason).
+    expect(isSpecFrozenBeforePipeline({ pipeline: { produced: false } })).toBe(false);
+    expect(
+      isSpecFrozenBeforePipeline({ pipeline: { produced: false, manual_reason: 'hotfix' } }),
+    ).toBe(false);
+    expect(isSpecFrozenBeforePipeline({ provenance: { pipeline_produced: true } })).toBe(false);
+  });
+
+  it('reads no record (not frozen yet) as not pre-switch', () => {
+    expect(isSpecFrozenBeforePipeline(null)).toBe(false);
+    expect(isSpecFrozenBeforePipeline('text')).toBe(false);
   });
 });

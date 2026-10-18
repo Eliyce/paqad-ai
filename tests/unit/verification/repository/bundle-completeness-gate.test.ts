@@ -51,6 +51,7 @@ const ONLY_ALWAYS: BundleCompletenessConfig = {
   specPipelineStrict: false,
   specPipelineEnabled: false,
   expertsEnabled: false,
+  specFrozenBeforePipeline: false,
   stageIsolationExpected: false,
   stageIsolationUnresolved: false,
 };
@@ -370,6 +371,7 @@ describe('every flag on (no flag-off skip note)', () => {
     specPipelineStrict: false,
     specPipelineEnabled: true,
     expertsEnabled: true,
+    specFrozenBeforePipeline: false,
     stageIsolationExpected: false,
     stageIsolationUnresolved: false,
   };
@@ -711,6 +713,71 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
     expect(gate!.detail).toContain('request.md (run: paqad-ai spec pipeline start)');
     expect(gate!.detail).toContain('clarification.json');
     expect(gate!.detail).toContain('experts.json');
+  });
+
+  /** The real builder's flags read after the spec is frozen (issue #640 rollout). */
+  function frozenConfigFor(root: string, lane: 'fast' | 'graduated', spec: unknown) {
+    seedFeatureRecord(root, LANE_DIR, { adapter: 'claude-code', sessionId: 'ses_1', lane });
+    writeAlwaysFiles(root, LANE_DIR);
+    write(root, featureFilePath(LANE_DIR, 'specification'), JSON.stringify(spec));
+    const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
+    return {
+      ...ONLY_ALWAYS,
+      lane: built.lane,
+      specPipelineEnabled: built.specPipelineEnabled,
+      specPipelineStrict: built.specPipelineStrict,
+      expertsEnabled: built.expertsEnabled,
+      specFrozenBeforePipeline: built.specFrozenBeforePipeline,
+    };
+  }
+
+  it('passes a graduated change whose spec was frozen before the pipeline was on', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'graduated', { spec_file: 'spec.md' });
+    expect(config.specFrozenBeforePipeline).toBe(true);
+    expect(config.specPipelineStrict).toBe(true);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).toContain(
+      'Spec frozen before the spec pipeline was on, so not required: clarification.json, experts.json, request.md.',
+    );
+    expect(gate!.detail).not.toMatch(/spec_pipeline_adoption=strict/);
+  });
+
+  it('still names the fast lane, not the switch, for a fast-lane spec with no pipeline record', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'fast', { spec_file: 'spec.md' });
+    const gate = run(root, config);
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).toContain('Not required on the fast lane:');
+    expect(gate!.detail).not.toContain('Spec frozen before the spec pipeline was on');
+  });
+
+  it('fails a pipeline-era change without the pipeline files, naming each one', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'graduated', { pipeline: { produced: true } });
+    expect(config.specFrozenBeforePipeline).toBe(false);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('request.md (run: paqad-ai spec pipeline start)');
+    expect(gate!.detail).toContain('clarification.json');
+  });
+
+  it('treats a strict --manual --reason freeze as before: recorded, files still required', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'graduated', {
+      pipeline: { produced: false, manual_reason: 'hand-written hotfix spec' },
+    });
+    expect(config.specFrozenBeforePipeline).toBe(false);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('request.md');
+    // The manual reason satisfies strict provenance, so only the files are named.
+    expect(gate!.detail).not.toMatch(/spec_pipeline_adoption=strict/);
+    write(root, featureFilePath(LANE_DIR, 'request'), '# Request\n');
+    write(root, featureFilePath(LANE_DIR, 'clarification'), '{}');
+    write(root, featureFilePath(LANE_DIR, 'experts'), '{}');
+    expect(run(root, config)!.status).toBe('pass');
   });
 
   it('applies the strict provenance check off the fast lane only', () => {

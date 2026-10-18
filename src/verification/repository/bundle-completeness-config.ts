@@ -3,6 +3,9 @@
 // own module so the completeness gate and the HUD snapshot share one builder, and the snapshot
 // does not load the whole verification run to get it.
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { readProjectProfile } from '@/core/project-profile.js';
 import { resolveEnterprisePolicy } from '@/core/enterprise-policy.js';
 import {
@@ -12,7 +15,11 @@ import {
 } from '@/core/framework-config.js';
 import { resolveDuplicationMode } from '@/duplication/config.js';
 import { readChangeConstants, type ChangeConstants } from '@/feature-evidence/feature-record.js';
-import type { BundleCompletenessConfig } from '@/feature-evidence/manifest.js';
+import {
+  isSpecFrozenBeforePipeline,
+  type BundleCompletenessConfig,
+} from '@/feature-evidence/manifest.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
@@ -140,6 +147,9 @@ export function buildBundleCompletenessConfig(
     specPipelineStrict: pipelineFlags.strict,
     specPipelineEnabled: pipelineFlags.enabled,
     expertsEnabled: pipelineFlags.experts,
+    // Issue #640 — a change already open when the pipeline default flipped on froze its spec
+    // without the pipeline; it is not asked for files the pipeline never wrote.
+    specFrozenBeforePipeline: specFrozenBeforePipeline(projectRoot, dirName),
     // Issue #573 / #602 — how stage isolation stands for this change, read from the
     // bundle's own constants (lane + recorded host adapter), never from config: whether
     // isolation applied is a property of the change, not a project setting. `expected`
@@ -147,6 +157,18 @@ export function buildBundleCompletenessConfig(
     // first-glance-only label is loud, not silent) without ever false-failing (INV-5).
     ...isolationFlags(sessionId ? isolationStatusFrom(constants) : 'not-applicable'),
   };
+}
+
+/** Whether the change's frozen specification.json predates the spec pipeline (issue #640). */
+function specFrozenBeforePipeline(projectRoot: string, dirName: string | null): boolean {
+  if (!dirName) return false;
+  try {
+    const text = readFileSync(join(projectRoot, featureFilePath(dirName, 'specification')), 'utf8');
+    return isSpecFrozenBeforePipeline(JSON.parse(text));
+  } catch {
+    // Not frozen yet, or unreadable: the pipeline files are still required.
+    return false;
+  }
 }
 
 /** The spec-pipeline flags the bundle-completeness manifest reads (issues #547, #581). */

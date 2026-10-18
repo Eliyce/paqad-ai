@@ -174,6 +174,8 @@ interface GateState {
   flagSkipped: string[];
   /** Issue #640 — files their flag requires but the fast lane does not need. */
   laneSkipped: string[];
+  /** Issue #640 — pipeline files a spec frozen before the spec pipeline was on never had. */
+  preSwitchSkipped: string[];
   /** Issue #602 (FR-4) — the lane never resolved on a subagent-capable feature-dev change and
    *  no isolation ran, so isolation could not be verified. Surfaced (Inconclusive), never a
    *  hard block. */
@@ -216,6 +218,7 @@ export function bundleCompletenessGate(
     ragMissing: false,
     flagSkipped: [],
     laneSkipped: [],
+    preSwitchSkipped: [],
     isolationUnverified: false,
   };
 
@@ -233,11 +236,19 @@ export function bundleCompletenessGate(
       }
       if (!isBundleFileRequired(entry, input.config)) {
         // Issue #640 — a file the fast lane does not need is "not required on the fast lane",
-        // not "flag off": the flag may well be on.
-        if (isBundleFileRequired(entry, { ...input.config, lane: 'full' })) {
+        // and a pipeline file a spec frozen before the pipeline was on never had is "frozen
+        // before the pipeline", not "flag off": the flag may well be on.
+        const unlocked = {
+          ...input.config,
+          lane: 'full' as const,
+          specFrozenBeforePipeline: false,
+        };
+        if (!isBundleFileRequired(entry, unlocked)) {
+          state.flagSkipped.push(entry.file);
+        } else if (input.config.lane === 'fast') {
           state.laneSkipped.push(entry.file);
         } else {
-          state.flagSkipped.push(entry.file);
+          state.preSwitchSkipped.push(entry.file);
         }
         continue;
       }
@@ -460,6 +471,9 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
       : '') +
     (state.laneSkipped.length > 0
       ? ` Not required on the fast lane: ${[...state.laneSkipped].sort().join(', ')}.`
+      : '') +
+    (state.preSwitchSkipped.length > 0
+      ? ` Spec frozen before the spec pipeline was on, so not required: ${[...state.preSwitchSkipped].sort().join(', ')}.`
       : '');
   const backfillNote =
     state.backfilled.length > 0

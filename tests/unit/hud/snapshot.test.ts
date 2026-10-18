@@ -231,6 +231,22 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     expect(expected['experts.json']).toBe('on here');
   });
 
+  it('reads the pipeline files as off for a spec frozen before the pipeline was on (#640)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-483';
+    const dir = openChange(root, S, 'graduated', 'ORD-483 older open change');
+    writeBundleJson(root, dir, 'specification', { spec_file: 'spec.md' });
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    const expected = Object.fromEntries(
+      snapshot.evidence_expected.map((entry) => [entry.file, entry.expectation]),
+    );
+    expect(expected['request.md']).toBe('off here');
+    expect(expected['clarification.json']).toBe('off here');
+    expect(expected['experts.json']).toBe('off here');
+  });
+
   it('ORD-501 full lane: Safe to merge with an open flag reads amber, never green (Q19)', () => {
     const root = onboardedRoot();
     const S = 'ses-501';
