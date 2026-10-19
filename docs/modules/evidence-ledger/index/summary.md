@@ -26,8 +26,12 @@ carries a `strength_class`:
 | C | `blocked` | no evidence — measure unavailable or inconclusive | ratchet `blocked` sample, an inconclusive gate |
 
 Deterministic and LLM-judged passes are counted separately and **never pooled**;
-blocked / inconclusive rows downgrade the result rather than hiding inside a pass
-total. `src/evidence/grading.ts` is the single source of truth for the A/B split.
+blocked and inconclusive rows are counted on their own rather than hiding inside a pass
+total. Only an inconclusive row downgrades the receipt's result to Inconclusive. A blocked
+row is a measure that could not be taken, such as a quality measure with no coverage report.
+It stays listed in the receipt's `blocked` count but no longer changes the result (issue
+#669, decision D-01M5A0MG6537XJ7S3MD3Q4PSCR). A real `fail` still reads Failed.
+`src/evidence/grading.ts` is the single source of truth for the A/B split.
 
 A row's `verdict` is one of `pass`, `fail`, `inconclusive`, `blocked` or `skipped`
 (issue #579). `skipped` records a gate that did not apply to the change, such as the
@@ -65,7 +69,8 @@ whatever the enterprise toggles. Only `receipt.json` and `ai-bom.json` stay ente
 capabilities. The receipt no longer copies the rows. Its predicate carries
 `evidence_sha256` (the SHA-256 of `evidence.jsonl` at seal time) and `evidence_line_count`,
 plus the graded counts and the verdict. Since issue #669 the end-of-turn run seals the receipt
-after every gate, so a receipt it writes covers every row of that run. A later run appends
+after every gate and before it builds the verdict, so a receipt it writes covers every row of
+that run. A later run appends
 after the seal, so `verifyEvidenceSeal` re-hashes only the first `evidence_line_count` lines. Readers get a
 receipt's rows through `receiptEvidenceRows` (`src/feature-evidence/receipt.ts`): the
 `evidence.jsonl` rows of that run for a sealing receipt, `predicate.rows` for one sealed

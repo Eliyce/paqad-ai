@@ -149,10 +149,17 @@ records nothing.
 The stage-evidence and checks (`code-tests-lint`) gates are recorded with them, and when the
 only gap is an unrecorded mandatory stage, an inconclusive `unrecorded-mandatory-stages` row is
 added too (issue #669). The bundle receipt and AI-BOM are sealed only after all of that, from
-rows for every gate the verdict read. So `receipt.json`'s `verification_result` (PASSED,
-FAILED, INCONCLUSIVE) says the same thing as the HUD verdict file and the HUD receipt. Because
-the receipt is written after `bundle-completeness` runs, that gate counts a missing
-`receipt.json` or `ai-bom.json` as present when this run is about to seal it.
+rows for every gate the verdict read, and before the verdict is built. So `receipt.json`'s
+`verification_result` (PASSED, FAILED, INCONCLUSIVE) says the same thing as the HUD verdict
+file and the HUD receipt. Because the receipt is written after `bundle-completeness` runs,
+that gate counts a missing `receipt.json` or `ai-bom.json` as present when this run is about
+to seal it. If the seal then fails, `recheckAfterReceiptSeal` judges the bundle again without
+that allowance and records the new row, so a strict gate still fails for the missing file and
+every surface reads the re-judged gate.
+
+A blocked row (a measure that could not be taken) stays listed on the receipt but does not
+make it Inconclusive; only an inconclusive row does (decision D-01M5A0MG6537XJ7S3MD3Q4PSCR).
+That keeps the receipt in step with the HUD verdict, which reads gate statuses only.
 
 A gate that skipped while its feature flag is on adds one line to the verdict summary, after
 the status lines and before the escalations: `⚪ visual evidence: skipped (<reason>)`. The line

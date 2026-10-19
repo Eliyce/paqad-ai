@@ -30,6 +30,8 @@ The agent routes by intent, following `AGENT-ROUTER.md`. The classifier only wri
 
 `runPromptRouteSeam` in `prompt-lane.ts` keeps a prompt that names a feature-development stage on feature-development when this session has a change open, so "run documentation_sync" does not pause the change and route to `documentation-update`.
 
+- It only overrides a generic route: `documentation-update`, `project-question` or `no-workflow` (`STAGE_NAME_OVERRIDABLE_ROUTES`). A specialist workflow such as pentest, design-test, codebase-health, discovery, site-map, rules-analyze, root-cause-analysis or module-documentation is a deliberate detour, so "run a security review" still pauses the change.
+
 - The stage names come from `STAGE_ORDER` and match as whole words, in the underscore form (`documentation_sync`) or with a space (`documentation sync`).
 - A change is open when the session's active route is feature-development, or its own session control points at a bundle that is not closed. The control is only read, never reconciled, so routing never adopts a bundle.
 - The open change keeps its lane; no new lane is stashed. A paused change is resumed.

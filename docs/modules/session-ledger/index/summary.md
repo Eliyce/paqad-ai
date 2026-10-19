@@ -29,7 +29,9 @@ ONE row so the bypass is visible in the dashboard / SIEM. It is recorded by
 `verify-backstop.mjs`'s disabled branch (best-effort, lazy `dist` import, only for the
 `hook-completion` origin) — the enforcement contract (no gates when disabled) is
 untouched; the audit is a hook-layer concern, so the `runRepositoryVerification` API
-stays a pure no-op when disabled.
+stays a pure no-op when disabled. A disabled project also never takes the Stop hook's
+background-stage step-aside in `runtime/hooks/verification-completion.mjs` (issue #673), so
+this audit row is the only thing a disabled Stop writes, with no `completion-deferred` row.
 
 ## Source Footprint
 
