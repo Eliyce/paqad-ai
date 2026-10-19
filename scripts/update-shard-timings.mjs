@@ -12,7 +12,7 @@
 // machine's OS and --root to the current directory. Only that OS's block changes.
 // Exit codes: 0 = written, 2 = usage or read error.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 
@@ -62,13 +62,12 @@ const reports = args.reports.map((file) => {
 });
 const durations = durationsFromReports(reports, root);
 const target = join(root, 'tests', 'shard-timings.json');
-let existing = {};
-if (existsSync(target)) {
-  try {
-    existing = JSON.parse(readFileSync(target, 'utf8'));
-  } catch {
-    existing = {};
-  }
+// Read once and treat a missing or unreadable file as empty, so there is no check-then-read race.
+let existing;
+try {
+  existing = JSON.parse(readFileSync(target, 'utf8'));
+} catch {
+  existing = {};
 }
 writeFileSync(target, serializeTimings(mergeTimings(existing, args.platform, durations)));
 process.stdout.write(
