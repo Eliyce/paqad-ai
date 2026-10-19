@@ -215,6 +215,16 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    // Issue #639, Part 13: the High Table ledger. `optional`: a change with the experts off, on
+    // the fast lane, or frozen by hand never seats the table, so it is checked when present only.
+    key: 'highTable',
+    file: FEATURE_BUNDLE_FILES.highTable,
+    required: 'optional',
+    writer:
+      'paqad-ai spec pipeline experts (record, brief, context, notes, synthesis) + SubagentStop hook',
+    validate: 'jsonl>=1',
+  },
+  {
     // A change that resolved no decision has no index to write, so it is checked when present.
     key: 'decisions',
     file: FEATURE_BUNDLE_FILES.decisions,

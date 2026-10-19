@@ -88,7 +88,8 @@ const M1_FILES = [
   'report.html',
 ];
 const M2_FILES = [...M1_FILES, 'request.md', 'clarification.json'];
-const M3_FILES = [...M2_FILES, 'experts.json'];
+// Issue #639, Part 13: a run that seats experts also leaves the High Table ledger.
+const M3_FILES = [...M2_FILES, 'experts.json', 'high-table.jsonl'];
 
 /** The exact oracle set per case (the issue's table, without the change-dependent files). */
 export const CASE_FILES: Readonly<Record<OracleCase, readonly string[]>> = {

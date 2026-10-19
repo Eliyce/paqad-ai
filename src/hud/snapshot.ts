@@ -4,8 +4,8 @@
 // Claude Code mod reads instead of asking the model or starting a process. It is built only
 // from records paqad already keeps: the routed workflow, the change's feature bundle, the
 // decision folders, the evidence rows and the in-session receipt. A field whose source is not
-// ready yet (the High Table's live seats, claims, rule-stop details, cost) is `null` or empty,
-// never guessed. The headline and the flags are computed here, in one tested place.
+// ready yet (claims, rule-stop details, cost) is `null` or empty, never guessed. The headline and
+// the flags are computed here, in one tested place.
 //
 // Writes are best-effort by contract: `writeHudSnapshotSafe` never throws, so a hook or verb
 // that refreshes the snapshot can never have its decision or exit code changed by it.
@@ -26,11 +26,7 @@ import {
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
-import {
-  BUNDLE_MANIFEST,
-  isBundleFileRequired,
-  readSpecAdoption,
-} from '@/feature-evidence/manifest.js';
+import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
@@ -50,6 +46,7 @@ import {
 import type { VerificationGate } from '@/core/types/verification.js';
 
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
+import { buildHighTableView, type HudHighTable } from './high-table-view.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
@@ -94,13 +91,7 @@ export interface HudFlag {
   text: string;
 }
 
-export interface HudSeat {
-  role: string;
-  reason: string | null;
-  origin: string | null;
-  budget_tokens: number | null;
-  tokens_used: number | null;
-}
+export type { HudChief, HudHighTable, HudSeat } from './high-table-view.js';
 
 /**
  * What one scan found on this change. A scan with no row reads `did not run`, never `clean`:
@@ -148,8 +139,12 @@ export interface HudSnapshot {
   } | null;
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: HudStage[];
-  /** The High Table as recorded so far; live seat state arrives with Part 13. */
-  table: { seats: HudSeat[]; skipped: boolean } | null;
+  /**
+   * The live High Table (issue #639, Part 13): seats with state, times, budgets and tokens, the
+   * chief's verdict and rulings, gaps, questions and who shaped each spec line. Null on the fast
+   * lane and when no High Table was seated.
+   */
+  table: HudHighTable | null;
   /** Fix-protocol claims arrive with Part 15. */
   claims: [];
   gates: HudGate[];
@@ -259,27 +254,6 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
         : null);
     return { name: code, required: verdict !== 'not-required', strength, verdict };
   });
-}
-
-function buildTable(projectRoot: string, dirName: string, specJson: unknown): HudSnapshot['table'] {
-  const experts = asRecord(readJsonFile(join(projectRoot, featureFilePath(dirName, 'experts'))));
-  const roster = Array.isArray(experts?.roster) ? experts.roster : null;
-  const adoption = readSpecAdoption(specJson);
-  // A spec frozen by hand while the pipeline ran shows the High Table as skipped (Q11). A
-  // fast-lane freeze never had a High Table to skip (issue #640), so it shows none.
-  const skipped = adoption !== null && !adoption.produced && !adoption.fast_lane;
-  if (!roster) return skipped ? { seats: [], skipped } : null;
-  const seats: HudSeat[] = roster.map((entry) => {
-    const seat = asRecord(entry) ?? {};
-    return {
-      role: str(seat.role) ?? 'unknown',
-      reason: str(seat.reason),
-      origin: str(seat.origin),
-      budget_tokens: num(seat.budget_tokens),
-      tokens_used: num(seat.tokens_used),
-    };
-  });
-  return { seats, skipped };
 }
 
 function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['questions'] {
@@ -418,6 +392,8 @@ export function computeHudFlags(input: {
   gates: HudGate[];
   rulesRecorded: boolean;
   tableSkipped: boolean;
+  /** Issue #639 (Part 13): a High Table that met after the spec was frozen. */
+  tableLate?: boolean;
   isolationStatus: string;
   isolatedStages: number;
   /** Issue #639 (Part 12) — an open finding raises a flag; the band shows only its count. */
@@ -439,6 +415,12 @@ export function computeHudFlags(input: {
     flags.push({
       id: 'high-table-skipped',
       text: 'The spec was written by hand, so the High Table never sat.',
+    });
+  }
+  if (input.tableLate) {
+    flags.push({
+      id: 'high-table-late',
+      text: 'The High Table met after the spec was frozen, so it shaped no spec line.',
     });
   }
   if (input.isolationStatus === 'expected' && input.isolatedStages === 0) {
@@ -594,7 +576,8 @@ export function buildHudSnapshot(
   const stages = buildStages(projectRoot, dirName, fold);
   const gates = buildGates(projectRoot, dirName);
   const specJson = readJsonFile(join(projectRoot, featureFilePath(dirName, 'specification')));
-  const table = buildTable(projectRoot, dirName, specJson);
+  const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
+  const table = buildHighTableView(projectRoot, dirName, specJson, lane);
   const rulesLoaded = readRulesLoaded(projectRoot, dirName);
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
@@ -605,11 +588,11 @@ export function buildHudSnapshot(
     gates,
     rulesRecorded: rulesLoaded !== null,
     tableSkipped: table?.skipped ?? false,
+    tableLate: table?.met_after_freeze ?? false,
     isolationStatus,
     isolatedStages: isolationSummary?.stages ?? 0,
     findings,
   });
-  const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
 
   return {
     schema: HUD_SNAPSHOT_SCHEMA,

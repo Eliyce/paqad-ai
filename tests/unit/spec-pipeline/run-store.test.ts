@@ -187,10 +187,18 @@ describe('experts.json (FR-8)', () => {
       ],
     });
 
-    // Re-recording notes with no questions clears the staged questions.
+    // A note recorded for one role leaves every other role alone (issue #639, Part 13).
     writeExpertNotes(root, DIR, { notes: [], tokens: {} });
+    expect(readStagedExpertQuestions(root, DIR)).toEqual([
+      { role: 'qa-engineer', questions: [QUESTION] },
+    ]);
+    // Re-recording the only role with questions, now with none, clears the staged questions.
+    writeExpertNotes(root, DIR, { notes: [{ role: 'qa-engineer', findings: [] }], tokens: {} });
     expect(existsSync(join(root, stagedFilePath(DIR, 'expertQuestions')))).toBe(false);
     expect(readStagedExpertQuestions(root, DIR)).toEqual([]);
+    expect(readExperts(root, DIR)!.findings).toEqual([
+      { id: 'EX-db-expert-1', role: 'db-expert', target: 'invoices', claim: 'index it' },
+    ]);
   });
 
   it('records notes against an empty roster when none was recorded first', () => {

@@ -23,7 +23,9 @@ import { mkdirSync, readFileSync, realpathSync, rmdirSync, rmSync, writeFileSync
 
 import { dirname, join, relative, resolve } from 'pathe';
 
+import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
+import { withFileLockSync } from '@/core/fs/file-lock.js';
 import type { AgentRole } from '@/core/types/agent.js';
 import type {
   SpecGroundingSection,
@@ -489,9 +491,41 @@ interface StagedExpertQuestions {
 }
 
 /**
- * Write the experts' validated notes (`experts notes`): every finding once into
- * `experts.json` findings, each expert's reported tokens onto its roster entry, and the notes'
- * questions into staging until the question round merges them (FR-9).
+ * The lock that serialises the read-modify-write of one change's `experts.json` and its staged
+ * expert questions (issue #639, Part 13). It lives under `.paqad/locks/`, never in the bundle, and
+ * is keyed by the change ULID so a bundle rename cannot split it.
+ */
+export function expertNotesLockDir(projectRoot: string, dirName: string): string {
+  return join(projectRoot, PATHS.LOCKS_DIR, `experts-${featureChangeKey(dirName)}.lock`);
+}
+
+/** Whether a voice warning (`EX-<role>-<n>`) belongs to `role`. */
+function warningBelongsTo(warning: VoiceWarning, role: AgentRole): boolean {
+  const prefix = `EX-${role}-`;
+  return warning.id.startsWith(prefix) && /^\d+$/.test(warning.id.slice(prefix.length));
+}
+
+/** Order findings by the roster's seat order (then arrival), so parallel seats land the same way. */
+function inRosterOrder(
+  findings: RecordedExpertFinding[],
+  roster: ExpertRosterEntry[],
+): RecordedExpertFinding[] {
+  const seat = new Map(roster.map((entry, index) => [entry.role, index]));
+  const rank = (role: AgentRole): number => seat.get(role) ?? roster.length;
+  return findings
+    .map((finding, index) => ({ finding, index }))
+    .sort((a, b) => rank(a.finding.role) - rank(b.finding.role) || a.index - b.index)
+    .map(({ finding }) => finding);
+}
+
+/**
+ * Write the experts' validated notes (`experts notes`), one role at a time (issue #639, Part 13).
+ * A role named by the artifact (a note for it, or a token figure) has its findings, its voice
+ * warnings, its staged questions and its reported tokens REPLACED; every other role keeps what it
+ * already recorded. So each High Table seat, running in its own subagent, records only its own
+ * note, and a second note never wipes the first. The whole read-modify-write of `experts.json`
+ * and the staged questions runs under {@link expertNotesLockDir}, so seats that finish at the same
+ * moment never lose a note (FR-15). The questions wait in staging for the question round (FR-9).
  */
 export function writeExpertNotes(
   projectRoot: string,
@@ -499,26 +533,54 @@ export function writeExpertNotes(
   artifact: ExpertNotesArtifact,
   options: StoreWriteOptions = {},
 ): void {
-  const findings: RecordedExpertFinding[] = artifact.notes.flatMap((note) =>
+  withFileLockSync(expertNotesLockDir(projectRoot, dirName), () =>
+    mergeExpertNotesLocked(projectRoot, dirName, artifact, options),
+  );
+}
+
+function mergeExpertNotesLocked(
+  projectRoot: string,
+  dirName: string,
+  artifact: ExpertNotesArtifact,
+  options: StoreWriteOptions,
+): void {
+  const current = readExperts(projectRoot, dirName);
+  const noteRoles = new Set(artifact.notes.map((note) => note.role));
+  const tokenRoles = new Set(Object.keys(artifact.tokens) as AgentRole[]);
+  const roles = new Set<AgentRole>([...noteRoles, ...tokenRoles]);
+
+  const kept = (current?.findings ?? []).filter((finding) => !roles.has(finding.role));
+  const incoming: RecordedExpertFinding[] = artifact.notes.flatMap((note) =>
     note.findings.map(({ id, ...finding }) => ({ id: id!, role: note.role, ...finding })),
   );
-  const roster = (readExperts(projectRoot, dirName)?.roster ?? []).map((entry) => ({
-    ...entry,
-    tokens_used: artifact.tokens[entry.role] ?? null,
-  }));
+  const roster = (current?.roster ?? []).map((entry) =>
+    roles.has(entry.role) ? { ...entry, tokens_used: artifact.tokens[entry.role] ?? null } : entry,
+  );
+  const touched = [...roles];
+  const keptWarnings = (current?.voice_warnings ?? []).filter(
+    (warning) => !touched.some((role) => warningBelongsTo(warning, role)),
+  );
+  const voiceWarnings =
+    artifact.voice_warnings === undefined && current?.voice_warnings === undefined
+      ? undefined
+      : [...keptWarnings, ...(artifact.voice_warnings ?? [])];
   writeExperts(
     projectRoot,
     dirName,
     {
       roster,
-      findings,
-      ...(artifact.voice_warnings === undefined ? {} : { voice_warnings: artifact.voice_warnings }),
+      findings: inRosterOrder([...kept, ...incoming], roster),
+      ...(voiceWarnings === undefined ? {} : { voice_warnings: voiceWarnings }),
     },
     options,
   );
-  const questions = artifact.notes
-    .filter((note) => (note.questions ?? []).length > 0)
-    .map((note) => ({ role: note.role, questions: note.questions! }));
+
+  const questions = [
+    ...readStagedExpertQuestions(projectRoot, dirName).filter((note) => !roles.has(note.role)),
+    ...artifact.notes
+      .filter((note) => (note.questions ?? []).length > 0)
+      .map((note) => ({ role: note.role, questions: note.questions! })),
+  ];
   if (questions.length > 0) {
     writeStagedJson(projectRoot, dirName, 'expertQuestions', { notes: questions });
   } else {

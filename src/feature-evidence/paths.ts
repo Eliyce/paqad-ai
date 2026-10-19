@@ -57,6 +57,9 @@ export const FEATURE_BUNDLE_FILES = {
   request: 'request.md',
   clarification: 'clarification.json',
   experts: 'experts.json',
+  // Issue #639, Part 13: the High Table ledger: when each expert seat (and the chief) was
+  // seated, started writing and finished, and the exact tokens its subagent spent.
+  highTable: 'high-table.jsonl',
   // Issue #581 — the index of resolved decision packets linked to the change.
   decisions: 'decisions.json',
 } as const;

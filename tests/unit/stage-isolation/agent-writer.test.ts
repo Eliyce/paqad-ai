@@ -17,25 +17,29 @@ afterEach(() => {
 });
 
 describe('writeStageAgents (issue #567)', () => {
-  it('writes six agents per host at user scope (no config knob)', () => {
+  it('writes six stage agents and two High Table agents per host at user scope (no config knob, AC-46)', () => {
     const home = tempDir('paqad-sa-home-');
     const written = writeStageAgents({ homeDir: home });
 
-    expect(written).toHaveLength(12);
+    expect(written).toHaveLength(16);
     const claudeDir = join(home, '.claude/agents');
     const codexDir = join(home, '.codex/agents');
     expect(readdirSync(claudeDir).sort()).toEqual([
       'paqad-checks.md',
+      'paqad-chief-architect.md',
       'paqad-development.md',
       'paqad-documentation-sync.md',
+      'paqad-expert.md',
       'paqad-planning.md',
       'paqad-review.md',
       'paqad-specification.md',
     ]);
     expect(readdirSync(codexDir).sort()).toEqual([
       'paqad-checks.toml',
+      'paqad-chief-architect.toml',
       'paqad-development.toml',
       'paqad-documentation-sync.toml',
+      'paqad-expert.toml',
       'paqad-planning.toml',
       'paqad-review.toml',
       'paqad-specification.toml',

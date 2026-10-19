@@ -11,6 +11,8 @@
 // thread carries neither. This module is the one place that mapping lives, so no caller
 // hand-rolls it (RULE-13 RL-3210).
 
+import { stageForAgentName } from '@/stage-isolation/stage-agents.js';
+
 /** Recorded on a row the main chat wrote itself, with no stage subagent in play. */
 export const ORCHESTRATOR_AGENT = 'orchestrator';
 
@@ -52,7 +54,13 @@ export function resolveAgentIdentity(input: AgentIdentityInput = {}): string {
   return nonEmpty(input.agentType) ?? nonEmpty(input.agentId) ?? ORCHESTRATOR_AGENT;
 }
 
-/** True when `agent` names a dispatched paqad stage agent rather than the orchestrator. */
+/**
+ * True when `agent` names one of the six dispatched paqad stage agents (`paqad-<stage>`) rather
+ * than the orchestrator. Issue #639, Part 13: a High Table seat (`paqad-expert`,
+ * `paqad-chief-architect`) or any other `paqad-` name is not a stage agent.
+ */
 export function isStageAgent(agent: string | null | undefined): boolean {
-  return typeof agent === 'string' && agent.startsWith('paqad-');
+  return (
+    typeof agent === 'string' && agent.startsWith('paqad-') && stageForAgentName(agent) !== null
+  );
 }

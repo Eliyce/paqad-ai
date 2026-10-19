@@ -5,7 +5,7 @@
 // and stage-agent template — no second copy):
 //   - .claude-plugin/plugin.json          — manifest, version taken from package.json
 //   - runtime/claude-plugin/hooks.json     — the plugin hook chain, ${CLAUDE_PLUGIN_ROOT}-rooted
-//   - runtime/claude-plugin/agents/*.md    — the six stage agents the plugin ships
+//   - runtime/claude-plugin/agents/*.md   : the six stage agents and two High Table agents the plugin ships
 // The committed copies are kept in sync by tests/unit/plugin/manifest.test.ts, which regenerates
 // from the same builder and asserts a byte match (the AGENT-ROUTER.md golden pattern).
 

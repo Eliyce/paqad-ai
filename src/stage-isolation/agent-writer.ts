@@ -10,7 +10,9 @@
 // tripwire against writing agent defs into a project `.claude`/`.codex`).
 //
 // Stage isolation is core-engine behavior (no config knob), so the writer always writes the
-// six agents. Output is deterministic, so a second run is byte-identical.
+// six agents, plus the two High Table agents (issue #639, Part 13: `paqad-expert` and
+// `paqad-chief-architect`), which sit beside them but are never stages. Output is
+// deterministic, so a second run is byte-identical.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -21,7 +23,14 @@ import Handlebars from 'handlebars';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
-import { MANDATORY_STAGE_AGENTS, buildStageAgentBody, type StageAgentDef } from './stage-agents.js';
+import {
+  HIGH_TABLE_AGENTS,
+  MANDATORY_STAGE_AGENTS,
+  buildHighTableAgentBody,
+  buildStageAgentBody,
+  type HighTableAgentDef,
+  type StageAgentDef,
+} from './stage-agents.js';
 
 /** One host's stage-agent target: the agents dir under the user home and its file extension. */
 interface HostTarget {
@@ -59,14 +68,38 @@ export interface WriteStageAgentsOptions {
 function agentContext(def: StageAgentDef): Record<string, unknown> {
   return {
     agentName: def.agentName,
-    ledgerStage: def.ledgerStage,
+    description: `paqad feature-development stage: ${def.ledgerStage}. Dispatched by the paqad orchestrator only.`,
     tools: def.claudeTools,
     body: buildStageAgentBody(def),
   };
 }
 
+/** The render context of a High Table agent (issue #639, Part 13), from the same template. */
+function highTableAgentContext(def: HighTableAgentDef): Record<string, unknown> {
+  return {
+    agentName: def.agentName,
+    description: def.description,
+    tools: def.claudeTools,
+    body: buildHighTableAgentBody(def),
+  };
+}
+
+/** Every agent paqad renders, in order: the six stage agents, then the two High Table agents. */
+function allAgentContexts(): { agentName: string; context: Record<string, unknown> }[] {
+  return [
+    ...MANDATORY_STAGE_AGENTS.map((def) => ({
+      agentName: def.agentName,
+      context: agentContext(def),
+    })),
+    ...HIGH_TABLE_AGENTS.map((def) => ({
+      agentName: def.agentName,
+      context: highTableAgentContext(def),
+    })),
+  ];
+}
+
 /**
- * Write the six stage agents per supported host under the user's home. Returns the
+ * Write the six stage agents and the two High Table agents per supported host under the user's home. Returns the
  * project-independent list of absolute paths written. Never writes into any project directory.
  * Synchronous so it can be called from the synchronous `bootstrapFramework`; these templates
  * use no custom Handlebars helpers.
@@ -81,9 +114,9 @@ export function writeStageAgents(options: WriteStageAgentsOptions = {}): string[
     mkdirSync(dir, { recursive: true });
     const templateSource = readFileSync(join(templatesRoot, 'stage-agents', host.template), 'utf8');
     const template = Handlebars.compile(templateSource);
-    for (const def of MANDATORY_STAGE_AGENTS) {
-      const content = template(agentContext(def));
-      const filePath = join(dir, `${def.agentName}.${host.extension}`);
+    for (const { agentName, context } of allAgentContexts()) {
+      const content = template(context);
+      const filePath = join(dir, `${agentName}.${host.extension}`);
       writeFileSync(filePath, content, 'utf8');
       written.push(toPosixPath(filePath));
     }
@@ -92,7 +125,8 @@ export function writeStageAgents(options: WriteStageAgentsOptions = {}): string[
 }
 
 /**
- * Render the six Claude stage agents as `{ name, content }` pairs from the same template and stage
+ * Render the six Claude stage agents, then the two High Table agents (issue #639, Part 13), as
+ * `{ name, content }` pairs from the same template and stage
  * list `writeStageAgents` uses (issue #616, Part 1). The Claude Code plugin ships these under
  * `runtime/claude-plugin/agents/` so it supplies the stage agents itself (Claude Code namespaces
  * them `paqad:paqad-<stage>`), instead of the npm install writing them into `~/.claude/agents`.
@@ -107,14 +141,14 @@ export function renderClaudePluginStageAgents(): { name: string; content: string
   }
   const templateSource = readFileSync(join(templatesRoot, 'stage-agents', host.template), 'utf8');
   const template = Handlebars.compile(templateSource);
-  return MANDATORY_STAGE_AGENTS.map((def) => ({
-    name: `${def.agentName}.${host.extension}`,
-    content: template(agentContext(def)),
+  return allAgentContexts().map(({ agentName, context }) => ({
+    name: `${agentName}.${host.extension}`,
+    content: template(context),
   }));
 }
 
 /**
- * Write the six Claude stage agents into `destDir` for the plugin's bundled `agents/` directory
+ * Write the Claude stage agents and High Table agents into `destDir` for the plugin's bundled `agents/` directory
  * (issue #616, Part 1). Returns the POSIX paths written. Deterministic, so a re-run is byte-identical.
  */
 export function writeClaudePluginStageAgents(destDir: string): string[] {

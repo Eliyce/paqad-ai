@@ -38,6 +38,9 @@ and merges it; this skill does the reading and judgement, the script does the ch
 - The spec pipeline is running with the expert roster on (`spec_pipeline_experts_enabled`), the
   `expert-need-detector` has named the experts, and `experts record` has put them on the roster.
   Run this skill once per expert, with the brief the `experts brief` verb prints for it.
+- You run as one High Table seat (a `paqad-expert` subagent, issue #639) given one role. Then a
+  note covers that role only: write one note, hand it to `experts notes`, and the verb merges it
+  beside the other seats' notes without touching them.
 
 Do **not** run this when the experts flag is off — with it off the pipeline is byte-identical to
 v1 and this skill never runs. Do **not** invent a role: you write as the role in the brief.
@@ -79,7 +82,8 @@ v1 and this skill never runs. Do **not** invent a role: you write as the role in
   `{ "notes": [ { "role", "findings": [ { "target", "claim", "kind", "severity", "evidence"? } ], "questions": [ PipelineQuestion ] } ], "tokens": { "<role>": n } }`.
 - `kind` is one of `requirement | invariant | acceptance | risk | non-goal`; `severity` is one of
   `must | should | could`; `evidence` is an optional grounding reference.
-- `findings` MAY be empty. `questions` MAY be empty. One note per brief you were given.
+- `findings` MAY be empty. `questions` MAY be empty. One note per brief you were given; as a
+  High Table seat that is one note, for your role.
 - The artifact is validated by `paqad-ai spec pipeline experts notes`; the ids `EX-<role>-<n>` are
   assigned there, in note order.
 - Write the artifact outside the feature bundle (for example under `.paqad/tmp/`); the verb

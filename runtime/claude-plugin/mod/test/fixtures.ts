@@ -142,7 +142,16 @@ export const GRADUATED_ORD_482 = snapshot({
     'fix/ORD-482-keep-copied-phone',
   ),
   stages: stages({ planning: 'complete', specification: 'complete' }),
-  table: { seats: [], skipped: false },
+  table: {
+    skipped: false,
+    met_after_freeze: false,
+    seats: [],
+    chief: null,
+    rulings: null,
+    gaps: [],
+    questions: null,
+    credits: [],
+  },
   decisions: {
     pending: [
       { id: 'D-01J0', category: 'fix.proof_method', question: 'How should the fix be proven?' },

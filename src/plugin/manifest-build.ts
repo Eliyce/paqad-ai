@@ -2,7 +2,7 @@
 //
 // The plugin ships three generated things under `runtime/claude-plugin/`:
 //   - `hooks.json`   — the live hook chain, rooted at `${CLAUDE_PLUGIN_ROOT}/runtime` (Part 3)
-//   - `agents/`      — the six stage agents (Part 1)
+//   - `agents/`     : the six stage agents (Part 1) and the two High Table agents (#639 Part 13)
 //   - `skills/`      — the onboard / join / dashboard skills (Parts 8 + 8b)
 // and it keeps `.claude-plugin/plugin.json`'s `version` in sync with `package.json` (Part 1).
 //
@@ -37,7 +37,8 @@ export function serializePluginHooksJson(): string {
 }
 
 /**
- * The relative paths of the plugin's bundled agent files, in stage order. Claude Code's plugin
+ * The relative paths of the plugin's bundled agent files: the stage agents in stage order, then the
+ * two High Table agents (issue #639, Part 13). Claude Code's plugin
  * schema wants `agents` as an array of individual `.md` file paths, not a directory (verified
  * against `claude plugin validate`), so this derives the list from the same stage-agent set the
  * files are generated from.

@@ -107,20 +107,25 @@ describe('plugin manifest-build generators (issue #616)', () => {
     expect(manifest.hooks).toBe('./runtime/claude-plugin/hooks.json');
     // agents is an array of .md file paths (a dir string is rejected by the plugin schema).
     expect(Array.isArray(manifest.agents)).toBe(true);
-    expect(manifest.agents).toHaveLength(6);
+    // The six stage agents plus the two High Table agents (issue #639, Part 13, AC-46).
+    expect(manifest.agents).toHaveLength(8);
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-development.md');
+    expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-expert.md');
+    expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-chief-architect.md');
     // displayName is an unrecognized key — it must NOT be present.
     expect(manifest).not.toHaveProperty('displayName');
     expect(manifest.author).toEqual({ name: 'Eliyce' });
   });
 
-  it('renders the six Claude stage agents from the shared template', () => {
+  it('renders the six Claude stage agents and the two High Table agents from the shared template', () => {
     const agents = renderClaudePluginStageAgents();
     const names = agents.map((a) => a.name).sort();
     expect(names).toEqual([
       'paqad-checks.md',
+      'paqad-chief-architect.md',
       'paqad-development.md',
       'paqad-documentation-sync.md',
+      'paqad-expert.md',
       'paqad-planning.md',
       'paqad-review.md',
       'paqad-specification.md',
@@ -135,13 +140,15 @@ describe('plugin manifest-build generators (issue #616)', () => {
     const dir = mkdtempSync(join(tmpdir(), 'paqad-plugin-agents-'));
     afterAll(() => rmSync(dir, { recursive: true, force: true }));
 
-    it('writes the six stage-agent files into the destination dir', () => {
+    it('writes the six stage-agent files and the two High Table agents into the destination dir', () => {
       const written = writeClaudePluginStageAgents(dir);
-      expect(written).toHaveLength(6);
+      expect(written).toHaveLength(8);
       expect(readdirSync(dir).sort()).toEqual([
         'paqad-checks.md',
+        'paqad-chief-architect.md',
         'paqad-development.md',
         'paqad-documentation-sync.md',
+        'paqad-expert.md',
         'paqad-planning.md',
         'paqad-review.md',
         'paqad-specification.md',

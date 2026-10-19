@@ -27,6 +27,7 @@ import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { writeStagedJson, writeStagedText } from '@/spec-pipeline/run-store.js';
+import { buildHighTableView } from '@/hud/high-table-view.js';
 import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
@@ -480,6 +481,24 @@ describe('paqad-ai spec command', () => {
       // A manual freeze has no run, so no run sections (issue #581, FR-3).
       expect(stored?.task).toBeUndefined();
       expect(stored?.trace).toBeUndefined();
+    });
+
+    it('AC-45: a strict --manual --reason freeze shows the High Table as skipped on the snapshot', async () => {
+      const dir = openFeature();
+      enablePipeline('strict');
+      const path = writeSpec('S-manual-table.md', COMPLETE_SPEC);
+      await run(
+        'freeze',
+        path,
+        '--session',
+        SES,
+        '--confirm-invariants',
+        '--manual',
+        '--reason',
+        'owner wrote it',
+      );
+      const table = buildHighTableView(root, dir, readFeatureSpecification(root, dir), 'full');
+      expect(table).toMatchObject({ skipped: true, seats: [], chief: null, credits: [] });
     });
 
     it('merges the staged run with --from-pipeline and refuses a hash mismatch (AC-10)', async () => {

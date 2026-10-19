@@ -1057,6 +1057,33 @@ describe('the isolation evidence stream (issue #573)', () => {
     expect(gate!.status).toBe('pass');
   });
 
+  it('AC-42: a High Table seat row is not stage-agent evidence, so the change still fails by name', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    // A row an older recorder could leave for a paqad-expert seat (a made-up stage) never counts.
+    write(
+      root,
+      featureFilePath(DIR, 'stageEvidence'),
+      '{"kind":"open"}\n{"kind":"stage-agent","stage":"expert","agent":"paqad-expert","doc_type":"paqad.stage-evidence","session_id":"ses_1","recorded_at":"2026-09-01T00:00:00.000Z","content_hash":"h"}\n',
+    );
+    write(
+      root,
+      `${featureDir(DIR)}/context-efficiency.jsonl`,
+      '{"stage":"chief_architect","doc_type":"paqad.context-efficiency","session_id":"ses_1","ts":"2026-01-01T00:00:00.000Z","content_hash":"h"}\n',
+    );
+
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: { ...ONLY_ALWAYS, stageIsolationExpected: true },
+    });
+
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
+  });
+
   it('still accepts a pre-#581 bundle that recorded isolation in context-efficiency.jsonl', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);

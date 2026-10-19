@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { MANAGED_HEADER } from '@/onboarding/decision-pause-contract-writer.js';
 import {
   buildNarrationContractBody,
@@ -78,6 +81,22 @@ describe('narration-contract-writer', () => {
     for (const word of ['good', 'failed', 'needs a look', 'skipped']) {
       expect(stripped).toContain(word);
     }
+  });
+
+  // Issue #639, Part 13: the High Table runs as subagents: one paqad-expert per seat in parallel,
+  // then the chief architect; inline on a host with no subagents.
+  it('AC-46: tells the orchestrator to dispatch one expert subagent per seat in parallel, then the chief', () => {
+    const body = buildNarrationContractBody();
+    expect(body).toContain(
+      'dispatch one `paqad-expert` subagent per seated role, all in parallel, in one message',
+    );
+    expect(body).toContain('Then dispatch one `paqad-chief-architect` subagent');
+    expect(body.indexOf('paqad-expert')).toBeLessThan(
+      body.indexOf('Then dispatch one `paqad-chief-architect`'),
+    );
+    expect(body).toContain('On a host with no subagents');
+    const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
+    expect(router).toContain('dispatch one `paqad-expert` subagent per seated role');
   });
 
   it('is a pure builder — repeated calls return identical content', () => {

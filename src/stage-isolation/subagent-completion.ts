@@ -17,18 +17,15 @@
 
 import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { recordHighTableUsage } from '@/spec-pipeline/high-table.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
-/** ~4 characters per token — the same rough estimate the issue specifies for the fallback. */
+import { stageForAgentName, stripPluginAgentNamespace } from './stage-agents.js';
+
+export { recordHighTableUsage };
+
+/** ~4 characters per token: the same rough estimate the issue specifies for the fallback. */
 const CHARS_PER_TOKEN = 4;
-
-/** The `paqad-` prefix every stage agent's name carries. */
-const STAGE_AGENT_PREFIX = 'paqad-';
-
-/** The extra `paqad:` namespace a Claude Code *plugin* agent carries before its name
- *  (`paqad:paqad-development`), stripped so plugin and npm agents derive the same stage
- *  (issue #616, Part 3). */
-const PLUGIN_AGENT_NAMESPACE = 'paqad:';
 
 /** Estimate a token count from text length (bytes/4), never negative. */
 export function estimateTokens(text: string | null | undefined): number {
@@ -43,21 +40,16 @@ export function estimateTokens(text: string | null | undefined): number {
  * `paqad:` namespace is stripped first, then the `paqad-` prefix, so both forms derive the same
  * stage. Returns null for anything that is not a paqad stage agent, so a stray SubagentStop for
  * another agent records nothing (belt and braces behind the matcher).
+ *
+ * Issue #639, Part 13: only the six stage agents are stages. The `^(paqad:)?paqad-` matcher
+ * also fires for the High Table seats (`paqad-expert`, `paqad-chief-architect`) and any other
+ * `paqad-` name; none of them derives a stage, so none can add a `stage-agent` row.
  */
 export function stageFromAgentType(agentType: string | null | undefined): string | null {
   if (typeof agentType !== 'string') {
     return null;
   }
-  const withoutNamespace = agentType.startsWith(PLUGIN_AGENT_NAMESPACE)
-    ? agentType.slice(PLUGIN_AGENT_NAMESPACE.length)
-    : agentType;
-  if (!withoutNamespace.startsWith(STAGE_AGENT_PREFIX)) {
-    return null;
-  }
-  // Agent names use hyphens (`paqad-documentation-sync`); the ledger stage names use
-  // underscores (`documentation_sync`, from STAGE_ORDER), so normalize to the canonical form.
-  const stage = withoutNamespace.slice(STAGE_AGENT_PREFIX.length).trim().replace(/-/g, '_');
-  return stage.length > 0 ? stage : null;
+  return stageForAgentName(stripPluginAgentNamespace(agentType));
 }
 
 /** The shape of a host `SubagentStop` payload this recorder reads (all fields optional). */
@@ -65,6 +57,8 @@ export interface SubagentStopPayload {
   agent_id?: unknown;
   agent_type?: unknown;
   session_id?: unknown;
+  /** The subagent's own transcript (Claude Code), read for a High Table seat's exact tokens. */
+  agent_transcript_path?: unknown;
   usage?: {
     input_tokens?: unknown;
     output_tokens?: unknown;
