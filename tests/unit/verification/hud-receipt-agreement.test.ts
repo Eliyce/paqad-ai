@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 import { syncFrameworkConfig } from '@/core/framework-config.js';
+import type { QualityRatchetResult } from '@/core/types/quality-ratchet.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
 import type { VerificationContext } from '@/core/types/verification.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
@@ -26,6 +27,31 @@ import { createVerificationContext, ownInFlightChange } from './shared.fixture.j
 
 const DIST = resolve(process.cwd(), 'dist/index.js');
 const SES = 'ses-agree-669';
+/** The fixed clock every case runs on, so the turn stamps never read the real time. */
+const NOW = new Date('2026-10-19T12:00:00.000Z');
+
+/** A quality-ratchet run whose only measure could not be taken (no report to read). */
+const UNMEASURED_RATCHET: QualityRatchetResult = {
+  status: 'pass',
+  lane: 'full',
+  verdicts: [
+    {
+      measure: 'dead_code',
+      module: '(project)',
+      baseline_value: 3,
+      current_value: null,
+      outcome: 'blocked',
+      confidence: 'lower',
+      kind: 'quality.dead_code',
+      detail: 'dead_code @ (project): could not be measured this run.',
+    },
+  ],
+  blocking_regressions: [],
+  excepted_regressions: [],
+  tightened: [],
+  captured_baseline: false,
+  skipped_reason: null,
+};
 
 /** The verdict word each bundle receipt result stands for (the one verdict vocabulary). */
 const WORD_FOR_RESULT = {
@@ -102,6 +128,8 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
 
   beforeEach(() => {
     vi.resetModules();
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(NOW);
     context = createVerificationContext({
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
@@ -119,6 +147,7 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.doUnmock(DIST);
     rmSync(context.project_root, { recursive: true, force: true });
   });
@@ -231,16 +260,39 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     ).toBe(false);
   });
 
+  it('AC-9: a quality measure that could not be taken is listed, and all three read Safe to merge', async () => {
+    // Issue #669, decision D-01M5A0MG6537XJ7S3MD3Q4PSCR (receipt-skips-unmeasured): the
+    // ratchet never blocks on a measure it could not take, so the receipt keeps it in
+    // graded_results.blocked without letting it turn the result Inconclusive.
+    relaxStageAndBundleGates(context.project_root);
+    context.changed_files = ['docs/guide.md'];
+    context.quality_ratchet_result = UNMEASURED_RATCHET;
+    featureDevTurn();
+
+    expect(await stop()).toBe(0);
+
+    expect(expectAgreement()).toBe(PAQAD_VERDICT.pass);
+    const statement = decodeReceiptStatement(readFeatureReceipt(context.project_root, dir)!)!;
+    expect(statement.predicate.graded_results.blocked).toBe(1);
+    expect(statement.predicate.verification_result).toBe('PASSED');
+    const blockedRow = readFeatureEvidence(context.project_root, dir).find(
+      (row) => row.verdict === 'blocked',
+    );
+    expect(blockedRow?.detail).toContain('dead_code');
+  });
+
   it('AC-9: a later skipped detour turn leaves all three still agreeing', async () => {
     featureDevTurn();
     await stop();
     const graded = expectAgreement();
 
     // The next turn is a question: no edit this turn, so the check is skipped as a detour.
+    // The clock is fixed, so the turn starts a minute after the graded one on every run.
+    vi.setSystemTime(new Date(NOW.getTime() + 60_000));
     writeWorkflowState(context.project_root, sessionId, {
       active: { workflow: 'project-question' },
       paused: [{ workflow: 'feature-development', lane: 'full' }],
-      turn_started_at: new Date(Date.now() + 60_000).toISOString(),
+      turn_started_at: new Date().toISOString(),
     });
     vi.resetModules();
     expect(await stop()).toBe(0);

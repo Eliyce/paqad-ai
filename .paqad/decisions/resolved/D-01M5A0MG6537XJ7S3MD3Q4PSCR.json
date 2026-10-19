@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5A0MG6537XJ7S3MD3Q4PSCR",
+  "category": "finding.triage",
+  "title": "#669 review blocker: receipt.json still disagrees with the HUD when a quality measure could not be measured",
+  "context": "Review found FR-20/AC-9 unmet on the default path. The bundle receipt is now sealed after every gate, but it also counts quality-ratchet measures the ratchet could not compute as 'blocked' rows (src/quality-ratchet/ratchet.ts:76), and any blocked row makes verification_result INCONCLUSIVE (src/evidence/receipt/statement.ts:86). The HUD verdict comes from gate statuses only (run-repository-verification.ts:764), and the ratchet gate passes, so the HUD says Safe to merge. Proof in this repo: the 667 bundle receipt (blocked=3) reads INCONCLUSIVE while its session HUD verdict reads Safe to merge, and 4 of the last 10 receipts show the same. The agreement test has no ratchet-blocked case, and the #669 changeset says they match.",
+  "options": [
+    {
+      "option_key": "receipt-skips-unmeasured",
+      "label": "Receipt: an unmeasurable ratchet measure is still counted in graded_results.blocked but does not move verification_result (the ratchet's own rule is that it never blocks), add a ratchet-blocked case to the agreement test",
+      "evidence": {},
+      "one_line_preview": "Receipt: an unmeasurable ratchet measure is still counted in graded_results.blocked but does not move verification_result (the ratchet's own rule is that it never blocks), add a ratchet-blocked case to the agreement test",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "verdict-counts-unmeasured",
+      "label": "Verdict: an unmeasurable ratchet measure makes the HUD and receipt verdict Inconclusive everywhere (stricter; most changes in this repo would read Inconclusive)",
+      "evidence": {},
+      "one_line_preview": "Verdict: an unmeasurable ratchet measure makes the HUD and receipt verdict Inconclusive everywhere (stricter; most changes in this repo would read Inconclusive)",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "narrow-fr20",
+      "label": "Narrow FR-20/AC-9 to gate rows, reword the #669 changeset, and file a follow-up issue for ratchet-blocked rows",
+      "evidence": {},
+      "one_line_preview": "Narrow FR-20/AC-9 to gate rows, reword the #669 changeset, and file a follow-up issue for ratchet-blocked rows",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "receipt-skips-unmeasured",
+  "created_at": "2026-10-19T12:02:00.518Z",
+  "status": "resolved",
+  "change": "01M59VD2ZRW8ZQEEWKZVKKY7D5",
+  "chosen": "receipt-skips-unmeasured",
+  "rationale": "Owner chose: blocked quality measures stay listed on the receipt but no longer turn it Inconclusive, matching the checks stage's warning-only treatment",
+  "resolved_at": "2026-10-19T12:03:43.920Z",
+  "decision_id": "D-01M5A0MG6537XJ7S3MD3Q4PSCR",
+  "fingerprint": "sha256:50ff45b0dc420ae2299a60e3327592f58c5c952f96931756f4a840a3c2318e5f",
+  "question": "#669 review blocker: receipt.json still disagrees with the HUD when a quality measure could not be measured",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M59VD2ZRW8ZQEEWKZVKKY7D5",
+  "ttl_until": "2026-11-18T12:02:00.518Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "receipt-skips-unmeasured",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-19T12:03:43.920Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: blocked quality measures stay listed on the receipt but no longer turn it Inconclusive, matching the checks stage's warning-only treatment"
+  }
+}
