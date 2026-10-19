@@ -56,7 +56,7 @@ function gate(
 
 const ORD_482_GATES: VerificationEvidenceGate[] = [
   gate('change-completeness', 'pass', 'Change completeness: complete.'),
-  gate('ac-test-mapping', 'pass', 'Acceptance criteria map to tests.'),
+  gate('ac-test-mapping', 'pass', 'All 4 automated acceptance criteria map to a proving test.'),
   gate('code-tests-lint', 'pass', 'Structured test results show 41/41 passing checks.'),
   gate('visual-evidence', 'skipped', 'not-frontend: no changed file matched a frontend surface.', {
     skip_reason: 'not-frontend',

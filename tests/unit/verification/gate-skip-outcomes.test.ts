@@ -208,9 +208,6 @@ describe('AC-7: evidence and ledger rows carry skipped + skip_kind, never pass',
  * one reads a verdict decided before the gate runs; the gate itself takes no measurement.
  */
 const GENUINE_OR_UPSTREAM_PASSES: Record<string, string> = {
-  // Reads `ac_test_mapping_passed`; #639 Part 11 (FR-12) replaces this canned pass with a
-  // not-required / did-not-run reading. Remove it from this list when Part 11 lands.
-  'ac-test-mapping': 'Part 11 owns this gate',
   // Read the recorded spec and implementation review verdicts the context builder computed.
   'spec-review': 'recorded review verdict',
   'implementation-review': 'recorded review verdict',

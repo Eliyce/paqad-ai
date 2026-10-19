@@ -26,50 +26,101 @@ export interface JudgmentSignal {
   detail: string;
 }
 
+/** The four honest readings of the `ac-test-mapping` gate (issue #639, Part 11). */
+export type AcTestMappingOutcome = 'pass' | 'fail' | 'not-required' | 'did-not-run';
+
+export interface AcTestMappingSignal extends JudgmentSignal {
+  outcome: AcTestMappingOutcome;
+}
+
+export interface AcTestMappingInput {
+  /** True when the active change has a frozen spec. */
+  specFrozen: boolean;
+  /** The change-scoped map (`buildChangeTraceabilityMap`), or null when it was not built. */
+  map: TraceabilityMap | null;
+  /** Visual criterion ids, left to the visual-evidence gate. */
+  visual?: readonly string[];
+  /** Manual criterion ids, which need no mapped test. */
+  manual?: readonly string[];
+  /** Why the map could not be built, when it could not. */
+  buildError?: string | null;
+}
+
 /**
- * `ac-test-mapping` from the traceability map (`.paqad/traceability/map.json`).
- * The map is the source of truth for which acceptance criteria exist and
- * whether each links to a proving check.
+ * `ac-test-mapping` from the change-scoped traceability map (issue #639, Part 11). The map
+ * carries the frozen spec's AUTOMATED criteria and the changed test files that prove them.
  *
- * - Map present, AC promises all proven → pass.
- * - Map present, one or more AC promises unproven → fail, naming the AC ids.
- * - Map present, no AC promises → pass (nothing to map — honest, not vacuous).
- * - Map absent → pass with a "no acceptance criteria on record" detail. The map
- *   carries the ACs; with no map there is nothing to prove, so a clean change in
- *   a project that never froze a spec is not blocked.
+ * - No frozen spec → not required: there are no acceptance criteria to map.
+ * - A frozen spec but no map → did not run: the map is missing, so nothing was checked.
+ * - A map with no automated criteria → not required: only visual or manual criteria exist.
+ * - Any automated criterion with no proving test → fail, naming every one.
+ * - Every automated criterion proved → pass, with the count.
+ *
+ * Not required and did not run keep `passed: true` so the change-completeness roll-up does
+ * not block on them; the gate records them as skipped, never as a pass.
  */
-export function computeAcTestMapping(map: TraceabilityMap | null): JudgmentSignal {
-  if (map === null) {
+export function computeAcTestMapping(input: AcTestMappingInput): AcTestMappingSignal {
+  if (!input.specFrozen) {
     return {
+      outcome: 'not-required',
       passed: true,
       inconclusive: false,
-      detail: 'No traceability map on record; no acceptance criteria to map.',
+      detail: 'No frozen spec, so no acceptance criteria to map.',
     };
   }
 
-  const acLinks = map.forward.filter((link) => link.source === 'acceptance-criterion');
-  if (acLinks.length === 0) {
+  if (input.map === null) {
+    const why = input.buildError ? ` (${input.buildError})` : '';
     return {
+      outcome: 'did-not-run',
       passed: true,
       inconclusive: false,
-      detail: 'Traceability map carries no acceptance criteria to map.',
+      detail: `A frozen spec is on record but the acceptance-criteria map is missing${why}, so no criterion was checked.`,
+    };
+  }
+
+  const acLinks = input.map.forward.filter((link) => link.source === 'acceptance-criterion');
+  if (acLinks.length === 0) {
+    return {
+      outcome: 'not-required',
+      passed: true,
+      inconclusive: false,
+      detail: describeNoAutomatedCriteria(input.visual ?? [], input.manual ?? []),
     };
   }
 
   const unproven = acLinks.filter((link) => !link.proven).map((link) => link.promise_id);
   if (unproven.length > 0) {
     return {
+      outcome: 'fail',
       passed: false,
       inconclusive: false,
-      detail: `Acceptance criteria with no proving check: ${unproven.join(', ')}.`,
+      detail: `Automated acceptance criteria with no proving test changed on this branch: ${unproven.join(', ')}.`,
     };
   }
 
   return {
+    outcome: 'pass',
     passed: true,
     inconclusive: false,
-    detail: `All ${acLinks.length} acceptance criteria map to a proving check.`,
+    detail: `All ${acLinks.length} automated acceptance criteria map to a proving test.`,
   };
+}
+
+function describeNoAutomatedCriteria(visual: readonly string[], manual: readonly string[]): string {
+  if (visual.length === 0 && manual.length === 0) {
+    return 'The frozen spec has no automated acceptance criteria to map.';
+  }
+  const named = [
+    visual.length > 0 ? `visual: ${visual.join(', ')}` : '',
+    manual.length > 0 ? `manual: ${manual.join(', ')}` : '',
+  ]
+    .filter((part) => part.length > 0)
+    .join('; ');
+  return (
+    `The frozen spec has only visual or manual acceptance criteria (${named}). Visual ones ` +
+    'are left to the visual-evidence gate and manual ones need no mapped test.'
+  );
 }
 
 /**

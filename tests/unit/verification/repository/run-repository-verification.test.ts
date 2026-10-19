@@ -525,7 +525,7 @@ describe('runRepositoryVerification (built from repository reality)', () => {
     expect(existsSync(join(root, '.paqad/session/verification-evidence.json'))).toBe(true);
   });
 
-  it('blocks when a frozen acceptance criterion has no proving check', async () => {
+  it('AC-32: a whole-tree map on disk with no frozen spec does not decide the AC gate: it reads not required (#639 Part 11)', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);
     writeTraceabilityMap(root, {
@@ -558,7 +558,10 @@ describe('runRepositoryVerification (built from repository reality)', () => {
 
     const verdict = await runRepositoryVerification({ projectRoot: root, origin: 'ci-backstop' });
 
-    expect(verdict.ok).toBe(false);
-    expect(verdict.summary).toContain('AC-1');
+    // The owner decision (D-01M5AM0EHCSXHFZDFCYW4WB925): the criteria come from the change's
+    // frozen spec. With none, there is nothing to map, whatever map an earlier run left.
+    const acGate = verdict.gates.find((gate) => gate.gate === 'ac-test-mapping');
+    expect(acGate).toMatchObject({ status: 'skipped', skip_kind: 'not-required' });
+    expect(acGate?.detail).toBe('No frozen spec, so no acceptance criteria to map.');
   });
 });

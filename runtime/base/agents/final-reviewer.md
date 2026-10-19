@@ -100,8 +100,13 @@ Verify the handoff artifact at `.paqad/session/handoff.json` (or `.md`) contains
 ## Traceability map (issue #109)
 
 If `.paqad/traceability/map.json` is present, fold it into the review — it is the
-bidirectional promise ↔ code ↔ test map, rebuilt from reality this run. Treat its
-findings as warnings, not blockers (it never fails the build itself):
+bidirectional promise ↔ code ↔ test map, rebuilt from reality this run. Since issue
+#639 (Part 11) it is the change map: the frozen spec's automated acceptance criteria
+against the test files changed on the branch, marked `scope: "change"` with the
+bundle directory in `change`. Ignore a change map whose `change` is not the change
+you are reviewing. The `ac-test-mapping` gate already fails a change whose automated
+criterion has no proving test, so treat the findings below as review notes that
+point at that gate, not as a second blocker:
 
 - **`TR-UNTESTED-PROMISE`** — a promised acceptance criterion with no proving
   check. Surface under **Warnings** (or **Spec Compliance** if it drops a

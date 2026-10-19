@@ -54,38 +54,80 @@ function specReview(defects: SpecReviewDefect[]): SpecReviewReport {
   return { metadata: {}, defects } as SpecReviewReport;
 }
 
-describe('computeAcTestMapping', () => {
-  it('passes (nothing to map) when no traceability map is on record', () => {
-    const signal = computeAcTestMapping(null);
-    expect(signal).toMatchObject({ passed: true, inconclusive: false });
-    expect(signal.detail).toMatch(/no acceptance criteria/i);
+describe('computeAcTestMapping (#639 Part 11)', () => {
+  it('AC-32: reads not required when there is no frozen spec', () => {
+    const signal = computeAcTestMapping({ specFrozen: false, map: null });
+    expect(signal).toEqual({
+      outcome: 'not-required',
+      passed: true,
+      inconclusive: false,
+      detail: 'No frozen spec, so no acceptance criteria to map.',
+    });
   });
 
-  it('passes when the map carries no acceptance criteria', () => {
-    const signal = computeAcTestMapping(
-      makeMap([forwardLink({ source: 'obligation', promise_id: 'OBL-1' })]),
-    );
-    expect(signal.passed).toBe(true);
-    expect(signal.inconclusive).toBe(false);
+  it('AC-34: reads did not run when a frozen spec has no map, saying the map is missing', () => {
+    const signal = computeAcTestMapping({ specFrozen: true, map: null });
+    expect(signal).toMatchObject({ outcome: 'did-not-run', passed: true, inconclusive: false });
+    expect(signal.detail).toContain('map is missing');
+    expect(signal.detail).not.toContain('Acceptance criteria map to tests');
+
+    const withWhy = computeAcTestMapping({ specFrozen: true, map: null, buildError: 'disk full' });
+    expect(withWhy.detail).toContain('(disk full)');
   });
 
-  it('fails, naming the unmapped acceptance criteria', () => {
-    const signal = computeAcTestMapping(
-      makeMap([
+  it('AC-31: reads not required naming the visual and manual criteria when no automated ones exist', () => {
+    const signal = computeAcTestMapping({
+      specFrozen: true,
+      map: makeMap([forwardLink({ source: 'obligation', promise_id: 'OBL-1' })]),
+      visual: ['AC-1'],
+      manual: ['AC-2'],
+    });
+    expect(signal).toMatchObject({ outcome: 'not-required', passed: true });
+    expect(signal.detail).toContain('visual: AC-1');
+    expect(signal.detail).toContain('manual: AC-2');
+    expect(signal.detail).toContain('visual-evidence gate');
+
+    const visualOnly = computeAcTestMapping({
+      specFrozen: true,
+      map: makeMap([]),
+      visual: ['AC-3'],
+    });
+    expect(visualOnly.detail).toContain('(visual: AC-3)');
+    const manualOnly = computeAcTestMapping({
+      specFrozen: true,
+      map: makeMap([]),
+      manual: ['AC-4'],
+    });
+    expect(manualOnly.detail).toContain('(manual: AC-4)');
+  });
+
+  it('reads not required when the frozen spec has no criteria at all', () => {
+    const signal = computeAcTestMapping({ specFrozen: true, map: makeMap([]) });
+    expect(signal).toMatchObject({ outcome: 'not-required', passed: true });
+    expect(signal.detail).toBe('The frozen spec has no automated acceptance criteria to map.');
+  });
+
+  it('AC-33: fails, naming every unproven automated criterion', () => {
+    const signal = computeAcTestMapping({
+      specFrozen: true,
+      map: makeMap([
         forwardLink({ promise_id: 'AC-1', proven: true }),
         forwardLink({ promise_id: 'AC-2', proven: false }),
+        forwardLink({ promise_id: 'AC-3', proven: false }),
       ]),
-    );
-    expect(signal.passed).toBe(false);
-    expect(signal.inconclusive).toBe(false);
-    expect(signal.detail).toContain('AC-2');
+    });
+    expect(signal).toMatchObject({ outcome: 'fail', passed: false, inconclusive: false });
+    expect(signal.detail).toContain('AC-2, AC-3');
     expect(signal.detail).not.toContain('AC-1,');
   });
 
-  it('passes when every acceptance criterion is proven', () => {
-    const signal = computeAcTestMapping(makeMap([forwardLink({ proven: true })]));
-    expect(signal.passed).toBe(true);
-    expect(signal.detail).toMatch(/1 acceptance criteria/);
+  it('AC-34: passes with the computed count when every automated criterion is proven', () => {
+    const signal = computeAcTestMapping({
+      specFrozen: true,
+      map: makeMap([forwardLink({ proven: true }), forwardLink({ promise_id: 'AC-2' })]),
+    });
+    expect(signal).toMatchObject({ outcome: 'pass', passed: true });
+    expect(signal.detail).toBe('All 2 automated acceptance criteria map to a proving test.');
   });
 });
 

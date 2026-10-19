@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5AM0EHCSXHFZDFCYW4WB925",
+  "category": "architecture-path",
+  "title": "Part 11: which tests prove an acceptance criterion",
+  "context": "computeAcTestMapping passes with no map (judgment-inputs.ts:41) and the gate overwrites its detail with 'Acceptance criteria map to tests' (ac-test-mapping.ts:51-54). gatherTraceabilityInputs reads only compliance obligations, never the frozen spec, and counts a FAILING AC-tagged test as proof (inputs.ts:87-110). AC ids are flat AC-n per spec, so 'AC-3' in an old test of another feature would look like proof if the whole test tree counted.",
+  "options": [
+    {
+      "option_key": "changed-tests",
+      "label": "Build the map from the frozen spec's automated ACs and the test files changed on this branch whose test title, describe or '@obligation AC-n' comment names the AC (word-boundary match); visual ACs stay with the visual-evidence gate, manual ACs are not required; built at Stop verification and at checks run, written through the existing writer (.paqad/traceability/map.json); no frozen spec reads not-required; an automated AC with no proving test fails, naming it",
+      "evidence": {},
+      "one_line_preview": "Build the map from the frozen spec's automated ACs and the test files changed on this branch whose test title, describe or '@obligation AC-n' comment names the AC (word-boundary match); visual ACs stay with the visual-evidence gate, manual ACs are not required; built at Stop verification and at checks run, written through the existing writer (.paqad/traceability/map.json); no frozen spec reads not-required; an automated AC with no proving test fails, naming it",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "whole-tree",
+      "label": "Same, but any test file in the repo that names the AC counts as proof (more matches, risk of false proof from other features' AC-n ids)",
+      "evidence": {},
+      "one_line_preview": "Same, but any test file in the repo that names the AC counts as proof (more matches, risk of false proof from other features' AC-n ids)",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "changed-tests",
+  "created_at": "2026-10-19T17:40:34.988Z",
+  "status": "resolved",
+  "change": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "chosen": "changed-tests",
+  "rationale": "Owner chose tests changed on the branch naming the AC; visual ACs via visual evidence; manual not required; no frozen spec = not required",
+  "resolved_at": "2026-10-19T17:44:01.719Z",
+  "decision_id": "D-01M5AM0EHCSXHFZDFCYW4WB925",
+  "fingerprint": "sha256:c90812e213eb1f88281e1610106b337396f36ce1887d39e12a2d3835817c0738",
+  "question": "Part 11: which tests prove an acceptance criterion",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "ttl_until": "2027-01-17T17:40:34.988Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "changed-tests",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-19T17:44:01.719Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose tests changed on the branch naming the AC; visual ACs via visual evidence; manual not required; no frozen spec = not required"
+  }
+}

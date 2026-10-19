@@ -234,7 +234,13 @@ which is exactly the gap the incident surfaced.
 
 The backstop runs only the gates it can evaluate from artifacts:
 
-- **Computed (C-2):** `ac-test-mapping` from the traceability map,
+- **Computed (C-2):** `ac-test-mapping` from the change's acceptance-criteria
+  map, which the backstop builds itself from the frozen spec's automated criteria
+  and the test files changed on the branch (issue #639, Part 11). With no frozen
+  spec it reads not required, with no map it reads did not run, and it fails
+  naming every automated criterion that no changed test names in a title, a
+  describe title or an `@obligation` tag. See the
+  [traceability engine](modules/traceability-engine/index/summary.md).
   `implementation-review` from unresolved decision packets, `spec-review` from
   spec-review reports. `change-completeness` adds scope-drift (C-4) against the
   derived spec boundary. `quality-ratchet`, `documentation-freshness`

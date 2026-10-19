@@ -2,7 +2,7 @@ import type { StructuredTestIssue, StructuredTestResult } from '@/core/types/tes
 
 import type { Gate } from './gate.interface.js';
 
-import { createFail, createPass } from './shared.js';
+import { createDidNotRun, createFail, createNotRequired, createPass } from './shared.js';
 
 export const AC_ID_PATTERN = /AC-\d+(?:\.\d+)?/;
 
@@ -36,21 +36,40 @@ export function collectObservedAcIds(structuredResults: StructuredTestResult[]):
 export class AcTestMappingGate implements Gate {
   readonly gate = 'ac-test-mapping' as const;
 
+  /**
+   * Issue #639, Part 11 — the gate reports what the context builder computed and never
+   * replaces it with a canned line. A pass needs a computed detail; with none, no map was
+   * read, so the gate says it did not run instead of claiming the criteria map to tests.
+   */
   async check(context: Parameters<Gate['check']>[0]) {
-    if (!context.ac_test_mapping_passed) {
+    const detail = context.ac_test_mapping_detail;
+
+    if (!context.ac_test_mapping_passed || context.ac_test_mapping_outcome === 'fail') {
       return createFail(
         this.gate,
-        context.ac_test_mapping_detail ?? 'Acceptance criteria are missing test mappings',
-        'Add or update the test-per-AC mapping.',
+        detail ?? 'Acceptance criteria are missing test mappings',
+        'Add a test that names each listed criterion id in its title, describe title or an `@obligation` tag.',
+      );
+    }
+
+    if (context.ac_test_mapping_outcome === 'not-required') {
+      return createNotRequired(
+        this.gate,
+        detail ?? 'No frozen spec, so no acceptance criteria to map.',
+      );
+    }
+
+    if (context.ac_test_mapping_outcome === 'did-not-run' || detail === undefined) {
+      return createDidNotRun(
+        this.gate,
+        detail ?? 'No acceptance-criteria map was built, so no criterion was checked.',
       );
     }
 
     const observed = collectObservedAcIds(context.structured_test_results ?? []);
-    const detail =
-      observed.length > 0
-        ? `Acceptance criteria map to tests (observed in failing tests: ${observed.join(', ')})`
-        : 'Acceptance criteria map to tests';
-
-    return createPass(this.gate, detail);
+    return createPass(
+      this.gate,
+      observed.length > 0 ? `${detail} Observed in failing tests: ${observed.join(', ')}.` : detail,
+    );
   }
 }

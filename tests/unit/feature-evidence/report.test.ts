@@ -73,7 +73,7 @@ function gradedRows(verdict: 'pass' | 'fail' | 'inconclusive'): EvidenceLedgerRo
       verdict,
       strength_class: 'deterministic',
       content_hash: `h-${verdict}`,
-      detail: 'Acceptance criteria map to tests',
+      detail: 'All 2 automated acceptance criteria map to a proving test.',
     }) as EvidenceLedgerRow;
   // Two rows sharing a content_hash prove de-duplication by hash.
   return [row(AT), row('2026-07-13T10:00:01.000Z')];

@@ -132,6 +132,13 @@ export interface VerificationContext {
    * verdict names the exact unmapped criterion instead of a generic message.
    */
   ac_test_mapping_detail?: string;
+  /**
+   * Issue #639, Part 11 — which of the four honest readings the context builder computed
+   * from the change-scoped map. `not-required` (no frozen spec, or only visual/manual
+   * criteria) and `did-not-run` (a frozen spec but no map) keep `ac_test_mapping_passed`
+   * true and make the gate record a skip; `pass` and `fail` are real measurements.
+   */
+  ac_test_mapping_outcome?: 'pass' | 'fail' | 'not-required' | 'did-not-run';
   spec_review_passed: boolean;
   architecture_compliant: boolean;
   code_tests_lint_passed: boolean;

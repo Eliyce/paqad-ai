@@ -70,8 +70,17 @@ describe('gatherTraceabilityInputs — rebuilt from reality', () => {
     ).toBe(true);
   });
 
-  it('folds verification-evidence ac_id into the proof index', async () => {
+  it('AC-35: never counts a failing gate ac_id as a proof, and takes away the proof it had (#639 Part 11)', async () => {
     write('src/feature.ts', `// @ac AC-7\nexport const f = 1;\n`);
+    write(
+      '.paqad/compliance/spec/report.json',
+      JSON.stringify({
+        obligations: [
+          { obligation_id: 'AC-7', description: 'x', evidence: ['tests/feature.test.ts'] },
+          { obligation_id: 'AC-8', description: 'y', evidence: ['tests/other.test.ts'] },
+        ],
+      }),
+    );
     write(
       '.paqad/session/verification-evidence.json',
       JSON.stringify({
@@ -80,14 +89,32 @@ describe('gatherTraceabilityInputs — rebuilt from reality', () => {
           {
             name: 'tests',
             status: 'fail',
-            failures: [{ ac_id: 'AC-7', file: 'tests/feature.test.ts', message: 'x' }],
+            failures: [
+              { ac_id: 'AC-7', file: 'tests/feature.test.ts', message: 'x' },
+              { ac_id: null, file: 'tests/feature.test.ts', message: 'no id' },
+            ],
           },
+          { name: 'lint', status: 'pass' },
         ],
       }),
     );
 
     const input = await gatherTraceabilityInputs({ projectRoot: root, lane: 'full' });
-    expect(input.proofs).toContainEqual({ promise_id: 'AC-7', checks: ['gate:tests'] });
+    expect(input.proofs.find((proof) => proof.promise_id === 'AC-7')).toBeUndefined();
+    expect(input.proofs.some((proof) => proof.checks.includes('gate:tests'))).toBe(false);
+    expect(input.proofs).toContainEqual({ promise_id: 'AC-8', checks: ['tests/other.test.ts'] });
+  });
+
+  it('ignores corrupt or gate-less verification evidence', async () => {
+    write('src/feature.ts', 'export const f = 1;\n');
+    write('.paqad/session/verification-evidence.json', '{not json');
+    expect((await gatherTraceabilityInputs({ projectRoot: root, lane: 'full' })).proofs).toEqual(
+      [],
+    );
+    write('.paqad/session/verification-evidence.json', JSON.stringify({ gates: 'nope' }));
+    expect((await gatherTraceabilityInputs({ projectRoot: root, lane: 'full' })).proofs).toEqual(
+      [],
+    );
   });
 
   it('reads changed files from git and ignores a leftover session cache (issue #646)', async () => {

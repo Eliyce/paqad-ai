@@ -59,24 +59,92 @@ function createResult(overrides: Partial<StructuredTestResult> = {}): Structured
 }
 
 describe('AcTestMappingGate', () => {
-  it('fails when acceptance criteria are not mapped to tests', async () => {
-    await expect(
-      new AcTestMappingGate().check(createVerificationContext({ ac_test_mapping_passed: false })),
-    ).resolves.toMatchObject({ passed: false });
-  });
-
-  it('passes with a baseline detail when no structured test results are present', async () => {
+  it('AC-33: fails with the computed detail naming the unmapped criterion', async () => {
     const result = await new AcTestMappingGate().check(
-      createVerificationContext({ ac_test_mapping_passed: true }),
+      createVerificationContext({
+        ac_test_mapping_passed: false,
+        ac_test_mapping_outcome: 'fail',
+        ac_test_mapping_detail:
+          'Automated acceptance criteria with no proving test changed on this branch: AC-2.',
+      }),
     );
-    expect(result.passed).toBe(true);
-    expect(result.detail).toBe('Acceptance criteria map to tests');
+    expect(result).toMatchObject({ passed: false });
+    expect(result.detail).toContain('AC-2');
   });
 
-  it('enriches the detail with observed AC ids when failing tests carry them', async () => {
+  it('fails with a fallback detail when none was computed', async () => {
+    const result = await new AcTestMappingGate().check(
+      createVerificationContext({ ac_test_mapping_passed: false }),
+    );
+    expect(result).toMatchObject({
+      passed: false,
+      detail: 'Acceptance criteria are missing test mappings',
+    });
+  });
+
+  it('AC-32: reads not required with its computed detail', async () => {
     const result = await new AcTestMappingGate().check(
       createVerificationContext({
         ac_test_mapping_passed: true,
+        ac_test_mapping_outcome: 'not-required',
+        ac_test_mapping_detail: 'No frozen spec, so no acceptance criteria to map.',
+      }),
+    );
+    expect(result).toEqual({
+      gate: 'ac-test-mapping',
+      passed: true,
+      outcome: 'not-required',
+      detail: 'No frozen spec, so no acceptance criteria to map.',
+    });
+    const fallback = await new AcTestMappingGate().check(
+      createVerificationContext({
+        ac_test_mapping_passed: true,
+        ac_test_mapping_outcome: 'not-required',
+      }),
+    );
+    expect(fallback.outcome).toBe('not-required');
+  });
+
+  it('AC-34: reads did not run with no map, and the canned line never appears', async () => {
+    const noDetail = await new AcTestMappingGate().check(
+      createVerificationContext({ ac_test_mapping_passed: true }),
+    );
+    expect(noDetail).toMatchObject({ passed: true, outcome: 'did-not-run' });
+    expect(noDetail.detail).not.toContain('Acceptance criteria map to tests');
+
+    const missing = await new AcTestMappingGate().check(
+      createVerificationContext({
+        ac_test_mapping_passed: true,
+        ac_test_mapping_outcome: 'did-not-run',
+        ac_test_mapping_detail:
+          'A frozen spec is on record but the acceptance-criteria map is missing.',
+      }),
+    );
+    expect(missing).toMatchObject({ outcome: 'did-not-run' });
+    expect(missing.detail).toContain('map is missing');
+  });
+
+  it('AC-34: a full map passes keeping its computed detail', async () => {
+    const result = await new AcTestMappingGate().check(
+      createVerificationContext({
+        ac_test_mapping_passed: true,
+        ac_test_mapping_outcome: 'pass',
+        ac_test_mapping_detail: 'All 2 automated acceptance criteria map to a proving test.',
+      }),
+    );
+    expect(result).toEqual({
+      gate: 'ac-test-mapping',
+      passed: true,
+      detail: 'All 2 automated acceptance criteria map to a proving test.',
+    });
+  });
+
+  it('appends observed failing AC ids to the computed pass detail', async () => {
+    const result = await new AcTestMappingGate().check(
+      createVerificationContext({
+        ac_test_mapping_passed: true,
+        ac_test_mapping_outcome: 'pass',
+        ac_test_mapping_detail: 'All 1 automated acceptance criteria map to a proving test.',
         structured_test_results: [
           createResult({
             failures: [
@@ -88,8 +156,9 @@ describe('AcTestMappingGate', () => {
       }),
     );
     expect(result.passed).toBe(true);
-    expect(result.detail).toContain('AC-1.1');
-    expect(result.detail).toContain('AC-1.2');
+    expect(result.detail).toBe(
+      'All 1 automated acceptance criteria map to a proving test. Observed in failing tests: AC-1.1, AC-1.2.',
+    );
   });
 });
 

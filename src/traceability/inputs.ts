@@ -81,32 +81,56 @@ function readComplianceReports(projectRoot: string): ComplianceReport[] {
   return reports;
 }
 
-// Verification evidence ties a check to an AC via `ac_id` — the "proves it"
-// link. A gate carrying an ac_id is a check targeting that promise, so we fold
-// it into the proof index (joining, not forking, the evidence subsystem).
-function readEvidenceProofs(projectRoot: string): ProofEntry[] {
+// Verification evidence ties a check to an AC via `ac_id`, but only on a gate's
+// `failures`: the ac_id names a promise whose check FAILED. That is the opposite of
+// a proof, so it is never counted as one (issue #639, Part 11). It is read instead
+// to take away any proof the same promise was given elsewhere, so a promise whose
+// check failed reads unproven.
+function readEvidenceFailingPromiseIds(projectRoot: string): Set<string> {
+  const failing = new Set<string>();
   const path = join(projectRoot, VERIFICATION_EVIDENCE_RELATIVE_PATH);
-  if (!existsSync(path)) return [];
+  if (!existsSync(path)) return failing;
   let evidence: VerificationEvidence;
   try {
     evidence = JSON.parse(readFileSync(path, 'utf8')) as VerificationEvidence;
   } catch {
-    return [];
+    return failing;
   }
-  if (!Array.isArray(evidence.gates)) return [];
-  const checksByPromise = new Map<string, Set<string>>();
+  if (!Array.isArray(evidence.gates)) return failing;
   for (const gate of evidence.gates) {
     for (const failure of gate.failures ?? []) {
-      if (!failure.ac_id) continue;
-      const bucket = checksByPromise.get(failure.ac_id) ?? new Set<string>();
-      bucket.add(`gate:${gate.name}`);
-      checksByPromise.set(failure.ac_id, bucket);
+      if (failure.ac_id) failing.add(failure.ac_id);
     }
   }
-  return [...checksByPromise].map(([promise_id, checks]) => ({
-    promise_id,
-    checks: [...checks].sort(),
-  }));
+  return failing;
+}
+
+/**
+ * The promises and proofs the compliance reports carry (`.paqad/compliance/**\/report.json`),
+ * one promise per obligation id. Cheap: it reads only those report files. Shared by the
+ * whole-tree gatherer below and the change-scoped one (`change-map.ts`).
+ */
+export function readObligationPromises(projectRoot: string): {
+  promises: PromiseRef[];
+  proofs: ProofEntry[];
+} {
+  const promises: PromiseRef[] = [];
+  const proofs: ProofEntry[] = [];
+  const seenPromise = new Set<string>();
+  for (const report of readComplianceReports(projectRoot)) {
+    for (const obligation of report.obligations) {
+      if (seenPromise.has(obligation.obligation_id)) continue;
+      seenPromise.add(obligation.obligation_id);
+      promises.push({
+        promise_id: obligation.obligation_id,
+        description: obligation.description,
+        source: 'obligation',
+      });
+      const checks = (obligation.evidence ?? []).map(toPosixPath);
+      if (checks.length > 0) proofs.push({ promise_id: obligation.obligation_id, checks });
+    }
+  }
+  return { promises, proofs };
 }
 
 function scanCodeMarkers(projectRoot: string, files: string[]): CodeMarker[] {
@@ -146,24 +170,10 @@ export async function gatherTraceabilityInputs(
   const codeUniverse = await listSourceFiles(projectRoot, roots);
   const edges = await scanImports({ projectRoot, files: codeUniverse, aliases: { '@/': 'src/' } });
 
-  const reports = readComplianceReports(projectRoot);
-  const promises: PromiseRef[] = [];
-  const proofs: ProofEntry[] = [];
-  const seenPromise = new Set<string>();
-  for (const report of reports) {
-    for (const obligation of report.obligations) {
-      if (seenPromise.has(obligation.obligation_id)) continue;
-      seenPromise.add(obligation.obligation_id);
-      promises.push({
-        promise_id: obligation.obligation_id,
-        description: obligation.description,
-        source: 'obligation',
-      });
-      const checks = obligation.evidence.map(toPosixPath);
-      if (checks.length > 0) proofs.push({ promise_id: obligation.obligation_id, checks });
-    }
-  }
-  proofs.push(...readEvidenceProofs(projectRoot));
+  const { promises, proofs: obligationProofs } = readObligationPromises(projectRoot);
+  // A promise whose check failed in the recorded verification evidence keeps no proof.
+  const failing = readEvidenceFailingPromiseIds(projectRoot);
+  const proofs = obligationProofs.filter((proof) => !failing.has(proof.promise_id));
 
   // Code → promise comes from explicit markers (the concrete, non-circular
   // signal available at runtime); the builder folds them into the delivery
