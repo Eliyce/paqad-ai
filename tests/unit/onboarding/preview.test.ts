@@ -42,6 +42,17 @@ describe('OnboardingOrchestrator.preview', () => {
     expect(readdirSync(projectRoot)).toEqual([]);
   });
 
+  it('plans one MCP recommendations file and no host MCP path (issue #622)', async () => {
+    const result = await new OnboardingOrchestrator().preview({
+      projectRoot,
+      selections: { ...SELECTIONS, providers: ['claude-code', 'cursor'] },
+    });
+
+    const paths = result.entries.map((entry) => entry.path);
+    expect(paths.filter((path) => path === '.paqad/mcp-recommendations.json')).toHaveLength(1);
+    expect(paths.some((path) => /(^|\/)(settings\.)?mcp\.json$/.test(path))).toBe(false);
+  });
+
   it('produces a byte-identical tree on two sequential calls with no disk change', async () => {
     const orchestrator = new OnboardingOrchestrator();
 

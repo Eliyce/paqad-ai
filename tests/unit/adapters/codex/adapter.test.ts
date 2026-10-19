@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { CodexCliAdapter } from '@/adapters';
 
-import { fixtureProfile, fixtureSkillBundleArtifacts } from '../shared.fixture';
+import { fixtureSkillBundleArtifacts } from '../shared.fixture';
 
 describe('CodexCliAdapter', () => {
   const adapter = new CodexCliAdapter();
@@ -49,9 +49,8 @@ describe('CodexCliAdapter', () => {
     ]);
   });
 
-  it('writes Dart MCP config for flutter', async () => {
-    const files = await adapter.installMcp([], fixtureProfile('flutter'));
-    expect(files[0]?.content).toContain('dart-mcp');
+  it('writes no MCP config at .codex/mcp.json (issue #622)', async () => {
+    expect(await adapter.installMcp()).toEqual([]);
   });
 });
 

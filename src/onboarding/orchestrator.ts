@@ -26,6 +26,8 @@ import { getPrimaryStack } from '@/core/stack-profile.js';
 import type { OnboardingOutput, OnboardingPreviewResult } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
+import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
+import { McpConfigManager } from '@/mcp/config-manager.js';
 import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { Detector } from '@/detection/detector.js';
 import { VERSION } from '@/index.js';
@@ -201,6 +203,9 @@ export class OnboardingOrchestrator {
     // pre-existing (Boost-authored) entry file can be wired with the bootstrap
     // contract as a managed block after the main write batch.
     const entryStubs: EntryStub[] = [];
+    // Issue #622 — no adapter writes MCP config at its host path any more; one
+    // recommendations file in paqad's own dir is written when any host speaks MCP.
+    let recommendMcp = false;
 
     for (const adapterType of adapters) {
       const adapter = AdapterFactory.create(adapterType);
@@ -221,9 +226,7 @@ export class OnboardingOrchestrator {
         generatedFiles.push(...(await adapter.installHooks(resolved.hooks)));
       }
 
-      if (adapter.capabilities.mcp) {
-        generatedFiles.push(...(await adapter.installMcp(resolved.mcpConfigs, profile)));
-      }
+      recommendMcp ||= adapter.capabilities.mcp;
 
       if (adapter.capabilities.caching) {
         generatedFiles.push(...(await adapter.configureCaching(profile)));
@@ -234,6 +237,9 @@ export class OnboardingOrchestrator {
       }
     }
 
+    if (recommendMcp) {
+      generatedFiles.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
+    }
     generatedFiles.push(...(await generateProjectRules(resolved.rules)));
     generatedFiles.push(...generateFeatureDevelopmentPolicy(selections.domain));
     generatedFiles.push(...generateDeliveryPolicy(selections.domain));
@@ -336,6 +342,9 @@ export class OnboardingOrchestrator {
     } catch (error) {
       throw translateDiskFullError(error);
     }
+    // Issue #622 — remove the MCP files older versions wrote at other tools' paths. Only
+    // paqad-written ones go; a file with a configured server is kept and logged. Never throws.
+    cleanupLegacyMcpFiles(options.projectRoot);
     bootstrapFramework(options.projectRoot);
     // Issue #576 (Finding 7) — build the git-ignored code-knowledge index so the reuse gate,
     // evidence-armed reuse forks and the spec code check are live from the first session, and a
@@ -573,6 +582,7 @@ export class OnboardingOrchestrator {
     }
 
     const files: GeneratedFile[] = [];
+    let recommendMcp = false;
 
     for (const adapterType of adapters) {
       const adapter = AdapterFactory.create(adapterType);
@@ -588,9 +598,7 @@ export class OnboardingOrchestrator {
         files.push(...(await adapter.installHooks(resolved.hooks)));
       }
 
-      if (adapter.capabilities.mcp) {
-        files.push(...(await adapter.installMcp(resolved.mcpConfigs, profile)));
-      }
+      recommendMcp ||= adapter.capabilities.mcp;
 
       if (adapter.capabilities.caching) {
         files.push(...(await adapter.configureCaching(profile)));
@@ -601,6 +609,9 @@ export class OnboardingOrchestrator {
       }
     }
 
+    if (recommendMcp) {
+      files.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
+    }
     files.push(...(await generateProjectRules(resolved.rules)));
     files.push(...generateFeatureDevelopmentPolicy(selections.domain));
     files.push(

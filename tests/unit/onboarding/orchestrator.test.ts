@@ -1301,6 +1301,82 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, '.github/copilot-instructions.md'))).toBe(false);
   });
 
+  describe('MCP files (issue #622)', () => {
+    const userOwned = (name: string): string =>
+      `${JSON.stringify({ mcpServers: { [name]: { command: 'npx', args: [name] } } }, null, 2)}\n`;
+
+    function put(path: string, content: string): void {
+      mkdirSync(join(projectRoot, posix.dirname(path)), { recursive: true });
+      writeFileSync(join(projectRoot, path), content);
+    }
+
+    it('leaves user-owned MCP files byte-identical and deletes paqad-written ones (AC-5, AC-6)', async () => {
+      const fixtures = new Map([
+        ['.cursor/mcp.json', userOwned('cursor-server')],
+        ['.vscode/mcp.json', userOwned('vscode-server')],
+        ['.junie/mcp/mcp.json', userOwned('junie-server')],
+      ]);
+      for (const [path, content] of fixtures) {
+        put(path, content);
+      }
+      put(
+        '.windsurf/mcp.json',
+        JSON.stringify({ mcpServers: { figma: { enabled: true } }, resolved_artifacts: [] }),
+      );
+
+      await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections: {
+          domain: 'coding',
+          stack: 'laravel',
+          capabilities: ['boost'],
+          providers: ['cursor', 'github-copilot', 'junie'],
+        },
+      });
+
+      for (const [path, content] of fixtures) {
+        expect(readFileSync(join(projectRoot, path), 'utf8')).toBe(content);
+      }
+      expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(false);
+      // The user-owned files carry no resolved_artifacts marker, so they are kept without a log line.
+      expect(existsSync(join(projectRoot, PATHS.MCP_CLEANUP_LOG))).toBe(false);
+    });
+
+    it('writes one recommendations file with only suggestion fields (AC-9)', async () => {
+      const output = await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections: {
+          domain: 'coding',
+          stack: 'laravel',
+          capabilities: ['boost'],
+          providers: ['claude-code', 'cursor'],
+        },
+      });
+
+      expect(
+        output.generated_files.filter((path) => path === PATHS.MCP_RECOMMENDATIONS),
+      ).toHaveLength(1);
+      const parsed = JSON.parse(
+        readFileSync(join(projectRoot, PATHS.MCP_RECOMMENDATIONS), 'utf8'),
+      ) as { servers: Array<Record<string, unknown>> };
+      expect(parsed.servers.map((server) => server.name)).toContain('laravel-boost');
+      for (const server of parsed.servers) {
+        expect(Object.keys(server).sort()).toEqual(['name', 'provides', 'replaces', 'why']);
+      }
+      expect(existsSync(join(projectRoot, '.claude/settings.mcp.json'))).toBe(false);
+      expect(existsSync(join(projectRoot, '.cursor/mcp.json'))).toBe(false);
+    });
+
+    it('writes no recommendations file when no selected host speaks MCP', async () => {
+      await new OnboardingOrchestrator().run({
+        projectRoot,
+        selections: { domain: 'coding', stack: 'laravel', capabilities: [], providers: ['aider'] },
+      });
+
+      expect(existsSync(join(projectRoot, PATHS.MCP_RECOMMENDATIONS))).toBe(false);
+    });
+  });
+
   it('creates only antigravity provider files when antigravity is selected', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
@@ -1313,7 +1389,9 @@ describe('OnboardingOrchestrator', () => {
     });
 
     expect(existsSync(join(projectRoot, 'ANTIGRAVITY.md'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(true);
+    // Issue #622 — no host MCP path; one recommendations file in paqad's own dir.
+    expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.paqad/mcp-recommendations.json'))).toBe(true);
     expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(false);
     expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);
     expect(existsSync(join(projectRoot, 'GEMINI.md'))).toBe(false);

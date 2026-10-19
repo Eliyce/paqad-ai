@@ -22,6 +22,8 @@ import { createDeliveryShell } from '@/delivery/shell.js';
 import { runDeliveryDetection } from '@/delivery/detect-run.js';
 import { Detector } from '@/detection/detector.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
+import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
+import { McpConfigManager } from '@/mcp/config-manager.js';
 import { VERSION } from '@/index.js';
 import { bootstrapFrameworkHome } from '@/install/bootstrap.js';
 import { StackSnapshotCache } from '@/introspection/cache.js';
@@ -159,6 +161,9 @@ async function recreateLocalArtifacts(
     capabilities: getLegacyCapabilities(profile),
   });
   const candidates: GeneratedFile[] = [];
+  // Issue #622 — one recommendations file in paqad's own dir, never a host MCP path. It goes
+  // through the same git-ignored filter below, so join never writes a tracked copy.
+  let recommendMcp = false;
 
   for (const provider of providers) {
     const adapter = AdapterFactory.create(provider);
@@ -172,15 +177,17 @@ async function recreateLocalArtifacts(
     if (adapter.capabilities.hooks) {
       candidates.push(...(await adapter.installHooks(resolved.hooks)));
     }
-    if (adapter.capabilities.mcp) {
-      candidates.push(...(await adapter.installMcp(resolved.mcpConfigs, profile)));
-    }
+    recommendMcp ||= adapter.capabilities.mcp;
     if (adapter.capabilities.caching) {
       candidates.push(...(await adapter.configureCaching(profile)));
     }
     if (adapter.capabilities.memory) {
       candidates.push(...(await adapter.configureMemory(profile)));
     }
+  }
+
+  if (recommendMcp) {
+    candidates.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
   }
 
   // Issue #576 (Finding 10) — regenerate the git-ignored host-config files paqad OWNS even when
@@ -191,6 +198,10 @@ async function recreateLocalArtifacts(
     projectRoot,
     candidates.filter((candidate) => isGitIgnored(projectRoot, candidate.path)),
   );
+
+  // Issue #622 — remove paqad-written legacy MCP files, but only git-ignored ones: a tracked
+  // one is logged and left for onboard or update, so join still changes no tracked file.
+  cleanupLegacyMcpFiles(projectRoot, { canDelete: (path) => isGitIgnored(projectRoot, path) });
 
   if (isGitIgnored(projectRoot, PATHS.COMPILED_RULES)) {
     const compiled = await compileRules(projectRoot);

@@ -893,54 +893,32 @@ export class HealthChecker {
         );
   }
 
+  /**
+   * MCP is a recommendation, never a pass or a warning (issue #622): paqad does not write any
+   * tool's MCP config, so it cannot judge whether a team "configured" its servers. The check
+   * names the servers suggested for this stack and, read-only, the servers already listed in
+   * the project's root `.mcp.json` (the file Claude Code reads).
+   */
   private checkMcp(projectRoot: string, profile: ProjectProfile | null): HealthCheckResult {
     if (profile === null) {
-      return warn(
-        'MCP servers configured',
-        'Project profile is unavailable, MCP expectations could not be derived',
-        'Restore the project profile, then configure stack-appropriate MCP servers.',
+      return info(
+        MCP_CHECK_NAME,
+        'Project profile is unavailable, so no MCP servers can be recommended for this stack.',
       );
     }
 
-    const candidates = ADAPTER_TYPES.map((type) => AdapterFactory.create(type))
-      .filter((adapter) => adapter.capabilities.mcp)
-      .map((adapter) => adapter.getMcpPath());
-    const existing = candidates.filter((candidate) => existsSync(join(projectRoot, candidate)));
-    const expectedServers = getServersForStack(
-      getPrimaryStack(profile),
-      getLegacyCapabilities(profile),
-    )
+    const recommended = getServersForStack(getPrimaryStack(profile), getLegacyCapabilities(profile))
       .filter((server) => server.name !== 'figma')
       .map((server) => server.name);
+    const found = readMcpServerNames(
+      join(projectRoot, AdapterFactory.create('claude-code').getMcpPath()),
+    );
 
-    if (existing.length === 0) {
-      return warn(
-        'MCP servers configured',
-        'No MCP configuration files were found',
-        'Configure MCP servers in project profile for improved efficiency',
-      );
-    }
-
-    const configured = new Set<string>();
-    for (const path of existing) {
-      try {
-        const parsed = JSON.parse(readFileSync(join(projectRoot, path), 'utf8')) as {
-          mcpServers?: Record<string, unknown>;
-        };
-        Object.keys(parsed.mcpServers ?? {}).forEach((server) => configured.add(server));
-      } catch {
-        continue;
-      }
-    }
-    const missingExpected = expectedServers.filter((server) => !configured.has(server));
-
-    return missingExpected.length === 0
-      ? pass('MCP servers configured', 'Stack-appropriate MCP servers are configured')
-      : warn(
-          'MCP servers configured',
-          `Missing recommended MCP servers: ${missingExpected.join(', ')}`,
-          'Configure MCP servers in project profile for improved efficiency',
-        );
+    return info(
+      MCP_CHECK_NAME,
+      `Recommended for this stack: ${listOrNone(recommended)}.` +
+        (found === null ? '' : ` Found in .mcp.json: ${listOrNone(found)}.`),
+    );
   }
 
   private checkSkillCache(projectRoot: string): HealthCheckResult {
@@ -1605,6 +1583,32 @@ function specPipelineSources(projectRoot: string): Record<SpecPipelineSwitchKey,
   };
 }
 
+const MCP_CHECK_NAME = 'MCP servers (recommended)';
+
+/** Server names in a host MCP file, or null when it is missing or not valid JSON. */
+function readMcpServerNames(path: string): string[] | null {
+  if (!existsSync(path)) {
+    return null;
+  }
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    const servers = isPlainObject(parsed) ? parsed.mcpServers : undefined;
+    // Only a plain object of servers has names; an array or a string is not a server list.
+    return isPlainObject(servers) ? Object.keys(servers) : [];
+  } catch {
+    // An unparseable file is reported as not found; doctor never fails on a file it only reads.
+    return null;
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function listOrNone(names: string[]): string {
+  return names.length === 0 ? 'none' : names.join(', ');
+}
+
 function pass(name: string, detail: string): HealthCheckResult {
   return { name, status: 'pass', detail };
 }
@@ -1613,11 +1617,17 @@ function fail(name: string, detail: string, remediation: string): HealthCheckRes
   return { name, status: 'fail', detail, remediation };
 }
 
+/** Information only (issue #622): never raises or lowers the overall status. */
+function info(name: string, detail: string): HealthCheckResult {
+  return { name, status: 'info', detail };
+}
+
 function warn(name: string, detail: string, remediation: string): HealthCheckResult {
   return { name, status: 'warning', detail, remediation };
 }
 
-function deriveOverallStatus(checks: HealthCheckResult[]): HealthCheckStatus {
+/** Worst status wins; an `info` check never moves it (issue #622). */
+export function deriveOverallStatus(checks: HealthCheckResult[]): HealthCheckStatus {
   if (checks.some((check) => check.status === 'fail')) {
     return 'fail';
   }

@@ -1,6 +1,6 @@
 import { AntigravityAdapter } from '@/adapters';
 
-import { fixtureProfile, fixtureSkillBundleArtifacts } from '../shared.fixture';
+import { fixtureSkillBundleArtifacts } from '../shared.fixture';
 
 describe('AntigravityAdapter', () => {
   const adapter = new AntigravityAdapter();
@@ -39,8 +39,7 @@ describe('AntigravityAdapter', () => {
     ]);
   });
 
-  it('writes MCP config to .antigravity/mcp.json', async () => {
-    const files = await adapter.installMcp([], fixtureProfile('laravel'));
-    expect(files[0]?.path).toBe('.antigravity/mcp.json');
+  it('writes no MCP config at .antigravity/mcp.json (issue #622)', async () => {
+    expect(await adapter.installMcp()).toEqual([]);
   });
 });

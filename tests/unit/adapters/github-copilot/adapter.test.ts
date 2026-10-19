@@ -1,7 +1,5 @@
 import { GithubCopilotAdapter } from '@/adapters';
 
-import { fixtureProfile } from '../shared.fixture';
-
 describe('GithubCopilotAdapter', () => {
   const adapter = new GithubCopilotAdapter();
 
@@ -20,9 +18,8 @@ describe('GithubCopilotAdapter', () => {
     expect(files[0]?.content).not.toContain('## ');
   });
 
-  it('writes mcp config to .vscode/mcp.json', async () => {
-    const files = await adapter.installMcp([], fixtureProfile('laravel'));
-    expect(files[0]?.path).toBe('.vscode/mcp.json');
+  it('writes no MCP config at .vscode/mcp.json (issue #622)', async () => {
+    expect(await adapter.installMcp()).toEqual([]);
   });
 
   it('supports only config generation and MCP — no skills, agents, hooks, caching, or memory', () => {

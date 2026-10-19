@@ -29,6 +29,22 @@ export interface McpConfigOutput {
   content: string;
 }
 
+/** One suggested server in `.paqad/mcp-recommendations.json` (issue #622). */
+export interface McpRecommendation {
+  name: string;
+  provides: string[];
+  replaces: string[];
+  why: string;
+}
+
+/**
+ * Shape of `.paqad/mcp-recommendations.json`. Suggestions only: no `command`, `url` or
+ * `type`, because paqad does not know how a team runs a server and never configures one.
+ */
+export interface McpRecommendations {
+  servers: McpRecommendation[];
+}
+
 export type DataSourceType = 'mcp' | 'script' | 'cached-skill' | 'llm-read';
 
 export interface DataSource {

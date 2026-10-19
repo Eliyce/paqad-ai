@@ -17,6 +17,7 @@ import { checkAndMigrateSchema } from '@/core/schema-version.js';
 import { getLegacyCapabilities, getPrimaryStack } from '@/core/stack-profile.js';
 import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { isPluginInstalled } from '@/health/plugin-install.js';
+import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
 import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
@@ -115,6 +116,11 @@ export class FrameworkUpdater {
         newScripts.push(reportedPath);
       }
     }
+
+    // Issue #622 — remove the MCP files older versions wrote at other tools' paths, on the
+    // real project root (getCandidates onboards a temp root, so the orchestrator's own
+    // cleanup never reaches this project). Only paqad-written files go. Never throws.
+    cleanupLegacyMcpFiles(projectRoot);
 
     // Refresh the team config layer: write the README and sync the group files
     // (create any missing one fully; append knobs added in a newer version to

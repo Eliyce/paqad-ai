@@ -1,6 +1,6 @@
 import { WindsurfAdapter } from '@/adapters';
 
-import { fixtureArtifact, fixtureProfile, fixtureSkillBundleArtifacts } from '../shared.fixture';
+import { fixtureArtifact, fixtureSkillBundleArtifacts } from '../shared.fixture';
 
 describe('WindsurfAdapter', () => {
   const adapter = new WindsurfAdapter();
@@ -41,9 +41,8 @@ describe('WindsurfAdapter', () => {
     ]);
   });
 
-  it('writes mcp config to .windsurf/mcp.json', async () => {
-    const files = await adapter.installMcp([], fixtureProfile('laravel'));
-    expect(files[0]?.path).toBe('.windsurf/mcp.json');
+  it('writes no MCP config at .windsurf/mcp.json (issue #622)', async () => {
+    expect(await adapter.installMcp()).toEqual([]);
   });
 
   it('supports skills, agents, mcp, caching, and memory but not hooks', () => {

@@ -264,6 +264,55 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, 'docs/rules/team.md'), 'utf8')).toBe('current rule');
     expect(existsSync(join(projectRoot, 'scripts/new-script.sh'))).toBe(true);
   });
+  // Issue #622 — update regenerates its candidates in a temp root, so the legacy MCP cleanup has
+  // to run on the real project. User-owned MCP files stay byte-identical; paqad's own go.
+  describe('legacy MCP files on update (issue #622)', () => {
+    let userHome: string;
+    const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
+    const userOwned = (name: string): string =>
+      `${JSON.stringify({ mcpServers: { [name]: { command: 'npx', args: [name] } } }, null, 2)}\n`;
+
+    beforeEach(() => {
+      userHome = mkdtempSync(join(tmpdir(), 'paqad-update-mcp-home-'));
+      process.env.HOME = userHome;
+      process.env.USERPROFILE = userHome;
+    });
+
+    afterEach(() => {
+      rmSync(userHome, { recursive: true, force: true });
+      for (const key of ['HOME', 'USERPROFILE'] as const) {
+        if (saved[key] === undefined) delete process.env[key];
+        else process.env[key] = saved[key];
+      }
+    });
+
+    it('keeps user-owned MCP files byte-identical and deletes paqad-written ones (AC-5, AC-6)', async () => {
+      const fixtures = new Map([
+        ['.cursor/mcp.json', userOwned('cursor-server')],
+        ['.vscode/mcp.json', userOwned('vscode-server')],
+        ['.junie/mcp/mcp.json', userOwned('junie-server')],
+      ]);
+      for (const [path, content] of fixtures) {
+        mkdirSync(join(projectRoot, path, '..'), { recursive: true });
+        writeFileSync(join(projectRoot, path), content);
+      }
+      mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.claude/settings.mcp.json'),
+        JSON.stringify({ mcpServers: { figma: { enabled: true } }, resolved_artifacts: [] }),
+      );
+
+      const report = await new FrameworkUpdater().run(projectRoot);
+
+      for (const [path, content] of fixtures) {
+        expect(readFileSync(join(projectRoot, path), 'utf8')).toBe(content);
+      }
+      expect(existsSync(join(projectRoot, '.claude/settings.mcp.json'))).toBe(false);
+      expect(report.regenerated.some((path) => path.endsWith('mcp.json'))).toBe(false);
+      expect(report.regenerated).toContain('.paqad/mcp-recommendations.json');
+    });
+  });
+
   // Issue #573 — the update path must render the stage agents too, not only onboarding.
   // `writeStageAgents` was reachable ONLY from `bootstrapFramework` (install/onboard), but an
   // already-onboarded project upgrades through silent-update -> `paqad-ai update --silent`,

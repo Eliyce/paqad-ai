@@ -2,6 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } 
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
+import { AdapterFactory } from '@/adapters/index.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { OnboardingOrchestrator } from '@/onboarding/index.js';
 
@@ -194,7 +195,7 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
           expect(existsSync(join(projectRoot, '.paqad/onboarding-manifest.json'))).toBe(true);
           if (adapter === 'junie') {
             expect(existsSync(join(projectRoot, '.junie/AGENTS.md'))).toBe(true);
-            expect(existsSync(join(projectRoot, '.junie/mcp/mcp.json'))).toBe(true);
+            expect(existsSync(join(projectRoot, '.junie/mcp/mcp.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.junie/hooks.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.junie/cache.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.junie/memory.json'))).toBe(false);
@@ -220,7 +221,7 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
           }
           if (adapter === 'antigravity') {
             expect(existsSync(join(projectRoot, 'ANTIGRAVITY.md'))).toBe(true);
-            expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(true);
+            expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.antigravity/hooks.json'))).toBe(true);
             expect(existsSync(join(projectRoot, '.antigravity/cache.json'))).toBe(true);
             expect(existsSync(join(projectRoot, '.antigravity/memory.json'))).toBe(true);
@@ -236,23 +237,23 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
           }
           if (adapter === 'cursor') {
             expect(existsSync(join(projectRoot, '.cursor/rules/paqad.mdc'))).toBe(true);
-            expect(existsSync(join(projectRoot, '.cursor/mcp.json'))).toBe(true);
+            expect(existsSync(join(projectRoot, '.cursor/mcp.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.cursor/cache.json'))).toBe(true);
             expect(existsSync(join(projectRoot, '.cursor/memory.json'))).toBe(true);
           }
           if (adapter === 'github-copilot') {
             expect(existsSync(join(projectRoot, '.github/copilot-instructions.md'))).toBe(true);
-            expect(existsSync(join(projectRoot, '.vscode/mcp.json'))).toBe(true);
+            expect(existsSync(join(projectRoot, '.vscode/mcp.json'))).toBe(false);
           }
           if (adapter === 'windsurf') {
             expect(existsSync(join(projectRoot, '.windsurfrules'))).toBe(true);
-            expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(true);
+            expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.windsurf/cache.json'))).toBe(true);
             expect(existsSync(join(projectRoot, '.windsurf/memory.json'))).toBe(true);
           }
           if (adapter === 'continue') {
             expect(existsSync(join(projectRoot, '.continue/rules/paqad.md'))).toBe(true);
-            expect(existsSync(join(projectRoot, '.continue/mcp.json'))).toBe(true);
+            expect(existsSync(join(projectRoot, '.continue/mcp.json'))).toBe(false);
           }
           if (adapter === 'aider') {
             expect(existsSync(join(projectRoot, 'CONVENTIONS.md'))).toBe(true);
@@ -266,6 +267,12 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
             expect(existsSync(join(projectRoot, '.aiassistant/cache.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.aiassistant/memory.json'))).toBe(false);
           }
+
+          // Issue #622 — MCP suggestions live only in paqad's own file, written once when the
+          // host speaks MCP; no host MCP path is ever written.
+          expect(existsSync(join(projectRoot, '.paqad/mcp-recommendations.json'))).toBe(
+            AdapterFactory.create(adapter).capabilities.mcp,
+          );
 
           for (const relativePath of [...PROJECT_SKILL_DIRS, ...PROJECT_AGENT_DIRS]) {
             expect(existsSync(join(projectRoot, relativePath))).toBe(false);

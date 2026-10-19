@@ -29,7 +29,8 @@ describe('coverage adapter protected paths', () => {
       {
         adapter: new ClaudeCodeAdapter(),
         expected: {
-          mcp: '.claude/settings.mcp.json',
+          // Issue #622 — the project file Claude Code reads; paqad only reads it.
+          mcp: '.mcp.json',
           cache: '.claude/cache.json',
           memory: '.claude/memory.json',
         },

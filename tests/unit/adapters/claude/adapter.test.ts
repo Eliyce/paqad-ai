@@ -1,6 +1,6 @@
 import { ClaudeCodeAdapter } from '@/adapters';
 
-import { fixtureArtifact, fixtureProfile, fixtureSkillBundleArtifacts } from '../shared.fixture';
+import { fixtureArtifact, fixtureSkillBundleArtifacts } from '../shared.fixture';
 
 describe('ClaudeCodeAdapter', () => {
   const adapter = new ClaudeCodeAdapter();
@@ -29,12 +29,12 @@ describe('ClaudeCodeAdapter', () => {
     ]);
   });
 
-  it('writes Laravel Boost mcp config', async () => {
-    const files = await adapter.installMcp(
-      [fixtureArtifact('sample-skill.md')],
-      fixtureProfile('laravel'),
-    );
-    expect(files[0]?.content).toContain('laravel-boost');
+  it('writes no MCP config at a Claude Code path (issue #622)', async () => {
+    expect(await adapter.installMcp()).toEqual([]);
+  });
+
+  it('reads MCP servers from the project .mcp.json Claude Code uses', () => {
+    expect(adapter.getMcpPath()).toBe('.mcp.json');
   });
 
   it('writes hook registration output', async () => {

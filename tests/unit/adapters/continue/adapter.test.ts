@@ -1,6 +1,6 @@
 import { ContinueAdapter } from '@/adapters';
 
-import { fixtureProfile, fixtureSkillBundleArtifacts } from '../shared.fixture';
+import { fixtureSkillBundleArtifacts } from '../shared.fixture';
 
 describe('ContinueAdapter', () => {
   const adapter = new ContinueAdapter();
@@ -34,9 +34,8 @@ describe('ContinueAdapter', () => {
     ]);
   });
 
-  it('writes mcp config to .continue/mcp.json', async () => {
-    const files = await adapter.installMcp([], fixtureProfile('laravel'));
-    expect(files[0]?.path).toBe('.continue/mcp.json');
+  it('writes no MCP config at .continue/mcp.json (issue #622)', async () => {
+    expect(await adapter.installMcp()).toEqual([]);
   });
 
   it('supports skills and mcp but not agents, hooks, caching, or memory', () => {

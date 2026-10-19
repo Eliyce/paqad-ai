@@ -293,6 +293,10 @@ export const PATHS = {
   LOGS_DIR: '.paqad/logs',
   LOCKS_DIR: '.paqad/locks',
   AUTO_UPDATE_LOG: '.paqad/logs/auto-update.log',
+  // Issue #622 — paqad never writes another tool's MCP config. Its server suggestions
+  // live here, and the legacy-file cleanup logs every file it chose to keep.
+  MCP_RECOMMENDATIONS: '.paqad/mcp-recommendations.json',
+  MCP_CLEANUP_LOG: '.paqad/logs/mcp-cleanup.log',
   // Issue #80 — living module lifecycle
   PROSPECTIVE_DECISIONS_DIR: '.paqad/decisions/module-decisions',
   MODULE_MAP_HISTORY_DIR: '.paqad/module-map/history',
