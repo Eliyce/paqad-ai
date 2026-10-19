@@ -179,7 +179,7 @@ describe('the Cost tab and /paqad cost (AC-55)', () => {
     expect(text).toContain('By expert:');
     expect(text).toContain('  Security auditor: 40.0k tokens, ~$0.14 estimate, 2026-10-19 prices');
     expect(text).toContain(
-      "  Qa engineer: about 1.8k tokens, the seat's own estimate, already inside the total",
+      "  QA engineer: about 1.8k tokens, the seat's own estimate, already inside the total",
     );
     expect(text).toContain('Chief architect: 25.0k tokens, ~$0.09 estimate, 2026-10-19 prices');
     expect(text.find((line) => line.startsWith('Basis: '))).toContain(
@@ -258,20 +258,28 @@ describe('the fast lane (AC-53)', () => {
   });
 });
 
-describe('the pane (Part 23)', () => {
-  it('has one pane id and a Cost tab, selected by default', () => {
+describe('the pane (Parts 23 and 14)', () => {
+  it('has one pane id, the High Table tab then the Cost tab', () => {
     expect(PANE_ID).toBe('paqad');
-    expect(PANE_TABS.map((tab) => tab.id)).toEqual(['cost']);
+    expect(PANE_TABS.map((tab) => tab.id)).toEqual(['table', 'cost']);
     expect(DEFAULT_PANE_TAB).toBe('cost');
     expect(isPaneTab('cost')).toBe(true);
-    expect(isPaneTab('table')).toBe(false);
+    expect(isPaneTab('table')).toBe(true);
+    expect(isPaneTab('nope')).toBe(false);
     const view = buildPaneView(parse(FULL_ORD_501_COST), 'cost');
-    expect(view.tabs).toEqual([{ id: 'cost', key: tabKey('cost'), label: 'Cost', selected: true }]);
+    expect(view.tabs).toEqual([
+      { id: 'table', key: tabKey('table'), label: 'High Table', selected: false },
+      { id: 'cost', key: tabKey('cost'), label: 'Cost', selected: true },
+    ]);
+    expect(view.table).toBeNull();
   });
 
-  it('falls back to the default tab for a tab it does not have', () => {
+  it('opens on its own pick for a tab it does not have: the High Table when there is one, else Cost', () => {
     const view = buildPaneView(parse(FULL_ORD_501_COST), 'nope' as never);
     expect(view.tabs[0]!.selected).toBe(true);
-    expect(view.lines[0]).toContain('Cost of this change');
+    expect(view.table).not.toBeNull();
+    const fast = buildPaneView(parse(FAST_ORD_490_COST), null);
+    expect(fast.tabs[1]!.selected).toBe(true);
+    expect(fast.lines[0]).toContain('Cost of this change');
   });
 });

@@ -29,6 +29,11 @@ import {
 } from '@/hud/snapshot.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import {
+  writeExpertNotes,
+  writeExpertRoster,
+  writeExpertSynthesis,
+} from '@/spec-pipeline/run-store.js';
+import {
   appendHighTableRow,
   CHIEF_ROLE,
   recordDoneRow,
@@ -226,6 +231,7 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
       tokens_exact: false,
       findings: null,
       late: false,
+      track_record: null,
     });
     expect(snapshot.questions).toEqual({ asked: 2, answered: 1, auto_answered: 1, deferred: 0 });
     expect(snapshot.decisions.pending).toEqual([
@@ -877,6 +883,7 @@ describe('the live High Table on the snapshot (#639 Part 13)', () => {
       tokens_exact: true,
       findings: 2,
       late: false,
+      track_record: null,
     });
     expect(table.seats[1]).toMatchObject({
       tokens: null,
@@ -946,6 +953,102 @@ describe('the live High Table on the snapshot (#639 Part 13)', () => {
     expect(snapshot.table?.chief).toMatchObject({ state: 'seated', verdict: null });
     expect(snapshot.table?.rulings).toBeNull();
     expect(snapshot.flags.map((flag) => flag.id)).not.toContain('high-table-late');
+  });
+
+  /** A finished spec pipeline run in a bundle of its own, as an earlier change leaves it. */
+  function priorRun(
+    root: string,
+    dir: string,
+    notes: Array<{ role: string; findings: number; tokens: number }>,
+    credited: string[],
+  ): void {
+    writeExpertRoster(
+      root,
+      dir,
+      notes.map((note) => ({
+        role: note.role as never,
+        reason: 'r',
+        lens: 'lens',
+        budget_tokens: 4000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: null,
+        origin: 'standing',
+      })),
+    );
+    writeExpertNotes(root, dir, {
+      notes: notes.map((note) => ({
+        role: note.role as never,
+        findings: Array.from({ length: note.findings }, (_, i) => ({
+          id: `EX-${note.role}-${i + 1}`,
+          target: 't',
+          claim: 'c',
+        })),
+      })),
+      tokens: Object.fromEntries(notes.map((note) => [note.role, note.tokens])),
+    });
+    writeExpertSynthesis(root, dir, {
+      verdict: 'ready',
+      accepted: [],
+      declined: [],
+      conflicts: [],
+      gaps: [],
+      questions: [],
+      tokens: 700,
+    });
+    writeBundleJson(root, dir, 'specification', {
+      pipeline: { produced: true, outcome: 'freeze' },
+      trace: Object.fromEntries(credited.map((id, i) => [`FR-${i + 1}`, id])),
+    });
+  }
+
+  it('Part 14: each seat carries its track record from the OTHER bundles, null with no history', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-record';
+    const dir = openChange(root, S, 'full', 'ORD-501 csv export');
+    writeBundleJson(root, dir, 'experts', seats(['qa-engineer', 'db-expert', 'security-auditor']));
+    priorRun(
+      root,
+      '470-contacts-01JABCDEFGHJKMNPQRSTVWXYZ1',
+      [
+        { role: 'qa-engineer', findings: 0, tokens: 1000 },
+        { role: 'db-expert', findings: 1, tokens: 3000 },
+      ],
+      ['EX-db-expert-1'],
+    );
+    priorRun(
+      root,
+      '480-invoices-01JABCDEFGHJKMNPQRSTVWXYZ2',
+      [{ role: 'qa-engineer', findings: 2, tokens: 2000 }],
+      ['EX-qa-engineer-1'],
+    );
+
+    const table = buildHudSnapshot(root, S, { now: NOW }).table!;
+    const record = (role: string) => table.seats.find((seat) => seat.role === role)?.track_record;
+    expect(record('qa-engineer')).toEqual({
+      changes: 2,
+      changed_spec: 1,
+      empty: 1,
+      avg_tokens: 1500,
+    });
+    expect(record('db-expert')).toEqual({
+      changes: 1,
+      changed_spec: 1,
+      empty: 0,
+      avg_tokens: 3000,
+    });
+    // A role with no earlier change, and the chief, have no record.
+    expect(record('security-auditor')).toBeNull();
+    expect(table.chief).toBeNull();
+  });
+
+  it('Part 14: the active change never counts toward its own track record', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-record-self';
+    const dir = openChange(root, S, 'full', 'ORD-501 csv export');
+    priorRun(root, dir, [{ role: 'qa-engineer', findings: 1, tokens: 900 }], ['EX-qa-engineer-1']);
+    const table = buildHudSnapshot(root, S, { now: NOW }).table!;
+    expect(table.seats[0]).toMatchObject({ role: 'qa-engineer', track_record: null });
   });
 
   it('the fast lane has no High Table even when rows exist (decision 12)', () => {

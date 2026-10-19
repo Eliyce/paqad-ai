@@ -55,8 +55,67 @@ export type PaqadCost = {
   not_counted: string[];
 };
 
-/** The paqad pane's tabs. Part 23 adds Cost; more tabs join this union. */
-export type PaqadPaneTab = 'cost';
+export type PaqadSeatState = 'seated' | 'writing' | 'done';
+
+/** One seat at the High Table (issue #639, Parts 13 and 14), as the snapshot records it. */
+export type PaqadSeat = {
+  role: string;
+  reason: string | null;
+  /** Who seated it: `standing` or `detector`. */
+  origin: string | null;
+  state: PaqadSeatState;
+  seated_at: string | null;
+  started_at: string | null;
+  done_at: string | null;
+  /** The budget granted after the ceiling, and whether the ceiling cut it. */
+  budget_tokens: number | null;
+  clamped: boolean | null;
+  /** The seat's own count, shown as an estimate; null before its note landed. */
+  tokens_estimate: number | null;
+  /** The host's usage for the seat's subagent; null when the host gave none. */
+  tokens: PaqadCostTokens | null;
+  tokens_exact: boolean;
+  findings: number | null;
+  /** True when its note landed after the spec was frozen. */
+  late: boolean;
+  /** The role's record on the project's earlier changes; null with no history. */
+  track_record: PaqadTrackRecord | null;
+};
+
+/** How a role did on earlier changes: sat on, changed the spec on, had nothing to add on. */
+export type PaqadTrackRecord = {
+  changes: number;
+  changed_spec: number;
+  empty: number;
+  avg_tokens: number;
+};
+
+export type PaqadChief = PaqadSeat & { verdict: string | null };
+
+export type PaqadRulings = {
+  accepted: string[];
+  declined: Array<{ id: string; reason: string }>;
+  conflicts: Array<{ target: string; recommendation: string; rationale: string }>;
+  renames: Array<{ id: string; target: string }>;
+  /** Disagreements settled before; `source` names the decision. */
+  settled: Array<{ target: string; chosen: string; source: string }>;
+};
+
+/** The live High Table (issue #639, Part 13); `null` on the fast lane and with the experts off. */
+export type PaqadHighTable = {
+  skipped: boolean;
+  met_after_freeze: boolean;
+  seats: PaqadSeat[];
+  chief: PaqadChief | null;
+  rulings: PaqadRulings | null;
+  gaps: Array<{ area: string; why_it_matters: string; question: string | null }>;
+  questions: { asked: number; auto_answered: Array<{ question: string; source: string }> } | null;
+  /** Who shaped each spec line: the line id and the expert roles behind it. */
+  credits: Array<{ line: string; roles: string[] }>;
+};
+
+/** The paqad pane's tabs, in the order the tab row draws them (Part 14 adds the High Table). */
+export type PaqadPaneTab = 'table' | 'cost';
 
 export type PaqadHudSnapshot = {
   session_id: string;
@@ -74,6 +133,8 @@ export type PaqadHudSnapshot = {
   } | null;
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: PaqadHudStage[];
+  /** The live High Table (Parts 13 and 14); `null` on the fast lane and with the experts off. */
+  table: PaqadHighTable | null;
   gates: Array<{ name: string; verdict: string }>;
   flags: Array<{ id: string; text: string }>;
   rules: { recorded: boolean; applicable: number | null; loaded_at: string | null };
@@ -111,8 +172,18 @@ declare module 'claude-code' {
       snapshot: PaqadHudSnapshot | null;
       /** Milliseconds at the last refresh or tick, for the Stage instrument's live clock. */
       now: number;
-      /** The paqad pane's selected tab (Part 23). */
-      paneTab: PaqadPaneTab;
+      /**
+       * The pane tab the person picked (a tab Button or a pill that opens the pane), or `null`
+       * while they picked none, when the pane opens on the High Table if the change has one.
+       */
+      paneTab: PaqadPaneTab | null;
+      /** The High Table seat picked in the pane, by role; `null` shows the first seat. */
+      tableSeat: string | null;
+      /**
+       * The first `paqad-ai spec pipeline experts` call of each change, by change id: the one
+       * chat row the live High Table card is drawn over (Part 14).
+       */
+      tableCards: Record<string, string>;
     };
   }
 }

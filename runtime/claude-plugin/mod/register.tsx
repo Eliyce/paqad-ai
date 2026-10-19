@@ -1,7 +1,9 @@
 // The paqad HUD mod (issue #639, Parts 8 and 9): thin glue between Claude Code's events and the
 // pure modules beside it. `config.ts` decides whether the mod stands down, `model.ts` reads the
 // session's snapshot and turns it into what the band shows, `band.ts` lays the band out in rows,
-// `commands.ts` answers `/paqad`, and `pane.ts` (with `cost.ts`) fills the paqad pane (Part 23).
+// `commands.ts` answers `/paqad`, `pane.ts` (with `cost.ts`) fills the paqad pane (Part 23), and
+// `table.ts` draws the High Table: its band instrument, its live card in the chat and its pane
+// tab (Part 14).
 //
 // The mod only shows and asks. Every check stays one of the plugin's hooks in `hooks.json`, so
 // the mod being off, blocked or broken changes no hook's decision (decision 2). It reads only
@@ -31,7 +33,8 @@ import {
   receiptPath,
   snapshotPath,
 } from './model';
-import { DEFAULT_PANE_TAB, PANE_ID, PANE_TITLE, buildPaneView } from './pane';
+import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
+import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
 /** How often the band re-reads the snapshot while a stage agent runs (FR-24: 1 to 2 seconds). */
@@ -45,10 +48,20 @@ const snapshotAtom = atom(
   null as PaqadHudSnapshot | null,
 );
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
-/** The paqad pane's selected tab, written only from a press (a render hook never writes). */
-const paneTabAtom = atom(
-  { plugin: 'paqad', key: 'paneTab' } as const,
-  DEFAULT_PANE_TAB as PaqadPaneTab,
+/**
+ * The pane tab the person picked, written only from a press (a render hook never writes); `null`
+ * until they pick one, while the pane opens on the High Table when the change has one.
+ */
+const paneTabAtom = atom({ plugin: 'paqad', key: 'paneTab' } as const, null as PaqadPaneTab | null);
+/** The High Table seat picked in the pane, by role, written only from a press. */
+const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null as string | null);
+/**
+ * The first `paqad-ai spec pipeline experts` call of each change, by change id: the one chat row
+ * the live High Table card is drawn over. Written by `tool.call`, never by a render hook.
+ */
+const tableCardsAtom = atom(
+  { plugin: 'paqad', key: 'tableCards' } as const,
+  {} as Record<string, string>,
 );
 
 /** The theme colour each tone draws in; the words beside it always say the same thing. */
@@ -60,6 +73,25 @@ const TONE_COLOR: Record<PaqadTone, string | undefined> = {
   warn: 'warning',
   bad: 'error',
 };
+
+/** The `Text` element a surface draws with. */
+type TextElement = ReturnType<EngineInterface['ui']['resolve']>['Text'];
+
+/** One line of the card or the pane: each part in its colour, the words saying the same. */
+function drawLine(Text: TextElement, line: TableLine) {
+  return (
+    <Text wrap="wrap">
+      {line.map((segment) => (
+        <Text
+          color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
+          dimColor={segment.dim === true}
+        >
+          {segment.text}
+        </Text>
+      ))}
+    </Text>
+  );
+}
 
 /**
  * What the hooks need between events. Not drawn from (the band reads `$.state`), and rebuilt by
@@ -198,6 +230,18 @@ async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
   }
 }
 
+/**
+ * Keep the first experts call of the change as the card's row. Later experts calls of the same
+ * change keep the engine's own row, so the card is drawn once and updates in place.
+ */
+async function claimCard($: EngineInterface, toolUseId: string | undefined): Promise<void> {
+  if (!toolUseId) return;
+  const key = cardKey(await read($, snapshotAtom));
+  await update($, tableCardsAtom, (cards) =>
+    cards?.[key] ? cards : { ...(cards ?? {}), [key]: toolUseId },
+  );
+}
+
 /** True when a drawn tree holds no text: the engine's empty band, which ours replaces. */
 function isBlank(node: RenderNode | null | undefined): boolean {
   if (node === null || node === undefined) return true;
@@ -266,6 +310,9 @@ export const register: Register = (on, options) => {
     // A call's arguments sit beside `tool` on the event (`{ tool: 'Bash', command }`).
     const input = e as unknown as { command?: unknown };
     const isAgent = tool === 'Agent' || tool === 'Task';
+    if (isExpertsCall(tool, input)) {
+      await claimCard($, (e as { tool_use_id?: string }).tool_use_id);
+    }
     if (isAgent) {
       agentCalls += 1;
       startTicker($);
@@ -305,14 +352,15 @@ export const register: Register = (on, options) => {
       </Text>
     );
     const line = (row: BandRow) => {
-      const opens = row.find((segment) => segment.opens);
-      if (!opens?.opens) return <Text wrap="truncate">{row.map(part)}</Text>;
-      // A row with a pill that opens the pane: a Button sits beside Text, so the row is a Box.
-      const tab = opens.opens;
+      if (!row.some((segment) => segment.opens))
+        return <Text wrap="truncate">{row.map(part)}</Text>;
+      // A row with a part that opens the pane (the cost pill, the High Table label): a Button sits
+      // beside Text, so the row is a Box.
       return (
         <Box flexDirection="row">
-          {row.map((segment) =>
-            segment.opens ? (
+          {row.map((segment) => {
+            const tab = segment.opens;
+            return tab ? (
               <Button
                 key={`paqad-open-${tab}`}
                 plain
@@ -323,8 +371,8 @@ export const register: Register = (on, options) => {
               </Button>
             ) : (
               part(segment)
-            ),
-          )}
+            );
+          })}
         </Box>
       );
     };
@@ -336,14 +384,22 @@ export const register: Register = (on, options) => {
     );
   });
 
-  // The paqad pane (Part 23): a tab row of Buttons, then the selected tab's text, the same on the
-  // terminal and on Desktop. Opened by the cost pill; reads the atoms and draws, never writes.
+  // The paqad pane (Parts 23 and 14): a tab row of Buttons, then the shown tab, on the terminal and
+  // on Desktop. Opened by the cost pill or the High Table label; reads the atoms, never writes.
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== PANE_ID) return next(e);
     const status = await read($, statusAtom);
     if (!status?.on) return next(e);
-    const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom));
-    const { Box, Text, Button } = $.ui.resolve(e);
+    const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
+      seat: await read($, tableSeatAtom),
+      now: await read($, nowAtom),
+    });
+    const ui = $.ui.resolve(e);
+    const { Box, Text, Button } = ui;
+    const draw = (line: TableLine) => drawLine(Text, line);
+    const table = view.table;
+    // Svg draws on Desktop only; the terminal gets the same round table as text.
+    const Svg = e.surface === 'desktop' && 'Svg' in ui ? ui.Svg : null;
     return (
       <Box flexDirection="column">
         <Box flexDirection="row">
@@ -360,7 +416,60 @@ export const register: Register = (on, options) => {
         {view.lines.map((text) => (
           <Text wrap="wrap">{text}</Text>
         ))}
+        {table ? (
+          <Box flexDirection="column">
+            {Svg ? (
+              <Svg source={table.svg.source} alt={table.svg.alt} width={160} height={160} />
+            ) : (
+              table.ring.map(draw)
+            )}
+            {table.seats.map(draw)}
+            <Box flexDirection="row">
+              {table.buttons.map((seat) => (
+                <Button
+                  key={seat.key}
+                  variant={seat.selected ? 'primary' : undefined}
+                  onPress={() => void update($, tableSeatAtom, () => seat.role)}
+                >
+                  {seat.label}
+                </Button>
+              ))}
+            </Box>
+            {table.detail.map(draw)}
+            {table.rulings.map(draw)}
+          </Box>
+        ) : null}
       </Box>
     );
+  });
+
+  // The live High Table card (Part 14): drawn over the change's first `paqad-ai spec pipeline
+  // experts` row only, from `$.state`, so it redraws in place as the seats move. Every other row,
+  // and that row while the change has no table, is the engine's own.
+  on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
+    if (!isExpertsCall(e.props.tool, e.props.input)) return next(e);
+    const status = await read($, statusAtom);
+    if (!status?.on) return next(e);
+    const snapshot = await read($, snapshotAtom);
+    const cards = await read($, tableCardsAtom);
+    const table = snapshot?.table ?? null;
+    if (!table || snapshot?.lane === 'fast' || cards?.[cardKey(snapshot)] !== e.props.tool_use_id) {
+      return next(e);
+    }
+    const { Box, Text } = $.ui.resolve(e);
+    return (
+      <Box flexDirection="column">
+        {tableCardLines(table, await read($, nowAtom)).map((line) => drawLine(Text, line))}
+      </Box>
+    );
+  });
+
+  // A folded run of calls that holds an experts call unfolds, so the card's row is on screen.
+  on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
+    const status = await read($, statusAtom);
+    const holdsExperts = e.props.calls.some((call) => isExpertsCall(call.tool, call.input));
+    return status?.on && holdsExperts && !e.props.isExpanded
+      ? next({ ...e, props: { ...e.props, isExpanded: true } })
+      : next(e);
   });
 };

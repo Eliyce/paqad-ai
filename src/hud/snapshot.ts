@@ -27,7 +27,8 @@ import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
-import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
+import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
   currentFeature,
@@ -36,6 +37,7 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
@@ -47,7 +49,7 @@ import type { VerificationGate } from '@/core/types/verification.js';
 
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
-import { buildHighTableView, type HudHighTable } from './high-table-view.js';
+import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
@@ -92,7 +94,7 @@ export interface HudFlag {
   text: string;
 }
 
-export type { HudChief, HudHighTable, HudSeat } from './high-table-view.js';
+export type { HudChief, HudHighTable, HudSeat, HudTrackRecord } from './high-table-view.js';
 export type { HudCost } from './cost-view.js';
 
 /**
@@ -211,6 +213,66 @@ function num(value: unknown): number | null {
 }
 
 // ── field builders ────────────────────────────────────────────────────────────
+
+/** How many earlier bundles the track record reads, newest first, to keep a refresh cheap. */
+export const TRACK_RECORD_BUNDLES = 50;
+
+/**
+ * Each seated role's record on the project's OTHER changes (issue #639, Part 14), from
+ * `aggregateSpecPipelineMetrics` over the newest `TRACK_RECORD_BUNDLES` bundles (the active one
+ * left out). A role with no earlier run is absent. Never throws: a failed read is no history.
+ */
+export function buildTrackRecords(
+  projectRoot: string,
+  activeDir: string,
+  roles: readonly string[],
+): Map<string, HudTrackRecord> {
+  const records = new Map<string, HudTrackRecord>();
+  if (roles.length === 0) return records;
+  try {
+    const others = listFeatureDirs(projectRoot)
+      .filter((dir) => dir !== activeDir)
+      .sort((a, b) =>
+        (parseFeatureDirName(b)?.ulid ?? '').localeCompare(parseFeatureDirName(a)?.ulid ?? ''),
+      )
+      .slice(0, TRACK_RECORD_BUNDLES);
+    if (others.length === 0) return records;
+    const metrics = aggregateSpecPipelineMetrics(projectRoot, others);
+    for (const role of roles) {
+      const key = role as keyof typeof metrics.changed_spec_rate;
+      const rate = metrics.changed_spec_rate[key];
+      if (!rate || rate.fired === 0) continue;
+      records.set(role, {
+        changes: rate.fired,
+        changed_spec: rate.changed,
+        empty: metrics.empty_by_role[key]?.empty ?? 0,
+        avg_tokens: Math.round((metrics.tokens_by_role[key] ?? 0) / rate.fired),
+      });
+    }
+  } catch (error) {
+    logHudWriteError(projectRoot, 'track record', error);
+    records.clear();
+  }
+  return records;
+}
+
+/** The table with each seat's track record filled in from the project's other bundles. */
+function withTrackRecords(
+  projectRoot: string,
+  dirName: string,
+  table: HudHighTable | null,
+): HudHighTable | null {
+  if (!table || table.seats.length === 0) return table;
+  const records = buildTrackRecords(
+    projectRoot,
+    dirName,
+    table.seats.map((seat) => seat.role),
+  );
+  return {
+    ...table,
+    seats: table.seats.map((seat) => ({ ...seat, track_record: records.get(seat.role) ?? null })),
+  };
+}
 
 function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): HudStage[] {
   const rows = readFeatureStageUnit(projectRoot, dirName);
@@ -582,7 +644,11 @@ export function buildHudSnapshot(
   const gates = buildGates(projectRoot, dirName);
   const specJson = readJsonFile(join(projectRoot, featureFilePath(dirName, 'specification')));
   const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
-  const table = buildHighTableView(projectRoot, dirName, specJson, lane);
+  const table = withTrackRecords(
+    projectRoot,
+    dirName,
+    buildHighTableView(projectRoot, dirName, specJson, lane),
+  );
   const rulesLoaded = readRulesLoaded(projectRoot, dirName);
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
@@ -684,17 +750,22 @@ export function writeHudSnapshotSafe(
   try {
     return writeHudSnapshot(projectRoot, sessionHint).path;
   } catch (error) {
-    try {
-      const logs = join(projectRoot, '.paqad', 'logs');
-      mkdirSync(logs, { recursive: true });
-      const message = error instanceof Error ? error.message : String(error);
-      appendFileSync(
-        join(logs, 'hook-failures.log'),
-        `[${new Date().toISOString()}] ERROR hud-snapshot (${source}): ${message}\n`,
-      );
-    } catch {
-      // The caller's path outranks the log line: a read-only tree must not turn into a throw.
-    }
+    logHudWriteError(projectRoot, source, error);
     return null;
+  }
+}
+
+/** Append one HUD failure to the hooks' shared failure log; never throws. */
+function logHudWriteError(projectRoot: string, source: string, error: unknown): void {
+  try {
+    const logs = join(projectRoot, '.paqad', 'logs');
+    mkdirSync(logs, { recursive: true });
+    const message = error instanceof Error ? error.message : String(error);
+    appendFileSync(
+      join(logs, 'hook-failures.log'),
+      `[${new Date().toISOString()}] ERROR hud-snapshot (${source}): ${message}\n`,
+    );
+  } catch {
+    // The caller's path outranks the log line: a read-only tree must not turn into a throw.
   }
 }

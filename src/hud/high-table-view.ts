@@ -29,6 +29,18 @@ export interface HudSeatTokens {
   total: number;
 }
 
+/**
+ * How a role did on the project's earlier changes, from the spec pipeline's own metrics: on how
+ * many it sat, how many of those it changed the spec on, how many it had nothing to add, and its
+ * average tokens there. Null when the role has no earlier change on record.
+ */
+export interface HudTrackRecord {
+  changes: number;
+  changed_spec: number;
+  empty: number;
+  avg_tokens: number;
+}
+
 /** One seat at the High Table. */
 export interface HudSeat {
   role: string;
@@ -49,6 +61,8 @@ export interface HudSeat {
   findings: number | null;
   /** True when the seat's note landed after the spec was frozen (shown amber, AC-44). */
   late: boolean;
+  /** The role's record on earlier changes (issue #639, Part 14), or null with no history. */
+  track_record: HudTrackRecord | null;
 }
 
 export interface HudChiefRulings {
@@ -156,6 +170,8 @@ function seatFrom(
     tokens_exact: exact !== null,
     findings: folded?.findings ?? recordedFindings,
     late: after(folded?.done_at ?? null, frozenAt),
+    // Filled by the snapshot from the project's other bundles; the chief has no metrics.
+    track_record: null,
   };
 }
 

@@ -19,6 +19,8 @@ export interface World {
   agents: AgentInfo[];
   /** Every pane id the mod asked the engine to open, in order. */
   opened: string[];
+  /** Every render the engine itself drew (what the mod passed on to `next`), in order. */
+  drawn: Array<{ component: string; props: unknown }>;
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
 }
@@ -44,6 +46,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     reads: [],
     agents: [],
     opened: [],
+    drawn: [],
     put: (path, text) => void world.files.set(path, text),
     remove: (path) => void world.files.delete(path),
   };
@@ -95,7 +98,10 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('tool.call', () => ({ result: 'ok' }) as never);
   // The engine's own band holds nothing outside a survey; a test that wants another mod's lines
   // beneath paqad's passes them as `band`.
-  on('ui.render', () => options.band ?? { type: 'Text', props: {}, children: [''] });
+  on('ui.render', ($, e) => {
+    world.drawn.push({ component: e.component, props: e.props });
+    return options.band ?? { type: 'Text', props: {}, children: [''] };
+  });
   return world;
 }
 
@@ -164,3 +170,52 @@ export function linesOf(node: RenderElement): string[] {
   const children = (node as { children?: readonly RenderNode[] }).children ?? [];
   return children.map((child) => stringsOf(child).join(''));
 }
+
+/** The chat row of one tool call, as the engine asks for it. */
+export function toolUse(
+  surface: 'terminal' | 'desktop',
+  toolUseId: string,
+  command: string,
+  tool = 'Bash',
+): RenderInput<'ToolUse'> {
+  return {
+    component: 'ToolUse',
+    surface,
+    requestId: toolUseId,
+    props: {
+      tool_use_id: toolUseId,
+      tool,
+      input: { command },
+      isRunning: false,
+      isErrored: false,
+      isInterrupted: false,
+    },
+  } as RenderInput<'ToolUse'>;
+}
+
+/** A folded run of Bash calls, as the engine asks for it. */
+export function toolGroup(
+  surface: 'terminal' | 'desktop',
+  commands: string[],
+  isExpanded = false,
+): RenderInput<'ToolGroup'> {
+  return {
+    component: 'ToolGroup',
+    surface,
+    requestId: 'group',
+    props: {
+      calls: commands.map((command, index) => ({
+        tool_use_id: `g${index}`,
+        tool: 'Bash',
+        input: { command },
+        isRunning: false,
+        isErrored: false,
+        isInterrupted: false,
+      })),
+      isActive: false,
+      isExpanded,
+    },
+  } as RenderInput<'ToolGroup'>;
+}
+
+export const EXPERTS_COMMAND = 'pnpm exec paqad-ai spec pipeline experts --role qa-engineer';
