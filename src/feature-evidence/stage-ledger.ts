@@ -210,6 +210,24 @@ export function foldFeature(projectRoot: string, sessionId: string, dirName: str
   });
 }
 
+/**
+ * The lane recorded on a change (issue #324), the one reader the completion verification and
+ * `checks run` share (issue #639, Part 11). Fails safe to `full` when no change is open, the
+ * lane is unset, or the read throws: never a silent relaxation.
+ */
+export function recordedLaneOrFull(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string | null,
+): 'fast' | 'graduated' | 'full' {
+  if (!dirName) return 'full';
+  try {
+    return foldFeature(projectRoot, sessionId, dirName).lane ?? 'full';
+  } catch {
+    return 'full';
+  }
+}
+
 /** True when a bundle file exists and has real bytes. A single read + catch (never
  *  stat-then-read) avoids the TOCTOU file-system race CodeQL flags (js/file-system-race);
  *  a missing/unreadable file reads as absent, which downgrades the verdict (issue #394). */

@@ -3,10 +3,25 @@
 // Pure: no Claude Code import, so vitest tests it without the host. `parseSnapshot` reads the
 // file `src/hud/snapshot.ts` writes, defensively: a missing, half-written or foreign file reads
 // as `null` ("not yet") and never throws. `buildBandView` turns a snapshot into the band's
-// state, headline and two instruments. Nothing here guesses: a field with no record reads
+// state, headline and instruments (Stage and Ship, and the High Table from `table.ts`). Nothing here guesses: a field with no record reads
 // "not yet", and a stage reads done only when the receipt would say done.
 
-import type { PaqadFindingsScan, PaqadHudSnapshot, PaqadHudStage, PaqadTone } from './types';
+import { costPill, formatClock } from './cost';
+import { tableInstrument, type TableInstrument } from './table';
+import type {
+  PaqadChief,
+  PaqadCost,
+  PaqadCostLine,
+  PaqadCostTokens,
+  PaqadFindingsScan,
+  PaqadHighTable,
+  PaqadHudSnapshot,
+  PaqadHudStage,
+  PaqadSeat,
+  PaqadSeatState,
+  PaqadTone,
+  PaqadTrackRecord,
+} from './types';
 
 export const NOT_YET = 'not yet';
 
@@ -62,6 +77,170 @@ function readScan(value: unknown): PaqadFindingsScan {
     status: status === 'open' || status === 'clean' ? status : 'did not run',
     total: num(scan?.total),
     blocking: scan?.blocking === true,
+  };
+}
+
+function readTokens(value: unknown): PaqadCostTokens {
+  const tokens = rec(value);
+  const count = (key: string): number => Math.max(0, num(tokens?.[key]) ?? 0);
+  return {
+    input: count('input'),
+    output: count('output'),
+    cache_read: count('cache_read'),
+    cache_write: count('cache_write'),
+    total: count('total'),
+  };
+}
+
+/** One cost line; its money is dropped when the record carries no price date (INV-10). */
+function readCostLine(value: unknown, dated: boolean): PaqadCostLine {
+  const line = rec(value);
+  return { tokens: readTokens(line?.tokens), usd: dated ? num(line?.usd) : null };
+}
+
+/**
+ * The snapshot's `cost` (Part 23), or `null` when absent or not an object. A record with no
+ * price date keeps its tokens and loses its money, so money is never shown undated.
+ */
+function readCost(value: unknown): PaqadCost | null {
+  const cost = rec(value);
+  if (!cost) return null;
+  const date = str(cost.price_table_date);
+  const dated = date !== null;
+  const chief = rec(cost.chief);
+  return {
+    price_table_date: date ?? '',
+    label: str(cost.label) ?? 'estimate at API prices',
+    basis: str(cost.basis) ?? 'API-equivalent estimate',
+    plan_note: str(cost.plan_note) ?? '',
+    sealed: rec(cost.window)?.sealed === true,
+    tokens: readTokens(cost.tokens),
+    usd: dated ? num(cost.usd) : null,
+    unpriced_models: list(cost.unpriced_models).filter((m): m is string => typeof m === 'string'),
+    by_stage: list(cost.by_stage).flatMap((entry) => {
+      const stage = str(rec(entry)?.stage);
+      return stage ? [{ stage, ...readCostLine(entry, dated) }] : [];
+    }),
+    by_expert: list(cost.by_expert).flatMap((entry) => {
+      const role = str(rec(entry)?.role);
+      return role
+        ? [{ role, ...readCostLine(entry, dated), exact: rec(entry)?.exact === true }]
+        : [];
+    }),
+    chief: chief ? { ...readCostLine(chief, dated), exact: chief.exact === true } : null,
+    not_counted: list(cost.not_counted).filter((t): t is string => typeof t === 'string'),
+  };
+}
+
+const SEAT_STATES: readonly PaqadSeatState[] = ['seated', 'writing', 'done'];
+
+function strings(value: unknown): string[] {
+  return list(value).filter((entry): entry is string => typeof entry === 'string');
+}
+
+/** A seat's track record, or `null` when absent or when it sat on no earlier change. */
+function readTrackRecord(value: unknown): PaqadTrackRecord | null {
+  const record = rec(value);
+  const changes = num(record?.changes);
+  if (!record || changes === null || changes <= 0) return null;
+  const count = (key: string) => Math.max(0, num(record[key]) ?? 0);
+  return {
+    changes,
+    changed_spec: count('changed_spec'),
+    empty: count('empty'),
+    avg_tokens: count('avg_tokens'),
+  };
+}
+
+function readSeat(value: unknown): PaqadSeat | null {
+  const seat = rec(value);
+  const role = str(seat?.role);
+  if (!seat || !role) return null;
+  return {
+    role,
+    reason: str(seat.reason),
+    origin: str(seat.origin),
+    state: SEAT_STATES.find((state) => state === seat.state) ?? 'seated',
+    seated_at: str(seat.seated_at),
+    started_at: str(seat.started_at),
+    done_at: str(seat.done_at),
+    budget_tokens: num(seat.budget_tokens),
+    clamped: typeof seat.clamped === 'boolean' ? seat.clamped : null,
+    tokens_estimate: num(seat.tokens_estimate),
+    tokens: rec(seat.tokens) ? readTokens(seat.tokens) : null,
+    // Exact only when the host's usage is there to back it.
+    tokens_exact: seat.tokens_exact === true && rec(seat.tokens) !== null,
+    findings: num(seat.findings),
+    late: seat.late === true,
+    track_record: readTrackRecord(seat.track_record),
+  };
+}
+
+function readChief(value: unknown): PaqadChief | null {
+  const seat = readSeat(value);
+  return seat ? { ...seat, verdict: str(rec(value)?.verdict) } : null;
+}
+
+/** Each entry of `value` that is an object, read by `pick`. */
+function each<T>(value: unknown, pick: (entry: Rec) => T): T[] {
+  return list(value).flatMap((entry) => {
+    const record = rec(entry);
+    return record ? [pick(record)] : [];
+  });
+}
+
+/**
+ * The snapshot's `table` (Parts 13 and 14), or `null` when absent or not an object. A seat with
+ * no role is dropped; anything else missing reads as empty, never as a guess.
+ */
+function readTable(value: unknown): PaqadHighTable | null {
+  const table = rec(value);
+  if (!table) return null;
+  const rulings = rec(table.rulings);
+  const questions = rec(table.questions);
+  return {
+    skipped: table.skipped === true,
+    met_after_freeze: table.met_after_freeze === true,
+    seats: list(table.seats).flatMap((seat) => readSeat(seat) ?? []),
+    chief: readChief(table.chief),
+    rulings: rulings
+      ? {
+          accepted: strings(rulings.accepted),
+          declined: each(rulings.declined, (e) => ({
+            id: str(e.id) ?? '',
+            reason: str(e.reason) ?? '',
+          })),
+          conflicts: each(rulings.conflicts, (e) => ({
+            target: str(e.target) ?? '',
+            recommendation: str(e.recommendation) ?? '',
+            rationale: str(e.rationale) ?? '',
+          })),
+          renames: each(rulings.renames, (e) => ({
+            id: str(e.id) ?? '',
+            target: str(e.target) ?? '',
+          })),
+          settled: each(rulings.settled, (e) => ({
+            target: str(e.target) ?? '',
+            chosen: str(e.chosen) ?? '',
+            source: str(e.source) ?? '',
+          })),
+        }
+      : null,
+    gaps: each(table.gaps, (e) => ({
+      area: str(e.area) ?? '',
+      why_it_matters: str(e.why_it_matters) ?? '',
+      question: str(e.question),
+    })),
+    questions: questions
+      ? {
+          asked: num(questions.asked) ?? 0,
+          auto_answered: each(questions.auto_answered, (e) => ({
+            question: str(e.question) ?? '',
+            source: str(e.source) ?? '',
+          })),
+        }
+      : null,
+    credits: each(table.credits, (e) => ({ line: str(e.line) ?? '', roles: strings(e.roles) })),
   };
 }
 
@@ -133,6 +312,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
         },
       ];
     }),
+    table: readTable(snap.table),
     gates: list(snap.gates).flatMap((entry) => {
       const gate = rec(entry);
       const name = str(gate?.name);
@@ -187,6 +367,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
             reasons: list(verdict.reasons).filter((r): r is string => typeof r === 'string'),
           }
         : null,
+    cost: readCost(snap.cost),
   };
 }
 
@@ -279,6 +460,12 @@ export const STAGE_ORDER = [
   ['delivery', 'Deliver'],
 ] as const;
 
+/** A stage id in the band's words; `orchestrator` is the time between stages. */
+export function stageLabel(stage: string): string {
+  if (stage === 'orchestrator') return 'Between stages';
+  return STAGE_ORDER.find(([id]) => id === stage)?.[1] ?? stage;
+}
+
 export type SegmentState = 'done' | 'running' | 'marked' | 'failed' | 'not required' | 'not yet';
 
 export interface StageSegment {
@@ -337,16 +524,7 @@ export function stageSegments(snapshot: PaqadHudSnapshot | null): StageSegment[]
   });
 }
 
-/** A duration as the band says it: `45s`, `3m 05s`, `1h 02m`. */
-export function formatClock(ms: number): string {
-  const total = Math.max(0, Math.floor(ms / 1000));
-  const hours = Math.floor(total / 3600);
-  const minutes = Math.floor((total % 3600) / 60);
-  const seconds = total % 60;
-  if (hours > 0) return `${hours}h ${String(minutes).padStart(2, '0')}m`;
-  if (minutes > 0) return `${minutes}m ${String(seconds).padStart(2, '0')}s`;
-  return `${seconds}s`;
-}
+export { formatClock };
 
 /** The running stage's live clock, or `null` when nothing runs or its start is unreadable. */
 export function liveClock(segments: StageSegment[], now: number): string | null {
@@ -403,8 +581,13 @@ export interface BandView {
   stages: StageSegment[];
   clock: string | null;
   ship: ShipStep[];
-  /** The change's cost arrives with Part 23. */
+  /** The cost pill (Part 23): tokens and a dated money estimate, or "cost: not yet". */
   cost: string;
+  /**
+   * The High Table instrument (Part 14), or `null` when the band has none: the fast lane, the
+   * experts off, or no change in progress.
+   */
+  table: TableInstrument | null;
 }
 
 /**
@@ -421,9 +604,7 @@ export function flagPill(flags: number): string | null {
   return flags > 0 ? `${flags} flag${flags === 1 ? '' : 's'}` : null;
 }
 
-export function costPill(): string {
-  return `cost: ${NOT_YET}`;
-}
+export { costPill };
 
 export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): BandView {
   const state = bandState(snapshot);
@@ -437,7 +618,8 @@ export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): B
     stages,
     clock: liveClock(stages, now),
     ship: shipSteps(snapshot),
-    cost: costPill(),
+    cost: costPill(snapshot?.cost ?? null),
+    table: tableInstrument(snapshot),
   };
 }
 

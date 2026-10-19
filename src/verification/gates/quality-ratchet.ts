@@ -7,13 +7,16 @@
 // it no longer does, unless a `quality.ratchet_exception` was approved for that
 // kind (in which case the runner has already marked it excepted, not blocking).
 //
-// The gate is inert when there is no signal (no baseline yet, fast lane with
-// nothing comparable, no result wired) so it never blocks on absence.
+// Issue #639, Part 10 — the detail names the measures the ratchet took and the
+// ones it could not take, and says "strictness only" on the fast lane, where the
+// collector takes nothing else. A run that took no measure at all (no result,
+// a skipped run, or every measure blocked) reads DID NOT RUN, never a pass. It
+// still never blocks on absence: did not run keeps `passed: true`.
 
 import type { QualityRatchetResult } from '@/core/types/quality-ratchet.js';
 
 import type { Gate } from './gate.interface.js';
-import { createFail, createPass } from './shared.js';
+import { createDidNotRun, createFail, createPass } from './shared.js';
 
 function summarizeRegressions(result: QualityRatchetResult): string {
   const shown = result.blocking_regressions
@@ -27,6 +30,33 @@ function summarizeRegressions(result: QualityRatchetResult): string {
   return `${shown}${extra}`;
 }
 
+/** A measure id in plain words: `dead_code` reads "dead code". */
+function measureWords(measure: string): string {
+  return measure.replace(/_/g, ' ');
+}
+
+/** The measures that produced a value this run, and the ones that could not be taken. */
+export function ratchetMeasureScope(result: QualityRatchetResult): {
+  taken: string[];
+  blocked: string[];
+} {
+  const taken = new Set<string>();
+  const blocked = new Set<string>();
+  for (const verdict of result.verdicts) {
+    const words = measureWords(verdict.measure);
+    if (verdict.outcome === 'blocked' || verdict.current_value === null) blocked.add(words);
+    else taken.add(words);
+  }
+  return { taken: [...taken], blocked: [...blocked] };
+}
+
+/** The scope note every taken-measure detail ends with. */
+function scopeNote(result: QualityRatchetResult, scope: { taken: string[]; blocked: string[] }) {
+  const blocked = scope.blocked.length > 0 ? `; blocked: ${scope.blocked.join(', ')}` : '';
+  if (result.lane === 'fast') return ` (fast lane, strictness only${blocked})`;
+  return ` (measured: ${scope.taken.join(', ')}${blocked})`;
+}
+
 export class QualityRatchetGate implements Gate {
   readonly gate = 'quality-ratchet' as const;
 
@@ -34,20 +64,16 @@ export class QualityRatchetGate implements Gate {
     const result = context.quality_ratchet_result;
 
     if (!result) {
-      return createPass(this.gate, 'Quality ratchet did not run; no signal to evaluate.');
-    }
-
-    if (result.status === 'skipped') {
-      return createPass(
+      return createDidNotRun(
         this.gate,
-        `Quality ratchet skipped (${result.skipped_reason ?? 'no measures to evaluate'}).`,
+        'Quality ratchet did not run, so no quality measure was compared.',
       );
     }
 
-    if (result.status === 'captured') {
-      return createPass(
+    if (result.status === 'skipped') {
+      return createDidNotRun(
         this.gate,
-        `Quality baseline captured at today's level (${result.verdicts.length} measure(s)); nothing to compare yet.`,
+        `Quality ratchet did not run (${result.skipped_reason ?? 'no measures to evaluate'}).`,
       );
     }
 
@@ -63,6 +89,23 @@ export class QualityRatchetGate implements Gate {
       );
     }
 
+    const scope = ratchetMeasureScope(result);
+    if (scope.taken.length === 0) {
+      const blocked = scope.blocked.length > 0 ? ` (blocked: ${scope.blocked.join(', ')})` : '';
+      return createDidNotRun(
+        this.gate,
+        `Quality ratchet did not run: no quality measure could be taken${blocked}.`,
+        'Wire the tool each blocked measure reads (for example a tsconfig for strictness) so the ratchet can compare it.',
+      );
+    }
+
+    if (result.status === 'captured') {
+      return createPass(
+        this.gate,
+        `Quality baseline captured at today's level${scopeNote(result, scope)}; nothing to compare yet.`,
+      );
+    }
+
     const tightened =
       result.tightened.length > 0 ? `; ${result.tightened.length} measure(s) tightened` : '';
     const excepted =
@@ -71,7 +114,7 @@ export class QualityRatchetGate implements Gate {
         : '';
     return createPass(
       this.gate,
-      `Every quality measure held equal or better${tightened}${excepted}.`,
+      `Every quality measure held equal or better${scopeNote(result, scope)}${tightened}${excepted}.`,
     );
   }
 }

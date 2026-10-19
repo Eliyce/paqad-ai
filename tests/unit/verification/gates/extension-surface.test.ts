@@ -24,22 +24,24 @@ describe('ExtensionSurfaceGate', () => {
     writeFileSync(join(root, 'docs', 'extension-surface.md'), '# Surface\n');
   }
 
-  it('is inert (passes) when the surface document is absent', async () => {
+  it('AC-11: reads not required (never a pass) when the surface document is absent', async () => {
     const result = await new ExtensionSurfaceGate().check(
       createVerificationContext({ project_root: root, changed_files: ['src/index.ts'] }),
     );
     expect(result.passed).toBe(true);
     expect(result.inconclusive).toBeUndefined();
-    expect(result.detail).toContain('not present');
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toContain('no extension surface document');
   });
 
-  it('passes when no public barrel changed', async () => {
+  it('AC-11: reads not required when no public barrel changed', async () => {
     writeSurfaceDoc();
     const result = await new ExtensionSurfaceGate().check(
       createVerificationContext({ project_root: root, changed_files: ['src/foo.ts'] }),
     );
     expect(result.passed).toBe(true);
-    expect(result.detail).toContain('No public export barrel');
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toContain('no public export barrel changed');
   });
 
   it('fails when a public barrel changed without amending the document', async () => {

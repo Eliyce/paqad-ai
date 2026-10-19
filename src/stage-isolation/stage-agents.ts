@@ -66,6 +66,145 @@ export const MANDATORY_STAGE_AGENTS: readonly StageAgentDef[] = STAGE_AGENT_STAG
 );
 
 /**
+ * The extra `paqad:` namespace a Claude Code *plugin* agent carries before its name
+ * (`paqad:paqad-development`, issue #616, Part 3).
+ */
+export const PLUGIN_AGENT_NAMESPACE = 'paqad:';
+
+/** An agent type without the plugin's `paqad:` namespace, so plugin and npm agents read alike. */
+export function stripPluginAgentNamespace(agentType: string): string {
+  return agentType.startsWith(PLUGIN_AGENT_NAMESPACE)
+    ? agentType.slice(PLUGIN_AGENT_NAMESPACE.length)
+    : agentType;
+}
+
+const STAGE_BY_AGENT_NAME: ReadonlyMap<string, string> = new Map(
+  MANDATORY_STAGE_AGENTS.map((def) => [def.agentName, def.ledgerStage]),
+);
+
+/**
+ * The ledger stage a `paqad-<stage>` agent name runs, or null for any other name (issue #639,
+ * Part 13). Only the six stage agents are stages: a High Table seat (`paqad-expert`,
+ * `paqad-chief-architect`) or any other `paqad-` name is not, so it can never add a
+ * `stage-agent` row or count as an isolated stage.
+ */
+export function stageForAgentName(agentName: string): string | null {
+  return STAGE_BY_AGENT_NAME.get(agentName.trim()) ?? null;
+}
+
+// ── The High Table seats (issue #639, Part 13) ─────────────────────────────────────────
+
+/** The host agent that sits one expert seat at the High Table. Its role comes in the prompt. */
+export const EXPERT_AGENT_NAME = 'paqad-expert';
+/** The host agent that chairs the High Table. */
+export const CHIEF_ARCHITECT_AGENT_NAME = 'paqad-chief-architect';
+
+/** One High Table agent's identity: the same fields a stage agent renders from. */
+export interface HighTableAgentDef {
+  agentName: string;
+  claudeTools: string;
+  description: string;
+}
+
+/**
+ * The two High Table agents. Neither edits source: an expert reads its brief and writes one note,
+ * the chief reads the notes and writes the synthesis, each through a `paqad-ai` verb. They write
+ * their artifact with the shell under `.paqad/tmp/`, so they get no Edit or Write tool.
+ */
+export const HIGH_TABLE_AGENTS: readonly HighTableAgentDef[] = [
+  {
+    agentName: EXPERT_AGENT_NAME,
+    claudeTools: READ_ONLY_TOOLS,
+    description:
+      'paqad High Table seat: one expert writes one note for its role. Dispatched by the paqad orchestrator only.',
+  },
+  {
+    agentName: CHIEF_ARCHITECT_AGENT_NAME,
+    claudeTools: READ_ONLY_TOOLS,
+    description:
+      'paqad High Table chair: the chief architect rules on the expert notes. Dispatched by the paqad orchestrator only.',
+  },
+];
+
+/** True when an agent type (with or without the plugin namespace) is a High Table seat. */
+export function isHighTableAgent(agentType: string | null | undefined): boolean {
+  if (typeof agentType !== 'string') return false;
+  const name = stripPluginAgentNamespace(agentType.trim());
+  return name === EXPERT_AGENT_NAME || name === CHIEF_ARCHITECT_AGENT_NAME;
+}
+
+const SEAT_RULES = [
+  '## Hard rules',
+  '',
+  '- **Never edit source, docs or config.** You write one artifact under `.paqad/tmp/high-table/`',
+  '  with the shell (a heredoc) and hand it to the verb. You have no Edit or Write tool.',
+  '- **Never write into a feature bundle directory.** Only the verb writes there.',
+  '- **Never ask the human.** A question only a person can answer goes into your artifact in the',
+  '  skill format; the orchestrator asks it in the question round.',
+  '- You do not load the paqad router or the rules. Your brief carries what a seat needs.',
+  '- **Export `SE_SESSION`** from the value the orchestrator gave you for every `paqad-ai` command,',
+  '  so every row you write lands under the one change.',
+];
+
+/** The cold-brief body of the expert seat agent (issue #639, Part 13). */
+export function buildExpertAgentBody(): string {
+  return [
+    'You are one seat at the paqad **High Table**: a single expert writing request-time notes for',
+    'one feature-development change. The orchestrator tells you your role (for example',
+    '`security-auditor`), the change ref and `SE_SESSION`. Other experts run beside you in their',
+    'own subagents, so you cover your role only.',
+    '',
+    '## Run your seat',
+    '',
+    '1. Print your brief first: `paqad-ai spec pipeline experts brief <role>`. This also records',
+    '   that your seat started writing.',
+    '2. Follow the `expert-notes` skill for your role. Use your host skill when it is installed,',
+    '   otherwise read `runtime/base/skills/expert-notes/SKILL.md` in the paqad install directory',
+    '   that `.paqad/framework-path.txt` names, and your lens under its `references/lenses/`.',
+    '3. Write ONE note for your role only, in the skill format, with one entry in `notes` (your',
+    '   role, its `findings` and `questions`) and your spent tokens under `tokens.<role>`.',
+    '   Save it as `.paqad/tmp/high-table/<role>-notes.json`.',
+    '4. Record it: `paqad-ai spec pipeline experts notes .paqad/tmp/high-table/<role>-notes.json`.',
+    '   A refusal names what to fix; fix the artifact and run the verb again.',
+    '5. Return one line: your role, the number of findings and questions, and the tokens you spent.',
+    '',
+    ...SEAT_RULES,
+  ].join('\n');
+}
+
+/** The cold-brief body of the chief architect agent (issue #639, Part 13). */
+export function buildChiefArchitectAgentBody(): string {
+  return [
+    'You are the **chief architect** who chairs the paqad **High Table** for one',
+    'feature-development change. Every seated expert has recorded its note. The orchestrator gives',
+    'you the change ref and `SE_SESSION`.',
+    '',
+    '## Rule on the notes',
+    '',
+    '1. Read the table first: `paqad-ai spec pipeline experts context`. It prints the request, the',
+    '   grounding, every note, the voice warnings and the merge, and records that you started.',
+    '2. Follow the `expert-synthesis` skill. Use your host skill when it is installed, otherwise',
+    '   read `runtime/base/skills/expert-synthesis/SKILL.md` in the paqad install directory that',
+    '   `.paqad/framework-path.txt` names.',
+    '3. Write the synthesis in the skill format and save it as',
+    '   `.paqad/tmp/high-table/synthesis.json`.',
+    '4. Record it: `paqad-ai spec pipeline experts synthesis .paqad/tmp/high-table/synthesis.json`.',
+    '   Each conflict becomes a decision packet the orchestrator asks the owner about. A refusal',
+    '   names what to fix; fix the artifact and run the verb again.',
+    '5. Return one line: your verdict and the counts of accepted, declined, conflicts and gaps.',
+    '',
+    ...SEAT_RULES,
+  ].join('\n');
+}
+
+/** The body a High Table agent carries, by its definition. */
+export function buildHighTableAgentBody(def: HighTableAgentDef): string {
+  return def.agentName === CHIEF_ARCHITECT_AGENT_NAME
+    ? buildChiefArchitectAgentBody()
+    : buildExpertAgentBody();
+}
+
+/**
  * The cold-brief body every stage agent carries, identical across hosts (issue #567). It is
  * the whole contract a fresh subagent needs: load the framework, learn which stage and change
  * it is running, read the stage's own instructions, run the stage CLI verbs under the

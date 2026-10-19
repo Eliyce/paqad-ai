@@ -28,6 +28,18 @@ import {
   writeHudSnapshotSafe,
 } from '@/hud/snapshot.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
+import {
+  writeExpertNotes,
+  writeExpertRoster,
+  writeExpertSynthesis,
+} from '@/spec-pipeline/run-store.js';
+import {
+  appendHighTableRow,
+  CHIEF_ROLE,
+  recordDoneRow,
+  recordSeatedRows,
+  recordWritingRow,
+} from '@/spec-pipeline/high-table.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
@@ -202,12 +214,24 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
       'user-flow-writer',
       'qa-engineer',
     ]);
+    // A roster recorded before the High Table ledger: the seat reads done on its reported tokens,
+    // labelled an estimate, with no exact tokens and no times (issue #639, Part 13).
     expect(snapshot.table?.seats[0]).toEqual({
       role: 'product-owner',
       reason: 'product-owner reason',
       origin: 'standing',
+      state: 'done',
+      seated_at: null,
+      started_at: null,
+      done_at: null,
       budget_tokens: 5000,
-      tokens_used: 1200,
+      clamped: null,
+      tokens_estimate: 1200,
+      tokens: null,
+      tokens_exact: false,
+      findings: null,
+      late: false,
+      track_record: null,
     });
     expect(snapshot.questions).toEqual({ asked: 2, answered: 1, auto_answered: 1, deferred: 0 });
     expect(snapshot.decisions.pending).toEqual([
@@ -324,7 +348,16 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
 
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
 
-    expect(snapshot.table).toEqual({ seats: [], skipped: true });
+    expect(snapshot.table).toEqual({
+      skipped: true,
+      met_after_freeze: false,
+      seats: [],
+      chief: null,
+      rulings: null,
+      gaps: [],
+      questions: null,
+      credits: [],
+    });
     expect(snapshot.flags.map((flag) => flag.id)).toContain('high-table-skipped');
   });
 
@@ -687,5 +720,343 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
     ]) {
       expect(isHudRefreshVerb(verb)).toBe(false);
     }
+  });
+});
+
+describe('the live High Table on the snapshot (#639 Part 13)', () => {
+  const at = (iso: string) => () => new Date(iso);
+  const SEAT_TOKENS = {
+    input: 5,
+    output: 430,
+    cache_read: 16000,
+    cache_write: 7600,
+    cache_write_5m: 7600,
+    cache_write_1h: 0,
+    total: 24035,
+  };
+
+  /** Seat two experts and the chief, then move them through the ledger at fixed times. */
+  function recordTable(root: string, S: string, dir: string, lateRole?: string): void {
+    const opts = (iso: string) => ({ sessionId: S, now: at(iso) });
+    recordSeatedRows(
+      root,
+      dir,
+      [
+        {
+          role: 'qa-engineer',
+          reason: 'tests',
+          origin: 'standing',
+          budget_tokens: 4000,
+          clamped: true,
+        },
+        {
+          role: 'security-auditor',
+          reason: 'exports pii',
+          origin: 'on-call',
+          budget_tokens: 6000,
+          clamped: false,
+        },
+      ],
+      opts('2026-10-18T08:00:00.000Z'),
+    );
+    recordWritingRow(root, dir, 'qa-engineer', opts('2026-10-18T08:01:00.000Z'));
+    recordWritingRow(root, dir, 'security-auditor', opts('2026-10-18T08:01:05.000Z'));
+    recordDoneRow(
+      root,
+      dir,
+      { role: 'qa-engineer', findings: 2, tokens_estimate: 900 },
+      opts('2026-10-18T08:03:00.000Z'),
+    );
+    recordDoneRow(
+      root,
+      dir,
+      { role: 'security-auditor', findings: 1, tokens_estimate: 1100 },
+      opts(
+        lateRole === 'security-auditor' ? '2026-10-18T08:30:00.000Z' : '2026-10-18T08:04:00.000Z',
+      ),
+    );
+    appendHighTableRow(
+      root,
+      dir,
+      {
+        event: 'usage',
+        role: 'qa-engineer',
+        agent_id: 'a1',
+        tokens: SEAT_TOKENS,
+        tokens_label: 'exact',
+      },
+      opts('2026-10-18T08:03:01.000Z'),
+    );
+  }
+
+  it('folds seats, the chief, rulings, gaps, questions and spec-line credits from the records', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-live';
+    const dir = openChange(root, S, 'full', 'ORD-501 csv export');
+    recordTable(root, S, dir);
+    recordWritingRow(root, dir, CHIEF_ROLE, { sessionId: S, now: at('2026-10-18T08:05:00.000Z') });
+    recordDoneRow(
+      root,
+      dir,
+      { role: CHIEF_ROLE, findings: null, tokens_estimate: 3000 },
+      { sessionId: S, now: at('2026-10-18T08:07:00.000Z') },
+    );
+    writeBundleJson(root, dir, 'experts', {
+      roster: [
+        {
+          role: 'qa-engineer',
+          reason: 'tests',
+          origin: 'standing',
+          budget_tokens: 4000,
+          tokens_used: 900,
+        },
+        {
+          role: 'security-auditor',
+          reason: 'exports pii',
+          origin: 'on-call',
+          budget_tokens: 6000,
+          tokens_used: 1100,
+        },
+      ],
+      findings: [
+        { id: 'EX-qa-engineer-1', role: 'qa-engineer', target: 'export', claim: 'test empty' },
+        { id: 'EX-qa-engineer-2', role: 'qa-engineer', target: 'export', claim: 'test large' },
+        {
+          id: 'EX-security-auditor-1',
+          role: 'security-auditor',
+          target: 'email',
+          claim: 'mask it',
+        },
+      ],
+      synthesis: {
+        verdict: 'proceed',
+        accepted: ['EX-qa-engineer-1', 'EX-security-auditor-1'],
+        declined: [{ id: 'EX-qa-engineer-2', reason: 'out of scope' }],
+        conflicts: [
+          { target: 'Customer email in the export', recommendation: 'mask', rationale: 'pii' },
+        ],
+        renames: [{ id: 'EX-qa-engineer-1', target: 'CSV export' }],
+        gaps: [
+          {
+            area: 'retention',
+            why_it_matters: 'files linger',
+            question: { business_text: 'How long do exports stay?' },
+          },
+        ],
+        tokens: 3000,
+      },
+    });
+    writeBundleJson(root, dir, 'clarification', {
+      questions: {
+        asked: [{}],
+        auto_answered: [{ question: 'Which format?', answer: 'CSV', source: 'D-01J1' }],
+        counts: { asked: 1, answered: 1, auto_answered: 1, deferred: 0 },
+      },
+    });
+    writeBundleJson(root, dir, 'specification', {
+      frozen: { frozen_at: '2026-10-18T08:10:00.000Z' },
+      pipeline: { produced: true },
+      trace: {
+        'FR-1': 'EX-qa-engineer-1',
+        'FR-2': 'EX-security-auditor-1, EX-qa-engineer-2',
+        'FR-3': 'task.steps.s2',
+      },
+    });
+
+    const table = buildHudSnapshot(root, S, { now: NOW }).table!;
+
+    expect(table.skipped).toBe(false);
+    expect(table.met_after_freeze).toBe(false);
+    expect(table.seats.map((seat) => seat.role)).toEqual(['qa-engineer', 'security-auditor']);
+    expect(table.seats[0]).toEqual({
+      role: 'qa-engineer',
+      reason: 'tests',
+      origin: 'standing',
+      state: 'done',
+      seated_at: '2026-10-18T08:00:00.000Z',
+      started_at: '2026-10-18T08:01:00.000Z',
+      done_at: '2026-10-18T08:03:00.000Z',
+      budget_tokens: 4000,
+      clamped: true,
+      tokens_estimate: 900,
+      tokens: { input: 5, output: 430, cache_read: 16000, cache_write: 7600, total: 24035 },
+      tokens_exact: true,
+      findings: 2,
+      late: false,
+      track_record: null,
+    });
+    expect(table.seats[1]).toMatchObject({
+      tokens: null,
+      tokens_exact: false,
+      tokens_estimate: 1100,
+    });
+    expect(table.chief).toMatchObject({
+      role: CHIEF_ROLE,
+      state: 'done',
+      budget_tokens: 10000,
+      started_at: '2026-10-18T08:05:00.000Z',
+      done_at: '2026-10-18T08:07:00.000Z',
+      tokens_estimate: 3000,
+      verdict: 'proceed',
+    });
+    expect(table.rulings).toEqual({
+      accepted: ['EX-qa-engineer-1', 'EX-security-auditor-1'],
+      declined: [{ id: 'EX-qa-engineer-2', reason: 'out of scope' }],
+      conflicts: [
+        { target: 'Customer email in the export', recommendation: 'mask', rationale: 'pii' },
+      ],
+      renames: [{ id: 'EX-qa-engineer-1', target: 'CSV export' }],
+      settled: [],
+    });
+    expect(table.gaps).toEqual([
+      { area: 'retention', why_it_matters: 'files linger', question: 'How long do exports stay?' },
+    ]);
+    expect(table.questions).toEqual({
+      asked: 1,
+      auto_answered: [{ question: 'Which format?', source: 'D-01J1' }],
+    });
+    expect(table.credits).toEqual([
+      { line: 'FR-1', roles: ['qa-engineer'] },
+      { line: 'FR-2', roles: ['security-auditor', 'qa-engineer'] },
+    ]);
+  });
+
+  it('AC-44: a done row after the freeze flags the table late, marks that seat, and credits no spec line', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-late';
+    const dir = openChange(root, S, 'full', 'ORD-501 late table');
+    recordTable(root, S, dir, 'security-auditor');
+    writeBundleJson(root, dir, 'specification', {
+      frozen: { frozen_at: '2026-10-18T08:10:00.000Z' },
+      pipeline: { produced: true },
+      trace: { 'FR-1': 'EX-security-auditor-1' },
+    });
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.table?.met_after_freeze).toBe(true);
+    expect(snapshot.table?.seats.find((seat) => seat.role === 'security-auditor')?.late).toBe(true);
+    expect(snapshot.table?.seats.find((seat) => seat.role === 'qa-engineer')?.late).toBe(false);
+    expect(snapshot.table?.credits).toEqual([]);
+    expect(snapshot.flags.map((flag) => flag.id)).toContain('high-table-late');
+  });
+
+  it('a table that met before the freeze raises no late flag, and a spec not frozen yet is never late', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-ontime';
+    const dir = openChange(root, S, 'full', 'ORD-501 on time');
+    recordTable(root, S, dir);
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.table?.met_after_freeze).toBe(false);
+    expect(snapshot.table?.chief).toMatchObject({ state: 'seated', verdict: null });
+    expect(snapshot.table?.rulings).toBeNull();
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('high-table-late');
+  });
+
+  /** A finished spec pipeline run in a bundle of its own, as an earlier change leaves it. */
+  function priorRun(
+    root: string,
+    dir: string,
+    notes: Array<{ role: string; findings: number; tokens: number }>,
+    credited: string[],
+  ): void {
+    writeExpertRoster(
+      root,
+      dir,
+      notes.map((note) => ({
+        role: note.role as never,
+        reason: 'r',
+        lens: 'lens',
+        budget_tokens: 4000,
+        grounding_truncated: false,
+        brief_hash: 'h',
+        tokens_used: null,
+        origin: 'standing',
+      })),
+    );
+    writeExpertNotes(root, dir, {
+      notes: notes.map((note) => ({
+        role: note.role as never,
+        findings: Array.from({ length: note.findings }, (_, i) => ({
+          id: `EX-${note.role}-${i + 1}`,
+          target: 't',
+          claim: 'c',
+        })),
+      })),
+      tokens: Object.fromEntries(notes.map((note) => [note.role, note.tokens])),
+    });
+    writeExpertSynthesis(root, dir, {
+      verdict: 'ready',
+      accepted: [],
+      declined: [],
+      conflicts: [],
+      gaps: [],
+      questions: [],
+      tokens: 700,
+    });
+    writeBundleJson(root, dir, 'specification', {
+      pipeline: { produced: true, outcome: 'freeze' },
+      trace: Object.fromEntries(credited.map((id, i) => [`FR-${i + 1}`, id])),
+    });
+  }
+
+  it('Part 14: each seat carries its track record from the OTHER bundles, null with no history', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-record';
+    const dir = openChange(root, S, 'full', 'ORD-501 csv export');
+    writeBundleJson(root, dir, 'experts', seats(['qa-engineer', 'db-expert', 'security-auditor']));
+    priorRun(
+      root,
+      '470-contacts-01JABCDEFGHJKMNPQRSTVWXYZ1',
+      [
+        { role: 'qa-engineer', findings: 0, tokens: 1000 },
+        { role: 'db-expert', findings: 1, tokens: 3000 },
+      ],
+      ['EX-db-expert-1'],
+    );
+    priorRun(
+      root,
+      '480-invoices-01JABCDEFGHJKMNPQRSTVWXYZ2',
+      [{ role: 'qa-engineer', findings: 2, tokens: 2000 }],
+      ['EX-qa-engineer-1'],
+    );
+
+    const table = buildHudSnapshot(root, S, { now: NOW }).table!;
+    const record = (role: string) => table.seats.find((seat) => seat.role === role)?.track_record;
+    expect(record('qa-engineer')).toEqual({
+      changes: 2,
+      changed_spec: 1,
+      empty: 1,
+      avg_tokens: 1500,
+    });
+    expect(record('db-expert')).toEqual({
+      changes: 1,
+      changed_spec: 1,
+      empty: 0,
+      avg_tokens: 3000,
+    });
+    // A role with no earlier change, and the chief, have no record.
+    expect(record('security-auditor')).toBeNull();
+    expect(table.chief).toBeNull();
+  });
+
+  it('Part 14: the active change never counts toward its own track record', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-record-self';
+    const dir = openChange(root, S, 'full', 'ORD-501 csv export');
+    priorRun(root, dir, [{ role: 'qa-engineer', findings: 1, tokens: 900 }], ['EX-qa-engineer-1']);
+    const table = buildHudSnapshot(root, S, { now: NOW }).table!;
+    expect(table.seats[0]).toMatchObject({ role: 'qa-engineer', track_record: null });
+  });
+
+  it('the fast lane has no High Table even when rows exist (decision 12)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-table-fast';
+    const dir = openChange(root, S, 'fast', 'ORD-490 typo');
+    recordTable(root, S, dir);
+
+    expect(buildHudSnapshot(root, S, { now: NOW }).table).toBeNull();
   });
 });

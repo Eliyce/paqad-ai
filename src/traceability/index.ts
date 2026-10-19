@@ -6,8 +6,19 @@
 export { solveReachability } from './reachability.js';
 export type { ReachabilityInput, ReachabilityResult } from './reachability.js';
 export { buildTraceabilityMap } from './map-builder.js';
-export { gatherTraceabilityInputs } from './inputs.js';
+export { gatherTraceabilityInputs, readObligationPromises } from './inputs.js';
 export type { GatherOptions } from './inputs.js';
+export {
+  buildAndWriteChangeTraceabilityMap,
+  buildChangeTraceabilityMap,
+  extractTitlesAndTags,
+  namesCriterion,
+} from './change-map.js';
+export type {
+  BuildChangeTraceabilityMapOptions,
+  ChangeTraceabilityBuild,
+  ChangeTraceabilityResult,
+} from './change-map.js';
 export { readTraceabilityMap, writeTraceabilityMap, traceabilityMapPath } from './writer.js';
 
 export type {

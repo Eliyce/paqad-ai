@@ -7,7 +7,7 @@
 // ledger and receipt grade across; flattening A and B is exactly the theater the
 // receipt exists to prevent.
 
-import type { GateResult, VerificationGate } from '@/core/types/verification.js';
+import type { GateResult, GateSkipKind, VerificationGate } from '@/core/types/verification.js';
 import type { EvidenceStrengthClass, EvidenceVerdict } from '@/core/types/evidence-ledger.js';
 
 /**
@@ -44,6 +44,8 @@ export const GATE_STRENGTH_TIER: Record<VerificationGate, 'deterministic' | 'llm
 export interface GradedGateResult {
   verdict: EvidenceVerdict;
   strength_class: EvidenceStrengthClass;
+  /** Issue #639, Part 10 — set with verdict `skipped` when the gate measured nothing. */
+  skip_kind?: GateSkipKind;
 }
 
 /**
@@ -54,6 +56,12 @@ export interface GradedGateResult {
  * deterministic gate is still deterministic evidence.
  */
 export function gradeGateResult(result: GateResult): GradedGateResult {
+  // Issue #639, Part 10 — a gate that measured nothing (not required, or did not run) keeps
+  // `passed: true` for the runner but is never graded a pass: it is skipped, graded like every
+  // other skipped gate row (see EVIDENCE_GATE_GRADES in fan-in.ts), and never cited.
+  if (result.outcome) {
+    return { verdict: 'skipped', strength_class: 'deterministic', skip_kind: result.outcome };
+  }
   if (result.inconclusive) {
     return { verdict: 'inconclusive', strength_class: 'blocked' };
   }

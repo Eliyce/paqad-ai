@@ -1,4 +1,8 @@
 import { resolveComplianceCitations } from '@/evidence/compliance/citations.js';
+import { gateResultsToRows } from '@/evidence/fan-in.js';
+import { MutationTestingGate } from '@/verification/gates/mutation-testing.js';
+
+import { createVerificationContext } from '../verification/shared.fixture.js';
 import {
   EVIDENCE_LEDGER_SCHEMA_VERSION,
   type EvidenceLedgerRow,
@@ -78,6 +82,36 @@ describe('resolveComplianceCitations', () => {
       gateRow('mutation-testing', 'skipped'),
     ];
     expect(resolveComplianceCitations({ projectRoot: '/x', rows, packs: [ART15] })).toHaveLength(0);
+  });
+
+  it('AC-8: never cites a mutation gate that did not run or was not required', async () => {
+    const mutation = new MutationTestingGate();
+    const behavioural = gateRow('behavioral-correctness', 'pass');
+    const ctx = createVerificationContext();
+    const off = await mutation.check(ctx);
+    const noTool = await mutation.check({
+      ...ctx,
+      mutation_result: {
+        tool: null,
+        language: 'typescript',
+        confidence: 'mature',
+        scoped_files: [],
+        total_mutants: 0,
+        killed: 0,
+        survived: 0,
+        equivalent_set_aside: 0,
+        kill_rate: null,
+        surviving_mutants: [],
+        tree_clean: true,
+        status: 'skipped',
+        skipped_reason: 'tool-not-configured',
+      },
+    });
+    for (const result of [off, noTool]) {
+      const rows = [behavioural, ...gateResultsToRows([result], { subjectDigest: 'abc', ts: 't' })];
+      expect(rows[1]?.verdict).toBe('skipped');
+      expect(resolveComplianceCitations({ projectRoot: '/x', rows, packs: [ART15] })).toEqual([]);
+    }
   });
 
   it('does not cite a failed gate', () => {

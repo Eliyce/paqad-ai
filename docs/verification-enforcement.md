@@ -234,11 +234,27 @@ which is exactly the gap the incident surfaced.
 
 The backstop runs only the gates it can evaluate from artifacts:
 
-- **Computed (C-2):** `ac-test-mapping` from the traceability map,
+- **Computed (C-2):** `ac-test-mapping` from the change's acceptance-criteria
+  map, which the backstop builds itself from the frozen spec's automated criteria
+  and the test files changed on the branch (issue #639, Part 11). With no frozen
+  spec it reads not required, with no map it reads did not run, and it fails
+  naming every automated criterion that no changed test names in a title, a
+  describe title or an `@obligation` tag. See the
+  [traceability engine](modules/traceability-engine/index/summary.md).
   `implementation-review` from unresolved decision packets, `spec-review` from
   spec-review reports. `change-completeness` adds scope-drift (C-4) against the
-  derived spec boundary. `quality-ratchet`, `documentation-freshness`,
-  `mutation-testing`, and the doc-structure gates compute genuine results.
+  derived spec boundary. `quality-ratchet`, `documentation-freshness`
+  and the doc-structure gates compute genuine results when there is something to
+  check; otherwise they read not required or did not run, never a pass (issue
+  #639, Part 10).
+- **Mutation testing is opt-in (issue #293):** `mutation-testing` measures
+  something only when the project sets `mutation_mode` to `warn` or `strict` and
+  calls `runtime/scripts/verify-backstop.mjs` from its own CI or pre-push hook
+  (the `ci-backstop` and `git-backstop` origins). The project's test command runs
+  first, then the mutation tool the project supplies for its stack. It never runs
+  on the `hook-completion` origin, so the end of an agent turn stays fast and
+  reads not required. With the mode off (the default) it reads not required on
+  every origin. See [mutation testing](modules/verification/mutation-testing.md).
 - **Skipped (reported as `skipped`, never passed vacuously):** the pure
   model-judgment gates `requirement-completeness`, `story-quality`,
   `architecture-compliance`, `behavioral-correctness`, `database-quality`, and

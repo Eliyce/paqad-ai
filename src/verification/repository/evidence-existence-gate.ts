@@ -219,6 +219,14 @@ function decide(state: {
   };
 }
 
+/** Issue #639, Part 10 — every skip here is a change with nothing for this gate to check. */
 function skipped(detail: string): VerificationEvidenceGate {
-  return { name: GATE_NAME, status: 'skipped', detail, remediation: null, failures: [] };
+  return {
+    name: GATE_NAME,
+    status: 'skipped',
+    detail,
+    remediation: null,
+    failures: [],
+    skip_kind: 'not-required',
+  };
 }

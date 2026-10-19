@@ -84,6 +84,8 @@ change, so the live feature-development stage spine is untouched:
 | `request.md` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline start` |
 | `clarification.json` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline` (label + questions) |
 | `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` (both on by default), graduated or full lane | `paqad-ai spec pipeline experts` |
+| `high-table.jsonl` | checked-when-present (issue #639, Part 13) | `paqad-ai spec pipeline experts` (record, brief, context, notes, synthesis) + SubagentStop hook |
+| `cost.json` | checked-when-present (issue #639, Part 23) | Stop and SubagentStop hooks (record-only) |
 | `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
@@ -370,13 +372,22 @@ onto this base.
 `src/hud/` is the data layer of the paqad HUD, the Claude Code mod that keeps the change on
 screen. It writes one file per session, `.paqad/session/hud/<session>.json` (schema
 `paqad.hud/2`), built only from records paqad already keeps: the routed workflow and its saved
-reason, this bundle's `feature.json`, folded stages, `experts.json`, `clarification.json`,
+reason, this bundle's `feature.json`, folded stages, `experts.json`, `high-table.jsonl`, `clarification.json`,
 `specification.json`, `evidence.jsonl` (with `GATE_STRENGTH_TIER`), `rules-loaded.json`,
-`rule-run.jsonl`, `duplication.jsonl`, `delivery.json`, the decision folders, the bundle manifest (with the shared
+`rule-run.jsonl`, `duplication.jsonl`, `delivery.json`, `cost.json`, the decision folders, the bundle manifest (with the shared
 `buildBundleCompletenessConfig`) and the in-session receipt. A field whose source does not
-exist yet (live High Table seats, claims, the last rule stop, push/PR/CI, cost) is `null` or
+exist yet (claims, the last rule stop, push/PR/CI, a cost no hook has written) is `null` or
 empty, never guessed. The headline and the flags are decided in one place
 (`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+
+The `table` field (issue #639, Parts 13 and 14, `src/hud/high-table-view.ts`) is the live High
+Table: each seat with its state (`seated`, `writing`, `done`), its times, granted budget, findings,
+the exact tokens from its own subagent transcript (or its self-reported estimate, marked as such),
+its track record on the project's earlier changes, then the chief's seat, verdict and rulings, the
+gaps, the questions asked and auto-answered, and which spec lines each role shaped. It is `null`
+on the fast lane and when no table sat. A spec frozen by hand while the pipeline was on reads
+`skipped: true` and raises a flag; a table whose work landed after the freeze reads
+`met_after_freeze: true`, raises a flag and is credited with no spec line.
 
 The `findings` field (issue #639, Part 12) comes from the change's latest `rule-run.jsonl`
 findings row and latest `duplication.jsonl` row: for each scan its status (`open`, `clean` or
@@ -408,11 +419,28 @@ blocked or broken changes no hook's decision. It reads only `.paqad/`, calls no 
 network, and starts no process.
 
 - **What the band shows.** A state word with its colour, the headline, a flag pill when flags
-  are open, and two instruments. *Stage* walks Intake, Planning, Spec, Build, Review, Checks,
+  are open, and two instruments (three when the High Table sits). *Stage* walks Intake, Planning, Spec, Build, Review, Checks,
   Docs and Deliver, with a live clock on the running stage. *Ship* walks Edit, Commit, Push, PR,
   CI and Merge, and Merge reads "stays yours" until a merge is recorded. A stage reads done only
   when the receipt would say done: an unbacked `checks` stage is marked, not done. A field with
-  no record reads "not yet". Cost reads "not yet" until paqad counts it.
+  no record reads "not yet". The cost pill reads "not yet" until a hook writes the cost, then
+  shows the tokens and a dated estimate, and opens the Cost tab when pressed.
+- **The High Table instrument** (issue #639, Part 14, `runtime/claude-plugin/mod/table.ts`).
+  On the graduated and full lanes, with the experts on, a third row sits between Stage and Ship:
+  one dot per seat plus the chief, each state with its own glyph (seated, writing, done) so it
+  reads without colour, and a live count in words while the table sits. Once the chief has ruled
+  only the dots stay, plus a flag pill while the table has an open flag (a late seat, a
+  disagreement still waiting on its decision). A skipped table says so. Pressing the label opens
+  the High Table tab.
+- **The live card.** While the table sits, a card is drawn over the change's first
+  `paqad-ai spec pipeline experts` call in the chat and redrawn in place as seats move: each
+  seat's state and time, tokens and findings, then the chief's ruling in counts.
+- **The paqad pane.** One pane with two tabs, opened by the High Table label or the cost pill.
+  *High Table* shows the round table with the chief in the centre (a picture on Desktop, text in
+  the terminal), a button per seat with its detail and track record on earlier changes, the
+  chief's rulings (accepted, declined, renamed, disagreements and those settled before) and
+  which spec lines each role shaped. *Cost* shows the change cost described below. The pane
+  opens on High Table when the change has one, otherwise on Cost.
 - **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
   Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
   Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
@@ -423,7 +451,7 @@ network, and starts no process.
   while a stage agent runs.
 - **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
   `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
-  session's `<session>.receipt.md`) and `/paqad cost`. Each answer comes from files already on
+  session's `<session>.receipt.md`) and `/paqad cost` (the same text as the Cost tab). Each answer comes from files already on
   disk, so it costs no model turn.
 - **The `view` setting.** The plugin's `userConfig.view` ("Show the paqad HUD", on by default)
   turns the band off. Off, the mod registers nothing at all.
@@ -433,10 +461,50 @@ network, and starts no process.
   stands down it draws no band and reads nothing. In a project never onboarded, `/paqad` alone
   stays, so `/paqad status` can say paqad is not active here.
 
+### The cost of a change (issue #639, Part 23)
+
+paqad counts what a change cost and writes it to the bundle as `cost.json`. Nothing here calls a
+model or the network: the tokens come from the host's own transcripts and the money from a price
+table that ships with paqad.
+
+- **Where the tokens come from.** The main session's transcript (its path comes on every hook
+  payload) and each paqad subagent's own transcript (the SubagentStop payload names it). Each
+  message is counted once, by its message id, even when the host writes it over several lines or
+  copies it into two transcripts.
+- **Which tokens count.** Only those inside the change's window: from its first `open` row in
+  `stage-evidence.jsonl` to its seal (the receipt's verified time, else the close row, else now).
+- **Who spent what.** A stage agent is charged to its stage. A High Table seat is charged to its
+  role (the chief to the chief) and, since the table sits while the spec is written, to the
+  specification stage. Everything else is charged to the stage whose recorded start and end hold
+  the message's time, else to "between stages". A seat with no transcript of its own shows its
+  self-reported estimate, marked as such and kept out of the total.
+- **Money.** Tokens times the published API price, from the dated table in `src/cost/prices.ts`
+  (copied from platform.claude.com on 2026-10-19). Money is always shown with the word estimate
+  and the price date. On a Pro or Max plan it is what the same tokens would cost on the API. A
+  model the table does not list adds its tokens and no money, and is named.
+- **Not counted.** The fast mode premium, the 1.1 times multiplier for US-only inference, batch
+  discounts, tool fees charged on their own, subagents that are not paqad agents, and anything
+  outside the window. The record lists these itself.
+- **When it is written.** At the end of the Stop hook (`verification-completion`) and the
+  SubagentStop hook (`stage-agent-completion`), after each hook's decision is final
+  (`runtime/hooks/lib/cost-refresh.mjs`). It is record-only: a failure is logged to
+  `.paqad/logs/hooks.log` and the hook's exit code and output stay the same. A host that names no
+  transcript gets no file, so the HUD keeps "not yet" instead of a cost of zero.
+- **Kept cheap.** A per-session cache, `.paqad/session/hud/<session>.cost-cache.json`, keeps how
+  far each transcript was read and the usage of each message kept. Each run reads only the bytes
+  added since. A transcript that shrank, or an earlier window, is read again from the start, so
+  the cache never disagrees with a full read.
+- **Where it shows.** The snapshot's `cost` field reads `cost.json` only, and
+  `paqad-ai status --hud` prints it (the JSON form carries the same object). In Claude Code the
+  band's cost pill shows the tokens and a dated estimate; pressing it opens the paqad pane on its
+  Cost tab, which shows the total, the split by stage, by expert and the chief, the basis in plain
+  words and what is not counted. `/paqad cost` prints the same text.
+
 ## Source Footprint
 
 - `src/feature-evidence`
 - `src/hud`
+- `src/cost`
 
 ## Authority
 

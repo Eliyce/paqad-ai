@@ -12,17 +12,19 @@ import {
   collectUnresolvedDocTargets,
   formatCanonicalDocTarget,
 } from './documentation-checks.js';
-import { createFail, createPass } from './shared.js';
+import { createFail, createNotRequired, createPass } from './shared.js';
 
 export class ChangeCompletenessGate implements Gate {
   readonly gate = 'change-completeness' as const;
 
   async check(context: Parameters<Gate['check']>[0]) {
     const blockerReasons = await collectBlockerReasons(context);
+    // Issue #639, Part 10 — no code diff and no blockers leaves nothing to complete: not
+    // required, never a pass.
     if (!context.code_changed && blockerReasons.length === 0) {
-      return createPass(
+      return createNotRequired(
         this.gate,
-        'Change completeness: complete. No code diff detected, so no implementation delta remains open.',
+        'Not required: no code changed, so no implementation work was left to complete.',
       );
     }
 

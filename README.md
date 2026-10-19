@@ -245,7 +245,7 @@ Any agent will happily tell you it finished. paqad-ai checks reality instead, us
 - **Gates that block bad changes.** Lint, types, tests, build, and rule checks run in order. Any failure stops the change and records what broke, where, and why.
 - **Traceability both ways.** Every promise in the spec maps to the code and test that satisfy it, flagging untested promises and leftover code that nothing asked for.
 - **Reproduce before you fix.** A bug has to be reproduced, fixed, proven fixed, and proven to break nothing else.
-- **Mutation testing on changed code,** because a test that cannot catch a mistake is not really a test.
+- **Mutation testing on changed code, if you turn it on,** because a test that cannot catch a mistake is not really a test. It is off by default. Set `mutation_mode` to `warn` or `strict` and call paqad's backstop from your own CI or pre-push hook: your test command runs first, then the mutation tool you install for your stack, and under `strict` a surviving mutant fails that step. No agent host runs it at the end of a turn: on Claude Code and Codex the end-of-turn check reads it as not required, Gemini records the turn without a mutation verdict in chat, and on the advisory hosts paqad claims no mutation enforcement.
 - **Flaky tests get quarantined, never deleted.** A suspected-flaky failure is re-run and held aside until it is fixed, so a green check actually means green.
 - **A quality floor that only goes up.** Four measures (tangle, dead code, risky patterns, strictness) are pinned at today's level and can improve but never quietly slip.
 

@@ -376,6 +376,15 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
 
     const checks = verdict.gates.find((gate) => gate.gate === 'code-tests-lint');
     expect(checks?.status).toBe('skipped');
+    // Issue #639, Part 10 — no code changed, so no tests were owed: not required.
+    expect(checks?.skip_kind).toBe('not-required');
+    expect(checks?.detail).toBe('No code changed, so there were no tests to check.');
+    // The gates the end-of-turn check does not re-judge did not run, and say so in one line.
+    expect(verdict.gates.find((gate) => gate.gate === 'story-quality')?.skip_kind).toBe(
+      'did-not-run',
+    );
+    expect(verdict.summary).toContain(': did not run (not checked in this run)');
+    expect(verdict.summary).not.toContain('code tests lint');
   });
 
   it('inconclusiveChecksGate is a non-blocking inconclusive gate naming the remediation', () => {
@@ -516,7 +525,7 @@ describe('runRepositoryVerification (built from repository reality)', () => {
     expect(existsSync(join(root, '.paqad/session/verification-evidence.json'))).toBe(true);
   });
 
-  it('blocks when a frozen acceptance criterion has no proving check', async () => {
+  it('AC-32: a whole-tree map on disk with no frozen spec does not decide the AC gate: it reads not required (#639 Part 11)', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);
     writeTraceabilityMap(root, {
@@ -549,7 +558,10 @@ describe('runRepositoryVerification (built from repository reality)', () => {
 
     const verdict = await runRepositoryVerification({ projectRoot: root, origin: 'ci-backstop' });
 
-    expect(verdict.ok).toBe(false);
-    expect(verdict.summary).toContain('AC-1');
+    // The owner decision (D-01M5AM0EHCSXHFZDFCYW4WB925): the criteria come from the change's
+    // frozen spec. With none, there is nothing to map, whatever map an earlier run left.
+    const acGate = verdict.gates.find((gate) => gate.gate === 'ac-test-mapping');
+    expect(acGate).toMatchObject({ status: 'skipped', skip_kind: 'not-required' });
+    expect(acGate?.detail).toBe('No frozen spec, so no acceptance criteria to map.');
   });
 });

@@ -5,7 +5,7 @@
 // CI backstop, and the desktop event stream all report the same shape.
 
 import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT, paqadFrameLead } from '@/core/constants/paqad-voice.js';
-import type { VerificationGate } from '@/core/types/verification.js';
+import type { GateSkipKind, VerificationGate } from '@/core/types/verification.js';
 import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 import type {
   EvidenceGateStatus,
@@ -19,6 +19,8 @@ export interface RepositoryVerificationGateVerdict {
   remediation: string | null;
   /** Issue #579 — the short skip reason, carried from the evidence gate when present. */
   skip_reason?: string;
+  /** Issue #639, Part 10 — on a skipped gate, not required or did not run. */
+  skip_kind?: GateSkipKind;
 }
 
 export interface RepositoryVerificationVerdict {
@@ -86,6 +88,7 @@ export function buildRepositoryVerificationVerdict(input: {
     detail: gate.detail,
     remediation: gate.remediation,
     ...(gate.skip_reason !== undefined ? { skip_reason: gate.skip_reason } : {}),
+    ...(gate.skip_kind !== undefined ? { skip_kind: gate.skip_kind } : {}),
   }));
 
   const failing = gates.filter((gate) => gate.status === 'fail');
@@ -134,12 +137,14 @@ export function formatVerdictSummary(input: {
   escalations: string[];
   unrecordedMandatoryStages?: string[];
   /**
-   * Issue #579 — gates whose feature flag is on. A skipped gate in this list adds one
-   * "⚪ <gate words>: skipped (<reason>)" line after the status lines and before the
+   * Issue #579 — gates whose feature flag is on. A not-required gate in this list adds one
+   * "⚪ <gate words>: not required (<reason>)" line after the status lines and before the
    * escalations, so a flag-on gate that did nothing is visible. Skips never move the counts.
    */
   flagOnGates?: readonly VerificationGate[];
 }): string {
+  // Issue #639, Part 10 — the counts are the required gates that ran: a skipped gate, not
+  // required or did not run, drops out of both numbers.
   const ran = input.gates.filter((gate) => gate.status !== 'skipped');
   const passed = ran.filter((gate) => gate.status === 'pass').length;
   const failing = ran.filter((gate) => gate.status === 'fail');
@@ -179,18 +184,49 @@ export function formatVerdictSummary(input: {
     }
   }
 
-  const flagOn = new Set(input.flagOnGates ?? []);
-  for (const gate of input.gates) {
-    if (gate.status !== 'skipped' || !flagOn.has(gate.gate)) continue;
-    const label = gate.gate.split('-').join(' ');
-    lines.push(
-      `> ${PAQAD_STATUS_GLYPH.skipped} ${label}: skipped (${gate.skip_reason ?? gate.detail})`,
-    );
-  }
+  lines.push(...skipLines(input.gates, new Set(input.flagOnGates ?? [])));
 
   for (const escalation of input.escalations) {
     lines.push(`> ${PAQAD_STATUS_GLYPH.needsLook} needs a look — ${escalation}`);
   }
 
   return lines.join('\n');
+}
+
+/** A gate id in plain words: `visual-evidence` reads "visual evidence". */
+function gateWords(gate: string): string {
+  return gate.split('-').join(' ');
+}
+
+/**
+ * Issue #639, Part 10 — the honest lines for gates that measured nothing. Every did-not-run
+ * gate is shown, grouped by reason so the gates the run never checks read as one line
+ * ("⚪ story quality, spec review: did not run (not checked in this run)"). A not-required gate
+ * is shown only when its feature flag is on (issue #579), so a change is not buried in lines
+ * about gates it never needed. A skipped gate written before Part 10 carries no kind and reads
+ * as not required. A did-not-run gate with no short reason shows its own detail, which already
+ * says it did not run ("Mutation testing did not run: ...").
+ */
+function skipLines(
+  gates: readonly RepositoryVerificationGateVerdict[],
+  flagOn: ReadonlySet<VerificationGate>,
+): string[] {
+  const glyph = PAQAD_STATUS_GLYPH.skipped;
+  const lines: string[] = [];
+  const grouped = new Map<string, string[]>();
+  for (const gate of gates) {
+    if (gate.status !== 'skipped') continue;
+    const words = gateWords(gate.gate);
+    if (gate.skip_kind === 'did-not-run') {
+      const reason = gate.skip_reason;
+      if (reason === undefined) lines.push(`> ${glyph} ${words}: ${gate.detail}`);
+      else grouped.set(reason, [...(grouped.get(reason) ?? []), words]);
+    } else if (flagOn.has(gate.gate)) {
+      lines.push(`> ${glyph} ${words}: not required (${gate.skip_reason ?? gate.detail})`);
+    }
+  }
+  for (const [reason, names] of grouped) {
+    lines.push(`> ${glyph} ${names.join(', ')}: did not run (${reason})`);
+  }
+  return lines;
 }

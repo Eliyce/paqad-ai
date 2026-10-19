@@ -12,6 +12,7 @@ import { join } from 'node:path';
 
 import {
   createEvidence,
+  gatesThatPassed,
   persistEvidence,
   syncModuleHealth,
   syncModuleHealthFromVerification,
@@ -216,6 +217,17 @@ describe('module-health-updater', () => {
         last_verification_status: 'fail',
       },
     });
+  });
+
+  it('INV-6: gates_passed leaves out a gate that was not required or did not run', () => {
+    expect(
+      gatesThatPassed([
+        { gate: 'documentation-freshness', passed: true, detail: 'docs current' },
+        { gate: 'mutation-testing', passed: true, outcome: 'not-required', detail: 'off' },
+        { gate: 'quality-ratchet', passed: true, outcome: 'did-not-run', detail: 'blocked' },
+        { gate: 'spec-review', passed: false, detail: 'defect' },
+      ]),
+    ).toEqual(['documentation-freshness']);
   });
 
   it('rolls a mature mutation kill rate into the module metric', async () => {

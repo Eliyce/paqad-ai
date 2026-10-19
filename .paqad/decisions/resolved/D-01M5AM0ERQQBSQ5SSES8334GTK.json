@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5AM0ERQQBSQ5SSES8334GTK",
+  "category": "architecture-path",
+  "title": "Part 13: how expert subagents are run and recorded",
+  "context": "No expert or chief agent definition exists; the expert skills run inline. There is no SubagentStart hook (paqad-hooks.ts). The existing SubagentStop matcher '^(paqad:)?paqad-' already fires for any paqad-* agent, and stageFromAgentType (subagent-completion.ts:47) wrongly turns it into a stage-agent row. writeExpertNotes (run-store.ts:496) replaces all findings and tokens per call. Token counts today read the parent transcript, not the subagent's (transcript.mjs:48).",
+  "options": [
+    {
+      "option_key": "verbs-and-stop",
+      "label": "Two new agent definitions (paqad-expert, given its role in the prompt, and paqad-chief-architect) beside the stage agents; a new bundle ledger high-table.jsonl gets a 'writing' row when the seat's subagent runs 'experts brief <role>' and a 'done' row when 'experts notes' lands (merged per role, under a file lock so parallel seats never lose a note); the existing SubagentStop hook, unchanged in matcher and order, routes non-stage paqad agents to a token row read from the subagent's own transcript (exact) and never writes a stage-agent row. No new hook.",
+      "evidence": {},
+      "one_line_preview": "Two new agent definitions (paqad-expert, given its role in the prompt, and paqad-chief-architect) beside the stage agents; a new bundle ledger high-table.jsonl gets a 'writing' row when the seat's subagent runs 'experts brief <role>' and a 'done' row when 'experts notes' lands (merged per role, under a file lock so parallel seats never lose a note); the existing SubagentStop hook, unchanged in matcher and order, routes non-stage paqad agents to a token row read from the subagent's own transcript (exact) and never writes a stage-agent row. No new hook.",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "new-hook",
+      "label": "Add a SubagentStart hook (new entry in both hook configs) for the start rows, and keep the rows in stage-evidence.jsonl as a new row kind; changes the hook set the contract test pins",
+      "evidence": {},
+      "one_line_preview": "Add a SubagentStart hook (new entry in both hook configs) for the start rows, and keep the rows in stage-evidence.jsonl as a new row kind; changes the hook set the contract test pins",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "verbs-and-stop",
+  "created_at": "2026-10-19T17:40:35.224Z",
+  "status": "resolved",
+  "change": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "chosen": "verbs-and-stop",
+  "rationale": "Owner approved: paqad-expert + paqad-chief-architect agents, high-table.jsonl rows from brief/notes verbs, exact tokens via the existing SubagentStop hook; no new hook",
+  "resolved_at": "2026-10-19T17:44:01.956Z",
+  "decision_id": "D-01M5AM0ERQQBSQ5SSES8334GTK",
+  "fingerprint": "sha256:292ff6ac37093d2b34f837b64495491e369810e47a6326a06c10f3babc2ff2e0",
+  "question": "Part 13: how expert subagents are run and recorded",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "ttl_until": "2027-01-17T17:40:35.224Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "verbs-and-stop",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-19T17:44:01.956Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner approved: paqad-expert + paqad-chief-architect agents, high-table.jsonl rows from brief/notes verbs, exact tokens via the existing SubagentStop hook; no new hook"
+  }
+}

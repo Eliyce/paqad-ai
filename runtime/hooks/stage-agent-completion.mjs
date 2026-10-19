@@ -16,6 +16,7 @@
 import process from 'node:process';
 
 import {
+  appendHooksLog,
   hookStandsDown,
   isPaqadDisabled,
   parseHookPayload,
@@ -23,6 +24,7 @@ import {
 } from './lib/paqad-disabled.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
+import { refreshCostFromHook } from './lib/cost-refresh.mjs';
 
 // The host that invoked the hook (issue #566 argv convention): `claude-code` (default) or
 // `codex-cli`.
@@ -47,8 +49,22 @@ async function main(input) {
       '../../dist/stage-isolation/subagent-completion.js',
       import.meta.url,
     );
-    const { recordStageAgentCompletion } = await import(recorderUrl.href);
+    const { recordStageAgentCompletion, recordHighTableUsage } = await import(recorderUrl.href);
     recordStageAgentCompletion({ projectRoot, payload, transcriptText, adapter: ADAPTER });
+
+    // Issue #639 (Part 13): a High Table seat (paqad-expert, paqad-chief-architect) is not a
+    // stage, so the recorder above writes nothing for it. Its exact tokens are read from its own
+    // transcript (agent_transcript_path) into high-table.jsonl. Wrapped on its own: a failure is
+    // logged to .paqad/logs/hooks.log and never changes this hook's exit code or output.
+    try {
+      recordHighTableUsage({ projectRoot, payload });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      appendHooksLog(
+        projectRoot,
+        `stage-agent-completion: high-table usage not recorded: ${message}`,
+      );
+    }
 
     // Belt and braces: record any paqad:stage markers the stage agent spoke in its own
     // transcript. The stage CLI verbs already wrote the authoritative rows under the
@@ -81,6 +97,9 @@ process.stdin.on('data', (chunk) => {
 process.stdin.on('end', () => {
   // Issue #639 (Part 7) — refresh the HUD snapshot once the decision is final.
   main(input).then(async (code) => {
+    // Issue #639 (Part 23): rewrite the change's cost.json (record-only, logs its own failure),
+    // then refresh the HUD snapshot so it carries the new cost.
+    await refreshCostFromHook(input, 'stage-agent-completion');
     await refreshHudFromHook(input, 'stage-agent-completion');
     process.exit(code);
   });

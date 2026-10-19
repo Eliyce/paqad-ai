@@ -193,6 +193,16 @@ export async function syncModuleHealth(
   /* c8 ignore stop */
 }
 
+/**
+ * The gates that really passed. Issue #639, Part 10: a gate that measured nothing (not required,
+ * did not run) keeps `passed: true` for the runner but is not a pass, so it is left out.
+ */
+export function gatesThatPassed(results: readonly GateResult[]): string[] {
+  return results
+    .filter((result) => result.passed && result.outcome === undefined)
+    .map((result) => result.gate);
+}
+
 export async function syncModuleHealthFromVerification(input: {
   projectRoot: string;
   provider?: string;
@@ -205,9 +215,7 @@ export async function syncModuleHealthFromVerification(input: {
     const failedTests = structured.reduce((total, result) => total + result.summary.failed, 0);
     const erroredTests = structured.reduce((total, result) => total + result.summary.errored, 0);
     const passedTests = structured.reduce((total, result) => total + result.summary.passed, 0);
-    const gatesPassed = input.results
-      .filter((result) => result.passed)
-      .map((result) => result.gate);
+    const gatesPassed = gatesThatPassed(input.results);
     const gatesFailed = input.results
       .filter((result) => !result.passed)
       .map((result) => result.gate);

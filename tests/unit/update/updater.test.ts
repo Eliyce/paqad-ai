@@ -341,7 +341,7 @@ describe('FrameworkUpdater', () => {
       restore('USERPROFILE', savedUserProfile);
     });
 
-    it('writes six Claude and six Codex stage agents under the user home', async () => {
+    it('writes six Claude and six Codex stage agents, plus the two High Table agents, under the user home', async () => {
       await new FrameworkUpdater().run(projectRoot);
 
       const claudeAgents = join(userHome, '.claude/agents');
@@ -353,13 +353,15 @@ describe('FrameworkUpdater', () => {
           .sort(),
       ).toEqual([
         'paqad-checks.md',
+        'paqad-chief-architect.md',
         'paqad-development.md',
         'paqad-documentation-sync.md',
+        'paqad-expert.md',
         'paqad-planning.md',
         'paqad-review.md',
         'paqad-specification.md',
       ]);
-      expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(6);
+      expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(8);
     });
 
     it('never writes the agents into the project', async () => {

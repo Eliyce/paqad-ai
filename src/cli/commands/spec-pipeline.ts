@@ -54,6 +54,12 @@ import { applyRenames, validateExpertSynthesis } from '@/spec-pipeline/experts/s
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import type { FindingVoiceSources } from '@/spec-pipeline/experts/notes.js';
 import { groundAreaAsync } from '@/spec-pipeline/grounding.js';
+import {
+  CHIEF_ROLE,
+  recordDoneRow,
+  recordSeatedRows,
+  recordWritingRow,
+} from '@/spec-pipeline/high-table.js';
 import { labelPrompt } from '@/spec-pipeline/labeling.js';
 import {
   assertCanRunStep,
@@ -717,6 +723,20 @@ function createExpertsCommand(): Command {
     return false;
   };
 
+  /**
+   * Write High Table rows (issue #639, Part 13). The verb's own record is already written when
+   * this runs, so a failed row never changes the verb's result: it is reported on stderr and the
+   * verb carries on.
+   */
+  const recordHighTable = (what: string, write: () => void): void => {
+    try {
+      write();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`could not record the High Table ${what} row: ${message}`);
+    }
+  };
+
   /** Read an agent-handed file, remembering it when it sits under `.paqad/tmp/`. */
   const readHandedFile = (
     options: CommonOptions,
@@ -769,6 +789,22 @@ function createExpertsCommand(): Command {
       });
       const roster = briefs.map((brief, index) => rosterEntryFor(needs[index]!, brief));
       writeExpertRoster(options.projectRoot, resolved.dirName, roster, resolved.store);
+      // Seat each expert on the High Table with the budget it was granted after the ceiling, and
+      // the chief with its fixed budget (issue #639, Part 13, FR-17).
+      recordHighTable('seated', () =>
+        recordSeatedRows(
+          options.projectRoot,
+          resolved.dirName,
+          roster.map((entry, index) => ({
+            role: entry.role,
+            reason: entry.reason,
+            origin: entry.origin ?? null,
+            budget_tokens: entry.budget_tokens,
+            clamped: briefs[index]!.clamped,
+          })),
+          resolved.store,
+        ),
+      );
       // Nothing needed ⇒ the experts step is complete by skip, and the ledger says so (FR-2.2).
       // With standing experts this is only reachable when the standing list is empty too.
       if (roster.length === 0) {
@@ -828,6 +864,10 @@ function createExpertsCommand(): Command {
         return;
       }
       console.log(brief.content);
+      // The seat's subagent runs this first, so it marks the seat as writing (Part 13, FR-14).
+      recordHighTable('writing', () =>
+        recordWritingRow(options.projectRoot, resolved.dirName, entry.role, resolved.store),
+      );
     });
 
   experts
@@ -840,6 +880,7 @@ function createExpertsCommand(): Command {
       if (!resolved) return;
       if (refuseWhenOff(options)) return;
       const notes = readExpertNotes(options.projectRoot, resolved.dirName);
+      const seated = (readExperts(options.projectRoot, resolved.dirName)?.roster.length ?? 0) > 0;
       console.log(
         JSON.stringify(
           {
@@ -863,6 +904,13 @@ function createExpertsCommand(): Command {
           2,
         ),
       );
+      // Once the notes are in, the reader is the chief architect: its seat starts writing. The
+      // need detector also reads this context, but before any seat or note exists (Part 13).
+      if (seated && notes !== null) {
+        recordHighTable('writing', () =>
+          recordWritingRow(options.projectRoot, resolved.dirName, CHIEF_ROLE, resolved.store),
+        );
+      }
     });
 
   experts
@@ -888,6 +936,21 @@ function createExpertsCommand(): Command {
         return;
       }
       writeExpertNotes(options.projectRoot, resolved.dirName, check.artifact, resolved.store);
+      // One done row per role the note covers, with its self-reported tokens (Part 13, FR-14).
+      for (const note of check.artifact.notes) {
+        recordHighTable('done', () =>
+          recordDoneRow(
+            options.projectRoot,
+            resolved.dirName,
+            {
+              role: note.role,
+              findings: note.findings.length,
+              tokens_estimate: check.artifact!.tokens[note.role] ?? null,
+            },
+            resolved.store,
+          ),
+        );
+      }
       const merged = mergeExpertNotes(check.artifact.notes, check.artifact.voice_warnings);
       console.log(
         JSON.stringify({
@@ -957,6 +1020,14 @@ function createExpertsCommand(): Command {
         );
       }
       writeExpertSynthesis(options.projectRoot, resolved.dirName, synthesis, resolved.store);
+      recordHighTable('done', () =>
+        recordDoneRow(
+          options.projectRoot,
+          resolved.dirName,
+          { role: CHIEF_ROLE, findings: null, tokens_estimate: synthesis.tokens },
+          resolved.store,
+        ),
+      );
       recordStep(options.projectRoot, resolved.dirName, 'experts', 'complete', resolved.store);
       console.log(
         JSON.stringify({

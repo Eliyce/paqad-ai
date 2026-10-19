@@ -28,6 +28,17 @@ export function hudVerdictPath(projectRoot: string, sessionId: string): string {
   return join(projectRoot, PATHS.HUD_DIR, `${safeSessionId(sessionId)}.verdict.json`);
 }
 
+/** Suffix of the per-session cost offset cache (issue #639, Part 23). */
+export const HUD_COST_CACHE_SUFFIX = '.cost-cache.json';
+
+/**
+ * The per-session cost offset cache: which transcripts the change cost reads, how far each was
+ * read, and the usage of every message counted so far (issue #639, Part 23).
+ */
+export function hudCostCachePath(projectRoot: string, sessionId: string): string {
+  return join(projectRoot, PATHS.HUD_DIR, `${safeSessionId(sessionId)}${HUD_COST_CACHE_SUFFIX}`);
+}
+
 let tempSeq = 0;
 
 /** Write `content` to `target` atomically. Throws on failure; callers decide how to degrade. */

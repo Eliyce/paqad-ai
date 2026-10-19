@@ -4,8 +4,8 @@
 // Claude Code mod reads instead of asking the model or starting a process. It is built only
 // from records paqad already keeps: the routed workflow, the change's feature bundle, the
 // decision folders, the evidence rows and the in-session receipt. A field whose source is not
-// ready yet (the High Table's live seats, claims, rule-stop details, cost) is `null` or empty,
-// never guessed. The headline and the flags are computed here, in one tested place.
+// ready yet (claims, rule-stop details) is `null` or empty, never guessed. The headline and
+// the flags are computed here, in one tested place.
 //
 // Writes are best-effort by contract: `writeHudSnapshotSafe` never throws, so a hook or verb
 // that refreshes the snapshot can never have its decision or exit code changed by it.
@@ -13,6 +13,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
 import { GATE_STRENGTH_TIER } from '@/evidence/grading.js';
@@ -26,12 +27,9 @@ import {
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
-import {
-  BUNDLE_MANIFEST,
-  isBundleFileRequired,
-  readSpecAdoption,
-} from '@/feature-evidence/manifest.js';
-import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
+import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
   currentFeature,
@@ -40,6 +38,7 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
@@ -49,7 +48,9 @@ import {
 } from '@/verification/repository/bundle-completeness-config.js';
 import type { VerificationGate } from '@/core/types/verification.js';
 
+import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
+import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
@@ -74,7 +75,13 @@ export interface HudStage {
   proof_file: string | null;
 }
 
-export type HudGateVerdict = 'pass' | 'fail' | 'inconclusive' | 'not-required' | 'pending';
+/**
+ * A gate's verdict on the HUD. Issue #639, Part 10 — `did-not-run` is a skipped gate that was owed
+ * a check that did not happen; `not-required` is a skipped gate the change gave nothing to check
+ * (and any skipped row written before Part 10). Neither is a pass.
+ */
+export type HudGateVerdict =
+  'pass' | 'fail' | 'inconclusive' | 'not-required' | 'did-not-run' | 'pending';
 
 export interface HudGate {
   name: string;
@@ -88,13 +95,8 @@ export interface HudFlag {
   text: string;
 }
 
-export interface HudSeat {
-  role: string;
-  reason: string | null;
-  origin: string | null;
-  budget_tokens: number | null;
-  tokens_used: number | null;
-}
+export type { HudChief, HudHighTable, HudSeat, HudTrackRecord } from './high-table-view.js';
+export type { HudCost } from './cost-view.js';
 
 /**
  * What one scan found on this change. A scan with no row reads `did not run`, never `clean`:
@@ -142,8 +144,12 @@ export interface HudSnapshot {
   } | null;
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: HudStage[];
-  /** The High Table as recorded so far; live seat state arrives with Part 13. */
-  table: { seats: HudSeat[]; skipped: boolean } | null;
+  /**
+   * The live High Table (issue #639, Part 13): seats with state, times, budgets and tokens, the
+   * chief's verdict and rulings, gaps, questions and who shaped each spec line. Null on the fast
+   * lane and when no High Table was seated.
+   */
+  table: HudHighTable | null;
   /** Fix-protocol claims arrive with Part 15. */
   claims: [];
   gates: HudGate[];
@@ -178,8 +184,11 @@ export interface HudSnapshot {
     present: boolean;
   }>;
   isolation: { status: string; stages: number; tokens_not_recarried: number } | null;
-  /** The change's cost arrives with Part 23. */
-  cost: null;
+  /**
+   * What the change cost (issue #639, Part 23), read from its cost.json only: tokens, a money
+   * estimate with its price date, by stage, by expert and the chief. Null until a hook wrote it.
+   */
+  cost: HudCost | null;
 }
 
 // ── small tolerant readers ────────────────────────────────────────────────────
@@ -205,6 +214,66 @@ function num(value: unknown): number | null {
 }
 
 // ── field builders ────────────────────────────────────────────────────────────
+
+/** How many earlier bundles the track record reads, newest first, to keep a refresh cheap. */
+export const TRACK_RECORD_BUNDLES = 50;
+
+/**
+ * Each seated role's record on the project's OTHER changes (issue #639, Part 14), from
+ * `aggregateSpecPipelineMetrics` over the newest `TRACK_RECORD_BUNDLES` bundles (the active one
+ * left out). A role with no earlier run is absent. Never throws: a failed read is no history.
+ */
+export function buildTrackRecords(
+  projectRoot: string,
+  activeDir: string,
+  roles: readonly string[],
+): Map<string, HudTrackRecord> {
+  const records = new Map<string, HudTrackRecord>();
+  if (roles.length === 0) return records;
+  try {
+    const others = listFeatureDirs(projectRoot)
+      .filter((dir) => dir !== activeDir)
+      .sort((a, b) =>
+        (parseFeatureDirName(b)?.ulid ?? '').localeCompare(parseFeatureDirName(a)?.ulid ?? ''),
+      )
+      .slice(0, TRACK_RECORD_BUNDLES);
+    if (others.length === 0) return records;
+    const metrics = aggregateSpecPipelineMetrics(projectRoot, others);
+    for (const role of roles) {
+      const key = role as keyof typeof metrics.changed_spec_rate;
+      const rate = metrics.changed_spec_rate[key];
+      if (!rate || rate.fired === 0) continue;
+      records.set(role, {
+        changes: rate.fired,
+        changed_spec: rate.changed,
+        empty: metrics.empty_by_role[key]?.empty ?? 0,
+        avg_tokens: Math.round((metrics.tokens_by_role[key] ?? 0) / rate.fired),
+      });
+    }
+  } catch (error) {
+    logHudWriteError(projectRoot, 'track record', error);
+    records.clear();
+  }
+  return records;
+}
+
+/** The table with each seat's track record filled in from the project's other bundles. */
+function withTrackRecords(
+  projectRoot: string,
+  dirName: string,
+  table: HudHighTable | null,
+): HudHighTable | null {
+  if (!table || table.seats.length === 0) return table;
+  const records = buildTrackRecords(
+    projectRoot,
+    dirName,
+    table.seats.map((seat) => seat.role),
+  );
+  return {
+    ...table,
+    seats: table.seats.map((seat) => ({ ...seat, track_record: records.get(seat.role) ?? null })),
+  };
+}
 
 function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): HudStage[] {
   const rows = readFeatureStageUnit(projectRoot, dirName);
@@ -241,7 +310,9 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
       raw === 'pass' || raw === 'fail' || raw === 'inconclusive'
         ? raw
         : raw === 'skipped'
-          ? 'not-required'
+          ? row.skip_kind === 'did-not-run'
+            ? 'did-not-run'
+            : 'not-required'
           : 'pending';
     const tier = GATE_STRENGTH_TIER[code as VerificationGate];
     const strength =
@@ -251,27 +322,6 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
         : null);
     return { name: code, required: verdict !== 'not-required', strength, verdict };
   });
-}
-
-function buildTable(projectRoot: string, dirName: string, specJson: unknown): HudSnapshot['table'] {
-  const experts = asRecord(readJsonFile(join(projectRoot, featureFilePath(dirName, 'experts'))));
-  const roster = Array.isArray(experts?.roster) ? experts.roster : null;
-  const adoption = readSpecAdoption(specJson);
-  // A spec frozen by hand while the pipeline ran shows the High Table as skipped (Q11). A
-  // fast-lane freeze never had a High Table to skip (issue #640), so it shows none.
-  const skipped = adoption !== null && !adoption.produced && !adoption.fast_lane;
-  if (!roster) return skipped ? { seats: [], skipped } : null;
-  const seats: HudSeat[] = roster.map((entry) => {
-    const seat = asRecord(entry) ?? {};
-    return {
-      role: str(seat.role) ?? 'unknown',
-      reason: str(seat.reason),
-      origin: str(seat.origin),
-      budget_tokens: num(seat.budget_tokens),
-      tokens_used: num(seat.tokens_used),
-    };
-  });
-  return { seats, skipped };
 }
 
 function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['questions'] {
@@ -410,6 +460,8 @@ export function computeHudFlags(input: {
   gates: HudGate[];
   rulesRecorded: boolean;
   tableSkipped: boolean;
+  /** Issue #639 (Part 13): a High Table that met after the spec was frozen. */
+  tableLate?: boolean;
   isolationStatus: string;
   isolatedStages: number;
   /** Issue #639 (Part 12) — an open finding raises a flag; the band shows only its count. */
@@ -431,6 +483,12 @@ export function computeHudFlags(input: {
     flags.push({
       id: 'high-table-skipped',
       text: 'The spec was written by hand, so the High Table never sat.',
+    });
+  }
+  if (input.tableLate) {
+    flags.push({
+      id: 'high-table-late',
+      text: 'The High Table met after the spec was frozen, so it shaped no spec line.',
     });
   }
   if (input.isolationStatus === 'expected' && input.isolatedStages === 0) {
@@ -586,7 +644,12 @@ export function buildHudSnapshot(
   const stages = buildStages(projectRoot, dirName, fold);
   const gates = buildGates(projectRoot, dirName);
   const specJson = readJsonFile(join(projectRoot, featureFilePath(dirName, 'specification')));
-  const table = buildTable(projectRoot, dirName, specJson);
+  const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
+  const table = withTrackRecords(
+    projectRoot,
+    dirName,
+    buildHighTableView(projectRoot, dirName, specJson, lane),
+  );
   const rulesLoaded = readRulesLoaded(projectRoot, dirName);
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
@@ -597,11 +660,11 @@ export function buildHudSnapshot(
     gates,
     rulesRecorded: rulesLoaded !== null,
     tableSkipped: table?.skipped ?? false,
+    tableLate: table?.met_after_freeze ?? false,
     isolationStatus,
     isolatedStages: isolationSummary?.stages ?? 0,
     findings,
   });
-  const lane = fold.lane ?? record?.lane ?? workflow.active?.lane ?? null;
 
   return {
     schema: HUD_SNAPSHOT_SCHEMA,
@@ -659,7 +722,7 @@ export function buildHudSnapshot(
       stages: isolationSummary?.stages ?? 0,
       tokens_not_recarried: isolationSummary?.tokensNotRecarried ?? 0,
     },
-    cost: null,
+    cost: buildHudCost(projectRoot, dirName),
   };
 }
 
@@ -688,17 +751,27 @@ export function writeHudSnapshotSafe(
   try {
     return writeHudSnapshot(projectRoot, sessionHint).path;
   } catch (error) {
-    try {
-      const logs = join(projectRoot, '.paqad', 'logs');
-      mkdirSync(logs, { recursive: true });
-      const message = error instanceof Error ? error.message : String(error);
-      appendFileSync(
-        join(logs, 'hook-failures.log'),
-        `[${new Date().toISOString()}] ERROR hud-snapshot (${source}): ${message}\n`,
-      );
-    } catch {
-      // The caller's path outranks the log line: a read-only tree must not turn into a throw.
-    }
+    logHudWriteError(projectRoot, source, error);
     return null;
+  }
+}
+
+/**
+ * Append one HUD failure to the hooks' shared failure log and to `.paqad/logs/hooks.log`, where
+ * the other record-only hook writes (cost, High Table rows, the acceptance-criteria map) log
+ * theirs (AC-69); never throws.
+ */
+function logHudWriteError(projectRoot: string, source: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  appendHooksLog(projectRoot, `hud-snapshot (${source}): not written: ${message}`);
+  try {
+    const logs = join(projectRoot, '.paqad', 'logs');
+    mkdirSync(logs, { recursive: true });
+    appendFileSync(
+      join(logs, 'hook-failures.log'),
+      `[${new Date().toISOString()}] ERROR hud-snapshot (${source}): ${message}\n`,
+    );
+  } catch {
+    // The caller's path outranks the log line: a read-only tree must not turn into a throw.
   }
 }

@@ -49,12 +49,16 @@ export function buildVerificationEvidence(
   const gates: VerificationEvidenceGate[] = VERIFICATION_GATES.map((gate) => {
     const result = resultByGate.get(gate);
     if (!result) {
+      // Issue #639, Part 10 — a gate with no result was not checked this run (the backstop does
+      // not re-judge it, or the runner stopped after an earlier failure): it did not run.
       return {
         name: gate,
         status: 'skipped' satisfies EvidenceGateStatus,
         detail: 'Gate did not run.',
         remediation: null,
         failures: [],
+        skip_reason: 'not checked in this run',
+        skip_kind: 'did-not-run',
       };
     }
 
@@ -72,6 +76,7 @@ export function buildVerificationEvidence(
       detail: result.detail,
       remediation: result.remediation ?? null,
       failures,
+      ...(result.outcome ? { skip_kind: result.outcome } : {}),
       ...(gate === 'mutation-testing' && mutationResult
         ? { confidence: mutationResult.confidence }
         : {}),
@@ -114,6 +119,11 @@ export async function writeVerificationEvidence(
 }
 
 function mapGateStatus(result: GateResult): EvidenceGateStatus {
+  // Issue #639, Part 10 — a gate that measured nothing is skipped, never a pass, even though
+  // its `passed` stays true for the runner.
+  if (result.outcome) {
+    return 'skipped';
+  }
   if (result.passed) {
     return 'pass';
   }

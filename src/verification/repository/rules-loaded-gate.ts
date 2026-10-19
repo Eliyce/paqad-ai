@@ -76,6 +76,8 @@ export async function rulesLoadedGate(
         : 'No compiled rules for this project — nothing to load.',
       remediation: null,
       failures: [],
+      // Issue #639, Part 10 — no applicable rule: the load was not required.
+      skip_kind: 'not-required',
     };
   }
 

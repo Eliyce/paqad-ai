@@ -14,12 +14,13 @@ import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { readChecksReportForFeature } from '@/checks/report-target.js';
 import type { Lane } from '@/core/types/routing.js';
-import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
-import { readTraceabilityMap } from '@/traceability/index.js';
+import { buildAndWriteChangeTraceabilityMap, readTraceabilityMap } from '@/traceability/index.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewDefect, SpecReviewReport } from '@/compliance/types.js';
 import { runQualityRatchetGate } from '@/quality-ratchet/index.js';
+import { runBackstopMutation, type BackstopMutationDeps } from '@/mutation/backstop.js';
 import {
   detectStaleDocTargets,
   isCodeFile,
@@ -31,6 +32,7 @@ import {
 import { subtractUnchangedBaselineFiles } from '@/pipeline/dirty-baseline.js';
 import type { VerificationContext, VerificationOrigin } from '@/core/types/verification.js';
 import { engineLog } from '@/core/logger-registry.js';
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 
 import {
   computeAcTestMapping,
@@ -48,6 +50,11 @@ export interface BuildRepositoryVerificationContextOptions {
   projectRoot: string;
   /** The agent-independent origin firing this run (issue #117). */
   origin: Extract<VerificationOrigin, 'hook-completion' | 'git-backstop' | 'ci-backstop'>;
+  /**
+   * Issue #293 — injectable effects for the mutation step (mode, profile, test command, runner),
+   * so a test never spawns a real tool. Production callers leave it unset.
+   */
+  mutationDeps?: BackstopMutationDeps;
 }
 
 export interface RepositoryVerificationContextResult {
@@ -97,19 +104,11 @@ export async function buildRepositoryVerificationContext(
   const codeChanged = changedFiles.some((filePath) => isCodeFile(filePath));
   const staleDocTargets = await detectStaleDocTargets(projectRoot, changedFiles);
 
-  const traceabilityMap = await readTraceabilityMapSafely(projectRoot);
-  const pendingDecisions = readPendingDecisions(projectRoot);
-  const specReview = await loadSpecReviewSafely(projectRoot);
-
-  const acMapping = computeAcTestMapping(traceabilityMap);
-  const implementationReview = computeImplementationReview(pendingDecisions);
-  const specReviewSignal = computeSpecReview({
-    specReview,
-    hasFrozenSpec: hasFrozenSpec(traceabilityMap),
-    codeChanged,
-  });
-
-  const specBoundary = deriveSpecBoundary(traceabilityMap);
+  // Issue #324 — consume the recorded lane instead of a hardcoded `'full'`. The fast
+  // lane collects only strictness (the ratchet skips the heavy complexity/dead-code
+  // measures), so a small change is no longer forced through the full measurement set.
+  // A null/unreadable lane fails safe to `full`. Read before the change map, which records it.
+  const recordedLane = readRecordedLane(projectRoot, sessionId, dirName);
 
   // Real test/build/format evidence (issue #318): the deterministic check runner
   // (`paqad-ai checks run`) persists a structured report the agent produces
@@ -119,6 +118,48 @@ export async function buildRepositoryVerificationContext(
   const checksReport = readChecksReportForFeature(projectRoot, dirName);
   const structuredTestResults =
     checksReport && checksReport.results.length > 0 ? checksReport.results : undefined;
+
+  // Issue #639, Part 11 — build the change-scoped acceptance-criteria map here, so the gate
+  // reads a real map even when `checks run` never ran, and write it best-effort. The map on
+  // disk is read first: it is what the other map readers used before this map existed.
+  const diskMap = await readTraceabilityMapSafely(projectRoot);
+  const changeMap = await buildAndWriteChangeTraceabilityMap(
+    {
+      projectRoot,
+      dirName,
+      // The branch's changed files, not the session-scoped subset: a proving test committed
+      // earlier on the branch still proves its criterion.
+      changedFiles: changeEvidence.files.filter((filePath) => !isPaqadArtifactPath(filePath)),
+      testResults: structuredTestResults,
+      lane: recordedLane,
+    },
+    // Logged to .paqad/logs/hooks.log, never stderr: on the Stop path a stderr line is shown to
+    // the user and would change what the hook printed (AC-69).
+    (message) => appendHooksLog(projectRoot, `verification: ${message}`),
+  );
+  const traceabilityMap = effectiveTraceabilityMap(changeMap.result?.map ?? null, diskMap);
+  const pendingDecisions = readPendingDecisions(projectRoot);
+  const specReview = await loadSpecReviewSafely(projectRoot);
+
+  const acMapping = computeAcTestMapping({
+    // A failed build cannot tell whether the spec is frozen; it reads did not run, never
+    // not required.
+    specFrozen: changeMap.result !== null || changeMap.error !== null,
+    map: changeMap.result?.map ?? null,
+    visual: changeMap.result?.visual,
+    manual: changeMap.result?.manual,
+    buildError: changeMap.error,
+  });
+  const implementationReview = computeImplementationReview(pendingDecisions);
+  const specReviewSignal = computeSpecReview({
+    specReview,
+    // A built change map means the active change's spec is frozen (it is read from
+    // specification.json), including a spec whose criteria are all visual or manual.
+    hasFrozenSpec: changeMap.result !== null || hasFrozenSpec(traceabilityMap),
+    codeChanged,
+  });
+
+  const specBoundary = deriveSpecBoundary(traceabilityMap);
 
   const escalations: string[] = [];
   if (specReviewSignal.inconclusive) {
@@ -131,12 +172,6 @@ export async function buildRepositoryVerificationContext(
     );
   }
 
-  // Issue #324 — consume the recorded lane instead of a hardcoded `'full'`. The fast
-  // lane collects only strictness (the ratchet skips the heavy complexity/dead-code
-  // measures), so a small change is no longer forced through the full measurement set.
-  // A null/unreadable lane fails safe to `full`.
-  const recordedLane = readRecordedLane(projectRoot, sessionId, dirName);
-
   const qualityRatchetResult = await runQualityRatchetGate({
     projectRoot,
     changedFiles,
@@ -144,6 +179,18 @@ export async function buildRepositoryVerificationContext(
     stackProfile: null,
     deadCodeFiles: readDeadCodeFiles(traceabilityMap),
     decisionStore: new DecisionStore(projectRoot),
+  });
+
+  // Issue #293 — mutation testing, opt-in through the floored `mutation_mode` (default off). It
+  // runs only on the ci-backstop and git-backstop origins, after the project's own test command
+  // passes; the hook-completion origin never runs it, so the end of an agent turn stays fast.
+  // With the mode off nothing runs and only the not-required note is planted.
+  const mutation = await runBackstopMutation({
+    projectRoot,
+    origin,
+    changedFiles,
+    lane: recordedLane,
+    deps: options.mutationDeps,
   });
 
   const context: VerificationContext = {
@@ -162,6 +209,7 @@ export async function buildRepositoryVerificationContext(
     // Computed judgment signals (issue #117 C-2).
     ac_test_mapping_passed: acMapping.passed,
     ac_test_mapping_detail: acMapping.detail,
+    ac_test_mapping_outcome: acMapping.outcome,
     spec_review_passed: specReviewSignal.passed,
     implementation_review_passed: implementationReview.passed,
     implementation_review_findings: implementationReview.findings,
@@ -181,6 +229,7 @@ export async function buildRepositoryVerificationContext(
     behavioral_correctness_passed: true,
     database_quality_passed: true,
     quality_ratchet_result: qualityRatchetResult,
+    ...mutation,
     lane: recordedLane,
     expected_ui_modules: [],
     expected_api_modules: [],
@@ -220,14 +269,7 @@ function resolveActiveFeatureDir(projectRoot: string, sessionId: string): string
  * relaxation.
  */
 function readRecordedLane(projectRoot: string, sessionId: string, dirName: string | null): Lane {
-  try {
-    if (!dirName) {
-      return 'full';
-    }
-    return foldFeature(projectRoot, sessionId, dirName).lane ?? 'full';
-  } catch {
-    return 'full';
-  }
+  return recordedLaneOrFull(projectRoot, sessionId, dirName);
 }
 
 async function readTraceabilityMapSafely(projectRoot: string): Promise<TraceabilityMap | null> {
@@ -237,6 +279,21 @@ async function readTraceabilityMapSafely(projectRoot: string): Promise<Traceabil
     engineLog('warn', `paqad: could not read traceability map (${describeError(error)})`);
     return null;
   }
+}
+
+/**
+ * The map the spec-review, scope-drift and dead-code readers use (issue #639, Part 11). The
+ * freshly built change map when there is one. Otherwise the map on disk, unless that is a
+ * change map an earlier change left behind: it does not describe this change, so it is
+ * ignored and those readers stay on "no map", where they were before change maps existed.
+ */
+function effectiveTraceabilityMap(
+  changeMap: TraceabilityMap | null,
+  diskMap: TraceabilityMap | null,
+): TraceabilityMap | null {
+  if (changeMap) return changeMap;
+  if (diskMap?.scope === 'change') return null;
+  return diskMap;
 }
 
 function readPendingDecisions(projectRoot: string): DecisionPacket[] {

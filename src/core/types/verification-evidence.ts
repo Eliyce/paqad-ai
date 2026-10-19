@@ -1,4 +1,4 @@
-import type { VerificationGate } from './verification.js';
+import type { GateSkipKind, VerificationGate } from './verification.js';
 import type { MutationConfidence } from './mutation.js';
 
 // 1.1.0 — added the optional `confidence` flag on gate entries so the
@@ -41,6 +41,12 @@ export interface VerificationEvidenceGate {
    * capture"), shown in the verdict summary's skip line when the gate's flag is on.
    */
   skip_reason?: string;
+  /**
+   * Issue #639, Part 10 — on a `skipped` gate, whether the change gave it nothing to check
+   * (`not-required`) or a check it was owed did not happen (`did-not-run`). Absent on rows
+   * written before Part 10, which read as not required.
+   */
+  skip_kind?: GateSkipKind;
   // Issue #105 — present on the mutation-testing gate. `lower` flags a
   // weak-tooled language whose score must not be over-trusted; `mature` a
   // result from an established per-language tool.

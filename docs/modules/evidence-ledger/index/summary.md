@@ -34,10 +34,12 @@ It stays listed in the receipt's `blocked` count but no longer changes the resul
 `src/evidence/grading.ts` is the single source of truth for the A/B split.
 
 A row's `verdict` is one of `pass`, `fail`, `inconclusive`, `blocked` or `skipped`
-(issue #579). `skipped` records a gate that did not apply to the change, such as the
-visual-evidence gate on a change with no frontend files. It is counted as neither a pass nor
-a fail in the graded summary, and it never becomes a compliance citation (only `pass` rows
-do).
+(issue #579). `skipped` records a gate that measured nothing, such as the visual-evidence
+gate on a change with no frontend files. Since issue #639 (Part 10) a skipped row also
+carries `skip_kind`: `not-required` when the change gave the gate nothing to check, or
+`did-not-run` when a check it was owed did not happen. `skip_kind` is not part of the
+identity hash. A skipped row is counted as neither a pass nor a fail in the graded summary,
+and it never becomes a compliance citation (only `pass` rows do).
 
 ## How it works
 

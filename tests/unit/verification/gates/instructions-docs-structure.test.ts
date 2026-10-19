@@ -8,7 +8,7 @@ import { InstructionsDocsStructureGate } from '@/verification/gates/instructions
 import { createVerificationContext } from '../shared.fixture.js';
 
 describe('InstructionsDocsStructureGate', () => {
-  it('skips when no instruction documentation paths changed', async () => {
+  it('AC-10: reads not required when no instruction doc changed', async () => {
     const result = await new InstructionsDocsStructureGate().check(
       createVerificationContext({
         changed_files: ['src/service.ts'],
@@ -19,8 +19,22 @@ describe('InstructionsDocsStructureGate', () => {
     expect(result).toEqual({
       gate: 'instructions-docs-structure',
       passed: true,
-      detail: 'No instruction documentation changes detected',
+      outcome: 'not-required',
+      detail: 'Not required: no instruction doc changed.',
     });
+  });
+
+  it('AC-10: reads not required outside the completion check when no instruction doc changed', async () => {
+    const result = await new InstructionsDocsStructureGate().check(
+      createVerificationContext({
+        verification_origin: 'hook-completion',
+        verification_stage: 'backstop-completion',
+        changed_files: ['src/service.ts'],
+      }),
+    );
+
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toBe('Not required: no instruction doc changed.');
   });
 
   it('passes valid instruction documentation files', async () => {
@@ -68,7 +82,7 @@ describe('InstructionsDocsStructureGate', () => {
     });
   });
 
-  it('skips outside provider completion checks', async () => {
+  it('reads did not run outside provider completion checks when an instruction doc changed', async () => {
     const context = createVerificationContext({
       verification_origin: 'paqad-cli',
       verification_stage: 'other',
@@ -81,7 +95,9 @@ describe('InstructionsDocsStructureGate', () => {
     expect(result).toEqual({
       gate: 'instructions-docs-structure',
       passed: true,
-      detail: 'No instruction documentation changes detected',
+      outcome: 'did-not-run',
+      detail:
+        'Did not run: instruction doc structure is checked only at the in-session completion check.',
     });
   });
 

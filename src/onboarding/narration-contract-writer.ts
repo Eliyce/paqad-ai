@@ -10,6 +10,13 @@ import {
 import { MANAGED_HEADER } from './decision-pause-contract-writer.js';
 
 /**
+ * The #624 host-surfaces paragraph. It sits directly after "Where narration has
+ * to go" in the narration contract body. Exported so tests can compare the
+ * router copy byte for byte against this one canonical string.
+ */
+export const HOST_SURFACES_PARAGRAPH = `**Host surfaces (when your host offers them).** Some hosts draw a task list for the turn, a short end-of-turn summary, or a "waiting on the user" flag. Claude Code Desktop has all three. When yours does: on a feature-development change, list the stages as task items in order (Plan, Spec, Load rules, Build, Review, Checks, Docs) and advance an item only when that stage's start is recorded. On the fast lane there are no isolated stages, so the task list shows Plan, Build, Checks only. Start the end-of-turn summary with the verdict word (Safe to merge, Needs your attention, or Inconclusive). When a decision packet is still pending at the end of your turn, mark the turn as waiting on the user. These surfaces show the receipt; they do not replace it. The receipt still goes in your final message.`;
+
+/**
  * Builds the narration-contract BODY (issue #158) — the full spec for how paqad
  * speaks in the live agent chat, WITHOUT the managed header. This body is the
  * single source of truth for the contract: the framework bootstrap
@@ -121,6 +128,8 @@ You perform no \`Edit\`/\`Write\` on source yourself in this mode — the develo
 
 **Where narration has to go.** Say every \`▸ paqad\` line in your own visible assistant text, and carry the stage lines and the end-of-change receipt into the **final message of the turn**. Two channels look like they work and do not: hook output (below), and your own text emitted mid-turn between tool calls, which the Desktop app does not reliably render. Only the last message of a turn is reliably shown, so a receipt spoken before your last tool call is a receipt the developer never sees.
 
+${HOST_SURFACES_PARAGRAPH}
+
 **Which channels actually render.** Hook narration is belt-and-braces, never the plan:
 
 | Channel | Claude Code CLI | Claude Code Desktop |
@@ -184,10 +193,12 @@ paqad-ai spec pipeline start --request-file <request.md>   # or --ticket <ref>; 
 # experts (only when spec_pipeline_experts_enabled is on):
 #   run the expert-need-detector skill, then
 paqad-ai spec pipeline experts record <need.json>          # records the roster in experts.json
-#   print each brief with \`paqad-ai spec pipeline experts brief <role>\` (never a file),
-#   run the expert-notes skill once per brief, then
+#   seat the High Table: one paqad-expert subagent per seated role, all in parallel (below);
+#   each prints its brief with \`paqad-ai spec pipeline experts brief <role>\` (never a file),
+#   writes one note for its role with the expert-notes skill, then runs
 paqad-ai spec pipeline experts notes <notes.json>
-#   run the expert-synthesis skill (the chief architect), then
+#   when every seat has returned, the paqad-chief-architect subagent reads
+#   \`paqad-ai spec pipeline experts context\`, writes the expert-synthesis skill's output, then runs
 paqad-ai spec pipeline experts synthesis <synthesis.json>  # each conflict becomes a decision packet
 paqad-ai spec pipeline record questions <batch.json>       # skipped when nothing needs asking
 paqad-ai spec pipeline record task <task.json>
@@ -195,6 +206,8 @@ paqad-ai spec pipeline record craft <spec.md> --trace <trace.json>
 paqad-ai spec pipeline finish
 paqad-ai spec freeze <spec.md> --from-pipeline --signed-off-by <name> --confirm-invariants
 \`\`\`
+
+**Run the High Table as subagents (issue #639).** On a host that dispatches subagents (Claude Code, Codex), each seated expert runs in its own subagent. After \`experts record\`, dispatch one \`paqad-expert\` subagent per seated role, all in parallel, in one message. Give each its role, the change ref and \`SE_SESSION\`. Each seat runs \`experts brief <role>\`, writes one note for its role only, and runs \`experts notes\`, which merges that role's note and keeps every other role's. Wait until every seat has returned. Then dispatch one \`paqad-chief-architect\` subagent with the change ref and \`SE_SESSION\`; it runs \`experts context\`, writes the synthesis and runs \`experts synthesis\`. paqad records when each seat was seated, started and finished, and the exact tokens its subagent spent, in the change's \`high-table.jsonl\`. A subagent cannot dispatch subagents, so when the specification stage itself runs in \`paqad-specification\`, that stage agent returns after \`experts record\` with the seated roles, you dispatch the seats and the chief, then dispatch the specification stage again to carry on from the questions. On a host with no subagents (Gemini, the advisory IDEs) run the expert-notes skill once per brief and the expert-synthesis skill yourself, as before.
 
 Speak one \`▸ paqad\` line when experts are seated, naming the standing four and the on-call picks and why (issue #558): "**▸ paqad** · seated the standing experts (product-owner, application-architect, user-flow-writer, qa-engineer) and brought in db-expert and security-auditor: this reads invoices in bulk and exports a customer's financial data." Under \`spec_pipeline_adoption=strict\` the freeze refuses a spec the pipeline did not produce; \`--manual --reason "<why>"\` is the only exit and it is recorded. Under \`warn\` a hand-written spec still freezes and the receipt says the pipeline was skipped.
 

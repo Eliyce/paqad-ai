@@ -76,10 +76,14 @@ about it at every stage:
   are agent-attached and names the spec's `(proof: visual)` criteria as "Visually evidenced:
   AC-n"). A resolved readiness pause with the `waive` option makes it read
   `skipped` with "waived by D-<id>", never pass. Under `warn` these stay skipped, and the
-  verdict prints a "⚪ visual evidence: skipped (<reason>)" line so a turned-on gate that
-  skipped is visible.
+  verdict prints a line so a turned-on gate that skipped is visible: "⚪ visual evidence: not
+  required (<reason>)" when there was nothing to capture (no documented flow, waived), or
+  "⚪ visual evidence: did not run (<reason>)" when screenshots were owed and none were taken
+  (no capture script, capture script invalid). Issue #639, Part 10 records this as the row's
+  `skip_kind`.
 
-A change with no frontend files still reads `skipped (not-frontend)`: no pause, no block.
+A change with no frontend files still reads skipped and not required (`not-frontend`): no
+pause, no block.
 
 ## Artifacts (inside the feature bundle)
 

@@ -8,6 +8,7 @@ import {
 } from '../../../../runtime/claude-plugin/mod/band.ts';
 import { buildBandView, parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
+  EXPERTS_OFF,
   FAST_ORD_490,
   FULL_ORD_501,
   GRADUATED_ORD_482,
@@ -27,16 +28,19 @@ const lines = (raw: Record<string, unknown> | null, columns = 95, maxRows = 12) 
   layoutBand(view(raw), { columns, maxRows }).map(rowText);
 
 describe('the band rows (FR-26)', () => {
-  it('draws the headline, Stage, Ship and the pills, and no High Table', () => {
+  it('draws the headline, Stage, the High Table, Ship and the pills', () => {
     expect(lines(FULL_ORD_501)).toEqual([
       'paqad · Safe to merge · 1 flag open.',
       'Stage  6 of 8 done  ·Intake ✓Planning ✓Spec ✓Build ✓Review ✓Checks ✓Docs ·Deliver',
+      'High Table  ●●●●●●● chief ●',
       'Ship   3 commits  ✓Edit ✓Commit ·Push ·PR ·CI ·Merge (yours)',
       '1 flag · cost: not yet',
     ]);
-    for (const raw of [FAST_ORD_490, GRADUATED_ORD_482, FULL_ORD_501, PAUSED]) {
+    // The fast lane has no High Table, and nor has a session with no change in progress.
+    for (const raw of [FAST_ORD_490, PAUSED]) {
       expect(lines(raw).join('\n')).not.toContain('High Table');
     }
+    expect(lines(GRADUATED_ORD_482)[2]).toBe('High Table  ●●●● chief ●');
   });
 
   it('shows the running stage with its clock, and the fast lane Spec as not required', () => {
@@ -65,13 +69,15 @@ describe('the band rows (FR-26)', () => {
       ...FULL_ORD_501,
       ship: { commits: 2, push: 'pushed', pr: 'draft', ci: '4 of 4', merge_commit: 'abc' },
     };
-    expect(lines(shipped)[2]).toBe('Ship   Merge merged  ✓Edit ✓Commit ✓Push ✓PR ✓CI ✓Merge');
+    const ship = (raw: Record<string, unknown>) =>
+      lines(raw).find((line) => line.startsWith('Ship'));
+    expect(ship(shipped)).toBe('Ship   Merge merged  ✓Edit ✓Commit ✓Push ✓PR ✓CI ✓Merge');
     const edited = { ...FULL_ORD_501, ship: null };
-    expect(lines(edited)[2]).toBe('Ship   Edit done  ✓Edit ·Commit ·Push ·PR ·CI ·Merge (yours)');
+    expect(ship(edited)).toBe('Ship   Edit done  ✓Edit ·Commit ·Push ·PR ·CI ·Merge (yours)');
   });
 
   it('colours the state and the flag pill, and says both in words', () => {
-    const [head, , , pills] = layoutBand(view(FULL_ORD_501), { columns: 95, maxRows: 12 });
+    const [head, , , , pills] = layoutBand(view(FULL_ORD_501), { columns: 95, maxRows: 12 });
     expect(head!.find((s) => s.text === 'Safe to merge')?.tone).toBe('warn');
     expect(pills!.find((s) => s.text === '1 flag')?.tone).toBe('warn');
   });
@@ -95,8 +101,11 @@ describe('the terminal band fits its box (FR-28, AC-43)', () => {
     expect(lines(FULL_ORD_501, 40, 3)).toEqual([
       'paqad · Safe to merge · 1 flag · cost: …',
       'Stage  6 of 8 done  ·Intake ✓Planning ✓…',
-      'Ship   3 commits  ✓Edit ✓Commit ·Push ·…',
+      'High Table  ●●●●●●● chief ●',
     ]);
+    // With the experts off the band has two instruments, so four rows hold the pills apart.
+    expect(lines(EXPERTS_OFF, 95, 4).at(-1)).toBe('cost: not yet');
+    expect(lines(FULL_ORD_501, 95, 4)[0]).toContain('1 flag · cost: not yet');
     expect(lines(FULL_ORD_501, 95, 1)).toEqual([
       'paqad · Safe to merge · 1 flag · cost: not yet · 1 flag open.',
     ]);

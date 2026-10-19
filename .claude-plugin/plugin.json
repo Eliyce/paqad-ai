@@ -12,7 +12,9 @@
     "./runtime/claude-plugin/agents/paqad-development.md",
     "./runtime/claude-plugin/agents/paqad-review.md",
     "./runtime/claude-plugin/agents/paqad-checks.md",
-    "./runtime/claude-plugin/agents/paqad-documentation-sync.md"
+    "./runtime/claude-plugin/agents/paqad-documentation-sync.md",
+    "./runtime/claude-plugin/agents/paqad-expert.md",
+    "./runtime/claude-plugin/agents/paqad-chief-architect.md"
   ],
   "skills": "./runtime/claude-plugin/skills",
   "types": "./runtime/claude-plugin/mod/types/index.d.ts",

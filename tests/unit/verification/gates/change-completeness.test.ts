@@ -60,12 +60,12 @@ describe('ChangeCompletenessGate', () => {
     });
   });
 
-  it('passes when no code changes were detected and no blockers remain', async () => {
+  it('AC-11: reads not required when no code changed and no blockers remain', async () => {
     const result = await gate.check(createVerificationContext());
 
     expect(result.passed).toBe(true);
-    expect(result.detail).toContain('Change completeness: complete');
-    expect(result.detail).toContain('No code diff detected');
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toContain('no code changed');
   });
 
   it('fails as incomplete when code changed without test evidence', async () => {

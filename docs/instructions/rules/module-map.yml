@@ -2359,7 +2359,10 @@ modules:
       import graph, and verification-evidence `ac_id`. Flags promises with no
       proving check (TR-UNTESTED-PROMISE) and code that answers to no promise
       and that nothing-with-a-promise uses (TR-CODE-ORPHAN, by reachability —
-      not a label). Writes `.paqad/traceability/map.json`.
+      not a label). Writes `.paqad/traceability/map.json`. In production the map is
+      the change map (issue #639, Part 11): the frozen spec's automated acceptance
+      criteria against the test files changed on the branch, built at Stop
+      verification and at `checks run`, and read by the `ac-test-mapping` gate.
     sources:
       - src/traceability
     evidence:
@@ -2367,6 +2370,7 @@ modules:
         - GatherOptions
         - ReachabilityInput
         - ReachabilityResult
+        - buildChangeTraceabilityMap
         - buildTraceabilityMap
         - gatherTraceabilityInputs
         - readTraceabilityMap
@@ -2769,10 +2773,12 @@ modules:
       paused-feature control that folds today's `.open` + `.pending-lane` at feature
       grain. Nothing writes here until later #339 phases wire the recorder in, so the
       live stage spine is untouched. Also home to the paqad HUD's data layer (issue
-      #639): the per-session snapshot, receipt and verdict files built from the bundle.
+      #639): the per-session snapshot, receipt and verdict files built from the bundle, and
+      the change cost (`src/cost`, Part 23): transcript usage, the dated price table and cost.json.
     sources:
       - src/feature-evidence
       - src/hud
+      - src/cost
     evidence:
       symbols:
         - ALLOWED_BUNDLE_FILENAMES

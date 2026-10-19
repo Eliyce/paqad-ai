@@ -90,6 +90,15 @@ export interface TraceabilityMap {
   backward: BackwardLink[];
   findings: TraceabilityFinding[];
   counts: TraceabilityCounts;
+  /**
+   * Issue #639, Part 11 — `change` on a map built for one change by
+   * `buildChangeTraceabilityMap` (the frozen spec's automated criteria against the
+   * test files changed on the branch). Absent on a whole-tree map. A reader uses it
+   * to tell a change map left by an earlier change from a map that applies now.
+   */
+  scope?: 'change';
+  /** The feature bundle directory the change map was built for. */
+  change?: string;
 }
 
 /** Maps a promise to the code inferred to deliver it. */

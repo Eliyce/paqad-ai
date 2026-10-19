@@ -9,7 +9,7 @@ import { ModuleDocsStructureGate } from '@/verification/gates/module-docs-struct
 import { createVerificationContext } from '../shared.fixture.js';
 
 describe('ModuleDocsStructureGate', () => {
-  it('skips when no module documentation paths changed', async () => {
+  it('AC-10: reads not required when no module doc changed', async () => {
     const result = await new ModuleDocsStructureGate().check(
       createVerificationContext({
         changed_files: ['src/service.ts'],
@@ -20,11 +20,12 @@ describe('ModuleDocsStructureGate', () => {
     expect(result).toEqual({
       gate: 'module-docs-structure',
       passed: true,
-      detail: 'No module feature documentation changes detected',
+      outcome: 'not-required',
+      detail: 'Not required: no module doc changed.',
     });
   });
 
-  it('skips module docs paths that are not feature markdown files', async () => {
+  it('AC-10: reads not required for module docs paths that are not feature markdown files', async () => {
     const context = createVerificationContext({
       changed_files: [
         './docs/modules',
@@ -39,7 +40,8 @@ describe('ModuleDocsStructureGate', () => {
     expect(result).toEqual({
       gate: 'module-docs-structure',
       passed: true,
-      detail: 'No module feature documentation changes detected',
+      outcome: 'not-required',
+      detail: 'Not required: no module feature doc changed (only other module docs).',
     });
   });
 

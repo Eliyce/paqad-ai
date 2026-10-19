@@ -88,6 +88,18 @@ function skipped(
 }
 
 /**
+ * A skipped result for a reason decided before the runner starts (issue #293: the backstop found
+ * no project test command). Uses the same tool selection as a real run, so the result names the
+ * tool the stack would have used. Exported for the backstop seam.
+ */
+export function skippedMutationResult(
+  stackProfile: DetectedStackProfile | null,
+  reason: MutationSkipReason,
+): MutationResult {
+  return skipped(selectMutationTool(stackProfile), [], reason);
+}
+
+/**
  * Run mutation testing on the changed code and return a result for the
  * verification evidence. Never throws: any failure to run is recorded as a
  * skipped result so the gate decides what to do, not the orchestration.

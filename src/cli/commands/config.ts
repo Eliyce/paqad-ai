@@ -8,6 +8,7 @@ import { resolveStagesMode } from '@/stage-evidence/mode.js';
 import { resolveBundleCompletenessMode } from '@/verification/repository/bundle-completeness-mode.js';
 import { resolveVisualEvidenceMode } from '@/verification/repository/visual-evidence-mode.js';
 import { resolveChecksFlakyMode } from '@/checks/flaky-mode.js';
+import { resolveMutationMode } from '@/mutation/mode.js';
 
 /**
  * `paqad-ai config effective` (issue #326) — print, per knob, the value that ACTUALLY
@@ -75,6 +76,7 @@ const KNOB_CONSUMERS: Record<string, string> = {
   stages_mode: 'stages capability gate (pre-code block)',
   rule_compliance: 'rule-scripts capability gate',
   analytics_strictness: 'analytics AC-track gate',
+  mutation_mode: 'mutation-testing gate (ci-backstop and git-backstop only)',
   bundle_completeness: 'bundle-completeness gate (end-of-change)',
   evidence_existence_gate:
     'evidence-existence gate (deprecated; runs only when bundle_completeness=off)',
@@ -141,6 +143,9 @@ export function resolveEffectiveConfig(
       surface = `${surface} → floored`;
     } else if (spec.key === 'checks_flaky_under_parallel') {
       value = resolveChecksFlakyMode(projectRoot, env);
+      surface = `${surface} → floored`;
+    } else if (spec.key === 'mutation_mode') {
+      value = resolveMutationMode(projectRoot, env);
       surface = `${surface} → floored`;
     }
 

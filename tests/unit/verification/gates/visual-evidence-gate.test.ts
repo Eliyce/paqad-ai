@@ -106,6 +106,18 @@ describe('visualEvidenceGate — applicability', () => {
     expect(gate.status).toBe('skipped');
     expect(gate.detail).toContain('not-frontend');
   });
+
+  it('AC-9: with visual_evidence on, a change with no frontend file reads not required', () => {
+    const gate = visualEvidenceGate(input({ flagOn: true, frontendTriggered: false }))!;
+    expect(gate.status).toBe('skipped');
+    expect(gate.skip_kind).toBe('not-required');
+    expect(gate.status).not.toBe('pass');
+  });
+
+  it('AC-9: the flag-off and non-local skips read not required too', () => {
+    expect(visualEvidenceGate(input({ flagOn: false }))!.skip_kind).toBe('not-required');
+    expect(visualEvidenceGate(input({ origin: 'ci-backstop' }))!.skip_kind).toBe('not-required');
+  });
 });
 
 describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
@@ -203,6 +215,21 @@ describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
   it('keeps these skips skipped under warn', () => {
     documentedManifest(['no-documented-flow']);
     expect(visualEvidenceGate(input({ mode: 'warn' }))!.status).toBe('skipped');
+  });
+
+  it('AC-7: no documented flow is not required; a missing capture script did not run', () => {
+    documentedManifest(['no-documented-flow']);
+    expect(visualEvidenceGate(input({ mode: 'warn' }))!.skip_kind).toBe('not-required');
+    documentedManifest(['no-capture-script']);
+    expect(visualEvidenceGate(input({ mode: 'warn' }))!.skip_kind).toBe('did-not-run');
+    documentedManifest(['no-documented-flow', 'capture-script-invalid']);
+    expect(visualEvidenceGate(input({ mode: 'warn' }))!.skip_kind).toBe('did-not-run');
+  });
+
+  it('AC-7: a waived visual-evidence gate reads not required', () => {
+    documentedManifest(['no-documented-flow']);
+    waive();
+    expect(visualEvidenceGate(input({ mode: 'strict' }))!.skip_kind).toBe('not-required');
   });
 });
 

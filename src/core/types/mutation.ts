@@ -42,6 +42,9 @@ export const MUTATION_SKIP_REASONS = [
   'tool-not-configured',
   'tests-not-green',
   'run-failed',
+  // Issue #293 — the backstop had no project test command to prove the suite green first, so
+  // mutation never started. Distinct from `tests-not-green` (a command that ran red).
+  'no-test-command',
 ] as const;
 export type MutationSkipReason = (typeof MUTATION_SKIP_REASONS)[number];
 

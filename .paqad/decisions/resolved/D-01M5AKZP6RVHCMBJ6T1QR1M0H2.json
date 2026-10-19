@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5AKZP6RVHCMBJ6T1QR1M0H2",
+  "category": "workflow-or-tool",
+  "title": "#293 mutation testing: wire it or retire it",
+  "context": "runMutationGate (src/mutation/runner.ts:95) has no caller since #261 deleted src/pipeline/phases/verification.ts. repository-context.ts never sets mutation_result, so mutation-testing.ts:41-43 passes vacuously on every run, graded deterministic (grading.ts:26), shown green in the PR comment (evidence-markdown.ts TRUST_GATES) and cited by the eu-ai-act pack. README.md:248, docs/verification-enforcement.md:240 and the narration contract say it runs. Wiring needs a real green-suite signal and the project's stack profile (both missing in the backstop) and would only fire on CI/git backstops nothing installs.",
+  "options": [
+    {
+      "option_key": "retire",
+      "label": "Retire for now: the gate stays but its row reads 'did not run' (never a pass, never counted, never cited); src/mutation stays dormant and untouched so wiring later is small; README, docs and the narration contract stop saying it runs",
+      "evidence": {},
+      "one_line_preview": "Retire for now: the gate stays but its row reads 'did not run' (never a pass, never counted, never cited); src/mutation stays dormant and untouched so wiring later is small; README, docs and the narration contract stop saying it runs",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "wire",
+      "label": "Wire it (issue Option A): mutation_mode off|warn|strict team-floored key, default off; runs on ci-backstop/git-backstop only, never on the per-turn Stop seam; real stack profile + green-suite signal; docs say opt-in",
+      "evidence": {},
+      "one_line_preview": "Wire it (issue Option A): mutation_mode off|warn|strict team-floored key, default off; runs on ci-backstop/git-backstop only, never on the per-turn Stop seam; real stack profile + green-suite signal; docs say opt-in",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "retire",
+  "created_at": "2026-10-19T17:40:10.072Z",
+  "status": "resolved",
+  "change": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "chosen": "wire",
+  "rationale": "Owner chose Option A (wire), behind an off-by-default team-floored mutation_mode; seam and green-suite signal decided in a follow-up packet",
+  "resolved_at": "2026-10-19T17:44:01.254Z",
+  "decision_id": "D-01M5AKZP6RVHCMBJ6T1QR1M0H2",
+  "fingerprint": "sha256:33146056c7c70181e8dd52fefcdfbf0aad68839b28edde412fd5f5f1f3a5b79b",
+  "question": "#293 mutation testing: wire it or retire it",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "ttl_until": "2026-10-26T17:40:10.072Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "wire",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-19T17:44:01.254Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose Option A (wire), behind an off-by-default team-floored mutation_mode; seam and green-suite signal decided in a follow-up packet"
+  }
+}

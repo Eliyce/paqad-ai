@@ -152,11 +152,11 @@ describe('/paqad answers (AC-39)', () => {
     expect(run('receipt', null)).toBe('No receipt yet. paqad writes one at the end of each turn.');
   });
 
-  it('says cost is not yet counted', () => {
+  it('says cost is not yet counted until a hook wrote it (Part 23)', () => {
     expect(run('cost', FULL_ORD_501)).toBe(
-      'Cost: not yet. paqad does not count what a change costs yet.',
+      'Cost: not yet. paqad counts it from the transcripts at the end of each turn.',
     );
-    expect(run(' COST ', null)).toContain('not yet');
+    expect(run(' COST ', null)).toContain('Not yet. paqad has no record for this session.');
   });
 
   it('answers an unknown subcommand and a missing snapshot', () => {

@@ -37,8 +37,11 @@ function baselinePath(projectRoot: string, sessionId: string): string {
   return join(projectRoot, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, sessionId), BASELINE_FILE);
 }
 
-/** sha256 of a file's bytes, or `null` when it cannot be read (e.g. a deleted path). */
-function digestFile(projectRoot: string, relativePath: string): string | null {
+/**
+ * sha256 of a file's bytes, or `null` when it cannot be read (e.g. a deleted path). Exported so the
+ * mutation backstop (issue #293) fingerprints the dirty tree the same way.
+ */
+export function digestFile(projectRoot: string, relativePath: string): string | null {
   try {
     return createHash('sha256')
       .update(readFileSync(join(projectRoot, relativePath)))

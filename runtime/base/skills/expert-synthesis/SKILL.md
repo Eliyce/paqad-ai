@@ -33,6 +33,8 @@ that, and turns each conflict into one `spec.expert_conflict` decision packet.
 - The spec pipeline is running with the expert roster on and the experts' notes are recorded
   (`paqad-ai spec pipeline experts context` shows a `merge` that is not null). Run this once,
   after the notes step.
+- You run as the chief architect's own subagent (`paqad-chief-architect`, issue #639) once every
+  High Table seat has recorded its note. The context you print then holds every seat's note.
 
 Do **not** run it when no expert fired — the chief only runs when at least one expert did.
 

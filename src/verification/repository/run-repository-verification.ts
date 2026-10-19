@@ -267,6 +267,7 @@ export async function runRepositoryVerification(
     (await buildRepositoryVerificationContext({
       projectRoot: options.projectRoot,
       origin: options.origin,
+      mutationDeps: options.mutationDeps,
     }));
   const { context, escalations } = built;
 
@@ -414,6 +415,19 @@ export async function runRepositoryVerification(
       evidence.gates.push(inconclusiveGate);
     }
     directGates.push(inconclusiveGate);
+  } else if (!context.code_changed) {
+    // Issue #639, Part 10 — no code changed (a docs-only change), so there were no tests owed:
+    // the placeholder reads not required instead of did not run.
+    evidence.gates = evidence.gates.map((gate) =>
+      gate.name === 'code-tests-lint'
+        ? {
+            ...gate,
+            detail: 'No code changed, so there were no tests to check.',
+            skip_reason: 'no code changed',
+            skip_kind: 'not-required' as const,
+          }
+        : gate,
+    );
   }
   // Issue #368 — does a passing `paqad-ai checks run` report back this change? Used by
   // the receipt to render the `checks` stage honestly (🟡 "tests not verified" when not).
@@ -1065,6 +1079,8 @@ export function stageEvidenceGate(
     detail: skippedDetail(mode, origin, missing, result.live_marked),
     remediation: null,
     failures: [],
+    // Issue #639, Part 10 — off, warn, or a non-local seam: the policy does not require it here.
+    skip_kind: 'not-required',
   };
 }
 

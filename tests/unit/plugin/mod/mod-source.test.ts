@@ -28,16 +28,22 @@ const sources = files(MOD_DIR).map((path) => ({
   text: readFileSync(path, 'utf8'),
 }));
 
-describe('the HUD mod source (AC-34)', () => {
+// Issue #639, Part 23 (AC-54): the cost modules join the list and the same checks, so the cost
+// pill, the Cost tab and /paqad cost read a file and never the network. Part 14 adds table.ts
+// (the High Table's instrument, card and pane tab) under the same checks.
+describe('the HUD mod source (AC-34, AC-54)', () => {
   it('has the files the design names', () => {
     expect(sources.map((s) => s.name).sort()).toEqual(
       [
         'band.ts',
         'commands.ts',
         'config.ts',
+        'cost.ts',
         'model.ts',
+        'pane.ts',
         'register.test.ts',
         'register.tsx',
+        'table.ts',
         'test/fixtures.ts',
         'test/world.ts',
         'types/index.d.ts',
@@ -62,7 +68,15 @@ describe('the HUD mod source (AC-34)', () => {
   });
 
   it('keeps the pure modules free of Claude Code imports, so vitest runs them', () => {
-    for (const name of ['band.ts', 'commands.ts', 'config.ts', 'model.ts']) {
+    for (const name of [
+      'band.ts',
+      'commands.ts',
+      'config.ts',
+      'cost.ts',
+      'model.ts',
+      'pane.ts',
+      'table.ts',
+    ]) {
       const text = sources.find((s) => s.name === name)!.text;
       expect(text, name).not.toContain("from 'claude-code'");
     }

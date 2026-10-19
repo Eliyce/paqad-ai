@@ -14,6 +14,8 @@ import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
+import { STAGE_AGENT_STAGES } from './stage-agents.js';
+
 /** The pre-#581 per-bundle isolation stream, read only for old bundles. */
 export const LEGACY_CONTEXT_EFFICIENCY_FILE = 'context-efficiency.jsonl';
 
@@ -27,13 +29,26 @@ export interface StageIsolationSummary {
   estimate: boolean;
 }
 
-/** The bundle's `stage-agent` rows, oldest first. */
+/**
+ * Whether a row names one of the six isolated stages. Issue #639, Part 13: before the fix a High
+ * Table seat could leave a `stage-agent` row under a made-up stage (`expert`); it never counts.
+ */
+function isIsolatedStageRow(row: SessionLedgerRow): boolean {
+  return STAGE_AGENT_STAGES.includes(String(row.stage));
+}
+
+/** The bundle's `stage-agent` rows for the six stage agents, oldest first. */
 export function readStageAgentRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
-  return readFeatureStageUnit(projectRoot, dirName).filter((row) => row.kind === STAGE_AGENT_KIND);
+  return readFeatureStageUnit(projectRoot, dirName).filter(
+    (row) => row.kind === STAGE_AGENT_KIND && isIsolatedStageRow(row),
+  );
 }
 
 function legacyRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
-  return readUnitFile(projectRoot, `${featureDir(dirName)}/${LEGACY_CONTEXT_EFFICIENCY_FILE}`);
+  return readUnitFile(
+    projectRoot,
+    `${featureDir(dirName)}/${LEGACY_CONTEXT_EFFICIENCY_FILE}`,
+  ).filter(isIsolatedStageRow);
 }
 
 function count(value: unknown): number {

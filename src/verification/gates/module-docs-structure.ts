@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { Gate } from './gate.interface.js';
-import { createFail, createPass } from './shared.js';
+import { createFail, createNotRequired, createPass } from './shared.js';
 
 const REQUIRED_FEATURE_DOCS = ['business.md', 'technical.md', 'api.md'] as const;
 
@@ -30,7 +30,7 @@ export class ModuleDocsStructureGate implements Gate {
       isUnderPath(filePath, 'docs/modules/'),
     );
     if (moduleDocPaths.length === 0) {
-      return createPass(this.gate, 'No module feature documentation changes detected');
+      return createNotRequired(this.gate, 'Not required: no module doc changed.');
     }
 
     // #313 finding 2 (same family as #310): a flat `docs/modules/{module}/
@@ -56,7 +56,10 @@ export class ModuleDocsStructureGate implements Gate {
 
     const scopes = collectTouchedFeatureScopes(scopedPaths);
     if (scopes.length === 0) {
-      return createPass(this.gate, 'No module feature documentation changes detected');
+      return createNotRequired(
+        this.gate,
+        'Not required: no module feature doc changed (only other module docs).',
+      );
     }
 
     for (const scope of scopes) {

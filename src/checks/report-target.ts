@@ -41,7 +41,7 @@ export function activeFeatureDirOrNull(projectRoot: string): string | null {
  * #672 — the same order every other verb uses: the first non-blank of `SE_SESSION` (the
  * orchestrator session a stage agent records under) then `CLAUDE_SESSION_ID`, else the cache.
  */
-function checksSessionId(projectRoot: string): string {
+export function checksSessionId(projectRoot: string): string {
   return resolveSessionId(projectRoot, explicitSessionHint());
 }
 

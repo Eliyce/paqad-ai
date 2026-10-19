@@ -103,6 +103,7 @@ describe('evidenceExistenceGate (issue #468 Phase C)', () => {
   it('is skipped for a non-feature-development change', () => {
     const gate = evidenceExistenceGate(baseInput({ isFeatureDev: false }));
     expect(gate?.status).toBe('skipped');
+    expect(gate?.skip_kind).toBe('not-required');
   });
 
   it('is skipped when no feature bundle is active', () => {

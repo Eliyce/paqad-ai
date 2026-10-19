@@ -23,7 +23,11 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { VerificationGate, VerificationOrigin } from '@/core/types/verification.js';
+import type {
+  GateSkipKind,
+  VerificationGate,
+  VerificationOrigin,
+} from '@/core/types/verification.js';
 import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { validateVisualEvidenceRecord } from '@/feature-evidence/schema.js';
@@ -79,7 +83,16 @@ export interface VisualEvidenceGateInput {
   packRegistryFault?: { runtimeRoot: string } | null;
 }
 
-function skipped(detail: string, skipReason: string): VerificationEvidenceGate {
+/**
+ * A skipped visual-evidence row. Issue #639, Part 10 — `kind` says whether the change needed no
+ * screenshots (`not-required`: flag off, not on a local seam, not a frontend change, waived,
+ * no documented flow) or needed them and none were taken (`did-not-run`: no capture script).
+ */
+function skipped(
+  detail: string,
+  skipReason: string,
+  kind: GateSkipKind = 'not-required',
+): VerificationEvidenceGate {
   return {
     name: GATE_NAME,
     status: 'skipped',
@@ -87,6 +100,7 @@ function skipped(detail: string, skipReason: string): VerificationEvidenceGate {
     remediation: null,
     failures: [],
     skip_reason: skipReason,
+    skip_kind: kind,
   };
 }
 
@@ -245,7 +259,12 @@ export function visualEvidenceGate(
             `or record a waiver: ${visualEvidenceWaiverHint(projectRoot, dirName)}.`,
         );
       }
-      return skipped(`no visual evidence to capture (${reasons}).`, phrases.join(', '));
+      // Only "no documented flow" means there was nothing to capture; a missing or invalid
+      // capture script means screenshots were owed and none were taken.
+      const kind = manifest.skips.every((s) => s.reason === 'no-documented-flow')
+        ? 'not-required'
+        : 'did-not-run';
+      return skipped(`no visual evidence to capture (${reasons}).`, phrases.join(', '), kind);
     }
     return environmental(
       mode,

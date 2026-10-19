@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5AM0E9YEC7FBFHFN8N3SHCC",
+  "category": "create-vs-reuse",
+  "title": "Part 10: how 'not required' and 'did not run' are recorded",
+  "context": "GateResult has only passed/inconclusive (core/types/verification.ts:28). Evidence gates and ledger rows already have a 'skipped' status (verification-evidence.ts:8, evidence-ledger.ts:32), the receipt statement already ignores skipped rows (statement.ts:43), and the HUD already maps skipped to not-required (snapshot.ts:233-253). But skipped mixes two meanings, and many gates (mutation, instructions-docs-structure, module-docs-structure, extension-surface, duplication, visual not-frontend, rules-loaded) still report a pass with nothing to check.",
+  "options": [
+    {
+      "option_key": "reuse",
+      "label": "Reuse 'skipped' and add one field, skip_kind: 'not-required' | 'did-not-run', on gate results, evidence gates and ledger rows; GateResult gains outcome?: 'not-required'|'did-not-run' with passed:true so the runner never treats it as a failure; every count already ignores skipped",
+      "evidence": {},
+      "one_line_preview": "Reuse 'skipped' and add one field, skip_kind: 'not-required' | 'did-not-run', on gate results, evidence gates and ledger rows; GateResult gains outcome?: 'not-required'|'did-not-run' with passed:true so the runner never treats it as a failure; every count already ignores skipped",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "new-status",
+      "label": "Add a new top-level status 'not-required' (and 'did-not-run') to every status union: EvidenceVerdict, evidence gate status, event-bus, glyph tables, grading, fan-in; more churn, every consumer touched",
+      "evidence": {},
+      "one_line_preview": "Add a new top-level status 'not-required' (and 'did-not-run') to every status union: EvidenceVerdict, evidence gate status, event-bus, glyph tables, grading, fan-in; more churn, every consumer touched",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "reuse",
+  "created_at": "2026-10-19T17:40:34.750Z",
+  "status": "resolved",
+  "change": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "chosen": "reuse",
+  "rationale": "Owner chose reuse: skipped + skip_kind not-required|did-not-run; GateResult.outcome with passed:true",
+  "resolved_at": "2026-10-19T17:44:01.484Z",
+  "decision_id": "D-01M5AM0E9YEC7FBFHFN8N3SHCC",
+  "fingerprint": "sha256:62cd86a0e94875a26ae6fc5fba04224826ac36eda6208bf1efff50734df82e17",
+  "question": "Part 10: how 'not required' and 'did not run' are recorded",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "ttl_until": "2026-11-18T17:40:34.750Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "reuse",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-19T17:44:01.484Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose reuse: skipped + skip_kind not-required|did-not-run; GateResult.outcome with passed:true"
+  }
+}

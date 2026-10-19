@@ -7,7 +7,13 @@ import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { runChecks } from '@/checks/run-checks.js';
 import type { ChecksRunResult } from '@/checks/run-checks.js';
 import { CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
-import { activeFeatureDirOrNull, writeChecksReportForFeature } from '@/checks/report-target.js';
+import {
+  activeFeatureDirOrNull,
+  checksSessionId,
+  writeChecksReportForFeature,
+} from '@/checks/report-target.js';
+import { recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
+import { buildAndWriteChangeTraceabilityMap } from '@/traceability/index.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import {
@@ -58,6 +64,24 @@ export function createChecksCommand(): Command {
         meaningful_green: result.meaningful_green,
         critical_path: result.critical_path,
       });
+
+      // Issue #639, Part 11 — write the change's acceptance-criteria map beside the report, from
+      // the same changed files and test results. Best-effort: a map that cannot be built is a
+      // warning, never a failed `checks run`.
+      await buildAndWriteChangeTraceabilityMap(
+        {
+          projectRoot: options.projectRoot,
+          dirName,
+          changedFiles,
+          testResults: result.results,
+          lane: recordedLaneOrFull(
+            options.projectRoot,
+            checksSessionId(options.projectRoot),
+            dirName,
+          ),
+        },
+        (message) => console.error(`⚠️  ${message}`),
+      );
 
       for (const warning of result.warnings) console.error(`⚠️  ${warning}`);
 

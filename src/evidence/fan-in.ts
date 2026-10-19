@@ -43,6 +43,7 @@ export function gateResultsToRows(
       verdict: graded.verdict,
       strength_class: graded.strength_class,
       detail: result.detail,
+      ...(graded.skip_kind ? { skip_kind: graded.skip_kind } : {}),
     });
   });
 }
@@ -76,6 +77,9 @@ export function evidenceGatesToRows(
       subject_digest: ctx.subjectDigest,
       ...EVIDENCE_GATE_GRADES[gate.status],
       detail: gate.detail,
+      // Issue #639, Part 10 — a skipped gate says which kind of skip it was. A gate written
+      // before Part 10 carries no kind and reads as not required.
+      ...(gate.status === 'skipped' && gate.skip_kind ? { skip_kind: gate.skip_kind } : {}),
     }),
   );
 }

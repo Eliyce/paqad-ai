@@ -9,16 +9,75 @@
 //   2. Survivors *escalate* (inconclusive) by default; a project-tunable strict
 //      mode (`mutation_strict`) turns them into a hard block. This avoids
 //      turning every survivor into a stop before baselines exist (#110 ratchet).
-//   3. The `fast` lane skips mutation upstream → the gate passes (light).
-//   4. Equivalent mutants are set aside by the tool and excluded from the bar.
+//   3. Equivalent mutants are set aside by the tool and excluded from the bar.
+//
+// Issue #639, Part 10 — the gate is a pass only when mutation actually ran and
+// every behaviour-changing mutant was killed. When nothing ran it says so:
+//   - no result (mutation is off, or this seam never runs it) and the
+//     `fast-lane` / `no-changed-code` skips read NOT REQUIRED;
+//   - the `tests-not-green`, `no-test-command`, `tool-not-configured` and `run-failed` skips read
+//     DID NOT RUN, naming the reason.
+// Both keep `passed: true`, so no verdict kind changes, and the evidence records
+// them as skipped, never as a pass.
 //
 // Safety is non-negotiable: if the working tree was not clean after the run
 // (a mutant may have been left behind), the gate hard-fails regardless of mode.
 
-import type { MutationResult } from '@/core/types/mutation.js';
+import type { MutationResult, MutationSkipReason } from '@/core/types/mutation.js';
+import type { GateSkipKind } from '@/core/types/verification.js';
 
 import type { Gate } from './gate.interface.js';
-import { createFail, createInconclusive, createPass } from './shared.js';
+import {
+  createDidNotRun,
+  createFail,
+  createInconclusive,
+  createNotRequired,
+  createPass,
+} from './shared.js';
+
+/** The not-required detail when no mutation result was planted and no note says why. */
+export const MUTATION_OFF_DETAIL = 'Mutation testing is off (mutation_mode is off).';
+
+interface SkipReading {
+  kind: GateSkipKind;
+  words: string;
+  remediation?: string;
+}
+
+/** The plain words for each skip reason, and whether it means not required or did not run. */
+const SKIP_READING: Record<MutationSkipReason, SkipReading> = {
+  'fast-lane': {
+    kind: 'not-required',
+    words: 'Mutation testing is not required on the fast lane.',
+  },
+  'no-changed-code': {
+    kind: 'not-required',
+    words: 'Mutation testing is not required: no code changed.',
+  },
+  'tests-not-green': {
+    kind: 'did-not-run',
+    words: 'Mutation testing did not run: the test command was not green to begin with.',
+    remediation: 'Make the test command pass, then run verification again.',
+  },
+  'no-test-command': {
+    kind: 'did-not-run',
+    words:
+      'Mutation testing did not run: no test command is configured, so nothing proved the suite green first.',
+    remediation:
+      'Set commands.test in .paqad/project-profile.yaml to the project test command, or set mutation_mode=off.',
+  },
+  'tool-not-configured': {
+    kind: 'did-not-run',
+    words: 'Mutation testing did not run: no mutation tool is configured for this stack.',
+    remediation:
+      'Install the mutation tool for this stack in the project, or set mutation_mode=off.',
+  },
+  'run-failed': {
+    kind: 'did-not-run',
+    words: 'Mutation testing did not run: the mutation tool failed before it produced a result.',
+    remediation: 'Check the mutation tool output, fix what stopped it, and run verification again.',
+  },
+};
 
 function summarizeSurvivors(result: MutationResult): string {
   const shown = result.surviving_mutants
@@ -36,17 +95,23 @@ export class MutationTestingGate implements Gate {
   async check(context: Parameters<Gate['check']>[0]) {
     const result = context.mutation_result;
 
-    // Nothing ran (gate not wired for this run, or mutation not applicable):
-    // treat as a pass so the gate is inert when there is no signal.
+    // Nothing ran: mutation is off, or this seam never runs it. Not required, never a pass.
     if (!result) {
-      return createPass(this.gate, 'Mutation testing did not run; no signal to evaluate.');
+      return createNotRequired(this.gate, context.mutation_note ?? MUTATION_OFF_DETAIL);
     }
 
     if (result.status === 'skipped') {
-      return createPass(
-        this.gate,
-        `Mutation testing skipped (${result.skipped_reason ?? 'unknown reason'}).`,
-      );
+      const reading = result.skipped_reason ? SKIP_READING[result.skipped_reason] : undefined;
+      if (!reading) {
+        // An unknown reason is still a check that did not happen.
+        return createDidNotRun(
+          this.gate,
+          `Mutation testing did not run (${result.skipped_reason ?? 'no reason recorded'}).`,
+        );
+      }
+      return reading.kind === 'not-required'
+        ? createNotRequired(this.gate, reading.words)
+        : createDidNotRun(this.gate, reading.words, reading.remediation);
     }
 
     // Safety: a dirty tree means a planted mutant may not have been removed.
