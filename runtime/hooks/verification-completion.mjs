@@ -19,7 +19,12 @@
 import process from 'node:process';
 
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
-import { hookStandsDown, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  hookStandsDown,
+  isPaqadDisabled,
+  parseHookPayload,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
@@ -62,7 +67,10 @@ async function main() {
   // half-finished one. When a stage agent is still in `background_tasks`, step aside: record a
   // `completion-deferred` breadcrumb, run no backstop, and exit 0. The stage agent's completion
   // notice (Part 2) later drives the change on.
-  if (await deferredForBackgroundStage(projectRoot)) {
+  // Issue #673 — a disabled project never defers: it falls through to the backstop, whose own
+  // disabled check writes the one disabled-session audit row and nothing else (the order
+  // capability-gate.mjs already uses).
+  if (!isPaqadDisabled(projectRoot) && (await deferredForBackgroundStage(projectRoot))) {
     process.exit(0);
     return;
   }
