@@ -393,6 +393,40 @@ existing code is open.`), so the band shows findings only as a count in the flag
 - **Stands down** in a project that was never onboarded and while paqad is disabled.
 - **Read it** with `paqad-ai status --hud` (text) or `--hud --format json` (the object).
 
+### The HUD band in Claude Code (issue #639, Parts 8 and 9)
+
+The plugin draws the snapshot as a band above the prompt. The mod lives in
+`runtime/claude-plugin/mod/` and is declared in `.claude-plugin/plugin.json`. It only shows and
+answers: every check stays one of the plugin's hooks in `hooks.json`, so the mod being off,
+blocked or broken changes no hook's decision. It reads only `.paqad/`, calls no model and no
+network, and starts no process.
+
+- **What the band shows.** A state word with its colour, the headline, a flag pill when flags
+  are open, and two instruments. *Stage* walks Intake, Planning, Spec, Build, Review, Checks,
+  Docs and Deliver, with a live clock on the running stage. *Ship* walks Edit, Commit, Push, PR,
+  CI and Merge, and Merge reads "stays yours" until a merge is recorded. A stage reads done only
+  when the receipt would say done: an unbacked `checks` stage is marked, not done. A field with
+  no record reads "not yet". Cost reads "not yet" until paqad counts it.
+- **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
+  Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
+  Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
+  or Inconclusive. Any open flag turns a good or neutral state amber. The words always say what
+  the colour says.
+- **When it refreshes.** On session start, prompt submit, a finished edit, an Agent call or a
+  Bash call that runs `paqad-ai`, once more shortly after a turn ends, and on a short tick
+  while a stage agent runs.
+- **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
+  `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
+  session's `<session>.receipt.md`) and `/paqad cost`. Each answer comes from files already on
+  disk, so it costs no model turn.
+- **The `view` setting.** The plugin's `userConfig.view` ("Show the paqad HUD", on by default)
+  turns the band off. Off, the mod registers nothing at all.
+- **Stand-downs.** The mod also stands down when the project was never onboarded, when the
+  session runs in the cloud (`CLAUDE_CODE_REMOTE=true`), when paqad is off for the project
+  (resolved the same way the hooks resolve it), and on Claude Code older than 2.1.301. While it
+  stands down it draws no band and reads nothing. In a project never onboarded, `/paqad` alone
+  stays, so `/paqad status` can say paqad is not active here.
+
 ## Source Footprint
 
 - `src/feature-evidence`
