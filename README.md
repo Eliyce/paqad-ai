@@ -458,10 +458,10 @@ The config files stay short. The real knowledge lives in shared bundles that eve
 
 ## Requirements
 
-| Requirement | Version                       |
-| ----------- | ----------------------------- |
-| **Node.js** | `>= 22` (pinned via `.nvmrc`) |
-| **pnpm**    | `10+` for local development   |
+| Requirement | Version                                                                                                                |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| **Node.js** | `>= 22` to install and run. Building from source needs 22.18 or later (24.11 or later on Node 24), pinned via `.nvmrc` |
+| **pnpm**    | `10+` for local development                                                                                            |
 
 ## Development
 

@@ -185,6 +185,10 @@ when something needs to change.
 - Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 - Triggers: `pull_request` to `main`, `push` to `main`
 - Matrix: Node 22 (ubuntu, macOS, windows), Node 24 (ubuntu)
+- Building needs Node 22.18 or later (24.11 or later on Node 24), because tsup 9
+  requires it. CI asks `setup-node` for the latest 22.x and 24.x, which clear that
+  floor, so no workflow pins a patch version. The published `engines` field stays
+  `>=22.0.0`: installing the package is unaffected.
 
 #### How the test run is sharded (issue #654)
 
