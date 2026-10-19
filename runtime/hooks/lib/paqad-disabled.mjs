@@ -18,12 +18,14 @@
 
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
 /** PAQAD_DISABLED values that mean "off" — identical to the .sh/.ts primitives. */
@@ -141,14 +143,93 @@ export function pluginStandsDownUnonboarded(payload = undefined, env = process.e
   return !isProjectOnboarded(resolveProjectRoot(env, payload));
 }
 
-// ─── One-copy handshake (issue #616, Part 7) ────────────────────────────────────────────────────
+// ─── One-copy handshake (issue #616, Part 7; issue #667) ─────────────────────────────────────────
 //
 // Inside Claude Code the plugin and a globally-installed npm copy can both be wired to run paqad's
-// hooks. To keep EXACTLY ONE copy active (INV-3) the plugin's SessionStart claims the session by
-// writing a per-session marker; every npm-reached hook (no CLAUDE_PLUGIN_ROOT) then steps aside for
-// that session. The marker is per-session (INV-4) so two sessions never ungate each other, and the
-// default is to stay active — a hook with no evidence that the other copy owns the session keeps
-// running (never silently off).
+// hooks. For any session EXACTLY ONE chain runs (INV-3; issue #667 INV-1):
+//   - claimed: the plugin's SessionStart writes a per-session marker, and every npm-reached hook (no
+//     CLAUDE_PLUGIN_ROOT) steps aside for that session (npmHookStepsAside);
+//   - passive: the session is unclaimed and the user or project Claude settings still wire a live npm
+//     hook, so the plugin's SessionStart stays passive and every plugin-reached hook stands down
+//     (pluginStandsDownPassive).
+// Every hook guard asks the one combinator hookStandsDown. The marker is per-session (INV-4) so two
+// sessions never ungate each other, and the default is to stay active: a hook with no evidence that
+// the other copy owns the session keeps running (never silently off).
+
+/** Claude Code's config dir: honours CLAUDE_CONFIG_DIR (set by the host), else ~/.claude. */
+export function claudeDir(env = process.env) {
+  return env.CLAUDE_CONFIG_DIR || join(homedir(), '.claude');
+}
+
+/** The user-level Claude settings file. */
+export function claudeSettingsPath(env = process.env) {
+  return join(claudeDir(env), 'settings.json');
+}
+
+/**
+ * The absolute `.mjs` script path a paqad hook command runs, or null when it is not a paqad hook.
+ * Mirrored for the doctor by projectWiresLiveNpmHooks in src/install/plugin-migration.ts.
+ */
+export function paqadHookScriptPath(command) {
+  if (typeof command !== 'string' || !command.includes('paqad')) return null;
+  const m = command.match(/"([^"]+\.mjs)"|(\S+\.mjs)/);
+  const path = m ? (m[1] ?? m[2]) : null;
+  return path && path.includes('paqad') ? path : null;
+}
+
+/** Walk every hook command in a parsed settings object, yielding { event, ei, hi, command }. */
+export function eachHookCommand(settings) {
+  const out = [];
+  const hooks = settings && typeof settings === 'object' ? settings.hooks : undefined;
+  if (!hooks || typeof hooks !== 'object') return out;
+  for (const [event, entries] of Object.entries(hooks)) {
+    if (!Array.isArray(entries)) continue;
+    entries.forEach((entry, ei) => {
+      const inner = entry && Array.isArray(entry.hooks) ? entry.hooks : [];
+      inner.forEach((hk, hi) => out.push({ event, ei, hi, command: hk && hk.command }));
+    });
+  }
+  return out;
+}
+
+/**
+ * Part 7: true when a Claude settings file still wires a LIVE paqad hook, one whose `.mjs`
+ * script exists on disk. A missing or malformed file counts as not wired.
+ */
+export function hasLiveNpmHookLines(settingsPath = claudeSettingsPath(process.env)) {
+  let settings;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return false;
+  }
+  return eachHookCommand(settings).some(({ command }) => {
+    const script = paqadHookScriptPath(command);
+    return script !== null && existsSync(script);
+  });
+}
+
+/**
+ * The project-level Claude settings files the npm onboard writes its hook chain into
+ * (issue #641, Gap 2): onboarding wires `<project>/.claude/settings.json` (and a developer
+ * may add `settings.local.json`), NOT the user file. Both are checked so the handshake sees
+ * the npm wiring wherever it actually lives.
+ */
+export function projectClaudeSettingsPaths(projectRoot) {
+  return [
+    join(projectRoot, '.claude', 'settings.json'),
+    join(projectRoot, '.claude', 'settings.local.json'),
+  ];
+}
+
+/**
+ * Part 7 / issue #641: true when ANY of the given settings files still wires a LIVE paqad
+ * hook. The one-copy handshake stays passive whenever a live npm copy is wired at EITHER the
+ * user level or in the project, so an npm-onboarded repo never runs both chains.
+ */
+export function anyLiveNpmHookLines(settingsPaths) {
+  return settingsPaths.some((path) => hasLiveNpmHookLines(path));
+}
 
 /** The per-session plugin-active marker directory for a project. */
 export function pluginActiveMarkerDir(projectRoot) {
@@ -196,6 +277,34 @@ export function writePluginActiveMarker(payload, env = process.env) {
  */
 export function npmHookStepsAside(payload, env = process.env) {
   return !env.CLAUDE_PLUGIN_ROOT && isPluginActiveForSession(payload, env);
+}
+
+/**
+ * Issue #667: true when a plugin-reached hook (CLAUDE_PLUGIN_ROOT set) must stand down because the
+ * plugin stays passive in this session. The session is not claimed (checked first: one stat, so a
+ * claimed session never reads settings), the project is onboarded, and the user or project Claude
+ * settings still wire a live npm hook. This is the exact test the plugin's SessionStart uses to stay
+ * passive, so the two decisions cannot drift. An npm-reached hook never stands down here.
+ */
+export function pluginStandsDownPassive(payload = undefined, env = process.env) {
+  if (!env.CLAUDE_PLUGIN_ROOT) return false;
+  if (isPluginActiveForSession(payload, env)) return false;
+  const projectRoot = resolveProjectRoot(env, payload);
+  if (!isProjectOnboarded(projectRoot)) return false; // pluginStandsDownUnonboarded's job
+  return anyLiveNpmHookLines([claudeSettingsPath(env), ...projectClaudeSettingsPaths(projectRoot)]);
+}
+
+/**
+ * Issue #667: the one guard every plugin-reachable hook asks. True when THIS copy of the hook must
+ * be a no-op for the session: the npm copy steps aside in a plugin-claimed session, and the plugin
+ * copy stands down in a passive session or an un-onboarded repo, so exactly one chain runs.
+ */
+export function hookStandsDown(payload = undefined, env = process.env) {
+  return (
+    npmHookStepsAside(payload, env) ||
+    pluginStandsDownPassive(payload, env) ||
+    pluginStandsDownUnonboarded(payload, env)
+  );
 }
 
 /**
