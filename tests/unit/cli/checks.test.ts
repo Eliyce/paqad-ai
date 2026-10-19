@@ -15,8 +15,13 @@ import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 // completion backstop reads (issue #318).
 describe('paqad-ai checks command', () => {
   let root: string;
+  // The checks verbs prefer SE_SESSION over CLAUDE_SESSION_ID (#672), so a session id exported
+  // in the shell running the suite would otherwise steer these tests to another session's bundle.
+  let priorSeSession: string | undefined;
 
   beforeEach(() => {
+    priorSeSession = process.env.SE_SESSION;
+    delete process.env.SE_SESSION;
     root = mkdtempSync(join(tmpdir(), 'paqad-cli-checks-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
     seedGitChangedFiles(root, ['src/app.ts']);
@@ -26,6 +31,8 @@ describe('paqad-ai checks command', () => {
     vi.restoreAllMocks();
     process.exitCode = undefined;
     delete process.env.CLAUDE_SESSION_ID;
+    if (priorSeSession === undefined) delete process.env.SE_SESSION;
+    else process.env.SE_SESSION = priorSeSession;
     rmSync(root, { recursive: true, force: true });
   });
 
