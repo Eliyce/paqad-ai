@@ -106,6 +106,11 @@ const RETRY_WINDOW_MS = 24 * 60 * 60 * 1000;
 const MANAGED_POLICY_RECHECK_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_ATTEMPTS = 5;
 const ROLLBACK_AFTER_NPM_SESSIONS = 3;
+/**
+ * Issue #670: how long an `installed` move waits for Claude Code to install the plugin before it
+ * rolls back. Sessions before the install do not count toward {@link ROLLBACK_AFTER_NPM_SESSIONS}.
+ */
+const INSTALL_WAIT_MS = 7 * 24 * 60 * 60 * 1000;
 /** Bound on the remembered session ids; well above the rollback threshold. */
 const MAX_COUNTED_SESSIONS = 10;
 
@@ -322,12 +327,21 @@ const CONFIG_SKIP_REASONS: ReadonlySet<string> = new Set([
 const AUTO_ROLLBACK_REASON = 'plugin-never-loaded';
 
 /**
- * A settled record is never retried: `done`, `declined`, or a `rolled-back` that was not the
+ * Issue #670: the automatic rollback when Claude Code never installed the plugin within
+ * {@link INSTALL_WAIT_MS} of the move. Retried like {@link AUTO_ROLLBACK_REASON}.
+ */
+const NEVER_INSTALLED_REASON = 'plugin-never-installed';
+
+/** The automatic rollback reasons; both go back through the retry rules (B3, #670). */
+const AUTO_ROLLBACK_REASONS = new Set([AUTO_ROLLBACK_REASON, NEVER_INSTALLED_REASON]);
+
+/**
+ * A settled record is never retried: `done`, `declined`, or a `rolled-back` that was not an
  * automatic undo (a manual rollback stays final). An automatic rollback goes back through the
  * retry window and attempt cap, so a later run completes once access is back (B3).
  */
 function isSettled(record: MigrationRecord): boolean {
-  if (record.state === 'rolled-back') return record.reason !== AUTO_ROLLBACK_REASON;
+  if (record.state === 'rolled-back') return !AUTO_ROLLBACK_REASONS.has(record.reason ?? '');
   return record.state === 'done' || record.state === 'declined';
 }
 
@@ -739,9 +753,11 @@ const DEFAULT_SETTLE_MS = 2000;
 
 /**
  * Part 4 / Part 9 — the one place a real Claude Code session moves the migration (B4). A plugin
- * session, or an npm session that finds a fresh plugin-seen, moves `installed` to `done`. An npm
- * session with no sign of the plugin bumps the counter once per distinct session id, and at
- * {@link ROLLBACK_AFTER_NPM_SESSIONS} runs the automatic rollback. Takes the machine lock (does
+ * session, or an npm session that finds a fresh plugin-seen, moves `installed` to `done`. Until
+ * Claude Code lists the plugin as installed, an npm session only waits (issue #670), and the move
+ * rolls back as `plugin-never-installed` once {@link INSTALL_WAIT_MS} has passed. After the
+ * install, an npm session with no sign of the plugin bumps the counter once per distinct session
+ * id, and at {@link ROLLBACK_AFTER_NPM_SESSIONS} runs the automatic rollback. Takes the machine lock (does
  * nothing when it is held) and never throws.
  */
 export async function recordMigrationSession(
@@ -789,13 +805,23 @@ function tickInstalled(
   if (input.source === 'plugin' || isPluginSeenFresh(prior, readPluginSeen(deps.home))) {
     return confirmDone(deps, prior);
   }
+  // Issue #670: until Claude Code installs the plugin (Desktop does it on a later start), an npm
+  // session says nothing about whether the plugin loads, so it is not counted. Past the wait the
+  // install is taken as never coming and the move is undone, retryably.
+  if (!isPluginInstalledRecord(deps.home)) {
+    const waited = deps.now().getTime() - new Date(prior.installed_at).getTime();
+    if (waited >= INSTALL_WAIT_MS) {
+      return autoRollback(deps, prior, NEVER_INSTALLED_REASON);
+    }
+    return { state: prior.state, path: prior.path, reason: 'waiting-for-plugin-install' };
+  }
   const counted = prior.counted_sessions ?? [];
   if (input.sessionId && counted.includes(input.sessionId)) {
     return { state: prior.state, path: prior.path, reason: 'session-already-counted' };
   }
   const sessions = (prior.npm_sessions_since_install ?? 0) + 1;
   if (sessions >= ROLLBACK_AFTER_NPM_SESSIONS) {
-    return autoRollback(deps, prior, sessions);
+    return autoRollback(deps, prior, AUTO_ROLLBACK_REASON, sessions);
   }
   return record(deps, prior, {
     state: 'installed',
@@ -813,15 +839,20 @@ function tickInstalled(
 function autoRollback(
   deps: ResolvedDeps,
   prior: MigrationRecord,
-  sessions: number,
+  reason: string,
+  sessions: number = prior.npm_sessions_since_install ?? 0,
 ): MigrationResult {
   if (isPluginInstalledRecord(deps.home)) deps.runClaudeUninstall(deps.home);
   undoViaSettings(deps.home);
   clearPluginSeen(deps.home);
-  deps.log(`rolled back after ${sessions} npm sessions with no plugin`);
+  deps.log(
+    reason === NEVER_INSTALLED_REASON
+      ? 'rolled back: Claude Code never installed the plugin'
+      : `rolled back after ${sessions} npm sessions with no plugin`,
+  );
   return record(deps, prior, {
     state: 'rolled-back',
-    reason: AUTO_ROLLBACK_REASON,
+    reason,
     npm_sessions_since_install: sessions,
   });
 }
@@ -924,21 +955,27 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
  *
  * Issue #667: when the move is done but `projectRoot`'s own Claude settings still wire a live paqad
  * npm hook, this project still runs the npm chain (the plugin stays passive there), so the plugin
- * line gains {@link PROJECT_NPM_HOOKS_SUFFIX}.
+ * line gains {@link PROJECT_NPM_HOOKS_SUFFIX}. Issue #674: the user settings file (honouring
+ * `CLAUDE_CONFIG_DIR` from `env`) keeps the npm hooks on too, and the suffix names it first.
  */
-export function describeClaudeInstall(home: string = homedir(), projectRoot?: string): string {
+export function describeClaudeInstall(
+  home: string = homedir(),
+  projectRoot?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const record = readMigrationState(home);
   if (!record || record.state === 'pending') return 'npm';
   // Read-only: the next update or session records the declined state; doctor shows it at once.
   if (doneButDisabled(record, home)) return `npm (migration declined: ${USER_DISABLED_REASON})`;
   if (record.state === 'done') {
-    const suffix =
-      projectRoot !== undefined && projectWiresLiveNpmHooks(projectRoot)
-        ? PROJECT_NPM_HOOKS_SUFFIX
-        : '';
+    const suffix = projectRoot !== undefined ? npmHooksSuffix(home, projectRoot, env) : '';
     if (record.path === 'synced') return `plugin (synced from claude.ai)${suffix}`;
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';
     return `plugin (migrated ${date}, via ${record.path ?? 'settings'})${suffix}`;
+  }
+  // Issue #670: the move is in, but Claude Code has not installed the plugin yet (read-only).
+  if (record.state === 'installed' && !isPluginInstalledRecord(home)) {
+    return 'npm (migration installed: waiting for Claude Code to install the plugin)';
   }
   return `npm (migration ${record.state}: ${record.reason ?? 'n/a'})`;
 }
@@ -946,6 +983,41 @@ export function describeClaudeInstall(home: string = homedir(), projectRoot?: st
 /** The doctor suffix for a plugin-done machine whose project still runs the npm hooks (#667). */
 export const PROJECT_NPM_HOOKS_SUFFIX =
   '; this project still runs the npm hooks (project .claude/settings.json)';
+
+/**
+ * Issue #674: the user-level Claude settings file the npm hooks may be wired in. Mirrors
+ * `claudeSettingsPath` in runtime/hooks/lib/paqad-disabled.mjs: `CLAUDE_CONFIG_DIR` when it is set
+ * and non-blank, else `~/.claude`. Only the doctor read uses it; the migration writes keep going
+ * through {@link userClaudeSettingsPath}.
+ */
+function hookUserSettingsPath(home: string, env: NodeJS.ProcessEnv): string {
+  const configDir = env.CLAUDE_CONFIG_DIR;
+  return configDir?.trim()
+    ? join(configDir, 'settings.json')
+    : join(home, '.claude', 'settings.json');
+}
+
+/** How the doctor names the user settings file: `~/.claude/...`, or the real CLAUDE_CONFIG_DIR path. */
+function userSettingsLabel(home: string, env: NodeJS.ProcessEnv): string {
+  return env.CLAUDE_CONFIG_DIR?.trim()
+    ? hookUserSettingsPath(home, env)
+    : '~/.claude/settings.json';
+}
+
+/**
+ * Issue #674: the plugin-done suffix naming what keeps the npm hooks on, checked in the
+ * `pluginStandsDownPassive` order: the user settings file first, then the project's own files.
+ * Empty when neither wires a live paqad hook.
+ */
+function npmHooksSuffix(home: string, projectRoot: string, env: NodeJS.ProcessEnv): string {
+  const user = settingsWireLivePaqadHook(hookUserSettingsPath(home, env));
+  const project = projectWiresLiveNpmHooks(projectRoot);
+  if (!user) return project ? PROJECT_NPM_HOOKS_SUFFIX : '';
+  const files = project
+    ? `${userSettingsLabel(home, env)} and project .claude/settings.json`
+    : userSettingsLabel(home, env);
+  return `; this project still runs the npm hooks (${files})`;
+}
 
 /**
  * Issue #667: true when the project's `.claude/settings.json` or `.claude/settings.local.json`

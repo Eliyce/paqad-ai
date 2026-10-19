@@ -59,7 +59,7 @@ describe('summarizeGradedEvidence — skipped rows (issue #579)', () => {
 });
 
 describe('deriveVerificationResult', () => {
-  it('PASSES only when nothing failed, blocked, or was inconclusive', () => {
+  it('PASSES only when nothing failed or was inconclusive', () => {
     expect(
       deriveVerificationResult({
         deterministic: { pass: 5, fail: 0 },
@@ -70,9 +70,12 @@ describe('deriveVerificationResult', () => {
     ).toBe('PASSED');
   });
 
-  it('is INCONCLUSIVE (not FAILED) when a measure was merely blocked (#368 AC-D2)', () => {
+  it('is neither FAILED nor INCONCLUSIVE when a measure was merely blocked (#368 AC-D2, #669)', () => {
     // A `blocked` row is a measure that could not RUN (unwired/absent tooling), not a
-    // failure. Reporting FAILED here manufactured a false alarm from an unwired ratchet.
+    // failure: reporting FAILED manufactured a false alarm from an unwired ratchet (#368).
+    // Issue #669, decision D-01M5A0MG6537XJ7S3MD3Q4PSCR (receipt-skips-unmeasured): it no
+    // longer reads INCONCLUSIVE either. It stays counted in `blocked`, and the result follows
+    // the gates, so the receipt agrees with the end-of-turn verdict.
     expect(
       deriveVerificationResult({
         deterministic: { pass: 9, fail: 0 },
@@ -80,7 +83,7 @@ describe('deriveVerificationResult', () => {
         blocked: 3,
         inconclusive: 0,
       }),
-    ).toBe('INCONCLUSIVE');
+    ).toBe('PASSED');
   });
 
   it('is INCONCLUSIVE when a measure could not be judged (inconclusive row)', () => {
@@ -134,10 +137,12 @@ describe('buildInTotoStatement', () => {
     expect(statement.predicate.rows).toHaveLength(2);
   });
 
-  it('reads INCONCLUSIVE end-to-end when every real gate passed but ratchet measures were blocked (#368 AC-D2)', () => {
+  it('reads PASSED end-to-end, blocked measures still listed, when every real gate passed (#368 AC-D2, #669)', () => {
     // The exact shape observed in this repo's own ledger: 9 deterministic + 2 llm-judged
     // passes, plus 3 quality-ratchet measures that could not run ("tool-not-wired").
-    // Before AC-D2 this produced a FALSE `FAILED`; it must read `INCONCLUSIVE`.
+    // Before AC-D2 this produced a FALSE `FAILED`. Issue #669, decision
+    // D-01M5A0MG6537XJ7S3MD3Q4PSCR (receipt-skips-unmeasured): it no longer reads
+    // `INCONCLUSIVE` either; the three stay counted in `blocked`.
     const rows: EvidenceLedgerRow[] = [
       ...Array.from({ length: 9 }, (_, i) =>
         row({ strength_class: 'deterministic', verdict: 'pass', code: `det-${i}` }),
@@ -158,7 +163,7 @@ describe('buildInTotoStatement', () => {
       verifierVersion: '1.58.0',
       timeVerified: '2026-07-14T00:00:00.000Z',
     });
-    expect(statement.predicate.verification_result).toBe('INCONCLUSIVE');
+    expect(statement.predicate.verification_result).toBe('PASSED');
     expect(statement.predicate.graded_results).toMatchObject({
       deterministic: { pass: 9, fail: 0 },
       llm_judged: { pass: 2, fail: 0 },

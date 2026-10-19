@@ -451,9 +451,10 @@ describe('runRepositoryVerification — the receipt seals evidence.jsonl (issue 
     }
     const firstCount = decodeReceiptStatement(first)!.predicate.evidence_line_count!;
     const secondCount = decodeReceiptStatement(second)!.predicate.evidence_line_count!;
-    // Late-gate rows were appended after each seal, so the second seal covers more lines.
+    // Each run appends its rows before sealing, so the second seal covers more lines.
     expect(secondCount).toBeGreaterThan(firstCount);
-    expect(lines.filter((line) => line.length > 0).length).toBeGreaterThan(secondCount);
+    // Issue #669 — the receipt is sealed after every gate, so no row of the run is left unsealed.
+    expect(lines.filter((line) => line.length > 0).length).toBe(secondCount);
     // The chain links the second receipt to the first, from genesis.
     expect(second.paqad.prev_receipt_hash).toBe(first.paqad.receipt_hash);
     expect(verifyReceiptChain([first, second])).toBeNull();

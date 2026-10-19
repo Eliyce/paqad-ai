@@ -61,7 +61,10 @@ By participating, you agree to abide by our
 
 ### Requirements
 
-- **Node.js** `>=22`. Node 22 LTS is recommended.
+- **Node.js** `>=22`. Node 22 LTS is recommended. Building paqad from source
+  (`pnpm build`) needs Node 22.18 or later, or 24.11 or later on Node 24, because
+  the bundler (tsup 9) requires it. `.nvmrc` pins a version that works. Installing
+  the published package is unaffected and still works on any Node 22.
 - **pnpm** at the version pinned in `package.json` under `packageManager`. Use
   [Corepack](https://nodejs.org/api/corepack.html) — do **not** install pnpm
   globally.

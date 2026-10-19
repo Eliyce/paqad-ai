@@ -308,3 +308,111 @@ describe('editedDevelopmentThisTurn', () => {
     expect(editedDevelopmentThisTurn(root, A)).toBe(true);
   });
 });
+
+// Issue #669 (cause 2a) — the work a session's own `paqad-<stage>` agents did in the bundle its
+// control points at is the session's own, even when the agent's rows carry another session id.
+describe('stage-agent work counts as the orchestrator session’s own (#669)', () => {
+  const SUB = 'ses_stage_subagent';
+  const DETOUR: WorkflowState = {
+    active: { workflow: 'project-question' },
+    paused: [{ workflow: 'feature-development', lane: 'full' }],
+    turn_started_at: TURN,
+  };
+
+  /** A `paqad-development` agent's live-mark development row, under the subagent's own id. */
+  function agentDevelopmentRow(root: string, dirName: string, now: () => Date): void {
+    appendFeatureStageRow(
+      root,
+      SUB,
+      dirName,
+      {
+        kind: 'stage_start',
+        stage: 'development',
+        event_status: 'started',
+        evidence_source: 'live-mark',
+        agent: 'paqad-development',
+      },
+      now,
+    );
+  }
+
+  /** The `stage-agent` completion row a finished stage agent leaves. */
+  function stageAgentRow(root: string, session: string, dirName: string, now: () => Date): void {
+    appendFeatureStageRow(
+      root,
+      session,
+      dirName,
+      {
+        kind: 'stage-agent',
+        stage: 'development',
+        agent: 'paqad-development',
+        tokens_used: 10,
+        tokens_not_recarried: 10,
+        estimate: true,
+      },
+      now,
+    );
+  }
+
+  it('AC-10: an orchestrator whose own rows are only stage markers is enforced when its agent edited this turn', () => {
+    const root = tempRoot();
+    const dirO = ownChange(root, A, BEFORE); // the orchestrator's marker, before this turn
+    agentDevelopmentRow(root, dirO, AFTER);
+    route(root, A, DETOUR);
+
+    expect(sessionOwnedRows(root, A).some((row) => row.agent === 'paqad-development')).toBe(true);
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: true,
+      reason: 'edited-this-turn',
+    });
+    expect(editedDevelopmentThisTurn(root, A)).toBe(true);
+  });
+
+  it('AC-10: a stage-agent row recorded this turn counts as edited this turn', () => {
+    const root = tempRoot();
+    const dirO = ownChange(root, A, BEFORE);
+    stageAgentRow(root, SUB, dirO, AFTER);
+    route(root, A, DETOUR);
+
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: true,
+      reason: 'edited-this-turn',
+    });
+  });
+
+  it('AC-10: a stage-agent row recorded before turn_started_at does not count as this turn', () => {
+    const root = tempRoot();
+    const dirO = ownChange(root, A, BEFORE);
+    stageAgentRow(root, SUB, dirO, BEFORE);
+    agentDevelopmentRow(root, dirO, BEFORE);
+    route(root, A, DETOUR);
+
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: false,
+      reason: 'detour',
+    });
+  });
+
+  it('AC-10: another session’s active bundle is not read', () => {
+    const root = tempRoot();
+    const dirB = ownChange(root, B, BEFORE);
+    agentDevelopmentRow(root, dirB, AFTER);
+    stageAgentRow(root, B, dirB, AFTER);
+    route(root, A, { active: { workflow: 'project-question' }, paused: [], turn_started_at: TURN });
+
+    // A has no control and no rows of its own: B's stage agents never make A an owner.
+    expect(sessionOwnedRows(root, A)).toEqual([]);
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: false,
+      reason: 'not-owner',
+    });
+
+    // A owning its own change on a detour is still not held to B's agents' work this turn.
+    ownChange(root, A, BEFORE);
+    route(root, A, DETOUR);
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: false,
+      reason: 'detour',
+    });
+  });
+});

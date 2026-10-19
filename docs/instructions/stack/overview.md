@@ -3,23 +3,27 @@
 ## Project
 
 - **Name:** paqad-ai
-- **Version:** 1.0.2 (root), graph-ui sub-app independent
+- **Version:** see `package.json` (root), graph-ui sub-app independent
 - **Description:** Spec-driven development framework — AI agents that think before they type
 - **License:** MIT
 - **Entry archetype:** Node library + CLI (`paqad-ai` bin), with an embedded React SPA (`graph-ui`)
 
 ## Top-Level Toolchain
 
-| Concern         | Choice                                               |
-|-----------------|------------------------------------------------------|
-| Language        | TypeScript (ES modules, `"type": "module"`)          |
-| Node engine     | `>=22.0.0`                                           |
-| Package manager | pnpm (root + `graph-ui`), npm lockfiles also present |
-| Bundler         | tsup (library/CLI), Vite (graph-ui SPA)              |
-| Test runner     | Vitest                                               |
-| Lint            | ESLint (flat config: `eslint.config.js`)             |
-| Format          | Prettier                                             |
-| Typecheck       | `tsc --noEmit`                                       |
+| Concern         | Choice                                                         |
+|-----------------|----------------------------------------------------------------|
+| Language        | TypeScript (ES modules, `"type": "module"`)                    |
+| Node engine     | `>=22.0.0` to install; building needs 22.18+ (24.11+ on 24)    |
+| Package manager | pnpm (root + `graph-ui`)                                       |
+| Bundler         | tsup 9 (library/CLI), Vite (graph-ui SPA)                      |
+| Test runner     | Vitest 3 (root), Vitest 5 (graph-ui)                           |
+| Lint            | ESLint (flat config: `eslint.config.js`)                       |
+| Format          | Prettier                                                       |
+| Typecheck       | `tsc --noEmit`                                                 |
+
+Building from source needs Node 22.18 or later (24.11 or later on Node 24) because tsup 9
+needs it. The published `engines` field stays `>=22.0.0`. Exact ranges are in
+[versions.md](versions.md).
 
 ## Frameworks & Major Libraries
 
@@ -35,13 +39,14 @@
 - `ajv` — JSON Schema validation
 - `openai` — model API client (default routing target)
 - `voyageai`, `@huggingface/transformers` — embeddings (cloud + local)
+- `gifenc` — GIF encoding for visual evidence
 
 ### Embedded UI (`graph-ui/`)
 
 - React 19
 - Tailwind CSS 4
 - Vite SPA toolchain
-- Vitest
+- Vitest 5 (the root package stays on Vitest 3)
 
 ## Capabilities (active)
 

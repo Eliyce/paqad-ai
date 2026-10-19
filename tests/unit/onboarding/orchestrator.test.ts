@@ -573,9 +573,13 @@ describe('OnboardingOrchestrator', () => {
     await new OnboardingOrchestrator().run({ projectRoot, adapters: ['claude-code'] });
 
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
+    // Issue #672 — no literal `--` after `pnpm test`: pnpm passes it on and vitest then ignores
+    // the reporter flag and the pattern.
+    expect(profile).toContain('test: docker compose exec <node-service> pnpm test --reporter=tap');
     expect(profile).toContain(
-      'test: docker compose exec <node-service> pnpm test -- --reporter=tap',
+      'test_single: docker compose exec <node-service> pnpm test <pattern> --reporter=tap',
     );
+    expect(profile).not.toContain('pnpm test -- ');
     expect(profile).toContain('install: docker compose exec <node-service> pnpm install');
   });
 

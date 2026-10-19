@@ -8,7 +8,11 @@
 import { engineLog } from '@/core/logger-registry.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { isFrameworkEnabledForRoot } from '@/core/framework-enabled.js';
-import { resolveEnterprisePolicy, writesLedger } from '@/core/enterprise-policy.js';
+import {
+  resolveEnterprisePolicy,
+  writesLedger,
+  type EnterprisePolicy,
+} from '@/core/enterprise-policy.js';
 import type { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type {
   VerificationContext,
@@ -68,7 +72,11 @@ import { VerificationGateRunner } from '../gate-runner.js';
 import { buildVerificationEvidence, writeVerificationEvidence } from '../evidence.js';
 import { evidenceExistenceGate } from './evidence-existence-gate.js';
 import { resolveEvidenceExistenceMode } from './evidence-existence-mode.js';
-import { bundleCompletenessGate } from './bundle-completeness-gate.js';
+import {
+  bundleCompletenessGate,
+  recheckAfterReceiptSeal,
+  type BundleCompletenessGateInput,
+} from './bundle-completeness-gate.js';
 import { rulesLoadedGate } from './rules-loaded-gate.js';
 import { resolveBundleCompletenessMode } from './bundle-completeness-mode.js';
 import { visualEvidenceGate } from '../gates/visual-evidence.js';
@@ -237,6 +245,9 @@ export async function runRepositoryVerification(
       return {
         origin: options.origin,
         ok: true,
+        // Issue #669 — mark the skip so the HUD keeps the last real verdict instead of reading
+        // a gate-less, kind-less verdict as Safe to merge.
+        applicable: false,
         summary:
           `${paqadFrameLead('verification not applicable')}\n` +
           `> ${PAQAD_STATUS_GLYPH.skipped} ${detail}`,
@@ -353,8 +364,12 @@ export async function runRepositoryVerification(
     context.changed_files.length,
     stagesMode,
   );
+  // Issue #669 — the gates pushed straight onto the evidence (not through the runner), so the
+  // bundle receipt counts them too and its result matches the verdict.
+  const directGates: VerificationEvidenceGate[] = [];
   if (stageGate) {
     evidence.gates.push(stageGate);
+    directGates.push(stageGate);
     if (stageGate.status === 'fail') {
       evidence.overall_status = 'fail';
     }
@@ -375,6 +390,7 @@ export async function runRepositoryVerification(
     } else {
       evidence.gates.push(checksGate);
     }
+    directGates.push(checksGate);
     if (checksGate.status === 'fail') {
       evidence.overall_status = 'fail';
       evidence.first_failure_gate ??= checksGate.name;
@@ -397,6 +413,7 @@ export async function runRepositoryVerification(
          checksGate branch above). Kept so a future builder change fails safe, not silently. */
       evidence.gates.push(inconclusiveGate);
     }
+    directGates.push(inconclusiveGate);
   }
   // Issue #368 — does a passing `paqad-ai checks run` report back this change? Used by
   // the receipt to render the `checks` stage honestly (🟡 "tests not verified" when not).
@@ -443,9 +460,9 @@ export async function runRepositoryVerification(
   }
 
   // Issue #118 — fan the graded gate (and ratchet measure) results into the
-  // unified evidence ledger, then project a signed per-change receipt + AI-BOM.
-  // Never block verification on a ledger/receipt failure: a missing receipt is a
-  // weaker trust signal, not a verdict.
+  // unified evidence ledger. The signed per-change receipt + AI-BOM are projected
+  // after every gate has run (issue #669, below). Never block verification on a
+  // ledger/receipt failure: a missing receipt is a weaker trust signal, not a verdict.
   //
   // Issue #581 — the bundle's evidence.jsonl is always on: the graded rows land in the active
   // feature's bundle whatever the enterprise toggles, so every change records one row per gate
@@ -470,6 +487,7 @@ export async function runRepositoryVerification(
   let graded: {
     fileDigests: EvidenceFileDigest[];
     rows: EvidenceLedgerRow[];
+    ctx: RowContext;
   } | null = null;
   try {
     const fileDigests = await computeFileDigests(context.project_root, context.changed_files);
@@ -479,10 +497,10 @@ export async function runRepositoryVerification(
       ...gateResultsToRows(results, rowCtx),
       ...ratchetResultToRows(context.quality_ratchet_result, rowCtx),
     ];
-    graded = { fileDigests, rows };
+    graded = { fileDigests, rows, ctx: rowCtx };
     if (bundleFeature) {
       // Issue #468 — the graded rows land in the active feature's `evidence.jsonl`. Written
-      // BEFORE the receipt below, which seals the file as it stands (issue #581).
+      // BEFORE the receipt, which seals the file as it stands (issue #581).
       appendFeatureEvidenceRows(context.project_root, bundleSessionId, rows);
       lateGateRowTarget = { sessionId: bundleSessionId, ctx: rowCtx };
     }
@@ -490,73 +508,15 @@ export async function runRepositoryVerification(
     const message = error instanceof Error ? error.message : String(error);
     engineLog('warn', `paqad: could not record evidence rows (${message})`);
   }
-  if (writesLedger(policy) && graded && bundleFeature) {
-    const { fileDigests, rows } = graded;
-    try {
-      // Issue #120 — fold change authorship (which adapter/model wrote it, who
-      // accepted it) into the receipt so the attestation is gate-derived yet
-      // producer-attributed. Resolution never throws; absent authorship simply
-      // omits the predicate field.
-      const authorship = await resolveChangeAuthorship({
-        projectRoot: context.project_root,
-        env: process.env,
-      });
-      // Issue #122 — cite which legal clauses each passing gate produces evidence
-      // toward, from the active compliance packs. Empty (→ field omitted) when no
-      // pack is installed. This is the token-spending path, so it only runs when
-      // `compliance_citations` is on (issue #187) — otherwise the receipt omits
-      // the field. Issue #123 — fold in the reproducibility stamp the session
-      // recorded, when present. Both degrade to absent, never throw.
-      const complianceCitations = policy.compliance_citations
-        ? resolveComplianceCitations({ projectRoot: context.project_root, rows })
-        : undefined;
-      const reproducibility = readReproducibilityPredicate(context.project_root) ?? undefined;
-      // Issue #468 Phase C — the per-feature bundle is the ONLY receipt/evidence projection
-      // now; the retired top-level `.paqad/ledger/{evidence.jsonl,receipts.jsonl,
-      // receipt.dsse.json,ai-bom.json}` writes are gone (every reader re-pointed to the
-      // bundle union in Phase B). The authorship/compliance/reproducibility resolved above
-      // now feed only the bundle receipt below.
-      //
-      // Issue #343 B — project the per-feature receipt + AI-BOM into the active feature's
-      // bundle from the graded rows, honouring the enterprise flags (`evidence_ledger` →
-      // receipt.json, `ai_bom` → ai-bom.json). The receipt seals evidence.jsonl rather than
-      // copying its rows (issue #581).
-      projectFeatureReceipt(context.project_root, bundleFeature, {
-        fileDigests,
-        rows,
-        verifierVersion: verifierVersion(),
-        timeVerified: completedAt,
-        sessionId: bundleSessionId,
-        write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
-        // Issue #468 Phase B — carry the authorship/compliance/reproducibility resolved
-        // above so the per-feature receipt is a complete attestation record now that it is
-        // the only one (D5). Each is omitted when absent.
-        authorship,
-        ...(complianceCitations !== undefined ? { complianceCitations } : {}),
-        ...(reproducibility !== undefined ? { reproducibility } : {}),
-        // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
-        ...(changeMetrics
-          ? {
-              metrics: {
-                dup_new_pct: changeMetrics.dup_new_pct,
-                reuse_rate: changeMetrics.reuse_rate,
-                meaningful_changed_lines: changeMetrics.meaningful_changed_lines,
-              },
-            }
-          : {}),
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      engineLog('warn', `paqad: could not project evidence receipt (${message})`);
-    }
-  }
+  // Issue #669 — whether this run seals the bundle receipt + AI-BOM after the late gates.
+  const receiptPending = writesLedger(policy) && graded !== null && bundleFeature !== null;
 
   // Issue #371 — render the per-feature HTML evidence report from the bundle on disk.
   // A pure projection: it renders whatever exists (plan/spec/stages always; receipt +
   // AI-BOM only when enterprise wrote them, otherwise a graceful empty-state note), so it
   // is deliberately NOT gated on the enterprise flags — only on `feature_report` (default
-  // on). Best-effort and placed AFTER the receipt/AI-BOM projection so it renders the
-  // freshest bundle: a render failure is logged and NEVER changes the verdict or exit code.
+  // on). Best-effort: a render failure is logged and NEVER changes the verdict or exit code.
+  // It renders again after the receipt is sealed, with the final verdict (issue #639).
   const reportPath = renderActiveFeatureReport(
     context.project_root,
     options.hostSessionId ?? null,
@@ -564,9 +524,10 @@ export async function runRepositoryVerification(
     verifierVersion(),
   );
 
-  // Issue #511 — the fail-closed bundle-completeness gate. Placed LAST, after every writer
-  // (the receipt/AI-BOM projection and the report render above), so report.html / receipt.json
-  // exist on disk when it checks them. It reads the declarative bundle manifest and, under
+  // Issue #511 — the fail-closed bundle-completeness gate. Placed after the report render
+  // above, so report.html exists on disk when it checks it. The receipt and AI-BOM are sealed
+  // after every gate, this one included (issue #669), so the gate is told when this run writes
+  // them instead of reading a file that does not exist yet. It reads the declarative bundle manifest and, under
   // `strict` (default), FAILS the change when a required file is missing/empty/invalid —
   // naming the file and its writer — blocking via the same Stop-hook `overall_status:'fail'`
   // path the stage-evidence gate uses. `warn` surfaces it as Inconclusive without blocking;
@@ -599,6 +560,9 @@ export async function runRepositoryVerification(
   // Issue #579 — every late gate pushed below, skips included, for the evidence.jsonl rows.
   const lateGates: VerificationEvidenceGate[] = [];
   const frameworkConfig = resolveFrameworkConfig(context.project_root);
+  // Issue #669 — kept so the gate can be judged again if the receipt seal below fails.
+  let completenessInput: BundleCompletenessGateInput | null = null;
+  let completenessGate: VerificationEvidenceGate | null = null;
   if (completenessMode !== 'off') {
     // Issue #511 (RC-2.2) — reconcile delivery.json from local git before the gate, so a
     // mid-turn commit is linked even where no post-commit hook fired (advisory hosts, CI
@@ -614,7 +578,7 @@ export async function runRepositoryVerification(
     // Issue #547 (FR-10.1) / #581 — the spec-pipeline flags, read via layeredConfigMap (not
     // src/spec-pipeline) so the FR-11 import ban holds: src/verification/** must not import the
     // pipeline.
-    const completenessGate = bundleCompletenessGate({
+    completenessInput = {
       projectRoot: context.project_root,
       sessionId: completenessSession,
       dirName: completenessDir,
@@ -630,7 +594,10 @@ export async function runRepositoryVerification(
       // Issue #581 — the late-gate rows (this gate's included) are appended to evidence.jsonl
       // below whenever a row target was set, so the file is written by this run.
       evidenceRowsPending: lateGateRowTarget !== null,
-    });
+      // Issue #669 — the receipt and AI-BOM are sealed after the late gates, by this run.
+      receiptPending,
+    };
+    completenessGate = bundleCompletenessGate(completenessInput);
     if (completenessGate) {
       evidence.gates.push(completenessGate);
       lateGates.push(completenessGate);
@@ -722,14 +689,64 @@ export async function runRepositoryVerification(
   // Issue #579 — record the late gates in the bundle's evidence.jsonl too, so a skipped or
   // failed visual-evidence / completeness / rules-loaded gate is on the ledger, not only in the
   // session verdict. Same target (and so the same scope) as the graded rows above, and like them
-  // always on whatever the enterprise toggles (issue #581). Appended after the receipt sealed the
-  // file, which is why the receipt records how many lines it sealed. Best-effort, never throws.
+  // always on whatever the enterprise toggles (issue #581). Best-effort, never throws.
+  //
+  // Issue #669 — the stage-evidence and checks gates are recorded here too, so every gate the
+  // verdict reads is a row, and the receipt sealed below covers all of them.
+  const verdictGateRows = graded
+    ? evidenceGatesToRows([...directGates, ...lateGates], graded.ctx)
+    : [];
   if (lateGateRowTarget) {
-    appendFeatureEvidenceRows(
-      context.project_root,
-      lateGateRowTarget.sessionId,
-      evidenceGatesToRows(lateGates, lateGateRowTarget.ctx),
-    );
+    appendFeatureEvidenceRows(context.project_root, lateGateRowTarget.sessionId, verdictGateRows);
+  }
+
+  const fold = readChangeFold(context.project_root, options.hostSessionId ?? null);
+  // Issue #639, Part 4 — the mandatory stages with no evidence. They drive the one verdict
+  // rule below, and the receipt seals them as a row.
+  const verdictStageGaps =
+    isFeatureDev && fold ? unrecordedMandatoryStages(fold, checksVerified) : [];
+
+  // Issue #669 (AC-9) — seal the bundle receipt + AI-BOM AFTER every gate, from rows for every
+  // gate the verdict read, so its verification_result says what the HUD says. A change whose
+  // only gap is an unrecorded mandatory stage reads Inconclusive, so that gap is a row too.
+  if (graded && bundleFeature) {
+    const stageGapRows =
+      verdictStageGaps.length > 0
+        ? evidenceGatesToRows([unrecordedStagesGate(verdictStageGaps)], graded.ctx)
+        : [];
+    appendFeatureEvidenceRows(context.project_root, bundleSessionId, stageGapRows);
+    if (receiptPending) {
+      const sealed = await sealBundleReceipt({
+        projectRoot: context.project_root,
+        dirName: bundleFeature,
+        sessionId: bundleSessionId,
+        policy,
+        fileDigests: graded.fileDigests,
+        rows: [...graded.rows, ...verdictGateRows, ...stageGapRows],
+        timeVerified: completedAt,
+        changeMetrics,
+      });
+      // Issue #669 — the completeness gate counted the receipt and AI-BOM present because
+      // this seal was due. When it failed, judge the bundle again without that allowance, so
+      // a strict gate still fails for the missing file. Done before the verdict is built, so
+      // every surface reads the re-judged gate.
+      const rechecked = completenessInput
+        ? recheckAfterReceiptSeal(completenessGate, completenessInput, sealed)
+        : completenessGate;
+      if (rechecked && completenessGate && rechecked !== completenessGate) {
+        evidence.gates[evidence.gates.indexOf(completenessGate)] = rechecked;
+        appendFeatureEvidenceRows(
+          context.project_root,
+          bundleSessionId,
+          evidenceGatesToRows([rechecked], graded.ctx),
+        );
+        if (rechecked.status === 'fail') {
+          completenessFailed = true;
+          evidence.overall_status = 'fail';
+          evidence.first_failure_gate ??= rechecked.name;
+        }
+      }
+    }
   }
 
   // Re-write the evidence artifact so the file reflects the completeness gate appended after
@@ -754,8 +771,6 @@ export async function runRepositoryVerification(
     flagOnGates,
   });
   verdict.reportPath = reportPath;
-
-  const fold = readChangeFold(context.project_root, options.hostSessionId ?? null);
 
   // Issue #409 — the voice backstop. The fold proves which stages RAN; the transcript
   // shows which the agent actually SAID. Any gap is reported so the model can put the
@@ -799,8 +814,6 @@ export async function runRepositoryVerification(
   // Issue #639, Part 4 — the one verdict rule. The same kind drives the chat summary above,
   // the report.html pill (re-rendered below) and, through the persisted stage gaps, the PR
   // comment, so the three surfaces can never say different words for one run.
-  const verdictStageGaps =
-    isFeatureDev && fold ? unrecordedMandatoryStages(fold, checksVerified) : [];
   verdict.kind = verdictKindFor(verdict.gates, verdictStageGaps);
   if (verdictStageGaps.length > 0) {
     evidence.unrecorded_mandatory_stages = verdictStageGaps;
@@ -1139,4 +1152,85 @@ function skippedDetail(
   return liveMarked
     ? `Stage-evidence incomplete (missing [${missing}]) — informational here; the local ledger is not committed for CI.`
     : `Feature-development stages were not recorded for this change (informational on ${origin}). Missing: [${missing}].`;
+}
+
+/**
+ * Issue #669 — the unrecorded mandatory stages (issue #472) as an inconclusive gate, so the
+ * bundle receipt can count the one Inconclusive cause that is not a gate status.
+ */
+function unrecordedStagesGate(stages: readonly string[]): VerificationEvidenceGate {
+  return {
+    name: 'unrecorded-mandatory-stages' as VerificationGate,
+    status: 'inconclusive',
+    detail: `Mandatory stage(s) with no recorded evidence: [${stages.join(', ')}].`,
+    remediation: null,
+    failures: [],
+  };
+}
+
+interface SealBundleReceiptInput {
+  projectRoot: string;
+  dirName: string;
+  sessionId: string;
+  policy: EnterprisePolicy;
+  fileDigests: readonly EvidenceFileDigest[];
+  rows: readonly EvidenceLedgerRow[];
+  timeVerified: string;
+  changeMetrics: ChangeMetrics | null;
+}
+
+/**
+ * Project the per-feature receipt + AI-BOM into the active feature's bundle (issue #343 B),
+ * honouring the enterprise flags (`evidence_ledger` → receipt.json, `ai_bom` → ai-bom.json).
+ * The receipt seals evidence.jsonl rather than copying its rows (issue #581). Best-effort: a
+ * failure is logged and never throws. Returns whether the seal was written, so the caller can
+ * withdraw the completeness gate's "sealed by this run" allowance when it was not (issue #669).
+ */
+async function sealBundleReceipt(input: SealBundleReceiptInput): Promise<boolean> {
+  const { policy, rows } = input;
+  try {
+    // Issue #120 — fold change authorship (which adapter/model wrote it, who accepted it) into
+    // the receipt so the attestation is gate-derived yet producer-attributed. Resolution never
+    // throws; absent authorship simply omits the predicate field.
+    const authorship = await resolveChangeAuthorship({
+      projectRoot: input.projectRoot,
+      env: process.env,
+    });
+    // Issue #122 — cite which legal clauses each passing gate produces evidence toward, from
+    // the active compliance packs. This is the token-spending path, so it only runs when
+    // `compliance_citations` is on (issue #187). Issue #123 — fold in the reproducibility stamp
+    // the session recorded, when present. Both degrade to absent, never throw.
+    const complianceCitations = policy.compliance_citations
+      ? resolveComplianceCitations({ projectRoot: input.projectRoot, rows })
+      : undefined;
+    const reproducibility = readReproducibilityPredicate(input.projectRoot) ?? undefined;
+    projectFeatureReceipt(input.projectRoot, input.dirName, {
+      fileDigests: input.fileDigests,
+      rows,
+      verifierVersion: verifierVersion(),
+      timeVerified: input.timeVerified,
+      sessionId: input.sessionId,
+      write: { receipt: policy.evidence_ledger, aiBom: policy.ai_bom },
+      // Issue #468 Phase B — the per-feature receipt is the only one (D5), so it carries the
+      // authorship/compliance/reproducibility resolved above. Each is omitted when absent.
+      authorship,
+      ...(complianceCitations !== undefined ? { complianceCitations } : {}),
+      ...(reproducibility !== undefined ? { reproducibility } : {}),
+      // Issue #362 — carry the metrics block on the bundle receipt predicate (AC-3).
+      ...(input.changeMetrics
+        ? {
+            metrics: {
+              dup_new_pct: input.changeMetrics.dup_new_pct,
+              reuse_rate: input.changeMetrics.reuse_rate,
+              meaningful_changed_lines: input.changeMetrics.meaningful_changed_lines,
+            },
+          }
+        : {}),
+    });
+    return true;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    engineLog('warn', `paqad: could not project evidence receipt (${message})`);
+    return false;
+  }
 }

@@ -96,6 +96,12 @@ and the verdict (word, kind, passed, reasons) to `.paqad/session/hud/<session>.v
 through `writeHudReceipt` in `src/hud/receipt-file.ts`. A failed write is logged to
 `.paqad/logs/hook-failures.log` and never changes the `{decision:'block'}` or the exit code.
 
+A turn whose check was skipped (issue #669) writes neither file. The not-owner and detour
+skip verdict carries `applicable: false`, and `writeHudReceipt` returns null for it, and for
+any verdict with no gates and no decided kind, which would otherwise read as Safe to merge.
+The previous HUD files stay as they were, so a question asked after a graded change keeps
+showing that change's real verdict.
+
 ## One verdict rule (issue #639, Part 4)
 
 `verdictKindFor` in `src/verification/verdict-kind.ts` decides the verdict word for every
@@ -137,8 +143,23 @@ seam itself writes: `bundle-completeness`, `visual-evidence` (see
 [`visual-evidence`](../../visual-evidence/index/summary.md)) and `rules-loaded`. Each is recorded
 in the active bundle's `evidence.jsonl` too, one row per gate, skips included (verdict
 `skipped`, the skip reason as the detail), like the graded rows always on whatever the
-enterprise toggles (issue #581). They are appended after the receipt sealed the file. When the
-visual-evidence gate has no bundle to read it records nothing.
+enterprise toggles (issue #581). When the visual-evidence gate has no bundle to read it
+records nothing.
+
+The stage-evidence and checks (`code-tests-lint`) gates are recorded with them, and when the
+only gap is an unrecorded mandatory stage, an inconclusive `unrecorded-mandatory-stages` row is
+added too (issue #669). The bundle receipt and AI-BOM are sealed only after all of that, from
+rows for every gate the verdict read, and before the verdict is built. So `receipt.json`'s
+`verification_result` (PASSED, FAILED, INCONCLUSIVE) says the same thing as the HUD verdict
+file and the HUD receipt. Because the receipt is written after `bundle-completeness` runs,
+that gate counts a missing `receipt.json` or `ai-bom.json` as present when this run is about
+to seal it. If the seal then fails, `recheckAfterReceiptSeal` judges the bundle again without
+that allowance and records the new row, so a strict gate still fails for the missing file and
+every surface reads the re-judged gate.
+
+A blocked row (a measure that could not be taken) stays listed on the receipt but does not
+make it Inconclusive; only an inconclusive row does (decision D-01M5A0MG6537XJ7S3MD3Q4PSCR).
+That keeps the receipt in step with the HUD verdict, which reads gate statuses only.
 
 A gate that skipped while its feature flag is on adds one line to the verdict summary, after
 the status lines and before the escalations: `⚪ visual evidence: skipped (<reason>)`. The line

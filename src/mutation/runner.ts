@@ -16,7 +16,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { execaCommand } from 'execa';
+import { execa } from 'execa';
 
 import type { DetectedStackProfile } from '@/core/types/introspection.js';
 import type { Lane } from '@/core/types/routing.js';
@@ -184,24 +184,27 @@ async function defaultDetectTool(
   return false;
 }
 
-/* v8 ignore start -- thin execa adapter; the real mutation tool only runs in
-   onboarded projects, not in unit tests (which inject `execute`). */
-async function defaultExecute(
+/**
+ * Run the configured mutation command through the shell. The whole string goes to the shell
+ * as one command line, so the quoting `buildCommand` writes (`--mutate "a,b"`) reaches the tool
+ * unchanged. Exported for testing.
+ */
+export async function defaultExecute(
   command: string,
   options: { cwd: string },
 ): Promise<MutationCommandResult> {
-  const result = await execaCommand(command, {
+  const result = await execa(command, {
     cwd: options.cwd,
     reject: false,
     shell: true,
   });
   return {
+    /* v8 ignore next -- execa always yields a numeric exitCode for a process the shell ran */
     exitCode: result.exitCode ?? 1,
     stdout: result.stdout,
     stderr: result.stderr,
   };
 }
-/* v8 ignore stop */
 
 // Stryker JSON report locations, in priority order.
 const STRYKER_REPORT_PATHS = [
@@ -275,7 +278,7 @@ async function defaultParse(
 
 async function defaultIsTreeClean(projectRoot: string): Promise<boolean> {
   try {
-    const result = await execaCommand('git status --porcelain', {
+    const result = await execa('git', ['status', '--porcelain'], {
       cwd: projectRoot,
       reject: false,
     });

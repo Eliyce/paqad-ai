@@ -231,8 +231,7 @@ describe('one hook chain per session (issue #667)', () => {
   it('paqad disabled stays a no-op on both copies (INV-3)', async () => {
     const fx = npmWiredProject('ses-off');
     const bundle = await openBundle(fx);
-    // No background task here: the background-stage deferral runs before the backstop's own
-    // disabled check, so this case drives the plain Stop path where the disabled switch applies.
+    // No background task here; the disabled + background-task case is covered below (#673).
     const payload = { ...(stopPayload(fx) as object), background_tasks: [] };
     for (const route of ['npm', 'plugin'] as const) {
       for (const script of [MARKER_PARSE, VERIFICATION]) {
@@ -241,5 +240,43 @@ describe('one hook chain per session (issue #667)', () => {
       }
     }
     expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 });
+  });
+});
+
+/** The disabled-session audit rows recorded for a session on the shared session ledger. */
+function disabledAuditRows(fx: Fixture): number {
+  const dir = join(fx.root, '.paqad/ledger/disabled-session', fx.session);
+  if (!existsSync(dir)) return 0;
+  return readdirSync(dir)
+    .filter((name) => name.endsWith('.jsonl'))
+    .flatMap((name) => readFileSync(join(dir, name), 'utf8').trim().split('\n').filter(Boolean))
+    .length;
+}
+
+describe('a disabled project writes no completion-deferred row (issue #673)', () => {
+  it('disabled + a running stage agent: no deferred row, exactly one disabled audit row (AC-1)', async () => {
+    const fx = npmWiredProject('ses-off-bg');
+    const bundle = await openBundle(fx);
+    const payload = stopPayload(fx); // carries a running paqad-review background task
+
+    const first = await runHook(VERIFICATION, fx, 'npm', payload, { PAQAD_DISABLED: '1' });
+    expect(first).toEqual({ exitCode: 0, output: '' });
+    expect(stopRows(bundle).deferred).toBe(0);
+    expect(disabledAuditRows(fx)).toBe(1);
+
+    // A second disabled Stop in the same session still leaves exactly one audit row.
+    await runHook(VERIFICATION, fx, 'npm', payload, { PAQAD_DISABLED: '1' });
+    expect(stopRows(bundle).deferred).toBe(0);
+    expect(disabledAuditRows(fx)).toBe(1);
+  });
+
+  it('enabled + the same payload still writes the completion-deferred row (AC-1)', async () => {
+    const fx = npmWiredProject('ses-on-bg');
+    const bundle = await openBundle(fx);
+
+    const r = await runHook(VERIFICATION, fx, 'npm', stopPayload(fx));
+    expect(r.exitCode).toBe(0);
+    expect(stopRows(bundle).deferred).toBe(1);
+    expect(disabledAuditRows(fx)).toBe(0);
   });
 });

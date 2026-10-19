@@ -1016,15 +1016,16 @@ function resolveStructuredOutputDirectory(outputPathPattern: string): string | n
 }
 
 function appendRunnerFlags(baseCommand: string, structuredFlags: string): string {
-  if (/\b(?:pnpm|npm|yarn)\s+test\s+--\s+/u.test(baseCommand)) {
-    return `${baseCommand} ${structuredFlags}`;
+  // Issue #672 — pnpm hands a literal `--` on to the script (`pnpm test -- --reporter=tap` runs
+  // `vitest run -- --reporter=tap`), and the runner then ignores every flag and pattern after it,
+  // so the structured reporter never runs. pnpm forwards flags without it; npm still needs it.
+  const pnpmSeparator = /(\bpnpm\s+test)\s+--(?=\s|$)/u;
+  if (pnpmSeparator.test(baseCommand)) {
+    return `${baseCommand.replace(pnpmSeparator, '$1')} ${structuredFlags}`;
   }
 
-  if (/\b(?:pnpm|npm|yarn)\s+test$/u.test(baseCommand)) {
-    return `${baseCommand} -- ${structuredFlags}`;
-  }
-
-  return `${baseCommand} ${structuredFlags}`;
+  const separator = /\b(?:npm|yarn)\s+test$/u.test(baseCommand) ? ' --' : '';
+  return `${baseCommand}${separator} ${structuredFlags}`;
 }
 
 function deriveActiveCapabilities(

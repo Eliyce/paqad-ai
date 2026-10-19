@@ -18,11 +18,14 @@
 
 import type { ClassificationResult } from '@/core/types/classification.js';
 import type { Lane } from '@/core/types/routing.js';
+import { isBundleClosed } from '@/feature-evidence/adoption.js';
+import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { writePendingLane } from '@/stage-evidence/pending-lane.js';
 
 import { RequestClassifier } from './classifier.js';
+import { STAGE_ORDER } from './feature-development-policy.js';
 import { PipelineRouter } from './router.js';
 import {
   isFeatureDevelopmentRoute,
@@ -35,6 +38,7 @@ import {
   routeWorkflow,
   writeWorkflowState,
   type WorkflowEntry,
+  type WorkflowState,
 } from './workflow-state.js';
 
 /** Plain-language, lane-specific reason (paqad voice — no internal jargon). */
@@ -399,6 +403,52 @@ function narrateRoute(
   return paqadFrameLead(`${verb} ${routed} (${reason})`);
 }
 
+/** The route reason when a prompt names a stage of the session's open change (issue #669). */
+const OPEN_CHANGE_STAGE_REASON = 'a step of the change already open in this session';
+
+/**
+ * The generic re-routes a stage name may override (issue #669). "run documentation_sync" reads
+ * as a docs, question or no-workflow prompt to the stateless classifier, so during an open
+ * change it stays a step of that change. A specialist workflow (pentest, design-test,
+ * codebase-health, discovery, site-map, rules-analyze, root-cause-analysis, module-documentation)
+ * is a deliberate detour, so "run a security review" still pauses the change for a pentest.
+ */
+const STAGE_NAME_OVERRIDABLE_ROUTES: ReadonlySet<RoutedWorkflow> = new Set<RoutedWorkflow>([
+  'documentation-update',
+  'project-question',
+  'no-workflow',
+]);
+
+/**
+ * A feature-development stage name as a whole word, in its underscore form
+ * (`documentation_sync`) or with a space (`documentation sync`), from {@link STAGE_ORDER}.
+ */
+const STAGE_NAME_RE = new RegExp(
+  `\\b(?:${STAGE_ORDER.map((stage) => stage.replace(/_/g, '[_ ]')).join('|')})\\b`,
+  'i',
+);
+
+/**
+ * Whether the prompt names a feature-development stage while this session has a change open:
+ * its active route is feature-development, or its own session control points at an unclosed
+ * bundle (read only, so the prompt seam never adopts a bundle).
+ */
+function namesStageOfOpenChange(
+  projectRoot: string,
+  sessionId: string,
+  prior: WorkflowState,
+  request: string,
+): boolean {
+  if (!STAGE_NAME_RE.test(request)) {
+    return false;
+  }
+  if (prior.active !== null && isFeatureDevelopmentRoute(prior.active.workflow)) {
+    return true;
+  }
+  const open = readSessionControl(projectRoot, sessionId).active;
+  return open !== null && !isBundleClosed(projectRoot, open);
+}
+
 /**
  * The prompt-seam entry point (called from the UserPromptSubmit hook every message).
  * Resolves the outcome, records it in the per-session workflow-state (pause/resume),
@@ -453,6 +503,19 @@ export async function runPromptRouteSeam(
 
   // Record the outcome as evidence and preserve pause/resume across messages (#336).
   const prior = readWorkflowState(input.projectRoot, sessionId);
+  // Issue #669 (cause 2b) — "run documentation_sync" during an open change is a step of that
+  // change, not a detour to another workflow. The classifier stays stateless; the rule lives
+  // here, where the session's own state is known. Only a generic re-route is overridden, never
+  // a specialist workflow, and only this session's own route or bundle counts as open.
+  if (
+    slashName === null &&
+    STAGE_NAME_OVERRIDABLE_ROUTES.has(routed) &&
+    namesStageOfOpenChange(input.projectRoot, sessionId, prior, input.request)
+  ) {
+    routed = 'feature-development';
+    lane = null; // the open change keeps its own lane
+    reason = OPEN_CHANGE_STAGE_REASON;
+  }
   // Issue #639, Part 7 — the reason is saved with the route, so the HUD can say why.
   const anchors = lane === null ? { reason } : { lane, reason };
   const transition = routeWorkflow(prior, routed, anchors);

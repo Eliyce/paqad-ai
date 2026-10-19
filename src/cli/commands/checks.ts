@@ -292,7 +292,10 @@ function renderTestLines(result: ChecksRunResult, durationMs: number): string[] 
         : '';
   if (blocking === 0) {
     const suffix = modeSuffix ? `, ${modeSuffix}` : '';
-    return [`> - 🟢 test passed: ${result.test_total} tests${suffix} (${fmtSecs(durationMs)})`];
+    // Issue #672 — output that yielded no countable tests is not "0 tests": the run passed, the
+    // count is simply unknown.
+    const count = result.test_total > 0 ? `: ${result.test_total} tests` : ', count unavailable';
+    return [`> - 🟢 test passed${count}${suffix} (${fmtSecs(durationMs)})`];
   }
   const lines = [
     `> - 🔴 test failed: ${blocking} tests fail alone (${result.parallel_failures} failed in the parallel run)`,

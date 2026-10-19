@@ -4,7 +4,10 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
+import {
+  bundleCompletenessGate,
+  recheckAfterReceiptSeal,
+} from '@/verification/repository/bundle-completeness-gate.js';
 import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
@@ -859,6 +862,85 @@ describe('evidence.jsonl written by this run (issue #581)', () => {
     });
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('evidence.jsonl');
+  });
+});
+
+// Issue #669 — the receipt and AI-BOM are sealed after every gate, this one included.
+describe('receipt.json and ai-bom.json sealed by this run (issue #669)', () => {
+  const ENTERPRISE = { ...ONLY_ALWAYS, enterprise: true, evidenceLedger: true, aiBom: true };
+
+  it('counts an absent receipt and AI-BOM as present when this run seals them', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ENTERPRISE,
+      receiptPending: true,
+    });
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('fails an absent receipt and AI-BOM when no seal follows', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ENTERPRISE,
+      receiptPending: false,
+    });
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('receipt.json');
+    expect(gate!.detail).toContain('ai-bom.json');
+  });
+
+  describe('recheckAfterReceiptSeal', () => {
+    function pendingInput(root: string) {
+      return {
+        ...base,
+        projectRoot: root,
+        dirName: DIR,
+        mode: 'strict' as const,
+        config: ENTERPRISE,
+        receiptPending: true,
+      };
+    }
+
+    it('keeps the gate when the seal was written', () => {
+      const root = tempRoot();
+      writeAlwaysFiles(root, DIR);
+      const input = pendingInput(root);
+      const gate = bundleCompletenessGate(input);
+      expect(recheckAfterReceiptSeal(gate, input, true)).toBe(gate);
+    });
+
+    it('re-judges without the allowance when the seal failed, so strict fails on the receipt', () => {
+      const root = tempRoot();
+      writeAlwaysFiles(root, DIR);
+      const input = pendingInput(root);
+      const gate = bundleCompletenessGate(input);
+      expect(gate!.status).toBe('pass');
+
+      const rechecked = recheckAfterReceiptSeal(gate, input, false);
+
+      expect(rechecked!.status).toBe('fail');
+      expect(rechecked!.detail).toContain('receipt.json');
+      expect(rechecked!.detail).toContain('ai-bom.json');
+    });
+
+    it('keeps a gate that never relied on the seal, and a missing gate', () => {
+      const root = tempRoot();
+      writeAlwaysFiles(root, DIR);
+      const input = { ...pendingInput(root), receiptPending: false };
+      const gate = bundleCompletenessGate(input);
+      expect(recheckAfterReceiptSeal(gate, input, false)).toBe(gate);
+      expect(recheckAfterReceiptSeal(null, pendingInput(root), false)).toBeNull();
+    });
   });
 });
 

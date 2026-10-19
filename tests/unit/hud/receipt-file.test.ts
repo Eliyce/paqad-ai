@@ -5,8 +5,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
-import { hudSnapshotPath, writeFileAtomic } from '@/hud/files.js';
+import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from '@/hud/files.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
+import type { RepositoryVerificationVerdict } from '@/verification/repository/verdict.js';
 
 describe('HUD files (#639)', () => {
   let root: string;
@@ -58,8 +59,8 @@ describe('writeHudReceipt (#639 Part 6)', () => {
       () => new Date('2026-10-18T00:00:00.000Z'),
     );
 
-    expect(readFileSync(written.receiptPath, 'utf8')).toBe('**▸ paqad** · Needs your attention\n');
-    expect(written.verdict).toEqual({
+    expect(readFileSync(written!.receiptPath, 'utf8')).toBe('**▸ paqad** · Needs your attention\n');
+    expect(written!.verdict).toEqual({
       schema: 'paqad.hud-verdict/1',
       session_id: 'ses-1',
       word: 'Needs your attention',
@@ -69,7 +70,7 @@ describe('writeHudReceipt (#639 Part 6)', () => {
       reasons: ['stage-evidence: y', 'code-tests-lint: x'],
       written_at: '2026-10-18T00:00:00.000Z',
     });
-    expect(existsSync(written.verdictPath)).toBe(true);
+    expect(existsSync(written!.verdictPath)).toBe(true);
   });
 
   it('uses the kind the verification already decided', () => {
@@ -79,6 +80,56 @@ describe('writeHudReceipt (#639 Part 6)', () => {
       gates: [],
       kind: 'inconclusive',
     });
-    expect(written.verdict).toMatchObject({ word: 'Inconclusive', passed: false, reasons: [] });
+    expect(written!.verdict).toMatchObject({ word: 'Inconclusive', passed: false, reasons: [] });
+  });
+
+  // Issue #669 — a turn that was not checked never writes Safe to merge.
+  describe('a skipped check (#669)', () => {
+    const graded = {
+      summary: '**▸ paqad** · Needs your attention',
+      receipt: '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]',
+      gates: [
+        { gate: 'stage-evidence', status: 'fail', detail: 'missing', remediation: null },
+      ] as RepositoryVerificationVerdict['gates'],
+      kind: 'fail' as const,
+    };
+    const skip = {
+      summary: '**▸ paqad** · verification not applicable',
+      gates: [],
+      applicable: false as const,
+    };
+
+    it('AC-6: leaves the previous HUD files byte-identical', () => {
+      const first = writeHudReceipt(root, 'ses-skip', graded)!;
+      const receiptBefore = readFileSync(first.receiptPath);
+      const verdictBefore = readFileSync(first.verdictPath);
+
+      expect(writeHudReceipt(root, 'ses-skip', skip)).toBeNull();
+
+      expect(readFileSync(first.receiptPath).equals(receiptBefore)).toBe(true);
+      expect(readFileSync(first.verdictPath).equals(verdictBefore)).toBe(true);
+      expect(JSON.parse(verdictBefore.toString('utf8'))).toMatchObject({
+        word: 'Needs your attention',
+        passed: false,
+      });
+    });
+
+    it('AC-6: writes no HUD file in a session that has none yet', () => {
+      expect(writeHudReceipt(root, 'ses-fresh', skip)).toBeNull();
+      expect(existsSync(hudReceiptPath(root, 'ses-fresh'))).toBe(false);
+      expect(existsSync(hudVerdictPath(root, 'ses-fresh'))).toBe(false);
+    });
+
+    it('AC-7: a verdict with zero gates and no kind writes nothing and returns null', () => {
+      expect(writeHudReceipt(root, 'ses-empty', { summary: 's', gates: [] })).toBeNull();
+      expect(existsSync(hudVerdictPath(root, 'ses-empty'))).toBe(false);
+    });
+
+    it('AC-7: a graded verdict still writes both files', () => {
+      const written = writeHudReceipt(root, 'ses-graded', graded);
+      expect(written).not.toBeNull();
+      expect(existsSync(written!.receiptPath)).toBe(true);
+      expect(written!.verdict).toMatchObject({ word: 'Needs your attention', passed: false });
+    });
   });
 });

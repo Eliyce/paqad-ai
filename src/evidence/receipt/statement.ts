@@ -66,16 +66,20 @@ function countByEngine(
  * The three-way verification outcome (issue #368, AC-D2).
  *
  * A `blocked` row is a measure that COULD NOT RUN (an unwired or absent tool, e.g. a
- * quality-ratchet measure reporting "tool-not-wired"); an `inconclusive` row could not
+ * quality-ratchet measure with no coverage report); an `inconclusive` row could not
  * be judged. Neither is a failure — conflating "couldn't verify" with "verification
  * failed" manufactured a false `FAILED` (a change with 9/9 + 2/2 real passes and only
  * three unwired ratchet measures still read `FAILED`). So:
  *   - a genuine `fail` (deterministic or llm-judged) → `FAILED`;
- *   - otherwise, any `blocked`/`inconclusive` row → `INCONCLUSIVE` (do not over-trust,
- *     but do not cry failure either);
- *   - everything passed → `PASSED`.
- * A real failure always dominates a couldn't-verify, so a mix of fail + blocked is still
- * `FAILED`.
+ *   - otherwise, any `inconclusive` row → `INCONCLUSIVE` (do not over-trust, but do not
+ *     cry failure either);
+ *   - everything else → `PASSED`.
+ * A `blocked` row stays counted in `graded_results.blocked`, so the receipt still lists
+ * every measure it could not take, but it no longer moves the result (issue #669, decision
+ * D-01M5A0MG6537XJ7S3MD3Q4PSCR). The quality ratchet never blocks on a measure it could not
+ * take, and the end-of-turn verdict reads gate statuses only, so counting those rows here
+ * made the receipt read Inconclusive while the same run's verdict read Safe to merge.
+ * A real failure always dominates, so a mix of fail + blocked is still `FAILED`.
  */
 export function deriveVerificationResult(
   summary: GradedEvidenceSummary,
@@ -83,7 +87,7 @@ export function deriveVerificationResult(
   if (summary.deterministic.fail > 0 || summary.llm_judged.fail > 0) {
     return 'FAILED';
   }
-  if (summary.blocked > 0 || summary.inconclusive > 0) {
+  if (summary.inconclusive > 0) {
     return 'INCONCLUSIVE';
   }
   return 'PASSED';

@@ -109,6 +109,12 @@ export interface BundleCompletenessGateInput {
    * evidence.jsonl (no graded rows yet) is not a missing file: the gate's row will be its first.
    */
   evidenceRowsPending?: boolean;
+  /**
+   * Issue #669 — true when the caller seals receipt.json and ai-bom.json AFTER this gate, so
+   * they agree with the final verdict. Those files are then written by this very run, so a
+   * missing one is not a gap.
+   */
+  receiptPending?: boolean;
 }
 
 /** Read a bundle file's raw bytes (project-relative), or null when absent/unreadable. */
@@ -267,6 +273,24 @@ export function bundleCompletenessGate(
 }
 
 /**
+ * Issue #669 — judge the bundle again once the receipt seal has run. The gate counted
+ * receipt.json and ai-bom.json present on the promise that this run seals them after every
+ * gate. When that seal did not happen, the promise is withdrawn and the gate runs without it,
+ * so a strict gate still fails for the missing file. A seal that held, or a gate that never
+ * relied on the promise, keeps the gate it already returned.
+ */
+export function recheckAfterReceiptSeal(
+  gate: VerificationEvidenceGate | null,
+  input: BundleCompletenessGateInput,
+  sealed: boolean,
+): VerificationEvidenceGate | null {
+  if (sealed || gate === null || input.receiptPending !== true) {
+    return gate;
+  }
+  return bundleCompletenessGate({ ...input, receiptPending: false });
+}
+
+/**
  * Issue #573 / #581 (AC-14) — a graduated or full change on a subagent-capable host must
  * prove it ran its stages in stage agents. The proof is the `stage-agent` rows each
  * SubagentStop appends to stage-evidence.jsonl (an old bundle's context-efficiency.jsonl
@@ -356,6 +380,12 @@ function assertRequired(
 
   // Issue #581 — this run appends the gate's own row to evidence.jsonl once it returns.
   if (entry.key === 'evidence' && input.evidenceRowsPending) {
+    state.present.push(entry.file);
+    return;
+  }
+
+  // Issue #669 — this run seals the receipt and AI-BOM once every gate, this one included, ran.
+  if ((entry.key === 'receipt' || entry.key === 'aiBom') && input.receiptPending) {
     state.present.push(entry.file);
     return;
   }

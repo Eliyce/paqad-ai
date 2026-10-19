@@ -126,7 +126,6 @@ function components(surfaces: Surface[]): { chains: Surface[][]; loose: Surface[
 function layoutChain(chain: Surface[]): PositionedBlock {
   const graph = new dagre.graphlib.Graph({ multigraph: true });
   graph.setGraph({ rankdir: 'LR', nodesep: CARD_GUTTER, ranksep: 48, marginx: 0, marginy: 0 });
-  graph.setDefaultEdgeLabel(() => ({}));
   const ids = new Set(chain.map((s) => s.id));
   for (const surface of chain) {
     graph.setNode(surface.id, { width: cardWidth(surface.label), height: CARD_HEIGHT });

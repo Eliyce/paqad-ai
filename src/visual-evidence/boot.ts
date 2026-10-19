@@ -98,7 +98,15 @@ export async function bootApp(
     stdio: 'ignore',
     windowsHide: true,
   });
-  child.unref();
+  // execa 10: the subprocess is a plain promise, so Node's ChildProcess API (unref) lives on
+  // `nodeChildProcess`. Unref so the booted server never holds the paqad process open.
+  child.nodeChildProcess.unref();
+  // Nobody awaits the dev server: it runs until stopChild kills it, and that kill rejects the
+  // subprocess promise. Handle that expected rejection here so it is never reported as unhandled.
+  child.catch(() => {
+    // Expected: the stopChild kill. An early crash needs no report here either, because the
+    // reachability poll below already turns it into `app-not-reachable`.
+  });
 
   const waitMs = preview.wait_ms ?? 30000;
   const deadline = Date.now() + waitMs;
