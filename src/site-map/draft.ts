@@ -99,9 +99,9 @@ export interface DraftUnit {
  * `group:ungrouped` unit when module-less surfaces exist — without it, a project whose extractor
  * attributes no modules (this repo: 95 CLI surfaces, 0 groups) would seed an empty store and a
  * re-run could never resume. Each unit records the distinct, sorted evidence files of its
- * surfaces as `source_files`, which the progress store's skip rule hashes; a synthetic evidence
- * label (e.g. `php artisan route:list`) hashes deterministically as a missing file, so the skip
- * rule stays stable for artisan-sourced surfaces too.
+ * surfaces as `source_files`, which the progress store's skip rule hashes. Every evidence file is
+ * a real project path (artisan-sourced surfaces cite their route file and controller, issue
+ * #500), so a change to that source re-drafts the unit.
  */
 export function deriveDraftUnits(extraction: ExtractionResult): DraftUnit[] {
   const byId = new Map<string, DraftUnit>();

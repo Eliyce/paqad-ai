@@ -20,6 +20,8 @@ import type {
   SurfaceKind,
 } from '@/core/types/site-map.js';
 
+import type { SourcePointer } from './laravel-sources.js';
+
 /** Bumped when the in-memory extraction shape changes; independent of the map schema version. */
 export const SITE_MAP_EXTRACTION_SCHEMA_VERSION = 1;
 
@@ -33,10 +35,8 @@ const LARAVEL_SCHEDULE_SOURCE = 'laravel-schedule';
 const LARAVEL_JOBS_SOURCE = 'laravel-jobs';
 const LARAVEL_MAIL_SOURCE = 'laravel-mail';
 
-/** Synthetic evidence `file` labels for artisan-sourced surfaces (no on-disk file:line). */
-const ARTISAN_ROUTE_EVIDENCE = 'php artisan route:list';
-const ARTISAN_LIST_EVIDENCE = 'php artisan list';
-const ARTISAN_SCHEDULE_EVIDENCE = 'php artisan schedule:list';
+/** Most untraceable items a blocked check names before it says "and N more" (FR-13). */
+const UNRESOLVED_LIST_CAP = 10;
 
 /** One commander command as read from the CLI program (normalized by the gatherer). */
 export interface CliCommandRecord {
@@ -67,6 +67,14 @@ export interface ExtractedSurface {
   raw_id: string;
   kind: SurfaceKind;
   label: string;
+  /**
+   * The evidence contract every extractor keeps (issue #500): `file` is ALWAYS a
+   * project-relative path to a file that exists in the project, so verification can resolve it
+   * and a map that cites the same file reconciles. A command string such as
+   * `php artisan route:list` never goes in `file`, only in `note`. A surface an extractor
+   * cannot trace to project source is not emitted: artisan-listed framework or package
+   * built-ins are skipped, and untraceable routes or schedules become a blocked check instead.
+   */
   evidence: Evidence[];
   entry?: SurfaceEntry;
   /** Extraction is always static/deterministic. */
@@ -85,7 +93,10 @@ export interface ExtractorOutput {
   extractor: string;
   available: boolean;
   surfaces: ExtractedSurface[];
-  /** Populated when `available` is false: why it could not run and how to enable it. */
+  /**
+   * Populated when `available` is false: why it could not run and how to enable it. An available
+   * extractor may carry one too, naming the items it found but could not trace to source (FR-3).
+   */
   blocked?: SiteMapBlockedCheck | null;
 }
 
@@ -230,8 +241,9 @@ export function extractLaravelRouteSurfaces(records: LaravelRouteRecord[]): Extr
 // route:list --json` resolves modules, middleware, and controllers through the real router, so
 // modular routes (nwidart) and guards come for free. The impure shell-out + JSON read live in
 // the coverage-excluded gatherer; the normalization (parse*) and mapping (extract*) below are
-// pure and fully covered. Artisan-sourced surfaces have no on-disk `file:line`, so their
-// evidence is the artisan command that produced them (INV-2: still a grounded pointer).
+// pure and fully covered. Artisan says what is registered, not where, so each record is traced
+// back to project source through an injected resolver (see `laravel-sources.ts`); the artisan
+// command that listed it rides along in the evidence `note` (issue #500).
 
 /** One route as read from `php artisan route:list --json` (normalized by the parser). */
 export interface LaravelArtisanRouteRecord {
@@ -390,53 +402,82 @@ export function parseArtisanScheduleList(stdout: string): LaravelScheduledTaskRe
   return records;
 }
 
+/** Extracted surfaces plus the items that could not be traced to project source. */
+export interface TracedExtraction {
+  surfaces: ExtractedSurface[];
+  /** Human labels (`GET /a`, a scheduled command) of the items left out, for the blocked check. */
+  unresolved: string[];
+}
+
+/** Attach the command that listed a surface as the note on each resolved source pointer. */
+function pointersToEvidence(pointers: SourcePointer[], note: string): Evidence[] {
+  return pointers.map((pointer) => ({ ...pointer, note }));
+}
+
 /**
  * Artisan-route extractor: each registered route becomes a surface — `api`-prefixed uris are
  * `api`, the rest `page` — carrying its middleware as guard hints and its owning module (from a
- * `Modules\<Name>` controller namespace). Evidence is the artisan command, since the resolved
- * router gives us no `file:line`. High confidence: read from the real router, not a convention.
+ * `Modules\<Name>` controller namespace). `resolve` traces the route to source: the route-file
+ * declaration and the controller method, both kept when both exist, so a map citing either one
+ * reconciles. A route with no pointer (a closure or package route the static scan cannot see) is
+ * not emitted; it is returned in `unresolved` for a visible blocked check. High confidence: read
+ * from the real router, not a convention.
  */
 export function extractLaravelArtisanRoutes(
   records: LaravelArtisanRouteRecord[],
-): ExtractedSurface[] {
-  return records.map((record) => {
+  resolve: (record: LaravelArtisanRouteRecord) => SourcePointer[],
+): TracedExtraction {
+  const surfaces: ExtractedSurface[] = [];
+  const unresolved: string[] = [];
+  for (const record of records) {
     const uri = normalizeUri(record.uri);
     const isApi = uri === 'api' || uri.startsWith('api/');
     const primaryMethod = record.method.split(/[|,]/)[0]!.trim() || record.method;
+    const route = `${primaryMethod} /${uri}`;
+    const pointers = resolve(record);
+    if (pointers.length === 0) {
+      unresolved.push(route);
+      continue;
+    }
     const action = record.action?.trim();
     const module = moduleFromAction(record.action);
-    return {
+    surfaces.push({
       raw_id: toRawId(LARAVEL_ARTISAN_SOURCE, `${primaryMethod} ${uri}`),
       kind: isApi ? ('api' as const) : ('page' as const),
-      label:
-        action && action.length > 0 && action !== 'Closure' ? action : `${primaryMethod} /${uri}`,
-      evidence: [{ file: ARTISAN_ROUTE_EVIDENCE, note: `${primaryMethod} /${uri}` }],
+      label: action && action.length > 0 && action !== 'Closure' ? action : route,
+      evidence: pointersToEvidence(pointers, `php artisan route:list (${route})`),
       entry: { kind: 'url', value: `/${uri}` },
       derivation: 'static' as const,
       confidence: 'high' as const,
       source: LARAVEL_ARTISAN_SOURCE,
       ...(record.middleware && record.middleware.length > 0 ? { guards: record.middleware } : {}),
       ...(module ? { module } : {}),
-    };
-  });
+    });
+  }
+  return { surfaces, unresolved };
 }
 
 /**
- * Console-command extractor: each non-hidden artisan command becomes a `cli-command` surface.
- * Hidden commands are Symfony/framework plumbing, never a user-facing surface.
+ * Console-command extractor: each non-hidden artisan command declared in project source becomes
+ * a `cli-command` surface pointing at its declaration. `locate` finds that declaration; an
+ * artisan-listed command it cannot find is a framework or package built-in (`migrate`,
+ * `queue:work`), not an app surface, so it is skipped. Hidden commands are always plumbing.
  */
 export function extractLaravelConsoleCommands(
   records: LaravelConsoleCommandRecord[],
+  locate: (name: string) => SourcePointer | undefined,
 ): ExtractedSurface[] {
   const surfaces: ExtractedSurface[] = [];
   for (const record of records) {
     if (record.hidden) continue;
+    const pointer = locate(record.name);
+    if (!pointer) continue;
     const description = record.description?.trim();
     surfaces.push({
       raw_id: toRawId(LARAVEL_CONSOLE_SOURCE, record.name),
       kind: 'cli-command',
       label: description && description.length > 0 ? description : record.name,
-      evidence: [{ file: ARTISAN_LIST_EVIDENCE, note: record.name }],
+      evidence: pointersToEvidence([pointer], `php artisan list (${record.name})`),
       entry: { kind: 'artisan', value: record.name },
       derivation: 'static',
       confidence: 'high',
@@ -448,21 +489,56 @@ export function extractLaravelConsoleCommands(
 
 /**
  * Scheduled-task extractor: each scheduled task becomes a `job` surface whose entry is the cron
- * expression. Evidence is the artisan command; the label is the scheduled command.
+ * expression and whose evidence is the line that schedules it. A task `locate` cannot find in the
+ * schedule definition files is left out and returned in `unresolved` for a blocked check.
  */
 export function extractLaravelScheduledJobs(
   records: LaravelScheduledTaskRecord[],
-): ExtractedSurface[] {
-  return records.map((record) => ({
-    raw_id: toRawId(LARAVEL_SCHEDULE_SOURCE, `${record.expression} ${record.command}`),
-    kind: 'job' as const,
-    label: record.command,
-    evidence: [{ file: ARTISAN_SCHEDULE_EVIDENCE, note: record.expression }],
-    entry: { kind: 'schedule', value: record.expression },
-    derivation: 'static' as const,
-    confidence: 'high' as const,
-    source: LARAVEL_SCHEDULE_SOURCE,
-  }));
+  locate: (command: string) => SourcePointer | undefined,
+): TracedExtraction {
+  const surfaces: ExtractedSurface[] = [];
+  const unresolved: string[] = [];
+  for (const record of records) {
+    const pointer = locate(record.command);
+    if (!pointer) {
+      unresolved.push(`${record.expression} ${record.command}`);
+      continue;
+    }
+    surfaces.push({
+      raw_id: toRawId(LARAVEL_SCHEDULE_SOURCE, `${record.expression} ${record.command}`),
+      kind: 'job' as const,
+      label: record.command,
+      evidence: pointersToEvidence([pointer], `php artisan schedule:list (${record.expression})`),
+      entry: { kind: 'schedule', value: record.expression },
+      derivation: 'static' as const,
+      confidence: 'high' as const,
+      source: LARAVEL_SCHEDULE_SOURCE,
+    });
+  }
+  return { surfaces, unresolved };
+}
+
+/**
+ * The blocked check for items an available extractor found but could not trace to source
+ * (FR-3: a gap is visible, never silent). Lists at most ten, then "and N more". Null when
+ * nothing is unresolved.
+ */
+export function unresolvedBlockedCheck(
+  extractor: string,
+  noun: string,
+  items: string[],
+  cause = '',
+): SiteMapBlockedCheck | null {
+  if (items.length === 0) return null;
+  const shown = items.slice(0, UNRESOLVED_LIST_CAP).join(', ');
+  const more =
+    items.length > UNRESOLVED_LIST_CAP ? `, and ${items.length - UNRESOLVED_LIST_CAP} more` : '';
+  return {
+    check: `${extractor} source tracing`,
+    reason: `${items.length} ${noun} could not be traced to a source file${cause}: ${shown}${more}`,
+    install_hint:
+      'Point each one at a class in your project (a closure has no file to cite), or add it to docs/site-map/app-map.yaml by hand with the file that defines it.',
+  };
 }
 
 /** Map a scanned class list to surfaces of a fixed kind (jobs → `job`, mailables → `email`). */
@@ -568,8 +644,8 @@ export function blockedExtractor(
 
 /**
  * Merge every extractor's output into the fingerprinted `extraction.json` shape: available
- * extractors contribute surfaces (deduped and sorted), unavailable ones contribute blocked
- * checks, and the run proceeds either way. `low_confidence_fallback` is true when nothing ran.
+ * extractors contribute surfaces (deduped and sorted), and any output carrying a blocked check
+ * contributes it, and the run proceeds either way. `low_confidence_fallback` is true when nothing ran.
  */
 export function assembleExtraction(outputs: ExtractorOutput[], appKind: AppKind): ExtractionResult {
   const surfaces = sortExtractedSurfaces(
@@ -577,9 +653,8 @@ export function assembleExtraction(outputs: ExtractorOutput[], appKind: AppKind)
       outputs.filter((output) => output.available).flatMap((output) => output.surfaces),
     ),
   );
-  const blockedChecks = outputs.flatMap((output) =>
-    !output.available && output.blocked ? [output.blocked] : [],
-  );
+  // An unavailable extractor's blocked check, and an available one's untraced-items check.
+  const blockedChecks = outputs.flatMap((output) => (output.blocked ? [output.blocked] : []));
   const extractorsRan = outputs.filter((output) => output.available).length;
   return {
     schema_version: SITE_MAP_EXTRACTION_SCHEMA_VERSION,
