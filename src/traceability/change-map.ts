@@ -14,7 +14,7 @@
 // (scope drift, the dead-code ratchet measure) exactly where they were before this map
 // existed.
 
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { toPosixPath } from '@/core/path-utils.js';
@@ -213,12 +213,21 @@ function changedTestFiles(changedFiles: readonly string[]): string[] {
 
 function readTitlesAndTags(projectRoot: string, file: string): string[] {
   const abs = join(projectRoot, file);
+  let fd: number;
   try {
     // A deleted file is still in the changed list; it proves nothing.
-    if (statSync(abs).size > MAX_TEST_FILE_BYTES) return [];
-    return extractTitlesAndTags(readFileSync(abs, 'utf8'));
+    fd = openSync(abs, 'r');
   } catch {
     return [];
+  }
+  try {
+    // Size and content come from the same open file, so nothing can swap it in between.
+    if (fstatSync(fd).size > MAX_TEST_FILE_BYTES) return [];
+    return extractTitlesAndTags(readFileSync(fd, 'utf8'));
+  } catch {
+    return [];
+  } finally {
+    closeSync(fd);
   }
 }
 
