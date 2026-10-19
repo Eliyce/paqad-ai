@@ -135,8 +135,14 @@ any turn the session-ownership check skips (see below).
   turn's `turn_started_at` stamp (in the per-session workflow-state) is checked; an owner
   on a non-feature route with no row this turn is skipped (`detour`). CLI stage rows carry
   `session_source` (`host` / `env` / `cache`), and a `cache` row never counts as this
-  turn's edit, since the shared cache file may name another live session. The check only
-  reads bundles; it never repoints a session's active feature.
+  turn's edit, since the shared cache file may name another live session. The work of the
+  session's own stage agents counts too (issue #669): in the unclosed bundle this session's
+  control points at (read with `readSessionControl`), every row a `paqad-<stage>` agent
+  wrote and every `stage-agent` completion row is the session's own, whatever session id it
+  carries, and one recorded since `turn_started_at` counts as an edit this turn. So an
+  orchestrator turn in which only its stage agents edited files is checked, not skipped.
+  Another session's bundle is never read this way. The check only reads bundles; it never
+  repoints a session's active feature.
 - **Rule-loading gate** (`rules-loaded-gate.ts`, issue #557) — the completion-seam backstop
   that a feature-development change actually LOADED its applicable rules, not just that the
   ceremony ran. `paqad-ai rules load` computes the applicable rules deterministically

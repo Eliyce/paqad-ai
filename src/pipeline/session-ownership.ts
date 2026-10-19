@@ -18,9 +18,12 @@
 
 import { listInFlightFeatures } from '@/feature-evidence/adoption.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
+import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { isStageAgent } from '@/stage-evidence/agent-identity.js';
+import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
 import { isFeatureDevelopmentRoute, type RoutedWorkflow } from './routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from './workflow-state.js';
@@ -45,8 +48,12 @@ const AGENT_AUTHORED_SOURCES = new Set(['live-mark', 'redo']);
 
 /**
  * Every agent-authored stage row `sessionId` wrote into an unclosed bundle, across all
- * branches. Tolerant: an absent or unreadable bundle contributes no rows, and a failure to
- * list bundles at all reads as none.
+ * branches, plus the work its own stage agents did (issue #669): in the unclosed bundle this
+ * session's control points at, every row a `paqad-<stage>` agent wrote and every `stage-agent`
+ * completion row counts as this session's own, whatever session id it carries. The control is
+ * read with `readSessionControl` only, never `currentFeature` / `reconcileSessionControl`, so
+ * no bundle is ever adopted here. Tolerant: an absent or unreadable bundle contributes no rows,
+ * and a failure to list bundles at all reads as none.
  */
 export function sessionOwnedRows(projectRoot: string, sessionId: string): SessionLedgerRow[] {
   let dirNames: string[];
@@ -55,14 +62,21 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
   } catch {
     return [];
   }
+  const ownBundle = readSessionControl(projectRoot, sessionId).active;
   return dirNames.flatMap((dirName) =>
     readFeatureStageUnit(projectRoot, dirName).filter(
       (row) =>
-        row.session_id === sessionId &&
-        typeof row.evidence_source === 'string' &&
-        AGENT_AUTHORED_SOURCES.has(row.evidence_source),
+        (row.session_id === sessionId &&
+          typeof row.evidence_source === 'string' &&
+          AGENT_AUTHORED_SOURCES.has(row.evidence_source)) ||
+        (dirName === ownBundle && isStageAgentRow(row)),
     ),
   );
+}
+
+/** A row a dispatched `paqad-<stage>` agent wrote, or the `stage-agent` row its completion left. */
+function isStageAgentRow(row: SessionLedgerRow): boolean {
+  return row.kind === STAGE_AGENT_KIND || isStageAgent(row.agent as string | undefined);
 }
 
 /**
