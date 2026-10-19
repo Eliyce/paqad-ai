@@ -481,6 +481,21 @@ function parseGoJson(
   };
 }
 
+/** A TAP entry's test name, without vitest's trailing `# time=…` directive. */
+function tapDescription(raw: string | undefined): string {
+  return (raw ?? '').replace(/\s+#\s*time=\S+$/i, '').trim();
+}
+
+/**
+ * Parse TAP, counting leaf tests only (issue #672). Two runners nest their entries by indenting:
+ * - vitest prints a file or suite entry BEFORE its children, ending the line with `{` and closing
+ *   the block with a `}` line at the same indent;
+ * - node:test prints its subtests FIRST and the parent entry after them, one level shallower.
+ * Both kinds of parent are containers, not tests: an entry that opens a block, or that sits
+ * shallower than the entry before it (with no `}` in between), is skipped. Every other entry, at
+ * any indent, is a leaf, so an indented `not ok` is a failure and an indented `# SKIP` a skip.
+ * Lines inside a YAML diagnostic block (`---` … `...`) are never read as entries.
+ */
 function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
   const failures: StructuredTestIssue[] = [];
   const warnings: StructuredTestWarning[] = [];
@@ -489,16 +504,43 @@ function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
   let failed = 0;
   let skipped = 0;
   let currentFailure: StructuredTestIssue | null = null;
+  // The indent of the last entry or block close seen; a shallower plain entry is a node:test parent.
+  let previousIndent = 0;
+  let inYaml = false;
 
   for (const line of rawOutput.split('\n')) {
     const trimmed = line.trimEnd();
-    const okMatch = /^(not )?ok\b(?:\s+\d+)?(?:\s+-\s+)?(.+)?$/i.exec(trimmed);
+    const content = trimmed.trimStart();
+    const indent = trimmed.length - content.length;
+
+    if (inYaml) {
+      if (content === '...') inYaml = false;
+      continue;
+    }
+    if (content === '---') {
+      inYaml = true;
+      continue;
+    }
+    if (content === '}') {
+      previousIndent = indent;
+      continue;
+    }
+
+    const okMatch = /^(not )?ok\b(?:\s+\d+)?(?:\s+-\s+)?(.+)?$/i.exec(content);
 
     if (okMatch) {
+      const opensBlock = content.endsWith('{');
+      const closesSubtests = indent < previousIndent;
+      previousIndent = indent;
+      if (opensBlock || closesSubtests) {
+        currentFailure = null;
+        continue;
+      }
+
       total += 1;
       const isFailure = okMatch[1] === 'not ';
-      const description = okMatch[2]?.trim() || `test-${total}`;
-      const isSkipped = /#\s*skip/i.test(trimmed);
+      const description = tapDescription(okMatch[2]) || `test-${total}`;
+      const isSkipped = /#\s*skip/i.test(content);
 
       if (isSkipped) {
         skipped += 1;

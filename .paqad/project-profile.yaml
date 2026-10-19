@@ -5,8 +5,8 @@ project:
 commands:
   install: pnpm install
   dev: pnpm dev
-  test: pnpm test -- --reporter=tap
-  test_single: pnpm test -- <pattern> --reporter=tap
+  test: pnpm test --reporter=tap
+  test_single: pnpm test <pattern> --reporter=tap
   lint: pnpm lint
   format: pnpm format
   migrate: echo "configure migrate command"

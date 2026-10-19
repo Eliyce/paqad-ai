@@ -106,6 +106,42 @@ describe('renderReceipt (issue #554)', () => {
     );
   });
 
+  it('a passing run with no countable tests says count unavailable, never 0 tests (#672, AC-5)', () => {
+    const native = baseResult({
+      test_total: 0,
+      test_result: null,
+      mode: {
+        parallel_commands: true,
+        test_mode: 'native',
+        processes: null,
+        fallback_reason: null,
+      },
+    });
+    const lines = renderReceipt(native, 'warn').join('\n');
+    expect(lines).toContain('> - 🟢 test passed, count unavailable, native parallel (2 m 02 s)');
+    expect(lines).not.toContain('0 tests');
+
+    const sequential = baseResult({
+      test_total: 0,
+      test_result: null,
+      mode: {
+        parallel_commands: true,
+        test_mode: 'sequential',
+        processes: null,
+        fallback_reason: null,
+      },
+    });
+    expect(renderReceipt(sequential, 'warn').join('\n')).toContain(
+      '> - 🟢 test passed, count unavailable (2 m 02 s)',
+    );
+  });
+
+  it('a passing run with a parsed count still prints the count', () => {
+    expect(renderReceipt(baseResult({}), 'warn').join('\n')).toContain(
+      '> - 🟢 test passed: 8998 tests, parallel ×11 (2 m 02 s)',
+    );
+  });
+
   it('native mode prints native parallel', () => {
     const native = baseResult({
       mode: {
