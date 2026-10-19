@@ -1538,6 +1538,15 @@ describe('describeClaudeInstall (Part 7)', () => {
 describe('doctor line says when this project still runs the npm hooks (issue #667, AC-8)', () => {
   const SUFFIX = '; this project still runs the npm hooks (project .claude/settings.json)';
 
+  // NFR-2 (#674): the doctor read honours CLAUDE_CONFIG_DIR, so never let the developer's own
+  // Claude config dir leak into these sandboxed-home cases.
+  beforeEach(() => {
+    vi.stubEnv('CLAUDE_CONFIG_DIR', '');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   /** A real paqad hook script on disk under a temp "paqad" install, returned as an absolute path. */
   function liveScript(): string {
     const script = join(home, 'paqad-ai', 'hooks', 'capability-gate.mjs');
@@ -1636,5 +1645,90 @@ describe('doctor line says when this project still runs the npm hooks (issue #66
       writeFileSync(settings, body);
       expect(projectWiresLiveNpmHooks(projectRoot)).toBe(false);
     }
+  });
+});
+
+describe('doctor names the user settings file that keeps the npm hooks on (issue #674, AC-12)', () => {
+  const LEAD = '; this project still runs the npm hooks';
+  const DONE = 'plugin (migrated 2026-10-17, via cli)';
+  /** No CLAUDE_CONFIG_DIR: the hooks read ~/.claude/settings.json. */
+  const NO_CONFIG_DIR: NodeJS.ProcessEnv = {};
+
+  /** A real paqad hook script on disk, so the wiring counts as live. */
+  function liveScript(): string {
+    const script = join(home, 'paqad-ai', 'hooks', 'capability-gate.mjs');
+    mkdirSync(dirname(script), { recursive: true });
+    writeFileSync(script, '// hook\n');
+    return script;
+  }
+  function wireAt(settingsPath: string): void {
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: { SessionStart: [{ hooks: [{ command: `node "${liveScript()}"` }] }] },
+      }),
+    );
+  }
+  function wireUser(): void {
+    wireAt(userSettings());
+  }
+  function wireProject(): void {
+    wireAt(join(projectRoot, '.claude', 'settings.json'));
+  }
+  beforeEach(() => {
+    writeMigrationState(home, {
+      state: 'done',
+      path: 'cli',
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-17T10:00:00Z',
+    });
+  });
+
+  it('names ~/.claude/settings.json when only the user file wires a live hook', () => {
+    wireUser();
+    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(
+      `${DONE}${LEAD} (~/.claude/settings.json)`,
+    );
+  });
+
+  it('keeps the project suffix when only the project file wires a live hook', () => {
+    wireProject();
+    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(
+      `${DONE}${PROJECT_NPM_HOOKS_SUFFIX}`,
+    );
+  });
+
+  it('names the user file first when both wire a live hook', () => {
+    wireUser();
+    wireProject();
+    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(
+      `${DONE}${LEAD} (~/.claude/settings.json and project .claude/settings.json)`,
+    );
+  });
+
+  it('adds no suffix when neither file wires a live hook', () => {
+    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(DONE);
+  });
+
+  it('reads and names the CLAUDE_CONFIG_DIR settings file when that variable is set', () => {
+    const configDir = join(home, 'custom-claude');
+    wireAt(join(configDir, 'settings.json'));
+    const env = { CLAUDE_CONFIG_DIR: configDir };
+    expect(describeClaudeInstall(home, projectRoot, env)).toBe(
+      `${DONE}${LEAD} (${join(configDir, 'settings.json')})`,
+    );
+    // The default ~/.claude file is not the one the hooks read then, even when it is wired.
+    rmSync(join(configDir, 'settings.json'));
+    wireUser();
+    expect(describeClaudeInstall(home, projectRoot, env)).toBe(DONE);
+  });
+
+  it('treats a blank CLAUDE_CONFIG_DIR as unset', () => {
+    wireUser();
+    expect(describeClaudeInstall(home, projectRoot, { CLAUDE_CONFIG_DIR: '  ' })).toBe(
+      `${DONE}${LEAD} (~/.claude/settings.json)`,
+    );
   });
 });

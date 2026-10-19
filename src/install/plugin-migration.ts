@@ -924,18 +924,20 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
  *
  * Issue #667: when the move is done but `projectRoot`'s own Claude settings still wire a live paqad
  * npm hook, this project still runs the npm chain (the plugin stays passive there), so the plugin
- * line gains {@link PROJECT_NPM_HOOKS_SUFFIX}.
+ * line gains {@link PROJECT_NPM_HOOKS_SUFFIX}. Issue #674: the user settings file (honouring
+ * `CLAUDE_CONFIG_DIR` from `env`) keeps the npm hooks on too, and the suffix names it first.
  */
-export function describeClaudeInstall(home: string = homedir(), projectRoot?: string): string {
+export function describeClaudeInstall(
+  home: string = homedir(),
+  projectRoot?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
   const record = readMigrationState(home);
   if (!record || record.state === 'pending') return 'npm';
   // Read-only: the next update or session records the declined state; doctor shows it at once.
   if (doneButDisabled(record, home)) return `npm (migration declined: ${USER_DISABLED_REASON})`;
   if (record.state === 'done') {
-    const suffix =
-      projectRoot !== undefined && projectWiresLiveNpmHooks(projectRoot)
-        ? PROJECT_NPM_HOOKS_SUFFIX
-        : '';
+    const suffix = projectRoot !== undefined ? npmHooksSuffix(home, projectRoot, env) : '';
     if (record.path === 'synced') return `plugin (synced from claude.ai)${suffix}`;
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';
     return `plugin (migrated ${date}, via ${record.path ?? 'settings'})${suffix}`;
@@ -946,6 +948,41 @@ export function describeClaudeInstall(home: string = homedir(), projectRoot?: st
 /** The doctor suffix for a plugin-done machine whose project still runs the npm hooks (#667). */
 export const PROJECT_NPM_HOOKS_SUFFIX =
   '; this project still runs the npm hooks (project .claude/settings.json)';
+
+/**
+ * Issue #674: the user-level Claude settings file the npm hooks may be wired in. Mirrors
+ * `claudeSettingsPath` in runtime/hooks/lib/paqad-disabled.mjs: `CLAUDE_CONFIG_DIR` when it is set
+ * and non-blank, else `~/.claude`. Only the doctor read uses it; the migration writes keep going
+ * through {@link userClaudeSettingsPath}.
+ */
+function hookUserSettingsPath(home: string, env: NodeJS.ProcessEnv): string {
+  const configDir = env.CLAUDE_CONFIG_DIR;
+  return configDir?.trim()
+    ? join(configDir, 'settings.json')
+    : join(home, '.claude', 'settings.json');
+}
+
+/** How the doctor names the user settings file: `~/.claude/...`, or the real CLAUDE_CONFIG_DIR path. */
+function userSettingsLabel(home: string, env: NodeJS.ProcessEnv): string {
+  return env.CLAUDE_CONFIG_DIR?.trim()
+    ? hookUserSettingsPath(home, env)
+    : '~/.claude/settings.json';
+}
+
+/**
+ * Issue #674: the plugin-done suffix naming what keeps the npm hooks on, checked in the
+ * `pluginStandsDownPassive` order: the user settings file first, then the project's own files.
+ * Empty when neither wires a live paqad hook.
+ */
+function npmHooksSuffix(home: string, projectRoot: string, env: NodeJS.ProcessEnv): string {
+  const user = settingsWireLivePaqadHook(hookUserSettingsPath(home, env));
+  const project = projectWiresLiveNpmHooks(projectRoot);
+  if (!user) return project ? PROJECT_NPM_HOOKS_SUFFIX : '';
+  const files = project
+    ? `${userSettingsLabel(home, env)} and project .claude/settings.json`
+    : userSettingsLabel(home, env);
+  return `; this project still runs the npm hooks (${files})`;
+}
 
 /**
  * Issue #667: true when the project's `.claude/settings.json` or `.claude/settings.local.json`
