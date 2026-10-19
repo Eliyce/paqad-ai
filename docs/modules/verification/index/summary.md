@@ -143,8 +143,16 @@ seam itself writes: `bundle-completeness`, `visual-evidence` (see
 [`visual-evidence`](../../visual-evidence/index/summary.md)) and `rules-loaded`. Each is recorded
 in the active bundle's `evidence.jsonl` too, one row per gate, skips included (verdict
 `skipped`, the skip reason as the detail), like the graded rows always on whatever the
-enterprise toggles (issue #581). They are appended after the receipt sealed the file. When the
-visual-evidence gate has no bundle to read it records nothing.
+enterprise toggles (issue #581). When the visual-evidence gate has no bundle to read it
+records nothing.
+
+The stage-evidence and checks (`code-tests-lint`) gates are recorded with them, and when the
+only gap is an unrecorded mandatory stage, an inconclusive `unrecorded-mandatory-stages` row is
+added too (issue #669). The bundle receipt and AI-BOM are sealed only after all of that, from
+rows for every gate the verdict read. So `receipt.json`'s `verification_result` (PASSED,
+FAILED, INCONCLUSIVE) says the same thing as the HUD verdict file and the HUD receipt. Because
+the receipt is written after `bundle-completeness` runs, that gate counts a missing
+`receipt.json` or `ai-bom.json` as present when this run is about to seal it.
 
 A gate that skipped while its feature flag is on adds one line to the verdict summary, after
 the status lines and before the escalations: `⚪ visual evidence: skipped (<reason>)`. The line

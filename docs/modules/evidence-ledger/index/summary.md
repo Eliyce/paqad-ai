@@ -64,8 +64,9 @@ Issue #581 made `evidence.jsonl` always on: every change records one row per gat
 whatever the enterprise toggles. Only `receipt.json` and `ai-bom.json` stay enterprise
 capabilities. The receipt no longer copies the rows. Its predicate carries
 `evidence_sha256` (the SHA-256 of `evidence.jsonl` at seal time) and `evidence_line_count`,
-plus the graded counts and the verdict. The late gates append rows after the seal, so
-`verifyEvidenceSeal` re-hashes only the first `evidence_line_count` lines. Readers get a
+plus the graded counts and the verdict. Since issue #669 the end-of-turn run seals the receipt
+after every gate, so a receipt it writes covers every row of that run. A later run appends
+after the seal, so `verifyEvidenceSeal` re-hashes only the first `evidence_line_count` lines. Readers get a
 receipt's rows through `receiptEvidenceRows` (`src/feature-evidence/receipt.ts`): the
 `evidence.jsonl` rows of that run for a sealing receipt, `predicate.rows` for one sealed
 before #581. The whole-project receipt still carries its rows.

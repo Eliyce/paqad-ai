@@ -109,6 +109,12 @@ export interface BundleCompletenessGateInput {
    * evidence.jsonl (no graded rows yet) is not a missing file: the gate's row will be its first.
    */
   evidenceRowsPending?: boolean;
+  /**
+   * Issue #669 — true when the caller seals receipt.json and ai-bom.json AFTER this gate, so
+   * they agree with the final verdict. Those files are then written by this very run, so a
+   * missing one is not a gap.
+   */
+  receiptPending?: boolean;
 }
 
 /** Read a bundle file's raw bytes (project-relative), or null when absent/unreadable. */
@@ -356,6 +362,12 @@ function assertRequired(
 
   // Issue #581 — this run appends the gate's own row to evidence.jsonl once it returns.
   if (entry.key === 'evidence' && input.evidenceRowsPending) {
+    state.present.push(entry.file);
+    return;
+  }
+
+  // Issue #669 — this run seals the receipt and AI-BOM once every gate, this one included, ran.
+  if ((entry.key === 'receipt' || entry.key === 'aiBom') && input.receiptPending) {
     state.present.push(entry.file);
     return;
   }

@@ -15,8 +15,9 @@
 //
 // Issue #581 — the receipt seals the bundle's `evidence.jsonl` instead of copying its rows:
 // the predicate carries `evidence_sha256` (the file's bytes at seal time) and
-// `evidence_line_count`, so the rows are stored once. Late gates append rows after sealing,
-// so a verifier re-hashes only the sealed prefix. Those later rows are not covered by the
+// `evidence_line_count`, so the rows are stored once. Rows appended after sealing (a later run,
+// or a receipt sealed before issue #669 moved the seal after the late gates) mean a verifier
+// re-hashes only the sealed prefix. Those later rows are not covered by the
 // seal, so a reader shows them as unsealed rather than as rows the receipt vouches for. A
 // receipt sealed before #581 still carries `predicate.rows` and every reader here falls back
 // to them.

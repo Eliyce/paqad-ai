@@ -1,0 +1,54 @@
+{
+  "id": "D-01M59YA2WZJTCZ8M86HMDY1TS9",
+  "category": "spec.contradiction",
+  "title": "#669 AC-9: the bundle receipt.json cannot agree with the HUD verdict as built",
+  "context": "FR-20/AC-9 say the HUD verdict file, the HUD receipt and the bundle receipt.json carry the same verdict word at the end of a change. A real end-to-end test (real verify-backstop + runRepositoryVerification + writeHudReceipt, enterprise evidence_ledger on) shows they do not: HUD verdict and HUD receipt say 'Needs your attention' (stage-evidence and bundle-completeness failed), while receipt.json says PASSED. Cause: run-repository-verification.ts seals the bundle receipt from the gate-runner rows only (gateResultsToRows(results) + ratchet rows, ~line 481), BEFORE the stage-evidence gate, the checks gate and the late gates (bundle-completeness, visual-evidence, rules-loaded), and before verdictKindFor applies unrecorded-stage gaps. By #581 design the late rows are appended after the seal as unsealed rows. So a change failing only on those gates attests PASSED. The skip-turn staleness the issue reported is fixed by B4 (a skip leaves both HUD files untouched). Making receipt.json agree needs a code change not in the plan. The test is parked at the session scratchpad end-of-change-agreement.test.ts (fails today).",
+  "options": [
+    {
+      "option_key": "seal-after-all-gates",
+      "label": "Seal the bundle receipt after every gate: build its rows from all of evidence.gates (stage-evidence, checks, late gates) and move projectFeatureReceipt after the late gates, so verification_result matches the verdict (stage-gap-only Inconclusive mapped too); then commit the agreement test",
+      "evidence": {},
+      "one_line_preview": "Seal the bundle receipt after every gate: build its rows from all of evidence.gates (stage-evidence, checks, late gates) and move projectFeatureReceipt after the late gates, so verification_result matches the verdict (stage-gap-only Inconclusive mapped too); then commit the agreement test",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "verdict-in-header",
+      "label": "Keep the sealed rows as they are, and record the final verdict word in the receipt's unsigned paqad header block after the late gates; the agreement test compares that field",
+      "evidence": {},
+      "one_line_preview": "Keep the sealed rows as they are, and record the final verdict word in the receipt's unsigned paqad header block after the late gates; the agreement test compares that field",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "narrow-ac",
+      "label": "Narrow AC-9 to the HUD verdict and HUD receipt agreeing (and both unchanged on a skip); file a follow-up issue for receipt.json covering only the runner gates",
+      "evidence": {},
+      "one_line_preview": "Narrow AC-9 to the HUD verdict and HUD receipt agreeing (and both unchanged on a skip); file a follow-up issue for receipt.json covering only the runner gates",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "seal-after-all-gates",
+  "created_at": "2026-10-19T11:21:22.079Z",
+  "status": "resolved",
+  "change": "01M59VD2ZRW8ZQEEWKZVKKY7D5",
+  "chosen": "seal-after-all-gates",
+  "rationale": "Owner chose: seal receipt.json after every gate so it proves the full verdict",
+  "resolved_at": "2026-10-19T11:34:50.598Z",
+  "decision_id": "D-01M59YA2WZJTCZ8M86HMDY1TS9",
+  "fingerprint": "sha256:8a98512492abe5430abfa16c4cb7cf4aa36f975acb96c1f69ec221f084822649",
+  "question": "#669 AC-9: the bundle receipt.json cannot agree with the HUD verdict as built",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M59VD2ZRW8ZQEEWKZVKKY7D5",
+  "ttl_until": "2026-10-26T11:21:22.079Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "seal-after-all-gates",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-19T11:34:50.598Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: seal receipt.json after every gate so it proves the full verdict"
+  }
+}

@@ -862,6 +862,41 @@ describe('evidence.jsonl written by this run (issue #581)', () => {
   });
 });
 
+// Issue #669 — the receipt and AI-BOM are sealed after every gate, this one included.
+describe('receipt.json and ai-bom.json sealed by this run (issue #669)', () => {
+  const ENTERPRISE = { ...ONLY_ALWAYS, enterprise: true, evidenceLedger: true, aiBom: true };
+
+  it('counts an absent receipt and AI-BOM as present when this run seals them', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ENTERPRISE,
+      receiptPending: true,
+    });
+    expect(gate!.status).toBe('pass');
+  });
+
+  it('fails an absent receipt and AI-BOM when no seal follows', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR);
+    const gate = bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: DIR,
+      mode: 'strict',
+      config: ENTERPRISE,
+      receiptPending: false,
+    });
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('receipt.json');
+    expect(gate!.detail).toContain('ai-bom.json');
+  });
+});
+
 // Issue #547 — the strict-adoption content check on specification.json (FR-10.2 / AC-12).
 describe('spec pipeline strict adoption gate', () => {
   const STRICT = { ...ONLY_ALWAYS, specPipelineStrict: true };
