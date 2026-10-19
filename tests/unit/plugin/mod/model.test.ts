@@ -154,8 +154,11 @@ describe('parseSnapshot', () => {
 
 describe('paths match the snapshot writer (src/hud/files.ts)', () => {
   it.each(['ses-1', 'a/b c', '..hidden', ''])('session %j', (id) => {
-    expect(snapshotPath('/repo', id)).toBe(hudSnapshotPath('/repo', id));
-    expect(receiptPath('/repo', id)).toBe(hudReceiptPath('/repo', id));
+    // The mod builds posix paths (the engine accepts them on every OS); the writer uses the
+    // platform separator, so compare them in posix form.
+    const posix = (path: string) => path.replace(/\\/g, '/');
+    expect(snapshotPath('/repo', id)).toBe(posix(hudSnapshotPath('/repo', id)));
+    expect(receiptPath('/repo', id)).toBe(posix(hudReceiptPath('/repo', id)));
   });
 
   it('keeps a root separator once', () => {

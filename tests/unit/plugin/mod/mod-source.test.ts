@@ -23,7 +23,8 @@ function files(dir: string): string[] {
 }
 
 const sources = files(MOD_DIR).map((path) => ({
-  name: relative(MOD_DIR, path),
+  // Posix separators, so the names read the same on Windows.
+  name: relative(MOD_DIR, path).replace(/\\/g, '/'),
   text: readFileSync(path, 'utf8'),
 }));
 
