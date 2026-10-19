@@ -133,7 +133,7 @@
     "globals": "^17.12.0",
     "markdownlint-cli2": "^0.23.3",
     "prettier": "^3.9.9",
-    "tsup": "^8.5.0",
+    "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.1",
     "vitest": "^3.2.4"
