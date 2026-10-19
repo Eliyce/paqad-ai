@@ -481,9 +481,26 @@ function parseGoJson(
   };
 }
 
-/** A TAP entry's test name, without vitest's trailing `# time=…` directive. */
-function tapDescription(raw: string | undefined): string {
-  return (raw ?? '').replace(/\s+#\s*time=\S+$/i, '').trim();
+/**
+ * Split a TAP entry's text into its name and its directive at the first unescaped `#` (TAP
+ * escapes a literal `#` in a name as `\#`). The name drops vitest's block-opening `{` and is
+ * unescaped; the directive is what follows the `#`, e.g. `time=2.59ms` or `SKIP`.
+ */
+function splitTapEntry(raw: string | undefined): { name: string; directive: string } {
+  const text = (raw ?? '').replace(/\s*\{$/, '');
+  let name = '';
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+    const next = text[i + 1];
+    if (ch === '\\' && (next === '#' || next === '\\')) {
+      name += next;
+      i += 1;
+      continue;
+    }
+    if (ch === '#') return { name: name.trim(), directive: text.slice(i + 1).trim() };
+    name += ch;
+  }
+  return { name: name.trim(), directive: '' };
 }
 
 /**
@@ -495,6 +512,8 @@ function tapDescription(raw: string | undefined): string {
  * shallower than the entry before it (with no `}` in between), is skipped. Every other entry, at
  * any indent, is a leaf, so an indented `not ok` is a failure and an indented `# SKIP` a skip.
  * Lines inside a YAML diagnostic block (`---` … `...`) are never read as entries.
+ * A failing leaf inside vitest blocks is named by its path, `file > describe > test`, so the
+ * receipt says which test failed, not which file (flat and node:test leaves keep their own name).
  */
 function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
   const failures: StructuredTestIssue[] = [];
@@ -507,6 +526,13 @@ function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
   // The indent of the last entry or block close seen; a shallower plain entry is a node:test parent.
   let previousIndent = 0;
   let inYaml = false;
+  // The open vitest blocks (file, then each describe) enclosing the current line.
+  const blocks: Array<{ indent: number; name: string }> = [];
+  // A block ends at a `}` (or any entry) at its own indent or shallower; indents only deepen inward.
+  const closeBlocksAt = (indent: number): void => {
+    const firstClosed = blocks.findIndex((block) => block.indent >= indent);
+    if (firstClosed !== -1) blocks.length = firstClosed;
+  };
 
   for (const line of rawOutput.split('\n')) {
     const trimmed = line.trimEnd();
@@ -523,6 +549,7 @@ function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
     }
     if (content === '}') {
       previousIndent = indent;
+      closeBlocksAt(indent);
       continue;
     }
 
@@ -532,15 +559,18 @@ function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
       const opensBlock = content.endsWith('{');
       const closesSubtests = indent < previousIndent;
       previousIndent = indent;
+      closeBlocksAt(indent);
+      const entry = splitTapEntry(okMatch[2]);
       if (opensBlock || closesSubtests) {
+        if (opensBlock) blocks.push({ indent, name: entry.name });
         currentFailure = null;
         continue;
       }
 
       total += 1;
       const isFailure = okMatch[1] === 'not ';
-      const description = tapDescription(okMatch[2]) || `test-${total}`;
-      const isSkipped = /#\s*skip/i.test(content);
+      const description = entry.name || `test-${total}`;
+      const isSkipped = /^skip/i.test(entry.directive);
 
       if (isSkipped) {
         skipped += 1;
@@ -550,9 +580,10 @@ function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
 
       if (isFailure) {
         failed += 1;
+        const suite = blocks.map((block) => block.name).join(' > ');
         currentFailure = createIssue({
-          testId: description,
-          suite: null,
+          testId: suite ? `${suite} > ${description}` : description,
+          suite: suite || null,
           message: description,
           stackTrace: null,
           filePath: null,
