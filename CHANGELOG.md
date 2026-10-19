@@ -1,5 +1,19 @@
 # paqad-ai
 
+## 1.99.3
+
+### Patch Changes
+
+- 94fcde8: Updated the runtime dependencies to their current releases: execa 10, openai 7.34, @inquirer/prompts 8.7.3, chalk 6.0.1 and handlebars 4.7.10. Nothing changes in how you use paqad. Installing still works on Node 22 or later.
+- 94fcde8: Fixed the status line showing "Safe to merge" after a turn whose end-of-turn check was skipped. A skipped check now leaves the last real verdict on screen. A turn in which only the stage agents edited files is now checked as the orchestrator session's own work, and a prompt that names a stage, such as "run documentation_sync", keeps an open change on feature development instead of turning it into a docs, question or no-workflow turn. A specialist request such as a security review still goes to its own workflow.
+
+  The bundle receipt.json is now sealed after every check has run, so its result matches the verdict on the status line. A quality measure that could not be taken, for example because there is no coverage report, is still listed on the receipt but no longer makes it read Inconclusive.
+
+- 94fcde8: The move to the Claude Code plugin no longer gives up too early on the Desktop app. Sessions only count toward undoing the move once Claude Code has actually installed the plugin, since the Desktop app can take a few starts to do that. If the plugin is still not installed a week after the move, paqad undoes it and tries again later. While it waits, `paqad-ai doctor` says `npm (migration installed: waiting for Claude Code to install the plugin)`.
+- 94fcde8: Fixed `paqad-ai checks run` reporting into the wrong change and printing "0 tests" for a passing run. It now uses `SE_SESSION` before `CLAUDE_SESSION_ID`, the same order as every other paqad command, so a stage agent's report lands in the orchestrator's change. The test count reads vitest's nested TAP output, a passing run with no countable tests says "count unavailable", and new pnpm projects get `pnpm test --reporter=tap` without the `--` that made vitest ignore the reporter.
+- 94fcde8: Fixed a disabled project writing a "completion deferred" row when a turn ended while a paqad stage agent was still running in the background. A disabled project now writes only its one disabled-session audit row, as it does on every other turn.
+- 94fcde8: `paqad-ai doctor` now names the settings file that keeps the npm hooks running after the move to the plugin. It used to blame the project settings even when the hooks were wired in your user settings. It now checks your user `~/.claude/settings.json` first (or the one in `CLAUDE_CONFIG_DIR` when you set it), then the project files, and names each file it finds.
+
 ## 1.99.2
 
 ### Patch Changes
