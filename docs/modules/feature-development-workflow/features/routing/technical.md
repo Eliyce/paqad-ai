@@ -26,6 +26,16 @@ The agent routes by intent, following `AGENT-ROUTER.md`. The classifier only wri
 - When the prompt also carries a code keyword such as "add", a tracker noun or target must be named, so a real code request is never routed away from feature development.
 - A separate fallback routes a prompt with a tracker verb and no code to `project-question` when nothing else matched. It never outranks a code keyword.
 
+## A stage named during an open change (issue #669)
+
+`runPromptRouteSeam` in `prompt-lane.ts` keeps a prompt that names a feature-development stage on feature-development when this session has a change open, so "run documentation_sync" does not pause the change and route to `documentation-update`.
+
+- The stage names come from `STAGE_ORDER` and match as whole words, in the underscore form (`documentation_sync`) or with a space (`documentation sync`).
+- A change is open when the session's active route is feature-development, or its own session control points at a bundle that is not closed. The control is only read, never reconciled, so routing never adopts a bundle.
+- The open change keeps its lane; no new lane is stashed. A paused change is resumed.
+- With no open change the prompt routes as before, and an open change does not keep an unrelated question from detouring.
+- The rule lives only in the seam. `pre-classifier.ts` stays stateless.
+
 ## Notifications and hand-backs (issue #623)
 
 `isSystemNotificationPrompt` in `prompt-lane.ts` keeps text that is not the person's own input out of routing. A prompt counts as a notification when:
