@@ -10,6 +10,13 @@ import {
 import { MANAGED_HEADER } from './decision-pause-contract-writer.js';
 
 /**
+ * The #624 host-surfaces paragraph. It sits directly after "Where narration has
+ * to go" in the narration contract body. Exported so tests can compare the
+ * router copy byte for byte against this one canonical string.
+ */
+export const HOST_SURFACES_PARAGRAPH = `**Host surfaces (when your host offers them).** Some hosts draw a task list for the turn, a short end-of-turn summary, or a "waiting on the user" flag. Claude Code Desktop has all three. When yours does: on a feature-development change, list the stages as task items in order (Plan, Spec, Load rules, Build, Review, Checks, Docs) and advance an item only when that stage's start is recorded. On the fast lane there are no isolated stages, so the task list shows Plan, Build, Checks only. Start the end-of-turn summary with the verdict word (Safe to merge, Needs your attention, or Inconclusive). When a decision packet is still pending at the end of your turn, mark the turn as waiting on the user. These surfaces show the receipt; they do not replace it. The receipt still goes in your final message.`;
+
+/**
  * Builds the narration-contract BODY (issue #158) — the full spec for how paqad
  * speaks in the live agent chat, WITHOUT the managed header. This body is the
  * single source of truth for the contract: the framework bootstrap
@@ -120,6 +127,8 @@ The orchestrator protocol, for each mandatory stage in order:
 You perform no \`Edit\`/\`Write\` on source yourself in this mode — the development stage agent does. The pre-mutation gates (entry, stage-writer, decision-pause, capability kernel, rules-loaded) fire inside each stage agent exactly as they do in a single context. The end-of-change receipt is unchanged except for one added line naming what isolation saved: \`context: <n> stages isolated, ~<k> tokens not re-carried (estimate|exact)\`, read from the \`stage-agent\` rows in the bundle's \`stage-evidence.jsonl\`. Any estimated figure is labelled \`estimate\`, never dressed up as exact.
 
 **Where narration has to go.** Say every \`▸ paqad\` line in your own visible assistant text, and carry the stage lines and the end-of-change receipt into the **final message of the turn**. Two channels look like they work and do not: hook output (below), and your own text emitted mid-turn between tool calls, which the Desktop app does not reliably render. Only the last message of a turn is reliably shown, so a receipt spoken before your last tool call is a receipt the developer never sees.
+
+${HOST_SURFACES_PARAGRAPH}
 
 **Which channels actually render.** Hook narration is belt-and-braces, never the plan:
 
