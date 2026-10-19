@@ -82,6 +82,48 @@ describe('createNewProjectCommand', () => {
     expect(output).toContain('git initialized');
   });
 
+  it('prints one coherent next step and none of the onboarding steps (issue #612)', async () => {
+    createProjectWorkspace.mockResolvedValue({
+      projectRoot: '/tmp/demo/my-thing',
+      created: true,
+      gitInitialized: true,
+      stack: 'undecided',
+      generatedFiles: ['CLAUDE.md'],
+      preserved: [],
+    });
+
+    await run(['project', 'my-thing']);
+
+    const output = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(output).toContain('WORKSPACE CREATED');
+    expect(output).toContain('Application stack: UNDECIDED');
+    expect(output.match(/NEXT STEP/g)).toHaveLength(1);
+    expect(output).toContain('NEXT STEP: choose your application stack');
+    expect(output).not.toContain('ONBOARDING COMPLETE');
+    expect(output).not.toContain('create documentation');
+    expect(output).not.toContain('create module documentation');
+    expect(output).not.toContain('analyze rules');
+  });
+
+  it('keeps the RAG opt-in flowing to the workspace build next to the new panel (issue #612)', async () => {
+    createProjectWorkspace.mockResolvedValue({
+      projectRoot: '/tmp/demo/rag',
+      created: true,
+      gitInitialized: false,
+      stack: 'undecided',
+      generatedFiles: [],
+      preserved: [],
+    });
+
+    await run(['project', 'rag', '--rag']);
+
+    expect(createProjectWorkspace).toHaveBeenCalledWith(
+      expect.objectContaining({ rag: { enabled: true } }),
+    );
+    const output = logSpy.mock.calls.map((call) => String(call[0])).join('\n');
+    expect(output).toContain('WORKSPACE CREATED');
+  });
+
   it('forwards an explicit --rag opt-in as a RagSelection', async () => {
     createProjectWorkspace.mockResolvedValue({
       projectRoot: '/tmp/demo/r',

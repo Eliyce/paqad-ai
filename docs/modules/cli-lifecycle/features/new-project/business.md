@@ -19,9 +19,10 @@ defines. The technical contract lives at [`technical.md`](./technical.md).
 
 - **Create an empty workspace.** The owner runs `paqad-ai new project my-app` in an empty parent.
   `my-app/` is created, git is initialized (unless already inside a work tree), the `.paqad/`
-  footprint, docs scaffolding and host entry files are written, and the output states the
-  application stack is **undecided** and names the next step (run discovery / choose a stack, then
-  onboard).
+  footprint, docs scaffolding and host entry files are written, and a "WORKSPACE CREATED" panel
+  states the application stack is **undecided** and names one next step: choose the application
+  stack (run discovery, then onboard once the stack exists). It does not show the onboarding
+  panel's "create documentation" steps, which only apply once a stack exists (issue #612).
 - **Re-run / resume.** Re-running on a workspace that already carries `.paqad/` preserves the
   owner's work and completes only the remainder (the onboarding checkpoint handles resume).
 

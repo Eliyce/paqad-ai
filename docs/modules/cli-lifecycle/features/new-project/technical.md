@@ -31,6 +31,9 @@ Source directories/files owned by this feature:
   `OnboardingOrchestrator.run` with `selections.stack_profile = EMPTY_STACK_PROFILE` and
   `profileOverrides.commands = UNDECIDED_COMMANDS`. No onboarding writer is modified.
 - `createNewProjectCommand(): Command` — the commander wiring, registered in `src/cli/program.ts`.
+  On success it prints `printNewProjectNextSteps({ projectRoot, gitInitialized })` from
+  `src/cli/ui/banner.ts` (issue #612), not the onboarding `printNextSteps()` panel. A workspace path
+  wider than the panel is printed as a plain line under the frame.
 
 ## State Management
 

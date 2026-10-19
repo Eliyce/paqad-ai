@@ -84,6 +84,43 @@ export function printNextSteps(): void {
 }
 
 /**
+ * Completion panel for `paqad-ai new project` (issue #612). The workspace is empty and its
+ * application stack is undecided, so the onboarding panel's "create documentation" step does
+ * not apply yet; this panel names the one step that does. A path too long for the frame is
+ * printed as a plain line under it, because `pad()` never truncates and a long line would
+ * break the right border.
+ */
+export function printNewProjectNextSteps(options: {
+  projectRoot: string;
+  gitInitialized: boolean;
+}): void {
+  const location = options.projectRoot + (options.gitInitialized ? ' (git initialized)' : '');
+  const locationLine = `  ${location}`;
+  const fitsInFrame = pad(locationLine).length <= PANEL_WIDTH;
+  const row = (text = '', color: (value: string) => string = claudeSurface): void => {
+    console.log(claudeAccent('║') + color(pad(text)) + claudeAccent('║'));
+  };
+
+  console.log();
+  console.log(claudeAccent(borderLine('╔', '═', '╗')));
+  row('  WORKSPACE CREATED');
+  console.log(claudeAccent(borderLine('╠', '═', '╣')));
+  row();
+  row(fitsInFrame ? locationLine : '  Location: printed below this panel', claudeMuted);
+  row('  Application stack: UNDECIDED', claudeMuted);
+  row();
+  row('  NEXT STEP: choose your application stack');
+  row();
+  row('  Run discovery to shape it, or run `paqad-ai onboard`', claudeMuted);
+  row('  once the stack exists.', claudeMuted);
+  console.log(claudeAccent(borderLine('╚', '═', '╝')));
+  if (!fitsInFrame) {
+    console.log(location);
+  }
+  console.log();
+}
+
+/**
  * One plain line telling a Codex developer to trust paqad's project hooks (issue #566,
  * step 6). Codex loads project-local `.codex/hooks.json` only when the `.codex/` layer is
  * trusted, so onboarding cannot make the gates fire on its own — the developer approves
