@@ -921,18 +921,79 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
  * has happened, `plugin (migrated <date>, via <path>)` once done, `plugin (synced from claude.ai)`
  * for the synced route, or `npm (migration <state>: <reason>)` while a move is in flight or undone.
  * paqad never prints this in a Claude session — only `doctor` surfaces it.
+ *
+ * Issue #667: when the move is done but `projectRoot`'s own Claude settings still wire a live paqad
+ * npm hook, this project still runs the npm chain (the plugin stays passive there), so the plugin
+ * line gains {@link PROJECT_NPM_HOOKS_SUFFIX}.
  */
-export function describeClaudeInstall(home: string = homedir()): string {
+export function describeClaudeInstall(home: string = homedir(), projectRoot?: string): string {
   const record = readMigrationState(home);
   if (!record || record.state === 'pending') return 'npm';
   // Read-only: the next update or session records the declined state; doctor shows it at once.
   if (doneButDisabled(record, home)) return `npm (migration declined: ${USER_DISABLED_REASON})`;
   if (record.state === 'done') {
-    if (record.path === 'synced') return 'plugin (synced from claude.ai)';
+    const suffix =
+      projectRoot !== undefined && projectWiresLiveNpmHooks(projectRoot)
+        ? PROJECT_NPM_HOOKS_SUFFIX
+        : '';
+    if (record.path === 'synced') return `plugin (synced from claude.ai)${suffix}`;
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';
-    return `plugin (migrated ${date}, via ${record.path ?? 'settings'})`;
+    return `plugin (migrated ${date}, via ${record.path ?? 'settings'})${suffix}`;
   }
   return `npm (migration ${record.state}: ${record.reason ?? 'n/a'})`;
+}
+
+/** The doctor suffix for a plugin-done machine whose project still runs the npm hooks (#667). */
+export const PROJECT_NPM_HOOKS_SUFFIX =
+  '; this project still runs the npm hooks (project .claude/settings.json)';
+
+/**
+ * Issue #667: true when the project's `.claude/settings.json` or `.claude/settings.local.json`
+ * wires a LIVE paqad npm hook, one whose `.mjs` script exists on disk. A missing or malformed file
+ * counts as not wired. This mirrors `hasLiveNpmHookLines` / `paqadHookScriptPath` in
+ * runtime/hooks/lib/paqad-disabled.mjs (limited to the project files), because src cannot import
+ * the dist-less runtime hook libraries.
+ */
+export function projectWiresLiveNpmHooks(projectRoot: string): boolean {
+  return ['settings.json', 'settings.local.json'].some((name) =>
+    settingsWireLivePaqadHook(join(projectRoot, '.claude', name)),
+  );
+}
+
+function settingsWireLivePaqadHook(settingsPath: string): boolean {
+  let settings: unknown;
+  try {
+    settings = JSON.parse(readFileSync(settingsPath, 'utf8'));
+  } catch {
+    return false; // missing or malformed: not wired
+  }
+  const hooks = isRecord(settings) ? settings.hooks : undefined;
+  if (!isRecord(hooks)) return false;
+  return Object.values(hooks).some(
+    (entries) =>
+      Array.isArray(entries) &&
+      entries.some(
+        (entry) =>
+          isRecord(entry) &&
+          Array.isArray(entry.hooks) &&
+          entry.hooks.some((hook) => {
+            const script = paqadHookScript(isRecord(hook) ? hook.command : undefined);
+            return script !== null && existsSync(script);
+          }),
+      ),
+  );
+}
+
+/** The `.mjs` script a paqad hook command runs, or null when it is not a paqad hook. */
+function paqadHookScript(command: unknown): string | null {
+  if (typeof command !== 'string' || !command.includes('paqad')) return null;
+  const match = /"([^"]+\.mjs)"|(\S+\.mjs)/.exec(command);
+  const path = match ? (match[1] ?? match[2]) : undefined;
+  return path !== undefined && path.includes('paqad') ? path : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 // ── `claude plugin` runners (Path A real implementation) ─────────────────────

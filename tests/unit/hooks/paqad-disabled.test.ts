@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -8,14 +8,23 @@ import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  anyLiveNpmHookLines,
   appendHooksLog,
+  claudeDir,
+  claudeSettingsPath,
+  eachHookCommand,
   findProjectRootFromCwd,
+  hasLiveNpmHookLines,
+  hookStandsDown,
   isPluginActiveForSession,
   isSchemaVersionError,
   npmHookStepsAside,
+  paqadHookScriptPath,
   parseHookPayload,
   isProjectOnboarded,
+  pluginStandsDownPassive,
   pluginStandsDownUnonboarded,
+  projectClaudeSettingsPaths,
   pluginActiveMarkerDir,
   resolveProjectRoot,
   sessionIdFrom,
@@ -294,5 +303,143 @@ describe('isProjectOnboarded / pluginStandsDownUnonboarded (issue #636 bug 1)', 
     writeFileSync(join(root, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
     expect(pluginStandsDownUnonboarded(undefined, env)).toBe(false);
     rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe('one chain per session: pluginStandsDownPassive / hookStandsDown (issue #667)', () => {
+  // Every path is a temp dir: the project, the user Claude config dir (CLAUDE_CONFIG_DIR) and the
+  // "installed" npm hook script. HOME/USERPROFILE are already sandboxed by tests/shared/isolate-home.ts.
+  let root: string;
+  let userDir: string;
+  let installDir: string;
+  let liveScript: string;
+  const SID = 'ses-667';
+
+  beforeEach(() => {
+    root = makeRoot();
+    writeFileSync(join(root, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
+    userDir = mkdtempSync(join(tmpdir(), 'claude-config-'));
+    installDir = mkdtempSync(join(tmpdir(), 'paqad-npm-install-'));
+    liveScript = join(installDir, 'hooks', 'capability-gate.mjs');
+    mkdirSync(join(installDir, 'hooks'), { recursive: true });
+    writeFileSync(liveScript, '// hook\n');
+  });
+  afterEach(() => {
+    for (const dir of [root, userDir, installDir]) rmSync(dir, { recursive: true, force: true });
+  });
+
+  function npmEnv(): NodeJS.ProcessEnv {
+    return { CLAUDE_PROJECT_DIR: root, CLAUDE_CONFIG_DIR: userDir } as NodeJS.ProcessEnv;
+  }
+  function pluginEnv(): NodeJS.ProcessEnv {
+    return { ...npmEnv(), CLAUDE_PLUGIN_ROOT: '/plugin' } as NodeJS.ProcessEnv;
+  }
+  function settingsBody(script: string): string {
+    return JSON.stringify({
+      hooks: { PreToolUse: [{ matcher: 'Edit', hooks: [{ command: `node "${script}" pre` }] }] },
+    });
+  }
+  function wireProject(file: 'settings.json' | 'settings.local.json', script = liveScript): void {
+    mkdirSync(join(root, '.claude'), { recursive: true });
+    writeFileSync(join(root, '.claude', file), settingsBody(script));
+  }
+  function claim(): void {
+    writePluginActiveMarker({ session_id: SID }, npmEnv());
+  }
+  const payload = { session_id: SID };
+
+  it('is false for an npm-reached hook (no CLAUDE_PLUGIN_ROOT)', () => {
+    wireProject('settings.json');
+    expect(pluginStandsDownPassive(payload, npmEnv())).toBe(false);
+  });
+
+  it('is false in a plugin-claimed session even when live npm hooks are wired', () => {
+    wireProject('settings.json');
+    claim();
+    expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(false);
+    expect(hookStandsDown(payload, pluginEnv())).toBe(false);
+    expect(hookStandsDown(payload, npmEnv())).toBe(true); // the npm copy steps aside (AC-2)
+  });
+
+  it('is true for an unclaimed session when the project .claude/settings.json wires a live hook', () => {
+    wireProject('settings.json');
+    expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(true);
+    expect(hookStandsDown(payload, pluginEnv())).toBe(true);
+    expect(hookStandsDown(payload, npmEnv())).toBe(false); // the npm copy runs (AC-1)
+  });
+
+  it('is true when only the project settings.local.json wires a live hook', () => {
+    wireProject('settings.local.json');
+    expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(true);
+  });
+
+  it('is true when only the user settings.json wires a live hook', () => {
+    writeFileSync(join(userDir, 'settings.json'), settingsBody(liveScript));
+    expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(true);
+  });
+
+  it('is false when the wired paqad script is missing on disk, so the plugin keeps running (AC-6)', () => {
+    wireProject('settings.json', join(installDir, 'hooks', 'gone.mjs'));
+    expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(false);
+    expect(hookStandsDown(payload, pluginEnv())).toBe(false);
+  });
+
+  it('is false for malformed settings JSON, so the plugin chain keeps running (AC-11)', () => {
+    mkdirSync(join(root, '.claude'), { recursive: true });
+    writeFileSync(join(root, '.claude', 'settings.json'), '{ broken');
+    expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(false);
+    expect(hookStandsDown(payload, pluginEnv())).toBe(false);
+  });
+
+  it('with no session id in an npm-wired repo, exactly one chain runs: the npm one (AC-11)', () => {
+    wireProject('settings.json');
+    expect(hookStandsDown(undefined, npmEnv())).toBe(false);
+    expect(hookStandsDown(undefined, pluginEnv())).toBe(true);
+  });
+
+  it('in an un-onboarded repo, passive is false but hookStandsDown stays true for the plugin (AC-3)', () => {
+    rmSync(join(root, '.paqad', 'framework-path.txt'));
+    wireProject('settings.json');
+    expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(false);
+    expect(hookStandsDown(payload, pluginEnv())).toBe(true);
+  });
+
+  it('the moved settings helpers keep their behaviour', () => {
+    expect(claudeDir({ CLAUDE_CONFIG_DIR: userDir } as NodeJS.ProcessEnv)).toBe(userDir);
+    expect(claudeDir({} as NodeJS.ProcessEnv)).toBe(join(homedir(), '.claude'));
+    expect(claudeSettingsPath(npmEnv())).toBe(join(userDir, 'settings.json'));
+    expect(projectClaudeSettingsPaths(root)).toEqual([
+      join(root, '.claude', 'settings.json'),
+      join(root, '.claude', 'settings.local.json'),
+    ]);
+    expect(paqadHookScriptPath(`node "${liveScript}" x`)).toBe(liveScript);
+    expect(paqadHookScriptPath('echo hi')).toBeNull();
+    expect(eachHookCommand(null)).toEqual([]);
+    expect(
+      eachHookCommand({ hooks: { Stop: 'nope', PreToolUse: [null, { hooks: [{}] }] } }),
+    ).toEqual([{ event: 'PreToolUse', ei: 1, hi: 0, command: undefined }]);
+    wireProject('settings.json');
+    expect(hasLiveNpmHookLines(join(root, '.claude', 'settings.json'))).toBe(true);
+    expect(anyLiveNpmHookLines([join(userDir, 'missing.json')])).toBe(false);
+  });
+
+  // INV-1 / AC-5: for every (claimed, npm-wired) pair exactly one chain runs. An npm hook only fires
+  // when the npm chain is wired, so the npm chain runs when it is wired and does not stand down; the
+  // plugin chain runs when it does not stand down.
+  it.each([
+    [true, true],
+    [true, false],
+    [false, true],
+    [false, false],
+  ])('claimed=%s npmWired=%s runs exactly one chain (AC-5)', (claimed, wired) => {
+    if (wired) wireProject('settings.json');
+    if (claimed) claim();
+    const npmRuns = wired && !hookStandsDown(payload, npmEnv());
+    const pluginRuns = !hookStandsDown(payload, pluginEnv());
+    expect([npmRuns, pluginRuns].filter(Boolean)).toHaveLength(1);
+    // When the npm chain is wired, the stand-down verdicts themselves are complementary.
+    if (wired) {
+      expect(hookStandsDown(payload, npmEnv())).not.toBe(hookStandsDown(payload, pluginEnv()));
+    }
   });
 });

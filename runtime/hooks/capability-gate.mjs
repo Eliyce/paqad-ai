@@ -30,11 +30,10 @@ import { editTargets } from './lib/edit-targets.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
   appendHooksLog,
+  hookStandsDown,
   isPaqadDisabled,
   isSchemaVersionError,
-  npmHookStepsAside,
   parseHookPayload,
-  pluginStandsDownUnonboarded,
   readFlooredMode,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
@@ -150,12 +149,7 @@ async function deferredForBackgroundStage(projectRoot, input) {
 export async function main(input, seam = SEAM) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (
-      isPaqadDisabled(projectRoot) ||
-      npmHookStepsAside(parseHookPayload(input)) ||
-      pluginStandsDownUnonboarded(parseHookPayload(input))
-    )
-      return 0;
+    if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) return 0;
 
     // Issue #615 (Part 4) — on the completion seam, don't run the capability kernel (which
     // includes rule-scripts) while a `paqad-<stage>` agent is still working in the background:

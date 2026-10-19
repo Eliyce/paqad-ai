@@ -15,9 +15,9 @@
 import process from 'node:process';
 
 import {
+  hookStandsDown,
   isPaqadDisabled,
   parseHookPayload,
-  pluginStandsDownUnonboarded,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
@@ -29,8 +29,7 @@ const ADAPTER = process.argv[2] || undefined;
 async function main(input) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (isPaqadDisabled(projectRoot) || pluginStandsDownUnonboarded(parseHookPayload(input)))
-      return 0;
+    if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) return 0;
 
     let payload;
     try {

@@ -19,11 +19,7 @@
 import process from 'node:process';
 
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
-import {
-  parseHookPayload,
-  pluginStandsDownUnonboarded,
-  resolveProjectRoot,
-} from './lib/paqad-disabled.mjs';
+import { hookStandsDown, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
@@ -54,8 +50,9 @@ async function main() {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
   // Issue #636 (bug 1) — a plugin-reached completion hook in a project that was never onboarded is a
-  // pure no-op (the plugin installs at user scope and runs in every repo).
-  if (pluginStandsDownUnonboarded(parseHookPayload(input))) {
+  // pure no-op (the plugin installs at user scope and runs in every repo). Issue #667 — it also stands
+  // down when the other copy owns the session, so one Stop is judged by exactly one chain.
+  if (hookStandsDown(parseHookPayload(input))) {
     process.exit(0);
     return;
   }

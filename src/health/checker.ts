@@ -74,7 +74,7 @@ export class HealthChecker {
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
       this.checkFrameworkInstall(),
-      this.checkClaudeInstall(),
+      this.checkClaudeInstall(projectRoot),
       this.checkSchemaVersion(projectRoot),
       this.checkBrokenScaffold(projectRoot),
       this.checkUiDocs(projectRoot, modules),
@@ -741,9 +741,12 @@ export class HealthChecker {
    * fault — a Claude Code plugin re-points it at the next session start, and an npm reinstall fixes
    * the npm case; either way doctor names the fix instead of reading broken.
    */
-  /** Issue #621 (Part 7) — the Claude Code install line: npm, or the plugin-migration state. */
-  private checkClaudeInstall(): HealthCheckResult {
-    return pass('Claude Code install', describeClaudeInstall());
+  /**
+   * Issue #621 (Part 7) — the Claude Code install line: npm, or the plugin-migration state. Issue
+   * #667 — given the project root, it also says when this project still runs the npm hooks.
+   */
+  private checkClaudeInstall(projectRoot: string): HealthCheckResult {
+    return pass('Claude Code install', describeClaudeInstall(undefined, projectRoot));
   }
 
   private checkFrameworkInstall(): HealthCheckResult {

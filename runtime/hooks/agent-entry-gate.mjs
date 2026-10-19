@@ -33,10 +33,9 @@ import {
 import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
+  hookStandsDown,
   isPaqadDisabled,
-  npmHookStepsAside,
   parseHookPayload,
-  pluginStandsDownUnonboarded,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 
@@ -77,11 +76,7 @@ function evaluateEntryGate(input) {
   // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
   // pure no-op: never block, write nothing. Disabled converges with a missing
   // package (a vanilla baseline). Checked before any blocking logic.
-  if (
-    isPaqadDisabled(projectRoot) ||
-    npmHookStepsAside(parseHookPayload(input)) ||
-    pluginStandsDownUnonboarded(parseHookPayload(input))
-  ) {
+  if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) {
     return 0;
   }
 
