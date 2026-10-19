@@ -96,6 +96,12 @@ and the verdict (word, kind, passed, reasons) to `.paqad/session/hud/<session>.v
 through `writeHudReceipt` in `src/hud/receipt-file.ts`. A failed write is logged to
 `.paqad/logs/hook-failures.log` and never changes the `{decision:'block'}` or the exit code.
 
+A turn whose check was skipped (issue #669) writes neither file. The not-owner and detour
+skip verdict carries `applicable: false`, and `writeHudReceipt` returns null for it, and for
+any verdict with no gates and no decided kind, which would otherwise read as Safe to merge.
+The previous HUD files stay as they were, so a question asked after a graded change keeps
+showing that change's real verdict.
+
 ## One verdict rule (issue #639, Part 4)
 
 `verdictKindFor` in `src/verification/verdict-kind.ts` decides the verdict word for every

@@ -237,6 +237,9 @@ export async function runRepositoryVerification(
       return {
         origin: options.origin,
         ok: true,
+        // Issue #669 — mark the skip so the HUD keeps the last real verdict instead of reading
+        // a gate-less, kind-less verdict as Safe to merge.
+        applicable: false,
         summary:
           `${paqadFrameLead('verification not applicable')}\n` +
           `> ${PAQAD_STATUS_GLYPH.skipped} ${detail}`,

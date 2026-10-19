@@ -40,6 +40,12 @@ export interface RepositoryVerificationVerdict {
    * verification once the stage gaps are known. Every surface that prints a word reads it.
    */
   kind?: VerdictKind;
+  /**
+   * Set to `false` ONLY by the hook-completion skip (issue #669): this session's turn was not
+   * checked (it owns no change, or it was a detour that edited nothing). A skip has no gates and
+   * no kind, so it must never be read as a pass; the HUD keeps the last real verdict instead.
+   */
+  applicable?: false;
   /** The model-facing narration advisory (issue #409): set when this change recorded
    *  stages the agent never spoke in visible text, empty otherwise. Advisory by
    *  contract — it never contributes to `ok`, because a silent turn is a voice defect,

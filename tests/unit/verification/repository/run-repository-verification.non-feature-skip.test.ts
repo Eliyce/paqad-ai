@@ -116,6 +116,8 @@ describe('runRepositoryVerification — session-owned enforcement (issue #582)',
 
     expect(verdict.ok).toBe(true);
     expect(verdict.gates).toEqual([]);
+    // Issue #669 — the skip is marked, so the HUD never reads it as Safe to merge.
+    expect(verdict.applicable).toBe(false);
     expect(verdict.summary).toContain('verification not applicable');
     expect(verdict.summary).toContain('made no code change of its own');
     // B was never repointed at A's bundle, and A's bundle gained nothing.
@@ -174,6 +176,7 @@ describe('runRepositoryVerification — session-owned enforcement (issue #582)',
     const detour = await stop(root, SES);
 
     expect(detour.ok).toBe(true);
+    expect(detour.applicable).toBe(false);
     expect(detour.summary).toContain('project-question');
     expect(detour.summary).toContain('checked when it resumes');
     expect(skipAuditRows(root)).toHaveLength(1);
@@ -191,6 +194,7 @@ describe('runRepositoryVerification — session-owned enforcement (issue #582)',
     const resumed = await stop(root, SES);
 
     expect(resumed.summary).not.toContain('verification not applicable');
+    expect(resumed.applicable).toBeUndefined();
     expect(resumed.ok).toBe(false);
   });
 

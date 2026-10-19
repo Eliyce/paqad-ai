@@ -36,13 +36,24 @@ export interface WrittenHudReceipt {
 /**
  * Write the composed receipt (the exact text the git and CI backstop prints) and the verdict
  * record for `hostSessionId`. Throws on a write failure; the backstop catches and logs it.
+ *
+ * Issue #669 — returns null and writes nothing for a turn that was not checked: a skip verdict
+ * (`applicable: false`), or any verdict with no gates and no decided kind, which would otherwise
+ * derive to Safe to merge. The previous HUD files stay as they were, so the last real verdict
+ * stays on screen.
  */
 export function writeHudReceipt(
   projectRoot: string,
   hostSessionId: string | null,
-  verdict: Pick<RepositoryVerificationVerdict, 'gates' | 'summary' | 'receipt' | 'kind'>,
+  verdict: Pick<
+    RepositoryVerificationVerdict,
+    'gates' | 'summary' | 'receipt' | 'kind' | 'applicable'
+  >,
   now: () => Date = () => new Date(),
-): WrittenHudReceipt {
+): WrittenHudReceipt | null {
+  if (verdict.applicable === false || (verdict.kind === undefined && verdict.gates.length === 0)) {
+    return null;
+  }
   const sessionId = resolveSessionId(projectRoot, hostSessionId);
   const kind = verdict.kind ?? verdictKindFor(verdict.gates);
   const record: HudVerdictRecord = {

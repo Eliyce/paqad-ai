@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -428,7 +428,13 @@ describe('runtime/scripts/verify-backstop.mjs — keeps the receipt every turn (
   const CASES = [
     {
       name: 'green',
-      verdict: { ok: true, summary: 's', receipt: '**▸ paqad** · Safe to merge', gates: [] },
+      verdict: {
+        ok: true,
+        summary: 's',
+        receipt: '**▸ paqad** · Safe to merge',
+        gates: [],
+        kind: 'pass',
+      },
       word: 'Safe to merge',
       prints: false,
     },
@@ -472,6 +478,46 @@ describe('runtime/scripts/verify-backstop.mjs — keeps the receipt every turn (
       expect(record).toMatchObject({ session_id: SES, word, passed: word === 'Safe to merge' });
     });
   }
+
+  // Issue #669 — a turn whose check was skipped keeps the last real verdict on screen.
+  const SKIP = {
+    ok: true,
+    applicable: false,
+    summary: '**▸ paqad** · verification not applicable',
+    gates: [],
+    escalations: [],
+  };
+
+  it('AC-18: a skipped check finishes cleanly and writes no HUD file', async () => {
+    const { writeHudReceipt } = await import('@/hud/receipt-file.js');
+    const { hudReceiptPath, hudVerdictPath } = await import('@/hud/files.js');
+
+    const result = await runWith(SKIP, writeHudReceipt);
+
+    expect(result).toEqual({ code: 0, out: '', err: '' });
+    expect(existsSync(hudReceiptPath(projectRoot, SES))).toBe(false);
+    expect(existsSync(hudVerdictPath(projectRoot, SES))).toBe(false);
+  });
+
+  it('AC-8: a skipped detour after a Needs your attention turn leaves that verdict on screen', async () => {
+    const { writeHudReceipt } = await import('@/hud/receipt-file.js');
+    const { hudReceiptPath, hudVerdictPath } = await import('@/hud/files.js');
+
+    await runWith({ ...CASES[1]!.verdict, kind: 'fail' }, writeHudReceipt);
+    const receiptBefore = readFileSync(hudReceiptPath(projectRoot, SES), 'utf8');
+    const verdictBefore = readFileSync(hudVerdictPath(projectRoot, SES), 'utf8');
+
+    vi.resetModules();
+    const result = await runWith(SKIP, writeHudReceipt);
+
+    expect(result.code).toBe(0);
+    expect(readFileSync(hudReceiptPath(projectRoot, SES), 'utf8')).toBe(receiptBefore);
+    expect(readFileSync(hudVerdictPath(projectRoot, SES), 'utf8')).toBe(verdictBefore);
+    expect(JSON.parse(verdictBefore)).toMatchObject({
+      word: 'Needs your attention',
+      passed: false,
+    });
+  });
 
   it('a failed receipt write is logged and never changes the decision or exit code', async () => {
     const failing = CASES[1]!.verdict;
