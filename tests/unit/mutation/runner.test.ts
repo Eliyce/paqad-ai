@@ -1,4 +1,4 @@
-import { execaCommand } from 'execa';
+import { execa } from 'execa';
 import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +7,12 @@ import { describe, expect, it } from 'vitest';
 
 import type { DetectedStackProfile } from '@/core/types/introspection.js';
 import type { RawMutant } from '@/core/types/mutation.js';
-import { buildCommand, runMutationGate, type MutationRunnerDeps } from '@/mutation/runner.js';
+import {
+  buildCommand,
+  defaultExecute,
+  runMutationGate,
+  type MutationRunnerDeps,
+} from '@/mutation/runner.js';
 import { selectMutationTool } from '@/mutation/adapter.js';
 
 function tsStack(): DetectedStackProfile {
@@ -303,7 +308,7 @@ describe('default deps', () => {
 
   it('asserts the tree via real git (clean and dirty)', async () => {
     const root = tempDir();
-    await execaCommand('git init', { cwd: root });
+    await execa('git', ['init'], { cwd: root });
     const clean = await runMutationGate({
       projectRoot: root,
       changedFiles: ['src/a.ts'],
@@ -329,5 +334,25 @@ describe('default deps', () => {
     });
     expect(dirty.tree_clean).toBe(false);
     expect(dirty.status).toBe('unsafe-tree');
+  });
+});
+
+describe('defaultExecute (execa 10, shell: true)', () => {
+  // The configured command goes to the shell as ONE string, so the quoting buildCommand writes
+  // around `--mutate "<globs>"` reaches the tool intact: a quoted arg with a space stays one arg.
+  const node = `"${process.execPath}"`;
+  const printArgs = `${node} -e "process.stdout.write(JSON.stringify(process.argv.slice(1)))" --`;
+
+  it('hands the whole command string to the shell with its quoting unchanged', async () => {
+    const result = await defaultExecute(`${printArgs} --mutate "src/a b.ts,src/c.ts" plain`, {
+      cwd: tempDir(),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(['--mutate', 'src/a b.ts,src/c.ts', 'plain']);
+  });
+
+  it('returns a failing exit code instead of throwing', async () => {
+    const result = await defaultExecute(`${node} -e "process.exit(3)"`, { cwd: tempDir() });
+    expect(result.exitCode).toBe(3);
   });
 });
