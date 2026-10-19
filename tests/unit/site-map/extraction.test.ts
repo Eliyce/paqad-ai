@@ -18,9 +18,17 @@ import {
   parseArtisanRouteList,
   parseArtisanScheduleList,
   sortExtractedSurfaces,
+  unresolvedBlockedCheck,
   type ExtractedSurface,
   type ExtractorOutput,
 } from '@/site-map/extraction.js';
+import { detectUnmappedSurfaces } from '@/site-map/assemble.js';
+import {
+  createArtisanRouteResolver,
+  extractConsoleCommandNames,
+  findScheduleLine,
+  parseComposerPsr4,
+} from '@/site-map/laravel-sources.js';
 
 function surface(overrides: Partial<ExtractedSurface> = {}): ExtractedSurface {
   return {
@@ -406,16 +414,27 @@ describe('site-map extraction', () => {
   });
 
   describe('extractLaravelArtisanRoutes', () => {
-    it('maps a modular route to api/page by uri, with guards + module attribution', () => {
-      const [api, page] = extractLaravelArtisanRoutes([
-        {
-          method: 'GET|HEAD',
-          uri: '/api/users',
-          action: 'Modules\\Blog\\Http\\Controllers\\UserController@index',
-          middleware: ['api', 'auth:api'],
-        },
-        { method: 'POST', uri: 'posts', action: 'Closure' },
-      ]);
+    const controller = { file: 'Modules/Blog/Http/Controllers/UserController.php', line: 14 };
+    const routeFile = { file: 'routes/api.php', line: 3 };
+
+    it('maps a modular route to api/page by uri, with guards, module and real source pointers', () => {
+      const { surfaces, unresolved } = extractLaravelArtisanRoutes(
+        [
+          {
+            method: 'GET|HEAD',
+            uri: '/api/users',
+            action: 'Modules\\Blog\\Http\\Controllers\\UserController@index',
+            middleware: ['api', 'auth:api'],
+          },
+          { method: 'POST', uri: 'posts', action: 'Closure' },
+        ],
+        (record) =>
+          record.uri === '/api/users'
+            ? [routeFile, controller]
+            : [{ file: 'routes/web.php', line: 9 }],
+      );
+      const [api, page] = surfaces;
+      expect(unresolved).toEqual([]);
       expect(api).toMatchObject({
         kind: 'api',
         source: 'laravel-artisan-routes',
@@ -425,7 +444,11 @@ describe('site-map extraction', () => {
         entry: { kind: 'url', value: '/api/users' },
         confidence: 'high',
       });
-      expect(api!.evidence).toEqual([{ file: 'php artisan route:list', note: 'GET /api/users' }]);
+      // Both pointers are kept; the artisan command lives only in the note (issue #500).
+      expect(api!.evidence).toEqual([
+        { ...routeFile, note: 'php artisan route:list (GET /api/users)' },
+        { ...controller, note: 'php artisan route:list (GET /api/users)' },
+      ]);
       // action === 'Closure' falls back to the method+uri label; no module/guards.
       expect(page).toMatchObject({ kind: 'page', label: 'POST /posts' });
       expect(page!.module).toBeUndefined();
@@ -433,47 +456,274 @@ describe('site-map extraction', () => {
     });
 
     it('labels a route with no action and tolerates an empty leading method token', () => {
-      const [noAction, weird] = extractLaravelArtisanRoutes([
-        { method: 'GET', uri: 'health' },
-        { method: ',GET', uri: 'x' },
-      ]);
+      const { surfaces } = extractLaravelArtisanRoutes(
+        [
+          { method: 'GET', uri: 'health' },
+          { method: ',GET', uri: 'x' },
+        ],
+        () => [routeFile],
+      );
+      const [noAction, weird] = surfaces;
       expect(noAction!.label).toBe('GET /health');
       // ',GET'.split -> first token '' is falsy, so the whole method string is used.
       expect(weird!.label).toBe(',GET /x');
     });
+
+    it('leaves out a route with no source pointer and reports it (FR-13)', () => {
+      const { surfaces, unresolved } = extractLaravelArtisanRoutes(
+        [
+          { method: 'GET|HEAD', uri: 'telescope/{view?}', action: 'Closure' },
+          { method: 'GET', uri: '/', action: 'App\\Http\\Controllers\\HomeController' },
+        ],
+        (record) => (record.uri === '/' ? [{ file: 'routes/web.php', line: 5 }] : []),
+      );
+      expect(surfaces.map((s) => s.label)).toEqual(['App\\Http\\Controllers\\HomeController']);
+      expect(unresolved).toEqual(['GET /telescope/{view?}']);
+    });
   });
 
   describe('extractLaravelConsoleCommands', () => {
-    it('maps non-hidden commands to cli-command surfaces and skips hidden ones', () => {
-      const surfaces = extractLaravelConsoleCommands([
-        { name: 'migrate', description: 'Run the migrations' },
-        { name: 'app:sync' },
-        { name: '_complete', hidden: true },
+    it('maps project-declared commands to surfaces and skips built-ins and hidden ones (AC-20)', () => {
+      const declared = new Map([
+        ['app:sync', { file: 'app/Console/Commands/SyncCommand.php', line: 12 }],
+        ['_complete', { file: 'app/Console/Commands/Hidden.php', line: 3 }],
+        ['report:send', { file: 'routes/console.php', line: 8 }],
       ]);
+      const surfaces = extractLaravelConsoleCommands(
+        [
+          { name: 'migrate', description: 'Run the migrations' },
+          { name: 'app:sync', description: 'Sync the catalogue' },
+          { name: 'report:send' },
+          { name: '_complete', hidden: true },
+        ],
+        (name) => declared.get(name),
+      );
       expect(surfaces).toHaveLength(2);
       expect(surfaces[0]).toMatchObject({
         kind: 'cli-command',
-        label: 'Run the migrations',
-        entry: { kind: 'artisan', value: 'migrate' },
+        label: 'Sync the catalogue',
+        entry: { kind: 'artisan', value: 'app:sync' },
         source: 'laravel-console',
       });
+      expect(surfaces[0]!.evidence).toEqual([
+        {
+          file: 'app/Console/Commands/SyncCommand.php',
+          line: 12,
+          note: 'php artisan list (app:sync)',
+        },
+      ]);
       // no description -> the command name is the label.
-      expect(surfaces[1]!.label).toBe('app:sync');
+      expect(surfaces[1]!.label).toBe('report:send');
     });
   });
 
   describe('extractLaravelScheduledJobs', () => {
-    it('maps scheduled tasks to job surfaces entered by cron expression', () => {
-      const [only] = extractLaravelScheduledJobs([
-        { expression: '0 2 * * *', command: 'php artisan backup:run' },
-      ]);
-      expect(only).toMatchObject({
+    it('points each scheduled task at the line that schedules it and reports the rest (AC-20)', () => {
+      const { surfaces, unresolved } = extractLaravelScheduledJobs(
+        [
+          { expression: '0 2 * * *', command: 'php artisan backup:run' },
+          { expression: '@daily', command: 'Closure at: vendor/x.php:3' },
+        ],
+        (command) =>
+          command.includes('backup:run') ? { file: 'routes/console.php', line: 7 } : undefined,
+      );
+      expect(surfaces).toHaveLength(1);
+      expect(surfaces[0]).toMatchObject({
         kind: 'job',
         label: 'php artisan backup:run',
         entry: { kind: 'schedule', value: '0 2 * * *' },
         source: 'laravel-schedule',
       });
-      expect(only!.evidence).toEqual([{ file: 'php artisan schedule:list', note: '0 2 * * *' }]);
+      expect(surfaces[0]!.evidence).toEqual([
+        { file: 'routes/console.php', line: 7, note: 'php artisan schedule:list (0 2 * * *)' },
+      ]);
+      expect(unresolved).toEqual(['@daily Closure at: vendor/x.php:3']);
+    });
+  });
+
+  describe('unresolvedBlockedCheck', () => {
+    it('is null when everything resolved', () => {
+      expect(unresolvedBlockedCheck('laravel-artisan-routes', 'routes', [])).toBeNull();
+    });
+
+    it('lists ten untraceable routes then says how many more (AC-15)', () => {
+      const routes = Array.from({ length: 12 }, (_, i) => `GET /r${i + 1}`);
+      const check = unresolvedBlockedCheck(
+        'laravel-artisan-routes',
+        'routes',
+        routes,
+        ' (closures or package routes)',
+      )!;
+      expect(check.check).toBe('laravel-artisan-routes source tracing');
+      expect(check.reason).toBe(
+        '12 routes could not be traced to a source file (closures or package routes): ' +
+          `${routes.slice(0, 10).join(', ')}, and 2 more`,
+      );
+      expect(check.reason).not.toContain('GET /r11');
+      expect(check.install_hint).toContain('app-map.yaml');
+    });
+
+    it('lists every item when there are ten or fewer', () => {
+      const check = unresolvedBlockedCheck('laravel-schedule', 'scheduled tasks', ['a', 'b'])!;
+      expect(check.reason).toBe('2 scheduled tasks could not be traced to a source file: a, b');
+    });
+  });
+
+  describe('twelve untraceable artisan routes end to end (AC-15)', () => {
+    it('emits no surface and one capped blocked check that assembly collects', () => {
+      const records = Array.from({ length: 12 }, (_, i) => ({
+        method: 'GET|HEAD',
+        uri: `closure-${i + 1}`,
+        action: 'Closure',
+      }));
+      const traced = extractLaravelArtisanRoutes(records, () => []);
+      const output: ExtractorOutput = {
+        extractor: 'laravel-artisan-routes',
+        available: true,
+        surfaces: traced.surfaces,
+        blocked: unresolvedBlockedCheck(
+          'laravel-artisan-routes',
+          'routes',
+          traced.unresolved,
+          ' (closures or package routes)',
+        ),
+      };
+      const result = assembleExtraction([output], 'web');
+      expect(result.surfaces).toEqual([]);
+      expect(result.blocked_checks).toHaveLength(1);
+      expect(result.blocked_checks[0]!.reason).toMatch(/^12 routes could not be traced/);
+      expect(result.blocked_checks[0]!.reason).toMatch(/GET \/closure-10, and 2 more$/);
+      expect(result.extractors_ran).toBe(1);
+    });
+  });
+
+  describe('evidence contract: every evidence.file is a real project path (issue #500, AC-13)', () => {
+    // The fixture project's files. Every pointer any extractor emits must be one of these.
+    const files: Record<string, string> = {
+      'composer.json': JSON.stringify({ autoload: { 'psr-4': { 'App\\': 'app/' } } }),
+      'routes/web.php': "<?php\nRoute::get('/basket', [BasketController::class, 'show']);\n",
+      'app/Http/Controllers/BasketController.php':
+        '<?php\nclass BasketController\n{\n    public function show()\n    {\n    }\n}\n',
+      'app/Console/Commands/SyncCommand.php':
+        "<?php\nclass SyncCommand\n{\n    protected $signature = 'app:sync {--force}';\n}\n",
+      'routes/console.php': "<?php\nSchedule::command('app:sync')->daily();\n",
+      'src/cli.ts': "program.command('serve')",
+      'src/routes.tsx': '<Route path="/home" element={<Home />} />',
+      'app/Jobs/SendWelcome.php': '<?php class SendWelcome implements ShouldQueue {}',
+      'app/Mail/OrderShipped.php': '<?php class OrderShipped extends Mailable {}',
+      'app/pages/about.tsx': 'export default function About() {}',
+    };
+    const read = (path: string): string | null => files[path] ?? null;
+
+    it('holds for the output of every extractor', () => {
+      const staticRoutes = [{ method: 'GET', uri: '/basket', file: 'routes/web.php', line: 2 }];
+      const resolver = createArtisanRouteResolver({
+        psr4: parseComposerPsr4(files['composer.json']!),
+        staticRoutes,
+        readFile: read,
+      });
+      const consoleNames = new Map(
+        extractConsoleCommandNames(files['app/Console/Commands/SyncCommand.php']!).map((d) => [
+          d.name,
+          { file: 'app/Console/Commands/SyncCommand.php', line: d.line },
+        ]),
+      );
+      const surfaces: ExtractedSurface[] = [
+        ...extractNodeCliSurfaces([{ name: 'serve', file: 'src/cli.ts', line: 1 }]),
+        ...extractReactRouteSurfaces([{ path: '/home', file: 'src/routes.tsx', line: 1 }]),
+        ...extractGenericSurfaces([
+          { kind: 'page', identifier: 'about', file: 'app/pages/about.tsx' },
+        ]),
+        ...extractLaravelRouteSurfaces(staticRoutes),
+        ...extractLaravelArtisanRoutes(
+          [
+            {
+              method: 'GET|HEAD',
+              uri: 'basket',
+              action: 'App\\Http\\Controllers\\BasketController@show',
+            },
+            { method: 'GET|HEAD', uri: 'closure', action: 'Closure' },
+          ],
+          resolver,
+        ).surfaces,
+        ...extractLaravelConsoleCommands([{ name: 'app:sync' }, { name: 'migrate' }], (name) =>
+          consoleNames.get(name),
+        ),
+        ...extractLaravelScheduledJobs(
+          [{ expression: '@daily', command: 'php artisan app:sync' }],
+          (command) => {
+            const line = findScheduleLine(files['routes/console.php']!, command);
+            return line === undefined ? undefined : { file: 'routes/console.php', line };
+          },
+        ).surfaces,
+        ...extractLaravelJobs([
+          { className: 'SendWelcome', file: 'app/Jobs/SendWelcome.php', line: 1 },
+        ]),
+        ...extractLaravelMailables([
+          { className: 'OrderShipped', file: 'app/Mail/OrderShipped.php' },
+        ]),
+      ];
+
+      expect(surfaces.length).toBeGreaterThanOrEqual(9);
+      for (const surface of surfaces) {
+        expect(surface.evidence.length, surface.raw_id).toBeGreaterThan(0);
+        for (const evidence of surface.evidence) {
+          expect(evidence.file, surface.raw_id).not.toMatch(/\s/);
+          expect(evidence.file.startsWith('/'), surface.raw_id).toBe(false);
+          expect(Object.keys(files), surface.raw_id).toContain(evidence.file);
+        }
+      }
+    });
+  });
+
+  describe('the #500 bind: a map citing the route file reconciles with artisan extraction (AC-14)', () => {
+    it('raises no SM-ADD for a route the map cites at routes/web.php:<line>', () => {
+      const resolver = createArtisanRouteResolver({
+        psr4: [{ prefix: 'App\\', dirs: ['app/'] }],
+        staticRoutes: [{ method: 'GET', uri: 'basket', file: 'routes/web.php', line: 12 }],
+        readFile: (path) =>
+          path === 'app/Http/Controllers/BasketController.php'
+            ? '<?php\nclass BasketController {\n  public function show() {}\n}\n'
+            : null,
+      });
+      const traced = extractLaravelArtisanRoutes(
+        [
+          {
+            method: 'GET|HEAD',
+            uri: 'basket',
+            action: 'App\\Http\\Controllers\\BasketController@show',
+          },
+        ],
+        resolver,
+      );
+      const extraction = assembleExtraction(
+        [{ extractor: 'laravel-artisan-routes', available: true, surfaces: traced.surfaces }],
+        'web',
+      );
+      const map = {
+        schema_version: 1,
+        app: { name: 'shop', kind: 'web' as const },
+        surfaces: [
+          {
+            id: 'basket',
+            kind: 'page' as const,
+            label: 'Basket',
+            evidence: { file: 'routes/web.php', line: 12 },
+          },
+        ],
+      };
+      expect(detectUnmappedSurfaces(map, extraction)).toEqual([]);
+      // The controller is cited too, so a map that names the controller reconciles as well.
+      const byController = {
+        ...map,
+        surfaces: [
+          {
+            ...map.surfaces[0]!,
+            evidence: { file: 'app/Http/Controllers/BasketController.php', line: 3 },
+          },
+        ],
+      };
+      expect(detectUnmappedSurfaces(byController, extraction)).toEqual([]);
     });
   });
 

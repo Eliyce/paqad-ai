@@ -30,7 +30,8 @@ describe('cross-adapter consistency', () => {
       // bootstrap, not a copy of the load order or the contracts.
       expect(files[0]?.content).toContain('.paqad/framework-path.txt');
       expect(files[0]?.content).toContain('AGENT-BOOTSTRAP.md');
-      expect(files.some((file) => file.path.includes('mcp'))).toBe(adapter.capabilities.mcp);
+      // Issue #622 — no adapter writes MCP config at its host path, MCP-capable or not.
+      expect(files.some((file) => file.path.includes('mcp'))).toBe(false);
       expect(files.some((file) => file.path.includes('cache'))).toBe(adapter.capabilities.caching);
       expect(files.some((file) => file.path.includes('memory'))).toBe(adapter.capabilities.memory);
     }

@@ -3,9 +3,10 @@
 // Before a mapping run starts, preflight checks everything it needs and asks the person once. Each
 // requirement here declares one thing the run needs, a read-only probe for whether it is met, and
 // what to ask when it is not. Two rules hold throughout:
-//   - a probe never executes project code that boots the app. `laravel-route-list` checks that PHP
-//     is present, not that `php artisan route:list` runs, because running it boots the user's app,
-//     which is exactly the choice DEC-1 governs. Preflight asks first; the resolved answer (`run`)
+//   - a probe never executes project code that boots the app. `laravel-route-list` checks that the
+//     way the project runs artisan is present (Sail, docker, or host PHP, issue #500), not that
+//     `artisan route:list` runs, because running it boots the user's app, which is exactly the
+//     choice DEC-1 governs. Preflight asks first; the resolved answer (`run`)
 //     decides whether the gatherer runs it later.
 //   - the documentation-family requirements delegate to `detectSiteMapPrerequisites` rather than
 //     re-deriving the foundation and module-docs signals.
@@ -13,13 +14,15 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readProjectProfile } from '@/core/project-profile.js';
 import type { PreflightRequirement, ProbeOutcome } from '@/workflow-preflight/contract.js';
 import { execa } from 'execa';
 
+import { artisanRunner, resolveArtisanInvocation } from './laravel-sources.js';
 import { detectSiteMapPrerequisites } from './prerequisites.js';
 
-/** Best-effort timeout for the `php --version` presence check; a hung PHP must not stall preflight. */
-const PHP_VERSION_TIMEOUT_MS = 10_000;
+/** Best-effort timeout for a `--version` presence check; a hung binary must not stall preflight. */
+const VERSION_CHECK_TIMEOUT_MS = 10_000;
 
 /** True when composer.json requires laravel/framework, so the Laravel requirement is declared. */
 function composerRequiresLaravel(projectRoot: string): boolean {
@@ -56,20 +59,40 @@ function nodeCliDiscoverable(projectRoot: string): boolean {
 }
 
 /**
- * Whether `php --version` exits cleanly. Read-only presence check only — it never runs
- * `php artisan route:list` or any command that boots the app. Any failure (no PHP, timeout) is
- * `false`, so preflight degrades to a question rather than throwing.
+ * Whether `<bin> --version` exits cleanly. Read-only presence check only — it never runs
+ * `artisan route:list` or any command that boots the app. Any failure (missing binary, timeout)
+ * is `false`, so preflight degrades to a question rather than throwing.
  */
-async function phpVersionOk(projectRoot: string): Promise<boolean> {
+async function versionOk(bin: string, projectRoot: string): Promise<boolean> {
   try {
-    const result = await execa('php', ['--version'], {
+    const result = await execa(bin, ['--version'], {
       cwd: projectRoot,
       reject: false,
-      timeout: PHP_VERSION_TIMEOUT_MS,
+      timeout: VERSION_CHECK_TIMEOUT_MS,
     });
     return (typeof result.exitCode === 'number' ? result.exitCode : 1) === 0;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Whether the way this project runs artisan is present (issue #500): the Sail script exists,
+ * docker answers `docker --version`, or host PHP answers `php --version`. A migrate command
+ * still holding a placeholder blocks artisan, so it reads as not runnable.
+ */
+async function artisanRunnerPresent(projectRoot: string): Promise<boolean> {
+  const invocation = resolveArtisanInvocation(
+    readProjectProfile(projectRoot, { persistMigration: false })?.commands,
+  );
+  if ('blocked' in invocation) return false;
+  switch (artisanRunner(invocation.argv)) {
+    case 'sail':
+      return existsSync(join(projectRoot, invocation.argv[0]!));
+    case 'docker':
+      return versionOk('docker', projectRoot);
+    default:
+      return versionOk('php', projectRoot);
   }
 }
 
@@ -125,13 +148,13 @@ export const siteMapPreflightRequirements: PreflightRequirement[] = [
     why: 'The real router resolves modular routes, middleware, and controllers that a static file scan cannot see.',
     // Declared only for a Laravel project (DEC-1 governs whether the gatherer runs it later).
     applies: composerRequiresLaravel,
-    // Presence, not execution: an artisan file plus a working PHP means the command COULD run, which
-    // is a decision (DEC-1); a missing PHP means it cannot, which is a plain gap. Never spawns
-    // `php artisan route:list` — that would boot the user's app before the person has decided.
+    // Presence, not execution: an artisan file plus a present runner means the command COULD run,
+    // which is a decision (DEC-1); a missing runner means it cannot, which is a plain gap. Never
+    // spawns `artisan route:list` — that would boot the user's app before the person has decided.
     probe: async (projectRoot): Promise<ProbeOutcome> => {
       const artisanPresent = existsSync(join(projectRoot, 'artisan'));
-      const phpPresent = await phpVersionOk(projectRoot);
-      return artisanPresent && phpPresent ? 'needs-decision' : 'unavailable';
+      const runnerPresent = await artisanRunnerPresent(projectRoot);
+      return artisanPresent && runnerPresent ? 'needs-decision' : 'unavailable';
     },
     options: [
       // DEC-1 resolved `run`: paqad executes the read-only command itself.

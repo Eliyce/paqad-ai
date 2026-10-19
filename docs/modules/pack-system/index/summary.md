@@ -5,7 +5,7 @@
 ## Purpose
 
 Declarative `pack.yaml` packs that bind a stack to its detection
-signals, docs, MCP config, and security mappings. Ships 19 framework
+signals, docs, MCP recommendations, and security mappings. Ships 19 framework
 packs + 3 archetype packs and supports global + project-scoped
 overrides with deterministic precedence.
 

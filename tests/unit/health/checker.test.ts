@@ -14,7 +14,7 @@ import { mkdtempSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { HealthChecker } from '@/health/checker.js';
+import { HealthChecker, deriveOverallStatus } from '@/health/checker.js';
 import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { compileRules, writeCompiledRules } from '@/planning/rule-compiler.js';
@@ -270,7 +270,7 @@ describe('HealthChecker', () => {
     ).toBe('warning');
   });
 
-  it('warns when MCP configuration files are missing', async () => {
+  it('reports MCP servers as a recommendation, never pass or warn (issue #622, AC-10)', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['claude-code', 'codex-cli', 'antigravity', 'gemini-cli'],
@@ -281,16 +281,27 @@ describe('HealthChecker', () => {
       },
     });
 
-    unlinkSync(join(projectRoot, '.claude/settings.mcp.json'));
-    unlinkSync(join(projectRoot, '.codex/mcp.json'));
-    unlinkSync(join(projectRoot, '.antigravity/mcp.json'));
-    unlinkSync(join(projectRoot, '.gemini/mcp.json'));
-
     const report = await new HealthChecker().run(projectRoot);
+    const mcp = report.checks.find((check) => check.name === 'MCP servers (recommended)');
 
-    expect(report.checks.find((check) => check.name === 'MCP servers configured')?.status).toBe(
-      'warning',
-    );
+    expect(mcp?.status).toBe('info');
+    expect(mcp?.detail.startsWith('Recommended for this stack:')).toBe(true);
+    expect(mcp?.detail).toContain('laravel-boost');
+    expect(mcp?.detail).not.toContain('Found in .mcp.json');
+    expect(mcp?.remediation).toBeUndefined();
+    expect(report.checks.some((check) => check.name === 'MCP servers configured')).toBe(false);
+  });
+
+  it('never lets an info check move the overall status (issue #622, INV-6)', () => {
+    const info = { name: 'MCP servers (recommended)', status: 'info' as const, detail: 'x' };
+    const passed = { name: 'a', status: 'pass' as const, detail: 'ok' };
+    const warned = { name: 'b', status: 'warning' as const, detail: 'look' };
+    const failed = { name: 'c', status: 'fail' as const, detail: 'bad' };
+
+    expect(deriveOverallStatus([passed, info])).toBe('pass');
+    expect(deriveOverallStatus([info])).toBe('pass');
+    expect(deriveOverallStatus([passed, info, warned])).toBe('warning');
+    expect(deriveOverallStatus([info, failed, warned])).toBe('fail');
   });
 
   it('passes adapter config checks for supported adapters outside the legacy top-level files', async () => {
@@ -808,9 +819,9 @@ describe('HealthChecker', () => {
     expect(
       report.checks.find((check) => check.name === 'Stable framework paths only')?.status,
     ).toBe('fail');
-    expect(report.checks.find((check) => check.name === 'MCP servers configured')?.status).toBe(
-      'warning',
-    );
+    const mcp = report.checks.find((check) => check.name === 'MCP servers (recommended)');
+    expect(mcp?.status).toBe('info');
+    expect(mcp?.detail).toContain('Project profile is unavailable');
   });
 
   it('warns on unreadable context-hit logs, stale registries, and broken scaffold leftovers', async () => {
@@ -850,7 +861,7 @@ describe('HealthChecker', () => {
     expect(report.efficiency.context_hit_rate).toBe(0);
   });
 
-  it('passes MCP checks when all recommended servers are configured and local caches are healthy', async () => {
+  it('names the servers found in the root .mcp.json and keeps local caches healthy (AC-11)', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['claude-code'],
@@ -862,11 +873,11 @@ describe('HealthChecker', () => {
     });
 
     writeFileSync(
-      join(projectRoot, '.claude/settings.mcp.json'),
+      join(projectRoot, '.mcp.json'),
       JSON.stringify({
         mcpServers: {
-          'laravel-boost': {},
-          'database-inspector': {},
+          'laravel-boost': { command: 'php', args: ['artisan', 'boost:mcp'] },
+          github: { command: 'npx' },
         },
       }),
     );
@@ -877,9 +888,9 @@ describe('HealthChecker', () => {
 
     const report = await new HealthChecker().run(projectRoot);
 
-    expect(report.checks.find((check) => check.name === 'MCP servers configured')?.status).toBe(
-      'pass',
-    );
+    const mcp = report.checks.find((check) => check.name === 'MCP servers (recommended)');
+    expect(mcp?.status).toBe('info');
+    expect(mcp?.detail).toContain('Found in .mcp.json: laravel-boost, github.');
     expect(report.checks.find((check) => check.name === 'Skill cache healthy')?.status).toBe(
       'pass',
     );
@@ -887,7 +898,7 @@ describe('HealthChecker', () => {
     expect(report.efficiency.mcp_usage_rate).toBe(0);
   });
 
-  it('passes MCP checks for supported adapters with non-legacy MCP file paths', async () => {
+  it("never reads other tools' MCP files and ignores an unparseable .mcp.json", async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['junie'],
@@ -898,21 +909,39 @@ describe('HealthChecker', () => {
       },
     });
 
+    mkdirSync(join(projectRoot, '.junie/mcp'), { recursive: true });
     writeFileSync(
       join(projectRoot, '.junie/mcp/mcp.json'),
-      JSON.stringify({
-        mcpServers: {
-          'laravel-boost': {},
-          'database-inspector': {},
-        },
-      }),
+      JSON.stringify({ mcpServers: { 'laravel-boost': { command: 'php' } } }),
     );
+    writeFileSync(join(projectRoot, '.mcp.json'), '{ not json');
 
     const report = await new HealthChecker().run(projectRoot);
+    const mcp = report.checks.find((check) => check.name === 'MCP servers (recommended)');
 
-    expect(report.checks.find((check) => check.name === 'MCP servers configured')?.status).toBe(
-      'pass',
+    expect(mcp?.status).toBe('info');
+    expect(mcp?.detail).not.toContain('Found in');
+
+    writeFileSync(join(projectRoot, '.mcp.json'), JSON.stringify({}));
+    const empty = (await new HealthChecker().run(projectRoot)).checks.find(
+      (check) => check.name === 'MCP servers (recommended)',
     );
+    expect(empty?.detail).toContain('Found in .mcp.json: none.');
+
+    writeFileSync(join(projectRoot, '.mcp.json'), 'null');
+    const nullFile = (await new HealthChecker().run(projectRoot)).checks.find(
+      (check) => check.name === 'MCP servers (recommended)',
+    );
+    expect(nullFile?.detail).toContain('Found in .mcp.json: none.');
+
+    // A non-object mcpServers (an array or a string) lists no servers instead of indices or letters.
+    for (const mcpServers of [['a', 'b'], 'abc']) {
+      writeFileSync(join(projectRoot, '.mcp.json'), JSON.stringify({ mcpServers }));
+      const odd = (await new HealthChecker().run(projectRoot)).checks.find(
+        (check) => check.name === 'MCP servers (recommended)',
+      );
+      expect(odd?.detail).toContain('Found in .mcp.json: none.');
+    }
   });
 
   it('reports efficiency summary metrics from observed runtime data only', async () => {

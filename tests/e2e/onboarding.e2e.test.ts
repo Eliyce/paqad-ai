@@ -67,10 +67,10 @@ describe('framework end-to-end onboarding', () => {
     });
 
     assertFiveOutputGroups(projectRoot);
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'laravel-boost',
     );
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'database-inspector',
     );
     expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
@@ -83,12 +83,14 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, '.windsurfrules'))).toBe(true);
     expect(existsSync(join(projectRoot, '.continue/rules/paqad.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'CONVENTIONS.md'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.junie/mcp/mcp.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.cursor/mcp.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.vscode/mcp.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.continue/mcp.json'))).toBe(true);
+    // Issue #622 — paqad writes no host MCP config; suggestions live in its own file.
+    expect(existsSync(join(projectRoot, '.claude/settings.mcp.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.junie/mcp/mcp.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.cursor/mcp.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.vscode/mcp.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(false);
+    expect(existsSync(join(projectRoot, '.continue/mcp.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.claude/settings.hooks.json'))).toBe(true);
     // Codex executes .codex/hooks.json; Gemini executes .gemini/settings.json —
     // each now carries paqad's native completion hook so the ledger fires there too.
@@ -204,10 +206,10 @@ describe('framework end-to-end onboarding', () => {
     });
 
     assertFiveOutputGroups(projectRoot);
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'dart-mcp',
     );
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'database-inspector',
     );
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/flutter/README.md'))).toBe(true);
@@ -228,10 +230,10 @@ describe('framework end-to-end onboarding', () => {
     });
 
     assertFiveOutputGroups(projectRoot);
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'vite-inspector',
     );
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'react-router-mcp',
     );
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/react/README.md'))).toBe(true);
@@ -261,10 +263,10 @@ describe('framework end-to-end onboarding', () => {
     });
 
     assertFiveOutputGroups(projectRoot);
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'vite-inspector',
     );
-    expect(readFileSync(join(projectRoot, '.claude/settings.mcp.json'), 'utf8')).toContain(
+    expect(readFileSync(join(projectRoot, '.paqad/mcp-recommendations.json'), 'utf8')).toContain(
       'vue-router-mcp',
     );
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/vue/README.md'))).toBe(true);
@@ -349,7 +351,7 @@ describe('framework end-to-end onboarding', () => {
       ).toContain(testCase.stack);
       if (testCase.expectedMcp) {
         expect(
-          readFileSync(join(testCase.projectRoot, '.claude/settings.mcp.json'), 'utf8'),
+          readFileSync(join(testCase.projectRoot, '.paqad/mcp-recommendations.json'), 'utf8'),
         ).toContain(testCase.expectedMcp);
       }
     }

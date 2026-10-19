@@ -471,10 +471,6 @@
       "auto_update": true
     },
     {
-      "path": ".claude/settings.mcp.json",
-      "auto_update": true
-    },
-    {
       "path": ".paqad/templates/pr-body.md",
       "auto_update": false
     },

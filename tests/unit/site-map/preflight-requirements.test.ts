@@ -1,6 +1,6 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -18,6 +18,7 @@ let dir: string;
 function project(files: Record<string, string>): string {
   dir = mkdtempSync(join(tmpdir(), 'preflight-'));
   for (const [name, content] of Object.entries(files)) {
+    mkdirSync(dirname(join(dir, name)), { recursive: true });
     writeFileSync(join(dir, name), content);
   }
   return dir;
@@ -99,6 +100,79 @@ describe('site-map preflight requirements', () => {
       'site-map',
     );
     expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('unavailable');
+  });
+
+  describe('uses the way the project runs artisan (issue #500, AC-18)', () => {
+    const profileWith = (migrate: string): string =>
+      ['project:', '  name: demo', 'commands:', `  migrate: "${migrate}"`, ''].join('\n');
+
+    it('Sail: checks only that vendor/bin/sail exists, spawning nothing', async () => {
+      const res = await runPreflight(
+        project({
+          'composer.json': laravelComposer,
+          artisan: 'x',
+          'vendor/bin/sail': '#!/bin/sh',
+          '.paqad/project-profile.yaml': profileWith('vendor/bin/sail artisan migrate'),
+        }),
+        'site-map',
+      );
+      expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('needs-decision');
+      expect(execa).not.toHaveBeenCalled();
+    });
+
+    it('Sail: is unavailable when the Sail script is missing', async () => {
+      const res = await runPreflight(
+        project({
+          'composer.json': laravelComposer,
+          artisan: 'x',
+          '.paqad/project-profile.yaml': profileWith('vendor/bin/sail artisan migrate'),
+        }),
+        'site-map',
+      );
+      expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('unavailable');
+    });
+
+    it('docker compose: checks docker --version only', async () => {
+      const res = await runPreflight(
+        project({
+          'composer.json': laravelComposer,
+          artisan: 'x',
+          '.paqad/project-profile.yaml': profileWith('docker compose exec app php artisan migrate'),
+        }),
+        'site-map',
+      );
+      expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('needs-decision');
+      expect(execa).toHaveBeenCalledWith('docker', ['--version'], expect.anything());
+      expect(execa).not.toHaveBeenCalledWith('php', expect.anything(), expect.anything());
+      assertNeverSpawnedArtisan();
+    });
+
+    it('host PHP: checks php --version only', async () => {
+      const res = await runPreflight(
+        project({
+          'composer.json': laravelComposer,
+          artisan: 'x',
+          '.paqad/project-profile.yaml': profileWith('php artisan migrate'),
+        }),
+        'site-map',
+      );
+      expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('needs-decision');
+      expect(execa).toHaveBeenCalledWith('php', ['--version'], expect.anything());
+      assertNeverSpawnedArtisan();
+    });
+
+    it('a placeholder migrate command reads as unavailable and never rewrites the profile', async () => {
+      const profile = profileWith('docker compose exec <php-service> php artisan migrate');
+      const root = project({
+        'composer.json': laravelComposer,
+        artisan: 'x',
+        '.paqad/project-profile.yaml': profile,
+      });
+      const res = await runPreflight(root, 'site-map');
+      expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('unavailable');
+      expect(execa).not.toHaveBeenCalled();
+      expect(readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8')).toBe(profile);
+    });
   });
 
   it('node-cli-program is unavailable when no CLI program is discoverable', async () => {

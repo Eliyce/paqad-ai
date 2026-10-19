@@ -1,7 +1,8 @@
 import type { ActiveCapability, Capability, Domain, Stack } from './domain.js';
 import type { RepositoryContext } from './repository.js';
 
-export const HEALTH_CHECK_STATUSES = ['pass', 'fail', 'warning'] as const;
+// `info` (issue #622) reports a fact with no verdict; the overall status ignores it.
+export const HEALTH_CHECK_STATUSES = ['pass', 'fail', 'warning', 'info'] as const;
 export type HealthCheckStatus = (typeof HEALTH_CHECK_STATUSES)[number];
 
 export interface HealthCheckResult {

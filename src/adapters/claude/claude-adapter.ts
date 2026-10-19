@@ -54,7 +54,8 @@ export class ClaudeCodeAdapter extends BaseAdapter {
     return '.claude/settings.hooks.json';
   }
   protected mcpOutputPath() {
-    return '.claude/settings.mcp.json';
+    // The project MCP file Claude Code really reads. paqad only reads it (doctor, issue #622).
+    return '.mcp.json';
   }
   protected cacheOutputPath() {
     return '.claude/cache.json';

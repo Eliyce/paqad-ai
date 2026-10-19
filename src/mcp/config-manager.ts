@@ -1,11 +1,17 @@
+import { PATHS } from '@/core/constants/paths.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import { getPrimaryStack } from '@/core/stack-profile.js';
-import type { McpConfigOutput, McpServerDefinition } from '@/core/types/mcp.js';
+import type { McpConfigOutput, McpRecommendations } from '@/core/types/mcp.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
 import { McpServerRegistry } from './server-registry.js';
 
-const ADAPTER_OUTPUT_PATHS: Record<AdapterType, string> = {
+/**
+ * Every per-host path older paqad versions wrote MCP config to (issue #622). paqad no longer
+ * writes any of them: these files belong to the tools that read them. The table is kept only
+ * so `cleanupLegacyMcpFiles` knows which files paqad may have left behind.
+ */
+export const LEGACY_MCP_OUTPUT_PATHS: Record<AdapterType, string> = {
   'claude-code': '.claude/settings.mcp.json',
   'codex-cli': '.codex/mcp.json',
   antigravity: '.antigravity/mcp.json',
@@ -22,37 +28,24 @@ const ADAPTER_OUTPUT_PATHS: Record<AdapterType, string> = {
 export class McpConfigManager {
   private readonly registry = new McpServerRegistry();
 
-  generate(profile: ProjectProfile, adapter: AdapterType): McpConfigOutput {
-    const servers = this.registry.forProfile(profile);
+  /**
+   * The MCP servers recommended for this project, written to paqad's own
+   * `.paqad/mcp-recommendations.json`. Never a host config path (issue #622).
+   */
+  generate(profile: ProjectProfile): McpConfigOutput {
+    const why = `${getPrimaryStack(profile)} project`;
+    const recommendations: McpRecommendations = {
+      servers: this.registry.forProfile(profile).map((server) => ({
+        name: server.name,
+        provides: server.provides,
+        replaces: server.replaces,
+        why,
+      })),
+    };
 
     return {
-      path: ADAPTER_OUTPUT_PATHS[adapter],
-      content: JSON.stringify(
-        {
-          mcpServers: Object.fromEntries(
-            servers.map((server) => [server.name, buildServerConfig(server, profile)]),
-          ),
-        },
-        null,
-        2,
-      ),
+      path: PATHS.MCP_RECOMMENDATIONS,
+      content: JSON.stringify(recommendations, null, 2),
     };
   }
-}
-
-function buildServerConfig(
-  server: McpServerDefinition,
-  profile: ProjectProfile,
-): Record<string, unknown> {
-  const profileEntry = profile.mcp.servers.find((entry) => entry.name === server.name);
-  const fromProfile = profileEntry?.config ?? {};
-  const stack = getPrimaryStack(profile);
-
-  return {
-    enabled: profileEntry?.enabled ?? true,
-    stack,
-    provides: server.provides,
-    replaces: server.replaces,
-    ...fromProfile,
-  };
 }

@@ -4,7 +4,6 @@ import { basename, dirname, join } from 'pathe';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { ResolvedArtifact } from '@/core/types/resolution.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
-import { McpConfigManager } from '@/mcp/config-manager.js';
 import { TemplateEngine } from '@/templates/engine.js';
 
 import { buildFrameworkFallbackClause } from './framework-fallback-clause.js';
@@ -154,26 +153,13 @@ export abstract class BaseAdapter implements AdapterInterface {
     ];
   }
 
-  async installMcp(
-    mcpConfigs: ResolvedArtifact[],
-    profile: ProjectProfile,
-  ): Promise<GeneratedFile[]> {
-    const config = new McpConfigManager().generate(profile, this.type);
-
-    return [
-      {
-        path: config.path,
-        content: JSON.stringify(
-          {
-            ...JSON.parse(config.content),
-            resolved_artifacts: mcpConfigs.map((artifact) => artifact.source),
-          },
-          null,
-          2,
-        ),
-        autoUpdate: true,
-      },
-    ];
+  /**
+   * paqad writes no MCP config at any host path (issue #622): those files belong to the tools
+   * that read them, and older versions overwrote the servers teams had configured. The
+   * recommendations live in `.paqad/mcp-recommendations.json`, written once by onboarding.
+   */
+  async installMcp(): Promise<GeneratedFile[]> {
+    return [];
   }
 
   async configureCaching(profile: ProjectProfile): Promise<GeneratedFile[]> {

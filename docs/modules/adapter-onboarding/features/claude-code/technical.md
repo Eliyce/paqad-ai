@@ -12,7 +12,9 @@ Source directories owned by this feature:
 Generated outputs (when applicable):
 
 - `CLAUDE.md`
-- `.mcp.json`
+
+MCP config is not a generated output: paqad never writes another tool's MCP file (issue #622). Server
+suggestions go to `.paqad/mcp-recommendations.json`.
 
 
 ## Entry Points

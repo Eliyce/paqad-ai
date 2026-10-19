@@ -236,7 +236,8 @@ describe('core export surface', () => {
     expect(ESCALATION_MODES).toEqual(['block', 'require_approval', 'warn']);
     expect(AGENT_ROLES).toContain('reviewer');
     expect(DOC_TYPES).toContain('error-catalog');
-    expect(HEALTH_CHECK_STATUSES).toEqual(['pass', 'fail', 'warning']);
+    // Issue #622 — `info` reports a fact with no verdict (the MCP recommendation check).
+    expect(HEALTH_CHECK_STATUSES).toEqual(['pass', 'fail', 'warning', 'info']);
   });
 
   it('re-exports the extension-surface stability vocabulary', () => {

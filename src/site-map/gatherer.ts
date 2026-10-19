@@ -17,6 +17,7 @@ import { execa } from 'execa';
 import fg from 'fast-glob';
 
 import { toPosixPath } from '@/core/path-utils.js';
+import { readProjectProfile } from '@/core/project-profile.js';
 import type { AppKind, AppMap, Evidence } from '@/core/types/site-map.js';
 import type { SiteMapAppSummary } from '@/core/types/site-map-run.js';
 
@@ -41,7 +42,19 @@ import {
   type LaravelClassSurfaceRecord,
   type LaravelRouteRecord,
   type ReactRouteRecord,
+  unresolvedBlockedCheck,
 } from './extraction.js';
+import {
+  createArtisanRouteResolver,
+  extractConsoleCommandNames,
+  findScheduleLine,
+  parseComposerPsr4,
+  parseVendorPsr4,
+  resolveArtisanInvocation,
+  scheduledCommandName,
+  type ReadProjectFile,
+  type SourcePointer,
+} from './laravel-sources.js';
 import type { SiteMapGatherer } from './run.js';
 import { readAllJourneys, readCanonicalSiteMap } from './store.js';
 import {
@@ -317,16 +330,19 @@ async function scanLaravelRoutes(projectRoot: string): Promise<LaravelRouteRecor
 const ARTISAN_TIMEOUT_MS = 20_000;
 
 /**
- * Run a read-only artisan command in the target project, timeout-bounded. Returns whether it
- * exited cleanly and its stdout. Any failure (no PHP, boot error, timeout) resolves to `ok:false`
- * so the caller degrades to the static scan and records a blocked check — it never throws.
+ * Run a read-only artisan command in the target project the way the project runs artisan
+ * (`invocation`, e.g. `vendor/bin/sail artisan`), timeout-bounded. Returns whether it exited
+ * cleanly and its stdout. Any failure (no PHP, boot error, timeout) resolves to `ok:false` so the
+ * caller degrades to the static scan and records a blocked check — it never throws.
  */
 async function runArtisan(
   projectRoot: string,
+  invocation: string[],
   args: string[],
 ): Promise<{ ok: boolean; stdout: string }> {
   try {
-    const result = await execa('php', ['artisan', ...args], {
+    const [bin, ...prefix] = invocation;
+    const result = await execa(bin!, [...prefix, ...args], {
       cwd: projectRoot,
       reject: false,
       timeout: ARTISAN_TIMEOUT_MS,
@@ -398,27 +414,79 @@ async function scanLaravelClasses(
   return records;
 }
 
+/** Read a project-relative file, or null when it is missing or unreadable (a directory, say). */
+function projectFileReader(projectRoot: string): ReadProjectFile {
+  return (path) => {
+    try {
+      return readFileSync(join(projectRoot, path), 'utf8');
+    } catch {
+      return null;
+    }
+  };
+}
+
+// Console commands the project itself declares (issue #500). Anything artisan lists that is not
+// declared here is a framework or package built-in and is not an app surface.
+const LARAVEL_CONSOLE_GLOBS = [
+  'app/Console/Commands/**/*.php',
+  'Modules/*/Console/**/*.php',
+  'Modules/*/app/Console/**/*.php',
+  'routes/console.php',
+];
+// Where a Laravel app defines its schedule, across Laravel 10 (Kernel) and 11+ (console/bootstrap).
+const LARAVEL_SCHEDULE_FILES = [
+  'routes/console.php',
+  'bootstrap/app.php',
+  'app/Console/Kernel.php',
+];
+
+/** Map each console command name declared in project source to its declaration (first wins). */
+async function scanConsoleDeclarations(
+  projectRoot: string,
+  read: ReadProjectFile,
+): Promise<Map<string, SourcePointer>> {
+  const files = await fg(LARAVEL_CONSOLE_GLOBS, {
+    cwd: projectRoot,
+    ignore: ['**/vendor/**'],
+    dot: false,
+  });
+  const byName = new Map<string, SourcePointer>();
+  for (const file of files.map(toPosixPath).sort()) {
+    const content = read(file);
+    if (content === null) continue;
+    for (const declaration of extractConsoleCommandNames(content)) {
+      if (!byName.has(declaration.name)) {
+        byName.set(declaration.name, { file, line: declaration.line });
+      }
+    }
+  }
+  return byName;
+}
+
+/** PSR-4 entries from the project's composer.json, then composer's generated vendor class map. */
+function readPsr4(read: ReadProjectFile): ReturnType<typeof parseComposerPsr4> {
+  return [
+    ...parseComposerPsr4(read('composer.json') ?? ''),
+    ...parseVendorPsr4(read('vendor/composer/autoload_psr4.php') ?? ''),
+  ];
+}
+
 /**
  * Wire every Laravel extractor: prefer artisan introspection (the real router resolves modules,
- * middleware, and controllers), and fall back to the modular-aware static scan plus a labelled
- * blocked check when artisan cannot run. Queued jobs and mailables have no artisan listing, so
- * they are always the static class scan.
+ * middleware, and controllers), run the way the onboarded project runs artisan (its profile's
+ * migrate command: Sail, docker compose, or host PHP), and trace every record back to project
+ * source so each surface's evidence is a real `file:line` (issue #500). The static route scan is
+ * the fallback, with a labelled blocked check, when artisan cannot run. Queued jobs and mailables
+ * have no artisan listing, so they are always the static class scan.
  */
 async function laravelExtractors(projectRoot: string): Promise<ExtractorOutput[]> {
   const outputs: ExtractorOutput[] = [];
-
-  const routeRun = await runArtisan(projectRoot, ['route:list', '--json']);
-  if (routeRun.ok) {
-    const routes = parseArtisanRouteList(routeRun.stdout);
-    if (routes.length > 0) {
-      outputs.push({
-        extractor: 'laravel-artisan-routes',
-        available: true,
-        surfaces: extractLaravelArtisanRoutes(routes),
-      });
-    }
-  } else {
-    const staticRoutes = await scanLaravelRoutes(projectRoot);
+  const read = projectFileReader(projectRoot);
+  // Never rewrite the profile from a site-map run (INV-8): read it without persisting a migration.
+  const profile = readProjectProfile(projectRoot, { persistMigration: false });
+  const invocation = resolveArtisanInvocation(profile?.commands);
+  const staticRoutes = await scanLaravelRoutes(projectRoot);
+  const pushStaticRoutes = (): void => {
     if (staticRoutes.length > 0) {
       outputs.push({
         extractor: 'laravel-routes',
@@ -426,36 +494,101 @@ async function laravelExtractors(projectRoot: string): Promise<ExtractorOutput[]
         surfaces: extractLaravelRouteSurfaces(staticRoutes),
       });
     }
+  };
+
+  if ('blocked' in invocation) {
+    pushStaticRoutes();
     outputs.push(
       blockedExtractor(
         'laravel-artisan-routes',
-        'php artisan route:list --json did not run (no PHP on PATH, or the app failed to boot)',
-        'Install PHP and ensure `php artisan route:list --json` boots so modular routes and middleware are mapped; the static route scan ran as a fallback.',
+        `artisan was not run because ${invocation.blocked}`,
+        'Fix the command named above so routes, console commands and schedules are read from the real app; the static route scan ran as a fallback.',
       ),
     );
-  }
-
-  const listRun = await runArtisan(projectRoot, ['list', '--format=json']);
-  if (listRun.ok) {
-    const commands = parseArtisanCommandList(listRun.stdout);
-    if (commands.length > 0) {
-      outputs.push({
-        extractor: 'laravel-console',
-        available: true,
-        surfaces: extractLaravelConsoleCommands(commands),
-      });
+  } else {
+    const artisan = invocation.argv;
+    // Console commands are declared once and read by both the command list and the schedule.
+    let declarations: Promise<Map<string, SourcePointer>> | undefined;
+    const consoleDeclarations = (): Promise<Map<string, SourcePointer>> =>
+      (declarations ??= scanConsoleDeclarations(projectRoot, read));
+    const routeRun = await runArtisan(projectRoot, artisan, ['route:list', '--json']);
+    if (routeRun.ok) {
+      const routes = parseArtisanRouteList(routeRun.stdout);
+      const traced = extractLaravelArtisanRoutes(
+        routes,
+        createArtisanRouteResolver({ psr4: readPsr4(read), staticRoutes, readFile: read }),
+      );
+      const blocked = unresolvedBlockedCheck(
+        'laravel-artisan-routes',
+        'routes',
+        traced.unresolved,
+        ' (closures or package routes)',
+      );
+      if (traced.surfaces.length > 0 || blocked) {
+        outputs.push({
+          extractor: 'laravel-artisan-routes',
+          available: true,
+          surfaces: traced.surfaces,
+          blocked,
+        });
+      }
+    } else {
+      pushStaticRoutes();
+      outputs.push(
+        blockedExtractor(
+          'laravel-artisan-routes',
+          `${artisan.join(' ')} route:list --json did not run (PHP or the container is not available, or the app failed to boot)`,
+          `Make sure \`${artisan.join(' ')} route:list --json\` runs in this project so modular routes and middleware are mapped; the static route scan ran as a fallback.`,
+        ),
+      );
     }
-  }
 
-  const scheduleRun = await runArtisan(projectRoot, ['schedule:list']);
-  if (scheduleRun.ok) {
-    const scheduled = parseArtisanScheduleList(scheduleRun.stdout);
-    if (scheduled.length > 0) {
-      outputs.push({
-        extractor: 'laravel-schedule',
-        available: true,
-        surfaces: extractLaravelScheduledJobs(scheduled),
+    const listRun = await runArtisan(projectRoot, artisan, ['list', '--format=json']);
+    if (listRun.ok) {
+      const declared = await consoleDeclarations();
+      const surfaces = extractLaravelConsoleCommands(
+        parseArtisanCommandList(listRun.stdout),
+        (name) => declared.get(name),
+      );
+      if (surfaces.length > 0) {
+        outputs.push({ extractor: 'laravel-console', available: true, surfaces });
+      }
+    }
+
+    const scheduleRun = await runArtisan(projectRoot, artisan, ['schedule:list']);
+    if (scheduleRun.ok) {
+      const scheduleSources = LARAVEL_SCHEDULE_FILES.flatMap((file) => {
+        const content = read(file);
+        return content === null ? [] : [{ file, content }];
       });
+      const declared = await consoleDeclarations();
+      const traced = extractLaravelScheduledJobs(
+        parseArtisanScheduleList(scheduleRun.stdout),
+        (command) => {
+          // A command scheduled by class (`Schedule::command(SendReports::class)`) is found
+          // through the class that declares its name.
+          const declaration = declared.get(scheduledCommandName(command));
+          const commandClass = declaration ? basename(declaration.file, '.php') : undefined;
+          for (const source of scheduleSources) {
+            const line = findScheduleLine(source.content, command, commandClass);
+            if (line !== undefined) return { file: source.file, line };
+          }
+          return undefined;
+        },
+      );
+      const blocked = unresolvedBlockedCheck(
+        'laravel-schedule',
+        'scheduled tasks',
+        traced.unresolved,
+      );
+      if (traced.surfaces.length > 0 || blocked) {
+        outputs.push({
+          extractor: 'laravel-schedule',
+          available: true,
+          surfaces: traced.surfaces,
+          blocked,
+        });
+      }
     }
   }
 
@@ -526,12 +659,12 @@ function resolvePointer(projectRoot: string, pointer: Evidence): EvidenceResolut
 
 /**
  * Gather raw navigation edges from the extracted surfaces (S9b, the impure half of transition
- * detection). For each surface it reads that surface's on-disk evidence file(s) — a synthetic
- * artisan label or a vanished file simply reads as unavailable and is skipped — normalises the
- * bytes into a `TransitionSourceRecord` attributed to the surface's `raw_id`, and runs all three
- * S9a detectors over it. The detectors match navigation call syntax, so a PHP controller yields
- * only Laravel edges and a React component only React-Router edges; running all three is safe and
- * keeps the gatherer stack-agnostic. Each distinct file is read once even when several surfaces
+ * detection). For each surface it reads that surface's on-disk evidence file(s) — including the
+ * route file and controller an artisan route cites; a vanished file reads as unavailable and is
+ * skipped — normalises the bytes into a `TransitionSourceRecord` attributed to the surface's
+ * `raw_id`, and runs all three S9a detectors over it. The detectors match navigation call
+ * syntax, so a PHP controller yields only Laravel edges and a React component only React-Router
+ * edges; running all three is safe and keeps the gatherer stack-agnostic. Each distinct file is read once even when several surfaces
  * cite it, and every surface citing it gets its own attributed records. Pure resolution of these
  * raw edges to surfaces is `resolveTransitions`; this function is the coverage-excluded I/O seam.
  */

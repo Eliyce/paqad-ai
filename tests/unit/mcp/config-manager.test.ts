@@ -1,121 +1,83 @@
 import { describe, expect, it } from 'vitest';
 
-import { McpConfigManager } from '@/mcp/config-manager.js';
+import type { McpRecommendations } from '@/core/types/mcp.js';
+import { LEGACY_MCP_OUTPUT_PATHS, McpConfigManager } from '@/mcp/config-manager.js';
 
 import { fixtureProfile } from './shared.fixture.js';
+
+function names(content: string): string[] {
+  return (JSON.parse(content) as McpRecommendations).servers.map((server) => server.name);
+}
 
 describe('McpConfigManager', () => {
   const manager = new McpConfigManager();
 
-  it('generates Laravel Boost config for coding laravel boost', () => {
-    const file = manager.generate(fixtureProfile('laravel'), 'claude-code');
-    const parsed = JSON.parse(file.content) as { mcpServers: Record<string, unknown> };
+  it('writes recommendations to paqad’s own file, never a host MCP path (issue #622)', () => {
+    const file = manager.generate(fixtureProfile('laravel'));
 
-    expect(file.path).toBe('.claude/settings.mcp.json');
-    expect(parsed.mcpServers).toHaveProperty('laravel-boost');
-    expect(parsed.mcpServers).toHaveProperty('database-inspector');
+    expect(file.path).toBe('.paqad/mcp-recommendations.json');
+    expect(Object.values(LEGACY_MCP_OUTPUT_PATHS)).not.toContain(file.path);
+    expect(names(file.content)).toEqual(
+      expect.arrayContaining(['laravel-boost', 'database-inspector']),
+    );
   });
 
-  it('omits default MCP servers that the profile explicitly disables', () => {
-    const file = manager.generate(fixtureProfile('laravel'), 'claude-code');
-    const parsed = JSON.parse(file.content) as { mcpServers: Record<string, unknown> };
+  it('carries only name, provides, replaces and why on each server (AC-9)', () => {
+    const parsed = JSON.parse(
+      manager.generate(fixtureProfile('laravel')).content,
+    ) as McpRecommendations;
 
-    expect(parsed.mcpServers).not.toHaveProperty('figma');
+    expect(Object.keys(parsed)).toEqual(['servers']);
+    for (const server of parsed.servers) {
+      expect(Object.keys(server).sort()).toEqual(['name', 'provides', 'replaces', 'why']);
+      expect(server.why).toBe('laravel project');
+    }
+    const boost = parsed.servers.find((server) => server.name === 'laravel-boost');
+    expect(boost?.provides).toContain('routes');
+    expect(boost?.replaces).toContain('route-scanning');
   });
 
-  it('includes explicitly enabled non-default MCP servers in generated config', () => {
+  it('omits servers the profile explicitly disables', () => {
+    expect(names(manager.generate(fixtureProfile('laravel')).content)).not.toContain('figma');
+  });
+
+  it('includes explicitly enabled non-default servers without copying their config', () => {
     const profile = fixtureProfile('laravel');
     profile.mcp.servers = [
       { name: 'figma', enabled: false, config: {} },
-      { name: 'react-router-mcp', enabled: true, config: { mode: 'manual' } },
+      { name: 'react-router-mcp', enabled: true, config: { command: 'npx', mode: 'team-only' } },
     ];
 
-    const file = manager.generate(profile, 'claude-code');
-    const parsed = JSON.parse(file.content) as {
-      mcpServers: Record<string, { enabled: boolean; mode?: string }>;
-    };
+    const content = manager.generate(profile).content;
 
-    expect(parsed.mcpServers).toHaveProperty('react-router-mcp');
-    expect(parsed.mcpServers['react-router-mcp']).toMatchObject({
-      enabled: true,
-      mode: 'manual',
-    });
+    expect(names(content)).toContain('react-router-mcp');
+    expect(names(content)).not.toContain('figma');
+    expect(content).not.toContain('command');
+    expect(content).not.toContain('team-only');
   });
 
-  it('generates Dart MCP config for coding flutter', () => {
-    const file = manager.generate(fixtureProfile('flutter'), 'codex-cli');
-    const parsed = JSON.parse(file.content) as { mcpServers: Record<string, unknown> };
+  it('recommends Dart MCP for flutter and not Laravel Boost', () => {
+    const recommended = names(manager.generate(fixtureProfile('flutter')).content);
 
-    expect(file.path).toBe('.codex/mcp.json');
-    expect(parsed.mcpServers).toHaveProperty('dart-mcp');
-    expect(parsed.mcpServers).toHaveProperty('database-inspector');
+    expect(recommended).toContain('dart-mcp');
+    expect(recommended).toContain('database-inspector');
+    expect(recommended).not.toContain('laravel-boost');
   });
 
-  it('writes Antigravity MCP config to the Antigravity path', () => {
-    const file = manager.generate(fixtureProfile('laravel'), 'antigravity');
-    const parsed = JSON.parse(file.content) as { mcpServers: Record<string, unknown> };
+  it('recommends the React defaults for standalone react stacks', () => {
+    const recommended = names(
+      manager.generate(fixtureProfile('react', ['next', 'tailwind'])).content,
+    );
 
-    expect(file.path).toBe('.antigravity/mcp.json');
-    expect(parsed.mcpServers).toHaveProperty('laravel-boost');
-    expect(parsed.mcpServers).toHaveProperty('database-inspector');
+    expect(recommended).toEqual(
+      expect.arrayContaining(['vite-inspector', 'react-router-mcp', 'tailwind-mcp']),
+    );
+    expect(recommended).not.toContain('database-inspector');
   });
 
-  it('generates DB Inspector for all coding stacks', () => {
-    const laravel = JSON.parse(
-      manager.generate(fixtureProfile('laravel'), 'gemini-cli').content,
-    ) as {
-      mcpServers: Record<string, unknown>;
-    };
-    const flutter = JSON.parse(
-      manager.generate(fixtureProfile('flutter'), 'gemini-cli').content,
-    ) as {
-      mcpServers: Record<string, unknown>;
-    };
-
-    expect(laravel.mcpServers).toHaveProperty('database-inspector');
-    expect(flutter.mcpServers).toHaveProperty('database-inspector');
-  });
-
-  it('does not generate Laravel Boost for flutter', () => {
-    const parsed = JSON.parse(
-      manager.generate(fixtureProfile('flutter'), 'claude-code').content,
-    ) as {
-      mcpServers: Record<string, unknown>;
-    };
-
-    expect(parsed.mcpServers).not.toHaveProperty('laravel-boost');
-  });
-
-  it('config format matches agent expectations', () => {
-    const parsed = JSON.parse(
-      manager.generate(fixtureProfile('laravel'), 'gemini-cli').content,
-    ) as {
-      mcpServers: Record<string, unknown>;
-    };
-
-    expect(parsed).toHaveProperty('mcpServers');
-    expect(parsed.mcpServers['laravel-boost']).toMatchObject({
-      enabled: true,
-      stack: 'laravel',
-    });
-  });
-
-  it('writes Junie MCP config to the project-level Junie path', () => {
-    const file = manager.generate(fixtureProfile('laravel'), 'junie');
-    const parsed = JSON.parse(file.content) as { mcpServers: Record<string, unknown> };
-
-    expect(file.path).toBe('.junie/mcp/mcp.json');
-    expect(parsed.mcpServers).toHaveProperty('laravel-boost');
-    expect(parsed.mcpServers).toHaveProperty('database-inspector');
-  });
-
-  it('generates React MCP defaults for standalone react stacks', () => {
-    const file = manager.generate(fixtureProfile('react', ['next', 'tailwind']), 'claude-code');
-    const parsed = JSON.parse(file.content) as { mcpServers: Record<string, unknown> };
-
-    expect(parsed.mcpServers).toHaveProperty('vite-inspector');
-    expect(parsed.mcpServers).toHaveProperty('react-router-mcp');
-    expect(parsed.mcpServers).toHaveProperty('tailwind-mcp');
-    expect(parsed.mcpServers).not.toHaveProperty('database-inspector');
+  it('keeps the legacy path table for the cleanup', () => {
+    expect(LEGACY_MCP_OUTPUT_PATHS['claude-code']).toBe('.claude/settings.mcp.json');
+    expect(LEGACY_MCP_OUTPUT_PATHS.cursor).toBe('.cursor/mcp.json');
+    expect(LEGACY_MCP_OUTPUT_PATHS.junie).toBe('.junie/mcp/mcp.json');
   });
 });

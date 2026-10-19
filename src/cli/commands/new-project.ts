@@ -4,7 +4,7 @@ import { FrameworkError } from '@/core/errors/index.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import { createProjectWorkspace } from '@/onboarding/create-project.js';
 
-import { codexTrustHint, printBanner, printNextSteps } from '../ui/banner.js';
+import { codexTrustHint, printBanner, printNewProjectNextSteps } from '../ui/banner.js';
 
 /**
  * `paqad-ai new project <name>` (Slice 3) — create a development workspace with an UNDECIDED
@@ -46,20 +46,10 @@ export function createNewProjectCommand(): Command {
             force: options.force,
           });
 
-          printNextSteps();
-
-          console.log(
-            `\nWorkspace created at ${result.projectRoot}` +
-              (result.gitInitialized ? ' (git initialized).' : '.'),
-          );
-          console.log(
-            'Application stack: UNDECIDED — no language or framework was selected, and no ' +
-              'framework default commands were written.',
-          );
-          console.log(
-            'NEXT STEP: choose an application stack (run discovery, or `paqad-ai onboard` once ' +
-              'the stack exists) before building application code.',
-          );
+          printNewProjectNextSteps({
+            projectRoot: result.projectRoot,
+            gitInitialized: result.gitInitialized,
+          });
 
           if (result.recovery) {
             console.warn(`\n⚠ ${result.recovery}`);

@@ -110,9 +110,10 @@ export function collectProjectProfile(projectRoot: string): ProjectProfileSectio
   const mtime = fileMtime(profilePath);
   const name = typeof profile.project?.name === 'string' ? (profile.project.name as string) : null;
 
+  // Issue #622 — MCP servers are recommendations; paqad configures none, so never say so.
   const summary =
     presentFields === REQUIRED_FIELDS.length
-      ? `Configured · RAG ${ragEnabled ? 'on' : 'off'} · ${mcpServers} MCP server(s)`
+      ? `Profile complete · RAG ${ragEnabled ? 'on' : 'off'} · ${mcpServers} MCP server(s) recommended`
       : `Missing ${REQUIRED_FIELDS.length - presentFields} required field(s)`;
 
   return {
@@ -125,7 +126,7 @@ export function collectProjectProfile(projectRoot: string): ProjectProfileSectio
       metrics: [
         { label: 'required fields', value: `${presentFields}/${REQUIRED_FIELDS.length}` },
         { label: 'rag', value: ragEnabled ? 'on' : 'off' },
-        { label: 'mcp servers', value: String(mcpServers) },
+        { label: 'mcp servers recommended', value: String(mcpServers) },
       ],
       helper: HELPER,
       details: {

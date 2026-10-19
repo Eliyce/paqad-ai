@@ -5,7 +5,7 @@
 ## Purpose
 
 Validate that the framework's generated artifacts, copied instructions,
-MCP config, docs, and module ledger are intact and current.
+docs, and module ledger are intact and current, and list the MCP servers recommended for the stack.
 
 ## Source Footprint
 

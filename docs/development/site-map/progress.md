@@ -80,6 +80,11 @@ with the S3 commits.
 
 One entry per session. Newest at the top. Keep entries short and factual.
 
+- 2026-10-19, issue #500 follow-up: artisan-sourced surfaces now cite the route file and the
+  controller method (console commands their declaration, schedules their line) instead of a
+  `php artisan ...` label, untraceable routes become a blocked check, and artisan runs the way the
+  project runs it (Sail, docker compose, or host PHP from its migrate command).
+
 ### 2026-09-01, session 16: S10 — rebuild complete
 
 - **S10 done** (`f3a2fa6a`): the instruction half of **D1** — the site-map workflow rule now

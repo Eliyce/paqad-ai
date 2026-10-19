@@ -295,4 +295,92 @@ describe('paqad-ai join', () => {
     expect(RagService.prototype.configureAndBuild).not.toHaveBeenCalled();
     expect(output.join('')).not.toContain(JOIN_READY_MESSAGE);
   });
+
+  describe('MCP files (issue #622)', () => {
+    const PAQAD_WRITTEN = `${JSON.stringify(
+      {
+        mcpServers: { 'laravel-boost': { enabled: true, stack: 'laravel' } },
+        resolved_artifacts: [],
+      },
+      null,
+      2,
+    )}\n`;
+    const userOwned = (name: string): string =>
+      `${JSON.stringify({ mcpServers: { [name]: { command: 'npx', args: [name] } } }, null, 2)}\n`;
+
+    function selectProviders(providers: string[]): void {
+      const manifestPath = join(root, '.paqad/onboarding-manifest.json');
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+      manifest.generated_artifacts.push(...providers.map((path) => ({ path, auto_update: true })));
+      writeFileSync(manifestPath, JSON.stringify(manifest, null, 2));
+    }
+
+    it('leaves user-owned MCP files byte-identical (AC-5)', async () => {
+      seedOnboardedProject(root);
+      selectProviders([
+        '.cursor/rules/paqad.mdc',
+        '.github/copilot-instructions.md',
+        '.junie/AGENTS.md',
+      ]);
+      const fixtures = new Map([
+        ['.cursor/mcp.json', userOwned('cursor-server')],
+        ['.vscode/mcp.json', userOwned('vscode-server')],
+        ['.junie/mcp/mcp.json', userOwned('junie-server')],
+      ]);
+      for (const [path, content] of fixtures) {
+        write(join(root, path), content);
+      }
+
+      await joinProject({ projectRoot: root, rag: false });
+
+      for (const [path, content] of fixtures) {
+        expect(readFileSync(join(root, path), 'utf8')).toBe(content);
+      }
+      expect(output.join('')).toContain(JOIN_READY_MESSAGE);
+    });
+
+    it('keeps a tracked paqad-written legacy file and logs it (AC-8)', async () => {
+      seedOnboardedProject(root);
+      write(join(root, '.claude/settings.mcp.json'), PAQAD_WRITTEN);
+      execFileSync('git', ['add', '.claude/settings.mcp.json'], { cwd: root });
+
+      await joinProject({ projectRoot: root, rag: false });
+
+      expect(readFileSync(join(root, '.claude/settings.mcp.json'), 'utf8')).toBe(PAQAD_WRITTEN);
+      expect(
+        execFileSync('git', ['diff', '--name-only'], { cwd: root, encoding: 'utf8' }).trim(),
+      ).toBe('');
+      expect(readFileSync(join(root, '.paqad/logs/mcp-cleanup.log'), 'utf8')).toContain(
+        '.claude/settings.mcp.json',
+      );
+      expect(output.join('')).toContain(JOIN_READY_MESSAGE);
+    });
+
+    it('deletes a git-ignored paqad-written legacy file and writes no tracked recommendations', async () => {
+      seedOnboardedProject(root);
+      write(join(root, '.gitignore'), '.codex/cache.json\n.codex/memory.json\n.codex/mcp.json\n');
+      write(join(root, '.codex/mcp.json'), PAQAD_WRITTEN);
+
+      await joinProject({ projectRoot: root, rag: false });
+
+      expect(existsSync(join(root, '.codex/mcp.json'))).toBe(false);
+      // The recommendations file is a team file (not git-ignored), so join leaves it to onboard.
+      expect(existsSync(join(root, '.paqad/mcp-recommendations.json'))).toBe(false);
+    });
+
+    it('writes the recommendations file when the project git-ignores it', async () => {
+      seedOnboardedProject(root);
+      write(
+        join(root, '.paqad/.gitignore'),
+        '.agent-entry-loaded\nframework-version.txt\ncompiled-rules.json\ncontext/\nvectors/\nmcp-recommendations.json\n',
+      );
+
+      await joinProject({ projectRoot: root, rag: false });
+
+      const recommendations = JSON.parse(
+        readFileSync(join(root, '.paqad/mcp-recommendations.json'), 'utf8'),
+      ) as { servers: unknown[] };
+      expect(Array.isArray(recommendations.servers)).toBe(true);
+    });
+  });
 });

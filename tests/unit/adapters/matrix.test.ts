@@ -74,17 +74,16 @@ describe('adapter stack matrix', () => {
           (adapter.capabilities.skills ? skillArtifacts.length : 0) +
           Number(adapter.capabilities.agents) +
           Number(adapter.capabilities.hooks) +
-          Number(adapter.capabilities.mcp) +
+          // Issue #622 — installMcp writes nothing at a host path, whatever the capability.
           Number(adapter.capabilities.caching) +
           Number(adapter.capabilities.memory);
 
         expect(files).toHaveLength(expectedLength);
 
+        expect(files.some((file) => file.path.includes('mcp'))).toBe(false);
+
         const hasJsonCapability =
-          adapter.capabilities.mcp ||
-          adapter.capabilities.caching ||
-          adapter.capabilities.memory ||
-          adapter.capabilities.hooks;
+          adapter.capabilities.caching || adapter.capabilities.memory || adapter.capabilities.hooks;
         if (hasJsonCapability) {
           expect(files.map((file) => file.path).some((path) => path.includes('.json'))).toBe(true);
         }
