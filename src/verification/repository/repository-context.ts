@@ -32,6 +32,7 @@ import {
 import { subtractUnchangedBaselineFiles } from '@/pipeline/dirty-baseline.js';
 import type { VerificationContext, VerificationOrigin } from '@/core/types/verification.js';
 import { engineLog } from '@/core/logger-registry.js';
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 
 import {
   computeAcTestMapping,
@@ -132,7 +133,9 @@ export async function buildRepositoryVerificationContext(
       testResults: structuredTestResults,
       lane: recordedLane,
     },
-    (message) => engineLog('warn', `paqad: ${message}`),
+    // Logged to .paqad/logs/hooks.log, never stderr: on the Stop path a stderr line is shown to
+    // the user and would change what the hook printed (AC-69).
+    (message) => appendHooksLog(projectRoot, `verification: ${message}`),
   );
   const traceabilityMap = effectiveTraceabilityMap(changeMap.result?.map ?? null, diskMap);
   const pendingDecisions = readPendingDecisions(projectRoot);

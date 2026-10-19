@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -51,5 +51,29 @@ describe('traceability writer', () => {
     mkdirSync(join(root, PATHS.TRACEABILITY_DIR), { recursive: true });
     writeFileSync(path, '{ not json', 'utf8');
     expect(await readTraceabilityMap(root)).toBeNull();
+  });
+
+  it('writes through a unique temp name and removes it when the rename fails', async () => {
+    const map = buildTraceabilityMap({
+      lane: 'graduated',
+      now: () => '2026-06-08T00:00:00.000Z',
+      promises: [],
+      delivery: [],
+      proofs: [],
+      edges: [],
+      codeUniverse: [],
+    });
+    const dir = join(root, PATHS.TRACEABILITY_DIR);
+    // Two writes at once each use their own temp file, so both land whole.
+    await Promise.all([writeTraceabilityMap(root, map), writeTraceabilityMap(root, map)]);
+    expect(readdirSync(dir)).toEqual(['map.json']);
+
+    // A non-empty directory where the map goes makes the rename fail.
+    const target = traceabilityMapPath(root);
+    rmSync(target);
+    mkdirSync(target);
+    writeFileSync(join(target, 'keep'), 'x');
+    await expect(writeTraceabilityMap(root, map)).rejects.toThrow();
+    expect(readdirSync(dir)).toEqual(['map.json']);
   });
 });

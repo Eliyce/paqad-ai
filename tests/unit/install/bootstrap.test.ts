@@ -237,13 +237,17 @@ describe('bootstrapFramework', () => {
       restore('USERPROFILE', savedUserProfile);
     });
 
-    it('writes six Claude and six Codex stage agents under the user home', () => {
+    it('writes the six stage agents and the two High Table agents (AC-46) for Claude and Codex under the user home', () => {
       bootstrapFramework(projectRoot);
       const claudeAgents = join(userHome, '.claude/agents');
       const codexAgents = join(userHome, '.codex/agents');
       expect(existsSync(claudeAgents)).toBe(true);
-      expect(readdirSync(claudeAgents).filter((f) => f.endsWith('.md'))).toHaveLength(6);
-      expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(6);
+      expect(readdirSync(claudeAgents).filter((f) => f.endsWith('.md'))).toHaveLength(8);
+      expect(readdirSync(codexAgents).filter((f) => f.endsWith('.toml'))).toHaveLength(8);
+      for (const name of ['paqad-expert', 'paqad-chief-architect']) {
+        expect(existsSync(join(claudeAgents, `${name}.md`))).toBe(true);
+        expect(existsSync(join(codexAgents, `${name}.toml`))).toBe(true);
+      }
       // Never writes into the project.
       expect(existsSync(join(projectRoot, '.claude'))).toBe(false);
       expect(existsSync(join(projectRoot, '.codex'))).toBe(false);

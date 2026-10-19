@@ -25,6 +25,12 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import {
+  FileLockTimeoutError,
+  withFileLockSync,
+  type FileLockOptions,
+} from '@/core/fs/file-lock.js';
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/envelope.js';
 import { stampFeatureDocument } from '@/feature-evidence/bundle-document.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
@@ -290,21 +296,41 @@ export interface UpdateCostCacheInput {
   /** The change's window start: messages before it are never kept. */
   floor: string;
   chunkBytes?: number;
+  /** Lock seam for tests; the defaults wait up to 5 s for a parallel hook. */
+  lock?: FileLockOptions;
 }
 
 /**
  * Record the payload's transcripts and read what each of the change's transcripts gained since
  * the last run, then write the session's cache atomically. Throws on a write fault.
+ *
+ * The read-merge-write runs under a cross-process lock: parallel SubagentStop hooks (the High
+ * Table's seats end together) each add their own transcript path, and without the lock the last
+ * writer would drop the others. When the lock cannot be taken in time the update is skipped and
+ * logged to `.paqad/logs/hooks.log`, never thrown: the cache on disk is returned as it stands and
+ * the next hook run records the path again.
  */
 export function updateCostCache(input: UpdateCostCacheInput): CostCache {
   const path = hudCostCachePath(input.projectRoot, input.sessionId);
-  const cache = readCostCache(path, input.sessionId);
-  recordCostSources(cache, input.payload, input.dirName, input.floor);
-  for (const [source, entry] of Object.entries(cache.sources)) {
-    if (entry.changes.includes(input.dirName)) refreshSource(source, entry, input.chunkBytes);
+  try {
+    return withFileLockSync(
+      `${path}.lock`,
+      () => {
+        const cache = readCostCache(path, input.sessionId);
+        recordCostSources(cache, input.payload, input.dirName, input.floor);
+        for (const [source, entry] of Object.entries(cache.sources)) {
+          if (entry.changes.includes(input.dirName)) refreshSource(source, entry, input.chunkBytes);
+        }
+        writeFileAtomic(path, `${JSON.stringify(cache)}\n`);
+        return cache;
+      },
+      { timeoutMs: 5_000, ...input.lock },
+    );
+  } catch (error) {
+    if (!(error instanceof FileLockTimeoutError)) throw error;
+    appendHooksLog(input.projectRoot, `cost: cache not updated: ${error.message}`);
+    return readCostCache(path, input.sessionId);
   }
-  writeFileAtomic(path, `${JSON.stringify(cache)}\n`);
-  return cache;
 }
 
 // ── the window ────────────────────────────────────────────────────────────────

@@ -2,8 +2,9 @@
 // rebuilt from reality each run; it is never a hand-maintained source. Writes
 // are atomic (temp + rename) and never throw on a corrupt read.
 
+import { randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -20,9 +21,16 @@ export async function writeTraceabilityMap(
 ): Promise<string> {
   const target = traceabilityMapPath(projectRoot);
   await mkdir(dirname(target), { recursive: true });
-  const tmp = `${target}.tmp`;
-  await writeFile(tmp, JSON.stringify(map, null, 2) + '\n', 'utf8');
-  await rename(tmp, target);
+  // A unique temp name per write, so two writers at once (checks run and the Stop hook) never
+  // rename each other's half-written file into place.
+  const tmp = `${target}.tmp-${process.pid}-${randomBytes(6).toString('hex')}`;
+  try {
+    await writeFile(tmp, JSON.stringify(map, null, 2) + '\n', 'utf8');
+    await rename(tmp, target);
+  } catch (error) {
+    await rm(tmp, { force: true });
+    throw error;
+  }
   return target;
 }
 

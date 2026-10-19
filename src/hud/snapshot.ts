@@ -13,6 +13,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
 import { GATE_STRENGTH_TIER } from '@/evidence/grading.js';
@@ -755,12 +756,17 @@ export function writeHudSnapshotSafe(
   }
 }
 
-/** Append one HUD failure to the hooks' shared failure log; never throws. */
+/**
+ * Append one HUD failure to the hooks' shared failure log and to `.paqad/logs/hooks.log`, where
+ * the other record-only hook writes (cost, High Table rows, the acceptance-criteria map) log
+ * theirs (AC-69); never throws.
+ */
 function logHudWriteError(projectRoot: string, source: string, error: unknown): void {
+  const message = error instanceof Error ? error.message : String(error);
+  appendHooksLog(projectRoot, `hud-snapshot (${source}): not written: ${message}`);
   try {
     const logs = join(projectRoot, '.paqad', 'logs');
     mkdirSync(logs, { recursive: true });
-    const message = error instanceof Error ? error.message : String(error);
     appendFileSync(
       join(logs, 'hook-failures.log'),
       `[${new Date().toISOString()}] ERROR hud-snapshot (${source}): ${message}\n`,
