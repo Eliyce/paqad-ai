@@ -1,5 +1,49 @@
 # paqad-ai
 
+## 1.99.0
+
+### Minor Changes
+
+- 00646d6: The paqad plugin for Claude Code now shows where your change stands, in a band above the prompt (#639). One line says what just happened and what comes next. Under it, the Stage row shows the eight stages from Intake to Deliver with a live clock on the one that is running, and the Ship row shows Edit, Commit, Push, PR, CI and Merge. Merge always stays yours. The band says one of nine states in words: Ready, Working, Branch warning, Needs you, Stopped, Inconclusive, Safe to merge, Needs your attention or Paused. Any open flag turns it amber, even at Safe to merge, and a pill counts the flags. Anything paqad has no record of yet reads "not yet", including the cost pill.
+
+  Type `/paqad` for the same picture as text, or `/paqad status`, `/paqad decisions`, `/paqad rules`, `/paqad receipt` or `/paqad cost`. They answer from paqad's own records and cost no model turn.
+
+  The band only shows. Every check is still one of paqad's hooks, and they block exactly as before whether the band is on, off or broken. It reads only `.paqad/`, never calls a model or the network, and starts no process.
+
+  It is on by default. To turn it off, set the plugin's `view` option to false in `/config`. It also stays away when the project was never onboarded, when paqad is turned off, in a cloud session, and on Claude Code older than 2.1.301.
+
+  The change's bundle now keeps each rule finding in `rule-run.jsonl` and each near-copy in `duplication.jsonl`, and the band counts the open ones in its flag pill.
+
+- 00646d6: The spec pipeline, its expert panel and strict adoption are now on by default (#640). On the next update, a project that never set these keys gets all three on the graduated and full lanes: the specification stage runs `paqad-ai spec pipeline`, the four standing experts (product owner, application architect, user-flow writer, QA engineer) sit at every spec, and a hand-written spec freezes only with `--manual --reason "<why>"`, which is recorded. The fast lane is unchanged: no pipeline run, no experts and no extra bundle files.
+
+  A change that is already open when you update keeps going as it was. If its spec was frozen before the update, it is not asked for the pipeline's files (`request.md`, `clarification.json`, `experts.json`) or for a pipeline record on the spec, and the completion check says so: "Spec frozen before the spec pipeline was on, so not required". If its spec is not frozen yet, it goes through the pipeline like any new change.
+
+  A project that already set any of these keys keeps its value. `paqad-ai update` never writes the new defaults into a config file.
+
+  Cost: the standing experts carry about 24k tokens of budget per spec, under a 40k ceiling by default. `paqad-ai doctor` now shows each setting and where its value came from.
+
+  To switch any of them off, add a line to `.paqad/configs/.config.*` (for the whole team) or `.paqad/.config` (just for you), or set the matching `PAQAD_*` environment variable:
+
+  - `spec_pipeline_enabled=false` turns the whole pipeline off (`PAQAD_SPEC_PIPELINE_ENABLED=false`)
+  - `spec_pipeline_experts_enabled=false` keeps the pipeline but drops the experts (`PAQAD_SPEC_PIPELINE_EXPERTS_ENABLED=false`)
+  - `spec_pipeline_adoption=warn` lets a hand-written spec freeze again (`PAQAD_SPEC_PIPELINE_ADOPTION=warn`)
+
+### Patch Changes
+
+- 00646d6: Routing gets your intent right more often, and a wrong label is easy to fix.
+
+  - `paqad-ai route set` now refuses to leave feature development only when your own session edited source this turn. Another session working in the same folder no longer blocks your correction. If no session id can be found, the correction is allowed and written to the route override log.
+  - Setting the route back to a paused workflow resumes that paused change, so no stray paused copy is left behind.
+  - Messages about the work itself, such as posting an issue, updating a draft or linking a ticket, go to project question instead of feature development. A real code request that mentions a report, a plan or a doc still goes to feature development.
+  - A subagent's report or a background task notice is never routed as if you had typed it, wherever its notice banner sits in the message.
+
+- 00646d6: Atomic file writes no longer fail now and then on Windows (#647). When another writer holds the target for a moment, Windows refuses the final rename with `EPERM`, `EACCES` or `EBUSY`. paqad now retries that rename up to five times (waits of 10, 20, 40 and 80 ms) and removes its temp file if it still gives up. macOS and Linux behave as before.
+- 00646d6: The last users of the retired changed-files cache now read git instead (#651).
+
+  - The generated `scripts/refresh-registry-diff.sh` takes its changed files from `git status` plus everything committed on the branch since it left the default branch (what `origin/HEAD` names, else `main`, else `master`). Before, it looked for a cache file nothing writes, so it always ran the full refresh. It still runs the full refresh outside git or when git reports no changes.
+  - The `diff-doc-sync` skill reads the changed files from `paqad-ai review digest` (or git) instead of the cache.
+  - The unused `track-file-changes.sh` hook script, which no hook config ever ran, is gone.
+
 ## 1.98.2
 
 ### Patch Changes
