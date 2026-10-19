@@ -18,6 +18,11 @@ The agent invokes `npx paqad-ai checks run` mid-turn, the same pattern as `paqad
 **Claude Code** a red report also blocks the completion verdict; on **Codex/Gemini** the report is
 recorded and read at completion; on advisory hosts the verb still runs but nothing blocks.
 
+The report goes into the bundle of the session the verb runs under (`src/checks/report-target.ts`),
+resolved in the same order as every other verb: the first non-blank of `SE_SESSION`, then
+`CLAUDE_SESSION_ID`, then the cached session id (#672). A stage agent running `checks run` with the
+orchestrator's `SE_SESSION` therefore reports into the orchestrator's change, not its own.
+
 Before running, the agent runs `npx paqad-ai checks plan`; if it prints `test: sequential (unknown)`
 it runs the **test-runner-discovery** skill and records the result with `npx paqad-ai checks
 record-runner <file>`, so the next run is fast. paqad never asks the developer to add a flag or

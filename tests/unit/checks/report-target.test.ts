@@ -18,19 +18,25 @@ import {
   writeChecksReportForFeature,
 } from '@/checks/report-target.js';
 import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 
 // Issue #528 — the bundle-vs-global fallback resolution shared by the check writer and both
 // readers. A feature-development session writes/reads the per-feature bundle; a session with
 // no active feature bundle falls back to the global path.
 describe('checks report target (#528)', () => {
   let root: string;
+  const savedSeSession = process.env.SE_SESSION;
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-checks-target-'));
+    // A real session's SE_SESSION must not steer these tests.
+    delete process.env.SE_SESSION;
   });
 
   afterEach(() => {
     delete process.env.CLAUDE_SESSION_ID;
+    if (savedSeSession === undefined) delete process.env.SE_SESSION;
+    else process.env.SE_SESSION = savedSeSession;
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -53,6 +59,34 @@ describe('checks report target (#528)', () => {
     it('returns the active bundle dir when one is open', () => {
       process.env.CLAUDE_SESSION_ID = 'ses-active';
       const dir = resolveActiveFeature(root, 'ses-active', { title: 'thing', issue: '528' });
+      expect(activeFeatureDirOrNull(root)).toBe(dir);
+    });
+
+    // Issue #672 (AC-2) — a stage agent runs `checks run` with the orchestrator's SE_SESSION
+    // while the host sets its own CLAUDE_SESSION_ID; the report belongs in SE_SESSION's bundle.
+    it("prefers SE_SESSION over CLAUDE_SESSION_ID, so the report lands in A's bundle", () => {
+      const dirA = resolveActiveFeature(root, 'ses-A', { title: 'change a', issue: '672' });
+      const dirB = resolveActiveFeature(root, 'ses-B', { title: 'change b', issue: '673' });
+      expect(dirA).not.toBe(dirB);
+      process.env.SE_SESSION = 'ses-A';
+      process.env.CLAUDE_SESSION_ID = 'ses-B';
+      expect(activeFeatureDirOrNull(root)).toBe(dirA);
+
+      writeChecksReportForFeature(root, activeFeatureDirOrNull(root), report(true));
+      expect(readFeatureChecks(root, dirA)?.passed).toBe(true);
+      expect(readFeatureChecks(root, dirB)).toBeNull();
+    });
+
+    it('skips a blank SE_SESSION and resolves CLAUDE_SESSION_ID', () => {
+      const dirB = resolveActiveFeature(root, 'ses-B2', { title: 'change b', issue: '672' });
+      process.env.SE_SESSION = '   ';
+      process.env.CLAUDE_SESSION_ID = 'ses-B2';
+      expect(activeFeatureDirOrNull(root)).toBe(dirB);
+    });
+
+    it('falls back to the cached session when neither variable is set', () => {
+      const dir = resolveActiveFeature(root, 'ses-cached', { title: 'cached', issue: '672' });
+      resolveSessionId(root, 'ses-cached'); // seeds the single-slot session cache
       expect(activeFeatureDirOrNull(root)).toBe(dir);
     });
   });

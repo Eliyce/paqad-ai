@@ -36,9 +36,22 @@ export function activeFeatureDirOrNull(projectRoot: string): string | null {
   }
 }
 
-/** The session the checks verbs run under, the one {@link activeFeatureDirOrNull} resolves. */
+/**
+ * The session the checks verbs run under, the one {@link activeFeatureDirOrNull} resolves. Issue
+ * #672 — the same order every other verb uses: the first non-blank of `SE_SESSION` (the
+ * orchestrator session a stage agent records under) then `CLAUDE_SESSION_ID`, else the cache.
+ */
 function checksSessionId(projectRoot: string): string {
-  return resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
+  return resolveSessionId(projectRoot, explicitSessionHint());
+}
+
+/** The first non-blank of `SE_SESSION` and `CLAUDE_SESSION_ID`, or null when neither is set. */
+function explicitSessionHint(): string | null {
+  for (const candidate of [process.env.SE_SESSION, process.env.CLAUDE_SESSION_ID]) {
+    const cleaned = candidate?.trim();
+    if (cleaned) return cleaned;
+  }
+  return null;
 }
 
 /**
