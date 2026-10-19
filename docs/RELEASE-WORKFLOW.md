@@ -14,7 +14,7 @@ the only document a maintainer needs to ship code.
 You: write code in a branch
 You: pnpm changeset → pick bump → write summary
 You: commit + push + open PR
-GitHub: CI runs (lint, types, tests, build × 4 matrix legs)
+GitHub: CI runs (lint, types, sharded tests, build; 4 required checks)
 You: review CI, address feedback
 You: squash-merge the PR
 GitHub: changesets bot opens "chore(release): version packages" PR
@@ -185,6 +185,45 @@ when something needs to change.
 - Workflow: [`.github/workflows/ci.yml`](../.github/workflows/ci.yml)
 - Triggers: `pull_request` to `main`, `push` to `main`
 - Matrix: Node 22 (ubuntu, macOS, windows), Node 24 (ubuntu)
+
+#### How the test run is sharded (issue #654)
+
+CI splits the test run so no OS has to run the whole suite in one job. Four kinds of job:
+
+- **Static checks** run once on ubuntu: typecheck, lint, format, graph-ui tests, build and
+  the plugin checks.
+- **Test shards** split each OS's vitest files: four shards on Windows, three on each of the
+  others. `tests/shared/duration-sequencer.ts` balances them by the per-OS timings in
+  `tests/shard-timings.json`, longest file first. A missing or broken timings file falls back
+  to vitest's own split. Stale timings only make the shards less even; no test is skipped or
+  run twice. Each shard sets `PAQAD_TEST_SHARD=1`, which turns the coverage floors off for
+  that shard only.
+- **Merge** runs once per OS, on that same OS. It checks every shard sent a report, merges
+  them, and enforces the coverage floors on the whole result. It then runs
+  `scripts/check-shard-budget.mjs`.
+- **Gate** jobs carry the four required check names (`Node 22 / ubuntu-latest` and so on).
+  Each is red unless static, every shard and every merge succeeded, so a failing shard on any
+  OS turns all four gates red. Look for the red `Shard i/n` job to find the failure.
+
+Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
+
+**Budget warnings.** `check-shard-budget.mjs` prints a GitHub warning when an OS's slowest
+shard runs over 270 s or a single test file over 90 s. It never fails the build. When it
+fires:
+
+1. Download that OS's `blob-…` artifacts from the CI run and find the
+   `.vitest-durations/durations-*.json` files.
+2. Run
+   `node scripts/update-shard-timings.mjs --platform <win32|linux|darwin> --report <file> [--report <file> ...]`.
+   Only that OS's block of `tests/shard-timings.json` changes. You can also make one report
+   locally with `pnpm vitest run --reporter=json --outputFile=<file>` and leave out
+   `--platform` to use your own OS.
+3. Commit `tests/shard-timings.json`. CI never commits it for you.
+
+If refreshing is not enough, add one shard for that OS in `.github/workflows/ci.yml` (in both
+the `test` matrix and the `merge` job's `total`). A single file over budget needs splitting,
+the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.test.ts` to
+`matrix.g5.test.ts`.
 
 ### Release
 
