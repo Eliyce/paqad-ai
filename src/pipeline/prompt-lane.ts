@@ -407,6 +407,19 @@ function narrateRoute(
 const OPEN_CHANGE_STAGE_REASON = 'a step of the change already open in this session';
 
 /**
+ * The generic re-routes a stage name may override (issue #669). "run documentation_sync" reads
+ * as a docs, question or no-workflow prompt to the stateless classifier, so during an open
+ * change it stays a step of that change. A specialist workflow (pentest, design-test,
+ * codebase-health, discovery, site-map, rules-analyze, root-cause-analysis, module-documentation)
+ * is a deliberate detour, so "run a security review" still pauses the change for a pentest.
+ */
+const STAGE_NAME_OVERRIDABLE_ROUTES: ReadonlySet<RoutedWorkflow> = new Set<RoutedWorkflow>([
+  'documentation-update',
+  'project-question',
+  'no-workflow',
+]);
+
+/**
  * A feature-development stage name as a whole word, in its underscore form
  * (`documentation_sync`) or with a space (`documentation sync`), from {@link STAGE_ORDER}.
  */
@@ -492,10 +505,11 @@ export async function runPromptRouteSeam(
   const prior = readWorkflowState(input.projectRoot, sessionId);
   // Issue #669 (cause 2b) — "run documentation_sync" during an open change is a step of that
   // change, not a detour to another workflow. The classifier stays stateless; the rule lives
-  // here, where the session's own state is known.
+  // here, where the session's own state is known. Only a generic re-route is overridden, never
+  // a specialist workflow, and only this session's own route or bundle counts as open.
   if (
     slashName === null &&
-    !isFeatureDevelopmentRoute(routed) &&
+    STAGE_NAME_OVERRIDABLE_ROUTES.has(routed) &&
     namesStageOfOpenChange(input.projectRoot, sessionId, prior, input.request)
   ) {
     routed = 'feature-development';

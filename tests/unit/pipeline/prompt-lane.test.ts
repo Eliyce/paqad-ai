@@ -801,6 +801,64 @@ describe('runPromptRouteSeam — a stage named during an open change (issue #669
     expect((await route('run documentation_sync')).routed).toBe('documentation-update');
   });
 
+  it('never overrides a specialist workflow, even when the prompt names a stage', async () => {
+    const sessionId = featureDevActive();
+    const specialists: Array<[ClassificationResult['workflow'], string]> = [
+      ['pentest', 'run a security review of the change'],
+      ['codebase-health', 'run a health review'],
+      ['site-map', 'map the app for the review'],
+      ['root-cause-analysis', 'root cause the checks failure'],
+      ['discovery', 'start planning a new idea'],
+    ];
+    for (const [workflow, prompt] of specialists) {
+      writeWorkflowState(root, sessionId, {
+        active: { workflow: 'feature-development', changeKey: 'sess#1', lane: 'full' },
+        paused: [],
+      });
+      const result = await runPromptRouteSeam(
+        { projectRoot: root, request: prompt, sessionId: SESSION, adapter: ADAPTER },
+        { classify: async () => classificationWith(workflow) },
+      );
+      expect(result.routed, prompt).not.toBe('feature-development');
+      expect(readWorkflowState(root, sessionId).paused, prompt).toMatchObject([
+        { workflow: 'feature-development', lane: 'full' },
+      ]);
+    }
+  });
+
+  it('overrides only the generic re-routes: docs, a question or no workflow', async () => {
+    const sessionId = featureDevActive();
+    const generic: Array<ClassificationResult['workflow']> = [
+      'documentation-update',
+      'project-question',
+      'planning',
+    ];
+    for (const workflow of generic) {
+      const result = await runPromptRouteSeam(
+        {
+          projectRoot: root,
+          request: 'run the review stage',
+          sessionId: SESSION,
+          adapter: ADAPTER,
+        },
+        { classify: async () => classificationWith(workflow) },
+      );
+      expect(result.routed, workflow).toBe('feature-development');
+    }
+    expect(readWorkflowState(root, sessionId).paused).toEqual([]);
+  });
+
+  it("another session's open bundle never keeps this session on feature-development", async () => {
+    const other = resolveSessionId(root, 'sess-someone-else');
+    openFeatureChange(root, other, { adapter: ADAPTER, title: 'their change', issue: '669' });
+    writeWorkflowState(root, other, {
+      active: { workflow: 'feature-development', lane: 'full' },
+      paused: [],
+    });
+
+    expect((await route('run documentation_sync')).routed).toBe('documentation-update');
+  });
+
   it('AC-11: with an open change an unrelated question still detours', async () => {
     const sessionId = featureDevActive();
 
