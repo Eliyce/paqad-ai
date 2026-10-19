@@ -11,10 +11,11 @@
 //     so a truncated file can never read as complete (INV-2).
 // This module is the ONLY writer of `.paqad/site-map/progress.json` (INV-3).
 
-import { readFile, rename, rm } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { renameWithRetry } from '@/core/fs/atomic-rename.js';
 import type {
   SiteMapProgressFile,
   SiteMapProgressSummary,
@@ -139,7 +140,7 @@ export async function saveProgress(
   tmpSeq += 1;
   const tmp = `${target}.${process.pid}.${tmpSeq}.tmp`;
   await writeJsonFile(tmp, progress);
-  await rename(tmp, target);
+  await renameWithRetry(tmp, target);
 }
 
 /**

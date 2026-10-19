@@ -22,7 +22,8 @@ import { createSpecCommand } from '@/cli/commands/spec.js';
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
-import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
+import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { openRagConversation } from '@/rag-ledger/recorder.js';
 import { writePendingLane } from '@/stage-evidence/pending-lane.js';
@@ -37,6 +38,7 @@ import { writeVisualEvidenceManifest } from '@/visual-evidence/manifest.js';
 
 import { createVerificationContext } from '../verification/shared.fixture.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
+import { withSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
 export type OracleCase = 'M0' | 'M1' | 'M2' | 'M3' | 'M4' | 'M5';
 
@@ -199,7 +201,9 @@ export async function runBundleFixture(
   mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
   writeFileSync(
     join(root, '.paqad', 'configs', '.config.app'),
-    `${CASE_CONFIG[caseId].join('\n')}\n`,
+    // Issue #640: the spec-pipeline switches default on, so every switch a case leaves unset is
+    // pinned off here, keeping the oracle table's meaning (a case names what it turns on).
+    `${withSpecPipelineOff(CASE_CONFIG[caseId]).join('\n')}\n`,
     'utf8',
   );
   writeFileSync(
@@ -267,11 +271,12 @@ export async function runBundleFixture(
   const previousSession = process.env.SE_SESSION;
   process.env.SE_SESSION = RUN_SESSION;
   try {
-    // The prompt seam stashes the lane for the change-open (issue #324). This fixture runs a
-    // small, inline single-context change — the fast lane — so it stashes `fast` before opening.
-    // A resolved lane keeps the completeness gate focused on the file set rather than surfacing
+    // The prompt seam stashes the lane for the change-open (issue #324). A case without the
+    // pipeline runs a small, inline single-context change, the fast lane. The spec pipeline runs
+    // only off the fast lane (issue #640, FR-13), so a pipeline case is a full-lane change. A
+    // resolved lane keeps the completeness gate focused on the file set rather than surfacing
     // the unresolved-lane isolation note (issue #602, FR-4).
-    writePendingLane(root, RUN_SESSION, 'fast');
+    writePendingLane(root, RUN_SESSION, pipelineOn(caseId) ? 'full' : 'fast');
     // 1. Open the change.
     await cli(
       createStageCommand,
@@ -452,6 +457,19 @@ export async function runBundleFixture(
     // The passing verification closes the change and releases the active pointer, so take
     // the bundle folder name before it runs.
     const dir = dirNow();
+    if (pipelineOn(caseId)) {
+      // A full-lane change on a subagent-capable host dispatches its stages to stage agents;
+      // each one's SubagentStop appends a stage-agent row (issue #573). Record the one this
+      // inline fixture stands in for, so the isolation proof is present.
+      appendFeatureStageRow(root, RUN_SESSION, dir, {
+        kind: STAGE_AGENT_KIND,
+        stage: 'development',
+        agent: 'paqad-development',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      });
+    }
     options.beforeVerification?.(root, dir);
     await runRepositoryVerification({
       projectRoot: root,

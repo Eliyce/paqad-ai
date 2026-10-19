@@ -5,7 +5,9 @@ import { dirname, join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
+import { buildBundleCompletenessConfig } from '@/verification/repository/bundle-completeness-config.js';
 import { seedFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import {
   chatRagPath,
   featureDir,
@@ -38,6 +40,7 @@ const UNTITLED = 'change-01JABCDEFGHJKMNPQRSTVWXYZ1';
 
 /** Config where only the `always` files are required (every flag off). */
 const ONLY_ALWAYS: BundleCompletenessConfig = {
+  lane: 'full',
   ruleComplianceOn: false,
   metricsEnabled: false,
   duplicationOn: false,
@@ -49,6 +52,7 @@ const ONLY_ALWAYS: BundleCompletenessConfig = {
   specPipelineStrict: false,
   specPipelineEnabled: false,
   expertsEnabled: false,
+  specFrozenBeforePipeline: false,
   stageIsolationExpected: false,
   stageIsolationUnresolved: false,
 };
@@ -368,6 +372,7 @@ describe('every flag on (no flag-off skip note)', () => {
     specPipelineStrict: false,
     specPipelineEnabled: true,
     expertsEnabled: true,
+    specFrozenBeforePipeline: false,
     stageIsolationExpected: false,
     stageIsolationUnresolved: false,
   };
@@ -653,6 +658,176 @@ describe('spec pipeline files (issue #581, M2/M3/M5)', () => {
     expect(run(root, ONLY_ALWAYS)!.detail).not.toContain('decisions.json');
     write(root, featureFilePath(DIR, 'decisions'), '{}');
     expect(run(root, ONLY_ALWAYS)!.status).toBe('pass');
+  });
+});
+
+// Issue #640 (FR-13, AC-20) — the pipeline files and the strict provenance check apply only on
+// the graduated and full lanes (an unresolved lane counts as full). The lane comes from the
+// change's own feature.json through the shared builder, with the pipeline on by default.
+describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
+  const LANE_DIR = '640-lane-01JABCDEFGHJKMNPQRSTVWXYZ2';
+
+  /** The real builder's lane and pipeline flags (nothing set, so the #640 defaults apply). */
+  function configFor(root: string, lane: 'fast' | 'graduated' | 'full' | null) {
+    seedFeatureRecord(root, LANE_DIR, { adapter: 'claude-code', sessionId: 'ses_1', lane });
+    const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
+    expect(built.lane).toBe(lane);
+    return {
+      ...ONLY_ALWAYS,
+      lane: built.lane,
+      specPipelineEnabled: built.specPipelineEnabled,
+      specPipelineStrict: built.specPipelineStrict,
+      expertsEnabled: built.expertsEnabled,
+    };
+  }
+  const run = (root: string, config: BundleCompletenessConfig) =>
+    bundleCompletenessGate({
+      ...base,
+      projectRoot: root,
+      dirName: LANE_DIR,
+      mode: 'strict',
+      config,
+    });
+
+  it('passes a fast-lane change with no request.md, clarification.json or experts.json', () => {
+    const root = tempRoot();
+    const config = configFor(root, 'fast');
+    expect([config.specPipelineEnabled, config.expertsEnabled]).toEqual([true, true]);
+    writeAlwaysFiles(root, LANE_DIR);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).toContain(
+      'Not required on the fast lane: clarification.json, experts.json, request.md.',
+    );
+    expect(gate!.detail).not.toContain('Skipped (flag off): clarification.json');
+  });
+
+  it.each([
+    ['graduated', 'graduated'],
+    ['unresolved', null],
+  ] as const)('fails a %s-lane change without them, naming each missing file', (_n, lane) => {
+    const root = tempRoot();
+    const config = configFor(root, lane);
+    writeAlwaysFiles(root, LANE_DIR);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('request.md (run: paqad-ai spec pipeline start)');
+    expect(gate!.detail).toContain('clarification.json');
+    expect(gate!.detail).toContain('experts.json');
+  });
+
+  /** The real builder's flags read after the spec is frozen (issue #640 rollout). */
+  function frozenConfigFor(root: string, lane: 'fast' | 'graduated', spec: unknown) {
+    seedFeatureRecord(root, LANE_DIR, { adapter: 'claude-code', sessionId: 'ses_1', lane });
+    writeAlwaysFiles(root, LANE_DIR);
+    write(root, featureFilePath(LANE_DIR, 'specification'), JSON.stringify(spec));
+    const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
+    return {
+      ...ONLY_ALWAYS,
+      lane: built.lane,
+      specPipelineEnabled: built.specPipelineEnabled,
+      specPipelineStrict: built.specPipelineStrict,
+      expertsEnabled: built.expertsEnabled,
+      specFrozenBeforePipeline: built.specFrozenBeforePipeline,
+    };
+  }
+
+  it('passes a graduated change whose spec was frozen before the pipeline was on', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'graduated', { spec_file: 'spec.md' });
+    expect(config.specFrozenBeforePipeline).toBe(true);
+    expect(config.specPipelineStrict).toBe(true);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).toContain(
+      'Spec frozen before the spec pipeline was on, so not required: clarification.json, experts.json, request.md.',
+    );
+    expect(gate!.detail).not.toMatch(/spec_pipeline_adoption=strict/);
+  });
+
+  it('still names the fast lane, not the switch, for a fast-lane spec with no pipeline record', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'fast', { spec_file: 'spec.md' });
+    const gate = run(root, config);
+    expect(gate!.status).toBe('pass');
+    expect(gate!.detail).toContain('Not required on the fast lane:');
+    expect(gate!.detail).not.toContain('Spec frozen before the spec pipeline was on');
+  });
+
+  // A fast-lane freeze records that the fast lane skipped the pipeline. On the fast lane it needs
+  // nothing; once the lane is raised the files are owed, and only a re-freeze can write them.
+  it('passes a fast-lane freeze on the fast lane, then asks for a re-freeze once the lane is raised', () => {
+    const root = tempRoot();
+    const fastSpec = { spec_file: 'spec.md', pipeline: { produced: false, skipped: 'fast-lane' } };
+    const fast = frozenConfigFor(root, 'fast', fastSpec);
+    expect(fast.specFrozenBeforePipeline).toBe(false);
+    const fastGate = run(root, fast);
+    expect(fastGate!.status).toBe('pass');
+    expect(fastGate!.detail).toContain('Not required on the fast lane:');
+
+    // `paqad-ai lane set graduated` on the same bundle.
+    recordChangeConstants(root, LANE_DIR, { lane: 'graduated' });
+    const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
+    expect(built.lane).toBe('graduated');
+    expect(built.specFrozenBeforePipeline).toBe(false);
+    const raised = {
+      ...fast,
+      lane: built.lane,
+      specFrozenBeforePipeline: built.specFrozenBeforePipeline,
+    };
+    const gate = run(root, raised);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain(
+      'request.md (run: the lane was raised after a fast-lane freeze: re-freeze the spec through the spec pipeline',
+    );
+    expect(gate!.detail).toContain('clarification.json (run: the lane was raised');
+    // Strict adoption (the default) names the re-freeze too, never the pipeline being off.
+    expect(gate!.detail).toContain('specification.json was frozen on the fast lane');
+    expect(gate!.detail).not.toContain('Spec frozen before the spec pipeline was on');
+  });
+
+  it('fails a pipeline-era change without the pipeline files, naming each one', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'graduated', { pipeline: { produced: true } });
+    expect(config.specFrozenBeforePipeline).toBe(false);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('request.md (run: paqad-ai spec pipeline start)');
+    expect(gate!.detail).toContain('clarification.json');
+  });
+
+  it('treats a strict --manual --reason freeze as before: recorded, files still required', () => {
+    const root = tempRoot();
+    const config = frozenConfigFor(root, 'graduated', {
+      pipeline: { produced: false, manual_reason: 'hand-written hotfix spec' },
+    });
+    expect(config.specFrozenBeforePipeline).toBe(false);
+    const gate = run(root, config);
+    expect(gate!.status).toBe('fail');
+    expect(gate!.detail).toContain('request.md');
+    // The manual reason satisfies strict provenance, so only the files are named.
+    expect(gate!.detail).not.toMatch(/spec_pipeline_adoption=strict/);
+    write(root, featureFilePath(LANE_DIR, 'request'), '# Request\n');
+    write(root, featureFilePath(LANE_DIR, 'clarification'), '{}');
+    write(root, featureFilePath(LANE_DIR, 'experts'), '{}');
+    expect(run(root, config)!.status).toBe('pass');
+  });
+
+  it('applies the strict provenance check off the fast lane only', () => {
+    const root = tempRoot();
+    writeAlwaysFiles(root, DIR); // specification.json records no provenance
+    const strict = { ...ONLY_ALWAYS, specPipelineStrict: true };
+    const gateFor = (lane: BundleCompletenessConfig['lane']) =>
+      bundleCompletenessGate({
+        ...base,
+        projectRoot: root,
+        dirName: DIR,
+        mode: 'strict',
+        config: { ...strict, lane },
+      });
+    expect(gateFor('fast')!.status).toBe('pass');
+    expect(gateFor('graduated')!.detail).toMatch(/spec_pipeline_adoption=strict/);
+    expect(gateFor(null)!.status).toBe('fail');
   });
 });
 

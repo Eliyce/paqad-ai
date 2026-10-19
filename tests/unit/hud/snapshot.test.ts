@@ -11,10 +11,19 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
 import { isHudRefreshVerb, refreshHudSnapshot } from '@/hud/refresh.js';
+import type { DuplicationReport } from '@/duplication/report.js';
+import type { DuplicationFinding } from '@/duplication/types.js';
+import {
+  appendDuplicationRun,
+  appendRuleRun,
+  BUNDLE_FINDINGS_CAP,
+} from '@/feature-evidence/bundle-ledgers.js';
 import {
   buildHudSnapshot,
+  computeHudFlags,
   computeHudHeadline,
   HUD_SNAPSHOT_SCHEMA,
+  type HudFindingsScan,
   writeHudSnapshot,
   writeHudSnapshotSafe,
 } from '@/hud/snapshot.js';
@@ -142,6 +151,7 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
       state: 'complete',
       proof_file: 'plan-490.json',
       mandatory: true,
+      duration_unreliable: false,
     });
     expect(snapshot.stages.find((stage) => stage.stage === 'ticket_intake')?.mandatory).toBe(false);
     expect(snapshot.flags.map((flag) => flag.id)).toEqual(['rules-not-loaded']);
@@ -152,6 +162,10 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     );
     expect(expected['feature.json']).toBe('always');
     expect(expected['checks.json']).toBe('if present');
+    // Issue #640 (FR-13): the pipeline is on by default, but the fast lane never needs its files.
+    expect(expected['request.md']).toBe('off here');
+    expect(expected['clarification.json']).toBe('off here');
+    expect(expected['experts.json']).toBe('off here');
     expect(snapshot.evidence_expected.find((e) => e.file === 'feature.json')?.present).toBe(true);
   });
 
@@ -209,6 +223,28 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     });
     expect(snapshot.isolation?.status).toBe('expected');
     expect(snapshot.flags.map((flag) => flag.id)).toContain('isolation-missing');
+    // Issue #640 (FR-13): on the graduated lane the default-on pipeline needs its files.
+    const expected = Object.fromEntries(
+      snapshot.evidence_expected.map((entry) => [entry.file, entry.expectation]),
+    );
+    expect(expected['request.md']).toBe('on here');
+    expect(expected['experts.json']).toBe('on here');
+  });
+
+  it('reads the pipeline files as off for a spec frozen before the pipeline was on (#640)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-483';
+    const dir = openChange(root, S, 'graduated', 'ORD-483 older open change');
+    writeBundleJson(root, dir, 'specification', { spec_file: 'spec.md' });
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    const expected = Object.fromEntries(
+      snapshot.evidence_expected.map((entry) => [entry.file, entry.expectation]),
+    );
+    expect(expected['request.md']).toBe('off here');
+    expect(expected['clarification.json']).toBe('off here');
+    expect(expected['experts.json']).toBe('off here');
   });
 
   it('ORD-501 full lane: Safe to merge with an open flag reads amber, never green (Q19)', () => {
@@ -292,6 +328,20 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     expect(snapshot.flags.map((flag) => flag.id)).toContain('high-table-skipped');
   });
 
+  it('a fast-lane freeze shows no High Table at all, not a skipped one (issue #640)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-fast-freeze';
+    const dir = openChange(root, S, 'fast', 'ORD-778 fast spec');
+    writeBundleJson(root, dir, 'specification', {
+      pipeline: { produced: false, skipped: 'fast-lane' },
+    });
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.table).toBeNull();
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('high-table-skipped');
+  });
+
   it('a paused change with nothing active reads paused, with no stages or ship', () => {
     const root = onboardedRoot();
     const S = 'ses-paused';
@@ -333,6 +383,185 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
   });
 });
 
+describe('findings kept in the bundle (#639 Part 12)', () => {
+  const RULE_FINDING = {
+    rule_id: 'no-raw-sql',
+    file: 'src/orders/sync.ts',
+    line: 42,
+    message: 'Use the query builder, not raw SQL.',
+    severity: 'high',
+  };
+
+  function nearCopy(i: number): DuplicationFinding {
+    return {
+      file: `src/orders/phone${i}.ts`,
+      line_range: { start: 3, end: 14 },
+      matched_file: 'src/customers/phone.ts',
+      matched_symbol: 'normalizePhone',
+      matched_line_range: { start: 8, end: 19 },
+      similarity: 0.94,
+      matched_callers: 6,
+      corroborated: false,
+      kind: 'deterministic',
+      message: 'near copy',
+    };
+  }
+
+  function duplicationReport(findings: DuplicationFinding[]): DuplicationReport {
+    return {
+      schema_version: 1,
+      generated_at: '2026-10-18T08:58:00.000Z',
+      mode: 'warn',
+      similarity_threshold: 0.9,
+      min_lines: 8,
+      elapsed_ms: 3,
+      findings,
+      counts: { deterministic: findings.length, heuristic: 0 },
+      blocking: false,
+    };
+  }
+
+  /** Gate 3 (AC-30): a scan's kept findings plus its overflow equal its counts. */
+  function expectCountsMatchFindings(scan: HudFindingsScan<unknown>): void {
+    if (scan.status === 'did not run') {
+      expect(scan.total).toBeNull();
+      expect(scan.items).toBeNull();
+      return;
+    }
+    expect(scan.items!.length + scan.overflow).toBe(scan.total);
+  }
+
+  it('names a rule finding and a near-copy in the snapshot, each raising a flag (AC-26, AC-27)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-482-findings';
+    openChange(root, S, 'graduated', 'ORD-482 keep copied phone');
+    appendRuleRun(root, S, {
+      kind: 'findings',
+      counts: { deterministic: 1, heuristic: 0, skipped: 0 },
+      blocking: true,
+      findings: [RULE_FINDING],
+    });
+    appendDuplicationRun(root, S, duplicationReport([nearCopy(1)]));
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.findings?.rules).toMatchObject({
+      status: 'open',
+      total: 1,
+      blocking: true,
+      from_cache: false,
+      items: [RULE_FINDING],
+      overflow: 0,
+    });
+    expect(snapshot.findings?.rules.recorded_at).toEqual(expect.any(String));
+    expect(snapshot.findings?.near_copies).toMatchObject({
+      status: 'open',
+      total: 1,
+      items: [
+        {
+          file: 'src/orders/phone1.ts',
+          matched_symbol: 'normalizePhone',
+          similarity: 0.94,
+          matched_callers: 6,
+        },
+      ],
+    });
+    expect(snapshot.flags).toEqual(
+      expect.arrayContaining([
+        { id: 'rule-findings', text: '1 rule finding is open.' },
+        { id: 'near-copies', text: '1 near-copy of existing code is open.' },
+      ]),
+    );
+    expectCountsMatchFindings(snapshot.findings!.rules);
+    expectCountsMatchFindings(snapshot.findings!.near_copies);
+  });
+
+  it('shows the cap and the overflow, and the count only in a flag (AC-28, AC-29)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-501-findings';
+    openChange(root, S, 'full', 'ORD-501 loyalty points');
+    const many = Array.from({ length: BUNDLE_FINDINGS_CAP + 2 }, (_, i) => ({
+      ...RULE_FINDING,
+      line: i + 1,
+    }));
+    appendRuleRun(root, S, {
+      kind: 'findings',
+      counts: { deterministic: 0, heuristic: many.length, skipped: 0 },
+      blocking: false,
+      findings: many,
+      from_cache: true,
+    });
+    const copies = Array.from({ length: BUNDLE_FINDINGS_CAP + 1 }, (_, i) => nearCopy(i));
+    appendDuplicationRun(root, S, duplicationReport(copies));
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.findings?.rules.items).toHaveLength(BUNDLE_FINDINGS_CAP);
+    expect(snapshot.findings?.rules).toMatchObject({ overflow: 2, from_cache: true, total: 52 });
+    expect(snapshot.findings?.near_copies).toMatchObject({ overflow: 1, total: 51 });
+    expect(snapshot.flags.filter((flag) => /open\.$/.test(flag.text))).toEqual([
+      { id: 'rule-findings', text: '52 rule findings are open.' },
+      { id: 'near-copies', text: '51 near-copies of existing code are open.' },
+    ]);
+    expectCountsMatchFindings(snapshot.findings!.rules);
+    expectCountsMatchFindings(snapshot.findings!.near_copies);
+  });
+
+  it('reads "did not run" for a scan with no row, never clean (Gate 3, AC-30)', () => {
+    const root = onboardedRoot();
+    const S = 'ses-490-findings';
+    openChange(root, S, 'fast', 'ORD-490 copy fix');
+    expect(buildHudSnapshot(root, S, { now: NOW }).findings).toBeNull();
+
+    // A drift row from the reconciler is not a rule scan.
+    appendRuleRun(root, S, { kind: 'drift', counts: { 'RS-X': 1 }, blocking: false });
+    appendDuplicationRun(root, S, duplicationReport([]));
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.findings?.rules).toEqual({
+      status: 'did not run',
+      total: null,
+      counts: null,
+      blocking: false,
+      from_cache: false,
+      items: null,
+      overflow: 0,
+      recorded_at: null,
+    });
+    expect(snapshot.findings?.near_copies).toMatchObject({ status: 'clean', total: 0, items: [] });
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('rule-findings');
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('near-copies');
+    expectCountsMatchFindings(snapshot.findings!.rules);
+    expectCountsMatchFindings(snapshot.findings!.near_copies);
+  });
+
+  it('keeps an older row without findings as counts only, with no items to show', () => {
+    const root = onboardedRoot();
+    const S = 'ses-old-row';
+    openChange(root, S, 'fast', 'ORD-470 older row');
+    appendRuleRun(root, S, { kind: 'findings', counts: {}, blocking: false });
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+
+    expect(snapshot.findings?.rules).toMatchObject({ status: 'clean', total: 0, items: null });
+    expect(snapshot.findings?.near_copies.status).toBe('did not run');
+  });
+});
+
+describe('computeHudFlags findings', () => {
+  it('raises no findings flag when the input has none', () => {
+    const flags = computeHudFlags({
+      stages: [],
+      gates: [],
+      rulesRecorded: true,
+      tableSkipped: false,
+      isolationStatus: 'not-applicable',
+      isolatedStages: 0,
+    });
+    expect(flags).toEqual([]);
+  });
+});
+
 describe('computeHudHeadline', () => {
   const base = {
     route: 'feature-development',
@@ -348,6 +577,7 @@ describe('computeHudHeadline', () => {
     started_at: null,
     ended_at: null,
     duration_ms: null,
+    duration_unreliable: false,
     agent: null,
     proof_file: null,
   });

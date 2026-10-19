@@ -2,8 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   BUNDLE_MANIFEST,
+  FAST_LANE_REFREEZE_HINT,
   isBundleFileRequired,
+  isSpecFrozenBeforePipeline,
+  isSpecFrozenOnFastLane,
+  laneRunsSpecPipeline,
   requiredBundleFiles,
+  specPipelineApplies,
+  specPipelineStrictApplies,
   validateBundleFileContent,
   readSpecAdoption,
   validateSpecificationAdoption,
@@ -13,6 +19,7 @@ import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
 
 /** All flags on — every predicate-required file is required. */
 const ALL_ON: BundleCompletenessConfig = {
+  lane: 'full',
   ruleComplianceOn: true,
   metricsEnabled: true,
   duplicationOn: true,
@@ -24,12 +31,14 @@ const ALL_ON: BundleCompletenessConfig = {
   specPipelineStrict: true,
   specPipelineEnabled: true,
   expertsEnabled: true,
+  specFrozenBeforePipeline: false,
   stageIsolationExpected: true,
   stageIsolationUnresolved: false,
 };
 
 /** All flags off — only the `always` files are required. */
 const ALL_OFF: BundleCompletenessConfig = {
+  lane: 'full',
   ruleComplianceOn: false,
   metricsEnabled: false,
   duplicationOn: false,
@@ -41,6 +50,7 @@ const ALL_OFF: BundleCompletenessConfig = {
   specPipelineStrict: false,
   specPipelineEnabled: false,
   expertsEnabled: false,
+  specFrozenBeforePipeline: false,
   stageIsolationExpected: false,
   stageIsolationUnresolved: false,
 };
@@ -72,9 +82,31 @@ describe('validateSpecificationAdoption', () => {
     expect(
       readSpecAdoption({ provenance: { pipeline_produced: false, manual_reason: 'r' } }),
     ).toEqual({ produced: false, manual_reason: 'r' });
+    expect(readSpecAdoption({ pipeline: { produced: false, skipped: 'fast-lane' } })).toEqual({
+      produced: false,
+      fast_lane: true,
+    });
+    expect(readSpecAdoption({ pipeline: { produced: false, skipped: 'other' } })).toEqual({
+      produced: false,
+    });
     expect(readSpecAdoption({ pipeline: null })).toBeNull();
     expect(readSpecAdoption(null)).toBeNull();
     expect(readSpecAdoption('x')).toBeNull();
+  });
+
+  // Issue #640 — a fast-lane freeze records that the fast lane skipped the pipeline, so it is not
+  // a pre-pipeline spec, and the strict check (only reached off the fast lane) asks for a re-freeze.
+  it('reads a fast-lane freeze as recorded, not pre-pipeline, and asks for a re-freeze', () => {
+    const fast = { pipeline: { produced: false, skipped: 'fast-lane' } };
+    expect(isSpecFrozenBeforePipeline(fast)).toBe(false);
+    expect(isSpecFrozenOnFastLane(fast)).toBe(true);
+    expect(isSpecFrozenOnFastLane({ pipeline: { produced: false } })).toBe(false);
+    expect(isSpecFrozenOnFastLane({ spec_file: 'spec.md' })).toBe(false);
+    expect(isSpecFrozenOnFastLane(null)).toBe(false);
+    const failure = validateSpecificationAdoption(JSON.stringify(fast));
+    expect(failure.ok).toBe(false);
+    expect(failure.error).toContain(FAST_LANE_REFREEZE_HINT);
+    expect(failure.error).toMatch(/lane was raised after a fast-lane freeze/);
   });
 
   it('passes a pipeline-produced spec', () => {
@@ -298,5 +330,78 @@ describe('the #581 M0-M5 required file sets', () => {
     const all = BUNDLE_MANIFEST.map((entry) => entry.file);
     expect(all).not.toContain('specification.md');
     expect(all).not.toContain('context-efficiency.jsonl');
+  });
+});
+
+// Issue #640 (FR-13) — the spec-pipeline files and the strict provenance check apply only on the
+// graduated and full lanes; an unresolved lane fails safe to full; the fast lane never needs them.
+describe('lane-aware spec-pipeline requiredness (issue #640, FR-13)', () => {
+  const PIPELINE_FILES = ['request.md', 'clarification.json', 'experts.json'];
+  const pipelineFilesFor = (config: BundleCompletenessConfig): string[] =>
+    requiredBundleFiles(config)
+      .map((entry) => entry.file)
+      .filter((file) => PIPELINE_FILES.includes(file))
+      .sort();
+
+  it.each([
+    ['graduated', 'graduated'],
+    ['full', 'full'],
+    ['unresolved (null)', null],
+  ] as const)('requires the pipeline files on the %s lane', (_name, lane) => {
+    expect(pipelineFilesFor({ ...ALL_ON, lane })).toEqual([...PIPELINE_FILES].sort());
+    expect(specPipelineStrictApplies({ ...ALL_ON, lane })).toBe(true);
+  });
+
+  it('never requires them on the fast lane, even with every flag on (INV-18)', () => {
+    const fast: BundleCompletenessConfig = { ...ALL_ON, lane: 'fast' };
+    expect(pipelineFilesFor(fast)).toEqual([]);
+    expect(specPipelineApplies(fast)).toBe(false);
+    expect(specPipelineStrictApplies(fast)).toBe(false);
+    // Everything else the flags turn on is still required on the fast lane.
+    expect(requiredBundleFiles(fast).length).toBe(requiredBundleFiles(ALL_ON).length - 3);
+  });
+
+  it('does not ask a spec frozen before the pipeline was on for its files (issue #640)', () => {
+    const preSwitch: BundleCompletenessConfig = { ...ALL_ON, specFrozenBeforePipeline: true };
+    expect(pipelineFilesFor(preSwitch)).toEqual([]);
+    expect(specPipelineApplies(preSwitch)).toBe(false);
+    expect(specPipelineStrictApplies(preSwitch)).toBe(false);
+  });
+
+  it('keeps the pipeline files off on every lane when the pipeline is off', () => {
+    for (const lane of ['fast', 'graduated', 'full', null] as const) {
+      expect(pipelineFilesFor({ ...ALL_OFF, lane })).toEqual([]);
+      expect(specPipelineStrictApplies({ ...ALL_OFF, lane })).toBe(false);
+    }
+  });
+
+  it('treats only the fast lane as one that skips the pipeline', () => {
+    expect(laneRunsSpecPipeline('fast')).toBe(false);
+    expect(laneRunsSpecPipeline('graduated')).toBe(true);
+    expect(laneRunsSpecPipeline('full')).toBe(true);
+    expect(laneRunsSpecPipeline(null)).toBe(true);
+    expect(laneRunsSpecPipeline(undefined)).toBe(true);
+  });
+});
+
+// Issue #640 — a spec frozen while the pipeline was off carries no pipeline record at all.
+describe('isSpecFrozenBeforePipeline', () => {
+  it('reads a frozen record with no pipeline or provenance section as pre-switch', () => {
+    expect(isSpecFrozenBeforePipeline({ spec_file: 'spec.md', spec_hash: 'abc' })).toBe(true);
+  });
+
+  it('never reads a record that names how it was produced as pre-switch', () => {
+    expect(isSpecFrozenBeforePipeline({ pipeline: { produced: true } })).toBe(false);
+    // A hand-written spec frozen with the pipeline on (warn, or strict with --manual --reason).
+    expect(isSpecFrozenBeforePipeline({ pipeline: { produced: false } })).toBe(false);
+    expect(
+      isSpecFrozenBeforePipeline({ pipeline: { produced: false, manual_reason: 'hotfix' } }),
+    ).toBe(false);
+    expect(isSpecFrozenBeforePipeline({ provenance: { pipeline_produced: true } })).toBe(false);
+  });
+
+  it('reads no record (not frozen yet) as not pre-switch', () => {
+    expect(isSpecFrozenBeforePipeline(null)).toBe(false);
+    expect(isSpecFrozenBeforePipeline('text')).toBe(false);
   });
 });

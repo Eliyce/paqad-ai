@@ -81,9 +81,9 @@ change, so the live feature-development stage spine is untouched:
 | `plan.json` | always | `paqad-ai plan compile` |
 | `specification.json` | always | `paqad-ai spec freeze` |
 | `spec.md` | always (issue #581) | `paqad-ai spec freeze` (the signed source, header in front matter) |
-| `request.md` | `spec_pipeline_enabled` | `paqad-ai spec pipeline start` |
-| `clarification.json` | `spec_pipeline_enabled` | `paqad-ai spec pipeline` (label + questions) |
-| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` | `paqad-ai spec pipeline experts` |
+| `request.md` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline start` |
+| `clarification.json` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline` (label + questions) |
+| `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` (both on by default), graduated or full lane | `paqad-ai spec pipeline experts` |
 | `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
@@ -100,6 +100,15 @@ change, so the live feature-development stage spine is untouched:
 | `ai-bom.json` | `enterprise` + `ai_bom` | `projectFeatureReceipt` (AI-BOM) |
 | `visual-evidence.json` | checked-when-present | `paqad-ai visual-evidence run` |
 
+A `rule-run.jsonl` findings row and a `duplication.jsonl` row keep the findings themselves, not
+just their counts (issue #639, Part 12): each rule finding as `{rule_id, file, line, message,
+severity}` and each near-copy as `{file, line_range, matched_file, matched_symbol,
+matched_line_range, similarity, matched_callers, kind}`. A row keeps the first 50
+(`BUNDLE_FINDINGS_CAP`) and counts the rest in `findings_overflow`, so the kept findings plus the
+overflow equal the row's counts. A rule run served from the cache still writes a row, marked
+`from_cache: true`. A row backfilled from a cache that has no findings list writes no `findings`
+key at all, so it never reads as a clean run.
+
 No other file belongs in a bundle. `specification.md` and `context-efficiency.jsonl` are no longer written, and the retired per-feature spec scratch folder is gone.
 
 `paqad-ai evidence migrate [--dry-run] [--session <id>]` moves an old project's spec runs into their bundles. Update and onboarding run it too, every time the old folder is still there, and a failure there only prints a warning, so it can never stop an update. It carries over the request, the question round, the experts, one row per logged step, and one `spec-correction` row per old correction (a rerun adds none twice). Archived redo copies are dropped. `--session` names your own session (it defaults to `SE_SESSION`), so a change you have open is not mistaken for one another session is still writing; a change open in another session is skipped and migrated on a later run, once that session closes it or has been idle for a day.
@@ -113,7 +122,10 @@ attention), naming the file and its writer, and blocks via the Stop-hook path; `
 surfaces it as Inconclusive; `off` falls back to the deprecated (warn-only)
 `evidence_existence_gate`. A file recovered by cache backfill is reported `backfilled`
 (never a clean pass); a RAG gap is unrecoverable and reads Inconclusive; a flag-off file is
-`skipped`. No-active-bundle and non-local (CI) turns skip the gate entirely, and so does
+`skipped`. The spec-pipeline files and the strict spec-provenance check apply only on the
+graduated and full lanes (issue #640): the gate reads the change's recorded `lane` through
+the shared `buildBundleCompletenessConfig`, an unresolved lane counts as full, and on the
+fast lane the detail lists them as "not required on the fast lane". No-active-bundle and non-local (CI) turns skip the gate entirely, and so does
 any turn the session-ownership check skips (see below).
 - **Session ownership at turn end** (`src/pipeline/session-ownership.ts`, issue #582) —
   `classifyCompletionEnforcement` decides whether this session's turn is checked at all.
@@ -354,11 +366,18 @@ screen. It writes one file per session, `.paqad/session/hud/<session>.json` (sch
 `paqad.hud/2`), built only from records paqad already keeps: the routed workflow and its saved
 reason, this bundle's `feature.json`, folded stages, `experts.json`, `clarification.json`,
 `specification.json`, `evidence.jsonl` (with `GATE_STRENGTH_TIER`), `rules-loaded.json`,
-`delivery.json`, the decision folders, the bundle manifest (with the shared
+`rule-run.jsonl`, `duplication.jsonl`, `delivery.json`, the decision folders, the bundle manifest (with the shared
 `buildBundleCompletenessConfig`) and the in-session receipt. A field whose source does not
 exist yet (live High Table seats, claims, the last rule stop, push/PR/CI, cost) is `null` or
 empty, never guessed. The headline and the flags are decided in one place
 (`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+
+The `findings` field (issue #639, Part 12) comes from the change's latest `rule-run.jsonl`
+findings row and latest `duplication.jsonl` row: for each scan its status (`open`, `clean` or
+`did not run`), counts, whether it blocks, whether it came from the cache, the kept findings and
+the overflow. It is `null` when neither scan left a row. A scan with no row reads `did not run`,
+never `clean`. An open finding raises a flag (`2 rule findings are open.`, `1 near-copy of
+existing code is open.`), so the band shows findings only as a count in the flag pill.
 
 - **Who writes it.** The verbs that move a change (`decision create|resolve`, `rules load`,
   `lane set`, `route set`, `stage`, `plan compile`, `spec pipeline experts …`,
@@ -373,6 +392,40 @@ empty, never guessed. The headline and the flags are decided in one place
   stage-writer hook: about 43 ms per run.
 - **Stands down** in a project that was never onboarded and while paqad is disabled.
 - **Read it** with `paqad-ai status --hud` (text) or `--hud --format json` (the object).
+
+### The HUD band in Claude Code (issue #639, Parts 8 and 9)
+
+The plugin draws the snapshot as a band above the prompt. The mod lives in
+`runtime/claude-plugin/mod/` and is declared in `.claude-plugin/plugin.json`. It only shows and
+answers: every check stays one of the plugin's hooks in `hooks.json`, so the mod being off,
+blocked or broken changes no hook's decision. It reads only `.paqad/`, calls no model and no
+network, and starts no process.
+
+- **What the band shows.** A state word with its colour, the headline, a flag pill when flags
+  are open, and two instruments. *Stage* walks Intake, Planning, Spec, Build, Review, Checks,
+  Docs and Deliver, with a live clock on the running stage. *Ship* walks Edit, Commit, Push, PR,
+  CI and Merge, and Merge reads "stays yours" until a merge is recorded. A stage reads done only
+  when the receipt would say done: an unbacked `checks` stage is marked, not done. A field with
+  no record reads "not yet". Cost reads "not yet" until paqad counts it.
+- **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
+  Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
+  Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
+  or Inconclusive. Any open flag turns a good or neutral state amber. The words always say what
+  the colour says.
+- **When it refreshes.** On session start, prompt submit, a finished edit, an Agent call or a
+  Bash call that runs `paqad-ai`, once more shortly after a turn ends, and on a short tick
+  while a stage agent runs.
+- **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
+  `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
+  session's `<session>.receipt.md`) and `/paqad cost`. Each answer comes from files already on
+  disk, so it costs no model turn.
+- **The `view` setting.** The plugin's `userConfig.view` ("Show the paqad HUD", on by default)
+  turns the band off. Off, the mod registers nothing at all.
+- **Stand-downs.** The mod also stands down when the project was never onboarded, when the
+  session runs in the cloud (`CLAUDE_CODE_REMOTE=true`), when paqad is off for the project
+  (resolved the same way the hooks resolve it), and on Claude Code older than 2.1.301. While it
+  stands down it draws no band and reads nothing. In a project never onboarded, `/paqad` alone
+  stays, so `/paqad status` can say paqad is not active here.
 
 ## Source Footprint
 

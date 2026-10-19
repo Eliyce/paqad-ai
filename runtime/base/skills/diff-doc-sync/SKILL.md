@@ -10,7 +10,7 @@ triggers:
       - migration
 cacheable: true
 cache_key_inputs:
-  - .paqad/session/changed-files.json
+  - .paqad/session/review-digest.md
   - docs/maintainers/canonical-contract-map.md
   - docs/modules/README.md
 output_format: json
@@ -18,7 +18,7 @@ input_schema:
   changed_files:
     type: path[]
     required: true
-    description: Changed source or doc files from the current diff.
+    description: Changed source or doc files from the current diff, as listed by `paqad-ai review digest` or read from git.
   detector_script_path:
     type: path
     required: true
@@ -35,7 +35,7 @@ Use this after implementation or validation when you already know which files ch
 
 ## Inputs
 
-- Read the changed file list from `changed_files`.
+- Read the changed file list from `changed_files`. Fill it from the `Changed files` list in the header of `.paqad/session/review-digest.md` (run `paqad-ai review digest` to refresh it), or straight from git: `git status --porcelain` plus `git diff --name-only $(git merge-base HEAD main)..HEAD`.
 - Read `references/diff-sync-rules.md` for project-specific override rules before deciding whether a doc can be safely skipped.
 
 ## Procedure

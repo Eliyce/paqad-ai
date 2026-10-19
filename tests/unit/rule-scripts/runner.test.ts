@@ -8,7 +8,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { scanAndEmbedIds, assembleMap } from '@/rule-scripts/analyzer.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
-import { readReport, runRuleScripts } from '@/rule-scripts/runner.js';
+import { readReport, ruleRunFindings, runRuleScripts } from '@/rule-scripts/runner.js';
+import { readRuleRun } from '@/feature-evidence/bundle-ledgers.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 const roots: string[] = [];
 
@@ -191,5 +193,91 @@ describe('runRuleScripts', () => {
     expect(second.from_cache).toBeUndefined();
     // The whole-tree script now sees the new violation.
     expect(second.counts.deterministic).toBe(1);
+  });
+});
+
+describe('rule-run.jsonl rows (issue #639, Part 12)', () => {
+  const previousSession = process.env.SE_SESSION;
+  afterEach(() => {
+    if (previousSession === undefined) delete process.env.SE_SESSION;
+    else process.env.SE_SESSION = previousSession;
+  });
+
+  it('records each finding by name, and a cache hit still records a row (AC-26, AC-28)', () => {
+    const { root, ruleId } = setup('function f() {\n  debugger;\n}\n');
+    process.env.SE_SESSION = 'ses_rr';
+    const dir = openFeatureChange(root, 'ses_rr', {
+      adapter: 'claude-code',
+      title: 'Findings kept',
+      issue: '639',
+      ulid: '01JABCDEFGHJKMNPQRSTVWXYZ1',
+    });
+    const fresh = runRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: ['src/app.ts'],
+    });
+    const cached = runRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: ['src/app.ts'],
+    });
+    expect(cached.from_cache).toBe(true);
+    // The returned report is the cached report, unchanged apart from the cache mark.
+    expect({ ...cached, from_cache: undefined }).toEqual({ ...fresh, from_cache: undefined });
+
+    // A second identical cache hit does not grow the bundle.
+    runRuleScripts({ projectRoot: root, mode: 'strict', changedFiles: ['src/app.ts'] });
+
+    const rows = readRuleRun(root, dir) as unknown as Array<Record<string, unknown>>;
+    expect(rows).toHaveLength(2);
+    const finding = {
+      rule_id: ruleId,
+      file: 'src/app.ts',
+      line: null,
+      message: 'debugger',
+      severity: 'blocker',
+    };
+    expect(rows[0]).toMatchObject({ kind: 'findings', blocking: true, findings: [finding] });
+    expect(rows[0]).not.toHaveProperty('from_cache');
+    expect(rows[1]).toMatchObject({
+      kind: 'findings',
+      blocking: true,
+      counts: { deterministic: 1, heuristic: 0, skipped: 0 },
+      findings: [finding],
+      findings_overflow: 0,
+      from_cache: true,
+    });
+  });
+
+  it('takes findings only from scripts that ran, so the list matches the counts (AC-30)', () => {
+    const findings = ruleRunFindings({
+      generated_at: '2026-10-18T00:00:00.000Z',
+      mode: 'warn',
+      rule_files_hash: '',
+      script_files_hash: '',
+      target_files_hash: '',
+      results: [
+        {
+          rule_id: 'a',
+          script: 'a.mjs',
+          kind: 'heuristic',
+          findings: [{ file: 'x.ts', line: 3, message: 'm', severity: 'low' }],
+        },
+        { rule_id: 'b', script: 'b.mjs', kind: 'deterministic', findings: [], skipped: 'error' },
+      ],
+      counts: { deterministic: 0, heuristic: 1, skipped: 1 },
+      blocking: false,
+    });
+    expect(findings).toEqual([
+      { rule_id: 'a', file: 'x.ts', line: 3, message: 'm', severity: 'low' },
+    ]);
+  });
+
+  it('gives no findings list for a cached report without results, never an empty one', () => {
+    const partial = { counts: { deterministic: 2 }, blocking: false } as unknown as Parameters<
+      typeof ruleRunFindings
+    >[0];
+    expect(ruleRunFindings(partial)).toBeUndefined();
   });
 });

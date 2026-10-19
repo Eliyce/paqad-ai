@@ -10,10 +10,19 @@
 // asserts every FEATURE_BUNDLE_FILES key (plus report.html) has an entry here — so a new
 // file cannot be added without declaring its expectation.
 
+import type { StageLane } from '@/stage-evidence/types.js';
+
 import { FEATURE_BUNDLE_FILES, type FeatureBundleFile } from './paths.js';
 
 /** The resolved config flags a manifest `required` predicate reads. */
 export interface BundleCompletenessConfig {
+  /**
+   * Issue #640 (FR-13) — the change's recorded lane, read once by the shared builder from the
+   * bundle's own constants. The spec-pipeline files and the strict spec-provenance check apply
+   * only on the graduated and full lanes; the fast lane never needs them. An unresolved lane
+   * (null) counts as full, failing safe.
+   */
+  lane: StageLane;
   /** rule_compliance mode !== 'off'. */
   ruleComplianceOn: boolean;
   /** metrics_enabled. */
@@ -42,6 +51,15 @@ export interface BundleCompletenessConfig {
    * {@link specPipelineEnabled}: experts cannot run without the pipeline (M5, AC-21).
    */
   expertsEnabled: boolean;
+  /**
+   * Issue #640 — the change's spec was frozen while the spec pipeline was off: its
+   * specification.json exists and carries no `pipeline` (or older `provenance`) section. A
+   * change already open when the pipeline default flipped on never ran the pipeline, so its
+   * pipeline files and strict provenance are not asked of it. False when the spec is not
+   * frozen yet (a new change still needs them) and when the freeze recorded any adoption,
+   * including a `--manual --reason` freeze under strict adoption.
+   */
+  specFrozenBeforePipeline: boolean;
   /**
    * Issue #573 — whether stage isolation was EXPECTED for this change: the recorded lane
    * is graduated or full AND the recorded host adapter can dispatch subagents. Derived
@@ -104,6 +122,40 @@ export interface BundleManifestEntry {
 }
 
 /**
+ * Whether the change's lane runs the spec pipeline (issue #640, FR-13): graduated, full or
+ * unresolved (which fails safe to full). The fast lane needs no frozen spec, so it never runs
+ * the pipeline and never needs its files, whatever the config says (INV-18).
+ */
+export function laneRunsSpecPipeline(lane: StageLane | undefined): boolean {
+  return lane !== 'fast';
+}
+
+/**
+ * Whether the spec-pipeline files are required for this change: pipeline on, lane not fast,
+ * and the spec not frozen before the pipeline was on (issue #640).
+ */
+export function specPipelineApplies(config: BundleCompletenessConfig): boolean {
+  return (
+    config.specPipelineEnabled &&
+    laneRunsSpecPipeline(config.lane) &&
+    !config.specFrozenBeforePipeline
+  );
+}
+
+/**
+ * Whether the strict spec-provenance check applies to this change (issue #547 FR-10.2, lane
+ * aware since issue #640): strict adoption on, the lane not fast, and the spec not frozen
+ * before the pipeline was on.
+ */
+export function specPipelineStrictApplies(config: BundleCompletenessConfig): boolean {
+  return (
+    config.specPipelineStrict &&
+    laneRunsSpecPipeline(config.lane) &&
+    !config.specFrozenBeforePipeline
+  );
+}
+
+/**
  * The bundle manifest — every file a finished feature-development change may leave, with
  * its required-when predicate, its writer, and its content check. Keyed so the coverage
  * test can assert it covers every {@link FEATURE_BUNDLE_FILES} key plus `report`.
@@ -142,23 +194,23 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
   {
     key: 'request',
     file: FEATURE_BUNDLE_FILES.request,
-    required: (config) => config.specPipelineEnabled,
+    required: specPipelineApplies,
     writer: 'paqad-ai spec pipeline start',
     validate: 'nonempty',
   },
   {
     key: 'clarification',
     file: FEATURE_BUNDLE_FILES.clarification,
-    required: (config) => config.specPipelineEnabled,
+    required: specPipelineApplies,
     writer: 'paqad-ai spec pipeline (label + questions)',
     validate: 'json',
   },
   {
     // Experts only run inside the pipeline, so experts-on with the pipeline off (M5) never
-    // requires the file (AC-21).
+    // requires the file (AC-21), and neither does the fast lane (issue #640).
     key: 'experts',
     file: FEATURE_BUNDLE_FILES.experts,
-    required: (config) => config.specPipelineEnabled && config.expertsEnabled,
+    required: (config) => specPipelineApplies(config) && config.expertsEnabled,
     writer: 'paqad-ai spec pipeline experts',
     validate: 'json',
   },
@@ -297,14 +349,14 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
  * How a frozen spec says it was produced: the `pipeline` section of a record frozen since issue
  * #581 (`produced`, `manual_reason`), else the `provenance` block of an older one
  * (`pipeline_produced`, `manual_reason`), so both read the same (INV-8). Null when the record
- * carries neither.
+ * carries neither. `fast_lane` is true when the fast lane skipped the pipeline (issue #640).
  */
 export function readSpecAdoption(
   spec: unknown,
-): { produced: boolean; manual_reason?: string } | null {
+): { produced: boolean; manual_reason?: string; fast_lane?: true } | null {
   if (typeof spec !== 'object' || spec === null) return null;
   const record = spec as {
-    pipeline?: { produced?: unknown; manual_reason?: unknown };
+    pipeline?: { produced?: unknown; manual_reason?: unknown; skipped?: unknown };
     provenance?: { pipeline_produced?: unknown; manual_reason?: unknown };
   };
   const section = record.pipeline ?? record.provenance;
@@ -315,8 +367,35 @@ export function readSpecAdoption(
   return {
     produced: produced === true,
     ...(typeof section.manual_reason === 'string' ? { manual_reason: section.manual_reason } : {}),
+    ...(record.pipeline?.skipped === 'fast-lane' ? { fast_lane: true as const } : {}),
   };
 }
+
+/**
+ * Whether a parsed specification.json was frozen while the spec pipeline was off (issue #640):
+ * a record with no `pipeline` or `provenance` section. Any freeze with the pipeline on writes
+ * one, even a hand-written `--manual --reason` spec (`produced: false` plus the reason) and a
+ * fast-lane freeze (`skipped: 'fast-lane'`), so only a spec frozen before the switch reads true.
+ * Not a record (absent, corrupt) is false, so a change whose spec is not frozen yet still needs
+ * the pipeline files.
+ */
+export function isSpecFrozenBeforePipeline(spec: unknown): boolean {
+  return typeof spec === 'object' && spec !== null && readSpecAdoption(spec) === null;
+}
+
+/**
+ * Whether a parsed specification.json was frozen on the fast lane with the pipeline on (issue
+ * #640). Once the lane is raised to graduated or full, its pipeline files are owed, and the only
+ * way to produce them is to re-freeze the spec through the pipeline.
+ */
+export function isSpecFrozenOnFastLane(spec: unknown): boolean {
+  return readSpecAdoption(spec)?.fast_lane === true;
+}
+
+/** What a change whose lane was raised after a fast-lane freeze must do (issue #640). */
+export const FAST_LANE_REFREEZE_HINT =
+  'the lane was raised after a fast-lane freeze: re-freeze the spec through the spec pipeline ' +
+  '(paqad-ai spec pipeline start, then spec freeze --from-pipeline)';
 
 /**
  * The strict-adoption content check for `specification.json` (issue #547, FR-10.2). When
@@ -343,6 +422,13 @@ export function validateSpecificationAdoption(content: string | null): {
   }
   if (!adoption) return failure;
   if (adoption.produced) return { ok: true };
+  // Only reached off the fast lane: a fast-lane freeze checked here means the lane was raised.
+  if (adoption.fast_lane) {
+    return {
+      ok: false,
+      error: `specification.json was frozen on the fast lane; ${FAST_LANE_REFREEZE_HINT}`,
+    };
+  }
   if (adoption.manual_reason !== undefined && adoption.manual_reason.trim().length > 0) {
     return { ok: true };
   }

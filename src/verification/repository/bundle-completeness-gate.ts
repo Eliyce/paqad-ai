@@ -36,7 +36,10 @@ import {
 import { readFeatureRecord, featureRecordIsUntitled } from '@/feature-evidence/feature-record.js';
 import {
   BUNDLE_MANIFEST,
+  FAST_LANE_REFREEZE_HINT,
   isBundleFileRequired,
+  isSpecFrozenOnFastLane,
+  specPipelineStrictApplies,
   validateBundleFileContent,
   validateSpecificationAdoption,
   type BundleCompletenessConfig,
@@ -54,7 +57,7 @@ import { sha256Hex } from '@/compliance/markdown.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import { hasStageAgentEvidence } from '@/stage-isolation/isolation-summary.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
-import { readReport } from '@/rule-scripts/runner.js';
+import { readReport, ruleRunFindings } from '@/rule-scripts/runner.js';
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -132,6 +135,7 @@ function backfill(entry: BundleManifestEntry, input: BundleCompletenessGateInput
         kind: 'findings',
         counts: report.counts as unknown as Record<string, number>,
         blocking: report.blocking,
+        findings: ruleRunFindings(report),
         backfilled: true,
       });
       minted = true;
@@ -170,6 +174,10 @@ interface GateState {
   missing: { file: string; writer: string }[];
   ragMissing: boolean;
   flagSkipped: string[];
+  /** Issue #640 — files their flag requires but the fast lane does not need. */
+  laneSkipped: string[];
+  /** Issue #640 — pipeline files a spec frozen before the spec pipeline was on never had. */
+  preSwitchSkipped: string[];
   /** Issue #602 (FR-4) — the lane never resolved on a subagent-capable feature-dev change and
    *  no isolation ran, so isolation could not be verified. Surfaced (Inconclusive), never a
    *  hard block. */
@@ -211,6 +219,8 @@ export function bundleCompletenessGate(
     missing: [],
     ragMissing: false,
     flagSkipped: [],
+    laneSkipped: [],
+    preSwitchSkipped: [],
     isolationUnverified: false,
   };
 
@@ -227,7 +237,21 @@ export function bundleCompletenessGate(
         continue;
       }
       if (!isBundleFileRequired(entry, input.config)) {
-        state.flagSkipped.push(entry.file);
+        // Issue #640 — a file the fast lane does not need is "not required on the fast lane",
+        // and a pipeline file a spec frozen before the pipeline was on never had is "frozen
+        // before the pipeline", not "flag off": the flag may well be on.
+        const unlocked = {
+          ...input.config,
+          lane: 'full' as const,
+          specFrozenBeforePipeline: false,
+        };
+        if (!isBundleFileRequired(entry, unlocked)) {
+          state.flagSkipped.push(entry.file);
+        } else if (input.config.lane === 'fast') {
+          state.laneSkipped.push(entry.file);
+        } else {
+          state.preSwitchSkipped.push(entry.file);
+        }
         continue;
       }
       assertRequired(entry, input, dirName, sessionId, state);
@@ -307,7 +331,7 @@ function assertRequired(
       // Strict-adoption content check (issue #547, FR-10.2): under strict adoption the frozen spec
       // must record that the pipeline produced it, or a manual reason. Not applied under warn or
       // with the pipeline off, so the gate is unchanged there.
-      if (input.config.specPipelineStrict) {
+      if (specPipelineStrictApplies(input.config)) {
         const adoption = validateSpecificationAdoption(content);
         if (!adoption.ok) {
           state.missing.push({
@@ -354,8 +378,23 @@ function assertRequired(
     return;
   }
 
-  state.missing.push({ file: entry.file, writer: entry.writer });
+  // Issue #640 — a pipeline file owed only because the lane was raised after a fast-lane freeze
+  // cannot be written on its own: the spec has to be re-frozen through the pipeline, so say so.
+  const refreeze =
+    PIPELINE_FILE_KEYS.has(entry.key) &&
+    isSpecFrozenOnFastLane(readSpecificationRecord(input.projectRoot, dirName));
+  state.missing.push({
+    file: entry.file,
+    writer: refreeze ? FAST_LANE_REFREEZE_HINT : entry.writer,
+  });
 }
+
+/** The bundle files only the spec pipeline writes (issue #640). */
+const PIPELINE_FILE_KEYS: ReadonlySet<BundleManifestEntry['key']> = new Set([
+  'request',
+  'clarification',
+  'experts',
+]);
 
 /**
  * Where a present file's envelope `content_hash` no longer matches its bytes (issue #581,
@@ -444,9 +483,15 @@ function legacySpecProjectionPresent(projectRoot: string, dirName: string): bool
 
 function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvidenceGate {
   const skipNote =
-    state.flagSkipped.length > 0
+    (state.flagSkipped.length > 0
       ? ` Skipped (flag off): ${[...state.flagSkipped].sort().join(', ')}.`
-      : '';
+      : '') +
+    (state.laneSkipped.length > 0
+      ? ` Not required on the fast lane: ${[...state.laneSkipped].sort().join(', ')}.`
+      : '') +
+    (state.preSwitchSkipped.length > 0
+      ? ` Spec frozen before the spec pipeline was on, so not required: ${[...state.preSwitchSkipped].sort().join(', ')}.`
+      : '');
   const backfillNote =
     state.backfilled.length > 0
       ? ` Backfilled (live write missed): ${state.backfilled.join(', ')}.`

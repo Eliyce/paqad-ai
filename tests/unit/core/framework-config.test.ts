@@ -303,6 +303,14 @@ describe('readConfigsDir — merge + collisions', () => {
     expect(collisions[0].files).toHaveLength(2);
   });
 
+  it('names the file whose value won for each key (issue #640)', () => {
+    writeConfigsFile(root, '.config.app', 'rag_top_n=5\nenterprise=true\n');
+    writeConfigsFile(root, '.config.rag', 'rag_top_n=9\n');
+    const { sources } = readConfigsDir(root);
+    expect(sources.get('rag_top_n')).toMatch(/\.config\.rag$/);
+    expect(sources.get('enterprise')).toMatch(/\.config\.app$/);
+  });
+
   it('never sweeps in the .config.example catalog', () => {
     writeConfigsFile(root, '.config.app', 'enterprise=true\n');
     // A stray example inside configs/ must be ignored by the glob.

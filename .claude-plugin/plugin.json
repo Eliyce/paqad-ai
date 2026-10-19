@@ -14,5 +14,14 @@
     "./runtime/claude-plugin/agents/paqad-checks.md",
     "./runtime/claude-plugin/agents/paqad-documentation-sync.md"
   ],
-  "skills": "./runtime/claude-plugin/skills"
+  "skills": "./runtime/claude-plugin/skills",
+  "types": "./runtime/claude-plugin/mod/types/index.d.ts",
+  "userConfig": {
+    "view": {
+      "type": "boolean",
+      "title": "Show the paqad HUD",
+      "description": "Show where the change stands in a band above the prompt.",
+      "default": true
+    }
+  }
 }

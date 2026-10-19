@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": []
+  },
+  // register.tsx (the mod entry) is left out on purpose: it imports the Claude Code mod types
+  // the engine writes at install time (git-ignored), so tsc cannot see them here. It is checked
+  // by `claude plugin validate` and `pnpm run plugin:test` instead.
+  "include": [
+    "runtime/claude-plugin/mod/*.ts",
+    "runtime/claude-plugin/mod/types/*.d.ts",
+    "runtime/claude-plugin/mod/test/fixtures.ts"
+  ],
+  "exclude": ["runtime/claude-plugin/mod/*.test.ts"]
+}

@@ -8,9 +8,10 @@
 // identity `content_hash` each time. Writes are atomic (temp + rename) and best-effort on
 // the hot path — a write failure degrades to no record, never a throw into the recorder.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { higherLane } from './lane-rank.js';
@@ -23,7 +24,7 @@ function atomicWriteJson(absPath: string, value: unknown): void {
   mkdirSync(dirname(absPath), { recursive: true });
   const tmp = `${absPath}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  renameSync(tmp, absPath);
+  renameWithRetrySync(tmp, absPath);
 }
 
 /**

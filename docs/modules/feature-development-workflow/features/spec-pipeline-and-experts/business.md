@@ -34,7 +34,11 @@ Two flags gate all of this.
 - With the **experts flag off**, steps 3 to 5 do not happen. The pipeline still grounds the request, asks its questions, and writes a traced spec, just without the specialist notes.
 - With the **whole pipeline off**, none of it happens and the change proceeds exactly as it did before.
 
-Onboarded projects start with both flags off. This repo runs everything on.
+Both flags are on by default, on the graduated and full lanes. A quick fast-lane change never runs the pipeline, so it stays as light as it was. A project that already set either flag keeps its own value.
+
+What it costs: the four standing experts carry about 24k tokens of budget per spec, under a 40k ceiling by default. `paqad-ai doctor` shows each setting and where it came from.
+
+To switch something off, set it in `.paqad/configs/.config.*` (for the team) or `.paqad/.config` (just for you): `spec_pipeline_enabled=false` turns the whole pipeline off, `spec_pipeline_experts_enabled=false` keeps the pipeline but drops the experts, and `spec_pipeline_adoption=warn` lets a hand-written spec freeze again. A `PAQAD_*` environment variable with the same name works too.
 
 ## How the experts talk
 
@@ -42,8 +46,8 @@ Every expert names things in the project's own words. Each briefing carries a **
 
 ## Adoption: how strict the freeze is
 
-- Under **strict** adoption, a hand-written spec is refused at freeze. The only exit is a recorded manual reason, so the skip is on the record, not silent.
-- Under **warn** adoption (the default), a hand-written spec still freezes, and the record says it was written by hand.
+- Under **strict** adoption (the default), a hand-written spec is refused at freeze. The only exit is a recorded manual reason, so the skip is on the record, not silent.
+- Under **warn** adoption, a hand-written spec still freezes, and the record says it was written by hand.
 
 ## Why it matters
 

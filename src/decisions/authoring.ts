@@ -27,13 +27,13 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  renameSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { ulid } from '@/core/ids/ulid.js';
 import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/decision-packet.js';
 
@@ -381,5 +381,5 @@ function atomicWriteJson(path: string, value: unknown): void {
   mkdirSync(dirname(path), { recursive: true });
   const tempPath = `${path}.tmp`;
   writeFileSync(tempPath, `${JSON.stringify(value, null, 2)}\n`);
-  renameSync(tempPath, path);
+  renameWithRetrySync(tempPath, path);
 }

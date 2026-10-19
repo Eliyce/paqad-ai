@@ -9,6 +9,7 @@ import {
   appendDuplicationRun,
   appendFeatureEvidenceRows,
   appendRuleRun,
+  BUNDLE_FINDINGS_CAP,
   mirrorRagRow,
   readChangeMetrics,
   readDuplication,
@@ -23,6 +24,7 @@ import { buildEvidenceRow } from '@/evidence/ledger.js';
 import { readUnitFile, stampSessionRow } from '@/session-ledger/ledger.js';
 import type { ChangeMetrics } from '@/change-metrics/types.js';
 import type { DuplicationReport } from '@/duplication/report.js';
+import type { DuplicationFinding } from '@/duplication/types.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -144,6 +146,107 @@ describe('per-feature rule-run.jsonl', () => {
     const root = tempRoot();
     expect(appendRuleRun(root, 'ses_1', { kind: 'drift', counts: {}, blocking: false })).toBeNull();
   });
+
+  it('keeps each finding by name and marks a cached run (issue #639, AC-26, AC-28)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    appendRuleRun(root, 'ses_1', {
+      kind: 'findings',
+      counts: { deterministic: 1, heuristic: 0, skipped: 0 },
+      blocking: true,
+      findings: [
+        {
+          rule_id: 'no-console',
+          file: 'src/app.ts',
+          line: 7,
+          message: 'Remove console.log.',
+          severity: 'high',
+        },
+      ],
+      from_cache: true,
+    });
+    const [row] = readRuleRun(root, dir);
+    expect(row).toMatchObject({
+      findings: [
+        {
+          rule_id: 'no-console',
+          file: 'src/app.ts',
+          line: 7,
+          message: 'Remove console.log.',
+          severity: 'high',
+        },
+      ],
+      findings_overflow: 0,
+      from_cache: true,
+    });
+  });
+
+  it('does not append a cache hit that repeats the last row (issue #639 review)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const finding = {
+      rule_id: 'no-console',
+      file: 'src/app.ts',
+      line: 7,
+      message: 'Remove console.log.',
+      severity: 'high',
+    };
+    const hit = {
+      kind: 'findings' as const,
+      counts: { deterministic: 1, heuristic: 0, skipped: 0 },
+      blocking: true,
+      findings: [finding],
+      from_cache: true,
+    };
+    // A fresh run, then its first cache hit: both are recorded.
+    appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
+    expect(appendRuleRun(root, 'ses_1', hit)).not.toBeNull();
+    // The same cache hit again adds nothing.
+    expect(appendRuleRun(root, 'ses_1', hit)).toBeNull();
+    expect(readRuleRun(root, dir)).toHaveLength(2);
+    // A cache hit with different content is still recorded.
+    appendRuleRun(root, 'ses_1', { ...hit, blocking: false });
+    expect(readRuleRun(root, dir)).toHaveLength(3);
+    // A fresh run is always recorded, even when it repeats the last row.
+    appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
+    appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
+    expect(readRuleRun(root, dir)).toHaveLength(5);
+  });
+
+  it('keeps exactly the cap and counts the overflow (issue #639, AC-29)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const findings = Array.from({ length: BUNDLE_FINDINGS_CAP + 3 }, (_, i) => ({
+      rule_id: 'r',
+      file: `src/f${i}.ts`,
+      line: null,
+      message: 'm',
+      severity: 'low',
+    }));
+    appendRuleRun(root, 'ses_1', {
+      kind: 'findings',
+      counts: { deterministic: 0, heuristic: findings.length, skipped: 0 },
+      blocking: false,
+      findings,
+    });
+    const [row] = readRuleRun(root, dir) as unknown as Array<Record<string, unknown>>;
+    expect(row!.findings).toHaveLength(BUNDLE_FINDINGS_CAP);
+    expect(row!.findings_overflow).toBe(3);
+    // Gate 3 (AC-30): the kept findings plus the overflow equal the counts.
+    expect((row!.findings as unknown[]).length + (row!.findings_overflow as number)).toBe(
+      findings.length,
+    );
+    expect(row).not.toHaveProperty('from_cache');
+  });
+
+  it('writes no findings keys on a drift row', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    appendRuleRun(root, 'ses_1', { kind: 'drift', counts: { RS: 1 }, blocking: false });
+    const [row] = readRuleRun(root, dir);
+    expect(row).not.toHaveProperty('findings');
+    expect(row).not.toHaveProperty('findings_overflow');
+  });
 });
 
 function duplicationReport(): DuplicationReport {
@@ -217,6 +320,57 @@ describe('per-feature duplication.jsonl (issue #468)', () => {
   it('is a no-op (null) when no feature is active', () => {
     const root = tempRoot();
     expect(appendDuplicationRun(root, 'ses_1', duplicationReport())).toBeNull();
+  });
+
+  it('keeps each near-copy by name, capped with the overflow counted (issue #639, AC-27, AC-29)', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const nearCopy = (i: number, symbol?: string): DuplicationFinding => ({
+      file: `src/new${i}.ts`,
+      line_range: { start: 1, end: 9 },
+      matched_file: 'src/old.ts',
+      ...(symbol ? { matched_symbol: symbol } : {}),
+      matched_line_range: { start: 10, end: 18 },
+      similarity: 0.93,
+      matched_callers: 4,
+      corroborated: false,
+      kind: 'deterministic',
+      message: 'a long message the row does not keep',
+    });
+    const findings = [
+      nearCopy(0, 'formatPrice'),
+      ...Array.from({ length: BUNDLE_FINDINGS_CAP }, (_, i) => nearCopy(i + 1)),
+    ];
+    appendDuplicationRun(root, 'ses_1', {
+      ...duplicationReport(),
+      findings,
+      counts: { deterministic: findings.length, heuristic: 0 },
+    });
+    const [row] = readDuplication(root, dir) as unknown as Array<Record<string, unknown>>;
+    const kept = row!.findings as Array<Record<string, unknown>>;
+    expect(kept).toHaveLength(BUNDLE_FINDINGS_CAP);
+    expect(row!.findings_overflow).toBe(1);
+    expect(kept[0]).toEqual({
+      file: 'src/new0.ts',
+      line_range: { start: 1, end: 9 },
+      matched_file: 'src/old.ts',
+      matched_symbol: 'formatPrice',
+      matched_line_range: { start: 10, end: 18 },
+      similarity: 0.93,
+      matched_callers: 4,
+      kind: 'deterministic',
+    });
+    expect(kept[1]!.matched_symbol).toBeNull();
+  });
+
+  it('records no findings list for a cached report without one', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const partial = { ...duplicationReport(), findings: undefined } as unknown as DuplicationReport;
+    appendDuplicationRun(root, 'ses_1', partial);
+    const [row] = readDuplication(root, dir);
+    expect(row).not.toHaveProperty('findings');
+    expect(row).toMatchObject({ counts: { deterministic: 1, heuristic: 2 } });
   });
 
   it('swallows an internal failure (best-effort) and returns null', () => {

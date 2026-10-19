@@ -305,10 +305,14 @@ function resolveWorkflow(
   //    code" or "file an issue" ask is also a project-question (FR-4/FR-5). All of these run
   //    BEFORE the code-change tier, and a polite code request ("Can you add a logout button?")
   //    is deliberately excluded so it still routes to feature-development (AC-2).
+  //    A prompt that talks about the work itself (posting an issue, updating a draft) rather
+  //    than about code is a project-question too, so the code-change tier cannot win for it
+  //    (issue #623 FR-7).
   if (
     isQuestionRoute(requestText) ||
     hasCodeNegation(normalized) ||
-    isCreateArtifactAsk(normalized)
+    isCreateArtifactAsk(normalized) ||
+    isAboutWorkPrompt(requestText)
   ) {
     return 'project-question';
   }
@@ -319,6 +323,14 @@ function resolveWorkflow(
   );
   if (codeChange) {
     return codeChange;
+  }
+
+  // 4. Nothing above matched, but the prompt asks for work-tracking steps ("Please file
+  //    remaining, you can recheck and reconfirm") and names no source path. That is talk
+  //    about the work, not a change to code (issue #623). It never outranks a code keyword,
+  //    and only a tracker verb counts: "update the login timeout" stays unresolved.
+  if (hasTrackerVerb(normalized) && !namesCode(requestText, normalized)) {
+    return 'project-question';
   }
 
   return undefined;
@@ -471,6 +483,271 @@ export function isCreateArtifactAsk(normalized: string): boolean {
   }
   const alsoImplements = /\b(implement|and (?:fix|add|build|change|update))\b/.test(normalized);
   return !alsoImplements;
+}
+
+/**
+ * Tracker nouns: words that name a piece of work-tracking and nothing in the product (issue
+ * #623 FR-7), with plurals. Their presence is what lets the about-work signal fire at all
+ * when the prompt also carries a code keyword such as "add".
+ */
+const TRACKER_NOUNS = new Set(['issue', 'issues', 'ticket', 'tickets', 'pr', 'prs']);
+
+/** Multi-word tracker nouns, matched as whole-word sequences. */
+const TRACKER_NOUN_PHRASES = ['pull request', 'pull requests'];
+
+/**
+ * Words that are a tracker noun only when they are not used as a verb: "the draft", "the
+ * rewrite file" and "post it as drafted" point at the work, while "rewrite the auth flow"
+ * asks for a code change.
+ */
+const NOUN_OR_VERB_TRACKER_WORDS = new Set(['draft', 'drafts', 'drafted', 'rewrite', 'rewrites']);
+
+/**
+ * Soft work nouns (issue #623 review): a report, plan, doc or research can be a document about
+ * the work or a part of the product ("the report generator", "the plans list"). They count
+ * only next to a tracker verb ("recheck and confirm the plan") or a tracker target with a
+ * work verb ("update the plan on GitHub").
+ */
+const SOFT_WORK_NOUNS = new Set(['report', 'reports', 'research', 'plan', 'plans', 'doc', 'docs']);
+
+/** Where work-tracking lives. Naming one marks the prompt as talk about the work. */
+const TRACKER_TARGETS = new Set(['github', 'jira', 'linear']);
+
+/**
+ * Verbs that only make sense for work-tracking (issue #623 FR-7), with inflections, plus the
+ * re- forms people use for a second pass ("recheck and reconfirm").
+ */
+const TRACKER_VERBS = new Set([
+  'post',
+  'posts',
+  'posted',
+  'posting',
+  'repost',
+  'file',
+  'files',
+  'filed',
+  'filing',
+  'link',
+  'links',
+  'linked',
+  'linking',
+  'recheck',
+  'rechecks',
+  'rechecked',
+  'rechecking',
+  'confirm',
+  'confirms',
+  'confirmed',
+  'confirming',
+  'reconfirm',
+  'reconfirms',
+  'reconfirmed',
+  'reconfirming',
+]);
+
+/**
+ * Everyday verbs that act on work-tracking only when a tracker noun or target is named:
+ * "update the pull request description" is work talk, "update the login timeout" is not.
+ */
+const GENERAL_WORK_VERBS = new Set([
+  'draft',
+  'drafts',
+  'drafted',
+  'drafting',
+  'update',
+  'updates',
+  'updated',
+  'updating',
+  'rewrite',
+  'rewrites',
+  'rewrote',
+  'rewritten',
+  'rewriting',
+  'check',
+  'checks',
+  'checked',
+  'checking',
+]);
+
+/**
+ * Words after which the next word reads as a verb: the start of a request, "please", "and",
+ * "to", a modal or a pronoun. "Please file remaining" files something, "the config file"
+ * does not.
+ */
+const VERB_LEADS = new Set([
+  'please',
+  'pls',
+  'and',
+  'then',
+  'or',
+  'to',
+  'can',
+  'could',
+  'would',
+  'will',
+  'should',
+  'also',
+  'just',
+  'now',
+  'let',
+  's',
+  'll',
+  'you',
+  'i',
+  'we',
+]);
+
+/**
+ * "add ... to <tracker noun>" ("add the points to the rewrite file"), the one work verb that
+ * needs a partner. It counts only when a tracker noun follows `to`, after at most one
+ * determiner, so "add retry logic to the report generator" is not work talk.
+ */
+const ADD_TO_RE = new RegExp(
+  String.raw`\b(?:add|adds|added|adding)\b.*\bto (?:(?:the|this|that|a|an|my|our|your) )?(?:` +
+    [...TRACKER_NOUN_PHRASES, ...TRACKER_NOUNS, ...NOUN_OR_VERB_TRACKER_WORDS].join('|') +
+    String.raw`)\b`,
+);
+
+/**
+ * Nouns that name a UI or code surface (issue #623). A prompt that names one is about the
+ * product, so the about-work signal stays off and the prompt falls through to the code tiers:
+ * "update the report page header" is a code change even though "report" is a work noun.
+ * "migration" is left out on purpose: "For automatic user migration, can you add another
+ * issue and link" names a topic, not a code surface.
+ */
+const CODE_SURFACE_NOUNS = new Set([
+  'page',
+  'pages',
+  'screen',
+  'button',
+  'component',
+  'endpoint',
+  'api',
+  'function',
+  'method',
+  'class',
+  'field',
+  'column',
+  'form',
+  'modal',
+  'footer',
+  'header',
+  'navbar',
+  'sidebar',
+  'route',
+  'query',
+  'schema',
+  'test',
+  'tests',
+  'bug',
+  'error',
+  'crash',
+  'feature',
+  'export',
+  'import',
+  'selector',
+  'renders',
+  'mobile',
+  'desktop',
+  'css',
+  'style',
+  'layout',
+]);
+
+/** "label bug" names an issue label, not a code surface, so the word after "label" is skipped. */
+const LABEL_PAIR_RE = /\blabel(?:s|ed|led)? [a-z0-9]+/g;
+
+/**
+ * Words that mark a real code change even when work nouns are around ("fix the typo in the
+ * report"). Their presence keeps the about-work signal off, so a code change is never routed
+ * away from feature-development by it.
+ */
+const STRONG_CODE_VERB_RE =
+  /\b(?:fix|fixes|fixing|fixed|implement|implements|implementing|implemented|build|builds|building|built|refactor|refactors|refactoring|refactored|develop|develops|developing|developed)\b/;
+
+/** A source path or source-language file name: `src/`, `lib/`, `app/`, `runtime/`, `tests/`. */
+const SOURCE_PATH_RE =
+  /\b(?:src|lib|app|runtime|tests)\/|\.(?:ts|tsx|js|jsx|mjs|cjs|py|php|rb|go|rs|java|kt|swift|cs|vue|svelte|dart)\b/i;
+
+/** Whether the RAW request names a source path or a source-language file (issue #623 FR-7). */
+function namesSourcePath(requestText: string): boolean {
+  return SOURCE_PATH_RE.test(requestText);
+}
+
+/**
+ * Whether the request points at code: a source path or file, a strong code verb, or a UI or
+ * code surface noun. Any of them keeps both about-work tiers off.
+ */
+function namesCode(requestText: string, normalized: string): boolean {
+  if (namesSourcePath(requestText) || STRONG_CODE_VERB_RE.test(normalized)) {
+    return true;
+  }
+  const withoutLabels = normalized.replace(LABEL_PAIR_RE, ' ').trim();
+  return withoutLabels.split(/\s+/).some((token) => CODE_SURFACE_NOUNS.has(token));
+}
+
+function tokensOf(normalized: string): string[] {
+  return normalized.length > 0 ? normalized.split(' ') : [];
+}
+
+/** Whether the token at `index` sits where a verb goes: first, or after a verb lead. */
+function inVerbPosition(tokens: readonly string[], index: number): boolean {
+  return index === 0 || VERB_LEADS.has(String(tokens[index - 1]));
+}
+
+/** Whether a verb from `verbs` is used as a verb somewhere in the request. */
+function usesVerbFrom(tokens: readonly string[], verbs: ReadonlySet<string>): boolean {
+  return tokens.some((token, index) => verbs.has(token) && inVerbPosition(tokens, index));
+}
+
+/** A tracker verb used as a verb ("please file", "and link"), or "add ... to <tracker noun>". */
+function hasTrackerVerb(normalized: string): boolean {
+  return usesVerbFrom(tokensOf(normalized), TRACKER_VERBS) || ADD_TO_RE.test(normalized);
+}
+
+function hasTrackerNoun(normalized: string): boolean {
+  const tokens = tokensOf(normalized);
+  return (
+    tokens.some(
+      (token, index) =>
+        TRACKER_NOUNS.has(token) ||
+        (NOUN_OR_VERB_TRACKER_WORDS.has(token) && !inVerbPosition(tokens, index)),
+    ) || TRACKER_NOUN_PHRASES.some((phrase) => matchesWholeWord(normalized, phrase))
+  );
+}
+
+/**
+ * Whether the request talks about the work rather than asking to change code (issue #623
+ * FR-7). It names no source path, strong code verb or code surface, and either names a
+ * tracker noun (issue, ticket, PR, pull request, a draft, the rewrite) with any work verb, or
+ * a soft work noun (report, plan, doc, research) with a tracker verb (post, file, link,
+ * recheck, confirm) or with a tracker target (GitHub, Jira, Linear) and a work verb. When the
+ * prompt also carries a code keyword ("add", "feature", "bug"), a tracker noun or target must
+ * be named: a real code request is never routed away from feature-development, so "add retry
+ * logic to the report generator" stays a code change. Takes the RAW request because source
+ * paths and extensions are lost to normalization.
+ */
+export function isAboutWorkPrompt(requestText: string): boolean {
+  const normalized = normalizeText(requestText);
+  if (namesCode(requestText, normalized)) {
+    return false;
+  }
+  const tokens = tokensOf(normalized);
+  const trackerNoun = hasTrackerNoun(normalized);
+  const target = tokens.some((token) => TRACKER_TARGETS.has(token));
+  const codeKeyword = CODE_CHANGE_PATTERNS.some((entry) =>
+    entry.patterns.some((pattern) => matchesWholeWord(normalized, pattern)),
+  );
+  if (codeKeyword && !trackerNoun && !target) {
+    return false;
+  }
+  const trackerVerb = hasTrackerVerb(normalized);
+  const workVerb = trackerVerb || usesVerbFrom(tokens, GENERAL_WORK_VERBS);
+  if (trackerNoun) {
+    return workVerb;
+  }
+  const softNoun = tokens.some((token) => SOFT_WORK_NOUNS.has(token));
+  return softNoun && (trackerVerb || (target && workVerb));
 }
 
 function normalizeText(value: string): string {

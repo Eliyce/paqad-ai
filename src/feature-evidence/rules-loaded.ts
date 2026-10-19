@@ -18,10 +18,11 @@
 // `recorded_at` replacing `created_at`), and no `adapter`: the host is a session constant of
 // the change, stored once in feature.json.
 
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import type { RuleApplicability } from '@/context/rule-context.js';
 
 import { buildDocumentEnvelope, type EnvelopeHeader } from './envelope.js';
@@ -53,7 +54,7 @@ function atomicWriteJson(absPath: string, value: unknown): void {
   mkdirSync(dirname(absPath), { recursive: true });
   const tmp = `${absPath}.tmp`;
   writeFileSync(tmp, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
-  renameSync(tmp, absPath);
+  renameWithRetrySync(tmp, absPath);
 }
 
 /** The inputs a rules-loaded record is built from (the applicability plus context). */

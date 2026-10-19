@@ -22,15 +22,15 @@ function writeLocalConfig(root: string, body: string): void {
 }
 
 describe('readPipelineConfig', () => {
-  it('defaults: disabled, clarification=warn, final_review=off, ceiling=40000, experts off', () => {
+  it('defaults: enabled, clarification=warn, final_review=off, ceiling=40000, experts on, strict (#640)', () => {
     const cfg = readPipelineConfig(tempRoot(), {});
     expect(cfg).toEqual({
-      enabled: false,
+      enabled: true,
       clarification: 'warn',
       final_review: 'off',
       token_ceiling: 40000,
-      experts_enabled: false,
-      adoption: 'warn',
+      experts_enabled: true,
+      adoption: 'strict',
       standing_experts: [
         'product-owner',
         'application-architect',
@@ -67,13 +67,56 @@ describe('readPipelineConfig', () => {
     });
   });
 
-  it('reads spec_pipeline_adoption (default warn; garbage degrades to warn — RULE-16)', () => {
+  it('reads spec_pipeline_adoption (default strict; garbage degrades to strict — RULE-16)', () => {
     const root = tempRoot();
     writeLocalConfig(root, 'spec_pipeline_adoption=banana');
-    expect(readPipelineConfig(root, {}).adoption).toBe('warn');
-    expect(readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_ADOPTION: 'strict' }).adoption).toBe(
-      'strict',
+    expect(readPipelineConfig(root, {}).adoption).toBe('strict');
+    expect(readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_ADOPTION: 'warn' }).adoption).toBe(
+      'warn',
     );
+  });
+
+  it('switches everything off when the keys are set off explicitly', () => {
+    const root = tempRoot();
+    writeLocalConfig(
+      root,
+      [
+        'spec_pipeline_enabled=false',
+        'spec_pipeline_experts_enabled=no',
+        'spec_pipeline_adoption=warn',
+      ].join('\n'),
+    );
+    const cfg = readPipelineConfig(root, {});
+    expect([cfg.enabled, cfg.experts_enabled, cfg.adoption]).toEqual([false, false, 'warn']);
+  });
+
+  it('reads the pipeline off from the team policy file, the rest unchanged (AC-17)', () => {
+    const root = tempRoot();
+    mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad', 'configs', '.config.policy'),
+      'spec_pipeline_enabled=false\n',
+    );
+    const cfg = readPipelineConfig(root, {});
+    expect([cfg.enabled, cfg.experts_enabled, cfg.adoption]).toEqual([false, true, 'strict']);
+  });
+
+  it('keeps the pipeline and experts on with only adoption set to warn (AC-18)', () => {
+    const root = tempRoot();
+    writeLocalConfig(root, 'spec_pipeline_adoption=warn');
+    const cfg = readPipelineConfig(root, {});
+    expect([cfg.enabled, cfg.experts_enabled, cfg.adoption]).toEqual([true, true, 'warn']);
+  });
+
+  it('lets PAQAD_SPEC_PIPELINE_ENABLED=0 win over every config file (AC-19)', () => {
+    const root = tempRoot();
+    writeLocalConfig(root, 'spec_pipeline_enabled=true');
+    mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
+    writeFileSync(
+      join(root, '.paqad', 'configs', '.config.policy'),
+      'spec_pipeline_enabled=true\n',
+    );
+    expect(readPipelineConfig(root, { PAQAD_SPEC_PIPELINE_ENABLED: '0' }).enabled).toBe(false);
   });
 
   it('the PAQAD_ env escape hatch drives experts_enabled too', () => {

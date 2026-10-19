@@ -3,6 +3,8 @@ import path from 'node:path';
 
 import { defineConfig } from 'vitest/config';
 
+import { DurationSequencer } from './tests/shared/duration-sequencer';
+
 const pkg = JSON.parse(readFileSync('./package.json', 'utf8')) as { version: string };
 
 export default defineConfig({
@@ -16,6 +18,10 @@ export default defineConfig({
     // Every test file gets a throwaway HOME, so onboarding/join/update never write the
     // developer's real ~/.paqad-ai, ~/.claude or ~/.codex (tests/shared/isolate-home.ts).
     setupFiles: ['tests/shared/isolate-home.ts'],
+    // CI splits the run with `--shard` (issue #654). This sequencer balances the shards by each
+    // file's recorded duration (tests/shard-timings.json) instead of an equal file count. An
+    // unsharded run, like local `pnpm run ci`, never calls it and keeps the default order.
+    sequence: { sequencer: DurationSequencer },
     // Windows runners are noticeably slower than Linux/macOS — bump the
     // default 5s test timeout and 10s hook timeout so e2e cases that build
     // the CLI or chunk a small corpus don't fail spuriously.
@@ -181,21 +187,28 @@ export default defineConfig({
         'src/workflows/template-loader.ts',
         'src/workflows/template-validator.ts',
       ],
-      thresholds: {
-        branches: 95,
-        functions: 95,
-        lines: 95,
-        statements: 95,
-        // The stages workflow is the delivery-critical spine (issue #307): the
-        // block-forward gate, marker parse, live writer and narration must never
-        // regress unseen, so stage-evidence holds a 100% floor, not the repo's 95%.
-        'src/stage-evidence/**': {
-          branches: 100,
-          functions: 100,
-          lines: 100,
-          statements: 100,
-        },
-      },
+      // CI runs the suite in shards and merges their coverage afterwards (issue #654). A shard
+      // sees only part of the code, so it sets PAQAD_TEST_SHARD=1 and checks no thresholds. The
+      // merge run and local `pnpm run ci` leave it unset and enforce these floors in full. Only
+      // the exact value '1' turns them off, so a stray local export like '0' changes nothing.
+      thresholds:
+        process.env.PAQAD_TEST_SHARD === '1'
+          ? undefined
+          : {
+              branches: 95,
+              functions: 95,
+              lines: 95,
+              statements: 95,
+              // The stages workflow is the delivery-critical spine (issue #307): the
+              // block-forward gate, marker parse, live writer and narration must never
+              // regress unseen, so stage-evidence holds a 100% floor, not the repo's 95%.
+              'src/stage-evidence/**': {
+                branches: 100,
+                functions: 100,
+                lines: 100,
+                statements: 100,
+              },
+            },
     },
   },
   resolve: {

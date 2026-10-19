@@ -195,6 +195,9 @@ When in doubt, add one. The reviewer can downgrade or remove it before merge.
 - Add tests for new features and for any non-trivial bug fix.
 - Tests run in CI on Node 22 and 24 across Ubuntu, macOS, and Windows. If your
   code is platform-sensitive, make sure your tests cover the relevant cases.
+- CI splits the test run into shards per OS and merges them before checking coverage.
+  Locally, `pnpm run ci` is still one unsharded run. See
+  [How the test run is sharded](docs/RELEASE-WORKFLOW.md#how-the-test-run-is-sharded-issue-654).
 
 ---
 

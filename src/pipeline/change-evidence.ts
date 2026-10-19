@@ -12,7 +12,7 @@ export interface ChangeEvidence {
 
 /**
  * The files the current change touches, read from git alone (issue #646). The
- * old `.paqad/session/changed-files.json` cache is never read: nothing writes
+ * old changed-files cache under `.paqad/session/` is never read: nothing writes
  * it any more, and a leftover copy with one still-dirty entry used to hide every
  * other edit. A non-empty set is `source: 'git'`; nothing changed is `'none'`.
  */

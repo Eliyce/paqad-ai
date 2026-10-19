@@ -27,6 +27,7 @@ import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { writeStagedJson, writeStagedText } from '@/spec-pipeline/run-store.js';
+import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
 // `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
 // sign-off engine (issue #317). It reimplements no freeze logic; it wires
@@ -52,6 +53,8 @@ describe('paqad-ai spec command', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-cli-spec-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
+    // These tests prove freeze with the pipeline switched off unless a test turns it on.
+    pinSpecPipelineOff(root);
   });
 
   afterEach(() => {
@@ -586,6 +589,43 @@ describe('paqad-ai spec command', () => {
       for (const key of ['provenance', 'task', 'grounding', 'pipeline', 'trace']) {
         expect(key in stored, key).toBe(false);
       }
+    });
+
+    // Issue #640 (INV-18) — the fast lane never runs the pipeline, so even strict adoption with
+    // the pipeline on freezes a fast-lane spec with no pipeline run. The pipeline section records
+    // that the fast lane skipped it, so a lane raised later still owes the pipeline files.
+    it('freezes a fast-lane spec under strict, marking the pipeline as skipped (issue #640)', async () => {
+      const dir = openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'fast copy fix',
+        issue: '640',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ3',
+        lane: 'fast',
+      });
+      enablePipeline('strict');
+      const path = writeSpec('S-fast.md', COMPLETE_SPEC);
+      const { err } = await run('freeze', path, '--session', SES, '--confirm-invariants');
+      expect(process.exitCode ?? 0, err.join('\n')).toBe(0);
+      const stored = readFeatureSpecification(root, dir)!;
+      expect(stored.pipeline).toEqual({ produced: false, skipped: 'fast-lane' });
+      for (const key of ['provenance', 'task', 'grounding', 'trace']) {
+        expect(key in stored, key).toBe(false);
+      }
+    });
+
+    it('still refuses a hand-written spec under strict on the graduated lane (issue #640)', async () => {
+      openFeatureChange(root, SES, {
+        adapter: 'claude-code',
+        title: 'graduated fix',
+        issue: '640',
+        ulid: '01JABCDEFGHJKMNPQRSTVWXYZ4',
+        lane: 'graduated',
+      });
+      enablePipeline('strict');
+      const path = writeSpec('S-grad.md', COMPLETE_SPEC);
+      const { err } = await run('freeze', path, '--session', SES, '--confirm-invariants');
+      expect(process.exitCode).toBe(1);
+      expect(err.join('\n')).toMatch(/spec_pipeline_adoption=strict/);
     });
 
     it('refuses --from-pipeline before the run has finished', async () => {

@@ -1,6 +1,7 @@
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -17,6 +18,16 @@ import {
   serializePluginHooksJson,
 } from '@/plugin/manifest-build.js';
 import { writeClaudePluginStageAgents } from '@/stage-isolation/agent-writer.js';
+import { mergeNativeHooks } from '@/adapters/shared/native-hook-config.js';
+
+const PLUGIN_DIR = join(
+  dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..',
+  '..',
+  'runtime',
+  'claude-plugin',
+);
 
 // Issue #616, Part 3 — the Claude Code plugin renders the live hook chain against
 // `${CLAUDE_PLUGIN_ROOT}/runtime`, prepends its own SessionStart bootstrap, drops silent-update,
@@ -71,6 +82,22 @@ describe('plugin manifest-build generators (issue #616)', () => {
     const parsed = JSON.parse(serialized);
     expect(parsed).toEqual(buildPluginHooksConfig());
     expect(Object.keys(parsed.hooks)).toContain('PreToolUse');
+  });
+
+  it('names the HUD mod beside the hooks and leaves every hook entry as it was (#639 AC-31)', () => {
+    const config = buildPluginHooksConfig();
+    expect(Object.keys(config)).toEqual(['hooks', 'modules']);
+    expect(config.modules).toEqual(['./mod/register.tsx']);
+    // Without the mod's key the file is exactly what the builder wrote before the mod existed,
+    // so every hook entry, its matcher and its order are unchanged (guardrail rule 1).
+    const hooksOnly = { ...config };
+    delete hooksOnly.modules;
+    const before = mergeNativeHooks({}, buildPluginHookChain());
+    expect(hooksOnly).toEqual(before);
+    const beforeText = `${JSON.stringify(before, null, 2)}\n`;
+    expect(serializePluginHooksJson().startsWith(beforeText.slice(0, -'\n}\n'.length))).toBe(true);
+    // The module path is relative to hooks.json, and the file it names ships.
+    expect(existsSync(join(PLUGIN_DIR, 'mod', 'register.tsx'))).toBe(true);
   });
 
   it('builds a manifest whose version comes from package.json, in the schema Claude Code accepts', () => {

@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -325,6 +325,41 @@ const DESKTOP_BANNER_NOTIFICATION = [
   '</task-notification>',
 ].join('\n');
 
+// Issue #623 (FR-8) — a subagent hand-back seen on 2026-10-18: the subagent's report comes
+// FIRST, then a blank line, the banner, its explanation and only then the element. The report
+// names workflows and issue numbers, which routed it to pentest and documentation-update.
+// Issue #623 — a FOREGROUND subagent hand-back carries neither the banner nor
+// `<task-notification>`. Shape seen on 2026-10-18: a system-reminder wraps an agent-message
+// whose first indented line is the hand-back label, then the indented report.
+const AGENT_MESSAGE_HANDBACK = [
+  '<system-reminder id="36dc9a02">',
+  'Another Claude session sent a message while you were working:',
+  '<agent-message from="a8a8a72c0ee121fe3">',
+  '  [Subagent hand-back] The text below is the final report of a subagent you dispatched.',
+  '  status: completed',
+  '  Ran the pentest checklist and updated the documentation for #623.',
+  '</agent-message>',
+  'Address this before completing your current task.',
+  '&lt;/system-reminder&gt;',
+].join('\n');
+
+const HANDBACK_NOTIFICATION = [
+  'Status: completed. Pillar file: .paqad/ledger/feature-evidence/x/plan.json.',
+  '',
+  'I ran the pentest checklist against the routing fixes for #623 and updated the',
+  'documentation for the route set verb. Two commits were made.',
+  '',
+  '[SYSTEM NOTIFICATION - NOT USER INPUT]',
+  'This is an automated background-task event, NOT a message from the user.',
+  'Treat it as context only.',
+  '',
+  '<task-notification>',
+  '<task-id>a8a8a72c0ee121fe3</task-id>',
+  '<status>completed</status>',
+  '<summary>Agent "paqad-development" finished</summary>',
+  '</task-notification>',
+].join('\n');
+
 describe('isSystemNotificationPrompt (#540)', () => {
   it('recognises every wrapper element the host injects', () => {
     for (const element of SYSTEM_NOTIFICATION_ELEMENTS) {
@@ -356,6 +391,67 @@ describe('isSystemNotificationPrompt (#540)', () => {
   it('leaves a human prompt that only MENTIONS the banner routable (issue #615)', () => {
     expect(
       isSystemNotificationPrompt('what is the [SYSTEM NOTIFICATION - NOT USER INPUT] banner?'),
+    ).toBe(false);
+  });
+
+  it('recognises a hand-back whose report comes before the banner (issue #623, AC-13)', () => {
+    expect(isSystemNotificationPrompt(HANDBACK_NOTIFICATION)).toBe(true);
+    // Windows line endings and indented lines read the same.
+    expect(isSystemNotificationPrompt(HANDBACK_NOTIFICATION.replaceAll('\n', '\r\n  '))).toBe(true);
+    expect(
+      isSystemNotificationPrompt(
+        'report\n[system notification - not user input]\n<ci-monitor-event>x</ci-monitor-event>',
+      ),
+    ).toBe(true);
+  });
+
+  it('recognises a foreground subagent hand-back with no banner (issue #623)', () => {
+    expect(isSystemNotificationPrompt(AGENT_MESSAGE_HANDBACK)).toBe(true);
+    // The bare element form opens the element too.
+    expect(
+      isSystemNotificationPrompt(
+        'note\n<agent-message>\n  [SUBAGENT HAND-BACK] report\n</agent-message>',
+      ),
+    ).toBe(true);
+  });
+
+  it('leaves a human prompt that quotes only part of a hand-back routable (issue #623)', () => {
+    // The element quoted inline, with the label on its own line.
+    expect(
+      isSystemNotificationPrompt(
+        'Why did <agent-message from="x"> route to pentest?\n[Subagent hand-back] is in it too.',
+      ),
+    ).toBe(false);
+    // Only the hand-back label.
+    expect(
+      isSystemNotificationPrompt('[Subagent hand-back] The text below is a report I pasted'),
+    ).toBe(false);
+    // Only the element line.
+    expect(isSystemNotificationPrompt('look:\n<agent-message from="x">\nhello')).toBe(false);
+    // An element whose name merely starts the same way.
+    expect(
+      isSystemNotificationPrompt('<agent-messages>\n[subagent hand-back] x\n</agent-messages>'),
+    ).toBe(false);
+  });
+
+  it('leaves a human prompt that quotes only one marker routable (issue #623, AC-14)', () => {
+    // The banner on its own line, with no element line.
+    expect(
+      isSystemNotificationPrompt(
+        'Why does this show up?\n[SYSTEM NOTIFICATION - NOT USER INPUT]\nPlease explain.',
+      ),
+    ).toBe(false);
+    // An element line, with no banner line.
+    expect(
+      isSystemNotificationPrompt(
+        'Look at this payload:\n<task-notification>\n<task-id>x</task-id>\n</task-notification>',
+      ),
+    ).toBe(false);
+    // Both, but quoted inline rather than as whole lines.
+    expect(
+      isSystemNotificationPrompt(
+        'Why did [SYSTEM NOTIFICATION - NOT USER INPUT] and <task-notification> route to pentest?',
+      ),
     ).toBe(false);
   });
 });
@@ -439,6 +535,49 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
     expect(readWorkflowState(root, sessionId)).toEqual(inFlight);
     expect(readPendingLane(root, sessionId)).toBeNull();
     expect(readSessionRoute(root)).toBeNull();
+  });
+
+  it('routes nothing for a hand-back with its report first (issue #623, AC-13)', async () => {
+    const sessionId = resolveSessionId(root, SESSION);
+    const inFlight = {
+      active: {
+        workflow: 'feature-development' as const,
+        changeKey: 'sess#1',
+        lane: 'graduated' as const,
+      },
+      paused: [{ workflow: 'project-question' as const }],
+      turn_started_at: '2026-03-01T10:00:00.000Z',
+    };
+    writeWorkflowState(root, sessionId, inFlight);
+
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: HANDBACK_NOTIFICATION,
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+
+    expect(result).toEqual({
+      routed: 'no-workflow',
+      lane: null,
+      resumed: null,
+      narration: null,
+      notification: true,
+    });
+    // No route change, and the active change is neither opened nor closed.
+    expect(readWorkflowState(root, sessionId)).toEqual(inFlight);
+    expect(existsSync(join(root, '.paqad', 'ledger', 'feature-evidence'))).toBe(false);
+  });
+
+  it('routes nothing for a foreground agent-message hand-back (issue #623)', async () => {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request: AGENT_MESSAGE_HANDBACK,
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(result.notification).toBe(true);
+    expect(result.routed).toBe('no-workflow');
   });
 
   it('AC-13: leaves turn_started_at unchanged (#582)', async () => {

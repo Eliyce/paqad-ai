@@ -16,9 +16,19 @@ import { mergeNativeHooks } from '@/adapters/shared/native-hook-config.js';
 import { buildPluginHookChain } from '@/adapters/shared/paqad-hooks.js';
 import { renderClaudePluginStageAgents } from '@/stage-isolation/agent-writer.js';
 
+/**
+ * The paqad HUD mod (issue #639, Part 8), named beside `hooks` as Claude Code's hooks file
+ * expects: one module path, relative to `hooks.json`. The mod only shows and asks; every check
+ * stays one of the hooks above, so the hook entries are byte-identical with or without it.
+ */
+export const PLUGIN_MOD_MODULES = ['./mod/register.tsx'] as const;
+
+/** The mod's `$.state` contract, named as `types` in `plugin.json`. */
+export const PLUGIN_MOD_TYPES = './runtime/claude-plugin/mod/types/index.d.ts';
+
 /** The plugin's `hooks.json` object — the plugin hook chain merged into the host hooks shape. */
 export function buildPluginHooksConfig(): Record<string, unknown> {
-  return mergeNativeHooks({}, buildPluginHookChain());
+  return { ...mergeNativeHooks({}, buildPluginHookChain()), modules: [...PLUGIN_MOD_MODULES] };
 }
 
 /** `hooks.json` serialized exactly as written to disk (2-space indent, trailing newline). */
@@ -52,6 +62,16 @@ export function buildPluginManifest(packageVersion: string): Record<string, unkn
     hooks: './runtime/claude-plugin/hooks.json',
     agents: pluginAgentPaths(),
     skills: './runtime/claude-plugin/skills',
+    types: PLUGIN_MOD_TYPES,
+    // The HUD is on by default (#639 decision 11). Off, the mod registers nothing at all.
+    userConfig: {
+      view: {
+        type: 'boolean',
+        title: 'Show the paqad HUD',
+        description: 'Show where the change stands in a band above the prompt.',
+        default: true,
+      },
+    },
   };
 }
 

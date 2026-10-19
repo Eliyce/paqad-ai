@@ -1006,6 +1006,7 @@ describe('readers on a migrated old bundle and a new one (AC-20)', () => {
     specPipelineStrict: false,
     specPipelineEnabled: true,
     expertsEnabled: true,
+    specFrozenBeforePipeline: false,
     stageIsolationExpected: false,
     stageIsolationUnresolved: false,
   };

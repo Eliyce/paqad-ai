@@ -31,6 +31,7 @@ import {
 
 import type { ChangeMetrics } from '@/change-metrics/types.js';
 import type { DuplicationReport } from '@/duplication/report.js';
+import type { DuplicationFinding } from '@/duplication/types.js';
 
 import { ENVELOPE_HEADER_KEYS, stampBundleRow } from './envelope.js';
 import { chatRagPath, featureChangeKey, featureFilePath } from './paths.js';
@@ -160,6 +161,56 @@ export function mirrorRagRow(
   }
 }
 
+/**
+ * Issue #639 (Part 12) — the most findings one `rule-run.jsonl` or `duplication.jsonl` row
+ * keeps. The rest are counted in `findings_overflow`, so a noisy run cannot grow a row
+ * without bound and the kept findings plus the overflow always add up to the full count.
+ */
+export const BUNDLE_FINDINGS_CAP = 50;
+
+/** One rule finding as a bundle row keeps it (issue #639, Part 12). */
+export interface RuleRunFinding {
+  rule_id: string;
+  file: string;
+  line: number | null;
+  message: string;
+  severity: string;
+}
+
+/** One near-copy as a `duplication.jsonl` row keeps it (issue #639, Part 12). */
+export interface DuplicationRowFinding {
+  file: string;
+  line_range: { start: number; end: number };
+  matched_file: string;
+  matched_symbol: string | null;
+  matched_line_range: { start: number; end: number };
+  similarity: number;
+  matched_callers: number;
+  kind: 'deterministic' | 'heuristic';
+}
+
+/** The fields of a near-copy a bundle row keeps; the long message is rebuilt from them. */
+function duplicationRowFinding(finding: DuplicationFinding): DuplicationRowFinding {
+  return {
+    file: finding.file,
+    line_range: finding.line_range,
+    matched_file: finding.matched_file,
+    matched_symbol: finding.matched_symbol ?? null,
+    matched_line_range: finding.matched_line_range,
+    similarity: finding.similarity,
+    matched_callers: finding.matched_callers,
+    kind: finding.kind,
+  };
+}
+
+/** Keep the first {@link BUNDLE_FINDINGS_CAP} findings and count the rest. */
+function capFindings<T>(all: readonly T[]): { findings: T[]; findings_overflow: number } {
+  return {
+    findings: all.slice(0, BUNDLE_FINDINGS_CAP),
+    findings_overflow: Math.max(0, all.length - BUNDLE_FINDINGS_CAP),
+  };
+}
+
 /** A per-change rule-run entry — which rules fired and the outcome. */
 export interface RuleRunEntry {
   /** `findings` (a rule-script run) or `drift` (the reconciler), mirroring rule-ledger. */
@@ -171,6 +222,13 @@ export interface RuleRunEntry {
   note?: string | null;
   /** Issue #468 Phase C — true when minted by the existence gate's backfill (not a live run). */
   backfilled?: boolean;
+  /**
+   * Issue #639 (Part 12) — every finding of the run, with the rule that raised it. The row
+   * keeps the first {@link BUNDLE_FINDINGS_CAP} and counts the rest. Omitted for a drift row.
+   */
+  findings?: readonly RuleRunFinding[];
+  /** Issue #639 (Part 12) — true when the run was served from the rule-script cache. */
+  from_cache?: boolean;
   now?: () => Date;
 }
 
@@ -178,7 +236,8 @@ export interface RuleRunEntry {
  * Append a rule-run row into the ACTIVE feature's `rule-run.jsonl`, recording which
  * rules fired on this change. A no-op (returns null) when no feature is active — a
  * rule run outside a feature-development change has no bundle to attach to. Best-effort:
- * a failure never breaks enforcement. Returns the stamped row (or null).
+ * a failure never breaks enforcement. Returns the stamped row (or null). A cache hit whose
+ * row would repeat the last row's content exactly is skipped and also returns null.
  */
 export function appendRuleRun(
   projectRoot: string,
@@ -190,18 +249,26 @@ export function appendRuleRun(
     return null;
   }
   try {
+    const payload = {
+      kind: entry.kind,
+      counts: entry.counts,
+      blocking: entry.blocking,
+      note: entry.note ?? null,
+      ...(entry.findings ? capFindings(entry.findings) : {}),
+      ...(entry.from_cache ? { from_cache: true } : {}),
+      ...(entry.backfilled ? { backfilled: true } : {}),
+    };
+    // A repeated cache hit says nothing new, so it is not appended again: the bundle would
+    // otherwise grow by a full findings list on every edit.
+    if (entry.from_cache && repeatsLastRuleRun(projectRoot, dirName, payload)) {
+      return null;
+    }
     const stamped = stampFeatureRow(
       dirName,
       sessionId,
       RULE_RUN_DOC_TYPE,
       RULE_RUN_SCHEMA_VERSION,
-      {
-        kind: entry.kind,
-        counts: entry.counts,
-        blocking: entry.blocking,
-        note: entry.note ?? null,
-        ...(entry.backfilled ? { backfilled: true } : {}),
-      },
+      payload,
       entry.now,
     );
     appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'ruleRun'), stamped);
@@ -209,6 +276,18 @@ export function appendRuleRun(
   } catch {
     return null;
   }
+}
+
+/** Whether the bundle's last rule-run row carries exactly this content. */
+function repeatsLastRuleRun(
+  projectRoot: string,
+  dirName: string,
+  payload: Record<string, unknown>,
+): boolean {
+  const last = readRuleRun(projectRoot, dirName).at(-1);
+  if (!last) return false;
+  const keys = new Set([...Object.keys(payload), 'findings', 'findings_overflow', 'backfilled']);
+  return [...keys].every((key) => JSON.stringify(last[key]) === JSON.stringify(payload[key]));
 }
 
 /** Tolerant read of a feature's `rule-run.jsonl` rows. */
@@ -222,6 +301,10 @@ export function readRuleRun(projectRoot: string, dirName: string): SessionLedger
  * no-op (returns null) when no feature is active, mirroring {@link appendRuleRun}. The
  * payload fields match the old-home `recordDuplicationRun` row so the parity window can
  * prove the two agree. Additive and best-effort: a failure never breaks the scan.
+ *
+ * Issue #639 (Part 12) — the row also keeps each near-copy (capped, overflow counted), so
+ * the change's evidence names what was copied after the scan cache is overwritten. A cached
+ * report with no findings list records none, rather than an empty list that reads as clean.
  */
 export function appendDuplicationRun(
   projectRoot: string,
@@ -246,6 +329,9 @@ export function appendDuplicationRun(
         min_lines: report.min_lines,
         mode: report.mode,
         blocking: report.blocking,
+        ...(Array.isArray(report.findings)
+          ? capFindings(report.findings.map(duplicationRowFinding))
+          : {}),
         ...(backfilled ? { backfilled: true } : {}),
       },
       now,

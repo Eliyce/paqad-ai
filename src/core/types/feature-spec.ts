@@ -96,6 +96,12 @@ export interface SpecPipelineSection {
   a5_live?: boolean;
   enforcement?: Omit<PipelineConfig, 'enabled'>;
   manual_reason?: string;
+  /**
+   * Issue #640: set when the spec was frozen on the fast lane with the pipeline on. The fast lane
+   * never runs the pipeline, so `produced` is false by design; if the lane is later raised to
+   * graduated or full, the pipeline files are owed and the spec must be re-frozen through it.
+   */
+  skipped?: 'fast-lane';
   /** The experts consulted and how their notes fared (issue #558, FR-8.2 / FR-13). */
   experts?: {
     roles: AgentRole[];

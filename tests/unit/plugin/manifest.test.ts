@@ -31,6 +31,26 @@ describe('plugin manifest + marketplace (issue #616, Part 1)', () => {
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
+  it('names the HUD mod contract and a view switch that is on by default (#639 AC-32)', () => {
+    const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as {
+      types: string;
+      userConfig: Record<string, Record<string, unknown>>;
+    };
+    expect(manifest.types).toBe('./runtime/claude-plugin/mod/types/index.d.ts');
+    expect(read(manifest.types)).toContain('interface PluginState');
+    expect(Object.keys(manifest.userConfig)).toEqual(['view']);
+    expect(manifest.userConfig.view).toMatchObject({ type: 'boolean', default: true });
+    expect(typeof manifest.userConfig.view!.title).toBe('string');
+    expect(typeof manifest.userConfig.view!.description).toBe('string');
+  });
+
+  it('ships the mod but not its tests in the npm package (#639)', () => {
+    const files = (JSON.parse(read('package.json')) as { files: string[] }).files;
+    expect(files).toContain('runtime');
+    expect(files).toContain('!runtime/claude-plugin/mod/**/*.test.ts');
+    expect(files).toContain('!runtime/claude-plugin/mod/test');
+  });
+
   it('keeps hooks.json in sync with the plugin hook chain', () => {
     expect(read('runtime/claude-plugin/hooks.json')).toBe(serializePluginHooksJson());
   });

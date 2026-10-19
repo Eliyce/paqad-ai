@@ -33,7 +33,7 @@ import { chatRagPath, featureFilePath } from '@/feature-evidence/paths.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
 import { readDuplicationReport } from '@/duplication/report.js';
 import { readDrift } from '@/rule-scripts/reconciler.js';
-import { readReport } from '@/rule-scripts/runner.js';
+import { readReport, ruleRunFindings } from '@/rule-scripts/runner.js';
 
 import type { EvidenceExistenceMode } from './evidence-existence-mode.js';
 
@@ -105,6 +105,7 @@ export function evidenceExistenceGate(
           kind: 'findings',
           counts: report.counts as unknown as Record<string, number>,
           blocking: report.blocking,
+          findings: ruleRunFindings(report),
           backfilled: true,
         });
         minted = true;

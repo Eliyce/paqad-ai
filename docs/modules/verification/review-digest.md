@@ -78,6 +78,12 @@ anchoring check.
   `.paqad/session/changed-files.json` cache is never read, so a leftover copy can neither
   head the digest with files from an already-merged change nor hide files you edited. That
   costs a few read-only git queries, never a model call.
+- Nothing else reads that cache either (issue #651). The `diff-doc-sync` skill takes its
+  changed files from this header (run `paqad-ai review digest` to refresh it) or straight
+  from git. The generated `scripts/refresh-registry-diff.sh` asks git too: `git status` plus
+  every file committed since the branch left the default branch (what `origin/HEAD` names,
+  else `main`, else `master`). It falls back to the full registry refresh outside git or
+  when git reports no changes.
 - When git cannot tell where the branch started (no `main` or `master`, or no commits yet),
   the header lists the working-tree changes only, so files already committed on that branch
   are missing. Outside a git repository, and on a clean tree with no branch commits, it
