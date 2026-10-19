@@ -29,6 +29,8 @@ import {
   migrationStatePath,
   projectTargetsClaudeCode,
   pluginSeenPath,
+  PROJECT_NPM_HOOKS_SUFFIX,
+  projectWiresLiveNpmHooks,
   readMigrationState,
   recordMigrationSession,
   releaseLock,
@@ -1530,5 +1532,109 @@ describe('describeClaudeInstall (Part 7)', () => {
       version: '1',
     });
     expect(describeClaudeInstall(home)).toBe('npm (migration rolled-back: manual)');
+  });
+});
+
+describe('doctor line says when this project still runs the npm hooks (issue #667, AC-8)', () => {
+  const SUFFIX = '; this project still runs the npm hooks (project .claude/settings.json)';
+
+  /** A real paqad hook script on disk under a temp "paqad" install, returned as an absolute path. */
+  function liveScript(): string {
+    const script = join(home, 'paqad-ai', 'hooks', 'capability-gate.mjs');
+    mkdirSync(dirname(script), { recursive: true });
+    writeFileSync(script, '// hook\n');
+    return script;
+  }
+  function wire(file: 'settings.json' | 'settings.local.json', commands: string[]): void {
+    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.claude', file),
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [{ matcher: 'Edit', hooks: commands.map((command) => ({ command })) }],
+        },
+      }),
+    );
+  }
+  function doneVia(path: 'cli' | 'synced'): void {
+    writeMigrationState(home, {
+      state: 'done',
+      path,
+      attempts: 1,
+      version: '1',
+      last_attempt_at: '2026-10-17T10:00:00Z',
+    });
+  }
+
+  it('appends the suffix for a done/cli record when the project wires a live paqad hook', () => {
+    doneVia('cli');
+    wire('settings.json', [`node "${liveScript()}" pre-mutation`]);
+    expect(projectWiresLiveNpmHooks(projectRoot)).toBe(true);
+    expect(describeClaudeInstall(home, projectRoot)).toBe(
+      `plugin (migrated 2026-10-17, via cli)${SUFFIX}`,
+    );
+    expect(PROJECT_NPM_HOOKS_SUFFIX).toBe(SUFFIX);
+  });
+
+  it('appends the suffix for a synced record, with the wiring in settings.local.json (bare path)', () => {
+    doneVia('synced');
+    wire('settings.local.json', [`node ${liveScript()}`]);
+    expect(describeClaudeInstall(home, projectRoot)).toBe(
+      `plugin (synced from claude.ai)${SUFFIX}`,
+    );
+  });
+
+  it('adds no suffix without a project root', () => {
+    doneVia('cli');
+    wire('settings.json', [`node "${liveScript()}"`]);
+    expect(describeClaudeInstall(home)).toBe('plugin (migrated 2026-10-17, via cli)');
+  });
+
+  it('adds no suffix when the wired paqad script is missing on disk (a dead line)', () => {
+    doneVia('cli');
+    wire('settings.json', [`node "${join(home, 'paqad-ai', 'hooks', 'gone.mjs')}"`]);
+    expect(projectWiresLiveNpmHooks(projectRoot)).toBe(false);
+    expect(describeClaudeInstall(home, projectRoot)).toBe('plugin (migrated 2026-10-17, via cli)');
+  });
+
+  it('adds no suffix for non-paqad hooks', () => {
+    doneVia('synced');
+    // The temp home's own name contains "paqad", so the non-paqad script lives in its own temp dir.
+    const toolsDir = mkdtempSync(join(tmpdir(), 'other-tools-'));
+    try {
+      const other = join(toolsDir, 'lint.mjs');
+      writeFileSync(other, '');
+      // Not a paqad command; a paqad command with no .mjs; a .mjs path without paqad in it.
+      wire('settings.json', [`node "${other}"`, 'paqad-ai status', `node "${other}" # paqad`]);
+      expect(projectWiresLiveNpmHooks(projectRoot)).toBe(false);
+      expect(describeClaudeInstall(home, projectRoot)).toBe('plugin (synced from claude.ai)');
+    } finally {
+      rmSync(toolsDir, { recursive: true, force: true });
+    }
+  });
+
+  it('adds no suffix when the record is not done', () => {
+    writeMigrationState(home, { state: 'failed', reason: 'x', attempts: 1, version: '1' });
+    wire('settings.json', [`node "${liveScript()}"`]);
+    expect(describeClaudeInstall(home, projectRoot)).toBe('npm (migration failed: x)');
+    writeMigrationState(home, { state: 'pending', attempts: 0, version: '1' });
+    expect(describeClaudeInstall(home, projectRoot)).toBe('npm');
+  });
+
+  it('projectWiresLiveNpmHooks is false for missing, malformed, or oddly shaped settings', () => {
+    expect(projectWiresLiveNpmHooks(projectRoot)).toBe(false); // no .claude dir at all
+    mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+    const settings = join(projectRoot, '.claude', 'settings.json');
+    for (const body of [
+      '{ broken',
+      'null',
+      JSON.stringify({}),
+      JSON.stringify({ hooks: 'nope' }),
+      JSON.stringify({ hooks: { PreToolUse: 'nope' } }),
+      JSON.stringify({ hooks: { PreToolUse: [null, { hooks: 'nope' }, { hooks: [null, 7] }] } }),
+    ]) {
+      writeFileSync(settings, body);
+      expect(projectWiresLiveNpmHooks(projectRoot)).toBe(false);
+    }
   });
 });

@@ -1070,4 +1070,30 @@ describe('doctor Claude Code install line (issue #648, B5)', () => {
       rmSync(projectRoot, { recursive: true, force: true });
     }
   });
+
+  it('passes the project root, so it says when this project still runs the npm hooks (issue #667)', async () => {
+    mkdirSync(join(homedir(), '.paqad-ai'), { recursive: true });
+    writeFileSync(
+      join(homedir(), '.paqad-ai', 'plugin-migration.json'),
+      JSON.stringify({ state: 'done', path: 'synced', attempts: 1, version: '1' }),
+    );
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-doctor-'));
+    try {
+      const script = join(projectRoot, 'hooks', 'capability-gate.mjs');
+      mkdirSync(join(projectRoot, 'hooks'), { recursive: true });
+      writeFileSync(script, '');
+      mkdirSync(join(projectRoot, '.claude'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.claude', 'settings.json'),
+        JSON.stringify({ hooks: { Stop: [{ hooks: [{ command: `node "${script}"` }] }] } }),
+      );
+      const report = await new HealthChecker().run(projectRoot);
+      const check = report.checks.find((c) => c.name === 'Claude Code install');
+      expect(check?.detail).toBe(
+        'plugin (synced from claude.ai); this project still runs the npm hooks (project .claude/settings.json)',
+      );
+    } finally {
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
 });
