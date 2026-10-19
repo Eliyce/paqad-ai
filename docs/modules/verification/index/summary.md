@@ -124,7 +124,7 @@ and documentation:
 
 | Gate | Concern |
 | --- | --- |
-| `ac-test-mapping` | Every acceptance criterion maps to a proving test. |
+| `ac-test-mapping` | Every automated acceptance criterion in the frozen spec is named by a test changed on the branch, read from the change map (#639 Part 11, see [`traceability-engine`](../../traceability-engine/index/summary.md)). |
 | `behavioral-correctness` | The change does what the spec says. |
 | `change-completeness` | The change is whole — no half-applied edits. |
 | `code-tests-lint` | Tests, types, and lint pass. |

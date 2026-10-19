@@ -84,6 +84,8 @@ change, so the live feature-development stage spine is untouched:
 | `request.md` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline start` |
 | `clarification.json` | `spec_pipeline_enabled` (on by default), graduated or full lane | `paqad-ai spec pipeline` (label + questions) |
 | `experts.json` | `spec_pipeline_enabled` + `spec_pipeline_experts_enabled` (both on by default), graduated or full lane | `paqad-ai spec pipeline experts` |
+| `high-table.jsonl` | checked-when-present (issue #639, Part 13) | `paqad-ai spec pipeline experts` (record, brief, context, notes, synthesis) + SubagentStop hook |
+| `cost.json` | checked-when-present (issue #639, Part 23) | Stop and SubagentStop hooks (record-only) |
 | `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
@@ -370,13 +372,22 @@ onto this base.
 `src/hud/` is the data layer of the paqad HUD, the Claude Code mod that keeps the change on
 screen. It writes one file per session, `.paqad/session/hud/<session>.json` (schema
 `paqad.hud/2`), built only from records paqad already keeps: the routed workflow and its saved
-reason, this bundle's `feature.json`, folded stages, `experts.json`, `clarification.json`,
+reason, this bundle's `feature.json`, folded stages, `experts.json`, `high-table.jsonl`, `clarification.json`,
 `specification.json`, `evidence.jsonl` (with `GATE_STRENGTH_TIER`), `rules-loaded.json`,
 `rule-run.jsonl`, `duplication.jsonl`, `delivery.json`, `cost.json`, the decision folders, the bundle manifest (with the shared
 `buildBundleCompletenessConfig`) and the in-session receipt. A field whose source does not
 exist yet (claims, the last rule stop, push/PR/CI, a cost no hook has written) is `null` or
 empty, never guessed. The headline and the flags are decided in one place
 (`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+
+The `table` field (issue #639, Parts 13 and 14, `src/hud/high-table-view.ts`) is the live High
+Table: each seat with its state (`seated`, `writing`, `done`), its times, granted budget, findings,
+the exact tokens from its own subagent transcript (or its self-reported estimate, marked as such),
+its track record on the project's earlier changes, then the chief's seat, verdict and rulings, the
+gaps, the questions asked and auto-answered, and which spec lines each role shaped. It is `null`
+on the fast lane and when no table sat. A spec frozen by hand while the pipeline was on reads
+`skipped: true` and raises a flag; a table whose work landed after the freeze reads
+`met_after_freeze: true`, raises a flag and is credited with no spec line.
 
 The `findings` field (issue #639, Part 12) comes from the change's latest `rule-run.jsonl`
 findings row and latest `duplication.jsonl` row: for each scan its status (`open`, `clean` or
@@ -408,12 +419,28 @@ blocked or broken changes no hook's decision. It reads only `.paqad/`, calls no 
 network, and starts no process.
 
 - **What the band shows.** A state word with its colour, the headline, a flag pill when flags
-  are open, and two instruments. *Stage* walks Intake, Planning, Spec, Build, Review, Checks,
+  are open, and two instruments (three when the High Table sits). *Stage* walks Intake, Planning, Spec, Build, Review, Checks,
   Docs and Deliver, with a live clock on the running stage. *Ship* walks Edit, Commit, Push, PR,
   CI and Merge, and Merge reads "stays yours" until a merge is recorded. A stage reads done only
   when the receipt would say done: an unbacked `checks` stage is marked, not done. A field with
   no record reads "not yet". The cost pill reads "not yet" until a hook writes the cost, then
   shows the tokens and a dated estimate, and opens the Cost tab when pressed.
+- **The High Table instrument** (issue #639, Part 14, `runtime/claude-plugin/mod/table.ts`).
+  On the graduated and full lanes, with the experts on, a third row sits between Stage and Ship:
+  one dot per seat plus the chief, each state with its own glyph (seated, writing, done) so it
+  reads without colour, and a live count in words while the table sits. Once the chief has ruled
+  only the dots stay, plus a flag pill while the table has an open flag (a late seat, a
+  disagreement still waiting on its decision). A skipped table says so. Pressing the label opens
+  the High Table tab.
+- **The live card.** While the table sits, a card is drawn over the change's first
+  `paqad-ai spec pipeline experts` call in the chat and redrawn in place as seats move: each
+  seat's state and time, tokens and findings, then the chief's ruling in counts.
+- **The paqad pane.** One pane with two tabs, opened by the High Table label or the cost pill.
+  *High Table* shows the round table with the chief in the centre (a picture on Desktop, text in
+  the terminal), a button per seat with its detail and track record on earlier changes, the
+  chief's rulings (accepted, declined, renamed, disagreements and those settled before) and
+  which spec lines each role shaped. *Cost* shows the change cost described below. The pane
+  opens on High Table when the change has one, otherwise on Cost.
 - **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
   Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
   Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
@@ -424,7 +451,7 @@ network, and starts no process.
   while a stage agent runs.
 - **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
   `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
-  session's `<session>.receipt.md`) and `/paqad cost`. Each answer comes from files already on
+  session's `<session>.receipt.md`) and `/paqad cost` (the same text as the Cost tab). Each answer comes from files already on
   disk, so it costs no model turn.
 - **The `view` setting.** The plugin's `userConfig.view` ("Show the paqad HUD", on by default)
   turns the band off. Off, the mod registers nothing at all.

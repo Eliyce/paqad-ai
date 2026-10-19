@@ -25,6 +25,7 @@ The pipeline writes straight into the change's evidence bundle (issue #581). The
 | `request.md` | `start` | The request text, with the bundle header in YAML front matter. |
 | `clarification.json` | `start` (label), `record questions` | A `label` section (value, signals, question budget) and a `questions` section (asked, auto-answered, deferred, counts). |
 | `experts.json` | `experts record`, `experts notes`, `experts synthesis` | A `roster` section (role, reason, lens, budget, `brief_hash`, tokens used), a `findings` section holding each `EX-*` finding once, and a `synthesis` section that refers to findings by id only. |
+| `high-table.jsonl` | `experts record`, `experts brief`, `experts context`, `experts notes`, `experts synthesis`, the SubagentStop hook | One row per High Table event (`seated`, `writing`, `done`, `usage`), see [The High Table](#the-high-table-issue-639-part-13). Optional: a change that never seats the table has none. |
 | `stage-evidence.jsonl` | every step | One `kind: "spec-step"` row per step (`step`, `outcome`, `artifact_hash`, optional tokens). A redo appends a row with outcome `redone`. A later edit to a frozen spec appends a `kind: "spec-correction"` row. |
 
 The facts that only belong in `specification.json` (the task, the grounding, the trace, the finish outcome, and the working `spec.md`) stage under `.paqad/tmp/spec-pipeline/<ULID>/` until the freeze. The staging dir is keyed by the change ULID, so a bundle rename leaves nothing behind.
@@ -89,3 +90,20 @@ Grounding now extracts a structured `vocabulary` (`VocabularyEntry[]`) from the 
 A deterministic voice check (`checkFindingVoice`) flags a finding target the project does not name (allowing documented words, request words, existing paths, indexed symbols, and `new `/`this request` targets), recording a `voice_warnings` row with a hint. It never refuses a note. The chief settles each warning through `renames: [{ id, target }]` on the synthesis, applied to the merged findings (the original kept as `renamed_from`) before the craft step reads them.
 
 The frozen `specification.json` pipeline section keeps a `findings` snapshot of every accepted finding (after renames) plus an `experts` summary (`standing`, `on_call`, `renamed`), and the grounding section persists the `vocabulary` so a brief rebuilds with the same hash. The feature report renders a "Who contributed what" table from the trace and the snapshot. `paqad-ai spec pipeline metrics` reports each expert's `tier`, `empty rate` and `voice warnings` next to its `changed_spec` rate, and prints the demotion footer.
+
+## The High Table (issue #639, Part 13)
+
+The experts and the chief architect sit at the High Table. Each seated expert can run as its own host subagent, `paqad-expert`, with its role given in the prompt, and the chief runs as `paqad-chief-architect`. Several seats can then write at once. Both agents are read-only: each writes one artifact under `.paqad/tmp/` and hands it to a `paqad-ai spec pipeline experts` verb. Install and update write them at user scope beside the six stage agents, but they are never stages: only the six `paqad-<stage>` agents add a `stage-agent` row or count as an isolated stage (`stageForAgentName` in `src/stage-isolation/stage-agents.ts`).
+
+`experts.json` is rewritten whole, so it cannot say when a seat started or finished. `high-table.jsonl` does, with one stamped row per event (`src/spec-pipeline/high-table.ts`):
+
+- **`seated`**, one per seat at `experts record`: role, reason, origin, the budget granted after the token ceiling and whether the ceiling clamped it. The chief gets a seat with its fixed 10000-token budget.
+- **`writing`**, when a seat starts: `experts brief <role>` for an expert, `experts context` for the chief once the notes are in.
+- **`done`**, when a seat's work lands: `experts notes` for each role in the artifact, `experts synthesis` for the chief. It carries the seat's self-reported tokens, labelled an estimate.
+- **`usage`**, written by the existing SubagentStop hook for a High Table agent: the exact tokens by kind and model, read from that subagent's own transcript. With no readable transcript no `usage` row is written and the seat keeps its estimate.
+
+A row that fails to write is reported on stderr and never changes the verb's result. Nothing here edits `experts.json`; the HUD folds both files into the live table.
+
+**Notes merge one role at a time.** `experts notes` replaces only the roles its artifact names (their findings, voice warnings, staged questions and reported tokens) and keeps every other role as it was. The whole read and write of `experts.json` and the staged questions runs under a file lock, so two seats that finish at the same moment never lose a note.
+
+**A table that met late.** When any `done` row lands after the spec was frozen, the HUD table carries `met_after_freeze: true`, raises the flag "The High Table met after the spec was frozen, so it shaped no spec line." and credits the table with no spec line. A spec frozen by hand while the pipeline was on shows the table as skipped. The fast lane has no High Table.
