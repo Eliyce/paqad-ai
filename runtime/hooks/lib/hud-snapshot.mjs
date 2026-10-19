@@ -10,10 +10,9 @@
 
 import { logHookFailure } from './hook-log.mjs';
 import {
+  hookStandsDown,
   isPaqadDisabled,
-  npmHookStepsAside,
   parseHookPayload,
-  pluginStandsDownUnonboarded,
   resolveProjectRoot,
 } from './paqad-disabled.mjs';
 
@@ -30,11 +29,7 @@ export async function refreshHudFromHook(input, hook, load = (href) => import(hr
   try {
     const payload = parseHookPayload(input);
     projectRoot = resolveProjectRoot(process.env, payload);
-    if (
-      isPaqadDisabled(projectRoot) ||
-      npmHookStepsAside(payload) ||
-      pluginStandsDownUnonboarded(payload)
-    ) {
+    if (isPaqadDisabled(projectRoot) || hookStandsDown(payload)) {
       return;
     }
     const url = new URL('../../../dist/hud/refresh.js', import.meta.url);
