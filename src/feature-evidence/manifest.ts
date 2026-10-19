@@ -225,6 +225,15 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'jsonl>=1',
   },
   {
+    // Issue #639, Part 23: the cost of the change. `optional`: it exists only once a hook has read
+    // a transcript for the change (Claude Code), so it is checked when present only.
+    key: 'cost',
+    file: FEATURE_BUNDLE_FILES.cost,
+    required: 'optional',
+    writer: 'Stop and SubagentStop hooks (record-only)',
+    validate: 'json',
+  },
+  {
     // A change that resolved no decision has no index to write, so it is checked when present.
     key: 'decisions',
     file: FEATURE_BUNDLE_FILES.decisions,

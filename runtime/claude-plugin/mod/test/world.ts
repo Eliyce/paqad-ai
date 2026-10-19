@@ -17,6 +17,8 @@ export interface World {
   /** Every path the mod read, in order. */
   reads: string[];
   agents: AgentInfo[];
+  /** Every pane id the mod asked the engine to open, in order. */
+  opened: string[];
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
 }
@@ -41,6 +43,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     commands: [],
     reads: [],
     agents: [],
+    opened: [],
     put: (path, text) => void world.files.set(path, text),
     remove: (path) => void world.files.delete(path),
   };
@@ -82,6 +85,10 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     world.commands.push(e.name);
     return { value: { command: e.name } };
   });
+  on('ui.open', ($, e) => {
+    world.opened.push(e.id);
+    return { value: { isPlaced: true } };
+  });
   on('session.start', ($, e) => ({ cwd: e.cwd }));
   on('prompt.submit', ($, e) => ({ text: e.text }));
   on('turn.complete', () => ({ text: '' }));
@@ -115,6 +122,23 @@ export function band(
   } as RenderInput<'AbovePrompt'>;
 }
 
+/** A render of the paqad pane on a surface, as the engine asks for it once the pane is open. */
+export function pane(surface: 'terminal' | 'desktop', requestId = 'paqad'): RenderInput<'Pane'> {
+  return {
+    component: 'Pane',
+    surface,
+    requestId,
+    props: {
+      title: 'paqad',
+      isFocused: false,
+      bodyColumns: 90,
+      placement: 'inline',
+      scroll: { offset: 0, bodyRows: 20 },
+      view: {},
+    },
+  } as RenderInput<'Pane'>;
+}
+
 export function command(args = '') {
   return {
     command: 'paqad',
@@ -129,6 +153,9 @@ export function stringsOf(node: RenderNode | RenderElement | null | undefined): 
   if (node === null || node === undefined) return [];
   if (typeof node === 'string') return [node];
   const children = (node as { children?: readonly RenderNode[] }).children ?? [];
+  // A Button drawn with its words as children may hold them as its label once validated.
+  const label = (node as { props?: { label?: unknown } }).props?.label;
+  if (children.length === 0 && typeof label === 'string') return [label];
   return children.flatMap((child) => stringsOf(child));
 }
 

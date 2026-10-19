@@ -4,11 +4,12 @@
 // Pure: each answer is built from the snapshot (and, for `receipt`, the receipt file's text)
 // that `register.tsx` already read, so a command costs no model turn and starts no process.
 
+import { costLines } from './cost';
 import {
-  NOT_YET,
   buildBandView,
   flagPill,
   headlineAfterState,
+  stageLabel,
   stageSegments,
   type BandView,
 } from './model';
@@ -129,6 +130,14 @@ function rules(snapshot: PaqadHudSnapshot): string {
   return lines.join('\n');
 }
 
+function cost(snapshot: PaqadHudSnapshot): string {
+  if (!snapshot.active) return 'No change is in progress, so there is no cost to show.';
+  if (!snapshot.cost) {
+    return 'Cost: not yet. paqad counts it from the transcripts at the end of each turn.';
+  }
+  return costLines(snapshot.cost, { lane: snapshot.lane, stageLabel }).join('\n');
+}
+
 function receipt(text: string | null): string {
   const body = text?.trim();
   return body ? body : 'No receipt yet. paqad writes one at the end of each turn.';
@@ -138,9 +147,6 @@ function receipt(text: string | null): string {
 export function runPaqadCommand(input: CommandInput): { text: string } {
   if (input.standDown) return { text: notActiveText(input.standDown) };
   const sub = input.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
-  if (sub === 'cost') {
-    return { text: `Cost: ${NOT_YET}. paqad does not count what a change costs yet.` };
-  }
   if (sub === 'receipt') return { text: receipt(input.receipt) };
   if (sub !== '' && !(SUBCOMMANDS as readonly string[]).includes(sub)) {
     return { text: `There is no /paqad ${sub}. ${HELP}` };
@@ -150,5 +156,6 @@ export function runPaqadCommand(input: CommandInput): { text: string } {
   if (sub === 'status') return { text: status(snapshot, input.now) };
   if (sub === 'decisions') return { text: decisions(snapshot) };
   if (sub === 'rules') return { text: rules(snapshot) };
+  if (sub === 'cost') return { text: cost(snapshot) };
   return { text: overview(snapshot, input.now) };
 }

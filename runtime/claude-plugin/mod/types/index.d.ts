@@ -23,6 +23,41 @@ export type PaqadFindingsScan = {
   blocking: boolean;
 };
 
+export type PaqadCostTokens = {
+  input: number;
+  output: number;
+  cache_read: number;
+  cache_write: number;
+  total: number;
+};
+
+/** One part of the cost: its tokens and, when its model is priced, a dollar estimate. */
+export type PaqadCostLine = { tokens: PaqadCostTokens; usd: number | null };
+
+/**
+ * What the change cost (issue #639, Part 23), from the bundle's cost.json. Money is an estimate
+ * at API prices and is never shown without `label` and `price_table_date`.
+ */
+export type PaqadCost = {
+  price_table_date: string;
+  label: string;
+  basis: string;
+  plan_note: string;
+  /** True when the window ends at the change's seal, false while it is still open. */
+  sealed: boolean;
+  tokens: PaqadCostTokens;
+  /** The priced part in US dollars; null when nothing is priced. */
+  usd: number | null;
+  unpriced_models: string[];
+  by_stage: Array<PaqadCostLine & { stage: string }>;
+  by_expert: Array<PaqadCostLine & { role: string; exact: boolean }>;
+  chief: (PaqadCostLine & { exact: boolean }) | null;
+  not_counted: string[];
+};
+
+/** The paqad pane's tabs. Part 23 adds Cost; more tabs join this union. */
+export type PaqadPaneTab = 'cost';
+
 export type PaqadHudSnapshot = {
   session_id: string;
   generated_at: string;
@@ -58,6 +93,8 @@ export type PaqadHudSnapshot = {
     ci: string | null;
   } | null;
   verdict: { word: string; kind: 'pass' | 'fail' | 'inconclusive'; reasons: string[] } | null;
+  /** What the change cost (Part 23); `null` until a hook wrote it. */
+  cost: PaqadCost | null;
 };
 
 /** Why the mod stands down; `null` while it is on. */
@@ -74,6 +111,8 @@ declare module 'claude-code' {
       snapshot: PaqadHudSnapshot | null;
       /** Milliseconds at the last refresh or tick, for the Stage instrument's live clock. */
       now: number;
+      /** The paqad pane's selected tab (Part 23). */
+      paneTab: PaqadPaneTab;
     };
   }
 }

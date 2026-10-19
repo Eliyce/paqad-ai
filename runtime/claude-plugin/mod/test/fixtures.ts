@@ -260,3 +260,95 @@ export const RECEIPT_TEXT = [
 export function fileText(raw: Raw): string {
   return `${JSON.stringify(raw, null, 2)}\n`;
 }
+
+// ── the change cost (Part 23) ─────────────────────────────────────────────────
+
+function tokens(input: number, output: number, cacheRead: number, cacheWrite: number): Raw {
+  return {
+    input,
+    output,
+    cache_read: cacheRead,
+    cache_write: cacheWrite,
+    total: input + output + cacheRead + cacheWrite,
+  };
+}
+
+/** A whole `cost` field as `src/hud/cost-view.ts` writes it; `over` replaces top-level fields. */
+export function costRecord(over: Raw = {}): Raw {
+  return {
+    computed_at: '2026-10-18T08:59:30.000Z',
+    window: {
+      from: '2026-10-18T08:00:00.000Z',
+      to: '2026-10-18T08:59:00.000Z',
+      sealed: true,
+      sealed_by: 'receipt',
+    },
+    price_table_date: '2026-10-19',
+    price_source: 'https://platform.claude.com/docs/en/about-claude/pricing',
+    basis: 'API-equivalent estimate',
+    label: 'estimate at API prices (API-equivalent on a Pro or Max plan)',
+    plan_note:
+      'On a Pro or Max plan you pay a flat fee, not these prices. The figure is what the same tokens would cost on the API.',
+    tokens: tokens(2000, 98000, 1100000, 100000),
+    usd: 4.6,
+    unpriced_models: [],
+    by_stage: [
+      { stage: 'planning', tokens: tokens(200, 9800, 100000, 10000), usd: 0.42 },
+      { stage: 'specification', tokens: tokens(500, 24500, 260000, 25000), usd: 1.1 },
+      { stage: 'development', tokens: tokens(900, 45100, 544000, 50000), usd: 2.3 },
+      { stage: 'review', tokens: tokens(100, 6900, 78000, 5000), usd: 0.31 },
+      { stage: 'checks', tokens: tokens(100, 2900, 35000, 2000), usd: 0.12 },
+      { stage: 'documentation_sync', tokens: tokens(100, 1900, 26000, 2000), usd: 0.09 },
+      { stage: 'orchestrator', tokens: tokens(100, 6900, 57000, 6000), usd: 0.26 },
+    ],
+    by_expert: [
+      {
+        role: 'security-auditor',
+        tokens: tokens(40, 1960, 34000, 4000),
+        usd: 0.14,
+        exact: true,
+      },
+      { role: 'db-expert', tokens: tokens(30, 1470, 25500, 3000), usd: 0.11, exact: true },
+      { role: 'qa-engineer', tokens: tokens(0, 0, 0, 1800), usd: null, exact: false },
+    ],
+    chief: { tokens: tokens(25, 1225, 21250, 2500), usd: 0.09, exact: true },
+    not_counted: [
+      'The fast mode premium',
+      'The 1.1 times multiplier for US-only inference',
+      'Batch discounts',
+    ],
+    ...over,
+  };
+}
+
+/** ORD-501 with its cost counted: seats, the chief, every stage. */
+export const FULL_ORD_501_COST = snapshot({ ...FULL_ORD_501, cost: costRecord() });
+
+/** ORD-490 on the fast lane with its cost so far: no High Table, so no expert tokens. */
+export const FAST_ORD_490_COST = snapshot({
+  ...FAST_ORD_490,
+  cost: costRecord({
+    window: { from: '2026-10-18T08:56:00.000Z', to: '2026-10-18T09:00:00.000Z', sealed: false },
+    tokens: tokens(300, 4700, 60000, 5000),
+    usd: 0.21,
+    by_stage: [
+      { stage: 'planning', tokens: tokens(100, 1900, 20000, 2000), usd: 0.08 },
+      { stage: 'development', tokens: tokens(200, 2800, 40000, 3000), usd: 0.13 },
+    ],
+    by_expert: [],
+    chief: null,
+  }),
+});
+
+/** A change that ran only on a model the price table does not list: tokens, no money. */
+export const UNPRICED_COST = snapshot({
+  ...FAST_ORD_490,
+  cost: costRecord({
+    tokens: tokens(100, 900, 9000, 0),
+    usd: null,
+    unpriced_models: ['claude-future-9'],
+    by_stage: [{ stage: 'development', tokens: tokens(100, 900, 9000, 0), usd: null }],
+    by_expert: [],
+    chief: null,
+  }),
+});

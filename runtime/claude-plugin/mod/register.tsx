@@ -1,7 +1,7 @@
 // The paqad HUD mod (issue #639, Parts 8 and 9): thin glue between Claude Code's events and the
 // pure modules beside it. `config.ts` decides whether the mod stands down, `model.ts` reads the
-// session's snapshot and turns it into what the band shows, `band.ts` lays the band out in rows
-// and `commands.ts` answers `/paqad`.
+// session's snapshot and turns it into what the band shows, `band.ts` lays the band out in rows,
+// `commands.ts` answers `/paqad`, and `pane.ts` (with `cost.ts`) fills the paqad pane (Part 23).
 //
 // The mod only shows and asks. Every check stays one of the plugin's hooks in `hooks.json`, so
 // the mod being off, blocked or broken changes no hook's decision (decision 2). It reads only
@@ -18,7 +18,7 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register, RenderElement, RenderNode, Timer } from 'claude-code';
 
-import { layoutBand, type BandRow } from './band';
+import { layoutBand, type BandRow, type BandSegment } from './band';
 import { runPaqadCommand } from './commands';
 import { ancestorDirs, decideStatus, registersCommand } from './config';
 import {
@@ -31,7 +31,8 @@ import {
   receiptPath,
   snapshotPath,
 } from './model';
-import type { PaqadHudSnapshot, PaqadStatus, PaqadTone } from './types';
+import { DEFAULT_PANE_TAB, PANE_ID, PANE_TITLE, buildPaneView } from './pane';
+import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
 /** How often the band re-reads the snapshot while a stage agent runs (FR-24: 1 to 2 seconds). */
 const AGENT_TICK_MS = 1500;
@@ -44,6 +45,11 @@ const snapshotAtom = atom(
   null as PaqadHudSnapshot | null,
 );
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
+/** The paqad pane's selected tab, written only from a press (a render hook never writes). */
+const paneTabAtom = atom(
+  { plugin: 'paqad', key: 'paneTab' } as const,
+  DEFAULT_PANE_TAB as PaqadPaneTab,
+);
 
 /** The theme colour each tone draws in; the words beside it always say the same thing. */
 const TONE_COLOR: Record<PaqadTone, string | undefined> = {
@@ -182,6 +188,16 @@ async function readStatus($: EngineInterface): Promise<PaqadStatus & { root: str
   return { ...status, root };
 }
 
+/** Show the paqad pane on `tab`: the tab is chosen first, so the pane draws it at once. */
+async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
+  try {
+    await update($, paneTabAtom, () => tab);
+    await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
+  } catch {
+    // A pane that cannot open leaves the band as it was; the next press tries again.
+  }
+}
+
 /** True when a drawn tree holds no text: the engine's empty band, which ours replaces. */
 function isBlank(node: RenderNode | null | undefined): boolean {
   if (node === null || node === undefined) return true;
@@ -279,23 +295,71 @@ export const register: Register = (on, options) => {
     const view = buildBandView(await read($, snapshotAtom), await read($, nowAtom));
     const rows = layoutBand(view, { columns: e.props.bodyColumns, maxRows: e.props.maxRows });
     const others = await next(e);
-    const { Box, Text } = $.ui.resolve(e);
-    const line = (row: BandRow) => (
-      <Text wrap="truncate">
-        {row.map((segment) => (
-          <Text
-            color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
-            dimColor={segment.dim === true}
-          >
-            {segment.text}
-          </Text>
-        ))}
+    const { Box, Text, Button } = $.ui.resolve(e);
+    const part = (segment: BandSegment) => (
+      <Text
+        color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
+        dimColor={segment.dim === true}
+      >
+        {segment.text}
       </Text>
     );
+    const line = (row: BandRow) => {
+      const opens = row.find((segment) => segment.opens);
+      if (!opens?.opens) return <Text wrap="truncate">{row.map(part)}</Text>;
+      // A row with a pill that opens the pane: a Button sits beside Text, so the row is a Box.
+      const tab = opens.opens;
+      return (
+        <Box flexDirection="row">
+          {row.map((segment) =>
+            segment.opens ? (
+              <Button
+                key={`paqad-open-${tab}`}
+                plain
+                dimColor={segment.dim === true}
+                onPress={() => void openPane($, tab)}
+              >
+                {segment.text}
+              </Button>
+            ) : (
+              part(segment)
+            ),
+          )}
+        </Box>
+      );
+    };
     return (
       <Box flexDirection="column">
         {rows.map(line)}
         {isBlank(others) ? null : (others as RenderElement)}
+      </Box>
+    );
+  });
+
+  // The paqad pane (Part 23): a tab row of Buttons, then the selected tab's text, the same on the
+  // terminal and on Desktop. Opened by the cost pill; reads the atoms and draws, never writes.
+  on('ui.render', { component: 'Pane' }, async ($, e, next) => {
+    if (e.requestId !== PANE_ID) return next(e);
+    const status = await read($, statusAtom);
+    if (!status?.on) return next(e);
+    const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom));
+    const { Box, Text, Button } = $.ui.resolve(e);
+    return (
+      <Box flexDirection="column">
+        <Box flexDirection="row">
+          {view.tabs.map((tab) => (
+            <Button
+              key={tab.key}
+              variant={tab.selected ? 'primary' : undefined}
+              onPress={() => void update($, paneTabAtom, () => tab.id)}
+            >
+              {tab.selected ? `${tab.label} (shown)` : tab.label}
+            </Button>
+          ))}
+        </Box>
+        {view.lines.map((text) => (
+          <Text wrap="wrap">{text}</Text>
+        ))}
       </Box>
     );
   });

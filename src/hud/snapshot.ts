@@ -4,7 +4,7 @@
 // Claude Code mod reads instead of asking the model or starting a process. It is built only
 // from records paqad already keeps: the routed workflow, the change's feature bundle, the
 // decision folders, the evidence rows and the in-session receipt. A field whose source is not
-// ready yet (claims, rule-stop details, cost) is `null` or empty, never guessed. The headline and
+// ready yet (claims, rule-stop details) is `null` or empty, never guessed. The headline and
 // the flags are computed here, in one tested place.
 //
 // Writes are best-effort by contract: `writeHudSnapshotSafe` never throws, so a hook or verb
@@ -45,6 +45,7 @@ import {
 } from '@/verification/repository/bundle-completeness-config.js';
 import type { VerificationGate } from '@/core/types/verification.js';
 
+import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable } from './high-table-view.js';
 import type { HudVerdictRecord } from './receipt-file.js';
@@ -92,6 +93,7 @@ export interface HudFlag {
 }
 
 export type { HudChief, HudHighTable, HudSeat } from './high-table-view.js';
+export type { HudCost } from './cost-view.js';
 
 /**
  * What one scan found on this change. A scan with no row reads `did not run`, never `clean`:
@@ -179,8 +181,11 @@ export interface HudSnapshot {
     present: boolean;
   }>;
   isolation: { status: string; stages: number; tokens_not_recarried: number } | null;
-  /** The change's cost arrives with Part 23. */
-  cost: null;
+  /**
+   * What the change cost (issue #639, Part 23), read from its cost.json only: tokens, a money
+   * estimate with its price date, by stage, by expert and the chief. Null until a hook wrote it.
+   */
+  cost: HudCost | null;
 }
 
 // ── small tolerant readers ────────────────────────────────────────────────────
@@ -650,7 +655,7 @@ export function buildHudSnapshot(
       stages: isolationSummary?.stages ?? 0,
       tokens_not_recarried: isolationSummary?.tokensNotRecarried ?? 0,
     },
-    cost: null,
+    cost: buildHudCost(projectRoot, dirName),
   };
 }
 

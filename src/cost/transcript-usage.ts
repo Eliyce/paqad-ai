@@ -112,7 +112,7 @@ function usageFrom(raw: Record<string, unknown>): TokenUsage {
 }
 
 /** The larger figure per field: the final count of a message written over several lines. */
-function maxUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
+export function maxTokenUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
   return withTotal({
     input: Math.max(a.input, b.input),
     output: Math.max(a.output, b.output),
@@ -156,7 +156,7 @@ function foldEvent(parsed: unknown, byId: Map<string, TranscriptUsageMessage>): 
   const usage = usageFrom(rawUsage);
   const existing = byId.get(id);
   if (existing) {
-    existing.usage = maxUsage(existing.usage, usage);
+    existing.usage = maxTokenUsage(existing.usage, usage);
     return;
   }
   byId.set(id, {

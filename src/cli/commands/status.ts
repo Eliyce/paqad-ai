@@ -6,6 +6,7 @@ import { collectModuleDecisions } from '@/dashboard/collectors/module-decisions.
 import { collectModuleHealth } from '@/dashboard/collectors/module-health.js';
 import { renderMarkdown } from '@/dashboard/markdown.js';
 import { buildReport } from '@/dashboard/report.js';
+import { moneyText } from '@/cost/prices.js';
 import { buildHudSnapshot, type HudSnapshot } from '@/hud/snapshot.js';
 import { readDriftReport, driftReportHasFindings } from '@/module-map/reconciler.js';
 
@@ -31,10 +32,20 @@ export function renderHudText(snapshot: HudSnapshot): string {
     lines.push(`- ${stage.stage}: ${stage.state}`);
   }
   for (const flag of snapshot.flags) lines.push(`flag: ${flag.text}`);
+  if (snapshot.cost) lines.push(`cost: ${hudCostText(snapshot.cost)}`);
   if (snapshot.decisions.pending.length > 0) {
     lines.push(`decisions waiting: ${snapshot.decisions.pending.length}`);
   }
   return lines.join('\n');
+}
+
+/** The change cost in one line: tokens, then money with its label and date when any is priced. */
+function hudCostText(cost: NonNullable<HudSnapshot['cost']>): string {
+  const tokens = `${cost.tokens.total.toLocaleString('en-US')} tokens`;
+  const money = cost.usd === null ? null : moneyText(cost.usd, cost.price_table_date);
+  const unpriced =
+    cost.unpriced_models.length > 0 ? `no price for ${cost.unpriced_models.join(', ')}` : null;
+  return [tokens, money, unpriced].filter(Boolean).join('; ');
 }
 
 export interface DriftSignals {

@@ -9,7 +9,9 @@ import { describe, expect, mock, test } from 'claude-code/testing';
 
 import {
   FAST_ORD_490,
+  FAST_ORD_490_COST,
   FULL_ORD_501,
+  FULL_ORD_501_COST,
   GRADUATED_ORD_482,
   NOW,
   PAUSED,
@@ -27,6 +29,7 @@ import {
   band,
   command,
   linesOf,
+  pane,
   stringsOf,
   worldOf,
 } from './test/world';
@@ -267,6 +270,96 @@ describe('/paqad answers from the snapshot, with no model turn (AC-39)', () => {
     expect(answers.rules).toContain('Near-copies: 1 open.');
     expect(answers.receipt).toBe(RECEIPT_TEXT);
     expect(answers.cost).toContain('not yet');
+  });
+});
+
+describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => {
+  for (const surface of SURFACES) {
+    test(`the pill shows a dated estimate and opens the pane on the Cost tab on ${surface}`, async ($, on) => {
+      const world = worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501_COST) },
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await $.ui.mount({
+        plugin: PLUGIN,
+        surface,
+        component: 'AbovePrompt',
+        props: band(surface).props,
+      });
+      const pill = await mounted.find({ key: 'paqad-open-cost' });
+      expect(pill?.text).toBe('1.3M tokens, ~$4.60 estimate, 2026-10-19 prices');
+      await mounted.press({ key: 'paqad-open-cost' });
+      expect(world.opened).toEqual(['paqad']);
+      await mounted.unmount();
+
+      const strings = stringsOf(await $.ui.render(pane(surface)));
+      expect(strings).toContain('Cost (shown)');
+      expect(strings[1]).toBe(
+        'Cost of this change: 1,300,000 tokens, ~$4.60, estimate at API prices (API-equivalent on a Pro or Max plan), prices of 2026-10-19.',
+      );
+      for (const heading of ['By stage:', 'By expert:']) expect(strings).toContain(heading);
+      expect(strings.some((line) => line.startsWith('Chief architect: '))).toBe(true);
+      expect(strings.some((line) => line.startsWith('Basis: API-equivalent estimate.'))).toBe(true);
+      expect(strings.some((line) => line.startsWith('Not counted: The fast mode premium'))).toBe(
+        true,
+      );
+      for (const line of strings.filter((text) => text.includes('$'))) {
+        expect(line).toContain('estimate');
+        expect(line).toContain('2026-10-19');
+      }
+    });
+
+    test(`the Cost tab button keeps the pane on Cost on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501_COST) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await $.ui.mount({
+        plugin: PLUGIN,
+        surface,
+        component: 'Pane',
+        requestId: 'paqad',
+        props: pane(surface).props,
+      });
+      await mounted.press({ key: 'paqad-tab-cost' });
+      expect((await mounted.find({ key: 'paqad-tab-cost' }))?.text).toBe('Cost (shown)');
+      expect(await mounted.find({ text: /^Cost of this change/ })).toBeDefined();
+      await mounted.unmount();
+    });
+
+    test(`fast lane: the Cost tab shows no expert tokens on ${surface} (AC-53)`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490_COST) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const strings = stringsOf(await $.ui.render(pane(surface)));
+      expect(strings).toContain('By expert: none. The fast lane seats no High Table.');
+      expect(strings.join('\n')).not.toContain('Chief architect');
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('High Table');
+    });
+
+    test(`another pane id is left to the engine on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501_COST) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(textOf(await $.ui.render(pane(surface, 'other')))).not.toContain('Cost');
+    });
+  }
+
+  test('/paqad cost prints the total, by stage, by expert and the chief, the basis and what is not counted', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501_COST) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    const text = (await $.command.run(command('cost'))).text ?? '';
+    for (const part of [
+      'Cost of this change: 1,300,000 tokens',
+      'By stage:',
+      'By expert:',
+      'Chief architect: ',
+      'Basis: API-equivalent estimate.',
+      'Not counted: ',
+    ]) {
+      expect(text).toContain(part);
+    }
   });
 });
 

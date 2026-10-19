@@ -2773,10 +2773,12 @@ modules:
       paused-feature control that folds today's `.open` + `.pending-lane` at feature
       grain. Nothing writes here until later #339 phases wire the recorder in, so the
       live stage spine is untouched. Also home to the paqad HUD's data layer (issue
-      #639): the per-session snapshot, receipt and verdict files built from the bundle.
+      #639): the per-session snapshot, receipt and verdict files built from the bundle, and
+      the change cost (`src/cost`, Part 23): transcript usage, the dated price table and cost.json.
     sources:
       - src/feature-evidence
       - src/hud
+      - src/cost
     evidence:
       symbols:
         - ALLOWED_BUNDLE_FILENAMES

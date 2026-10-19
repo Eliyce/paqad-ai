@@ -6,13 +6,18 @@
 // the colour gone: the colour only repeats what the words already say.
 
 import { flagPill, headlineAfterState, NOT_YET, type BandView, type SegmentState } from './model';
-import type { PaqadTone } from './types';
+import type { PaqadPaneTab, PaqadTone } from './types';
 
 export interface BandSegment {
   text: string;
   /** The colour this part takes; absent for plain text. */
   tone?: PaqadTone;
   dim?: boolean;
+  /**
+   * Drawn as a plain Button that opens the paqad pane on this tab (Part 23: the cost pill opens
+   * the Cost tab). A plain Button draws its label alone, so the row keeps its width.
+   */
+  opens?: PaqadPaneTab;
 }
 
 export type BandRow = BandSegment[];
@@ -101,7 +106,7 @@ function shipRow(view: BandView): BandRow {
 /** The flag pill (only while a flag is open) and the cost pill. */
 function pills(view: BandView): BandRow {
   const flag = flagPill(view.flags);
-  const cost: BandSegment = { text: view.cost, dim: true };
+  const cost: BandSegment = { text: view.cost, dim: true, opens: 'cost' };
   return flag ? [{ text: flag, tone: 'warn' }, { text: ' · ' }, cost] : [cost];
 }
 

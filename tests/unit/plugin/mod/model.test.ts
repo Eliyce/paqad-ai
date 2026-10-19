@@ -397,7 +397,7 @@ describe('pills and live checks', () => {
     expect(flagPill(0)).toBeNull();
     expect(flagPill(1)).toBe('1 flag');
     expect(flagPill(3)).toBe('3 flags');
-    expect(costPill()).toBe('cost: not yet');
+    expect(costPill(null)).toBe('cost: not yet');
     expect(buildBandView(null, NOW)).toMatchObject({
       state: 'Ready',
       headline: 'Not yet. paqad has no record for this session.',

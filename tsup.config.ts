@@ -76,6 +76,11 @@ export default defineConfig({
     // session's .paqad/session/hud/<session>.json. Dedicated entry, same light-import pattern;
     // a missing entry would throw ERR_MODULE_NOT_FOUND (logged, never a changed decision).
     'hud/refresh': 'src/hud/refresh.ts',
+    // Change cost (issue #639, Part 23): lazy-imported by runtime/hooks/lib/cost-refresh.mjs at the
+    // end of the Stop and SubagentStop hooks to rewrite the active change's cost.json from the
+    // transcripts' new bytes. Dedicated entry, same light-import pattern; a missing entry is
+    // logged to .paqad/logs/hooks.log and never changes a decision.
+    'cost/hook-cost': 'src/cost/hook-cost.ts',
     // Claude Code plugin build-time generator (issue #616) — imported by
     // scripts/build-plugin-manifest.mjs from dist to generate runtime/claude-plugin/hooks.json,
     // the bundled stage agents, and the plugin.json version. Dedicated entry so the generator

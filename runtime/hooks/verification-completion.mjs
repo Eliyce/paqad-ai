@@ -29,6 +29,7 @@ import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { runVerificationBackstop } from '../scripts/verify-backstop.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
+import { refreshCostFromHook } from './lib/cost-refresh.mjs';
 
 // The host that invoked the hook (issue #566): `claude-code` (default) or `codex-cli`.
 const ADAPTER = process.argv[2] || undefined;
@@ -90,6 +91,10 @@ async function main() {
     loopActive: stopHookActiveFromStdin(input),
     transcriptText,
   });
+  // Issue #639 (Part 23): rewrite the change's cost.json from the transcripts' new bytes, so the
+  // HUD refresh below picks it up. Record-only: it logs its own failure to .paqad/logs/hooks.log
+  // and the code above is already final.
+  await refreshCostFromHook(input, 'verification-completion');
   // Issue #639 (Part 7) — refresh the HUD snapshot after the backstop wrote its receipt, so
   // the snapshot carries this turn's verdict. The code above is already final.
   await refreshHudFromHook(input, 'verification-completion');

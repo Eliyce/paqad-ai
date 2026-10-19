@@ -6,7 +6,16 @@
 // state, headline and two instruments. Nothing here guesses: a field with no record reads
 // "not yet", and a stage reads done only when the receipt would say done.
 
-import type { PaqadFindingsScan, PaqadHudSnapshot, PaqadHudStage, PaqadTone } from './types';
+import { costPill } from './cost';
+import type {
+  PaqadCost,
+  PaqadCostLine,
+  PaqadCostTokens,
+  PaqadFindingsScan,
+  PaqadHudSnapshot,
+  PaqadHudStage,
+  PaqadTone,
+} from './types';
 
 export const NOT_YET = 'not yet';
 
@@ -62,6 +71,58 @@ function readScan(value: unknown): PaqadFindingsScan {
     status: status === 'open' || status === 'clean' ? status : 'did not run',
     total: num(scan?.total),
     blocking: scan?.blocking === true,
+  };
+}
+
+function readTokens(value: unknown): PaqadCostTokens {
+  const tokens = rec(value);
+  const count = (key: string): number => Math.max(0, num(tokens?.[key]) ?? 0);
+  return {
+    input: count('input'),
+    output: count('output'),
+    cache_read: count('cache_read'),
+    cache_write: count('cache_write'),
+    total: count('total'),
+  };
+}
+
+/** One cost line; its money is dropped when the record carries no price date (INV-10). */
+function readCostLine(value: unknown, dated: boolean): PaqadCostLine {
+  const line = rec(value);
+  return { tokens: readTokens(line?.tokens), usd: dated ? num(line?.usd) : null };
+}
+
+/**
+ * The snapshot's `cost` (Part 23), or `null` when absent or not an object. A record with no
+ * price date keeps its tokens and loses its money, so money is never shown undated.
+ */
+function readCost(value: unknown): PaqadCost | null {
+  const cost = rec(value);
+  if (!cost) return null;
+  const date = str(cost.price_table_date);
+  const dated = date !== null;
+  const chief = rec(cost.chief);
+  return {
+    price_table_date: date ?? '',
+    label: str(cost.label) ?? 'estimate at API prices',
+    basis: str(cost.basis) ?? 'API-equivalent estimate',
+    plan_note: str(cost.plan_note) ?? '',
+    sealed: rec(cost.window)?.sealed === true,
+    tokens: readTokens(cost.tokens),
+    usd: dated ? num(cost.usd) : null,
+    unpriced_models: list(cost.unpriced_models).filter((m): m is string => typeof m === 'string'),
+    by_stage: list(cost.by_stage).flatMap((entry) => {
+      const stage = str(rec(entry)?.stage);
+      return stage ? [{ stage, ...readCostLine(entry, dated) }] : [];
+    }),
+    by_expert: list(cost.by_expert).flatMap((entry) => {
+      const role = str(rec(entry)?.role);
+      return role
+        ? [{ role, ...readCostLine(entry, dated), exact: rec(entry)?.exact === true }]
+        : [];
+    }),
+    chief: chief ? { ...readCostLine(chief, dated), exact: chief.exact === true } : null,
+    not_counted: list(cost.not_counted).filter((t): t is string => typeof t === 'string'),
   };
 }
 
@@ -187,6 +248,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
             reasons: list(verdict.reasons).filter((r): r is string => typeof r === 'string'),
           }
         : null,
+    cost: readCost(snap.cost),
   };
 }
 
@@ -278,6 +340,12 @@ export const STAGE_ORDER = [
   ['documentation_sync', 'Docs'],
   ['delivery', 'Deliver'],
 ] as const;
+
+/** A stage id in the band's words; `orchestrator` is the time between stages. */
+export function stageLabel(stage: string): string {
+  if (stage === 'orchestrator') return 'Between stages';
+  return STAGE_ORDER.find(([id]) => id === stage)?.[1] ?? stage;
+}
 
 export type SegmentState = 'done' | 'running' | 'marked' | 'failed' | 'not required' | 'not yet';
 
@@ -403,7 +471,7 @@ export interface BandView {
   stages: StageSegment[];
   clock: string | null;
   ship: ShipStep[];
-  /** The change's cost arrives with Part 23. */
+  /** The cost pill (Part 23): tokens and a dated money estimate, or "cost: not yet". */
   cost: string;
 }
 
@@ -421,9 +489,7 @@ export function flagPill(flags: number): string | null {
   return flags > 0 ? `${flags} flag${flags === 1 ? '' : 's'}` : null;
 }
 
-export function costPill(): string {
-  return `cost: ${NOT_YET}`;
-}
+export { costPill };
 
 export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): BandView {
   const state = bandState(snapshot);
@@ -437,7 +503,7 @@ export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): B
     stages,
     clock: liveClock(stages, now),
     ship: shipSteps(snapshot),
-    cost: costPill(),
+    cost: costPill(snapshot?.cost ?? null),
   };
 }
 

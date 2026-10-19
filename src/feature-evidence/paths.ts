@@ -60,6 +60,9 @@ export const FEATURE_BUNDLE_FILES = {
   // Issue #639, Part 13: the High Table ledger: when each expert seat (and the chief) was
   // seated, started writing and finished, and the exact tokens its subagent spent.
   highTable: 'high-table.jsonl',
+  // Issue #639, Part 23: what the change cost in tokens, with a dated money estimate, split by
+  // stage, by expert and the chief. Rewritten record-only by the Stop and SubagentStop hooks.
+  cost: 'cost.json',
   // Issue #581 — the index of resolved decision packets linked to the change.
   decisions: 'decisions.json',
 } as const;

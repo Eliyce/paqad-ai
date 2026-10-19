@@ -24,6 +24,7 @@ import {
 } from './lib/paqad-disabled.mjs';
 import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
+import { refreshCostFromHook } from './lib/cost-refresh.mjs';
 
 // The host that invoked the hook (issue #566 argv convention): `claude-code` (default) or
 // `codex-cli`.
@@ -96,6 +97,9 @@ process.stdin.on('data', (chunk) => {
 process.stdin.on('end', () => {
   // Issue #639 (Part 7) — refresh the HUD snapshot once the decision is final.
   main(input).then(async (code) => {
+    // Issue #639 (Part 23): rewrite the change's cost.json (record-only, logs its own failure),
+    // then refresh the HUD snapshot so it carries the new cost.
+    await refreshCostFromHook(input, 'stage-agent-completion');
     await refreshHudFromHook(input, 'stage-agent-completion');
     process.exit(code);
   });
