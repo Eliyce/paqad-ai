@@ -170,19 +170,21 @@ When you turn the flags on, the spec itself can be produced by a pipeline: it gr
 
 Run `paqad-ai onboard` one time. It writes a thin, native config file for each tool you use, and they all point at the same shared instruction bundle. Change a rule in one place, and every agent sees it. Switch tools next month without losing anything.
 
-| Tool                       | What it creates                                          |
-| -------------------------- | -------------------------------------------------------- |
-| **Claude Code**            | `CLAUDE.md` and MCP config                               |
-| **Codex CLI**              | `AGENTS.md` and MCP config                               |
-| **Google Antigravity**     | `ANTIGRAVITY.md` and MCP config                          |
-| **Gemini CLI**             | `GEMINI.md` and MCP config                               |
-| **Junie**                  | `.junie/AGENTS.md` and `.junie/mcp/mcp.json`             |
-| **Cursor**                 | `.cursor/rules/paqad.mdc` plus MCP, skills, agents       |
-| **GitHub Copilot**         | `.github/copilot-instructions.md` and `.vscode/mcp.json` |
-| **Windsurf**               | `.windsurfrules` plus MCP, skills, agents                |
-| **Continue**               | `.continue/rules/paqad.md` plus MCP, prompts             |
-| **Aider**                  | `CONVENTIONS.md`                                         |
-| **JetBrains AI Assistant** | `.aiassistant/rules/guidelines.md`                       |
+| Tool                       | What it creates                               |
+| -------------------------- | --------------------------------------------- |
+| **Claude Code**            | `CLAUDE.md`                                   |
+| **Codex CLI**              | `AGENTS.md`                                   |
+| **Google Antigravity**     | `ANTIGRAVITY.md`                              |
+| **Gemini CLI**             | `GEMINI.md`                                   |
+| **Junie**                  | `.junie/AGENTS.md`                            |
+| **Cursor**                 | `.cursor/rules/paqad.mdc` plus skills, agents |
+| **GitHub Copilot**         | `.github/copilot-instructions.md`             |
+| **Windsurf**               | `.windsurfrules` plus skills, agents          |
+| **Continue**               | `.continue/rules/paqad.md` plus prompts       |
+| **Aider**                  | `CONVENTIONS.md`                              |
+| **JetBrains AI Assistant** | `.aiassistant/rules/guidelines.md`            |
+
+paqad never writes another tool's MCP config file, so the servers you set up stay yours. The MCP servers it suggests for your stack go in `.paqad/mcp-recommendations.json`.
 
 Pick one or pick all. Onboarding is multi-select.
 
@@ -392,7 +394,7 @@ paqad-ai does not ask what you use. It reads your repo across nine ecosystems an
 | **Rust**   | `Cargo.toml`, `Cargo.lock`                                                                |
 | **Dart**   | `pubspec.yaml`, `pubspec.lock`                                                            |
 
-Each stack is a plain `pack.yaml` that drives detection, docs, MCP config, and security mappings. Don't see your framework? You can [write your own pack](./docs/modules/packs/features/authoring/technical.md).
+Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendations, and security mappings. Don't see your framework? You can [write your own pack](./docs/modules/packs/features/authoring/technical.md).
 
 </details>
 

@@ -5,7 +5,7 @@
 ## Purpose
 
 Lockfile-first detection of frameworks, traits, and archetypes across
-9 ecosystems. Drives onboarding, refresh, docs, MCP config, and
+9 ecosystems. Drives onboarding, refresh, docs, MCP recommendations, and
 security workflows from a single resolved stack profile.
 
 ## Source Footprint

@@ -70,14 +70,23 @@ flight. With no progress file it simply says a run would start from the beginnin
 
 ### Step 1 — preflight, then settle every open question in one interruption
 
-Run `paqad-ai preflight site-map`. It checks everything the run needs before any mapping work —
+Run `paqad-ai preflight site-map`. It checks everything the run needs before any mapping work:
 the documentation foundation and module docs, the CLI program, and (only on a Laravel project)
-whether `php artisan route:list` can be obtained — and returns the questions the run cannot answer
-itself. Put **every** returned question to the person in a **single** `AskUserQuestion` call, never
+whether the route list can be obtained. It returns the questions the run cannot answer
+itself. On Laravel, artisan runs the way the project runs it, read from the migrate command in
+`.paqad/project-profile.yaml` (Sail, docker compose, or host PHP). A migrate command that still
+holds a placeholder such as `<php-service>` blocks artisan until the real service name is filled in. Put **every** returned question to the person in a **single** `AskUserQuestion` call, never
 one at a time. Show each question's plain reason and its evidence, offer the recommended default,
 and let them defer. Record the outcome with `paqad-ai sitemap answer --input <file>`, where the
 file is a JSON array of `{ question_id, answer, decided_by }`: a choice they make is `human`, a
 default they accept or a question they defer is `default`.
+
+Every extracted surface cites a real project file. An artisan route cites the route file line
+that declares it and the controller method that handles it, a console command cites the class
+or `routes/console.php` line that declares it, and a scheduled task cites the line that
+schedules it. A route or schedule that cannot be traced to a file (a closure, or a package
+route) is left off the extraction and shown as a blocked check, so the gap stays visible.
+Artisan built-ins with no project source are not app surfaces and are skipped.
 
 The answers persist, so a later re-creation or a documentation sync does not re-ask a settled
 question. A human answer whose code is unchanged is reused as is; a question whose evidence moved

@@ -143,7 +143,7 @@ modules:
     confidence: high
     summary: |
       Validate that the framework's generated artifacts, copied instructions,
-      MCP config, docs, and module ledger are intact and current.
+      docs, and module ledger are intact and current, and list the MCP servers recommended for the stack.
     sources:
       - src/cli/commands/doctor.ts
       - src/cli/commands/module-health.ts
@@ -1097,7 +1097,7 @@ modules:
     features:
       - slug: claude-code
         name: Claude Code (CLAUDE.md)
-        outputs: [CLAUDE.md, .mcp.json]
+        outputs: [CLAUDE.md]
       - slug: codex-cli
         name: Codex CLI (AGENTS.md)
         outputs: [AGENTS.md]
@@ -1109,13 +1109,13 @@ modules:
         outputs: [GEMINI.md]
       - slug: junie
         name: JetBrains Junie
-        outputs: [.junie/AGENTS.md, .junie/mcp/mcp.json]
+        outputs: [.junie/AGENTS.md]
       - slug: cursor
         name: Cursor
         outputs: [.cursor/rules/paqad.mdc]
       - slug: github-copilot
         name: GitHub Copilot
-        outputs: [.github/copilot-instructions.md, .vscode/mcp.json]
+        outputs: [.github/copilot-instructions.md]
       - slug: windsurf
         name: Windsurf
         outputs: [.windsurfrules]
@@ -1412,7 +1412,7 @@ modules:
     confidence: high
     summary: |
       Lockfile-first detection of frameworks, traits, and archetypes across
-      9 ecosystems. Drives onboarding, refresh, docs, MCP config, and
+      9 ecosystems. Drives onboarding, refresh, docs, MCP recommendations, and
       security workflows from a single resolved stack profile.
     sources:
       - src/detection
@@ -1462,7 +1462,7 @@ modules:
     summary: |
       Declarative packs with deterministic built-in < global < project
       precedence. Two kinds: `pack.yaml` stack packs (bind a stack to its
-      detection signals, docs, MCP config, security mappings — 19 framework +
+      detection signals, docs, MCP recommendations, security mappings; 19 framework +
       3 archetype packs) and `compliance-pack.yaml` compliance packs (issue
       #122) that map verification gates to legal-framework clauses (EU AI Act /
       NIST / ISO) using OSCAL relations, so a passing gate on the receipt can
@@ -2203,8 +2203,9 @@ modules:
     layer: framework-internals
     confidence: high
     summary: |
-      Generates per-adapter MCP server configuration (global defaults,
-      project overrides, stack-scoped servers) from the resolved pack set.
+      Recommends stack-scoped MCP servers in .paqad/mcp-recommendations.json
+      and never writes another tool's MCP config file. Removes only the
+      legacy MCP files older paqad versions wrote (issue #622).
     sources:
       - src/mcp
     evidence:
