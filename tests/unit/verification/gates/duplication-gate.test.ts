@@ -44,11 +44,12 @@ function writeReport(
 }
 
 describe('DuplicationGate', () => {
-  it('is inert (passes) with no report', async () => {
+  it('AC-11: reads not required (never a pass) with no duplication report', async () => {
     const root = makeGitProject();
     const result = await new DuplicationGate().check(context(root));
     expect(result.passed).toBe(true);
-    expect(result.detail).toContain('inert');
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toContain('no duplication scan ran');
   });
 
   it('passes with a clean report', async () => {

@@ -74,7 +74,13 @@ export interface HudStage {
   proof_file: string | null;
 }
 
-export type HudGateVerdict = 'pass' | 'fail' | 'inconclusive' | 'not-required' | 'pending';
+/**
+ * A gate's verdict on the HUD. Issue #639, Part 10 — `did-not-run` is a skipped gate that was owed
+ * a check that did not happen; `not-required` is a skipped gate the change gave nothing to check
+ * (and any skipped row written before Part 10). Neither is a pass.
+ */
+export type HudGateVerdict =
+  'pass' | 'fail' | 'inconclusive' | 'not-required' | 'did-not-run' | 'pending';
 
 export interface HudGate {
   name: string;
@@ -241,7 +247,9 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
       raw === 'pass' || raw === 'fail' || raw === 'inconclusive'
         ? raw
         : raw === 'skipped'
-          ? 'not-required'
+          ? row.skip_kind === 'did-not-run'
+            ? 'did-not-run'
+            : 'not-required'
           : 'pending';
     const tier = GATE_STRENGTH_TIER[code as VerificationGate];
     const strength =

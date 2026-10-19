@@ -376,6 +376,15 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
 
     const checks = verdict.gates.find((gate) => gate.gate === 'code-tests-lint');
     expect(checks?.status).toBe('skipped');
+    // Issue #639, Part 10 — no code changed, so no tests were owed: not required.
+    expect(checks?.skip_kind).toBe('not-required');
+    expect(checks?.detail).toBe('No code changed, so there were no tests to check.');
+    // The gates the end-of-turn check does not re-judge did not run, and say so in one line.
+    expect(verdict.gates.find((gate) => gate.gate === 'story-quality')?.skip_kind).toBe(
+      'did-not-run',
+    );
+    expect(verdict.summary).toContain(': did not run (not checked in this run)');
+    expect(verdict.summary).not.toContain('code tests lint');
   });
 
   it('inconclusiveChecksGate is a non-blocking inconclusive gate naming the remediation', () => {

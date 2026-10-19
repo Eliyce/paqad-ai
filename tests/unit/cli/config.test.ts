@@ -60,6 +60,16 @@ describe('paqad-ai config effective (#326)', () => {
     expect(sm?.consumed_by).toContain('stages');
   });
 
+  it('AC-20: shows mutation_mode through its floored resolver, with the gate that reads it', () => {
+    mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(root, '.paqad/configs/.config.policy'), 'mutation_mode=warn\n');
+    writeFileSync(join(root, '.paqad/.config'), 'mutation_mode=off\n');
+    const k = knob('mutation_mode');
+    expect(k?.value).toBe('warn');
+    expect(k?.surface).toBe('local .paqad/.config → floored');
+    expect(k?.consumed_by).toContain('mutation-testing gate');
+  });
+
   it('flags a verified placebo knob as consumed by NOTHING', () => {
     expect(knob('escalate_security_findings')?.consumed_by).toBe('NOTHING');
     expect(knob('full_lane_default')?.consumed_by).toBe('NOTHING');

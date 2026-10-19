@@ -88,4 +88,16 @@ describe('stageEvidenceGate — mode-gated stage enforcement (buildout F4, RCA c
     expect(gate?.status).toBe('skipped');
     expect(gate?.detail).toContain('stages_mode=off');
   });
+
+  it('AC-7: every skip (off, warn, a non-local seam) reads not required', () => {
+    for (const [origin, mode] of [
+      ['ci-backstop', 'strict'],
+      ['hook-completion', 'warn'],
+      ['git-backstop', 'off'],
+    ] as const) {
+      expect(stageEvidenceGate(result({ live_marked: true }), origin, 4, mode)?.skip_kind).toBe(
+        'not-required',
+      );
+    }
+  });
 });

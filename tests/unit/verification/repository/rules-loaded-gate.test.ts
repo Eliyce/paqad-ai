@@ -86,12 +86,13 @@ describe('rulesLoadedGate (issue #557)', () => {
     expect(gate?.status).toBe('skipped');
   });
 
-  it('skips when no rule applies to the change', async () => {
+  it('AC-11: reads not required when no rule applies to the change', async () => {
     const gate = await rulesLoadedGate(base, {
       resolveApplicability: async () => applicability({ applicable: [] }),
       readRecord: () => null,
     });
     expect(gate?.status).toBe('skipped');
+    expect(gate?.skip_kind).toBe('not-required');
   });
 
   it('FAILS when the rules were never loaded (no record)', async () => {

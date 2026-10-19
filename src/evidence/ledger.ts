@@ -37,6 +37,8 @@ export function computeRowContentHash(identity: EvidenceRowIdentity): string {
 export interface NewEvidenceRow extends EvidenceRowIdentity {
   ts: string;
   detail?: string;
+  /** Issue #639, Part 10 — carried on a `skipped` row only; not part of the identity hash. */
+  skip_kind?: EvidenceLedgerRow['skip_kind'];
 }
 
 /** Stamp schema version + content hash onto a caller-supplied row. */
@@ -51,6 +53,9 @@ export function buildEvidenceRow(row: NewEvidenceRow): EvidenceLedgerRow {
     strength_class: row.strength_class,
     content_hash: computeRowContentHash(row),
     ...(row.detail !== undefined ? { detail: row.detail } : {}),
+    ...(row.skip_kind !== undefined && row.verdict === 'skipped'
+      ? { skip_kind: row.skip_kind }
+      : {}),
   };
 }
 

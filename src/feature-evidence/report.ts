@@ -219,6 +219,26 @@ interface ReceiptRow {
   strength_class?: string;
   detail?: string;
   content_hash?: string;
+  /** Issue #639, Part 10 — on a skipped row, `not-required` or `did-not-run`. */
+  skip_kind?: string;
+}
+
+/**
+ * The result cell for one receipt row. Issue #639, Part 10 — a skipped row is grey and says
+ * "not required" or "did not run" (a row written before Part 10 reads not required), never the
+ * yellow "needs a look" an inconclusive gate gets.
+ */
+function receiptRowResult(row: ReceiptRow): { kind: PaqadStatusKind; word: string } {
+  const v = String(row.verdict ?? '').toLowerCase();
+  if (v === 'pass') return { kind: 'good', word: v };
+  if (v === 'fail') return { kind: 'failed', word: v };
+  if (v === 'skipped') {
+    return {
+      kind: 'skipped',
+      word: row.skip_kind === 'did-not-run' ? 'did not run' : 'not required',
+    };
+  }
+  return { kind: 'needsLook', word: v };
 }
 
 /**
@@ -709,12 +729,11 @@ function renderReceipt(integrity: ReceiptIntegrity): string {
   // A gate recorded after the receipt sealed evidence.jsonl is shown, but never as the
   // receipt's own: the seal does not cover it.
   const rowHtml = (row: ReceiptRow, sealed: boolean): string => {
-    const v = String(row.verdict ?? '').toLowerCase();
-    const kind: PaqadStatusKind = v === 'pass' ? 'good' : v === 'fail' ? 'failed' : 'needsLook';
+    const { kind, word } = receiptRowResult(row);
     const note = sealed
       ? ''
       : ' <em class="unsealed">(recorded after the seal, not covered by it)</em>';
-    return `<tr><td><code>${escapeHtml(row.code ?? '')}</code>${note}</td><td>${GLYPH_FOR[kind]} ${escapeHtml(row.verdict ?? '')}</td><td>${escapeHtml(row.detail ?? '')}</td></tr>`;
+    return `<tr><td><code>${escapeHtml(row.code ?? '')}</code>${note}</td><td>${GLYPH_FOR[kind]} ${escapeHtml(word)}</td><td>${escapeHtml(row.detail ?? '')}</td></tr>`;
   };
   const rowsHtml =
     rows.length + unsealed.length > 0

@@ -10,7 +10,7 @@ import { WorkflowTemplateValidator } from '@/workflows/template-validator.js';
 import type { TemplateStep, WorkflowTemplate } from '@/workflows/types.js';
 
 import type { Gate } from './gate.interface.js';
-import { createFail, createPass } from './shared.js';
+import { createDidNotRun, createFail, createNotRequired, createPass } from './shared.js';
 
 const REMEDIATION =
   'Move instruction documentation under an approved docs/instructions/{rules,stack,architecture,design-system,registries,workflows,tools,benchmarks,tech-debt,site-map}/ path.';
@@ -37,11 +37,23 @@ export class InstructionsDocsStructureGate implements Gate {
   readonly gate = 'instructions-docs-structure' as const;
 
   async check(context: Parameters<Gate['check']>[0]) {
+    const changedFiles = context.changed_files.map(normalizePath);
+
+    // Issue #639, Part 10 — this gate checks only at the in-session completion check. Anywhere
+    // else it never claims a pass: not required when no instruction doc changed, and did not
+    // run when one did (the structure was owed a check that this seam does not make).
     if (!isProviderCompletionCheck(context)) {
-      return createPass(this.gate, 'No instruction documentation changes detected');
+      const touched = changedFiles.some((filePath) =>
+        ['docs/instructions/', ...NON_CANONICAL_ROOTS].some((root) => isUnderPath(filePath, root)),
+      );
+      return touched
+        ? createDidNotRun(
+            this.gate,
+            'Did not run: instruction doc structure is checked only at the in-session completion check.',
+          )
+        : createNotRequired(this.gate, 'Not required: no instruction doc changed.');
     }
 
-    const changedFiles = context.changed_files.map(normalizePath);
     const nonCanonicalPath = changedFiles.find((filePath) =>
       NON_CANONICAL_ROOTS.some((root) => isUnderPath(filePath, root)),
     );
@@ -59,7 +71,7 @@ export class InstructionsDocsStructureGate implements Gate {
     );
 
     if (instructionPaths.length === 0) {
-      return createPass(this.gate, 'No instruction documentation changes detected');
+      return createNotRequired(this.gate, 'Not required: no instruction doc changed.');
     }
 
     for (const filePath of instructionPaths) {

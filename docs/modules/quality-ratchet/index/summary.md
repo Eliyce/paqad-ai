@@ -45,6 +45,13 @@ testing). A passing run tightens the baseline to the new minimums; a **refused
 (regressed) run never writes the baseline**, so a rejected change can never
 quietly move the line.
 
+The gate's detail names the measures it took and the ones that were blocked
+("measured: strictness, tangledness; blocked: dead code"), and on the fast lane
+it says "strictness only" (issue #639, Part 10). A run that took no measure at
+all (no result, a skipped run, or every measure blocked) reads **did not run**,
+never a pass. It still never blocks: did not run keeps `passed: true`, so the
+verdict does not change.
+
 ## Lane behaviour
 
 - **`graduated` / `full`** — all four measures are evaluated.

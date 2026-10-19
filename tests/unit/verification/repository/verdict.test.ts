@@ -57,9 +57,9 @@ describe('flag-on skip lines (issue #579)', () => {
       evidencePath: null,
     });
     const lines = withLine.summary.split('\n');
-    expect(lines).toContain('> ⚪ visual evidence: skipped (not-frontend)');
+    expect(lines).toContain('> ⚪ visual evidence: not required (not-frontend)');
     // After the status lines, before the escalations.
-    const skipAt = lines.indexOf('> ⚪ visual evidence: skipped (not-frontend)');
+    const skipAt = lines.indexOf('> ⚪ visual evidence: not required (not-frontend)');
     expect(lines[skipAt - 1]).toContain('1/1 checks held');
     expect(lines[skipAt + 1]).toContain('needs a look');
     // Same ran/passed counts as the run without the line.
@@ -84,7 +84,7 @@ describe('flag-on skip lines (issue #579)', () => {
       escalations: [],
       flagOnGates: [],
     });
-    expect(summary).not.toContain('skipped (');
+    expect(summary).not.toContain('not required (');
   });
 
   it('falls back to the detail when a skipped gate carries no short reason', () => {
@@ -107,8 +107,81 @@ describe('flag-on skip lines (issue #579)', () => {
       escalations: [],
       flagOnGates: ['visual-evidence' as VerificationEvidenceGate['name']],
     });
-    expect(summary).toContain('> ⚪ visual evidence: skipped (nothing to do)');
-    expect(summary.match(/skipped \(/g)).toHaveLength(1);
+    expect(summary).toContain('> ⚪ visual evidence: not required (nothing to do)');
+    expect(summary.match(/not required \(/g)).toHaveLength(1);
+  });
+});
+
+describe('did-not-run and not-required lines (issue #639, Part 10)', () => {
+  it('AC-7: shows every did-not-run gate, grouped by reason, and keeps it out of the counts', () => {
+    const summary = formatVerdictSummary({
+      ok: true,
+      gates: [
+        { gate: 'change-completeness', status: 'pass', detail: 'ok', remediation: null },
+        {
+          gate: 'story-quality',
+          status: 'skipped',
+          detail: 'Gate did not run.',
+          remediation: null,
+          skip_reason: 'not checked in this run',
+          skip_kind: 'did-not-run',
+        },
+        {
+          gate: 'database-quality',
+          status: 'skipped',
+          detail: 'Gate did not run.',
+          remediation: null,
+          skip_reason: 'not checked in this run',
+          skip_kind: 'did-not-run',
+        },
+        {
+          gate: 'mutation-testing',
+          status: 'skipped',
+          detail: 'Mutation testing did not run: no mutation tool is configured for this stack.',
+          remediation: null,
+          skip_kind: 'did-not-run',
+        },
+        {
+          gate: 'extension-surface',
+          status: 'skipped',
+          detail: 'Not required: no public export barrel changed.',
+          remediation: null,
+          skip_kind: 'not-required',
+        },
+      ],
+      escalations: [],
+    });
+    const lines = summary.split('\n');
+    expect(lines[0]).toContain(PAQAD_VERDICT.pass);
+    expect(lines[1]).toContain('1/1 checks held');
+    expect(lines).toContain(
+      '> ⚪ story quality, database quality: did not run (not checked in this run)',
+    );
+    expect(lines).toContain(
+      '> ⚪ mutation testing: Mutation testing did not run: no mutation tool is configured for this stack.',
+    );
+    // A not-required gate whose flag is not on stays quiet.
+    expect(summary).not.toContain('extension surface');
+  });
+
+  it('AC-7: a flag-on gate that did not run reads did not run, not not required', () => {
+    const summary = formatVerdictSummary({
+      ok: true,
+      gates: [
+        {
+          gate: 'visual-evidence' as VerificationEvidenceGate['name'],
+          status: 'skipped',
+          detail: 'no visual evidence to capture (no-capture-script).',
+          remediation: null,
+          skip_reason: 'no capture script',
+          skip_kind: 'did-not-run',
+        },
+      ],
+      escalations: [],
+      flagOnGates: ['visual-evidence' as VerificationEvidenceGate['name']],
+    });
+    expect(summary).toContain('> ⚪ visual evidence: did not run (no capture script)');
+    expect(summary).not.toContain('not required');
   });
 });
 

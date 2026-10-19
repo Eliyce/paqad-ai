@@ -130,6 +130,8 @@
 # analytics_strictness=warn
 # off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in. (env: PAQAD_DUPLICATION_MODE)
 # duplication_mode=warn
+# off | warn | strict: mutation testing on changed code (issue #293). Opt-in: off by default. It runs only where the project calls runtime/scripts/verify-backstop.mjs from its own CI or pre-push hook, never at the end of an agent turn, and the project supplies the mutation tool for its stack. The project test command runs first; a red suite reads did not run. warn: a surviving mutant reads Inconclusive. strict: it fails the check. (env: PAQAD_MUTATION_MODE)
+# mutation_mode=off
 # off | warn | strict — end-of-change check that a feature-development bundle carries every required file (feature.json / plan / spec / review / stage-evidence / delivery, plus the flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, naming the file and its writer; warn surfaces it as Inconclusive without blocking; off falls back to the deprecated evidence_existence_gate (issue #511). (env: PAQAD_BUNDLE_COMPLETENESS)
 # bundle_completeness=strict
 # pass | warn | fail — what a test that fails in the parallel run but passes alone does. warn (default): never blocks, recorded, one receipt line. pass: recorded only. fail: blocks. Team value is the floor; local/env may only raise it. (env: PAQAD_CHECKS_FLAKY_UNDER_PARALLEL)

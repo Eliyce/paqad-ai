@@ -654,6 +654,21 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in.',
   },
   {
+    key: 'mutation_mode',
+    env: 'PAQAD_MUTATION_MODE',
+    type: 'enum',
+    enumValues: STAGE_RULE_MODES,
+    default: 'off',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'off | warn | strict: mutation testing on changed code (issue #293). Opt-in: off by ' +
+      'default. It runs only where the project calls runtime/scripts/verify-backstop.mjs from its ' +
+      'own CI or pre-push hook, never at the end of an agent turn, and the project supplies the ' +
+      'mutation tool for its stack. The project test command runs first; a red suite reads did ' +
+      'not run. warn: a surviving mutant reads Inconclusive. strict: it fails the check.',
+  },
+  {
     key: 'bundle_completeness',
     env: 'PAQAD_BUNDLE_COMPLETENESS',
     type: 'enum',
@@ -2093,6 +2108,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'rule_compliance',
       'analytics_strictness',
       'duplication_mode',
+      'mutation_mode',
       'duplication_similarity_threshold',
       'duplication_min_lines',
       'bundle_completeness',

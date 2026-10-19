@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5AM6S3Z36HR2NRKN2XYNZWW",
+  "category": "workflow-or-tool",
+  "title": "#293 wire: which seam runs mutation, and what proves the suite is green",
+  "context": "Option A step 3. The per-turn hook-completion Stop seam must never run mutation (acceptance 5). paqad installs no git hook or CI, so ci-backstop and git-backstop fire only when a project calls runtime/scripts/verify-backstop.mjs from its own CI or pre-push hook: mutation is opt-in by design. runMutationGate skips with tests-not-green unless testsGreen is true, and nothing in the backstop sets structured_test_results today. The feature bundle (and its checks.json) is git-ignored, so it does not exist on CI.",
+  "options": [
+    {
+      "option_key": "both-run-suite",
+      "label": "Run on ci-backstop and git-backstop; the green signal is the project's own test command (project profile 'test') run first in the mutation step; red reads 'did not run (tests not green)'",
+      "evidence": {},
+      "one_line_preview": "Run on ci-backstop and git-backstop; the green signal is the project's own test command (project profile 'test') run first in the mutation step; red reads 'did not run (tests not green)'",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "ci-only-run-suite",
+      "label": "Run on ci-backstop only, same green signal (pre-push stays fast)",
+      "evidence": {},
+      "one_line_preview": "Run on ci-backstop only, same green signal (pre-push stays fast)",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "both-tool-baseline",
+      "label": "Run on both backstops and trust the mutation tool's own baseline run (Stryker/PIT abort on a red suite); a red baseline reads 'did not run (run failed)'",
+      "evidence": {},
+      "one_line_preview": "Run on both backstops and trust the mutation tool's own baseline run (Stryker/PIT abort on a red suite); a red baseline reads 'did not run (run failed)'",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "both-run-suite",
+  "created_at": "2026-10-19T17:44:02.431Z",
+  "status": "resolved",
+  "change": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "chosen": "both-run-suite",
+  "rationale": "Owner chose ci-backstop + git-backstop, never hook-completion; green signal = the project's test command run first",
+  "resolved_at": "2026-10-19T17:45:35.621Z",
+  "decision_id": "D-01M5AM6S3Z36HR2NRKN2XYNZWW",
+  "fingerprint": "sha256:c6de9fb19be54b80ac53ef405988ed2e2f4acb843eb387ef38cea63de3823820",
+  "question": "#293 wire: which seam runs mutation, and what proves the suite is green",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5AKZA1VKCCXZME19M5YRVZT",
+  "ttl_until": "2026-10-26T17:44:02.431Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "both-run-suite",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-19T17:45:35.621Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose ci-backstop + git-backstop, never hook-completion; green signal = the project's test command run first"
+  }
+}

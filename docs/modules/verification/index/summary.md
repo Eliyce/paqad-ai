@@ -128,7 +128,7 @@ and documentation:
 | `behavioral-correctness` | The change does what the spec says. |
 | `change-completeness` | The change is whole — no half-applied edits. |
 | `code-tests-lint` | Tests, types, and lint pass. |
-| `mutation-testing` | Tests would actually catch a behaviour-changing mistake (#105). |
+| `mutation-testing` | Tests would actually catch a behaviour-changing mistake (#105). Opt-in through `mutation_mode` (default off) and measured only on the `ci-backstop` / `git-backstop` origins a project wires itself (#293); otherwise not required. |
 | `quality-ratchet` | No quality measure regresses (see [`quality-ratchet`](../../quality-ratchet/index/summary.md)). |
 | `requirement-completeness` | Requirements are fully addressed. |
 | `spec-review` / `story-quality` | LLM-judged quality of the spec and the story. |
@@ -161,10 +161,35 @@ A blocked row (a measure that could not be taken) stays listed on the receipt bu
 make it Inconclusive; only an inconclusive row does (decision D-01M5A0MG6537XJ7S3MD3Q4PSCR).
 That keeps the receipt in step with the HUD verdict, which reads gate statuses only.
 
-A gate that skipped while its feature flag is on adds one line to the verdict summary, after
-the status lines and before the escalations: `⚪ visual evidence: skipped (<reason>)`. The line
-also appears when the summary is re-formatted for the receipt. Skips never move the ran or
-passed counts, and no line prints when the flag is off.
+### Not required and did not run (issue #639, Part 10)
+
+A gate that measured nothing never reads as a pass. It says one of two things:
+
+- **Not required**: the change gave it nothing to check. For example no instruction or module
+  doc changed, no public export barrel changed, no duplication scan ran, no code changed
+  (`change-completeness`, and `code-tests-lint` on a docs-only change), no rule applies, a
+  change with no frontend file under `visual-evidence`, or mutation testing is off.
+- **Did not run**: a check was owed and did not happen. For example the mutation tool is not
+  configured or the test command was red, every quality ratchet measure was blocked, or a gate
+  this seam does not judge (the placeholder for a gate with no result).
+
+A gate result says so with `createNotRequired` or `createDidNotRun`
+(`src/verification/gates/shared.ts`). Both keep `passed: true`, so the gate runner never
+treats them as the first failure and no verdict kind changes; the evidence records them on
+the existing `skipped` status with a `skip_kind` of `not-required` or `did-not-run`
+(decision D-01M5AM0E9YEC7FBFHFN8N3SHCC). A skipped row written before Part 10 has no
+`skip_kind` and reads as not required.
+
+Every surface counts only the required gates that ran. The verdict summary's "N/M checks
+held" leaves both kinds out. It prints one `⚪ <gates>: did not run (<reason>)` line per
+reason for every gate that did not run, and a `⚪ <gate>: not required (<reason>)` line only
+for a gate whose feature flag is on (today `visual-evidence`), after the status lines and
+before the escalations. The line also appears when the summary is re-formatted for the
+receipt. The PR comment reads `Gates: N passed, F failed, I inconclusive, R not required, D
+did not run.`, leaves a not-required trust gate out and shows a did-not-run one in grey. The
+`report.html` receipt table shows skipped rows grey as "not required" or "did not run", and
+the HUD gate list reads `did-not-run` or `not-required` (only `not-required` is
+`required: false`). Neither kind is graded a pass or cited as compliance evidence.
 
 ### Proven against the built bundles
 
@@ -179,6 +204,7 @@ packs, nothing to check".
 
 - [Mutation Testing — Verification Gate](../mutation-testing.md) — plant mutants in
   the changed code and confirm the tests catch every behaviour-changing one (#105).
+  Off by default; runs on CI and pre-push only when the project opts in (#293).
 - [Flaky-Test Handling — Trust in a Pass](../flaky-handling.md) — own the
   test-trust signal so a green run means green (#106).
 - [Deterministic Check Runner](../check-runner.md) — run the mapped

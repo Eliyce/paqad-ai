@@ -60,7 +60,8 @@ const GATE_LABELS: Partial<Record<string, string>> = {
 // The gates that carry the "trust" headline a reviewer scans first: did the
 // tests hold, did mutation prove them, did quality not regress. Rendered (in
 // this order) even when green, because surfacing the green facts is the whole
-// point of the wedge.
+// point of the wedge. Issue #639, Part 10 — a trust gate that was not required
+// is left out, and one that did not run says so in grey; neither reads green.
 const TRUST_GATES = ['code-tests-lint', 'mutation-testing', 'quality-ratchet'] as const;
 
 function gateLabel(name: string): string {
@@ -126,6 +127,23 @@ function renderFailure(failure: VerificationEvidenceFailure): string {
       ? `${failure.file}:${failure.line}`
       : (failure.file ?? failure.test_id ?? failure.suite ?? null);
   return location ? `  - ${location} — ${failure.message}` : `  - ${failure.message}`;
+}
+
+/** Issue #639, Part 10 — a skipped gate's kind; one written before Part 10 reads not required. */
+function isDidNotRun(gate: VerificationEvidenceGate): boolean {
+  return gate.status === 'skipped' && gate.skip_kind === 'did-not-run';
+}
+
+/**
+ * The grey line for a trust gate that was owed a check that did not happen. A gate result's
+ * did-not-run detail already says it did not run ("Mutation testing did not run: ..."), so it
+ * is shown as is; a placeholder carries only a short reason, which gets the words added.
+ */
+function didNotRunLine(gate: VerificationEvidenceGate): string {
+  const label = gateLabel(gate.name);
+  return gate.skip_reason !== undefined
+    ? `- ${GATE_GLYPHS.skipped} ${label} did not run: ${gate.skip_reason}`
+    : `- ${GATE_GLYPHS.skipped} ${label}: ${gate.detail}`;
 }
 
 function gateSummaryLine(gate: VerificationEvidenceGate): string {
@@ -221,12 +239,16 @@ export function renderEvidenceMarkdown(
   );
   lines.push('');
 
-  const counts = { pass: 0, fail: 0, inconclusive: 0, skipped: 0 };
+  // Issue #639, Part 10 — a skipped gate is counted as not required or did not run, never as
+  // a pass, so the passed figure is the required gates that ran and passed.
+  const counts = { pass: 0, fail: 0, inconclusive: 0, notRequired: 0, didNotRun: 0 };
   for (const gate of evidence.gates) {
-    counts[gate.status] += 1;
+    if (gate.status !== 'skipped') counts[gate.status] += 1;
+    else if (isDidNotRun(gate)) counts.didNotRun += 1;
+    else counts.notRequired += 1;
   }
   lines.push(
-    `Gates: ${counts.pass} passed, ${counts.fail} failed, ${counts.inconclusive} inconclusive, ${counts.skipped} skipped.`,
+    `Gates: ${counts.pass} passed, ${counts.fail} failed, ${counts.inconclusive} inconclusive, ${counts.notRequired} not required, ${counts.didNotRun} did not run.`,
   );
   lines.push('');
 
@@ -234,9 +256,10 @@ export function renderEvidenceMarkdown(
   const byName = new Map(evidence.gates.map((gate) => [gate.name, gate]));
   const trustLines = TRUST_GATES.map((name) => byName.get(name))
     .filter(
-      (gate): gate is VerificationEvidenceGate => gate !== undefined && gate.status !== 'skipped',
+      (gate): gate is VerificationEvidenceGate =>
+        gate !== undefined && (gate.status !== 'skipped' || isDidNotRun(gate)),
     )
-    .map(gateSummaryLine);
+    .map((gate) => (gate.status === 'skipped' ? didNotRunLine(gate) : gateSummaryLine(gate)));
   if (trustLines.length > 0) {
     lines.push(...trustLines);
     lines.push('');

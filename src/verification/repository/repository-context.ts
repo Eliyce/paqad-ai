@@ -20,6 +20,7 @@ import { readTraceabilityMap } from '@/traceability/index.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
 import type { SpecReviewDefect, SpecReviewReport } from '@/compliance/types.js';
 import { runQualityRatchetGate } from '@/quality-ratchet/index.js';
+import { runBackstopMutation, type BackstopMutationDeps } from '@/mutation/backstop.js';
 import {
   detectStaleDocTargets,
   isCodeFile,
@@ -48,6 +49,11 @@ export interface BuildRepositoryVerificationContextOptions {
   projectRoot: string;
   /** The agent-independent origin firing this run (issue #117). */
   origin: Extract<VerificationOrigin, 'hook-completion' | 'git-backstop' | 'ci-backstop'>;
+  /**
+   * Issue #293 — injectable effects for the mutation step (mode, profile, test command, runner),
+   * so a test never spawns a real tool. Production callers leave it unset.
+   */
+  mutationDeps?: BackstopMutationDeps;
 }
 
 export interface RepositoryVerificationContextResult {
@@ -146,6 +152,18 @@ export async function buildRepositoryVerificationContext(
     decisionStore: new DecisionStore(projectRoot),
   });
 
+  // Issue #293 — mutation testing, opt-in through the floored `mutation_mode` (default off). It
+  // runs only on the ci-backstop and git-backstop origins, after the project's own test command
+  // passes; the hook-completion origin never runs it, so the end of an agent turn stays fast.
+  // With the mode off nothing runs and only the not-required note is planted.
+  const mutation = await runBackstopMutation({
+    projectRoot,
+    origin,
+    changedFiles,
+    lane: recordedLane,
+    deps: options.mutationDeps,
+  });
+
   const context: VerificationContext = {
     project_root: projectRoot,
     verification_origin: origin,
@@ -181,6 +199,7 @@ export async function buildRepositoryVerificationContext(
     behavioral_correctness_passed: true,
     database_quality_passed: true,
     quality_ratchet_result: qualityRatchetResult,
+    ...mutation,
     lane: recordedLane,
     expected_ui_modules: [],
     expected_api_modules: [],

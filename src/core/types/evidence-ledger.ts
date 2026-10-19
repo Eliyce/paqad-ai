@@ -14,6 +14,7 @@
 
 import type { AdapterType } from './adapter.js';
 import type { ComplianceEvidenceStrength, ComplianceRelation } from './pack.js';
+import type { GateSkipKind } from './verification.js';
 
 /** Bumped when the on-disk ledger-row or receipt shape changes incompatibly. */
 export const EVIDENCE_LEDGER_SCHEMA_VERSION = 1 as const;
@@ -81,6 +82,12 @@ export interface EvidenceLedgerRow {
   content_hash: string;
   /** Human-readable detail, carried for the receipt/reviewers. Not hashed. */
   detail?: string;
+  /**
+   * Issue #639, Part 10 — on a `skipped` row, `not-required` (nothing to check) or
+   * `did-not-run` (an owed check did not happen). Never set on any other verdict. Not part of
+   * the identity hash, like `detail`.
+   */
+  skip_kind?: GateSkipKind;
 }
 
 /** A single changed file and the SHA-256 of its bytes — an in-toto subject. */

@@ -117,6 +117,8 @@ describe('bundleCompletenessGate scope', () => {
       mode: 'strict',
     });
     expect(gate!.status).toBe('skipped');
+    // Issue #639, Part 10 — no bundle to complete: not required.
+    expect(gate!.skip_kind).toBe('not-required');
   });
 
   it('is informational (skipped, never a hard fail) on a non-local CI origin', () => {

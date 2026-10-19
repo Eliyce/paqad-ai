@@ -14,6 +14,8 @@ import { readFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { hudReceiptPath, hudVerdictPath } from '@/hud/files.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
+import { buildHudSnapshot, computeHudHeadline } from '@/hud/snapshot.js';
+import type { HudVerdictRecord } from '@/hud/receipt-file.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
@@ -279,6 +281,72 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
       (row) => row.verdict === 'blocked',
     );
     expect(blockedRow?.detail).toContain('dead_code');
+  });
+
+  /**
+   * Issue #639, Part 10 (AC-15) — the receipt card (the HUD receipt file `/paqad receipt` shows),
+   * the HUD headline and the bundle receipt all lead with the same verdict word.
+   */
+  function expectHeadlineAgreement(): string {
+    const word = expectAgreement();
+    const snapshot = buildHudSnapshot(context.project_root, SES, { now: () => NOW });
+    expect(snapshot.headline.text.startsWith(`${word}.`)).toBe(true);
+    expect(Object.values(PAQAD_VERDICT)).toContain(word);
+    return word;
+  }
+
+  it('AC-15: a failing change reads Needs your attention on the receipt, HUD headline and receipt card', async () => {
+    featureDevTurn();
+
+    await stop();
+
+    expect(expectHeadlineAgreement()).toBe(PAQAD_VERDICT.fail);
+  });
+
+  it('AC-15: an unrecorded-stage change reads Inconclusive on the receipt, HUD headline and receipt card', async () => {
+    relaxStageAndBundleGates(context.project_root);
+    context.structured_test_results = [PASSING_CHECKS];
+    context.code_tests_lint_passed = true;
+    context.code_changed = true;
+    featureDevTurn();
+
+    await stop();
+
+    expect(expectHeadlineAgreement()).toBe(PAQAD_VERDICT.inconclusive);
+  });
+
+  it('AC-15: a change whose ratchet did not run still reads one word everywhere, never a new pass', async () => {
+    relaxStageAndBundleGates(context.project_root);
+    context.changed_files = ['docs/guide.md'];
+    context.quality_ratchet_result = UNMEASURED_RATCHET;
+    featureDevTurn();
+
+    await stop();
+
+    const word = expectAgreement();
+    expect(word).toBe(PAQAD_VERDICT.pass);
+    // This fixture leaves its planning stage running (a docs-only change finalizes no stage), and
+    // a running stage leads the live headline. Once no stage runs, the headline the HUD builds
+    // from the same verdict file leads with the same word.
+    const record = JSON.parse(
+      readFileSync(hudVerdictPath(context.project_root, sessionId), 'utf8'),
+    ) as HudVerdictRecord;
+    const headline = computeHudHeadline({
+      route: 'feature-development',
+      active: true,
+      stages: [],
+      pendingDecisions: 0,
+      verdict: record,
+      flags: [],
+      paused: 0,
+    });
+    expect(headline.text).toBe(`${word}.`);
+    const ratchetRow = readFeatureEvidence(context.project_root, dir).find(
+      (row) => row.code === 'quality-ratchet',
+    );
+    // Every measure blocked: the ratchet row did not run, it is not a pass.
+    expect(ratchetRow?.verdict).toBe('skipped');
+    expect(ratchetRow?.skip_kind).toBe('did-not-run');
   });
 
   it('AC-9: a later skipped detour turn leaves all three still agreeing', async () => {

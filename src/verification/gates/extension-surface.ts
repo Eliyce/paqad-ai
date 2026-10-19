@@ -2,17 +2,16 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { Gate } from './gate.interface.js';
-import { createFail, createPass } from './shared.js';
+import { createFail, createNotRequired, createPass } from './shared.js';
 
 /**
  * Extension-surface gate (PQD-92).
  *
  * Backs AC2/AC3 inside the verification pipeline: when a public export barrel is
  * changed, the canonical surface document (`docs/extension-surface.md`) must be
- * amended in the same change set. The gate is *inert* (passes) when the document
- * is absent, so it stays backward-compatible for projects that predate the
- * contract — an inconclusive result would otherwise fail overall verification
- * (see `verification/evidence.ts`).
+ * amended in the same change set. The gate reads not required (issue #639, Part 10)
+ * when the document is absent or no barrel changed, so it stays backward-compatible
+ * for projects that predate the contract without claiming a pass it never checked.
  */
 export const SURFACE_DOC_PATH = 'docs/extension-surface.md';
 
@@ -26,9 +25,9 @@ export class ExtensionSurfaceGate implements Gate {
   async check(context: Parameters<Gate['check']>[0]) {
     const docAbsolutePath = join(context.project_root, ...SURFACE_DOC_PATH.split('/'));
     if (!existsSync(docAbsolutePath)) {
-      return createPass(
+      return createNotRequired(
         this.gate,
-        `Extension surface document ${SURFACE_DOC_PATH} not present; gate inert.`,
+        `Not required: this project has no extension surface document (${SURFACE_DOC_PATH}).`,
       );
     }
 
@@ -37,7 +36,7 @@ export class ExtensionSurfaceGate implements Gate {
       (PUBLIC_BARRELS as readonly string[]).includes(filePath),
     );
     if (!changedBarrel) {
-      return createPass(this.gate, 'No public export barrel changed; surface document unaffected.');
+      return createNotRequired(this.gate, 'Not required: no public export barrel changed.');
     }
 
     const documentAmended = changedFiles.includes(SURFACE_DOC_PATH);

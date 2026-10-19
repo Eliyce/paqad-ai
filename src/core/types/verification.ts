@@ -25,10 +25,25 @@ export const VERIFICATION_GATES = [
 ] as const;
 export type VerificationGate = (typeof VERIFICATION_GATES)[number];
 
+/**
+ * Issue #639, Part 10 — why a gate measured nothing. `not-required` means the change gave the
+ * gate nothing to check (no instruction doc changed, mutation is off); `did-not-run` means the
+ * gate was owed a check that did not happen (the mutation tool is not configured, every ratchet
+ * measure was blocked). Recorded on evidence gates and ledger rows as `skip_kind` beside the
+ * existing `skipped` status (decision D-01M5AM0E9YEC7FBFHFN8N3SHCC).
+ */
+export type GateSkipKind = 'not-required' | 'did-not-run';
+
 export interface GateResult {
   gate: VerificationGate;
   passed: boolean;
   inconclusive?: boolean;
+  /**
+   * Issue #639, Part 10 — set when the gate measured nothing. The result keeps `passed: true`
+   * so the gate runner never treats it as the first failure and no verdict kind changes; the
+   * evidence records it as `skipped` with this as its `skip_kind`, never as a pass.
+   */
+  outcome?: GateSkipKind;
   detail: string;
   remediation?: string;
 }
@@ -126,8 +141,11 @@ export interface VerificationContext {
   database_quality_passed: boolean;
   structured_test_results?: StructuredTestResult[];
   // Issue #105 — mutation-testing signal for the changed code. Optional: the
-  // gate is inert when absent (fast lane, no mutation tool, etc.).
+  // gate reads not required when absent (mutation off, fast lane, etc.).
   mutation_result?: MutationResult;
+  // Issue #639, Part 10 — why mutation did not run when `mutation_result` is absent, in plain
+  // words. The mutation gate uses it as its not-required detail; absent reads as mutation off.
+  mutation_note?: string;
   // When true, surviving behaviour-changing mutants hard-fail the mutation gate
   // instead of escalating. Project-tunable; defaults to escalate.
   mutation_strict?: boolean;

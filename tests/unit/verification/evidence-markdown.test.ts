@@ -150,8 +150,61 @@ describe('renderEvidenceMarkdown', () => {
 
   it('rolls up gate counts', () => {
     expect(renderEvidenceMarkdown(PASSING)).toMatch(
-      /Gates: 3 passed, 0 failed, 0 inconclusive, 1 skipped\./,
+      /Gates: 3 passed, 0 failed, 0 inconclusive, 1 not required, 0 did not run\./,
     );
+  });
+
+  it('AC-7: counts not-required and did-not-run gates apart, never as passed', () => {
+    const md = renderEvidenceMarkdown({
+      ...PASSING,
+      gates: [
+        gate({ name: 'code-tests-lint', status: 'pass', detail: '3/3 passing' }),
+        gate({
+          name: 'mutation-testing',
+          status: 'skipped',
+          detail: 'Mutation testing is off (mutation_mode is off).',
+          skip_kind: 'not-required',
+        }),
+        gate({
+          name: 'quality-ratchet',
+          status: 'skipped',
+          detail: 'Quality ratchet did not run: no quality measure could be taken.',
+          skip_kind: 'did-not-run',
+        }),
+        gate({
+          name: 'story-quality',
+          status: 'skipped',
+          detail: 'Gate did not run.',
+          skip_reason: 'not checked in this run',
+          skip_kind: 'did-not-run',
+        }),
+      ],
+    });
+    expect(md).toContain(
+      'Gates: 1 passed, 0 failed, 0 inconclusive, 1 not required, 2 did not run.',
+    );
+    // A not-required trust gate is left out; a did-not-run one is grey, never green.
+    expect(md).not.toContain('Mutation');
+    expect(md).toContain(
+      '- ⚪ Quality ratchet: Quality ratchet did not run: no quality measure could be taken.',
+    );
+    expect(md).not.toContain('🟢 Quality ratchet');
+  });
+
+  it('AC-7: a did-not-run trust gate with a short reason says did not run', () => {
+    const md = renderEvidenceMarkdown({
+      ...PASSING,
+      gates: [
+        gate({
+          name: 'code-tests-lint',
+          status: 'skipped',
+          detail: 'Gate did not run.',
+          skip_reason: 'not checked in this run',
+          skip_kind: 'did-not-run',
+        }),
+      ],
+    });
+    expect(md).toContain('- ⚪ Tests did not run: not checked in this run');
   });
 
   it('flags lower-confidence mutation results and never hides them', () => {

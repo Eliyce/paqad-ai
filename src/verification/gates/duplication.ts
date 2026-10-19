@@ -3,15 +3,15 @@ import { readDuplicationReport } from '@/duplication/report.js';
 import type { DuplicationFinding } from '@/duplication/types.js';
 
 import type { Gate } from './gate.interface.js';
-import { createFail, createPass } from './shared.js';
+import { createFail, createNotRequired, createPass } from './shared.js';
 
 /**
  * Duplication gate (issue #358) — the Stop-seam half of the "bind it twice" contract. The
  * checks-stage rule-script runs `duplication scan`, which writes the report; this gate reads
  * that cached report so the same near-copy verdict lands in the end-of-change receipt.
  *
- * The gate is INERT (passes) when no report is present — a non-feature-development change never
- * runs the scan, and an inconclusive result would otherwise fail the whole verification. It
+ * The gate reads NOT REQUIRED when no report is present (issue #639, Part 10) — a
+ * non-feature-development change never runs the scan, so there is nothing to check. It
  * FAILS only when the report is blocking (strict mode with a deterministic finding); a warn-mode
  * or heuristic-only run passes with the findings surfaced in the detail, so the default two-cycle
  * bake-in never blocks a merge.
@@ -22,7 +22,10 @@ export class DuplicationGate implements Gate {
   async check(context: VerificationContext): Promise<GateResult> {
     const report = readDuplicationReport(context.project_root);
     if (!report) {
-      return createPass(this.gate, 'No duplication report on record; gate inert.');
+      return createNotRequired(
+        this.gate,
+        'Not required: no duplication scan ran for this change, so there was nothing to check.',
+      );
     }
 
     const total = report.findings.length;

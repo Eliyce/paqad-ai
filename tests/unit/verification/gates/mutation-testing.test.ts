@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { MutationResult } from '@/core/types/mutation.js';
-import { MutationTestingGate } from '@/verification/gates/mutation-testing.js';
+import { MUTATION_OFF_DETAIL, MutationTestingGate } from '@/verification/gates/mutation-testing.js';
 
 import { createVerificationContext } from '../shared.fixture.js';
 
@@ -27,20 +27,71 @@ function mutationResult(overrides: Partial<MutationResult> = {}): MutationResult
 describe('MutationTestingGate', () => {
   const gate = new MutationTestingGate();
 
-  it('passes (inert) when no mutation result is present', async () => {
+  it('AC-8: reads not required (mutation off) when no mutation result is present', async () => {
     const result = await gate.check(createVerificationContext());
     expect(result.passed).toBe(true);
-    expect(result.detail).toContain('did not run');
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toBe(MUTATION_OFF_DETAIL);
   });
 
-  it('passes when the run was skipped, naming the reason', async () => {
+  it('AC-8: uses the context mutation note as the not-required detail', async () => {
     const result = await gate.check(
       createVerificationContext({
-        mutation_result: mutationResult({ status: 'skipped', skipped_reason: 'fast-lane' }),
+        mutation_note: 'Mutation testing does not run on the end-of-turn check.',
+      }),
+    );
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toBe('Mutation testing does not run on the end-of-turn check.');
+  });
+
+  it.each([
+    ['fast-lane', 'fast lane'],
+    ['no-changed-code', 'no code changed'],
+  ] as const)('AC-8: a %s skip reads not required', async (reason, words) => {
+    const result = await gate.check(
+      createVerificationContext({
+        mutation_result: mutationResult({ status: 'skipped', skipped_reason: reason }),
       }),
     );
     expect(result.passed).toBe(true);
-    expect(result.detail).toContain('fast-lane');
+    expect(result.outcome).toBe('not-required');
+    expect(result.detail).toContain(words);
+  });
+
+  it.each([
+    ['tests-not-green', 'test command was not green'],
+    ['no-test-command', 'no test command is configured'],
+    ['tool-not-configured', 'no mutation tool is configured'],
+    ['run-failed', 'mutation tool failed'],
+  ] as const)('AC-8: a %s skip reads did not run, naming the reason', async (reason, words) => {
+    const result = await gate.check(
+      createVerificationContext({
+        mutation_result: mutationResult({ status: 'skipped', skipped_reason: reason }),
+      }),
+    );
+    expect(result.passed).toBe(true);
+    expect(result.outcome).toBe('did-not-run');
+    expect(result.detail).toContain('did not run');
+    expect(result.detail).toContain(words);
+    expect(result.remediation).toBeTruthy();
+  });
+
+  it('AC-8: a skip with no recorded reason reads did not run', async () => {
+    const result = await gate.check(
+      createVerificationContext({
+        mutation_result: mutationResult({ status: 'skipped', skipped_reason: null }),
+      }),
+    );
+    expect(result.outcome).toBe('did-not-run');
+    expect(result.detail).toContain('no reason recorded');
+  });
+
+  it('AC-8: a real run that killed every mutant is the only plain pass', async () => {
+    const result = await gate.check(
+      createVerificationContext({ mutation_result: mutationResult() }),
+    );
+    expect(result.passed).toBe(true);
+    expect(result.outcome).toBeUndefined();
   });
 
   it('passes when every behaviour-changing mutant was killed', async () => {

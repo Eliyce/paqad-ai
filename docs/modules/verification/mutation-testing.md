@@ -30,11 +30,50 @@ at weak checking.
 | Gate           | `src/verification/gates/mutation-testing.ts`           |
 | Evidence       | `src/verification/evidence.ts` (survivors + confidence) |
 | Per-module roll-up | `src/planning/module-health-updater.ts` (`mutation_score`) |
+| Mode (floored)  | `src/mutation/mode.ts` (`resolveMutationMode`)         |
+| Backstop seam   | `src/mutation/backstop.ts` (`runBackstopMutation`)     |
 
-The runner is wired into the verification phase (`src/pipeline/phases/verification.ts`): it runs **only
-after the suite is already green**, scoped to the changed source files, and writes its result onto the
-verification context as `mutation_result`. The gate then turns that result into a pass / inconclusive /
-fail outcome that flows through the existing verification evidence — there is no parallel store.
+## When it runs (issue #293)
+
+Mutation testing is **off by default** and opt-in. It is controlled by one floored knob, `mutation_mode`
+(`off`, `warn` or `strict`, env `PAQAD_MUTATION_MODE`). The team value in `.paqad/configs/.config.*` is a
+floor: a local `.paqad/.config` or the env var may raise it, never lower it.
+
+The only caller of `runMutationGate` is repository verification
+(`src/verification/repository/repository-context.ts`, through `runBackstopMutation`), and only on two
+origins:
+
+- **`ci-backstop` and `git-backstop`.** These fire only when the project calls
+  `runtime/scripts/verify-backstop.mjs` from its own CI job or pre-push hook. paqad installs neither, so
+  a project that never wires the backstop never runs mutation.
+- **Never on `hook-completion`** (the end of an agent turn) and never on any per-edit seam, whatever the
+  mode. There the gate reads not required: "Mutation testing runs only on CI and pre-push".
+
+On a backstop origin with `warn` or `strict`, the step runs in this order:
+
+1. The **project's own test command** (`commands.test` in `.paqad/project-profile.yaml`, the same command
+   `paqad-ai checks` runs) runs first. That is the green-suite signal. No command reads did not run (no
+   test command configured); a non-zero exit reads did not run (tests not green). In both cases the
+   mutation tool never starts.
+2. The **detected stack profile** of the project being verified (`stack_profile` in the project profile,
+   or a read-only stack snapshot when the profile has none) picks the tool through `selectMutationTool`.
+3. `runMutationGate` runs on the changed code files and its result lands on the verification context as
+   `mutation_result`, with `mutation_strict` set when the mode is `strict`. The gate turns it into an
+   outcome that flows through the existing verification evidence. There is no parallel store.
+
+The project supplies the mutation tool for its stack. With none configured the gate reads did not run
+and names the missing tool. A fault anywhere in the step records a `run-failed` skip; it never throws.
+
+### Per host
+
+| Host tier | Hosts | What mutation testing does |
+| --------- | ----- | -------------------------- |
+| Live, pre-edit and completion | Claude Code, Codex CLI | The end-of-turn check runs `hook-completion`, so mutation never runs there and the gate reads not required. A strict result blocks only through a backstop the project wired into its CI or pre-push hook |
+| Live, completion only | Gemini CLI | The turn-end hook is record-only and runs `hook-completion`, so mutation never runs there and no mutation verdict appears in chat |
+| Advisory | Cursor, Windsurf, Continue, GitHub Copilot, Junie, Aider, Antigravity, AI Assistant | No paqad hook runs, so paqad claims no mutation enforcement there |
+
+The CI or pre-push backstop belongs to the project, not to the agent host, so its exit code is what
+blocks a merge or a push under `strict`.
 
 ## Per-language tool (no home-grown mutator)
 
@@ -67,22 +106,28 @@ result is **not** rolled up into a module's `mutation_score`.
 
 | Situation                                        | Outcome (default)              |
 | ------------------------------------------------ | ------------------------------ |
-| No result / run skipped (fast lane, no changed code, tool not configured, suite not green) | **pass** (inert) |
+| No result (mutation off, or the end of an agent turn), or skipped on the fast lane or with no changed code | **not required** (never a pass) |
+| Skipped because there is no test command, the suite was not green, the tool is not configured, or the run failed | **did not run**, naming the reason |
 | Every behaviour-changing mutant killed (mature)  | **pass**                       |
 | Behaviour-changing mutant survived               | **inconclusive** (escalate)    |
 | Lower-confidence language                         | **inconclusive**               |
 | Working tree not clean after the run             | **fail** (safety)              |
 
-- **Survivors escalate by default.** A project may opt into strict mode (`mutation_strict`) to turn
-  surviving behaviour-changing mutants into a hard block. This avoids turning every survivor into a stop
-  before baselines exist; ratcheting the score over time is owned by #110.
+- **Survivors escalate under `warn`.** `mutation_mode=strict` sets `mutation_strict` on the context and
+  turns surviving behaviour-changing mutants into a hard block. This avoids turning every survivor into a
+  stop before baselines exist; ratcheting the score over time is owned by #110.
+- **Not required vs did not run.** Mode off, the end of an agent turn, the fast lane and a change with no
+  code read not required. A missing or red test command, a missing tool and a failed run read did not
+  run, with the reason in the detail. Neither is ever a pass.
 - The **fast lane** skips mutation entirely to stay light.
 
 ## Safety: always fully reverted
 
 Planting and removing mutants must be fully reversed. The mature tools run mutants in their own sandbox;
 the runner additionally **asserts the working tree is clean after the run** (`isTreeClean`). A dirty
-tree is a hard failure — a mutant may have been left behind.
+tree is a hard failure in both `warn` and `strict`: a mutant may have been left behind. At the backstop
+seam "clean" means the run left the tree exactly as it found it (every dirty path and the digest of its
+bytes match), so an uncommitted edit that was already there at pre-push is not blamed on the run.
 
 ## Boundaries
 
