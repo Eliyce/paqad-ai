@@ -44,18 +44,16 @@ describe('isSelfArmEnabled — off by default, opt-in only', () => {
     expect(isSelfArmEnabled(root, {})).toBe(true);
   });
 
-  it('defaults ON within feature-development and OFF elsewhere (#345 G5)', () => {
+  it('defaults ON within feature-development and OFF elsewhere', () => {
     expect(isSelfArmEnabled(root, {}, { featureDevelopment: true })).toBe(true);
     expect(isSelfArmEnabled(root, {}, { featureDevelopment: false })).toBe(false);
     expect(isSelfArmEnabled(root, {})).toBe(false);
   });
 
-  it('an env/config force still wins over the feature-development default (#345 G5)', () => {
-    // Env off beats the feature-development default-on.
+  it('an env/config force still wins over the feature-development default', () => {
     expect(
       isSelfArmEnabled(root, { PAQAD_DECISION_SELFARM: 'off' }, { featureDevelopment: true }),
     ).toBe(false);
-    // Local config off beats the default-on when env is unset.
     writeFileSync(join(root, '.paqad/.config'), 'decision_selfarm=false\n');
     expect(isSelfArmEnabled(root, {}, { featureDevelopment: true })).toBe(false);
   });
@@ -157,7 +155,7 @@ describe('selfArmDecision — narrow create-vs-reuse minter', () => {
     expect(pendingIds(root)).toHaveLength(0);
   });
 
-  it('mints an architecture-path packet on the tight explicit-path-fork (#300)', () => {
+  it('mints an architecture-path packet on the tight explicit-path-fork', () => {
     const result = selfArmDecision({
       projectRoot: root,
       promptText: 'Should this live in src/ui/Button.tsx or src/components/Button.tsx?',
@@ -385,7 +383,7 @@ describe('runDecisionSelfArm — the capability body (transcript reader injected
     expect(out.ran).toBe(false);
   });
 
-  it('mints by DEFAULT (no env/config) when the session routed to feature-development (#345 G5)', () => {
+  it('mints by DEFAULT (no env/config) when the session routed to feature-development', () => {
     const sessionId = resolveSessionId(root, 'ses1');
     writeWorkflowState(root, sessionId, {
       active: { workflow: 'feature-development' },
@@ -394,7 +392,7 @@ describe('runDecisionSelfArm — the capability body (transcript reader injected
     const out = runDecisionSelfArm({
       projectRoot: root,
       seam: 'pre-mutation',
-      env: {}, // no opt-in — the feature-development route default arms it
+      env: {},
       payload,
       readTranscript: forkTranscript,
     });
@@ -402,7 +400,7 @@ describe('runDecisionSelfArm — the capability body (transcript reader injected
     expect(pendingIds(root)).toHaveLength(1);
   });
 
-  it('does NOT mint by default on a non-feature-development route (#345 G5)', () => {
+  it('does NOT mint by default on a non-feature-development route', () => {
     const sessionId = resolveSessionId(root, 'ses1');
     writeWorkflowState(root, sessionId, {
       active: { workflow: 'project-question' },

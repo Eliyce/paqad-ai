@@ -2,17 +2,21 @@ import { describe, expect, it } from 'vitest';
 
 import { armIntakeNarration, detectTicketRefs } from '@/planning/ticket-ref-detect.js';
 
-describe('detectTicketRefs (#322)', () => {
+import { ticketRef } from '../../shared/ticket-ref.js';
+
+describe('detectTicketRefs', () => {
   it('finds a Jira key for a jira tracker', () => {
     expect(detectTicketRefs('please do PQD-123 now', 'jira')).toEqual(['PQD-123']);
   });
 
   it('finds a GitHub ref for a github-issues tracker', () => {
-    expect(detectTicketRefs('fix #45 and ship', 'github-issues')).toEqual(['#45']);
+    expect(detectTicketRefs(`fix ${ticketRef(45)} and ship`, 'github-issues')).toEqual([
+      ticketRef(45),
+    ]);
   });
 
   it('a jira tracker ignores a GitHub-style ref (and vice versa)', () => {
-    expect(detectTicketRefs('see #45', 'jira')).toEqual([]);
+    expect(detectTicketRefs(`see ${ticketRef(45)}`, 'jira')).toEqual([]);
     expect(detectTicketRefs('see PQD-9', 'github-issues')).toEqual([]);
   });
 
@@ -29,7 +33,7 @@ describe('detectTicketRefs (#322)', () => {
   });
 });
 
-describe('armIntakeNarration (#322)', () => {
+describe('armIntakeNarration', () => {
   it('names the exact deterministic fetch verb for the first ref', () => {
     const line = armIntakeNarration(['PQD-123', 'PQD-9']);
     expect(line).toContain('▸ paqad');

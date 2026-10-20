@@ -206,9 +206,6 @@ describe('decision resolver', () => {
   });
 
   it('surfaces a mid-confidence packet (0.90) to the human under the strict default instead of auto-resolving', async () => {
-    // No profile written → an unset ask_threshold resolves to the strict
-    // default (0.95). A recommendation at 0.90 confidence sits in the
-    // 0.85–0.94 band that `balanced` would have auto-resolved; strict asks.
     const result = await resolveDecisionPacket(root, makePacket({ confidence: 0.9 }));
 
     expect(result).toEqual({ source: 'ask' });
@@ -319,10 +316,6 @@ describe('decision resolver', () => {
 
   it('uses a preferred option from project profile when one is configured', async () => {
     writeProfile(root, 'balanced', { 'create-vs-reuse': 'make-new' });
-    // `preferred_option_keys` is a project decision preference with no `.config`
-    // key, and readProjectProfile() now replaces `custom.decisions` from
-    // config+defaults. Overlay just this preference onto the real resolved profile
-    // so the resolver still honours it.
     const realReadProjectProfile = projectProfileModule.readProjectProfile;
     const readSpy = vi
       .spyOn(projectProfileModule, 'readProjectProfile')
@@ -553,8 +546,5 @@ function writeProfile(
 
   mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(join(root, PATHS.PROJECT_PROFILE), YAML.stringify(profile), 'utf8');
-  // The decision `ask_threshold` is a framework knob: it now resolves from
-  // `.paqad/.config`, not the YAML. Persist it so askThresholdForProject() and
-  // the resolver see the threshold this test configured.
   syncFrameworkConfig(root, profile);
 }

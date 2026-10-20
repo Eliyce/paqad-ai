@@ -9,11 +9,6 @@ import { PATHS } from '@/core/constants/paths.js';
 import { DecisionStore, type DecisionPacket } from '@/planning/index.js';
 import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 
-// Issue #184 — two developers on parallel branches must be able to each raise a
-// decision and merge to main with no git conflict. ULID filenames make the
-// packet files distinct; the managed `.gitignore` keeps the append-only audit
-// stream out of git so it cannot conflict at EOF.
-
 function git(projectRoot: string, args: string[]): string {
   return execFileSync('git', args, { cwd: projectRoot }).toString();
 }
@@ -57,7 +52,7 @@ function makePacket(decisionId: string, fingerprint: string): DecisionPacket {
   };
 }
 
-describe('parallel-branch decision merge (issue #184)', () => {
+describe('parallel-branch decision merge', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -72,20 +67,16 @@ describe('parallel-branch decision merge (issue #184)', () => {
     gitInit(projectRoot);
     const store = new DecisionStore(projectRoot);
     store.initialize();
-    // The managed .gitignore must be committed at the base so the append-only
-    // audit stream stays untracked on both branches.
     writeGitignore(projectRoot);
     git(projectRoot, ['add', '-A']);
     git(projectRoot, ['commit', '-m', 'base']);
 
-    // Branch A raises a decision.
     git(projectRoot, ['checkout', '-b', 'feat-a']);
     const idA = store.nextDecisionId();
     store.writePending(makePacket(idA, 'sha256:a'));
     git(projectRoot, ['add', '-A']);
     git(projectRoot, ['commit', '-m', 'decision A']);
 
-    // Branch B diverges from the same base and raises a different decision.
     git(projectRoot, ['checkout', 'main']);
     git(projectRoot, ['checkout', '-b', 'feat-b']);
     const idB = store.nextDecisionId();
@@ -93,11 +84,9 @@ describe('parallel-branch decision merge (issue #184)', () => {
     git(projectRoot, ['add', '-A']);
     git(projectRoot, ['commit', '-m', 'decision B']);
 
-    // Merge A into B — must be conflict-free (distinct ULID filenames).
     expect(idA).not.toBe(idB);
     expect(() => git(projectRoot, ['merge', '--no-edit', 'feat-a'])).not.toThrow();
 
-    // Both packets survive the merge.
     const pendingDir = join(projectRoot, PATHS.DECISIONS_PENDING_DIR);
     const files = readdirSync(pendingDir).filter((f) => f.endsWith('.json'));
     expect(files).toContain(`${idA}.json`);
