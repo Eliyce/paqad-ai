@@ -56,6 +56,14 @@ The reasons below are not obvious from the code in `src/install/`.
   hooks mirrors `claudeSettingsPath` and `hasLiveNpmHookLines` in
   `runtime/hooks/lib/paqad-disabled.mjs`, because `src` cannot import the runtime hook libraries.
 
+- **`runtime/scripts/postinstall.mjs`.** The package is published with `changeset publish`, which
+  packs with pnpm, and pnpm resets every file mode to 0644. Hosts run the hooks as bare command
+  paths, so without the executable bit none of them would fire (exit 126), and the evidence
+  ledger, receipts and dashboard data would never be produced. npm and pnpm run `postinstall`
+  through the shell, so the script itself is immune. It adds execute bits while keeping read bits
+  (0755), skips a missing directory, and always exits 0: a chmod error is a warning, never a failed
+  install.
+
 ## Entry Points
 
 - CLI entry: `paqad-ai install` (verify exact flag set in the source).

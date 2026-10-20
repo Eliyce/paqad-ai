@@ -53,6 +53,18 @@ eval, never a per-answer causal claim.
   `resolveSessionId` is also cached, so a later reader with no hint resolves the same id, matching
   the hooks' own resolver. Cache writes are best-effort.
 
+- **`runtime/scripts/rag-evidence-record.mjs`.** The prompt seam runs from the global hook install,
+  which may have no compiled `dist`, so this small writer produces rows in exactly the format
+  `src/rag-ledger/fold.ts` reads and `src/rag-ledger/schema.ts` validates, with the same identity
+  hash exclusions as `src/session-ledger/ledger.ts`. A cross-format test keeps the two in step. It
+  mirrors `resolveRagHome`, `mirrorRagRow`, `chatDir` and `featureChangeKey`: a row bound for a
+  feature bundle carries the bundle envelope header (no `adapter`, since the host lives in
+  `feature.json`), and the `_chat` home keeps the rag-evidence envelope. Any read failure falls
+  back to the `_chat` home so a row is never lost. The ordinal is allocated by exclusive create,
+  so it is race-safe with the background worker and the TS recorder. A host session id is cached
+  so the background worker aligns with it, and a minted id uses crypto randomness, since id minting
+  is treated as a security context. Recording is silent and never breaks a prompt turn.
+
 ## Source Footprint
 
 - `src/rag-ledger`

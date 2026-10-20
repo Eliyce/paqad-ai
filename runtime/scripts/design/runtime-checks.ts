@@ -1,20 +1,5 @@
 #!/usr/bin/env -S npx tsx
-/**
- * runtime-checks.ts — design-test live phase (Playwright walk).
- *
- * Brings up the running app, walks every route from the surface inventory,
- * and emits structured evidence consumed by accessibility-review,
- * responsive-review, motion-review, token-conformance-review, and
- * state-coverage-review.
- *
- * Reuses the project's playwright.config.ts (browsers, projects, baseURL).
- * Override per design_test config block in paqad.config.{json,yaml}.
- *
- * Outputs to .paqad/design-test/runs/<run_id>/artifacts/runtime/*.
- *
- * If Playwright isn't available, exits 0 and writes a blocked_checks entry —
- * the workflow continues with static-only evidence.
- */
+/* eslint-disable no-empty -- an optional check that fails is recorded as blocked, so its empty catch is deliberate */
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
@@ -78,9 +63,7 @@ async function main(): Promise<void> {
   let axeBuilder: typeof import('@axe-core/playwright').default | null = null;
   try {
     axeBuilder = (await import('@axe-core/playwright')).default;
-  } catch {
-    // axe is optional; live a11y checks become blocked rather than failing the whole walk.
-  }
+  } catch {}
 
   let routes: Array<{ path: string; source: string }> = [];
   if (existsSync(args.surfaceInventory)) {
@@ -171,9 +154,7 @@ async function main(): Promise<void> {
             .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
             .analyze();
           axe_violations = results.violations;
-        } catch {
-          /* swallowed; recorded via blocked_checks above */
-        }
+        } catch {}
       }
 
       routeRecord.breakpoints.push({

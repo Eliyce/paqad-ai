@@ -319,6 +319,14 @@ Backed by [`pentest-engine`](pentest-engine/index/summary.md). Knows: docs/modul
 [`ux-heuristic-evaluation`](../../runtime/capabilities/coding/skills/ux-heuristic-evaluation/SKILL.md),
 [`ux-design-research`](../../runtime/capabilities/coding/skills/ux-design-research/SKILL.md).
 Knows: design-system docs, source, tests.
+The workflow's scripts live in `runtime/scripts/design/`. `scan-tokens.sh` finds the
+token-conformance-review scanner relative to its own location, because an onboarded project's
+working directory has no top-level `runtime/`. A missing input (no snapshots, no Playwright, no
+axe) is recorded as a blocked check rather than failing the run, so the workflow continues with
+static evidence. `retest.sh` carries the source sidecar into the artifact dir so finding ids are
+preserved, and runs the live phase only when `DESIGN_TEST_TARGET_URL` is set. The shell scripts
+use the `${arr[@]+"${arr[@]}"}` idiom because expanding an empty array under `set -u` is fatal on
+Bash 3.2, the macOS default.
 
 ### Codebase health (codebase-health workflow)
 The deterministic `paqad-ai health run` verb finds dead code, unused/risky/deprecated

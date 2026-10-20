@@ -394,6 +394,26 @@ recall because the gate can block:
   on real data; the finding message is built by one function so the rule script, gate and fixtures
   print the same text.
 
+### `runtime/scripts/verify-backstop.mjs`
+
+- It is the provider-independent backstop run by the generated git pre-commit and pre-push hooks
+  and the CI step, the layers an agent cannot skip with `--no-verify`. `--soft-fail` turns infra
+  errors (missing build, failed import) into exit 0 for the in-session completion hook only; CI
+  never uses it. The built entry is resolved two levels up from the module URL, so it works
+  installed globally, as a dependency, or in this repo.
+- When paqad is disabled, or the package is uninstalled so the off signal cannot be confirmed, it
+  runs no gate. A real completion while disabled still records one disabled-session audit row, so
+  the bypass shows in the dashboard and SIEM; that write is lazy and skipped when there is no dist.
+- Only a hard failure (a gate reported `fail`) blocks. Inconclusive is surfaced but never blocks.
+  A verdict with no gates array falls back to `!verdict.ok` so a real failure never slips through.
+- On the Stop hook, blocking rides the documented `{decision: "block"}` field, because exit 2
+  does not block a Stop hook. No `systemMessage` is emitted, since Claude Code renders it as
+  "Stop says:" lines; the block reason reaches the model only, and the agent's final message is the
+  developer-facing channel. The receipt paqad computed is written every turn so the HUD shows it
+  rather than the model's retelling; a failed write is logged and changes nothing. When the loop
+  guard is active the gate already bit once, so it steps aside.
+- For git and CI the exit code is the gate, so it prints plain text and a hard fail exits 2.
+
 ## Feature Pages
 
 - [Mutation Testing — Verification Gate](../mutation-testing.md) — plant mutants in

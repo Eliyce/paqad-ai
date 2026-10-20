@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Purpose: Scan UI source for override sprawl — !important, inline style=,
-#          arbitrary-value Tailwind brackets, undocumented utility combos.
-# Usage:   bash runtime/scripts/design/scan-overrides.sh [search-root] [--out <path>]
-# Output:  category | file:line | excerpt
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then

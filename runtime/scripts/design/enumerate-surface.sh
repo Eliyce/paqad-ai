@@ -1,9 +1,4 @@
 #!/usr/bin/env bash
-# Purpose: Enumerate the routes / screens of the running app. Detects
-#          Next.js (app/ and pages/), Remix (routes/), React Router (declarative
-#          route configs), and Vue Router. Emits JSON to stdout (or --out).
-# Usage:   bash runtime/scripts/design/enumerate-surface.sh [--root <project-root>] [--out <path>]
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
@@ -23,16 +18,13 @@ done
 
 cd "$root"
 
-# Collect candidate route files into a temp list.
 tmp=$(mktemp)
 trap 'rm -f "$tmp"' EXIT
 
-# Next.js app router: app/**/page.{ts,tsx,js,jsx}
 find . -type d -name node_modules -prune -o -type d -name .next -prune \
   -o -type f \( -name 'page.tsx' -o -name 'page.ts' -o -name 'page.jsx' -o -name 'page.js' \) -print 2>/dev/null \
   | grep -E '/app/' >> "$tmp" || true
 
-# Next.js pages router: pages/**/*.{ts,tsx,js,jsx} (excluding _* and api/*)
 find . -type d -name node_modules -prune -o -type d -name .next -prune \
   -o -type d -name pages -print 2>/dev/null \
   | while read -r d; do
@@ -41,11 +33,9 @@ find . -type d -name node_modules -prune -o -type d -name .next -prune \
         ! -path '*/api/*' 2>/dev/null >> "$tmp" || true
     done
 
-# Remix routes: app/routes/**/*.{ts,tsx}
 find . -type d -name node_modules -prune -o -type d -name .next -prune \
   -o -path '*/app/routes/*' -type f \( -name '*.tsx' -o -name '*.ts' \) -print 2>/dev/null >> "$tmp" || true
 
-# Sort and de-dupe.
 sort -u "$tmp" -o "$tmp"
 
 emit() {
@@ -54,8 +44,6 @@ emit() {
   first=1
   while IFS= read -r f; do
     [ -z "$f" ] && continue
-    # Derive a URL path from the file path. Strip src/, app/, pages/ prefixes;
-    # strip extension; collapse /index → /; treat [param] segments as :param.
     p=$(printf '%s' "$f" \
       | sed -E 's|^\./||; s|^src/||; s|^app/||; s|^pages/||; s|/routes/|/|; s|\.[tj]sx?$||; s|/index$|/|; s|/page$|/|; s|\[\.\.\.([^]]+)\]|*\1|g; s|\[\.\.\.|*|g; s|\]||g; s|\[|:|g')
     [ -z "$p" ] && p="/"

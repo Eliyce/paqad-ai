@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-// Issue #117 (C-1) — the provider-independent verification backstop. Runs the
-// existing VerificationGateRunner against repository reality via paqad's
-// exported `runRepositoryVerification` API (no new CLI verb) and exits non-zero
-// when a contract violation blocks. Invoked by the generated git pre-commit /
-// pre-push hook and by the CI step — the layers an agent cannot pass
-// `--no-verify` to.
-//
-// Usage: node verify-backstop.mjs [origin] [--soft-fail]
-//   origin     git-backstop (default) | ci-backstop | hook-completion
-//   --soft-fail infra errors (missing build, import failure) exit 0 instead of
-//               1. Used by the in-session completion hook so a broken install
-//               never wedges the agent; never used by CI, which must fail hard.
 
 import process from 'node:process';
 import { pathToFileURL } from 'node:url';
@@ -18,40 +6,19 @@ import { pathToFileURL } from 'node:url';
 import { logHookFailure } from '../hooks/lib/hook-log.mjs';
 import { isPaqadDisabled } from '../hooks/lib/paqad-disabled.mjs';
 
-/**
- * Record a disabled-session audit row, best-effort (buildout F2b). Lazy-imports
- * the small dist recorder; any failure (uninstalled package → no dist, fs error)
- * is swallowed so the disable path can never break. Mirrors how capability-gate
- * resolves its dist bundle relative to the module URL.
- */
 async function recordDisabledSessionSafe(projectRoot, hostSessionId, origin) {
   try {
     const distUrl = new URL('../../dist/session-ledger/disabled-audit.js', import.meta.url);
     const { recordDisabledSession } = await import(distUrl.href);
     recordDisabledSession(projectRoot, { sessionId: hostSessionId ?? null, origin });
-  } catch {
-    // Disabled + uninstalled (no dist) or any error → skip; auditing must never
-    // disrupt a disabled session.
-  }
+  } catch {}
 }
 
 export async function loadPaqadApi() {
-  // This script ships inside the paqad-ai package (runtime/scripts/...), so its
-  // built entry sits two levels up at dist/index.js. Resolving relative to the
-  // module URL works whether paqad is installed globally, as a dependency, or
-  // run from the repo itself.
   const distUrl = new URL('../../dist/index.js', import.meta.url);
   return import(distUrl.href);
 }
 
-/**
- * True when the verdict carries a HARD failure — at least one gate reported `fail`
- * (issue #368). This is stricter than `!verdict.ok`: a verdict is also not-ok when it
- * is merely Inconclusive (unproven signals, no failing gate), and Inconclusive must
- * surface visibly WITHOUT blocking the turn. Defensive: a verdict with no gates array
- * (older/mocked shapes) falls back to `!verdict.ok` so a real failure never slips
- * through as non-blocking.
- */
 export function verdictHasHardFailure(verdict) {
   if (Array.isArray(verdict?.gates)) {
     return verdict.gates.some((gate) => gate?.status === 'fail');
@@ -59,12 +26,6 @@ export function verdictHasHardFailure(verdict) {
   return verdict?.ok === false;
 }
 
-/**
- * The concise, model-facing instruction attached to a `{decision:'block'}` on a hard
- * failure (issue #368). It reuses the verdict summary (which already names the failing
- * gates in paqad's voice) and appends one remediation line, so the model is told BOTH
- * what failed and how to clear it before the turn can end.
- */
 export function blockReason(verdict) {
   const summary = verdict?.summary ?? 'A verification gate is blocking this change.';
   return (
@@ -88,16 +49,7 @@ export async function runVerificationBackstop({
 }) {
   const out = stdout ?? process.stdout;
   const err = stderr ?? process.stderr;
-  // Issue #220 — when paqad is disabled (or env-overridden off, or the package
-  // is uninstalled so the off-signal can't be confirmed on either side), the
-  // backstop runs NO gate: allow BEFORE running anything. This is a distinct
-  // short-circuit from `softFail` (which only catches infra errors).
   if (isPaqadDisabled(projectRoot)) {
-    // Buildout F2b (decision D1) — the disable escape hatch stays, but a real
-    // agent completion while disabled is AUDITED: record one disabled-session row
-    // so the bypass is visible in the dashboard/SIEM. Best-effort and lazy — if
-    // the package is uninstalled the dist import simply throws and we skip, so the
-    // "no enforcement when disabled" contract is untouched.
     if (origin === 'hook-completion') {
       await recordDisabledSessionSafe(projectRoot, hostSessionId, origin);
     }
@@ -105,58 +57,21 @@ export async function runVerificationBackstop({
   }
   try {
     const api = await loadPaqadApi();
-    // Thread the host session id (buildout F5b, #5) so stage-evidence finalization
-    // keys on the live session, not a stale cache. Undefined on hosts/CI with no id.
     const verdict = await api.runRepositoryVerification({
       projectRoot,
       origin,
       hostSessionId: hostSessionId ?? null,
-      // Issue #409 — let the verdict tell us whether the stages it recorded were ever
-      // spoken where the developer could see them.
       transcriptText: transcriptText ?? null,
     });
-    // Issue #325 — surface the ONE end-of-change receipt (verdict headline in
-    // contract words + per-stage evidence). Fall back to the plain summary if no
-    // receipt was composed.
     const receipt = verdict.receipt ?? verdict.summary;
 
-    // Issue #368 — the Claude Stop hook. The developer-facing channel is the JSON
-    // `{systemMessage}` on stdout at exit 0, which Claude renders whether the verdict
-    // passes OR fails — so a "Needs your attention" receipt is exactly as visible as
-    // "Safe to merge" (AC-C1), and a computed FAILED verdict can never be hidden on
-    // stderr while a PR ships (AC-D1, the #353 disaster). Blocking rides on the
-    // documented `{decision:'block'}` field, NOT exit 2 — exit 2 does not block a Stop
-    // hook (it is a PreToolUse mechanism), so the old `return 2` was both invisible AND
-    // a no-op. git/CI keep the exit-code-gated path below.
     if (origin === 'hook-completion') {
-      // The Stop hook no longer emits a `{systemMessage}`. Claude Code changed: a
-      // Stop-hook `{systemMessage}` now RENDERS on Desktop as literal "Stop says:" lines,
-      // inverting the #368/#409 premise that this channel was invisible. Routing the
-      // receipt through it duplicated the narration the agent already speaks (the #409
-      // contract) and leaked the model-only narration advisory into the developer's chat
-      // (the "Stop says:" narration leak). So the developer-facing channel is the agent's
-      // own final message; enforcement rides the `{decision:'block'}` reason below, which
-      // is NOT rendered on either host (it reaches the model only), plus the git/CI
-      // backstop.
-      // Issue #639, Part 6 — keep paqad's own receipt every turn, clean, Inconclusive or
-      // failing, so the HUD shows the receipt paqad computed rather than the model's
-      // retelling. Best-effort and silent: a failed write is logged and changes nothing
-      // about the decision below or the exit code.
       try {
         api.writeHudReceipt(projectRoot, hostSessionId ?? null, verdict);
       } catch (error) {
         logHookFailure(projectRoot, 'verify-backstop:hud-receipt', error);
       }
       const payload = {};
-      // Give the gate real teeth on a HARD failure (a gate reported `fail`, e.g. a
-      // mandatory stage missing or a red checks report): tell the model to keep working
-      // and resolve it before the turn ends. An Inconclusive verdict (no failing gate —
-      // only unproven signals) never blocks: "do not over-trust", not "you must fix". The
-      // loop guard (`loopActive`, from Claude's `stop_hook_active`) means the gate already
-      // bit once this turn, so a second block would loop — step aside and let the session
-      // end (git/CI remains the hard gate). The narration advisory (issue #409) still rides
-      // the model-only reason when a block is already firing; on a clean turn there is no
-      // model-facing decision to convey, so the hook stays silent.
       if (verdictHasHardFailure(verdict) && !loopActive) {
         payload.decision = 'block';
         payload.reason = verdict.narrationAdvisory
@@ -169,9 +84,6 @@ export async function runVerificationBackstop({
       return 0;
     }
 
-    // git-backstop / ci-backstop — a real terminal / CI process where the exit code IS
-    // the gate. Plain text reads better than JSON here, and a hard fail must exit 2 so
-    // the commit / CI step fails. This layer never sets `loopActive`.
     if (verdict.ok) {
       out.write(`${receipt}\n`);
       return 0;
@@ -185,7 +97,6 @@ export async function runVerificationBackstop({
   }
 }
 
-// CLI entry — only when executed directly, not when imported by a hook.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const origin =
     process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : 'git-backstop';

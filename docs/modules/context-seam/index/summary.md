@@ -26,6 +26,32 @@ grep/read exactly as today.
 - [Budgeted Artifact Read (resolve + read + ceiling)](../features/budgeted-read/business.md)
 - [Context Block Emit (`[paqad-context]` + hook wiring)](../features/context-block-emit/business.md)
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `runtime/scripts/context-seam.mjs`.
+
+- **Budgets.** The read deadline only guards against pathological filesystem latency: if the stat
+  or the read overruns it, the seam emits nothing rather than stall the prompt or emit late.
+  `maxBytes` is only a ceiling for a corrupt or huge file, cut with a visible marker; the real
+  token budget is upstream's job. Every external effect (clock, stat, read) is injectable so the
+  logic is deterministic under test.
+- **Host output cap.** Claude Code caps a hook's `additionalContext`, `systemMessage` or plain
+  stdout at 10,000 characters and saves anything longer to a file the model never reads. The
+  budget leaves about 1,000 characters of headroom, counted in characters, not bytes.
+  `fitHookOutput` keeps the route line and the nudge whole and trims only the context body,
+  ending the block with the trim notice. With no parseable block there is nothing safe to drop, so
+  it emits what it has.
+- **Switches.** `lean_rules` defaults on (only an explicit falsy token turns it off) and
+  `rag_enabled` defaults off (only an explicit truthy token turns it on), mirroring the
+  framework-config boolean parse. `PAQAD_CONTEXT_ARTIFACT` overrides the artifact path, absolute
+  or relative to the project root, so tests and other hosts can point elsewhere.
+- **Stripping the rule sections.** The artifact is shared by every session in a checkout and may
+  have been composed for another session's feature-development prompt, so a prompt routed
+  elsewhere drops the rule-contract sections and the "no compiled rules" marker. Only the
+  composer's own top-level headings end a section, because loaded rule text embeds each rule's own
+  markdown (such as a `## Verify` heading), which must be dropped with the rule rather than end the
+  section early.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is
