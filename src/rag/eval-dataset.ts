@@ -10,7 +10,6 @@ export const ALL_QUERY_CLASSES: EvalQueryClass[] = [
 ];
 
 export const EVAL_DATASET: EvalDatasetItem[] = [
-  // simple-lexical: term in query matches term in document exactly
   {
     id: 'sl-1',
     query_class: 'simple-lexical',
@@ -26,7 +25,6 @@ export const EVAL_DATASET: EvalDatasetItem[] = [
     expected_file: 'src/billing/coupon-ledger.ts',
   },
 
-  // vocabulary-mismatch: query uses synonyms or paraphrases not in the document
   {
     id: 'vm-1',
     query_class: 'vocabulary-mismatch',
@@ -42,7 +40,6 @@ export const EVAL_DATASET: EvalDatasetItem[] = [
     expected_file: 'src/notifications/mailer.ts',
   },
 
-  // ambiguous: query is underspecified and could match multiple modules
   {
     id: 'am-1',
     query_class: 'ambiguous',
@@ -56,7 +53,6 @@ export const EVAL_DATASET: EvalDatasetItem[] = [
     keywords: ['performance'],
   },
 
-  // multi-part: compound task that spans multiple retrieval targets
   {
     id: 'mp-1',
     query_class: 'multi-part',
@@ -70,7 +66,6 @@ export const EVAL_DATASET: EvalDatasetItem[] = [
     keywords: ['coupon', 'retry'],
   },
 
-  // workflow-triggering: task that should surface a workflow recommendation
   {
     id: 'wt-1',
     query_class: 'workflow-triggering',
@@ -86,7 +81,6 @@ export const EVAL_DATASET: EvalDatasetItem[] = [
     workflow_trigger: 'root-cause-analysis',
   },
 
-  // negative: retrieval should be skipped or minimized for these tasks
   {
     id: 'ng-1',
     query_class: 'negative',

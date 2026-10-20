@@ -58,28 +58,14 @@ import {
 } from './types.js';
 import { FileVectorIndex } from './vector-index.js';
 
-/** Max non-whitespace characters per vision chunk before it is split further. */
 const VISION_MAX_CHUNK_CHARS = 2000;
 
-/** Embedding batch size for CRS writes/reindex (PQD-415). */
 const CRS_EMBED_BATCH_SIZE = 32;
 
-/**
- * How much wider than `limit` to fetch the dense candidate pool before BM25+RRF
- * fusion (RAG buildout F17). A wider pool lets the lexical leg recover an exact-match
- * chunk that cosine ranked below the cut; fusion then trims back to `limit`.
- */
 const HYBRID_FUSION_POOL_MULTIPLIER = 4;
 
-/**
- * Issue #354 — how many slices floor-with-relief delivers when nothing cleared the
- * high-confidence `rag_similarity_threshold`. Kept deliberately small (top 1-2): a
- * below-floor slice is a hint, not ground truth, so we surface only the strongest few
- * rather than flooding the artifact with weak matches.
- */
 const RELIEF_SLICE_CAP = 2;
 
-/** Shape an ordered list of scored candidates into a {@link RagRetrievalResult} (#354). */
 function toRetrievalResult(
   candidates: readonly RagScoredCandidate[],
   extra: { bestScore?: number; lowConfidence: boolean },
@@ -99,14 +85,8 @@ function toRetrievalResult(
   };
 }
 
-/** How long a retired CRS index is kept under a `.revert.<ms>` suffix (24 hours). */
 const CRS_REVERT_RETENTION_MS = 24 * 60 * 60 * 1000;
 
-/**
- * Project-relative location of the resumable partial index written when a
- * rebuild is cancelled mid-flight (PQD-104). Kept distinct from the full index
- * so a cancelled run never overwrites a previously-good `index.json`.
- */
 const PARTIAL_VECTOR_INDEX = PATHS.VECTOR_INDEX.replace(/\.json$/, '.partial.json');
 const PARTIAL_VECTOR_META = PATHS.VECTOR_META.replace(/\.json$/, '.partial.json');
 
@@ -145,11 +125,6 @@ export class RagService {
   constructor(
     private readonly projectRoot: string,
     private readonly providerFactory: ProviderFactory = createEmbeddingProvider,
-    /**
-     * In-memory write backlog for CRS collections (PQD-415). Injectable so a
-     * caller can size the cap or observe `.size`; defaults to a fresh queue at the
-     * 1000-chunk cap.
-     */
     private readonly crsBacklog: CrsBacklogQueue = new CrsBacklogQueue(),
   ) {
     this.indexManager = new ChunkIndexManager(projectRoot);
@@ -167,13 +142,7 @@ export class RagService {
       : undefined;
     const providerModelMatch =
       meta?.provider === intelligence.embedding_provider && meta?.model === expectedModel;
-    // RAG buildout F22 — an index built by a different chunking strategy must be fully
-    // rebuilt, never incrementally synced (mixing chunk boundaries corrupts retrieval).
-    // A pre-F22 index has no chunker_version, which reads as a mismatch and forces the
-    // rebuild. Only gates when RAG is on, mirroring the provider/model check.
     const chunkerMatch = meta?.chunker_version === CHUNKER_VERSION;
-    // Index is stale whenever a stored index exists but its provider/model doesn't match the
-    // current configuration — regardless of whether RAG is currently enabled.
     const staleMetadata = Boolean(meta) && !providerModelMatch;
     const valid =
       Boolean(meta) &&
@@ -191,7 +160,6 @@ export class RagService {
     try {
       visionChunkCount = (await this.visionVectorIndex.loadMeta(this.projectRoot))?.chunk_count;
     } catch {
-      // A corrupt vision meta must never break status reporting for the file index.
       visionChunkCount = undefined;
     }
 
@@ -217,19 +185,10 @@ export class RagService {
     const { profile, intelligence } = await this.buildIndexCore(partial, onProgress);
     profile.intelligence = intelligence;
     writeProjectProfile(this.projectRoot, profile);
-    // RAG is a framework knob: persist it to `.paqad/.config`, not the lean profile.
     syncFrameworkConfig(this.projectRoot, { intelligence });
     return this.getStatus();
   }
 
-  /**
-   * Rebuild the RAG index from the ALREADY-RESOLVED framework config WITHOUT persisting the
-   * project profile or the local `.config` (issue #576, Finding 3). `paqad-ai join` uses this: a
-   * teammate's machine must leave the tracked `project-profile.yaml` and the dev-local `.config`
-   * exactly as the team committed them — configureAndBuild rewrites both, which produced a
-   * "tracked files changed" diff and let a local `rag_*` key shadow a later team change. This runs
-   * the same shared build core (rebuild + pattern vectors + audit); it only skips the two writes.
-   */
   async buildIndexOnly(
     partial: Partial<BuildIndexOptions['intelligence']>,
     onProgress?: BuildIndexOptions['onProgress'],
@@ -238,8 +197,6 @@ export class RagService {
     return this.getStatus();
   }
 
-  /** Shared build core for {@link configureAndBuild} and {@link buildIndexOnly}: normalize the
-   *  config, rebuild the index, refresh the pattern vectors, and audit — no profile/config write. */
   private async buildIndexCore(
     partial: Partial<BuildIndexOptions['intelligence']>,
     onProgress?: BuildIndexOptions['onProgress'],
@@ -289,7 +246,6 @@ export class RagService {
     let provider: EmbeddingProvider | undefined;
 
     try {
-      // Pre-flight: never start work once the consumer has already aborted.
       this.throwIfAborted(signal);
 
       provider = await this.providerFactory(this.projectRoot, intelligence, options?.onProgress);
@@ -336,8 +292,6 @@ export class RagService {
         signal,
         embedTextOf: this.buildEmbedContextualizer(),
       });
-      // Final boundary: an abort landing between embedding and the index write
-      // still cancels — the embedded chunks become the partial checkpoint.
       if (signal?.aborted) {
         throw new CancelledError('RAG rebuild cancelled by consumer', {
           partialChunks: items,
@@ -373,7 +327,6 @@ export class RagService {
           reason: 'rag-rebuild-cancelled',
           checkpoint_path: checkpointPath,
         });
-        // Re-throw with only the stable, public-facing checkpoint detail.
         throw new CancelledError('RAG rebuild cancelled by consumer', {
           checkpoint_path: checkpointPath,
         });
@@ -386,12 +339,6 @@ export class RagService {
     }
   }
 
-  /**
-   * Write the chunks embedded before cancellation to a resumable `.partial`
-   * index and return its project-relative path (PQD-104). Returns undefined when
-   * nothing was embedded (e.g. aborted before the provider was ready), in which
-   * case no partial file is written.
-   */
   private async writePartialIndex(
     error: CancelledError,
     provider: EmbeddingProvider | undefined,
@@ -419,7 +366,6 @@ export class RagService {
         rag_enabled: false,
       };
       writeProjectProfile(this.projectRoot, profile);
-      // Mirror the disable into `.paqad/.config` (the source of truth for RAG state).
       setConfigValue(this.projectRoot, 'rag_enabled', 'false');
     }
     await this.vectorIndex.clear(this.projectRoot);
@@ -494,7 +440,6 @@ export class RagService {
       };
     }
 
-    // When topN is explicitly 0, skip vector retrieval entirely (depth = 'none')
     if (topN === 0) {
       return {
         vector_scores: new Map(),
@@ -546,7 +491,6 @@ export class RagService {
       const scored = await this.scoreCandidates(input, limit, intelligence);
       const bestScore = scored.length > 0 ? scored[0].score : undefined;
 
-      // High-confidence: candidates at or above the precision floor (F12).
       const aboveFloor = scored.filter(
         (candidate) => candidate.score >= intelligence.rag_similarity_threshold,
       );
@@ -554,11 +498,6 @@ export class RagService {
         return toRetrievalResult(aboveFloor, { bestScore, lowConfidence: false });
       }
 
-      // Issue #354 — floor-with-relief. Local-model cosine on hybrid-fused results
-      // rarely reaches 0.75, so a strict-only floor left retrieval dark. When nothing
-      // clears the high-confidence floor, deliver the top RELIEF_SLICE_CAP candidates
-      // that are still within the relief band, tagged low-confidence — a weak hint beats
-      // nothing, and the consumer marks it so the model weighs it accordingly.
       const relief = scored
         .filter((candidate) => candidate.score >= intelligence.rag_relief_floor)
         .slice(0, RELIEF_SLICE_CAP);
@@ -566,8 +505,6 @@ export class RagService {
         return toRetrievalResult(relief, { bestScore, lowConfidence: true });
       }
 
-      // Nothing even in the relief band — stay dark, but carry the best score so the
-      // consumer can render the honest "none above the floor (best NN%)" line.
       appendRagAudit(this.projectRoot, 'WARN', 'rag-fallback', {
         reason: 'below-similarity-threshold',
       });
@@ -595,10 +532,6 @@ export class RagService {
     }
   }
 
-  /**
-   * Run a single retrieval query for eval purposes without requiring an
-   * externally-managed ChunkIndexSyncResult. Refreshes the index internally.
-   */
   async retrieveForEval(
     input: {
       taskDescription?: string;
@@ -612,16 +545,6 @@ export class RagService {
     return this.retrieveWithSyncPolicy(syncResult, input, topN, true);
   }
 
-  /**
-   * Embed the query, query the file + vision indexes over a widened pool, fuse the
-   * dense and lexical (BM25) legs, optionally rerank, and return the top-`limit`
-   * candidates with their scores — BEFORE any similarity/relief floor is applied.
-   *
-   * This is the single canonical scoring path (RULE-04a1): both floor-with-relief
-   * retrieval ({@link retrieveWithSyncPolicy}) and the `probe` diagnostic call it, so
-   * a probe reports exactly the scores retrieval sees. Assumes the index is present
-   * and valid — callers check {@link getStatus} first.
-   */
   private async scoreCandidates(
     input: {
       taskDescription?: string;
@@ -640,23 +563,15 @@ export class RagService {
       input.symbolReferences ?? [],
     );
     const [queryVector] = await provider.embed(queryText);
-    // F17 — over-fetch a wider dense candidate pool so the lexical (BM25) leg can lift
-    // an exact-identifier chunk that cosine ranked just outside the top-N; fusion then
-    // trims back to `limit`. Cosine scores are preserved.
     const pool = limit * HYBRID_FUSION_POOL_MULTIPLIER;
     const [fileResults, visionResults] = await Promise.all([
       this.vectorIndex.query(this.projectRoot, queryVector, pool),
       this.visionVectorIndex.query(this.projectRoot, queryVector, pool),
     ]);
-    // Merge file- and vision-derived hits and re-rank by cosine. Vision chunks conform
-    // to the same retrieval shape; callers identify them by extension.
     const dense = [...fileResults, ...visionResults].sort(
       (left, right) => right.score - left.score,
     );
     const fused = fuseHybridRanking(dense, queryText);
-    // F18 — reranking. On (opt-in, default-off) a cross-encoder reorders the fused pool;
-    // it only changes ORDER (scores untouched) and any failure falls back to the fused
-    // order, so the floor/relief behaviour above is unaffected.
     const reranked = await this.applyReranking(queryText, fused, intelligence.reranking);
     return reranked.slice(0, limit).map((result) => ({
       id: result.item.id,
@@ -666,13 +581,6 @@ export class RagService {
     }));
   }
 
-  /**
-   * Issue #354 diagnostic — return the top-`limit` scored candidates for a query
-   * BEFORE the similarity/relief floor, so `paqad-ai rag probe` can show how far real
-   * scores sit from the floor on a live repo (the gap that made retrieval dark).
-   * Refreshes the index internally like {@link retrieveForEval}. Returns `[]` when rag
-   * is off or the index is missing/invalid.
-   */
   async probe(
     input: {
       taskDescription?: string;
@@ -696,17 +604,7 @@ export class RagService {
     return this.scoreCandidates(input, topN ?? intelligence.rag_top_n, intelligence);
   }
 
-  /**
-   * Accept plain text a consumer extracted from an image (via OCR, captioning,
-   * etc.) into the retrieval index. The engine never reads the image itself; it
-   * validates the input, embeds the text, and stores it in a separate vision
-   * vector index keyed to the image's `sourcePath`. Re-ingesting the same path
-   * replaces its prior chunks rather than duplicating them.
-   *
-   * @throws {RagIngestError} with a stable `code` for each rejection case.
-   */
   async ingestExtractedText(input: VisionIngestInput): Promise<VisionIngestResult> {
-    // 1. Known extraction kind.
     if (!(SUPPORTED_EXTRACTION_KINDS as readonly string[]).includes(input.extractionKind)) {
       throw new RagIngestError(
         'unknown_extraction_kind',
@@ -715,17 +613,14 @@ export class RagService {
       );
     }
 
-    // 2. Non-empty text.
     if (typeof input.text !== 'string' || input.text.trim().length === 0) {
       throw new RagIngestError('empty_extracted_text', 'Extracted text is empty');
     }
 
-    // 3. UTF-8 purity — the U+FFFD replacement character signals decode garbage.
     if (input.text.includes('�')) {
       throw new RagIngestError('text_not_utf8', 'Extracted text is not valid UTF-8');
     }
 
-    // 4. Acceptable image extension on the source path.
     const extension = extname(input.sourcePath).toLowerCase();
     if (!(SUPPORTED_VISION_EXTENSIONS as readonly string[]).includes(extension)) {
       throw new RagIngestError(
@@ -735,7 +630,6 @@ export class RagService {
       );
     }
 
-    // 5. Source path must resolve inside the project root.
     const resolvedRoot = resolve(this.projectRoot);
     const resolvedPath = resolve(this.projectRoot, input.sourcePath);
     if (!resolvedPath.startsWith(resolvedRoot + sep)) {
@@ -746,18 +640,14 @@ export class RagService {
       );
     }
 
-    // RAG must be configured to embed — mirror rebuild()'s precondition.
     const profile = readProjectProfile(this.projectRoot);
     const intelligence = normalizeIntelligenceConfig(profile?.intelligence);
     if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
       throw new Error('RAG must be enabled and configured before ingesting extracted text');
     }
 
-    // 6. Disk existence — desktop owns path lifecycle, so absence is recorded,
-    //    not rejected.
     const sourceMissing = !existsSync(resolvedPath);
 
-    // 7. Split into chunks keyed to the source path + extraction kind.
     const chunkTexts = this.splitTextIntoChunks(input.text, VISION_MAX_CHUNK_CHARS);
     const chunks: Chunk[] = chunkTexts.map((raw, index) => {
       const content = raw.trim();
@@ -775,7 +665,6 @@ export class RagService {
       };
     });
 
-    // 8. Embed with the configured provider.
     const provider = await this.providerFactory(this.projectRoot, intelligence);
     const vectors = await provider.embed(chunks.map((chunk) => chunk.content));
     const embedded: StoredVisionChunk[] = chunks.map((chunk, index) => ({
@@ -785,8 +674,6 @@ export class RagService {
       vector: vectors[index],
     }));
 
-    // 9. Replace-not-duplicate: drop prior chunks for this path, append the new
-    //    set, and rewrite atomically. Last writer wins on a same-path race.
     const current = await this.visionVectorIndex.load(this.projectRoot);
     const retained = (current?.items ?? []).filter((item) => item.source_file !== input.sourcePath);
     await this.visionVectorIndex.replaceAll(this.projectRoot, [...retained, ...embedded], {
@@ -794,7 +681,6 @@ export class RagService {
       model: provider.model,
     });
 
-    // 10. Audit.
     appendRagAudit(this.projectRoot, 'INFO', 'rag-vision-ingested', {
       source_path: input.sourcePath,
       extraction_kind: input.extractionKind,
@@ -802,7 +688,6 @@ export class RagService {
       source_missing: sourceMissing,
     });
 
-    // 11. Report.
     return {
       chunkCount: embedded.length,
       sourcePath: input.sourcePath,
@@ -835,20 +720,6 @@ export class RagService {
     }
   }
 
-  // ── Project-scoped CRS collections (PQD-415) ─────────────────────────────────
-
-  /**
-   * Embed and persist a session's chunks into the named CRS collection, returning
-   * the audit-grade {@link CrsIndexedSessionEvent} (also appended to the audit log
-   * as `crs.indexed_session`). The collection is created on demand. Every stored
-   * chunk carries its `source_session_id`, `source_workspace_id`, `created_at`,
-   * `project_id`, and an engine-stamped `vector_timestamp`.
-   *
-   * If the embedding provider is unreachable, the chunks are parked in the
-   * in-memory backlog and the failure is surfaced: an {@link EmbeddingBacklogOverflow}
-   * when the 1000-chunk cap is exceeded (oldest dropped), otherwise the provider
-   * error. On the next successful call the parked backlog is drained first.
-   */
   async writeChunks(
     chunks: CrsChunkInput[],
     collectionId: CrsCollectionId,
@@ -859,7 +730,6 @@ export class RagService {
     );
     const provider = await this.providerFactory(this.projectRoot, intelligence);
 
-    // Provider is reachable — flush anything parked during an earlier outage first.
     if (this.crsBacklog.size > 0) {
       await this.crsBacklog.drain((id, queued) =>
         this.persistCrsChunks(provider, id, queued).then(() => undefined),
@@ -869,22 +739,11 @@ export class RagService {
     try {
       return await this.persistCrsChunks(provider, collectionId, chunks);
     } catch (error) {
-      // Provider failed mid-write: park the chunks. enqueue throws
-      // EmbeddingBacklogOverflow when the cap is exceeded (oldest dropped);
-      // otherwise re-surface the provider error so the desktop knows the write
-      // was deferred to the backlog.
       this.crsBacklog.enqueue(chunks, collectionId);
       throw error;
     }
   }
 
-  /**
-   * Retrieve from a CRS collection by raw query string. Returns only hits at or
-   * above `confidenceThreshold` (default 0.5 cosine similarity), ranked by
-   * descending score, each carrying its session/workspace provenance. Propagates
-   * {@link CorruptVectorIndexError} on a corrupt on-disk index so the desktop can
-   * fall back to file-RAG and trigger a rebuild.
-   */
   async retrieveCrs(
     query: string,
     collectionId: CrsCollectionId,
@@ -909,13 +768,6 @@ export class RagService {
       }));
   }
 
-  /**
-   * Rebuild a CRS collection against a new embedding provider/model side by side,
-   * with zero downtime: the new index is built in a sibling `.rebuilding` dir,
-   * progress is reported via `onProgress`, then the live and new indexes are
-   * swapped atomically. The old index is retained under a `.revert.<ms>` sibling
-   * for 24 hours; expired reverts are swept on the next reindex.
-   */
   async reindex(
     provider: EmbeddingProviderName,
     model: string,
@@ -951,7 +803,6 @@ export class RagService {
       model: newProvider.model,
     });
 
-    // Atomic swap: retire the live index to `.revert.<ms>`, promote the rebuild.
     if (existsSync(layout.absDir)) {
       const revertDir = join(layout.crsRootAbs, `${layout.escaped}.revert.${Date.now()}`);
       await rename(layout.absDir, revertDir);
@@ -1053,14 +904,12 @@ export class RagService {
     return out;
   }
 
-  /** Delete `.revert.<ms>` siblings older than the 24-hour retention window. */
   private async sweepExpiredCrsReverts(collectionId: CrsCollectionId): Promise<void> {
     const { escaped, crsRootAbs } = crsCollectionLayout(this.projectRoot, collectionId);
     let entries: string[];
     try {
       entries = await readdir(crsRootAbs);
     } catch {
-      // The CRS root does not exist yet — nothing to sweep.
       return;
     }
     const prefix = `${escaped}.revert.`;
@@ -1079,14 +928,6 @@ export class RagService {
     }
   }
 
-  /**
-   * Reorder the fused hits with the configured reranker (RAG buildout F18). A fast
-   * path returns the hits untouched when reranking is disabled (the default), so no
-   * cross-encoder model is loaded unless a team opts in. The reranker only reorders:
-   * the original hit objects (and their cosine scores) are reattached via
-   * {@link reorderByRankedIds}. Any reranker error falls back to the input order so
-   * retrieval never blocks on it.
-   */
   private async applyReranking<T extends { item: { id: string; content: string } }>(
     query: string,
     hits: readonly T[],
@@ -1160,11 +1001,6 @@ export class RagService {
     });
   }
 
-  /**
-   * Split externally-supplied text into chunks bounded by non-whitespace size,
-   * mirroring {@link AstChunker.fallbackSplit}'s paragraph-buffer strategy.
-   * Always returns at least one chunk for non-empty input.
-   */
   private splitTextIntoChunks(text: string, maxChunkChars: number): string[] {
     const paragraphs = text.split(/\n\s*\n/);
     const chunks: string[] = [];
@@ -1193,12 +1029,6 @@ export class RagService {
     }
   }
 
-  /**
-   * Build the F24 contextualiser: a function that prepends the deterministic blurb
-   * (path + enclosing signature + exported symbols + module-map role) to a chunk's
-   * content. The module-role resolver is built once from the module map here, so the
-   * per-chunk cost is a lookup, not a parse.
-   */
   private buildEmbedContextualizer(): (chunk: Chunk) => string {
     const roleOf = buildModuleRoleResolver(this.projectRoot);
     return (chunk: Chunk) =>
@@ -1211,11 +1041,6 @@ export class RagService {
     options: {
       onProgress?: BuildIndexOptions['onProgress'];
       signal?: AbortSignal;
-      /**
-       * RAG buildout F24 — maps a chunk to the text actually embedded (and used as the
-       * cache key). The build/sync paths pass a contextualiser that prepends the
-       * deterministic blurb; required so the index and cache key always agree.
-       */
       embedTextOf: (chunk: Chunk) => string;
     },
   ): Promise<StoredVectorChunk[]> {
@@ -1227,11 +1052,6 @@ export class RagService {
     const signal = options.signal;
     const embedTextOf = options.embedTextOf;
 
-    // RAG buildout F8 — consult the content-addressed cache before embedding.
-    // Only chunks whose text is not already cached for this model hit the
-    // provider; unchanged chunks (and a previously-seen branch's chunks) are free.
-    // The cache key is the EMBEDDED text (F24: blurb + content), so a blurb change
-    // invalidates the entry and re-embeds, exactly like a content change.
     const cache = EmbeddingCache.load(this.projectRoot, provider.model);
     const missIndices: number[] = [];
     for (let index = 0; index < chunks.length; index++) {
@@ -1240,8 +1060,6 @@ export class RagService {
       }
     }
 
-    // Assemble the stored chunks from whatever is currently cached (used for the
-    // success result and for the partial-checkpoint on cancellation).
     const assemble = (): StoredVectorChunk[] =>
       chunks
         .map((chunk) => {
@@ -1254,8 +1072,6 @@ export class RagService {
     const batchSize = 32;
     const start = Date.now();
     for (let offset = 0; offset < missIndices.length; offset += batchSize) {
-      // Per-batch cancellation boundary: persist what we have embedded so far and
-      // surface it as a resumable partial checkpoint (PQD-104).
       if (signal?.aborted) {
         await cache.flush();
         throw new CancelledError('RAG rebuild cancelled by consumer', {
@@ -1282,8 +1098,6 @@ export class RagService {
       });
     }
 
-    // Everything cached up front: report a single completed tick so progress
-    // consumers still see a build event.
     if (missIndices.length === 0) {
       onProgress?.({
         phase: 'build',
@@ -1330,9 +1144,7 @@ export class RagService {
           reason: validation.warning,
         });
         engineLog('warn', validation.warning);
-      } catch {
-        // Resume validation is advisory and must never block retrieval.
-      }
+      } catch {}
     })();
 
     return this.resumeValidationPromise;
@@ -1343,10 +1155,7 @@ function flattenChunks(index: ChunkIndex): Chunk[] {
   return index.entries.flatMap((entry) => entry.chunks);
 }
 
-/** The fields fusion needs from a dense query result. */
 interface DenseHit {
-  // The blurb fields are optional here (vision chunks lack a code signature); the
-  // lexical document falls back to bare content when they are absent (F24).
   item: {
     id: string;
     content: string;
@@ -1357,12 +1166,6 @@ interface DenseHit {
   score: number;
 }
 
-/**
- * The text BM25 indexes for a candidate (RAG buildout F24): the deterministic blurb
- * (path + signature + exported symbols, no module-map lookup at query time) prepended to
- * the content, so exact identifiers and paths the bare body omits are matchable. Falls
- * back to bare content when the chunk carries no source path (e.g. a vision chunk).
- */
 export function lexicalDocumentText(item: {
   id: string;
   content: string;
@@ -1381,21 +1184,11 @@ export function lexicalDocumentText(item: {
   });
 }
 
-/**
- * Fuse the dense (cosine) ranking with a BM25 lexical ranking via RRF (RAG buildout
- * F17), returning the same result objects reordered. When the query has no lexical
- * overlap with any candidate (BM25 empty), the dense order is returned unchanged, so
- * this is a no-op for purely-semantic queries. Cosine scores on the results are left
- * intact for the precision floor and the calibrated match annotation.
- */
 function fuseHybridRanking<T extends DenseHit>(dense: readonly T[], queryText: string): T[] {
   if (dense.length <= 1) {
     return [...dense];
   }
   const lexical = new Bm25Index(
-    // RAG buildout F24 — index the contextualised text (path + signature + exported
-    // symbols prepended) so BM25 can match on identifiers/paths the bare body omits.
-    // Built from the stored chunk fields; the module-map role is index-time only.
     dense.map((hit) => ({
       id: hit.item.id,
       content: lexicalDocumentText(hit.item),

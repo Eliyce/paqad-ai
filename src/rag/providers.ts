@@ -159,17 +159,12 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
           task: 'feature-extraction',
           model: string,
           options: {
-            // Pin q8 so the *_quantized.onnx files load exactly as under the
-            // @xenova v2 default; @huggingface v3+ otherwise defaults to fp32,
-            // which would change the download size and shift embedding output.
             dtype?: 'q8';
             progress_callback?: (progress: LocalEmbeddingProgress) => void;
           },
         ) => Promise<LocalEmbeddingExtractor>;
         env: TransformersRuntimeEnv;
       }>('@huggingface/transformers');
-      // Posix-normalized so the configured cache location is separator-stable
-      // across platforms (transformers accepts forward slashes on Windows).
       const modelsDir = toPosixPath(localModelsRoot());
       env.cacheDir = modelsDir;
       env.localModelPath = modelsDir;

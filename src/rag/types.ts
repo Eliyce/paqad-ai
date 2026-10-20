@@ -28,18 +28,10 @@ export interface RagIndexMeta {
   built_at: string;
   chunk_count: number;
   embedding_dimensions: number;
-  // RAG buildout F7 — branch/git-state the index reflects. All optional: a
-  // non-git project (or detached HEAD / missing base) leaves them undefined, and
-  // an index built before F7 simply has none. Drives branch self-heal (F9) and
-  // base-drift awareness (F27).
   branch?: string;
   base_branch?: string;
   base_commit?: string;
   head_commit?: string;
-  // RAG buildout F22 — the chunking strategy the index was built with (e.g.
-  // `cast-v1`). Optional: an index built before F22 has none, which reads as a
-  // mismatch and forces a clean rebuild rather than a strategy-mixing incremental
-  // sync. Set only for the AST-chunked file index, not vision/CRS collections.
   chunker_version?: string;
 }
 
@@ -52,14 +44,6 @@ export interface StoredVectorChunk extends Chunk, StoredVectorItem {
   vector: number[];
 }
 
-// ── Vision-extracted text ingestion (PQD-102) ──────────────────────────────────
-
-/**
- * The kinds of vision-derived text the engine accepts into the retrieval index.
- * Closed union: new kinds are additive, non-breaking changes. The engine does
- * not run the vision call itself — the consumer (desktop) performs OCR/captioning
- * and hands the engine the resulting plain text.
- */
 export type ExtractionKind = 'ocr' | 'caption';
 
 export const SUPPORTED_EXTRACTION_KINDS = [
@@ -67,11 +51,6 @@ export const SUPPORTED_EXTRACTION_KINDS = [
   'caption',
 ] as const satisfies readonly ExtractionKind[];
 
-/**
- * Image extensions the engine accepts as a vision source path. The engine does
- * NOT read these files; it only validates that the caller's source path carries
- * an acceptable extension before keying chunks to it.
- */
 export const SUPPORTED_VISION_EXTENSIONS = [
   '.png',
   '.jpg',
@@ -85,11 +64,8 @@ export const SUPPORTED_VISION_EXTENSIONS = [
 ] as const;
 
 export interface VisionIngestInput {
-  /** On-disk path of the image the text was extracted from; used as `source_file`. */
   sourcePath: string;
-  /** The plain-text result of the consumer's vision call. */
   text: string;
-  /** Which kind of extraction produced the text. */
   extractionKind: ExtractionKind;
 }
 
@@ -99,10 +75,8 @@ export interface VisionIngestResult {
   extractionKind: ExtractionKind;
 }
 
-/** A chunk derived from externally-supplied vision text rather than a source-file read. */
 export interface VisionChunk extends Chunk {
   extraction_kind: ExtractionKind;
-  /** True when `source_file` no longer exists on disk (desktop owns path lifecycle). */
   source_missing?: boolean;
 }
 
@@ -117,10 +91,6 @@ export type RagIngestErrorCode =
   | 'path_outside_project'
   | 'text_not_utf8';
 
-/**
- * Stable, named failure for {@link VisionIngestInput} validation. The `code`
- * field is part of the public contract — consumers route UI behaviour off it.
- */
 export class RagIngestError extends FrameworkError {
   declare readonly code: RagIngestErrorCode;
 
@@ -134,20 +104,8 @@ export function isRagIngestError(error: unknown): error is RagIngestError {
   return error instanceof RagIngestError;
 }
 
-// ── Project-scoped CRS collections (PQD-415) ───────────────────────────────────
-
-/**
- * A named, persistent vector collection addressable by id. Branded so a raw
- * string can't be passed by accident — construct one with {@link toCrsCollectionId}.
- */
 export type CrsCollectionId = string & { readonly __crsCollectionId: unique symbol };
 
-/**
- * Brand a string as a {@link CrsCollectionId}. The only validation is
- * non-emptiness; filesystem-safety is handled at the path layer (`escapeCollectionId`).
- *
- * @throws {Error} when `id` is empty/whitespace.
- */
 export function toCrsCollectionId(id: string): CrsCollectionId {
   if (id.trim().length === 0) {
     throw new Error('CRS collection id must be a non-empty string');
@@ -155,11 +113,6 @@ export function toCrsCollectionId(id: string): CrsCollectionId {
   return id as CrsCollectionId;
 }
 
-/**
- * The write-side shape the desktop hands {@link RagService.writeChunks}: the raw
- * text to embed plus the session/workspace provenance. The engine produces the
- * `vector` and stamps `vector_timestamp`, yielding a stored {@link CrsChunk}.
- */
 export interface CrsChunkInput {
   id: string;
   content: string;
@@ -169,18 +122,15 @@ export interface CrsChunkInput {
   project_id: string;
 }
 
-/** A persisted CRS chunk: a {@link CrsChunkInput} the engine has embedded and stamped. */
 export interface CrsChunk extends StoredVectorItem {
   content: string;
   source_session_id: string;
   source_workspace_id: string;
   created_at: string;
   project_id: string;
-  /** ISO timestamp stamped by the engine when the vector was produced. */
   vector_timestamp: string;
 }
 
-/** A retrieval hit from a CRS collection, carrying its session/workspace provenance. */
 export interface CrsRetrievalResult {
   chunk: CrsChunk;
   sourceSessionId: string;
@@ -188,14 +138,12 @@ export interface CrsRetrievalResult {
   score: number;
 }
 
-/** Audit-grade payload emitted when a session's chunks are written into a collection. */
 export interface CrsIndexedSessionEvent {
   session_id: string;
   project_id: string;
   chunk_count: number;
 }
 
-/** Progress event emitted by {@link RagService.reindex} during a side-by-side rebuild. */
 export interface ReindexProgressEvent {
   status_percent: number;
   current_collection: string;
@@ -204,15 +152,6 @@ export interface ReindexProgressEvent {
 
 export type ReindexProgressHandler = (event: ReindexProgressEvent) => void;
 
-/**
- * Raised when the in-memory write backlog (used when the embedding provider is
- * unreachable) overflows its cap and the oldest pending chunks are dropped.
- *
- * The backlog is in-memory only: a host-process restart loses any queued chunks
- * silently. This error is the desktop's signal that data loss has occurred so it
- * can surface a degraded-mode notice. Mirrors {@link CorruptVectorIndexError} in
- * being a plain `Error` subclass (no `FrameworkError` inheritance).
- */
 export class EmbeddingBacklogOverflow extends Error {
   constructor(
     readonly dropped_count: number,
@@ -244,13 +183,11 @@ export interface RagStatus {
   configured_model?: string;
   index_present: boolean;
   valid: boolean;
-  /** True when the stored index was built with a different provider/model than currently configured. */
   stale_metadata?: boolean;
   built_at?: string;
   chunk_count: number;
   size_bytes: number;
   reason?: string;
-  /** Number of vision-extracted chunks stored in the separate vision index (PQD-102). */
   vision_chunk_count?: number;
 }
 
@@ -327,24 +264,10 @@ export interface RagRetrievalResult {
   retrieved_source_files: string[];
   retrieved_chunks: Array<Pick<StoredVectorChunk, 'id' | 'source_file' | 'content'>>;
   fallback_reason?: string;
-  /**
-   * Issue #354 — the top pre-floor fused score for the query, when any candidate
-   * existed (before the similarity/relief floor was applied). Lets the consumer render
-   * an honest "none above the floor (best 58%)" line instead of silently omitting the
-   * retrieved-context section. Undefined when retrieval never scored anything (rag off,
-   * no/stale index, error) — those keep the section omitted (disabled == today).
-   */
   best_score?: number;
-  /**
-   * Issue #354 — true when the returned chunks came from the RELIEF band (nothing
-   * cleared `rag_similarity_threshold`, so the top slices at or above `rag_relief_floor`
-   * were delivered tagged low-confidence). The consumer tags these slices so the model
-   * weighs them accordingly. Absent/false for high-confidence (above-floor) results.
-   */
   low_confidence?: boolean;
 }
 
-/** A single scored candidate before the similarity/relief floor is applied (#354 probe). */
 export interface RagScoredCandidate {
   id: string;
   source_file: string;
@@ -355,13 +278,6 @@ export interface RagScoredCandidate {
 export interface BuildIndexOptions {
   intelligence?: IntelligenceConfig;
   onProgress?: (update: ProviderProgressUpdate) => void;
-  /**
-   * Optional consumer cancellation signal (PQD-104). When it aborts, `rebuild`
-   * stops at the next chunk-batch boundary, writes the chunks embedded so far to
-   * a resumable `.partial` index, emits a single `run.cancelled` event, and
-   * throws a `CancelledError` whose `details.checkpoint_path` points at that
-   * partial index. No full index file is written.
-   */
   signal?: AbortSignal;
 }
 
@@ -370,8 +286,6 @@ export type ProviderFactory = (
   intelligence: IntelligenceConfig,
   onProgress?: (update: ProviderProgressUpdate) => void,
 ) => Promise<EmbeddingProvider>;
-
-// ── Evaluation types ──────────────────────────────────────────────────────────
 
 export type ComparisonMode = 'lexical-vs-rag' | 'rag-vs-candidate' | 'feature-off-vs-on';
 

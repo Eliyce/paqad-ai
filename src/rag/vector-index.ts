@@ -40,12 +40,6 @@ const COLLECTION_LOCK_DELAY_MS = 10;
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Run `fn` while holding a best-effort per-collection lock (a `.lock` directory).
- * Serialises destroy/reindex mutations so a concurrent operation can't tear the
- * on-disk index. Read queries deliberately do not take the lock — the atomic
- * `rename` swap means they always see a complete old or new state.
- */
 async function withCollectionLock<T>(dir: string, fn: () => Promise<T>): Promise<T> {
   const lockPath = join(dir, '.lock');
   await mkdir(dir, { recursive: true });
@@ -209,8 +203,6 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
       | 'base_commit'
       | 'head_commit'
     >,
-    // RAG buildout F7/F10 — optional base branch override; auto-detects main→master
-    // when omitted.
     baseBranch?: string,
   ): Promise<RagIndexMeta> {
     const dimensions = items[0]?.vector.length ?? 0;
@@ -221,12 +213,7 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
       built_at: new Date().toISOString(),
       chunk_count: items.length,
       embedding_dimensions: dimensions,
-      // RAG buildout F22 — record the chunking strategy when the caller supplies it
-      // (the AST-chunked file index does; vision/CRS collections leave it undefined).
       ...(metaInput.chunker_version ? { chunker_version: metaInput.chunker_version } : {}),
-      // RAG buildout F7 — stamp the branch/commit/base this index reflects.
-      // Best-effort: a non-git project leaves these undefined. F10 threads the
-      // configured base branch through `baseBranch`.
       ...readGitState(projectRoot, baseBranch ? { baseBranch } : {}),
     };
     const payload: VectorIndexPayload<T> = { version: 1, dimensions, items };
@@ -234,13 +221,6 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
     return meta;
   }
 
-  // ── Project-scoped CRS collections (PQD-415) ─────────────────────────────────
-
-  /**
-   * Idempotently create a CRS collection under `.paqad/crs/<escaped-id>/`. Writes
-   * an empty index + meta only when neither file exists yet; a second call for the
-   * same id is a no-op rather than an error and never overwrites existing data.
-   */
   static async create(projectRoot: string, collectionId: CrsCollectionId): Promise<void> {
     const dir = crsCollectionDir(projectRoot, collectionId);
     await mkdir(dir, { recursive: true });
@@ -263,13 +243,6 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
     await atomicWrite(absMeta, JSON.stringify(meta, null, 2));
   }
 
-  /**
-   * Remove chunks from a CRS collection atomically and return the count purged.
-   * With `{ sourceSessionId }`, only that session's chunks are removed and the
-   * filtered index is rewritten in place; without options the whole collection
-   * directory is deleted. A non-existent collection or session purges nothing and
-   * returns `0` rather than throwing.
-   */
   static async destroy(
     projectRoot: string,
     collectionId: CrsCollectionId,
@@ -307,10 +280,7 @@ export class FileVectorIndex<T extends StoredVectorItem = StoredVectorItem> {
       try {
         const payload = await index.load(projectRoot);
         count = payload?.items.length ?? 0;
-      } catch {
-        // A corrupt index still gets purged (the desktop's rebuild path); the
-        // count is best-effort and reported as 0 when the payload is unreadable.
-      }
+      } catch {}
       await rm(dir, { recursive: true, force: true });
       return count;
     });

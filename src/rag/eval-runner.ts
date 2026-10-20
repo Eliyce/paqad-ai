@@ -9,16 +9,6 @@ import type {
   ModelGradedScores,
 } from './types.js';
 
-/**
- * Compute hit@K from real eval traces.
- *
- * An item is a "hit" if `expected_file` appears as a path suffix of one of
- * the top-K `first_stage_chunk_ids`. Items without `expected_file` or with
- * `should_skip_retrieval` are excluded from the denominator.
- *
- * Exposed as a standalone export so the CLI can use it without instantiating
- * an EvalRunner.
- */
 export function computeHitAtK(dataset: EvalDatasetItem[], traces: EvalTrace[], k: number): number {
   const eligible = dataset.filter((item) => item.expected_file && !item.should_skip_retrieval);
   if (eligible.length === 0) return 0;
@@ -86,11 +76,6 @@ export function computePromptTokensSent(traces: EvalTrace[]): number {
   return traces.reduce((sum, trace) => sum + (trace.packed_token_count ?? 0), 0);
 }
 
-/**
- * Roll the four gated metrics up into a {@link RagBenchmarkSnapshot} (RAG buildout
- * F15). Pure: given a dataset and its traces, produces the snapshot the benchmark
- * gates compare.
- */
 export function snapshotFromTraces(
   dataset: EvalDatasetItem[],
   traces: EvalTrace[],
@@ -104,13 +89,6 @@ export function snapshotFromTraces(
   };
 }
 
-/**
- * The feature-OFF arm of the A/B gate (RAG buildout F15): retrieval disabled, so
- * every item has an empty trace at depth `none` and zero injected tokens. This is
- * the honest baseline — exactly today's grep/agentic behaviour with no slices
- * injected. should-skip items still "succeed" off (skipping is correct), so the ON
- * arm must beat OFF on real retrieval to clear the gate.
- */
 export function buildFeatureOffTraces(dataset: EvalDatasetItem[]): EvalTrace[] {
   return dataset.map((item) => ({
     item_id: item.id,
@@ -127,13 +105,6 @@ export interface FeatureOffVsOnResult {
   comparison: ConfigurationComparisonResult;
 }
 
-/**
- * Run the on/off A/B merge gate (RAG buildout F15). Builds the feature-OFF snapshot
- * deterministically and the feature-ON snapshot from real retrieval traces, then
- * evaluates the benchmark gates (quality must not drop; injected tokens are only
- * justified by a task-success improvement). The caller fails the merge when
- * `comparison.evaluation.passed` is false.
- */
 export function runFeatureOffVsOnGate(
   dataset: EvalDatasetItem[],
   onTraces: EvalTrace[],
@@ -156,11 +127,6 @@ export interface ModelGrader {
   ): Promise<number>;
 }
 
-/**
- * EvalRunner produces deterministic EvalRunResult objects from a dataset and
- * optional pre-computed traces. The model-graded path is always async,
- * separately invokable, and must never be called from pnpm test.
- */
 export class EvalRunner {
   constructor(private readonly grader?: ModelGrader) {}
 

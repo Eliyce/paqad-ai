@@ -1,20 +1,3 @@
-// PQD-174 — session-scoped ephemeral attachment indexer.
-//
-// Chunks and embeds the files a desktop user attaches to a non-project session
-// into a collection bound 1:1 to that session's id. The collection lives under
-// `.paqad/attachments/<sessionId>/` — fully disjoint from the project RAG index
-// and the pattern vectors — so it can be cascade-deleted with the session and
-// can never leak chunks across sessions.
-//
-// Two behaviours are unique to this indexer and absent from RagService:
-//   - retry-with-backoff: the embedding provider is retried after the initial
-//     attempt with 1 s then 2 s waits; on total exhaustion the call returns a
-//     structured `attachment_indexing_degraded` signal (rather than throwing)
-//     so the desktop can send the message without retrieval.
-//   - cancellation: an in-flight run can be aborted (by the caller's signal or
-//     by `cancel()` when its session is deleted) and its partial collection is
-//     purged immediately rather than left for the boot-time orphan sweep.
-
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile, rm } from 'node:fs/promises';
@@ -53,7 +36,6 @@ import type {
 import { EmbeddingProviderError } from './types.js';
 import { FileVectorIndex } from './vector-index.js';
 
-/** Default backoff waits between embedding attempts: 1 s then 2 s (PQD-174). */
 const DEFAULT_RETRY_DELAYS_MS = [1000, 2000] as const;
 
 const EMBED_BATCH_SIZE = 32;
@@ -62,23 +44,13 @@ type ProgressFn = (update: ProviderProgressUpdate) => void;
 
 export class SessionAttachmentIndexer {
   private readonly chunker = new AstChunker();
-  /** Sessions whose `index()` is in flight, keyed to their abort controller. */
   private readonly running = new Map<string, AbortController>();
 
   constructor(
     private readonly providerFactory: ProviderFactory = createEmbeddingProvider,
-    /** Injectable so tests need not wait the real 1 s / 2 s backoff. */
     private readonly retryDelaysMs: readonly number[] = DEFAULT_RETRY_DELAYS_MS,
   ) {}
 
-  /**
-   * Index `filePaths` into the session's collection. Resolves to a success
-   * result, or to an {@link AttachmentIndexingDegradedSignal} when the provider
-   * stays unreachable through every attempt. Throws {@link CancelledError} if
-   * the run is aborted mid-flight (its partial collection is purged first), and
-   * {@link AttachmentPathError} for a session id that escapes the attachments
-   * root.
-   */
   async index(
     projectRoot: string,
     sessionId: string,
@@ -87,13 +59,10 @@ export class SessionAttachmentIndexer {
     onProgress?: ProgressFn,
     signal?: AbortSignal,
   ): Promise<AttachmentIndexingOutcome> {
-    // Validate containment up front so a traversal id never reaches the fs.
     resolveCollectionDir(projectRoot, sessionId);
     const collectionId = toEphemeralCollectionId(sessionId);
     const { indexPath, metaPath } = collectionVectorPaths(projectRoot, sessionId);
 
-    // An internal controller aborts when the caller's signal aborts OR when
-    // cancel() is called for this session. The run only ever watches this one.
     const controller = new AbortController();
     if (signal?.aborted) {
       controller.abort();
@@ -115,8 +84,6 @@ export class SessionAttachmentIndexer {
         if (isCancelledError(error)) {
           throw error;
         }
-        // Provider unreachable through the initial attempt plus both retries:
-        // degrade gracefully. Nothing was written, so there is no collection.
         await this.purgeCollection(projectRoot, sessionId);
         const reason = error instanceof Error ? error.message : 'embedding provider unreachable';
         appendRagAudit(projectRoot, 'WARN', 'rag-attachment-index-degraded', {
@@ -132,8 +99,6 @@ export class SessionAttachmentIndexer {
         };
       }
 
-      // Final boundary: an abort landing between embedding and the write still
-      // cancels — no full collection is left behind.
       this.throwIfAborted(controller.signal);
       const index = new FileVectorIndex<StoredVectorChunk>(indexPath, metaPath);
       await index.replaceAll(projectRoot, items, {
@@ -166,11 +131,6 @@ export class SessionAttachmentIndexer {
     }
   }
 
-  /**
-   * Abort the in-flight indexer for a session (if any) and purge its partial
-   * collection immediately. Safe to call when nothing is running — it still
-   * removes any collection directory left on disk for that session.
-   */
   async cancel(projectRoot: string, sessionId: string): Promise<void> {
     this.running.get(sessionId)?.abort();
     await this.purgeCollection(projectRoot, sessionId);
@@ -187,8 +147,6 @@ export class SessionAttachmentIndexer {
       try {
         content = await readFile(filePath, 'utf8');
       } catch {
-        // A file the caller listed but we cannot read is skipped, not fatal —
-        // the desktop owns the attachment lifecycle.
         continue;
       }
       chunks.push(...this.chunker.chunk(filePath, content));
@@ -254,7 +212,6 @@ export class SessionAttachmentIndexer {
     try {
       dir = resolveCollectionDir(projectRoot, sessionId);
     } catch {
-      // A traversal id never produced a contained directory — nothing to purge.
       return;
     }
     await rm(dir, { recursive: true, force: true });
@@ -266,7 +223,6 @@ export class SessionAttachmentIndexer {
     }
   }
 
-  /** Wait `ms`, rejecting with {@link CancelledError} if `signal` aborts first. */
   private sleep(ms: number, signal: AbortSignal): Promise<void> {
     return new Promise((resolve, reject) => {
       if (signal.aborted) {
@@ -286,74 +242,46 @@ export class SessionAttachmentIndexer {
   }
 }
 
-// ── PQD-331 — single-file attachment indexing (project or session) ─────────────
-//
-// A functional entry point distinct from {@link SessionAttachmentIndexer} (which
-// PQD-174 built for bulk ephemeral session indexing). This is the contract the
-// desktop IPC handler wraps: chunk + embed one attached file into either the
-// persistent project collection or a session-scoped ephemeral one, emit a
-// structured `attachment.*` event for the outcome, dedupe an identical re-index,
-// and bound remote-provider rate-limit retries by a wall-clock budget.
-
-/** Whether the attachment targets the project index or a session collection. */
 export type AttachmentSessionKind = 'project' | 'ephemeral';
 
-/** Default wall-clock budget for retrying a rate-limited remote embed (spec: 30 s). */
 export const ATTACHMENT_RETRY_BUDGET_MS = 30_000;
 
-/** Default wait between rate-limit retries inside the budget window. */
 const ATTACHMENT_RETRY_DELAY_MS = 1000;
 
-/** A stored attachment chunk, tagged with the source file's content hash for dedupe. */
 export interface AttachmentStoredChunk extends StoredVectorChunk {
-  /** SHA-256 of the parsed file content; identical content is a no-op re-index. */
   file_content_hash: string;
 }
 
 export interface IndexAttachmentParams {
-  /** On-disk path of the attached file. */
   filePath: string;
-  /** The owning session's id (also the ephemeral collection key). */
   sessionId: string;
-  /** `project` → persistent project index; `ephemeral` → session-scoped collection. */
   sessionKind: AttachmentSessionKind;
-  /** Workspace embedding configuration used to pick the provider. */
   intelligence: IntelligenceConfig;
   onProgress?: (update: ProviderProgressUpdate) => void;
-  /** Live sink for the emitted attachment event (in addition to the JSONL log). */
   onEvent?: AttachmentEventSink;
   signal?: AbortSignal;
-  /** Injected PDF/archive extractors and parse limits for {@link parseAttachment}. */
   parse?: ParseAttachmentOptions;
-  /** Override the embedding provider factory (tests, custom providers). */
   providerFactory?: ProviderFactory;
-  /** Wall-clock budget for rate-limit retries (defaults to {@link ATTACHMENT_RETRY_BUDGET_MS}). */
   retryBudgetMs?: number;
-  /** Wait between rate-limit retries; injectable so tests need not really wait. */
   retryDelayMs?: number;
 }
 
-/** Successful index (or deduped no-op) outcome. */
 export interface IndexAttachmentResult {
   ok: true;
   chunkCount: number;
   provider: string;
   collectionScope: AttachmentCollectionScope;
-  /** True when an identical file was already indexed and embedding was skipped. */
   deduped: boolean;
 }
 
-/** A failed index: parse rejection, format rejection, or embedding failure. */
 export interface IndexAttachmentFailure {
   ok: false;
-  /** `format_rejected` for shape rejections; `index_failed` otherwise. */
   outcome: 'index_failed' | 'format_rejected';
   reason: string;
 }
 
 export type IndexAttachmentOutcome = IndexAttachmentResult | IndexAttachmentFailure;
 
-/** Narrowing guard for the failure outcome. */
 export function isIndexAttachmentFailure(
   outcome: IndexAttachmentOutcome,
 ): outcome is IndexAttachmentFailure {
@@ -373,10 +301,8 @@ function resolveTargetIndex(
   params: IndexAttachmentParams,
 ): FileVectorIndex<AttachmentStoredChunk> {
   if (params.sessionKind === 'project') {
-    // Default paths → the persistent project collection (.paqad/vectors/).
     return new FileVectorIndex<AttachmentStoredChunk>();
   }
-  // Reuse PQD-174's validated session collection layout (.paqad/attachments/<id>/).
   const { indexPath, metaPath } = collectionVectorPaths(projectRoot, params.sessionId);
   return new FileVectorIndex<AttachmentStoredChunk>(indexPath, metaPath);
 }
@@ -403,11 +329,6 @@ function sleepFor(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
-/**
- * Embed `texts` once, retrying only rate-limit errors until the wall-clock
- * `deadline` passes. Non-rate-limit errors fail immediately; an aborted signal
- * throws {@link CancelledError}.
- */
 async function embedWithinDeadline(
   provider: EmbeddingProvider,
   texts: string[],
@@ -442,22 +363,6 @@ async function embedWithinDeadline(
   throw lastError ?? new Error('attachment embedding rate-limited beyond retry budget');
 }
 
-/**
- * Chunk, embed, and write one attached file into the project index (when
- * `sessionKind` is `project`) or a session-scoped ephemeral collection (when
- * `ephemeral`), emitting exactly one `attachment.*` event for the outcome.
- *
- * - An unparseable/encrypted/oversized/zip-bomb file writes no chunks and
- *   returns a typed failure with `attachment.index_failed` or
- *   `attachment.format_rejected` (never throws for a bad file).
- * - Re-indexing identical content for the same path is a no-op: the existing
- *   chunk count is returned and the provider is never called again.
- * - A rate-limited remote provider is retried within `retryBudgetMs` before the
- *   call fails with `attachment.index_failed`.
- *
- * Throws {@link CancelledError} only when `signal` aborts mid-flight, and the
- * registry's path guard error for a traversal `sessionId` on the ephemeral path.
- */
 export async function indexAttachment(
   projectRoot: string,
   params: IndexAttachmentParams,
@@ -479,7 +384,6 @@ export async function indexAttachment(
     return record;
   };
 
-  // 1. Parse + format guards (validates the ephemeral path id up front too).
   const index = resolveTargetIndex(projectRoot, params);
   const parsed = await parseAttachment(params.filePath, params.parse);
   if (!parsed.ok) {
@@ -493,7 +397,6 @@ export async function indexAttachment(
     return { ok: false, outcome: parsed.outcome, reason: parsed.reason };
   }
 
-  // 2. Same-file dedupe: identical content for this path is a no-op.
   const fileHash = sha256(parsed.content);
   const existing = await index.load(projectRoot);
   const existingItems = existing?.items ?? [];
@@ -512,10 +415,8 @@ export async function indexAttachment(
     };
   }
 
-  // 3. Chunk the extracted text.
   const chunks = new AstChunker().chunk(params.filePath, parsed.content);
 
-  // 4. Embed with a wall-clock rate-limit retry budget.
   const factory = params.providerFactory ?? createEmbeddingProvider;
   const provider = await factory(projectRoot, params.intelligence, params.onProgress);
   const deadline = Date.now() + (params.retryBudgetMs ?? ATTACHMENT_RETRY_BUDGET_MS);
@@ -554,7 +455,6 @@ export async function indexAttachment(
     return { ok: false, outcome: 'index_failed', reason };
   }
 
-  // 5. Merge (replacing any prior chunks for this file) and persist.
   const merged: AttachmentStoredChunk[] = [
     ...existingItems.filter((item) => item.source_file !== params.filePath),
     ...fresh,
@@ -580,11 +480,6 @@ export async function indexAttachment(
   };
 }
 
-/**
- * Remove a session's ephemeral attachment collection from disk and the registry.
- * Session-end callers invoke this to reclaim space. A no-op for an unknown or
- * traversal-unsafe session id.
- */
 export async function clearEphemeralCollection(
   projectRoot: string,
   sessionId: string,

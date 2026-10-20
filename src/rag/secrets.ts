@@ -58,9 +58,7 @@ export function writeProjectSecret(projectRoot: string, key: string, value: stri
 
   try {
     chmodSync(path, 0o600);
-  } catch {
-    // best effort only
-  }
+  } catch {}
 
   return path;
 }

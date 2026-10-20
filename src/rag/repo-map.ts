@@ -1,26 +1,10 @@
-/**
- * Structural repo-map (RAG buildout F20).
- *
- * A cheap, embedding-free orientation layer: it ranks the project's files by how
- * central they are in the import graph (PageRank) and emits a token-budgeted skeleton
- * that tells the model where the important code lives and where to grep. It works with
- * RAG/embeddings fully OFF — the only inputs are import edges (deterministic static
- * analysis) and, optionally, the module-map roles and exported symbols the project
- * already knows. It complements the docs-first retrieval (F13) and the module-map.
- *
- * The ranking and formatting here are pure and deterministic; `buildProjectRepoMap`
- * is the only part that touches disk (via the existing import scanner), so it can run
- * in the background harness and refresh incrementally with the working tree.
- */
 import { scanImports } from '@/graph/import-scanner.js';
 
-/** A directed import edge (`from` imports `to`), project-relative posix paths. */
 export interface RepoEdge {
   from: string;
   to: string;
 }
 
-/** Standard PageRank damping factor. */
 export const PAGERANK_DAMPING = 0.85;
 
 export interface PageRankOptions {
@@ -29,12 +13,6 @@ export interface PageRankOptions {
   tolerance?: number;
 }
 
-/**
- * Iterative PageRank over a directed graph given as edges. Nodes are the union of all
- * edge endpoints plus `seedNodes` (so a file with no imports still gets a rank).
- * Dangling nodes (no out-edges) redistribute their mass uniformly, the standard fix
- * that keeps the scores a proper probability distribution. Pure and deterministic.
- */
 export function pageRank(
   seedNodes: readonly string[],
   edges: readonly RepoEdge[],
@@ -58,7 +36,7 @@ export function pageRank(
   const outLinks = new Map<string, string[]>();
   for (const edge of edges) {
     if (edge.from === edge.to) {
-      continue; // ignore self-imports
+      continue;
     }
     const list = outLinks.get(edge.from) ?? [];
     list.push(edge.to);
@@ -71,7 +49,6 @@ export function pageRank(
   for (let iteration = 0; iteration < iterations; iteration++) {
     const next = new Map<string, number>(nodeList.map((node) => [node, base]));
 
-    // Dangling mass: nodes with no out-links spread their rank across all nodes.
     let danglingMass = 0;
     for (const node of nodeList) {
       const links = outLinks.get(node);
@@ -110,9 +87,7 @@ export function pageRank(
 
 export interface RepoFile {
   path: string;
-  /** Module-map role for this file, when known. */
   module?: string;
-  /** Exported symbols, when known. */
   symbols?: string[];
 }
 
@@ -124,18 +99,13 @@ export interface RepoMapEntry {
 }
 
 export interface RepoMapResult {
-  /** Files ranked by structural importance (PageRank), descending. */
   entries: RepoMapEntry[];
-  /** The token-budgeted markdown skeleton, or `''` when there are no files. */
   skeleton: string;
-  /** True when the budget cut the skeleton short of all entries. */
   truncated: boolean;
 }
 
-/** Default token budget for the skeleton (cheap whole-repo orientation). */
 export const DEFAULT_REPO_MAP_TOKEN_BUDGET = 1500;
 
-/** Max exported symbols listed per file line, to keep each row lean. */
 const MAX_SYMBOLS_PER_FILE = 6;
 
 function estimateTokens(text: string): number {
@@ -153,11 +123,6 @@ function formatEntryLine(entry: RepoMapEntry): string {
   return parts.join(' ');
 }
 
-/**
- * Rank `files` by PageRank over `edges` and render a token-budgeted skeleton. Files
- * are ordered by descending rank, ties broken by path for determinism. Lines are
- * added until the token budget is hit, then truncation stops (with a visible marker).
- */
 export function buildRepoMap(
   files: readonly RepoFile[],
   edges: readonly RepoEdge[],
@@ -211,22 +176,13 @@ export function buildRepoMap(
 }
 
 export interface BuildProjectRepoMapOptions {
-  /** Project-relative source files to map. */
   files: string[];
-  /** Path alias map for import resolution (defaults to the tsconfig `@/` → `src/`). */
   aliases?: Record<string, string>;
-  /** Resolve a file's module-map role, when available. */
   moduleOf?: (path: string) => string | undefined;
-  /** Resolve a file's exported symbols, when available. */
   symbolsOf?: (path: string) => string[] | undefined;
   tokenBudget?: number;
 }
 
-/**
- * Build the repo-map for a project: scan import edges over `files`, rank, and render.
- * Embedding-free — the only I/O is the static import scan, which can run in the
- * background harness and refresh incrementally with the working tree.
- */
 export async function buildProjectRepoMap(
   projectRoot: string,
   options: BuildProjectRepoMapOptions,
