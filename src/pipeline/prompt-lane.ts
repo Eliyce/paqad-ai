@@ -4,6 +4,7 @@ import { isBundleClosed } from '@/feature-evidence/adoption.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { paqadFrameLead } from '@/core/constants/paqad-voice.js';
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import type { FeatureChangeKind } from '@/feature-evidence/types.js';
 import { writePendingKind, writePendingLane } from '@/stage-evidence/pending-lane.js';
 
@@ -16,6 +17,7 @@ import {
   resolveRoutedWorkflow,
   type RoutedWorkflow,
 } from './routed-workflow.js';
+import { appendRouteTurn } from './route-turns.js';
 import { writeSessionRoute } from './session-route.js';
 import {
   readWorkflowState,
@@ -377,6 +379,14 @@ export async function runPromptRouteSeam(
     ...transition.state,
     turn_started_at: turnStartedAt,
   });
+  try {
+    appendRouteTurn(input.projectRoot, sessionId, { at: turnStartedAt, workflow: routed });
+  } catch (error) {
+    appendHooksLog(
+      input.projectRoot,
+      `route-turns: append failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 
   if (isFeatureDevelopmentRoute(routed) && lane !== null) {
     writePendingLane(input.projectRoot, sessionId, lane);
