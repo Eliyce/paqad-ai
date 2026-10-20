@@ -256,10 +256,10 @@ export function renderReceipt(
 ): string[] {
   const lines: string[] = [];
   const header = !result.passed
-    ? `**▸ paqad** · checks failed — Needs your attention (${fmtSecs(result.duration_ms)})`
+    ? `**▸ paqad** · checks failed: Needs your attention (${fmtSecs(result.duration_ms)})`
     : testUnreadable(result)
-      ? `**▸ paqad** · checks ran, but no test results could be read — Inconclusive (${fmtSecs(result.duration_ms)})`
-      : `**▸ paqad** · checks green — Safe to merge (${fmtSecs(result.duration_ms)})`;
+      ? `**▸ paqad** · checks ran, but no test results could be read: Inconclusive (${fmtSecs(result.duration_ms)})`
+      : `**▸ paqad** · checks green: Safe to merge (${fmtSecs(result.duration_ms)})`;
   lines.push(header);
 
   for (const command of result.commands) {

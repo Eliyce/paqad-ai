@@ -84,7 +84,7 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
 describe('renderReceipt', () => {
   it('green parallel run shows tests + parallel ×N + critical path', () => {
     const lines = renderReceipt(baseResult({}), 'warn').join('\n');
-    expect(lines).toContain('checks green — Safe to merge');
+    expect(lines).toContain('checks green: Safe to merge');
     expect(lines).toContain('parallel ×11');
     expect(lines).toContain('Critical path: test');
     expect(lines).toContain('2 m 15 s');
@@ -174,7 +174,7 @@ describe('renderReceipt', () => {
     });
     const lines = renderReceipt(unreadable, 'warn').join('\n');
     expect(lines).toContain('> - 🟡 test ran, but no test results could be read (2 m 02 s)');
-    expect(lines).toContain('checks ran, but no test results could be read — Inconclusive');
+    expect(lines).toContain('checks ran, but no test results could be read: Inconclusive');
     expect(lines).not.toContain('Safe to merge');
     expect(lines).not.toContain('🟢 test');
   });
@@ -319,7 +319,7 @@ describe('renderReceipt', () => {
       },
     });
     const lines = renderReceipt(red, 'warn').join('\n');
-    expect(lines).toContain('Needs your attention');
+    expect(lines).toContain('checks failed: Needs your attention');
     expect(lines).toContain('tests/InvoiceTest.php:42 › it totals the invoice');
   });
 });

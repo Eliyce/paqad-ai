@@ -74,7 +74,7 @@ A test command that exits 0 while its runner's parser reads no tests at all (emp
 unrecognised output, for example a Sail wrapper printing `Docker is not running.`) proved
 nothing. `checks run` shows it as
 `> - 🟡 test ran, but no test results could be read (<secs>)` under a
-`checks ran, but no test results could be read — Inconclusive` header, stores
+`checks ran, but no test results could be read: Inconclusive` header, stores
 `outcome: "inconclusive"` on that test command in `checks.json`, and sets
 `meaningful_green: false`. It does not block (the exit code stays 0), and it never reads green.
 
