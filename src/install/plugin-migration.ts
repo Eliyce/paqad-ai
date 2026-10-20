@@ -575,7 +575,12 @@ function recordCliInstall(
   path: 'cli' | 'bundled-cli',
   via: string,
 ): MigrationResult {
-  installViaSettings(deps.home);
+  const settings = installViaSettings(deps.home);
+  if (settings.state !== 'installed') {
+    deps.log(
+      `user settings not written after the ${path} install (${settings.state}: ${settings.reason ?? 'unknown'})`,
+    );
+  }
   deps.log(`installed via ${path} (${via})`);
   return record(deps, prior, {
     state: 'installed',

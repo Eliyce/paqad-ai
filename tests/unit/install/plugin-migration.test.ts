@@ -563,6 +563,24 @@ describe('maybeMigrateToPlugin — install (Part 3)', () => {
     expect(r.reason).toBe('no-claude-cli');
     expect(runClaudeInstall).not.toHaveBeenCalled();
   });
+  it('keeps the CLI install as the record and logs a user settings write that did not happen', () => {
+    manifestClaudeCode();
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    writeFileSync(userSettings(), '{ not json');
+    const log: string[] = [];
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps({ log: (line) => log.push(line) }));
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
+    expect(readMigrationState(home)).toMatchObject({ state: 'installed', path: 'cli' });
+    expect(log).toContain(
+      'user settings not written after the cli install (failed: user-settings-unreadable)',
+    );
+  });
+  it('logs nothing about user settings when the write after the CLI install succeeds', () => {
+    manifestClaudeCode();
+    const log: string[] = [];
+    maybeMigrateToPlugin(projectRoot, baseDeps({ log: (line) => log.push(line) }));
+    expect(log.some((line) => line.startsWith('user settings not written'))).toBe(false);
+  });
   it('installs via Path A when a new-enough claude runs the install', () => {
     manifestClaudeCode();
     const runClaudeInstall = vi.fn(() => ({ ok: true }));
