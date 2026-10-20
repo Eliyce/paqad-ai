@@ -82,8 +82,8 @@ GitHub adapter at
 3. `push(branch)`
 4. `openPR({ … })` (with `--draft` when applicable)
 5. **CI gate** ([`src/delivery/ci-gate.ts`](../../../src/delivery/ci-gate.ts)) —
-   `process.ci.gate = wait_for_green` polls `getChecksStatus` until green
-   (bounded by `timeout_minutes`), applies `on_red`, and reports
+   `process.ci.gate = wait_for_green` polls `getChecksStatus` once a minute until green
+   (bounded by `timeout_minutes`), saves each read with its read time, applies `on_red`, and reports
    `transition_on_green`.
 
 **Graceful degradation** ([`src/delivery/degradation.ts`](../../../src/delivery/degradation.ts)):

@@ -76,9 +76,10 @@ Two real, hard-coded bookend stages in `STAGE_ORDER`
 the provider layer, not a stage registry.
 
 - **CI gate** (`src/delivery/ci-gate.ts`): `wait_for_green` polls
-  `getChecksStatus` until green (bounded by `timeout_minutes`), applies `on_red`
-  on failure, and reports `transition_on_green`. The clock + sleep are injected
-  so the poll loop is unit-testable.
+  `getChecksStatus` once a minute until green (bounded by `timeout_minutes`), applies
+  `on_red` on failure, and reports `transition_on_green`. It waits on the real clock by default;
+  tests inject the clock and sleep so the poll loop runs without real waiting. `paqad-ai deliver`
+  saves every read to the change's `delivery.json` with its read time.
 - **Graceful degradation** (`src/delivery/degradation.ts`): when a required
   provider is not connected, git-only steps still run, provider-bound steps are
   skipped, and the connect nudge is re-surfaced — never a hard stop.
@@ -153,7 +154,8 @@ The reasons below are not obvious from the code in `src/delivery/` and are not s
   vendor markers are matched, each with that vendor's own fix. The patterns are case-insensitive
   (vendors mix `Co-Authored-By` and `Co-authored-by`) and not global, and at most one finding is
   reported per vendor.
-- **`ci-gate.ts`.** A hard cap on poll iterations backs up the timeout, independent of the clock. The
+- **`ci-gate.ts`.** A poll budget derived from `timeout_minutes` and the one-minute interval backs
+  up the timeout, so `gh` is read a bounded number of times even if the clock never moves. The
   rendered evidence comment is posted on green and on a `comment_and_stop` red; posting is
   best-effort and never changes the verdict.
 - **`runner.ts`, `shell.ts` and `templates.ts`.** Any failed delivery step stops with a remediation

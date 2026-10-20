@@ -254,6 +254,64 @@ describe('paqad-ai deliver', () => {
     expect(record.ci!.jobs![1]).toMatchObject({ name: 'test', conclusion: 'FAILURE' });
   });
 
+  it('writes every CI read with its read time while it waits a minute between reads', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    const running: ChecksStatus = {
+      state: 'pending',
+      checks: [
+        { name: 'build', state: 'green' },
+        { name: 'test', state: 'pending' },
+      ],
+    };
+    const polls: ChecksStatus[] = [
+      running,
+      running,
+      {
+        state: 'green',
+        checks: [
+          { name: 'build', state: 'green' },
+          { name: 'test', state: 'green' },
+        ],
+      },
+    ];
+    const start = Date.parse('2026-10-20T00:00:00.000Z');
+    let clock = start;
+    let reads = 0;
+    const readTimes: Array<string | undefined> = [];
+    const host = {
+      ...fakeHost('green').host,
+      async getChecksStatus(): Promise<ChecksStatus> {
+        readTimes.push(readFeatureDelivery(root, dir).ci?.at);
+        return polls[Math.min(reads++, polls.length - 1)]!;
+      },
+    } as unknown as HostProvider;
+    const waits: number[] = [];
+    const result = await runDeliver(
+      baseDeps(root, {
+        dirName: dir,
+        host,
+        now: () => new Date(clock),
+        ci: {
+          now: () => clock,
+          sleep: async (ms) => {
+            waits.push(ms);
+            clock += ms;
+          },
+        },
+      }),
+    );
+    expect(result.exitCode).toBe(0);
+    expect(reads).toBe(3);
+    expect(waits).toEqual([60_000, 60_000]);
+    expect(readTimes).toEqual([undefined, '2026-10-20T00:00:00.000Z', '2026-10-20T00:01:00.000Z']);
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({
+      state: 'pass',
+      done: 2,
+      total: 2,
+      at: '2026-10-20T00:02:00.000Z',
+    });
+  });
+
   it('records an unknown CI read with its reason and never as a pass', async () => {
     const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
     const result = await runDeliver(

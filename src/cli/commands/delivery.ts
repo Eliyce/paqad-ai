@@ -8,7 +8,6 @@ import { createPendingDecision } from '@/decisions/authoring.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import {
   countChecks,
-  createCiRefresh,
   runCiGate,
   type CiGateOptions,
   type CiGateResult,
@@ -125,10 +124,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
   const gate = await runCiGate(deps.host, rendered.branch, process.ci, {
     ...deps.ci,
     evidenceComment: deps.evidenceBody,
-    onPoll: createCiRefresh(
-      (status) => saveShip(deps, shipFromStatus(status, sha)),
-      deps.ci?.now ?? (() => Date.now()),
-    ),
+    onPoll: (status) => saveShip(deps, shipFromStatus(status, sha)),
   });
   saveShip(deps, shipFromGate(gate, sha));
   const green = gate.action === 'passed' || gate.action === 'warned' || gate.action === 'skipped';

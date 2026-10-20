@@ -695,9 +695,10 @@ post-merge git hook still ends in `|| true`, so a pull is never disturbed. The p
 `gh pr view` finds by branch name is saved with its `state` (`open`, `merged` or `closed`) and
 its `head_sha`, and the CI reading keeps one entry per job (name, status, conclusion, start and
 end) from both the CheckRun and the StatusContext shapes; queued, in-progress, pending and
-expected jobs count in the total but not as done. `paqad-ai deliver` saves the CI reading about
-once a minute while its gate waits on running checks and stops once all are done
-(`createCiRefresh`); the HUD only ever reads the saved file.
+expected jobs count in the total but not as done. `paqad-ai deliver` reads the checks once a
+minute on the real clock while its gate waits, saves each reading with its read time, and stops
+once the checks are done or the delivery policy's `timeout_minutes` has passed; the HUD only ever
+reads the saved file.
 
 **`envelope.ts`.** Front-matter values are written as JSON scalars, which are also valid YAML, so
 reading them back needs no YAML dependency. The body after the front matter is returned byte for

@@ -1,8 +1,11 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
 import {
   CI_REFRESH_INTERVAL_MS,
   countChecks,
-  createCiRefresh,
+  pollBudget,
   runCiGate,
+  waitFor,
 } from '@/delivery/ci-gate.js';
 import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
@@ -187,7 +190,7 @@ describe('CI gate check counts', () => {
   });
 });
 
-describe('CI refresh while checks run', () => {
+describe('CI polling while checks run', () => {
   const running: ChecksStatus = {
     state: 'pending',
     checks: [
@@ -203,45 +206,114 @@ describe('CI refresh while checks run', () => {
     ],
   };
 
-  it('AC-14: saves at most once a minute while checks run and stops once all are done', () => {
-    let clock = 0;
-    const saved: number[] = [];
-    const refresh = createCiRefresh(
-      () => saved.push(clock),
-      () => clock,
-    );
-    expect(CI_REFRESH_INTERVAL_MS).toBe(60_000);
-    for (const at of [0, 15_000, 30_000, 45_000, 60_000, 75_000]) {
-      clock = at;
-      refresh(running);
-    }
-    expect(saved).toEqual([0, 60_000]);
-    clock = 80_000;
-    expect(refresh(finished)).toBe(true);
-    clock = 200_000;
-    expect(refresh(running)).toBe(false);
-    expect(saved).toEqual([0, 60_000, 80_000]);
+  function countingHost(sequence: ChecksStatus[]): { host: HostProvider; calls: () => number } {
+    let reads = 0;
+    const host = hostWith(sequence);
+    const read = host.getChecksStatus.bind(host);
+    host.getChecksStatus = async (ref) => {
+      reads += 1;
+      return read(ref);
+    };
+    return { host, calls: () => reads };
+  }
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
-  it('treats a status with no checks as still running', () => {
+  it('AC-14: reads the checks once a minute and stops as soon as they are done', async () => {
+    const { host, calls } = countingHost([running, running, finished]);
     let clock = 0;
-    const saved: number[] = [];
-    const refresh = createCiRefresh(
-      () => saved.push(clock),
-      () => clock,
-      10,
-    );
-    refresh({ state: 'unknown', checks: [] });
-    clock = 5;
-    refresh({ state: 'unknown', checks: [] });
-    clock = 10;
-    refresh({ state: 'unknown', checks: [] });
-    expect(saved).toEqual([0, 10]);
+    const waits: number[] = [];
+    const readAt: number[] = [];
+    const res = await runCiGate(host, 'b', ci(), {
+      now: () => clock,
+      sleep: async (ms) => {
+        waits.push(ms);
+        clock += ms;
+      },
+      onPoll: () => readAt.push(clock),
+    });
+    expect(CI_REFRESH_INTERVAL_MS).toBe(60_000);
+    expect(res.action).toBe('passed');
+    expect(waits).toEqual([60_000, 60_000]);
+    expect(readAt).toEqual([0, 60_000, 120_000]);
+    expect(calls()).toBe(3);
+  });
+
+  it('times out once the policy timeout passes and reads gh a bounded number of times', async () => {
+    const { host, calls } = countingHost([running]);
+    let clock = 0;
+    const res = await runCiGate(host, 'b', ci({ timeout_minutes: 5 }), {
+      now: () => clock,
+      sleep: async (ms) => {
+        clock += ms;
+      },
+    });
+    expect(res.action).toBe('timed_out');
+    expect(res.message).toContain('5 minute(s)');
+    expect(res.checks).toEqual({ done: 1, total: 2 });
+    expect(clock).toBe(5 * 60_000);
+    expect(calls()).toBe(6);
+  });
+
+  it('a clock that never moves still stops after the poll budget', async () => {
+    const { host, calls } = countingHost([running]);
+    let sleeps = 0;
+    const res = await runCiGate(host, 'b', ci({ timeout_minutes: 3 }), {
+      now: () => 0,
+      sleep: async () => {
+        sleeps += 1;
+      },
+    });
+    expect(res.action).toBe('timed_out');
+    expect(res.state).toBe('pending');
+    expect(res.checks).toEqual({ done: 1, total: 2 });
+    expect(res.message).toContain('4 time(s)');
+    expect(calls()).toBe(pollBudget(3, CI_REFRESH_INTERVAL_MS));
+    expect(calls()).toBe(4);
+    expect(sleeps).toBe(3);
+  });
+
+  it('an explicit poll cap of zero still reads the checks once', async () => {
+    const { host, calls } = countingHost([running]);
+    const res = await runCiGate(host, 'b', ci(), { maxPolls: 0, now: () => 0 });
+    expect(res.action).toBe('timed_out');
+    expect(calls()).toBe(1);
+  });
+
+  it('waits on the real clock by default, about a minute between reads', async () => {
+    vi.useFakeTimers({ now: 0 });
+    const { host, calls } = countingHost([running, finished]);
+    const pending = runCiGate(host, 'b', ci());
+    await vi.advanceTimersByTimeAsync(59_999);
+    expect(calls()).toBe(1);
+    await vi.advanceTimersByTimeAsync(1);
+    const res = await pending;
+    expect(res.action).toBe('passed');
+    expect(calls()).toBe(2);
+  });
+
+  it('waitFor resolves after the given time', async () => {
+    vi.useFakeTimers();
+    let done = false;
+    const waiting = waitFor(1_000).then(() => {
+      done = true;
+    });
+    await vi.advanceTimersByTimeAsync(999);
+    expect(done).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    await waiting;
+    expect(done).toBe(true);
   });
 
   it('runCiGate hands every poll to onPoll', async () => {
     const polls: ChecksStatus[] = [];
-    await runCiGate(hostWith([running, finished]), 'b', ci(), { onPoll: (s) => polls.push(s) });
+    await runCiGate(hostWith([running, finished]), 'b', ci(), {
+      now: () => 0,
+      sleep: async () => {},
+      onPoll: (s) => polls.push(s),
+    });
     expect(polls).toEqual([running, finished]);
   });
 });
