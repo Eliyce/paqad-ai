@@ -72,12 +72,7 @@ function newestRowAt(projectRoot: string, dirName: string): number | null {
   return newest;
 }
 
-function isMerged(
-  projectRoot: string,
-  dirName: string,
-  branch: string,
-  git: GitRunner,
-): boolean {
+function isMerged(projectRoot: string, dirName: string, branch: string, git: GitRunner): boolean {
   const delivery = readFeatureDelivery(projectRoot, dirName);
   if (delivery.pr?.state === 'merged') return true;
   if ((delivery.commit_split?.own_shas?.length ?? 0) === 0) return false;
