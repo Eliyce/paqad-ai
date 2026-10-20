@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5CDK27RB2H6NZH749H79V9F",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new paqad-ai managed-settings",
+  "context": "Chief architect: This is the acceptance claim that can be checked. The product-owner outcome (one file turns the block on everywhere and a developer cannot loosen it) is the same intent. Whether a local off switch loosens it is asked as an owner question.\n\nTarget: new paqad-ai managed-settings\n- product-owner: the Operator who runs a team can print and write one managed settings file that turns on the edit-time rule block on every machine, and a Developer cannot loosen it locally\n- qa-engineer: given enterprise.enabled is false, then it exits 1 with the exact message and writes no file; with enterprise on, output parses as JSON, `--write` creates `<dir>/paqad.json` only, `--no-plugin` drops exactly the two plugin keys, and a repo-wide test asserts zero `Eliyce/paqad-plugin` references remain (D-b); proof_type unit\n\n[expert-conflict-fork:62528a769fa458a1]",
+  "options": [
+    {
+      "option_key": "the-operator-who-runs-a-team-can-print-a",
+      "label": "the Operator who runs a team can print and write one managed settings file that turns on the edit-time rule block on every machine, and a Developer cannot loosen it locally — product-owner",
+      "evidence": {},
+      "one_line_preview": "the Operator who runs a team can print and write one managed settings file that turns on the edit-time rule block on every machine, and a Developer cannot loosen it locally — product-owner",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "given-enterprise-enabled-is-false-then-i",
+      "label": "given enterprise.enabled is false, then it exits 1 with the exact message and writes no file; with enterprise on, output parses as JSON, `--write` creates `<dir>/paqad.json` only, `--no-plugin` drops exactly the two plugin keys, and a repo-wide test asserts zero `Eliyce/paqad-plugin` references remain (D-b); proof_type unit — qa-engineer",
+      "evidence": {},
+      "one_line_preview": "given enterprise.enabled is false, then it exits 1 with the exact message and writes no file; with enterprise on, output parses as JSON, `--write` creates `<dir>/paqad.json` only, `--no-plugin` drops exactly the two plugin keys, and a repo-wide test asserts zero `Eliyce/paqad-plugin` references remain (D-b); proof_type unit — qa-engineer",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "given-enterprise-enabled-is-false-then-i",
+  "created_at": "2026-10-20T10:26:53.816Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "given-enterprise-enabled-is-false-then-i",
+  "rationale": "Owner accepted the chief architect's ruling.",
+  "resolved_at": "2026-10-20T11:09:38.631Z",
+  "decision_id": "D-01M5CDK27RB2H6NZH749H79V9F",
+  "fingerprint": "sha256:da4de182970d7d68d1a1437871baed6d4cee5284b196ce7c2ecd5574d059f2ec",
+  "question": "Experts disagree on new paqad-ai managed-settings",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.816Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-enterprise-enabled-is-false-then-i",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:38.631Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling."
+  }
+}

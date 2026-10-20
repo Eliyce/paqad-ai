@@ -1,0 +1,62 @@
+{
+  "id": "D-01M5CDK27QSM20D25NRDJ55JRA",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on this request",
+  "context": "Chief architect: Landing the work in order A to F, with the contract test green after each commit, is the risk control for a change this large on stage hooks. The non-goals, the receipt-as-measure and the per-area criteria claims all fit inside it and stay as written.\n\nTarget: this request\n- solution-architect: non-goals stated: no auto GitHub issues from debt, no debt dashboard list, no commit moving/cherry-pick/rebase, no check logic moved into the mod, no hook decision changed except the recorded Allow once\n- product-owner: the request bundles three issues and about 30 work items into one PR; small commits in the order A (tech debt), B (organization deployment), C (rule stop), D (fix proof), E (what ships), F (HUD) let each slice be reviewed and kept green on its own\n- product-owner: no product measure is needed beyond the receipt itself: success is that the receipt and the PR show tech debt, fix proof and what ships honestly\n- qa-engineer: scope covers about 30 behaviours across three issues; each work item A to F needs its own criterion set and test file so a red check names one area, and the 95% branch-coverage floor applies to every new verb\n\n[expert-conflict-fork:48399e92ffaeffa4]",
+  "options": [
+    {
+      "option_key": "non-goals-stated-no-auto-github-issues-f",
+      "label": "non-goals stated: no auto GitHub issues from debt, no debt dashboard list, no commit moving/cherry-pick/rebase, no check logic moved into the mod, no hook decision changed except the recorded Allow once — solution-architect",
+      "evidence": {},
+      "one_line_preview": "non-goals stated: no auto GitHub issues from debt, no debt dashboard list, no commit moving/cherry-pick/rebase, no check logic moved into the mod, no hook decision changed except the recorded Allow once — solution-architect",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "the-request-bundles-three-issues-and-abo",
+      "label": "the request bundles three issues and about 30 work items into one PR; small commits in the order A (tech debt), B (organization deployment), C (rule stop), D (fix proof), E (what ships), F (HUD) let each slice be reviewed and kept green on its own — product-owner",
+      "evidence": {},
+      "one_line_preview": "the request bundles three issues and about 30 work items into one PR; small commits in the order A (tech debt), B (organization deployment), C (rule stop), D (fix proof), E (what ships), F (HUD) let each slice be reviewed and kept green on its own — product-owner",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "no-product-measure-is-needed-beyond-the-",
+      "label": "no product measure is needed beyond the receipt itself: success is that the receipt and the PR show tech debt, fix proof and what ships honestly — product-owner",
+      "evidence": {},
+      "one_line_preview": "no product measure is needed beyond the receipt itself: success is that the receipt and the PR show tech debt, fix proof and what ships honestly — product-owner",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "scope-covers-about-30-behaviours-across-",
+      "label": "scope covers about 30 behaviours across three issues; each work item A to F needs its own criterion set and test file so a red check names one area, and the 95% branch-coverage floor applies to every new verb — qa-engineer",
+      "evidence": {},
+      "one_line_preview": "scope covers about 30 behaviours across three issues; each work item A to F needs its own criterion set and test file so a red check names one area, and the 95% branch-coverage floor applies to every new verb — qa-engineer",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "the-request-bundles-three-issues-and-abo",
+  "created_at": "2026-10-20T10:26:53.815Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "the-request-bundles-three-issues-and-abo",
+  "rationale": "Owner accepted the chief architect's ruling; commits land A to F with the contract test green after each.",
+  "resolved_at": "2026-10-20T11:09:38.393Z",
+  "decision_id": "D-01M5CDK27QSM20D25NRDJ55JRA",
+  "fingerprint": "sha256:3a79d59bd80634421703bd565f10fd7510a559eb73ba33ca11757b6663174136",
+  "question": "Experts disagree on this request",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.815Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-request-bundles-three-issues-and-abo",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:38.393Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling; commits land A to F with the contract test green after each."
+  }
+}

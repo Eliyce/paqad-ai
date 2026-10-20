@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5CDK27N6VT21W51X65AZEXK",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new paqad-ai hook command",
+  "context": "Chief architect: Failing closed except on a confirmed missing .paqad/ is the property that keeps the organization's block from being loosened by a broken payload or a missing script. The other two claims are compatible and should stay as criteria: the script path comes only from the installed package and the name is checked against the two-name allowlist, and each negative case gets its own integration test.\n\nTarget: new paqad-ai hook command\n- security-auditor: the hook name is matched exactly against the two-name allowlist and the script path is resolved only from the installed paqad package, never from the payload cwd, the project tree or an environment variable, so a hostile repo cannot plant a script the managed route runs\n- security-auditor: a malformed or unreadable payload, a missing packaged script, a spawn error or a timeout exits non-zero so onFailure block applies; only the confirmed absence of .paqad/ on the walk-up exits 0\n- qa-engineer: negative cases each need their own test: unknown name exits 2 with `unknown paqad hook <name>`; no `.paqad/` walking up from the payload cwd exits 0 with empty output; malformed or empty stdin payload keeps the packaged gate's own fail-closed exit (not 0); a child exit of 2 is passed through unchanged; proof_type integration\n\n[expert-conflict-fork:f1c52a489c9279b9]",
+  "options": [
+    {
+      "option_key": "the-hook-name-is-matched-exactly-against",
+      "label": "the hook name is matched exactly against the two-name allowlist and the script path is resolved only from the installed paqad package, never from the payload cwd, the project tree or an environment variable, so a hostile repo cannot plant a script the managed route runs — security-auditor",
+      "evidence": {},
+      "one_line_preview": "the hook name is matched exactly against the two-name allowlist and the script path is resolved only from the installed paqad package, never from the payload cwd, the project tree or an environment variable, so a hostile repo cannot plant a script the managed route runs — security-auditor",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "a-malformed-or-unreadable-payload-a-miss",
+      "label": "a malformed or unreadable payload, a missing packaged script, a spawn error or a timeout exits non-zero so onFailure block applies; only the confirmed absence of .paqad/ on the walk-up exits 0 — security-auditor",
+      "evidence": {},
+      "one_line_preview": "a malformed or unreadable payload, a missing packaged script, a spawn error or a timeout exits non-zero so onFailure block applies; only the confirmed absence of .paqad/ on the walk-up exits 0 — security-auditor",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "negative-cases-each-need-their-own-test-",
+      "label": "negative cases each need their own test: unknown name exits 2 with `unknown paqad hook <name>`; no `.paqad/` walking up from the payload cwd exits 0 with empty output; malformed or empty stdin payload keeps the packaged gate's own fail-closed exit (not 0); a child exit of 2 is passed through unchanged; proof_type integration — qa-engineer",
+      "evidence": {},
+      "one_line_preview": "negative cases each need their own test: unknown name exits 2 with `unknown paqad hook <name>`; no `.paqad/` walking up from the payload cwd exits 0 with empty output; malformed or empty stdin payload keeps the packaged gate's own fail-closed exit (not 0); a child exit of 2 is passed through unchanged; proof_type integration — qa-engineer",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "a-malformed-or-unreadable-payload-a-miss",
+  "created_at": "2026-10-20T10:26:53.813Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "a-malformed-or-unreadable-payload-a-miss",
+  "rationale": "Owner accepted the chief architect's ruling; the other claims stay as acceptance criteria.",
+  "resolved_at": "2026-10-20T11:09:37.188Z",
+  "decision_id": "D-01M5CDK27N6VT21W51X65AZEXK",
+  "fingerprint": "sha256:106d2bc3b499cf8bcf08b26bbd7d3db471dfff460ed20615f341e83cf6fd66c9",
+  "question": "Experts disagree on new paqad-ai hook command",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.813Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "a-malformed-or-unreadable-payload-a-miss",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:37.188Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling; the other claims stay as acceptance criteria."
+  }
+}

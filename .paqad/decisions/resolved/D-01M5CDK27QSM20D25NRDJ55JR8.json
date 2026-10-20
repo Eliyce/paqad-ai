@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5CDK27QSM20D25NRDJ55JR8",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on tests/e2e/stage-enforcement-contract.e2e.test.ts",
+  "context": "Chief architect: This is the most testable claim and includes the other two: the same cases run on all three routes and only the organization sentence may differ. The single parameterised table (solution-architect) is how to build it. The Windows point (devops) is real and is listed as a gap, because the command prefix fixed in the request is POSIX shell syntax.\n\nTarget: tests/e2e/stage-enforcement-contract.e2e.test.ts\n- devops-engineer: the managed route case runs on the ubuntu, macOS and Windows CI pipeline jobs; PAQAD_MANAGED=1 as a command prefix is POSIX shell syntax and may not run as written on Windows managed settings\n- solution-architect: the managed route is a third parameterised route over the same case table, not a copied suite, so npm, plugin and managed cannot diverge\n- qa-engineer: given the existing contract cases, when run on the npm, plugin and new managed (`paqad-ai hook`) routes, then every case yields the same exit code, stdout and stderr per route, with the only allowed difference being the managed stderr suffix `This rule is enforced by your organization's settings.`; proof_type e2e, cases unchanged\n\n[expert-conflict-fork:95ee249aa0428ebb]",
+  "options": [
+    {
+      "option_key": "the-managed-route-case-runs-on-the-ubunt",
+      "label": "the managed route case runs on the ubuntu, macOS and Windows CI pipeline jobs; PAQAD_MANAGED=1 as a command prefix is POSIX shell syntax and may not run as written on Windows managed settings — devops-engineer",
+      "evidence": {},
+      "one_line_preview": "the managed route case runs on the ubuntu, macOS and Windows CI pipeline jobs; PAQAD_MANAGED=1 as a command prefix is POSIX shell syntax and may not run as written on Windows managed settings — devops-engineer",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "the-managed-route-is-a-third-parameteris",
+      "label": "the managed route is a third parameterised route over the same case table, not a copied suite, so npm, plugin and managed cannot diverge — solution-architect",
+      "evidence": {},
+      "one_line_preview": "the managed route is a third parameterised route over the same case table, not a copied suite, so npm, plugin and managed cannot diverge — solution-architect",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "given-the-existing-contract-cases-when-r",
+      "label": "given the existing contract cases, when run on the npm, plugin and new managed (`paqad-ai hook`) routes, then every case yields the same exit code, stdout and stderr per route, with the only allowed difference being the managed stderr suffix `This rule is enforced by your organization's settings.`; proof_type e2e, cases unchanged — qa-engineer",
+      "evidence": {},
+      "one_line_preview": "given the existing contract cases, when run on the npm, plugin and new managed (`paqad-ai hook`) routes, then every case yields the same exit code, stdout and stderr per route, with the only allowed difference being the managed stderr suffix `This rule is enforced by your organization's settings.`; proof_type e2e, cases unchanged — qa-engineer",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "given-the-existing-contract-cases-when-r",
+  "created_at": "2026-10-20T10:26:53.815Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "given-the-existing-contract-cases-when-r",
+  "rationale": "Owner accepted the chief architect's ruling; one parameterised table over three routes.",
+  "resolved_at": "2026-10-20T11:09:37.913Z",
+  "decision_id": "D-01M5CDK27QSM20D25NRDJ55JR8",
+  "fingerprint": "sha256:4dd6c854d76d4e3941bc456caad8a761e88055df3579a644131ba2ec15c929b1",
+  "question": "Experts disagree on tests/e2e/stage-enforcement-contract.e2e.test.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.815Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-the-existing-contract-cases-when-r",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:37.913Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling; one parameterised table over three routes."
+  }
+}

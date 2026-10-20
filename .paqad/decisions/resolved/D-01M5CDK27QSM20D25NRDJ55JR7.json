@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5CDK27QSM20D25NRDJ55JR7",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new hud_chime setting",
+  "context": "Chief architect: This is D-d as the owner wrote it. The UX claim (at most once per verdict, the receipt card stays the visual confirmation) is compatible and is already pinned by EX-qa-engineer-14.\n\nTarget: new hud_chime setting\n- ux-ui-analyst: the chime is off by default, plays at most once per verdict, and the receipt card stays the visual confirmation so nothing depends on sound\n- product-owner: the chime is off by default and plays a sound only, no speech (D-d); a Developer who never turns it on hears nothing new\n\n[expert-conflict-fork:d2a33614eb390225]",
+  "options": [
+    {
+      "option_key": "the-chime-is-off-by-default-plays-at-mos",
+      "label": "the chime is off by default, plays at most once per verdict, and the receipt card stays the visual confirmation so nothing depends on sound — ux-ui-analyst",
+      "evidence": {},
+      "one_line_preview": "the chime is off by default, plays at most once per verdict, and the receipt card stays the visual confirmation so nothing depends on sound — ux-ui-analyst",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "the-chime-is-off-by-default-and-plays-a-",
+      "label": "the chime is off by default and plays a sound only, no speech (D-d); a Developer who never turns it on hears nothing new — product-owner",
+      "evidence": {},
+      "one_line_preview": "the chime is off by default and plays a sound only, no speech (D-d); a Developer who never turns it on hears nothing new — product-owner",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "the-chime-is-off-by-default-and-plays-a-",
+  "created_at": "2026-10-20T10:26:53.815Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "the-chime-is-off-by-default-and-plays-a-",
+  "rationale": "Owner accepted the chief architect's ruling; once per verdict stays a criterion.",
+  "resolved_at": "2026-10-20T11:09:37.673Z",
+  "decision_id": "D-01M5CDK27QSM20D25NRDJ55JR7",
+  "fingerprint": "sha256:763666a9a5580b9da50de7a63e6f690f9a6f889466be1d006ecd3ed32ee0dfc5",
+  "question": "Experts disagree on new hud_chime setting",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.815Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-chime-is-off-by-default-and-plays-a-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:37.673Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling; once per verdict stays a criterion."
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5CDK27PF111J5HCJBN5MMPC",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on release.yml push to Eliyce/paqad-claude-plugin",
+  "context": "Chief architect: The plugin repo becomes what every organization installs from, so a release that reaches npm but not the plugin repo must be loud. The security claim (credential scoped to that one repo, release job on main only, protected branch) is compatible and should stay as a criterion. Whether a missing credential fails the release is also asked as an owner question.\n\nTarget: release.yml push to Eliyce/paqad-claude-plugin\n- security-auditor: the plugin repo becomes the trust root every org's managed settings install from; the push credential is scoped to that one repo's contents, runs only on the release job from main, and the target branch is protected\n- integration-architect: the plugin push runs only after npm publish succeeds, uses a scoped deploy credential, commits nothing when the assembled tree is unchanged, and a failed push fails the release visibly instead of leaving the plugin repo on an older version than npm\n\n[expert-conflict-fork:6e39c894e1a0d747]",
+  "options": [
+    {
+      "option_key": "the-plugin-repo-becomes-the-trust-root-e",
+      "label": "the plugin repo becomes the trust root every org's managed settings install from; the push credential is scoped to that one repo's contents, runs only on the release job from main, and the target branch is protected — security-auditor",
+      "evidence": {},
+      "one_line_preview": "the plugin repo becomes the trust root every org's managed settings install from; the push credential is scoped to that one repo's contents, runs only on the release job from main, and the target branch is protected — security-auditor",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "the-plugin-push-runs-only-after-npm-publ",
+      "label": "the plugin push runs only after npm publish succeeds, uses a scoped deploy credential, commits nothing when the assembled tree is unchanged, and a failed push fails the release visibly instead of leaving the plugin repo on an older version than npm — integration-architect",
+      "evidence": {},
+      "one_line_preview": "the plugin push runs only after npm publish succeeds, uses a scoped deploy credential, commits nothing when the assembled tree is unchanged, and a failed push fails the release visibly instead of leaving the plugin repo on an older version than npm — integration-architect",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "the-plugin-push-runs-only-after-npm-publ",
+  "created_at": "2026-10-20T10:26:53.814Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "the-plugin-push-runs-only-after-npm-publ",
+  "rationale": "Owner accepted the chief architect's ruling; a failed or unconfigured push fails the release job.",
+  "resolved_at": "2026-10-20T11:09:37.432Z",
+  "decision_id": "D-01M5CDK27PF111J5HCJBN5MMPC",
+  "fingerprint": "sha256:4c29fe20a0ab5683f6f24dcc4264476ffc1229557e68fdb1b9572b84f9b08dbb",
+  "question": "Experts disagree on release.yml push to Eliyce/paqad-claude-plugin",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.814Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-plugin-push-runs-only-after-npm-publ",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:37.432Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling; a failed or unconfigured push fails the release job."
+  }
+}
