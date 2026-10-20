@@ -1,7 +1,8 @@
-# .paqad/configs/.config.models — Research depth and model routing
+# .paqad/configs/.config.models — Research depth, model routing, and stage helper effort and model
 #
-# How deep research goes, and which models handle routine, heavy-reasoning, and
-# fast/cheap work.
+# How deep research goes, which models handle routine, heavy-reasoning, and
+# fast/cheap work, and the effort and model each feature-development stage helper
+# runs at (applied on the next dispatch through `paqad-ai stage settings`).
 #
 # Every key below is COMMENTED OUT, so paqad uses its built-in default until you
 # uncomment a line to override it. Precedence, highest first: PAQAD_* env var >

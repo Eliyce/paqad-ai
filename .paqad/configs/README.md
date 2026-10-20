@@ -5,7 +5,7 @@ each pre-filled with every knob in that group, commented out and documented:
 
 - `.config.app` — Application, version, enterprise, and feature flags
 - `.config.rag` — Intelligence / RAG
-- `.config.models` — Research depth and model routing
+- `.config.models` — Research depth, model routing, and stage helper effort and model
 - `.config.policy` — Quality, escalation, and decision policy
 
 Every file in this directory is merged into one map and read at runtime, so the

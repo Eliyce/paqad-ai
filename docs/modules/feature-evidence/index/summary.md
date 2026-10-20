@@ -154,7 +154,10 @@ any turn the session-ownership check skips (see below).
 - **Stage-agent rows** (`src/stage-isolation/subagent-completion.ts`) — the record-only
   SubagentStop hook (`stage-agent-completion`) appends one `kind: 'stage-agent'` row
   (`kind`, `stage`, `agent`, `tokens_used`, `tokens_not_recarried`, `estimate`) when a
-  `paqad-<stage>` agent finishes. The session is resolved by `resolveHookSession` in
+  `paqad-<stage>` agent finishes. When `paqad-ai stage settings` wrote
+  `.paqad/session/stage-settings.d/<session id>.json` for the resolved session, the row also
+  carries that stage's `effort` and `model`; with no file it carries neither. The SubagentStart
+  seed hook (`stage-agent-start`) writes no row, so there is still exactly one row per stage agent. The session is resolved by `resolveHookSession` in
   `src/rag-ledger/session.ts`: the payload `session_id`, then `SE_SESSION`, then
   `CLAUDE_SESSION_ID`, then the shared cache, taking the first one whose session control
   names an in-flight bundle, and otherwise the cache (minting only when nothing is known).

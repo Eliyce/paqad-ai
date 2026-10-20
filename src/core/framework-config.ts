@@ -1428,7 +1428,7 @@ export function stripFrameworkConfigFromProfile<T extends Partial<ProjectProfile
 const CONFIG_GROUP_TITLES: Record<ConfigGroup, string> = {
   app: 'Application, version, enterprise, and feature flags',
   rag: 'Intelligence / RAG',
-  models: 'Research depth and model routing',
+  models: 'Research depth, model routing, and stage helper effort and model',
   policy: 'Quality, escalation, and decision policy',
 };
 
@@ -1442,8 +1442,9 @@ const CONFIG_GROUP_INTROS: Record<ConfigGroup, string[]> = {
     'model, and the retrieval tuning (similarity threshold, top-N, file-size limit).',
   ],
   models: [
-    'How deep research goes, and which models handle routine, heavy-reasoning, and',
-    'fast/cheap work.',
+    'How deep research goes, which models handle routine, heavy-reasoning, and',
+    'fast/cheap work, and the effort and model each feature-development stage helper',
+    'runs at (applied on the next dispatch through `paqad-ai stage settings`).',
   ],
   policy: [
     'Strictness gates (adversarial review, stale-doc blocking, DB-migration review),',

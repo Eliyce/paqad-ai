@@ -62,6 +62,33 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   like `paqad_enable`: the env variable first, then `.paqad/.config`, then
   `.paqad/configs/.config.*` with the last file name winning. `config reconcile` and `update` keep
   a team value; `.paqad/.config.example` lists both with their defaults.
+- **Stage helper effort and model.** Twelve keys in the team-owned models config
+  (`.paqad/configs/.config.models`), section "Stage agents": `stage_effort_<stage>` (env
+  `PAQAD_STAGE_EFFORT_<STAGE>`; one of low, medium, high, xhigh, inherit) and
+  `stage_model_<stage>` (env `PAQAD_STAGE_MODEL_<STAGE>`; one of inherit, haiku, sonnet, opus),
+  for planning, specification, development, review, checks and documentation_sync. Defaults:
+  planning, specification and review high; development inherit; checks and documentation_sync
+  low; every model inherit. A team may lower review, but a lighter review catches less. An unknown
+  value falls back to the default. They resolve like every other key (env, then `.paqad/.config`,
+  then the team files) through `resolveStageAgentSettings` in `src/core/framework-config.ts`.
+- **Agent files keep the defaults.** The helper files at user scope and in the plugin are shared by
+  every project, so they always carry the default `effort` (omitted when it is inherit),
+  `model: inherit` and `omitClaudeMd: true`. A project's own values apply on the next dispatch:
+  the orchestrator runs `paqad-ai stage settings` once per change, which prints them and writes
+  `.paqad/session/stage-settings.d/<session id>.json`, and passes `model` and `effort` on each
+  stage Agent call when they are not inherit. The SubagentStop recorder copies that stage's
+  `effort` and `model` onto its one `stage-agent` row.
+- **Claude Code versions.** The SubagentStart brief works on any Claude Code that runs paqad's
+  hooks. `omitClaudeMd` needs 2.1.271 or later, and `effort` (in agent files and on the Agent
+  tool) needs 2.1.292 or later. paqad does no version check: an older build ignores a key it does
+  not know, and a helper with no brief follows its fallback line and loads the framework as before.
+
+## Hook chain
+
+- Claude Code gets, in order: PreToolUse (entry gate, stage writer, decision-pause gate, capability
+  gate), UserPromptSubmit, SessionStart, Stop, SubagentStart (`stage-agent-start.mjs`, stage
+  helpers only) and SubagentStop (`stage-agent-completion.mjs`). The SubagentStart hook never
+  blocks; the three edit gates stay fail-closed.
 
 ## Testing Entry Points
 

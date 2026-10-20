@@ -53,7 +53,8 @@ The reasons below are not obvious from the code in `src/adapters/`.
   matcher (Codex matches `tool_name` with a regex, so `^apply_patch$` is anchored); the same scripts
   run on both and the host is passed as one argv. The default host, `claude-code`, never gets that
   argv, so Claude's generated config stays byte-identical. Event order is fixed (PreToolUse,
-  UserPromptSubmit, SessionStart, Stop, then SubagentStop appended last) so a re-onboard is
+  UserPromptSubmit, SessionStart, Stop, SubagentStart on Claude Code only, then SubagentStop
+  last) so a re-onboard is
   byte-stable. The stage writer is a non-blocking writer ordered after the entry gate; the stage
   marker recorder runs before the completion backstop so planning, specification and review markers
   are in the ledger when it folds the change.
@@ -64,6 +65,12 @@ The reasons below are not obvious from the code in `src/adapters/`.
   unless a `paqad-<stage>` agent runs. The matcher accepts `paqad-<stage>` (npm) and
   `paqad:paqad-<stage>` (plugin) and never a user's own or built-in subagents. It never blocks,
   since blocking on SubagentStop is undocumented.
+- **SubagentStart (Claude Code only).** Codex has no such event, so a host with no native name for
+  an event simply gets no entry for it, and Codex output is unchanged. The matcher
+  (`PAQAD_STAGE_HELPER_MATCHER`) accepts only the six stage helpers, with or without the
+  `paqad:` plugin prefix, and never `paqad-expert`, `paqad-chief-architect` or a user's own
+  agents. The entry carries a 10 second timeout and no `onFailure`, so it can never block; the
+  plugin chain renders the same entry with the same matcher and timeout.
 - **The plugin chain.** Commands are rooted at the literal `${CLAUDE_PLUGIN_ROOT}/runtime`, which the
   host substitutes at hook time. A plugin-only SessionStart bootstrap runs first (it re-points the
   framework link and sets the PATH the other hooks rely on), `silent-update.mjs` is left out because
@@ -212,6 +219,16 @@ state on its own.
   coverage-counted code.
 - **`stage-marker-parse.mjs`.** Ordered before `verification-completion.mjs` on Stop so spoken
   `paqad:stage` markers are in the ledger before the backstop folds the change.
+- **`stage-agent-start.mjs` (SubagentStart).** Seeds a stage helper with its stage brief
+  (`src/stage-isolation/stage-brief.ts`): role, read list and instructions, the change, the lane,
+  the previous pillar files that exist, the hard rules and the exact stage commands, capped at
+  9,000 characters. It prints the brief as `additionalContext`, and only then writes the per-agent
+  entry marker `.paqad/session/agent-entry/<agent_id>` the entry gate already accepts. It stands
+  down when paqad is off, the repo was never onboarded, or the other install route owns the
+  session. It refuses a session id outside `^[A-Za-z0-9._-]{1,128}$`. Every outcome adds one line
+  to `.paqad/logs/hooks.log` (seeded, skipped or failed, with the agent id and stage, never the
+  brief or the payload). On any error it prints nothing, writes no marker and exits 0, so the
+  helper falls back to loading the framework itself. It writes no stage-evidence row.
 - **`stage-agent-completion.mjs` (SubagentStop).** Wired only for paqad's own `^paqad-` agents.
   Blocking a SubagentStop is undocumented on Claude, so it always exits 0. High Table seats are not
   stages, so their tokens are read from their own transcript into `high-table.jsonl`, wrapped
