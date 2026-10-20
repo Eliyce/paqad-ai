@@ -41,7 +41,7 @@ describe('stage brief and stage settings docs', () => {
     );
     expect(read('docs/modules/onboarded-project-overview.md')).toContain('`SubagentStart` hook');
     expect(read('docs/modules/feature-evidence/index/summary.md')).toContain(
-      "carries that stage's `effort` and `model`",
+      "carries that stage's `requested_effort` and `requested_model`",
     );
   });
 

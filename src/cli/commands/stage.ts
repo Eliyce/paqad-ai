@@ -6,7 +6,7 @@ import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { bundleArtifactFile, checkBundleArtifacts } from '@/stage-evidence/bundle-artifact.js';
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
-import { writeStageSettings } from '@/stage-isolation/stage-settings.js';
+import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
 function collectArtifact(value: string, previous: string[] = []): string[] {
   return [...previous, value];
@@ -28,7 +28,7 @@ function runStageSettings(options: StageOptions): void {
   const sessionId = sessionHint?.trim() ? sessionHint.trim() : resolveSessionId(root, null);
   try {
     const settings = writeStageSettings(root, sessionId);
-    console.log(JSON.stringify(settings, null, 2));
+    console.log(stageSettingsReport(settings).join('\n'));
   } catch (error) {
     console.error(`could not write the stage settings: ${(error as Error).message}`);
     process.exitCode = 1;

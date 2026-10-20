@@ -76,8 +76,12 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `model: inherit` and `omitClaudeMd: true`. A project's own values apply on the next dispatch:
   the orchestrator runs `paqad-ai stage settings` once per change, which prints them and writes
   `.paqad/session/stage-settings.d/<session id>.json`, and passes `model` and `effort` on each
-  stage Agent call when they are not inherit. The SubagentStop recorder copies that stage's
-  `effort` and `model` onto its one `stage-agent` row.
+  stage Agent call when they are not inherit. Because the files keep the defaults, inherit alone
+  would leave a default effort in force, so for a stage set to inherit whose file carries a
+  default effort the verb tells the orchestrator to pass its own current effort level on that
+  Agent call. The SubagentStop recorder copies that stage's values onto its one `stage-agent`
+  row as `requested_effort` and `requested_model`: what the project asked for, not what the
+  helper ran at.
 - **Claude Code versions.** The SubagentStart brief works on any Claude Code that runs paqad's
   hooks. `omitClaudeMd` needs 2.1.271 or later, and `effort` (in agent files and on the Agent
   tool) needs 2.1.292 or later. paqad does no version check: an older build ignores a key it does

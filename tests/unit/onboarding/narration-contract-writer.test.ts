@@ -24,6 +24,9 @@ describe('narration-contract-writer', () => {
     expect(dispatch).toContain(
       "pass that stage's `model` and `effort` on each stage Agent call when the value is not `inherit`",
     );
+    expect(dispatch).toContain(
+      'when a stage is set to `inherit` but its agent file carries a default effort, pass your OWN current effort level on that Agent call',
+    );
     expect(body).toContain('a SubagentStart hook hands each stage agent a short stage brief');
     const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
     expect(router).toContain(dispatch);

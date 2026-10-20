@@ -139,7 +139,7 @@ describe('recordStageAgentCompletion', () => {
     expect(validateStageEvidenceRow(rows[0])).toEqual([]);
   });
 
-  it('adds the effort and model from the session stage settings to the one stage-agent row', () => {
+  it('adds the requested effort and model from the session stage settings to the one stage-agent row', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     writeStageSettings(root, 'ses_orch', { PAQAD_STAGE_MODEL_REVIEW: 'opus' });
@@ -151,11 +151,17 @@ describe('recordStageAgentCompletion', () => {
     });
     const rows = readStageAgentRows(root, dir);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ stage: 'review', effort: 'high', model: 'opus' });
+    expect(rows[0]).toMatchObject({
+      stage: 'review',
+      requested_effort: 'high',
+      requested_model: 'opus',
+    });
+    expect(rows[0]).not.toHaveProperty('effort');
+    expect(rows[0]).not.toHaveProperty('model');
     expect(validateStageEvidenceRow(rows[0])).toEqual([]);
   });
 
-  it('leaves effort and model off the row when no stage settings were recorded', () => {
+  it('leaves the requested effort and model off the row when no stage settings were recorded', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     recordStageAgentCompletion({
@@ -165,12 +171,12 @@ describe('recordStageAgentCompletion', () => {
       adapter: 'claude-code',
     });
     const [row] = readStageAgentRows(root, dir);
-    expect(row).not.toHaveProperty('effort');
-    expect(row).not.toHaveProperty('model');
+    expect(row).not.toHaveProperty('requested_effort');
+    expect(row).not.toHaveProperty('requested_model');
     expect(validateStageEvidenceRow(row)).toEqual([]);
   });
 
-  it('rejects a stage-agent row with an unknown effort or model', () => {
+  it('rejects a stage-agent row with an unknown requested effort or model', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     recordStageAgentCompletion({
@@ -180,8 +186,8 @@ describe('recordStageAgentCompletion', () => {
       adapter: 'claude-code',
     });
     const [row] = readStageAgentRows(root, dir);
-    expect(validateStageEvidenceRow({ ...row, effort: 'turbo' })).not.toEqual([]);
-    expect(validateStageEvidenceRow({ ...row, model: 'gpt' })).not.toEqual([]);
+    expect(validateStageEvidenceRow({ ...row, requested_effort: 'turbo' })).not.toEqual([]);
+    expect(validateStageEvidenceRow({ ...row, requested_model: 'gpt' })).not.toEqual([]);
   });
 
   it('sums host-reported input and output as tokens_used, still labelled an estimate', () => {

@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   isSafeSessionId,
   readStageSetting,
+  stageDispatchLine,
+  stageSettingsReport,
   stageSettingsPath,
   writeStageSettings,
 } from '@/stage-isolation/stage-settings.js';
@@ -45,6 +47,42 @@ describe('stage settings file', () => {
     expect(() => writeStageSettings(root, '../escape', {})).toThrow(/unsafe session id/);
     expect(readStageSetting(root, '../escape', 'checks')).toBeNull();
     expect(isSafeSessionId('ses_a')).toBe(true);
+  });
+
+  it('says to pass the session value when inherit would leave an agent file default in force', () => {
+    expect(
+      stageDispatchLine(
+        'review',
+        { effort: 'inherit', model: 'inherit' },
+        { effort: 'high', model: 'opus' },
+      ),
+    ).toBe(
+      'review: effort inherit, model inherit. On its Agent call, pass your own current effort level, because its agent file defaults to high effort and would otherwise run at that; pass your own current model, because its agent file defaults to opus and would otherwise run on that.',
+    );
+    expect(
+      stageDispatchLine(
+        'checks',
+        { effort: 'medium', model: 'sonnet' },
+        { effort: 'low', model: 'inherit' },
+      ),
+    ).toBe(
+      'checks: effort medium, model sonnet. On its Agent call, pass effort medium; pass model sonnet.',
+    );
+  });
+
+  it('reports one line per stage, measured against the defaults the agent files carry', () => {
+    const lines = stageSettingsReport(
+      writeStageSettings(tempRoot(), 'ses_r', {
+        PAQAD_STAGE_EFFORT_PLANNING: 'inherit',
+        PAQAD_STAGE_EFFORT_DEVELOPMENT: 'inherit',
+      }),
+    );
+    expect(lines).toHaveLength(6);
+    expect(lines[0]).toContain('planning: effort inherit');
+    expect(lines[0]).toContain('pass your own current effort level');
+    expect(lines.find((line) => line.startsWith('development:'))).toContain(
+      "pass no effort, so it runs at the session's effort",
+    );
   });
 
   it('ignores a damaged file or a stage entry with unknown values', () => {
