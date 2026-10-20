@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { openBrowser, shouldSkipBrowser } from '@/graph/opener';
+import { isOpenableTarget, openBrowser, shouldSkipBrowser } from '@/graph/opener';
 
 describe('shouldSkipBrowser', () => {
   it('returns a reason when an SSH session is detected', () => {
@@ -23,5 +23,22 @@ describe('openBrowser', () => {
       opened: false,
       reason: 'browser open suppressed',
     });
+  });
+});
+
+describe('isOpenableTarget', () => {
+  it('accepts http(s) URLs and existing absolute file paths', () => {
+    expect(isOpenableTarget('http://127.0.0.1:4000/#/graph')).toBe(true);
+    expect(isOpenableTarget('https://example.com/a?b=1&c=2')).toBe(true);
+    expect(isOpenableTarget(process.execPath)).toBe(true);
+  });
+
+  it('rejects option-like strings, other schemes, relative and missing paths', () => {
+    expect(isOpenableTarget('--upload-pack=x')).toBe(false);
+    expect(isOpenableTarget('   ')).toBe(false);
+    expect(isOpenableTarget('javascript:alert(1)')).toBe(false);
+    expect(isOpenableTarget('file:///etc/passwd')).toBe(false);
+    expect(isOpenableTarget('relative/path.html')).toBe(false);
+    expect(isOpenableTarget('/definitely/not/here.html')).toBe(false);
   });
 });

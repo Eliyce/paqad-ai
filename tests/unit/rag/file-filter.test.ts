@@ -394,6 +394,25 @@ describe('RagFileFilter', () => {
     });
   });
 
+  it('reads a candidate through one open handle and reports dangling links and missing files as not found', async () => {
+    const root = makeRoot();
+    writeText(root, 'docs/real.md', 'x'.repeat(80));
+    symlinkSync(join(root, 'docs/gone.md'), join(root, 'docs/dangling.md'));
+    const filter = new RagFileFilter({ projectRoot: root, packs: [] });
+
+    await expect(filter.probeFile(join(root, 'docs/real.md'))).resolves.toMatchObject({
+      excluded: false,
+    });
+    await expect(filter.probeFile(join(root, 'docs/dangling.md'))).resolves.toMatchObject({
+      excluded: true,
+      rule: 'not-found',
+    });
+    await expect(filter.probeFile(join(root, 'docs/missing.md'))).resolves.toMatchObject({
+      excluded: true,
+      rule: 'not-found',
+    });
+  });
+
   it('supports global gitignore opt-in and relative probe paths', async () => {
     const root = makeRoot();
     const home = makeRoot();
