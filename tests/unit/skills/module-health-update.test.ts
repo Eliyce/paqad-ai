@@ -7,7 +7,6 @@ import { lines, runScript } from './_helpers/run-script.js';
 const SKILL = 'runtime/base/skills/module-health-update';
 const sh = (n: string) => join(SKILL, 'scripts', n);
 
-// A combined refresh report as `refresh.sh` emits it: { rollup, sync }.
 const REPORT = JSON.stringify({
   rollup: {
     blocked: null,
@@ -29,9 +28,6 @@ const REPORT = JSON.stringify({
 
 describe('module-health-update scripts', () => {
   describe('refresh.sh', () => {
-    // Thin wrapper around `paqad-ai module-health rollup` + `sync`. Full CLI
-    // behaviour is covered by tests/unit/cli/; here we just assert the --help
-    // short-circuit, which never shells out to the CLI.
     const path = sh('refresh.sh');
 
     it('--help exits 0 with usage on stdout', () => {

@@ -58,10 +58,8 @@ describe('style-enforcer', () => {
     it('falls back to bundled default-rules.txt when no project style exists', () => {
       withTempDir((dir) => {
         const draft = writeFile(dir, 'd.md', 'It literally just works.\n');
-        // No project writing-style.md, no explicit style-file → fallback
         const r = runScript(path, [draft], { cwd: dir });
         expect(r.status).toBe(0);
-        // default-rules.txt forbids "literally"; we should see a hit.
         expect(r.stdout).toContain('forbid:');
       });
     });

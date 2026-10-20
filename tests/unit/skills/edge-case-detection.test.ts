@@ -48,7 +48,6 @@ describe('edge-case-detection', () => {
     });
 
     it('fails when a case is missing any of the 3 required segments', () => {
-      // Two cases but only one Apply To: → fewer
       const bad = [
         '## Edge Cases',
         '### Case A',

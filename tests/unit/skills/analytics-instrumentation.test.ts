@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 const SKILL_ROOT = join(process.cwd(), 'runtime/base/skills/analytics-instrumentation');
 
-describe('analytics-instrumentation skill (issue #279)', () => {
+describe('analytics-instrumentation skill', () => {
   it('SKILL.md declares the analytics-instrumentation skill', () => {
     const md = readFileSync(join(SKILL_ROOT, 'SKILL.md'), 'utf8');
     expect(md).toContain('name: analytics-instrumentation');

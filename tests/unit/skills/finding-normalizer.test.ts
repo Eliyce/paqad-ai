@@ -121,7 +121,6 @@ describe('finding-normalizer', () => {
     it('vocabulary.txt enumerates the closed sets used by the validator', async () => {
       const fs = await import('node:fs');
       const text = fs.readFileSync(join(SKILL, 'assets/vocabulary.txt'), 'utf8');
-      // sanity check: includes critical + open + small
       expect(text).toContain('critical');
       expect(text).toContain('open');
       expect(text).toContain('small');

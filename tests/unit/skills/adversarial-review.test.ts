@@ -75,7 +75,6 @@ describe('adversarial-review', () => {
         const rows = lines(r.stdout);
         expect(rows[0]).toBe('gate | category | file:line | ac_id | message');
         expect(rows.length).toBe(3);
-        // Sorted by joined columns, so a.ts (line 42) comes before b.ts (line 7)
         expect(rows[1]).toContain('src/a.ts:42');
         expect(rows[1]).toContain('AC-1.1');
         expect(rows[2]).toContain('src/b.ts:7');
@@ -108,7 +107,6 @@ describe('adversarial-review', () => {
         );
         const r = runScript(path, [f]);
         const rows = lines(r.stdout);
-        // Header + the one failure row.
         expect(rows.length).toBe(2);
         expect(rows[1]).toContain('tests');
         expect(rows[1]).not.toContain('lint');
@@ -127,7 +125,6 @@ describe('adversarial-review', () => {
         );
         const r = runScript(path, [f]);
         const lastRow = lines(r.stdout).at(-1)!;
-        // Message is the last column; isolate it
         const msg = lastRow.split(' | ').at(-1)!;
         expect(msg.length).toBeLessThanOrEqual(240);
       });

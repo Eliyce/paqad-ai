@@ -93,12 +93,10 @@ describe('skill audit events', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-audit-'));
     const buffer = new SkillAuditBuffer();
 
-    // Sink unavailable: events accumulate in emission order.
     emitSkillAuditEvent(loadFailedEvent('/skills/early-1.SKILL.md'), undefined, buffer);
     emitSkillAuditEvent(loadFailedEvent('/skills/early-2.SKILL.md'), undefined, buffer);
     expect(buffer.size).toBe(2);
 
-    // Sink reconnects: the new event and the backlog flush together, in order.
     emitSkillAuditEvent(loadFailedEvent('/skills/live.SKILL.md'), projectRoot, buffer);
 
     expect(buffer.size).toBe(0);

@@ -58,7 +58,6 @@ describe('motion-review', () => {
         expect(r.status).toBe(0);
         const rows = r.stdout.split('\n').filter((l) => l.length > 0);
         const ms = rows.map((r) => Number(r.split('\t')[1])).sort((a, b) => a - b);
-        // 300, 300, 500, 800 (the framer 0.3s -> 300ms)
         expect(ms).toContain(300);
         expect(ms).toContain(500);
         expect(ms).toContain(800);
@@ -89,7 +88,6 @@ describe('motion-review', () => {
           ? 'standard, enter, exit'
           : map['easing'],
       );
-      // Don't assume the literal easing list — just check the key is present.
       expect(map['reduced-motion']).toBe('respected');
     });
 

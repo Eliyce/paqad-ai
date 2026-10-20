@@ -85,7 +85,6 @@ describe('spec-quality-review', () => {
           ].join('\n'),
         );
         const r = runScript(path, [f]);
-        // Only the header — no defects from the Open Questions section.
         expect(r.stdout.trim()).toBe('category | line | excerpt');
       });
     });

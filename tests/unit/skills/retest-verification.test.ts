@@ -57,7 +57,6 @@ describe('retest-verification', () => {
           severity: 'high',
           status: 'open',
         });
-        // Default status when missing.
         expect(rows[1].status).toBe('open');
       });
     });

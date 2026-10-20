@@ -114,7 +114,6 @@ describe('accessibility-review', () => {
       const r = runScript(path, [join(FIX, 'axe-results.json')]);
       expect(r.status).toBe(0);
       const rows = r.stdout.split('\n').filter((l) => l.length > 0);
-      // Fixture has 3 nodes total across two violations on '/', 0 on '/pricing'.
       expect(rows.length).toBe(3);
       expect(rows).toContain(
         '/\tcolor-contrast\tserious\tmain > p.muted\tElements must meet minimum color contrast ratio thresholds',

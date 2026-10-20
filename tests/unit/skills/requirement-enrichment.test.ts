@@ -10,7 +10,6 @@ import { runScript } from './_helpers/run-script.js';
 const SKILL = 'runtime/base/skills/requirement-enrichment';
 const sh = (n: string) => join(SKILL, 'scripts', n);
 
-/** A well-formed FR-4 two-layer question batch (the skill's output shape). */
 const validBatch = JSON.stringify({
   questions: [
     {
@@ -94,7 +93,6 @@ describe('requirement-enrichment', () => {
   });
 
   describe('emitted questions obey the plain-language contract', () => {
-    // Realistic S0 grounding terms (glossary + module-doc headings) for the area.
     const terms = ['archived invoices', 'export', 'downstream reader', 'exported file'];
     const prompt =
       "let users export invoices and decide what happens when an export can't be delivered";
@@ -105,7 +103,6 @@ describe('requirement-enrichment', () => {
         const result = checkPlainLanguage(question, { terms, prompt });
         expect(result.ok, `flagged: ${result.flagged.join(', ')}`).toBe(true);
       }
-      // AC-1: the documented term is used, not a from-the-model synonym.
       expect(batch.questions[0]!.business_text).toContain('archived invoices');
       expect(batch.questions[0]!.business_text).not.toMatch(/soft-deleted/i);
     });

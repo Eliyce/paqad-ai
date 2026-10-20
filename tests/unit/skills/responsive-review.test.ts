@@ -151,9 +151,7 @@ describe('responsive-review', () => {
         writeFile(dir, 'src/Ok.tsx', '<button className="w-6 h-6" />');
         const r = runScript(path, [root]);
         expect(r.status).toBe(0);
-        // w-4 = 4*4 = 16px < 24 → violation
         expect(r.stdout).toMatch(/IconButton\.tsx.*\t16\t/);
-        // w-6 = 24px → at the threshold, not a violation
         expect(r.stdout).not.toMatch(/Ok\.tsx/);
       });
     });

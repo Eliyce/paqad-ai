@@ -56,7 +56,6 @@ describe('existing-doc-checker', () => {
     it('handles regex metacharacters in keywords by escaping them', () => {
       withTempDir((dir) => {
         writeFile(dir, 'docs/modules/users/README.md', 'feature(x): does y');
-        // The keyword contains parentheses; without escape this would be regex group syntax
         const r = runScript(path, ['feature(x):'], { cwd: dir });
         expect(r.status).toBe(0);
         expect(r.stdout).toContain('docs/modules/users/README.md');
@@ -66,7 +65,7 @@ describe('existing-doc-checker', () => {
     it('only scans canonical surfaces (modules/business/maintainers/instructions/.paqad/indexes), excludes others', () => {
       withTempDir((dir) => {
         writeFile(dir, 'docs/modules/users/README.md', 'token rotation');
-        writeFile(dir, 'docs/random/scratch.md', 'token rotation'); // not a canonical surface
+        writeFile(dir, 'docs/random/scratch.md', 'token rotation');
         const r = runScript(path, ['token'], { cwd: dir });
         const out = lines(r.stdout);
         expect(out.some((l) => l.includes('docs/modules/users/README.md'))).toBe(true);

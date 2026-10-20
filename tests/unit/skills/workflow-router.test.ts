@@ -47,8 +47,6 @@ describe('workflow-router', () => {
     });
 
     it('routes "create module documentation" — module-documentation wins via higher priority', () => {
-      // Both "create module documentation" (225) and "create documentation" (220) match;
-      // 225 wins.
       expect(route('please create module documentation').workflow).toBe('module-documentation');
     });
 
@@ -87,13 +85,8 @@ describe('workflow-router', () => {
     });
 
     it('on tie in priority, longest pattern wins', () => {
-      // "fix" and "regression" are both bug-fix at priority 165. The longer pattern
-      // "regression" (10 chars) should win the tiebreak over "fix" (3 chars) when
-      // both appear.
       const r = runScript(path, ['regression on login fix']);
       expect(r.status).toBe(0);
-      // Both map to bug-fix; just confirm matched_rule is the longer one.
-      // (Both patterns map to bug-fix — verify deterministic tiebreak via length.)
       const matched = r.stdout.match(/matched_rule:\s*"([^"]+)"/)?.[1];
       expect(matched && matched.length).toBeGreaterThanOrEqual(3);
     });

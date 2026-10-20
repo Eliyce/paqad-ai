@@ -99,7 +99,6 @@ describe('state-coverage-review', () => {
         .split('\n')
         .filter((l) => l.length > 0)
         .map((l) => l.split('\t')[0]);
-      // Default is implicit for every file that mentions the component.
       expect(states).toContain('default');
       expect(states).toContain('hover');
       expect(states).toContain('focus');
@@ -148,12 +147,9 @@ describe('state-coverage-review', () => {
         ]);
         expect(r.status).toBe(0);
         const rows = r.stdout.split('\n').filter((l) => l.length > 0);
-        // declared - implemented = loading, error
         expect(rows).toContain('declared-not-implemented\terror');
         expect(rows).toContain('declared-not-implemented\tloading');
-        // implemented - tested = disabled
         expect(rows).toContain('implemented-not-tested\tdisabled');
-        // tested - implemented = loading
         expect(rows).toContain('tested-not-implemented\tloading');
       });
     });

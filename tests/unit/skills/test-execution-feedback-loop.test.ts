@@ -127,7 +127,7 @@ describe('test-execution-feedback-loop', () => {
         const r = runScript(path, [f]);
         const obj = JSON.parse(lines(r.stdout)[0]);
         expect(obj.message.length).toBeLessThanOrEqual(240);
-        expect(obj.message).not.toContain('  '); // collapsed whitespace
+        expect(obj.message).not.toContain('  ');
       });
     });
 

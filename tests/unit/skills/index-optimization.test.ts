@@ -96,8 +96,6 @@ describe('index-optimization', () => {
     it('passes a valid 3-bucket block', () => {
       const ok =
         '## Correctness Risks\nnone\n## Migration Safety Risks\nnone\n## Performance Risks\n- index missing on users.email\n';
-      // Lint accepts both "## Bucket" and "Bucket: none" — try the "##" form
-      // and confirm — if it fails, the test exposes a lint bug.
       const ok2 =
         'Correctness Risks: none\nMigration Safety Risks: none\nPerformance Risks: none\n';
       expect(runScript(path, [], { input: ok }).status).toBe(0);

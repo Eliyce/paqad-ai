@@ -73,7 +73,6 @@ describe('content-writer', () => {
       withTempDir((dir) => {
         const f = writeFile(dir, 'd.md', '---\ntitle: foo bar baz qux\n---\n\nbody one two\n');
         const r = runScript(path, [f]);
-        // Only "body one two" counts → 3 words
         expect(r.stdout.trim()).toBe('3');
       });
     });
@@ -86,7 +85,6 @@ describe('content-writer', () => {
           'body one two\n\n```ts\nthese words should not count\n```\n\nmore body text\n',
         );
         const r = runScript(path, [f]);
-        // "body one two" + "more body text" = 6 words.
         expect(r.stdout.trim()).toBe('6');
       });
     });

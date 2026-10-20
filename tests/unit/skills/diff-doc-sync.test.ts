@@ -43,7 +43,6 @@ describe('diff-doc-sync', () => {
         });
         expect(r.status).toBe(0);
         const out = lines(r.stdout);
-        // Both users docs should appear; billing should not.
         expect(out.some((p) => p.endsWith('modules/users/README.md'))).toBe(true);
         expect(out.some((p) => p.endsWith('modules/users/api/endpoints.md'))).toBe(true);
         expect(out.some((p) => p.endsWith('modules/billing/README.md'))).toBe(false);

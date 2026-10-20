@@ -9,9 +9,6 @@ const SKILL = 'runtime/base/skills/acceptance-criteria-gen';
 const sh = (n: string) => join(SKILL, 'scripts', n);
 const asset = (n: string) => join(SKILL, 'assets', n);
 
-// Issue #512 (C4): the skill emits the FLAT AC-N format the freeze parser reads. A dotted
-// two-level AC-N.N is not a valid criterion id — it is ignored by the extractor/allocator
-// and rejected by the linter.
 describe('acceptance-criteria-gen', () => {
   describe('extract-ac-ids.sh', () => {
     const path = sh('extract-ac-ids.sh');

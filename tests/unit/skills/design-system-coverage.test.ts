@@ -39,7 +39,7 @@ describe('design-system-coverage', () => {
       withTempDir((dir) => {
         const base = 'docs/instructions/design-system';
         writeFile(dir, `${base}/tokens.md`, '# Tokens\n\ncolor.primary.500 = #1a73e8\n');
-        writeFile(dir, `${base}/components.md`, ''); // empty
+        writeFile(dir, `${base}/components.md`, '');
         const r = runScript(path, [join(dir, base)]);
         expect(r.status).toBe(0);
         expect(r.stdout).toMatch(/tokens\.md\tpresent\tnon-empty/);
@@ -130,7 +130,6 @@ describe('design-system-coverage', () => {
       const r = runScript(path, [join(FIX, 'tokens.md')]);
       expect(r.status).toBe(0);
       const [, count] = r.stdout.trim().split('\t');
-      // tokens.md has 10 declared tokens
       expect(Number(count)).toBe(10);
     });
 
@@ -159,9 +158,6 @@ describe('design-system-coverage', () => {
         );
         const r = runScript(path, [f]);
         expect(r.status).toBe(0);
-        // Counts: `name: x` (1) + 3 list-item bullets (3) = 4.
-        // Lines inside the code fence are excluded; fence delimiters are
-        // excluded; headings and the frontmatter `---` rules are excluded.
         const [, count] = r.stdout.trim().split('\t');
         expect(Number(count)).toBe(4);
       });
@@ -278,7 +274,6 @@ describe('design-system-coverage', () => {
         expect(r.stdout).toContain(f);
         expect(r.stdout).toContain('missing-file');
       }
-      // Stable id sequence:
       expect(r.stdout).toMatch(/DT-DS-0001\tmissing-file/);
       expect(r.stdout).toMatch(/DT-DS-0006\tmissing-file/);
     });
@@ -286,7 +281,6 @@ describe('design-system-coverage', () => {
     it('reports populated files as no-gap and empty files as empty-file', () => {
       withTempDir((dir) => {
         const ds = `${dir}/docs/instructions/design-system`;
-        // Copy the populated fixtures into a temp project layout.
         writeFile(
           dir,
           'docs/instructions/design-system/tokens.md',
@@ -302,11 +296,8 @@ describe('design-system-coverage', () => {
           'docs/instructions/design-system/accessibility.md',
           readFileSync(join(FIX, 'accessibility.md'), 'utf8'),
         );
-        // responsive.md / motion.md / patterns.md absent.
         const r = runScript(path, [ds]);
         expect(r.status).toBe(0);
-        // Row format: DT-DS-NNNN<TAB><category><TAB>... so the category appears
-        // BEFORE the file path. Assert order accordingly.
         expect(r.stdout).not.toMatch(/missing-file.*tokens\.md|empty-file.*tokens\.md/);
         expect(r.stdout).toMatch(/missing-file.*responsive\.md/);
         expect(r.stdout).toMatch(/missing-file.*motion\.md/);

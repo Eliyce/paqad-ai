@@ -37,7 +37,6 @@ describe('stride-threat-model', () => {
         const r = runScript(path, [], { cwd: dir });
         expect(r.status).toBe(0);
         expect(lines(r.stdout)).toEqual(['billing', 'users']);
-        // Critically, "features" (nested key) must NOT appear.
         expect(r.stdout).not.toContain('features');
       });
     });

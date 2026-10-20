@@ -22,7 +22,6 @@ describe('script-writer', () => {
 
     it('counts only words on VO: lines and emits MM:SS runtime', () => {
       withTempDir((dir) => {
-        // 150 words of VO at default 150wpm → 1:00.
         const vo = Array.from({ length: 30 }, () => '- **VO:** ' + 'word '.repeat(5).trim()).join(
           '\n',
         );
@@ -38,7 +37,6 @@ describe('script-writer', () => {
     it('honors a custom WPM', () => {
       withTempDir((dir) => {
         const f = writeFile(dir, 'script.md', '- **VO:** one two three four five\n');
-        // 5 words at 60wpm → 5/60 min = 5 sec
         const r = runScript(path, [f, '60']);
         expect(r.stdout).toContain('Words: 5');
         expect(r.stdout).toContain('WPM: 60');
