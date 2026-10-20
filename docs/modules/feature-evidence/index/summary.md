@@ -594,7 +594,11 @@ instead. Containment is checked on a folder boundary so `.githooks` is not read 
 The tracked check uses a repo-relative, forward-slash pathspec, because an absolute one read empty
 on Linux CI. The hook block uses forward slashes since it runs under `sh`, also on Windows, and
 falls back to `node <paqad>/dist/cli/index.js` because the plugin puts `paqad-ai` on PATH only
-inside a Claude Code session. Every line ends in `|| true`, so git is never blocked.
+inside a Claude Code session. Every line ends in `|| true`, so git is never blocked. The block
+starts with the marker line `# paqad-ai delivery-link`. Older versions wrote that same marker with a
+ticket reference in parentheses after it, and those blocks are still in users' hooks, so the
+installer looks for the marker text anywhere in the hook rather than as a whole line; an old block
+is found and no second one is added.
 
 **`mint.ts` and `paths.ts`.** The ticket ref is removed from the title before slugging so the
 folder name does not repeat it. A bare number is removed only as `#45` or when it leads the title,

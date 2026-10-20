@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { GIT_HOOK_MARKER, installGitHooks, resolveHooksDir } from '@/feature-evidence/git-hooks.js';
 
+import { ticketRef } from '../../shared/ticket-ref.js';
+
 const roots: string[] = [];
 function tempRepo(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-fe-hooks-'));
@@ -41,6 +43,37 @@ describe('installGitHooks', () => {
     const again = installGitHooks(root);
     expect(again.installed).toEqual([]);
     expect(again.skipped.sort()).toEqual(['post-commit', 'post-merge']);
+  });
+
+  it('writes a marker line that carries no issue number', () => {
+    const root = tempRepo();
+    installGitHooks(root);
+    const dir = resolveHooksDir(root)!;
+    for (const hook of ['post-commit', 'post-merge']) {
+      const lines = readFileSync(join(dir, hook), 'utf8').split('\n');
+      expect(lines.filter((line) => line.startsWith(GIT_HOOK_MARKER))).toEqual([
+        '# paqad-ai delivery-link',
+      ]);
+    }
+  });
+
+  it('finds a block an older version wrote with an issue number and adds no second block', () => {
+    const root = tempRepo();
+    const dir = resolveHooksDir(root)!;
+    mkdirSync(dir, { recursive: true });
+    const olderBlock = (verb: string): string =>
+      '#!/bin/sh\n' +
+      `# paqad-ai delivery-link (issue ${ticketRef(339)})\n` +
+      `if command -v paqad-ai >/dev/null 2>&1; then paqad-ai delivery-link ${verb} >/dev/null 2>&1 || true; fi\n`;
+    writeFileSync(join(dir, 'post-commit'), olderBlock('commit'));
+    writeFileSync(join(dir, 'post-merge'), olderBlock('merge'));
+
+    const result = installGitHooks(root);
+
+    expect(result.installed).toEqual([]);
+    expect(result.skipped.sort()).toEqual(['post-commit', 'post-merge']);
+    expect(readFileSync(join(dir, 'post-commit'), 'utf8')).toBe(olderBlock('commit'));
+    expect(readFileSync(join(dir, 'post-merge'), 'utf8')).toBe(olderBlock('merge'));
   });
 
   it('chains an existing hook instead of clobbering it', () => {

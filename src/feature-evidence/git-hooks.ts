@@ -5,7 +5,7 @@ import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { toPosixPath } from '@/core/path-utils.js';
 import { getPackageRoot } from '@/core/runtime-paths.js';
 
-export const GIT_HOOK_MARKER = `# paqad-ai delivery-link (issue #${339})`;
+export const GIT_HOOK_MARKER = '# paqad-ai delivery-link';
 
 export function distCliPath(): string {
   return toPosixPath(join(getPackageRoot(), 'dist', 'cli', 'index.js'));
