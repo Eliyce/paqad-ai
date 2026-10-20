@@ -221,6 +221,7 @@ export function openFeatureChange(
       seedFeatureDelivery(projectRoot, dirName, {
         sessionId,
         recordedAt: (input.now ?? (() => new Date()))().toISOString(),
+        startCommit: gitState.head_commit ?? null,
       });
       /* v8 ignore next 3 -- best-effort: a delivery seed fault must not break feature open. */
     } catch {}

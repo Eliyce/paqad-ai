@@ -1,4 +1,4 @@
-import { runCiGate } from '@/delivery/ci-gate.js';
+import { countChecks, runCiGate } from '@/delivery/ci-gate.js';
 import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 
@@ -159,5 +159,25 @@ describe('CI gate', () => {
       },
     });
     expect(res.action).toBe('timed_out');
+  });
+});
+
+describe('CI gate check counts', () => {
+  it('keeps how many checks finished out of how many there are', async () => {
+    const status: ChecksStatus = {
+      state: 'red',
+      checks: [
+        { name: 'lint', state: 'red' },
+        { name: 'test', state: 'green' },
+        { name: 'e2e', state: 'pending' },
+      ],
+    };
+    expect(countChecks(status)).toEqual({ done: 2, total: 3 });
+    const res = await runCiGate(hostWith([status]), 'b', ci());
+    expect(res.checks).toEqual({ done: 2, total: 3 });
+    const warned = await runCiGate(hostWith([status]), 'b', ci({ gate: 'warn_only' }));
+    expect(warned.checks).toEqual({ done: 2, total: 3 });
+    const skipped = await runCiGate(hostWith([status]), 'b', ci({ gate: 'off' }));
+    expect(skipped.checks).toBeUndefined();
   });
 });

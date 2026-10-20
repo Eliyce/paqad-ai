@@ -32,6 +32,22 @@ export function detectTicketRefs(prompt: string, kind: TicketProviderKind): stri
   return out;
 }
 
+const BRANCH_NUMBERS = /^(\d+(?:-\d+)*)(?=-|$)/;
+
+export function parseBranchTickets(branch: string | null | undefined): string[] {
+  if (!branch) return [];
+  const leaf = branch.split('/').filter(Boolean).at(-1) ?? '';
+  const out = detectTicketRefs(leaf, 'jira');
+  const numbers = BRANCH_NUMBERS.exec(leaf);
+  if (numbers) {
+    for (const n of numbers[1].split('-')) {
+      const ref = `#${Number(n)}`;
+      if (!out.includes(ref)) out.push(ref);
+    }
+  }
+  return out;
+}
+
 export function armIntakeNarration(refs: readonly string[]): string {
   if (refs.length === 0) return '';
   const first = refs[0];

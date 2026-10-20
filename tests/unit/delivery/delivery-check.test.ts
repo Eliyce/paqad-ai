@@ -9,12 +9,18 @@ import {
   evaluateDelivery,
   execaCommandRunner,
   formatDeliverySummary,
+  ghFailureReason,
+  readRollup,
   runDeliveryCapability,
+  saveDeliveryReading,
   type CommandRun,
   type CommandRunner,
 } from '@/delivery/delivery-check.js';
 import { defaultDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { readLatestProjectEvent } from '@/session-ledger/project-ledger.js';
+import { readFeatureDelivery, recordShip } from '@/feature-evidence/delivery.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
 import { ticketRef } from '../../shared/ticket-ref.js';
 
@@ -279,5 +285,181 @@ describe('execaCommandRunner — the real subprocess seam', () => {
   it('a missing binary resolves to a non-zero code (never throws)', async () => {
     const result = await execaCommandRunner('paqad-no-such-binary-xyz', []);
     expect(result.exitCode).not.toBe(0);
+    expect(result.missing).toBe(true);
+  });
+});
+
+describe('the Stop delivery check saves what ships', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-delivery-ship-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  function branchChange(): string {
+    const dir = openFeatureChange(root, 'ses_ship', { adapter: 'claude-code', ulidSeed: 9 });
+    updateFeatureRecord(root, dir, { branch: 'feat/x' });
+    return dir;
+  }
+
+  it('reads the PR and a partial CI state from gh pr view', async () => {
+    const gh = ok(
+      JSON.stringify({
+        number: 7,
+        url: 'https://example.test/pull/7',
+        isDraft: true,
+        statusCheckRollup: [
+          { conclusion: 'SUCCESS' },
+          { status: 'IN_PROGRESS', conclusion: '' },
+          { state: 'PENDING' },
+        ],
+      }),
+    );
+    const result = await evaluateDelivery({
+      projectRoot: root,
+      policy: policy(),
+      run: runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+    });
+    expect(result.pr).toEqual({ number: 7, url: 'https://example.test/pull/7', draft: true });
+    expect(result.ci).toEqual({ state: 'pending', done: 1, total: 3, reason: null });
+  });
+
+  it('records unknown with the reason when gh cannot answer, and the outcome is unchanged', async () => {
+    const dir = branchChange();
+    const missing = { stdout: '', exitCode: 1, missing: true };
+    const outcome = await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: missing }),
+    );
+    expect(outcome.blocking).toBe(false);
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({
+      sha: 'sha-1',
+      state: 'unknown',
+      reason: 'gh is not installed',
+      source: 'stop-check',
+    });
+    expect(readFeatureDelivery(root, dir).pr ?? null).toBeNull();
+  });
+
+  it('keeps a recorded pass when gh later signs out for the same commit', async () => {
+    const dir = branchChange();
+    recordShip(
+      root,
+      dir,
+      {
+        ci: {
+          sha: 'sha-1',
+          state: 'pass',
+          done: 3,
+          total: 3,
+          reason: null,
+          source: 'ci-gate',
+        },
+      },
+      '2026-10-20T00:00:00.000Z',
+    );
+    const signedOut = {
+      stdout: '',
+      stderr: 'To get started with GitHub CLI, please run:  gh auth login',
+      exitCode: 4,
+    };
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: signedOut }),
+    );
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({ state: 'pass', done: 3 });
+  });
+
+  it('saves the PR and a passing CI read against the branch change', async () => {
+    const dir = branchChange();
+    const gh = ok(
+      JSON.stringify({
+        number: 7,
+        url: 'https://example.test/pull/7',
+        isDraft: false,
+        statusCheckRollup: [{ conclusion: 'SUCCESS' }, { state: 'SUCCESS' }],
+      }),
+    );
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+    );
+    const record = readFeatureDelivery(root, dir);
+    expect(record.pr).toMatchObject({ number: 7, draft: false });
+    expect(record.ci).toMatchObject({ sha: 'sha-1', state: 'pass', done: 2, total: 2 });
+  });
+
+  it('saves nothing when no change owns the branch or the check did not run', () => {
+    saveDeliveryReading(root, {
+      ran: true,
+      branch: 'feat/nobody',
+      commit: 'c',
+      ghAvailable: false,
+      findings: [],
+      ci: { state: 'unknown', done: null, total: null, reason: 'x' },
+    });
+    saveDeliveryReading(root, {
+      ran: false,
+      branch: null,
+      commit: null,
+      ghAvailable: false,
+      findings: [],
+    });
+    const dir = branchChange();
+    saveDeliveryReading(root, {
+      ran: true,
+      branch: 'feat/x',
+      commit: 'c',
+      ghAvailable: false,
+      findings: [],
+    });
+    expect(readFeatureDelivery(root, dir).ci ?? null).toBeNull();
+  });
+
+  it('records unreadable gh output as unknown', async () => {
+    const result = await evaluateDelivery({
+      projectRoot: root,
+      policy: policy(),
+      run: runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: ok('not json') }),
+    });
+    expect(result.ghAvailable).toBe(false);
+    expect(result.ci).toMatchObject({ state: 'unknown', reason: 'gh returned unreadable output' });
+  });
+
+  it('reads a rollup as pass, fail, pending or unknown', () => {
+    expect(readRollup([{ conclusion: 'SUCCESS' }, { conclusion: 'SKIPPED' }]).state).toBe('pass');
+    expect(readRollup([{ conclusion: 'FAILURE' }, { status: 'QUEUED' }])).toEqual({
+      state: 'fail',
+      done: 1,
+      total: 2,
+      reason: null,
+    });
+    expect(readRollup([{ state: 'PENDING' }]).state).toBe('pending');
+    expect(readRollup(null)).toEqual({
+      state: 'unknown',
+      done: 0,
+      total: 0,
+      reason: 'no checks reported',
+    });
+  });
+
+  it('names why gh could not answer', () => {
+    expect(ghFailureReason({ stdout: '', exitCode: 1, timedOut: true })).toBe(
+      'gh timed out after 10 s',
+    );
+    expect(ghFailureReason({ stdout: '', exitCode: 1, stderr: 'API rate limit exceeded' })).toBe(
+      'gh is rate-limited',
+    );
+    expect(ghFailureReason({ stdout: '', exitCode: 1, stderr: 'You are not logged in' })).toBe(
+      'gh is signed out',
+    );
+    expect(
+      ghFailureReason({ stdout: '', exitCode: 1, stderr: 'no pull requests found for branch' }),
+    ).toBe('no pull request for this branch');
+    expect(ghFailureReason({ stdout: '', exitCode: 1 })).toBe('gh could not read the pull request');
   });
 });

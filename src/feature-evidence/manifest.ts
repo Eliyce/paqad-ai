@@ -178,7 +178,7 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     key: 'delivery',
     file: FEATURE_BUNDLE_FILES.delivery,
     required: 'always',
-    writer: 'feature open + paqad-ai delivery-link',
+    writer: 'feature open + paqad-ai delivery-link + paqad-ai deliver + the Stop delivery check',
     validate: 'json',
   },
   {

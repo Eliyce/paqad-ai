@@ -5,11 +5,16 @@ import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { runCiGate, type CiGateOptions } from '@/delivery/ci-gate.js';
-import { runDelivery, type DeliveryShell } from '@/delivery/runner.js';
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
+import { runCiGate, type CiGateOptions, type CiGateResult } from '@/delivery/ci-gate.js';
+import { runDelivery, type DeliveryRunResult, type DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
+import { recordShip, type CiState, type ShipPatch } from '@/feature-evidence/delivery.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { readGitState } from '@/rag/git-state.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 import { GithubHostProvider } from '@/providers/github-host-provider.js';
 import { raisedTechDebt } from '@/tech-debt/context.js';
 import { renderTechDebtPrSection } from '@/tech-debt/pr-section.js';
@@ -35,6 +40,8 @@ export interface DeliverDeps {
   resolveOpenPr: () => OpenPrDecision;
   evidenceBody: string | null;
   ci?: CiGateOptions;
+  dirName?: string | null;
+  now?: () => Date;
 }
 
 export interface DeliverResult {
@@ -69,14 +76,19 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     return { exitCode: 2, output: decision.message };
   }
 
-  const run = await runDelivery(deps.shell, {
-    rendered,
-    base: deps.base,
-    draft: deps.draft,
-    reviewers: deps.reviewers,
-    labels: deps.labels,
-    open_pr: decision.choice,
-  });
+  const run = await runDelivery(
+    deps.shell,
+    {
+      rendered,
+      base: deps.base,
+      draft: deps.draft,
+      reviewers: deps.reviewers,
+      labels: deps.labels,
+      open_pr: decision.choice,
+    },
+    (input) => deps.host.openPR(input),
+  );
+  saveShip(deps, shipFromRun(run, rendered.branch, decision.choice === 'draft', headSha(deps)));
 
   const stepLines = run.steps.map(
     (s) => `> - ${s.ok ? '🟢' : '🔴'} ${s.step}${s.ok ? '' : ` — ${s.remediation ?? 'failed'}`}`,
@@ -98,6 +110,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     ...deps.ci,
     evidenceComment: deps.evidenceBody,
   });
+  saveShip(deps, shipFromGate(gate, headSha(deps)));
   const green = gate.action === 'passed' || gate.action === 'warned' || gate.action === 'skipped';
   const glyph = green ? '🟢' : '🔴';
   const verdict = green ? 'Safe to merge' : 'Needs your attention';
@@ -112,6 +125,63 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
         '\n',
       ) + evidenceLine,
   };
+}
+
+const CI_STATE: Record<CiGateResult['state'], CiState> = {
+  green: 'pass',
+  red: 'fail',
+  pending: 'pending',
+  unknown: 'unknown',
+};
+
+function headSha(deps: DeliverDeps): string | null {
+  return deps.dirName ? (readGitState(deps.projectRoot).head_commit ?? null) : null;
+}
+
+function shipFromRun(
+  run: DeliveryRunResult,
+  branch: string,
+  draft: boolean,
+  sha: string | null,
+): ShipPatch {
+  const patch: ShipPatch = {};
+  const push = run.steps.find((step) => step.step === 'push');
+  if (push) patch.push = { state: push.ok ? 'pushed' : 'failed', branch, sha };
+  const pr = run.steps.find((step) => step.step === 'pr')?.pr;
+  if (pr) patch.pr = { number: pr.number, url: pr.url, draft };
+  return patch;
+}
+
+function shipFromGate(gate: CiGateResult, sha: string | null): ShipPatch {
+  if (gate.action === 'skipped') return {};
+  const state = CI_STATE[gate.state];
+  return {
+    ci: {
+      sha,
+      state,
+      done: gate.checks?.done ?? null,
+      total: gate.checks?.total ?? null,
+      reason: state === 'unknown' ? gate.message : null,
+      source: 'ci-gate',
+    },
+  };
+}
+
+function saveShip(deps: DeliverDeps, patch: ShipPatch): void {
+  if (!deps.dirName || Object.keys(patch).length === 0) return;
+  try {
+    recordShip(
+      deps.projectRoot,
+      deps.dirName,
+      patch,
+      (deps.now ?? (() => new Date()))().toISOString(),
+    );
+  } catch (error) {
+    appendHooksLog(
+      deps.projectRoot,
+      `deliver: delivery.json not updated: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 }
 
 export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string): OpenPrDecision {
@@ -249,6 +319,7 @@ export function createDeliveryCommand(): Command {
         host,
         resolveOpenPr: () => resolveOpenPrDecision(projectRoot, options.openPr),
         evidenceBody: loadEvidenceBody(projectRoot),
+        dirName: activeChange(projectRoot, options.session),
       });
       if (result.exitCode === 0) {
         console.log(result.output);
@@ -257,6 +328,20 @@ export function createDeliveryCommand(): Command {
         process.exitCode = result.exitCode;
       }
     });
+}
+
+function activeChange(projectRoot: string, session: string | undefined): string | null {
+  try {
+    return currentFeature(
+      projectRoot,
+      resolveSessionId(
+        projectRoot,
+        session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+      ),
+    );
+  } catch {
+    return null;
+  }
 }
 
 function collect(value: string, previous: string[] = []): string[] {

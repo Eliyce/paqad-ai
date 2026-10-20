@@ -1,6 +1,6 @@
 import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
 
-import type { ChecksState, HostProvider } from '@/providers/host-provider.js';
+import type { ChecksState, ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 
 export type CiGateAction =
   'passed' | 'failed_stop' | 'failed_comment_and_stop' | 'timed_out' | 'warned' | 'skipped';
@@ -11,6 +11,19 @@ export interface CiGateResult {
   transitionTo: string | null;
   message: string;
   evidenceCommentPosted?: boolean;
+  checks?: CheckCounts;
+}
+
+export interface CheckCounts {
+  done: number;
+  total: number;
+}
+
+export function countChecks(status: ChecksStatus): CheckCounts {
+  return {
+    done: status.checks.filter((check) => check.state === 'green' || check.state === 'red').length,
+    total: status.checks.length,
+  };
 }
 
 export interface CiGateOptions {
@@ -54,6 +67,7 @@ export async function runCiGate(
       state: status.state,
       transitionTo: status.state === 'green' ? transitionOnGreen : null,
       message: `CI is ${status.state} (warn-only — not blocking).`,
+      checks: countChecks(status),
     };
   }
 
@@ -74,6 +88,7 @@ export async function runCiGate(
         transitionTo: transitionOnGreen,
         message: 'CI is green.',
         evidenceCommentPosted,
+        checks: countChecks(status),
       };
     }
 
@@ -94,6 +109,7 @@ export async function runCiGate(
             .join(', ') || 'unknown check'
         }). Stopping per on_red=${ci.on_red}.`,
         evidenceCommentPosted,
+        checks: countChecks(status),
       };
     }
 
@@ -103,6 +119,7 @@ export async function runCiGate(
         state: status.state,
         transitionTo: null,
         message: `CI did not go green within ${ci.timeout_minutes} minute(s). Stopping.`,
+        checks: countChecks(status),
       };
     }
 

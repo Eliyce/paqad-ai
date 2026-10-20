@@ -14,6 +14,7 @@ import { createProgram } from '@/cli/program.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { raiseTechDebt } from '@/tech-debt/index.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
@@ -36,6 +37,10 @@ function fakeHost(state: ChecksStatus['state']): { host: HostProvider; comments:
   const comments: string[] = [];
   const host = {
     kind: 'github' as const,
+    async openPR(input: { draft: boolean }) {
+      comments.push(`opened draft=${input.draft}`);
+      return { ok: true, pr: { number: 12, url: 'https://example.test/pull/12' } };
+    },
     async getChecksStatus(): Promise<ChecksStatus> {
       return { state, checks: state === 'red' ? [{ name: 'build', state: 'red' }] : [] };
     },
@@ -143,7 +148,7 @@ describe('paqad-ai deliver', () => {
     const result = await runDeliver(baseDeps(root, { host, evidenceBody: 'EVIDENCE-BODY' }));
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('Safe to merge');
-    expect(comments).toEqual(['EVIDENCE-BODY']);
+    expect(comments).toEqual(['opened draft=false', 'EVIDENCE-BODY']);
   });
 
   it('stops with a non-zero exit on red CI (never reports success)', async () => {
@@ -162,6 +167,44 @@ describe('paqad-ai deliver', () => {
     expect(result.output).toContain('no PR requested');
     expect(calls.some((c) => c.includes('push'))).toBe(false);
     expect(calls.some((c) => c[0] === 'gh')).toBe(false);
+  });
+
+  it('saves push, PR and CI on the change after a delivery', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    const result = await runDeliver(
+      baseDeps(root, {
+        dirName: dir,
+        resolveOpenPr: () => ({ status: 'resolved', choice: 'draft' }),
+        now: () => new Date('2026-10-20T00:00:00.000Z'),
+      }),
+    );
+    expect(result.exitCode).toBe(0);
+    const record = readFeatureDelivery(root, dir);
+    expect(record.push).toMatchObject({ state: 'pushed', at: '2026-10-20T00:00:00.000Z' });
+    expect(record.pr).toMatchObject({
+      number: 12,
+      url: 'https://example.test/pull/12',
+      draft: true,
+    });
+    expect(record.ci).toMatchObject({ state: 'pass', done: 0, total: 0, source: 'ci-gate' });
+  });
+
+  it('records an unknown CI read with its reason and never as a pass', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    const result = await runDeliver(
+      baseDeps(root, { dirName: dir, host: fakeHost('unknown').host }),
+    );
+    expect(result.exitCode).toBe(1);
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({ state: 'unknown' });
+    expect(readFeatureDelivery(root, dir).ci?.reason).toBeTruthy();
+  });
+
+  it('logs and carries on when delivery.json cannot be written', async () => {
+    const result = await runDeliver(baseDeps(root, { dirName: 'not-a-bundle\u0000' }));
+    expect(result.exitCode).toBe(0);
+    expect(readFileSync(join(root, '.paqad', 'logs', 'hooks.log'), 'utf8')).toContain(
+      'deliver: delivery.json not updated',
+    );
   });
 
   it('reports a stopped delivery when a git step fails', async () => {
