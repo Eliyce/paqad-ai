@@ -109,6 +109,53 @@ describe('onboarding maps Node commands from the lockfile and package.json scrip
     expect(commands.test_single.startsWith('yarn test <pattern>')).toBe(true);
   });
 
+  async function onboardReact(): Promise<{ commands: ProjectCommands; warnings: string[] }> {
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot,
+      adapters: ['claude-code'],
+      selections: { domain: 'coding', stack: 'react', capabilities: [] },
+    });
+    const profile = YAML.parse(
+      readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8'),
+    ) as { commands: ProjectCommands };
+    return { commands: profile.commands, warnings: output.warnings };
+  }
+
+  function expectConventionalNpm(commands: ProjectCommands, warnings: string[]): void {
+    expect(commands.install).toBe('npm install');
+    expect(commands.dev).toBe('npm run dev');
+    expect(commands.test.startsWith('npm test')).toBe(true);
+    expect(commands.test_single.startsWith('npm test -- <pattern>')).toBe(true);
+    expect(commands.lint).toBe('npm run lint');
+    expect(commands.format).toBe('npm run format');
+    expect(commands.build).toBe('npm run build');
+    expect(commands.migrate).toBe('');
+    expect(Object.values(commands).some((command) => command.includes('echo'))).toBe(false);
+    const unmapped = warnings.filter((warning) => warning.startsWith('Commands left unmapped'));
+    expect(unmapped).toHaveLength(1);
+    expect(unmapped[0]).toContain(': migrate.');
+  }
+
+  it('maps the conventional npm commands when the project has no package.json yet', async () => {
+    const { commands, warnings } = await onboardReact();
+    expectConventionalNpm(commands, warnings);
+  });
+
+  it('maps the conventional commands when package.json declares no scripts', async () => {
+    writeFileSync(
+      join(projectRoot, 'package.json'),
+      JSON.stringify({ dependencies: { react: '^19.0.0', 'react-dom': '^19.0.0' } }),
+    );
+    const { commands, warnings } = await onboardReact();
+    expectConventionalNpm(commands, warnings);
+  });
+
+  it('maps the conventional commands when package.json cannot be parsed', async () => {
+    writeFileSync(join(projectRoot, 'package.json'), '{ not json');
+    const { commands, warnings } = await onboardReact();
+    expectConventionalNpm(commands, warnings);
+  });
+
   it('leaves test and test_single empty when there is no test script', async () => {
     seed({ build: 'vite build' }, 'pnpm-lock.yaml');
     const { commands, warnings } = await onboard();

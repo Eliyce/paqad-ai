@@ -1,4 +1,4 @@
-import { accessSync, constants as fsConstants, readFileSync, statSync } from 'node:fs';
+import { accessSync, constants as fsConstants, existsSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
@@ -961,14 +961,15 @@ function buildNodeCommands(usingCompose: boolean, projectRoot: string): ProjectP
     usingCompose ? `docker compose exec <node-service> ${command}` : command;
   const run = (name: string) =>
     manager === 'npm' && name !== 'test' ? `npm run ${name}` : `${manager} ${name}`;
-  const mapped = (name: string) => (scripts.has(name) ? exec(run(name)) : '');
+  const has = (name: string) => (scripts === null ? name !== 'migrate' : scripts.has(name));
+  const mapped = (name: string) => (has(name) ? exec(run(name)) : '');
   const single = manager === 'yarn' ? 'yarn test <pattern>' : `${manager} test -- <pattern>`;
 
   return {
     install: exec(`${manager} install`),
     dev: usingCompose ? 'docker compose up -d' : mapped('dev'),
     test: mapped('test'),
-    test_single: scripts.has('test') ? exec(single) : '',
+    test_single: has('test') ? exec(single) : '',
     lint: mapped('lint'),
     format: mapped('format'),
     migrate: mapped('migrate'),
@@ -976,17 +977,15 @@ function buildNodeCommands(usingCompose: boolean, projectRoot: string): ProjectP
   };
 }
 
-function packageScripts(projectRoot: string): Set<string> {
+function packageScripts(projectRoot: string): Set<string> | null {
+  const manifestPath = join(projectRoot, 'package.json');
+  if (!existsSync(manifestPath)) return null;
   try {
-    const manifest = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as {
-      scripts?: unknown;
-    };
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { scripts?: unknown };
     const scripts = manifest.scripts;
-    return typeof scripts === 'object' && scripts !== null
-      ? new Set(Object.keys(scripts))
-      : new Set();
+    return typeof scripts === 'object' && scripts !== null ? new Set(Object.keys(scripts)) : null;
   } catch {
-    return new Set();
+    return null;
   }
 }
 

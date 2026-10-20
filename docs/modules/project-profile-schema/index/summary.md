@@ -64,6 +64,10 @@ assuming pnpm:
   `test_single` is derived from `test` (`npm test -- <pattern>`, `yarn test <pattern>`). Under
   Docker Compose each command runs through `docker compose exec <node-service>` and `dev` is
   `docker compose up -d`.
+- When there are no scripts to read (no `package.json` yet, one without a `scripts` field, or
+  one that cannot be parsed), onboarding maps the conventional set with that package manager
+  instead: `install`, `dev`, `test`, `test_single`, `lint`, `format` and `build` (`npm test`,
+  `npm run build`, and so on). `migrate` stays unmapped.
 - Anything else is left as an empty string, never an `echo` placeholder, and onboarding prints
   one warning naming every command it left unmapped.
 
