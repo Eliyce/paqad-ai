@@ -27,6 +27,7 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { resolvePluginMigrationConfig, setConfigValue } from '@/core/framework-config.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
+import { versionAtLeast } from '@/core/version-compare.js';
 import { VERSION } from '@/index.js';
 
 import { PLUGIN_ID } from '../health/plugin-install.js';
@@ -450,24 +451,7 @@ export function undoViaSettings(home: string): void {
   }
 }
 
-/** Parse an `x.y.z` version to a comparable tuple. */
-function parseVersion(v: string): number[] {
-  return v
-    .trim()
-    .replace(/^v/, '')
-    .split('.')
-    .map((n) => Number.parseInt(n, 10) || 0);
-}
-/** True when `a` >= `b` (semver-ish, numeric segments only). */
-export function versionAtLeast(a: string, b: string): boolean {
-  const pa = parseVersion(a);
-  const pb = parseVersion(b);
-  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
-    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-    if (d !== 0) return d > 0;
-  }
-  return true;
-}
+export { versionAtLeast };
 
 // ── Orchestrator (Part 2 → Part 4) ────────────────────────────────────────────
 

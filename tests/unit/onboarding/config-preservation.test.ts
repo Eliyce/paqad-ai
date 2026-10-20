@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { syncFrameworkConfig } from '@/core/framework-config.js';
+import { generateConfigExample, syncFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { OnboardingOrchestrator } from '@/onboarding';
 
@@ -74,5 +74,20 @@ describe('onboarding preserves user config and materializes paqad.enabled', () =
     expect(after?.enterprise?.evidence_ledger).toBe(true);
     expect(after?.intelligence.rag_enabled).toBe(true);
     expect(after?.paqad?.enabled).toBe(false);
+  });
+
+  it('leaves the tracked config of a newer checkout byte-identical on a re-onboard', async () => {
+    await onboard();
+    const examplePath = join(projectRoot, '.paqad', '.config.example');
+    const appPath = join(projectRoot, '.paqad', 'configs', '.config.app');
+    const newerExample = generateConfigExample('999.0.0');
+    const app = '# team header\nfuture_knob=on\n';
+    writeFileSync(examplePath, newerExample);
+    writeFileSync(appPath, app);
+
+    await onboard();
+
+    expect(readFileSync(examplePath, 'utf8')).toBe(newerExample);
+    expect(readFileSync(appPath, 'utf8')).toBe(app);
   });
 });

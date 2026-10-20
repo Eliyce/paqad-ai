@@ -15,6 +15,7 @@ import YAML from 'yaml';
 
 import { VERSION } from '@/index.js';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema.js';
+import { generateConfigExample } from '@/core/framework-config.js';
 import { schemaMarkerPath, schemaMigrationLogPath } from '@/core/schema-version.js';
 import { FrameworkUpdater } from '@/update/index.js';
 
@@ -130,6 +131,37 @@ describe('FrameworkUpdater', () => {
     expect(versionFileContent).toMatch(/^version=/m);
     expect(versionFileContent).toContain(`version=${VERSION}`);
     expect(versionFileContent).toMatch(/^updated_at=/m);
+  });
+
+  it('leaves the tracked config of a newer checkout byte-identical on update', async () => {
+    const newerExample = generateConfigExample('999.0.0');
+    const app = '# team header\nenterprise=true\nfuture_knob=on\n';
+    mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/.config.example'), newerExample);
+    writeFileSync(join(projectRoot, '.paqad/configs/.config.app'), app);
+
+    const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(
+      projectRoot,
+    );
+
+    expect(readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8')).toBe(newerExample);
+    expect(readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8')).toBe(app);
+    expect(report.config_keys_pruned).toEqual([]);
+  });
+
+  it('refreshes the tracked config as before when the stamp matches this version', async () => {
+    mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/.config.example'), generateConfigExample());
+    writeFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'future_knob=on\n');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8')).toBe(
+      generateConfigExample(),
+    );
+    const app = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
+    expect(app).not.toContain('future_knob');
+    expect(app).toMatch(/^# auto_update=true$/m);
   });
 
   it('migrates an already-onboarded project schema forward on update (buildout F1, C4)', async () => {
