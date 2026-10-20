@@ -1,15 +1,3 @@
-/**
- * FR-DP3: Defect Pattern Store
- *
- * File-based store at ~/.paqad/defect-patterns/ (parallel to the solution
- * pattern library at ~/.paqad/patterns/).
- *
- * Layout:
- *   ~/.paqad/defect-patterns/
- *     index.json           – lightweight metadata per pattern
- *     entries/{id}.json    – full pattern entry
- */
-
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -31,11 +19,6 @@ export function defaultStoreRoot(): string {
   return path.join(os.homedir(), '.paqad', 'defect-patterns');
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/** Record a batch of findings into the store. Creates or updates pattern entries. */
 export async function recordFindings(
   findings: DefectFinding[],
   storeRoot = defaultStoreRoot(),
@@ -52,7 +35,6 @@ export async function recordFindings(
   await saveIndex(index, storeRoot);
 }
 
-/** Query patterns relevant to a given stack context. */
 export async function queryPatterns(
   options: {
     stack_context?: StackContext;
@@ -88,7 +70,6 @@ export async function queryPatterns(
   return filtered.sort((a, b) => b.frequency - a.frequency).slice(0, limit);
 }
 
-/** Remove patterns last seen more than `olderThanDays` days ago. */
 export async function prunePatterns(
   olderThanDays: number,
   storeRoot = defaultStoreRoot(),
@@ -101,9 +82,7 @@ export async function prunePatterns(
     try {
       const { unlink } = await import('node:fs/promises');
       await unlink(entryPath(entry.pattern_id, storeRoot));
-    } catch {
-      // best-effort; entry file may already be missing
-    }
+    } catch {}
   }
 
   index.entries = index.entries.filter((e) => new Date(e.last_seen) >= cutoff);
@@ -112,7 +91,6 @@ export async function prunePatterns(
   return toRemove.length;
 }
 
-/** Load the full index, rebuilding from entry files if it is corrupt. */
 export async function loadIndex(storeRoot = defaultStoreRoot()): Promise<DefectPatternIndex> {
   const indexFile = path.join(storeRoot, 'index.json');
   try {
@@ -123,12 +101,10 @@ export async function loadIndex(storeRoot = defaultStoreRoot()): Promise<DefectP
     }
     return parsed;
   } catch {
-    // Corrupt or missing — rebuild from entry files (EC-DP3).
     return rebuildIndex(storeRoot);
   }
 }
 
-/** Load a single pattern entry by ID. Returns null if it does not exist or is corrupt. */
 export async function loadEntry(
   patternId: string,
   storeRoot = defaultStoreRoot(),
@@ -140,10 +116,6 @@ export async function loadEntry(
     return null;
   }
 }
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 function entryPath(patternId: string, storeRoot: string): string {
   return path.join(storeRoot, 'entries', `${patternId}.json`);
@@ -176,9 +148,7 @@ async function rebuildIndex(storeRoot: string): Promise<DefectPatternIndex> {
   let files: string[] = [];
   try {
     files = await readdir(entriesDir);
-  } catch {
-    // No entries directory yet
-  }
+  } catch {}
 
   const entries: DefectPatternIndexEntry[] = [];
   for (const file of files) {
@@ -258,7 +228,6 @@ function applyFindingToEntry(finding: DefectFinding, entry: DefectPatternEntry):
   entry.recency = finding.recorded_at;
   entry.stale = false;
 
-  // Merge stack context if not already present
   if (
     !entry.stack_contexts.some(
       (sc) =>
@@ -269,7 +238,6 @@ function applyFindingToEntry(finding: DefectFinding, entry: DefectPatternEntry):
     entry.stack_contexts.push(finding.stack_context);
   }
 
-  // Cap examples at 5
   if (finding.description && entry.example_obligations.length < EXAMPLE_CAP) {
     if (!entry.example_obligations.includes(finding.description)) {
       entry.example_obligations.push(finding.description);
@@ -299,7 +267,6 @@ function generatePatternId(subcategory: string): string {
   return `${slug}-${Date.now().toString(36)}`;
 }
 
-/** Mark patterns older than STALENESS_DAYS as stale without removing them. */
 export function markStaleEntries(index: DefectPatternIndex): void {
   const cutoff = new Date(Date.now() - STALENESS_DAYS * 24 * 60 * 60 * 1000);
   for (const entry of index.entries) {

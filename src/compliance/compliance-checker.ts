@@ -19,31 +19,19 @@ export interface CheckComplianceOptions {
   project_root: string;
   index: ObligationIndex;
   test_globs?: string[];
-  /**
-   * Absolute or project-root-relative path where the report is loaded from (cache)
-   * and written to after a fresh scan (FR-3.5, FR-3.6).  When omitted the report
-   * is returned in memory only.
-   */
   report_path?: string;
   spec_review?: SpecReviewReport | null;
-  /**
-   * Optional consumer cancellation signal (PQD-104). Checked before the test
-   * file scan and before the report is written; an abort throws `CancelledError`
-   * and writes no report.
-   */
   signal?: AbortSignal;
 }
 
 const DEFAULT_TEST_GLOBS = ['tests/**/*.{test,spec}.{ts,tsx,js,jsx}', 'tests/**/*.test.ts'];
 
 const OBLIGATION_ANNOTATION_PATTERN = /@obligation\s+([A-Z][A-Z0-9._-]*)\b/g;
-// Matches: it('...'), test('...'), describe('...') with single, double, or backtick quotes
 const TEST_CALL_PATTERN = /(?:it|test|describe)\s*\(\s*['"`]([^'"`\n]*)/g;
 
 export async function checkSpecCompliance(
   options: CheckComplianceOptions,
 ): Promise<ComplianceReport> {
-  // Pre-flight: never start the scan once the consumer has aborted (PQD-104).
   if (options.signal?.aborted) {
     throw new CancelledError('Compliance check cancelled by consumer');
   }
@@ -51,13 +39,11 @@ export async function checkSpecCompliance(
   const testGlobs =
     options.test_globs && options.test_globs.length > 0 ? options.test_globs : DEFAULT_TEST_GLOBS;
 
-  // Gather test files and compute a content hash for cache invalidation (FR-3.6).
   const { sortedFiles, testFilesHash } = await computeTestFilesHash(
     options.project_root,
     testGlobs,
   );
 
-  // --- Incremental cache check (FR-3.6) ---
   if (options.report_path) {
     const cached = await loadCachedReport(options.project_root, options.report_path);
     if (
@@ -115,12 +101,10 @@ export async function checkSpecCompliance(
     uncovered_obligations,
   };
 
-  // A cancellation that arrived during the scan must leave no report on disk.
   if (options.signal?.aborted) {
     throw new CancelledError('Compliance check cancelled by consumer');
   }
 
-  // Persist for future cache hits (FR-3.5).
   if (options.report_path) {
     await persistReport(options.project_root, options.report_path, report);
   }
@@ -157,17 +141,12 @@ export function assertComplianceSummaryInvariants(summary: {
   enforceSummaryInvariants(summary);
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 type EvidenceScan = {
   byObligationId: Map<string, string[]>;
   testNamesByFile: Map<string, string[]>;
   fileContents: Map<string, string>;
 };
 
-/** Returns sorted unique test file paths and a hash of their collective contents. */
 async function computeTestFilesHash(
   projectRoot: string,
   globs: string[],
@@ -180,7 +159,6 @@ async function computeTestFilesHash(
   }
 
   const contents = await Promise.all(sortedFiles.map((f) => readFile(f, 'utf8')));
-  // Hash: sorted paths + contents so renames and edits both invalidate.
   const hashInput = sortedFiles.map((f, i) => `${f}\x00${contents[i]!}`).join('\x01');
   return { sortedFiles, testFilesHash: sha256Hex(hashInput) };
 }
@@ -239,7 +217,6 @@ async function scanEvidence(sortedFiles: string[]): Promise<EvidenceScan> {
   const testNamesByFile = new Map<string, string[]>();
 
   for (const [filePath, body] of contents) {
-    // Annotation scan: @obligation <ID>
     const annotationMatches = [...body.matchAll(OBLIGATION_ANNOTATION_PATTERN)];
     for (const match of annotationMatches) {
       const id = match[1]!;
@@ -249,7 +226,6 @@ async function scanEvidence(sortedFiles: string[]): Promise<EvidenceScan> {
       }
       byObligationId.set(id, list);
     }
-    // Test-call name scan: it/test/describe('...')
     testNamesByFile.set(filePath, extractTestCallNames(body));
   }
 
@@ -262,12 +238,10 @@ function computeState(
   testNameEvidence: string[],
   scan: EvidenceScan,
 ): ComplianceState {
-  // Strong signal: explicit @obligation annotation OR obligation ID in a test call name
   if (annotationEvidence.length > 0 || testNameEvidence.length > 0) {
     return 'covered';
   }
 
-  // Weak signal: ID appears somewhere in a test file (but not in a test name)
   const referencedAnywhere = [...scan.fileContents.values()].some((body) =>
     body.includes(obligationId),
   );
@@ -275,7 +249,6 @@ function computeState(
     return 'partial';
   }
 
-  // Generated IDs with no test signal are indeterminate (cannot be verified programmatically)
   if (obligationId.startsWith('GEN-')) {
     return 'indeterminate';
   }
@@ -297,10 +270,6 @@ function summarize(obligations: ComplianceReportObligation[]) {
     summary[obligation.state] += 1;
   }
 
-  // FR-3.3: compliance_ratio = covered / (total - indeterminate).
-  // Indeterminate obligations are excluded from the denominator because they
-  // cannot be programmatically evaluated. Guard against zero denominator when
-  // all obligations are indeterminate.
   const denominator = summary.total - summary.indeterminate;
   summary.compliance_ratio = denominator === 0 ? 1 : summary.covered / denominator;
 

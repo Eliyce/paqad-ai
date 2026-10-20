@@ -55,7 +55,7 @@ export const contradictionDetector: SpecReviewDetector = {
           ),
           suggested_resolution: `Choose one rule for ${subject} or define when each rule applies.`,
         });
-        break; // one contradiction per "always" subject is sufficient; continue to the next left
+        break;
       }
     }
 

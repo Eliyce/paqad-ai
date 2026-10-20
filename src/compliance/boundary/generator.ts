@@ -1,12 +1,3 @@
-/**
- * FR-BT3: Boundary Test Generation
- *
- * Generates idempotent Vitest test stubs for every output state of a
- * BoundaryInterface. Unhandled variants get a comment flagging the gap.
- *
- * Output path: .paqad/compliance/boundary-tests/<producer>__<consumer>__<TypeName>.test.ts
- */
-
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -16,13 +7,12 @@ export interface GenerateBoundaryTestsOptions {
   project_root: string;
   boundary: BoundaryInterface;
   unhandled: UnhandledVariant[];
-  /** Override output directory (default: .paqad/compliance/boundary-tests). */
   output_dir?: string;
 }
 
 export interface GeneratedBoundaryTest {
   file_path: string;
-  written: boolean; // false = already existed and was identical (idempotent)
+  written: boolean;
 }
 
 export async function generateBoundaryTests(
@@ -47,10 +37,6 @@ export async function generateBoundaryTests(
 
   return results;
 }
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
 
 function buildFileName(boundary: BoundaryInterface, consumerSpec: string): string {
   const producer = boundary.producer_spec ?? 'unknown';
@@ -106,9 +92,7 @@ async function writeIfChanged(filePath: string, content: string): Promise<boolea
   try {
     const existing = await readFile(filePath, 'utf8');
     if (existing === content) return false;
-  } catch {
-    // File does not exist — write it
-  }
+  } catch {}
   await writeFile(filePath, content, 'utf8');
   return true;
 }

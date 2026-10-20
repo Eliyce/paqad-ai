@@ -1,28 +1,10 @@
-/**
- * FR-BT2: State Set Extraction
- *
- * Given a BoundaryInterface, determines which states are "handled" by each
- * consumer spec by scanning the consumer spec's Markdown text for mentions
- * of each state value.
- *
- * Returns the set of unhandled variants — states in the producer's output set
- * that never appear in the consumer spec.
- */
-
 import type { BoundaryInterface, UnhandledVariant } from './types.js';
 
 export interface ExtractionResult {
   boundary: BoundaryInterface;
-  /** Per-consumer map from consumer_spec → array of unhandled states. */
   unhandled_by_consumer: Map<string, UnhandledVariant[]>;
 }
 
-/**
- * Compute unhandled variants for one BoundaryInterface.
- *
- * @param boundary   The detected boundary.
- * @param specTexts  Map from spec-slug to the spec's full Markdown text.
- */
 export function extractUnhandledVariants(
   boundary: BoundaryInterface,
   specTexts: Map<string, string>,

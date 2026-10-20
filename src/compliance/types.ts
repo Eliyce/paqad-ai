@@ -58,9 +58,7 @@ export interface ComplianceReport {
     spec_hash: string;
     generated_at: string;
     schema_version: number;
-    /** SHA-256 of sorted test-file contents — used for incremental cache validation (FR-3.6). */
     test_files_hash: string;
-    /** True when the report was returned from cache without re-scanning (FR-3.6). */
     cache_hit: boolean;
   };
   summary: ComplianceReportSummary;
@@ -70,7 +68,6 @@ export interface ComplianceReport {
     warning: string | null;
   } | null;
   obligations: ComplianceReportObligation[];
-  /** Convenience list of obligation IDs whose state is `uncovered` (FR-3.3). */
   uncovered_obligations: string[];
 }
 
