@@ -221,6 +221,25 @@ describe('the plugin version is read from the plugin root', () => {
     writeFileSync(join(data, 'runtime', 'version'), '1.95.0\n');
     expect(readInstalledPluginVersion(home, { CLAUDE_PLUGIN_DATA: data })).toBe('1.95.0');
   });
+  it('reads the install record and the runtime copy from CLAUDE_CONFIG_DIR when it is set', () => {
+    const configDir = join(home, 'claude-config');
+    const env = { CLAUDE_CONFIG_DIR: configDir };
+    installedAt('1.98.0');
+    expect(readInstalledPluginVersion(home, env)).toBeNull();
+    const copy = join(configDir, 'plugins', 'data', 'paqad-eliyce', 'runtime');
+    mkdirSync(copy, { recursive: true });
+    writeFileSync(join(copy, 'version'), '1.97.5\n');
+    expect(readInstalledPluginVersion(home, env)).toBe('1.97.5');
+    mkdirSync(join(configDir, 'plugins'), { recursive: true });
+    writeFileSync(
+      join(configDir, 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ 'paqad@eliyce': { installPath: pluginRoot('1.99.4') } }),
+    );
+    expect(readInstalledPluginVersion(home, env)).toBe('1.99.4');
+    expect(line({ cliEntry: PLUGIN_CLI }, env).detail).toBe(
+      'plugin; plugin v1.99.4, paqad-ai v1.99.4',
+    );
+  });
   it('ignores an unreadable or oddly shaped install record', () => {
     const dir = join(home, '.claude', 'plugins');
     mkdirSync(dir, { recursive: true });
@@ -282,7 +301,7 @@ describe('plugin rollback with no claude to run', () => {
       'paqad now runs from the npm package in Claude Code again. The plugin was removed.',
     );
   });
-  it('turns the plugin off without touching settings that cannot be read', () => {
+  it('says the plugin could not be turned off when the settings cannot be read, and leaves them alone', () => {
     writeInstalledPlugins({ 'paqad@eliyce': {} });
     mkdirSync(join(home, '.claude'), { recursive: true });
     writeFileSync(join(home, '.claude', 'settings.json'), '{ broken');
@@ -292,7 +311,21 @@ describe('plugin rollback with no claude to run', () => {
         runClaudeUninstall: () => 'no-claude',
         writeInstallModeSettings: () => {},
       }),
-    ).toContain('The plugin is turned off.');
+    ).toBe(
+      'paqad could not turn the plugin off. Run `claude plugin uninstall paqad@eliyce` to remove it.',
+    );
     expect(readFileSync(join(home, '.claude', 'settings.json'), 'utf8')).toBe('{ broken');
+  });
+  it('says the plugin could not be turned off when the settings are not an object', () => {
+    writeInstalledPlugins({ 'paqad@eliyce': {} });
+    mkdirSync(join(home, '.claude'), { recursive: true });
+    writeFileSync(join(home, '.claude', 'settings.json'), '"text"');
+    expect(
+      rollbackPlugin(projectRoot, {
+        home,
+        runClaudeUninstall: () => 'no-claude',
+        writeInstallModeSettings: () => {},
+      }),
+    ).toContain('paqad could not turn the plugin off.');
   });
 });

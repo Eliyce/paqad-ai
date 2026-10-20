@@ -836,6 +836,9 @@ export const ROLLBACK_MESSAGE =
 export const ROLLBACK_NO_CLAUDE_MESSAGE =
   'The plugin is turned off. Run `claude plugin uninstall paqad@eliyce` to remove it.';
 
+export const ROLLBACK_NOT_TURNED_OFF_MESSAGE =
+  'paqad could not turn the plugin off. Run `claude plugin uninstall paqad@eliyce` to remove it.';
+
 export type ClaudeUninstallOutcome = ClaudeExecOutcome | 'no-claude';
 
 export interface RollbackDeps {
@@ -853,7 +856,7 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
   const outcome = listed && deps.runClaudeUninstall ? deps.runClaudeUninstall(home) : undefined;
   undoViaSettings(home);
   const stillInstalled = listed && outcome !== undefined && outcome !== 'ok';
-  if (stillInstalled) disableViaSettings(home);
+  const turnedOff = stillInstalled && disableViaSettings(home);
   clearPluginSeen(home);
   writeMigrationState(home, {
     attempts: prior?.attempts ?? 0,
@@ -867,19 +870,20 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
     deps.writeInstallModeSettings ??
     ((root: string) => setConfigValue(root, 'claude_install_mode', 'settings'))
   )(projectRoot);
-  return stillInstalled ? ROLLBACK_NO_CLAUDE_MESSAGE : ROLLBACK_MESSAGE;
+  if (!stillInstalled) return ROLLBACK_MESSAGE;
+  return turnedOff ? ROLLBACK_NO_CLAUDE_MESSAGE : ROLLBACK_NOT_TURNED_OFF_MESSAGE;
 }
 
-function disableViaSettings(home: string): void {
+function disableViaSettings(home: string): boolean {
   const path = userClaudeSettingsPath(home);
   let settings: Record<string, unknown> = {};
   if (existsSync(path)) {
     try {
       const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
-      if (!isRecord(parsed)) return;
+      if (!isRecord(parsed)) return false;
       settings = parsed;
     } catch {
-      return;
+      return false;
     }
   }
   const enabled = isRecord(settings.enabledPlugins) ? settings.enabledPlugins : {};
@@ -890,8 +894,9 @@ function disableViaSettings(home: string): void {
     writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
     renameSync(tmp, path);
   } catch {
-    return;
+    return false;
   }
+  return true;
 }
 
 export interface ClaudeInstallLine {
@@ -1008,7 +1013,8 @@ export function readInstalledPluginVersion(
   home: string,
   env: NodeJS.ProcessEnv = process.env,
 ): string | null {
-  for (const entry of installedPluginEntries(home)) {
+  const configDir = claudeConfigDir(home, env);
+  for (const entry of installedPluginEntries(configDir)) {
     const installPath = typeof entry.installPath === 'string' ? entry.installPath : null;
     const fromRoot = installPath === null ? null : readPackageVersion(installPath);
     if (fromRoot !== null) return fromRoot;
@@ -1016,16 +1022,19 @@ export function readInstalledPluginVersion(
   }
   const data = env.CLAUDE_PLUGIN_DATA?.trim()
     ? env.CLAUDE_PLUGIN_DATA
-    : join(home, '.claude', 'plugins', 'data', 'paqad-eliyce');
+    : join(configDir, 'plugins', 'data', 'paqad-eliyce');
   return readRuntimeCopyVersion(join(data, 'runtime'));
 }
 
-function installedPluginEntries(home: string): Record<string, unknown>[] {
+function claudeConfigDir(home: string, env: NodeJS.ProcessEnv): string {
+  const configDir = env.CLAUDE_CONFIG_DIR?.trim();
+  return configDir ? configDir : join(home, '.claude');
+}
+
+function installedPluginEntries(configDir: string): Record<string, unknown>[] {
   let parsed: unknown;
   try {
-    parsed = JSON.parse(
-      readFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), 'utf8'),
-    );
+    parsed = JSON.parse(readFileSync(join(configDir, 'plugins', 'installed_plugins.json'), 'utf8'));
   } catch {
     return [];
   }
@@ -1039,10 +1048,7 @@ export const PROJECT_NPM_HOOKS_SUFFIX =
   '; this project still runs the npm hooks (project .claude/settings.json)';
 
 function hookUserSettingsPath(home: string, env: NodeJS.ProcessEnv): string {
-  const configDir = env.CLAUDE_CONFIG_DIR;
-  return configDir?.trim()
-    ? join(configDir, 'settings.json')
-    : join(home, '.claude', 'settings.json');
+  return join(claudeConfigDir(home, env), 'settings.json');
 }
 
 function userSettingsLabel(home: string, env: NodeJS.ProcessEnv): string {
