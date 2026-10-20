@@ -1,9 +1,3 @@
-// Dogfood + dev helper: drive the stage-evidence recorder from the shell so a
-// human/agent can mark stages live while following the feature-development
-// workflow. `npx tsx scripts/se-mark.ts <verb> [stage] [--artifact f1,f2]`.
-//   open | start <stage> | end <stage> [--artifact a,b] | verify | status
-// Session id comes from the shared ledger-session cache (SE_SESSION overrides).
-
 import {
   endStage,
   foldChange,
@@ -19,9 +13,6 @@ const [verb, stage] = process.argv.slice(2);
 const artifactArg = process.argv.find((a) => a.startsWith('--artifact='));
 const artifactPaths = artifactArg ? artifactArg.slice('--artifact='.length).split(',') : [];
 const root = process.cwd();
-// Resolve the SAME session the live writer + block-forward gate key on (the
-// single-slot `.paqad/session/ledger-session-id` cache) so a manual mark actually
-// clears the pre-mutation block. SE_SESSION overrides for a fixed dev session.
 const sessionId = resolveSessionId(root, process.env.SE_SESSION ?? null);
 const ctx = { sessionId, adapter: 'claude-code' as const };
 

@@ -1,33 +1,12 @@
-// Resident-load footprint measurement (issue #285, headline a). Pure helpers plus
-// a filesystem discovery pass — no tokenizer here (the CLI injects a real one from
-// src/context/tokenizer-cache.ts, or a labelled char/4 fallback). The runnable CLI
-// (measure-footprint.mjs) wires these to the tokenizer and stdout.
-//
-// The measurement models what paqad makes the agent load at session start, per the
-// framework bootstrap contract (AGENT-BOOTSTRAP.md step 2): the host entry file plus
-// the rule slice, stack, design-system, and workflows areas. Everything else under
-// docs/instructions is loaded on demand, not at session start, and is reported as
-// such so no on-demand area is counted toward the resident number.
-
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-/** docs/instructions areas the bootstrap loads at session start (RULE-17 contract). */
 export const RESIDENT_AREAS = ['rules', 'stack', 'design-system', 'workflows'];
 
-/** Lean rule slice (#284): loaded as the rule contract instead of the full rules tree. */
 export const RULE_SLICE_PATH = join('.paqad', 'context', 'session-context.md');
 
-/**
- * Heading that separates the always-resident manifest (one capped line per rule) from
- * the task-varying loaded rule text inside the lean slice. Text before it is present
- * every session (the #284 resident floor); text from it on is the rule bodies loaded
- * for the files in play, which differs per session — so the two are measured apart and
- * only the manifest counts toward the resident headline.
- */
 export const RULE_LOADED_TEXT_MARKER = '\n## Loaded rule text';
 
-/** Host entry files any adapter may render; the first that exists is measured. */
 export const ENTRY_FILE_CANDIDATES = [
   'CLAUDE.md',
   'AGENTS.md',
@@ -39,32 +18,26 @@ export const ENTRY_FILE_CANDIDATES = [
   join('.junie', 'AGENTS.md'),
 ];
 
-/** Project-relative path to the docs/instructions root. */
 const INSTRUCTIONS_DIR = join('docs', 'instructions');
 
-/** Directory entries, sorted; [] when the path is missing or not a directory. No pre-stat. */
 function readDirSorted(dir) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
   } catch {
-    // Missing dir or not a directory — nothing to contribute.
     return [];
   }
   return entries.sort((a, b) => a.name.localeCompare(b.name));
 }
 
-/** File text, or null when the path is missing, is a directory, or is unreadable. No pre-stat. */
 function readTextOrNull(abs) {
   try {
     return readFileSync(abs, 'utf8');
   } catch {
-    // Read-and-catch instead of exists-then-read: avoids a check-then-use filesystem race.
     return null;
   }
 }
 
-/** Recursively collect every file under `dir` (absolute paths), or [] when absent. */
 function walkFiles(dir) {
   const out = [];
   for (const entry of readDirSorted(dir)) {
@@ -78,18 +51,9 @@ function walkFiles(dir) {
   return out;
 }
 
-/**
- * Discover every file that contributes to the session-start footprint of `projectRoot`.
- * Returns one record per file with its area and load kind. Read-only; tolerant of a
- * project with no entry file and no docs/instructions (returns []).
- *
- * @param {string} projectRoot
- * @returns {{area: string, kind: 'entry'|'resident'|'on-demand', path: string, text: string}[]}
- */
 export function discoverFootprintFiles(projectRoot) {
   const records = [];
 
-  // Host entry file (one, whichever adapter's file reads first).
   for (const candidate of ENTRY_FILE_CANDIDATES) {
     const text = readTextOrNull(join(projectRoot, candidate));
     if (text !== null) {
@@ -98,9 +62,6 @@ export function discoverFootprintFiles(projectRoot) {
     }
   }
 
-  // Lean rule slice (#284) is the resident rule contract when present. Split it into
-  // the always-resident manifest and the task-varying loaded rule text so only the
-  // stable manifest floor counts toward the resident headline.
   const slice = readTextOrNull(join(projectRoot, RULE_SLICE_PATH));
   const hasSlice = slice !== null;
   if (hasSlice) {
@@ -123,9 +84,6 @@ export function discoverFootprintFiles(projectRoot) {
     }
   }
 
-  // Every docs/instructions area. `rules` is resident only when no lean slice exists
-  // (the slice replaces the full rule tree); the other named areas are always resident;
-  // everything else is on-demand.
   const instructionsAbs = join(projectRoot, INSTRUCTIONS_DIR);
   for (const entry of readDirSorted(instructionsAbs)) {
     const areaAbs = join(instructionsAbs, entry.name);
@@ -150,19 +108,6 @@ export function discoverFootprintFiles(projectRoot) {
   return records;
 }
 
-/**
- * Aggregate discovered files into per-area rows and resident/full totals, counting
- * tokens with the injected `countTokens`. Pure — the CLI supplies the tokenizer.
- *
- * `resident` sums entry + resident-kind areas (what paqad adds at session start today).
- * `full` sums the same load with the full rule tree in place of the lean slice (the
- * pre-#284 "before"), so `reduction` is the honest lean-rules saving. When no lean
- * slice is present, resident == full and reduction is 0.
- *
- * @param {{area: string, kind: string, path: string, text: string}[]} records
- * @param {(text: string) => number} countTokens
- * @returns {{areas: object[], totals: object, reduction: object}}
- */
 export function aggregateFootprint(records, countTokens) {
   const byArea = new Map();
   for (const rec of records) {
@@ -192,9 +137,6 @@ export function aggregateFootprint(records, countTokens) {
   const onDemand = sum((a) => a.kind === 'on-demand');
   const taskLoaded = sum((a) => a.kind === 'task-loaded');
 
-  // "Full" swaps the lean manifest back out for the full rule tree: resident minus the
-  // manifest, plus the on-demand `rules` area (where the full tree sits once the slice is
-  // present). With no slice, `rules` is already resident, so full == resident.
   const manifest = areas.find((a) => a.area === 'rules-manifest');
   const fullRules = areas.find((a) => a.area === 'rules' && a.kind === 'on-demand');
   const full =
@@ -213,17 +155,10 @@ export function aggregateFootprint(records, countTokens) {
   return { areas, totals: { resident, onDemand, taskLoaded, full }, reduction };
 }
 
-/** Format a reduction ratio as a rounded percentage string (e.g. `62%`). */
 export function formatPercent(ratio) {
   return `${Math.round(ratio * 100)}%`;
 }
 
-/**
- * Build the machine-readable footprint report.
- *
- * @param {{areas: object[], totals: object, reduction: object}} aggregate
- * @param {{project: string, commit: string, tokenizerVersion: string, date: string}} meta
- */
 export function buildFootprintReport(aggregate, meta) {
   return {
     project: meta.project,
@@ -239,12 +174,6 @@ export function buildFootprintReport(aggregate, meta) {
   };
 }
 
-/**
- * Render the footprint as a Markdown table plus a resident/full summary line.
- *
- * @param {{areas: object[], totals: object, reduction: object}} aggregate
- * @param {{project: string, commit: string, tokenizerVersion: string, date: string}} meta
- */
 export function renderFootprintMarkdown(aggregate, meta) {
   const heuristic = meta.tokenizerVersion === 'heuristic';
   const lines = [];

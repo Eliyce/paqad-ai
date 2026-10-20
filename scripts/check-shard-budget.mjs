@@ -1,13 +1,4 @@
 #!/usr/bin/env node
-// Warns when an OS's CI test shards drift past their time budget (issue #654). Runs in each
-// `merge` job of .github/workflows/ci.yml after the shards are merged.
-//
-//   node scripts/check-shard-budget.mjs [--dir <dir>] [--os <label>] [--root <dir>]
-//
-// Reads every `durations-<shard>.json` (a vitest JSON report one shard wrote) in --dir (default
-// .vitest-durations), prints one line per shard, and prints a GitHub `::warning::` when the
-// slowest shard ran over 270s or a single test file over 90s. It never fails the build: it always
-// exits 0, also when no reports are found, so a missing report cannot turn a gate red.
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

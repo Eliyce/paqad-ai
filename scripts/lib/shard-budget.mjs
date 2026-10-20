@@ -1,10 +1,3 @@
-// Pure helpers for scripts/check-shard-budget.mjs (issue #654). No I/O here.
-//
-// Each CI test shard writes a vitest JSON report of its own files next to its blob report. After
-// an OS's shards are merged, the budget check reads those reports and warns, without failing the
-// build, when the shards have drifted: the slowest shard ran over 270s, or one test file ran over
-// 90s. That is what keeps the sharded run inside its time target as tests are added.
-
 export const SHARD_BUDGET_MS = 270_000;
 export const FILE_BUDGET_MS = 90_000;
 
@@ -17,7 +10,6 @@ function isPlainObject(value) {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Escapes a GitHub workflow command value (`%`, CR and LF). */
 export function escapeAnnotation(text) {
   return String(text).replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A');
 }
@@ -26,11 +18,6 @@ function seconds(ms) {
   return `${Math.round(ms / 1000)}s`;
 }
 
-/**
- * Summarises one shard's vitest JSON report: its wall time (from the run start to the last file
- * finishing) and each file's own time. Paths are made root-relative with forward slashes when
- * they start with `root`.
- */
 export function summariseShard(label, report, root = '') {
   const results =
     isPlainObject(report) && Array.isArray(report.testResults) ? report.testResults : [];
@@ -52,10 +39,6 @@ export function summariseShard(label, report, root = '') {
   return { label, wallMs, files };
 }
 
-/**
- * The budget warnings for one OS's shards, as GitHub `::warning::` lines. Empty when every
- * shard and every file is inside its budget.
- */
 export function budgetWarnings(shards, os, budgets = {}) {
   const shardBudget = budgets.shardMs ?? SHARD_BUDGET_MS;
   const fileBudget = budgets.fileMs ?? FILE_BUDGET_MS;
@@ -85,7 +68,6 @@ export function budgetWarnings(shards, os, budgets = {}) {
   return warnings;
 }
 
-/** One plain line per shard, slowest first, for the job log. */
 export function budgetSummary(shards, os) {
   if (shards.length === 0) return [`No shard durations found for ${os}.`];
   return [...shards]

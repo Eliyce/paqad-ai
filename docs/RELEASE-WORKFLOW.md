@@ -256,6 +256,46 @@ the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.te
 - Dependabot: [`.github/dependabot.yml`](../.github/dependabot.yml) — npm and
   github-actions, weekly, grouped.
 
+### Repo scripts under `scripts/`
+
+Why each one works the way it does, for the parts the code does not say.
+
+- **`build-plugin-manifest.mjs`** runs after tsup in `pnpm build`. It writes
+  `.claude-plugin/plugin.json` (version from `package.json`), `runtime/claude-plugin/hooks.json`
+  and `runtime/claude-plugin/agents/*.md` from the one builder in `dist/plugin/manifest-build.js`,
+  which reuses the real hook renderer and stage-agent template, so there is no second copy. The
+  agents folder is rebuilt from scratch so a renamed or removed stage never leaves a stale file.
+  `tests/unit/plugin/manifest.test.ts` regenerates from the same builder and asserts a byte match.
+- **`validate-plugin.mjs`** runs `claude plugin validate` on the repo root (the marketplace file)
+  and on the packed tarball (the shipped manifest). Without a `claude` CLI it prints a skip note
+  and exits 0, so CI stays green on a runner without Claude Code. "Passed with warnings" (the
+  inherent npm-source warning) is allowed.
+- **`test-plugin.mjs`** runs the HUD mod's `claude plugin test` files. The plugin is rooted at the
+  repo root, where `claude plugin test` would also pick up the whole vitest suite, so it stages a
+  plugin of the mod alone in a temp folder: the real manifest minus agents and skills, a hooks file
+  naming only the module, and a copy of `runtime/claude-plugin/mod`. Command hooks are left out
+  because they have their own tests. It needs `claude` 2.1.301 or newer (the mod's floor) and
+  otherwise skips with exit 0.
+- **`check-surface-drift.mjs` and `check-surface-orphans.mjs`** mirror the extension-surface
+  verification gate, so a local run and verification agree. Drift is checked per barrel, because
+  per-symbol drift means nothing for `export *` barrels. A symbol used only inside its own
+  declaring module does not count as consumed. Orphans warn by default; `--strict` fails.
+- **`measure-footprint.mjs`** (with `lib/footprint.mjs`) measures what paqad makes the agent load at
+  session start: the host entry file plus the resident instruction areas. Inside the lean rule
+  slice only the manifest above the loaded-rules heading counts as resident, because the rule
+  bodies below it change per session. "Full" swaps the full rule tree back in, so the reported
+  saving is honest. It is read-only and uses the real tokenizer from the built dist bundle, or a
+  labelled characters-divided-by-4 fallback when the repo is not built. Files are read and caught
+  rather than checked first, to avoid a check-then-use race.
+- **`rule-findings-stats.mjs`** (with `lib/findings-stats.mjs`) reads the fresh-run findings rows
+  from every bundle's `rule-run.jsonl` and nothing else. A row is a snapshot of the findings
+  present at that run, not new catches, and cache hits write no row, so summing rows would count a
+  standing finding many times. The metric is therefore the per-run snapshot, reported per ISO week
+  as median and max. The host tiers are printed with the number so nobody reads it as enforcement
+  on advisory hosts. A partial or corrupt line is skipped.
+- **`se-mark.ts`** marks stages from the shell. It resolves the same session the live writer and
+  the pre-mutation gate key on, so a manual mark really clears the block; `SE_SESSION` overrides.
+
 ---
 
 ## 12. When something goes wrong

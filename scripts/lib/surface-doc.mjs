@@ -1,24 +1,7 @@
-// Shared parsing + analysis helpers for the engine extension surface contract
-// (PQD-92). Pure functions only — no I/O — so they are deterministic and unit
-// testable. The runnable CLIs (check-surface-orphans.mjs, check-surface-drift.mjs)
-// wire these to the filesystem and git.
-
-/** Public export barrels whose change must be mirrored in the surface document. */
 export const PUBLIC_BARRELS = ['src/index.ts', 'src/cli/index.ts', 'src/rule-scripts/index.ts'];
 
-/** Canonical location of the surface document. */
 export const SURFACE_DOC_PATH = 'docs/extension-surface.md';
 
-/**
- * Parse the canonical surface document into structured entries.
- *
- * Reads every Markdown table whose header row contains both a `Symbol` and a
- * `Stability` column. Column order is resolved from the header, so the table may
- * carry extra columns (e.g. an optional `Exempt` column) in any order.
- *
- * @param {string} markdown
- * @returns {{consumer: string, engineModule: string, symbol: string, signature: string, stability: string, since: string, exempt: string｜undefined}[]}
- */
 export function parseSurfaceDoc(markdown) {
   const lines = markdown.split(/\r?\n/u);
   const entries = [];
@@ -54,15 +37,6 @@ export function parseSurfaceDoc(markdown) {
   return entries;
 }
 
-/**
- * Report documented entries whose symbol is not used by any known consumer.
- * Exempt entries are never reported — that is the documented escape hatch for
- * call sites static analysis cannot reach.
- *
- * @param {{symbol: string, engineModule: string, stability: string, exempt?: string}[]} entries
- * @param {Set<string>｜string[]} usedSymbols
- * @returns {{symbol: string, engineModule: string, stability: string, recommendation: string}[]}
- */
 export function findOrphans(entries, usedSymbols) {
   const used = usedSymbols instanceof Set ? usedSymbols : new Set(usedSymbols);
   const orphans = [];
@@ -88,13 +62,6 @@ export function findOrphans(entries, usedSymbols) {
   return orphans;
 }
 
-/**
- * Decide whether a change set drifts from the surface contract: a public barrel
- * changed without the surface document being amended in the same change set.
- *
- * @param {string[]} changedFiles paths relative to the repo root
- * @returns {{violation: boolean, changedBarrels: string[], documentAmended: boolean}}
- */
 export function evaluateBarrelDrift(changedFiles) {
   const normalized = changedFiles.map(normalizeRepoPath);
   const changedBarrels = PUBLIC_BARRELS.filter((barrel) => normalized.includes(barrel));

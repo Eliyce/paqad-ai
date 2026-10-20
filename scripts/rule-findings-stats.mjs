@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// Weekly deterministic-findings stats from the per-feature rule-run bundle files (issue
-// #285, headline b; re-pointed for issue #468 Phase C, decision D-01KZV4A1). Read-only
-// consumer of the EXISTING bundle evidence — reads the fresh-run findings rows from every
-// `.paqad/ledger/feature-evidence/<feature>/rule-run.jsonl`, adds no new evidence store and
-// never touches `.paqad/scripts/rules/.cache/report.json`.
-//
-//   node scripts/rule-findings-stats.mjs [--project <path>] [--json]
-//
-// --project defaults to the current directory. --json prints only the JSON report.
-// Exit codes: 0 = read (including a project with no bundle rows, which prints "no data"),
-// 2 = usage error.
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -23,11 +12,6 @@ import {
 
 const USAGE = 'Usage: node scripts/rule-findings-stats.mjs [--project <path>] [--json]';
 
-/**
- * Host tiers that feed the rule ledger, matching HOOK_COVERAGE_MATRIX: the runner fires
- * on live-hook and completion-hook hosts, plus manual/skill runs anywhere. Printed with
- * the number so no reader mistakes it for enforcement on advisory hosts.
- */
 const HOST_TIERS =
   'live-hook host (claude-code) + completion-hook hosts (codex-cli, gemini-cli) + manual/skill runs on any host';
 
@@ -51,13 +35,6 @@ function parseArgs(argv) {
   return args;
 }
 
-/**
- * Read every fresh-run findings row from the per-feature `rule-run.jsonl` bundle files
- * (issue #468 Phase C — the findings home since Phase B). Globs the feature-evidence
- * container, skipping the `_session` / `_chat` control dirs (which carry no rule-run
- * file), and tolerantly parses each JSONL line. No dist import is needed — the bundle is
- * plain JSONL on disk. A missing container / unreadable file is treated as no rows.
- */
 function readBundleFindingsRows(projectRoot) {
   const container = join(projectRoot, '.paqad', 'ledger', 'feature-evidence');
   let entries;
@@ -75,7 +52,7 @@ function readBundleFindingsRows(projectRoot) {
     try {
       text = readFileSync(join(container, entry.name, 'rule-run.jsonl'), 'utf8');
     } catch {
-      continue; // no rule-run.jsonl in this bundle
+      continue;
     }
     for (const line of text.split('\n')) {
       const trimmed = line.trim();
@@ -84,9 +61,7 @@ function readBundleFindingsRows(projectRoot) {
       }
       try {
         rows.push(JSON.parse(trimmed));
-      } catch {
-        // Tolerant: skip a partial/corrupt line (an append-only log survives a mid-crash write).
-      }
+      } catch {}
     }
   }
   return rows;
