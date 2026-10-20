@@ -126,11 +126,16 @@ jobs:
           set -eu
           VERSION="$(node -p "require('./package.json').version")"
           git -c init.defaultBranch=main clone --quiet "https://x-access-token:${PAQAD_PLUGIN_PUSH_TOKEN}@github.com/Eliyce/paqad-claude-plugin.git" plugin-repo
+          if git -C plugin-repo ls-remote --exit-code --heads origin main > /dev/null; then
+            git -C plugin-repo checkout --quiet -B main origin/main
+          else
+            git -C plugin-repo symbolic-ref HEAD refs/heads/main
+          fi
           node scripts/assemble-plugin.mjs plugin-repo
           cd plugin-repo
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo main)"
+          BRANCH=main
           git add -A
           if git diff --cached --quiet; then
             echo "The plugin tree is unchanged at v${VERSION}; nothing to commit."
