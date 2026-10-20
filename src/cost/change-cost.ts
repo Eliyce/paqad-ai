@@ -1,26 +1,3 @@
-// What a change cost: `cost.json` in the change's bundle (issue #639, Part 23).
-//
-// The tokens come from the host's own transcripts: the main session's (its path arrives on every
-// hook payload as `transcript_path`) and each paqad subagent's (`agent_transcript_path` on
-// SubagentStop). Each message is counted once, by message id, across every transcript. Only the
-// change's window counts: from its first `open` row in stage-evidence.jsonl to its seal (the
-// receipt's verified time, else the close row, else now).
-//
-// Who spent what:
-//   - a stage agent (`paqad-<stage>`) is charged to its stage;
-//   - a High Table seat is charged to its role (the chief to `chief`) and, since the table sits
-//     during the spec, to the specification stage;
-//   - everything else (the main session, any other paqad agent) is charged to the stage whose
-//     recorded start and end hold the message's time, else to `orchestrator`.
-//
-// The Stop seam must stay fast, so the reads are incremental. A per-session cache under
-// `.paqad/session/hud/` keeps, for each transcript, the byte offset read so far and the usage of
-// every message kept from it. Each run reads only the bytes appended since. The cache is
-// invalidated per transcript when the file shrinks (a rewrite: read again from the start) and
-// when an earlier window floor is asked for (read again from the start), so it never disagrees
-// with a full read. Money comes from the dated price table in `prices.ts` and is always labelled
-// an estimate. Decision D-01M5AM0F03B730SDSAPVC96W38.
-
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -76,30 +53,19 @@ export const COST_SCHEMA_VERSION = 1;
 export const COST_SCHEMA = 'paqad.cost/1';
 export const COST_CACHE_SCHEMA = 'paqad.cost-cache/1';
 
-/** The stage a message lands on when no recorded stage holds its time. */
 export const ORCHESTRATOR_STAGE = 'orchestrator';
-/** The stage a High Table seat is charged to: the table sits while the spec is written. */
 export const HIGH_TABLE_STAGE = 'specification';
 
-// ── the cache ─────────────────────────────────────────────────────────────────
-
-/** One kept message: model, time, then input, output, cache read, cache write, 5m, 1h. */
 type CachedMessage = [string | null, string | null, number, number, number, number, number, number];
 
-/** One transcript the change cost reads. */
 export interface CostSource {
   kind: 'main' | 'agent';
   agent_type: string | null;
   agent_id: string | null;
-  /** The stage a stage agent ran, or null. */
   stage: string | null;
-  /** The High Table role a seat sat as (`chief-architect` for the chief), or null. */
   role: string | null;
-  /** The changes (bundle folder names) this transcript was seen with. */
   changes: string[];
-  /** Messages before this time are never kept (the earliest window start asked for). */
   floor: string | null;
-  /** The byte offset read so far. */
   offset: number;
   messages: Record<string, CachedMessage>;
 }
@@ -124,7 +90,6 @@ function emptyCache(sessionId: string): CostCache {
   return { schema: COST_CACHE_SCHEMA, session_id: sessionId, sources: {} };
 }
 
-/** Tolerant read of a cache file: a missing, broken or foreign file reads as empty. */
 export function readCostCache(path: string, sessionId: string): CostCache {
   try {
     const raw = asRecord(JSON.parse(readFileSync(path, 'utf8')) as unknown);
@@ -135,7 +100,6 @@ export function readCostCache(path: string, sessionId: string): CostCache {
   }
 }
 
-/** Every session's cost cache in the project, so a change resumed in a new session adds up. */
 function readAllCostCaches(projectRoot: string): CostCache[] {
   const dir = join(projectRoot, PATHS.HUD_DIR);
   if (!existsSync(dir)) return [];
@@ -144,9 +108,6 @@ function readAllCostCaches(projectRoot: string): CostCache[] {
     .map((name) => readCostCache(join(dir, name), name.slice(0, -HUD_COST_CACHE_SUFFIX.length)));
 }
 
-// ── recording the transcripts ─────────────────────────────────────────────────
-
-/** The fields of a hook payload the cost reads. */
 export interface CostHookPayload {
   session_id?: unknown;
   transcript_path?: unknown;
@@ -160,7 +121,6 @@ function earlier(a: string | null, b: string | null): string | null {
   return Date.parse(b) < Date.parse(a) ? b : a;
 }
 
-/** Add `path` to the cache (or tag it with one more change), lowering its floor when asked. */
 function registerSource(
   cache: CostCache,
   path: string,
@@ -182,14 +142,12 @@ function registerSource(
   if (!existing.changes.includes(dirName)) existing.changes.push(dirName);
   const lowered = earlier(existing.floor, floor);
   if (lowered !== existing.floor) {
-    // An earlier window than the kept messages cover: read the transcript again from the start.
     existing.floor = lowered;
     existing.offset = 0;
     existing.messages = {};
   }
 }
 
-/** Who a subagent was: its stage, or its High Table role (read once, from its own transcript). */
 function agentIdentity(
   agentType: string,
   agentId: string | null,
@@ -209,7 +167,6 @@ function agentIdentity(
   };
 }
 
-/** Record the transcripts a hook payload names, tagged with the change `dirName`. */
 export function recordCostSources(
   cache: CostCache,
   payload: CostHookPayload,
@@ -243,12 +200,10 @@ function fileSize(path: string): number | null {
   }
 }
 
-/** Read what was appended to one transcript since its stored offset, into its kept messages. */
 function refreshSource(path: string, source: CostSource, chunkBytes?: number): void {
   const size = fileSize(path);
-  if (size === null) return; // Gone: keep what was read; a later run may find it again.
+  if (size === null) return;
   if (size < source.offset) {
-    // The file shrank, so it was rewritten: what was read no longer matches it.
     source.offset = 0;
     source.messages = {};
   }
@@ -257,7 +212,6 @@ function refreshSource(path: string, source: CostSource, chunkBytes?: number): v
   const floor = source.floor === null ? Number.NaN : Date.parse(source.floor);
   for (const message of usage.messages) {
     const at = message.timestamp === null ? Number.NaN : Date.parse(message.timestamp);
-    // A message with no readable time can never be placed in a window, so it is not kept.
     if (Number.isNaN(at) || at < floor) continue;
     const kept = source.messages[message.id];
     const merged = kept ? maxTokenUsage(usageOf(kept), message.usage) : message.usage;
@@ -293,23 +247,11 @@ export interface UpdateCostCacheInput {
   sessionId: string;
   dirName: string;
   payload: CostHookPayload;
-  /** The change's window start: messages before it are never kept. */
   floor: string;
   chunkBytes?: number;
-  /** Lock seam for tests; the defaults wait up to 5 s for a parallel hook. */
   lock?: FileLockOptions;
 }
 
-/**
- * Record the payload's transcripts and read what each of the change's transcripts gained since
- * the last run, then write the session's cache atomically. Throws on a write fault.
- *
- * The read-merge-write runs under a cross-process lock: parallel SubagentStop hooks (the High
- * Table's seats end together) each add their own transcript path, and without the lock the last
- * writer would drop the others. When the lock cannot be taken in time the update is skipped and
- * logged to `.paqad/logs/hooks.log`, never thrown: the cache on disk is returned as it stands and
- * the next hook run records the path again.
- */
 export function updateCostCache(input: UpdateCostCacheInput): CostCache {
   const path = hudCostCachePath(input.projectRoot, input.sessionId);
   try {
@@ -333,12 +275,9 @@ export function updateCostCache(input: UpdateCostCacheInput): CostCache {
   }
 }
 
-// ── the window ────────────────────────────────────────────────────────────────
-
 export interface CostWindow {
   from: string;
   to: string;
-  /** True when the window ends at a seal (the receipt or the close row), not at now. */
   sealed: boolean;
   sealed_by: 'receipt' | 'close' | null;
 }
@@ -349,7 +288,6 @@ function receiptTime(projectRoot: string, dirName: string): string | null {
   return str(decodeReceiptStatement(envelope)?.predicate?.time_verified);
 }
 
-/** The time of the close row that left the change closed (the last open or close row). */
 function closeTime(rows: readonly SessionLedgerRow[]): string | null {
   let closed: string | null = null;
   for (const row of rows) {
@@ -359,7 +297,6 @@ function closeTime(rows: readonly SessionLedgerRow[]): string | null {
   return closed;
 }
 
-/** The change's window, or null when it has no `open` row to start from. */
 export function changeCostWindow(
   projectRoot: string,
   dirName: string,
@@ -376,15 +313,12 @@ export function changeCostWindow(
   return { from, to: now().toISOString(), sealed: false, sealed_by: null };
 }
 
-// ── stage windows ─────────────────────────────────────────────────────────────
-
 interface StageSpan {
   stage: string;
   start: number;
   end: number;
 }
 
-/** Each recorded start of a stage paired with its next end (an open stage runs to the end). */
 function stageSpans(rows: readonly SessionLedgerRow[]): StageSpan[] {
   const spans: StageSpan[] = [];
   rows.forEach((row, index) => {
@@ -404,7 +338,6 @@ function stageSpans(rows: readonly SessionLedgerRow[]): StageSpan[] {
   return spans;
 }
 
-/** The stage whose span holds `at` (the latest started one wins), else the orchestrator. */
 function stageAt(spans: readonly StageSpan[], at: number): string {
   let best: StageSpan | null = null;
   for (const span of spans) {
@@ -414,9 +347,6 @@ function stageAt(spans: readonly StageSpan[], at: number): string {
   return best?.stage ?? ORCHESTRATOR_STAGE;
 }
 
-// ── the record ────────────────────────────────────────────────────────────────
-
-/** Token counts as the record shows them (the 5m and 1h split stays inside the price). */
 export interface CostTokens {
   input: number;
   output: number;
@@ -427,7 +357,6 @@ export interface CostTokens {
 
 export interface CostLine {
   tokens: CostTokens;
-  /** The priced part in US dollars, or null when none of it is priced. */
   usd: number | null;
 }
 
@@ -437,7 +366,6 @@ export interface CostStageLine extends CostLine {
 
 export interface CostExpertLine extends CostLine {
   role: string;
-  /** True when read from the seat's own transcript; false for its own self-reported estimate. */
   exact: boolean;
 }
 
@@ -445,7 +373,6 @@ export interface CostModelLine extends CostLine {
   model: string;
 }
 
-/** The body of `cost.json`; the bundle envelope header comes first on disk. */
 export interface ChangeCostRecord {
   schema: typeof COST_SCHEMA;
   computed_at: string;
@@ -456,17 +383,13 @@ export interface ChangeCostRecord {
   label: string;
   plan_note: string;
   tokens: CostTokens;
-  /** The priced part in US dollars; null when no token in the window is priced. */
   usd: number | null;
-  /** Models seen with tokens but not in the price table: their tokens count, their money does not. */
   unpriced_models: string[];
   by_model: CostModelLine[];
   by_stage: CostStageLine[];
-  /** One line per expert seat. Exact lines are part of the total; estimate lines are not. */
   by_expert: CostExpertLine[];
   chief: (CostLine & { exact: boolean }) | null;
   not_counted: string[];
-  /** How many transcripts were read. */
   sources: number;
 }
 
@@ -510,7 +433,6 @@ interface Attributed {
   role: string | null;
 }
 
-/** Every kept message of the change's transcripts, each once, agents' attribution first. */
 function collectMessages(
   caches: readonly CostCache[],
   dirName: string,
@@ -521,8 +443,6 @@ function collectMessages(
   const entries = caches.flatMap((cache) =>
     Object.values(cache.sources).filter((source) => source.changes.includes(dirName)),
   );
-  // Subagent transcripts first, so a message a host also copied into the main transcript keeps
-  // the agent's stage or seat.
   entries.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'agent' ? -1 : 1));
   const messages = new Map<string, Attributed>();
   for (const source of entries) {
@@ -555,7 +475,6 @@ function orderStages(buckets: Map<string, Bucket>): CostStageLine[] {
     .map(([stage, bucket]) => ({ stage, ...lineOf(bucket) }));
 }
 
-/** Seats with no exact usage but a self-reported estimate, as estimate lines (not in the total). */
 function estimateLines(
   projectRoot: string,
   dirName: string,
@@ -582,14 +501,9 @@ function estimateLines(
 
 export interface ComputeChangeCostOptions {
   now?: () => Date;
-  /** The caches to read; every session's cache in the project when absent. */
   caches?: readonly CostCache[];
 }
 
-/**
- * Sum the change's usage over its window, split by stage, by expert and the chief, and price it.
- * Null when the change has no `open` row. Reads only; never throws on a missing file.
- */
 export function computeChangeCost(
   projectRoot: string,
   dirName: string,
@@ -667,7 +581,6 @@ export function computeChangeCost(
   };
 }
 
-/** Write the record into the change's bundle as `cost.json`, atomically. Throws on a fault. */
 export function writeChangeCost(
   projectRoot: string,
   dirName: string,
@@ -687,7 +600,6 @@ export function writeChangeCost(
   return path;
 }
 
-/** Tolerant read of a change's `cost.json` body, or null when absent, broken or foreign. */
 export function readChangeCost(projectRoot: string, dirName: string): ChangeCostRecord | null {
   try {
     const raw = asRecord(

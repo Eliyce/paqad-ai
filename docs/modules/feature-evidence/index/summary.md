@@ -524,6 +524,20 @@ table that ships with paqad.
   far each transcript was read and the usage of each message kept. Each run reads only the bytes
   added since. A transcript that shrank, or an earlier window, is read again from the start, so
   the cache never disagrees with a full read.
+- **Details that keep it right (`src/cost/`).** The cache's read-merge-write runs under a
+  cross-process lock, because the High Table's seats end together and their parallel SubagentStop
+  hooks would otherwise drop each other's transcript paths; when the lock cannot be taken within
+  5 seconds the update is skipped and logged, and the next hook records the path again. Subagent
+  transcripts are read before the main one, so a message the host also copied into the main
+  transcript keeps its stage or seat. A message with no readable time cannot be placed in a window
+  and is not kept, and a transcript that has gone missing keeps what was already read. A message's
+  repeated lines can disagree (an early line can carry a smaller running output count), so the
+  largest figure per field wins. The reader streams fixed-size chunks and carries an unfinished
+  line over as bytes, so a multi-byte character split across chunks still decodes, and a last line
+  with no newline is counted only once it parses, since the host may still be writing it. Model ids
+  are normalised before the price lookup (provider prefix, bracket, version, date and `-latest`
+  suffixes removed), a cache write the host did not split by lifetime is priced as a 5 minute
+  write, and sums are rounded to a hundredth of a cent so a stored total does not drift.
 - **Where it shows.** The snapshot's `cost` field reads `cost.json` only, and
   `paqad-ai status --hud` prints it (the JSON form carries the same object). In Claude Code the
   band's cost pill shows the tokens and a dated estimate; pressing it opens the paqad pane on its
