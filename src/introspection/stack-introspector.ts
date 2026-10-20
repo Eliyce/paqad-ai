@@ -12,14 +12,6 @@ export class StackIntrospector {
   private readonly cache = new StackSnapshotCache();
   private readonly parserRegistry = createDefaultEcosystemParserRegistry();
 
-  /**
-   * Build a stack snapshot for `projectRoot`.
-   *
-   * @param options.persist When `false`, the freshly computed snapshot is **not** written to
-   *   the on-disk cache (`.paqad/`). Defaults to `true` (the historical behaviour). Read-only
-   *   callers such as the onboarding dry-run preview (PQD-103) pass `false` so the snapshot can
-   *   be computed without touching disk. The cache is still *read* either way.
-   */
   async snapshot(projectRoot: string, options: { persist?: boolean } = {}): Promise<StackSnapshot> {
     const persist = options.persist ?? true;
     const repository = await discoverRepositoryContext(projectRoot);

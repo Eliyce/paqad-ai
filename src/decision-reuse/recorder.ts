@@ -1,7 +1,3 @@
-// Decision-reuse recorder. Script-only and best-effort — recording a reuse must
-// never break the decision flow, so any failure is swallowed (returns null). All
-// reuses in a session append to a single unit (one session, many reuses).
-
 import {
   appendSessionEvent,
   currentOrdinal,
@@ -35,16 +31,10 @@ export interface DecisionReuseFields {
 
 export interface DecisionReuseContext {
   sessionId?: string | null;
-  /** Provider/source label; defaults to `unknown` when the caller has none. */
   adapter?: string;
   now?: () => Date;
 }
 
-/**
- * Record one reuse of an already-approved decision. Resolves the session, ensures a
- * single open unit for the session (opening it on the first reuse), and appends a
- * `kind:reuse` row. Returns the stamped row, or null on any failure.
- */
 export function recordDecisionReuse(
   projectRoot: string,
   fields: DecisionReuseFields,
@@ -73,12 +63,10 @@ export function recordDecisionReuse(
       APPEND_OPTS(ctx.now),
     ) as unknown as DecisionReuseRow;
   } catch {
-    // Best-effort: never let reuse recording break the decision flow.
     return null;
   }
 }
 
-/** The session's single reuse unit, opening it on the first reuse. */
 function ensureUnit(
   projectRoot: string,
   sessionId: string,

@@ -1,9 +1,3 @@
-// Module attribution extractor. Issue #80, Phase 1 §4.3.a.
-//
-// Applies a finite, framework-owned pattern set to a prompt and returns draft
-// MD-XXXX candidates. Pattern set is intentionally small and deterministic —
-// no LLM, no free-form NER. Extending the set is a framework PR.
-
 import { isValidSlug, levenshtein, normaliseSlug } from './schema.js';
 
 export type ExtractorHitKind = 'exact-match' | 'near-collision' | 'unknown';
@@ -12,32 +6,22 @@ export interface ExtractedCandidate {
   slug: string;
   display_name: string;
   kind: ExtractorHitKind;
-  // For near-collision: the existing slug it's close to.
   collision_with: string | null;
-  // The pattern label that fired (useful for tests + reasoning fields).
   pattern: string;
-  // The substring of the prompt that produced the hit.
   excerpt: string;
 }
 
 export interface ExtractorOptions {
   prompt: string;
-  // Slugs already declared in module-map.yml. Used for collision detection.
   existingSlugs: string[];
-  // Levenshtein bound for near-collision. Defaults to 2 per issue §4.7.2.
   nearCollisionDistance?: number;
 }
 
 interface PatternDef {
   label: string;
-  // Each pattern is a RegExp with a single capturing group: the module name.
   re: RegExp;
 }
 
-// Finite pattern set per issue §4.3.a. Each entry MUST capture the candidate
-// name in group 1. Patterns are tried in order; first hit per (start,end)
-// span wins. Ordering matters when patterns overlap — header patterns are
-// listed first so "Module: foo" wins over "in the foo module".
 const PATTERNS: PatternDef[] = [
   {
     label: 'ticket-header-module',
@@ -56,8 +40,6 @@ const PATTERNS: PatternDef[] = [
     re: /(?:^|\n)\s*Subsystem:\s*([A-Za-z0-9][A-Za-z0-9 _-]{0,40})\s*(?:\n|$)/g,
   },
   { label: 'inline-module-slug', re: /\bmodule:\s*([a-z0-9][a-z0-9-]{0,40})\b/g },
-  // Title-case sequence: stops at the first lowercase/non-letter word, which
-  // is how "new module Stripe Connect for payouts" yields "Stripe Connect".
   {
     label: 'new-module-name',
     re: /\bnew module\s+([A-Z][A-Za-z0-9_-]*(?:\s+[A-Z][A-Za-z0-9_-]*){0,4})\b/g,
@@ -66,8 +48,6 @@ const PATTERNS: PatternDef[] = [
 ];
 
 function deriveDisplayName(slug: string, raw: string): string {
-  // Prefer the raw match when it looks human-friendly; otherwise title-case
-  // the slug. "Auth" beats "auth" for display purposes.
   const cleaned = raw.trim();
   if (cleaned.length > 0 && cleaned.length <= 60) {
     return cleaned;
@@ -115,7 +95,6 @@ export function extractCandidates(opts: ExtractorOptions): ExtractedCandidate[] 
   const out: ExtractedCandidate[] = [];
 
   for (const { label, re } of PATTERNS) {
-    // Reset lastIndex defensively since we're reusing module-level regexes.
     re.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = re.exec(prompt)) !== null) {
@@ -140,8 +119,6 @@ export function extractCandidates(opts: ExtractorOptions): ExtractedCandidate[] 
   return out;
 }
 
-// Convenience: filter to only the candidates that need a Decision Pause
-// packet. Exact matches don't (already known); near-collision and unknown do.
 export function candidatesNeedingDecision(candidates: ExtractedCandidate[]): ExtractedCandidate[] {
   return candidates.filter((c) => c.kind !== 'exact-match');
 }

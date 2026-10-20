@@ -126,6 +126,27 @@ reasons below are not obvious from the code.
   prompt; the fetch is the explicit verb the arming line names.
 - **`doc-target-resolver.ts`.** `posix.join` keeps doc targets forward-slashed on Windows.
 
+## Why the `src/decisions/` and `src/decision-reuse/` code works the way it does
+
+- **`decisions/authoring.ts`.** Left to write the JSON by hand, an agent copies the old numeric
+  `D-1`, `D-2` fixtures and continues the sequence, so two branches mint the same id. The writer
+  mints the `D-<ULID>` id and timestamps itself, and `assertContractDecisionId` rejects any other
+  shape through the one shared id guard, so the contract and automated paths never carry two id
+  regexes. This contract packet is kept apart from the rich `DecisionPacket` that `DecisionStore`
+  mints, because it is a readable trail committed with the PR. Options are copied field by field
+  so a caller cannot add extra keys, and `evidence` is kept only when an option has it. `origin`
+  is set only on a machine-minted packet, so an asked question can be told from a detected one.
+  A packet opened with no change is linked to the change active at resolve; one that already
+  names a change keeps it. The rich-only keys are dropped before re-deriving so a stale copy
+  never lingers. The reader skips a missing folder or a malformed packet. A write-in answer
+  becomes option `other` (or `other-2` and so on), never a duplicate.
+- **`decisions/packet-shape.ts`.** A resolved contract packet records a human answer, never a
+  model guess.
+- **`decision-reuse/`.** Every reuse of a resolved decision in a session appends to one unit on
+  the session-ledger substrate. Recording is best-effort and never breaks the decision flow. The
+  schema lives in `src/`, never under `.paqad/`, so the model cannot weaken it. A row proves a
+  reuse was observed, not that it was correct.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

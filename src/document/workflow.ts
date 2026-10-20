@@ -76,11 +76,6 @@ export interface DocumentationWorkflowResult {
   };
   profile_updated: boolean;
   steps: DocumentationWorkflowStep[];
-  /**
-   * Issue #42 — delivery conventions detected during the repo scan and filled
-   * into the `auto` sections of delivery-policy. Present only for the coding
-   * domain. `connect_nudge` is the single combined "connect GitHub + Jira" card.
-   */
   delivery_detection?: {
     summary: string[];
     connect_nudge: string | null;
@@ -214,16 +209,10 @@ export class DocumentationWorkflow {
       moduleMap.modules.map((m) => m.slug),
     );
 
-    // Analytics v2 (issue #279): when the flag is on, regenerate the per-event docs tree from
-    // the modules' call sites alongside the canonical docs. OFF (default) is silent — the block
-    // is skipped entirely, so this adds nothing to a non-analytics project.
     const analyticsEnabled = resolveAnalyticsInstrumentation(options.projectRoot);
 
     for (const mod of moduleMap.modules) {
       const moduleName = mod.slug;
-      // Fix 3: prefer authoritative source_paths from the map; fall back to slug-matching only
-      // when no paths are recorded so unrelated files are never used as evidence.
-      // Directory paths (e.g. app/Modules/Billing) expand to all source files under that tree.
       const moduleFiles =
         mod.source_paths.length > 0
           ? resolveSourcePaths(mod.source_paths, sourceFiles)
@@ -233,9 +222,6 @@ export class DocumentationWorkflow {
       const moduleGenerated: string[] = [];
       const moduleSkipped: string[] = [];
 
-      // Fix 2: an explicitly empty features array means the user reviewed it and wants no features.
-      // Only fall back to discovery when features is absent from the map (null-ish), not when it is
-      // an explicit empty array.
       const features =
         mod.features.length > 0
           ? mod.features.map((f) => ({
@@ -288,7 +274,6 @@ export class DocumentationWorkflow {
           moduleName,
           features,
         );
-        // syncAnalyticsDocs is a no-op for an empty entry list, so no guard is needed.
         const sync = await syncAnalyticsDocs(options.projectRoot, analyticsEntries);
         moduleGenerated.push(...sync.written);
         moduleSkipped.push(...sync.skipped);
@@ -327,7 +312,6 @@ export class DocumentationWorkflow {
       });
     }
 
-    // Update registries from the reviewed map
     const moduleSlugs = moduleMap.modules.map((m) => m.slug);
     const registryGenerated: string[] = [];
     const registrySkipped: string[] = [];
@@ -353,7 +337,6 @@ export class DocumentationWorkflow {
       skipped: registrySkipped,
     });
 
-    // Handover summary
     progress.global.handover ??= {};
     progress.global.handover.summary ??= this.tracker.createEntry(
       join('.paqad/handover', 'product-summary.md'),
@@ -425,9 +408,6 @@ export class DocumentationWorkflow {
       stackSnapshot.repository,
     );
 
-    // Write module-map.yml BEFORE discoverModules so that registries, architecture docs,
-    // and tech-debt references all use business-language module names.  Any module names
-    // explicitly mentioned in the request text are passed as high-confidence hints.
     const hintModuleNames = extractModuleNamesFromRequest(options.request?.request_text);
     const moduleMapYaml = await generateModuleMapYaml(options.projectRoot, hintModuleNames);
     await mkdir(join(options.projectRoot, PATHS.RULES_DIR), { recursive: true });
@@ -491,10 +471,6 @@ export class DocumentationWorkflow {
     }
 
     const designTokenService = new DesignTokenService();
-    // Seed a placeholder tokens file (a scaffold for the user to fill in), then
-    // try to derive docs from it. While the file is still the unedited
-    // placeholder, generation is skipped — we never ship design-system docs
-    // built from generic defaults (issue #72).
     await designTokenService.seed(options.projectRoot);
     let designDocs: DesignTokenDocArtifact[] = [];
     let themeArtifacts: ThemeExportArtifact[] = [];
@@ -658,8 +634,6 @@ export class DocumentationWorkflow {
       skipped: maintenanceSkipped,
     });
 
-    // The module-map.yml was written before discoverModules above.
-    // Register it in generated and parse it now to surface low-confidence entries.
     generated.push(PATHS.MODULE_MAP);
     const writtenMap = (await loadModuleMap(options.projectRoot)) as ModuleMap;
     const lowConfidenceModules = writtenMap.modules
@@ -673,13 +647,9 @@ export class DocumentationWorkflow {
       skipped: [],
     });
 
-    // Record that module docs are blocked pending map review
     progress.moduleDocStage = 'pending_map_review';
     await this.tracker.save(options.projectRoot, progress);
 
-    // Issue #42 — piggyback delivery-convention detection on the repo scan we
-    // already ran. Coding domain only; silently fills the `auto` sections of
-    // delivery-policy and surfaces what it set + the combined connect nudge.
     let deliveryDetection: DocumentationWorkflowResult['delivery_detection'];
     if (routing.domain === 'coding') {
       try {
@@ -705,10 +675,7 @@ export class DocumentationWorkflow {
         if (result.filled) {
           generated.push(PATHS.DELIVERY_DETECTION);
         }
-      } catch {
-        // Detection is best-effort — a git-less or shell-restricted environment
-        // must never fail the documentation run.
-      }
+      } catch {}
     }
 
     return {
@@ -823,7 +790,6 @@ function resolveEffectiveRouting(
   };
 }
 
-/** Resolve the analytics_instrumentation flag; false on any config error (OFF-is-silent). */
 function resolveAnalyticsInstrumentation(projectRoot: string): boolean {
   try {
     return resolveFrameworkConfig(projectRoot).features.analytics_instrumentation;
@@ -833,11 +799,6 @@ function resolveAnalyticsInstrumentation(projectRoot: string): boolean {
   }
 }
 
-/**
- * Read each feature's source files and extract its analytics call sites into per-feature sync
- * entries (issue #279). Files that cannot be read are skipped; a feature with no call sites
- * produces no entry, so a module with no instrumentation yields an empty tree.
- */
 async function collectAnalyticsEntries(
   projectRoot: string,
   moduleName: string,
@@ -895,9 +856,6 @@ async function processEntry(input: {
   const currentHash = await hashSourceFiles(input.projectRoot, input.entry.source_files);
 
   if (input.entry.state === 'done' && input.entry.source_hash === currentHash) {
-    // Source-file hash is unchanged, but non-file inputs (module map edits, prompt
-    // hints, routing changes) may have altered the intended content.  Compare the
-    // existing file content before deciding to skip.
     const existingContent = await readFile(
       join(input.projectRoot, input.entry.output_path),
       'utf8',
@@ -1578,15 +1536,7 @@ function basenameWithoutExtension(path: string): string {
   );
 }
 
-/**
- * Resolves a list of mapped source_paths (which may be file paths or directory paths) against
- * the full set of discovered source files. Exact file paths are kept as-is; directory paths
- * expand to all source files that live under that directory tree.
- */
 function resolveSourcePaths(mappedPaths: string[], sourceFiles: string[]): string[] {
-  // Compare on POSIX separators so a posix `source_paths` entry from the module map matches the
-  // discovered files on every platform (on Windows `gatherSourceFiles` emits `\`-separated
-  // relative paths, so a raw compare against `/`-separated map entries silently returns empty).
   const result: string[] = [];
   const posixSources = sourceFiles.map(toPosixPath);
   for (const raw of mappedPaths) {
@@ -1594,7 +1544,6 @@ function resolveSourcePaths(mappedPaths: string[], sourceFiles: string[]): strin
     if (posixSources.includes(p)) {
       result.push(p);
     } else {
-      // Treat as a directory prefix: include every source file whose path starts with <p>/
       const prefix = p.endsWith('/') ? p : `${p}/`;
       result.push(...posixSources.filter((f) => f.startsWith(prefix)));
     }
@@ -1602,14 +1551,8 @@ function resolveSourcePaths(mappedPaths: string[], sourceFiles: string[]): strin
   return result;
 }
 
-/**
- * Extracts explicit module names from a request string such as
- * "create documentation; modules are Billing and Orders".
- * Returns the raw name tokens (not yet slugified) so that casing is preserved.
- */
 function extractModuleNamesFromRequest(requestText: string | undefined): string[] {
   if (!requestText) return [];
-  // Match: "modules are/is/: Billing, Orders and Payments"
   const match = /\bmodules?\s*(?:are|is|:)\s*([\w][\w\s,]*)/i.exec(requestText);
   if (!match?.[1]) return [];
   return match[1]

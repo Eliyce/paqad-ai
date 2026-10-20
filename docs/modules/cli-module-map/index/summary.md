@@ -38,6 +38,25 @@ They form a single loop over the map's lifecycle:
 3. **events** are the immutable record of what was actually accepted, so the map's
    history is auditable rather than inferred from git blame.
 
+## Why the `src/module-decisions/` code works the way it does
+
+- **`apply.ts`** is the one writer for `module-map.yml`. It snapshots the current file under
+  `.paqad/module-map/history/` (an empty snapshot when none exists, so the history is complete),
+  writes the new map through a temp file in the same folder and a rename, then appends the event.
+  The rename is the atomic point; if a later step fails, the snapshot allows a rollback.
+- **`extractor.ts`** uses a small, fixed pattern set with no model, and extending it is a
+  framework change. Header patterns come first so "Module: foo" wins over "in the foo module", and
+  a title-case run stops at the first lowercase word, so "new module Stripe Connect for payouts"
+  yields "Stripe Connect". Module-level regexes have `lastIndex` reset before each use. Only
+  near-collisions and unknown names need a decision; exact matches are already known.
+- **`inferencer.ts`** runs only when the extractor found nothing, and never changes state. Name
+  tokens count twice as much as path tokens, and the score is sized so one strong hit on a short
+  prompt clears the default floor. It always offers a fallback choice so the packet is complete.
+- **`schema.ts` and `store.ts`.** New ids are `MD-<ULID>`, so two branches never mint the same id
+  and allocation does not read the folder; older `MD-0001` style ids still validate.
+- **`events.ts`.** The reader skips a malformed line so a write cut short by a crash never
+  poisons the trail. `run.cancelled` fires at most once per run.
+
 ## Source Footprint
 
 - `src/cli/commands/module-map.ts` — `reconcile`.

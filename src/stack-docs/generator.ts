@@ -48,12 +48,6 @@ export async function writeStackArtifacts(
   return drift;
 }
 
-/**
- * Analytics v2 (issue #279): when the `analytics_instrumentation` flag is ON, write the
- * `analytics.md` stack doc — the human-readable home for the detected provider + convention
- * and the tracking-plan-as-code contract. When the flag is OFF, INV-1 (OFF is silent) holds:
- * we write nothing and remove any stale doc a previously-enabled onboard left behind.
- */
 async function writeAnalyticsDoc(projectRoot: string, stackDir: string): Promise<void> {
   const docPath = join(stackDir, 'analytics.md');
   let flagEnabled: boolean;
@@ -67,15 +61,12 @@ async function writeAnalyticsDoc(projectRoot: string, stackDir: string): Promise
     try {
       await rm(docPath, { force: true });
       /* v8 ignore next 3 -- defensive: rm(force) only throws on rare fs errors */
-    } catch {
-      // Best-effort stale cleanup; a failure here must never break onboarding.
-    }
+    } catch {}
     return;
   }
   await writeFile(docPath, buildAnalytics(projectRoot));
 }
 
-/** Render the analytics tracking-plan stack doc from read-only provider detection. */
 export function buildAnalytics(projectRoot: string): string {
   const detection = detectAnalyticsProvider(projectRoot);
   const detectionLines = detection

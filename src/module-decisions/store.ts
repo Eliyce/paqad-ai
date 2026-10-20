@@ -1,11 +1,3 @@
-// Read / write / list module decision YAML files under
-// .paqad/decisions/module-decisions/. Issue #80, Phase 1.
-//
-// File naming: <MD-id>.yml. One decision per file. Issue #184: ids are now
-// `MD-<ULID>` (collision-free, time-sortable) instead of a monotonic
-// `MD-{XXXX}` ordinal, so two branches never mint the same id. Allocation no
-// longer reads the directory.
-
 import {
   existsSync,
   mkdirSync,
@@ -55,10 +47,6 @@ export function listDecisionIds(projectRoot: string): string[] {
     .sort();
 }
 
-// Issue #184: mint a fresh `MD-<ULID>`. ULIDs are time-sortable and
-// collision-free across machines, so the old directory-walk + increment (which
-// produced identical ids on parallel branches) is gone. Allocation no longer
-// touches the filesystem, so it takes no `projectRoot`.
 export function nextDecisionId(): string {
   return `MD-${ulid()}`;
 }
@@ -69,8 +57,6 @@ export function readDecision(projectRoot: string, id: string): ModuleDecision | 
   const raw = readFileSync(path, 'utf8');
   const parsed = YAML.parse(raw) as Partial<ModuleDecision> | null;
   if (parsed === null || typeof parsed !== 'object') return null;
-  // We trust the schema-shaped writer below; deeper validation belongs to a
-  // separate validator if we ever need it.
   return parsed as ModuleDecision;
 }
 
@@ -100,8 +86,6 @@ export function listDecisionsByState(
   return listDecisions(projectRoot).filter((d) => d.state === state);
 }
 
-// Walk every proposed decision and transition expired ones to "expired".
-// Returns the list of decision IDs that moved.
 export function expireStaleDecisions(projectRoot: string, now: Date = new Date()): string[] {
   const moved: string[] = [];
   for (const decision of listDecisionsByState(projectRoot, 'proposed')) {

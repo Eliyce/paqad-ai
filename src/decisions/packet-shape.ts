@@ -1,17 +1,3 @@
-// One decision packet shape (issue #639, Part 3; decision Q4).
-//
-// paqad had two packet shapes on disk. `paqad-ai decision create` wrote the small contract
-// packet (`id`, `title`, `chosen`), while `DecisionStore`, Approvals, the completion gate and
-// the spec pipeline's auto-answer only read the rich `DecisionPacket` (`decision_id`,
-// `question`, `human_response`) and silently skipped anything else. The edit gate, which only
-// counts files, still blocked on a contract packet, so a pending decision could hold every
-// edit while being invisible in Approvals.
-//
-// The fix keeps every contract field (so no existing contract reader changes) and adds the
-// rich fields next to them, so one stored packet satisfies both readers. `readAnyDecisionPacket`
-// is the one tolerant reader: a packet already in rich shape passes through, and a legacy
-// contract-only packet written before this change is upgraded in memory.
-
 import {
   DECISION_CATEGORIES,
   DECISION_CATEGORY_DEFAULTS,
@@ -27,10 +13,8 @@ import type { ContractDecisionOption } from './authoring.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-/** Who opened a packet through the contract writer, in the rich `requested_by` field. */
 const REQUESTED_BY = 'paqad-decision-cli';
 
-/** The contract fields the rich fields are derived from. */
 export interface ContractPacketFields {
   id: string;
   category: string;
@@ -47,7 +31,6 @@ export interface ContractPacketFields {
   resolved_at?: string;
 }
 
-/** The rich fields added next to the contract ones (a packet carries both). */
 export type RichPacketFields = Omit<
   DecisionPacket,
   'category' | 'context' | 'created_at' | 'recommendation'
@@ -57,11 +40,6 @@ export function isDecisionCategory(value: unknown): value is DecisionCategory {
   return DECISION_CATEGORIES.includes(value as DecisionCategory);
 }
 
-/**
- * The rich `DecisionPacket` fields for a contract packet, or null when the packet cannot be
- * a valid `DecisionPacket` (a category outside the canonical list, or more than five options).
- * Deterministic: the same contract packet always yields the same fields.
- */
 export function richFieldsFor(packet: ContractPacketFields): RichPacketFields | null {
   if (!isDecisionCategory(packet.category)) return null;
   if (!Array.isArray(packet.options) || packet.options.length < 2 || packet.options.length > 5) {
@@ -88,7 +66,6 @@ export function richFieldsFor(packet: ContractPacketFields): RichPacketFields | 
     ...(packet.recommendation
       ? { recommendation_reason: 'Recommended by the agent that opened this decision.' }
       : {}),
-    // A person answers a contract packet; nothing about it is a model's guess.
     confidence: 1,
     requested_by: packet.origin ? `paqad-${packet.origin}` : REQUESTED_BY,
     task_session_id: packet.change ?? 'no-active-change',
@@ -102,7 +79,6 @@ export function richFieldsFor(packet: ContractPacketFields): RichPacketFields | 
   return fields;
 }
 
-/** The rich `human_response` recorded when a contract packet is resolved. */
 export function humanResponseFor(
   chosen: string,
   rationale: string | undefined,
@@ -119,11 +95,6 @@ export function humanResponseFor(
   };
 }
 
-/**
- * Read any stored decision packet as a `DecisionPacket`: a rich packet passes through; a
- * legacy contract-only packet is upgraded in memory (never rewritten on disk). Returns null
- * for anything that is neither, so a malformed file is skipped, never thrown.
- */
 export function readAnyDecisionPacket(value: unknown): DecisionPacket | null {
   if (isDecisionPacket(value)) return value;
   if (typeof value !== 'object' || value === null) return null;
