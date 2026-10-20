@@ -8,12 +8,10 @@ describe('reciprocalRankFusion', () => {
       ['a', 'b', 'c'],
       ['b', 'd', 'a'],
     ]);
-    // b is rank 2 + rank 1; a is rank 1 + rank 3 — b should edge ahead.
     expect(fused[0].id).toBe('b');
   });
 
   it('lifts a lexically-strong, densely-weak id (the F17 win)', () => {
-    // Dense ranks the exact-match chunk last; lexical ranks it first.
     const dense = ['fuzzy1', 'fuzzy2', 'exact'];
     const lexical = ['exact'];
     const fused = reciprocalRankFusion([dense, lexical]);
@@ -32,7 +30,6 @@ describe('reciprocalRankFusion', () => {
       ['x', 'y'],
       ['y', 'x'],
     ]);
-    // x and y have identical fused scores; x appears first.
     expect(fused.map((r) => r.id)).toEqual(['x', 'y']);
   });
 

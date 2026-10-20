@@ -56,7 +56,6 @@ describe('recorder failure path', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('returns null (best-effort) when a row fails schema validation', () => {
-    // An invalid query_scope makes the AJV validator reject → recorder swallows → null.
     const row = recordRagEvidence(
       root,
       'called',

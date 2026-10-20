@@ -43,9 +43,6 @@ function approval(): DecisionHumanResponse {
 
 describe('quality.ratchet_exception decision', () => {
   beforeEach(() => {
-    // Freeze the clock inside the packet's TTL window (created_at NOW = 2026-06-08)
-    // so decision-reuse is deterministic regardless of the real date — otherwise the
-    // fixture rots the day its TTL lapses. Only Date is faked, so fs/timers are intact.
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(NOW));
   });
@@ -83,7 +80,6 @@ describe('quality.ratchet_exception decision', () => {
       event: 'decision-resolved-by-human',
     });
 
-    // A later, same-kind regression with different numbers reuses the approval.
     const approved = resolveReusableExceptionKinds(store, ['quality.strictness'], (kind) =>
       buildRatchetExceptionPacket(input({ kind, decision_id: 'D-9', current_value: 42 })),
     );

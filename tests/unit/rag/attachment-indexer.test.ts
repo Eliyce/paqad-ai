@@ -19,7 +19,6 @@ const INTELLIGENCE: IntelligenceConfig = {
   rag_top_n: 20,
 };
 
-// Deterministic 2-D embedding keyed on a marker word.
 function fakeProviderFactory(): ProviderFactory {
   const provider: EmbeddingProvider = {
     name: 'local',
@@ -77,7 +76,6 @@ describe('SessionAttachmentIndexer', () => {
 
     expect(existsSync(join(collectionDir(projectRoot, 'session-a'), 'index.json'))).toBe(true);
     expect(existsSync(join(collectionDir(projectRoot, 'session-a'), 'meta.json'))).toBe(true);
-    // The project RAG index is never written by attachment indexing.
     expect(existsSync(join(projectRoot, '.paqad/vectors/index.json'))).toBe(false);
     expect(await getCollectionId(projectRoot, 'session-a')).toBe('session-a');
     expect(readFileSync(join(projectRoot, '.paqad/audit.log'), 'utf8')).toContain(
@@ -141,7 +139,6 @@ describe('SessionAttachmentIndexer', () => {
 
   it('skips a path that exists but cannot be read as a file', async () => {
     const indexer = new SessionAttachmentIndexer(fakeProviderFactory());
-    // A directory path: existsSync is true but readFile throws EISDIR → skipped.
     const dirPath = join(projectRoot, 'files');
     const outcome = await indexer.index(projectRoot, 'session-dir', [dirPath], INTELLIGENCE);
     expect(isAttachmentIndexingDegraded(outcome)).toBe(false);
@@ -157,7 +154,6 @@ describe('SessionAttachmentIndexer', () => {
       },
       embed,
     });
-    // Zero-length backoff so the test does not wait the real 1 s / 2 s.
     const indexer = new SessionAttachmentIndexer(factory, [0, 0]);
     const file = writeAttachment('invoice.ts', 'export const invoice = "invoice";\n');
 
@@ -168,8 +164,7 @@ describe('SessionAttachmentIndexer', () => {
     expect(outcome.kind).toBe('attachment_indexing_degraded');
     expect(outcome.sessionId).toBe('session-degraded');
     expect(outcome.retriesExhausted).toBe(true);
-    expect(embed).toHaveBeenCalledTimes(3); // initial + 2 retries
-    // No collection directory is created on a degrade.
+    expect(embed).toHaveBeenCalledTimes(3);
     expect(existsSync(collectionDir(projectRoot, 'session-degraded'))).toBe(false);
     expect(readFileSync(join(projectRoot, '.paqad/audit.log'), 'utf8')).toContain(
       'rag-attachment-index-degraded',
@@ -240,7 +235,6 @@ describe('SessionAttachmentIndexer', () => {
         return;
       },
       async embed(input: string | string[]) {
-        // Simulate the session being deleted while indexing is in flight.
         await ref.indexer?.cancel(projectRoot, 'session-cancel');
         const batch = Array.isArray(input) ? input : [input];
         return batch.map(() => [0.5, 0.5]);
@@ -283,7 +277,6 @@ describe('SessionAttachmentIndexer', () => {
       async embed() {
         if (firstCall) {
           firstCall = false;
-          // Abort on the next tick — during the backoff sleep, not before it.
           setTimeout(() => controller.abort(), 0);
           throw new Error('ETIMEDOUT');
         }

@@ -23,9 +23,6 @@ import {
 } from '@/rag/types.js';
 import { CorruptVectorIndexError, FileVectorIndex } from '@/rag/vector-index.js';
 
-// ── Deterministic embedding fixtures ───────────────────────────────────────────
-// A text embeds to a 2-D unit-ish vector so cosine similarity against a [1,0]
-// query is controllable: 'orthogonal' → 0 (below 0.5), 'half' → ~0.707, else 1.0.
 function vectorFor(text: string): number[] {
   if (text.includes('orthogonal')) return [0, 1];
   if (text.includes('half')) return [1, 1];
@@ -200,7 +197,6 @@ describe('CRS collection — RagService', () => {
     const service = new RagService(root, factoryFor(makeProvider()));
     await service.writeChunks([input('a', 'match one')], coll);
 
-    // A second create must not reset the populated index back to empty.
     await FileVectorIndex.create(root, coll);
     const payload = JSON.parse(readFileSync(collIndexFile(), 'utf8'));
     expect(payload.items).toHaveLength(1);
@@ -311,7 +307,6 @@ describe('CRS collection — RagService', () => {
     }
     expect(error).toBeInstanceOf(CorruptVectorIndexError);
     expect((error as CorruptVectorIndexError).kind).toBe('index');
-    // A whole-collection destroy still purges the corrupt collection.
     expect(await FileVectorIndex.destroy(root, coll)).toBe(0);
   });
 
@@ -332,7 +327,6 @@ describe('CRS collection — RagService', () => {
     expect((error as EmbeddingBacklogOverflow).dropped_count).toBe(100);
     expect(backlog.size).toBe(1000);
 
-    // Provider recovers — the next write drains the parked backlog first.
     offline = false;
     await service.writeChunks([], coll);
     expect(backlog.size).toBe(0);
@@ -369,7 +363,6 @@ describe('CRS collection — RagService', () => {
     );
     expect(reverts).toHaveLength(1);
 
-    // The swapped-in index still serves retrieval.
     const hits = await service.retrieveCrs('match', coll, 10, 0);
     expect(hits.map((hit) => hit.chunk.id).sort()).toEqual(['a', 'b']);
   });
@@ -449,7 +442,6 @@ describe('CRS collection — RagService', () => {
     );
 
     const service = new RagService(root, factoryFor(makeProvider()));
-    // Warm the OS file cache, then time the scan over several runs.
     await service.retrieveCrs('match', big, 10, 0);
     let best = Number.POSITIVE_INFINITY;
     for (let i = 0; i < 3; i++) {
@@ -458,10 +450,6 @@ describe('CRS collection — RagService', () => {
       best = Math.min(best, performance.now() - start);
       expect(hits).toHaveLength(10);
     }
-    // Generous wall-clock bound: a linear scan over 100k 2-dim vectors is tens of
-    // milliseconds on dev hardware, but shared CI runners vary several-fold, so a
-    // tight threshold flakes. 1000ms still fails loudly on an O(n²) regression
-    // (which would be seconds) while tolerating runner jitter.
     expect(best).toBeLessThan(1000);
   });
 });

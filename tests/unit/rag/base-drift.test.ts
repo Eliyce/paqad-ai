@@ -53,7 +53,6 @@ describe('computeBaseDrift / refreshBaseDrift (real git)', () => {
     remoteRoot = mkdtempSync(join(tmpdir(), 'paqad-drift-remote-'));
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-drift-'));
 
-    // Bare-ish "remote": a normal repo we push/pull from on disk.
     git(remoteRoot, 'init', '-q');
     git(remoteRoot, 'config', 'user.email', 't@example.com');
     git(remoteRoot, 'config', 'user.name', 'Test');
@@ -62,7 +61,6 @@ describe('computeBaseDrift / refreshBaseDrift (real git)', () => {
     git(remoteRoot, 'add', '-A');
     git(remoteRoot, 'commit', '-q', '-m', 'base');
 
-    // Clone it, branch off main.
     git(projectRoot, 'init', '-q');
     git(projectRoot, 'config', 'user.email', 't@example.com');
     git(projectRoot, 'config', 'user.name', 'Test');
@@ -86,7 +84,6 @@ describe('computeBaseDrift / refreshBaseDrift (real git)', () => {
   });
 
   it('detects commits the remote base gained after a fetch (via refreshBaseDrift)', async () => {
-    // The remote advances main by two commits.
     execFileSync('bash', ['-c', 'echo b > b.txt'], { cwd: remoteRoot });
     git(remoteRoot, 'add', '-A');
     git(remoteRoot, 'commit', '-q', '-m', 'b');
@@ -113,13 +110,10 @@ describe('computeBaseDrift / refreshBaseDrift (real git)', () => {
   });
 
   it('returns null when the base has no remote-tracking ref (default git, failing query)', () => {
-    // feat/x exists locally but origin/feat/x does not, so the rev-parse --verify of the
-    // remote ref fails — exercising the default git runner's error path → null.
     expect(computeBaseDrift(projectRoot, { baseBranch: 'feat/x' })).toBeNull();
   });
 
   it('treats a non-numeric rev-list count as zero drift', () => {
-    // Stub git so the remote ref "exists" but the count query returns nothing usable.
     const stub = (args: string[]): string | undefined =>
       args.includes('rev-list') ? undefined : 'deadbeef';
     const drift = computeBaseDrift(projectRoot, { baseBranch: 'main', git: stub });
@@ -127,7 +121,6 @@ describe('computeBaseDrift / refreshBaseDrift (real git)', () => {
   });
 
   it('skips the fetch when ls-remote yields no tip (offline), still persisting drift', async () => {
-    // ls-remote empty ⇒ remoteTip undefined ⇒ no fetch; drift is computed from local refs.
     const stub = (args: string[]): string | undefined => {
       if (args[0] === 'ls-remote') return '';
       if (args.includes('rev-list')) return '0';

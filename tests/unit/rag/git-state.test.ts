@@ -49,7 +49,6 @@ describe('readGitState', () => {
     expect(state.branch).toBe('feat/x');
     expect(state.head_commit).toBe(headSha);
     expect(state.base_branch).toBe('main');
-    // base_commit is the merge-base — the tip of main where feat/x diverged.
     expect(state.base_commit).toBe(baseSha);
   });
 

@@ -13,14 +13,12 @@ import {
 describe('strictness measure', () => {
   it('counts every tracked flag off when nothing is configured', () => {
     const { looseness, considered } = measureStrictnessFromOptions({});
-    // 8 strict-family flags off + 7 extra flags off.
     expect(considered).toBe(15);
     expect(looseness).toBe(15);
   });
 
   it('treats strict:true as enabling the strict family', () => {
     const { looseness } = measureStrictnessFromOptions({ strict: true });
-    // Only the 7 extra (non-strict-implied) flags remain off.
     expect(looseness).toBe(7);
   });
 

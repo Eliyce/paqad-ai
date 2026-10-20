@@ -62,7 +62,6 @@ describe('parseAttachment', () => {
   });
 
   it('rejects non-UTF-8 bytes as mime-unrecognised', async () => {
-    // 0xC3 0x28 is an invalid UTF-8 sequence, no NUL byte present.
     const path = write('latin.bin', Buffer.from([0x41, 0xc3, 0x28, 0x42]));
     const result = await parseAttachment(path);
     expect(result).toMatchObject({

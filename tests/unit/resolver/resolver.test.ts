@@ -240,10 +240,8 @@ describe('Resolver', () => {
       deduplicator,
     );
 
-    // Deduplicator was called for each artifact type
     expect(deduplicate).toHaveBeenCalled();
 
-    // Rules should still be resolved (content is unique, so no deduplication removes items)
     expect(resolved.rules.map(artifactFileName)).toEqual([
       'constitution.md',
       'security.md',
@@ -258,9 +256,7 @@ describe('Resolver', () => {
     const resolver = new Resolver({ runtimeRoot });
     const deduplicator = new ContextDeduplicator();
 
-    // Spy on deduplicate and return a subset (simulating dedup removing one artifact)
     vi.spyOn(deduplicator, 'deduplicate').mockImplementation(async (_root, artifacts) => {
-      // Return only the first artifact to simulate dedup collapsing the rest
       const kept = artifacts.slice(0, 1);
       return {
         artifacts: kept,
@@ -278,7 +274,6 @@ describe('Resolver', () => {
       deduplicator,
     );
 
-    // Each artifact type should only have the first artifact kept
     expect(resolved.rules).toHaveLength(1);
     expect(resolved.skills).toHaveLength(1);
   });
@@ -287,7 +282,6 @@ describe('Resolver', () => {
     const resolver = new Resolver({ runtimeRoot });
     const deduplicator = new ContextDeduplicator();
 
-    // Pass through all artifacts unchanged to verify metadata is preserved
     vi.spyOn(deduplicator, 'deduplicate').mockImplementation(async (_root, artifacts) => {
       return {
         artifacts,
@@ -305,7 +299,6 @@ describe('Resolver', () => {
       deduplicator,
     );
 
-    // ResolvedArtifact should have level and source from the original resolved array
     for (const rule of resolved.rules) {
       expect(rule).toHaveProperty('path');
       expect(rule).toHaveProperty('level');
@@ -317,7 +310,6 @@ describe('Resolver', () => {
     const resolver = new Resolver({ runtimeRoot });
     const deduplicator = new ContextDeduplicator();
 
-    // Return an artifact path that doesn't exist in the resolved set
     vi.spyOn(deduplicator, 'deduplicate').mockImplementation(async (_root, artifacts) => {
       const phantom = [{ path: '/nonexistent/phantom.md', type: 'rules' }];
       return {
@@ -336,7 +328,6 @@ describe('Resolver', () => {
       deduplicator,
     );
 
-    // Phantom artifact should be filtered out; only real paths remain
     const rulePaths = resolved.rules.map((r) => r.path);
     expect(rulePaths).not.toContain('/nonexistent/phantom.md');
     expect(resolved.rules.length).toBeGreaterThan(0);
@@ -345,7 +336,6 @@ describe('Resolver', () => {
   it('without deduplicator, assigns resolved array directly', async () => {
     const resolver = new Resolver({ runtimeRoot });
 
-    // No deduplicator provided — should take the else branch
     const resolved = await resolver.resolve({
       domain: 'coding',
       stack: 'laravel',

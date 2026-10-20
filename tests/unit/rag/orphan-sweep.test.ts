@@ -46,7 +46,6 @@ describe('runOrphanSweep', () => {
     expect(existsSync(join(projectRoot, ATTACH_DIR, 'dead-1'))).toBe(false);
     expect(existsSync(join(projectRoot, ATTACH_DIR, 'dead-2'))).toBe(false);
 
-    // Purged sessions are removed from the registry; the live one remains.
     expect(await getCollectionId(projectRoot, 'live')).toBe('live');
     expect(await getCollectionId(projectRoot, 'dead-1')).toBeNull();
 
@@ -69,11 +68,9 @@ describe('runOrphanSweep', () => {
   });
 
   it('deregisters a traversal session id without deleting anything outside the root', async () => {
-    // A sentinel that must survive: it lives outside the attachments root.
     const sentinel = join(projectRoot, 'sentinel.txt');
     writeFileSync(sentinel, 'keep me');
 
-    // Hand-craft a registry row whose id would escape the attachments root.
     mkdirSync(join(projectRoot, ATTACH_DIR), { recursive: true });
     writeFileSync(
       join(projectRoot, ATTACH_DIR, 'registry.json'),
@@ -92,7 +89,6 @@ describe('runOrphanSweep', () => {
 
     const purged = await runOrphanSweep(projectRoot, []);
 
-    // The unsafe row is dropped but never triggers a filesystem delete.
     expect(purged).toEqual([]);
     expect(existsSync(sentinel)).toBe(true);
     expect(await listCollections(projectRoot)).toEqual([]);

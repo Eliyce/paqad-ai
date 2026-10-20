@@ -68,7 +68,7 @@ describe('collectQualityMeasures', () => {
     );
   });
 
-  it('consumes the #109 orphan set and attributes it to modules + project', async () => {
+  it('consumes the orphan set and attributes it to modules + project', async () => {
     const root = project();
     const samples = await collectQualityMeasures({
       ...baseOptions(root),

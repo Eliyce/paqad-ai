@@ -62,7 +62,6 @@ describe('attachment-registry', () => {
     await deregisterCollection(projectRoot, 'session-a');
     expect(await getCollectionId(projectRoot, 'session-a')).toBeNull();
 
-    // Unknown session leaves the registry untouched and does not throw.
     await deregisterCollection(projectRoot, 'never-existed');
     expect(await listCollections(projectRoot)).toEqual([]);
   });

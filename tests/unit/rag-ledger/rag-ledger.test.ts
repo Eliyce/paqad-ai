@@ -81,28 +81,24 @@ describe('resolveSessionId', () => {
   });
 
   it('persists the host hint so a later no-hint reader aligns (buildout F5b, #5)', () => {
-    // A stale cache from a prior/engine run.
     mkdirSync(dirname(join(root, PATHS.LEDGER_SESSION_ID)), { recursive: true });
     writeFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'ses_stale_engine_run');
 
-    // The live session resolves with the host id — and refreshes the cache.
     expect(resolveSessionId(root, 'ses_live_4fc6')).toBe('ses_live_4fc6');
     expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe('ses_live_4fc6');
 
-    // The completion seam (called with NO hint) now resolves the SAME live id,
-    // instead of the stale engine id — one session, one ledger subdir.
     expect(resolveSessionId(root)).toBe('ses_live_4fc6');
   });
 
   it('mints and caches a ses_<ulid> when no hint', () => {
     const first = resolveSessionId(root);
     expect(first).toMatch(/^ses_[0-9a-z]{26}$/);
-    expect(resolveSessionId(root)).toBe(first); // cached
+    expect(resolveSessionId(root)).toBe(first);
     expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe(first);
   });
 });
 
-describe('persistLedgerSessionId (issue #380, Issue 1)', () => {
+describe('persistLedgerSessionId', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-rl-'));
@@ -110,13 +106,10 @@ describe('persistLedgerSessionId (issue #380, Issue 1)', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
   it('aligns a stale cache to the live host id so bundle minting keys on it', () => {
-    // A prior session's id still sitting in the single-slot cache.
     mkdirSync(dirname(join(root, PATHS.LEDGER_SESSION_ID)), { recursive: true });
     writeFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'ses_prior_session');
 
     expect(persistLedgerSessionId(root, 'ses_live_host')).toBe(true);
-    // A later no-hint reader (the CLI escape hatch / minting path) now resolves the
-    // LIVE id instead of the stale one — bundle and gate agree on one session.
     expect(resolveSessionId(root)).toBe('ses_live_host');
     expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe('ses_live_host');
   });
@@ -131,7 +124,6 @@ describe('persistLedgerSessionId (issue #380, Issue 1)', () => {
     expect(persistLedgerSessionId(root, undefined)).toBe(false);
     expect(persistLedgerSessionId(root, '')).toBe(false);
     expect(persistLedgerSessionId(root, '   ')).toBe(false);
-    // No cache file was created — nothing to align means nothing is written.
     expect(() => readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8')).toThrow();
   });
 
@@ -177,10 +169,8 @@ describe('recorder + fold (round trip)', () => {
       CTX({ ordinal: 1 }),
     );
 
-    // Issue #468 Phase C — no active feature, so the two-home rows land in `_chat`.
     const rows = readUnitFile(root, chatRagPath('ses_test'));
     expect(rows.map((r) => r.kind)).toEqual(['open', 'refreshed', 'called', 'used']);
-    // Every persisted row is a valid rag-evidence row.
     for (const row of rows) {
       expect(validateRagEvidenceRow(row)).toEqual([]);
     }
@@ -195,7 +185,6 @@ describe('recorder + fold (round trip)', () => {
     );
     expect(row?.conversation_ordinal).toBe(1);
     const rows = readUnitFile(root, chatRagPath('ses_bg'));
-    // open (auto) + refreshed
     expect(rows.map((r) => r.kind)).toEqual(['open', 'refreshed']);
   });
 
@@ -234,7 +223,6 @@ describe('recorder + fold (round trip)', () => {
   });
 
   it('redacts secrets in the note (best-effort, never throws)', () => {
-    // Seed a project secret, then ensure a note containing it is redacted.
     writeFileSync(join(root, '.env-unused'), '');
     const row = recordRagEvidence(
       root,

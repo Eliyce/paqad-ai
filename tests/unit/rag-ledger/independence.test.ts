@@ -13,7 +13,6 @@ import { chatRagPath } from '@/feature-evidence/paths.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(here, '../../../src');
 
-/** Collect the `import ... from '...'` specifiers in a TS source file. */
 function importSpecifiers(file: string): string[] {
   const text = readFileSync(file, 'utf8');
   return [...text.matchAll(/^\s*import[^'"]*['"]([^'"]+)['"]/gm)].map((m) => m[1]);
@@ -25,7 +24,7 @@ function tsFiles(dir: string): string[] {
     .map((entry) => join(dir, entry));
 }
 
-describe('rag-evidence ledger independence (#249 P3 / C1)', () => {
+describe('rag-evidence ledger independence', () => {
   it('neither src/session-ledger nor src/rag-ledger imports enterprise code', () => {
     const files = [...tsFiles(join(SRC, 'session-ledger')), ...tsFiles(join(SRC, 'rag-ledger'))];
     expect(files.length).toBeGreaterThan(0);
@@ -51,7 +50,6 @@ describe('rag-evidence ledger independence (#249 P3 / C1)', () => {
   it('records regardless of any enterprise flag (always-on)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-ent-'));
     try {
-      // No enterprise config of any kind in this project — the recorder still writes.
       const row = recordRagEvidence(
         root,
         'refreshed',
