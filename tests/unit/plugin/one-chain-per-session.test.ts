@@ -280,3 +280,67 @@ describe('a disabled project writes no completion-deferred row (issue #673)', ()
     expect(disabledAuditRows(fx)).toBe(0);
   });
 });
+
+describe('two plugin roots in one session run one chain', () => {
+  function claimForRoot(fx: Fixture, root: string): void {
+    const dir = join(fx.root, '.paqad', 'session', 'plugin-active.d');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, fx.session), JSON.stringify({ at: new Date().toISOString(), root }));
+  }
+
+  it('the Stop hooks of the second root stand down and the first root writes one row set', async () => {
+    const fx = npmWiredProject('ses-two-roots');
+    const bundle = await openBundle(fx);
+    claimForRoot(fx, REPO);
+    const second = tempDir('paqad-second-root-');
+    const payload = stopPayload(fx);
+
+    for (const script of [MARKER_PARSE, VERIFICATION]) {
+      const r = await runHook(script, fx, 'plugin', payload, { CLAUDE_PLUGIN_ROOT: second });
+      expect(r).toEqual({ exitCode: 0, output: '' });
+    }
+    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 });
+
+    await runStop(fx, 'npm', payload);
+    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 });
+
+    await runStop(fx, 'plugin', payload);
+    expect(stopRows(bundle)).toEqual({ markers: 1, deferred: 1 });
+  });
+
+  it('the edit gate blocks once, from the first root, and the second root stays quiet', async () => {
+    const fx = npmWiredProject('ses-two-roots-edit');
+    claimForRoot(fx, REPO);
+    const second = tempDir('paqad-second-root-');
+    const edit = {
+      session_id: fx.session,
+      cwd: fx.root,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: join(fx.root, 'src/x.ts') },
+    };
+    const fromSecond = await runHook(AGENT_ENTRY, fx, 'plugin', edit, {
+      CLAUDE_PLUGIN_ROOT: second,
+    });
+    const fromFirst = await runHook(AGENT_ENTRY, fx, 'plugin', edit);
+    expect(fromSecond).toEqual({ exitCode: 0, output: '' });
+    expect(fromFirst.exitCode).toBe(2);
+  });
+
+  it('a marker with no root keeps the gate running for any root', async () => {
+    const fx = npmWiredProject('ses-legacy-marker');
+    claimForPlugin(fx);
+    const second = tempDir('paqad-second-root-');
+    const edit = {
+      session_id: fx.session,
+      cwd: fx.root,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: join(fx.root, 'src/x.ts') },
+    };
+    const fromSecond = await runHook(AGENT_ENTRY, fx, 'plugin', edit, {
+      CLAUDE_PLUGIN_ROOT: second,
+    });
+    expect(fromSecond.exitCode).toBe(2);
+  });
+});

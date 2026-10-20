@@ -40,6 +40,7 @@ import {
   isProjectOnboarded,
   paqadHookScriptPath,
   parseHookPayload,
+  pluginRootStandsDown,
   pluginStandsDownPassive,
   projectClaudeSettingsPaths,
   resolveProjectRoot,
@@ -494,6 +495,9 @@ export function runPluginSessionStart(env = process.env, payload = undefined, de
     return;
   }
   writePluginActiveMarker(payload, env);
+  if (pluginRootStandsDown(payload, env)) {
+    return;
+  }
   ensureBinOnPath(pluginRuntime, env); // Part 5
   removeDeadNpmHookLines(claudeSettingsPath(env));
   removeHomeStageAgents(claudeAgentsDir(env));

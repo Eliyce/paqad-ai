@@ -283,6 +283,24 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     expect(existsSync(marker)).toBe(true);
   });
 
+  it('a second plugin root in a claimed session does no project work', () => {
+    const envFile = join(root, 'session-env');
+    const env = pluginEnv({ CLAUDE_ENV_FILE: envFile });
+    const first = join(root, 'first-root');
+    mkdirSync(first, { recursive: true });
+    const dir = join(env.CLAUDE_PROJECT_DIR as string, '.paqad', 'session', 'plugin-active.d');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'sTwo'), JSON.stringify({ at: 'now', root: first }));
+    runPluginSessionStart(env, { session_id: 'sTwo', cwd: env.CLAUDE_PROJECT_DIR });
+    expect(JSON.parse(readFileSync(join(dir, 'sTwo'), 'utf8')).root).toBe(first);
+    expect(existsSync(envFile)).toBe(false);
+    runPluginSessionStart(
+      { ...env, CLAUDE_PLUGIN_ROOT: first },
+      { session_id: 'sTwo', cwd: env.CLAUDE_PROJECT_DIR },
+    );
+    expect(existsSync(envFile)).toBe(true);
+  });
+
   it('claims the session in a plugin-only project whose settings carry no paqad hook', () => {
     const env = pluginEnv({ CLAUDE_PLUGIN_DATA: join(root, 'plugin-data') });
     const projectSettings = join(env.CLAUDE_PROJECT_DIR as string, '.claude', 'settings.json');

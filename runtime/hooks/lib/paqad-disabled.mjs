@@ -22,11 +22,12 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 /** PAQAD_DISABLED values that mean "off" — identical to the .sh/.ts primitives. */
 const ENV_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
@@ -257,18 +258,52 @@ export function isPluginActiveForSession(payload, env = process.env) {
   }
 }
 
-/** Claim this session for the plugin by writing its per-session marker. Best-effort, never throws. */
 export function writePluginActiveMarker(payload, env = process.env) {
   const sid = sessionIdFrom(payload, env);
   if (!sid) return;
   const projectRoot = resolveProjectRoot(env, payload);
+  const root = typeof env.CLAUDE_PLUGIN_ROOT === 'string' ? env.CLAUDE_PLUGIN_ROOT.trim() : '';
+  const body = JSON.stringify({ at: new Date().toISOString(), ...(root ? { root } : {}) });
   try {
     const dir = pluginActiveMarkerDir(projectRoot);
     mkdirSync(dir, { recursive: true });
-    writeFileSync(join(dir, sid), new Date().toISOString());
+    writeFileSync(join(dir, sid), body, { flag: 'wx' });
   } catch {
-    // Best-effort — a failed claim just leaves both copies active (fail-safe to ON, INV-4).
+    return;
   }
+}
+
+export function pluginActiveMarkerRoot(payload, env = process.env) {
+  const sid = sessionIdFrom(payload, env);
+  if (!sid) return null;
+  let parsed;
+  try {
+    const path = join(pluginActiveMarkerDir(resolveProjectRoot(env, payload)), sid);
+    parsed = JSON.parse(readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+  const root = parsed && typeof parsed === 'object' ? parsed.root : undefined;
+  return typeof root === 'string' && root.trim() !== '' ? root : null;
+}
+
+function canonicalRoot(path) {
+  let full;
+  try {
+    full = realpathSync.native(path);
+  } catch {
+    full = resolve(path);
+  }
+  const trimmed = full.replace(/[\\/]+$/, '');
+  return process.platform === 'win32' ? trimmed.toLowerCase() : trimmed;
+}
+
+export function pluginRootStandsDown(payload = undefined, env = process.env) {
+  const mine = typeof env.CLAUDE_PLUGIN_ROOT === 'string' ? env.CLAUDE_PLUGIN_ROOT.trim() : '';
+  if (!mine) return false;
+  const claimed = pluginActiveMarkerRoot(payload, env);
+  if (claimed === null || !existsSync(claimed)) return false;
+  return canonicalRoot(claimed) !== canonicalRoot(mine);
 }
 
 /**
@@ -303,7 +338,8 @@ export function hookStandsDown(payload = undefined, env = process.env) {
   return (
     npmHookStepsAside(payload, env) ||
     pluginStandsDownPassive(payload, env) ||
-    pluginStandsDownUnonboarded(payload, env)
+    pluginStandsDownUnonboarded(payload, env) ||
+    pluginRootStandsDown(payload, env)
   );
 }
 
