@@ -1,24 +1,3 @@
-// On-demand optional-engine resolution (issue #616, Part 2b, FR-4).
-//
-// The Claude Code plugin ships `dist/` with NO `node_modules`, so the heavy, optional engines —
-// `@huggingface/transformers` (local embeddings + reranking) and the remote clients `openai` /
-// `voyageai` — cannot be found by a bare import the way they are under an npm install. This module
-// resolves them from three places, in order:
-//
-//   1. normal resolution, next to this module (dev + every npm install);
-//   2. the plugin's own writable data dir, `${CLAUDE_PLUGIN_DATA}/node_modules`;
-//   3. the npm copy's `node_modules` — one level above the framework runtime link
-//      (`realpath(~/.paqad-ai/current)/../node_modules`), then the global install
-//      (`npm root -g`/paqad-ai/node_modules).
-//
-// Hop 1 (normal resolution) goes through a bare dynamic `import(name)` — the dev/npm path, the
-// one that yields ESM named exports, and the one a test's module mock intercepts. Hops 2 and 3
-// go through `createRequire`, which returns the package's `require`-condition entry whose named
-// exports survive `require()` (a dynamic `import()` of the same CJS entry drops them). Every lazy
-// import of the three engines routes through `loadOptionalPackage`, so a plugin with no local
-// `node_modules` still finds an engine the npm copy already carries, and degrades to the text-
-// search / heuristic fallback (never a crash) when none of the three resolve.
-
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -27,29 +6,19 @@ import { dirname, join } from 'node:path';
 import { getPackageRoot } from '@/core/runtime-paths.js';
 import { frameworkLinkHome } from '@/health/plugin-install.js';
 
-/**
- * createRequire base files for the NON-normal locations (hops 2 and 3), whose directories'
- * `node_modules` are searched after a bare import fails. Hop 1 is the bare import itself.
- */
 function alternateBases(env: NodeJS.ProcessEnv): string[] {
   const bases: string[] = [];
 
-  // Hop 2: the plugin's writable data dir (where the on-demand install lands).
   const pluginData = env.CLAUDE_PLUGIN_DATA;
   if (pluginData) {
     bases.push(join(pluginData, 'package.json'));
   }
 
-  // Hop 3a: the npm copy's node_modules, one level above the framework runtime link.
   try {
     const runtimeReal = realpathSync(frameworkLinkHome(env));
     bases.push(join(dirname(runtimeReal), 'package.json'));
-  } catch {
-    // The link is missing or dangling — skip this candidate.
-  }
+  } catch {}
 
-  // Hop 3b: the global install's own node_modules (cold path — only reached when every
-  // hop above missed, and resolution is called at most once per engine load).
   /* v8 ignore next 3 -- npm is present in this repo's env so npmGlobalRoot is non-null here; the absent-npm branch guards other hosts. */
   const globalRoot = npmGlobalRoot();
   if (globalRoot) {
@@ -59,7 +28,6 @@ function alternateBases(env: NodeJS.ProcessEnv): string[] {
   return bases;
 }
 
-/** `npm root -g`, or null when npm is unavailable. Spawned only on the cold resolution path. */
 function npmGlobalRoot(): string | null {
   try {
     const out = execFileSync('npm', ['root', '-g'], {
@@ -75,11 +43,6 @@ function npmGlobalRoot(): string | null {
   /* v8 ignore stop */
 }
 
-/**
- * Resolve an optional engine's entry path, searching the three locations in order, or null when
- * none carries it. Used by the on-demand install and `doctor` to decide whether an engine is
- * present; the hot load path is {@link loadOptionalPackage}. Hop 1 resolves next to this module.
- */
 export function resolveOptionalPackage(
   name: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -87,68 +50,37 @@ export function resolveOptionalPackage(
   for (const base of [import.meta.url, ...alternateBases(env)]) {
     try {
       return createRequire(base).resolve(name);
-    } catch {
-      // Not under this base — try the next location.
-    }
+    } catch {}
   }
   return null;
 }
 
-/**
- * Load an optional engine by name. Tries a bare dynamic import first (the dev/npm path, with its
- * ESM named exports, and the path a test's module mock intercepts); on failure it searches the
- * plugin data dir and the npm copy via `require`, whose named exports survive loading a CJS entry.
- * Throws when the engine is installed nowhere — callers catch that and fall back to text search /
- * the token heuristic.
- */
 export async function loadOptionalPackage<T = unknown>(
   name: string,
   env: NodeJS.ProcessEnv = process.env,
 ): Promise<T> {
   try {
     return (await import(name)) as T;
-  } catch {
-    // Not resolvable next to dist (the plugin case) — try the plugin/npm-copy locations.
-  }
+  } catch {}
   for (const base of alternateBases(env)) {
     try {
       return createRequire(base)(name) as T;
-    } catch {
-      // Not under this base — try the next location.
-    }
+    } catch {}
   }
-  // The engine resolved nowhere and (since this loader is only reached from the RAG/context
-  // seams) RAG is in use — kick off the one-time background install, then let the caller fall
-  // back to text search / the token heuristic. The install is a no-op outside a plugin.
   /* v8 ignore start -- best-effort kick-off; its internals already fail safe, so this catch rarely fires. */
   try {
     maybeStartOptionalEngineInstall(env);
-  } catch {
-    // Provisioning is best-effort; never let it mask the real "engine missing" failure.
-  }
+  } catch {}
   /* v8 ignore stop */
   throw new Error(`optional package ${name} is not installed`);
 }
 
-// ─── On-demand engine install (issue #616, Part 2b, FR-4/FR-5) ──────────────────────────────────
-//
-// In the plugin (no local node_modules), the first time RAG needs an engine that resolves nowhere,
-// paqad installs the heavy engines into the plugin's own writable data dir in the background: a
-// detached `npm install`, version-pinned to the ranges in the shipped package.json (never `latest`),
-// single-flight locked, retried at most once per 24h, logging to a file and writing a status marker.
-// It never blocks the hook and never prints. While it runs, retrieval stays on the text-search
-// fallback; `doctor` reads the marker to report ready / installing / install failed.
-
-/** The heavy optional engines the on-demand install provisions. */
 const OPTIONAL_ENGINES = ['@huggingface/transformers', 'openai', 'voyageai'] as const;
 
-/** The engine whose presence decides the doctor "ready" state (the default local provider). */
 const PRIMARY_ENGINE = '@huggingface/transformers';
 
-/** At most one install attempt per day (success or failure). */
 const INSTALL_RETRY_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
-/** The verbatim hint doctor prints when the background engine install has failed. */
 export const ENGINE_INSTALL_NETWORK_HINT =
   'If this machine is offline or behind a proxy, install the engine manually: run ' +
   '`npm install @huggingface/transformers` inside the CLAUDE_PLUGIN_DATA directory.';
@@ -181,7 +113,6 @@ function readInstallMarker(markerPath: string): InstallMarker | null {
   }
 }
 
-/** `name@range` for each optional engine, read from the paqad package.json above the runtime link. */
 function readEngineSpecs(env: NodeJS.ProcessEnv): string[] {
   try {
     const pkgRoot = dirname(realpathSync(frameworkLinkHome(env)));
@@ -202,7 +133,6 @@ function readEngineSpecs(env: NodeJS.ProcessEnv): string[] {
   }
 }
 
-/** The outcome of a single {@link maybeStartOptionalEngineInstall} call. */
 export type EngineInstallOutcome =
   | 'started'
   | 'already-present'
@@ -211,7 +141,6 @@ export type EngineInstallOutcome =
   | 'no-plugin-data'
   | 'no-pinned-range';
 
-/** Injectable seams so the decision logic is testable without spawning a real install. */
 export interface EngineInstallDeps {
   now?: () => number;
   resolve?: (name: string, env: NodeJS.ProcessEnv) => string | null;
@@ -223,12 +152,6 @@ export interface EngineInstallOptions {
   projectRoot?: string;
 }
 
-/**
- * Start the background engine install when it is warranted, else report why it was skipped. Only
- * runs inside a plugin (`CLAUDE_PLUGIN_DATA` set), only when the engine resolves nowhere, only one
- * attempt at a time (lock), and only once per {@link INSTALL_RETRY_INTERVAL_MS}. Pinned to the
- * package.json ranges — with no readable range it declines rather than installing `latest`.
- */
 export function maybeStartOptionalEngineInstall(
   env: NodeJS.ProcessEnv = process.env,
   deps: EngineInstallDeps = {},
@@ -256,7 +179,6 @@ export function maybeStartOptionalEngineInstall(
     return 'no-pinned-range';
   }
   mkdirSync(pluginData, { recursive: true });
-  // A private package.json marks the dir as its own npm root (same as visual-evidence provisioning).
   writeFileSync(
     join(pluginData, 'package.json'),
     `${JSON.stringify({ private: true }, null, 2)}\n`,
@@ -280,8 +202,6 @@ function spawnEngineInstall(
   paths: EnginePaths,
   projectRoot?: string,
 ): void {
-  // The parent hook exits immediately, so the detached child runs the install itself and writes
-  // the ready/failed marker + clears the lock on its own. Args are tokenized; no shell.
   const installer = `
     const { execFileSync } = require('node:child_process');
     const { openSync, writeFileSync, rmSync } = require('node:fs');
@@ -329,27 +249,18 @@ function spawnEngineInstall(
 }
 /* v8 ignore stop */
 
-/** The doctor-facing state of the optional embedding engine. */
 export type OptionalEngineState = 'ready' | 'installing' | 'install failed' | 'not installed';
 
 export interface OptionalEngineReport {
   state: OptionalEngineState;
-  /** First line of the npm error, when the install failed. */
   detail?: string;
-  /** The verbatim network-fix hint, when the install failed. */
   hint?: string;
 }
 
-/** Injectable seam so doctor-state reporting is testable without touching the real install dir. */
 export interface OptionalEngineReportDeps {
   resolve?: (name: string, env: NodeJS.ProcessEnv) => string | null;
 }
 
-/**
- * Report the optional engine's state for `doctor`: `ready` when it resolves anywhere, else the
- * background install's marker (`installing` / `install failed: <first npm error line>` + the
- * network hint), else `not installed`.
- */
 export function describeOptionalEngine(
   env: NodeJS.ProcessEnv = process.env,
   deps: OptionalEngineReportDeps = {},

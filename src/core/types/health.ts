@@ -1,7 +1,6 @@
 import type { ActiveCapability, Capability, Domain, Stack } from './domain.js';
 import type { RepositoryContext } from './repository.js';
 
-// `info` (issue #622) reports a fact with no verdict; the overall status ignores it.
 export const HEALTH_CHECK_STATUSES = ['pass', 'fail', 'warning', 'info'] as const;
 export type HealthCheckStatus = (typeof HEALTH_CHECK_STATUSES)[number];
 
@@ -40,22 +39,8 @@ export interface DetectionReport {
   recommended_capabilities?: ActiveCapability[];
   detection_phase?: 'framework' | 'archetype' | 'none';
   confidence: 'high' | 'medium' | 'low';
-  /**
-   * PQD-423: numeric confidence in the inclusive range `[0, 1]`. Coexists with the
-   * categorical `confidence` field (which the six internal callers still read) — it is
-   * an additive surface for consumers that want a continuous score (e.g. `0.92`).
-   */
   confidence_score?: number;
-  /**
-   * PQD-423: human-readable primary language derived from the primary toolchain
-   * ecosystem (e.g. `'JavaScript/TypeScript'`, `'Python'`). `null` when no code
-   * ecosystem was detected (empty, unknown, or content-only projects).
-   */
   primary_language?: string | null;
-  /**
-   * PQD-423: which detection path produced this report — `'ai'` when the AI-first
-   * path returned a confident result, `'static'` when the rule-based fallback ran.
-   */
   source?: 'ai' | 'static';
   signals: DetectionSignal[];
   timestamp: string;

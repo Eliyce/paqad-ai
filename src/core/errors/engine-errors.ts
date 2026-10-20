@@ -1,13 +1,3 @@
-// PQD-107 — typed error subclasses, one per taxonomy code, so a consumer can
-// `instanceof`-check and read a strongly-typed `details` payload. Each subclass
-// fixes its `code`, sets the canonical `retryable` default for that code, and
-// threads an optional `projectRoot` through so credential material in the
-// payload is redacted before the error is surfaced.
-//
-// `CANCELLED_BY_CONSUMER` is intentionally NOT redefined here: the PQD-104
-// `CancelledError` (exported from the same errors barrel) already carries that
-// code, so cancellation surfaces a single stable class.
-
 import { engineLog } from '@/core/logger-registry.js';
 
 import { FrameworkError } from './framework-error.js';
@@ -167,16 +157,6 @@ export class UnknownEngineError extends FrameworkError {
   }
 }
 
-/**
- * Normalise any thrown value into an engine error carrying a taxonomy code.
- *
- * - A {@link FrameworkError} whose `code` is already in the taxonomy passes
- *   through unchanged.
- * - A {@link CancelledError} (or any framework error) is preserved.
- * - Anything else — including a `FrameworkError` with a code the taxonomy does
- *   not name — is wrapped in {@link UnknownEngineError}, and the engine emits an
- *   internal log naming the missing taxonomy entry (AC: undocumented failure).
- */
 export function toEngineError(error: unknown): FrameworkError {
   if (error instanceof FrameworkError) {
     if (getTaxonomyEntry(error.code)) {
@@ -192,7 +172,6 @@ export function toEngineError(error: unknown): FrameworkError {
   return new UnknownEngineError(message, { message });
 }
 
-/** True when `code` is a value the engine taxonomy defines. */
 export function isEngineErrorCode(code: string): code is EngineErrorCode {
   return getTaxonomyEntry(code) !== undefined;
 }

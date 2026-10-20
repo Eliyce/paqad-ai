@@ -80,6 +80,147 @@ lockfile hash, made when the record is missing or the lockfile changed (and the 
 after a parallel harness failure). When it does, it prints
 `recorded the test runner in .paqad/project-profile.yaml (once per lockfile change)`.
 
+## Why the shared core code works the way it does
+
+`src/core/` holds the small pieces every other module leans on. The reasons that are not obvious
+from the code are kept here, grouped by file.
+
+**`constants/paqad-voice.ts`.** The one place for the status glyphs, verdict words and the
+`**▸ paqad** · <label>` frame used by the chat narration, the PR evidence comment and the
+dashboard. Every glyph is paired with a word so a line still reads with the emoji stripped (no
+colour, screen readers, piped output). Identity is carried by markdown, never ANSI colour, since
+ANSI does not travel between hosts. The plain-English term list is first person on purpose
+("checked for you").
+
+**`constants/paths.ts`.** `CONTEXT_SESSION_ARTIFACT` is hardcoded again in `runtime/scripts/context-seam.mjs`;
+keep the two in step. The vision index sits in its own folder under `.paqad/vectors` so a file
+index rebuild never touches image chunks, yet clearing RAG still removes both. CRS collections,
+session attachment collections and the codebase-memory file stay apart from the project vectors
+so one never disturbs another. The Discovery run root is named `delivery` at the owner's request;
+it is not the feature-development delivery stage or the delivery policy. The capability lock is
+tracked and engine-owned, so a hand edit that weakens a binding reads as tamper.
+
+**`constants/schema.ts`.** `PAQAD_SCHEMA_VERSION` describes the whole `.paqad/` layout, on top of
+each file's own `schema_version`. Bump it when an artifact changes shape and add the matching
+migrator in `schema-migrators.ts`. Version 1.1.0 moved the spec pipeline run into the change
+bundle.
+
+**`enterprise-policy.ts`.** The evidence ledger, AI-BOM and compliance citations are off unless
+`enterprise.enabled` is true; a missing block means everything off, and each sub-flag is read as
+`=== true`. A future licence check slots in here, so callers never learn about billing.
+
+**`errors/`.** Codes in `taxonomy.ts` are readable names, not numbers, so a consumer can switch on
+them; the `EngineErrorCode` union is derived from the table so the two never drift. Cancellation
+keeps the one `CancelledError` class. Passing `projectRoot` to an error runs its string details
+through the RAG secret redaction; without it nothing touches the disk, so building an error never
+fails in tests or CI. `toEngineError` wraps any code the taxonomy does not name and logs the gap.
+The newer-schema message is shared by doctor, hooks and the dashboard so the fix always reads the
+same.
+
+**`floored-mode.ts`.** Enforced mode knobs (`stages_mode`, `rule_compliance` and the like) invert
+the usual local-wins order: the team value, or the built-in default when none is set, is a floor.
+The local `.config` and `PAQAD_*` env may only raise strictness. Without this a developer could
+quietly lower the team's enforcement from a git-ignored file. Unknown values are ignored, so a
+typo never switches enforcement off. To lower enforcement a team commits the weaker value.
+
+**`framework-config.ts`.** `FRAMEWORK_CONFIG_SPECS` is the single registry: it drives defaults,
+parsing, the layered resolver, the env mapping, the generated group files and the prune pass.
+Framework knobs come only from the config layers; any still in `project-profile.yaml` are ignored
+on read and stripped on write, and `detectFlippedFrameworkValues` turns that revert into a visible
+notice. The `custom.decisions` sub-keys that are project values (`preferred_option_keys`,
+`ttl_overrides_days`, `max_pending`) stay in the profile. Group files are written commented out,
+so a fresh project runs on code defaults; an existing file only gains new keys, and reconcile only
+prunes keys this version no longer knows, never resetting a value. Unchanged files are never
+rewritten. `.config.example` is tracked but never read at runtime. The flaky mode order is kept
+local to avoid an import cycle with `src/checks/flaky-mode.ts`. The evidence existence gate has no
+`strict` tier on purpose: it warns, never blocks. `SPEC_PIPELINE_DEFAULTS` is mirrored in
+`runtime/hooks/lib/agent-entry-directive.mjs` and a unit test fails if they drift. Numeric knobs
+fall back to their default on a bad value, so a hand-trimmed config never breaks.
+
+**`framework-enabled.ts`.** `PAQAD_DISABLED` wins over everything, so a test harness can switch
+arms without touching files, and an off signal holds even when `dist` is missing. Reading the
+switch never goes through the migrating profile reader, because an OFF turn must leave the tree
+clean. The truthy value set is identical to `runtime/hooks/lib/paqad-disabled.{sh,mjs}`.
+`paqad-ai enable/disable` writes the local `.config` only for an onboarded project and never
+touches the env override.
+
+**`fs/atomic-rename.ts`.** On Windows a rename onto a file another process is touching fails for a
+moment with `EPERM`, `EACCES` or `EBUSY`, so the rename is retried there (up to 5 tries, 10 to
+80 ms apart). Other platforms rethrow at once. When it gives up it removes the temp file and the
+caller sees the rename error, not a cleanup error.
+
+**`fs/file-lock.ts`.** Parallel expert subagents each merge their notes into `experts.json`; this
+lock serialises those read-modify-write steps across processes. It reuses the background
+refresh's directory lock and its stale-lock reclaim, and only adds the wait. It is synchronous
+because the writers it guards are.
+
+**`fs/gitignore-scan.ts`.** The rule-script runner and the code-knowledge index share this one
+scan. A single batched `git check-ignore` honours every ignore source and keeps tracked files that
+merely match a pattern. Any git failure falls back to the static list, so it never drops a file.
+
+**`ids/ulid.ts`.** Written in-tree to avoid a runtime dependency. ULIDs sort by creation time and
+do not collide across machines, so decision packets from parallel branches never share an id.
+Ids minted in the same millisecond are incremented, not re-randomised, so they keep allocation
+order.
+
+**`logger-registry.ts` and `logging/`.** The consumer logger is fire-and-forget: the engine never
+awaits it, and a throw or rejection is caught, reported once to stderr, and the logger is then
+skipped. Installing a logger replaces the previous one. With none installed, `warn` and `error`
+go to stderr and the rest is dropped. Config reload updates the logger in place so no line is lost
+or doubled. `hooks-log.ts` writes the same one-line format as `appendHooksLog` in
+`runtime/hooks/lib/paqad-disabled.mjs` and never throws, so a record-only write cannot change what
+a hook decided.
+
+**`math/cosine.ts`.** The single cosine helper for graph, RAG and pattern code. A length mismatch,
+an empty vector or a zero-norm input returns 0, never `NaN`.
+
+**`npm-available.ts`.** Inside the Claude Code plugin there may be no npm, and then only
+`claude-code` can be wired. The probe runs one fixed shell string so Windows finds the `npm.cmd`
+shim; there is no input, so there is no injection risk.
+
+**`optional-package.ts`.** The plugin ships `dist/` with no `node_modules`, so the heavy engines
+(`@huggingface/transformers`, `openai`, `voyageai`) are looked up in order: normal resolution, the
+plugin data dir, the npm copy beside the framework link, then the global install. The first hop is
+a bare `import()` (ESM named exports, and what test mocks intercept); the others use
+`createRequire`, whose CJS named exports survive. When nothing resolves, a background,
+version-pinned install into the plugin data dir starts (single-flight, at most once a day, never
+`latest`), and callers fall back to text search meanwhile.
+
+**`path-utils.ts`.** Paths are converted to forward slashes at every output boundary. The strip
+helpers are linear scans instead of anchored regexes, which CodeQL flags as polynomial ReDoS.
+
+**`project-intelligence.ts`.** MiniLM is the default local embedding model; the code-tuned model is
+opt-in. The RAG floor of 0.35 came from live probes: real queries scored 0.37 to 0.52 and an
+unrelated one 0.32. The existing-surface digest budget is about 1000 tokens, a deliberate spend
+that saves the model searching for code that already exists.
+
+**`project-profile.ts`.** `migrated` is true only when the canonical form differs from the input;
+flagging an unchanged profile re-ran the migration on every read and looped with the dashboard
+watcher. `coding` active without a stack profile is a valid state.
+
+**`runtime-paths.ts`.** The package root is found by walking up to the `package.json` named
+`paqad-ai`, because a fixed `../..` resolved one folder too high from the `dist/index.js` bundle the
+Stop hook imports. It is resolved lazily so importing an unrelated bundle never fails.
+
+**`schema-migrators.ts` and `schema-version.ts`.** Migrators must be idempotent and narrow, since a
+retry can see a half-migrated tree. They run under the migration lock before the marker moves, so a
+failure leaves the old version to retry. The evidence migrator never throws on one bad change; the
+pending migration step picks it up next time. The lock uses exclusive create, which is not reliable
+on NFS or SMB. An existing valid marker is left alone so repeated onboards do not churn its
+timestamp.
+
+**`stack-profile.ts`.** The dependency to framework map is also the framework-API index's source,
+so there is one copy. It includes Spring, Django, FastAPI and Rails names, and both spellings of
+pip names, since pip ignores case.
+
+**`types/`.** Receipt fields for authorship, citations, the context stamp and shape metrics are
+omitted when absent so older receipts stay byte-identical. A `blocked` evidence row is counted but
+does not move the receipt result; `INCONCLUSIVE` is used when nothing failed but something could
+not be judged. A skipped gate keeps `passed: true` so no verdict kind changes, and records
+`skip_kind` (`not-required` or `did-not-run`). Compliance relations are never `full`: paqad gives
+evidence toward a clause, not a conformity assessment. The onboarding preview must be
+deterministic, so templates may not embed time or random output.
+
 ## Source Footprint
 
 - `src/core/project-profile.ts`

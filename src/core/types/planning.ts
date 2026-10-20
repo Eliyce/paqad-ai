@@ -43,10 +43,6 @@ export interface ExecutionSlice {
   preconditions?: string[];
   rollback_class?: RollbackClass;
   token_budget?: number;
-  // Issue #104 — the default slice unit is one acceptance criterion. A slice may
-  // cover more than one criterion only when separating them would break the work;
-  // that exception must be justified here. Slices covering a single criterion
-  // leave this unset.
   combine_reason?: string;
 }
 
@@ -186,10 +182,6 @@ export interface ExecutionProgressTracker {
   token_budget: SliceBudgetSummary;
   baseline_failing_tests?: string[];
   re_planned_slices?: string[];
-  // PQD-100 — the run identifier of the most recent `SliceExecutor.execute`
-  // call for this manifest. Persisted so a later `resume` can attribute its
-  // crash-recovery event to the run that did not finish. Absent before the
-  // first instrumented run.
   last_run_id?: string;
 }
 
@@ -323,18 +315,6 @@ export interface SliceGateResult {
   warnings: string[];
 }
 
-// ───────────────────────────────────────────────────────────────────────────
-// Slice execution event stream (PQD-100)
-//
-// A live, in-process event stream a consumer (the desktop planning panel, an
-// agent adapter) subscribes to via `SliceExecutor.execute({ onEvent })` to
-// render slice progress without polling the tracker file. Every variant is
-// plain serialisable data so it can cross an IPC boundary untransformed. These
-// are distinct from the coarse, unified `EngineEvent` stream (PQD-99): this one
-// carries the full slice-level state machine for a single execution run.
-// ───────────────────────────────────────────────────────────────────────────
-
-/** The discriminants of {@link SliceExecutionEvent}. */
 export type SliceExecutionEventKind =
   | 'slice-started'
   | 'slice-gate-evaluated'
@@ -345,30 +325,16 @@ export type SliceExecutionEventKind =
   | 'run-finished'
   | 'run-resume-after-crash';
 
-/** Fields stamped on every slice execution event by the {@link SliceEventBus}. */
 export interface SliceExecutionEventBase {
-  /** Per-`execute` UUID; lets a consumer route two concurrent runs apart. */
   runId: string;
-  /** The manifest slug the run is executing. */
   slug: string;
-  /** Strictly increasing within a run, starting at 1. */
   seq: number;
-  /** ISO-8601 timestamp stamped when the event is emitted. */
   ts: string;
   kind: SliceExecutionEventKind;
-  /**
-   * Set when this event represents one or more older same-stream events the
-   * bus dropped under backpressure. Terminal events are never coalesced away.
-   */
   coalesced?: true;
-  /**
-   * Set when the event's serialised payload exceeded the bus payload cap and
-   * its string fields were truncated. The event is delivered, not dropped.
-   */
   truncated?: true;
 }
 
-/** A slice began executing (or began a fresh attempt). */
 export interface SliceExecutionStartedEvent extends SliceExecutionEventBase {
   kind: 'slice-started';
   sliceId: string;
@@ -376,7 +342,6 @@ export interface SliceExecutionStartedEvent extends SliceExecutionEventBase {
   tokenBudget: number;
 }
 
-/** A slice's verification gate was evaluated. `reasons` is non-empty on fail. */
 export interface SliceExecutionGateEvaluatedEvent extends SliceExecutionEventBase {
   kind: 'slice-gate-evaluated';
   sliceId: string;
@@ -384,7 +349,6 @@ export interface SliceExecutionGateEvaluatedEvent extends SliceExecutionEventBas
   reasons: string[];
 }
 
-/** A slice failed its gate and is being retried with feedback. */
 export interface SliceExecutionRetriedEvent extends SliceExecutionEventBase {
   kind: 'slice-retried';
   sliceId: string;
@@ -392,7 +356,6 @@ export interface SliceExecutionRetriedEvent extends SliceExecutionEventBase {
   feedbackSummary: string;
 }
 
-/** A slice passed its gate and was checkpointed. */
 export interface SliceExecutionCompletedEvent extends SliceExecutionEventBase {
   kind: 'slice-completed';
   sliceId: string;
@@ -400,7 +363,6 @@ export interface SliceExecutionCompletedEvent extends SliceExecutionEventBase {
   filesChanged: number;
 }
 
-/** A slice was escalated; downstream slices it blocks are listed. */
 export interface SliceExecutionEscalatedEvent extends SliceExecutionEventBase {
   kind: 'slice-escalated';
   sliceId: string;
@@ -408,13 +370,11 @@ export interface SliceExecutionEscalatedEvent extends SliceExecutionEventBase {
   blockedDownstream: string[];
 }
 
-/** Execution was cancelled by the consumer; `stoppedAtSeq` is the stop point. */
 export interface SliceExecutionCancelledEvent extends SliceExecutionEventBase {
   kind: 'slice-cancelled';
   stoppedAtSeq: number;
 }
 
-/** The run finished; final tracker status and per-status slice id lists. */
 export interface SliceExecutionRunFinishedEvent extends SliceExecutionEventBase {
   kind: 'run-finished';
   trackerStatus: string;
@@ -423,14 +383,12 @@ export interface SliceExecutionRunFinishedEvent extends SliceExecutionEventBase 
   escalatedSliceIds: string[];
 }
 
-/** A resume found slices left mid-flight by a crashed run and reset them. */
 export interface SliceExecutionResumeAfterCrashEvent extends SliceExecutionEventBase {
   kind: 'run-resume-after-crash';
   previousRunId: string | null;
   resetSliceIds: string[];
 }
 
-/** Discriminated union a consumer switches on by `kind`. */
 export type SliceExecutionEvent =
   | SliceExecutionStartedEvent
   | SliceExecutionGateEvaluatedEvent
@@ -463,17 +421,9 @@ export interface ModuleHealthMetrics {
   defect_frequency?: number | null;
   contract_stability?: number | null;
   change_velocity?: number | null;
-  // Issue #80, Phase 3 — test-driven rollup adds raw counts alongside the
-  // existing coverage / stability fields. Null when the rollup ran but the
-  // parser produced no signal for the module; populated in `blocked_metrics`
-  // with a reason when the rollup was unable to compute the value at all.
   tests_passing?: number | null;
   tests_failing?: number | null;
   tests_total?: number | null;
-  // Issue #105 — mutation kill rate (0–100) for the module's changed code, fed
-  // from the mutation-testing verification gate. Null when no mutation run has
-  // produced a signal for the module; the reason is recorded in
-  // `blocked_metrics` rather than fabricating a value.
   mutation_score?: number | null;
 }
 
@@ -482,11 +432,6 @@ export interface ModuleHealthProfile {
   module: string;
   tier: HealthTier;
   metrics: ModuleHealthMetrics;
-  // Issue #80, Phase 3 — populated by the rollup runner. Each entry names a
-  // metric that could not be computed plus the reason (e.g.
-  // `contract_stability: no_public_api_extractor`). No metric is fabricated
-  // or zeroed when a signal is missing; it is set to null and the reason
-  // recorded here.
   blocked_metrics?: string[];
   evidence?: {
     last_event_id?: string;
@@ -495,9 +440,6 @@ export interface ModuleHealthProfile {
     last_verification_status?: 'pass' | 'fail' | 'partial' | 'unknown';
     last_changed_files?: string[];
     processed_event_ids?: string[];
-    // Phase 3 rollup adds a structured snapshot of the inputs that produced
-    // the current metrics. Optional so existing planning-evidence consumers
-    // keep working unchanged.
     rollup?: {
       coverage_format?: string;
       coverage_path?: string;

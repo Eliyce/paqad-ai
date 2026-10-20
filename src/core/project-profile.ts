@@ -40,7 +40,6 @@ interface MigrationResult {
 }
 
 export interface ReadProjectProfileOptions {
-  /** Persist a legacy-to-canonical migration. Join disables this to remain read-only. */
   persistMigration?: boolean;
 }
 
@@ -61,9 +60,6 @@ export function readProjectProfile(
       writeProjectProfile(projectRoot, migration.profile, migration.audit_message);
     }
 
-    // HARD CUTOVER: framework knobs are sourced from defaults + `.paqad/.config`,
-    // never the YAML. Overlay them onto the (project-fact) profile, replacing
-    // any stale framework keys an older profile may still carry on disk.
     return applyFrameworkConfigToProfile(migration.profile, resolveFrameworkConfig(projectRoot));
   } catch {
     return null;
@@ -173,12 +169,6 @@ export function migrateProjectProfile(input: ProjectProfileLike | ProjectProfile
     stack_profile: stackProfile,
   };
 
-  // `migrated` must be true only when the canonical form differs from the
-  // input. Flagging an unchanged profile re-runs the migration (and appends
-  // its audit line) on every read — with the dashboard watcher that became a
-  // ~500ms feedback loop. In particular, `coding` active without a stack
-  // profile is a valid converged state (stack detection may not have run),
-  // not a migration trigger.
   const migrated =
     !Array.isArray(legacy.active_capabilities) ||
     legacy.routing !== undefined ||

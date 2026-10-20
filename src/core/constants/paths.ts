@@ -3,14 +3,6 @@ export const PATHS = {
   AGENCY_CACHE_DIR: '.paqad/cache',
   AGENCY_SESSION_DIR: '.paqad/session',
   PROJECT_PROFILE: '.paqad/project-profile.yaml',
-  // Laravel-style framework config — four surfaces (precedence low→high, LOCAL
-  // WINS): code defaults (`DEFAULT_FRAMEWORK_CONFIG`) < `configs/.config.*`
-  // (tracked, team-shared, merged) < `.config` (git-ignored, dev-local) <
-  // `PAQAD_*` env. Onboarding writes one self-documenting `configs/.config.*` file
-  // per group (every knob commented at its default) plus a single `.config.example`
-  // catalog of every knob — a copy-paste reference that is NEVER read at runtime.
-  // Framework knobs (paqad/enterprise/RAG/strictness/escalation/features/research/
-  // model_routing/decisions + version/update) resolve through these, not the profile.
   PROJECT_CONFIG: '.paqad/.config',
   PROJECT_CONFIG_EXAMPLE: '.paqad/.config.example',
   PROJECT_CONFIGS_DIR: '.paqad/configs',
@@ -20,9 +12,6 @@ export const PATHS = {
   RAG_IGNORE_CONFIG: '.paqad/rag.ignore.yaml',
   STACK_DRIFT: '.paqad/stack-drift.json',
   STACK_SNAPSHOT: '.paqad/stack-snapshot.json',
-  // Issue #42 — delivery-convention detection results (host/base/branch/commit
-  // inferred from git history). Overlaid onto the delivery-policy `auto`
-  // sections; the commented delivery-policy.yaml is never rewritten.
   DELIVERY_DETECTION: '.paqad/delivery-detection.json',
   DELIVERY_PR_BODY_TEMPLATE: '.paqad/templates/pr-body.md',
   FRAMEWORK_VERSION: '.paqad/framework-version.txt',
@@ -32,13 +21,7 @@ export const PATHS = {
   HANDOFF: '.paqad/session/handoff.md',
   ACTIVE_IMPLEMENTATION_SESSION: '.paqad/session/active-implementation.json',
   CONTEXT_HIT_LOG: '.paqad/session/context-hit-log.json',
-  // Issue #360 — the machine-built evidence digest the review stage reads before
-  // it writes findings. An INPUT to the review, never an artifact: the review
-  // stage's artifact stays the bundle's rigid review.json.
   REVIEW_DIGEST: '.paqad/session/review-digest.md',
-  // Issue #639 — the paqad HUD's per-session files: the snapshot (`<session>.json`), the
-  // in-session receipt (`<session>.receipt.md`) and its verdict (`<session>.verdict.json`).
-  // Git-ignored session state, rewritten as the change moves, never evidence.
   HUD_DIR: '.paqad/session/hud',
   PROJECT_QUESTION_ANSWER: '.paqad/session/project-question-answer.json',
   AUDIT_LOG: '.paqad/audit.log',
@@ -48,122 +31,48 @@ export const PATHS = {
   DECISIONS_EXPIRED_DIR: '.paqad/decisions/expired',
   DECISIONS_INDEX: '.paqad/decisions/index.json',
   DECISIONS_AUDIT_LOG: '.paqad/decisions/audit.jsonl',
-  // PQD-101 — JSONL fallback channel for decision-pause events (mirrors
-  // MODULE_MAP_EVENTS_LOG). The in-process EngineEventBus is the live delivery
-  // channel; this path supports future SSE/HTTP consumers.
   DECISIONS_EVENTS_LOG: '.paqad/decisions/events.jsonl',
   DECISIONS_LOCK: '.paqad/decisions/.lock',
   DECISION_PAUSE_CONTRACT: '.paqad/decision-pause-contract.md',
-  // Issue #158 — canonical, managed narration contract: the full spec for how
-  // paqad speaks in the live agent chat (voice, cadence, status-block format,
-  // glyph vocabulary, plain-English term translations). A lean copy of the
-  // operative rules is rendered into each provider entry file; this is the
-  // single source of truth they point at.
   NARRATION_CONTRACT: '.paqad/narration-contract.md',
-  // Feature 1 - Semantic Context Loader
   CHUNK_INDEX: '.paqad/context/chunk-index.json',
   LOAD_STATS: '.paqad/context/load-stats.json',
   VECTORS_DIR: '.paqad/vectors',
   VECTOR_INDEX: '.paqad/vectors/index.json',
   VECTOR_META: '.paqad/vectors/meta.json',
-  // PQD-102 — vision-extracted text (OCR/caption) lives in a separate vector
-  // index so a file-index rebuild never disturbs image-derived chunks and the
-  // file-index provider/model match guard isn't conflated. Co-located in
-  // .paqad/vectors so RagService.clear() (which removes the whole dir) clears
-  // both file- and vision-derived content together.
   VISION_VECTOR_INDEX: '.paqad/vectors/vision-index.json',
   VISION_VECTOR_META: '.paqad/vectors/vision-meta.json',
-  // PQD-415 — project-scoped CRS (Contextual Retrieval Store) collections. Each
-  // named collection owns a directory under CRS_DIR keyed by its escaped id, with
-  // its own `index.json` + `meta.json` mirroring the `.paqad/vectors/` layout.
-  // Kept fully disjoint from VECTORS_DIR (project RAG) and the ephemeral
-  // attachment collections so a CRS collection never disturbs either. Old indexes
-  // are retained next to the live one under a `.revert.<ISO>` suffix for 24h after
-  // a side-by-side reindex.
   CRS_DIR: '.paqad/crs',
   SECRETS_ENV: '.paqad/secrets.env',
-  // PQD-174 — session-scoped ephemeral attachment collections for non-project
-  // desktop conversations. Each session owns a directory keyed by its id under
-  // SESSION_ATTACHMENT_COLLECTIONS_DIR; the registry maps live sessions to their
-  // collections so the boot-time orphan sweep can purge any whose session is
-  // gone. Kept fully disjoint from VECTORS_DIR (project RAG) and the pattern
-  // vectors so an attachment collection never disturbs either.
   SESSION_ATTACHMENT_COLLECTIONS_DIR: '.paqad/attachments',
   SESSION_ATTACHMENT_REGISTRY: '.paqad/attachments/registry.json',
-  // PQD-331 — append-only JSONL stream of attachment-indexing lifecycle events
-  // (`attachment.indexed` / `attachment.index_failed` / `attachment.format_rejected`).
-  // Kept separate from the RAG audit log so the desktop can tail just these to
-  // badge an attachment's index state without parsing the broader audit stream.
   ATTACHMENT_EVENTS_LOG: '.paqad/attachment-events.jsonl',
   GLOBAL_PATTERN_VECTORS_DIR: '.paqad/patterns/vectors',
   GLOBAL_PATTERN_VECTOR_INDEX: '.paqad/patterns/vectors/index.json',
   GLOBAL_PATTERN_VECTOR_META: '.paqad/patterns/vectors/meta.json',
-  // Feature 2 - Predictive Cache
   TRANSITION_LOG: '.paqad/cache/transition-log.json',
   CACHE_METRICS: '.paqad/cache/metrics.json',
-  // Issue #343 — the planning `<slug>.yaml` manifest's home. Relocated out of the retired
-  // `.paqad/specs` dir (decision D-01KX5RQ8MEHK596SVV92TJPKJC) so nothing reads `.paqad/specs`
-  // anymore; the frozen spec now lives in the feature bundle (`specification.json`).
   PLANNING_MANIFESTS_DIR: '.paqad/planning/manifests',
-  // Issue #318 — the deterministic check runner's persisted report. `paqad-ai
-  // checks run` writes the structured format/test/build results here; the
-  // agent-independent completion backstop reads it so the verdict proves the
-  // checks ran instead of assuming they passed.
   CHECKS_DIR: '.paqad/checks',
   CHECKS_REPORT: '.paqad/checks/last-run.json',
-  // Issue #103 - persisted regression guards (one sidecar per defect_id)
   REGRESSION_GUARDS_DIR: '.paqad/regression-guards',
-  // Issue #106 - flaky-test registry / quarantine list
   FLAKY_TESTS_DIR: '.paqad/flaky-tests',
   FLAKY_REGISTRY: '.paqad/flaky-tests/registry.json',
-  // Issue #107 - per-run finding triage ledger (four-pile sort + reasons)
   FINDINGS_DIR: '.paqad/findings',
   TRIAGE_LEDGER: '.paqad/findings/triage.json',
-  // Issue #118 - unified append-only evidence ledger + the merge-time
-  // provenance receipt (in-toto Statement / DSSE + CycloneDX AI-BOM) projected
-  // from it. EVIDENCE_RECEIPT_CHAIN is the tamper-evident hash chain (one
-  // envelope per line); EVIDENCE_RECEIPT/EVIDENCE_AI_BOM are the latest snapshots.
   EVIDENCE_LEDGER_DIR: '.paqad/ledger',
   EVIDENCE_LEDGER: '.paqad/ledger/evidence.jsonl',
-  // Issue #339 - per-feature evidence bundle (LIVE). Each feature gets ONE directory
-  // `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` that is its whole workflow
-  // record + compliance bundle (feature/plan/specification/stage-evidence/rule-run/
-  // delivery/rag, receipt/ai-bom projected on export); the dir name is the change key.
-  // The stage recorder, gate, plan/spec compile, rule-run + RAG re-homing, and the
-  // git-linkage hooks all write here. `_session/<sessionId>.json` holds the per-session
-  // active + paused-feature stack and lane; `_chat/<sessionId>/` is the separate home
-  // for non-feature activity. Container inherits the `ledger/` git-ignore.
   FEATURE_EVIDENCE_DIR: '.paqad/ledger/feature-evidence',
   FEATURE_EVIDENCE_SESSION_DIR: '.paqad/ledger/feature-evidence/_session',
   CHAT_LEDGER_DIR: '.paqad/ledger/_chat',
-  // Issue #597 - the standalone Discovery workflow's own run root. Each Discovery run gets ONE
-  // directory `.paqad/ledger/delivery/<slug>-<ULID>/` holding its canonical script-written
-  // artifacts (run/brief/sources/contributions/synthesis/decisions/readiness/handoff), its
-  // stage-evidence + context-receipt + blocker JSONL, and the generated read-only report.html.
-  // The directory name is deliberately `delivery` (owner-requested); the workflow is still
-  // Discovery and MUST NOT be confused with the feature-development `delivery` stage, the
-  // delivery policy, or FEATURE_EVIDENCE's `delivery-evidence` records. Container inherits the
-  // `ledger/` git-ignore, so no gitignore change is needed.
   DISCOVERY_DIR: '.paqad/ledger/delivery',
-  // Issue #249 - the lazily-minted, per-machine session id shared by the
-  // session-scoped evidence ledgers (rag-evidence #249, stage-evidence #247) when
-  // the host provides no session id of its own. `ses_<ulid>`, cached here.
   LEDGER_SESSION_ID: '.paqad/session/ledger-session-id',
   EVIDENCE_RECEIPT: '.paqad/ledger/receipt.dsse.json',
   EVIDENCE_RECEIPT_CHAIN: '.paqad/ledger/receipts.jsonl',
   EVIDENCE_AI_BOM: '.paqad/ledger/ai-bom.json',
-  // Issue #123 - the latest reproducibility stamp (context hash of the frozen
-  // materials the agent saw), read at receipt projection and folded into the
-  // receipt as an input-replay claim. Issue #468 Phase C - relocated out of the
-  // retired top-level `.paqad/ledger/` evidence home into `.paqad/session/`, since
-  // the receipt is now projected only into the per-feature bundle.
   EVIDENCE_CONTEXT_STAMP: '.paqad/session/context-stamp.json',
-  // Issue #109 - bidirectional traceability map (promise ↔ code ↔ test),
-  // rebuilt from reality each run.
   TRACEABILITY_DIR: '.paqad/traceability',
   TRACEABILITY_MAP: '.paqad/traceability/map.json',
-  // Issue #110 - quality-ratchet baseline (four measures at today's real level;
-  // only ever tightens).
   QUALITY_BASELINE: '.paqad/quality-baseline.json',
   PLANNING_MODULE_HEALTH_DIR: '.paqad/module-health',
   MODULE_HEALTH_EVIDENCE_DIR: '.paqad/module-health-evidence',
@@ -172,88 +81,39 @@ export const PATHS = {
   MODULE_HEALTH_LOG: '.paqad/logs/module-health.log',
   COMPILED_RULES: '.paqad/compiled-rules.json',
   PLANNING_COSTS: '.paqad/cache/planning-costs.json',
-  // RAG buildout F2/F4 — the session-time injection seam's precomputed context
-  // artifact. The runtime seam (runtime/scripts/context-seam.mjs) hardcodes the
-  // same relative path; keep the two in sync.
   CONTEXT_SESSION_ARTIFACT: '.paqad/context/session-context.md',
-  // RAG buildout F21 — the deterministic codebase-memory store (cross-session
-  // repo facts, decisions, recurring failures, style). Lives under the already-
-  // ignored crs/ root (per-machine, regenerable), disjoint from the desktop's
-  // PQD-415 CRS collection subdirectories. A single JSON file, never a directory.
   CODEBASE_MEMORY: '.paqad/crs/codebase-memory.json',
-  // RAG buildout F27 — base-drift awareness. The persisted drift snapshot (read on
-  // the prompt path, no network), the debounce marker that floors the background
-  // git fetch to one per interval, and its single-flight lock.
   BASE_DRIFT_STATE: '.paqad/session/base-drift.json',
   BASE_DRIFT_MARKER: '.paqad/session/base-drift.marker',
   BASE_DRIFT_LOCK: '.paqad/locks/base-drift.lock',
-  // Feature 3 - Context Budget Optimizer
   CONTEXT_BUDGET_STATE: '.paqad/session/context-budget.json',
   CONTEXT_SAVINGS: '.paqad/session/context-savings.json',
-  // QW-1 - Deduplication
   DEDUP_STATS: '.paqad/session/dedup-stats.json',
-  // Feature 6 - Handoff Compression
   HANDOFF_JSON: '.paqad/session/handoff.json',
   HANDOFF_STATS: '.paqad/session/handoff-stats.json',
-  // Feature 7 - Workflow Engine
   WORKFLOWS_DIR: 'docs/instructions/workflows',
   WORKFLOW_RUNS_DIR: '.paqad/workflows',
   SKILL_CACHE_DIR: '.paqad/cache/skill-results',
   SKILL_INDEX: '.paqad/skill-index.json',
-  // PQD-194 — append-only JSONL audit trail of skill/pack registrations that
-  // failed to load (malformed frontmatter, missing/invalid pack.yaml). Kept
-  // separate from MODULE_MAP_EVENTS_LOG so skill concerns don't pollute the
-  // module-map stream; the desktop tails this to badge a failed skill/pack and
-  // clears the badge once the file reloads cleanly.
   SKILL_AUDIT_EVENTS_LOG: '.paqad/skills/events.jsonl',
   DOC_PROGRESS: '.paqad/doc-progress.json',
   DOC_RUN_SESSION: '.paqad/session/doc-run.json',
   PENTEST_ROOT_DIR: '.paqad/pentest',
   PENTEST_RUNS_DIR: '.paqad/pentest/runs',
-  // Issue #355 — codebase-health audit (workflow #10). Distinct from the framework
-  // self-health checker (`src/health/`) and `module-health`: this is the on-demand
-  // project junk scan. Runs + baseline live under `.paqad/health`; reports under
-  // `docs/health` (mirrors the pentest run-dir / doc-output split).
   HEALTH_ROOT_DIR: '.paqad/health',
   HEALTH_RUNS_DIR: '.paqad/health/runs',
   HEALTH_BASELINE: '.paqad/health/baseline.json',
-  // Site Map & Journeys capability (behavioural map of the application). Run evidence
-  // bundles + the baseline ratchet live under `.paqad/site-map`; the canonical map lives
-  // under `docs/site-map` (SITE_MAP_CANONICAL_DIR below) and is the only doc output —
-  // there are no report dumps (issue #466, ART-3). Inert unless the `site_map` flag is on.
   SITE_MAP_ROOT_DIR: '.paqad/site-map',
   SITE_MAP_RUNS_DIR: '.paqad/site-map/runs',
   SITE_MAP_BASELINE: '.paqad/site-map/baseline.json',
-  // Issue D7 (S5) — the resumable authoring-progress store: a per-unit ledger so the same
-  // prompt in a new session resumes instead of restarting. Deliberately git-ignored and
-  // local (a person resumes their own sessions; a teammate starts fresh), like the baseline.
   SITE_MAP_PROGRESS: '.paqad/site-map/progress.json',
   INDEXES_DIR: '.paqad/indexes',
-  // Issue #353 — the deterministic, offline code-knowledge index: every exported
-  // symbol (with signature + caller_count) and the file->file / file->symbol edges
-  // between them, plus per-dependency `imported` usage. Built once by
-  // `paqad-ai index build`, consumed twice (dead-code findings + reuse answers).
   CODE_KNOWLEDGE_INDEX: '.paqad/indexes/code-knowledge.json',
-  // Issue #397 — the installed framework-API index: for each detected framework, at the
-  // version actually installed, which exported symbols exist and which carry a static
-  // `@deprecated` marker. Built by `paqad-ai index framework-api build`, consumed by
-  // `plan compile` to verify #357's framework reuse claims instead of trusting them.
   FRAMEWORK_API_INDEX: '.paqad/indexes/framework-api.json',
-  // Issue #466 — the single canonical, AI-authored behavioural map (ART-1). One YML location,
-  // loaded as documentation (it sits outside docs/instructions/, so the framework loads it
-  // explicitly). The dashboard reads this statically and renders it as the interactive visual;
-  // no run/rerun report dumps live here (ART-3). Inert unless the `site_map` flag is on.
   SITE_MAP_CANONICAL_DIR: 'docs/site-map',
   SITE_MAP_CANONICAL_APP_MAP: 'docs/site-map/app-map.yaml',
   SITE_MAP_CANONICAL_JOURNEYS_DIR: 'docs/site-map/journeys',
-  // The persisted creation-time answers (issue #466, Part A / OSC-18). A sibling of the
-  // canonical map so the human decisions that shaped it live in the one site-map location
-  // (ART-1), are diffable, and are shared with the team. Reused across a re-creation so a
-  // settled question is not re-asked unless the code it was about changed.
   SITE_MAP_CANONICAL_ANSWERS: 'docs/site-map/answers.yaml',
-  // Team-shared district curation for the interactive canvas (issue #489, Phase 3). A sibling of
-  // the canonical map so a hand-arranged city plan rides PR diffs like the rest of the map family.
-  // Written only through the dashboard's audited write path; absent until someone drags a district.
   SITE_MAP_CANONICAL_LAYOUT: 'docs/site-map/layout.yaml',
   DOCS_DIR: 'docs',
   FRAMEWORK_DOCS_DIR: 'docs/framework',
@@ -268,8 +128,6 @@ export const PATHS = {
   INSTRUCTIONS_DIR: 'docs/instructions',
   ARCHITECTURE_DIR: 'docs/instructions/architecture',
   DESIGN_SYSTEM_DIR: 'docs/instructions/design-system',
-  // Canonical, hand-edited source of truth for the design system. Co-located
-  // with the Markdown it generates so source and outputs share one folder.
   DESIGN_TOKENS_FILE: 'docs/instructions/design-system/design-tokens.json',
   MODULES_DIR: 'docs/modules',
   REGISTRIES_DIR: 'docs/instructions/registries',
@@ -293,42 +151,24 @@ export const PATHS = {
   LOGS_DIR: '.paqad/logs',
   LOCKS_DIR: '.paqad/locks',
   AUTO_UPDATE_LOG: '.paqad/logs/auto-update.log',
-  // Issue #622 — paqad never writes another tool's MCP config. Its server suggestions
-  // live here, and the legacy-file cleanup logs every file it chose to keep.
   MCP_RECOMMENDATIONS: '.paqad/mcp-recommendations.json',
   MCP_CLEANUP_LOG: '.paqad/logs/mcp-cleanup.log',
-  // Issue #80 — living module lifecycle
   PROSPECTIVE_DECISIONS_DIR: '.paqad/decisions/module-decisions',
   MODULE_MAP_HISTORY_DIR: '.paqad/module-map/history',
   MODULE_MAP_EVENTS_LOG: '.paqad/module-map/events.jsonl',
   MODULE_MAP_DRIFT: '.paqad/module-map/drift.json',
-  // PQD-95 — cross-artifact `.paqad/` schema versioning baseline.
-  // SCHEMA_MARKER is the authoritative stamp readers check for layout
-  // compatibility; SCHEMA_MIGRATION_LOG is an append-only JSONL record of every
-  // forward migration; SCHEMA_MIGRATION_LOCK serialises concurrent migrators.
   SCHEMA_MARKER: '.paqad/schema-version.json',
   SCHEMA_MIGRATION_LOG: '.paqad/schema-migrations.jsonl',
   SCHEMA_MIGRATION_LOCK: '.paqad/locks/schema-migration.lock',
-  // PQD-424 — resume checkpoint for onboarding. Records the project-relative
-  // paths already written during a run so a re-run after an interrupt skips the
-  // completed files and produces only the remainder. Written after the main
-  // file batch and deleted once onboarding finishes cleanly, so it is normally
-  // absent on disk and only lingers after an interrupted run.
   ONBOARDING_CHECKPOINT: '.paqad/onboarding-checkpoint.json',
-  // Issue #89 — rules-as-scripts
   RULE_SCRIPT_MAP: 'docs/instructions/rules/rule-script-map.yml',
   RULE_SCRIPTS_DIR: '.paqad/scripts/rules',
   RULE_SCRIPTS_CACHE_DIR: '.paqad/scripts/rules/.cache',
   RULE_SCRIPTS_REPORT: '.paqad/scripts/rules/.cache/report.json',
   RULE_SCRIPTS_DRIFT: '.paqad/scripts/rules/.cache/drift.json',
-  // Issue #358 — duplication gate report cache (read by the Stop-seam gate).
   DUPLICATION_REPORT: '.paqad/scripts/rules/.cache/duplication.json',
   RULE_SCRIPT_MAP_HISTORY_DIR: '.paqad/scripts/rules/.history',
   RULE_SCRIPT_MAP_EVENTS_LOG: '.paqad/scripts/rules/.history/events.jsonl',
-  // Capability Kernel integrity lock (buildout F5). Engine-owned, tracked: the
-  // engine writes a per-capability digest of its blessed state here; the
-  // enforcement seam verifies the live state against it, so a hand-edit that
-  // weakens a binding outside the engine is caught as tamper (decision D1, audit).
   CAPABILITY_LOCK: '.paqad/capability-lock.json',
 } as const;
 

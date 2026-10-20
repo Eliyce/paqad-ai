@@ -75,24 +75,16 @@ export type StructuredTestFormat = (typeof STRUCTURED_TEST_FORMATS)[number];
 export const TEST_RUNNER_OUTPUT_SOURCES = ['stdout', 'file'] as const;
 export type TestRunnerOutputSource = (typeof TEST_RUNNER_OUTPUT_SOURCES)[number];
 
-/** How a runner parallelizes (issue #554). `native` already runs in parallel; `flag` needs the
- *  `parallel.flag` added to the command; `unavailable` has no parallel mode paqad can drive. */
 export const TEST_RUNNER_PARALLEL_MODES = ['native', 'flag', 'unavailable'] as const;
 export type TestRunnerParallelMode = (typeof TEST_RUNNER_PARALLEL_MODES)[number];
 
-/** What replaces `<pattern>` in `commands.test_single` for the isolated re-run (issue #554). */
 export const SINGLE_TEST_SELECTORS = ['test_id', 'file'] as const;
 export type SingleTestSelector = (typeof SINGLE_TEST_SELECTORS)[number];
 
-/** A runner's parallel capability (issue #554, Part B.1). */
 export interface StackPackTestRunnerParallel {
   mode: TestRunnerParallelMode;
-  /** The flag inserted after the runner invocation; required when `mode = flag`; carries
-   *  `<processes>` exactly once. */
   flag?: string;
-  /** An ecosystem package the parallel mode needs, looked up in the lockfile (e.g. paratest). */
   requires_package?: string;
-  /** Human sentence shown when `mode = unavailable`. */
   reason?: string;
 }
 
@@ -104,7 +96,6 @@ export interface StackPackTestRunner {
   output_source?: TestRunnerOutputSource;
   output_path_pattern?: string;
   parallel?: StackPackTestRunnerParallel;
-  /** Default `test_id`; what replaces `<pattern>` in `commands.test_single` (issue #554). */
   single_test_selector?: SingleTestSelector;
 }
 
@@ -118,9 +109,6 @@ export interface StackPackRagManifest {
   basename_includes?: string[];
 }
 
-// Issue #80, Phase 2/3. Reconciler reads source_roots; rollup reads the rest.
-// Every shipped pack should declare this in Phase 3. When absent, the
-// reconciler hard-fails with `blocked: source_roots_unknown` (spec AC #17).
 export interface StackPackModuleHealthManifest {
   source_roots: string[];
   source_globs?: string[];
@@ -130,7 +118,6 @@ export interface StackPackModuleHealthManifest {
   coverage_path?: string;
   test_report_format?: string;
   test_report_path?: string;
-  // Optional override for the 14-day git activity window.
   git_window_days?: number;
 }
 
@@ -164,29 +151,11 @@ export interface StackPackManifest {
   docs?: StackPackDocsManifest;
   rag?: StackPackRagManifest;
   module_health?: StackPackModuleHealthManifest;
-  // Issue #551 — the globs whose match marks a change as frontend-triggering for visual
-  // evidence. Absent on non-frontend packs (node-cli, fastapi, …), which never trigger.
   visual_evidence?: {
     frontend_globs?: string[];
   };
 }
 
-// --- Compliance packs (issue #122) ------------------------------------------
-//
-// A second, deliberately minimal pack *kind* that carries NO stack-detection
-// fields — only a framework header and a set of `clause → verification signal`
-// mappings. It lets the community author honest `gate → legal clause` edges
-// (e.g. `behavioral-correctness → EU AI Act Art. 15`) so a passing gate on the
-// #118 receipt can cite *which* clause it produces evidence toward. It never
-// asserts compliance — only *evidence toward* a clause.
-
-/**
- * OSCAL Control-Mapping set-theory relations
- * (https://pages.nist.gov/OSCAL/learn/concepts/layer/control/mapping/). A gate
- * is almost always a `subset-of` or `intersects-with` a legal clause — rarely
- * `equivalent-to`. Using the honest relation is the whole point: a mis-mapped
- * `equivalent-to` manufactures false assurance.
- */
 export const COMPLIANCE_RELATIONS = [
   'equivalent-to',
   'equal-to',
@@ -197,13 +166,9 @@ export const COMPLIANCE_RELATIONS = [
 ] as const;
 export type ComplianceRelation = (typeof COMPLIANCE_RELATIONS)[number];
 
-/** How strongly a clause's evidence is established. Never `full` — paqad does
- *  not perform conformity assessment, so a clause is at most `substantial`. */
 export const COMPLIANCE_EVIDENCE_STRENGTHS = ['partial', 'substantial'] as const;
 export type ComplianceEvidenceStrength = (typeof COMPLIANCE_EVIDENCE_STRENGTHS)[number];
 
-/** What a clause is satisfied *by*: a verification gate or an obligation
- *  category. `gate` is the primary, deterministic join key. */
 export type ComplianceSignalType = 'gate' | 'obligation_category';
 
 export interface ComplianceClause {
@@ -214,7 +179,6 @@ export interface ComplianceClause {
 
 export interface ComplianceSignal {
   type: ComplianceSignalType;
-  /** A `VERIFICATION_GATES` name (when `type: gate`) or an obligation category. */
   ref: string;
   relation: ComplianceRelation;
 }
@@ -223,7 +187,6 @@ export interface ComplianceMapping {
   clause: ComplianceClause;
   satisfied_by: ComplianceSignal[];
   evidence_strength: ComplianceEvidenceStrength;
-  /** Provenance of the human/process that authored this opinion edge. */
   reviewed_by?: string;
 }
 
@@ -231,18 +194,15 @@ export interface ComplianceFramework {
   id: string;
   title: string;
   authority_url?: string;
-  /** Standards amend live; pin the version so stale citations are detectable. */
   version?: string;
 }
 
 export interface CompliancePackManifest {
-  /** Discriminator selecting the `compliance-pack` schema. */
   kind: 'compliance-pack';
   name: string;
   description?: string;
   maintainer?: string;
   framework: ComplianceFramework;
-  /** Verbatim, surfaced on every citation: evidence toward, not compliance. */
   disclaimer: string;
   mappings: ComplianceMapping[];
 }

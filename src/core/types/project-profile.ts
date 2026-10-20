@@ -23,8 +23,6 @@ export interface ProjectCommands {
   format: string;
   migrate: string;
   build: string;
-  /** Issue #554 — the sequential `test` command with the runner's parallel flag inserted. Present
-   *  only when the runner has a `flag` parallel mode whose prerequisite is installed. */
   test_parallel?: string;
 }
 
@@ -45,21 +43,13 @@ export interface ProjectFeatureFlags {
   market_research: boolean;
   design_research: boolean;
   team_agents: boolean;
-  /** Issue #241 — opt in to the complementary analytics-instrumentation agent. */
   analytics_instrumentation: boolean;
-  /** Site Map & Journeys capability — deterministic behavioural map (default off, coding-gated). */
   site_map: boolean;
-  /** Issue #284 — token-neutral rule loading (lean rule contract + lifted full-load mandate). */
   lean_rules: boolean;
-  /** Issue #371 — render the per-feature evidence report.html at end-of-change (default on). */
   feature_report: boolean;
-  /** Issue #362 — compute + surface the per-change shape metrics (dup on new code + reuse rate). */
   metrics_enabled: boolean;
-  /** Issue #551 — capture screenshots of documented flows for frontend changes (default off, coding-gated). */
   visual_evidence: boolean;
-  /** Issue #554 — run the checks stage concurrently and use the runner's own parallel mode (default on). */
   checks_parallel: boolean;
-  /** Issue #554 — cap on parallel test processes; 0 = auto (cores minus one, capped by mem/container). */
   checks_max_processes: number;
 }
 
@@ -69,17 +59,10 @@ export type TicketProviderKind = (typeof TICKET_PROVIDER_KINDS)[number];
 export interface ProjectMcpServer {
   name: string;
   enabled: boolean;
-  /**
-   * Optional discriminator used by ticket_intake / delivery to pick the right
-   * server. Existing servers without `kind` continue to validate.
-   */
   kind?: TicketProviderKind;
   config?: Record<string, unknown>;
 }
 
-// Shared enums consumed by the delivery-policy (issue #42). The delivery
-// conventions themselves now live in `docs/instructions/workflows/delivery-policy.yaml`
-// (see `src/core/types/delivery-policy.ts`), not in the project profile.
 export type AutoResolveConfirmation = 'always' | 'batched' | 'never';
 export type TicketWriteBackMode = 'never' | 'ask' | 'always';
 
@@ -134,21 +117,10 @@ export interface IntelligenceConfig {
   embedding_provider?: EmbeddingProviderName;
   embedding_model?: string;
   rag_similarity_threshold: number;
-  // Issue #354 — relief floor for floor-with-relief retrieval. When no candidate clears
-  // `rag_similarity_threshold`, the top slices at or above this lower band are delivered
-  // tagged low-confidence instead of nothing. Local-model cosine on hybrid-fused results
-  // rarely reaches 0.75, so a strict-only floor left retrieval dark on this repo.
   rag_relief_floor: number;
   rag_top_n: number;
   rag_max_file_size?: number;
-  // Issue #356 — hard token budget for the `## Existing surface` planning digest the
-  // background worker composes on the feature-development route. Cards are added by
-  // descending repo-map rank until this budget is hit, then truncated with an honest
-  // line. Default 1000 (see DEFAULT_EXISTING_SURFACE_TOKENS). Optional in the type so
-  // existing partial-config literals stay valid; the resolved config always fills it.
   existing_surface_tokens?: number;
-  // RAG buildout F10 — base branch for branch-aware RAG (F7). Unset = auto-detect
-  // main->master.
   rag_base_branch?: string;
   benchmark_gates?: BenchmarkGateConfig;
   benchmark_eval?: BenchmarkEvalConfig;
@@ -166,21 +138,9 @@ export interface EfficiencyConfig {
   predictive_cache?: boolean;
   auto_summarize_interval?: number;
   context_budget_strategy?: 'aggressive' | 'balanced' | 'conservative';
-  /** Model tier preference for rolling-summary inference (PQD-169). @since 1.10.0 */
   summary_model_preference?: 'local' | 'cheapest' | 'default';
-  /**
-   * Canonical auto-update switch, resolved from the config layer (`auto_update`).
-   * When false, the SessionStart silent-update never spawns a background install.
-   * Supersedes {@link skip_version_check}, which remains a tolerated alias.
-   */
   auto_update?: boolean;
-  /**
-   * Framework-version floor, resolved from the config layer (`minimum_version`).
-   * `'latest'` (default) = no fixed floor, track newest (soft, network-driven).
-   * A pinned `x.y.z` = hard local floor enforced before a session proceeds.
-   */
   minimum_version?: string;
-  /** @deprecated alias of `auto_update: false`; still honored if present. */
   skip_version_check?: boolean;
   version_check_interval_hours?: number;
 }
@@ -216,85 +176,47 @@ export type DecisionAskThreshold = (typeof DECISION_ASK_THRESHOLDS)[number];
 export interface DecisionProfileConfig {
   ask_threshold?: DecisionAskThreshold;
   max_screens_per_task?: number;
-  /** PQD-101 — per-project cap on simultaneously pending decision packets. */
   max_pending?: number;
   idle_timeout_minutes?: number;
   ttl_overrides_days?: Partial<Record<string, number>>;
   preferred_option_keys?: Partial<Record<DecisionCategory, string>>;
 }
 
-// Issue #106 — flaky-test handling. Re-run count is project-tunable so a slow
-// suite can keep stability re-runs cheap; clamped to a sane band at read time.
 export interface FlakyProfileConfig {
   rerun_count?: number;
 }
 
-// Issue #187 — enterprise/governance capabilities are opt-in and off by default.
-// The `enterprise` block is the config seam for the licensed evidence-ledger
-// feature. `enabled` is the master switch; when false (or the block is absent),
-// every sub-flag is forced off regardless of its value. A normal user pays zero
-// tokens and gets a clean working tree (no `.paqad/ledger/` writes). A future
-// license/token check slots in behind `resolveEnterprisePolicy`, so callers
-// never learn about billing — see `src/core/enterprise-policy.ts`.
 export interface EnterpriseConfig {
-  /** Master switch. When false, every sub-flag below is forced off. */
   enabled: boolean;
-  /** Write the receipt + ledger set: `evidence.jsonl`, `receipts.jsonl`, `receipt.dsse.json`. */
   evidence_ledger: boolean;
-  /** Write the CycloneDX `ai-bom.json` view. Independent of `evidence_ledger`. */
   ai_bom: boolean;
-  /** Resolve framework citations into the receipt (the token-spending path). */
   compliance_citations: boolean;
 }
 
-// Issue #220 — the global enable/disable master switch. `paqad.enabled: false`
-// turns the whole framework off (vanilla mode): every enforcement surface
-// (entry gates, decision-pause gate, completion hooks, the verification
-// backstop, silent-update) early-exits to a pure no-op, and a disabled install
-// converges with a missing one. The block is absent by default and absence
-// means ON, so existing projects are unchanged. The off-signal is read three
-// ways that must never depend on the built dist — the TS predicate
-// (`src/core/framework-enabled.ts`), the shell primitive
-// (`runtime/hooks/lib/paqad-disabled.sh`), and the `.mjs` primitive
-// (`runtime/hooks/lib/paqad-disabled.mjs`) — plus the `PAQAD_DISABLED` env
-// override, which wins over this flag.
 export interface PaqadConfig {
-  /** Master switch. Absent ⇒ enabled (default-on). When `false`, paqad produces
-   *  zero behavior and zero `.paqad/` writes until re-enabled. */
   enabled?: boolean;
 }
 
-/** Issue #554 — how the recorded test suite parallelizes: `native` runs in parallel already,
- *  `available` has a `test_parallel` command to run, `unavailable`/`unknown` fall back to the
- *  sequential command. Written by onboarding, `checks run`, and `checks record-runner`. */
 export type ProjectTestingParallel = 'native' | 'available' | 'unavailable' | 'unknown';
 
 export interface ProjectTesting {
   runner_id: string;
   parallel: ProjectTestingParallel;
-  /** Present when unavailable/unknown — the reason the sequential command is used. */
   reason?: string;
-  /** How the decision was reached. */
   detected_by: 'script' | 'agent';
-  /** sha256 of the ecosystem lockfile(s) used for the decision, so a stale record is re-derived. */
   lockfile_hash?: string;
   recorded_at: string;
 }
 
-/** Issue #551 — the shared app-boot contract (visual evidence + design-test). */
 export interface AppPreviewConfig {
-  /** Base URL the app is served at; steps' `goto` paths resolve against it. */
   url: string;
-  /** Boot command; defaults to `commands.dev`. Empty with a reachable url = attach only. */
   command?: string;
-  /** Max wait (ms) for the url to respond after starting the command. */
   wait_ms?: number;
 }
 
 export interface ProjectProfile {
   project: ProjectMetadata;
   active_capabilities: ActiveCapability[];
-  /** Issue #220 — global enable/disable master switch. Absent ⇒ ON. */
   paqad?: PaqadConfig;
   routing?: {
     domain: Domain;
@@ -303,20 +225,11 @@ export interface ProjectProfile {
   };
   stack_profile?: DetectedStackProfile;
   commands: ProjectCommands;
-  /** Issue #554 — the recorded parallel-test decision (runner, mode, provenance). Absent until
-   *  onboarding or `checks run` derives it. */
   testing?: ProjectTesting;
-  /**
-   * Issue #551 — the shared boot contract for visual evidence (and, going forward, design-test):
-   * the base URL the app is served at, an optional boot command (defaults to `commands.dev`),
-   * and how long to wait for the URL to come up. Absent ⇒ visual evidence records
-   * `app-preview-not-configured`.
-   */
   app_preview?: AppPreviewConfig;
   strictness: StrictnessConfig;
   compliance_packs: CompliancePackConfig[];
   features: ProjectFeatureFlags;
-  /** Issue #187 — opt-in enterprise capabilities. Absent ⇒ everything off. */
   enterprise?: EnterpriseConfig;
   mcp: {
     servers: ProjectMcpServer[];

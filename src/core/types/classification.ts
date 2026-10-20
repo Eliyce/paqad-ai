@@ -20,9 +20,6 @@ export const CLASSIFICATION_WORKFLOWS = [
   'documentation-update',
   'module-documentation',
   'root-cause-analysis',
-  // Issue #597 — the standalone Discovery workflow: an uncertain idea or a no-code refinement
-  // brief that needs shaping into a practical next step (not a factual question, not a clear code
-  // change).
   'discovery',
   'pentest',
   'pentest-retest',
@@ -158,12 +155,6 @@ export interface ClassificationResult {
   prior_requirement_count?: number | null;
   prior_criterion_count?: number | null;
   context_budget_hint?: ContextBudgetHint;
-  /**
-   * Whether the next turn needs retrieved context folded in (PQD-171). Optional
-   * and additive: classifiers that do not yet set it leave it `undefined`, which
-   * the conversation rebuild treats as "no retrieval". Mirrors
-   * `selectRetrievalDepth() !== 'none'` when a depth router is wired upstream.
-   */
   retrieval_needed?: boolean;
   affected_modules_source?: string;
   scope_graph_depth?: number;
@@ -171,18 +162,7 @@ export interface ClassificationResult {
   resumed_from_session?: boolean;
   resume_lane?: Lane | null;
   workflow_continuity_reason?: string | null;
-  /**
-   * The complementary analytics-instrumentation decision (issue #241), resolved
-   * cheapest-first at classify time and carried forward so no later stage re-derives it.
-   * Optional and additive: classifiers that do not set it leave it `undefined` (treated as
-   * `off`). See `resolveAnalyticsGate`.
-   */
   analytics_tag?: AnalyticsGateStatus;
 }
 
-/**
- * The net analytics gate outcome (issue #241): `off` (flag disabled — do not even detect),
- * `not_applicable` (not a feature-shaped change), `dormant` (enabled but no provider wired),
- * or `instrument` (enabled + feature-shaped + provider detected).
- */
 export type AnalyticsGateStatus = 'off' | 'not_applicable' | 'dormant' | 'instrument';
