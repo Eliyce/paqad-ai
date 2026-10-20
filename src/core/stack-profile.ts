@@ -221,15 +221,15 @@ export function compareStackProfiles(
 
   const changes: StackDriftChange[] = [];
 
-  const previousFrameworks = new Set(previous?.frameworks ?? []);
+  const previousFrameworks = new Set(previous.frameworks ?? []);
   const currentFrameworks = new Set(current.frameworks);
-  const previousTraits = new Set(previous?.traits ?? []);
+  const previousTraits = new Set(previous.traits ?? []);
   const currentTraits = new Set(current.traits);
   const previousBands = new Map(
-    (previous?.version_bands ?? []).map((band) => [band.package_name, band]),
+    (previous.version_bands ?? []).map((band) => [band.package_name, band]),
   );
   const currentBands = new Map(current.version_bands.map((band) => [band.package_name, band]));
-  const previousToolchains = JSON.stringify(previous?.toolchains ?? []);
+  const previousToolchains = JSON.stringify(previous.toolchains ?? []);
   const currentToolchains = JSON.stringify(current.toolchains);
 
   for (const framework of currentFrameworks) {
@@ -266,7 +266,7 @@ export function compareStackProfiles(
     }
   }
 
-  if (previous !== null && previousToolchains !== currentToolchains) {
+  if (previousToolchains !== currentToolchains) {
     changes.push({
       type: 'toolchain-changed',
       key: 'toolchains',
