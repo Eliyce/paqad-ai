@@ -4,18 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-// Regression guard for CodeQL js/file-system-race (CWE-367, high severity),
-// which failed CI on PR #185. The `existsSync(p) ? readFileSync(p) : ''`
-// idiom (check-then-read/write) is a time-of-check/time-of-use race: the file
-// can be swapped between the existence check and the read/write. The safe
-// alternative is a single read in a try/catch that swallows ENOENT (see
-// readTextOrEmpty in gitignore-writer.ts and writeMarkdownIfChanged in
-// decision-pause-contract-writer.ts). This test fails if the idiom reappears
-// anywhere under src/onboarding, so the fix cannot silently regress.
-
 const ONBOARDING_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../src/onboarding');
 
-// `existsSync(<expr>) ? readFileSync|writeFileSync` — the flagged TOCTOU shape.
 const TOCTOU_PATTERN = /existsSync\([^)]*\)\s*\?\s*(?:readFileSync|writeFileSync)/;
 
 function listTypeScriptFiles(dir: string): string[] {
@@ -26,7 +16,6 @@ function listTypeScriptFiles(dir: string): string[] {
   });
 }
 
-/** Strip comments so documentation of the anti-pattern never trips the scan. */
 function stripComments(source: string): string {
   return source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 }

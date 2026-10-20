@@ -194,7 +194,7 @@ describe('writeFrameworkVersionPreservingTimestamp', () => {
   });
 });
 
-describe('portability sanitization (issue #69)', () => {
+describe('portability sanitization', () => {
   let dir: string;
 
   beforeEach(() => {

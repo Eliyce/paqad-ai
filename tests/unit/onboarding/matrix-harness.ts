@@ -8,12 +8,6 @@ import { OnboardingOrchestrator } from '@/onboarding/index.js';
 
 import { seedDetectionFixtures } from '../../shared/detection-fixtures.js';
 
-// The onboarding adapter matrix, shared by matrix.g1.test.ts to matrix.g5.test.ts (issue #654).
-// It ran as one file of 25 fixtures times every adapter, which took 440s on Windows and set a
-// floor no shard count could get under, because Vitest shards by file. Each group file now
-// registers five fixtures, and matrix-partition.test.ts proves the groups still cover all 25.
-// This file is not collected on its own because it does not end in `.test.ts`.
-
 export const MATRIX_FIXTURES = [
   'new-laravel',
   'new-laravel-sail',
@@ -44,7 +38,6 @@ export const MATRIX_FIXTURES = [
 
 export type MatrixFixture = (typeof MATRIX_FIXTURES)[number];
 
-/** The fixtures in five groups of five, in list order. One group per test file. */
 export const MATRIX_GROUPS: readonly (readonly MatrixFixture[])[] = [0, 1, 2, 3, 4].map((group) =>
   MATRIX_FIXTURES.slice(group * 5, group * 5 + 5),
 );
@@ -91,9 +84,6 @@ const PORTABILITY_SCAN_DIRS = [
   '.aiassistant',
 ];
 
-// Strings that, if committed into project config, would break Paqad for any
-// other developer who clones the repo (different OS user, different package
-// manager prefix, different npx cache). See issue #69.
 const ABSOLUTE_PATH_PATTERNS = [
   /\/Users\//,
   /\/home\//,
@@ -110,18 +100,10 @@ function collectAbsolutePathLeaks(projectRoot: string): string[] {
     if (!existsSync(root)) continue;
     walkFiles(root, (filePath) => {
       if (!/\.(json|ya?ml|md|txt)$/.test(filePath)) return;
-      // Files paqad itself marks git-ignored (e.g. the per-machine
-      // `.claude/settings.json` whose hook command carries an absolute install
-      // path, issue #240) are never committed, so an absolute path there is
-      // intentional, not a portability leak. Exempt anything listed in a sibling
-      // `.gitignore` paqad wrote.
       if (isGitignoredInDir(filePath)) return;
       const content = readFileSync(filePath, 'utf8');
       const relPath = filePath.slice(projectRoot.length + 1);
 
-      // Generic check: the test's own tmp projectRoot must never be embedded in
-      // committed config. Catches anything the hard-coded patterns miss
-      // (e.g. /var/folders/... on macOS tmp, /tmp/... on Linux tmp).
       if (content.includes(projectRoot) || content.includes(projectRootForwardSlash)) {
         violations.push(`${relPath}: contains absolute projectRoot`);
         return;
@@ -139,8 +121,6 @@ function collectAbsolutePathLeaks(projectRoot: string): string[] {
   return violations;
 }
 
-/** True when a sibling `.gitignore` lists this file's basename (paqad's per-machine
- *  exemption — the file is never committed, so an absolute path in it is fine). */
 function isGitignoredInDir(filePath: string): boolean {
   try {
     const patterns = readFileSync(join(dirname(filePath), '.gitignore'), 'utf8')
@@ -161,8 +141,6 @@ function walkFiles(dir: string, visit: (path: string) => void): void {
   }
 }
 
-/** Registers the adapter matrix for one group of fixtures, with the same suite and test names
- *  the single matrix file used. */
 export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
   describe('onboarding adapter matrix', () => {
     let root: string;
@@ -206,15 +184,11 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
             expect(existsSync(join(projectRoot, '.claude/memory.json'))).toBe(true);
           }
           if (adapter === 'codex-cli') {
-            // The real Codex hook file carries the full pre-and-completion chain (issue #566):
-            // the PreToolUse `^apply_patch$` gates and the blocking `Stop` completion hook, so
-            // the same feature-development enforcement Claude gets fires on Codex out of the box.
             const codexHooks = readFileSync(join(projectRoot, '.codex/hooks.json'), 'utf8');
             expect(codexHooks).toContain('"Stop"');
             expect(codexHooks).toContain('"PreToolUse"');
             expect(codexHooks).toContain('^apply_patch$');
             expect(codexHooks).toContain('verification-completion.mjs');
-            // Codex no longer uses the record-only hook — it renders the blocking chain.
             expect(codexHooks).not.toContain('verification-record.mjs');
             expect(existsSync(join(projectRoot, '.codex/cache.json'))).toBe(true);
             expect(existsSync(join(projectRoot, '.codex/memory.json'))).toBe(true);
@@ -227,8 +201,6 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
             expect(existsSync(join(projectRoot, '.antigravity/memory.json'))).toBe(true);
           }
           if (adapter === 'gemini-cli') {
-            // Gemini executes hooks from .gemini/settings.json; it must carry the
-            // native `AfterAgent` completion hook so the ledger fires on Gemini too.
             const geminiSettings = readFileSync(join(projectRoot, '.gemini/settings.json'), 'utf8');
             expect(geminiSettings).toContain('"AfterAgent"');
             expect(geminiSettings).toContain('verification-record.mjs');
@@ -259,8 +231,6 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
             expect(existsSync(join(projectRoot, 'CONVENTIONS.md'))).toBe(true);
           }
           if (adapter === 'aiassistant') {
-            // Soft, rules-only adapter (issue #219): a dedicated entry file under
-            // .aiassistant/rules/, no MCP/hooks/cache/memory sidecars.
             expect(existsSync(join(projectRoot, '.aiassistant/rules/guidelines.md'))).toBe(true);
             expect(existsSync(join(projectRoot, '.aiassistant/mcp.json'))).toBe(false);
             expect(existsSync(join(projectRoot, '.aiassistant/hooks.json'))).toBe(false);
@@ -268,8 +238,6 @@ export function defineMatrixSuite(fixtures: readonly MatrixFixture[]): void {
             expect(existsSync(join(projectRoot, '.aiassistant/memory.json'))).toBe(false);
           }
 
-          // Issue #622 — MCP suggestions live only in paqad's own file, written once when the
-          // host speaks MCP; no host MCP path is ever written.
           expect(existsSync(join(projectRoot, '.paqad/mcp-recommendations.json'))).toBe(
             AdapterFactory.create(adapter).capabilities.mcp,
           );

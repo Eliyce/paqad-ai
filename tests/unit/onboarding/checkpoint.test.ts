@@ -46,7 +46,6 @@ describe('onboarding checkpoint (PQD-424 AC3)', () => {
 
     expect(existsSync(join(projectRoot, PATHS.ONBOARDING_CHECKPOINT))).toBe(false);
     expect(readOnboardingCheckpoint(projectRoot)).toBeNull();
-    // A second delete on an already-absent checkpoint is a no-op, not a throw.
     expect(() => deleteOnboardingCheckpoint(projectRoot)).not.toThrow();
   });
 

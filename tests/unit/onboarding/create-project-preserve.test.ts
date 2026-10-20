@@ -8,9 +8,6 @@ import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { createProjectWorkspace } from '@/onboarding/create-project.js';
 
-// INV-6 — re-onboarding a created-then-configured project preserves team-owned settings through
-// the orchestrator's existing config-preservation. This is a regression guard, not new behaviour:
-// framework knobs live in `.paqad/.config`, which creation (via the orchestrator) never touches.
 describe('createProjectWorkspace preserves team-owned config on rerun (INV-6)', () => {
   let parentDir: string;
   let frameworkHome: string;
@@ -38,7 +35,6 @@ describe('createProjectWorkspace preserves team-owned config on rerun (INV-6)', 
     expect(first.created).toBe(true);
     const projectRoot = join(parentDir, 'team-proj');
 
-    // The team customizes their framework config (the team-owned `.paqad/.config` layer).
     syncFrameworkConfig(projectRoot, {
       enterprise: {
         enabled: true,
@@ -49,7 +45,6 @@ describe('createProjectWorkspace preserves team-owned config on rerun (INV-6)', 
       intelligence: { ...readProjectProfile(projectRoot)!.intelligence, rag_enabled: true },
     });
 
-    // A rerun is a refresh, not a reset — it must not clobber the team's config.
     const second = await createProjectWorkspace({ name: 'team-proj', parentDir });
     expect(second.created).toBe(false);
 

@@ -35,14 +35,12 @@ describe('decision-pause-contract-writer', () => {
     expect(body).toContain('AskUserQuestion');
   });
 
-  it('body documents evidence-armed create-vs-reuse pauses (issue #361) without adding categories', () => {
+  it('body documents evidence-armed create-vs-reuse pauses without adding categories', () => {
     const body = buildDecisionPauseContractBody();
     expect(body).toContain('## Evidence-armed pauses');
     expect(body).toContain('create-vs-reuse');
     expect(body).toContain('decision_arm_mode');
     expect(body).toContain('origin: "evidence-armed"');
-    // The arming section names create-vs-reuse but introduces no NEW category —
-    // the category list stays sourced from DECISION_CATEGORIES (covered above).
     expect(body).toContain('The categories are unchanged');
   });
 

@@ -530,14 +530,14 @@ describe('resolveSelections (interactive)', () => {
   it('collects full Laravel capability set with Sail during manual selection', async () => {
     mockCheckbox.mockResolvedValueOnce(['claude-code']);
     mockSelect
-      .mockResolvedValueOnce('laravel') // stack
-      .mockResolvedValueOnce(true) // inertia = yes
-      .mockResolvedValueOnce('react') // frontend = react
-      .mockResolvedValueOnce(true) // tailwind = yes
-      .mockResolvedValueOnce(true) // boost = yes
-      .mockResolvedValueOnce('pest') // testing = pest
-      .mockResolvedValueOnce(true) // sail = yes
-      .mockResolvedValueOnce('continue'); // confirmation
+      .mockResolvedValueOnce('laravel')
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce('react')
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce('pest')
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce('continue');
 
     const result = await resolveSelections({
       ...emptyDetection,
@@ -551,16 +551,16 @@ describe('resolveSelections (interactive)', () => {
   it('collects Laravel capabilities with docker and compose when no Sail', async () => {
     mockCheckbox.mockResolvedValueOnce(['claude-code']);
     mockSelect
-      .mockResolvedValueOnce('laravel') // stack
-      .mockResolvedValueOnce(false) // inertia = no
-      .mockResolvedValueOnce('none') // frontend = none
-      .mockResolvedValueOnce(false) // tailwind = no
-      .mockResolvedValueOnce(false) // boost = no
-      .mockResolvedValueOnce('phpunit') // testing = phpunit
-      .mockResolvedValueOnce(false) // sail = no
-      .mockResolvedValueOnce(true) // docker = yes
-      .mockResolvedValueOnce(true) // compose = yes
-      .mockResolvedValueOnce('continue'); // confirmation
+      .mockResolvedValueOnce('laravel')
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce('none')
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce('phpunit')
+      .mockResolvedValueOnce(false)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValueOnce('continue');
 
     const result = await resolveSelections({
       ...emptyDetection,
