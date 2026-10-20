@@ -18,6 +18,7 @@ export interface TableSegment {
   text: string;
   tone?: PaqadTone;
   dim?: boolean;
+  href?: string;
 }
 
 export type TableLine = TableSegment[];

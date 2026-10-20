@@ -71,12 +71,12 @@ function tabLines(snapshot: PaqadHudSnapshot | null, tab: PaqadPaneTab): string[
   }
 }
 
-function tabRows(snapshot: PaqadHudSnapshot | null, tab: PaqadPaneTab): TableLine[] {
+function tabRows(snapshot: PaqadHudSnapshot | null, tab: PaqadPaneTab, now: number): TableLine[] {
   switch (tab) {
     case 'trust':
       return trustLines(snapshot);
     case 'ships':
-      return shipsLines(snapshot);
+      return shipsLines(snapshot, now);
     case 'record':
       return recordLines(snapshot);
     default:
@@ -109,7 +109,7 @@ export function buildPaneView(
       selected: entry.id === selected,
     })),
     lines: tabLines(snapshot, selected),
-    rows: tabRows(snapshot, selected),
+    rows: tabRows(snapshot, selected, options.now ?? 0),
     table,
   };
 }

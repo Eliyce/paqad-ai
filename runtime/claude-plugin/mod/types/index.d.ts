@@ -231,6 +231,7 @@ declare module 'claude-code' {
       snapshot: PaqadHudSnapshot | null;
       now: number;
       paneTab: PaqadPaneTab | null;
+      greenSeen: string[];
       tableSeat: string | null;
       tableCards: Record<string, string>;
     };

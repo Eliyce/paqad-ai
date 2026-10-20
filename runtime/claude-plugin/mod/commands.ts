@@ -7,6 +7,7 @@ import {
   stageSegments,
   type BandView,
 } from './model';
+import { shipRail, STEP_WORDS } from './ship';
 import { linesText, recordLines, shipsLines, trustLines } from './tabs';
 import type { PaqadFindingsScan, PaqadHudSnapshot, PaqadStandDown } from './types';
 
@@ -57,8 +58,10 @@ function stageLine(view: BandView): string {
     .join(', ')}.`;
 }
 
-function shipLine(view: BandView): string {
-  return `Ship: ${view.ship.map((step) => `${step.label} ${step.word}`).join(', ')}.`;
+function shipLine(snapshot: PaqadHudSnapshot): string {
+  return `Ship: ${shipRail(snapshot)
+    .steps.map((step) => `${step.label} ${STEP_WORDS[step.state]}`)
+    .join(', ')}.`;
 }
 
 function stateLine(view: BandView): string {
@@ -69,7 +72,7 @@ function stateLine(view: BandView): string {
 
 function overview(snapshot: PaqadHudSnapshot, now: number): string {
   const view = buildBandView(snapshot, now);
-  return [stateLine(view), stageLine(view), shipLine(view), view.cost, HELP].join('\n');
+  return [stateLine(view), stageLine(view), shipLine(snapshot), view.cost, HELP].join('\n');
 }
 
 function status(snapshot: PaqadHudSnapshot, now: number): string {
@@ -160,7 +163,7 @@ export function runPaqadCommand(input: CommandInput): { text: string } {
   if (sub === 'rules') return { text: rules(snapshot) };
   if (sub === 'cost') return { text: cost(snapshot) };
   if (sub === 'trust') return { text: linesText(trustLines(snapshot)) };
-  if (sub === 'ships') return { text: linesText(shipsLines(snapshot)) };
+  if (sub === 'ships') return { text: linesText(shipsLines(snapshot, input.now)) };
   if (sub === 'record') return { text: linesText(recordLines(snapshot)) };
   return { text: overview(snapshot, input.now) };
 }

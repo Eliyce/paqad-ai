@@ -149,7 +149,7 @@ describe('the instruments lay out by width (FR-38, AC-30)', () => {
       footer: null,
     };
     expect(cardRows(body.blocks, 'row', true)).toBe(2 + 1 + 4 + 1);
-    expect(cardRows(body.blocks, 'column', false)).toBe(2 + 1 + 1 + 4 + 4);
+    expect(cardRows(body.blocks, 'column', false)).toBe(2 + 1 + 1 + 4 + 3);
     expect(cardRows([], 'row', false)).toBe(3);
     const header: ShellHeader = {
       tone: 'neutral',

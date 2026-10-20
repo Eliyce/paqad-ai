@@ -222,6 +222,69 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
   }
 });
 
+const ALL_GREEN = {
+  ...FULL_ORD_501,
+  flags: [],
+  ship: {
+    commits: 2,
+    push: { state: 'pushed', branch: 'feat/x', sha: 'aaa' },
+    pr: { number: 12, url: 'https://example.test/pull/12', draft: false, head_sha: 'aaa' },
+    pr_state: 'open',
+    ci: { sha: 'aaa', state: 'pass', done: 6, total: 6, reason: null, source: 'stop-check' },
+    commit_list: [],
+    inherited_count: 0,
+    all_green: true,
+    merged: false,
+  },
+};
+
+function elementsOf(node: RenderNode | null | undefined, type: string): RenderElement[] {
+  if (node === null || node === undefined || typeof node === 'string') return [];
+  const own = node.type === type ? [node as RenderElement] : [];
+  return [
+    ...own,
+    ...((node as { children?: readonly RenderNode[] }).children ?? []).flatMap((child) =>
+      elementsOf(child, type),
+    ),
+  ];
+}
+
+describe('the ship rail on each surface (FR-35, FR-36, AC-44, AC-45)', () => {
+  test('the terminal draws marks and never an Svg; Desktop draws the rail Svg with words', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ALL_GREEN) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    const terminal = await $.ui.render(band('terminal', { bodyColumns: 120 }));
+    expect(elementsOf(terminal, 'Svg')).toEqual([]);
+    expect(textOf(terminal)).toContain('All green · merge is yours');
+    const desktop = await $.ui.render(band('desktop', { bodyColumns: 120 }));
+    const svgs = elementsOf(desktop, 'Svg');
+    expect(svgs).toHaveLength(1);
+    expect((svgs[0] as { props: { alt?: string } }).props.alt).toBe(
+      'Ship: Edit done, Commit done, Push done, PR done, CI 6 of 6 green, Merge ready, yours to merge.',
+    );
+  });
+
+  test('the all-green toast fires once per change and head across rebuilds and re-renders', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ALL_GREEN) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let index = 0; index < 10; index += 1) {
+      world.put(
+        SNAPSHOT,
+        fileText({ ...ALL_GREEN, generated_at: `2026-10-18T09:00:${10 + index}.000Z` }),
+      );
+      await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+      await $.ui.render(band('terminal'));
+    }
+    const green = world.toasts.filter((text) => text.startsWith('All green'));
+    expect(green).toHaveLength(1);
+    expect(green[0]).toBe(`All green: PR ${'#'}12 is ready for your merge`);
+    const card = cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
+    expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe('success');
+  });
+});
+
 describe('the band fits its box (AC-30, AC-43)', () => {
   test('one row of instruments at 120 columns, stacked at 80, one line when rows run out', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
@@ -1145,8 +1208,8 @@ describe('the Trust, Ships and Record tabs', () => {
       await $.session.start(START);
       const lines = drawnLines(await $.ui.render(pane(surface)));
       expect(lines).toContain('Ships (shown)');
-      expect(lines).toContain('CI           running, 3 of 7 done');
-      expect(lines).toContain('Riding along none');
+      expect(lines.some((line) => line.startsWith('CI           running, 3 of 7 done'))).toBe(true);
+      expect(lines).toContain('Merge        The merge is always yours. paqad never merges.');
     });
 
     test(`AC-36: a picked Record tab holds when the verdict lands and a delivery starts on ${surface}`, async ($, on) => {

@@ -1,7 +1,9 @@
+import { formatStopwatch } from './cost';
+import { shipRail } from './ship';
 import type { TableLine, TableSegment } from './table';
 import type {
+  PaqadCiJob,
   PaqadClaim,
-  PaqadCommitGroup,
   PaqadGate,
   PaqadGateStrength,
   PaqadHudSnapshot,
@@ -119,19 +121,6 @@ export function trustLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
   return lines;
 }
 
-function commitWords(count: number): string {
-  return `${count} commit${count === 1 ? '' : 's'}`;
-}
-
-function groupDetail(group: PaqadCommitGroup): string {
-  const parts = [
-    group.tickets.length > 0 ? `from ${group.tickets.join(', ')}` : null,
-    group.merges > 0 ? `${group.merges} merge${group.merges === 1 ? '' : 's'}` : null,
-    group.untagged > 0 ? `${group.untagged} with no ticket` : null,
-  ].filter((part): part is string => part !== null);
-  return parts.length > 0 ? `, ${parts.join(', ')}` : '';
-}
-
 function row(label: string, value: string, tone?: PaqadTone, dim = false): TableLine {
   return [
     { text: `${label.padEnd(13)}`, dim: true },
@@ -139,73 +128,124 @@ function row(label: string, value: string, tone?: PaqadTone, dim = false): Table
   ];
 }
 
-function ciRow(ship: NonNullable<PaqadHudSnapshot['ship']>): TableLine {
-  const ci = ship.ci_detail ?? null;
-  if (!ci) {
-    if (ship.ci) return row('CI', ship.ci);
-    return row('CI', 'unknown, never recorded', 'warn');
-  }
-  if (ci.state === 'pass') return row('CI', 'passed', 'good');
-  if (ci.state === 'fail') return row('CI', 'failed', 'bad');
-  if (ci.state === 'pending') {
-    return row(
-      'CI',
-      ci.total !== null ? `running, ${ci.done ?? 0} of ${ci.total} done` : 'running',
-      'working',
-    );
-  }
-  return row('CI', `unknown${ci.reason ? `: ${ci.reason}` : ''}`, 'warn');
+export const ON_THE_BRANCH = 'on the branch already';
+export const MERGE_IS_YOURS = 'The merge is always yours. paqad never merges.';
+export const EVERYTHING_GREEN = 'Everything is green';
+
+const JOB_DONE = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED']);
+const JOB_FAILED = new Set(['FAILURE', 'ERROR', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED']);
+
+function jobWord(job: PaqadCiJob): { mark: string; word: string; tone?: PaqadTone } {
+  const outcome = (job.conclusion ?? job.status ?? '').toUpperCase();
+  if (JOB_FAILED.has(outcome)) return { mark: '✗', word: 'failed', tone: 'bad' };
+  if (JOB_DONE.has(outcome)) return { mark: '●', word: 'passed', tone: 'good' };
+  return { mark: '▸', word: 'running', tone: 'working' };
 }
 
-function hasShipped(ship: PaqadHudSnapshot['ship']): boolean {
-  return (
-    ship !== null &&
-    (ship.commits > 0 || ship.push !== null || ship.pr !== null || ship.merge_commit !== null)
-  );
+function jobTime(job: PaqadCiJob, now: number): string | null {
+  const started = job.started_at ? Date.parse(job.started_at) : Number.NaN;
+  if (!Number.isFinite(started)) return null;
+  const ended = job.completed_at ? Date.parse(job.completed_at) : Number.NaN;
+  return formatStopwatch((Number.isFinite(ended) ? ended : now) - started);
 }
 
-function ridingAlongRow(inherited: PaqadCommitGroup | null): TableLine {
-  if (!inherited) return row('Riding along', 'unknown', 'warn');
-  if (inherited.count === 0) return row('Riding along', 'none', 'good');
-  if (inherited.tickets.length === 0) {
-    return row(
-      'Riding along',
-      `${commitWords(inherited.count)}, untagged, made before this change started`,
-    );
+export function readAgo(at: string | null, now: number): string | null {
+  const read = at ? Date.parse(at) : Number.NaN;
+  return Number.isFinite(read) ? `read ${formatStopwatch(now - read)} ago` : null;
+}
+
+function editRow(snapshot: PaqadHudSnapshot): TableLine {
+  const state = shipRail(snapshot).steps[0]!.state;
+  if (state === 'done') return row('Edit', 'done', 'good');
+  if (state === 'current') return row('Edit', 'running', 'working');
+  return row('Edit', 'not yet', undefined, true);
+}
+
+function commitRows(ship: NonNullable<PaqadHudSnapshot['ship']>): TableLine[] {
+  if (ship.commit_list.length === 0) {
+    return [
+      ship.commits > 0
+        ? row('Commits', `${ship.commits} of yours, no list recorded`)
+        : row('Commits', 'none yet', undefined, true),
+    ];
   }
-  return row('Riding along', `${commitWords(inherited.count)}${groupDetail(inherited)}`, 'warn');
-}
-
-export function shipsLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
-  const ship = snapshot?.active ? snapshot.ship : null;
-  if (!ship || !hasShipped(ship)) return [line(NOTHING_PUSHED)];
-  const own = ship.own ?? null;
-  const lines: TableLine[] = [
-    own
-      ? row('Own', `${commitWords(own.count)}${groupDetail(own)}`)
-      : row('Own', `${commitWords(ship.commits)}, split unknown`, 'warn'),
-    ridingAlongRow(ship.inherited ?? null),
+  const own = ship.commit_list.filter((commit) => commit.own !== false).length;
+  return [
+    row('Commits', `${own} of yours`),
+    ...ship.commit_list.map((commit): TableLine =>
+      commit.own === false
+        ? [
+            { text: `  ${commit.sha} ${commit.subject}  `, dim: true },
+            { text: ON_THE_BRANCH, dim: true },
+          ]
+        : [{ text: `  ${commit.sha} ${commit.subject}` }],
+    ),
   ];
+}
+
+function prRow(ship: NonNullable<PaqadHudSnapshot['ship']>): TableLine {
+  if (ship.pr === null || ship.pr_number === null) {
+    return row('Pull request', 'not yet', undefined, true);
+  }
+  const state = ship.pr_state ?? 'state unknown';
+  const tone: PaqadTone | undefined =
+    ship.pr_state === 'merged' ? 'good' : ship.pr_state === 'closed' ? 'warn' : undefined;
+  return row('Pull request', `${ship.pr} ${state}${ship.pr_url ? ` ${ship.pr_url}` : ''}`, tone);
+}
+
+function ciRows(ship: NonNullable<PaqadHudSnapshot['ship']>, now: number): TableLine[] {
+  const ci = ship.ci_detail ?? null;
+  const ago = readAgo(ship.ci_read_at, now);
+  const suffix = ago ? `, ${ago}` : '';
+  if (!ci) return [row('CI', 'unknown, never recorded', 'warn')];
+  const count = ci.total !== null ? `${ci.done ?? 0} of ${ci.total} done` : null;
+  const head =
+    ci.state === 'pass'
+      ? row('CI', `passed${count ? `, ${count}` : ''}${suffix}`, 'good')
+      : ci.state === 'fail'
+        ? row('CI', `failed${count ? `, ${count}` : ''}${suffix}`, 'bad')
+        : ci.state === 'pending'
+          ? row('CI', `running${count ? `, ${count}` : ''}${suffix}`, 'working')
+          : row('CI', `unknown${ci.reason ? `: ${ci.reason}` : ''}${suffix}`, 'warn');
+  return [
+    head,
+    ...ci.jobs.map((job): TableLine => {
+      const look = jobWord(job);
+      const time = jobTime(job, now);
+      return [
+        { text: `  ${look.mark} `, ...(look.tone ? { tone: look.tone } : {}) },
+        { text: `${job.name}  ${look.word}${time ? `  ${time}` : ''}` },
+      ];
+    }),
+  ];
+}
+
+function mergeRows(snapshot: PaqadHudSnapshot): TableLine[] {
+  const rail = shipRail(snapshot);
+  const ship = snapshot.ship!;
+  if (rail.merged) return [row('Merge', 'merged by you', 'good')];
+  if (rail.allGreen) {
+    return [
+      row('Merge', EVERYTHING_GREEN, 'good'),
+      [
+        {
+          text: `  Open PR #${rail.prNumber ?? ''}`.trimEnd(),
+          ...(ship.pr_url ? { href: ship.pr_url } : {}),
+        },
+      ],
+    ];
+  }
+  return [row('Merge', MERGE_IS_YOURS, undefined, true)];
+}
+
+export function shipsLines(snapshot: PaqadHudSnapshot | null, now = 0): TableLine[] {
+  const ship = snapshot?.active ? snapshot.ship : null;
+  if (!snapshot?.active || !ship) return [line(NOTHING_PUSHED)];
+  const lines: TableLine[] = [editRow(snapshot), ...commitRows(ship)];
   if (ship.push === null) lines.push(row('Push', 'not yet', undefined, true));
   else if (ship.push === 'failed') lines.push(row('Push', 'failed', 'bad'));
   else lines.push(row('Push', `${ship.push}${ship.push_branch ? ` to ${ship.push_branch}` : ''}`));
-  lines.push(
-    ship.pr === null
-      ? row('PR', 'not yet', undefined, true)
-      : row('PR', `${ship.pr}${ship.pr_url ? ` ${ship.pr_url}` : ''}`),
-  );
-  lines.push(ciRow(ship));
-  if (ship.merge_commit) {
-    lines.push(
-      row('Merge', `merged ${ship.merge_commit}`, 'good'),
-      row('Rollback', `git revert -m 1 ${ship.merge_commit}`),
-    );
-  } else {
-    lines.push(
-      row('Merge', 'stays yours', undefined, true),
-      row('Rollback', 'nothing merged, so nothing to undo', undefined, true),
-    );
-  }
+  lines.push(prRow(ship), ...ciRows(ship, now), ...mergeRows(snapshot));
   return lines;
 }
 

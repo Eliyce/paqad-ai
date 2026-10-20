@@ -1,5 +1,5 @@
 import { formatStopwatch, formatTokens, formatUsd } from './cost';
-import { buildBandView, stageSegments, type BandView, type SegmentState } from './model';
+import { stageSegments, type SegmentState } from './model';
 import {
   registerBandBody,
   type BandBlock,
@@ -9,6 +9,7 @@ import {
   type BandSplitRow,
   type BodyContext,
 } from './shell';
+import { RAIL_HEIGHT, RAIL_WIDTH, shipRail, shipRailSvg, type ShipStepState } from './ship';
 import { hasRuled, showsTable } from './table';
 import type { PaqadHighTable, PaqadHudSnapshot, PaqadSeat, PaqadTone } from './types';
 
@@ -182,35 +183,68 @@ export function tableInstrumentBlock(snapshot: PaqadHudSnapshot): BandBlock | nu
   return { key: 'paqad-instrument-table', title, cells, svg: null, note: null };
 }
 
-function shipStatusWord(view: BandView): string | null {
-  const running = view.ship.find((step) => step.word === 'running');
-  if (running) return `${running.label} running`;
-  const last = [...view.ship].reverse().find((step) => step.done);
-  return last ? `${last.label} ${last.word}` : null;
+const RAIL_LOOK: Record<ShipStepState, { mark: string; tone?: PaqadTone; dim?: boolean }> = {
+  done: { mark: '●', tone: 'good' },
+  current: { mark: '▸', tone: 'working' },
+  todo: { mark: '○', dim: true },
+  failed: { mark: '✗', tone: 'bad' },
+  closed: { mark: '✗', tone: 'warn' },
+  ready: { mark: '◆', tone: 'good' },
+  unknown: { mark: '?', tone: 'warn' },
+};
+
+export function inheritedNote(count: number): string | null {
+  return count > 0 ? `+${count} already on the branch, not yours` : null;
 }
 
-export function shipInstrumentBlock(view: BandView): BandBlock {
-  const status = shipStatusWord(view);
+export function shipInstrumentBlock(snapshot: PaqadHudSnapshot, context: BodyContext): BandBlock {
+  const rail = shipRail(snapshot);
+  const cells: BandCell[] = [];
+  rail.steps.forEach((step, index) => {
+    if (index > 0) {
+      const reached = step.state !== 'todo';
+      cells.push(
+        cellOf(
+          `paqad-ship-track-${index}`,
+          reached ? { text: '─', tone: 'good' } : { text: '─', dim: true },
+          ' ',
+          true,
+        ),
+      );
+    }
+    const look = RAIL_LOOK[step.state];
+    const word =
+      step.label === 'Merge' && (step.state === 'ready' || step.state === 'todo')
+        ? 'Merge (yours)'
+        : step.label;
+    cells.push(
+      cellOf(
+        `paqad-ship-${step.label}`,
+        {
+          text: look.mark,
+          ...(look.tone ? { tone: look.tone } : {}),
+          ...(look.dim ? { dim: true } : {}),
+        },
+        word,
+        step.state === 'todo',
+      ),
+    );
+  });
+  const note = inheritedNote(rail.inherited);
   return {
     key: 'paqad-instrument-ship',
     title: [
       { text: SHIP_NAME, dim: true, opens: 'ships', key: 'paqad-open-ship' },
-      ...(status ? [{ text: `  ${status}` }] : []),
+      ...(rail.status
+        ? [{ text: `  ${rail.status}`, ...(rail.allGreen ? { tone: 'good' as const } : {}) }]
+        : []),
     ],
-    cells: view.ship.map((step) =>
-      cellOf(
-        `paqad-ship-${step.label}`,
-        step.done
-          ? { text: '●', tone: 'good' }
-          : step.word === 'running'
-            ? { text: '▸', tone: 'working' }
-            : { text: '○', dim: true },
-        step.label,
-        !step.done && step.word !== 'running',
-      ),
-    ),
-    svg: null,
-    note: null,
+    cells,
+    svg:
+      context.surface === 'desktop'
+        ? { ...shipRailSvg(rail), width: RAIL_WIDTH, height: RAIL_HEIGHT }
+        : null,
+    note: note ? [{ text: note, dim: true }] : null,
   };
 }
 
@@ -240,13 +274,12 @@ export function footerRow(snapshot: PaqadHudSnapshot): BandSplitRow {
 }
 
 export function featureDevelopmentBody(snapshot: PaqadHudSnapshot, context: BodyContext): BandBody {
-  const view = buildBandView(snapshot, context.now);
   const table = tableInstrumentBlock(snapshot);
   return {
     blocks: [
       stageInstrument(snapshot, context.now),
       ...(table ? [table] : []),
-      shipInstrumentBlock(view),
+      shipInstrumentBlock(snapshot, context),
     ],
     footer: footerRow(snapshot),
   };

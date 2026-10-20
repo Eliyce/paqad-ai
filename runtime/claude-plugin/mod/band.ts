@@ -11,6 +11,7 @@ import {
   type BodyContext,
   type ShellHeader,
 } from './shell';
+import { shipRail } from './ship';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
 export type { BandLayout, BandRow, BandSegment };
@@ -60,7 +61,25 @@ const VERDICT_TONE: Record<'pass' | 'fail' | 'inconclusive', PaqadTone> = {
   inconclusive: 'warn',
 };
 
+export function allGreenNow(snapshot: PaqadHudSnapshot | null): boolean {
+  return (
+    snapshot?.active === true &&
+    snapshot.decisions.pending.length === 0 &&
+    shipRail(snapshot).allGreen
+  );
+}
+
+export function allGreenKey(snapshot: PaqadHudSnapshot | null): string | null {
+  if (!allGreenNow(snapshot)) return null;
+  const change = snapshot?.change?.dir ?? snapshot?.change?.id ?? 'change';
+  return `${change}:${snapshot?.ship?.pr_head ?? 'head'}`;
+}
+
 export function bandHeadline(snapshot: PaqadHudSnapshot, view: BandView): string {
+  if (allGreenNow(snapshot)) {
+    const number = snapshot.ship?.pr_number ?? null;
+    return `All green: ${number === null ? 'the PR' : `PR #${number}`} is ready for your merge`;
+  }
   if (snapshot.decisions.pending.length > 0 || !snapshot.verdict) return view.headline;
   const required = snapshot.gates.filter(
     (gate) => gate.required && gate.verdict !== 'not-required',
@@ -74,7 +93,7 @@ export function shellHeader(snapshot: PaqadHudSnapshot | null, view: BandView): 
   const active = snapshot?.active === true;
   const verdict = active ? (snapshot?.verdict ?? null) : null;
   return {
-    tone: active ? view.tone : 'neutral',
+    tone: active ? (allGreenNow(snapshot) ? 'good' : view.tone) : 'neutral',
     chip: changeChip(snapshot),
     headline: snapshot && active ? bandHeadline(snapshot, view) : IDLE_HEADLINE,
     verdict: verdict ? { word: verdict.word, tone: VERDICT_TONE[verdict.kind] } : null,

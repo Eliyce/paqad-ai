@@ -754,41 +754,6 @@ export function liveClock(segments: StageSegment[], now: number): string | null 
   return Number.isFinite(started) ? formatClock(now - started) : null;
 }
 
-export interface ShipStep {
-  label: 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
-  word: string;
-  done: boolean;
-}
-
-export function shipSteps(snapshot: PaqadHudSnapshot | null): ShipStep[] {
-  const active = snapshot?.active === true;
-  const build = snapshot?.stages.find((stage) => stage.stage === 'development');
-  const edit: ShipStep =
-    active && build?.state === 'running'
-      ? { label: 'Edit', word: 'running', done: false }
-      : active && (build?.state === 'complete' || build?.state === 'redone')
-        ? { label: 'Edit', word: 'done', done: true }
-        : { label: 'Edit', word: NOT_YET, done: false };
-  const ship = active ? (snapshot?.ship ?? null) : null;
-  const commits = ship?.commits ?? 0;
-  const step = (label: 'Push' | 'PR' | 'CI', value: string | null | undefined): ShipStep =>
-    value ? { label, word: value, done: true } : { label, word: NOT_YET, done: false };
-  return [
-    edit,
-    commits > 0
-      ? { label: 'Commit', word: `${commits} commit${commits === 1 ? '' : 's'}`, done: true }
-      : { label: 'Commit', word: NOT_YET, done: false },
-    step('Push', ship?.push),
-    step('PR', ship?.pr),
-    ship?.ci_detail && ship.ci_detail.state !== 'pass'
-      ? { label: 'CI', word: ship.ci ?? ship.ci_detail.state, done: false }
-      : step('CI', ship?.ci),
-    ship?.merged
-      ? { label: 'Merge', word: 'merged', done: true }
-      : { label: 'Merge', word: 'stays yours', done: false },
-  ];
-}
-
 export interface BandView {
   state: BandState;
   tone: PaqadTone;
@@ -796,7 +761,6 @@ export interface BandView {
   flags: number;
   stages: StageSegment[];
   clock: string | null;
-  ship: ShipStep[];
   cost: string;
   table: TableInstrument | null;
 }
@@ -824,7 +788,6 @@ export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): B
     flags,
     stages,
     clock: liveClock(stages, now),
-    ship: shipSteps(snapshot),
     cost: costPill(snapshot?.cost ?? null),
     table: tableInstrument(snapshot),
   };

@@ -10,7 +10,7 @@ import {
   pendingPacketPath,
   questionTexts,
 } from './ask-evidence';
-import { laneMode, layoutBand, spinnerWord } from './band';
+import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
 import { chimeClip } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
 import { runPaqadCommand } from './commands';
@@ -26,6 +26,7 @@ import {
   RULE_STOP_NO_REASON,
   RULE_STOP_REASON_HEADER,
   RULE_STOP_SHOW,
+  buildBandView,
   entrySentinelPath,
   freshRuleStop,
   heartbeatPath,
@@ -70,6 +71,7 @@ const snapshotAtom = atom(
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
 const paneTabAtom = atom({ plugin: 'paqad', key: 'paneTab' } as const, null as PaqadPaneTab | null);
 const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null as string | null);
+const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
   {} as Record<string, string>,
@@ -147,6 +149,7 @@ async function refresh($: EngineInterface): Promise<void> {
       const watch = watchVerdict(verdictSeen, verdictKey(snapshot?.verdict));
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
+      if (changed) await landAllGreen($, snapshot);
       if (changed || isLive(snapshot)) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
@@ -162,6 +165,21 @@ async function refresh($: EngineInterface): Promise<void> {
 function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {
   try {
     $.ui.toast(verdictToast(verdict));
+  } catch {}
+  if (!chimeOn) return;
+  try {
+    void $.audio.play(chimeClip()).catch(() => {});
+  } catch {}
+}
+
+async function landAllGreen($: EngineInterface, snapshot: PaqadHudSnapshot | null): Promise<void> {
+  const key = allGreenKey(snapshot);
+  if (!key || !snapshot) return;
+  const seen = (await read($, greenSeenAtom)) ?? [];
+  if (seen.includes(key)) return;
+  await update($, greenSeenAtom, (keys) => [...(keys ?? []), key]);
+  try {
+    $.ui.toast(bandHeadline(snapshot, buildBandView(snapshot, await read($, nowAtom))));
   } catch {}
   if (!chimeOn) return;
   try {
@@ -578,7 +596,15 @@ export const register: Register = (on) => {
     });
     const ui = $.ui.resolve(e);
     const { Box, Text, Button } = ui;
-    const draw = (line: TableLine) => drawLine(Text, line);
+    const Link = 'Link' in ui ? ui.Link : null;
+    const draw = (line: TableLine) => {
+      const link = line.find((segment) => segment.href);
+      return link?.href && Link ? (
+        <Link href={link.href}>{link.text.trim()}</Link>
+      ) : (
+        drawLine(Text, line)
+      );
+    };
     const table = view.table;
     const Svg = e.surface === 'desktop' && 'Svg' in ui ? ui.Svg : null;
     return (

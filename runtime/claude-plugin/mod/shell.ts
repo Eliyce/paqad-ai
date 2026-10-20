@@ -82,7 +82,7 @@ export type BandLayout =
 
 export const ROW_LAYOUT_COLUMNS = 110;
 export const CARD_BORDER_ROWS = 2;
-export const SVG_ROWS = 3;
+export const SVG_ROWS = 2;
 
 export const BRAND = 'paqad';
 export const PROOF = 'Proof';
