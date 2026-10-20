@@ -21,6 +21,7 @@ import {
   readLayeredKey,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
+import { quietNarration } from './lib/hud-heartbeat.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -142,7 +143,7 @@ async function main(stdin) {
   let contextBuf = '';
   emitContext(stdin, projectRoot, (text) => (contextBuf += text), { stripRules });
   const nudge = specPipelineNudge(readLayeredKey, projectRoot, process.env, route);
-  const after = nudge ? `${nudge}\n` : '';
+  const after = `${nudge ? `${nudge}\n` : ''}${quietNarration(projectRoot, sessionId, ADAPTER)}`;
   emitInjection(fitHookOutput(routeBuf, contextBuf, after));
   return 0;
 }

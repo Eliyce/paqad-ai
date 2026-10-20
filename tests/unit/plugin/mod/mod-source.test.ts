@@ -28,6 +28,8 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
       [
         'ask-evidence.ts',
         'band.ts',
+        'chime.ts',
+        'chips.ts',
         'commands.ts',
         'config.ts',
         'cost.ts',
@@ -51,6 +53,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
     (name, text) => {
       expect(text).not.toMatch(/\$\.model\b/);
       expect(text).not.toMatch(/\$\.http\b/);
+      expect(text).not.toMatch(/\$\.audio\.speak\b/);
       if (name !== 'paqad-cli.ts') expect(text).not.toMatch(/\$\.process\b/);
       expect(text).not.toMatch(/\bimport\s*\(/);
       expect(text).not.toMatch(/\brequire\s*\(/);
@@ -75,6 +78,8 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
     for (const name of [
       'ask-evidence.ts',
       'band.ts',
+      'chime.ts',
+      'chips.ts',
       'commands.ts',
       'config.ts',
       'cost.ts',

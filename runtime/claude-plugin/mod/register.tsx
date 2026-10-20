@@ -10,9 +10,11 @@ import {
   pendingPacketPath,
   questionTexts,
 } from './ask-evidence';
-import { layoutBand, type BandRow, type BandSegment } from './band';
+import { laneMode, layoutBand, spinnerWord, type BandRow, type BandSegment } from './band';
+import { chimeClip } from './chime';
+import { chipFor, chipLine, paqadCall, type Chip } from './chips';
 import { runPaqadCommand } from './commands';
-import { ancestorDirs, decideStatus, registersCommand } from './config';
+import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
 import {
   EDIT_TOOLS,
   ORG_ENFORCED,
@@ -25,6 +27,7 @@ import {
   RULE_STOP_SHOW,
   buildBandView,
   freshRuleStop,
+  heartbeatPath,
   isLive,
   isRefreshTool,
   isStageAgent,
@@ -48,6 +51,7 @@ type ToolCheckResult = Awaited<ReturnType<EngineInterface['tool']['check']>>;
 
 const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
+const HEARTBEAT_MS = 60_000;
 
 const statusAtom = atom({ plugin: 'paqad', key: 'status' } as const, null as PaqadStatus | null);
 const snapshotAtom = atom(
@@ -100,6 +104,9 @@ let reading = false;
 let readAgain = false;
 let lastText: string | null | undefined;
 let verdictSeen: string | null | undefined;
+let chimeOn = false;
+let heartbeat: Timer | null = null;
+const rawCalls = new Set<string>();
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
   try {
@@ -147,6 +154,22 @@ function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['
   try {
     $.ui.toast(verdictToast(verdict));
   } catch {}
+  if (!chimeOn) return;
+  try {
+    void $.audio.play(chimeClip()).catch(() => {});
+  } catch {}
+}
+
+async function beat($: EngineInterface): Promise<void> {
+  const at = live;
+  if (!at) return;
+  try {
+    const now = await $.clock.now();
+    await $.fs.write(
+      heartbeatPath(at.root, at.sessionId),
+      `${JSON.stringify({ session_id: at.sessionId, written_at: new Date(now).toISOString() })}\n`,
+    );
+  } catch {}
 }
 
 function startTicker($: EngineInterface): void {
@@ -166,7 +189,9 @@ function startTicker($: EngineInterface): void {
   });
 }
 
-async function readStatus($: EngineInterface): Promise<PaqadStatus & { root: string | null }> {
+async function readStatus(
+  $: EngineInterface,
+): Promise<PaqadStatus & { root: string | null; chime: boolean }> {
   const start = await $.session.root();
   let root: string | null = null;
   for (const dir of ancestorDirs(start)) {
@@ -192,19 +217,15 @@ async function readStatus($: EngineInterface): Promise<PaqadStatus & { root: str
   try {
     engine = await $.session.version();
   } catch {}
-  const status = decideStatus({
-    onboarded: root !== null,
-    env: {
-      CLAUDE_CODE_REMOTE: await $.env.get('CLAUDE_CODE_REMOTE'),
-      PAQAD_DISABLED: await $.env.get('PAQAD_DISABLED'),
-      PAQAD_ENABLE: await $.env.get('PAQAD_ENABLE'),
-      PAQAD_HUD_VIEW: await $.env.get('PAQAD_HUD_VIEW'),
-    },
-    localConfig,
-    teamConfigs,
-    engine,
-  });
-  return { ...status, root };
+  const env = {
+    CLAUDE_CODE_REMOTE: await $.env.get('CLAUDE_CODE_REMOTE'),
+    PAQAD_DISABLED: await $.env.get('PAQAD_DISABLED'),
+    PAQAD_ENABLE: await $.env.get('PAQAD_ENABLE'),
+    PAQAD_HUD_VIEW: await $.env.get('PAQAD_HUD_VIEW'),
+    PAQAD_HUD_CHIME: await $.env.get('PAQAD_HUD_CHIME'),
+  };
+  const status = decideStatus({ onboarded: root !== null, env, localConfig, teamConfigs, engine });
+  return { ...status, root, chime: isChimeOn({ env, localConfig, teamConfigs }) };
 }
 
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
@@ -295,8 +316,12 @@ export const register: Register = (on) => {
     live = null;
     lastText = undefined;
     verdictSeen = undefined;
+    chimeOn = false;
+    rawCalls.clear();
     ticker?.cancel();
     ticker = null;
+    heartbeat?.cancel();
+    heartbeat = null;
     try {
       const status = await readStatus($);
       await update($, statusAtom, () => ({ on: status.on, reason: status.reason }));
@@ -310,7 +335,10 @@ export const register: Register = (on) => {
         });
       }
       if (status.on && status.root) {
+        chimeOn = status.chime;
         live = { root: status.root, sessionId: await $.session.id() };
+        await beat($);
+        heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
         await refresh($);
       }
     } catch {}
@@ -331,6 +359,7 @@ export const register: Register = (on) => {
   }).catch(() => ({ text: 'paqad could not read its record for this session. Try again.' }));
 
   on('prompt.submit', async ($, e, next) => {
+    await beat($);
     const result = await next(e);
     await refresh($);
     return result;
@@ -483,28 +512,75 @@ export const register: Register = (on) => {
   });
 
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
-    if (!isExpertsCall(e.props.tool, e.props.input)) return next(e);
+    if (isExpertsCall(e.props.tool, e.props.input)) {
+      const status = await read($, statusAtom);
+      if (!status?.on) return next(e);
+      const snapshot = await read($, snapshotAtom);
+      const cards = await read($, tableCardsAtom);
+      const table = snapshot?.table ?? null;
+      if (
+        !table ||
+        snapshot?.lane === 'fast' ||
+        cards?.[cardKey(snapshot)] !== e.props.tool_use_id
+      ) {
+        return next(e);
+      }
+      const { Box, Text } = $.ui.resolve(e);
+      return (
+        <Box flexDirection="column">
+          {tableCardLines(table, await read($, nowAtom)).map((line) => drawLine(Text, line))}
+        </Box>
+      );
+    }
+    const call = paqadCall(e.props.tool, e.props.input);
+    if (!call || rawCalls.has(e.props.tool_use_id)) return next(e);
     const status = await read($, statusAtom);
     if (!status?.on) return next(e);
-    const snapshot = await read($, snapshotAtom);
-    const cards = await read($, tableCardsAtom);
-    const table = snapshot?.table ?? null;
-    if (!table || snapshot?.lane === 'fast' || cards?.[cardKey(snapshot)] !== e.props.tool_use_id) {
-      return next(e);
-    }
-    const { Box, Text } = $.ui.resolve(e);
-    return (
-      <Box flexDirection="column">
-        {tableCardLines(table, await read($, nowAtom)).map((line) => drawLine(Text, line))}
-      </Box>
-    );
+    const chip = chipFor(call, e.props, await read($, snapshotAtom));
+    if (!chip) return next(e);
+    const { Text } = $.ui.resolve(e);
+    return drawLine(Text, chipLine([chip]), 'truncate');
   });
 
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     const status = await read($, statusAtom);
+    if (!status?.on) return next(e);
     const holdsExperts = e.props.calls.some((call) => isExpertsCall(call.tool, call.input));
-    return status?.on && holdsExperts && !e.props.isExpanded
-      ? next({ ...e, props: { ...e.props, isExpanded: true } })
+    if (holdsExperts || e.props.isExpanded) {
+      for (const call of e.props.calls) rawCalls.add(call.tool_use_id);
+      return e.props.isExpanded ? next(e) : next({ ...e, props: { ...e.props, isExpanded: true } });
+    }
+    const snapshot = await read($, snapshotAtom);
+    const chips: Chip[] = [];
+    let others = 0;
+    for (const call of e.props.calls) {
+      const parsed = paqadCall(call.tool, call.input);
+      const chip = parsed ? chipFor(parsed, call, snapshot) : null;
+      if (chip) chips.push(chip);
+      else others += 1;
+    }
+    if (chips.length === 0) return next(e);
+    const engine = others > 0 ? await next(e) : null;
+    const { Box, Text } = $.ui.resolve(e);
+    return (
+      <Box flexDirection="column">
+        {drawLine(Text, chipLine(chips))}
+        {engine === null || isBlank(engine) ? null : (engine as RenderElement)}
+      </Box>
+    );
+  });
+
+  on('ui.render', { component: 'Spinner' }, async ($, e, next) => {
+    const status = await read($, statusAtom);
+    const word = status?.on ? spinnerWord(await read($, snapshotAtom)) : null;
+    return word ? next({ ...e, props: { ...e.props, word } }) : next(e);
+  });
+
+  on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
+    const status = await read($, statusAtom);
+    const mode = status?.on ? laneMode(await read($, snapshotAtom)) : null;
+    return mode && !e.props.modes.includes(mode)
+      ? next({ ...e, props: { ...e.props, modes: [...e.props.modes, mode] } })
       : next(e);
   });
 

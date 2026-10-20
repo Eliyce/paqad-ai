@@ -5,6 +5,7 @@ export const SESSION_ID = 'ses-fixture';
 export const SNAPSHOT = `.paqad/session/hud/${SESSION_ID}.json`;
 export const RECEIPT = `.paqad/session/hud/${SESSION_ID}.receipt.md`;
 export const ENGINE_BAND = 'engine band';
+export const HEARTBEAT = `.paqad/session/hud/${SESSION_ID}.live`;
 export const LAST_BLOCK = `.paqad/session/hud/${SESSION_ID}.last-block.json`;
 
 export interface World {
@@ -19,6 +20,9 @@ export interface World {
   runs: Array<{ argv: readonly string[]; cwd?: string; timeoutMs?: number }>;
   run: { exitCode: number; stdout: string; stderr: string } | 'reject';
   toasts: string[];
+  writes: Array<{ path: string; text: string }>;
+  played: unknown[];
+  spoken: string[];
   verdict: { decision: 'allow' | 'ask' | 'deny'; reason?: string } | 'throw';
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
@@ -51,6 +55,9 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     runs: [],
     run: { exitCode: 0, stdout: '', stderr: '' },
     toasts: [],
+    writes: [],
+    played: [],
+    spoken: [],
     verdict: { decision: 'allow' },
     put: (path, text) => void world.files.set(path, text),
     remove: (path) => void world.files.delete(path),
@@ -119,6 +126,19 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     return world.run === 'reject'
       ? { deny: 'spawn failed' }
       : { value: { ...world.run, isStdoutTruncated: false, isStderrTruncated: false } };
+  });
+  on('fs.write', ($, e) => {
+    world.writes.push({ path: relOf(e.path), text: e.text });
+    world.files.set(relOf(e.path), e.text);
+    return { value: undefined } as never;
+  });
+  on('audio.play', ($, e) => {
+    world.played.push(e.clip);
+    return { value: undefined } as never;
+  });
+  on('audio.speak', ($, e) => {
+    world.spoken.push(e.text);
+    return { value: { synthesizer: 'test' } } as never;
   });
   on('ui.toast', ($, e) => {
     world.toasts.push(e.text);

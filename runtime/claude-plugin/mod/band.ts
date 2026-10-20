@@ -1,6 +1,6 @@
 import { flagPill, headlineAfterState, NOT_YET, type BandView, type SegmentState } from './model';
 import { dotSegment, tableSummary, TABLE_NAME } from './table';
-import type { PaqadPaneTab, PaqadTone } from './types';
+import type { PaqadHudSnapshot, PaqadPaneTab, PaqadTone } from './types';
 
 export interface BandSegment {
   text: string;
@@ -136,4 +136,25 @@ export function layoutBand(view: BandView, size: { columns: number; maxRows: num
   const rows: BandRow[] = [headlineRow(view, !roomy), ...instruments];
   if (roomy) rows.push(pills(view));
   return rows.slice(0, maxRows).map((row) => truncateRow(row, size.columns));
+}
+
+const SPINNER_WORDS: Record<string, string> = {
+  ticket_intake: 'Reading the ticket',
+  planning: 'Planning',
+  specification: 'Writing the spec',
+  development: 'Building',
+  review: 'Reviewing',
+  checks: 'Running checks',
+  documentation_sync: 'Syncing the docs',
+  delivery: 'Delivering',
+};
+
+export function spinnerWord(snapshot: PaqadHudSnapshot | null): string | null {
+  if (!snapshot?.active) return null;
+  const running = snapshot.stages.find((stage) => stage.state === 'running');
+  return running ? (SPINNER_WORDS[running.stage] ?? null) : null;
+}
+
+export function laneMode(snapshot: PaqadHudSnapshot | null): string | null {
+  return snapshot?.active && snapshot.lane ? `paqad ${snapshot.lane} lane` : null;
 }

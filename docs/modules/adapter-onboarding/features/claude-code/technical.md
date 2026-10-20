@@ -55,6 +55,13 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - Environment variables read.
 - Config keys in `.paqad/project-profile.yaml` or `.paqad/onboarding-manifest.json`.
 - Default values and override precedence.
+- **HUD settings.** `hud_view` (env `PAQAD_HUD_VIEW`, default on) shows or hides the HUD.
+  `hud_chime` (env `PAQAD_HUD_CHIME`, default off) makes the mod play one short chime when a
+  verdict lands, once per verdict and never per snapshot rebuild; it is a chime only and the mod
+  never speaks. Both live in the team-owned app config (`.paqad/configs/.config.app`) and resolve
+  like `paqad_enable`: the env variable first, then `.paqad/.config`, then
+  `.paqad/configs/.config.*` with the last file name winning. `config reconcile` and `update` keep
+  a team value; `.paqad/.config.example` lists both with their defaults.
 
 ## Testing Entry Points
 
@@ -101,17 +108,22 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 ## The HUD mod (`runtime/claude-plugin/mod/`)
 
 - **Shape.** `register.tsx` is thin glue between Claude Code's events and pure modules:
-  `config.ts` decides whether the mod stands down, `model.ts` reads the session snapshot and
-  builds the band's view, `band.ts` lays the band out in rows, `commands.ts` answers `/paqad`,
-  `pane.ts` and `cost.ts` fill the paqad pane, and `table.ts` draws the High Table (its band
-  instrument, its live chat card and its pane tab). The pure modules import nothing from Claude
+  `config.ts` decides whether the mod stands down and whether the chime is on, `model.ts` reads
+  the session snapshot and builds the band's view, `band.ts` lays the band out in rows and gives
+  the spinner's stage words and the footer's lane, `commands.ts` answers `/paqad`, `pane.ts`,
+  `tabs.ts` and `cost.ts` fill the paqad pane, `table.ts` draws the High Table (its band
+  instrument, its live chat card and its pane tab), `receipt.ts` draws the receipt card and decides
+  when a verdict has landed, `ask-evidence.ts` reads a decision packet's evidence, `chips.ts`
+  turns paqad's own Bash rows into chips, `chime.ts` builds the chime clip, and `paqad-cli.ts` is
+  the one helper that runs `paqad-ai`. The pure modules import nothing from Claude
   Code, so vitest tests them without the host; `cost.ts` and `table.ts` import nothing from
   `model.ts`, so `model.ts` can use them without an import cycle. `register.test.ts` runs the glue
   against Claude Code's own test kit (`pnpm run plugin:test`), each UI test on both the terminal and
   Desktop; `test/world.ts` and `test/fixtures.ts` are test-only and not shipped.
 - **It only shows and asks.** Every check stays a hook in `hooks.json`, so the mod being off,
-  blocked or broken changes no hook's decision. It reads only `.paqad/`, calls no model or network
-  and starts no process. Refresh points pass each event on untouched and return what `next`
+  blocked or broken changes no hook's decision. It reads only `.paqad/`, writes only its own
+  heartbeat, calls no model or network, and starts a process only through `paqad-cli.ts` for the
+  fixed `paqad-ai` verbs it lists. Refresh points pass each event on untouched and return what `next`
   answered, and a `.catch` replays `next` if anything throws. A render hook never writes state;
   only presses and `tool.call` do. On any failure the mod stays dark, and a failed read keeps the
   last good snapshot on screen. State is rebuilt at `session.start`, since a hot reload drops module
@@ -146,7 +158,23 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   usage reads as exact, a seat's own count as an estimate. The round table is an SVG on Desktop and
   text on the terminal; its colours are named so they can become design tokens later. A decision's
   day is read from the first ten characters of its `D-<ULID>` id. Until the person picks a tab, the
-  pane opens on the High Table when the change has one, else on Cost.
+  pane follows the auto rule: Ships during a delivery, Trust once a verdict lands, the High Table
+  while it sits, else Cost.
+- **Chips.** A Bash row that runs `paqad-ai stage|plan|spec|review|checks|fix|rules|debt|decision`
+  is drawn as a chip ("Build started recorded", "Review ended blocked") when the bundle holds the
+  call or the row ran, failed or was blocked; each state has its own mark, colour and word. A row
+  the bundle does not hold is drawn raw, and a run the person unfolds shows every call raw. A folded
+  run shows the chips, then the engine's own line for any other calls.
+- **Spinner and footer.** While a stage runs the spinner says what it is doing ("Building",
+  "Running checks"), and the session footer adds "paqad <lane> lane" while a change is in
+  progress.
+- **Heartbeat.** While the mod is on it writes `.paqad/session/hud/<session>.live` at session start,
+  on each prompt and every minute. The prompt gate (`runtime/hooks/lib/hud-heartbeat.mjs`) adds one
+  static line asking the agent to skip the per-stage `▸ paqad` lines, and keep the route line and
+  the receipt, only on Claude Code and only while that session's heartbeat was modified in the last
+  120 seconds. A heartbeat of another session, an older or a future one, or none, leaves the gate's
+  output byte for byte as before; a read failure is logged and adds nothing. No gate reads the
+  heartbeat to allow or deny anything.
 - **Command name.** The `/paqad` hook name is written as a literal in the hook and its matcher, so
   `claude plugin validate` reads it as a hook that answers its own command, not a gate.
 - **Types.** `types/index.d.ts` is the `$.state` contract named in the plugin's `plugin.json`; it is

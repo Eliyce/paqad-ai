@@ -25,6 +25,7 @@ import {
 import {
   ENGINE_BAND,
   EXPERTS_COMMAND,
+  HEARTBEAT,
   LAST_BLOCK,
   ONBOARDED,
   RECEIPT,
@@ -1246,6 +1247,211 @@ describe('evidence above a decision question', () => {
       ]) {
         expect(isEngineCard(await $.ui.render(input))).toBe(true);
       }
+    });
+  }
+});
+
+const BUILDING = {
+  ...FAST_ORD_490,
+  evidence_expected: [{ file: 'plan.json', expectation: 'always', present: true }],
+};
+
+function stageRow(
+  surface: 'terminal' | 'desktop',
+  id: string,
+  command: string,
+  over: Record<string, unknown> = {},
+) {
+  const input = toolUse(surface, id, command);
+  return { ...input, props: { ...input.props, ...over } } as typeof input;
+}
+
+describe("chips for paqad's own calls", () => {
+  for (const surface of SURFACES) {
+    test(`a recorded stage call reads as a chip, an unrecorded one stays raw on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(BUILDING) }, band: ENGINE_ROW });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const chip = await $.ui.render(
+        stageRow(surface, 't1', 'SE_SESSION=s paqad-ai stage start development'),
+      );
+      expect(drawnLines(chip)).toEqual(['paqad ✓ Build started recorded']);
+      expect(colorOf(textElement(chip, 'recorded'))).toBe('success');
+      for (const command of ['paqad-ai stage start review', 'ls -la', 'paqad-ai status']) {
+        expect(drawnLines(await $.ui.render(stageRow(surface, 't2', command)))).toEqual([
+          'engine row',
+        ]);
+      }
+    });
+
+    test(`a failed or blocked call says so in words and colour on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(BUILDING) }, band: ENGINE_ROW });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const blocked = await $.ui.render(
+        stageRow(surface, 't3', 'paqad-ai stage end review', {
+          isErrored: true,
+          output: 'Stage end blocked: no artifact was recorded.',
+        }),
+      );
+      expect(drawnLines(blocked)).toEqual(['paqad ! Review ended blocked']);
+      expect(colorOf(textElement(blocked, 'blocked'))).toBe('warning');
+      const failed = await $.ui.render(
+        stageRow(surface, 't4', 'paqad-ai plan compile', { isErrored: true, output: 'boom' }),
+      );
+      expect(drawnLines(failed)).toEqual(['paqad ✗ Plan compiled failed']);
+      expect(colorOf(textElement(failed, 'failed'))).toBe('error');
+    });
+
+    test(`AC-41: a folded group shows chips in words and an expanded group shows the raw calls on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(BUILDING) }, band: ENGINE_ROW });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const group = toolGroup(surface, [
+        'paqad-ai stage start development',
+        'paqad-ai stage end review',
+        'paqad-ai stage start checks',
+      ]);
+      const calls = group.props.calls.map((call, index) =>
+        index === 1 ? { ...call, isErrored: true, output: 'blocked by the stage gate' } : call,
+      );
+      const folded = await $.ui.render({ ...group, props: { ...group.props, calls } });
+      expect(drawnLines(folded)).toEqual([
+        'paqad ✓ Build started recorded  ! Review ended blocked',
+        'engine row',
+      ]);
+      await $.ui.render({ ...group, props: { ...group.props, calls, isExpanded: true } });
+      expect(
+        drawnLines(await $.ui.render(stageRow(surface, 'g0', 'paqad-ai stage start development'))),
+      ).toEqual(['engine row']);
+    });
+
+    test(`a group of only plain calls is left to the engine on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(BUILDING) }, band: ENGINE_ROW });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(drawnLines(await $.ui.render(toolGroup(surface, ['ls', 'pwd'])))).toEqual([
+        'engine row',
+      ]);
+    });
+
+    test(`the spinner says the running stage and the footer the lane on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(BUILDING) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      await $.ui.render({
+        component: 'Spinner',
+        surface,
+        requestId: 'spin',
+        props: { word: 'Sauteing', message: null, suffix: '…', mode: 'thinking' },
+      } as never);
+      await $.ui.render({
+        component: 'SessionMode',
+        surface,
+        requestId: 'mode',
+        props: { modes: ['auto'] },
+      } as never);
+      const spinner = world.drawn.find((entry) => entry.component === 'Spinner');
+      const mode = world.drawn.find((entry) => entry.component === 'SessionMode');
+      expect((spinner?.props as { word: string }).word).toBe('Building');
+      expect((mode?.props as { modes: string[] }).modes).toEqual(['auto', 'paqad fast lane']);
+    });
+  }
+
+  test('with no change in progress the spinner and footer keep the engine words', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(PAUSED) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.ui.render({
+      component: 'Spinner',
+      surface: 'terminal',
+      requestId: 'spin',
+      props: { word: 'Sauteing', message: null, suffix: '…', mode: 'thinking' },
+    } as never);
+    await $.ui.render({
+      component: 'SessionMode',
+      surface: 'terminal',
+      requestId: 'mode',
+      props: { modes: [] },
+    } as never);
+    expect(
+      (world.drawn.find((entry) => entry.component === 'Spinner')?.props as { word: string }).word,
+    ).toBe('Sauteing');
+    expect(
+      (world.drawn.find((entry) => entry.component === 'SessionMode')?.props as { modes: string[] })
+        .modes,
+    ).toEqual([]);
+  });
+});
+
+describe('the heartbeat and the chime', () => {
+  test('the mod writes a heartbeat at start, on each prompt and every minute', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.writes.map((write) => write.path)).toEqual([HEARTBEAT]);
+    expect(JSON.parse(world.writes[0]!.text)).toEqual({
+      session_id: SESSION_ID,
+      written_at: new Date(NOW).toISOString(),
+    });
+    await $.prompt.submit({ text: 'go', origin: { kind: 'composer' } } as never);
+    expect(world.writes).toHaveLength(2);
+    await clock.advance(60_000);
+    await clock.settle();
+    expect(world.writes.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(world.writes.map((write) => write.path))).toEqual(new Set([HEARTBEAT]));
+  });
+
+  test('a mod that stands down writes no heartbeat', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) },
+      env: { PAQAD_DISABLED: '1' },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.prompt.submit({ text: 'go', origin: { kind: 'composer' } } as never);
+    expect(world.writes).toEqual([]);
+  });
+
+  async function landVerdictTwice(
+    $: Parameters<Parameters<typeof test>[1]>[0],
+    world: ReturnType<typeof worldOf>,
+  ) {
+    world.put(SNAPSHOT, fileText(SAFE_CLEAN));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    world.put(SNAPSHOT, fileText({ ...SAFE_CLEAN, generated_at: '2026-10-18T09:05:00.000Z' }));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+  }
+
+  test('AC-45: with hud_chime unset nothing plays and nothing is spoken', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await landVerdictTwice($, world);
+    expect(world.toasts).toHaveLength(1);
+    expect(world.played).toEqual([]);
+    expect(world.spoken).toEqual([]);
+  });
+
+  for (const [name, options] of [
+    ['the env variable', { env: { PAQAD_HUD_CHIME: 'true' } }],
+    ['the team app config', { files: { '.paqad/configs/.config.app': 'hud_chime=true\n' } }],
+  ] as const) {
+    test(`AC-45: hud_chime on through ${name} plays once per verdict and never speaks`, async ($, on) => {
+      const world = worldOf(on, {
+        ...options,
+        files: {
+          ...ONBOARDED,
+          [SNAPSHOT]: fileText(FAST_ORD_490),
+          ...('files' in options ? options.files : {}),
+        },
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      await landVerdictTwice($, world);
+      expect(world.played).toHaveLength(1);
+      expect((world.played[0] as { mime: string }).mime).toBe('audio/wav');
+      expect(world.spoken).toEqual([]);
     });
   }
 });

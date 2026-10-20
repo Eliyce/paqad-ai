@@ -9,6 +9,7 @@ import {
   MIN_ENGINE,
   ancestorDirs,
   decideStatus,
+  isChimeOn,
   isEngineNewEnough,
   isPaqadOff,
   readConfigKey,
@@ -192,5 +193,34 @@ describe('ancestorDirs', () => {
     ['relative', ['relative']],
   ])('%s', (root, dirs) => {
     expect(ancestorDirs(root)).toEqual(dirs);
+  });
+});
+
+describe('the hud_chime setting', () => {
+  const base = { env: {}, localConfig: null, teamConfigs: [] };
+
+  it('is off by default and for any value that is not a yes', () => {
+    expect(isChimeOn(base)).toBe(false);
+    for (const value of ['false', 'off', '0', 'maybe', '']) {
+      expect(isChimeOn({ ...base, localConfig: `hud_chime=${value}\n` }), value).toBe(false);
+    }
+  });
+
+  it('layers like hud_view: env, then .paqad/.config, then the last team file', () => {
+    const team = [{ name: '.config.app', text: 'hud_chime=true\n' }];
+    expect(isChimeOn({ ...base, teamConfigs: team })).toBe(true);
+    expect(isChimeOn({ ...base, teamConfigs: team, localConfig: 'hud_chime=off\n' })).toBe(false);
+    expect(
+      isChimeOn({
+        ...base,
+        teamConfigs: team,
+        localConfig: 'hud_chime=off\n',
+        env: { PAQAD_HUD_CHIME: 'yes' },
+      }),
+    ).toBe(true);
+    expect(isChimeOn({ ...base, env: { PAQAD_HUD_CHIME: 'ON' } })).toBe(true);
+    expect(
+      isChimeOn({ ...base, teamConfigs: [{ name: '.config.example', text: 'hud_chime=true\n' }] }),
+    ).toBe(false);
   });
 });

@@ -12,6 +12,7 @@ export interface StandDownInput {
     PAQAD_DISABLED?: string;
     PAQAD_ENABLE?: string;
     PAQAD_HUD_VIEW?: string;
+    PAQAD_HUD_CHIME?: string;
   };
   localConfig: string | null;
   teamConfigs: ReadonlyArray<{ name: string; text: string }>;
@@ -65,6 +66,11 @@ export function isPaqadOff(input: Pick<StandDownInput, 'env' | 'localConfig' | '
 
 export function isHudViewOff(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
   return isFalsy(layeredValue(input, 'hud_view', input.env.PAQAD_HUD_VIEW));
+}
+
+export function isChimeOn(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
+  const value = layeredValue(input, 'hud_chime', input.env.PAQAD_HUD_CHIME);
+  return value !== undefined && ENV_TRUTHY.has(value.trim().toLowerCase());
 }
 
 function releaseParts(text: string | undefined): number[] | null {

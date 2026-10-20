@@ -284,6 +284,17 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'and registers no /paqad command.',
   },
   {
+    key: 'hud_chime',
+    env: 'PAQAD_HUD_CHIME',
+    type: 'boolean',
+    default: false,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Play a short chime in the Claude Code plugin when the verdict lands, once per verdict. ' +
+      'A chime only, never speech.',
+  },
+  {
     key: 'plugin_migration',
     env: 'PAQAD_PLUGIN_MIGRATION',
     type: 'enum',
@@ -1879,7 +1890,7 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   },
   {
     present: () => false,
-    keys: ['hud_view'],
+    keys: ['hud_view', 'hud_chime'],
   },
 ];
 

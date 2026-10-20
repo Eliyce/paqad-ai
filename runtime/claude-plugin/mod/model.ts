@@ -45,6 +45,10 @@ export function lastBlockPath(root: string, sessionId: string): string {
   return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.last-block.json`);
 }
 
+export function heartbeatPath(root: string, sessionId: string): string {
+  return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.live`);
+}
+
 export const ORG_ENFORCED = "This rule is enforced by your organization's settings.";
 
 export const RULE_STOP_FIX = 'Let Claude fix it';

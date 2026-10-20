@@ -514,6 +514,14 @@ network, and starts no process.
   winning. Off, the mod draws no band, reads nothing and registers no `/paqad` command. The
   plugin declares no `userConfig`, because Claude Code lists every declared option with no saved
   value as "not yet set" when the plugin is installed, even one with a default.
+- **The `hud_chime` setting.** The config key `hud_chime` (env `PAQAD_HUD_CHIME`, off by default)
+  makes the mod play one short chime when a verdict lands, once per verdict. It resolves like
+  `hud_view`, lives in the team app config, and is a chime only: the mod never speaks.
+- **Chips, spinner, lane and heartbeat.** paqad's own `paqad-ai` Bash rows read as chips with
+  their state in words, the spinner names the running stage, the footer names the lane, and a
+  fresh `.paqad/session/hud/<session>.live` heartbeat lets the prompt gate ask the agent to skip
+  the per-stage narration lines the HUD already shows (the Claude Code technical page has the
+  detail).
 - **Stand-downs.** The mod also stands down when the project was never onboarded, when the
   session runs in the cloud (`CLAUDE_CODE_REMOTE=true`), when paqad is off for the project
   (resolved the same way the hooks resolve it), and on Claude Code older than 2.1.301. While it
