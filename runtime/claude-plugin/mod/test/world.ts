@@ -1,25 +1,17 @@
-// The world beneath the paqad HUD mod in its `claude plugin test` files (issue #639, Parts 8
-// and 9): an in-memory project the mod's `$` calls are answered from, standing for the engine.
-// Not shipped behaviour: only the tests import it.
-
 import type { AgentInfo, On, RenderElement, RenderInput, RenderNode } from 'claude-code';
 
 export const ROOT = '/work';
 export const SESSION_ID = 'ses-fixture';
 export const SNAPSHOT = `.paqad/session/hud/${SESSION_ID}.json`;
 export const RECEIPT = `.paqad/session/hud/${SESSION_ID}.receipt.md`;
-/** What the engine's own band holds in these tests, so a test can tell it from the mod's. */
 export const ENGINE_BAND = 'engine band';
 
 export interface World {
   files: Map<string, string>;
   commands: string[];
-  /** Every path the mod read, in order. */
   reads: string[];
   agents: AgentInfo[];
-  /** Every pane id the mod asked the engine to open, in order. */
   opened: string[];
-  /** Every render the engine itself drew (what the mod passed on to `next`), in order. */
   drawn: Array<{ component: string; props: unknown }>;
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
@@ -29,11 +21,9 @@ export interface WorldOptions {
   files?: Readonly<Record<string, string>>;
   env?: Readonly<Record<string, string>>;
   version?: { version: string; base?: string };
-  /** What the engine (or another mod beneath paqad) draws in the band. */
   band?: RenderElement;
 }
 
-/** An onboarded project: the file the mod looks for to know paqad is set up here. */
 export const ONBOARDED = { '.paqad/framework-path.txt': '~/.paqad-ai/current\n' };
 
 const relOf = (path: string): string =>
@@ -96,8 +86,6 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('prompt.submit', ($, e) => ({ text: e.text }));
   on('turn.complete', () => ({ text: '' }));
   on('tool.call', () => ({ result: 'ok' }) as never);
-  // The engine's own band holds nothing outside a survey; a test that wants another mod's lines
-  // beneath paqad's passes them as `band`.
   on('ui.render', ($, e) => {
     world.drawn.push({ component: e.component, props: e.props });
     return options.band ?? { type: 'Text', props: {}, children: [''] };
@@ -128,7 +116,6 @@ export function band(
   } as RenderInput<'AbovePrompt'>;
 }
 
-/** A render of the paqad pane on a surface, as the engine asks for it once the pane is open. */
 export function pane(surface: 'terminal' | 'desktop', requestId = 'paqad'): RenderInput<'Pane'> {
   return {
     component: 'Pane',
@@ -154,24 +141,20 @@ export function command(args = '') {
   };
 }
 
-/** Every string a drawn tree holds, in drawing order. */
 export function stringsOf(node: RenderNode | RenderElement | null | undefined): string[] {
   if (node === null || node === undefined) return [];
   if (typeof node === 'string') return [node];
   const children = (node as { children?: readonly RenderNode[] }).children ?? [];
-  // A Button drawn with its words as children may hold them as its label once validated.
   const label = (node as { props?: { label?: unknown } }).props?.label;
   if (children.length === 0 && typeof label === 'string') return [label];
   return children.flatMap((child) => stringsOf(child));
 }
 
-/** The drawn band's lines: each `Text` directly under the band's column `Box`, as one string. */
 export function linesOf(node: RenderElement): string[] {
   const children = (node as { children?: readonly RenderNode[] }).children ?? [];
   return children.map((child) => stringsOf(child).join(''));
 }
 
-/** The chat row of one tool call, as the engine asks for it. */
 export function toolUse(
   surface: 'terminal' | 'desktop',
   toolUseId: string,
@@ -193,7 +176,6 @@ export function toolUse(
   } as RenderInput<'ToolUse'>;
 }
 
-/** A folded run of Bash calls, as the engine asks for it. */
 export function toolGroup(
   surface: 'terminal' | 'desktop',
   commands: string[],

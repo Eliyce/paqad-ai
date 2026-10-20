@@ -1,21 +1,4 @@
-// The paqad HUD mod (issue #639, Parts 8 and 9): thin glue between Claude Code's events and the
-// pure modules beside it. `config.ts` decides whether the mod stands down, `model.ts` reads the
-// session's snapshot and turns it into what the band shows, `band.ts` lays the band out in rows,
-// `commands.ts` answers `/paqad`, `pane.ts` (with `cost.ts`) fills the paqad pane (Part 23), and
-// `table.ts` draws the High Table: its band instrument, its live card in the chat and its pane
-// tab (Part 14).
-//
-// The mod only shows and asks. Every check stays one of the plugin's hooks in `hooks.json`, so
-// the mod being off, blocked or broken changes no hook's decision (decision 2). It reads only
-// `.paqad/`, never calls a model or the network, and starts no process (decisions 3 and 4).
-//
-// How each stand-down (decision 5) is applied:
-//   - every other one (never onboarded, `CLAUDE_CODE_REMOTE=true`, paqad off, Claude Code older
-//     than 2.1.301) needs `$` to read, so it is decided at `session.start`. Until then, and from
-//     then on when standing down, every hook passes straight to `next(e)`: no read, no timer, no
-//     band, no command. The one exception is a project never onboarded, where `/paqad` alone is
-//     registered so `/paqad status` can say that paqad is not active here.
-
+/* eslint-disable no-empty -- an empty catch keeps the mod dark on a failure, as the repo allows elsewhere */
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register, RenderElement, RenderNode, Timer } from 'claude-code';
 
@@ -36,9 +19,7 @@ import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
-/** How often the band re-reads the snapshot while a stage agent runs (FR-24: 1 to 2 seconds). */
 const AGENT_TICK_MS = 1500;
-/** One more read after a turn ends, for what the Stop hooks write once the turn is over. */
 const AFTER_TURN_MS = 2000;
 
 const statusAtom = atom({ plugin: 'paqad', key: 'status' } as const, null as PaqadStatus | null);
@@ -47,23 +28,13 @@ const snapshotAtom = atom(
   null as PaqadHudSnapshot | null,
 );
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
-/**
- * The pane tab the person picked, written only from a press (a render hook never writes); `null`
- * until they pick one, while the pane opens on the High Table when the change has one.
- */
 const paneTabAtom = atom({ plugin: 'paqad', key: 'paneTab' } as const, null as PaqadPaneTab | null);
-/** The High Table seat picked in the pane, by role, written only from a press. */
 const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null as string | null);
-/**
- * The first `paqad-ai spec pipeline experts` call of each change, by change id: the one chat row
- * the live High Table card is drawn over. Written by `tool.call`, never by a render hook.
- */
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
   {} as Record<string, string>,
 );
 
-/** The theme colour each tone draws in; the words beside it always say the same thing. */
 const TONE_COLOR: Record<PaqadTone, string | undefined> = {
   neutral: undefined,
   working: 'suggestion',
@@ -73,10 +44,8 @@ const TONE_COLOR: Record<PaqadTone, string | undefined> = {
   bad: 'error',
 };
 
-/** The `Text` element a surface draws with. */
 type TextElement = ReturnType<EngineInterface['ui']['resolve']>['Text'];
 
-/** One line of the card or the pane: each part in its colour, the words saying the same. */
 function drawLine(Text: TextElement, line: TableLine) {
   return (
     <Text wrap="wrap">
@@ -92,19 +61,13 @@ function drawLine(Text: TextElement, line: TableLine) {
   );
 }
 
-/**
- * What the hooks need between events. Not drawn from (the band reads `$.state`), and rebuilt by
- * `session.start` after a hot reload, which drops module variables and timers alike.
- */
 interface Live {
-  /** The folder holding `.paqad/framework-path.txt`. */
   root: string;
   sessionId: string;
 }
 
 let live: Live | null = null;
 let ticker: Timer | null = null;
-/** Agent calls still running; the ticker keeps going while any is. */
 let agentCalls = 0;
 let reading = false;
 let readAgain = false;
@@ -116,11 +79,10 @@ async function readText($: EngineInterface, path: string): Promise<string | null
     const text = await $.fs.read(path);
     return typeof text === 'string' ? text : null;
   } catch {
-    return null; // Missing, unreadable or too large: the band reads "not yet".
+    return null;
   }
 }
 
-/** Re-read the session's snapshot into `$.state`. One read at a time; never throws. */
 async function refresh($: EngineInterface): Promise<void> {
   if (!live) return;
   if (reading) {
@@ -138,7 +100,6 @@ async function refresh($: EngineInterface): Promise<void> {
       lastText = text;
       const snapshot = changed ? parseSnapshot(text) : await read($, snapshotAtom);
       if (changed) await update($, snapshotAtom, () => snapshot);
-      // The live clock moves only while a stage runs; otherwise the band has nothing to redraw.
       if (changed || isLive(snapshot)) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
@@ -146,13 +107,11 @@ async function refresh($: EngineInterface): Promise<void> {
       if (isLive(snapshot)) startTicker($);
     } while (readAgain);
   } catch {
-    // A failed read leaves the last good snapshot on screen; the next event tries again.
   } finally {
     reading = false;
   }
 }
 
-/** Tick every 1.5 s while a stage agent (or an Agent call) runs; stop once none does. */
 function startTicker($: EngineInterface): void {
   if (ticker || !live) return;
   ticker = $.clock.every(AGENT_TICK_MS, () => {
@@ -160,9 +119,7 @@ function startTicker($: EngineInterface): void {
       let running = agentCalls > 0;
       try {
         running ||= (await $.agent.list()).some(isStageAgent);
-      } catch {
-        // No agent list: keep to the Agent calls we saw start.
-      }
+      } catch {}
       if (!running) {
         ticker?.cancel();
         ticker = null;
@@ -172,7 +129,6 @@ function startTicker($: EngineInterface): void {
   });
 }
 
-/** Everything `config.ts` needs, read through `$`. */
 async function readStatus($: EngineInterface): Promise<PaqadStatus & { root: string | null }> {
   const start = await $.session.root();
   let root: string | null = null;
@@ -193,16 +149,12 @@ async function readStatus($: EngineInterface): Promise<PaqadStatus & { root: str
         const text = await readText($, joinPath(dir, entry.name));
         if (text !== null) teamConfigs.push({ name: entry.name, text });
       }
-    } catch {
-      // No team configs: the defaults stand.
-    }
+    } catch {}
   }
   let engine: { version: string; base?: string } | null = null;
   try {
     engine = await $.session.version();
-  } catch {
-    // An engine that cannot say its version counts as too old.
-  }
+  } catch {}
   const status = decideStatus({
     onboarded: root !== null,
     env: {
@@ -218,20 +170,13 @@ async function readStatus($: EngineInterface): Promise<PaqadStatus & { root: str
   return { ...status, root };
 }
 
-/** Show the paqad pane on `tab`: the tab is chosen first, so the pane draws it at once. */
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
   try {
     await update($, paneTabAtom, () => tab);
     await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
-  } catch {
-    // A pane that cannot open leaves the band as it was; the next press tries again.
-  }
+  } catch {}
 }
 
-/**
- * Keep the first experts call of the change as the card's row. Later experts calls of the same
- * change keep the engine's own row, so the card is drawn once and updates in place.
- */
 async function claimCard($: EngineInterface, toolUseId: string | undefined): Promise<void> {
   if (!toolUseId) return;
   const key = cardKey(await read($, snapshotAtom));
@@ -240,7 +185,6 @@ async function claimCard($: EngineInterface, toolUseId: string | undefined): Pro
   );
 }
 
-/** True when a drawn tree holds no text: the engine's empty band, which ours replaces. */
 function isBlank(node: RenderNode | null | undefined): boolean {
   if (node === null || node === undefined) return true;
   if (typeof node === 'string') return node.trim() === '';
@@ -259,8 +203,6 @@ export const register: Register = (on) => {
       const status = await readStatus($);
       await update($, statusAtom, () => ({ on: status.on, reason: status.reason }));
       if (registersCommand(status)) {
-        // The name is written as a literal here and in the matcher below, so `claude plugin
-        // validate` reads the hook as one that answers its own command, not as a gate.
         await $.command.register({
           name: 'paqad',
           description: 'Where the paqad change stands: status, decisions, rules, receipt, cost',
@@ -272,9 +214,7 @@ export const register: Register = (on) => {
         live = { root: status.root, sessionId: await $.session.id() };
         await refresh($);
       }
-    } catch {
-      // The mod never stands in the session's way: on any failure it simply stays dark.
-    }
+    } catch {}
     return next(e);
   });
 
@@ -291,8 +231,6 @@ export const register: Register = (on) => {
     });
   }).catch(() => ({ text: 'paqad could not read its record for this session. Try again.' }));
 
-  // Refresh points (FR-24). Each passes the event on untouched and returns what `next` answered,
-  // so no hook's decision moves; the `.catch` replays `next` if anything here throws.
   on('prompt.submit', async ($, e, next) => {
     const result = await next(e);
     await refresh($);
@@ -302,7 +240,6 @@ export const register: Register = (on) => {
   on('tool.call', async ($, e, next) => {
     if (!live) return next(e);
     const tool = String(e.tool);
-    // A call's arguments sit beside `tool` on the event (`{ tool: 'Bash', command }`).
     const input = e as unknown as { command?: unknown };
     const isAgent = tool === 'Agent' || tool === 'Task';
     if (isExpertsCall(tool, input)) {
@@ -330,7 +267,6 @@ export const register: Register = (on) => {
     return result;
   }).catch(($, e, next) => next(e));
 
-  // The band (Part 9). A render hook never writes state: it reads the atoms and draws.
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const status = await read($, statusAtom);
     if (!status?.on || e.props.hasSurvey) return next(e);
@@ -349,8 +285,6 @@ export const register: Register = (on) => {
     const line = (row: BandRow) => {
       if (!row.some((segment) => segment.opens))
         return <Text wrap="truncate">{row.map(part)}</Text>;
-      // A row with a part that opens the pane (the cost pill, the High Table label): a Button sits
-      // beside Text, so the row is a Box.
       return (
         <Box flexDirection="row">
           {row.map((segment) => {
@@ -379,8 +313,6 @@ export const register: Register = (on) => {
     );
   });
 
-  // The paqad pane (Parts 23 and 14): a tab row of Buttons, then the shown tab, on the terminal and
-  // on Desktop. Opened by the cost pill or the High Table label; reads the atoms, never writes.
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== PANE_ID) return next(e);
     const status = await read($, statusAtom);
@@ -393,7 +325,6 @@ export const register: Register = (on) => {
     const { Box, Text, Button } = ui;
     const draw = (line: TableLine) => drawLine(Text, line);
     const table = view.table;
-    // Svg draws on Desktop only; the terminal gets the same round table as text.
     const Svg = e.surface === 'desktop' && 'Svg' in ui ? ui.Svg : null;
     return (
       <Box flexDirection="column">
@@ -438,9 +369,6 @@ export const register: Register = (on) => {
     );
   });
 
-  // The live High Table card (Part 14): drawn over the change's first `paqad-ai spec pipeline
-  // experts` row only, from `$.state`, so it redraws in place as the seats move. Every other row,
-  // and that row while the change has no table, is the engine's own.
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     if (!isExpertsCall(e.props.tool, e.props.input)) return next(e);
     const status = await read($, statusAtom);
@@ -459,7 +387,6 @@ export const register: Register = (on) => {
     );
   });
 
-  // A folded run of calls that holds an experts call unfolds, so the card's row is on screen.
   on('ui.render', { component: 'ToolGroup' }, async ($, e, next) => {
     const status = await read($, statusAtom);
     const holdsExperts = e.props.calls.some((call) => isExpertsCall(call.tool, call.input));

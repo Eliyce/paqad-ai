@@ -1,21 +1,11 @@
-// What the change cost, in words (issue #639, Part 23): the band's cost pill, the Cost tab and
-// `/paqad cost`, and the number words the band, the card and the pane share (tokens, durations).
-//
-// Pure: no Claude Code import and nothing from `model.ts`, so vitest tests it without the host
-// and `model.ts` can use it without an import cycle. Every money figure carries the word
-// estimate and the price table's date, wherever it is drawn (INV-10). A model the price table
-// does not list adds its tokens and no money.
-
 import type { PaqadCost, PaqadCostLine, PaqadCostTokens } from './types';
 
-/** A token count as the band says it: `812`, `45.3k`, `1.2M`. */
 export function formatTokens(tokens: number): string {
   if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
   if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
   return String(Math.max(0, Math.round(tokens)));
 }
 
-/** A duration as the band says it: `45s`, `3m 05s`, `1h 02m`. */
 export function formatClock(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));
   const hours = Math.floor(total / 3600);
@@ -26,25 +16,21 @@ export function formatClock(ms: number): string {
   return `${seconds}s`;
 }
 
-/** A token count in full, with thousands separators: `1,234,567`. */
 export function fullTokens(tokens: number): string {
   return Math.max(0, Math.round(tokens))
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-/** A dollar figure: `$3.40`, or `under $0.01` for a non-zero sliver. */
 export function formatUsd(usd: number): string {
   if (usd > 0 && usd < 0.005) return 'under $0.01';
   return `$${usd.toFixed(2)}`;
 }
 
-/** A money figure with the word estimate and the price date, the short form. */
 export function moneyShort(usd: number, priceDate: string): string {
   return `~${formatUsd(usd)} estimate, ${priceDate} prices`;
 }
 
-/** The band's cost pill: tokens and money, tokens only when nothing is priced, or "not yet". */
 export function costPill(cost: PaqadCost | null): string {
   if (!cost) return 'cost: not yet';
   const tokens = `${formatTokens(cost.tokens.total)} tokens`;
@@ -67,7 +53,6 @@ function tokenKinds(tokens: PaqadCostTokens): string {
   ].join(', ');
 }
 
-/** The words in a role id that read as capitals: `qa-engineer` reads `QA engineer`. */
 const ROLE_ACRONYMS: Readonly<Record<string, string>> = {
   qa: 'QA',
   db: 'DB',
@@ -77,7 +62,6 @@ const ROLE_ACRONYMS: Readonly<Record<string, string>> = {
   devops: 'DevOps',
 };
 
-/** A role id in words: `security-auditor` reads `Security auditor`, `db-expert` `DB expert`. */
 export function roleWords(role: string): string {
   const words = role
     .replace(/[-_]+/g, ' ')
@@ -89,9 +73,7 @@ export function roleWords(role: string): string {
 }
 
 export interface CostLinesOptions {
-  /** The change's lane: the fast lane seats no High Table. */
   lane: string | null;
-  /** A stage id in the band's words (`development` reads `Build`). */
   stageLabel: (stage: string) => string;
 }
 
@@ -124,10 +106,6 @@ function expertLines(cost: PaqadCost, options: CostLinesOptions): string[] {
   return lines;
 }
 
-/**
- * The whole cost in plain words, for the Cost tab and `/paqad cost`: the total, by stage, by
- * expert and the chief, the basis, what has no price and what is not counted.
- */
 export function costLines(cost: PaqadCost, options: CostLinesOptions): string[] {
   const date = cost.price_table_date;
   const money =

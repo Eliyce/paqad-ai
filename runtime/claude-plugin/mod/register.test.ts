@@ -1,9 +1,3 @@
-// `claude plugin test` for the paqad HUD mod (issue #639, Parts 8 and 9, FR-30, AC-35): the mod's
-// hooks run against Claude Code's own test kit, each UI test looped over the terminal and the
-// desktop. The pure modules have their vitest suite in tests/unit/plugin/mod/; these check the
-// glue: what registers, what the band draws, what `/paqad` answers, and when it reads again.
-// Run them with `pnpm run plugin:test`.
-
 import type { RenderElement, RenderNode } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 
@@ -50,7 +44,6 @@ const STATES = Object.keys(STATE_FIXTURES) as Array<keyof typeof STATE_FIXTURES>
 
 const textOf = (node: RenderElement): string => stringsOf(node).join('');
 
-/** The first `Text` whose own words are exactly `text`. */
 function textElement(node: RenderNode, text: string): RenderElement | undefined {
   if (typeof node === 'string') return undefined;
   const children = (node as { children?: readonly RenderNode[] }).children ?? [];
@@ -203,7 +196,6 @@ describe('the terminal band fits its box (AC-43)', () => {
       const lines = linesOf(await $.ui.render(band('terminal', { bodyColumns: columns, maxRows })));
       expect(lines.length).toBeLessThanOrEqual(maxRows);
       for (const line of lines) expect([...line].length).toBeLessThanOrEqual(columns);
-      // The state and the flag count are words, so the band reads with the colour gone.
       expect(lines[0]).toContain('Safe to merge');
       expect(lines[0]).toContain('1 flag');
     });
@@ -414,9 +406,6 @@ describe('when the band reads the snapshot again (FR-24)', () => {
   });
 });
 
-// ── the High Table (Part 14) ───────────────────────────────────────────────────
-
-/** Every drawn line: each outermost Text as one string, each Button as its label. */
 function drawnLines(node: RenderNode | null | undefined): string[] {
   if (node === null || node === undefined || typeof node === 'string') return [];
   if (node.type === 'Text' || node.type === 'Button') return [stringsOf(node).join('')];
@@ -424,7 +413,6 @@ function drawnLines(node: RenderNode | null | undefined): string[] {
   return children.flatMap((child) => drawnLines(child));
 }
 
-/** The first element of `type` in a drawn tree. */
 function elementOf(node: RenderNode, type: string): RenderElement | undefined {
   if (typeof node === 'string') return undefined;
   if (node.type === type) return node;
@@ -447,7 +435,6 @@ const ROLE_WORDS: Record<string, string> = {
   'performance-analyst': 'Performance analyst',
 };
 
-/** Each seat's state word in a set of drawn lines, by role. */
 function seatStates(lines: string[]): Record<string, string> {
   const states: Record<string, string> = {};
   for (const [role, words] of Object.entries(ROLE_WORDS)) {
@@ -529,7 +516,6 @@ describe('the live High Table card in the chat (AC-58)', () => {
       expect(again[0]).toBe('High Table · 7 seats · 7 writing');
       expect(again.some((line) => line.startsWith('  ◐ Security auditor: writing for'))).toBe(true);
 
-      // The second experts row, and any other row, stays the engine's own.
       expect(textOf(await $.ui.render(toolUse(surface, 'tu-2', EXPERTS_COMMAND)))).toBe(
         'engine row',
       );
