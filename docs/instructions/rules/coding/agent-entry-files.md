@@ -7,7 +7,7 @@ An entry file may contain only these three things:
 ```
 1. a one-line bootstrap pointer — open .paqad/framework-path.txt, resolve it to the
    framework install directory, and load + follow AGENT-BOOTSTRAP.md there;
-2. the core-owned graceful-degradation clause (issue #220), generated once from
+2. the core-owned graceful-degradation clause, generated once from
    framework-fallback-clause.ts so it is byte-identical across hosts, written as a
    plain clause (deliberately not a ## heading);
 3. the Adapter: footer — load-bearing, because the per-adapter UI table (which tells

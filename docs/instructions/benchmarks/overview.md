@@ -19,7 +19,7 @@ threshold, top-N, max file size) are framework knobs set in the config layer
 | Prompt token increase limit             | ≤ 10%     |
 | Prompt token override (success uplift)  | ≥ 15%     |
 
-## Resident Rule Footprint (token-neutral by default, issue #284)
+## Resident Rule Footprint (token-neutral by default)
 
 Lean rule loading is the default delivery path (`lean_rules`, default **on**): every
 session carries an always-resident rule **manifest** (one capped line per rule) plus

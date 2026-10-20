@@ -1,4 +1,4 @@
-# Delivery Workflow Policy  (issue #42)
+# Delivery Workflow Policy
 # Authored exactly like feature-development.yaml: same location, same schema
 # validation, same merge_mode: append precedence — project edits win.
 #
@@ -7,7 +7,7 @@
 # the host is GitHub, and the loop is:
 #   branch → PR → CI green → squash-merge → changesets bot release PR → npm publish.
 # Conventions below were derived from this repo's real git history
-# (e.g. `feat(#158): give paqad a visible voice in the live agent chat (#167)`).
+# (e.g. `feat(#<issue>): give paqad a visible voice in the live agent chat (#<pr>)`).
 #
 # Every section carries  maintained: auto | manual
 #   auto   — the framework keeps it in sync with your repo; detection fills it
@@ -44,7 +44,7 @@ process:
 
   commit:
     maintained: manual
-    # AI attribution is NOT configured here (issue #538). What your coding agent
+    # AI attribution is NOT configured here. What your coding agent
     # appends to a commit — `Co-Authored-By: Claude`, "Made with Cursor", and the
     # rest — is governed by the `ai_attribution` knob in
     # `.paqad/configs/.config.policy` (keep | strip, default strip), because it is a
@@ -52,12 +52,12 @@ process:
     # it where the provider exposes a project-level switch (Claude Code, Aider) and
     # warns at delivery where it does not (Cursor and Codex are user-level only).
     # paqad's own PR-body footer is deliberately outside that knob.
-    # Conventional commits; the GitHub issue rides in the scope position → feat(#158): …
+    # Conventional commits; the GitHub issue rides in the scope position → feat(#<issue>): …
     # No `Refs:` trailer — issues are closed from the PR body ("Closes #N") on GitHub.
     # Issue-less changes (docs/chore) render empty parens — drop them by hand: `docs: …`.
     template: "{type}({ticket}): {summary}"
     sign_off: false             # no DCO sign-off required
-    # Issue #511 (AC-4): when the developer did NOT say whether to commit, the agent asks
+    # When the developer did NOT say whether to commit, the agent asks
     # once at end-of-change ("Commit this change now?") through the host decision tray and
     # records the answer (or its absence) in the bundle's delivery.json.commit_decision.
     # true = ask when unspecified; false = never ask (record `ignored`).
@@ -66,7 +66,7 @@ process:
   pr:
     maintained: manual
     # GitHub appends " (#<pr>)" to the squash-merge title automatically, so the
-    # template carries only the issue ref, matching history: feat(#158): …
+    # template carries only the issue ref, matching history: feat(#<issue>): …
     title_template: "{type}({ticket}): {summary}"
     body_template_path: .paqad/templates/pr-body.md
     base: main
@@ -75,7 +75,7 @@ process:
     labels: []
     link_ticket: true           # link the GitHub issue from the PR ("Closes #N")
     transition_on_open: ""       # GitHub issues have no "In Review" state
-    # Decision packets (issue #272): any Decision Pause packet resolved while
+    # Decision packets: any Decision Pause packet resolved while
     # producing this change is COMMITTED WITH THE PR — the resolved
     # `.paqad/decisions/resolved/D-<ULID>.json` is staged alongside the code it
     # justifies, never left untracked, so a reviewer and future `git blame` can

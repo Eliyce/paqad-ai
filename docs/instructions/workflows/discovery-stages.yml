@@ -1,4 +1,4 @@
-# Discovery stage registry (issue #597).
+# Discovery stage registry.
 #
 # The ordered universe of Discovery stages. This file is the tracked, human-readable mirror of the
 # canonical source — `DISCOVERY_STAGE_ORDER` in src/discovery/stages.ts — from which the Discovery

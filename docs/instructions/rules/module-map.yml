@@ -419,7 +419,7 @@ modules:
       (paqad-ai status). Score is existence + freshness only — no
       content-quality heuristics in phase 1. Shares the graph-ui bundle
       via a hash router so the graph view becomes one section inside the
-      dashboard. Issue #146 adds the approvals inbox (resolve decision
+      dashboard. It also serves the approvals inbox (resolve decision
       pauses and module proposals on the web through the same stores the
       agent uses), the read-only trust area (evidence timeline, DSSE
       receipt cards, AI-BOM, PR-comment export), the seven-area management
@@ -916,7 +916,7 @@ modules:
     layer: cli-commands
     confidence: high
     summary: |
-      The two read-only, local-first exporters that turn the #118 unified
+      The two read-only, local-first exporters that turn the unified
       evidence ledger into something an outside system can consume. `audit
       export` is the SIEM projector — OCSF (primary), Elastic ECS, ArcSight
       CEF, and a canonical JSONL passthrough — writing a file or stdout for
@@ -985,7 +985,7 @@ modules:
     confidence: high
     summary: |
       The terminal surface over the module-map engine's reconciliation and
-      audit trail (issue #80). `module-map reconcile` scans the source roots,
+      audit trail. `module-map reconcile` scans the source roots,
       compares them to `module-map.yml` and `docs/modules/`, and writes
       `.paqad/module-map/drift.json` (with `--fail-on-drift` for CI).
       `module-decisions` inspects the MD-XXXX prospective decisions
@@ -1463,8 +1463,8 @@ modules:
       Declarative packs with deterministic built-in < global < project
       precedence. Two kinds: `pack.yaml` stack packs (bind a stack to its
       detection signals, docs, MCP recommendations, security mappings; 19 framework +
-      3 archetype packs) and `compliance-pack.yaml` compliance packs (issue
-      #122) that map verification gates to legal-framework clauses (EU AI Act /
+      3 archetype packs) and `compliance-pack.yaml` compliance packs
+      that map verification gates to legal-framework clauses (EU AI Act /
       NIST / ISO) using OSCAL relations, so a passing gate on the receipt can
       cite which clause it produces evidence toward. Compliance packs carry no
       detection fields and live in their own roots (runtime
@@ -2205,7 +2205,7 @@ modules:
     summary: |
       Recommends stack-scoped MCP servers in .paqad/mcp-recommendations.json
       and never writes another tool's MCP config file. Removes only the
-      legacy MCP files older paqad versions wrote (issue #622).
+      legacy MCP files older paqad versions wrote.
     sources:
       - src/mcp
     evidence:
@@ -2285,7 +2285,7 @@ modules:
     name: Decision Pause Contract
     layer: framework-internals
     confidence: high
-    # Enforcement spine (issue #324): human-decision gate — floor to full.
+    # Enforcement spine: human-decision gate — floor to full.
     sensitivity: high
     summary: |
       Agent-side contract enforced by `CLAUDE.md` / `AGENTS.md`: before any
@@ -2360,7 +2360,7 @@ modules:
       proving check (TR-UNTESTED-PROMISE) and code that answers to no promise
       and that nothing-with-a-promise uses (TR-CODE-ORPHAN, by reachability —
       not a label). Writes `.paqad/traceability/map.json`. In production the map is
-      the change map (issue #639, Part 11): the frozen spec's automated acceptance
+      the change map: the frozen spec's automated acceptance
       criteria against the test files changed on the branch, built at Stop
       verification and at `checks run`, and read by the `ac-test-mapping` gate.
     sources:
@@ -2382,13 +2382,13 @@ modules:
     name: Quality Ratchet
     layer: framework-internals
     confidence: high
-    # Enforcement spine (issue #324): a change here floors the lane to full.
+    # Enforcement spine: a change here floors the lane to full.
     sensitivity: high
     summary: |
       Records four quality measures at the project's real level today
       (`.paqad/quality-baseline.json`) and from then on only allows a change
       that keeps each measure equal or better. Measures — tangledness, dead/
-      unused code (consumed from #109's reachability output, not re-scanned),
+      unused code (consumed from the reachability index output, not re-scanned),
       risky patterns, and strictness — are normalised to a deficiency count
       (lower is better) and rolled up per module + project. A verification gate
       refuses any worsening; the recorded level only ever tightens, except a
@@ -2430,10 +2430,10 @@ modules:
     name: Verification Gates
     layer: framework-internals
     confidence: high
-    # Enforcement spine (issue #324): the gates decide what lands — floor to full.
+    # Enforcement spine: the gates decide what lands — floor to full.
     sensitivity: high
     summary: |
-      The gate runner and the bank of verification gates (issue #117) that
+      The gate runner and the bank of verification gates that
       decide whether a change is allowed to land. Each gate under
       `src/verification/gates/` returns a pass / block verdict with computed
       judgment inputs — ac-test-mapping, behavioral-correctness, change-
@@ -2563,10 +2563,10 @@ modules:
     name: Evidence Ledger & Provenance Receipt
     layer: framework-internals
     confidence: high
-    # Enforcement spine (issue #324): the append-only trust record — floor to full.
+    # Enforcement spine: the append-only trust record — floor to full.
     sensitivity: high
     summary: |
-      One unified, append-only evidence ledger (issues #118, #120) that every
+      One unified, append-only evidence ledger that every
       verification gate and correctness engine writes to, plus the per-change
       provenance receipt (an AI-BOM) projected from it at merge time. Each row
       carries a `strength_class` — deterministic (A), llm-judged (B), or
@@ -2651,16 +2651,16 @@ modules:
     name: Session-Scoped Evidence Substrate
     layer: framework-internals
     confidence: high
-    # Enforcement spine (issue #324): the shared evidence substrate — floor to full.
+    # Enforcement spine: the shared evidence substrate — floor to full.
     sensitivity: high
     summary: |
       The reusable script-written, session-scoped, append-only JSONL evidence
-      primitive (issue #249 P0) under `.paqad/ledger/<docType>/<session>/<ordinal>.jsonl`:
+      primitive under `.paqad/ledger/<docType>/<session>/<ordinal>.jsonl`:
       atomic ordinal allocation (exclusive-create, race-safe across the background
       worker and the prompt seam), an `.open` pointer, a script-clock `ts` + identity
       `content_hash` stamped on every row, a tolerant reader, and an injectable
-      per-row validator. The RAG-evidence ledger (#249) and the stage-evidence ledger
-      (#247) both consume this instead of duplicating it. Imports no enterprise code —
+      per-row validator. The RAG-evidence ledger and the stage-evidence ledger
+      both consume this instead of duplicating it. Imports no enterprise code —
       always-on, AI-BOM-independent.
     sources:
       - src/session-ledger
@@ -2700,14 +2700,14 @@ modules:
     layer: framework-internals
     confidence: high
     summary: |
-      The deterministic backend that verifies framework reuse claims (issue #397).
-      #357 lets a plan DECLARE it reuses a framework API; nothing checked the claim.
+      The deterministic backend that verifies framework reuse claims.
+      A plan can DECLARE it reuses a framework API; this module checks that claim.
       This module reads the `.d.ts` declaration layer shipped inside the installed
       package and answers, for the version actually installed, whether the symbol
       exists and whether it carries a static `@deprecated` marker — zero model
       tokens, zero network. Built as an ecosystem-adapter registry (mirroring
       EcosystemParserRegistry) with only the node/JS-TS adapter implemented, so
-      #398's PHP/Python/JVM adapters plug in and a non-node project records
+      later PHP/Python/JVM adapters plug in and a non-node project records
       `no-adapter` rather than running the wrong code path. `typescript` is an
       OPTIONAL peer dependency lazy-resolved from the onboarded project, because
       paqad-ai installs into projects of any stack. Only `absent` and `deprecated`
@@ -2762,7 +2762,7 @@ modules:
     layer: framework-internals
     confidence: high
     summary: |
-      The per-feature evidence bundle (issue #339) — one directory per feature at
+      The per-feature evidence bundle — one directory per feature at
       `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` holding its whole
       workflow record plus its compliance bundle. Phase 1 lays the dark, unwired
       foundation: a path layer that resolves the layout, the `_session` control,
@@ -2771,9 +2771,9 @@ modules:
       (unknown keys rejected) with content-hashed record builders (`specification.json`
       reuses the existing FeatureSpec shape); and the per-session active +
       paused-feature control that folds today's `.open` + `.pending-lane` at feature
-      grain. Nothing writes here until later #339 phases wire the recorder in, so the
-      live stage spine is untouched. Also home to the paqad HUD's data layer (issue
-      #639): the per-session snapshot, receipt and verdict files built from the bundle, and
+      grain. Nothing writes here until later phases wire the recorder in, so the
+      live stage spine is untouched. Also home to the paqad HUD's data layer:
+      the per-session snapshot, receipt and verdict files built from the bundle, and
       the change cost (`src/cost`, Part 23): transcript usage, the dated price table and cost.json.
     sources:
       - src/feature-evidence
@@ -2946,7 +2946,7 @@ modules:
     confidence: high
     summary: |
       A script-written, per-(session, conversation) record of what the RAG layer
-      actually did at runtime (issue #249): when the index was REFRESHED, when
+      actually did at runtime: when the index was REFRESHED, when
       retrieval was CALLED, when the precomputed context was USED (injected into a
       prompt), and when it FELL BACK to grep. Built on the session-ledger substrate;
       validated by an AJV schema. The seams (background worker, prompt hook) record it;
@@ -3002,7 +3002,7 @@ modules:
     layer: framework-internals
     confidence: high
     summary: |
-      On-by-default delivery automation (issue #42) whose branch, CI, and
+      On-by-default delivery automation whose branch, CI, and
       ticket conventions are detected from the team's real git history rather
       than authored. The capability is two provider-neutral contracts —
       `TicketProvider` (tracker-neutral; Jira first) and `HostProvider` (VCS +
