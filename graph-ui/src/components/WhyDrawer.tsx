@@ -99,7 +99,7 @@ export function WhyDrawer({ title, problem, benefit, without, docsHref, onClose 
             <a
               href={docsHref}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="text-secondary"
               style={{ color: 'var(--color-accent)' }}
             >
