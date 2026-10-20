@@ -1,6 +1,7 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readTextIfExistsSync } from '@/core/fs/read-if-exists.js';
 import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 
 import { newestFirst, techDebtDir, type TechDebtItem } from './items.js';
@@ -61,7 +62,7 @@ export function reconcileTechDebtOverview(
   items: TechDebtItem[],
 ): OverviewBlockResult {
   const path = techDebtOverviewPath(projectRoot);
-  const existing = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  const existing = readTextIfExistsSync(path) ?? '';
   const next = upsertTechDebtBlock(existing, items);
   if (next === existing) {
     return { path, written: false };
