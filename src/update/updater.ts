@@ -56,6 +56,17 @@ export interface FrameworkUpdaterOptions {
   generateCandidates?: (projectRoot: string) => Promise<UpdateCandidate[]>;
 }
 
+function readExistingText(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
 export class FrameworkUpdater {
   constructor(private readonly options: FrameworkUpdaterOptions = {}) {}
 
@@ -96,13 +107,14 @@ export class FrameworkUpdater {
       // ops since Node accepts mixed separators on Windows.
       const reportedPath = toPosixPath(candidate.path);
       const target = join(projectRoot, candidate.path);
-      const existed = existsSync(target);
+      const existing = readExistingText(target);
+      const existed = existing !== null;
       const autoUpdate = artifactPolicy.get(candidate.path) ?? candidate.autoUpdate;
 
-      if (existed && autoUpdate === false) {
+      if (existing !== null && autoUpdate === false) {
         skipped.push({
           path: reportedPath,
-          before: readFileSync(target, 'utf8'),
+          before: existing,
           after: candidate.content,
         });
         continue;
