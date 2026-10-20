@@ -5,17 +5,6 @@ import type { DuplicationFinding } from '@/duplication/types.js';
 import type { Gate } from './gate.interface.js';
 import { createFail, createNotRequired, createPass } from './shared.js';
 
-/**
- * Duplication gate (issue #358) — the Stop-seam half of the "bind it twice" contract. The
- * checks-stage rule-script runs `duplication scan`, which writes the report; this gate reads
- * that cached report so the same near-copy verdict lands in the end-of-change receipt.
- *
- * The gate reads NOT REQUIRED when no report is present (issue #639, Part 10) — a
- * non-feature-development change never runs the scan, so there is nothing to check. It
- * FAILS only when the report is blocking (strict mode with a deterministic finding); a warn-mode
- * or heuristic-only run passes with the findings surfaced in the detail, so the default two-cycle
- * bake-in never blocks a merge.
- */
 export class DuplicationGate implements Gate {
   readonly gate = 'duplication' as const;
 
@@ -50,8 +39,6 @@ export class DuplicationGate implements Gate {
   }
 }
 
-/** A short ` — <file> near <matched_file>` lead for the first deterministic finding. Only
- *  called on a blocking report, which by construction has at least one deterministic finding. */
 function firstFindingLead(findings: DuplicationFinding[]): string {
   const first = findings.find((finding) => finding.kind === 'deterministic');
   /* c8 ignore next -- a blocking report always carries a deterministic finding, so `first` is
@@ -59,7 +46,6 @@ function firstFindingLead(findings: DuplicationFinding[]): string {
   return first ? ` — ${first.file} near ${first.matched_symbol ?? first.matched_file}` : '';
 }
 
-/** Pluralize a count: `1 near-copy`, `2 near-copies`. */
 function count(n: number, singular: string, plural: string): string {
   return `${n} ${n === 1 ? singular : plural}`;
 }

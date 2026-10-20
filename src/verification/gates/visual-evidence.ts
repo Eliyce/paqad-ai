@@ -1,24 +1,3 @@
-// The visual-evidence gate (issue #551, Part F).
-//
-// Reads the rigid `visual-evidence.json` manifest a capture run wrote and turns it into an
-// end-of-change verdict. It validates EXISTENCE + manifest integrity + hashes only — never the
-// screenshot content. Outcomes (house EvidenceGateStatus):
-//   - flag off / coding capability absent / not feature-dev / trigger says not-frontend → skipped
-//   - frameworks declared but no built-in pack loaded (issue #579, an install fault) →
-//     inconclusive under warn, fail under strict, never not-frontend
-//   - manifest present, schema-valid, result: captured, every referenced file's size + SHA-256
-//     match → pass
-//   - manifest present recording only documented skips (no-documented-flow / no-capture-script /
-//     capture-script-invalid) → skipped, reason surfaced. Under strict (issue #579), a manifest
-//     whose only skips are no-documented-flow / no-capture-script FAILS unless a resolved
-//     readiness waiver exists (then skipped, "waived by D-<id>", never pass)
-//   - an environmental outcome (manifest absent on a frontend change, result partial/skipped with
-//     an environmental reason, or a hash/size mismatch) → inconclusive under warn, fail under strict
-//
-// Like bundle-completeness it is an evidence-gate FUNCTION (returns a VerificationEvidenceGate,
-// which the Gate/GateResult class shape cannot — it has no `skipped`/`inconclusive`), wired at the
-// same seam. It uses the `as VerificationGate` cast the other evidence gates use.
-
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -44,50 +23,27 @@ import {
   packRegistryFaultDetail,
 } from '@/visual-evidence/trigger.js';
 
-/** The gate marker (not a registered VERIFICATION_GATES member, like `bundle-completeness`). */
 const GATE_NAME = 'visual-evidence' as VerificationGate;
 
-/** Skip reasons that are a documented "nothing to capture", never an environmental failure. */
 const DOCUMENTED_SKIP_REASONS: ReadonlySet<VeSkipReason> = new Set([
   'no-documented-flow',
   'no-capture-script',
   'capture-script-invalid',
 ]);
 
-/**
- * Origins where the local feature bundle is present (mirrors bundle-completeness). The
- * visual-evidence bundle is git-ignored, so a fresh CI checkout has none — the gate must never
- * fail there.
- */
 const LOCAL_ORIGINS: ReadonlySet<VerificationOrigin> = new Set(['hook-completion', 'git-backstop']);
 
 export interface VisualEvidenceGateInput {
   projectRoot: string;
-  /** The active feature bundle dir, or null when none is open / route is non-feature. */
   dirName: string | null;
-  /** The resolved gate mode (warn | strict). */
   mode: VisualEvidenceMode;
-  /** The verification origin — only LOCAL origins can hard-fail (CI clones have no bundle). */
   origin: VerificationOrigin;
-  /** Whether this change is feature-development (the gate only applies then). */
   isFeatureDev: boolean;
-  /** visual_evidence flag AND the coding capability are both on. */
   flagOn: boolean;
-  /** Whether the change is frontend-triggering (a changed file matched a pack's frontend_globs). */
   frontendTriggered: boolean;
-  /**
-   * Issue #579 — set when frameworks are declared but the built-in pack registry loaded none
-   * (a PackRegistryEmptyError). An install fault: fail under strict, inconclusive under warn,
-   * never not-frontend.
-   */
   packRegistryFault?: { runtimeRoot: string } | null;
 }
 
-/**
- * A skipped visual-evidence row. Issue #639, Part 10 — `kind` says whether the change needed no
- * screenshots (`not-required`: flag off, not on a local seam, not a frontend change, waived,
- * no documented flow) or needed them and none were taken (`did-not-run`: no capture script).
- */
 function skipped(
   detail: string,
   skipReason: string,
@@ -104,16 +60,11 @@ function skipped(
   };
 }
 
-/**
- * Issue #579 — the documented skips that strict mode no longer accepts on their own: nothing was
- * captured because no flow or script exists. `capture-script-invalid` keeps its documented handling.
- */
 const STRICT_UNCAPTURED: ReadonlySet<VeSkipReason> = new Set([
   'no-documented-flow',
   'no-capture-script',
 ]);
 
-/** The short, plain phrase each documented skip reads as in the verdict skip line. */
 const DOCUMENTED_SKIP_PHRASE: Record<string, string> = {
   'no-documented-flow': 'no documented flow to capture',
   'no-capture-script': 'no capture script',
@@ -147,11 +98,8 @@ function readManifest(projectRoot: string, dirName: string): VisualEvidenceManif
   }
 }
 
-/** Verify one referenced file's byte length + SHA-256 against the manifest record. */
 function fileMatches(absPath: string, expectedBytes: number, expectedSha: string): boolean {
   try {
-    // A single read, then compare against the buffer's own length — never stat-then-read the
-    // same path (the TOCTOU pattern CodeQL flags), and one fewer syscall.
     const bytes = readFileSync(absPath);
     if (bytes.length !== expectedBytes) return false;
     return createHash('sha256').update(bytes).digest('hex') === expectedSha;
@@ -160,7 +108,6 @@ function fileMatches(absPath: string, expectedBytes: number, expectedSha: string
   }
 }
 
-/** Every captured step (and the GIF) whose file is missing or whose size/hash disagrees. */
 function integrityFailures(
   projectRoot: string,
   dirName: string,
@@ -188,10 +135,6 @@ function integrityFailures(
   return failures;
 }
 
-/**
- * The visual-evidence verdict. Returns `null` only when the gate does not apply because there is
- * no feature bundle to check (not feature-dev / no active bundle) — every other case yields a row.
- */
 export function visualEvidenceGate(
   input: VisualEvidenceGateInput,
 ): VerificationEvidenceGate | null {
@@ -245,8 +188,6 @@ export function visualEvidenceGate(
     const reasons = manifest.skips.map((s) => s.reason).join(', ') || 'no capture';
     if (documented && manifest.skips.length > 0) {
       const phrases = [...new Set(manifest.skips.map((s) => DOCUMENTED_SKIP_PHRASE[s.reason]))];
-      // Issue #579 — under strict, "nothing to capture" because no flow or script exists is not
-      // proof: it fails unless the developer recorded a waiver (which reads skipped, never pass).
       if (mode === 'strict' && manifest.skips.every((s) => STRICT_UNCAPTURED.has(s.reason))) {
         const waiver = findVisualEvidenceWaiver(projectRoot, dirName);
         if (waiver) {
@@ -259,8 +200,6 @@ export function visualEvidenceGate(
             `or record a waiver: ${visualEvidenceWaiverHint(projectRoot, dirName)}.`,
         );
       }
-      // Only "no documented flow" means there was nothing to capture; a missing or invalid
-      // capture script means screenshots were owed and none were taken.
       const kind = manifest.skips.every((s) => s.reason === 'no-documented-flow')
         ? 'not-required'
         : 'did-not-run';
@@ -282,7 +221,6 @@ export function visualEvidenceGate(
     );
   }
 
-  // result === 'captured' — verify every referenced file.
   const failures = integrityFailures(projectRoot, dirName, manifest);
   if (failures.length > 0) {
     return environmental(
@@ -293,7 +231,6 @@ export function visualEvidenceGate(
   }
 
   const captured = manifest.steps.filter((s) => s.status === 'captured');
-  // Issue #579 (INV-9) — attached screenshots are named as such, never passed off as scripted.
   const attached = captured.filter((s) => s.journey_id === AGENT_ATTACHED_JOURNEY).length;
   const attachedNote =
     attached > 0 ? ` ${attached} of them agent-attached (not scripted captures).` : '';
@@ -301,17 +238,12 @@ export function visualEvidenceGate(
   return pass(detail);
 }
 
-/**
- * Read-only AC enrichment: name any acceptance criteria the frozen spec marked `(proof: visual)`,
- * so the developer sees which requirements this evidence covers. Best-effort; never throws.
- */
 function visualAcNote(projectRoot: string, dirName: string): string {
   try {
     const raw = readFileSync(join(projectRoot, featureFilePath(dirName, 'specification')), 'utf8');
     const spec = JSON.parse(raw) as {
       acceptance_criteria?: Array<{ criterion_id?: string; id?: string; proof_type?: string }>;
     };
-    // A frozen spec names each criterion `criterion_id`; `id` is read only as a fallback.
     const visual = (spec.acceptance_criteria ?? [])
       .filter((ac) => ac.proof_type === 'visual')
       .map((ac) => ac.criterion_id ?? ac.id)

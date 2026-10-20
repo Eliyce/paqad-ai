@@ -5,24 +5,9 @@ import { readCanonicalSiteMap } from '@/site-map/store.js';
 import type { Gate } from './gate.interface.js';
 import { createFail, createPass } from './shared.js';
 
-/** The remediation a stale map shares with the dashboard copy: refresh it from the Site map area. */
 const REFRESH_REMEDIATION =
   'Hit Run on the Site map area of `paqad-ai dashboard` to refresh the map before treating the change as complete.';
 
-/**
- * Keep the stored site map honest: a code change that drifts the map cannot reach
- * "Safe to merge" while the map is stale. Mirror of {@link DocumentationFreshnessGate}, but
- * over the site map instead of the canonical docs. One deterministic signal fires, behind the
- * code-change guard: the stored canonical map carries a stamped {@link AppFreshness} whose
- * cited `file:line` anchors no longer all resolve (recorded map-vs-code drift, issue #466
- * Part G). It is read STATICALLY from the stored map — no evidence resolution at gate time
- * (NFR-4) — and stamped by the live run's trust + freshness restamp (C8), so the gate only
- * ever grades earned proof. (The old progress-ledger published-view signal is retired with the
- * report machinery, ART-3.)
- *
- * Inert unless the `site_map` capability is enabled (INV-1): with the flag off — the default —
- * the gate always passes and changes nothing, so it is fully additive.
- */
 export class SiteMapFreshnessGate implements Gate {
   readonly gate = 'site-map-freshness' as const;
 

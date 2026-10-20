@@ -1,8 +1,3 @@
-// The bundle-completeness config (issues #511, #573, #602, #639): which bundle files a
-// change must leave, resolved from the project's config and the change's own constants. Its
-// own module so the completeness gate and the HUD snapshot share one builder, and the snapshot
-// does not load the whole verification run to get it.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -24,19 +19,6 @@ import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 import { STAGE_AGENT_HOSTS } from '@/stage-isolation/agent-writer.js';
 import { isSubagentCapableAdapter } from '@/stage-isolation/stage-agents.js';
 
-/**
- * How stage isolation stands for a change (issues #573, #602), on a subagent-capable host:
- *   - `expected`    — a graduated or full lane: isolation should have run, and its absence is a
- *                     hard failure.
- *   - `unresolved`  — the lane never resolved (null): isolation could not be judged, so its
- *                     absence must be SURFACED (Inconclusive), never a clean green and never a
- *                     hard block (issue #602, FR-4). A lost or first-glance-only label lands
- *                     here instead of silently reading "no scrutiny needed".
- *   - `not-applicable` — the fast lane, a host with no subagent dispatch, or no bundle to read.
- *
- * The lane and host are the bundle's own session constants (`feature.json`, else a pre-#581
- * bundle's open row), so a change is judged by what it actually recorded.
- */
 export type StageIsolationStatus = 'expected' | 'unresolved' | 'not-applicable';
 
 export function stageIsolationStatus(
@@ -48,7 +30,6 @@ export function stageIsolationStatus(
   return isolationStatusFrom(readChangeConstantsSafe(projectRoot, dirName));
 }
 
-/** The change's session constants, or null when there is no bundle or it cannot be read. */
 function readChangeConstantsSafe(
   projectRoot: string,
   dirName: string | null,
@@ -57,7 +38,6 @@ function readChangeConstantsSafe(
   try {
     return readChangeConstants(projectRoot, dirName);
   } catch {
-    // A missing or unreadable bundle cannot prove anything about the change.
     return null;
   }
 }
@@ -65,16 +45,11 @@ function readChangeConstantsSafe(
 function isolationStatusFrom(constants: ChangeConstants | null): StageIsolationStatus {
   if (!constants) return 'not-applicable';
   const { lane, adapter } = constants;
-  // A host that cannot dispatch subagents could never isolate, so isolation is never asked of
-  // it — whatever the lane.
   if (!isSubagentCapableAdapter(adapter, STAGE_AGENT_HOSTS)) return 'not-applicable';
   if (lane === 'graduated' || lane === 'full') return 'expected';
-  // A null lane is unresolved — surfaced, not silent (issue #602). A fast lane is genuinely
-  // not-applicable.
   return lane === null ? 'unresolved' : 'not-applicable';
 }
 
-/** The two isolation flags for one status, so `expected` and `unresolved` never both hold. */
 function isolationFlags(status: StageIsolationStatus): {
   stageIsolationExpected: boolean;
   stageIsolationUnresolved: boolean;
@@ -85,13 +60,6 @@ function isolationFlags(status: StageIsolationStatus): {
   };
 }
 
-/**
- * Whether stage isolation was EXPECTED for a change (issue #573): the `expected` case above.
- * Kept as a thin predicate so existing callers read unchanged.
- *
- * Returns false for an unresolved lane. That is deliberate — a null lane must not manufacture a
- * blocking requirement out of nothing (INV-5); the `unresolved` status surfaces it instead.
- */
 export function stageIsolationExpected(
   projectRoot: string,
   sessionId: string | null,
@@ -100,11 +68,6 @@ export function stageIsolationExpected(
   return stageIsolationStatus(projectRoot, sessionId, dirName) === 'expected';
 }
 
-/**
- * The two isolation flags the bundle-completeness manifest reads (issue #602), from ONE status
- * read so `expected` and `unresolved` can never both be set. `expected` hard-requires the
- * isolation proof; `unresolved` surfaces its absence as Inconclusive.
- */
 export function isolationConfig(
   projectRoot: string,
   sessionId: string | null,
@@ -113,11 +76,6 @@ export function isolationConfig(
   return isolationFlags(stageIsolationStatus(projectRoot, sessionId, dirName));
 }
 
-/**
- * The resolved bundle-completeness config for a change (issue #639, Part 7): the flags that
- * decide which bundle files are required. Extracted so the completeness gate and the HUD
- * snapshot read one builder and can never disagree about what a change must leave.
- */
 export function buildBundleCompletenessConfig(
   projectRoot: string,
   sessionId: string | null,
@@ -125,16 +83,9 @@ export function buildBundleCompletenessConfig(
 ): BundleCompletenessConfig {
   const frameworkConfig = resolveFrameworkConfig(projectRoot);
   const policy = resolveEnterprisePolicy(readProjectProfile(projectRoot));
-  // Issue #547 (FR-10.1) / #581 — the spec-pipeline flags, read via layeredConfigMap (not
-  // src/spec-pipeline) so the FR-11 import ban holds: src/verification/** must not import the
-  // pipeline.
   const pipelineFlags = readSpecPipelineFlags(projectRoot);
-  // The change's own constants, read ONCE here (issue #640, FR-13): the lane decides whether the
-  // spec-pipeline files apply, and lane + host decide stage isolation. The completeness gate and
-  // the HUD snapshot both get them from this builder, so they can never disagree.
   const constants = readChangeConstantsSafe(projectRoot, dirName);
   return {
-    // An unread or unrecorded lane is null, which the manifest treats as full (fails safe).
     lane: constants?.lane ?? null,
     ruleComplianceOn: resolveRuleComplianceMode(projectRoot) !== 'off',
     metricsEnabled: frameworkConfig.features.metrics_enabled,
@@ -147,46 +98,27 @@ export function buildBundleCompletenessConfig(
     specPipelineStrict: pipelineFlags.strict,
     specPipelineEnabled: pipelineFlags.enabled,
     expertsEnabled: pipelineFlags.experts,
-    // Issue #640 — a change already open when the pipeline default flipped on froze its spec
-    // without the pipeline; it is not asked for files the pipeline never wrote.
     specFrozenBeforePipeline: specFrozenBeforePipeline(projectRoot, dirName),
-    // Issue #573 / #602 — how stage isolation stands for this change, read from the
-    // bundle's own constants (lane + recorded host adapter), never from config: whether
-    // isolation applied is a property of the change, not a project setting. `expected`
-    // hard-requires the proof; `unresolved` surfaces its absence as Inconclusive (a lost or
-    // first-glance-only label is loud, not silent) without ever false-failing (INV-5).
     ...isolationFlags(sessionId ? isolationStatusFrom(constants) : 'not-applicable'),
   };
 }
 
-/** Whether the change's frozen specification.json predates the spec pipeline (issue #640). */
 function specFrozenBeforePipeline(projectRoot: string, dirName: string | null): boolean {
   if (!dirName) return false;
   try {
     const text = readFileSync(join(projectRoot, featureFilePath(dirName, 'specification')), 'utf8');
     return isSpecFrozenBeforePipeline(JSON.parse(text));
   } catch {
-    // Not frozen yet, or unreadable: the pipeline files are still required.
     return false;
   }
 }
 
-/** The spec-pipeline flags the bundle-completeness manifest reads (issues #547, #581). */
 export interface SpecPipelineFlags {
-  /** spec_pipeline_enabled. */
   enabled: boolean;
-  /** spec_pipeline_enabled && spec_pipeline_adoption === 'strict'. */
   strict: boolean;
-  /** spec_pipeline_experts_enabled (the manifest pairs it with `enabled`). */
   experts: boolean;
 }
 
-/**
- * Read the spec-pipeline flags from the layered config map. Read here, not through
- * src/spec-pipeline, so the FR-11 import ban holds (src/verification/** must not import the
- * pipeline). An unset flag takes its SPEC_PIPELINE_DEFAULTS value through the same resolver
- * the pipeline uses (issue #640), so the two can never disagree.
- */
 export function readSpecPipelineFlags(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,

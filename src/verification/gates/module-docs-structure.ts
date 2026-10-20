@@ -33,14 +33,6 @@ export class ModuleDocsStructureGate implements Gate {
       return createNotRequired(this.gate, 'Not required: no module doc changed.');
     }
 
-    // #313 finding 2 (same family as #310): a flat `docs/modules/{module}/
-    // features/{feature}.md` layout is a legitimate repo-wide convention. When it
-    // already exists on disk, this change did NOT introduce the non-compliant
-    // path — it merely touched a pre-existing file — so blocking here would force
-    // the agent to REVERT a correct doc-sync. Scope the structure check to the
-    // paths this change is responsible for: ignore flat feature docs once the flat
-    // convention is established repo-wide. A lone flat doc introduced into an
-    // otherwise-nested repo still fails.
     const scopedPaths = hasPreexistingFlatFeatureDocs(context.project_root, new Set(changedFiles))
       ? moduleDocPaths.filter((filePath) => !isFlatFeatureDoc(filePath))
       : moduleDocPaths;
@@ -105,11 +97,6 @@ function isUnderPath(filePath: string, prefix: string): boolean {
   return filePath === prefix.slice(0, -1) || filePath.startsWith(prefix);
 }
 
-/**
- * True for a flat feature doc `docs/modules/{module}/features/{feature}.md`
- * (5 segments) — the alternative to the nested `features/{feature}/{business,
- * technical,api}.md` layout.
- */
 function isFlatFeatureDoc(filePath: string): boolean {
   const segments = filePath.split('/');
   return (
@@ -123,12 +110,6 @@ function isFlatFeatureDoc(filePath: string): boolean {
   );
 }
 
-/**
- * True when at least one flat feature doc already exists on disk under
- * `docs/modules/{module}/features/` that is NOT part of the current change
- * (`changedSet`) — evidence the flat layout is the repo's established convention,
- * not something this change introduced. Best-effort: any fs error → false.
- */
 function hasPreexistingFlatFeatureDocs(projectRoot: string, changedSet: Set<string>): boolean {
   const modulesRoot = join(projectRoot, 'docs', 'modules');
   if (!existsSync(modulesRoot)) {
@@ -139,9 +120,6 @@ function hasPreexistingFlatFeatureDocs(projectRoot: string, changedSet: Set<stri
     moduleEntries = readdirSync(modulesRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
-    // Defensive: existsSync already guards absence; a docs/modules that exists but
-    // is unreadable (permission flip / not a directory) is not reachable through
-    // the test fixture, which always creates it as a readable directory.
     /* v8 ignore next 2 */
   } catch {
     return false;

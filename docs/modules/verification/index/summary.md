@@ -220,6 +220,133 @@ The Stop hook imports the depth-one `dist/index.js`, while the CLI runs the dept
 `verify-backstop.mjs` on a fixture, so a wrong root fails loudly instead of reading as "no
 packs, nothing to check".
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code, grouped by file in `src/verification/`.
+
+**`evidence-markdown.ts`.** Glyphs and verdict words come from `src/core/constants/paqad-voice.ts`,
+so the PR comment, the dashboard and the chat narration speak one language; the maps here only
+translate each surface's status enum onto those glyphs. The trust gates (tests, mutation, quality)
+are shown even when green, in a fixed order, because the green facts are what a reviewer wants
+first. Numbers such as the kill rate are printed straight from each gate's `detail`, never
+re-parsed, so the comment never claims a figure the evidence does not hold. The output is pure and
+byte-identical for identical evidence (no timestamps, no locale calls), so it can feed the signed
+receipt. Compliance citations are listed once per framework and clause and always read "evidence
+toward", never "compliant". The authorship footer names the accepter only; the email already
+lives in the receipt and git history. A full commit SHA is shortened to seven characters; a tag or
+branch label is left as is.
+
+**`gates/change-completeness.ts`.** Test-evidence strength needs structured test results, which
+only the in-session agent records. At a backstop origin with none, the gap is raised as an
+escalation by the repository context instead of a false "incomplete" block. Out-of-scope files
+are listed by path so a human can accept or reject them.
+
+**`gates/documentation-checks.ts`.** A drift doc the diff did not touch is an obligation only if
+it already exists. The detector names framework-assumed owners (`docs/maintainers/architecture-map.md`,
+`docs/modules/README.md`) that onboarding never creates, so demanding them would block every
+onboarded repo. Required per-module docs are enforced by the expected-modules checks instead.
+
+**`gates/duplication.ts`.** The checks-stage rule script runs `duplication scan`; this gate only
+reads the cached report, so the same verdict reaches the receipt. It fails only on a blocking
+report (strict mode with a deterministic finding), so the default warn bake-in never blocks.
+
+**`gates/implementation-review.ts`.** The anchoring check is deliberately blunt: it searches every
+field the recorded review filled, asking "did the reviewer look at this place?", not whether the
+prose is good. Only deterministic, file-anchored, high-severity rows can trigger it, so a change
+with no machine findings behaves as before.
+
+**`gates/module-docs-structure.ts`.** A flat `docs/modules/<module>/features/<feature>.md` layout
+is accepted once a flat doc not part of this change already exists, because then the change did
+not introduce the layout and blocking would force the agent to revert a correct doc sync. A lone
+flat doc in an otherwise nested repo still fails.
+
+**`gates/mutation-testing.ts`.** Survivors escalate (inconclusive) by default; `mutation_strict`
+turns them into a block, so survivors do not stop work before baselines exist. Equivalent mutants
+are set aside by the tool. A dirty working tree after the run means a mutant may be left behind,
+so the gate fails whatever the mode. A weakly tooled language shows its result but is never
+over-trusted.
+
+**`gates/site-map-freshness.ts`.** The gate reads the stamped freshness on the stored map
+statically and never resolves evidence at gate time. It is inert unless the `site_map` capability
+is on.
+
+**`gates/visual-evidence.ts` and `repository/bundle-completeness-gate.ts`.** Both are evidence
+gate functions, not `Gate` classes, because the class result shape has no `skipped` or
+`inconclusive`. Each reads files with one read and compares against the buffer, never
+stat-then-read, which is the race CodeQL flags. Both can only hard-fail at local origins: the
+bundle is git-ignored, so a fresh CI checkout has none. Attached screenshots are named as
+attached, never passed off as scripted. A frozen spec names each criterion `criterion_id`; `id` is
+a fallback only.
+
+**`repository/bundle-completeness-config.ts`.** This builder lives in its own file so the
+completeness gate and the HUD snapshot share it without loading the whole verification run.
+Stage isolation is a property of the change (its recorded lane and host adapter), never a config
+setting. A host that cannot dispatch subagents is never asked for isolation; a null lane is
+`unresolved`, which surfaces as Inconclusive and never as a block. The spec-pipeline flags are
+read through `layeredConfigMap`, not `src/spec-pipeline`, because `src/verification` must not
+import the pipeline; unset flags take the pipeline's own defaults through the same resolver. A
+change whose spec was frozen before the pipeline default turned on is not asked for pipeline files.
+
+**`repository/bundle-completeness-gate.ts`.** It took over the cache backfill of the older
+evidence-existence gate as a recovery step: a recoverable file is minted from the engine caches
+but reported `backfilled`, never a clean pass, so the recorder defect stays visible. RAG cannot be
+reconstructed, so a RAG gap is Inconclusive. A `feature.json` with the placeholder title and no
+ticket counts as missing. Content hashes are checked only on files that carry the envelope header,
+because a hook cannot see a Bash write into the bundle; derived files (`report.html`, the
+receipt, the AI-BOM) keep their header where this check never reads it. A pipeline file owed only
+because the lane was raised after a fast-lane freeze cannot be written on its own, so the message
+says to re-freeze the spec.
+
+**Mode files (`bundle-completeness-mode.ts`, `evidence-existence-mode.ts`, `visual-evidence-mode.ts`).**
+Each mode is floored: the team-tracked `configs/.config.*` value is the floor, and the local
+`.config` or the environment variable may only raise it, so a lone developer cannot weaken a
+check the team committed. Bundle completeness defaults to `strict`; evidence existence has no
+`strict` tier on purpose, because this class of completion check has a history of false blocks;
+visual evidence defaults to `warn`.
+
+**`repository/judgment-inputs.ts`.** Each function is pure over an already loaded artifact, so the
+judgment is deterministic and unit-testable; `repository-context.ts` does the loading. A signal
+that needs model judgment, or whose proving artifact is missing, returns `inconclusive` with
+`passed: true`, so it escalates without blocking a clean change that predates a frozen spec.
+
+**`repository/receipt.ts`.** The list of not-done stages and the per-stage block are computed from
+the same `stageStatus` and `applyChecksHonesty`, so a headline naming those stages can never
+disagree with the block. An unknown `checksVerified` leaves the `checks` line as it was, so callers
+that do not compute it keep the old rendering. A plan compiled before the reuse gate gets no reuse
+suffix, so the receipt never implies a check that did not happen.
+
+**`repository/repository-context.ts`.** At the in-session completion origin, files that were
+already dirty when the session started and are unchanged since are subtracted, so a pre-existing
+edit is not blamed on a read-only turn; commit, push and CI origins stay path based. Every `.paqad/`
+home, including a nested `runtime/base/.paqad/`, is removed from the changed-file scan, since
+generated framework files are never implementation. The change map is built from the branch's
+changed files, not the session's, because a proving test committed earlier on the branch still
+counts. Its build failure is logged to `.paqad/logs/hooks.log`, never stderr, because on the Stop
+path stderr is shown to the user. A change map left by an earlier change is ignored. Tests, docs
+and the framework's own folders are always in scope, and no boundary is invented when no frozen
+spec backs the map.
+
+**`repository/run-repository-verification.ts`.** The backstop omits the pure model-judgment gates
+(they read `skipped`). The specific computed gates run before the change-completeness roll-up,
+because the runner stops at the first failure and that gate is the one the developer reads. The
+duplication gate sits after the quality gates since a near-copy is a quality signal. When paqad is
+disabled the backstop writes nothing and returns an `ok` verdict. The ownership skip runs after
+the enabled check and before the context build, so a skipped session produces no context, gate,
+record, file or block. The duplication report and module-health sync run here because this is the
+one completion seam that runs in every consumer repo; both are best effort and never change the
+verdict. The live host session id is passed to stage-evidence finalization so the completion seam
+writes under the same session as the prompt seam. Gates pushed straight onto the evidence (not
+through the runner) are counted by the bundle receipt too. A passing change is closed last, after
+every writer has used it; a change the completeness gate failed stays open so the next turn
+re-verifies it. The narration audit ignores stages a hook inferred, since the agent never claimed
+them. The stage-evidence gate is decided by the presence of a change record, not the working-tree
+diff count, so a committed but incomplete change still fails; the diff-count argument is kept only
+for call-site stability. An ordering failure names its `before -> after` pairs instead of an empty
+missing list.
+
+**`repository/scope-drift.ts`.** Trailing slashes are trimmed with a character scan, not a
+`/\/+$/` regex, which CodeQL flags as polynomial ReDoS.
+
 ## Feature Pages
 
 - [Mutation Testing — Verification Gate](../mutation-testing.md) — plant mutants in

@@ -1,18 +1,3 @@
-// Quality-ratchet verification gate. Issue #110.
-//
-// Reads the ratchet result the verification phase plants on the context and
-// turns it into a pass / fail outcome through the existing verification evidence
-// — no parallel store. The rule it enforces: a change is allowed only if every
-// measure is equal or better than the recorded level. A worsening blocks until
-// it no longer does, unless a `quality.ratchet_exception` was approved for that
-// kind (in which case the runner has already marked it excepted, not blocking).
-//
-// Issue #639, Part 10 — the detail names the measures the ratchet took and the
-// ones it could not take, and says "strictness only" on the fast lane, where the
-// collector takes nothing else. A run that took no measure at all (no result,
-// a skipped run, or every measure blocked) reads DID NOT RUN, never a pass. It
-// still never blocks on absence: did not run keeps `passed: true`.
-
 import type { QualityRatchetResult } from '@/core/types/quality-ratchet.js';
 
 import type { Gate } from './gate.interface.js';
@@ -30,12 +15,10 @@ function summarizeRegressions(result: QualityRatchetResult): string {
   return `${shown}${extra}`;
 }
 
-/** A measure id in plain words: `dead_code` reads "dead code". */
 function measureWords(measure: string): string {
   return measure.replace(/_/g, ' ');
 }
 
-/** The measures that produced a value this run, and the ones that could not be taken. */
 export function ratchetMeasureScope(result: QualityRatchetResult): {
   taken: string[];
   blocked: string[];
@@ -50,7 +33,6 @@ export function ratchetMeasureScope(result: QualityRatchetResult): {
   return { taken: [...taken], blocked: [...blocked] };
 }
 
-/** The scope note every taken-measure detail ends with. */
 function scopeNote(result: QualityRatchetResult, scope: { taken: string[]; blocked: string[] }) {
   const blocked = scope.blocked.length > 0 ? `; blocked: ${scope.blocked.join(', ')}` : '';
   if (result.lane === 'fast') return ` (fast lane, strictness only${blocked})`;

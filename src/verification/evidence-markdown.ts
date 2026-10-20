@@ -18,10 +18,6 @@ import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT } from '@/core/constants/paqad-voice.
 import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from './evidence.js';
 import { verdictKindFor, type VerdictKind } from './verdict-kind.js';
 
-// Glyph + verdict vocabulary comes from the canonical paqad-voice spec
-// (src/core/constants/paqad-voice.ts), so the PR comment, the dashboard, and
-// the in-chat narration contract all speak one verdict language. These maps
-// only translate each surface's own status enum onto the shared glyphs.
 const GATE_GLYPHS: Record<EvidenceGateStatus, string> = {
   pass: PAQAD_STATUS_GLYPH.good,
   fail: PAQAD_STATUS_GLYPH.failed,
@@ -35,19 +31,11 @@ const VERDICT_GLYPHS: Record<VerdictKind, string> = {
   inconclusive: PAQAD_STATUS_GLYPH.needsLook,
 };
 
-/**
- * The comment's verdict, from the one verdict rule (issue #639, Part 4). `overall_status`
- * folds an inconclusive gate into `fail` (it drives `--fail-on-red` and CI blocking, which
- * stay as they are), so reading the word from it said "Needs your attention" where the chat
- * receipt said Inconclusive. An `error` run never reached the gates: Inconclusive.
- */
 function commentVerdict(evidence: VerificationEvidence): VerdictKind {
   if (evidence.overall_status === 'error') return 'inconclusive';
   return verdictKindFor(evidence.gates, evidence.unrecorded_mandatory_stages ?? []);
 }
 
-// Human labels for the gates surfaced in the summary. Gates not listed are
-// humanised from their kebab id.
 const GATE_LABELS: Partial<Record<string, string>> = {
   'code-tests-lint': 'Tests',
   'mutation-testing': 'Mutation',
@@ -57,11 +45,6 @@ const GATE_LABELS: Partial<Record<string, string>> = {
   'architecture-compliance': 'Architecture',
 };
 
-// The gates that carry the "trust" headline a reviewer scans first: did the
-// tests hold, did mutation prove them, did quality not regress. Rendered (in
-// this order) even when green, because surfacing the green facts is the whole
-// point of the wedge. Issue #639, Part 10 — a trust gate that was not required
-// is left out, and one that did not run says so in grey; neither reads green.
 const TRUST_GATES = ['code-tests-lint', 'mutation-testing', 'quality-ratchet'] as const;
 
 function gateLabel(name: string): string {
@@ -74,11 +57,6 @@ function gateLabel(name: string): string {
   );
 }
 
-/**
- * Read the persisted session evidence back into a `VerificationEvidence`
- * object. Returns `null` when the file is absent or unparseable, so callers
- * can degrade gracefully ("run verification first") rather than throw.
- */
 export function readVerificationEvidence(projectRoot: string): VerificationEvidence | null {
   const path = join(projectRoot, VERIFICATION_EVIDENCE_RELATIVE_PATH);
   if (!existsSync(path)) return null;
@@ -91,14 +69,6 @@ export function readVerificationEvidence(projectRoot: string): VerificationEvide
   }
 }
 
-/**
- * Render the PR-comment body for a project's current verification evidence,
- * or `null` when no evidence has been persisted. Used by the manual
- * `paqad-ai evidence` command and by the delivery CI gate (issue #42), which
- * posts it automatically so every onboarded project lands the deterministic
- * proof on its PR. Returning `null` self-disables the comment on projects that
- * never ran verification.
- */
 export function buildEvidenceComment(projectRoot: string, sha?: string): string | null {
   const evidence = readVerificationEvidence(projectRoot);
   if (evidence === null) return null;
@@ -116,8 +86,6 @@ function shortSha(sha: string | undefined): string | null {
   if (!sha) return null;
   const trimmed = sha.trim();
   if (trimmed.length === 0) return null;
-  // Render a 7-char prefix for the common full-SHA case; leave shorter labels
-  // (tags, branch names) untouched.
   return /^[0-9a-f]{8,40}$/i.test(trimmed) ? trimmed.slice(0, 7) : trimmed;
 }
 
@@ -129,16 +97,10 @@ function renderFailure(failure: VerificationEvidenceFailure): string {
   return location ? `  - ${location} — ${failure.message}` : `  - ${failure.message}`;
 }
 
-/** Issue #639, Part 10 — a skipped gate's kind; one written before Part 10 reads not required. */
 function isDidNotRun(gate: VerificationEvidenceGate): boolean {
   return gate.status === 'skipped' && gate.skip_kind === 'did-not-run';
 }
 
-/**
- * The grey line for a trust gate that was owed a check that did not happen. A gate result's
- * did-not-run detail already says it did not run ("Mutation testing did not run: ..."), so it
- * is shown as is; a placeholder carries only a short reason, which gets the words added.
- */
 function didNotRunLine(gate: VerificationEvidenceGate): string {
   const label = gateLabel(gate.name);
   return gate.skip_reason !== undefined
@@ -155,25 +117,14 @@ function gateSummaryLine(gate: VerificationEvidenceGate): string {
 }
 
 export interface RenderEvidenceMarkdownOptions {
-  /** Optional commit SHA or label rendered in the headline. */
   sha?: string;
-  /** Issue #120 — change authorship from the signed receipt, rendered as a
-   *  footer so a reviewer sees who wrote/accepted the change next to the gates. */
   authorship?: ChangeAuthorship;
-  /** Issue #122 — `gate → clause` citations, rendered as an honest "evidence
-   *  toward" footer with the pack's disclaimer. */
   compliance?: ComplianceCitation[];
-  /** Issue #123 — the reproducibility stamp, rendered as a one-line claim. */
   reproducibility?: ReproducibilityStampPredicate;
 }
 
-/** Render the compliance footer (issue #122): one line per cited clause, grouped
- *  by framework, plus the single shared disclaimer. Returns `null` when there
- *  are no citations. Deliberately says "evidence toward", never "compliant". */
 export function renderComplianceLines(citations: ComplianceCitation[]): string[] | null {
   if (citations.length === 0) return null;
-  // Dedupe to one entry per (framework, clause): several gates can satisfy the
-  // same clause, but the reviewer wants the clause listed once.
   const byClause = new Map<string, ComplianceCitation>();
   for (const citation of citations) {
     byClause.set(`${citation.framework_id}|${citation.clause_id}`, citation);
@@ -187,19 +138,10 @@ export function renderComplianceLines(citations: ComplianceCitation[]): string[]
   return lines;
 }
 
-/** Render the reproducibility line (issue #123). Honest: input-replay, never
- *  bit-identical regeneration. */
 export function renderReproducibilityLine(stamp: ReproducibilityStampPredicate): string {
   return `> Replayable from frozen context: \`${stamp.context_hash.slice(0, 12)}\` (${stamp.determinism}, algo v${stamp.algo_version}).`;
 }
 
-/**
- * Render the one-line authorship footer (issue #120), or `null` when no
- * authorship was attested. Name-only for the accepter — the email already lives
- * in the receipt and git history, so the public PR comment need not repeat it.
- * The framing is the moat: paqad's gates vouch for the change whichever adapter
- * wrote it.
- */
 export function renderAuthorshipLine(authorship: ChangeAuthorship): string | null {
   const parts: string[] = [];
   if (authorship.agent !== undefined) parts.push(`written by \`${authorship.agent}\``);
@@ -215,17 +157,6 @@ export function renderAuthorshipLine(authorship: ChangeAuthorship): string | nul
   return `> Authorship: ${parts.join(' · ')}. paqad attests this on its gates, so the proof holds whichever tool wrote it.`;
 }
 
-/**
- * Render `VerificationEvidence` as a short, scannable green/red markdown
- * summary suitable for `gh pr comment`. Pure and deterministic — identical
- * evidence yields a byte-identical comment (no timestamp reformatting, no
- * locale-dependent calls), matching `renderMarkdown`'s contract so the output
- * can later feed the signed receipt.
- *
- * Numbers (kill rate, passing-check counts) are rendered straight off each
- * gate's `detail` string rather than re-parsed, so the comment never claims a
- * figure the evidence does not hold.
- */
 export function renderEvidenceMarkdown(
   evidence: VerificationEvidence,
   options: RenderEvidenceMarkdownOptions = {},
@@ -239,8 +170,6 @@ export function renderEvidenceMarkdown(
   );
   lines.push('');
 
-  // Issue #639, Part 10 — a skipped gate is counted as not required or did not run, never as
-  // a pass, so the passed figure is the required gates that ran and passed.
   const counts = { pass: 0, fail: 0, inconclusive: 0, notRequired: 0, didNotRun: 0 };
   for (const gate of evidence.gates) {
     if (gate.status !== 'skipped') counts[gate.status] += 1;
@@ -252,7 +181,6 @@ export function renderEvidenceMarkdown(
   );
   lines.push('');
 
-  // Trust headline — the green facts a reviewer wants first.
   const byName = new Map(evidence.gates.map((gate) => [gate.name, gate]));
   const trustLines = TRUST_GATES.map((name) => byName.get(name))
     .filter(
@@ -265,8 +193,6 @@ export function renderEvidenceMarkdown(
     lines.push('');
   }
 
-  // Blocking detail — every gate that failed or is inconclusive, with its
-  // failures pinned to file:line straight off the evidence.
   const blocking = evidence.gates.filter(
     (gate) => gate.status === 'fail' || gate.status === 'inconclusive',
   );

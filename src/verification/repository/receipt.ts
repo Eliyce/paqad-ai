@@ -1,14 +1,3 @@
-// End-of-change receipt composition (issue #325).
-//
-// The completion seam already holds every input for an honest end-of-change receipt
-// — the trust verdict (verdict.ts) and the folded stage evidence (stage-evidence
-// fold). This module composes them into ONE branded block: the verdict headline in
-// contract words, then a per-stage line with a fixed glyph and an evidence note.
-//
-// The receipt never dresses up a claim. A stage that was only marked (no artifact,
-// or a near-zero duration that proves no work happened) renders 🟡 "marked (no
-// recorded work)", never 🟢 "done" — it reflects the fold's honesty tags verbatim.
-
 import { formatChangeShapeLine } from '@/change-metrics/index.js';
 import type { ChangeMetrics } from '@/change-metrics/index.js';
 import { PAQAD_STATUS_GLYPH } from '@/core/constants/paqad-voice.js';
@@ -25,16 +14,10 @@ interface StageStatus {
   note: string;
 }
 
-/** Human-readable stage label (the underscore-free stage id). */
 function stageLabel(stage: string): string {
   return stage.replace(/_/g, ' ');
 }
 
-/**
- * Map one folded stage to its receipt glyph + note. Honest by construction: a
- * complete stage with a near-zero (unreliable) duration, or an inconclusive stage
- * (a marker with no real artifact), never reads 🟢 "done".
- */
 function stageStatus(stage: FoldedStage): StageStatus {
   switch (stage.state) {
     case 'complete':
@@ -67,20 +50,10 @@ function stageStatus(stage: FoldedStage): StageStatus {
     case 'not-applicable':
       return { glyph: PAQAD_STATUS_GLYPH.skipped, note: 'not applicable' };
     default:
-      // 'missing' — a mandatory stage with no record is a gap, not a pass.
       return { glyph: PAQAD_STATUS_GLYPH.needsLook, note: 'not recorded' };
   }
 }
 
-/**
- * Downgrade an otherwise-"done" `checks` stage when no passing checks report backs it
- * (issue #368, AC-A2). A `checks` marker only proves the agent SAID it ran the gates;
- * the real pass/fail signal is a `paqad-ai checks run` report. So when `checksVerified`
- * is explicitly false, a good/🟢 `checks` line becomes 🟡 "tests not verified" — the
- * stage can never read as done on an unproven claim. Any non-good state (failed,
- * running, missing) already tells the truth and is left untouched, as is an unknown
- * (`undefined`) signal — callers that do not compute it keep the prior rendering.
- */
 function applyChecksHonesty(
   stage: FoldedStage,
   status: StageStatus,
@@ -98,17 +71,6 @@ function applyChecksHonesty(
   };
 }
 
-/**
- * The mandatory stages whose end-of-change receipt line is NOT 🟢 — the stages that are
- * not provably done (missing, inconclusive, failed, complete-but-near-zero, or a `checks`
- * stage the completion gate could not verify). Computed from the SAME `stageStatus` +
- * `applyChecksHonesty` the per-stage block renders, so a headline that names these stages
- * and the block that shows them can never disagree — the reconcile seam for issue #472.
- *
- * ⚪ skipped / not-applicable stages are intentional non-work and are excluded, as are the
- * optional bookend stages (only `isMandatoryStage` rows are considered). Returns [] when
- * every mandatory stage is provably done.
- */
 export function unrecordedMandatoryStages(fold: FoldedChange, checksVerified?: boolean): string[] {
   return fold.stages
     .filter((stage) => isMandatoryStage(stage.stage))
@@ -119,15 +81,6 @@ export function unrecordedMandatoryStages(fold: FoldedChange, checksVerified?: b
     .map((stage) => stage.stage);
 }
 
-/**
- * Render the per-stage evidence block: one line per mandatory stage, plus any
- * optional stage that actually ran (has a start). Returns '' when there is nothing
- * to show. Each line is a blockquote so it nests under the verdict headline.
- *
- * `checksVerified` (issue #368) reflects whether a passing `paqad-ai checks run` report
- * backs the change; `false` downgrades a "done" `checks` line so tests can never read as
- * verified when they were not (AC-A2). `undefined` leaves rendering unchanged.
- */
 export function formatStageEvidenceReceipt(
   fold: FoldedChange,
   checksVerified?: boolean,
@@ -147,12 +100,6 @@ export function formatStageEvidenceReceipt(
     .join('\n');
 }
 
-/**
- * The planning line's reuse suffix (issue #357, AC-5) — `(reuse: 1 reused, 1 new
- * justified)`. Only the `planning` line carries it, and only when the plan actually
- * declared a reuse section: a plan compiled before the reuse gate existed renders exactly
- * as it did before, so the receipt never implies a check that did not happen.
- */
 function reuseSuffix(stage: FoldedStage, reuse: ReuseCounts | null | undefined): string {
   if (stage.stage !== 'planning' || !reuse) {
     return '';
@@ -161,37 +108,16 @@ function reuseSuffix(stage: FoldedStage, reuse: ReuseCounts | null | undefined):
 }
 
 export interface ComposeChangeReceiptInput {
-  /** The branded verdict block (from `formatVerdictSummary`). */
   verdictSummary: string;
-  /** The folded stage evidence for the change, or null when none was recorded. */
   fold: FoldedChange | null;
-  /** Optional one-line delivery state (branch/PR/CI), when available. */
   delivery?: string | null;
-  /** Absolute path to the per-feature HTML report paqad wrote (issue #371), when one
-   *  was rendered — surfaced so the developer can open the full evidence page. */
   reportPath?: string | null;
-  /** Whether a passing `paqad-ai checks run` report backs this change (issue #368).
-   *  `false` downgrades a "done" `checks` stage line so tests never read as verified
-   *  when they were not (AC-A2). `undefined` leaves the `checks` line unchanged. */
   checksVerified?: boolean;
-  /** The reuse counts the active feature's plan declared (issue #357), or null when it
-   *  declared none — which is the case for any plan compiled before the reuse gate. */
   reuse?: ReuseCounts | null;
-  /** The per-change shape metrics (issue #362), or null/absent when none were computed
-   *  (metrics off, or a non-feature-development change). When present, one `change shape`
-   *  line is appended; when absent the receipt renders exactly as before. */
   changeMetrics?: ChangeMetrics | null;
-  /** What stage isolation saved (issue #581), read from the bundle's `stage-agent` rows, or
-   *  null/absent when no stage agent was recorded; then no `context:` line is printed. */
   isolation?: StageIsolationSummary | null;
 }
 
-/**
- * Compose the single end-of-change receipt: the verdict headline + gate lines, then
- * the per-stage evidence block, then an optional delivery line. This is the one
- * message the completion seam surfaces (issue #325 — invert the cadence: one honest
- * receipt at the end, not duplicated per-stage chatter).
- */
 export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   const parts = [input.verdictSummary];
   if (input.fold) {
@@ -204,7 +130,6 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
       parts.push(stageBlock);
     }
   }
-  // Issue #362 — one honest change-shape line for feature-development changes.
   if (input.changeMetrics) {
     parts.push(formatChangeShapeLine(input.changeMetrics));
   }

@@ -1,20 +1,3 @@
-// The completion-seam rule-loading gate (issue #557).
-//
-// The edit-time capability blocks the FIRST feature-dev source edit until the rules are
-// loaded; this is its completion-seam partner — the backstop that fails a finished change
-// whose applicable rules were never loaded, the same way the stage-evidence gate fails a
-// missing plan or spec. It is deliberately a dedicated gate (not folded into
-// bundle-completeness) so its verdict is honest and its enforcement is not coupled to the
-// bundle-completeness mode:
-//
-//   - not a feature-development code change / no compiled rules / no rule applies → skipped
-//   - a feature-dev change with an active bundle but NO rules-loaded.json            → fail
-//   - a record that no longer covers the change (new applicable rules since it ran)  → inconclusive
-//   - a covering record                                                              → pass
-//
-// Absent blocks; stale only informs (INV-2), so a mid-change never deadlocks. Reuses the one
-// canonical applicability computation, so the gate agrees with the verb and the artifact.
-
 import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
 import type { VerificationGate, VerificationOrigin } from '@/core/types/verification.js';
 import {
@@ -31,20 +14,12 @@ const GATE_NAME = 'rules-loaded' as VerificationGate;
 
 export interface RulesLoadedGateInput {
   projectRoot: string;
-  /** The active feature bundle dir, or null when there is none / an affirmatively non-feature route. */
   dirName: string | null;
-  /** Whether the change is a feature-development code change (changeIsFeatureDev). */
   isFeatureDev: boolean;
-  /**
-   * The session that owns the change (issue #639, Part 2). Passed to the applicability
-   * resolver so the check subtracts the same inherited dirt `rules load` did; null keeps
-   * the session-less working set.
-   */
   sessionId?: string | null;
   origin?: VerificationOrigin;
 }
 
-/** Readers injected for deterministic tests; production uses the real disk-backed ones. */
 export interface RulesLoadedGateDeps {
   resolveApplicability?: (
     projectRoot: string,
@@ -53,11 +28,6 @@ export interface RulesLoadedGateDeps {
   readRecord?: (projectRoot: string, dirName: string) => RulesLoadedRecord | null;
 }
 
-/**
- * Evaluate the rule-loading gate for a completed change. Returns null only when there is no
- * meaningful verdict to record (not feature-dev, or no bundle to attach to) so the gate stays
- * silent on non-feature turns; otherwise a pass / fail / inconclusive / skipped gate.
- */
 export async function rulesLoadedGate(
   input: RulesLoadedGateInput,
   deps: RulesLoadedGateDeps = {},
@@ -77,7 +47,6 @@ export async function rulesLoadedGate(
         : 'No compiled rules for this project — nothing to load.',
       remediation: null,
       failures: [],
-      // Issue #639, Part 10 — no applicable rule: the load was not required.
       skip_kind: 'not-required',
     };
   }
