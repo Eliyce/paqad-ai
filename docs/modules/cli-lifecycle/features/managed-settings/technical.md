@@ -59,5 +59,9 @@ same `PAQAD_MUTATING_TOOL_MATCHER` the other hook routes use.
   `PAQAD_DISABLED` or `paqad_enable=false`.
 - A capability block adds "This rule is enforced by your organization's settings." to stderr and
   marks the rule-stop record `managed`.
-- The stage enforcement contract test runs every case on the npm, plugin and managed routes and
-  expects the same exit code, stdout and stderr, apart from that one line.
+- The managed route has its own test file, `tests/e2e/managed-route-contract.e2e.test.ts`. It
+  runs every stage contract case that reaches the capability or decision-pause gate through
+  `paqad-ai hook --managed` and through the npm route, and expects the same exit code, stdout and
+  stderr, apart from that one line. It reads the case list from the stage contract test, so a new
+  contract case that reaches either gate fails it until the managed route covers it. The stage
+  contract test itself still runs the npm and plugin routes only.
