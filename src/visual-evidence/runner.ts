@@ -1,11 +1,3 @@
-// Visual-evidence runner (issue #551, Part E.5).
-//
-// The ONLY writer of `visual-evidence.json` + the `screenshots/` subtree. Boots the app,
-// captures each planned flow's documented steps with Playwright, isolates a failed selector to
-// its own flow, assembles the overview GIF, and writes the bundle artifacts atomically
-// (latest-run-wins: build into a temp sibling, then rename over). Real browser + fs work →
-// excluded from unit coverage; exercised by the env-gated integration test.
-
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,8 +32,6 @@ import {
 } from './manifest.js';
 import type { VeSkip, VeStep, VeTrigger, VisualEvidenceManifest } from './types.js';
 
-// The naming helpers moved to manifest.ts (issue #579) so attach can share them; re-exported so
-// existing importers keep working.
 export { pad2, slugifyCaption } from './manifest.js';
 
 export interface RunVisualEvidenceInput {
@@ -55,10 +45,6 @@ export interface RunVisualEvidenceInput {
 
 export type RunVisualEvidenceResult = WriteVisualEvidenceManifestResult;
 
-/**
- * Write the run's manifest, carrying every agent-attached step forward (issue #579, FR-13 /
- * INV-8): a scripted run adds to what the agent attached, it never drops it.
- */
 function writeManifest(
   projectRoot: string,
   dirName: string,
@@ -68,7 +54,6 @@ function writeManifest(
   return writeVisualEvidenceManifest(projectRoot, dirName, mergeAttachedSteps(attached, input));
 }
 
-/** Resolve a `$VE_*` reference from the environment; a bare value passes through unchanged. */
 function resolveValue(value: string | undefined, env: NodeJS.ProcessEnv): string | undefined {
   if (value === undefined) return undefined;
   const match = /^\$(\w+)$/.exec(value);
@@ -76,7 +61,6 @@ function resolveValue(value: string | undefined, env: NodeJS.ProcessEnv): string
   return env[match[1]!];
 }
 
-/** Playwright's Page, structurally typed so the module never imports playwright at build time. */
 interface PwPage {
   goto(url: string): Promise<unknown>;
   click(selector: string): Promise<void>;
@@ -120,7 +104,6 @@ async function runAction(
   }
 }
 
-/** True when a capture action references a `$VE_*` env var that is not set. */
 function missingEnvVar(action: CaptureAction, env: NodeJS.ProcessEnv): boolean {
   if (action.value === undefined) return false;
   const match = /^\$(\w+)$/.exec(action.value);
@@ -132,7 +115,6 @@ function resolveUrl(base: string, path: string | undefined): string {
   return new URL(path, base.endsWith('/') ? base : `${base}/`).toString();
 }
 
-/** Dynamically import Playwright's chromium from the ve-runtime (never the target project). */
 async function loadChromium(): Promise<{
   launch(options?: { headless?: boolean }): Promise<PwBrowser>;
 }> {
@@ -151,10 +133,6 @@ function sha256(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-/**
- * Run visual evidence for the active feature. Returns what it wrote. Never throws for an
- * environmental miss — those become recorded skips so the CLI exits 0 and the gate decides.
- */
 export async function runVisualEvidence(
   input: RunVisualEvidenceInput,
 ): Promise<RunVisualEvidenceResult> {
@@ -164,10 +142,8 @@ export async function runVisualEvidence(
 
   const plan = resolveVisualEvidencePlan(projectRoot, changedFiles);
   const skips: VeSkip[] = [...plan.skips];
-  // Issue #579 — screenshots the agent attached earlier survive every path below.
   const attached = readAttachedSteps(projectRoot, dirName);
 
-  // Nothing to capture — write a skip-only manifest (documented skips already recorded).
   if (plan.entries.length === 0) {
     return writeManifest(projectRoot, dirName, attached, {
       trigger,
@@ -180,7 +156,6 @@ export async function runVisualEvidence(
     });
   }
 
-  // Ensure the browser runtime is provisioned (auto-attempt once when missing).
   if (browserStatus() !== 'provisioned') {
     try {
       await provisionBrowser();
@@ -201,7 +176,6 @@ export async function runVisualEvidence(
     }
   }
 
-  // Boot (or attach to) the app.
   const boot = await bootApp(projectRoot, profile);
   if (!boot.ok) {
     skips.push({ reason: boot.reason, detail: boot.detail });
@@ -220,14 +194,12 @@ export async function runVisualEvidence(
   const tmpAbs = join(projectRoot, tmpDir);
   rmSync(tmpAbs, { recursive: true, force: true });
   mkdirSync(tmpAbs, { recursive: true });
-  // Issue #579 — the swap below replaces screenshots/, so bring the attached folders along.
   copyAttachedStepDirs(projectRoot, dirName, attached, tmpAbs);
 
   const chromium = await loadChromium();
   const browser = await chromium.launch({ headless: true });
   const steps: VeStep[] = [];
   const gifFrames: GifFrameInput[] = [];
-  // Scripted folders continue numbering after the attached ones and never reuse their names.
   const usedSlugs = new Set<string>(attached.map((step) => stepDirSlug(step.dir)));
   let index = Math.max(0, ...attached.map((step) => step.index));
 
@@ -246,7 +218,6 @@ export async function runVisualEvidence(
       index += captured.steps.length;
     }
 
-    // Assemble the GIF from the CLEAN per-step screenshots.
     let gif: VisualEvidenceManifest['gif'] = null;
     if (gifFrames.length > 0) {
       const gifBytes = await assembleOverviewGif(page, gifFrames);
@@ -263,7 +234,6 @@ export async function runVisualEvidence(
     }
     await browser.close();
 
-    // Atomically replace the live screenshots/ with the temp build.
     const liveAbs = join(projectRoot, featureScreenshotsDir(dirName));
     rmSync(liveAbs, { recursive: true, force: true });
     renameSync(tmpAbs, liveAbs);
@@ -303,7 +273,6 @@ interface CaptureFlowResult {
   skips: VeSkip[];
 }
 
-/** Capture one flow. A failed selector stops THIS flow but keeps its prior steps. */
 async function captureFlow(
   page: PwPage,
   entry: ResolvedPlanEntry,
@@ -316,7 +285,6 @@ async function captureFlow(
   const skips: VeSkip[] = [];
   const { script, journey } = entry.loaded;
 
-  // Setup runs once; a missing env var or failed selector skips the whole flow's setup.
   try {
     for (const setup of script.setup ?? []) {
       if (setup.goto) await page.goto(resolveUrl(baseUrl, setup.goto));
@@ -348,7 +316,6 @@ async function captureFlow(
       steps.push(outcome.step);
       if (outcome.frame) frames.push(outcome.frame);
     } catch {
-      // EC-2: record the failed step, stop THIS flow, continue with the next.
       steps.push({
         index: position,
         journey_id: entry.journey_id,
@@ -367,7 +334,6 @@ async function captureFlow(
     }
   }
 
-  // Re-anchor journey_id onto steps (captureStep does not know it).
   for (const step of steps) {
     if (!step.journey_id) step.journey_id = entry.journey_id;
   }
@@ -433,7 +399,6 @@ function planEntries(entries: ResolvedPlanEntry[]): VisualEvidenceManifest['plan
   }));
 }
 
-/** True when the visual-evidence subtree exists in the bundle (for callers that check). */
 export function hasVisualEvidence(projectRoot: string, dirName: string): boolean {
   return existsSync(join(projectRoot, featureFilePath(dirName, 'visualEvidence')));
 }

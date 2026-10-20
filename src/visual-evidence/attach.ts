@@ -1,12 +1,3 @@
-// `paqad-ai visual-evidence attach` (issue #579, FR-11).
-//
-// Lets the agent (or developer) add its own screenshots to the active feature bundle when a
-// scripted capture cannot run here: no documented flow, no capture script, no browser. Each PNG is
-// copied into `screenshots/NN-<slug>/image.png` with a `caption.txt`, hashed, and recorded in
-// `visual-evidence.json` as an `agent-attached` step, so the gate verifies it like any capture and
-// the report never presents it as a scripted one. Everything is validated before anything is
-// written, so a refused attach leaves the bundle untouched.
-
 import { createHash } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
@@ -27,10 +18,8 @@ import {
 } from './manifest.js';
 import { AGENT_ATTACHED_JOURNEY, type VeStep } from './types.js';
 
-/** The 8-byte signature every PNG file starts with. */
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
-/** A refused attach: one plain line saying why. Nothing was written. */
 export class VisualEvidenceAttachError extends Error {
   constructor(message: string) {
     super(message);
@@ -41,28 +30,17 @@ export class VisualEvidenceAttachError extends Error {
 export interface AttachVisualEvidenceInput {
   projectRoot: string;
   dirName: string;
-  /** PNG paths to attach, in order (absolute, or relative to the process cwd). */
   files: readonly string[];
-  /** The acceptance criterion these screenshots prove (e.g. `AC-3`). */
   ac?: string;
-  /** Caption for the screenshots; defaults to each file's base name. */
   label?: string;
-  /** The session attaching the screenshots, stamped on the manifest header (issue #581). */
   sessionId?: string | null;
   now?: () => string;
 }
 
-/** An attach result, plus a warning when the `--ac` id could not be checked. */
 export interface AttachVisualEvidenceResult extends WriteVisualEvidenceManifestResult {
-  /** Set when `ac` was given but the bundle has no frozen spec to check it against. */
   acWarning?: string;
 }
 
-/**
- * Check `ac` against the bundle's frozen spec acceptance criteria. Throws
- * {@link VisualEvidenceAttachError} naming the valid ids when it is unknown; returns a warning
- * when there is no frozen spec to check against (the id is then accepted as given).
- */
 function checkAcceptanceCriterion(
   projectRoot: string,
   dirName: string,
@@ -100,19 +78,12 @@ function readPng(file: string): Buffer {
   return bytes;
 }
 
-/**
- * Attach PNG screenshots to the bundle's visual evidence. Merges into an existing manifest (its
- * scripted steps, plan and skips are kept) or writes a new one. Throws
- * {@link VisualEvidenceAttachError} before writing anything when a file is missing or not a PNG,
- * or when `ac` names no acceptance criterion of the bundle's frozen spec.
- */
 export function attachVisualEvidence(input: AttachVisualEvidenceInput): AttachVisualEvidenceResult {
   const { projectRoot, dirName } = input;
   const now = input.now ?? (() => new Date().toISOString());
   if (input.files.length === 0) {
     throw new VisualEvidenceAttachError('name at least one .png screenshot to attach.');
   }
-  // Validate every file first, so a bad one leaves nothing half-written.
   const images = input.files.map((file) => ({ file, bytes: readPng(file) }));
   const acWarning = input.ac ? checkAcceptanceCriterion(projectRoot, dirName, input.ac) : undefined;
 
@@ -152,7 +123,6 @@ export function attachVisualEvidence(input: AttachVisualEvidenceInput): AttachVi
     steps,
     gif: existing?.gif ?? null,
     skips: existing?.skips ?? [],
-    // Any failed scripted step keeps the result partial, whichever of run and attach came first.
     result: mergedVisualEvidenceResult(steps),
     now,
     sessionId: input.sessionId,

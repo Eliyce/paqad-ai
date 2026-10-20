@@ -172,6 +172,50 @@ app_preview:
   wait_ms: 30000               # optional; max wait for the url to respond after starting the command
 ```
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/visual-evidence/` and are not stated above.
+
+- **Coverage.** `boot.ts`, `provision.ts`, `gif.ts` and `runner.ts` do real network, browser,
+  subprocess and npm work, so they are left out of unit coverage and exercised by the env-gated
+  integration test (`PAQAD_VE_INTEGRATION=1`).
+- **`attach.ts`.** Every file is checked (it must exist and start with the PNG signature) before
+  anything is written, so a refused attach leaves the bundle untouched. An `--ac` id is checked
+  against the frozen spec; with no frozen spec it is accepted with a warning.
+- **`boot.ts`.** An app is reachable when it answers with any status below 500. The dev server
+  runs in its own detached process group and is unref'd so it never holds paqad open; with execa
+  10 the `unref` lives on `nodeChildProcess`. The kill that stops it rejects the subprocess
+  promise, so that rejection is handled on purpose, and an early crash already shows up as
+  `app-not-reachable`.
+- **`provision.ts`.** The provision record is read directly and the error caught, never checked
+  first, which avoids a check-then-read race; the runtime `package.json` is written
+  unconditionally for the same reason. Home comes from `os.homedir`, which honours `USERPROFILE`.
+  Subprocesses run with tokenized args and no shell. A failed install becomes the
+  `playwright-not-provisioned` skip rather than a crash.
+- **`gif.ts` and `runner.ts`.** Frames are composited on a 2D canvas inside the already open
+  Chromium and encoded with the pure-JS `gifenc`, so there is no native image dependency, and
+  Playwright is typed structurally so the module never imports it at build time. Every frame
+  shares one canvas size (measured first) so the GIF plays cleanly, and images are never scaled
+  up. The runner never throws for an environmental miss; those become recorded skips so the CLI
+  exits 0 and the gate decides. A capture's setup runs once, and a missing env var or failed
+  selector skips that flow's setup.
+- **`manifest.ts`.** Step slugs are deduplicated with `-2`, `-3` suffixes and positions are
+  clamped at 99 for the folder name. A step from an older manifest carries `captured_at` and is
+  read under the current `recorded_at` name, so carrying it forward writes the new shape. The gate
+  reads the stored bytes itself so it validates them as written.
+- **`reminder.ts`.** The once-per-change marker is created with an exclusive create, so the check
+  and the write are one step. Any failure other than "already reminded" skips the reminder
+  instead of repeating it on every edit. The reminder is model-facing only and never blocks.
+- **`readiness.ts`.** `doctor` and `plan compile` share one readiness list so they can never
+  disagree. The readiness packet carries a per-change machine token, so a re-run finds it and a
+  waiver applies to that change only. It does not check the visual-evidence flag itself.
+- **`resolve-plan.ts`.** A changed file matches a surface anchor exactly or when one path is a
+  directory-boundary prefix of the other, compared in posix form. Plans follow journey id order.
+- **`trigger.ts`.** The glob translator supports `**`, `*`, `?`, one level of `{a,b}` and a literal
+  `.`, and escapes every other regex metacharacter.
+- **`types.ts`.** The schema in `src/feature-evidence/schema.ts` reuses the const arrays here so
+  the type and the validated shape cannot drift. Manifest version 1 still reads.
+
 ## CLI
 
 - `paqad-ai visual-evidence run` — resolve plan, provision check, boot, capture, write the

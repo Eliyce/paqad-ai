@@ -1,10 +1,3 @@
-// Visual-evidence readiness (issue #579, FR-8).
-//
-// The prerequisites a capture run needs on this machine: the site_map flag, a confirmed journey,
-// a capture script, and a provisioned browser. doctor reports them as warn rows; plan compile uses
-// the same list to open one decision pause when a frontend change cannot be captured here. One
-// source, so the two can never disagree.
-
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { createPendingDecision, readContractDecisions } from '@/decisions/authoring.js';
@@ -24,10 +17,6 @@ export interface VisualEvidenceReadinessProblem {
   remediation: string;
 }
 
-/**
- * Every readiness problem, in doctor's order. Empty means a capture run can work here. Does not
- * check the visual_evidence flag itself: callers decide whether readiness matters.
- */
 export function visualEvidenceReadiness(projectRoot: string): VisualEvidenceReadinessProblem[] {
   const problems: VisualEvidenceReadinessProblem[] = [];
 
@@ -74,33 +63,20 @@ export function visualEvidenceReadiness(projectRoot: string): VisualEvidenceRead
   return problems;
 }
 
-/** The pause title (FR-9), verbatim. */
 export const READINESS_DECISION_TITLE =
   "Visual evidence is on, but I can't capture screenshots here yet";
 
-/** The option key a resolved readiness packet carries when the developer waived capture. */
 export const READINESS_WAIVE_OPTION = 'waive';
 
-/**
- * The machine token a readiness packet's context carries for one change, so a re-run of plan
- * compile finds it (no second packet) and the gate can find a waiver for this change only.
- */
 export function readinessToken(dirName: string): string {
   return `[paqad-ve-readiness ${dirName}]`;
 }
 
-/** visual_evidence flag AND the coding capability are both on for this project. */
 export function visualEvidenceFlagOn(projectRoot: string): boolean {
   if (!resolveFrameworkConfig(projectRoot).features.visual_evidence) return false;
   return readProjectProfile(projectRoot)?.active_capabilities?.includes('coding') ?? false;
 }
 
-/**
- * Open ONE readiness decision pause for a frontend change that cannot be captured on this
- * machine (issue #579, FR-9). Returns the new packet id, or null when visual evidence is off,
- * the files are not frontend (or the pack registry is broken, which the gate reports), the
- * machine is ready, or a packet for this change already exists (pending or resolved).
- */
 export function openVisualEvidenceReadinessPause(input: {
   projectRoot: string;
   dirName: string;
@@ -136,20 +112,11 @@ export function openVisualEvidenceReadinessPause(input: {
   return id;
 }
 
-/**
- * The frontend files that make spec freeze require a `(proof: visual)` criterion (issue #579,
- * FR-14): the plan step files and changed files that match a frontend glob, when visual evidence
- * and coding are on. Empty otherwise (including a broken pack registry, which the gate reports).
- */
 export function visualAcRequiredFiles(projectRoot: string, files: readonly string[]): string[] {
   if (!visualEvidenceFlagOn(projectRoot)) return [];
   return frontendTriggerOrFault(projectRoot, [...new Set(files)]).files;
 }
 
-/**
- * The id of a resolved readiness packet for this change whose chosen option is `waive`, or null.
- * A waiver makes the strict gate read skipped ("waived by D-<id>"), never pass (INV-7).
- */
 export function findVisualEvidenceWaiver(projectRoot: string, dirName: string): string | null {
   const token = readinessToken(dirName);
   for (const { packet, status } of readContractDecisions(projectRoot)) {
@@ -159,12 +126,6 @@ export function findVisualEvidenceWaiver(projectRoot: string, dirName: string): 
   return null;
 }
 
-/**
- * How to record a waiver the gate will honor for this change (issue #579). The waiver lookup
- * accepts any resolved decision whose context carries this change's readiness token and whose
- * chosen option is `waive`. Planning opens such a packet only when this machine cannot capture,
- * so when none is pending the hint gives the `decision create` command that carries the token.
- */
 export function visualEvidenceWaiverHint(projectRoot: string, dirName: string): string {
   const token = readinessToken(dirName);
   const pending = readContractDecisions(projectRoot).find(

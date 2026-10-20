@@ -1,11 +1,3 @@
-// App boot for visual evidence (issue #551, Part D.2).
-//
-// Attaches to the app under test, spawning the dev server first when it is not already up. The
-// contract lives in the profile's `app_preview` block (the single shared boot contract, NOT
-// design_test.* which was never implemented). Reachability is decided by a real HTTP probe, so
-// this module talks to the network + spawns a subprocess and is excluded from unit coverage
-// (the pentest-engine precedent); it is exercised by the env-gated integration test.
-
 import { execa, parseCommandString } from 'execa';
 
 import type { AppPreviewConfig, ProjectProfile } from '@/core/types/project-profile.js';
@@ -20,7 +12,6 @@ export type BootResult =
       detail: string;
     };
 
-/** True when the url answers with any HTTP status < 500 within `timeoutMs`. */
 export async function isReachable(url: string, timeoutMs: number): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -38,7 +29,6 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Kill a detached child's whole process group; swallow errors (it may already be gone). */
 async function stopChild(child: ExecaChild): Promise<void> {
   try {
     if (child.pid !== undefined) {
@@ -47,19 +37,10 @@ async function stopChild(child: ExecaChild): Promise<void> {
   } catch {
     try {
       child.kill('SIGTERM');
-    } catch {
-      // already exited
-    }
+    } catch {}
   }
 }
 
-/**
- * Boot (or attach to) the app under test. When the url already responds, attach with a no-op
- * stop. Otherwise spawn the boot command (default `commands.dev`) in its own detached process
- * group and poll the url every second up to `wait_ms`; on timeout the process tree is killed and
- * the result is `app-not-reachable`. A missing `app_preview` block is `app-preview-not-configured`.
- * The caller MUST call `stop()` in a finally.
- */
 export async function bootApp(
   projectRoot: string,
   profile: ProjectProfile | null,
@@ -98,15 +79,8 @@ export async function bootApp(
     stdio: 'ignore',
     windowsHide: true,
   });
-  // execa 10: the subprocess is a plain promise, so Node's ChildProcess API (unref) lives on
-  // `nodeChildProcess`. Unref so the booted server never holds the paqad process open.
   child.nodeChildProcess.unref();
-  // Nobody awaits the dev server: it runs until stopChild kills it, and that kill rejects the
-  // subprocess promise. Handle that expected rejection here so it is never reported as unhandled.
-  child.catch(() => {
-    // Expected: the stopChild kill. An early crash needs no report here either, because the
-    // reachability poll below already turns it into `app-not-reachable`.
-  });
+  child.catch(() => {});
 
   const waitMs = preview.wait_ms ?? 30000;
   const deadline = Date.now() + waitMs;

@@ -1,12 +1,3 @@
-// Capture-script loader (issue #551, Part C).
-//
-// A capture script (`docs/site-map/journeys/<id>.capture.yaml`) is the documented-flow →
-// executable bridge. It is authored at agent time (site-map / documentation workflow) — this
-// module only LOADS and validates them: schema shape plus the cross-checks that a runtime
-// script cannot express (the referenced journey exists and is `confirmed`, every `journey_step`
-// is real, steps are ordered). A script pointing at a `proposed` journey is invalid and is
-// reported, never silently used.
-
 import { existsSync, readdirSync } from 'node:fs';
 
 import { join } from 'pathe';
@@ -15,7 +6,6 @@ import type { Journey } from '@/core/types/site-map.js';
 import { validateJourneyCapture } from '@/site-map/schema.js';
 import { journeysDir, readJourney, readYaml } from '@/site-map/store.js';
 
-/** The `do` verbs a capture action may perform. */
 export type CaptureVerb = 'click' | 'fill' | 'select' | 'press' | 'wait_for';
 
 export interface CaptureAction {
@@ -33,7 +23,6 @@ export interface CaptureStep {
   journey_step: number;
   goto?: string;
   actions?: CaptureAction[];
-  /** Defaults to true; false = an interaction-only step that captures no screenshot. */
   screenshot?: boolean;
 }
 
@@ -44,15 +33,12 @@ export interface CaptureScript {
   steps: CaptureStep[];
 }
 
-/** A capture script that passed schema + cross-checks, paired with its confirmed journey. */
 export interface LoadedCaptureScript {
-  /** Project-relative posix path to the capture file. */
   file: string;
   script: CaptureScript;
   journey: Journey;
 }
 
-/** A capture file that failed to load, with its human-readable problems. */
 export interface CaptureScriptError {
   file: string;
   errors: string[];
@@ -65,12 +51,10 @@ export interface CaptureScriptsResult {
 
 const CAPTURE_SUFFIX = '.capture.yaml';
 
-/** True when the value is present (a `$VE_*` reference counts as present; it resolves at runtime). */
 function hasValue(value: string | undefined): boolean {
   return typeof value === 'string' && value.length > 0;
 }
 
-/** Validate one action's value-requiredness by its verb. Returns problems (empty ⇒ ok). */
 function actionProblems(action: CaptureAction, where: string): string[] {
   const problems: string[] = [];
   const { do: verb, value } = action;
@@ -83,7 +67,6 @@ function actionProblems(action: CaptureAction, where: string): string[] {
   return problems;
 }
 
-/** Cross-check a schema-valid script against its journey. Returns problems (empty ⇒ ok). */
 function crossCheck(script: CaptureScript, basename: string, journey: Journey | null): string[] {
   const problems: string[] = [];
 
@@ -131,7 +114,6 @@ function crossCheck(script: CaptureScript, basename: string, journey: Journey | 
   return problems;
 }
 
-/** List the capture-script basenames (without suffix) present under the journeys dir. */
 export function listCaptureScriptIds(projectRoot: string): string[] {
   const dir = journeysDir(projectRoot);
   if (!existsSync(dir)) return [];
@@ -141,11 +123,6 @@ export function listCaptureScriptIds(projectRoot: string): string[] {
     .sort();
 }
 
-/**
- * Load and validate every capture script under `docs/site-map/journeys/`. Returns the scripts
- * that passed schema + cross-checks (paired with their confirmed journey), and a per-file list
- * of problems for those that did not.
- */
 export function loadCaptureScripts(projectRoot: string): CaptureScriptsResult {
   const scripts: LoadedCaptureScript[] = [];
   const errors: CaptureScriptError[] = [];
@@ -170,17 +147,12 @@ export function loadCaptureScripts(projectRoot: string): CaptureScriptsResult {
       errors.push({ file, errors: problems });
       continue;
     }
-    // journey is non-null here (crossCheck would have reported otherwise).
     scripts.push({ file, script, journey: journey as Journey });
   }
 
   return { scripts, errors };
 }
 
-/**
- * Derive the business-language caption for a step: the journey step's `action` text, with
- * `". "` + `expect` appended when the step declares an expectation. Deterministic, model-free.
- */
 export function deriveCaption(journey: Journey, journeyStep: number): string {
   const step = journey.steps[journeyStep - 1];
   const action = step?.action ?? '';
