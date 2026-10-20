@@ -1,7 +1,3 @@
-// AJV schema for `paqad.rag-evidence` rows (issue #249 P1). Framework-owned, lives in
-// src/ (never under .paqad/), so the LLM can never weaken it. Every recorded row is
-// validated against this before it is appended.
-
 import Ajv, { type ValidateFunction } from 'ajv';
 
 import { RAG_EVIDENCE_DOC_TYPE } from './types.js';
@@ -88,7 +84,6 @@ function validator(): ValidateFunction {
   return compiled;
 }
 
-/** Returns `[]` when the row is a valid `paqad.rag-evidence` row, else error strings. */
 export function validateRagEvidenceRow(row: unknown): string[] {
   const validate = validator();
   if (validate(row)) {

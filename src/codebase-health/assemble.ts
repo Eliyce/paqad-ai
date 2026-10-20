@@ -1,7 +1,3 @@
-// Pure report assembly: given every gathered raw input, run the detectors, assign
-// stable ids, apply the baseline ratchet, and produce the HealthReportIndex. No
-// I/O — the impure collector in `run.ts` gathers the inputs and writes the outputs.
-
 import { join } from 'node:path';
 
 import { VERSION } from '@/index.js';
@@ -67,7 +63,6 @@ export interface AssembledHealthReport {
   findingIds: string[];
 }
 
-/** Concatenate every category's candidates in a stable, category-ordered sequence. */
 function collectCandidates(input: HealthAssemblyInput): HealthCandidate[] {
   const candidates: HealthCandidate[] = [];
   if (input.index) {
@@ -83,7 +78,6 @@ function collectCandidates(input: HealthAssemblyInput): HealthCandidate[] {
   return candidates;
 }
 
-/** Assemble the full report index from gathered inputs (pure). */
 export function assembleHealthReport(input: HealthAssemblyInput): AssembledHealthReport {
   const withIds = assignHealthFindingIds(collectCandidates(input));
   const findings = sortFindings(applyBaselineStatus(withIds, input.baseline));

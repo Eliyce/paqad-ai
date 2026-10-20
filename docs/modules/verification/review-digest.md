@@ -96,6 +96,21 @@ anchoring check.
 - Truncation is always announced. A silently clipped digest would read as "that was
   everything", which is the false confidence this feature exists to remove.
 
+## Why the code works the way it does
+
+- **`digest.ts`** is pure: every input is handed in and it returns markdown, so each section,
+  the `none recorded` fallbacks and the line cap are tested from fixtures. A missing input renders
+  `none recorded` instead of disappearing, so "nothing found" and "nothing ran" stay different.
+- **`sources.ts`** reads only known cached paths, with no subprocess, network or tree scan, which
+  keeps the digest under a second and free of model tokens. It replaces the old
+  `digest-evidence.sh` flattening in cross-platform Node; the shell script stays only as a skill
+  resource. Check rows have no file anchor at the command level, because a red test command is not
+  something a review addresses by citing a line. A failed gate with no itemised failures still
+  adds its own row. The check report is read from the active change's bundle, falling back to the
+  global path when no change is active.
+- **`write.ts`** writes the digest to `.paqad/session/`, never into a bundle, because the digest
+  is an input to the review and the review's artifact is still `review.json`.
+
 ## Source Footprint
 
 - `src/review-digest/sources.ts` — the collector, the anchor rules, and the

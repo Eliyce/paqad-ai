@@ -1,39 +1,18 @@
-// Per-event analytics docs tree (issue #279) — the single source of truth for what this
-// project tracks. One doc per event at `docs/modules/{module}/analytics/{feature}/{event}.md`,
-// a section per provider, filename a normalized slug, the exact event string recorded inside.
-// Deterministic and script-owned: the caller supplies the (module, feature, call-sites); this
-// module computes the paths, renders the docs + a per-module index, and skips unchanged files.
-// The LLM writes only the human prose in the doc body via the analytics-instrumentation skill;
-// it never hand-computes a path or a slug, so casing-variant duplicates cannot diverge.
-
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, posix } from 'node:path';
 
 import type { AnalyticsCallSite } from './call-sites.js';
 import { findProvider, type AnalyticsProviderId } from './providers.js';
 
-// Repo-relative doc paths are always POSIX-separated (the codebase convention for identifiers
-// stored in reports/git), so they are stable across platforms; `join(projectRoot, rel)` at the
-// filesystem boundary re-normalizes them to the OS separator.
-
-/** Repo-relative root, module-owned so it never trips the top-level module-doc orphan walk. */
 export function analyticsFeatureDir(module: string, feature: string): string {
   return posix.join('docs', 'modules', module, 'analytics', feature);
 }
 
-/** Repo-relative per-module analytics index path. */
 export function analyticsIndexPath(module: string): string {
   return posix.join('docs', 'modules', module, 'analytics', 'index.md');
 }
 
-/**
- * Normalize an event name to a stable filename slug. Casing and separators collapse, so
- * `Song Played`, `song played`, and `song_played` all map to `song-played` — one doc, with the
- * casing conflict caught at write time instead of silently splitting the data.
- */
 export function normalizeEventSlug(eventName: string): string {
-  // The `[^a-z0-9]+` collapse leaves at most a single leading/trailing dash, so a plain anchored
-  // `-` trims it — no `-+` quantifier, which CodeQL flags as a polynomial-ReDoS shape (js/polynomial-redos).
   return eventName
     .trim()
     .toLowerCase()
@@ -42,22 +21,16 @@ export function normalizeEventSlug(eventName: string): string {
     .replace(/-$/, '');
 }
 
-/** Repo-relative per-event doc path. */
 export function analyticsEventDocPath(module: string, feature: string, eventName: string): string {
   return posix.join(analyticsFeatureDir(module, feature), `${normalizeEventSlug(eventName)}.md`);
 }
 
 export interface EventGroup {
   slug: string;
-  /** Every exact event string seen for this slug; >1 means a casing/spelling conflict. */
   variants: string[];
   providers: AnalyticsProviderId[];
 }
 
-/**
- * Group call-sites into one entry per normalized slug, collecting every exact spelling and the
- * providers that fire it. `variants.length > 1` is the casing conflict a reviewer must resolve.
- */
 export function groupBySlug(callSites: readonly AnalyticsCallSite[]): EventGroup[] {
   const bySlug = new Map<string, { variants: Set<string>; providers: Set<AnalyticsProviderId> }>();
   for (const site of callSites) {
@@ -82,7 +55,6 @@ function providerDisplay(id: AnalyticsProviderId): string {
   return findProvider(id)?.displayName ?? id;
 }
 
-/** Render the per-event doc: exact event string, a section per provider, PII/consent stub. */
 export function buildEventDoc(input: {
   module: string;
   feature: string;
@@ -126,7 +98,6 @@ _Does this event or any property carry personal data? If so, it must pass an
 `;
 }
 
-/** Render the per-module analytics index listing every event doc under it. */
 export function buildAnalyticsIndex(input: {
   module: string;
   entries: { feature: string; group: EventGroup }[];
@@ -168,21 +139,14 @@ export interface AnalyticsSyncEntry {
 export interface AnalyticsSyncResult {
   written: string[];
   skipped: string[];
-  /** Repo-relative event docs whose slug collapsed >1 exact spelling. */
   conflicts: { path: string; variants: string[] }[];
 }
 
-/**
- * Generate or refresh the per-event docs + per-module index for the given attributed entries,
- * skipping any doc whose rendered content is byte-identical to what is already on disk. Returns
- * what was written, skipped, and which docs carry a casing conflict for the caller to surface.
- */
 export async function syncAnalyticsDocs(
   projectRoot: string,
   entries: readonly AnalyticsSyncEntry[],
 ): Promise<AnalyticsSyncResult> {
   const result: AnalyticsSyncResult = { written: [], skipped: [], conflicts: [] };
-  // module -> list of {feature, group} for that module's index.
   const indexByModule = new Map<string, { feature: string; group: EventGroup }[]>();
 
   for (const entry of entries) {

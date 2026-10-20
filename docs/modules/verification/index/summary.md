@@ -347,6 +347,16 @@ missing list.
 **`repository/scope-drift.ts`.** Trailing slashes are trimmed with a character scan, not a
 `/\/+$/` regex, which CodeQL flags as polynomial ReDoS.
 
+**`change-metrics/`.** The two change-shape numbers are folds over caches the completion gates
+already built (the duplication report and the code-knowledge index), so nothing scans the tree a
+second time. Each reads `n/a` when its cache is missing or the change has no meaningful lines,
+never a misleading 0. Duplicated lines are unioned per file before counting, because findings can
+overlap. A meaningful line is non-blank and does not start with a common comment marker; the test
+is kept simple on purpose, and counting a comment as code would only make the ratios more
+conservative. A line with code and a trailing comment still counts. An unreadable file adds zero
+rather than throwing. The trend read drops the ledger's `open` marker row before taking the last
+rows.
+
 ## Feature Pages
 
 - [Mutation Testing — Verification Gate](../mutation-testing.md) — plant mutants in

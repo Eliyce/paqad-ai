@@ -67,6 +67,29 @@ and a team can require "no new findings" without fixing history first.
 - `.paqad/health/runs/<run_id>/finding-index.json` — the per-run finding index.
 - `.paqad/health/baseline.json` — the ratchet baseline.
 
+## Why the code works the way it does
+
+- **Pure core, thin edges.** `assemble.ts`, `detectors.ts` and the parsers in `gather.ts` do no
+  I/O, so every branch is tested with fixtures. `gatherer.ts` does the real subprocess and file
+  work and is left out of unit coverage, like the pentest engine; `run.ts` is tested with a fake
+  gatherer. Every parser returns an empty list on bad input, so a broken tool reads as "found
+  nothing" instead of crashing the run.
+- **Secrets are never stored.** A secret is recorded as file, line, rule and a SHA-256
+  fingerprint. gitleaks' own fingerprint is preferred; otherwise the match is hashed at once. The
+  hash is a one-way marker, not a security primitive, and the built-in scanner is the
+  lower-confidence fallback when gitleaks is missing.
+- **Stable ids.** `HL-` ids hash a finding's identity fields (never `id`, `status` or
+  `baseline_status`), so the same problem gets the same id on every run, which retest needs. A
+  collision gets a `-NN` suffix, like the pentest scheme. Retest matches by that id, never lowers a
+  severity, and marks a network-only finding it could not recheck offline as needing manual
+  verification.
+- **Baseline.** With no baseline every finding stays `unknown`; the run then writes the baseline,
+  so the ratchet starts from the next run. A missing or corrupt baseline reads as none.
+- **Tools.** Every scanner is optional and only invoked when on PATH; none is bundled. Which tools
+  are present is decided from `missingBinaries` without spawning anything.
+- **Stale docs.** A doc is a candidate when it references at least one source and its last commit
+  is older than the last change of every source it references.
+
 ## Source Footprint
 
 - `src/cli/commands/health.ts` — the `health run` / `health retest` verbs.

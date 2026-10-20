@@ -1,9 +1,3 @@
-// Analytics provider + convention detection (issue #241). Read-only inference from the
-// codebase — the user never names the tool, the code tells us. Two layers: (1) WHICH provider
-// is wired (deps + env + HTML/entry signals), and (2) HOW this codebase tracks (the call-site
-// convention — the correctness key). Detection informs; it has ZERO authority to write. The
-// flag alone authorizes instrumentation.
-
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -19,13 +13,11 @@ import {
 export interface AnalyticsDetection {
   provider: AnalyticsProviderId;
   providerDisplay: string;
-  /** Layer-2 naming convention observed at call sites, when any (e.g. `snake_case`). */
   convention: string | null;
   confidence: 'high' | 'medium' | 'low';
   signals: DetectionSignal[];
 }
 
-/** Signal weights — call sites (real usage, defines the convention) beat everything. */
 const WEIGHT = { callSite: 4, pkg: 3, entry: 3, env: 1 } as const;
 
 function readJson(path: string): Record<string, unknown> | null {
@@ -36,7 +28,6 @@ function readJson(path: string): Record<string, unknown> | null {
   }
 }
 
-/** Collect a bounded sample of source files to scan for call sites (kept cheap). */
 function sampleSourceFiles(projectRoot: string, limit = 200): string[] {
   const out: string[] = [];
   const roots = ['src', 'app', 'lib', 'pages', 'components'];
@@ -152,10 +143,6 @@ function evidenceFor(
   return { score, signals, events };
 }
 
-/**
- * Detect the wired analytics provider and its convention, or null when none is found.
- * Highest-confidence signal wins; call sites break ties and define the convention.
- */
 export function detectAnalyticsProvider(projectRoot: string): AnalyticsDetection | null {
   const pkg = readJson(join(projectRoot, 'package.json')) ?? {};
   const deps = {

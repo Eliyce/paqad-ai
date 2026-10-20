@@ -13,7 +13,6 @@ function isRetest(finding: HealthFinding | HealthRetestFinding): finding is Heal
   return 'retest_status' in finding;
 }
 
-/** Top-5 remediation priorities, most-severe first, formatted `id: title`. */
 export function nextRemediationPriorities(findings: HealthFinding[]): string[] {
   const ordered = [...findings].sort(
     (a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity],
@@ -59,7 +58,6 @@ function renderSection(title: string, findings: HealthFinding[]): string[] {
   return lines;
 }
 
-/** Render the full report markdown, honestly separating Proven from Needs judgment. */
 export function buildHealthMarkdown(report: HealthReportIndex): string {
   const proven = report.findings.filter((finding) => finding.tier === 'deterministic');
   const judged = report.findings.filter((finding) => finding.tier === 'ai-judged');

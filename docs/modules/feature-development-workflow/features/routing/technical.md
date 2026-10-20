@@ -157,6 +157,29 @@ The reasons below are not obvious from the code.
 - **`workflow-router.ts`.** The runtime skill registry is snapshotted once per resolve, so a
   concurrent register or remove does not affect a call in flight.
 
+## Why the `src/analytics/` code works the way it does
+
+- **`gate.ts`.** The pass runs only when the flag is on, the change is feature-shaped and a
+  provider is detected, checked cheapest first, so with the flag off detection never runs. The
+  decision is written to a sidecar that the later stages read, so convention discovery happens
+  once. The sidecar write is best-effort; the decision is still returned.
+- **`detect.ts` and `providers.ts`.** Detection only informs and has no authority to write; the
+  flag alone authorizes instrumentation. A dependency name alone is not enough (GA4 is often only
+  a `gtag.js` script tag), so each provider carries several kinds of signal and the strongest
+  wins, with call sites breaking ties and defining the convention. Host and URL signals are plain
+  substring matches, because this is detection, not URL sanitizing, and it avoids an unanchored
+  hostname regex. Call-site patterns are stored without the global flag and cloned with it in
+  `call-sites.ts`, so the shared regex state is never changed.
+- **`doc-tree.ts`.** One doc per event under `docs/modules/<module>/analytics/`, so it never trips
+  the top-level module-doc orphan walk. Event names collapse to one slug (`Song Played` and
+  `song_played` both become `song-played`), so a casing conflict is caught at write time instead
+  of splitting the data. Paths are always posix. The slug trim uses an anchored single `-`, not
+  `-+`, which CodeQL flags as polynomial ReDoS. An unchanged doc is not rewritten.
+- **`enforcement.ts`.** The gate is whether each event doc exists, not each provider section,
+  because provider detection carries confidence and blocking on a section would block falsely.
+  The team value is a floor and the local config or env may only raise strictness. The default
+  is `warn`, so analytics never blocks a correct build.
+
 ## Tests
 
 - `tests/unit/pipeline/pre-classifier.test.ts`: the about-work signal and code requests that must stay on feature development.

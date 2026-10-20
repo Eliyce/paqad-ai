@@ -1,9 +1,3 @@
-// Analytics call-site extraction (issue #241). Given source text, pull out the analytics
-// events it tracks — the (provider, event) pairs. Used two ways: detection reads it to learn
-// the project's layer-2 convention (how THIS codebase tracks), and the ledger live-writer
-// reads it to know which tag a mutating edit just introduced. One extractor, so "what counts
-// as a tag" is defined in exactly one place.
-
 import { ANALYTICS_PROVIDERS, type AnalyticsProviderId } from './providers.js';
 
 export interface AnalyticsCallSite {
@@ -11,11 +5,6 @@ export interface AnalyticsCallSite {
   eventName: string;
 }
 
-/**
- * Every analytics event call found in `source`, in order, de-duplicated by (provider,event).
- * Pure and allocation-light: each provider pattern is cloned with the global flag so the
- * shared catalog regex is never mutated.
- */
 export function extractCallSites(source: string): AnalyticsCallSite[] {
   const out: AnalyticsCallSite[] = [];
   const seen = new Set<string>();
@@ -37,7 +26,6 @@ export function extractCallSites(source: string): AnalyticsCallSite[] {
   return out;
 }
 
-/** Infer a naming convention label from observed event names (e.g. `snake_case`). */
 export function inferNamingConvention(eventNames: readonly string[]): string | null {
   if (eventNames.length === 0) {
     return null;

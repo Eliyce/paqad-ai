@@ -14,11 +14,6 @@ export interface ProviderEntryContractCheckResult {
 
 const REMEDIATION = 'Re-run `paqad refresh --providers` to regenerate the lean entry stubs.';
 
-/**
- * Section markers a pre-#229 "fat" entry file carried. Issue #229 moved the load
- * order and BOTH contracts into the install bootstrap, so a lean stub must inline
- * none of these.
- */
 const STALE_FAT_MARKERS: readonly string[] = [
   '## Decision Pause Contract',
   '# Decision Pause Contract',
@@ -48,14 +43,6 @@ function noEntryFiles(kind: string): ProviderEntryContractCheckResult {
   };
 }
 
-/**
- * Issue #229 — every provider entry file must be a LEAN stub: it points to the
- * framework bootstrap via `.paqad/framework-path.txt` and inlines NO contract.
- * A stale pre-#229 fat entry file (still carrying a `## Decision Pause Contract`
- * or `## paqad in your chat` section) is flagged so a refresh restores the lean
- * shape. The contracts themselves now live in the install bootstrap, not the
- * project, so there is no per-project contract doc to check.
- */
 export function inspectProviderEntryBootstrapPointer(
   projectRoot: string,
 ): ProviderEntryContractCheckResult {
@@ -81,7 +68,7 @@ export function inspectProviderEntryBootstrapPointer(
   if (stillFat.length > 0) {
     return {
       status: 'warning',
-      detail: `Stale (pre-#229) entry file still inlines a contract section in: ${stillFat.join(', ')}`,
+      detail: `Stale (older full-contract) entry file still inlines a contract section in: ${stillFat.join(', ')}`,
       remediation: REMEDIATION,
     };
   }
@@ -93,11 +80,6 @@ export function inspectProviderEntryBootstrapPointer(
   };
 }
 
-/**
- * Issue #220/#229 — every provider entry file must carry the core-owned
- * graceful-degradation fallback clause (byte-identical across hosts), so a
- * missing or disabled paqad never hard-fails the host.
- */
 export function inspectProviderEntryFallbackClause(
   projectRoot: string,
 ): ProviderEntryContractCheckResult {

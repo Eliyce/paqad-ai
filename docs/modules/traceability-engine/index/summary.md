@@ -106,6 +106,19 @@ When no promise anchors are discoverable in a run, orphan flagging is
 **suppressed** (with the reason recorded) rather than flagging the whole tree —
 honest about what reality could and could not prove.
 
+## Why the code works the way it does
+
+- **`change-map.ts`.** Only source files can hold a test title; a test file over the size cap is
+  not read, since it is a generated fixture. A file's size and content come from the same open
+  handle, so nothing can swap it in between, and a deleted file in the changed list proves
+  nothing. Titles inside `it.each([...])('title')` are found by skipping the table. A map that was
+  built but could not be written is still handed to the gate.
+- **`reachability.ts`.** A file is legitimate when it delivers a promise or is reachable from one
+  over real import edges, so a dead cluster that imports itself is still flagged and no comment or
+  label can suppress the flag. It works per file, reusing the import-scanner edges.
+- **`writer.ts`.** Every write uses its own temp name, so `checks run` and the Stop hook writing at
+  once never rename each other's half-written file into place. A corrupt read returns null.
+
 ## Source Footprint
 
 - `src/traceability` — the joiner (`map-builder.ts`), the reachability solver

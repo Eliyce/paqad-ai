@@ -130,11 +130,6 @@ export class HealthChecker {
   }
 
   private checkFrameworkArtifacts(projectRoot: string): HealthCheckResult {
-    // `framework-version.txt` is intentionally NOT required: it is per-machine,
-    // git-ignored, local-only state (the silent-update hook recreates it on
-    // first session). A teammate who clones an onboarded repo without re-running
-    // onboarding has the committed boot pointer + profile but not the local
-    // version file, and that is a healthy state, not a missing artifact.
     const required = [PATHS.PROJECT_PROFILE, PATHS.FRAMEWORK_PATH];
     const missing = required.filter((relative) => !existsSync(join(projectRoot, relative)));
 
@@ -147,14 +142,6 @@ export class HealthChecker {
         );
   }
 
-  /**
-   * Whether `relPath` (relative to the project root, e.g. `.paqad/vectors/`) is
-   * git-ignored. Asks git, which honours the project root `.gitignore`, paqad's
-   * nested `.paqad/.gitignore`, and any global excludes alike. Falls back to a
-   * textual scan of both ignore files when git is unavailable or the project is
-   * not a git repository (e.g. a freshly scaffolded test fixture), so the check
-   * is meaningful before `git init`.
-   */
   private isPathIgnored(projectRoot: string, relPath: string, directory = false): boolean {
     const target = relPath.replace(/\/$/, '');
     const probe = directory ? `${target}/` : target;
@@ -163,17 +150,13 @@ export class HealthChecker {
         cwd: projectRoot,
         stdio: 'ignore',
       });
-      return true; // exit 0 — git resolved the path as ignored.
+      return true;
     } catch (error) {
-      // exit 1 — git ran and the path is NOT ignored. Any other status (128 for
-      // "not a git repo", or git missing) drops to the textual fallback below.
       if ((error as { status?: number }).status === 1) {
         return false;
       }
     }
 
-    // Fallback: the root `.gitignore` carries the full path; the nested
-    // `.paqad/.gitignore` carries it relative to `.paqad/`.
     const probes: Array<[string, string]> = [
       [join(projectRoot, '.gitignore'), target],
       [join(projectRoot, '.paqad', '.gitignore'), target.replace(/^\.paqad\//, '')],
@@ -299,10 +282,6 @@ export class HealthChecker {
   }
 
   private checkDecisionWorkspace(projectRoot: string): HealthCheckResult {
-    // DECISIONS_AUDIT_LOG is intentionally NOT required: it is git-ignored,
-    // write-only telemetry with no production reader, so a clean clone (which
-    // never carries it) is healthy without it. Requiring it produced a spurious
-    // "Missing decision artifacts" warning on every fresh checkout.
     const required = [
       PATHS.DECISIONS_PENDING_DIR,
       PATHS.DECISIONS_RESOLVED_DIR,
@@ -323,8 +302,6 @@ export class HealthChecker {
   private checkModuleHealthLedger(projectRoot: string): HealthCheckResult {
     const root = join(projectRoot, PATHS.PLANNING_MODULE_HEALTH_DIR);
     if (!existsSync(root)) {
-      // Profiles are created on demand as modules accrue evidence; an absent
-      // directory on a fresh/quiet project is expected, not a problem.
       return pass(
         'Module health ledger valid',
         'No module health profiles yet — created on demand as modules accrue evidence',
@@ -433,14 +410,6 @@ export class HealthChecker {
         );
   }
 
-  /**
-   * Codex hooks wired (issue #566, AC-11). When a project carries a `.codex/` layer it is a
-   * Codex project, so `.codex/hooks.json` must exist and wire paqad's hooks into all four
-   * lifecycle events. A missing or partial file WARNS (never fails — a not-yet-onboarded or
-   * not-yet-trusted project is not a fault) and names the `/hooks` trust step, because doctor
-   * cannot confirm from disk whether Codex has TRUSTED the project hooks — that approval lives
-   * in Codex, not the file. A non-Codex project (no `.codex/`) passes with nothing to check.
-   */
   private checkCodexHooks(projectRoot: string): HealthCheckResult {
     const name = 'Codex hooks wired';
     if (!existsSync(join(projectRoot, '.codex'))) {
@@ -470,7 +439,6 @@ export class HealthChecker {
         'Re-run onboarding to regenerate .codex/hooks.json.',
       );
     }
-    // One representative paqad hook per event — its presence proves the event is wired.
     const required: ReadonlyArray<readonly [string, string]> = [
       ['PreToolUse', 'agent-entry-gate.mjs'],
       ['UserPromptSubmit', 'agent-entry-prompt-gate.mjs'],
@@ -493,14 +461,6 @@ export class HealthChecker {
     );
   }
 
-  /**
-   * Edit gates fail closed (issue #615, Part 6). The three Claude Code pre-mutation edit gates
-   * (agent-entry, decision-pause, capability pre-mutation) should render `onFailure: "block"` so a
-   * gate that cannot start, times out, or throws blocks the edit instead of letting it through. A
-   * project onboarded before Claude Code 2.1.295 support has them without `onFailure`; that WARNS
-   * (never fails — the old config still enforces via exit 2) and names the re-onboard fix. A
-   * non-Claude project (no `.claude/settings.json`) passes with nothing to check.
-   */
   private checkGateFailClosed(projectRoot: string): HealthCheckResult {
     const name = 'Edit gates fail closed';
     const settingsPath = join(projectRoot, '.claude', 'settings.json');
@@ -522,8 +482,6 @@ export class HealthChecker {
         'Re-run onboarding to regenerate .claude/settings.json.',
       );
     }
-    // Each gate, identified by a command marker. capability-gate.mjs also wires a completion entry,
-    // so the pre-mutation one is disambiguated by its ` pre-mutation` seam argv.
     const gates: ReadonlyArray<readonly [string, (cmd: string) => boolean]> = [
       ['agent-entry-gate', (cmd) => cmd.includes('agent-entry-gate.mjs')],
       ['decision-pause-gate', (cmd) => cmd.includes('decision-pause-gate.mjs')],
@@ -553,7 +511,7 @@ export class HealthChecker {
     if (missing.length > 0) {
       return warn(
         name,
-        `These Claude edit gates are missing onFailure (an install onboarded before #615): ${missing.join(', ')}.`,
+        `These Claude edit gates are missing onFailure (an install onboarded before the edit gates failed closed): ${missing.join(', ')}.`,
         'Re-run onboarding to regenerate .claude/settings.json with fail-closed edit gates.',
       );
     }
@@ -620,10 +578,6 @@ export class HealthChecker {
         );
   }
 
-  /**
-   * Warn when the recorded test-runner parallel mode is unavailable or unknown (issue #554), so a
-   * team knows their suite runs sequentially and how to make it parallel. Pass on native/available.
-   */
   private checkTestRunnerParallel(profile: ProjectProfile | null): HealthCheckResult {
     const name = 'Test runner parallel mode';
     const testing = profile?.testing;
@@ -733,12 +687,6 @@ export class HealthChecker {
   }
 
   private checkStableFrameworkPaths(projectRoot: string): HealthCheckResult {
-    // Issue #220 — a deliberate disable is a healthy state, not a fault. The
-    // profile flag (`paqad.enabled: false`) or `PAQAD_DISABLED` is the
-    // disambiguator: when set, report "disabled (vanilla mode)" as a pass so
-    // doctor never reads it as broken. When absent, the checks below treat a
-    // missing/ephemeral install as the fault it is — that is how a deliberate
-    // disable is distinguished from an accidental uninstall.
     if (isFrameworkDisabledForRoot(projectRoot)) {
       return pass(
         'Stable framework paths only',
@@ -768,12 +716,6 @@ export class HealthChecker {
       : pass('Stable framework paths only', 'Framework path is stable');
   }
 
-  /**
-   * Report what the `~/.paqad-ai/current` framework link resolves to (issue #616, Part 4.6): which
-   * copy (npm or plugin) and its version. A missing link or a dangling target is a warning, not a
-   * fault — a Claude Code plugin re-points it at the next session start, and an npm reinstall fixes
-   * the npm case; either way doctor names the fix instead of reading broken.
-   */
   private checkClaudeInstall(projectRoot: string): HealthCheckResult {
     const line = describeClaudeInstall(undefined, projectRoot, process.env, {
       managedSettingsPaths: this.options.managedSettingsPaths,
@@ -812,11 +754,6 @@ export class HealthChecker {
     );
   }
 
-  /**
-   * Issue #616 Part 9 — warn when the `.paqad/` layout was written by a NEWER paqad than this
-   * engine understands, with the verbatim update line. A missing or compatible marker passes; an
-   * older one is a routine migration handled elsewhere, not a doctor warning.
-   */
   private checkSchemaVersion(projectRoot: string): HealthCheckResult {
     const name = 'Schema version';
     const marker = readSchemaMarkerSync(projectRoot);
@@ -930,12 +867,6 @@ export class HealthChecker {
         );
   }
 
-  /**
-   * MCP is a recommendation, never a pass or a warning (issue #622): paqad does not write any
-   * tool's MCP config, so it cannot judge whether a team "configured" its servers. The check
-   * names the servers suggested for this stack and, read-only, the servers already listed in
-   * the project's root `.mcp.json` (the file Claude Code reads).
-   */
   private checkMcp(projectRoot: string, profile: ProjectProfile | null): HealthCheckResult {
     if (profile === null) {
       return info(
@@ -1046,14 +977,6 @@ export class HealthChecker {
     };
   }
 
-  /**
-   * Issue #284 — the resident rule-footprint readout. Reports how many bytes the lean
-   * session-context artifact carries versus loading the full `docs/instructions/rules`
-   * tree, computed per project (no hard-coded sizes). A present, smaller artifact is a
-   * pass with the savings; an artifact that is not smaller than the full rule set warns
-   * (lean loading is not paying off). A missing artifact is a pass: full-load is the
-   * documented fallback and the artifact regenerates on the next refresh/onboard.
-   */
   private checkLeanRuleFootprint(projectRoot: string): HealthCheckResult {
     const name = 'Lean rule footprint acceptable';
     const rulesRoot = join(projectRoot, PATHS.RULES_DIR);
@@ -1086,15 +1009,6 @@ export class HealthChecker {
         );
   }
 
-  /**
-   * S1 (defect D1) — the rule-store freshness gate. The per-turn refresh recomposes
-   * the session-context artifact from `.paqad/compiled-rules.json`, so a store whose
-   * `source_hash` no longer matches the authored rules under `docs/instructions/rules/`
-   * means the agent is being served rule text that has drifted from the rules on disk.
-   * That is a fault, not a warning, so this check FAILS when the store is stale and
-   * names the command that rebuilds it. It passes when the store is current (or absent,
-   * which {@link isCompiledRulesStale} reports as stale and the refresh then compiles).
-   */
   private async checkCompiledRulesCurrent(projectRoot: string): Promise<HealthCheckResult> {
     const name = 'Compiled rules are current';
     return (await isCompiledRulesStale(projectRoot))
@@ -1106,11 +1020,6 @@ export class HealthChecker {
       : pass(name, 'Compiled rule store matches the authored rules');
   }
 
-  /**
-   * Spec pipeline health (issue #512, FR-10): the S4 parser-parity corpus must pass BOTH the
-   * S4 shape check and the real freeze parser (so the two can never drift, FR-10.2), and the
-   * enforcement config must be coherent (no required gate on a disabled pipeline, FR-10-T4).
-   */
   private checkSpecPipeline(projectRoot: string): HealthCheckResult {
     const name = 'Spec pipeline is healthy';
     for (const fixture of PARITY_CORPUS) {
@@ -1145,13 +1054,6 @@ export class HealthChecker {
     return pass(name, 'Parser-parity corpus holds and the enforcement config is coherent.');
   }
 
-  /**
-   * The three spec-pipeline switches with their effective value and where each came from
-   * (issue #640, FR-15): "default", the env variable, or the config file that set it. Since
-   * #640 the pipeline, the experts and strict adoption are on by default, so a team can see here
-   * why the High Table now runs, what it costs and how to switch it off. Always a pass: this is
-   * information, not a problem.
-   */
   private checkSpecPipelineSettings(projectRoot: string): HealthCheckResult {
     const config = readPipelineConfig(projectRoot);
     const from = specPipelineSources(projectRoot);
@@ -1180,11 +1082,6 @@ export class HealthChecker {
     );
   }
 
-  /**
-   * Visual-evidence coherence (issue #551, Part A.5). Warns (never fails) when the feature is
-   * on but a prerequisite is missing, so a team that turned it on but cannot yet capture sees
-   * exactly why. Fully silent when the flag is off.
-   */
   private checkVisualEvidence(projectRoot: string): HealthCheckResult[] {
     const name = 'Visual evidence is ready';
     const config = resolveFrameworkConfig(projectRoot);
@@ -1192,7 +1089,6 @@ export class HealthChecker {
       return [pass(name, 'Visual evidence is off (default); nothing to check.')];
     }
 
-    // Issue #579 — the checks live in one shared readiness function that plan compile uses too.
     const results: HealthCheckResult[] = visualEvidenceReadiness(projectRoot).map((problem) =>
       warn(name, problem.detail, problem.remediation),
     );
@@ -1204,18 +1100,11 @@ export class HealthChecker {
   }
 
   private checkExpertRoster(projectRoot: string): HealthCheckResult[] {
-    // Expert-roster coherence (issue #521, FR-9 / AC-6) plus the issue #547 checks (FR-12.2). The
-    // config always LOADS (graceful fallback, RULE-16). Most failure modes are warnings (the
-    // experts flag is opt-in), but a MISSING lens file for a roster role is a hard fail: it is a
-    // packaging gap that would break the run.
     const name = 'Expert roster config is coherent';
     const config = readPipelineConfig(projectRoot);
     const results: HealthCheckResult[] = [];
-    // Issue #640 — the experts and strict adoption are on by default. A project that switched
-    // only the pipeline off has not "turned the experts on", so a default value never warns.
     const from = specPipelineSources(projectRoot);
 
-    // The coherence result is ALWAYS emitted (pass or warn), so `name` never goes missing.
     if (
       config.experts_enabled &&
       !config.enabled &&
@@ -1247,7 +1136,6 @@ export class HealthChecker {
       );
     }
 
-    // (a) adoption strict but the pipeline is off (FR-12.2a).
     if (
       config.adoption === 'strict' &&
       !config.enabled &&
@@ -1262,7 +1150,6 @@ export class HealthChecker {
       );
     }
 
-    // (a2) a configured standing role that is not an expert is ignored (issue #558, FR-10.1a).
     for (const role of config.standing_experts_dropped) {
       results.push(
         warn(
@@ -1274,7 +1161,6 @@ export class HealthChecker {
     }
 
     if (config.experts_enabled) {
-      // (b) every pickable expert must ship a lens (FR-12.2b) — a packaging truth, a hard fail.
       const lensDir = join(
         getRuntimeRoot(),
         'base',
@@ -1293,7 +1179,6 @@ export class HealthChecker {
           ),
         );
       }
-      // (c) a low ceiling clamps most runs (FR-12.2c; standing-aware since issue #558, FR-10.1b).
       const standingSum = standingBudgetSum(config);
       if (config.token_ceiling < standingSum + 6000) {
         results.push(
@@ -1474,9 +1359,6 @@ export class HealthChecker {
           ),
     );
 
-    // Issue #616 Part 2b — one line for the on-demand embedding engine. In the plugin the heavy
-    // engine installs in the background on first use; while it is missing retrieval falls back to
-    // text search, so this is a warning (degraded), never a hard failure.
     const engine = describeOptionalEngine();
     if (engine.state === 'ready') {
       results.push(pass('RAG engine installed', 'The embedding engine is installed'));
@@ -1601,11 +1483,6 @@ export class HealthChecker {
 type SpecPipelineSwitchKey =
   'spec_pipeline_enabled' | 'spec_pipeline_experts_enabled' | 'spec_pipeline_adoption';
 
-/**
- * Where each spec-pipeline switch got its value (issue #640, FR-15), in plain words: "default",
- * the env variable's name, or the config file. Read from the same resolver `config effective`
- * uses, so the two never disagree.
- */
 function specPipelineSources(projectRoot: string): Record<SpecPipelineSwitchKey, string> {
   const knobs = resolveEffectiveConfig(projectRoot);
   const sourceOf = (key: string): string => {
@@ -1624,7 +1501,6 @@ function specPipelineSources(projectRoot: string): Record<SpecPipelineSwitchKey,
 
 const MCP_CHECK_NAME = 'MCP servers (recommended)';
 
-/** Server names in a host MCP file, or null when it is missing or not valid JSON. */
 function readMcpServerNames(path: string): string[] | null {
   if (!existsSync(path)) {
     return null;
@@ -1632,10 +1508,8 @@ function readMcpServerNames(path: string): string[] | null {
   try {
     const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
     const servers = isPlainObject(parsed) ? parsed.mcpServers : undefined;
-    // Only a plain object of servers has names; an array or a string is not a server list.
     return isPlainObject(servers) ? Object.keys(servers) : [];
   } catch {
-    // An unparseable file is reported as not found; doctor never fails on a file it only reads.
     return null;
   }
 }
@@ -1656,7 +1530,6 @@ function fail(name: string, detail: string, remediation: string): HealthCheckRes
   return { name, status: 'fail', detail, remediation };
 }
 
-/** Information only (issue #622): never raises or lowers the overall status. */
 function info(name: string, detail: string): HealthCheckResult {
   return { name, status: 'info', detail };
 }
@@ -1665,7 +1538,6 @@ function warn(name: string, detail: string, remediation: string): HealthCheckRes
   return { name, status: 'warning', detail, remediation };
 }
 
-/** Worst status wins; an `info` check never moves it (issue #622). */
 export function deriveOverallStatus(checks: HealthCheckResult[]): HealthCheckStatus {
   if (checks.some((check) => check.status === 'fail')) {
     return 'fail';

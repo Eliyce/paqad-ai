@@ -33,6 +33,26 @@ counts it observed — **proof of occurrence, never proof of benefit**. It recor
 slice was injected, not that the model used it; "accuracy" is a correlation with the F15
 eval, never a per-answer causal claim.
 
+## Why the code works the way it does
+
+- **`audit-bridge.ts`.** `.paqad/audit.log` is shared by many subsystems, so the flat RAG line is
+  kept for compatibility and a structured row is written as well. These are engine events (build,
+  sync, fallback), so they carry the adapter `engine`. An event with no structured equivalent
+  stays in the flat log only, and a failed mapping is silent because the flat line already landed.
+- **Two homes.** A row lives in the session's `_chat/<session>/rag.jsonl` for chat turns or in a
+  feature bundle's `rag.jsonl` for feature turns; the conversation ordinal is always allocated in
+  the `_chat` home. The fold unions both homes for the session and groups by ordinal, so order
+  does not matter. A background event with no open conversation opens one first, so it records
+  the same `open` row then data row as a prompt turn.
+- **`schema.ts`.** The schema lives in `src/`, never under `.paqad/`, so the model can never
+  weaken it.
+- **`session.ts`.** `persistLedgerSessionId` writes the live host session id to the cache at
+  session start without minting. Otherwise a shell `paqad-ai stage start` run before the first
+  edit could read an earlier session's id and mint its bundle under it, while the edit gate keys on
+  the real host id, which orphans the bundle and blocks the edit. A host id passed to
+  `resolveSessionId` is also cached, so a later reader with no hint resolves the same id, matching
+  the hooks' own resolver. Cache writes are best-effort.
+
 ## Source Footprint
 
 - `src/rag-ledger`

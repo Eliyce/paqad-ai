@@ -1,8 +1,3 @@
-// Issue #109 — the two-way map builder. Pure: it joins already-gathered inputs
-// (promises, inferred delivery, proofs, import edges, the code universe) into a
-// single forward + backward map and the two flags. No I/O, no labels — only
-// reality (the edges and the promise anchors) decides.
-
 import type {
   BackwardLink,
   BuildTraceabilityMapInput,
@@ -26,20 +21,11 @@ function uniqueSorted(values: Iterable<string>): string[] {
   return [...new Set(values)].sort();
 }
 
-/**
- * Build the promise → code → check (forward) and code → promise/user (backward)
- * map, plus the untested-promise and orphan-code findings.
- *
- * Delivery (promise → code) is inferred from the change set / module map and
- * sharpened by optional explicit markers (open decision #2, recommended).
- * Orphan code is decided by reachability (open decision #1: file-level).
- */
 export function buildTraceabilityMap(input: BuildTraceabilityMapInput): TraceabilityMap {
   const mode: 'full' | 'light' = input.lane === 'fast' ? 'light' : 'full';
   const universe = uniqueSorted(input.codeUniverse);
   const universeSet = new Set(universe);
 
-  // promise → delivering files (inferred + marker-sharpened).
   const deliveryByPromise = new Map<string, Set<string>>();
   const ensurePromise = (id: string): Set<string> => {
     const existing = deliveryByPromise.get(id);
@@ -52,13 +38,10 @@ export function buildTraceabilityMap(input: BuildTraceabilityMapInput): Traceabi
     const bucket = ensurePromise(entry.promise_id);
     for (const file of entry.files) bucket.add(file);
   }
-  // Markers are code → promise; fold them in so an explicit marker counts as
-  // delivery for that promise (and contributes the file to the anchor set).
   for (const marker of input.markers ?? []) {
     for (const id of marker.promise_ids) ensurePromise(id).add(marker.file);
   }
 
-  // promise → proving checks.
   const proofsByPromise = new Map<string, Set<string>>();
   for (const entry of input.proofs) {
     const bucket = proofsByPromise.get(entry.promise_id) ?? new Set<string>();
@@ -68,7 +51,6 @@ export function buildTraceabilityMap(input: BuildTraceabilityMapInput): Traceabi
 
   const promiseById = indexBy<PromiseRef>(input.promises, (p) => p.promise_id);
 
-  // ── Forward map + untested-promise flag ────────────────────────────────
   const forward: ForwardLink[] = [];
   const findings: TraceabilityFinding[] = [];
   for (const promise of input.promises) {
@@ -93,10 +75,6 @@ export function buildTraceabilityMap(input: BuildTraceabilityMapInput): Traceabi
     }
   }
 
-  // ── Anchors: code files that deliver a known promise ────────────────────
-  // Only files inside the universe can anchor — delivery may name files outside
-  // the in-scope tree (e.g. earlier slices); those still count for the forward
-  // link but reachability runs over the universe.
   const anchorFiles = new Set<string>();
   const promiseIdsByFile = new Map<string, Set<string>>();
   for (const [promiseId, files] of deliveryByPromise) {
@@ -110,9 +88,6 @@ export function buildTraceabilityMap(input: BuildTraceabilityMapInput): Traceabi
     }
   }
 
-  // When no promise anchors are known, orphan code cannot be distinguished from
-  // shared groundwork — suppress the orphan flag rather than flag the whole
-  // tree. Honest about why (settled decision: reality decides; don't fabricate).
   const anchorsKnown = anchorFiles.size > 0;
   const blockedReason = anchorsKnown
     ? null
@@ -126,13 +101,10 @@ export function buildTraceabilityMap(input: BuildTraceabilityMapInput): Traceabi
     universe,
   });
 
-  // In the fast lane the orphan check is scoped to the change set — the cheap
-  // "did this trivial change add code with no promise/no user?" subset.
   const changedSet = mode === 'light' ? new Set(input.changedFiles ?? []) : null;
   const inOrphanScope = (file: string): boolean =>
     changedSet === null ? true : changedSet.has(file);
 
-  // ── Backward map + orphan-code flag ─────────────────────────────────────
   const backward: BackwardLink[] = [];
   let deliversCount = 0;
   let sharedCount = 0;

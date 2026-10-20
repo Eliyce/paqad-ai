@@ -1,13 +1,3 @@
-// Bridge the flat `appendRagAudit` events into the structured rag-evidence ledger
-// (issue #249 §5b, P2). The shared `.paqad/audit.log` is the framework-wide audit log
-// (many subsystems write it), so we keep its flat line for backward compatibility and
-// ALSO record a structured `paqad.rag-evidence` event for the RAG-specific ones — the
-// structured ledger becomes the queryable source of truth without losing any event.
-// Full retirement of the flat RAG lines (D3) is a documented follow-up.
-//
-// These are ENGINE-side events (build / sync / fallback), so they carry adapter
-// "engine" — they are not tied to a specific provider seam.
-
 import { recordRagEvidence } from './recorder.js';
 import type { RagEvidenceFields } from './recorder.js';
 import type { RagEvidenceKind, RagFallbackReason } from './types.js';
@@ -23,7 +13,6 @@ function toInt(value: unknown): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
-/** Map an audit `reason` string to the closed `RagFallbackReason` enum. */
 export function mapFallbackReason(reason: unknown): RagFallbackReason {
   const text = String(reason ?? '').toLowerCase();
   if (text.includes('disabled')) return 'rag-disabled';
@@ -36,10 +25,6 @@ export function mapFallbackReason(reason: unknown): RagFallbackReason {
   return 'error';
 }
 
-/**
- * Map a flat audit event to a structured rag-evidence event, or null when the event has
- * no rag-evidence equivalent (it stays in the flat log only).
- */
 export function mapAuditEventToEvidence(
   event: string,
   fields: Record<string, unknown>,
@@ -109,7 +94,6 @@ export function mapAuditEventToEvidence(
     case 'rag-cleared':
       return { kind: 'close', ragEnabled: false, fields: {} };
     default:
-      // rag-attachment-index-* and any other event: attachments are a refresh.
       if (event.startsWith('rag-attachment-index')) {
         return { kind: 'refreshed', ragEnabled: true, fields: { refresh_kind: 'attachment' } };
       }
@@ -117,11 +101,6 @@ export function mapAuditEventToEvidence(
   }
 }
 
-/**
- * Record the structured rag-evidence equivalent of a flat audit event. Best-effort and
- * silent: an unmapped event or any recorder failure is a no-op (the flat line already
- * landed). Called from `appendRagAudit`.
- */
 export function recordRagEvidenceFromAudit(
   projectRoot: string,
   event: string,

@@ -13,13 +13,6 @@ import type {
 import { nextRemediationPriorities } from './report-builder.js';
 import { sortFindings, toHealthReportId, toHealthTimestamp } from './shared.js';
 
-/**
- * Reclassify each source finding against a fresh scan, matched by stable `HL-`
- * id (better than pentest's coarse category matching). A network-required finding
- * that could not be re-checked offline is `needs-manual-verification`; a finding
- * whose id reappears is `still-open`; otherwise it is `fixed`. Ids are preserved
- * and severity is never lowered.
- */
 export function buildHealthRetestFindings(
   sourceFindings: HealthFinding[],
   currentFindings: HealthFinding[],
@@ -54,7 +47,6 @@ export interface RetestReportInput {
   retestFindings: HealthRetestFinding[];
 }
 
-/** Assemble the retest report index (pure). Filenames follow `<orig-ts>-retest-<ts>`. */
 export function buildRetestReportIndex(input: RetestReportInput): HealthReportIndex {
   const timestamp = toHealthTimestamp(input.now);
   const origTimestamp = input.source.report_id.replace(/^(?:HEALTH|RETEST)-/, '');

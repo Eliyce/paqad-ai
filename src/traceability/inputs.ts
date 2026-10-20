@@ -1,10 +1,3 @@
-// Issue #109 — gather the traceability builder's inputs from reality (the
-// current source tree, import edges, compliance reports, and code markers). All
-// reads are best-effort and defensive: a missing or corrupt artifact degrades
-// the map (fewer anchors → orphan flagging suppressed) but never throws. This
-// is what makes the map "rebuilt from reality each run" rather than a
-// hand-maintained file.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -41,8 +34,6 @@ const SOURCE_EXCLUDES = [
   '**/tests/**',
 ];
 
-// `@obligation <ID>` / `@ac <ID>` in implementation source — explicit code →
-// promise markers (open decision #2: infer by default, markers sharpen).
 const CODE_MARKER_PATTERN = /@(?:obligation|ac)\s+([A-Z][A-Z0-9._-]*)\b/g;
 
 export interface GatherOptions {
@@ -74,18 +65,11 @@ function readComplianceReports(projectRoot: string): ComplianceReport[] {
     try {
       const report = JSON.parse(readFileSync(file, 'utf8')) as ComplianceReport;
       if (Array.isArray(report.obligations)) reports.push(report);
-    } catch {
-      // Skip corrupt reports — the map degrades, it does not break.
-    }
+    } catch {}
   }
   return reports;
 }
 
-// Verification evidence ties a check to an AC via `ac_id`, but only on a gate's
-// `failures`: the ac_id names a promise whose check FAILED. That is the opposite of
-// a proof, so it is never counted as one (issue #639, Part 11). It is read instead
-// to take away any proof the same promise was given elsewhere, so a promise whose
-// check failed reads unproven.
 function readEvidenceFailingPromiseIds(projectRoot: string): Set<string> {
   const failing = new Set<string>();
   const path = join(projectRoot, VERIFICATION_EVIDENCE_RELATIVE_PATH);
@@ -105,11 +89,6 @@ function readEvidenceFailingPromiseIds(projectRoot: string): Set<string> {
   return failing;
 }
 
-/**
- * The promises and proofs the compliance reports carry (`.paqad/compliance/**\/report.json`),
- * one promise per obligation id. Cheap: it reads only those report files. Shared by the
- * whole-tree gatherer below and the change-scoped one (`change-map.ts`).
- */
 export function readObligationPromises(projectRoot: string): {
   promises: PromiseRef[];
   proofs: ProofEntry[];
@@ -153,12 +132,6 @@ function scanCodeMarkers(projectRoot: string, files: string[]): CodeMarker[] {
   return markers;
 }
 
-/**
- * Assemble the builder input from on-disk reality. Promises + proofs come from
- * the compliance reports (the concrete spec→test artifact); delivery (code →
- * promise) is inferred from explicit code markers. When neither yields an
- * anchor, the builder suppresses orphan flagging rather than guessing.
- */
 export async function gatherTraceabilityInputs(
   options: GatherOptions,
 ): Promise<BuildTraceabilityMapInput> {
@@ -171,14 +144,9 @@ export async function gatherTraceabilityInputs(
   const edges = await scanImports({ projectRoot, files: codeUniverse, aliases: { '@/': 'src/' } });
 
   const { promises, proofs: obligationProofs } = readObligationPromises(projectRoot);
-  // A promise whose check failed in the recorded verification evidence keeps no proof.
   const failing = readEvidenceFailingPromiseIds(projectRoot);
   const proofs = obligationProofs.filter((proof) => !failing.has(proof.promise_id));
 
-  // Code → promise comes from explicit markers (the concrete, non-circular
-  // signal available at runtime); the builder folds them into the delivery
-  // index. Inference from the change set / module map can sharpen `delivery`
-  // further in future without changing the join.
   const markers = scanCodeMarkers(projectRoot, codeUniverse);
   const delivery: DeliveryEntry[] = [];
 
@@ -190,8 +158,6 @@ export async function gatherTraceabilityInputs(
     proofs,
     edges,
     codeUniverse,
-    // Issue #646: the change's files straight from git (working tree plus branch
-    // commits); a clean tree with no branch commits is an empty list.
     changedFiles: await readGitChangedFiles(projectRoot),
     markers,
   };
