@@ -42,7 +42,15 @@ Onboarding warnings are returned in `OnboardingOutput.warnings`. Two of them com
 
 A Node project also gets one warning naming the commands it left unmapped: `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): <names>. Add them there if the project has them.`
 
-`paqad-ai onboard` prints every warning once, in order, after the rest of its output. Each line starts with `⚠ `. On a terminal the line is yellow; otherwise it is plain text. When there are no warnings nothing extra is printed. The full onboard has no JSON or silent mode (`--json` applies only to `--detect`), so the lines are always printed.
+Files onboarding kept because they already existed are returned separately in `OnboardingOutput.kept_files`, and stack drift review targets in `OnboardingOutput.drift_review_targets`. Neither is a warning.
+
+After the rest of its output, `paqad-ai onboard` prints, in this order:
+
+- `Kept <n> existing files unchanged.` as one plain line when any file was kept (`file` when there is one). The paths are not listed.
+- `Review these for drift:` followed by each drift review target on its own indented plain line.
+- Each warning once, in order, starting with `⚠ `. On a terminal the warning is yellow; otherwise it is plain text.
+
+When all three are empty nothing extra is printed. The full onboard has no JSON or silent mode (`--json` applies only to `--detect`), so these lines are always printed.
 
 ## `src/onboarding/orchestrator.ts`
 
@@ -72,7 +80,7 @@ export class OnboardingOrchestrator {
 
 `run` throws a `FrameworkError` with code `PROJECT_CREATION_DISABLED` when the workspace policy turns project creation off.
 
-`OnboardingOutput` (`src/core/types/onboarding.ts`) carries `adapter`, `decision_pause_supported_adapters`, `generated_files`, `detected_modules`, `runtime_root`, `manifest_path`, `warnings` and `reverted_framework_values`.
+`OnboardingOutput` (`src/core/types/onboarding.ts`) carries `adapter`, `decision_pause_supported_adapters`, `generated_files`, `detected_modules`, `runtime_root`, `manifest_path`, `warnings`, `kept_files`, `drift_review_targets` and `reverted_framework_values`.
 
 ## `src/onboarding/rag-onboarding.ts`
 

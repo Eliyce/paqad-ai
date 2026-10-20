@@ -30,12 +30,28 @@ function firstMissingNonInteractiveFlag(
   return null;
 }
 
-function printOnboardingWarnings(warnings: readonly string[] | undefined): void {
-  const unique = [...new Set(warnings ?? [])];
-  if (unique.length === 0) return;
+interface OnboardingNotices {
+  warnings?: readonly string[];
+  kept_files?: readonly string[];
+  drift_review_targets?: readonly string[];
+}
+
+function printOnboardingNotices(result: OnboardingNotices | undefined): void {
+  const kept = new Set(result?.kept_files ?? []).size;
+  const drift = [...new Set(result?.drift_review_targets ?? [])];
+  const warnings = [...new Set(result?.warnings ?? [])];
+  if (kept === 0 && drift.length === 0 && warnings.length === 0) return;
+
   const tty = Boolean(process.stdout.isTTY);
   process.stdout.write('\n');
-  for (const warning of unique) {
+  if (kept > 0) {
+    process.stdout.write(`Kept ${kept} existing ${kept === 1 ? 'file' : 'files'} unchanged.\n`);
+  }
+  if (drift.length > 0) {
+    process.stdout.write('Review these for drift:\n');
+    for (const target of drift) process.stdout.write(`  ${target}\n`);
+  }
+  for (const warning of warnings) {
     const line = `⚠ ${warning}`;
     process.stdout.write(`${tty ? chalk.yellow(line) : line}\n`);
   }
@@ -159,6 +175,6 @@ export function createOnboardCommand(): Command {
         console.log(`\n${codexHint}`);
       }
 
-      printOnboardingWarnings(result?.warnings);
+      printOnboardingNotices(result);
     });
 }

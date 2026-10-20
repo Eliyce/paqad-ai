@@ -72,10 +72,13 @@ Source directories owned by this feature:
 - When the install cannot start (for example no `CLAUDE_PLUGIN_DATA`, or a recent failed
   attempt) onboarding tries the build as before. Any build failure turns RAG off and says so:
   "RAG was turned off: <reason>". The setting is never flipped without that line.
-- The orchestrator only returns these lines in `OnboardingOutput.warnings`. The `onboard`
-  command (`src/cli/commands/onboard.ts`) prints each warning once, after the rest of its
-  output, as `⚠ <warning>`: yellow on a terminal, plain text otherwise. The unmapped-commands
-  warning is printed the same way.
+- The orchestrator only returns these lines in `OnboardingOutput.warnings`, together with the
+  unmapped-commands warning. Kept files and drift review targets come back in their own fields
+  (`kept_files`, `drift_review_targets`), so the CLI never has to tell them apart by matching
+  strings. The `onboard` command (`src/cli/commands/onboard.ts`) prints, after the rest of its
+  output, one `Kept <n> existing files unchanged.` line, the drift targets under
+  `Review these for drift:` as indented plain lines, and then each warning once as
+  `⚠ <warning>`: yellow on a terminal, plain text otherwise.
 
 ## Why the code works the way it does
 

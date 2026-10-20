@@ -396,6 +396,22 @@ describe('OnboardingOrchestrator', () => {
     );
   });
 
+  it('reports a kept entry file in kept_files, never in warnings', async () => {
+    writeFileSync(join(projectRoot, 'CLAUDE.md'), '# Team notes\n');
+
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+
+    expect(output.kept_files).toContain('CLAUDE.md');
+    expect(output.warnings).not.toContain('CLAUDE.md');
+    expect(Array.isArray(output.drift_review_targets)).toBe(true);
+    for (const target of output.drift_review_targets) {
+      expect(output.warnings).not.toContain(target);
+    }
+  });
+
   it('does not create empty architecture or design-system folders during onboarding', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,

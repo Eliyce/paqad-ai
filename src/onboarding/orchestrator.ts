@@ -332,7 +332,9 @@ export class OnboardingOrchestrator {
       detected_modules: modules,
       runtime_root: toPosixPath(runtimeRoot),
       manifest_path: toPosixPath(manifestPath),
-      warnings: [...writeResult.skipped, ...drift.review_targets, ...onboardingWarnings],
+      warnings: [...onboardingWarnings],
+      kept_files: writeResult.skipped,
+      drift_review_targets: drift.review_targets,
       reverted_framework_values: revertedFrameworkValues,
     };
 
@@ -364,7 +366,7 @@ export class OnboardingOrchestrator {
 
     return {
       ...phase1Output,
-      warnings: [...writeResult.skipped, ...drift.review_targets, ...onboardingWarnings],
+      warnings: [...onboardingWarnings],
     };
   }
 

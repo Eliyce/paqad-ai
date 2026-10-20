@@ -31,6 +31,8 @@ export interface OnboardingOutput {
   runtime_root: string;
   manifest_path: string;
   warnings: string[];
+  kept_files: string[];
+  drift_review_targets: string[];
   reverted_framework_values: string[];
 }
 
