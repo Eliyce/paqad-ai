@@ -454,7 +454,10 @@ decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-own
 - **Ship.** `ship.commits` counts only this change's own commits (`own_shas` from
   `computeCommitSplit`); `ship.commit_list` lists every delivery commit with `own` true, false
   or (for a split written before shas were kept) null. `ship.pr` is this change's pull request
-  only when its head commit is one of its own commits. `ship.pr_state`, `ship.merged` and
+  only when its head commit is one of its own commits. A merged pull request whose head is a
+  commit this change recorded stays its pull request after a merge-commit merge, when the base
+  branch holds the tip and the split finds no branch commits. A pull request saved before the state
+  and head were kept reads with no state, so Merge reads unknown. `ship.pr_state`, `ship.merged` and
   `ship.all_green` come from the saved gh state: Merge is merged only when the pull request is,
   and all green needs a passing CI reading on the pull request's current head while it is open; a
   pass read against an older head reads pending. `ship.ci_read_at` is when CI was last read.

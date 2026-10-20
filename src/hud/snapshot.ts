@@ -384,11 +384,19 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
   });
 }
 
-function ownPr(delivery: DeliveryRecord, ownShas: ReadonlySet<string> | null): DeliveryPr | null {
+function ownPr(
+  delivery: DeliveryRecord,
+  ownShas: ReadonlySet<string> | null,
+  inheritedShas: readonly string[],
+): DeliveryPr | null {
   const pr = delivery.pr ?? null;
   if (!pr) return null;
   const head = pr.head_sha ?? null;
-  return head !== null && ownShas !== null && ownShas.has(head) ? pr : null;
+  if (head === null) return (pr.state ?? null) === null ? pr : null;
+  if (ownShas !== null && ownShas.has(head)) return pr;
+  const recordedHere =
+    delivery.commits.some((commit) => commit.sha === head) && !inheritedShas.includes(head);
+  return pr.state === 'merged' && recordedHere ? pr : null;
 }
 
 function readingIsCurrent(
@@ -410,7 +418,7 @@ export function buildShip(delivery: DeliveryRecord): HudShip {
     subject: commit.subject,
     own: ownShas === null ? null : ownShas.has(commit.sha),
   }));
-  const pr = ownPr(delivery, ownShas);
+  const pr = ownPr(delivery, ownShas, inheritedShas);
   const prState = pr?.state ?? null;
   const rawCi = delivery.ci ?? null;
   const ci =

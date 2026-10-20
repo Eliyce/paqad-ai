@@ -890,6 +890,39 @@ describe('ship honesty', () => {
     expect(shipOn({ pr: { ...openPr, head_sha: null } }).pr).toBeNull();
   });
 
+  it('a PR merged with a merge commit still reads merged once the base holds the branch', () => {
+    const afterMerge = {
+      commit_split: {
+        state: 'known' as const,
+        reason: null,
+        base_commit: 'b',
+        own: group(0, []),
+        inherited: group(0, []),
+        own_shas: [],
+        inherited_shas: [],
+      },
+    };
+    expect(shipOn({ ...afterMerge, pr: { ...openPr, state: 'merged' } })).toMatchObject({
+      pr: { number: 12 },
+      pr_state: 'merged',
+      merged: true,
+    });
+    expect(shipOn({ ...afterMerge, pr: openPr })).toMatchObject({ pr: null, merged: false });
+    expect(
+      shipOn({ pr: { ...openPr, head_sha: 'old-sha-1234567', state: 'merged' } }),
+    ).toMatchObject({ pr: null, merged: false });
+  });
+
+  it('a legacy PR saved with no state and no head reads unknown, never merged', () => {
+    const legacy = { number: 12, url: 'https://example.test/pull/12', draft: false, at };
+    expect(shipOn({ pr: legacy })).toMatchObject({
+      pr: { number: 12 },
+      pr_state: null,
+      merged: false,
+      all_green: false,
+    });
+  });
+
   it('AC-12: a PR closed without merging keeps Merge dark', () => {
     expect(shipOn({ pr: { ...openPr, state: 'closed' } })).toMatchObject({
       pr_state: 'closed',
