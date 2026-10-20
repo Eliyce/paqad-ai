@@ -48,8 +48,7 @@ export const MIN_CLAUDE_VERSION = '2.1.295';
 export type MigrationState =
   'pending' | 'installed' | 'done' | 'failed' | 'rolled-back' | 'declined' | 'skipped';
 
-/** Which install path performed (or would undo) the move. */
-export type MigrationPath = 'cli' | 'settings' | 'synced';
+export type MigrationPath = 'cli' | 'bundled-cli' | 'settings' | 'synced';
 
 export interface MigrationRecord {
   state: MigrationState;
@@ -86,8 +85,8 @@ export interface MigrationDeps {
   version?: string;
   /** `claude --version` → the semver string, or null when there is no usable `claude` on PATH. */
   claudeVersion?: () => string | null;
-  /** Path A: run the `claude plugin` install; returns ok + an optional failure reason. */
-  runClaudeInstall?: (home: string, env: NodeJS.ProcessEnv) => { ok: boolean; reason?: string };
+  runClaudeInstall?: ClaudeInstallRunner;
+  bundledClaude?: () => string | null;
   /** `claude plugin uninstall`, run by the automatic rollback when Claude Code lists the plugin. */
   runClaudeUninstall?: (home: string) => void;
   /** The managed-settings files to inspect (defaults per-OS); injectable for tests. */
@@ -189,12 +188,12 @@ function clearPluginSeen(home: string): void {
   }
 }
 
-/** True when a plugin root path is a claude.ai synced-plugin cache (Part 9.3). */
 export function isSyncedRoot(root: string | undefined): boolean {
-  return (
-    typeof root === 'string' &&
-    (root.includes('/plugins/synced/') || root.includes('\\plugins\\synced\\'))
-  );
+  if (typeof root !== 'string') return false;
+  const path = root.replaceAll('\\', '/');
+  if (path.includes('/plugins/synced/')) return true;
+  const sessions = path.indexOf('/Claude/local-agent-mode-sessions/');
+  return sessions !== -1 && path.indexOf('/rpm/plugin_', sessions) !== -1;
 }
 
 /**
@@ -282,29 +281,41 @@ export function defaultManagedSettingsPaths(
   return files;
 }
 
-/**
- * Inspect the readable managed-settings files for a policy that would stop the plugin, returning a
- * short reason or null. Server-managed policy can't be read from disk; it surfaces as a failed
- * download in Part 4 instead.
- */
-export function managedPolicyBlockReason(paths: string[]): string | null {
+export type ManagedPolicyBlock = 'hooks-blocked' | 'plugin-blocked';
+
+export function classifyManagedPolicy(paths: string[]): ManagedPolicyBlock | null {
+  let found: ManagedPolicyBlock | null = null;
   for (const path of paths) {
-    let policy: Record<string, unknown>;
-    try {
-      policy = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
-    } catch {
-      continue; // absent or unreadable → not a blocking signal
+    const policy = readPolicyFile(path);
+    if (!policy) continue;
+    if (policy.allowManagedHooksOnly === true || policy.disableAllHooks === true) {
+      return 'hooks-blocked';
     }
-    if (policy.allowManagedHooksOnly === true) return 'managed-policy';
-    if (policy.disableAllHooks === true) return 'managed-policy';
-    const enabled = policy.enabledPlugins as Record<string, unknown> | undefined;
-    if (enabled && enabled[PLUGIN_ID] === false) return 'managed-policy';
-    const strict = policy.strictKnownMarketplaces;
-    if (Array.isArray(strict) && !marketplaceReferenced(strict)) return 'managed-policy';
-    const blocked = policy.blockedMarketplaces;
-    if (Array.isArray(blocked) && marketplaceReferenced(blocked)) return 'managed-policy';
+    if (policyBlocksPlugin(policy)) found = 'plugin-blocked';
   }
-  return null;
+  return found;
+}
+
+function readPolicyFile(path: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function policyBlocksPlugin(policy: Record<string, unknown>): boolean {
+  const enabled = policy.enabledPlugins;
+  if (isRecord(enabled) && enabled[PLUGIN_ID] === false) return true;
+  const strict = policy.strictKnownMarketplaces;
+  if (Array.isArray(strict) && !marketplaceReferenced(strict)) return true;
+  const blocked = policy.blockedMarketplaces;
+  return Array.isArray(blocked) && marketplaceReferenced(blocked);
+}
+
+export function managedPolicyBlockReason(paths: string[]): string | null {
+  return classifyManagedPolicy(paths) === null ? null : 'managed-policy';
 }
 
 /** True when a marketplace list references the paqad plugin's github source. */
@@ -461,7 +472,8 @@ interface ResolvedDeps {
   now: () => Date;
   version: string;
   claudeVersion: () => string | null;
-  runClaudeInstall: (home: string, env: NodeJS.ProcessEnv) => { ok: boolean; reason?: string };
+  runClaudeInstall: ClaudeInstallRunner;
+  bundledClaude: () => string | null;
   runClaudeUninstall: (home: string) => void;
   managedSettingsPaths: string[];
   log: (message: string) => void;
@@ -476,6 +488,7 @@ function resolveDeps(deps: MigrationDeps): ResolvedDeps {
     version: deps.version ?? VERSION,
     claudeVersion: deps.claudeVersion ?? defaultClaudeVersion,
     runClaudeInstall: deps.runClaudeInstall ?? defaultRunClaudeInstall,
+    bundledClaude: deps.bundledClaude ?? (() => findBundledClaude(home)),
     runClaudeUninstall: deps.runClaudeUninstall ?? (() => {}),
     managedSettingsPaths: deps.managedSettingsPaths ?? defaultManagedSettingsPaths(),
     log: deps.log ?? ((message: string) => appendMigrationLog(home, message)),
@@ -609,25 +622,6 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
   if (!retryAllowed(prior, deps.now())) {
     return { state: prior?.state ?? 'skipped', reason: 'retry-not-due' };
   }
-  // Already present → jump straight to confirmation (Part 2.6 / Part 9).
-  if (isPluginPresent(deps.home)) {
-    if (isSyncedRoot(readPluginSeen(deps.home)?.root)) {
-      return record(deps, prior, { state: 'done', path: 'synced' });
-    }
-    // Re-declare the settings keys so a leftover install record (a retry after an automatic
-    // rollback with no claude to uninstall) is enabled again; an explicit user false is declined.
-    const attempts = (prior?.attempts ?? 0) + 1;
-    const settings = installViaSettings(deps.home);
-    if (settings.state !== 'installed') {
-      return record(deps, prior, { state: settings.state, reason: settings.reason, attempts });
-    }
-    return record(deps, prior, {
-      state: 'installed',
-      path: 'settings',
-      attempts,
-      npm_sessions_since_install: 0,
-    });
-  }
   const policyReason = managedPolicyBlockReason(deps.managedSettingsPaths);
   if (policyReason) {
     return record(deps, prior, {
@@ -636,8 +630,9 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
       attempts: (prior?.attempts ?? 0) + 1,
     });
   }
-
-  // Single-flight machine lock (Part 2) — only one migration runs per machine.
+  if (isPluginPresent(deps.home)) {
+    return recordPresentPlugin(deps, prior);
+  }
   if (!acquireLock(deps.home)) {
     return { state: prior?.state ?? 'skipped', reason: 'locked' };
   }
@@ -648,45 +643,146 @@ function runMigration(projectRoot: string, deps: ResolvedDeps): MigrationResult 
   }
 }
 
-/** Run the install (Path A when a usable `claude` exists, else Path B) and record `installed`. */
+function recordPresentPlugin(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {
+  if (isSyncedRoot(readPluginSeen(deps.home)?.root)) {
+    return record(deps, prior, { state: 'done', path: 'synced' });
+  }
+  const attempts = (prior?.attempts ?? 0) + 1;
+  const settings = installViaSettings(deps.home);
+  if (settings.state !== 'installed') {
+    return record(deps, prior, { state: settings.state, reason: settings.reason, attempts });
+  }
+  return record(deps, prior, {
+    state: 'installed',
+    path: 'settings',
+    attempts,
+    npm_sessions_since_install: 0,
+  });
+}
+
 function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): MigrationResult {
-  // An explicit user opt-out wins over both paths: never install against it (B5, INV-7).
   if (userDisabledPlugin(deps.home)) {
     deps.log('user turned the plugin off; not installing');
     return record(deps, prior, { state: 'declined', reason: 'user-opted-out' });
   }
   const attempts = (prior?.attempts ?? 0) + 1;
   const version = deps.claudeVersion();
-  const pathA = version !== null && versionAtLeast(version, MIN_CLAUDE_VERSION);
-
-  if (pathA) {
+  if (version !== null && versionAtLeast(version, MIN_CLAUDE_VERSION)) {
     const run = deps.runClaudeInstall(deps.home, deps.env);
-    if (run.ok) {
-      // Both paths end in the same declared user-settings state.
-      installViaSettings(deps.home);
-      deps.log(`installed via cli (claude ${version})`);
-      return record(deps, prior, {
-        state: 'installed',
-        path: 'cli',
-        attempts,
-        npm_sessions_since_install: 0,
-      });
-    }
-    deps.log(`path A failed (${run.reason ?? 'unknown'}); falling back to settings`);
+    if (run.ok) return recordCliInstall(deps, prior, attempts, 'cli', `claude ${version}`);
+    const reason = `path-a-failed:${run.reason ?? 'unknown'}`;
+    deps.log(`path A failed (${run.reason ?? 'unknown'})`);
+    return record(deps, prior, { state: 'failed', reason, attempts });
   }
+  const bundled = deps.bundledClaude();
+  if (bundled === null) {
+    deps.log('no claude on PATH and no bundled claude from the Desktop app');
+    return record(deps, prior, { state: 'skipped', reason: 'no-claude-cli', attempts });
+  }
+  const run = deps.runClaudeInstall(deps.home, deps.env, bundled);
+  if (run.ok) return recordCliInstall(deps, prior, attempts, 'bundled-cli', bundled);
+  const reason = `bundled-cli-failed:${run.reason ?? 'unknown'}`;
+  deps.log(`bundled claude install failed (${run.reason ?? 'unknown'})`);
+  return record(deps, prior, { state: 'skipped', reason, attempts });
+}
 
-  const result = installViaSettings(deps.home);
-  if (result.state === 'installed') {
-    deps.log('installed via settings');
-    return record(deps, prior, {
-      state: 'installed',
-      path: 'settings',
-      attempts,
-      npm_sessions_since_install: 0,
-    });
+function recordCliInstall(
+  deps: ResolvedDeps,
+  prior: MigrationRecord | null,
+  attempts: number,
+  path: 'cli' | 'bundled-cli',
+  via: string,
+): MigrationResult {
+  installViaSettings(deps.home);
+  deps.log(`installed via ${path} (${via})`);
+  return record(deps, prior, {
+    state: 'installed',
+    path,
+    attempts,
+    npm_sessions_since_install: 0,
+  });
+}
+
+const BUNDLED_CLAUDE_SEARCH_DEPTH = 4;
+
+export function findBundledClaude(
+  home: string,
+  platform: NodeJS.Platform = process.platform,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  const root = bundledClaudeRoot(home, platform, env);
+  if (root === null) return null;
+  for (const version of versionFolders(root)) {
+    const found = findExecutable(join(root, version), platform, BUNDLED_CLAUDE_SEARCH_DEPTH);
+    if (found !== null) return found;
   }
-  deps.log(`settings install did not complete: ${result.state} (${result.reason ?? ''})`);
-  return record(deps, prior, { state: result.state, reason: result.reason, attempts });
+  return null;
+}
+
+function bundledClaudeRoot(
+  home: string,
+  platform: NodeJS.Platform,
+  env: NodeJS.ProcessEnv,
+): string | null {
+  if (platform === 'darwin') {
+    return join(home, 'Library', 'Application Support', 'Claude', 'claude-code');
+  }
+  if (platform === 'win32') {
+    const appData = env.APPDATA?.trim() ? env.APPDATA : join(home, 'AppData', 'Roaming');
+    return join(appData, 'Claude', 'claude-code');
+  }
+  return null;
+}
+
+function versionFolders(root: string): string[] {
+  let names: string[];
+  try {
+    names = readdirSync(root);
+  } catch {
+    return [];
+  }
+  return names
+    .filter((name) => /^\d+\.\d+\.\d+$/.test(name) && isDirectory(join(root, name)))
+    .sort((a, b) => (a === b ? 0 : versionAtLeast(a, b) ? -1 : 1));
+}
+
+function findExecutable(dir: string, platform: NodeJS.Platform, depth: number): string | null {
+  const binary = platform === 'win32' ? 'claude.exe' : 'claude';
+  const direct =
+    platform === 'win32' ? join(dir, binary) : join(dir, 'claude.app', 'Contents', 'MacOS', binary);
+  if (isExecutableFile(direct, platform)) return direct;
+  if (depth <= 0) return null;
+  let names: string[];
+  try {
+    names = readdirSync(dir).sort();
+  } catch {
+    return null;
+  }
+  for (const name of names) {
+    const child = join(dir, name);
+    if (name === 'claude.app' || !isDirectory(child)) continue;
+    const found = findExecutable(child, platform, depth - 1);
+    if (found !== null) return found;
+  }
+  return null;
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function isExecutableFile(path: string, platform: NodeJS.Platform): boolean {
+  try {
+    const stat = statSync(path);
+    if (!stat.isFile()) return false;
+    return platform === 'win32' || (stat.mode & 0o111) !== 0;
+  } catch {
+    return false;
+  }
 }
 
 type PluginSeen = ReturnType<typeof readPluginSeen>;
@@ -1065,19 +1161,41 @@ export type ClaudeExec = (
   options: { timeoutMs: number; env: NodeJS.ProcessEnv },
 ) => ClaudeExecOutcome;
 
+export type ClaudeInstallRunner = (
+  home: string,
+  env: NodeJS.ProcessEnv,
+  bin?: string,
+) => { ok: boolean; reason?: string };
+
+export function claudeExecFor(bin: string): ClaudeExec {
+  return (args, options) => defaultClaudeExec(args, options, bin);
+}
+
+export function runClaudeInstallWith(
+  home: string,
+  env: NodeJS.ProcessEnv,
+  bin?: string,
+): { ok: boolean; reason?: string } {
+  return runClaudePluginInstall(
+    home,
+    env,
+    bin === undefined ? defaultClaudeExec : claudeExecFor(bin),
+  );
+}
+
 /* v8 ignore start -- the one real process-spawning binding; every branch above it is unit tested
    through the injected exec seam. */
 export function defaultClaudeExec(
   args: readonly string[],
   options: { timeoutMs: number; env: NodeJS.ProcessEnv },
+  bin: string = 'claude',
 ): ClaudeExecOutcome {
-  const result = spawnSync('claude', [...args], {
+  const result = spawnSync(bin, [...args], {
     env: options.env,
     timeout: options.timeoutMs,
     stdio: 'ignore',
     windowsHide: true,
-    // claude is a .cmd shim on Windows; static args only, so the shell is safe.
-    shell: process.platform === 'win32',
+    shell: process.platform === 'win32' && bin === 'claude',
   });
   if (result.error) {
     return (result.error as NodeJS.ErrnoException).code === 'ETIMEDOUT' ? 'timeout' : 'error';

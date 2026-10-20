@@ -68,14 +68,15 @@ function manifestClaudeCode(): void {
   );
 }
 
-/** Base deps that reach the install step: migration on, no claude CLI (Path B), no policy. */
 function baseDeps(over: Partial<MigrationDeps> = {}): MigrationDeps {
   return {
     env: { PAQAD_PLUGIN_MIGRATION: 'on' },
     home,
     now: () => new Date('2026-10-17T12:00:00Z'),
     version: '1.96.1',
-    claudeVersion: () => null,
+    claudeVersion: () => '2.1.300',
+    runClaudeInstall: () => ({ ok: true }),
+    bundledClaude: () => null,
     managedSettingsPaths: [],
     log: () => {},
     ...over,
@@ -304,7 +305,7 @@ describe('installed and done records carry no stale reason', () => {
     });
     expect(maybeMigrateToPlugin(projectRoot, baseDeps())).toEqual({
       state: 'installed',
-      path: 'settings',
+      path: 'cli',
       reason: undefined,
     });
     expect(readMigrationState(home)?.reason).toBeUndefined();
@@ -374,7 +375,7 @@ describe('config skips do not throttle a later opt-in (B7)', () => {
       projectRoot,
       baseDeps({ env: { PAQAD_CLAUDE_INSTALL_MODE: 'plugin' } }),
     );
-    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
   });
   it('install-mode-settings skips without writing settings, then installs on switch (AC-17)', () => {
     manifestClaudeCode();
@@ -541,12 +542,22 @@ describe('maybeMigrateToPlugin — skip conditions (Part 2)', () => {
 });
 
 describe('maybeMigrateToPlugin — install (Part 3)', () => {
-  it('installs via Path B (settings) when there is no usable claude', () => {
+  it('records no-claude-cli and writes no user settings when no claude can be found', () => {
     manifestClaudeCode();
-    const r = maybeMigrateToPlugin(projectRoot, baseDeps());
-    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
-    expect(existsSync(userSettings())).toBe(true);
-    expect(readMigrationState(home)?.npm_sessions_since_install).toBe(0);
+    const r = maybeMigrateToPlugin(projectRoot, baseDeps({ claudeVersion: () => null }));
+    expect(r).toEqual({ state: 'skipped', path: undefined, reason: 'no-claude-cli' });
+    expect(existsSync(userSettings())).toBe(false);
+    expect(readMigrationState(home)?.attempts).toBe(1);
+  });
+  it('treats a claude older than the minimum like no claude on PATH', () => {
+    manifestClaudeCode();
+    const runClaudeInstall = vi.fn(() => ({ ok: true }));
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({ claudeVersion: () => '2.1.200', runClaudeInstall }),
+    );
+    expect(r.reason).toBe('no-claude-cli');
+    expect(runClaudeInstall).not.toHaveBeenCalled();
   });
   it('installs via Path A when a new-enough claude runs the install', () => {
     manifestClaudeCode();
@@ -558,16 +569,14 @@ describe('maybeMigrateToPlugin — install (Part 3)', () => {
     expect(r).toMatchObject({ state: 'installed', path: 'cli' });
     expect(runClaudeInstall).toHaveBeenCalledOnce();
   });
-  it('falls back to Path B when Path A fails to start', () => {
+  it('records the Path A failure reason and writes no user settings', () => {
     manifestClaudeCode();
     const r = maybeMigrateToPlugin(
       projectRoot,
-      baseDeps({
-        claudeVersion: () => '2.1.300',
-        runClaudeInstall: () => ({ ok: false, reason: 'x' }),
-      }),
+      baseDeps({ runClaudeInstall: () => ({ ok: false, reason: 'x' }) }),
     );
-    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+    expect(r).toMatchObject({ state: 'failed', reason: 'path-a-failed:x' });
+    expect(existsSync(userSettings())).toBe(false);
   });
   it('records declined (no reinstall) when the user had turned the plugin off', () => {
     manifestClaudeCode();
@@ -681,21 +690,20 @@ describe('maybeMigrateToPlugin — Path A result is checked (B2)', () => {
     );
     expect(r).toMatchObject({ state: 'installed', path: 'cli' });
   });
-  it('falls back to settings and logs the reason when install exits non-zero (AC-4)', () => {
+  it('stores path-a-failed with the run reason when marketplace add and install exit non-zero', () => {
     manifestClaudeCode();
     const lines: string[] = [];
-    const { exec } = fakeExec({ install: 'exit' });
+    const { exec } = fakeExec({ marketplace: 'exit', install: 'exit' });
     const r = maybeMigrateToPlugin(
       projectRoot,
       pathADeps(exec, (m) => lines.push(m)),
     );
-    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
-    expect(lines).toContain('path A failed (cli-install-failed:exit); falling back to settings');
-    expect(
-      JSON.parse(readFileSync(userSettings(), 'utf8')).extraKnownMarketplaces.eliyce.source.repo,
-    ).toBe('Eliyce/paqad-ai');
+    expect(r).toMatchObject({ state: 'failed', reason: 'path-a-failed:cli-install-failed:exit' });
+    expect(readMigrationState(home)?.reason).toBe('path-a-failed:cli-install-failed:exit');
+    expect(lines).toContain('path A failed (cli-install-failed:exit)');
+    expect(existsSync(userSettings())).toBe(false);
   });
-  it('falls back on an unconfirmed install or a timeout (AC-5)', () => {
+  it('records failed on an unconfirmed install or a timeout', () => {
     for (const [outcome, reason] of [
       ['ok', 'cli-install-unconfirmed'],
       ['timeout', 'cli-install-failed:timeout'],
@@ -709,8 +717,8 @@ describe('maybeMigrateToPlugin — Path A result is checked (B2)', () => {
         projectRoot,
         pathADeps(exec, (m) => lines.push(m)),
       );
-      expect(r).toMatchObject({ state: 'installed', path: 'settings' });
-      expect(lines).toContain(`path A failed (${reason}); falling back to settings`);
+      expect(r).toMatchObject({ state: 'failed', reason: `path-a-failed:${reason}` });
+      expect(lines).toContain(`path A failed (${reason})`);
     }
   });
 });
@@ -1003,7 +1011,7 @@ describe('automatic rollback is retryable (B3)', () => {
     manifestClaudeCode();
     autoRolledBack();
     const r = maybeMigrateToPlugin(projectRoot, baseDeps());
-    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
     expect(readMigrationState(home)).toMatchObject({ attempts: 2, npm_sessions_since_install: 0 });
   });
   it('reports retry-not-due inside the 24h window (AC-7)', () => {
@@ -1362,12 +1370,13 @@ describe('coverage: edge branches', () => {
     expect(r.state).toBe('skipped');
     expect(r.reason).toContain('error:');
   });
-  it('records failed when Path B cannot read the user settings during install', () => {
+  it('a CLI install stays installed when the user settings cannot be read, and leaves them as they are', () => {
     manifestClaudeCode();
     mkdirSync(join(home, '.claude'), { recursive: true });
     writeFileSync(userSettings(), '{ broken');
     const r = maybeMigrateToPlugin(projectRoot, baseDeps());
-    expect(r.state).toBe('failed');
+    expect(r).toMatchObject({ state: 'installed', path: 'cli' });
+    expect(readFileSync(userSettings(), 'utf8')).toBe('{ broken');
   });
   it('increments attempts from a prior pending record on install', () => {
     manifestClaudeCode();
@@ -1375,13 +1384,13 @@ describe('coverage: edge branches', () => {
     maybeMigrateToPlugin(projectRoot, baseDeps());
     expect(readMigrationState(home)?.attempts).toBe(2);
   });
-  it('Path A failure with no reason still falls back to Path B', () => {
+  it('a Path A failure with no reason is stored as unknown', () => {
     manifestClaudeCode();
     const r = maybeMigrateToPlugin(
       projectRoot,
-      baseDeps({ claudeVersion: () => '2.1.300', runClaudeInstall: () => ({ ok: false }) }),
+      baseDeps({ runClaudeInstall: () => ({ ok: false }) }),
     );
-    expect(r).toMatchObject({ state: 'installed', path: 'settings' });
+    expect(r).toMatchObject({ state: 'failed', reason: 'path-a-failed:unknown' });
   });
   it('the update confirm treats a missing install timestamp as epoch (still confirms a newer seen)', () => {
     manifestClaudeCode();
@@ -1829,7 +1838,7 @@ describe('sessions before Claude Code installs the plugin do not count (issue #6
     writeMigrationState(home, { ...rolledBack, last_attempt_at: '2026-10-16T11:00:00Z' });
     expect(maybeMigrateToPlugin(projectRoot, baseDeps())).toMatchObject({
       state: 'installed',
-      path: 'settings',
+      path: 'cli',
     });
     expect(readMigrationState(home)?.attempts).toBe(2);
   });
