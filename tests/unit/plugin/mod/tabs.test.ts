@@ -126,6 +126,43 @@ describe('the Trust tab', () => {
     expect(lines).toContain('  flag 1 near-copy of existing code is open.');
   });
 
+  it('AC-31: shows each proof state with its one fixed label, and none and not-reproduced read Inconclusive', () => {
+    const states: Array<[string, string, string]> = [
+      ['none', 'no proof recorded', 'Inconclusive'],
+      ['red', 'fails before the fix, no green yet', 'Inconclusive'],
+      ['red-green', 'fails before the fix, passes after', 'passed'],
+      ['green-only', 'passes, but never shown failing before the fix', 'Inconclusive'],
+      [
+        'not-reproduced',
+        'passed before the fix, so it never reproduced the problem',
+        'Inconclusive',
+      ],
+      ['held', 'held: the fix broke a check that passed before', 'Inconclusive'],
+    ];
+    for (const [proof, label, word] of states) {
+      const lines = text(
+        trustLines(
+          parse({
+            ...FULL_ORD_501,
+            claims: [
+              {
+                kind: 'fix-proof',
+                proof,
+                label,
+                verdict: proof === 'red-green' ? 'pass' : 'inconclusive',
+                test_id: null,
+              },
+            ],
+          }),
+        ),
+      );
+      expect(lines, proof).toContain(`  Fix proof: ${label}  ${word}  no proving test recorded`);
+      if (proof === 'none' || proof === 'not-reproduced') {
+        expect(lines.join('\n'), proof).not.toContain('passed  ');
+      }
+    }
+  });
+
   it('names its empty state when no gate was judged', () => {
     expect(text(trustLines(parse({ ...FAST_ORD_490 })))).toEqual([NO_GATES]);
     expect(text(trustLines(null))).toEqual([NO_GATES]);

@@ -91,7 +91,7 @@ describe('paqad-ai delivery-link', () => {
   });
 
   it.each(['commit', 'decline', 'ignored', 'user-requested'] as const)(
-    'commit-decision %s records the answer on delivery.json',
+    'AC-35: commit-decision %s records the answer on delivery.json',
     async (answer) => {
       openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
       const lines = await run('commit-decision', answer);
@@ -102,7 +102,7 @@ describe('paqad-ai delivery-link', () => {
     },
   );
 
-  it('commit-decision rejects an unknown answer with exit code 1', async () => {
+  it('AC-35: commit-decision rejects an unknown answer with exit code 1', async () => {
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));

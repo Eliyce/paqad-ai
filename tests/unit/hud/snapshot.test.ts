@@ -423,7 +423,7 @@ describe('buildHudSnapshot', () => {
     });
   });
 
-  it('shows one fixed fix-proof claim per proof state, passed only for red then green', () => {
+  it('AC-31: shows one fixed fix-proof claim per proof state, passed only for red then green', () => {
     const root = onboardedRoot();
     const S = 'ses-claims';
     const dir = openChange(root, S, 'fast', 'PQD-4 fix');
@@ -452,15 +452,25 @@ describe('buildHudSnapshot', () => {
       verdict: 'inconclusive',
       test_id: null,
     });
-    const steps: Array<[FixProofRow, string, string]> = [
-      [row('red', 'not-reproduced'), 'not-reproduced', 'inconclusive'],
-      [row('red', 'red'), 'red', 'inconclusive'],
-      [row('green', 'held'), 'held', 'inconclusive'],
-      [row('green', 'green'), 'red-green', 'pass'],
+    const steps: Array<[FixProofRow, string, string, string]> = [
+      [
+        row('red', 'not-reproduced'),
+        'not-reproduced',
+        'inconclusive',
+        'passed before the fix, so it never reproduced the problem',
+      ],
+      [row('red', 'red'), 'red', 'inconclusive', 'fails before the fix, no green yet'],
+      [
+        row('green', 'held'),
+        'held',
+        'inconclusive',
+        'held: the fix broke a check that passed before',
+      ],
+      [row('green', 'green'), 'red-green', 'pass', 'fails before the fix, passes after'],
     ];
-    for (const [next, proof, verdict] of steps) {
+    for (const [next, proof, verdict, label] of steps) {
       appendFixProofRow(root, dir, next);
-      expect(claim()).toMatchObject({ proof, verdict, test_id: 'login > empty' });
+      expect(claim()).toMatchObject({ proof, verdict, label, test_id: 'login > empty' });
     }
     expect(claim().label).toBe('fails before the fix, passes after');
   });

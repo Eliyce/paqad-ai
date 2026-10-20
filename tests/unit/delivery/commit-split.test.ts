@@ -13,6 +13,9 @@ import {
   intakeBranchLine,
   sharedBranchLine,
 } from '@/delivery/commit-split.js';
+import { readFeatureDelivery, reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { computeHudFlags } from '@/hud/snapshot.js';
 import { parseBranchTickets } from '@/planning/ticket-ref-detect.js';
 
 import { ticketRef } from '../../shared/ticket-ref.js';
@@ -63,7 +66,7 @@ function sharedBranch(): { root: string; g: (...args: string[]) => string; start
 }
 
 describe('computeCommitSplit', () => {
-  it('splits own and inherited commits with tickets, merges and untagged', () => {
+  it('AC-32: splits own and inherited commits with tickets, merges and untagged', () => {
     const { root, start } = sharedBranch();
     const split = computeCommitSplit(root, { startCommit: start, ownTickets: ['ORD-482'] });
     expect(split.state).toBe('known');
@@ -110,7 +113,7 @@ describe('computeCommitSplit', () => {
     expect(sharedBranchLine(split, 'x')).toBeNull();
   });
 
-  it('raises nothing on a fresh branch from main and leaves the commit graph untouched', () => {
+  it('AC-32: raises nothing on a fresh branch from main and leaves the commit graph untouched', () => {
     const { root, g } = repo();
     g('checkout', '-q', '-b', 'feat/ORD-482-new');
     const start = g('rev-parse', 'HEAD');
@@ -122,7 +125,7 @@ describe('computeCommitSplit', () => {
     expect(g('rev-list', '--all')).toBe(before);
   });
 
-  it('clears the inherited commits once they are rebased away', () => {
+  it('AC-32: clears the inherited commits once they are rebased away', () => {
     const { root, g, start } = sharedBranch();
     expect(
       branchCarriesOtherWork(
@@ -135,7 +138,7 @@ describe('computeCommitSplit', () => {
     expect(split.inherited?.count).toBe(0);
   });
 
-  it('records unknown on a detached HEAD, with no base branch, or outside git', () => {
+  it('AC-32: records unknown on a detached HEAD, with no base branch, or outside git', () => {
     const { root, g } = repo();
     commit(root, g, 'second');
     g('checkout', '-q', '--detach', 'HEAD');
@@ -153,6 +156,58 @@ describe('computeCommitSplit', () => {
     roots.push(bare);
     expect(computeCommitSplit(bare).state).toBe('unknown');
     expect(branchCarriesOtherWork(computeCommitSplit(bare))).toBe(false);
+  });
+
+  it('AC-32: delivery.json carries the split, the shared flag follows it, and the commit graph stays', () => {
+    const quiet = {
+      stages: [],
+      gates: [],
+      rulesRecorded: true,
+      tableSkipped: false,
+      isolationStatus: 'not-applicable',
+      isolatedStages: 0,
+    };
+    const shared = (split: ReturnType<typeof computeCommitSplit> | null | undefined) =>
+      computeHudFlags({ ...quiet, commitSplit: split }).some((flag) => flag.id === 'branch:shared');
+    const { root, g } = repo();
+    g('checkout', '-q', '-b', 'feat/ORD-470-contact-matching');
+    commit(root, g, 'feat(ORD-470): match contacts');
+    g('checkout', '-q', '-b', 'side');
+    commit(root, g, 'feat(ORD-472): side work');
+    g('checkout', '-q', 'feat/ORD-470-contact-matching');
+    g('merge', '-q', '--no-ff', '-m', "Merge branch 'side'", 'side');
+    commit(root, g, 'wip');
+    writeFileSync(join(root, '.git/info/exclude'), '.paqad/\n');
+    const dir = openFeatureChange(root, 'ses_split', {
+      adapter: 'claude-code',
+      issue: 'ORD-482',
+      ulidSeed: 1,
+    });
+    commit(root, g, 'feat(ORD-482): new matcher');
+    commit(root, g, 'tidy');
+    const before = g('rev-list', '--all');
+    const at = '2026-10-20T00:00:00.000Z';
+    let split = reconcileDeliveryFromGit(root, dir, at).commit_split;
+    expect(g('rev-list', '--all')).toBe(before);
+    expect(readFeatureDelivery(root, dir).commit_split).toEqual(split);
+    expect(split?.state).toBe('known');
+    expect(split?.own).toEqual({ count: 2, tickets: ['ORD-482'], merges: 0, untagged: 1 });
+    expect(split?.inherited?.count).toBe(4);
+    expect(split?.inherited?.merges).toBe(1);
+    expect(split?.inherited?.untagged).toBe(2);
+    expect([...(split?.inherited?.tickets ?? [])].sort()).toEqual(['ORD-470', 'ORD-472']);
+    expect(shared(split)).toBe(true);
+
+    g('checkout', '-q', '-b', 'feat/ORD-482-clean', 'main');
+    commit(root, g, 'feat(ORD-482): new matcher');
+    split = reconcileDeliveryFromGit(root, dir, at).commit_split;
+    expect(split?.inherited?.count).toBe(0);
+    expect(shared(split)).toBe(false);
+
+    g('checkout', '-q', '--detach', 'HEAD');
+    split = reconcileDeliveryFromGit(root, dir, at).commit_split;
+    expect(split).toMatchObject({ state: 'unknown', reason: 'detached HEAD' });
+    expect(shared(split)).toBe(false);
   });
 
   it('treats an unknown start commit as no start', () => {

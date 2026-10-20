@@ -343,7 +343,7 @@ describe('the Stop delivery check saves what ships', () => {
     expect(readFeatureDelivery(root, dir).pr ?? null).toBeNull();
   });
 
-  it('keeps a recorded pass when gh later signs out for the same commit', async () => {
+  it('AC-33: keeps a recorded pass when gh later signs out for the same commit', async () => {
     const dir = branchChange();
     recordShip(
       root,
@@ -372,6 +372,39 @@ describe('the Stop delivery check saves what ships', () => {
     );
     expect(readFeatureDelivery(root, dir).ci).toMatchObject({ state: 'pass', done: 3 });
   });
+
+  it.each([
+    ['missing', { stdout: '', exitCode: 1, missing: true }, 'gh is not installed'],
+    [
+      'signed out',
+      { stdout: '', stderr: 'You are not logged into any GitHub hosts', exitCode: 4 },
+      'gh is signed out',
+    ],
+    ['timing out', { stdout: '', exitCode: 1, timedOut: true }, 'gh timed out after 10 s'],
+  ] as const)(
+    'AC-33: gh %s records CI unknown with the reason and leaves the Stop outcome unchanged',
+    async (_name, gh, reason) => {
+      const dir = branchChange();
+      const baseline = await runDeliveryCapability(
+        root,
+        'completion',
+        runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: fail }),
+      );
+      const outcome = await runDeliveryCapability(
+        root,
+        'completion',
+        runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh: { ...gh } }),
+      );
+      expect(outcome.blocking).toBe(false);
+      expect(outcome.blocking).toBe(baseline.blocking);
+      expect(outcome.ran).toBe(baseline.ran);
+      expect(readFeatureDelivery(root, dir).ci).toMatchObject({
+        sha: 'sha-1',
+        state: 'unknown',
+        reason,
+      });
+    },
+  );
 
   it('saves the PR and a passing CI read against the branch change', async () => {
     const dir = branchChange();

@@ -759,7 +759,7 @@ describe('reconcileConfigOverrides — prune obsolete keys, never reset', () => 
     );
   });
 
-  it('keeps a team hud_chime value through reconcile, update and sync, and defaults it off', () => {
+  it('AC-46: keeps a team hud_chime value through reconcile, update and sync, and defaults it off', () => {
     writeConfigsFile(root, '.config.app', 'hud_chime=true\n');
     writeConfig(root, 'hud_chime=true\n');
     writeConfigExample(root);

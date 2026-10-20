@@ -289,7 +289,7 @@ describe('what ships', () => {
     });
   });
 
-  it('keeps a recorded pass when a later read for the same commit is pending', () => {
+  it('AC-33: keeps a recorded pass when a later read for the same commit is pending', () => {
     const root = tempRepo();
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 6 });
     recordShip(root, dir, { ci: ci('pass') }, AT);
