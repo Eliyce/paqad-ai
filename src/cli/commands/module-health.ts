@@ -40,11 +40,6 @@ export function createModuleHealthCommand(): Command {
         fromReport?: string;
         fromTestReport?: string;
       }) => {
-        // Issue #80 Phase 3 (spec AC #25): --from-report routes through the
-        // test-driven rollup engine instead of the session-evidence pipeline.
-        // The two paths are deliberately separate — session evidence carries
-        // diff context, rollup carries report context; mixing them would
-        // collapse two distinct signals onto one profile.
         if (options.fromReport || options.fromTestReport) {
           const discovered = discoverModuleHealth(options.projectRoot);
           const report = await rollupModuleHealth({
@@ -75,9 +70,6 @@ export function createModuleHealthCommand(): Command {
       },
     );
 
-  // Issue #80 Phase 3 (spec AC #22-#26) — paqad-ai module-health rollup runs
-  // the test-driven rollup engine using the active stack pack's
-  // module_health.{coverage,test_report}_{format,path}.
   command
     .command('rollup')
     .description(

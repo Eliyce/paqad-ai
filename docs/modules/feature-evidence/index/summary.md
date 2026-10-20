@@ -729,6 +729,59 @@ obvious from its code, grouped by file.
 - **`verify.ts`.** The redo cap counts only failed verifies since the last stage mutation, so new
   work resets it, while repeated Stops with no new work still reach `blocked`.
 
+### The change verbs (`src/cli/commands/`)
+
+The CLI verbs that move a change are thin callers over the code above. The reasons below are not
+obvious from their code, grouped by file.
+
+- **`stage.ts`.** The verb resolves from the installed package on every project, unlike a
+  project-local script, which is why the gate's remediation names it. It resolves the same session
+  the live writer and the gate key on, so a manual mark clears the block in the session that hit
+  it, and it stamps where the session id came from, since the shared cache file may name another
+  live session. `--artifact` is normalized and checked against the rigid bundle file before any row
+  is written. A dispatched stage agent has no hook payload, so it names itself with `--agent` or
+  `PAQAD_STAGE_AGENT`. Only an unknown stage fails. The printed confirmation leaves out the session
+  id, because echoing environment-derived data is flagged as clear-text logging; `resume` does the
+  same.
+- **`plan.ts`, `review.ts`, `spec.ts`.** The model fills a template and the script writes the rigid
+  record, so the model never owns the stored bytes; the filled template is deleted after success so
+  it is never a second source of truth. A reuse-gate failure prints its own lines, since each names
+  the field to fix, and an evidence-armed or readiness pause is named plainly because it blocks the
+  next edit. `spec freeze` runs the spec review itself, so its "no critical spec-review defects"
+  promise holds and no separate report is written. A spec outside the project root, or inside a
+  bundle dir, is rejected, and the frozen record stores a project-relative posix path. The spec
+  source is deleted only once the frozen record is in a bundle; a standalone freeze with no active
+  change persists nothing, so deleting there would lose the only copy. The fast lane never runs
+  the spec pipeline, and an unresolved lane counts as full.
+- **`lane.ts`.** The classifier picks a lane before it has read the ticket, so this verb lets the
+  person or agent record the real lane; the write goes through the same ratchet, so it only ever
+  raises it.
+- **`route.ts`.** Correcting a route replaces the mislabelled entry instead of pausing it, and
+  resumes a paused entry of the target workflow. It refuses to leave feature development once this
+  session edited source files this turn (judged by its own rows, never the shared git tree). With no
+  session id given, the check is skipped and the audit row says why, because a wrong label you
+  cannot correct is worse than a logged correction. A stashed lane is cleared when the new route is
+  not feature development.
+- **`decision.ts`.** It wraps the existing packet engine so packets are created through the
+  installed package on every project (the old script path only existed in the paqad repo).
+- **`delivery-link.ts`.** Every subcommand exits 0 so git is never held up. When a branch has a
+  bundle but the active pointer is gone, the reason the link missed is stamped on that bundle's
+  `delivery.json`, since hook stdout is discarded. The report is regenerated here because git hooks
+  fire on every host, including the advisory ones.
+- **`delivery.ts`.** Pushing and opening a PR is outward-facing, so the `delivery.open_pr` pause is
+  mandatory; a pending packet keeps it paused, and a minting failure still pauses rather than
+  pushing unasked.
+- **`discovery.ts`.** A write needs the run's owner stamp to be this session, failing closed, so
+  the `--run` escape hatch cannot write into another session's run. A stage end takes only its one
+  canonical artifact, and `completed` is refused until the stage evidence verifies.
+- **`checks.ts`.** The acceptance-criteria map is written beside the report on a best-effort basis:
+  a map that cannot be built is a warning, never a failed run.
+- **`spec-pipeline.ts`.** Every verb writes through the run store; the brief and the merge are
+  rebuilt in memory from what is stored, and only the brief's hash is kept. The experts verbs
+  refuse when the experts flag is off. Questions the ledger can answer are removed before the
+  batch is stored. High Table rows are written after the verb's own record, so a failed row is
+  reported on stderr and never changes the result.
+
 ## Source Footprint
 
 - `src/feature-evidence`

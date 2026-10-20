@@ -29,8 +29,6 @@ function resolveStaticDir(override: string | undefined): string {
     return isAbsolute(override) ? override : resolve(process.cwd(), override);
   }
   const here = dirname(fileURLToPath(import.meta.url));
-  // Same bundled assets as `paqad-ai graph` — the SPA contains both
-  // routes (#/graph and #/dashboard).
   const candidates = [
     resolve(here, '../../runtime/graph-ui'),
     resolve(here, '../../../runtime/graph-ui'),
@@ -75,9 +73,6 @@ export function createDashboardCommand(): Command {
         process.exitCode = 2;
         return;
       }
-      // Issue #220 — vanilla mode means no paqad behavior at all, including the
-      // dashboard. When disabled (paqad.enabled: false or PAQAD_DISABLED=1), do
-      // not start the server. This is a deliberate, healthy state, so exit 0.
       if (isFrameworkDisabledForRoot(projectRoot)) {
         process.stdout.write(
           'paqad is disabled (vanilla mode); the dashboard will not start. Run `paqad-ai enable` (or unset PAQAD_DISABLED) to use it.\n',
@@ -102,8 +97,6 @@ export function createDashboardCommand(): Command {
       });
 
       const dashboardUrl = `${server.url}/#/dashboard`;
-      // Issue #616 Part 8b — --print-url is the programmatic contract for the dashboard skill: one
-      // exact line with the server root, and nothing else on stdout.
       if (options.printUrl) {
         process.stdout.write(`paqad dashboard: ${server.url}/\n`);
       } else if (!options.quiet) {

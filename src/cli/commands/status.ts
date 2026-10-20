@@ -18,10 +18,6 @@ interface StatusCommandOptions {
   session?: string;
 }
 
-/**
- * The HUD snapshot as plain text (issue #639): the headline, then one line per stage, readable
- * with every glyph removed. The JSON form is the snapshot object itself.
- */
 export function renderHudText(snapshot: HudSnapshot): string {
   const lines = [`paqad · ${snapshot.headline.text}`];
   if (snapshot.change) {
@@ -39,7 +35,6 @@ export function renderHudText(snapshot: HudSnapshot): string {
   return lines.join('\n');
 }
 
-/** The change cost in one line: tokens, then money with its label and date when any is priced. */
 function hudCostText(cost: NonNullable<HudSnapshot['cost']>): string {
   const tokens = `${cost.tokens.total.toLocaleString('en-US')} tokens`;
   const money = cost.usd === null ? null : moneyText(cost.usd, cost.price_table_date);
@@ -56,9 +51,6 @@ export interface DriftSignals {
   blocked: string | null;
 }
 
-// AC #35 — composes the four signals `status --fail-on-drift` trips on
-// without re-walking the source artefacts. Public so unit tests can assert
-// the matrix directly.
 export function collectDriftSignals(projectRoot: string): DriftSignals {
   const drift = readDriftReport(projectRoot);
   const docMissing = drift?.findings.filter((f) => f.code === 'MM-DOC-MISSING').length ?? 0;
@@ -84,11 +76,6 @@ export function driftSignalsTrip(signals: DriftSignals): boolean {
   );
 }
 
-/**
- * `paqad-ai status` — one-shot LLM-friendly snapshot of the dashboard
- * report. Reuses the same buildReport() pipeline the dashboard server
- * does, so what the agent sees matches what the human sees.
- */
 export function createStatusCommand(): Command {
   return new Command('status')
     .description('Print a one-shot dashboard report (Markdown or JSON)')
@@ -96,7 +83,7 @@ export function createStatusCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
       '--hud',
-      'Print the paqad HUD snapshot for this session (issue #639) instead of the dashboard report',
+      'Print the paqad HUD snapshot for this session instead of the dashboard report',
       false,
     )
     .option(

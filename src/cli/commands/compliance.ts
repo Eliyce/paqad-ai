@@ -105,10 +105,6 @@ export function createComplianceCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--json', 'Print JSON instead of a human-readable summary')
     .action(async (specFile: string, options: { projectRoot: string; json?: boolean }) => {
-      // Issue #401: reject a spec resolving outside the project root, and record a
-      // project-relative posix path. `path.relative` happily produced the
-      // `../../../../../../tmp/river-agent-spec.md` escape this issue was filed over
-      // (and backslashes on Windows); the canonical helper rejects the escape instead.
       let relativeSpec: string;
       try {
         relativeSpec = normalizeArtifactPath(options.projectRoot, specFile);
@@ -424,7 +420,6 @@ export function createComplianceCommand(): Command {
       process.exitCode = result.ok ? 0 : 1;
     });
 
-  // ── compliance boundary ──────────────────────────────────────────────────
   command
     .command('boundary')
     .description('Detect shared-type boundaries across specs and report unhandled variants')
@@ -455,7 +450,6 @@ export function createComplianceCommand(): Command {
       process.exitCode = 0;
     });
 
-  // ── compliance patterns ───────────────────────────────────────────────────
   command
     .command('patterns')
     .description('List, prune, or export defect patterns from the pattern store')
@@ -484,7 +478,7 @@ export function createComplianceCommand(): Command {
         const patterns = await queryPatterns(
           {
             min_frequency: parseInt(options.minFrequency, 10),
-            max_age_days: 36500, // effectively no age filter for listing
+            max_age_days: 36500,
           },
           storeRoot,
         );

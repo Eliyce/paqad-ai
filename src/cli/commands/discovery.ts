@@ -63,7 +63,6 @@ function loadTemplate(file: string): Record<string, unknown> | null {
   }
 }
 
-/** Resolve the run to act on: an explicit `--run <ref>`, else the session's active anchor. */
 function resolveRun(root: string, sessionId: string, runOpt: string | undefined): string | null {
   if (runOpt !== undefined && runOpt.trim().length > 0) {
     return resolveDiscoveryRunDir(root, runOpt);
@@ -75,12 +74,6 @@ function normalizeSlashes(path: string): string {
   return path.replace(/\\/g, '/');
 }
 
-/**
- * Whether `sessionId` may WRITE to `dirName` (issue #597, m6): the run's own owner stamp must be this
- * session. A run with no readable owner fails closed. Reads (status/report) never call this — an
- * unrelated read stays usable. This keeps a session from writing rows/artifacts into another
- * session's run via the `--run` escape hatch.
- */
 function ownsRunForWrite(root: string, sessionId: string, dirName: string): boolean {
   return readDiscoveryRun(root, dirName)?.session_id === sessionId;
 }
@@ -97,13 +90,6 @@ function fail(message: string): void {
   process.exitCode = 1;
 }
 
-/**
- * Make `dirName` the session's active Discovery run, pausing whatever was active. Unlike
- * `routeWorkflow` (whose resume branch would return a paused discovery entry verbatim and ignore the
- * requested run), this always anchors the ACTIVE entry to the exact run — so `start B` after run A
- * was paused activates B (not A), and `resume <ref>` re-anchors to the resumed run. A paused entry
- * for the same run is dropped so it is never both active and paused.
- */
 function activateDiscoveryRun(root: string, sessionId: string, dirName: string): void {
   const state = readWorkflowState(root, sessionId);
   const active = state.active;
@@ -132,11 +118,6 @@ function projectRootOption(command: Command): Command {
     .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)');
 }
 
-/**
- * `paqad-ai discovery …` — drive a standalone Discovery run (issue #597). Every canonical artifact
- * is script-written under `.paqad/ledger/delivery/<run>/`; the model supplies substantive content
- * through the record templates. This group is Discovery-only: it never touches feature evidence.
- */
 export function createDiscoveryCommand(): Command {
   const discovery = new Command('discovery').description(
     'Drive a standalone Discovery run (understand → investigate → refine → decide → check readiness → hand off)',
@@ -194,9 +175,6 @@ export function createDiscoveryCommand(): Command {
       if (!ownsRunForWrite(root, sessionId, dirName)) {
         return fail(foreignRunMessage(root, dirName));
       }
-      // Issue #597 (m3): a stage-end proves itself with the stage's ONE canonical artifact. Resolve
-      // it from the stage so the wrong artifact can never be recorded; an explicit --artifact must
-      // match that canonical path or it is rejected.
       let artifactPath: string | undefined;
       if (phase === 'end') {
         const canonical = discoveryRunFilePath(dirName, discoveryStageArtifactFile(stage)!);
@@ -288,8 +266,6 @@ export function createDiscoveryCommand(): Command {
       if (!ownsRunForWrite(root, sessionId, dirName)) {
         return fail(foreignRunMessage(root, dirName));
       }
-      // Issue #597 (m6): `completed` is a strong claim — refuse it until the stage evidence itself
-      // verifies complete. Execution status can still move to blocked/paused/cancelled freely.
       if (status === 'completed') {
         const verdict = foldDiscoveryRun(readDiscoveryStageRows(root, dirName)).verdict;
         if (verdict !== 'complete') {
@@ -328,7 +304,6 @@ export function createDiscoveryCommand(): Command {
   return discovery;
 }
 
-/** The `discovery <artifact> record <template.json>` writers, one subcommand per canonical artifact. */
 function addRecordSubcommand(discovery: Command): void {
   const record = (name: string, help: string): Command =>
     projectRootOption(

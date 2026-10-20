@@ -18,14 +18,6 @@ function isSiemFormat(value: string): value is SiemFormat {
   return (SIEM_FORMATS as readonly string[]).includes(value);
 }
 
-/**
- * `paqad-ai audit export` — project the #118 evidence ledger + tamper-evident
- * receipt chain into a standard SIEM schema (OCSF / ECS / CEF / JSONL) and write
- * it to a file or stdout. Read-only and local-first: it transforms the on-disk
- * ledger and hands the result to the customer's own collector (Splunk
- * forwarder, rsyslog, Datadog agent, Filebeat). There is no paqad-hosted
- * endpoint — their backend, our data.
- */
 export function createAuditCommand(): Command {
   const command = new Command('audit').description(
     'Export the evidence ledger to your own SIEM (read-only, local-first)',
@@ -66,7 +58,6 @@ export function createAuditCommand(): Command {
         productVersion: VERSION,
       });
 
-      // No trailing newline when empty so an empty export is a truly empty file.
       const payload = result.count > 0 ? `${result.output}\n` : '';
 
       if (options.out !== undefined) {

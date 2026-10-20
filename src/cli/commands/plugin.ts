@@ -6,16 +6,6 @@ import {
   runClaudePluginUninstall,
 } from '@/install/plugin-migration.js';
 
-/**
- * `paqad-ai plugin …` — manage the Claude Code plugin migration (issue #621).
- *
- * `rollback` undoes an automatic npm→plugin move on this machine, pins the project back to the
- * npm setup (`claude_install_mode=settings`) so it never re-migrates, and prints the documented
- * confirmation line. The npm package keeps working, so paqad never goes down.
- *
- * `tick` (hidden, issue #648) is spawned detached by the SessionStart hooks to record one real
- * Claude Code session against the migration. It prints nothing.
- */
 export function createPluginCommand(): Command {
   const command = new Command('plugin').description('Manage the Claude Code plugin migration');
 

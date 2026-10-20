@@ -33,12 +33,6 @@ import {
 const TESTING_RECORDED_NOTE =
   'recorded the test runner in .paqad/project-profile.yaml (once per lockfile change)';
 
-/**
- * `paqad-ai checks` — the deterministic checks stage (issues #318, #554). `run` executes the mapped
- * commands (overlapped, with the runner's own parallel mode) and blocks on a red result. `plan`
- * prints the resolved plan. `record-runner` records an agent-discovered parallel mode. No LLM is
- * involved: a command's exit code and parsed result files are the verdict.
- */
 export function createChecksCommand(): Command {
   const command = new Command('checks').description(
     'Run the project format/test/build checks deterministically and record the result',
@@ -68,9 +62,6 @@ export function createChecksCommand(): Command {
         critical_path: result.critical_path,
       });
 
-      // Issue #639, Part 11 — write the change's acceptance-criteria map beside the report, from
-      // the same changed files and test results. Best-effort: a map that cannot be built is a
-      // warning, never a failed `checks run`.
       await buildAndWriteChangeTraceabilityMap(
         {
           projectRoot: options.projectRoot,
@@ -128,8 +119,6 @@ export function createChecksCommand(): Command {
         profile,
       );
       const config = resolveFrameworkConfig(options.projectRoot);
-      // Read-only: derive the testing record in-memory when the profile has none yet, so the plan
-      // reflects the runner's real parallel mode without a prior `checks run` (no doc mirror write).
       const planProfile =
         profile && !profile.testing && profile.stack_profile
           ? {
@@ -249,7 +238,6 @@ function describeTestMode(
   return `sequential (${reason ?? 'unknown'})`;
 }
 
-/** Wall-clock seconds, `13 s` or `2 m 04 s`. */
 function fmtSecs(ms: number): string {
   const total = Math.round(ms / 1000);
   if (total < 60) return `${total} s`;
@@ -262,7 +250,6 @@ function commandName(logical: string | null, command: string): string {
   return logical ?? command;
 }
 
-/** The end-of-change receipt (issue #554, Part E.2). Verbatim shapes, plain language. */
 export function renderReceipt(
   result: ChecksRunResult,
   flakyMode: 'pass' | 'warn' | 'fail',
@@ -287,7 +274,6 @@ export function renderReceipt(
     );
   }
 
-  // Flaky-under-parallel line.
   if (result.recovered > 0) {
     if (flakyMode === 'fail') {
       lines.push(
@@ -300,7 +286,6 @@ export function renderReceipt(
     }
   }
 
-  // Sequential fallback line.
   if (result.sequential_reason) {
     lines.push(`> - 🟡 test ran sequentially: ${humanReason(result.sequential_reason)}`);
   }

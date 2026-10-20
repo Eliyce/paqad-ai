@@ -22,9 +22,7 @@ export function createUpdateCommand(): Command {
             maybeMigrateToPlugin(options.projectRoot, {
               runClaudeInstall: runClaudeInstallWith,
             });
-          } catch {
-            /* best-effort: the migration never breaks the update */
-          }
+          } catch {}
         }
       } catch (err) {
         if (!options.silent) {

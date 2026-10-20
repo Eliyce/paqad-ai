@@ -38,31 +38,15 @@ function resolveSession(options: LinkOptions): string {
   );
 }
 
-/**
- * Regenerate the feature's HTML evidence report after a git-linkage write (issue #371).
- * This is what keeps the report fresh on ALL hosts — including the advisory ones with no
- * lifecycle hook — because the git post-commit / post-merge hooks fire everywhere.
- * Best-effort and gated on the `feature_report` flag: a render failure never affects the
- * (already record-only, always exit-0) delivery-link command.
- */
 function regenerateReportSafe(projectRoot: string, dirName: string | null): void {
   if (!dirName) return;
   try {
     if (featureReportEnabled(projectRoot)) {
       writeFeatureReport(projectRoot, dirName);
     }
-  } catch {
-    // Record-only: a broken render must never disrupt a git operation.
-  }
+  } catch {}
 }
 
-/**
- * `paqad-ai delivery-link <commit|merge|reconcile>` — the git-linkage verbs the native
- * `post-commit` / `post-merge` hooks call (issue #339, Phase 5). Record-only and
- * non-blocking: every subcommand exits 0 even when nothing can be linked, so a git
- * operation is never held up by paqad. The commit trail in a feature's `delivery.json`
- * is the proof of WHICH code the bundle attests.
- */
 export function createDeliveryLinkCommand(): Command {
   const command = new Command('delivery-link').description(
     'Link git commits/merges to the active feature bundle (post-commit / post-merge hooks)',
@@ -88,9 +72,6 @@ export function createDeliveryLinkCommand(): Command {
     const active = currentFeature(options.projectRoot, resolveSession(options));
     const dir = recordCommitForBranch(options.projectRoot, active, { sha, subject }, at);
     if (!dir) {
-      // Issue #511 (RC-2.6) — make the discarded-stdout failure observable. When a branch
-      // has a bundle but the active pointer is gone (the bundle closed before the commit),
-      // stamp WHY the link missed onto that bundle's delivery.json instead of only stdout.
       const branch = git(options.projectRoot, ['branch', '--show-current']);
       const fallback = branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch) : null;
       if (fallback) {
@@ -127,8 +108,6 @@ export function createDeliveryLinkCommand(): Command {
       .description('Backfill the active feature delivery.json from local git (clone/CI path)'),
   ).action((options: LinkOptions) => {
     const active = currentFeature(options.projectRoot, resolveSession(options));
-    // With no active feature, reconcile every branch-matched feature so a fresh clone
-    // still lands accurate linkage on the feature that owns the current branch.
     const branch = git(options.projectRoot, ['branch', '--show-current']);
     const dir =
       active ?? (branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch) : null);

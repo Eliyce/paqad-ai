@@ -1,9 +1,3 @@
-// `paqad-ai health run|retest` (issue #355) — the single source of truth for the
-// codebase-health workflow. `run` does all detection deterministically (zero model
-// tokens) and dual-writes the report; `retest` re-runs the evidence and reclassifies
-// each prior finding by its stable id. Exit codes follow the audit convention:
-// 0 clean · 1 findings (or still-open on retest) · 2 an unexpected error.
-
 import { Command } from 'commander';
 
 import { runHealthAudit } from '@/codebase-health/run.js';

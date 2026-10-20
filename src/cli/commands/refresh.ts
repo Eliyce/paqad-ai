@@ -29,10 +29,7 @@ export function createRefreshCommand(): Command {
       '--providers',
       'Re-render provider entry files and the canonical Decision Pause Contract doc',
     )
-    .option(
-      '--reconcile-module-map',
-      'Run the module-map reconciler and exit non-zero on drift (issue #80 Phase 2)',
-    )
+    .option('--reconcile-module-map', 'Run the module-map reconciler and exit non-zero on drift')
     .option(
       '--rules',
       'Regenerate docs/instructions/rules from the framework rule packs for the saved stack',
@@ -58,8 +55,6 @@ export function createRefreshCommand(): Command {
           options.reconcileModuleMap === true ||
           options.rules === true;
 
-        // A flagless `refresh` is a status-only no-op. It must not materialize
-        // files the user never asked for (issue #72): every target is opt-in.
         if (!hasExplicitTarget) {
           console.error(
             'paqad-ai refresh: nothing to refresh — every target is opt-in. Choose one or more:\n' +
@@ -97,11 +92,6 @@ export function createRefreshCommand(): Command {
         if (shouldRefreshProviders) {
           await refreshProviderEntries(options.projectRoot);
         }
-
-        // Note: refresh deliberately does not touch the design system. The
-        // canonical design-tokens.json and its generated docs are owned by the
-        // documentation workflow (`create documentation`), so they are never
-        // created or regenerated here.
 
         if (shouldRefreshStack) {
           const previous = await new StackSnapshotCache().read(options.projectRoot);
@@ -141,10 +131,6 @@ export function createRefreshCommand(): Command {
         if (shouldReconcileModuleMap) {
           const discovered = discoverSourceRoots(options.projectRoot);
           if (discovered.source_roots === null) {
-            // Phase 2: packs do not yet declare module_health.source_roots.
-            // Gracefully degrade — print a warning, do not break refresh.
-            // Phase 3 populates every shipped pack and this branch becomes
-            // unreachable for projects on a supported stack.
             console.error(
               'paqad-ai refresh: skipping module-map reconciliation — no stack pack declares module_health.source_roots.',
             );
@@ -196,14 +182,8 @@ function printRulesReport(report: RulesRefreshReport): void {
 }
 
 async function refreshProviderEntries(projectRoot: string): Promise<void> {
-  // Issue #229 — the contracts live in the install bootstrap now, not the
-  // project. Prune any stale pre-#229 project-level copies and re-render the
-  // (lean) entry files.
   removeObsoleteContractDocs(projectRoot);
 
-  // Re-render entry files for every adapter that already has its config file
-  // present. Untouched adapters stay untouched — refresh should not silently
-  // onboard new providers.
   for (const type of ADAPTER_TYPES) {
     const adapter = AdapterFactory.create(type);
     const configPath = join(projectRoot, adapter.getConfigPath());
@@ -241,7 +221,5 @@ async function resolveChangedFiles(
     return [...new Set(contextChangedFiles)].sort();
   }
 
-  // Issue #646: the change's files straight from git (working tree plus branch
-  // commits). A clean tree with no branch commits means no differential refresh.
   return readGitChangedFiles(projectRoot);
 }

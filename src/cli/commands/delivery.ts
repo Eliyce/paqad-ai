@@ -17,7 +17,6 @@ import {
   renderEvidenceMarkdown,
 } from '@/verification/evidence-markdown.js';
 
-/** The open_pr choice, or a pause when the delivery.open_pr decision is unresolved. */
 export type OpenPrDecision =
   { status: 'resolved'; choice: 'yes' | 'draft' | 'no' } | { status: 'paused'; message: string };
 
@@ -31,11 +30,8 @@ export interface DeliverDeps {
   labels: string[];
   shell: DeliveryShell;
   host: HostProvider;
-  /** Resolve the mandatory delivery.open_pr pause (outward-facing action). */
   resolveOpenPr: () => OpenPrDecision;
-  /** Rendered verification evidence for the on-green PR comment, or null. */
   evidenceBody: string | null;
-  /** CI-gate clock/sleep seam for deterministic tests. */
   ci?: CiGateOptions;
 }
 
@@ -44,13 +40,6 @@ export interface DeliverResult {
   output: string;
 }
 
-/**
- * The testable core of `paqad-ai deliver` (issue #323): run the ALREADY-TESTED delivery
- * chain end-to-end — render → (delivery.open_pr pause) → branch/commit/push/PR → CI gate
- * (wait_for_green / on_red stop) → post evidence on green. Reuses `renderDelivery`,
- * `runDelivery`, and `runCiGate`; it never re-implements a git/gh flow. Returns an exit
- * code + a paqad-voice summary; it never throws (a provider failure is reported, not raised).
- */
 export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
   const { policy } = loadDeliveryPolicy(deps.projectRoot);
   const process = policy.process;
@@ -73,8 +62,6 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     };
   }
 
-  // Opening a PR / pushing is outward-facing and hard to reverse — the delivery.open_pr
-  // pause is mandatory (issue #323). Stop until the user resolves it.
   const decision = deps.resolveOpenPr();
   if (decision.status === 'paused') {
     return { exitCode: 2, output: decision.message };
@@ -125,12 +112,6 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
   };
 }
 
-/**
- * Resolve the delivery.open_pr decision from the packet store: a resolved
- * `delivery.open_pr` packet drives the choice; otherwise mint a pending one and pause
- * (the Decision Pause Contract's fallback). Reads the packet dirs directly so the pause
- * is deterministic and does not depend on an interactive host.
- */
 export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string): OpenPrDecision {
   const resolvedDir = join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR);
   const pendingDir = join(projectRoot, PATHS.DECISIONS_PENDING_DIR);
@@ -141,7 +122,6 @@ export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string
     if (choice) return { status: 'resolved', choice };
   }
 
-  // Already waiting on a pending packet → stay paused (don't mint a duplicate).
   if (findDeliveryPacket(pendingDir)) {
     return { status: 'paused', message: pauseMessage() };
   }
@@ -160,9 +140,7 @@ export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string
       ],
       recommendation: normalizeChoice(defaultChoice) ? defaultChoice : 'yes',
     });
-  } catch {
-    // Best-effort: even if minting fails, we still pause rather than push unasked.
-  }
+  } catch {}
   return { status: 'paused', message: pauseMessage() };
 }
 
@@ -179,7 +157,6 @@ function normalizeChoice(raw: string): 'yes' | 'draft' | 'no' | null {
   return value === 'yes' || value === 'draft' || value === 'no' ? value : null;
 }
 
-/** Newest `delivery.open_pr` packet in a decisions dir, or null. */
 function findDeliveryPacket(dir: string): Record<string, unknown> | null {
   let entries: string[];
   try {
@@ -189,7 +166,6 @@ function findDeliveryPacket(dir: string): Record<string, unknown> | null {
   } catch {
     return null;
   }
-  // Newest last (ids are time-sortable ULIDs), so scan from the end.
   for (let i = entries.length - 1; i >= 0; i -= 1) {
     try {
       const packet = JSON.parse(readFileSync(join(dir, entries[i]), 'utf8')) as Record<
@@ -197,14 +173,11 @@ function findDeliveryPacket(dir: string): Record<string, unknown> | null {
         unknown
       >;
       if (packet.category === 'delivery.open_pr') return packet;
-    } catch {
-      // Skip a malformed packet file.
-    }
+    } catch {}
   }
   return null;
 }
 
-/** Read + render the persisted verification evidence for the PR comment, or null. */
 function loadEvidenceBody(projectRoot: string): string | null {
   try {
     const evidence = readVerificationEvidence(projectRoot);
@@ -229,12 +202,6 @@ interface DeliverOptions {
   label?: string[];
 }
 
-/**
- * `paqad-ai deliver` (issue #323) — the one verb that runs the delivery engine and closes
- * the ticket → green-PR loop. It asks before opening the PR (delivery.open_pr pause), then
- * renders/branches/commits/pushes/opens the PR, waits for CI, stops on red, and posts the
- * verification evidence on green. `--dry-run` shows the rendered surface without pushing.
- */
 export function createDeliveryCommand(): Command {
   return new Command('deliver')
     .description('Run the delivery chain: PR (after asking) → wait for CI → evidence on green')
@@ -244,7 +211,7 @@ export function createDeliveryCommand(): Command {
     .option('--draft', 'Open the PR as a draft', false)
     .option('--title <title>', 'Change title (branch slug + PR title)', '')
     .option('--summary <summary>', 'One-line summary for the commit/PR body', '')
-    .option('--ticket <ref>', 'Linked ticket ref (e.g. #45 or PQD-123)')
+    .option('--ticket <ref>', 'Linked ticket ref (e.g. #<number> or PQD-<number>)')
     .option('--ticket-type <type>', 'Ticket type (Story/Bug/Task) → conventional commit type')
     .option('--scope <scope>', 'Conventional-commit scope (usually the module)')
     .option('--open-pr <mode>', 'Recommended open_pr choice for the pause (yes|draft|no)', 'yes')

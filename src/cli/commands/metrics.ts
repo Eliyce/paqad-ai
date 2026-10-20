@@ -4,12 +4,6 @@ import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { readFeatureChangeMetricsWindow } from '@/feature-evidence/projections.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
-/**
- * `paqad-ai metrics report` — print the per-change shape metrics for the last N changes
- * (issue #362). It reads the change-metrics rows the completion seam recorded (zero model
- * tokens, no scan) and renders a plain-words trend plus a compact table, so the "less, better
- * code" claim is visible without the dashboard. `--json` emits the machine-readable window.
- */
 export function createMetricsCommand(): Command {
   const command = new Command('metrics').description(
     'Report the per-change shape metrics (duplication on new code + cross-file reuse rate)',
@@ -39,12 +33,10 @@ export function createMetricsCommand(): Command {
   return command;
 }
 
-/** A numeric metric field on a row, or null when it was recorded as n/a. */
 function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-/** Mean of the numeric values, or null when none are numeric. */
 function mean(values: Array<number | null>): number | null {
   const nums = values.filter((value): value is number => value !== null);
   if (nums.length === 0) {
@@ -53,10 +45,6 @@ function mean(values: Array<number | null>): number | null {
   return nums.reduce((sum, value) => sum + value, 0) / nums.length;
 }
 
-/**
- * The direction of a series: compare the mean of its first half to its second half. Fewer than
- * two numeric points cannot show a direction, so it reads `flat` — never an invented trend.
- */
 export function trendOf(values: Array<number | null>): 'rising' | 'falling' | 'flat' {
   const nums = values.filter((value): value is number => value !== null);
   if (nums.length < 2) {
@@ -71,7 +59,6 @@ export function trendOf(values: Array<number | null>): 'rising' | 'falling' | 'f
   return second > first ? 'rising' : 'falling';
 }
 
-/** Render the paqad-voice human report for a window of change-metrics rows. */
 function printReport(rows: SessionLedgerRow[]): void {
   if (rows.length === 0) {
     console.log('**▸ paqad** · change shape: no changes measured yet.');

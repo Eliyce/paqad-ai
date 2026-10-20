@@ -7,13 +7,6 @@ import { onboardInstalledStack } from '@/onboarding/onboard-installed-stack.js';
 import { verifyReadinessToDevelop } from '@/onboarding/readiness.js';
 import { readSetupPlan, validateSetupPlan } from '@/onboarding/setup-plan.js';
 
-/**
- * `paqad-ai setup` (Slice 3) — work with the setup-plan record and the readiness check.
- *
- * paqad ships NO installers (BND-04): these verbs READ and VALIDATE the recorded plan of official
- * commands the owner/host runs and report whether the project is ready to develop. Nothing here
- * executes an installer.
- */
 export function createSetupCommand(): Command {
   const setup = new Command('setup').description(
     'Inspect the setup-plan record and verify readiness to develop (Slice 3)',

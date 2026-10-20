@@ -19,8 +19,6 @@ interface GraphCommandOptions {
   staticDir?: string;
 }
 
-// The graph now lives inside the dashboard, so the shim reuses the dashboard
-// port range rather than the retired graph server's 5371.
 const DEFAULT_PORT = 5372;
 
 const DEPRECATION_LINE =
@@ -41,12 +39,6 @@ function resolveStaticDir(override: string | undefined): string {
   return candidates[0]!;
 }
 
-/**
- * Deprecated alias for `paqad-ai dashboard` (issue #159). The graph is now a
- * first-class dashboard area; this shim keeps the muscle-memory shortcut alive
- * for one minor version by opening the dashboard directly on the Graph view.
- * Registered hidden so it stays out of `--help`.
- */
 export function createGraphCommand(): Command {
   return new Command('graph')
     .description('Deprecated: opens the dashboard on the Graph view')
@@ -75,8 +67,6 @@ export function createGraphCommand(): Command {
         process.exitCode = 2;
         return;
       }
-      // Issue #220 — vanilla mode includes the dashboard (the graph is a view in
-      // it). Do not start the server when paqad is disabled.
       if (isFrameworkDisabledForRoot(projectRoot)) {
         process.stdout.write(
           'paqad is disabled (vanilla mode); the dashboard will not start. Run `paqad-ai enable` (or unset PAQAD_DISABLED) to use it.\n',

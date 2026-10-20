@@ -27,30 +27,6 @@ import { clearFrozenRun, readFreezeSections, readStagedText } from '@/spec-pipel
 
 import { createSpecPipelineCommand } from './spec-pipeline.js';
 
-/**
- * `paqad-ai spec freeze <spec-file>` — the shell escape hatch that activates the
- * built-but-dead spec sign-off engine (issue #317). The specification stage promises
- * a frozen, signed-off spec before a line of code, but nothing ever ran the machinery
- * in `src/spec/`: no CLI verb, no instruction naming it. This verb is that caller. It
- * is invocation only — it reimplements none of the freeze logic:
- *
- *   buildFeatureSpec → reviewSpecification → evaluateSpecFreeze → freezeSpec
- *                    → writeFeatureSpecification
- *
- * Blockers (missing behaviour / acceptance criteria / invariants, an acceptance
- * criterion with no proof target, an unconfirmed invariant, an open question, and an
- * open CRITICAL spec-review defect) are printed and the command exits non-zero with
- * nothing frozen — a spec is never frozen silently over unresolved questions.
- *
- * The `reviewSpecification` step is issue #401: the contract had always claimed freeze
- * enforced "no critical spec-review defects" while this command passed no review at all,
- * so agents ran `compliance review` by hand and leaked a stray
- * `.paqad/compliance/<slug>/spec-review.json`. The review now runs inside freeze and its
- * summary rides in the frozen record, so the feature-development flow needs no second
- * command and writes no separate report. On a clean spec it writes the frozen spec into the
- * active feature's bundle at `<feature>/specification.json` (issue #343), the durable
- * record every frozen-spec reader now projects from.
- */
 export function createSpecCommand(): Command {
   const command = new Command('spec').description(
     'Work with feature specifications (freeze the spec before code)',
@@ -75,10 +51,7 @@ export function createSpecCommand(): Command {
       'Confirm every invariant as part of this sign-off (the human freeze act)',
       false,
     )
-    .option(
-      '--session <id>',
-      'Session id whose active feature receives specification.json (issue #339)',
-    )
+    .option('--session <id>', 'Session id whose active feature receives specification.json')
     .option('--keep-input', 'Keep the transient spec markdown instead of deleting it', false)
     .option(
       '--from-pipeline',
@@ -102,12 +75,6 @@ export function createSpecCommand(): Command {
           reason?: string;
         },
       ) => {
-        // Issue #401: a spec that resolves outside the project root is rejected outright.
-        // Freeze used to swallow the normalize failure and then record the raw input as
-        // `spec_file`, so a spec authored in `/tmp` was frozen with a non-portable absolute
-        // path (and the compliance report beside it recorded a `../../../..` escape). The
-        // tree-boundary judgement routes through the canonical `normalizeArtifactPath`
-        // helper — the same one the stage recorder uses — never a local re-derivation.
         let relSpec: string;
         try {
           relSpec = normalizeArtifactPath(options.projectRoot, specFile);
@@ -121,9 +88,6 @@ export function createSpecCommand(): Command {
           return;
         }
 
-        // Issue #402: never read (and so never bless) a spec authored INSIDE a feature
-        // bundle dir. That dir holds only rigid, script-owned artifacts; a spec markdown
-        // in there is the duplicate-of-specification.json pollution this fixes.
         if (classifyBundlePath(relSpec) !== null) {
           console.error(
             `**▸ paqad** · a feature bundle holds only its rigid artifacts, so a spec can't ` +
@@ -144,29 +108,16 @@ export function createSpecCommand(): Command {
         }
 
         const specId = options.specId ?? basename(specFile).replace(/\.[^.]+$/, '');
-        // `relSpec`, not the raw input: the frozen record pins a project-relative posix
-        // path, so it reads the same on every machine and on Windows (issue #401).
         const built = buildFeatureSpec({
           spec_id: specId,
           spec_file: relSpec,
           spec_markdown: markdown,
         });
 
-        // Confirming invariants IS the human sign-off act: the operator running this
-        // verb with --confirm-invariants is affirming every invariant. Without the
-        // flag, unconfirmed invariants stay blockers (honest — freeze is never implied).
         const spec: FeatureSpec = options.confirmInvariants
           ? { ...built, invariants: built.invariants.map((inv) => ({ ...inv, confirmed: true })) }
           : built;
 
-        // Issue #547 — spec-pipeline adoption. When the pipeline is on, freeze either merges the
-        // staged run (`--from-pipeline`, issue #581: task, grounding, pipeline and trace sections)
-        // or records in the `pipeline` section why it did not; under strict adoption a
-        // hand-written spec is refused unless `--manual --reason` is given. With the pipeline off,
-        // freeze writes none of those sections and behaves exactly as before. Issue #640: the
-        // fast lane never runs the pipeline (INV-18), so a fast-lane change freezes without it,
-        // whatever the config says; an unresolved lane counts as full. With the pipeline on, the
-        // record says the fast lane skipped it, so a lane raised later still owes the pipeline.
         const freezeSession = resolveSessionId(
           options.projectRoot,
           options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
@@ -220,20 +171,11 @@ export function createSpecCommand(): Command {
           }
         }
 
-        // Issue #401 — the freeze contract has always promised "no critical spec-review
-        // defects", but this command evaluated the freeze with no review attached, so the
-        // clause was enforced nowhere and agents hand-ran `compliance review` to satisfy it
-        // (leaking a stray `.paqad/compliance/<slug>/spec-review.json`). Running the review
-        // HERE makes the promise real: the report feeds the existing critical-defect check
-        // in `evaluateSpecFreeze`, which this command invokes rather than reimplements. The
-        // report is never persisted separately; its summary rides along in the frozen record.
         const specReview = reviewSpecification({
           spec_file: relSpec,
           spec_markdown: markdown,
         });
 
-        // Issue #579 (FR-14) — a frontend change under visual evidence needs a (proof: visual)
-        // criterion. Frontend-ness comes from the active plan's step files and the changed files.
         const planFiles = freezeFeature
           ? (readFeaturePlan(options.projectRoot, freezeFeature)?.steps ?? []).flatMap(
               (step) => step.files ?? [],
@@ -271,11 +213,6 @@ export function createSpecCommand(): Command {
           console.log('**▸ paqad** · frozen without the pipeline; the record says so');
         }
 
-        // Issue #343 (Phase-7 cutover) — the frozen spec's ONLY home is the active feature's
-        // bundle `specification.json` (the legacy `.paqad/specs/<id>.frozen.json` sidecar is
-        // retired). Every frozen-spec reader now projects from the bundles. With no active
-        // feature (a standalone freeze) nothing is persisted — the freeze still succeeds, but
-        // it names no bundle, so the caller knows to run `paqad-ai stage start planning` first.
         let bundlePath: string | null = null;
         let bundleDir: string | null = null;
         try {
@@ -297,26 +234,12 @@ export function createSpecCommand(): Command {
           }
         }
 
-        // Transient scratch (issue #402): the markdown has been built, hashed, frozen into
-        // specification.json and copied into the bundle as spec.md (issue #581), so the source
-        // is deleted for the same reason `plan compile` deletes its template: it is never a
-        // second, editable source of truth. Best-effort.
-        //
-        // Gated on `bundlePath` and not merely on the freeze succeeding: a standalone
-        // freeze with no active feature swallows NoActiveFeatureError above and persists
-        // NOTHING, so deleting there would destroy the only copy of the spec. Delete only
-        // once the frozen record demonstrably lives in a bundle.
         if (!options.keepInput && bundlePath !== null) {
           try {
             rmSync(specFile, { force: true });
-          } catch {
-            /* best-effort: a leftover spec is harmless, never fail the freeze for it */
-          }
+          } catch {}
         }
 
-        // Issue #581 (FR-4, AC-3) — the run now lives in specification.json, so its staging dir
-        // and every `.paqad/tmp/` input a record verb was handed go. `--keep-input` still keeps
-        // the spec source itself.
         if (bundleDir !== null) {
           clearFrozenRun(options.projectRoot, bundleDir, options.keepInput ? [relSpec] : []);
         }

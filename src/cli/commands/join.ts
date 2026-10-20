@@ -58,11 +58,6 @@ export const JOIN_RAG_BUILDING_MESSAGE =
 export const JOIN_READY_MESSAGE =
   'Ready. Your machine is set up for this project. No tracked files changed.';
 
-/**
- * The epoch timestamp join seeds into `framework-version.txt` (issue #576, Finding 10). It matches
- * the seed silent-update.mjs writes when it self-heals a missing version file, so the next
- * session's interval check fires immediately instead of a full interval later.
- */
 const FRAMEWORK_VERSION_EPOCH_SEED = '1970-01-01T00:00:00Z';
 
 export interface JoinProjectOptions {
@@ -101,29 +96,14 @@ export async function joinProject(options: JoinProjectOptions): Promise<void> {
     throw new Error(JOIN_NOT_ONBOARDED_MESSAGE);
   }
 
-  // Issue #576 (Finding 2) — set up the GLOBAL install first. `join` used to skip this (only
-  // `onboard`/`install` did it), so on a machine that never onboarded a project, `~/.paqad-ai/
-  // current` and the stage agents did not exist: every generated hook command resolved to a
-  // missing module and the host silently treated the failure as non-blocking, leaving ALL gates
-  // off, and `CLAUDE.md → .paqad/framework-path.txt → ~/.paqad-ai/current/AGENT-BOOTSTRAP.md`
-  // dangled. The HOME-ONLY bootstrap creates the framework symlink and the stage agents under the
-  // user home and writes NOTHING into the project, so join's "no tracked files changed" contract
-  // holds. Best-effort: a home-write failure must not abort join (the local artifacts below are
-  // still worth recreating, and a later `paqad-ai install`/session retries the home install).
   try {
     bootstrapFrameworkHome();
-  } catch {
-    // best-effort — a later `paqad-ai install`/session re-attempts the home install.
-  }
+  } catch {}
 
   const providers = deriveRecordedProviders(manifest);
   await recreateLocalArtifacts(projectRoot, profile, providers);
   await regenerateMachineArtifacts(projectRoot);
 
-  // Issue #615 (Part 1) — ensure the repo-root `.worktreeinclude` lists `.paqad/.config` so
-  // the dev-local config follows into new git worktrees. Idempotent: when onboarding already
-  // committed the line (the normal case for a joined repo) this is a no-op, so join's
-  // "no tracked files changed" contract holds; it only writes to repair a missing line.
   writeWorktreeInclude(projectRoot);
 
   if (options.rag !== false) {
@@ -161,8 +141,6 @@ async function recreateLocalArtifacts(
     capabilities: getLegacyCapabilities(profile),
   });
   const candidates: GeneratedFile[] = [];
-  // Issue #622 — one recommendations file in paqad's own dir, never a host MCP path. It goes
-  // through the same git-ignored filter below, so join never writes a tracked copy.
   let recommendMcp = false;
 
   for (const provider of providers) {
@@ -190,17 +168,11 @@ async function recreateLocalArtifacts(
     candidates.push({ ...new McpConfigManager().generate(profile), autoUpdate: true });
   }
 
-  // Issue #576 (Finding 10) — regenerate the git-ignored host-config files paqad OWNS even when
-  // they already exist, so a teammate on an old hook set is refreshed instead of keeping a stale
-  // `.claude/settings.json` forever. Tracked files (a hand-authored entry file) resolve as
-  // not-ignored and are still preserved — join never overwrites a user-authored tracked file.
   writeGeneratedFiles(
     projectRoot,
     candidates.filter((candidate) => isGitIgnored(projectRoot, candidate.path)),
   );
 
-  // Issue #622 — remove paqad-written legacy MCP files, but only git-ignored ones: a tracked
-  // one is logged and left for onboard or update, so join still changes no tracked file.
   cleanupLegacyMcpFiles(projectRoot, { canDelete: (path) => isGitIgnored(projectRoot, path) });
 
   if (isGitIgnored(projectRoot, PATHS.COMPILED_RULES)) {
@@ -224,76 +196,40 @@ async function recreateLocalArtifacts(
   }
   const hookResult = installGitHooks(projectRoot);
   if (hookResult.trackedHooksDir && hookResult.snippet) {
-    // Issue #576 (Finding 9) — the hooks dir is git-tracked; we did not write into it. Tell the
-    // teammate the one line to add so a reviewer / husky reinstall does not lose it.
     process.stdout.write(
       `Your git hooks directory is tracked, so paqad did not modify it. Add this yourself:\n${hookResult.snippet}\n`,
     );
   }
   if (isGitIgnored(projectRoot, PATHS.FRAMEWORK_VERSION)) {
-    // Issue #576 (Finding 10) — seed at the epoch, exactly as silent-update.mjs does when it
-    // self-heals a missing version file, so the NEXT session's interval check fires immediately.
-    // Stamping "now" here would postpone the teammate's first auto-update by a full interval.
     writeFrameworkVersionPreservingTimestamp(
       join(projectRoot, PATHS.FRAMEWORK_VERSION),
       VERSION,
       FRAMEWORK_VERSION_EPOCH_SEED,
     );
   }
-  // Issue #576 (Finding 10) — the `.agent-entry-loaded` write that used to live here was dead:
-  // SessionStart deletes the sentinel unconditionally at the start of every session, so writing it
-  // during join only mattered for a session already open while join ran (which then counted as
-  // loaded without loading the entry file). Removed.
 }
 
-/**
- * Regenerate the per-machine artifacts a teammate needs but that never arrive via clone (all
- * git-ignored, so join's no-tracked-diff contract holds). Before this, only `onboard`/the
- * documentation workflow produced them, so a teammate who ran `join` hit: `doctor` failing on the
- * missing detection/stack reports (Finding 4); the reuse gate, evidence-armed reuse forks and the
- * spec code check all degraded with no code-knowledge index (Finding 7); delivery falling back to
- * framework defaults with no delivery-detection (Finding 8); and a quality floor captured with the
- * teammate's first diff baked in (Finding 6). Every step is best-effort — a failure here must not
- * fail join (the machine is still usable, and the next onboard/refresh/session retries).
- */
 async function regenerateMachineArtifacts(projectRoot: string): Promise<void> {
-  // Finding 4 — the detection report + stack snapshot/drift that `doctor` reads.
   try {
     writeDetectionReport(projectRoot, await new Detector().detect(projectRoot));
-  } catch {
-    // best-effort
-  }
+  } catch {}
   try {
     const previous = await new StackSnapshotCache().read(projectRoot);
     const snapshot = await new StackIntrospector().snapshot(projectRoot);
     await writeStackArtifacts(projectRoot, snapshot, previous);
-  } catch {
-    // best-effort
-  }
+  } catch {}
 
-  // Finding 7 — the git-ignored code-knowledge index (reuse gate, evidence-armed reuse forks,
-  // spec code check). Only the index itself is written here: `index build`'s tracked side
-  // artifacts (the `docs/instructions/registries/` reuse catalog and module-map evidence) are the
-  // lead's committed registries and arrive via clone, so a teammate `join` must not rewrite them.
   try {
     const index = await buildCodeKnowledgeIndex(projectRoot);
     if (validateCodeKnowledgeIndex(index).valid) {
       writeCodeKnowledgeIndex(projectRoot, index);
     }
-  } catch {
-    // best-effort
-  }
+  } catch {}
 
-  // Finding 8 — delivery detection (host, base branch, branch/commit templates).
   try {
     await runDeliveryDetection(projectRoot, createDeliveryShell(projectRoot));
-  } catch {
-    // best-effort
-  }
+  } catch {}
 
-  // Finding 6 — seed the quality-ratchet baseline from the clean HEAD. join runs on a freshly
-  // cloned tree (working tree == HEAD), so measuring now captures the committed baseline instead
-  // of the teammate's first in-progress diff. Only when no baseline exists yet — never clobber one.
   try {
     if ((await readQualityBaseline(projectRoot)) === null) {
       const current = await collectQualityMeasures({
@@ -305,9 +241,7 @@ async function regenerateMachineArtifacts(projectRoot: string): Promise<void> {
       });
       await writeQualityBaseline(projectRoot, createBaseline(current, new Date().toISOString()));
     }
-  } catch {
-    // best-effort
-  }
+  } catch {}
 }
 
 async function joinRag(
@@ -327,8 +261,6 @@ async function joinRag(
     return true;
   }
 
-  // Issue #616 Part 8 — --non-interactive never starts a prompt (it builds without confirming), so a
-  // scripted join with no TTY cannot hang on the confirm. --interactive stays the explicit opt-in.
   if (options.interactive && !options.yes && !options.nonInteractive) {
     const accepted = await confirm({
       message: 'Build the local RAG index now?',
@@ -345,14 +277,11 @@ async function joinRag(
     current: status,
     provider,
     model: intelligence.embedding_model ?? getDefaultEmbeddingModel(provider),
-    // Issue #576 (Finding 3) — build the index only; never rewrite the tracked profile or the
-    // dev-local `.config` on a teammate machine (they belong to the team's committed config).
     buildOnly: true,
   });
   return true;
 }
 
-/** Whether git actually tracks `path` (a committed file), regardless of ignore patterns. */
 function isGitTracked(projectRoot: string, path: string): boolean {
   try {
     execFileSync('git', ['ls-files', '--error-unmatch', '--', path], {
@@ -366,9 +295,6 @@ function isGitTracked(projectRoot: string, path: string): boolean {
 }
 
 function isGitIgnored(projectRoot: string, path: string): boolean {
-  // Issue #576 (Finding 10) — a TRACKED file that happens to match an ignore pattern must never be
-  // treated as ignored: overwriting it would be a tracked diff. `check-ignore --no-index` reports
-  // such a file as ignored (it does not consult the index), so guard with a tracked check first.
   if (isGitTracked(projectRoot, path)) {
     return false;
   }
