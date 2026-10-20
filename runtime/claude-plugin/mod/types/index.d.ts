@@ -88,7 +88,7 @@ export type PaqadHighTable = {
   credits: Array<{ line: string; roles: string[] }>;
 };
 
-export type PaqadPaneTab = 'table' | 'cost';
+export type PaqadPaneTab = 'table' | 'cost' | 'trust' | 'ships' | 'record';
 
 export type PaqadLastBlock = {
   text: string;
@@ -109,6 +109,29 @@ export type PaqadCommitGroup = {
   untagged: number;
 };
 
+export type PaqadGateStrength = 'deterministic' | 'llm-judged' | null;
+
+export type PaqadGate = {
+  name: string;
+  verdict: string;
+  required: boolean;
+  strength: PaqadGateStrength;
+};
+
+export type PaqadClaim = {
+  kind: string;
+  label: string;
+  verdict: string;
+  test_id: string | null;
+};
+
+export type PaqadCi = {
+  state: string;
+  done: number | null;
+  total: number | null;
+  reason: string | null;
+};
+
 export type PaqadHudSnapshot = {
   session_id: string;
   generated_at: string;
@@ -126,7 +149,9 @@ export type PaqadHudSnapshot = {
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: PaqadHudStage[];
   table: PaqadHighTable | null;
-  gates: Array<{ name: string; verdict: string }>;
+  gates: PaqadGate[];
+  claims: PaqadClaim[];
+  bundle_files: string[];
   flags: Array<{ id: string; text: string }>;
   rules: { recorded: boolean; applicable: number | null; loaded_at: string | null };
   findings: { rules: PaqadFindingsScan; near_copies: PaqadFindingsScan } | null;
@@ -142,10 +167,19 @@ export type PaqadHudSnapshot = {
     push: string | null;
     pr: string | null;
     ci: string | null;
+    push_branch?: string | null;
+    pr_url?: string | null;
+    ci_detail?: PaqadCi | null;
     own?: PaqadCommitGroup | null;
     inherited?: PaqadCommitGroup | null;
   } | null;
-  verdict: { word: string; kind: 'pass' | 'fail' | 'inconclusive'; reasons: string[] } | null;
+  verdict: {
+    word: string;
+    kind: 'pass' | 'fail' | 'inconclusive';
+    reasons: string[];
+    at?: string;
+  } | null;
+  receipt: { path: string } | null;
   cost: PaqadCost | null;
 };
 

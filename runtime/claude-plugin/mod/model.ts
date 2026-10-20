@@ -2,11 +2,15 @@ import { costPill, formatClock } from './cost';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
   PaqadChief,
+  PaqadCi,
+  PaqadClaim,
   PaqadCommitGroup,
   PaqadCost,
   PaqadCostLine,
   PaqadCostTokens,
   PaqadFindingsScan,
+  PaqadGate,
+  PaqadGateStrength,
   PaqadHighTable,
   PaqadHudSnapshot,
   PaqadHudStage,
@@ -341,6 +345,46 @@ function readCi(value: unknown): string | null {
   return readStep(value);
 }
 
+function readCiDetail(value: unknown): PaqadCi | null {
+  const ci = rec(value);
+  const state = str(ci?.state);
+  if (!ci || !state) return null;
+  return { state, done: num(ci.done), total: num(ci.total), reason: str(ci.reason) };
+}
+
+const GATE_STRENGTHS: readonly PaqadGateStrength[] = ['deterministic', 'llm-judged'];
+
+function readGate(value: unknown): PaqadGate | null {
+  const gate = rec(value);
+  const name = str(gate?.name);
+  if (!gate || !name) return null;
+  const verdict = str(gate.verdict) ?? 'pending';
+  return {
+    name,
+    verdict,
+    required: typeof gate.required === 'boolean' ? gate.required : verdict !== 'not-required',
+    strength: GATE_STRENGTHS.find((strength) => strength === gate.strength) ?? null,
+  };
+}
+
+function readClaim(value: unknown): PaqadClaim | null {
+  const claim = rec(value);
+  const kind = str(claim?.kind);
+  if (!claim || !kind) return null;
+  return {
+    kind,
+    label: str(claim.label) ?? kind,
+    verdict: str(claim.verdict) ?? 'inconclusive',
+    test_id: str(claim.test_id),
+  };
+}
+
+function readBundleFiles(value: unknown): string[] {
+  return each(value, (entry) => (entry.present === true ? str(entry.file) : null)).filter(
+    (file): file is string => file !== null,
+  );
+}
+
 function readCommitGroup(value: unknown): PaqadCommitGroup | null {
   const group = rec(value);
   if (!group) return null;
@@ -374,6 +418,8 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
   const verdict = rec(snap.verdict);
   const kind = verdict?.kind;
   const lastBlock = rec(snap.last_block);
+  const writtenAt = str(verdict?.written_at);
+  const receiptFile = str(rec(snap.receipt)?.path);
   return {
     session_id: str(snap.session_id) ?? '',
     generated_at: str(snap.generated_at) ?? '',
@@ -410,11 +456,9 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
       ];
     }),
     table: readTable(snap.table),
-    gates: list(snap.gates).flatMap((entry) => {
-      const gate = rec(entry);
-      const name = str(gate?.name);
-      return name ? [{ name, verdict: str(gate?.verdict) ?? 'pending' }] : [];
-    }),
+    gates: list(snap.gates).flatMap((entry) => readGate(entry) ?? []),
+    claims: list(snap.claims).flatMap((entry) => readClaim(entry) ?? []),
+    bundle_files: readBundleFiles(snap.evidence_expected),
     flags: list(snap.flags).flatMap((entry) => {
       const flag = rec(entry);
       const id = str(flag?.id);
@@ -448,6 +492,9 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           push: readStep(ship.push),
           pr: readPr(ship.pr),
           ci: readCi(ship.ci),
+          push_branch: str(rec(ship.push)?.branch),
+          pr_url: str(rec(ship.pr)?.url),
+          ci_detail: readCiDetail(ship.ci),
           own: readCommitGroup(ship.own),
           inherited: readCommitGroup(ship.inherited),
         }
@@ -458,8 +505,10 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
             word: str(verdict.word) ?? VERDICT_WORDS[kind],
             kind,
             reasons: list(verdict.reasons).filter((r): r is string => typeof r === 'string'),
+            ...(writtenAt ? { at: writtenAt } : {}),
           }
         : null,
+    receipt: receiptFile ? { path: receiptFile } : null,
     cost: readCost(snap.cost),
   };
 }
@@ -619,7 +668,9 @@ export function shipSteps(snapshot: PaqadHudSnapshot | null): ShipStep[] {
       : { label: 'Commit', word: NOT_YET, done: false },
     step('Push', ship?.push),
     step('PR', ship?.pr),
-    step('CI', ship?.ci),
+    ship?.ci_detail && ship.ci_detail.state !== 'pass'
+      ? { label: 'CI', word: ship.ci ?? ship.ci_detail.state, done: false }
+      : step('CI', ship?.ci),
     ship?.merge_commit
       ? { label: 'Merge', word: 'merged', done: true }
       : { label: 'Merge', word: 'stays yours', done: false },

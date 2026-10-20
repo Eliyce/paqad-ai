@@ -53,7 +53,7 @@ describe('/paqad answers (AC-39)', () => {
         'Stage: Intake not yet, Planning done, Spec done, Build done, Review done, Checks done, Docs done, Deliver not yet.',
         'Ship: Edit done, Commit 3 commits, Push not yet, PR not yet, CI not yet, Merge stays yours.',
         'cost: not yet',
-        'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt or /paqad cost.',
+        'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.',
       ].join('\n'),
     );
   });
@@ -158,10 +158,10 @@ describe('/paqad answers (AC-39)', () => {
 
   it('answers an unknown subcommand and a missing snapshot', () => {
     expect(run('deploy', FULL_ORD_501)).toBe(
-      'There is no /paqad deploy. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt or /paqad cost.',
+      'There is no /paqad deploy. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.',
     );
     expect(run('status', null)).toBe(
-      'Not yet. paqad has no record for this session. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt or /paqad cost.',
+      'Not yet. paqad has no record for this session. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.',
     );
   });
 

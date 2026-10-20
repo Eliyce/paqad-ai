@@ -114,7 +114,10 @@ describe('parseSnapshot', () => {
         duration_unreliable: false,
       },
     ]);
-    expect(odd.gates).toEqual([{ name: 'g', verdict: 'pending' }]);
+    expect(odd.gates).toEqual([{ name: 'g', verdict: 'pending', required: true, strength: null }]);
+    expect(odd.claims).toEqual([]);
+    expect(odd.bundle_files).toEqual([]);
+    expect(odd.receipt).toBeNull();
     expect(odd.flags).toEqual([{ id: 'f', text: 'f' }]);
     expect(odd.rules).toEqual({ recorded: false, applicable: null, loaded_at: null });
     expect(odd.findings).toEqual({
@@ -133,6 +136,9 @@ describe('parseSnapshot', () => {
       push: 'pushed',
       pr: 'open',
       ci: 'recorded',
+      push_branch: null,
+      pr_url: null,
+      ci_detail: null,
       own: null,
       inherited: null,
     });

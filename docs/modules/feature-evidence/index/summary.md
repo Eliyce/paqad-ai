@@ -461,12 +461,25 @@ network, and starts no process.
 - **The live card.** While the table sits, a card is drawn over the change's first
   `paqad-ai spec pipeline experts` call in the chat and redrawn in place as seats move: each
   seat's state and time, tokens and findings, then the chief's ruling in counts.
-- **The paqad pane.** One pane with two tabs, opened by the High Table label or the cost pill.
+- **The paqad pane.** One pane with five tabs, opened by the High Table label or the cost pill
+  (`runtime/claude-plugin/mod/pane.ts`, the tab lines in `tabs.ts`).
   *High Table* shows the round table with the chief in the centre (a picture on Desktop, text in
   the terminal), a button per seat with its detail and track record on earlier changes, the
   chief's rulings (accepted, declined, renamed, disagreements and those settled before) and
-  which spec lines each role shaped. *Cost* shows the change cost described below. The pane
-  opens on High Table when the change has one, otherwise on Cost.
+  which spec lines each role shaped. *Cost* shows the change cost described below. *Trust* shows
+  the verdict, a ring of the required gates only (a not-required gate is listed but never
+  counted), every gate grouped by strength (deterministic, judged by a model, strength not
+  recorded) with its verdict in words, each claim with its proving test, and the open flags.
+  *Ships* shows the change's own commits against the commits riding along from other tickets,
+  the push, the PR, CI (a partial "3 of 7 done", and "unknown, never recorded" when no CI was
+  saved, never a green default), the merge and how to roll it back; every value comes from the
+  bundle's `delivery.json`. *Record* shows the plan, the decisions waiting and resolved, the rules
+  and whether the receipt is written. An empty tab names its state: "No gates judged yet.",
+  "Nothing pushed yet.", "No plan recorded yet.". Below 80 columns the tab labels shorten.
+  The pane picks its tab on its own only until the person picks one: a delivery in progress
+  (the delivery stage running, or CI pending) opens Ships, a landed verdict opens Trust, a
+  sitting High Table opens High Table, otherwise Cost. Once a tab is picked it stays for the
+  session. A failing or pending CI is never drawn as done on the band's Ship row.
 - **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
   Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
   Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
@@ -477,7 +490,8 @@ network, and starts no process.
   while a stage agent runs.
 - **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
   `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
-  session's `<session>.receipt.md`) and `/paqad cost` (the same text as the Cost tab). Each answer comes from files already on
+  session's `<session>.receipt.md`), `/paqad cost` (the same text as the Cost tab) and
+  `/paqad trust`, `/paqad ships` and `/paqad record` (the same lines as those tabs). Each answer comes from files already on
   disk, so it costs no model turn.
 - **The `hud_view` setting.** The paqad config key `hud_view` (env `PAQAD_HUD_VIEW`, on by
   default) turns the band off. The mod reads it the same way it reads `paqad_enable`: the env

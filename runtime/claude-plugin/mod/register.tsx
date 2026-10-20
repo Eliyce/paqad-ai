@@ -280,8 +280,9 @@ export const register: Register = (on) => {
       if (registersCommand(status)) {
         await $.command.register({
           name: 'paqad',
-          description: 'Where the paqad change stands: status, decisions, rules, receipt, cost',
-          argumentHint: '[status|decisions|rules|receipt|cost]',
+          description:
+            'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, ships, record',
+          argumentHint: '[status|decisions|rules|receipt|cost|trust|ships|record]',
           immediate: true,
         });
       }
@@ -407,6 +408,7 @@ export const register: Register = (on) => {
     const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
       seat: await read($, tableSeatAtom),
       now: await read($, nowAtom),
+      columns: e.props.bodyColumns,
     });
     const ui = $.ui.resolve(e);
     const { Box, Text, Button } = ui;
@@ -429,6 +431,7 @@ export const register: Register = (on) => {
         {view.lines.map((text) => (
           <Text wrap="wrap">{text}</Text>
         ))}
+        {view.rows.map(draw)}
         {table ? (
           <Box flexDirection="column">
             {Svg ? (

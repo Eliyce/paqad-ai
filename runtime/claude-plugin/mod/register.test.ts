@@ -20,6 +20,7 @@ import {
   SAFE_CLEAN,
   STATE_FIXTURES,
   fileText,
+  snapshot,
 } from './test/fixtures';
 import {
   ENGINE_BAND,
@@ -578,7 +579,9 @@ describe('the live High Table card in the chat (AC-58)', () => {
 describe("the pane's High Table tab (AC-59)", () => {
   for (const surface of SURFACES) {
     test(`AC-59: ORD-501 shows every seat, the rulings, the questions and the 12-line credit on ${surface}`, async ($, on) => {
-      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText({ ...FULL_ORD_501, verdict: null }) },
+      });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(pane(surface));
@@ -639,6 +642,7 @@ describe("the pane's High Table tab (AC-59)", () => {
         requestId: 'paqad',
         props: pane(surface).props,
       });
+      await mounted.press({ key: 'paqad-tab-table' });
       expect(
         await mounted.find({ text: 'Product owner, a standing seat, always at the table.' }),
       ).toBeDefined();
@@ -665,6 +669,7 @@ describe("the pane's High Table tab (AC-59)", () => {
         requestId: 'paqad',
         props: pane(surface).props,
       });
+      await mounted.press({ key: 'paqad-tab-table' });
       const record =
         'Track record: on 6 earlier changes, changed the spec on 4, had nothing to add on 1, about 2,300 tokens each.';
       expect(await mounted.find({ text: record })).toBeDefined();
@@ -674,7 +679,9 @@ describe("the pane's High Table tab (AC-59)", () => {
     });
 
     test(`a late seat reads amber in words and the table is credited with no line on ${surface}`, async ($, on) => {
-      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(LATE_TABLE) } });
+      worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText({ ...LATE_TABLE, verdict: null }) },
+      });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(pane(surface));
@@ -944,4 +951,125 @@ describe('the rule stop answer on tool.check', () => {
     expect(await check($, 'tu_1', 'Read')).toEqual(DENY);
     expect(world.asked).toEqual([]);
   });
+});
+
+const TRUSTED = {
+  ...FULL_ORD_501,
+  gates: [
+    { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
+    { name: 'review-quality', required: true, strength: 'llm-judged', verdict: 'inconclusive' },
+  ],
+};
+
+const DELIVERING = {
+  ...FULL_ORD_501,
+  verdict: null,
+  ship: {
+    commits: 3,
+    commit_decision: null,
+    merge_commit: null,
+    push: { state: 'pushed', branch: 'feat/ORD-501-csv-export', sha: 'abc', at: 'x' },
+    pr: { number: 12, url: null, draft: false, at: 'x' },
+    ci: {
+      sha: 'abc',
+      state: 'pending',
+      done: 3,
+      total: 7,
+      reason: null,
+      source: 'deliver',
+      at: 'x',
+    },
+    own: { count: 3, tickets: ['ORD-501'], merges: 0, untagged: 0 },
+    inherited: { count: 0, tickets: [], merges: 0, untagged: 0 },
+  },
+};
+
+async function mountPane(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  surface: 'terminal' | 'desktop',
+  columns = 90,
+) {
+  return $.ui.mount({
+    plugin: PLUGIN,
+    surface,
+    component: 'Pane',
+    requestId: 'paqad',
+    props: { ...pane(surface).props, bodyColumns: columns },
+  });
+}
+
+describe('the Trust, Ships and Record tabs', () => {
+  for (const surface of SURFACES) {
+    test(`a landed verdict opens on Trust, gates in words, on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(TRUSTED) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const drawn = await $.ui.render(pane(surface));
+      const lines = drawnLines(drawn);
+      expect(lines).toContain('Trust (shown)');
+      expect(lines).toContain('Gates ●~  1 of 2 required passed');
+      expect(lines).toContain('  ● code-tests-lint  passed');
+      expect(lines).toContain('  ~ review-quality  inconclusive');
+      expect(colorOf(textElement(drawn, 'passed'))).toBe('success');
+      expect(colorOf(textElement(drawn, 'inconclusive'))).toBe('warning');
+    });
+
+    test(`a delivery in progress opens on Ships with CI partly done on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DELIVERING) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const lines = drawnLines(await $.ui.render(pane(surface)));
+      expect(lines).toContain('Ships (shown)');
+      expect(lines).toContain('CI           running, 3 of 7 done');
+      expect(lines).toContain('Riding along none');
+    });
+
+    test(`AC-36: a picked Record tab holds when the verdict lands and a delivery starts on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await mountPane($, surface);
+      await mounted.press({ key: 'paqad-tab-record' });
+      expect((await mounted.find({ key: 'paqad-tab-record' }))?.text).toBe('Record (shown)');
+      for (const next of [TRUSTED, DELIVERING]) {
+        world.put(SNAPSHOT, fileText(next));
+        await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+        expect((await mounted.find({ key: 'paqad-tab-record' }))?.text).toBe('Record (shown)');
+      }
+      await mounted.unmount();
+    });
+
+    test(`AC-37: each new tab names its empty state, and CI never saved reads unknown on ${surface}`, async ($, on) => {
+      const bare = snapshot({ active: true, ship: null, rules: { recorded: true, applicable: 1 } });
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(bare) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await mountPane($, surface);
+      await mounted.press({ key: 'paqad-tab-trust' });
+      expect(await mounted.find({ text: 'No gates judged yet.' })).toBeDefined();
+      await mounted.press({ key: 'paqad-tab-ships' });
+      expect(await mounted.find({ text: 'Nothing pushed yet.' })).toBeDefined();
+      await mounted.press({ key: 'paqad-tab-record' });
+      expect(await mounted.find({ text: 'No plan recorded yet.' })).toBeDefined();
+      world.put(SNAPSHOT, fileText({ ...DELIVERING, ship: { ...DELIVERING.ship, ci: null } }));
+      await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+      await mounted.press({ key: 'paqad-tab-ships' });
+      expect(await mounted.find({ text: 'unknown, never recorded' })).toBeDefined();
+      expect(await mounted.find({ text: 'passed' })).toBeUndefined();
+      await mounted.unmount();
+    });
+
+    test(`below 80 columns the tabs take short labels on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(TRUSTED) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const wide = await mountPane($, surface, 80);
+      expect((await wide.find({ key: 'paqad-tab-table' }))?.text).toBe('High Table');
+      await wide.unmount();
+      const narrow = await mountPane($, surface, 79);
+      expect((await narrow.find({ key: 'paqad-tab-table' }))?.text).toBe('Table');
+      expect((await narrow.find({ key: 'paqad-tab-record' }))?.text).toBe('Rec');
+      await narrow.unmount();
+    });
+  }
 });

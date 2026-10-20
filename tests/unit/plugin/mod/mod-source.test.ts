@@ -36,6 +36,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
         'register.test.ts',
         'register.tsx',
         'table.ts',
+        'tabs.ts',
         'test/fixtures.ts',
         'test/world.ts',
         'types/index.d.ts',
@@ -78,6 +79,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
       'pane.ts',
       'paqad-cli.ts',
       'table.ts',
+      'tabs.ts',
     ]) {
       const text = sources.find((s) => s.name === name)!.text;
       expect(text, name).not.toContain("from 'claude-code'");
