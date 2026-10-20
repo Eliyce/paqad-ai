@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
+
 interface Props {
   title: string;
   problem: string;
@@ -98,8 +100,7 @@ export function WhyDrawer({ title, problem, benefit, without, docsHref, onClose 
           <div className="mt-auto pt-6">
             <a
               href={docsHref}
-              target="_blank"
-              rel="noopener noreferrer"
+              {...NEW_TAB}
               className="text-secondary"
               style={{ color: 'var(--color-accent)' }}
             >
