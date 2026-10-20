@@ -6,12 +6,34 @@ import {
 } from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName, IntelligenceConfig } from '@/core/types/project-profile.js';
 import { createRagProgressReporter, renderRagIntroPanel } from '@/cli/ui/rag-progress.js';
+import {
+  describeOptionalEngine,
+  maybeStartOptionalEngineInstall,
+} from '@/core/optional-package.js';
 import { RagService } from '@/rag/service.js';
 
 export interface RagSelection {
   enabled: boolean;
   provider?: EmbeddingProviderName;
   model?: string;
+}
+
+export const RAG_ENGINE_INSTALLING_LINE =
+  'search index is installing in the background; text search until it is ready';
+
+export function ragEngineInstallingInBackground(
+  projectRoot: string,
+  ragSelection: RagSelection,
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  if (ragSelection.provider !== 'local') {
+    return false;
+  }
+  if (describeOptionalEngine(env).state === 'ready') {
+    return false;
+  }
+  const outcome = maybeStartOptionalEngineInstall(env, {}, { projectRoot });
+  return outcome === 'started' || outcome === 'in-progress';
 }
 
 function isInteractive(): boolean {

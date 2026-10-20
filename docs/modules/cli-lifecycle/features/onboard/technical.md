@@ -61,3 +61,14 @@ Source directories owned by this feature:
 - Console output / log lines emitted.
 - Tracker writes (`.paqad/doc-progress.json`, `.paqad/stack-drift.json`, etc.).
 - Exit codes (for CLI features).
+
+## RAG at onboarding
+
+- When the lead turns RAG on with the local provider and the embedding engine is missing (the
+  plugin case), onboarding keeps `rag_enabled=true`, starts the background engine install with
+  the project root (`ragEngineInstallingInBackground` in `src/onboarding/rag-onboarding.ts`) and
+  prints one line: "search index is installing in the background; text search until it is
+  ready". The index is built by the installer once the engine is in place.
+- When the install cannot start (for example no `CLAUDE_PLUGIN_DATA`, or a recent failed
+  attempt) onboarding tries the build as before. Any build failure turns RAG off and says so:
+  "RAG was turned off: <reason>". The setting is never flipped without that line.

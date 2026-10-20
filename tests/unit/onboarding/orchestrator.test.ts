@@ -21,6 +21,16 @@ import { OnboardingOrchestrator } from '@/onboarding';
 import { readOnboardingCheckpoint, writeOnboardingCheckpoint } from '@/onboarding/checkpoint.js';
 import { MANAGED_HEADER } from '@/onboarding/decision-pause-contract-writer.js';
 import { RagService } from '@/rag/service.js';
+import * as optionalPackage from '@/core/optional-package.js';
+
+vi.mock('@/core/optional-package.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/core/optional-package.js')>();
+  return {
+    ...actual,
+    describeOptionalEngine: vi.fn(actual.describeOptionalEngine),
+    maybeStartOptionalEngineInstall: vi.fn(actual.maybeStartOptionalEngineInstall),
+  };
+});
 
 const PROJECT_SKILL_DIRS = [
   '.claude/skills',
@@ -345,8 +355,69 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, '.paqad/detection-report.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/framework-version.txt'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/onboarding-manifest.json'))).toBe(true);
+    expect(output.warnings).toContain('RAG was turned off: model download failed');
+  });
+
+  it('keeps RAG on and starts the background engine install when the engine is missing', async () => {
+    vi.mocked(optionalPackage.describeOptionalEngine).mockReturnValueOnce({
+      state: 'not installed',
+    });
+    vi.mocked(optionalPackage.maybeStartOptionalEngineInstall).mockReturnValueOnce('started');
+    const configure = vi.spyOn(RagService.prototype, 'configureAndBuild');
+
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+        rag: { enabled: true, provider: 'local' },
+      },
+    });
+
+    expect(optionalPackage.maybeStartOptionalEngineInstall).toHaveBeenCalledWith(
+      expect.anything(),
+      {},
+      { projectRoot },
+    );
+    expect(configure).not.toHaveBeenCalled();
+    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
+    expect(config).toContain('rag_enabled=true');
+    expect(config).not.toContain('rag_enabled=false');
+    const installing = output.warnings.filter((line) =>
+      line.includes('installing in the background'),
+    );
+    expect(installing).toEqual([
+      'search index is installing in the background; text search until it is ready',
+    ]);
+    expect(output.warnings.some((line) => line.startsWith('RAG was turned off'))).toBe(false);
+  });
+
+  it('turns RAG off and says why when the engine install cannot start', async () => {
+    vi.mocked(optionalPackage.describeOptionalEngine).mockReturnValueOnce({
+      state: 'not installed',
+    });
+    vi.mocked(optionalPackage.maybeStartOptionalEngineInstall).mockReturnValueOnce(
+      'no-plugin-data',
+    );
+    vi.spyOn(RagService.prototype, 'configureAndBuild').mockRejectedValue(
+      new Error('Failed to load local model Xenova/all-MiniLM-L6-v2'),
+    );
+
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+        rag: { enabled: true, provider: 'local' },
+      },
+    });
+
+    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
+    expect(config).toContain('rag_enabled=false');
     expect(output.warnings).toContain(
-      'RAG setup failed during onboarding: model download failed. Onboarding completed with RAG disabled.',
+      'RAG was turned off: Failed to load local model Xenova/all-MiniLM-L6-v2',
     );
   });
 

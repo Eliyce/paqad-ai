@@ -37,6 +37,27 @@ Source directories owned by this feature:
 - The `rag` setup flow (`src/cli/commands/rag.ts`, `resolveLocalModel`) offers the picker
   interactively (defaulting to MiniLM); non-interactive runs keep the floor.
 
+### Where the local model lives
+
+- `localModelsRoot()` and `localModelDir(model)` in `src/rag/providers.ts` are the one place
+  that names the cache folder (`~/.paqad/models/<model>`). The local provider loads from it and
+  `RagService.localModelCached` checks it, so `paqad-ai doctor` and the loader never disagree.
+- doctor resolves the model the way the provider does: the configured `embedding_model`, else
+  `getDefaultEmbeddingModel('local')`.
+
+### Background engine install in the plugin
+
+- The plugin ships no `node_modules`, so `@huggingface/transformers` is installed on demand
+  into `CLAUDE_PLUGIN_DATA` by `maybeStartOptionalEngineInstall` in
+  `src/core/optional-package.ts`. It only starts when `CLAUDE_PLUGIN_DATA` is set. The plugin
+  CLI wrapper (`runtime/claude-plugin/bin/paqad-ai` and `paqad-ai.cmd`) sets it to
+  `${CLAUDE_CONFIG_DIR:-~/.claude}/plugins/data/paqad-eliyce` when it is missing, because the
+  agent's shell does not carry it.
+- Given a project root (`{ projectRoot }`, the third argument), the detached installer runs
+  `paqad-ai rag rebuild --project-root <root>` after a successful install, so the index the
+  onboarding could not build gets built once the engine is there. The rebuild output goes to
+  the same install log.
+
 ## API / Interface Contract
 
 - Public functions exported from the source files above.

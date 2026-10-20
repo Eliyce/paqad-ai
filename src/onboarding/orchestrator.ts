@@ -79,6 +79,8 @@ import { resolveSelections } from './prompts.js';
 import {
   applyRagSelection,
   enableRagDuringOnboarding,
+  RAG_ENGINE_INSTALLING_LINE,
+  ragEngineInstallingInBackground,
   resolveRagSelection,
   type RagSelection,
 } from './rag-onboarding.js';
@@ -486,16 +488,19 @@ export class OnboardingOrchestrator {
     }
 
     if (ragSelection?.enabled && ragSelection.provider) {
-      try {
-        await enableRagDuringOnboarding(options.projectRoot, ragSelection);
-      } catch (error) {
-        profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
-        writeProjectProfile(options.projectRoot, profile);
-        // Reset is an explicit team default-write so any earlier enablement clears.
-        setGroupConfigValue(options.projectRoot, 'rag', 'rag_enabled', 'false');
-        onboardingWarnings.push(
-          `RAG setup failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}. Onboarding completed with RAG disabled.`,
-        );
+      if (ragEngineInstallingInBackground(options.projectRoot, ragSelection)) {
+        onboardingWarnings.push(RAG_ENGINE_INSTALLING_LINE);
+      } else {
+        try {
+          await enableRagDuringOnboarding(options.projectRoot, ragSelection);
+        } catch (error) {
+          profile.intelligence = applyRagSelection(profile.intelligence, { enabled: false });
+          writeProjectProfile(options.projectRoot, profile);
+          setGroupConfigValue(options.projectRoot, 'rag', 'rag_enabled', 'false');
+          onboardingWarnings.push(
+            `RAG was turned off: ${error instanceof Error ? error.message : 'unknown error'}`,
+          );
+        }
       }
     }
 

@@ -60,3 +60,14 @@ Source directories owned by this feature:
 - Console output / log lines emitted.
 - Tracker writes (`.paqad/doc-progress.json`, `.paqad/stack-drift.json`, etc.).
 - Exit codes (for CLI features).
+
+## RAG lines
+
+- `RAG engine installed` reads "not ready: installing ..." while the background engine install
+  runs, then passes once the engine resolves.
+- `RAG model cache present` checks `~/.paqad/models/<model>` through the shared
+  `localModelDir`, with the model resolved the way the provider resolves it.
+- `RAG vector gitignore present` asks `git check-ignore` about `.paqad/vectors/` with its
+  trailing slash. The managed `.paqad/.gitignore` lists `vectors/` as a directory pattern, and
+  git only matches that pattern for a path that is a directory. Before the folder exists, the
+  slash is what tells git it is one.

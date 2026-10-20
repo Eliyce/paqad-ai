@@ -1,7 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync, statSync } from 'node:fs';
 import { mkdir, readdir, rename, rm } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { extname, join, resolve, sep } from 'node:path';
 
 import { AstChunker, CHUNKER_VERSION } from '@/context/ast-chunker.js';
@@ -30,7 +29,7 @@ import { reorderByRankedIds } from './rerank-order.js';
 import { reciprocalRankFusion } from './rrf-fusion.js';
 import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
-import { createEmbeddingProvider } from './providers.js';
+import { createEmbeddingProvider, localModelDir, localModelsRoot } from './providers.js';
 import { getProjectSecret, writeProjectSecret } from './secrets.js';
 import type {
   BuildIndexOptions,
@@ -824,12 +823,12 @@ export class RagService {
   }
 
   localModelPath(): string {
-    return join(homedir(), '.paqad', 'models');
+    return localModelsRoot();
   }
 
   localModelCached(model?: string): boolean {
     try {
-      const path = model ? join(this.localModelPath(), model) : this.localModelPath();
+      const path = model ? localModelDir(model) : this.localModelPath();
       return statSync(path).isDirectory();
     } catch {
       return false;

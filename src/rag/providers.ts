@@ -23,6 +23,14 @@ import { EmbeddingProviderError } from './types.js';
 
 const REMOTE_RETRY_DELAYS_MS = [250, 500, 1000] as const;
 
+export function localModelsRoot(): string {
+  return join(homedir(), '.paqad', 'models');
+}
+
+export function localModelDir(model: string): string {
+  return join(localModelsRoot(), model);
+}
+
 function providerError(
   provider: EmbeddingProviderName,
   code: EmbeddingProviderErrorCode,
@@ -137,7 +145,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   }
 
   private async loadExtractor(): Promise<LocalEmbeddingExtractor> {
-    const modelPath = join(homedir(), '.paqad', 'models', this.model);
+    const modelPath = localModelDir(this.model);
     const cached = existsSync(modelPath);
     this.onProgress?.({
       phase: 'load',
@@ -162,7 +170,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
       }>('@huggingface/transformers');
       // Posix-normalized so the configured cache location is separator-stable
       // across platforms (transformers accepts forward slashes on Windows).
-      const modelsDir = toPosixPath(join(homedir(), '.paqad', 'models'));
+      const modelsDir = toPosixPath(localModelsRoot());
       env.cacheDir = modelsDir;
       env.localModelPath = modelsDir;
       env.allowLocalModels = true;

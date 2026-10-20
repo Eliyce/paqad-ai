@@ -7,6 +7,7 @@ import { ChunkIndexManager } from '@/context/chunk-index.js';
 import { PATHS, REGISTRIES } from '@/core/constants/paths.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { describeOptionalEngine, ENGINE_INSTALL_NETWORK_HINT } from '@/core/optional-package.js';
+import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import { SCHEMA_VERSION_UPDATE_HINT } from '@/core/errors/schema-version-error.js';
 import { checkSchemaCompatibility, readSchemaMarkerSync } from '@/core/schema-version.js';
 import { getProfileDomain, readProjectProfile } from '@/core/project-profile.js';
@@ -145,10 +146,11 @@ export class HealthChecker {
    * not a git repository (e.g. a freshly scaffolded test fixture), so the check
    * is meaningful before `git init`.
    */
-  private isPathIgnored(projectRoot: string, relPath: string): boolean {
+  private isPathIgnored(projectRoot: string, relPath: string, directory = false): boolean {
     const target = relPath.replace(/\/$/, '');
+    const probe = directory ? `${target}/` : target;
     try {
-      execFileSync('git', ['check-ignore', '-q', '--', target], {
+      execFileSync('git', ['check-ignore', '-q', '--', probe], {
         cwd: projectRoot,
         stdio: 'ignore',
       });
@@ -1398,7 +1400,9 @@ export class HealthChecker {
 
     results.push(
       intelligence.embedding_provider === 'local'
-        ? service.localModelCached(intelligence.embedding_model)
+        ? service.localModelCached(
+            intelligence.embedding_model ?? getDefaultEmbeddingModel('local'),
+          )
           ? pass('RAG model cache present', 'Local embedding model cache is present')
           : warn(
               'RAG model cache present',
@@ -1409,7 +1413,7 @@ export class HealthChecker {
     );
 
     results.push(
-      this.isPathIgnored(projectRoot, PATHS.VECTORS_DIR)
+      this.isPathIgnored(projectRoot, PATHS.VECTORS_DIR, true)
         ? pass('RAG vector gitignore present', 'Vector index path is gitignored')
         : warn(
             'RAG vector gitignore present',
@@ -1448,7 +1452,7 @@ export class HealthChecker {
       results.push(
         warn(
           'RAG engine installed',
-          'The embedding engine is installing in the background; retrieval uses text search until it is ready',
+          'not ready: installing in the background; retrieval uses text search until it is ready',
           'Re-run `paqad-ai doctor` shortly to confirm it finished.',
         ),
       );

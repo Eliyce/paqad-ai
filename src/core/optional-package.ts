@@ -24,6 +24,7 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 
+import { getPackageRoot } from '@/core/runtime-paths.js';
 import { frameworkLinkHome } from '@/health/plugin-install.js';
 
 /**
@@ -215,7 +216,11 @@ export interface EngineInstallDeps {
   now?: () => number;
   resolve?: (name: string, env: NodeJS.ProcessEnv) => string | null;
   readSpecs?: (env: NodeJS.ProcessEnv) => string[];
-  startInstall?: (specs: string[], dir: string, paths: EnginePaths) => void;
+  startInstall?: (specs: string[], dir: string, paths: EnginePaths, projectRoot?: string) => void;
+}
+
+export interface EngineInstallOptions {
+  projectRoot?: string;
 }
 
 /**
@@ -227,6 +232,7 @@ export interface EngineInstallDeps {
 export function maybeStartOptionalEngineInstall(
   env: NodeJS.ProcessEnv = process.env,
   deps: EngineInstallDeps = {},
+  options: EngineInstallOptions = {},
 ): EngineInstallOutcome {
   const pluginData = env.CLAUDE_PLUGIN_DATA;
   if (!pluginData) {
@@ -261,14 +267,19 @@ export function maybeStartOptionalEngineInstall(
     JSON.stringify({ status: 'installing', attempted_at: new Date(now()).toISOString() }),
   );
   /* v8 ignore next -- the real spawn default is exercised under manual-scenario sign-off, not units. */
-  (deps.startInstall ?? spawnEngineInstall)(specs, pluginData, paths);
+  (deps.startInstall ?? spawnEngineInstall)(specs, pluginData, paths, options.projectRoot);
   return 'started';
 }
 
 /* v8 ignore start -- spawns a real detached `npm install`; the decision logic around it is unit
    tested through the injected startInstall seam, and the install itself is covered by manual
    scenario sign-off (the pentest-engine / visual-evidence provisioning precedent). */
-function spawnEngineInstall(specs: string[], dir: string, paths: EnginePaths): void {
+function spawnEngineInstall(
+  specs: string[],
+  dir: string,
+  paths: EnginePaths,
+  projectRoot?: string,
+): void {
   // The parent hook exits immediately, so the detached child runs the install itself and writes
   // the ready/failed marker + clears the lock on its own. Args are tokenized; no shell.
   const installer = `
@@ -281,6 +292,13 @@ function spawnEngineInstall(specs: string[], dir: string, paths: EnginePaths): v
         cwd: process.env.PAQAD_ENGINE_DIR, stdio: ['ignore', fd, fd],
       });
       writeFileSync(process.env.PAQAD_ENGINE_MARKER, JSON.stringify({ status: 'ready', attempted_at: new Date().toISOString() }));
+      if (process.env.PAQAD_ENGINE_REBUILD_ROOT && process.env.PAQAD_ENGINE_CLI) {
+        try {
+          execFileSync(process.execPath, [process.env.PAQAD_ENGINE_CLI, 'rag', 'rebuild', '--project-root', process.env.PAQAD_ENGINE_REBUILD_ROOT], {
+            cwd: process.env.PAQAD_ENGINE_REBUILD_ROOT, stdio: ['ignore', fd, fd],
+          });
+        } catch {}
+      }
     } catch (e) {
       const msg = String(e && e.message ? e.message : e).split('\\n')[0];
       writeFileSync(process.env.PAQAD_ENGINE_MARKER, JSON.stringify({ status: 'failed', attempted_at: new Date().toISOString(), error: msg }));
@@ -299,6 +317,12 @@ function spawnEngineInstall(specs: string[], dir: string, paths: EnginePaths): v
       PAQAD_ENGINE_LOG: paths.log,
       PAQAD_ENGINE_MARKER: paths.marker,
       PAQAD_ENGINE_LOCK: paths.lock,
+      ...(projectRoot
+        ? {
+            PAQAD_ENGINE_REBUILD_ROOT: projectRoot,
+            PAQAD_ENGINE_CLI: join(getPackageRoot(), 'dist', 'cli', 'index.js'),
+          }
+        : {}),
     },
   });
   child.unref();

@@ -140,10 +140,21 @@ describe('maybeStartOptionalEngineInstall (issue #616, Part 2b)', () => {
       { resolve: NONE, readSpecs: () => ['pkg@^1'], startInstall: start, now },
     );
     expect(outcome).toBe('started');
-    expect(start).toHaveBeenCalledWith(['pkg@^1'], root, expect.anything());
+    expect(start).toHaveBeenCalledWith(['pkg@^1'], root, expect.anything(), undefined);
     expect(existsSync(join(root, LOCK))).toBe(true);
     const marker = JSON.parse(readFileSync(join(root, MARKER), 'utf8')) as { status: string };
     expect(marker.status).toBe('installing');
+  });
+
+  it('hands the project root to the installer so it rebuilds the index after the install', () => {
+    const start = vi.fn();
+    const outcome = maybeStartOptionalEngineInstall(
+      { CLAUDE_PLUGIN_DATA: root },
+      { resolve: NONE, readSpecs: () => ['pkg@^1'], startInstall: start, now: () => 0 },
+      { projectRoot: '/work/repo' },
+    );
+    expect(outcome).toBe('started');
+    expect(start).toHaveBeenCalledWith(['pkg@^1'], root, expect.anything(), '/work/repo');
   });
 
   it('pins the real package.json ranges when readSpecs is not injected', () => {
@@ -173,6 +184,7 @@ describe('maybeStartOptionalEngineInstall (issue #616, Part 2b)', () => {
       ['@huggingface/transformers@^3.8.0', 'openai@^7.23.0', 'voyageai@^0.4.0'],
       installDir,
       expect.anything(),
+      undefined,
     );
   });
 
