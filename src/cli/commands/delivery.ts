@@ -5,12 +5,28 @@ import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { runCiGate, type CiGateOptions } from '@/delivery/ci-gate.js';
-import { runDelivery, type DeliveryShell } from '@/delivery/runner.js';
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
+import { runCiGate, type CiGateOptions, type CiGateResult } from '@/delivery/ci-gate.js';
+import { runDelivery, type DeliveryRunResult, type DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
+import { describeInherited } from '@/delivery/commit-split.js';
+import {
+  readFeatureDelivery,
+  recordShip,
+  refreshCommitSplit,
+  type CiState,
+  type ShipPatch,
+} from '@/feature-evidence/delivery.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
+import type { DecisionOptionEvidence } from '@/planning/decision-packet.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { readGitState } from '@/rag/git-state.js';
+import { resolveSessionId } from '@/rag-ledger/session.js';
 import { GithubHostProvider } from '@/providers/github-host-provider.js';
+import { raisedTechDebt } from '@/tech-debt/context.js';
+import { renderTechDebtPrSection } from '@/tech-debt/pr-section.js';
 import type { HostProvider } from '@/providers/host-provider.js';
 import {
   readVerificationEvidence,
@@ -33,6 +49,8 @@ export interface DeliverDeps {
   resolveOpenPr: () => OpenPrDecision;
   evidenceBody: string | null;
   ci?: CiGateOptions;
+  dirName?: string | null;
+  now?: () => Date;
 }
 
 export interface DeliverResult {
@@ -67,14 +85,19 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     return { exitCode: 2, output: decision.message };
   }
 
-  const run = await runDelivery(deps.shell, {
-    rendered,
-    base: deps.base,
-    draft: deps.draft,
-    reviewers: deps.reviewers,
-    labels: deps.labels,
-    open_pr: decision.choice,
-  });
+  const run = await runDelivery(
+    deps.shell,
+    {
+      rendered,
+      base: deps.base,
+      draft: deps.draft,
+      reviewers: deps.reviewers,
+      labels: deps.labels,
+      open_pr: decision.choice,
+    },
+    (input) => deps.host.openPR(input),
+  );
+  saveShip(deps, shipFromRun(run, rendered.branch, decision.choice === 'draft', headSha(deps)));
 
   const stepLines = run.steps.map(
     (s) => `> - ${s.ok ? '🟢' : '🔴'} ${s.step}${s.ok ? '' : ` — ${s.remediation ?? 'failed'}`}`,
@@ -96,6 +119,7 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     ...deps.ci,
     evidenceComment: deps.evidenceBody,
   });
+  saveShip(deps, shipFromGate(gate, headSha(deps)));
   const green = gate.action === 'passed' || gate.action === 'warned' || gate.action === 'skipped';
   const glyph = green ? '🟢' : '🔴';
   const verdict = green ? 'Safe to merge' : 'Needs your attention';
@@ -112,7 +136,102 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
   };
 }
 
-export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string): OpenPrDecision {
+const CI_STATE: Record<CiGateResult['state'], CiState> = {
+  green: 'pass',
+  red: 'fail',
+  pending: 'pending',
+  unknown: 'unknown',
+};
+
+function headSha(deps: DeliverDeps): string | null {
+  return deps.dirName ? (readGitState(deps.projectRoot).head_commit ?? null) : null;
+}
+
+function shipFromRun(
+  run: DeliveryRunResult,
+  branch: string,
+  draft: boolean,
+  sha: string | null,
+): ShipPatch {
+  const patch: ShipPatch = {};
+  const push = run.steps.find((step) => step.step === 'push');
+  if (push) patch.push = { state: push.ok ? 'pushed' : 'failed', branch, sha };
+  const pr = run.steps.find((step) => step.step === 'pr')?.pr;
+  if (pr) patch.pr = { number: pr.number, url: pr.url, draft };
+  return patch;
+}
+
+function shipFromGate(gate: CiGateResult, sha: string | null): ShipPatch {
+  if (gate.action === 'skipped') return {};
+  const state = CI_STATE[gate.state];
+  return {
+    ci: {
+      sha,
+      state,
+      done: gate.checks?.done ?? null,
+      total: gate.checks?.total ?? null,
+      reason: state === 'unknown' ? gate.message : null,
+      source: 'ci-gate',
+    },
+  };
+}
+
+function saveShip(deps: DeliverDeps, patch: ShipPatch): void {
+  if (!deps.dirName || Object.keys(patch).length === 0) return;
+  try {
+    recordShip(
+      deps.projectRoot,
+      deps.dirName,
+      patch,
+      (deps.now ?? (() => new Date()))().toISOString(),
+    );
+  } catch (error) {
+    appendHooksLog(
+      deps.projectRoot,
+      `deliver: delivery.json not updated: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
+interface ShipsWith {
+  context: string;
+  evidence: DecisionOptionEvidence | undefined;
+}
+
+function shipsWith(projectRoot: string, dirName: string | null | undefined): ShipsWith {
+  const none: ShipsWith = { context: '', evidence: undefined };
+  if (!dirName) return none;
+  try {
+    const split = refreshCommitSplit(
+      projectRoot,
+      dirName,
+      readFeatureDelivery(projectRoot, dirName),
+    ).commit_split;
+    if (split?.state !== 'known' || !split.own || !split.inherited) return none;
+    const own = `${split.own.count} own commit${split.own.count === 1 ? '' : 's'}`;
+    const riding =
+      split.inherited.count > 0
+        ? `${describeInherited(split.inherited)} riding along`
+        : 'nothing riding along';
+    const note =
+      split.inherited.count > 0
+        ? ' The riding-along commits ship in this PR too unless you split the branch yourself; ' +
+          'paqad never moves, cherry-picks or rebases commits.'
+        : '';
+    return {
+      context: ` This PR carries ${own} and ${riding}.${note}`,
+      evidence: { findings: [own, riding] },
+    };
+  } catch {
+    return none;
+  }
+}
+
+export function resolveOpenPrDecision(
+  projectRoot: string,
+  defaultChoice: string,
+  dirName?: string | null,
+): OpenPrDecision {
   const resolvedDir = join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR);
   const pendingDir = join(projectRoot, PATHS.DECISIONS_PENDING_DIR);
 
@@ -127,18 +246,22 @@ export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string
   }
 
   try {
+    const ships = shipsWith(projectRoot, dirName);
+    const withEvidence = ships.evidence ? { evidence: ships.evidence } : {};
     createPendingDecision(projectRoot, {
       category: 'delivery.open_pr',
       title: 'Open a pull request for this change?',
       context:
         'Delivery is ready. Opening a PR pushes the branch to the remote — an outward-facing, ' +
-        'hard-to-reverse action — so paqad is asking before it does.',
+        'hard-to-reverse action — so paqad is asking before it does.' +
+        ships.context,
       options: [
-        { option_key: 'yes', label: 'Open a PR now' },
-        { option_key: 'draft', label: 'Open a draft PR' },
+        { option_key: 'yes', label: 'Open a PR now', ...withEvidence },
+        { option_key: 'draft', label: 'Open a draft PR', ...withEvidence },
         { option_key: 'no', label: 'Commit only, no PR' },
       ],
       recommendation: normalizeChoice(defaultChoice) ? defaultChoice : 'yes',
+      change: dirName ? featureChangeKey(dirName) : null,
     });
   } catch {}
   return { status: 'paused', message: pauseMessage() };
@@ -200,6 +323,7 @@ interface DeliverOptions {
   openPr: string;
   reviewer?: string[];
   label?: string[];
+  session?: string;
 }
 
 export function createDeliveryCommand(): Command {
@@ -217,10 +341,12 @@ export function createDeliveryCommand(): Command {
     .option('--open-pr <mode>', 'Recommended open_pr choice for the pause (yes|draft|no)', 'yes')
     .option('--reviewer <handle>', 'PR reviewer (repeatable)', collect, [])
     .option('--label <label>', 'PR label (repeatable)', collect, [])
+    .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
     .action(async (options: DeliverOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const shell = createDeliveryShell(projectRoot);
       const host = new GithubHostProvider(shell);
+      const dirName = activeChange(projectRoot, options.session);
       const result = await runDeliver({
         projectRoot,
         dryRun: options.dryRun,
@@ -230,6 +356,12 @@ export function createDeliveryCommand(): Command {
           title: options.title,
           summary: options.summary,
           scope: options.scope,
+          tech_debt: renderTechDebtPrSection(
+            raisedTechDebt(
+              projectRoot,
+              options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+            ),
+          ),
         },
         base: options.base,
         draft: options.draft,
@@ -237,8 +369,9 @@ export function createDeliveryCommand(): Command {
         labels: options.label ?? [],
         shell,
         host,
-        resolveOpenPr: () => resolveOpenPrDecision(projectRoot, options.openPr),
+        resolveOpenPr: () => resolveOpenPrDecision(projectRoot, options.openPr, dirName),
         evidenceBody: loadEvidenceBody(projectRoot),
+        dirName,
       });
       if (result.exitCode === 0) {
         console.log(result.output);
@@ -247,6 +380,20 @@ export function createDeliveryCommand(): Command {
         process.exitCode = result.exitCode;
       }
     });
+}
+
+function activeChange(projectRoot: string, session: string | undefined): string | null {
+  try {
+    return currentFeature(
+      projectRoot,
+      resolveSessionId(
+        projectRoot,
+        session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+      ),
+    );
+  } catch {
+    return null;
+  }
 }
 
 function collect(value: string, previous: string[] = []): string[] {

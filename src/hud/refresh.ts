@@ -10,6 +10,8 @@ export const HUD_REFRESH_VERBS: readonly string[] = [
   'decision create',
   'decision resolve',
   'rules load',
+  'rules override',
+  'fix prove',
   'lane set',
   'route set',
   'stage',
@@ -20,6 +22,9 @@ export const HUD_REFRESH_VERBS: readonly string[] = [
   'checks run',
   'delivery-link',
   'deliver',
+  'debt add',
+  'debt promote',
+  'debt close',
 ];
 
 export function isHudRefreshVerb(commandPath: string): boolean {

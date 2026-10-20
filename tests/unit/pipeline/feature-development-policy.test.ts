@@ -9,6 +9,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import {
   defaultFeatureDevelopmentPolicy,
   loadFeatureDevelopmentPolicy,
+  OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
   renderDefaultFeatureDevelopmentPolicyYaml,
   resolveFeatureDevelopmentCheckCommands,
   reusePlanningInstructions,
@@ -432,6 +433,44 @@ describe('feature development policy', () => {
         expect(source).toContain('review digest');
         expect(source).toContain('.paqad/session/review-digest.md');
       }
+    });
+  });
+
+  describe('out-of-scope findings wiring', () => {
+    const repo = (path: string): string =>
+      readFileSync(resolve(__dirname, '../../..', path), 'utf8');
+
+    it('the default review and doc-sync stages carry the debt instruction', () => {
+      const { stages } = defaultFeatureDevelopmentPolicy();
+      expect(OUT_OF_SCOPE_FINDINGS_INSTRUCTION).toContain('paqad-ai debt add');
+      expect(stages.review.instructions).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
+      expect(stages.documentation_sync.instructions).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
+    });
+
+    it('the rendered yaml, the live contract, the rule pack and its mirror carry it verbatim', () => {
+      const parsed = YAML.parse(renderDefaultFeatureDevelopmentPolicyYaml()) as {
+        stages: Record<string, { instructions: string[] }>;
+      };
+      const live = YAML.parse(repo('docs/instructions/workflows/feature-development.yaml')) as {
+        stages: Record<string, { instructions: string[] }>;
+      };
+      for (const doc of [parsed, live]) {
+        expect(doc.stages.review!.instructions).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
+        expect(doc.stages.documentation_sync!.instructions).toContain(
+          OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
+        );
+      }
+      for (const path of [
+        'runtime/capabilities/coding/rules/feature-development.md',
+        'docs/instructions/rules/coding/feature-development.md',
+        'runtime/claude-plugin/agents/paqad-review.md',
+        'runtime/claude-plugin/agents/paqad-documentation-sync.md',
+      ]) {
+        expect(repo(path)).toContain(OUT_OF_SCOPE_FINDINGS_INSTRUCTION);
+      }
+      expect(repo('runtime/claude-plugin/agents/paqad-development.md')).not.toContain(
+        OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
+      );
     });
   });
 });

@@ -99,14 +99,15 @@ export function sentinelState(
     rmSync(sentinel, { force: true });
     return 'stale:framework-path';
   }
-  if (anyFileNewer(join(projectRoot, 'docs', 'instructions'), sentinelMtime)) {
+  const instructionsDir = join(projectRoot, 'docs', 'instructions');
+  if (anyFileNewer(instructionsDir, sentinelMtime, join(instructionsDir, 'tech-debt'))) {
     rmSync(sentinel, { force: true });
     return 'stale:docs-instructions';
   }
   return 'fresh';
 }
 
-function anyFileNewer(dir, mtime) {
+function anyFileNewer(dir, mtime, skipDir) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
@@ -116,7 +117,7 @@ function anyFileNewer(dir, mtime) {
   for (const entry of entries) {
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (anyFileNewer(full, mtime)) {
+      if (full !== skipDir && anyFileNewer(full, mtime, skipDir)) {
         return true;
       }
     } else {

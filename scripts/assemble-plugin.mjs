@@ -1,5 +1,13 @@
 #!/usr/bin/env node
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -11,6 +19,26 @@ export const PLUGIN_TREE = [
   'README.md',
   'LICENSE',
 ];
+
+export const PLUGIN_REPO = 'Eliyce/paqad-claude-plugin';
+
+export const PLUGIN_MARKETPLACE = {
+  name: 'eliyce',
+  owner: { name: 'Eliyce' },
+  description: 'paqad for Claude Code',
+  metadata: {
+    description:
+      "paqad for Claude Code: your team's rules, enforced at edit time, with evidence for every change.",
+  },
+  plugins: [
+    {
+      name: 'paqad',
+      source: './',
+      description: "Your team's rules, enforced at edit time, with evidence for every change.",
+      category: 'governance',
+    },
+  ],
+};
 
 const KEEP_IN_OUTPUT = new Set(['.git']);
 
@@ -60,6 +88,10 @@ export function assemblePlugin({ repoRoot, outDir }) {
       filter: (path) => isShippedRuntimeFile(runtimeRoot, path),
     });
   }
+  writeFileSync(
+    join(out, '.claude-plugin', 'marketplace.json'),
+    `${JSON.stringify(PLUGIN_MARKETPLACE, null, 2)}\n`,
+  );
   return { version: packageVersion, outDir: out };
 }
 
@@ -73,7 +105,9 @@ function isDirectRun() {
 if (isDirectRun()) {
   const target = process.argv[2];
   if (!target) {
-    console.error('Usage: node scripts/assemble-plugin.mjs <output folder>');
+    console.error(
+      `Usage: node scripts/assemble-plugin.mjs <output folder, a clone of ${PLUGIN_REPO}>`,
+    );
     process.exit(1);
   }
   try {

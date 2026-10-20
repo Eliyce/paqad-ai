@@ -33,6 +33,16 @@ export function classifyFinding(finding: TriageFinding): TriageVerdict {
   }
 
   if (s.gate_failed) {
+    if (s.out_of_scope) {
+      return {
+        ...base,
+        pile: 'confirmed',
+        confirmation: s.reproducible ? 'demonstrable' : 'needs-repro',
+        route: 'tech-debt',
+        reason:
+          'Confirmed, but outside this change. Record it with `paqad-ai debt add` instead of fixing it here.',
+      };
+    }
     if (s.reproducible) {
       return {
         ...base,
@@ -86,7 +96,11 @@ export function triageFinding(finding: TriageFinding, lane: Lane): TriageVerdict
 }
 
 export function canDriveCodeChange(verdict: TriageVerdict): boolean {
-  return verdict.pile === 'confirmed' && verdict.confirmation === 'demonstrable';
+  return (
+    verdict.pile === 'confirmed' &&
+    verdict.confirmation === 'demonstrable' &&
+    verdict.route === 'code-change'
+  );
 }
 
 export function changeDrivingVerdicts(verdicts: TriageVerdict[]): TriageVerdict[] {

@@ -125,3 +125,41 @@ describe('delivery runner', () => {
     expect(result.steps[0].remediation).toContain(RENDERED.branch);
   });
 });
+
+describe('delivery runner with a host provider', () => {
+  const inputs = {
+    rendered: RENDERED,
+    base: 'main',
+    draft: false,
+    reviewers: ['alice'],
+    labels: ['feat'],
+    open_pr: 'draft' as const,
+  };
+
+  it('opens the PR through the host and keeps the PR it returns', async () => {
+    const { shell, calls } = makeShell([{ exitCode: 0 }, { exitCode: 0 }, { exitCode: 0 }]);
+    const seen: unknown[] = [];
+    const result = await runDelivery(shell, inputs, async (input) => {
+      seen.push(input);
+      return { ok: true, output: 'opened', pr: { number: 3, url: 'https://example.test/pull/3' } };
+    });
+    expect(result.ok).toBe(true);
+    expect(calls.some((call) => call.command === 'gh')).toBe(false);
+    expect(seen[0]).toMatchObject({ head: RENDERED.branch, draft: true, reviewers: ['alice'] });
+    expect(result.steps.at(-1)).toMatchObject({ step: 'pr', ok: true, pr: { number: 3 } });
+  });
+
+  it('reports the host remediation when the PR does not open', async () => {
+    const { shell } = makeShell([{ exitCode: 0 }, { exitCode: 0 }, { exitCode: 0 }]);
+    const result = await runDelivery(shell, inputs, async () => ({
+      ok: false,
+      remediation: 'sign in to gh',
+    }));
+    expect(result.ok).toBe(false);
+    expect(result.steps.at(-1)).toMatchObject({
+      step: 'pr',
+      ok: false,
+      remediation: 'sign in to gh',
+    });
+  });
+});

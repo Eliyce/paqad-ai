@@ -4,12 +4,14 @@ import { isBundleClosed } from '@/feature-evidence/adoption.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { paqadFrameLead } from '@/core/constants/paqad-voice.js';
-import { writePendingLane } from '@/stage-evidence/pending-lane.js';
+import type { FeatureChangeKind } from '@/feature-evidence/types.js';
+import { writePendingKind, writePendingLane } from '@/stage-evidence/pending-lane.js';
 
 import { RequestClassifier } from './classifier.js';
 import { STAGE_ORDER } from './feature-development-policy.js';
 import { PipelineRouter } from './router.js';
 import {
+  changeKindForWorkflow,
   isFeatureDevelopmentRoute,
   resolveRoutedWorkflow,
   type RoutedWorkflow,
@@ -220,6 +222,7 @@ export interface PromptRouteResult {
   routed: RoutedWorkflow;
   lane: Lane | null;
   reason: string;
+  kind?: FeatureChangeKind;
 }
 
 export async function resolvePromptRoute(
@@ -236,9 +239,11 @@ export async function resolvePromptRoute(
   if (!isFeatureDevelopmentRoute(routed)) {
     return { routed, lane: null, reason: ROUTE_REASON[routed] };
   }
+  const kind = changeKindForWorkflow(classification.workflow);
   if (isBareTicketPrompt(request)) {
     return {
       routed,
+      kind,
       lane: null,
       reason: 'reading the ticket before I set the depth — no lane guessed from a bare link',
     };
@@ -246,6 +251,7 @@ export async function resolvePromptRoute(
   const { lane } = route(classification);
   return {
     routed,
+    kind,
     lane,
     reason: lane === null ? ROUTE_REASON['feature-development'] : LANE_REASON[lane],
   };
@@ -329,6 +335,7 @@ export async function runPromptRouteSeam(
   let routed: RoutedWorkflow;
   let lane: Lane | null;
   let reason: string;
+  let kind: FeatureChangeKind | undefined;
   if (slashName !== null) {
     const slashRoute = SLASH_COMMAND_ROUTES[slashName];
     if (slashRoute === undefined) {
@@ -344,7 +351,11 @@ export async function runPromptRouteSeam(
     lane = null;
     reason = ROUTE_REASON[slashRoute];
   } else {
-    ({ routed, lane, reason } = await resolvePromptRoute(input.projectRoot, input.request, deps));
+    ({ routed, lane, reason, kind } = await resolvePromptRoute(
+      input.projectRoot,
+      input.request,
+      deps,
+    ));
   }
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId);
 
@@ -356,6 +367,7 @@ export async function runPromptRouteSeam(
   ) {
     routed = 'feature-development';
     lane = null;
+    kind = undefined;
     reason = OPEN_CHANGE_STAGE_REASON;
   }
   const anchors = lane === null ? { reason } : { lane, reason };
@@ -368,6 +380,9 @@ export async function runPromptRouteSeam(
 
   if (isFeatureDevelopmentRoute(routed) && lane !== null) {
     writePendingLane(input.projectRoot, sessionId, lane);
+  }
+  if (isFeatureDevelopmentRoute(routed) && kind !== undefined) {
+    writePendingKind(input.projectRoot, sessionId, kind);
   }
 
   writeSessionRoute(

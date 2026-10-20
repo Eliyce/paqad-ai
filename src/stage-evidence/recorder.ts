@@ -12,7 +12,7 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { agentForWriter } from './agent-identity.js';
-import { readPendingLane } from './pending-lane.js';
+import { readPendingKind, readPendingLane } from './pending-lane.js';
 import { isKnownStage } from './stages.js';
 import { type StageEvidenceRow, type StageSessionSource } from './types.js';
 
@@ -34,9 +34,11 @@ export function openStageEvidence(
 ): { sessionId: string; dirName: string; changeKey: string } {
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
   const lane = ctx.lane !== undefined ? ctx.lane : readPendingLane(projectRoot, sessionId);
+  const kind = readPendingKind(projectRoot, sessionId);
   const dirName = openFeatureChange(projectRoot, sessionId, {
     adapter: ctx.adapter,
     lane: lane ?? null,
+    ...(kind !== null ? { kind } : {}),
     title: ctx.title,
     issue: ctx.issue,
     now: ctx.now,

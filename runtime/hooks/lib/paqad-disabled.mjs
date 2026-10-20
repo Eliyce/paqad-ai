@@ -19,6 +19,13 @@ export function isEnvDisabled(env = process.env) {
   return typeof raw === 'string' && ENV_TRUTHY.has(raw.trim().toLowerCase());
 }
 
+export const MANAGED_BLOCK_LINE = "This rule is enforced by your organization's settings.";
+
+export function isManagedRoute(env = process.env) {
+  const raw = env.PAQAD_MANAGED;
+  return typeof raw === 'string' && ENV_TRUTHY.has(raw.trim().toLowerCase());
+}
+
 export function parseHookPayload(input) {
   if (typeof input !== 'string' || input.trim() === '') {
     return undefined;

@@ -26,7 +26,7 @@ import {
   readRuntimeCopyVersion,
 } from '../health/plugin-install.js';
 
-export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-ai';
+export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-claude-plugin';
 const MARKETPLACE_KEY = 'eliyce';
 
 const MARKETPLACE_ADD_TIMEOUT_MS = 120_000;
@@ -294,7 +294,7 @@ function isConfigSkip(state: MigrationState, reason: string | undefined): boolea
   return state === 'skipped' && CONFIG_SKIP_REASONS.has(reason ?? '');
 }
 
-function pluginSettingsKeys(): {
+export function pluginSettingsKeys(): {
   extraKnownMarketplaces: Record<string, unknown>;
   enabledPlugins: Record<string, boolean>;
 } {

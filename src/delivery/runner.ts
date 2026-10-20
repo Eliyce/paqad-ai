@@ -1,4 +1,10 @@
+import type { HostStepResult, OpenPrInput, PullRequest } from '@/providers/host-provider.js';
+
 import type { RenderedDelivery } from './templates.js';
+
+export type OpenPullRequest = (
+  input: OpenPrInput,
+) => Promise<HostStepResult & { pr?: PullRequest }>;
 
 export interface DeliveryShell {
   run(
@@ -21,6 +27,7 @@ export interface DeliveryStepResult {
   ok: boolean;
   remediation?: string;
   output?: string;
+  pr?: PullRequest;
 }
 
 export interface DeliveryRunResult {
@@ -31,6 +38,7 @@ export interface DeliveryRunResult {
 export async function runDelivery(
   shell: DeliveryShell,
   inputs: DeliveryRunInputs,
+  openPr?: OpenPullRequest,
 ): Promise<DeliveryRunResult> {
   const steps: DeliveryStepResult[] = [];
 
@@ -83,6 +91,26 @@ export async function runDelivery(
   });
   if (pushResult.exitCode !== 0) {
     return { steps, ok: false };
+  }
+
+  if (openPr) {
+    const opened = await openPr({
+      title: inputs.rendered.pr_title,
+      body: inputs.rendered.pr_body,
+      base: inputs.base,
+      head: inputs.rendered.branch,
+      draft: inputs.open_pr === 'draft',
+      reviewers: inputs.reviewers,
+      labels: inputs.labels,
+    });
+    steps.push({
+      step: 'pr',
+      ok: opened.ok,
+      output: opened.output,
+      remediation: opened.ok ? undefined : opened.remediation,
+      pr: opened.pr,
+    });
+    return { steps, ok: opened.ok };
   }
 
   const prArgs = [

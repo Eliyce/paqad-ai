@@ -49,8 +49,8 @@ export function richFieldsFor(packet: ContractPacketFields): RichPacketFields | 
   const ttlDays = DECISION_CATEGORY_DEFAULTS[packet.category].ttl_days;
   const options = packet.options.map((option) => ({
     ...option,
-    one_line_preview: option.label,
-    trade_off: 'Not stated when the decision was opened.',
+    one_line_preview: option.one_line_preview ?? option.label,
+    trade_off: option.trade_off ?? 'Not stated when the decision was opened.',
     evidence: option.evidence ?? {},
   }));
   const fields: RichPacketFields = {

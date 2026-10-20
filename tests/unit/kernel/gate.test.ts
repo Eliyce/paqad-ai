@@ -1,5 +1,6 @@
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +12,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { readRuleStopRecord } from '@/hud/last-block.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
@@ -19,6 +21,7 @@ import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
+import { entryLoadedProbe } from '../../../runtime/hooks/capability-gate.mjs';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
 function markFeatureDevelopment(root: string, session: string): string {
@@ -345,5 +348,179 @@ describe('runCapabilityGate', () => {
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toContain('framework update pending');
+  });
+});
+
+describe('runCapabilityGate rule-stop record', () => {
+  const PAYLOAD = {
+    sessionId: 'sess-stop',
+    toolUseId: 'tu_9',
+    toolInput: { old_string: 'a', new_string: 'b' },
+  };
+
+  it('writes the rule, title, file and tool use id on a rule-script deny', async () => {
+    const root = setup('strict', 'function f() {\n  debugger;\n}\n');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+      entryLoaded: () => true,
+    });
+    expect(result.block).toBe(true);
+    const record = readRuleStopRecord(root, 'sess-stop');
+    expect(record).toMatchObject({
+      title: 'No debugger statements.',
+      file: 'src/app.ts',
+      tool_use_id: 'tu_9',
+      managed: false,
+      sole: true,
+      diff: '- a\n+ b',
+      used: false,
+    });
+    expect(record?.rule).toMatch(/^RL-/);
+  });
+
+  it('marks the record not sole when another capability also blocks the same call', async () => {
+    const root = setup('strict', 'debugger;\n');
+    write(join(root, '.paqad/configs/.config.policy'), 'rule_compliance=strict\n');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('planning');
+    expect(readRuleStopRecord(root, 'sess-stop')).toMatchObject({ sole: false, used: false });
+  });
+
+  function hookInput(agentId?: string): string {
+    return JSON.stringify({
+      session_id: 'sess-stop',
+      tool_name: 'Edit',
+      ...(agentId ? { agent_id: agentId } : {}),
+    });
+  }
+
+  async function stopFor(root: string, input: string) {
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+      entryLoaded: entryLoadedProbe(root, input),
+    });
+    return { result, record: readRuleStopRecord(root, 'sess-stop') };
+  }
+
+  it('marks a subagent stop sole when that subagent loaded the framework itself', async () => {
+    const root = setup('strict', 'debugger;\n');
+    write(join(root, '.paqad/.agent-entry-loaded.d/sess-stop'), '{}\n');
+    write(join(root, '.paqad/session/agent-entry/agent-a1'), '{}\n');
+    const { result, record } = await stopFor(root, hookInput('agent-a1'));
+    expect(result.block).toBe(true);
+    expect(record).toMatchObject({ sole: true, used: false });
+  });
+
+  it('keeps a subagent stop not sole when only the main session loaded the framework', async () => {
+    const root = setup('strict', 'debugger;\n');
+    write(join(root, '.paqad/.agent-entry-loaded.d/sess-stop'), '{}\n');
+    const { result, record } = await stopFor(root, hookInput('agent-a1'));
+    expect(result.block).toBe(true);
+    expect(record).toMatchObject({ sole: false, used: false });
+  });
+
+  it('marks a main-session stop sole only while its session sentinel is in place', async () => {
+    const root = setup('strict', 'debugger;\n');
+    const missing = await stopFor(root, hookInput());
+    expect(missing.result.block).toBe(true);
+    expect(missing.record?.sole).toBe(false);
+    write(join(root, '.paqad/.agent-entry-loaded.d/sess-stop'), '{}\n');
+    const fresh = await stopFor(root, hookInput());
+    expect(fresh.record?.sole).toBe(true);
+  });
+
+  it('keeps the deny and marks the stop not sole when the entry check throws', async () => {
+    const root = setup('strict', 'debugger;\n');
+    const plain = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+      entryLoaded: () => true,
+    });
+    const thrown = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+      entryLoaded: () => {
+        throw new Error('stat failed');
+      },
+    });
+    expect(thrown).toEqual(plain);
+    expect(readRuleStopRecord(root, 'sess-stop')?.sole).toBe(false);
+  });
+
+  it('marks the stop not sole when the caller gives no entry check', async () => {
+    const root = setup('strict', 'debugger;\n');
+    await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {}, payload: PAYLOAD });
+    expect(readRuleStopRecord(root, 'sess-stop')?.sole).toBe(false);
+  });
+
+  it('marks the record managed on the managed route', async () => {
+    const root = setup('strict', 'debugger;\n');
+    await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: { PAQAD_MANAGED: '1' },
+      payload: PAYLOAD,
+    });
+    expect(readRuleStopRecord(root, 'sess-stop')?.managed).toBe(true);
+  });
+
+  it('clears the record once an edit is allowed again', async () => {
+    const root = setup('strict', 'debugger;\n');
+    await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {}, payload: PAYLOAD });
+    expect(readRuleStopRecord(root, 'sess-stop')).not.toBeNull();
+    write(join(root, 'src/app.ts'), 'export const x = 1;\n');
+    const allowed = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    expect(allowed.block).toBe(false);
+    expect(readRuleStopRecord(root, 'sess-stop')).toBeNull();
+  });
+
+  it('writes nothing without a session id', async () => {
+    const root = setup('strict', 'debugger;\n');
+    await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {} });
+    expect(existsSync(join(root, '.paqad/session/hud'))).toBe(false);
+  });
+
+  it('keeps the gate result identical and logs one line when the record cannot be written', async () => {
+    const healthy = setup('strict', 'debugger;\n');
+    const expected = await runCapabilityGate({
+      projectRoot: healthy,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    const root = setup('strict', 'debugger;\n');
+    write(join(root, '.paqad/session/hud'), 'not a directory');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    expect(result).toEqual(expected);
+    const log = readFileSync(join(root, '.paqad/logs/hooks.log'), 'utf8').trim().split('\n');
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatch(/rule-stop record not written: E[A-Z]+ /);
+    expect(log[0]).not.toContain('- a');
   });
 });

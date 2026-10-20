@@ -1,13 +1,13 @@
-import { mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 
-import { dirname, join } from 'pathe';
+import { join } from 'pathe';
 
 import { sha256Hex } from '@/compliance/markdown.js';
 import { PATHS } from '@/core/constants/paths.js';
 
-import { stampFeatureDocument } from './bundle-document.js';
+import { readFeatureIndexEntries, writeFeatureIndexDocument } from './bundle-document.js';
 import { readFeatureRecord } from './feature-record.js';
-import { featureChangeKey, featureFilePath } from './paths.js';
+import { featureChangeKey } from './paths.js';
 import { DECISIONS_DOC_TYPE, FEATURE_DOC_SCHEMA_VERSION } from './types.js';
 
 export interface DecisionIndexEntry {
@@ -118,14 +118,12 @@ export function readFeatureDecisionsIndex(
   projectRoot: string,
   dirName: string,
 ): DecisionIndexEntry[] | null {
-  try {
-    const parsed = JSON.parse(
-      readFileSync(join(projectRoot, featureFilePath(dirName, 'decisions')), 'utf8'),
-    ) as { decisions?: unknown };
-    return Array.isArray(parsed.decisions) ? (parsed.decisions as DecisionIndexEntry[]) : null;
-  } catch {
-    return null;
-  }
+  return readFeatureIndexEntries<DecisionIndexEntry>(
+    projectRoot,
+    dirName,
+    'decisions',
+    'decisions',
+  );
 }
 
 export interface WriteDecisionsIndexResult {
@@ -140,29 +138,18 @@ export function writeFeatureDecisionsIndex(
   options: { sessionId?: string | null; now?: () => Date } = {},
 ): WriteDecisionsIndexResult {
   const decisions = collectFeatureDecisions(projectRoot, dirName);
-  const rel = featureFilePath(dirName, 'decisions');
-  const current = readFeatureDecisionsIndex(projectRoot, dirName);
-  if (current === null && decisions.length === 0) {
-    return { path: null, decisions, written: false };
-  }
-  if (current !== null && JSON.stringify(current) === JSON.stringify(decisions)) {
-    return { path: rel, decisions, written: false };
-  }
-  const doc = stampFeatureDocument({
+  const { path, written } = writeFeatureIndexDocument({
     projectRoot,
     dirName,
+    file: 'decisions',
+    key: 'decisions',
     docType: DECISIONS_DOC_TYPE,
     schemaVersion: FEATURE_DOC_SCHEMA_VERSION,
+    entries: decisions,
     sessionId: options.sessionId,
-    body: { decisions },
     now: options.now,
   });
-  const abs = join(projectRoot, rel);
-  mkdirSync(dirname(abs), { recursive: true });
-  const tmp = `${abs}.tmp-${process.pid}`;
-  writeFileSync(tmp, `${JSON.stringify(doc, null, 2)}\n`, 'utf8');
-  renameSync(tmp, abs);
-  return { path: rel, decisions, written: true };
+  return { path, decisions, written };
 }
 
 export function readIndexedDecisionViews(

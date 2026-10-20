@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-10-20T08:54:46.624Z
-rule_files_hash: sha256-b43934c7aef8d5d735afabb35e2d8dedac70210cb85476832d5074e306f79ba7
+generated_at: 2026-10-20T11:37:25.240Z
+rule_files_hash: sha256-7c3332ef35f7d345ade9088ce79ea08e4275bc08d6988f34ad326aa13e8b84c1
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -2437,6 +2437,14 @@ rules:
       kind: heuristic
     enforced_by: []
     scripts: []
+  - id: RL-66ed
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id."
+    text_hash: 7db7c7cdce46aed7d8c3c954949a7193e54b8469a57310614a6ebdf1049b35c7
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-e522d
     source: docs/instructions/rules/coding/feature-development.md
     text: "Blocking findings escalate `review_findings: stop`."
@@ -2497,6 +2505,14 @@ rules:
     verifiability:
       kind: unverifiable
       reason: Syncing canonical docs after verification is a workflow procedure.
+    enforced_by: []
+    scripts: []
+  - id: RL-66ed4
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id."
+    text_hash: 7db7c7cdce46aed7d8c3c954949a7193e54b8469a57310614a6ebdf1049b35c7
+    verifiability:
+      kind: heuristic
     enforced_by: []
     scripts: []
   - id: RL-ede8

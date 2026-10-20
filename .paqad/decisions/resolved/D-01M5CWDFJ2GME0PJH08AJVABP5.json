@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5CWDFJ2GME0PJH08AJVABP5",
+  "category": "architecture-path",
+  "title": "How Allow once lets only the rule stop through",
+  "context": "Review blocker: the mod's Allow once returns allow for the whole call, overriding every other deny on it. Claude Code's tool.check result does not say which PreToolUse hook denied.",
+  "options": [
+    {
+      "option_key": "conservative",
+      "label": "Offer Allow once only when paqad's rule script was the only paqad block, no decision is pending, the session is loaded and no settings permission rule denied; the mod then allows that one call",
+      "one_line_preview": "Offer Allow once only when paqad's rule script was the only paqad block, no decision is pending, the session is loaded and no settings permission rule denied; the mod then allows that one call",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "retry",
+      "label": "Allow once records the answer and denies; the edit is retried and only the rule check honours the one-time answer, every other hook judges the retry again",
+      "one_line_preview": "Allow once records the answer and denies; the edit is retried and only the rule check honours the one-time answer, every other hook judges the retry again",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "conservative",
+  "created_at": "2026-10-20T14:45:59.490Z",
+  "status": "resolved",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "conservative",
+  "rationale": "Owner: offer Allow once only when the rule script is the only paqad block, nothing pending, session loaded, no settings permission rule; document the third-party hook gap.",
+  "resolved_at": "2026-10-20T14:49:32.919Z",
+  "decision_id": "D-01M5CWDFJ2GME0PJH08AJVABP5",
+  "fingerprint": "sha256:48b0b1877e6a9b0d6731a1c5e5cc6fc4c57bb810bd91ab99f9adfb3a16c6293a",
+  "question": "How Allow once lets only the rule stop through",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2027-01-18T14:45:59.490Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "conservative",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T14:49:32.919Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: offer Allow once only when the rule script is the only paqad block, nothing pending, session loaded, no settings permission rule; document the third-party hook gap."
+  }
+}

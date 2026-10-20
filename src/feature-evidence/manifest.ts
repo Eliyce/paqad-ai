@@ -126,6 +126,27 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    key: 'techDebt',
+    file: FEATURE_BUNDLE_FILES.techDebt,
+    required: 'optional',
+    writer: 'paqad-ai debt add (tech-debt index)',
+    validate: 'json',
+  },
+  {
+    key: 'ruleOverrides',
+    file: FEATURE_BUNDLE_FILES.ruleOverrides,
+    required: 'optional',
+    writer: 'paqad-ai rules override',
+    validate: 'jsonl>=1',
+  },
+  {
+    key: 'fixProof',
+    file: FEATURE_BUNDLE_FILES.fixProof,
+    required: 'optional',
+    writer: 'paqad-ai fix prove',
+    validate: 'json',
+  },
+  {
     key: 'review',
     file: FEATURE_BUNDLE_FILES.review,
     required: 'always',
@@ -157,7 +178,7 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     key: 'delivery',
     file: FEATURE_BUNDLE_FILES.delivery,
     required: 'always',
-    writer: 'feature open + paqad-ai delivery-link',
+    writer: 'feature open + paqad-ai delivery-link + paqad-ai deliver + the Stop delivery check',
     validate: 'json',
   },
   {

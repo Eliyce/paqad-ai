@@ -116,6 +116,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 - Before writing findings, run `paqad-ai review digest` and read `.paqad/session/review-digest.md`. It is machine-built from cached evidence in under a second and costs zero model tokens: the changed files and per-stage state, the frozen acceptance criteria, every machine finding (rule scripts, duplication, checks, failing gates), and an honest list of the blind spots no machine covers.
 - Each finding must either reference a digest row or be explicitly marked judgment-only. Confirm or contest every deterministic row — an unaddressed deterministic finding is itself a review finding. The review gate re-derives the deterministic, file-anchored, high-severity rows and **fails** when the recorded review never cites one by `file:line`, so skipping the digest does not disarm the check.
 - Record the review with `paqad-ai review record <review-template.json>`: it writes the rigid `review.json` into the active feature's bundle (`.paqad/ledger/feature-evidence/<change>/review.json`) from a filled template (`{ summary, verdict, findings, checked, rollback }`, where `verdict` is one of `safe-to-merge`, `needs-attention`, `inconclusive`). End the review stage against **that** file (`paqad:stage review end -- <path-to-review.json>`, or `paqad-ai stage end review --artifact <path-to-review.json>`). Do **not** hand-write review notes to a `.md` or any other location as the durable artifact: only the bundle's `review.json` is the artifact, and a stage-end pointing anywhere else records inconclusive.
+- Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id.
 - Blocking findings escalate `review_findings: stop`.
 
 ### Stage 5 — checks
@@ -129,11 +130,12 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 ### Stage 6 — documentation_sync
 
 - Sync the canonical docs affected by the change after verification passes (module docs, registries, design-system contract as the diff requires).
+- Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id.
 - Stale or missing doc updates escalate `stop`.
 
 ## Delivery
 
-When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`). When the developer did not say whether to commit and `commit.ask_when_unspecified` is true, ask once at end-of-change and record the answer (or its absence) in the bundle's `delivery.json.commit_decision`.
+When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`). When the developer did not say whether to commit and `commit.ask_when_unspecified` is true, ask once at end-of-change and record the answer (or its absence) with `paqad-ai delivery-link commit-decision <commit|decline|ignored|user-requested>`, which writes the bundle's `delivery.json.commit_decision`.
 
 ## End-of-change: a complete evidence bundle
 

@@ -17,13 +17,16 @@ import { createPluginCommand } from './commands/plugin.js';
 import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createFeatureCommand } from './commands/feature.js';
+import { createFixCommand } from './commands/fix.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createHealthCommand } from './commands/health.js';
+import { createHookCommand } from './commands/hook.js';
 import { createIndexCommand } from './commands/index-cmd.js';
 import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
 import { createJoinCommand } from './commands/join.js';
 import { createLaneCommand } from './commands/lane.js';
+import { createManagedSettingsCommand } from './commands/managed-settings.js';
 import { createMetricsCommand } from './commands/metrics.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
@@ -37,6 +40,7 @@ import { createPlanCommand } from './commands/plan.js';
 import { createPreflightCommand } from './commands/preflight.js';
 import { createReviewCommand } from './commands/review.js';
 import { createConfigCommand } from './commands/config.js';
+import { createDebtCommand } from './commands/debt.js';
 import { createDecisionCommand } from './commands/decision.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRagEvidenceCommand } from './commands/rag-evidence.js';
@@ -111,6 +115,10 @@ export function createProgram(): Command {
   program.addCommand(createDeliveryLinkCommand());
   program.addCommand(createDiscoveryCommand());
   program.addCommand(createStatusCommand());
+  program.addCommand(createDebtCommand());
+  program.addCommand(createHookCommand());
+  program.addCommand(createManagedSettingsCommand());
+  program.addCommand(createFixCommand());
 
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);

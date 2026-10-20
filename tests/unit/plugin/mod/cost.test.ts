@@ -254,9 +254,9 @@ describe('the fast lane (AC-53)', () => {
 });
 
 describe('the pane (Parts 23 and 14)', () => {
-  it('has one pane id, the High Table tab then the Cost tab', () => {
+  it('has one pane id and the High Table, Cost, Trust, Ships and Record tabs', () => {
     expect(PANE_ID).toBe('paqad');
-    expect(PANE_TABS.map((tab) => tab.id)).toEqual(['table', 'cost']);
+    expect(PANE_TABS.map((tab) => tab.id)).toEqual(['table', 'cost', 'trust', 'ships', 'record']);
     expect(DEFAULT_PANE_TAB).toBe('cost');
     expect(isPaneTab('cost')).toBe(true);
     expect(isPaneTab('table')).toBe(true);
@@ -265,12 +265,15 @@ describe('the pane (Parts 23 and 14)', () => {
     expect(view.tabs).toEqual([
       { id: 'table', key: tabKey('table'), label: 'High Table', selected: false },
       { id: 'cost', key: tabKey('cost'), label: 'Cost', selected: true },
+      { id: 'trust', key: tabKey('trust'), label: 'Trust', selected: false },
+      { id: 'ships', key: tabKey('ships'), label: 'Ships', selected: false },
+      { id: 'record', key: tabKey('record'), label: 'Record', selected: false },
     ]);
     expect(view.table).toBeNull();
   });
 
   it('opens on its own pick for a tab it does not have: the High Table when there is one, else Cost', () => {
-    const view = buildPaneView(parse(FULL_ORD_501_COST), 'nope' as never);
+    const view = buildPaneView(parse({ ...FULL_ORD_501_COST, verdict: null }), 'nope' as never);
     expect(view.tabs[0]!.selected).toBe(true);
     expect(view.table).not.toBeNull();
     const fast = buildPaneView(parse(FAST_ORD_490_COST), null);

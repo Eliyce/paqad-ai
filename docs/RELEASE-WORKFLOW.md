@@ -301,8 +301,10 @@ Why each one works the way it does, for the parts the code does not say.
   which reuses the real hook renderer and stage-agent template, so there is no second copy. The
   agents folder is rebuilt from scratch so a renamed or removed stage never leaves a stale file.
   `tests/unit/plugin/manifest.test.ts` regenerates from the same builder and asserts a byte match.
-- **`validate-plugin.mjs`** runs `claude plugin validate` on the repo root (the marketplace file)
-  and on the packed tarball (the shipped manifest). Without a `claude` CLI it prints a skip note
+- **`validate-plugin.mjs`** runs `claude plugin validate` on the repo root (the plugin manifest),
+  on the packed tarball (the shipped manifest), and on a staged copy of the tree the release pushes
+  to `Eliyce/paqad-claude-plugin`, with the marketplace file `scripts/assemble-plugin.mjs` writes
+  there. This repo keeps no marketplace file of its own. Without a `claude` CLI it prints a skip note
   and exits 0, so CI stays green on a runner without Claude Code. "Passed with warnings" (the
   inherent npm-source warning) is allowed.
 - **`test-plugin.mjs`** runs the HUD mod's `claude plugin test` files. The plugin is rooted at the
@@ -311,6 +313,12 @@ Why each one works the way it does, for the parts the code does not say.
   naming only the module, and a copy of `runtime/claude-plugin/mod`. Command hooks are left out
   because they have their own tests. It needs `claude` 2.1.301 or newer (the mod's floor) and
   otherwise skips with exit 0.
+- **`assemble-plugin.mjs`** builds the tree the `publish-plugin` release job pushes to
+  `Eliyce/paqad-claude-plugin`: the plugin files plus a generated `.claude-plugin/marketplace.json`
+  (marketplace `eliyce`, plugin `paqad`, source `./`). It wipes everything in the target except
+  `.git`, which is why the marketplace file is written there and not kept here. The job runs only
+  after npm publish succeeds, commits nothing when the tree is unchanged, creates `main` on an
+  empty repo, and fails when `PAQAD_PLUGIN_PUSH_TOKEN` is missing or the push fails.
 - **`check-surface-drift.mjs` and `check-surface-orphans.mjs`** mirror the extension-surface
   verification gate, so a local run and verification agree. Drift is checked per barrel, because
   per-symbol drift means nothing for `export *` barrels. A symbol used only inside its own

@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { changeOwnTickets, computeCommitSplit, type CommitSplit } from '@/delivery/commit-split.js';
 import { readGitState } from '@/rag/git-state.js';
 
 import { stampFeatureDocument } from './bundle-document.js';
@@ -28,6 +29,38 @@ export interface CommitDecision {
   recorded_at: string | null;
 }
 
+export type CiState = 'pass' | 'fail' | 'pending' | 'unknown';
+
+export interface DeliveryPush {
+  state: 'pushed' | 'failed';
+  branch: string | null;
+  sha: string | null;
+  at: string;
+}
+
+export interface DeliveryPr {
+  number: number | null;
+  url: string | null;
+  draft: boolean | null;
+  at: string;
+}
+
+export interface DeliveryCi {
+  sha: string | null;
+  state: CiState;
+  done: number | null;
+  total: number | null;
+  reason: string | null;
+  source: 'deliver' | 'ci-gate' | 'stop-check';
+  at: string;
+}
+
+export interface ShipPatch {
+  push?: Omit<DeliveryPush, 'at'>;
+  pr?: Partial<Omit<DeliveryPr, 'at'>>;
+  ci?: Omit<DeliveryCi, 'at'>;
+}
+
 export interface DeliveryRecord extends Partial<
   Omit<EnvelopeHeader, 'schema_version' | 'doc_type'>
 > {
@@ -41,6 +74,11 @@ export interface DeliveryRecord extends Partial<
   captured_at?: string | null;
   commit_decision?: CommitDecision;
   last_link_attempt?: string | null;
+  start_commit?: string | null;
+  commit_split?: CommitSplit | null;
+  push?: DeliveryPush | null;
+  pr?: DeliveryPr | null;
+  ci?: DeliveryCi | null;
 }
 
 export function emptyCommitDecision(): CommitDecision {
@@ -111,6 +149,11 @@ export function writeFeatureDelivery(
       merge_commit: record.merge_commit,
       commit_decision: record.commit_decision ?? emptyCommitDecision(),
       last_link_attempt: record.last_link_attempt ?? null,
+      start_commit: record.start_commit ?? null,
+      commit_split: record.commit_split ?? null,
+      push: record.push ?? null,
+      pr: record.pr ?? null,
+      ci: record.ci ?? null,
     },
   }) as DeliveryRecord;
   atomicWriteJson(join(projectRoot, featureFilePath(dirName, 'delivery')), stamped);
@@ -139,13 +182,32 @@ function recordBranch(
   }
 }
 
+export function refreshCommitSplit(
+  projectRoot: string,
+  dirName: string,
+  record: DeliveryRecord,
+): DeliveryRecord {
+  try {
+    const feature = readFeatureRecord(projectRoot, dirName);
+    record.commit_split = computeCommitSplit(projectRoot, {
+      baseBranch: feature?.base_branch ?? undefined,
+      startCommit: record.start_commit ?? null,
+      ownTickets: changeOwnTickets(feature?.issue, feature?.branch ?? null),
+    });
+    /* v8 ignore next -- best-effort: a git fault leaves the previous split in place. */
+  } catch {}
+  return record;
+}
+
 export function seedFeatureDelivery(
   projectRoot: string,
   dirName: string,
-  input: { sessionId: string; recordedAt: string },
+  input: { sessionId: string; recordedAt: string; startCommit?: string | null },
 ): DeliveryRecord {
   const record = readFeatureDelivery(projectRoot, dirName);
   record.commit_decision = record.commit_decision ?? emptyCommitDecision();
+  if (!record.start_commit && input.startCommit) record.start_commit = input.startCommit;
+  refreshCommitSplit(projectRoot, dirName, record);
   return writeFeatureDelivery(projectRoot, dirName, record, input.recordedAt, input.sessionId);
 }
 
@@ -231,6 +293,7 @@ export function reconcileDeliveryFromGit(
   }
   recordBranch(projectRoot, dirName, state.branch, state.base_branch);
   record.head_sha = state.head_commit ?? record.head_sha;
+  refreshCommitSplit(projectRoot, dirName, record);
   return writeFeatureDelivery(projectRoot, dirName, record, capturedAt);
 }
 
@@ -281,6 +344,44 @@ export function recordCommitForBranch(
     record.commits.push(commit);
   }
   record.head_sha = commit.sha;
+  refreshCommitSplit(projectRoot, dirName, record);
   writeFeatureDelivery(projectRoot, dirName, record, capturedAt);
   return dirName;
+}
+
+const CI_RANK: Record<CiState, number> = { pass: 2, fail: 2, pending: 1, unknown: 0 };
+
+function definedFields<T extends object>(patch: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(patch).filter(([, value]) => value !== undefined),
+  ) as Partial<T>;
+}
+
+export function mergeCi(previous: DeliveryCi | null | undefined, next: DeliveryCi): DeliveryCi {
+  if (!previous || previous.sha !== next.sha) return next;
+  if (CI_RANK[next.state] < CI_RANK[previous.state]) return previous;
+  return { ...previous, ...definedFields(next) };
+}
+
+export function recordShip(
+  projectRoot: string,
+  dirName: string,
+  patch: ShipPatch,
+  at: string,
+): DeliveryRecord {
+  const record = readFeatureDelivery(projectRoot, dirName);
+  if (patch.push)
+    record.push = { ...record.push, ...definedFields(patch.push), at } as DeliveryPush;
+  if (patch.pr) {
+    record.pr = {
+      number: null,
+      url: null,
+      draft: null,
+      ...record.pr,
+      ...definedFields(patch.pr),
+      at,
+    };
+  }
+  if (patch.ci) record.ci = mergeCi(record.ci, { ...patch.ci, at });
+  return writeFeatureDelivery(projectRoot, dirName, record, at);
 }

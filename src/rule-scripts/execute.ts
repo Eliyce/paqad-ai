@@ -109,7 +109,7 @@ function isExecutableFile(p: string): boolean {
   }
 }
 
-function isOnPath(bin: string): boolean {
+export function isOnPath(bin: string): boolean {
   if (bin.includes('/') || bin.includes('\\')) {
     return isExecutableFile(bin);
   }

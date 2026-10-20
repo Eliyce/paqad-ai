@@ -8,6 +8,7 @@ import {
   formatStageIsolationLine,
   type StageIsolationSummary,
 } from '@/stage-isolation/isolation-summary.js';
+import { FIX_PROOF_STATE_LABEL, type FixProofState } from '@/fix-protocol/fix-proof-record.js';
 
 interface StageStatus {
   glyph: string;
@@ -116,6 +117,18 @@ export interface ComposeChangeReceiptInput {
   reuse?: ReuseCounts | null;
   changeMetrics?: ChangeMetrics | null;
   isolation?: StageIsolationSummary | null;
+  techDebt?: readonly { id: string }[] | null;
+  ruleOverrides?: readonly { rule: string; file: string; by: string; at: string }[] | null;
+  fixProof?: { required: boolean; state: FixProofState } | null;
+}
+
+function fixProofLine(fixProof: { required: boolean; state: FixProofState }): string {
+  if (!fixProof.required) {
+    return `> ${PAQAD_STATUS_GLYPH.skipped} fix proof: not required (only tests, docs or comments changed)`;
+  }
+  const glyph =
+    fixProof.state === 'red-green' ? PAQAD_STATUS_GLYPH.good : PAQAD_STATUS_GLYPH.needsLook;
+  return `> ${glyph} fix proof: ${FIX_PROOF_STATE_LABEL[fixProof.state]}`;
 }
 
 export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
@@ -135,6 +148,19 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   }
   if (input.isolation) {
     parts.push(`> ${formatStageIsolationLine(input.isolation)}`);
+  }
+  if (input.techDebt && input.techDebt.length > 0) {
+    parts.push(
+      `> ${PAQAD_STATUS_GLYPH.needsLook} tech debt: ${input.techDebt.length} item(s) raised (${input.techDebt.map((item) => item.id).join(', ')})`,
+    );
+  }
+  for (const override of input.ruleOverrides ?? []) {
+    parts.push(
+      `> ${PAQAD_STATUS_GLYPH.needsLook} rule override: ${override.rule} on ${override.file} by ${override.by} at ${override.at}`,
+    );
+  }
+  if (input.fixProof) {
+    parts.push(fixProofLine(input.fixProof));
   }
   if (input.delivery) {
     parts.push(`> ${input.delivery}`);

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { CLASSIFICATION_WORKFLOWS } from '@/core/types/classification.js';
 import {
   ROUTED_WORKFLOWS,
+  changeKindForWorkflow,
   isFeatureDevelopmentRoute,
   resolveRoutedWorkflow,
   routeUsesRetrieval,
@@ -100,5 +101,14 @@ describe('routed-workflow', () => {
     for (const routed of ROUTED_WORKFLOWS) {
       expect(routeUsesRetrieval(routed)).toBe(routed !== 'no-workflow');
     }
+  });
+});
+
+describe('changeKindForWorkflow', () => {
+  it('reads fix only for the bug-fix workflow and other for anything else or unknown', () => {
+    expect(changeKindForWorkflow('bug-fix')).toBe('fix');
+    expect(changeKindForWorkflow('refactor')).toBe('other');
+    expect(changeKindForWorkflow(null)).toBe('other');
+    expect(changeKindForWorkflow(undefined)).toBe('other');
   });
 });

@@ -142,6 +142,7 @@ export const FEATURE_SCHEMA = versionedSchema(
       branch: nullableString,
       base_branch: nullableString,
       updated_at: { type: 'string', minLength: 1 },
+      kind: { enum: ['fix', 'other'] },
     },
   ),
 );
@@ -307,6 +308,7 @@ const REVIEW_BODY_PROPERTIES = {
         severity: { enum: ['blocker', 'major', 'minor'] },
         description: { type: 'string', minLength: 1 },
         file: { type: 'string', minLength: 1 },
+        deferred_to: { type: 'string', pattern: `^TD-${ULID_BODY}$` },
       },
     },
   },

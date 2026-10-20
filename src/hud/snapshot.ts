@@ -4,7 +4,13 @@ import { join } from 'node:path';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
-import { GATE_STRENGTH_TIER } from '@/evidence/grading.js';
+import { GATE_STRENGTH_TIER, LATE_GATE_STRENGTH_TIER } from '@/evidence/grading.js';
+import {
+  FIX_PROOF_STATE_LABEL,
+  foldFixProofState,
+  readFixProofRows,
+  type FixProofState,
+} from '@/fix-protocol/fix-proof-record.js';
 import {
   readDuplication,
   readFeatureEvidence,
@@ -13,12 +19,28 @@ import {
   type RuleRunFinding,
 } from '@/feature-evidence/bundle-ledgers.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
-import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
+import {
+  branchCarriesOtherWork,
+  describeInherited,
+  type CommitGroup,
+  type CommitSplit,
+} from '@/delivery/commit-split.js';
+import {
+  readFeatureDelivery,
+  type DeliveryCi,
+  type DeliveryPr,
+  type DeliveryPush,
+} from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
+import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
+import {
+  readFeatureTechDebtIndex,
+  type TechDebtIndexEntry,
+} from '@/feature-evidence/tech-debt-index.js';
 import {
   currentFeature,
   foldFeature,
@@ -39,6 +61,7 @@ import type { VerificationGate } from '@/core/types/verification.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
+import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
@@ -113,7 +136,7 @@ export interface HudSnapshot {
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: HudStage[];
   table: HudHighTable | null;
-  claims: [];
+  claims: HudClaim[];
   gates: HudGate[];
   flags: HudFlag[];
   rules: { recorded: boolean; applicable: number | null; loaded_at: string | null };
@@ -123,14 +146,16 @@ export interface HudSnapshot {
     resolved: number;
   };
   questions: { asked: number; answered: number; auto_answered: number; deferred: number } | null;
-  last_block: null;
+  last_block: RuleStopRecord | null;
   ship: {
     commits: number;
     commit_decision: string | null;
     merge_commit: string | null;
-    push: null;
-    pr: null;
-    ci: null;
+    push: DeliveryPush | null;
+    pr: DeliveryPr | null;
+    ci: DeliveryCi | null;
+    own: CommitGroup | null;
+    inherited: CommitGroup | null;
   } | null;
   verdict: HudVerdictRecord | null;
   receipt: { path: string } | null;
@@ -141,6 +166,8 @@ export interface HudSnapshot {
   }>;
   isolation: { status: string; stages: number; tokens_not_recarried: number } | null;
   cost: HudCost | null;
+  tech_debt: { raised: TechDebtIndexEntry[] } | null;
+  rule_overrides: Array<{ rule: string; file: string; by: string; at: string }> | null;
 }
 
 function readJsonFile(path: string): unknown {
@@ -238,6 +265,29 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
   });
 }
 
+export interface HudClaim {
+  kind: 'fix-proof';
+  proof: FixProofState;
+  label: string;
+  verdict: 'pass' | 'inconclusive';
+  test_id: string | null;
+}
+
+function buildClaims(kind: string | undefined, projectRoot: string, dirName: string): HudClaim[] {
+  if (kind !== 'fix') return [];
+  const rows = readFixProofRows(projectRoot, dirName);
+  const proof = foldFixProofState(rows);
+  return [
+    {
+      kind: 'fix-proof',
+      proof,
+      label: FIX_PROOF_STATE_LABEL[proof],
+      verdict: proof === 'red-green' ? 'pass' : 'inconclusive',
+      test_id: rows.at(-1)?.test_id ?? null,
+    },
+  ];
+}
+
 function buildGates(projectRoot: string, dirName: string): HudGate[] {
   const latest = new Map<string, Record<string, unknown>>();
   for (const row of readFeatureEvidence(projectRoot, dirName)) {
@@ -254,7 +304,7 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
             ? 'did-not-run'
             : 'not-required'
           : 'pending';
-    const tier = GATE_STRENGTH_TIER[code as VerificationGate];
+    const tier = GATE_STRENGTH_TIER[code as VerificationGate] ?? LATE_GATE_STRENGTH_TIER[code];
     const strength =
       tier ??
       (row.strength_class === 'deterministic' || row.strength_class === 'llm-judged'
@@ -396,6 +446,7 @@ export function computeHudFlags(input: {
   isolationStatus: string;
   isolatedStages: number;
   findings?: HudFindings | null;
+  commitSplit?: CommitSplit | null;
 }): HudFlag[] {
   const flags: HudFlag[] = [];
   const touchedCode = input.stages.some(
@@ -446,6 +497,12 @@ export function computeHudFlags(input: {
         nearCopies === 1
           ? '1 near-copy of existing code is open.'
           : `${nearCopies} near-copies of existing code are open.`,
+    });
+  }
+  if (branchCarriesOtherWork(input.commitSplit) && input.commitSplit?.inherited) {
+    flags.push({
+      id: 'branch:shared',
+      text: `This branch also carries ${describeInherited(input.commitSplit.inherited)}.`,
     });
   }
   return flags;
@@ -523,6 +580,7 @@ export function buildHudSnapshot(
   const decisions = buildDecisions(projectRoot);
   const receiptPath = hudReceiptPath(projectRoot, sessionId);
   const receipt = existsSync(receiptPath) ? { path: receiptPath } : null;
+  const lastBlock = readRuleStopRecord(projectRoot, sessionId);
 
   if (!dirName) {
     return {
@@ -553,13 +611,15 @@ export function buildHudSnapshot(
       findings: null,
       decisions,
       questions: null,
-      last_block: null,
+      last_block: lastBlock,
       ship: null,
       verdict,
       receipt,
       evidence_expected: [],
       isolation: null,
       cost: null,
+      tech_debt: null,
+      rule_overrides: null,
     };
   }
 
@@ -588,6 +648,7 @@ export function buildHudSnapshot(
     isolationStatus,
     isolatedStages: isolationSummary?.stages ?? 0,
     findings,
+    commitSplit: delivery.commit_split ?? null,
   });
 
   return {
@@ -618,7 +679,7 @@ export function buildHudSnapshot(
     paused,
     stages,
     table,
-    claims: [],
+    claims: buildClaims(record?.kind, projectRoot, dirName),
     gates,
     flags,
     rules: {
@@ -629,14 +690,16 @@ export function buildHudSnapshot(
     findings,
     decisions,
     questions: buildQuestions(projectRoot, dirName),
-    last_block: null,
+    last_block: lastBlock,
     ship: {
       commits: delivery.commits.length,
       commit_decision: delivery.commit_decision?.answer ?? null,
       merge_commit: delivery.merge_commit,
-      push: null,
-      pr: null,
-      ci: null,
+      push: delivery.push ?? null,
+      pr: delivery.pr ?? null,
+      ci: delivery.ci ?? null,
+      own: delivery.commit_split?.own ?? null,
+      inherited: delivery.commit_split?.inherited ?? null,
     },
     verdict,
     receipt,
@@ -647,6 +710,13 @@ export function buildHudSnapshot(
       tokens_not_recarried: isolationSummary?.tokensNotRecarried ?? 0,
     },
     cost: buildHudCost(projectRoot, dirName),
+    tech_debt: { raised: readFeatureTechDebtIndex(projectRoot, dirName) ?? [] },
+    rule_overrides: readRuleOverrides(projectRoot, dirName).map(({ rule, file, by, at }) => ({
+      rule,
+      file,
+      by,
+      at,
+    })),
   };
 }
 

@@ -1,8 +1,14 @@
-import { sep } from 'node:path';
+import { tmpdir } from 'node:os';
+import { join, sep } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { stripTrailingChars, toPosixPath, trimEdgeChars } from '@/core/path-utils.js';
+import {
+  stripTrailingChars,
+  toPosixPath,
+  toProjectRelativePath,
+  trimEdgeChars,
+} from '@/core/path-utils.js';
 
 describe('toPosixPath', () => {
   it('joins path segments with forward slashes', () => {
@@ -43,5 +49,23 @@ describe('trimEdgeChars', () => {
 
   it('handles a string made entirely of trimmed characters', () => {
     expect(trimEdgeChars('____', '_')).toBe('');
+  });
+});
+
+describe('toProjectRelativePath', () => {
+  const root = join(tmpdir(), 'paqad-root');
+
+  it('returns a posix project-relative path for a relative or absolute path inside the root', () => {
+    expect(toProjectRelativePath(root, 'src/a.ts')).toBe('src/a.ts');
+    expect(toProjectRelativePath(root, join(root, 'src', 'b.ts'))).toBe('src/b.ts');
+    expect(toProjectRelativePath(root, './src/../src/c.ts')).toBe('src/c.ts');
+    expect(toProjectRelativePath(root, '..notes/d.md')).toBe('..notes/d.md');
+  });
+
+  it('refuses the root itself and any path that leaves it', () => {
+    expect(toProjectRelativePath(root, '.')).toBeNull();
+    expect(toProjectRelativePath(root, '..')).toBeNull();
+    expect(toProjectRelativePath(root, '../outside.ts')).toBeNull();
+    expect(toProjectRelativePath(root, join(tmpdir(), 'elsewhere', 'x.ts'))).toBeNull();
   });
 });

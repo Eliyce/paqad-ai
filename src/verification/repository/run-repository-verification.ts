@@ -35,7 +35,12 @@ import {
 } from '@/feature-evidence/bundle-ledgers.js';
 import { reuseCounts } from '@/feature-evidence/reuse.js';
 import { writeFeatureDecisionsIndex } from '@/feature-evidence/decisions-index.js';
+import {
+  readFeatureTechDebtIndex,
+  writeFeatureTechDebtIndex,
+} from '@/feature-evidence/tech-debt-index.js';
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
+import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
@@ -71,6 +76,7 @@ import {
   type BundleCompletenessGateInput,
 } from './bundle-completeness-gate.js';
 import { rulesLoadedGate } from './rules-loaded-gate.js';
+import { evaluateFixProof, type FixProofSummary } from './fix-proof-gate.js';
 import { resolveBundleCompletenessMode } from './bundle-completeness-mode.js';
 import { visualEvidenceGate } from '../gates/visual-evidence.js';
 import { resolveVisualEvidenceMode } from './visual-evidence-mode.js';
@@ -402,6 +408,14 @@ export async function runRepositoryVerification(
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: decisions index skipped (${message})`);
     }
+    try {
+      writeFeatureTechDebtIndex(context.project_root, completenessDir, {
+        sessionId: completenessSession,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      engineLog('warn', `paqad: tech-debt index skipped (${message})`);
+    }
   }
   let completenessFailed = false;
   const lateGates: VerificationEvidenceGate[] = [];
@@ -507,6 +521,17 @@ export async function runRepositoryVerification(
         evidence.first_failure_gate ??= rulesGate.name;
       }
     }
+  }
+
+  const fixProofEvaluation = evaluateFixProof({
+    projectRoot: context.project_root,
+    dirName: completenessDir,
+    isFeatureDev,
+  });
+  const fixProof: FixProofSummary | null = fixProofEvaluation.summary;
+  if (fixProofEvaluation.gate) {
+    evidence.gates.push(fixProofEvaluation.gate);
+    lateGates.push(fixProofEvaluation.gate);
   }
 
   const verdictGateRows = graded
@@ -631,6 +656,11 @@ export async function runRepositoryVerification(
     isolation: receiptFeature
       ? summarizeStageIsolation(context.project_root, receiptFeature)
       : null,
+    techDebt: receiptFeature
+      ? readFeatureTechDebtIndex(context.project_root, receiptFeature)
+      : null,
+    ruleOverrides: receiptFeature ? readRuleOverrides(context.project_root, receiptFeature) : null,
+    fixProof,
   });
 
   if (reportPath) {

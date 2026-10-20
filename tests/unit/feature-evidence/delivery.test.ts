@@ -9,7 +9,9 @@ import {
   appendCommitToFeature,
   commitsSinceBase,
   featureDeliveryBranch,
+  mergeCi,
   readFeatureDelivery,
+  recordShip,
   reconcileDeliveryFromGit,
   recordCommitForBranch,
   resolveDeliveryFeatureByBranch,
@@ -213,5 +215,85 @@ describe('branch resolution + commit recording', () => {
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
     stampMergeCommit(root, dir, 'merge-sha', AT);
     expect(readFeatureDelivery(root, dir).merge_commit).toBe('merge-sha');
+  });
+});
+
+describe('what ships', () => {
+  const ci = (state: 'pass' | 'fail' | 'pending' | 'unknown', sha = 'sha-x') => ({
+    sha,
+    state,
+    done: 1,
+    total: 2,
+    reason: state === 'unknown' ? 'gh is signed out' : null,
+    source: 'ci-gate' as const,
+  });
+
+  it('records the start commit and the commit split when the change opens', () => {
+    const root = tempRepo();
+    const head = gitOut(root, 'rev-parse', 'HEAD');
+    execFileSync('git', ['checkout', '-q', '-b', 'feat/ORD-470-x'], { cwd: root });
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 3 });
+    const record = readFeatureDelivery(root, dir);
+    expect(record.start_commit).toBe(head);
+    expect(record.commit_split).toMatchObject({ state: 'known', reason: null });
+  });
+
+  it('refreshes the split on reconcile so a later own commit counts as own', () => {
+    const root = tempRepo();
+    execFileSync('git', ['checkout', '-q', '-b', 'feat/ORD-482-x'], { cwd: root });
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 4 });
+    writeFileSync(join(root, 'b.txt'), 'b');
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-q', '-m', 'feat(ORD-482): work'], { cwd: root });
+    const record = reconcileDeliveryFromGit(root, dir, AT);
+    expect(record.commit_split?.own).toMatchObject({ count: 1, tickets: ['ORD-482'] });
+    expect(record.commit_split?.inherited?.count).toBe(0);
+  });
+
+  it('merges push, PR and CI field by field and keeps the rest of the record', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 5 });
+    appendCommitToFeature(root, dir, { sha: 'aaa', subject: 'feat: one' }, AT);
+    recordShip(root, dir, { push: { state: 'pushed', branch: 'feat/x', sha: 'aaa' } }, AT);
+    recordShip(
+      root,
+      dir,
+      { pr: { number: 12, url: 'https://example.test/pull/12', draft: true } },
+      AT,
+    );
+    recordShip(root, dir, { pr: { draft: false } }, AT);
+    recordShip(root, dir, { ci: ci('pending') }, AT);
+    const record = readFeatureDelivery(root, dir);
+    expect(record.commits).toHaveLength(1);
+    expect(record.push).toMatchObject({ state: 'pushed', sha: 'aaa' });
+    expect(record.pr).toMatchObject({
+      number: 12,
+      draft: false,
+      url: 'https://example.test/pull/12',
+    });
+    expect(record.ci).toMatchObject({ state: 'pending', done: 1, total: 2 });
+  });
+
+  it('never moves CI backwards for the same head commit', () => {
+    expect(mergeCi(ci('pass'), ci('pending')).state).toBe('pass');
+    expect(mergeCi(ci('fail'), ci('unknown')).state).toBe('fail');
+    expect(mergeCi(ci('pending'), ci('unknown')).state).toBe('pending');
+    expect(mergeCi(ci('pending'), ci('pass')).state).toBe('pass');
+    expect(mergeCi(ci('pass'), ci('pending', 'sha-y'))).toMatchObject({
+      state: 'pending',
+      sha: 'sha-y',
+    });
+    expect(mergeCi(null, ci('unknown'))).toMatchObject({
+      state: 'unknown',
+      reason: 'gh is signed out',
+    });
+  });
+
+  it('AC-33: keeps a recorded pass when a later read for the same commit is pending', () => {
+    const root = tempRepo();
+    const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 6 });
+    recordShip(root, dir, { ci: ci('pass') }, AT);
+    recordShip(root, dir, { ci: ci('pending') }, AT);
+    expect(readFeatureDelivery(root, dir).ci?.state).toBe('pass');
   });
 });

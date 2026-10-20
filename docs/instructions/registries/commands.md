@@ -42,3 +42,14 @@ Source: `src/cli/commands/*.ts`. Regenerate when adding/removing commands.
 | `audit`         | `src/cli/commands/audit.ts`       | Export the evidence ledger to your own SIEM — OCSF/ECS/CEF/JSONL, read-only, local-first (`export`) |
 | `duplication`   | `src/cli/commands/duplication.ts` | Flag new code that near-copies existing helpers, new-code-only and deterministic (`scan`) |
 | `visual-evidence` | `src/cli/commands/visual-evidence.ts` | Screenshot evidence for frontend changes: capture documented flows (`run`), attach your own PNGs (`attach`), dry-run the plan (`plan`), provision the browser (`setup`) |
+
+## Change records & organization rollout
+
+| Command            | File                                | Purpose                                        |
+| ------------------ | ----------------------------------- | ---------------------------------------------- |
+| `debt`             | `src/cli/commands/debt.ts`          | Record findings a change will not fix as `TD-<ULID>` items under `docs/instructions/tech-debt/` (`add`/`list`/`promote`/`close`) |
+| `rules override`   | `src/cli/commands/rules.ts`         | Record a person allowing one edit past a rule-script stop with the stop's one-time token; refused for a stop enforced by managed settings |
+| `fix prove`        | `src/cli/commands/fix.ts`           | Run the proof test for a fix and record `red` (before the fix) or `green` (after it) in the bundle's `fix-proof.json` |
+| `delivery-link commit-decision` | `src/cli/commands/delivery-link.ts` | Record the answer to the commit question on the change's `delivery.json` (`commit`/`decline`/`ignored`/`user-requested`) |
+| `hook`             | `src/cli/commands/hook.ts`          | Run a packaged edit gate (`capability-gate`, `decision-pause-gate`) for Claude Code managed settings; `--managed` marks it as enforced by the organization |
+| `managed-settings` | `src/cli/commands/managed-settings.ts` | Print or write (`--write <dir>`) the Claude Code managed settings that enforce paqad on every machine; needs `enterprise.enabled=true` |

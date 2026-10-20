@@ -8,7 +8,13 @@ import { higherLane } from './lane-rank.js';
 import { buildFeatureRecord, UNTITLED_FEATURE_TITLE } from './mint.js';
 import { featureFilePath, parseFeatureDirName } from './paths.js';
 import { validateFeatureRecord } from './schema.js';
-import type { FeatureLane, FeatureRecord, FeatureStatus, LegacyFeatureRecord } from './types.js';
+import type {
+  FeatureChangeKind,
+  FeatureLane,
+  FeatureRecord,
+  FeatureStatus,
+  LegacyFeatureRecord,
+} from './types.js';
 
 function atomicWriteJson(absPath: string, value: unknown): void {
   mkdirSync(dirname(absPath), { recursive: true });
@@ -72,6 +78,7 @@ export interface SeedFeatureRecordInput {
   status?: FeatureStatus;
   branch?: string | null;
   baseBranch?: string | null;
+  kind?: FeatureChangeKind;
   now?: () => Date;
 }
 
@@ -99,6 +106,7 @@ export function seedFeatureRecord(
     adapter: input.adapter,
     branch: input.branch ?? null,
     base_branch: input.baseBranch ?? null,
+    kind: input.kind,
     now: input.now,
   });
   try {
@@ -119,6 +127,14 @@ export interface FeatureRecordPatch {
   adapter?: string;
   branch?: string | null;
   base_branch?: string | null;
+  kind?: FeatureChangeKind;
+}
+
+export function higherKind(
+  current: FeatureChangeKind | undefined,
+  next: FeatureChangeKind,
+): FeatureChangeKind {
+  return current === 'fix' ? 'fix' : next;
 }
 
 export function updateFeatureRecord(
@@ -160,6 +176,7 @@ export function updateFeatureRecord(
     branch: patch.branch !== undefined ? patch.branch : (current.branch ?? null),
     base_branch:
       patch.base_branch !== undefined ? patch.base_branch : (current.base_branch ?? null),
+    kind: patch.kind !== undefined ? higherKind(current.kind, patch.kind) : current.kind,
     now: () => new Date(current.updated_at),
   });
   if (next.content_hash === current.content_hash) {

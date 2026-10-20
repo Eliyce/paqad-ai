@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { featureFilePath } from '@/feature-evidence/paths.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
+import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { appendFixProofRow, type FixProofRow } from '@/fix-protocol/fix-proof-record.js';
 import { hudSnapshotPath } from '@/hud/files.js';
+import { writeRuleStopRecord } from '@/hud/last-block.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
 import { isHudRefreshVerb, refreshHudSnapshot } from '@/hud/refresh.js';
 import type { DuplicationReport } from '@/duplication/report.js';
@@ -42,6 +44,12 @@ import {
 } from '@/spec-pipeline/high-table.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
+import { raiseTechDebt } from '@/tech-debt/index.js';
+import {
+  readFeatureDelivery,
+  recordShip,
+  writeFeatureDelivery,
+} from '@/feature-evidence/delivery.js';
 
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
 const roots: string[] = [];
@@ -384,12 +392,108 @@ describe('buildHudSnapshot', () => {
       change: null,
       stages: [],
       ship: null,
+      tech_debt: null,
       paused: [{ workflow: 'feature-development', lane: 'graduated' }],
     });
     expect(snapshot.headline).toEqual({
       text: 'A change is paused. Say "continue" to pick it up.',
       tone: 'neutral',
     });
+  });
+
+  it('lists the tech debt the active change raised, read fresh from the bundle at every build', () => {
+    const root = onboardedRoot();
+    const S = 'ses-debt';
+    const dir = openChange(root, S, 'fast', 'PQD-3 debt');
+    expect(buildHudSnapshot(root, S, { now: NOW }).tech_debt).toEqual({ raised: [] });
+    const item = raiseTechDebt(
+      root,
+      {
+        title: 'Found it',
+        kind: 'bug',
+        severity: 'low',
+        files: [],
+        foundIn: { change: featureChangeKey(dir) },
+      },
+      NOW(),
+      { dirName: dir, sessionId: S },
+    );
+    expect(buildHudSnapshot(root, S, { now: NOW }).tech_debt).toEqual({
+      raised: [{ id: item.id, title: 'Found it', kind: 'bug', severity: 'low' }],
+    });
+  });
+
+  it('AC-31: shows one fixed fix-proof claim per proof state, passed only for red then green', () => {
+    const root = onboardedRoot();
+    const S = 'ses-claims';
+    const dir = openChange(root, S, 'fast', 'PQD-4 fix');
+    expect(buildHudSnapshot(root, S, { now: NOW }).claims).toEqual([]);
+    recordChangeConstants(root, dir, { kind: 'fix' });
+    const row = (phase: 'red' | 'green', outcome: FixProofRow['outcome']): FixProofRow => ({
+      phase,
+      outcome,
+      test_file: 't',
+      test_id: 'login > empty',
+      command: 'x',
+      exit_code: 1,
+      timed_out: false,
+      duration_ms: 1,
+      commit: null,
+      tree_dirty: null,
+      at: NOW().toISOString(),
+      reason: outcome,
+      output_tail: [],
+    });
+    const claim = () => buildHudSnapshot(root, S, { now: NOW }).claims[0]!;
+    expect(claim()).toEqual({
+      kind: 'fix-proof',
+      proof: 'none',
+      label: 'no proof recorded',
+      verdict: 'inconclusive',
+      test_id: null,
+    });
+    const steps: Array<[FixProofRow, string, string, string]> = [
+      [
+        row('red', 'not-reproduced'),
+        'not-reproduced',
+        'inconclusive',
+        'passed before the fix, so it never reproduced the problem',
+      ],
+      [row('red', 'red'), 'red', 'inconclusive', 'fails before the fix, no green yet'],
+      [
+        row('green', 'held'),
+        'held',
+        'inconclusive',
+        'held: the fix broke a check that passed before',
+      ],
+      [row('green', 'green'), 'red-green', 'pass', 'fails before the fix, passes after'],
+    ];
+    for (const [next, proof, verdict, label] of steps) {
+      appendFixProofRow(root, dir, next);
+      expect(claim()).toMatchObject({ proof, verdict, label, test_id: 'login > empty' });
+    }
+    expect(claim().label).toBe('fails before the fix, passes after');
+  });
+
+  it('keeps the rule-stop record across full rebuilds, with and without an active change', () => {
+    const root = onboardedRoot();
+    const S = 'ses-stop';
+    const record = writeRuleStopRecord({
+      projectRoot: root,
+      sessionId: S,
+      rule: 'RL-1',
+      title: 'No comments',
+      file: 'src/x.ts',
+      toolUseId: 'tu_1',
+      managed: false,
+      now: NOW,
+      token: 't1',
+    });
+    expect(writeHudSnapshot(root, S, { now: NOW }).snapshot.last_block).toEqual(record);
+    expect(writeHudSnapshot(root, S, { now: NOW }).snapshot.last_block).toEqual(record);
+    openChange(root, S, 'fast', 'PQD-4 stop');
+    expect(buildHudSnapshot(root, S, { now: NOW }).last_block).toEqual(record);
+    expect(buildHudSnapshot(root, 'ses-other', { now: NOW }).last_block).toBeNull();
   });
 
   it('two sessions on one checkout each get their own snapshot', () => {
@@ -585,6 +689,109 @@ describe('computeHudFlags findings', () => {
   });
 });
 
+describe('what ships on the HUD', () => {
+  const quiet = {
+    stages: [],
+    gates: [],
+    rulesRecorded: true,
+    tableSkipped: false,
+    isolationStatus: 'not-applicable',
+    isolatedStages: 0,
+  };
+  const group = (count: number, tickets: string[] = []) => ({
+    count,
+    tickets,
+    merges: 0,
+    untagged: count - tickets.length,
+  });
+
+  it('raises branch:shared only while the branch carries other work', () => {
+    const shared = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3, ['ORD-482']),
+        inherited: group(73, ['ORD-470', 'ORD-471']),
+      },
+    });
+    expect(shared).toEqual([
+      {
+        id: 'branch:shared',
+        text: 'This branch also carries 2 commits from 2 other tickets and 71 untagged made before this change started.',
+      },
+    ]);
+    const untaggedOnly = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3, ['ORD-482']),
+        inherited: group(4),
+      },
+    });
+    expect(untaggedOnly).toEqual([]);
+    const clean = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3),
+        inherited: group(0),
+      },
+    });
+    expect(clean).toEqual([]);
+    const unknown = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'unknown',
+        reason: 'detached HEAD',
+        base_commit: null,
+        own: null,
+        inherited: null,
+      },
+    });
+    expect(unknown).toEqual([]);
+  });
+
+  it('fills ship push, PR, CI, own and inherited from delivery.json', () => {
+    const root = onboardedRoot();
+    const dir = openChange(root, 'ses-ship', 'full', 'ORD-482 matcher');
+    writeFeatureDelivery(root, dir, {
+      ...readFeatureDelivery(root, dir),
+      commit_split: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3, ['ORD-482']),
+        inherited: group(73, ['ORD-470']),
+      },
+    });
+    recordShip(
+      root,
+      dir,
+      {
+        push: { state: 'pushed', branch: 'feat/ORD-470-x', sha: 's' },
+        pr: { number: 9, url: 'https://example.test/pull/9', draft: false },
+        ci: { sha: 's', state: 'pending', done: 3, total: 7, reason: null, source: 'stop-check' },
+      },
+      NOW().toISOString(),
+    );
+    const snapshot = buildHudSnapshot(root, 'ses-ship', { now: NOW });
+    expect(snapshot.ship).toMatchObject({
+      push: { state: 'pushed' },
+      pr: { number: 9, draft: false },
+      ci: { state: 'pending', done: 3, total: 7 },
+      own: { count: 3 },
+      inherited: { count: 73, tickets: ['ORD-470'] },
+    });
+    expect(snapshot.flags.map((flag) => flag.id)).toContain('branch:shared');
+  });
+});
+
 describe('computeHudHeadline', () => {
   const base = {
     route: 'feature-development',
@@ -693,10 +900,13 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
     for (const verb of [
       'decision create',
       'rules load',
+      'rules override',
       'spec pipeline experts notes',
       'stage',
       'deliver',
       'delivery-link commit',
+      'debt add',
+      'debt close',
     ]) {
       expect(isHudRefreshVerb(verb)).toBe(true);
     }
@@ -706,6 +916,7 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
       'rules compile',
       'delivery',
       'spec pipeline start',
+      'debt list',
     ]) {
       expect(isHudRefreshVerb(verb)).toBe(false);
     }

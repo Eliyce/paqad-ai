@@ -90,6 +90,35 @@ describe('paqad-ai delivery-link', () => {
     expect(lines.some((l) => l.includes('"linked":false'))).toBe(true);
   });
 
+  it.each(['commit', 'decline', 'ignored', 'user-requested'] as const)(
+    'AC-35: commit-decision %s records the answer on delivery.json',
+    async (answer) => {
+      openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
+      const lines = await run('commit-decision', answer);
+      expect(lines.some((l) => l.includes('"recorded":true'))).toBe(true);
+      const decision = readFeatureDelivery(root, currentFeature(root, SES)!).commit_decision;
+      expect(decision).toMatchObject({ answer, asked: answer !== 'user-requested' });
+      expect(decision?.recorded_at).not.toBeNull();
+    },
+  );
+
+  it('AC-35: commit-decision rejects an unknown answer with exit code 1', async () => {
+    openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
+    const errors: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
+    await run('commit-decision', 'maybe');
+    expect(process.exitCode).toBe(1);
+    expect(errors.join('\n')).toContain('unknown commit decision "maybe"');
+    expect(
+      readFeatureDelivery(root, currentFeature(root, SES)!).commit_decision?.answer,
+    ).toBeNull();
+  });
+
+  it('commit-decision reports recorded:false when no feature is active', async () => {
+    const lines = await run('commit-decision', 'commit');
+    expect(lines.some((l) => l.includes('"recorded":false'))).toBe(true);
+  });
+
   it('install writes the git hooks', async () => {
     const lines = await run('install');
     expect(lines.some((l) => l.includes('post-commit'))).toBe(true);

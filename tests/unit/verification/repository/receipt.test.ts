@@ -165,6 +165,49 @@ describe('composeChangeReceipt', () => {
     expect(receipt).toBe('**▸ paqad** · Safe to merge');
   });
 
+  it('names the tech debt the change raised, and adds nothing when it raised none', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: null,
+      techDebt: [{ id: 'TD-A' }, { id: 'TD-B' }],
+    });
+    expect(receipt).toContain('> 🟡 tech debt: 2 item(s) raised (TD-A, TD-B)');
+    for (const techDebt of [[], null, undefined]) {
+      expect(composeChangeReceipt({ verdictSummary: 'v', fold: null, techDebt })).toBe('v');
+    }
+  });
+
+  it('shows one amber line per rule override, and none without overrides', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: 'v',
+      fold: null,
+      ruleOverrides: [
+        { rule: 'RL-1', file: 'src/a.ts', by: 'human', at: '2026-10-20T10:00:00.000Z' },
+        { rule: 'RL-2', file: 'src/b.ts', by: 'human', at: '2026-10-20T11:00:00.000Z' },
+      ],
+    });
+    expect(receipt.split('\n').slice(1)).toEqual([
+      '> 🟡 rule override: RL-1 on src/a.ts by human at 2026-10-20T10:00:00.000Z',
+      '> 🟡 rule override: RL-2 on src/b.ts by human at 2026-10-20T11:00:00.000Z',
+    ]);
+    for (const ruleOverrides of [[], null, undefined]) {
+      expect(composeChangeReceipt({ verdictSummary: 'v', fold: null, ruleOverrides })).toBe('v');
+    }
+  });
+
+  it('adds one fix-proof line for a fix change only', () => {
+    const line = (fixProof: Parameters<typeof composeChangeReceipt>[0]['fixProof']) =>
+      composeChangeReceipt({ verdictSummary: 'v', fold: null, fixProof }).split('\n').slice(1);
+    expect(line({ required: true, state: 'red-green' })).toEqual([
+      '> 🟢 fix proof: fails before the fix, passes after',
+    ]);
+    expect(line({ required: true, state: 'none' })).toEqual(['> 🟡 fix proof: no proof recorded']);
+    expect(line({ required: false, state: 'none' })).toEqual([
+      '> ⚪ fix proof: not required (only tests, docs or comments changed)',
+    ]);
+    expect(line(null)).toEqual([]);
+  });
+
   it('appends an optional delivery line', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',

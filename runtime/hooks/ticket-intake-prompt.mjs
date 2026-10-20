@@ -25,6 +25,7 @@ async function main(rawInput) {
 
   if (prompt.trimStart().startsWith('/')) return 0;
 
+  let refs = [];
   try {
     const laneUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
     const { isSystemNotificationPrompt } = await import(laneUrl.href);
@@ -32,13 +33,25 @@ async function main(rawInput) {
 
     const distUrl = new URL('../../dist/planning/ticket-ref-detect.js', import.meta.url);
     const { detectTicketRefs, armIntakeNarration } = await import(distUrl.href);
-    const refs = detectTicketRefs(prompt, 'generic');
+    refs = detectTicketRefs(prompt, 'generic');
     const line = armIntakeNarration(refs);
     if (line) process.stdout.write(line + '\n');
   } catch (error) {
     logHookFailure(projectRoot, 'ticket-intake-prompt', error, 'detecting ticket refs');
   }
+  if (refs.length > 0) await writeBranchLine(projectRoot, refs);
   return 0;
+}
+
+async function writeBranchLine(projectRoot, refs) {
+  try {
+    const splitUrl = new URL('../../dist/delivery/commit-split.js', import.meta.url);
+    const { intakeBranchLine } = await import(splitUrl.href);
+    const line = intakeBranchLine(projectRoot, refs);
+    if (line) process.stdout.write(line + '\n');
+  } catch (error) {
+    logHookFailure(projectRoot, 'ticket-intake-prompt', error, 'reading the branch commits');
+  }
 }
 
 let done = false;

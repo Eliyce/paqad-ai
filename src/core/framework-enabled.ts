@@ -12,6 +12,11 @@ export function isEnvDisabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return typeof raw === 'string' && ENV_TRUTHY.has(raw.trim().toLowerCase());
 }
 
+export function isManagedEnv(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = env.PAQAD_MANAGED;
+  return typeof raw === 'string' && ENV_TRUTHY.has(raw.trim().toLowerCase());
+}
+
 export function isFrameworkEnabled(
   profile: ProjectProfile | null | undefined,
   env: NodeJS.ProcessEnv = process.env,

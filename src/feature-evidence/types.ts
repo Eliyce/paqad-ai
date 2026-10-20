@@ -18,6 +18,9 @@ export const CLARIFICATION_DOC_TYPE = 'paqad.clarification';
 export const EXPERTS_DOC_TYPE = 'paqad.experts';
 
 export const DECISIONS_DOC_TYPE = 'paqad.decisions';
+export const TECH_DEBT_DOC_TYPE = 'paqad.tech-debt';
+export const RULE_OVERRIDE_DOC_TYPE = 'paqad.rule-override';
+export const FIX_PROOF_DOC_TYPE = 'paqad.fix-proof';
 
 export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 
@@ -28,6 +31,8 @@ export const FEATURE_DOC_SCHEMA_VERSION = 2;
 export type FeatureLane = 'fast' | 'graduated' | 'full' | null;
 
 export type FeatureStatus = 'active' | 'paused' | 'done' | 'spec-only';
+
+export type FeatureChangeKind = 'fix' | 'other';
 
 export interface FeatureRecord extends EnvelopeHeader {
   doc_type: typeof FEATURE_DOC_TYPE;
@@ -41,6 +46,7 @@ export interface FeatureRecord extends EnvelopeHeader {
   adapter: string;
   branch?: string | null;
   base_branch?: string | null;
+  kind?: FeatureChangeKind;
 }
 
 export interface LegacyFeatureRecord {
@@ -96,6 +102,7 @@ export interface ReviewFinding {
   severity: ReviewFindingSeverity;
   description: string;
   file?: string;
+  deferred_to?: string;
 }
 
 export interface ReviewRecord extends EnvelopeHeader {

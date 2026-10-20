@@ -3,8 +3,9 @@ import { Command } from 'commander';
 import { resolveRuleApplicabilityForChange } from '@/context/rule-context.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { writeRulesLoaded } from '@/feature-evidence/rules-loaded.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { compileRuleScripts } from '@/rule-scripts/compile.js';
+import { applyRuleOverride } from '@/rule-scripts/override.js';
 
 export function createRulesCommand(): Command {
   const command = new Command('rules').description('Manage the rules-as-scripts enforcement map');
@@ -104,5 +105,54 @@ export function createRulesCommand(): Command {
       }
     });
 
+  command
+    .command('override')
+    .description(
+      'Record a person allowing one edit past a rule-script stop, using the one-time token ' +
+        'from that stop (refused for a stop enforced by managed settings)',
+    )
+    .requiredOption('--rule <id>', 'Rule id from the stop')
+    .requiredOption('--file <path>', 'File named by the stop')
+    .requiredOption('--token <token>', 'One-time token from the stop')
+    .option('--tool-use-id <id>', 'Tool call the stop was for')
+    .option('--reason <text>', 'Why the person allowed it')
+    .option('--project-root <path>', 'Project root', process.cwd())
+    .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
+    .action((options: RuleOverrideOptions) => {
+      const outcome = applyRuleOverride({
+        projectRoot: options.projectRoot,
+        sessionHint:
+          options.session ??
+          process.env.SE_SESSION ??
+          process.env.CLAUDE_SESSION_ID ??
+          readLedgerSessionId(options.projectRoot),
+        rule: options.rule,
+        file: options.file,
+        token: options.token,
+        toolUseId: options.toolUseId,
+        reason: options.reason,
+      });
+      if (!outcome.ok) {
+        console.error(`**▸ paqad** · override refused: ${outcome.reason}.`);
+        process.exitCode = 1;
+        return;
+      }
+      console.log(
+        `**▸ paqad** · recorded a one-time override of ${outcome.row.rule} on ` +
+          `${outcome.row.file} by a person. It shows on the receipt.`,
+      );
+      console.log(JSON.stringify({ overridden: true, ...outcome.row, bundle: outcome.dirName }));
+    });
+
   return command;
+}
+
+interface RuleOverrideOptions {
+  rule: string;
+  file: string;
+  token: string;
+  toolUseId?: string;
+  reason?: string;
+  projectRoot: string;
+  session?: string;
 }

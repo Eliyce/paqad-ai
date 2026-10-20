@@ -87,9 +87,12 @@ change, so the live feature-development stage spine is untouched:
 | `high-table.jsonl` | checked-when-present | `paqad-ai spec pipeline experts` (record, brief, context, notes, synthesis) + SubagentStop hook |
 | `cost.json` | checked-when-present | Stop and SubagentStop hooks (record-only) |
 | `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
+| `tech-debt.json` | checked-when-present | `paqad-ai debt` (add, promote, close) and the end-of-change verification (the change's tech-debt index) |
+| `rule-overrides.jsonl` | checked-when-present | `paqad-ai rules override` |
+| `fix-proof.json` | checked-when-present | `paqad-ai fix prove` |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
-| `delivery.json` | always | feature open + `paqad-ai delivery-link` |
+| `delivery.json` | always | feature open, `paqad-ai delivery-link`, `paqad-ai deliver` and the Stop delivery check |
 | `checks.json` | checked-when-present | `paqad-ai checks run` |
 | `rules-loaded.json` | checked-when-present | `paqad-ai rules load` |
 | `rule-run.jsonl` | `rule_compliance != off` | rule-scripts runner |
@@ -461,12 +464,41 @@ network, and starts no process.
 - **The live card.** While the table sits, a card is drawn over the change's first
   `paqad-ai spec pipeline experts` call in the chat and redrawn in place as seats move: each
   seat's state and time, tokens and findings, then the chief's ruling in counts.
-- **The paqad pane.** One pane with two tabs, opened by the High Table label or the cost pill.
+- **The paqad pane.** One pane with five tabs, opened by the High Table label or the cost pill
+  (`runtime/claude-plugin/mod/pane.ts`, the tab lines in `tabs.ts`).
   *High Table* shows the round table with the chief in the centre (a picture on Desktop, text in
   the terminal), a button per seat with its detail and track record on earlier changes, the
   chief's rulings (accepted, declined, renamed, disagreements and those settled before) and
-  which spec lines each role shaped. *Cost* shows the change cost described below. The pane
-  opens on High Table when the change has one, otherwise on Cost.
+  which spec lines each role shaped. *Cost* shows the change cost described below. *Trust* shows
+  the verdict, a ring of the required gates only (a not-required gate is listed but never
+  counted), every gate grouped by strength (deterministic, judged by a model, strength not
+  recorded) with its verdict in words, each claim with its proving test, and the open flags.
+  *Ships* shows the change's own commits against the commits riding along from other tickets
+  (amber), or, when the only earlier commits carry no ticket, plainly as "untagged, made before
+  this change started", then the push, the PR, CI (a partial "3 of 7 done", and "unknown, never recorded" when no CI was
+  saved, never a green default), the merge and how to roll it back; every value comes from the
+  bundle's `delivery.json`. *Record* shows the plan, the decisions waiting and resolved, the rules
+  and whether the receipt is written. An empty tab names its state: "No gates judged yet.",
+  "Nothing pushed yet.", "No plan recorded yet.". Below 80 columns the tab labels shorten.
+  The pane picks its tab on its own only until the person picks one: a delivery in progress
+  (the delivery stage running, or CI pending) opens Ships, a landed verdict opens Trust, a
+  sitting High Table opens High Table, otherwise Cost. Once a tab is picked it stays for the
+  session. A failing or pending CI is never drawn as done on the band's Ship row.
+- **The receipt card and the seal** (`runtime/claude-plugin/mod/receipt.ts`). `/paqad receipt`
+  is drawn as a card in the command's output row: a seal line with the verdict in words and its
+  colour ("Not sealed" before a verdict lands), then the receipt itself. When a new verdict lands
+  the HUD shows one toast naming it, once per verdict however often the snapshot is rebuilt; a
+  verdict already there when the session starts is not toasted again. The seal is drawn still,
+  with no motion, so there is nothing to turn off for reduced motion.
+- **Evidence above a decision question** (`runtime/claude-plugin/mod/ask-evidence.ts`). When the
+  agent asks a waiting `fix.proof_method`, `spec.expert_conflict`, `delivery.open_pr` or
+  `intake.requirement` decision through AskUserQuestion (matched on the question text or the
+  decision id), the mod reads that packet from `.paqad/decisions/pending/<id>.json` and draws
+  each option's evidence above the engine's own card, one row per item (file, callers, rule,
+  findings). Claude Code allows 12 rows around the dialog in the terminal and 48 elsewhere, so a
+  longer list shows as many rows as fit and a last "+N more" row. A missing or unreadable
+  packet, or one with no evidence, draws nothing and the question is answered as usual. paqad's
+  own rule-stop questions (headers "Rule stop" and "Reason") are left alone.
 - **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
   Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
   Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
@@ -477,7 +509,8 @@ network, and starts no process.
   while a stage agent runs.
 - **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
   `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
-  session's `<session>.receipt.md`) and `/paqad cost` (the same text as the Cost tab). Each answer comes from files already on
+  session's `<session>.receipt.md`), `/paqad cost` (the same text as the Cost tab) and
+  `/paqad trust`, `/paqad ships` and `/paqad record` (the same lines as those tabs). Each answer comes from files already on
   disk, so it costs no model turn.
 - **The `hud_view` setting.** The paqad config key `hud_view` (env `PAQAD_HUD_VIEW`, on by
   default) turns the band off. The mod reads it the same way it reads `paqad_enable`: the env
@@ -485,6 +518,14 @@ network, and starts no process.
   winning. Off, the mod draws no band, reads nothing and registers no `/paqad` command. The
   plugin declares no `userConfig`, because Claude Code lists every declared option with no saved
   value as "not yet set" when the plugin is installed, even one with a default.
+- **The `hud_chime` setting.** The config key `hud_chime` (env `PAQAD_HUD_CHIME`, off by default)
+  makes the mod play one short chime when a verdict lands, once per verdict. It resolves like
+  `hud_view`, lives in the team app config, and is a chime only: the mod never speaks.
+- **Chips, spinner, lane and heartbeat.** paqad's own `paqad-ai` Bash rows read as chips with
+  their state in words, the spinner names the running stage, the footer names the lane, and a
+  fresh `.paqad/session/hud/<session>.live` heartbeat lets the prompt gate ask the agent to skip
+  the per-stage narration lines the HUD already shows (the Claude Code technical page has the
+  detail).
 - **Stand-downs.** The mod also stands down when the project was never onboarded, when the
   session runs in the cloud (`CLAUDE_CODE_REMOTE=true`), when paqad is off for the project
   (resolved the same way the hooks resolve it), and on Claude Code older than 2.1.301. While it
@@ -624,7 +665,9 @@ writing `undefined`, which would hash differently.
 **`manifest.ts`.** `checks.json`, `visual-evidence.json` and `rules-loaded.json` are `optional`
 and not flag-gated: the completeness gate cannot tell whether a change mapped any checks or was a
 frontend change, so requiring them would fail changes falsely, and there is no flag to be off.
-Each has its own gate that does the real enforcement.
+Each has its own gate that does the real enforcement. `tech-debt.json`, `rule-overrides.jsonl`
+and `fix-proof.json` are `optional` for the same reason: most changes record no debt, no override
+and no fix proof. The fix-proof gate is the one that asks for proof on a fix.
 
 **`report.ts` and `report-writer.ts`.** A feature receipt is chained to the feature's own earlier
 receipt, so its `prev_receipt_hash` is legitimately non-zero; it is checked with
@@ -855,6 +898,17 @@ obvious from their code, grouped by file.
 - `src/feature-evidence`
 - `src/hud`
 - `src/cost`
+- `src/tech-debt`
+- `src/core/text/marker-block.ts`
+- `src/cli/commands/debt.ts`
+- `src/fix-protocol/fix-prove.ts`, `src/fix-protocol/fix-proof-record.ts`, `src/fix-protocol/fix-change.ts`, `src/cli/commands/fix.ts`
+- `src/rule-scripts/override.ts`
+
+## Features
+
+- [Tech debt (paqad-ai debt)](../features/tech-debt/business.md)
+- [Fix proof (paqad-ai fix prove)](../features/fix-proof/business.md)
+- [Rule stop and Allow once (paqad-ai rules override)](../features/rule-override/business.md)
 
 ## Authority
 

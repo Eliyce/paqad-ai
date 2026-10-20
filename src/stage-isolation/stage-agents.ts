@@ -1,4 +1,7 @@
-import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
+import {
+  OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
+  STAGE_ORDER,
+} from '@/pipeline/feature-development-policy.js';
 
 export interface StageAgentDef {
   agentName: string;
@@ -157,6 +160,14 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
     : buildExpertAgentBody();
 }
 
+const STAGES_THAT_RAISE_DEBT: ReadonlySet<string> = new Set(['review', 'documentation_sync']);
+
+function outOfScopeSection(ledgerStage: string): string[] {
+  return STAGES_THAT_RAISE_DEBT.has(ledgerStage)
+    ? ['## Out-of-scope findings', '', OUT_OF_SCOPE_FINDINGS_INSTRUCTION, '']
+    : [];
+}
+
 export function buildStageAgentBody(def: StageAgentDef): string {
   return [
     `You are the paqad **${def.ledgerStage}** stage agent. You run one stage of one`,
@@ -189,6 +200,7 @@ export function buildStageAgentBody(def: StageAgentDef): string {
     '   edits for a mutation stage.',
     `4. \`paqad-ai stage end ${def.ledgerStage} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
     '',
+    ...outOfScopeSection(def.ledgerStage),
     '## Hard rules',
     '',
     '- **Never ask the human.** If you hit a decision pause, create the packet with',

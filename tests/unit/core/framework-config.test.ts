@@ -758,6 +758,29 @@ describe('reconcileConfigOverrides — prune obsolete keys, never reset', () => 
       '# team RAG\nrag_enabled=true\n',
     );
   });
+
+  it('AC-46: keeps a team hud_chime value through reconcile, update and sync, and defaults it off', () => {
+    writeConfigsFile(root, '.config.app', 'hud_chime=true\n');
+    writeConfig(root, 'hud_chime=true\n');
+    writeConfigExample(root);
+    syncGroupConfigs(root);
+    expect(reconcileConfigOverrides(root)).toEqual([]);
+    syncFrameworkConfig(root, baseProfile());
+    expect(readFileSync(join(root, '.paqad/configs/.config.app'), 'utf8')).toMatch(
+      /^hud_chime=true$/m,
+    );
+    expect(readFileSync(join(root, '.paqad/.config'), 'utf8')).toMatch(/^hud_chime=true$/m);
+    expect(FRAMEWORK_CONFIG_SPECS.find((spec) => spec.key === 'hud_chime')).toMatchObject({
+      env: 'PAQAD_HUD_CHIME',
+      type: 'boolean',
+      default: false,
+      group: 'app',
+    });
+    expect(generateConfigExample()).toContain('# hud_chime=false\n');
+    expect(readFileSync(join(root, '.paqad/.config.example'), 'utf8')).toContain(
+      '# hud_chime=false\n',
+    );
+  });
 });
 
 describe('detectFlippedFrameworkValues — the no-migration safety net', () => {

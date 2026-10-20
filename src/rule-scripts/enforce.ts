@@ -5,6 +5,7 @@ import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 
 export interface RuleViolation {
   rule_id: string;
+  title?: string;
   script: string;
   file: string;
   line?: number;
@@ -58,11 +59,13 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
     changedFiles: changedFiles.length > 0 ? changedFiles : undefined,
   });
 
+  const titles = new Map((map?.rules ?? []).map((rule) => [rule.id, rule.text]));
   const violations: RuleViolation[] = report.results
     .filter((r) => !r.skipped && r.kind === 'deterministic')
     .flatMap((r) =>
       r.findings.map((f) => ({
         rule_id: r.rule_id,
+        ...(titles.has(r.rule_id) ? { title: titles.get(r.rule_id) } : {}),
         script: r.script,
         file: f.file,
         line: f.line,

@@ -7,10 +7,20 @@ import {
   stageSegments,
   type BandView,
 } from './model';
+import { linesText, recordLines, shipsLines, trustLines } from './tabs';
 import type { PaqadFindingsScan, PaqadHudSnapshot, PaqadStandDown } from './types';
 
 export const COMMAND_NAME = 'paqad';
-export const SUBCOMMANDS = ['status', 'decisions', 'rules', 'receipt', 'cost'] as const;
+export const SUBCOMMANDS = [
+  'status',
+  'decisions',
+  'rules',
+  'receipt',
+  'cost',
+  'trust',
+  'ships',
+  'record',
+] as const;
 
 export interface CommandInput {
   args: string;
@@ -20,7 +30,8 @@ export interface CommandInput {
   now: number;
 }
 
-const HELP = 'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt or /paqad cost.';
+const HELP =
+  'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.';
 
 const STAND_DOWN_WORDS: Record<PaqadStandDown, string> = {
   'view-off': 'the paqad HUD is turned off in the plugin settings',
@@ -128,9 +139,11 @@ function cost(snapshot: PaqadHudSnapshot): string {
   return costLines(snapshot.cost, { lane: snapshot.lane, stageLabel }).join('\n');
 }
 
+export const NO_RECEIPT = 'No receipt yet. paqad writes one at the end of each turn.';
+
 function receipt(text: string | null): string {
   const body = text?.trim();
-  return body ? body : 'No receipt yet. paqad writes one at the end of each turn.';
+  return body ? body : NO_RECEIPT;
 }
 
 export function runPaqadCommand(input: CommandInput): { text: string } {
@@ -146,5 +159,8 @@ export function runPaqadCommand(input: CommandInput): { text: string } {
   if (sub === 'decisions') return { text: decisions(snapshot) };
   if (sub === 'rules') return { text: rules(snapshot) };
   if (sub === 'cost') return { text: cost(snapshot) };
+  if (sub === 'trust') return { text: linesText(trustLines(snapshot)) };
+  if (sub === 'ships') return { text: linesText(shipsLines(snapshot)) };
+  if (sub === 'record') return { text: linesText(recordLines(snapshot)) };
   return { text: overview(snapshot, input.now) };
 }

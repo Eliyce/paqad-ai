@@ -63,6 +63,10 @@ describe('createProgram', () => {
       'delivery-link',
       'discovery',
       'status',
+      'debt',
+      'hook',
+      'managed-settings',
+      'fix',
     ]);
   });
 

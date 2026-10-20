@@ -102,6 +102,7 @@ stages:
     instructions:
       - Review the change against correctness, regressions, and rollback risk before treating it as complete.
       - "Review digest: before writing review findings, run `npx paqad-ai review digest` and read `.paqad/session/review-digest.md`. Each finding must either reference a digest row or be explicitly marked judgment-only. Confirm or contest every deterministic finding — an unaddressed deterministic finding is itself a review finding, and the review gate fails when a deterministic high-severity row is never cited by file:line."
+      - "Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id."
       - "Rigid review artifact: record the review with `paqad-ai review record <template.json>`, which writes review.json into the active feature's bundle, and end the review stage against that file. A stage-end naming anything else records inconclusive, and nothing may be written into a feature bundle directory."
       - "Design-system: on UI diffs, run ux-heuristic-evaluation and design-system-coverage against the changed surfaces. DT-blocker findings are review-blocking."
     required_inputs:
@@ -182,6 +183,7 @@ stages:
   documentation_sync:
     instructions:
       - Sync canonical docs affected by the feature diff after verification passes.
+      - "Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id."
       - "Design-system: when the diff adds a token, component, or breakpoint to source, invoke design-system-sync to propose contract updates to docs/instructions/design-system/*. Proposals are surfaced via the Decision Pause Contract — never auto-applied."
       - "Site map: the stored site map at docs/site-map/ is a living doc. When the diff moves surfaces, navigation, or guards, treat that map as a canonical doc to keep in sync. Re-run the Site map area so it re-verifies and restamps earned trust and freshness, and stale anchors do not linger. Inert while the site_map flag is off or no map exists."
     required_inputs:

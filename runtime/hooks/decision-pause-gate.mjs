@@ -7,6 +7,7 @@ import process from 'node:process';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
   hookStandsDown,
+  isManagedRoute,
   isPaqadDisabled,
   parseHookPayload,
   resolveProjectRoot,
@@ -25,7 +26,10 @@ function pendingPacketIds(projectRoot) {
 function evaluateDecisionPauseGate(input) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
-  if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) {
+  if (
+    !isManagedRoute(process.env) &&
+    (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input)))
+  ) {
     return 0;
   }
 

@@ -14,6 +14,8 @@ import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 import { formatStageEvidenceReceipt } from '@/verification/repository/receipt.js';
 
+import { ticketRef } from '../../../shared/ticket-ref.js';
+
 import {
   BAND_STATES,
   NOT_YET,
@@ -112,7 +114,10 @@ describe('parseSnapshot', () => {
         duration_unreliable: false,
       },
     ]);
-    expect(odd.gates).toEqual([{ name: 'g', verdict: 'pending' }]);
+    expect(odd.gates).toEqual([{ name: 'g', verdict: 'pending', required: true, strength: null }]);
+    expect(odd.claims).toEqual([]);
+    expect(odd.bundle_files).toEqual([]);
+    expect(odd.receipt).toBeNull();
     expect(odd.flags).toEqual([{ id: 'f', text: 'f' }]);
     expect(odd.rules).toEqual({ recorded: false, applicable: null, loaded_at: null });
     expect(odd.findings).toEqual({
@@ -131,6 +136,11 @@ describe('parseSnapshot', () => {
       push: 'pushed',
       pr: 'open',
       ci: 'recorded',
+      push_branch: null,
+      pr_url: null,
+      ci_detail: null,
+      own: null,
+      inherited: null,
     });
     expect(odd.verdict).toBeNull();
   });
@@ -141,6 +151,37 @@ describe('parseSnapshot', () => {
     expect(at({ reason: 'B' })).toEqual({ text: 'B' });
     expect(at({})).toEqual({ text: 'A rule stopped an edit.' });
     expect(at(null)).toBeNull();
+  });
+
+  it('reads the structured rule-stop record and names the rule and file', () => {
+    const at = (last_block: unknown) => parse(snapshot({ last_block })).last_block;
+    const record = {
+      rule: 'RL-1',
+      title: 'No comments',
+      file: 'src/x.ts',
+      tool_use_id: 'tu_1',
+      managed: false,
+      at: '2026-10-20T10:00:00.000Z',
+      diff: '+ // hi',
+      token: 'abc',
+      used: false,
+      session: 's',
+    };
+    expect(at(record)).toEqual({
+      text: 'RL-1 stopped an edit to src/x.ts.',
+      rule: 'RL-1',
+      title: 'No comments',
+      file: 'src/x.ts',
+      tool_use_id: 'tu_1',
+      managed: false,
+      at: '2026-10-20T10:00:00.000Z',
+      token: 'abc',
+      used: false,
+    });
+    expect(bandState(parse({ ...FULL_ORD_501, last_block: record }))).toBe('Stopped');
+    expect(bandState(parse({ ...FULL_ORD_501, last_block: { ...record, used: true } }))).not.toBe(
+      'Stopped',
+    );
   });
 
   it('fills a verdict word from its kind when the word is missing', () => {
@@ -362,6 +403,34 @@ describe('the Ship instrument (FR-26)', () => {
     expect(full[1]).toEqual({ label: 'Commit', word: '3 commits', done: true });
     const one = shipSteps(parse({ ...FULL_ORD_501, ship: { commits: 1 } }));
     expect(one[1]!.word).toBe('1 commit');
+  });
+
+  it('reads the PR number, a partial CI and the own and inherited commits', () => {
+    const parsed = parse({
+      ...FULL_ORD_501,
+      ship: {
+        commits: 76,
+        push: { state: 'pushed', sha: 's' },
+        pr: { number: 9, url: 'https://example.test/pull/9', draft: true },
+        ci: { state: 'pending', done: 3, total: 7 },
+        own: { count: 3, tickets: ['ORD-482'], merges: 0, untagged: 1 },
+        inherited: { count: 73, tickets: ['ORD-470'], merges: 'x' },
+      },
+    })!;
+    expect(parsed.ship).toMatchObject({
+      push: 'pushed',
+      pr: `draft ${ticketRef(9)}`,
+      ci: '3 of 7 done',
+      own: { count: 3, tickets: ['ORD-482'], merges: 0, untagged: 1 },
+      inherited: { count: 73, tickets: ['ORD-470'], merges: 0, untagged: 0 },
+    });
+    const settled = parse({
+      ...FULL_ORD_501,
+      ship: { pr: { number: 9, draft: false }, ci: { state: 'pass', done: 7, total: 7 } },
+    })!;
+    expect(settled.ship).toMatchObject({ pr: ticketRef(9), ci: 'pass' });
+    const unknown = parse({ ...FULL_ORD_501, ship: { ci: { state: 'pending' } } })!;
+    expect(unknown.ship?.ci).toBe('pending');
   });
 
   it('reads a recorded push, PR, CI and merge', () => {

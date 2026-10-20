@@ -44,6 +44,8 @@ modules:
       - src/cli/commands/onboard.ts
       - src/cli/commands/refresh.ts
       - src/cli/commands/update.ts
+      - src/cli/commands/managed-settings.ts
+      - src/cli/commands/hook.ts
     features:
       - slug: install
         name: paqad-ai install
@@ -60,6 +62,9 @@ modules:
       - slug: update
         name: paqad-ai update
         sources: [src/cli/commands/update.ts, src/update]
+      - slug: managed-settings
+        name: paqad-ai managed-settings and paqad-ai hook (organization rollout)
+        sources: [src/cli/commands/managed-settings.ts, src/cli/commands/hook.ts]
     evidence:
       symbols:
         - BootstrapOptions
@@ -2779,6 +2784,24 @@ modules:
       - src/feature-evidence
       - src/hud
       - src/cost
+      - src/tech-debt
+      - src/core/text/marker-block.ts
+      - src/cli/commands/debt.ts
+      - src/fix-protocol/fix-prove.ts
+      - src/fix-protocol/fix-proof-record.ts
+      - src/fix-protocol/fix-change.ts
+      - src/cli/commands/fix.ts
+      - src/rule-scripts/override.ts
+    features:
+      - slug: tech-debt
+        name: Tech-Debt Items (paqad-ai debt)
+        sources: [src/tech-debt, src/core/text/marker-block.ts, src/feature-evidence/tech-debt-index.ts, src/cli/commands/debt.ts]
+      - slug: fix-proof
+        name: Fix Proof (paqad-ai fix prove)
+        sources: [src/fix-protocol/fix-prove.ts, src/fix-protocol/fix-proof-record.ts, src/fix-protocol/fix-change.ts, src/verification/repository/fix-proof-gate.ts, src/cli/commands/fix.ts]
+      - slug: rule-override
+        name: Rule Stop and Allow Once (paqad-ai rules override)
+        sources: [src/rule-scripts/override.ts, src/feature-evidence/rule-overrides.ts, src/hud/last-block.ts, src/cli/commands/rules.ts]
     evidence:
       symbols:
         - ALLOWED_BUNDLE_FILENAMES
@@ -3013,6 +3036,7 @@ modules:
     sources:
       - src/delivery
       - src/providers
+      - src/cli/commands/delivery-link.ts
       - docs/instructions/workflows/delivery-policy.yaml
     features:
       - slug: ticket-provider
@@ -3027,6 +3051,9 @@ modules:
       - slug: delivery-ci-gate
         name: Delivery CI Gate + Graceful Degradation
         sources: [src/delivery/ci-gate.ts, src/delivery/degradation.ts]
+      - slug: commit-decision
+        name: Shipped Commits and the Commit Question (paqad-ai delivery-link commit-decision)
+        sources: [src/delivery/commit-split.ts, src/cli/commands/delivery-link.ts]
     evidence:
       symbols:
         - CheckRun

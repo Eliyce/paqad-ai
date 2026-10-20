@@ -6,13 +6,17 @@ import process from 'node:process';
 
 import { isDirectEntry } from './lib/direct-entry.mjs';
 
+import { sentinelState } from './lib/agent-entry-sentinel.mjs';
+import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { editTargets } from './lib/edit-targets.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
   appendHooksLog,
   hookStandsDown,
+  isManagedRoute,
   isPaqadDisabled,
   isSchemaVersionError,
+  MANAGED_BLOCK_LINE,
   parseHookPayload,
   readFlooredMode,
   resolveProjectRoot,
@@ -65,11 +69,29 @@ function parsePayload(input) {
       transcriptPath: payload?.transcript_path,
       sessionId: payload?.session_id,
       adapter: ADAPTER,
+      toolUseId: typeof payload?.tool_use_id === 'string' ? payload.tool_use_id : undefined,
+      toolInput: payload?.tool_input,
     };
   } catch {
     /* v8 ignore next 2 */
     return undefined;
   }
+}
+
+export function entryLoadedProbe(projectRoot, input) {
+  return () => {
+    try {
+      const state = sentinelState(
+        projectRoot,
+        process.env,
+        agentIdFromStdin(input),
+        sessionIdFromStdin(input),
+      );
+      return state === 'fresh';
+    } catch {
+      return false;
+    }
+  };
 }
 
 async function deferredForBackgroundStage(projectRoot, input) {
@@ -95,7 +117,10 @@ async function deferredForBackgroundStage(projectRoot, input) {
 export async function main(input, seam = SEAM) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) return 0;
+    const managed = isManagedRoute(process.env);
+    if (!managed && (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input)))) {
+      return 0;
+    }
 
     if (seam === 'completion' && (await deferredForBackgroundStage(projectRoot, input))) {
       return 0;
@@ -110,10 +135,12 @@ export async function main(input, seam = SEAM) {
       projectRoot,
       seam,
       payload: parsePayload(input),
+      entryLoaded: entryLoadedProbe(projectRoot, input),
     });
     if (result.block) {
       const message = result.narration ? `${result.narration}\n${result.summary}` : result.summary;
-      process.stderr.write(result.context ? `${message}\n${result.context}\n` : `${message}\n`);
+      const body = result.context ? `${message}\n${result.context}` : message;
+      process.stderr.write(managed ? `${body}\n${MANAGED_BLOCK_LINE}\n` : `${body}\n`);
       if (seam === 'completion' && stopHookActiveFromStdin(input)) {
         process.stderr.write(
           '[paqad] already surfaced this turn — not blocking again so the session can end (git/CI remains the hard gate).\n',

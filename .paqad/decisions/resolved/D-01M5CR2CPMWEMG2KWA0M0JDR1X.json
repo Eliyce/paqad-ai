@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5CR2CPMWEMG2KWA0M0JDR1X",
+  "category": "architecture-path",
+  "title": "Where the org-managed route runs the stage contract cases",
+  "context": "The guardrail test requires tests/e2e/stage-enforcement-contract.e2e.test.ts to stay identical to main unless Haider approves. #620 needs the managed route (paqad-ai hook --managed) to pass the same cases. The build added it as a third route inside that file (cases unchanged, 120 lines added).",
+  "options": [
+    {
+      "option_key": "separate",
+      "label": "Revert the contract file to main; run the managed route in its own e2e file over the same case list",
+      "evidence": {},
+      "one_line_preview": "Revert the contract file to main; run the managed route in its own e2e file over the same case list",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "approve",
+      "label": "Keep the managed route in the contract file; Haider approves the change, guardrail baseline moves",
+      "evidence": {},
+      "one_line_preview": "Keep the managed route in the contract file; Haider approves the change, guardrail baseline moves",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "separate",
+  "created_at": "2026-10-20T13:30:01.812Z",
+  "status": "resolved",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "separate",
+  "rationale": "Owner: keep the contract file identical to main; the managed route runs in its own e2e file with a case-name parity check.",
+  "resolved_at": "2026-10-20T14:33:15.614Z",
+  "decision_id": "D-01M5CR2CPMWEMG2KWA0M0JDR1X",
+  "fingerprint": "sha256:6a692fa1bd24ef6272b82466cd8d4ca2b5fa66a3fee1c352f5f256c6623ac2ea",
+  "question": "Where the org-managed route runs the stage contract cases",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2027-01-18T13:30:01.812Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "separate",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T14:33:15.614Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: keep the contract file identical to main; the managed route runs in its own e2e file with a case-name parity check."
+  }
+}

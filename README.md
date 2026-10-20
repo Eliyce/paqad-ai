@@ -55,7 +55,7 @@ No account, no API key, no subscription. Prefer not to install anything? Run `np
 Inside Claude Code you can install paqad as a plugin, with no npm package and no separate setup:
 
 ```text
-/plugin marketplace add Eliyce/paqad-ai
+/plugin marketplace add Eliyce/paqad-claude-plugin
 /plugin install paqad@eliyce
 ```
 
@@ -71,18 +71,54 @@ A few things worth knowing:
 - Onboarding from the plugin writes no paqad hooks into the project's `.claude/settings.json`, because the plugin brings its own. The plugin keeps a copy of itself in its data folder (`~/.claude/plugins/data/paqad-eliyce/runtime`) and points `~/.paqad-ai/current` there, so the framework link keeps working when Claude Code cleans up an old plugin version.
 - The optional RAG engine installs on first use, in the background, only if you turn RAG on. If you turn RAG on during `/paqad:onboard`, RAG stays on, onboarding says "search index is installing in the background; text search until it is ready", and the index is built once the engine is in. Until then search falls back to plain text, and `paqad-ai doctor` shows `not ready: installing`. If the index cannot be built for another reason, onboarding turns RAG off and tells you why. To remove the engine later, delete `~/.paqad/` (the shared model and engine cache).
 - To open the dashboard, run `paqad-ai dashboard` from a terminal in the project. The plugin puts `paqad-ai` on your shell path inside a Claude Code session.
-- The plugin shows where the change stands in a band above the prompt. To hide it, set `hud_view=false` in `.paqad/.config` (just you) or in `.paqad/configs/.config.app` (the team), or set `PAQAD_HUD_VIEW=false`.
+- The plugin shows where the change stands in a band above the prompt. To hide it, set `hud_view=false` in `.paqad/.config` (just you) or in `.paqad/configs/.config.app` (the team), or set `PAQAD_HUD_VIEW=false`. Its pane has tabs for the High Table, Cost, Trust, Ships and Record, and `/paqad receipt` draws the receipt as a card. For a short chime when the verdict lands, set `hud_chime=true` (or `PAQAD_HUD_CHIME=true`); it is off by default and never speaks.
 - **Already on the npm setup?** paqad can move you to the plugin automatically in the background, with nothing to do on your side. The npm package stays installed as a fallback, so paqad is never off at any point. It is off by default today; `plugin_migration=on` or `claude_install_mode=plugin` turns it on, `paqad-ai plugin rollback` moves a machine back to the npm setup and removes the plugin, and `claude_install_mode=settings` in your team config keeps a project on npm.
   - paqad checks your organization's managed policy first. If it blocks the plugin or paqad's hooks, paqad stays on npm and writes nothing.
   - If the Desktop app already synced the plugin from claude.ai, the move is simply marked done. If the plugin is already installed some other way, paqad turns it on in your own Claude settings and then waits for it to run, like any other install.
-  - When `claude` is on your path, paqad runs `claude plugin marketplace add Eliyce/paqad-ai` and `claude plugin install paqad@eliyce --scope user`, then checks that Claude Code recorded the plugin. With no `claude` on your path, it runs the same two commands with the `claude` that ships inside the Claude Desktop app (`~/Library/Application Support/Claude/claude-code/<version>/` on macOS, `%APPDATA%\Claude\claude-code\<version>\` on Windows). If neither is there, or the install fails, paqad stays on npm, records why, and tries again a day later. It never edits a project file.
+  - When `claude` is on your path, paqad runs `claude plugin marketplace add Eliyce/paqad-claude-plugin` and `claude plugin install paqad@eliyce --scope user`, then checks that Claude Code recorded the plugin. With no `claude` on your path, it runs the same two commands with the `claude` that ships inside the Claude Desktop app (`~/Library/Application Support/Claude/claude-code/<version>/` on macOS, `%APPDATA%\Claude\claude-code\<version>\` on Windows). If neither is there, or the install fails, paqad stays on npm, records why, and tries again a day later. It never edits a project file.
   - paqad then watches your next Claude Code sessions. Once the plugin runs, the move is done. A session only counts once Claude Code has installed the plugin, because the Desktop app can take a few starts to do that. Until then paqad waits, and if the plugin is still not installed 7 days later it undoes the move and tries again later. After the install, three sessions with no sign of the plugin also undo the move, and paqad tries again a day later, up to five attempts.
   - If you turn the plugin off in your Claude settings, paqad records that you declined it and never turns it back on.
   - `paqad-ai plugin rollback` removes the plugin with `claude` on your path, or with the Desktop app's `claude`. If neither can run, it turns the plugin off and tells you the one command to remove it.
   - `paqad-ai doctor` shows where the move stands, including when it is still waiting for Claude Code to install the plugin, and `~/.paqad-ai/logs/plugin-migration.log` has the details. If a settings file still wires the npm hooks, doctor names it: your own `~/.claude/settings.json` (or the one in `CLAUDE_CONFIG_DIR` when that is set), the project's `.claude/settings.json`, or both. That project keeps running the npm hooks while the plugin stays quiet.
 - **Organizations (Team or Enterprise):** add the `paqad` plugin in Organization settings > Plugins & skills and set it to Installed by default or Required. Members then do nothing and nothing on their machine is edited by paqad.
   - The Claude Desktop app picks up a plugin added on claude.ai, but a `claude` session in a terminal does not load plugins uploaded to claude.ai. Terminal users install it themselves with the two `/plugin` commands above, or IT deploys it as a managed plugin.
-  - The `eliyce` marketplace lives in `Eliyce/paqad-ai`, and the plugin itself installs from the public repo `Eliyce/paqad-plugin`. Each npm release also publishes the plugin there and tags it `v<version>`. The release job needs the repository secret `PAQAD_PLUGIN_PUSH_TOKEN` (a token that can push to `Eliyce/paqad-plugin`); without it the release still ships to npm and skips the plugin publish with a notice. To seed the repo by hand, run `pnpm build && node scripts/assemble-plugin.mjs <clone of Eliyce/paqad-plugin>`, then commit and push from that clone.
+  - The plugin and its `eliyce` marketplace live together in the public repo `Eliyce/paqad-claude-plugin`. You never edit that repo: every npm release builds the plugin here, writes its marketplace file, and pushes it there with a `v<version>` tag, but only after npm publish succeeds. When nothing in the plugin changed, it pushes no new commit. The release job needs the repository secret `PAQAD_PLUGIN_PUSH_TOKEN`, a token that can push to `Eliyce/paqad-claude-plugin`. Without it, or when the push fails, the release job fails, so a missing plugin release never goes unnoticed. To see what would be pushed, run `pnpm build && node scripts/assemble-plugin.mjs <folder>`.
+
+## Deploy for your organization
+
+If you run Claude Code for a team, you can put paqad's edit-time rule block on every machine with one file that nobody on the machine can loosen. It uses Claude Code's managed settings, which IT pushes with the MDM tool you already use.
+
+1. Turn on the team features (`enterprise=true` in `.paqad/.config`, or `PAQAD_ENTERPRISE=true`) and write the file:
+
+   ```bash
+   paqad-ai managed-settings --write ./managed
+   ```
+
+   This writes `./managed/paqad.json`. Run it without `--write` to print the file instead, and add `--no-plugin` if you install the paqad plugin some other way.
+
+2. Install paqad-ai globally on every machine through MDM (`npm install -g paqad-ai`). Do this before the file goes out: the file calls `paqad-ai` on every edit.
+
+3. Push `paqad.json` into the managed settings folder for each OS:
+
+   | OS            | Folder                                                        |
+   | ------------- | ------------------------------------------------------------- |
+   | macOS         | `/Library/Application Support/ClaudeCode/managed-settings.d/` |
+   | Linux and WSL | `/etc/claude-code/managed-settings.d/`                        |
+   | Windows       | `C:\Program Files\ClaudeCode\managed-settings.d\`             |
+
+4. Check it on one machine. Start `claude --debug` and look for the two `paqad-ai hook --managed` commands among the loaded hooks, then run `/status` inside Claude Code to see the managed settings it picked up.
+
+<details>
+<summary>What developers will notice</summary>
+
+- In a repository that has no `.paqad/` folder, nothing happens. The hook checks for the folder, finds none, and steps aside before loading anything else.
+- In a paqad project, the rule block runs before every edit, even if someone sets `PAQAD_DISABLED=1` or `paqad_enable=false` locally. A stop says "This rule is enforced by your organization's settings." and cannot be allowed once from the HUD.
+- If `paqad-ai` is missing, broken, or takes longer than 30 seconds, the edit is blocked, not waved through. When paqad-ai itself cannot run its check, the message names the fix: "paqad-ai must be installed globally on this machine; ask IT to install it." If the command is not installed at all, the block shows the shell's "command not found" error instead, and the fix is the same.
+- The file also turns on the `paqad` plugin from `Eliyce/paqad-claude-plugin`.
+
+</details>
+
+**Rolling back.** Delete `paqad.json` from the managed settings folder through MDM. Claude Code goes back to normal on its next start, and there is no paqad state to clean up.
 
 ## What you get, at a glance
 
@@ -408,19 +444,25 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendatio
 
 `onboard` is the one you start with. The rest keep the project honest over time. Full reference at [paqad.ai/docs.html](https://paqad.ai/docs.html).
 
-| Command                 | What it does                                                                              |
-| ----------------------- | ----------------------------------------------------------------------------------------- |
-| `paqad-ai onboard`      | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP          |
-| `paqad-ai doctor`       | Check that everything paqad-ai manages is present and valid                               |
-| `paqad-ai compliance`   | Pull obligations from a spec and check which ones the tests actually prove                |
-| `paqad-ai refresh`      | Re-detect the stack and regenerate the derived docs                                       |
-| `paqad-ai update`       | Regenerate framework-managed files after a version change                                 |
-| `paqad-ai capabilities` | Turn `content`, `coding`, and `security` on or off                                        |
-| `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                         |
-| `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                            |
-| `paqad-ai dashboard`    | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors |
-| `paqad-ai status`       | Print the same health report for an agent to read                                         |
-| `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                                     |
+| Command                                  | What it does                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `paqad-ai onboard`                       | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP               |
+| `paqad-ai doctor`                        | Check that everything paqad-ai manages is present and valid                                    |
+| `paqad-ai compliance`                    | Pull obligations from a spec and check which ones the tests actually prove                     |
+| `paqad-ai refresh`                       | Re-detect the stack and regenerate the derived docs                                            |
+| `paqad-ai update`                        | Regenerate framework-managed files after a version change                                      |
+| `paqad-ai capabilities`                  | Turn `content`, `coding`, and `security` on or off                                             |
+| `paqad-ai packs`                         | List, install, validate, and scaffold stack packs                                              |
+| `paqad-ai rag`                           | Build, inspect, clear, and benchmark the optional search index                                 |
+| `paqad-ai dashboard`                     | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors      |
+| `paqad-ai status`                        | Print the same health report for an agent to read                                              |
+| `paqad-ai patterns`                      | Query, prune, and export the reusable pattern library                                          |
+| `paqad-ai debt`                          | Record a problem the change will not fix as a tracked item, then list, promote, or close it    |
+| `paqad-ai fix prove`                     | Record that a fix's test fails before the fix (`red`) and passes after it (`green`)            |
+| `paqad-ai rules override`                | Record a person allowing one edit past a rule stop, once, with the reason                      |
+| `paqad-ai delivery-link commit-decision` | Record how the "commit this change?" question was answered                                     |
+| `paqad-ai managed-settings`              | Print or write the managed settings file that puts paqad on every machine in your organization |
+| `paqad-ai hook`                          | Run one of paqad's edit gates; the managed settings file calls it                              |
 
 ```bash
 # a few common runs

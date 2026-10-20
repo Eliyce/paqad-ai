@@ -472,7 +472,13 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
   });
 
   it('opens on the High Table until a tab is picked, and says why when there is none', () => {
-    expect(PANE_TABS.map((tab) => tab.label)).toEqual(['High Table', 'Cost']);
+    expect(PANE_TABS.map((tab) => tab.label)).toEqual([
+      'High Table',
+      'Cost',
+      'Trust',
+      'Ships',
+      'Record',
+    ]);
     const writing = buildPaneView(parse(ord501At('writing')), null, { now: NOW });
     expect(writing.tabs.find((tab) => tab.selected)?.id).toBe('table');
     expect(writing.table).not.toBeNull();

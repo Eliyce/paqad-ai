@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
+import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 
 const MANAGED_BEGIN = '<!-- >>> paqad-ai managed entry stub (do not edit between markers) >>> -->';
@@ -51,13 +52,9 @@ export function wireEntryStubs(projectRoot: string, stubs: EntryStub[]): EntrySt
 
 function reconcileManagedBlock(existing: string, stubBody: string): string {
   const block = `${MANAGED_BEGIN}\n${stubBody.replace(/\n+$/, '')}\n${MANAGED_END}`;
-  const beginIdx = existing.indexOf(MANAGED_BEGIN);
-  const endIdx = existing.indexOf(MANAGED_END);
-
-  if (beginIdx !== -1 && endIdx > beginIdx) {
-    const before = existing.slice(0, beginIdx);
-    const after = existing.slice(endIdx + MANAGED_END.length);
-    return ensureTrailingNewline(`${before}${block}${after}`);
+  const replaced = replaceMarkerBlock(existing, MANAGED_BEGIN, MANAGED_END, block);
+  if (replaced !== null) {
+    return ensureTrailingNewline(replaced);
   }
 
   const trimmed = existing.replace(/\s+$/, '');

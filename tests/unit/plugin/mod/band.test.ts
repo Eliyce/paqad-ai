@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  laneMode,
   layoutBand,
   rowText,
+  spinnerWord,
   truncateRow,
   type BandRow,
 } from '../../../../runtime/claude-plugin/mod/band.ts';
@@ -16,6 +18,7 @@ import {
   PAUSED,
   STATE_FIXTURES,
   fileText,
+  stages,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 
 const view = (raw: Record<string, unknown> | null) =>
@@ -123,5 +126,39 @@ describe('the terminal band fits its box (FR-28, AC-43)', () => {
     for (const raw of [...Object.values(STATE_FIXTURES), null]) {
       expect(lines(raw).join('\n')).not.toContain('—');
     }
+  });
+});
+
+describe('the spinner word and the lane mode', () => {
+  const at = (raw: Record<string, unknown>) => parseSnapshot(fileText(raw));
+
+  it('says the running stage in words', () => {
+    expect(spinnerWord(at(FAST_ORD_490))).toBe('Building');
+    for (const [stage, word] of [
+      ['ticket_intake', 'Reading the ticket'],
+      ['planning', 'Planning'],
+      ['specification', 'Writing the spec'],
+      ['review', 'Reviewing'],
+      ['checks', 'Running checks'],
+      ['documentation_sync', 'Syncing the docs'],
+      ['delivery', 'Delivering'],
+    ] as const) {
+      expect(spinnerWord(at({ ...FAST_ORD_490, stages: stages({ [stage]: 'running' }) }))).toBe(
+        word,
+      );
+    }
+  });
+
+  it('keeps the engine word when no stage runs or no change is in progress', () => {
+    expect(spinnerWord(at(FULL_ORD_501))).toBeNull();
+    expect(spinnerWord(at(PAUSED))).toBeNull();
+    expect(spinnerWord(null)).toBeNull();
+  });
+
+  it('names the lane only while a change is in progress', () => {
+    expect(laneMode(at(FAST_ORD_490))).toBe('paqad fast lane');
+    expect(laneMode(at(GRADUATED_ORD_482))).toBe('paqad graduated lane');
+    expect(laneMode(at(PAUSED))).toBeNull();
+    expect(laneMode(at({ ...FAST_ORD_490, lane: null }))).toBeNull();
   });
 });

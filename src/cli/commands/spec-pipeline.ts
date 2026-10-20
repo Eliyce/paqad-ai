@@ -20,6 +20,10 @@ import {
   rosterEntryFor,
 } from '@/spec-pipeline/experts/brief.js';
 import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
+import {
+  fixProofMethodLine,
+  raiseFixProofMethodDecision,
+} from '@/fix-protocol/fix-proof-method-decision.js';
 import { mergeExpertNotes } from '@/spec-pipeline/experts/merge.js';
 import { seatStandingExperts, validateExpertNeed } from '@/spec-pipeline/experts/need.js';
 import { resolveProjectVoiceForRun } from '@/spec-pipeline/experts/voice.js';
@@ -930,6 +934,10 @@ function createExpertsCommand(): Command {
         ),
       );
       recordStep(options.projectRoot, resolved.dirName, 'experts', 'complete', resolved.store);
+      const proofMethod = raiseFixProofMethodDecision(options.projectRoot, resolved.dirName);
+      if (proofMethod?.raised) {
+        console.warn(fixProofMethodLine(proofMethod.id));
+      }
       console.log(
         JSON.stringify({
           recorded: 'expert-synthesis',
@@ -940,6 +948,7 @@ function createExpertsCommand(): Command {
           auto_resolved: autoResolved.length,
           gaps: synthesis.gaps.length,
           renamed,
+          ...(proofMethod ? { fix_proof_method: proofMethod.id } : {}),
         }),
       );
     });

@@ -30,6 +30,9 @@ export const FEATURE_BUNDLE_FILES = {
   highTable: 'high-table.jsonl',
   cost: 'cost.json',
   decisions: 'decisions.json',
+  techDebt: 'tech-debt.json',
+  ruleOverrides: 'rule-overrides.jsonl',
+  fixProof: 'fix-proof.json',
 } as const;
 
 export const LEGACY_BUNDLE_FILES = {

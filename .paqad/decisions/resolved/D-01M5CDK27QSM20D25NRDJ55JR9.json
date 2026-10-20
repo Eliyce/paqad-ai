@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5CDK27QSM20D25NRDJ55JR9",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on Eliyce/paqad-plugin references",
+  "context": "Chief architect: D-b is final as written: drop every Eliyce/paqad-plugin reference, with a grep test so the name cannot come back. The application-architect claim adds an exception for past CHANGELOG.md entries that D-b does not make. Keeping old release notes as history is only right if the owner says so in this packet.\n\nTarget: Eliyce/paqad-plugin references\n- integration-architect: after the switch no file in the repo names Eliyce/paqad-plugin and the repo-root .claude-plugin/marketplace.json is gone; a source test greps for the old name so it cannot creep back\n- solution-architect: D-b rename is a cross-cutting consumer change (managed settings, settings writer, release.yml, assemble script, README, tests); a repo-wide grep returning zero old references is the acceptance check\n- application-architect: every tracked reference (README, release.yml, scripts/test-plugin.mjs, scripts/validate-plugin.mjs, docs/modules/onboarded-project-overview.md, tests) moves to Eliyce/paqad-claude-plugin, while past CHANGELOG.md entries stay as written history\n\n[expert-conflict-fork:543f4d67f89d265b]",
+  "options": [
+    {
+      "option_key": "after-the-switch-no-file-in-the-repo-nam",
+      "label": "after the switch no file in the repo names Eliyce/paqad-plugin and the repo-root .claude-plugin/marketplace.json is gone; a source test greps for the old name so it cannot creep back — integration-architect",
+      "evidence": {},
+      "one_line_preview": "after the switch no file in the repo names Eliyce/paqad-plugin and the repo-root .claude-plugin/marketplace.json is gone; a source test greps for the old name so it cannot creep back — integration-architect",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "d-b-rename-is-a-cross-cutting-consumer-c",
+      "label": "D-b rename is a cross-cutting consumer change (managed settings, settings writer, release.yml, assemble script, README, tests); a repo-wide grep returning zero old references is the acceptance check — solution-architect",
+      "evidence": {},
+      "one_line_preview": "D-b rename is a cross-cutting consumer change (managed settings, settings writer, release.yml, assemble script, README, tests); a repo-wide grep returning zero old references is the acceptance check — solution-architect",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "every-tracked-reference-readme-release-y",
+      "label": "every tracked reference (README, release.yml, scripts/test-plugin.mjs, scripts/validate-plugin.mjs, docs/modules/onboarded-project-overview.md, tests) moves to Eliyce/paqad-claude-plugin, while past CHANGELOG.md entries stay as written history — application-architect",
+      "evidence": {},
+      "one_line_preview": "every tracked reference (README, release.yml, scripts/test-plugin.mjs, scripts/validate-plugin.mjs, docs/modules/onboarded-project-overview.md, tests) moves to Eliyce/paqad-claude-plugin, while past CHANGELOG.md entries stay as written history — application-architect",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "after-the-switch-no-file-in-the-repo-nam",
+  "created_at": "2026-10-20T10:26:53.815Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "every-tracked-reference-readme-release-y",
+  "rationale": "Owner: past CHANGELOG.md and .changeset entries keep the old name as history; every other reference moves and a grep test keeps it out.",
+  "resolved_at": "2026-10-20T11:09:38.152Z",
+  "decision_id": "D-01M5CDK27QSM20D25NRDJ55JR9",
+  "fingerprint": "sha256:bc390751d51441866677558fffffdb1dab276cfb0ae44e8b2c305cbd3c39a9df",
+  "question": "Experts disagree on Eliyce/paqad-plugin references",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.815Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "every-tracked-reference-readme-release-y",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:38.152Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: past CHANGELOG.md and .changeset entries keep the old name as history; every other reference moves and a grep test keeps it out."
+  }
+}

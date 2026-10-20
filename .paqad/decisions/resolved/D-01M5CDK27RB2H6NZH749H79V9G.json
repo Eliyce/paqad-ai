@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5CDK27RB2H6NZH749H79V9G",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new paqad-ai fix prove",
+  "context": "Chief architect: This is D-c as the owner wrote it. The QA error paths (command not found, timeout, a non-test failure must not count as a real red) are compatible and should stay as criteria under it.\n\nTarget: new paqad-ai fix prove\n- product-owner: done from the Developer's seat: a behaviour-changing fix shows red-then-green proof on the receipt, and a fix without it reads Inconclusive, never a pass (D-c)\n- qa-engineer: error paths need criteria: proof command not found, command times out, command exits non-zero for a reason other than a failing test (syntax error, missing test id) must not be recorded as a genuine red; green before any red reads green-only; proof_type integration with a fake proof command\n\n[expert-conflict-fork:357f3979d4ae4a44]",
+  "options": [
+    {
+      "option_key": "done-from-the-developer-s-seat-a-behavio",
+      "label": "done from the Developer's seat: a behaviour-changing fix shows red-then-green proof on the receipt, and a fix without it reads Inconclusive, never a pass (D-c) — product-owner",
+      "evidence": {},
+      "one_line_preview": "done from the Developer's seat: a behaviour-changing fix shows red-then-green proof on the receipt, and a fix without it reads Inconclusive, never a pass (D-c) — product-owner",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "error-paths-need-criteria-proof-command-",
+      "label": "error paths need criteria: proof command not found, command times out, command exits non-zero for a reason other than a failing test (syntax error, missing test id) must not be recorded as a genuine red; green before any red reads green-only; proof_type integration with a fake proof command — qa-engineer",
+      "evidence": {},
+      "one_line_preview": "error paths need criteria: proof command not found, command times out, command exits non-zero for a reason other than a failing test (syntax error, missing test id) must not be recorded as a genuine red; green before any red reads green-only; proof_type integration with a fake proof command — qa-engineer",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "done-from-the-developer-s-seat-a-behavio",
+  "created_at": "2026-10-20T10:26:53.816Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "chosen": "done-from-the-developer-s-seat-a-behavio",
+  "rationale": "Owner accepted the chief architect's ruling; the QA error paths stay as criteria.",
+  "resolved_at": "2026-10-20T11:09:38.874Z",
+  "decision_id": "D-01M5CDK27RB2H6NZH749H79V9G",
+  "fingerprint": "sha256:fa122dc49cbb74aed6b5a349a8d5de753b8bb3365bd5ede6dee3e0d9efd11026",
+  "question": "Experts disagree on new paqad-ai fix prove",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5CCWX6FTKY8C6EJKMR9EH3D",
+  "ttl_until": "2026-11-19T10:26:53.816Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "done-from-the-developer-s-seat-a-behavio",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T11:09:38.874Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling; the QA error paths stay as criteria."
+  }
+}

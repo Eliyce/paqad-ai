@@ -7,7 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPlanCommand } from '@/cli/commands/plan.js';
 import { createProgram } from '@/cli/program.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
-import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import {
+  currentFeature,
+  openFeatureChange,
+  recordChangeConstants,
+} from '@/feature-evidence/stage-ledger.js';
 import { writeProjectProfile } from '@/core/project-profile.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 
@@ -74,6 +78,33 @@ describe('paqad-ai plan compile', () => {
     const dir = currentFeature(root, SES)!;
     expect(readFeaturePlan(root, dir)?.summary).toBe('Route every prompt to one of nine workflows');
     expect(existsSync(input)).toBe(false);
+  });
+
+  it.each([
+    ['fast', 'fix', 1],
+    ['full', 'fix', 0],
+    ['fast', 'other', 0],
+  ] as const)(
+    'on the %s lane a %s change raises %i fix.proof_method packet(s) at compile',
+    async (lane, kind, count) => {
+      const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 7 });
+      recordChangeConstants(root, dir, { lane, kind });
+      const warnings: string[] = [];
+      vi.spyOn(console, 'warn').mockImplementation((line: string) => void warnings.push(line));
+      const lines = await run(writeTemplate({ summary: 'fix the login crash' }));
+      const packets = readContractDecisions(root).filter(
+        ({ packet }) => packet.category === 'fix.proof_method',
+      );
+      expect(packets).toHaveLength(count);
+      expect(warnings.some((line) => line.includes('how to prove it'))).toBe(count === 1);
+      const summary = JSON.parse(lines.at(-1)!);
+      expect(summary.fix_proof_method).toBe(count === 1 ? packets[0]!.packet.id : undefined);
+    },
+  );
+
+  it('compiles with no fix.proof_method when no change is active for the lane check', async () => {
+    const lines = await run(writeTemplate({ summary: 'nothing open' }));
+    expect(lines.some((l) => l.includes('fix_proof_method'))).toBe(false);
   });
 
   it('keeps the input with --keep-input', async () => {

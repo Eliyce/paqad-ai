@@ -1,4 +1,5 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -13,6 +14,10 @@ import {
 import { createProgram } from '@/cli/program.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { raiseTechDebt } from '@/tech-debt/index.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
@@ -33,6 +38,10 @@ function fakeHost(state: ChecksStatus['state']): { host: HostProvider; comments:
   const comments: string[] = [];
   const host = {
     kind: 'github' as const,
+    async openPR(input: { draft: boolean }) {
+      comments.push(`opened draft=${input.draft}`);
+      return { ok: true, pr: { number: 12, url: 'https://example.test/pull/12' } };
+    },
     async getChecksStatus(): Promise<ChecksStatus> {
       return { state, checks: state === 'red' ? [{ name: 'build', state: 'red' }] : [] };
     },
@@ -84,6 +93,40 @@ describe('paqad-ai deliver', () => {
     expect(logs.join('\n')).toContain('dry run');
   });
 
+  async function dryRunOutput(): Promise<string> {
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((l: string) => logs.push(String(l)));
+    await createDeliveryCommand().parseAsync(
+      ['--dry-run', '--project-root', root, '--session', 'ses-deliver', '--title', 'T'],
+      { from: 'user' },
+    );
+    spy.mockRestore();
+    return logs.join('\n');
+  }
+
+  it('lists the tech debt this change raised in the PR body, and nothing when it raised none', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    expect(await dryRunOutput()).not.toContain('Tech debt');
+    const ids = ['First finding', 'Second finding'].map(
+      (title) =>
+        raiseTechDebt(
+          root,
+          {
+            title,
+            kind: 'bug',
+            severity: 'low',
+            files: [],
+            foundIn: { change: featureChangeKey(dir) },
+          },
+          new Date(),
+          { dirName: dir, sessionId: 'ses-deliver' },
+        ).id,
+    );
+    const output = await dryRunOutput();
+    expect(output).toContain('## Tech debt found in this change');
+    for (const id of ids) expect(output).toContain(`- ${id} (bug, low)`);
+  });
+
   it('--dry-run renders branch/commit/PR text and never pushes', async () => {
     const { shell, calls } = okShell();
     const result = await runDeliver(baseDeps(root, { dryRun: true, shell }));
@@ -106,7 +149,7 @@ describe('paqad-ai deliver', () => {
     const result = await runDeliver(baseDeps(root, { host, evidenceBody: 'EVIDENCE-BODY' }));
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('Safe to merge');
-    expect(comments).toEqual(['EVIDENCE-BODY']);
+    expect(comments).toEqual(['opened draft=false', 'EVIDENCE-BODY']);
   });
 
   it('stops with a non-zero exit on red CI (never reports success)', async () => {
@@ -125,6 +168,44 @@ describe('paqad-ai deliver', () => {
     expect(result.output).toContain('no PR requested');
     expect(calls.some((c) => c.includes('push'))).toBe(false);
     expect(calls.some((c) => c[0] === 'gh')).toBe(false);
+  });
+
+  it('saves push, PR and CI on the change after a delivery', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    const result = await runDeliver(
+      baseDeps(root, {
+        dirName: dir,
+        resolveOpenPr: () => ({ status: 'resolved', choice: 'draft' }),
+        now: () => new Date('2026-10-20T00:00:00.000Z'),
+      }),
+    );
+    expect(result.exitCode).toBe(0);
+    const record = readFeatureDelivery(root, dir);
+    expect(record.push).toMatchObject({ state: 'pushed', at: '2026-10-20T00:00:00.000Z' });
+    expect(record.pr).toMatchObject({
+      number: 12,
+      url: 'https://example.test/pull/12',
+      draft: true,
+    });
+    expect(record.ci).toMatchObject({ state: 'pass', done: 0, total: 0, source: 'ci-gate' });
+  });
+
+  it('records an unknown CI read with its reason and never as a pass', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    const result = await runDeliver(
+      baseDeps(root, { dirName: dir, host: fakeHost('unknown').host }),
+    );
+    expect(result.exitCode).toBe(1);
+    expect(readFeatureDelivery(root, dir).ci).toMatchObject({ state: 'unknown' });
+    expect(readFeatureDelivery(root, dir).ci?.reason).toBeTruthy();
+  });
+
+  it('logs and carries on when delivery.json cannot be written', async () => {
+    const result = await runDeliver(baseDeps(root, { dirName: 'not-a-bundle\u0000' }));
+    expect(result.exitCode).toBe(0);
+    expect(readFileSync(join(root, '.paqad', 'logs', 'hooks.log'), 'utf8')).toContain(
+      'deliver: delivery.json not updated',
+    );
   });
 
   it('reports a stopped delivery when a git step fails', async () => {
@@ -176,6 +257,88 @@ describe('resolveOpenPrDecision', () => {
     resolvePendingDecision(root, id, 'no', 'commit only for now');
     const decision = resolveOpenPrDecision(root, 'yes');
     expect(decision).toEqual({ status: 'resolved', choice: 'no' });
+  });
+
+  function sharedRepo(): string {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    const commit = (subject: string) => {
+      writeFileSync(join(root, `${subject.replace(/\W+/g, '-')}.txt`), subject);
+      g('add', '-A');
+      g('commit', '-q', '-m', subject);
+    };
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 't@t.dev');
+    g('config', 'user.name', 'T');
+    commit('chore: base');
+    g('checkout', '-q', '-b', 'feat/ORD-470-contact-matching');
+    commit('feat(ORD-470): match');
+    commit('feat(ORD-471): trim');
+    return openFeatureChange(root, 'ses-pr', {
+      adapter: 'claude-code',
+      title: 'Matcher',
+      issue: 'ORD-482',
+    });
+  }
+
+  function pendingOpenPr(): Record<string, unknown> & {
+    context: string;
+    change?: string;
+    options: Array<{ option_key: string; evidence?: { findings?: string[] } }>;
+  } {
+    const pendingDir = join(root, PATHS.DECISIONS_PENDING_DIR);
+    return readdirSync(pendingDir)
+      .map((f) => JSON.parse(readFileSync(join(pendingDir, f), 'utf8')))
+      .find((p) => p.category === 'delivery.open_pr');
+  }
+
+  it('carries own and riding-along commit counts on a shared branch', () => {
+    const dir = sharedRepo();
+    writeFileSync(join(root, 'own.txt'), 'own');
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-q', '-m', 'feat(ORD-482): matcher'], { cwd: root });
+    const before = execFileSync('git', ['rev-list', '--all'], { cwd: root, encoding: 'utf8' });
+    expect(resolveOpenPrDecision(root, 'yes', dir).status).toBe('paused');
+    const packet = pendingOpenPr();
+    expect(packet.change).toBe(featureChangeKey(dir));
+    expect(packet.context).toContain(
+      'This PR carries 1 own commit and 2 commits from 2 other tickets riding along.',
+    );
+    expect(packet.context).toContain('paqad never moves, cherry-picks or rebases commits');
+    const evidence = Object.fromEntries(packet.options.map((o) => [o.option_key, o.evidence]));
+    expect(evidence.yes?.findings).toEqual([
+      '1 own commit',
+      '2 commits from 2 other tickets riding along',
+    ]);
+    expect(evidence.draft?.findings).toEqual(evidence.yes?.findings);
+    expect(evidence.no?.findings).toBeUndefined();
+    expect(execFileSync('git', ['rev-list', '--all'], { cwd: root, encoding: 'utf8' })).toBe(
+      before,
+    );
+  });
+
+  it('says nothing rides along on a clean branch, and nothing when the split is unknown', () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 't@t.dev');
+    g('config', 'user.name', 'T');
+    writeFileSync(join(root, 'a.txt'), 'a');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'base');
+    g('checkout', '-q', '-b', 'feat/ORD-482-clean');
+    const dir = openFeatureChange(root, 'ses-pr', {
+      adapter: 'claude-code',
+      title: 'M',
+      issue: 'ORD-482',
+    });
+    resolveOpenPrDecision(root, 'yes', dir);
+    expect(pendingOpenPr().context).toContain('0 own commits and nothing riding along.');
+    rmSync(join(root, PATHS.DECISIONS_PENDING_DIR), { recursive: true, force: true });
+    g('checkout', '-q', '--detach', 'HEAD');
+    resolveOpenPrDecision(root, 'yes', dir);
+    expect(pendingOpenPr().context).not.toContain('This PR carries');
+    expect(pendingOpenPr().options[0]?.evidence?.findings).toBeUndefined();
   });
 
   it('stays paused (no duplicate mint) while a pending packet exists', () => {

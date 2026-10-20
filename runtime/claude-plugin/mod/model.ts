@@ -2,13 +2,19 @@ import { costPill, formatClock } from './cost';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
   PaqadChief,
+  PaqadCi,
+  PaqadClaim,
+  PaqadCommitGroup,
   PaqadCost,
   PaqadCostLine,
   PaqadCostTokens,
   PaqadFindingsScan,
+  PaqadGate,
+  PaqadGateStrength,
   PaqadHighTable,
   PaqadHudSnapshot,
   PaqadHudStage,
+  PaqadLastBlock,
   PaqadSeat,
   PaqadSeatState,
   PaqadTone,
@@ -33,6 +39,48 @@ export function snapshotPath(root: string, sessionId: string): string {
 
 export function receiptPath(root: string, sessionId: string): string {
   return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.receipt.md`);
+}
+
+export function lastBlockPath(root: string, sessionId: string): string {
+  return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.last-block.json`);
+}
+
+export const PENDING_DECISIONS_DIR = '.paqad/decisions/pending';
+
+export function entrySentinelPath(root: string, sessionId: string): string {
+  const key = sessionId.trim().replace(/[^A-Za-z0-9_-]/g, '_');
+  return joinPath(
+    root,
+    key === '' ? '.paqad/.agent-entry-loaded' : `.paqad/.agent-entry-loaded.d/${key}`,
+  );
+}
+
+export function heartbeatPath(root: string, sessionId: string): string {
+  return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.live`);
+}
+
+export const ORG_ENFORCED = "This rule is enforced by your organization's settings.";
+
+export const RULE_STOP_FIX = 'Let Claude fix it';
+export const RULE_STOP_ALLOW = 'Allow once, recorded';
+export const RULE_STOP_SHOW = 'Show the rule';
+export const RULE_STOP_NO_REASON = 'No reason';
+export const RULE_STOP_FALSE_POSITIVE = 'It is a false positive';
+export const RULE_STOP_HEADER = 'Rule stop';
+export const RULE_STOP_REASON_HEADER = 'Reason';
+
+export const OWN_QUESTION_HEADERS: readonly string[] = [RULE_STOP_HEADER, RULE_STOP_REASON_HEADER];
+
+export const EDIT_TOOLS: readonly string[] = ['Edit', 'Write', 'NotebookEdit'];
+
+export interface RuleStop {
+  rule: string;
+  title: string | null;
+  file: string;
+  toolUseId: string;
+  managed: boolean;
+  sole: boolean;
+  token: string;
 }
 
 type Rec = Record<string, unknown>;
@@ -65,6 +113,91 @@ function readScan(value: unknown): PaqadFindingsScan {
     total: num(scan?.total),
     blocking: scan?.blocking === true,
   };
+}
+
+function readLastBlock(raw: unknown, block: Rec | null): PaqadLastBlock {
+  const rule = str(block?.rule);
+  const file = str(block?.file);
+  const text =
+    str(raw) ??
+    str(block?.text) ??
+    str(block?.reason) ??
+    (rule && file ? `${rule} stopped an edit to ${file}.` : 'A rule stopped an edit.');
+  const title = str(block?.title);
+  const toolUseId = str(block?.tool_use_id);
+  const at = str(block?.at);
+  const token = str(block?.token);
+  return {
+    text,
+    ...(rule ? { rule } : {}),
+    ...(title ? { title } : {}),
+    ...(file ? { file } : {}),
+    ...(toolUseId ? { tool_use_id: toolUseId } : {}),
+    ...(typeof block?.managed === 'boolean' ? { managed: block.managed } : {}),
+    ...(at ? { at } : {}),
+    ...(token ? { token } : {}),
+    ...(typeof block?.used === 'boolean' ? { used: block.used } : {}),
+  };
+}
+
+export function freshRuleStop(
+  text: string | null,
+  sessionId: string,
+  toolUseId: string | undefined,
+): RuleStop | null {
+  if (text === null || !toolUseId) return null;
+  let raw: Rec | null;
+  try {
+    raw = rec(JSON.parse(text));
+  } catch {
+    return null;
+  }
+  const rule = str(raw?.rule);
+  const file = str(raw?.file);
+  const token = str(raw?.token);
+  if (!raw || !rule || !file || !token) return null;
+  if (raw.used === true || str(raw.session) !== sessionId) return null;
+  if (str(raw.tool_use_id) !== toolUseId) return null;
+  return {
+    rule,
+    title: str(raw.title),
+    file,
+    toolUseId,
+    managed: raw.managed === true,
+    sole: raw.sole === true,
+    token,
+  };
+}
+
+export function ruleStopQuestion(stop: RuleStop): string {
+  return `${stop.rule} stopped this edit to ${stop.file}. What should happen?`;
+}
+
+export function ruleTextQuestion(stop: RuleStop): string {
+  return `${stop.rule}: ${stop.title ?? 'no rule text recorded'}. What should happen?`;
+}
+
+export function overrideArgs(
+  stop: RuleStop,
+  sessionId: string,
+  root: string,
+  reason: string | null,
+): string[] {
+  return [
+    '--rule',
+    stop.rule,
+    '--file',
+    stop.file,
+    '--token',
+    stop.token,
+    '--tool-use-id',
+    stop.toolUseId,
+    '--session',
+    sessionId,
+    '--project-root',
+    root,
+    ...(reason ? [`--reason=${reason}`] : []),
+  ];
 }
 
 function readTokens(value: unknown): PaqadCostTokens {
@@ -225,6 +358,71 @@ function readStep(value: unknown): string | null {
   return str(value) ?? str(step?.state) ?? str(step?.status) ?? 'recorded';
 }
 
+function readPr(value: unknown): string | null {
+  const pr = rec(value);
+  const number = num(pr?.number);
+  if (number === null) return readStep(value);
+  return `${pr?.draft === true ? 'draft ' : ''}#${number}`;
+}
+
+function readCi(value: unknown): string | null {
+  const ci = rec(value);
+  const total = num(ci?.total);
+  if (ci?.state === 'pending' && total !== null) return `${num(ci.done) ?? 0} of ${total} done`;
+  return readStep(value);
+}
+
+function readCiDetail(value: unknown): PaqadCi | null {
+  const ci = rec(value);
+  const state = str(ci?.state);
+  if (!ci || !state) return null;
+  return { state, done: num(ci.done), total: num(ci.total), reason: str(ci.reason) };
+}
+
+const GATE_STRENGTHS: readonly PaqadGateStrength[] = ['deterministic', 'llm-judged'];
+
+function readGate(value: unknown): PaqadGate | null {
+  const gate = rec(value);
+  const name = str(gate?.name);
+  if (!gate || !name) return null;
+  const verdict = str(gate.verdict) ?? 'pending';
+  return {
+    name,
+    verdict,
+    required: typeof gate.required === 'boolean' ? gate.required : verdict !== 'not-required',
+    strength: GATE_STRENGTHS.find((strength) => strength === gate.strength) ?? null,
+  };
+}
+
+function readClaim(value: unknown): PaqadClaim | null {
+  const claim = rec(value);
+  const kind = str(claim?.kind);
+  if (!claim || !kind) return null;
+  return {
+    kind,
+    label: str(claim.label) ?? kind,
+    verdict: str(claim.verdict) ?? 'inconclusive',
+    test_id: str(claim.test_id),
+  };
+}
+
+function readBundleFiles(value: unknown): string[] {
+  return each(value, (entry) => (entry.present === true ? str(entry.file) : null)).filter(
+    (file): file is string => file !== null,
+  );
+}
+
+function readCommitGroup(value: unknown): PaqadCommitGroup | null {
+  const group = rec(value);
+  if (!group) return null;
+  return {
+    count: num(group.count) ?? 0,
+    tickets: strings(group.tickets),
+    merges: num(group.merges) ?? 0,
+    untagged: num(group.untagged) ?? 0,
+  };
+}
+
 export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot | null {
   if (typeof text !== 'string' || text.trim() === '') return null;
   let raw: unknown;
@@ -247,6 +445,8 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
   const verdict = rec(snap.verdict);
   const kind = verdict?.kind;
   const lastBlock = rec(snap.last_block);
+  const writtenAt = str(verdict?.written_at);
+  const receiptFile = str(rec(snap.receipt)?.path);
   return {
     session_id: str(snap.session_id) ?? '',
     generated_at: str(snap.generated_at) ?? '',
@@ -283,11 +483,9 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
       ];
     }),
     table: readTable(snap.table),
-    gates: list(snap.gates).flatMap((entry) => {
-      const gate = rec(entry);
-      const name = str(gate?.name);
-      return name ? [{ name, verdict: str(gate?.verdict) ?? 'pending' }] : [];
-    }),
+    gates: list(snap.gates).flatMap((entry) => readGate(entry) ?? []),
+    claims: list(snap.claims).flatMap((entry) => readClaim(entry) ?? []),
+    bundle_files: readBundleFiles(snap.evidence_expected),
     flags: list(snap.flags).flatMap((entry) => {
       const flag = rec(entry);
       const id = str(flag?.id);
@@ -312,21 +510,20 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     last_block:
       snap.last_block === null || snap.last_block === undefined
         ? null
-        : {
-            text:
-              str(snap.last_block) ??
-              str(lastBlock?.text) ??
-              str(lastBlock?.reason) ??
-              'A rule stopped an edit.',
-          },
+        : readLastBlock(snap.last_block, lastBlock),
     ship: ship
       ? {
           commits: num(ship.commits) ?? 0,
           commit_decision: str(ship.commit_decision),
           merge_commit: str(ship.merge_commit),
           push: readStep(ship.push),
-          pr: readStep(ship.pr),
-          ci: readStep(ship.ci),
+          pr: readPr(ship.pr),
+          ci: readCi(ship.ci),
+          push_branch: str(rec(ship.push)?.branch),
+          pr_url: str(rec(ship.pr)?.url),
+          ci_detail: readCiDetail(ship.ci),
+          own: readCommitGroup(ship.own),
+          inherited: readCommitGroup(ship.inherited),
         }
       : null,
     verdict:
@@ -335,8 +532,10 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
             word: str(verdict.word) ?? VERDICT_WORDS[kind],
             kind,
             reasons: list(verdict.reasons).filter((r): r is string => typeof r === 'string'),
+            ...(writtenAt ? { at: writtenAt } : {}),
           }
         : null,
+    receipt: receiptFile ? { path: receiptFile } : null,
     cost: readCost(snap.cost),
   };
 }
@@ -380,7 +579,7 @@ function isBranchFlag(flag: { id: string }): boolean {
 export function bandState(snapshot: PaqadHudSnapshot | null): BandState {
   if (!snapshot) return 'Ready';
   if (snapshot.decisions.pending.length > 0) return 'Needs you';
-  if (snapshot.last_block) return 'Stopped';
+  if (snapshot.last_block && snapshot.last_block.used !== true) return 'Stopped';
   if (!snapshot.active) {
     if (snapshot.paused.length > 0) return 'Paused';
     if (snapshot.route && snapshot.route !== 'no-workflow') return 'Working';
@@ -496,7 +695,9 @@ export function shipSteps(snapshot: PaqadHudSnapshot | null): ShipStep[] {
       : { label: 'Commit', word: NOT_YET, done: false },
     step('Push', ship?.push),
     step('PR', ship?.pr),
-    step('CI', ship?.ci),
+    ship?.ci_detail && ship.ci_detail.state !== 'pass'
+      ? { label: 'CI', word: ship.ci ?? ship.ci_detail.state, done: false }
+      : step('CI', ship?.ci),
     ship?.merge_commit
       ? { label: 'Merge', word: 'merged', done: true }
       : { label: 'Merge', word: 'stays yours', done: false },
