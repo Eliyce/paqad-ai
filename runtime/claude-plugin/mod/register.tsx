@@ -5,18 +5,34 @@ import { layoutBand, type BandRow, type BandSegment } from './band';
 import { runPaqadCommand } from './commands';
 import { ancestorDirs, decideStatus, registersCommand } from './config';
 import {
+  EDIT_TOOLS,
+  ORG_ENFORCED,
+  RULE_STOP_ALLOW,
+  RULE_STOP_FALSE_POSITIVE,
+  RULE_STOP_FIX,
+  RULE_STOP_NO_REASON,
+  RULE_STOP_SHOW,
   buildBandView,
+  freshRuleStop,
   isLive,
   isRefreshTool,
   isStageAgent,
   joinPath,
+  lastBlockPath,
+  overrideArgs,
   parseSnapshot,
   receiptPath,
+  ruleStopQuestion,
+  ruleTextQuestion,
   snapshotPath,
+  type RuleStop,
 } from './model';
+import { runPaqad } from './paqad-cli';
 import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
+
+type ToolCheckResult = Awaited<ReturnType<EngineInterface['tool']['check']>>;
 
 const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
@@ -192,6 +208,66 @@ function isBlank(node: RenderNode | null | undefined): boolean {
   return children.every((child) => isBlank(child));
 }
 
+async function askReason($: EngineInterface): Promise<string | null> {
+  try {
+    const answer = await $.ui.ask('Add a reason to the record?', {
+      options: [RULE_STOP_NO_REASON, RULE_STOP_FALSE_POSITIVE],
+      header: 'Reason',
+    });
+    return answer === RULE_STOP_NO_REASON || answer.trim() === '' ? null : answer.trim();
+  } catch {
+    return null;
+  }
+}
+
+async function chooseRuleStop($: EngineInterface, stop: RuleStop): Promise<string> {
+  const first = await $.ui.ask(ruleStopQuestion(stop), {
+    options: [RULE_STOP_FIX, RULE_STOP_ALLOW, RULE_STOP_SHOW],
+    header: 'Rule stop',
+  });
+  if (first !== RULE_STOP_SHOW) return first;
+  return $.ui.ask(ruleTextQuestion(stop), {
+    options: [RULE_STOP_FIX, RULE_STOP_ALLOW],
+    header: 'Rule stop',
+  });
+}
+
+async function answerRuleStop(
+  $: EngineInterface,
+  toolUseId: string | undefined,
+  verdict: ToolCheckResult,
+): Promise<ToolCheckResult> {
+  const at = live;
+  if (!at) return verdict;
+  const stop = freshRuleStop(
+    await readText($, lastBlockPath(at.root, at.sessionId)),
+    at.sessionId,
+    toolUseId,
+  );
+  if (!stop) return verdict;
+  if (stop.managed) {
+    $.ui.toast(ORG_ENFORCED);
+    return verdict;
+  }
+  if ((await chooseRuleStop($, stop)) !== RULE_STOP_ALLOW) return verdict;
+  const reason = await askReason($);
+  const ran = await runPaqad(
+    $,
+    'rules override',
+    overrideArgs(stop, at.sessionId, at.root, reason),
+    at.root,
+  );
+  if (!ran.ok) {
+    $.ui.toast('paqad could not record the override, so the edit stays blocked.');
+    return verdict;
+  }
+  await refresh($);
+  return {
+    decision: 'allow',
+    reason: `Allowed once by a person, recorded as an override of ${stop.rule}.`,
+  };
+}
+
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
@@ -256,6 +332,18 @@ export const register: Register = (on) => {
       if (isAgent) agentCalls = Math.max(0, agentCalls - 1);
     }
   }).catch(($, e, next) => next(e));
+
+  for (const tool of EDIT_TOOLS) {
+    on('tool.check', { tool }, async ($, e, next) => {
+      const verdict = await next(e);
+      if (verdict.decision !== 'deny') return verdict;
+      try {
+        return await answerRuleStop($, e.tool_use_id, verdict);
+      } catch {
+        return verdict;
+      }
+    }).catch(() => ({ decision: 'deny' as const }));
+  }
 
   on('turn.complete', async ($, e, next) => {
     const result = await next(e);

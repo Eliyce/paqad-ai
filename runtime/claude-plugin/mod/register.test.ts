@@ -24,8 +24,10 @@ import {
 import {
   ENGINE_BAND,
   EXPERTS_COMMAND,
+  LAST_BLOCK,
   ONBOARDED,
   RECEIPT,
+  SESSION_ID,
   SNAPSHOT,
   START,
   band,
@@ -787,4 +789,159 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
       expect(third.card.every((line) => line.includes('tokens (exact)'))).toBe(true);
     });
   }
+});
+
+describe('the rule stop answer on tool.check', () => {
+  const STOP = {
+    rule: 'RL-13',
+    title: 'No comments in code',
+    file: 'src/x.ts',
+    tool_use_id: 'tu_1',
+    managed: false,
+    at: '2026-10-20T10:00:00.000Z',
+    diff: '+ // note',
+    token: 'tok',
+    used: false,
+    session: SESSION_ID,
+  };
+  const DENY = { decision: 'deny' as const, reason: 'RL-13 blocked the edit' };
+  const OVERRIDE_ARGV = [
+    'paqad-ai',
+    'rules',
+    'override',
+    '--rule',
+    'RL-13',
+    '--file',
+    'src/x.ts',
+    '--token',
+    'tok',
+    '--tool-use-id',
+    'tu_1',
+    '--session',
+    SESSION_ID,
+    '--project-root',
+    '/work',
+  ];
+
+  async function stopped(
+    $: Parameters<Parameters<typeof test>[1]>[0],
+    on: Parameters<Parameters<typeof test>[1]>[1],
+    record: Record<string, unknown> = STOP,
+  ) {
+    const world = worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(FULL_ORD_501),
+        [LAST_BLOCK]: JSON.stringify(record),
+      },
+    });
+    world.verdict = DENY;
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    return world;
+  }
+
+  const check = ($: Parameters<Parameters<typeof test>[1]>[0], toolUseId = 'tu_1', tool = 'Edit') =>
+    $.tool.check({ tool, input: { file_path: '/work/src/x.ts' }, tool_use_id: toolUseId });
+
+  test('Allow once runs the one override verb with the token, then allows the call', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect((await check($)).decision).toBe('allow');
+    expect(world.asked[0]!.options).toEqual([
+      'Let Claude fix it',
+      'Allow once, recorded',
+      'Show the rule',
+    ]);
+    expect(world.asked[0]!.question).toContain('RL-13 stopped this edit to src/x.ts');
+    expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+  });
+
+  test('a typed reason is passed to the override as one argument', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded', 'needed for the hotfix');
+    expect((await check($)).decision).toBe('allow');
+    expect(world.runs[0]!.argv).toEqual([...OVERRIDE_ARGV, '--reason=needed for the hotfix']);
+  });
+
+  test('a dismissed reason still records the override without one', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded');
+    expect((await check($)).decision).toBe('allow');
+    expect(world.runs[0]!.argv).toEqual(OVERRIDE_ARGV);
+  });
+
+  test('Let Claude fix it, or a dismissed card, keeps the deny and runs nothing', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Let Claude fix it');
+    expect(await check($)).toEqual(DENY);
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked).toHaveLength(2);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('Show the rule asks again with the rule text', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Show the rule', 'Let Claude fix it');
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked[1]!.question).toContain('No comments in code');
+    expect(world.asked[1]!.options).toEqual(['Let Claude fix it', 'Allow once, recorded']);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('a managed stop offers nothing and names the organization', async ($, on) => {
+    const world = await stopped($, on, { ...STOP, managed: true });
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+    expect(world.toasts).toEqual(["This rule is enforced by your organization's settings."]);
+  });
+
+  test('a stop for another tool call, a used token or another session asks nothing', async ($, on) => {
+    const world = await stopped($, on);
+    expect(await check($, 'tu_2')).toEqual(DENY);
+    world.put(LAST_BLOCK, JSON.stringify({ ...STOP, used: true }));
+    expect(await check($)).toEqual(DENY);
+    world.put(LAST_BLOCK, JSON.stringify({ ...STOP, session: 'other' }));
+    expect(await check($)).toEqual(DENY);
+    world.put(LAST_BLOCK, '{not json');
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked).toEqual([]);
+  });
+
+  test('a failed or unstartable override keeps the deny', async ($, on) => {
+    const world = await stopped($, on);
+    world.run = { exitCode: 1, stdout: '', stderr: 'refused' };
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(DENY);
+    world.run = 'reject';
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect(await check($)).toEqual(DENY);
+    expect(world.runs).toHaveLength(2);
+    expect(world.toasts).toHaveLength(2);
+  });
+
+  test('the next identical call is denied again', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect((await check($)).decision).toBe('allow');
+    expect(await check($, 'tu_2')).toEqual(DENY);
+    expect(world.runs).toHaveLength(1);
+  });
+
+  test('a failure beneath the guard keeps the edit denied', async ($, on) => {
+    const world = await stopped($, on);
+    world.verdict = 'throw';
+    expect((await check($)).decision).toBe('deny');
+    expect(world.runs).toEqual([]);
+  });
+
+  test('an allowed call and a tool outside the edit tools pass through untouched', async ($, on) => {
+    const world = await stopped($, on);
+    world.verdict = { decision: 'allow' };
+    expect(await check($)).toEqual({ decision: 'allow' });
+    world.verdict = DENY;
+    expect(await check($, 'tu_1', 'Read')).toEqual(DENY);
+    expect(world.asked).toEqual([]);
+  });
 });

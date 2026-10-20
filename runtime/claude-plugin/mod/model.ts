@@ -36,6 +36,29 @@ export function receiptPath(root: string, sessionId: string): string {
   return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.receipt.md`);
 }
 
+export function lastBlockPath(root: string, sessionId: string): string {
+  return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.last-block.json`);
+}
+
+export const ORG_ENFORCED = "This rule is enforced by your organization's settings.";
+
+export const RULE_STOP_FIX = 'Let Claude fix it';
+export const RULE_STOP_ALLOW = 'Allow once, recorded';
+export const RULE_STOP_SHOW = 'Show the rule';
+export const RULE_STOP_NO_REASON = 'No reason';
+export const RULE_STOP_FALSE_POSITIVE = 'It is a false positive';
+
+export const EDIT_TOOLS: readonly string[] = ['Edit', 'Write', 'NotebookEdit'];
+
+export interface RuleStop {
+  rule: string;
+  title: string | null;
+  file: string;
+  toolUseId: string;
+  managed: boolean;
+  token: string;
+}
+
 type Rec = Record<string, unknown>;
 
 function rec(value: unknown): Rec | null {
@@ -91,6 +114,58 @@ function readLastBlock(raw: unknown, block: Rec | null): PaqadLastBlock {
     ...(token ? { token } : {}),
     ...(typeof block?.used === 'boolean' ? { used: block.used } : {}),
   };
+}
+
+export function freshRuleStop(
+  text: string | null,
+  sessionId: string,
+  toolUseId: string | undefined,
+): RuleStop | null {
+  if (text === null || !toolUseId) return null;
+  let raw: Rec | null;
+  try {
+    raw = rec(JSON.parse(text));
+  } catch {
+    return null;
+  }
+  const rule = str(raw?.rule);
+  const file = str(raw?.file);
+  const token = str(raw?.token);
+  if (!raw || !rule || !file || !token) return null;
+  if (raw.used === true || str(raw.session) !== sessionId) return null;
+  if (str(raw.tool_use_id) !== toolUseId) return null;
+  return { rule, title: str(raw.title), file, toolUseId, managed: raw.managed === true, token };
+}
+
+export function ruleStopQuestion(stop: RuleStop): string {
+  return `${stop.rule} stopped this edit to ${stop.file}. What should happen?`;
+}
+
+export function ruleTextQuestion(stop: RuleStop): string {
+  return `${stop.rule}: ${stop.title ?? 'no rule text recorded'}. What should happen?`;
+}
+
+export function overrideArgs(
+  stop: RuleStop,
+  sessionId: string,
+  root: string,
+  reason: string | null,
+): string[] {
+  return [
+    '--rule',
+    stop.rule,
+    '--file',
+    stop.file,
+    '--token',
+    stop.token,
+    '--tool-use-id',
+    stop.toolUseId,
+    '--session',
+    sessionId,
+    '--project-root',
+    root,
+    ...(reason ? [`--reason=${reason}`] : []),
+  ];
 }
 
 function readTokens(value: unknown): PaqadCostTokens {

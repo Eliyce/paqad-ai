@@ -5,6 +5,7 @@ export const SESSION_ID = 'ses-fixture';
 export const SNAPSHOT = `.paqad/session/hud/${SESSION_ID}.json`;
 export const RECEIPT = `.paqad/session/hud/${SESSION_ID}.receipt.md`;
 export const ENGINE_BAND = 'engine band';
+export const LAST_BLOCK = `.paqad/session/hud/${SESSION_ID}.last-block.json`;
 
 export interface World {
   files: Map<string, string>;
@@ -13,6 +14,12 @@ export interface World {
   agents: AgentInfo[];
   opened: string[];
   drawn: Array<{ component: string; props: unknown }>;
+  asked: Array<{ question: string; options: string[] }>;
+  answers: Array<string | null>;
+  runs: Array<{ argv: readonly string[]; cwd?: string; timeoutMs?: number }>;
+  run: { exitCode: number; stdout: string; stderr: string } | 'reject';
+  toasts: string[];
+  verdict: { decision: 'allow' | 'ask' | 'deny'; reason?: string } | 'throw';
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
 }
@@ -37,6 +44,12 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     agents: [],
     opened: [],
     drawn: [],
+    asked: [],
+    answers: [],
+    runs: [],
+    run: { exitCode: 0, stdout: '', stderr: '' },
+    toasts: [],
+    verdict: { decision: 'allow' },
     put: (path, text) => void world.files.set(path, text),
     remove: (path) => void world.files.delete(path),
   };
@@ -85,7 +98,30 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('session.start', ($, e) => ({ cwd: e.cwd }));
   on('prompt.submit', ($, e) => ({ text: e.text }));
   on('turn.complete', () => ({ text: '' }));
-  on('tool.call', () => ({ result: 'ok' }) as never);
+  on('tool.call', ($, e) => {
+    if (e.tool !== 'AskUserQuestion') return { result: 'ok' } as never;
+    const asked = (
+      e as unknown as { questions: Array<{ question: string; options: Array<{ label: string }> }> }
+    ).questions[0]!;
+    world.asked.push({ question: asked.question, options: asked.options.map((o) => o.label) });
+    const answer = world.answers.shift();
+    if (answer === undefined || answer === null) return { deny: 'dismissed' } as never;
+    return { result: { questions: [asked], answers: { [asked.question]: answer } } } as never;
+  });
+  on('tool.check', () => {
+    if (world.verdict === 'throw') throw new Error('engine check failed');
+    return world.verdict;
+  });
+  on('process.run', ($, e) => {
+    world.runs.push({ argv: e.argv, cwd: e.init?.cwd, timeoutMs: e.init?.timeoutMs });
+    return world.run === 'reject'
+      ? { deny: 'spawn failed' }
+      : { value: { ...world.run, isStdoutTruncated: false, isStderrTruncated: false } };
+  });
+  on('ui.toast', ($, e) => {
+    world.toasts.push(e.text);
+    return { value: undefined } as never;
+  });
   on('ui.render', ($, e) => {
     world.drawn.push({ component: e.component, props: e.props });
     return options.band ?? { type: 'Text', props: {}, children: [''] };
