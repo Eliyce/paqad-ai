@@ -13,6 +13,9 @@ import {
 import { createProgram } from '@/cli/program.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision, resolvePendingDecision } from '@/decisions/authoring.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { raiseTechDebt } from '@/tech-debt/index.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
@@ -82,6 +85,40 @@ describe('paqad-ai deliver', () => {
     );
     spy.mockRestore();
     expect(logs.join('\n')).toContain('dry run');
+  });
+
+  async function dryRunOutput(): Promise<string> {
+    const logs: string[] = [];
+    const spy = vi.spyOn(console, 'log').mockImplementation((l: string) => logs.push(String(l)));
+    await createDeliveryCommand().parseAsync(
+      ['--dry-run', '--project-root', root, '--session', 'ses-deliver', '--title', 'T'],
+      { from: 'user' },
+    );
+    spy.mockRestore();
+    return logs.join('\n');
+  }
+
+  it('lists the tech debt this change raised in the PR body, and nothing when it raised none', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    expect(await dryRunOutput()).not.toContain('Tech debt');
+    const ids = ['First finding', 'Second finding'].map(
+      (title) =>
+        raiseTechDebt(
+          root,
+          {
+            title,
+            kind: 'bug',
+            severity: 'low',
+            files: [],
+            foundIn: { change: featureChangeKey(dir) },
+          },
+          new Date(),
+          { dirName: dir, sessionId: 'ses-deliver' },
+        ).id,
+    );
+    const output = await dryRunOutput();
+    expect(output).toContain('## Tech debt found in this change');
+    for (const id of ids) expect(output).toContain(`- ${id} (bug, low)`);
   });
 
   it('--dry-run renders branch/commit/PR text and never pushes', async () => {

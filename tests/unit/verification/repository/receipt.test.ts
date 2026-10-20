@@ -165,6 +165,18 @@ describe('composeChangeReceipt', () => {
     expect(receipt).toBe('**▸ paqad** · Safe to merge');
   });
 
+  it('names the tech debt the change raised, and adds nothing when it raised none', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: '**▸ paqad** · Safe to merge',
+      fold: null,
+      techDebt: [{ id: 'TD-A' }, { id: 'TD-B' }],
+    });
+    expect(receipt).toContain('> 🟡 tech debt: 2 item(s) raised (TD-A, TD-B)');
+    for (const techDebt of [[], null, undefined]) {
+      expect(composeChangeReceipt({ verdictSummary: 'v', fold: null, techDebt })).toBe('v');
+    }
+  });
+
   it('appends an optional delivery line', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',

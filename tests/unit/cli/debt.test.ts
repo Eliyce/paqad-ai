@@ -9,6 +9,7 @@ import { createProgram } from '@/cli/program.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { startStage } from '@/stage-evidence/recorder.js';
+import { readFeatureTechDebtIndex } from '@/feature-evidence/tech-debt-index.js';
 import { readDebtItem } from '@/tech-debt/index.js';
 
 describe('paqad-ai debt command', () => {
@@ -87,6 +88,7 @@ describe('paqad-ai debt command', () => {
     startStage(root, 'review', { sessionId: SES, dirName: dir, adapter: 'claude-code' });
     writeFileSync(join(root, 'body.md'), 'The details.\n');
     const result = await add('--agent', 'paqad-review', '--body-file', 'body.md');
+    expect(readFeatureTechDebtIndex(root, dir)?.map((entry) => entry.id)).toEqual([result.id]);
     expect(readDebtItem(root, result.id)).toMatchObject({
       found_by: 'paqad-review',
       found_in: { change: featureChangeKey(dir), issue: '42', stage: 'review' },

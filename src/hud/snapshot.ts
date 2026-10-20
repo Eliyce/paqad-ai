@@ -20,6 +20,10 @@ import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
+  readFeatureTechDebtIndex,
+  type TechDebtIndexEntry,
+} from '@/feature-evidence/tech-debt-index.js';
+import {
   currentFeature,
   foldFeature,
   readFeatureStageUnit,
@@ -141,6 +145,7 @@ export interface HudSnapshot {
   }>;
   isolation: { status: string; stages: number; tokens_not_recarried: number } | null;
   cost: HudCost | null;
+  tech_debt: { raised: TechDebtIndexEntry[] } | null;
 }
 
 function readJsonFile(path: string): unknown {
@@ -560,6 +565,7 @@ export function buildHudSnapshot(
       evidence_expected: [],
       isolation: null,
       cost: null,
+      tech_debt: null,
     };
   }
 
@@ -647,6 +653,7 @@ export function buildHudSnapshot(
       tokens_not_recarried: isolationSummary?.tokensNotRecarried ?? 0,
     },
     cost: buildHudCost(projectRoot, dirName),
+    tech_debt: { raised: readFeatureTechDebtIndex(projectRoot, dirName) ?? [] },
   };
 }
 

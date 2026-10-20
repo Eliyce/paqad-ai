@@ -11,6 +11,8 @@ import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { GithubHostProvider } from '@/providers/github-host-provider.js';
+import { raisedTechDebt } from '@/tech-debt/context.js';
+import { renderTechDebtPrSection } from '@/tech-debt/pr-section.js';
 import type { HostProvider } from '@/providers/host-provider.js';
 import {
   readVerificationEvidence,
@@ -200,6 +202,7 @@ interface DeliverOptions {
   openPr: string;
   reviewer?: string[];
   label?: string[];
+  session?: string;
 }
 
 export function createDeliveryCommand(): Command {
@@ -217,6 +220,7 @@ export function createDeliveryCommand(): Command {
     .option('--open-pr <mode>', 'Recommended open_pr choice for the pause (yes|draft|no)', 'yes')
     .option('--reviewer <handle>', 'PR reviewer (repeatable)', collect, [])
     .option('--label <label>', 'PR label (repeatable)', collect, [])
+    .option('--session <id>', 'Session id (defaults to SE_SESSION / CLAUDE_SESSION_ID)')
     .action(async (options: DeliverOptions) => {
       const projectRoot = resolve(options.projectRoot);
       const shell = createDeliveryShell(projectRoot);
@@ -230,6 +234,12 @@ export function createDeliveryCommand(): Command {
           title: options.title,
           summary: options.summary,
           scope: options.scope,
+          tech_debt: renderTechDebtPrSection(
+            raisedTechDebt(
+              projectRoot,
+              options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
+            ),
+          ),
         },
         base: options.base,
         draft: options.draft,

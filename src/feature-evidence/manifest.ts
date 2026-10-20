@@ -126,6 +126,13 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    key: 'techDebt',
+    file: FEATURE_BUNDLE_FILES.techDebt,
+    required: 'optional',
+    writer: 'paqad-ai debt add (tech-debt index)',
+    validate: 'json',
+  },
+  {
     key: 'review',
     file: FEATURE_BUNDLE_FILES.review,
     required: 'always',

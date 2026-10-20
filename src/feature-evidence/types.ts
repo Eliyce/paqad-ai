@@ -18,6 +18,7 @@ export const CLARIFICATION_DOC_TYPE = 'paqad.clarification';
 export const EXPERTS_DOC_TYPE = 'paqad.experts';
 
 export const DECISIONS_DOC_TYPE = 'paqad.decisions';
+export const TECH_DEBT_DOC_TYPE = 'paqad.tech-debt';
 
 export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 

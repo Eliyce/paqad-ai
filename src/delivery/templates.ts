@@ -1,3 +1,4 @@
+import { stripTrailingChars } from '@/core/path-utils.js';
 import type { ResolvedDeliveryProcess } from '@/core/types/delivery-policy.js';
 
 export interface DeliveryRenderInputs {
@@ -6,6 +7,7 @@ export interface DeliveryRenderInputs {
   title: string;
   summary: string;
   scope?: string;
+  tech_debt?: string;
 }
 
 export interface RenderedDelivery {
@@ -43,6 +45,14 @@ export function renderTemplate(template: string, vars: Record<string, string>): 
   );
 }
 
+function withTechDebt(template: string, body: string, section: string): string {
+  if (section === '' || template.includes('{tech_debt}')) {
+    return body;
+  }
+  const trimmed = stripTrailingChars(body, ' \t\r\n');
+  return trimmed === '' ? `${section}\n` : `${trimmed}\n\n${section}\n`;
+}
+
 export function renderDelivery(
   process: ResolvedDeliveryProcess,
   inputs: DeliveryRenderInputs,
@@ -60,12 +70,13 @@ export function renderDelivery(
     title_slug,
     summary: inputs.summary,
     scope,
+    tech_debt: inputs.tech_debt ?? '',
   };
 
   return {
     branch: renderTemplate(process.branch.template, vars),
     commit: renderTemplate(process.commit.template, vars),
     pr_title: renderTemplate(process.pr.title_template, vars),
-    pr_body: renderTemplate(prBodyTemplate, vars),
+    pr_body: withTechDebt(prBodyTemplate, renderTemplate(prBodyTemplate, vars), vars.tech_debt),
   };
 }

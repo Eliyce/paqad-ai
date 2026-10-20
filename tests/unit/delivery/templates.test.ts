@@ -64,4 +64,30 @@ describe('delivery templates', () => {
     );
     expect(rendered.commit.startsWith('chore(chore):')).toBe(true);
   });
+
+  const inputs = { ticket: 'PAQ-1', title: 'T', summary: 'S' };
+  const section = '## Tech debt found in this change\n\n- TD-A (bug, low): A. path';
+
+  it('fills the tech_debt placeholder when the template has one', () => {
+    const rendered = renderDelivery(
+      DEFAULT_PROCESS,
+      { ...inputs, tech_debt: section },
+      '{summary}\n\n{tech_debt}\n\nEnd',
+    );
+    expect(rendered.pr_body).toBe(`S\n\n${section}\n\nEnd`);
+  });
+
+  it('appends the section after the template body when there is no placeholder', () => {
+    expect(
+      renderDelivery(DEFAULT_PROCESS, { ...inputs, tech_debt: section }, '{summary}\n\n').pr_body,
+    ).toBe(`S\n\n${section}\n`);
+    expect(renderDelivery(DEFAULT_PROCESS, { ...inputs, tech_debt: section }, '').pr_body).toBe(
+      `${section}\n`,
+    );
+  });
+
+  it('adds nothing when no items were raised', () => {
+    expect(renderDelivery(DEFAULT_PROCESS, inputs, '{summary}\n').pr_body).toBe('S\n');
+    expect(renderDelivery(DEFAULT_PROCESS, inputs, '{summary}\n{tech_debt}').pr_body).toBe('S\n');
+  });
 });

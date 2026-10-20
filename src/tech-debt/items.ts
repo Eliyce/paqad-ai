@@ -5,7 +5,7 @@ import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { ULID_BODY, ulid } from '@/core/ids/ulid.js';
-import { toProjectRelativePath } from '@/core/path-utils.js';
+import { stripTrailingChars, toProjectRelativePath } from '@/core/path-utils.js';
 
 export const DEBT_KINDS = ['bug', 'debt', 'gap', 'follow-up'] as const;
 export const DEBT_SEVERITIES = ['low', 'medium', 'high'] as const;
@@ -135,7 +135,7 @@ export function serializeDebtItem(item: TechDebtItem): string {
     defaultKeyType: 'PLAIN',
     lineWidth: 0,
   });
-  const body = item.body.replace(/\s+$/, '');
+  const body = stripTrailingChars(item.body, ' \t\r\n');
   return `${FRONT_MATTER_BOUNDARY}\n${yaml}${FRONT_MATTER_BOUNDARY}\n\n${BODY_HEADING}\n\n${body}\n`;
 }
 

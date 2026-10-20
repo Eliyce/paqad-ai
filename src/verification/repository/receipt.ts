@@ -116,6 +116,7 @@ export interface ComposeChangeReceiptInput {
   reuse?: ReuseCounts | null;
   changeMetrics?: ChangeMetrics | null;
   isolation?: StageIsolationSummary | null;
+  techDebt?: readonly { id: string }[] | null;
 }
 
 export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
@@ -135,6 +136,11 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   }
   if (input.isolation) {
     parts.push(`> ${formatStageIsolationLine(input.isolation)}`);
+  }
+  if (input.techDebt && input.techDebt.length > 0) {
+    parts.push(
+      `> ${PAQAD_STATUS_GLYPH.needsLook} tech debt: ${input.techDebt.length} item(s) raised (${input.techDebt.map((item) => item.id).join(', ')})`,
+    );
   }
   if (input.delivery) {
     parts.push(`> ${input.delivery}`);

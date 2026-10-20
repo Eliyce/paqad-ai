@@ -80,6 +80,7 @@ export function snapshot(over: Raw = {}): Raw {
     evidence_expected: [],
     isolation: null,
     cost: null,
+    tech_debt: null,
     ...over,
   };
 }

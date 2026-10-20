@@ -42,6 +42,11 @@ function sessionHint(options: CommonOptions): string | null {
   return options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
 }
 
+function activeBundle(options: CommonOptions): { dirName: string | null; sessionId: string } {
+  const context = resolveDebtContext(options.projectRoot, sessionHint(options));
+  return { dirName: context.dirName, sessionId: context.session };
+}
+
 function fail(message: string): void {
   console.error(message);
   process.exitCode = 1;
@@ -90,16 +95,21 @@ export function createDebtCommand(): Command {
       const body =
         options.bodyFile === undefined ? '' : readFileSync(resolve(root, options.bodyFile), 'utf8');
       const context = resolveDebtContext(root, sessionHint(options));
-      const result = raiseTechDebt(root, {
-        title: options.title,
-        kind: options.kind,
-        severity: options.severity,
-        files: options.file,
-        body,
-        foundBy: options.agent,
-        foundIn: context.foundIn,
-        session: context.session,
-      });
+      const result = raiseTechDebt(
+        root,
+        {
+          title: options.title,
+          kind: options.kind,
+          severity: options.severity,
+          files: options.file,
+          body,
+          foundBy: options.agent,
+          foundIn: context.foundIn,
+          session: context.session,
+        },
+        new Date(),
+        { dirName: context.dirName, sessionId: context.session },
+      );
       const said = {
         created: `recorded ${result.id} as tech debt`,
         existing: `${result.id} already records this finding; nothing written`,
@@ -165,7 +175,7 @@ export function createDebtCommand(): Command {
       .requiredOption('--issue <ref>', 'the issue it became'),
   ).action((id: string, options: CommonOptions & { issue: string }) => {
     guarded(() => {
-      const item = promoteTechDebt(options.projectRoot, id, options.issue);
+      const item = promoteTechDebt(options.projectRoot, id, options.issue, activeBundle(options));
       console.log(`**▸ paqad** · ${item.id} promoted to ${item.issue}.`);
       console.log(JSON.stringify({ id: item.id, status: item.status, issue: item.issue }));
     });
@@ -179,7 +189,7 @@ export function createDebtCommand(): Command {
       .requiredOption('--reason <why>', 'why it is closed'),
   ).action((id: string, options: CommonOptions & { reason: string }) => {
     guarded(() => {
-      const item = closeTechDebt(options.projectRoot, id, options.reason);
+      const item = closeTechDebt(options.projectRoot, id, options.reason, activeBundle(options));
       console.log(`**▸ paqad** · ${item.id} closed.`);
       console.log(
         JSON.stringify({ id: item.id, status: item.status, closed_reason: item.closed_reason }),

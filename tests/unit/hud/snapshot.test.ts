@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
-import { featureFilePath } from '@/feature-evidence/paths.js';
+import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
@@ -42,6 +42,7 @@ import {
 } from '@/spec-pipeline/high-table.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
+import { raiseTechDebt } from '@/tech-debt/index.js';
 
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
 const roots: string[] = [];
@@ -384,11 +385,34 @@ describe('buildHudSnapshot', () => {
       change: null,
       stages: [],
       ship: null,
+      tech_debt: null,
       paused: [{ workflow: 'feature-development', lane: 'graduated' }],
     });
     expect(snapshot.headline).toEqual({
       text: 'A change is paused. Say "continue" to pick it up.',
       tone: 'neutral',
+    });
+  });
+
+  it('lists the tech debt the active change raised, read fresh from the bundle at every build', () => {
+    const root = onboardedRoot();
+    const S = 'ses-debt';
+    const dir = openChange(root, S, 'fast', 'PQD-3 debt');
+    expect(buildHudSnapshot(root, S, { now: NOW }).tech_debt).toEqual({ raised: [] });
+    const item = raiseTechDebt(
+      root,
+      {
+        title: 'Found it',
+        kind: 'bug',
+        severity: 'low',
+        files: [],
+        foundIn: { change: featureChangeKey(dir) },
+      },
+      NOW(),
+      { dirName: dir, sessionId: S },
+    );
+    expect(buildHudSnapshot(root, S, { now: NOW }).tech_debt).toEqual({
+      raised: [{ id: item.id, title: 'Found it', kind: 'bug', severity: 'low' }],
     });
   });
 
