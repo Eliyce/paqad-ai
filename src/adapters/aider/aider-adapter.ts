@@ -8,12 +8,6 @@ import { shouldStripAiAttribution } from '@/delivery/attribution-config.js';
 import type { AdapterCapabilities, AdapterContext, GeneratedFile } from '../adapter.interface.js';
 import { BaseAdapter } from '../shared/base-adapter.js';
 
-/**
- * Aider's own attribution keys (issue #538). Unlike every other agent, aider does not just add
- * a trailer — by default it rewrites the git AUTHOR and COMMITTER name fields too, so the
- * commit itself stops being the developer's. All three go to false together; leaving any one on
- * still puts aider's name on the change.
- */
 const AIDER_ATTRIBUTION_KEYS = [
   'attribute-author',
   'attribute-committer',
@@ -63,17 +57,6 @@ export class AiderAdapter extends BaseAdapter {
   }
 }
 
-/**
- * Turn off aider's git attribution when the project's `ai_attribution` policy says `strip`.
- * Returns null when the policy says `keep`, so nothing is written and no file appears in a
- * project that did not ask for one.
- *
- * Merges rather than overwrites: an existing `.aider.conf.yml` keeps every key it already has,
- * including an explicit attribution value the team set by hand (INV-4). The merge goes through
- * `parseDocument` rather than parse-then-stringify so the team's own COMMENTS and key order
- * survive too — a config file people hand-edit is one they annotate, and silently eating those
- * annotations on re-onboard would be its own small betrayal of INV-4.
- */
 function buildAiderAttributionConfig(projectRoot: string): GeneratedFile | null {
   if (!shouldStripAiAttribution(projectRoot)) {
     return null;
@@ -88,11 +71,6 @@ function buildAiderAttributionConfig(projectRoot: string): GeneratedFile | null 
   return { path, content: doc.toString(), autoUpdate: true };
 }
 
-/**
- * Parse an existing `.aider.conf.yml` as an editable document. Absent, unreadable or
- * non-mapping content yields an empty mapping document, so a corrupt config is replaced with a
- * valid one rather than throwing during onboarding.
- */
 function readAiderConfig(path: string): YAML.Document {
   const empty = () => new YAML.Document({});
   if (!existsSync(path)) {
