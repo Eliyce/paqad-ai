@@ -11,7 +11,6 @@ import {
 
 describe('isoWeek', () => {
   it('labels a mid-week date with its ISO week', () => {
-    // 2026-07-03 is a Friday in ISO week 27.
     expect(isoWeek('2026-07-03T10:00:00.000Z')).toBe('2026-W27');
   });
 
@@ -20,7 +19,6 @@ describe('isoWeek', () => {
   });
 
   it('keeps a Sunday in the week that started the previous Monday', () => {
-    // 2026-01-04 is a Sunday; ISO week 1 of 2026.
     expect(isoWeek('2026-01-04T23:59:00.000Z')).toBe('2026-W01');
   });
 });
@@ -30,9 +28,7 @@ describe('bucketFindings', () => {
     { kind: 'findings', ts: '2026-07-01T09:00:00.000Z', counts: { deterministic: 4 } },
     { kind: 'findings', ts: '2026-07-02T09:00:00.000Z', counts: { deterministic: 8 } },
     { kind: 'findings', ts: '2026-07-03T09:00:00.000Z', counts: { deterministic: 6 } },
-    // Different week.
     { kind: 'findings', ts: '2026-07-10T09:00:00.000Z', counts: { deterministic: 2 } },
-    // Non-findings rows and malformed rows are ignored.
     { kind: 'drift', ts: '2026-07-03T09:00:00.000Z', counts: { RS_1: 1 } },
     { kind: 'findings', ts: '2026-07-03T09:00:00.000Z', counts: {} },
     { kind: 'findings', ts: 'bad-ts', counts: { deterministic: 99 } },
@@ -46,11 +42,10 @@ describe('bucketFindings', () => {
 
   it('counts only well-formed findings rows toward total runs', () => {
     const { total_runs } = bucketFindings(rows);
-    // 3 in W27 + 1 in W28 = 4; drift, empty-counts, and bad-ts rows excluded.
     expect(total_runs).toBe(4);
   });
 
-  it('reads a #581 bundle row by its recorded_at', () => {
+  it('reads a current-shape bundle row by its recorded_at', () => {
     const { weeks, total_runs } = bucketFindings([
       { kind: 'findings', recorded_at: '2026-07-01T09:00:00.000Z', counts: { deterministic: 3 } },
     ]);

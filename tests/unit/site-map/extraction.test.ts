@@ -145,7 +145,6 @@ describe('site-map extraction', () => {
       expect(page!.kind).toBe('page');
       expect(page!.label).toBe('GET /dashboard');
       expect(page!.entry).toEqual({ kind: 'url', value: '/dashboard' });
-      // A bare `api` segment is also an api surface.
       const [bare] = extractLaravelRouteSurfaces([
         { method: 'GET', uri: 'api', file: 'routes/api.php' },
       ]);
@@ -314,7 +313,6 @@ describe('site-map extraction', () => {
             method: 'POST',
             uri: 'posts',
             action: 'Modules\\Blog\\Http\\Controllers\\PostController@store',
-            // middleware as a newline/comma string (older artisan)
             middleware: 'web\nauth,can:create,posts',
           },
         ]),
@@ -444,12 +442,10 @@ describe('site-map extraction', () => {
         entry: { kind: 'url', value: '/api/users' },
         confidence: 'high',
       });
-      // Both pointers are kept; the artisan command lives only in the note (issue #500).
       expect(api!.evidence).toEqual([
         { ...routeFile, note: 'php artisan route:list (GET /api/users)' },
         { ...controller, note: 'php artisan route:list (GET /api/users)' },
       ]);
-      // action === 'Closure' falls back to the method+uri label; no module/guards.
       expect(page).toMatchObject({ kind: 'page', label: 'POST /posts' });
       expect(page!.module).toBeUndefined();
       expect(page!.guards).toBeUndefined();
@@ -465,7 +461,6 @@ describe('site-map extraction', () => {
       );
       const [noAction, weird] = surfaces;
       expect(noAction!.label).toBe('GET /health');
-      // ',GET'.split -> first token '' is falsy, so the whole method string is used.
       expect(weird!.label).toBe(',GET /x');
     });
 
@@ -512,7 +507,6 @@ describe('site-map extraction', () => {
           note: 'php artisan list (app:sync)',
         },
       ]);
-      // no description -> the command name is the label.
       expect(surfaces[1]!.label).toBe('report:send');
     });
   });
@@ -597,8 +591,7 @@ describe('site-map extraction', () => {
     });
   });
 
-  describe('evidence contract: every evidence.file is a real project path (issue #500, AC-13)', () => {
-    // The fixture project's files. Every pointer any extractor emits must be one of these.
+  describe('evidence contract: every evidence.file is a real project path', () => {
     const files: Record<string, string> = {
       'composer.json': JSON.stringify({ autoload: { 'psr-4': { 'App\\': 'app/' } } }),
       'routes/web.php': "<?php\nRoute::get('/basket', [BasketController::class, 'show']);\n",
@@ -676,7 +669,7 @@ describe('site-map extraction', () => {
     });
   });
 
-  describe('the #500 bind: a map citing the route file reconciles with artisan extraction (AC-14)', () => {
+  describe('the Laravel bind: a map citing the route file reconciles with artisan extraction (AC-14)', () => {
     it('raises no SM-ADD for a route the map cites at routes/web.php:<line>', () => {
       const resolver = createArtisanRouteResolver({
         psr4: [{ prefix: 'App\\', dirs: ['app/'] }],
@@ -713,7 +706,6 @@ describe('site-map extraction', () => {
         ],
       };
       expect(detectUnmappedSurfaces(map, extraction)).toEqual([]);
-      // The controller is cited too, so a map that names the controller reconciles as well.
       const byController = {
         ...map,
         surfaces: [

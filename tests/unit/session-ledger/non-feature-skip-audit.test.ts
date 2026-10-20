@@ -10,9 +10,6 @@ import {
   recordNonFeatureVerificationSkip,
 } from '@/session-ledger/non-feature-skip-audit.js';
 
-// Issue #499 — a completion turn that skipped verification because the session was a
-// non-feature workflow records ONE audit row so the skip is observable, never silent.
-
 const roots: string[] = [];
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-nonfeature-skip-'));

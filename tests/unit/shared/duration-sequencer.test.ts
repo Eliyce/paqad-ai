@@ -15,7 +15,6 @@ import {
   toRootRelativePosix,
 } from '../../shared/duration-sequencer.js';
 
-// A fixed pseudo-random weight list, so every run checks the same 900 files.
 function fakeSuite(size: number): { paths: string[]; weights: FileWeights } {
   let seed = 654;
   const next = () => {
@@ -27,7 +26,6 @@ function fakeSuite(size: number): { paths: string[]; weights: FileWeights } {
   for (let i = 0; i < size; i += 1) {
     const path = `tests/unit/area-${i % 37}/file-${String(i).padStart(4, '0')}.test.ts`;
     paths.push(path);
-    // Mostly small files, a few slow ones, like the real suite.
     weights[path] =
       i % 97 === 0 ? 60_000 + Math.round(next() * 60_000) : Math.round(next() * 3_000);
   }
@@ -80,8 +78,6 @@ describe('partitionByDuration', () => {
       { 'a.test.ts': 100, 'b.test.ts': 50, 'c.test.ts': 10 },
       2,
     );
-    // a (100) fills shard 1, then b (50) and new (median 50, after b by path) fill shard 2,
-    // and c (10) breaks the 100-100 tie toward shard 1.
     expect(shards).toEqual([
       ['a.test.ts', 'c.test.ts'],
       ['b.test.ts', 'new.test.ts'],
@@ -234,8 +230,6 @@ describe('DurationSequencer', () => {
       join(root, SHARD_TIMINGS_FILE),
       JSON.stringify({ [process.platform]: { 'tests/a.test.ts': 1 } }),
     );
-    // Vitest only calls shard() with --shard set, so this path just hands the call to the
-    // built-in sequencer, which needs a shard config and says so.
     const builtIn = new BaseSequencer({ config: { root } } as never).shard(specs());
     await expect(builtIn).rejects.toThrow();
     await expect(sequencer().shard(specs())).rejects.toThrow();

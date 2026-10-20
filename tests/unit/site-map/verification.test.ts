@@ -15,7 +15,6 @@ function map(overrides: Partial<AppMap> = {}): AppMap {
   return { schema_version: 1, app: { name: 'x', kind: 'cli' }, surfaces: [], ...overrides };
 }
 
-/** Every candidate category from a verification run, sorted for stable assertions. */
 function categories(m: AppMap, resolutions: EvidenceResolution[] = []): string[] {
   return collectVerificationFindings(m, resolutions)
     .candidates.map((finding) => finding.category)
@@ -34,7 +33,7 @@ describe('collectMapEvidence', () => {
         surface({
           evidence: [
             { file: 'a.ts', line: 1 },
-            { file: 'a.ts', line: 1 }, // duplicate of the first
+            { file: 'a.ts', line: 1 },
           ],
           transitions: [{ to: 's', trigger: 'x', evidence: { file: 'edge.ts', line: 2 } }],
         }),
@@ -59,7 +58,6 @@ describe('collectVerificationFindings — no map', () => {
     expect(result.candidates).toEqual([]);
     expect(result.blockedChecks).toHaveLength(1);
     expect(result.blockedChecks[0]!.check).toBe('map-present');
-    // Points at the canonical map location, and names how to create one.
     expect(result.blockedChecks[0]!.reason).toContain('docs/site-map/app-map.yaml');
     expect(result.blockedChecks[0]!.install_hint).toContain('docs/site-map/app-map.yaml');
   });
@@ -78,7 +76,6 @@ describe('SM-REMOVE and SM-EVIDENCE', () => {
     expect(finding!.affected_surfaces).toEqual(['s']);
     expect(finding!.affected_files).toEqual(['gone.ts']);
     expect(finding!.evidence[0]).toContain('file not found');
-    // The fix-it text points at the canonical map, not the retired instructions path (S2 FR-6).
     expect(finding!.resolution).toContain('docs/site-map/app-map.yaml');
     expect(finding!.resolution).not.toContain('docs/instructions/site-map');
   });
@@ -142,7 +139,6 @@ describe('SM-REMOVE and SM-EVIDENCE', () => {
       { file: 'noline.ts', line: undefined, status: 'file-missing' },
     ]).candidates;
     expect(finding!.category).toBe('SM-EVIDENCE');
-    // The proof drops the `:line` suffix when the pointer has no line.
     expect(finding!.evidence[0]).toContain('cites noline.ts — file not found');
   });
 
@@ -231,7 +227,7 @@ describe('graph invariants — SM-ORPHAN and SM-DEADEND', () => {
       surfaces: [
         surface({ id: 's-a', entry: { kind: 'url' }, transitions: [{ to: 's-b', trigger: 'go' }] }),
         surface({ id: 's-b', ends: { success: true } }),
-        surface({ id: 's-c', ends: { success: true } }), // no path in
+        surface({ id: 's-c', ends: { success: true } }),
       ],
     });
     const orphans = collectVerificationFindings(m, []).candidates.filter(
@@ -248,10 +244,10 @@ describe('graph invariants — SM-ORPHAN and SM-DEADEND', () => {
           entry: { kind: 'url' },
           transitions: [
             { to: 's-b', trigger: 'go' },
-            { to: 's-ghost', trigger: 'nowhere' }, // filtered by reachability (still an XREF)
+            { to: 's-ghost', trigger: 'nowhere' },
           ],
         }),
-        surface({ id: 's-b', transitions: [{ to: 's-a', trigger: 'back' }] }), // cycle back to s-a
+        surface({ id: 's-b', transitions: [{ to: 's-a', trigger: 'back' }] }),
       ],
     });
     expect(categories(m)).not.toContain('SM-ORPHAN');
@@ -272,8 +268,6 @@ describe('graph invariants — SM-ORPHAN and SM-DEADEND', () => {
   it('records reachability as blocked (visibly, not silently) when the map models no transitions', () => {
     const m = map({ surfaces: [surface({ id: 's-a' }), surface({ id: 's-b' })] });
     const result = collectVerificationFindings(m, []);
-    // The checks themselves still short-circuit — no orphan/dead-end candidates are produced —
-    // but the skip is now recorded so a link-less map cannot read as clean (D4).
     expect(result.candidates).toEqual([]);
     expect(result.blockedChecks.map((check) => check.check)).toEqual(['reachability']);
     expect(result.blockedChecks[0]!.reason).toContain('no navigation between screens');
@@ -287,8 +281,8 @@ describe('graph invariants — SM-ORPHAN and SM-DEADEND', () => {
           entry: { kind: 'url' },
           transitions: [{ to: 's-a', trigger: 'self' }],
         }),
-        surface({ id: 's-dead' }), // page, no transitions, no ends
-        surface({ id: 's-dead2', ends: { success: false } }), // ends present but all falsy
+        surface({ id: 's-dead' }),
+        surface({ id: 's-dead2', ends: { success: false } }),
       ],
     });
     const deadends = collectVerificationFindings(m, [])
@@ -306,9 +300,9 @@ describe('graph invariants — SM-ORPHAN and SM-DEADEND', () => {
           entry: { kind: 'url' },
           transitions: [{ to: 's-a', trigger: 'self' }],
         }),
-        surface({ id: 's-api', kind: 'api' }), // exempt kind
-        surface({ id: 's-ok', ends: { failure: true } }), // terminal via failure
-        surface({ id: 's-ok2', ends: { abandoned: 'left' } }), // terminal via abandoned
+        surface({ id: 's-api', kind: 'api' }),
+        surface({ id: 's-ok', ends: { failure: true } }),
+        surface({ id: 's-ok2', ends: { abandoned: 'left' } }),
       ],
     });
     expect(categories(m)).not.toContain('SM-DEADEND');

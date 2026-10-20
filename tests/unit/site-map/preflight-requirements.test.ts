@@ -26,7 +26,6 @@ function project(files: Record<string, string>): string {
 const laravelComposer = JSON.stringify({ require: { 'laravel/framework': '^11.0' } });
 const cliPkg = JSON.stringify({ dependencies: { commander: '^12.0' } });
 
-/** No preflight probe may ever boot the app: assert artisan / route:list is never spawned. */
 function assertNeverSpawnedArtisan(): void {
   for (const call of execa.mock.calls) {
     const args = (call[1] ?? []) as string[];
@@ -53,7 +52,6 @@ describe('site-map preflight requirements', () => {
   it('does not declare laravel-route-list on a non-Laravel project (AC-5)', async () => {
     const res = await runPreflight(project({ 'package.json': cliPkg }), 'site-map');
     expect(res.requirements.map((r) => r.id)).not.toContain('laravel-route-list');
-    // A Node CLI project with commander maps its CLI, and the docs prereqs are satisfied.
     expect(resultFor(res, 'node-cli-program')?.outcome).toBe('ok');
     expect(res.ok).toBe(true);
     assertNeverSpawnedArtisan();
@@ -70,7 +68,6 @@ describe('site-map preflight requirements', () => {
     );
     expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('needs-decision');
     expect(res.questions.map((q) => q.id)).toContain('laravel-route-list');
-    // The presence check went through `php --version`, and nothing else.
     expect(execa).toHaveBeenCalledWith('php', ['--version'], expect.anything());
     assertNeverSpawnedArtisan();
   });
@@ -102,7 +99,7 @@ describe('site-map preflight requirements', () => {
     expect(resultFor(res, 'laravel-route-list')?.outcome).toBe('unavailable');
   });
 
-  describe('uses the way the project runs artisan (issue #500, AC-18)', () => {
+  describe('uses the way the project runs artisan', () => {
     const profileWith = (migrate: string): string =>
       ['project:', '  name: demo', 'commands:', `  migrate: "${migrate}"`, ''].join('\n');
 

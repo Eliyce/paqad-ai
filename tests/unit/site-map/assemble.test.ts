@@ -173,7 +173,7 @@ describe('assembleSiteMapReport', () => {
     expect(report.surface_count).toBe(1);
     expect(report.journey_count).toBe(4);
     expect(report.extraction.extracted_surfaces).toBe(1);
-    expect(report.findings).toEqual([]); // the one surface is mapped
+    expect(report.findings).toEqual([]);
   });
 
   it('reports zero mapped surfaces when no map exists', () => {
@@ -196,7 +196,6 @@ describe('assembleSiteMapReport', () => {
       created_at: '2026-01-01T00:00:00.000Z',
       finding_ids: first.findingIds,
     };
-    // Same surface stays pre-existing; a second, new surface is new-since-baseline.
     const report = assembleSiteMapReport(
       input({
         baseline,
@@ -221,8 +220,6 @@ describe('assembleSiteMapReport', () => {
   });
 
   it('folds an overstated trust tier into the findings as SM-TRUST', () => {
-    // A surface claiming proven-in-code whose cited file is gone: the trust proof catches it
-    // alongside the evidence check, so both categories reach the assembled report.
     const map: AppMap = {
       schema_version: 1,
       app: { name: 'paqad-ai', kind: 'cli' },
@@ -252,8 +249,6 @@ describe('assembleSiteMapReport', () => {
   });
 });
 
-// --- S9c: reconcile missing links ------------------------------------------------------------
-
 function codeEdge(overrides: Partial<ExtractedTransition> = {}): ExtractedTransition {
   return {
     from_raw_id: 's-a',
@@ -265,7 +260,6 @@ function codeEdge(overrides: Partial<ExtractedTransition> = {}): ExtractedTransi
   };
 }
 
-/** A two-surface map: origin `s-a`, target `s-b` reachable at entry value `/b`. */
 function twoSurfaceMap(overrides: Partial<AppMap['surfaces'][number]> = {}): AppMap {
   return {
     schema_version: 1,

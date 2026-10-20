@@ -1,7 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-// The coverage floors apply only to a whole-suite run (issue #654): CI shards set
-// PAQAD_TEST_SHARD=1 and check none, the merge run and local `pnpm run ci` check them all.
 async function loadConfig() {
   vi.resetModules();
   const module = await import('../../../vitest.config.js');
@@ -44,7 +42,6 @@ describe('vitest.config.ts', () => {
 
   it('balances shards with the duration sequencer', async () => {
     const config = await loadConfig();
-    // Module reset loads a fresh copy of the class, so compare it with the copy the config saw.
     const { DurationSequencer } = await import('../../shared/duration-sequencer.js');
     expect(config.test.sequence.sequencer).toBe(DurationSequencer);
   });

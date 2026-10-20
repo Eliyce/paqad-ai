@@ -1,7 +1,3 @@
-// The test suite must never write into the developer's real home (tests/shared/isolate-home.ts).
-// A run that did repointed `~/.paqad-ai/current` at this checkout and overwrote the user-scope
-// stage agents, so every project on the machine ran unreleased code.
-
 import { existsSync, lstatSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -16,7 +12,6 @@ describe('the test run is isolated from the real home directory', () => {
     expect(realHome).toBeTruthy();
     expect(homedir()).not.toBe(realHome);
     expect(homedir()).toContain('paqad-test-home-');
-    // A Windows 8.3 short name (`RUNNER~1`) would leak a `~` into every absolute path.
     expect(homedir()).not.toContain('~');
   });
 

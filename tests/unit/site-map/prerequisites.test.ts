@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { detectSiteMapPrerequisites } from '@/site-map/prerequisites.js';
 
-describe('detectSiteMapPrerequisites (issue #466, PRE-1..12)', () => {
+describe('detectSiteMapPrerequisites', () => {
   let root: string;
 
   beforeEach(() => {
@@ -61,7 +61,7 @@ describe('detectSiteMapPrerequisites (issue #466, PRE-1..12)', () => {
       { slug: 'billing', name: 'Billing', sources: ['src/billing/**'] },
       { slug: 'orders', name: 'Orders', sources: ['src/orders/**'] },
     ]);
-    writeModuleDoc('billing'); // orders left undocumented on purpose
+    writeModuleDoc('billing');
 
     const result = detectSiteMapPrerequisites(root);
     expect(result.satisfied).toBe(true);

@@ -91,7 +91,7 @@ describe('site-map creation answers', () => {
     });
 
     it('reads a corrupt file as absent (null)', () => {
-      writeCreationAnswers(root, emptyCreationAnswers()); // creates docs/site-map/
+      writeCreationAnswers(root, emptyCreationAnswers());
       writeFileSync(canonicalAnswersPath(root), ':\n  - not: [valid', 'utf8');
       expect(readCreationAnswers(root)).toBeNull();
     });
@@ -310,7 +310,6 @@ describe('site-map creation answers', () => {
     it('asks a labels-language question only for surfaces still showing their i18n key', () => {
       const map = mapWith({
         surfaces: [
-          // key with no resolved labels catalog -> asked
           {
             id: 's1',
             kind: 'page',
@@ -319,7 +318,6 @@ describe('site-map creation answers', () => {
             area: 'core',
             evidence: { file: 'src/h.ts', line: 4 },
           },
-          // labels present but label still equals the key -> asked
           {
             id: 's2',
             kind: 'page',
@@ -328,7 +326,6 @@ describe('site-map creation answers', () => {
             labels: { en: 'About' },
             area: 'core',
           },
-          // labels present and label already resolved -> not asked
           {
             id: 's3',
             kind: 'page',
@@ -337,7 +334,6 @@ describe('site-map creation answers', () => {
             labels: { en: 'Contact' },
             area: 'core',
           },
-          // no key at all -> not asked
           { id: 's4', kind: 'page', label: 'Plain', area: 'core' },
         ],
       });
@@ -397,7 +393,6 @@ describe('site-map creation answers', () => {
       expect(result.changed).toBe(true);
       expect(result.map.surfaces[0].derivation).toBe('human');
       expect(result.map.surfaces[0].confidence).toBe('high');
-      // the input map object is untouched
       expect(map.surfaces[0].derivation).toBeUndefined();
     });
 
@@ -415,21 +410,16 @@ describe('site-map creation answers', () => {
 
     it('stamps nothing for irrelevant answers (wrong category, empty anchors, or no coverage)', () => {
       const map = mapWith([
-        // has evidence, but no answer legitimately covers it
         { id: 's1', kind: 'page', label: 'Home', evidence: { file: 'src/a.ts', line: 1 } },
-        // has no evidence at all, so nothing can anchor to it
         { id: 's2', kind: 'page', label: 'Blank' },
       ]);
       const result = stampAnswerProvenance(map, [
-        // a guard-shaped category never bleeds onto a surface, even on a shared anchor
         answer({
           question_id: 'actors-roles:x',
           category: 'actors-roles',
           anchors: ['src/a.ts:1'],
         }),
-        // a journey-priority answer carries no anchors, so it settles no element
         answer({ question_id: 'journey-priority:x', category: 'journey-priority', anchors: [] }),
-        // a grouping answer about different code does not cover this surface
         answer({ anchors: ['src/other.ts:9'] }),
       ]);
       expect(result.changed).toBe(false);
@@ -497,10 +487,8 @@ describe('site-map creation answers', () => {
       const humanAns = answer({ question_id: 'grouping:h', decided_by: 'human' });
       const defaultAns = answer({ question_id: 'grouping:d', decided_by: 'default' });
 
-      // default first, then upgraded to human
       const a = stampAnswerProvenance(surface, [defaultAns, humanAns]);
       expect(a.map.surfaces[0].derivation).toBe('human');
-      // human first, default does not weaken it
       const b = stampAnswerProvenance(surface, [humanAns, defaultAns]);
       expect(b.map.surfaces[0].derivation).toBe('human');
     });

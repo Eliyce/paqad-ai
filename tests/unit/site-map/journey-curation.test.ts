@@ -97,7 +97,7 @@ describe('runJourneyCuration', () => {
 
   it('refuses to curate a non-proposed journey', () => {
     const root = repo();
-    writeJourney(root, minimalJourney()); // status: confirmed
+    writeJourney(root, minimalJourney());
     const result = runJourneyCuration({
       projectRoot: root,
       id: 'onboard',

@@ -28,7 +28,7 @@ async function runDiffRefresh(root: string) {
   return execa(join(root, 'scripts/refresh-registry-diff.sh'), { reject: false, cwd: root });
 }
 
-describe('refresh-registry-diff.sh (issue #651)', () => {
+describe('refresh-registry-diff.sh', () => {
   let root: string;
 
   beforeEach(async () => {
@@ -114,7 +114,6 @@ describe('refresh-registry-diff.sh (issue #651)', () => {
     git(root, ['init', '-q', '-b', 'trunk']);
     git(root, ['add', '-A']);
     git(root, ['commit', '-q', '-m', 'base']);
-    // Pretend a clone: origin/trunk is the remote default branch.
     git(root, ['update-ref', 'refs/remotes/origin/trunk', 'HEAD']);
     git(root, ['symbolic-ref', 'refs/remotes/origin/HEAD', 'refs/remotes/origin/trunk']);
     git(root, ['checkout', '-q', '-b', 'feature']);

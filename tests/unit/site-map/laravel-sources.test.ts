@@ -15,7 +15,7 @@ import {
   type Psr4Entry,
 } from '@/site-map/laravel-sources.js';
 
-describe('laravel-sources (issue #500)', () => {
+describe('laravel-sources', () => {
   describe('parseComposerPsr4', () => {
     it('reads autoload then autoload-dev, string and array dirs, normalizing both sides', () => {
       const entries = parseComposerPsr4(
@@ -204,7 +204,7 @@ describe('laravel-sources (issue #500)', () => {
       expect(findScheduleLine(consolePhp, 'App\\Jobs\\PruneLogs')).toBe(4);
     });
 
-    it('finds a command scheduled by its declaring class (issue #500)', () => {
+    it('finds a command scheduled by its declaring class', () => {
       const content = [
         '<?php',
         'use App\\Console\\Commands\\SendReports;',
@@ -212,7 +212,6 @@ describe('laravel-sources (issue #500)', () => {
       ].join('\n');
       expect(findScheduleLine(content, 'php artisan reports:send')).toBeUndefined();
       expect(findScheduleLine(content, 'php artisan reports:send', 'SendReports')).toBe(3);
-      // The same, in a Kernel using $schedule->command(...).
       const kernel = '<?php\n\n$schedule->command(SendReports::class)->hourly();';
       expect(findScheduleLine(kernel, 'php artisan reports:send', 'SendReports')).toBe(3);
     });
@@ -225,7 +224,6 @@ describe('laravel-sources (issue #500)', () => {
         "Schedule::command('inspire')->hourly();",
       ].join('\n');
       expect(findScheduleLine(content, 'php artisan inspire')).toBe(4);
-      // With no schedule call, the first mention is the answer.
       const declaredOnly = content.split('\n').slice(0, 3).join('\n');
       expect(findScheduleLine(declaredOnly, 'php artisan inspire')).toBe(2);
       expect(scheduledCommandName("'/usr/bin/php' 'artisan' inspire")).toBe('inspire');
@@ -234,7 +232,6 @@ describe('laravel-sources (issue #500)', () => {
     it('is undefined for a task the file does not schedule, or an empty command', () => {
       expect(findScheduleLine(consolePhp, 'php artisan report:send')).toBeUndefined();
       expect(findScheduleLine(consolePhp, '')).toBeUndefined();
-      // `artisan` as the last word has nothing after it, so the first word is used.
       expect(findScheduleLine(consolePhp, 'php artisan')).toBeUndefined();
     });
   });
@@ -316,7 +313,6 @@ describe('laravel-sources (issue #500)', () => {
       ).toEqual({
         argv: ['docker-compose', '-f', 'ci.yml', 'exec', '-T', 'app', 'php', 'artisan'],
       });
-      // A compose command with neither exec nor run is left alone.
       expect(resolveArtisanInvocation(commands('docker compose artisan'))).toEqual({
         argv: ['docker', 'compose', 'artisan'],
       });
@@ -326,7 +322,6 @@ describe('laravel-sources (issue #500)', () => {
       expect(
         resolveArtisanInvocation(commands('APP_ENV=testing DB_HOST=db php artisan migrate')),
       ).toEqual({ argv: ['php', 'artisan'] });
-      // One assignment before a wrapper script is dropped too.
       expect(resolveArtisanInvocation(commands('X=1 vendor/bin/sail artisan migrate'))).toEqual({
         argv: ['vendor/bin/sail', 'artisan'],
       });
@@ -408,7 +403,7 @@ describe('laravel-sources (issue #500)', () => {
       resolve(record);
       expect(
         readFile.mock.calls.filter(([path]) => path.endsWith('BasketController.php')),
-      ).toHaveLength(2); // once per candidate dir, never twice for the same path
+      ).toHaveLength(2);
     });
 
     it('cites the controller file with no line when the method is missing', () => {
@@ -448,13 +443,10 @@ describe('laravel-sources (issue #500)', () => {
           action: 'Closure',
         });
 
-      // Several matches, one in routes/web.php: that one.
       expect(resolveWith([route('routes/admin.php', 2), route('routes/web.php', 5)])).toEqual([
         { file: 'routes/web.php', line: 5 },
       ]);
-      // Several matches in the primary files: ambiguous, so no pointer.
       expect(resolveWith([route('routes/web.php', 1), route('routes/api.php', 4)])).toEqual([]);
-      // Several matches, none primary: no pointer.
       expect(resolveWith([route('routes/a.php', 1), route('routes/b.php', 2)])).toEqual([]);
     });
 
