@@ -15,6 +15,20 @@ describe('narration-contract-writer', () => {
     expect(body.startsWith(MANAGED_HEADER)).toBe(false);
   });
 
+  it('tells the orchestrator to resolve the stage settings once and pass model and effort per stage', () => {
+    const body = buildNarrationContractBody();
+    const dispatch = body
+      .split('\n')
+      .find((line) => line.startsWith('2. Dispatch the stage agent'))!;
+    expect(dispatch).toContain('`paqad-ai stage settings`');
+    expect(dispatch).toContain(
+      "pass that stage's `model` and `effort` on each stage Agent call when the value is not `inherit`",
+    );
+    expect(body).toContain('a SubagentStart hook hands each stage agent a short stage brief');
+    const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
+    expect(router).toContain(dispatch);
+  });
+
   it('documents the cadence, voice, and status-block format', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain('## When paqad speaks (cadence)');

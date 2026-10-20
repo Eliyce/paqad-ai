@@ -14,6 +14,7 @@ import {
   resolveTokenCounts,
   stageFromAgentType,
 } from '@/stage-isolation/subagent-completion.js';
+import { writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -136,6 +137,51 @@ describe('recordStageAgentCompletion', () => {
     });
     expect(rows[0]).not.toHaveProperty('adapter');
     expect(validateStageEvidenceRow(rows[0])).toEqual([]);
+  });
+
+  it('adds the effort and model from the session stage settings to the one stage-agent row', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    writeStageSettings(root, 'ses_orch', { PAQAD_STAGE_MODEL_REVIEW: 'opus' });
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { agent_id: 'agent_r', agent_type: 'paqad-review' },
+      transcriptText: 'review work',
+      adapter: 'claude-code',
+    });
+    const rows = readStageAgentRows(root, dir);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ stage: 'review', effort: 'high', model: 'opus' });
+    expect(validateStageEvidenceRow(rows[0])).toEqual([]);
+  });
+
+  it('leaves effort and model off the row when no stage settings were recorded', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { agent_type: 'paqad-checks' },
+      transcriptText: 'checks work',
+      adapter: 'claude-code',
+    });
+    const [row] = readStageAgentRows(root, dir);
+    expect(row).not.toHaveProperty('effort');
+    expect(row).not.toHaveProperty('model');
+    expect(validateStageEvidenceRow(row)).toEqual([]);
+  });
+
+  it('rejects a stage-agent row with an unknown effort or model', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { agent_type: 'paqad-checks' },
+      transcriptText: 'checks work',
+      adapter: 'claude-code',
+    });
+    const [row] = readStageAgentRows(root, dir);
+    expect(validateStageEvidenceRow({ ...row, effort: 'turbo' })).not.toEqual([]);
+    expect(validateStageEvidenceRow({ ...row, model: 'gpt' })).not.toEqual([]);
   });
 
   it('sums host-reported input and output as tokens_used, still labelled an estimate', () => {

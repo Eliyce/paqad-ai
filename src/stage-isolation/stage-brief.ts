@@ -17,11 +17,12 @@ import {
   STAGE_AGENT_HARD_RULES,
   type StageAgentDef,
 } from './stage-agents.js';
+import { isSafeSessionId } from './stage-settings.js';
 import { stageFromAgentType } from './subagent-completion.js';
 
-export const STAGE_BRIEF_MAX_CHARS = 9000;
+export { isSafeSessionId, SAFE_SESSION_ID } from './stage-settings.js';
 
-export const SAFE_SESSION_ID = /^[A-Za-z0-9._-]{1,128}$/;
+export const STAGE_BRIEF_MAX_CHARS = 9000;
 
 export const STAGE_BRIEF_ENTRY_LINE =
   'paqad records your entry check when you start; if an edit is blocked, create the marker it names.';
@@ -50,10 +51,6 @@ export function stageHelperStage(agentType: unknown): string | null {
     return null;
   }
   return stageFromAgentType(agentType);
-}
-
-export function isSafeSessionId(sessionId: string): boolean {
-  return SAFE_SESSION_ID.test(sessionId);
 }
 
 function stageDef(stage: string): StageAgentDef {

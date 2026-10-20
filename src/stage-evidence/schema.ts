@@ -1,5 +1,6 @@
 import Ajv, { type ValidateFunction } from 'ajv';
 
+import { STAGE_EFFORT_LEVELS, STAGE_MODELS } from '@/core/framework-config.js';
 import { ENVELOPE_HEADER_PROPERTIES } from '@/feature-evidence/schema.js';
 
 import {
@@ -66,6 +67,8 @@ export const STAGE_EVIDENCE_SCHEMA = {
     tokens_used: { type: 'integer', minimum: 0 },
     tokens_not_recarried: { type: 'integer', minimum: 0 },
     estimate: { type: 'boolean' },
+    effort: { enum: STAGE_EFFORT_LEVELS },
+    model: { enum: STAGE_MODELS },
     step: { type: 'string', minLength: 1 },
     outcome: { enum: SPEC_STEP_OUTCOMES },
     artifact_hash: { type: 'string' },
