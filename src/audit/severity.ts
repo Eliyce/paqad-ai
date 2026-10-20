@@ -1,11 +1,5 @@
-// Issue #121 — shared verdict → severity/outcome mappings so OCSF, ECS, and CEF
-// grade the same verdict identically. A failing or blocked check is a finding a
-// SOC wants surfaced; a pass is informational, and so is a gate that did not apply to the
-// change (`skipped`, issue #579): it is not a finding and not an unknown.
-
 import type { SiemEvent } from './types.js';
 
-/** OCSF `severity_id` (0 Unknown, 1 Informational, 3 Medium, 4 High). */
 export function ocsfSeverityId(verdict: string): number {
   switch (verdict) {
     case 'fail':
@@ -23,7 +17,6 @@ export function ocsfSeverityId(verdict: string): number {
   }
 }
 
-/** OCSF `status_id` (0 Unknown, 1 Success, 2 Failure). */
 export function ocsfStatusId(verdict: string): number {
   switch (verdict) {
     case 'pass':
@@ -37,7 +30,6 @@ export function ocsfStatusId(verdict: string): number {
   }
 }
 
-/** ECS `event.outcome` (success | failure | unknown). */
 export function ecsOutcome(verdict: string): 'success' | 'failure' | 'unknown' {
   switch (verdict) {
     case 'pass':
@@ -51,7 +43,6 @@ export function ecsOutcome(verdict: string): 'success' | 'failure' | 'unknown' {
   }
 }
 
-/** CEF severity on its 0–10 scale (a skipped gate is 1, the lowest graded value, below a pass). */
 export function cefSeverity(verdict: string): number {
   switch (verdict) {
     case 'fail':
@@ -70,13 +61,11 @@ export function cefSeverity(verdict: string): number {
   }
 }
 
-/** Epoch milliseconds for an ISO timestamp; 0 when absent/unparseable. */
 export function epochMs(ts: string): number {
   const parsed = Date.parse(ts);
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-/** A short, human-readable headline shared by the OCSF/ECS `message` field. */
 export function eventMessage(event: SiemEvent): string {
   if (event.kind === 'attestation') {
     const seal = event.sealed ? 'sealed' : 'BROKEN-chain';

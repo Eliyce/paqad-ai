@@ -1,13 +1,3 @@
-// Issue #121 — aggregate the #118 evidence ledger and tamper-evident receipt
-// chain into one chronological stream of format-neutral SiemEvents.
-//
-// This deliberately reads the *unified* ledger #118 already produced rather than
-// re-reconciling the three legacy, format-inconsistent logs (plain-text
-// audit.log, decisions/audit.jsonl, skills/events.jsonl): the unified ledger is
-// already graded (deterministic vs LLM-judged), already content-addressed, and
-// the receipt chain already carries the hash-chain seal and the #120 authorship.
-// Exporting that is both less code and strictly richer evidence.
-
 import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
 import { verifyReceiptSeal } from '@/evidence/receipt/dsse.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
@@ -33,7 +23,6 @@ import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 import type { SiemAuthorship, SiemEvent } from './types.js';
 
-/** Drop `undefined`-valued optional keys so authorship objects stay minimal. */
 function mapAuthorship(authorship: ChangeAuthorship): SiemAuthorship {
   const human = authorship.accepting_human;
   return {
@@ -53,7 +42,6 @@ function mapAuthorship(authorship: ChangeAuthorship): SiemAuthorship {
   };
 }
 
-/** Each graded ledger row → one evidence event (issue #468: from the bundle union). */
 function evidenceEvents(projectRoot: string): SiemEvent[] {
   return readAllFeatureEvidence(projectRoot).map((row) => ({
     kind: 'evidence',
@@ -68,12 +56,6 @@ function evidenceEvents(projectRoot: string): SiemEvent[] {
   }));
 }
 
-/**
- * Each per-feature receipt → one attestation event (issue #468 Phase B). After the cutover
- * each feature bundle carries its own self-chained receipt, so there is no single whole-
- * project chain: every bundle receipt is verified INDEPENDENTLY for its own byte integrity
- * (`verifyReceiptSeal`), and `sealed` reflects that per-feature check.
- */
 function attestationEvents(projectRoot: string): SiemEvent[] {
   return readAllFeatureReceipts(projectRoot).map((envelope, index): SiemEvent => {
     const statement = decodeReceiptStatement(envelope);
@@ -108,15 +90,6 @@ function summarizeReceipt(result: 'PASSED' | 'FAILED' | 'INCONCLUSIVE', sealed: 
   return `verification ${result}; chain ${sealed ? 'sealed' : 'BROKEN'}`;
 }
 
-// ── #249 session-ledger fold ──────────────────────────────────────────────────
-// The always-on session-ledger carries the governance feed the dashboard reads
-// (decision lifecycle, delivery detection, stage evidence, plus the disabled-session
-// audit, health, and site-map runs). Union it into the SIEM stream so an external SOC
-// sees the same evidence — not just the enterprise-gated #118 ledger.
-// Stage evidence is PROJECTED from the per-feature bundles (issue #339); rule-run and
-// change-metrics evidence are likewise PROJECTED from the bundles (issue #468 Phase B) —
-// the retired `rule-evidence/` and `change-metrics/` project-ledger dirs are no longer
-// walked. The remaining doc types below stay project/session-scoped.
 const SESSION_LEDGER_DOC_TYPES = [
   DECISION_EVIDENCE_DOC_TYPE,
   DELIVERY_EVIDENCE_DOC_TYPE,
@@ -125,12 +98,6 @@ const SESSION_LEDGER_DOC_TYPES = [
   SITE_MAP_RUN_DOC_TYPE,
 ] as const;
 
-/**
- * Grade a session-ledger row into the SIEM verdict vocabulary the formatters
- * already understand. A blocking/failed row is a finding a SOC wants surfaced
- * (graded severity); a lifecycle event (opened/resolved/detected/disabled) is
- * informational provenance and falls through to its `kind` (Unknown severity).
- */
 function sessionVerdict(row: SessionLedgerRow): string {
   if (row.doc_type === DISABLED_SESSION_DOC_TYPE) return 'disabled';
   if (row.blocking === true || row.blocked === true) return 'blocked';
@@ -140,7 +107,6 @@ function sessionVerdict(row: SessionLedgerRow): string {
   return typeof row.kind === 'string' ? row.kind : 'recorded';
 }
 
-/** A short, redactable human summary of a session-ledger row, per doc type. */
 function sessionDetail(row: SessionLedgerRow): string {
   const kind = typeof row.kind === 'string' ? row.kind : 'record';
   switch (row.doc_type) {
@@ -168,9 +134,6 @@ function sessionDetail(row: SessionLedgerRow): string {
       return `site-map run ${typeof row.report_id === 'string' ? row.report_id : ''} · ${surfaces} surface(s) · ${count} finding(s)`.trim();
     }
     case CHANGE_METRICS_RUN_DOC_TYPE: {
-      // A bundle change-metrics row carries the ratios directly; guard the (absent) open
-      // marker shape defensively so a marker row would surface as the plain kind, not a
-      // misleading `change shape · n/a` line.
       if (typeof row.meaningful_changed_lines !== 'number') {
         return kind;
       }
@@ -185,11 +148,9 @@ function sessionDetail(row: SessionLedgerRow): string {
   }
 }
 
-/** Project one session-ledger row into a `session` SiemEvent. */
 function sessionEvent(row: SessionLedgerRow): SiemEvent {
   return {
     kind: 'session',
-    // A bundle row since #581 stamps `recorded_at`; a session-ledger row keeps `ts`.
     ts: rowRecordedAt(row) ?? '',
     code: row.doc_type,
     doc_type: row.doc_type,
@@ -200,19 +161,10 @@ function sessionEvent(row: SessionLedgerRow): SiemEvent {
   };
 }
 
-/**
- * Every session-ledger row across the folded doc types → one `session` event each, PLUS
- * the stage-evidence rows projected from the per-feature bundles (issue #339). Stage rows
- * keep the same `doc_type`/shape, so the same `sessionEvent` mapper grades them.
- */
 function sessionLedgerEvents(projectRoot: string): SiemEvent[] {
   const fromLedger = SESSION_LEDGER_DOC_TYPES.flatMap((docType) =>
     readAllSessionRows(projectRoot, docType).map(sessionEvent),
   );
-  // Issue #339 / #468 Phase B — stage evidence, rule-run findings, and change-metrics are
-  // projected from the per-feature bundles, not the session-scoped ledger layout. Each row
-  // keeps its own `doc_type`/shape, so the same `sessionEvent`/`sessionDetail` mapper grades
-  // them (RULE_RUN_DOC_TYPE / CHANGE_METRICS_RUN_DOC_TYPE cases above).
   const fromFeatures = [
     ...readAllFeatureStageRows(projectRoot),
     ...readAllFeatureRuleRuns(projectRoot),
@@ -221,11 +173,6 @@ function sessionLedgerEvents(projectRoot: string): SiemEvent[] {
   return [...fromLedger, ...fromFeatures];
 }
 
-/**
- * Read the ledger and the receipt chain and merge them into one chronological
- * stream (oldest first), so a SIEM ingests events in the order they occurred.
- * Events with an unparseable/empty `ts` sort to the front deterministically.
- */
 export function aggregateSiemEvents(projectRoot: string): SiemEvent[] {
   const events = [
     ...evidenceEvents(projectRoot),

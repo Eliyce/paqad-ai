@@ -1,15 +1,6 @@
-// Issue #121 — Elastic Common Schema (ECS) projection.
-//
-// Trivial given the #118 fields: `@timestamp`, `event.action` ← code,
-// `event.outcome` ← verdict, `event.id` ← content_hash (the dedup key), the
-// changed-file digests under `file`/`related.hash`, and the accepting human
-// under `user`. paqad-specific grading rides in `labels.*` (ECS keyword values,
-// so everything is stringified).
-
 import { ecsOutcome, eventMessage, ocsfSeverityId } from '../severity.js';
 import type { SiemEvent } from '../types.js';
 
-/** Pinned ECS version the records target. */
 export const ECS_VERSION = '8.11.0';
 
 function labels(event: SiemEvent): Record<string, string> {
@@ -27,7 +18,6 @@ function labels(event: SiemEvent): Record<string, string> {
   };
 }
 
-/** Build the ECS document (a plain object; the orchestrator serializes it). */
 export function toEcsRecord(event: SiemEvent, productVersion: string): Record<string, unknown> {
   const record: Record<string, unknown> = {
     '@timestamp': event.ts,
@@ -54,8 +44,6 @@ export function toEcsRecord(event: SiemEvent, productVersion: string): Record<st
   const subjects = event.subjects ?? [];
   if (subjects.length > 0) {
     record.related = { hash: subjects.map((subject) => subject.sha256) };
-    // ECS `file` is a single object — populate it only when there is exactly one
-    // changed file, otherwise the per-file digests live in `related.hash`.
     if (subjects.length === 1) {
       record.file = {
         name: subjects[0].name,
@@ -75,7 +63,6 @@ export function toEcsRecord(event: SiemEvent, productVersion: string): Record<st
   return record;
 }
 
-/** One ECS document, serialized as a single JSON line. */
 export function toEcs(event: SiemEvent, productVersion: string): string {
   return JSON.stringify(toEcsRecord(event, productVersion));
 }
