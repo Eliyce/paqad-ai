@@ -24,6 +24,8 @@ import { mergeNativeHooks } from '@/adapters/shared/native-hook-config.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 
+import { printedCode } from '../../shared/printed-code.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 import { writeSeatTranscript } from '../spec-pipeline/high-table.fixture.js';
 import { openChange, writeSpec } from '../traceability/change-map.fixture.js';
@@ -97,7 +99,10 @@ describe('the stage enforcement guardrails (#639)', () => {
     if (!BASE) return ctx.skip(NO_BASE);
     const baseText = atBase(PLUGIN_HOOKS);
     expect(working(PLUGIN_HOOKS)).toBe(baseText);
-    expect(working(HOOKS_SOURCE)).toBe(atBase(HOOKS_SOURCE));
+    const strip = { stripIssueRefs: true };
+    expect(printedCode(working(HOOKS_SOURCE), strip)).toEqual(
+      printedCode(atBase(HOOKS_SOURCE), strip),
+    );
 
     const base = JSON.parse(baseText) as { hooks: Parameters<typeof flatten>[0] };
     // The plugin chain the builder renders today is the base file's chain, entry for entry.
@@ -125,6 +130,57 @@ describe('the stage enforcement guardrails (#639)', () => {
       );
     expect(byEvent(host).sort((a, b) => a[0]!.event.localeCompare(b[0]!.event))).toEqual(
       byEvent(withoutBootstrap).sort((a, b) => a[0]!.event.localeCompare(b[0]!.event)),
+    );
+  });
+
+  it('AC-67: the hook source comparison ignores comments and issue references and catches any code change', () => {
+    const source = [
+      "const MATCHER = 'Edit|Write';",
+      'const pattern = /^node "([^"]+)"/u;',
+      'const label = `hook ${MATCHER} at ${pattern.source}`;',
+      'export const total = 4 / 2;',
+    ].join('\n');
+    const commented = [
+      '/** The matcher every edit gate uses. */',
+      "const MATCHER = 'Edit|Write'; // gate",
+      'const pattern = /^node "([^"]+)"/u;',
+      '',
+      'const label = `hook ${MATCHER} at ${pattern.source}`;',
+      '/* the total */ export const total = 4 / 2;',
+    ].join('\n');
+    const strip = { stripIssueRefs: true };
+    const described = (text: string) => `const description = '${text}';`;
+    const plain = printedCode(described('Block mutating tools while a packet is open.'), strip);
+    expect(printedCode(commented)).toEqual(printedCode(source));
+    expect(printedCode(source.replace("'Edit|Write'", "'Edit|Write|Bash'"))).not.toEqual(
+      printedCode(source),
+    );
+    expect(printedCode(source.replace('([^"]+)', '([^"]*)'))).not.toEqual(printedCode(source));
+    expect(printedCode(source.replace('hook ${', 'gate ${'))).not.toEqual(printedCode(source));
+    expect(printedCode(source.replace('4 / 2', '4 / 3'))).not.toEqual(printedCode(source));
+    const tagged = [
+      `Block mutating tools while a packet is open (${ticketRef(117)} C-3).`,
+      `Block mutating tools while a packet is open (${ticketRef(567)}, ${ticketRef(581)}).`,
+      `Block mutating tools while a packet is open ${ticketRef(336)}.`,
+    ];
+    for (const text of tagged) {
+      expect(printedCode(described(text), strip)).toEqual(plain);
+      expect(printedCode(described(text))).not.toEqual(printedCode(described(text), strip));
+    }
+    expect(
+      printedCode(described(`Inject the context block (Part 0, ${ticketRef(336)}).`), strip),
+    ).toEqual(printedCode(described('Inject the context block (Part 0).'), strip));
+    expect(
+      printedCode(described('Block mutating tools while a packet is shut.'), strip),
+    ).not.toEqual(plain);
+    expect(
+      printedCode(
+        described(`Block mutating tools (${ticketRef(117)}) while a packet is open.`),
+        strip,
+      ),
+    ).toEqual(plain);
+    expect(printedCode(source.replace("'Edit|Write'", "'Edit|Write|Bash'"), strip)).not.toEqual(
+      printedCode(source, strip),
     );
   });
 
