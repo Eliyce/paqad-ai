@@ -52,6 +52,10 @@ install a package.
    (> 10 or > 5%) skips the re-runs and reports red.
 5. **Fallback.** A parallel run that produced no parsed result (harness failure) re-runs the
    sequential command once and pins `testing.parallel: unavailable` until the lockfile changes.
+   The `testing` record is the only thing `checks run` writes to the profile. The write is in
+   place and skipped when nothing changed, so a second run leaves the file byte-identical; when
+   it does record, the run prints
+   `recorded the test runner in .paqad/project-profile.yaml (once per lockfile change)`.
 6. **One report (Part E).** `checks.json` is `schema_version: 2`, **additive** — `passed`, `ran`,
    `results[]` keep their meaning, so every v1 reader keeps working (INV-6). New fields: `mode`,
    `commands[]`, `isolation_reruns`, `flaky_under_parallel`, `meaningful_green`, `critical_path`.

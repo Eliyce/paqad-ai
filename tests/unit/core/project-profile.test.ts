@@ -1,4 +1,13 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -8,6 +17,7 @@ import {
   getProfileDomain,
   migrateProjectProfile,
   readProjectProfile,
+  syncProjectProfile,
   writeProjectProfile,
 } from '@/core/project-profile.js';
 
@@ -215,6 +225,120 @@ describe('project profile migration', () => {
     expect(raw).toContain('active_capabilities:');
     expect(raw).not.toContain('\nrouting:');
     expect(getProfileDomain(readProjectProfile(projectRoot)!)).toBe('content');
+  });
+});
+
+describe('project profile in-place writes', () => {
+  let projectRoot: string;
+  const LONG_SINGLE =
+    'pnpm vitest run --reporter=json --outputFile=.paqad/test-results/vitest.json -t "<pattern>" --no-coverage';
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-project-profile-sync-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  function profilePath(): string {
+    return join(projectRoot, '.paqad/project-profile.yaml');
+  }
+
+  function canonicalProfile() {
+    return {
+      project: { name: 'Demo', id: 'demo', description: 'Demo' },
+      active_capabilities: ['content' as const],
+      commands: { ...baseCommands(), test_single: LONG_SINGLE },
+      compliance_packs: [],
+      mcp: { servers: [] },
+    };
+  }
+
+  it('writes a fresh profile with long command lines on one line', () => {
+    writeProjectProfile(projectRoot, canonicalProfile());
+    const raw = readFileSync(profilePath(), 'utf8');
+    expect(raw).toContain(`  test_single: ${LONG_SINGLE}\n`);
+  });
+
+  it('leaves the bytes, the mtime and the audit log alone when nothing changed', () => {
+    const handWritten = [
+      '# project facts',
+      'project:',
+      '  name: Demo',
+      '  id: demo',
+      '  description: Demo',
+      'active_capabilities: [content]',
+      'commands:',
+      '  install: pnpm install   # keep this',
+      '  dev: pnpm dev',
+      '  test: pnpm test',
+      `  test_single: ${LONG_SINGLE}`,
+      '  lint: pnpm lint',
+      '  format: pnpm format',
+      '  migrate: pnpm migrate',
+      '  build: pnpm build',
+      'compliance_packs: []',
+      'mcp:',
+      '  servers: []',
+      '',
+    ].join('\n');
+    writeFileSync(profilePath(), handWritten);
+    const past = new Date('2026-01-01T00:00:00.000Z');
+    utimesSync(profilePath(), past, past);
+
+    const result = syncProjectProfile(projectRoot, canonicalProfile(), 'no-op save');
+
+    expect(result.written).toBe(false);
+    expect(readFileSync(profilePath(), 'utf8')).toBe(handWritten);
+    expect(statSync(profilePath()).mtimeMs).toBe(past.getTime());
+    expect(existsSync(join(projectRoot, '.paqad/audit.log'))).toBe(false);
+  });
+
+  it('changes only the line of the key that changed and keeps comments and order', () => {
+    writeProjectProfile(projectRoot, canonicalProfile());
+    const withComment = readFileSync(profilePath(), 'utf8').replace(
+      '  dev: pnpm dev\n',
+      '  dev: pnpm dev # local server\n',
+    );
+    writeFileSync(profilePath(), withComment);
+
+    const next = canonicalProfile();
+    next.commands.lint = 'pnpm lint --fix';
+    const result = syncProjectProfile(projectRoot, next, 'lint changed');
+
+    expect(result.written).toBe(true);
+    const before = withComment.split('\n');
+    const after = readFileSync(profilePath(), 'utf8').split('\n');
+    expect(after).toHaveLength(before.length);
+    const changed = after.filter((line, index) => line !== before[index]);
+    expect(changed).toEqual(['  lint: pnpm lint --fix']);
+    expect(readFileSync(join(projectRoot, '.paqad/audit.log'), 'utf8')).toContain('lint changed');
+  });
+
+  it('adds new keys, removes dropped keys and replaces a changed list', () => {
+    writeProjectProfile(projectRoot, { ...canonicalProfile(), compliance_packs: ['soc2'] });
+    const next: Record<string, unknown> = { ...canonicalProfile(), compliance_packs: ['gdpr'] };
+    delete next.mcp;
+    next.stack_profile = undefined;
+    next.testing = { runner_id: 'vitest', parallel: 'native' };
+    syncProjectProfile(projectRoot, next as never);
+
+    const onDisk = YAML.parse(readFileSync(profilePath(), 'utf8')) as Record<string, unknown>;
+    expect(onDisk.compliance_packs).toEqual(['gdpr']);
+    expect(onDisk.mcp).toBeUndefined();
+    expect(onDisk.testing).toEqual({ runner_id: 'vitest', parallel: 'native' });
+    expect(Object.keys(onDisk).at(-1)).toBe('testing');
+  });
+
+  it('rewrites a profile that cannot be parsed as a mapping', () => {
+    writeFileSync(profilePath(), 'just a scalar\n');
+    expect(syncProjectProfile(projectRoot, canonicalProfile()).written).toBe(true);
+    writeFileSync(profilePath(), 'project: [unclosed\n');
+    expect(syncProjectProfile(projectRoot, canonicalProfile()).written).toBe(true);
+    const onDisk = YAML.parse(readFileSync(profilePath(), 'utf8')) as Record<string, unknown>;
+    expect(onDisk.project).toEqual({ name: 'Demo', id: 'demo', description: 'Demo' });
   });
 });
 

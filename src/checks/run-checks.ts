@@ -14,7 +14,11 @@ import fg from 'fast-glob';
 
 import type { DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
-import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
+import {
+  readProjectProfile,
+  syncProjectProfile,
+  writeProjectProfile,
+} from '@/core/project-profile.js';
 import {
   loadFeatureDevelopmentPolicy,
   resolveFeatureDevelopmentCheckCommands,
@@ -72,6 +76,7 @@ export interface ChecksRunResult {
   parallel_failures: number;
   /** The final (post-isolation) parsed test result, for the failing-test list; null when no test ran. */
   test_result: StructuredTestResult | null;
+  testing_recorded: boolean;
 }
 
 export interface RunChecksOptions {
@@ -117,7 +122,12 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   const checksMaxProcesses = options.checksMaxProcesses ?? config.features.checks_max_processes;
   const flakyMode = options.flakyMode ?? resolveChecksFlakyMode(projectRoot);
 
-  if (profile) profile = refreshTestingRecord(profile, projectRoot, nowIso());
+  let testingRecorded = false;
+  if (profile) {
+    const refreshed = refreshTestingRecord(profile, projectRoot, nowIso());
+    profile = refreshed.profile;
+    testingRecorded = refreshed.recorded;
+  }
 
   const plan: TestPlan = profile
     ? resolveTestPlan(profile, osFacts, { checksParallel, checksMaxProcesses })
@@ -150,7 +160,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     }
   }
 
-  if (scheduled.length === 0) return emptyResult(warnings, checksParallel);
+  if (scheduled.length === 0) return emptyResult(warnings, checksParallel, testingRecorded);
 
   if (runner) deleteRunnerOutput(projectRoot, runner);
 
@@ -279,6 +289,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     test_total: testResult?.summary.total ?? 0,
     parallel_failures: parallelFailures,
     test_result: testResult,
+    testing_recorded: testingRecorded,
   };
 }
 
@@ -452,13 +463,14 @@ function refreshTestingRecord(
   profile: ProjectProfile,
   projectRoot: string,
   now: string,
-): ProjectProfile {
-  if (!profile.stack_profile) return profile;
+): { profile: ProjectProfile; recorded: boolean } {
+  const unchanged = { profile, recorded: false };
+  if (!profile.stack_profile) return unchanged;
   const ecosystem = resolvePackageEcosystem(profile.stack_profile.frameworks, projectRoot);
   const currentHash = lockfileHash(projectRoot, ecosystem);
   const recorded = profile.testing;
   const stale = !recorded || (currentHash !== undefined && recorded.lockfile_hash !== currentHash);
-  if (!stale) return profile;
+  if (!stale) return unchanged;
 
   const derived = deriveTestingForProfile({
     stackProfile: profile.stack_profile,
@@ -466,10 +478,10 @@ function refreshTestingRecord(
     projectRoot,
     now,
   });
-  if (!derived.testing) return profile;
+  if (!derived.testing) return unchanged;
   const next: ProjectProfile = { ...profile, commands: derived.commands, testing: derived.testing };
-  writeProjectProfile(projectRoot, next, 'checks: recorded test runner parallel mode');
-  return next;
+  const write = syncProjectProfile(projectRoot, next, 'checks: recorded test runner parallel mode');
+  return { profile: next, recorded: write.written };
 }
 
 function persistHarnessFallback(
@@ -510,7 +522,11 @@ function deleteRunnerOutput(projectRoot: string, runner: StackPackTestRunner): v
   }
 }
 
-function emptyResult(warnings: string[], checksParallel: boolean): ChecksRunResult {
+function emptyResult(
+  warnings: string[],
+  checksParallel: boolean,
+  testingRecorded: boolean,
+): ChecksRunResult {
   return {
     ran: false,
     passed: true,
@@ -533,6 +549,7 @@ function emptyResult(warnings: string[], checksParallel: boolean): ChecksRunResu
     test_total: 0,
     parallel_failures: 0,
     test_result: null,
+    testing_recorded: testingRecorded,
   };
 }
 

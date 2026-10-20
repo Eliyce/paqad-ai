@@ -231,6 +231,46 @@ describe('runChecks (issue #554)', () => {
     expect(result.passed).toBe(true);
   });
 
+  it('records the test runner once and leaves the profile byte-identical on the next run', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: pnpm test -- --reporter=tap',
+        '  test_single: pnpm vitest run --reporter=tap --outputFile=.paqad/test-results/vitest-single.tap -t "<pattern>"',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: 'TAP version 13\nok 1 - works\n1..1\n', stderr: '', exitCode: 0 };
+      },
+    };
+    const run = () =>
+      runChecks({
+        projectRoot: root,
+        shell,
+        osFacts: { availableParallelism: 8, totalmem: 64 * GiB },
+        ...CLOCK,
+      });
+
+    const first = await run();
+    expect(first.testing_recorded).toBe(true);
+    const afterFirst = readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8');
+    expect(afterFirst).toContain('testing:');
+    expect(afterFirst).toContain(
+      '  test_single: pnpm vitest run --reporter=tap --outputFile=.paqad/test-results/vitest-single.tap -t "<pattern>"\n',
+    );
+
+    const second = await run();
+    expect(second.testing_recorded).toBe(false);
+    expect(readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8')).toBe(afterFirst);
+  });
+
   it('reports an unsupported-syntax test command red without spawning it', async () => {
     root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });

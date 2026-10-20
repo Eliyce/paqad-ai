@@ -19,6 +19,28 @@ self-documenting file per group, every knob commented out at its default),
 git-ignored local `.paqad/.config` (local wins), and `PAQAD_*` env. See
 [`config-visibility`](../../../instructions/rules/coding/config-visibility.md).
 
+## How the profile is written
+
+`.paqad/project-profile.yaml` is tracked, so every writer goes through
+`writeProjectProfile` / `syncProjectProfile` in `src/core/project-profile.ts`, which edits the
+file in place instead of re-serialising it:
+
+- The existing file is parsed as a YAML document and only the keys whose value changed are
+  replaced. Keys that are no longer part of the profile are removed and new keys are added at
+  the end of their map. Untouched lines keep their formatting, comments and order.
+- When the profile on disk already says the same thing, nothing is written: the bytes, the
+  modified time and `.paqad/audit.log` stay as they were. A dashboard save that changes nothing
+  and a second `checks run` therefore leave the file alone.
+- A missing or unreadable file is written fresh, with long values (for example a `test_single`
+  command over 80 characters) kept on one line, never folded.
+- `syncProjectProfile` returns `{ path, written }`, so a caller can tell whether it changed the
+  file. `writeProjectProfile` returns the path only.
+
+`checks run` writes the profile for one reason: the one-time `testing` record, keyed to the
+lockfile hash, made when the record is missing or the lockfile changed (and the sequential pin
+after a parallel harness failure). When it does, it prints
+`recorded the test runner in .paqad/project-profile.yaml (once per lockfile change)`.
+
 ## Source Footprint
 
 - `src/core/project-profile.ts`

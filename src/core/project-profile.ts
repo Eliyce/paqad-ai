@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import YAML from 'yaml';
 
@@ -69,25 +70,82 @@ export function readProjectProfile(
   }
 }
 
+export interface ProjectProfileWrite {
+  path: string;
+  written: boolean;
+}
+
 export function writeProjectProfile(
   projectRoot: string,
   profile: ProjectProfileLike | ProjectProfile,
   auditMessage?: string,
 ): string {
+  return syncProjectProfile(projectRoot, profile, auditMessage).path;
+}
+
+export function syncProjectProfile(
+  projectRoot: string,
+  profile: ProjectProfileLike | ProjectProfile,
+  auditMessage?: string,
+): ProjectProfileWrite {
   const migration = migrateProjectProfile(profile);
   const path = join(projectRoot, PATHS.PROJECT_PROFILE);
+  const desired = toPlainData(stripFrameworkConfigFromProfile(migration.profile));
+  const current = existsSync(path) ? readFileSync(path, 'utf8') : null;
+  const next = renderProfile(current, desired);
 
-  mkdirSync(dirname(path), { recursive: true });
-  // Persist project facts only. Framework knobs live in `.paqad/.config`; strip
-  // them here so the YAML can never become a second source of truth, regardless
-  // of which caller (onboarding, dashboard, enable/disable) passed them in.
-  writeFileSync(path, YAML.stringify(stripFrameworkConfigFromProfile(migration.profile)));
-
-  if (auditMessage ?? migration.audit_message) {
-    appendAuditLog(projectRoot, auditMessage ?? migration.audit_message ?? '');
+  if (next === null || next === current) {
+    return { path, written: false };
   }
 
-  return path;
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, next);
+
+  const audit = auditMessage ?? migration.audit_message;
+  if (audit) {
+    appendAuditLog(projectRoot, audit);
+  }
+
+  return { path, written: true };
+}
+
+function toPlainData(value: unknown): Record<string, unknown> {
+  return JSON.parse(JSON.stringify(value)) as Record<string, unknown>;
+}
+
+function renderProfile(current: string | null, desired: Record<string, unknown>): string | null {
+  const fresh = (): string => YAML.stringify(desired, { lineWidth: 0 });
+  if (current === null) return fresh();
+
+  const doc = YAML.parseDocument(current);
+  if (doc.errors.length > 0 || !YAML.isMap(doc.contents)) return fresh();
+  if (isDeepStrictEqual(doc.toJS(), desired)) return null;
+
+  syncMap(doc, doc.contents, desired);
+  return doc.toString({ lineWidth: 0 });
+}
+
+function syncMap(doc: YAML.Document, map: YAML.YAMLMap, desired: Record<string, unknown>): void {
+  for (const pair of [...map.items]) {
+    const key = YAML.isScalar(pair.key) ? pair.key.value : pair.key;
+    if (typeof key !== 'string' || !Object.hasOwn(desired, key)) {
+      map.delete(pair.key);
+    }
+  }
+
+  for (const [key, value] of Object.entries(desired)) {
+    const node = map.get(key, true);
+    if (YAML.isNode(node) && isDeepStrictEqual(node.toJS(doc), value)) continue;
+    if (YAML.isMap(node) && isPlainObject(value)) {
+      syncMap(doc, node, value);
+      continue;
+    }
+    map.set(key, doc.createNode(value));
+  }
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 export function migrateProjectProfile(input: ProjectProfileLike | ProjectProfile): MigrationResult {

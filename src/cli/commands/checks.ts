@@ -30,6 +30,9 @@ import {
   upsertStackDocCommandRow,
 } from '@/checks/testing-record.js';
 
+const TESTING_RECORDED_NOTE =
+  'recorded the test runner in .paqad/project-profile.yaml (once per lockfile change)';
+
 /**
  * `paqad-ai checks` — the deterministic checks stage (issues #318, #554). `run` executes the mapped
  * commands (overlapped, with the runner's own parallel mode) and blocks on a red result. `plan`
@@ -84,6 +87,7 @@ export function createChecksCommand(): Command {
       );
 
       for (const warning of result.warnings) console.error(`⚠️  ${warning}`);
+      if (result.testing_recorded) console.error(TESTING_RECORDED_NOTE);
 
       if (!result.ran) {
         console.log('**▸ paqad** · no checks mapped — Inconclusive');

@@ -96,6 +96,32 @@ describe('paqad-ai checks command', () => {
     expect(readChecksReport(root)).toBeNull();
   });
 
+  it('says once that it recorded the test runner in the profile', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  format: node -e process.exitCode=0',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const note =
+      'recorded the test runner in .paqad/project-profile.yaml (once per lockfile change)';
+    const errors: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    vi.spyOn(console, 'error').mockImplementation((line: string) => errors.push(String(line)));
+    await createChecksCommand().parseAsync(['run', '--project-root', root], { from: 'user' });
+    expect(errors).toContain(note);
+
+    errors.length = 0;
+    await createChecksCommand().parseAsync(['run', '--project-root', root], { from: 'user' });
+    expect(errors).not.toContain(note);
+  });
+
   it('reports Inconclusive and does not block when no command is mapped', async () => {
     mapCommands({ dev: 'node -e process.exitCode=0' });
     const out = await run();

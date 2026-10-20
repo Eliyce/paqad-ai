@@ -45,6 +45,7 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
     sequential_reason: null,
     test_total: 8998,
     parallel_failures: 0,
+    testing_recorded: false,
     test_result: {
       schema_version: '1.0.0',
       summary: {
