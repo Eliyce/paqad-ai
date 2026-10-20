@@ -8,20 +8,10 @@ import {
 } from './detection.js';
 import { writeDetection } from './detection-store.js';
 
-/**
- * Issue #42 — gather git facts and run delivery-convention detection. This is
- * the seam `create documentation` piggybacks on: it reads the repo it already
- * scanned, fills the `auto` sections (persisted to the side artifact), and
- * returns the summary lines + combined connect nudge for the end-of-docs report.
- */
-
 export interface DeliveryDetectionResult {
   detected: DetectedDelivery;
-  /** Lines for the end-of-docs "what was configured" summary. */
   summary: string[];
-  /** One combined nudge to connect the trackers/hosts, or null if nothing to nudge. */
   connectNudge: string | null;
-  /** Whether anything was detected + persisted. */
   filled: boolean;
 }
 
@@ -51,13 +41,8 @@ export async function gatherGitSnapshot(shell: DeliveryShell): Promise<GitSnapsh
   };
 }
 
-/**
- * Build the combined connect nudge. Git-only conventions are already active, so
- * the nudge only covers the dormant provider-bound capabilities.
- */
 export function buildConnectNudge(detected: DetectedDelivery): string | null {
   const targets: string[] = [];
-  // Ticket automation always needs the tracker MCP; host PR/CI needs the host CLI/MCP.
   targets.push('Jira');
   if (detected.host) {
     targets.push(detected.host.value === 'github' ? 'GitHub' : detected.host.value);

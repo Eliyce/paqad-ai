@@ -1,10 +1,3 @@
-/**
- * Infers the delivery host (GitHub / GitLab / Bitbucket / unknown) from a
- * `git remote -v` style URL. This is a static lookup; runtime execution lives
- * in delivery-runner.ts. GitLab and Bitbucket are recognised but not yet
- * automated — they fall through to the manual-PR remediation path.
- */
-
 export type DeliveryHost = 'github' | 'gitlab' | 'bitbucket' | 'unknown';
 
 export function detectDeliveryHost(remoteUrl: string | null | undefined): DeliveryHost {
@@ -27,11 +20,6 @@ export function detectDeliveryHost(remoteUrl: string | null | undefined): Delive
   return 'unknown';
 }
 
-/**
- * Extracts the hostname from an ssh-style or https-style git remote URL.
- * Returns null when no recognisable host can be parsed — callers fall through
- * to the unknown-host path.
- */
 function extractHost(remoteUrl: string): string | null {
   const trimmed = remoteUrl.trim();
   const ssh = /^[^@]+@([^:]+):/.exec(trimmed);
@@ -45,11 +33,6 @@ function extractHost(remoteUrl: string): string | null {
   }
 }
 
-/**
- * Extracts an owner/repo pair from a git remote URL. Returns null when the
- * URL shape isn't recognised. Callers must handle null by falling back to
- * the manual-PR remediation message.
- */
 export function parseOwnerRepo(remoteUrl: string | null | undefined): {
   owner: string;
   repo: string;
@@ -57,7 +40,6 @@ export function parseOwnerRepo(remoteUrl: string | null | undefined): {
   if (!remoteUrl) {
     return null;
   }
-  // git@github.com:owner/repo.git  or  https://github.com/owner/repo(.git)
   const ssh = /git@[^:]+:([^/]+)\/([^/.]+)(?:\.git)?$/.exec(remoteUrl.trim());
   if (ssh) {
     return { owner: ssh[1], repo: ssh[2] };

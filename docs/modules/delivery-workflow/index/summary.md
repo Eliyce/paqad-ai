@@ -135,6 +135,40 @@ messages and, when `gh` answers, the PR body, and emits one `ai-attribution`
 finding per vendor detected, carrying that vendor's exact remediation. It is
 **warn-only** and never blocks — delivery is warn-floor, and this stays inside it.
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/delivery/` and are not stated above.
+
+- **`delivery-check.ts`.** The delivery policy had a loader, schema and detection but nothing read it
+  at runtime, so a commit straight to `main` went unnoticed; this is that reader, at the completion
+  seam, one turn late rather than never. Every subprocess goes through an injected runner so each
+  branch is testable without real git or `gh`, and the kernel wrapper is a one-line delegate. The
+  outcome type is declared locally so the module never imports the kernel at runtime. A detached
+  HEAD or no branch means nothing to check. On the base branch there is no commit range, so the
+  latest commit is scanned instead. A `gh` that is missing, signed out, has no PR for the branch or
+  returns unexpected JSON just skips the PR and CI checks, never a warning about `gh`. A spawn
+  failure leaves no exit code, which is read as 1 ("could not answer"). The attribution scan runs
+  only under `strip`.
+- **`ai-attribution.ts`.** A co-author trailer naming a real colleague must survive, so only known
+  vendor markers are matched, each with that vendor's own fix. The patterns are case-insensitive
+  (vendors mix `Co-Authored-By` and `Co-authored-by`) and not global, and at most one finding is
+  reported per vendor.
+- **`ci-gate.ts`.** A hard cap on poll iterations backs up the timeout, independent of the clock. The
+  rendered evidence comment is posted on green and on a `comment_and_stop` red; posting is
+  best-effort and never changes the verdict.
+- **`runner.ts`, `shell.ts` and `templates.ts`.** Any failed delivery step stops with a remediation
+  hint; it never falls back silently to a local-only commit. The production shell never throws on a
+  non-zero exit, and a process that cannot start reads as exit 1 with the message on stderr. Unknown
+  `{placeholder}` tokens are left in place so tests can see them.
+- **`host.ts`.** GitLab and Bitbucket are recognised but not automated yet, so they take the
+  manual-PR path, as does a remote whose host or owner and repo cannot be parsed.
+- **`delivery-ledger.ts`.** Detection is a project snapshot rebuilt from git history, not a
+  conversation event, so its rows go under a project sentinel session. Rows are appended so the
+  history is kept; the latest is current. A missed ledger write only affects the dashboard, never
+  the loader.
+- **`degradation.ts`.** A CI gate set to `off` is a choice, not a missing provider, so it is not
+  listed as skipped.
+
 ## On-disk + dashboard
 
 | Path | What |

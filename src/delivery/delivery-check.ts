@@ -1,18 +1,3 @@
-// Delivery convention check (RCA Step 5b — the delivery capability's leaf logic).
-//
-// The delivery policy (`delivery-policy.yaml`) shipped with a loader, a schema, and
-// detection, but had ZERO runtime consumer — a change could be committed straight to
-// `main`, or with a non-conventional branch name, and nothing noticed. This is the
-// consumer: at the completion (Stop) seam it reads HEAD branch/commit and the PR/CI
-// state, then WARNS (never blocks — delivery is `mandatory:false`, warn-floor) on a
-// convention violation, so a bad push is surfaced one turn late rather than never.
-//
-// Pure by construction: every subprocess goes through an injected `CommandRunner`, so
-// the branch/commit/gh states are driven deterministically in tests with no real git
-// or gh. `runDeliveryCapability` is the full capability behaviour with the runner as a
-// parameter, so the kernel wrapper (src/kernel/capability.ts) is a one-line delegate
-// and every branch here is unit-reachable.
-
 import { execa } from 'execa';
 
 import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
@@ -24,35 +9,26 @@ import { AI_ATTRIBUTION_MARKERS, detectAiAttribution } from './ai-attribution.js
 import { shouldStripAiAttribution } from './attribution-config.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE, DELIVERY_EVIDENCE_SCHEMA_VERSION } from './delivery-ledger.js';
 
-/** Result of one subprocess run. `exitCode !== 0` is a soft signal, never a throw. */
 export interface CommandRun {
   stdout: string;
   exitCode: number;
 }
 
-/** Runs a command and resolves its result. Never rejects (the execa-backed impl uses
- *  `reject:false`); a missing binary resolves to a non-zero `exitCode`. */
 export type CommandRunner = (command: string, args: string[]) => Promise<CommandRun>;
 
-/** One delivery-convention deviation. `code` is stable (for the ledger); `message` is
- *  the plain-English line surfaced to the developer. */
 export interface DeliveryFinding {
   code: 'on-base-branch' | 'branch-shape' | 'ci-red' | 'ai-attribution';
   message: string;
 }
 
 export interface DeliveryCheckResult {
-  /** False when there was nothing to check (policy disabled, or no real branch). */
   ran: boolean;
   branch: string | null;
   commit: string | null;
-  /** True when `gh` answered for this branch's PR (present, authed, PR exists). */
   ghAvailable: boolean;
   findings: DeliveryFinding[];
 }
 
-/** A non-blocking capability outcome. Structurally a kernel `CapabilityOutcome`; kept
- *  local so this module never imports the kernel at runtime. */
 interface DeliveryOutcome {
   ran: boolean;
   blocking: boolean;
@@ -75,13 +51,10 @@ export interface EvaluateDeliveryInput {
   run: CommandRunner;
 }
 
-/** The conventional-commit `{type}` set the branch template accepts, derived from the
- *  policy's `type_map` values (feat, fix, chore, …). */
 function allowedBranchTypes(policy: ResolvedDeliveryPolicy): string[] {
   return Array.from(new Set(Object.values(policy.process.branch.type_map))).filter(Boolean);
 }
 
-/** Read one trimmed line of stdout from a command, or null when it failed / was empty. */
 async function readLine(
   run: CommandRunner,
   command: string,
@@ -95,12 +68,6 @@ async function readLine(
   return line.length > 0 ? line : null;
 }
 
-/**
- * The commit messages this branch adds on top of the base, as one blob to scan (issue #538).
- * On the base branch itself there is no range, so the most recent commit is scanned instead —
- * that is still the commit the developer just made. A failed `git log` yields '' (nothing to
- * scan) rather than a warning about git.
- */
 async function readBranchCommitMessages(
   run: CommandRunner,
   projectRoot: string,
@@ -112,14 +79,6 @@ async function readBranchCommitMessages(
   return result.exitCode === 0 ? result.stdout : '';
 }
 
-/**
- * Findings for any host-agent AI attribution that reached the commits or the PR body (issue
- * #538). This is the half of the policy that config cannot deliver: Claude Code and Aider are
- * configured at onboarding, but Cursor and Codex expose only user-level config that paqad will
- * not write (INV-1), so for those the honest answer is to detect it and hand back the exact fix.
- *
- * One finding per vendor, naming where it was found and what to do about it. Warn only (INV-3).
- */
 function attributionFindings(commitMessages: string, prBody: string): DeliveryFinding[] {
   const inCommits = new Map(
     detectAiAttribution(commitMessages).map((match) => [match.marker.id, match.marker]),
@@ -147,7 +106,6 @@ function attributionFindings(commitMessages: string, prBody: string): DeliveryFi
   return findings;
 }
 
-/** True when the gh `statusCheckRollup` array carries at least one failing check. */
 function rollupHasFailure(rollup: unknown): boolean {
   if (!Array.isArray(rollup)) {
     return false;
@@ -161,12 +119,6 @@ function rollupHasFailure(rollup: unknown): boolean {
   });
 }
 
-/**
- * Decide the delivery-convention findings for the current HEAD. Best-effort and
- * non-blocking: a disabled policy or a missing/detached branch yields `ran:false`
- * (nothing to check), and a gh that cannot answer degrades to skipping the PR/CI
- * checks (never a warning about gh itself).
- */
 export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<DeliveryCheckResult> {
   const { projectRoot, policy, run } = input;
   if (!policy.enabled) {
@@ -180,7 +132,6 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     '--abbrev-ref',
     'HEAD',
   ]);
-  // No branch, or a detached HEAD (`rev-parse` prints "HEAD"): nothing to check.
   if (!branch || branch === 'HEAD') {
     return NO_CHECK;
   }
@@ -195,7 +146,6 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
       message: `you're committing on \`${base}\` — the workflow expects a \`{type}/…\` branch you open a PR from.`,
     });
   } else {
-    // Branch-shape: the conventional template starts with a known {type} segment.
     const types = allowedBranchTypes(policy);
     const shaped = types.some((type) => branch.startsWith(`${type}/`));
     if (!shaped && types.length > 0) {
@@ -208,8 +158,6 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     }
   }
 
-  // PR / CI is optional: gh may be absent, unauthenticated, or the branch may have no
-  // PR yet. Any of those → skip the CI check gracefully (never warn about gh).
   let ghAvailable = false;
   let prBody = '';
   const prView = await run('gh', [
@@ -236,13 +184,10 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         });
       }
     } catch {
-      // gh answered but the JSON was unexpected — treat as no CI signal, never crash.
       ghAvailable = false;
     }
   }
 
-  // Issue #538 — the AI-attribution backstop. Only runs when the project's policy says strip;
-  // with `ai_attribution=keep` nothing is scanned and nothing is reported.
   if (shouldStripAiAttribution(projectRoot)) {
     const commitMessages = await readBranchCommitMessages(run, projectRoot, branch, base);
     findings.push(...attributionFindings(commitMessages, prBody));
@@ -251,11 +196,6 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
   return { ran: true, branch, commit, ghAvailable, findings };
 }
 
-/**
- * Render the delivery findings as the paqad-voice warn block. Delivery is warn-floor
- * (never blocking), so it always speaks in the 🟡 "Heads up" register. Empty findings
- * render to '' (the capability turns that into a NO_OP).
- */
 export function formatDeliverySummary(result: DeliveryCheckResult): string {
   if (result.findings.length === 0) {
     return '';
@@ -268,11 +208,6 @@ export function formatDeliverySummary(result: DeliveryCheckResult): string {
   );
 }
 
-/**
- * The full delivery capability behaviour, with the subprocess runner injected so every
- * branch is unit-reachable without spawning real git/gh. The kernel wrapper supplies an
- * execa-backed runner. Only evaluates at the completion seam; no-ops elsewhere.
- */
 export async function runDeliveryCapability(
   projectRoot: string,
   seam: CapabilitySeam,
@@ -286,7 +221,6 @@ export async function runDeliveryCapability(
   if (!result.ran) {
     return NO_OP;
   }
-  // Best-effort evidence (recordProjectEvent swallows its own IO errors).
   recordProjectEvent(
     projectRoot,
     DELIVERY_EVIDENCE_DOC_TYPE,
@@ -303,12 +237,6 @@ export async function runDeliveryCapability(
   return summary ? { ran: true, blocking: false, summary } : NO_OP;
 }
 
-/**
- * The real subprocess runner for the delivery capability. `reject:false` so a non-zero
- * exit (or a missing binary — `gh` absent) resolves to a code instead of throwing; a
- * spawn failure leaves `exitCode` undefined, which we normalise to `1` so the check
- * reads it as "could not answer" and degrades gracefully.
- */
 export const execaCommandRunner: CommandRunner = async (command, args) => {
   const result = await execa(command, args, { reject: false });
   return { stdout: result.stdout, exitCode: result.exitCode ?? 1 };

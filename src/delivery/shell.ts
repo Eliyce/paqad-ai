@@ -2,11 +2,6 @@ import { execa } from 'execa';
 
 import type { DeliveryShell } from './runner.js';
 
-/**
- * Issue #42 — the production shell for delivery + detection. Never throws on a
- * non-zero exit (callers inspect `exitCode`); errors that prevent the process
- * from starting at all surface as exitCode 1 with the message on stderr.
- */
 export function createDeliveryShell(cwd: string): DeliveryShell {
   return {
     async run(command, args) {

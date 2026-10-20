@@ -6,33 +6,17 @@ import type {
   ResolvedDeliveryProcess,
 } from '@/core/types/delivery-policy.js';
 
-/** Non-conventional commit template applied when the team is not using conventional commits. */
 const FREEFORM_COMMIT_TEMPLATE = '{summary}\n\nRefs: {ticket}';
 
-/**
- * Issue #42 — delivery-convention detection. A pure resolver: given a snapshot
- * of git facts, infer the team's host / base branch / branch-naming / commit
- * convention, each with a confidence and a human evidence string. No I/O — the
- * caller gathers the snapshot and persists/overlays the result.
- *
- * Detection only ever *proposes* values; whether they are applied is governed
- * by each section's `maintained: auto | manual` flag at overlay time.
- */
-
 export interface GitSnapshot {
-  /** `git remote get-url origin`, or null when there is no remote. */
   remoteUrl: string | null;
-  /** Remote default branch (e.g. from `git symbolic-ref refs/remotes/origin/HEAD`). */
   defaultBranch: string | null;
-  /** Local + remote branch names, base branches included. */
   branchNames: string[];
-  /** Subjects (first line) of recent commits, newest first. */
   recentCommitSubjects: string[];
 }
 
 export interface DetectedField<T> {
   value: T;
-  /** 0..1 — share of the sample that supports the value. */
   confidence: number;
   evidence: string;
 }
@@ -41,7 +25,6 @@ export interface DetectedDelivery {
   host: DetectedField<HostProviderKind> | null;
   base: DetectedField<string> | null;
   branch_template: DetectedField<string> | null;
-  /** True when the team uses conventional commits. */
   commit_conventional: DetectedField<boolean> | null;
 }
 
@@ -146,18 +129,12 @@ export function detectDelivery(snapshot: GitSnapshot): DetectedDelivery {
   };
 }
 
-/** Did detection find anything worth persisting? */
 export function hasDetection(detected: DetectedDelivery): boolean {
   return Boolean(
     detected.host || detected.base || detected.branch_template || detected.commit_conventional,
   );
 }
 
-/**
- * Overlay detected values onto a resolved process. Each detected value only
- * applies when its owning section is `auto` (per `isAuto`). Returns a new
- * process object — the input is never mutated.
- */
 export function overlayDetection(
   process: ResolvedDeliveryProcess,
   detected: DetectedDelivery,
@@ -187,18 +164,13 @@ export function overlayDetection(
   }
   if (detected.commit_conventional && isAuto('commit')) {
     next.commit.template = detected.commit_conventional.value
-      ? process.commit.template // keep the conventional default
+      ? process.commit.template
       : FREEFORM_COMMIT_TEMPLATE;
   }
 
   return next;
 }
 
-/**
- * Human-readable lines for the end-of-docs summary — "what detection
- * configured", shown at the moment conventions are detected so the team learns
- * them without a prompt.
- */
 export function summarizeDetection(detected: DetectedDelivery): string[] {
   const lines: string[] = [];
   if (detected.host) {

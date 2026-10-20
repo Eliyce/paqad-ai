@@ -1,11 +1,5 @@
 import type { RenderedDelivery } from './templates.js';
 
-/**
- * Pluggable shell-out boundary for the delivery stage. The default
- * implementation in `defaultDeliveryShell` is replaced by tests with a fake.
- * This keeps the delivery runner pure-logic and unit-testable without ever
- * touching a real git remote.
- */
 export interface DeliveryShell {
   run(
     command: string,
@@ -19,16 +13,13 @@ export interface DeliveryRunInputs {
   draft: boolean;
   reviewers: string[];
   labels: string[];
-  /** Whether to actually create a PR (yes/draft) or stop after commit (no). */
   open_pr: 'yes' | 'draft' | 'no';
 }
 
 export interface DeliveryStepResult {
   step: 'branch' | 'commit' | 'push' | 'pr';
   ok: boolean;
-  /** When ok=false, this carries the actionable remediation hint shown to the user. */
   remediation?: string;
-  /** Captured stdout/stderr for logging. */
   output?: string;
 }
 
@@ -37,14 +28,6 @@ export interface DeliveryRunResult {
   ok: boolean;
 }
 
-/**
- * Run the delivery sequence: create branch, commit, push, (optionally) open
- * a PR. Every failure short-circuits and `stop`s with a remediation hint —
- * we never silently fall back to a local-only commit.
- *
- * Note: tests inject a fake shell; production runs use `defaultDeliveryShell`
- * (not exported here to keep this module easy to mock).
- */
 export async function runDelivery(
   shell: DeliveryShell,
   inputs: DeliveryRunInputs,
