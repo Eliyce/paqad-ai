@@ -177,6 +177,24 @@ describe('composeChangeReceipt', () => {
     }
   });
 
+  it('shows one amber line per rule override, and none without overrides', () => {
+    const receipt = composeChangeReceipt({
+      verdictSummary: 'v',
+      fold: null,
+      ruleOverrides: [
+        { rule: 'RL-1', file: 'src/a.ts', by: 'human', at: '2026-10-20T10:00:00.000Z' },
+        { rule: 'RL-2', file: 'src/b.ts', by: 'human', at: '2026-10-20T11:00:00.000Z' },
+      ],
+    });
+    expect(receipt.split('\n').slice(1)).toEqual([
+      '> 🟡 rule override: RL-1 on src/a.ts by human at 2026-10-20T10:00:00.000Z',
+      '> 🟡 rule override: RL-2 on src/b.ts by human at 2026-10-20T11:00:00.000Z',
+    ]);
+    for (const ruleOverrides of [[], null, undefined]) {
+      expect(composeChangeReceipt({ verdictSummary: 'v', fold: null, ruleOverrides })).toBe('v');
+    }
+  });
+
   it('appends an optional delivery line', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',

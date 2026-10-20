@@ -133,6 +133,13 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'json',
   },
   {
+    key: 'ruleOverrides',
+    file: FEATURE_BUNDLE_FILES.ruleOverrides,
+    required: 'optional',
+    writer: 'paqad-ai rules override',
+    validate: 'jsonl>=1',
+  },
+  {
     key: 'review',
     file: FEATURE_BUNDLE_FILES.review,
     required: 'always',

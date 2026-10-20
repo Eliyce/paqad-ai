@@ -40,6 +40,7 @@ import {
   writeFeatureTechDebtIndex,
 } from '@/feature-evidence/tech-debt-index.js';
 import { reconcileDeliveryFromGit } from '@/feature-evidence/delivery.js';
+import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
 import { BACKSTOP_WRITER } from '@/stage-evidence/agent-identity.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
@@ -646,6 +647,7 @@ export async function runRepositoryVerification(
     techDebt: receiptFeature
       ? readFeatureTechDebtIndex(context.project_root, receiptFeature)
       : null,
+    ruleOverrides: receiptFeature ? readRuleOverrides(context.project_root, receiptFeature) : null,
   });
 
   if (reportPath) {

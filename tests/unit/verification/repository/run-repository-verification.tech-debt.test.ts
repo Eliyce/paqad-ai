@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { appendRuleOverride } from '@/feature-evidence/rule-overrides.js';
 import { readFeatureTechDebtIndex } from '@/feature-evidence/tech-debt-index.js';
 import { addDebtItem } from '@/tech-debt/index.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
@@ -78,5 +79,20 @@ describe('runRepositoryVerification — tech-debt.json index and receipt line', 
     const verdict = await run(root);
     expect(typeof verdict.ok).toBe('boolean');
     expect(existsSync(join(root, featureFilePath(dir, 'techDebt')))).toBe(false);
+  });
+
+  it('names each rule override on the receipt', async () => {
+    const { root, dir } = makeProject();
+    appendRuleOverride(root, dir, {
+      rule: 'RL-1',
+      file: 'src/a.ts',
+      toolUseId: 'tu_1',
+      sessionId: SES,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const verdict = await run(root);
+    expect(verdict.receipt).toContain(
+      '🟡 rule override: RL-1 on src/a.ts by human at 2026-01-01T00:00:00.000Z',
+    );
   });
 });

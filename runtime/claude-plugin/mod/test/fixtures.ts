@@ -81,6 +81,7 @@ export function snapshot(over: Raw = {}): Raw {
     isolation: null,
     cost: null,
     tech_debt: null,
+    rule_overrides: null,
     ...over,
   };
 }

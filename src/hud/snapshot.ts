@@ -18,6 +18,7 @@ import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
+import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
   readFeatureTechDebtIndex,
@@ -147,6 +148,7 @@ export interface HudSnapshot {
   isolation: { status: string; stages: number; tokens_not_recarried: number } | null;
   cost: HudCost | null;
   tech_debt: { raised: TechDebtIndexEntry[] } | null;
+  rule_overrides: Array<{ rule: string; file: string; by: string; at: string }> | null;
 }
 
 function readJsonFile(path: string): unknown {
@@ -568,6 +570,7 @@ export function buildHudSnapshot(
       isolation: null,
       cost: null,
       tech_debt: null,
+      rule_overrides: null,
     };
   }
 
@@ -656,6 +659,12 @@ export function buildHudSnapshot(
     },
     cost: buildHudCost(projectRoot, dirName),
     tech_debt: { raised: readFeatureTechDebtIndex(projectRoot, dirName) ?? [] },
+    rule_overrides: readRuleOverrides(projectRoot, dirName).map(({ rule, file, by, at }) => ({
+      rule,
+      file,
+      by,
+      at,
+    })),
   };
 }
 

@@ -739,6 +739,7 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
     for (const verb of [
       'decision create',
       'rules load',
+      'rules override',
       'spec pipeline experts notes',
       'stage',
       'deliver',

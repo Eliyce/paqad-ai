@@ -31,6 +31,7 @@ export const FEATURE_BUNDLE_FILES = {
   cost: 'cost.json',
   decisions: 'decisions.json',
   techDebt: 'tech-debt.json',
+  ruleOverrides: 'rule-overrides.jsonl',
 } as const;
 
 export const LEGACY_BUNDLE_FILES = {

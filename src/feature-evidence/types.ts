@@ -19,6 +19,7 @@ export const EXPERTS_DOC_TYPE = 'paqad.experts';
 
 export const DECISIONS_DOC_TYPE = 'paqad.decisions';
 export const TECH_DEBT_DOC_TYPE = 'paqad.tech-debt';
+export const RULE_OVERRIDE_DOC_TYPE = 'paqad.rule-override';
 
 export const FEATURE_SESSION_DOC_TYPE = 'paqad.feature-session';
 

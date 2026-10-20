@@ -117,6 +117,7 @@ export interface ComposeChangeReceiptInput {
   changeMetrics?: ChangeMetrics | null;
   isolation?: StageIsolationSummary | null;
   techDebt?: readonly { id: string }[] | null;
+  ruleOverrides?: readonly { rule: string; file: string; by: string; at: string }[] | null;
 }
 
 export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
@@ -140,6 +141,11 @@ export function composeChangeReceipt(input: ComposeChangeReceiptInput): string {
   if (input.techDebt && input.techDebt.length > 0) {
     parts.push(
       `> ${PAQAD_STATUS_GLYPH.needsLook} tech debt: ${input.techDebt.length} item(s) raised (${input.techDebt.map((item) => item.id).join(', ')})`,
+    );
+  }
+  for (const override of input.ruleOverrides ?? []) {
+    parts.push(
+      `> ${PAQAD_STATUS_GLYPH.needsLook} rule override: ${override.rule} on ${override.file} by ${override.by} at ${override.at}`,
     );
   }
   if (input.delivery) {
