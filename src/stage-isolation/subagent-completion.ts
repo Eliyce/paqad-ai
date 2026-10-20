@@ -106,12 +106,6 @@ export function resolveStageAgentTokens(
   };
 }
 
-function payloadSessionId(payload: SubagentStopPayload): string | null {
-  return typeof payload.session_id === 'string' && payload.session_id.trim() !== ''
-    ? payload.session_id.trim()
-    : null;
-}
-
 export interface RecordStageAgentCompletionInput {
   projectRoot: string;
   payload: SubagentStopPayload;
@@ -136,7 +130,7 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
     const tokens = resolveStageAgentTokens(input.payload, input.transcriptText);
     appendFeatureStageRow(
       input.projectRoot,
-      payloadSessionId(input.payload) ?? sessionId,
+      sessionId,
       dirName,
       {
         kind: STAGE_AGENT_KIND,

@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { openFeatureChange, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
@@ -33,6 +33,7 @@ function tempRoot(): string {
   return root;
 }
 afterEach(() => {
+  vi.unstubAllEnvs();
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
@@ -243,6 +244,47 @@ describe('two sessions in one checkout', () => {
       enforce: false,
       reason: 'not-owner',
     });
+  });
+});
+
+describe('stage-agent row stamped with the session that owns the bundle', () => {
+  it('stamps the SE_SESSION id when the payload session has no active bundle', () => {
+    const root = tempRoot();
+    const dirA = openChange(root, A, 'change by a', '01JABCDEFGHJKMNPQRSTVWXYZ7');
+    vi.stubEnv('SE_SESSION', A);
+    vi.stubEnv('CLAUDE_SESSION_ID', '');
+
+    const written = recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { session_id: 'ses_payload_without_bundle', agent_type: 'paqad-development' },
+      transcriptText: 'parent transcript',
+      adapter: 'claude-code',
+    });
+
+    expect(written).toBe(true);
+    const rows = readStageAgentRows(root, dirA);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ session_id: A, stage: 'development' });
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({ enforce: true });
+  });
+
+  it('stamps the cached id when only the cache session owns a bundle', () => {
+    const root = tempRoot();
+    const dirB = openChange(root, B, 'change by b', '01JABCDEFGHJKMNPQRSTVWXYZ8');
+    persistLedgerSessionId(root, B);
+    vi.stubEnv('SE_SESSION', '');
+    vi.stubEnv('CLAUDE_SESSION_ID', '');
+
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { session_id: 'ses_payload_without_bundle', agent_type: 'paqad-development' },
+      transcriptText: 'parent transcript',
+      adapter: 'claude-code',
+    });
+
+    const rows = readStageAgentRows(root, dirB);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ session_id: B, stage: 'development' });
   });
 });
 
