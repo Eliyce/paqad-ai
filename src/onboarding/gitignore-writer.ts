@@ -74,8 +74,14 @@ function ignoredPathsFromRoot(entries: readonly string[] = MANAGED_GITIGNORE_ENT
   return entries.filter((entry) => !entry.startsWith('#')).map((entry) => `.paqad/${entry}`);
 }
 
-export function writeGitignore(projectRoot: string): void {
-  const entries = [...MANAGED_GITIGNORE_ENTRIES, ...legacyEvidenceIgnoreEntries(projectRoot)];
+function managedGitignoreEntries(projectRoot: string): string[] {
+  return [...MANAGED_GITIGNORE_ENTRIES, ...legacyEvidenceIgnoreEntries(projectRoot)];
+}
+
+export function writeManagedGitignoreBlock(
+  projectRoot: string,
+  entries: string[] = managedGitignoreEntries(projectRoot),
+): void {
   reconcileFile(join(projectRoot, '.paqad', '.gitignore'), MANAGED_BEGIN, MANAGED_END, entries);
   reconcileFile(
     join(projectRoot, '.paqad', '.gitattributes'),
@@ -83,6 +89,11 @@ export function writeGitignore(projectRoot: string): void {
     GITATTRIBUTES_END,
     MANAGED_GITATTRIBUTES_ENTRIES,
   );
+}
+
+export function writeGitignore(projectRoot: string): void {
+  const entries = managedGitignoreEntries(projectRoot);
+  writeManagedGitignoreBlock(projectRoot, entries);
 
   scrubRootFile(join(projectRoot, '.gitignore'), MANAGED_BEGIN, MANAGED_END, true);
   scrubRootFile(join(projectRoot, '.gitattributes'), GITATTRIBUTES_BEGIN, GITATTRIBUTES_END, false);

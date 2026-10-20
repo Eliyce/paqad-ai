@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -192,6 +193,29 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, '.worktreeinclude'), 'utf8')).toBe(
       'secrets/dev.env\n.env.local\n.paqad/.config\n',
     );
+  });
+
+  it('leaves the git index, deprecated artifacts and the root ignore file untouched', async () => {
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString('utf8')
+        .trim();
+    git('init', '-q');
+    mkdirSync(join(projectRoot, '.paqad/session'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/session/state.json'), '{}\n');
+    writeFileSync(join(projectRoot, '.paqad/version'), '1.0.0\n');
+    const rootIgnore =
+      'node_modules/\n\n# >>> paqad-ai managed (do not edit between markers) >>>\nvectors/\n# <<< paqad-ai managed <<<\n';
+    writeFileSync(join(projectRoot, '.gitignore'), rootIgnore);
+    git('add', '-f', '.paqad/session/state.json', '.paqad/version', '.gitignore');
+    const indexBefore = git('ls-files', '-s');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(git('ls-files', '-s')).toBe(indexBefore);
+    expect(existsSync(join(projectRoot, '.paqad/version'))).toBe(true);
+    expect(readFileSync(join(projectRoot, '.gitignore'), 'utf8')).toBe(rootIgnore);
+    expect(readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8')).toContain('session/');
   });
 
   it('leaves the managed ignore file alone when the checkout is newer', async () => {

@@ -20,7 +20,7 @@ import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { isPluginInstalled } from '@/health/plugin-install.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
-import { writeGitignore } from '@/onboarding/gitignore-writer.js';
+import { writeManagedGitignoreBlock } from '@/onboarding/gitignore-writer.js';
 import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
 import { writeWorktreeInclude } from '@/onboarding/worktree-include-writer.js';
@@ -134,7 +134,7 @@ export class FrameworkUpdater {
       new Date().toISOString(),
     );
     if (!checkoutIsNewer(projectRoot)) {
-      writeGitignore(projectRoot);
+      writeManagedGitignoreBlock(projectRoot);
     }
     writeWorktreeInclude(projectRoot);
 
