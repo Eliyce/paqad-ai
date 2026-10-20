@@ -27,3 +27,6 @@ For a single copy-paste reference listing every knob in one place, see
 - `paqad-ai update` refreshes these files: it appends knobs added in a new version
   (commented) and prunes knobs a new version removed, but never changes a value you
   uncommented. It never resets your settings to defaults.
+- `../.config.example` names the paqad version that generated it. A paqad older than
+  that version leaves the example, these files and this README exactly as they are,
+  so a teammate on an older install never rewrites a newer checkout.
