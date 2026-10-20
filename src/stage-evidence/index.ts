@@ -1,10 +1,3 @@
-// Stage-evidence ledger (issue #247) — public surface.
-//
-// A script-written, per-code-change record proving each mandatory feature-
-// development stage ran, in order, with per-stage start/end datetimes, plus an
-// end-of-change completeness gate. Built on the shared session-ledger substrate;
-// always-on and independent of any enterprise / AI-BOM flag.
-
 export {
   STAGE_EVIDENCE_DOC_TYPE,
   STAGE_EVIDENCE_SCHEMA_VERSION,

@@ -1,11 +1,3 @@
-// Fold stage-evidence event rows into the per-change view (issue #247 §4).
-//
-// Pure function over the rows of one (session, change-ordinal): computes each
-// stage's state, start/end datetimes, derived `duration_ms`, ordering violations,
-// and the completeness verdict the `verify` gate acts on. All timing is wall-clock
-// (the script clock that stamped each `ts`); a negative/zero gap is clamped and
-// flagged `unreliable` rather than trusted.
-
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
@@ -27,33 +19,22 @@ import {
   type StageState,
 } from './types.js';
 
-/** Identity a fold is keyed under — the per-feature dir name (issue #339). */
 export interface FoldIdentity {
   sessionId: string;
   changeKey: string;
   promptOrdinal: number;
 }
 
-/**
- * Fold an in-memory set of rows into the per-change view (the testable core). The
- * change identity is supplied by the caller (the feature dir name is the change key,
- * issue #339); the reader that fetches a feature's rows and calls this is `foldFeature`
- * in `feature-evidence/stage-ledger.ts`.
- */
 export function foldRowsWithKey(
   rows: readonly SessionLedgerRow[],
   identity: FoldIdentity,
 ): FoldedChange {
   const { sessionId, changeKey: change_key, promptOrdinal: ordinal } = identity;
-  // Issue #581 — only the stage family carries stage state. A `stage-agent` row names a
-  // stage too, so it is filtered out here rather than trusted to carry no status.
   const stageRows = rows.filter((row) => STAGE_FAMILY_KINDS.has(String(row.kind)));
   const stages = STAGE_EVIDENCE_STAGES.map((stage) => foldStage(stage, stageRows));
   const orderingViolations = computeOrderingViolations(stages);
 
   const required = stages.filter((stage) => isMandatoryStage(stage.stage));
-  // A `redone` stage that reached an end counts as done — it was re-run to
-  // completion. The redo itself is tracked separately (hadRedo → `recovered`).
   const isDone = (stage: FoldedStage) => stage.state === 'complete' || stage.state === 'redone';
   const passed = required.filter(isDone);
   const missing = required
@@ -84,7 +65,6 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[]): FoldedStag
   const start = lastOf(events, 'stage_start');
   const end = lastOf(events, 'stage_end');
 
-  // A row since #581 stamps `recorded_at`; an older one `ts`. Both read the same.
   const startedAt = start ? rowRecordedAt(start) : null;
   const endedAt = end ? rowRecordedAt(end) : null;
   let durationMs: number | null = null;
@@ -109,19 +89,12 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[]): FoldedStag
   };
 }
 
-/**
- * The recorded lane for the change (issue #324): the `lane` stamped on the open row.
- * The open row is authoritative — it is written once with the lane the prompt seam
- * picked. An absent open row, or an unrecognised value, folds to null (consumers fail
- * safe to `full`).
- */
 function readRecordedLane(rows: readonly SessionLedgerRow[]): StageLane {
   const openRow = rows.find((row) => row.kind === 'open');
   const value = openRow?.lane;
   return value === 'fast' || value === 'graduated' || value === 'full' ? value : null;
 }
 
-/** Narrow the substrate's `unknown` evidence_source field to the typed union. */
 function coerceEvidenceSource(value: unknown): StageEvidenceSource {
   return value === 'live-mark' ||
     value === 'inferred-artifact' ||
@@ -142,17 +115,7 @@ function deriveState(
   if (status === 'failed') return 'failed';
   if (events.some((event) => event.event_status === 'redone')) return 'redone';
   if (end) {
-    // An end with no matching start is an orphan — the #310 signature (the old
-    // recorder rejected the out-of-order start but accepted any end, so a stage could
-    // carry an end alone). It is inconclusive, never silently `complete`, so the
-    // completion fold and the pre-mutation gate (which requires a start+end pair)
-    // agree a stage needs a start. The inferred-git backstop is exempt: it
-    // deliberately writes an end-only `development` row to represent an untracked diff.
     if (!start && end.evidence_source !== 'inferred-git') return 'inconclusive';
-    // Artifact honesty (issue #320): a thinking stage (planning/specification/review)
-    // whose end carries no real artifact digest proves no work happened — two adjacent
-    // marker lines satisfy the pair but hash nothing. It is inconclusive, never
-    // silently `complete`. Mutation stages are exempt: the observed edit is their proof.
     if (isArtifactBearingStage(stage) && typeof end.artifact_digest !== 'string') {
       return 'inconclusive';
     }
@@ -162,25 +125,9 @@ function deriveState(
   return 'missing';
 }
 
-/**
- * For each ordered pair A before B that both ran, flag when B started before A ended.
- *
- * A completion-anchored stage (`review`, issue #270) participates in no ordering
- * constraint: its canonical position is the completion boundary, so it legitimately
- * ends after later-indexed stages (`checks`, `documentation_sync`) have started. A
- * pair with such a stage on either side is skipped, never a violation. This forgives
- * a late review's ordering only — completeness (was review recorded at all?) is
- * decided separately, so an unmarked review is still missing.
- */
 function computeOrderingViolations(stages: readonly FoldedStage[]): OrderingViolation[] {
   const violations: OrderingViolation[] = [];
   const ran = stages.filter((stage) => stage.started_at);
-  // Issue #573 — a stage that is inverted against ITSELF. The pair loop below only ever
-  // compares two DIFFERENT stages and skips the completion-anchored one entirely, so a
-  // stage whose end row predates its own start row folded to 'complete' with the verdict
-  // none the wiser. `duration_unreliable` already flagged it, but only the receipt
-  // renderer and the HTML report read that flag — never `computeVerdict`. Reported as
-  // `{ before: stage, after: stage }` so one code path carries both shapes.
   for (const stage of ran) {
     if (stage.duration_unreliable) {
       violations.push({ before: stage.stage, after: stage.stage });
@@ -219,34 +166,16 @@ function computeVerdict(
   return hadRedo ? 'recovered' : 'complete';
 }
 
-/** Bundle-file presence for the two rigid thinking stages (issue #394). */
 export interface BundleArtifactPresence {
-  /** `plan.json` exists in the bundle and is non-empty. */
   plan: boolean;
-  /** `specification.json` exists in the bundle and is non-empty. */
   specification: boolean;
 }
 
-/** The rigid thinking stages and the presence key that proves each one (issue #394). */
 const RIGID_STAGE_FILE: ReadonlyArray<{ stage: string; key: keyof BundleArtifactPresence }> = [
   { stage: 'planning', key: 'plan' },
   { stage: 'specification', key: 'specification' },
 ];
 
-/**
- * Downgrade a completeness verdict when the bundle is missing a rigid thinking-stage
- * artifact (issue #394). The `planning` / `specification` rows may read complete — a
- * digest was recorded at stage-end — but if the bundle's `plan.json` / `specification.json`
- * is absent (or empty) at verdict time the stage never produced its durable artifact, so
- * the change is not really done. Mark the stage missing and drop a `complete` / `recovered`
- * verdict to `incomplete`; a verdict that is already worse (incomplete / blocked /
- * cannot-verify) is preserved, with the missing artifact surfaced in `missing_stages`.
- *
- * Pure: the caller supplies presence, so the fold core stays filesystem-free (the
- * FS-aware `foldFeature` reads the bundle and calls this). Only `completeness` is
- * touched — never a per-stage `artifact_digest` / timing field — so the pre-mutation
- * gate, which reads the folded per-stage digest, is unaffected.
- */
 export function augmentWithBundleArtifacts(
   fold: FoldedChange,
   presence: BundleArtifactPresence,
@@ -258,7 +187,7 @@ export function augmentWithBundleArtifacts(
     }
   }
   if (missing.length === fold.completeness.missing_stages.length) {
-    return fold; // both artifacts present, or their stages were already missing.
+    return fold;
   }
   const verdict: StageCompletenessVerdict =
     fold.completeness.verdict === 'complete' || fold.completeness.verdict === 'recovered'

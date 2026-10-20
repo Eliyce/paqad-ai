@@ -1,15 +1,3 @@
-// Pending-lane stash (issue #324).
-//
-// The prompt seam decides a deterministic lane for the request BEFORE any change
-// is opened. It stashes the lane here; the next `openStageEvidence` reads it and
-// stamps it on the change's open ledger row, so the recorded lane is the one the
-// classifier picked for THIS prompt (not a null the consumers must guess around).
-//
-// Session-scoped, one value per session, in the (git-ignored) ledger dir. A prompt
-// with no code intent writes nothing (the seam skips a null lane), so a re-read
-// only ever returns the last real code-intent lane — read once at open, harmless
-// if it lingers. Never throws into the caller: an unreadable/absent stash is null.
-
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -24,7 +12,6 @@ function pendingLaneDir(projectRoot: string, sessionId: string): string {
   return join(projectRoot, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, sessionId));
 }
 
-/** Stash the lane for `sessionId`. A `null` lane (no code intent) is a no-op. */
 export function writePendingLane(projectRoot: string, sessionId: string, lane: StageLane): void {
   if (lane === null) {
     return;
@@ -34,20 +21,12 @@ export function writePendingLane(projectRoot: string, sessionId: string, lane: S
   writeFileSync(join(dir, PENDING_LANE_FILE), lane, 'utf8');
 }
 
-/**
- * Clear the stashed lane for `sessionId` (issue #580). Used when the agent corrects the
- * route to a non-feature-development workflow, so a lane stashed by the hook's wrong label
- * cannot leak onto a later change. Best-effort: an absent stash is already "cleared".
- */
 export function clearPendingLane(projectRoot: string, sessionId: string): void {
   try {
     rmSync(join(pendingLaneDir(projectRoot, sessionId), PENDING_LANE_FILE), { force: true });
-  } catch {
-    /* best-effort: nothing to clear, or an unreadable dir — a lingering stash is harmless */
-  }
+  } catch {}
 }
 
-/** Read the stashed lane for `sessionId`, or `null` when absent/invalid. */
 export function readPendingLane(projectRoot: string, sessionId: string): StageLane {
   try {
     const raw = readFileSync(

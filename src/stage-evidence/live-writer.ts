@@ -1,16 +1,3 @@
-// Live stage-evidence writer (RCA fix A). The production caller the recorder
-// verbs never had: a Claude PreToolUse hook (runtime/hooks/stage-writer.mjs)
-// calls `recordLiveStageEdit` on every Edit/Write/NotebookEdit, so per-stage
-// `live-mark` rows are minted from an OBSERVABLE tool event — script-clock times
-// and real-byte digests, never authored by the model (R2/R4/R5).
-//
-// Only file-mutating stages are observable here: `development` (source edits),
-// `checks` (test edits), `documentation_sync` (doc edits), and `specification`
-// when a spec/contract file is written. `planning` and `review` produce no file
-// mutation, so they are NOT inferred from edits (that would be a false live-mark,
-// the exact dishonesty the RCA calls out) — they arrive via `recordMarkedStage`,
-// the shared seam the marker parser (fix B) calls.
-
 import { isAbsolute, relative } from 'pathe';
 
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
@@ -23,31 +10,18 @@ import { endStage, openStageEvidence, startStage } from './recorder.js';
 import { isKnownStage, requiredPreCodeStages, stageIndex, type StageId } from './stages.js';
 import type { StageLane, StageSessionSource } from './types.js';
 
-/** Normalise a hook-supplied path to a project-relative posix path for globbing. */
 function toRelativePosix(projectRoot: string, targetPath: string): string {
   const rel = isAbsolute(targetPath) ? relative(projectRoot, targetPath) : targetPath;
   return rel.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
-/**
- * Map a mutated file to the feature-development stage its edit evidences, or null
- * when the edit is not stage-bearing (config, lockfiles, framework-internal
- * `.paqad/**`). First-match-wins, ordered so the more specific arm wins: a
- * `*.test.ts` under `src/**` is `checks` (tests arm sits above development), and
- * `docs/instructions/**` is `specification` (the canonical contract) not
- * `documentation_sync`.
- */
-// Re-exported so the stage-writer hook resolves the agent identity from the SAME bundle it
-// already lazy-imports (issue #573) — one dist entry, one import, no second dedicated entry.
 export { resolveAgentIdentity, ORCHESTRATOR_AGENT } from './agent-identity.js';
 
 export function classifyStage(targetPath: string, projectRoot = ''): StageId | null {
   const p = projectRoot ? toRelativePosix(projectRoot, targetPath) : targetPath.replace(/\\/g, '/');
 
-  // Framework-internal / non-source: never record (the writer must not log itself).
   if (p.startsWith('.paqad/') || p === '' || p.startsWith('../')) return null;
 
-  // checks — test files anywhere (above development so src tests classify here).
   if (
     p.startsWith('tests/') ||
     /(^|\/)__tests__\//.test(p) ||
@@ -56,7 +30,6 @@ export function classifyStage(targetPath: string, projectRoot = ''): StageId | n
     return 'checks';
   }
 
-  // specification — the canonical contract + explicit spec files.
   if (
     p.startsWith('docs/instructions/') ||
     p.startsWith('specs/') ||
@@ -66,7 +39,6 @@ export function classifyStage(targetPath: string, projectRoot = ''): StageId | n
     return 'specification';
   }
 
-  // documentation_sync — other canonical docs + top-level doc files.
   if (
     /^README/i.test(p) ||
     /^CHANGELOG/i.test(p) ||
@@ -76,7 +48,6 @@ export function classifyStage(targetPath: string, projectRoot = ''): StageId | n
     return 'documentation_sync';
   }
 
-  // development — source / build / runtime code.
   if (
     p.startsWith('src/') ||
     p.startsWith('lib/') ||
@@ -92,25 +63,16 @@ export function classifyStage(targetPath: string, projectRoot = ''): StageId | n
   return null;
 }
 
-/** Clock seam so the hook uses the wall clock and tests inject a fixed time. */
 export interface LiveWriteInput {
   projectRoot: string;
   sessionId?: string | null;
   toolName: string;
   targetPath: string;
-  /** Provider that made the edit (issue #566). Defaults to `claude-code`, so the
-   *  original Claude PreToolUse path is unchanged; Codex passes `codex-cli` so the
-   *  live-mark row is attributed to the host that ran. */
   adapter?: string;
-  /** The agent that made the edit (issue #573): the dispatched stage agent's name
-   *  (`paqad-development`), or absent when the orchestrator edited inline. */
   agent?: string;
   now?: () => Date;
 }
 
-/** The highest canonical index among stages already started in this change. Exported
- *  so the narration predicate (narration.ts) reuses the SAME entry decision the writer
- *  makes, rather than re-deriving it and risking drift. */
 export function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
   let highest = -1;
   for (const row of rows) {
@@ -121,8 +83,6 @@ export function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
   return highest;
 }
 
-/** The set of stage ids that carry a row of `kind` in this change. Exported for the
- *  narration predicate (see `highestStartedIndex`). */
 export function stagesWithKind(rows: readonly SessionLedgerRow[], kind: string): Set<string> {
   const set = new Set<string>();
   for (const row of rows) {
@@ -131,33 +91,11 @@ export function stagesWithKind(rows: readonly SessionLedgerRow[], kind: string):
   return set;
 }
 
-/**
- * True when the pre-code stages this change needs each carry a recorded start — the
- * SAME precondition the pre-mutation gate enforces (capability.ts), so the writer and
- * the gate agree on when the workflow has entered its code phase. The required set is
- * lane-aware via the one shared {@link requiredPreCodeStages} helper (issue #590): the
- * fast lane needs only `planning`, every other lane needs `planning` + `specification`
- * (a null/unknown lane fails safe to full). Before #590 this ignored the lane and
- * demanded both stages on every lane, so a fast-lane change — which the gate unblocks
- * after planning alone since #324 — recorded NONE of its development/checks/
- * documentation_sync edits. Until the required stages are started a file edit records
- * NO stage (issue #310): stamping a stage before them poisons ordering and is
- * dishonest. Exported so the on-entry narration reuses the SAME defer decision
- * (narration.ts).
- */
 export function preCodeStagesRecorded(rows: readonly SessionLedgerRow[], lane: StageLane): boolean {
   const started = stagesWithKind(rows, 'stage_start');
   return requiredPreCodeStages(lane).every((stage) => started.has(stage));
 }
 
-/**
- * Record a stage transition for one mutating edit. Deterministic and best-effort:
- * classifies the target, opens the change once, ends any earlier still-open stage
- * when a later stage begins, then starts the new stage — all via the recorder
- * verbs (so timestamps/digests are script-minted). Never throws: an out-of-order
- * edit is left to the completion gate, and any recorder error is swallowed so the
- * host hook stays a non-blocking writer (always exits 0).
- */
 export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
   const { projectRoot, targetPath, now } = input;
   const stage = classifyStage(targetPath, projectRoot);
@@ -167,33 +105,11 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     const sessionId = resolveSessionId(projectRoot, input.sessionId);
     const dirName = currentFeature(projectRoot, sessionId);
     const rows = dirName ? readFeatureStageUnit(projectRoot, dirName) : [];
-    // F2 (issue #310): a file edit records NO stage evidence until the workflow's
-    // pre-code stages (planning, specification) are on the ledger. Stamping a later
-    // stage (development/checks/documentation_sync) before them is both dishonest
-    // ("developing" before planning) and poisons stage ordering — it advances the
-    // ordering pointer so the pre-code starts become unrecordable, which is the #310
-    // deadlock. planning/specification are marked deterministically (paqad:stage
-    // markers or `paqad-ai stage`), never inferred from an edit, so deferring loses
-    // nothing; a real code change whose development row never gets live-marked is
-    // backfilled at completion (finalizeStageEvidence). No change is even opened until
-    // the pre-code stages exist — which means `ordinal > 0` past this guard.
-    //
-    // Lane-aware (issue #590): the required pre-code set is scaled to the SAME effective
-    // lane the gate computes for this target path — the change's recorded lane (read
-    // bundle-aware from feature.json, issue #581, exactly as `foldFeature` does for the
-    // gate), floored to `full` when the path maps to a `sensitivity: high` module — so a
-    // fast-lane edit records once planning is marked, while a high-sensitivity path is
-    // held to full just as the gate holds it.
     const recordedLane = dirName ? readChangeConstants(projectRoot, dirName, rows).lane : null;
     const lane = resolveEffectiveLane(projectRoot, targetPath, recordedLane);
     if (!preCodeStagesRecorded(rows, lane)) return null;
-    // Past the guard `rows` is non-empty, so `dirName` was non-null (rows come from the
-    // feature; an empty read means no active feature and the guard already returned).
     const ctx = {
       sessionId,
-      // Issue #582 — the only caller is the stage-writer hook, which passes the host
-      // payload's session id; with none, the id came from the cache, and the row is left
-      // unstamped rather than guessed.
       sessionSource: input.sessionId?.trim() ? ('host' as const) : undefined,
       dirName: dirName!,
       adapter: input.adapter ?? 'claude-code',
@@ -203,16 +119,12 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
 
     const started = stagesWithKind(rows, 'stage_start');
     const ended = stagesWithKind(rows, 'stage_end');
-    if (started.has(stage)) return stage; // already recording this stage (idempotent)
+    if (started.has(stage)) return stage;
 
     const targetIndex = stageIndex(stage);
     const highest = highestStartedIndex(rows);
-    // Out of order (an earlier stage after a later one already began): leave the
-    // ledger untouched — the completion gate reports the real ordering, not the writer.
     if (highest >= 0 && targetIndex < highest) return null;
 
-    // Forward transition: close every earlier still-open stage, in order, before
-    // opening the new one, so each started stage carries an ended_at (R5).
     for (const row of rows) {
       if (row.kind !== 'stage_start' || typeof row.stage !== 'string') continue;
       const s = row.stage;
@@ -220,42 +132,26 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
         ended.add(s);
         try {
           endStage(projectRoot, s, {}, ctx);
-        } catch {
-          /* best-effort: a recorder throw never wedges the writer */
-        }
+        } catch {}
       }
     }
     startStage(projectRoot, stage, ctx);
     return stage;
   } catch {
-    // Best-effort: the writer is non-blocking. A resolution/IO error means no row,
-    // never a thrown hook.
     return null;
   }
 }
 
-/** Input for the multi-path live writer — one host tool call, one or more edited paths. */
 export interface LiveWriteBatchInput {
   projectRoot: string;
   sessionId?: string | null;
   toolName: string;
-  /** Every path the call edited (a Codex `apply_patch` can touch several). */
   targetPaths: readonly string[];
   adapter?: string;
-  /** The agent that made the edit (issue #573): the dispatched stage agent's name
-   *  (`paqad-development`), or absent when the orchestrator edited inline. */
   agent?: string;
   now?: () => Date;
 }
 
-/**
- * Record a live-mark stage row for EVERY path a single mutating tool call touched
- * (issue #566). Claude's Edit/Write/NotebookEdit carry one path; a Codex
- * `apply_patch` can carry several, so the stage-writer hook hands the parsed list
- * here and this loops the single-edit recorder — which is forward-only and
- * idempotent, so several paths mapping to the same stage record it once. Returns the
- * distinct stages recorded (for tests). Never throws: each path is best-effort.
- */
 export function recordLiveStageEdits(input: LiveWriteBatchInput): StageId[] {
   const recorded: StageId[] = [];
   for (const targetPath of input.targetPaths) {
@@ -275,50 +171,21 @@ export function recordLiveStageEdits(input: LiveWriteBatchInput): StageId[] {
   return recorded;
 }
 
-/** Phase of a marked (non-mutation) stage boundary. */
 export type MarkedStagePhase = 'start' | 'end';
 
 export interface MarkedStageInput {
   sessionId?: string | null;
-  /** Where `sessionId` came from (issue #582), stamped on each row this call writes. */
   sessionSource?: StageSessionSource;
-  /** The agent recording the boundary (issue #573); absent means the orchestrator. */
   agent?: string;
   stage: string;
   phase: MarkedStagePhase;
   artifactPaths?: string[];
-  /** Provider that emitted the marker (`claude-code`, `codex-cli`, `gemini-cli`).
-   *  Recorded verbatim on the row so a cross-provider ledger attributes each stage
-   *  to the host that actually ran it (issue #265). Defaults to `claude-code` for
-   *  the original Claude Stop path that predates the arg. */
   adapter?: string;
-  /** Open a NEW named feature before recording this boundary (issue #339): the "new
-   *  work" signal from `paqad-ai stage start planning --title <t>`. Mints a fresh
-   *  feature (pausing any active one) so a titled change is a distinct bundle. Only
-   *  meaningful on a `start`; ignored on an `end`. */
   title?: string;
-  /** Ticket ref for a titled feature (verbatim, or null to force none). */
   issue?: string | null;
   now?: () => Date;
 }
 
-/**
- * Close every still-open stage before a marked stage opens (issue #380, Issue 2).
- *
- * The live edit writer forward-closes lower-indexed stages on each mutation edit
- * (`recordLiveStageEdit`), but the LAST mutation stage (`documentation_sync`) has no
- * later mutation edit to close it. The next boundary is then a MARKED stage recorded
- * here — canonically `review`, which is COMPLETION-ANCHORED: it sits at index 3, BELOW
- * `checks` (4) and `documentation_sync` (5), and is recorded last, after those mutation
- * stages have run. So an index-based "close earlier stages" would miss the very stage
- * left dangling. Instead close ANY started-but-not-ended stage that is not the one now
- * opening: stages are sequential, so a new marked boundary means every other open stage
- * is done. This is safe against the fold's ordering check — a pair involving the
- * completion-anchored `review` is exempt from ordering (fold.ts), so closing a
- * higher-indexed mutation stage as `review` opens raises no spurious violation (INV-1:
- * the target stage is never itself closed). Best-effort per stage — a recorder throw
- * never wedges the marker path.
- */
 function closeOpenStagesForMarkedStart(
   projectRoot: string,
   targetStage: string,
@@ -353,22 +220,11 @@ function closeOpenStagesForMarkedStart(
             now: ctx.now,
           },
         );
-      } catch {
-        // Best-effort per stage: a forged/registry-unknown open stage the recorder
-        // cannot end is skipped so the marked boundary (e.g. `review`) still records.
-      }
+      } catch {}
     }
   }
 }
 
-/**
- * Record a stage boundary the marker parser (fix B) extracts from the agent's
- * `paqad:stage <name> <start|end>` control line. The ROW is script-minted (clock +
- * validation inside the recorder), so the model only supplies a bare boundary
- * token, never row content. This is the deterministic signal for the non-mutation
- * stages (planning, specification-as-thinking, review). Best-effort: a junk or
- * out-of-order marker records nothing rather than throwing.
- */
 export function recordMarkedStage(projectRoot: string, input: MarkedStageInput): boolean {
   if (!isKnownStage(input.stage)) return false;
   const ctx = {
@@ -379,17 +235,10 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
     now: input.now,
   };
   try {
-    // A titled start opens a fresh named feature first (issue #339) so the boundary
-    // attaches to a distinct bundle rather than the currently-active change.
     if (input.phase === 'start' && input.title !== undefined) {
       openStageEvidence(projectRoot, { ...ctx, title: input.title, issue: input.issue });
     }
     if (input.phase === 'start') {
-      // Close any still-open stage first (issue #380): the mutation→marked boundary
-      // (e.g. documentation_sync → review) is the one the edit writer's forward-close
-      // cannot reach, because the dangling mutation stage outranks the completion-
-      // anchored `review` now opening. A titled start opened a fresh feature above,
-      // whose ledger has no earlier rows, so this is a no-op there.
       closeOpenStagesForMarkedStart(projectRoot, input.stage, ctx);
       startStage(projectRoot, input.stage, ctx);
     } else {

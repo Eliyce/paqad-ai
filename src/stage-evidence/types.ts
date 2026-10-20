@@ -1,29 +1,7 @@
-// Stage-evidence ledger types (issue #247).
-//
-// A script-written, per-code-change record proving each mandatory feature-
-// development stage actually ran, IN ORDER, with a start and end datetime per
-// stage, plus an end-of-change completeness gate. The honest guarantee: this
-// proves a recorder script ran for a named stage at a wall-clock time over a real
-// on-disk artifact — never that the stage was done well. Built on the shared
-// session-ledger substrate (`src/session-ledger/`), one file per code change at
-// `.paqad/ledger/<doc_type>/<session_id>/<ordinal>.jsonl`. Always-on, independent
-// of any enterprise / AI-BOM flag (C1).
-
-/** Doc type stamped on every row and used as the ledger sub-directory. */
 export const STAGE_EVIDENCE_DOC_TYPE = 'paqad.stage-evidence';
 
-/**
- * Schema version for `paqad.stage-evidence` rows. Version 2 (issue #581) drops the session
- * constants from the row; readers still accept a version-1 row.
- */
 export const STAGE_EVIDENCE_SCHEMA_VERSION = 2;
 
-/**
- * The kinds of event row a change record can carry. The first five are the stage family the
- * fold turns into stage state; `stage-agent`, `spec-step` and `spec-correction` (issue
- * #581) record a dispatched stage agent's footprint, one spec-pipeline step, and a human's
- * later edit to a frozen spec. The fold ignores those three.
- */
 export type StageEvidenceKind =
   | 'open'
   | 'stage_start'
@@ -35,27 +13,17 @@ export type StageEvidenceKind =
   | 'spec-correction'
   | 'completion-deferred';
 
-/** The row kind recording one dispatched stage agent (issue #581, replaces context-efficiency.jsonl). */
 export const STAGE_AGENT_KIND = 'stage-agent';
 
-/** The row kind recording one spec-pipeline step (issue #581, replaces the run's log.jsonl). */
 export const SPEC_STEP_KIND = 'spec-step';
 
-/** The row kind recording a later edit to a frozen spec (issue #581, replaces corrections.jsonl). */
 export const SPEC_CORRECTION_KIND = 'spec-correction';
 
-/**
- * The row kind recording that a Stop seam declined to compute a verdict because a `paqad-<stage>`
- * subagent was still running in the background (issue #615, Part 4). The fold ignores it; it is a
- * breadcrumb that the completion check deliberately stepped aside, not a stage event.
- */
 export const COMPLETION_DEFERRED_KIND = 'completion-deferred';
 
-/** How a recorded spec-pipeline step ended: run, skipped as empty, or cleared by a redo. */
 export const SPEC_STEP_OUTCOMES = ['complete', 'skipped', 'redone'] as const;
 export type SpecStepOutcome = (typeof SPEC_STEP_OUTCOMES)[number];
 
-/** The stage-family kinds: the only rows the fold reads for stage state. */
 export const STAGE_FAMILY_KIND_LIST = [
   'open',
   'stage_start',
@@ -65,59 +33,40 @@ export const STAGE_FAMILY_KIND_LIST = [
 ] as const;
 export const STAGE_FAMILY_KINDS: ReadonlySet<string> = new Set(STAGE_FAMILY_KIND_LIST);
 
-/** How a stage event resolved. */
 export type StageEventStatus =
   'started' | 'completed' | 'skipped' | 'failed' | 'redone' | 'inferred';
 
-/** Where a stage's evidence came from (honest grading — never dressed up). */
 export type StageEvidenceSource =
   'live-mark' | 'inferred-artifact' | 'inferred-git' | 'redo' | null;
 
 export type StageLane = 'fast' | 'graduated' | 'full' | null;
 
-/**
- * Where a row's session id came from (issue #582): `host` when a hook payload supplied it,
- * `env` when the `--session` flag or the SE_SESSION / CLAUDE_SESSION_ID environment did,
- * and `cache` when it was read from the shared single-slot `ledger-session-id` file. A
- * cache-sourced row may belong to another live session, so it never counts as "edited this
- * turn". Absent on rows written before the field existed and by writers that cannot tell.
- */
 export type StageSessionSource = 'host' | 'env' | 'cache' | null;
 
-/** One `paqad.stage-evidence` row (envelope fields are stamped by the substrate). */
 export interface StageEvidenceRow {
   schema_version: number;
   doc_type: typeof STAGE_EVIDENCE_DOC_TYPE;
   kind: StageEvidenceKind;
   session_id: string;
-  /** 1-based Nth code change this session (the substrate's ordinal). */
   conversation_ordinal: number;
   ts: string;
-  /** Present on a version-1 row only; the host now lives on `feature.json` (issue #581). */
   adapter?: string;
 
-  /** The ordered stage id this event concerns (absent on open/close). */
   stage?: string | null;
   event_status?: StageEventStatus | null;
   evidence_source?: StageEvidenceSource;
-  /** Artifacts the stage produced (project-relative). */
   artifact_paths?: string[] | null;
-  /** SHA-256 over the artifact bytes; null = not run / no artifact. */
   artifact_digest?: string | null;
-  /** Git working-tree delta digest; set on development. */
   subject_digest?: string | null;
-  /** Present on a version-1 row only; the lane now lives on `feature.json` (issue #581). */
   lane?: StageLane;
   session_source?: StageSessionSource;
   note?: string | null;
   content_hash: string;
 }
 
-/** The completeness verdict the verify gate computes for a change. */
 export type StageCompletenessVerdict =
   'complete' | 'incomplete' | 'recovered' | 'blocked' | 'cannot-verify';
 
-/** The folded state of a single stage within a change. */
 export type StageState =
   | 'complete'
   | 'running'
@@ -134,16 +83,13 @@ export interface FoldedStage {
   started_at: string | null;
   ended_at: string | null;
   duration_ms: number | null;
-  /** True when the start/end gap is implausibly small or the clock skewed. */
   duration_unreliable: boolean;
   evidence_source: StageEvidenceSource;
   artifact_digest: string | null;
 }
 
 export interface OrderingViolation {
-  /** The earlier stage in canonical order. */
   before: string;
-  /** The later stage that started before `before` ended. */
   after: string;
 }
 
@@ -155,14 +101,11 @@ export interface StageCompleteness {
   ordering_violations: OrderingViolation[];
 }
 
-/** The per-change view `status`/`verify` compute over the event rows. */
 export interface FoldedChange {
   session_id: string;
   change_key: string;
   prompt_ordinal: number;
   stages: FoldedStage[];
   completeness: StageCompleteness;
-  /** The recorded lane for this change (from the open row), or null when unset
-   *  (issue #324). Consumers fail safe to `full` on null — never a silent relax. */
   lane: StageLane;
 }

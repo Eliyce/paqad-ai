@@ -633,6 +633,102 @@ stat then read, to avoid the race CodeQL flags. The recorded lane fails safe to 
 `currentFeature` reconciles on the read path too, so the finalizer never writes its backstop into
 a fresh bundle after a session-id rotation.
 
+### The stage-evidence ledger (`src/stage-evidence/`)
+
+The stage rows a bundle holds are written by `src/stage-evidence/`. The reasons below are not
+obvious from its code, grouped by file.
+
+- **`agent-identity.ts`.** The host names the agent: a Claude subagent's hook payload carries
+  `agent_type` (the agent's name) and `agent_id` (an opaque per-dispatch id); the main thread
+  carries neither. `agent_type` is preferred because it is stable; `agent_id` is the fallback, since
+  stamping `orchestrator` on a row a subagent wrote would be worse than an opaque id. The completion
+  backstop passes its own name as the adapter, so it never replaces the host on `feature.json`.
+  Only the six `paqad-<stage>` names count as stage agents; a High Table seat does not.
+- **`artifact-path.ts`.** `path.join('/repo', '/tmp/x')` ignores an absolute second argument, so an
+  out-of-tree path used to become a missing in-repo path, hashed as absent, while the CLI printed
+  `recorded:true`. The validator runs once at each caller boundary (the CLI flag and the chat
+  marker): an in-tree path, absolute or relative, becomes project-relative; an out-of-tree path is
+  rejected. It judges location only, never existence, so a missing in-tree file is still recorded
+  as `:absent`. The path is compared with both forms of the root (its realpath and its lexical
+  form), because `realpath` falls back to the lexical path for a file that does not exist yet
+  under a symlinked root such as macOS `/tmp`.
+- **`bundle-artifact.ts`.** `planning`, `specification` and `review` own a rigid, script-written
+  bundle file (`plan.json`, `specification.json`, `review.json`), and nothing else is their
+  artifact; a hand-written plan file never clears the gate. A non-rigid stage may not prove itself
+  with a file inside a bundle dir either, and never with anything under `screenshots/`. With no
+  active feature, a rigid stage has nowhere to write, so every path is rejected.
+- **`completion-deferred.ts`.** Desktop and VS Code run subagents in the background, so the
+  orchestrator's turn can end while a stage agent still works. When a `paqad-` agent is among the
+  Stop payload's `background_tasks`, the Stop seam records one `completion-deferred` row and
+  computes no verdict and runs no rule scripts. When no entry names an agent type at all (an older
+  payload shape) and the session's bundle has a started but unended stage, it defers too. An
+  empty or missing list behaves as before.
+- **`effective-lane.ts`.** The pre-mutation gate and the live writer derive the lane from this one
+  leaf, so they agree; it is a leaf because capability to narration to live-writer back to
+  capability would be a cycle. A `sensitivity: high` module floors the lane to `full`, and a null
+  lane fails safe to `full`.
+- **`finalize.ts`.** It runs from the verification backstop after the enabled check and before the
+  enterprise block, imports no enterprise code, and never changes the verdict when it fails. With
+  no open record and a real code diff it writes one inferred-git backstop record, honestly
+  `incomplete`. That backstop is skipped when this session already closed a change, because the
+  working-tree delta is the whole branch and would otherwise mint a bundle for finished work on
+  every later turn. Each Stop re-verifies; a passing change is closed so the next edit opens a
+  fresh change, and an incomplete one stays open for the redo loop. Still-open live-mark stages are
+  ended at the completion clock, and a missing `development` row is backfilled from the delta,
+  because the live writer defers until the pre-code stages exist.
+- **`fold.ts`.** An end with no start is inconclusive (the inferred-git backstop's end-only
+  `development` row is exempt). A thinking stage whose end carries no digest is inconclusive. A
+  stage whose end predates its own start is reported as an ordering violation against itself,
+  because the pair loop only compares two different stages. `review` takes part in no ordering
+  pair. A missing or empty `plan.json` or `specification.json` drops a complete verdict to
+  `incomplete`; presence is passed in so the fold stays free of the filesystem.
+- **`live-writer.ts`.** Only file-mutating stages are inferred from edits; `planning` and `review`
+  arrive through markers, since inferring them from an edit would be a false mark. Tests map to
+  `checks` before `development`, and `docs/instructions/**` maps to `specification`. No stage is
+  recorded until the lane's pre-code stages have started, using the same helper as the gate.
+  Without a host session id the row is left unstamped rather than guessed. An out-of-order edit is
+  left for the completion gate. Before a marked stage opens, every other open stage is closed,
+  because `review` sits below `checks` and `documentation_sync` in the order and an index-based
+  close would miss them. The writer never throws.
+- **`marker-parse.ts`.** Only assistant text is read (Claude nests it under `message`, a Codex
+  rollout under `payload`), so a quoted marker in a tool result is not taken as one the agent
+  emitted; the narration audit reuses the same extractor. Markers are never recorded on a route
+  proven not to be feature development, and never after this session closed a change, since the
+  whole transcript is re-read every turn. An out-of-tree or non-rigid artifact is dropped, so the
+  boundary still records but honestly inconclusive. The drop keys on `accepted`, not `rigid`, so
+  the chat path and the CLI agree.
+- **`mode.ts`.** `strict` is the default. The team value is a floor; the local `.config` and
+  `PAQAD_STAGES_MODE` may only raise strictness, so only a team commit can lower it.
+- **`narration-audit.ts`.** Hook `{systemMessage}` output is not rendered on Desktop, so only the
+  agent's visible `▸ paqad` lines count. Only agent-authored stages can be unnarrated; inferred and
+  null provenance are not. The finding is advisory and fails open on an unreadable transcript.
+- **`narration.ts`.** The entry line is a read-only predicate that reuses the writer's own entry
+  decision, so the two cannot drift. Only a stage's start is spoken; the receipt carries the ends.
+- **`pending-lane.ts`.** The prompt seam stashes the lane before any change exists; the next open
+  stamps it. The stash is cleared when the route is corrected away from feature development.
+- **`recorder.ts`.** Unlike the RAG recorder, a validation failure throws, because these are
+  explicit agent calls. A start is never rejected for being out of order, since that made the
+  pre-code stages unrecordable; ordering is judged at fold time. The artifact digest is null when
+  no named file has real, non-empty bytes, and missing or empty files still add `:absent` or
+  `:empty` to a mixed digest. Each file is read once with a catch, never stat then read. The adapter
+  and lane go to `feature.json`, never onto the row.
+- **`schema.ts`.** The schema lives in `src/`, never under `.paqad/`, so the model cannot weaken it.
+  `agent` is required because the one write path always supplies it; reads never run the
+  validator, so older rows stay readable. The version-1 shape is kept so an old row validates. The
+  `spec-step` `step` is not an enum because the feature-development path never imports the spec
+  pipeline.
+- **`scope.ts`.** Scope is an exclude list (docs, `.paqad/`, host-agent config dirs), never an
+  allowlist of source dirs, because an onboarded project can be any stack. `.github/` stays in
+  scope since it holds CI code. `.ai/` (JetBrains MCP config) is excluded because paqad never
+  writes it but a stray edit there failed read-only turns. An unknown path is in scope.
+- **`stages.ts`.** The order comes from `STAGE_ORDER` in the feature-development policy. The fast
+  lane needs only `planning` before code; every other lane, and an unknown one, needs `planning`
+  and `specification`. This one helper serves both the gate and the writer. `review` is
+  completion-anchored: an honest review of the finished diff lands after `checks` and
+  `documentation_sync` in time, so it is exempt from ordering but never from being present.
+- **`verify.ts`.** The redo cap counts only failed verifies since the last stage mutation, so new
+  work resets it, while repeated Stops with no new work still reach `blocked`.
+
 ## Source Footprint
 
 - `src/feature-evidence`
