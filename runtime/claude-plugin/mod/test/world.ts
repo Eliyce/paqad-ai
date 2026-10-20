@@ -31,6 +31,8 @@ export interface WorldOptions {
   band?: RenderElement;
 }
 
+export const ENGINE_CARD = { type: 'engine', ref: 0 } as const;
+
 export const ONBOARDED = { '.paqad/framework-path.txt': '~/.paqad-ai/current\n' };
 
 const relOf = (path: string): string =>
@@ -124,6 +126,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   });
   on('ui.render', ($, e) => {
     world.drawn.push({ component: e.component, props: e.props });
+    if (e.component === 'AskUserQuestion') return ENGINE_CARD;
     return options.band ?? { type: 'Text', props: {}, children: [''] };
   });
   return world;

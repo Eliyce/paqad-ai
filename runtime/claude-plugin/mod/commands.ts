@@ -139,9 +139,11 @@ function cost(snapshot: PaqadHudSnapshot): string {
   return costLines(snapshot.cost, { lane: snapshot.lane, stageLabel }).join('\n');
 }
 
+export const NO_RECEIPT = 'No receipt yet. paqad writes one at the end of each turn.';
+
 function receipt(text: string | null): string {
   const body = text?.trim();
-  return body ? body : 'No receipt yet. paqad writes one at the end of each turn.';
+  return body ? body : NO_RECEIPT;
 }
 
 export function runPaqadCommand(input: CommandInput): { text: string } {

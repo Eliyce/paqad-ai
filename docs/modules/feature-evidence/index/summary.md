@@ -480,6 +480,21 @@ network, and starts no process.
   (the delivery stage running, or CI pending) opens Ships, a landed verdict opens Trust, a
   sitting High Table opens High Table, otherwise Cost. Once a tab is picked it stays for the
   session. A failing or pending CI is never drawn as done on the band's Ship row.
+- **The receipt card and the seal** (`runtime/claude-plugin/mod/receipt.ts`). `/paqad receipt`
+  is drawn as a card in the command's output row: a seal line with the verdict in words and its
+  colour ("Not sealed" before a verdict lands), then the receipt itself. When a new verdict lands
+  the HUD shows one toast naming it, once per verdict however often the snapshot is rebuilt; a
+  verdict already there when the session starts is not toasted again. The seal is drawn still,
+  with no motion, so there is nothing to turn off for reduced motion.
+- **Evidence above a decision question** (`runtime/claude-plugin/mod/ask-evidence.ts`). When the
+  agent asks a waiting `fix.proof_method`, `spec.expert_conflict`, `delivery.open_pr` or
+  `intake.requirement` decision through AskUserQuestion (matched on the question text or the
+  decision id), the mod reads that packet from `.paqad/decisions/pending/<id>.json` and draws
+  each option's evidence above the engine's own card, one row per item (file, callers, rule,
+  findings). Claude Code allows 12 rows around the dialog in the terminal and 48 elsewhere, so a
+  longer list shows as many rows as fit and a last "+N more" row. A missing or unreadable
+  packet, or one with no evidence, draws nothing and the question is answered as usual. paqad's
+  own rule-stop questions (headers "Rule stop" and "Reason") are left alone.
 - **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
   Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
   Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention

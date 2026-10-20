@@ -52,6 +52,10 @@ export const RULE_STOP_ALLOW = 'Allow once, recorded';
 export const RULE_STOP_SHOW = 'Show the rule';
 export const RULE_STOP_NO_REASON = 'No reason';
 export const RULE_STOP_FALSE_POSITIVE = 'It is a false positive';
+export const RULE_STOP_HEADER = 'Rule stop';
+export const RULE_STOP_REASON_HEADER = 'Reason';
+
+export const OWN_QUESTION_HEADERS: readonly string[] = [RULE_STOP_HEADER, RULE_STOP_REASON_HEADER];
 
 export const EDIT_TOOLS: readonly string[] = ['Edit', 'Write', 'NotebookEdit'];
 

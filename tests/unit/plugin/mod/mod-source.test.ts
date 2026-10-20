@@ -26,6 +26,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
   it('has the files the design names', () => {
     expect(sources.map((s) => s.name).sort()).toEqual(
       [
+        'ask-evidence.ts',
         'band.ts',
         'commands.ts',
         'config.ts',
@@ -33,6 +34,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
         'model.ts',
         'pane.ts',
         'paqad-cli.ts',
+        'receipt.ts',
         'register.test.ts',
         'register.tsx',
         'table.ts',
@@ -71,6 +73,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
 
   it('keeps the pure modules free of Claude Code imports, so vitest runs them', () => {
     for (const name of [
+      'ask-evidence.ts',
       'band.ts',
       'commands.ts',
       'config.ts',
@@ -78,6 +81,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
       'model.ts',
       'pane.ts',
       'paqad-cli.ts',
+      'receipt.ts',
       'table.ts',
       'tabs.ts',
     ]) {

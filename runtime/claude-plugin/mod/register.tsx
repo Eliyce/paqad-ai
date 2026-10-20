@@ -1,6 +1,15 @@
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register, RenderElement, RenderNode, Timer } from 'claude-code';
 
+import {
+  evidenceCard,
+  evidenceRowLimit,
+  evidenceRows,
+  isOwnQuestion,
+  matchPending,
+  pendingPacketPath,
+  questionTexts,
+} from './ask-evidence';
 import { layoutBand, type BandRow, type BandSegment } from './band';
 import { runPaqadCommand } from './commands';
 import { ancestorDirs, decideStatus, registersCommand } from './config';
@@ -10,7 +19,9 @@ import {
   RULE_STOP_ALLOW,
   RULE_STOP_FALSE_POSITIVE,
   RULE_STOP_FIX,
+  RULE_STOP_HEADER,
   RULE_STOP_NO_REASON,
+  RULE_STOP_REASON_HEADER,
   RULE_STOP_SHOW,
   buildBandView,
   freshRuleStop,
@@ -29,6 +40,7 @@ import {
 } from './model';
 import { runPaqad } from './paqad-cli';
 import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
+import { isReceiptCommand, receiptCard, verdictKey, verdictToast, watchVerdict } from './receipt';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
@@ -61,9 +73,9 @@ const TONE_COLOR: Record<PaqadTone, string | undefined> = {
 
 type TextElement = ReturnType<EngineInterface['ui']['resolve']>['Text'];
 
-function drawLine(Text: TextElement, line: TableLine) {
+function drawLine(Text: TextElement, line: TableLine, wrap: 'wrap' | 'truncate' = 'wrap') {
   return (
-    <Text wrap="wrap">
+    <Text wrap={wrap}>
       {line.map((segment) => (
         <Text
           color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
@@ -87,6 +99,7 @@ let agentCalls = 0;
 let reading = false;
 let readAgain = false;
 let lastText: string | null | undefined;
+let verdictSeen: string | null | undefined;
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
   try {
@@ -115,6 +128,9 @@ async function refresh($: EngineInterface): Promise<void> {
       lastText = text;
       const snapshot = changed ? parseSnapshot(text) : await read($, snapshotAtom);
       if (changed) await update($, snapshotAtom, () => snapshot);
+      const watch = watchVerdict(verdictSeen, verdictKey(snapshot?.verdict));
+      verdictSeen = watch.seen;
+      if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed || isLive(snapshot)) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
@@ -125,6 +141,12 @@ async function refresh($: EngineInterface): Promise<void> {
   } finally {
     reading = false;
   }
+}
+
+function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {
+  try {
+    $.ui.toast(verdictToast(verdict));
+  } catch {}
 }
 
 function startTicker($: EngineInterface): void {
@@ -212,7 +234,7 @@ async function askReason($: EngineInterface): Promise<string | null> {
   try {
     const answer = await $.ui.ask('Add a reason to the record?', {
       options: [RULE_STOP_NO_REASON, RULE_STOP_FALSE_POSITIVE],
-      header: 'Reason',
+      header: RULE_STOP_REASON_HEADER,
     });
     return answer === RULE_STOP_NO_REASON || answer.trim() === '' ? null : answer.trim();
   } catch {
@@ -223,12 +245,12 @@ async function askReason($: EngineInterface): Promise<string | null> {
 async function chooseRuleStop($: EngineInterface, stop: RuleStop): Promise<string> {
   const first = await $.ui.ask(ruleStopQuestion(stop), {
     options: [RULE_STOP_FIX, RULE_STOP_ALLOW, RULE_STOP_SHOW],
-    header: 'Rule stop',
+    header: RULE_STOP_HEADER,
   });
   if (first !== RULE_STOP_SHOW) return first;
   return $.ui.ask(ruleTextQuestion(stop), {
     options: [RULE_STOP_FIX, RULE_STOP_ALLOW],
-    header: 'Rule stop',
+    header: RULE_STOP_HEADER,
   });
 }
 
@@ -272,6 +294,7 @@ export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
     lastText = undefined;
+    verdictSeen = undefined;
     ticker?.cancel();
     ticker = null;
     try {
@@ -483,5 +506,37 @@ export const register: Register = (on) => {
     return status?.on && holdsExperts && !e.props.isExpanded
       ? next({ ...e, props: { ...e.props, isExpanded: true } })
       : next(e);
+  });
+
+  on('ui.render', { component: 'CommandOutput' }, async ($, e, next) => {
+    if (e.props.isErrored || !isReceiptCommand(e.props.command, e.props.args)) return next(e);
+    const status = await read($, statusAtom);
+    if (!status?.on) return next(e);
+    const card = receiptCard(e.props.text, (await read($, snapshotAtom))?.verdict ?? null);
+    if (!card) return next(e);
+    const { Box, Text } = $.ui.resolve(e);
+    return <Box flexDirection="column">{card.map((line) => drawLine(Text, line))}</Box>;
+  });
+
+  on('ui.render', { component: 'AskUserQuestion' }, async ($, e, next) => {
+    const status = await read($, statusAtom);
+    const at = live;
+    if (!status?.on || !at || isOwnQuestion(e.props.questions)) return next(e);
+    const texts = questionTexts(e.props.questions);
+    const pending = (await read($, snapshotAtom))?.decisions.pending ?? [];
+    const decision = matchPending(texts, pending);
+    const path = decision ? pendingPacketPath(at.root, decision.id) : null;
+    const rows = path ? evidenceRows(await readText($, path)) : [];
+    const engine = await next(e);
+    if (rows.length === 0) return engine;
+    const { Box, Text } = $.ui.resolve(e);
+    return (
+      <Box flexDirection="column">
+        {evidenceCard(rows, evidenceRowLimit(e.surface)).map((line) =>
+          drawLine(Text, line, 'truncate'),
+        )}
+        {engine as RenderElement}
+      </Box>
+    );
   });
 };

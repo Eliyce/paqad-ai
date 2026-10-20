@@ -1073,3 +1073,179 @@ describe('the Trust, Ships and Record tabs', () => {
     });
   }
 });
+
+function commandOutput(surface: 'terminal' | 'desktop', args: string, text: string) {
+  return {
+    component: 'CommandOutput',
+    surface,
+    requestId: 'out',
+    props: { command: 'paqad', args, text, isErrored: false },
+  } as never;
+}
+
+function askQuestion(surface: 'terminal' | 'desktop', question: string, header = 'Proof') {
+  return {
+    component: 'AskUserQuestion',
+    surface,
+    requestId: 'ask',
+    props: {
+      tool: 'AskUserQuestion',
+      questions: [
+        {
+          question,
+          header,
+          multiSelect: false,
+          options: [
+            { label: 'Failing test', description: 'a test that fails first' },
+            { label: 'Manual step', description: 'a person checks it' },
+          ],
+        },
+      ],
+    },
+  } as never;
+}
+
+const isEngineCard = (node: RenderNode | null | undefined): boolean =>
+  typeof node === 'object' && node !== null && (node as { type?: unknown }).type === 'engine';
+
+const PROOF_QUESTION = 'How should the fix be proven?';
+const PROOF_PACKET = '.paqad/decisions/pending/D-01J0.json';
+
+function proofPacket(rows: number): string {
+  return JSON.stringify({
+    id: 'D-01J0',
+    category: 'fix.proof_method',
+    title: PROOF_QUESTION,
+    options: [
+      {
+        option_key: 'failing-test',
+        label: 'Failing test',
+        evidence: {
+          findings: Array.from({ length: rows }, (_, index) => `QA finding ${index + 1}`),
+        },
+      },
+      { option_key: 'manual', label: 'Manual step', evidence: {} },
+    ],
+  });
+}
+
+describe('the receipt card and the verdict seal', () => {
+  for (const surface of SURFACES) {
+    test(`/paqad receipt draws a sealed card on ${surface}`, async ($, on) => {
+      worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText(SAFE_CLEAN), [RECEIPT]: RECEIPT_TEXT },
+        band: ENGINE_ROW,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const drawn = await $.ui.render(commandOutput(surface, 'receipt', RECEIPT_TEXT));
+      const lines = drawnLines(drawn);
+      expect(lines.slice(0, 3)).toEqual([
+        'paqad receipt',
+        'Sealed Safe to merge',
+        '▸ paqad · Safe to merge',
+      ]);
+      expect(colorOf(textElement(drawn, 'Safe to merge'))).toBe('success');
+      expect(lines).not.toContain('engine row');
+    });
+
+    test(`other /paqad output, and no receipt yet, keep the engine's row on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(SAFE_CLEAN) }, band: ENGINE_ROW });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      for (const [args, text] of [
+        ['status', 'Safe to merge.'],
+        ['receipt', 'No receipt yet. paqad writes one at the end of each turn.'],
+      ] as const) {
+        expect(drawnLines(await $.ui.render(commandOutput(surface, args, text)))).toEqual([
+          'engine row',
+        ]);
+      }
+    });
+  }
+
+  test('AC-38: the toast fires once per verdict across snapshot rebuilds', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.toasts).toEqual([]);
+    world.put(SNAPSHOT, fileText(SAFE_CLEAN));
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    for (const generated of ['2026-10-18T09:01:00.000Z', '2026-10-18T09:02:00.000Z']) {
+      world.put(SNAPSHOT, fileText({ ...SAFE_CLEAN, generated_at: generated }));
+      await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    }
+    expect(world.toasts).toEqual([
+      'paqad sealed the receipt: Safe to merge. /paqad receipt shows why.',
+    ]);
+  });
+
+  test('a verdict already there when the session starts is not toasted again', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(SAFE_CLEAN) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
+    expect(world.toasts).toEqual([]);
+  });
+});
+
+describe('evidence above a decision question', () => {
+  for (const surface of SURFACES) {
+    test(`AC-39: a 60-row packet fills the host row cap with a "+N more" line above the engine card on ${surface}`, async ($, on) => {
+      worldOf(on, {
+        files: {
+          ...ONBOARDED,
+          [SNAPSHOT]: fileText(GRADUATED_ORD_482),
+          [PROOF_PACKET]: proofPacket(60),
+        },
+        band: ENGINE_ROW,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const drawn = await $.ui.render(askQuestion(surface, PROOF_QUESTION));
+      const lines = drawnLines(drawn);
+      const cap = surface === 'terminal' ? 12 : 48;
+      expect(lines[0]).toBe('Failing test: QA finding 1');
+      expect(lines.filter((line) => line.startsWith('Failing test: QA finding'))).toHaveLength(
+        cap - 1,
+      );
+      expect(lines.at(-1)).toBe(`+${60 - cap + 1} more`);
+      expect(lines).toHaveLength(cap);
+      const children = (drawn as { children?: readonly RenderNode[] }).children ?? [];
+      expect(isEngineCard(children.at(-1))).toBe(true);
+    });
+
+    test(`AC-40: a missing or unreadable packet, or one with no evidence, leaves the question alone on ${surface}`, async ($, on) => {
+      const world = worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) },
+        band: ENGINE_ROW,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      for (const text of [null, '{broken', proofPacket(0)]) {
+        if (text === null) world.remove(PROOF_PACKET);
+        else world.put(PROOF_PACKET, text);
+        expect(isEngineCard(await $.ui.render(askQuestion(surface, PROOF_QUESTION)))).toBe(true);
+      }
+    });
+
+    test(`paqad's own questions and unrelated ones get no evidence on ${surface}`, async ($, on) => {
+      worldOf(on, {
+        files: {
+          ...ONBOARDED,
+          [SNAPSHOT]: fileText(GRADUATED_ORD_482),
+          [PROOF_PACKET]: proofPacket(3),
+        },
+        band: ENGINE_ROW,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      for (const input of [
+        askQuestion(surface, PROOF_QUESTION, 'Rule stop'),
+        askQuestion(surface, 'Which colour do you like?'),
+      ]) {
+        expect(isEngineCard(await $.ui.render(input))).toBe(true);
+      }
+    });
+  }
+});
