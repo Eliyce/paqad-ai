@@ -20,3 +20,10 @@ Open items captured during the foundation documentation pass. Promote to issues 
 
 - Decide whether `website/` participates in the canonical docs flow (currently outside `docs/instructions`).
 - Consolidate detection signals: `detected_stack` says `node-cli`, but `matched_packs` includes `node-library` and `react`.
+
+## Tracked items
+
+Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
+
+<!-- paqad:tech-debt:start -->
+<!-- paqad:tech-debt:end -->
