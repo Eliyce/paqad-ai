@@ -92,63 +92,54 @@ jobs:
           PAQAD_PLUGIN_PUSH_TOKEN: ${{ secrets.PAQAD_PLUGIN_PUSH_TOKEN }}
         run: |
           if [ -z "$PAQAD_PLUGIN_PUSH_TOKEN" ]; then
-            echo "::notice::PAQAD_PLUGIN_PUSH_TOKEN is not set; skipping the plugin publish"
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "::error::PAQAD_PLUGIN_PUSH_TOKEN is not set. Add a token that can push to Eliyce/paqad-claude-plugin as a repository secret, then re-run this job."
+            exit 1
           fi
 
       - name: Checkout
-        if: steps.token.outputs.present == 'true'
         uses: actions/checkout@v7
 
       - name: Enable Corepack
-        if: steps.token.outputs.present == 'true'
         run: corepack enable
 
       - name: Setup Node
-        if: steps.token.outputs.present == 'true'
         uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: pnpm
 
       - name: Install dependencies
-        if: steps.token.outputs.present == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Install graph-ui dependencies
-        if: steps.token.outputs.present == 'true'
         run: pnpm --dir graph-ui install --frozen-lockfile
 
       - name: Build
-        if: steps.token.outputs.present == 'true'
         run: pnpm run build
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
-      - name: Push the plugin to Eliyce/paqad-plugin
-        if: steps.token.outputs.present == 'true'
+      - name: Push the plugin to Eliyce/paqad-claude-plugin
         env:
           PAQAD_PLUGIN_PUSH_TOKEN: ${{ secrets.PAQAD_PLUGIN_PUSH_TOKEN }}
         run: |
           set -eu
           VERSION="$(node -p "require('./package.json').version")"
-          git -c init.defaultBranch=main clone --quiet "https://x-access-token:${PAQAD_PLUGIN_PUSH_TOKEN}@github.com/Eliyce/paqad-plugin.git" plugin-repo
+          git -c init.defaultBranch=main clone --quiet "https://x-access-token:${PAQAD_PLUGIN_PUSH_TOKEN}@github.com/Eliyce/paqad-claude-plugin.git" plugin-repo
           node scripts/assemble-plugin.mjs plugin-repo
           cd plugin-repo
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          BRANCH="$(git symbolic-ref --short HEAD 2>/dev/null || echo main)"
           git add -A
           if git diff --cached --quiet; then
-            echo "The plugin tree is unchanged at v${VERSION}."
+            echo "The plugin tree is unchanged at v${VERSION}; nothing to commit."
           else
             git commit --quiet -m "paqad v${VERSION}"
+            git push --quiet origin "HEAD:refs/heads/${BRANCH}"
           fi
-          BRANCH="$(git symbolic-ref --short HEAD)"
-          git push --quiet origin "HEAD:refs/heads/${BRANCH}"
           if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" > /dev/null; then
-            echo "Tag v${VERSION} already exists on Eliyce/paqad-plugin."
+            echo "Tag v${VERSION} already exists on Eliyce/paqad-claude-plugin."
           else
             git tag "v${VERSION}"
             git push --quiet origin "refs/tags/v${VERSION}"

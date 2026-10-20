@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { PLUGIN_MARKETPLACE, PLUGIN_REPO } from './assemble-plugin.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -42,8 +44,22 @@ try {
   }
   execFileSync('tar', ['-xzf', join(sandbox, tarball), '-C', sandbox], { stdio: 'ignore' });
   validate(join(sandbox, 'package'));
+  const market = join(sandbox, 'marketplace');
+  mkdirSync(join(market, '.claude-plugin'), { recursive: true });
+  cpSync(
+    join(repoRoot, '.claude-plugin', 'plugin.json'),
+    join(market, '.claude-plugin', 'plugin.json'),
+  );
+  writeFileSync(
+    join(market, '.claude-plugin', 'marketplace.json'),
+    `${JSON.stringify(PLUGIN_MARKETPLACE, null, 2)}\n`,
+  );
+  cpSync(join(repoRoot, 'runtime'), join(market, 'runtime'), { recursive: true });
+  validate(market);
 } finally {
   rmSync(sandbox, { recursive: true, force: true });
 }
 
-console.log('[paqad] claude plugin validate passed (repo + tarball).');
+console.log(
+  `[paqad] claude plugin validate passed (repo, tarball, and the ${PLUGIN_REPO} marketplace tree).`,
+);

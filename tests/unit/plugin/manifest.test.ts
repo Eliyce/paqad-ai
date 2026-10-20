@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,13 +11,15 @@ import {
 } from '@/plugin/manifest-build.js';
 import { PLUGIN_MARKETPLACE_REPO } from '@/install/plugin-migration.js';
 
+import { PLUGIN_MARKETPLACE, PLUGIN_REPO } from '../../../scripts/assemble-plugin.mjs';
+
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 function read(rel: string): string {
   return readFileSync(join(repoRoot, rel), 'utf8');
 }
 
-describe('plugin manifest + marketplace', () => {
+describe('plugin manifest and marketplace', () => {
   it('ships a committed plugin.json consistent with the generator', () => {
     const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as { version: string };
     expect(manifest).toEqual(buildPluginManifest(manifest.version));
@@ -58,19 +60,14 @@ describe('plugin manifest + marketplace', () => {
     }
   });
 
-  it('declares the eliyce marketplace with the paqad plugin from the Eliyce/paqad-plugin repo', () => {
-    const marketplace = JSON.parse(read('.claude-plugin/marketplace.json')) as {
-      name: string;
-      plugins: { name: string; source: unknown; category?: string }[];
-    };
-    expect(marketplace.name).toBe('eliyce');
-    expect(marketplace.plugins).toHaveLength(1);
-    expect(marketplace.plugins[0].name).toBe('paqad');
-    expect(marketplace.plugins[0].source).toEqual({
-      source: 'github',
-      repo: 'Eliyce/paqad-plugin',
-    });
-    expect(PLUGIN_MARKETPLACE_REPO).toBe('Eliyce/paqad-ai');
+  it('keeps no marketplace in this repository and names the plugin repo for the eliyce marketplace', () => {
+    expect(existsSync(join(repoRoot, '.claude-plugin', 'marketplace.json'))).toBe(false);
+    expect(PLUGIN_MARKETPLACE_REPO).toBe('Eliyce/paqad-claude-plugin');
+    expect(PLUGIN_REPO).toBe(PLUGIN_MARKETPLACE_REPO);
+    expect(PLUGIN_MARKETPLACE.name).toBe('eliyce');
+    expect(PLUGIN_MARKETPLACE.plugins.map((plugin) => [plugin.name, plugin.source])).toEqual([
+      ['paqad', './'],
+    ]);
   });
 
   it('ships .claude-plugin/plugin.json but not the marketplace in the npm package', () => {

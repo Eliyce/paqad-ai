@@ -17,7 +17,6 @@ import {
   MANAGED_SETTINGS_REFUSAL,
 } from '@/cli/commands/managed-settings.js';
 import { createProgram, normalizeCliArgv } from '@/cli/program.js';
-import { PLUGIN_MARKETPLACE_REPO } from '@/install/plugin-migration.js';
 
 const HOOKS = {
   PreToolUse: [
@@ -44,7 +43,7 @@ const HOOKS = {
 const GOLDEN = {
   hooks: HOOKS,
   extraKnownMarketplaces: {
-    eliyce: { source: { source: 'github', repo: PLUGIN_MARKETPLACE_REPO }, autoUpdate: true },
+    eliyce: { source: { source: 'github', repo: 'Eliyce/paqad-claude-plugin' }, autoUpdate: true },
   },
   enabledPlugins: { 'paqad@eliyce': true },
 };

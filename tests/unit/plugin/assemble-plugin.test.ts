@@ -1,11 +1,23 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { assemblePlugin } from '../../../scripts/assemble-plugin.mjs';
+import {
+  assemblePlugin,
+  PLUGIN_MARKETPLACE,
+  PLUGIN_REPO,
+} from '../../../scripts/assemble-plugin.mjs';
 
 const SCRIPT = resolve('scripts/assemble-plugin.mjs');
 const dirs: string[] = [];
@@ -33,7 +45,6 @@ function builtRepo(version = '1.99.4', pluginVersion = version): string {
     '.claude-plugin/plugin.json',
     JSON.stringify({ name: 'paqad', version: pluginVersion }),
   );
-  write(root, '.claude-plugin/marketplace.json', '{}');
   write(root, 'dist/cli/index.js');
   write(root, 'runtime/hooks/agent-entry-gate.mjs');
   write(root, 'runtime/claude-plugin/hooks.json', '{}');
@@ -57,7 +68,10 @@ describe('scripts/assemble-plugin.mjs', () => {
     expect(readdirSync(outDir).sort()).toEqual(
       ['.claude-plugin', 'LICENSE', 'README.md', 'dist', 'package.json', 'runtime'].sort(),
     );
-    expect(readdirSync(join(outDir, '.claude-plugin'))).toEqual(['plugin.json']);
+    expect(readdirSync(join(outDir, '.claude-plugin')).sort()).toEqual([
+      'marketplace.json',
+      'plugin.json',
+    ]);
     expect(existsSync(join(outDir, 'dist/cli/index.js'))).toBe(true);
     expect(existsSync(join(outDir, 'runtime/hooks/agent-entry-gate.mjs'))).toBe(true);
     expect(existsSync(join(outDir, 'runtime/claude-plugin/mod/register.tsx'))).toBe(true);
@@ -76,6 +90,23 @@ describe('scripts/assemble-plugin.mjs', () => {
     expect(existsSync(join(outDir, '.git/HEAD'))).toBe(true);
     expect(existsSync(join(outDir, 'old-file.txt'))).toBe(false);
     expect(existsSync(join(outDir, 'dist/stale.js'))).toBe(false);
+  });
+
+  it('writes the eliyce marketplace with the paqad plugin at the root of the assembled tree', () => {
+    const repoRoot = builtRepo();
+    const outDir = tempDir('paqad-assemble-market-');
+    write(outDir, '.git/HEAD', 'ref: refs/heads/main\n');
+    write(outDir, '.claude-plugin/marketplace.json', '{"name":"stale"}');
+    assemblePlugin({ repoRoot, outDir });
+    const marketplace = JSON.parse(
+      readFileSync(join(outDir, '.claude-plugin/marketplace.json'), 'utf8'),
+    ) as { name: string; plugins: { name: string; source: unknown }[] };
+    expect(marketplace).toEqual(PLUGIN_MARKETPLACE);
+    expect(marketplace.name).toBe('eliyce');
+    expect(marketplace.plugins).toHaveLength(1);
+    expect(marketplace.plugins[0]!.name).toBe('paqad');
+    expect(marketplace.plugins[0]!.source).toBe('./');
+    expect(PLUGIN_REPO).toBe('Eliyce/paqad-claude-plugin');
   });
 
   it('refuses a plugin.json that the build did not stamp with the package version', () => {
@@ -111,7 +142,7 @@ describe('scripts/assemble-plugin.mjs', () => {
     } catch (error) {
       failed = true;
       expect(String((error as { stderr?: Buffer }).stderr)).toContain(
-        'Usage: node scripts/assemble-plugin.mjs <output folder>',
+        'Usage: node scripts/assemble-plugin.mjs <output folder, a clone of Eliyce/paqad-claude-plugin>',
       );
     }
     expect(failed).toBe(true);

@@ -182,26 +182,26 @@ describe('managedPolicyBlockReason (Part 2.7)', () => {
     ).toBe('managed-policy');
     expect(
       managedPolicyBlockReason([
-        policyFile({ blockedMarketplaces: [{ repo: 'Eliyce/paqad-ai' }] }),
+        policyFile({ blockedMarketplaces: [{ repo: 'Eliyce/paqad-claude-plugin' }] }),
       ]),
     ).toBe('managed-policy');
   });
   it('does not block when strictKnownMarketplaces allows the paqad source', () => {
     expect(
       managedPolicyBlockReason([
-        policyFile({ strictKnownMarketplaces: [{ repo: 'Eliyce/paqad-ai' }] }),
+        policyFile({ strictKnownMarketplaces: [{ repo: 'Eliyce/paqad-claude-plugin' }] }),
       ]),
     ).toBeNull();
   });
-  it('blocks when strictKnownMarketplaces lists only the old, wrong repo (B1)', () => {
+  it('blocks when strictKnownMarketplaces lists only the npm package repo', () => {
     expect(
       managedPolicyBlockReason([
-        policyFile({ strictKnownMarketplaces: [{ repo: 'Eliyce/paqad-plugin' }] }),
+        policyFile({ strictKnownMarketplaces: [{ repo: 'Eliyce/paqad-ai' }] }),
       ]),
     ).toBe('managed-policy');
   });
-  it('the marketplace constant is the real paqad marketplace repo (B1)', () => {
-    expect(PLUGIN_MARKETPLACE_REPO).toBe('Eliyce/paqad-ai');
+  it('the marketplace constant is the paqad plugin repo', () => {
+    expect(PLUGIN_MARKETPLACE_REPO).toBe('Eliyce/paqad-claude-plugin');
   });
 });
 
@@ -417,7 +417,7 @@ describe('installViaSettings / undoViaSettings (Path B)', () => {
     expect(after.model).toBe('opus');
     expect(after.enabledPlugins['other@x']).toBe(true);
     expect(after.enabledPlugins['paqad@eliyce']).toBe(true);
-    expect(after.extraKnownMarketplaces.eliyce.source.repo).toBe('Eliyce/paqad-ai');
+    expect(after.extraKnownMarketplaces.eliyce.source.repo).toBe('Eliyce/paqad-claude-plugin');
     expect(after.extraKnownMarketplaces.eliyce.autoUpdate).toBe(true);
   });
   it('creates the file when absent', () => {
@@ -675,7 +675,7 @@ describe('runClaudePluginInstall (Path A, B2)', () => {
     const log = vi.fn();
     expect(runClaudePluginInstall(home, {}, exec, log)).toEqual({ ok: true });
     expect(calls).toEqual([
-      { args: ['plugin', 'marketplace', 'add', 'Eliyce/paqad-ai'], timeoutMs: 120_000 },
+      { args: ['plugin', 'marketplace', 'add', 'Eliyce/paqad-claude-plugin'], timeoutMs: 120_000 },
       { args: ['plugin', 'install', 'paqad@eliyce', '--scope', 'user'], timeoutMs: 180_000 },
     ]);
     expect(log).not.toHaveBeenCalled();
@@ -1078,7 +1078,7 @@ describe('automatic rollback is retryable (B3)', () => {
     expect(r).toMatchObject({ state: 'installed', path: 'settings' });
     const settings = JSON.parse(readFileSync(userSettings(), 'utf8'));
     expect(settings.enabledPlugins['paqad@eliyce']).toBe(true);
-    expect(settings.extraKnownMarketplaces.eliyce.source.repo).toBe('Eliyce/paqad-ai');
+    expect(settings.extraKnownMarketplaces.eliyce.source.repo).toBe('Eliyce/paqad-claude-plugin');
   });
   it('records declined when the user set the plugin false and the record is still present', () => {
     manifestClaudeCode();

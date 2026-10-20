@@ -106,7 +106,9 @@ describe('classifyManagedPolicy', () => {
       'plugin-blocked',
     );
     expect(
-      classifyManagedPolicy([writePolicy({ blockedMarketplaces: [{ repo: 'Eliyce/paqad-ai' }] })]),
+      classifyManagedPolicy([
+        writePolicy({ blockedMarketplaces: [{ repo: 'Eliyce/paqad-claude-plugin' }] }),
+      ]),
     ).toBe('plugin-blocked');
   });
   it('lets a later hooks block win over an earlier plugin block', () => {
@@ -297,7 +299,7 @@ describe('Path B: the Desktop app bundled claude', () => {
       );
       expect(runClaudeInstallWith(home, { PATH: process.env.PATH }, bin)).toEqual({ ok: true });
       expect(readFileSync(calls, 'utf8').trim().split('\n')).toEqual([
-        'plugin marketplace add Eliyce/paqad-ai',
+        'plugin marketplace add Eliyce/paqad-claude-plugin',
         'plugin install paqad@eliyce --scope user',
       ]);
     },
