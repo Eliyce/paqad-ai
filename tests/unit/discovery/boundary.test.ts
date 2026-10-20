@@ -1,8 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { openDiscoveryRun } from '@/discovery/run-store.js';
 import {
@@ -13,15 +9,9 @@ import {
 } from '@/discovery/boundary.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
-const roots: string[] = [];
-function tempRoot(): string {
-  const r = mkdtempSync(join(tmpdir(), 'paqad-discovery-boundary-'));
-  roots.push(r);
-  return r;
-}
-afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
-});
+import { useTempRoots } from '../_helpers/temp-roots.js';
+
+const tempRoot = useTempRoots('paqad-discovery-boundary-');
 
 function onDiscoveryRun(root: string, sessionId: string): string {
   const { dirName } = openDiscoveryRun(root, { sessionId, title: 'idea', adapter: 'x' });

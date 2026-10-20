@@ -1,8 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { featureStagePath, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { readStageAgentRows } from '@/stage-isolation/isolation-summary.js';
@@ -16,15 +15,9 @@ import {
 } from '@/stage-isolation/subagent-completion.js';
 import { writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
-const roots: string[] = [];
-function tempRoot(): string {
-  const r = mkdtempSync(join(tmpdir(), 'paqad-subagent-stop-'));
-  roots.push(r);
-  return r;
-}
-afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
-});
+import { useTempRoots } from '../_helpers/temp-roots.js';
+
+const tempRoot = useTempRoots('paqad-subagent-stop-');
 
 function activeFeature(root: string): string {
   const dir = openFeatureChange(root, 'ses_orch', {
