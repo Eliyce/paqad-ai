@@ -1,11 +1,3 @@
-// Discovery stage fold + completion verdict (issue #597).
-//
-// Folds a run's `stage-evidence.jsonl` rows into per-stage state and a single completion verdict.
-// Like the feature-development fold, ordering is judged HERE (not at write time): the recorder is
-// permissive so a stage can always be marked, and this is the one place that flags a later stage
-// started before an earlier stage ended. A thinking stage counts as done only when it has a start,
-// an end, and a real artifact digest (a bare marker pair folds inconclusive — DW-08).
-
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import {
@@ -16,22 +8,16 @@ import {
   type DiscoveryStageId,
 } from './stages.js';
 
-/** The folded state of one stage. */
 export interface FoldedDiscoveryStage {
   stage: DiscoveryStageId;
   started: boolean;
   ended: boolean;
-  /** The digest of the artifact the end referenced, or null (no artifact = not proven). */
   artifactDigest: string | null;
-  /** Earliest start timestamp seen, or null. */
   startedAt: string | null;
-  /** Latest end timestamp seen, or null. */
   endedAt: string | null;
-  /** started AND ended AND a real artifact digest. */
   complete: boolean;
 }
 
-/** One ordering violation: `later` started before `earlier` ended. */
 export interface DiscoveryOrderingViolation {
   earlier: DiscoveryStageId;
   later: DiscoveryStageId;
@@ -41,7 +27,6 @@ export type DiscoveryVerdict = 'complete' | 'incomplete' | 'cannot-verify';
 
 export interface FoldedDiscoveryRun {
   stages: FoldedDiscoveryStage[];
-  /** Mandatory stages not yet complete. */
   missing: DiscoveryStageId[];
   orderingViolations: DiscoveryOrderingViolation[];
   verdict: DiscoveryVerdict;
@@ -72,7 +57,6 @@ function maxTime(a: string | null, b: string | null): string | null {
   return a > b ? a : b;
 }
 
-/** Fold a run's stage rows into per-stage state, ordering violations, and a completion verdict. */
 export function foldDiscoveryRun(rows: readonly SessionLedgerRow[]): FoldedDiscoveryRun {
   const acc = new Map<DiscoveryStageId, StageAccumulator>();
   for (const row of rows) {
