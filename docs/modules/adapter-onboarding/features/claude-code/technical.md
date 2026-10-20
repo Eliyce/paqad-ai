@@ -142,10 +142,14 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 
 - **Shape.** `register.tsx` is thin glue between Claude Code's events and pure modules:
   `config.ts` decides whether the mod stands down and whether the chime is on, `model.ts` reads
-  the session snapshot and builds the band's view, `band.ts` lays the band out in rows and gives
-  the spinner's stage words and the footer's lane, `commands.ts` answers `/paqad`, `pane.ts`,
-  `tabs.ts` and `cost.ts` fill the paqad pane, `table.ts` draws the High Table (its band
-  instrument, its live chat card and its pane tab), `receipt.ts` draws the receipt card and decides
+  the session snapshot and builds the band's view, `shell.ts` owns the band card (header, chips,
+  minimise and close) and the per-workflow body registry, `band.ts` picks what the prompt area shows
+  (the card, the minimised or closed line, the status entry or nothing) and gives the spinner's
+  stage words and the footer's lane, `instruments.ts` is the feature-development body (STAGE,
+  HIGH TABLE and SHIP), `ship.ts` reads the ship rail and draws its Desktop SVG, `status-entry.ts`
+  draws the one line other workflows get, `visibility.ts` owns minimise, close and hide,
+  `commands.ts` answers `/paqad`, `pane.ts`, `tabs.ts` and `cost.ts` fill the paqad Ledger,
+  `table.ts` draws the High Table (its seat data, its live chat card and its Ledger tab), `receipt.ts` draws the receipt card and decides
   when a verdict has landed, `ask-evidence.ts` reads a decision packet's evidence, `chips.ts`
   turns paqad's own Bash rows into chips, `chime.ts` builds the chime clip, and `paqad-cli.ts` is
   the one helper that runs `paqad-ai`. The pure modules import nothing from Claude
@@ -158,8 +162,9 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   heartbeat, calls no model or network, and starts a process only through `paqad-cli.ts` for the
   fixed `paqad-ai` verbs it lists. Refresh points pass each event on untouched and return what `next`
   answered, and a `.catch` replays `next` if anything throws. A render hook never writes state;
-  only presses and `tool.call` do. On any failure the mod stays dark, and a failed read keeps the
-  last good snapshot on screen. State is rebuilt at `session.start`, since a hot reload drops module
+  only presses and `tool.call` do. On any failure the mod stays dark. A snapshot file that exists
+  but cannot be read or parsed shows the idle line with a dim `HUD data unavailable`, never a
+  verdict, flags, ship rail or cost from a partial read. State is rebuilt at `session.start`, since a hot reload drops module
   variables and timers.
 - **Stand-down order** (`config.ts`): never onboarded, a cloud session (`CLAUDE_CODE_REMOTE=true`),
   paqad off, the view turned off, or Claude Code older than 2.1.301 (an engine that cannot state its
@@ -167,22 +172,98 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   then every hook passes straight on. In a project never onboarded only `/paqad` is registered, so
   `/paqad status` can say paqad is not active here. The enable switch resolves exactly as the hooks
   resolve it, and the `.paqad/` folder is found by walking up from the session root as the hooks do.
-- **Snapshot.** `model.ts` reads the file `src/hud/snapshot.ts` writes (`paqad.hud/2`) and makes the
+- **Snapshot.** `model.ts` reads the file `src/hud/snapshot.ts` writes (`paqad.hud/3`) and makes the
   session id filename-safe exactly as `src/hud/files.ts` does. A missing, half-written or foreign
-  file reads as "not yet", never a throw. Nothing is guessed: a field with no record reads "not yet"
+  file reads as idle, never a throw. The snapshot carries `scope`: the mod shows a change only when
+  `scope.qualified` is true, and makes no scoping decision of its own (the rule lives in
+  `src/hud/change-scope.ts`). An older `paqad.hud/2` snapshot has no `scope`, so a newer mod reads it
+  as idle; an older mod reading `paqad.hud/3` keeps rendering, since every field it knew is still
+  there. Nothing is guessed: a field with no record reads "not yet"
   and is never invented. The band re-reads every 1.5 seconds while a stage agent or Agent call
   runs, and once more after a turn ends for what the Stop hooks write.
 - **Honest stages.** A stage reads done only when the receipt would print done; a `checks` stage
   with no passing tests-and-lint gate reads "tests not verified". Spec reads "not required" on the
-  fast lane, which needs no frozen spec. Merge always reads as yours until a merge is recorded,
-  since paqad never merges.
+  fast lane, which needs no frozen spec. Merge lights only when this change's own pull request is
+  merged (`ship.merged`); a merge commit on main, a release commit or a pull request of another
+  change never lights it, and Merge reads unknown when the pull request state could not be read.
+  paqad never merges.
 - **State and colour.** The state is the first match of: a waiting decision, a rule stop, no change
   in progress (paused, another workflow, or ready), an open branch flag, a running stage, the
-  verdict, then working. Any open flag turns the band amber, even at Safe to merge; red and "needs
-  you" keep their own colour. Every state is said in words and by a glyph of its own shape, so each
-  line reads the same with the colour gone. When rows cannot all fit, the pills ride on the
-  headline row so the flag count is never what falls off. Rows are cut with an ellipsis, never
-  wrapped.
+  verdict, then working. Tones map `working` to suggestion, `needs-you` to permission, `good` to
+  success, `warn` to warning, `bad` to error. Any open flag turns the band amber, even at Safe to
+  merge; red and "needs you" keep their own colour, and all green turns it success. Every state is
+  said in words and by a glyph of its own shape, so each line reads the same with the colour gone.
+- **The band card.** On the feature-development route the band is one rounded card whose border
+  takes the headline tone. The header holds the `paqad` brand Button, the change chip (the issue
+  number, else the ticket, else the last six characters of the ULID), the headline, then on the
+  right the verdict chip (a fresh verdict only), one amber flag chip, the lane, the tokens chip,
+  a `Proof` Button, `– Minimise` and `× Close`. With no change qualified the card shows the header
+  only: `paqad  feature development · no change in progress`. The body comes from `BAND_BODIES`, a
+  per-workflow registry in `shell.ts` that only feature development fills; the shell imports no
+  body code.
+- **Instruments.** STAGE shows eight labelled cells (Intake Plan Spec Build Review Checks Docs
+  Deliver) with `●` done, `▸` running, `○` not yet, `–` not required, `✗` failed and `◐` marked
+  without recorded work, and a status such as `Build · 12:08` or `paused for you`. HIGH TABLE shows
+  one column per seat with a two-letter role (PO AA QA UF, on-call seats such as SA IA DO) and the
+  chief `CA` after a separator, with `●` note landed, `◉` writing, `○` seated, chief `◆` ruled or `◇`
+  waiting (amber when it needs answers), and a status of `n standing`, `x of y notes`, `chief is
+  ruling`, `needs answers` or `spec approved`; it is not drawn on the fast lane. SHIP shows Edit
+  Commit Push PR CI Merge: on the terminal as marks on a `─` track, on Desktop as one SVG of git
+  icons with a CI ring filled done over total and an `alt` text that says the same in words. Its
+  note says when CI was last read and `+n already on the branch, not yours` for inherited commits.
+  The three sit in one row from 110 columns and stack below; a footer (row layout only) holds the
+  cost line and one trust summary that leads with `Not judged yet` until a gate is judged. The card
+  counts its rows (border, header, instruments, footer): when `maxRows` is short the footer drops
+  first, then the band falls back to the minimised line. A seat's note budget and its run tokens
+  always carry their own labels: `Note: ~6.2K tokens of its 8K budget` and `Run: 230K tokens,
+  mostly the code it read (exact)`.
+- **All green.** When the saved CI reading is a pass on the pull request's current head and the
+  pull request is open, the headline reads `All green: PR <n> is ready for your merge`, the band
+  turns success and one toast fires per change and head commit (kept in `$.state`), with the
+  opt-in chime. It stays all green across sessions until the pull request is merged.
+- **Other workflows.** On any other route there is no band, only one `AbovePrompt` row: a plain
+  Button reading `paqad · question · 84K tokens · ~$0.05` (the workflow in words, its tokens and
+  cost since that workflow started in this session), with `running m:ss` while a main-agent turn is
+  in flight (from the mod's own `prompt.submit` to `turn.complete`) and `counting` before tokens
+  are known. It opens the Ledger in workflow mode, which shows only the cost block. With
+  `no-workflow` or no route nothing is drawn. `$.ui.status` is not used, since it is plain,
+  uncoloured text that cannot be pressed.
+- **Minimise, close and hide.** `– Minimise` keeps one line (brand, change chip, state word, stage
+  bar, stage clock, High Table count, ship step, flag chip, tokens, `+ Restore` and `× Close`) and is
+  kept in `$.store` as `band.minimised`, so it survives sessions. When narrow, the line drops tokens,
+  then the ship step, then the High Table count, then the stage bar, and never wraps. `× Close` asks
+  Close for now (the `paqad.bandClosed` atom, this session only) or Hide always (`$.store` key
+  `band.hidden:<project root>`, so it applies to this project only). Closed or hidden, the band is
+  one line `paqad · <state> ▸` with a dim `Closed for this session · /paqad show` or `Hidden always ·
+  /paqad show`; pressing it brings the band back. While the band is out of the way and a decision of
+  this change or an unused rule stop waits, the line turns amber and reads `paqad · Needs you ▸`;
+  the band never reopens by itself and the question is still asked in chat. `/paqad show` clears
+  all three and answers `The paqad band is back.` Each control has a hotkey and names its action in
+  words. None of this changes what paqad enforces, and the mod writes no file for it.
+- **The paqad Ledger.** The pane keeps the id `paqad`, is titled `paqad Ledger` and starts with the
+  dim subtitle `what happened, with proof`. Its tabs are Trust, High Table, Ships, Record and Cost,
+  and it opens on Trust unless a tab was picked. Trust shows the fresh verdict or `Not judged yet`
+  with `Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.`, the
+  gate ring `n/m required` (an SVG on Desktop), each gate as `pass`, `fail`, `not judged yet`, `did
+  not run` or `not required`, then `Claims and the tests that prove them` and `Flags`. High Table
+  shows the ring, the seats and `Who shaped the spec` (or `Shown when the spec is frozen: each spec
+  line with the experts who shaped it.`). Ships lists Edit, own commits by sha and message with
+  inherited ones marked `on the branch already`, Push, the pull request with its state, CI with one
+  line per job and the read time, and Merge (`Everything is green` with an `Open PR` link, else
+  `The merge is always yours. paqad never merges.`). Record lists the plan, decisions, rules,
+  receipt and the change's timeline, an abandoned close and its note among them. Cost says whether
+  it counts this change only or the whole session. The brand, Proof, each instrument title, the
+  flag chip, the tokens chip and both footer lines open their tab, and pressing the target of the
+  tab already shown closes the pane. The Ledger opens on its own, without focus, once per change;
+  the change key is kept in `$.store` `ledger.autoOpened` (the last 50), so it never opens itself
+  again for that change, in any session. On a narrow terminal the engine holds an unasked pane
+  until the terminal is widened; that still counts as opened.
+- **Mod API limits.** Buttons hold only strings and Text, so an instrument opens its tab from its
+  title, not from the whole box. `$.ui.ask` takes plain option labels and a header of at most 12
+  characters, so the close question carries the option meanings in its text. `$.ui.open` takes no
+  `focus: false`; leaving `focus` out keeps the prompt focused. There is no animation primitive, so
+  the static marks and SVGs carry the whole meaning. `Svg` draws only on Desktop and mobile; the
+  terminal never gets one.
 - **Cost.** Every money figure carries the word estimate and the price table's date; a record with
   no price date keeps its tokens and loses its money, and a model the price table does not list
   adds tokens only.
@@ -190,9 +271,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   only, so it is drawn once and updates in place; a folded run that holds that call unfolds. Host
   usage reads as exact, a seat's own count as an estimate. The round table is an SVG on Desktop and
   text on the terminal; its colours are named so they can become design tokens later. A decision's
-  day is read from the first ten characters of its `D-<ULID>` id. Until the person picks a tab, the
-  pane follows the auto rule: Ships during a delivery, Trust once a verdict lands, the High Table
-  while it sits, else Cost.
+  day is read from the first ten characters of its `D-<ULID>` id.
 - **Chips.** A Bash row that runs `paqad-ai stage|plan|spec|review|checks|fix|rules|debt|decision`
   is drawn as a chip ("Build started recorded", "Review ended blocked") when the bundle holds the
   call or the row ran, failed or was blocked; each state has its own mark, colour and word. A row
@@ -208,6 +287,9 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   120 seconds. A heartbeat of another session, an older or a future one, or none, leaves the gate's
   output byte for byte as before; a read failure is logged and adds nothing. No gate reads the
   heartbeat to allow or deny anything.
+- **Decisions.** The band and the Ledger show only the pending packets stamped with this change.
+  `/paqad decisions` lists every pending packet in the repo, labelled `in this repo`, so a packet of
+  another change or one with no change is never lost.
 - **Command name.** The `/paqad` hook name is written as a literal in the hook and its matcher, so
   `claude plugin validate` reads it as a hook that answers its own command, not a gate.
 - **Types.** `types/index.d.ts` is the `$.state` contract named in the plugin's `plugin.json`; it is

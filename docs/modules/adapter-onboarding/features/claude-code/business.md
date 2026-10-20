@@ -45,6 +45,29 @@ Capture the main journeys for `claude-code`. Each flow should call out:
 - User-visible failures and the message contract.
 - Recovery guidance — what the user should do, in plain language, when the feature aborts.
 
+## The HUD in Claude Code
+
+The paqad plugin draws a band above the prompt that shows the change this session is working on.
+
+- **Only your change, right now.** The band shows a change only while you are on the feature
+  development route, on that change's branch, and this session has worked on it since the route
+  started. Otherwise it says `no change in progress`. An old change on another branch, or a
+  question you asked, never fills the band with someone else's story.
+- **Three instruments.** STAGE shows where the change is, HIGH TABLE shows the experts while they
+  write and rule, and SHIP shows Edit, Commit, Push, PR, CI and Merge. Merge lights only when your
+  own pull request is merged; paqad never merges. Commits already on the branch before the change
+  started are shown as not yours.
+- **Honest numbers.** A verdict shows only when it was written for this change after its latest
+  edit. Gates read not judged yet until the stage that judges them has ended. Cost counts only the
+  turns spent on this change, or says whole session when it cannot split them.
+- **Other workflows.** A question, a health check or any other workflow gets one line under the
+  prompt with its own tokens and cost, and a running clock while it works.
+- **Out of the way when you want.** Minimise the band to one line, close it for this session or
+  hide it in this project. `/paqad show` brings it back. If a decision waits while it is out of
+  the way, the line turns amber and reads Needs you; the question is still asked in chat.
+- **The paqad Ledger.** Pressing paqad, Proof or any instrument opens the Ledger beside the chat:
+  Trust, High Table, Ships, Record and Cost, starting on Trust. It opens on its own once per change.
+
 ## Glossary
 
 - Define terms a stakeholder might not know (e.g. *pack*, *capability*, *adapter*, *module map*).
