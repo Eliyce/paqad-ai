@@ -4,29 +4,11 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
-/**
- * Onboarding resume checkpoint (PQD-424, AC3).
- *
- * Records the project-relative paths already written during an onboarding run so
- * that a subsequent run — after the first was killed mid-flight — re-enters,
- * skips the files it already produced, and writes only the unwritten remainder.
- * The file is deleted once onboarding completes cleanly, so on a normal run it
- * is transient and absent on disk afterwards.
- */
 interface OnboardingCheckpoint {
-  /** Schema version of the checkpoint payload itself. */
   schema_version: 1;
-  /** Project-relative (POSIX) paths already written this onboarding. */
   written: string[];
 }
 
-/**
- * Atomically persist the set of completed file paths. Paths are normalised to
- * POSIX so the skip comparison on resume is platform-independent (the same
- * normalisation `writeGeneratedFiles` applies to its reported paths). Writing
- * via a temp file + rename keeps the checkpoint from being observed half-written
- * if the process dies during the write itself.
- */
 export function writeOnboardingCheckpoint(projectRoot: string, writtenPaths: string[]): void {
   const target = join(projectRoot, PATHS.ONBOARDING_CHECKPOINT);
   mkdirSync(dirname(target), { recursive: true });
@@ -41,12 +23,6 @@ export function writeOnboardingCheckpoint(projectRoot: string, writtenPaths: str
   renameSync(tmp, target);
 }
 
-/**
- * Read the completed-path list from a prior interrupted run, or `null` when no
- * checkpoint exists (the common, clean-start case). A malformed or unreadable
- * checkpoint is treated as absent — onboarding is idempotent, so re-writing the
- * full set is safe and strictly better than refusing to resume.
- */
 export function readOnboardingCheckpoint(projectRoot: string): string[] | null {
   const target = join(projectRoot, PATHS.ONBOARDING_CHECKPOINT);
   if (!existsSync(target)) {
@@ -64,10 +40,6 @@ export function readOnboardingCheckpoint(projectRoot: string): string[] | null {
   }
 }
 
-/**
- * Remove the checkpoint once onboarding has finished. Tolerates an absent file
- * so the clean-run path (where no checkpoint was ever lingering) is a no-op.
- */
 export function deleteOnboardingCheckpoint(projectRoot: string): void {
   rmSync(join(projectRoot, PATHS.ONBOARDING_CHECKPOINT), { force: true });
 }

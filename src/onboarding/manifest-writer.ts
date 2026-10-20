@@ -39,15 +39,6 @@ export function writeFrameworkMetadata(projectRoot: string, version: string): vo
   writeFileSync(join(projectRoot, PATHS.FRAMEWORK_PATH), `${resolveFrameworkInstallReference()}\n`);
 }
 
-/**
- * Read the existing onboarding manifest before a re-run (PQD-424).
- *
- * Returns `null` when no manifest exists yet (a first-time onboarding). When a
- * manifest is present but cannot be parsed as JSON, the local registry is
- * corrupt: rather than silently overwriting it or skipping it with no signal,
- * this throws a {@link FrameworkError} (`REGISTRY_CORRUPTED`) so onboarding
- * blocks adoption cleanly and the consumer can surface a precise message.
- */
 export function readExistingOnboardingManifest(projectRoot: string): OnboardingManifest | null {
   const path = join(projectRoot, PATHS.ONBOARDING_MANIFEST);
   if (!existsSync(path)) {
@@ -76,11 +67,6 @@ export function writeOnboardingManifest(projectRoot: string, manifest: Onboardin
   return path;
 }
 
-/**
- * Writes a JSON document but, if the destination already exists and the
- * payload is byte-equal except for the timestamp field, preserves the existing
- * timestamp. Makes re-runs idempotent when nothing meaningful changed.
- */
 export function writeJsonPreservingTimestamp<T extends object>(
   path: string,
   value: T,
@@ -99,7 +85,6 @@ export function writeJsonPreservingTimestamp<T extends object>(
     const candidateJson = `${JSON.stringify(candidate, null, 2)}\n`;
     const existing = readFileSync(path, 'utf8');
     if (candidateJson === existing) {
-      // No real change → keep the file (and its timestamps) byte-identical.
       return;
     }
   }
@@ -314,7 +299,6 @@ function sanitizePersistedPath(projectRoot: string, value: string): string {
     return value;
   }
 
-  // Normalize separators up front so windows/posix comparisons work uniformly.
   const normalizedValue = toPosixPath(value);
   const normalizedRoot = toPosixPath(projectRoot);
 
@@ -322,23 +306,17 @@ function sanitizePersistedPath(projectRoot: string, value: string): string {
     return '.';
   }
 
-  // Strip projectRoot prefix when the value lives under it.
   const prefix = normalizedRoot.endsWith('/') ? normalizedRoot : `${normalizedRoot}/`;
   if (normalizedValue.startsWith(prefix)) {
     return normalizedValue.slice(prefix.length);
   }
 
-  // For values that are already relative (no drive letter / leading slash), return them
-  // as-is rather than resolving against process.cwd() — node:path.relative is unsafe
-  // for relative inputs because both sides get resolved against cwd first.
   const isAbsoluteWindows = /^[a-zA-Z]:\//.test(normalizedValue);
   const isAbsolutePosix = normalizedValue.startsWith('/');
   if (!isAbsoluteWindows && !isAbsolutePosix) {
     return normalizedValue;
   }
 
-  // Absolute path outside projectRoot (sibling or above) — fall back to path.relative,
-  // which only behaves predictably when BOTH inputs are absolute (the case here).
   const relativePath = relative(projectRoot, value);
   if (relativePath === '') {
     return '.';

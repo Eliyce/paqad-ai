@@ -13,34 +13,15 @@ import { Resolver } from '@/resolver/resolver.js';
 import { writeGeneratedFiles } from './file-writer.js';
 import { generateProjectRules } from './rule-generator.js';
 
-/**
- * Files under `docs/instructions/rules/` that are project-owned, not generated
- * from the framework rule packs. A `--rules` refresh must never delete these:
- * `module-map.yml` is authored by the documentation workflow and reviewed by
- * the team; `rule-script-map.yml` is produced by the rules-as-scripts flow.
- */
 const PRESERVED_RULE_FILES = ['module-map.yml', 'rule-script-map.yml'];
 
 export interface RulesRefreshReport {
-  /** True when the refresh only reported the plan and made no changes (no `--force`). */
   dryRun: boolean;
-  /** Generated rule files that were (or would be) deleted, project-relative, posix. */
   deleted: string[];
-  /** Rule files that were (or would be) written, project-relative, posix. */
   written: string[];
-  /** Project-owned files left untouched, project-relative, posix. */
   preserved: string[];
 }
 
-/**
- * Re-resolve the framework rule packs for the project's saved capabilities and
- * stack, then rewrite `docs/instructions/rules/`. The previously generated rule
- * tree is deleted first (so stale or removed rules do not linger), while
- * project-owned registries are preserved.
- *
- * Without `force`, returns the plan (what would be deleted/written) and makes no
- * changes. With `force`, applies the plan.
- */
 export async function refreshProjectRules(
   projectRoot: string,
   profile: ProjectProfile,
@@ -72,9 +53,6 @@ export async function refreshProjectRules(
     return report;
   }
 
-  // Delete the previously generated rule tree first. generateProjectRules marks
-  // every file `autoUpdate: false`, so writeGeneratedFiles skips paths that
-  // still exist — clearing them is what lets the fresh content land.
   for (const rel of deletable) {
     rmSync(join(rulesDirAbs, rel), { force: true });
   }

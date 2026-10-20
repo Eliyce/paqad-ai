@@ -1,11 +1,3 @@
-// The agent-roster registry (issue #558, FR-11).
-//
-// Three descriptions of the roster used to disagree: `AGENT_ROLES`, the persona files on disk,
-// and the README table. This renders ONE generated page from the canonical `AGENT_ROLES`, the
-// expert roster, and the token budgets, plus the persona and lens files that back each role, so a
-// reader (and the drift test) has one source of truth. Pure and deterministic (INV-4): the row
-// data is resolved against the runtime tree once, then rendered with zero model tokens.
-
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -17,41 +9,30 @@ import {
   isExpertRole,
 } from '@/spec-pipeline/experts/roster.js';
 
-/** The tier a role sits in on the registry page. */
 export type RegistryTier = 'standing' | 'on-call' | 'chair' | 'machinery';
 
-/** One rendered roster row. */
 export interface AgentRegistryRow {
   role: AgentRole;
   tier: RegistryTier;
   budget: number;
-  /** Project-relative persona path, or `none yet` for a role with no persona. */
   persona: string;
-  /** Project-relative lens path, or `n/a` for a non-expert role. */
   lens: string;
 }
 
-/** The directories, in search order, that hold persona files (runtime-relative). */
 const PERSONA_DIRS = [
   'base/agents',
   'capabilities/coding/agents',
   'capabilities/security/agents',
 ] as const;
 
-/** The lens directory (runtime-relative). */
 const LENS_DIR = 'base/skills/expert-notes/references/lenses';
 
-/**
- * Roles whose persona file is named differently from the role id, or that have no persona yet.
- * `null` ⇒ `none yet`.
- */
 const PERSONA_ALIASES: Partial<Record<AgentRole, string | null>> = {
   'db-expert': 'database-expert',
   implementer: null,
   reviewer: null,
 };
 
-/** The persona files that back no role id — reused by the roles above (issue #558, FR-11.1). */
 const REUSED_PERSONAS = [
   'router',
   'story-designer',
@@ -70,7 +51,6 @@ function tierOf(role: AgentRole): RegistryTier {
   return 'machinery';
 }
 
-/** Find the runtime-relative persona path for a role, or `none yet` when it has none. */
 function personaPathOf(runtimeRoot: string, role: AgentRole): string {
   if (role in PERSONA_ALIASES) {
     const alias = PERSONA_ALIASES[role];
@@ -94,10 +74,6 @@ function lensPathOf(runtimeRoot: string, role: AgentRole): string {
   return existsSync(join(runtimeRoot, LENS_DIR, `${role}.md`)) ? rel : 'n/a';
 }
 
-/**
- * Resolve one row per `AGENT_ROLES` entry against the runtime tree. Deterministic given the same
- * tree (INV-4). `runtimeRoot` is the framework install's `runtime/` directory.
- */
 export function collectAgentRegistryRows(runtimeRoot: string): AgentRegistryRow[] {
   return AGENT_ROLES.map((role) => ({
     role,
@@ -108,7 +84,6 @@ export function collectAgentRegistryRows(runtimeRoot: string): AgentRegistryRow[
   }));
 }
 
-/** The reused-persona rows (personas with no role id). */
 export function collectReusedPersonaRows(runtimeRoot: string): { name: string; persona: string }[] {
   return REUSED_PERSONAS.map((stem) => ({
     name: stem,
@@ -119,7 +94,6 @@ export function collectReusedPersonaRows(runtimeRoot: string): { name: string; p
 const REGISTRY_HEADER =
   '<!-- managed by paqad-ai — generated from src/onboarding/agent-registry-writer.ts. Do not edit by hand. -->';
 
-/** Render the roster registry markdown from resolved rows. Pure; zero model tokens. */
 export function renderAgentRegistry(
   rows: AgentRegistryRow[],
   reused: { name: string; persona: string }[],
@@ -132,7 +106,7 @@ export function renderAgentRegistry(
     `The ${rows.length} built-in specialist roles, one row per \`AGENT_ROLES\` entry. Standing experts sit`,
     'at every spec run; on-call experts are picked by the detector; the chair runs whenever any expert',
     "fired; machinery roles are the pipeline's own build-time helpers. Generated so the roster, the",
-    'persona files, and the README table cannot drift (issue #558).',
+    'persona files, and the README table cannot drift.',
     '',
     '| Role | Tier | Budget | Persona | Lens |',
     '| --- | --- | --- | --- | --- |',
@@ -152,7 +126,6 @@ export function renderAgentRegistry(
   return lines.join('\n');
 }
 
-/** Build the full registry document for a runtime tree. */
 export function buildAgentRegistryDocument(runtimeRoot: string): string {
   return renderAgentRegistry(
     collectAgentRegistryRows(runtimeRoot),
@@ -160,5 +133,4 @@ export function buildAgentRegistryDocument(runtimeRoot: string): string {
   );
 }
 
-/** The expert roles that must each have a lens (issue #558, AC-14) — re-exported for the drift test. */
 export const REGISTRY_EXPERT_ROLES = EXPERT_ROLES;

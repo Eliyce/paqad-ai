@@ -258,8 +258,6 @@ async function promptInteractiveSelections(input: {
 }
 
 async function promptProviders(defaultProviders?: AdapterType[]): Promise<AdapterType[]> {
-  // Issue #616 Part 8 — without npm, only the Claude Code plugin can be wired; the other providers
-  // ship through the npm package. Offer just claude-code rather than a single-choice prompt.
   if (!isNpmAvailable()) {
     return ['claude-code'];
   }

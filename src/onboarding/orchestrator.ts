@@ -95,47 +95,21 @@ export interface OnboardingOptions {
   profileOverrides?: Partial<ProjectProfile>;
   selections?: {
     providers?: AdapterType[];
-    /**
-     * Programmatic escape hatch for non-CLI callers. The CLI intentionally does not expose a
-     * direct `--domain` override because domain selection is inferred from stack choice.
-     */
     domain?: 'coding' | 'content';
     stack_profile?: ProjectProfile['stack_profile'];
     stack?: Stack;
     capabilities?: Capability[];
     rag?: RagSelection;
   };
-  /**
-   * Invoked after the project is fully written to disk and before the optional RAG phase runs.
-   * Lets the CLI print the success banner while RAG (which may prompt or hang) executes after.
-   * Invariant: by the time this fires, every core `.paqad/**` artifact already exists. See #62.
-   */
   onPhase1Complete?: (result: OnboardingOutput) => void;
-  /**
-   * PQD-424 (AC2) — when `true`, regenerate every artifact even if it already exists, including
-   * the external-agent entry files (`CLAUDE.md`, `AGENTS.md`, …) that are otherwise left untouched
-   * on a re-run. Defaults to `false`: existing files are not overwritten without this explicit opt-in.
-   */
   forceOverwrite?: boolean;
-  /**
-   * PQD-424 — workspace governance applied before any disk write. When
-   * `project_creation_disabled` is `true`, `run()` refuses cleanly (throws a `FrameworkError`
-   * coded `PROJECT_CREATION_DISABLED`) without touching the filesystem.
-   */
   workspacePolicy?: {
     project_creation_disabled?: boolean;
   };
 }
 
 export class OnboardingOrchestrator {
-  /**
-   * Two-phase onboarding. Phase 1 generates and writes every core artifact deterministically,
-   * with no inquirer prompts. Phase 2 is the optional RAG opt-in: it can prompt, fail, or hang
-   * and the project is still fully onboarded. See issue #62 for the regression this protects.
-   */
   async run(options: OnboardingOptions): Promise<OnboardingOutput> {
-    // PQD-424 (AC: policy) — refuse cleanly, before any disk write, when the
-    // workspace bans project creation. No `.paqad/` artifact is produced.
     if (options.workspacePolicy?.project_creation_disabled === true) {
       throw new FrameworkError(
         'Project creation is disabled by workspace policy; onboarding will not run.',
@@ -143,20 +117,9 @@ export class OnboardingOrchestrator {
       );
     }
 
-    // PQD-424 (AC: corrupted registry) — if a manifest already exists but is not
-    // parseable, block adoption cleanly rather than silently clobbering it. A
-    // `null` result means this is a first-time onboarding (used below to decide
-    // whether to emit the one-shot `project.onboarded` audit event).
     const firstOnboarding = readExistingOnboardingManifest(options.projectRoot) === null;
 
-    // ---------- Phase 1: deterministic file writes (no RAG prompt) ----------
-    // PQD-95 — reconcile the `.paqad/` schema layout before any artifact write:
-    // stamp legacy projects, migrate older ones forward, and hard-stop (throw
-    // SchemaVersionError) when the layout is newer than this engine understands.
     await checkAndMigrateSchema(options.projectRoot, VERSION);
-    // Issue #581 — then any evidence migration still pending, exactly as `update` does: a
-    // project stamped with no marker never ran the schema migrator, and a change another
-    // session held last time is finished once it closes. Never fails onboarding.
     runPendingEvidenceMigration(options.projectRoot);
 
     const detector = new Detector();
@@ -169,12 +132,6 @@ export class OnboardingOrchestrator {
     const resolver = new Resolver({ runtimeRoot });
     const resolved = await resolver.resolve(selections);
     const adapters = options.adapters ?? selections.providers ?? ['claude-code'];
-    // Config-preservation: a re-onboard is a refresh, not a reset. Read the
-    // existing profile and carry every user-set section forward (enterprise,
-    // intelligence/RAG, paqad.enabled, escalation, model_routing, …) so onboarding
-    // only refreshes detection-derived fields (active_capabilities, stack_profile)
-    // and adds newly-introduced sections. Explicit caller overrides still win.
-    // See docs/instructions/rules/coding/config-visibility.md.
     const existingProfile = readProjectProfile(options.projectRoot);
     const profile = buildProjectProfile(
       selections,
@@ -182,9 +139,6 @@ export class OnboardingOrchestrator {
       mergeProfileOverrides(existingProfile, options.profileOverrides),
       options.projectRoot,
     );
-    // Phase 1 keeps whatever RAG state the existing profile had (normalized);
-    // Phase 2 may update it after the opt-in prompt. On a first onboard the
-    // existing profile is absent, so this is the default (rag_enabled: false).
     profile.intelligence = applyRagSelection(profile.intelligence, undefined);
     const validator = new SchemaValidator();
     const validation = validator.validate('project-profile', profile);
@@ -195,19 +149,8 @@ export class OnboardingOrchestrator {
     }
 
     const generatedFiles: GeneratedFile[] = [];
-    // PQD-424 (AC2) — the external-agent entry files (each adapter's prose config:
-    // CLAUDE.md, AGENTS.md, GEMINI.md, .junie/AGENTS.md, …) are opt-in: written on
-    // a fresh run but never silently overwritten on a re-run unless the caller
-    // passes `forceOverwrite`. Tracked by path here and demoted to skip-if-present
-    // below — without touching the adapter's `autoUpdate` flag, so the manifest
-    // policy and `paqad-ai update`'s entry-file refresh stay exactly as before.
     const entryFilePaths = new Set<string>();
-    // Issue #242 — the lean entry-stub body each provider renders, kept so a
-    // pre-existing (Boost-authored) entry file can be wired with the bootstrap
-    // contract as a managed block after the main write batch.
     const entryStubs: EntryStub[] = [];
-    // Issue #622 — no adapter writes MCP config at its host path any more; one
-    // recommendations file in paqad's own dir is written when any host speaks MCP.
     let recommendMcp = false;
 
     for (const adapterType of adapters) {
@@ -253,8 +196,6 @@ export class OnboardingOrchestrator {
       })),
     );
 
-    // AC3 (resume) — skip any file a prior interrupted run already wrote, so this
-    // call produces only the unwritten remainder. Empty/absent checkpoint ⇒ full run.
     const completed = new Set(readOnboardingCheckpoint(options.projectRoot) ?? []);
     const filesToWrite = generatedFiles
       .map((file) =>
@@ -271,32 +212,16 @@ export class OnboardingOrchestrator {
         `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): ${unmapped.join(', ')}. Add them there if the project has them.`,
       );
     }
-    // The no-migration safety net result (non-default framework values a legacy
-    // fat profile carried that the strip reverted). Assigned in the write batch
-    // below (the catch always rethrows, so it is definitely set by the return),
-    // surfaced as a dedicated, prominently-printed field.
     let revertedFrameworkValues: string[];
     let writeResult: ReturnType<typeof writeGeneratedFiles>;
     let drift: Awaited<ReturnType<typeof writeStackArtifacts>>;
-    // AC (disk-full) — translate a raw ENOSPC from any core write into a clean,
-    // user-facing FrameworkError instead of leaking a Node errno object.
     try {
       writeResult = writeGeneratedFiles(options.projectRoot, filesToWrite, {
         forceOverwrite: options.forceOverwrite,
       });
-      // Issue #242 — a pre-existing provider entry file (a Boost-authored
-      // CLAUDE.md/AGENTS.md, say) was demoted to skip-if-present above and left
-      // unwired by the write batch. Append paqad's lean stub as a marker-fenced
-      // managed block so the documented entry-file contract is established, with
-      // the prior content preserved. Skipped under `forceOverwrite` (that path
-      // fully regenerates the bare stub) and when paqad is disabled (#220/#229).
-      // A bare stub a fresh onboard just wrote is detected as already-wired, so
-      // this is a no-op there.
       if (!options.forceOverwrite && isFrameworkEnabled(profile)) {
         writeResult.written.push(...wireEntryStubs(options.projectRoot, entryStubs).wired);
       }
-      // Persist progress the moment the main batch is durable, so an interrupt
-      // after this point resumes with only the remainder.
       writeOnboardingCheckpoint(options.projectRoot, [...completed, ...writeResult.written]);
       drift = await writeStackArtifacts(
         options.projectRoot,
@@ -304,30 +229,14 @@ export class OnboardingOrchestrator {
         previousSnapshot,
         { writeHumanDocs: false },
       );
-      // The no-migration safety net: capture framework knobs a legacy fat
-      // profile still carries that differ from defaults BEFORE the strip reverts
-      // them, so a silent revert becomes a one-time visible notice (returned as a
-      // dedicated field and printed prominently by the CLI).
       revertedFrameworkValues = detectFlippedFrameworkValues(options.projectRoot);
       writeProjectProfile(options.projectRoot, profile);
-      // Framework knobs live in the `.config` layer, not the (lean) profile.
-      // Write the tracked, self-documenting team config files (one per group,
-      // every knob commented out at its default) plus the `configs/README`, then
-      // persist only explicitly passed overrides (desktop/tests) into the
-      // git-ignored `.config`. A plain CLI onboard passes none, and the group
-      // files are all-commented, so every knob resolves to its code default.
       syncGroupConfigs(options.projectRoot);
       writeConfigsReadme(options.projectRoot);
-      // Also write the single `.config.example` catalog — a copy-paste reference
-      // listing every knob (never read at runtime). Always refreshed.
       writeConfigExample(options.projectRoot);
       if (options.profileOverrides) {
         writeFrameworkOverridesToConfig(options.projectRoot, options.profileOverrides);
       }
-      // Reconcile the team/local override files against the current knob
-      // registry: prune ONLY keys this version no longer knows, preserving every
-      // value the team set (never reset-to-default). Surface what changed and any
-      // multi-file key collision.
       for (const file of reconcileConfigOverrides(options.projectRoot)) {
         onboardingWarnings.push(
           `Pruned obsolete config key(s) from ${file.path}: ${file.removed.join(', ')}.`,
@@ -339,59 +248,28 @@ export class OnboardingOrchestrator {
         );
       }
       writeGitignore(options.projectRoot);
-      // Issue #615 (Part 1) — ensure `.paqad/.config` follows into new git worktrees so a
-      // worktree session keeps the dev-local config. Idempotent; preserves the user's own lines.
       writeWorktreeInclude(options.projectRoot);
-      // Issue #339 — install the native git-linkage hooks (post-commit/post-merge) so a
-      // feature's delivery.json gets its commit trail on every clone. Chains an existing
-      // hook, is idempotent, and no-ops on a non-git dir — safe to run every onboarding.
       installGitHooks(options.projectRoot);
       writeDetectionReport(options.projectRoot, detection);
       writeFrameworkMetadata(options.projectRoot, VERSION);
     } catch (error) {
       throw translateDiskFullError(error);
     }
-    // Issue #622 — remove the MCP files older versions wrote at other tools' paths. Only
-    // paqad-written ones go; a file with a configured server is kept and logged. Never throws.
     cleanupLegacyMcpFiles(options.projectRoot);
     bootstrapFramework(options.projectRoot);
-    // Issue #576 (Finding 7) — build the git-ignored code-knowledge index so the reuse gate,
-    // evidence-armed reuse forks and the spec code check are live from the first session, and a
-    // teammate who ran `join` (which builds it too) and the lead get the SAME verdicts. Only the
-    // index itself is written here (not the tracked `docs/instructions/registries/` side artifacts
-    // `index build` also refreshes), so onboarding's tracked output stays stable. Best-effort.
     try {
       const codeIndex = await buildCodeKnowledgeIndex(options.projectRoot);
       if (validateCodeKnowledgeIndex(codeIndex).valid) {
         writeCodeKnowledgeIndex(options.projectRoot, codeIndex);
       }
-    } catch {
-      // best-effort — a build hiccup must not fail onboarding.
-    }
+    } catch {}
     new DecisionStore(options.projectRoot).initialize();
-    // Issue #387 — heal any legacy sequential `D-{N}.json` decision packets a stale
-    // project (or an advisory-host hand-authored packet) left behind, renaming each to a
-    // minted `D-<ULID>.json`. Best-effort and idempotent; already-ULID packets are
-    // untouched, so this is a no-op on a healthy project.
     for (const migration of migrateLegacyDecisionIds(options.projectRoot)) {
       onboardingWarnings.push(
         `Migrated legacy decision id ${migration.from} → ${migration.to} in ${migration.dir}.`,
       );
     }
-    // Issue #229 — the narration + decision-pause contracts are no longer copied
-    // into the project's `.paqad/`. They are framework-owned content carried by
-    // the install bootstrap (`AGENT-BOOTSTRAP.md`), loaded from there behind the
-    // enablement check. Any stale project-level copies from a pre-#229 onboard are
-    // pruned below (see `removeObsoleteContractDocs`).
     removeObsoleteContractDocs(options.projectRoot);
-    // Issue #319 — arm the rules-as-scripts gate FIRST. Generate `rule-script-map.yml`
-    // from the freshly written rule tree so the enforcement seam has a map to run
-    // (without it, enforcement fast-skips and the deterministic gate is disarmed).
-    // This runs BEFORE the planning-rule compile below because it embeds stable
-    // `@rule` ids into the rule markdown; doing it first means compiled-rules.json is
-    // built from the already-embedded files, so a re-onboard sees an unchanged source
-    // hash and both compiles skip — onboarding stays byte-idempotent. Non-fatal and
-    // staleness-guarded: a failure only leaves the gate disarmed this run.
     try {
       if (isRuleScriptMapStale(options.projectRoot)) {
         compileRuleScripts(options.projectRoot);
@@ -412,11 +290,6 @@ export class OnboardingOrchestrator {
         `Planning rule compilation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
-    // RAG buildout F4/F5 — (re)generate the rule slice of the session-context
-    // artifact (always-resident manifest + full text of any rules that apply to
-    // the files in play) so it tracks the rules we just (re)compiled. Generation
-    // is cheap and machine-local; the seam decides whether to inject it
-    // (rag_enabled). Non-fatal: a failure only means it is not refreshed this run.
     try {
       await writeRuleContext(options.projectRoot);
     } catch (error) {
@@ -424,11 +297,6 @@ export class OnboardingOrchestrator {
         `Rule context generation failed during onboarding: ${error instanceof Error ? error.message : 'unknown error'}.`,
       );
     }
-    // Module-health profiles are no longer eagerly seeded at onboard: an all-null
-    // profile per module reads identically to having none (both "unknown") and
-    // only adds one file per module to the tree. They are created on demand the
-    // first time real evidence maps to a module (syncModuleHealth →
-    // applyEvidenceToProfile creates an unknown profile when none exists).
     const manifestPath = writeOnboardingManifest(options.projectRoot, {
       adapter: adapters[0],
       project_root: toPosixPath(options.projectRoot),
@@ -447,13 +315,8 @@ export class OnboardingOrchestrator {
       },
     });
 
-    // Phase 1 is fully durable on disk — clear the resume checkpoint so a later
-    // re-run starts clean. AC3 only needs the checkpoint while phase 1 is in flight.
     deleteOnboardingCheckpoint(options.projectRoot);
 
-    // AC (audit) — record `project.onboarded` once, on the first onboarding of
-    // this project (manifest absent at entry). Re-runs are refreshes, not new
-    // onboardings, so they do not append — which also keeps re-runs idempotent.
     if (firstOnboarding) {
       appendPlanningAudit(options.projectRoot, 'INFO', 'project.onboarded', {
         project_id: profile.project.id,
@@ -473,17 +336,12 @@ export class OnboardingOrchestrator {
       reverted_framework_values: revertedFrameworkValues,
     };
 
-    // Phase 1 is complete and durable on disk. Signal success before the optional RAG phase
-    // so the CLI banner prints even if the RAG prompt or build hangs.
     options.onPhase1Complete?.(phase1Output);
 
-    // ---------- Phase 2: optional RAG opt-in (may prompt; cannot drop phase 1 state) ----------
     const ragSelection = await resolveRagSelection(selections.domain, options.selections?.rag);
     if (ragSelection) {
       profile.intelligence = applyRagSelection(profile.intelligence, ragSelection);
       writeProjectProfile(options.projectRoot, profile);
-      // The lead's RAG choice is team truth: persist it to the tracked RAG group,
-      // while the normal resolver still lets a developer override it locally.
       persistRagConfig(options.projectRoot, profile.intelligence);
     }
 
@@ -510,20 +368,6 @@ export class OnboardingOrchestrator {
     };
   }
 
-  /**
-   * Read-only preview of onboarding (PQD-103). Runs the same deterministic file-planning
-   * pipeline as Phase 1 of {@link run} — detector, introspector, resolver, adapter loop, rule
-   * generator, reference guides, hook script read — collecting `GeneratedFile[]` in memory, then
-   * classifies each target with {@link planGeneratedFiles} instead of writing it.
-   *
-   * Nothing is written to disk: no `writeFileSync`, no `bootstrapFramework`, no
-   * `DecisionStore.initialize`, and crucially no `checkAndMigrateSchema` (which would migrate
-   * the `.paqad/` layout). The caller (the desktop UI) uses the returned tree to render a
-   * "this is what will be created / overwritten / skipped" confirmation panel before committing.
-   *
-   * @throws {ValidationError} if `projectRoot` is missing, unreadable, or not a directory. No
-   *   partial {@link OnboardingPreviewResult} is returned in that case.
-   */
   async preview(options: OnboardingOptions): Promise<OnboardingPreviewResult> {
     this.assertReadableDirectory(options.projectRoot);
 
@@ -533,11 +377,6 @@ export class OnboardingOrchestrator {
     return { entries, warnings };
   }
 
-  /**
-   * Validate that a path exists, is readable, and is a directory. Throws a stable
-   * {@link ValidationError} (code `VALIDATION_ERROR`) otherwise — the consumer distinguishes
-   * this from a generic failure to show the right copy.
-   */
   private assertReadableDirectory(projectRoot: string): void {
     let isDirectory: boolean;
     try {
@@ -558,17 +397,11 @@ export class OnboardingOrchestrator {
     }
   }
 
-  /**
-   * Build the in-memory `GeneratedFile[]` list exactly as Phase 1 of {@link run} does, with no
-   * side effects. Kept separate from `run` so `run`'s write path stays untouched (PQD-103
-   * additive-only safeguard). Returns any non-fatal warnings collected while planning.
-   */
   private async collectGeneratedFiles(
     options: OnboardingOptions,
   ): Promise<{ files: GeneratedFile[]; warnings: string[] }> {
     const warnings: string[] = [];
 
-    // Read-only preview: detect + snapshot without persisting anything to `.paqad/`.
     const detector = new Detector();
     const detection = await detector.detect(options.projectRoot, { persist: false });
     const introspector = new StackIntrospector();
@@ -637,11 +470,6 @@ export class OnboardingOrchestrator {
   }
 }
 
-/**
- * Translate a raw `ENOSPC` (disk full) Node error from a core onboarding write into a
- * clean, retryable {@link FrameworkError} (PQD-424). Any other error is returned unchanged
- * so the narrow disk-full catch never masks unrelated failures.
- */
 function translateDiskFullError(error: unknown): unknown {
   if ((error as NodeJS.ErrnoException | null)?.code === 'ENOSPC') {
     return new FrameworkError('Not enough disk space — free up space and retry.', {
@@ -653,15 +481,6 @@ function translateDiskFullError(error: unknown): unknown {
   return error;
 }
 
-/**
- * Section-level merge of the existing on-disk profile with caller-supplied
- * overrides, used as the base for {@link buildProjectProfile} on a re-onboard.
- * Existing user-set sections are preserved; an explicit `profileOverrides`
- * (programmatic callers, tests) wins over the existing value. Detection-derived
- * sections (`active_capabilities`, `stack_profile`) are always re-derived inside
- * `buildProjectProfile`, so carrying them here is harmless. Returns `undefined`
- * when neither source exists (a first onboard with no overrides).
- */
 function mergeProfileOverrides(
   existing: ProjectProfile | null,
   explicit: Partial<ProjectProfile> | undefined,
@@ -672,8 +491,6 @@ function mergeProfileOverrides(
   return { ...(existing ?? {}), ...(explicit ?? {}) };
 }
 
-/** Persist the lead's RAG selection into tracked team config. The profile YAML
- *  stays lean and a developer can still override this locally in `.paqad/.config`. */
 function persistRagConfig(projectRoot: string, intelligence: ProjectProfile['intelligence']): void {
   setGroupConfigValue(projectRoot, 'rag', 'rag_enabled', String(intelligence.rag_enabled));
   if (intelligence.embedding_provider) {
@@ -701,8 +518,6 @@ function buildProjectProfile(
 ): ProjectProfile {
   const stackProfile = selections.stack_profile ?? snapshot.profile;
   const defaultCommands = buildDefaultCommands(stackProfile, projectRoot);
-  // Issue #554 — record how the test suite parallelizes (commands.test_parallel + the testing
-  // block) from the selected runner and the project lockfile. Only for coding stacks.
   const derivedTesting =
     selections.domain === 'coding'
       ? deriveTestingForProfile({
@@ -747,21 +562,12 @@ function buildProjectProfile(
       checks_parallel: true,
       checks_max_processes: 0,
     },
-    // Issue #187 — emit the enterprise block at onboarding so the opt-in
-    // evidence-ledger / AI-BOM / compliance-citation switches are visible and
-    // toggleable in the generated profile. Defaults are all-off, which matches
-    // the absent-block resolution in resolveEnterprisePolicy: a normal user pays
-    // zero tokens and nothing is written under .paqad/ledger/.
     enterprise: overrides?.enterprise ?? {
       enabled: false,
       evidence_ledger: false,
       ai_bom: false,
       compliance_citations: false,
     },
-    // Issue #220 / config-visibility — always materialize the global enable
-    // switch so it is visible and toggleable in the generated profile, defaulting
-    // ON. Absence already resolves to ON, but we write it explicitly so a team
-    // never has to discover a hidden default. Preserved verbatim on re-onboard.
     paqad: overrides?.paqad ?? { enabled: true },
     mcp: overrides?.mcp ?? { servers: [] },
     model_routing: overrides?.model_routing ?? {
@@ -771,10 +577,6 @@ function buildProjectProfile(
     },
     research: overrides?.research ?? { depth: 'standard' },
     intelligence: overrides?.intelligence ?? defaultIntelligenceConfig(),
-    // Source from the canonical default so the in-memory profile (recorded in the
-    // onboarding manifest) matches what a re-onboard's `.config` overlay feeds
-    // back — otherwise the manifest's efficiency block drifts and onboarding is
-    // no longer idempotent. The block is stripped from the YAML on write anyway.
     efficiency: overrides?.efficiency ?? DEFAULT_FRAMEWORK_CONFIG.efficiency,
     escalation: overrides?.escalation ?? {
       destructive_operations: 'block',
@@ -1020,7 +822,6 @@ function selectPreferredStructuredRunner(
   testCommand: string,
   projectRoot?: string,
 ) {
-  // Issue #554 — one runner-selection implementation, shared with the check runner.
   return selectTestRunner(stackProfile, testCommand, projectRoot);
 }
 
@@ -1052,9 +853,6 @@ function resolveStructuredOutputDirectory(outputPathPattern: string): string | n
 }
 
 function appendRunnerFlags(baseCommand: string, structuredFlags: string): string {
-  // Issue #672 — pnpm hands a literal `--` on to the script (`pnpm test -- --reporter=tap` runs
-  // `vitest run -- --reporter=tap`), and the runner then ignores every flag and pattern after it,
-  // so the structured reporter never runs. pnpm forwards flags without it; npm still needs it.
   const pnpmSeparator = /(\bpnpm\s+test)\s+--(?=\s|$)/u;
   if (pnpmSeparator.test(baseCommand)) {
     return `${baseCommand.replace(pnpmSeparator, '$1')} ${structuredFlags}`;
@@ -1079,8 +877,6 @@ function deriveActiveCapabilities(
 }
 
 function resolveLaravelTestTool(traits: string[]): { command: string; single: string } {
-  // Issue #554 — always the Artisan wrapper (never the bare pest/phpunit binary), because
-  // Artisan's --parallel creates the per-process test databases for both Pest and PHPUnit.
   if (traits.includes('sail')) {
     return {
       command: 'vendor/bin/sail test',
