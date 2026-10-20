@@ -869,27 +869,29 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
   });
 
-  test('a typed reason is passed to the override as one argument', async ($, on) => {
+  test('AC-25: a typed reason is passed to the override as one argument', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'needed for the hotfix');
     expect((await check($)).decision).toBe('allow');
     expect(world.runs[0]!.argv).toEqual([...OVERRIDE_ARGV, '--reason=needed for the hotfix']);
   });
 
-  test('a dismissed reason still records the override without one', async ($, on) => {
+  test('AC-25: a dismissed reason still records the override without one and allows the call', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded');
     expect((await check($)).decision).toBe('allow');
     expect(world.runs[0]!.argv).toEqual(OVERRIDE_ARGV);
   });
 
-  test('Let Claude fix it, or a dismissed card, keeps the deny and runs nothing', async ($, on) => {
+  test('AC-22: Let Claude fix it, a dismissed card or no answer keeps the deny, runs nothing and keeps the stop', async ($, on) => {
     const world = await stopped($, on);
-    world.answers.push('Let Claude fix it');
+    world.answers.push('Let Claude fix it', null);
     expect(await check($)).toEqual(DENY);
     expect(await check($)).toEqual(DENY);
-    expect(world.asked).toHaveLength(2);
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked).toHaveLength(3);
     expect(world.runs).toEqual([]);
+    expect(world.files.get(LAST_BLOCK)).toBe(JSON.stringify(STOP));
   });
 
   test('Show the rule asks again with the rule text', async ($, on) => {
@@ -901,7 +903,7 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs).toEqual([]);
   });
 
-  test('a managed stop offers nothing and names the organization', async ($, on) => {
+  test('AC-20, AC-21: a managed stop offers nothing and names the organization', async ($, on) => {
     const world = await stopped($, on, { ...STOP, managed: true });
     expect(await check($)).toEqual(DENY);
     expect(world.asked).toEqual([]);
@@ -909,7 +911,7 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.toasts).toEqual(["This rule is enforced by your organization's settings."]);
   });
 
-  test('a stop for another tool call, a used token or another session asks nothing', async ($, on) => {
+  test('AC-21: a stop for an older tool call, a used token or another session asks nothing', async ($, on) => {
     const world = await stopped($, on);
     expect(await check($, 'tu_2')).toEqual(DENY);
     world.put(LAST_BLOCK, JSON.stringify({ ...STOP, used: true }));
@@ -953,7 +955,7 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs).toEqual([]);
   });
 
-  test('a failed or unstartable override keeps the deny', async ($, on) => {
+  test('AC-18, AC-21: a failed or unstartable override keeps the deny', async ($, on) => {
     const world = await stopped($, on);
     world.run = { exitCode: 1, stdout: '', stderr: 'refused' };
     world.answers.push('Allow once, recorded', 'No reason');
@@ -965,7 +967,7 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.toasts).toHaveLength(2);
   });
 
-  test('the next identical call is denied again', async ($, on) => {
+  test('AC-21: Allow once allows one call and the next identical call is denied again', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
     expect((await check($)).decision).toBe('allow');
@@ -973,7 +975,30 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs).toHaveLength(1);
   });
 
-  test('a failure beneath the guard keeps the edit denied', async ($, on) => {
+  test('AC-23: a second edit to the same file under the same rule asks again and records a second override', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect((await check($)).decision).toBe('allow');
+    world.put(LAST_BLOCK, JSON.stringify({ ...STOP, tool_use_id: 'tu_2', token: 'tok2' }));
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect((await check($, 'tu_2')).decision).toBe('allow');
+    expect(world.asked.filter((ask) => ask.options.includes('Allow once, recorded'))).toHaveLength(
+      2,
+    );
+    expect(world.runs.map((run) => run.argv)).toEqual([
+      OVERRIDE_ARGV,
+      OVERRIDE_ARGV.map((arg) => (arg === 'tok' ? 'tok2' : arg === 'tu_1' ? 'tu_2' : arg)),
+    ]);
+  });
+
+  test('AC-21: a question that throws keeps the deny and runs nothing', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('throw');
+    expect(await check($)).toEqual(DENY);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('AC-21: a failure beneath the guard keeps the edit denied', async ($, on) => {
     const world = await stopped($, on);
     world.verdict = 'throw';
     expect((await check($)).decision).toBe('deny');

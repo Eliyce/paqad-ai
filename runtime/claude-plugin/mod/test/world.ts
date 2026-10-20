@@ -115,6 +115,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     world.asked.push({ question: asked.question, options: asked.options.map((o) => o.label) });
     const answer = world.answers.shift();
     if (answer === undefined || answer === null) return { deny: 'dismissed' } as never;
+    if (answer === 'throw') throw new Error('question failed');
     return { result: { questions: [asked], answers: { [asked.question]: answer } } } as never;
   });
   on('tool.check', () => {

@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
-import { appendRuleOverride } from '@/feature-evidence/rule-overrides.js';
+import { appendRuleOverride, readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
+import { writeRuleStopRecord } from '@/hud/last-block.js';
+import { applyRuleOverride } from '@/rule-scripts/override.js';
 import { readFeatureTechDebtIndex } from '@/feature-evidence/tech-debt-index.js';
 import { addDebtItem } from '@/tech-debt/index.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
@@ -79,6 +81,45 @@ describe('runRepositoryVerification — tech-debt.json index and receipt line', 
     const verdict = await run(root);
     expect(typeof verdict.ok).toBe('boolean');
     expect(existsSync(join(root, featureFilePath(dir, 'techDebt')))).toBe(false);
+  });
+
+  it('AC-18: an applied Allow once shows rule, file, who and time in rule-overrides.jsonl and on the receipt', async () => {
+    const { root, dir } = makeProject();
+    const at = () => new Date('2026-01-01T00:00:00.000Z');
+    const { token } = writeRuleStopRecord({
+      projectRoot: root,
+      sessionId: SES,
+      rule: 'RL-1',
+      title: 'No comments',
+      file: 'src/a.ts',
+      toolUseId: 'tu_1',
+      managed: false,
+      sole: true,
+      now: at,
+    });
+    const applied = applyRuleOverride({
+      projectRoot: root,
+      sessionHint: SES,
+      rule: 'RL-1',
+      file: 'src/a.ts',
+      token,
+      toolUseId: 'tu_1',
+      managedSettingsPaths: [join(root, 'no-managed.json')],
+      now: at,
+    });
+    expect(applied.ok).toBe(true);
+    expect(readRuleOverrides(root, dir)).toEqual([
+      expect.objectContaining({
+        rule: 'RL-1',
+        file: 'src/a.ts',
+        by: 'human',
+        at: '2026-01-01T00:00:00.000Z',
+      }),
+    ]);
+    const verdict = await run(root);
+    expect(verdict.receipt).toContain(
+      '🟡 rule override: RL-1 on src/a.ts by human at 2026-01-01T00:00:00.000Z',
+    );
   });
 
   it('names each rule override on the receipt', async () => {

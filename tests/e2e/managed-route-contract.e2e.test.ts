@@ -8,10 +8,14 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 
 import { execa } from 'execa';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+
+import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
+import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
+import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
 import { ensureBuiltDist } from './helpers/ensure-built';
 
@@ -59,6 +63,66 @@ function freshSentinel(root: string, session: string): void {
   writeFileSync(path, '{"loaded_at":"now"}');
   const future = new Date(Date.now() + 60_000);
   utimesSync(path, future, future);
+}
+
+const DEBUGGER_SCRIPT = `// @paqad-rule-script
+// rule_id: __RID__
+// source: docs/instructions/rules/coding/q.md
+// kind: deterministic
+// scope: changed-files
+// runtime: node
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+const { projectRoot, files } = JSON.parse(readFileSync(0, 'utf8'));
+const findings = [];
+for (const f of files) {
+  const t = readFileSync(join(projectRoot, f), 'utf8');
+  if (/\\bdebugger\\b/.test(t)) findings.push({ file: f, line: 1, message: 'debugger statement', severity: 'blocker' });
+}
+process.stdout.write(JSON.stringify({ rule_id: '__RID__', kind: 'deterministic', findings }));
+`;
+
+function writeFile(path: string, body: string): void {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, body, 'utf8');
+}
+
+function armDebuggerRule(root: string): void {
+  writeFile(join(root, 'docs/instructions/rules/coding/q.md'), '- No debugger statements.\n');
+  const scan = scanAndEmbedIds(root);
+  const ruleId = scan.inventory[0]!.id;
+  const scriptRel = '.paqad/scripts/rules/coding/q/001-no-debugger.mjs';
+  writeFile(join(root, scriptRel), DEBUGGER_SCRIPT.replaceAll('__RID__', ruleId));
+  const map = upsertScriptEntry(
+    assembleMap(
+      scan.inventory,
+      new Map([
+        [ruleId, { id: ruleId, verifiability: { kind: 'deterministic' }, enforced_by: [] }],
+      ]),
+      scan.rule_files_hash,
+      null,
+    ),
+    ruleId,
+    {
+      path: scriptRel,
+      kind: 'deterministic',
+      runtime: 'node',
+      scope: 'changed-files',
+      last_validated_at: '2026-05-29T00:00:00Z',
+      fixtures_passed: true,
+    },
+  );
+  applyRuleScriptMap({
+    projectRoot: root,
+    map,
+    via: 'test',
+    event: { action: 'generate', rule_ids: [ruleId] },
+  });
+  writeFile(
+    join(root, '.paqad/configs/.config.policy'),
+    'rule_compliance=strict\nstages_mode=off\n',
+  );
+  writeFile(join(root, 'src/app.ts'), 'function f() {\n  debugger;\n}\n');
 }
 
 type RouteName = 'npm' | 'managed';
@@ -435,7 +499,22 @@ describe('managed route: the local off switch does not turn off an organization 
     expect(managedPause.exitCode).toBe(2);
   });
 
-  it('keeps blocking under PAQAD_DISABLED and paqad_enable=false', async () => {
+  it('AC-12: a rule-script deny still blocks on the managed route and stands down on the npm route', async () => {
+    const root = freshRepo();
+    armDebuggerRule(root);
+    freshSentinel(root, 'ses16');
+    writeFileSync(join(root, '.paqad/.config'), 'paqad_enable=false\n');
+    const env = { PAQAD_DISABLED: '1' };
+    const payload = editPayload(root, 'ses16', 'src/app.ts');
+    const managed = await runGate('managed', CAPABILITY, payload, root, ['pre-mutation'], env);
+    expect(managed.exitCode).toBe(2);
+    expect(managed.stderr).toContain('debugger statement');
+    expect(managed.stderr.trimEnd().endsWith(ORG_LINE)).toBe(true);
+    const npm = await runGate('npm', CAPABILITY, payload, root, ['pre-mutation'], env);
+    expect(npm).toEqual({ exitCode: 0, stdout: '', stderr: '' });
+  });
+
+  it('AC-12: keeps blocking under PAQAD_DISABLED and paqad_enable=false', async () => {
     const root = freshRepo();
     freshSentinel(root, 'ses13');
     writeFileSync(join(root, '.paqad/.config'), 'paqad_enable=false\n');

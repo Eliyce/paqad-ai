@@ -49,7 +49,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
   });
 
   it.each(sources.map((s) => [s.name, s.text]))(
-    '%s calls no model, no network and no process outside the paqad-ai helper',
+    'AC-21: %s calls no model, no network and no process outside the paqad-ai helper',
     (name, text) => {
       expect(text).not.toMatch(/\$\.model\b/);
       expect(text).not.toMatch(/\$\.http\b/);
@@ -61,7 +61,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
     },
   );
 
-  it('runs processes only through the one paqad-ai helper, by argument vector', () => {
+  it('AC-21: runs processes only through the one paqad-ai helper, by argument vector', () => {
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
     expect(helper.match(/\$\.process\./g)).toEqual(['$.process.']);
     expect(helper).toContain('$.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS })');

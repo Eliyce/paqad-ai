@@ -88,7 +88,7 @@ describe('runtime/hooks/capability-gate.mjs on the managed route', () => {
     expect(stderr).toBe(`${RULE_DENY.summary}\n`);
   });
 
-  it('still blocks a rule-script deny when PAQAD_DISABLED and paqad_enable=false are set', async () => {
+  it('AC-12: still blocks a rule-script deny when PAQAD_DISABLED and paqad_enable=false are set', async () => {
     disableEverywhere();
     setEnv('PAQAD_MANAGED', '1');
     const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
