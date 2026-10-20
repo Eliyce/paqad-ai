@@ -30,7 +30,6 @@ function write(path: string, body: string): void {
   writeFileSync(path, body, 'utf8');
 }
 
-// Build a project whose map is in sync with the rule files.
 function syncedProject(): { root: string; ids: string[]; file: string } {
   const root = createRoot();
   const file = 'docs/instructions/rules/coding/q.md';
@@ -89,7 +88,6 @@ describe('reconciler', () => {
   it('detects a removed marker as RS-RULE-REMOVED', () => {
     const { root, file } = syncedProject();
     const lines = readFileSync(join(root, file), 'utf8').split('\n');
-    // Drop the first marked rule line entirely.
     const remaining = lines.filter((l) => !l.includes('No debugger.'));
     writeFileSync(join(root, file), remaining.join('\n'), 'utf8');
     const report = reconcileRuleScripts(root);
@@ -113,7 +111,6 @@ describe('editor', () => {
     expect(located?.source).toBe(file);
     const content = readFileSync(join(root, file), 'utf8');
     expect(content).toContain('Completely rewritten rule.');
-    // The id marker is preserved on the rewritten line.
     const line = content.split('\n').find((l) => l.includes('Completely rewritten rule.'));
     expect(parseRuleMarker(line ?? '')).toBe(target);
   });
@@ -148,14 +145,12 @@ describe('editor', () => {
     removeRuleBullet(root, ids[0]);
     const report = reconcileRuleScripts(root);
     expect(report.counts['RS-RULE-REMOVED']).toBe(1);
-    // The map still has both rules until rule-editor archives the entry.
     expect(loadRuleScriptMap(root)?.rules).toHaveLength(2);
   });
 
   it('edit kept in sync (markdown + map) produces no false drift (B-1)', () => {
     const { root, ids } = syncedProject();
     const target = ids[0];
-    // Simulate the rule-editor `edit` wrapper: markdown edit + atomic map update.
     editRuleText(root, target, 'A rewritten rule.');
     const map = loadRuleScriptMap(root)!;
     const clean = 'A rewritten rule.';
@@ -182,7 +177,6 @@ describe('recordConflictFindings (B-2)', () => {
     expect(report.blocked).toBe(true);
     expect(readDrift(root)?.findings.some((f) => f.code === 'RS-CONFLICT')).toBe(true);
 
-    // Re-running with no conflicts clears the prior RS-CONFLICT entries.
     const cleared = recordConflictFindings(root, []);
     expect(cleared.counts['RS-CONFLICT']).toBe(0);
   });
@@ -191,12 +185,10 @@ describe('recordConflictFindings (B-2)', () => {
     const { root, file } = syncedProject();
     recordConflictFindings(root, [{ rule_ids: ['RL-aaaa', 'RL-bbbb'], message: 'contradiction' }]);
 
-    // An unrelated planning-entry reconcile must NOT clobber the conflict.
     reconcileRuleScripts(root);
     expect(readDrift(root)?.findings.some((f) => f.code === 'RS-CONFLICT')).toBe(true);
     expect(readDrift(root)?.blocked).toBe(true);
 
-    // And a reconcile that finds its own drift keeps the conflict alongside it.
     const current = readFileSync(join(root, file), 'utf8');
     writeFileSync(join(root, file), `${current}- An unmarked rule.\n`, 'utf8');
     const report = reconcileRuleScripts(root);
@@ -218,7 +210,6 @@ describe('pruneOrphanScripts (B-3)', () => {
     write(join(root, orphan), '// orphan\n');
     write(join(root, '.paqad/scripts/rules/coding/q/001-orphan/__fixtures__/pass/x.ts'), 'ok\n');
 
-    // The map references no scripts, so the orphan is unreferenced.
     const map = loadRuleScriptMap(root)!;
     const pruned = pruneOrphanScripts(root, map);
     expect(pruned).toContain(orphan);
@@ -231,14 +222,12 @@ describe('pruneOrphanScripts (B-3)', () => {
     const orphan = '.paqad/scripts/rules/coding/q/001-orphan.mjs';
     write(join(root, orphan), '// orphan\n');
     write(join(root, '.paqad/scripts/rules/coding/q/001-orphan/__fixtures__/pass/x.ts'), 'ok\n');
-    // A sibling file in the stem dir that is not part of __fixtures__.
     write(join(root, '.paqad/scripts/rules/coding/q/001-orphan/notes.md'), 'keep me\n');
 
     pruneOrphanScripts(root, loadRuleScriptMap(root)!);
     expect(existsSync(join(root, '.paqad/scripts/rules/coding/q/001-orphan/__fixtures__'))).toBe(
       false,
     );
-    // The stem dir survives because it still holds the sibling file.
     expect(existsSync(join(root, '.paqad/scripts/rules/coding/q/001-orphan/notes.md'))).toBe(true);
   });
 });

@@ -9,10 +9,6 @@ import { loadRuleScriptMap, ruleScriptMapPath } from '@/rule-scripts/map.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { existsSync } from 'node:fs';
 
-// `compileRuleScripts` generates the rule-script map that arms the deterministic
-// enforcement gate (issue #319). The engine was live but disarmed because nothing
-// produced the map; this pins that the generator makes it exist, lists every rule,
-// is idempotent, and carries prior script bindings.
 describe('compileRuleScripts', () => {
   let root: string;
 
@@ -39,7 +35,6 @@ describe('compileRuleScripts', () => {
     expect(result.ruleCount).toBe(3);
     const map = loadRuleScriptMap(root);
     expect(map?.rules).toHaveLength(3);
-    // Every rule got a stable id embedded into its source markdown.
     const codeQuality = readFileSync(
       join(root, 'docs/instructions/rules/coding/code-quality.md'),
       'utf8',
@@ -52,17 +47,14 @@ describe('compileRuleScripts', () => {
     const firstMap = readFileSync(ruleScriptMapPath(root), 'utf8');
 
     const second = compileRuleScripts(root);
-    // No new ids minted, no rule files rewritten the second time.
     expect(second.changedFiles).toHaveLength(0);
     expect(second.ruleCount).toBe(first.ruleCount);
-    // Map content stable except its generated_at timestamp.
     const stripTs = (yaml: string) => yaml.replace(/generated_at:.*\n/, '');
     expect(stripTs(readFileSync(ruleScriptMapPath(root), 'utf8'))).toBe(stripTs(firstMap));
   });
 
   it('carries over a script bound to an unchanged rule (INV-1)', () => {
     compileRuleScripts(root);
-    // Simulate the analyzer skill binding a script to the first rule.
     const map = loadRuleScriptMap(root)!;
     const target = map.rules[0]!;
     target.scripts = [
@@ -82,7 +74,6 @@ describe('compileRuleScripts', () => {
       event: { action: 'generate', rule_ids: [target.id] },
     });
 
-    // Re-compiling must preserve that binding (text unchanged).
     const result = compileRuleScripts(root);
     expect(result.scriptedCount).toBe(1);
     const after = loadRuleScriptMap(root);

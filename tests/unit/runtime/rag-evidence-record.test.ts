@@ -16,15 +16,10 @@ import {
 import { validateEnvelopeHeader } from '@/feature-evidence/schema.js';
 import { computeSessionRowHash, readUnitFile } from '@/session-ledger/ledger.js';
 
-// The pure-mjs seam recorder must produce rows the TS reader reads and the AJV schema
-// validates — this test pins that cross-format contract so the two never drift. Issue #468
-// Phase C: the rows now land in the two-home `rag.jsonl` (the session's `_chat` home, or a
-// feature bundle when `_session` marks one active), and the ordinal `.open` lives in `_chat`.
 const mjs = await import(
   pathToFileURL(resolve(__dirname, '../../../runtime/scripts/rag-evidence-record.mjs')).href
 );
 
-/** Write the per-session control file marking `dirName` as the active feature. */
 function markActiveFeature(root: string, sessionId: string, dirName: string): void {
   const control = join(root, featureSessionControlPath(sessionId));
   mkdirSync(dirname(control), { recursive: true });
@@ -58,7 +53,6 @@ describe('runtime rag-evidence-record.mjs (seam recorder)', () => {
   it('resolveSeamSessionId persists a host id so the worker aligns', () => {
     expect(mjs.resolveSeamSessionId(root, 'ses_host')).toBe('ses_host');
     expect(readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim()).toBe('ses_host');
-    // No hint → reuse the cached id.
     expect(mjs.resolveSeamSessionId(root, undefined)).toBe('ses_host');
   });
 
@@ -72,8 +66,6 @@ describe('runtime rag-evidence-record.mjs (seam recorder)', () => {
     });
     expect(row.kind).toBe('used');
 
-    // Issue #468 Phase C — no active feature, so the rows land in the session's `_chat`
-    // `rag.jsonl` and the retired `paqad.rag-evidence/` substrate is never created.
     const rows = readUnitFile(root, chatRagPath('ses_seam'));
     expect(rows.map((r) => r.kind)).toEqual(['open', 'used']);
     for (const persisted of rows) {
@@ -96,11 +88,8 @@ describe('runtime rag-evidence-record.mjs (seam recorder)', () => {
       fields: { injected: true, injected_sections: ['retrieval'], bytes_injected: 120 },
     });
 
-    // The row lands in the bundle's `rag.jsonl`, NOT the `_chat` home.
     const bundleRows = readUnitFile(root, featureFilePath(dirName, 'rag'));
     expect(bundleRows.map((r) => r.kind)).toEqual(['open', 'used']);
-    // Issue #581 — the bundle row carries the bundle header, exactly as the TS mirror stamps
-    // it (same key order, same row hash), and no adapter.
     for (const persisted of bundleRows as unknown as Record<string, unknown>[]) {
       expect(Object.keys(persisted).slice(0, 6)).toEqual([
         'schema_version',
@@ -122,7 +111,6 @@ describe('runtime rag-evidence-record.mjs (seam recorder)', () => {
       expect(validateEnvelopeHeader(persisted)).toEqual([]);
     }
     expect(readUnitFile(root, chatRagPath('ses_feat'))).toHaveLength(0);
-    // The re-pointed fold unions the bundle rows (filtered by session_id) with `_chat`.
     const fold = foldRagEvidenceSession(root, 'ses_feat');
     expect(fold.totals.used_count).toBe(1);
   });

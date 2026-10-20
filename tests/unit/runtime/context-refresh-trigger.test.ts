@@ -47,8 +47,6 @@ describe('runtime/hooks/context-refresh-trigger.mjs', () => {
     expect(existsSync(join(projectRoot, MARKER_REL))).toBe(true);
   });
 
-  // Issue #284 — lean rule loading is on by default, so the trigger now fires (to
-  // refresh the rule slice) even with rag off, unless BOTH are turned off.
   it('fires by default (lean on) even when rag is off', () => {
     expect(run(projectRoot)).toBe(0);
     expect(existsSync(join(projectRoot, MARKER_REL))).toBe(true);
@@ -73,22 +71,15 @@ describe('runtime/hooks/context-refresh-trigger.mjs', () => {
     expect(out).toBe('');
   });
 
-  // Issue #582 — the prompt gate passes the session id; the trigger forwards it as --session so
-  // the worker reads that session's route. Issue #616 Part 6 — the trigger now runs THIS copy's
-  // own CLI (`node <pkg>/dist/cli/index.js`), two levels above the hook, not a `paqad-ai` on PATH.
-  // Stage a fake package with a stub dist/cli that records the argv it is spawned with.
   it.skipIf(process.platform === 'win32')(
     'runs its own dist/cli and forwards the session id as --session',
     async () => {
       const pkg = mkdtempSync(join(tmpdir(), 'paqad-trigger-pkg-'));
       const hookDir = join(pkg, 'runtime', 'hooks');
       mkdirSync(hookDir, { recursive: true });
-      // Copy the trigger (its realpath must live under the fake package so dist resolves there),
-      // and symlink its relative deps back to the real runtime tree.
       copyFileSync(TRIGGER, join(hookDir, 'context-refresh-trigger.mjs'));
       symlinkSync(join(RUNTIME_HOOKS, 'lib'), join(hookDir, 'lib'));
       symlinkSync(resolve(RUNTIME_HOOKS, '../scripts'), join(pkg, 'runtime', 'scripts'));
-      // The stub CLI records the argv it received.
       const argsFile = join(pkg, 'args.txt');
       const cli = join(pkg, 'dist', 'cli', 'index.js');
       mkdirSync(dirname(cli), { recursive: true });

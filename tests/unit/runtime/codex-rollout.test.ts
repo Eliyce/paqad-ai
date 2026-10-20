@@ -4,11 +4,6 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// codex-rollout.mjs backs finding 1 of issue #313: the record-only completion hook
-// must read Codex's own rollout jsonl (where the mid-run `paqad:stage` markers live)
-// because the Stop payload has no readable transcript_path and its inline final
-// message is marker-less. These cover the file discovery + selection logic directly
-// (the mjs is outside the src coverage denominator, so correctness is proven here).
 import {
   codexSessionsDir,
   collectRolloutFiles,
@@ -104,7 +99,6 @@ describe('runtime/hooks/lib/codex-rollout.mjs', () => {
       let deep = sessionsDir;
       for (let i = 0; i < 8; i += 1) deep = join(deep, `d${i}`);
       writeRollout(deep, 'rollout-deep.jsonl', 'deep', 1_000_000);
-      // Starting the walk at depth 7 (past the guard) yields nothing.
       expect(collectRolloutFiles(sessionsDir, 7)).toEqual([]);
     });
   });

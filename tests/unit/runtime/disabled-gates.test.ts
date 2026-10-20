@@ -7,16 +7,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { removeTempProject } from './temp-project.js';
 
-// Issue #220 — when paqad is disabled (PAQAD_DISABLED=1 or paqad_enable=false in
-// .paqad/.config), every shell gate must be a pure no-op: exit 0, never block, and
-// the prompt gate must NOT inject its `[paqad]` reminder on stdout (which would
-// contaminate the OFF arm of an A/B comparison).
-
 const ENTRY_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.mjs');
 const PROMPT_GATE = resolve(__dirname, '../../../runtime/hooks/agent-entry-prompt-gate.mjs');
 const DECISION_GATE = resolve(__dirname, '../../../runtime/hooks/decision-pause-gate.mjs');
 
-/** The durable local off-signal: paqad_enable=false in `.paqad/.config`. */
 const DISABLED_CONFIG = 'paqad_enable=false\n';
 
 interface RunResult {
@@ -52,7 +46,6 @@ describe('gates are a no-op when paqad is disabled', () => {
     mkdirSync(join(root, 'docs/instructions'), { recursive: true });
     writeFileSync(join(root, 'CLAUDE.md'), '# entry');
     writeFileSync(join(root, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
-    // No sentinel: the gates WOULD block here if paqad were enabled.
   });
 
   afterEach(() => {
@@ -97,7 +90,6 @@ describe('gates are a no-op when paqad is disabled', () => {
     mkdirSync(join(root, '.paqad/decisions/pending'), { recursive: true });
     writeFileSync(join(root, '.paqad/decisions/pending/D-test.json'), '{}');
 
-    // Control: blocks when enabled.
     expect(run(DECISION_GATE, root).status).toBe(2);
 
     const result = run(DECISION_GATE, root, { PAQAD_DISABLED: '1' });

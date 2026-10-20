@@ -125,13 +125,12 @@ describe('enforceRuleScripts', () => {
     expect(result.armed).toBe(0);
   });
 
-  it('reports armed=0 and ran=false when the map catalogues rules but arms no scripts (#345 G4)', async () => {
+  it('reports armed=0 and ran=false when the map catalogues rules but arms no scripts', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-enforce-unarmed-'));
     roots.push(root);
     write(join(root, 'docs/instructions/rules/coding/q.md'), '- No debugger statements.\n');
     const scan = scanAndEmbedIds(root);
     const ruleId = scan.inventory[0].id;
-    // A map with the rule catalogued but scripts: [] — the state of a freshly compiled repo.
     const map = assembleMap(
       scan.inventory,
       new Map([
@@ -179,10 +178,8 @@ describe('formatEnforcementSummary', () => {
   });
 });
 
-// Issue #580 — a clean tree must not trigger a whole-tree rule scan at the completion seam.
-describe('enforceRuleScripts · empty change set (#580)', () => {
+describe('enforceRuleScripts · empty change set', () => {
   it('skips (ran=false) on an empty diff with the default changed-files scope (AC-6)', async () => {
-    // src/app.ts carries a violation, but nothing changed this turn.
     const { root } = setup('function f() {\n  debugger;\n}\n');
     const result = await enforceRuleScripts({
       projectRoot: root,

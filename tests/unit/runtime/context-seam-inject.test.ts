@@ -39,11 +39,7 @@ function run(
   }
 }
 
-// F3 + issue #284: the RAG accelerator is OFF by default, but lean rule loading is
-// ON by default, so the seam now injects the artifact whenever EITHER is on. Tests
-// that exercise the true OFF baseline (byte-identical to today) must set BOTH off.
 const RAG_ON: NodeJS.ProcessEnv = { PAQAD_RAG_ENABLED: 'true' };
-// The only way to reach today's "emit nothing even with an artifact on disk" path.
 const ALL_OFF: NodeJS.ProcessEnv = { PAQAD_RAG_ENABLED: 'false', PAQAD_LEAN_RULES: 'false' };
 
 const runHook = (projectRoot: string, env: NodeJS.ProcessEnv = {}) =>
@@ -60,8 +56,6 @@ describe('runtime/hooks/context-seam-inject.mjs', () => {
   });
 
   afterEach(() => {
-    // The gate spawns a detached context refresh that can still be writing under .paqad/
-    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
     removeTempProject(projectRoot);
   });
 
@@ -113,14 +107,9 @@ describe('agent-entry-prompt-gate.mjs orders the load directive before context (
   });
 
   afterEach(() => {
-    // The gate spawns a detached context refresh that can still be writing under .paqad/
-    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
     removeTempProject(projectRoot);
   });
 
-  // Always-load fix (Part 0): when the framework is NOT loaded yet, the gate emits
-  // ONLY the load directive — the [paqad-context] dump is withheld so the one
-  // instruction that must be obeyed first can never be buried under it.
   it('suppresses the context block and emits only the load directive when not loaded (sentinel missing, rag on)', () => {
     mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
     writeFileSync(join(projectRoot, ARTIFACT_REL), '- injected slice');
@@ -131,8 +120,6 @@ describe('agent-entry-prompt-gate.mjs orders the load directive before context (
     expect(result.stdout).not.toContain('- injected slice');
   });
 
-  // Once the framework IS loaded (sentinel fresh), the context block is injected
-  // exactly as before, and the load directive is gone.
   it('injects the context block once loaded, with no load directive (sentinel fresh, rag on)', () => {
     mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
     writeFileSync(join(projectRoot, ARTIFACT_REL), '- injected slice');
@@ -156,20 +143,16 @@ describe('agent-entry-prompt-gate.mjs orders the load directive before context (
   });
 });
 
-describe('F3 + #284 — the true OFF arm needs BOTH lean and rag off', () => {
+describe('F3 + lean rules — the true OFF arm needs BOTH lean and rag off', () => {
   let projectRoot: string;
 
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-seam-f3-'));
     mkdirSync(join(projectRoot, '.paqad/context'), { recursive: true });
-    // A real artifact sits on disk for EVERY case below, so each test proves the
-    // gate — not mere absence — is what suppresses injection.
     writeFileSync(join(projectRoot, ARTIFACT_REL), '- would-be slice');
   });
 
   afterEach(() => {
-    // The gate spawns a detached context refresh that can still be writing under .paqad/
-    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
     removeTempProject(projectRoot);
   });
 
@@ -203,7 +186,7 @@ describe('F3 + #284 — the true OFF arm needs BOTH lean and rag off', () => {
   });
 });
 
-describe('issue #284 — lean rule loading injects the artifact by default', () => {
+describe('lean rule loading injects the artifact by default', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -213,8 +196,6 @@ describe('issue #284 — lean rule loading injects the artifact by default', () 
   });
 
   afterEach(() => {
-    // The gate spawns a detached context refresh that can still be writing under .paqad/
-    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
     removeTempProject(projectRoot);
   });
 
@@ -248,10 +229,7 @@ describe('issue #284 — lean rule loading injects the artifact by default', () 
   });
 });
 
-// Issue #582 (AC-12) — the artifact is shared by every session in a checkout and the shared route
-// pointer holds whichever session routed last. The prompt gate now routes THIS prompt first and
-// leaves the rule sections out of the injected block unless this prompt is feature-development.
-describe('prompt gate injects rule sections only for a feature-development prompt (issue #582)', () => {
+describe('prompt gate injects rule sections only for a feature-development prompt', () => {
   const SESSION = 'ac12-session';
   const ARTIFACT = [
     '## paqad rule manifest — 1 rule',
@@ -302,10 +280,8 @@ describe('prompt gate injects rule sections only for a feature-development promp
     writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
     writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
     writeFileSync(join(projectRoot, ARTIFACT_REL), ARTIFACT);
-    // A fresh debounce marker keeps the background refresh from rewriting the artifact mid-test.
     mkdirSync(join(projectRoot, '.paqad/locks'), { recursive: true });
     writeFileSync(join(projectRoot, '.paqad/locks/rule-context.marker'), '');
-    // Another session's feature-development prompt was the last to write the shared pointer.
     writeFileSync(
       join(projectRoot, '.paqad/context/.session-route.json'),
       JSON.stringify({ workflow: 'feature-development', query: 'build it' }),
@@ -318,8 +294,6 @@ describe('prompt gate injects rule sections only for a feature-development promp
   });
 
   afterEach(() => {
-    // The gate spawns a detached context refresh that can still be writing under .paqad/
-    // when the test ends, so retry the removal instead of failing on ENOTEMPTY.
     removeTempProject(projectRoot);
   });
 
@@ -334,7 +308,6 @@ describe('prompt gate injects rule sections only for a feature-development promp
     expect(result.stdout).not.toContain('rule manifest');
     expect(result.stdout).not.toContain('Loaded rule text');
     expect(result.stdout).not.toContain('## Verify');
-    // The evidence row describes what was actually injected.
     expect(lastRagRow().injected_sections).toEqual(['retrieval']);
   });
 
@@ -348,8 +321,6 @@ describe('prompt gate injects rule sections only for a feature-development promp
     expect(lastRagRow().injected_sections).toEqual(['rules', 'retrieval']);
   });
 
-  // A background notification is not a request, so it gives no route and the full block stays,
-  // which matters when it lands in the middle of a feature.
   it('a background notification turn keeps the rule manifest', () => {
     const result = runGateWith(
       '<task-notification>\n<status>completed</status>\n</task-notification>',

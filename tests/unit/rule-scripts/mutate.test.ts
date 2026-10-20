@@ -47,9 +47,8 @@ describe('rule-script map mutations', () => {
     const map = baseMap();
     const next = upsertScriptEntry(map, 'RL-aaaa', entry);
     expect(next.rules[0].scripts).toHaveLength(1);
-    expect(map.rules[0].scripts).toHaveLength(0); // input untouched
+    expect(map.rules[0].scripts).toHaveLength(0);
 
-    // Re-upsert by same path replaces, not duplicates.
     const again = upsertScriptEntry(next, 'RL-aaaa', { ...entry, fixtures_passed: true });
     expect(again.rules[0].scripts).toHaveLength(1);
   });
@@ -76,7 +75,6 @@ describe('rule-script map mutations', () => {
     expect(next.rules[0].text).toBe('Edited rule text.');
     expect(next.rules[0].text_hash).toBe('newhash');
     expect(next.rules[0].scripts).toHaveLength(0);
-    // input untouched
     expect(map.rules[0].text).toBe('No debugger.');
   });
 

@@ -4,9 +4,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// The seam is shipped as a runtime .mjs (it runs inside the global hook install,
-// which has no compiled `dist`), so the test imports it directly — mirroring the
-// paqad-disabled.mjs parity test.
 import {
   BLOCK_CLOSE,
   BLOCK_OPEN,
@@ -104,7 +101,6 @@ describe('readContextUnderBudget', () => {
     let calls = 0;
     let read = false;
     const out = readContextUnderBudget('/x', {
-      // First now() seeds the deadline at 50; the post-stat now() jumps past it.
       now: () => (calls++ === 0 ? 0 : 1000),
       statFile: () => fakeStat(20),
       readFile: () => {
@@ -120,7 +116,6 @@ describe('readContextUnderBudget', () => {
   it('drops content that overran the budget during the read', () => {
     let calls = 0;
     const out = readContextUnderBudget('/x', {
-      // now() at: deadline-seed(0), post-stat(10 → ok), post-read(1000 → over).
       now: () => [0, 10, 1000][calls++] ?? 1000,
       statFile: () => fakeStat(20),
       readFile: () => 'content',
@@ -161,7 +156,7 @@ describe('isRagEnabledValue (F3 master switch)', () => {
   });
 });
 
-describe('isLeanRulesEnabledValue (issue #284 — default ON)', () => {
+describe('isLeanRulesEnabledValue', () => {
   it('defaults to ON when unset (token-neutral is the default delivery path)', () => {
     expect(isLeanRulesEnabledValue(undefined)).toBe(true);
     expect(isLeanRulesEnabledValue(null)).toBe(true);
@@ -209,13 +204,11 @@ describe('buildInjection (filesystem)', () => {
   });
 
   it('exports a stable module path so the hook can import it', () => {
-    // Normalise separators so the assertion holds on Windows (backslash paths) too.
     expect(SEAM_PATH.replace(/\\/g, '/')).toMatch(/runtime\/scripts\/context-seam\.mjs$/);
   });
 });
 
-// Issue #615 (Part 3) — keep the prompt hook's output under the host's 10,000-char cap.
-describe('fitHookOutput (issue #615, Part 3)', () => {
+describe('fitHookOutput', () => {
   const ROUTE = '**▸ paqad** · routed to feature-development, full lane (risky)\n';
   const NUDGE = '[paqad] Spec pipeline: ON.\n';
 
@@ -231,12 +224,9 @@ describe('fitHookOutput (issue #615, Part 3)', () => {
 
     expect(out.length).toBeLessThanOrEqual(HOOK_OUTPUT_BUDGET_CHARS);
     expect(out.length).toBeLessThanOrEqual(10_000);
-    // Route line and nudge survive verbatim.
     expect(out.startsWith(ROUTE)).toBe(true);
     expect(out.endsWith(NUDGE)).toBe(true);
-    // The context block ends with the trim notice, just before its close marker.
     expect(out).toContain(`${CONTEXT_TRIM_NOTICE}\n${BLOCK_CLOSE}`);
-    // The block is still well-formed.
     expect(out).toContain(`${BLOCK_OPEN}\n`);
   });
 
@@ -253,9 +243,7 @@ describe('fitHookOutput (issue #615, Part 3)', () => {
   });
 });
 
-// Issue #582 (FR-9) — a prompt that is not feature-development drops the rule-contract sections
-// of the shared artifact; every other section is kept as it was.
-describe('stripRuleSections / buildInjection stripRules (issue #582)', () => {
+describe('stripRuleSections / buildInjection stripRules', () => {
   const ARTIFACT = [
     '## paqad rule manifest — 2 rules',
     '> Every rule that governs this repo.',

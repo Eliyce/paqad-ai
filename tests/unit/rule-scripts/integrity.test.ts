@@ -16,9 +16,6 @@ import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
-// Buildout F5 — the integrity digest is hash-only (no script execution) and
-// changes when either the map or a referenced script changes.
-
 const roots: string[] = [];
 const SCRIPT_REL = '.paqad/scripts/rules/coding/q/001-no-debugger.mjs';
 const MAP_REL = 'docs/instructions/rules/rule-script-map.yml';

@@ -18,7 +18,6 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-/** Open a feature bundle in `root` via the real CLI, aligning the ledger cache to `session`. */
 async function openFeature(root: string, session: string): Promise<void> {
   await execa('node', [CLI, 'stage', 'start', 'planning', '--title', 'iso', '--issue', '567'], {
     cwd: root,
@@ -33,7 +32,7 @@ function bundleDir(root: string): string {
   return join(base, dirs[0]!);
 }
 
-describe('stage-agent-completion.mjs (issue #567)', () => {
+describe('stage-agent-completion.mjs', () => {
   it('appends a stage-agent row to stage-evidence.jsonl for a paqad stage agent and exits 0', async () => {
     const root = tempRoot();
     await openFeature(root, 'ses_it');
@@ -60,7 +59,6 @@ describe('stage-agent-completion.mjs (issue #567)', () => {
     });
     expect(result.exitCode).toBe(0);
 
-    // Issue #581 — the row lands in stage-evidence.jsonl; no separate stream is written.
     expect(existsSync(join(bundleDir(root), 'context-efficiency.jsonl'))).toBe(false);
     const rows = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
       .trim()

@@ -5,12 +5,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// Buildout F3 — the capability-kernel host seam. These exercise the hook's
-// dist-less fast-paths (paqad disabled, no rule-script map, rule_compliance off),
-// which must all exit 0 silently WITHOUT importing the dist build, on both the
-// pre-mutation and completion seams. (The real enforcement path is covered by the
-// dist-side tests/unit/kernel/gate.test.ts.)
-
 const HOOK = resolve(__dirname, '../../../runtime/hooks/capability-gate.mjs');
 const MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
 const SEAMS = ['pre-mutation', 'completion'] as const;
@@ -44,9 +38,6 @@ describe('runtime/hooks/capability-gate.mjs (gating fast-paths)', () => {
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-capgate-hook-'));
     mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
-    // These assert the rule-scripts DIST-LESS fast-skip. The stages capability is
-    // also pre-mutation and default-strict, which would make seamHasWork true (and
-    // import dist), so float it off here — stages has its own suite.
     writeFileSync(join(projectRoot, '.paqad/configs/.config.policy'), 'stages_mode=off\n');
   });
 
@@ -89,11 +80,6 @@ describe('runtime/hooks/capability-gate.mjs (gating fast-paths)', () => {
   });
 });
 
-// Regression guard for the PreToolUse `{systemMessage}` leak. On the allow path (exit 0)
-// the gate used to write a top-level `{systemMessage}` with the warn advisory + narration,
-// on the (now-false) premise that a PreToolUse `{systemMessage}` was invisible on Desktop.
-// Claude Code now renders it as a literal "PreToolUse:<Tool> says:" line, so the allow path
-// must emit NOTHING user-facing. Needs the compiled gate the hook lazy-imports.
 const DIST_GATE = resolve(__dirname, '../../../dist/kernel/gate.js');
 const hasDist = existsSync(DIST_GATE);
 
@@ -131,9 +117,6 @@ describe.skipIf(!hasDist)(
     afterEach(() => rmSync(projectRoot, { recursive: true, force: true }));
 
     it('a WARN missing-stage finding on a feature-dev edit allows (exit 0) and writes NO systemMessage (INV-1)', () => {
-      // stages_mode=warn → a feature-dev edit with no planning/specification recorded yields
-      // a NON-blocking (warn) missing-stage summary. That summary used to ride a
-      // `{systemMessage}` on the allow path; it must now be silent in chat.
       writeFileSync(join(projectRoot, '.paqad/configs/.config.policy'), 'stages_mode=warn\n');
       const result = runWithPayload(projectRoot, 'pre-mutation', {
         session_id: 'ses_leak',
