@@ -1537,16 +1537,10 @@ export function checkoutIsNewer(projectRoot: string, version: string = __PKG_VER
   } catch {
     return false;
   }
-  const lines = example.split('\n');
-  const stamp = lines.find((line) => line.startsWith(CONFIG_EXAMPLE_STAMP));
-  if (stamp !== undefined) {
-    const stamped = stamp.slice(CONFIG_EXAMPLE_STAMP.length).trim();
-    return !versionAtLeast(version, stamped);
-  }
-  return lines.some((line) => {
-    const key = line.match(/^#\s*([a-z][a-z0-9_]*)=/u)?.[1];
-    return key !== undefined && !KNOWN_CONFIG_KEYS.has(key);
-  });
+  const stamp = example.split('\n').find((line) => line.startsWith(CONFIG_EXAMPLE_STAMP));
+  if (stamp === undefined) return false;
+  const stamped = stamp.slice(CONFIG_EXAMPLE_STAMP.length).trim();
+  return !versionAtLeast(version, stamped);
 }
 
 export interface ReconciledConfigFile {
