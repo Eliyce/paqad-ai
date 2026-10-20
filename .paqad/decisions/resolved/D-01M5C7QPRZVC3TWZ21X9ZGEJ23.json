@@ -1,0 +1,53 @@
+{
+  "id": "D-01M5C7QPRZVC3TWZ21X9ZGEJ23",
+  "category": "finding.triage",
+  "title": "Shell strict-mode rule scope",
+  "context": "RL-aa4e (skill-authoring) flags three best-effort shell scripts this branch only cleaned: two hook files and one skill script.",
+  "options": [
+    {
+      "option_key": "scope-and-fix",
+      "label": "Scope RL-aa4e to skill scripts and make refresh.sh strict with guarded expected failures",
+      "evidence": {},
+      "one_line_preview": "Scope RL-aa4e to skill scripts and make refresh.sh strict with guarded expected failures",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "waiver",
+      "label": "Record a waiver for all three",
+      "evidence": {},
+      "one_line_preview": "Record a waiver for all three",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "all-strict",
+      "label": "Make all three strict",
+      "evidence": {},
+      "one_line_preview": "Make all three strict",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "scope-and-fix",
+  "created_at": "2026-10-20T08:44:34.463Z",
+  "status": "resolved",
+  "chosen": "scope-and-fix",
+  "rationale": "Owner chose: scope the skill-authoring rule to skill scripts; hooks stay best-effort; refresh.sh made strict",
+  "resolved_at": "2026-10-20T08:44:34.770Z",
+  "decision_id": "D-01M5C7QPRZVC3TWZ21X9ZGEJ23",
+  "fingerprint": "sha256:f04d403765da21d5adf41efca2c593ef2a5852f78f03dd5710e8172d7ee2d8b0",
+  "question": "Shell strict-mode rule scope",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "no-active-change",
+  "ttl_until": "2026-11-19T08:44:34.463Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "scope-and-fix",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T08:44:34.770Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: scope the skill-authoring rule to skill scripts; hooks stay best-effort; refresh.sh made strict"
+  }
+}

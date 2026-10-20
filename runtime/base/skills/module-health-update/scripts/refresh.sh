@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set +e
+set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
   cat <<'USAGE'
@@ -23,8 +23,8 @@ fi
 
 project_root="${1:-$PWD}"
 
-rollup_json=$(paqad-ai module-health rollup --project-root "$project_root" 2>/dev/null)
-sync_json=$(paqad-ai module-health sync --project-root "$project_root" 2>/dev/null)
+rollup_json=$(paqad-ai module-health rollup --project-root "$project_root" 2>/dev/null) || true
+sync_json=$(paqad-ai module-health sync --project-root "$project_root" 2>/dev/null) || true
 
 ROLLUP="$rollup_json" SYNC="$sync_json" node -e '
 const parse = (s) => { try { return JSON.parse(s); } catch { return null; } };
@@ -35,6 +35,6 @@ process.stdout.write(
     2,
   ) + "\n",
 );
-'
+' || true
 
 exit 0

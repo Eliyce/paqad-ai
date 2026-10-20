@@ -1,6 +1,8 @@
-import { join } from 'node:path';
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { delimiter, join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { lines, runScript } from './_helpers/run-script.js';
 
@@ -40,6 +42,62 @@ describe('module-health-update scripts', () => {
       const r = runScript(path, ['-h']);
       expect(r.status).toBe(0);
       expect(r.stdout).toContain('Usage:');
+    });
+
+    const dirs: string[] = [];
+    afterEach(() => {
+      for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+    });
+
+    const withStub = (body: string) => {
+      const dir = mkdtempSync(join(tmpdir(), 'mh-refresh-'));
+      dirs.push(dir);
+      const stub = join(dir, 'paqad-ai');
+      writeFileSync(stub, `#!/usr/bin/env bash\n${body}\n`);
+      chmodSync(stub, 0o755);
+      return { PATH: `${dir}${delimiter}${process.env.PATH ?? ''}` };
+    };
+
+    it('combines the rollup and sync JSON into one object and exits 0', () => {
+      const env = withStub(
+        'if [ "$2" = "rollup" ]; then echo \'{"blocked":null,"modules":[]}\'; else echo \'{"processed_events":1}\'; fi',
+      );
+      const r = runScript(path, ['/tmp/project'], { env });
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({
+        rollup: { blocked: null, modules: [] },
+        sync: { processed_events: 1 },
+      });
+    });
+
+    it('still exits 0 with null sides when both inner commands fail with no output', () => {
+      const env = withStub('exit 1');
+      const r = runScript(path, ['/tmp/project'], { env });
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({ rollup: null, sync: null });
+    });
+
+    it('still exits 0 and keeps the parseable side when one inner command fails', () => {
+      const env = withStub(
+        'if [ "$2" = "rollup" ]; then echo \'{"blocked":"module_health_unknown"}\'; exit 3; fi; echo not-json; exit 2',
+      );
+      const r = runScript(path, ['/tmp/project'], { env });
+      expect(r.status).toBe(0);
+      expect(JSON.parse(r.stdout)).toEqual({
+        rollup: { blocked: 'module_health_unknown' },
+        sync: null,
+      });
+    });
+
+    it('defaults the project root to the working directory when no argument is given', () => {
+      const env = withStub('printf \'{"root":"%s"}\' "$4"');
+      const cwd = mkdtempSync(join(tmpdir(), 'mh-cwd-'));
+      dirs.push(cwd);
+      const r = runScript(path, [], { env, cwd });
+      expect(r.status).toBe(0);
+      const out = JSON.parse(r.stdout) as { rollup: { root: string }; sync: { root: string } };
+      expect(out.rollup.root).toContain('mh-cwd-');
+      expect(out.sync.root).toBe(out.rollup.root);
     });
   });
 

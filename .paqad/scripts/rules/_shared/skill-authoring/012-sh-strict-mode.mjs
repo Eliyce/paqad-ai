@@ -11,7 +11,7 @@ const findings = [];
 const RE = null;
 const SKIP = null;
 const NEED = new RegExp("set -euo pipefail", "");
-const FILTER = new RegExp("\\.sh$", "");
+const FILTER = new RegExp("(^|/)skills/[^/]+/scripts/[^/]+\\.sh$", "");
 const SEV = "low";
 const MSG = "Shell script missing `set -euo pipefail` at the top.";
 for (const file of files) {
