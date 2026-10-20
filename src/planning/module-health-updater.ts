@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
@@ -379,7 +379,7 @@ function resolveEvidenceSessionId(options: ModuleHealthSyncOptions): string | un
     return undefined;
   }
 
-  return `auto-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  return `auto-${process.pid}-${Date.now()}-${randomBytes(4).toString('hex')}`;
 }
 
 async function readChangedFiles(projectRoot: string): Promise<string[]> {
