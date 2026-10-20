@@ -42,7 +42,10 @@ import { resolveRerunCount } from '@/flaky/stability.js';
 import { OUTPUT_TAIL_LINES } from '@/checks/constants.js';
 import { parseTestOutput } from '@/test-output/service.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
-import { TEST_OUTPUT_SCHEMA_VERSION } from '@/core/types/test-output.js';
+import {
+  TEST_OUTPUT_SCHEMA_VERSION,
+  UNKNOWN_TEST_OUTPUT_TIMESTAMP,
+} from '@/core/types/test-output.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { StackPackTestRunner } from '@/core/types/pack.js';
 import type {
@@ -181,6 +184,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   let meaningfulGreen = true;
   let recovered = 0;
   let testResult: StructuredTestResult | null = null;
+  let testRun: ScheduledCommandResult | null = null;
 
   for (const runResult of runResults) {
     reportCommands.push(toReportCommand(runResult));
@@ -189,6 +193,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
       continue;
     }
 
+    testRun = runResult;
     let parsed = await parseTestCommandOutputAsync(runner, runResult, projectRoot, changedFiles);
 
     // Harness-failure fallback: a parallel run that produced no parsed test result means the
@@ -200,6 +205,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     ) {
       const seq = await runOneCommand(shell, profile!.commands.test, projectRoot, nowMs, nowIso);
       reportCommands.push(toReportCommand(seq));
+      testRun = seq;
       parsed = await parseTestCommandOutputAsync(runner, seq, projectRoot, changedFiles);
       testMode = 'sequential';
       fallbackReason = `harness-failure:${firstLine(runResult.stderr).slice(0, 200)}`;
@@ -247,6 +253,11 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     results.push(parsed);
   }
 
+  if (testRun !== null && unreadable(testRun, testResult!)) {
+    markInconclusive(reportCommands);
+    meaningfulGreen = false;
+  }
+
   const nonTestPassed = runResults
     .filter((r) => r.logical_command !== 'test')
     .every((r) => r.passed);
@@ -291,6 +302,19 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     test_result: testResult,
     testing_recorded: testingRecorded,
   };
+}
+
+function unreadable(run: ScheduledCommandResult, result: StructuredTestResult): boolean {
+  return (
+    run.exit_code === 0 &&
+    result.summary.total === 0 &&
+    result.parse_metadata.parse_strategy !== 'plain-text-fallback'
+  );
+}
+
+function markInconclusive(commands: ChecksReportCommand[]): void {
+  const index = commands.map((command) => command.logical_command).lastIndexOf('test');
+  commands[index] = { ...commands[index]!, outcome: 'inconclusive' };
 }
 
 function toReportCommand(result: ScheduledCommandResult): ChecksReportCommand {
@@ -366,7 +390,11 @@ async function parseTestCommandOutputAsync(
     stdout: result.stdout,
     stderr: result.stderr,
   });
-  return withEvidence(parsed, changedFiles);
+  const timestamp =
+    parsed.summary.timestamp === UNKNOWN_TEST_OUTPUT_TIMESTAMP
+      ? result.ended_at
+      : parsed.summary.timestamp;
+  return withEvidence({ ...parsed, summary: { ...parsed.summary, timestamp } }, changedFiles);
 }
 
 function plainTextResult(
@@ -376,6 +404,7 @@ function plainTextResult(
   return withEvidence(
     baseResult('test', result.passed, firstLine(result.stderr), 'plain-text-fallback', {
       raw_byte_size: (result.stdout.length + result.stderr.length) | 0,
+      timestamp: result.ended_at,
     }),
     changedFiles,
   );
@@ -404,7 +433,7 @@ function baseResult(
   passed: boolean,
   message: string,
   strategy: 'structured' | 'plain-text-fallback',
-  extra: { raw_byte_size: number; duration_ms?: number; timestamp?: string },
+  extra: { raw_byte_size: number; duration_ms?: number; timestamp: string },
 ): StructuredTestResult {
   const failure = passed
     ? []
@@ -429,7 +458,7 @@ function baseResult(
       skipped: 0,
       errored: 0,
       duration_ms: extra.duration_ms ?? 0,
-      timestamp: extra.timestamp ?? '1970-01-01T00:00:00.000Z',
+      timestamp: extra.timestamp,
       runner_id: runnerId,
     },
     failures: failure,

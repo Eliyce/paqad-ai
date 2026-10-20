@@ -63,12 +63,23 @@ install a package.
 7. **Count what ran (#672).** The TAP parser counts leaf tests only, at any indent: vitest's
    per-file and per-suite entries (lines ending in `{`) and node:test parent entries (printed after
    their subtests) are containers, so an indented `not ok` is a failure and an indented `# SKIP` a
-   skip. When a passing test command yields no countable tests, the receipt says
-   `test passed, count unavailable`, never `0 tests`. Onboarding writes a pnpm test command
+   skip. A pass read only from the exit code (no structured runner, plain-text fallback) has no
+   count, so the receipt says `test passed, count unavailable`, never `0 tests` or `1 tests`. Onboarding writes a pnpm test command
    without a `--` separator (`pnpm test --reporter=tap`): pnpm passes a literal `--` on to the
    script, and vitest then ignores the reporter flag and the test pattern after it.
 
 ## Inconclusive, never a false pass
+
+A test command that exits 0 while its runner's parser reads no tests at all (empty or
+unrecognised output, for example a Sail wrapper printing `Docker is not running.`) proved
+nothing. `checks run` shows it as
+`> - 🟡 test ran, but no test results could be read (<secs>)` under a
+`checks ran, but no test results could be read — Inconclusive` header, stores
+`outcome: "inconclusive"` on that test command in `checks.json`, and sets
+`meaningful_green: false`. It does not block (the exit code stays 0), and it never reads green.
+
+Every parsed test result carries the time the command ran as its summary `timestamp`. A parser
+that could not read a time no longer leaves the epoch (`1970-01-01T00:00:00.000Z`) behind.
 
 When no command is mapped, or `checks run` was not run, there is no report:
 `structured_test_results` stays undefined, the `code-tests-lint` gate stays `skipped`, and the

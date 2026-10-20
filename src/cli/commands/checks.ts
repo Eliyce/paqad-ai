@@ -268,9 +268,11 @@ export function renderReceipt(
   flakyMode: 'pass' | 'warn' | 'fail',
 ): string[] {
   const lines: string[] = [];
-  const header = result.passed
-    ? `**▸ paqad** · checks green — Safe to merge (${fmtSecs(result.duration_ms)})`
-    : `**▸ paqad** · checks failed — Needs your attention (${fmtSecs(result.duration_ms)})`;
+  const header = !result.passed
+    ? `**▸ paqad** · checks failed — Needs your attention (${fmtSecs(result.duration_ms)})`
+    : testUnreadable(result)
+      ? `**▸ paqad** · checks ran, but no test results could be read — Inconclusive (${fmtSecs(result.duration_ms)})`
+      : `**▸ paqad** · checks green — Safe to merge (${fmtSecs(result.duration_ms)})`;
   lines.push(header);
 
   for (const command of result.commands) {
@@ -318,11 +320,15 @@ function renderTestLines(result: ChecksRunResult, durationMs: number): string[] 
       : result.mode.test_mode === 'native'
         ? 'native parallel'
         : '';
+  if (testUnreadable(result)) {
+    return [`> - 🟡 test ran, but no test results could be read (${fmtSecs(durationMs)})`];
+  }
   if (blocking === 0) {
     const suffix = modeSuffix ? `, ${modeSuffix}` : '';
-    // Issue #672 — output that yielded no countable tests is not "0 tests": the run passed, the
-    // count is simply unknown.
-    const count = result.test_total > 0 ? `: ${result.test_total} tests` : ', count unavailable';
+    const count =
+      result.test_total > 0 && test?.parse_metadata.parse_strategy !== 'plain-text-fallback'
+        ? `: ${result.test_total} tests`
+        : ', count unavailable';
     return [`> - 🟢 test passed${count}${suffix} (${fmtSecs(durationMs)})`];
   }
   const lines = [
@@ -338,6 +344,12 @@ function renderTestLines(result: ChecksRunResult, durationMs: number): string[] 
     }
   }
   return lines;
+}
+
+function testUnreadable(result: ChecksRunResult): boolean {
+  return result.commands.some(
+    (command) => command.logical_command === 'test' && command.outcome === 'inconclusive',
+  );
 }
 
 function humanReason(reason: string): string {

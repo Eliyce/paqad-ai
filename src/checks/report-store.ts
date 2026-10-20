@@ -51,6 +51,7 @@ export interface ChecksReportCommand {
   duration_ms: number;
   /** Last lines of combined output, only when the command was red. */
   output_tail?: string[];
+  outcome?: 'inconclusive';
 }
 
 export interface ChecksReportIsolationEntry {

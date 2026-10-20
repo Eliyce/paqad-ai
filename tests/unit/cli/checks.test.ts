@@ -96,6 +96,32 @@ describe('paqad-ai checks command', () => {
     expect(readChecksReport(root)).toBeNull();
   });
 
+  it('stores inconclusive in checks.json when the test step exits 0 with nothing to read', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: node -e process.exitCode=0',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const out = await run();
+
+    expect(process.exitCode).toBeUndefined();
+    expect(out.join('\n')).toContain('🟡 test ran, but no test results could be read');
+    const report = readChecksReport(root);
+    const test = report?.commands?.find((c) => c.logical_command === 'test');
+    expect(test?.outcome).toBe('inconclusive');
+    expect(report?.meaningful_green).toBe(false);
+    expect(report?.results.every((r) => r.summary.timestamp !== '1970-01-01T00:00:00.000Z')).toBe(
+      true,
+    );
+  });
+
   it('says once that it recorded the test runner in the profile', async () => {
     writeFileSync(
       join(root, '.paqad/project-profile.yaml'),
