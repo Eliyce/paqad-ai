@@ -68,7 +68,7 @@ describe('stage-agent-completion.mjs', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].stage).toBe('development');
     expect(rows[0].agent).toBe('paqad-development');
-    expect(rows[0].session_id).toBe('sub_abc');
+    expect(rows[0].session_id).toBe('ses_it');
   });
 
   it('leaves the shared session cache byte-identical and reads tokens from the agent transcript', async () => {
