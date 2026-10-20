@@ -14,7 +14,6 @@ import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 import { formatStageEvidenceReceipt } from '@/verification/repository/receipt.js';
 
-import { ticketRef } from '../../../shared/ticket-ref.js';
 
 import {
   BAND_STATES,
@@ -34,7 +33,6 @@ import {
   parseSnapshot,
   receiptPath,
   safeSessionId,
-  shipSteps,
   snapshotPath,
   stageSegments,
 } from '../../../../runtime/claude-plugin/mod/model.ts';

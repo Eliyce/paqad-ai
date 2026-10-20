@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { ticketRef } from '../../../shared/ticket-ref.js';
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
-import { parseSnapshot, shipSteps } from '../../../../runtime/claude-plugin/mod/model.ts';
+import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   SHORT_TAB_COLUMNS,
   autoTab,
@@ -19,7 +18,6 @@ import {
   linesText,
   recordLines,
   requiredGates,
-  shipsLines,
   trustLines,
 } from '../../../../runtime/claude-plugin/mod/tabs.ts';
 import {
