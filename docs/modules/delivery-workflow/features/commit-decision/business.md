@@ -27,6 +27,9 @@ The technical contract lives at [`technical.md`](./technical.md) and the command
 - **Intake.** When a change starts on a branch that already carries other tickets' commits,
   intake shows one line: "Branch `<branch>` already carries N commits from M other tickets. They
   ride along in this PR unless you split the branch yourself; paqad never moves commits."
+  Untagged commits made before the change started do not raise this line on their own; when
+  other tickets' commits do, the line adds them as "and N untagged made before this change
+  started".
 - **Commit question.** After asking the person whether to commit, the agent runs `paqad-ai
   delivery-link commit-decision <commit|decline|ignored>` (`ignored` when no answer came). When the person asked for the commit
   themselves, it records `user-requested`.

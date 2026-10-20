@@ -34,8 +34,12 @@ commit_decision: { asked: boolean, answer: "commit" | "decline" | "ignored" | "u
   subject. A commit is the change's own when it names one of the own tickets, or when it names no
   other ticket and was made after the start commit. Every other commit is inherited, counted with
   its foreign tickets, merges and untagged commits.
-- **Warning.** `branchCarriesOtherWork` is true when the split is known and has inherited commits.
-  `sharedBranchLine` renders the one warning line used at intake, on the HUD and on the open-PR
+- **Warning.** `branchCarriesOtherWork` is true when the split is known and an inherited commit
+  names another ticket. Untagged commits from before the start are still counted as inherited
+  and untagged in the split, but on their own they raise no warning: they are usually the
+  developer's own earlier work. `describeInherited` counts the other-ticket commits and adds the
+  untagged ones separately ("3 commits from 2 other tickets and 1 untagged made before this
+  change started"). `sharedBranchLine` renders the one warning line used at intake, on the HUD and on the open-PR
   question.
 - **Commit decision.** `setCommitDecision` writes `{ asked: answer !== "user-requested", answer,
   recorded_at }`. The target change is the session's active change, else the change matched by the

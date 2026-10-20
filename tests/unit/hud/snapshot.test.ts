@@ -707,8 +707,22 @@ describe('what ships on the HUD', () => {
       },
     });
     expect(shared).toEqual([
-      { id: 'branch:shared', text: 'This branch also carries 73 commits from 2 other tickets.' },
+      {
+        id: 'branch:shared',
+        text: 'This branch also carries 2 commits from 2 other tickets and 71 untagged made before this change started.',
+      },
     ]);
+    const untaggedOnly = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3, ['ORD-482']),
+        inherited: group(4),
+      },
+    });
+    expect(untaggedOnly).toEqual([]);
     const clean = computeHudFlags({
       ...quiet,
       commitSplit: {

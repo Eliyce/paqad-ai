@@ -74,8 +74,23 @@ describe('computeCommitSplit', () => {
     expect([...(split.inherited?.tickets ?? [])].sort()).toEqual(['ORD-470', 'ORD-471', 'ORD-472']);
     expect(branchCarriesOtherWork(split)).toBe(true);
     expect(sharedBranchLine(split, 'feat/ORD-470-contact-matching')).toContain(
-      'Branch `feat/ORD-470-contact-matching` already carries 5 commits from 3 other tickets',
+      'Branch `feat/ORD-470-contact-matching` already carries 3 commits from 3 other tickets and 2 untagged made before this change started',
     );
+  });
+
+  it('reports untagged commits from before the start without flagging the branch', () => {
+    const { root, g } = repo();
+    g('checkout', '-q', '-b', 'feat/ORD-482-new');
+    commit(root, g, 'wip');
+    commit(root, g, 'more wip');
+    const start = g('rev-parse', 'HEAD');
+    commit(root, g, 'feat(ORD-482): new matcher');
+    const split = computeCommitSplit(root, { startCommit: start, ownTickets: ['ORD-482'] });
+    expect(split.inherited).toEqual({ count: 2, tickets: [], merges: 0, untagged: 2 });
+    expect(split.own?.count).toBe(1);
+    expect(branchCarriesOtherWork(split)).toBe(false);
+    expect(sharedBranchLine(split, 'feat/ORD-482-new')).toBeNull();
+    expect(intakeBranchLine(root, ['ORD-482'])).toBeNull();
   });
 
   it('counts a later commit naming another ticket as inherited', () => {
@@ -152,7 +167,7 @@ describe('intakeBranchLine', () => {
   it('names the commits from other tickets on the current branch, and nothing on a clean one', () => {
     const { root, g } = sharedBranch();
     expect(intakeBranchLine(root, ['ORD-482'])).toContain(
-      'Branch `feat/ORD-470-contact-matching` already carries 6 commits from 3 other tickets',
+      'Branch `feat/ORD-470-contact-matching` already carries 3 commits from 3 other tickets and 3 untagged made before this change started',
     );
     g('checkout', '-q', '-b', 'feat/ORD-490-clean', 'main');
     expect(intakeBranchLine(root, ['ORD-490'])).toBeNull();
@@ -180,6 +195,9 @@ describe('ticket helpers', () => {
     );
     expect(describeInherited({ count: 2, tickets: [], merges: 0, untagged: 2 })).toBe(
       '2 commits made before this change started',
+    );
+    expect(describeInherited({ count: 3, tickets: ['A-1'], merges: 0, untagged: 2 })).toBe(
+      '1 commit from 1 other ticket and 2 untagged made before this change started',
     );
   });
 });

@@ -127,14 +127,19 @@ export function computeCommitSplit(projectRoot: string, input: CommitSplitInput 
 }
 
 export function branchCarriesOtherWork(split: CommitSplit | null | undefined): boolean {
-  return split?.state === 'known' && (split.inherited?.count ?? 0) > 0;
+  return split?.state === 'known' && (split.inherited?.tickets.length ?? 0) > 0;
+}
+
+function commitCount(count: number): string {
+  return `${count} commit${count === 1 ? '' : 's'}`;
 }
 
 export function describeInherited(group: CommitGroup): string {
-  const commits = `${group.count} commit${group.count === 1 ? '' : 's'}`;
   const tickets = group.tickets.length;
-  if (tickets === 0) return `${commits} made before this change started`;
-  return `${commits} from ${tickets} other ticket${tickets === 1 ? '' : 's'}`;
+  if (tickets === 0) return `${commitCount(group.count)} made before this change started`;
+  const fromTickets = `${commitCount(group.count - group.untagged)} from ${tickets} other ticket${tickets === 1 ? '' : 's'}`;
+  if (group.untagged === 0) return fromTickets;
+  return `${fromTickets} and ${group.untagged} untagged made before this change started`;
 }
 
 export function sharedBranchLine(split: CommitSplit, branch: string | null): string | null {
