@@ -36,6 +36,8 @@ describe('module-health-update scripts', () => {
       const r = runScript(path, ['--help']);
       expect(r.status).toBe(0);
       expect(r.stdout).toContain('Usage:');
+      expect(r.stdout.trimEnd().endsWith('what it could compute.')).toBe(true);
+      expect(r.stdout).not.toContain('set +e');
     });
 
     it('-h is an alias for --help', () => {

@@ -14,9 +14,8 @@ Output:  One combined JSON object on stdout: {"rollup": <report|null>,
          produced no parseable JSON (e.g. paqad-ai not on PATH). Feed it to
          the is-blocked / list-* helpers in this directory.
 Exits:   Always 0. A blocked rollup (e.g. module_health_unknown, when the pack
-         declares no module_health block) is informational, not fatal — the
+         declares no module_health block) is informational, not fatal: the
          sync pass still runs and the workflow reports what it could compute.
-set +e
 USAGE
   exit 0
 fi
