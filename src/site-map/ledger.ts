@@ -1,7 +1,3 @@
-// Records a one-row summary of each site-map run on the shared session-ledger, so run
-// summaries auto-flow into `paqad-ai audit export` (SIEM) alongside the other doc types.
-// Best-effort: recording must never break a run. Mirrors `src/codebase-health/ledger.ts`.
-
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { openSessionDoc, type OpenSessionDocResult } from '@/session-ledger/ledger.js';
 
@@ -24,7 +20,6 @@ export interface RecordSiteMapRunContext {
   now?: () => Date;
 }
 
-/** Record a site-map-run summary row. Returns the open-doc result, or null on failure. */
 export function recordSiteMapRun(
   projectRoot: string,
   summary: SiteMapRunLedgerSummary,
@@ -59,16 +54,10 @@ export const SITE_MAP_JOURNEY_CURATION_DOC_TYPE = 'site-map-journey-curation';
 
 export interface JourneyCurationLedgerSummary {
   journey_id: string;
-  /** `confirm` or `reject`. */
   action: string;
-  /** The journey's status after the action (`confirmed`, or `removed` for a reject). */
   status: string;
 }
 
-/**
- * Record a journey-curation row — the audit trail for a human sign-off that confirmed or rejected
- * a proposed journey (INV-3). Best-effort: the audit must never break the curation itself.
- */
 export function recordJourneyCuration(
   projectRoot: string,
   summary: JourneyCurationLedgerSummary,

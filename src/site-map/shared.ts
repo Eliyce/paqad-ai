@@ -1,15 +1,9 @@
-// Stable finding identity, timestamps, and ordering for the site-map engine. Mirrors the
-// codebase-health `shared.ts` discipline (and, transitively, the pentest scheme): a
-// finding's identity is a content-addressed hash of its meaning, so the SAME defect gets
-// the SAME id across runs — the precondition retest matching depends on.
-
 import { createHash } from 'node:crypto';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
 import type { SiteMapFinding } from '@/core/types/site-map-run.js';
 
-/** Local, dependency-free timestamp for run ids and report filenames (local time). */
 export function toSiteMapTimestamp(date: Date): string {
   const pad = (value: number): string => String(value).padStart(2, '0');
   return (
@@ -27,10 +21,6 @@ export async function writeJsonFile(target: string, data: unknown): Promise<void
   await writeFile(target, `${JSON.stringify(data, null, 2)}\n`);
 }
 
-/**
- * Content-addressed fingerprint over a finding's identity fields, so the same problem gets
- * the same id across runs. Excludes the volatile `id`, `status`, and `baseline_status`.
- */
 export function findingFingerprint(finding: Omit<SiteMapFinding, 'id'>): string {
   const payload = JSON.stringify({
     title: finding.title,
@@ -42,16 +32,9 @@ export function findingFingerprint(finding: Omit<SiteMapFinding, 'id'>): string 
     evidence: finding.evidence,
     resolution: finding.resolution,
   });
-  // SHA-256 (not for security — a stable content-addressed dedup key; only already-safe
-  // map metadata reaches here).
   return createHash('sha256').update(payload).digest('hex').slice(0, 8).toUpperCase();
 }
 
-/**
- * Assign stable `SM-<sha256[:8]>` ids, suffixing `-NN` on a fingerprint collision (mirrors
- * the codebase-health / pentest scheme). `SM-` is the id prefix; the finding's `category`
- * (e.g. `SM-ADD`) is a separate field.
- */
 export function assignSiteMapFindingIds<T extends Omit<SiteMapFinding, 'id'>>(
   findings: T[],
 ): Array<T & { id: string }> {
@@ -74,7 +57,6 @@ const SEVERITY_RANK: Record<SiteMapFinding['severity'], number> = {
   low: 2,
 };
 
-/** Order findings most-severe first, deterministic ties broken by id. */
 export function sortFindings<T extends SiteMapFinding>(findings: T[]): T[] {
   return [...findings].sort((a, b) => {
     const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];

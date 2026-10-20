@@ -1,15 +1,3 @@
-// The production SiteMapGatherer: wires the real world (the target project's package
-// manifest, source tree, the persisted map, and the journeys on disk) into the offline
-// facts the pure engine consumes. Like the codebase-health gatherer this file is excluded
-// from coverage: its work is real filesystem scanning the unit suite cannot exercise, while
-// the pure logic it feeds (extractNodeCliSurfaces / extractGenericSurfaces / assembleExtraction
-// and the whole orchestrator) is fully covered on its own through an injected fake gatherer.
-//
-// It introspects the TARGET project at `projectRoot` (never paqad-ai's own program): a
-// commander-based CLI is read statically from its source, a web app falls back to a
-// convention scan, and a shape with no deterministic extractor in P1 is recorded as a
-// blocked check (FR-3) so the gap is visible rather than a silent pass.
-
 import { readFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
@@ -66,13 +54,11 @@ import {
 } from './transitions.js';
 import type { EvidenceResolution } from './verification.js';
 
-/** A dependency name → the app kind it implies, most specific first. */
 interface FrameworkSignal {
   dep: string;
   kind: AppKind;
 }
 
-// Ordered so the first match wins: a Next.js app that also depends on express reads as web.
 const FRAMEWORK_SIGNALS: FrameworkSignal[] = [
   { dep: 'electron', kind: 'desktop' },
   { dep: 'react-native', kind: 'mobile' },
@@ -94,7 +80,6 @@ const FRAMEWORK_SIGNALS: FrameworkSignal[] = [
   { dep: 'oclif', kind: 'cli' },
 ];
 
-/** Source-tree globs shared by both scanners; node_modules and build output are never surfaces. */
 const SOURCE_GLOBS = ['**/*.{ts,tsx,js,jsx,mjs,cjs}'];
 const SOURCE_IGNORE = [
   '**/node_modules/**',
@@ -109,7 +94,6 @@ const SOURCE_IGNORE = [
   '**/__tests__/**',
 ];
 
-/** Cap the scanned file set so a giant monorepo cannot make a run pathological. */
 const MAX_SCANNED_FILES = 4000;
 
 interface PackageManifest {
@@ -120,7 +104,6 @@ interface PackageManifest {
   peerDependencies?: Record<string, string>;
 }
 
-/** Read the target project's package.json, or an empty manifest when it is missing/corrupt. */
 function readManifest(projectRoot: string): PackageManifest {
   try {
     return JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as PackageManifest;
@@ -129,7 +112,6 @@ function readManifest(projectRoot: string): PackageManifest {
   }
 }
 
-/** Every declared dependency name across the three dependency maps. */
 function dependencyNames(manifest: PackageManifest): Set<string> {
   return new Set([
     ...Object.keys(manifest.dependencies ?? {}),
@@ -138,7 +120,6 @@ function dependencyNames(manifest: PackageManifest): Set<string> {
   ]);
 }
 
-/** Pick the primary app kind from the manifest; a `bin` with no framework signal is a CLI. */
 function detectAppKind(manifest: PackageManifest, deps: Set<string>): AppKind {
   for (const signal of FRAMEWORK_SIGNALS) {
     if (deps.has(signal.dep)) return signal.kind;
@@ -147,7 +128,6 @@ function detectAppKind(manifest: PackageManifest, deps: Set<string>): AppKind {
   return 'service';
 }
 
-/** The framework names present, in signal order, for the run header. */
 function detectFrameworks(deps: Set<string>): string[] {
   const seen = new Set<string>();
   const frameworks: string[] = [];
@@ -160,7 +140,6 @@ function detectFrameworks(deps: Set<string>): string[] {
   return frameworks;
 }
 
-/** 1-indexed line number of a character offset in `content`. */
 function lineOf(content: string, index: number): number {
   let line = 1;
   for (let i = 0; i < index && i < content.length; i += 1) {
@@ -172,11 +151,6 @@ function lineOf(content: string, index: number): number {
 const COMMAND_RE = /(?:new Command\(|\.command\()\s*(['"`])([^'"`]+)\1/g;
 const DESCRIBE_RE = /\.description\(\s*(['"`])([^'"`]*)\1/;
 
-/**
- * Statically read commander command registrations from one source file: each `new Command('x')`
- * or `.command('x')` becomes a record, paired with the nearest following `.description(...)` so
- * the modeling stage inherits a human label. Evidence is the real file:line of the registration.
- */
 function scanFileForCommands(relFile: string, content: string): CliCommandRecord[] {
   const records: CliCommandRecord[] = [];
   COMMAND_RE.lastIndex = 0;
@@ -184,7 +158,6 @@ function scanFileForCommands(relFile: string, content: string): CliCommandRecord
   while ((match = COMMAND_RE.exec(content)) !== null) {
     const name = match[2]!.trim();
     if (name.length === 0) continue;
-    // Look at the chain immediately after the registration for its description.
     const tail = content.slice(match.index + match[0].length, match.index + match[0].length + 400);
     const describe = DESCRIBE_RE.exec(tail);
     records.push({
@@ -197,7 +170,6 @@ function scanFileForCommands(relFile: string, content: string): CliCommandRecord
   return records;
 }
 
-/** Scan the whole target tree for commander commands, deduping by `name` (first file wins). */
 async function scanCliCommands(projectRoot: string): Promise<CliCommandRecord[]> {
   const files = (
     await fg(SOURCE_GLOBS, { cwd: projectRoot, ignore: SOURCE_IGNORE, dot: false })
@@ -218,21 +190,18 @@ async function scanCliCommands(projectRoot: string): Promise<CliCommandRecord[]>
   return [...byName.values()].sort((a, b) => a.name.localeCompare(b.name));
 }
 
-// A leaf route file under a framework routing convention → one page surface.
 const ROUTE_CONVENTIONS = [
-  '**/app/**/page.{tsx,jsx,ts,js}', // Next.js app router
-  '**/pages/**/*.{tsx,jsx}', // Next.js / Nuxt pages router
-  '**/src/routes/**/+page.{svelte,ts,js}', // SvelteKit
+  '**/app/**/page.{tsx,jsx,ts,js}',
+  '**/pages/**/*.{tsx,jsx}',
+  '**/src/routes/**/+page.{svelte,ts,js}',
 ];
 const ROUTE_EXCLUDE = new Set(['_app', '_document', '_error']);
 
-// React Router: `<Route path="/x" element={<Comp/>} />` or a route object `{ path: '/x', ... }`.
 const REACT_JSX_ROUTE_RE =
   /<Route\b[^>]*\bpath=(['"])([^'"]+)\1[^>]*?(?:element=\{<\s*([A-Za-z0-9_]+))?/g;
 const REACT_OBJECT_ROUTE_RE =
   /\bpath:\s*(['"])([^'"]+)\1\s*,\s*(?:element:\s*<\s*([A-Za-z0-9_]+))?/g;
 
-/** Statically read React Router route declarations from one source file. */
 function scanFileForReactRoutes(relFile: string, content: string): ReactRouteRecord[] {
   const records: ReactRouteRecord[] = [];
   for (const re of [REACT_JSX_ROUTE_RE, REACT_OBJECT_ROUTE_RE]) {
@@ -252,7 +221,6 @@ function scanFileForReactRoutes(relFile: string, content: string): ReactRouteRec
   return records;
 }
 
-/** Scan the tree for React Router routes, deduping by `path` (first file wins). */
 async function scanReactRoutes(projectRoot: string): Promise<ReactRouteRecord[]> {
   const files = (
     await fg(['**/*.{tsx,jsx,ts,js}'], { cwd: projectRoot, ignore: SOURCE_IGNORE, dot: false })
@@ -273,11 +241,9 @@ async function scanReactRoutes(projectRoot: string): Promise<ReactRouteRecord[]>
   return [...byPath.values()].sort((a, b) => a.path.localeCompare(b.path));
 }
 
-// Laravel: `Route::get('/x', Controller::class)` — the method and the uri literal.
 const LARAVEL_ROUTE_RE =
   /Route::(get|post|put|patch|delete|options|any|match)\s*\(\s*(?:\[[^\]]*\]\s*,\s*)?(['"])([^'"]+)\2/g;
 
-/** Statically read Laravel route declarations from one PHP route file. */
 function scanFileForLaravelRoutes(relFile: string, content: string): LaravelRouteRecord[] {
   const records: LaravelRouteRecord[] = [];
   LARAVEL_ROUTE_RE.lastIndex = 0;
@@ -295,8 +261,6 @@ function scanFileForLaravelRoutes(relFile: string, content: string): LaravelRout
   return records;
 }
 
-// Route files live in `routes/` for a classic app, and inside modules for nwidart/bespoke
-// layouts — so the static fallback walks module directories too, not just `routes/`.
 const LARAVEL_ROUTE_GLOBS = [
   'routes/**/*.php',
   'Modules/*/Routes/**/*.php',
@@ -306,7 +270,6 @@ const LARAVEL_ROUTE_GLOBS = [
   'app/Modules/*/routes/**/*.php',
 ];
 
-/** Scan a Laravel project's route files (classic + modular) for `Route::` declarations. */
 async function scanLaravelRoutes(projectRoot: string): Promise<LaravelRouteRecord[]> {
   const files = await fg(LARAVEL_ROUTE_GLOBS, {
     cwd: projectRoot,
@@ -326,15 +289,8 @@ async function scanLaravelRoutes(projectRoot: string): Promise<LaravelRouteRecor
   return records;
 }
 
-/** Best-effort timeout for booting artisan — a slow/hung boot must degrade, not stall the run. */
 const ARTISAN_TIMEOUT_MS = 20_000;
 
-/**
- * Run a read-only artisan command in the target project the way the project runs artisan
- * (`invocation`, e.g. `vendor/bin/sail artisan`), timeout-bounded. Returns whether it exited
- * cleanly and its stdout. Any failure (no PHP, boot error, timeout) resolves to `ok:false` so the
- * caller degrades to the static scan and records a blocked check — it never throws.
- */
 async function runArtisan(
   projectRoot: string,
   invocation: string[],
@@ -354,8 +310,6 @@ async function runArtisan(
   }
 }
 
-// Queued jobs and mailables are not registered like routes, so there is no artisan "list jobs";
-// they need a static scan — but a modular-aware one that also walks module directories.
 const LARAVEL_JOB_GLOBS = [
   'app/Jobs/**/*.php',
   'Modules/*/Jobs/**/*.php',
@@ -371,20 +325,16 @@ const LARAVEL_MAIL_GLOBS = [
   'app/Modules/*/Mail/**/*.php',
 ];
 
-// A `ShouldQueue` job, or a `Mailable`/`Notification` class — the class marker per family.
 const JOB_MARKER_RE = /\bimplements\b[^{]*\bShouldQueue\b/;
 const MAIL_MARKER_RE = /\bextends\s+(?:Mailable|Notification)\b/;
 const PHP_CLASS_RE = /\bclass\s+([A-Za-z0-9_]+)/;
-/** The owning module in a `Modules/<Name>/` or `app/Modules/<Name>/` path. */
 const MODULE_PATH_RE = /(?:^|\/)(?:app\/)?Modules\/([^/]+)\//;
 
-/** The owning module from a scanned class file path, when it lives under a module directory. */
 function moduleFromPath(relFile: string): string | undefined {
   const match = MODULE_PATH_RE.exec(relFile);
   return match ? match[1] : undefined;
 }
 
-/** Scan a family of class files (jobs, mailables) whose content matches `marker`. */
 async function scanLaravelClasses(
   projectRoot: string,
   globs: string[],
@@ -414,7 +364,6 @@ async function scanLaravelClasses(
   return records;
 }
 
-/** Read a project-relative file, or null when it is missing or unreadable (a directory, say). */
 function projectFileReader(projectRoot: string): ReadProjectFile {
   return (path) => {
     try {
@@ -425,22 +374,18 @@ function projectFileReader(projectRoot: string): ReadProjectFile {
   };
 }
 
-// Console commands the project itself declares (issue #500). Anything artisan lists that is not
-// declared here is a framework or package built-in and is not an app surface.
 const LARAVEL_CONSOLE_GLOBS = [
   'app/Console/Commands/**/*.php',
   'Modules/*/Console/**/*.php',
   'Modules/*/app/Console/**/*.php',
   'routes/console.php',
 ];
-// Where a Laravel app defines its schedule, across Laravel 10 (Kernel) and 11+ (console/bootstrap).
 const LARAVEL_SCHEDULE_FILES = [
   'routes/console.php',
   'bootstrap/app.php',
   'app/Console/Kernel.php',
 ];
 
-/** Map each console command name declared in project source to its declaration (first wins). */
 async function scanConsoleDeclarations(
   projectRoot: string,
   read: ReadProjectFile,
@@ -463,7 +408,6 @@ async function scanConsoleDeclarations(
   return byName;
 }
 
-/** PSR-4 entries from the project's composer.json, then composer's generated vendor class map. */
 function readPsr4(read: ReadProjectFile): ReturnType<typeof parseComposerPsr4> {
   return [
     ...parseComposerPsr4(read('composer.json') ?? ''),
@@ -471,18 +415,9 @@ function readPsr4(read: ReadProjectFile): ReturnType<typeof parseComposerPsr4> {
   ];
 }
 
-/**
- * Wire every Laravel extractor: prefer artisan introspection (the real router resolves modules,
- * middleware, and controllers), run the way the onboarded project runs artisan (its profile's
- * migrate command: Sail, docker compose, or host PHP), and trace every record back to project
- * source so each surface's evidence is a real `file:line` (issue #500). The static route scan is
- * the fallback, with a labelled blocked check, when artisan cannot run. Queued jobs and mailables
- * have no artisan listing, so they are always the static class scan.
- */
 async function laravelExtractors(projectRoot: string): Promise<ExtractorOutput[]> {
   const outputs: ExtractorOutput[] = [];
   const read = projectFileReader(projectRoot);
-  // Never rewrite the profile from a site-map run (INV-8): read it without persisting a migration.
   const profile = readProjectProfile(projectRoot, { persistMigration: false });
   const invocation = resolveArtisanInvocation(profile?.commands);
   const staticRoutes = await scanLaravelRoutes(projectRoot);
@@ -507,7 +442,6 @@ async function laravelExtractors(projectRoot: string): Promise<ExtractorOutput[]
     );
   } else {
     const artisan = invocation.argv;
-    // Console commands are declared once and read by both the command list and the schedule.
     let declarations: Promise<Map<string, SourcePointer>> | undefined;
     const consoleDeclarations = (): Promise<Map<string, SourcePointer>> =>
       (declarations ??= scanConsoleDeclarations(projectRoot, read));
@@ -565,8 +499,6 @@ async function laravelExtractors(projectRoot: string): Promise<ExtractorOutput[]
       const traced = extractLaravelScheduledJobs(
         parseArtisanScheduleList(scheduleRun.stdout),
         (command) => {
-          // A command scheduled by class (`Schedule::command(SendReports::class)`) is found
-          // through the class that declares its name.
           const declaration = declared.get(scheduledCommandName(command));
           const commandClass = declaration ? basename(declaration.file, '.php') : undefined;
           for (const source of scheduleSources) {
@@ -612,7 +544,6 @@ async function laravelExtractors(projectRoot: string): Promise<ExtractorOutput[]
   return outputs;
 }
 
-/** True when the project declares Laravel (composer requires laravel/framework). */
 function isLaravelProject(projectRoot: string): boolean {
   try {
     const composer = JSON.parse(readFileSync(join(projectRoot, 'composer.json'), 'utf8')) as {
@@ -624,7 +555,6 @@ function isLaravelProject(projectRoot: string): boolean {
   }
 }
 
-/** Best-effort convention scan for web apps without a dedicated deterministic extractor. */
 async function scanGenericSurfaces(projectRoot: string): Promise<GenericSurfaceRecord[]> {
   const files = (
     await fg(ROUTE_CONVENTIONS, { cwd: projectRoot, ignore: SOURCE_IGNORE, dot: false })
@@ -638,10 +568,6 @@ async function scanGenericSurfaces(projectRoot: string): Promise<GenericSurfaceR
   return records;
 }
 
-/**
- * Resolve one cited pointer against the tree: the file must exist, and a cited line must fall
- * within it. A missing file reads as `file-missing`, an out-of-range line as `line-missing`.
- */
 function resolvePointer(projectRoot: string, pointer: Evidence): EvidenceResolution {
   let content: string;
   try {
@@ -657,17 +583,6 @@ function resolvePointer(projectRoot: string, pointer: Evidence): EvidenceResolut
   return { file: pointer.file, line: pointer.line, status: inRange ? 'resolved' : 'line-missing' };
 }
 
-/**
- * Gather raw navigation edges from the extracted surfaces (S9b, the impure half of transition
- * detection). For each surface it reads that surface's on-disk evidence file(s) — including the
- * route file and controller an artisan route cites; a vanished file reads as unavailable and is
- * skipped — normalises the bytes into a `TransitionSourceRecord` attributed to the surface's
- * `raw_id`, and runs all three S9a detectors over it. The detectors match navigation call
- * syntax, so a PHP controller yields only Laravel edges and a React component only React-Router
- * edges; running all three is safe and keeps the gatherer stack-agnostic. Each distinct file is read once even when several surfaces
- * cite it, and every surface citing it gets its own attributed records. Pure resolution of these
- * raw edges to surfaces is `resolveTransitions`; this function is the coverage-excluded I/O seam.
- */
 export function gatherSiteMapTransitions(
   projectRoot: string,
   surfaces: ExtractedSurface[],
@@ -706,7 +621,6 @@ export function gatherSiteMapTransitions(
   ];
 }
 
-/** Wire the real world: read the manifest, the map, the journeys, and run the extractors. */
 export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
   const manifest = readManifest(projectRoot);
   const deps = dependencyNames(manifest);
@@ -720,16 +634,10 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
   return {
     appKind: () => appKind,
     appSummary: (): SiteMapAppSummary => ({ name, kind: appKind, frameworks }),
-    // Issue #466, C8b: read the SINGLE canonical map + journeys under docs/site-map/, so the
-    // live run verifies, resolves evidence for, and restamps (C8a) exactly the map the dashboard
-    // renders statically.
     loadAppMap: (): AppMap | null => readCanonicalSiteMap(projectRoot),
     journeyCount: () => readAllJourneys(projectRoot).length,
     resolveEvidence: (pointers: Evidence[]): EvidenceResolution[] =>
       pointers.map((pointer) => resolvePointer(projectRoot, pointer)),
-    // S9c: the run's transition seam delegates to the S9b detector-over-source-files gatherer, so
-    // `sitemap run` reconciles the code's proven edges against the stored map (this is the impure
-    // I/O half; resolution and reconciliation are pure in `assemble`).
     gatherTransitions: (surfaces: ExtractedSurface[]): ExtractedTransition[] =>
       gatherSiteMapTransitions(projectRoot, surfaces),
     async extractors(): Promise<ExtractorOutput[]> {
@@ -762,7 +670,6 @@ export function createSiteMapGatherer(projectRoot: string): SiteMapGatherer {
           surfaces: extractGenericSurfaces(generic),
         });
       }
-      // Nothing deterministic ran on a non-CLI shape: record the gap rather than pass silently.
       if (outputs.length === 0 && appKind !== 'service') {
         outputs.push(
           blockedExtractor(

@@ -1,16 +1,3 @@
-// The site-map workflow's preflight requirement list (issue: site-map rebuild S3b, fixing D5/D6).
-//
-// Before a mapping run starts, preflight checks everything it needs and asks the person once. Each
-// requirement here declares one thing the run needs, a read-only probe for whether it is met, and
-// what to ask when it is not. Two rules hold throughout:
-//   - a probe never executes project code that boots the app. `laravel-route-list` checks that the
-//     way the project runs artisan is present (Sail, docker, or host PHP, issue #500), not that
-//     `artisan route:list` runs, because running it boots the user's app, which is exactly the
-//     choice DEC-1 governs. Preflight asks first; the resolved answer (`run`)
-//     decides whether the gatherer runs it later.
-//   - the documentation-family requirements delegate to `detectSiteMapPrerequisites` rather than
-//     re-deriving the foundation and module-docs signals.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -21,10 +8,8 @@ import { execa } from 'execa';
 import { artisanRunner, resolveArtisanInvocation } from './laravel-sources.js';
 import { detectSiteMapPrerequisites } from './prerequisites.js';
 
-/** Best-effort timeout for a `--version` presence check; a hung binary must not stall preflight. */
 const VERSION_CHECK_TIMEOUT_MS = 10_000;
 
-/** True when composer.json requires laravel/framework, so the Laravel requirement is declared. */
 function composerRequiresLaravel(projectRoot: string): boolean {
   try {
     const composer = JSON.parse(readFileSync(join(projectRoot, 'composer.json'), 'utf8')) as {
@@ -36,7 +21,6 @@ function composerRequiresLaravel(projectRoot: string): boolean {
   }
 }
 
-/** True when a Node CLI program is discoverable from package.json (a CLI dep or a bin entry). */
 function nodeCliDiscoverable(projectRoot: string): boolean {
   try {
     const pkg = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as {
@@ -58,11 +42,6 @@ function nodeCliDiscoverable(projectRoot: string): boolean {
   }
 }
 
-/**
- * Whether `<bin> --version` exits cleanly. Read-only presence check only — it never runs
- * `artisan route:list` or any command that boots the app. Any failure (missing binary, timeout)
- * is `false`, so preflight degrades to a question rather than throwing.
- */
 async function versionOk(bin: string, projectRoot: string): Promise<boolean> {
   try {
     const result = await execa(bin, ['--version'], {
@@ -76,11 +55,6 @@ async function versionOk(bin: string, projectRoot: string): Promise<boolean> {
   }
 }
 
-/**
- * Whether the way this project runs artisan is present (issue #500): the Sail script exists,
- * docker answers `docker --version`, or host PHP answers `php --version`. A migrate command
- * still holding a placeholder blocks artisan, so it reads as not runnable.
- */
 async function artisanRunnerPresent(projectRoot: string): Promise<boolean> {
   const invocation = resolveArtisanInvocation(
     readProjectProfile(projectRoot, { persistMigration: false })?.commands,
@@ -96,7 +70,6 @@ async function artisanRunnerPresent(projectRoot: string): Promise<boolean> {
   }
 }
 
-/** The requirements the site-map workflow checks before it runs. */
 export const siteMapPreflightRequirements: PreflightRequirement[] = [
   {
     id: 'documentation-foundation',
@@ -146,22 +119,15 @@ export const siteMapPreflightRequirements: PreflightRequirement[] = [
     label: 'Laravel route list',
     kind: 'command',
     why: 'The real router resolves modular routes, middleware, and controllers that a static file scan cannot see.',
-    // Declared only for a Laravel project (DEC-1 governs whether the gatherer runs it later).
     applies: composerRequiresLaravel,
-    // Presence, not execution: an artisan file plus a present runner means the command COULD run,
-    // which is a decision (DEC-1); a missing runner means it cannot, which is a plain gap. Never
-    // spawns `artisan route:list` — that would boot the user's app before the person has decided.
     probe: async (projectRoot): Promise<ProbeOutcome> => {
       const artisanPresent = existsSync(join(projectRoot, 'artisan'));
       const runnerPresent = await artisanRunnerPresent(projectRoot);
       return artisanPresent && runnerPresent ? 'needs-decision' : 'unavailable';
     },
     options: [
-      // DEC-1 resolved `run`: paqad executes the read-only command itself.
       { id: 'run', label: 'Let paqad run the read-only route list itself', recommended: true },
-      // The option the user did not pick, kept available.
       { id: 'print', label: 'Print the command and paste the output back' },
-      // A third fallback, with what it costs.
       {
         id: 'static',
         label:

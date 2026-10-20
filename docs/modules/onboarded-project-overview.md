@@ -364,6 +364,70 @@ the map),
 journeys; humans confirm). Backed by `src/site-map`. Knows: code-knowledge index, route/command
 scan, module-map, source.
 
+#### Why the site-map engine works the way it does
+
+The reasons below are not obvious from the code, grouped by file in `src/site-map/`.
+
+- **Pure core, one I/O seam.** `assemble.ts`, `draft.ts`, `extraction.ts`, `transitions.ts`,
+  `trust.ts`, `freshness.ts`, `verification.ts` and `laravel-sources.ts` do no I/O, so every branch
+  is tested with fixtures. `gatherer.ts` does all the file reading and shelling out and is
+  excluded from coverage. `run.ts` takes the gatherer as a required argument (the CLI verb
+  supplies it), unlike codebase-health, so the orchestrator is fully exercised offline. A pointer
+  the gatherer did not resolve reads as resolved, so a missing resolution never raises a phantom
+  finding or inflates staleness.
+- **Gaps are visible, never silent passes.** An unavailable extractor, items it found but could
+  not trace to source, edges that resolve to no surface, a map with no transitions, and a run with
+  no map are each recorded as a blocked check. A run is `safe` only when a stored map records
+  navigation and nothing was blocked; the exit code is decided separately.
+- **Evidence contract.** Every extractor's evidence `file` is a project-relative path that exists,
+  so verification can resolve it; a command such as `php artisan route:list` only goes in the
+  `note`. Artisan says what is registered but not where, so each record is traced back to source
+  (PSR-4 from composer, the controller method line, the route-file declaration). A route file
+  pointer is only cited when exactly one static declaration matches, because a wrong pointer is
+  worse than none. Artisan commands not declared in project source are framework or package
+  built-ins and are skipped. Jobs and mailables have no artisan listing, so they always come from a
+  module-aware static class scan. The artisan invocation is read from the profile's commands
+  (Sail, docker compose with `-T` since there is no terminal, or host PHP); a leftover placeholder
+  or a shell operator blocks the run. A site-map run never rewrites the profile.
+- **Preflight never boots the app.** The Laravel requirement checks only that the runner is
+  present (`--version`), never runs `artisan route:list`, because running it boots the user's app,
+  which is the choice the person makes first.
+- **Transitions.** A transition is recorded only for a real navigation call, never a bare href,
+  an import or a path-like string. Framework calls are `high` confidence, convention matches
+  (`view('name')`, CLI dispatch helpers) `low`. Targets are matched to a surface's `entry.value`
+  exactly, with no normalising; an unmatched target is dropped and counted. A bare `route('name')`
+  builds a URL and is not navigation.
+- **Trust and freshness.** A trust tier is earned, never taken on the model's word: a resolving
+  anchor earns `proven-in-code`, a broken anchor collapses to `unverified`, and a missing anchor is
+  capped at `inferred`. Trust and freshness read the same resolutions, gathered once, so they can
+  never disagree. Freshness is counts only, never a timestamp, and both stamps return the same
+  object when nothing moved, so a steady map over steady code is left byte for byte unchanged and
+  the dashboard renders it with no work at view time. Journeys are not stamped; they have no code
+  anchor.
+- **Creation answers.** A persisted answer is reused only when a person decided it and its code
+  anchors are unchanged; a default is always offered again. The category and anchors of a recorded
+  decision are re-derived from the map, never taken from agent text. Provenance stamps only ever
+  raise a surface: `agent` (a model or default guess) ranks below `static` and `convention`, which
+  is deliberately not the declaration order of the derivations list. Only surface-deciding
+  categories may stamp a surface, and only when the answer's anchors cover the surface's whole
+  anchor set. A preflight question puts the probe outcome in its id, so the answer is re-asked when
+  the probe result changes.
+- **Drafting.** The skeleton carries only what extraction proved and invents no transitions,
+  journeys or actors. A trailing `group:ungrouped` unit exists because a project whose extractor
+  attributes no modules would otherwise seed an empty progress store that could never resume. The
+  merge is additive: a surface the extraction no longer produces is kept, and SM-REMOVE reports it.
+- **Stores.** Every writer validates before writing and writes atomically (temp file and rename);
+  every reader treats a missing, corrupt or invalid file as absent. The progress store uses a
+  unique temp path per write (pid and a counter) and on load resets every `writing` unit and
+  deletes its half-written file. `status` never writes. `layout-store.ts` allows only slug-shaped
+  district ids and builds the result from validated pairs onto a null-prototype object, so a
+  request key can never reach `Object.prototype`.
+- **Small choices.** Finding ids hash the finding's meaning, so the same defect keeps its id
+  across runs. SHA-256 here is a stable content key, not security. The ESC character in
+  `extraction.ts` is built at runtime so no control character appears in source (the
+  `no-control-regex` lint). The store reads a file directly instead of checking it exists first,
+  to avoid the race.
+
 ### Data / incident
 [`database-design-review`](../../runtime/capabilities/coding/skills/database-design-review/SKILL.md),
 [`index-optimization`](../../runtime/capabilities/coding/skills/index-optimization/SKILL.md),

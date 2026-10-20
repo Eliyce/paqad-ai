@@ -1,8 +1,3 @@
-// Journey curation — the human sign-off that turns a `proposed` journey into a `confirmed` one,
-// or removes it. Pure transition logic: the CLI verb a human runs is the audited surface (it
-// records a curation row on the session ledger), and this code never self-confirms — it only
-// transitions a journey a human explicitly acted on, and only from `proposed`.
-
 import type { Journey } from '@/core/types/site-map.js';
 
 import { recordJourneyCuration } from './ledger.js';
@@ -12,9 +7,7 @@ export type JourneyCurationAction = 'confirm' | 'reject';
 
 export interface JourneyCurationOk {
   ok: true;
-  /** The updated journey to persist (confirm), or null when the journey is removed (reject). */
   journey: Journey | null;
-  /** True when the journey file should be deleted (reject). */
   removed: boolean;
 }
 
@@ -25,10 +18,6 @@ export interface JourneyCurationErr {
 
 export type JourneyCurationResult = JourneyCurationOk | JourneyCurationErr;
 
-/**
- * Confirm a `proposed` journey: it becomes `confirmed` and human-derived. A journey that is
- * already `confirmed` or `locked` is refused — confirmation is a one-way, proposed-only step.
- */
 export function confirmJourney(journey: Journey): JourneyCurationResult {
   if (journey.status !== 'proposed') {
     return {
@@ -43,11 +32,6 @@ export function confirmJourney(journey: Journey): JourneyCurationResult {
   };
 }
 
-/**
- * Reject a `proposed` journey: it is removed from the map. A `confirmed` or `locked` journey is
- * refused — rejection only un-proposes an AI-proposed journey a human declined, never destroys a
- * curated one.
- */
 export function rejectJourney(journey: Journey): JourneyCurationResult {
   if (journey.status !== 'proposed') {
     return {
@@ -58,7 +42,6 @@ export function rejectJourney(journey: Journey): JourneyCurationResult {
   return { ok: true, journey: null, removed: true };
 }
 
-/** Apply a curation action to a journey. The single entry the CLI drives. */
 export function curateJourney(
   journey: Journey,
   action: JourneyCurationAction,
@@ -78,11 +61,6 @@ export type RunJourneyCurationResult =
   | { ok: true; id: string; action: JourneyCurationAction; status: 'confirmed' | 'removed' }
   | { ok: false; reason: string };
 
-/**
- * Read a journey, apply the human curation, persist it (write on confirm, delete on reject), and
- * record the audit row. The verb a human runs is the audited surface; the code never confirms a
- * journey the human did not act on.
- */
 export function runJourneyCuration(options: RunJourneyCurationOptions): RunJourneyCurationResult {
   const { projectRoot, id, action } = options;
   const journey = readJourney(projectRoot, id);
