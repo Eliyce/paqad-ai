@@ -51,6 +51,9 @@ describe('mutation testing on a fresh onboarded fixture', () => {
     tmp = mkdtempSync(join(tmpdir(), 'paqad-mutation-e2e-'));
     seedDetectionFixtures(tmp);
     project = join(tmp, 'new-react');
+    const manifestPath = join(project, 'package.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
+    writeFileSync(manifestPath, JSON.stringify({ ...manifest, scripts: { test: 'vitest run' } }));
     await runCli(['node', 'paqad-ai', 'onboard', '--project-root', project, '--stack', 'react']);
 
     write(project, 'stryker.conf.json', '{ "testRunner": "vitest" }\n');

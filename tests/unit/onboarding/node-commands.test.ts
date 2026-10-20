@@ -141,13 +141,24 @@ describe('onboarding maps Node commands from the lockfile and package.json scrip
     expectConventionalNpm(commands, warnings);
   });
 
-  it('maps the conventional commands when package.json declares no scripts', async () => {
+  it.each([
+    ['declares no scripts', {}],
+    ['has a scripts field that is not an object', { scripts: 'vitest run' }],
+    ['has a scripts field that is a list', { scripts: ['test'] }],
+  ])('maps only install when package.json %s', async (_label, extra) => {
     writeFileSync(
       join(projectRoot, 'package.json'),
-      JSON.stringify({ dependencies: { react: '^19.0.0', 'react-dom': '^19.0.0' } }),
+      JSON.stringify({ dependencies: { react: '^19.0.0', 'react-dom': '^19.0.0' }, ...extra }),
     );
     const { commands, warnings } = await onboardReact();
-    expectConventionalNpm(commands, warnings);
+
+    expect(commands.install).toBe('npm install');
+    for (const name of ['dev', 'test', 'test_single', 'lint', 'format', 'migrate', 'build']) {
+      expect(commands[name as keyof ProjectCommands]).toBe('');
+    }
+    const unmapped = warnings.filter((warning) => warning.startsWith('Commands left unmapped'));
+    expect(unmapped).toHaveLength(1);
+    expect(unmapped[0]).toContain('dev, test, test_single, lint, format, migrate, build');
   });
 
   it('maps the conventional commands when package.json cannot be parsed', async () => {

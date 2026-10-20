@@ -785,7 +785,9 @@ function packageScripts(projectRoot: string): Set<string> | null {
   try {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as { scripts?: unknown };
     const scripts = manifest.scripts;
-    return typeof scripts === 'object' && scripts !== null ? new Set(Object.keys(scripts)) : null;
+    return typeof scripts === 'object' && scripts !== null && !Array.isArray(scripts)
+      ? new Set(Object.keys(scripts))
+      : new Set();
   } catch {
     return null;
   }
