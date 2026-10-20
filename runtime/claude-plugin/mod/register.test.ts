@@ -10,6 +10,7 @@ import {
   GRADUATED_ORD_482,
   LATE_TABLE,
   NOW,
+  OTHER_WORKFLOW,
   ORD_482_SEQUENCE,
   ORD_501_SEATS,
   ORD_501_SEQUENCE,
@@ -74,8 +75,8 @@ function cardOf(node: RenderNode | null | undefined): RenderElement | undefined 
   return undefined;
 }
 
-const BORDER: Record<string, string | undefined> = {
-  Ready: undefined,
+const BORDER: Record<string, string | null | undefined> = {
+  Ready: null,
   Working: 'suggestion',
   'Branch warning': 'warning',
   'Needs you': 'permission',
@@ -83,7 +84,7 @@ const BORDER: Record<string, string | undefined> = {
   Inconclusive: 'warning',
   'Safe to merge': 'success',
   'Needs your attention': 'error',
-  Paused: undefined,
+  Paused: null,
 };
 
 describe('the band is one card in the tone of its state (AC-41, FR-31)', () => {
@@ -94,6 +95,10 @@ describe('the band is one card in the tone of its state (AC-41, FR-31)', () => {
         mock.clock(on, { now: NOW });
         await $.session.start(START);
         const card = cardOf(await $.ui.render(band(surface)));
+        if (BORDER[state] === null) {
+          expect(card).toBeUndefined();
+          return;
+        }
         expect(card).toBeDefined();
         expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe(
           BORDER[state],
@@ -119,8 +124,12 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
           component: 'AbovePrompt',
           props: band(surface).props,
         });
-        expect(await mounted.find({ key: 'paqad-brand' })).toBeDefined();
-        expect(await mounted.find({ key: 'paqad-minimise' })).toBeDefined();
+        if (fixture === PAUSED) {
+          expect(await mounted.find({ key: 'paqad-status-entry' })).toBeDefined();
+        } else {
+          expect(await mounted.find({ key: 'paqad-brand' })).toBeDefined();
+          expect(await mounted.find({ key: 'paqad-minimise' })).toBeDefined();
+        }
         await mounted.unmount();
       }
     });
@@ -283,6 +292,58 @@ describe('the ship rail on each surface (FR-35, FR-36, AC-44, AC-45)', () => {
     const card = cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe('success');
   });
+});
+
+const QUESTION = {
+  ...OTHER_WORKFLOW,
+  workflow: {
+    name: 'project-question',
+    started_at: '2026-10-18T08:50:00.000Z',
+    tokens: 84000,
+    usd: 0.05,
+    unpriced: [],
+  },
+};
+
+describe('other workflows get one status entry and no band (FR-44, AC-40)', () => {
+  for (const surface of SURFACES) {
+    test(`a question shows one row with its tokens, and the running time while a turn is in flight, on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
+      const clock = mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const idle = await $.ui.render(band(surface));
+      expect(cardOf(idle)).toBeUndefined();
+      expect(linesOf(idle)).toEqual(['paqad · question · 84K tokens · ~$0.05']);
+      await $.prompt.submit({ text: 'what is this?' } as never);
+      await clock.advance(42_000);
+      await clock.settle();
+      expect(linesOf(await $.ui.render(band(surface)))[0]).toBe(
+        'paqad · question · running 0:42 · 84K tokens · ~$0.05',
+      );
+      await $.turn.complete({ text: '' } as never);
+      expect(linesOf(await $.ui.render(band(surface)))[0]).toBe(
+        'paqad · question · 84K tokens · ~$0.05',
+      );
+      const mounted = await $.ui.mount({
+        plugin: PLUGIN,
+        surface,
+        component: 'AbovePrompt',
+        props: band(surface).props,
+      });
+      await mounted.press({ key: 'paqad-status-entry' });
+      expect(world.opened).toEqual(['paqad']);
+      await mounted.unmount();
+    });
+
+    test(`no workflow draws nothing at all on ${surface}`, async ($, on) => {
+      worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText({ ...QUESTION, route: 'no-workflow' }) },
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('paqad');
+    });
+  }
 });
 
 describe('the band fits its box (AC-30, AC-43)', () => {
@@ -483,7 +544,9 @@ describe('when the band reads the snapshot again (FR-24)', () => {
     await $.session.start(START);
     world.put(SNAPSHOT, fileText(PAUSED));
     await $.prompt.submit({ text: 'hello' } as never);
-    expect(textOf(await $.ui.render(band('terminal')))).toContain('no change in progress');
+    expect(textOf(await $.ui.render(band('terminal')))).toContain(
+      'paqad · question · running 0:00 · counting',
+    );
   });
 
   test('every 1.5 s only while a stage agent runs', async ($, on) => {

@@ -78,11 +78,14 @@ describe('the band shell (FR-30, FR-31)', () => {
   });
 
   it('idles with only the header, minimise and close when no change qualifies (FR-4, FR-39)', () => {
-    for (const raw of [null, PAUSED, snapshot()]) {
-      expect(bandLines(raw)).toEqual([
-        'paqad  feature development · no change in progress | – Minimise  × Close',
-      ]);
-    }
+    const idle = ['paqad  feature development · no change in progress | – Minimise  × Close'];
+    expect(bandLines(null)).toEqual(idle);
+    expect(
+      bandLines({ ...FULL_ORD_501, scope: { qualified: false, reason: 'other-branch' } }),
+    ).toEqual(idle);
+    expect(bandOf(snapshot()).kind).toBe('none');
+    expect(bandOf({ ...snapshot(), route: 'no-workflow' }).kind).toBe('none');
+    expect(bandLines(PAUSED)).toEqual(['paqad · question · counting']);
   });
 
   it('labels each control in words and gives it a hotkey (FR-52, AC-47)', () => {

@@ -2,6 +2,7 @@ import { costLines } from './cost';
 import { stageLabel } from './model';
 import { noTableText, showsTable, SKIPPED_TEXT, tablePaneView } from './table';
 import type { TableLine, TablePaneView } from './table';
+import { statusEntryRoute, workflowCostLines } from './status-entry';
 import { deliveryInProgress, recordLines, shipsLines, trustLines } from './tabs';
 import type { PaqadHudSnapshot, PaqadPaneTab } from './types';
 
@@ -95,6 +96,10 @@ export function buildPaneView(
   picked: PaqadPaneTab | null,
   options: PaneOptions = {},
 ): PaneView {
+  const entryRoute = statusEntryRoute(snapshot);
+  if (snapshot && entryRoute) {
+    return { tabs: [], lines: workflowCostLines(snapshot, entryRoute), rows: [], table: null };
+  }
   const selected = shownTab(snapshot, picked);
   const table =
     selected === 'table' && showsTable(snapshot) && !snapshot.table.skipped

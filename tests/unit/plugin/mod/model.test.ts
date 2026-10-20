@@ -14,7 +14,6 @@ import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 import { formatStageEvidenceReceipt } from '@/verification/repository/receipt.js';
 
-
 import {
   BAND_STATES,
   NOT_YET,

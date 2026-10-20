@@ -12,6 +12,7 @@ import {
   type ShellHeader,
 } from './shell';
 import { shipRail } from './ship';
+import { NO_WORKFLOW, statusEntryRoute, statusEntryRow } from './status-entry';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
 export type { BandLayout, BandRow, BandSegment };
@@ -116,6 +117,16 @@ export function layoutBand(
   size: { columns: number; maxRows: number },
   context: BodyContext,
 ): BandLayout {
+  if (snapshot && (snapshot.route === null || snapshot.route === NO_WORKFLOW)) {
+    return { kind: 'none' };
+  }
+  const entryRoute = statusEntryRoute(snapshot);
+  if (snapshot && entryRoute) {
+    return {
+      kind: 'line',
+      row: statusEntryRow(snapshot, entryRoute, context.now, context.turnStartedAt ?? null),
+    };
+  }
   const view = buildBandView(snapshot, context.now);
   const active = snapshot?.active === true;
   const route = snapshot?.route ?? FEATURE_DEVELOPMENT;

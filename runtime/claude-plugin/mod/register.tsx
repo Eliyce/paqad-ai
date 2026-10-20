@@ -117,6 +117,7 @@ let lastText: string | null | undefined;
 let verdictSeen: string | null | undefined;
 let chimeOn = false;
 let heartbeat: Timer | null = null;
+let turnStartedAt: number | null = null;
 const rawCalls = new Set<string>();
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
@@ -150,7 +151,7 @@ async function refresh($: EngineInterface): Promise<void> {
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed) await landAllGreen($, snapshot);
-      if (changed || isLive(snapshot)) {
+      if (changed || isLive(snapshot) || turnStartedAt !== null) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
       }
@@ -203,7 +204,7 @@ function startTicker($: EngineInterface): void {
   if (ticker || !live) return;
   ticker = $.clock.every(AGENT_TICK_MS, () => {
     void (async () => {
-      let running = agentCalls > 0;
+      let running = agentCalls > 0 || turnStartedAt !== null;
       try {
         running ||= (await $.agent.list()).some(isStageAgent);
       } catch {}
@@ -473,6 +474,7 @@ function drawBand($: EngineInterface, e: { surface: string }, layout: BandLayout
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
+    turnStartedAt = null;
     lastText = undefined;
     verdictSeen = undefined;
     chimeOn = false;
@@ -518,6 +520,10 @@ export const register: Register = (on) => {
   }).catch(() => ({ text: 'paqad could not read its record for this session. Try again.' }));
 
   on('prompt.submit', async ($, e, next) => {
+    if (live) {
+      turnStartedAt = await $.clock.now();
+      startTicker($);
+    }
     await beat($);
     const result = await next(e);
     await refresh($);
@@ -558,6 +564,7 @@ export const register: Register = (on) => {
   }
 
   on('turn.complete', async ($, e, next) => {
+    if (!e.agentId) turnStartedAt = null;
     const result = await next(e);
     if (live) {
       await refresh($);
@@ -572,7 +579,11 @@ export const register: Register = (on) => {
     const layout = layoutBand(
       await read($, snapshotAtom),
       { columns: e.props.bodyColumns, maxRows: e.props.maxRows },
-      { now: await read($, nowAtom), surface: e.surface === 'desktop' ? 'desktop' : 'terminal' },
+      {
+        now: await read($, nowAtom),
+        surface: e.surface === 'desktop' ? 'desktop' : 'terminal',
+        turnStartedAt,
+      },
     );
     const others = await next(e);
     const drawn = drawBand($, e, layout);

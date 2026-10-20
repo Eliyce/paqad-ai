@@ -48,6 +48,7 @@ export interface BandBody {
 export interface BodyContext {
   now: number;
   surface: 'terminal' | 'desktop';
+  turnStartedAt?: number | null;
 }
 
 export type BodyRenderer = (snapshot: PaqadHudSnapshot, context: BodyContext) => BandBody;
