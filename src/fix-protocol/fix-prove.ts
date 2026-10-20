@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { resolve } from 'node:path';
 
 import { execa } from 'execa';
 
@@ -9,6 +10,7 @@ import type { TestIssueSnapshot } from '@/core/types/token-efficiency.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
 import { readGitState } from '@/rag/git-state.js';
+import { isOnPath } from '@/rule-scripts/execute.js';
 
 import { behaviourChangeOf, readChangeDiff } from './fix-change.js';
 import {
@@ -39,6 +41,10 @@ export type ProofCommandRunner = (
   timeoutMs: number,
 ) => Promise<ProofCommandResult>;
 
+function commandPath(bin: string, cwd: string): string {
+  return bin.includes('/') || bin.includes('\\') ? resolve(cwd, bin) : bin;
+}
+
 export const runProofCommand: ProofCommandRunner = async (command, cwd, timeoutMs) => {
   const started = Date.now();
   const parsed = parseCommandChain(command);
@@ -59,9 +65,11 @@ export const runProofCommand: ProofCommandRunner = async (command, cwd, timeoutM
       const remaining = Math.max(1, deadline - Date.now());
       const result = await execa(bin, args, { cwd, reject: false, timeout: remaining });
       if (result.timedOut) flags.timedOut = true;
-      const exitCode =
-        typeof result.exitCode === 'number' ? result.exitCode : result.code === 'ENOENT' ? 127 : 1;
-      if (result.code === 'ENOENT') flags.spawnFailed = true;
+      const missing =
+        result.code === 'ENOENT' ||
+        (result.exitCode !== 0 && !result.timedOut && !isOnPath(commandPath(bin, cwd)));
+      const exitCode = missing ? 127 : typeof result.exitCode === 'number' ? result.exitCode : 1;
+      if (missing) flags.spawnFailed = true;
       return { stdout: result.stdout, stderr: result.stderr, exitCode };
     },
   };

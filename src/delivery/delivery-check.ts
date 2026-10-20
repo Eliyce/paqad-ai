@@ -10,6 +10,7 @@ import {
 } from '@/feature-evidence/delivery.js';
 import type { CapabilitySeam } from '@/kernel/registry.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { isOnPath } from '@/rule-scripts/execute.js';
 import { recordProjectEvent } from '@/session-ledger/project-ledger.js';
 
 import { AI_ATTRIBUTION_MARKERS, detectAiAttribution } from './ai-attribution.js';
@@ -341,11 +342,14 @@ export async function runDeliveryCapability(
 
 export const execaCommandRunner: CommandRunner = async (command, args) => {
   const result = await execa(command, args, { reject: false, timeout: GH_TIMEOUT_MS });
+  const missing =
+    (result as { code?: string }).code === 'ENOENT' ||
+    (result.exitCode !== 0 && !result.timedOut && !isOnPath(command));
   return {
     stdout: result.stdout,
     stderr: result.stderr,
     exitCode: result.exitCode ?? 1,
     timedOut: result.timedOut,
-    missing: (result as { code?: string }).code === 'ENOENT',
+    missing,
   };
 };
