@@ -1,9 +1,3 @@
-// AJV validation for the framework-API index (issue #397). Same discipline as the
-// code-knowledge index (issue #353): the committed JSON schema lives in
-// src/validators/schemas/ so it is packaged into dist and can never be weakened from a
-// project, and the build validates before persisting, so a malformed index fails loudly
-// rather than shipping a shape a consumer would mis-read (INV-4).
-
 import Ajv, { type ValidateFunction } from 'ajv';
 
 import frameworkApiSchema from '../validators/schemas/framework-api.schema.json';
@@ -20,11 +14,9 @@ function validator(): ValidateFunction {
 
 export interface FrameworkApiValidation {
   valid: boolean;
-  /** Human-readable `<path> <message>` lines; empty when valid. */
   errors: string[];
 }
 
-/** Validate a value against the committed framework-API schema. */
 export function validateFrameworkApiIndex(data: unknown): FrameworkApiValidation {
   const validate = validator();
   if (validate(data)) {

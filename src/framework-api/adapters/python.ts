@@ -1,17 +1,3 @@
-// The Python framework-API adapter (issue #398).
-//
-// Version comes from the installed distribution's own `dist-info/METADATA`, which is what
-// pip wrote when it installed the wheel — never a `requirements.txt` constraint (FR-3).
-// The surface comes from the package's `__init__.py` (and any `.pyi` stub beside a module,
-// which is the typed declaration layer when one ships).
-//
-// The research note names Python's `ast` module for this, and `ast` needs a Python runtime
-// this Node CLI cannot assume — the same reason the PHP adapter does not shell out to
-// nikic/PHP-Parser. What is read here is therefore the declaration LINES, and the read is
-// shaped so its limits cannot fabricate an absence: EVERY module carries a wildcard, which
-// is strictly more conservative than detecting PEP 562 `__getattr__` modules alone, so an
-// attribute this scan did not enumerate reads `unknown-dynamic`, never `absent` (INV-1).
-
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,29 +12,21 @@ import type {
 
 import { dynamicRecord, projectRelative } from './shared.js';
 
-/** Where a virtualenv puts its packages, relative to the project root. */
 const SITE_PACKAGES_ROOTS = [['.venv', 'lib'], ['venv', 'lib'], ['env', 'lib'], ['site-packages']];
 
-/** `Version: 3.1.2` in a wheel's METADATA. */
 const METADATA_VERSION_PATTERN = /^Version:[ \t]*(.+)$/m;
 
-/** `__all__ = ["a", "b"]`, across lines. */
 const DUNDER_ALL_PATTERN = /^__all__\s*(?::[^=]+)?=\s*[[(]([\s\S]*?)[\])]/m;
 
-/** A quoted name inside an `__all__` list. */
 const QUOTED_NAME_PATTERN = /['"]([A-Za-z_]\w*)['"]/g;
 
-/** A module-level `def` / `async def` / `class`, with the decorators above it. */
 const DECLARATION_PATTERN = /^((?:@[^\n]*\n)*)(?:async[ \t]+)?(def|class)[ \t]+(\w+)/gm;
 
-/** PEP 702: `@deprecated("…")`, optionally namespaced (`typing_extensions.deprecated`). */
 const PEP702_PATTERN = /@(?:[\w.]+\.)?deprecated\s*\(\s*(?:['"]([^'"]*)['"])?/;
 
-/** `warnings.warn("…", DeprecationWarning)` in a body, in either argument order. */
 const DEPRECATION_WARNING_PATTERN =
   /warn\s*\(\s*(?:f?['"]([^'"]*)['"])?[\s\S]{0,160}?DeprecationWarning/;
 
-/** Read a file, or null when it is missing or unreadable. */
 function readText(path: string): string | null {
   try {
     return readFileSync(path, 'utf8');
@@ -57,16 +35,10 @@ function readText(path: string): string | null {
   }
 }
 
-/**
- * The distribution directory name pip writes for `packageName`, e.g. `flask-3.1.2.dist-info`.
- * Matched case- and separator-insensitively because a distribution named `Flask` installs as
- * `flask` and one named `typing-extensions` as `typing_extensions`.
- */
 function normalizeDistName(name: string): string {
   return name.toLowerCase().replace(/[-_.]+/g, '_');
 }
 
-/** Every directory that can hold installed distributions under `searchRoot`. */
 function sitePackagesDirs(searchRoot: string): string[] {
   const roots: string[] = [];
   for (const segments of SITE_PACKAGES_ROOTS) {
@@ -78,8 +50,6 @@ function sitePackagesDirs(searchRoot: string): string[] {
       roots.push(base);
       continue;
     }
-    // A virtualenv nests under `lib/python3.X/site-packages`; the minor version is the
-    // interpreter's, so the directory is discovered rather than guessed.
     let versionDirs: string[];
     try {
       versionDirs = readdirSync(base);
@@ -97,7 +67,6 @@ function sitePackagesDirs(searchRoot: string): string[] {
   return roots;
 }
 
-/** The `<dist>-<ver>.dist-info` directory for a package, with the version it records. */
 function findDistInfo(
   searchRoot: string,
   packageName: string,
@@ -122,7 +91,6 @@ function findDistInfo(
       }
       const distInfo = join(siteDir, entry);
       const metadata = readText(join(distInfo, 'METADATA'));
-      // The METADATA `Version:` field is the authority; the directory name only locates it.
       const version =
         metadata === null ? null : (METADATA_VERSION_PATTERN.exec(metadata)?.[1] ?? null);
       if (version !== null) {
@@ -133,7 +101,6 @@ function findDistInfo(
   return null;
 }
 
-/** The import package directory for a distribution (`flask` for `Flask`), if it ships one. */
 function importPackageDir(siteDir: string, packageName: string): string | null {
   const candidates = [packageName, packageName.replace(/-/g, '_'), normalizeDistName(packageName)];
   for (const candidate of candidates) {
@@ -149,7 +116,6 @@ function importPackageDir(siteDir: string, packageName: string): string | null {
   return null;
 }
 
-/** The names a module's `__all__` declares, or an empty list when it declares none. */
 export function readDunderAll(source: string): string[] {
   const block = DUNDER_ALL_PATTERN.exec(source)?.[1];
   if (block === undefined) {
@@ -158,12 +124,6 @@ export function readDunderAll(source: string): string[] {
   return [...block.matchAll(QUOTED_NAME_PATTERN)].map((match) => match[1] as string);
 }
 
-/**
- * The deprecation tags a Python declaration carries: a PEP 702 `@deprecated("…")` decorator
- * first (the typed, tool-readable form), then a `warnings.warn(…, DeprecationWarning)` in
- * the body. Shaped as JSDoc tags so {@link readDeprecation} normalizes them, exactly as the
- * node and PHP adapters do.
- */
 export function pythonDeprecationTags(
   decorators: string,
   body: string,
@@ -181,16 +141,11 @@ export function pythonDeprecationTags(
   return [];
 }
 
-/** The body of a declaration: everything up to the next top-level declaration. */
 function bodyFrom(source: string, start: number): string {
   const next = source.slice(start).search(/^(?:@|async[ \t]+def|def|class)\b/m);
   return next === -1 ? source.slice(start) : source.slice(start, start + next);
 }
 
-/**
- * The records one module contributes: its top-level `def`s and `class`es, each carrying
- * whatever deprecation marker it declared, plus the module's wildcard.
- */
 export function moduleRecords(moduleName: string, source: string): FrameworkApiSymbol[] {
   const exported = new Set(readDunderAll(source));
   const records: FrameworkApiSymbol[] = [];
@@ -200,7 +155,6 @@ export function moduleRecords(moduleName: string, source: string): FrameworkApiS
     if (name === undefined || match.index === undefined || name.startsWith('_')) {
       continue;
     }
-    // An `__all__` is an explicit public surface: honour it when the module declares one.
     if (exported.size > 0 && !exported.has(name)) {
       continue;
     }
@@ -224,9 +178,6 @@ export function moduleRecords(moduleName: string, source: string): FrameworkApiS
     });
   }
 
-  // A name in `__all__` that no visible declaration backs is re-exported from a submodule.
-  // It exists — the module promises it — but this scan cannot say where from, so it is
-  // recorded as existing rather than dropped into a silent absence.
   for (const name of exported) {
     if (!seen.has(name)) {
       records.push({
@@ -257,11 +208,6 @@ export const pythonFrameworkApiAdapter: FrameworkApiAdapter = {
     return { dir, version: dist.version };
   },
 
-  /**
-   * Content-address the declaration inputs: package + resolved version + the bytes of the
-   * module's own declaration entry. Within one published wheel those bytes are immutable,
-   * so an equal hash means an equal surface and the stored entry is reused (FR-13 of #397).
-   */
   contentHash(input: FrameworkApiAdapterInput): string {
     const hash = createHash('sha256').update(`${input.package}@${input.version}`);
     for (const entry of ['__init__.pyi', '__init__.py']) {
@@ -275,8 +221,6 @@ export const pythonFrameworkApiAdapter: FrameworkApiAdapter = {
   },
 
   index(input: FrameworkApiAdapterInput): FrameworkApiAdapterResult {
-    // A `.pyi` stub beside the module is the typed declaration layer and wins when present,
-    // exactly as a `.d.ts` wins over JS in the node adapter.
     const entries: { file: string; source: string }[] = [];
     for (const name of ['__init__.pyi', '__init__.py']) {
       const source = readText(join(input.packageDir, name));

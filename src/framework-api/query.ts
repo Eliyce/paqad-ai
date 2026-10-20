@@ -1,26 +1,8 @@
-// Looking one framework symbol up in the installed framework-API index (issue #397).
-//
-// This is the single place a verdict is decided, so the CLI and `plan compile` can never
-// disagree about what the index says. The verdict tiers are what keep the gate honest: it
-// blocks only on `absent` and `deprecated`, and everything it could not resolve lands in
-// `unknown-dynamic`, which warns (INV-2).
-
 import { levenshtein } from '@/module-decisions/schema.js';
 
 import { DYNAMIC_MEMBER_SUFFIX, containerOf, lastNameSegment } from './adapters/shared.js';
 import type { FrameworkApiIndex, FrameworkApiPackage, FrameworkApiSymbol } from './types.js';
 
-/**
- * What the index concluded about one claimed symbol.
- *
- * - `live` — resolved, and carries no static deprecation marker.
- * - `deprecated` — resolved, and carries one.
- * - `absent` — the package resolved and the symbol demonstrably was not among its
- *   exports. The only verdict besides `deprecated` that blocks a compile.
- * - `unknown-dynamic` — the container provides members at runtime, so absence cannot be
- *   asserted.
- * - `package-not-indexed` — the index exists but has no entry for this package.
- */
 export type FrameworkApiVerdict =
   'live' | 'deprecated' | 'absent' | 'unknown-dynamic' | 'package-not-indexed';
 
@@ -28,23 +10,11 @@ export interface FrameworkApiQueryResult {
   package: string;
   symbol: string;
   verdict: FrameworkApiVerdict;
-  /** The resolved version the verdict is made against, when the package was indexed. */
   version: string | null;
-  /** The matched record, when one was found. */
   record: FrameworkApiSymbol | null;
-  /** The closest existing symbol name, offered when the verdict is `absent`. */
   nearest: string | null;
 }
 
-/**
- * Match a claimed symbol against a package's records.
- *
- * Exact first, then by last segment, because a plan may reasonably write either
- * `componentWillMount` or `Component.componentWillMount` for the same member and both
- * should reach the same verdict. Since issue #398 the segment split also understands PHP's
- * `::` and `\`, so `Cache::get` and `Illuminate\Support\Facades\Cache::get` answer from the
- * one record the index stores.
- */
 function findRecord(entry: FrameworkApiPackage, symbol: string): FrameworkApiSymbol | null {
   const exact = entry.symbols.find((record) => record.name === symbol);
   if (exact) {
@@ -59,14 +29,6 @@ function findRecord(entry: FrameworkApiPackage, symbol: string): FrameworkApiSym
   );
 }
 
-/**
- * Whether the claimed symbol's container accepts runtime-provided members. A claim on
- * `Facade.anything` must not be called absent when `Facade.*` is in the index.
- *
- * The container is compared by last segment too: an index that stores
- * `Illuminate\Support\Facades\Cache.*` has to cover a claim written `Cache::someMacro`,
- * because a container spelled two ways is still one container (INV-1).
- */
 function coveredByDynamicContainer(entry: FrameworkApiPackage, symbol: string): boolean {
   const container = containerOf(symbol);
   if (container === null) {
@@ -82,13 +44,6 @@ function coveredByDynamicContainer(entry: FrameworkApiPackage, symbol: string): 
   });
 }
 
-/**
- * The closest existing symbol name within a small edit distance, or null. Reuses the
- * bounded `levenshtein` already exported for module-slug matching — the same helper
- * `src/feature-evidence/reuse.ts` uses for first-party suggestions — rather than adding a
- * second edit-distance implementation. A null result is deliberate: suggesting a wildly
- * unrelated symbol is worse than suggesting nothing.
- */
 export function nearestFrameworkSymbol(symbol: string, known: string[]): string | null {
   const wanted = lastNameSegment(symbol);
   const bound = Math.max(2, Math.floor(wanted.length / 4));
@@ -104,15 +59,6 @@ export function nearestFrameworkSymbol(symbol: string, known: string[]): string 
   return best;
 }
 
-/**
- * Look one `package` + `symbol` up in the index.
- *
- * `version` is the version the CLAIM was made against. A monorepo can install the same
- * package at two manifest roots at two versions, and answering such a claim from whichever
- * entry happened to sort first would be an arbitrary tie-break on a verdict that blocks a
- * compile — so a claim naming a version is answered from THAT version's entry, and only
- * falls back to the first entry for the package when it names none.
- */
 export function queryFrameworkApi(
   index: FrameworkApiIndex,
   packageName: string,

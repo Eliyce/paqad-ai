@@ -174,6 +174,70 @@ whole surface inside `declare namespace React` behind `export = React`
 (`index.d.ts:67,70`), so a naive export scan misses `useId` entirely and would report a
 false "absent".
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/framework-api/`.
+
+- **`adapters/class-file.ts` and `adapters/jar.ts`.** There is no JVM and no zip dependency,
+  so both formats are read from the published layouts with `node:zlib`. Every reader returns
+  null the moment it meets something it does not fully understand (a zip64 archive, a
+  compression method other than stored or deflate, an unknown constant-pool tag), because a
+  half-parsed artifact must never become an assertion about symbols it did not see. The
+  end-of-central-directory record is found by scanning backwards, since a trailing comment may
+  follow it, and an entry's data offset comes from its local header, whose name and extra
+  lengths can differ from the central directory's. The constant pool is 1-indexed and a Long or
+  Double takes two slots. When skipping the interface table, the count is read into a variable
+  first: `cursor.at += 2 * u2(cursor)` captures the offset before the read advances it and
+  desyncs every attribute length after it. Code attributes are never walked.
+- **`adapters/jvm.ts`.** A coordinate is only looked up in the Maven and Gradle caches when the
+  project's own build file declares it, so a jar that merely sits in the user's cache is never
+  this project's dependency. The newest cached version wins and the version recorded is the one
+  the jar stamps in its own `pom.properties`, not its directory name. Each jar contributes at
+  most a capped number of classes and an aggregator follows a capped number of dependencies;
+  classes past the cap still get their package wildcard. Inner and anonymous classes are
+  skipped. The cache key is coordinate, version, jar size and mtime, since a published jar is
+  immutable. Paths outside the project are shown with the home folded to `~`.
+- **`adapters/php-scan.ts` and `adapters/python.ts`.** Neither PHP-Parser nor Python's `ast` can
+  run without its own runtime, so declarations are read as text. The docblock pattern forbids an
+  inner comment terminator, otherwise a class docblock could stretch down to a method and the
+  method would be attributed to no class. Methods belong to the last class declared before them,
+  which is right for one-class-per-file layouts; a nested class can only add a record to a
+  container that already has a wildcard. An unbalanced body reads to the end of the file, which
+  can only add deprecation evidence. Every Python module carries a wildcard, which is stricter
+  than detecting `__getattr__` modules alone, and a name in `__all__` with no visible declaration
+  is recorded as existing because it is re-exported from a submodule. Distribution directories
+  match case- and separator-insensitively, and the virtualenv `python3.X` directory is
+  discovered, not guessed.
+- **`adapters/php.ts`.** `vendor/composer/installed.json` wins (it knows custom install paths),
+  `composer.lock` is the fallback, and a `composer.json` range is never read. Composer 1 writes a
+  bare array, composer 2 wraps it. The `v` prefix is dropped from versions. The cache key uses
+  composer's `dist.reference` when there is one. `sources` names the tree read, not every file.
+- **`adapters/node.ts`.** A declaration file with no module symbol is a global script and can
+  assert nothing absent. Past the drill budget a container still gets its wildcard.
+- **`deprecation.ts`.** Tag text arrives as display parts, so a `{@link Target label}` is
+  rendered as its label (or target) instead of the concatenated parts. An explicit `@since` tag
+  wins over a `since <version>` phrase, and a bare leading version is read only when the tag
+  opens with it.
+- **`laravel-upgrade-guide.ts`.** A guide is read by two signals, a deprecation heading and a
+  prose line that states one, because the guides use both shapes. Removal is sticky within a
+  section, and a later "removed" strengthens an earlier "deprecated". A parser version is stored
+  in the cache so an older parser's cache is refetched. An expired cache is still used when the
+  network is unavailable, and a failed cache write is ignored.
+- **`query.ts`.** A claim that names a version is answered from that version's entry, because a
+  monorepo can install one package at two versions and a blocking verdict must not depend on
+  sort order. The container check also compares by last segment. A nearest-match suggestion is
+  offered only within a small edit distance; an unrelated suggestion is worse than none.
+- **`resolve-version.ts`.** Everything reads the onboarded project's install tree, never
+  paqad-ai's own. The `exports` tree is walked for the first plain `types` condition, starting
+  from the `.` subpath, so a version-gated legacy variant never outranks the current one.
+- **`builder.ts`.** A snapshot can list one dependency per declaring manifest, so each package
+  and root pair is indexed once.
+- **`store.ts`.** The file is read directly rather than after an existence check, so there is no
+  race; a missing file reads as absent like a corrupt one.
+- **`typescript-loader.ts`.** The compiler surface is declared structurally, because a static
+  `import type` from `typescript` would break `tsc --noEmit` for consumers without it. The
+  resolved compiler is cached per project root.
+
 ## CLI
 
 ```bash

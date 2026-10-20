@@ -1,15 +1,3 @@
-// Building the installed framework-API index (issue #397).
-//
-// Which packages get indexed comes from the stack snapshot crossed with the SHARED
-// `FRAMEWORK_PACKAGE_MAP` — the same map stack detection already uses, not a second copy
-// of the same knowledge. What VERSION each is at comes from the installed package's own
-// manifest, never from the snapshot's `locked_version`, which mirrors the manifest range
-// (FR-2).
-//
-// Every package that produces no entry is recorded in `blocked` with a reason. A silently
-// missing package would read as "checked and fine", which is the failure mode this whole
-// index exists to prevent.
-
 import { join } from 'node:path';
 
 import { FRAMEWORK_PACKAGE_MAP } from '@/core/stack-profile.js';
@@ -29,28 +17,17 @@ import {
 } from './types.js';
 
 export interface BuildFrameworkApiOptions {
-  /** Injectable for tests; defaults to the project's persisted snapshot. */
   snapshot?: StackSnapshot | null;
-  /** Injectable for tests and for #398's adapters. */
   registry?: FrameworkApiAdapterRegistry;
-  /** Injectable clock, so a built index is reproducible under test. */
   now?: () => Date;
-  /** Ignore the previous index and re-walk every package. */
   force?: boolean;
 }
 
 export interface BuildFrameworkApiResult {
   index: FrameworkApiIndex;
-  /** How many packages reused a stored entry rather than being re-walked (FR-13). */
   cacheHits: number;
 }
 
-/**
- * Build the index for every detected framework in the project's stack snapshot.
- *
- * A package is re-walked only when its content address changed, so a rebuild at unchanged
- * versions is a cache hit and stays inside the time budget (AC-7).
- */
 export function buildFrameworkApiIndex(
   projectRoot: string,
   options: BuildFrameworkApiOptions = {},
@@ -65,8 +42,6 @@ export function buildFrameworkApiIndex(
   const blocked: FrameworkApiBlocked[] = [];
   let cacheHits = 0;
 
-  // A snapshot can list the same dependency more than once (one row per manifest that
-  // declares it), so index each package+root pair once rather than re-walking it.
   const seen = new Set<string>();
   for (const dependency of snapshot?.packages ?? []) {
     if (FRAMEWORK_PACKAGE_MAP[dependency.name] === undefined) {
@@ -89,8 +64,6 @@ export function buildFrameworkApiIndex(
       });
       continue;
     }
-    // The dependency was declared under `root`, so its install tree is there — in a
-    // monorepo the framework sits beside the sub-app that declares it, not at the top.
     const searchRoot = join(projectRoot, root);
     const installed = adapter.resolveInstalled(searchRoot, dependency.name);
     if (installed === null) {

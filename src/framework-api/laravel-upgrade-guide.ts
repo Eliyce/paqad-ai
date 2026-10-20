@@ -1,18 +1,3 @@
-// The Laravel Upgrade Guide deprecation backstop (issue #398).
-//
-// Why this exists: Laravel tags deprecations sparsely. A real v13.18.0 install carries 39
-// `@deprecated` docblocks and zero `#[\Deprecated]` attributes across the entire framework,
-// while its authoritative deprecation record — the one the framework team maintains — is
-// the version-pinned Upgrade Guide. A record read from there is `doc-derived`: true, but
-// from prose rather than from a declaration, and the index says so rather than passing it
-// off as an asserted fact.
-//
-// This is the ONE place the framework-API index reaches the network, by decision
-// D-01KYEQSEE1YV11T9VN9M2AKME7, which amends #397's zero-network invariant for this source.
-// It is fenced accordingly: the fetch is cached per major version, skipped entirely under
-// `offline`, and a failure produces no records instead of an error — the index is never
-// worse off for the network being unavailable (FR-13).
-
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -20,85 +5,40 @@ import { PATHS } from '@/core/constants/paths.js';
 
 import type { FrameworkApiSymbol } from './types.js';
 
-/** Where the version-pinned guide is published. `{major}` is the installed major version. */
 export const LARAVEL_UPGRADE_GUIDE_URL =
   'https://raw.githubusercontent.com/laravel/docs/{major}.x/upgrade.md';
 
-/** How long a cached guide is trusted before it is fetched again. */
 export const UPGRADE_GUIDE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
-/** How long the fetch may take before it is abandoned and the build carries on. */
 const FETCH_TIMEOUT_MS = 5000;
 
-/** A `Str::foo()`, `Foo::bar()` or `Illuminate\Support\Str::foo()` mention in the guide. */
 const SYMBOL_PATTERN = /`?([A-Za-z_][\w\\]*)::(\w+)\(\)?`?/g;
 
-/**
- * A heading that declares its whole section to be about a deprecation or removal, e.g.
- * `#### Deprecated Schema Methods` in the 11.x guide.
- */
 const DEPRECATION_HEADING = /^#{2,6}\s+.*\b(deprecat|remov)\w*/i;
 
-/**
- * A prose line that states a deprecation or removal outright, e.g. "The
- * `Blueprint::getPrefix()` method is deprecated." in the 12.x guide.
- *
- * Both signals are needed because the guides use both shapes, and neither alone finds much:
- * the 13.x guide names its sections after the CHANGE rather than the word "deprecated", and
- * the 12.x guide states most of its removals in running prose under a neutral heading.
- */
 const DEPRECATION_SENTENCE =
   /\b(is|are|has been|have been|was|were)\s+(deprecated|removed)\b|\bdeprecated\s+(alias|aliases|in favou?r)\b/i;
 
-/** Whether a matched phrase means gone, not merely discouraged. */
 const REMOVAL_PHRASE = /\bremov\w*/i;
 
-/**
- * Bumped whenever {@link parseUpgradeGuide} changes what it extracts, so a cache written by
- * an older parser is refetched rather than trusted.
- */
 const CACHE_PARSER_VERSION = 1;
 
-/**
- * The only symbol shape allowed to reach the cache file.
- *
- * Nothing free-form from the network is ever persisted (see the cache note below), and this
- * is the gate that guarantees it: a record whose name does not match exactly is dropped.
- */
 const CACHEABLE_SYMBOL = /^[A-Za-z_][A-Za-z0-9_\\]*::[A-Za-z0-9_]+$/;
 
-/** The on-disk cache for one major version's derived records. */
 export function upgradeGuideCachePath(projectRoot: string, major: string): string {
   return join(projectRoot, PATHS.INDEXES_DIR, 'cache', `laravel-upgrade-${major}.json`);
 }
 
-/**
- * The major version of a resolved semver-ish version string (`13.18.0` -> `13`), or null
- * when the string does not start with one.
- *
- * Null rather than a fallback on purpose: the major reaches a URL and a cache filename, and
- * the version it comes from is read out of a project's own `vendor/` tree. A version like
- * `../../x` must produce "no guide", never a path or a URL built from it.
- */
 export function majorOf(version: string): string | null {
   return /^v?(\d{1,4})(?:\D|$)/.exec(version.trim())?.[1] ?? null;
 }
 
-/** What one cache file holds. Derived records only — never the fetched document. */
 interface GuideCache {
   fetched_at: number;
   parser_version: number;
   records: FrameworkApiSymbol[];
 }
 
-/**
- * Keep only what is safe to persist: a strictly-shaped symbol name, our own major version,
- * a boolean, and a message this module composes itself.
- *
- * This is the sanitizer that keeps network text off the filesystem. The guide's own prose —
- * its headings especially — is used to DECIDE what is deprecated and then discarded, so a
- * cache file can only ever contain values this code produced.
- */
 function cacheable(records: FrameworkApiSymbol[], major: string): FrameworkApiSymbol[] {
   const safe: FrameworkApiSymbol[] = [];
   for (const record of records) {
@@ -119,7 +59,6 @@ function cacheable(records: FrameworkApiSymbol[], major: string): FrameworkApiSy
   return safe;
 }
 
-/** Read the cached records when they exist, match this parser, and are young enough. */
 function readCache(path: string, maxAgeMs: number, now: number): FrameworkApiSymbol[] | null {
   try {
     const cached = JSON.parse(readFileSync(path, 'utf8')) as Partial<GuideCache>;
@@ -136,7 +75,6 @@ function readCache(path: string, maxAgeMs: number, now: number): FrameworkApiSym
   }
 }
 
-/** Persist derived records atomically, so a killed build leaves no half-written cache. */
 function writeCache(path: string, records: FrameworkApiSymbol[], now: number): void {
   try {
     mkdirSync(dirname(path), { recursive: true });
@@ -149,33 +87,16 @@ function writeCache(path: string, records: FrameworkApiSymbol[], now: number): v
     writeFileSync(tmp, JSON.stringify(payload), 'utf8');
     renameSync(tmp, path);
     /* v8 ignore next 4 -- a cache that cannot be written costs a re-fetch next build, which is not worth failing an index build over. */
-  } catch {
-    // Deliberately empty: the records are already in hand; caching them is an optimization.
-  }
+  } catch {}
 }
 
 export interface UpgradeGuideOptions {
-  /** Skip the network entirely; only an existing cache is used. */
   offline?: boolean;
-  /** Injectable for tests. Defaults to `globalThis.fetch`. */
   fetchImpl?: typeof globalThis.fetch;
-  /** Injectable clock, so cache expiry is testable without waiting a week. */
   now?: () => number;
   maxAgeMs?: number;
 }
 
-/**
- * The doc-derived deprecation records for an installed Laravel major version: from cache
- * when it is fresh, and from the version-pinned guide otherwise.
- *
- * Returns null when nothing can be obtained — an unparseable major, offline with no cache,
- * a failed request, a non-200 — which the caller treats as "no doc-derived records", never
- * as an error.
- *
- * The fetched document itself is parsed in memory and discarded; only the derived,
- * strictly-shaped records are cached. Persisting the raw markdown would put network text on
- * the filesystem for no benefit the records do not already give.
- */
 export async function loadLaravelDeprecations(
   projectRoot: string,
   version: string,
@@ -194,7 +115,6 @@ export async function loadLaravelDeprecations(
     return cached;
   }
   if (options.offline === true) {
-    // An expired cache still beats nothing when the network is off the table.
     return readCache(path, Number.POSITIVE_INFINITY, now);
   }
 
@@ -211,25 +131,15 @@ export async function loadLaravelDeprecations(
     writeCache(path, records, now);
     return records;
   } catch {
-    // Offline, DNS failure, timeout: fall back to any cache at all, then to nothing.
     return readCache(path, Number.POSITIVE_INFINITY, now);
   }
 }
 
-/**
- * The symbols an Upgrade Guide names under a deprecation or removal heading.
- *
- * Only `Class::method()` mentions are read, and only inside such a section: the guide is
- * prose, and a looser read would turn every code sample in it into a false deprecation.
- * Each record is `doc-derived`, so a consumer can weigh it differently from a declaration.
- */
 export function parseUpgradeGuide(markdown: string, version: string): FrameworkApiSymbol[] {
   const records = new Map<string, FrameworkApiSymbol>();
   const major = majorOf(version) ?? version;
   let heading = 'deprecations';
   let headingIsDeprecation = false;
-  // Sticky within a section: the guide writes "The following have been removed:" once and
-  // then lists the symbols, so the removal fact belongs to the section, not to each bullet.
   let sectionRemoval = false;
 
   const collect = (text: string, source: string, removal: boolean): void => {
@@ -237,7 +147,6 @@ export function parseUpgradeGuide(markdown: string, version: string): FrameworkA
       const name = `${match[1] as string}::${match[2] as string}`;
       const existing = records.get(name);
       if (existing !== undefined) {
-        // A later mention that says "removed" strengthens an earlier "deprecated".
         existing.for_removal = existing.for_removal || removal;
         continue;
       }
@@ -276,20 +185,6 @@ export function parseUpgradeGuide(markdown: string, version: string): FrameworkA
   return [...records.values()];
 }
 
-/**
- * Fold doc-derived records into an already-built symbol list.
- *
- * The whole point of the backstop is the symbol Laravel deprecated in the guide and never
- * tagged in code, so a matching record that the adapter read as NOT deprecated is upgraded
- * to deprecated with `provenance: 'doc-derived'` — the guide is the framework team's
- * authoritative deprecation record, and an untagged declaration is silence, not a denial.
- * A record that already carries a real `@deprecated` tag keeps it: a declaration says more
- * than prose, so it is never overwritten. Symbols the declarations never saw at all are
- * appended.
- *
- * Matching is by last segment, so the guide's `Str::random` and the adapter's
- * `Illuminate\Support\Str::random` are one symbol, never two.
- */
 export function mergeDocDerived(
   asserted: FrameworkApiSymbol[],
   docDerived: FrameworkApiSymbol[],
@@ -319,14 +214,6 @@ export function mergeDocDerived(
   return merged;
 }
 
-/**
- * Apply the Upgrade Guide backstop to a built index, in place of a rebuild.
- *
- * Runs as a post-pass because the guide is fetched for the version the index RESOLVED, and
- * because it keeps the network out of the builder and the adapters entirely: everything
- * below this function stays synchronous and offline (INV-2). Returns how many records the
- * backstop changed, so the CLI can say so honestly rather than implying a check it skipped.
- */
 export async function applyLaravelBackstop(
   projectRoot: string,
   index: { packages: { package: string; version: string; symbols: FrameworkApiSymbol[] }[] },
