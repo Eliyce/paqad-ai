@@ -19,6 +19,7 @@ import { createEvidenceCommand } from './commands/evidence.js';
 import { createFeatureCommand } from './commands/feature.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createHealthCommand } from './commands/health.js';
+import { createHookCommand } from './commands/hook.js';
 import { createIndexCommand } from './commands/index-cmd.js';
 import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
@@ -113,6 +114,7 @@ export function createProgram(): Command {
   program.addCommand(createDiscoveryCommand());
   program.addCommand(createStatusCommand());
   program.addCommand(createDebtCommand());
+  program.addCommand(createHookCommand());
 
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);

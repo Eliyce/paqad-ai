@@ -64,6 +64,7 @@ describe('createProgram', () => {
       'discovery',
       'status',
       'debt',
+      'hook',
     ]);
   });
 

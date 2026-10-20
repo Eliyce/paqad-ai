@@ -54,13 +54,24 @@ function freshSentinel(root: string, session: string): void {
 }
 
 interface Route {
-  name: 'npm' | 'plugin';
+  name: 'npm' | 'plugin' | 'managed';
   env: (root: string) => NodeJS.ProcessEnv;
 }
 const ROUTES: Route[] = [
   { name: 'npm', env: (root) => ({ CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: '' }) },
   { name: 'plugin', env: (root) => ({ CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: REPO }) },
+  { name: 'managed', env: (root) => ({ CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: '' }) },
 ];
+
+const MANAGED_HOOK_NAMES = new Map([
+  [CAPABILITY, 'capability-gate'],
+  [DECISION_PAUSE, 'decision-pause-gate'],
+]);
+
+function routeArgv(script: string, argv: string[], route?: Route): string[] {
+  const managedName = route?.name === 'managed' ? MANAGED_HOOK_NAMES.get(script) : undefined;
+  return managedName ? [CLI, 'hook', '--managed', managedName, ...argv] : [script, ...argv];
+}
 
 interface HookResult {
   exitCode: number;
@@ -72,10 +83,11 @@ async function runHook(
   payload: unknown,
   routeEnv: NodeJS.ProcessEnv,
   argv: string[] = [],
+  route?: Route,
 ): Promise<HookResult> {
   const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: process.env.HOME, ...routeEnv };
   if (env.CLAUDE_PLUGIN_ROOT === '') delete env.CLAUDE_PLUGIN_ROOT;
-  const result = await execa('node', [script, ...argv], {
+  const result = await execa('node', routeArgv(script, argv, route), {
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     env,
     reject: false,
@@ -156,7 +168,7 @@ describe('contract: load-check (agent-entry-gate)', () => {
   for (const route of ROUTES) {
     it(`[${route.name}] blocks a source edit before the session load sentinel exists`, async () => {
       const root = freshRepo();
-      const r = await runHook(AGENT_ENTRY, editPayload(root, 'ses1'), route.env(root));
+      const r = await runHook(AGENT_ENTRY, editPayload(root, 'ses1'), route.env(root), [], route);
       expect(r.exitCode).toBe(2);
       expect(r.stderr).toContain('CLAUDE.md');
     });
@@ -164,7 +176,7 @@ describe('contract: load-check (agent-entry-gate)', () => {
     it(`[${route.name}] allows the edit once a fresh sentinel exists`, async () => {
       const root = freshRepo();
       freshSentinel(root, 'ses1');
-      const r = await runHook(AGENT_ENTRY, editPayload(root, 'ses1'), route.env(root));
+      const r = await runHook(AGENT_ENTRY, editPayload(root, 'ses1'), route.env(root), [], route);
       expect(r.exitCode).toBe(0);
     });
   }
@@ -175,9 +187,13 @@ describe('contract: planning gate (capability-gate pre-mutation)', () => {
     it(`[${route.name}] blocks a source edit before planning is recorded, naming planning`, async () => {
       const root = freshRepo();
       freshSentinel(root, 'ses2');
-      const r = await runHook(CAPABILITY, editPayload(root, 'ses2'), route.env(root), [
-        'pre-mutation',
-      ]);
+      const r = await runHook(
+        CAPABILITY,
+        editPayload(root, 'ses2'),
+        route.env(root),
+        ['pre-mutation'],
+        route,
+      );
       expect(r.exitCode).toBe(2);
       expect(r.stderr.toLowerCase()).toContain('planning');
     });
@@ -216,11 +232,23 @@ describe('contract: pending decision packet (decision-pause-gate)', () => {
       const pending = join(root, '.paqad/decisions/pending');
       mkdirSync(pending, { recursive: true });
       writeFileSync(join(pending, 'D-contract.json'), '{"category":"architecture-path"}');
-      const blocked = await runHook(DECISION_PAUSE, editPayload(root, 'ses5'), route.env(root));
+      const blocked = await runHook(
+        DECISION_PAUSE,
+        editPayload(root, 'ses5'),
+        route.env(root),
+        [],
+        route,
+      );
       expect(blocked.exitCode).toBe(2);
 
       rmSync(join(pending, 'D-contract.json'));
-      const allowed = await runHook(DECISION_PAUSE, editPayload(root, 'ses5'), route.env(root));
+      const allowed = await runHook(
+        DECISION_PAUSE,
+        editPayload(root, 'ses5'),
+        route.env(root),
+        [],
+        route,
+      );
       expect(allowed.exitCode).toBe(0);
     });
   }
@@ -238,7 +266,7 @@ describe('contract: feature-bundle write (capability-gate pre-mutation)', () => 
         tool_name: 'Write',
         tool_input: { file_path: join(bundle, 'plan.json') },
       };
-      const r = await runHook(CAPABILITY, payload, route.env(root), ['pre-mutation']);
+      const r = await runHook(CAPABILITY, payload, route.env(root), ['pre-mutation'], route);
       expect(r.exitCode).toBe(2);
       expect(r.stderr).toContain('feature');
     });
@@ -249,7 +277,7 @@ describe('contract: gates fail closed (never silently allow on bad input)', () =
   for (const route of ROUTES) {
     it(`[${route.name}] agent-entry-gate blocks (exit 2) on a malformed payload`, async () => {
       const root = freshRepo();
-      const r = await runHook(AGENT_ENTRY, 'not-json-at-all', route.env(root));
+      const r = await runHook(AGENT_ENTRY, 'not-json-at-all', route.env(root), [], route);
       expect(r.exitCode).toBe(2);
       expect(r.stderr).toContain('load the paqad framework');
     });
@@ -326,6 +354,87 @@ describe('contract: disabled and un-onboarded no-op', () => {
     ] as const) {
       const r = await runHook(script, editPayload(root, 'ses10b'), env, argv as string[]);
       expect(r.exitCode).toBe(0);
+    }
+  });
+});
+
+describe('contract: managed route matches the npm route', () => {
+  const NPM = ROUTES[0]!;
+  const MANAGED = ROUTES[2]!;
+  const ORG_LINE = "This rule is enforced by your organization's settings.";
+
+  it('a capability block differs from npm only by the organization line', async () => {
+    const npmRoot = freshRepo();
+    freshSentinel(npmRoot, 'ses11');
+    const managedRoot = freshRepo();
+    freshSentinel(managedRoot, 'ses11');
+    const npm = await runHook(
+      CAPABILITY,
+      editPayload(npmRoot, 'ses11'),
+      NPM.env(npmRoot),
+      ['pre-mutation'],
+      NPM,
+    );
+    const managed = await runHook(
+      CAPABILITY,
+      editPayload(managedRoot, 'ses11'),
+      MANAGED.env(managedRoot),
+      ['pre-mutation'],
+      MANAGED,
+    );
+    expect(managed.exitCode).toBe(npm.exitCode);
+    expect(managed.stdout).toBe(npm.stdout);
+    expect(managed.stderr.replaceAll(managedRoot, '<root>')).toBe(
+      `${npm.stderr.replaceAll(npmRoot, '<root>')}\n${ORG_LINE}`,
+    );
+  });
+
+  it('a decision-pause block is byte-identical to npm', async () => {
+    const root = freshRepo();
+    const pending = join(root, '.paqad/decisions/pending');
+    mkdirSync(pending, { recursive: true });
+    writeFileSync(join(pending, 'D-contract.json'), '{}');
+    const npm = await runHook(DECISION_PAUSE, editPayload(root, 'ses12'), NPM.env(root), [], NPM);
+    const managed = await runHook(
+      DECISION_PAUSE,
+      editPayload(root, 'ses12'),
+      MANAGED.env(root),
+      [],
+      MANAGED,
+    );
+    expect(managed).toEqual(npm);
+  });
+
+  it('keeps blocking under PAQAD_DISABLED and paqad_enable=false', async () => {
+    const root = freshRepo();
+    freshSentinel(root, 'ses13');
+    writeFileSync(join(root, '.paqad/.config'), 'paqad_enable=false\n');
+    const env = { ...MANAGED.env(root), PAQAD_DISABLED: '1' };
+    const managed = await runHook(
+      CAPABILITY,
+      editPayload(root, 'ses13'),
+      env,
+      ['pre-mutation'],
+      MANAGED,
+    );
+    expect(managed.exitCode).toBe(2);
+    expect(managed.stderr.trimEnd().endsWith(ORG_LINE)).toBe(true);
+    const npm = await runHook(CAPABILITY, editPayload(root, 'ses13'), env, ['pre-mutation'], NPM);
+    expect(npm.exitCode).toBe(0);
+  });
+
+  it('is a silent no-op in a project with no .paqad/', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-contract-bare-'));
+    roots.push(root);
+    for (const script of [CAPABILITY, DECISION_PAUSE]) {
+      const r = await runHook(
+        script,
+        editPayload(root, 'ses14'),
+        MANAGED.env(root),
+        ['pre-mutation'],
+        MANAGED,
+      );
+      expect(r).toEqual({ exitCode: 0, stdout: '', stderr: '' });
     }
   });
 });

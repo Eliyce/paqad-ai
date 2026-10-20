@@ -11,8 +11,10 @@ import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
   appendHooksLog,
   hookStandsDown,
+  isManagedRoute,
   isPaqadDisabled,
   isSchemaVersionError,
+  MANAGED_BLOCK_LINE,
   parseHookPayload,
   readFlooredMode,
   resolveProjectRoot,
@@ -95,7 +97,10 @@ async function deferredForBackgroundStage(projectRoot, input) {
 export async function main(input, seam = SEAM) {
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
-    if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) return 0;
+    const managed = isManagedRoute(process.env);
+    if (!managed && (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input)))) {
+      return 0;
+    }
 
     if (seam === 'completion' && (await deferredForBackgroundStage(projectRoot, input))) {
       return 0;
@@ -113,7 +118,8 @@ export async function main(input, seam = SEAM) {
     });
     if (result.block) {
       const message = result.narration ? `${result.narration}\n${result.summary}` : result.summary;
-      process.stderr.write(result.context ? `${message}\n${result.context}\n` : `${message}\n`);
+      const body = result.context ? `${message}\n${result.context}` : message;
+      process.stderr.write(managed ? `${body}\n${MANAGED_BLOCK_LINE}\n` : `${body}\n`);
       if (seam === 'completion' && stopHookActiveFromStdin(input)) {
         process.stderr.write(
           '[paqad] already surfaced this turn — not blocking again so the session can end (git/CI remains the hard gate).\n',
