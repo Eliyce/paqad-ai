@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -494,6 +495,74 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       };
       expect(baseline.files['src.ts']).toBeTypeOf('string');
     } finally {
+      removeTempProject(projectRoot);
+    }
+  });
+
+  function abandonedFixture(): { projectRoot: string; dir: string } {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-abandon-hook-'));
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: 'ignore' });
+    git('init', '--quiet', '-b', 'main');
+    git('config', 'user.email', 'a@example.test');
+    git('config', 'user.name', 'Abandon');
+    writeFileSync(join(projectRoot, '.gitignore'), '.paqad/\n');
+    git('add', '.');
+    git('commit', '--quiet', '-m', 'init');
+    const dir = '9-left-behind-01M5DHQYW9J0Y7ZGF6QN0E3400';
+    const bundle = join(projectRoot, '.paqad/ledger/feature-evidence', dir);
+    mkdirSync(bundle, { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+    writeFileSync(
+      join(bundle, 'stage-evidence.jsonl'),
+      `${JSON.stringify({
+        schema_version: 2,
+        doc_type: 'paqad.stage-evidence',
+        change: '01M5DHQYW9J0Y7ZGF6QN0E3400',
+        session_id: 'old-session',
+        recorded_at: '2020-01-01T00:00:00.000Z',
+        content_hash: 'h-open',
+        kind: 'open',
+        agent: 'orchestrator',
+        branch: 'feat/long-gone',
+      })}\n`,
+    );
+    return { projectRoot, dir };
+  }
+
+  it('closes an abandoned change silently: exit 0, nothing on stdout', () => {
+    const { projectRoot, dir } = abandonedFixture();
+    try {
+      const stdout = execFileSync('node', [RESET_SCRIPT], {
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
+        input: JSON.stringify({ session_id: 'abandon-1' }),
+      });
+      expect(stdout.toString('utf8')).toBe('');
+      const rows = readFileSync(
+        join(projectRoot, '.paqad/ledger/feature-evidence', dir, 'stage-evidence.jsonl'),
+        'utf8',
+      );
+      expect(rows).toContain('abandoned: branch gone, no row for 24h');
+    } finally {
+      removeTempProject(projectRoot);
+    }
+  });
+
+  it('INV-3: a fault in the abandoned close keeps exit 0 and empty stdout, and is logged', () => {
+    const { projectRoot, dir } = abandonedFixture();
+    const ledger = join(projectRoot, '.paqad/ledger/feature-evidence', dir, 'stage-evidence.jsonl');
+    try {
+      chmodSync(ledger, 0o444);
+      const stdout = execFileSync('node', [RESET_SCRIPT], {
+        env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
+        input: JSON.stringify({ session_id: 'abandon-2' }),
+      });
+      expect(stdout.toString('utf8')).toBe('');
+      expect(readFileSync(join(projectRoot, '.paqad/logs/hooks.log'), 'utf8')).toContain(
+        'session-start: abandoned close skipped',
+      );
+    } finally {
+      chmodSync(ledger, 0o644);
       removeTempProject(projectRoot);
     }
   });

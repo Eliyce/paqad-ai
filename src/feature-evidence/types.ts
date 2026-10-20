@@ -30,7 +30,7 @@ export const FEATURE_DOC_SCHEMA_VERSION = 2;
 
 export type FeatureLane = 'fast' | 'graduated' | 'full' | null;
 
-export type FeatureStatus = 'active' | 'paused' | 'done' | 'spec-only';
+export type FeatureStatus = 'active' | 'paused' | 'done' | 'spec-only' | 'abandoned';
 
 export type FeatureChangeKind = 'fix' | 'other';
 

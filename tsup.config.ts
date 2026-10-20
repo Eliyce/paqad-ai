@@ -15,6 +15,7 @@ export default defineConfig({
     'stage-evidence/marker-parse': 'src/stage-evidence/marker-parse.ts',
     'rag-ledger/session': 'src/rag-ledger/session.ts',
     'feature-evidence/adoption': 'src/feature-evidence/adoption.ts',
+    'feature-evidence/abandon': 'src/feature-evidence/abandon.ts',
     'session-ledger/disabled-audit': 'src/session-ledger/disabled-audit.ts',
     'context/tokenizer-cache': 'src/context/tokenizer-cache.ts',
     'session-ledger/project-ledger': 'src/session-ledger/project-ledger.ts',

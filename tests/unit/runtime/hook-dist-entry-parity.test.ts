@@ -69,6 +69,14 @@ describe('runtime hook -> tsup entry parity', () => {
     expect(dangling).toEqual([]);
   });
 
+  it('AC-25: ships the abandoned close in the dist entry SessionStart loads', () => {
+    expect(declaredEntries().has('feature-evidence/abandon')).toBe(true);
+    expect(distImports()).toContainEqual({
+      hook: 'agent-entry-session-start.mjs',
+      entry: 'feature-evidence/abandon',
+    });
+  });
+
   it('covers the two entries that shipped dangling', () => {
     const entries = declaredEntries();
     expect(entries.has('pipeline/prompt-lane')).toBe(true);

@@ -4,7 +4,7 @@ import {
   isBundleClosed,
   isBundleMaterialized,
 } from '@/feature-evidence/adoption.js';
-import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { isFeatureFinished, readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
 import { sessionWroteInEpisode } from '@/pipeline/session-ownership.js';
@@ -24,8 +24,6 @@ export interface HudChangeScope {
   dir: string | null;
   reason: HudScopeReason;
 }
-
-export const FINISHED_FEATURE_STATUSES: ReadonlySet<string> = new Set(['done', 'abandoned']);
 
 export const GATE_JUDGED_AFTER: Readonly<Record<string, string>> = {
   'spec-review': 'specification',
@@ -71,7 +69,7 @@ export function qualifyHudChange(
     return { dir: null, reason: 'no-active-change' };
   }
   const status = readFeatureRecord(projectRoot, dir)?.status;
-  if (isBundleClosed(projectRoot, dir) || (status && FINISHED_FEATURE_STATUSES.has(status))) {
+  if (isBundleClosed(projectRoot, dir) || isFeatureFinished(status)) {
     return { dir: null, reason: 'closed' };
   }
   const head = readHeadRef(projectRoot);

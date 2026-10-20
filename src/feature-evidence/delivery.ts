@@ -8,7 +8,12 @@ import { readGitState } from '@/rag/git-state.js';
 import { stampFeatureDocument } from './bundle-document.js';
 import type { EnvelopeHeader } from './envelope.js';
 import { listFeatureDirs } from './enumerate.js';
-import { readChangeConstants, readFeatureRecord, updateFeatureRecord } from './feature-record.js';
+import {
+  isFeatureFinished,
+  readChangeConstants,
+  readFeatureRecord,
+  updateFeatureRecord,
+} from './feature-record.js';
 import { featureChangeKey, featureFilePath } from './paths.js';
 
 export { listFeatureDirs };
@@ -334,7 +339,7 @@ export function resolveDeliveryFeatureByBranch(
   const newest = (dirs: string[]): string | null =>
     [...dirs].sort((x, y) => featureChangeKey(x).localeCompare(featureChangeKey(y))).at(-1) ?? null;
   const notDone = matches.filter(
-    (dirName) => readFeatureRecord(projectRoot, dirName)?.status !== 'done',
+    (dirName) => !isFeatureFinished(readFeatureRecord(projectRoot, dirName)?.status),
   );
   return newest(notDone.length > 0 ? notDone : matches);
 }
