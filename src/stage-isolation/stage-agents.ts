@@ -160,6 +160,16 @@ export function buildHighTableAgentBody(def: HighTableAgentDef): string {
     : buildExpertAgentBody();
 }
 
+export const STAGE_AGENT_HARD_RULES: readonly string[] = [
+  '- **Never ask the human.** If you hit a decision pause, create the packet with',
+  '  `paqad-ai decision create …` and return immediately with `paused: D-<id>` — the',
+  '  orchestrator asks the human and re-dispatches you.',
+  '- **Never write into a feature bundle directory by hand.** Only the stage verbs write there.',
+  '- **Never skip a CLI verb** because "the orchestrator will do it" — it will not.',
+  '- Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at',
+  '  most five lines of summary. Nothing else.',
+];
+
 const STAGES_THAT_RAISE_DEBT: ReadonlySet<string> = new Set(['review', 'documentation_sync']);
 
 function outOfScopeSection(ledgerStage: string): string[] {
@@ -203,13 +213,7 @@ export function buildStageAgentBody(def: StageAgentDef): string {
     ...outOfScopeSection(def.ledgerStage),
     '## Hard rules',
     '',
-    '- **Never ask the human.** If you hit a decision pause, create the packet with',
-    '  `paqad-ai decision create …` and return immediately with `paused: D-<id>` — the',
-    '  orchestrator asks the human and re-dispatches you.',
-    '- **Never write into a feature bundle directory by hand.** Only the stage verbs write there.',
-    '- **Never skip a CLI verb** because "the orchestrator will do it" — it will not.',
-    '- Return exactly: your `status` (`completed` or `paused: D-<id>`), the pillar file path, and at',
-    '  most five lines of summary. Nothing else.',
+    ...STAGE_AGENT_HARD_RULES,
   ].join('\n');
 }
 

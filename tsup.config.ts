@@ -23,6 +23,7 @@ export default defineConfig({
     'planning/ticket-ref-detect': 'src/planning/ticket-ref-detect.ts',
     'delivery/commit-split': 'src/delivery/commit-split.ts',
     'stage-isolation/subagent-completion': 'src/stage-isolation/subagent-completion.ts',
+    'stage-isolation/stage-brief': 'src/stage-isolation/stage-brief.ts',
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
     'hud/refresh': 'src/hud/refresh.ts',
     'cost/hook-cost': 'src/cost/hook-cost.ts',

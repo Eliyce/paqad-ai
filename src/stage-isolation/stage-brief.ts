@@ -1,0 +1,171 @@
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+
+import type { FeatureDevelopmentStageName } from '@/core/types/feature-development-policy.js';
+import { featureFilePath, type FeatureBundleFile } from '@/feature-evidence/paths.js';
+import { currentFeature, recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
+import { loadFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+
+import {
+  MANDATORY_STAGE_AGENTS,
+  STAGE_AGENT_HARD_RULES,
+  type StageAgentDef,
+} from './stage-agents.js';
+
+export const STAGE_BRIEF_MAX_CHARS = 9000;
+
+export const SAFE_SESSION_ID = /^[A-Za-z0-9._-]{1,128}$/;
+
+export const STAGE_BRIEF_ENTRY_LINE =
+  'paqad records your entry check when you start; if an edit is blocked, create the marker it names.';
+
+export const STAGE_BRIEF_NO_CHANGE_LINE =
+  'No active change was found; ask nothing, use the change ref the orchestrator gave you.';
+
+export const STAGE_BRIEF_MORE_LINE =
+  'More instructions for this stage are in docs/instructions/workflows/feature-development.yaml.';
+
+const PREVIOUS_PILLARS: Readonly<Record<string, readonly FeatureBundleFile[]>> = {
+  planning: [],
+  specification: ['plan'],
+  development: ['plan', 'specification'],
+  review: ['specification'],
+  checks: ['review'],
+  documentation_sync: ['review', 'checks'],
+};
+
+const CODE_EDITING_STAGES: ReadonlySet<string> = new Set(['development']);
+
+export function isSafeSessionId(sessionId: string): boolean {
+  return SAFE_SESSION_ID.test(sessionId);
+}
+
+function stageDef(stage: string): StageAgentDef {
+  const def = MANDATORY_STAGE_AGENTS.find((candidate) => candidate.ledgerStage === stage);
+  if (!def) {
+    throw new Error(`unknown stage "${stage}"`);
+  }
+  return def;
+}
+
+function existingPillars(projectRoot: string, dirName: string, stage: string): string[] {
+  return (PREVIOUS_PILLARS[stage] ?? [])
+    .map((file) => featureFilePath(dirName, file))
+    .filter((path) => existsSync(join(projectRoot, path)));
+}
+
+function changeSection(projectRoot: string, sessionId: string, stage: string): string[] {
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (!dirName) {
+    return ['## Your change', '', STAGE_BRIEF_NO_CHANGE_LINE, ''];
+  }
+  const pillars = existingPillars(projectRoot, dirName, stage);
+  return [
+    '## Your change',
+    '',
+    `- Change: \`${dirName}\``,
+    `- Lane: ${recordedLaneOrFull(projectRoot, sessionId, dirName)}`,
+    pillars.length === 0 ? '- Previous pillar files: none' : '- Previous pillar files:',
+    ...pillars.map((path) => `  - \`${path}\``),
+    '',
+  ];
+}
+
+function bulletList(items: readonly string[], empty: string): string[] {
+  return items.length === 0 ? [empty] : items.map((item) => `- ${item}`);
+}
+
+function commandsSection(stage: string, sessionId: string): string[] {
+  const prefix = `SE_SESSION=${sessionId} paqad-ai`;
+  const rulesLoad = CODE_EDITING_STAGES.has(stage)
+    ? [`- \`${prefix} rules load\` before your first source edit.`]
+    : [];
+  return [
+    '## Commands',
+    '',
+    `- \`${prefix} stage start ${stage}\``,
+    ...rulesLoad,
+    '- Do the stage work, then write its rigid artifact with the stage verb, or make the edits',
+    '  for a mutation stage.',
+    `- \`${prefix} stage end ${stage} --artifact <the-rigid-file>\` (mutation stages need no artifact).`,
+  ];
+}
+
+interface BriefParts {
+  head: string[];
+  read: string[];
+  instructions: string[];
+  tail: string[];
+}
+
+function render(parts: BriefParts, truncated: boolean): string {
+  return [
+    ...parts.head,
+    '## Read first',
+    '',
+    ...bulletList(parts.read, 'Nothing extra to read for this stage.'),
+    '',
+    '## Stage instructions',
+    '',
+    ...bulletList(parts.instructions, 'No extra instructions for this stage.'),
+    ...(truncated ? ['', STAGE_BRIEF_MORE_LINE] : []),
+    '',
+    ...parts.tail,
+  ].join('\n');
+}
+
+function fitToBudget(parts: BriefParts): string {
+  let read = [...parts.read];
+  let instructions = [...parts.instructions];
+  let truncated = false;
+  let text = render(parts, truncated);
+  while (text.length > STAGE_BRIEF_MAX_CHARS && (instructions.length > 0 || read.length > 0)) {
+    if (instructions.length > 0) {
+      instructions = instructions.slice(0, -1);
+    } else {
+      read = read.slice(0, -1);
+    }
+    truncated = true;
+    text = render({ ...parts, read, instructions }, truncated);
+  }
+  return text;
+}
+
+export function buildStageBrief(stage: string, projectRoot: string, sessionId: string): string {
+  const def = stageDef(stage);
+  if (!isSafeSessionId(sessionId)) {
+    throw new Error('unsafe session id');
+  }
+  const policy =
+    loadFeatureDevelopmentPolicy(projectRoot).policy.stages[stage as FeatureDevelopmentStageName];
+  const head = [
+    `You are the paqad **${stage}** stage agent. You run one stage of one feature-development`,
+    `change in your own isolated context and then return. Your job: ${def.role}.`,
+    '',
+    'paqad added this stage brief to your context when you started, so you do not need to load',
+    `AGENT-BOOTSTRAP.md or AGENT-ROUTER.md. ${STAGE_BRIEF_ENTRY_LINE}`,
+    '',
+    ...changeSection(projectRoot, sessionId, stage),
+  ];
+  const tail = [
+    '## Hard rules',
+    '',
+    ...STAGE_AGENT_HARD_RULES,
+    `- **Export \`SE_SESSION=${sessionId}\`** for every \`paqad-ai\` command you run, so every row`,
+    '  and artifact you write is recorded under the one change.',
+    '',
+    ...commandsSection(stage, sessionId),
+  ];
+  return fitToBudget({
+    head,
+    read: policy?.read ?? [],
+    instructions: policy?.instructions ?? [],
+    tail,
+  });
+}
+
+export function stageBriefHookOutput(brief: string): string {
+  return JSON.stringify({
+    hookSpecificOutput: { hookEventName: 'SubagentStart', additionalContext: brief },
+  });
+}
