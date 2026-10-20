@@ -6,6 +6,8 @@ import process from 'node:process';
 
 import { isDirectEntry } from './lib/direct-entry.mjs';
 
+import { sentinelState } from './lib/agent-entry-sentinel.mjs';
+import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { editTargets } from './lib/edit-targets.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
@@ -76,6 +78,22 @@ function parsePayload(input) {
   }
 }
 
+export function entryLoadedProbe(projectRoot, input) {
+  return () => {
+    try {
+      const state = sentinelState(
+        projectRoot,
+        process.env,
+        agentIdFromStdin(input),
+        sessionIdFromStdin(input),
+      );
+      return state === 'fresh';
+    } catch {
+      return false;
+    }
+  };
+}
+
 async function deferredForBackgroundStage(projectRoot, input) {
   const payload = parseHookPayload(input);
   const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
@@ -117,6 +135,7 @@ export async function main(input, seam = SEAM) {
       projectRoot,
       seam,
       payload: parsePayload(input),
+      entryLoaded: entryLoadedProbe(projectRoot, input),
     });
     if (result.block) {
       const message = result.narration ? `${result.narration}\n${result.summary}` : result.summary;

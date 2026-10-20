@@ -12,6 +12,7 @@ export interface CapabilityGateInput {
   seam: CapabilitySeam;
   env?: NodeJS.ProcessEnv;
   payload?: CapabilityPayload;
+  entryLoaded?: () => boolean;
 }
 
 export interface CapabilityGateResult {
@@ -46,16 +47,28 @@ function errorKind(error: unknown): string {
   return error instanceof Error ? error.name : 'unknown';
 }
 
+function callerLoadedFramework(entryLoaded: (() => boolean) | undefined): boolean {
+  try {
+    return entryLoaded?.() === true;
+  } catch {
+    return false;
+  }
+}
+
 function syncRuleStopRecord(
   projectRoot: string,
   env: NodeJS.ProcessEnv,
   payload: CapabilityPayload | undefined,
   blocking: CapabilityOutcome[],
+  entryLoaded: (() => boolean) | undefined,
 ): void {
   const sessionId = payload?.sessionId ?? env.CLAUDE_SESSION_ID;
   if (!sessionId) return;
   const violation = blocking.flatMap((outcome) => outcome.violations ?? [])[0];
-  const sole = blocking.length === 1 && (blocking[0]?.violations?.length ?? 0) > 0;
+  const sole =
+    blocking.length === 1 &&
+    (blocking[0]?.violations?.length ?? 0) > 0 &&
+    callerLoadedFramework(entryLoaded);
   try {
     if (!violation) {
       if (blocking.length === 0) clearRuleStopRecord(projectRoot, sessionId);
@@ -81,7 +94,7 @@ function syncRuleStopRecord(
 }
 
 export async function runCapabilityGate(input: CapabilityGateInput): Promise<CapabilityGateResult> {
-  const { projectRoot, seam, env = process.env, payload } = input;
+  const { projectRoot, seam, env = process.env, payload, entryLoaded } = input;
   const outcomes: CapabilityOutcome[] = [];
   const narrations: string[] = [];
   for (const descriptor of capabilitiesForSeam(seam)) {
@@ -101,7 +114,7 @@ export async function runCapabilityGate(input: CapabilityGateInput): Promise<Cap
   const context = seam === 'pre-mutation' ? reminderContext(projectRoot, env, payload) : '';
   const blocking = outcomes.filter((outcome) => outcome.blocking);
   if (seam === 'pre-mutation') {
-    syncRuleStopRecord(projectRoot, env, payload, blocking);
+    syncRuleStopRecord(projectRoot, env, payload, blocking, entryLoaded);
   }
   if (blocking.length > 0) {
     return {

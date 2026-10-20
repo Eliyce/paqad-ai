@@ -58,13 +58,20 @@ options only when all of these hold, and otherwise keeps the deny and asks nothi
 2. the verdict carries no settings permission `rule`;
 3. the stop is not managed (a managed stop shows the organization toast instead);
 4. the stop is `sole`, so no other capability on the same gate (for example the stage gate or
-   the rules-loaded gate) blocked the call;
+   the rules-loaded gate) blocked the call and the caller's entry state was fresh;
 5. `.paqad/decisions/pending/` holds no packet, so the decision-pause gate is not denying;
-6. the session's entry sentinel `.paqad/.agent-entry-loaded.d/<session>` exists, so the entry
-   gate is not denying.
+6. the session's entry sentinel `.paqad/.agent-entry-loaded.d/<session>` exists. This is a
+   second check for the main session only. The entry gate keys a subagent call on that
+   subagent's own marker `.paqad/session/agent-entry/<agent id>`, which the mod cannot see, so
+   for a subagent the entry gate is covered by item 4, not by this check.
 
 The capability gate writes `sole: true` only when the rule-scripts outcome is the one blocking
-outcome on that call. The CLI refuses a stop that is not `sole` as well.
+outcome on that call and the calling agent's entry state is fresh, read with the entry gate's
+own `sentinelState` check: the session sentinel for the main session, the per-agent marker for
+a subagent. A subagent that never loaded the framework therefore gets a `sole: false` stop and
+no Allow once, even when the main session's sentinel exists. If that check throws, the stop is
+written `sole: false` and the gate's exit code and message stay the same. The CLI refuses a stop
+that is not `sole` as well.
 
 ### Known gap
 

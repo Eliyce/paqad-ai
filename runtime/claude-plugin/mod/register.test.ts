@@ -955,6 +955,30 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs).toEqual([]);
   });
 
+  const subagentCheck = ($: Parameters<Parameters<typeof test>[1]>[0]) =>
+    $.tool.check({
+      tool: 'Edit',
+      input: { file_path: '/work/src/x.ts' },
+      tool_use_id: 'tu_1',
+      agentId: 'agent-a1',
+    } as never);
+
+  test('a subagent edit the gate marked sole, because that subagent loaded the framework, is offered Allow once', async ($, on) => {
+    const world = await stopped($, on);
+    world.answers.push('Allow once, recorded', 'No reason');
+    expect((await subagentCheck($)).decision).toBe('allow');
+    expect(world.asked[0]!.options).toContain('Allow once, recorded');
+    expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
+  });
+
+  test('a subagent edit the gate marked not sole, because its own entry marker is missing, keeps the deny and offers nothing', async ($, on) => {
+    const world = await stopped($, on, { ...STOP, sole: false });
+    expect(await subagentCheck($)).toEqual(DENY);
+    expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+    expect(world.files.get(ENTRY_SENTINEL)).toBe('{}');
+  });
+
   test('AC-18, AC-21: a failed or unstartable override keeps the deny', async ($, on) => {
     const world = await stopped($, on);
     world.run = { exitCode: 1, stdout: '', stderr: 'refused' };
