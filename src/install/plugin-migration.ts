@@ -785,7 +785,7 @@ function isExecutableFile(path: string, platform: NodeJS.Platform): boolean {
   try {
     const stat = statSync(path);
     if (!stat.isFile()) return false;
-    return platform === 'win32' || (stat.mode & 0o111) !== 0;
+    return platform === 'win32' || process.platform === 'win32' || (stat.mode & 0o111) !== 0;
   } catch {
     return false;
   }

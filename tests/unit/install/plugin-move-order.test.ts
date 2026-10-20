@@ -195,14 +195,17 @@ describe('Path B: the Desktop app bundled claude', () => {
     desktopBinary('2.1.30', 'lower');
     expect(findBundledClaude(home, 'darwin')).toBe(newest);
   });
-  it('falls back to the next version when the highest has no executable binary', () => {
-    const older = desktopBinary('2.1.295', '9d6405864fdc');
-    desktopBinary('2.1.299', '4fa9694b7975', false);
-    mkdirSync(join(desktopRoot(), '2.1.300', 'empty'), { recursive: true });
-    writeFileSync(join(desktopRoot(), 'auto-update-candidate.json'), '{}');
-    writeFileSync(join(desktopRoot(), '2.1.301'), '');
-    expect(findBundledClaude(home, 'darwin')).toBe(older);
-  });
+  it.skipIf(process.platform === 'win32')(
+    'falls back to the next version when the highest has no executable binary',
+    () => {
+      const older = desktopBinary('2.1.295', '9d6405864fdc');
+      desktopBinary('2.1.299', '4fa9694b7975', false);
+      mkdirSync(join(desktopRoot(), '2.1.300', 'empty'), { recursive: true });
+      writeFileSync(join(desktopRoot(), 'auto-update-candidate.json'), '{}');
+      writeFileSync(join(desktopRoot(), '2.1.301'), '');
+      expect(findBundledClaude(home, 'darwin')).toBe(older);
+    },
+  );
   it('finds claude.exe under the Windows app data folder', () => {
     const appData = join(home, 'AppData', 'Roaming');
     const dir = join(appData, 'Claude', 'claude-code', '2.1.299', 'abc');
@@ -210,6 +213,15 @@ describe('Path B: the Desktop app bundled claude', () => {
     writeFileSync(join(dir, 'claude.exe'), '');
     expect(findBundledClaude(home, 'win32', { APPDATA: appData })).toBe(join(dir, 'claude.exe'));
     expect(findBundledClaude(home, 'win32', {})).toBe(join(dir, 'claude.exe'));
+  });
+  it('takes a Windows claude.exe as runnable without an execute bit', () => {
+    const appData = join(home, 'AppData', 'Roaming');
+    const dir = join(appData, 'Claude', 'claude-code', '2.1.299', 'abc');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'claude.exe'), '');
+    chmodSync(join(dir, 'claude.exe'), 0o644);
+    mkdirSync(join(appData, 'Claude', 'claude-code', '2.1.300', 'empty'), { recursive: true });
+    expect(findBundledClaude(home, 'win32', { APPDATA: appData })).toBe(join(dir, 'claude.exe'));
   });
   it('is null on Linux and when no Desktop tree exists', () => {
     expect(findBundledClaude(home, 'linux')).toBeNull();
