@@ -8,7 +8,7 @@
   "plugins": [
     {
       "name": "paqad",
-      "source": { "source": "npm", "package": "paqad-ai" },
+      "source": { "source": "github", "repo": "Eliyce/paqad-plugin" },
       "description": "Your team's rules, enforced at edit time, with evidence for every change.",
       "category": "governance"
     }

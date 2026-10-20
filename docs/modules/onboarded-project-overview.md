@@ -81,7 +81,18 @@ the npm package (issue #616). The plugin ships its own manifest
 ([`.claude-plugin/plugin.json`](../../.claude-plugin/plugin.json)) and a marketplace
 ([`.claude-plugin/marketplace.json`](../../.claude-plugin/marketplace.json)), both
 generated at build by [`scripts/build-plugin-manifest.mjs`](../../scripts/build-plugin-manifest.mjs)
-from the one hook renderer and stage-agent template (no second copy). It needs **no
+from the one hook renderer and stage-agent template (no second copy). The `eliyce`
+marketplace stays in this repo (`Eliyce/paqad-ai`), and its `paqad` entry installs from the
+public repo `Eliyce/paqad-plugin`. On every published release the `publish-plugin` job in
+[`.github/workflows/release.yml`](../../.github/workflows/release.yml) builds the package,
+assembles the plugin tree with [`scripts/assemble-plugin.mjs`](../../scripts/assemble-plugin.mjs)
+(`.claude-plugin/plugin.json`, `package.json`, `dist/`, `runtime/` without the mod tests,
+`README.md` and `LICENSE`), pushes it to that repo and tags it `v<version>`. It pushes with the
+repository secret `PAQAD_PLUGIN_PUSH_TOKEN`; with the secret unset it prints a notice and
+skips the publish. The script refuses a `plugin.json` whose version differs from
+`package.json`, so it only runs after `pnpm build`, and it keeps the output folder's `.git`, so
+`pnpm build && node scripts/assemble-plugin.mjs <clone of Eliyce/paqad-plugin>` seeds the repo
+by hand. It needs **no
 install step**: `dist/` bundles every pure-JS dependency (`tsup.config.ts` `noExternal`),
 so it works the moment it is downloaded. Its hooks
 ([`runtime/claude-plugin/hooks.json`](../../runtime/claude-plugin/hooks.json)) are the

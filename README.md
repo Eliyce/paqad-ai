@@ -81,6 +81,8 @@ A few things worth knowing:
   - `paqad-ai plugin rollback` removes the plugin with `claude` on your path, or with the Desktop app's `claude`. If neither can run, it turns the plugin off and tells you the one command to remove it.
   - `paqad-ai doctor` shows where the move stands, including when it is still waiting for Claude Code to install the plugin, and `~/.paqad-ai/logs/plugin-migration.log` has the details. If a settings file still wires the npm hooks, doctor names it: your own `~/.claude/settings.json` (or the one in `CLAUDE_CONFIG_DIR` when that is set), the project's `.claude/settings.json`, or both. That project keeps running the npm hooks while the plugin stays quiet.
 - **Organizations (Team or Enterprise):** add the `paqad` plugin in Organization settings > Plugins & skills and set it to Installed by default or Required. Members then do nothing and nothing on their machine is edited by paqad.
+  - The Claude Desktop app picks up a plugin added on claude.ai, but a `claude` session in a terminal does not load plugins uploaded to claude.ai. Terminal users install it themselves with the two `/plugin` commands above, or IT deploys it as a managed plugin.
+  - The `eliyce` marketplace lives in `Eliyce/paqad-ai`, and the plugin itself installs from the public repo `Eliyce/paqad-plugin`. Each npm release also publishes the plugin there and tags it `v<version>`. The release job needs the repository secret `PAQAD_PLUGIN_PUSH_TOKEN` (a token that can push to `Eliyce/paqad-plugin`); without it the release still ships to npm and skips the plugin publish with a notice. To seed the repo by hand, run `pnpm build && node scripts/assemble-plugin.mjs <clone of Eliyce/paqad-plugin>`, then commit and push from that clone.
 
 ## What you get, at a glance
 
