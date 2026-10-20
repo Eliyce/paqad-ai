@@ -5,6 +5,7 @@ import { isDeepStrictEqual } from 'node:util';
 import YAML from 'yaml';
 
 import { PATHS } from './constants/paths.js';
+import { renameWithRetrySync } from './fs/atomic-rename.js';
 import {
   applyFrameworkConfigToProfile,
   resolveFrameworkConfig,
@@ -87,7 +88,7 @@ export function syncProjectProfile(
   const migration = migrateProjectProfile(profile);
   const path = join(projectRoot, PATHS.PROJECT_PROFILE);
   const desired = toPlainData(stripFrameworkConfigFromProfile(migration.profile));
-  const current = existsSync(path) ? readFileSync(path, 'utf8') : null;
+  const current = readProfileText(path);
   const next = renderProfile(current, desired);
 
   if (next === null || next === current) {
@@ -95,7 +96,9 @@ export function syncProjectProfile(
   }
 
   mkdirSync(dirname(path), { recursive: true });
-  writeFileSync(path, next);
+  const staging = `${path}.${process.pid}.tmp`;
+  writeFileSync(staging, next);
+  renameWithRetrySync(staging, path);
 
   const audit = auditMessage ?? migration.audit_message;
   if (audit) {
@@ -103,6 +106,15 @@ export function syncProjectProfile(
   }
 
   return { path, written: true };
+}
+
+function readProfileText(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
 }
 
 function toPlainData(value: unknown): Record<string, unknown> {
