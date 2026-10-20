@@ -26,4 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5CW8WGAFVSRZ3AHEKD9VMS8](TD-01M5CW8WGAFVSRZ3AHEKD9VMS8.md) (gap, medium): Rule override rows claim by human but the agent can read the stop token and call the verb
+- [TD-01M5CW8DEWNY2P12TPR53RH4ZQ](TD-01M5CW8DEWNY2P12TPR53RH4ZQ.md) (bug, medium): Implementation-review gate demands citations for duplication rows outside the change diff
+- [TD-01M5CW8D61K3PJVG7NW6Y2YQ52](TD-01M5CW8D61K3PJVG7NW6Y2YQ52.md) (bug, medium): Stop gate judges a change while High Table expert subagents still run in the background
 <!-- paqad:tech-debt:end -->
