@@ -35,7 +35,7 @@ function makePluginRoot(pluginRoot: string, version: string): string {
   mkdirSync(join(pluginRoot, 'dist', 'cli'), { recursive: true });
   writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ name: 'paqad-ai', version }));
   writeFileSync(join(pluginRoot, 'dist', 'cli', 'index.js'), `export const v = '${version}';\n`);
-  writeFileSync(join(pluginRuntime, 'hooks', 'hook.mjs'), `// ${version}\n`);
+  writeFileSync(join(pluginRuntime, 'hooks', 'hook.mjs'), `export const v = '${version}';\n`);
   return pluginRuntime;
 }
 
