@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { Command } from 'commander';
 
 import { isNpmAvailable } from '@/core/npm-available.js';
@@ -27,6 +28,17 @@ function firstMissingNonInteractiveFlag(
   if (!options.stack) return '--stack';
   if (!options.capability || options.capability.length === 0) return '--capability';
   return null;
+}
+
+function printOnboardingWarnings(warnings: readonly string[] | undefined): void {
+  const unique = [...new Set(warnings ?? [])];
+  if (unique.length === 0) return;
+  const tty = Boolean(process.stdout.isTTY);
+  process.stdout.write('\n');
+  for (const warning of unique) {
+    const line = `⚠ ${warning}`;
+    process.stdout.write(`${tty ? chalk.yellow(line) : line}\n`);
+  }
 }
 
 export function createOnboardCommand(): Command {
@@ -146,5 +158,7 @@ export function createOnboardCommand(): Command {
       if (codexHint) {
         console.log(`\n${codexHint}`);
       }
+
+      printOnboardingWarnings(result?.warnings);
     });
 }

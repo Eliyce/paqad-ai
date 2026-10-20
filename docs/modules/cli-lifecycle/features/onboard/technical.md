@@ -67,11 +67,15 @@ Source directories owned by this feature:
 - When the lead turns RAG on with the local provider and the embedding engine is missing (the
   plugin case), onboarding keeps `rag_enabled=true`, starts the background engine install with
   the project root (`ragEngineInstallingInBackground` in `src/onboarding/rag-onboarding.ts`) and
-  prints one line: "search index is installing in the background; text search until it is
-  ready". The index is built by the installer once the engine is in place.
+  returns one warning: "search index is installing in the background; text search until it
+  is ready". The index is built by the installer once the engine is in place.
 - When the install cannot start (for example no `CLAUDE_PLUGIN_DATA`, or a recent failed
   attempt) onboarding tries the build as before. Any build failure turns RAG off and says so:
   "RAG was turned off: <reason>". The setting is never flipped without that line.
+- The orchestrator only returns these lines in `OnboardingOutput.warnings`. The `onboard`
+  command (`src/cli/commands/onboard.ts`) prints each warning once, after the rest of its
+  output, as `⚠ <warning>`: yellow on a terminal, plain text otherwise. The unmapped-commands
+  warning is printed the same way.
 
 ## Why the code works the way it does
 

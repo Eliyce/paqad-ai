@@ -42,6 +42,8 @@ Onboarding warnings are returned in `OnboardingOutput.warnings`. Two of them com
 
 A Node project also gets one warning naming the commands it left unmapped: `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): <names>. Add them there if the project has them.`
 
+`paqad-ai onboard` prints every warning once, in order, after the rest of its output. Each line starts with `⚠ `. On a terminal the line is yellow; otherwise it is plain text. When there are no warnings nothing extra is printed. The full onboard has no JSON or silent mode (`--json` applies only to `--detect`), so the lines are always printed.
+
 ## `src/onboarding/orchestrator.ts`
 
 ```ts
