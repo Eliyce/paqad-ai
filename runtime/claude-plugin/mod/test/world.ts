@@ -23,7 +23,7 @@ export interface World {
   writes: Array<{ path: string; text: string }>;
   played: unknown[];
   spoken: string[];
-  verdict: { decision: 'allow' | 'ask' | 'deny'; reason?: string } | 'throw';
+  verdict: { decision: 'allow' | 'ask' | 'deny'; reason?: string; rule?: string } | 'throw';
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
 }

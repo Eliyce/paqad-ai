@@ -372,10 +372,25 @@ describe('runCapabilityGate rule-stop record', () => {
       file: 'src/app.ts',
       tool_use_id: 'tu_9',
       managed: false,
+      sole: true,
       diff: '- a\n+ b',
       used: false,
     });
     expect(record?.rule).toMatch(/^RL-/);
+  });
+
+  it('marks the record not sole when another capability also blocks the same call', async () => {
+    const root = setup('strict', 'debugger;\n');
+    write(join(root, '.paqad/configs/.config.policy'), 'rule_compliance=strict\n');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    expect(result.block).toBe(true);
+    expect(result.summary).toContain('planning');
+    expect(readRuleStopRecord(root, 'sess-stop')).toMatchObject({ sole: false, used: false });
   });
 
   it('marks the record managed on the managed route', async () => {

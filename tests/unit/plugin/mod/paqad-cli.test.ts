@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  entrySentinelPath,
   freshRuleStop,
   lastBlockPath,
   overrideArgs,
@@ -101,6 +102,7 @@ describe('the rule stop the mod reads', () => {
     file: 'src/x.ts',
     tool_use_id: 'tu_1',
     managed: false,
+    sole: true,
     token: 't',
     used: false,
     session: 's',
@@ -111,6 +113,11 @@ describe('the rule stop the mod reads', () => {
     expect(lastBlockPath('/work', 's/1')).toBe('/work/.paqad/session/hud/s_1.last-block.json');
   });
 
+  it('names the session entry sentinel the way the entry gate writes it', () => {
+    expect(entrySentinelPath('/work', ' s.1/x ')).toBe('/work/.paqad/.agent-entry-loaded.d/s_1_x');
+    expect(entrySentinelPath('/work', '  ')).toBe('/work/.paqad/.agent-entry-loaded');
+  });
+
   it('is fresh only for this session, this tool call and an unused token', () => {
     expect(freshRuleStop(text(), 's', 'tu_1')).toEqual({
       rule: 'RL-1',
@@ -118,12 +125,14 @@ describe('the rule stop the mod reads', () => {
       file: 'src/x.ts',
       toolUseId: 'tu_1',
       managed: false,
+      sole: true,
       token: 't',
     });
     expect(freshRuleStop(text({ managed: true, title: 3 }), 's', 'tu_1')).toMatchObject({
       managed: true,
       title: null,
     });
+    expect(freshRuleStop(text({ sole: 'yes' }), 's', 'tu_1')?.sole).toBe(false);
     for (const [record, session, id] of [
       [text(), 's', 'tu_2'],
       [text(), 'other', 'tu_1'],

@@ -79,6 +79,12 @@ export function applyRuleOverride(request: RuleOverrideRequest): RuleOverrideOut
   ) {
     return { ok: false, reason: "this rule is enforced by your organization's settings" };
   }
+  if (!record.sole) {
+    return {
+      ok: false,
+      reason: 'another paqad gate also stopped this edit, so it cannot be allowed once',
+    };
+  }
   const recordFile = toProjectRelativePath(projectRoot, record.file);
   if (record.rule !== request.rule || recordFile !== file) {
     return { ok: false, reason: 'the last rule stop was for a different rule or file' };

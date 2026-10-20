@@ -26,7 +26,10 @@ The technical contract lives at [`technical.md`](./technical.md) and the command
 
 1. A rule script denies an edit. The capability gate records the stop for the session: the rule,
    the file, the tool call, a short diff and a one-time token.
-2. The HUD shows the stop with "Let Claude fix it" selected. "Allow once, recorded" is never the
+2. The HUD offers an answer only when the rule stop is the one thing denying the edit: no other
+   paqad gate blocked the call, no decision is waiting, the session loaded the framework and no
+   permission rule in settings denied it. Otherwise the plain deny stays and nothing is offered.
+   When it does offer, it shows the stop with "Let Claude fix it" selected. "Allow once, recorded" is never the
    first or preselected choice, and it asks for a reason.
 3. On Allow once, the HUD runs `paqad-ai rules override` with the token. On success that one call
    goes through; the next identical call is stopped again.

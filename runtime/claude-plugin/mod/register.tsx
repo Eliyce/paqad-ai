@@ -18,6 +18,7 @@ import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './confi
 import {
   EDIT_TOOLS,
   ORG_ENFORCED,
+  PENDING_DECISIONS_DIR,
   RULE_STOP_ALLOW,
   RULE_STOP_FALSE_POSITIVE,
   RULE_STOP_FIX,
@@ -26,6 +27,7 @@ import {
   RULE_STOP_REASON_HEADER,
   RULE_STOP_SHOW,
   buildBandView,
+  entrySentinelPath,
   freshRuleStop,
   heartbeatPath,
   isLive,
@@ -275,6 +277,16 @@ async function chooseRuleStop($: EngineInterface, stop: RuleStop): Promise<strin
   });
 }
 
+async function hasPendingDecision($: EngineInterface, root: string): Promise<boolean> {
+  const dir = joinPath(root, PENDING_DECISIONS_DIR);
+  if (!(await $.fs.exists(dir))) return false;
+  try {
+    return (await $.fs.list(dir)).some((entry) => entry.kind === 'file');
+  } catch {
+    return true;
+  }
+}
+
 async function answerRuleStop(
   $: EngineInterface,
   toolUseId: string | undefined,
@@ -287,11 +299,13 @@ async function answerRuleStop(
     at.sessionId,
     toolUseId,
   );
-  if (!stop) return verdict;
+  if (!stop || (verdict as { rule?: unknown }).rule !== undefined) return verdict;
   if (stop.managed) {
     $.ui.toast(ORG_ENFORCED);
     return verdict;
   }
+  if (!stop.sole || (await hasPendingDecision($, at.root))) return verdict;
+  if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return verdict;
   if ((await chooseRuleStop($, stop)) !== RULE_STOP_ALLOW) return verdict;
   const reason = await askReason($);
   const ran = await runPaqad(

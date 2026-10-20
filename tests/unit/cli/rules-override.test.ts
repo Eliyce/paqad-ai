@@ -37,7 +37,7 @@ describe('paqad-ai rules override', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  function stop(overrides: { managed?: boolean; toolUseId?: string } = {}): string {
+  function stop(overrides: { managed?: boolean; toolUseId?: string; sole?: boolean } = {}): string {
     return writeRuleStopRecord({
       projectRoot: root,
       sessionId: SES,
@@ -46,6 +46,7 @@ describe('paqad-ai rules override', () => {
       file: 'src/x.ts',
       toolUseId: overrides.toolUseId ?? 'tu_1',
       managed: overrides.managed ?? false,
+      sole: overrides.sole ?? true,
       now: NOW,
     }).token;
   }
@@ -166,6 +167,15 @@ describe('paqad-ai rules override', () => {
     expect(rows()).toBe(0);
   });
 
+  it('refuses a stop that another paqad gate also blocked, writing nothing', () => {
+    const token = stop({ sole: false });
+    expect(override(token)).toEqual({
+      ok: false,
+      reason: 'another paqad gate also stopped this edit, so it cannot be allowed once',
+    });
+    expect(rows()).toBe(0);
+  });
+
   it('refuses when no change is active', () => {
     const bare = mkdtempSync(join(tmpdir(), 'paqad-rules-override-bare-'));
     const token = writeRuleStopRecord({
@@ -174,6 +184,7 @@ describe('paqad-ai rules override', () => {
       rule: 'RL-1',
       file: 'src/x.ts',
       managed: false,
+      sole: true,
     }).token;
     const outcome = override(token, { projectRoot: bare, toolUseId: undefined });
     rmSync(bare, { recursive: true, force: true });

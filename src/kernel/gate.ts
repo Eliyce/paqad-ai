@@ -55,6 +55,7 @@ function syncRuleStopRecord(
   const sessionId = payload?.sessionId ?? env.CLAUDE_SESSION_ID;
   if (!sessionId) return;
   const violation = blocking.flatMap((outcome) => outcome.violations ?? [])[0];
+  const sole = blocking.length === 1 && (blocking[0]?.violations?.length ?? 0) > 0;
   try {
     if (!violation) {
       if (blocking.length === 0) clearRuleStopRecord(projectRoot, sessionId);
@@ -68,6 +69,7 @@ function syncRuleStopRecord(
       file: violation.file,
       toolUseId: payload?.toolUseId ?? null,
       managed: isManagedEnv(env),
+      sole,
       toolInput: payload?.toolInput,
     });
   } catch (error) {

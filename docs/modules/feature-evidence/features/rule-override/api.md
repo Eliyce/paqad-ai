@@ -22,7 +22,8 @@ the receipt." and `{"overridden":true, ...row, "bundle": <dir>}`, exit 0.
 On refusal it prints `override refused: <reason>.` on stderr and exits 1. The reasons are:
 "no session id, so there is no rule stop to answer", "<file> is outside this project", "no rule
 stop is recorded for this session", "this rule is enforced by your organization's settings",
-"the last rule stop was for a different rule or file", "the last rule stop was for a different
+"another paqad gate also stopped this edit, so it cannot be allowed once", "the last rule stop
+was for a different rule or file", "the last rule stop was for a different
 tool call", "the override token is missing, wrong or already used" and "no active change to
 record the override in".
 

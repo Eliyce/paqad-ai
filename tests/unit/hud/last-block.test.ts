@@ -75,6 +75,7 @@ describe('rule-stop record', () => {
       file: 'src/x.ts',
       toolUseId: 'tu_1',
       managed: true,
+      sole: true,
       toolInput: { content: 'x' },
       now: NOW,
     });
@@ -84,6 +85,7 @@ describe('rule-stop record', () => {
       file: 'src/x.ts',
       tool_use_id: 'tu_1',
       managed: true,
+      sole: true,
       at: '2026-10-20T10:00:00.000Z',
       diff: '+ x',
       used: false,
@@ -102,6 +104,7 @@ describe('rule-stop record', () => {
     const dir = root();
     const input = { projectRoot: dir, sessionId: 's', rule: 'R', file: 'f', managed: false };
     expect(writeRuleStopRecord(input).token).not.toBe(writeRuleStopRecord(input).token);
+    expect(writeRuleStopRecord(input).sole).toBe(false);
   });
 
   it('ignores a record that belongs to another session or does not parse', () => {
@@ -128,6 +131,7 @@ describe('rule-stop record', () => {
       file: 'f',
       tool_use_id: null,
       managed: false,
+      sole: false,
       at: 'x',
       diff: '',
       token: 't',

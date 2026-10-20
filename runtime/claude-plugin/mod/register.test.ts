@@ -806,6 +806,7 @@ describe('the rule stop answer on tool.check', () => {
     file: 'src/x.ts',
     tool_use_id: 'tu_1',
     managed: false,
+    sole: true,
     at: '2026-10-20T10:00:00.000Z',
     diff: '+ // note',
     token: 'tok',
@@ -841,6 +842,7 @@ describe('the rule stop answer on tool.check', () => {
         ...ONBOARDED,
         [SNAPSHOT]: fileText(FULL_ORD_501),
         [LAST_BLOCK]: JSON.stringify(record),
+        [ENTRY_SENTINEL]: '{}',
       },
     });
     world.verdict = DENY;
@@ -848,6 +850,8 @@ describe('the rule stop answer on tool.check', () => {
     await $.session.start(START);
     return world;
   }
+
+  const ENTRY_SENTINEL = `.paqad/.agent-entry-loaded.d/${SESSION_ID}`;
 
   const check = ($: Parameters<Parameters<typeof test>[1]>[0], toolUseId = 'tu_1', tool = 'Edit') =>
     $.tool.check({ tool, input: { file_path: '/work/src/x.ts' }, tool_use_id: toolUseId });
@@ -915,6 +919,38 @@ describe('the rule stop answer on tool.check', () => {
     world.put(LAST_BLOCK, '{not json');
     expect(await check($)).toEqual(DENY);
     expect(world.asked).toEqual([]);
+  });
+
+  test('a stop where another paqad gate also blocked the call offers nothing', async ($, on) => {
+    const world = await stopped($, on, { ...STOP, sole: false });
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('a pending decision packet keeps the deny and offers nothing', async ($, on) => {
+    const world = await stopped($, on);
+    world.put('.paqad/decisions/pending/D-01ABC.json', '{}');
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('a deny from a permissions rule in settings offers nothing', async ($, on) => {
+    const world = await stopped($, on);
+    const ruled = { ...DENY, rule: 'Edit(src/**)' };
+    world.verdict = ruled;
+    expect(await check($)).toEqual(ruled);
+    expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('a session that never loaded the framework is offered nothing', async ($, on) => {
+    const world = await stopped($, on);
+    world.remove(ENTRY_SENTINEL);
+    expect(await check($)).toEqual(DENY);
+    expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
   });
 
   test('a failed or unstartable override keeps the deny', async ($, on) => {

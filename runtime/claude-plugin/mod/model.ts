@@ -45,6 +45,16 @@ export function lastBlockPath(root: string, sessionId: string): string {
   return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.last-block.json`);
 }
 
+export const PENDING_DECISIONS_DIR = '.paqad/decisions/pending';
+
+export function entrySentinelPath(root: string, sessionId: string): string {
+  const key = sessionId.trim().replace(/[^A-Za-z0-9_-]/g, '_');
+  return joinPath(
+    root,
+    key === '' ? '.paqad/.agent-entry-loaded' : `.paqad/.agent-entry-loaded.d/${key}`,
+  );
+}
+
 export function heartbeatPath(root: string, sessionId: string): string {
   return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.live`);
 }
@@ -69,6 +79,7 @@ export interface RuleStop {
   file: string;
   toolUseId: string;
   managed: boolean;
+  sole: boolean;
   token: string;
 }
 
@@ -147,7 +158,15 @@ export function freshRuleStop(
   if (!raw || !rule || !file || !token) return null;
   if (raw.used === true || str(raw.session) !== sessionId) return null;
   if (str(raw.tool_use_id) !== toolUseId) return null;
-  return { rule, title: str(raw.title), file, toolUseId, managed: raw.managed === true, token };
+  return {
+    rule,
+    title: str(raw.title),
+    file,
+    toolUseId,
+    managed: raw.managed === true,
+    sole: raw.sole === true,
+    token,
+  };
 }
 
 export function ruleStopQuestion(stop: RuleStop): string {

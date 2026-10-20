@@ -11,6 +11,7 @@ export interface RuleStopRecord {
   file: string;
   tool_use_id: string | null;
   managed: boolean;
+  sole: boolean;
   at: string;
   diff: string;
   token: string;
@@ -26,6 +27,7 @@ export interface RuleStopInput {
   file: string;
   toolUseId?: string | null;
   managed: boolean;
+  sole?: boolean;
   toolInput?: unknown;
   now?: () => Date;
   token?: string;
@@ -78,6 +80,7 @@ export function writeRuleStopRecord(input: RuleStopInput): RuleStopRecord {
     file: input.file,
     tool_use_id: input.toolUseId ?? null,
     managed: input.managed,
+    sole: input.sole === true,
     at: (input.now ?? (() => new Date()))().toISOString(),
     diff: shortDiff(input.toolInput),
     token: input.token ?? randomBytes(16).toString('hex'),
@@ -109,6 +112,7 @@ export function parseRuleStopRecord(value: unknown): RuleStopRecord | null {
     file,
     tool_use_id: str(raw.tool_use_id),
     managed: raw.managed === true,
+    sole: raw.sole === true,
     at,
     diff: typeof raw.diff === 'string' ? raw.diff : '',
     token,
