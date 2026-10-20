@@ -49,7 +49,10 @@ import {
   type TechDebtIndexEntry,
 } from '@/feature-evidence/tech-debt-index.js';
 import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
-import { readWorkflowState } from '@/pipeline/workflow-state.js';
+import { workflowCostSince } from '@/cost/session-cost.js';
+import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
+import type { RoutedWorkflow } from '@/pipeline/routed-workflow.js';
+import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
@@ -150,11 +153,20 @@ export interface HudShip {
   inherited_count: number;
 }
 
+export interface HudWorkflow {
+  name: string;
+  started_at: string | null;
+  tokens: number | null;
+  usd: number | null;
+  unpriced: string[];
+}
+
 export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
   generated_at: string;
   scope: { qualified: boolean; reason: HudScopeReason };
+  workflow: HudWorkflow | null;
   active: boolean;
   route: string | null;
   lane: string | null;
@@ -394,6 +406,24 @@ export function buildShip(delivery: DeliveryRecord): HudShip {
     inherited: split?.inherited ?? null,
     inherited_count: inheritedShas.length,
   };
+}
+
+function buildWorkflow(
+  projectRoot: string,
+  sessionId: string,
+  state: WorkflowState,
+): HudWorkflow | null {
+  const name = state.active?.workflow ?? null;
+  if (name === null || name === 'feature-development' || name === 'no-workflow') return null;
+  const startedAt =
+    episodeStart(readRouteTurns(projectRoot, sessionId), name as RoutedWorkflow) ??
+    state.turn_started_at ??
+    null;
+  const cost =
+    startedAt === null
+      ? { tokens: null, usd: null, unpriced: [] }
+      : workflowCostSince(projectRoot, sessionId, startedAt);
+  return { name, started_at: startedAt, ...cost };
 }
 
 function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['questions'] {
@@ -684,6 +714,7 @@ export function buildHudSnapshot(
       session_id: sessionId,
       generated_at: now().toISOString(),
       scope: { qualified: false, reason: scope.reason },
+      workflow: buildWorkflow(projectRoot, sessionId, workflow),
       active: false,
       route,
       lane: workflow.active?.lane ?? null,
@@ -756,6 +787,7 @@ export function buildHudSnapshot(
     session_id: sessionId,
     generated_at: now().toISOString(),
     scope: { qualified: true, reason: scope.reason },
+    workflow: null,
     active: true,
     route,
     lane,

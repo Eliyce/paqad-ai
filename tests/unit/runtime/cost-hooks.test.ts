@@ -14,7 +14,11 @@ import { pathToFileURL } from 'node:url';
 import { execa } from 'execa';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { readCostCache } from '@/cost/change-cost.js';
 import { refreshChangeCostFromHook } from '@/cost/hook-cost.js';
+import { hudCostCachePath } from '@/hud/files.js';
+import { appendRouteTurn } from '@/pipeline/route-turns.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
 import { assistant } from '../cost/cost.fixture.js';
 
@@ -153,6 +157,53 @@ describe('the cost seam (cost-refresh.mjs and hook-cost.ts)', () => {
       if (previous === undefined) delete process.env.PAQAD_PROJECT_ROOT;
       else process.env.PAQAD_PROJECT_ROOT = previous;
     }
+  });
+
+  it('AC-41: with no change it keeps the session main transcript and writes no bundle', () => {
+    const root = tempRoot();
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    appendRouteTurn(root, SES, { at: '2026-10-19T10:00:00.000Z', workflow: 'project-question' });
+    const main = join(root, 'main.jsonl');
+    writeFileSync(
+      main,
+      [assistant('before', '09:00', { output: 5 }), assistant('q1', '10:05', { output: 7 })].join(
+        '\n',
+      ) + '\n',
+    );
+    expect(
+      refreshChangeCostFromHook({
+        projectRoot: root,
+        payload: { session_id: SES, transcript_path: main },
+      }),
+    ).toBe('no-feature');
+    const cache = readCostCache(hudCostCachePath(root, SES), SES);
+    expect(Object.keys(cache.sources[main]!.messages)).toEqual(['q1']);
+    expect(existsSync(join(root, '.paqad/ledger/feature-evidence'))).toBe(false);
+  });
+
+  it('floors a session with no route-turn log at its turn start, then at now', () => {
+    const root = tempRoot();
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    const main = join(root, 'main.jsonl');
+    writeFileSync(main, `${assistant('q1', '10:05', { output: 7 })}\n`);
+    const payload = { session_id: SES, transcript_path: main };
+    refreshChangeCostFromHook({
+      projectRoot: root,
+      payload,
+      now: () => new Date('2026-10-19T11:00:00.000Z'),
+    });
+    expect(readCostCache(hudCostCachePath(root, SES), SES).sources[main]!.floor).toBe(
+      '2026-10-19T11:00:00.000Z',
+    );
+    writeWorkflowState(root, SES, {
+      active: { workflow: 'project-question' },
+      paused: [],
+      turn_started_at: '2026-10-19T10:00:00.000Z',
+    });
+    refreshChangeCostFromHook({ projectRoot: root, payload });
+    expect(readCostCache(hudCostCachePath(root, SES), SES).sources[main]!.floor).toBe(
+      '2026-10-19T10:00:00.000Z',
+    );
   });
 
   it('writes nothing without an active change or without any transcript', async () => {

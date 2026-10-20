@@ -15,6 +15,7 @@ import { featureFilePath } from '@/feature-evidence/paths.js';
 import { readFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { HUD_COST_CACHE_SUFFIX, hudCostCachePath, writeFileAtomic } from '@/hud/files.js';
+import { readRouteTurns, turnRouteAt, type RouteTurn } from '@/pipeline/route-turns.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import {
   CHIEF_ROLE,
@@ -229,6 +230,10 @@ function refreshSource(path: string, source: CostSource, chunkBytes?: number): v
   source.offset = usage.end_offset;
 }
 
+export function cachedMessageUsage(message: CachedMessage): TokenUsage {
+  return usageOf(message);
+}
+
 function usageOf(message: CachedMessage): TokenUsage {
   const [, , input, output, cacheRead, cacheWrite, write5m, write1h] = message;
   return {
@@ -272,6 +277,55 @@ export function updateCostCache(input: UpdateCostCacheInput): CostCache {
     if (!(error instanceof FileLockTimeoutError)) throw error;
     appendHooksLog(input.projectRoot, `cost: cache not updated: ${error.message}`);
     return readCostCache(path, input.sessionId);
+  }
+}
+
+export interface UpdateSessionCostCacheInput {
+  projectRoot: string;
+  sessionId: string;
+  payload: CostHookPayload;
+  floor: string;
+  chunkBytes?: number;
+  lock?: FileLockOptions;
+}
+
+export function updateSessionCostCache(input: UpdateSessionCostCacheInput): CostCache | null {
+  const main = str(input.payload.transcript_path);
+  if (!main) return null;
+  const path = hudCostCachePath(input.projectRoot, input.sessionId);
+  try {
+    return withFileLockSync(
+      `${path}.lock`,
+      () => {
+        const cache = readCostCache(path, input.sessionId);
+        const existing = cache.sources[main];
+        if (!existing) {
+          cache.sources[main] = {
+            kind: 'main',
+            agent_type: null,
+            agent_id: null,
+            stage: null,
+            role: null,
+            changes: [],
+            floor: input.floor,
+            offset: 0,
+            messages: {},
+          };
+        } else if (earlier(existing.floor, input.floor) !== existing.floor) {
+          existing.floor = input.floor;
+          existing.offset = 0;
+          existing.messages = {};
+        }
+        refreshSource(main, cache.sources[main]!, input.chunkBytes);
+        writeFileAtomic(path, `${JSON.stringify(cache)}\n`);
+        return cache;
+      },
+      { timeoutMs: 5_000, ...input.lock },
+    );
+  } catch (error) {
+    if (!(error instanceof FileLockTimeoutError)) throw error;
+    appendHooksLog(input.projectRoot, `cost: session cache not updated: ${error.message}`);
+    return null;
   }
 }
 
@@ -373,10 +427,13 @@ export interface CostModelLine extends CostLine {
   model: string;
 }
 
+export type CostScope = 'change' | 'whole-session';
+
 export interface ChangeCostRecord {
   schema: typeof COST_SCHEMA;
   computed_at: string;
   window: CostWindow;
+  scope?: CostScope;
   price_table_date: string;
   price_source: string;
   basis: string;
@@ -431,6 +488,8 @@ interface Attributed {
   usage: TokenUsage;
   stage: string | null;
   role: string | null;
+  kind: CostSource['kind'];
+  session: string;
 }
 
 function collectMessages(
@@ -441,11 +500,15 @@ function collectMessages(
   sources: number;
 } {
   const entries = caches.flatMap((cache) =>
-    Object.values(cache.sources).filter((source) => source.changes.includes(dirName)),
+    Object.values(cache.sources)
+      .filter((source) => source.changes.includes(dirName))
+      .map((source) => ({ source, session: cache.session_id })),
   );
-  entries.sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'agent' ? -1 : 1));
+  entries.sort((a, b) =>
+    a.source.kind === b.source.kind ? 0 : a.source.kind === 'agent' ? -1 : 1,
+  );
   const messages = new Map<string, Attributed>();
-  for (const source of entries) {
+  for (const { source, session } of entries) {
     for (const [id, kept] of Object.entries(source.messages)) {
       const usage = usageOf(kept);
       const existing = messages.get(id);
@@ -459,6 +522,8 @@ function collectMessages(
         usage,
         stage: source.role !== null ? HIGH_TABLE_STAGE : source.stage,
         role: source.role,
+        kind: source.kind,
+        session,
       });
     }
   }
@@ -502,6 +567,14 @@ function estimateLines(
 export interface ComputeChangeCostOptions {
   now?: () => Date;
   caches?: readonly CostCache[];
+  routeTurns?: (sessionId: string) => readonly RouteTurn[];
+}
+
+function mainMessageRoute(
+  message: Attributed,
+  turnsOf: (sessionId: string) => readonly RouteTurn[],
+): string | null {
+  return turnRouteAt(turnsOf(message.session), new Date(message.at).toISOString());
 }
 
 export function computeChangeCost(
@@ -521,14 +594,41 @@ export function computeChangeCost(
     dirName,
   );
 
+  const turnCache = new Map<string, readonly RouteTurn[]>();
+  const turnsOf = (sessionId: string): readonly RouteTurn[] => {
+    let turns = turnCache.get(sessionId);
+    if (turns === undefined) {
+      turns = options.routeTurns?.(sessionId) ?? readRouteTurns(projectRoot, sessionId);
+      turnCache.set(sessionId, turns);
+    }
+    return turns;
+  };
+  const inWindow = [...messages.values()].filter(
+    (message) =>
+      !Number.isNaN(message.at) &&
+      message.at >= from &&
+      message.at <= to &&
+      message.usage.total > 0,
+  );
+  const scope: CostScope = inWindow.some(
+    (message) => message.kind === 'main' && mainMessageRoute(message, turnsOf) === null,
+  )
+    ? 'whole-session'
+    : 'change';
+
   const total = emptyBucket();
   const byModel = new Map<string, Bucket>();
   const byStage = new Map<string, Bucket>();
   const byRole = new Map<string, Bucket>();
   const unpriced = new Set<string>();
-  for (const message of messages.values()) {
-    if (Number.isNaN(message.at) || message.at < from || message.at > to) continue;
-    if (message.usage.total === 0) continue;
+  for (const message of inWindow) {
+    if (
+      scope === 'change' &&
+      message.kind === 'main' &&
+      mainMessageRoute(message, turnsOf) !== 'feature-development'
+    ) {
+      continue;
+    }
     const usd = messageUsd(message.usage, message.model);
     const model = message.model ?? 'unknown';
     if (usd === null) unpriced.add(model);
@@ -558,6 +658,7 @@ export function computeChangeCost(
     schema: COST_SCHEMA,
     computed_at: now().toISOString(),
     window,
+    scope,
     price_table_date: PRICE_TABLE_DATE,
     price_source: PRICE_TABLE_SOURCE,
     basis: COST_BASIS,

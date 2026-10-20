@@ -1,10 +1,13 @@
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { resolveHookSession } from '@/rag-ledger/session.js';
+import { readRouteTurns } from '@/pipeline/route-turns.js';
+import { readWorkflowState } from '@/pipeline/workflow-state.js';
+import { hookSessionCandidates, resolveHookSession } from '@/rag-ledger/session.js';
 
 import {
   changeCostWindow,
   computeChangeCost,
   updateCostCache,
+  updateSessionCostCache,
   writeChangeCost,
   type CostHookPayload,
 } from './change-cost.js';
@@ -20,7 +23,13 @@ export type RefreshChangeCostOutcome = 'written' | 'no-feature' | 'no-window' | 
 export function refreshChangeCostFromHook(input: RefreshChangeCostInput): RefreshChangeCostOutcome {
   const sessionId = resolveHookSession(input.projectRoot, input.payload);
   const dirName = currentFeature(input.projectRoot, sessionId);
-  if (!dirName) return 'no-feature';
+  if (!dirName) {
+    keepSessionTranscript(
+      input,
+      hookSessionCandidates(input.projectRoot, input.payload)[0] ?? sessionId,
+    );
+    return 'no-feature';
+  }
   const window = changeCostWindow(input.projectRoot, dirName, input.now);
   if (window === null) return 'no-window';
   updateCostCache({
@@ -35,4 +44,21 @@ export function refreshChangeCostFromHook(input: RefreshChangeCostInput): Refres
   if (record.sources === 0) return 'no-sources';
   writeChangeCost(input.projectRoot, dirName, record, sessionId);
   return 'written';
+}
+
+function sessionFloor(projectRoot: string, sessionId: string, now: () => Date): string {
+  return (
+    readRouteTurns(projectRoot, sessionId)[0]?.at ??
+    readWorkflowState(projectRoot, sessionId).turn_started_at ??
+    now().toISOString()
+  );
+}
+
+function keepSessionTranscript(input: RefreshChangeCostInput, sessionId: string): void {
+  updateSessionCostCache({
+    projectRoot: input.projectRoot,
+    sessionId,
+    payload: input.payload,
+    floor: sessionFloor(input.projectRoot, sessionId, input.now ?? (() => new Date())),
+  });
 }

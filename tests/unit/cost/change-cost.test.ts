@@ -25,6 +25,8 @@ import {
   type CostHookPayload,
 } from '@/cost/change-cost.js';
 import { hudCostCachePath } from '@/hud/files.js';
+import { hudCostOf } from '@/hud/cost-view.js';
+import { appendRouteTurn } from '@/pipeline/route-turns.js';
 import { recordDoneRow } from '@/spec-pipeline/high-table.js';
 
 import { DIR, SES, assistant, at, total, writeStageRows, writeTranscript } from './cost.fixture.js';
@@ -455,5 +457,87 @@ describe('cost.json', () => {
     writeFileSync(join(dir, 'cost.json'), JSON.stringify({ schema: 'other' }), 'utf8');
     expect(readChangeCost(root, DIR)).toBeNull();
     expect(existsSync(join(dir, 'cost.json'))).toBe(true);
+  });
+});
+
+describe('cost scoped to the change turns', () => {
+  function questionDetour(root: string) {
+    writeStageRows(root, [
+      ['open', '10:00'],
+      ['stage_start', '10:01', 'planning'],
+      ['stage_end', '10:40', 'planning'],
+    ]);
+    const main = writeTranscript(root, 'main', [
+      assistant('f1', '10:05', A),
+      assistant('q1', '10:15', B),
+      assistant('q2', '10:20', C),
+      assistant('f2', '10:35', D),
+    ]);
+    return main;
+  }
+
+  it('AC-17: leaves out main-transcript turns routed to another workflow and says change', () => {
+    const root = tempRoot();
+    const main = questionDetour(root);
+    appendRouteTurn(root, SES, { at: at('09:59'), workflow: 'feature-development' });
+    appendRouteTurn(root, SES, { at: at('10:10'), workflow: 'project-question' });
+    appendRouteTurn(root, SES, { at: at('10:30'), workflow: 'feature-development' });
+    const cost = run(root, [{ transcript_path: main }]);
+    expect(cost.scope).toBe('change');
+    expect(cost.tokens.total).toBe(total(A) + total(D));
+  });
+
+  it('AC-18: says whole session when a contributing session has no route-turn log', () => {
+    const root = tempRoot();
+    const main = questionDetour(root);
+    const cost = run(root, [{ transcript_path: main }]);
+    expect(cost.scope).toBe('whole-session');
+    expect(cost.tokens.total).toBe(total(A) + total(B) + total(C) + total(D));
+    expect(hudCostOf(cost).scope).toBe('whole-session');
+  });
+
+  it('says whole session when the log starts after a counted message', () => {
+    const root = tempRoot();
+    const main = questionDetour(root);
+    const cost = computeChangeCost(root, DIR, {
+      now: NOW,
+      caches: [
+        (() => {
+          updateCostCache({
+            projectRoot: root,
+            sessionId: SES,
+            dirName: DIR,
+            payload: { transcript_path: main },
+            floor: at('10:00'),
+          });
+          return readCostCache(hudCostCachePath(root, SES), SES);
+        })(),
+      ],
+      routeTurns: () => [{ at: at('10:30'), workflow: 'feature-development' }],
+    })!;
+    expect(cost.scope).toBe('whole-session');
+  });
+
+  it('counts agent sources of the change in full whatever the route was', () => {
+    const root = tempRoot();
+    const main = questionDetour(root);
+    const agent = writeTranscript(root, 'agent-plan', [assistant('p1', '10:15', E)]);
+    appendRouteTurn(root, SES, { at: at('09:59'), workflow: 'project-question' });
+    const cost = run(root, [
+      {
+        transcript_path: main,
+        agent_type: 'paqad-planning',
+        agent_id: 'a1',
+        agent_transcript_path: agent,
+      },
+    ]);
+    expect(cost.scope).toBe('change');
+    expect(cost.tokens.total).toBe(total(E));
+  });
+
+  it('reads a cost.json written before the scope existed as whole session', () => {
+    const legacy = { ...run(tempRoot(), []) } as ChangeCostRecord;
+    delete legacy.scope;
+    expect(hudCostOf(legacy).scope).toBe('whole-session');
   });
 });

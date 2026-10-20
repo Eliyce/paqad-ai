@@ -12,10 +12,12 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { hudCostOf } from '@/hud/cost-view.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 import { buildHudSnapshot, writeHudSnapshot } from '@/hud/snapshot.js';
+import { appendRouteTurn } from '@/pipeline/route-turns.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 
 import { costRecord } from '../../../runtime/claude-plugin/mod/test/fixtures.ts';
+import { assistant } from '../cost/cost.fixture.js';
 
 const S = 'ses-cost-hud';
 const roots: string[] = [];
@@ -147,5 +149,66 @@ describe('status --hud --format json (AC-65)', () => {
     expect(printed.cost).toEqual(file.cost);
     expect(printed.table).toEqual(file.table);
     expect(printed.cost).not.toBeNull();
+  });
+});
+
+describe('the workflow cost on another route (AC-40, engine side)', () => {
+  function questionRoot(): string {
+    const root = mkdtempSync(join(tmpdir(), 'paqad-workflow-cost-'));
+    roots.push(root);
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    writeFileSync(join(root, PATHS.FRAMEWORK_PATH), '~/.paqad-ai/current\n');
+    return root;
+  }
+
+  it('counts the main transcript since this workflow started in this session', () => {
+    const root = questionRoot();
+    appendRouteTurn(root, S, { at: '2026-10-19T09:00:00.000Z', workflow: 'pentest' });
+    appendRouteTurn(root, S, { at: '2026-10-19T10:00:00.000Z', workflow: 'project-question' });
+    writeWorkflowState(root, S, { active: { workflow: 'project-question' }, paused: [] });
+    const main = join(root, 'main.jsonl');
+    writeFileSync(
+      main,
+      [
+        assistant('p1', '09:30', { output: 1000 }),
+        assistant('q1', '10:05', { input: 100, output: 200 }),
+      ].join('\n') + '\n',
+    );
+    refreshChangeCostFromHook({
+      projectRoot: root,
+      payload: { session_id: S, transcript_path: main },
+    });
+
+    const snapshot = buildHudSnapshot(root, S);
+
+    expect(snapshot.workflow).toMatchObject({
+      name: 'project-question',
+      started_at: '2026-10-19T10:00:00.000Z',
+      tokens: 300,
+      unpriced: [],
+    });
+    expect(snapshot.workflow!.usd).toBeGreaterThan(0);
+    expect(snapshot.cost).toBeNull();
+  });
+
+  it('carries no workflow block on feature development, no workflow or no route', () => {
+    const root = questionRoot();
+    expect(buildHudSnapshot(root, S).workflow).toBeNull();
+    writeWorkflowState(root, S, { active: { workflow: 'no-workflow' }, paused: [] });
+    expect(buildHudSnapshot(root, S).workflow).toBeNull();
+    writeWorkflowState(root, S, { active: { workflow: 'feature-development' }, paused: [] });
+    expect(buildHudSnapshot(root, S).workflow).toBeNull();
+  });
+
+  it('reads tokens unknown before any turn start is known', () => {
+    const root = questionRoot();
+    writeWorkflowState(root, S, { active: { workflow: 'codebase-health' }, paused: [] });
+    expect(buildHudSnapshot(root, S).workflow).toEqual({
+      name: 'codebase-health',
+      started_at: null,
+      tokens: null,
+      usd: null,
+      unpriced: [],
+    });
   });
 });
