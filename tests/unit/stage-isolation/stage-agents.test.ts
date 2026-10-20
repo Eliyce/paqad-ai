@@ -5,8 +5,12 @@ import {
   MANDATORY_STAGE_AGENTS,
   STAGE_AGENT_STAGES,
   agentNameForStage,
+  AGENT_ENTRY_MARKER_FALLBACK,
   buildStageAgentBody,
+  STAGE_BRIEF_FALLBACK_LINE,
+  WORK_QUICKLY_LINE,
 } from '@/stage-isolation/stage-agents';
+import { stageFromAgentType } from '@/stage-isolation/subagent-completion';
 
 describe('stage-agent definitions', () => {
   it('defines exactly the six mandatory stages, excluding ticket_intake and delivery', () => {
@@ -53,5 +57,43 @@ describe('stage-agent definitions', () => {
     expect(body).toContain('stage start planning');
     expect(body).toContain('Never ask the human');
     expect(body).toContain('paused: D-<id>');
+  });
+
+  it('the claude-code body points at the stage brief and keeps the fallback and marker sentence', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      const body = buildStageAgentBody(def, 'claude-code');
+      expect(body).toContain('## Your stage brief');
+      expect(body).toContain(STAGE_BRIEF_FALLBACK_LINE);
+      expect(body).toContain(AGENT_ENTRY_MARKER_FALLBACK.join('\n'));
+      expect(body).not.toContain('## Load the framework first');
+      expect(buildStageAgentBody(def)).toBe(body);
+    }
+  });
+
+  it('the codex-cli body keeps the load-the-framework section', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      const body = buildStageAgentBody(def, 'codex-cli');
+      expect(body).toContain('## Load the framework first');
+      expect(body).not.toContain('## Your stage brief');
+    }
+  });
+
+  it('only checks and documentation_sync carry the work-quickly line, on both hosts', () => {
+    for (const def of MANDATORY_STAGE_AGENTS) {
+      const quick = def.ledgerStage === 'checks' || def.ledgerStage === 'documentation_sync';
+      for (const host of ['claude-code', 'codex-cli']) {
+        expect(buildStageAgentBody(def, host).includes(WORK_QUICKLY_LINE)).toBe(quick);
+      }
+    }
+  });
+
+  it.each([
+    'paqad-expert',
+    'paqad:paqad-chief-architect',
+    'paqad-foo',
+    'paqad-documentation_sync',
+    'xpaqad-planning',
+  ])('stageFromAgentType returns null for %s', (agentType) => {
+    expect(stageFromAgentType(agentType)).toBeNull();
   });
 });

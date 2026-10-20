@@ -178,21 +178,53 @@ function outOfScopeSection(ledgerStage: string): string[] {
     : [];
 }
 
-export function buildStageAgentBody(def: StageAgentDef): string {
+const LOAD_FRAMEWORK_SECTION: readonly string[] = [
+  '## Load the framework first',
+  '',
+  '1. Resolve `.paqad/framework-path.txt` to the paqad install directory.',
+  '2. Load `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md` from there and follow them, then write',
+  '   the `.paqad/.agent-entry-loaded` sentinel. You are a feature-development stage, so load',
+  '   the rules too (`paqad-ai rules load`).',
+  '3. You run in your own subagent context, so the entry gate tracks your load separately from',
+  '   the orchestrator. If it blocks your first edit, it names a per-agent marker under',
+  '   `.paqad/session/agent-entry/` — create exactly that file (or write `.paqad/.agent-entry-loaded`',
+  '   with the Write tool) and retry. This is the gate confirming YOU loaded the framework.',
+];
+
+export const STAGE_BRIEF_FALLBACK_LINE =
+  'Your stage brief was added to your context when you started. If it is missing, resolve ' +
+  '`.paqad/framework-path.txt` and load `AGENT-BOOTSTRAP.md` and `AGENT-ROUTER.md` as before.';
+
+export const AGENT_ENTRY_MARKER_FALLBACK: readonly string[] = [
+  'You run in your own subagent context, so the entry gate tracks your load separately from',
+  'the orchestrator. If it blocks your first edit, it names a per-agent marker under',
+  '`.paqad/session/agent-entry/`. Create exactly that file (or write `.paqad/.agent-entry-loaded`',
+  'with the Write tool) and retry.',
+];
+
+const STAGE_BRIEF_SECTION: readonly string[] = [
+  '## Your stage brief',
+  '',
+  STAGE_BRIEF_FALLBACK_LINE,
+  '',
+  ...AGENT_ENTRY_MARKER_FALLBACK,
+];
+
+export const WORK_QUICKLY_LINE =
+  "Work quickly: skip anything this stage doesn't need, and return as soon as the result is correct.";
+
+const QUICK_STAGES: ReadonlySet<string> = new Set(['checks', 'documentation_sync']);
+
+function workQuicklySection(ledgerStage: string): string[] {
+  return QUICK_STAGES.has(ledgerStage) ? [WORK_QUICKLY_LINE, ''] : [];
+}
+
+export function buildStageAgentBody(def: StageAgentDef, host = 'claude-code'): string {
   return [
     `You are the paqad **${def.ledgerStage}** stage agent. You run one stage of one`,
     `feature-development change in your own isolated context and then return. Your job: ${def.role}.`,
     '',
-    '## Load the framework first',
-    '',
-    '1. Resolve `.paqad/framework-path.txt` to the paqad install directory.',
-    '2. Load `AGENT-BOOTSTRAP.md` then `AGENT-ROUTER.md` from there and follow them, then write',
-    '   the `.paqad/.agent-entry-loaded` sentinel. You are a feature-development stage, so load',
-    '   the rules too (`paqad-ai rules load`).',
-    '3. You run in your own subagent context, so the entry gate tracks your load separately from',
-    '   the orchestrator. If it blocks your first edit, it names a per-agent marker under',
-    '   `.paqad/session/agent-entry/` — create exactly that file (or write `.paqad/.agent-entry-loaded`',
-    '   with the Write tool) and retry. This is the gate confirming YOU loaded the framework.',
+    ...(host === 'claude-code' ? STAGE_BRIEF_SECTION : LOAD_FRAMEWORK_SECTION),
     '',
     '## What you were dispatched with',
     '',
@@ -200,6 +232,7 @@ export function buildStageAgentBody(def: StageAgentDef): string {
     "`SE_SESSION` — the orchestrator's session id. **Export `SE_SESSION` for every command you run**",
     'so every row and artifact you write is recorded under the one change identity.',
     '',
+    ...workQuicklySection(def.ledgerStage),
     '## Run your stage',
     '',
     `1. Read the \`${def.ledgerStage}\` stage's \`read:\` list and \`instructions\` from`,
