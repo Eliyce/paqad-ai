@@ -1,16 +1,23 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { PAQAD_STAGE_HELPER_MATCHER } from '@/adapters/shared/paqad-hooks.js';
 import type { FeatureDevelopmentStageName } from '@/core/types/feature-development-policy.js';
 import { featureFilePath, type FeatureBundleFile } from '@/feature-evidence/paths.js';
 import { currentFeature, recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
 import { loadFeatureDevelopmentPolicy } from '@/pipeline/feature-development-policy.js';
+import {
+  keepingLedgerSessionCache,
+  resolveHookSession,
+  type HookSessionPayload,
+} from '@/rag-ledger/session.js';
 
 import {
   MANDATORY_STAGE_AGENTS,
   STAGE_AGENT_HARD_RULES,
   type StageAgentDef,
 } from './stage-agents.js';
+import { stageFromAgentType } from './subagent-completion.js';
 
 export const STAGE_BRIEF_MAX_CHARS = 9000;
 
@@ -36,6 +43,15 @@ const PREVIOUS_PILLARS: Readonly<Record<string, readonly FeatureBundleFile[]>> =
 
 const CODE_EDITING_STAGES: ReadonlySet<string> = new Set(['development']);
 
+const STAGE_HELPER_PATTERN = new RegExp(PAQAD_STAGE_HELPER_MATCHER);
+
+export function stageHelperStage(agentType: unknown): string | null {
+  if (typeof agentType !== 'string' || !STAGE_HELPER_PATTERN.test(agentType)) {
+    return null;
+  }
+  return stageFromAgentType(agentType);
+}
+
 export function isSafeSessionId(sessionId: string): boolean {
   return SAFE_SESSION_ID.test(sessionId);
 }
@@ -49,9 +65,9 @@ function stageDef(stage: string): StageAgentDef {
 }
 
 function existingPillars(projectRoot: string, dirName: string, stage: string): string[] {
-  return (PREVIOUS_PILLARS[stage] ?? [])
-    .map((file) => featureFilePath(dirName, file))
-    .filter((path) => existsSync(join(projectRoot, path)));
+  return PREVIOUS_PILLARS[stage]!.map((file) => featureFilePath(dirName, file)).filter((path) =>
+    existsSync(join(projectRoot, path)),
+  );
 }
 
 function changeSection(projectRoot: string, sessionId: string, stage: string): string[] {
@@ -158,8 +174,8 @@ export function buildStageBrief(stage: string, projectRoot: string, sessionId: s
   ];
   return fitToBudget({
     head,
-    read: policy?.read ?? [],
-    instructions: policy?.instructions ?? [],
+    read: policy.read,
+    instructions: policy.instructions,
     tail,
   });
 }
@@ -168,4 +184,30 @@ export function stageBriefHookOutput(brief: string): string {
   return JSON.stringify({
     hookSpecificOutput: { hookEventName: 'SubagentStart', additionalContext: brief },
   });
+}
+
+export function resolveBriefSession(
+  projectRoot: string,
+  payload: HookSessionPayload,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  for (const raw of [payload.session_id, env.SE_SESSION, env.CLAUDE_SESSION_ID]) {
+    if (typeof raw === 'string' && raw.trim() !== '' && !isSafeSessionId(raw.trim())) {
+      throw new Error('unsafe session id');
+    }
+  }
+  return resolveHookSession(projectRoot, payload, env);
+}
+
+export function seedStageAgent(
+  stage: string,
+  projectRoot: string,
+  payload: HookSessionPayload,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return keepingLedgerSessionCache(projectRoot, () =>
+    stageBriefHookOutput(
+      buildStageBrief(stage, projectRoot, resolveBriefSession(projectRoot, payload, env)),
+    ),
+  );
 }

@@ -1,25 +1,30 @@
-import { copyFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { PAQAD_STAGE_HELPER_MATCHER } from '@/adapters/shared/paqad-hooks.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   closeActiveFeature,
   openFeatureChange,
   appendFeatureStageRow,
 } from '@/feature-evidence/stage-ledger.js';
-import { persistLedgerSessionId } from '@/rag-ledger/session.js';
+import { persistLedgerSessionId, resolveHookSession } from '@/rag-ledger/session.js';
 import {
   buildStageBrief,
   isSafeSessionId,
+  resolveBriefSession,
+  seedStageAgent,
   STAGE_BRIEF_ENTRY_LINE,
   STAGE_BRIEF_MAX_CHARS,
   STAGE_BRIEF_MORE_LINE,
   STAGE_BRIEF_NO_CHANGE_LINE,
   stageBriefHookOutput,
+  stageHelperStage,
 } from '@/stage-isolation/stage-brief.js';
+import { stageFromAgentType } from '@/stage-isolation/subagent-completion.js';
 import { STAGE_AGENT_STAGES } from '@/stage-isolation/stage-agents.js';
 
 const SESSION = 'ses_orch';
@@ -209,5 +214,74 @@ describe('stageBriefHookOutput', () => {
         hookSpecificOutput: { hookEventName: 'SubagentStart', additionalContext: 'brief text' },
       }),
     );
+  });
+});
+
+describe('stageHelperStage', () => {
+  const helpers: Array<[string, string]> = [
+    ['paqad-planning', 'planning'],
+    ['paqad-specification', 'specification'],
+    ['paqad-development', 'development'],
+    ['paqad-review', 'review'],
+    ['paqad-checks', 'checks'],
+    ['paqad-documentation-sync', 'documentation_sync'],
+  ];
+
+  it.each(
+    helpers.flatMap(([name, stage]) => [
+      [name, stage],
+      [`paqad:${name}`, stage],
+    ]),
+  )('maps %s to %s, agreeing with the matcher and stageFromAgentType', (agentType, stage) => {
+    expect(stageHelperStage(agentType)).toBe(stage);
+    expect(new RegExp(PAQAD_STAGE_HELPER_MATCHER).test(agentType)).toBe(true);
+    expect(stageFromAgentType(agentType)).toBe(stage);
+  });
+
+  it.each([
+    'paqad-expert',
+    'paqad:paqad-chief-architect',
+    'paqad-foo',
+    'paqad-documentation_sync',
+    'xpaqad-planning',
+  ])('returns null for %s, agreeing with the matcher and stageFromAgentType', (agentType) => {
+    expect(stageHelperStage(agentType)).toBeNull();
+    expect(new RegExp(PAQAD_STAGE_HELPER_MATCHER).test(agentType)).toBe(false);
+    expect(stageFromAgentType(agentType)).toBeNull();
+  });
+
+  it('returns null for a non-string agent type', () => {
+    expect(stageHelperStage(undefined)).toBeNull();
+    expect(stageHelperStage(42)).toBeNull();
+  });
+});
+
+describe('resolveBriefSession and seedStageAgent', () => {
+  it('refuses an unsafe payload, SE_SESSION or CLAUDE_SESSION_ID value', () => {
+    const root = tempRoot();
+    expect(() => resolveBriefSession(root, { session_id: 'a b' }, {})).toThrow(/unsafe/);
+    expect(() => resolveBriefSession(root, {}, { SE_SESSION: '$(id)' })).toThrow(/unsafe/);
+    expect(() => resolveBriefSession(root, {}, { CLAUDE_SESSION_ID: '../x' })).toThrow(/unsafe/);
+  });
+
+  it('resolves the in-flight session the completion hook resolves', () => {
+    const root = tempRoot();
+    activeChange(root);
+    const payload = { session_id: 'sub_other' };
+    expect(resolveBriefSession(root, payload, { SE_SESSION: 'env_other' })).toBe(
+      resolveHookSession(root, payload, { SE_SESSION: 'env_other' }),
+    );
+    expect(resolveBriefSession(root, payload, {})).toBe(SESSION);
+  });
+
+  it('returns the hook output for a seeded stage and leaves the session cache as it was', () => {
+    const root = tempRoot();
+    activeChange(root);
+    const cache = join(root, '.paqad/session/ledger-session-id');
+    writeFileSync(cache, 'someone_else', 'utf8');
+    const output = JSON.parse(seedStageAgent('review', root, { session_id: 'sub_x' }, {}));
+    expect(output.hookSpecificOutput.hookEventName).toBe('SubagentStart');
+    expect(output.hookSpecificOutput.additionalContext).toContain('stage start review');
+    expect(readFileSync(cache, 'utf8')).toBe('someone_else');
   });
 });

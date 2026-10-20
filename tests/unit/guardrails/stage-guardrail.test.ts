@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   PAQAD_LIVE_HOOKS,
+  PAQAD_STAGE_HELPER_MATCHER,
   PLUGIN_SESSION_START_HOOK,
   buildHostHookChain,
   buildPluginHookChain,
@@ -33,7 +34,20 @@ import { openChange, writeSpec } from '../traceability/change-map.fixture.js';
 const REPO = process.cwd();
 const CONTRACT = 'tests/e2e/stage-enforcement-contract.e2e.test.ts';
 const PLUGIN_HOOKS = 'runtime/claude-plugin/hooks.json';
-const HOOKS_SOURCE = 'src/adapters/shared/paqad-hooks.ts';
+const GOLDEN = 'tests/unit/adapters/__snapshots__/native-hook-config.golden.test.ts.snap';
+const SEED_EVENT = 'SubagentStart';
+const SEED_BLOCK = /^ {4}"SubagentStart": \[\n[\s\S]*?^ {4}\],\n/m;
+
+type HookGroups = Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>;
+
+interface PluginHooksFile {
+  hooks: HookGroups;
+  [key: string]: unknown;
+}
+
+function withoutSeedHook(hooks: HookGroups): HookGroups {
+  return Object.fromEntries(Object.entries(hooks).filter(([event]) => event !== SEED_EVENT));
+}
 
 function mergeBase(): string | null {
   try {
@@ -88,22 +102,32 @@ describe('the stage enforcement guardrails', () => {
     expect(printedCode(working(CONTRACT))).toEqual(printedCode(atBase(CONTRACT)));
   });
 
-  it('AC-67: hook events, matchers, commands and order are identical to the base branch', (ctx) => {
+  it('AC-67: hook events, matchers, commands and order are identical to the base branch apart from the stage seed hook', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
-    const baseText = atBase(PLUGIN_HOOKS);
-    expect(working(PLUGIN_HOOKS)).toBe(baseText);
-    const strip = { stripIssueRefs: true };
-    expect(printedCode(working(HOOKS_SOURCE), strip)).toEqual(
-      printedCode(atBase(HOOKS_SOURCE), strip),
+    const base = JSON.parse(atBase(PLUGIN_HOOKS)) as PluginHooksFile;
+    const work = JSON.parse(working(PLUGIN_HOOKS)) as PluginHooksFile;
+    const { hooks: baseHooks, ...baseRest } = base;
+    const { hooks: workHooks, ...workRest } = work;
+    expect(workRest).toEqual(baseRest);
+    expect(Object.keys(withoutSeedHook(workHooks))).toEqual(
+      Object.keys(withoutSeedHook(baseHooks)),
     );
+    expect(withoutSeedHook(workHooks)).toEqual(withoutSeedHook(baseHooks));
+    expect(flatten({ [SEED_EVENT]: workHooks[SEED_EVENT] ?? [] })).toEqual([
+      { event: SEED_EVENT, matcher: PAQAD_STAGE_HELPER_MATCHER, hook: 'stage-agent-start.mjs' },
+    ]);
+    expect(Object.keys(workHooks).at(-1)).toBe('SubagentStop');
+    expect(working(GOLDEN).replace(SEED_BLOCK, '')).toBe(atBase(GOLDEN).replace(SEED_BLOCK, ''));
+    expect(
+      PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true).map((spec) => spec.hookFile),
+    ).toEqual(['agent-entry-gate.mjs', 'decision-pause-gate.mjs', 'capability-gate.mjs']);
 
-    const base = JSON.parse(baseText) as { hooks: Parameters<typeof flatten>[0] };
     const built = mergeNativeHooks({}, buildPluginHookChain()) as {
       hooks: Parameters<typeof flatten>[0];
     };
-    expect(built.hooks).toEqual(base.hooks);
-    const baseLines = flatten(base.hooks);
-    expect(flatten(built.hooks)).toEqual(baseLines);
+    expect(built.hooks).toEqual(workHooks);
+    const baseLines = flatten(withoutSeedHook(baseHooks));
+    expect(flatten(withoutSeedHook(built.hooks))).toEqual(baseLines);
 
     const host = buildHostHookChain('claude-code')
       .map((line) => ({
@@ -111,7 +135,7 @@ describe('the stage enforcement guardrails', () => {
         matcher: line.matcher ?? '',
         hook: hookOf(line.command),
       }))
-      .filter((line) => !line.hook.startsWith('silent-update.mjs'));
+      .filter((line) => !line.hook.startsWith('silent-update.mjs') && line.event !== SEED_EVENT);
     const withoutBootstrap = baseLines.filter((line) => line.hook !== PLUGIN_SESSION_START_HOOK);
     const byEvent = (lines: HookLine[]) =>
       [...new Set(lines.map((line) => line.event))].map((event) =>

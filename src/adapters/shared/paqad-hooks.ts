@@ -2,13 +2,19 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 export type PaqadHookEvent =
-  'session-start' | 'prompt-submit' | 'pre-tool-mutation' | 'completion' | 'subagent-completion';
+  | 'session-start'
+  | 'prompt-submit'
+  | 'pre-tool-mutation'
+  | 'completion'
+  | 'subagent-start'
+  | 'subagent-completion';
 
 export const PAQAD_HOOK_EVENT_ORDER: readonly PaqadHookEvent[] = [
   'pre-tool-mutation',
   'prompt-submit',
   'session-start',
   'completion',
+  'subagent-start',
   'subagent-completion',
 ];
 
@@ -35,12 +41,16 @@ export const PAQAD_MUTATING_TOOL_MATCHER = 'Edit|Write|NotebookEdit';
 
 export const PAQAD_STAGE_AGENT_MATCHER = '^(paqad:)?paqad-';
 
+export const PAQAD_STAGE_HELPER_MATCHER =
+  '^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync)$';
+
 export const DEFAULT_HOOK_ADAPTER = 'claude-code';
 
 export interface HostHookEventMap {
-  nativeEvent: Record<PaqadHookEvent, string>;
+  nativeEvent: Readonly<Partial<Record<PaqadHookEvent, string>>>;
   mutatingMatcher: string;
   subagentMatcher: string;
+  subagentStartMatcher?: string;
 }
 
 export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
@@ -50,10 +60,12 @@ export const NATIVE_HOOK_EVENTS: Readonly<Record<string, HostHookEventMap>> = {
       'prompt-submit': 'UserPromptSubmit',
       'pre-tool-mutation': 'PreToolUse',
       completion: 'Stop',
+      'subagent-start': 'SubagentStart',
       'subagent-completion': 'SubagentStop',
     },
     mutatingMatcher: PAQAD_MUTATING_TOOL_MATCHER,
     subagentMatcher: PAQAD_STAGE_AGENT_MATCHER,
+    subagentStartMatcher: PAQAD_STAGE_HELPER_MATCHER,
   },
   'codex-cli': {
     nativeEvent: {
@@ -186,6 +198,13 @@ export const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[] = [
     description: 'Run the capability kernel at turn end (F3).',
   },
   {
+    id: 'stage-agent-start',
+    event: 'subagent-start',
+    hookFile: 'stage-agent-start.mjs',
+    timeoutSec: 10,
+    description: 'Seed a stage agent with its stage brief on SubagentStart.',
+  },
+  {
     id: 'stage-agent-completion',
     event: 'subagent-completion',
     hookFile: 'stage-agent-completion.mjs',
@@ -226,17 +245,22 @@ export function buildHostHookChain(
   }
   const chain: RenderedHook[] = [];
   for (const event of PAQAD_HOOK_EVENT_ORDER) {
+    const nativeEvent = host.nativeEvent[event];
+    if (nativeEvent === undefined) {
+      continue;
+    }
     for (const spec of PAQAD_LIVE_HOOKS) {
       if (spec.event !== event) {
         continue;
       }
       const failClosed = spec.failClosed === true && adapterType === DEFAULT_HOOK_ADAPTER;
+      const timed = failClosed || spec.failClosed !== true;
       chain.push({
-        nativeEvent: host.nativeEvent[event],
+        nativeEvent,
         matcher: matcherForEvent(event, host),
         command: renderHookCommand(spec, adapterType, env),
         ...(failClosed ? { onFailure: 'block' as const } : {}),
-        ...(failClosed && spec.timeoutSec !== undefined ? { timeout: spec.timeoutSec } : {}),
+        ...(timed && spec.timeoutSec !== undefined ? { timeout: spec.timeoutSec } : {}),
       });
     }
   }
@@ -250,6 +274,9 @@ function matcherForEvent(event: PaqadHookEvent, host: HostHookEventMap): string 
   if (event === 'subagent-completion') {
     return host.subagentMatcher;
   }
+  if (event === 'subagent-start') {
+    return host.subagentStartMatcher;
+  }
   return undefined;
 }
 
@@ -257,9 +284,14 @@ export function buildPluginHookChain(env: NodeJS.ProcessEnv = process.env): Rend
   const host = NATIVE_HOOK_EVENTS[DEFAULT_HOOK_ADAPTER];
   const chain: RenderedHook[] = [];
   for (const event of PAQAD_HOOK_EVENT_ORDER) {
+    const nativeEvent = host.nativeEvent[event];
+    /* v8 ignore next 3 -- the claude-code map names every event the plugin chain renders */
+    if (nativeEvent === undefined) {
+      continue;
+    }
     if (event === 'session-start') {
       chain.push({
-        nativeEvent: host.nativeEvent['session-start'],
+        nativeEvent,
         command: hookCommand(PLUGIN_SESSION_START_HOOK, env, PLUGIN_RUNTIME_ROOT),
       });
     }
@@ -268,9 +300,12 @@ export function buildPluginHookChain(env: NodeJS.ProcessEnv = process.env): Rend
         continue;
       }
       chain.push({
-        nativeEvent: host.nativeEvent[event],
+        nativeEvent,
         matcher: matcherForEvent(event, host),
         command: renderHookCommand(spec, DEFAULT_HOOK_ADAPTER, env, PLUGIN_RUNTIME_ROOT),
+        ...(spec.failClosed !== true && spec.timeoutSec !== undefined
+          ? { timeout: spec.timeoutSec }
+          : {}),
       });
     }
   }
