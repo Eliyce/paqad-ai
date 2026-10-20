@@ -423,7 +423,8 @@ describe('HealthChecker', () => {
     ).toEqual(
       expect.objectContaining({
         status: 'warning',
-        detail: 'Stale (older full-contract) entry file still inlines a contract section in: CLAUDE.md',
+        detail:
+          'Stale (older full-contract) entry file still inlines a contract section in: CLAUDE.md',
       }),
     );
   });
