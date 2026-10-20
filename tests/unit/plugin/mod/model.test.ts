@@ -94,6 +94,43 @@ describe('parseSnapshot', () => {
     });
   });
 
+  it('AC-28: the previous mod reader took paqad.hud/3 snapshots without throwing', () => {
+    interface OldReading {
+      threw: string | null;
+      parsed: boolean;
+      headline: string;
+      stages: string[];
+      ship: Array<{ label: string; word: string; done: boolean }>;
+    }
+    const captured = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/hud/old-mod-reads-hud3.json'), 'utf8'),
+    ) as { inputs: Record<string, Record<string, unknown>>; readings: Record<string, OldReading> };
+    const names = Object.keys(captured.inputs);
+    expect(names).toEqual(expect.arrayContaining(['FAST_ORD_490', 'FULL_ORD_501', 'SHIPPED']));
+    expect(Object.keys(captured.readings)).toEqual(names);
+    for (const name of names) {
+      const input = captured.inputs[name]!;
+      const reading = captured.readings[name]!;
+      expect(input.schema).toBe('paqad.hud/3');
+      expect(parseSnapshot(JSON.stringify(input))).not.toBeNull();
+      expect(reading.threw).toBeNull();
+      expect(reading.parsed).toBe(true);
+      expect(reading.headline.length).toBeGreaterThan(0);
+      expect(reading.stages).toHaveLength(8);
+      expect(reading.ship.map((step) => step.label)).toEqual([
+        'Edit',
+        'Commit',
+        'Push',
+        'PR',
+        'CI',
+        'Merge',
+      ]);
+      expect(reading.ship.every((step) => !step.word.startsWith('<'))).toBe(true);
+    }
+    const today = Object.keys(JSON.parse(JSON.stringify(FULL_ORD_501)) as object);
+    expect(Object.keys(captured.inputs.FULL_ORD_501!)).toEqual(expect.arrayContaining(today));
+  });
+
   it('tolerates odd fields without guessing', () => {
     const odd = parseSnapshot(
       JSON.stringify({

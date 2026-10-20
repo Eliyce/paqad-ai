@@ -1,0 +1,1664 @@
+{
+  "captured_from": "main 1f85100f",
+  "reader": "runtime/claude-plugin/mod/model.ts parseSnapshot + buildBandView + isLive",
+  "now": 1792314000000,
+  "inputs": {
+    "FAST_ORD_490": {
+      "schema": "paqad.hud/3",
+      "session_id": "ses-fixture",
+      "generated_at": "2026-10-18T09:00:00.000Z",
+      "scope": {
+        "qualified": true,
+        "reason": "qualified"
+      },
+      "workflow": null,
+      "active": true,
+      "route": "feature-development",
+      "lane": "fast",
+      "lane_reason": "a one-line copy fix",
+      "headline": {
+        "text": "Build in progress. Next: Review.",
+        "tone": "working"
+      },
+      "change": {
+        "dir": "ORD-490-dir",
+        "id": "ORD-490-id",
+        "issue": "ORD-490",
+        "title": "The order email says recieved",
+        "branch": "fix/ORD-490-received",
+        "status": "active"
+      },
+      "paused": [],
+      "stages": [
+        {
+          "stage": "ticket_intake",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "planning",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "specification",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "development",
+          "state": "running",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:58:00.000Z",
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "review",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "checks",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "documentation_sync",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "delivery",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        }
+      ],
+      "timeline": [],
+      "table": null,
+      "claims": [],
+      "gates": [],
+      "flags": [],
+      "rules": {
+        "recorded": true,
+        "applicable": 4,
+        "loaded_at": "2026-10-18T08:57:00.000Z"
+      },
+      "findings": null,
+      "decisions": {
+        "pending": [],
+        "resolved": 0
+      },
+      "questions": null,
+      "last_block": null,
+      "ship": {
+        "commits": 0,
+        "commit_decision": null,
+        "merge_commit": null,
+        "push": null,
+        "pr": null,
+        "ci": null
+      },
+      "verdict": null,
+      "receipt": null,
+      "evidence_expected": [],
+      "isolation": {
+        "status": "not-applicable",
+        "stages": 0,
+        "tokens_not_recarried": 0
+      },
+      "cost": null,
+      "tech_debt": null,
+      "rule_overrides": null
+    },
+    "GRADUATED_ORD_482": {
+      "schema": "paqad.hud/3",
+      "session_id": "ses-fixture",
+      "generated_at": "2026-10-18T09:00:00.000Z",
+      "scope": {
+        "qualified": true,
+        "reason": "qualified"
+      },
+      "workflow": null,
+      "active": true,
+      "route": "feature-development",
+      "lane": "graduated",
+      "lane_reason": "a bug fix that touches contact matching",
+      "headline": {
+        "text": "Needs you: 1 decision waiting.",
+        "tone": "needs-you"
+      },
+      "change": {
+        "dir": "ORD-482-dir",
+        "id": "ORD-482-id",
+        "issue": "ORD-482",
+        "title": "Keep the copied phone after a re-sync",
+        "branch": "fix/ORD-482-keep-copied-phone",
+        "status": "active"
+      },
+      "paused": [],
+      "stages": [
+        {
+          "stage": "ticket_intake",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "planning",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "specification",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "development",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "review",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "checks",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "documentation_sync",
+          "state": "missing",
+          "mandatory": true,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "delivery",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        }
+      ],
+      "timeline": [],
+      "table": {
+        "skipped": false,
+        "met_after_freeze": false,
+        "seats": [
+          {
+            "role": "product-owner",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:20:01.000Z",
+            "done_at": "2026-10-18T08:21:40.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 4,
+              "output": 320,
+              "cache_read": 12000,
+              "cache_write": 4100,
+              "total": 16424
+            },
+            "tokens_exact": true,
+            "findings": 1,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "application-architect",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:20:01.000Z",
+            "done_at": "2026-10-18T08:22:05.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 5,
+              "output": 360,
+              "cache_read": 12500,
+              "cache_write": 4300,
+              "total": 17165
+            },
+            "tokens_exact": true,
+            "findings": 1,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "user-flow-writer",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:20:02.000Z",
+            "done_at": "2026-10-18T08:21:30.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 4,
+              "output": 280,
+              "cache_read": 11000,
+              "cache_write": 3900,
+              "total": 15184
+            },
+            "tokens_exact": true,
+            "findings": 1,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "qa-engineer",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:20:02.000Z",
+            "done_at": "2026-10-18T08:22:20.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 5,
+              "output": 410,
+              "cache_read": 13000,
+              "cache_write": 4600,
+              "total": 18015
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": null
+          }
+        ],
+        "chief": {
+          "role": "chief-architect",
+          "reason": "chairs the High Table",
+          "origin": "standing",
+          "state": "done",
+          "seated_at": "2026-10-18T08:10:00.000Z",
+          "started_at": "2026-10-18T08:13:10.000Z",
+          "done_at": "2026-10-18T08:15:10.000Z",
+          "budget_tokens": 10000,
+          "clamped": false,
+          "tokens_estimate": 3000,
+          "tokens": {
+            "input": 12,
+            "output": 1400,
+            "cache_read": 24000,
+            "cache_write": 3100,
+            "total": 28512
+          },
+          "tokens_exact": true,
+          "findings": null,
+          "late": false,
+          "track_record": null,
+          "verdict": "proceed"
+        },
+        "rulings": {
+          "accepted": [
+            "EX-product-owner-1",
+            "EX-application-architect-1",
+            "EX-user-flow-writer-1",
+            "EX-qa-engineer-1",
+            "EX-qa-engineer-2"
+          ],
+          "declined": [],
+          "conflicts": [],
+          "renames": [],
+          "settled": []
+        },
+        "gaps": [],
+        "questions": {
+          "asked": 0,
+          "auto_answered": []
+        },
+        "credits": []
+      },
+      "claims": [],
+      "gates": [],
+      "flags": [],
+      "rules": {
+        "recorded": true,
+        "applicable": 9,
+        "loaded_at": "2026-10-18T08:50:00.000Z"
+      },
+      "findings": null,
+      "decisions": {
+        "pending": [
+          {
+            "id": "D-01J0",
+            "category": "fix.proof_method",
+            "question": "How should the fix be proven?"
+          }
+        ],
+        "resolved": 2
+      },
+      "questions": null,
+      "last_block": null,
+      "ship": {
+        "commits": 0,
+        "commit_decision": null,
+        "merge_commit": null,
+        "push": null,
+        "pr": null,
+        "ci": null
+      },
+      "verdict": null,
+      "receipt": null,
+      "evidence_expected": [],
+      "isolation": null,
+      "cost": null,
+      "tech_debt": null,
+      "rule_overrides": null
+    },
+    "FULL_ORD_501": {
+      "schema": "paqad.hud/3",
+      "session_id": "ses-fixture",
+      "generated_at": "2026-10-18T09:00:00.000Z",
+      "scope": {
+        "qualified": true,
+        "reason": "qualified"
+      },
+      "workflow": null,
+      "active": true,
+      "route": "feature-development",
+      "lane": "full",
+      "lane_reason": "a new export of customer data",
+      "headline": {
+        "text": "Safe to merge. 1 flag open.",
+        "tone": "warn"
+      },
+      "change": {
+        "dir": "ORD-501-dir",
+        "id": "ORD-501-id",
+        "issue": "ORD-501",
+        "title": "Add CSV export to the orders page",
+        "branch": "feat/ORD-501-csv-export",
+        "status": "active"
+      },
+      "paused": [],
+      "stages": [
+        {
+          "stage": "ticket_intake",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "planning",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "specification",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "development",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "review",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "checks",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "documentation_sync",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "delivery",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        }
+      ],
+      "timeline": [],
+      "table": {
+        "skipped": false,
+        "met_after_freeze": false,
+        "seats": [
+          {
+            "role": "product-owner",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:05.000Z",
+            "done_at": "2026-10-18T08:12:10.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 5,
+              "output": 410,
+              "cache_read": 15000,
+              "cache_write": 6000,
+              "total": 21415
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": {
+              "changes": 6,
+              "changed_spec": 4,
+              "empty": 1,
+              "avg_tokens": 2300
+            }
+          },
+          {
+            "role": "application-architect",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:05.000Z",
+            "done_at": "2026-10-18T08:12:40.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 6,
+              "output": 450,
+              "cache_read": 16000,
+              "cache_write": 6200,
+              "total": 22656
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "user-flow-writer",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:06.000Z",
+            "done_at": "2026-10-18T08:11:50.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 4,
+              "output": 300,
+              "cache_read": 14000,
+              "cache_write": 5800,
+              "total": 20104
+            },
+            "tokens_exact": true,
+            "findings": 1,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "qa-engineer",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:06.000Z",
+            "done_at": "2026-10-18T08:12:20.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 5,
+              "output": 430,
+              "cache_read": 16000,
+              "cache_write": 7600,
+              "total": 24035
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "security-auditor",
+            "reason": "the export carries customer emails and addresses",
+            "origin": "detector",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:07.000Z",
+            "done_at": "2026-10-18T08:13:05.000Z",
+            "budget_tokens": 6000,
+            "clamped": false,
+            "tokens_estimate": 1500,
+            "tokens": {
+              "input": 7,
+              "output": 620,
+              "cache_read": 21000,
+              "cache_write": 8100,
+              "total": 29727
+            },
+            "tokens_exact": true,
+            "findings": 3,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "db-expert",
+            "reason": "the export reads every order in a date range",
+            "origin": "detector",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:07.000Z",
+            "done_at": "2026-10-18T08:12:55.000Z",
+            "budget_tokens": 6000,
+            "clamped": true,
+            "tokens_estimate": 1300,
+            "tokens": {
+              "input": 6,
+              "output": 540,
+              "cache_read": 19000,
+              "cache_write": 7000,
+              "total": 26546
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "performance-analyst",
+            "reason": "a large export must not slow the orders page",
+            "origin": "detector",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:08.000Z",
+            "done_at": "2026-10-18T08:12:30.000Z",
+            "budget_tokens": 5000,
+            "clamped": false,
+            "tokens_estimate": 1900,
+            "tokens": null,
+            "tokens_exact": false,
+            "findings": 1,
+            "late": false,
+            "track_record": null
+          }
+        ],
+        "chief": {
+          "role": "chief-architect",
+          "reason": "chairs the High Table",
+          "origin": "standing",
+          "state": "done",
+          "seated_at": "2026-10-18T08:10:00.000Z",
+          "started_at": "2026-10-18T08:13:10.000Z",
+          "done_at": "2026-10-18T08:15:10.000Z",
+          "budget_tokens": 10000,
+          "clamped": false,
+          "tokens_estimate": 3000,
+          "tokens": {
+            "input": 12,
+            "output": 1400,
+            "cache_read": 24000,
+            "cache_write": 3100,
+            "total": 28512
+          },
+          "tokens_exact": true,
+          "findings": null,
+          "late": false,
+          "track_record": null,
+          "verdict": "proceed"
+        },
+        "rulings": {
+          "accepted": [
+            "EX-product-owner-1",
+            "EX-product-owner-2",
+            "EX-application-architect-1",
+            "EX-application-architect-2",
+            "EX-user-flow-writer-1",
+            "EX-qa-engineer-1",
+            "EX-qa-engineer-2",
+            "EX-security-auditor-1",
+            "EX-db-expert-1"
+          ],
+          "declined": [
+            {
+              "id": "EX-performance-analyst-1",
+              "reason": "Streaming the file is out of scope for the first version; exports stop at 10,000 rows."
+            }
+          ],
+          "conflicts": [
+            {
+              "target": "Customer email in the export",
+              "recommendation": "leave the email out by default and let an admin turn it on.",
+              "rationale": "The security auditor wants it masked and the product owner wants it for support; an opt-in keeps both."
+            }
+          ],
+          "renames": [
+            {
+              "id": "EX-user-flow-writer-1",
+              "target": "Export orders"
+            }
+          ],
+          "settled": [
+            {
+              "target": "Date range limit",
+              "chosen": "90 days at most",
+              "source": "D-01M3Y1RB507QW3K9F2D8MZXN4R"
+            }
+          ]
+        },
+        "gaps": [
+          {
+            "area": "File retention",
+            "why_it_matters": "A generated file with customer data could linger.",
+            "question": "How long should a generated export file be kept?"
+          }
+        ],
+        "questions": {
+          "asked": 1,
+          "auto_answered": [
+            {
+              "question": "Which file format should the export use?",
+              "source": "D-01M39VEJR07QW3K9F2D8MZXN4S"
+            }
+          ]
+        },
+        "credits": [
+          {
+            "line": "FR-1",
+            "roles": ["product-owner", "user-flow-writer"]
+          },
+          {
+            "line": "FR-2",
+            "roles": ["application-architect"]
+          },
+          {
+            "line": "FR-3",
+            "roles": ["db-expert"]
+          },
+          {
+            "line": "FR-4",
+            "roles": ["security-auditor"]
+          },
+          {
+            "line": "FR-5",
+            "roles": ["security-auditor", "product-owner"]
+          },
+          {
+            "line": "FR-6",
+            "roles": ["qa-engineer"]
+          },
+          {
+            "line": "FR-7",
+            "roles": ["user-flow-writer"]
+          },
+          {
+            "line": "FR-8",
+            "roles": ["application-architect", "db-expert"]
+          },
+          {
+            "line": "NFR-1",
+            "roles": ["performance-analyst"]
+          },
+          {
+            "line": "NFR-2",
+            "roles": ["security-auditor"]
+          },
+          {
+            "line": "INV-1",
+            "roles": ["db-expert"]
+          },
+          {
+            "line": "INV-2",
+            "roles": ["qa-engineer", "product-owner"]
+          }
+        ]
+      },
+      "claims": [],
+      "gates": [
+        {
+          "name": "code-tests-lint",
+          "required": true,
+          "strength": "deterministic",
+          "verdict": "pass"
+        },
+        {
+          "name": "duplication",
+          "required": true,
+          "strength": "deterministic",
+          "verdict": "pass"
+        }
+      ],
+      "flags": [
+        {
+          "id": "near-copies",
+          "text": "1 near-copy of existing code is open."
+        }
+      ],
+      "rules": {
+        "recorded": true,
+        "applicable": 12,
+        "loaded_at": "2026-10-18T08:35:00.000Z"
+      },
+      "findings": {
+        "rules": {
+          "status": "clean",
+          "total": 0,
+          "counts": {},
+          "blocking": false
+        },
+        "near_copies": {
+          "status": "open",
+          "total": 1,
+          "counts": {},
+          "blocking": false
+        }
+      },
+      "decisions": {
+        "pending": [],
+        "resolved": 4
+      },
+      "questions": null,
+      "last_block": null,
+      "ship": {
+        "commits": 3,
+        "commit_decision": null,
+        "merge_commit": null,
+        "push": null,
+        "pr": null,
+        "ci": null
+      },
+      "verdict": {
+        "schema": "paqad.hud-verdict/1",
+        "session_id": "ses-fixture",
+        "word": "Safe to merge",
+        "kind": "pass",
+        "passed": true,
+        "reasons": [],
+        "written_at": "2026-10-18T08:59:00.000Z"
+      },
+      "receipt": {
+        "path": "/repo/.paqad/session/hud/ses-fixture.receipt.md"
+      },
+      "evidence_expected": [],
+      "isolation": null,
+      "cost": null,
+      "tech_debt": null,
+      "rule_overrides": null
+    },
+    "SHIPPED": {
+      "schema": "paqad.hud/3",
+      "session_id": "ses-fixture",
+      "generated_at": "2026-10-18T09:00:00.000Z",
+      "scope": {
+        "qualified": true,
+        "reason": "qualified"
+      },
+      "workflow": null,
+      "active": true,
+      "route": "feature-development",
+      "lane": "full",
+      "lane_reason": "a new export of customer data",
+      "headline": {
+        "text": "Safe to merge. 1 flag open.",
+        "tone": "warn"
+      },
+      "change": {
+        "dir": "ORD-501-dir",
+        "id": "ORD-501-id",
+        "issue": "ORD-501",
+        "title": "Add CSV export to the orders page",
+        "branch": "feat/ORD-501-csv-export",
+        "status": "active"
+      },
+      "paused": [],
+      "stages": [
+        {
+          "stage": "ticket_intake",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        },
+        {
+          "stage": "planning",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "specification",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "development",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "review",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "checks",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "documentation_sync",
+          "state": "complete",
+          "mandatory": true,
+          "started_at": "2026-10-18T08:30:00.000Z",
+          "ended_at": "2026-10-18T08:40:00.000Z",
+          "duration_ms": 600000,
+          "duration_unreliable": false,
+          "agent": "orchestrator",
+          "proof_file": null
+        },
+        {
+          "stage": "delivery",
+          "state": "missing",
+          "mandatory": false,
+          "started_at": null,
+          "ended_at": null,
+          "duration_ms": null,
+          "duration_unreliable": false,
+          "agent": null,
+          "proof_file": null
+        }
+      ],
+      "timeline": [],
+      "table": {
+        "skipped": false,
+        "met_after_freeze": false,
+        "seats": [
+          {
+            "role": "product-owner",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:05.000Z",
+            "done_at": "2026-10-18T08:12:10.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 5,
+              "output": 410,
+              "cache_read": 15000,
+              "cache_write": 6000,
+              "total": 21415
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": {
+              "changes": 6,
+              "changed_spec": 4,
+              "empty": 1,
+              "avg_tokens": 2300
+            }
+          },
+          {
+            "role": "application-architect",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:05.000Z",
+            "done_at": "2026-10-18T08:12:40.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 6,
+              "output": 450,
+              "cache_read": 16000,
+              "cache_write": 6200,
+              "total": 22656
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "user-flow-writer",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:06.000Z",
+            "done_at": "2026-10-18T08:11:50.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 4,
+              "output": 300,
+              "cache_read": 14000,
+              "cache_write": 5800,
+              "total": 20104
+            },
+            "tokens_exact": true,
+            "findings": 1,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "qa-engineer",
+            "reason": "standing expert (always at the table)",
+            "origin": "standing",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:06.000Z",
+            "done_at": "2026-10-18T08:12:20.000Z",
+            "budget_tokens": 4000,
+            "clamped": false,
+            "tokens_estimate": 900,
+            "tokens": {
+              "input": 5,
+              "output": 430,
+              "cache_read": 16000,
+              "cache_write": 7600,
+              "total": 24035
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "security-auditor",
+            "reason": "the export carries customer emails and addresses",
+            "origin": "detector",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:07.000Z",
+            "done_at": "2026-10-18T08:13:05.000Z",
+            "budget_tokens": 6000,
+            "clamped": false,
+            "tokens_estimate": 1500,
+            "tokens": {
+              "input": 7,
+              "output": 620,
+              "cache_read": 21000,
+              "cache_write": 8100,
+              "total": 29727
+            },
+            "tokens_exact": true,
+            "findings": 3,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "db-expert",
+            "reason": "the export reads every order in a date range",
+            "origin": "detector",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:07.000Z",
+            "done_at": "2026-10-18T08:12:55.000Z",
+            "budget_tokens": 6000,
+            "clamped": true,
+            "tokens_estimate": 1300,
+            "tokens": {
+              "input": 6,
+              "output": 540,
+              "cache_read": 19000,
+              "cache_write": 7000,
+              "total": 26546
+            },
+            "tokens_exact": true,
+            "findings": 2,
+            "late": false,
+            "track_record": null
+          },
+          {
+            "role": "performance-analyst",
+            "reason": "a large export must not slow the orders page",
+            "origin": "detector",
+            "state": "done",
+            "seated_at": "2026-10-18T08:10:00.000Z",
+            "started_at": "2026-10-18T08:10:08.000Z",
+            "done_at": "2026-10-18T08:12:30.000Z",
+            "budget_tokens": 5000,
+            "clamped": false,
+            "tokens_estimate": 1900,
+            "tokens": null,
+            "tokens_exact": false,
+            "findings": 1,
+            "late": false,
+            "track_record": null
+          }
+        ],
+        "chief": {
+          "role": "chief-architect",
+          "reason": "chairs the High Table",
+          "origin": "standing",
+          "state": "done",
+          "seated_at": "2026-10-18T08:10:00.000Z",
+          "started_at": "2026-10-18T08:13:10.000Z",
+          "done_at": "2026-10-18T08:15:10.000Z",
+          "budget_tokens": 10000,
+          "clamped": false,
+          "tokens_estimate": 3000,
+          "tokens": {
+            "input": 12,
+            "output": 1400,
+            "cache_read": 24000,
+            "cache_write": 3100,
+            "total": 28512
+          },
+          "tokens_exact": true,
+          "findings": null,
+          "late": false,
+          "track_record": null,
+          "verdict": "proceed"
+        },
+        "rulings": {
+          "accepted": [
+            "EX-product-owner-1",
+            "EX-product-owner-2",
+            "EX-application-architect-1",
+            "EX-application-architect-2",
+            "EX-user-flow-writer-1",
+            "EX-qa-engineer-1",
+            "EX-qa-engineer-2",
+            "EX-security-auditor-1",
+            "EX-db-expert-1"
+          ],
+          "declined": [
+            {
+              "id": "EX-performance-analyst-1",
+              "reason": "Streaming the file is out of scope for the first version; exports stop at 10,000 rows."
+            }
+          ],
+          "conflicts": [
+            {
+              "target": "Customer email in the export",
+              "recommendation": "leave the email out by default and let an admin turn it on.",
+              "rationale": "The security auditor wants it masked and the product owner wants it for support; an opt-in keeps both."
+            }
+          ],
+          "renames": [
+            {
+              "id": "EX-user-flow-writer-1",
+              "target": "Export orders"
+            }
+          ],
+          "settled": [
+            {
+              "target": "Date range limit",
+              "chosen": "90 days at most",
+              "source": "D-01M3Y1RB507QW3K9F2D8MZXN4R"
+            }
+          ]
+        },
+        "gaps": [
+          {
+            "area": "File retention",
+            "why_it_matters": "A generated file with customer data could linger.",
+            "question": "How long should a generated export file be kept?"
+          }
+        ],
+        "questions": {
+          "asked": 1,
+          "auto_answered": [
+            {
+              "question": "Which file format should the export use?",
+              "source": "D-01M39VEJR07QW3K9F2D8MZXN4S"
+            }
+          ]
+        },
+        "credits": [
+          {
+            "line": "FR-1",
+            "roles": ["product-owner", "user-flow-writer"]
+          },
+          {
+            "line": "FR-2",
+            "roles": ["application-architect"]
+          },
+          {
+            "line": "FR-3",
+            "roles": ["db-expert"]
+          },
+          {
+            "line": "FR-4",
+            "roles": ["security-auditor"]
+          },
+          {
+            "line": "FR-5",
+            "roles": ["security-auditor", "product-owner"]
+          },
+          {
+            "line": "FR-6",
+            "roles": ["qa-engineer"]
+          },
+          {
+            "line": "FR-7",
+            "roles": ["user-flow-writer"]
+          },
+          {
+            "line": "FR-8",
+            "roles": ["application-architect", "db-expert"]
+          },
+          {
+            "line": "NFR-1",
+            "roles": ["performance-analyst"]
+          },
+          {
+            "line": "NFR-2",
+            "roles": ["security-auditor"]
+          },
+          {
+            "line": "INV-1",
+            "roles": ["db-expert"]
+          },
+          {
+            "line": "INV-2",
+            "roles": ["qa-engineer", "product-owner"]
+          }
+        ]
+      },
+      "claims": [],
+      "gates": [
+        {
+          "name": "code-tests-lint",
+          "required": true,
+          "strength": "deterministic",
+          "verdict": "pass"
+        },
+        {
+          "name": "duplication",
+          "required": true,
+          "strength": "deterministic",
+          "verdict": "pass"
+        }
+      ],
+      "flags": [
+        {
+          "id": "near-copies",
+          "text": "1 near-copy of existing code is open."
+        }
+      ],
+      "rules": {
+        "recorded": true,
+        "applicable": 12,
+        "loaded_at": "2026-10-18T08:35:00.000Z"
+      },
+      "findings": {
+        "rules": {
+          "status": "clean",
+          "total": 0,
+          "counts": {},
+          "blocking": false
+        },
+        "near_copies": {
+          "status": "open",
+          "total": 1,
+          "counts": {},
+          "blocking": false
+        }
+      },
+      "decisions": {
+        "pending": [],
+        "resolved": 4
+      },
+      "questions": null,
+      "last_block": null,
+      "ship": {
+        "commits": 2,
+        "commit_decision": null,
+        "merge_commit": null,
+        "push": {
+          "state": "pushed",
+          "branch": "feat/x",
+          "sha": "aaa"
+        },
+        "pr": {
+          "number": 12,
+          "url": "https://example.test/pull/12",
+          "draft": false,
+          "head_sha": "aaa"
+        },
+        "ci": {
+          "sha": "aaa",
+          "state": "pass",
+          "done": 6,
+          "total": 6,
+          "reason": null,
+          "source": "ci-gate",
+          "at": "2026-10-18T08:59:00.000Z"
+        },
+        "own": null,
+        "inherited": null,
+        "commit_list": [
+          {
+            "sha": "aaa1111",
+            "subject": "feat: one",
+            "own": true
+          }
+        ],
+        "inherited_count": 0,
+        "pr_state": "open",
+        "ci_read_at": "2026-10-18T08:59:00.000Z",
+        "all_green": true,
+        "merged": false
+      },
+      "verdict": {
+        "schema": "paqad.hud-verdict/1",
+        "session_id": "ses-fixture",
+        "word": "Safe to merge",
+        "kind": "pass",
+        "passed": true,
+        "reasons": [],
+        "written_at": "2026-10-18T08:59:00.000Z"
+      },
+      "receipt": {
+        "path": "/repo/.paqad/session/hud/ses-fixture.receipt.md"
+      },
+      "evidence_expected": [],
+      "isolation": null,
+      "cost": null,
+      "tech_debt": null,
+      "rule_overrides": null
+    }
+  },
+  "readings": {
+    "FAST_ORD_490": {
+      "threw": null,
+      "parsed": true,
+      "band_state": "Working",
+      "tone": "working",
+      "headline": "Build in progress. Next: Review.",
+      "flags": 0,
+      "stages": [
+        "ticket_intake:not yet",
+        "planning:done",
+        "specification:not required",
+        "development:running",
+        "review:not yet",
+        "checks:not yet",
+        "documentation_sync:not yet",
+        "delivery:not yet"
+      ],
+      "ship": [
+        {
+          "label": "Edit",
+          "word": "running",
+          "done": false
+        },
+        {
+          "label": "Commit",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "Push",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "PR",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "CI",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "Merge",
+          "word": "stays yours",
+          "done": false
+        }
+      ],
+      "cost": "cost: not yet",
+      "live": true
+    },
+    "GRADUATED_ORD_482": {
+      "threw": null,
+      "parsed": true,
+      "band_state": "Needs you",
+      "tone": "needs-you",
+      "headline": "Needs you: 1 decision waiting.",
+      "flags": 0,
+      "stages": [
+        "ticket_intake:not yet",
+        "planning:done",
+        "specification:done",
+        "development:not yet",
+        "review:not yet",
+        "checks:not yet",
+        "documentation_sync:not yet",
+        "delivery:not yet"
+      ],
+      "ship": [
+        {
+          "label": "Edit",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "Commit",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "Push",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "PR",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "CI",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "Merge",
+          "word": "stays yours",
+          "done": false
+        }
+      ],
+      "cost": "cost: not yet",
+      "live": false
+    },
+    "FULL_ORD_501": {
+      "threw": null,
+      "parsed": true,
+      "band_state": "Safe to merge",
+      "tone": "warn",
+      "headline": "Safe to merge. 1 flag open.",
+      "flags": 1,
+      "stages": [
+        "ticket_intake:not yet",
+        "planning:done",
+        "specification:done",
+        "development:done",
+        "review:done",
+        "checks:done",
+        "documentation_sync:done",
+        "delivery:not yet"
+      ],
+      "ship": [
+        {
+          "label": "Edit",
+          "word": "done",
+          "done": true
+        },
+        {
+          "label": "Commit",
+          "word": "3 commits",
+          "done": true
+        },
+        {
+          "label": "Push",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "PR",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "CI",
+          "word": "not yet",
+          "done": false
+        },
+        {
+          "label": "Merge",
+          "word": "stays yours",
+          "done": false
+        }
+      ],
+      "cost": "cost: not yet",
+      "live": false
+    },
+    "SHIPPED": {
+      "threw": null,
+      "parsed": true,
+      "band_state": "Safe to merge",
+      "tone": "warn",
+      "headline": "Safe to merge. 1 flag open.",
+      "flags": 1,
+      "stages": [
+        "ticket_intake:not yet",
+        "planning:done",
+        "specification:done",
+        "development:done",
+        "review:done",
+        "checks:done",
+        "documentation_sync:done",
+        "delivery:not yet"
+      ],
+      "ship": [
+        {
+          "label": "Edit",
+          "word": "done",
+          "done": true
+        },
+        {
+          "label": "Commit",
+          "word": "2 commits",
+          "done": true
+        },
+        {
+          "label": "Push",
+          "word": "pushed",
+          "done": true
+        },
+        {
+          "label": "PR",
+          "word": "#12",
+          "done": true
+        },
+        {
+          "label": "CI",
+          "word": "pass",
+          "done": true
+        },
+        {
+          "label": "Merge",
+          "word": "stays yours",
+          "done": false
+        }
+      ],
+      "cost": "cost: not yet",
+      "live": false
+    }
+  }
+}
