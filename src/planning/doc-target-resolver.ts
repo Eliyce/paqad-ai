@@ -1,6 +1,4 @@
 import { access } from 'node:fs/promises';
-// posix.join keeps DocTarget.file forward-slashed on Windows; the segments
-// are repo-relative literals, never native filesystem paths.
 import { posix } from 'node:path';
 
 import type { DocTarget, ExecutionSlice } from '@/core/types/planning.js';

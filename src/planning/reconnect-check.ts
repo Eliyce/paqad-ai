@@ -1,12 +1,6 @@
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import type { ExecutionSlice, PlanningLane, PlanVsActualSnapshot } from '@/core/types/planning.js';
 
-/**
- * A cross-slice seam that the assembled work left unwired (issue #104). A slice
- * either depends on another that is absent from the assembly (`dangling`), or it
- * was wired onto an upstream slice whose own frozen criterion was never proven
- * (`upstream-unproven`).
- */
 export interface ReconnectSeam {
   slice_id: string;
   depends_on: string;
@@ -14,11 +8,6 @@ export interface ReconnectSeam {
   detail: string;
 }
 
-/**
- * Two slices disagree about the assembly (issue #104): the same frozen
- * criterion is owned by more than one slice (`double-owned`), or a slice claims
- * a criterion that is not in the frozen spec at all (`off-spec`).
- */
 export interface ReconnectContradiction {
   kind: 'double-owned' | 'off-spec';
   criterion_id: string;
@@ -28,14 +17,10 @@ export interface ReconnectContradiction {
 
 export interface ReconnectReport {
   coherent: boolean;
-  /** False when the spec was never frozen — the check has no written anchor to read. */
   anchored: boolean;
-  /** How the reconnect was judged: structural by default, agent re-read on the full lane. */
   review: 'structural' | 'agent-re-read';
   frozen_criteria_total: number;
-  /** Frozen criteria no slice covers — coverage gaps against the whole-feature spec. */
   uncovered_criteria: string[];
-  /** Frozen criteria a slice covers but whose proof did not pass — built, not proven. */
   unproven_criteria: string[];
   unwired_seams: ReconnectSeam[];
   contradictions: ReconnectContradiction[];
@@ -48,21 +33,6 @@ export interface ReconnectInput {
   lane: PlanningLane;
 }
 
-/**
- * The reconnect-to-whole check (issue #104). After the thin slices are built,
- * this confirms the assembled pieces satisfy the **frozen** whole-feature spec —
- * not merely that each slice passed alone. It is a real check, not a stamp: it
- * fails on a coverage gap, an unproven criterion, an unwired cross-slice seam,
- * or two slices that contradict each other.
- *
- * It anchors on the written frozen spec, never on the agent's memory of the
- * feature (the brief's core point — an agent's grip on the whole fades on long
- * jobs). An unfrozen spec yields `anchored: false` and is never coherent.
- *
- * Strength scales with lane (Open Decision 1): structural AC-coverage + seam
- * checks by default, escalating to an agent re-read of the spec on the `full`
- * lane.
- */
 export function computeReconnect(input: ReconnectInput): ReconnectReport {
   const review: ReconnectReport['review'] = input.lane === 'full' ? 'agent-re-read' : 'structural';
   const frozenCriterionIds = input.spec.acceptance_criteria.map(
@@ -122,11 +92,6 @@ export function computeReconnect(input: ReconnectInput): ReconnectReport {
   };
 }
 
-/**
- * Renders the reconnect result as a human-readable checklist that names exactly
- * what does not fit the whole-feature spec, mirroring the Definition-of-Done
- * checklist (issue #102) so a reader sees the specific gap, not a vague verdict.
- */
 export function renderReconnectReport(report: ReconnectReport): string {
   const mark = (ok: boolean): string => (ok ? '✓' : '✗');
   const proven = report.frozen_criteria_total - report.uncovered_criteria.length;

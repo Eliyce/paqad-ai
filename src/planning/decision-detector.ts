@@ -11,11 +11,6 @@ interface DecisionSignal {
   category: DecisionCategory;
   signal: string;
   patterns: RegExp[];
-  /**
-   * Optional guard applied to a pattern match before it counts as a fork. Used to
-   * keep a signal genuinely tight (e.g. two *distinct* file paths, not the same
-   * path twice) so a high-confidence signal cannot fire on a coincidence.
-   */
   validate?: (match: RegExpMatchArray) => boolean;
 }
 
@@ -35,11 +30,6 @@ const SIGNALS: DecisionSignal[] = [
       /\b(button|card|modal|drawer|tile|iconbutton|input|form)\b.{0,15}\bor\b.{0,15}\b(button|card|modal|drawer|tile|iconbutton|input|form)\b/i,
     ],
   },
-  // The TIGHT architecture-path signal that self-arm is allowed to mint on (#300):
-  // two DISTINCT file paths explicitly offered as alternatives ("live in X or Y",
-  // "X vs Y"). This is a real "which path" fork, so it carries a high confidence.
-  // Placed before the broad signals so its match is available; the broad ones below
-  // still emit their own low-confidence forks for detection-only callers.
   {
     category: 'architecture-path',
     signal: 'explicit-path-fork',

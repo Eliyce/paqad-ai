@@ -60,10 +60,7 @@ export interface ModuleHealthEvidence {
       resolved?: number;
     };
     mutation?: {
-      // Kill rate 0–100 for the module's changed code.
       kill_rate?: number;
-      // Lower-confidence (weak-tooled language) results are not recorded as a
-      // module metric to avoid over-trusting them.
       confidence?: 'mature' | 'lower';
     };
     docs?: {
@@ -118,10 +115,6 @@ export async function syncModuleHealth(
     const modules = await resolveKnownModules(options.projectRoot);
     const consumed = await readConsumedEventIndex(options.projectRoot);
     const updated = new Set<string>();
-    // Evidence files that are done with — already consumed (backlog) or applied
-    // this run. Their content is folded into the profiles, the consumed index
-    // dedups any byte-identical re-collection, and each profile keeps its own
-    // processed_event_ids, so the on-disk evidence file is now pure clutter.
     const staleEvidenceIds = new Set<string>();
     let processed = 0;
 
@@ -158,8 +151,6 @@ export async function syncModuleHealth(
       await writeConsumedEventIndex(options.projectRoot, consumed);
     }
 
-    // Delete the now-redundant evidence files (best-effort). A byte-identical
-    // event re-collected later simply re-creates then re-skips its file.
     for (const eventId of staleEvidenceIds) {
       await rm(evidencePath(options.projectRoot, eventId), { force: true });
     }
@@ -193,10 +184,6 @@ export async function syncModuleHealth(
   /* c8 ignore stop */
 }
 
-/**
- * The gates that really passed. Issue #639, Part 10: a gate that measured nothing (not required,
- * did not run) keeps `passed: true` for the runner but is not a pass, so it is left out.
- */
 export function gatesThatPassed(results: readonly GateResult[]): string[] {
   return results
     .filter((result) => result.passed && result.outcome === undefined)
@@ -395,11 +382,6 @@ function resolveEvidenceSessionId(options: ModuleHealthSyncOptions): string | un
   return `auto-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/**
- * The change's files as git reports them (issue #646): working-tree status plus
- * branch commits since the base. A clean tree with no branch commits is an empty
- * list, which skips session evidence.
- */
 async function readChangedFiles(projectRoot: string): Promise<string[]> {
   return normalizeList(await readGitChangedFiles(projectRoot));
 }
@@ -572,9 +554,6 @@ function deriveCoverage(event: ModuleHealthEvidence): number | null {
 
 function deriveMutationScore(event: ModuleHealthEvidence): number | null {
   const mutation = event.signals.mutation;
-  // Only mature-tool results feed the per-module metric; lower-confidence
-  // results are surfaced in evidence but never over-trusted as a rolled-up
-  // number (issue #105).
   if (typeof mutation?.kill_rate === 'number' && mutation.confidence !== 'lower') {
     return clamp(mutation.kill_rate, 0, 100);
   }

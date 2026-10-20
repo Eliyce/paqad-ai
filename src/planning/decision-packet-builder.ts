@@ -273,11 +273,6 @@ export function decisionOptionsForCategory(
           }),
         ],
       };
-    // The intake/delivery bookend categories and the spec-lifecycle categories
-    // (issue #102) produce their packets directly from their stages with
-    // explicit options — they do not flow through file-evidence-driven option
-    // construction. Return an empty option list so callers that mistakenly
-    // route here fail loudly at validation time (packets require >=2 options).
     case 'intake.requirement':
     case 'intake.confirm_auto_resolution':
     case 'intake.write_back':

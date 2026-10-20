@@ -97,18 +97,8 @@ export interface DiscardDecisionInput {
   reason: string;
 }
 
-/**
- * Default per-project cap on simultaneously pending decision packets (PQD-101).
- * Overridable via `custom.decisions.max_pending` in `.paqad/project-profile.yaml`.
- */
 export const MAX_PENDING_DECISIONS = 20;
 
-/**
- * Thrown by {@link DecisionStore.writePending} when creating a new pending
- * packet would meet or exceed the per-project pending cap. Carries the counts
- * so a caller can emit a `decision-cap-exceeded` event and prompt the user to
- * triage.
- */
 export class DecisionCapExceededError extends Error {
   constructor(
     readonly pendingCount: number,
@@ -119,14 +109,7 @@ export class DecisionCapExceededError extends Error {
   }
 }
 
-/** Optional hooks supplied when constructing a {@link DecisionStore}. */
 export interface DecisionStoreOptions {
-  /**
-   * PQD-101 — live decision-event sink. When supplied, the store fires a
-   * decision-pause event at each persistence boundary (paused on `writePending`,
-   * resolved on any resolution, cap-exceeded on refusal, discarded on
-   * `discard`). When omitted the store behaves exactly as before.
-   */
   onEvent?: DecisionEventSink;
 }
 
@@ -159,15 +142,6 @@ export class DecisionStore {
     }
   }
 
-  /**
-   * Mint a fresh decision id. Issue #184: ids are now `D-<ULID>` rather than a
-   * monotonic `D-{N}`. ULIDs are timestamp-sortable and collision-free across
-   * machines, so two developers on parallel branches never allocate the same
-   * id (the old `max + 1` walk produced identical ids and hard merge conflicts
-   * on real, non-regenerable decision packets). Allocation no longer reads the
-   * filesystem, so the per-machine decision lock is gone — it only ever
-   * serialised the now-removed directory walk.
-   */
   nextDecisionId(): string {
     return `D-${ulid()}`;
   }
@@ -182,14 +156,10 @@ export class DecisionStore {
     }
     this.enforcePendingCap(packet.decision_id);
     this.assertWritablePacket(packet);
-    // F25 — enrich only after the packet is validated (a malformed packet must still
-    // fail validation, not the precedent lookup). The enriched context stays valid.
     const enriched = this.enrichWithPrecedents(packet);
     const path = this.packetPath(PATHS.DECISIONS_PENDING_DIR, enriched.decision_id);
     atomicWriteJson(path, enriched);
     this.appendAudit('decision-pending-written', enriched);
-    // Buildout F6 (hard cutover, D1) — fold the OPEN event onto the session-ledger
-    // for the evidence consumers; the pending packet file stays as the gate's teeth.
     recordDecisionOpened(this.projectRoot, {
       decisionId: enriched.decision_id,
       category: enriched.category,
@@ -200,13 +170,6 @@ export class DecisionStore {
     return path;
   }
 
-  /**
-   * RAG buildout F25 — surface the top similar prior resolved decisions in the packet's
-   * context, so the developer sees the precedents they already set when answering. Pure
-   * deterministic ranking (same category + question/context token overlap), capped and
-   * best-effort: any failure (or no precedents) returns the packet unchanged, and the
-   * block is appended at most once.
-   */
   private enrichWithPrecedents(packet: DecisionPacket): DecisionPacket {
     if (packet.context.includes(PRECEDENT_BLOCK_HEADING)) {
       return packet;
@@ -226,13 +189,6 @@ export class DecisionStore {
     }
   }
 
-  /**
-   * Refuse a *new* pending packet once the project's pending cap is reached.
-   * Re-writing an already-pending packet (same `decisionId`) never trips the
-   * cap, since it is excluded from the count. Emits `decision-cap-exceeded`
-   * before throwing so a consumer learns of the refusal even though the throw
-   * is caught upstream.
-   */
   private enforcePendingCap(decisionId: string): void {
     const cap = this.maxPendingDecisions();
     const pendingCount = this.listPendingDecisionIds().filter((id) => id !== decisionId).length;
@@ -247,13 +203,6 @@ export class DecisionStore {
     return typeof configured === 'number' && configured > 0 ? configured : MAX_PENDING_DECISIONS;
   }
 
-  /**
-   * Discard a pending packet with a reason (PQD-101): remove the pending file
-   * (never copying it to the resolved directory), record a `decision-discarded`
-   * audit entry, emit a `decision-discarded` event, and return the removed
-   * packet so a caller has the full context. Throws when no valid pending
-   * packet exists for the id.
-   */
   discard(input: DiscardDecisionInput): DecisionPacket {
     this.initialize();
     const result = this.readPendingResult(input.decisionId);
@@ -356,11 +305,6 @@ export class DecisionStore {
     return bestMatch?.id ?? null;
   }
 
-  /**
-   * Mirror a reuse into the git-ignored decision-reuse ledger (the same substrate
-   * as the rag/stage evidence ledgers). Best-effort — the recorder swallows its own
-   * errors, so a ledger failure can never disrupt decision resolution.
-   */
   private recordReuseToLedger(packet: DecisionPacket, matchKind: DecisionReuseMatch): void {
     recordDecisionReuse(
       this.projectRoot,
@@ -412,9 +356,6 @@ export class DecisionStore {
   }
 
   findPendingDecisionForTask(taskSessionId: string): string | null {
-    // Issue #639, Part 3 — a malformed pending packet belongs to no task, so it never blocks
-    // writePending. Before, a lone unreadable packet was returned as this task's pending
-    // decision and every later writePending threw "already has a pending decision".
     for (const decisionId of this.listPendingDecisionIds()) {
       const result = this.readPendingResult(decisionId);
       if (result.packet?.task_session_id === taskSessionId) {
@@ -463,14 +404,9 @@ export class DecisionStore {
       return null;
     }
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-    // Issue #639, Part 3 — one reader for both shapes: a `decision create` packet written
-    // before the shapes were unified is upgraded in memory instead of reading as corrupt.
     const packet = readAnyDecisionPacket(parsed);
     if (packet === null) {
       const reasons = validateDecisionPacket(parsed).join('; ');
-      // PQD-107: surface the stable taxonomy code so a consumer can route the
-      // corrupt-packet failure mode without parsing the message. Message text
-      // is preserved for existing callers/assertions.
       const decisionId =
         typeof (parsed as { decision_id?: unknown })?.decision_id === 'string'
           ? (parsed as { decision_id: string }).decision_id
@@ -513,11 +449,6 @@ export class DecisionStore {
         `Decision packet ${packet.decision_id} is invalid: ${validationErrors.join('; ')}`,
       );
     }
-    // Issue #387 — the creation path is strict: a *new* pending packet must carry the
-    // collision-free `D-<ULID>` id. `validateDecisionPacket` (above) stays read-tolerant
-    // of the legacy `D-{N}` form so pre-existing packets keep validating, so an otherwise
-    // well-formed but hand-authored sequential id would pass validation. Reject it here so
-    // no new packet is ever written with a sequential id.
     if (!isStrictDecisionId(packet.decision_id)) {
       throw new Error(
         `Decision id "${packet.decision_id}" must be the collision-free D-<ULID> form on ` +
@@ -576,9 +507,6 @@ export class DecisionStore {
     if (!existsSync(absoluteDir)) {
       return [];
     }
-    // Accept both legacy numeric ids (`D-7.json`) and new ULID ids
-    // (`D-01J9Z3K7QW8X….json`) so a directory holding a mix of both lists
-    // without dropping either (issue #184, B3).
     return readdirSync(absoluteDir)
       .filter((file) => /^D-(?:\d+|[0-9A-HJKMNP-TV-Z]{26})\.json$/.test(file))
       .map((file) => file.replace(/\.json$/, ''));
@@ -656,7 +584,6 @@ function isExpired(packet: DecisionPacket): boolean {
   return Date.parse(packet.ttl_until) <= Date.now();
 }
 
-/** Map the audit event recorded on resolution to a short `resolver` token. */
 function resolverFromAuditEvent(event: DecisionAuditEventType): string {
   switch (event) {
     case 'decision-resolved-by-human':

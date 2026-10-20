@@ -1,19 +1,3 @@
-// Decision-pause evidence on the session-ledger (buildout F6 — the decision store fold).
-//
-// The live pending/resolved/expired packets under .paqad/decisions/ are the TEETH
-// (decision-pause-gate.mjs + ImplementationReviewGate block on an OPEN packet) and
-// STAY untouched — they remain the operational source the gates read. Only the
-// decision LIFECYCLE EVENTS fold onto the #249 session-ledger as `decision-evidence`
-// rows, so the dashboard (and, later, the SIEM fold-view) read the decision feed
-// from the always-on ledger instead of scanning the packet directories.
-//
-// Decisions are PROJECT-level and outlive a single conversation, so the rows ride
-// the project sentinel "session". Each lifecycle transition appends one row keyed by
-// decision id; the current state is a per-id fold of the full history (latest event
-// wins). This mirrors the on-disk buckets: a decision whose latest event is `opened`
-// is pending; `resolved`/`superseded` live in the resolved bucket; `expired` in the
-// expired bucket; `discarded` packets are removed and counted nowhere.
-
 import { readProjectEvents, recordProjectEvent } from '@/session-ledger/project-ledger.js';
 
 export const DECISION_EVIDENCE_DOC_TYPE = 'decision-evidence';
@@ -24,13 +8,10 @@ export type DecisionEvidenceKind = 'opened' | 'resolved' | 'superseded' | 'disca
 export interface DecisionOpenedFields {
   decisionId: string;
   category: string;
-  /** The packet's human-readable question, used as the dashboard label. */
   title: string;
-  /** The packet's ISO `created_at`, used to age the pending item. */
   createdAt: string;
 }
 
-/** Record a freshly minted pending packet (best-effort). */
 export function recordDecisionOpened(projectRoot: string, fields: DecisionOpenedFields): void {
   recordProjectEvent(
     projectRoot,
@@ -46,11 +27,6 @@ export function recordDecisionOpened(projectRoot: string, fields: DecisionOpened
   );
 }
 
-/**
- * Record a packet resolved by a human/rule/rag (best-effort). `status` distinguishes
- * a plain resolution from a delegation; both land in the resolved bucket. `resolver`
- * carries the short resolver token for the SIEM fold-view.
- */
 export function recordDecisionResolved(
   projectRoot: string,
   decisionId: string,
@@ -65,7 +41,6 @@ export function recordDecisionResolved(
   );
 }
 
-/** Record a packet superseded by a conflicting later resolution (best-effort). */
 export function recordDecisionSuperseded(projectRoot: string, decisionId: string): void {
   recordProjectEvent(
     projectRoot,
@@ -75,7 +50,6 @@ export function recordDecisionSuperseded(projectRoot: string, decisionId: string
   );
 }
 
-/** Record a pending packet discarded with a reason (best-effort). */
 export function recordDecisionDiscarded(
   projectRoot: string,
   decisionId: string,
@@ -89,7 +63,6 @@ export function recordDecisionDiscarded(
   );
 }
 
-/** Record a resolved packet that aged past its TTL or was invalidated (best-effort). */
 export function recordDecisionExpired(projectRoot: string, decisionId: string): void {
   recordProjectEvent(
     projectRoot,
@@ -99,25 +72,18 @@ export function recordDecisionExpired(projectRoot: string, decisionId: string): 
   );
 }
 
-/** A pending decision reconstructed from the ledger. */
 export interface DecisionEvidencePacket {
   id: string;
   title: string;
-  /** ISO `created_at` from the `opened` row, or null when the row omitted it. */
   createdAt: string | null;
 }
 
-/** The current decision state folded from the `decision-evidence` history. */
 export interface DecisionEvidenceState {
   pending: DecisionEvidencePacket[];
   resolvedCount: number;
   expiredCount: number;
 }
 
-/**
- * Fold the full `decision-evidence` history into the current per-id state. Rows are
- * read in append order, so the last row for an id is its current lifecycle event.
- */
 export function readDecisionEvidence(projectRoot: string): DecisionEvidenceState {
   const latest = new Map<string, { kind: string; row: Record<string, unknown> }>();
   for (const row of readProjectEvents(projectRoot, DECISION_EVIDENCE_DOC_TYPE)) {
