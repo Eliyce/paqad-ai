@@ -80,7 +80,9 @@ slice (`retrieval-context.ts`) in the [hybrid RAG summary](../../hybrid-rag/inde
   a warning. The default model scores every other turn `normal`. Tagging is batched once per
   summarisation trigger.
 - **`reranker.ts`.** The local cross-encoder is pinned to `q8`, because newer transformers
-  versions default to fp32.
+  versions default to fp32. The Cohere backend sends chunk text from project files only to the
+  fixed `https://api.cohere.com/v1/rerank` endpoint, and only when reranking is enabled with the
+  `cohere` backend.
 - **`tokenizer-cache.ts`.** One tokenizer is kept per version for the process. The transformers
   package is an optional peer, so without it the count falls back to characters divided by four
   and reports the version `heuristic`.
