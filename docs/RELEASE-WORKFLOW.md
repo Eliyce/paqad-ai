@@ -190,7 +190,7 @@ when something needs to change.
   floor, so no workflow pins a patch version. The published `engines` field stays
   `>=22.0.0`: installing the package is unaffected.
 
-#### How the test run is sharded (issue #654)
+#### How the test run is sharded
 
 CI splits the test run so no OS has to run the whole suite in one job. Four kinds of job:
 

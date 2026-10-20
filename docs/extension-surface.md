@@ -73,7 +73,7 @@ contract.
 ## Rules-as-scripts subpath consumer
 
 Consumed via `import 'paqad-ai/rule-scripts'` by the rules-as-scripts skill
-wrappers (issue #89).
+wrappers.
 
 | Consumer | Engine module | Symbol | Signature | Stability | Since | Exempt |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -82,7 +82,7 @@ wrappers (issue #89).
 ## Decision-authoring consumer
 
 Consumed via `import 'paqad-ai'` (the root barrel) by the Decision Pause
-`decision` skill's `create.mjs` / `resolve.mjs` wrappers (issue #272). Exempt
+`decision` skill's `create.mjs` / `resolve.mjs` wrappers. Exempt
 from the orphan check because the only call sites are those runtime skill
 scripts, not `src/`.
 
@@ -98,14 +98,14 @@ scripts, not `src/`.
 | api | src/core/types/verification.ts | `VERIFICATION_GATES` | `const VERIFICATION_GATES: readonly string[]` | stable | 1.0.0 | |
 | api | src/core/types/verification.ts | `GateResult` | `interface GateResult { gate; passed; inconclusive?; detail; remediation? }` | stable | 1.0.0 | |
 | api | src/core/types/verification.ts | `VerificationContext` | `interface VerificationContext` | beta | 1.0.0 | |
-| api | src/core/types/verification.ts | `VerificationOrigin` | `type VerificationOrigin` (provider-workflow, paqad-cli, hook-completion, git-backstop, ci-backstop, unknown) | beta | 1.11.0 | issue #117 — non-provider hook/backstop origins |
+| api | src/core/types/verification.ts | `VerificationOrigin` | `type VerificationOrigin` (provider-workflow, paqad-cli, hook-completion, git-backstop, ci-backstop, unknown) | beta | 1.11.0 | non-provider hook/backstop origins |
 | api | src/core/types/verification.ts | `isBackstopVerificationOrigin` | `isBackstopVerificationOrigin(origin): boolean` | beta | 1.11.0 | |
-| api | src/verification/repository/run-repository-verification.ts | `runRepositoryVerification` | `runRepositoryVerification(opts): Promise<RepositoryVerificationVerdict>` | beta | 1.11.0 | issue #117 C-1 — entry point the hooks/CI backstop call |
-| api | src/verification/repository/repository-context.ts | `buildRepositoryVerificationContext` | `buildRepositoryVerificationContext(opts): Promise<RepositoryVerificationContextResult>` | beta | 1.11.0 | issue #117 C-1/C-2 |
-| api | src/verification/repository/verdict.ts | `RepositoryVerificationVerdict` | `interface RepositoryVerificationVerdict { ok; summary; gates; escalations }` | beta | 1.11.0 | issue #117 C-6 |
-| desktop | src/event-bus/types.ts | `VerificationVerdictEvent` | `interface VerificationVerdictEvent { kind: 'verification-verdict'; ok; summary; gates; escalations }` | beta | 1.11.0 | issue #117 C-6 — streamed trust verdict |
-| api | src/adapters/shared/paqad-hooks.ts | `PAQAD_LIVE_HOOKS` | `const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[]` | beta | 1.11.0 | issue #117 C-5 — single hook-spec source |
-| api | src/adapters/shared/paqad-hooks.ts | `HOOK_COVERAGE_MATRIX` | `const HOOK_COVERAGE_MATRIX: Record<string, AdapterHookCoverage>` | beta | 1.11.0 | issue #117 C-5 |
+| api | src/verification/repository/run-repository-verification.ts | `runRepositoryVerification` | `runRepositoryVerification(opts): Promise<RepositoryVerificationVerdict>` | beta | 1.11.0 | entry point the hooks/CI backstop call |
+| api | src/verification/repository/repository-context.ts | `buildRepositoryVerificationContext` | `buildRepositoryVerificationContext(opts): Promise<RepositoryVerificationContextResult>` | beta | 1.11.0 | |
+| api | src/verification/repository/verdict.ts | `RepositoryVerificationVerdict` | `interface RepositoryVerificationVerdict { ok; summary; gates; escalations }` | beta | 1.11.0 | |
+| desktop | src/event-bus/types.ts | `VerificationVerdictEvent` | `interface VerificationVerdictEvent { kind: 'verification-verdict'; ok; summary; gates; escalations }` | beta | 1.11.0 | streamed trust verdict |
+| api | src/adapters/shared/paqad-hooks.ts | `PAQAD_LIVE_HOOKS` | `const PAQAD_LIVE_HOOKS: readonly PaqadLiveHookSpec[]` | beta | 1.11.0 | single hook-spec source |
+| api | src/adapters/shared/paqad-hooks.ts | `HOOK_COVERAGE_MATRIX` | `const HOOK_COVERAGE_MATRIX: Record<string, AdapterHookCoverage>` | beta | 1.11.0 | |
 
 ## Desktop consumers (planned)
 

@@ -5,7 +5,7 @@ navigation, guards, journeys index), the creation `answers.yaml`, and one
 `journeys/<id>.journey.yaml` per curated journey. It is a living document, kept in sync by the
 site-map workflow.
 
-## Capture scripts (visual evidence, issue #551)
+## Capture scripts (visual evidence)
 
 Alongside each **confirmed** journey the team wants captured, a sibling capture script
 `journeys/<journey-id>.capture.yaml` turns that documented flow into an executable one. Capture
