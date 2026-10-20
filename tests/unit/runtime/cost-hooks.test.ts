@@ -47,6 +47,7 @@ async function openFeature(root: string): Promise<string> {
     env: { SE_SESSION: SES },
     reject: false,
   });
+  writeWorkflowState(root, SES, { active: { workflow: 'feature-development' }, paused: [] });
   const base = join(root, '.paqad/ledger/feature-evidence');
   const dirs = readdirSync(base).filter((name) => name !== '_session');
   return join(base, dirs[0]!);
