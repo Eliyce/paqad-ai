@@ -2,17 +2,14 @@
 import Graph from 'graphology';
 import forceAtlas2 from 'graphology-layout-forceatlas2';
 
-export interface LayoutRequest {
-  nodes: { id: string; x: number; y: number }[];
-  edges: { source: string; target: string }[];
-  iterations: number;
-}
+import { isLayoutRequest, isTrustedLayoutOrigin } from './layout-message';
+import type { LayoutResponse } from './layout-message';
 
-export interface LayoutResponse {
-  positions: Record<string, { x: number; y: number }>;
-}
+export type { LayoutRequest, LayoutResponse } from './layout-message';
 
-self.onmessage = (event: MessageEvent<LayoutRequest>) => {
+self.onmessage = (event: MessageEvent<unknown>) => {
+  if (!isTrustedLayoutOrigin(event.origin, self.location.origin)) return;
+  if (!isLayoutRequest(event.data)) return;
   const { nodes, edges, iterations } = event.data;
   const g = new Graph({ multi: true });
   for (const n of nodes) {
