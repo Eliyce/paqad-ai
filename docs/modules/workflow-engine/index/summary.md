@@ -20,6 +20,26 @@ templates render step inputs.
 
 _This module has no enumerated features in the map; the module itself is the unit of work._
 
+## Why the code works the way it does
+
+- **Cancellation (`engine.ts`, `step-executor.ts`, `parallel-executor.ts`).** An already-aborted
+  signal returns at once, with no progress file and no started events. Between steps the run
+  settles as cancelled and keeps the finished steps, records how many finished, and emits exactly
+  one `run.cancelled` event, so the consumer can resume from the first unfinished step. A step
+  never starts once the signal aborted; it throws so the engine and the parallel executor handle
+  cancellation in one place, and the parallel executor returns as soon as the signal aborts even
+  if a branch is slow. Progress is saved through a temp file and a rename, so a killed process
+  never leaves a torn progress file.
+- **`root-cause-analysis.ts`** keeps the user-facing `output_path` in posix form, since
+  `path.join` gives backslashes on Windows.
+- **`src/workflow-preflight/`.** Before a workflow does real work it checks everything the run
+  needs and asks every open question in one interruption, instead of finding gaps late. The
+  runner is generic and `registry.ts` is the only place that knows which workflow needs what
+  (today only `site-map`); a workflow with no entry gets `ok: true` and no questions. A probe is
+  read-only and must never boot the app, because whether to run project code is the question the
+  person answers. A requirement with an `applies` gate that returns false is not declared at all.
+  Probes run one after another so results keep declaration order and shell-outs do not pile up.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

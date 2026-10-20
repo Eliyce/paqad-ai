@@ -94,6 +94,21 @@ The entry is kept either way; clearing is an explicit, evidenced status change, 
 `test.flaky_judgement` — *"Is this a flaky test or a rare real fault?"* Reversibility `moderate`,
 TTL 30 days. Documented in the Decision Pause Contract category list.
 
+## Why the code works the way it does
+
+- **`registry.ts`.** A corrupt registry reads as empty instead of throwing, because quarantine only
+  ever reduces what blocks and a bad read must not stop a build. Re-quarantining a cleared test
+  reopens it and keeps its first `first_seen`.
+- **`stability.ts`.** The re-run only reports pass or fail; the caller runs the test, so the judge
+  stays deterministic. A single failure among many passes, or a single pass among failures, is the
+  ambiguous case that goes to a person; a balanced flip is plainly flaky.
+- **`smells.ts`.** Each pattern targets a concrete API or idiom rather than a broad word, to keep
+  false positives low. An empty result means no known smell, not "not flaky".
+- **`attribution.ts`.** Files map to modules through the same module-map matching the health rollup
+  uses, and a file can belong to more than one module.
+- **The judgement packet** is fingerprinted by kind only, so the same kind of ambiguity reuses the
+  saved answer.
+
 ## Sources
 
 - Micco, *Flaky Tests at Google and How We Mitigate Them* (2016).

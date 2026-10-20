@@ -1,16 +1,7 @@
 import type { DoneInput, DoneResult } from '@/core/types/feature-spec.js';
 
-/** Findings of this kind record style/taste and never block "done" (issue #102). */
 export const TASTE_FINDING_KIND = 'taste';
 
-/**
- * The single "done" bar. A feature is done only when every verification gate
- * passes, every frozen acceptance criterion has a passing proof, and no
- * confirmed non-taste problem remains. Style/taste findings are recorded but
- * never flip the bar to false — they are handed to triage (issue #107), not
- * used as a gate. An empty acceptance-criteria set is never "done": there is
- * nothing proven.
- */
 export function isDone(input: DoneInput): DoneResult {
   const failingCriteria = input.acceptance_criteria
     .filter((criterion) => !criterion.proof_passing)
@@ -34,11 +25,6 @@ export function isDone(input: DoneInput): DoneResult {
   };
 }
 
-/**
- * Renders the concrete Definition-of-Done checklist for a feature. On failure it
- * names exactly which acceptance criteria and findings are blocking, so a human
- * reads "no, this one AC is failing" instead of a vague verdict.
- */
 export function renderDefinitionOfDone(input: DoneInput): string {
   const result = isDone(input);
   const total = input.acceptance_criteria.length;

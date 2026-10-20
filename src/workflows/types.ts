@@ -48,10 +48,5 @@ export interface WorkflowRunProgress {
   started_at: string;
   updated_at: string;
   steps: WorkflowStepProgress[];
-  /**
-   * Number of steps that completed before a consumer cancellation (PQD-104).
-   * Set only when `status === 'cancelled'`; lets the consumer resume from the
-   * first not-yet-completed step.
-   */
   cancelled_steps_completed?: number;
 }

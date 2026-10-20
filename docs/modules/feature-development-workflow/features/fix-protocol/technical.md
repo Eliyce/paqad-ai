@@ -71,3 +71,16 @@ category is documented in the Decision Pause Contract, carried by the framework 
 
 A proof is only as trustworthy as the suite that runs it. This feature does not judge test strength —
 that is mutation testing (#105) and flaky-test detection (#106).
+
+## Why the code works the way it does
+
+- **`affects-behaviour.ts`.** A file with no recorded line changes, and a change with no files,
+  both count as behaviour-affecting, because there is nothing that proves the change cosmetic. A
+  line with code before its comment is behaviour-affecting.
+- **`fix-protocol.ts`.** The steps are pure orchestration over injected effects, so the protocol is
+  tool-agnostic and the order is enforced: the fix is applied only after the proof failed on the
+  unfixed tree.
+- **`baseline.ts`.** The regression check reuses the existing test delta projection, so there is no
+  second result store; the once-failing proof moves to passing and never counts as a regression.
+- **Ask once.** The proof-method packet is fingerprinted by kind only, so the same kind of
+  un-checkable problem reuses the saved answer and the defect detail still matches fuzzily.

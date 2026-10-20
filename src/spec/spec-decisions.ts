@@ -5,7 +5,6 @@ export interface SpecDecisionInput {
   decision_id: string;
   spec_id: string;
   spec_file: string;
-  /** What changed (for spec.change) or how work conflicts with the spec (for spec.contradiction). */
   detail: string;
   task_session_id: string;
   created_at: string;
@@ -14,16 +13,7 @@ export interface SpecDecisionInput {
 
 const DEFAULT_REQUESTED_BY = 'spec-stage';
 
-/**
- * Builds the Decision Packet raised when a real mid-build goal change is
- * detected. The recommendation is to update the spec and re-freeze — goals
- * never drift quietly (issue #102 Settled decision).
- */
 export function buildSpecChangePacket(input: SpecDecisionInput): DecisionPacket {
-  // Copy conforms to lintDecisionCopy so the packet can be written through
-  // DecisionStore.writePending (#300): option labels start with an approved verb and
-  // avoid banned words; previews start with "If you pick this,"; trade-offs with
-  // "You give up:"; no em dashes.
   return buildPacket('spec.change', input, {
     question: 'The goal changed mid-build. Update the frozen spec and re-freeze, or keep it as-is?',
     options: [
@@ -46,11 +36,6 @@ export function buildSpecChangePacket(input: SpecDecisionInput): DecisionPacket 
   });
 }
 
-/**
- * Builds the Decision Packet raised when the work contradicts the frozen spec.
- * It offers exactly "fix code" or "change spec" with no recommendation — the
- * agent never silently resolves a contradiction (issue #102 Settled decision).
- */
 export function buildSpecContradictionPacket(input: SpecDecisionInput): DecisionPacket {
   return buildPacket('spec.contradiction', input, {
     question:

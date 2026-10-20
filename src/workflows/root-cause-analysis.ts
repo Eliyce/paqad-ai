@@ -41,8 +41,6 @@ export class RootCauseAnalysisWorkflow {
     await writeFile(outputPath, buildRcaDocument(title, options.classification));
 
     return {
-      // POSIX-normalize the user-facing output_path; on Windows path.join
-      // would produce backslashes.
       output_path: toPosixPath(relativePath),
       title,
     };

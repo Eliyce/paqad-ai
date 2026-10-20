@@ -1,16 +1,3 @@
-// Spec-change guard (#300) — the runtime minter for a mid-build goal change.
-//
-// Companion to the create-vs-reuse / architecture-path self-arm minter, but for the
-// spec-lifecycle fork the #285 build silently missed: a FROZEN spec whose source
-// markdown moved mid-build. Unlike self-arm this is DETERMINISTIC — it compares the
-// current markdown hash against the hash captured at freeze (`isFrozenSpecStale`), so
-// there is no detector to misfire and no opt-in is needed. It is naturally inert: with
-// no frozen sidecar persisted (the state today, until the freeze lifecycle runs) it is
-// an instant NO_OP.
-//
-// It only MINTS one `spec.change` pause via the existing `buildSpecChangePacket`; the
-// existing decision-pause gate blocks the NEXT edit. Never blocks the current edit.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -22,15 +9,12 @@ import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { splitFrontMatter } from '@/feature-evidence/envelope.js';
 import { FEATURE_BUNDLE_FILES, featureFilePath } from '@/feature-evidence/paths.js';
 import { readAllFeatureSpecificationEntries } from '@/feature-evidence/projections.js';
-// src/spec/** is outside the FR-11 import ban, so the guard may reach the pipeline's corrections
-// writer (issue #547, FR-11.3). It stays deterministic and still mints exactly one pause.
 import { recordSpecCorrection } from '@/spec-pipeline/metrics.js';
 import { buildFeatureSpec } from './feature-spec-builder.js';
 
 import { buildSpecChangePacket } from './spec-decisions.js';
 import { isFrozenSpecStale } from './spec-freeze.js';
 
-/** The frozen-spec sections the guard diffs when a spec's source moves (issue #547, FR-11.3). */
 function diffSpecSections(frozen: FeatureSpec, current: FeatureSpec): string[] {
   const changed: string[] = [];
   const differs = (a: unknown, b: unknown): boolean => JSON.stringify(a) !== JSON.stringify(b);
@@ -43,15 +27,10 @@ function diffSpecSections(frozen: FeatureSpec, current: FeatureSpec): string[] {
   return changed;
 }
 
-/**
- * Whether the spec pipeline produced this spec: the `pipeline` section of a record frozen since
- * issue #581, or the `provenance` block of an older one.
- */
 function pipelineProduced(spec: FeatureSpec): boolean {
   return spec.pipeline?.produced === true || spec.provenance?.pipeline_produced === true;
 }
 
-/** A non-blocking capability outcome — structurally a kernel `CapabilityOutcome`. */
 export interface SpecChangeGuardOutcome {
   ran: boolean;
   blocking: boolean;
@@ -60,20 +39,13 @@ export interface SpecChangeGuardOutcome {
 
 const NO_OP: SpecChangeGuardOutcome = { ran: false, blocking: false, summary: '' };
 
-/** A frozen spec and the project-relative source file the guard watches for it. */
 interface WatchedSpec {
   spec: FeatureSpec;
-  /** The bundle that carries the spec, or null for a spec handed in directly. */
   dirName: string | null;
   source: string;
-  /** True for the bundle's `spec.md` (issue #581): its front matter is not part of the hash. */
   bundled: boolean;
 }
 
-/**
- * The spec's watched source. A record written since issue #581 names the bundle-relative
- * `spec.md`, the signed copy inside its bundle; an older record names its own source path.
- */
 function watchedSpec(dirName: string, spec: FeatureSpec): WatchedSpec {
   return spec.spec_file === FEATURE_BUNDLE_FILES.specMd
     ? { spec, dirName, source: featureFilePath(dirName, 'specMd'), bundled: true }
@@ -94,22 +66,13 @@ function mintedSummary(specId: string): string {
 export interface SpecChangeGuardInput {
   projectRoot: string;
   sessionId: string | null;
-  /** Only runs at the pre-mutation seam; other seams NO_OP. Omit to skip the check. */
   seam?: CapabilitySeam;
-  /** Injectable for tests; defaults to a real DecisionStore on the project root. */
   store?: DecisionStore;
-  /** Injectable for tests; defaults to reading the persisted sidecars from disk. */
   frozenSpecs?: FeatureSpec[];
-  /** Injectable for tests; defaults to reading the spec's source markdown from disk. */
   readMarkdown?: (specFile: string) => string;
   now?: () => Date;
 }
 
-/**
- * Detect a stale frozen spec and, if one clears every guard, mint ONE `spec.change`
- * packet. Returns a non-blocking advisory on a mint, or NO_OP otherwise. Deterministic,
- * always-on, and inert when no frozen spec is persisted.
- */
 export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuardOutcome {
   if (input.seam !== undefined && input.seam !== 'pre-mutation') return NO_OP;
   if (!input.sessionId) return NO_OP;
@@ -129,7 +92,6 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
   const store = input.store ?? new DecisionStore(input.projectRoot);
   store.initialize();
 
-  // Never pile a second pause on top of an open one.
   if (store.listPendingDecisionIds().length > 0) return NO_OP;
 
   const readMarkdown =
@@ -142,14 +104,10 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
       const text = readMarkdown(source);
       currentMarkdown = bundled ? splitFrontMatter(text).body : text;
     } catch {
-      // Source unreadable this run → skip rather than mint on a transient error.
       continue;
     }
     if (!isFrozenSpecStale(spec, sha256Hex(currentMarkdown))) continue;
 
-    // Which sections moved (issue #547, FR-11.3). Recorded as a `spec-correction` row on the
-    // bundle that carries the spec (when the pipeline produced it, issue #581) and carried into
-    // the packet so the human sees exactly what changed.
     const changedSections = diffSpecSections(
       spec,
       buildFeatureSpec({
@@ -178,14 +136,12 @@ export function runSpecChangeGuard(input: SpecChangeGuardInput): SpecChangeGuard
       created_at: now.toISOString(),
     });
 
-    // This exact spec-change was already resolved → do not re-ask.
     if (store.findReusableDecision(packet)) continue;
 
     try {
       store.writePending(packet);
       return { ran: true, blocking: false, summary: mintedSummary(spec.spec_id) };
     } catch {
-      // Cap reached or any store error → decline silently.
       return NO_OP;
     }
   }

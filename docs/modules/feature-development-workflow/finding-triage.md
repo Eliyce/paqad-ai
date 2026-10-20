@@ -83,6 +83,17 @@ ambiguous findings share one verdict.
 - The **settle-once memory** itself is the shipped Decision Pause Contract — triage reuses it, never a
   second store.
 
+## Why the code works the way it does
+
+- **`classifier.ts`.** Signals are checked strongest and most specific first. A misread (the cited
+  place does not exist) is set aside with a reason, never dropped. A measurable quality regression
+  goes to the ratchet, not the taste pile.
+- **`finding-triage-decision.ts`.** The packet is fingerprinted by kind only, so a taste call
+  settled as "not doing it" is reused for the same kind. A human-confirmed problem still enters
+  the needs-repro state, because a person's confirmation is not a reproduction.
+- **`ledger.ts`.** A corrupt ledger reads as empty, because it is an audit aid that must never
+  block a build. A re-triaged finding replaces its earlier entry instead of adding a second one.
+
 ## Related
 
 - [Decision Pause Contract](../decision-pause-contract/index/summary.md) — the reused settle-once memory.

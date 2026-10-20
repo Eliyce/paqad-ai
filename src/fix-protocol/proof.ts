@@ -4,15 +4,6 @@ import type {
   ProofRunResult,
 } from '@/core/types/fix-protocol.js';
 
-/**
- * Decides whether a proof genuinely reproduces the reported defect by examining
- * its result on the **unfixed** tree. A genuine proof must fail there, and —
- * when an `expected_failure_signal` is declared — fail *for the reported
- * reason* (the signal must appear in the output). A proof that passes on the
- * unfixed tree, or fails for an unrelated reason, is rejected: it would let a
- * trivially-passing or side-stepping check masquerade as a real reproduction
- * (issue #103 Settled decision).
- */
 export function assessProofGenuineness(
   proof: ProofCheck,
   unfixedRun: ProofRunResult,
@@ -38,10 +29,6 @@ export function assessProofGenuineness(
   };
 }
 
-/**
- * After the fix, the once-failing proof must now pass. Returns whether step 3
- * ("prove fixed") is satisfied.
- */
 export function proofPassesAfterFix(
   proof: ProofCheck,
   fixedRun: ProofRunResult,

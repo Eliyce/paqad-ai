@@ -4,13 +4,6 @@ import { _matchesAnyGlob, readRawModuleMap } from '@/module-map/reconciler.js';
 
 import { activeQuarantines } from './registry.js';
 
-/**
- * Maps a source/test file to the module slug(s) that own it, reusing exactly the
- * module-map attribution the health rollup uses (`readRawModuleMap` +
- * `_matchesAnyGlob` — see `src/module-health/rollup.ts`). No parallel mapping is
- * introduced. Returns every matching slug (a file can belong to more than one
- * module's `sources:` globs); empty when nothing matches.
- */
 export function modulesForFile(projectRoot: string, filePath: string | null): string[] {
   if (!filePath) {
     return [];
@@ -29,7 +22,6 @@ export function modulesForFile(projectRoot: string, filePath: string | null): st
   return slugs;
 }
 
-/** The distinct module slugs a set of changed files touches. */
 export function modulesForFiles(projectRoot: string, files: string[]): string[] {
   const map = readRawModuleMap(projectRoot);
   if (!map) {
@@ -47,12 +39,6 @@ export function modulesForFiles(projectRoot: string, files: string[]): string[] 
   return [...touched].sort();
 }
 
-/**
- * Rolls active quarantines into a per-module count. This is a derived view over
- * the registry attributed via the same module-map machinery the health rollup
- * uses — it is not a second result store. Modules with zero active quarantines
- * are omitted.
- */
 export function quarantineCountsByModule(registry: FlakyRegistry): ModuleQuarantineCount[] {
   const counts = new Map<string, number>();
   for (const entry of activeQuarantines(registry)) {

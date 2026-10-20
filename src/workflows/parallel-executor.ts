@@ -12,7 +12,6 @@ export class ParallelExecutor {
   constructor(private readonly stepExecutor: WorkflowStepRunner) {}
 
   async execute(group: ParallelGroup, signal?: AbortSignal): Promise<ParallelResult> {
-    // Pre-flight: if the consumer already aborted, start no branches (PQD-104).
     if (signal?.aborted) {
       return { results: [], overall: 'cancelled' };
     }
@@ -50,11 +49,6 @@ export class ParallelExecutor {
     return { results, overall: 'completed' };
   }
 
-  /**
-   * Resolve as soon as either the group settles or the consumer aborts, so a
-   * cancellation returns control within a bounded delay even if some in-flight
-   * branch is slow (PQD-104).
-   */
   private async raceAgainstAbort(
     groupPromise: Promise<ParallelResult['results']>,
     signal?: AbortSignal,

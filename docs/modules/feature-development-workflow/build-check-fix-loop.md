@@ -84,6 +84,13 @@ message — one honest "stuck" report, not two.
 - Strengthening the checks themselves → #105 mutation testing & #106 flaky-test detection.
 - The quality ratchet that some findings route to → #110.
 
+## Why the code works the way it does
+
+The loop never prints; its one stuck report is returned as data so the caller shows it once.
+With no fixer wired, the default remediation does nothing, so identical rounds repeat and futility
+detection stops the loop quietly. No progress means the same failing set as the round before,
+compared by an order-independent signature.
+
 ## Related
 
 - [`runtime/base/checklists/human-escalation.md`](../../../runtime/base/checklists/human-escalation.md)

@@ -67,3 +67,23 @@ checklist and names the failing gate / acceptance criterion / finding.
 `spec.change` and `spec.contradiction` categories. The change packet recommends "update and re-freeze";
 the contradiction packet offers "fix code" / "change spec" with **no** recommendation — the agent never
 silently resolves a contradiction.
+
+## Why the code works the way it does
+
+- **`feature-spec-builder.ts`.** The sidecar is always derived from the markdown so it cannot
+  drift. A `## Non-goals` section is optional and the field is set only when it has entries, so a
+  spec without it builds exactly as before. Analytics `AC-TRACK-<slug>` ids are kept as written so
+  the event, criterion and doc promise survives into freeze and traceability.
+- **`spec-freeze.ts`.** The review that gated a freeze is folded into the frozen record, so the
+  evidence travels with the spec instead of living in a separate hand-made file. Resolved defects
+  are left out of the kept counts, matching the freeze rule.
+- **`spec-change-guard.ts`.** It compares the current markdown hash with the one taken at freeze,
+  so it has no detector to misfire and needs no opt-in, and it is inert when no frozen spec
+  exists. It mints at most one `spec.change` pause and the decision-pause gate blocks the next
+  edit, never the current one. It never adds a second pause on top of an open one, does not
+  re-ask a resolved one, skips a run when the source cannot be read, and declines silently at the
+  cap or on a store error. For a bundle's `spec.md` the front matter is not part of the hash.
+- **`spec-decisions.ts`.** The packet copy follows the decision copy lint (approved verbs, the
+  fixed preview and trade-off openings, no em dashes) so it can be written through
+  `DecisionStore.writePending`. A contradiction offers "fix code" or "change spec" with no
+  recommendation, so the agent never settles one quietly.

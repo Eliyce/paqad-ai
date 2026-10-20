@@ -10,7 +10,6 @@ import { sha256Hex, splitLines } from '@/compliance/markdown.js';
 
 export const FEATURE_SPEC_SCHEMA_VERSION = '1';
 
-/** An invariant suggested by upstream rule sources, awaiting human confirmation at freeze. */
 export interface SuggestedInvariant {
   statement: string;
   source: Exclude<FeatureSpecInvariantSource, 'authored'>;
@@ -26,14 +25,6 @@ export interface BuildFeatureSpecOptions {
   extracted_at?: string;
 }
 
-/**
- * Builds the structured feature-spec sidecar from the human-readable spec
- * markdown. Behaviour comes from the functional / non-functional obligations,
- * acceptance criteria reuse the {@link VerificationCriterion} shape, and
- * invariants combine author-written `INV-n` lines with rule-sourced
- * suggestions. The result is always derived from the markdown so the sidecar
- * cannot drift from its source (issue #102).
- */
 export function buildFeatureSpec(options: BuildFeatureSpecOptions): FeatureSpec {
   const index = extractObligationIndex({
     spec_file: options.spec_file,
@@ -66,8 +57,6 @@ export function buildFeatureSpec(options: BuildFeatureSpecOptions): FeatureSpec 
     invariants: collectInvariants(options.spec_markdown, options.suggested_invariants ?? []),
     open_questions: extractOpenQuestions(options.spec_markdown),
     frozen: null,
-    // Issue #512 (FR-6.4) — tolerant `## Non-goals` parse; the field is set only when the
-    // section carries entries, so a spec without it stays byte-identical to before (INV-3).
     ...(() => {
       const nonGoals = extractNonGoals(options.spec_markdown);
       return nonGoals.length > 0 ? { non_goals: nonGoals } : {};
@@ -80,8 +69,6 @@ function criterionFromObligation(
   description: string,
   sequence: number,
 ): VerificationCriterion {
-  // Preserve a plain `AC-<n>` id or an analytics tracking id `AC-TRACK-<slug>` (issue #279),
-  // so the 1:1 event↔AC-TRACK↔doc promise survives into freeze and traceability.
   const criterionId = /^AC-(?:TRACK-[A-Za-z0-9-]+|\d+)$/.test(obligationId)
     ? obligationId
     : `AC-${sequence}`;
@@ -99,7 +86,6 @@ function criterionFromObligation(
   };
 }
 
-/** Strips a leading requirement/criterion id (e.g. `FR-1:`, `AC-2 -`) from a line. */
 function stripLeadingId(text: string): string {
   return text
     .replace(/^(?:(?:FR|NFR|EC)-\d+(?:\.\d+)?|AC-(?:TRACK-[A-Za-z0-9-]+|\d+))\s*[:.)-]\s*/i, '')
@@ -182,12 +168,6 @@ function extractOpenQuestions(markdown: string): string[] {
   return questions;
 }
 
-/**
- * Tolerant parse of a `## Non-goals` section (issue #512, Part B FR-6.4): the bullet lines
- * under the first heading whose text is "non-goals" (any level, case-insensitive, hyphen
- * optional), up to the next heading. Additive and tolerant — a spec without the section
- * yields an empty list, so pre-#512 specs read and freeze unchanged.
- */
 function extractNonGoals(markdown: string): string[] {
   const nonGoals: string[] = [];
   let inSection = false;

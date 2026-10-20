@@ -21,13 +21,6 @@ function guardPath(projectRoot: string, defectId: string): string {
   return join(guardDir(projectRoot), `${defectId}.json`);
 }
 
-/**
- * Persists a regression guard sidecar to `.paqad/regression-guards/<defect_id>.json`.
- * This is the "keep the proof" artifact (issue #103): the committed proof test
- * stays in the suite, and this registry links its `defect_id` to that test plus
- * the captured failing evidence, so the same defect cannot silently return.
- * The write is atomic (temp file + rename).
- */
 export async function writeRegressionGuard(
   projectRoot: string,
   guard: RegressionGuard,
@@ -44,7 +37,6 @@ export async function writeRegressionGuard(
   return targetPath;
 }
 
-/** Reads a single regression guard, or null if it does not exist / is unreadable. */
 export async function readRegressionGuard(
   projectRoot: string,
   defectId: string,
@@ -62,7 +54,6 @@ export async function readRegressionGuard(
   return JSON.parse(raw) as RegressionGuard;
 }
 
-/** Lists every persisted regression guard, sorted by `defect_id`. */
 export async function listRegressionGuards(projectRoot: string): Promise<RegressionGuard[]> {
   let entries: string[];
   try {
