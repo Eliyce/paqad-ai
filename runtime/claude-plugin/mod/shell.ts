@@ -1,6 +1,6 @@
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadTone } from './types';
 
-export type BandAction = 'minimise' | 'restore' | 'close' | 'show';
+export type BandAction = 'minimise' | 'restore' | 'close' | 'show' | 'reopen';
 
 export interface BandSegment {
   text: string;
@@ -96,6 +96,7 @@ export const CONTROL_HOTKEYS: Readonly<Record<BandAction, string>> = {
   restore: 'r',
   close: 'x',
   show: 's',
+  reopen: 'o',
 };
 
 export function brandSegment(tone: PaqadTone): BandSegment {

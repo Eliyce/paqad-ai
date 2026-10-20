@@ -3,7 +3,6 @@ import './instruments';
 import { buildBandView, headlineAfterState, type BandView } from './model';
 import {
   BAND_BODIES,
-  BRAND,
   layoutShell,
   type BandLayout,
   type BandRow,
@@ -13,6 +12,15 @@ import {
 } from './shell';
 import { shipRail } from './ship';
 import { NO_WORKFLOW, statusEntryRoute, statusEntryRow } from './status-entry';
+import {
+  IDLE_WORDS,
+  closedLine,
+  minimisedLine,
+  needsYou,
+  needsYouLine,
+  visibilityMode,
+  type BandVisibility,
+} from './visibility';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
 export type { BandLayout, BandRow, BandSegment };
@@ -20,7 +28,7 @@ export type { BandLayout, BandRow, BandSegment };
 const ELLIPSIS = '…';
 
 export const FEATURE_DEVELOPMENT = 'feature-development';
-export const IDLE_HEADLINE = 'feature development · no change in progress';
+export const IDLE_HEADLINE = IDLE_WORDS;
 
 export function rowText(row: BandRow): string {
   return row.map((segment) => segment.text).join('');
@@ -104,18 +112,13 @@ export function shellHeader(snapshot: PaqadHudSnapshot | null, view: BandView): 
   };
 }
 
-export function fallbackLine(view: BandView, active: boolean): BandRow {
-  const rest = active ? headlineAfterState(view) : IDLE_HEADLINE;
-  const row: BandRow = [{ text: BRAND, tone: view.tone, opens: 'trust', key: 'paqad-brand' }];
-  if (active) row.push({ text: ' · ' }, { text: view.state, tone: view.tone });
-  if (rest) row.push({ text: ' · ' }, { text: rest });
-  return row;
-}
+const SHOWN: BandVisibility = { minimised: false, closed: false, hidden: false };
 
 export function layoutBand(
   snapshot: PaqadHudSnapshot | null,
   size: { columns: number; maxRows: number },
   context: BodyContext,
+  visibility: BandVisibility = SHOWN,
 ): BandLayout {
   if (snapshot && (snapshot.route === null || snapshot.route === NO_WORKFLOW)) {
     return { kind: 'none' };
@@ -128,16 +131,18 @@ export function layoutBand(
     };
   }
   const view = buildBandView(snapshot, context.now);
+  const mode = visibilityMode(visibility);
+  if (mode !== 'band' && needsYou(snapshot)) return { kind: 'line', row: needsYouLine() };
+  if (mode === 'closed' || mode === 'hidden') {
+    return { kind: 'line', row: closedLine(mode, view) };
+  }
+  const minimised = minimisedLine(snapshot, view, size.columns, context.now);
+  if (mode === 'minimised') return { kind: 'line', row: minimised };
   const active = snapshot?.active === true;
   const route = snapshot?.route ?? FEATURE_DEVELOPMENT;
   const renderer = active ? BAND_BODIES[route] : undefined;
   const body = snapshot && renderer ? renderer(snapshot, context) : null;
-  return layoutShell(
-    shellHeader(snapshot, view),
-    body,
-    size,
-    truncateRow(fallbackLine(view, active), size.columns),
-  );
+  return layoutShell(shellHeader(snapshot, view), body, size, minimised);
 }
 
 const SPINNER_WORDS: Record<string, string> = {

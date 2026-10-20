@@ -232,6 +232,9 @@ declare module 'claude-code' {
       now: number;
       paneTab: PaqadPaneTab | null;
       greenSeen: string[];
+      minimised: boolean;
+      hidden: boolean;
+      bandClosed: boolean;
       tableSeat: string | null;
       tableCards: Record<string, string>;
     };

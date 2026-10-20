@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SUBCOMMANDS,
   notActiveText,
+  readRepoDecision,
   runPaqadCommand,
   type CommandInput,
 } from '../../../../runtime/claude-plugin/mod/commands.ts';
@@ -53,7 +54,7 @@ describe('/paqad answers (AC-39)', () => {
         'Stage: Intake not yet, Planning done, Spec done, Build done, Review done, Checks done, Docs done, Deliver not yet.',
         'Ship: Edit done, Commit done, Push not yet, PR not yet, CI not yet, Merge not yet.',
         'cost: not yet',
-        'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.',
+        'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.',
       ].join('\n'),
     );
   });
@@ -89,7 +90,7 @@ describe('/paqad answers (AC-39)', () => {
   it('lists waiting decisions', () => {
     expect(run('decisions', GRADUATED_ORD_482)).toBe(
       [
-        '1 decision waiting. 2 resolved.',
+        '1 decision waiting. 2 resolved for this change.',
         '  D-01J0 (fix.proof_method): How should the fix be proven?',
       ].join('\n'),
     );
@@ -103,9 +104,35 @@ describe('/paqad answers (AC-39)', () => {
         resolved: 0,
       },
     };
-    expect(run('decisions', two)).toContain('2 decisions waiting. 0 resolved.');
+    expect(run('decisions', two)).toContain('2 decisions waiting. 0 resolved for this change.');
     expect(run('decisions', two)).toContain('  D-1 (c): no question recorded');
-    expect(run('decisions', FULL_ORD_501)).toBe('No decision is waiting. 4 resolved.');
+    expect(run('decisions', FULL_ORD_501)).toBe(
+      'No decision is waiting. 4 resolved for this change.',
+    );
+  });
+
+  it('AC-21: lists every pending packet in the repo, labelled in this repo, when the mod read them', () => {
+    const repo = [
+      readRepoDecision(
+        'D-A.json',
+        JSON.stringify({ id: 'D-A', category: 'ux-pattern', title: 'Which layout?' }),
+      ),
+      readRepoDecision('D-B.json', JSON.stringify({ decision_id: 'D-B', question: 'Keep it?' })),
+      readRepoDecision('D-C.json', '{broken'),
+      readRepoDecision('D-D.json', null),
+    ];
+    expect(run('decisions', FULL_ORD_501, { repoDecisions: repo })).toBe(
+      [
+        '4 decisions waiting in this repo. 4 resolved for this change.',
+        '  D-A (ux-pattern): Which layout?',
+        '  D-B (unknown): Keep it?',
+        '  D-C (unknown): no question recorded',
+        '  D-D (unknown): no question recorded',
+      ].join('\n'),
+    );
+    expect(run('decisions', FULL_ORD_501, { repoDecisions: [] })).toBe(
+      'No decision is waiting in this repo. 4 resolved for this change.',
+    );
   });
 
   it('reports the rules and their findings as counts', () => {
@@ -158,10 +185,10 @@ describe('/paqad answers (AC-39)', () => {
 
   it('answers an unknown subcommand and a missing snapshot', () => {
     expect(run('deploy', FULL_ORD_501)).toBe(
-      'There is no /paqad deploy. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.',
+      'There is no /paqad deploy. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.',
     );
     expect(run('status', null)).toBe(
-      'Not yet. paqad has no record for this session. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.',
+      'Not yet. paqad has no record for this session. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.',
     );
   });
 

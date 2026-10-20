@@ -123,11 +123,15 @@ describe('the instruments lay out by width (FR-38, AC-30)', () => {
     expect(tight.kind === 'card' && tight.footer).toBeNull();
     const line = bandOf(FULL_ORD_501, 120, 5);
     expect(line.kind).toBe('line');
-    expect(layoutLines(line)).toEqual(['paqad · Safe to merge · 1 flag open.']);
-    expect(layoutLines(bandOf(null, 120, 2))).toEqual([
-      'paqad · feature development · no change in progress',
+    expect(layoutLines(line)).toEqual([
+      'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
     ]);
-    expect(layoutLines(bandOf(FULL_ORD_501, 20, 5))[0]).toBe('paqad · Safe to mer…');
+    expect(layoutLines(bandOf(null, 120, 2))).toEqual([
+      'paqad · feature development · no change in progress + Restore × Close',
+    ]);
+    expect(layoutLines(bandOf(FULL_ORD_501, 20, 5))[0]).toBe(
+      'paqad ORD-501 Safe to merge 1 flag + Restore × Close',
+    );
   });
 
   it('counts the rows a card needs', () => {

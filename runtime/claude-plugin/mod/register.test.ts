@@ -346,6 +346,161 @@ describe('other workflows get one status entry and no band (FR-44, AC-40)', () =
   }
 });
 
+async function mountBand(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  surface: 'terminal' | 'desktop',
+) {
+  return $.ui.mount({
+    plugin: PLUGIN,
+    surface,
+    component: 'AbovePrompt',
+    props: band(surface, { bodyColumns: 120 }).props,
+  });
+}
+
+describe('minimise, close and hide (FR-46 to FR-52, AC-33 to AC-36, AC-47)', () => {
+  for (const surface of SURFACES) {
+    test(`minimise keeps one line across sessions and restore brings the card back on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await mountBand($, surface);
+      const minimise = await mounted.find({ key: 'paqad-minimise' });
+      expect(minimise?.text).toBe('– Minimise');
+      await mounted.press({ key: 'paqad-minimise' });
+      await mounted.unmount();
+      expect(world.store.get('band.minimised')).toBe(true);
+      const short = await $.ui.render(band(surface, { bodyColumns: 120 }));
+      expect(cardOf(short)).toBeUndefined();
+      expect(textOf(short)).toContain('+ Restore');
+      await $.session.start(START);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeUndefined();
+      const again = await mountBand($, surface);
+      await again.press({ key: 'paqad-restore' });
+      await again.unmount();
+      expect(world.store.has('band.minimised')).toBe(false);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`close asks, Close for now lasts the session, Hide always lasts in this project only on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      world.answers.push('Close for now');
+      let mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-close' });
+      await mounted.unmount();
+      expect(world.asked.at(-1)).toMatchObject({ options: ['Close for now', 'Hide always'] });
+      expect(world.asked.at(-1)!.question).toStartWith('Close the paqad band?');
+      expect(textOf(await $.ui.render(band(surface)))).toContain(
+        'Closed for this session · /paqad show',
+      );
+      await $.session.start(START);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+      world.answers.push('Hide always');
+      mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-close' });
+      await mounted.unmount();
+      expect(world.store.get('band.hidden:/work')).toBe(true);
+      await $.session.start(START);
+      expect(textOf(await $.ui.render(band(surface)))).toContain('Hidden always · /paqad show');
+      const reopen = await mountBand($, surface);
+      await reopen.press({ key: 'paqad-reopen' });
+      await reopen.unmount();
+      expect(world.store.has('band.hidden:/work')).toBe(false);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`AC-34: Hide always in another project leaves this band showing on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([['band.hidden:/elsewhere', true]]);
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`AC-35: a dismissed close question changes nothing on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      world.answers.push(null);
+      const mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-close' });
+      await mounted.unmount();
+      expect(world.store.size).toBe(0);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`AC-36: a pending decision turns the closed line amber, and pressing it brings the band back on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([
+        ['band.hidden:/work', true],
+        ['band.minimised', true],
+      ]);
+      const world = worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) },
+        store,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const drawn = await $.ui.render(band(surface));
+      expect(textOf(drawn)).toBe('paqad · Needs you ▸');
+      expect(colorOf(textElement(drawn, 'paqad · Needs you ▸'))).toBe('permission');
+      const mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-needs-you' });
+      await mounted.unmount();
+      expect(world.store.size).toBe(0);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`/paqad show clears minimise, close and hide and says so on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([
+        ['band.hidden:/work', true],
+        ['band.minimised', true],
+      ]);
+      const world = worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) },
+        store,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(await $.command.run(command('show'))).toEqual({ text: 'The paqad band is back.' });
+      expect(world.store.size).toBe(0);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+  }
+});
+
+describe('/paqad decisions lists every packet in the repo (AC-21)', () => {
+  test('packets of other changes and unstamped ones are listed, labelled in this repo', async ($, on) => {
+    worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(FULL_ORD_501),
+        '.paqad/decisions/pending/D-01OTHER.json': JSON.stringify({
+          id: 'D-01OTHER',
+          category: 'ux-pattern',
+          title: 'Which layout?',
+          change: 'another-change',
+        }),
+        '.paqad/decisions/pending/D-02LOOSE.json': JSON.stringify({
+          id: 'D-02LOOSE',
+          category: 'create-vs-reuse',
+          title: 'Reuse it?',
+        }),
+      },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(await $.command.run(command('decisions'))).toEqual({
+      text: [
+        '2 decisions waiting in this repo. 4 resolved for this change.',
+        '  D-01OTHER (ux-pattern): Which layout?',
+        '  D-02LOOSE (create-vs-reuse): Reuse it?',
+      ].join('\n'),
+    });
+  });
+});
+
 describe('the band fits its box (AC-30, AC-43)', () => {
   test('one row of instruments at 120 columns, stacked at 80, one line when rows run out', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
@@ -362,7 +517,7 @@ describe('the band fits its box (AC-30, AC-43)', () => {
     expect(await directionOf(80)).toBe('column');
     const short = await $.ui.render(band('terminal', { bodyColumns: 120, maxRows: 4 }));
     expect(cardOf(short)).toBeUndefined();
-    expect(linesOf(short)[0]).toBe('paqad · Safe to merge · 1 flag open.');
+    expect(linesOf(short)[0]).toContain('paqad ORD-501 Safe to merge');
   });
 });
 
@@ -426,7 +581,9 @@ describe('/paqad answers from the snapshot, with no model turn (AC-39)', () => {
     }
     expect(answers['']).toContain('Safe to merge (1 flag)');
     expect(answers.status).toContain('Change: #ORD-501 Add CSV export to the orders page.');
-    expect(answers.decisions).toBe('No decision is waiting. 4 resolved.');
+    expect(answers.decisions).toBe(
+      'No decision is waiting in this repo. 4 resolved for this change.',
+    );
     expect(answers.rules).toContain('Near-copies: 1 open.');
     expect(answers.receipt).toBe(RECEIPT_TEXT);
     expect(answers.cost).toContain('not yet');

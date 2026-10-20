@@ -13,7 +13,7 @@ import {
 import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
 import { chimeClip } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
-import { runPaqadCommand } from './commands';
+import { readRepoDecision, runPaqadCommand, type RepoDecision } from './commands';
 import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
 import {
   EDIT_TOOLS,
@@ -46,6 +46,15 @@ import {
 import { runPaqad } from './paqad-cli';
 import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
 import { isReceiptCommand, receiptCard, verdictKey, verdictToast, watchVerdict } from './receipt';
+import {
+  CLOSE_FOR_NOW,
+  CLOSE_HEADER,
+  CLOSE_QUESTION,
+  HIDE_ALWAYS,
+  MINIMISED_KEY,
+  hiddenKey,
+  readBandVisibility,
+} from './visibility';
 import type {
   BandAction,
   BandBlock,
@@ -71,6 +80,9 @@ const snapshotAtom = atom(
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
 const paneTabAtom = atom({ plugin: 'paqad', key: 'paneTab' } as const, null as PaqadPaneTab | null);
 const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null as string | null);
+const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false as boolean);
+const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as boolean);
+const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
@@ -303,6 +315,24 @@ async function chooseRuleStop($: EngineInterface, stop: RuleStop): Promise<strin
   });
 }
 
+async function readRepoDecisions($: EngineInterface, root: string): Promise<RepoDecision[]> {
+  const dir = joinPath(root, PENDING_DECISIONS_DIR);
+  if (!(await $.fs.exists(dir))) return [];
+  try {
+    const names = (await $.fs.list(dir))
+      .filter((entry) => entry.kind === 'file' && entry.name.endsWith('.json'))
+      .map((entry) => entry.name)
+      .sort();
+    const packets: RepoDecision[] = [];
+    for (const name of names) {
+      packets.push(readRepoDecision(name, await readText($, joinPath(dir, name))));
+    }
+    return packets;
+  } catch {
+    return [];
+  }
+}
+
 async function hasPendingDecision($: EngineInterface, root: string): Promise<boolean> {
   const dir = joinPath(root, PENDING_DECISIONS_DIR);
   if (!(await $.fs.exists(dir))) return false;
@@ -353,9 +383,56 @@ async function answerRuleStop(
 
 type UiElements = ReturnType<EngineInterface['ui']['resolve']>;
 
+async function storeSet($: EngineInterface, key: string, value: boolean): Promise<void> {
+  try {
+    if (value) await $.store.set(key, true);
+    else await $.store.delete(key);
+  } catch {}
+}
+
+async function storeGet($: EngineInterface, key: string): Promise<unknown> {
+  try {
+    return await $.store.get(key);
+  } catch {
+    return undefined;
+  }
+}
+
+async function setMinimised($: EngineInterface, value: boolean): Promise<void> {
+  await update($, minimisedAtom, () => value);
+  await storeSet($, MINIMISED_KEY, value);
+}
+
+async function setHidden($: EngineInterface, value: boolean): Promise<void> {
+  await update($, hiddenAtom, () => value);
+  if (live) await storeSet($, hiddenKey(live.root), value);
+}
+
+async function askClose($: EngineInterface): Promise<void> {
+  let answer: string;
+  try {
+    answer = await $.ui.ask(CLOSE_QUESTION, {
+      options: [CLOSE_FOR_NOW, HIDE_ALWAYS],
+      header: CLOSE_HEADER,
+    });
+  } catch {
+    return;
+  }
+  if (answer === CLOSE_FOR_NOW) await update($, closedAtom, () => true);
+  else if (answer === HIDE_ALWAYS) await setHidden($, true);
+}
+
+async function showBand($: EngineInterface, all: boolean): Promise<void> {
+  await update($, closedAtom, () => false);
+  await setHidden($, false);
+  if (all) await setMinimised($, false);
+}
+
 async function pressAction($: EngineInterface, action: BandAction): Promise<void> {
-  void $;
-  void action;
+  if (action === 'minimise') await setMinimised($, true);
+  else if (action === 'restore') await setMinimised($, false);
+  else if (action === 'close') await askClose($);
+  else await showBand($, action === 'show');
 }
 
 function drawSegment($: EngineInterface, ui: UiElements, segment: BandSegment, index: number) {
@@ -490,14 +567,19 @@ export const register: Register = (on) => {
         await $.command.register({
           name: 'paqad',
           description:
-            'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, ships, record',
-          argumentHint: '[status|decisions|rules|receipt|cost|trust|ships|record]',
+            'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, ships, record, or show the band again',
+          argumentHint: '[status|decisions|rules|receipt|cost|trust|ships|record|show]',
           immediate: true,
         });
       }
       if (status.on && status.root) {
         chimeOn = status.chime;
         live = { root: status.root, sessionId: await $.session.id() };
+        const minimised = (await storeGet($, MINIMISED_KEY)) === true;
+        const hidden = (await storeGet($, hiddenKey(status.root))) === true;
+        await update($, minimisedAtom, () => minimised);
+        await update($, hiddenAtom, () => hidden);
+        await update($, closedAtom, () => false);
         await beat($);
         heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
         await refresh($);
@@ -510,7 +592,12 @@ export const register: Register = (on) => {
     const status = await read($, statusAtom);
     if (live) await refresh($);
     const at = live;
+    const sub = e.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+    if (status?.on && at && sub === 'show') await showBand($, true);
     return runPaqadCommand({
+      ...(status?.on && at && sub === 'decisions'
+        ? { repoDecisions: await readRepoDecisions($, at.root) }
+        : {}),
       args: e.args,
       standDown: status?.on ? null : (status?.reason ?? 'not-onboarded'),
       snapshot: await read($, snapshotAtom),
@@ -584,6 +671,10 @@ export const register: Register = (on) => {
         surface: e.surface === 'desktop' ? 'desktop' : 'terminal',
         turnStartedAt,
       },
+      readBandVisibility(
+        { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
+        await read($, closedAtom),
+      ),
     );
     const others = await next(e);
     const drawn = drawBand($, e, layout);
