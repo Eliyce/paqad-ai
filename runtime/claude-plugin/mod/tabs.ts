@@ -164,20 +164,27 @@ function hasShipped(ship: PaqadHudSnapshot['ship']): boolean {
   );
 }
 
+function ridingAlongRow(inherited: PaqadCommitGroup | null): TableLine {
+  if (!inherited) return row('Riding along', 'unknown', 'warn');
+  if (inherited.count === 0) return row('Riding along', 'none', 'good');
+  if (inherited.tickets.length === 0) {
+    return row(
+      'Riding along',
+      `${commitWords(inherited.count)}, untagged, made before this change started`,
+    );
+  }
+  return row('Riding along', `${commitWords(inherited.count)}${groupDetail(inherited)}`, 'warn');
+}
+
 export function shipsLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
   const ship = snapshot?.active ? snapshot.ship : null;
   if (!ship || !hasShipped(ship)) return [line(NOTHING_PUSHED)];
   const own = ship.own ?? null;
-  const inherited = ship.inherited ?? null;
   const lines: TableLine[] = [
     own
       ? row('Own', `${commitWords(own.count)}${groupDetail(own)}`)
       : row('Own', `${commitWords(ship.commits)}, split unknown`, 'warn'),
-    inherited
-      ? inherited.count > 0
-        ? row('Riding along', `${commitWords(inherited.count)}${groupDetail(inherited)}`, 'warn')
-        : row('Riding along', 'none', 'good')
-      : row('Riding along', 'unknown', 'warn'),
+    ridingAlongRow(ship.inherited ?? null),
   ];
   if (ship.push === null) lines.push(row('Push', 'not yet', undefined, true));
   else if (ship.push === 'failed') lines.push(row('Push', 'failed', 'bad'));

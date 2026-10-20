@@ -470,8 +470,9 @@ network, and starts no process.
   the verdict, a ring of the required gates only (a not-required gate is listed but never
   counted), every gate grouped by strength (deterministic, judged by a model, strength not
   recorded) with its verdict in words, each claim with its proving test, and the open flags.
-  *Ships* shows the change's own commits against the commits riding along from other tickets,
-  the push, the PR, CI (a partial "3 of 7 done", and "unknown, never recorded" when no CI was
+  *Ships* shows the change's own commits against the commits riding along from other tickets
+  (amber), or, when the only earlier commits carry no ticket, plainly as "untagged, made before
+  this change started", then the push, the PR, CI (a partial "3 of 7 done", and "unknown, never recorded" when no CI was
   saved, never a green default), the merge and how to roll it back; every value comes from the
   bundle's `delivery.json`. *Record* shows the plan, the decisions waiting and resolved, the rules
   and whether the receipt is written. An empty tab names its state: "No gates judged yet.",

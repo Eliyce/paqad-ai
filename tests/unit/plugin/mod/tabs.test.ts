@@ -184,6 +184,20 @@ describe('the Ships tab', () => {
     ]);
   });
 
+  it('shows only untagged earlier commits neutrally and keeps amber for other tickets', () => {
+    const untagged = { ...SHIPPING, inherited: { count: 4, tickets: [], merges: 0, untagged: 4 } };
+    const quiet = shipsLines(parse({ ...FULL_ORD_501, ship: untagged }));
+    const riding = quiet.find((line) => line[0]?.text.startsWith('Riding along'))!;
+    expect(riding[1]).toEqual({ text: '4 commits, untagged, made before this change started' });
+    const single = { ...SHIPPING, inherited: { count: 1, tickets: [], merges: 0, untagged: 1 } };
+    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: single })))).toContain(
+      'Riding along 1 commit, untagged, made before this change started',
+    );
+    const other = shipsLines(parse({ ...FULL_ORD_501, ship: SHIPPING }));
+    const flagged = other.find((line) => line[0]?.text.startsWith('Riding along'))!;
+    expect(flagged[1]).toMatchObject({ tone: 'warn' });
+  });
+
   it('reads CI unknown, never green, when it was never saved, and names an unknown reason', () => {
     const never = { ...SHIPPING, ci: null };
     const ships = shipsLines(parse({ ...FULL_ORD_501, ship: never }));
