@@ -12,20 +12,10 @@ export async function matchRuleTriggers(root: string, modulePaths: string[]): Pr
     .map((r) => r.rule_id);
 }
 
-/**
- * A rule "always loads" when it declares no scoped trigger: an explicit `**`
- * pattern, or no patterns at all. These apply to every change regardless of which
- * files are in play (RAG buildout F5).
- */
 export function isAlwaysLoadRule(rule: Pick<CompiledRule, 'trigger_patterns'>): boolean {
   return rule.trigger_patterns.length === 0 || rule.trigger_patterns.includes('**');
 }
 
-/**
- * True when any of `paths` matches any of the rule's trigger patterns. Used to
- * decide whether a scoped rule's full text should be loaded for the files in
- * play. Always-load rules are handled separately by {@link isAlwaysLoadRule}.
- */
 export function ruleTriggersMatch(
   rule: Pick<CompiledRule, 'trigger_patterns'>,
   paths: readonly string[],

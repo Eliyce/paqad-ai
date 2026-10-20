@@ -16,27 +16,12 @@ import { overlayDetection } from '@/delivery/detection.js';
 import { readDetection } from '@/delivery/detection-store.js';
 import { SchemaValidator } from '@/validators/validator.js';
 
-/**
- * Issue #42 — loader for `docs/instructions/workflows/delivery-policy.yaml`.
- *
- * Mirrors `feature-development-policy.ts` exactly: framework defaults are the
- * baseline, a project file is validated against the JSON Schema, and a valid
- * file is merged over the defaults with `merge_mode: append` semantics (project
- * scalars win; project list/record entries are appended/merged, never dropped).
- */
-
 export const DELIVERY_POLICY_FILE = 'delivery-policy.yaml';
 
 export function deliveryPolicyPath(projectRoot: string): string {
   return toPosixPath(join(projectRoot, PATHS.WORKFLOWS_DIR, DELIVERY_POLICY_FILE));
 }
 
-/**
- * Framework defaults — best-practice values, `enabled: true`, every section
- * `maintained: auto`. Detection fills the `auto` sections during
- * `create documentation`; provider-bound capabilities stay dormant until the
- * relevant MCP is connected.
- */
 export function defaultDeliveryProcess(): ResolvedDeliveryProcess {
   return {
     ticket: {
@@ -133,20 +118,14 @@ export function loadDeliveryPolicy(projectRoot: string): DeliveryPolicyLoadResul
     }
   }
 
-  // Precedence: framework defaults < detection overlay (auto sections only) <
-  // project YAML (an explicit human edit always wins). `maintained` is read
-  // from the raw YAML (default auto) so a `manual` section is never touched by
-  // detection.
   const overlaid = withDetection(projectRoot, defaults, parsed);
   return { policy: mergeDeliveryPolicy(overlaid, parsed), warnings: [] };
 }
 
-/** True when a section is effectively `auto` (raw YAML says auto, or is unset). */
 function sectionIsAuto(raw: DeliveryPolicy, section: DeliverySection): boolean {
   return (raw.process?.[section]?.maintained ?? 'auto') === 'auto';
 }
 
-/** Overlay the persisted detection artifact onto the defaults' `auto` sections. */
 function withDetection(
   projectRoot: string,
   base: ResolvedDeliveryPolicy,
@@ -162,12 +141,6 @@ function withDetection(
   };
 }
 
-/**
- * Append-merge a project policy over the framework defaults. Scalars are
- * overridden; `type_map` records merge key-by-key; list fields (`reviewers`,
- * `labels`, `fingerprint_scope`) append uniquely so a project never silently
- * loses a framework default.
- */
 export function mergeDeliveryPolicy(
   defaults: ResolvedDeliveryPolicy,
   raw: DeliveryPolicy,
@@ -211,13 +184,8 @@ function appendUnique(base: string[], additions: string[] | undefined): string[]
   return Array.from(new Set([...base, ...(additions ?? [])]));
 }
 
-/**
- * The on-disk default `delivery-policy.yaml`, written by `paqad-ai onboard`.
- * Fully commented so the team can flip any section to `manual` or change a value
- * without reading external docs.
- */
 export function renderDefaultDeliveryPolicyYaml(): string {
-  return `# Delivery Workflow Policy  (issue #42)
+  return `# Delivery Workflow Policy
 # Authored exactly like feature-development.yaml: same location, same schema
 # validation, same merge_mode: append precedence — project edits win.
 #
@@ -258,7 +226,7 @@ process:
     maintained: auto
     template: "{type}({scope}): {summary}\\n\\nRefs: {ticket}"
     sign_off: false
-    ask_when_unspecified: true   # ask + record commit_decision when unspecified (issue #511)
+    ask_when_unspecified: true   # ask + record commit_decision when unspecified
 
   pr:
     maintained: auto

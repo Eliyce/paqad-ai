@@ -62,7 +62,7 @@ describe('FR-11: a switched-off pipeline never runs in the feature-dev flow', ()
   it('the rendered YAML carries the spec-pipeline instruction verbatim (AC-3)', () => {
     const yaml = renderDefaultFeatureDevelopmentPolicyYaml();
     expect(yaml).toContain(
-      'Spec pipeline (issue #512): when `spec_pipeline_enabled` is on, produce the spec through',
+      'Spec pipeline: when `spec_pipeline_enabled` is on, produce the spec through',
     );
     expect(yaml).toContain(
       'spec_pipeline_adoption=strict a hand-written spec is refused at freeze',

@@ -22,7 +22,6 @@ export interface ImpactResolutionResult {
   customer_facing_impact: CustomerFacingImpact;
   reversibility: Reversibility;
   data_sensitivity: DataSensitivity;
-  /** Tracks how each dimension was resolved so callers can populate ResolutionMap accurately. */
   resolution_sources: Record<
     | 'database_impact'
     | 'api_impact'
@@ -93,7 +92,6 @@ export function resolveImpacts(input: ImpactResolutionInput): ImpactResolutionRe
       ? 'difficult'
       : 'easily-reversible';
 
-  // Track whether each dimension was resolved from file-path evidence or keyword matching.
   const pathBased = paths.length > 0;
   const resolution_sources: ImpactResolutionResult['resolution_sources'] = {
     database_impact:

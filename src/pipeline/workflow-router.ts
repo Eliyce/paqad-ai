@@ -36,7 +36,6 @@ export interface WorkflowRouteResult {
 export interface WorkflowRouterServiceOptions {
   projectRoot?: string;
   runtimeRoot?: string;
-  /** Optional registry of runtime-registered skills to merge into routing. */
   runtimeRegistry?: RuntimeSkillRegistry;
 }
 
@@ -67,8 +66,6 @@ export class WorkflowRouterService {
     profile?: Pick<ProjectProfile, 'active_capabilities' | 'stack_profile' | 'routing'> | null,
   ): Promise<WorkflowRouteResult> {
     const effectiveProfile = profile ?? readProjectProfile(this.projectRoot);
-    // Capture the runtime-skill snapshot once per resolve() so an in-flight call
-    // is unaffected by a concurrent register()/remove() (AC3 — snapshot isolation).
     const runtimeSnapshot = this.runtimeRegistry?.snapshot() ?? [];
     const [skills, customWorkflowNames] = await Promise.all([
       this.loadRoutingSkills(effectiveProfile, runtimeSnapshot),

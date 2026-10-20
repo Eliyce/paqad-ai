@@ -408,9 +408,7 @@ describe('feature development policy', () => {
   describe('review evidence digest wiring (issue #360)', () => {
     function reviewDigestInstruction(): string {
       const review = defaultFeatureDevelopmentPolicy().stages.review.instructions;
-      const found = review.find((instruction) =>
-        instruction.startsWith('Review digest (issue #360):'),
-      );
+      const found = review.find((instruction) => instruction.startsWith('Review digest:'));
       expect(found, 'the default review stage must carry the digest instruction').toBeDefined();
       return found!;
     }

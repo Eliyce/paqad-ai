@@ -3,7 +3,6 @@ import { join, dirname } from 'node:path';
 
 import type { SkillModelTier } from '@/core/types/skill.js';
 
-// Tier limits in tokens (approx chars/4)
 export const TIER_TOKEN_LIMITS: Record<SkillModelTier, number> = {
   fast: 2000,
   medium: 5000,
@@ -55,9 +54,7 @@ export class StreamTruncator {
       await mkdir(dirname(auditPath), { recursive: true });
       const entry = `[${new Date().toISOString()}] WARN truncation skill=${skillName} original=${result.original_token_estimate}t final=${result.final_token_estimate}t\n`;
       await appendFile(auditPath, entry, 'utf8');
-    } catch {
-      // non-critical
-    }
+    } catch {}
   }
 
   estimateTokens(text: string): number {
@@ -68,7 +65,6 @@ export class StreamTruncator {
     const maxChars = maxTokens * 4;
     if (text.length <= maxChars) return text;
 
-    // Find the last sentence boundary within maxChars
     const candidate = text.slice(0, maxChars);
     const sentenceEnd = Math.max(
       candidate.lastIndexOf('. '),
@@ -81,7 +77,6 @@ export class StreamTruncator {
       return text.slice(0, sentenceEnd + 1);
     }
 
-    // Fall back to last newline
     const lastNewline = candidate.lastIndexOf('\n');
     if (lastNewline > maxChars * 0.5) {
       return text.slice(0, lastNewline);

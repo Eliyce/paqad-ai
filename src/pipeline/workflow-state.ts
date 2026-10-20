@@ -1,18 +1,3 @@
-// Per-session workflow-routing state (issue #336).
-//
-// Routing runs on EVERY user message and is stateful: the user can be deep in a
-// feature, stop to ask a question, then say "carry on" and expect the feature to
-// continue where it paused. This store holds the active routed workflow plus a
-// stack of paused ones, keyed by session id, in the (git-ignored) ledger dir —
-// modelled on the pending-lane stash. Each entry carries the resume anchors that
-// let feature-development pick up its exact change: the stage-ledger change key,
-// the lane, and the frozen-spec id (all already persisted elsewhere by
-// src/stage-evidence — this only records the pointers so a resume is deterministic).
-//
-// Switching PAUSES (push the active entry), it does not reset. Resuming POPS the
-// paused entry (its anchors intact). A never-written or unreadable state reads as
-// the empty default; the read never throws into the caller.
-
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -23,47 +8,24 @@ import { ROUTED_WORKFLOWS, type RoutedWorkflow } from './routed-workflow.js';
 
 const WORKFLOW_STATE_FILE = '.workflow-state.json';
 
-/** One routed workflow plus the anchors needed to resume it (feature-development). */
 export interface WorkflowEntry {
   workflow: RoutedWorkflow;
-  /** The stage-ledger change key (`<sessionId>#<ordinal>`) this workflow opened, if any. */
   changeKey?: string;
-  /** The lane picked for this workflow (feature-development only). */
   lane?: StageLane;
-  /** The frozen-spec id backing this change, if any. */
   specId?: string;
-  /**
-   * The Discovery run this workflow opened (issue #597), its dir name under
-   * `.paqad/ledger/delivery/`. Set only for the `discovery` workflow, so a paused Discovery run
-   * resumes to its exact run instead of guessing the latest directory.
-   */
   discoveryRunId?: string;
-  /**
-   * The plain-language reason the router gave for this route and lane (issue #639, Part 7),
-   * saved so the HUD can show why without re-classifying. Only narrated before this.
-   */
   reason?: string;
 }
 
-/** The active routed workflow plus a stack of paused ones (most-recent last). */
 export interface WorkflowState {
   active: WorkflowEntry | null;
   paused: WorkflowEntry[];
-  /**
-   * When the session's current turn began (ISO-8601), stamped by the prompt seam on every
-   * routed prompt (issue #582). The completion check counts only this session's stage rows
-   * written at or after it as "edited this turn". Optional: a file written before the stamp
-   * existed reads without it, and the check then falls back to today's behaviour.
-   */
   turn_started_at?: string;
 }
 
-/** The result of applying a route to a state: the new state, and what happened. */
 export interface RouteTransition {
   state: WorkflowState;
-  /** The paused entry that was resumed (popped), or null when not a resume. */
   resumed: WorkflowEntry | null;
-  /** True when the active workflow changed (a pause-and-switch or a resume). */
   switched: boolean;
 }
 
@@ -83,7 +45,6 @@ function isRoutedWorkflow(value: unknown): value is RoutedWorkflow {
   return typeof value === 'string' && VALID_WORKFLOWS.has(value);
 }
 
-/** Coerce an unknown parsed value into a valid {@link WorkflowEntry}, or null. */
 function toEntry(value: unknown): WorkflowEntry | null {
   if (typeof value !== 'object' || value === null) {
     return null;
@@ -111,7 +72,6 @@ function toEntry(value: unknown): WorkflowEntry | null {
   return entry;
 }
 
-/** Read the workflow state for `sessionId`, or the empty default when absent/invalid. */
 export function readWorkflowState(projectRoot: string, sessionId: string): WorkflowState {
   try {
     const parsed = JSON.parse(readFileSync(workflowStatePath(projectRoot, sessionId), 'utf8')) as {
@@ -133,7 +93,6 @@ export function readWorkflowState(projectRoot: string, sessionId: string): Workf
   }
 }
 
-/** Persist the workflow state for `sessionId`. Creates the session dir on demand. */
 export function writeWorkflowState(
   projectRoot: string,
   sessionId: string,
@@ -146,21 +105,6 @@ export function writeWorkflowState(
   writeFileSync(path, JSON.stringify(state), 'utf8');
 }
 
-/**
- * Apply a routed workflow to the current state (pure). Semantics:
- *
- *  - Routing to the SAME active workflow continues it (anchors are merged in, so a
- *    later stage can stamp the change key / lane / spec id). Not a switch.
- *  - Routing to a workflow already on the paused stack RESUMES it: the entry is
- *    popped (with its anchors intact and returned as `resumed`) and the previously
- *    active workflow is paused in its place.
- *  - Routing to a new workflow PAUSES the active one (pushed onto the stack) and
- *    activates the new one. Not a reset — the paused entry keeps its anchors.
- *
- * The deterministic seam supplies the routed outcome; the model, guided by the
- * bootstrap, decides intent (a "continue" resumes; a fresh code request is new
- * work). This function only provides the mechanism.
- */
 export function routeWorkflow(
   state: WorkflowState,
   next: RoutedWorkflow,
@@ -189,7 +133,6 @@ export function routeWorkflow(
   };
 }
 
-/** Drop keys whose value is undefined so they never overwrite an existing anchor. */
 function stripUndefined(anchors: Omit<WorkflowEntry, 'workflow'>): Omit<WorkflowEntry, 'workflow'> {
   const out: Omit<WorkflowEntry, 'workflow'> = {};
   if (anchors.changeKey !== undefined) {

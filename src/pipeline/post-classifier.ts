@@ -155,9 +155,7 @@ export class PostClassifier {
           if (touchesAffected) {
             records.push(parsed);
           }
-        } catch {
-          // Ignore corrupt history.
-        }
+        } catch {}
       }
 
       if (records.length < 3) {
@@ -175,9 +173,7 @@ export class PostClassifier {
       if (veryHighAccuracy >= 3) {
         return { adjustment: -1, reason: 'Plan-vs-actual history shows repeated over-estimation.' };
       }
-    } catch {
-      // Ignore missing history.
-    }
+    } catch {}
 
     return { adjustment: 0, reason: null };
   }

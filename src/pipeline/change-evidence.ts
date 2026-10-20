@@ -10,27 +10,11 @@ export interface ChangeEvidence {
   source: 'git' | 'none';
 }
 
-/**
- * The files the current change touches, read from git alone (issue #646). The
- * old changed-files cache under `.paqad/session/` is never read: nothing writes
- * it any more, and a leftover copy with one still-dirty entry used to hide every
- * other edit. A non-empty set is `source: 'git'`; nothing changed is `'none'`.
- */
 export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvidence> {
   const files = await readGitChangedFiles(projectRoot);
   return files.length > 0 ? { files, source: 'git' } : { files: [], source: 'none' };
 }
 
-/**
- * The files git considers changed for the current branch: the union of
- * working-tree status and everything committed since the merge-base with the
- * base branch (`main`, else `master`), normalized, de-duplicated and sorted.
- *
- * When git cannot bound the branch (no head commit, or no `main`/`master` base)
- * this is the working-tree status alone; outside a git work tree it is empty.
- * A clean tree with no commits on the branch is therefore no files. Never throws:
- * a failing git call degrades to fewer sources.
- */
 export async function readGitChangedFiles(projectRoot: string): Promise<string[]> {
   const gitState = readGitState(projectRoot);
   if (!gitState.head_commit || !gitState.base_commit) {
@@ -44,7 +28,6 @@ export async function readGitChangedFiles(projectRoot: string): Promise<string[]
   return normalizePaths([...statusFiles, ...committedFiles]);
 }
 
-/** Files changed between `baseCommit` and HEAD (committed on this branch). */
 async function readCommittedSinceBase(projectRoot: string, baseCommit: string): Promise<string[]> {
   try {
     const result = await execa('git', ['diff', '--name-only', `${baseCommit}..HEAD`], {
@@ -81,16 +64,6 @@ export function isTestFile(filePath: string): boolean {
   );
 }
 
-/**
- * True when a path lives under any `.paqad/` home — the root `.paqad/`, or a
- * nested runtime home such as `runtime/base/.paqad/` (issue #205). Everything
- * under a `.paqad/` home is framework work-product: generated logs, evidence
- * JSON, quality baselines, session state, team config. None of it is the
- * project's own source, so it must never be classified as changed code. Mirrors
- * the inlined checks already used by `src/rag/file-filter.ts` and
- * `src/stage-evidence/scope.ts`, but as a small exported predicate the
- * changed-file classifier can share.
- */
 export function isPaqadArtifactPath(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
   return (
@@ -99,9 +72,6 @@ export function isPaqadArtifactPath(filePath: string): boolean {
 }
 
 export function isCodeFile(filePath: string): boolean {
-  // Issue #205 — generated `.paqad/` artifacts (from any `.paqad/` home, including
-  // a self-hosted `runtime/base/.paqad/`) leak into the working tree and would
-  // otherwise match the `runtime/`/extension rules below. They are never code.
   if (isPaqadArtifactPath(filePath)) {
     return false;
   }
@@ -156,12 +126,6 @@ export async function detectStaleDocTargets(
   }
 }
 
-/**
- * The paths git currently reports as changed for the whole working tree (tracked modifications,
- * staged changes, and untracked files), normalized and de-duplicated. Exported so the session
- * dirty-file baseline (issue #576, Finding 1b) captures the exact same set the completion
- * backstop reads, rather than re-deriving the `git status` parse and risking a divergent copy.
- */
 export async function readGitStatusFiles(projectRoot: string): Promise<string[]> {
   try {
     const result = await execa('git', ['status', '--short', '--untracked-files=all'], {
@@ -184,11 +148,6 @@ export async function readGitStatusFiles(projectRoot: string): Promise<string[]>
 }
 
 function parseGitStatusPath(line: string): string | null {
-  // `git status --short` emits `XY PATH`: a two-column status, one separator
-  // space, then the path starting at column 3. The first column is a space for
-  // worktree-only changes (e.g. " M package.json"), so the line must NOT be
-  // left-trimmed before slicing — trimming the leading space shifts everything
-  // left and drops the first character of the path ("ackage.json").
   const stripped = line.replace(/\r$/, '');
   if (stripped.length < 4) {
     return null;
