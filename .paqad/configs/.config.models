@@ -17,3 +17,29 @@
 # model_reasoning=gpt-5
 # Cheap/fast model for lightweight steps. (env: PAQAD_MODEL_FAST)
 # model_fast=gpt-5-mini
+
+# ── Stage agents ────────────────────────────────────────────
+# low | medium | high | xhigh | inherit. How hard the planning stage helper thinks. inherit uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_EFFORT_PLANNING)
+# stage_effort_planning=high
+# inherit | haiku | sonnet | opus. The model the planning stage helper runs on. inherit uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_MODEL_PLANNING)
+# stage_model_planning=inherit
+# low | medium | high | xhigh | inherit. How hard the specification stage helper thinks. inherit uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_EFFORT_SPECIFICATION)
+# stage_effort_specification=high
+# inherit | haiku | sonnet | opus. The model the specification stage helper runs on. inherit uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_MODEL_SPECIFICATION)
+# stage_model_specification=inherit
+# low | medium | high | xhigh | inherit. How hard the development stage helper thinks. inherit uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_EFFORT_DEVELOPMENT)
+# stage_effort_development=inherit
+# inherit | haiku | sonnet | opus. The model the development stage helper runs on. inherit uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_MODEL_DEVELOPMENT)
+# stage_model_development=inherit
+# low | medium | high | xhigh | inherit. How hard the review stage helper thinks. inherit uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. You may lower it, but a lighter review catches less. (env: PAQAD_STAGE_EFFORT_REVIEW)
+# stage_effort_review=high
+# inherit | haiku | sonnet | opus. The model the review stage helper runs on. inherit uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_MODEL_REVIEW)
+# stage_model_review=inherit
+# low | medium | high | xhigh | inherit. How hard the checks stage helper thinks. inherit uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_EFFORT_CHECKS)
+# stage_effort_checks=low
+# inherit | haiku | sonnet | opus. The model the checks stage helper runs on. inherit uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_MODEL_CHECKS)
+# stage_model_checks=inherit
+# low | medium | high | xhigh | inherit. How hard the documentation_sync stage helper thinks. inherit uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_EFFORT_DOCUMENTATION_SYNC)
+# stage_effort_documentation_sync=low
+# inherit | haiku | sonnet | opus. The model the documentation_sync stage helper runs on. inherit uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next dispatch; the helper files keep the defaults. (env: PAQAD_STAGE_MODEL_DOCUMENTATION_SYNC)
+# stage_model_documentation_sync=inherit

@@ -44,6 +44,26 @@ const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
 const AI_ATTRIBUTION_MODES = ['keep', 'strip'] as const;
 const PLUGIN_MIGRATION_MODES = ['on', 'off'] as const;
 const CLAUDE_INSTALL_MODES = ['auto', 'plugin', 'settings'] as const;
+export const STAGE_EFFORT_LEVELS = ['low', 'medium', 'high', 'xhigh', 'inherit'] as const;
+export type StageEffort = (typeof STAGE_EFFORT_LEVELS)[number];
+export const STAGE_MODELS = ['inherit', 'haiku', 'sonnet', 'opus'] as const;
+export type StageModel = (typeof STAGE_MODELS)[number];
+export const STAGE_SETTING_STAGES = [
+  'planning',
+  'specification',
+  'development',
+  'review',
+  'checks',
+  'documentation_sync',
+] as const;
+const STAGE_EFFORT_DEFAULTS: Readonly<Record<string, StageEffort>> = {
+  planning: 'high',
+  specification: 'high',
+  development: 'inherit',
+  review: 'high',
+  checks: 'low',
+  documentation_sync: 'low',
+};
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const FALSY = new Set(['0', 'false', 'no', 'off']);
 
@@ -449,6 +469,32 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment: 'Cheap/fast model for lightweight steps.',
   },
 
+  ...STAGE_SETTING_STAGES.flatMap((stage): FrameworkConfigSpec[] => [
+    {
+      key: `stage_effort_${stage}`,
+      env: `PAQAD_STAGE_EFFORT_${stage.toUpperCase()}`,
+      type: 'enum',
+      enumValues: STAGE_EFFORT_LEVELS,
+      default: STAGE_EFFORT_DEFAULTS[stage],
+      group: 'models',
+      section: 'Stage agents',
+      comment: stageEffortComment(stage),
+    },
+    {
+      key: `stage_model_${stage}`,
+      env: `PAQAD_STAGE_MODEL_${stage.toUpperCase()}`,
+      type: 'enum',
+      enumValues: STAGE_MODELS,
+      default: 'inherit',
+      group: 'models',
+      section: 'Stage agents',
+      comment:
+        `inherit | haiku | sonnet | opus. The model the ${stage} stage helper runs on. inherit ` +
+        'uses the model of the main session. Run `paqad-ai stage settings` to apply it on the next ' +
+        'dispatch; the helper files keep the defaults.',
+    },
+  ]),
+
   {
     key: 'full_lane_default',
     env: 'PAQAD_FULL_LANE_DEFAULT',
@@ -842,6 +888,14 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
   },
 ] as const;
 
+function stageEffortComment(stage: string): string {
+  const base =
+    `low | medium | high | xhigh | inherit. How hard the ${stage} stage helper thinks. inherit ` +
+    'uses the effort of the main session. Run `paqad-ai stage settings` to apply it on the next ' +
+    'dispatch; the helper files keep the defaults.';
+  return stage === 'review' ? `${base} You may lower it, but a lighter review catches less.` : base;
+}
+
 const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
   FRAMEWORK_CONFIG_SPECS.map((spec) => [spec.key, spec]),
 );
@@ -1027,6 +1081,31 @@ export function resolvePluginMigrationConfig(
       defOf('claude_install_mode') as (typeof CLAUDE_INSTALL_MODES)[number],
     ),
   };
+}
+
+export interface StageAgentSetting {
+  effort: StageEffort;
+  model: StageModel;
+}
+
+export function resolveStageAgentSettings(
+  projectRoot?: string,
+  env: NodeJS.ProcessEnv = process.env,
+): Record<string, StageAgentSetting> {
+  const raw =
+    projectRoot === undefined ? new Map<string, string>() : layeredConfigMap(projectRoot, env);
+  const settings: Record<string, StageAgentSetting> = {};
+  for (const stage of STAGE_SETTING_STAGES) {
+    settings[stage] = {
+      effort: asEnum(
+        raw.get(`stage_effort_${stage}`),
+        STAGE_EFFORT_LEVELS,
+        STAGE_EFFORT_DEFAULTS[stage]!,
+      ),
+      model: asEnum(raw.get(`stage_model_${stage}`), STAGE_MODELS, 'inherit'),
+    };
+  }
+  return settings;
 }
 
 function escapeRegExp(input: string): string {
@@ -1891,6 +1970,13 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   {
     present: () => false,
     keys: ['hud_view', 'hud_chime'],
+  },
+  {
+    present: () => false,
+    keys: STAGE_SETTING_STAGES.flatMap((stage) => [
+      `stage_effort_${stage}`,
+      `stage_model_${stage}`,
+    ]),
   },
 ];
 
