@@ -22,7 +22,6 @@ export class TransitionLogManager {
 
     log.entries[key].push(entry);
 
-    // FIFO eviction
     if (log.entries[key].length > log.max_entries_per_key) {
       log.entries[key] = log.entries[key].slice(-log.max_entries_per_key);
     }

@@ -5,8 +5,8 @@ import type { CacheMetricsTracker } from './metrics.js';
 
 export interface PredictiveCacheOptions {
   enabled: boolean;
-  confidence_threshold: number; // default 0.7
-  max_candidates: number; // default 3
+  confidence_threshold: number;
+  max_candidates: number;
 }
 
 export const DEFAULT_PREDICTIVE_CACHE_OPTIONS: PredictiveCacheOptions = {
@@ -31,7 +31,6 @@ export class PredictiveCache {
     outputHash: string,
     nextSkill?: string,
   ): Promise<void> {
-    // Record the transition
     if (nextSkill) {
       await this.transitionLog.append({
         timestamp: new Date().toISOString(),
@@ -45,7 +44,6 @@ export class PredictiveCache {
 
     if (!this.options.enabled) return;
 
-    // Get predicted next skills
     const candidates = await this.transitionLog.computeProbabilities(stackKey, completedSkill);
 
     const aboveThreshold = candidates

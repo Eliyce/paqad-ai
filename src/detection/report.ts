@@ -15,22 +15,12 @@ interface BuildDetectionReportInput {
   detectionPhase?: DetectionReport['detection_phase'];
   signals: DetectionSignal[];
   confidence: DetectionReport['confidence'];
-  /**
-   * PQD-423: primary toolchain ecosystem; mapped to a `primary_language` label.
-   * Omit/`null` for content-only, ambiguous, or unknown projects.
-   */
   ecosystem?: StackEcosystem | null;
-  /**
-   * PQD-423: explicit numeric confidence in `[0, 1]`. When omitted it is derived
-   * from the categorical `confidence`.
-   */
   confidenceScore?: number;
-  /** PQD-423: detection path that produced the report. Defaults to `'static'`. */
   source?: 'ai' | 'static';
   repository?: RepositoryContext;
 }
 
-/** Categorical → numeric confidence mapping used when no explicit score is supplied. */
 const CONFIDENCE_SCORE: Record<DetectionReport['confidence'], number> = {
   high: 0.9,
   medium: 0.7,

@@ -19,6 +19,21 @@ security workflows from a single resolved stack profile.
 - [Archetype Resolution](../features/archetype-resolution/business.md)
 - [Drift Tracking](../features/drift-tracking/business.md)
 
+## Why the code works the way it does
+
+- **`ai-detector.ts`.** The AI path is off unless an inference provider is injected, so by default
+  detection stays static. It never throws: no provider, no manifests, a call or parse error, the
+  timeout or a low score all return `null` and the static path runs, so static detection is always
+  the last resort. The timeout rejects even if the provider ignores the abort signal. Each manifest
+  is read directly and a failure caught, with no exists-check first, to avoid a check-then-read
+  race; a missing file is skipped and the others still count.
+- **`detector.ts`.** Two `detect()` calls on the same folder at once share one in-flight promise,
+  so they return the same result without repeating the work. `persist: false` lets a read-only
+  caller such as the onboarding dry-run detect without writing to `.paqad/`.
+- **`types.ts`.** The response envelope is added at the engine edge so internal types stay lean.
+  Its `id` is a SHA-256 of the project root and the report time, so two envelopes of one run share
+  an id, and times are formatted in UTC so the output is the same on every machine.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

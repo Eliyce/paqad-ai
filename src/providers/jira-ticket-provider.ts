@@ -5,16 +5,8 @@ import type {
   TicketTransition,
 } from './ticket-provider.js';
 
-/**
- * Issue #42 — the Jira adapter. The existing Atlassian MCP already exposes the
- * exact operations the `TicketProvider` contract needs, so this adapter is a
- * thin wrapper, not new transport. MCP invocation happens at the agent layer;
- * the adapter takes an injected `invoke` (tool name + params -> result) so the
- * mapping and normalization are unit-testable without a live MCP.
- */
 export type JiraMcpInvoke = (tool: string, params: Record<string, unknown>) => Promise<unknown>;
 
-/** The MCP tool names this adapter maps the contract onto. */
 export const JIRA_MCP_TOOLS = {
   fetch: 'getJiraIssue',
   transitions: 'getTransitionsForJiraIssue',
@@ -88,7 +80,6 @@ function asString(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
-/** Map a raw Jira issue payload onto the provider-neutral NormalizedTicket. */
 export function normalizeJiraIssue(raw: unknown, ref: string): NormalizedTicket {
   const issue = asRecord(raw);
   const fields = asRecord(issue.fields);
@@ -106,7 +97,6 @@ export function normalizeJiraIssue(raw: unknown, ref: string): NormalizedTicket 
   };
 }
 
-/** Pull `- ` / `* ` bullet lines out of a plaintext description as AC. */
 export function extractAcceptanceCriteria(description: unknown): string[] {
   const text = asString(description);
   if (!text) {

@@ -59,7 +59,6 @@ export class PatternSuggester {
   ): number {
     let score = 0;
 
-    // Framework match
     const frameworkMatch = frameworks.filter((f) =>
       pattern.stack_filter.frameworks.includes(f),
     ).length;
@@ -67,7 +66,6 @@ export class PatternSuggester {
       score += (frameworkMatch / frameworks.length) * 0.25;
     }
 
-    // Keyword match against problem + tags
     if (keywords.length > 0) {
       const text = `${pattern.problem} ${pattern.tags.join(' ')}`.toLowerCase();
       const matches = keywords.filter((kw) => text.includes(kw.toLowerCase())).length;

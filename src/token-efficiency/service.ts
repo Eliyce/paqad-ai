@@ -252,8 +252,6 @@ export function createTestDelta(
   if (options.treat_missing_as_passing === true) {
     for (const [testId, before] of baselineMap) {
       if (currentMap.has(testId)) continue;
-      // Issue-only snapshots omit passed tests; a missing failing/errored entry
-      // indicates recovery into passing.
       if (before.status !== 'passed') {
         newlyPassing.push(testId);
       }

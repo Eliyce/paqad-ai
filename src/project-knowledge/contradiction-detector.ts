@@ -1,7 +1,6 @@
 import type { Contradiction } from './types.js';
 import type { EvidenceFile } from './evidence-retriever.js';
 
-// Patterns that extract a (key, value) claim from file content
 const CLAIM_PATTERNS: Array<{ key: string; regex: RegExp }> = [
   { key: 'node-engine', regex: /["']node["']\s*:\s*["']([^"']+)["']/gi },
   { key: 'package-version', regex: /"version"\s*:\s*"([^"]+)"/gi },

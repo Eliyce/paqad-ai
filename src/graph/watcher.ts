@@ -5,9 +5,7 @@ import { PATHS } from '@/core/constants/paths.js';
 
 export interface WatcherOptions {
   projectRoot: string;
-  /** Quiet period in milliseconds before emitting a debounced change. */
   debounceMs?: number;
-  /** Called once a debounced batch of changes has settled. */
   onChange: () => void | Promise<void>;
 }
 
@@ -15,8 +13,6 @@ export interface RunningWatcher {
   close: () => void;
 }
 
-// Append-only logs that report builds and dashboard mutations write as side
-// effects. Reacting to them would loop: build → append → event → build again.
 const IGNORED_APPEND_ONLY = ['audit.log', 'logs'];
 
 function isAppendOnlyLog(filename: string | Buffer | null): boolean {
@@ -25,11 +21,6 @@ function isAppendOnlyLog(filename: string | Buffer | null): boolean {
   return IGNORED_APPEND_ONLY.some((entry) => posix === entry || posix.startsWith(`${entry}/`));
 }
 
-/**
- * Watches the project's .paqad/ directory for any change (any depth) and
- * fires `onChange` after `debounceMs` of quiet. Multiple rapid changes
- * coalesce into a single onChange call (FR-6 debounce contract).
- */
 export function startPaqadWatcher(options: WatcherOptions): RunningWatcher {
   const debounceMs = options.debounceMs ?? 500;
   const watchPath = join(options.projectRoot, PATHS.AGENCY_DIR);
@@ -42,9 +33,7 @@ export function startPaqadWatcher(options: WatcherOptions): RunningWatcher {
 
   const fire = (): void => {
     if (closed) return;
-    void Promise.resolve(options.onChange()).catch(() => {
-      // swallow — the server is expected to handle its own logging
-    });
+    void Promise.resolve(options.onChange()).catch(() => {});
   };
 
   const onAny = (): void => {
@@ -59,9 +48,7 @@ export function startPaqadWatcher(options: WatcherOptions): RunningWatcher {
       if (isAppendOnlyLog(filename)) return;
       onAny();
     });
-    watcher.on('error', () => {
-      // recursive watch can fail on unusual filesystems — degrade silently
-    });
+    watcher.on('error', () => {});
   } catch {
     return { close: () => undefined };
   }

@@ -77,3 +77,20 @@ Source directories owned by this feature:
 - When the checkout was stamped by a newer paqad (`checkoutIsNewer`), the ignore file is left
   alone, the same rule the tracked config follows, so an older install never drops lines a
   newer one added.
+
+## Why the `src/update/` code works the way it does
+
+- The `.paqad/` layout is migrated forward before anything is regenerated, because a project that
+  only ever ran silent updates would otherwise never migrate its records; a layout from a newer
+  paqad refuses with the upgrade message instead.
+- An evidence migration left unfinished because another session held a change is finished on a
+  later update once that change closed; a failure (a locked file on Windows) is a warning.
+- When the Claude Code plugin is installed it owns the Claude hooks and the stage agents, so the
+  npm updater skips them and nothing is wired twice.
+- Legacy MCP files are cleaned up on the real project root, because the candidate build runs in a
+  temp root that the orchestrator's own cleanup never reaches.
+- Config is reconciled by pruning only keys this version no longer knows; every value the team set
+  is kept, never reset to a default.
+- The stage agents are written here too, because an upgraded machine goes through
+  `paqad-ai update --silent` and never reaches the onboarding path that wrote them. This is
+  best-effort, since the agents are inert until dispatched.

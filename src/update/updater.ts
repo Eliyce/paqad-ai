@@ -28,7 +28,6 @@ import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
-/** The Claude-specific hook artifacts the plugin owns — skipped on update when it is installed. */
 const CLAUDE_HOOK_ARTIFACTS = new Set(['.claude/settings.json', '.claude/settings.hooks.json']);
 
 export type UpdateCandidate = GeneratedFile;
@@ -47,8 +46,6 @@ export interface UpdateReport {
   deprecated: string[];
   new_mcp_servers: string[];
   new_scripts: string[];
-  /** Obsolete config keys pruned from `.config` / `configs/.config.*` because
-   *  this version's knob registry no longer knows them (never reset-to-default). */
   config_keys_pruned: string[];
 }
 
@@ -71,17 +68,7 @@ export class FrameworkUpdater {
   constructor(private readonly options: FrameworkUpdaterOptions = {}) {}
 
   async run(projectRoot: string): Promise<UpdateReport> {
-    // Buildout F1 — migrate the project's `.paqad/` layout forward BEFORE
-    // regenerating artifacts or reconciling config. Onboarding already does this
-    // (orchestrator.run), but `update` / `update --silent` never did, so an
-    // already-onboarded project advanced its code via silent-update yet never
-    // migrated its on-disk records (the verified C4 gap). A future-schema project
-    // refuses here via SchemaVersionError — the correct "upgrade paqad-ai" refusal
-    // rather than operating on a layout newer than this engine understands.
     await checkAndMigrateSchema(projectRoot, VERSION);
-    // Issue #581 (AC-28) — the one-time evidence migration leaves a change another session held
-    // in the old folder. Finish it on a later update, once that change has closed. Guarded: a
-    // failure (a locked file on Windows) is a warning and the update goes on.
     runPendingEvidenceMigration(projectRoot);
 
     const previousVersion = readText(join(projectRoot, PATHS.FRAMEWORK_VERSION));
@@ -94,17 +81,12 @@ export class FrameworkUpdater {
     const skipped: UpdateDiff[] = [];
     const newScripts: string[] = [];
 
-    // Issue #616 Part 7 — when the Claude Code plugin is installed, it owns the Claude hooks and the
-    // stage agents. The npm updater must not re-write them, or the two copies would double-wire.
     const pluginInstalled = isPluginInstalled();
 
     for (const candidate of candidates) {
       if (pluginInstalled && CLAUDE_HOOK_ARTIFACTS.has(toPosixPath(candidate.path))) {
         continue;
       }
-      // Normalize the reported path for user-facing fields (regenerated,
-      // skipped, new_scripts). Use native `candidate.path` for filesystem
-      // ops since Node accepts mixed separators on Windows.
       const reportedPath = toPosixPath(candidate.path);
       const target = join(projectRoot, candidate.path);
       const existing = readExistingText(target);
@@ -132,36 +114,17 @@ export class FrameworkUpdater {
       }
     }
 
-    // Issue #622 — remove the MCP files older versions wrote at other tools' paths, on the
-    // real project root (getCandidates onboards a temp root, so the orchestrator's own
-    // cleanup never reaches this project). Only paqad-written files go. Never throws.
     cleanupLegacyMcpFiles(projectRoot);
 
-    // Refresh the team config layer: write the README and sync the group files
-    // (create any missing one fully; append knobs added in a newer version to
-    // existing files, commented; preserve every value the team uncommented).
-    // Then reconcile: PRUNE ONLY keys this version no longer knows, preserving
-    // every value the team set (never reset-to-default). This is the knob
-    // add/remove evolution path — added keys surface in the group files, removed
-    // keys are pruned here and reported.
     writeConfigsReadme(projectRoot);
     writeConfigExample(projectRoot);
     syncGroupConfigs(projectRoot);
     const configKeysPruned = reconcileConfigOverrides(projectRoot).flatMap((file) => file.removed);
 
-    // Issue #573 — render the six stage agents here too, not only in `bootstrapFramework`.
-    // `writeStageAgents` was reachable ONLY from onboarding, but a project that already
-    // exists upgrades through `silent-update.mjs` -> `npm install -g paqad-ai@latest &&
-    // paqad-ai update --silent`, which never calls it. The net effect was that #567 wired a
-    // SubagentStop hook pointing at six agents that were never written on any upgraded
-    // machine. Best-effort with the same contract as the install path: the agents are inert
-    // until the orchestrator dispatches them, so a render fault must not fail the update.
     if (!pluginInstalled) {
       try {
         writeStageAgents();
-      } catch {
-        /* best-effort: stage-agent generation never blocks install/update */
-      }
+      } catch {}
     }
 
     mkdirSync(dirname(join(projectRoot, PATHS.FRAMEWORK_VERSION)), { recursive: true });

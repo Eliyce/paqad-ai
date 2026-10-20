@@ -3,7 +3,6 @@ import { platform } from 'node:os';
 
 export interface OpenBrowserOptions {
   url: string;
-  /** Skip opening the browser regardless of environment. */
   skip?: boolean;
 }
 
@@ -46,9 +45,7 @@ export function openBrowser(options: OpenBrowserOptions): OpenBrowserResult {
   }
   try {
     const child = spawn(command, args, { detached: true, stdio: 'ignore' });
-    child.on('error', () => {
-      /* ignored — failure to open is informational */
-    });
+    child.on('error', () => {});
     child.unref();
     return { opened: true };
   } catch (err) {

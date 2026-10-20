@@ -11,7 +11,7 @@ export interface DeduplicatorArtifact {
 }
 
 export class ContextDeduplicator {
-  private readonly contentHashMap = new Map<string, string>(); // hash -> first-seen artifact path
+  private readonly contentHashMap = new Map<string, string>();
 
   async deduplicate(
     projectRoot: string,
@@ -78,8 +78,6 @@ export class ContextDeduplicator {
       const statsPath = join(projectRoot, '.paqad', 'session', 'dedup-stats.json');
       await mkdir(dirname(statsPath), { recursive: true });
       await writeFile(statsPath, JSON.stringify(stats, null, 2), 'utf8');
-    } catch {
-      // non-critical
-    }
+    } catch {}
   }
 }

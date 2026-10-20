@@ -149,6 +149,21 @@ shows configured/active state and the resolved provider connections
 (GitHub ✓ / Jira ✗), also surfaced in `paqad-ai status`. It reads the current
 detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
 
+## Why the `src/providers/` code works the way it does
+
+- **Thin adapters.** The GitHub adapter shells out to `git` and `gh`, the GitHub Issues adapter
+  wraps `gh issue view`, and the Jira adapter wraps the Atlassian MCP tools. The shell or tool call
+  is injected, so the mapping is tested without a live remote.
+- **`github-host-provider.ts`.** A new branch is cut from the configured base so the team's base
+  branch is honoured wherever the working tree is. `gh pr checks` exits non-zero while checks are
+  pending or failing but still prints JSON, so stdout is parsed regardless of the exit code. Check
+  states combine with red first, then pending, then green.
+- **`github-issues-ticket-provider.ts`.** It is read-only for now; the write operations are left
+  unsupported so an accidental call fails loudly instead of doing nothing. GitHub issues have no
+  type, so a `type:` or `kind:` label is used, else "Issue".
+- **`registry.ts`.** The host provider counts as connected only when the CLI is available and the
+  real git remote matches the configured host kind.
+
 ## Boundaries
 
 - **Owns:** the provider contracts + Jira/GitHub adapters, the delivery-policy

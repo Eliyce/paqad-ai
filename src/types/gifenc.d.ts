@@ -1,5 +1,3 @@
-// Minimal ambient types for `gifenc` (issue #551) — the package ships no declarations.
-// Only the surface this repo uses is declared.
 declare module 'gifenc' {
   export interface GifEncoderFrameOptions {
     palette?: number[][];
@@ -39,7 +37,6 @@ declare module 'gifenc' {
     format?: string,
   ): Uint8Array;
 
-  // gifenc ships as CommonJS; Node ESM interop requires the default import.
   const gifenc: {
     GIFEncoder: typeof GIFEncoder;
     quantize: typeof quantize;

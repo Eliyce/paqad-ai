@@ -20,6 +20,19 @@ inside the package.
 - [Graph UI (React 19 + Vite SPA)](../features/graph-ui/business.md)
 - [Similarity & Intelligence Overlays](../features/similarity-overlay/business.md)
 
+## Why the code works the way it does
+
+- **`routes.ts`.** The graph is extracted on the first `/api/graph` request, not at server start,
+  and `invalidate()` clears it after a `.paqad/` change. A similarity request body is capped at
+  1 MB.
+- **`watcher.ts`.** Append-only logs that report builds and dashboard writes produce are ignored,
+  because reacting to them would loop: build, append, change event, build again. A recursive watch
+  that fails on an unusual filesystem degrades silently.
+- **`import-scanner.ts`.** Only relative specifiers and the tsconfig `@/` alias are resolved, and an
+  explicit `.js` extension is stripped because TypeScript sources import `.js` paths.
+- **`similarity.ts`.** The pairwise comparison is O(N²) over the scoped chunks; at about 4,000
+  chunks that is around 8 million operations, which is fine on ordinary hardware.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

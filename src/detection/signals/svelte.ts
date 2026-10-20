@@ -50,12 +50,10 @@ export function detectSvelteSignals(projectRoot: string): SvelteDetectionResult 
     signals.push(signal('Svelte config found', 'svelte.config.js', 'svelte', 'high'));
   }
 
-  // SvelteKit file-based routing convention
   if (existsSync(join(projectRoot, 'src', 'routes'))) {
     signals.push(signal('SvelteKit routes directory found', 'src/routes', 'svelte', 'medium'));
   }
 
-  // SvelteKit app shell
   if (existsSync(join(projectRoot, 'src', 'app.html'))) {
     signals.push(signal('SvelteKit app.html found', 'src/app.html', 'svelte', 'medium'));
   }

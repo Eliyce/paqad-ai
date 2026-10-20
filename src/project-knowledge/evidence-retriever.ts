@@ -113,8 +113,6 @@ const EXCERPT_LENGTH = 500;
 const SOURCE_CLASS_ORDER = EVIDENCE_PATTERNS.map((pattern) => pattern.source_class);
 
 function classifySource(rawRelativePath: string): CitationSourceClass | null {
-  // Chunk source files may carry native separators on Windows; the prefix
-  // checks below are all posix-shaped.
   const relativePath = toPosixPath(rawRelativePath);
   if (relativePath.startsWith('docs/modules/') && relativePath.endsWith('.md')) {
     return 'canonical-doc';
@@ -249,9 +247,7 @@ export class EvidenceRetriever {
             continue;
           }
           excerpt = buildExcerpt(content, keywords);
-        } catch {
-          // unreadable file — skip excerpt
-        }
+        } catch {}
         if (score <= 0) {
           continue;
         }

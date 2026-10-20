@@ -22,6 +22,18 @@ final-reviewer, adversarial-reviewer, app-cartographer, journey-designer).
 
 _This module has no enumerated features in the map; the module itself is the unit of work._
 
+## Why the `src/event-bus/` code works the way it does
+
+`EngineEventBus` only enqueues on `emit` and drains in a microtask, so it never calls a subscriber
+inline or blocks engine work. Each subscriber has a ring buffer; when it is full the oldest
+droppable event is discarded and the next delivery carries an `events-coalesced` marker, which is
+never dropped. Decision events are protected by default because a UI must not miss them; if the
+buffer is full of protected events the incoming one is dropped so the engine never stalls. A
+throwing subscriber faults only its own subscription. Large payloads have their strings truncated
+and are tagged `truncated` instead of being rejected. Payloads are plain data so they can cross
+IPC unchanged. The bus does not extend `EventEmitter`, so its surface stays `subscribe`, `emit`
+and `unsubscribe`.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

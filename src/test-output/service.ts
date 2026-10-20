@@ -264,7 +264,6 @@ function parseJestJson(rawOutput: string, runnerId: string): MutableParsedResult
     }
   }
 
-  // Prefer the authoritative Jest summary count; fall back to the loop count only when absent.
   const failed = parsed.numFailedTests ?? failures.length;
   const skipped = parsed.numPendingTests ?? skippedFromLoop;
 
@@ -481,11 +480,6 @@ function parseGoJson(
   };
 }
 
-/**
- * Split a TAP entry's text into its name and its directive at the first unescaped `#` (TAP
- * escapes a literal `#` in a name as `\#`). The name drops vitest's block-opening `{` and is
- * unescaped; the directive is what follows the `#`, e.g. `time=2.59ms` or `SKIP`.
- */
 function splitTapEntry(raw: string | undefined): { name: string; directive: string } {
   const text = (raw ?? '').replace(/\s*\{$/, '');
   let name = '';
@@ -503,18 +497,6 @@ function splitTapEntry(raw: string | undefined): { name: string; directive: stri
   return { name: name.trim(), directive: '' };
 }
 
-/**
- * Parse TAP, counting leaf tests only (issue #672). Two runners nest their entries by indenting:
- * - vitest prints a file or suite entry BEFORE its children, ending the line with `{` and closing
- *   the block with a `}` line at the same indent;
- * - node:test prints its subtests FIRST and the parent entry after them, one level shallower.
- * Both kinds of parent are containers, not tests: an entry that opens a block, or that sits
- * shallower than the entry before it (with no `}` in between), is skipped. Every other entry, at
- * any indent, is a leaf, so an indented `not ok` is a failure and an indented `# SKIP` a skip.
- * Lines inside a YAML diagnostic block (`---` … `...`) are never read as entries.
- * A failing leaf inside vitest blocks is named by its path, `file > describe > test`, so the
- * receipt says which test failed, not which file (flat and node:test leaves keep their own name).
- */
 function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
   const failures: StructuredTestIssue[] = [];
   const warnings: StructuredTestWarning[] = [];
@@ -523,12 +505,9 @@ function parseTap(rawOutput: string, runnerId: string): MutableParsedResult {
   let failed = 0;
   let skipped = 0;
   let currentFailure: StructuredTestIssue | null = null;
-  // The indent of the last entry or block close seen; a shallower plain entry is a node:test parent.
   let previousIndent = 0;
   let inYaml = false;
-  // The open vitest blocks (file, then each describe) enclosing the current line.
   const blocks: Array<{ indent: number; name: string }> = [];
-  // A block ends at a `}` (or any entry) at its own indent or shallower; indents only deepen inward.
   const closeBlocksAt = (indent: number): void => {
     const firstClosed = blocks.findIndex((block) => block.indent >= indent);
     if (firstClosed !== -1) blocks.length = firstClosed;
@@ -672,7 +651,6 @@ function parseJunitXml(rawOutput: string, runnerId: string): MutableParsedResult
           stackTrace: failureTag.content || null,
           filePath: attrs.file ?? null,
           lineNumber: toInteger(attrs.line),
-          // `extractTag()` always returns a string `content`, so `?? ''` is unreachable here.
           category: classifyIssue(failureTag.message ?? failureTag.content, 'assertion'),
           durationMs: toMilliseconds(attrs.time),
         }),
@@ -690,7 +668,6 @@ function parseJunitXml(rawOutput: string, runnerId: string): MutableParsedResult
           stackTrace: errorTag.content || null,
           filePath: attrs.file ?? null,
           lineNumber: toInteger(attrs.line),
-          // `extractTag()` always returns a string `content`, so `?? ''` is unreachable here.
           category: classifyIssue(errorTag.message ?? errorTag.content, 'error'),
           durationMs: toMilliseconds(attrs.time),
         }),
