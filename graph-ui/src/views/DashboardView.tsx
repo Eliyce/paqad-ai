@@ -7,13 +7,6 @@ import { fetchDashboard } from '../lib/api';
 import type { DashboardReport, SectionData } from '../lib/dashboard-types';
 import { useHashRoute } from '../lib/router';
 
-/**
- * Dashboard view. Fetches the report on mount, listens to the same
- * `/api/events` SSE stream the graph view uses, and re-fetches on
- * `dashboard-updated`. Pulses the border of any card whose section
- * payload changed between refreshes — the one animation the brief
- * allows.
- */
 export function DashboardView() {
   const [report, setReport] = useState<DashboardReport | null>(null);
   const [error, setError] = useState<string | null>(null);

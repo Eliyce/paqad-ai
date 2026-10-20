@@ -13,12 +13,6 @@ import { PulseView } from './views/PulseView';
 import { SiteMapView } from './views/SiteMapView';
 import { TrustView } from './views/TrustView';
 
-/**
- * SPA shell. The hash router picks the active view; all views share the
- * same design tokens and the same /api/events SSE stream — see
- * lib/router.ts for the route set. Pulse is home; `#/dashboard` keeps
- * serving the legacy full-status view; the graph stays full-bleed.
- */
 export function App() {
   const { route } = useHashRoute();
   if (route === 'graph') return <GraphView />;

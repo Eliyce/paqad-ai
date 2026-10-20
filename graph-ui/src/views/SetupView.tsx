@@ -27,12 +27,6 @@ import type {
 
 import { ItemCard } from './AreaView';
 
-/**
- * The Setup area page (issue #146, spec 5.7): the project profile as a
- * schema-driven form, capability toggles, the pack list with install and
- * remove, the operations row, and the area's evidence cards at the bottom.
- */
-
 const AGENT_PICKUP_LINE = 'Saved. Every agent picks this up automatically on its next session.';
 
 const CAPABILITY_WHY: Record<string, string> = {
@@ -68,8 +62,6 @@ function IssueList({ issues }: { issues: ValidationIssue[] }) {
     </div>
   );
 }
-
-// --- Profile -----------------------------------------------------------------
 
 function ProfileSection() {
   const [config, setConfig] = useState<ProfileConfigResponse | null>(null);
@@ -107,7 +99,6 @@ function ProfileSection() {
           setSaveIssues(outcome.issues);
           return;
         }
-        // The profile PUT has no merge story; surface the sentence plainly.
         setSaveError(outcome.error);
       })
       .catch((err: unknown) => setSaveError(err instanceof Error ? err.message : String(err)))
@@ -189,8 +180,6 @@ function ProfileSection() {
     </section>
   );
 }
-
-// --- Capabilities --------------------------------------------------------------
 
 function CapabilitiesSection() {
   const [available, setAvailable] = useState<string[] | null>(null);
@@ -297,8 +286,6 @@ function CapabilitiesSection() {
     </section>
   );
 }
-
-// --- Packs ---------------------------------------------------------------------
 
 function PackRow({
   pack,
@@ -497,8 +484,6 @@ function PacksSection() {
   );
 }
 
-// --- The view --------------------------------------------------------------------
-
 export function SetupView() {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
@@ -512,11 +497,7 @@ export function SetupView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine
-      });
-    // Keys with a dedicated section above; everything else in the setup
-    // area (providers, evidence) keeps its card.
+      .catch(() => {});
     const sectioned = new Set(['profile', 'capabilities', 'packs']);
     fetchInventory()
       .then((report) => {

@@ -1,12 +1,5 @@
 import type { DashboardArea } from './dashboard-types';
 
-/**
- * Microcopy for the comprehension layer (issue #146). One sentence per
- * area page, verbatim from the spec, plus the why-drawer copy keyed by
- * inventory item key. Voice rules: sentence case, benefit-led, no em
- * dashes, no exclamation marks, no jargon without a why.
- */
-
 export const PAGE_WHY: Record<DashboardArea, string> = {
   pulse: 'Everything important about your project, in one glance.',
   approvals:
@@ -22,12 +15,6 @@ export const PAGE_WHY: Record<DashboardArea, string> = {
     'How your app really behaves: every screen, journey, and guard, checked against the code.',
 };
 
-/**
- * Plain-language health states (issue #163). The graph and its detail panels
- * speak these words to owners; the raw tier names and engineering metrics
- * (risk_floor, complexity_correction, defect_density, ast type) never reach a
- * user-facing surface.
- */
 export const HEALTH_STATE: Record<string, string> = {
   green: 'Healthy',
   amber: 'Needs attention',

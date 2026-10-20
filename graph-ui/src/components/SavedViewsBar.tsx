@@ -5,17 +5,10 @@ import type { SavedView, SavedViewArea } from '../lib/dashboard-types';
 
 interface Props {
   area: SavedViewArea;
-  /** Capture the area's current scope when the user saves a view. */
   getScope: () => Record<string, unknown>;
-  /** Apply a saved scope back onto the area's existing state. */
   onApply: (scope: Record<string, unknown>) => void;
 }
 
-/**
- * Issue #161 — the "Save this view" affordance plus the per-area list of saved
- * views. Project-scoped, shared through git. Applying a view sets the area's
- * existing state via {@link Props.onApply}; there is no new state model.
- */
 export function SavedViewsBar({ area, getScope, onApply }: Props) {
   const [views, setViews] = useState<SavedView[]>([]);
   const [error, setError] = useState<string | null>(null);

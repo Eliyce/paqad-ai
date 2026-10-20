@@ -1,29 +1,17 @@
 import type { ReceiptCard } from './dashboard-types';
 import type { Graph } from './types';
 
-/**
- * Issue #165 — per-module "what the AI changed", projected from the existing
- * verification receipts (no new source of truth). Each receipt names the files
- * it covers; we map those files to their module via the graph and keep the
- * latest verified change per module.
- */
 export interface ModuleActivity {
   moduleId: string;
-  /** ISO timestamp of the most recent change recorded for this module. */
   lastChange: string;
-  /** Checks on the latest receipt that touched this module. */
   checks: number;
-  /** Human who accepted the latest change, or null when none is recorded. */
   acceptedBy: string | null;
-  /** Whether the latest receipt verified clean. */
   verified: boolean;
-  /** Receipt hash for linking to the receipt snapshot. */
   receiptHash: string;
 }
 
 export type ActivityByModule = Record<string, ModuleActivity>;
 
-/** Build path -> moduleId lookups from the graph's file nodes (exact + basename). */
 function fileToModule(graph: Graph): { exact: Map<string, string>; base: Map<string, string> } {
   const exact = new Map<string, string>();
   const base = new Map<string, string>();
@@ -33,7 +21,6 @@ function fileToModule(graph: Graph): { exact: Map<string, string>; base: Map<str
     exact.set(path, node.parent_id);
     const basename = path.split('/').pop();
     if (basename) base.set(basename, node.parent_id);
-    // The label is often the same relpath; index it too for robustness.
     exact.set(node.label, node.parent_id);
   }
   return { exact, base };
@@ -54,10 +41,6 @@ function modulesForSubjects(
   return modules;
 }
 
-/**
- * Aggregate the latest AI change per module. Receipts without a verified
- * timestamp are skipped (they cannot be placed on a timeline).
- */
 export function computeActivity(graph: Graph | null, receipts: ReceiptCard[]): ActivityByModule {
   if (!graph) return {};
   const lookup = fileToModule(graph);
@@ -87,7 +70,6 @@ export function computeActivity(graph: Graph | null, receipts: ReceiptCard[]): A
 
 const RECENT_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** A module counts as recently active when its latest change is within 30 days. */
 export function isRecent(activity: ModuleActivity, now: number): boolean {
   const t = Date.parse(activity.lastChange);
   return !Number.isNaN(t) && now - t <= RECENT_MS;

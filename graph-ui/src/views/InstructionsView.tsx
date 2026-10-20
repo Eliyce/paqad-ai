@@ -21,14 +21,6 @@ import type {
   ValidationIssue,
 } from '../lib/dashboard-types';
 
-/**
- * The instructions editor (issue #146): a two-pane view over
- * docs/instructions. Left pane is the file tree; right pane edits the
- * selected file with frontmatter as fields above a CodeMirror body, plus a
- * rendered preview for Markdown. Saves run the shared write pipeline with
- * the friendly merge prompt on 409.
- */
-
 const WIN_LINE = 'Saved. Agents reload this automatically on their next session.';
 
 interface FmEntry {
@@ -52,8 +44,6 @@ function langForFile(path: string): CodeEditorLang {
   if (path.endsWith('.yml') || path.endsWith('.yaml')) return 'yaml';
   return 'plain';
 }
-
-// --- File tree ---------------------------------------------------------------
 
 function TreeDirectory({
   node,
@@ -127,8 +117,6 @@ function TreeDirectory({
   );
 }
 
-// --- The view ----------------------------------------------------------------
-
 export function InstructionsView() {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
@@ -144,7 +132,6 @@ export function InstructionsView() {
   const [fmEntries, setFmEntries] = useState<FmEntry[]>([]);
   const [fmDirty, setFmDirty] = useState(false);
   const [dirty, setDirty] = useState(false);
-  /** Remount key for the editor after external content replacement. */
   const [resetKey, setResetKey] = useState(0);
   const [preview, setPreview] = useState(false);
 
@@ -154,7 +141,6 @@ export function InstructionsView() {
   const [conflict, setConflict] = useState<{ content: string; hash: string | null } | null>(null);
   const [win, setWin] = useState(false);
 
-  /** A file click that is waiting on the unsaved-changes choice. */
   const [pendingSelect, setPendingSelect] = useState<string | null>(null);
 
   useEffect(() => {
@@ -169,9 +155,7 @@ export function InstructionsView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine
-      });
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -214,12 +198,10 @@ export function InstructionsView() {
     openFile(path);
   };
 
-  /** The exact text a save would write right now. */
   const currentContent = useCallback((): string => {
     if (!file || file.content === null) return body;
     if (fmEntries.length === 0) return body;
     if (!fmDirty) {
-      // Frontmatter untouched: keep the original block byte for byte.
       const originalBody = file.body ?? '';
       const prefix = file.content.slice(0, file.content.length - originalBody.length);
       return prefix + body;
@@ -229,9 +211,7 @@ export function InstructionsView() {
       let value: unknown = entry.text;
       try {
         value = YAML.parse(entry.text);
-      } catch {
-        // keep the raw text when it is not valid YAML on its own
-      }
+      } catch {}
       rebuilt[entry.key] = value;
     }
     return '---\n' + YAML.stringify(rebuilt) + '---\n' + body;
@@ -469,8 +449,6 @@ export function InstructionsView() {
                       <div
                         className="rounded-[10px] p-5 text-body leading-relaxed [&_a]:underline [&_code]:font-mono [&_code]:text-secondary [&_h1]:text-page [&_h1]:font-semibold [&_h2]:text-section [&_h2]:font-medium [&_h3]:text-body [&_h3]:font-medium [&_li]:ml-5 [&_p]:my-2 [&_ol]:list-decimal [&_pre]:overflow-auto [&_pre]:rounded-[6px] [&_pre]:p-3 [&_table]:text-secondary [&_ul]:list-disc"
                         style={{ background: 'var(--color-surface)' }}
-                        // marked output of the file body; instructions files
-                        // are project-local and the server allowlists writes.
                         dangerouslySetInnerHTML={{ __html: previewHtml }}
                       />
                     ) : (

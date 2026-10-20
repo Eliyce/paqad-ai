@@ -64,7 +64,6 @@ describe('chromeVisibility (S7, FR-2, INV-2, INV-3)', () => {
       honestyStrip: false,
       journeyBand: false,
     });
-    // No in-between: every piece shares the one full-screen decision.
     expect(Object.values(visibility).every((shown) => shown === false)).toBe(true);
   });
 });

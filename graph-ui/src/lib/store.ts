@@ -5,7 +5,6 @@ import type { OverlayKind } from './overlay';
 import type { ThemeMode } from './theme';
 import { getThemeMode, setThemeMode } from './theme';
 
-/** Issue #165 — how much failing detail the views disclose. */
 export type DisclosureMode = 'working' | 'shareable';
 
 export interface LayerVisibility {
@@ -20,7 +19,7 @@ export interface LayerVisibility {
 
 export interface SearchState {
   query: string;
-  matches: string[]; // node ids
+  matches: string[];
   index: number;
 }
 
@@ -45,7 +44,6 @@ export interface AppState {
   similarity: SimilarityState;
   overlay: OverlayKind;
   setOverlay: (o: OverlayKind) => void;
-  // Issue #165 — AI-activity overlay + receipt-backed per-module activity.
   aiActivity: boolean;
   setAiActivity: (on: boolean) => void;
   activityByModule: ActivityByModule;
@@ -79,9 +77,6 @@ export const useAppStore = create<AppState>((set) => ({
   detailLoading: false,
   search: { query: '', matches: [], index: 0 },
   similarity: { threshold: 0.75, loading: false, edges: [], capped: false, error: null },
-  // North Star default (issue #162): lead with the health-coloured map of
-  // named areas. Files, chunks, and symbols arrive via semantic zoom; the raw
-  // overlay picker lives under Advanced.
   overlay: 'health',
   setOverlay: (overlay) => set({ overlay }),
   aiActivity: true,

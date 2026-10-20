@@ -4,12 +4,6 @@ import type { AppMap, Surface } from '../lib/site-map-types';
 import { guardList } from '../lib/site-map-types';
 import { kindMeta, trustMeta } from '../lib/site-map-vocab';
 
-/**
- * The text-first equivalent of the diagram (issue #466, A11Y-2). A searchable list of every
- * surface grouped by district, keyboard-operable, conveying the same information (kind, gate,
- * trust) without relying on the visual or on colour. Reads from the same map as the canvas.
- */
-
 interface Props {
   map: AppMap;
   selectedId: string | null;

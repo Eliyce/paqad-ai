@@ -1,16 +1,10 @@
 interface Props {
-  /** What will appear here, once it exists. */
   what: string;
-  /** Why it matters to the owner. */
   why: string;
   actionLabel: string;
   onAction: () => void;
 }
 
-/**
- * Empty state with three slots, always (issue #146): what will appear
- * here, why it matters, and exactly one action.
- */
 export function EmptyState({ what, why, actionLabel, onAction }: Props) {
   return (
     <div className="rounded-[10px] p-6" style={{ background: 'var(--color-surface)' }}>

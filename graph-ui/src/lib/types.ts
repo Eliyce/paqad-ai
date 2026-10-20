@@ -1,6 +1,3 @@
-// Mirror of the server-side graph types. Kept manually in sync with
-// src/graph/types.ts in the parent package — only fields used by the UI.
-
 export type GraphNodeType = 'module' | 'file' | 'chunk' | 'symbol';
 export type GraphEdgeType = 'contains' | 'imports' | 'embeds' | 'similar' | 'defines';
 export type ModuleHealthTier = 'green' | 'amber' | 'red' | 'unknown';

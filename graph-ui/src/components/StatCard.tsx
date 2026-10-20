@@ -1,14 +1,10 @@
 interface Props {
   value: string;
-  /** Optional one-line trend, e.g. "2 more than yesterday". */
   delta?: string;
   label: string;
   onClick: () => void;
 }
 
-/**
- * One number, one label, whole card clickable (issue #146). Nothing else.
- */
 export function StatCard({ value, delta, label, onClick }: Props) {
   return (
     <button

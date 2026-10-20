@@ -4,18 +4,10 @@ import { useHashRoute, type Route } from '../lib/router';
 
 interface PaletteEntry {
   label: string;
-  /** Quiet right-hand hint: "page" or "action". */
   kind: 'page' | 'action';
   run: () => void;
 }
 
-/**
- * Cmd+K / Ctrl+K command palette (issue #146, final polish). One input,
- * one filtered list, arrow keys plus Enter. Deliberately stateless: it
- * persists nothing and only navigates or opens the packet export. The
- * why-drawer keeps the product's only shadow, so the panel separates
- * itself with a 1px low-opacity border instead.
- */
 export function CommandPalette() {
   const { navigate } = useHashRoute();
   const [open, setOpen] = useState(false);
@@ -54,7 +46,6 @@ export function CommandPalette() {
     return entries.filter((entry) => entry.label.toLowerCase().includes(needle));
   }, [entries, query]);
 
-  // Global shortcut: Cmd+K / Ctrl+K toggles, Escape closes.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {

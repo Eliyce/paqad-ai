@@ -8,13 +8,7 @@ import { WinLine } from './WinLine';
 interface Props {
   action: OpsAction;
   label: string;
-  /**
-   * The consequence sentence for destructive actions. When set, the first
-   * click swaps the button for an inline confirm (the sentence plus
-   * "Go ahead" / "Cancel") instead of a bare are-you-sure.
-   */
   confirm?: string;
-  /** Win sentence shown for 4 seconds once the job finishes. */
   done?: string;
   onDone?: (job: OpsJob) => void;
 }
@@ -26,12 +20,6 @@ type Phase =
   | { kind: 'done' }
   | { kind: 'failed'; error: string };
 
-/**
- * One dashboard button per ops job (issue #146). Click starts the job via
- * POST /api/ops/{action}; while it runs the button is disabled and shows the
- * latest `ops-progress` SSE message for its jobId, with a light poll as the
- * backstop when the stream drops.
- */
 export function OpButton({ action, label, confirm, done, onDone }: Props) {
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const onDoneRef = useRef(onDone);
@@ -48,7 +36,6 @@ export function OpButton({ action, label, confirm, done, onDone }: Props) {
     }
   };
 
-  // While running: follow the SSE progress stream and poll as a backstop.
   useEffect(() => {
     if (jobId === null) return undefined;
     const source = new EventSource('/api/events');
@@ -84,7 +71,6 @@ export function OpButton({ action, label, confirm, done, onDone }: Props) {
       source.close();
       clearInterval(poll);
     };
-    // finish is stable in behaviour; the stream rebinds per job.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jobId]);
 

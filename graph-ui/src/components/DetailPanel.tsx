@@ -12,7 +12,6 @@ function fmtBytes(n: number | null | undefined): string {
   return `${(n / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/** Friendly word for each node type — no `file:` / `module:` ids on the card. */
 const TYPE_WORD: Record<GraphNode['type'], string> = {
   module: 'Area',
   file: 'File',
@@ -27,7 +26,6 @@ const TIER_DOT: Record<string, string> = {
   unknown: 'var(--color-muted)',
 };
 
-/** One plain sentence on why a state reads the way it does. */
 const HEALTH_WHY: Record<string, string> = {
   green: 'Checks are passing and nothing is flagged here.',
   amber: 'Some checks are flagged here.',
@@ -35,7 +33,6 @@ const HEALTH_WHY: Record<string, string> = {
   unknown: 'This area has not been measured yet.',
 };
 
-/** The concrete next action, or "Nothing to do." when healthy. */
 const HEALTH_ACTION: Record<string, string> = {
   green: 'Nothing to do.',
   amber: 'Review this area with your team and clear the flagged checks.',
@@ -103,7 +100,6 @@ export function DetailPanel() {
   );
 }
 
-/** A labelled plain-language section. */
 function Block({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <section>
@@ -115,7 +111,6 @@ function Block({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-/** Climb parent_id to the owning module so files and sections inherit its state. */
 function resolveModuleTier(detail: NodeDetail, nodesById: Map<string, GraphNode>): string {
   if (detail.node.type === 'module')
     return (detail.node.attributes.health_tier ?? 'unknown') as string;
@@ -130,7 +125,6 @@ function resolveModuleTier(detail: NodeDetail, nodesById: Map<string, GraphNode>
     : 'unknown';
 }
 
-/** The owning module id for any node, for the receipt-backed activity lookup. */
 function resolveModuleId(detail: NodeDetail, nodesById: Map<string, GraphNode>): string | null {
   if (detail.node.type === 'module') return detail.node.id;
   let cursor = nodesById.get(detail.node.id);
@@ -193,7 +187,6 @@ function PlainCard({
           />
           <span className="font-medium">{healthLabel(tier)}</span>
         </div>
-        {/* The plain "why" is the failing detail a shareable view withholds. */}
         {!(shareable && atRisk) && (
           <p className="mt-1 text-xs" style={{ color: 'var(--color-muted)' }}>
             {HEALTH_WHY[tier] ?? HEALTH_WHY.unknown}
@@ -256,7 +249,6 @@ function PlainCard({
         </button>
       )}
 
-      {/* The raw spec sheet is sensitive detail: working view only. */}
       {!shareable && (
         <details className="rounded border pt-0" style={{ borderColor: 'var(--color-border)' }}>
           <summary
@@ -283,7 +275,6 @@ function Row({ k, v }: { k: string; v: React.ReactNode }) {
   );
 }
 
-/** The old spec-sheet, now off by default behind "For engineers". */
 function EngineerFields({ detail }: { detail: NodeDetail }) {
   const n = detail.node;
   return (

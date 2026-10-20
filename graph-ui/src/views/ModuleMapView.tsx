@@ -15,13 +15,6 @@ import type {
   ValidationIssue,
 } from '../lib/dashboard-types';
 
-/**
- * The module map editor (issue #146). One editing surface: the raw YAML in
- * CodeMirror is the editor of record, with a read-only table of the declared
- * modules above it for orientation and the latest drift findings inline so
- * "Reconcile now" is one click away.
- */
-
 const WIN_LINE = 'Saved. The reconciler keeps this truthful from here.';
 
 const SEED_CONTENT = 'modules: []\n';
@@ -106,9 +99,7 @@ export function ModuleMapView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine
-      });
+      .catch(() => {});
   }, [loadConfig]);
 
   useEffect(() => {

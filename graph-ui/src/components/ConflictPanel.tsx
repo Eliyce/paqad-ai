@@ -1,7 +1,5 @@
 interface Props {
-  /** The exact text a save would write right now. */
   mine: string;
-  /** What is on disk now (the 409 body's conflict content). */
   theirs: string;
   saving: boolean;
   onLoadLatest: () => void;
@@ -38,11 +36,6 @@ function DiffPane({ title, mine, other }: { title: string; mine: string; other: 
   );
 }
 
-/**
- * The friendly merge prompt every managed-file editor renders on a 409
- * (issue #146, spec 6.3): a side-by-side diff of your edit against what is
- * on disk now, with exactly two ways out.
- */
 export function ConflictPanel({ mine, theirs, saving, onLoadLatest, onKeepMine }: Props) {
   return (
     <div className="mt-4 rounded-[10px] p-4" style={{ background: 'var(--color-surface)' }}>

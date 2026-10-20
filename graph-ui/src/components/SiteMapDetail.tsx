@@ -2,14 +2,6 @@ import type { AppMap, Journey, Surface } from '../lib/site-map-types';
 import { evidenceList, guardList } from '../lib/site-map-types';
 import { kindMeta, trustMeaning, trustMeta } from '../lib/site-map-vocab';
 
-/**
- * The detail panel for a selected surface (issue #466, DP-1..3). It leads with a plain-language
- * description, shows the honest trust tier, lists the guards on the surface and what they require,
- * the journeys that pass through it, and the file:line evidence behind every claim — so a person
- * can verify the map against the code (PROV-2). The code-level connectivity (its outgoing moves)
- * is the technical view alongside the visual one (DP-6).
- */
-
 interface Props {
   surface: Surface;
   map: AppMap;

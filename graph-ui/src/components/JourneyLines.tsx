@@ -3,17 +3,6 @@ import { ViewportPortal } from '@xyflow/react';
 import type { Journey } from '../lib/site-map-types';
 import { interchangeSurfaces, journeyColor, stationNumbers } from '../lib/site-map-journey';
 
-/**
- * The metro lines (issue #489, Phase 2, UXR-1/2) — the hero of the map. Each journey is a thick
- * coloured polyline threading its ordered stations, drawn from the journey's own steps, so it works
- * on a map with zero transitions (fixes D6). Rendered inside React Flow's viewport portal, so it
- * pans and zooms with the map for free, in the same absolute coordinate space as the surface cards.
- *
- * When a journey is selected its line is bright with numbered stations; the others stay thin and
- * desaturated so the map always shows its transit network. Interchanges (a surface on 2+ journeys)
- * wear the classic double ring. The reveal animation respects prefers-reduced-motion.
- */
-
 export interface Station {
   x: number;
   y: number;
@@ -22,9 +11,7 @@ export interface Station {
 interface Props {
   journeys: Journey[];
   activeJourneyId: string | null;
-  /** Absolute centre of every surface card, keyed by surface id. */
   centers: Map<string, Station>;
-  /** The station the walk is currently on, glowing "you are here" (UXR-16). */
   walkStationId: string | null;
   reducedMotion: boolean;
 }
@@ -90,7 +77,6 @@ export function JourneyLines({
           );
         })}
 
-        {/* Stations for the active journey: numbered circles, double ring for interchanges. */}
         {journeys.map((journey, index) => {
           if (journey.id !== activeJourneyId) return null;
           const color = journeyColor(index);

@@ -48,9 +48,7 @@ async function errorMessage(res: Response): Promise<string> {
   try {
     const body = (await res.json()) as { error?: string };
     if (typeof body.error === 'string') return body.error;
-  } catch {
-    // fall through to the status line
-  }
+  } catch {}
   return 'Request failed with status ' + res.status;
 }
 
@@ -85,7 +83,6 @@ export async function fetchSiteMap(): Promise<SiteMapView> {
   return (await res.json()) as SiteMapView;
 }
 
-/** The resumable run progress the Site map strip reads (S6): the store file, or null when none. */
 export async function fetchSiteMapProgress(): Promise<SiteMapProgressFile | null> {
   const res = await fetch('/api/site-map/progress');
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -111,7 +108,6 @@ export async function curateSiteMapJourney(
   if (!res.ok) throw new Error(await errorMessage(res));
 }
 
-/** Persist the team-shared district curation (issue #489, Phase 3). */
 export async function saveSiteMapLayout(districts: SiteMapStoredLayout): Promise<void> {
   const res = await fetch('/api/site-map/layout', {
     method: 'POST',
@@ -121,7 +117,6 @@ export async function saveSiteMapLayout(districts: SiteMapStoredLayout): Promise
   if (!res.ok) throw new Error(await errorMessage(res));
 }
 
-/** Delete the stored curation so the canvas reverts to its computed layout. */
 export async function resetSiteMapLayout(): Promise<void> {
   const res = await fetch('/api/site-map/layout/reset', { method: 'POST' });
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -140,11 +135,6 @@ export async function fetchDeliveryPolicyConfig(): Promise<DeliveryPolicyConfigR
   return (await res.json()) as DeliveryPolicyConfigResponse;
 }
 
-/**
- * PUT the delivery policy. Validation (422) and edit conflicts (409) are
- * expected outcomes the editor renders, so they come back as values; only
- * transport and guard failures (403, network) throw.
- */
 export async function putDeliveryPolicy(input: {
   content: string;
   baseHash: string | null;
@@ -185,12 +175,6 @@ export async function putDeliveryPolicy(input: {
   throw new Error(await errorMessage(res));
 }
 
-/**
- * Shared mutation transport for the issue #146 editors. Validation (422)
- * and edit conflicts (409 with a `conflict` body) are expected outcomes the
- * editors render, so they come back as values; everything else (403
- * read-only, guard refusals, network) throws with the server's sentence.
- */
 async function mutate<T>(
   url: string,
   method: 'PUT' | 'POST',
@@ -230,8 +214,6 @@ async function mutate<T>(
   throw new Error(await errorMessage(res));
 }
 
-/* Project profile + capabilities */
-
 export async function fetchProfileConfig(): Promise<ProfileConfigResponse> {
   const res = await fetch('/api/config/profile');
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -251,8 +233,6 @@ export async function setCapability(
   return mutate('/api/capabilities/' + encodeURIComponent(name), 'POST', { enabled });
 }
 
-/* Module map */
-
 export async function fetchModuleMapConfig(): Promise<ModuleMapConfigResponse> {
   const res = await fetch('/api/config/module-map');
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -266,8 +246,6 @@ export async function putModuleMap(input: {
   return mutate('/api/config/module-map', 'PUT', input);
 }
 
-/* RAG settings */
-
 export async function fetchRagConfig(): Promise<RagConfigResponse> {
   const res = await fetch('/api/config/rag');
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -279,8 +257,6 @@ export async function putRagConfig(
 ): Promise<MutationOutcome<PutRagResult>> {
   return mutate('/api/config/rag', 'PUT', { intelligence });
 }
-
-/* Design tokens */
 
 export async function fetchDesignTokensConfig(): Promise<DesignTokensConfigResponse> {
   const res = await fetch('/api/config/design-tokens');
@@ -294,8 +270,6 @@ export async function putDesignTokens(input: {
 }): Promise<MutationOutcome<PutDesignTokensResult>> {
   return mutate('/api/config/design-tokens', 'PUT', input);
 }
-
-/* Instructions files */
 
 export async function fetchInstructionsTree(): Promise<InstructionsTreeResponse> {
   const res = await fetch('/api/files/instructions');
@@ -322,8 +296,6 @@ export async function putInstructionsFile(
   );
 }
 
-/* Packs */
-
 export async function fetchPacks(): Promise<DashboardPack[]> {
   const res = await fetch('/api/packs');
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -344,12 +316,6 @@ export async function removePack(input: {
   return mutate('/api/packs/remove', 'POST', input);
 }
 
-/* Ops jobs */
-
-/**
- * Start an ops job. A 409 here means the same action is already running —
- * surfaced as a thrown error sentence, there is nothing to merge.
- */
 export async function startOp(action: OpsAction): Promise<OpsJob> {
   const res = await fetch('/api/ops/' + action, { method: 'POST' });
   if (!res.ok) throw new Error(await errorMessage(res));
@@ -458,8 +424,6 @@ export async function fetchSimilar(req: SimilarityRequest): Promise<SimilarityRe
   if (!res.ok) throw new Error('Failed to fetch /api/similar: ' + res.status);
   return (await res.json()) as SimilarityResponse;
 }
-
-/* Saved views (issue #161) */
 
 export async function fetchSavedViews(): Promise<SavedView[]> {
   const res = await fetch('/api/saved-views');
