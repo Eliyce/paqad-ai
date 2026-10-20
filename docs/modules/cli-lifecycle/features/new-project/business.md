@@ -6,9 +6,9 @@
 
 `paqad-ai new project <name>` creates a **development workspace** — a directory with git, the
 `.paqad/` footprint, documentation scaffolding and the host entry files — **without choosing an
-application stack**. It is the day-zero entry point of issue #596 Slice 3 (the journey from an
-empty workspace to a fully onboarded project), and the only fixed new public command the issue
-defines. The technical contract lives at [`technical.md`](./technical.md).
+application stack**. It is the day-zero entry point of the new-project journey (from an
+empty workspace to a fully onboarded project), and the only fixed new public command that journey
+adds. The technical contract lives at [`technical.md`](./technical.md).
 
 ## User Roles
 
@@ -22,7 +22,7 @@ defines. The technical contract lives at [`technical.md`](./technical.md).
   footprint, docs scaffolding and host entry files are written, and a "WORKSPACE CREATED" panel
   states the application stack is **undecided** and names one next step: choose the application
   stack (run discovery, then onboard once the stack exists). It does not show the onboarding
-  panel's "create documentation" steps, which only apply once a stack exists (issue #612).
+  panel's "create documentation" steps, which only apply once a stack exists.
 - **Re-run / resume.** Re-running on a workspace that already carries `.paqad/` preserves the
   owner's work and completes only the remainder (the onboarding checkpoint handles resume).
 

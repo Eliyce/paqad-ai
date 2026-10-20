@@ -4,9 +4,9 @@
 
 ## Purpose
 
-The deterministic backend that verifies framework reuse claims (issue #397).
+The deterministic backend that verifies framework reuse claims.
 
-[#357](../../feature-evidence/index/summary.md) lets a plan **declare** it is reusing a
+The [plan reuse gate](../../feature-evidence/index/summary.md) lets a plan **declare** it is reusing a
 framework API — "I'll use React's `useId()` instead of hand-rolling one". Nothing
 **checked** that claim: `provenance` was model-declared, and the only cross-check was that
 the package's *version* appeared in `.paqad/stack-snapshot.json`. This module answers the
@@ -18,10 +18,10 @@ two questions that actually matter, for the version actually installed:
 Both answers come from the declaration files that physically ship inside the installed
 package. **Zero model tokens**, and the only network call in the whole module is the
 Laravel Upgrade Guide backstop described below. It is the framework-native counterpart to
-what the code-knowledge index (#353) did for first-party symbols — which is first-party
+what the code-knowledge index did for first-party symbols — which is first-party
 only by design, since it hard-excludes `node_modules` and `vendor`.
 
-Four ecosystems are covered (issue #398). Each runs the same three steps against a
+Four ecosystems are covered. Each runs the same three steps against a
 different declaration layer:
 
 | Ecosystem | Installed version from | Existence + deprecation from |
@@ -138,7 +138,7 @@ Upgrade Guide is fetched for the installed major, cached, and parsed
 recorded `deprecated: true` with `provenance: "doc-derived"`; a real `@deprecated` tag is
 never overwritten by prose, because a declaration says more than a guide does.
 
-This is the **one** place the index reaches the network, and #397's zero-network invariant
+This is the **one** place the index reaches the network, and the index's zero-network invariant
 is amended for it by the decision above. It is fenced so nothing else changes:
 
 - it runs as a **post-pass** on the built index, so the builder and every adapter stay
@@ -257,5 +257,5 @@ name match compares last segments across `.`, `::` and `\`.
 - **Not** package-level deprecation ("is this whole package EOL?") — that is the health
   workflow's `detectDeprecatedDependencies`, a different altitude.
 - **Not** semantic duplicate detection ("is my helper a rewrite of the framework's?") —
-  that is the duplication gate (#358).
+  that is the duplication gate.
 - **Not** proactively surfacing candidate framework APIs before planning — a digest concern.

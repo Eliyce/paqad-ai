@@ -1,6 +1,6 @@
 # Evidence Ledger & Provenance Receipt
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `evidence-ledger` &nbsp;·&nbsp; **Issues:** #118, #120
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `evidence-ledger`
 
 ## Purpose
 
@@ -29,13 +29,13 @@ Deterministic and LLM-judged passes are counted separately and **never pooled**;
 blocked and inconclusive rows are counted on their own rather than hiding inside a pass
 total. Only an inconclusive row downgrades the receipt's result to Inconclusive. A blocked
 row is a measure that could not be taken, such as a quality measure with no coverage report.
-It stays listed in the receipt's `blocked` count but no longer changes the result (issue
-#669, decision D-01M5A0MG6537XJ7S3MD3Q4PSCR). A real `fail` still reads Failed.
+It stays listed in the receipt's `blocked` count but no longer changes the result
+(decision D-01M5A0MG6537XJ7S3MD3Q4PSCR). A real `fail` still reads Failed.
 `src/evidence/grading.ts` is the single source of truth for the A/B split.
 
-A row's `verdict` is one of `pass`, `fail`, `inconclusive`, `blocked` or `skipped`
-(issue #579). `skipped` records a gate that measured nothing, such as the visual-evidence
-gate on a change with no frontend files. Since issue #639 (Part 10) a skipped row also
+A row's `verdict` is one of `pass`, `fail`, `inconclusive`, `blocked` or `skipped`.
+`skipped` records a gate that measured nothing, such as the visual-evidence
+gate on a change with no frontend files. A skipped row also
 carries `skip_kind`: `not-required` when the change gave the gate nothing to check, or
 `did-not-run` when a check it was owed did not happen. `skip_kind` is not part of the
 identity hash. A skipped row is counted as neither a pass nor a fail in the graded summary,
@@ -48,7 +48,7 @@ and it never becomes a compliance citation (only `pass` rows do).
 | Grade a gate result (Tier A/B/C → verdict + strength) | `src/evidence/grading.ts` (`gradeGateResult`, `GATE_STRENGTH_TIER`) |
 | Per-file digests + one order-independent change subject | `src/evidence/digests.ts` (`computeFileDigests`, `computeChangeSubjectDigest`) |
 | Append-only JSONL ledger + tolerant reader + `content_hash` dedup | `src/evidence/ledger.ts` (`appendEvidenceRows`, `readEvidenceLedger`, `computeRowContentHash`) |
-| Fan engine output into rows (gates, ratchet measures, findings) | `src/evidence/fan-in.ts` (`gateResultsToRows`, `ratchetResultToRows`, `findingRowsFrom`; `evidenceGatesToRows` for the late bundle-completeness / visual-evidence / rules-loaded gates, issue #579) |
+| Fan engine output into rows (gates, ratchet measures, findings) | `src/evidence/fan-in.ts` (`gateResultsToRows`, `ratchetResultToRows`, `findingRowsFrom`; `evidenceGatesToRows` for the late bundle-completeness / visual-evidence / rules-loaded gates) |
 | in-toto Statement (v1) + SLSA-VSA-modelled predicate | `src/evidence/receipt/statement.ts` (`buildInTotoStatement`, `summarizeGradedEvidence`) |
 | DSSE envelope + hash-chain signing + chain verification | `src/evidence/receipt/dsse.ts` (`signReceipt`, `verifyReceiptChain`, `pae`) |
 | CycloneDX-adjacent AI-BOM view | `src/evidence/receipt/ai-bom.ts` (`buildAiBom`) |
@@ -58,7 +58,7 @@ and it never becomes a compliance citation (only `pass` rows do).
 
 ## On-disk layout
 
-Issue #468 (finishing #339) moved the evidence home into the per-feature bundle. The
+The evidence home is the per-feature bundle. The
 graded rows, the signed receipt, and the AI-BOM now live inside each change's
 `.paqad/ledger/feature-evidence/<issue>-<slug>-<ULID>/` directory; the retired top-level
 `.paqad/ledger/{evidence.jsonl,receipt.dsse.json,receipts.jsonl,ai-bom.json}` writes are
@@ -66,19 +66,19 @@ gone (every reader projects the whole-project view from the bundle union). The r
 no longer a single cross-feature hash chain — each bundle carries its own sealed snapshot,
 verified independently with `verifyReceiptSeal`.
 
-Issue #581 made `evidence.jsonl` always on: every change records one row per gate that ran,
+`evidence.jsonl` is always on: every change records one row per gate that ran,
 whatever the enterprise toggles. Only `receipt.json` and `ai-bom.json` stay enterprise
 capabilities. The receipt no longer copies the rows. Its predicate carries
 `evidence_sha256` (the SHA-256 of `evidence.jsonl` at seal time) and `evidence_line_count`,
-plus the graded counts and the verdict. Since issue #669 the end-of-turn run seals the receipt
+plus the graded counts and the verdict. The end-of-turn run seals the receipt
 after every gate and before it builds the verdict, so a receipt it writes covers every row of
 that run. A later run appends
 after the seal, so `verifyEvidenceSeal` re-hashes only the first `evidence_line_count` lines. Readers get a
 receipt's rows through `receiptEvidenceRows` (`src/feature-evidence/receipt.ts`): the
 `evidence.jsonl` rows of that run for a sealing receipt, `predicate.rows` for one sealed
-before #581. The whole-project receipt still carries its rows.
+before `evidence.jsonl` became always on. The whole-project receipt still carries its rows.
 
-Each bundle row also carries the one envelope header (issue #581): `appendFeatureEvidenceRows`
+Each bundle row also carries the one envelope header: `appendFeatureEvidenceRows`
 re-stamps a graded row with `doc_type` `paqad.evidence`, `change` (the folder-name ULID),
 `session_id`, `recorded_at` (the row's own time, which a sealing receipt's `time_verified`
 names) and a row `content_hash`, and no longer writes `ts`. `readEvidenceRowsAt` accepts
@@ -115,14 +115,14 @@ detected from the environment (`detectSigningMode`), but the local signer never
 dresses the hash chain up as a third-party signature — `signing_mode` records
 the truth.
 
-## Change authorship — the neutral, cross-agent attestation (#120)
+## Change authorship — the neutral, cross-agent attestation
 
 paqad's correctness signal is **gate-derived** (tests/mutation/traceability), not
 agent-derived, so paqad can vouch for a change **regardless of which AI tool wrote
 it**. No single-vendor tool can occupy that seat: every competitor scopes trust to
 its own output, and cross-vendor provenance formats (`agent-trace`, `git-ai`)
 record *who wrote it* but explicitly do not evaluate quality or capture a human
-accepter. #120 captures the missing authorship dimension and folds it into the
+accepter. paqad captures the missing authorship dimension and folds it into the
 same signed receipt, so the attestation stays **gate-derived yet
 producer-attributed**.
 
@@ -210,8 +210,8 @@ The reasons below are not obvious from the code in `src/evidence/` and are not s
 ## Boundaries
 
 - **Owns:** the unified ledger, the merge-time receipt projected from it, and the
-  change-authorship dimension folded into that receipt (#120).
-- **Does not own:** making gates fire from hooks (issue #117, the binding layer
+  change-authorship dimension folded into that receipt.
+- **Does not own:** making gates fire from hooks (the binding layer
   this builds on); raw cross-vendor authorship logging (left to `agent-trace` /
   `git-ai`, which this interoperates with); gate→legal-clause mapping; the
   context-replay stamp; SIEM export; third-party (Sigstore) signing.

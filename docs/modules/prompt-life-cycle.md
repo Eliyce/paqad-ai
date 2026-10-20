@@ -61,11 +61,11 @@ other way in. Coverage is therefore per *surface*, not just per adapter id:
 
 This is a host limitation, not a paqad wiring gap: paqad writes the hook into
 `.claude/settings.json` (not a plugin), yet the JetBrains Claude surface did not
-execute the `UserPromptSubmit` hook in the #313 cross-provider benchmark — no
+execute the `UserPromptSubmit` hook in the cross-provider benchmark — no
 `paqad.rag-evidence` session was written at all, while the same session's `Stop`
 hook did fire. Upstream Claude Code has open bugs in the same family (hook
-execution/output not honored consistently across IDE surfaces, e.g.
-anthropics/claude-code #12151, #10225, #18547). paqad cannot force a host to run a
+execution/output not honored consistently across IDE surfaces, in
+the upstream anthropics/claude-code issue tracker). paqad cannot force a host to run a
 hook it does not run, so on that surface retrieval degrades cleanly to the
 grep/read default rather than failing. The `Stop`-driven completion tier
 (verification + stage evidence) is unaffected and still records there.

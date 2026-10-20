@@ -7,9 +7,9 @@
 - `src/context/existing-surface.ts` — `composeExistingSurfaceSection` (pure renderer),
   `gatherExistingSurface` (best-effort IO composer), `selectCandidateFiles` (scoping).
 - `src/rag/repo-map.ts` — `buildProjectRepoMap` supplies the PageRank ranking (this is
-  its first live, non-test consumer — issue #356 AC-5).
+  its first live, non-test consumer).
 - `src/code-knowledge/store.ts` + `types.ts` — `readCodeKnowledgeIndex` supplies
-  signatures, caller counts, lines, and module slugs when the #353 index exists.
+  signatures, caller counts, lines, and module slugs when the code-knowledge index exists.
 - `src/code-knowledge/symbol-extractor.ts` — `extractSymbols` supplies exported names for
   the name-only fallback when no index is present.
 - `src/context/rule-context.ts` — `writeRuleContext` appends the composed section on the

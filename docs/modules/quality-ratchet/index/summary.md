@@ -22,7 +22,7 @@ so "worse" is unambiguously "the number went up":
 | Measure | What it counts | Source |
 | --- | --- | --- |
 | `tangledness` | complexity violations | per-language tool (e.g. ESLint complexity) via rule-scripts |
-| `dead_code` | orphan / unused files | **consumed** from [#109's reachability solver](../../traceability-engine/index/summary.md) — one solver, two uses; never re-scanned |
+| `dead_code` | orphan / unused files | **consumed** from [the traceability engine's reachability solver](../../traceability-engine/index/summary.md) — one solver, two uses; never re-scanned |
 | `risky_patterns` | risky-pattern / security findings | existing lint + pentest signals |
 | `strictness` | strict flags that are **off** (looseness) | `tsconfig` strict flags, read directly |
 
@@ -47,7 +47,7 @@ quietly move the line.
 
 The gate's detail names the measures it took and the ones that were blocked
 ("measured: strictness, tangledness; blocked: dead code"), and on the fast lane
-it says "strictness only" (issue #639, Part 10). A run that took no measure at
+it says "strictness only". A run that took no measure at
 all (no result, a skipped run, or every measure blocked) reads **did not run**,
 never a pass. It still never blocks: did not run keeps `passed: true`, so the
 verdict does not change.
@@ -100,13 +100,13 @@ The reasons below are not obvious from the code in `src/quality-ratchet/`.
 ## Boundaries
 
 - The dead-code reachability solver itself is owned by
-  [#109 traceability](../../traceability-engine/index/summary.md) — consumed here.
+  [traceability](../../traceability-engine/index/summary.md) — consumed here.
 - Test strength / mutation score is owned by
-  [#105 mutation testing](../../verification/mutation-testing.md) — it may report
+  [mutation testing](../../verification/mutation-testing.md) — it may report
   through the same rollup, but ratcheting it is a future extension (flagged, not
   built).
 - Non-measurable preference findings stay in
-  [#107 triage](../../verification/index/summary.md)'s taste pile; a measurable
+  [triage](../../verification/index/summary.md)'s taste pile; a measurable
   strictness/complexity regression is owned **here**.
 
 ## Source Footprint
@@ -117,6 +117,6 @@ The reasons below are not obvious from the code in `src/quality-ratchet/`.
   (`exception-decision.ts`), and the orchestrator (`runner.ts`).
 - `src/verification/gates/quality-ratchet.ts` — the verification gate.
 - `src/pipeline/phases/verification.ts` — wires the ratchet into the
-  verification phase, consuming #109's orphan set for the dead-code measure.
+  verification phase, consuming the traceability engine's orphan set for the dead-code measure.
 - `src/planning/decision-packet.ts` — the `quality.ratchet_exception` category.
 - Onboarded project — `.paqad/quality-baseline.json`.

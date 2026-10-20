@@ -17,7 +17,7 @@ export async function atomicWriteFile(targetPath: string, content: string): Prom
 
 `buildAndSwap` creates the parent folder, lets `build` write a sibling temp file, then renames it onto the target. `atomicWriteFile` is `buildAndSwap` with a plain `writeFile` build.
 
-## `src/core/fs/atomic-rename.ts` (issue #647)
+## `src/core/fs/atomic-rename.ts`
 
 ```ts
 export const RENAME_MAX_ATTEMPTS = 5;

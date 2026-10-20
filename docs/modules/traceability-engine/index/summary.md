@@ -40,7 +40,7 @@ reaches the solver, only the edges do.
 
 ## The change map: acceptance criteria against the tests that prove them
 
-The map that is built in production is the **change map** (issue #639, Part 11),
+The map that is built in production is the **change map**,
 from [`change-map.ts`](../../../../src/traceability/change-map.ts). It is built
 at two points, and each one writes it to `.paqad/traceability/map.json` through
 the same writer:
@@ -145,7 +145,7 @@ honest about what reality could and could not prove.
 ## Hand-off to the quality ratchet
 
 The reachability solver here emits the dead/orphan set; the **quality ratchet**
-(issue #110) consumes that output as a ratcheted *trend* measure. One solver,
+consumes that output as a ratcheted *trend* measure. One solver,
 two uses — this module owns the reachability/intent view.
 
 ## Authority

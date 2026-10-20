@@ -1,6 +1,6 @@
 # Provider-Agnostic Delivery Workflow
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `delivery-workflow` &nbsp;·&nbsp; **Issue:** #42
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `delivery-workflow`
 
 ## Purpose
 
@@ -85,7 +85,7 @@ the provider layer, not a stage registry.
 - **Decision categories**: `delivery.open_pr` (PR gate) and `delivery.ci_red`
   (red build needing a human call) follow the existing Decision Pause Contract.
 
-## AI attribution — keeping the vendor out of the contributor graph (issue #538)
+## AI attribution — keeping the vendor out of the contributor graph
 
 A coding agent writes its own vendor's attribution into the change it produces:
 Claude Code appends a `Co-Authored-By: Claude` trailer to the commit and an

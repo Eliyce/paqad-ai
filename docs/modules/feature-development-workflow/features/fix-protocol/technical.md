@@ -1,6 +1,6 @@
 # Fix Protocol — Technical
 
-> **Slug:** `fix-protocol` &nbsp;·&nbsp; **Issue:** #103
+> **Slug:** `fix-protocol`
 
 ## Source footprint
 
@@ -42,7 +42,7 @@ On success the proof is persisted and the result is `fixed`.
 line is a blank line, a full-line comment (per the file's language), or a C-style block-comment
 delimiter line — or the file is a documentation file (`.md`, `.txt`, `.rst`, …). Unknown file types,
 code lines, comment markers from another language, and files with no recorded line detail all default to
-**behaviour-affecting** (issue #103: when in doubt, treat as behaviour-affecting). The verdict carries
+**behaviour-affecting** (when in doubt, treat as behaviour-affecting). The verdict carries
 `behavioural_evidence` so each non-skip is logged.
 
 ## The green baseline (open decision #1)
@@ -70,7 +70,7 @@ category is documented in the Decision Pause Contract, carried by the framework 
 ## Honest dependency
 
 A proof is only as trustworthy as the suite that runs it. This feature does not judge test strength —
-that is mutation testing (#105) and flaky-test detection (#106).
+that is mutation testing and flaky-test detection.
 
 ## Why the code works the way it does
 

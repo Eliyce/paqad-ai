@@ -11,7 +11,7 @@ Every message is routed before any work starts. Routing answers two questions: i
 - **The coding agent** reads the hook's route label, checks it against the message, and corrects it when it is wrong.
 - **The developer** guides the agent and can see each route on the screen as a `**▸ paqad** ·` line.
 
-## What routing gets right (issue #623)
+## What routing gets right
 
 - **Talking about the work is not a code change.** "Post this as an issue", "update the draft", "link the ticket" or "recheck and reconfirm the plan" go to project question, not feature development. A real code request that mentions a report, a plan or a doc still goes to feature development: "fix the typo in the report" or "add retry logic to the report generator" stay code changes. A message that names a source path, a code verb such as fix or build, or a part of the product such as a page or an endpoint is always treated as code.
 - **A subagent's report is not you talking.** When a subagent hands its report back, or a background task posts a notice, paqad does not route it as if you had typed it. This holds wherever the notice banner sits in the message, including when the report comes first.

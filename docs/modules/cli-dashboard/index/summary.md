@@ -1,6 +1,6 @@
 # Project Dashboard & Status Commands
 
-> **Layer:** `cli-commands` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `cli-dashboard` &nbsp;·&nbsp; **Issue:** #146
+> **Layer:** `cli-commands` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `cli-dashboard`
 
 ## Purpose
 

@@ -4,21 +4,21 @@
 
 ## Purpose
 
-The reusable, script-written, session-scoped, append-only JSONL evidence primitive
-(issue #249 P0). It owns the layout `.paqad/ledger/<docType>/<session>/<ordinal>.jsonl`
+The reusable, script-written, session-scoped, append-only JSONL evidence primitive.
+It owns the layout `.paqad/ledger/<docType>/<session>/<ordinal>.jsonl`
 and provides:
 
 - **atomic ordinal allocation** via exclusive-create (`wx`) retry, so the background
   worker and the prompt seam never share an ordinal;
 - an **`.open` pointer** to the current ordinal, which `closeSessionOrdinal` resets to
-  `0` so the next allocation opens a FRESH ordinal (issue #321 — a passing change closes,
+  `0` so the next allocation opens a FRESH ordinal (a passing change closes,
   the next change gets its own unit and never free-rides on the previous one);
 - a **script-clock `ts`** and an identity **`content_hash`** (excludes `ts`/`content_hash`/
   `note`) stamped on every row;
 - a **tolerant reader** that skips malformed lines so a mid-crash write never poisons reads;
 - an **injectable per-row validator** (the consumer plugs its AJV schema).
 
-The RAG-evidence ledger (#249) and the stage-evidence ledger (#247) both consume this
+The RAG-evidence ledger and the stage-evidence ledger both consume this
 one primitive instead of duplicating it. It imports no enterprise code, so it is
 always-on and independent of any AI-BOM / enterprise flag.
 
@@ -30,7 +30,7 @@ ONE row so the bypass is visible in the dashboard / SIEM. It is recorded by
 `hook-completion` origin) — the enforcement contract (no gates when disabled) is
 untouched; the audit is a hook-layer concern, so the `runRepositoryVerification` API
 stays a pure no-op when disabled. A disabled project also never takes the Stop hook's
-background-stage step-aside in `runtime/hooks/verification-completion.mjs` (issue #673), so
+background-stage step-aside in `runtime/hooks/verification-completion.mjs`, so
 this audit row is the only thing a disabled Stop writes, with no `completion-deferred` row.
 
 ## Why the code works the way it does

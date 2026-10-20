@@ -13,8 +13,8 @@
 - `runtime/hooks/agent-entry-prompt-gate.mjs` — the cross-platform (`.mjs`) gate
   that imports `emitContext` and calls it in-process. It emits the block ONLY when
   the framework is loaded (sentinel fresh); until then it emits only the load
-  directive, so the directive can never be buried under the context block (#240 /
-  the always-load fix).
+  directive, so the directive can never be buried under the context block (the
+  always-load fix).
 
 ## Entry Points
 
@@ -42,10 +42,10 @@
 - The prompt gate (`agent-entry-prompt-gate.mjs`) imports `emitContext` and calls
   it in-process, but ONLY when the sentinel is fresh (framework loaded). When the
   framework is not loaded it emits the load directive alone and suppresses the
-  context block, so the directive owns the top of context (#240). The standalone
+  context block, so the directive owns the top of context. The standalone
   `context-seam-inject.mjs` entry stays available and behaves identically when run
   directly.
-- Route first, then inject (issue #582). The gate routes the prompt before it emits
+- Route first, then inject. The gate routes the prompt before it emits
   the block. The artifact is shared by every session in the checkout, so for a
   prompt routed to anything but feature-development it calls
   `emitContext(..., { stripRules: true })`, and `buildInjection` drops the rule

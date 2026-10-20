@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Give every onboarded project a health check-up on demand — routed workflow #10, at
+Give every onboarded project a health check-up on demand — a routed workflow, at
 the same tier as pentest and design-test. The user says "check my project's health"
 and paqad scans for six kinds of junk: dead code, unused packages, outdated or risky
 packages, leaked secrets, stale docs, and copy-paste AI slop. Every finding carries
@@ -157,6 +157,6 @@ If anything here disagrees with the map, the **map wins**.
 ## Related
 
 - Workflow rules: `runtime/capabilities/coding/rules/codebase-health.md` + `health-retest.md`.
-- Code-knowledge index: issue #353 (`src/code-knowledge`).
+- Code-knowledge index: `src/code-knowledge`.
 - Pentest (the sibling audit workflow): `src/pentest`, `docs/modules/...`.
 - Code-knowledge index (dead code + unused deps source): `src/code-knowledge`.

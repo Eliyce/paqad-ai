@@ -1,6 +1,6 @@
 # Mutation Testing — Verification Gate
 
-> **Slug:** `mutation-testing` &nbsp;·&nbsp; **Issue:** #105 &nbsp;·&nbsp; **Gate:** `mutation-testing`
+> **Slug:** `mutation-testing` &nbsp;·&nbsp; **Gate:** `mutation-testing`
 
 ## Why this exists
 
@@ -33,7 +33,7 @@ at weak checking.
 | Mode (floored)  | `src/mutation/mode.ts` (`resolveMutationMode`)         |
 | Backstop seam   | `src/mutation/backstop.ts` (`runBackstopMutation`)     |
 
-## When it runs (issue #293)
+## When it runs
 
 Mutation testing is **off by default** and opt-in. It is controlled by one floored knob, `mutation_mode`
 (`off`, `warn` or `strict`, env `PAQAD_MUTATION_MODE`). The team value in `.paqad/configs/.config.*` is a
@@ -115,7 +115,7 @@ result is **not** rolled up into a module's `mutation_score`.
 
 - **Survivors escalate under `warn`.** `mutation_mode=strict` sets `mutation_strict` on the context and
   turns surviving behaviour-changing mutants into a hard block. This avoids turning every survivor into a
-  stop before baselines exist; ratcheting the score over time is owned by #110.
+  stop before baselines exist; ratcheting the score over time is owned by the quality ratchet.
 - **Not required vs did not run.** Mode off, the end of an agent turn, the fast lane and a change with no
   code read not required. A missing or red test command, a missing tool and a failed run read did not
   run, with the reason in the detail. Neither is ever a pass.
@@ -155,6 +155,6 @@ The reasons below are not obvious from the code in `src/mutation/`.
 
 ## Boundaries
 
-- Flaky/non-deterministic tests that make the kill rate noisy → **#106 (flaky-test detection)**.
-- Ratcheting the mutation score over time → **#110 (quality ratchet)**; this gate produces the signal.
-- Acting on / triaging survivors → **#107 (triage findings)**.
+- Flaky/non-deterministic tests that make the kill rate noisy → **flaky-test detection**.
+- Ratcheting the mutation score over time → **the quality ratchet**; this gate produces the signal.
+- Acting on / triaging survivors → **finding triage**.

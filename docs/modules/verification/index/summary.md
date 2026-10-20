@@ -1,6 +1,6 @@
 # Verification Gates
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `verification` &nbsp;·&nbsp; **Issue:** #117
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `verification`
 
 ## Purpose
 
@@ -42,17 +42,17 @@ from turning into a nuisance:
   #2, `runtime/hooks/lib/loop-guard.mjs`). The same guard covers the
   capability-gate completion seam. The hard, non-bypassable check remains at
   git/CI.
-- **It checks only the session that owns the change (issue #582).**
+- **It checks only the session that owns the change.**
   `runRepositoryVerification` asks `classifyCompletionEnforcement`
   (`src/pipeline/session-ownership.ts`) first. A session with no agent-written stage
   rows of its own in an unclosed bundle is skipped with the audit reason `not-owner`,
   so a question in a second session is never held to another session's change. An
   owner on a non-feature turn that edited nothing this turn is skipped as `detour`.
   Both skips are logged by `src/session-ledger/non-feature-skip-audit.ts`. This
-  replaced the older #499 guess, which tried to prove "not feature-development" from
+  replaced an older guess, which tried to prove "not feature-development" from
   state every session shares.
 
-## Who speaks the receipt (issue #409)
+## Who speaks the receipt
 
 The completion hook writes the ledger and computes the verdict, but it does **not**
 speak in chat. It used to echo the receipt on Claude's `{systemMessage}` channel,
@@ -87,7 +87,7 @@ a Stop `{systemMessage}` as `Stop says:` lines, an echo there would only duplica
 agent's receipt and leak model-only advisories. The agent's final message is the sole
 developer-facing channel; enforcement rides `{decision:'block'}` plus the git/CI backstop.
 
-### paqad keeps its own receipt every turn (issue #639, Part 6)
+### paqad keeps its own receipt every turn
 
 The in-session Stop backstop (`runtime/scripts/verify-backstop.mjs`, `hook-completion`)
 still prints nothing on a clean or Inconclusive turn. It now writes the composed receipt,
@@ -96,13 +96,13 @@ and the verdict (word, kind, passed, reasons) to `.paqad/session/hud/<session>.v
 through `writeHudReceipt` in `src/hud/receipt-file.ts`. A failed write is logged to
 `.paqad/logs/hook-failures.log` and never changes the `{decision:'block'}` or the exit code.
 
-A turn whose check was skipped (issue #669) writes neither file. The not-owner and detour
+A turn whose check was skipped writes neither file. The not-owner and detour
 skip verdict carries `applicable: false`, and `writeHudReceipt` returns null for it, and for
 any verdict with no gates and no decided kind, which would otherwise read as Safe to merge.
 The previous HUD files stay as they were, so a question asked after a graded change keeps
 showing that change's real verdict.
 
-## One verdict rule (issue #639, Part 4)
+## One verdict rule
 
 `verdictKindFor` in `src/verification/verdict-kind.ts` decides the verdict word for every
 surface: any failed gate is Needs your attention; otherwise any inconclusive gate, or any
@@ -124,15 +124,15 @@ and documentation:
 
 | Gate | Concern |
 | --- | --- |
-| `ac-test-mapping` | Every automated acceptance criterion in the frozen spec is named by a test changed on the branch, read from the change map (#639 Part 11, see [`traceability-engine`](../../traceability-engine/index/summary.md)). |
+| `ac-test-mapping` | Every automated acceptance criterion in the frozen spec is named by a test changed on the branch, read from the change map (see [`traceability-engine`](../../traceability-engine/index/summary.md)). |
 | `behavioral-correctness` | The change does what the spec says. |
 | `change-completeness` | The change is whole — no half-applied edits. |
 | `code-tests-lint` | Tests, types, and lint pass. |
-| `mutation-testing` | Tests would actually catch a behaviour-changing mistake (#105). Opt-in through `mutation_mode` (default off) and measured only on the `ci-backstop` / `git-backstop` origins a project wires itself (#293); otherwise not required. |
+| `mutation-testing` | Tests would actually catch a behaviour-changing mistake. Opt-in through `mutation_mode` (default off) and measured only on the `ci-backstop` / `git-backstop` origins a project wires itself; otherwise not required. |
 | `quality-ratchet` | No quality measure regresses (see [`quality-ratchet`](../../quality-ratchet/index/summary.md)). |
 | `requirement-completeness` | Requirements are fully addressed. |
 | `spec-review` / `story-quality` | LLM-judged quality of the spec and the story. |
-| `implementation-review` | LLM-judged quality of the implementation — **plus** a deterministic part (#360): the gate fails when a deterministic, file-anchored, high-severity machine finding is never cited by `file:line` in the recorded `review.json`. Ignoring the machine is detectable; the verdict itself is still judgment. |
+| `implementation-review` | LLM-judged quality of the implementation — **plus** a deterministic part: the gate fails when a deterministic, file-anchored, high-severity machine finding is never cited by `file:line` in the recorded `review.json`. Ignoring the machine is detectable; the verdict itself is still judgment. |
 | `architecture-compliance` / `database-quality` / `extension-surface` | Structural and contract conformance. |
 | `documentation-freshness` / `documentation-checks` / `instructions-docs-structure` / `module-docs-structure` | Docs are present, current, and well-formed. |
 
@@ -150,14 +150,14 @@ receipt prints one line per waiting decision after the skip lines, with the skip
 `a decision is waiting for you: D-<id> (<category>): <question>`. Those lines never change the
 counts or the verdict word.
 
-### The late gates (issue #579)
+### The late gates
 
 Three evidence gates run after the bank, at the completion seam, because they read files the
 seam itself writes: `bundle-completeness`, `visual-evidence` (see
 [`visual-evidence`](../../visual-evidence/index/summary.md)) and `rules-loaded`. Each is recorded
 in the active bundle's `evidence.jsonl` too, one row per gate, skips included (verdict
 `skipped`, the skip reason as the detail), like the graded rows always on whatever the
-enterprise toggles (issue #581). When the visual-evidence gate has no bundle to read it
+enterprise toggles. When the visual-evidence gate has no bundle to read it
 records nothing.
 
 `rules-loaded` fails a feature-development change with no `rules-loaded.json` at the
@@ -168,7 +168,7 @@ that does exist is still judged on CI (pass, or inconclusive when it is stale).
 
 The stage-evidence and checks (`code-tests-lint`) gates are recorded with them, and when the
 only gap is an unrecorded mandatory stage, an inconclusive `unrecorded-mandatory-stages` row is
-added too (issue #669). The bundle receipt and AI-BOM are sealed only after all of that, from
+added too. The bundle receipt and AI-BOM are sealed only after all of that, from
 rows for every gate the verdict read, and before the verdict is built. So `receipt.json`'s
 `verification_result` (PASSED, FAILED, INCONCLUSIVE) says the same thing as the HUD verdict
 file and the HUD receipt. Because the receipt is written after `bundle-completeness` runs,
@@ -181,7 +181,7 @@ A blocked row (a measure that could not be taken) stays listed on the receipt bu
 make it Inconclusive; only an inconclusive row does (decision D-01M5A0MG6537XJ7S3MD3Q4PSCR).
 That keeps the receipt in step with the HUD verdict, which reads gate statuses only.
 
-### Not required and did not run (issue #639, Part 10)
+### Not required and did not run
 
 A gate that measured nothing never reads as a pass. It says one of two things:
 
@@ -417,16 +417,16 @@ recall because the gate can block:
 ## Feature Pages
 
 - [Mutation Testing — Verification Gate](../mutation-testing.md) — plant mutants in
-  the changed code and confirm the tests catch every behaviour-changing one (#105).
-  Off by default; runs on CI and pre-push only when the project opts in (#293).
+  the changed code and confirm the tests catch every behaviour-changing one.
+  Off by default; runs on CI and pre-push only when the project opts in.
 - [Flaky-Test Handling — Trust in a Pass](../flaky-handling.md) — own the
-  test-trust signal so a green run means green (#106).
+  test-trust signal so a green run means green.
 - [Deterministic Check Runner](../check-runner.md) — run the mapped
   format/test/build commands and feed real structured results to `code-tests-lint`,
-  so the completion verdict proves the checks ran instead of assuming they did (#318).
+  so the completion verdict proves the checks ran instead of assuming they did.
 - [Review Evidence Digest](../review-digest.md) — hand the review stage the facts
   paqad already computed, and make an unaddressed deterministic finding a review
-  failure rather than a silent omission (#360).
+  failure rather than a silent omission.
 
 ## Source Footprint
 
@@ -439,11 +439,11 @@ recall because the gate can block:
 - `src/verification/repository/**` — the repository-facing inputs the gates read.
 - `src/checks/run-checks.ts`, `src/checks/report-store.ts`, `src/cli/commands/checks.ts`
   — the deterministic check runner (`paqad-ai checks run`) that produces the
-  structured test/build/format results `code-tests-lint` consumes (#318).
+  structured test/build/format results `code-tests-lint` consumes.
 - `src/review-digest/**`, `src/cli/commands/review.ts` — the review evidence digest
   (`paqad-ai review digest`): one collector unions the four cached finding sources,
   a pure composer renders the digest, and `implementation-review` re-derives the
-  same rows to check the review addressed them (#360).
+  same rows to check the review addressed them.
 
 ## Boundaries
 

@@ -1,6 +1,6 @@
 # Decision Pause Contract — where the contract lives
 
-> **Status:** relocated to the framework bootstrap in #229 (was a managed project doc, #37); moved into the router half of the gate/router split in #498 &nbsp;·&nbsp; **Owner:** framework-internals
+> **Status:** relocated to the framework bootstrap (was a managed project doc); moved into the router half of the gate/router split &nbsp;·&nbsp; **Owner:** framework-internals
 
 ## Why the contract lives in the framework install
 
@@ -11,7 +11,7 @@ auto-injected into every agent session, so any prose inlined there competes with
 the host's own system prompt for the model's instruction-following budget — and,
 critically, is loaded **whether or not paqad is enabled**.
 
-Issue #229 makes every entry file a **lean stub**: a one-line pointer to the
+The lean-entry change makes every entry file a **lean stub**: a one-line pointer to the
 framework bootstrap plus the graceful-degradation fallback clause and the
 `Adapter:` footer. The Decision Pause Contract (and the narration contract, and
 the load order) moved **out of the project entirely** and into one framework-owned
@@ -19,7 +19,7 @@ file in the install.
 
 ## The architecture
 
-1. **Two framework-owned docs, a gate + a router** (split in #498), both shipped in
+1. **Two framework-owned docs, a gate + a router**, both shipped in
    the install (`~/.paqad-ai/current`, the directory `.paqad/framework-path.txt`
    resolves to) and both **never written into a project** — they are reached via the
    install symlink. `runtime/AGENT-BOOTSTRAP.md` is the **gate**: its only job is the
@@ -45,7 +45,7 @@ file in the install.
    Unknown adapters fall back to the file-wait fallback documented in the contract.
 
 The project-level `.paqad/decision-pause-contract.md` is **no longer written**.
-Onboarding and `paqad refresh --providers` prune any stale pre-#229 copy via
+Onboarding and `paqad refresh --providers` prune any stale copy from before the lean-entry change via
 [`removeObsoleteContractDocs`](../../../src/onboarding/obsolete-cleanup.ts).
 
 ## Single source of truth for categories
@@ -60,7 +60,7 @@ cannot drift from the runtime as categories are added.
 
 [`inspectProviderEntryBootstrapPointer`](../../../src/health/provider-entry-contract.ts)
 checks that every present entry file is a lean stub that points to the bootstrap
-(and warns if a stale pre-#229 entry file still inlines a contract section);
+(and warns if a stale pre-lean-stub entry file still inlines a contract section);
 [`inspectProviderEntryFallbackClause`](../../../src/health/provider-entry-contract.ts)
 checks the fallback clause is present. The remediation hint points at
 `paqad refresh --providers`.

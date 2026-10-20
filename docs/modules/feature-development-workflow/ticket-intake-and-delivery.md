@@ -1,6 +1,6 @@
 # Feature Development — `ticket_intake` and `delivery` bookend stages
 
-> **Status:** stable since #42 &nbsp;·&nbsp; **Owner:** framework-internals
+> **Status:** stable &nbsp;·&nbsp; **Owner:** framework-internals
 
 ## Stage order today
 

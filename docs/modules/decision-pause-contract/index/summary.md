@@ -10,7 +10,7 @@ flagged choice the agent writes a Decision Packet to
 packet exists. Routed through the interactive question UI when
 available.
 
-### One packet shape (issue #639, Part 3)
+### One packet shape
 
 `paqad-ai decision create` (`createPendingDecision` in `src/decisions/authoring.ts`) writes a
 packet that keeps every contract field (`id`, `title`, `options`, `chosen` once resolved) and
@@ -36,7 +36,7 @@ call, capped to keep the token cost low and best-effort so a missing/corrupt sto
 breaks the pause. It complements `findReusableDecision` (which auto-reuses an exact-kind
 match) by only ADVISING on related-but-not-identical precedents the human still decides.
 
-### The visual-evidence readiness pause (issue #579)
+### The visual-evidence readiness pause
 
 `plan compile` opens one packet itself, through `createPendingDecision`, when visual evidence
 is on, the change is frontend (plan step files plus changed files), and this machine cannot

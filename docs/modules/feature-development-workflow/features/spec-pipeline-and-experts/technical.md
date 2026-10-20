@@ -1,6 +1,6 @@
 # Spec Pipeline & Experts (Technical)
 
-> **Slug:** `spec-pipeline-and-experts` &nbsp;·&nbsp; **Issue:** #547
+> **Slug:** `spec-pipeline-and-experts`
 
 ## The steps
 
@@ -18,7 +18,7 @@ The pipeline is a fixed step-machine. It runs in order and each step writes its 
 
 ## Where the run lives
 
-The pipeline writes straight into the change's evidence bundle (issue #581). There is no separate scratch folder. Each fact lands in the bundle the moment the verb that owns it runs:
+The pipeline writes straight into the change's evidence bundle. There is no separate scratch folder. Each fact lands in the bundle the moment the verb that owns it runs:
 
 | Bundle file | Written by | Contents |
 |---|---|---|
@@ -36,12 +36,12 @@ Expert briefs are never stored. `paqad-ai spec pipeline experts brief <role>` pr
 
 | Flag | Effect |
 |---|---|
-| `spec_pipeline_enabled` | Master switch, default `true` (issue #640). Set `false`, and the change is exactly as before. |
-| `spec_pipeline_experts_enabled` | Gates the roster, default `true` (issue #640). Set `false`, and the `experts` step completes by skip. |
+| `spec_pipeline_enabled` | Master switch, default `true`. Set `false`, and the change is exactly as before. |
+| `spec_pipeline_experts_enabled` | Gates the roster, default `true`. Set `false`, and the `experts` step completes by skip. |
 | `spec_pipeline_clarification` | Gates the `questions` step. |
 | `spec_pipeline_final_review` | Gates the chief architect's readiness pass. |
 | `spec_pipeline_token_ceiling` | Per-run token budget, default 40000. Overruns are recorded as ceiling warnings, not hard stops. |
-| `spec_pipeline_adoption` | `warn` \| `strict`, default `strict` (issue #640). Controls how strict the freeze is (see Freeze). |
+| `spec_pipeline_adoption` | `warn` \| `strict`, default `strict`. Controls how strict the freeze is (see Freeze). |
 
 The three defaults live in one place, `SPEC_PIPELINE_DEFAULTS` in `src/core/framework-config.ts`. `readPipelineConfig`, `readSpecPipelineFlags` and the prompt-gate nudge (`runtime/hooks/lib/agent-entry-directive.mjs`, which mirrors the values and is guarded by a drift test) all read an unset key as that default. A value set in any layer wins, in the usual order: `PAQAD_*` env, then `.paqad/.config`, then `.paqad/configs/.config.*`. `paqad-ai update` never writes a default into a config file.
 
@@ -81,7 +81,7 @@ The `chief-architect` is never picked; it runs once any expert fired. The model 
 
 paqad calls no model from Node. Every deterministic step is model-free: the roster check, brief sizing, merge, id assignment, synthesis validation, packet minting, trace gate, and metrics. The model is consulted only inside the skills; the scripts around them decide nothing that a rerun could change.
 
-## Standing experts and the project voice (issue #558)
+## Standing experts and the project voice
 
 The roster is thirteen pickable roles. Four are **standing** and seated by the script on every run whatever the detector returned: `product-owner`, `application-architect`, `user-flow-writer`, `qa-engineer`. The other nine are **on call** and picked by the detector as before. `application-architect` is a new role (`AGENT_ROLES`, budget 8000), separate from `solution-architect`: the application architect owns "which framework piece each part becomes and where it lives", the solution architect owns reuse and consumers. The standing set is configurable through `spec_pipeline_standing_experts` (comma-separated role ids; empty means none; an unknown id is dropped with a doctor warning). The onboarded token ceiling default rose to 40000 so the four standing budgets are not clamped.
 
@@ -91,7 +91,7 @@ A deterministic voice check (`checkFindingVoice`) flags a finding target the pro
 
 The frozen `specification.json` pipeline section keeps a `findings` snapshot of every accepted finding (after renames) plus an `experts` summary (`standing`, `on_call`, `renamed`), and the grounding section persists the `vocabulary` so a brief rebuilds with the same hash. The feature report renders a "Who contributed what" table from the trace and the snapshot. `paqad-ai spec pipeline metrics` reports each expert's `tier`, `empty rate` and `voice warnings` next to its `changed_spec` rate, and prints the demotion footer.
 
-## The High Table (issue #639, Part 13)
+## The High Table
 
 The experts and the chief architect sit at the High Table. Each seated expert can run as its own host subagent, `paqad-expert`, with its role given in the prompt, and the chief runs as `paqad-chief-architect`. Several seats can then write at once. Both agents are read-only: each writes one artifact under `.paqad/tmp/` and hands it to a `paqad-ai spec pipeline experts` verb. Install and update write them at user scope beside the six stage agents, but they are never stages: only the six `paqad-<stage>` agents add a `stage-agent` row or count as an isolated stage (`stageForAgentName` in `src/stage-isolation/stage-agents.ts`).
 

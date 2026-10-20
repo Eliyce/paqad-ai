@@ -16,8 +16,7 @@
   shared kernel seam; replaces the retired single-purpose
   `rule-script-enforce.mjs`).
 - `src/adapters/claude/claude-adapter.ts` — registers the hook.
-- Rule-compliance evidence lives in the per-feature bundle (issue #468 Phase C, finishing
-  #339 — the retired project-scoped `rule-evidence` doc and `src/rule-scripts/rule-ledger.ts`
+- Rule-compliance evidence lives in the per-feature bundle (the retired project-scoped `rule-evidence` doc and `src/rule-scripts/rule-ledger.ts`
   are gone). The runner records a `findings` row (mirrors `report.json`'s counts) via
   `appendRuleRun` into the active feature's `rule-run.jsonl`; the reconciler records a `drift`
   row (mirrors `drift.json`'s `blocked` + counts) the same way. The dashboard
@@ -31,7 +30,7 @@
 - `enforceRuleScripts({ projectRoot, mode, changedFiles?, scope? })` → `EnforcementResult`
   `{ ran, mode, blocking, violations, armed, summary }`. Wraps `runRuleScripts`; resolves
   the working set via `loadChangeEvidence` when `changedFiles` is omitted. `scope`
-  (default `changed-files`) decides how an EMPTY working set is treated (issue #580): a
+  (default `changed-files`) decides how an EMPTY working set is treated: a
   `changed-files` scope skips (`ran: false`, `⚪ skipped (no files changed this turn)`) so a
   clean tree never triggers a whole-tree block, while `whole-tree` scans the whole tree. The
   capability kernel passes `changed-files` at completion and `whole-tree` at pre-mutation.
@@ -46,7 +45,7 @@
   (default `warn`; local `.config` / `PAQAD_RULE_COMPLIANCE` may only RAISE). The
   team FLOOR is the stricter of the merged `configs/.config.*` `rule_compliance`
   value and the project's own `feature-development.yaml`
-  `checks.rule_compliance.mode` (issue #319). The workflow-yaml knob used to be a
+  `checks.rule_compliance.mode`. The workflow-yaml knob used to be a
   placebo — read into the policy object but ignored by the resolver — so a team that
   set `strict` there silently got `warn`; it is now a real input. The resolver reads
   the RAW on-disk workflow file (an explicit team decision), not the merged policy,
@@ -73,7 +72,7 @@
   like `verify-backstop.mjs`). The seam (`pre-mutation` | `completion`) is the
   hook's first argv.
 - At the `completion` seam, rule-scripts run only when
-  `classifyCompletionEnforcement` (`src/pipeline/session-ownership.ts`, issue #582)
+  `classifyCompletionEnforcement` (`src/pipeline/session-ownership.ts`)
   says this session's turn is due its checks, the same decision the Stop backstop
   uses. A session that owns no change, or an owner on a non-feature turn that edited
   nothing, runs no rule-scripts. The session id comes from the hook payload, else
@@ -85,7 +84,7 @@
   intentionally untouched (cross-provider rollout of the kernel seam is a
   follow-up).
 
-## Map generation (issue #319)
+## Map generation
 
 - `src/rule-scripts/compile.ts` — `compileRuleScripts(projectRoot)` GENERATES the
   `rule-script-map.yml` the whole engine depends on. It reuses the analyzer's

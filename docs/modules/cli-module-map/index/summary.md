@@ -1,6 +1,6 @@
 # Module Map Inspection Commands
 
-> **Layer:** `cli-commands` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `cli-module-map` &nbsp;·&nbsp; **Issue:** #80
+> **Layer:** `cli-commands` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `cli-module-map`
 
 ## Purpose
 

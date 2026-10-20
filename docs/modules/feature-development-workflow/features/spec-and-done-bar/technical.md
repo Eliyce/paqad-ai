@@ -1,6 +1,6 @@
 # Feature Spec & "Done" Bar — Technical
 
-> **Slug:** `spec-and-done-bar` &nbsp;·&nbsp; **Issue:** #102
+> **Slug:** `spec-and-done-bar`
 
 ## Source footprint
 
@@ -44,13 +44,13 @@ The `specification` stage carries framework-owned strictness `require_spec_signo
 `missing_spec_signoff: stop`). Like every `require_*` flag it is merge-safe — a project override cannot
 downgrade it. The `fast` lane omits the specification stage, so trivial work is unaffected.
 
-The agent runs the freeze mid-turn via the CLI (issue #317): `npx paqad-ai spec freeze <spec-file>
+The agent runs the freeze mid-turn via the CLI: `npx paqad-ai spec freeze <spec-file>
 --signed-off-by <name> --confirm-invariants` wires `buildFeatureSpec → evaluateSpecFreeze → freezeSpec
 → writeFeatureSpecification`. It prints every blocker and exits non-zero (nothing written) when the
 spec is not freezable. On a clean spec it writes two files into the active feature's bundle: the
 frozen `specification.json`, and `spec.md`, which is your signed markdown copied byte for byte with
 the shared header in its front matter, so `spec_hash` still checks out after you delete the scratch
-copy (issue #581). The old `.paqad/specs/` sidecars are no longer written. The
+copy. The old `.paqad/specs/` sidecars are no longer written. The
 `--confirm-invariants` flag is the operator's sign-off act — without it, unconfirmed invariants stay
 blockers so a freeze is never implied. The verb only invokes the engine; it reimplements no freeze logic.
 
@@ -58,7 +58,7 @@ blockers so a freeze is never implied. The verb only invokes the engine; it reim
 
 `isDone({ gates_passed, acceptance_criteria, findings })` returns `done` only when gates pass, every
 acceptance criterion's proof passes, and no confirmed non-taste finding remains. Findings of kind
-`taste` never flip the bar — they are recorded for triage (#107). `renderDefinitionOfDone()` renders the
+`taste` never flip the bar — they are recorded for triage. `renderDefinitionOfDone()` renders the
 checklist and names the failing gate / acceptance criterion / finding.
 
 ## Spec-lifecycle decisions

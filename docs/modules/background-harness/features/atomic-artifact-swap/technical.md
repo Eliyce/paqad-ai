@@ -42,7 +42,7 @@ per-process counter, guaranteeing distinct temp names across concurrent builds.
   `src/core/schema-version.ts`, others). New background-maintained artifacts should
   route through `buildAndSwap` rather than adding another copy.
 
-## Rename retry on Windows (issue #647)
+## Rename retry on Windows
 
 On Windows, a rename onto a target that another writer or reader is touching at that moment
 can fail with `EPERM`, `EACCES` or `EBUSY` instead of replacing it. macOS and Linux do not fail

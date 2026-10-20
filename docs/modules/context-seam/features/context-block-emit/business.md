@@ -24,7 +24,7 @@ The technical contract lives at [`technical.md`](./technical.md).
 - **Emit on prompt:** `agent-entry-prompt-gate.mjs` calls the seam emit in-process
   on every enabled prompt, but ONLY once the framework is loaded (sentinel fresh).
   Until then it emits only the framework-load directive and suppresses the context
-  block, so the directive is never buried under it (#240).
+  block, so the directive is never buried under it.
   - paqad disabled → the hook is a pure no-op (no block, no contamination of an
     A/B OFF arm).
   - `rag_enabled` off (the default) → nothing is written; the agent gets today's
@@ -37,8 +37,8 @@ The technical contract lives at [`technical.md`](./technical.md).
 - Emitting is purely a read; the hook never mutates project state.
 - The block runs independent of sentinel freshness — context is helpful even
   before the framework is fully loaded on the first turn.
-- Two master gates suppress emission to today's baseline: paqad disabled (issue
-  #220) and `rag_enabled` off — the injection accelerator's default-off switch
+- Two master gates suppress emission to today's baseline: paqad disabled
+  and `rag_enabled` off — the injection accelerator's default-off switch
   (F3). Either off ⇒ "disabled == missing == today."
 - The hook always exits 0; failure means "no context," never a broken turn.
 

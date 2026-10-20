@@ -6,7 +6,7 @@
 
 Recommends stack-scoped MCP servers in `.paqad/mcp-recommendations.json`
 and never writes another tool's MCP config file. Removes only the
-legacy MCP files older paqad versions wrote (issue #622).
+legacy MCP files older paqad versions wrote.
 
 - **Recommendations.** `McpConfigManager.generate(profile)` returns one file,
   `.paqad/mcp-recommendations.json`, shaped `{ "servers": [{ "name", "provides", "replaces", "why" }] }`.

@@ -17,7 +17,7 @@
 
 The agent routes by intent, following `AGENT-ROUTER.md`. The classifier only writes the hook's first guess. `paqad-ai route set` makes enforcement follow the agent's pick.
 
-## The about-work signal (issue #623)
+## The about-work signal
 
 `isAboutWorkPrompt(requestText)` in `pre-classifier.ts` marks a prompt that talks about the work rather than asking to change code. It routes the prompt to `project-question`, ahead of the code-change tier.
 
@@ -26,7 +26,7 @@ The agent routes by intent, following `AGENT-ROUTER.md`. The classifier only wri
 - When the prompt also carries a code keyword such as "add", a tracker noun or target must be named, so a real code request is never routed away from feature development.
 - A separate fallback routes a prompt with a tracker verb and no code to `project-question` when nothing else matched. It never outranks a code keyword.
 
-## A stage named during an open change (issue #669)
+## A stage named during an open change
 
 `runPromptRouteSeam` in `prompt-lane.ts` keeps a prompt that names a feature-development stage on feature-development when this session has a change open, so "run documentation_sync" does not pause the change and route to `documentation-update`.
 
@@ -38,7 +38,7 @@ The agent routes by intent, following `AGENT-ROUTER.md`. The classifier only wri
 - With no open change the prompt routes as before, and an open change does not keep an unrelated question from detouring.
 - The rule lives only in the seam. `pre-classifier.ts` stays stateless.
 
-## Notifications and hand-backs (issue #623)
+## Notifications and hand-backs
 
 `isSystemNotificationPrompt` in `prompt-lane.ts` keeps text that is not the person's own input out of routing. A prompt counts as a notification when:
 
@@ -48,7 +48,7 @@ The agent routes by intent, following `AGENT-ROUTER.md`. The classifier only wri
 
 Each marker must open its own line. A human prompt that quotes one of them inline, or only one of them, still routes.
 
-## Route correction (issue #623)
+## Route correction
 
 `paqad-ai route set <workflow>`:
 

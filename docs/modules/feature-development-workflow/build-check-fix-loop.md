@@ -1,6 +1,6 @@
 # Build-Check-Fix Loop — Work Quietly, Stop Honestly
 
-> **Slug:** `build-check-fix-loop` &nbsp;·&nbsp; **Issue:** #108 &nbsp;·&nbsp; **Owns:** the outer loop — bounded rounds, quiet UX, one honest "stuck" report
+> **Slug:** `build-check-fix-loop` &nbsp;·&nbsp; **Owns:** the outer loop — bounded rounds, quiet UX, one honest "stuck" report
 
 ## Why this exists
 
@@ -20,9 +20,9 @@ no rounds construct, no cap, and no quiet-then-one-message UX.
 
 ## The loop (Settled)
 
-One round = build/change → run checks → if not `isDone()` (#102), triage
-findings (#107) → fix confirmed problems via the prove-it protocol (#103) → next
-round. The loop is the **only** place rounds live; #103 and #107 stay pure (no
+One round = build/change → run checks → if not `isDone()`, triage
+findings → fix confirmed problems via the prove-it protocol → next
+round. The loop is the **only** place rounds live; the fix protocol and finding triage stay pure (no
 looping inside them).
 
 - **Bounded.** A lane-scaled `max_rounds` cap, enforced by the pipeline runtime
@@ -57,7 +57,7 @@ never feels the machinery.
 | Run the bounded loop: count rounds, detect futility, decide done / cap / stop | `src/loop/build-check-fix-loop.ts` (`runBuildCheckFixLoop`) |
 | Resolve the lane-scaled cap (project override wins) | `src/loop/build-check-fix-loop.ts` (`resolveMaxRounds`), defaults in `src/core/types/build-check-fix.ts` |
 | Wrap the single verification pass as round N's "check" | `src/pipeline/phases/verification-loop.ts` (`VerificationLoopPhase`) |
-| The done condition the loop checks | `src/spec/definition-of-done.ts` (`isDone`, #102) |
+| The done condition the loop checks | `src/spec/definition-of-done.ts` (`isDone`) |
 | Persist the internal rounds log | `src/loop/rounds-log.ts` (`.paqad/session/build-check-fix-rounds.json`) |
 | Per-lane round-cap override | `docs/instructions/workflows/feature-development.yaml` › `rounds:` |
 | The stop rule, documented for the human | `runtime/base/checklists/human-escalation.md` |
@@ -78,11 +78,11 @@ message — one honest "stuck" report, not two.
 ## Boundaries (what this does NOT own)
 
 - What one fix does inside a round (prove → fix → no-regression) →
-  [#103 fix-protocol](features/fix-protocol/business.md).
-- Deciding which findings are real before fixing → [#107 finding triage](finding-triage.md).
-- The definition of "done" the loop checks → [#102 spec & done bar](features/spec-and-done-bar/business.md).
-- Strengthening the checks themselves → #105 mutation testing & #106 flaky-test detection.
-- The quality ratchet that some findings route to → #110.
+  [fix-protocol](features/fix-protocol/business.md).
+- Deciding which findings are real before fixing → [finding triage](finding-triage.md).
+- The definition of "done" the loop checks → [spec & done bar](features/spec-and-done-bar/business.md).
+- Strengthening the checks themselves → mutation testing & flaky-test detection.
+- The quality ratchet that some findings route to → [quality ratchet](../quality-ratchet/index/summary.md).
 
 ## Why the code works the way it does
 

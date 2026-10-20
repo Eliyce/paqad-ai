@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Visual evidence (issue #551). When a feature-development change touches frontend files,
+Visual evidence. When a feature-development change touches frontend files,
 paqad captures ordered screenshots of the **documented** user flows the change affects,
 pairs each with a business-language caption, stores everything in the feature's evidence
 bundle, assembles an overview GIF, and verifies the evidence at end-of-change like every
@@ -27,8 +27,8 @@ reports `skipped`.
    `visual_evidence.frontend_globs`. Non-frontend ⇒ everything downstream is `not-frontend`.
    If the profile declares frameworks but paqad loads none of its built-in packs, that is an
    install fault (`PackRegistryEmptyError`), not a clean change: the gate reads `fail` under
-   `strict` and `inconclusive` under `warn`, and `run` / `plan` print the fault and exit 1
-   (issue #579). It is never reported as `not-frontend`.
+   `strict` and `inconclusive` under `warn`, and `run` / `plan` print the fault and exit 1.
+   It is never reported as `not-frontend`.
 2. **Plan** (`resolve-plan.ts`) — deterministic: changed frontend files → owning modules
    (module-map) **and** surfaces whose `evidence[].file` anchors match → union of surfaces →
    the **confirmed** journeys that reference those surfaces → their capture scripts. No match
@@ -44,7 +44,7 @@ reports `skipped`.
    (a failed selector stops only that flow and keeps its prior steps), assembles the GIF, and
    atomically replaces `screenshots/` + `visual-evidence.json`. Screenshots added with
    `visual-evidence attach` survive every run path: their folders, files and hashes are carried
-   into the new manifest, and scripted folders are numbered after them (issue #579). Both
+   into the new manifest, and scripted folders are numbered after them. Both
    writers go through the one manifest writer in `manifest.ts`, and both work out the merged
    result the same way (`mergedVisualEvidenceResult`): `partial` when any step failed,
    `captured` when at least one step was captured and none failed, else `skipped`. So a failed
@@ -54,7 +54,7 @@ reports `skipped`.
    and returns pass / skipped / inconclusive|fail, verifying existence + manifest integrity +
    every referenced screenshot's size and SHA-256 (never the screenshot content).
 
-## When a capture cannot run here (issue #579)
+## When a capture cannot run here
 
 A frontend change on a machine with no confirmed journey, no capture script, the `site_map`
 flag off, or no provisioned browser used to find out only at the Stop gate. Now it hears
@@ -79,8 +79,8 @@ about it at every stage:
   verdict prints a line so a turned-on gate that skipped is visible: "⚪ visual evidence: not
   required (<reason>)" when there was nothing to capture (no documented flow, waived), or
   "⚪ visual evidence: did not run (<reason>)" when screenshots were owed and none were taken
-  (no capture script, capture script invalid). Issue #639, Part 10 records this as the row's
-  `skip_kind`.
+  (no capture script, capture script invalid). The row's `skip_kind`
+  records this.
 
 A change with no frontend files still reads skipped and not required (`not-frontend`): no
 pause, no block.
@@ -123,7 +123,7 @@ steps as agent-attached so they are never read as scripted captures.
 `app-not-reachable` / `env-var-missing` / `selector-not-found`.
 
 `no-documented-flow` / `no-capture-script` / `capture-script-invalid` are documented "nothing
-to capture" outcomes and read `skipped` under `warn`. Under `strict` (issue #579), a manifest
+to capture" outcomes and read `skipped` under `warn`. Under `strict`, a manifest
 whose only skips are `no-documented-flow` or `no-capture-script` fails unless screenshots were
 attached or a waiver was resolved. A waiver is any resolved decision that chose `waive` and
 carries the change's `[paqad-ve-readiness <bundle>]` token: the readiness decision planning

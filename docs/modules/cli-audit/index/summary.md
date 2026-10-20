@@ -6,7 +6,7 @@
 
 Give enterprises the AI-code audit trail without paqad becoming a SaaS. A
 read-only, local-first exporter that projects the unified evidence ledger and
-the tamper-evident receipt chain (issues #118 / #120) into the SIEM schemas a
+the tamper-evident receipt chain into the SIEM schemas a
 security team already ingests — then hands the result to **their** collector.
 There is no paqad-hosted control plane, stream, or endpoint: paqad reads the
 on-disk ledger and writes a standard-format file or stdout. Their backend, our
@@ -44,10 +44,10 @@ local session context, because it is projected from paqad's own ledger:
   `verdict`, the deterministic-vs-LLM-judged strength grade, the change-subject
   digest, and the content-hash dedup key. OCSF, ECS and CEF grade a verdict the same way
   (`src/audit/severity.ts`): a fail or blocked row is a finding, a pass is informational, and so
-  is a `skipped` row (a gate that did not apply to the change, issue #579), which reads OCSF
+  is a `skipped` row (a gate that did not apply to the change), which reads OCSF
   severity 1 and CEF severity 1 rather than unknown.
 - **Attestation events** — one per receipt: `PASSED`/`FAILED`, the hash-chain
-  **seal status**, the signing mode, the attested file digests, and the #120
+  **seal status**, the signing mode, the attested file digests, and the
   change authorship (agent, declared model/provider, accepting human).
 
 ## Why the code works the way it does
@@ -99,6 +99,6 @@ then regenerate this page via `create module documentation`.
 
 ## Related
 
-- Evidence ledger + receipts: issue #118 (`src/evidence`).
+- Evidence ledger + receipts: `src/evidence`.
 - Dashboard Trust area (view + PR-comment export of the same ledger): `src/dashboard/trust.ts`.
 - Stack overview: [`docs/instructions/stack/overview.md`](../../../instructions/stack/overview.md)

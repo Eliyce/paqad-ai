@@ -20,10 +20,10 @@ The surface comes from `BaseAdapter` (`src/adapters/adapter.interface.ts`):
 | `generateSkills(skills)` | `.junie/skills/` |
 | `generateAgents(agents)` | `.junie/agents/` |
 | `installHooks(hooks)` | `.junie/hooks.json` |
-| `installMcp(mcpConfigs, profile)` | returns nothing (issue #622) |
+| `installMcp(mcpConfigs, profile)` | returns nothing |
 | `configureCaching(profile)` | `.junie/cache.json` |
 | `configureMemory(profile)` | `.junie/memory.json` |
 
-## MCP (issue #622)
+## MCP
 
 paqad never writes `.junie/mcp/mcp.json`. Junie reads that file, and people add their own servers to it, so it belongs to them. Recommendations go to `.paqad/mcp-recommendations.json`, written once per project by the onboarding orchestrator. A `.junie/mcp/mcp.json` that an older paqad wrote is removed by `cleanupLegacyMcpFiles` (`src/mcp/cleanup.ts`) only when it is clearly paqad's own list.

@@ -13,7 +13,7 @@ Generated outputs (when applicable):
 
 - `CLAUDE.md`
 
-MCP config is not a generated output: paqad never writes another tool's MCP file (issue #622). Server
+MCP config is not a generated output: paqad never writes another tool's MCP file. Server
 suggestions go to `.paqad/mcp-recommendations.json`.
 
 

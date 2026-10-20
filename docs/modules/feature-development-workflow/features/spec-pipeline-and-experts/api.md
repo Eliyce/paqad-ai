@@ -1,6 +1,6 @@
 # Spec Pipeline & Experts (API)
 
-> **Slug:** `spec-pipeline-and-experts` &nbsp;·&nbsp; **Issues:** #512, #547, #558, #640
+> **Slug:** `spec-pipeline-and-experts`
 
 The pipeline has no HTTP surface. Its API is a set of CLI verbs under `paqad-ai spec`, a few config keys, and two exported TypeScript names in `src/core/framework-config.ts`. Every verb is model-free: the agent runs the skills, and the verbs only validate, record and advance.
 
@@ -64,7 +64,7 @@ Each key can be set in the usual layers. The first one found wins: the `PAQAD_*`
 | `spec_pipeline_token_ceiling` | `PAQAD_SPEC_PIPELINE_TOKEN_CEILING` | `40000` | Per-run token budget. Going over is a recorded warning, never a block. |
 | `spec_pipeline_standing_experts` | | the four standing roles | Comma-separated role ids. Empty means none. |
 
-The first three defaults changed in issue #640: the pipeline, the experts and strict adoption are now on. They apply on the graduated and full lanes only. The fast lane never runs the pipeline, whatever these keys say.
+The first three defaults were turned on later: the pipeline, the experts and strict adoption are now on. They apply on the graduated and full lanes only. The fast lane never runs the pipeline, whatever these keys say.
 
 ### Switching it off
 

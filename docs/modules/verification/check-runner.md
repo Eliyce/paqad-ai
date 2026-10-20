@@ -1,13 +1,13 @@
 # Deterministic Check Runner
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Slug:** `verification/check-runner` &nbsp;·&nbsp; **Issue:** #318, #554
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Slug:** `verification/check-runner`
 
 ## Purpose
 
 The `checks` stage is the one the product thesis says must be **100% deterministic**:
 run the project's format / test / build commands and block on red. It executes the mapped
 commands and turns each into a `StructuredTestResult`, the exact shape the `code-tests-lint`
-gate consumes. Since #554 it does this **fast without lowering the bar**: it runs the commands
+gate consumes. It does this **fast without lowering the bar**: it runs the commands
 as `&&` argv chains (never a shell), overlaps them, runs the test suite with the runner's own
 parallel mode when the project has it, and confirms every parallel-run failure alone before it
 blocks. No LLM, no heuristic — exit codes and parsed result files are the verdict.
@@ -20,7 +20,7 @@ recorded and read at completion; on advisory hosts the verb still runs but nothi
 
 The report goes into the bundle of the session the verb runs under (`src/checks/report-target.ts`),
 resolved in the same order as every other verb: the first non-blank of `SE_SESSION`, then
-`CLAUDE_SESSION_ID`, then the cached session id (#672). A stage agent running `checks run` with the
+`CLAUDE_SESSION_ID`, then the cached session id. A stage agent running `checks run` with the
 orchestrator's `SE_SESSION` therefore reports into the orchestrator's change, not its own.
 
 Before running, the agent runs `npx paqad-ai checks plan`; if it prints `test: sequential (unknown)`
@@ -28,7 +28,7 @@ it runs the **test-runner-discovery** skill and records the result with `npx paq
 record-runner <file>`, so the next run is fast. paqad never asks the developer to add a flag or
 install a package.
 
-## Flow (#554)
+## Flow
 
 1. **Execute correctly (Part A).** `parseCommandChain` / `runCommandChain`
    (`src/checks/command-chain.ts`) split a mapped command on the standalone `&&` token into
@@ -60,7 +60,7 @@ install a package.
    `results[]` keep their meaning, so every v1 reader keeps working (INV-6). New fields: `mode`,
    `commands[]`, `isolation_reruns`, `flaky_under_parallel`, `meaningful_green`, `critical_path`.
    The feature report page renders a Checks section from it.
-7. **Count what ran (#672).** The TAP parser counts leaf tests only, at any indent: vitest's
+7. **Count what ran.** The TAP parser counts leaf tests only, at any indent: vitest's
    per-file and per-suite entries (lines ending in `{`) and node:test parent entries (printed after
    their subtests) are containers, so an indented `not ok` is a failure and an indented `# SKIP` a
    skip. A pass read only from the exit code (no structured runner, plain-text fallback) has no
@@ -155,7 +155,7 @@ The reasons below are not obvious from the code in `src/checks/` and are not sta
 - `src/checks/record-runner.ts` — validate the agent-discovered runner record.
 - `src/checks/constants.ts` — the shared tunables.
 - `src/checks/report-store.ts` — v2 report persist / tolerant read.
-- `src/checks/report-target.ts` — bundle-vs-global write/read dispatch (#528).
+- `src/checks/report-target.ts` — bundle-vs-global write/read dispatch.
 - `src/cli/commands/checks.ts` — the `run` / `plan` / `record-runner` verbs + the receipt.
 - `runtime/base/skills/test-runner-discovery` — the agent discovery skill (Part B.5).
 - `src/verification/repository/run-repository-verification.ts` — `checksEvidenceGate`.

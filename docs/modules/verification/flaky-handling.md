@@ -1,8 +1,8 @@
 # Flaky-Test Handling — Trust in a Pass
 
-> **Slug:** `flaky-handling` &nbsp;·&nbsp; **Issue:** #106, #554 &nbsp;·&nbsp; **Owns:** the test-trust signal
+> **Slug:** `flaky-handling` &nbsp;·&nbsp; **Owns:** the test-trust signal
 
-> **Wired since #554.** The check runner now uses this module: after a parallel test run,
+> **Wired.** The check runner uses this module: after a parallel test run,
 > `confirmFailures` (`src/checks/isolation-rerun.ts`) re-runs each failing test alone through
 > `judgeStability`, and a test that passes every isolated re-run is quarantined via `upsertQuarantine`
 > + `writeFlakyRegistry`, with `suspected_causes` from `detectFlakinessSmells`/`smellCategories` and

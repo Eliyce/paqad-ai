@@ -1,6 +1,6 @@
 # Build in Small Pieces & Reconnect — Technical
 
-> **Slug:** `slicing-and-reconnect` &nbsp;·&nbsp; **Issue:** #104
+> **Slug:** `slicing-and-reconnect`
 
 ## Source footprint
 
@@ -41,7 +41,7 @@ asserts the strict interleaving `execute:SL-1 → gate:SL-1 → execute:SL-2 →
 ## Reconnect to the whole
 
 `computeReconnect({ spec, slices, snapshot, lane })` is the post-slice coherence check. It anchors on the
-**frozen** `FeatureSpec` (#102): an unfrozen spec returns `anchored: false`, every frozen criterion
+**frozen** `FeatureSpec`: an unfrozen spec returns `anchored: false`, every frozen criterion
 `uncovered`, and `coherent: false` — there is no written anchor to reconnect to. With a frozen spec it
 derives, against the frozen acceptance criteria:
 
@@ -56,7 +56,7 @@ derives, against the frozen acceptance criteria:
 `coherent` is true only when all four are empty. This is a real check, not a stamp: the test suite drives
 it to `INCOHERENT` with a deliberately-incoherent assembly. `review` is `structural` by default and
 `agent-re-read` on the `full` lane (Open Decision 1). `renderReconnectReport()` produces a checklist that
-names each gap, mirroring the Definition-of-Done renderer (#102).
+names each gap, mirroring the Definition-of-Done renderer.
 
 ## Reuse, not rebuild
 

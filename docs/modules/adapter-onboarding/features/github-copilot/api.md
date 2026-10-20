@@ -20,10 +20,10 @@ The surface comes from `BaseAdapter` (`src/adapters/adapter.interface.ts`):
 | `generateSkills(skills)` | `.github/skills/` |
 | `generateAgents(agents)` | `.github/agents/` |
 | `installHooks(hooks)` | `.github/hooks.json` |
-| `installMcp(mcpConfigs, profile)` | returns nothing (issue #622) |
+| `installMcp(mcpConfigs, profile)` | returns nothing |
 | `configureCaching(profile)` | `.github/cache.json` |
 | `configureMemory(profile)` | `.github/memory.json` |
 
-## MCP (issue #622)
+## MCP
 
 paqad never writes `.vscode/mcp.json`. VS Code and Copilot read that file, and people add their own servers to it, so it belongs to them. Recommendations go to `.paqad/mcp-recommendations.json`, written once per project by the onboarding orchestrator. A `.vscode/mcp.json` that an older paqad wrote is removed by `cleanupLegacyMcpFiles` (`src/mcp/cleanup.ts`) only when it is clearly paqad's own list.

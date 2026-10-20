@@ -5,7 +5,7 @@
 ## Purpose
 
 A script-written, per-(session, conversation) record of what the RAG layer actually did
-at runtime (issue #249), built on the [session-ledger substrate](../../session-ledger/index/summary.md):
+at runtime, built on the [session-ledger substrate](../../session-ledger/index/summary.md):
 
 - **refreshed** — the background index / rule-context build or incremental sync ran.
 - **called** — a retrieval query was issued (scope / top-n / candidate pool).
@@ -13,7 +13,7 @@ at runtime (issue #249), built on the [session-ledger substrate](../../session-l
   artifact the prompt seam injects: which sections (`rules` / `retrieval` / `memory` /
   `drift`), the slice or context-pack-pointer count, the top match score, and the bytes.
   `injected` is `true` only when the RAG tier contributed content, so this row is the
-  guardrail for "was retrieval actually used?", not just "did retrieval run?" (issue #354).
+  guardrail for "was retrieval actually used?", not just "did retrieval run?".
 - **fallback** — RAG produced nothing and the agent used grep (with a reason).
 
 The events fire from their real seams: `refreshed` / `called` / `used` from the background
