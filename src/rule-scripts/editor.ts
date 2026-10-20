@@ -1,10 +1,3 @@
-// Deterministic markdown edits behind the rule-editor skill (issue #89, Phase 4).
-//
-// The skill owns orchestration (re-classify, regenerate scripts, surface diffs
-// via the Decision Pause Contract). This module owns the file mechanics: add a
-// bullet with a fresh stable id, edit a bullet's text by id (preserving the id),
-// or remove a bullet by id. Map mutations go through src/rule-scripts/apply.ts.
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -20,8 +13,6 @@ import {
   stripRuleMarker,
 } from './rule-id.js';
 
-// Every id already in use across the map and the on-disk markers, so a freshly
-// minted id can never collide.
 function takenIds(projectRoot: string): Set<string> {
   const taken = new Set<string>();
   for (const r of loadRuleScriptMap(projectRoot)?.rules ?? []) {
@@ -41,10 +32,6 @@ function takenIds(projectRoot: string): Set<string> {
   return taken;
 }
 
-// Normalise raw rule input into the canonical bullet body (no leading marker,
-// no surrounding whitespace). The single source of truth for "what text the
-// hash is computed over" — shared with the rule-editor .mjs wrapper so the
-// on-disk text and the map's text_hash can never drift apart.
 export function cleanRuleText(input: string): string {
   return input.trim().replace(/^[-*]\s+/, '');
 }
@@ -56,9 +43,6 @@ export interface AddedRule {
   text_hash: string;
 }
 
-// Normalise + reject a target rule-file path that isn't a .md under the rules
-// tree. Without this a typo (e.g. "docs/instructions/rule/…") writes a marked
-// bullet into a file collectRuleFiles never enumerates — a forgotten rule.
 function assertRuleSource(sourceRel: string): void {
   const normalized = sourceRel.split('\\').join('/');
   if (!normalized.startsWith(`${PATHS.RULES_DIR}/`) || !normalized.endsWith('.md')) {
@@ -68,9 +52,6 @@ function assertRuleSource(sourceRel: string): void {
   }
 }
 
-// Append a new rule bullet with a fresh marker to a rule file. Creates the file
-// with a trailing newline if it does not yet exist. Returns the minted id plus
-// the data the caller needs to keep the map in sync (D-1).
 export function addRule(projectRoot: string, sourceRel: string, text: string): AddedRule {
   assertRuleSource(sourceRel);
   const abs = join(projectRoot, sourceRel);
@@ -78,9 +59,6 @@ export function addRule(projectRoot: string, sourceRel: string, text: string): A
   const id = mintRuleId(sourceRel, clean, takenIds(projectRoot));
   const bullet = embedRuleMarker(`- ${clean}`, id);
 
-  // Read-or-default in one operation rather than existsSync-then-read: the
-  // separate check is a TOCTOU race (CWE-367) — the file can appear or vanish
-  // between the check and the read.
   let existing = '';
   try {
     existing = readFileSync(abs, 'utf8');
@@ -111,8 +89,6 @@ function locateRule(projectRoot: string, ruleId: string): LocatedRule | null {
   return null;
 }
 
-// Replace a rule's text in place, preserving its id marker. Returns the source
-// file the rule lived in, or null when the id is not found on disk.
 export function editRuleText(
   projectRoot: string,
   ruleId: string,
@@ -131,8 +107,6 @@ export function editRuleText(
   return { source: located.source };
 }
 
-// Remove a rule bullet from its file by id. Returns the source file, or null
-// when the id is not found on disk.
 export function removeRuleBullet(projectRoot: string, ruleId: string): { source: string } | null {
   const located = locateRule(projectRoot, ruleId);
   if (!located) {

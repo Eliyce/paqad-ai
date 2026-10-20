@@ -1,9 +1,3 @@
-// Pure, per-rule mutations of the rule-script map (issue #89).
-//
-// These never touch disk — they return a new map that the caller writes through
-// src/rule-scripts/apply.ts (the single writer). Per-rule selective edits keep
-// the no-global-rebuild guarantee.
-
 import type { RuleScriptMap, ScriptEntry, Verifiability } from './types.js';
 
 function cloneMap(map: RuleScriptMap): RuleScriptMap {
@@ -14,7 +8,6 @@ function findRule(map: RuleScriptMap, ruleId: string) {
   return map.rules.find((r) => r.id === ruleId);
 }
 
-// Insert or replace a script entry on a rule (keyed by script path).
 export function upsertScriptEntry(
   map: RuleScriptMap,
   ruleId: string,
@@ -35,10 +28,6 @@ export function upsertScriptEntry(
   return next;
 }
 
-// Insert a new rule as a stub entry (unclassified heuristic, no scripts) so the
-// map stays in sync the moment `add rule` writes the markdown — otherwise the
-// reconciler emits a false RS-RULE-ADDED until the user re-runs `analyze rules`
-// (D-1). The rule-analyzer reclassifies it on the next pass.
 export function addRuleEntry(
   map: RuleScriptMap,
   entry: { id: string; source: string; text: string; text_hash: string },
@@ -59,11 +48,6 @@ export function addRuleEntry(
   return next;
 }
 
-// Update a rule's text + hash after an in-place markdown edit, keeping the map
-// in sync atomically (mirrors the `remove` cascade). The prior scripts no
-// longer match the new text, so they are cleared — the editor then regenerates
-// only this rule's scripts. Without this, the reconciler emits a false
-// RS-RULE-EDITED until the user manually re-runs `analyze rules`.
 export function setRuleText(
   map: RuleScriptMap,
   ruleId: string,
@@ -81,7 +65,6 @@ export function setRuleText(
   return next;
 }
 
-// Drop all scripts from a rule (e.g. downgrade to unverifiable, or pre-regen).
 export function clearRuleScripts(map: RuleScriptMap, ruleId: string): RuleScriptMap {
   const next = cloneMap(map);
   const rule = findRule(next, ruleId);
@@ -91,8 +74,6 @@ export function clearRuleScripts(map: RuleScriptMap, ruleId: string): RuleScript
   return next;
 }
 
-// Change a rule's verifiability (e.g. `mark rule as unverifiable`). When the
-// new kind is unverifiable, its scripts are cleared.
 export function setVerifiability(
   map: RuleScriptMap,
   ruleId: string,
@@ -110,8 +91,6 @@ export function setVerifiability(
   return next;
 }
 
-// Move a rule into the archived: section (delayed delete). Its scripts stay on
-// disk until the next regen cycle prunes them.
 export function archiveRule(map: RuleScriptMap, ruleId: string): RuleScriptMap {
   const next = cloneMap(map);
   const idx = next.rules.findIndex((r) => r.id === ruleId);

@@ -118,6 +118,70 @@
   the static list alone. `check-ignore` respects the index, so tracked source
   that merely matches an ignore pattern is still scanned.
 
+## Why the rule-scripts engine works the way it does
+
+The reasons below are not obvious from the code in `src/rule-scripts/`.
+
+- **Ids and markers (`rule-id.ts`, `rule-file.ts`, `editor.ts`).** A rule is a markdown bullet
+  under `docs/instructions/rules/` outside a fenced code block. It gets an opaque `RL-<hex>` id as
+  a trailing HTML comment marker, which is invisible when rendered and survives reformatting. The
+  id stays stable because the marker is persisted in the file, not because the hash ignores edits,
+  so a rule keeps its id through a reword, a move or a split. A new id is seeded by path and text
+  and grows its hex length on a collision; ids are checked against both the map and every marker
+  on disk. The canonical form is an uppercase `RL-` and lowercase hex. Embedding is idempotent.
+  The editor's text normalising is the one definition of what the hash is computed over, shared
+  with the rule-editor wrapper, and a target path that is not a `.md` under the rules tree is
+  rejected, since a typo would write a rule no scan ever finds. Files are read once with a
+  default instead of an existence check first, which avoids a check-then-read race.
+- **The map (`map.ts`, `apply.ts`, `mutate.ts`, `analyzer.ts`, `compile.ts`).** The map is YAML so
+  it can be reviewed in a PR, with a stable key order. `apply.ts` is its only writer: it snapshots
+  the old map into `.history/`, rewrites the map with a temp file and rename (no lockfile), appends
+  to `events.jsonl`, and blesses the new state in the capability lock so a hand edit can be
+  detected later. A per-process counter keeps two snapshots in the same millisecond from
+  colliding. Mutations are pure and per rule: an added rule becomes a stub entry at once, and an
+  edited rule has its scripts cleared, so the reconciler does not report a false added or edited
+  rule. Scripts carry over only for rules whose text hash is unchanged, so there is never a global
+  rebuild. The rule-file hash is computed after embedding so it matches what is on disk. Compile is
+  skipped when the map is present and its rule-file hash still matches, so re-onboarding an
+  unchanged tree writes nothing (no new timestamp, snapshot or event).
+- **Running scripts (`execute.ts`, `runner.ts`, `enforce.ts`).** A script reads `{ projectRoot,
+  files }` on stdin and writes a findings report to stdout, under a timeout. Stdout is parsed
+  before the exit code is judged, because many linters exit non-zero when they find something;
+  valid findings are kept and the exit code or stderr is kept as a diagnostic. Binaries are
+  resolved against `PATH` in Node, because `command -v` is a shell builtin and cannot be spawned
+  on Linux; a name with a separator is used as is, and on Windows a name that already has an
+  executable extension is not given another. The cache key hashes every file any registered
+  script can read, so a whole-tree script never serves a stale result after an unrelated change.
+  The rule-file hash in the key is the analyze-time one from the map; rule edits surface as drift
+  instead. A cache hit still writes a `rule-run.jsonl` row marked `from_cache`, and a cached report
+  without results records no findings rather than an empty list that would read as clean.
+  Enforcement is independent of `rag_enabled`. `armed` counts registered scripts, because a map
+  that arms nothing must read "none armed", not "all clear". At a diff-scoped seam an empty change
+  set is skipped instead of scanning the whole tree.
+- **Fixtures and the over-flagging guard (`fixture-runner.ts`, `guard.ts`).** A script is never
+  registered until it classifies its own pass and fail fixtures correctly. When a declared binary
+  is missing the check is deferred, not rejected, because the script never ran. A new script that
+  flags too large a share of existing files raises a decision pause, since it is more likely buggy
+  than the codebase is broken; deterministic scripts get a tighter threshold than heuristic ones.
+- **The header (`header.ts`).** Blank lines and a bare `//` inside the header block are allowed,
+  and the parse stops at the first line of code. The key pattern binds the colon straight to the
+  capture and the value is trimmed later, which avoids catastrophic backtracking. Id hex and the
+  closed-set fields are lowercased so a hand-edited header still validates.
+- **Integrity (`integrity.ts`).** The digest only hashes (it never runs a script), so it is safe on
+  the per-edit hot path. The map is hashed in its normalised form, so a whitespace reformat is not
+  read as tampering, and every referenced script's content (or its absence) is folded in.
+- **Drift (`reconciler.ts`, `prune.ts`).** The reconciler is read-only. `drift.json` has two
+  writers: the reconciler owns every code except `RS-CONFLICT`, and the analyzer's semantic pass
+  owns `RS-CONFLICT`. Each replaces only its own codes and both recompute counts over the union.
+  An unreadable `drift.json` is backed up instead of rebuilt, so the other writer's findings are
+  not lost. `RS-CACHE-INVALID` is suppressed when an actionable finding fired, since a rule edit
+  always changes the hash. Drift being present does not stop the workflow by itself; planning
+  reads `escalation.rule_scripts_stale`. Pruning deletes scripts no active rule references, so an
+  archived rule's scripts survive one regen cycle; only the `__fixtures__` subtree is removed and
+  the stem dir only when it is then empty.
+- **`validate.ts`.** The header and findings schemas are validated inside the module, so the
+  runtime engine does not depend on the project-artifact validator.
+
 ## Tests
 
 - `tests/unit/rule-scripts/enforce.test.ts` — blocks under strict with the rule

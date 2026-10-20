@@ -1,13 +1,3 @@
-// Execute registered rule scripts and aggregate findings (issue #89, Phase 3).
-//
-// No LLM. Invoked from feature-development.checks via the bundled
-// rule-script-runner skill. Diff-scoped by default; hash-cached like
-// src/compliance/compliance-checker.ts (rule_files_hash × script_files_hash ×
-// target_files_hash). Mode semantics:
-//   off    — caller skips the runner entirely.
-//   warn   — run, write the report, never block.
-//   strict — run, block on any `deterministic` finding. `heuristic` never blocks.
-
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -30,8 +20,6 @@ export interface ScriptRunResult {
   kind: 'deterministic' | 'heuristic';
   findings: Finding[];
   skipped?: string;
-  // Non-fatal diagnostic when the script produced findings but also signalled a
-  // problem (non-zero exit / stderr) — see execute.ts (D-6).
   warning?: string;
 }
 
@@ -50,10 +38,7 @@ export interface RunReport {
 export interface RunOptions {
   projectRoot: string;
   mode: RuleComplianceMode;
-  // Project-relative changed files for `changed-files`-scoped scripts. When
-  // omitted, changed-files scripts fall back to whole-tree enumeration.
   changedFiles?: string[];
-  // Globs for whole-tree enumeration. Defaults to common source extensions.
   wholeTreeGlobs?: string[];
 }
 
@@ -81,7 +66,6 @@ function targetsFor(script: ScriptEntry, opts: RunOptions, wholeTreeFiles: strin
   if (script.scope === 'changed-files' && opts.changedFiles) {
     return opts.changedFiles;
   }
-  // whole-tree, git-diff, git-history, or changed-files with no diff provided.
   return wholeTreeFiles;
 }
 
@@ -108,11 +92,6 @@ export function runRuleScripts(opts: RunOptions): RunReport {
 
   const globs = opts.wholeTreeGlobs ?? DEFAULT_SOURCE_GLOBS;
   const wholeTreeFiles = scanWorkingTree(opts.projectRoot, globs);
-  // The cache key must hash every file any registered script can actually read.
-  // A `changed-files` run still scans the whole tree for whole-tree/git-scoped
-  // scripts, so when any such script exists those files belong in the target
-  // hash too — otherwise an unrelated tree mutation returns a stale cached
-  // result for them.
   const hasNonChangedScope = map.rules.some((r) =>
     r.scripts.some((s) => s.scope !== 'changed-files'),
   );
@@ -125,9 +104,6 @@ export function runRuleScripts(opts: RunOptions): RunReport {
   const scriptHash = scriptFilesHash(opts.projectRoot, map);
   const targetHash = hashFiles(opts.projectRoot, targetUniverse);
 
-  // Hash-cache: a prior report with matching triple is still valid. rule_files_hash
-  // is the analyze-time snapshot from the map (not re-derived here) — rule-file
-  // edits surface separately as RS-* drift via the reconciler.
   const cached = readReport(opts.projectRoot);
   if (
     cached &&
@@ -136,8 +112,6 @@ export function runRuleScripts(opts: RunOptions): RunReport {
     cached.script_files_hash === scriptHash &&
     cached.target_files_hash === targetHash
   ) {
-    // Issue #639 (Part 12) — a cache hit is still a run of the rules on this change, so it
-    // still leaves a row, marked `from_cache`, with the cached findings and counts.
     recordRuleRun(opts.projectRoot, cached, true);
     return { ...cached, from_cache: true };
   }
@@ -210,21 +184,10 @@ export function runRuleScripts(opts: RunOptions): RunReport {
   };
 
   writeReport(opts.projectRoot, report);
-  // Issue #468 Phase C — the finding counts are recorded ONLY in the active feature's
-  // `rule-run.jsonl` bundle file now; the retired project-scoped `rule-evidence` ledger
-  // write is gone (the dashboard + SIEM read the bundle since Phase B). `report.json`
-  // stays as the engine's hash-cache. A no-op when no feature is active. Best-effort.
   recordRuleRun(opts.projectRoot, report, false);
   return report;
 }
 
-/**
- * Issue #639 (Part 12) — every finding of a report, each with the rule that raised it, in
- * the shape a `rule-run.jsonl` row keeps. Skipped scripts carry no findings and add none, so
- * the list's length always equals the report's deterministic plus heuristic counts. A cached
- * report with no `results` list gives `undefined`, so the row records no findings at all
- * rather than an empty list that would read as a clean run.
- */
 export function ruleRunFindings(report: RunReport): RuleRunFinding[] | undefined {
   if (!Array.isArray(report.results)) return undefined;
   return report.results
@@ -240,7 +203,6 @@ export function ruleRunFindings(report: RunReport): RuleRunFinding[] | undefined
     );
 }
 
-/** Append the report's row into the active feature's `rule-run.jsonl` (a no-op with none). */
 function recordRuleRun(projectRoot: string, report: RunReport, fromCache: boolean): void {
   appendRuleRun(
     projectRoot,

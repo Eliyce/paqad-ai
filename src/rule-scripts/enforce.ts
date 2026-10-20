@@ -1,16 +1,3 @@
-/**
- * Live rule-script enforcement (RAG buildout F6).
- *
- * The linchpin that makes smart rule loading (F4/F5) safe: scripted rules are
- * enforced from the working tree regardless of whether their text is in context.
- * This wraps the existing {@link runRuleScripts} runner with the orchestration a
- * live hook needs — resolve the working set, run the registered scripts, and
- * reduce the report to a block/allow decision plus a human-readable summary.
- *
- * Enforcement is independent of the injection accelerator (`rag_enabled`): it is
- * a safety backstop, not context. It is gated only by paqad being enabled, the
- * `rule_compliance` mode, and a rule-script map actually existing.
- */
 import type { Finding } from '@/rule-scripts/execute.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 import { runRuleScripts, type RuleComplianceMode } from '@/rule-scripts/runner.js';
@@ -26,52 +13,25 @@ export interface RuleViolation {
 }
 
 export interface EnforcementResult {
-  /** False when there was nothing to enforce (mode off, or no armed rule-scripts). */
   ran: boolean;
   mode: RuleComplianceMode;
-  /** True only in strict mode with at least one deterministic violation. */
   blocking: boolean;
   violations: RuleViolation[];
-  /**
-   * How many verification scripts are registered across the rule-script map (issue #345 G4).
-   * `0` means nothing is armed — a `ran:false` with `armed:0` is an unenforced no-op the
-   * checks stage must SAY SO about, not report as a silent pass.
-   */
   armed: number;
-  /** Human-readable, paqad-voice summary (empty when nothing ran). */
   summary: string;
 }
 
-/**
- * How to treat an EMPTY change set (issue #580 FR-6).
- *  - `changed-files` (default): the completion / pre-mutation seam. An empty diff means
- *    nothing changed this turn, so there is nothing to enforce — skip, never fall through
- *    to a whole-tree scan that would block on pre-existing debt the turn never touched.
- *  - `whole-tree`: an explicit full scan (`paqad-ai checks run`, `health run`). An empty
- *    diff still scans the whole tree, unchanged.
- */
 export type EnforceScope = 'changed-files' | 'whole-tree';
 
 export interface EnforceOptions {
   projectRoot: string;
   mode: RuleComplianceMode;
-  /** Working-set files; resolved from change-evidence when omitted. */
   changedFiles?: string[];
-  /** How an empty change set is treated (issue #580 FR-6). Defaults to `changed-files`. */
   scope?: EnforceScope;
 }
 
-/**
- * Run the registered rule scripts against the working set and decide whether the
- * change is blocked. Fast-skips (no work, no `runRuleScripts` call) when the mode
- * is `off` or the project has no rule-script map — the common case.
- */
 export async function enforceRuleScripts(options: EnforceOptions): Promise<EnforcementResult> {
   const { projectRoot, mode } = options;
-  // Count the scripts actually registered in the map. A missing map, or a map that
-  // catalogues rules but arms zero scripts (`scripts: []` everywhere — the state of a
-  // freshly compiled repo), both mean nothing is enforced. Distinguishing that from a
-  // real clean run is issue #345 G4: the checks stage must say "none armed", not "all clear".
   const map = loadRuleScriptMap(projectRoot);
   const armed = map ? map.rules.reduce((total, rule) => total + (rule.scripts?.length ?? 0), 0) : 0;
   if (mode === 'off' || armed === 0) {
@@ -81,10 +41,6 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
   const scope = options.scope ?? 'changed-files';
   const changedFiles = options.changedFiles ?? (await loadChangeEvidence(projectRoot)).files;
 
-  // Issue #580 (FR-6) — at a diff-scoped seam an empty change set is not a whole-tree scan.
-  // Nothing changed this turn, so nothing is enforced: return a ⚪ skipped verdict instead of
-  // scanning the entire repo and blocking on pre-existing violations the turn never touched.
-  // An explicit whole-tree caller (`checks run`, `health run`) opts out via `scope`.
   if (scope === 'changed-files' && changedFiles.length === 0) {
     return {
       ran: false,
@@ -125,11 +81,6 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
   };
 }
 
-/**
- * Render the paqad-voice summary for an enforcement result. A blocking result
- * reads as "needs your attention"; a non-blocking warn result surfaces the same
- * findings without halting.
- */
 export function formatEnforcementSummary(result: {
   mode: RuleComplianceMode;
   blocking: boolean;

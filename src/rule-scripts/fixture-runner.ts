@@ -1,16 +1,3 @@
-// Validate a rule script against its own fixtures (issue #89).
-//
-// Fixtures are the test of the test. They live beside the script:
-//
-//   .paqad/scripts/rules/<mirror>/<rule-file>/001-name.mjs
-//   .paqad/scripts/rules/<mirror>/<rule-file>/001-name/__fixtures__/pass/*
-//   .paqad/scripts/rules/<mirror>/<rule-file>/001-name/__fixtures__/fail/*
-//
-// A script that does not classify its own fixtures correctly is REJECTED and
-// never registered in the map — no script ever enforces a rule on real code
-// until it passes here. Each pass fixture must yield zero findings; each fail
-// fixture must yield at least one finding.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 
@@ -31,11 +18,7 @@ export interface FixtureResult {
   pass_fixtures: number;
   fail_fixtures: number;
   failures: FixtureFailure[];
-  // True when no fixtures exist at all — a hard reject reason.
   missing_fixtures: boolean;
-  // Non-empty when the script declares binaries absent on this machine. The
-  // caller should DEFER (re-run elsewhere), not reject — the script's logic was
-  // never actually exercised (D-4).
   missing_binaries?: string[];
 }
 
@@ -69,8 +52,6 @@ export function runFixtures(scriptPath: string): FixtureResult {
     };
   }
 
-  // Defer (don't reject) when a declared binary is absent — the script never
-  // actually ran, so a fixture "failure" here would be an environment artifact.
   if (existsSync(scriptPath)) {
     const header = parseScriptHeader(readFileSync(scriptPath, 'utf8'));
     const missing = missingBinaries(header.header?.requires?.binaries);

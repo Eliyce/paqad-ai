@@ -1,10 +1,3 @@
-// Deterministic support for the rule-analyzer skill (issue #89).
-//
-// The skill owns the judgement calls (verifiability classification, conflict
-// detection, existing-enforcer detection). This module owns the deterministic
-// mechanics: enumerate rule files, hash them, embed stable ids into the
-// markdown, and assemble the map from the inventory + the skill's classifications.
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -29,12 +22,9 @@ export interface ScanResult {
   inventory: RuleInventoryItem[];
   files: string[];
   rule_files_hash: string;
-  // Files whose content changed because a marker was embedded.
   changed_files: string[];
 }
 
-// Markdown rule files under docs/instructions/rules, sorted for stable hashing.
-// The .yml registries (module-map, rule-script-map) are not prose rules.
 export function collectRuleFiles(projectRoot: string): string[] {
   const rel = fg.sync('**/*.md', {
     cwd: join(projectRoot, PATHS.RULES_DIR),
@@ -51,9 +41,6 @@ export function computeRuleFilesHash(projectRoot: string, files: string[]): stri
   return `sha256-${sha256(parts.join('\n'))}`;
 }
 
-// Walk every rule file, embed stable ids into unmarked bullets (writing the
-// files back when they change), and return the full rule inventory. Idempotent:
-// a second run mints no new ids and rewrites no files.
 export function scanAndEmbedIds(projectRoot: string): ScanResult {
   const files = collectRuleFiles(projectRoot);
   const taken = new Set<string>();
@@ -79,7 +66,6 @@ export function scanAndEmbedIds(projectRoot: string): ScanResult {
     }
   }
 
-  // Hash is computed after embedding so it reflects the persisted on-disk state.
   return {
     inventory,
     files,
@@ -94,9 +80,6 @@ export interface RuleClassification {
   enforced_by: string[];
 }
 
-// Assemble the map from the inventory + the skill's classifications. When a
-// prior map is supplied, scripts are carried over for rules whose text_hash is
-// unchanged (per-rule selective invalidation — no global rebuild).
 export function assembleMap(
   inventory: RuleInventoryItem[],
   classifications: Map<string, RuleClassification>,

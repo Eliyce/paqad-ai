@@ -1,11 +1,3 @@
-// Retrospective drift detector for rules-as-scripts (issue #89, Phase 4).
-//
-// Mirrors src/module-map/reconciler.ts. Compares rule-script-map.yml against the
-// rule markdown on disk + the registered scripts, emits RS-* findings into
-// .paqad/scripts/rules/.cache/drift.json, and reports whether planning is
-// blocked. Read-only — never embeds markers or mutates the map (that is the
-// rule-analyzer / rule-editor job).
-
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -23,10 +15,6 @@ export type RuleScriptFindingCode =
   | 'RS-RULE-REMOVED'
   | 'RS-SCRIPT-STALE'
   | 'RS-FIXTURE-FAIL'
-  // Emitted by the rule-analyzer's semantic conflict pass (two rules
-  // contradict), not by this deterministic reconciler — a script cannot decide
-  // semantic contradiction. Carried here so the RS-* vocabulary + drift.json
-  // shape are complete and the analyzer can record conflicts into the report.
   | 'RS-CONFLICT'
   | 'RS-CACHE-INVALID';
 
@@ -41,9 +29,6 @@ export interface RuleScriptDriftReport {
   generated_at: string;
   findings: RuleScriptDriftFinding[];
   counts: Record<RuleScriptFindingCode, number>;
-  // "Drift is present" — true when any code except RS-CACHE-INVALID fired. This
-  // is NOT "stop the workflow"; the planning stage still consults
-  // escalation.rule_scripts_stale (stop | ask | warn) to decide what to do.
   blocked: boolean;
 }
 
@@ -63,12 +48,6 @@ function driftPath(projectRoot: string): string {
   return join(projectRoot, PATHS.RULE_SCRIPTS_DRIFT);
 }
 
-// drift.json has two independent writers: the deterministic reconciler (every
-// code except RS-CONFLICT) and the rule-analyzer's semantic conflict pass
-// (RS-CONFLICT only). Neither owns the whole file, so each merges by code
-// partition — it replaces only the codes it owns and preserves the rest. Both
-// then recompute counts + blocked over the union, so the gate is consistent
-// regardless of which writer ran last.
 const CONFLICT_CODES: ReadonlySet<RuleScriptFindingCode> = new Set(['RS-CONFLICT']);
 
 function mergeDrift(
@@ -76,16 +55,11 @@ function mergeDrift(
   ownedCodes: ReadonlySet<RuleScriptFindingCode>,
   ownFindings: RuleScriptDriftFinding[],
 ): RuleScriptDriftReport {
-  // If drift.json exists but is unparseable, back it up rather than silently
-  // rebuilding (which would drop the other writer's findings, e.g. RS-CONFLICT).
-  // The backup preserves forensics; we proceed with only our own findings (D-5).
   const path = driftPath(projectRoot);
   if (existsSync(path) && readDrift(projectRoot) === null) {
     try {
       renameSync(path, `${path}.corrupt-${Date.now()}`);
-    } catch {
-      // best-effort
-    }
+    } catch {}
   }
   const existing = readDrift(projectRoot);
   const preserved = (existing?.findings ?? []).filter((f) => !ownedCodes.has(f.code));
@@ -101,9 +75,6 @@ function mergeDrift(
     blocked: findings.some((f) => f.code !== 'RS-CACHE-INVALID'),
   };
   writeDrift(projectRoot, report);
-  // Issue #468 Phase C — `drift.json` stays as the reconciler's own cache (the
-  // rule-compliance collector reads it live since Phase B); the retired project-scoped
-  // `rule-evidence` drift ledger write is gone.
   return report;
 }
 
@@ -111,7 +82,6 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
   const findings: RuleScriptDriftFinding[] = [];
   const map = loadRuleScriptMap(projectRoot);
 
-  // On-disk inventory (read-only — no marker embedding).
   const files = collectRuleFiles(projectRoot);
   const onDisk = new Map<string, { source: string; text_hash: string }>();
   for (const rel of files) {
@@ -131,11 +101,9 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
 
   const mapById = new Map((map?.rules ?? []).map((r) => [r.id, r]));
 
-  // RS-RULE-EDITED + RS-SCRIPT-STALE: marker present, text changed.
   for (const [id, disk] of onDisk) {
     const entry = mapById.get(id);
     if (!entry) {
-      // Marked on disk but not in the map — treat as an ungated addition.
       findings.push({
         code: 'RS-RULE-ADDED',
         rule_id: id,
@@ -162,7 +130,6 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
     }
   }
 
-  // RS-RULE-REMOVED: in the map but no marker on disk.
   for (const entry of map?.rules ?? []) {
     if (!onDisk.has(entry.id)) {
       findings.push({
@@ -174,7 +141,6 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
     }
   }
 
-  // RS-FIXTURE-FAIL: a registered script no longer passes its own fixtures.
   for (const entry of map?.rules ?? []) {
     for (const script of entry.scripts) {
       const abs = join(projectRoot, script.path);
@@ -193,10 +159,6 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
     }
   }
 
-  // RS-CACHE-INVALID: a findings report exists but its rule_files_hash no longer
-  // reconciles. Suppress it when an actionable finding already fired — a rule
-  // edit/add necessarily diverges the hash, so the cache message would just be
-  // noise duplicating RS-RULE-EDITED / RS-RULE-ADDED.
   const report = readReport(projectRoot);
   if (report && files.length > 0 && findings.length === 0) {
     const currentHash = computeRuleFilesHash(projectRoot, files);
@@ -209,8 +171,6 @@ export function reconcileRuleScripts(projectRoot: string): RuleScriptDriftReport
     }
   }
 
-  // The reconciler owns every code except RS-CONFLICT; preserve any
-  // analyzer-recorded conflicts rather than clobbering them.
   const reconcilerOwned = new Set(
     (Object.keys(emptyCounts()) as RuleScriptFindingCode[]).filter((c) => !CONFLICT_CODES.has(c)),
   );
@@ -240,11 +200,6 @@ export interface RuleConflict {
   message: string;
 }
 
-// Record conflicts found by the rule-analyzer's semantic pass as RS-CONFLICT
-// findings in drift.json. A deterministic reconciler cannot decide semantic
-// contradiction, so this is the wire the analyzer skill uses to surface them.
-// Owns only the RS-CONFLICT partition — the reconciler's findings are preserved
-// (and vice-versa). Passing [] clears prior conflicts.
 export function recordConflictFindings(
   projectRoot: string,
   conflicts: RuleConflict[],
