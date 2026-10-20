@@ -140,6 +140,13 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
     validate: 'jsonl>=1',
   },
   {
+    key: 'fixProof',
+    file: FEATURE_BUNDLE_FILES.fixProof,
+    required: 'optional',
+    writer: 'paqad-ai fix prove',
+    validate: 'json',
+  },
+  {
     key: 'review',
     file: FEATURE_BUNDLE_FILES.review,
     required: 'always',

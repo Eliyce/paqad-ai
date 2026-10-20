@@ -17,6 +17,7 @@ import { createPluginCommand } from './commands/plugin.js';
 import { createEnableCommand } from './commands/enable.js';
 import { createEvidenceCommand } from './commands/evidence.js';
 import { createFeatureCommand } from './commands/feature.js';
+import { createFixCommand } from './commands/fix.js';
 import { createGraphCommand } from './commands/graph.js';
 import { createHealthCommand } from './commands/health.js';
 import { createHookCommand } from './commands/hook.js';
@@ -117,6 +118,7 @@ export function createProgram(): Command {
   program.addCommand(createDebtCommand());
   program.addCommand(createHookCommand());
   program.addCommand(createManagedSettingsCommand());
+  program.addCommand(createFixCommand());
 
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);

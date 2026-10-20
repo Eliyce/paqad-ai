@@ -11,6 +11,7 @@ export const HUD_REFRESH_VERBS: readonly string[] = [
   'decision resolve',
   'rules load',
   'rules override',
+  'fix prove',
   'lane set',
   'route set',
   'stage',

@@ -66,6 +66,7 @@ describe('createProgram', () => {
       'debt',
       'hook',
       'managed-settings',
+      'fix',
     ]);
   });
 
