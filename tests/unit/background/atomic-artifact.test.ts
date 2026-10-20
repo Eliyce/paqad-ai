@@ -23,7 +23,6 @@ describe('buildAndSwap', () => {
     let targetExistedDuringBuild = true;
 
     await buildAndSwap(target, async (tempPath) => {
-      // Mid-build the final path must not exist yet — only the temp does.
       targetExistedDuringBuild = existsSync(target);
       await writeFile(tempPath, '{"ok":true}', 'utf8');
       expect(existsSync(tempPath)).toBe(true);

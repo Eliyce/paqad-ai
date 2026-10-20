@@ -114,7 +114,6 @@ describe('CacheWarmer', () => {
     await expect(warmer.prewarm('skill-a', ['b.ts', 'a.ts'])).resolves.toBe(false);
     await expect(warmer.prewarm('skill-a', ['b.ts', 'a.ts'])).resolves.toBe(true);
 
-    // computeInputHash should only be called for the miss (not the hit)
     expect(computeInputHash).toHaveBeenCalledTimes(1);
     expect(computeInputHash).toHaveBeenCalledWith(['b.ts', 'a.ts']);
 
@@ -133,8 +132,6 @@ describe('CacheWarmer', () => {
 
     await warmer.prewarm('skill-b', ['file.ts']);
 
-    // The hash passed to writeCache must be exactly what computeInputHash returned,
-    // ensuring runtime checkCache (which also calls computeInputHash) will find the entry.
     expect(writeCache).toHaveBeenCalledWith('skill-b', contentBasedHash, '[prewarm-pending]', [
       'file.ts',
     ]);

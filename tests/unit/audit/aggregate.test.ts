@@ -24,14 +24,9 @@ function row(code: string, ts: string, detail?: string) {
   });
 }
 
-// Issue #468 Phase B — evidence + attestation are projected from the per-feature bundles,
-// so each seed opens a feature and writes into it (a fresh feature per receipt so each is
-// its own independently-sealed bundle).
 let seed = 0;
 function openFeature(root: string): string {
   seed += 1;
-  // A unique title is the "new work" signal that mints a DISTINCT bundle (issue #339); without
-  // it openFeatureChange resolves the already-active feature and every seed lands in one dir.
   return openFeatureChange(root, 'ses_1', {
     adapter: 'claude-code',
     title: `f${seed}`,
@@ -132,9 +127,7 @@ describe('aggregateSiemEvents', () => {
   });
 
   it('marks a tampered, undecodable receipt as unsealed with no predicate', () => {
-    project(root, '2026-06-11T00:00:00.000Z'); // a sound receipt in its own bundle
-    // A second feature bundle whose receipt.json is valid JSON but whose payload is not
-    // valid JSON and whose seal does not recompute → unsealed + null predicate.
+    project(root, '2026-06-11T00:00:00.000Z');
     const dir = openFeature(root);
     const path = join(root, featureFilePath(dir, 'receipt'));
     mkdirSync(dirname(path), { recursive: true });

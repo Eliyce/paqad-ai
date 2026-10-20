@@ -18,9 +18,6 @@ describe('CodexCliAdapter', () => {
     expect(files[0]?.path).toBe('AGENTS.md');
     const content = files[0]?.content ?? '';
 
-    // Issue #229 — the entry file is now a lean stub: a one-line bootstrap pointer
-    // (mentioning `.paqad/framework-path.txt` + `AGENT-BOOTSTRAP.md`), the
-    // graceful-degradation fallback clause, and the `Adapter:` footer.
     expect(content).toContain('.paqad/framework-path.txt');
     expect(content).toContain('AGENT-BOOTSTRAP.md');
     expect(content).toContain(
@@ -29,8 +26,6 @@ describe('CodexCliAdapter', () => {
     expect(content).toContain('Adapter:');
     expect(content).toContain('codex-cli');
 
-    // The stub carries ZERO `## ` headings and no longer inlines load steps,
-    // instruction-doc paths, the documentation workflow prose, or either contract.
     expect(content).not.toMatch(/^## /m);
     expect(content).not.toContain('docs/instructions');
     expect(content).not.toContain('docs/modules');
@@ -49,12 +44,12 @@ describe('CodexCliAdapter', () => {
     ]);
   });
 
-  it('writes no MCP config at .codex/mcp.json (issue #622)', async () => {
+  it('writes no MCP config at .codex/mcp.json', async () => {
     expect(await adapter.installMcp()).toEqual([]);
   });
 });
 
-describe('CodexCliAdapter — full hook chain (issue #566)', () => {
+describe('CodexCliAdapter — full hook chain', () => {
   const adapter = new CodexCliAdapter();
   const FIXED_HOME = '/fake/home/.paqad-ai/current';
 
@@ -92,7 +87,6 @@ describe('CodexCliAdapter — full hook chain (issue #566)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-codex-hooks-'));
     const json = JSON.parse(await render(root)) as Hooks;
 
-    // PreToolUse: matcher ^apply_patch$, four hooks in order.
     const pre = json.hooks.PreToolUse;
     expect(pre.every((g) => g.matcher === '^apply_patch$')).toBe(true);
     expect(cmds(pre)).toEqual([
@@ -115,14 +109,12 @@ describe('CodexCliAdapter — full hook chain (issue #566)', () => {
       'node "' + FIXED_HOME + '/hooks/verification-completion.mjs" codex-cli',
       'node "' + FIXED_HOME + '/hooks/capability-gate.mjs" completion codex-cli',
     ]);
-    // The retired record-only hook is gone from Codex — it renders the blocking chain now.
     expect(await render(root)).not.toContain('verification-record.mjs');
   });
 
   it('a second onboard is byte-identical and a hand-added user hook survives (AC-2)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-codex-idem-'));
     const first = await render(root);
-    // Seed the generated file plus a user's own Stop hook.
     const parsed = JSON.parse(first) as Hooks;
     parsed.hooks.Stop.push({ hooks: [{ type: 'command', command: 'echo my-own-hook' }] });
     const full = join(root, '.codex/hooks.json');
@@ -131,15 +123,12 @@ describe('CodexCliAdapter — full hook chain (issue #566)', () => {
 
     const second = await render(root);
     const secondJson = JSON.parse(second) as Hooks;
-    // The user's hook is preserved…
     expect(cmds(secondJson.hooks.Stop)).toContain('echo my-own-hook');
-    // …and paqad's own hooks are not duplicated.
     const paqadStop = cmds(secondJson.hooks.Stop).filter((c) =>
       c.includes('verification-completion.mjs'),
     );
     expect(paqadStop).toHaveLength(1);
 
-    // A third onboard over the second's output is byte-identical (idempotent).
     writeFileSync(full, second);
     expect(await render(root)).toBe(second);
   });

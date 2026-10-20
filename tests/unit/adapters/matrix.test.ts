@@ -55,16 +55,7 @@ describe('adapter stack matrix', () => {
           files.push(...(await adapter.configureMemory(profile)));
         }
 
-        // Some adapters emit extra files from generateConfig alongside their entry
-        // file: Claude Code writes .claude/settings.json (agent-entry gate); Codex
-        // and Gemini write their native completion-hook file (.codex/hooks.json /
-        // .gemini/settings.json) so the evidence ledger fires on every host. Each of
-        // these three ALSO emits a nested .gitignore marking that per-machine hook
-        // config git-ignored (issue #240) — so two extra files, not one.
         const adaptersWithExtraConfigFile = ['claude-code', 'codex-cli', 'gemini-cli'];
-        // Aider is the other adapter with a project-level AI-attribution knob (issue #538), so
-        // it emits one extra file — `.aider.conf.yml` — while `ai_attribution` says strip (the
-        // default). It has no per-machine hook config, so there is no nested .gitignore with it.
         const attributionConfigFiles = adapterType === 'aider' ? 1 : 0;
         const extraConfigFiles =
           (adaptersWithExtraConfigFile.includes(adapterType) ? 2 : 0) + attributionConfigFiles;
@@ -74,7 +65,6 @@ describe('adapter stack matrix', () => {
           (adapter.capabilities.skills ? skillArtifacts.length : 0) +
           Number(adapter.capabilities.agents) +
           Number(adapter.capabilities.hooks) +
-          // Issue #622 — installMcp writes nothing at a host path, whatever the capability.
           Number(adapter.capabilities.caching) +
           Number(adapter.capabilities.memory);
 
@@ -88,10 +78,6 @@ describe('adapter stack matrix', () => {
           expect(files.map((file) => file.path).some((path) => path.includes('.json'))).toBe(true);
         }
 
-        // The config file is always files[0] regardless of its extension or path.
-        // Entry files are now lean bootstrap stubs: a one-line pointer to the
-        // framework bootstrap and the Adapter footer, with no load steps,
-        // workflow prose, or embedded contracts.
         const configFile = files[0];
         expect(configFile?.content).toContain('.paqad/framework-path.txt');
         expect(configFile?.content).toContain('AGENT-BOOTSTRAP.md');

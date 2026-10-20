@@ -38,11 +38,11 @@ describe('triggerRefresh', () => {
     expect(result).toEqual({ spawned: true });
     expect(spawnWorker).toHaveBeenCalledTimes(1);
     expect(spawnWorker).toHaveBeenCalledWith(spec.worker);
-    expect(existsSync(spec.lockDir)).toBe(true); // lock held for the worker
+    expect(existsSync(spec.lockDir)).toBe(true);
   });
 
   it('no-ops a second concurrent trigger while a worker is in-flight (single-flight)', () => {
-    const spec = makeSpec(); // debounce disabled, so only the lock can suppress
+    const spec = makeSpec();
     const spawnWorker = vi.fn<(w: WorkerCommand) => void>();
     const first = triggerRefresh(spec, { spawnWorker });
     const second = triggerRefresh(spec, { spawnWorker });
@@ -56,14 +56,10 @@ describe('triggerRefresh', () => {
     const spawnWorker = vi.fn<(w: WorkerCommand) => void>();
     const stamp = 5_000_000_000;
 
-    // First trigger spawns and stamps the marker at `stamp`.
     const first = triggerRefresh(spec, { spawnWorker, now: () => stamp });
-    // Worker finishes and releases the lock — so the lock no longer suppresses.
     releaseLock(spec.lockDir);
 
-    // A second trigger 500ms later is dropped purely by debounce, not the lock.
     const second = triggerRefresh(spec, { spawnWorker, now: () => stamp + 500 });
-    // A third trigger after the window spawns again.
     const third = triggerRefresh(spec, { spawnWorker, now: () => stamp + 1500 });
 
     expect(first).toEqual({ spawned: true });
@@ -74,7 +70,6 @@ describe('triggerRefresh', () => {
 
   it('reclaims a crashed worker’s stale lock and spawns again', () => {
     const spec = makeSpec();
-    // Simulate a crashed worker: lock present, aged past the stale threshold.
     mkdirSync(spec.lockDir, { recursive: true });
     const old = Date.now() / 1000 - 3600;
     utimesSync(spec.lockDir, old, old);
@@ -91,7 +86,6 @@ describe('triggerRefresh', () => {
       throw new Error('spawn boom');
     });
     expect(() => triggerRefresh(spec, { spawnWorker })).toThrow('spawn boom');
-    // The lock must not be left wedged on a failed spawn.
     expect(existsSync(spec.lockDir)).toBe(false);
   });
 
@@ -108,7 +102,7 @@ describe('triggerRefresh', () => {
 describe('runRefreshJob', () => {
   it('runs the build then releases the lock', async () => {
     const spec = makeSpec();
-    mkdirSync(spec.lockDir, { recursive: true }); // worker owns the lock
+    mkdirSync(spec.lockDir, { recursive: true });
     const build = vi.fn(async () => undefined);
     await runRefreshJob(spec, build);
     expect(build).toHaveBeenCalledTimes(1);

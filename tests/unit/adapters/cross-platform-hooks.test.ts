@@ -7,18 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { AdapterFactory } from '@/adapters';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 
-/**
- * Issue #240 — no onboarded host config may wire a Windows-broken hook command.
- * The inverse of the old `toContain('...sh')` assertions: every generated hook
- * command must run on Windows as well as POSIX, which means:
- *   - no `.sh` target (Windows ships no bash; the file is not executable),
- *   - no bare `~` (cmd.exe / PowerShell do not expand it),
- *   - no reliance on a shebang / exec-bit — every paqad hook launches through an
- *     explicit `node` interpreter with an absolute path.
- * This runs for EVERY adapter so a future host that starts wiring hooks cannot
- * silently reintroduce the POSIX-only invocation.
- */
-describe('generated hook commands are cross-platform (#240)', () => {
+describe('generated hook commands are cross-platform', () => {
   for (const type of ADAPTER_TYPES) {
     it(`${type}: wires no .sh hook command and no bare ~ path`, async () => {
       const projectRoot = mkdtempSync(join(tmpdir(), `paqad-xplat-${type}-`));
@@ -38,7 +27,6 @@ describe('generated hook commands are cross-platform (#240)', () => {
           expect(command, `${type}: hook command must not rely on ~ expansion`).not.toMatch(
             /(^|[\s"'])~\//,
           );
-          // Any command that points at a paqad hook must launch via `node`.
           if (command.includes('.paqad-ai') || command.includes('/hooks/')) {
             expect(command, `${type}: paqad hook must launch via the node interpreter`).toMatch(
               /^node\s/,
@@ -52,12 +40,7 @@ describe('generated hook commands are cross-platform (#240)', () => {
   }
 });
 
-/**
- * Issue #240 (per-machine decision) — the hook-wiring adapters mark their
- * machine-specific generated hook config git-ignored via a nested `.gitignore`
- * in the host dir, so an absolute home path never lands in a committed file.
- */
-describe('hook-wiring adapters gitignore their per-machine hook config (#240)', () => {
+describe('hook-wiring adapters gitignore their per-machine hook config', () => {
   const hostByAdapter: Record<string, { dir: string; ignored: string[] }> = {
     'claude-code': { dir: '.claude', ignored: ['settings.json', 'settings.hooks.json'] },
     'codex-cli': { dir: '.codex', ignored: ['hooks.json', 'settings.hooks.json'] },
@@ -99,9 +82,6 @@ describe('hook-wiring adapters gitignore their per-machine hook config (#240)', 
   });
 });
 
-/** Pull every `"command": "<value>"` out of a generated JSON host config,
- *  unescaping JSON string escapes so the raw shell command is asserted. Files
- *  that carry no hook commands (markdown entry files, etc.) yield none. */
 function extractHookCommands(content: string): string[] {
   const out: string[] = [];
   const re = /"command"\s*:\s*"((?:[^"\\]|\\.)*)"/g;

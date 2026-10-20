@@ -18,7 +18,7 @@ describe('GithubCopilotAdapter', () => {
     expect(files[0]?.content).not.toContain('## ');
   });
 
-  it('writes no MCP config at .vscode/mcp.json (issue #622)', async () => {
+  it('writes no MCP config at .vscode/mcp.json', async () => {
     expect(await adapter.installMcp()).toEqual([]);
   });
 

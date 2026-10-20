@@ -11,7 +11,6 @@ describe('decision-pause-ui-shim', () => {
       const note = DECISION_PAUSE_UI_NOTES[adapter];
       expect(note).toBeDefined();
       expect(note.length).toBeGreaterThan(0);
-      // Notes are intentionally short; entry files are session preludes.
       expect(note.length).toBeLessThan(200);
     }
   });

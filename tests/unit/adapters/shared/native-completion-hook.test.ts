@@ -56,7 +56,6 @@ describe('buildNativeCompletionHookFile', () => {
       type: 'command',
       command: completionRecordCommand(),
     });
-    // The command is the record-only hook, never the blocking Claude variant.
     expect(file.content).toContain('verification-record.mjs');
     expect(file.content).not.toContain('verification-completion.mjs');
   });
@@ -93,10 +92,8 @@ describe('buildNativeCompletionHookFile', () => {
 
     const { json } = render(root, '.gemini/settings.json', 'AfterAgent');
 
-    // Unrelated settings and events survive untouched.
     expect(json.model).toBe('gemini-2.5-pro');
     expect(json.hooks.SessionStart).toHaveLength(1);
-    // The user's AfterAgent hook is kept; paqad's is appended (no clobber).
     expect(json.hooks.AfterAgent).toHaveLength(2);
     const commands = json.hooks.AfterAgent.flatMap((group) =>
       group.hooks.map((hook) => hook.command),
@@ -112,9 +109,8 @@ describe('buildNativeCompletionHookFile', () => {
     expect(json.hooks.Stop[0].hooks[0].command).toBe(completionRecordCommand());
   });
 
-  it('prunes the retired bare-path record command on re-onboard (#240)', () => {
+  it('prunes the retired bare-path record command on re-onboard', () => {
     const root = tempProject();
-    // An earlier onboard wired the Windows-broken bare `.mjs` invocation.
     seedExisting(
       root,
       '.codex/hooks.json',
@@ -136,23 +132,20 @@ describe('buildNativeCompletionHookFile', () => {
 
     const { json } = render(root, '.codex/hooks.json', 'Stop');
     const commands = json.hooks.Stop.flatMap((group) => group.hooks.map((hook) => hook.command));
-    // The bare path is gone; the cross-platform `node "<abs>"` command replaces it once.
     expect(commands).not.toContain(`${PAQAD_RUNTIME_PREFIX}/hooks/verification-record.mjs`);
     expect(commands.filter((command) => command === completionRecordCommand())).toHaveLength(1);
     expect(commands.some((command) => command.includes('~'))).toBe(false);
   });
 
-  it('carries the host adapter type as an argv on the record command (#265)', () => {
+  it('carries the host adapter type as an argv on the record command', () => {
     const root = tempProject();
     const { json } = render(root, '.codex/hooks.json', 'Stop', 'codex-cli');
     expect(json.hooks.Stop[0].hooks[0].command).toBe(completionRecordCommand('codex-cli'));
-    // The argv is appended after the quoted hook path, so the row attributes to Codex.
     expect(json.hooks.Stop[0].hooks[0].command).toContain('verification-record.mjs" codex-cli');
   });
 
-  it('cleanly cuts over the pre-#265 no-argv absolute form to the arg-carrying one', () => {
+  it('cleanly cuts over the older no-argv absolute form to the arg-carrying one', () => {
     const root = tempProject();
-    // An earlier onboard wired the no-argv absolute `node "<abs>"` record command.
     seedExisting(
       root,
       '.gemini/settings.json',
@@ -167,7 +160,6 @@ describe('buildNativeCompletionHookFile', () => {
     const commands = json.hooks.AfterAgent.flatMap((group) =>
       group.hooks.map((hook) => hook.command),
     );
-    // The no-argv form is gone; the arg-carrying command replaces it exactly once.
     expect(commands).not.toContain(completionRecordCommand());
     expect(
       commands.filter((command) => command === completionRecordCommand('gemini-cli')),

@@ -51,7 +51,7 @@ describe('OCSF formatter', () => {
     expect(rec.category_uid).toBe(6);
     expect(rec.type_uid).toBe(600300);
     expect(rec.time).toBe(Date.parse(evidence.ts));
-    expect(rec.severity_id).toBe(1); // pass → informational
+    expect(rec.severity_id).toBe(1);
     expect(rec.status_id).toBe(1);
     expect(rec.status).toBe('Success');
     const meta = rec.metadata as Record<string, unknown>;
@@ -66,7 +66,7 @@ describe('OCSF formatter', () => {
 
   it('maps an attestation with actor + observables + failure severity', () => {
     const rec = toOcsfRecord({ ...attestation, verdict: 'FAILED' }, VER);
-    expect(rec.severity_id).toBe(4); // FAILED → high
+    expect(rec.severity_id).toBe(4);
     expect(rec.status_id).toBe(2);
     expect(rec.status).toBe('Failure');
     const actor = rec.actor as Record<string, unknown>;
@@ -88,7 +88,7 @@ describe('OCSF formatter', () => {
       },
       VER,
     );
-    expect(rec.time).toBe(0); // empty ts → epoch 0
+    expect(rec.time).toBe(0);
     expect(rec.severity_id).toBe(0);
     expect(rec.status).toBe('Unknown');
     const actor = rec.actor as Record<string, unknown>;
@@ -115,7 +115,7 @@ describe('OCSF formatter', () => {
     expect((rec.actor as Record<string, unknown>).user).toEqual({ email_addr: 'a@b.c' });
   });
 
-  it('grades a skipped gate row Informational, not Unknown (issue #579)', () => {
+  it('grades a skipped gate row Informational, not Unknown', () => {
     const rec = toOcsfRecord({ ...evidence, verdict: 'skipped' }, VER);
     expect(rec.severity_id).toBe(1);
     expect(rec.status).toBe('Unknown');
@@ -128,7 +128,7 @@ describe('OCSF formatter', () => {
 });
 
 describe('ECS formatter', () => {
-  it('grades a skipped gate row Informational with an unknown outcome (issue #579)', () => {
+  it('grades a skipped gate row Informational with an unknown outcome', () => {
     const event = toEcsRecord({ ...evidence, verdict: 'skipped' }, VER).event as Record<
       string,
       unknown
@@ -183,7 +183,6 @@ describe('ECS formatter', () => {
       authorship: { accepting_human: { name: 'Ada' }, provenance: 'declared' },
     };
     expect(toEcsRecord(single, VER).user as Record<string, unknown>).toEqual({ name: 'Ada' });
-    // an evidence event without receipt_hash omits that label
     const rec = toEcsRecord(evidence, VER);
     expect((rec.labels as Record<string, string>).paqad_receipt_hash).toBeUndefined();
     expect(rec.related).toBeUndefined();
@@ -199,7 +198,7 @@ describe('ECS formatter', () => {
     };
     const rec = toEcsRecord(noHash, VER);
     expect((rec.event as Record<string, unknown>).id).toBeUndefined();
-    expect(rec.user).toBeUndefined(); // empty human → no user block
+    expect(rec.user).toBeUndefined();
   });
 
   it('maps an email-only human', () => {
@@ -227,21 +226,21 @@ describe('CEF formatter', () => {
   it('renders an evidence row as a single CEF line', () => {
     const line = toCef(evidence, VER);
     expect(line.startsWith('CEF:0|Paqad|paqad-ai|1.2.3|mutation-testing|')).toBe(true);
-    expect(line).toContain('|2|'); // pass → severity 2
+    expect(line).toContain('|2|');
     expect(line).toContain('cs1=subj-abc');
     expect(line).toContain('cs2=deterministic');
     expect(line).toContain('msg=killed 9/10 mutants');
     expect(line).not.toContain('\n');
   });
 
-  it('grades a skipped gate row at the lowest graded severity (issue #579)', () => {
+  it('grades a skipped gate row at the lowest graded severity', () => {
     const line = toCef({ ...evidence, verdict: 'skipped' }, VER);
     expect(line).toContain('|evidence verification-gate skipped|1|');
   });
 
   it('renders an attestation with file + multi-file count + suser', () => {
     const line = toCef(attestation, VER);
-    expect(line).toContain('|2|'); // PASSED → severity 2
+    expect(line).toContain('|2|');
     expect(line).toContain('fileHash=aaa');
     expect(line).toContain('fname=src/a.ts');
     expect(line).toContain('cn1=2');
@@ -259,16 +258,14 @@ describe('CEF formatter', () => {
       authorship: { accepting_human: { name: 'Grace' }, provenance: 'unknown' },
     };
     const line = toCef(sparse, VER);
-    expect(line).toContain('rt=0'); // unparseable ts → 0
-    expect(line).toContain('|5|'); // inconclusive → severity 5
+    expect(line).toContain('rt=0');
+    expect(line).toContain('|5|');
     expect(line).toContain('suser=Grace');
     expect(line).not.toContain('cs1=');
     expect(line).not.toContain('fileHash=');
   });
 });
 
-// Buildout F6 — a #249 session-ledger fold event must render in every format with
-// its doc type + session id surfaced, not silently dropped.
 const session: SiemEvent = {
   kind: 'session',
   ts: '2026-06-20T00:00:00.000Z',
@@ -284,7 +281,7 @@ describe('session-ledger fold across formatters', () => {
   it('OCSF maps a session event to a Session activity with doc_type + session_id', () => {
     const rec = toOcsfRecord(session, VER);
     expect(rec.activity_name).toBe('Session');
-    expect(rec.severity_id).toBe(0); // lifecycle event → informational/unknown
+    expect(rec.severity_id).toBe(0);
     const paqad = (rec.unmapped as Record<string, unknown>).paqad as Record<string, unknown>;
     expect(paqad.doc_type).toBe('decision-evidence');
     expect(paqad.session_id).toBe('_project');
@@ -307,12 +304,11 @@ describe('session-ledger fold across formatters', () => {
     expect(line).toContain('sourceServiceName=decision-evidence');
     expect(line).toContain('externalId=_project');
     expect(line).toContain('msg=opened D-1');
-    expect(line).toContain('|session decision-evidence opened|'); // header name
+    expect(line).toContain('|session decision-evidence opened|');
   });
 
   it('falls back to verdict + code in the message when a session event lacks detail/doc_type', () => {
     const sparse: SiemEvent = { ...session, detail: undefined, doc_type: undefined };
-    // source falls back from doc_type to code; no detail → verdict tail.
     expect(toOcsfRecord(sparse, VER).message).toBe('decision-evidence: opened');
     expect((toEcsRecord(sparse, VER).event as Record<string, unknown>).reason).toBeUndefined();
   });
