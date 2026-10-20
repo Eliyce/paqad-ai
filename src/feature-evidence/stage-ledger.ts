@@ -34,7 +34,7 @@ import {
   resumeFeature,
   setActiveFeature,
 } from './session-control.js';
-import type { FeatureLane } from './types.js';
+import type { FeatureChangeKind, FeatureLane } from './types.js';
 
 export interface ResolveFeatureInput {
   title?: string;
@@ -114,6 +114,7 @@ export interface ChangeConstantsInput {
   lane?: FeatureLane;
   branch?: string | null;
   baseBranch?: string | null;
+  kind?: FeatureChangeKind;
 }
 
 export function recordChangeConstants(
@@ -127,6 +128,7 @@ export function recordChangeConstants(
   if (input.lane) patch.lane = input.lane;
   if (input.branch) patch.branch = input.branch;
   if (input.baseBranch) patch.base_branch = input.baseBranch;
+  if (input.kind) patch.kind = input.kind;
   if (Object.keys(patch).length > 0) {
     updateFeatureRecord(projectRoot, dirName, patch, now);
   }
@@ -179,6 +181,7 @@ export function currentFeature(projectRoot: string, sessionId: string): string |
 
 export interface OpenFeatureChangeInput extends ResolveFeatureInput {
   adapter: string;
+  kind?: FeatureChangeKind;
 }
 
 export function openFeatureChange(
@@ -194,6 +197,7 @@ export function openFeatureChange(
     lane: input.lane ?? null,
     branch: gitState.branch ?? null,
     baseBranch: gitState.base_branch ?? null,
+    kind: input.kind,
     now: input.now,
   });
   if (seeded) {
@@ -205,6 +209,7 @@ export function openFeatureChange(
         lane: input.lane ?? null,
         branch: gitState.branch ?? null,
         baseBranch: gitState.base_branch ?? null,
+        kind: input.kind,
       },
       input.now,
     );

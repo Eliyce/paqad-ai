@@ -31,6 +31,8 @@ export type FeatureLane = 'fast' | 'graduated' | 'full' | null;
 
 export type FeatureStatus = 'active' | 'paused' | 'done' | 'spec-only';
 
+export type FeatureChangeKind = 'fix' | 'other';
+
 export interface FeatureRecord extends EnvelopeHeader {
   doc_type: typeof FEATURE_DOC_TYPE;
   issue: string | null;
@@ -43,6 +45,7 @@ export interface FeatureRecord extends EnvelopeHeader {
   adapter: string;
   branch?: string | null;
   base_branch?: string | null;
+  kind?: FeatureChangeKind;
 }
 
 export interface LegacyFeatureRecord {

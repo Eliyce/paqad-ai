@@ -17,7 +17,8 @@ import {
 import { readSessionControl, writeSessionControl } from '@/feature-evidence/session-control.js';
 import { closeActiveFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { readSessionRoute } from '@/pipeline/session-route.js';
-import { readPendingLane } from '@/stage-evidence/pending-lane.js';
+import { readPendingKind, readPendingLane } from '@/stage-evidence/pending-lane.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { startStage } from '@/stage-evidence/recorder.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -174,6 +175,45 @@ describe('runPromptRouteSeam', () => {
     const sessionId = resolveSessionId(root, SESSION);
     expect(readPendingLane(root, sessionId)).toBe('full');
     expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
+  });
+
+  it('carries a bug-fix classification onto the change opened next as kind fix', async () => {
+    await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'fix the null crash in login',
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      },
+      { classify: async () => classificationWith('bug-fix'), route: () => ({ lane: 'fast' }) },
+    );
+    const sessionId = resolveSessionId(root, SESSION);
+    expect(readPendingKind(root, sessionId)).toBe('fix');
+    startStage(root, 'planning', { sessionId, adapter: ADAPTER });
+    const dir = readSessionControl(root, sessionId).active!;
+    expect(readFeatureRecord(root, dir)?.kind).toBe('fix');
+  });
+
+  it('stashes kind other for a non-fix feature change and nothing for a question', async () => {
+    await runPromptRouteSeam(
+      { projectRoot: root, request: 'add a export button', sessionId: SESSION, adapter: ADAPTER },
+      {
+        classify: async () => classificationWith('feature-development'),
+        route: () => ({ lane: 'fast' }),
+      },
+    );
+    const sessionId = resolveSessionId(root, SESSION);
+    expect(readPendingKind(root, sessionId)).toBe('other');
+    const other = mkdtempSync(join(tmpdir(), 'paqad-route-seam-q-'));
+    try {
+      await runPromptRouteSeam(
+        { projectRoot: other, request: 'what does login do', sessionId: SESSION, adapter: ADAPTER },
+        { classify: async () => classificationWith('project-question') },
+      );
+      expect(readPendingKind(other, resolveSessionId(other, SESSION))).toBeNull();
+    } finally {
+      rmSync(other, { recursive: true, force: true });
+    }
   });
 
   it('records the routing host on the session route', async () => {

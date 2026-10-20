@@ -395,3 +395,49 @@ describe('readChangeConstants', () => {
     });
   });
 });
+
+describe('change kind on feature.json', () => {
+  it('leaves kind off a record that was opened with no classifier result', () => {
+    const root = tempRoot();
+    const record = seedFeatureRecord(root, DIR, {
+      adapter: 'claude-code',
+      sessionId: 's',
+      now: clock,
+    });
+    expect(record).not.toHaveProperty('kind');
+    expect(validateFeatureRecord(record)).toEqual([]);
+  });
+
+  it('records a fix seeded at open and keeps it valid', () => {
+    const root = tempRoot();
+    const dir = openFeatureChange(root, 's', { adapter: 'claude-code', kind: 'fix', now: clock });
+    expect(readFeatureRecord(root, dir)?.kind).toBe('fix');
+  });
+
+  it('never lets a later other result clear a recorded fix', () => {
+    const root = tempRoot();
+    seedFeatureRecord(root, DIR, {
+      adapter: 'claude-code',
+      sessionId: 's',
+      kind: 'other',
+      now: clock,
+    });
+    recordChangeConstants(root, DIR, { kind: 'fix' }, clock);
+    expect(readFeatureRecord(root, DIR)?.kind).toBe('fix');
+    recordChangeConstants(root, DIR, { kind: 'other' }, clock);
+    expect(readFeatureRecord(root, DIR)?.kind).toBe('fix');
+  });
+
+  it('rejects a kind outside fix and other', () => {
+    const record = buildFeatureRecord({
+      change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
+      session_id: 's',
+      issue: null,
+      title: 'x',
+      slug: 'x',
+      adapter: 'claude-code',
+      now: clock,
+    });
+    expect(validateFeatureRecord({ ...record, kind: 'refactor' }).length).toBeGreaterThan(0);
+  });
+});

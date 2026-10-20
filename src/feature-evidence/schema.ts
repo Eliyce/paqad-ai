@@ -142,6 +142,7 @@ export const FEATURE_SCHEMA = versionedSchema(
       branch: nullableString,
       base_branch: nullableString,
       updated_at: { type: 'string', minLength: 1 },
+      kind: { enum: ['fix', 'other'] },
     },
   ),
 );

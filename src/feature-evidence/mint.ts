@@ -13,6 +13,7 @@ import {
   FEATURE_DOC_TYPE,
   PLAN_DOC_TYPE,
   REVIEW_DOC_TYPE,
+  type FeatureChangeKind,
   type FeatureLane,
   type FeatureRecord,
   type FeatureStatus,
@@ -110,6 +111,7 @@ export interface BuildFeatureRecordInput extends DocumentIdentityInput {
   adapter: string;
   branch?: string | null;
   base_branch?: string | null;
+  kind?: FeatureChangeKind;
   recorded_at?: string;
 }
 
@@ -134,6 +136,7 @@ export function buildFeatureRecord(input: BuildFeatureRecordInput): FeatureRecor
       branch: input.branch ?? null,
       base_branch: input.base_branch ?? null,
       updated_at: updatedAt,
+      ...(input.kind !== undefined ? { kind: input.kind } : {}),
     },
   }) as FeatureRecord;
 }

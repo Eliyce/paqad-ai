@@ -1,4 +1,5 @@
 import type { ClassificationWorkflow } from '@/core/types/classification.js';
+import type { FeatureChangeKind } from '@/feature-evidence/types.js';
 
 export const ROUTED_WORKFLOWS = [
   'feature-development',
@@ -62,4 +63,10 @@ export function resolveRoutedWorkflow(
     return 'no-workflow';
   }
   return OUTCOME_BY_WORKFLOW[workflow];
+}
+
+export function changeKindForWorkflow(
+  workflow: ClassificationWorkflow | null | undefined,
+): FeatureChangeKind {
+  return workflow === 'bug-fix' ? 'fix' : 'other';
 }
