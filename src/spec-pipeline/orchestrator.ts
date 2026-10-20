@@ -1,14 +1,3 @@
-// The spec-pipeline orchestrator — the deterministic step machine (issue #512, FR-1).
-//
-// The SCRIPT owns sequencing and every gate; the model never decides what runs next. Each
-// step records one artifact; the next step is LOCKED until its predecessor's artifact exists
-// and validates (FR-1.2). Re-running continues from the first incomplete step (FR-1.3, resume).
-// Every completion appends one `kind: 'spec-step'` row to the bundle's stage evidence with the
-// artifact hash and outcome (FR-1.5). Where each step's artifact lives is the run store's
-// business (issue #581): the label, question batch and expert synthesis are sections of
-// bundle documents, the rest stage under `.paqad/tmp/spec-pipeline/<ULID>/` until freeze.
-// This module reads and writes only through that store.
-
 import { sha256Hex } from '@/compliance/markdown.js';
 
 import { checkSpecShape } from './parser-parity.js';
@@ -41,7 +30,6 @@ import {
   type QuestionsArtifact,
 } from './types.js';
 
-/** The file each step's artifact is recorded in (named in step-lock messages). */
 export const PIPELINE_ARTIFACT_FILES: Record<PipelineStep, string> = {
   ground: 'grounding.json',
   label: 'clarification.json',
@@ -52,7 +40,6 @@ export const PIPELINE_ARTIFACT_FILES: Record<PipelineStep, string> = {
   finish: 'finish.json',
 };
 
-/** The steps whose artifact stages until freeze, and the staged file each one uses. */
 const STAGED_STEPS: Partial<Record<PipelineStep, StagedFile>> = {
   ground: 'grounding',
   task: 'task',
@@ -60,11 +47,6 @@ const STAGED_STEPS: Partial<Record<PipelineStep, StagedFile>> = {
   finish: 'finish',
 };
 
-/**
- * A step's recorded artifact as text, or null when the step has not recorded one. A staged
- * step returns its staged file byte-for-byte; a bundle section (label, questions, experts)
- * returns that section in the step machine's shape as JSON, so one validator judges both.
- */
 export function readStepArtifact(
   projectRoot: string,
   dirName: string,
@@ -98,7 +80,6 @@ export interface StepValidation {
   error?: string;
 }
 
-/** Validate a step artifact's shape (the step-lock check). Deterministic, model-free. */
 export function validateStepArtifact(step: PipelineStep, raw: string | null): StepValidation {
   if (raw === null) {
     return { ok: false, error: `${PIPELINE_ARTIFACT_FILES[step]} is missing` };
@@ -132,8 +113,6 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
       }
       return { ok: true };
     case 'experts':
-      // The step-lock is a light shape check (issue #547); the full FR-5.4 chief-architect
-      // validation runs in the `experts synthesis` CLI verb before this artifact is written.
       if (
         typeof obj.verdict !== 'string' ||
         !Array.isArray(obj.accepted) ||
@@ -148,9 +127,6 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
       }
       return { ok: true };
     case 'questions': {
-      // `questions[]` is the only hard requirement (INV-3): a raw agent batch validates. The
-      // enriched fields the record command adds — `auto_answered[]` and the FR-7.6 counts — are
-      // validated only when present, so both the raw and the enriched artifact pass.
       if (!Array.isArray(obj.questions)) {
         return { ok: false, error: 'the question batch needs a questions[] array' };
       }
@@ -179,7 +155,6 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
       return { ok: true };
   }
 }
-/** Read whether a step's artifact exists and validates. */
 export function stepArtifactValid(
   projectRoot: string,
   dirName: string,
@@ -188,15 +163,10 @@ export function stepArtifactValid(
   return validateStepArtifact(step, readStepArtifact(projectRoot, dirName, step)).ok;
 }
 
-/** True when the label recorded for this run is `clear` (⇒ the question round is skipped). */
 export function labelIsClear(projectRoot: string, dirName: string): boolean {
   return readLabel(projectRoot, dirName)?.label === 'clear';
 }
 
-/**
- * Read the recorded question batch (issue #517), or null when the step never ran (the label was
- * `clear`, so no questions were produced).
- */
 export function readQuestionsArtifact(
   projectRoot: string,
   dirName: string,
@@ -204,11 +174,6 @@ export function readQuestionsArtifact(
   return readQuestions(projectRoot, dirName);
 }
 
-/**
- * Whether any expert or chief question is waiting to join the S2 batch (issue #547, FR-7.3). Reads
- * the staged note questions and the synthesis' `gaps[].question` + `questions[]` directly, so a
- * `clear`-labelled prompt that nonetheless drew expert questions still runs S2.
- */
 export function hasExpertOrChiefQuestions(projectRoot: string, dirName: string): boolean {
   if (readStagedExpertQuestions(projectRoot, dirName).some((note) => note.questions.length > 0)) {
     return true;
@@ -218,13 +183,6 @@ export function hasExpertOrChiefQuestions(projectRoot: string, dirName: string):
   return synthesis.questions.length > 0 || synthesis.gaps.some((gap) => gap.question !== undefined);
 }
 
-/**
- * Whether a step counts as complete for sequencing.
- *   - `experts` is complete-by-skip when the roster is off or the recorded roster names zero
- *     experts (issue #547, FR-2.2); otherwise it needs a valid synthesis.
- *   - `questions` is complete-by-skip when the label is `clear` AND no expert or chief question is
- *     pending (FR-7.3; the base rule is FR-3.4 — an empty step is skipped, never run "to be safe").
- */
 export function stepComplete(projectRoot: string, dirName: string, step: PipelineStep): boolean {
   if (step === 'experts') {
     if (!expertsActive(readPipelineConfig(projectRoot))) return true;
@@ -241,7 +199,6 @@ export function stepComplete(projectRoot: string, dirName: string, step: Pipelin
   return stepArtifactValid(projectRoot, dirName, step);
 }
 
-/** The first incomplete step (resume point), or null when the run is finished (FR-1.3). */
 export function nextStep(projectRoot: string, dirName: string): PipelineStep | null {
   for (const step of PIPELINE_STEPS) {
     if (!stepComplete(projectRoot, dirName, step)) {
@@ -253,21 +210,14 @@ export function nextStep(projectRoot: string, dirName: string): PipelineStep | n
 
 export interface StepGate {
   allowed: boolean;
-  /** When blocked, the predecessor step that must run first, and a message. */
   missing?: PipelineStep;
   message?: string;
 }
 
 export interface AssertStepOptions {
-  /**
-   * Whether an unresolved `spec.expert_conflict` decision packet is pending for this change
-   * (issue #547, FR-6.4). The CLI reads the decision store and passes it; `questions` cannot run
-   * while one is pending, so the human resolves the conflict before the batch is asked.
-   */
   hasPendingExpertConflict?: boolean;
 }
 
-/** Assert a step may run: every earlier step must be complete (FR-1.2 / AC-10). */
 export function assertCanRunStep(
   projectRoot: string,
   dirName: string,
@@ -295,10 +245,6 @@ export function assertCanRunStep(
   return { allowed: true };
 }
 
-/**
- * Record a step's artifact where the run store keeps it: a staged file for ground, task, craft
- * and finish, or a bundle section for label, questions and experts (whose `content` is JSON).
- */
 export function writeStepArtifact(
   projectRoot: string,
   dirName: string,
@@ -318,10 +264,6 @@ export function writeStepArtifact(
   }
 }
 
-/**
- * Remove a step's recorded artifact, returning what it held in the {@link readStepArtifact} form
- * (so a redone row hashes the same text a complete row did), or null when it held nothing.
- */
 function clearStepArtifact(
   projectRoot: string,
   dirName: string,
@@ -342,15 +284,9 @@ function clearStepArtifact(
 }
 
 export interface RecordStepOptions extends StoreWriteOptions {
-  /** Tokens the agent reported for the step (kept only when a whole, non-negative number). */
   tokens?: unknown;
 }
 
-/**
- * Append the step's `spec-step` row (FR-1.5, issue #581 FR-7): the step, how it ended and the
- * sha256 of the artifact it recorded (empty when it recorded none). The enforcement config is
- * NOT on the row: it is stored once, with the frozen spec (AC-11).
- */
 export function recordStep(
   projectRoot: string,
   dirName: string,
@@ -371,11 +307,6 @@ export function recordStep(
   );
 }
 
-/**
- * Redo a step (FR-1.3): clear its artifact and every downstream artifact so the run re-derives
- * them, and append one `redone` row per cleared step carrying the hash of what was cleared.
- * Nothing is archived beside the artifact. Returns the steps that were invalidated.
- */
 export function redoStep(
   projectRoot: string,
   dirName: string,

@@ -1,14 +1,3 @@
-// S5 finish — freeze, non-blocking review, or await-human (issue #512, FR-7).
-//
-// The finishing decision is deterministic and hard-gated on A5 (FR-7.1): an automatic,
-// unattended freeze is permitted ONLY when the spec-vs-code check is live. When A5 is absent
-// the pipeline NEVER freezes silently — it renders the readable spec as a non-blocking review
-// (FR-7.2 / EC-13). Independently, the switchable final-review gate can require a named human
-// to approve before freeze (FR-7.3). Provenance is honest: it records that the spec was
-// pipeline-produced, the answer references (human input by reference), the question counts,
-// the enforcement config in effect, and whether A5 was live — and NEVER claims a human
-// approved something they did not (FR-7.4).
-
 import type { AgentRole } from '@/core/types/agent.js';
 import type { SpecPipelineSection } from '@/core/types/feature-spec.js';
 import type { SkillModelTier } from '@/core/types/skill.js';
@@ -24,12 +13,6 @@ export interface FinishDecision {
   reason: string;
 }
 
-/**
- * Decide how a run finishes, purely from the A5-live flag and the final-review gate.
- * - final_review = strict  ⇒ await a named human's approval before freeze (FR-7.3).
- * - A5 not live            ⇒ non-blocking readable review, never a silent freeze (FR-7.2).
- * - otherwise (A5 live)    ⇒ automatic freeze (FR-7.1); final_review = warn shows then freezes.
- */
 export function decideFinish(config: PipelineConfig, a5Live: boolean): FinishDecision {
   if (config.final_review === 'strict') {
     return {
@@ -53,7 +36,6 @@ export function decideFinish(config: PipelineConfig, a5Live: boolean): FinishDec
   };
 }
 
-/** Question counts recorded for provenance/metrics (FR-7.6). */
 export interface QuestionCounts {
   asked: number;
   answered: number;
@@ -61,21 +43,11 @@ export interface QuestionCounts {
   deferred: number;
 }
 
-/**
- * The Phase 2 expert block folded into provenance ONLY when experts ran (issue #521, FR-8). When
- * the experts flag is off it is absent, so a flag-off run's provenance is byte-identical to v1
- * (P2-INV-1 / AC-7). Carries the per-expert accounting and any detected cross-expert conflicts.
- */
 export interface ProvenanceExperts {
   accounting: ExpertRunAccounting;
   conflicts: ExpertConflict[];
 }
 
-/**
- * The full run metrics recorded in provenance (issue #547, FR-11.1). Every field is measured from
- * the run's own artifacts (grounding, label, questions, spec, experts, trace); paqad measures no
- * tokens from Node, so `tokens_by_step` carries only the actuals the artifacts reported.
- */
 export interface SpecPipelineMetrics {
   grounding_sparse: boolean;
   grounding_path: GroundingPath;
@@ -92,18 +64,14 @@ export interface SpecPipelineMetrics {
   freeze_checks_fired: string[];
 }
 
-/** The honest provenance record folded into the finish artifact (FR-7.4). Never a signature. */
 export interface PipelineProvenance {
   pipeline_produced: true;
-  /** Human input carried by REFERENCE only (ledgered answer ids), never a fabricated sign-off. */
   answer_refs: string[];
   questions: QuestionCounts;
   enforcement: PipelineConfig;
   a5_live: boolean;
   outcome: FinishOutcome;
-  /** Present only when the Phase 2 expert roster ran (issue #521); absent otherwise. */
   experts?: ProvenanceExperts;
-  /** The full run metrics (issue #547, FR-11.1); absent on a run recorded before this. */
   metrics?: SpecPipelineMetrics;
 }
 
@@ -122,26 +90,17 @@ export function buildProvenance(
     enforcement: config,
     a5_live: a5Live,
     outcome: decideFinish(config, a5Live).outcome,
-    // Optional-and-only-when-present: an undefined experts arg leaves the key off entirely, so a
-    // run without experts serialises exactly as it did before Phase 2 (INV-1).
     ...(experts ? { experts } : {}),
     ...(metrics ? { metrics } : {}),
   };
 }
 
-/** The staged `finish.json`: the finish decision plus the run's provenance. */
 export interface StagedFinish {
   outcome?: FinishOutcome;
   reason?: string;
   provenance: Partial<PipelineProvenance>;
 }
 
-/**
- * The `pipeline` section `spec freeze --from-pipeline` writes into specification.json (issue #581,
- * D4): the finish outcome and reason, whether A5 was live, and the enforcement settings, stored
- * here once. The master switch is left out: a section only exists while the pipeline is on. A
- * field the staged finish does not carry is left off rather than guessed.
- */
 export function frozenPipelineSection(finish: StagedFinish): SpecPipelineSection {
   const { provenance } = finish;
   const outcome = finish.outcome ?? provenance.outcome;
