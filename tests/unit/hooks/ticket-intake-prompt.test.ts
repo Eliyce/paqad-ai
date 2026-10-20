@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -105,6 +105,65 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (advisory guards)', () => {
     };
     const result = run(projectRoot, payload);
     expect(result.status).toBe(0);
+    expect(result.stdout).toBe('');
+  });
+});
+
+describe('runtime/hooks/ticket-intake-prompt.mjs (branch carrying other work)', () => {
+  let projectRoot: string;
+  const g = (...args: string[]) =>
+    execFileSync('git', args, {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+  const commit = (subject: string) => {
+    writeFileSync(join(projectRoot, `${subject.replace(/\W+/g, '-')}.txt`), subject);
+    g('add', '-A');
+    g('commit', '-q', '-m', subject);
+  };
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-ticket-intake-branch-'));
+    mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 't@t.dev');
+    g('config', 'user.name', 'T');
+    commit('chore: base');
+  });
+  afterEach(() => {
+    rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('prints one amber branch line when the branch carries other tickets', () => {
+    g('checkout', '-q', '-b', 'feat/ORD-470-contact-matching');
+    commit('feat(ORD-470): match');
+    commit('fix(ORD-471): trim');
+    const before = g('rev-list', '--all');
+    const result = run(projectRoot, { prompt: 'work on ORD-482 please' });
+    expect(result.status).toBe(0);
+    const lines = result.stdout.split('\n').filter((line) => line.includes('🟡 Branch'));
+    expect(lines).toEqual([
+      '🟡 Branch `feat/ORD-470-contact-matching` already carries 2 commits from 2 other tickets. ' +
+        'They ride along in this PR unless you split the branch yourself; paqad never moves commits.',
+    ]);
+    expect(result.stdout).toContain('intake fetch ORD-482');
+    expect(g('rev-list', '--all')).toBe(before);
+  });
+
+  it('prints no branch line on a branch that holds only this ticket', () => {
+    g('checkout', '-q', '-b', 'feat/ORD-482-matcher');
+    commit('feat(ORD-482): first pass');
+    const result = run(projectRoot, { prompt: 'continue ORD-482' });
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('intake fetch ORD-482');
+    expect(result.stdout).not.toContain('🟡 Branch');
+  });
+
+  it('prints no branch line without a ticket in the prompt', () => {
+    g('checkout', '-q', '-b', 'feat/ORD-470-contact-matching');
+    commit('feat(ORD-470): match');
+    const result = run(projectRoot, { prompt: 'tidy the matcher' });
     expect(result.stdout).toBe('');
   });
 });

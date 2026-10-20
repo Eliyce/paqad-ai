@@ -45,6 +45,11 @@ import {
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import { raiseTechDebt } from '@/tech-debt/index.js';
+import {
+  readFeatureDelivery,
+  recordShip,
+  writeFeatureDelivery,
+} from '@/feature-evidence/delivery.js';
 
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
 const roots: string[] = [];
@@ -671,6 +676,95 @@ describe('computeHudFlags findings', () => {
       isolatedStages: 0,
     });
     expect(flags).toEqual([]);
+  });
+});
+
+describe('what ships on the HUD', () => {
+  const quiet = {
+    stages: [],
+    gates: [],
+    rulesRecorded: true,
+    tableSkipped: false,
+    isolationStatus: 'not-applicable',
+    isolatedStages: 0,
+  };
+  const group = (count: number, tickets: string[] = []) => ({
+    count,
+    tickets,
+    merges: 0,
+    untagged: count - tickets.length,
+  });
+
+  it('raises branch:shared only while the branch carries other work', () => {
+    const shared = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3, ['ORD-482']),
+        inherited: group(73, ['ORD-470', 'ORD-471']),
+      },
+    });
+    expect(shared).toEqual([
+      { id: 'branch:shared', text: 'This branch also carries 73 commits from 2 other tickets.' },
+    ]);
+    const clean = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3),
+        inherited: group(0),
+      },
+    });
+    expect(clean).toEqual([]);
+    const unknown = computeHudFlags({
+      ...quiet,
+      commitSplit: {
+        state: 'unknown',
+        reason: 'detached HEAD',
+        base_commit: null,
+        own: null,
+        inherited: null,
+      },
+    });
+    expect(unknown).toEqual([]);
+  });
+
+  it('fills ship push, PR, CI, own and inherited from delivery.json', () => {
+    const root = onboardedRoot();
+    const dir = openChange(root, 'ses-ship', 'full', 'ORD-482 matcher');
+    writeFeatureDelivery(root, dir, {
+      ...readFeatureDelivery(root, dir),
+      commit_split: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(3, ['ORD-482']),
+        inherited: group(73, ['ORD-470']),
+      },
+    });
+    recordShip(
+      root,
+      dir,
+      {
+        push: { state: 'pushed', branch: 'feat/ORD-470-x', sha: 's' },
+        pr: { number: 9, url: 'https://example.test/pull/9', draft: false },
+        ci: { sha: 's', state: 'pending', done: 3, total: 7, reason: null, source: 'stop-check' },
+      },
+      NOW().toISOString(),
+    );
+    const snapshot = buildHudSnapshot(root, 'ses-ship', { now: NOW });
+    expect(snapshot.ship).toMatchObject({
+      push: { state: 'pushed' },
+      pr: { number: 9, draft: false },
+      ci: { state: 'pending', done: 3, total: 7 },
+      own: { count: 3 },
+      inherited: { count: 73, tickets: ['ORD-470'] },
+    });
+    expect(snapshot.flags.map((flag) => flag.id)).toContain('branch:shared');
   });
 });
 

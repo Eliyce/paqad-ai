@@ -2,6 +2,7 @@ import { costPill, formatClock } from './cost';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
   PaqadChief,
+  PaqadCommitGroup,
   PaqadCost,
   PaqadCostLine,
   PaqadCostTokens,
@@ -326,6 +327,31 @@ function readStep(value: unknown): string | null {
   return str(value) ?? str(step?.state) ?? str(step?.status) ?? 'recorded';
 }
 
+function readPr(value: unknown): string | null {
+  const pr = rec(value);
+  const number = num(pr?.number);
+  if (number === null) return readStep(value);
+  return `${pr?.draft === true ? 'draft ' : ''}#${number}`;
+}
+
+function readCi(value: unknown): string | null {
+  const ci = rec(value);
+  const total = num(ci?.total);
+  if (ci?.state === 'pending' && total !== null) return `${num(ci.done) ?? 0} of ${total} done`;
+  return readStep(value);
+}
+
+function readCommitGroup(value: unknown): PaqadCommitGroup | null {
+  const group = rec(value);
+  if (!group) return null;
+  return {
+    count: num(group.count) ?? 0,
+    tickets: strings(group.tickets),
+    merges: num(group.merges) ?? 0,
+    untagged: num(group.untagged) ?? 0,
+  };
+}
+
 export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot | null {
   if (typeof text !== 'string' || text.trim() === '') return null;
   let raw: unknown;
@@ -420,8 +446,10 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           commit_decision: str(ship.commit_decision),
           merge_commit: str(ship.merge_commit),
           push: readStep(ship.push),
-          pr: readStep(ship.pr),
-          ci: readStep(ship.ci),
+          pr: readPr(ship.pr),
+          ci: readCi(ship.ci),
+          own: readCommitGroup(ship.own),
+          inherited: readCommitGroup(ship.inherited),
         }
       : null,
     verdict:

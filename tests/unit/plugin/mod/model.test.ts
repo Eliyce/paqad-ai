@@ -14,6 +14,8 @@ import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 import { formatStageEvidenceReceipt } from '@/verification/repository/receipt.js';
 
+import { ticketRef } from '../../../shared/ticket-ref.js';
+
 import {
   BAND_STATES,
   NOT_YET,
@@ -131,6 +133,8 @@ describe('parseSnapshot', () => {
       push: 'pushed',
       pr: 'open',
       ci: 'recorded',
+      own: null,
+      inherited: null,
     });
     expect(odd.verdict).toBeNull();
   });
@@ -393,6 +397,34 @@ describe('the Ship instrument (FR-26)', () => {
     expect(full[1]).toEqual({ label: 'Commit', word: '3 commits', done: true });
     const one = shipSteps(parse({ ...FULL_ORD_501, ship: { commits: 1 } }));
     expect(one[1]!.word).toBe('1 commit');
+  });
+
+  it('reads the PR number, a partial CI and the own and inherited commits', () => {
+    const parsed = parse({
+      ...FULL_ORD_501,
+      ship: {
+        commits: 76,
+        push: { state: 'pushed', sha: 's' },
+        pr: { number: 9, url: 'https://example.test/pull/9', draft: true },
+        ci: { state: 'pending', done: 3, total: 7 },
+        own: { count: 3, tickets: ['ORD-482'], merges: 0, untagged: 1 },
+        inherited: { count: 73, tickets: ['ORD-470'], merges: 'x' },
+      },
+    })!;
+    expect(parsed.ship).toMatchObject({
+      push: 'pushed',
+      pr: `draft ${ticketRef(9)}`,
+      ci: '3 of 7 done',
+      own: { count: 3, tickets: ['ORD-482'], merges: 0, untagged: 1 },
+      inherited: { count: 73, tickets: ['ORD-470'], merges: 0, untagged: 0 },
+    });
+    const settled = parse({
+      ...FULL_ORD_501,
+      ship: { pr: { number: 9, draft: false }, ci: { state: 'pass', done: 7, total: 7 } },
+    })!;
+    expect(settled.ship).toMatchObject({ pr: ticketRef(9), ci: 'pass' });
+    const unknown = parse({ ...FULL_ORD_501, ship: { ci: { state: 'pending' } } })!;
+    expect(unknown.ship?.ci).toBe('pending');
   });
 
   it('reads a recorded push, PR, CI and merge', () => {

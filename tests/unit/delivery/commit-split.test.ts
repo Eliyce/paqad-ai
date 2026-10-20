@@ -10,6 +10,7 @@ import {
   changeOwnTickets,
   computeCommitSplit,
   describeInherited,
+  intakeBranchLine,
   sharedBranchLine,
 } from '@/delivery/commit-split.js';
 import { parseBranchTickets } from '@/planning/ticket-ref-detect.js';
@@ -144,6 +145,17 @@ describe('computeCommitSplit', () => {
     const split = computeCommitSplit(root, { startCommit: 'deadbeef', ownTickets: ['ORD-482'] });
     expect(split.own?.count).toBe(4);
     expect(split.inherited?.count).toBe(3);
+  });
+});
+
+describe('intakeBranchLine', () => {
+  it('names the commits from other tickets on the current branch, and nothing on a clean one', () => {
+    const { root, g } = sharedBranch();
+    expect(intakeBranchLine(root, ['ORD-482'])).toContain(
+      'Branch `feat/ORD-470-contact-matching` already carries 6 commits from 3 other tickets',
+    );
+    g('checkout', '-q', '-b', 'feat/ORD-490-clean', 'main');
+    expect(intakeBranchLine(root, ['ORD-490'])).toBeNull();
   });
 });
 

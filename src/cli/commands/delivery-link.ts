@@ -7,7 +7,9 @@ import {
   recordCommitForBranch,
   recordLinkAttempt,
   resolveDeliveryFeatureByBranch,
+  setCommitDecision,
   stampMergeCommit,
+  type CommitDecisionAnswer,
 } from '@/feature-evidence/delivery.js';
 import { installGitHooks } from '@/feature-evidence/git-hooks.js';
 import { featureReportEnabled, writeFeatureReport } from '@/feature-evidence/report-writer.js';
@@ -36,6 +38,23 @@ function resolveSession(options: LinkOptions): string {
     options.projectRoot,
     options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
   );
+}
+
+const COMMIT_DECISIONS: readonly NonNullable<CommitDecisionAnswer>[] = [
+  'commit',
+  'decline',
+  'ignored',
+  'user-requested',
+];
+
+function isCommitDecision(value: string): value is NonNullable<CommitDecisionAnswer> {
+  return (COMMIT_DECISIONS as readonly string[]).includes(value);
+}
+
+function targetChange(options: LinkOptions): string | null {
+  const active = currentFeature(options.projectRoot, resolveSession(options));
+  const branch = git(options.projectRoot, ['branch', '--show-current']);
+  return active ?? (branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch) : null);
 }
 
 function regenerateReportSafe(projectRoot: string, dirName: string | null): void {
@@ -107,16 +126,38 @@ export function createDeliveryLinkCommand(): Command {
       .command('reconcile')
       .description('Backfill the active feature delivery.json from local git (clone/CI path)'),
   ).action((options: LinkOptions) => {
-    const active = currentFeature(options.projectRoot, resolveSession(options));
-    const branch = git(options.projectRoot, ['branch', '--show-current']);
-    const dir =
-      active ?? (branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch) : null);
+    const dir = targetChange(options);
     if (!dir) {
       console.log(JSON.stringify({ reconciled: false, reason: 'no feature to reconcile' }));
       return;
     }
     const record = reconcileDeliveryFromGit(options.projectRoot, dir, new Date().toISOString());
     console.log(JSON.stringify({ reconciled: true, feature: dir, commits: record.commits.length }));
+  });
+
+  withCommon(
+    command
+      .command('commit-decision <answer>')
+      .description(
+        `Record the answer to the commit question on the change (${COMMIT_DECISIONS.join('|')})`,
+      ),
+  ).action((answer: string, options: LinkOptions) => {
+    if (!isCommitDecision(answer)) {
+      console.error(
+        `unknown commit decision "${answer}"; expected one of ${COMMIT_DECISIONS.join(', ')}`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    const dir = targetChange(options);
+    if (!dir) {
+      console.log(JSON.stringify({ recorded: false, reason: 'no feature to record on' }));
+      return;
+    }
+    const record = setCommitDecision(options.projectRoot, dir, answer, new Date().toISOString());
+    console.log(
+      JSON.stringify({ recorded: true, feature: dir, commit_decision: record.commit_decision }),
+    );
   });
 
   command

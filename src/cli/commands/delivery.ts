@@ -10,7 +10,16 @@ import { runCiGate, type CiGateOptions, type CiGateResult } from '@/delivery/ci-
 import { runDelivery, type DeliveryRunResult, type DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
-import { recordShip, type CiState, type ShipPatch } from '@/feature-evidence/delivery.js';
+import { describeInherited } from '@/delivery/commit-split.js';
+import {
+  readFeatureDelivery,
+  recordShip,
+  refreshCommitSplit,
+  type CiState,
+  type ShipPatch,
+} from '@/feature-evidence/delivery.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
+import type { DecisionOptionEvidence } from '@/planning/decision-packet.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { readGitState } from '@/rag/git-state.js';
@@ -184,7 +193,45 @@ function saveShip(deps: DeliverDeps, patch: ShipPatch): void {
   }
 }
 
-export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string): OpenPrDecision {
+interface ShipsWith {
+  context: string;
+  evidence: DecisionOptionEvidence | undefined;
+}
+
+function shipsWith(projectRoot: string, dirName: string | null | undefined): ShipsWith {
+  const none: ShipsWith = { context: '', evidence: undefined };
+  if (!dirName) return none;
+  try {
+    const split = refreshCommitSplit(
+      projectRoot,
+      dirName,
+      readFeatureDelivery(projectRoot, dirName),
+    ).commit_split;
+    if (split?.state !== 'known' || !split.own || !split.inherited) return none;
+    const own = `${split.own.count} own commit${split.own.count === 1 ? '' : 's'}`;
+    const riding =
+      split.inherited.count > 0
+        ? `${describeInherited(split.inherited)} riding along`
+        : 'nothing riding along';
+    const note =
+      split.inherited.count > 0
+        ? ' The riding-along commits ship in this PR too unless you split the branch yourself; ' +
+          'paqad never moves, cherry-picks or rebases commits.'
+        : '';
+    return {
+      context: ` This PR carries ${own} and ${riding}.${note}`,
+      evidence: { findings: [own, riding] },
+    };
+  } catch {
+    return none;
+  }
+}
+
+export function resolveOpenPrDecision(
+  projectRoot: string,
+  defaultChoice: string,
+  dirName?: string | null,
+): OpenPrDecision {
   const resolvedDir = join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR);
   const pendingDir = join(projectRoot, PATHS.DECISIONS_PENDING_DIR);
 
@@ -199,18 +246,22 @@ export function resolveOpenPrDecision(projectRoot: string, defaultChoice: string
   }
 
   try {
+    const ships = shipsWith(projectRoot, dirName);
+    const withEvidence = ships.evidence ? { evidence: ships.evidence } : {};
     createPendingDecision(projectRoot, {
       category: 'delivery.open_pr',
       title: 'Open a pull request for this change?',
       context:
         'Delivery is ready. Opening a PR pushes the branch to the remote — an outward-facing, ' +
-        'hard-to-reverse action — so paqad is asking before it does.',
+        'hard-to-reverse action — so paqad is asking before it does.' +
+        ships.context,
       options: [
-        { option_key: 'yes', label: 'Open a PR now' },
-        { option_key: 'draft', label: 'Open a draft PR' },
+        { option_key: 'yes', label: 'Open a PR now', ...withEvidence },
+        { option_key: 'draft', label: 'Open a draft PR', ...withEvidence },
         { option_key: 'no', label: 'Commit only, no PR' },
       ],
       recommendation: normalizeChoice(defaultChoice) ? defaultChoice : 'yes',
+      change: dirName ? featureChangeKey(dirName) : null,
     });
   } catch {}
   return { status: 'paused', message: pauseMessage() };
@@ -295,6 +346,7 @@ export function createDeliveryCommand(): Command {
       const projectRoot = resolve(options.projectRoot);
       const shell = createDeliveryShell(projectRoot);
       const host = new GithubHostProvider(shell);
+      const dirName = activeChange(projectRoot, options.session);
       const result = await runDeliver({
         projectRoot,
         dryRun: options.dryRun,
@@ -317,9 +369,9 @@ export function createDeliveryCommand(): Command {
         labels: options.label ?? [],
         shell,
         host,
-        resolveOpenPr: () => resolveOpenPrDecision(projectRoot, options.openPr),
+        resolveOpenPr: () => resolveOpenPrDecision(projectRoot, options.openPr, dirName),
         evidenceBody: loadEvidenceBody(projectRoot),
-        dirName: activeChange(projectRoot, options.session),
+        dirName,
       });
       if (result.exitCode === 0) {
         console.log(result.output);

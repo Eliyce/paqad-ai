@@ -135,7 +135,7 @@ Run these in order. Depth scales with the change (a trivial change has a one-lin
 
 ## Delivery
 
-When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`). When the developer did not say whether to commit and `commit.ask_when_unspecified` is true, ask once at end-of-change and record the answer (or its absence) in the bundle's `delivery.json.commit_decision`.
+When the change is delivered, follow `docs/instructions/workflows/delivery-policy.yaml`: branch naming, conventional-commit format with the ticket in scope, PR title/body and ticket linkage, and the CI gate (`wait_for_green`; red CI is `on_red: stop`). When the developer did not say whether to commit and `commit.ask_when_unspecified` is true, ask once at end-of-change and record the answer (or its absence) with `paqad-ai delivery-link commit-decision <commit|decline|ignored|user-requested>`, which writes the bundle's `delivery.json.commit_decision`.
 
 ## End-of-change: a complete evidence bundle
 

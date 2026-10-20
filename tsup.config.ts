@@ -21,6 +21,7 @@ export default defineConfig({
     'pipeline/prompt-lane': 'src/pipeline/prompt-lane.ts',
     'pipeline/dirty-baseline': 'src/pipeline/dirty-baseline.ts',
     'planning/ticket-ref-detect': 'src/planning/ticket-ref-detect.ts',
+    'delivery/commit-split': 'src/delivery/commit-split.ts',
     'stage-isolation/subagent-completion': 'src/stage-isolation/subagent-completion.ts',
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
     'hud/refresh': 'src/hud/refresh.ts',

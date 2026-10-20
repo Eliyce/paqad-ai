@@ -1,4 +1,5 @@
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -256,6 +257,88 @@ describe('resolveOpenPrDecision', () => {
     resolvePendingDecision(root, id, 'no', 'commit only for now');
     const decision = resolveOpenPrDecision(root, 'yes');
     expect(decision).toEqual({ status: 'resolved', choice: 'no' });
+  });
+
+  function sharedRepo(): string {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    const commit = (subject: string) => {
+      writeFileSync(join(root, `${subject.replace(/\W+/g, '-')}.txt`), subject);
+      g('add', '-A');
+      g('commit', '-q', '-m', subject);
+    };
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 't@t.dev');
+    g('config', 'user.name', 'T');
+    commit('chore: base');
+    g('checkout', '-q', '-b', 'feat/ORD-470-contact-matching');
+    commit('feat(ORD-470): match');
+    commit('feat(ORD-471): trim');
+    return openFeatureChange(root, 'ses-pr', {
+      adapter: 'claude-code',
+      title: 'Matcher',
+      issue: 'ORD-482',
+    });
+  }
+
+  function pendingOpenPr(): Record<string, unknown> & {
+    context: string;
+    change?: string;
+    options: Array<{ option_key: string; evidence?: { findings?: string[] } }>;
+  } {
+    const pendingDir = join(root, PATHS.DECISIONS_PENDING_DIR);
+    return readdirSync(pendingDir)
+      .map((f) => JSON.parse(readFileSync(join(pendingDir, f), 'utf8')))
+      .find((p) => p.category === 'delivery.open_pr');
+  }
+
+  it('carries own and riding-along commit counts on a shared branch', () => {
+    const dir = sharedRepo();
+    writeFileSync(join(root, 'own.txt'), 'own');
+    execFileSync('git', ['add', '-A'], { cwd: root });
+    execFileSync('git', ['commit', '-q', '-m', 'feat(ORD-482): matcher'], { cwd: root });
+    const before = execFileSync('git', ['rev-list', '--all'], { cwd: root, encoding: 'utf8' });
+    expect(resolveOpenPrDecision(root, 'yes', dir).status).toBe('paused');
+    const packet = pendingOpenPr();
+    expect(packet.change).toBe(featureChangeKey(dir));
+    expect(packet.context).toContain(
+      'This PR carries 1 own commit and 2 commits from 2 other tickets riding along.',
+    );
+    expect(packet.context).toContain('paqad never moves, cherry-picks or rebases commits');
+    const evidence = Object.fromEntries(packet.options.map((o) => [o.option_key, o.evidence]));
+    expect(evidence.yes?.findings).toEqual([
+      '1 own commit',
+      '2 commits from 2 other tickets riding along',
+    ]);
+    expect(evidence.draft?.findings).toEqual(evidence.yes?.findings);
+    expect(evidence.no?.findings).toBeUndefined();
+    expect(execFileSync('git', ['rev-list', '--all'], { cwd: root, encoding: 'utf8' })).toBe(
+      before,
+    );
+  });
+
+  it('says nothing rides along on a clean branch, and nothing when the split is unknown', () => {
+    const g = (...args: string[]) =>
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    g('init', '-q', '-b', 'main');
+    g('config', 'user.email', 't@t.dev');
+    g('config', 'user.name', 'T');
+    writeFileSync(join(root, 'a.txt'), 'a');
+    g('add', '-A');
+    g('commit', '-q', '-m', 'base');
+    g('checkout', '-q', '-b', 'feat/ORD-482-clean');
+    const dir = openFeatureChange(root, 'ses-pr', {
+      adapter: 'claude-code',
+      title: 'M',
+      issue: 'ORD-482',
+    });
+    resolveOpenPrDecision(root, 'yes', dir);
+    expect(pendingOpenPr().context).toContain('0 own commits and nothing riding along.');
+    rmSync(join(root, PATHS.DECISIONS_PENDING_DIR), { recursive: true, force: true });
+    g('checkout', '-q', '--detach', 'HEAD');
+    resolveOpenPrDecision(root, 'yes', dir);
+    expect(pendingOpenPr().context).not.toContain('This PR carries');
+    expect(pendingOpenPr().options[0]?.evidence?.findings).toBeUndefined();
   });
 
   it('stays paused (no duplicate mint) while a pending packet exists', () => {

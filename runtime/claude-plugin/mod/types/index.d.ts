@@ -102,6 +102,13 @@ export type PaqadLastBlock = {
   used?: boolean;
 };
 
+export type PaqadCommitGroup = {
+  count: number;
+  tickets: string[];
+  merges: number;
+  untagged: number;
+};
+
 export type PaqadHudSnapshot = {
   session_id: string;
   generated_at: string;
@@ -135,6 +142,8 @@ export type PaqadHudSnapshot = {
     push: string | null;
     pr: string | null;
     ci: string | null;
+    own?: PaqadCommitGroup | null;
+    inherited?: PaqadCommitGroup | null;
   } | null;
   verdict: { word: string; kind: 'pass' | 'fail' | 'inconclusive'; reasons: string[] } | null;
   cost: PaqadCost | null;

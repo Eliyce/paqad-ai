@@ -19,7 +19,18 @@ import {
   type RuleRunFinding,
 } from '@/feature-evidence/bundle-ledgers.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
-import { readFeatureDelivery } from '@/feature-evidence/delivery.js';
+import {
+  branchCarriesOtherWork,
+  describeInherited,
+  type CommitGroup,
+  type CommitSplit,
+} from '@/delivery/commit-split.js';
+import {
+  readFeatureDelivery,
+  type DeliveryCi,
+  type DeliveryPr,
+  type DeliveryPush,
+} from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
@@ -140,9 +151,11 @@ export interface HudSnapshot {
     commits: number;
     commit_decision: string | null;
     merge_commit: string | null;
-    push: null;
-    pr: null;
-    ci: null;
+    push: DeliveryPush | null;
+    pr: DeliveryPr | null;
+    ci: DeliveryCi | null;
+    own: CommitGroup | null;
+    inherited: CommitGroup | null;
   } | null;
   verdict: HudVerdictRecord | null;
   receipt: { path: string } | null;
@@ -433,6 +446,7 @@ export function computeHudFlags(input: {
   isolationStatus: string;
   isolatedStages: number;
   findings?: HudFindings | null;
+  commitSplit?: CommitSplit | null;
 }): HudFlag[] {
   const flags: HudFlag[] = [];
   const touchedCode = input.stages.some(
@@ -483,6 +497,12 @@ export function computeHudFlags(input: {
         nearCopies === 1
           ? '1 near-copy of existing code is open.'
           : `${nearCopies} near-copies of existing code are open.`,
+    });
+  }
+  if (branchCarriesOtherWork(input.commitSplit) && input.commitSplit?.inherited) {
+    flags.push({
+      id: 'branch:shared',
+      text: `This branch also carries ${describeInherited(input.commitSplit.inherited)}.`,
     });
   }
   return flags;
@@ -628,6 +648,7 @@ export function buildHudSnapshot(
     isolationStatus,
     isolatedStages: isolationSummary?.stages ?? 0,
     findings,
+    commitSplit: delivery.commit_split ?? null,
   });
 
   return {
@@ -674,9 +695,11 @@ export function buildHudSnapshot(
       commits: delivery.commits.length,
       commit_decision: delivery.commit_decision?.answer ?? null,
       merge_commit: delivery.merge_commit,
-      push: null,
-      pr: null,
-      ci: null,
+      push: delivery.push ?? null,
+      pr: delivery.pr ?? null,
+      ci: delivery.ci ?? null,
+      own: delivery.commit_split?.own ?? null,
+      inherited: delivery.commit_split?.inherited ?? null,
     },
     verdict,
     receipt,
