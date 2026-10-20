@@ -18,6 +18,7 @@ const RULE_DENY = {
 describe('runtime/hooks/capability-gate.mjs on the managed route', () => {
   let projectRoot: string;
   let stderr: string;
+  const seen: unknown[] = [];
   const saved: Record<string, string | undefined> = {};
 
   function setEnv(key: string, value: string | undefined): void {
@@ -45,7 +46,13 @@ describe('runtime/hooks/capability-gate.mjs on the managed route', () => {
       return true;
     });
     vi.resetModules();
-    vi.doMock(GATE, () => ({ runCapabilityGate: async () => RULE_DENY }));
+    seen.length = 0;
+    vi.doMock(GATE, () => ({
+      runCapabilityGate: async (input: unknown) => {
+        seen.push(input);
+        return RULE_DENY;
+      },
+    }));
   });
 
   afterEach(() => {
@@ -64,6 +71,15 @@ describe('runtime/hooks/capability-gate.mjs on the managed route', () => {
     const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
     expect(await main('{}', 'pre-mutation')).toBe(2);
     expect(stderr).toBe(`${RULE_DENY.summary}\n${ORG_LINE}\n`);
+  });
+
+  it('hands the tool use id and tool input to the kernel gate', async () => {
+    const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
+    const input = { session_id: 's', tool_use_id: 'tu_1', tool_input: { content: 'x' } };
+    await main(JSON.stringify(input), 'pre-mutation');
+    expect(seen[0]).toMatchObject({
+      payload: { sessionId: 's', toolUseId: 'tu_1', toolInput: { content: 'x' } },
+    });
   });
 
   it('adds no organization line off the managed route', async () => {

@@ -9,6 +9,7 @@ import { createPendingDecision } from '@/decisions/authoring.js';
 import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { hudSnapshotPath } from '@/hud/files.js';
+import { writeRuleStopRecord } from '@/hud/last-block.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
 import { isHudRefreshVerb, refreshHudSnapshot } from '@/hud/refresh.js';
 import type { DuplicationReport } from '@/duplication/report.js';
@@ -414,6 +415,27 @@ describe('buildHudSnapshot', () => {
     expect(buildHudSnapshot(root, S, { now: NOW }).tech_debt).toEqual({
       raised: [{ id: item.id, title: 'Found it', kind: 'bug', severity: 'low' }],
     });
+  });
+
+  it('keeps the rule-stop record across full rebuilds, with and without an active change', () => {
+    const root = onboardedRoot();
+    const S = 'ses-stop';
+    const record = writeRuleStopRecord({
+      projectRoot: root,
+      sessionId: S,
+      rule: 'RL-1',
+      title: 'No comments',
+      file: 'src/x.ts',
+      toolUseId: 'tu_1',
+      managed: false,
+      now: NOW,
+      token: 't1',
+    });
+    expect(writeHudSnapshot(root, S, { now: NOW }).snapshot.last_block).toEqual(record);
+    expect(writeHudSnapshot(root, S, { now: NOW }).snapshot.last_block).toEqual(record);
+    openChange(root, S, 'fast', 'PQD-4 stop');
+    expect(buildHudSnapshot(root, S, { now: NOW }).last_block).toEqual(record);
+    expect(buildHudSnapshot(root, 'ses-other', { now: NOW }).last_block).toBeNull();
   });
 
   it('two sessions on one checkout each get their own snapshot', () => {

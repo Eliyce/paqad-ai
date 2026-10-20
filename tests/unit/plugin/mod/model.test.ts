@@ -143,6 +143,37 @@ describe('parseSnapshot', () => {
     expect(at(null)).toBeNull();
   });
 
+  it('reads the structured rule-stop record and names the rule and file', () => {
+    const at = (last_block: unknown) => parse(snapshot({ last_block })).last_block;
+    const record = {
+      rule: 'RL-1',
+      title: 'No comments',
+      file: 'src/x.ts',
+      tool_use_id: 'tu_1',
+      managed: false,
+      at: '2026-10-20T10:00:00.000Z',
+      diff: '+ // hi',
+      token: 'abc',
+      used: false,
+      session: 's',
+    };
+    expect(at(record)).toEqual({
+      text: 'RL-1 stopped an edit to src/x.ts.',
+      rule: 'RL-1',
+      title: 'No comments',
+      file: 'src/x.ts',
+      tool_use_id: 'tu_1',
+      managed: false,
+      at: '2026-10-20T10:00:00.000Z',
+      token: 'abc',
+      used: false,
+    });
+    expect(bandState(parse({ ...FULL_ORD_501, last_block: record }))).toBe('Stopped');
+    expect(bandState(parse({ ...FULL_ORD_501, last_block: { ...record, used: true } }))).not.toBe(
+      'Stopped',
+    );
+  });
+
   it('fills a verdict word from its kind when the word is missing', () => {
     const verdict = parse(snapshot({ verdict: { kind: 'fail' } })).verdict;
     expect(verdict).toEqual({ word: 'Needs your attention', kind: 'fail', reasons: [] });

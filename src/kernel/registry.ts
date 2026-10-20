@@ -9,6 +9,8 @@ export interface CapabilityPayload {
   sessionId?: string;
   targetPaths?: string[];
   adapter?: string;
+  toolUseId?: string;
+  toolInput?: unknown;
 }
 
 export interface CapabilityDescriptor {

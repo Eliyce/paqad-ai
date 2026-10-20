@@ -67,6 +67,8 @@ function parsePayload(input) {
       transcriptPath: payload?.transcript_path,
       sessionId: payload?.session_id,
       adapter: ADAPTER,
+      toolUseId: typeof payload?.tool_use_id === 'string' ? payload.tool_use_id : undefined,
+      toolInput: payload?.tool_input,
     };
   } catch {
     /* v8 ignore next 2 */

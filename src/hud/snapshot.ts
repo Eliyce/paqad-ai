@@ -43,6 +43,7 @@ import type { VerificationGate } from '@/core/types/verification.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
+import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
@@ -127,7 +128,7 @@ export interface HudSnapshot {
     resolved: number;
   };
   questions: { asked: number; answered: number; auto_answered: number; deferred: number } | null;
-  last_block: null;
+  last_block: RuleStopRecord | null;
   ship: {
     commits: number;
     commit_decision: string | null;
@@ -528,6 +529,7 @@ export function buildHudSnapshot(
   const decisions = buildDecisions(projectRoot);
   const receiptPath = hudReceiptPath(projectRoot, sessionId);
   const receipt = existsSync(receiptPath) ? { path: receiptPath } : null;
+  const lastBlock = readRuleStopRecord(projectRoot, sessionId);
 
   if (!dirName) {
     return {
@@ -558,7 +560,7 @@ export function buildHudSnapshot(
       findings: null,
       decisions,
       questions: null,
-      last_block: null,
+      last_block: lastBlock,
       ship: null,
       verdict,
       receipt,
@@ -635,7 +637,7 @@ export function buildHudSnapshot(
     findings,
     decisions,
     questions: buildQuestions(projectRoot, dirName),
-    last_block: null,
+    last_block: lastBlock,
     ship: {
       commits: delivery.commits.length,
       commit_decision: delivery.commit_decision?.answer ?? null,

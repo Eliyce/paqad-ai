@@ -1,5 +1,6 @@
 import {
   appendFileSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -11,6 +12,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { readRuleStopRecord } from '@/hud/last-block.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
@@ -345,5 +347,89 @@ describe('runCapabilityGate', () => {
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toContain('framework update pending');
+  });
+});
+
+describe('runCapabilityGate rule-stop record', () => {
+  const PAYLOAD = {
+    sessionId: 'sess-stop',
+    toolUseId: 'tu_9',
+    toolInput: { old_string: 'a', new_string: 'b' },
+  };
+
+  it('writes the rule, title, file and tool use id on a rule-script deny', async () => {
+    const root = setup('strict', 'function f() {\n  debugger;\n}\n');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    expect(result.block).toBe(true);
+    const record = readRuleStopRecord(root, 'sess-stop');
+    expect(record).toMatchObject({
+      title: 'No debugger statements.',
+      file: 'src/app.ts',
+      tool_use_id: 'tu_9',
+      managed: false,
+      diff: '- a\n+ b',
+      used: false,
+    });
+    expect(record?.rule).toMatch(/^RL-/);
+  });
+
+  it('marks the record managed on the managed route', async () => {
+    const root = setup('strict', 'debugger;\n');
+    await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: { PAQAD_MANAGED: '1' },
+      payload: PAYLOAD,
+    });
+    expect(readRuleStopRecord(root, 'sess-stop')?.managed).toBe(true);
+  });
+
+  it('clears the record once an edit is allowed again', async () => {
+    const root = setup('strict', 'debugger;\n');
+    await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {}, payload: PAYLOAD });
+    expect(readRuleStopRecord(root, 'sess-stop')).not.toBeNull();
+    write(join(root, 'src/app.ts'), 'export const x = 1;\n');
+    const allowed = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    expect(allowed.block).toBe(false);
+    expect(readRuleStopRecord(root, 'sess-stop')).toBeNull();
+  });
+
+  it('writes nothing without a session id', async () => {
+    const root = setup('strict', 'debugger;\n');
+    await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {} });
+    expect(existsSync(join(root, '.paqad/session/hud'))).toBe(false);
+  });
+
+  it('keeps the gate result identical and logs one line when the record cannot be written', async () => {
+    const healthy = setup('strict', 'debugger;\n');
+    const expected = await runCapabilityGate({
+      projectRoot: healthy,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    const root = setup('strict', 'debugger;\n');
+    write(join(root, '.paqad/session/hud'), 'not a directory');
+    const result = await runCapabilityGate({
+      projectRoot: root,
+      seam: 'pre-mutation',
+      env: {},
+      payload: PAYLOAD,
+    });
+    expect(result).toEqual(expected);
+    const log = readFileSync(join(root, '.paqad/logs/hooks.log'), 'utf8').trim().split('\n');
+    expect(log).toHaveLength(1);
+    expect(log[0]).toMatch(/rule-stop record not written: E[A-Z]+ /);
+    expect(log[0]).not.toContain('- a');
   });
 });

@@ -9,6 +9,7 @@ import type {
   PaqadHighTable,
   PaqadHudSnapshot,
   PaqadHudStage,
+  PaqadLastBlock,
   PaqadSeat,
   PaqadSeatState,
   PaqadTone,
@@ -64,6 +65,31 @@ function readScan(value: unknown): PaqadFindingsScan {
     status: status === 'open' || status === 'clean' ? status : 'did not run',
     total: num(scan?.total),
     blocking: scan?.blocking === true,
+  };
+}
+
+function readLastBlock(raw: unknown, block: Rec | null): PaqadLastBlock {
+  const rule = str(block?.rule);
+  const file = str(block?.file);
+  const text =
+    str(raw) ??
+    str(block?.text) ??
+    str(block?.reason) ??
+    (rule && file ? `${rule} stopped an edit to ${file}.` : 'A rule stopped an edit.');
+  const title = str(block?.title);
+  const toolUseId = str(block?.tool_use_id);
+  const at = str(block?.at);
+  const token = str(block?.token);
+  return {
+    text,
+    ...(rule ? { rule } : {}),
+    ...(title ? { title } : {}),
+    ...(file ? { file } : {}),
+    ...(toolUseId ? { tool_use_id: toolUseId } : {}),
+    ...(typeof block?.managed === 'boolean' ? { managed: block.managed } : {}),
+    ...(at ? { at } : {}),
+    ...(token ? { token } : {}),
+    ...(typeof block?.used === 'boolean' ? { used: block.used } : {}),
   };
 }
 
@@ -312,13 +338,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     last_block:
       snap.last_block === null || snap.last_block === undefined
         ? null
-        : {
-            text:
-              str(snap.last_block) ??
-              str(lastBlock?.text) ??
-              str(lastBlock?.reason) ??
-              'A rule stopped an edit.',
-          },
+        : readLastBlock(snap.last_block, lastBlock),
     ship: ship
       ? {
           commits: num(ship.commits) ?? 0,
@@ -380,7 +400,7 @@ function isBranchFlag(flag: { id: string }): boolean {
 export function bandState(snapshot: PaqadHudSnapshot | null): BandState {
   if (!snapshot) return 'Ready';
   if (snapshot.decisions.pending.length > 0) return 'Needs you';
-  if (snapshot.last_block) return 'Stopped';
+  if (snapshot.last_block && snapshot.last_block.used !== true) return 'Stopped';
   if (!snapshot.active) {
     if (snapshot.paused.length > 0) return 'Paused';
     if (snapshot.route && snapshot.route !== 'no-workflow') return 'Working';

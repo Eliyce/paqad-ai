@@ -40,3 +40,7 @@ export function writeFileAtomic(target: string, content: string): void {
     throw error;
   }
 }
+
+export function hudLastBlockPath(projectRoot: string, sessionId: string): string {
+  return join(projectRoot, PATHS.HUD_DIR, `${safeSessionId(sessionId)}.last-block.json`);
+}

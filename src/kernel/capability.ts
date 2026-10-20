@@ -7,7 +7,7 @@ import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
 import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
-import { enforceRuleScripts } from '@/rule-scripts/enforce.js';
+import { enforceRuleScripts, type RuleViolation } from '@/rule-scripts/enforce.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
@@ -50,6 +50,7 @@ export interface CapabilityOutcome {
   blocking: boolean;
   summary: string;
   narration?: string;
+  violations?: RuleViolation[];
 }
 
 const NO_OP: CapabilityOutcome = { ran: false, blocking: false, summary: '' };
@@ -196,7 +197,12 @@ const ruleScriptsCapability: Capability = {
         ? { ran: true, blocking: false, summary: formatUnverifiedSummary() }
         : NO_OP;
     }
-    return { ran: true, blocking: result.blocking, summary: result.summary };
+    return {
+      ran: true,
+      blocking: result.blocking,
+      summary: result.summary,
+      violations: result.violations,
+    };
   },
 };
 

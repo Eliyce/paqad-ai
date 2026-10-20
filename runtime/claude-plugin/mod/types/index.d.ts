@@ -90,6 +90,18 @@ export type PaqadHighTable = {
 
 export type PaqadPaneTab = 'table' | 'cost';
 
+export type PaqadLastBlock = {
+  text: string;
+  rule?: string;
+  title?: string;
+  file?: string;
+  tool_use_id?: string;
+  managed?: boolean;
+  at?: string;
+  token?: string;
+  used?: boolean;
+};
+
 export type PaqadHudSnapshot = {
   session_id: string;
   generated_at: string;
@@ -115,7 +127,7 @@ export type PaqadHudSnapshot = {
     pending: Array<{ id: string; category: string; question: string }>;
     resolved: number;
   };
-  last_block: { text: string } | null;
+  last_block: PaqadLastBlock | null;
   ship: {
     commits: number;
     commit_decision: string | null;
