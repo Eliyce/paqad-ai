@@ -71,3 +71,8 @@ outcome on that call. The CLI refuses a stop that is not `sole` as well.
 A PreToolUse hook from another tool or plugin that denies the same edit is folded into the same
 verdict with no marker the mod can read. When every check above passes, Allow once replaces that
 deny too. paqad's own gates and settings rules are covered; a foreign hook's deny is not.
+
+The token sits in plain text in the stop record, so the agent can run `paqad-ai rules override`
+itself and write a row marked `by: "human"`. No gate reads `rule-overrides.jsonl`, so the forged
+row cannot let an edit through; it only misattributes the evidence. Tracked as tech debt
+TD-01M5CW8WGAFVSRZ3AHEKD9VMS8.

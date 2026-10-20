@@ -17,8 +17,12 @@ The technical contract lives at [`technical.md`](./technical.md) and the command
 ## User Roles
 
 - **Developer**: answers a rule stop in the HUD; is the only one who can allow an edit past it.
-- **Agent**: cannot allow anything by itself. The one-time token comes from the stop the person
-  answers.
+- **Agent**: cannot let an edit through. The override row is meant to be written through the
+  HUD's Allow once, and only the HUD turns the deny into an allow for that one call. The token
+  stops a replay, not an agent caller: the agent can read it and run `paqad-ai rules override`
+  itself, which writes a row marked as a person's. Such a forged row changes no gate decision and
+  cannot let an edit through. This known limit is tracked as tech debt
+  TD-01M5CW8WGAFVSRZ3AHEKD9VMS8.
 - **Organization admin**: a rule enforced through managed settings cannot be allowed past by
   anyone on the machine.
 
