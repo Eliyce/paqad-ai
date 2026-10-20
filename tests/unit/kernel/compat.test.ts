@@ -8,9 +8,6 @@ import { capabilityLockPath, writeCapabilityDigest } from '@/kernel/capability-l
 import { evaluateCapabilityCompat, isRefusedByCompat } from '@/kernel/compat.js';
 import { getCapability } from '@/kernel/registry.js';
 
-// Buildout F7 (decision D2) — version-skew compatibility between the install's
-// registry (the mandatory floor) and the project's blessed version vector.
-
 const RS = getCapability('rule-scripts');
 const roots: string[] = [];
 
@@ -20,7 +17,6 @@ function tempRoot(): string {
   return root;
 }
 
-/** Write a lock whose rule-scripts entry carries crafted versions. */
 function writeLockVersions(root: string, policy: number, record: number): void {
   mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(

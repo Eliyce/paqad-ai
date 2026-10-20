@@ -27,7 +27,7 @@ async function writeRealCodexHooks(projectRoot: string): Promise<void> {
   writeFileSync(full, file.content);
 }
 
-describe('doctor — Codex hooks wired (issue #566, AC-11)', () => {
+describe('doctor — Codex hooks wired', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-codex-doctor-'));
@@ -49,7 +49,6 @@ describe('doctor — Codex hooks wired (issue #566, AC-11)', () => {
 
   it('warns when hooks.json is missing an event', async () => {
     await writeRealCodexHooks(root);
-    // Drop the Stop event to simulate a partial file.
     const path = join(root, '.codex/hooks.json');
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as {
       hooks: Record<string, unknown>;

@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 
-// Issue #579 — the first-frontend-edit reminder is advisory context. If anything on its path
-// throws, the gate must still return the blocking outcome a capability produced in the same call
-// (a throw out of runCapabilityGate soft-fails the host to exit 0, silently dropping the block).
 vi.mock('@/visual-evidence/reminder.js', () => ({
   visualEvidenceReminder: () => {
     throw new Error('pack registry unreadable');

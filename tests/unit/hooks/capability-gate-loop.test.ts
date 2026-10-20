@@ -4,11 +4,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// AC-5 — the capability-gate completion (Stop) seam honors the loop guard: a block
-// downgrades to a non-blocking advisory once Claude marks the Stop as a
-// continuation (`stop_hook_active`). The pre-mutation seam always keeps its teeth.
-// The compiled kernel executor is mocked (as in verify-backstop.test.ts) so the
-// exit-code decision is asserted without a built dist.
 const GATE = resolve(process.cwd(), 'dist/kernel/gate.js');
 
 function payload(stopHookActive: boolean): string {
@@ -22,8 +17,6 @@ describe('runtime/hooks/capability-gate.mjs — Stop-seam loop guard', () => {
   let writeSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    // A fresh tmp project: no disable signal (enabled) and stages_mode defaults to
-    // strict, so seamHasWork() is true and main() reaches the kernel executor.
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-capgate-loop-'));
     restoreEnv = process.env.CLAUDE_PROJECT_DIR;
     process.env.CLAUDE_PROJECT_DIR = projectRoot;

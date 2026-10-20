@@ -31,7 +31,6 @@ describe('bootstrapFramework', () => {
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-install-project-'));
     frameworkHome = mkdtempSync(join(tmpdir(), 'paqad-install-home-'));
-    // Remove the dir so bootstrapFramework can create the symlink in its place
     rmSync(frameworkHome, { recursive: true, force: true });
     originalEnv = process.env.PAQAD_FRAMEWORK_HOME;
     process.env.PAQAD_FRAMEWORK_HOME = frameworkHome;
@@ -55,14 +54,10 @@ describe('bootstrapFramework', () => {
     expect(stat.isSymbolicLink()).toBe(true);
   });
 
-  // Issue #576, Finding 2 — the home-only bootstrap creates the framework symlink (and stage
-  // agents under HOME) but writes NOTHING into the project, so `join` can set up a fresh machine
-  // without a tracked diff.
   it('bootstrapFrameworkHome writes the framework home but no project metadata', () => {
     const home = mkdtempSync(join(tmpdir(), 'paqad-home-only-'));
     const savedHome = process.env.HOME;
     const savedUserProfile = process.env.USERPROFILE;
-    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
     process.env.HOME = home;
     process.env.USERPROFILE = home;
     try {
@@ -71,7 +66,6 @@ describe('bootstrapFramework', () => {
       expect(result.framework_home).toBe(frameworkHome);
       expect(lstatSync(frameworkHome).isSymbolicLink()).toBe(true);
       expect(existsSync(join(home, '.claude/agents/paqad-planning.md'))).toBe(true);
-      // The project side is untouched: no framework-path.txt, no schema-version.json.
       expect(existsSync(join(projectRoot, '.paqad/framework-path.txt'))).toBe(false);
       expect(existsSync(join(projectRoot, '.paqad/schema-version.json'))).toBe(false);
     } finally {
@@ -100,7 +94,7 @@ describe('bootstrapFramework', () => {
 
   it('is idempotent — replaces an existing symlink on re-run', () => {
     bootstrapFramework(projectRoot);
-    bootstrapFramework(projectRoot); // second run should not throw
+    bootstrapFramework(projectRoot);
 
     const stat = lstatSync(frameworkHome);
     expect(stat.isSymbolicLink()).toBe(true);
@@ -133,17 +127,13 @@ describe('bootstrapFramework', () => {
     expect(realpathSync(frameworkHome)).toBe(getRuntimeRoot());
   });
 
-  it('replaces a dangling framework symlink left by a deleted runtime (issue #68)', () => {
-    // Simulate the npx scenario: a prior run created the symlink pointing at a
-    // runtime dir that has since been garbage-collected, leaving a dangling
-    // link. existsSync would report this as absent (it follows symlinks), so
-    // the old code skipped cleanup and symlinkSync crashed with EEXIST.
+  it('replaces a dangling framework symlink left by a deleted runtime', () => {
     const staleTarget = mkdtempSync(join(tmpdir(), 'paqad-stale-runtime-'));
     symlinkSync(staleTarget, frameworkHome);
     rmSync(staleTarget, { recursive: true, force: true });
 
-    expect(existsSync(frameworkHome)).toBe(false); // dangling: target gone
-    expect(lstatSync(frameworkHome).isSymbolicLink()).toBe(true); // link still on disk
+    expect(existsSync(frameworkHome)).toBe(false);
+    expect(lstatSync(frameworkHome).isSymbolicLink()).toBe(true);
 
     expect(() => bootstrapFramework(projectRoot)).not.toThrow();
     expect(realpathSync(frameworkHome)).toBe(getRuntimeRoot());
@@ -211,9 +201,6 @@ describe('bootstrapFramework', () => {
     expect(typeof marker.written_at).toBe('string');
   });
 
-  // Issue #567 — bootstrap (install/update) always writes the stage agents at user scope; stage
-  // isolation is core-engine behavior with no config knob. HOME/USERPROFILE point os.homedir()
-  // at a temp dir so the test never touches the developer's real home.
   describe('stage-agent generation', () => {
     let userHome: string;
     let savedHome: string | undefined;
@@ -248,14 +235,13 @@ describe('bootstrapFramework', () => {
         expect(existsSync(join(claudeAgents, `${name}.md`))).toBe(true);
         expect(existsSync(join(codexAgents, `${name}.toml`))).toBe(true);
       }
-      // Never writes into the project.
       expect(existsSync(join(projectRoot, '.claude'))).toBe(false);
       expect(existsSync(join(projectRoot, '.codex'))).toBe(false);
     });
   });
 });
 
-describe('frameworkSymlinkType (issue #616, Part 4)', () => {
+describe('frameworkSymlinkType', () => {
   const original = process.platform;
   const setPlatform = (value: string) =>
     Object.defineProperty(process, 'platform', { value, configurable: true });

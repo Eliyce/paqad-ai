@@ -11,8 +11,6 @@ import { setActiveFeature } from '@/feature-evidence/session-control.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
 import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
 
-// Issue #557 — the edit-time rule-loading block. Driven through the real kernel gate with the
-// stages precondition already satisfied, so only the rules-loaded capability contributes.
 describe('rules-loaded capability — block-forward at pre-mutation', () => {
   let root: string;
   const SES = 'ses_rl';
@@ -21,7 +19,6 @@ describe('rules-loaded capability — block-forward at pre-mutation', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-rules-loaded-cap-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
-    // A compiled rule store must exist for the capability to have something to load.
     writeFileSync(
       join(root, PATHS.COMPILED_RULES),
       JSON.stringify({
@@ -41,8 +38,6 @@ describe('rules-loaded capability — block-forward at pre-mutation', () => {
         ],
       }),
     );
-    // Satisfy the stages capability: an active bundle with real plan + spec, planning +
-    // specification each recorded with an artifact-bearing end.
     setActiveFeature(root, SES, BUNDLE_DIR);
     const planRel = featureFilePath(BUNDLE_DIR, 'plan');
     const specRel = featureFilePath(BUNDLE_DIR, 'specification');
@@ -134,7 +129,6 @@ describe('rules-loaded capability — block-forward at pre-mutation', () => {
       seam: 'completion',
       payload: { targetPath: join(root, 'src/app.ts'), sessionId: SES },
     });
-    // The completion seam runs delivery/decision-pause, never rules-loaded.
     expect(result.summary).not.toContain('rules not loaded');
   });
 });

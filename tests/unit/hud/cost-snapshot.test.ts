@@ -17,10 +17,6 @@ import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 
 import { costRecord } from '../../../runtime/claude-plugin/mod/test/fixtures.ts';
 
-// Issue #639, Part 23 (FR-22, AC-65): the snapshot's `cost` is read from the change's cost.json
-// only, and `paqad-ai status --hud --format json` prints the same `cost` and `table` as the
-// snapshot file.
-
 const S = 'ses-cost-hud';
 const roots: string[] = [];
 afterEach(() => {
@@ -101,7 +97,6 @@ describe('the snapshot cost (FR-22)', () => {
     });
     expect(snapshot.cost!.tokens.total).toBe(2_000_000);
     expect(snapshot.cost!.not_counted.length).toBeGreaterThan(0);
-    // The mod's fixture carries exactly the fields paqad writes.
     expect(Object.keys(costRecord()).sort()).toEqual(Object.keys(snapshot.cost!).sort());
     expect(renderHudText(snapshot)).toContain(
       'cost: 2,000,000 tokens; ~$24.00, estimate at API prices (API-equivalent on a Pro or Max plan), prices of 2026-10-19',

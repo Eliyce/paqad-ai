@@ -95,7 +95,6 @@ describe('runBuildCheckFixLoop', () => {
     const outcome = await runBuildCheckFixLoop({
       lane: 'full',
       now: clock(),
-      // Each round fails on a DIFFERENT criterion so futility does not trip.
       runRound: async () => {
         round += 1;
         return failing(`AC-${round}`);
@@ -129,7 +128,6 @@ describe('runBuildCheckFixLoop', () => {
       lane: 'full',
       now: clock(),
       futility_threshold: 2,
-      // Same failing set every round → no net progress.
       runRound: async () => failing('AC-1'),
     });
 

@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { stopHookActiveFromStdin } from '../../../runtime/hooks/lib/loop-guard.mjs';
 
-// AC-4 — the Stop-hook loop breaker reads Claude's `stop_hook_active` flag. It is
-// deliberately conservative: only an explicit `true` counts as "in a loop"; any
-// other shape (absent, false, non-JSON, non-boolean) is treated as the FIRST stop
-// so the gate keeps its teeth.
 describe('runtime/hooks/lib/loop-guard.mjs — stopHookActiveFromStdin', () => {
   it('returns true only when stop_hook_active === true', () => {
     expect(stopHookActiveFromStdin(JSON.stringify({ stop_hook_active: true }))).toBe(true);

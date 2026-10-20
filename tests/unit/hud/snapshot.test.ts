@@ -43,10 +43,6 @@ import {
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
-// Issue #639, Part 7 — the HUD snapshot, built only from paqad's own records. Fixtures follow
-// the issue's made-up changes: ORD-490 (fast-lane copy fix), ORD-482 (graduated-lane bug fix)
-// and ORD-501 (full-lane feature), plus a paused change.
-
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
 const roots: string[] = [];
 afterEach(() => {
@@ -128,7 +124,7 @@ function evidenceRow(code: string, verdict: string): string {
   });
 }
 
-describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
+describe('buildHudSnapshot', () => {
   it('ORD-490 fast lane: no High Table, a running build, the rules flag', () => {
     const root = onboardedRoot();
     const S = 'ses-490';
@@ -174,7 +170,6 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     );
     expect(expected['feature.json']).toBe('always');
     expect(expected['checks.json']).toBe('if present');
-    // Issue #640 (FR-13): the pipeline is on by default, but the fast lane never needs its files.
     expect(expected['request.md']).toBe('off here');
     expect(expected['clarification.json']).toBe('off here');
     expect(expected['experts.json']).toBe('off here');
@@ -214,8 +209,6 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
       'user-flow-writer',
       'qa-engineer',
     ]);
-    // A roster recorded before the High Table ledger: the seat reads done on its reported tokens,
-    // labelled an estimate, with no exact tokens and no times (issue #639, Part 13).
     expect(snapshot.table?.seats[0]).toEqual({
       role: 'product-owner',
       reason: 'product-owner reason',
@@ -247,7 +240,6 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     });
     expect(snapshot.isolation?.status).toBe('expected');
     expect(snapshot.flags.map((flag) => flag.id)).toContain('isolation-missing');
-    // Issue #640 (FR-13): on the graduated lane the default-on pipeline needs its files.
     const expected = Object.fromEntries(
       snapshot.evidence_expected.map((entry) => [entry.file, entry.expectation]),
     );
@@ -255,7 +247,7 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     expect(expected['experts.json']).toBe('on here');
   });
 
-  it('reads the pipeline files as off for a spec frozen before the pipeline was on (#640)', () => {
+  it('reads the pipeline files as off for a spec frozen before the pipeline was on', () => {
     const root = onboardedRoot();
     const S = 'ses-483';
     const dir = openChange(root, S, 'graduated', 'ORD-483 older open change');
@@ -361,7 +353,7 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
     expect(snapshot.flags.map((flag) => flag.id)).toContain('high-table-skipped');
   });
 
-  it('a fast-lane freeze shows no High Table at all, not a skipped one (issue #640)', () => {
+  it('a fast-lane freeze shows no High Table at all, not a skipped one', () => {
     const root = onboardedRoot();
     const S = 'ses-fast-freeze';
     const dir = openChange(root, S, 'fast', 'ORD-778 fast spec');
@@ -416,7 +408,7 @@ describe('buildHudSnapshot (#639 Part 7, AC-8)', () => {
   });
 });
 
-describe('findings kept in the bundle (#639 Part 12)', () => {
+describe('findings kept in the bundle', () => {
   const RULE_FINDING = {
     rule_id: 'no-raw-sql',
     file: 'src/orders/sync.ts',
@@ -454,7 +446,6 @@ describe('findings kept in the bundle (#639 Part 12)', () => {
     };
   }
 
-  /** Gate 3 (AC-30): a scan's kept findings plus its overflow equal its counts. */
   function expectCountsMatchFindings(scan: HudFindingsScan<unknown>): void {
     if (scan.status === 'did not run') {
       expect(scan.total).toBeNull();
@@ -546,7 +537,6 @@ describe('findings kept in the bundle (#639 Part 12)', () => {
     openChange(root, S, 'fast', 'ORD-490 copy fix');
     expect(buildHudSnapshot(root, S, { now: NOW }).findings).toBeNull();
 
-    // A drift row from the reconciler is not a rule scan.
     appendRuleRun(root, S, { kind: 'drift', counts: { 'RS-X': 1 }, blocking: false });
     appendDuplicationRun(root, S, duplicationReport([]));
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
@@ -692,7 +682,6 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
 
   it('a failed write is logged, never thrown (guardrail rule 3)', () => {
     const root = onboardedRoot();
-    // A directory where the snapshot file should be makes the rename fail.
     mkdirSync(hudSnapshotPath(root, 'ses'), { recursive: true });
     expect(writeHudSnapshotSafe(root, 'ses', 'test')).toBeNull();
     expect(readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8')).toContain(
@@ -723,7 +712,7 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
   });
 });
 
-describe('the live High Table on the snapshot (#639 Part 13)', () => {
+describe('the live High Table on the snapshot', () => {
   const at = (iso: string) => () => new Date(iso);
   const SEAT_TOKENS = {
     input: 5,
@@ -735,7 +724,6 @@ describe('the live High Table on the snapshot (#639 Part 13)', () => {
     total: 24035,
   };
 
-  /** Seat two experts and the chief, then move them through the ledger at fixed times. */
   function recordTable(root: string, S: string, dir: string, lateRole?: string): void {
     const opts = (iso: string) => ({ sessionId: S, now: at(iso) });
     recordSeatedRows(
@@ -955,7 +943,6 @@ describe('the live High Table on the snapshot (#639 Part 13)', () => {
     expect(snapshot.flags.map((flag) => flag.id)).not.toContain('high-table-late');
   });
 
-  /** A finished spec pipeline run in a bundle of its own, as an earlier change leaves it. */
   function priorRun(
     root: string,
     dir: string,
@@ -1037,7 +1024,6 @@ describe('the live High Table on the snapshot (#639 Part 13)', () => {
       empty: 0,
       avg_tokens: 3000,
     });
-    // A role with no earlier change, and the chief, have no record.
     expect(record('security-auditor')).toBeNull();
     expect(table.chief).toBeNull();
   });

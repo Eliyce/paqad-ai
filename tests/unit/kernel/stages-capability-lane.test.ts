@@ -8,10 +8,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
 import { endStage, openStageEvidence, startStage, type StageLane } from '@/stage-evidence/index.js';
 
-// Issue #324 — the pre-code gate scales the specification requirement to the lane:
-// the fast lane relaxes it (planning-only), while a path mapping to a
-// `sensitivity: high` module floors the lane back to full so a spec is still required.
-describe('stages capability — lane-aware precondition (#324)', () => {
+describe('stages capability — lane-aware precondition', () => {
   let root: string;
   const SES = 'ses_lane';
 
@@ -21,7 +18,6 @@ describe('stages capability — lane-aware precondition (#324)', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  /** Open a change with a recorded lane, then record only `planning` (proven). */
   function openWithLaneAndPlanning(lane: StageLane): void {
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code', lane });
     startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
@@ -87,9 +83,7 @@ modules:
   it('sensitivity floor: a high-sensitivity path forces full even when the lane is fast', async () => {
     writeSensitiveModuleMap();
     openWithLaneAndPlanning('fast');
-    // Normal path on the fast lane is allowed…
     expect((await gate('src/feature.ts')).block).toBe(false);
-    // …but a path under the high-sensitivity module is floored to full → spec required.
     const blocked = await gate('src/secure/keys.ts');
     expect(blocked.block).toBe(true);
     expect(blocked.summary).toContain('specification');

@@ -27,7 +27,6 @@ function writeState(state: string): void {
   );
 }
 
-/** A fake spawn that records its call and returns a child with on/unref. */
 function fakeSpawn() {
   const child = { on: vi.fn(), unref: vi.fn() };
   const spawn = vi.fn(() => child);
@@ -36,7 +35,7 @@ function fakeSpawn() {
 
 describe('migrationTickDue', () => {
   it('is true only for an installed machine', () => {
-    expect(migrationTickDue(home)).toBe(false); // no file
+    expect(migrationTickDue(home)).toBe(false);
     writeState('installed');
     expect(migrationTickDue(home)).toBe(true);
     for (const state of ['done', 'pending', 'failed', 'skipped', 'rolled-back', 'declined']) {
@@ -46,7 +45,7 @@ describe('migrationTickDue', () => {
   });
   it('is true for a done machine whose user settings turn the plugin off (B5)', () => {
     writeState('done');
-    expect(migrationTickDue(home)).toBe(false); // no settings file
+    expect(migrationTickDue(home)).toBe(false);
     mkdirSync(join(home, '.claude'), { recursive: true });
     const settings = join(home, '.claude', 'settings.json');
     writeFileSync(settings, JSON.stringify({ enabledPlugins: { 'paqad@eliyce': true } }));
@@ -151,7 +150,6 @@ describe('frameworkPackageRoot', () => {
     expect(frameworkPackageRoot({ PAQAD_FRAMEWORK_HOME: join(home, 'nope') })).toBeNull();
   });
   it('defaults to ~/.paqad-ai/current under the sandboxed home', () => {
-    // HOME is sandboxed by tests/shared/isolate-home.ts; with no link there it resolves to null.
     expect(frameworkPackageRoot({})).toBeNull();
   });
 });

@@ -15,10 +15,6 @@ import { execa } from 'execa';
 
 const SCRIPT = join(process.cwd(), 'runtime/hooks/silent-update.mjs');
 
-// The npm-dependent paths drive a fake `npm` via a POSIX `#!/bin/sh` shim and the
-// hook's shell-resolved `npm` lookup, which only behaves on POSIX. On Windows the
-// hook would hit the real npm; skip those cases there (matching the .sh suite,
-// which required bash). The seed/interval/skip paths need no npm and run anywhere.
 const itPosix = process.platform === 'win32' ? it.skip : it;
 
 function makeRoot(): string {
@@ -34,17 +30,12 @@ function writeVersionFile(root: string, version: string, updatedAt?: string): vo
   writeFileSync(join(dir, 'framework-version.txt'), `version=${version}\n${updatedAtLine}\n`);
 }
 
-/** Create a fake `npm` shim that exits 0 but produces no output. */
 function writeFakeNpm(dir: string): void {
   const fakePath = join(dir, 'npm');
   writeFileSync(fakePath, '#!/bin/sh\nexit 0\n');
   chmodSync(fakePath, 0o755);
 }
 
-/**
- * Create a fake `npm` that prints `version` for `npm view` and exits 0 for
- * everything else (so the backgrounded `npm install -g` is a harmless no-op).
- */
 function writeFakeNpmVersion(dir: string, version: string): void {
   const fakePath = join(dir, 'npm');
   writeFileSync(fakePath, `#!/bin/sh\nif [ "$1" = "view" ]; then echo ${version}; fi\nexit 0\n`);
@@ -53,11 +44,6 @@ function writeFakeNpmVersion(dir: string, version: string): void {
 
 const STALE = '2020-01-01T00:00:00Z';
 
-/**
- * Session variables a test run inside Claude Code inherits. Each would point the hook at the
- * developer's real project, session, or framework install, so every spawn drops them unless the
- * test sets them itself.
- */
 const INHERITED_SESSION_VARS = [
   'CLAUDE_PROJECT_DIR',
   'CLAUDE_SESSION_ID',
@@ -67,12 +53,6 @@ const INHERITED_SESSION_VARS = [
   'PAQAD_PROJECT_ROOT',
 ];
 
-/**
- * Run the hook with a sandboxed HOME/USERPROFILE (so the developer's real ~/.paqad-ai is never
- * read and the real CLI is never spawned), none of the inherited session variables, and an empty
- * stdin, or the given SessionStart payload. CLAUDE_PROJECT_DIR is the test root unless overridden.
- * Every spawn in this file goes through here.
- */
 async function runHook(
   root: string,
   fakeBinDir?: string,
@@ -99,10 +79,6 @@ async function runHook(
   });
 }
 
-/**
- * A fake installed package whose dist/cli/index.js records its argv to `<root>/tick-argv.json`,
- * plus an `installed` migration state in the sandboxed home. Returns the framework link env.
- */
 function fakeTickPackage(root: string, state = 'installed'): Record<string, string> {
   const pkg = join(root, 'pkg');
   mkdirSync(join(pkg, 'runtime'), { recursive: true });
@@ -120,7 +96,6 @@ function fakeTickPackage(root: string, state = 'installed'): Record<string, stri
   return { PAQAD_FRAMEWORK_HOME: join(pkg, 'runtime') };
 }
 
-/** Wait (bounded) for the detached fake CLI to record its argv; null when it never ran. */
 async function readTickArgv(root: string, waitMs = 3000): Promise<string[] | null> {
   const path = join(root, 'tick-argv.json');
   const deadline = Date.now() + waitMs;
@@ -128,9 +103,7 @@ async function readTickArgv(root: string, waitMs = 3000): Promise<string[] | nul
     if (existsSync(path)) {
       try {
         return JSON.parse(readFileSync(path, 'utf8')) as string[];
-      } catch {
-        // partially written; retry
-      }
+      } catch {}
     }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
@@ -146,8 +119,6 @@ describe('silent-update.mjs', () => {
   it('exits 0 when framework-version.txt is missing and cannot be seeded', async () => {
     const root = makeRoot();
     try {
-      // Point the framework home at an empty dir so there is no package.json to
-      // seed from — the hook must still exit cleanly, exactly as before.
       const emptyHome = join(root, 'no-framework');
       mkdirSync(emptyHome, { recursive: true });
       const result = await runHook(root, undefined, { env: { PAQAD_FRAMEWORK_HOME: emptyHome } });
@@ -161,9 +132,6 @@ describe('silent-update.mjs', () => {
   it('self-heals: seeds framework-version.txt from the installed package, then exits', async () => {
     const root = makeRoot();
     try {
-      // A teammate who never onboarded has no local version file. Point the framework home at a
-      // fake install's `runtime` dir, with package.json ONE LEVEL ABOVE it (issue #616 Part 9 —
-      // the link resolves to <pkg>/runtime and package.json lives at <pkg>/package.json).
       const installDir = join(root, 'install');
       const frameworkHome = join(installDir, 'runtime');
       mkdirSync(frameworkHome, { recursive: true });
@@ -179,7 +147,6 @@ describe('silent-update.mjs', () => {
       expect(result.exitCode).toBe(0);
       const content = readFileSync(join(root, '.paqad', 'framework-version.txt'), 'utf8');
       expect(content).toContain('version=3.4.5');
-      // Seeded at the epoch so the NEXT session's interval check fires at once.
       expect(content).toContain('updated_at=1970-01-01T00:00:00Z');
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -190,14 +157,11 @@ describe('silent-update.mjs', () => {
     const root = makeRoot();
     try {
       writeVersionFile(root, '0.1.0', new Date().toISOString());
-      // The interval throttle now reads version_check_interval_hours from
-      // `.paqad/.config` (no longer efficiency.version_check_interval_hours).
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, '.paqad', '.config'), 'version_check_interval_hours=12\n');
 
       const result = await runHook(root, undefined, { env: { CLAUDE_PROJECT_DIR: undefined } });
       expect(result.exitCode).toBe(0);
-      // Nothing should have been logged or spawned within the window.
       expect(readAuditLog(root)).toBe('');
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -208,8 +172,6 @@ describe('silent-update.mjs', () => {
     const root = makeRoot();
     try {
       writeVersionFile(root, '0.1.0', STALE);
-      // The opt-out moved from the profile's `skip_version_check` to
-      // `auto_update=false` in `.paqad/.config`, which the hook now reads.
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, '.paqad', '.config'), 'auto_update=false\n');
 
@@ -221,20 +183,12 @@ describe('silent-update.mjs', () => {
     }
   });
 
-  // Issue #220 — a disabled install must never seed a version file, run a
-  // version check, or spawn `npm install -g`. It does nothing, leaving the
-  // install exactly as the user left it.
   it('does nothing when disabled via .config (no seed, no spawn)', async () => {
     const root = makeRoot();
     try {
-      // The disable signal moved from the profile's `paqad.enabled: false` to
-      // `paqad_enable=false` in `.paqad/.config`, which the hook reads.
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(join(root, '.paqad', '.config'), 'paqad_enable=false\n');
 
-      // No framework-version.txt, but point the framework home at a fake install
-      // carrying a version: an ENABLED hook would self-heal and seed one. A
-      // disabled hook must leave the install untouched.
       const frameworkHome = join(root, 'framework-home');
       mkdirSync(frameworkHome, { recursive: true });
       writeFileSync(
@@ -288,7 +242,6 @@ describe('silent-update.mjs', () => {
     const root = makeRoot();
     try {
       writeVersionFile(root, '0.1.0', STALE);
-      // Hold the lock the hook uses (atomic-mkdir directory lock).
       const lockDir = join(root, '.paqad', 'locks', 'update.lock');
       mkdirSync(lockDir, { recursive: true });
 
@@ -298,7 +251,6 @@ describe('silent-update.mjs', () => {
 
       const result = await runHook(root, fakeBinDir);
       expect(result.exitCode).toBe(0);
-      // Lock held → no self-update intent recorded.
       expect(readAuditLog(root)).toBe('');
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -308,7 +260,6 @@ describe('silent-update.mjs', () => {
   itPosix('logs a routine self-update when behind but inside the 2-minor window', async () => {
     const root = makeRoot();
     try {
-      // Current 1.14.0, latest 1.15.0 — same major, within the last two minors.
       writeVersionFile(root, '1.14.0', STALE);
       const fakeBinDir = join(root, 'fakebin');
       mkdirSync(fakeBinDir, { recursive: true });
@@ -325,7 +276,6 @@ describe('silent-update.mjs', () => {
   itPosix('logs a forced self-update when more than two minors behind', async () => {
     const root = makeRoot();
     try {
-      // Current 1.6.0, latest 1.15.0 — same major but far outside the window.
       writeVersionFile(root, '1.6.0', STALE);
       const fakeBinDir = join(root, 'fakebin');
       mkdirSync(fakeBinDir, { recursive: true });
@@ -342,7 +292,6 @@ describe('silent-update.mjs', () => {
   itPosix('logs a forced self-update when an older major is installed', async () => {
     const root = makeRoot();
     try {
-      // Current 1.99.0, latest 2.0.0 — older major is always out-of-window.
       writeVersionFile(root, '1.99.0', STALE);
       const fakeBinDir = join(root, 'fakebin');
       mkdirSync(fakeBinDir, { recursive: true });
@@ -367,7 +316,6 @@ describe('silent-update.mjs', () => {
       const result = await runHook(root, fakeBinDir);
       expect(result.exitCode).toBe(0);
       expect(readAuditLog(root)).toBe('');
-      // updated_at is refreshed away from the stale sentinel value.
       expect(readFileSync(join(root, '.paqad', 'framework-version.txt'), 'utf8')).not.toContain(
         STALE,
       );
@@ -376,7 +324,7 @@ describe('silent-update.mjs', () => {
     }
   });
 
-  describe('plugin migration tick (issue #648, B4)', () => {
+  describe('plugin migration tick', () => {
     it('spawns plugin tick --source npm with the payload session id', async () => {
       const root = makeRoot();
       try {
@@ -481,7 +429,6 @@ describe('silent-update.mjs', () => {
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toBe('');
         expect(result.stderr).toBe('');
-        // No payload → no session id, still an npm session.
         expect(await readTickArgv(root)).toEqual(['plugin', 'tick', '--source', 'npm']);
       } finally {
         rmSync(root, { recursive: true, force: true });
@@ -490,7 +437,6 @@ describe('silent-update.mjs', () => {
   });
 
   it.skipIf(process.platform === 'win32')('script file exists and is executable', () => {
-    // Windows doesn't expose the POSIX +x bit via stat.mode.
     expect(existsSync(SCRIPT)).toBe(true);
     const stat = statSync(SCRIPT);
     expect(stat.mode & 0o100).toBe(0o100);

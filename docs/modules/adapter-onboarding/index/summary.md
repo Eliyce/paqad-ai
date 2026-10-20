@@ -307,7 +307,9 @@ state on its own.
   the package one level above the resolved runtime link. The single-flight lock is an atomic
   directory create, reaped after 60 minutes. `npm` runs with `shell: true` so Windows resolves
   `npm.cmd`. It reports Claude Code sessions to the plugin migration before stepping aside for the
-  plugin.
+  plugin. Its tests drive a fake `npm` through a POSIX `#!/bin/sh` shim, so the npm cases skip on
+  Windows (where the hook would reach the real npm); the seed, interval and skip cases run
+  everywhere.
 - **`lib/plugin-migration-tick.mjs`.** The migration rollback counter must move on real sessions,
   not on update runs, so both SessionStart hooks call it. It holds no state logic; it spawns a
   detached `paqad-ai plugin tick` only when there is work, and a compact SessionStart never counts.

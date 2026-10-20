@@ -31,9 +31,7 @@ describe('health check coverage matrix', () => {
         capabilities: [],
       },
     });
-    // Stage 1: foundation — writes module-map.yml
     await new DocumentationWorkflow().run({ projectRoot, mode: 'foundation' });
-    // Inject a known module map so the health matrix tests can rely on docs/modules/core/**
     mkdirSync(join(projectRoot, PATHS.RULES_DIR), { recursive: true });
     writeFileSync(
       join(projectRoot, PATHS.MODULE_MAP),
@@ -55,7 +53,6 @@ describe('health check coverage matrix', () => {
         ],
       }),
     );
-    // Stage 2: module-docs — generates docs/modules/core/**
     await new DocumentationWorkflow().run({ projectRoot, mode: 'module-docs' });
   });
 

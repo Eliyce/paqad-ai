@@ -11,7 +11,6 @@ function run(testing: ProjectTesting | undefined): HealthCheckResult {
   return checker.checkTestRunnerParallel(({ testing } as ProjectProfile) ?? null);
 }
 
-// Doctor warn-check for the recorded parallel mode (issue #554, AC-13).
 describe('checkTestRunnerParallel', () => {
   it('warns for unavailable with a package-missing reason and names the package', () => {
     const result = run({

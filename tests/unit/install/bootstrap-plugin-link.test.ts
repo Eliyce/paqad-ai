@@ -18,7 +18,6 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { __test as bootstrapTest } from '@/install/bootstrap';
-// The dist-less runtime hook: its `repointFrameworkLink` is the original the TS mirror follows.
 import { __test as mjsTest } from '../../../runtime/hooks/plugin-session-start.mjs';
 
 const { ensureFrameworkSymlink, isPluginRuntime, repointFrameworkLinkPluginAware } = bootstrapTest;
@@ -56,7 +55,6 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-/** Resolve a symlink's recorded target, or null when the path is not a symlink / is absent. */
 function targetOf(path: string): string | null {
   try {
     return readlinkSync(path);
@@ -65,10 +63,6 @@ function targetOf(path: string): string | null {
   }
 }
 
-/**
- * Build a fresh scenario: a plugin runtime, a stable-data dir, and a `current` link in one of
- * several starting states. Returns the paths plus the plugin-mode env both implementations read.
- */
 interface Scenario {
   current: string;
   pluginRuntime: string;
@@ -146,7 +140,6 @@ describe('stable-runtime helpers (mirrors of the .mjs)', () => {
     const notADir = join(root, 'afile');
     writeFileSync(notADir, 'x');
     const pluginRuntime = makePluginRoot(join(root, 'pr-fail'), '1.0.0');
-    // CLAUDE_PLUGIN_DATA sits under a FILE, so mkdirSync(dirname(stable)) throws → catch.
     expect(
       ensureStablePluginRuntime(pluginRuntime, {
         CLAUDE_PLUGIN_DATA: join(notADir, 'data'),
@@ -273,12 +266,9 @@ describe('framework link after a plugin update, both implementations', () => {
   }
 });
 
-describe('repointFrameworkLinkPluginAware (issue #641, Gap 1)', () => {
+describe('repointFrameworkLinkPluginAware', () => {
   it('leaves the link untouched when it already points at the stable location', () => {
-    const s = scenario('already-stable', () => {
-      /* link created below after stable exists */
-    });
-    // Establish the stable link, then point current at it; a second repoint is a no-op.
+    const s = scenario('already-stable', () => {});
     const stable = ensureStablePluginRuntime(s.pluginRuntime, s.env);
     symlinkSync(stable, s.current);
     repointFrameworkLinkPluginAware(s.pluginRuntime, s.current, s.env);
@@ -288,7 +278,7 @@ describe('repointFrameworkLinkPluginAware (issue #641, Gap 1)', () => {
   it('fails open (no throw, no link) when the re-point itself cannot be written', () => {
     const notADir = join(root, 'bfile');
     writeFileSync(notADir, 'x');
-    const current = join(notADir, 'current'); // parent is a FILE → mkdir/symlink throws
+    const current = join(notADir, 'current');
     const pluginRuntime = join(root, 'pr-repoint-fail', 'runtime');
     mkdirSync(pluginRuntime, { recursive: true });
     expect(() =>
@@ -319,9 +309,7 @@ describe('repointFrameworkLinkPluginAware (issue #641, Gap 1)', () => {
   });
 
   it('fills a missing link, pointing at the stable plugin-data runtime (FR-2)', () => {
-    const s = scenario('missing', () => {
-      /* no link created */
-    });
+    const s = scenario('missing', () => {});
     repointFrameworkLinkPluginAware(s.pluginRuntime, s.current, s.env);
     expect(targetOf(s.current)).toBe(s.stable);
   });
@@ -356,12 +344,11 @@ describe('repointFrameworkLinkPluginAware (issue #641, Gap 1)', () => {
   });
 });
 
-describe('ensureFrameworkSymlink npm-install path is unchanged (issue #641, FR-3 / INV-1)', () => {
+describe('ensureFrameworkSymlink npm-install path is unchanged', () => {
   it('points the link at the running npm runtime when not under the plugin', () => {
     const npmRuntime = join(root, 'npm', 'node_modules', 'paqad-ai', 'runtime');
     mkdirSync(npmRuntime, { recursive: true });
     const current = join(root, 'npm-current');
-    // No CLAUDE_PLUGIN_ROOT → the plugin branch is never taken.
     ensureFrameworkSymlink(npmRuntime, current, {} as NodeJS.ProcessEnv);
     expect(targetOf(current)).toBe(npmRuntime);
   });
@@ -372,14 +359,12 @@ describe('ensureFrameworkSymlink npm-install path is unchanged (issue #641, FR-3
     const s = scenario('ensure-plugin', ({ current }) => {
       symlinkSync(npmRuntime, current);
     });
-    // runtimeRoot here is the plugin runtime; isPluginRuntime(env) is true via CLAUDE_PLUGIN_ROOT.
     ensureFrameworkSymlink(s.pluginRuntime, s.current, s.env);
     expect(targetOf(s.current)).toBe(npmRuntime);
   });
 });
 
-// INV-4: the TS mirror and the dist-less `.mjs` original must make the identical link decision.
-describe('TS/.mjs consistency (issue #641, INV-4)', () => {
+describe('TS/.mjs consistency', () => {
   const cases: { name: string; setup: (s: { current: string; pluginRuntime: string }) => void }[] =
     [
       {
@@ -398,9 +383,7 @@ describe('TS/.mjs consistency (issue #641, INV-4)', () => {
       },
       {
         name: 'missing',
-        setup: () => {
-          /* none */
-        },
+        setup: () => {},
       },
       {
         name: 'unknown-working',
@@ -414,19 +397,14 @@ describe('TS/.mjs consistency (issue #641, INV-4)', () => {
 
   for (const c of cases) {
     it(`agrees on the "${c.name}" case`, () => {
-      // Two independent, identically-seeded fixtures: one driven by the TS mirror, one by the .mjs.
       const tsScenario = scenario(`ts-${c.name}`, c.setup);
       repointFrameworkLinkPluginAware(tsScenario.pluginRuntime, tsScenario.current, tsScenario.env);
       const tsTarget = targetOf(tsScenario.current);
 
       const mjsScenario = scenario(`mjs-${c.name}`, c.setup);
-      // The .mjs reads the link path from PAQAD_FRAMEWORK_HOME in env.
       mjsRepointFrameworkLink(mjsScenario.pluginRuntime, mjsScenario.env);
       const mjsTarget = targetOf(mjsScenario.current);
 
-      // Both must agree on whether a re-point happened and (when it did) which category it chose:
-      // same stable vs same preserved target. Compare by category since the two scenarios use
-      // different temp roots.
       const classify = (target: string | null, s: Scenario): string => {
         if (target === null) return 'none';
         if (target === s.stable) return 'stable';

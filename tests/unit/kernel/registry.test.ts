@@ -57,10 +57,9 @@ describe('CAPABILITY_REGISTRY (buildout F3 — the unifying data model)', () => 
     const pre = capabilitiesForSeam('pre-mutation').map((c) => c.id);
     expect(pre).toContain('rule-scripts');
     expect(pre).toContain('decision-pause');
-    expect(pre).toContain('stages'); // block-forward runs pre-mutation (RCA fix B)
-    expect(pre).toContain('rules-loaded'); // edit-time rule-loading block (issue #557)
+    expect(pre).toContain('stages');
+    expect(pre).toContain('rules-loaded');
     expect(pre).not.toContain('narration');
-    // rules-loaded is pre-mutation only; the completion half is the dedicated verification gate.
     expect(capabilitiesForSeam('completion').map((c) => c.id)).not.toContain('rules-loaded');
 
     const completion = capabilitiesForSeam('completion').map((c) => c.id);
