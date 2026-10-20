@@ -138,7 +138,7 @@ describe('writeStackArtifacts', () => {
     expect(driftDoc).toContain('## Review Targets');
   });
 
-  it('keeps OFF silent — writes no analytics.md and removes a stale one (issue #279)', async () => {
+  it('keeps OFF silent — writes no analytics.md and removes a stale one', async () => {
     const analyticsDoc = join(root, PATHS.FRAMEWORK_STACK_DIR, 'analytics.md');
     mkdirSync(join(root, PATHS.FRAMEWORK_STACK_DIR), { recursive: true });
     writeFileSync(analyticsDoc, '# stale analytics doc from a previously-enabled onboard\n');
@@ -148,7 +148,7 @@ describe('writeStackArtifacts', () => {
     expect(existsSync(analyticsDoc)).toBe(false);
   });
 
-  it('writes the tracking-plan analytics.md when the flag is on, no provider yet (issue #279)', async () => {
+  it('writes the tracking-plan analytics.md when the flag is on, no provider yet', async () => {
     writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n', 'utf8');
 
     await writeStackArtifacts(root, buildSnapshot(), null, { writeHumanDocs: true });
@@ -160,7 +160,7 @@ describe('writeStackArtifacts', () => {
     expect(doc).toContain('not** type-safe codegen');
   });
 
-  it('renders the detected provider and convention in analytics.md (issue #279)', async () => {
+  it('renders the detected provider and convention in analytics.md', async () => {
     writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n', 'utf8');
     writeFileSync(
       join(root, 'package.json'),

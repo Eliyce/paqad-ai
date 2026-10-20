@@ -8,7 +8,7 @@ import {
   buildStageAgentBody,
 } from '@/stage-isolation/stage-agents';
 
-describe('stage-agent definitions (issue #567)', () => {
+describe('stage-agent definitions', () => {
   it('defines exactly the six mandatory stages, excluding ticket_intake and delivery', () => {
     expect(STAGE_AGENT_STAGES).toEqual([
       'planning',
@@ -41,7 +41,6 @@ describe('stage-agent definitions (issue #567)', () => {
     expect(dev.claudeTools).toContain('Edit');
     expect(dev.claudeTools).toContain('Write');
     expect(review.claudeTools).not.toContain('Edit');
-    // Every stage needs Bash to run the paqad-ai stage verbs.
     for (const def of MANDATORY_STAGE_AGENTS) {
       expect(def.claudeTools).toContain('Bash');
     }

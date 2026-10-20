@@ -9,10 +9,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { recordLiveStageEdit, recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 
-// Issue #582 — a stage row records where its session id came from, so the completion
-// check can ignore rows written against an id read from the shared cache file.
-
-describe('the row schema accepts an optional session_source (issue #582)', () => {
+describe('the row schema accepts an optional session_source', () => {
   const base = {
     schema_version: 1,
     doc_type: 'paqad.stage-evidence',
@@ -38,7 +35,7 @@ describe('the row schema accepts an optional session_source (issue #582)', () =>
   });
 });
 
-describe('writers stamp session_source (issue #582)', () => {
+describe('writers stamp session_source', () => {
   let root: string;
   const SES = 'ses_source';
 
@@ -69,7 +66,6 @@ describe('writers stamp session_source (issue #582)', () => {
       stage: 'development',
       phase: 'start',
     });
-    // A marked review start closes the still-open development stage first.
     recordMarkedStage(root, {
       sessionId: SES,
       sessionSource: 'cache',
@@ -110,7 +106,6 @@ describe('writers stamp session_source (issue #582)', () => {
 
   it('leaves a live edit unstamped when no host id was supplied', () => {
     seedPreCode();
-    // The cache names SES, so the id-less edit resolves to it.
     resolveSessionId(root, SES);
     recordLiveStageEdit({
       projectRoot: root,

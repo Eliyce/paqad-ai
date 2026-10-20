@@ -7,13 +7,6 @@ import {
 } from '@/stage-evidence/narration-audit.js';
 import { STAGE_NARRATION } from '@/stage-evidence/narration.js';
 
-// Issue #409 — the mirror of #389. The ledger proves a stage RAN; this proves the
-// developer was TOLD. The load-bearing distinction throughout is "the agent said it"
-// vs "a hook emitted it": on Claude Code Desktop the hook's `{systemMessage}` is
-// recorded as an attachment and never rendered, so hook output must never count as
-// narration no matter how faithfully it carries the line.
-
-/** One assistant turn as Claude Code writes it to the transcript JSONL. */
 function assistantText(text: string): string {
   return JSON.stringify({
     type: 'assistant',
@@ -21,7 +14,6 @@ function assistantText(text: string): string {
   });
 }
 
-/** A hook_success attachment carrying the SAME line the agent should have spoken. */
 function hookAttachment(line: string): string {
   return JSON.stringify({
     type: 'attachment',
@@ -33,9 +25,6 @@ function hookAttachment(line: string): string {
   });
 }
 
-// Issue #449 — only an agent-authored stage can be "recorded but never said out loud".
-// A hook/backstop-inferred stage was never the agent's claim, so it must be filtered out
-// of the #409 audit before it can accuse the agent of failing to narrate it.
 describe('isAgentNarratableStage', () => {
   it('is true only for agent-authored provenance (live-mark, redo)', () => {
     expect(isAgentNarratableStage('live-mark')).toBe(true);
@@ -69,7 +58,6 @@ describe('auditTurnNarration', () => {
     ).toEqual(['review']);
   });
 
-  // INV-2 — this is the whole bug: the line existed, the developer never saw it.
   it('AC-6/INV-2: a line carried ONLY by a hook attachment does not count as narration', () => {
     const transcript = [
       hookAttachment(`▸ paqad · ${STAGE_NARRATION.development}`),
@@ -116,7 +104,6 @@ describe('auditTurnNarration', () => {
     ).toEqual([]);
   });
 
-  // INV-3 — the voice backstop can never wedge a session on a transcript it cannot read.
   it('INV-3: an empty transcript is "cannot tell", not "said nothing"', () => {
     expect(auditTurnNarration({ transcriptText: '', recorded: ['planning'] })).toEqual([]);
   });

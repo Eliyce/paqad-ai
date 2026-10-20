@@ -20,9 +20,6 @@ import { recordLiveStageEdit, recordMarkedStage } from '@/stage-evidence/live-wr
 import { parseAndRecordMarkers } from '@/stage-evidence/marker-parse.js';
 import { formatValidationError, validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 
-// Issue #307 hardening — edge branches the 100% stage-evidence floor pins:
-// forged ledger rows, artifact-bearing ends, and root-level schema errors must
-// all degrade gracefully, never crash the finalize/fold path.
 describe('stage-evidence hardening edges', () => {
   let root: string;
   const SES = 'ses_harden';
@@ -34,9 +31,6 @@ describe('stage-evidence hardening edges', () => {
 
   it('finalize survives a forged stage_start row whose stage the recorder cannot end', () => {
     const { dirName } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
-    // A row written around the recorder (hand-forged): the stage id is not in the
-    // registry, so the close-out endStage throws — finalize must swallow it and
-    // still verify the change instead of crashing the completion hook.
     appendFeatureStageRow(root, SES, dirName, {
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
@@ -88,13 +82,8 @@ describe('stage-evidence hardening edges', () => {
 
   it('the live writer survives a forged open stage the recorder cannot close', () => {
     const { dirName } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
-    // Pre-code stages recorded (issue #310): the writer defers until planning +
-    // specification are on the ledger, so seed them before the edit.
     startStage(root, 'planning', { sessionId: SES, dirName, adapter: 'claude-code' });
     startStage(root, 'specification', { sessionId: SES, dirName, adapter: 'claude-code' });
-    // A forged, registry-unknown stage_start with no end: the forward-close loop's
-    // endStage throws for it — the writer must swallow that and still start the
-    // real stage for the edit.
     appendFeatureStageRow(root, SES, dirName, {
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
@@ -110,11 +99,8 @@ describe('stage-evidence hardening edges', () => {
     expect(stage).toBe('development');
   });
 
-  it('#380: a marked start survives a forged open stage its forward-close cannot end', () => {
+  it('a marked start survives a forged open stage its forward-close cannot end', () => {
     const { dirName } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
-    // A forged, registry-unknown open stage_start: the #380 forward-close loop's
-    // endStage throws for it — recordMarkedStage must swallow that per-stage and still
-    // record the marked boundary (the dangling stage never blocks the boundary).
     appendFeatureStageRow(root, SES, dirName, {
       kind: 'stage_start',
       stage: 'not_a_registry_stage',
@@ -155,8 +141,6 @@ describe('stage-evidence hardening edges', () => {
     expect(rows.some((row) => row.kind === 'stage_end' && row.subject_digest === null)).toBe(true);
   });
 
-  // extractAssistantText edge shapes: top-level role rows (string content), rows
-  // with content outside `message`, and non-text content blocks.
   it('parses transcript rows with top-level role and string content', () => {
     const transcript = [
       JSON.stringify({ role: 'assistant', content: 'paqad:stage planning start' }),

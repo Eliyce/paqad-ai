@@ -14,7 +14,7 @@ import { STAGE_EVIDENCE_DOC_TYPE } from '@/stage-evidence/types.js';
 
 const SESSION = 'sess-lane';
 
-describe('pending-lane stash (#324)', () => {
+describe('pending-lane stash', () => {
   let root: string;
 
   beforeEach(() => {
@@ -51,8 +51,7 @@ describe('pending-lane stash (#324)', () => {
     expect(readPendingLane(root, SESSION)).toBe('graduated');
   });
 
-  // Issue #580 — clearing the stash so a hook lane cannot leak onto a later change.
-  it('clears a stashed lane (#580)', () => {
+  it('clears a stashed lane', () => {
     writePendingLane(root, SESSION, 'fast');
     expect(readPendingLane(root, SESSION)).toBe('fast');
     clearPendingLane(root, SESSION);
@@ -65,8 +64,6 @@ describe('pending-lane stash (#324)', () => {
   });
 
   it('never throws into the caller when the stash path cannot be removed', () => {
-    // A directory at the stash path makes a non-recursive rmSync throw — the best-effort
-    // clear must swallow it rather than wedge the caller.
     const dir = join(root, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, SESSION));
     mkdirSync(join(dir, '.pending-lane'), { recursive: true });
     expect(() => clearPendingLane(root, SESSION)).not.toThrow();

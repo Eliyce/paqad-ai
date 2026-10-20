@@ -19,7 +19,6 @@ import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { setActiveFeature } from '@/feature-evidence/session-control.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
-/** One JSONL transcript line in the Claude shape. */
 function msg(role: string, text: string): string {
   return JSON.stringify({ type: role, message: { role, content: [{ type: 'text', text }] } });
 }
@@ -39,7 +38,7 @@ describe('extractMarkers', () => {
     expect(extractMarkers(text)).toEqual([{ stage: 'development', phase: 'start' }]);
   });
 
-  it('parses an artifact path on a stage-end (`end -- <path>`) — issue #320', () => {
+  it('parses an artifact path on a stage-end (`end -- <path>`)', () => {
     const text = 'paqad:stage planning start\npaqad:stage planning end -- .paqad/plans/320.md\n';
     expect(extractMarkers(text)).toEqual([
       { stage: 'planning', phase: 'start' },
@@ -48,8 +47,6 @@ describe('extractMarkers', () => {
   });
 
   it('ignores an artifact suffix on a start (only an end carries one)', () => {
-    // A start with a trailing `-- x` is not the artifact grammar; the whole line must
-    // still match the bare-start shape, so the suffix is simply not captured.
     expect(extractMarkers('paqad:stage planning start -- x\n')).toEqual([
       { stage: 'planning', phase: 'start' },
     ]);
@@ -70,17 +67,12 @@ describe('parseAndRecordMarkers', () => {
     return dir ? readFeatureStageUnit(root, dir) : [];
   }
 
-  /** The host is a session constant on feature.json, never on a row (issue #581). */
   function expectHost(adapter: string): void {
     expect(rows().every((r) => !('adapter' in r))).toBe(true);
     expect(readFeatureRecord(root, currentFeature(root, SES)!)?.adapter).toBe(adapter);
   }
 
   it('returns [] (never throws) when reading the active feature ledger fails', () => {
-    // The "never throws" contract (issue #339): make the active feature's
-    // stage-evidence.jsonl path a DIRECTORY so the tolerant reader's readFileSync throws
-    // EISDIR — parseAndRecordMarkers must swallow it and record nothing. Deterministic on
-    // every platform/Node version (vs the incidental coverage the 100% floor demands).
     const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
     setActiveFeature(root, SES, dir);
     mkdirSync(join(root, featureStagePath(dir)), { recursive: true });
@@ -110,10 +102,7 @@ describe('parseAndRecordMarkers', () => {
     expect(rows().some((r) => r.kind === 'stage_end' && r.stage === 'planning')).toBe(true);
   });
 
-  it('populates artifact_digest from a real file on an `end -- <path>` marker (#320)', () => {
-    // `development` is a mutation stage with no rigid bundle file, so an arbitrary in-tree
-    // artifact outside a bundle dir still hashes (the rigid-bundle rule binds planning,
-    // specification and — since #402 — review).
+  it('populates artifact_digest from a real file on an `end -- <path>` marker', () => {
     writeFileSync(join(root, 'findings.md'), '# a real artifact with content\n');
     const transcript = [
       msg('assistant', 'Reviewing.\npaqad:stage development start'),
@@ -134,7 +123,7 @@ describe('parseAndRecordMarkers', () => {
     expect(end?.artifact_digest).toMatch(/^sha256-/);
   });
 
-  it('normalizes an ABSOLUTE in-tree artifact path on a marker (#350)', () => {
+  it('normalizes an ABSOLUTE in-tree artifact path on a marker', () => {
     writeFileSync(join(root, 'findings.md'), '# a real review with content\n');
     const abs = join(root, 'findings.md');
     const transcript = [
@@ -143,15 +132,11 @@ describe('parseAndRecordMarkers', () => {
     ].join('\n');
     parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
     const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
-    // The absolute in-tree path is normalized + hashed (shell and chat now agree).
     expect(end?.artifact_digest).toMatch(/^sha256-/);
     expect(end?.artifact_paths).toEqual(['findings.md']);
   });
 
-  it('drops a non-bundle planning artifact on a marker (records inconclusive) (#394)', () => {
-    // The incident: a hand-written `.paqad/features/<slug>/plan.md` cleared the gate. Now
-    // only the active bundle's plan.json is accepted; any other path is dropped so the
-    // recorder hashes no digest and the stage folds inconclusive.
+  it('drops a non-bundle planning artifact on a marker (records inconclusive)', () => {
     setActiveFeature(root, SES, 'x-01JABCDEFGHJKMNPQRSTVWXYZ0');
     writeFileSync(join(root, 'plan.md'), '# a hand-written plan with content\n');
     const transcript = [
@@ -165,9 +150,7 @@ describe('parseAndRecordMarkers', () => {
     expect(end?.artifact_paths ?? null).toBeNull();
   });
 
-  // Issue #402 — the chat marker is the PRIMARY Claude Code path, so the in-bundle
-  // rejection must fire here too, not only in the `stage` CLI.
-  it('drops a non-rigid artifact written into a bundle dir on a marker (#402)', () => {
+  it('drops a non-rigid artifact written into a bundle dir on a marker', () => {
     const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
     setActiveFeature(root, SES, dir);
     const stray = `.paqad/ledger/feature-evidence/${dir}/scratch-notes.md`;
@@ -180,12 +163,11 @@ describe('parseAndRecordMarkers', () => {
     parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
     const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'development');
     expect(end).toBeDefined();
-    // The stray exists and has real bytes, but is never hashed into the row.
     expect(end?.artifact_digest ?? null).toBeNull();
     expect(end?.artifact_paths ?? null).toBeNull();
   });
 
-  it('accepts the bundle plan.json on a planning-end marker (#394)', () => {
+  it('accepts the bundle plan.json on a planning-end marker', () => {
     const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
     setActiveFeature(root, SES, dir);
     const planRel = featureFilePath(dir, 'plan');
@@ -201,7 +183,7 @@ describe('parseAndRecordMarkers', () => {
     expect(end?.artifact_paths).toEqual([planRel]);
   });
 
-  it('drops an out-of-tree marker artifact instead of recording a false-absent digest (#350)', () => {
+  it('drops an out-of-tree marker artifact instead of recording a false-absent digest', () => {
     const outside = join(tmpdir(), 'paqad-oot-marker.md');
     writeFileSync(outside, '# real content but out of tree\n');
     const transcript = [
@@ -210,14 +192,12 @@ describe('parseAndRecordMarkers', () => {
     ].join('\n');
     parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES });
     const end = rows().find((r) => r.kind === 'stage_end' && r.stage === 'planning');
-    // The boundary still records (best-effort), but with NO artifact — honestly
-    // inconclusive rather than a fabricated absent digest for an out-of-tree file.
     expect(end).toBeDefined();
     expect(end?.artifact_digest ?? null).toBeNull();
     expect(end?.artifact_paths ?? null).toBeNull();
   });
 
-  it('leaves artifact_digest null when the `end -- <path>` file is missing (#320)', () => {
+  it('leaves artifact_digest null when the `end -- <path>` file is missing', () => {
     const transcript = msg(
       'assistant',
       'paqad:stage planning start\npaqad:stage planning end -- does-not-exist.md',
@@ -243,8 +223,6 @@ describe('parseAndRecordMarkers', () => {
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: transcript, sessionId: SES }),
     ).toHaveLength(2);
-    // A later Stop re-parses the same (plus more) transcript → the already-recorded
-    // markers are skipped.
     const grown = transcript + '\n' + msg('assistant', 'paqad:stage planning start');
     expect(
       parseAndRecordMarkers({ projectRoot: root, transcriptText: grown, sessionId: SES }),
@@ -294,9 +272,6 @@ describe('parseAndRecordMarkers', () => {
     expect(n).toHaveLength(2);
   });
 
-  // Codex Desktop rollout jsonl nests the turn under `payload` with `output_text`
-  // blocks (issue #313, finding 1). The parser must read that shape too, or a
-  // well-behaved Codex run records zero stages and is silently scored "blocked".
   function codexMsg(role: string, text: string): string {
     return JSON.stringify({
       timestamp: '2026-07-08T16:09:29.019Z',
@@ -360,8 +335,6 @@ describe('parseAndRecordMarkers', () => {
     ).toHaveLength(2);
   });
 
-  // Issue #265 — the recorded row is attributed to the host that ran, so a
-  // cross-provider ledger does not mislabel a Codex/Gemini stage as claude-code.
   it('defaults row attribution to claude-code when no adapter is passed', () => {
     parseAndRecordMarkers({
       projectRoot: root,
@@ -388,8 +361,6 @@ describe('parseAndRecordMarkers', () => {
   });
 
   it('records a Gemini inline prompt_response (plain text), attributing rows to gemini-cli', () => {
-    // Gemini's transcript_path is stubbed empty; the record hook falls back to the
-    // inline final-message text, which the parser scans as raw text.
     const n = parseAndRecordMarkers({
       projectRoot: root,
       transcriptText: 'Final answer.\npaqad:stage development start\npaqad:stage development end',
@@ -400,9 +371,7 @@ describe('parseAndRecordMarkers', () => {
     expectHost('gemini-cli');
   });
 
-  // Issue #390 — the marker-open path must not mint a feature-evidence bundle for a
-  // route we can prove is NOT feature-development.
-  describe('route gating (#390)', () => {
+  describe('route gating', () => {
     const transcript = [
       msg('assistant', 'Let me plan.\npaqad:stage planning start'),
       msg('assistant', 'Done planning.\npaqad:stage planning end'),
@@ -416,7 +385,6 @@ describe('parseAndRecordMarkers', () => {
         sessionId: SES,
       });
       expect(recorded).toEqual([]);
-      // No change bundle and no _session control was auto-opened.
       expect(currentFeature(root, SES)).toBeNull();
       expect(existsSync(join(root, '.paqad/ledger/feature-evidence'))).toBe(false);
     });
@@ -433,7 +401,6 @@ describe('parseAndRecordMarkers', () => {
     });
 
     it('records markers when NO route state exists (cross-provider safe)', () => {
-      // Codex/Gemini never write route state; an absent route must not suppress.
       const recorded = parseAndRecordMarkers({
         projectRoot: root,
         transcriptText: transcript,

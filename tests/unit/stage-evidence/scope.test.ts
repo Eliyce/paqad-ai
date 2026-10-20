@@ -8,10 +8,6 @@ import {
   isHostAgentConfigPath,
 } from '@/stage-evidence/scope.js';
 
-// Feature-development scope (issue #310). The stage gate governs feature development
-// only; a documentation-only or framework-internal change is skipped. The predicate
-// is an EXCLUDE list (docs + .paqad), never a src/ allowlist, so it holds for any
-// onboarded stack (Laravel `app/*.php`, Python, Go, …).
 describe('scope — isFrameworkInternalPath', () => {
   it('flags .paqad metadata and out-of-tree paths', () => {
     expect(isFrameworkInternalPath('.paqad/.config')).toBe(true);
@@ -45,7 +41,6 @@ describe('scope — isDocumentationPath', () => {
     expect(isDocumentationPath('CHANGELOG.md')).toBe(true);
     expect(isDocumentationPath('CONTRIBUTING.md')).toBe(true);
     expect(isDocumentationPath('LICENSE')).toBe(true);
-    // a markdown doc living inside a source dir is still documentation
     expect(isDocumentationPath('src/module/README.md')).toBe(true);
   });
 
@@ -54,14 +49,10 @@ describe('scope — isDocumentationPath', () => {
     expect(isDocumentationPath('app/Http/Controller.php')).toBe(false);
     expect(isDocumentationPath('tests/a.test.ts')).toBe(false);
     expect(isDocumentationPath('package.json')).toBe(false);
-    // `documentation.ts` is source, not a doc — the extension check is exact.
     expect(isDocumentationPath('src/documentation.ts')).toBe(false);
   });
 });
 
-// Host-agent config scope (issue #449). paqad's own host-integration directories are
-// not product code; forcing them through the feature-development stages hard-blocks the
-// turn on a change that was never feature development.
 describe('scope — isHostAgentConfigPath', () => {
   it('flags every paqad-managed host-agent config directory', () => {
     expect(isHostAgentConfigPath('.claude/settings.json')).toBe(true);
@@ -73,17 +64,13 @@ describe('scope — isHostAgentConfigPath', () => {
     expect(isHostAgentConfigPath('.continue/mcp.json')).toBe(true);
     expect(isHostAgentConfigPath('.aider/cache.json')).toBe(true);
     expect(isHostAgentConfigPath('.aiassistant/agents')).toBe(true);
-    // JetBrains AI writes `.ai/mcp/mcp.json` (issue #576, Finding 1c).
     expect(isHostAgentConfigPath('.ai/mcp/mcp.json')).toBe(true);
-    // the bare directory itself, and the .windsurfrules root entry file
     expect(isHostAgentConfigPath('.claude')).toBe(true);
     expect(isHostAgentConfigPath('.windsurfrules')).toBe(true);
   });
 
-  it('does not treat a `.ai`-prefixed lookalike dir as host config (issue #576)', () => {
-    // Boundary check: `.aider`/`.aiassistant` are their own entries; a `.airflow` lookalike is not.
+  it('does not treat a `.ai`-prefixed lookalike dir as host config', () => {
     expect(isHostAgentConfigPath('.airflow/dags.py')).toBe(false);
-    // `.ai/mcp/mcp.json` is not a feature-development change.
     expect(isFeatureDevEdit('.ai/mcp/mcp.json')).toBe(false);
   });
 
@@ -92,7 +79,6 @@ describe('scope — isHostAgentConfigPath', () => {
     expect(isHostAgentConfigPath('.github/copilot-instructions.md')).toBe(false);
     expect(isHostAgentConfigPath('src/a.ts')).toBe(false);
     expect(isHostAgentConfigPath('docs/a.md')).toBe(false);
-    // a lookalike prefix that is not a host-config dir boundary
     expect(isHostAgentConfigPath('.claudely/x.ts')).toBe(false);
     expect(isHostAgentConfigPath('.windsurfrules.bak')).toBe(false);
   });
@@ -106,11 +92,11 @@ describe('scope — isHostAgentConfigPath', () => {
 describe('scope — isFeatureDevEdit', () => {
   it('is feature development for any non-doc, non-framework edit (any stack)', () => {
     expect(isFeatureDevEdit('src/a.ts')).toBe(true);
-    expect(isFeatureDevEdit('app/Http/Controller.php')).toBe(true); // Laravel
-    expect(isFeatureDevEdit('cmd/server/main.go')).toBe(true); // Go
-    expect(isFeatureDevEdit('service/handler.py')).toBe(true); // Python
-    expect(isFeatureDevEdit('tests/a.test.ts')).toBe(true); // tests are code
-    expect(isFeatureDevEdit('package.json')).toBe(true); // config counts as a change
+    expect(isFeatureDevEdit('app/Http/Controller.php')).toBe(true);
+    expect(isFeatureDevEdit('cmd/server/main.go')).toBe(true);
+    expect(isFeatureDevEdit('service/handler.py')).toBe(true);
+    expect(isFeatureDevEdit('tests/a.test.ts')).toBe(true);
+    expect(isFeatureDevEdit('package.json')).toBe(true);
   });
 
   it('is NOT feature development for docs, framework-internal, or host-agent config edits', () => {
@@ -118,10 +104,9 @@ describe('scope — isFeatureDevEdit', () => {
     expect(isFeatureDevEdit('README.md')).toBe(false);
     expect(isFeatureDevEdit('.paqad/configs/.config.policy')).toBe(false);
     expect(isFeatureDevEdit('.paqad/.agent-entry-loaded')).toBe(false);
-    expect(isFeatureDevEdit('.junie/mcp/mcp.json')).toBe(false); // issue #449
+    expect(isFeatureDevEdit('.junie/mcp/mcp.json')).toBe(false);
     expect(isFeatureDevEdit('.claude/settings.json')).toBe(false);
     expect(isFeatureDevEdit('.windsurfrules')).toBe(false);
-    // .github stays in scope — CI workflows are genuine code
     expect(isFeatureDevEdit('.github/workflows/ci.yml')).toBe(true);
   });
 
@@ -139,8 +124,7 @@ describe('scope — changeIsFeatureDev', () => {
     expect(changeIsFeatureDev(['docs/a.md', 'README.md', '.paqad/.config'])).toBe(false);
   });
 
-  it('is false for a host-agent-config-only change (issue #449)', () => {
-    // the exact live repro: a session whose only working-tree change is the host MCP config
+  it('is false for a host-agent-config-only change', () => {
     expect(changeIsFeatureDev(['.junie/mcp/mcp.json'])).toBe(false);
     expect(
       changeIsFeatureDev(['.claude/settings.json', '.codex/hooks.json', '.paqad/.config']),

@@ -6,9 +6,6 @@ import { describe, expect, it } from 'vitest';
 
 import { ArtifactOutOfTreeError, normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 
-// Boundary validator for stage-end --artifact paths (issue #350). It must accept
-// in-tree paths (absolute or relative) and reject genuinely out-of-tree ones loudly,
-// without ever consulting the file system — existence is the recorder's job.
 describe('normalizeArtifactPath', () => {
   const root = join('/', 'repo', 'project');
 
@@ -20,10 +17,6 @@ describe('normalizeArtifactPath', () => {
     expect(normalizeArtifactPath(root, join(root, 'docs', 'plan.md'))).toBe('docs/plan.md');
   });
 
-  // Issue #401 — a real repro on macOS, where the temp root lives under the `/var`
-  // symlink. The root realpath'd to `/private/var/…` while an absolute path to a
-  // not-yet-created file under it stayed `/var/…`, so a genuinely in-tree path read as a
-  // `../..` escape and was rejected. Existence must stay irrelevant to accept/reject.
   it('accepts an absolute in-tree path that does not exist yet, under a symlinked root', () => {
     const symlinkedRoot = mkdtempSync(join(tmpdir(), 'paqad-artifact-path-'));
     try {
@@ -38,7 +31,7 @@ describe('normalizeArtifactPath', () => {
     expect(normalizeArtifactPath(root, './docs/../docs/plan.md')).toBe('docs/plan.md');
   });
 
-  it('rejects an absolute out-of-tree path (the #350 repro: /tmp/review.md)', () => {
+  it('rejects an absolute out-of-tree path', () => {
     expect(() => normalizeArtifactPath(root, join('/', 'tmp', 'review.md'))).toThrow(
       ArtifactOutOfTreeError,
     );
@@ -65,8 +58,6 @@ describe('normalizeArtifactPath', () => {
   });
 
   it('does NOT check existence — a missing in-tree path still normalizes (anti-spoof intact)', () => {
-    // Existence is the recorder's concern (it records a missing file as absent). The
-    // validator only judges tree location, so a not-yet-created in-tree file passes.
     expect(normalizeArtifactPath(root, 'does/not/exist.md')).toBe('does/not/exist.md');
   });
 });

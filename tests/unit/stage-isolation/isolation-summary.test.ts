@@ -1,5 +1,3 @@
-// Stage-agent rows replace context-efficiency.jsonl (issue #581, D9, AC-14).
-
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -70,7 +68,6 @@ describe('stage-agent rows', () => {
     appendFeatureStageRow(root, 'ses_orch', DIR, { kind: 'open' }, clock);
     stageAgent(root, 'planning', 1000);
     stageAgent(root, 'development', 2500);
-    // A re-dispatched stage counts once but its footprint still adds up.
     stageAgent(root, 'development', 500);
 
     expect(readStageAgentRows(root, DIR)).toHaveLength(3);
@@ -132,7 +129,7 @@ describe('the stage-agent row schema', () => {
     ).toThrow(/tokens_used/);
   });
 
-  it('is not a kind a pre-#581 row could carry', () => {
+  it('is not a kind a legacy-shape row could carry', () => {
     const legacy = appendLegacyStageRow(tempRoot(), DIR, 's', { kind: 'stage-agent' });
     expect(validateStageEvidenceRow(legacy)).not.toEqual([]);
   });
@@ -155,8 +152,6 @@ describe('an old bundle with context-efficiency.jsonl (INV-8)', () => {
   });
 
   it('counts both sources when a change was upgraded part-way through', () => {
-    // The #581 dogfood bundle: planning, specification and the first development dispatch ran
-    // under the old writer, every later stage agent under the new one.
     const root = tempRoot();
     writeLegacy(root, [
       { stage: 'planning', carried_history_avoided_estimate: 100 },
@@ -170,7 +165,6 @@ describe('an old bundle with context-efficiency.jsonl (INV-8)', () => {
     expect(summarizeStageIsolation(root, DIR)).toEqual({
       stages: 6,
       tokensNotRecarried: 636,
-      // An old line is always an estimate, so the total is too.
       estimate: true,
     });
   });

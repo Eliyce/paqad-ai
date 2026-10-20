@@ -7,11 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { resolveEffectiveLane } from '@/stage-evidence/effective-lane.js';
 
-// Issue #590 — the shared effective-lane resolver, lifted out of capability.ts so the
-// pre-mutation gate and the live writer floor a path to `full` identically. Exercised
-// end-to-end through the gate and the writer elsewhere; this pins the two branches
-// directly.
-describe('resolveEffectiveLane — sensitivity floor + fail-safe (#590)', () => {
+describe('resolveEffectiveLane — sensitivity floor + fail-safe', () => {
   let root: string;
 
   beforeEach(() => {
@@ -49,7 +45,6 @@ modules:
   it('floors a high-sensitivity path to full even when the recorded lane is fast', () => {
     writeSensitiveModuleMap();
     expect(resolveEffectiveLane(root, 'src/secure/keys.ts', 'fast')).toBe('full');
-    // A non-sensitive path keeps the recorded lane.
     expect(resolveEffectiveLane(root, 'src/foo.ts', 'fast')).toBe('fast');
   });
 });

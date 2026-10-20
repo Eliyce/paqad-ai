@@ -30,9 +30,6 @@ import {
 } from '@/stage-isolation/stage-agents.js';
 import { stageFromAgentType } from '@/stage-isolation/subagent-completion.js';
 
-// Issue #639, Part 13: the High Table agents sit beside the six stage agents but are never a
-// stage: not in the stage list, not a stage-agent row, not an isolated stage, not a running stage.
-
 const STAGE_AGENTS = MANDATORY_STAGE_AGENTS.map((def) => def.agentName);
 const NOT_STAGES = ['paqad-expert', 'paqad-chief-architect', 'paqad-helper', 'paqad-', 'paqad-x'];
 
@@ -92,7 +89,6 @@ describe('the High Table agents are never a stage (AC-42)', () => {
       lane: 'full',
     });
     persistLedgerSessionId(root, 'ses_iso');
-    // A row an older recorder could leave for a seat, under a made-up stage.
     appendFeatureStageRow(root, 'ses_iso', dir, {
       kind: STAGE_AGENT_KIND,
       stage: 'expert',
@@ -138,7 +134,7 @@ describe('the High Table agents are never a stage (AC-42)', () => {
   });
 });
 
-describe('the High Table agent bodies (#639 Part 13)', () => {
+describe('the High Table agent bodies', () => {
   it('the expert runs its brief first, writes one note for its role, records it and never edits source', () => {
     const body = buildExpertAgentBody();
     const brief = body.indexOf('paqad-ai spec pipeline experts brief <role>');
