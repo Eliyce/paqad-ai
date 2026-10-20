@@ -553,15 +553,31 @@ describe('maybeMigrateToPlugin — install (Part 3)', () => {
     expect(existsSync(userSettings())).toBe(false);
     expect(readMigrationState(home)?.attempts).toBe(1);
   });
-  it('treats a claude older than the minimum like no claude on PATH', () => {
+  it('records claude-too-old with the version when claude is below the minimum and none is bundled', () => {
     manifestClaudeCode();
     const runClaudeInstall = vi.fn(() => ({ ok: true }));
     const r = maybeMigrateToPlugin(
       projectRoot,
       baseDeps({ claudeVersion: () => '2.1.200', runClaudeInstall }),
     );
-    expect(r.reason).toBe('no-claude-cli');
+    expect(r).toEqual({ state: 'skipped', path: undefined, reason: 'claude-too-old:2.1.200' });
     expect(runClaudeInstall).not.toHaveBeenCalled();
+    expect(existsSync(userSettings())).toBe(false);
+    expect(doctorLine(home)).toBe('npm (migration skipped: claude-too-old:2.1.200)');
+  });
+  it('uses the bundled claude when the claude on PATH is below the minimum', () => {
+    manifestClaudeCode();
+    const runClaudeInstall = vi.fn(() => ({ ok: true }));
+    const r = maybeMigrateToPlugin(
+      projectRoot,
+      baseDeps({
+        claudeVersion: () => '2.1.200',
+        bundledClaude: () => '/bundled/claude',
+        runClaudeInstall,
+      }),
+    );
+    expect(r).toMatchObject({ state: 'installed', path: 'bundled-cli' });
+    expect(runClaudeInstall).toHaveBeenCalledOnce();
   });
   it('keeps the CLI install as the record and logs a user settings write that did not happen', () => {
     manifestClaudeCode();

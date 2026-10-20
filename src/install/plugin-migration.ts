@@ -557,6 +557,10 @@ function performInstall(deps: ResolvedDeps, prior: MigrationRecord | null): Migr
     return record(deps, prior, { state: 'failed', reason, attempts });
   }
   const bundled = deps.bundledClaude();
+  if (bundled === null && version !== null) {
+    deps.log(`claude ${version} is older than ${MIN_CLAUDE_VERSION} and no bundled claude found`);
+    return record(deps, prior, { state: 'skipped', reason: `claude-too-old:${version}`, attempts });
+  }
   if (bundled === null) {
     deps.log('no claude on PATH and no bundled claude from the Desktop app');
     return record(deps, prior, { state: 'skipped', reason: 'no-claude-cli', attempts });

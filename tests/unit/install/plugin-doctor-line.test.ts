@@ -190,8 +190,12 @@ describe('the Claude Code install line says what is installed', () => {
     });
     expect(line().detail).toBe('npm (migration failed: path-a-failed:cli-install-failed:exit)');
   });
-  it('shows the no-claude-cli and bundled-cli-failed reasons', () => {
-    for (const reason of ['no-claude-cli', 'bundled-cli-failed:cli-install-failed:exit']) {
+  it('shows the no-claude-cli, claude-too-old and bundled-cli-failed reasons', () => {
+    for (const reason of [
+      'no-claude-cli',
+      'claude-too-old:2.1.200',
+      'bundled-cli-failed:cli-install-failed:exit',
+    ]) {
       writeMigrationState(home, { state: 'skipped', reason, attempts: 1, version: '1' });
       expect(line().detail).toBe(`npm (migration skipped: ${reason})`);
     }
