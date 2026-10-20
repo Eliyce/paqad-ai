@@ -66,7 +66,7 @@ describe('comments and issue numbers rule scripts', { timeout: 60_000 }, () => {
     }
   });
 
-  it('the no-comments script classifies every fixture with the TypeScript scanner', () => {
+  it('AC-64: the no-comments script classifies every fixture with the TypeScript scanner', () => {
     const result = runFixtures(NO_COMMENTS);
     expect(result.failures).toEqual([]);
     expect(result.passed).toBe(true);
@@ -80,7 +80,7 @@ describe('comments and issue numbers rule scripts', { timeout: 60_000 }, () => {
     expect(result.passed).toBe(true);
   });
 
-  it('the no-issue-numbers script classifies every fixture', () => {
+  it('AC-64: the no-issue-numbers script classifies every fixture', () => {
     const result = runFixtures(NO_NUMBERS);
     expect(result.failures).toEqual([]);
     expect(result.passed).toBe(true);
@@ -132,7 +132,7 @@ describe('comments and issue numbers rule scripts', { timeout: 60_000 }, () => {
     expect(report.findings).toEqual([]);
   });
 
-  it('names the file and line of each issue number, with the verbatim message and high severity', () => {
+  it('AC-63: names the file and line of each issue number, with the verbatim message and high severity', () => {
     const root = createRoot({
       'src/a.ts': `export const a = 'ok';\nexport const b = 'fixed in ${ticketRef(123)}';\n`,
       'docs/b.md': `Intro.\n\nSee issue ${123}.\n`,
