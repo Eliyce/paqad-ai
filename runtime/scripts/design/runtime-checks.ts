@@ -1,5 +1,4 @@
 #!/usr/bin/env -S npx tsx
-/* eslint-disable no-empty -- an optional check that fails is recorded as blocked, so its empty catch is deliberate */
 
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';

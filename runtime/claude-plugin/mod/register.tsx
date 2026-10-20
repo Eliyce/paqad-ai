@@ -1,4 +1,3 @@
-/* eslint-disable no-empty -- an empty catch keeps the mod dark on a failure, as the repo allows elsewhere */
 import { atom, read, update } from 'claude-code';
 import type { EngineInterface, Register, RenderElement, RenderNode, Timer } from 'claude-code';
 

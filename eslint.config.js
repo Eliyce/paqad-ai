@@ -33,6 +33,12 @@ export default tseslint.config(
     },
   },
   {
+    files: ['runtime/**/*.ts', 'runtime/**/*.tsx'],
+    rules: {
+      'no-empty': ['error', { allowEmptyCatch: true }],
+    },
+  },
+  {
     files: ['**/*.cjs'],
     languageOptions: {
       ecmaVersion: 'latest',
