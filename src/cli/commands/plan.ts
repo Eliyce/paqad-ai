@@ -8,6 +8,13 @@ import {
   writeFeaturePlan,
   type PlanCompileInput,
 } from '@/feature-evidence/artifacts.js';
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import {
+  fixProofMethodLine,
+  raiseFixProofMethodDecision,
+  type RaiseFixProofMethodResult,
+} from '@/fix-protocol/fix-proof-method-decision.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
@@ -15,6 +22,12 @@ interface PlanCompileOptions {
   projectRoot: string;
   session?: string;
   keepInput?: boolean;
+}
+
+function fastLaneFixProofMethod(root: string, sessionId: string): RaiseFixProofMethodResult | null {
+  const dirName = currentFeature(root, sessionId);
+  if (!dirName || readChangeConstants(root, dirName).lane !== 'fast') return null;
+  return raiseFixProofMethodDecision(root, dirName);
 }
 
 export function createPlanCommand(): Command {
@@ -79,6 +92,10 @@ export function createPlanCommand(): Command {
             `(\`paqad-ai decision resolve ${decisionId} <option>\`), then I'll continue.`,
         );
       }
+      const proofMethod = fastLaneFixProofMethod(root, sessionId);
+      if (proofMethod?.raised) {
+        console.warn(fixProofMethodLine(proofMethod.id));
+      }
       if (result.readinessDecision) {
         const id = result.readinessDecision;
         console.warn(
@@ -98,6 +115,7 @@ export function createPlanCommand(): Command {
           path: result.path,
           ...(result.armedDecisions?.length ? { armed_decisions: result.armedDecisions } : {}),
           ...(result.readinessDecision ? { readiness_decision: result.readinessDecision } : {}),
+          ...(proofMethod ? { fix_proof_method: proofMethod.id } : {}),
         }),
       );
     });

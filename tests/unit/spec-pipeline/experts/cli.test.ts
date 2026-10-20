@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSpecPipelineCommand } from '@/cli/commands/spec-pipeline.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { readContractDecisions } from '@/decisions/authoring.js';
 import { sha256Hex } from '@/compliance/markdown.js';
 import { featureDir } from '@/feature-evidence/paths.js';
 import {
@@ -415,6 +416,48 @@ describe('spec pipeline experts CLI', () => {
     const { err } = await run(root, ['experts', 'notes', join(root, 'missing.json')]);
     expect(process.exitCode).toBe(1);
     expect(err.join('\n')).toMatch(/could not read notes artifact/);
+  });
+
+  it('raises fix.proof_method with the QA engineer findings after the synthesis of a fix', async () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    recordChangeConstants(root, dir, { kind: 'fix', lane: 'full' });
+    enableExperts(root);
+    await groundAndLabel(root);
+    const need = writeArtifact(root, 'need.json', {
+      experts: [{ role: 'qa-engineer', reason: 'the fix needs a proof test' }],
+    });
+    await run(root, ['experts', 'record', need]);
+    const notes = writeArtifact(root, 'notes.json', {
+      notes: [
+        {
+          role: 'qa-engineer',
+          findings: [{ target: 'login', claim: 'a test must fail on the empty password first' }],
+        },
+      ],
+      tokens: { 'qa-engineer': 300 },
+    });
+    await run(root, ['experts', 'notes', notes]);
+    const synthesis = writeArtifact(root, 'synthesis.json', {
+      verdict: 'ready',
+      accepted: ['EX-qa-engineer-1'],
+      declined: [],
+      conflicts: [],
+      gaps: [],
+      questions: [],
+      tokens: 100,
+    });
+    const { out } = await run(root, ['experts', 'synthesis', synthesis]);
+    const packets = readContractDecisions(root).filter(
+      ({ packet }) => packet.category === 'fix.proof_method',
+    );
+    expect(packets).toHaveLength(1);
+    const packet = packets[0]!.packet;
+    expect(JSON.parse(out.at(-1)!).fix_proof_method).toBe(packet.id);
+    expect(packet.recommendation).toBe('failing-test');
+    expect(packet.options[0]!.evidence?.findings).toEqual([
+      'EX-qa-engineer-1: a test must fail on the empty password first',
+    ]);
   });
 
   it('folds the expert accounting into finish provenance only when experts ran (AC-7)', async () => {

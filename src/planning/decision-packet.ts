@@ -64,6 +64,7 @@ export interface DecisionOptionEvidence {
   similarity?: number;
   rule_match?: string;
   evidence_partial?: boolean;
+  findings?: string[];
 }
 
 export interface DecisionOption {
@@ -308,6 +309,13 @@ function validateDecisionEvidence(value: unknown, index: number): string[] {
   }
   if (evidence.evidence_partial !== undefined && typeof evidence.evidence_partial !== 'boolean') {
     errors.push(`options[${index}].evidence.evidence_partial must be a boolean`);
+  }
+  if (
+    evidence.findings !== undefined &&
+    (!Array.isArray(evidence.findings) ||
+      evidence.findings.some((finding) => typeof finding !== 'string'))
+  ) {
+    errors.push(`options[${index}].evidence.findings must be a string array`);
   }
   return errors;
 }

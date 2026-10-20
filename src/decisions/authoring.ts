@@ -15,11 +15,13 @@ import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/deci
 
 import { richFieldsFor } from './packet-shape.js';
 
-export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict';
+export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict' | 'fix-proof';
 
 export interface ContractDecisionOption {
   option_key: string;
   label: string;
+  one_line_preview?: string;
+  trade_off?: string;
   evidence?: DecisionOptionEvidence;
 }
 
@@ -124,11 +126,7 @@ export function createPendingDecision(
     category: input.category,
     title: input.title,
     context: input.context,
-    options: input.options.map((option) => ({
-      option_key: option.option_key,
-      label: option.label,
-      ...(option.evidence !== undefined ? { evidence: option.evidence } : {}),
-    })),
+    options: input.options.map(contractOption),
     recommendation: input.recommendation ?? null,
     created_at: new Date().toISOString(),
     status: 'pending',
@@ -199,6 +197,8 @@ function contractOption(option: ContractDecisionOption): ContractDecisionOption 
   return {
     option_key: option.option_key,
     label: option.label,
+    ...(option.one_line_preview ? { one_line_preview: option.one_line_preview } : {}),
+    ...(option.trade_off ? { trade_off: option.trade_off } : {}),
     ...(option.evidence !== undefined ? { evidence: option.evidence } : {}),
   };
 }
