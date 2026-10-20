@@ -1,20 +1,4 @@
 #!/usr/bin/env node
-// agent-entry-gate.mjs — PreToolUse hook (cross-platform port of agent-entry-gate.sh, #240).
-//
-// Blocks any code-mutating tool call (Edit/Write/NotebookEdit) until the agent has
-// loaded its provider entry file (CLAUDE.md, AGENTS.md, …) plus the framework entry
-// and docs/instructions/{rules,stack,design-system,workflows}, and written the
-// per-session sentinel at .paqad/.agent-entry-loaded.d/<session id> (the legacy
-// .paqad/.agent-entry-loaded when the host sends no session id, issue #582). This
-// is the HARD teeth behind "always load the entry file" (Part 0): no code can change
-// without loading first.
-//
-// Sentinel-freshness logic is shared with agent-entry-prompt-gate.mjs via
-// lib/agent-entry-sentinel.mjs so the two gates cannot drift.
-//
-// Exit codes:
-//   0  → allow the tool call
-//   2  → block the tool call (the host surfaces stderr to the model)
 
 import process from 'node:process';
 
@@ -39,24 +23,9 @@ import {
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
 
-/** True when the pending tool call writes the agent-entry sentinel itself. The
- *  bootstrap's final step IS a Write of `.paqad/.agent-entry-loaded` — gating it
- *  deadlocks turn one (issue #307): this gate's own remediation says "Write the
- *  sentinel" while blocking exactly that Write. Bookkeeping, never a code change.
- *
- *  Also exempts a write to a per-agent entry marker under `.paqad/session/agent-entry/`
- *  (issue #567): a stage subagent clears its own keyed gate by creating that marker, and the
- *  create must not itself be blocked. Bash creation is ungated already; this covers the Write
- *  tool.
- *
- *  And exempts a write to a per-session sentinel under `.paqad/.agent-entry-loaded.d/`
- *  (issue #582), the file the gate names when the host sends a session id. */
 export function isSentinelWrite(input) {
   try {
     const payload = JSON.parse(input);
-    // Host-agnostic: read the edited path(s) through the shared extractor so a Codex
-    // `apply_patch` that writes the sentinel is exempted too (issue #566), not just
-    // Claude's `file_path`. Exempt when ANY edited path is the sentinel or a per-agent marker.
     return editTargets(payload).some((target) => {
       const norm = target.replace(/\\/g, '/');
       return (
@@ -73,20 +42,11 @@ export function isSentinelWrite(input) {
 function evaluateEntryGate(input) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
-  // Issue #220 — when paqad is disabled (or env-overridden off), the gate is a
-  // pure no-op: never block, write nothing. Disabled converges with a missing
-  // package (a vanilla baseline). Checked before any blocking logic.
   if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) {
     return 0;
   }
 
-  // Issue #567 — when this call is inside a subagent, the payload carries a distinct
-  // `agent_id` (the `session_id` is the orchestrator's), so the sentinel is keyed on it: a
-  // stage subagent must prove its OWN cold framework load and cannot ride the orchestrator's.
-  // Undefined on the main thread ⇒ the unkeyed sentinel, unchanged.
   const agentId = agentIdFromStdin(input);
-  // Issue #582 — on the main thread the sentinel is keyed on the payload's session id, so a
-  // SessionStart in another session of this checkout cannot remove it.
   const sessionId = sessionIdFromStdin(input);
 
   if (sentinelState(projectRoot, process.env, agentId, sessionId) === 'fresh') {
@@ -94,31 +54,16 @@ function evaluateEntryGate(input) {
   }
 
   if (isSentinelWrite(input)) {
-    // The bootstrap's sentinel Write is the load confirmation. Inside a subagent, promote it
-    // into this agent's per-agent marker (the base sentinel the agent writes is keyed on the
-    // shared parent session, so it cannot represent this agent), clearing its own keyed gate.
     if (agentId) {
       stampAgentEntryMarker(projectRoot, agentId);
     } else if (sessionId) {
-      // Issue #582 — a main-thread Write of the legacy file (older router wording) still
-      // clears THIS session's own gate, the same way #567 promotes it for a subagent.
       stampSessionSentinel(projectRoot, sessionId, entryFile());
     }
     return 0;
   }
 
-  // This gate, like the prompt-gate, short-circuits to a no-op when paqad is OFF
-  // (above), so reaching here proves paqad is ON — state that verdict, and build the
-  // numbered steps from the one shared module so the two directives cannot drift
-  // (issue #498, Part A).
   const ef = entryFile();
-  // Issue #567 — inside a subagent the base sentinel belongs to the orchestrator, so name the
-  // per-agent marker THIS agent must record (it cannot read its own agent_id; the gate can).
-  // Appended only when an agent_id is present, so the main-thread directive is unchanged and the
-  // shared step prose (loadSteps) still matches the prompt-gate byte-for-byte (#498 AC-3).
   const markerRel = agentId ? agentEntryMarkerRelative(agentId) : null;
-  // Issue #582 — name the file this session is checked against. Inside a subagent the keyed
-  // marker is what clears the gate, so step 5 keeps the legacy wording the subagent line cites.
   const sentinelRel = agentId ? sentinelRelative(undefined) : sentinelRelative(sessionId);
   const subagentLine = markerRel
     ? [
@@ -140,11 +85,6 @@ function evaluateEntryGate(input) {
   return 2;
 }
 
-/**
- * The PreToolUse entry gate, failing CLOSED (issue #615, Part 6): an unexpected error blocks the
- * edit (exit 2) with a doctor-pointing message rather than letting it through. The known soft
- * conditions (disabled, fresh sentinel, sentinel-write) still return 0 from inside the body.
- */
 export function main(input) {
   try {
     return evaluateEntryGate(input);
@@ -154,12 +94,6 @@ export function main(input) {
   }
 }
 
-// Drain stdin (the host pipes the PreToolUse payload; the sentinel-write exemption
-// reads the pending edit's target from it) then gate. Guarded so importing this
-// module for tests runs nothing. The guard resolves the entry path with
-// realpathSync (the host invokes hooks through the symlinked install, and macOS
-// aliases /tmp → /private/tmp) — a raw argv[1] compare would MISS and silently
-// no-op the gate (the #303 gotcha).
 if (isDirectEntry(import.meta.url)) {
   let input = '';
   process.stdin.on('data', (chunk) => {

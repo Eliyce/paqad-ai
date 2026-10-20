@@ -1,35 +1,4 @@
 #!/usr/bin/env node
-// agent-entry-prompt-gate.mjs — UserPromptSubmit hook (cross-platform port of
-// agent-entry-prompt-gate.sh, #240) with the always-load fix (Part 0) and Codex
-// parity (issue #566).
-//
-// Fires on every user prompt — including read-only Q&A — so the agent cannot answer
-// in an onboarded project without first loading its provider entry file plus the
-// framework and docs/instructions/{rules,stack,design-system,workflows}.
-//
-// THE ALWAYS-LOAD FIX. The previous gate emitted the precomputed [paqad-context]
-// block (RAG buildout F2) BEFORE the load directive on every turn, so on a not-yet-
-// loaded session the "load the framework first" instruction landed at the very
-// bottom of a large injected block — buried, and outside the host's inline preview.
-// Now, when the framework is not loaded, this gate emits ONLY the load directive
-// (the context block is suppressed until the sentinel is fresh), so the one
-// instruction that must be obeyed first owns the top of context and cannot be
-// missed. Once loaded, the context block is injected exactly as before.
-//
-// Host-aware via one argv (default `claude-code`; Codex passes `codex-cli`, #566):
-//   - the routed outcome is recorded against the REAL host, so the session-route row
-//     carries `adapter: "codex-cli"` (AC-8), and
-//   - the injected text (directive or context block) is delivered to Codex through the
-//     documented `additionalContext` JSON envelope, since Codex reads a UserPromptSubmit
-//     hook's JSON output. Claude keeps plain stdout, byte-identical to before.
-//
-// Modes (PAQAD_AGENT_ENTRY_MODE): soft (default) injects the directive so the model
-// loads before planning the turn; hard exits 2. Soft is the default because a hard
-// exit-2 on UserPromptSubmit erases the user's prompt and the model never runs (so it
-// can never load) — the real hard block is the PreToolUse gate.
-//
-// Sentinel-freshness logic is shared with agent-entry-gate.mjs via
-// lib/agent-entry-sentinel.mjs.
 
 import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
@@ -56,8 +25,6 @@ import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
-// The host that invoked the hook (issue #566). Default `claude-code` keeps Claude's
-// behaviour and output unchanged; Codex passes `codex-cli`.
 const ADAPTER = process.argv[2] || undefined;
 
 function reasonFor(state, ef, sentinelRel) {
@@ -75,11 +42,6 @@ function reasonFor(state, ef, sentinelRel) {
   }
 }
 
-// The directive opens with the enablement verdict (issue #498, Part A): this gate
-// already resolved enablement and short-circuits to silence when OFF (see main()),
-// so its firing PROVES paqad is ON — the agent must not spend a tool call re-checking
-// it. The numbered load steps come from the one shared module so this directive and
-// the PreToolUse gate cannot drift.
 function directive(state, ef, sentinelRel) {
   return [
     ENABLEMENT_VERIFIED_LINE,
@@ -92,9 +54,6 @@ function directive(state, ef, sentinelRel) {
   ].join('\n');
 }
 
-// Deliver the gate's injected text to the host. Claude reads plain stdout; Codex reads
-// a UserPromptSubmit hook's JSON output, so its text rides the documented
-// `additionalContext` envelope (issue #566). Nothing is written for an empty string.
 function emitInjection(text) {
   if (!text) {
     return;
@@ -110,10 +69,6 @@ function emitInjection(text) {
   process.stdout.write(text);
 }
 
-// RAG buildout F5 — fire a debounced, detached background refresh of the rule
-// context so it tracks the files in play. Returns immediately; never blocks and
-// never throws into the gate. Issue #582 — fired AFTER routing, with the session id,
-// so the worker reads the route this session just wrote rather than another session's.
 function fireContextRefresh(sessionId) {
   try {
     const refresh = join(HERE, 'context-refresh-trigger.mjs');
@@ -123,17 +78,9 @@ function fireContextRefresh(sessionId) {
       stdio: 'ignore',
     });
     child.unref();
-  } catch {
-    // best-effort
-  }
+  } catch {}
 }
 
-// Issues #324, #336, #566 — route THIS prompt to one of the workflow outcomes with the
-// deterministic classifier, record it against the REAL host so the session-route row
-// carries the adapter (AC-8), and append the ONE lean `[paqad]` outcome line to `sink`.
-// Thin by contract: all logic lives in dist/pipeline/prompt-lane.js. Returns the routed
-// workflow and its lane (issue #640: the spec-pipeline nudge reads the lane), or null when the
-// prompt was empty or routing failed (issue #582).
 async function emitRoute(stdin, projectRoot, sink) {
   try {
     const parsed = JSON.parse(stdin);
@@ -150,24 +97,17 @@ async function emitRoute(stdin, projectRoot, sink) {
       sessionId,
       adapter: ADAPTER ?? 'claude-code',
     });
-    // Issue #582 — a background notification is not a request, so it gives no route: the
-    // caller keeps the full context block, which matters mid-feature.
     if (notification) {
       return null;
     }
     if (narration) {
       sink(`${narration}\n`);
     }
-    // Issue #582 — the host's shell does not export the session id, so a bare `paqad-ai`
-    // call would resolve the shared cache file and could record into another session.
     if (routed === 'feature-development' && sessionId) {
       sink(`[paqad] session ${sessionId}: prefix paqad-ai commands with SE_SESSION=${sessionId}\n`);
     }
     return { routed, lane: lane ?? null };
   } catch (error) {
-    // Best-effort for the HOST — the prompt still goes through — but never silent again
-    // (issue #573). A swallowed ERR_MODULE_NOT_FOUND here hid a total routing outage for
-    // ~10 weeks: no lane was ever recorded, so stage isolation could never trigger.
     logHookFailure(projectRoot, 'agent-entry-prompt-gate', error, 'routing this prompt');
     return null;
   }
@@ -176,30 +116,15 @@ async function emitRoute(stdin, projectRoot, sink) {
 async function main(stdin) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(stdin));
 
-  // Issue #220 — when paqad is disabled, the gate is a pure no-op. This MUST
-  // short-circuit before any stdout: an injected `[paqad]`/`[paqad-context]` line
-  // would contaminate the OFF arm of an A/B comparison.
   if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(stdin))) {
     return 0;
   }
 
-  // Issue #582 — the sentinel is keyed on THIS session's id, so another session's
-  // SessionStart cannot ungate it and the directive names the exact file to write.
   const sessionId = sessionIdFromStdin(stdin);
   const state = sentinelState(projectRoot, process.env, undefined, sessionId);
   if (state !== 'fresh') {
-    // Issue #576 (Finding 1a) — ROUTE FIRST, even on the not-yet-loaded branch. Before this
-    // fix the gate returned here without ever running the route seam, so the FIRST prompt of a
-    // session (the sentinel is deleted at every SessionStart) never wrote the per-session
-    // workflow-state. The Stop backstop then read an `unknown` route, fell back to a whole-tree
-    // `git status`, and blamed any pre-existing dirty tracked file on a read-only turn. Routing
-    // here writes the state so a question/docs/small-talk first turn is classified non-feature
-    // and skipped at completion. Best-effort (never throws); the narration line is DROPPED in
-    // this branch (no-op sink) so the load directive still owns the top of context.
     await emitRoute(stdin, projectRoot, () => {});
     fireContextRefresh(sessionId);
-    // ALWAYS-LOAD: emit ONLY the load directive — the [paqad-context] dump is
-    // suppressed until the framework is loaded, so the directive can never be buried.
     const message = directive(state, entryFile(), sentinelRelative(sessionId));
     if ((process.env.PAQAD_AGENT_ENTRY_MODE || 'soft') === 'hard') {
       process.stderr.write(message);
@@ -209,19 +134,6 @@ async function main(stdin) {
     return 0;
   }
 
-  // Fresh: the framework is loaded — route THIS prompt + record the outcome, then inject
-  // the precomputed [paqad-context] block (F2).
-  //
-  // Issue #615 (Part 3) — buffer EVERY piece on EVERY adapter, then emit once under the host's
-  // 10,000-character output cap (anything over is saved to a file the model never reads). The
-  // route line and the nudge are kept whole; only the [paqad-context] body is trimmed, ending
-  // the block with the trim notice (see fitHookOutput). On Codex the single assembled string is
-  // still wrapped in the additionalContext envelope by emitInjection.
-  //
-  // Issue #582 — the artifact is shared by every session in the checkout and may have been
-  // composed for another session's feature-development prompt. Routing first lets a prompt
-  // that is NOT feature-development drop the rule manifest, loaded rule text and existing
-  // surface. When routing gave no answer the full block is kept, exactly as before.
   let routeBuf = '';
   const route = await emitRoute(stdin, projectRoot, (text) => (routeBuf += text));
   fireContextRefresh(sessionId);
@@ -229,9 +141,6 @@ async function main(stdin) {
   const stripRules = typeof routed === 'string' && routed !== 'feature-development';
   let contextBuf = '';
   emitContext(stdin, projectRoot, (text) => (contextBuf += text), { stripRules });
-  // Issue #547 (FR-1.4) — one spec-pipeline nudge when the pipeline is on; silent otherwise.
-  // Issue #640 (FR-14) — and silent on the fast lane and on a route that is not
-  // feature-development. With no route (routing gave no answer) it behaves as before.
   const nudge = specPipelineNudge(readLayeredKey, projectRoot, process.env, route);
   const after = nudge ? `${nudge}\n` : '';
   emitInjection(fitHookOutput(routeBuf, contextBuf, after));
@@ -245,13 +154,10 @@ const run = () => {
   done = true;
   const text = Buffer.concat(chunks).toString('utf8');
   main(text)
-    // Issue #639 (Part 7) — refresh the HUD snapshot once the route is recorded and the
-    // decision is final. refreshHudFromHook never rejects.
     .then(async (code) => {
       await refreshHudFromHook(text, 'agent-entry-prompt-gate');
       process.exit(code);
     })
-    // Never surface an error to the host; fall through and exit cleanly (code 0).
     .catch(() => process.exit(0));
 };
 

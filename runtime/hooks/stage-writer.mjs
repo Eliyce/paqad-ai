@@ -1,19 +1,4 @@
 #!/usr/bin/env node
-// stage-writer.mjs — the stage-evidence live writer (RCA fix A; issue #566).
-//
-// A PreToolUse hook on the host's mutating tool (Claude Edit|Write|NotebookEdit,
-// Codex `apply_patch`). It is a WRITER, not a gate: it script-mints per-stage
-// `live-mark` rows (started_at/ended_at from the script clock) by handing the
-// mutated file(s) to the compiled `recordLiveStageEdits`, giving the stage-evidence
-// recorder the production caller it never had. It ALWAYS exits 0 — the block lives
-// on the completion gate and the pre-mutation deny (fix B).
-//
-// Host-aware via one argv (default `claude-code`): the edited paths come from the
-// shared `editTargets` extractor, which understands Claude's `file_path` and Codex's
-// `apply_patch` text alike, and the adapter argv attributes each row to the host that
-// ran (issue #566). A Codex patch can touch several files, so it records one row per
-// path. Thin by contract: the branch logic lives in dist/stage-evidence/live-writer.js
-// so it is coverage-counted.
 
 import process from 'node:process';
 
@@ -26,8 +11,6 @@ import {
 } from './lib/paqad-disabled.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
-// The host that invoked the hook (issue #566). `claude-code` is the default so an
-// existing Claude installation is unaffected; Codex passes `codex-cli`.
 const ADAPTER_TYPE = process.argv[2] || undefined;
 
 async function main(input) {
@@ -46,20 +29,12 @@ async function main(input) {
     const targetPaths = editTargets(payload);
     if (!toolName || targetPaths.length === 0) return 0;
     const sessionId = payload?.session_id ?? null;
-    // Issue #573 — attribute the row to the agent that actually made the edit. A Claude
-    // subagent's payload carries `agent_type` (its name, e.g. `paqad-development`) and
-    // `agent_id`; the main thread carries neither. Passed through raw: the identity
-    // mapping lives in dist (agent-identity.ts) so it stays coverage-counted.
     const agentType = typeof payload?.agent_type === 'string' ? payload.agent_type : undefined;
     const agentId = typeof payload?.agent_id === 'string' ? payload.agent_id : undefined;
 
     const liveUrl = new URL('../../dist/stage-evidence/live-writer.js', import.meta.url);
     const { recordLiveStageEdits, resolveAgentIdentity } = await import(liveUrl.href);
 
-    // Record one live-mark row per edited path (a Codex apply_patch can touch
-    // several). The on-entry "▸ paqad · <stage>" narration is NOT printed from this
-    // hook: the model speaks that line itself in its final message (the narration
-    // contract). The ledger write below still runs, so the record is never silent.
     recordLiveStageEdits({
       projectRoot,
       sessionId,
@@ -70,8 +45,6 @@ async function main(input) {
     });
     return 0;
   } catch {
-    // Soft-fail: a writer must never wedge the agent. The completion gate still
-    // reports the honest stage set at turn end.
     /* v8 ignore next */
     return 0;
   }
@@ -82,7 +55,6 @@ process.stdin.on('data', (chunk) => {
   input += chunk;
 });
 process.stdin.on('end', () => {
-  // Issue #639 (Part 7) — refresh the HUD snapshot once the decision is final.
   main(input).then(async (code) => {
     await refreshHudFromHook(input, 'stage-writer');
     process.exit(code);

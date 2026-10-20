@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-# conversation-summarize hook
-# Triggered at configurable turn intervals to summarize old conversation turns.
-# Reads a JSON payload from stdin with turn_count and auto_summarize_interval fields.
 set -euo pipefail
 
 INPUT="$(cat)"

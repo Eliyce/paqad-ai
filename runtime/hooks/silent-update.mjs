@@ -1,40 +1,4 @@
 #!/usr/bin/env node
-// silent-update.mjs — SessionStart version-check + forced background self-update.
-//
-// Cross-platform Node port of the former silent-update.sh. It keeps the globally
-// installed paqad-ai CLI current by running `npm install -g paqad-ai@latest` in
-// the background whenever a newer version exists. It never blocks, never prompts,
-// never produces visible output, and always exits 0.
-//
-// Why Node instead of bash: the shell version depended on bash + python3 +
-// GNU coreutils (`timeout`/`flock`) — none guaranteed on minimal Linux/macOS
-// images and absent on Windows. Node is always present (paqad-ai is a Node CLI),
-// so a single .mjs is portable across every environment the framework runs in.
-//
-// Update policy (resolved decision D-2):
-//   - The "allowed" window is the latest minor and the one before it, within the
-//     SAME major (e.g. latest 1.15.x => 1.15.x and 1.14.x are allowed).
-//   - ANY newer version triggers a background `npm install -g paqad-ai@latest`
-//     followed by `paqad-ai update --silent` to resync project artifacts.
-//   - Being out-of-window (a minor older than the 2-minor band, or any older
-//     major) is recorded as a FORCED update so the gap is visible. The action is
-//     identical (always background, never blocking) but classified.
-//
-// Config (resolved across the four surfaces — env PAQAD_* > .paqad/.config >
-// .paqad/configs/.config.* > code default — via the shared readLayeredKey):
-//   - auto_update (default on; `skip_version_check` is a tolerated deprecated
-//     alias). When off, no background install ever runs.
-//   - minimum_version (default `latest`). `latest` = track newest (the routine
-//     policy above). A pinned `x.y.z` is a hard floor: when the installed
-//     version is below it, the update is forced immediately, bypassing the
-//     interval throttle, so the floor is reached as fast as possible. This hook
-//     never blocks, so an unsatisfiable floor is logged, not enforced.
-//   - version_check_interval_hours (default 12).
-//
-// Project root is resolved from the host-provided env vars (CLAUDE_PROJECT_DIR /
-// PAQAD_PROJECT_ROOT), falling back to the current working directory, so the
-// single global copy under ~/.paqad-ai/current/hooks/ operates on whichever
-// project the session is in — it does NOT derive the root from its own location.
 
 import { execFileSync, spawn } from 'node:child_process';
 import {
@@ -59,28 +23,19 @@ import {
 import { frameworkPackageRoot, maybeSpawnMigrationTick } from './lib/plugin-migration-tick.mjs';
 
 const DEFAULT_INTERVAL_HOURS = 12;
-const STALE_LOCK_MS = 60 * 60 * 1000; // reap a lock left by a killed run after 60 min
+const STALE_LOCK_MS = 60 * 60 * 1000;
 const NPM_TIMEOUT_MS = 5000;
 
 function main() {
   const projectRoot =
     process.env.CLAUDE_PROJECT_DIR || process.env.PAQAD_PROJECT_ROOT || process.cwd();
 
-  // Issue #220 — when paqad is disabled (or env-overridden off), do nothing: no
-  // version seed, no version check, and above all no background
-  // `npm install -g paqad-ai@latest`. A disabled install stays exactly as the
-  // user left it.
   if (isPaqadDisabled(projectRoot)) {
     return;
   }
-  // Issue #648 (B4) — this is the one npm hook that runs at every Claude Code SessionStart, so it
-  // reports the session to the plugin migration BEFORE stepping aside for the plugin. Only for a
-  // Claude Code session (CLAUDE_PROJECT_DIR set): a Codex SessionStart never counts.
   if (process.env.CLAUDE_PROJECT_DIR) {
     tickPluginMigration();
   }
-  // Issue #616 Part 7 — when the plugin owns this session, the npm silent-update stands down;
-  // the plugin manages the version (Part 9). The session id comes from CLAUDE_SESSION_ID.
   if (npmHookStepsAside(undefined)) {
     return;
   }
@@ -88,13 +43,6 @@ function main() {
   const versionFile = join(projectRoot, '.paqad', 'framework-version.txt');
   const logsDir = join(projectRoot, '.paqad', 'logs');
 
-  // ── Step 1: read local version (self-heal when missing) ────────────────────
-  // framework-version.txt is per-machine, git-ignored, local-only state. A
-  // teammate who clones an already-onboarded repo without re-running onboarding
-  // has no copy, so auto-update would silently never run for them. When missing,
-  // recreate it from the installed package version (seeded at the epoch so the
-  // NEXT session's interval check fires immediately) and exit — we never seed
-  // and run a version check in the same session.
   if (!existsSync(versionFile)) {
     seedVersionFile(versionFile);
     return;
@@ -102,39 +50,29 @@ function main() {
   const current = readVersionField(versionFile, 'version');
   if (!current) return;
 
-  // ── Step 2: resolve update policy from the config layer ─────────────────────
-  // auto_update is the canonical switch (default on); `skip_version_check` is a
-  // tolerated deprecated alias. When off, do nothing — but still record an unmet
-  // hard minimum_version floor so the gap stays visible in the audit log.
   if (!autoUpdateEnabled(projectRoot)) {
     noteUnmetFloorWhileDisabled(projectRoot, current, logsDir);
     return;
   }
 
-  // A pinned minimum_version the install doesn't meet forces an immediate check,
-  // bypassing the interval throttle so the floor is reached as fast as possible.
   const minVersion = resolveMinimumVersion(projectRoot);
   const floorUnmet = isPinned(minVersion) && isBehindVersion(current, minVersion);
 
-  const intervalHours = resolveIntervalHours(projectRoot); // interval window
+  const intervalHours = resolveIntervalHours(projectRoot);
   if (!floorUnmet && withinInterval(readVersionField(versionFile, 'updated_at'), intervalHours)) {
     return;
   }
 
-  // ── Step 3: fetch latest version from npm (5s timeout) ──────────────────────
   const latest = fetchLatestVersion();
   if (!latest) return;
 
-  // ── Step 4: classify (or force, when a pinned floor is unmet) ───────────────
   const nowIso = new Date().toISOString();
   const baseDecision = classify(current, latest);
   if (baseDecision === 'current' && !floorUnmet) {
-    // Already up to date — reset the interval window.
     touchUpdatedAt(versionFile, current, nowIso);
     return;
   }
   if (floorUnmet && isBehindVersion(latest, minVersion)) {
-    // Even the newest published version is below the floor — unsatisfiable.
     mkdirSync(logsDir, { recursive: true });
     appendLine(
       join(logsDir, 'auto-update.log'),
@@ -145,15 +83,12 @@ function main() {
   }
   const decision = floorUnmet ? 'forced-minimum' : baseDecision;
 
-  // ── Step 5: acquire lock and spawn background global self-update ─────────────
   const lockDir = acquireLock(projectRoot);
-  if (!lockDir) return; // another update is already running
+  if (!lockDir) return;
 
   try {
     mkdirSync(logsDir, { recursive: true });
     const logPath = join(logsDir, 'auto-update.log');
-    // Record intent synchronously (before detaching) so the audit log captures
-    // the classification even if the background install is slow or fails.
     appendLine(
       logPath,
       `[${nowIso}] INFO silent-update ${decision} self-update ${current} -> ${latest} (npm install -g paqad-ai@latest)`,
@@ -164,10 +99,6 @@ function main() {
   }
 }
 
-/**
- * Read the SessionStart payload and spawn the detached migration tick when there is work to do.
- * A compact SessionStart is the same session continuing, so it never counts. Never throws.
- */
 function tickPluginMigration() {
   try {
     const payload = parseHookPayload(readFileSync(0, 'utf8'));
@@ -176,15 +107,10 @@ function tickPluginMigration() {
       source: npmHookStepsAside(payload) ? 'plugin' : 'npm',
       sessionId: sessionIdFrom(payload),
     });
-  } catch {
-    // best-effort: the migration tick never affects the session
-  }
+  } catch {}
 }
 
 function seedVersionFile(versionFile) {
-  // Issue #616 Part 9 — the link resolves to <pkg>/runtime; package.json lives ONE LEVEL ABOVE it.
-  // Reading join(frameworkHome, 'package.json') found nothing (that is the runtime dir), so the
-  // version file was never seeded. Resolve the link, then read its parent's package.json.
   const pkgRoot = frameworkPackageRoot();
   if (!pkgRoot) return;
   const pkg = readFileSafe(join(pkgRoot, 'package.json'));
@@ -199,9 +125,7 @@ function seedVersionFile(versionFile) {
   try {
     mkdirSync(dirname(versionFile), { recursive: true });
     writeFileSync(versionFile, `version=${version}\nupdated_at=1970-01-01T00:00:00Z\n`);
-  } catch {
-    // git-ignored, best-effort; never dirty the tree or fail the session.
-  }
+  } catch {}
 }
 
 function readFileSafe(file) {
@@ -219,15 +143,9 @@ function readVersionField(file, field) {
   return match ? match[1].trim() : null;
 }
 
-// ── layered config policy reads (raw, dist-less; mirrors framework-config.ts) ──
-// Reads `auto_update` / `minimum_version` / `version_check_interval_hours` across
-// the four surfaces (env PAQAD_* > .config > configs/.config.* > default) via the
-// shared `readLayeredKey` so this hook agrees with the TS resolver.
-
 const CONFIG_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const CONFIG_FALSY = new Set(['0', 'false', 'no', 'off']);
 
-/** auto_update (default on); `skip_version_check` truthy is a deprecated off-alias. */
 function autoUpdateEnabled(projectRoot) {
   const auto = readLayeredKey(projectRoot, 'auto_update', 'PAQAD_AUTO_UPDATE');
   if (auto !== undefined && CONFIG_FALSY.has(auto.toLowerCase())) return false;
@@ -236,19 +154,16 @@ function autoUpdateEnabled(projectRoot) {
   return true;
 }
 
-/** minimum_version (default `latest`). */
 function resolveMinimumVersion(projectRoot) {
   return readLayeredKey(projectRoot, 'minimum_version', 'PAQAD_MINIMUM_VERSION') || 'latest';
 }
 
-/** A pinned floor is any non-empty value other than the `latest` sentinel. */
 function isPinned(value) {
   return (
     typeof value === 'string' && value.trim() !== '' && value.trim().toLowerCase() !== 'latest'
   );
 }
 
-/** True when version `a` is strictly older than version `b` (major.minor.patch). */
 function isBehindVersion(a, b) {
   const [amaj, amin, apat] = parseVersion(a);
   const [bmaj, bmin, bpat] = parseVersion(b);
@@ -257,7 +172,6 @@ function isBehindVersion(a, b) {
   );
 }
 
-/** When AUTO_UPDATE is off but a pinned floor is unmet, leave an audit breadcrumb. */
 function noteUnmetFloorWhileDisabled(projectRoot, current, logsDir) {
   const minVersion = resolveMinimumVersion(projectRoot);
   if (!isPinned(minVersion) || !isBehindVersion(current, minVersion)) return;
@@ -267,9 +181,7 @@ function noteUnmetFloorWhileDisabled(projectRoot, current, logsDir) {
       join(logsDir, 'auto-update.log'),
       `[${new Date().toISOString()}] WARN silent-update installed ${current} is below minimum_version ${minVersion}, but auto_update is off — not updating`,
     );
-  } catch {
-    // best-effort
-  }
+  } catch {}
 }
 
 function resolveIntervalHours(projectRoot) {
@@ -292,7 +204,6 @@ function withinInterval(updatedAt, intervalHours) {
 
 function fetchLatestVersion() {
   try {
-    // shell:true so `npm` resolves to `npm.cmd` on Windows; static args, no input.
     const out = execFileSync('npm', ['view', 'paqad-ai', 'version'], {
       timeout: NPM_TIMEOUT_MS,
       stdio: ['ignore', 'pipe', 'ignore'],
@@ -312,7 +223,6 @@ function parseVersion(value) {
   return [parts[0] || 0, parts[1] || 0, parts[2] || 0];
 }
 
-// Prints one of: "current" | "routine" | "forced".
 function classify(current, latest) {
   const [cmaj, cmin, cpatch] = parseVersion(current);
   const [lmaj, lmin, lpatch] = parseVersion(latest);
@@ -321,7 +231,6 @@ function classify(current, latest) {
     (cmaj === lmaj && cmin < lmin) ||
     (cmaj === lmaj && cmin === lmin && cpatch < lpatch);
   if (!behind) return 'current';
-  // Allowed window: same major AND within the last two minors (>= latest minor - 1).
   const inWindow = cmaj === lmaj && cmin >= lmin - 1;
   return inWindow ? 'routine' : 'forced';
 }
@@ -329,25 +238,18 @@ function classify(current, latest) {
 function touchUpdatedAt(versionFile, current, nowIso) {
   try {
     writeFileSync(versionFile, `version=${current}\nupdated_at=${nowIso}\n`);
-  } catch {
-    // best-effort
-  }
+  } catch {}
 }
 
-// Single-flight lock via atomic directory creation (portable; no flock needed).
-// Returns the lock path on success, or null when another update holds it.
 function acquireLock(projectRoot) {
   const lockDir = join(projectRoot, '.paqad', 'locks', 'update.lock');
   try {
     mkdirSync(dirname(lockDir), { recursive: true });
-  } catch {
-    // ignore
-  }
+  } catch {}
   try {
-    mkdirSync(lockDir); // atomic: throws if it already exists
+    mkdirSync(lockDir);
     return lockDir;
   } catch {
-    // Reap a lock left behind by a killed run after 60 min, then retry once.
     try {
       const ageMs = Date.now() - statSync(lockDir).mtimeMs;
       if (ageMs > STALE_LOCK_MS) {
@@ -355,9 +257,7 @@ function acquireLock(projectRoot) {
         mkdirSync(lockDir);
         return lockDir;
       }
-    } catch {
-      // ignore
-    }
+    } catch {}
     return null;
   }
 }
@@ -365,21 +265,15 @@ function acquireLock(projectRoot) {
 function releaseLock(lockDir) {
   try {
     rmdirSync(lockDir);
-  } catch {
-    // ignore
-  }
+  } catch {}
 }
 
 function appendLine(logPath, line) {
   try {
     appendFileSync(logPath, `${line}\n`);
-  } catch {
-    // best-effort
-  }
+  } catch {}
 }
 
-// Force the global upgrade, then resync project artifacts with the new CLI.
-// Detached + unref so session start is never blocked (decision D-2).
 function spawnBackgroundUpdate(logPath) {
   try {
     const out = openSync(logPath, 'a');
@@ -389,14 +283,10 @@ function spawnBackgroundUpdate(logPath) {
       stdio: ['ignore', out, out],
     });
     child.unref();
-  } catch {
-    // best-effort
-  }
+  } catch {}
 }
 
 try {
   main();
-} catch {
-  // The hook must never surface an error to the host; always exit cleanly.
-}
+} catch {}
 process.exit(0);

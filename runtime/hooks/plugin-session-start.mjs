@@ -1,18 +1,4 @@
 #!/usr/bin/env node
-// Claude Code plugin SessionStart bootstrap (issue #616).
-//
-// This hook runs ONLY under the plugin (it is in runtime/claude-plugin/hooks.json, never the npm
-// onboard-time settings), so CLAUDE_PLUGIN_ROOT is always set when it fires for real. It makes the
-// plugin self-sufficient at the start of every session:
-//   Part 4 — keep ~/.paqad-ai/current pointing at a copy that EXISTS (re-point to the plugin's
-//            runtime when the link is missing, dangling, or points at an older npm copy; never
-//            replace a real directory; use a Windows junction so no admin is needed).
-//   Part 5 — put the plugin's own `paqad-ai` on Claude's shell PATH (via CLAUDE_ENV_FILE) and make
-//            the POSIX launcher executable.
-// Parts 7 (one-copy handshake) and 9 (version refresh) are layered on later in the same file.
-//
-// Dist-less and dependency-free (like the other runtime hooks' bootstrap path): it must work before
-// any dist is resolvable. It NEVER throws — a plugin bootstrap failure must not wedge the session.
 
 import {
   appendFileSync,
@@ -50,17 +36,14 @@ import {
 import { isDirectEntry } from './lib/direct-entry.mjs';
 import { maybeSpawnMigrationTick } from './lib/plugin-migration-tick.mjs';
 
-/** The framework link every project's `.paqad/framework-path.txt` resolves to. */
 function frameworkHome(env = process.env) {
   return env.PAQAD_FRAMEWORK_HOME || join(homedir(), '.paqad-ai', 'current');
 }
 
-/** JUNCTION on Windows (no admin needed), the default symlink elsewhere (issue #616, Part 4). */
 function symlinkType() {
   return process.platform === 'win32' ? 'junction' : undefined;
 }
 
-/** Read `<dir>/package.json`'s version, or null when absent/unreadable/malformed. */
 function readPackageVersion(dir) {
   try {
     const parsed = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
@@ -70,7 +53,6 @@ function readPackageVersion(dir) {
   }
 }
 
-/** Compare two `x.y.z` versions: 1 if a>b, -1 if a<b, 0 if equal/unparseable-equal. */
 function compareVersions(a, b) {
   const pa = String(a)
     .split('.')
@@ -85,7 +67,6 @@ function compareVersions(a, b) {
   return 0;
 }
 
-/** lstat without throwing, or undefined when the path does not exist. */
 function lstatSafe(path) {
   try {
     return lstatSync(path);
@@ -94,7 +75,6 @@ function lstatSafe(path) {
   }
 }
 
-/** The current link's resolved target, or null when the path is not a symlink. */
 function linkTarget(path) {
   try {
     return readlinkSync(path);
@@ -103,22 +83,16 @@ function linkTarget(path) {
   }
 }
 
-/** True when a resolved runtime path belongs to an npm install (lives under a node_modules tree). */
 function isNpmRuntime(target) {
   return typeof target === 'string' && target.includes('node_modules');
 }
 
-/** True when a resolved runtime path belongs to a Claude Code plugin cache (lives under …/plugins/…). */
 function isPluginCacheRuntime(target) {
   return (
     typeof target === 'string' && (target.includes('/plugins/') || target.includes('\\plugins\\'))
   );
 }
 
-/**
- * The stable, version-independent location the plugin keeps pointing at its current runtime, or null
- * when CLAUDE_PLUGIN_DATA is unset (then the shared link falls back to the cache runtime directly).
- */
 function stableRuntimeHome(env = process.env) {
   const data = env.CLAUDE_PLUGIN_DATA;
   return typeof data === 'string' && data.length > 0 ? join(data, 'runtime') : null;
@@ -217,21 +191,12 @@ function ensureStablePluginRuntime(pluginRuntime, env = process.env) {
   }
 }
 
-/**
- * Part 4 — keep `~/.paqad-ai/current` pointing at a copy that EXISTS, without dangling when the
- * version-specific plugin cache folder is later removed (issue #636, bug 3). The plugin NEVER takes
- * over a link that resolves to a working npm install — that copy keeps serving every host (Codex,
- * Gemini, Cursor), so an uninstalled/cleaned plugin cache can no longer break npm-onboarded projects.
- * When the plugin DOES fill a missing or dangling link (or refreshes its own earlier cache takeover),
- * it points at a stable plugin-owned location that survives cache version churn. A real directory at
- * the path is never replaced.
- */
 function repointFrameworkLink(pluginRuntime, env = process.env) {
   const home = frameworkHome(env);
   const stat = lstatSafe(home);
 
   if (stat && stat.isDirectory() && !stat.isSymbolicLink()) {
-    return; // a real directory — never replace it (matches bootstrap.ts)
+    return;
   }
 
   const stable = ensureStablePluginRuntime(pluginRuntime, env);
@@ -240,14 +205,10 @@ function repointFrameworkLink(pluginRuntime, env = process.env) {
     const target = linkTarget(home);
     if (target) {
       if (target === stable) {
-        return; // already pointing at our stable location
+        return;
       }
       const targetStat = lstatSafe(target);
       if (targetStat && target !== stableRuntimeHome(env)) {
-        // The target resolves to a working copy. NEVER take over a working npm install (bug 3): it
-        // keeps serving every host. Leave an unknown working directory alone too, conservatively;
-        // only a working plugin-cache target (an earlier takeover) or the plugin runtime itself is
-        // refreshed to the stable location below.
         if (isNpmRuntime(target)) {
           return;
         }
@@ -255,7 +216,6 @@ function repointFrameworkLink(pluginRuntime, env = process.env) {
           return;
         }
       }
-      // else: dangling link (target gone) → fall through and re-point to the stable location.
     }
   }
 
@@ -263,36 +223,24 @@ function repointFrameworkLink(pluginRuntime, env = process.env) {
     mkdirSync(dirname(home), { recursive: true });
     rmSync(home, { force: true, recursive: false });
     symlinkSync(stable, home, symlinkType());
-  } catch {
-    /* fail open — a failed re-point must not wedge the session */
-  }
+  } catch {}
 }
 
-/**
- * Part 5 — make the plugin's `paqad-ai` the one Claude Code runs. chmod the POSIX launcher (the npm
- * tarball may drop the executable bit) and prepend its directory to the session shell's PATH via a
- * plain assignment line in CLAUDE_ENV_FILE (plain, not `export`, so PowerShell reads it too).
- */
 function ensureBinOnPath(pluginRuntime, env = process.env) {
   const binDir = join(pluginRuntime, 'claude-plugin', 'bin');
   if (process.platform !== 'win32') {
     try {
       chmodSync(join(binDir, 'paqad-ai'), 0o755);
-    } catch {
-      /* best-effort: a missing/again-read-only launcher must not wedge the session */
-    }
+    } catch {}
   }
   const envFile = env.CLAUDE_ENV_FILE;
   if (typeof envFile === 'string' && envFile.length > 0) {
     try {
       appendFileSync(envFile, `PATH=${binDir}${delimiter}${env.PATH ?? ''}\n`);
-    } catch {
-      /* best-effort */
-    }
+    } catch {}
   }
 }
 
-/** The six stage-agent files the npm copy writes under ~/.claude/agents/ (issue #616, Part 7). */
 const HOME_STAGE_AGENTS = [
   'paqad-planning.md',
   'paqad-specification.md',
@@ -302,17 +250,10 @@ const HOME_STAGE_AGENTS = [
   'paqad-documentation-sync.md',
 ];
 
-// claudeDir, claudeSettingsPath, paqadHookScriptPath, hasLiveNpmHookLines,
-// projectClaudeSettingsPaths and anyLiveNpmHookLines live in ./lib/paqad-disabled.mjs (issue #667)
-// so this SessionStart and every other hook's stand-down guard share one passive predicate.
 function claudeAgentsDir(env = process.env) {
   return join(claudeDir(env), 'agents');
 }
 
-/**
- * Part 7 — prune DEAD paqad hook lines (their `.mjs` script is gone, e.g. the npm copy was
- * uninstalled) from ~/.claude/settings.json, so stale wiring never fires. Live lines are kept.
- */
 function removeDeadNpmHookLines(settingsPath = claudeSettingsPath()) {
   let settings;
   try {
@@ -329,8 +270,8 @@ function removeDeadNpmHookLines(settingsPath = claudeSettingsPath()) {
       if (!entry || !Array.isArray(entry.hooks)) continue;
       const kept = entry.hooks.filter((hk) => {
         const script = paqadHookScriptPath(hk && hk.command);
-        if (script === null) return true; // not a paqad hook — leave it
-        return existsSync(script); // paqad hook: keep only when its script still exists
+        if (script === null) return true;
+        return existsSync(script);
       });
       if (kept.length !== entry.hooks.length) {
         entry.hooks = kept;
@@ -345,19 +286,10 @@ function removeDeadNpmHookLines(settingsPath = claudeSettingsPath()) {
   if (changed) {
     try {
       writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
-    } catch {
-      /* best-effort */
-    }
+    } catch {}
   }
 }
 
-/**
- * Issue #621 (Part 4/5) — the machine-level marker the npm→plugin migration reads to confirm the
- * plugin actually loaded this session (`~/.paqad-ai/plugin-seen.json`). Written whenever the
- * plugin's SessionStart runs at all — before the passive/active handshake — because "the plugin
- * loaded" is true even when it then stands down beside a live npm copy. `root` lets the migration
- * tell a claude.ai synced plugin (`…/plugins/synced/…`) apart from a marketplace install.
- */
 function pluginSeenPath(env = process.env) {
   const data = env.PAQAD_FRAMEWORK_HOME
     ? dirname(env.PAQAD_FRAMEWORK_HOME)
@@ -374,31 +306,19 @@ function writePluginSeen(pluginRoot, env = process.env) {
       root: pluginRoot,
     };
     writeFileSync(path, JSON.stringify(payload));
-  } catch {
-    /* best-effort: a failed marker write must not wedge the session */
-  }
+  } catch {}
 }
 
-/** Part 7 — remove the six `~/.claude/agents/paqad-*.md` the npm copy wrote; the plugin ships its own. */
 function removeHomeStageAgents(agentsDir = claudeAgentsDir()) {
   for (const name of HOME_STAGE_AGENTS) {
     try {
       rmSync(join(agentsDir, name), { force: true });
-    } catch {
-      /* best-effort */
-    }
+    } catch {}
   }
 }
 
-// ─── Part 9 (issue #616, FR-15): keep the version file current ────────────────────────────────────
-//
-// When the plugin is newer than the project's recorded framework-version, run `update --silent` in
-// the background (the plugin's OWN CLI, under a single-flight lock) so the project's managed
-// artifacts track the plugin. It never downgrades, never blocks, and never prints.
+const UPDATE_THROTTLE_MS = 6 * 60 * 60 * 1000;
 
-const UPDATE_THROTTLE_MS = 6 * 60 * 60 * 1000; // at most one background refresh per 6h
-
-/** The version recorded in `.paqad/framework-version.txt`, or null when absent/unreadable. */
 function frameworkVersionTxtVersion(projectRoot) {
   try {
     const txt = readFileSync(join(projectRoot, '.paqad', 'framework-version.txt'), 'utf8');
@@ -409,10 +329,9 @@ function frameworkVersionTxtVersion(projectRoot) {
   }
 }
 
-/** True when the plugin is newer than the recorded framework version (never downgrade). */
 function shouldRefreshVersion(pluginVersion, frameworkVersion) {
   if (!pluginVersion) return false;
-  if (!frameworkVersion) return true; // nothing recorded yet → let the update seed it
+  if (!frameworkVersion) return true;
   return compareVersions(pluginVersion, frameworkVersion) > 0;
 }
 
@@ -429,10 +348,6 @@ function spawnSilentUpdate(pluginRoot, projectRoot) {
 }
 /* v8 ignore stop */
 
-/**
- * Part 9 — refresh the project's framework artifacts in the background when the plugin is newer than
- * the recorded version, under a single-flight lock throttled to {@link UPDATE_THROTTLE_MS}.
- */
 function maybeRefreshVersion(pluginRoot, projectRoot, deps = {}) {
   const now = deps.now ?? Date.now;
   const runUpdate = deps.runUpdate ?? spawnSilentUpdate;
@@ -455,42 +370,24 @@ function maybeRefreshVersion(pluginRoot, projectRoot, deps = {}) {
 export function runPluginSessionStart(env = process.env, payload = undefined, deps = {}) {
   const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
   if (!pluginRoot) {
-    return; // not running as a plugin (e.g. imported by a test without the env set)
+    return;
   }
   const pluginRuntime = join(pluginRoot, 'runtime');
-  // Issue #621 — record that the plugin loaded this session (machine-level, global) so the
-  // npm→plugin migration can confirm the plugin runs before the npm copy steps aside.
   writePluginSeen(pluginRoot, env);
-  // Issue #648 (B4) — report this plugin session to the migration, so a machine with no npm hooks
-  // wired still moves installed → done. Detached and silent; nothing is spawned when there is no work.
   (deps.tick ?? maybeSpawnMigrationTick)({
     source: 'plugin',
     sessionId: sessionIdFrom(payload, env),
     cliPath: join(pluginRoot, 'dist', 'cli', 'index.js'),
     env,
   });
-  // Part 4 — keep the shared framework link pointing at a copy that exists. Global work (no
-  // <project>/.paqad/ write), so it runs in every repo (onboarded or not).
   repointFrameworkLink(pluginRuntime, env);
 
-  // Issue #636 (bug 1) — the plugin installs at USER scope and runs in EVERY repo. In a project that
-  // was never onboarded, do no per-project work: write no <project>/.paqad/ marker and run no
-  // refresh. Part 5 (put the plugin's paqad-ai on PATH) is global and still runs, so /paqad:onboard
-  // can bootstrap a fresh repo.
   const projectRoot = resolveProjectRoot(env, payload);
   if (!isProjectOnboarded(projectRoot)) {
-    ensureBinOnPath(pluginRuntime, env); // Part 5 (global)
+    ensureBinOnPath(pluginRuntime, env);
     return;
   }
 
-  // Part 7 — the one-copy handshake (onboarded projects only). Stay passive only when THIS session is
-  // not already claimed AND a live npm copy is still wired to run its own hooks; otherwise the plugin
-  // claims the session (INV-4 fails safe to active). A claimed session re-runs the idempotent cleanup.
-  // Issue #641 (Gap 2) — the npm onboard writes its hook chain into the PROJECT's .claude/settings.json
-  // (not the user file), so the handshake inspects the user settings AND the project settings; checking
-  // only the user file made the plugin seize every npm-onboarded repo and run both chains.
-  // Issue #667 — this is the same shared predicate every other plugin hook's guard asks (through
-  // hookStandsDown), so the SessionStart decision and the per-hook decision cannot drift.
   if (pluginStandsDownPassive(payload, env)) {
     return;
   }
@@ -498,14 +395,12 @@ export function runPluginSessionStart(env = process.env, payload = undefined, de
   if (pluginRootStandsDown(payload, env)) {
     return;
   }
-  ensureBinOnPath(pluginRuntime, env); // Part 5
+  ensureBinOnPath(pluginRuntime, env);
   removeDeadNpmHookLines(claudeSettingsPath(env));
   removeHomeStageAgents(claudeAgentsDir(env));
-  maybeRefreshVersion(pluginRoot, projectRoot); // Part 9
+  maybeRefreshVersion(pluginRoot, projectRoot);
 }
 
-// Exported for unit tests; the internal helpers are re-exported so each branch is testable without
-// mutating the real home directory.
 export const __test = {
   compareVersions,
   readPackageVersion,
@@ -531,7 +426,6 @@ export const __test = {
   maybeRefreshVersion,
 };
 
-// Run when invoked as the hook entry (not when imported by a test).
 if (isDirectEntry(import.meta.url)) {
   try {
     let payload;
@@ -541,7 +435,5 @@ if (isDirectEntry(import.meta.url)) {
       payload = undefined;
     }
     runPluginSessionStart(process.env, payload);
-  } catch {
-    /* fail open */
-  }
+  } catch {}
 }
