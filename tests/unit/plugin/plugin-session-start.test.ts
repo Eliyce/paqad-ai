@@ -283,6 +283,25 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     expect(existsSync(marker)).toBe(true);
   });
 
+  it('claims the session in a plugin-only project whose settings carry no paqad hook', () => {
+    const env = pluginEnv({ CLAUDE_PLUGIN_DATA: join(root, 'plugin-data') });
+    const projectSettings = join(env.CLAUDE_PROJECT_DIR as string, '.claude', 'settings.json');
+    mkdirSync(join(env.CLAUDE_PROJECT_DIR as string, '.claude'), { recursive: true });
+    writeFileSync(projectSettings, JSON.stringify({ attribution: { commit: '', pr: '' } }));
+    runPluginSessionStart(env, { session_id: 'sOnly', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      'sOnly',
+    );
+    expect(existsSync(marker)).toBe(true);
+    expect(readlinkSync(env.PAQAD_FRAMEWORK_HOME as string)).toBe(
+      join(root, 'plugin-data', 'runtime', 'runtime'),
+    );
+  });
+
   it('stays passive (no marker) when a live npm hook is still wired', () => {
     const env = pluginEnv();
     const live = join(root, 'live2.paqad.mjs');
@@ -473,12 +492,13 @@ describe('stable link location + self-heal (issue #636 bug 3)', () => {
     expect(stableRuntimeHome({} as NodeJS.ProcessEnv)).toBeNull();
   });
 
-  it('ensureStablePluginRuntime links CLAUDE_PLUGIN_DATA/runtime at the plugin runtime', () => {
+  it('ensureStablePluginRuntime copies the plugin into CLAUDE_PLUGIN_DATA/runtime', () => {
     const pluginRuntime = makeRuntime(join(root, 'plugin'), '1.0.0');
     const data = join(root, 'data');
     const stable = ensureStablePluginRuntime(pluginRuntime, { CLAUDE_PLUGIN_DATA: data });
-    expect(stable).toBe(join(data, 'runtime'));
-    expect(readlinkSync(stable)).toBe(pluginRuntime);
+    expect(stable).toBe(join(data, 'runtime', 'runtime'));
+    expect(lstatSync(join(data, 'runtime')).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(data, 'runtime', 'version'), 'utf8').trim()).toBe('1.0.0');
   });
 
   it('fills a MISSING link at the stable location (not the version-specific cache)', () => {
@@ -489,8 +509,8 @@ describe('stable link location + self-heal (issue #636 bug 3)', () => {
     const home = join(root, 'current');
     const data = join(root, 'data');
     repointFrameworkLink(pluginRuntime, env(home, data));
-    expect(readlinkSync(home)).toBe(join(data, 'runtime'));
-    expect(readlinkSync(join(data, 'runtime'))).toBe(pluginRuntime);
+    expect(readlinkSync(home)).toBe(join(data, 'runtime', 'runtime'));
+    expect(readlinkSync(home)).not.toContain(join('cache', 'eliyce'));
   });
 
   it('self-heals after the plugin cache version is removed (link does not dangle)', () => {
@@ -504,11 +524,11 @@ describe('stable link location + self-heal (issue #636 bug 3)', () => {
       recursive: true,
       force: true,
     });
-    // A later plugin session on a new cache version re-points the stable link.
+    expect(existsSync(home)).toBe(true);
     const v2 = makeRuntime(join(root, 'plugins', 'cache', 'eliyce', 'paqad', '1.1.0'), '1.1.0');
     repointFrameworkLink(v2, env(home, data));
     expect(existsSync(home)).toBe(true);
-    expect(readlinkSync(join(data, 'runtime'))).toBe(v2);
+    expect(readFileSync(join(data, 'runtime', 'version'), 'utf8').trim()).toBe('1.1.0');
   });
 });
 

@@ -17,11 +17,13 @@
 import {
   appendFileSync,
   chmodSync,
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
   readFileSync,
   readlinkSync,
+  renameSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -121,31 +123,96 @@ function stableRuntimeHome(env = process.env) {
   return typeof data === 'string' && data.length > 0 ? join(data, 'runtime') : null;
 }
 
-/**
- * Issue #636 (bug 3) — keep a stable plugin-owned link (`${CLAUDE_PLUGIN_DATA}/runtime` -> the
- * current plugin runtime) so the shared framework link can point at a path that does not change as
- * Claude Code churns the version-specific cache folder. Returns the stable path to point at, or the
- * plugin runtime itself when no plugin-data dir is available. Best-effort; never throws.
- */
-function ensureStablePluginRuntime(pluginRuntime, env = process.env) {
-  const stable = stableRuntimeHome(env);
-  if (!stable) {
-    return pluginRuntime;
+const RUNTIME_COPY_PARTS = ['package.json', 'dist', 'runtime'];
+const RENAME_RETRY_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
+const RENAME_MAX_ATTEMPTS = 5;
+
+function renameWithRetrySync(from, to, remove) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      renameSync(from, to);
+      return;
+    } catch (error) {
+      const retryable = process.platform === 'win32' && RENAME_RETRY_CODES.has(error?.code ?? '');
+      if (attempt >= RENAME_MAX_ATTEMPTS || !retryable) {
+        remove(from);
+        throw error;
+      }
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10 * 2 ** (attempt - 1));
+    }
+  }
+}
+
+function runtimeCopyVersion(copyRoot) {
+  const st = lstatSafe(copyRoot);
+  if (!st || st.isSymbolicLink() || !st.isDirectory()) {
+    return null;
   }
   try {
-    if (linkTarget(stable) === pluginRuntime) {
-      return stable; // already current
-    }
-    const st = lstatSafe(stable);
-    if (st && st.isDirectory() && !st.isSymbolicLink()) {
-      return stable; // a real directory placed here — leave it and point at it
-    }
-    mkdirSync(dirname(stable), { recursive: true });
-    rmSync(stable, { force: true, recursive: false });
-    symlinkSync(pluginRuntime, stable, symlinkType());
-    return stable;
+    return readFileSync(join(copyRoot, 'version'), 'utf8').trim();
   } catch {
-    return pluginRuntime; // fail open to pointing at the cache runtime directly
+    return null;
+  }
+}
+
+function removeTree(path) {
+  rmSync(path, { recursive: true, force: true });
+}
+
+function removeTreeQuietly(path) {
+  try {
+    removeTree(path);
+  } catch {
+    return;
+  }
+}
+
+function replaceRuntimeCopy(staging, copyRoot) {
+  const st = lstatSafe(copyRoot);
+  let retired = null;
+  if (st && st.isSymbolicLink()) {
+    rmSync(copyRoot, { force: true, recursive: false });
+  } else if (st) {
+    retired = `${copyRoot}.old-${process.pid}`;
+    removeTree(retired);
+    renameWithRetrySync(copyRoot, retired, () => undefined);
+  }
+  renameWithRetrySync(staging, copyRoot, removeTreeQuietly);
+  if (retired) {
+    removeTreeQuietly(retired);
+  }
+}
+
+function ensureStablePluginRuntime(pluginRuntime, env = process.env) {
+  const copyRoot = stableRuntimeHome(env);
+  if (!copyRoot) {
+    return pluginRuntime;
+  }
+  const pluginRoot = dirname(pluginRuntime);
+  const linked = join(copyRoot, 'runtime');
+  const staging = `${copyRoot}.tmp-${process.pid}`;
+  try {
+    const version = readPackageVersion(pluginRoot);
+    if (!version) {
+      return pluginRuntime;
+    }
+    if (runtimeCopyVersion(copyRoot) === version && existsSync(linked)) {
+      return linked;
+    }
+    removeTree(staging);
+    mkdirSync(staging, { recursive: true });
+    for (const part of RUNTIME_COPY_PARTS) {
+      const from = join(pluginRoot, part);
+      if (existsSync(from)) {
+        cpSync(from, join(staging, part), { recursive: true });
+      }
+    }
+    writeFileSync(join(staging, 'version'), `${version}\n`, 'utf8');
+    replaceRuntimeCopy(staging, copyRoot);
+    return linked;
+  } catch {
+    removeTreeQuietly(staging);
+    return pluginRuntime;
   }
 }
 
@@ -175,7 +242,7 @@ function repointFrameworkLink(pluginRuntime, env = process.env) {
         return; // already pointing at our stable location
       }
       const targetStat = lstatSafe(target);
-      if (targetStat) {
+      if (targetStat && target !== stableRuntimeHome(env)) {
         // The target resolves to a working copy. NEVER take over a working npm install (bug 3): it
         // keeps serving every host. Leave an unknown working directory alone too, conservatively;
         // only a working plugin-cache target (an earlier takeover) or the plugin runtime itself is

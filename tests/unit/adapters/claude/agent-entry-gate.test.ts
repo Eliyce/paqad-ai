@@ -4,7 +4,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { ClaudeCodeAdapter } from '@/adapters/claude/claude-adapter.js';
+import {
+  ClaudeCodeAdapter,
+  isRunningUnderPlugin,
+  isUnderPluginPath,
+} from '@/adapters/claude/claude-adapter.js';
 
 describe('ClaudeCodeAdapter agent-entry gate', () => {
   let projectRoot: string;
@@ -352,6 +356,76 @@ describe('ClaudeCodeAdapter agent-entry gate', () => {
         .flat()
         .flatMap((entry) => entry.hooks.map((hook) => hook.command));
       expect(commands.some((command) => command.includes('agent-entry-gate.mjs'))).toBe(true);
+    });
+
+    async function renderSettings(): Promise<Record<string, unknown>> {
+      const files = await new ClaudeCodeAdapter().generateConfig({
+        frameworkPath: '.paqad/framework-path.txt',
+        rulesPath: 'docs/instructions/rules',
+        projectRoot,
+      });
+      const settings = files.find((file) => file.path === '.claude/settings.json');
+      return JSON.parse(settings!.content) as Record<string, unknown>;
+    }
+
+    it('writes no paqad hook chain when the CLI entry sits in a plugin cache and CLAUDE_PLUGIN_ROOT is unset', async () => {
+      delete process.env.CLAUDE_PLUGIN_ROOT;
+      const npmSettings = await renderSettings();
+      const priorEntry = process.argv[1];
+      process.argv[1] = '/home/u/.claude/plugins/cache/eliyce/paqad/1.2.3/dist/cli/index.js';
+      let pluginSettings: Record<string, unknown>;
+      try {
+        pluginSettings = await renderSettings();
+      } finally {
+        process.argv[1] = priorEntry;
+      }
+      const hooks = pluginSettings.hooks as
+        Record<string, Array<{ hooks: Array<{ command: string }> }>> | undefined;
+      const commands = Object.values(hooks ?? {})
+        .flat()
+        .flatMap((entry) => entry.hooks.map((hook) => hook.command));
+      expect(commands.some((command) => command.includes('paqad'))).toBe(false);
+      const withoutHooks = (settings: Record<string, unknown>) =>
+        Object.fromEntries(Object.entries(settings).filter(([key]) => key !== 'hooks'));
+      expect(withoutHooks(pluginSettings)).toEqual(withoutHooks(npmSettings));
+    });
+  });
+
+  describe('plugin run detection', () => {
+    it('reads a runtime root or CLI entry under a plugin cache or data folder as the plugin', () => {
+      expect(
+        isRunningUnderPlugin(
+          {},
+          { runtimeRoot: '/h/.claude/plugins/cache/eliyce/paqad/1.0.0/runtime' },
+        ),
+      ).toBe(true);
+      expect(
+        isRunningUnderPlugin(
+          {},
+          { runtimeRoot: '/h/.claude/plugins/data/paqad-eliyce/runtime/runtime' },
+        ),
+      ).toBe(true);
+      expect(
+        isRunningUnderPlugin(
+          {},
+          { cliEntry: 'C:\\Users\\u\\.claude\\plugins\\cache\\paqad\\dist\\cli\\index.js' },
+        ),
+      ).toBe(true);
+      expect(isRunningUnderPlugin({ CLAUDE_PLUGIN_ROOT: '/p' }, {})).toBe(true);
+    });
+
+    it('keeps npm onboarding when there is no plugin signal', () => {
+      expect(
+        isRunningUnderPlugin(
+          {},
+          {
+            runtimeRoot: '/usr/lib/node_modules/paqad-ai/runtime',
+            cliEntry: '/usr/lib/node_modules/paqad-ai/dist/cli/index.js',
+          },
+        ),
+      ).toBe(false);
+      expect(isUnderPluginPath('/home/u/code/plugins/paqad-ai/runtime')).toBe(false);
+      expect(isUnderPluginPath(undefined)).toBe(false);
     });
   });
 });

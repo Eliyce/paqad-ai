@@ -1,3 +1,4 @@
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { shouldStripAiAttribution } from '@/delivery/attribution-config.js';
 
 import type { AdapterContext, GeneratedFile } from '../adapter.interface.js';
@@ -76,15 +77,30 @@ export class ClaudeCodeAdapter extends BaseAdapter {
   }
 }
 
-/**
- * True when onboarding is running from the Claude Code plugin (issue #641, Gap 2). The plugin
- * installs at user scope and ships its own hook chain via `runtime/claude-plugin/hooks.json`,
- * so writing the npm chain into the project's `.claude/settings.json` too would make every
- * paqad hook fire twice. Onboarding from the npm package (no `CLAUDE_PLUGIN_ROOT`) is unchanged.
- */
-function isRunningUnderPlugin(env: NodeJS.ProcessEnv): boolean {
+const PLUGIN_PATH_MARKERS = ['/plugins/cache/', '/plugins/data/'];
+
+export function isUnderPluginPath(path: string | undefined): boolean {
+  if (typeof path !== 'string' || path.length === 0) {
+    return false;
+  }
+  const posix = path.replace(/\\/g, '/');
+  return PLUGIN_PATH_MARKERS.some((marker) => posix.includes(marker));
+}
+
+export interface PluginRunSignals {
+  runtimeRoot?: string;
+  cliEntry?: string;
+}
+
+export function isRunningUnderPlugin(
+  env: NodeJS.ProcessEnv,
+  signals: PluginRunSignals = { runtimeRoot: getRuntimeRoot(), cliEntry: process.argv[1] },
+): boolean {
   const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
-  return typeof pluginRoot === 'string' && pluginRoot.length > 0;
+  if (typeof pluginRoot === 'string' && pluginRoot.length > 0) {
+    return true;
+  }
+  return isUnderPluginPath(signals.runtimeRoot) || isUnderPluginPath(signals.cliEntry);
 }
 
 // Render the full #117/#566 live hook chain into Claude's settings.json shape via

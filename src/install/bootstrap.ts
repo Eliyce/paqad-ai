@@ -1,6 +1,18 @@
-import { lstatSync, mkdirSync, readlinkSync, rmSync, symlinkSync, type Stats } from 'node:fs';
+import {
+  cpSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+  type Stats,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { setEngineLogger } from '@/core/logger-registry.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { ensureSchemaMarkerSync } from '@/core/schema-version.js';
@@ -164,30 +176,88 @@ function linkTarget(path: string): string | null {
   }
 }
 
-/**
- * Keep a stable plugin-owned link (`${CLAUDE_PLUGIN_DATA}/runtime` → the current plugin
- * runtime) so the shared framework link can point at a path that survives cache version
- * churn. Returns the stable path to point at, or the plugin runtime itself when no
- * plugin-data dir is available. Best-effort; never throws. Mirrors `ensureStablePluginRuntime`.
- */
-function ensureStablePluginRuntime(pluginRuntime: string, env: NodeJS.ProcessEnv): string {
-  const stable = stableRuntimeHome(env);
-  if (!stable) {
-    return pluginRuntime;
+const RUNTIME_COPY_PARTS = ['package.json', 'dist', 'runtime'] as const;
+
+function readPluginVersion(pluginRoot: string): string | null {
+  try {
+    const parsed = JSON.parse(readFileSync(join(pluginRoot, 'package.json'), 'utf8')) as {
+      version?: unknown;
+    };
+    return typeof parsed.version === 'string' && parsed.version.length > 0 ? parsed.version : null;
+  } catch {
+    return null;
+  }
+}
+
+function runtimeCopyVersion(copyRoot: string): string | null {
+  const st = lstatSafe(copyRoot);
+  if (!st || st.isSymbolicLink() || !st.isDirectory()) {
+    return null;
   }
   try {
-    if (linkTarget(stable) === pluginRuntime) {
-      return stable;
-    }
-    const st = lstatSafe(stable);
-    if (st && st.isDirectory() && !st.isSymbolicLink()) {
-      return stable;
-    }
-    mkdirSync(dirname(stable), { recursive: true });
-    rmSync(stable, { force: true, recursive: false });
-    symlinkSync(pluginRuntime, stable, frameworkSymlinkType());
-    return stable;
+    return readFileSync(join(copyRoot, 'version'), 'utf8').trim();
   } catch {
+    return null;
+  }
+}
+
+function removeTree(path: string): void {
+  rmSync(path, { recursive: true, force: true });
+}
+
+function removeTreeQuietly(path: string): void {
+  try {
+    removeTree(path);
+  } catch {
+    return;
+  }
+}
+
+function replaceRuntimeCopy(staging: string, copyRoot: string): void {
+  const st = lstatSafe(copyRoot);
+  let retired: string | null = null;
+  if (st && st.isSymbolicLink()) {
+    rmSync(copyRoot, { force: true, recursive: false });
+  } else if (st) {
+    retired = `${copyRoot}.old-${process.pid}`;
+    removeTree(retired);
+    renameWithRetrySync(copyRoot, retired, { remove: () => undefined });
+  }
+  renameWithRetrySync(staging, copyRoot, { remove: removeTreeQuietly });
+  if (retired) {
+    removeTreeQuietly(retired);
+  }
+}
+
+function ensureStablePluginRuntime(pluginRuntime: string, env: NodeJS.ProcessEnv): string {
+  const copyRoot = stableRuntimeHome(env);
+  if (!copyRoot) {
+    return pluginRuntime;
+  }
+  const pluginRoot = dirname(pluginRuntime);
+  const linked = join(copyRoot, 'runtime');
+  const staging = `${copyRoot}.tmp-${process.pid}`;
+  try {
+    const version = readPluginVersion(pluginRoot);
+    if (!version) {
+      return pluginRuntime;
+    }
+    if (runtimeCopyVersion(copyRoot) === version && existsSync(linked)) {
+      return linked;
+    }
+    removeTree(staging);
+    mkdirSync(staging, { recursive: true });
+    for (const part of RUNTIME_COPY_PARTS) {
+      const from = join(pluginRoot, part);
+      if (existsSync(from)) {
+        cpSync(from, join(staging, part), { recursive: true });
+      }
+    }
+    writeFileSync(join(staging, 'version'), `${version}\n`, 'utf8');
+    replaceRuntimeCopy(staging, copyRoot);
+    return linked;
+  } catch {
+    removeTreeQuietly(staging);
     return pluginRuntime;
   }
 }
@@ -219,7 +289,7 @@ function repointFrameworkLinkPluginAware(
         return; // already pointing at our stable location
       }
       const targetStat = lstatSafe(target);
-      if (targetStat) {
+      if (targetStat && target !== stableRuntimeHome(env)) {
         // Resolves to a working copy. NEVER take over a working npm install — it keeps serving
         // every host. Leave an unknown working directory alone too; only a working plugin-cache
         // target (an earlier takeover) or the plugin runtime itself is refreshed to the stable

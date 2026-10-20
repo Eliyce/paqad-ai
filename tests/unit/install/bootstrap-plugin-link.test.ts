@@ -1,9 +1,14 @@
 import {
+  existsSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  readdirSync,
   readlinkSync,
+  realpathSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
@@ -19,7 +24,27 @@ import { __test as mjsTest } from '../../../runtime/hooks/plugin-session-start.m
 const { ensureFrameworkSymlink, isPluginRuntime, repointFrameworkLinkPluginAware } = bootstrapTest;
 const { ensureStablePluginRuntime, stableRuntimeHome, isNpmRuntime, isPluginCacheRuntime } =
   bootstrapTest;
-const { repointFrameworkLink: mjsRepointFrameworkLink } = mjsTest;
+const {
+  repointFrameworkLink: mjsRepointFrameworkLink,
+  ensureStablePluginRuntime: mjsEnsureStablePluginRuntime,
+} = mjsTest;
+
+function makePluginRoot(pluginRoot: string, version: string): string {
+  const pluginRuntime = join(pluginRoot, 'runtime');
+  mkdirSync(join(pluginRuntime, 'hooks'), { recursive: true });
+  mkdirSync(join(pluginRoot, 'dist', 'cli'), { recursive: true });
+  writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ name: 'paqad-ai', version }));
+  writeFileSync(join(pluginRoot, 'dist', 'cli', 'index.js'), `export const v = '${version}';\n`);
+  writeFileSync(join(pluginRuntime, 'hooks', 'hook.mjs'), `// ${version}\n`);
+  return pluginRuntime;
+}
+
+function listTree(dir: string): string[] {
+  return readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .sort();
+}
 
 let root: string;
 
@@ -47,6 +72,7 @@ function targetOf(path: string): string | null {
 interface Scenario {
   current: string;
   pluginRuntime: string;
+  copyRoot: string;
   stable: string;
   env: NodeJS.ProcessEnv;
 }
@@ -58,8 +84,7 @@ function scenario(
   const dir = join(root, name);
   mkdirSync(dir, { recursive: true });
   const pluginRoot = join(dir, 'plugin-cache', 'paqad-1.0.0');
-  const pluginRuntime = join(pluginRoot, 'runtime');
-  mkdirSync(pluginRuntime, { recursive: true });
+  const pluginRuntime = makePluginRoot(pluginRoot, '1.0.0');
   const dataDir = join(dir, 'plugin-data');
   mkdirSync(dataDir, { recursive: true });
   const current = join(dir, 'current');
@@ -67,7 +92,8 @@ function scenario(
   return {
     current,
     pluginRuntime,
-    stable: join(dataDir, 'runtime'),
+    copyRoot: join(dataDir, 'runtime'),
+    stable: join(dataDir, 'runtime', 'runtime'),
     env: {
       PAQAD_FRAMEWORK_HOME: current,
       CLAUDE_PLUGIN_ROOT: pluginRoot,
@@ -105,23 +131,21 @@ describe('stable-runtime helpers (mirrors of the .mjs)', () => {
     expect(ensureStablePluginRuntime(pluginRuntime, {} as NodeJS.ProcessEnv)).toBe(pluginRuntime);
   });
 
-  it('ensureStablePluginRuntime is idempotent once the stable link already points at the runtime', () => {
-    const dataDir = join(root, 'data');
-    const pluginRuntime = join(root, 'pr2', 'runtime');
+  it('ensureStablePluginRuntime returns the plugin runtime when the plugin has no readable version', () => {
+    const pluginRuntime = join(root, 'pr-noversion', 'runtime');
     mkdirSync(pluginRuntime, { recursive: true });
-    const env = { CLAUDE_PLUGIN_DATA: dataDir } as NodeJS.ProcessEnv;
-    const first = ensureStablePluginRuntime(pluginRuntime, env);
-    expect(targetOf(first)).toBe(pluginRuntime);
-    // Second call: the stable link is already current, so it returns the same path unchanged.
-    expect(ensureStablePluginRuntime(pluginRuntime, env)).toBe(first);
-    expect(targetOf(first)).toBe(pluginRuntime);
+    expect(
+      ensureStablePluginRuntime(pluginRuntime, {
+        CLAUDE_PLUGIN_DATA: join(root, 'data-noversion'),
+      } as NodeJS.ProcessEnv),
+    ).toBe(pluginRuntime);
+    expect(existsSync(join(root, 'data-noversion', 'runtime'))).toBe(false);
   });
 
-  it('ensureStablePluginRuntime fails open to the plugin runtime when the stable link cannot be written', () => {
+  it('ensureStablePluginRuntime fails open to the plugin runtime when the copy cannot be written', () => {
     const notADir = join(root, 'afile');
     writeFileSync(notADir, 'x');
-    const pluginRuntime = join(root, 'pr-fail', 'runtime');
-    mkdirSync(pluginRuntime, { recursive: true });
+    const pluginRuntime = makePluginRoot(join(root, 'pr-fail'), '1.0.0');
     // CLAUDE_PLUGIN_DATA sits under a FILE, so mkdirSync(dirname(stable)) throws → catch.
     expect(
       ensureStablePluginRuntime(pluginRuntime, {
@@ -129,21 +153,124 @@ describe('stable-runtime helpers (mirrors of the .mjs)', () => {
       } as NodeJS.ProcessEnv),
     ).toBe(pluginRuntime);
   });
+});
 
-  it('ensureStablePluginRuntime leaves a real directory placed at the stable path alone', () => {
-    const dataDir = join(root, 'data3');
-    const stable = join(dataDir, 'runtime');
-    mkdirSync(stable, { recursive: true });
-    const pluginRuntime = join(root, 'pr3', 'runtime');
-    mkdirSync(pluginRuntime, { recursive: true });
-    expect(
-      ensureStablePluginRuntime(pluginRuntime, {
-        CLAUDE_PLUGIN_DATA: dataDir,
-      } as NodeJS.ProcessEnv),
-    ).toBe(stable);
-    expect(lstatSync(stable).isDirectory()).toBe(true);
-    expect(lstatSync(stable).isSymbolicLink()).toBe(false);
+const implementations = [
+  { name: 'bootstrap.ts', ensure: ensureStablePluginRuntime },
+  { name: 'plugin-session-start.mjs', ensure: mjsEnsureStablePluginRuntime },
+] as const;
+
+for (const impl of implementations) {
+  describe(`runtime copy in ${impl.name}`, () => {
+    function setup(name: string, version = '1.0.0') {
+      const dir = join(root, `${impl.name}-${name}`);
+      const dataDir = join(dir, 'plugins', 'data', 'paqad-eliyce');
+      const pluginRoot = join(dir, 'plugins', 'cache', 'eliyce', 'paqad', version);
+      const pluginRuntime = makePluginRoot(pluginRoot, version);
+      const env = { CLAUDE_PLUGIN_DATA: dataDir } as NodeJS.ProcessEnv;
+      return { dir, dataDir, pluginRoot, pluginRuntime, env, copyRoot: join(dataDir, 'runtime') };
+    }
+
+    it('makes a real copy of package.json, dist and runtime plus a version file', () => {
+      const s = setup('fresh');
+      const linked = impl.ensure(s.pluginRuntime, s.env);
+      expect(linked).toBe(join(s.copyRoot, 'runtime'));
+      expect(lstatSync(s.copyRoot).isSymbolicLink()).toBe(false);
+      expect(readFileSync(join(s.copyRoot, 'version'), 'utf8').trim()).toBe('1.0.0');
+      expect(existsSync(join(s.copyRoot, 'package.json'))).toBe(true);
+      expect(existsSync(join(s.copyRoot, 'dist', 'cli', 'index.js'))).toBe(true);
+      expect(existsSync(join(s.copyRoot, 'runtime', 'hooks', 'hook.mjs'))).toBe(true);
+      expect(readdirSync(s.dataDir).sort()).toEqual(['runtime']);
+    });
+
+    it('changes no file when the version file already matches the running plugin', () => {
+      const s = setup('same-version');
+      impl.ensure(s.pluginRuntime, s.env);
+      const before = listTree(s.copyRoot).map((file) => [file, statSync(file).mtimeMs]);
+      const inode = statSync(s.copyRoot).ino;
+      impl.ensure(s.pluginRuntime, s.env);
+      expect(listTree(s.copyRoot).map((file) => [file, statSync(file).mtimeMs])).toEqual(before);
+      expect(statSync(s.copyRoot).ino).toBe(inode);
+    });
+
+    it('refreshes the copy on a version change and survives the old cache folder being deleted', () => {
+      const a = setup('bump', '1.0.0');
+      impl.ensure(a.pluginRuntime, a.env);
+      const pluginRootB = join(a.dir, 'plugins', 'cache', 'eliyce', 'paqad', '1.1.0');
+      const pluginRuntimeB = makePluginRoot(pluginRootB, '1.1.0');
+      const linked = impl.ensure(pluginRuntimeB, a.env);
+      rmSync(a.pluginRoot, { recursive: true, force: true });
+      expect(readFileSync(join(a.copyRoot, 'version'), 'utf8').trim()).toBe('1.1.0');
+      expect(readFileSync(join(a.copyRoot, 'dist', 'cli', 'index.js'), 'utf8')).toContain('1.1.0');
+      expect(existsSync(linked)).toBe(true);
+      expect(readdirSync(a.dataDir).sort()).toEqual(['runtime']);
+    });
+
+    it('replaces an old runtime symlink with a real folder', () => {
+      const s = setup('old-symlink');
+      mkdirSync(s.dataDir, { recursive: true });
+      symlinkSync(s.pluginRuntime, s.copyRoot);
+      impl.ensure(s.pluginRuntime, s.env);
+      expect(lstatSync(s.copyRoot).isSymbolicLink()).toBe(false);
+      expect(lstatSync(s.copyRoot).isDirectory()).toBe(true);
+      expect(existsSync(join(s.pluginRuntime, 'hooks', 'hook.mjs'))).toBe(true);
+    });
+
+    it('replaces a real folder that has no version file', () => {
+      const s = setup('stale-folder');
+      mkdirSync(join(s.copyRoot, 'leftover'), { recursive: true });
+      impl.ensure(s.pluginRuntime, s.env);
+      expect(existsSync(join(s.copyRoot, 'leftover'))).toBe(false);
+      expect(readFileSync(join(s.copyRoot, 'version'), 'utf8').trim()).toBe('1.0.0');
+    });
   });
+}
+
+describe('framework link after a plugin update, both implementations', () => {
+  const repointers = [
+    {
+      name: 'bootstrap.ts',
+      repoint: (runtime: string, home: string, env: NodeJS.ProcessEnv) =>
+        repointFrameworkLinkPluginAware(runtime, home, env),
+    },
+    {
+      name: 'plugin-session-start.mjs',
+      repoint: (runtime: string, _home: string, env: NodeJS.ProcessEnv) =>
+        mjsRepointFrameworkLink(runtime, env),
+    },
+  ];
+
+  for (const r of repointers) {
+    it(`${r.name} keeps current on the data copy holding version B after cache A is deleted`, () => {
+      const dir = join(root, `update-${r.name}`);
+      const dataDir = join(dir, 'plugins', 'data', 'paqad-eliyce');
+      const home = join(dir, 'current');
+      const env = { CLAUDE_PLUGIN_DATA: dataDir, PAQAD_FRAMEWORK_HOME: home } as NodeJS.ProcessEnv;
+      const rootA = join(dir, 'plugins', 'cache', 'eliyce', 'paqad', '1.0.0');
+      r.repoint(makePluginRoot(rootA, '1.0.0'), home, env);
+      const rootB = join(dir, 'plugins', 'cache', 'eliyce', 'paqad', '1.1.0');
+      r.repoint(makePluginRoot(rootB, '1.1.0'), home, env);
+      rmSync(rootA, { recursive: true, force: true });
+
+      expect(targetOf(home)).toBe(join(dataDir, 'runtime', 'runtime'));
+      expect(targetOf(home)).not.toContain(join('plugins', 'cache'));
+      expect(realpathSync(home)).toBe(realpathSync(join(dataDir, 'runtime', 'runtime')));
+      expect(readFileSync(join(dataDir, 'runtime', 'version'), 'utf8').trim()).toBe('1.1.0');
+    });
+
+    it(`${r.name} moves a link left on the old data runtime folder onto the copy`, () => {
+      const dir = join(root, `old-stable-${r.name}`);
+      const dataDir = join(dir, 'data');
+      const home = join(dir, 'current');
+      const env = { CLAUDE_PLUGIN_DATA: dataDir, PAQAD_FRAMEWORK_HOME: home } as NodeJS.ProcessEnv;
+      const pluginRuntime = makePluginRoot(join(dir, 'cache', '1.0.0'), '1.0.0');
+      mkdirSync(dataDir, { recursive: true });
+      symlinkSync(pluginRuntime, join(dataDir, 'runtime'));
+      symlinkSync(join(dataDir, 'runtime'), home);
+      r.repoint(pluginRuntime, home, env);
+      expect(targetOf(home)).toBe(join(dataDir, 'runtime', 'runtime'));
+    });
+  }
 });
 
 describe('repointFrameworkLinkPluginAware (issue #641, Gap 1)', () => {
@@ -188,7 +315,7 @@ describe('repointFrameworkLinkPluginAware (issue #641, Gap 1)', () => {
     });
     repointFrameworkLinkPluginAware(s.pluginRuntime, s.current, s.env);
     expect(targetOf(s.current)).toBe(s.stable);
-    expect(targetOf(s.stable)).toBe(s.pluginRuntime);
+    expect(readFileSync(join(s.copyRoot, 'version'), 'utf8').trim()).toBe('1.0.0');
   });
 
   it('fills a missing link, pointing at the stable plugin-data runtime (FR-2)', () => {
