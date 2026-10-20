@@ -5,6 +5,8 @@ import { buildBandView, parseSnapshot } from '../../../../runtime/claude-plugin/
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
 import {
   CLOSED_HINT,
+  CLOSE_HEADER,
+  CLOSE_QUESTION,
   HIDDEN_HINT,
   HIDDEN_KEY_PREFIX,
   SHOWN_AGAIN,
@@ -76,6 +78,13 @@ describe('the visibility state (FR-46 to FR-49)', () => {
     expect(needsYou(parse(STOPPED))).toBe(true);
     expect(needsYou(parse(FULL_ORD_501))).toBe(false);
     expect(needsYou(null)).toBe(false);
+  });
+
+  it('asks the close question in the spec words, with a header that fits the ask limit (FR-47)', () => {
+    expect(CLOSE_HEADER.length).toBeLessThanOrEqual(12);
+    expect(CLOSE_QUESTION).toBe(
+      'Close the paqad band? Close for now: Comes back in your next session. Hide always: Stays hidden until you click paqad under the prompt or run /paqad show.',
+    );
   });
 });
 

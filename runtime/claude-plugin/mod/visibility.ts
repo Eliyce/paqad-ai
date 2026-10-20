@@ -10,11 +10,13 @@ export const MINIMISED_KEY = 'band.minimised';
 export const HIDDEN_KEY_PREFIX = 'band.hidden:';
 export const STORE_KEY_LIMIT = 256;
 
-export const CLOSE_HEADER = 'paqad band';
+export const CLOSE_HEADER = 'Close band?';
 export const CLOSE_FOR_NOW = 'Close for now';
+export const CLOSE_FOR_NOW_MEANS = 'Comes back in your next session';
 export const HIDE_ALWAYS = 'Hide always';
-export const CLOSE_QUESTION =
-  'Close the paqad band? Close for now: it comes back in your next session. Hide always: it stays hidden in this project until you click paqad under the prompt or run /paqad show.';
+export const HIDE_ALWAYS_MEANS =
+  'Stays hidden until you click paqad under the prompt or run /paqad show';
+export const CLOSE_QUESTION = `Close the paqad band? ${CLOSE_FOR_NOW}: ${CLOSE_FOR_NOW_MEANS}. ${HIDE_ALWAYS}: ${HIDE_ALWAYS_MEANS}.`;
 export const CLOSED_HINT = 'Closed for this session · /paqad show';
 export const HIDDEN_HINT = 'Hidden always · /paqad show';
 export const NEEDS_YOU = 'Needs you';

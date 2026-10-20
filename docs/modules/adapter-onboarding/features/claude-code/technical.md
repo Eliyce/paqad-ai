@@ -260,7 +260,8 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   until the terminal is widened; that still counts as opened.
 - **Mod API limits.** Buttons hold only strings and Text, so an instrument opens its tab from its
   title, not from the whole box. `$.ui.ask` takes plain option labels and a header of at most 12
-  characters, so the close question carries the option meanings in its text. `$.ui.open` takes no
+  characters, so the close question uses the header `Close band?` and carries the spec's full
+  words in its text: `Close the paqad band?`, then each option with its meaning. `$.ui.open` takes no
   `focus: false`; leaving `focus` out keeps the prompt focused. There is no animation primitive, so
   the static marks and SVGs carry the whole meaning. `Svg` draws only on Desktop and mobile; the
   terminal never gets one.
