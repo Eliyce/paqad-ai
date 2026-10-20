@@ -6,7 +6,8 @@
 // the quality baseline. The result carries a non-`provider-workflow` origin so
 // the run is distinguishable from the skippable in-workflow path.
 
-import { readFile } from 'node:fs/promises';
+import { readFile, stat } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import fg from 'fast-glob';
 
@@ -14,7 +15,12 @@ import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { readChecksReportForFeature } from '@/checks/report-target.js';
 import type { Lane } from '@/core/types/routing.js';
-import { currentFeature, recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
+import { rowRecordedAt } from '@/feature-evidence/envelope.js';
+import {
+  currentFeature,
+  readFeatureStageUnit,
+  recordedLaneOrFull,
+} from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { buildAndWriteChangeTraceabilityMap, readTraceabilityMap } from '@/traceability/index.js';
 import type { TraceabilityMap } from '@/core/types/traceability.js';
@@ -150,7 +156,10 @@ export async function buildRepositoryVerificationContext(
     manual: changeMap.result?.manual,
     buildError: changeMap.error,
   });
-  const implementationReview = computeImplementationReview(pendingDecisions);
+  const implementationReview = computeImplementationReview(
+    pendingDecisions,
+    await lastSourceEditAt(projectRoot, dirName, changedFiles),
+  );
   const specReviewSignal = computeSpecReview({
     specReview,
     // A built change map means the active change's spec is frozen (it is read from
@@ -213,6 +222,7 @@ export async function buildRepositoryVerificationContext(
     spec_review_passed: specReviewSignal.passed,
     implementation_review_passed: implementationReview.passed,
     implementation_review_findings: implementationReview.findings,
+    waiting_decisions: implementationReview.waiting,
     // Signals the backstop does not judge: these are provider-workflow concerns
     // (story/spec authoring quality, architecture taste, behaviour, DB review)
     // that need model judgment. Their standalone gates are omitted from the
@@ -294,6 +304,45 @@ function effectiveTraceabilityMap(
   if (changeMap) return changeMap;
   if (diskMap?.scope === 'change') return null;
   return diskMap;
+}
+
+function latestDevelopmentRowAt(projectRoot: string, dirName: string | null): number {
+  if (dirName === null) return NaN;
+  let latest = NaN;
+  try {
+    for (const row of readFeatureStageUnit(projectRoot, dirName)) {
+      if (row.stage !== 'development') continue;
+      const at = Date.parse(rowRecordedAt(row) ?? '');
+      if (!Number.isNaN(at) && (Number.isNaN(latest) || at > latest)) latest = at;
+    }
+  } catch (error) {
+    engineLog('warn', `paqad: could not read development rows (${describeError(error)})`);
+  }
+  return latest;
+}
+
+async function latestFileEditAt(projectRoot: string, files: readonly string[]): Promise<number> {
+  const times = await Promise.all(
+    files.map((file) =>
+      stat(join(projectRoot, file)).then(
+        (info) => info.mtimeMs,
+        () => NaN,
+      ),
+    ),
+  );
+  const known = times.filter((at) => !Number.isNaN(at));
+  return known.reduce((latest, at) => (Number.isNaN(latest) || at > latest ? at : latest), NaN);
+}
+
+export async function lastSourceEditAt(
+  projectRoot: string,
+  dirName: string | null,
+  changedFiles: readonly string[],
+): Promise<string | null> {
+  const developmentAt = latestDevelopmentRowAt(projectRoot, dirName);
+  if (!Number.isNaN(developmentAt)) return new Date(developmentAt).toISOString();
+  const fileAt = await latestFileEditAt(projectRoot, changedFiles);
+  return Number.isNaN(fileAt) ? null : new Date(fileAt).toISOString();
 }
 
 function readPendingDecisions(projectRoot: string): DecisionPacket[] {

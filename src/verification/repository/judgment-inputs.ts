@@ -11,7 +11,7 @@
 // gate escalates rather than waving the change through.
 
 import type { TraceabilityMap } from '@/core/types/traceability.js';
-import type { ImplementationReviewFinding } from '@/core/types/verification.js';
+import type { ImplementationReviewFinding, WaitingDecision } from '@/core/types/verification.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import type { SpecReviewReport } from '@/compliance/types.js';
 
@@ -126,21 +126,41 @@ function describeNoAutomatedCriteria(visual: readonly string[], manual: readonly
 /**
  * `implementation-review` from the decision store. A change that lands while a
  * decision packet is still unresolved violated the decision-pause contract: the
- * agent should have paused. Each unresolved pending packet becomes a blocking
- * `decision-violation` finding (issue #117 C-2/C-3).
+ * agent should have paused. Each unresolved pending packet opened before the last
+ * source edit, or every one when that time is unknown, becomes a blocking
+ * `decision-violation` finding; a packet opened later is waiting, not a defect.
  */
-export function computeImplementationReview(pendingDecisions: DecisionPacket[]): {
+export function computeImplementationReview(
+  pendingDecisions: DecisionPacket[],
+  lastSourceEditAt: string | null = null,
+): {
   passed: boolean;
   findings: ImplementationReviewFinding[];
+  waiting: WaitingDecision[];
 } {
-  const findings: ImplementationReviewFinding[] = pendingDecisions.map((packet) => ({
+  const editedAt = lastSourceEditAt === null ? NaN : Date.parse(lastSourceEditAt);
+  const blocking = pendingDecisions.filter((packet) => !openedAfter(packet, editedAt));
+  const findings: ImplementationReviewFinding[] = blocking.map((packet) => ({
     kind: 'decision-violation',
     severity: 'error',
     detail: `Change landed against unresolved decision ${packet.decision_id} (${packet.category}): ${packet.question}`,
     decision_id: packet.decision_id,
   }));
+  const waiting: WaitingDecision[] = pendingDecisions
+    .filter((packet) => openedAfter(packet, editedAt))
+    .map((packet) => ({
+      decision_id: packet.decision_id,
+      category: packet.category,
+      question: packet.question,
+    }));
 
-  return { passed: findings.length === 0, findings };
+  return { passed: findings.length === 0, findings, waiting };
+}
+
+function openedAfter(packet: DecisionPacket, editedAt: number): boolean {
+  if (Number.isNaN(editedAt)) return false;
+  const createdAt = Date.parse(packet.created_at);
+  return !Number.isNaN(createdAt) && createdAt > editedAt;
 }
 
 /**

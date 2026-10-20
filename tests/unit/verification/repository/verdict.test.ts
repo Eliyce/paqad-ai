@@ -344,3 +344,45 @@ describe('formatVerdictSummary', () => {
     });
   });
 });
+
+describe('waiting decision lines', () => {
+  const waiting = [
+    { decision_id: 'D-01JWAIT', category: 'architecture', question: 'Which approach?' },
+  ];
+
+  it('prints one skipped-glyph line per waiting decision without moving the counts or the word', () => {
+    const gates = [
+      {
+        gate: 'change-completeness' as const,
+        status: 'pass' as const,
+        detail: 'ok',
+        remediation: null,
+      },
+    ];
+    const without = formatVerdictSummary({ ok: true, gates, escalations: [] });
+    const withWaiting = formatVerdictSummary({
+      ok: true,
+      gates,
+      escalations: [],
+      waitingDecisions: waiting,
+    });
+    expect(withWaiting).toContain(PAQAD_VERDICT.pass);
+    expect(withWaiting).toContain('1/1 checks held for you.');
+    expect(withWaiting.split('\n')).toEqual([
+      ...without.split('\n'),
+      '> ⚪ a decision is waiting for you: D-01JWAIT (architecture): Which approach?',
+    ]);
+  });
+
+  it('passes waiting decisions through the verdict builder', () => {
+    const verdict = buildRepositoryVerificationVerdict({
+      origin: 'hook-completion',
+      evidence: evidence([gate({})]),
+      escalations: [],
+      evidencePath: null,
+      waitingDecisions: waiting,
+    });
+    expect(verdict.ok).toBe(true);
+    expect(verdict.summary).toContain('a decision is waiting for you: D-01JWAIT');
+  });
+});

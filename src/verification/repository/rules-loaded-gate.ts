@@ -16,7 +16,7 @@
 // canonical applicability computation, so the gate agrees with the verb and the artifact.
 
 import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
-import type { VerificationGate } from '@/core/types/verification.js';
+import type { VerificationGate, VerificationOrigin } from '@/core/types/verification.js';
 import {
   resolveRuleApplicabilityForChange,
   type ChangeRuleApplicability,
@@ -41,6 +41,7 @@ export interface RulesLoadedGateInput {
    * the session-less working set.
    */
   sessionId?: string | null;
+  origin?: VerificationOrigin;
 }
 
 /** Readers injected for deterministic tests; production uses the real disk-backed ones. */
@@ -82,6 +83,16 @@ export async function rulesLoadedGate(
   }
 
   const record = readRecord(input.projectRoot, input.dirName);
+  if (!record && input.origin === 'ci-backstop') {
+    return {
+      name: GATE_NAME,
+      status: 'skipped',
+      detail: 'No session loads rules on CI, so the load was not required here.',
+      remediation: null,
+      failures: [],
+      skip_kind: 'not-required',
+    };
+  }
   if (!record) {
     return {
       name: GATE_NAME,

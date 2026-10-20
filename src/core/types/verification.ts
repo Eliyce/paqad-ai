@@ -56,6 +56,12 @@ export interface ImplementationReviewFinding {
   file?: string;
 }
 
+export interface WaitingDecision {
+  decision_id: string;
+  category: string;
+  question: string;
+}
+
 export type CanonicalDocOwnershipKind = 'direct-doc-edit' | 'implementation-drift';
 
 export interface CanonicalDocTarget {
@@ -144,6 +150,7 @@ export interface VerificationContext {
   code_tests_lint_passed: boolean;
   implementation_review_passed: boolean;
   implementation_review_findings?: ImplementationReviewFinding[];
+  waiting_decisions?: WaitingDecision[];
   behavioral_correctness_passed: boolean;
   database_quality_passed: boolean;
   structured_test_results?: StructuredTestResult[];

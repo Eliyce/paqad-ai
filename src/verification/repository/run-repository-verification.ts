@@ -689,6 +689,7 @@ export async function runRepositoryVerification(
       dirName: completenessDir,
       isFeatureDev,
       sessionId: completenessSession,
+      origin,
     });
     if (rulesGate) {
       evidence.gates.push(rulesGate);
@@ -783,6 +784,7 @@ export async function runRepositoryVerification(
     escalations,
     evidencePath,
     flagOnGates,
+    waitingDecisions: context.waiting_decisions,
   });
   verdict.reportPath = reportPath;
 
@@ -821,6 +823,7 @@ export async function runRepositoryVerification(
         escalations,
         unrecordedMandatoryStages: stageGaps,
         flagOnGates,
+        waitingDecisions: context.waiting_decisions,
       });
     }
   }

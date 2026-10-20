@@ -177,7 +177,9 @@ any turn the session-ownership check skips (see below).
   until that record exists; this gate **fails** a feature-dev code change with no record
   (blocks like a missing plan/spec), reads **inconclusive** when the load is stale (a rule
   became applicable after it ran), and is **skipped** with no compiled rules / no applicable
-  rule / a non-feature change. It attests loading and acknowledgment, never comprehension.
+  rule / a non-feature change, and skipped as not required at the `ci-backstop` origin when
+  there is no record, since no session loads rules on CI. It attests loading and
+  acknowledgment, never comprehension.
 - **Plan reuse gate** (`reuse.ts`, issue #357, Phase A) — the plan must answer "did you
   check what already exists?" before it compiles. `validateReuseSection` returns blocking
   `errors` and non-blocking `warnings` for the template's `reuse` section: `consulted`

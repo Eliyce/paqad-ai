@@ -136,6 +136,20 @@ and documentation:
 | `architecture-compliance` / `database-quality` / `extension-surface` | Structural and contract conformance. |
 | `documentation-freshness` / `documentation-checks` / `instructions-docs-structure` / `module-docs-structure` | Docs are present, current, and well-formed. |
 
+### Pending decisions and the last source edit
+
+On the hook and backstop path the implementation-review signal comes from the decision store
+(`computeImplementationReview` in `src/verification/repository/judgment-inputs.ts`). A pending
+decision opened before the change's last source edit blocks the change, because the agent kept
+editing past an open question. A pending decision opened after the last source edit is not a
+defect: it is the agent pausing as it should, so it goes on a waiting list instead. The last
+source edit is the latest `development` row in the active bundle, else the newest modified
+time of the changed files outside `.paqad/`, else unknown (`lastSourceEditAt` in
+`repository-context.ts`). When it is unknown every pending decision blocks, as before. The
+receipt prints one line per waiting decision after the skip lines, with the skipped glyph:
+`a decision is waiting for you: D-<id> (<category>): <question>`. Those lines never change the
+counts or the verdict word.
+
 ### The late gates (issue #579)
 
 Three evidence gates run after the bank, at the completion seam, because they read files the
@@ -145,6 +159,12 @@ in the active bundle's `evidence.jsonl` too, one row per gate, skips included (v
 `skipped`, the skip reason as the detail), like the graded rows always on whatever the
 enterprise toggles (issue #581). When the visual-evidence gate has no bundle to read it
 records nothing.
+
+`rules-loaded` fails a feature-development change with no `rules-loaded.json` at the
+`hook-completion` and `git-backstop` origins. At `ci-backstop` no agent session runs, so
+nothing could have loaded the rules there: with no record the gate is skipped as not required,
+with the detail "No session loads rules on CI, so the load was not required here." A record
+that does exist is still judged on CI (pass, or inconclusive when it is stale).
 
 The stage-evidence and checks (`code-tests-lint`) gates are recorded with them, and when the
 only gap is an unrecorded mandatory stage, an inconclusive `unrecorded-mandatory-stages` row is

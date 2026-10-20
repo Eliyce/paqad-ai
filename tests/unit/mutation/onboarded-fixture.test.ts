@@ -170,17 +170,25 @@ describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
   }, 120_000);
 
   it('AC-19: strict on ci-backstop blocks on the same survivor', async () => {
-    setMode('warn');
-    const warn = await verify(deps().mutationDeps);
     setMode('strict');
     const strict = await verify(deps().mutationDeps);
 
     expect(strict.gate?.status).toBe('fail');
     expect(strict.gate?.detail).toContain(`${survivor.file}:${survivor.line}`);
     expect(strict.verdict.ok).toBe(false);
-    // The block is the mutation gate's doing: it is the one gate strict adds to the failures.
-    const added = failing(strict.verdict).filter((name) => !failing(warn.verdict).includes(name));
-    expect(added).toEqual(['mutation-testing']);
+    expect(failing(strict.verdict)).toEqual(['mutation-testing']);
+  }, 120_000);
+
+  it('reads the rules load as not required on ci-backstop, so no gate fails in warn', async () => {
+    setMode('warn');
+    const { verdict } = await verify(deps().mutationDeps);
+
+    expect(verdict.gates.find((entry) => entry.gate === 'rules-loaded')).toMatchObject({
+      status: 'skipped',
+      skip_kind: 'not-required',
+      detail: 'No session loads rules on CI, so the load was not required here.',
+    });
+    expect(failing(verdict)).toEqual([]);
   }, 120_000);
 
   it('AC-23: the detected stack profile reaches selectMutationTool and selects Stryker', async () => {

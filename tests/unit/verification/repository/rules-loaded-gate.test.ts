@@ -104,6 +104,38 @@ describe('rulesLoadedGate (issue #557)', () => {
     expect(gate?.remediation).toContain('paqad-ai rules load');
   });
 
+  it('reads not required at ci-backstop when no session loaded the rules', async () => {
+    const gate = await rulesLoadedGate(
+      { ...base, origin: 'ci-backstop' },
+      { resolveApplicability: async () => applicability(), readRecord: () => null },
+    );
+    expect(gate).toMatchObject({
+      name: 'rules-loaded',
+      status: 'skipped',
+      skip_kind: 'not-required',
+      detail: 'No session loads rules on CI, so the load was not required here.',
+      remediation: null,
+    });
+  });
+
+  it('still fails a missing record at hook-completion and git-backstop', async () => {
+    for (const origin of ['hook-completion', 'git-backstop'] as const) {
+      const gate = await rulesLoadedGate(
+        { ...base, origin },
+        { resolveApplicability: async () => applicability(), readRecord: () => null },
+      );
+      expect(gate?.status).toBe('fail');
+    }
+  });
+
+  it('still judges a record that exists at ci-backstop', async () => {
+    const gate = await rulesLoadedGate(
+      { ...base, origin: 'ci-backstop' },
+      { resolveApplicability: async () => applicability(), readRecord: () => record(['RULE-2']) },
+    );
+    expect(gate?.status).toBe('pass');
+  });
+
   it('is INCONCLUSIVE on a stale load (a newly applicable rule is uncovered)', async () => {
     const gate = await rulesLoadedGate(base, {
       resolveApplicability: async () =>

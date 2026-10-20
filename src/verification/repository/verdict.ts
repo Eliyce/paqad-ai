@@ -5,7 +5,7 @@
 // CI backstop, and the desktop event stream all report the same shape.
 
 import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT, paqadFrameLead } from '@/core/constants/paqad-voice.js';
-import type { GateSkipKind, VerificationGate } from '@/core/types/verification.js';
+import type { GateSkipKind, VerificationGate, WaitingDecision } from '@/core/types/verification.js';
 import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 import type {
   EvidenceGateStatus,
@@ -81,6 +81,7 @@ export function buildRepositoryVerificationVerdict(input: {
   evidencePath: string | null;
   /** Issue #579 — gates whose feature flag is on; a skip among them prints a skip line. */
   flagOnGates?: readonly VerificationGate[];
+  waitingDecisions?: readonly WaitingDecision[];
 }): RepositoryVerificationVerdict {
   const gates: RepositoryVerificationGateVerdict[] = input.evidence.gates.map((gate) => ({
     gate: gate.name,
@@ -103,6 +104,7 @@ export function buildRepositoryVerificationVerdict(input: {
       gates,
       escalations: input.escalations,
       ...(input.flagOnGates ? { flagOnGates: input.flagOnGates } : {}),
+      ...(input.waitingDecisions ? { waitingDecisions: input.waitingDecisions } : {}),
     }),
     gates,
     escalations: input.escalations,
@@ -142,6 +144,7 @@ export function formatVerdictSummary(input: {
    * escalations, so a flag-on gate that did nothing is visible. Skips never move the counts.
    */
   flagOnGates?: readonly VerificationGate[];
+  waitingDecisions?: readonly WaitingDecision[];
 }): string {
   // Issue #639, Part 10 — the counts are the required gates that ran: a skipped gate, not
   // required or did not run, drops out of both numbers.
@@ -185,6 +188,7 @@ export function formatVerdictSummary(input: {
   }
 
   lines.push(...skipLines(input.gates, new Set(input.flagOnGates ?? [])));
+  lines.push(...waitingDecisionLines(input.waitingDecisions ?? []));
 
   for (const escalation of input.escalations) {
     lines.push(`> ${PAQAD_STATUS_GLYPH.needsLook} needs a look — ${escalation}`);
@@ -207,6 +211,13 @@ function gateWords(gate: string): string {
  * as not required. A did-not-run gate with no short reason shows its own detail, which already
  * says it did not run ("Mutation testing did not run: ...").
  */
+function waitingDecisionLines(waiting: readonly WaitingDecision[]): string[] {
+  return waiting.map(
+    (packet) =>
+      `> ${PAQAD_STATUS_GLYPH.skipped} a decision is waiting for you: ${packet.decision_id} (${packet.category}): ${packet.question}`,
+  );
+}
+
 function skipLines(
   gates: readonly RepositoryVerificationGateVerdict[],
   flagOn: ReadonlySet<VerificationGate>,
