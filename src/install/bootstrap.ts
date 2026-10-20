@@ -30,39 +30,19 @@ export interface InstallResult {
   version: string;
 }
 
-/** Options for {@link bootstrapFramework}. */
 export interface BootstrapOptions {
-  /**
-   * A consumer logger to install at init (PQD-105). When supplied, every
-   * structured log the engine emits is routed to it. Equivalent to calling
-   * {@link setEngineLogger} before bootstrapping; provided here so the consumer
-   * has a single clean init surface.
-   */
   logger?: EngineLogger;
 }
 
-/**
- * The HOME-ONLY half of the install: create the `~/.paqad-ai/current` framework symlink and
- * render the six stage-isolation agents under the user home. It writes NOTHING into the project,
- * so a caller that must not touch the tracked tree (issue #576, Finding 2 — `paqad-ai join`) can
- * set up a fresh machine's global install without producing a diff. {@link bootstrapFramework}
- * layers the project-side metadata writes on top for `onboard`/`install`.
- */
 export function bootstrapFrameworkHome(): { framework_home: string } {
   const frameworkHome = resolveFrameworkInstallPath();
   const runtimeRoot = getRuntimeRoot();
 
   ensureFrameworkSymlink(runtimeRoot, frameworkHome);
 
-  // Issue #567 — render the six stage agents at user scope (~/.claude/agents, ~/.codex/agents).
-  // Stage isolation is core-engine behavior (no config knob), so this always runs; it never
-  // writes into the project. Best-effort: a render/write failure must not fail the install (the
-  // agents are inert until the orchestrator dispatches them, and the next update retries).
   try {
     writeStageAgents();
-  } catch {
-    /* best-effort: stage-agent generation never blocks install/update */
-  }
+  } catch {}
 
   return { framework_home: frameworkHome };
 }
@@ -76,9 +56,6 @@ export function bootstrapFramework(projectRoot: string, options?: BootstrapOptio
 
   writeFrameworkMetadata(projectRoot, VERSION);
 
-  // PQD-95 — ensure the cross-artifact schema marker exists so every freshly
-  // bootstrapped project carries the `.paqad/` layout version. Idempotent: an
-  // existing marker is left untouched (migration is checkAndMigrateSchema's job).
   ensureSchemaMarkerSync(projectRoot, VERSION);
 
   return {
@@ -95,11 +72,6 @@ function ensureFrameworkSymlink(
 ): void {
   mkdirSync(dirname(frameworkHome), { recursive: true });
 
-  // Issue #641 (Gap 1) — when `onboard`/`install`/`join` run from the plugin bin, apply the
-  // SAME plugin-safe rule the plugin's SessionStart already follows: never take over a link
-  // that resolves to a working npm install, only fill a missing/dangling link, and point it
-  // at the stable `${CLAUDE_PLUGIN_DATA}/runtime` location (not the version-specific cache
-  // runtime). Running from the npm install keeps the existing behaviour below untouched.
   if (isPluginRuntime(env)) {
     repointFrameworkLinkPluginAware(runtimeRoot, frameworkHome, env);
     return;
@@ -126,48 +98,24 @@ function ensureFrameworkSymlink(
   }
 }
 
-// ── Plugin-aware framework-link rule (issue #641, Gap 1) ─────────────────────
-//
-// This is the TypeScript MIRROR of `repointFrameworkLink` and its helpers in
-// `runtime/hooks/plugin-session-start.mjs`. The `.mjs` runtime hooks are deliberately
-// dist-less and dependency-free (they run before any dist is resolvable), so the hook cannot
-// import this compiled module and this module cannot import the hook. Decision
-// D-01M55NZYS2JA2B6PNPVQN5X694 chose to mirror the rule in both files rather than share one
-// implementation; `tests/unit/install/bootstrap-plugin-link.test.ts` drives both copies over
-// the same fixtures and asserts they make the identical link decision (spec #641 INV-4).
-
-/**
- * True when the running runtime is a Claude Code plugin runtime, i.e. `CLAUDE_PLUGIN_ROOT` is
- * set. When it is, `getRuntimeRoot()` already resolves to `${CLAUDE_PLUGIN_ROOT}/runtime`, which
- * is exactly the `.mjs` hook's `pluginRuntime`, so the second "getRuntimeRoot() is under
- * CLAUDE_PLUGIN_ROOT" clause in the spec is subsumed by this one.
- */
 function isPluginRuntime(env: NodeJS.ProcessEnv): boolean {
   const pluginRoot = env.CLAUDE_PLUGIN_ROOT;
   return typeof pluginRoot === 'string' && pluginRoot.length > 0;
 }
 
-/** True when a resolved runtime path belongs to an npm install (lives under a node_modules tree). */
 function isNpmRuntime(target: string): boolean {
   return target.includes('node_modules');
 }
 
-/** True when a resolved runtime path belongs to a Claude Code plugin cache (lives under …/plugins/…). */
 function isPluginCacheRuntime(target: string): boolean {
   return target.includes('/plugins/') || target.includes('\\plugins\\');
 }
 
-/**
- * The stable, version-independent location the plugin keeps pointing at its current runtime,
- * or null when `CLAUDE_PLUGIN_DATA` is unset (then the shared link falls back to the cache
- * runtime directly). Mirrors `stableRuntimeHome` in the `.mjs` hook.
- */
 function stableRuntimeHome(env: NodeJS.ProcessEnv): string | null {
   const data = env.CLAUDE_PLUGIN_DATA;
   return typeof data === 'string' && data.length > 0 ? join(data, 'runtime') : null;
 }
 
-/** The current link's resolved target, or null when the path is not a symlink. */
 function linkTarget(path: string): string | null {
   try {
     return readlinkSync(path);
@@ -262,13 +210,6 @@ function ensureStablePluginRuntime(pluginRuntime: string, env: NodeJS.ProcessEnv
   }
 }
 
-/**
- * The plugin-safe framework-link rule, mirroring `repointFrameworkLink` in the `.mjs` hook. A
- * real directory is never replaced; a link resolving to a working npm install is never taken
- * over; an unknown working directory is left alone; only the plugin's own earlier cache
- * takeover, the plugin runtime itself, or a missing/dangling link is (re)pointed at the stable
- * location. Best-effort — a failed re-point must not fail the install.
- */
 function repointFrameworkLinkPluginAware(
   pluginRuntime: string,
   frameworkHome: string,
@@ -277,7 +218,7 @@ function repointFrameworkLinkPluginAware(
   const stat = lstatSafe(frameworkHome);
 
   if (stat && stat.isDirectory() && !stat.isSymbolicLink()) {
-    return; // a real directory — never replace it
+    return;
   }
 
   const stable = ensureStablePluginRuntime(pluginRuntime, env);
@@ -286,14 +227,10 @@ function repointFrameworkLinkPluginAware(
     const target = linkTarget(frameworkHome);
     if (target) {
       if (target === stable) {
-        return; // already pointing at our stable location
+        return;
       }
       const targetStat = lstatSafe(target);
       if (targetStat && target !== stableRuntimeHome(env)) {
-        // Resolves to a working copy. NEVER take over a working npm install — it keeps serving
-        // every host. Leave an unknown working directory alone too; only a working plugin-cache
-        // target (an earlier takeover) or the plugin runtime itself is refreshed to the stable
-        // location below.
         if (isNpmRuntime(target)) {
           return;
         }
@@ -301,7 +238,6 @@ function repointFrameworkLinkPluginAware(
           return;
         }
       }
-      // else: dangling link (target gone) → fall through and re-point to the stable location.
     }
   }
 
@@ -309,25 +245,14 @@ function repointFrameworkLinkPluginAware(
     mkdirSync(dirname(frameworkHome), { recursive: true });
     rmSync(frameworkHome, { force: true, recursive: false });
     symlinkSync(stable, frameworkHome, frameworkSymlinkType());
-  } catch {
-    /* fail open — a failed re-point must not fail the install */
-  }
+  } catch {}
 }
 
-/**
- * The symlink type for the framework link. On Windows a plain directory symlink needs Developer
- * Mode or admin and throws EPERM otherwise, so use a JUNCTION there — it needs neither, and points
- * at a directory just the same (issue #616, Part 4; the plugin's SessionStart uses the same rule).
- * POSIX passes `undefined`, the default. `symlinkSync` ignores the type argument on POSIX.
- */
 export function frameworkSymlinkType(): 'junction' | undefined {
   return process.platform === 'win32' ? 'junction' : undefined;
 }
 
 function removeConflictingFrameworkPath(frameworkHome: string): void {
-  // Use lstat, not existsSync: existsSync follows symlinks, so a dangling link
-  // (e.g. the npx cache dir it pointed at was garbage-collected between runs)
-  // reads as "absent" — skipping cleanup and crashing symlinkSync with EEXIST.
   const stat = lstatSafe(frameworkHome);
   if (stat === undefined) {
     return;
@@ -355,7 +280,6 @@ function isExpectedRuntimeSymlink(runtimeRoot: string, frameworkHome: string): b
   }
 }
 
-/** lstat that returns undefined instead of throwing when the path is absent. */
 function lstatSafe(path: string): Stats | undefined {
   try {
     return lstatSync(path);
@@ -364,9 +288,6 @@ function lstatSafe(path: string): Stats | undefined {
   }
 }
 
-// Exported for the #641 TS/.mjs consistency test (spec INV-4) so the mirrored plugin-link
-// rule can be driven over the same fixtures as the `.mjs` `repointFrameworkLink` without
-// mutating the real home directory. Not part of the public install API.
 export const __test = {
   ensureFrameworkSymlink,
   isPluginRuntime,
