@@ -1,4 +1,4 @@
-import { accessSync, constants as fsConstants, statSync } from 'node:fs';
+import { accessSync, constants as fsConstants, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { AdapterFactory, type GeneratedFile } from '@/adapters/index.js';
@@ -20,6 +20,7 @@ import { isFrameworkEnabled } from '@/core/framework-enabled.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import { defaultIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile } from '@/core/project-profile.js';
+import { nodePackageManager } from '@/checks/prerequisites.js';
 import type { AdapterType } from '@/core/types/adapter.js';
 import type { ActiveCapability, Capability, Stack } from '@/core/types/domain.js';
 import { getPrimaryStack } from '@/core/stack-profile.js';
@@ -262,6 +263,12 @@ export class OnboardingOrchestrator {
       .filter((file) => !completed.has(toPosixPath(file.path)));
 
     const onboardingWarnings: string[] = [];
+    const unmapped = unmappedCommands(profile.commands);
+    if (unmapped.length > 0) {
+      onboardingWarnings.push(
+        `Commands left unmapped in .paqad/project-profile.yaml (no matching script found): ${unmapped.join(', ')}. Add them there if the project has them.`,
+      );
+    }
     // The no-migration safety net result (non-default framework values a legacy
     // fat profile carried that the strip reverted). Assigned in the write batch
     // below (the catch always rethrows, so it is definitely set by the return),
@@ -684,8 +691,8 @@ function buildProjectProfile(
     providers?: AdapterType[];
   },
   snapshot: Awaited<ReturnType<StackIntrospector['snapshot']>>,
-  overrides?: Partial<ProjectProfile>,
-  projectRoot?: string,
+  overrides: Partial<ProjectProfile> | undefined,
+  projectRoot: string,
 ): ProjectProfile {
   const stackProfile = selections.stack_profile ?? snapshot.profile;
   const defaultCommands = buildDefaultCommands(stackProfile, projectRoot);
@@ -785,7 +792,7 @@ function buildProjectProfile(
 
 function buildDefaultCommands(
   stackProfile: NonNullable<ProjectProfile['stack_profile']>,
-  projectRoot?: string,
+  projectRoot: string,
 ): ProjectProfile['commands'] {
   const stack = getPrimaryStack({
     active_capabilities: ['content', 'coding', 'security'],
@@ -875,18 +882,7 @@ function buildDefaultCommands(
     stack === 'astro'
   ) {
     return applyStructuredTestCommandPreference(
-      {
-        install: usingCompose ? 'docker compose exec <node-service> pnpm install' : 'pnpm install',
-        dev: usingCompose ? 'docker compose up -d' : 'pnpm dev',
-        test: usingCompose ? 'docker compose exec <node-service> pnpm test' : 'pnpm test',
-        test_single: usingCompose
-          ? 'docker compose exec <node-service> pnpm test -- <pattern>'
-          : 'pnpm test -- <pattern>',
-        lint: usingCompose ? 'docker compose exec <node-service> pnpm lint' : 'pnpm lint',
-        format: usingCompose ? 'docker compose exec <node-service> pnpm format' : 'pnpm format',
-        migrate: 'echo "configure migrate command"',
-        build: usingCompose ? 'docker compose exec <node-service> pnpm build' : 'pnpm build',
-      },
+      buildNodeCommands(usingCompose, projectRoot),
       stackProfile,
       projectRoot,
     );
@@ -947,19 +943,52 @@ function buildDefaultCommands(
   }
 
   return applyStructuredTestCommandPreference(
-    {
-      install: 'pnpm install',
-      dev: 'pnpm dev',
-      test: 'pnpm test',
-      test_single: 'pnpm test -- <pattern>',
-      lint: 'pnpm lint',
-      format: 'pnpm format',
-      migrate: 'echo "configure migrate command"',
-      build: 'pnpm build',
-    },
+    buildNodeCommands(false, projectRoot),
     stackProfile,
     projectRoot,
   );
+}
+
+function buildNodeCommands(usingCompose: boolean, projectRoot: string): ProjectProfile['commands'] {
+  const manager = nodePackageManager(projectRoot);
+  const scripts = packageScripts(projectRoot);
+  const exec = (command: string) =>
+    usingCompose ? `docker compose exec <node-service> ${command}` : command;
+  const run = (name: string) =>
+    manager === 'npm' && name !== 'test' ? `npm run ${name}` : `${manager} ${name}`;
+  const mapped = (name: string) => (scripts.has(name) ? exec(run(name)) : '');
+  const single = manager === 'yarn' ? 'yarn test <pattern>' : `${manager} test -- <pattern>`;
+
+  return {
+    install: exec(`${manager} install`),
+    dev: usingCompose ? 'docker compose up -d' : mapped('dev'),
+    test: mapped('test'),
+    test_single: scripts.has('test') ? exec(single) : '',
+    lint: mapped('lint'),
+    format: mapped('format'),
+    migrate: mapped('migrate'),
+    build: mapped('build'),
+  };
+}
+
+function packageScripts(projectRoot: string): Set<string> {
+  try {
+    const manifest = JSON.parse(readFileSync(join(projectRoot, 'package.json'), 'utf8')) as {
+      scripts?: unknown;
+    };
+    const scripts = manifest.scripts;
+    return typeof scripts === 'object' && scripts !== null
+      ? new Set(Object.keys(scripts))
+      : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function unmappedCommands(commands: ProjectProfile['commands']): string[] {
+  return Object.entries(commands)
+    .filter(([, command]) => command.trim().length === 0)
+    .map(([name]) => name);
 }
 
 function applyStructuredTestCommandPreference(
@@ -967,6 +996,9 @@ function applyStructuredTestCommandPreference(
   stackProfile: NonNullable<ProjectProfile['stack_profile']>,
   projectRoot?: string,
 ): ProjectProfile['commands'] {
+  if (commands.test.trim().length === 0) {
+    return commands;
+  }
   const runner = selectPreferredStructuredRunner(stackProfile, commands.test, projectRoot);
   if (!runner) {
     return commands;

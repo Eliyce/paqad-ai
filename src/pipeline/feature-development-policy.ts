@@ -465,6 +465,10 @@ export function resolveFeatureDevelopmentCheckCommands(
 
     for (const logicalCommand of checks.commands) {
       const resolved = profile?.commands?.[logicalCommand];
+      if (typeof resolved === 'string' && resolved.trim().length === 0) {
+        warnings.push(`${logicalCommand} is not mapped in the profile; skipped`);
+        continue;
+      }
       if (!resolved) {
         warnings.push(
           `Feature development policy requested project command "${logicalCommand}" but it was not found in ${PATHS.PROJECT_PROFILE}.`,

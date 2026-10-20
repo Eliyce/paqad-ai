@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { hasPackage } from '@/checks/prerequisites.js';
+import { hasPackage, nodePackageManager } from '@/checks/prerequisites.js';
 
 // Ecosystem-lockfile presence lookup (issue #554, Part B.2). true/false when a lockfile exists;
 // null (unknown) when the ecosystem has no lockfile in the project.
@@ -64,5 +64,28 @@ describe('hasPackage', () => {
   it('returns false for an unparseable composer.lock', () => {
     writeFileSync(join(root, 'composer.lock'), 'not json{');
     expect(hasPackage(root, 'composer', 'brianium/paratest')).toBe(false);
+  });
+});
+
+describe('nodePackageManager', () => {
+  let root: string;
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-node-pm-'));
+  });
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it.each([
+    ['pnpm-lock.yaml', 'pnpm'],
+    ['yarn.lock', 'yarn'],
+    ['package-lock.json', 'npm'],
+  ])('reads %s as %s', (lockfile, manager) => {
+    writeFileSync(join(root, lockfile), '');
+    expect(nodePackageManager(root)).toBe(manager);
+  });
+
+  it('defaults to npm when there is no lockfile', () => {
+    expect(nodePackageManager(root)).toBe('npm');
   });
 });

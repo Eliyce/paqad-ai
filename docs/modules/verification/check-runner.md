@@ -81,6 +81,10 @@ nothing. `checks run` shows it as
 Every parsed test result carries the time the command ran as its summary `timestamp`. A parser
 that could not read a time no longer leaves the epoch (`1970-01-01T00:00:00.000Z`) behind.
 
+A logical command mapped to an empty string in the profile (onboarding leaves one empty when
+`package.json` has no such script) is not mapped: `checks run` skips it with
+`<name> is not mapped in the profile; skipped` and runs the rest.
+
 When no command is mapped, or `checks run` was not run, there is no report:
 `structured_test_results` stays undefined, the `code-tests-lint` gate stays `skipped`, and the
 context escalates "test-evidence Inconclusive". The framework never reports green on unrun or

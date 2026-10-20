@@ -198,6 +198,37 @@ describe('feature development policy', () => {
     expect(resolved.warnings).toEqual([]);
   });
 
+  it('skips an empty mapped command as not mapped instead of reporting it not found', () => {
+    const resolved = resolveFeatureDevelopmentCheckCommands(
+      {
+        use_project_profile_commands: true,
+        commands: ['format', 'test', 'build'],
+        shell_commands: [],
+        block_on_failure: true,
+      },
+      {
+        commands: {
+          install: 'npm install',
+          dev: '',
+          test: 'npm test',
+          test_single: 'npm test -- <pattern>',
+          lint: '',
+          format: '',
+          migrate: '',
+          build: '  ',
+        },
+      },
+    );
+
+    expect(resolved.commands).toEqual([
+      { logical_command: 'test', command: 'npm test', source: 'project-profile' },
+    ]);
+    expect(resolved.warnings).toEqual([
+      'format is not mapped in the profile; skipped',
+      'build is not mapped in the profile; skipped',
+    ]);
+  });
+
   describe('analytics stage injection (issue #279)', () => {
     function seedProject(options: { flagOn: boolean; sidecar?: unknown }): string {
       const root = mkdtempSync(join(tmpdir(), 'paqad-analytics-policy-'));

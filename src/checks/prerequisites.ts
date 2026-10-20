@@ -95,3 +95,18 @@ export function hasPackage(
   }
   return false;
 }
+
+export type NodePackageManager = 'pnpm' | 'yarn' | 'npm';
+
+const NODE_LOCKFILE_MANAGERS: ReadonlyArray<readonly [string, NodePackageManager]> = [
+  ['pnpm-lock.yaml', 'pnpm'],
+  ['yarn.lock', 'yarn'],
+  ['package-lock.json', 'npm'],
+];
+
+export function nodePackageManager(projectRoot: string): NodePackageManager {
+  const found = NODE_LOCKFILE_MANAGERS.find(([lockfile]) =>
+    existsSync(join(projectRoot, lockfile)),
+  );
+  return found?.[1] ?? 'npm';
+}

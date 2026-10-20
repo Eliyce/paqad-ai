@@ -36,6 +36,28 @@ file in place instead of re-serialising it:
 - `syncProjectProfile` returns `{ path, written }`, so a caller can tell whether it changed the
   file. `writeProjectProfile` returns the path only.
 
+## Node commands at onboarding
+
+For a Node stack (React, Vue, Express, the Node archetypes, Angular, Svelte, Astro, and the
+fallback for a stack with no command table of its own) onboarding reads the project instead of
+assuming pnpm:
+
+- The package manager comes from the lockfile: `pnpm-lock.yaml` is pnpm, `yarn.lock` is yarn,
+  `package-lock.json` is npm, and no lockfile is npm (`nodePackageManager` in
+  `src/checks/prerequisites.ts`).
+- `install` is always mapped (`npm install`, `pnpm install`, `yarn install`).
+- `dev`, `test`, `lint`, `format`, `build` and `migrate` are mapped only when `package.json`
+  has a script of that name: `npm test`, `npm run build`, `pnpm build`, `yarn build`.
+  `test_single` is derived from `test` (`npm test -- <pattern>`, `yarn test <pattern>`). Under
+  Docker Compose each command runs through `docker compose exec <node-service>` and `dev` is
+  `docker compose up -d`.
+- Anything else is left as an empty string, never an `echo` placeholder, and onboarding prints
+  one warning naming every command it left unmapped.
+
+`checks run` treats an empty command as not mapped: it skips it with a short note such as
+`format is not mapped in the profile; skipped`, rather than reporting it as not found.
+Other stacks still carry their own `echo "configure migrate command"` placeholders.
+
 `checks run` writes the profile for one reason: the one-time `testing` record, keyed to the
 lockfile hash, made when the record is missing or the lockfile changed (and the sequential pin
 after a parallel harness failure). When it does, it prints

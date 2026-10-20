@@ -557,6 +557,7 @@ describe('OnboardingOrchestrator', () => {
       join(projectRoot, 'package.json'),
       JSON.stringify(
         {
+          scripts: { test: 'vitest run' },
           dependencies: { react: '^19.0.0', 'react-dom': '^19.0.0' },
         },
         null,
@@ -564,6 +565,7 @@ describe('OnboardingOrchestrator', () => {
       ),
     );
     writeFileSync(join(projectRoot, 'compose.yaml'), 'services:\n  web:\n    image: node:20\n');
+    writeFileSync(join(projectRoot, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
     mkdirSync(join(projectRoot, 'src'), { recursive: true });
     writeFileSync(
       join(projectRoot, 'src/App.tsx'),
