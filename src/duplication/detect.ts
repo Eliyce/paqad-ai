@@ -1,16 +1,3 @@
-// The new-code duplication detector (issue #358) — the one entry point FR-1 names.
-//
-// For each changed file's added/modified chunks (working-tree diff), it scores similarity
-// against the existing chunk corpus, excluding the changed files themselves, and returns a
-// finding for each near-copy at or above the review band. Pure computation, zero model tokens:
-// the backend is normalized token-shingle Jaccard (the issue's blessed v1 "textual detection"
-// class), which works identically whether or not an embedding index exists (FR-6 / AC-6).
-//
-// Precision guards, in order: new-code-only (a candidate must overlap an added hunk range),
-// the min-lines floor (short snippets never score), the self-similarity guard (the corpus
-// excludes every changed file, so a moved function never matches its own removed original —
-// AC-3), and a cheap size-ratio pre-filter before the O(candidate×corpus) Jaccard pass.
-
 import type { CodeKnowledgeIndex } from '@/code-knowledge/types.js';
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import { AstChunker } from '@/context/ast-chunker.js';
@@ -32,31 +19,20 @@ import { corroborateWithJscpd, isCorroborated, type JscpdLocationKey } from './j
 import { shingles, tokenizeCode, jaccard } from './token-similarity.js';
 import { duplicationMessage, type DuplicationFinding } from './types.js';
 
-/** Chunks whose char count differs from the candidate by more than this ratio can't be a
- *  near-copy of it, so they are skipped before the (more expensive) shingle comparison. */
 const SIZE_RATIO_GUARD = 3;
 
 export interface DetectOptions {
   projectRoot: string;
   changedFiles: string[];
-  /** Resolved config; defaults to the project's resolved duplication config. */
   config?: DuplicationConfig;
-  /** Run jscpd corroboration when it is on PATH (default true). Tests disable it for speed. */
   corroborate?: boolean;
 }
 
-/** A corpus chunk with its precomputed shingle set (built once, reused per candidate). */
 interface IndexedCorpusChunk {
   chunk: CorpusChunk;
   shingleSet: Set<string>;
 }
 
-/**
- * Detect new code that near-duplicates existing code. Returns one finding per near-copy at or
- * above the review band (`heuristic` in 0.80–0.90, `deterministic` at/above the threshold).
- * A `mode: off` config, no changed files, or an empty corpus all yield zero findings, and the
- * detector never throws on a missing index or unreadable file (INV-2 / NFR-3).
- */
 export async function detectNewCodeDuplication(
   options: DetectOptions,
 ): Promise<DuplicationFinding[]> {
@@ -118,7 +94,6 @@ export async function detectNewCodeDuplication(
   return dedupeFindings(findings);
 }
 
-/** Precompute shingle sets for corpus chunks that meet the min-lines floor. */
 function indexCorpus(corpus: CorpusChunk[], minLines: number): IndexedCorpusChunk[] {
   const indexed: IndexedCorpusChunk[] = [];
   for (const chunk of corpus) {
@@ -143,7 +118,6 @@ interface ScoreInput {
   jscpdKeys: Set<JscpdLocationKey>;
 }
 
-/** Score one candidate chunk against the corpus and build a finding, or null when it clears. */
 async function scoreCandidate(input: ScoreInput): Promise<DuplicationFinding | null> {
   const range = resolveChunkLineRange(input.fileText, input.candidateContent);
   /* c8 ignore next 3 -- the candidate content is a chunk of fileText itself, so it always
@@ -151,7 +125,6 @@ async function scoreCandidate(input: ScoreInput): Promise<DuplicationFinding | n
   if (!range) {
     return null;
   }
-  // New-code-only: the candidate must overlap an added/modified hunk range (FR-4).
   if (!rangesOverlap(range.start, range.end, input.ranges)) {
     return null;
   }
@@ -194,7 +167,6 @@ async function scoreCandidate(input: ScoreInput): Promise<DuplicationFinding | n
   };
 }
 
-/** The highest-scoring corpus chunk for a candidate, after the cheap size-ratio pre-filter. */
 function bestMatch(
   candidateShingles: Set<string>,
   candidateChars: number,
@@ -213,7 +185,6 @@ function bestMatch(
   return best;
 }
 
-/** True when two char counts are within the size-ratio guard of each other. */
 function withinSizeRatio(a: number, b: number): boolean {
   /* c8 ignore next 3 -- defensive: candidate and corpus chunks both clear the min-lines
      floor, so neither char count is ever 0 by the time this runs. */
@@ -224,7 +195,6 @@ function withinSizeRatio(a: number, b: number): boolean {
   return ratio <= SIZE_RATIO_GUARD;
 }
 
-/** Resolve the matched symbol name + its caller count from the code-knowledge index. */
 function enrichMatch(
   knowledge: CodeKnowledgeIndex | null,
   chunk: CorpusChunk,
@@ -246,12 +216,10 @@ function enrichMatch(
   return { symbol: top.name, callers: top.caller_count };
 }
 
-/** The non-whitespace character length of a snippet (matches the chunk index's char_count). */
 function nonWhitespaceLength(content: string): number {
   return content.replace(/\s/g, '').length;
 }
 
-/** Keep one finding per (file, start-line, matched-file), the highest-similarity one. */
 function dedupeFindings(findings: DuplicationFinding[]): DuplicationFinding[] {
   const byKey = new Map<string, DuplicationFinding>();
   for (const finding of findings) {

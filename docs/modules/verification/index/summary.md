@@ -357,6 +357,43 @@ conservative. A line with code and a trailing comment still counts. An unreadabl
 rather than throwing. The trend read drops the ledger's `open` marker row before taking the last
 rows.
 
+**The duplication detector (`src/duplication/`).** One scan function serves both the
+`duplication scan` verb (which the armed rule script shells out to) and in-process callers, and
+caches its report where the Stop gate reads it, so both see one result. Precision comes before
+recall because the gate can block:
+
+- *New code only.* A candidate must overlap a line range the change added or modified. Nothing else
+  parses diff hunks, so `hunks.ts` reads `git diff --unified=0 HEAD` with a pure parser (fixture
+  tested, no git process); a pure deletion adds no range, and an untracked file counts as all new so
+  a brand-new copy is caught. Every chunk from a changed file is left out of the corpus, which
+  removes both self-matches and a moved function matching its own removed original.
+- *Cheap first.* Short snippets below the minimum line count never score, and a size-ratio check
+  skips corpus chunks whose size is too different before the costly comparison.
+- *Scoring.* Normalised token-shingle Jaccard over the chunk text, which costs no model tokens and
+  works with or without an embedding index. Comments and string contents are dropped and whitespace
+  collapsed, so a copy with light edits still matches; tokens are joined with a newline so two
+  different splits never form the same shingle, and a stream shorter than the shingle size becomes
+  one shingle instead of scoring 0. The repo's other `jaccard` and `tokenize` helpers are private
+  and shaped for other uses, so this module keeps its own.
+- *Corpus.* Chunks come from the token-efficiency chunk index, else the embedding index; with neither
+  the detector reports nothing rather than failing. Chunks carry no line numbers, so a chunk is found
+  verbatim in its file to get a range, and a chunk that cannot be found is skipped, never given a
+  wrong range.
+- *Config.* `duplication_mode` is floored like the other capability modes and ships as `warn` so
+  findings are seen for a while before strict blocking is turned on. The numeric knobs are ordinary
+  local-wins values, and a bad value falls back to the default.
+- *Escape hatch.* A blocking finding can be accepted through a `create-vs-reuse` decision. The packet
+  shape has no evidence field, so the evidence and a stable machine token ride in its `context`, and
+  one builder writes that token so the writer and reader cannot drift. A resolved packet downgrades
+  its finding to the review band. A scan also offers that pause itself for its strongest finding,
+  and a scan never fails because the pause could not be opened.
+- *jscpd.* When it is on the PATH it runs over the changed files only and marks matching findings as
+  corroborated; it reuses the codebase-health jscpd parser. Its report is read whatever its exit
+  code, since it can exit non-zero and still write one. Without it nothing changes.
+- The run's counts go to the active feature's `duplication.jsonl` so the strict-mode decision rests
+  on real data; the finding message is built by one function so the rule script, gate and fixtures
+  print the same text.
+
 ## Feature Pages
 
 - [Mutation Testing — Verification Gate](../mutation-testing.md) — plant mutants in

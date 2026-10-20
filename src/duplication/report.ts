@@ -1,10 +1,3 @@
-// The duplication report cache + session-ledger telemetry (issue #358).
-//
-// The detector's findings are cached to `.paqad/scripts/rules/.cache/duplication.json` so the
-// Stop-seam DuplicationGate reads the same result the checks-stage rule-script produced (one
-// computation, two consumers). Per-run counts also fold onto the session ledger (FR-11) so the
-// strict-flip decision is driven by real dogfood data, not a guess.
-
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -24,17 +17,13 @@ export interface DuplicationReport {
   mode: DuplicationConfig['mode'];
   similarity_threshold: number;
   min_lines: number;
-  /** Milliseconds the scan took, for the AC-7 budget check. */
   elapsed_ms: number;
   findings: DuplicationFinding[];
   counts: { deterministic: number; heuristic: number };
-  /** Blocking only in strict mode with at least one deterministic finding. */
   blocking: boolean;
-  /** Decision-packet ids that unblock a finding for this change (AC-5). */
   resolved_decisions?: string[];
 }
 
-/** Split findings into their two bands and whether the run blocks under the given mode. */
 export function summarizeFindings(
   findings: DuplicationFinding[],
   mode: DuplicationConfig['mode'],
@@ -47,7 +36,6 @@ export function summarizeFindings(
   };
 }
 
-/** Build the report record from findings, config, and the measured elapsed time. */
 export function buildDuplicationReport(input: {
   findings: DuplicationFinding[];
   config: DuplicationConfig;
@@ -76,14 +64,12 @@ function reportPath(projectRoot: string): string {
   return join(projectRoot, PATHS.DUPLICATION_REPORT);
 }
 
-/** Persist the duplication report to its cache (creating the directory as needed). */
 export function writeDuplicationReport(projectRoot: string, report: DuplicationReport): void {
   const path = reportPath(projectRoot);
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
 }
 
-/** Read the cached duplication report, or null when absent/unreadable. */
 export function readDuplicationReport(projectRoot: string): DuplicationReport | null {
   const path = reportPath(projectRoot);
   if (!existsSync(path)) {
@@ -96,7 +82,6 @@ export function readDuplicationReport(projectRoot: string): DuplicationReport | 
   }
 }
 
-/** Fold the run's counts, threshold, and mode onto the session ledger (FR-11, best-effort). */
 export function recordDuplicationRun(projectRoot: string, report: DuplicationReport): void {
   recordProjectEvent(
     projectRoot,

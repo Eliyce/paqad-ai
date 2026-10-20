@@ -1,12 +1,3 @@
-// The create-vs-reuse escape hatch for duplication findings (issue #358, FR-10 / AC-5).
-//
-// A blocking duplication finding can be accepted by the human through the existing Decision
-// Pause: open a `create-vs-reuse` packet whose context carries the finding's evidence, and once
-// it resolves the finding no longer blocks. The Decision packet type is a fixed shape with no
-// `evidence` field, so the finding's evidence rides in the packet's `context` as a structured
-// block plus a stable machine token — and ONE builder writes that token so the create side and
-// this reader can never diverge on its format (RULE-13).
-
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -15,10 +6,8 @@ import type { ResolvedContractDecision } from '@/decisions/authoring.js';
 
 import type { DuplicationFinding } from './types.js';
 
-/** The Decision-Pause category a duplication escape hatch uses. */
 export const DUPLICATION_DECISION_CATEGORY = 'create-vs-reuse';
 
-/** The finding's stable identity key (file : new-code start-line : matched file). */
 export function findingKey(finding: {
   file: string;
   line_range: { start: number };
@@ -27,17 +16,10 @@ export function findingKey(finding: {
   return `${finding.file}:${finding.line_range.start}:${finding.matched_file}`;
 }
 
-/** The machine token embedded in a packet context, matched back to a finding key. */
 function findingToken(key: string): string {
   return `[paqad-duplication ${key}]`;
 }
 
-/**
- * Build the `context` for a create-vs-reuse packet that accepts a duplication finding. Carries
- * the human-readable evidence (file, similarity, callers) FR-10 asks for, plus the machine token
- * this module reads back. The create side (CLI / narration) passes this verbatim as the packet
- * context so resolution can be correlated deterministically.
- */
 export function buildDuplicationDecisionContext(finding: DuplicationFinding): string {
   const percent = Math.round(finding.similarity * 100);
   return (
@@ -49,17 +31,11 @@ export function buildDuplicationDecisionContext(finding: DuplicationFinding): st
   );
 }
 
-/** A resolved decision and which finding keys it unblocks for this change. */
 export interface ResolvedDuplicationDecision {
   decisionId: string;
   coveredFindingKeys: string[];
 }
 
-/**
- * Correlate resolved `create-vs-reuse` packets to the current findings. A finding is covered
- * when a resolved packet's context carries its machine token. Tolerant: a missing directory or
- * a malformed packet is skipped, never a throw (NFR-3).
- */
 export function applyResolvedDecisions(
   projectRoot: string,
   findings: DuplicationFinding[],
@@ -96,7 +72,6 @@ export function applyResolvedDecisions(
   return results;
 }
 
-/** Read + parse a resolved packet, or null on any read/parse failure. */
 function readPacket(path: string): ResolvedContractDecision | null {
   try {
     return JSON.parse(readFileSync(path, 'utf8')) as ResolvedContractDecision;
