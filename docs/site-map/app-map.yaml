@@ -8,8 +8,8 @@ app:
   generated_from: paqad-ai sitemap run — node-cli extractor
   language: en
   freshness:
-    anchors_total: 95
-    anchors_resolved: 95
+    anchors_total: 105
+    anchors_resolved: 105
     anchors_broken: 0
 actors:
   - id: developer
@@ -740,7 +740,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-module-decisions
     kind: cli-command
-    label: "Inspect MD-XXXX prospective module decisions"
+    label: Inspect MD-XXXX prospective module decisions
     entry:
       kind: bin
       value: module-decisions
@@ -826,7 +826,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-module-events
     kind: cli-command
-    label: "Inspect the module-map events.jsonl audit trail"
+    label: Inspect the module-map events.jsonl audit trail
     entry:
       kind: bin
       value: module-events
@@ -854,7 +854,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-module-map
     kind: cli-command
-    label: "Reconcile module-map.yml against the source tree"
+    label: Reconcile module-map.yml against the source tree
     entry:
       kind: bin
       value: module-map
@@ -952,7 +952,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-intake
     kind: cli-command
-    label: "Deterministic ticket intake — fetch the real ticket a request references"
+    label: Deterministic ticket intake — fetch the real ticket a request references
     entry:
       kind: bin
       value: intake
@@ -1423,6 +1423,7 @@ surfaces:
     entry:
       kind: bin
       value: draft
+    trust: proven-in-code
   - id: node-cli-inventory
     kind: cli-command
     label: Report how many screens, groups and guards the code has — a read-only
@@ -1433,6 +1434,7 @@ surfaces:
     entry:
       kind: bin
       value: inventory
+    trust: proven-in-code
   - id: node-cli-preflight
     kind: cli-command
     label: Check what a workflow needs before it runs, and list any questions in one
@@ -1443,6 +1445,109 @@ surfaces:
     entry:
       kind: bin
       value: preflight
+    trust: proven-in-code
+  - id: node-cli-debt
+    kind: cli-command
+    label: Record findings this change will not fix as tracked tech-debt items
+    entry:
+      kind: bin
+      value: debt
+    area: feature-dev
+    module: feature-evidence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/debt.ts
+        line: 78
+    trust: proven-in-code
+  - id: node-cli-fix
+    kind: cli-command
+    label: "Prove a fix: record the failing test before the fix and the passing test
+      after it"
+    entry:
+      kind: bin
+      value: fix
+    area: feature-dev
+    module: feature-evidence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/fix.ts
+        line: 36
+    trust: proven-in-code
+  - id: node-cli-prove
+    kind: cli-command
+    label: Run the proof test and record the result in fix-proof.json; red runs
+      before the fix
+    entry:
+      kind: bin
+      value: prove
+    area: feature-dev
+    module: feature-evidence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/fix.ts
+        line: 41
+    trust: proven-in-code
+  - id: node-cli-override
+    kind: cli-command
+    label: Record a person allowing one edit past a rule-script stop, using the
+      one-time token
+    entry:
+      kind: bin
+      value: override
+    area: governance
+    module: feature-evidence
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/rules.ts
+        line: 109
+    trust: proven-in-code
+  - id: node-cli-commit-decision-answer
+    kind: cli-command
+    label: Record how the commit question was answered on the change's delivery.json
+    entry:
+      kind: bin
+      value: commit-decision
+    area: delivery
+    module: delivery-workflow
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/delivery-link.ts
+        line: 140
+    trust: proven-in-code
+  - id: node-cli-managed-settings
+    kind: cli-command
+    label: Print or write the Claude Code managed settings that enforce paqad org-wide
+    entry:
+      kind: bin
+      value: managed-settings
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/managed-settings.ts
+        line: 48
+    trust: proven-in-code
+  - id: node-cli-hook
+    kind: cli-command
+    label: Run a packaged paqad edit gate (capability-gate, decision-pause-gate) for
+      managed settings
+    entry:
+      kind: bin
+      value: hook
+    area: lifecycle
+    module: cli-lifecycle
+    derivation: static
+    confidence: high
+    evidence:
+      - file: src/cli/commands/hook.ts
+        line: 128
+    trust: proven-in-code
 journeys:
   - id: onboard-first-run
     label: Onboard a repository and run the first workflow
