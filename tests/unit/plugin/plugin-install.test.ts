@@ -58,7 +58,7 @@ describe('readPackageVersion', () => {
   });
 });
 
-describe('describeFrameworkLink (issue #616, Part 4.6)', () => {
+describe('describeFrameworkLink', () => {
   it('reports an npm-copy link target and its version', () => {
     const npm = join(root, 'node_modules', 'paqad-ai');
     const runtime = makeCopy(npm, '1.95.1');
@@ -90,7 +90,7 @@ describe('describeFrameworkLink (issue #616, Part 4.6)', () => {
 
   it('reports a real directory override', () => {
     const dir = join(root, 'realhome');
-    makeCopy(dir, '2.2.2'); // writes package.json one level above the dir's runtime
+    makeCopy(dir, '2.2.2');
     const home = join(dir, 'runtime');
     const info = describeFrameworkLink({ PAQAD_FRAMEWORK_HOME: home } as NodeJS.ProcessEnv);
     expect(info.copy).toBe('directory');
@@ -99,7 +99,7 @@ describe('describeFrameworkLink (issue #616, Part 4.6)', () => {
   });
 });
 
-describe('isPluginInstalled (issue #616, Part 7)', () => {
+describe('isPluginInstalled', () => {
   it('is true when installed_plugins.json lists paqad@eliyce', () => {
     const path = join(root, 'installed_plugins.json');
     writeFileSync(path, JSON.stringify({ plugins: { 'paqad@eliyce': { enabled: true } } }));

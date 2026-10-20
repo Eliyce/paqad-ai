@@ -58,7 +58,6 @@ describe('ContradictionDetector', () => {
       '"node": ">=20.0" "pnpm": ">=9.0"',
     );
     const result = detector.detect([a, b]);
-    // Each (source_a, source_b, description) triple must be unique
     const triples = result.map((r) => `${r.source_a}|${r.source_b}|${r.description}`);
     expect(triples).toHaveLength(new Set(triples).size);
     expect(result.length).toBeGreaterThan(0);

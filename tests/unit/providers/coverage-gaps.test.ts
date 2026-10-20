@@ -17,7 +17,6 @@ describe('JiraTicketProvider — comment, updateFields, no cloudId', () => {
     await provider.addComment('PQD-1', 'hello');
     expect(seen[0].tool).toBe(JIRA_MCP_TOOLS.comment);
     expect(seen[0].params.commentBody).toBe('hello');
-    // no cloudId configured → params omit it
     expect('cloudId' in seen[0].params).toBe(false);
   });
 

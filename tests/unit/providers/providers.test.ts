@@ -22,7 +22,8 @@ import { resolveTicketProvider, resolveHostProvider } from '@/providers/registry
 import { defaultDeliveryProcess } from '@/pipeline/delivery-policy.js';
 import type { ProjectMcpServer } from '@/core/types/project-profile.js';
 
-/** A shell that records calls and returns scripted results per command. */
+import { ticketRef } from '../../shared/ticket-ref.js';
+
 function fakeShell(
   responses: Record<string, { stdout?: string; stderr?: string; exitCode: number }>,
 ): { shell: DeliveryShell; calls: string[][] } {
@@ -235,7 +236,7 @@ describe('provider registry', () => {
   });
 });
 
-describe('GithubIssuesTicketProvider (#322)', () => {
+describe('GithubIssuesTicketProvider', () => {
   const payload = JSON.stringify({
     number: 45,
     title: 'Add retries',
@@ -251,14 +252,13 @@ describe('GithubIssuesTicketProvider (#322)', () => {
       calls.push(args);
       return payload;
     });
-    const ticket = await provider.fetchTicket('#45');
-    expect(ticket.id).toBe('#45');
+    const ticket = await provider.fetchTicket(ticketRef(45));
+    expect(ticket.id).toBe(ticketRef(45));
     expect(ticket.title).toBe('Add retries');
-    expect(ticket.type).toBe('feature'); // from the `type:` label
+    expect(ticket.type).toBe('feature');
     expect(ticket.acceptance_criteria).toEqual(['returns 200', 'logs on failure']);
     expect(ticket.status).toBe('OPEN');
     expect(ticket.url).toBe('https://github.com/o/r/issues/45');
-    // The `#` is stripped before `gh issue view <number>`.
     expect(calls[0]).toEqual(['issue', 'view', '45', '--json', GITHUB_ISSUE_JSON_FIELDS.join(',')]);
   });
 
@@ -271,7 +271,7 @@ describe('GithubIssuesTicketProvider (#322)', () => {
   });
 
   it('normalizeIssueNumber strips # and gh- prefixes', () => {
-    expect(normalizeIssueNumber('#45')).toBe('45');
+    expect(normalizeIssueNumber(ticketRef(45))).toBe('45');
     expect(normalizeIssueNumber('GH-12')).toBe('12');
     expect(normalizeIssueNumber('9')).toBe('9');
   });

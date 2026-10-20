@@ -29,11 +29,7 @@ const PLUGIN_DIR = join(
   'claude-plugin',
 );
 
-// Issue #616, Part 3 — the Claude Code plugin renders the live hook chain against
-// `${CLAUDE_PLUGIN_ROOT}/runtime`, prepends its own SessionStart bootstrap, drops silent-update,
-// and fails OPEN (no onFailure). Part 1 — the plugin ships the six stage agents and a manifest.
-
-describe('buildPluginHookChain (issue #616, Part 3)', () => {
+describe('buildPluginHookChain', () => {
   const chain = buildPluginHookChain();
 
   it('roots every command at ${CLAUDE_PLUGIN_ROOT}/runtime/hooks', () => {
@@ -75,7 +71,7 @@ describe('buildPluginHookChain (issue #616, Part 3)', () => {
   });
 });
 
-describe('plugin manifest-build generators (issue #616)', () => {
+describe('plugin manifest-build generators', () => {
   it('wraps the chain in the host hooks.json shape with a trailing newline', () => {
     const serialized = serializePluginHooksJson();
     expect(serialized.endsWith('\n')).toBe(true);
@@ -84,19 +80,16 @@ describe('plugin manifest-build generators (issue #616)', () => {
     expect(Object.keys(parsed.hooks)).toContain('PreToolUse');
   });
 
-  it('names the HUD mod beside the hooks and leaves every hook entry as it was (#639 AC-31)', () => {
+  it('names the HUD mod beside the hooks and leaves every hook entry as it was', () => {
     const config = buildPluginHooksConfig();
     expect(Object.keys(config)).toEqual(['hooks', 'modules']);
     expect(config.modules).toEqual(['./mod/register.tsx']);
-    // Without the mod's key the file is exactly what the builder wrote before the mod existed,
-    // so every hook entry, its matcher and its order are unchanged (guardrail rule 1).
     const hooksOnly = { ...config };
     delete hooksOnly.modules;
     const before = mergeNativeHooks({}, buildPluginHookChain());
     expect(hooksOnly).toEqual(before);
     const beforeText = `${JSON.stringify(before, null, 2)}\n`;
     expect(serializePluginHooksJson().startsWith(beforeText.slice(0, -'\n}\n'.length))).toBe(true);
-    // The module path is relative to hooks.json, and the file it names ships.
     expect(existsSync(join(PLUGIN_DIR, 'mod', 'register.tsx'))).toBe(true);
   });
 
@@ -105,14 +98,11 @@ describe('plugin manifest-build generators (issue #616)', () => {
     expect(manifest.name).toBe('paqad');
     expect(manifest.version).toBe('9.9.9');
     expect(manifest.hooks).toBe('./runtime/claude-plugin/hooks.json');
-    // agents is an array of .md file paths (a dir string is rejected by the plugin schema).
     expect(Array.isArray(manifest.agents)).toBe(true);
-    // The six stage agents plus the two High Table agents (issue #639, Part 13, AC-46).
     expect(manifest.agents).toHaveLength(8);
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-development.md');
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-expert.md');
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-chief-architect.md');
-    // displayName is an unrecognized key — it must NOT be present.
     expect(manifest).not.toHaveProperty('displayName');
     expect(manifest.author).toEqual({ name: 'Eliyce' });
   });

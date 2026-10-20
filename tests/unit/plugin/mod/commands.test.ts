@@ -20,9 +20,6 @@ import {
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 import type { PaqadStandDown } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
 
-// Issue #639, Part 8 (FR-25, AC-38, AC-39): `/paqad` and its five subcommands answer `{ text }`
-// from the snapshot the mod already read, so no command costs a model turn.
-
 const run = (args: string, raw: Record<string, unknown> | null, over: Partial<CommandInput> = {}) =>
   runPaqadCommand({
     args,

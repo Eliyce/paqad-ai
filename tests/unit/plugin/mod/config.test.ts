@@ -17,10 +17,6 @@ import {
   type StandDownInput,
 } from '../../../../runtime/claude-plugin/mod/config.ts';
 
-// Issue #639, Part 8 (decision 5, AC-36): the mod registers nothing when the view is off, the
-// project was never onboarded, the session runs in the cloud, paqad is off, or Claude Code is
-// older than 2.1.301. The enable switch must resolve exactly as the hooks resolve it.
-
 const ON: StandDownInput = {
   onboarded: true,
   env: {},
