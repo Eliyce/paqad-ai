@@ -1,89 +1,33 @@
-// The Capability Kernel registry (buildout F3 — the unifying data model).
-//
-// The five sold mechanisms — feature-development stages, scripted-rule
-// enforcement, the decision-pause contract, the narration contract, and the
-// delivery policy — used to be five bespoke implementations scattered across the
-// codebase, each with its own policy source, binding seam, ledger shape, and
-// (mostly absent) evolution story. This registry makes them ONE versioned object
-// — a CapabilityDescriptor — so a sixth contract is one row, not a new subsystem,
-// and so the honest per-provider guarantee, the mode knobs, the ledger doc types,
-// and the schema versions all read from a single source of truth that a
-// consistency test pins against drift.
-//
-// This is the SEED: the descriptors (the metadata) land first. The executor that
-// runs each capability's evaluate() at a host seam is wired in a later slice; the
-// existing gates keep firing through their current paths until then, so this file
-// is purely additive.
-
-/** How strongly a capability can EVER bind, independent of the per-project mode.
- *  `unbindable` is an honest marker (narration is chat output — no host seam on
- *  any provider can observe it), never a failure. */
 export type EnforcementFloor = 'block' | 'warn' | 'observe' | 'unbindable';
 
-/** The host lifecycle point(s) a capability evaluates at. `pre-mutation` is
- *  Claude-only (the sole PreToolUse host); `completion` is every hook-capable
- *  host (Claude Stop, Codex/Gemini completion). */
 export type CapabilitySeam = 'pre-mutation' | 'completion';
 
-/** The host tool/turn payload a capability may inspect, parsed from the hook's stdin
- *  by the host seam (`capability-gate.mjs`). All fields optional: most capabilities
- *  ignore it (they scan the working tree / ledger), and a payload-less invocation is
- *  valid. Used by the decision-pause self-arm, which needs the pending edit's target
- *  and the transcript to read the recent prompt. */
 export interface CapabilityPayload {
-  /** The mutating tool name (Edit/Write/NotebookEdit). */
   toolName?: string;
-  /** The file the pending edit targets. */
   targetPath?: string;
-  /** Absolute path to the turn transcript (JSONL), when the host provides one. */
   transcriptPath?: string;
-  /** The host session id, when provided. */
   sessionId?: string;
-  /** All files a single tool call edits — a Codex `apply_patch` can touch several.
-   *  When present the feature-dev scope check treats the call as feature development if
-   *  ANY path is (issue #566); `targetPath` stays the representative first path. */
   targetPaths?: string[];
-  /** The host adapter type (`codex-cli`), so kernel-recorded rows attribute to the
-   *  host that ran (issue #566). Absent → defaults to `claude-code`. */
   adapter?: string;
 }
 
 export interface CapabilityDescriptor {
-  /** Stable id — NEVER renamed (an alias map handles a rename; a bare rename
-   *  orphans the project's lock + config and resets the team's value). */
   id: 'stages' | 'rule-scripts' | 'rules-loaded' | 'decision-pause' | 'narration' | 'delivery';
-  /** Human title for surfaces (dashboard, narration, docs). */
   title: string;
-  /** The floored config knob that sets this capability's mode, or null when it
-   *  has no mode (narration is unbindable). Must be a registered
-   *  FRAMEWORK_CONFIG_SPEC key (the consistency test enforces this). */
   modeKey: string | null;
-  /** The strongest guarantee this capability can offer on its best host. */
   enforcementFloor: EnforcementFloor;
-  /** The seam(s) the capability evaluates at. Empty for `unbindable`. */
   seam: readonly CapabilitySeam[];
-  /** The session-ledger `doc_type` its records are written under, or null when
-   *  it writes none yet (decision-pause/delivery fold onto the ledger in F6). */
   ledgerDocType: string | null;
-  /** Bumped when this capability's project-config shape changes (migration seam). */
   policySchemaVersion: number;
-  /** Bumped when its ledger row shape changes (drives the per-capability migrator). */
   recordSchemaVersion: number;
 }
 
-/**
- * The one source of truth: the five capabilities as one frozen registry. Adding a
- * sixth contract is one row here. Order is display order.
- */
 export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freeze([
   {
     id: 'stages',
     title: 'Feature-development stages',
     modeKey: 'stages_mode',
     enforcementFloor: 'block',
-    // Block-forward runs at pre-mutation (refuse an edit until the prior stages are
-    // recorded, RCA fix B); the completion seam stays the finalize/verify path. The
-    // impl no-ops at completion so the two never double-fire.
     seam: ['pre-mutation', 'completion'],
     ledgerDocType: 'stage-evidence',
     policySchemaVersion: 1,
@@ -100,11 +44,6 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freez
     recordSchemaVersion: 1,
   },
   {
-    // Issue #557 — rule LOADING (distinct from rule-scripts, which enforces scripted rules).
-    // Required, not tunable: modeKey null + floor 'block' (the decision-pause shape). It refuses
-    // the first feature-dev source edit until the applicable rule text has been loaded and
-    // recorded (rules-loaded.json). Pre-mutation only — the completion half is the dedicated
-    // rulesLoadedGate on the verification path, not this seam.
     id: 'rules-loaded',
     title: 'Rule loading',
     modeKey: null,
@@ -118,9 +57,6 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freez
     id: 'decision-pause',
     title: 'Decision Pause Contract',
     modeKey: null,
-    // The deterministic teeth (ImplementationReviewGate on an OPEN packet) are
-    // `block`; minting is advisory (the detector is a heuristic, never an
-    // auto-blocker — buildout F-DP finding).
     enforcementFloor: 'block',
     seam: ['pre-mutation', 'completion'],
     ledgerDocType: 'decision-evidence',
@@ -131,8 +67,6 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freez
     id: 'narration',
     title: 'Narration contract',
     modeKey: null,
-    // Chat-token cadence has NO host seam on any of the 10 providers — honestly
-    // unbindable. The kernel records 'emitted', never 'verified'.
     enforcementFloor: 'unbindable',
     seam: [],
     ledgerDocType: null,
@@ -143,8 +77,6 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freez
     id: 'delivery',
     title: 'Delivery policy',
     modeKey: null,
-    // No git/CI per the mandate: delivery binds only at completion (a bad push is
-    // caught one turn late, never pre-push), so `warn` is its honest floor today.
     enforcementFloor: 'warn',
     seam: ['completion'],
     ledgerDocType: 'delivery-evidence',
@@ -153,7 +85,6 @@ export const CAPABILITY_REGISTRY: readonly CapabilityDescriptor[] = Object.freez
   },
 ]);
 
-/** Look up a capability descriptor by id. */
 export function getCapability(id: CapabilityDescriptor['id']): CapabilityDescriptor {
   const found = CAPABILITY_REGISTRY.find((capability) => capability.id === id);
   if (!found) {
@@ -162,7 +93,6 @@ export function getCapability(id: CapabilityDescriptor['id']): CapabilityDescrip
   return found;
 }
 
-/** Capabilities that evaluate at a given host seam (drives the future gate). */
 export function capabilitiesForSeam(seam: CapabilitySeam): readonly CapabilityDescriptor[] {
   return CAPABILITY_REGISTRY.filter((capability) => capability.seam.includes(seam));
 }

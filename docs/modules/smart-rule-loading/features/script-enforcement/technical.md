@@ -182,6 +182,74 @@ The reasons below are not obvious from the code in `src/rule-scripts/`.
 - **`validate.ts`.** The header and findings schemas are validated inside the module, so the
   runtime engine does not depend on the project-artifact validator.
 
+## Why the capability kernel works the way it does
+
+The reasons below are not obvious from the code in `src/kernel/`.
+
+- **`registry.ts`.** The registry is the one versioned list of every governed contract, so a new
+  contract is one row and the mode knobs, ledger doc types and schema versions all come from one
+  place that a consistency test pins (a `modeKey` must be a registered framework config key). A
+  capability id is never renamed, because a bare rename orphans the project's lock and config and
+  resets the team's value; a rename needs an alias map. `pre-mutation` exists only on Claude Code
+  (the one PreToolUse host); `completion` is every hook-capable host. Narration is honestly
+  `unbindable`: chat output has no host seam on any provider, so the kernel records it as emitted,
+  never verified. Delivery binds only at completion (no git or CI hooks), so `warn` is its honest
+  floor. Decision-pause minting is advisory because the detector is a heuristic; the block lives in
+  the gate on an open packet. Rule loading has no mode knob and a `block` floor, because loading the
+  rules is not optional.
+- **`capability.ts`.** `CAPABILITY_IMPLS` lists only the contracts already moved onto the kernel
+  seam. A registry row without an implementation keeps its older path, and a contract is added here
+  only when its old path is removed, so nothing fires twice. `evaluate()` returns a no-op for an
+  ordinary "nothing to enforce" and lets infra errors propagate, so the hook soft-fails instead of
+  wedging the agent. Side-effect narration (stage markers recorded to the ledger) rides on the
+  outcome and is shown even when nothing blocks, because a ledger write must never be silent.
+  - Rule-compliance floor: an unrecognised value on either team surface is ignored, so a typo never
+    weakens the floor.
+  - Rule-scripts: when the compat check says this install predates the project's blessed schema,
+    the capability declines to enforce rather than misread a newer format, and never blocks. On a
+    tampered map enforcement is not run at all; the tamper is the verdict. "No scripts armed" is
+    reported as a skipped verdict only at the completion seam, so mid-edit seams do not nag on every
+    edit. A Codex `apply_patch` call counts as feature development when any of its paths is, and a
+    call with no payload fails closed for code.
+  - Stages block-forward: it reads the stage ledger, never a git delta, so a committed clean tree
+    cannot nullify it. Before reading the ledger it sweeps the turn transcript for `paqad:stage`
+    markers emitted earlier in the same turn and records them with the same idempotent routine the
+    Stop hook runs, so the remedy the block message names clears the block in the same turn and is
+    never recorded twice. Planning and specification ends must carry a real artifact digest, so a
+    bare marker pair or an empty file does not unblock; the block message teaches the `-- <path>`
+    form for those stages. The fast lane relaxes only the specification requirement; a path in a
+    `sensitivity: high` module floors the lane back to full, and an unknown lane is treated as full.
+  - Bundle write guard: it runs ahead of the mode and scope checks (bundle files sit under the
+    out-of-scope `.paqad/**`, and the rule is not tunable). The refusal names the verb that owns the
+    file from the bundle manifest's `writer` field, so a new bundle file needs no second list; the
+    `screenshots/` subtree belongs to the visual-evidence verbs, and a path outside the project is
+    never a bundle file. Framework scripts write through `fs`, not a host tool, so they never reach
+    this seam; a shell write is caught later by the envelope `content_hash` check.
+  - Rules-loaded: presence only, never coverage, so editing a new file mid-change never deadlocks;
+    staleness is the completion gate's non-blocking signal. It does nothing at the completion seam
+    (the rules-loaded gate owns that), when no feature is open (the stages gate blocks first, so the
+    same edit does not get two blocks) and when the project has no compiled rules to load.
+  - Delivery: warn only, completion only; the runner is injected so tests are deterministic.
+  - Decision pause: both minters only mint, never block (the decision-pause gate blocks the next
+    edit). The opt-in self-arm runs first and the spec-change guard runs only when self-arm minted
+    nothing, so there is at most one pause per turn.
+- **`capability-lock.ts`.** An unreadable lock is treated as no lock. Writing a capability's digest
+  merges into the existing lock, so other capabilities' entries and fields written by a newer
+  engine survive. Only the engine's single-writer path writes it, never the enforcement seam. The
+  blessing also stamps the capability's current policy and record schema versions; a lock written
+  before those existed reads as "unversioned".
+- **`compat.ts`.** The install's registry versions are the floor this engine knows how to enforce.
+  Lock equal to registry is current; lock older is forward compatible and re-blessed on the next
+  write; no versions recorded is unversioned and the digest gate still runs. A lock newer than the
+  install on either dimension wins and is the only verdict that refuses, because an old install
+  cannot be trusted to read a newer schema; the silent update heals the install and the next run is
+  current.
+- **`gate.ts`.** Any blocking outcome blocks the host (exit 2): stderr carries the blocking findings,
+  stdout the advisory ones when nothing blocks. A thrown infra error propagates so the hook
+  soft-fails to exit 0, which reads as "could not run", never a false all-clear. The first frontend
+  edit visual-evidence reminder is model-facing context only, so any failure on its path degrades
+  to no reminder instead of dropping a blocking outcome.
+
 ## Tests
 
 - `tests/unit/rule-scripts/enforce.test.ts` — blocks under strict with the rule
