@@ -6,7 +6,13 @@ import { Command } from 'commander';
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
-import { runCiGate, type CiGateOptions, type CiGateResult } from '@/delivery/ci-gate.js';
+import {
+  countChecks,
+  createCiRefresh,
+  runCiGate,
+  type CiGateOptions,
+  type CiGateResult,
+} from '@/delivery/ci-gate.js';
 import { runDelivery, type DeliveryRunResult, type DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
@@ -27,7 +33,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { GithubHostProvider } from '@/providers/github-host-provider.js';
 import { raisedTechDebt } from '@/tech-debt/context.js';
 import { renderTechDebtPrSection } from '@/tech-debt/pr-section.js';
-import type { HostProvider } from '@/providers/host-provider.js';
+import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 import {
   readVerificationEvidence,
   renderEvidenceMarkdown,
@@ -115,11 +121,16 @@ export async function runDeliver(deps: DeliverDeps): Promise<DeliverResult> {
     };
   }
 
+  const sha = headSha(deps);
   const gate = await runCiGate(deps.host, rendered.branch, process.ci, {
     ...deps.ci,
     evidenceComment: deps.evidenceBody,
+    onPoll: createCiRefresh(
+      (status) => saveShip(deps, shipFromStatus(status, sha)),
+      deps.ci?.now ?? (() => Date.now()),
+    ),
   });
-  saveShip(deps, shipFromGate(gate, headSha(deps)));
+  saveShip(deps, shipFromGate(gate, sha));
   const green = gate.action === 'passed' || gate.action === 'warned' || gate.action === 'skipped';
   const glyph = green ? '🟢' : '🔴';
   const verdict = green ? 'Safe to merge' : 'Needs your attention';
@@ -157,8 +168,29 @@ function shipFromRun(
   const push = run.steps.find((step) => step.step === 'push');
   if (push) patch.push = { state: push.ok ? 'pushed' : 'failed', branch, sha };
   const pr = run.steps.find((step) => step.step === 'pr')?.pr;
-  if (pr) patch.pr = { number: pr.number, url: pr.url, draft };
+  if (pr) patch.pr = { number: pr.number, url: pr.url, draft, state: 'open', head_sha: sha };
   return patch;
+}
+
+function shipFromStatus(status: ChecksStatus, sha: string | null): ShipPatch {
+  const checks = countChecks(status);
+  return {
+    ci: {
+      sha,
+      state: CI_STATE[status.state],
+      done: checks.done,
+      total: checks.total,
+      reason: null,
+      source: 'ci-gate',
+      jobs: status.checks.map((check) => ({
+        name: check.name,
+        status: check.state === 'green' || check.state === 'red' ? 'COMPLETED' : 'IN_PROGRESS',
+        conclusion: check.state === 'green' ? 'SUCCESS' : check.state === 'red' ? 'FAILURE' : null,
+        started_at: null,
+        completed_at: null,
+      })),
+    },
+  };
 }
 
 function shipFromGate(gate: CiGateResult, sha: string | null): ShipPatch {

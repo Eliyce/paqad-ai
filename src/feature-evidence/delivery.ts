@@ -38,11 +38,23 @@ export interface DeliveryPush {
   at: string;
 }
 
+export type DeliveryPrState = 'open' | 'merged' | 'closed';
+
 export interface DeliveryPr {
   number: number | null;
   url: string | null;
   draft: boolean | null;
+  state?: DeliveryPrState | null;
+  head_sha?: string | null;
   at: string;
+}
+
+export interface DeliveryCiJob {
+  name: string;
+  status: string | null;
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 export interface DeliveryCi {
@@ -52,6 +64,7 @@ export interface DeliveryCi {
   total: number | null;
   reason: string | null;
   source: 'deliver' | 'ci-gate' | 'stop-check';
+  jobs?: DeliveryCiJob[];
   at: string;
 }
 

@@ -75,6 +75,9 @@ describe('computeCommitSplit', () => {
     expect(split.inherited?.merges).toBe(1);
     expect(split.inherited?.untagged).toBe(2);
     expect([...(split.inherited?.tickets ?? [])].sort()).toEqual(['ORD-470', 'ORD-471', 'ORD-472']);
+    expect(split.own_shas).toHaveLength(2);
+    expect(split.inherited_shas).toHaveLength(5);
+    expect(new Set([...split.own_shas!, ...split.inherited_shas!]).size).toBe(7);
     expect(branchCarriesOtherWork(split)).toBe(true);
     expect(sharedBranchLine(split, 'feat/ORD-470-contact-matching')).toContain(
       'Branch `feat/ORD-470-contact-matching` already carries 3 commits from 3 other tickets and 2 untagged made before this change started',

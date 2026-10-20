@@ -32,6 +32,29 @@ export interface CiGateOptions {
   pollIntervalMs?: number;
   maxPolls?: number;
   evidenceComment?: string | null;
+  onPoll?: (status: ChecksStatus) => void;
+}
+
+export const CI_REFRESH_INTERVAL_MS = 60_000;
+
+export function createCiRefresh(
+  save: (status: ChecksStatus) => void,
+  now: () => number,
+  intervalMs: number = CI_REFRESH_INTERVAL_MS,
+): (status: ChecksStatus) => boolean {
+  let lastSaved: number | null = null;
+  let stopped = false;
+  return (status) => {
+    if (stopped) return false;
+    const counts = countChecks(status);
+    const finished = counts.total > 0 && counts.done === counts.total;
+    const at = now();
+    if (!finished && lastSaved !== null && at - lastSaved < intervalMs) return false;
+    save(status);
+    lastSaved = at;
+    stopped = finished;
+    return true;
+  };
 }
 
 async function postEvidence(
@@ -79,6 +102,7 @@ export async function runCiGate(
 
   for (let poll = 0; poll < maxPolls; poll += 1) {
     const status = await host.getChecksStatus(branch);
+    options.onPoll?.(status);
 
     if (status.state === 'green') {
       const evidenceCommentPosted = await postEvidence(host, branch, options.evidenceComment);

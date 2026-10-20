@@ -190,6 +190,70 @@ describe('paqad-ai deliver', () => {
     expect(record.ci).toMatchObject({ state: 'pass', done: 0, total: 0, source: 'ci-gate' });
   });
 
+  it('saves the PR as open on its head and the running jobs while checks run', async () => {
+    const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
+    const polls: ChecksStatus[] = [
+      {
+        state: 'pending',
+        checks: [
+          { name: 'build', state: 'green' },
+          { name: 'test', state: 'pending' },
+        ],
+      },
+      {
+        state: 'red',
+        checks: [
+          { name: 'build', state: 'green' },
+          { name: 'test', state: 'red' },
+        ],
+      },
+    ];
+    const seen: Array<NonNullable<ReturnType<typeof readFeatureDelivery>['ci']>> = [];
+    let poll = 0;
+    const host = {
+      ...fakeHost('green').host,
+      async getChecksStatus(): Promise<ChecksStatus> {
+        const ci = readFeatureDelivery(root, dir).ci;
+        if (ci) seen.push(ci);
+        return polls[Math.min(poll++, polls.length - 1)]!;
+      },
+    } as unknown as HostProvider;
+    let clock = 0;
+    await runDeliver(
+      baseDeps(root, {
+        dirName: dir,
+        host,
+        ci: {
+          now: () => clock,
+          sleep: async () => {
+            clock += 60_000;
+          },
+        },
+      }),
+    );
+    expect(seen[0]).toMatchObject({ state: 'pending', done: 1, total: 2 });
+    expect(seen[0]!.jobs).toEqual([
+      {
+        name: 'build',
+        status: 'COMPLETED',
+        conclusion: 'SUCCESS',
+        started_at: null,
+        completed_at: null,
+      },
+      {
+        name: 'test',
+        status: 'IN_PROGRESS',
+        conclusion: null,
+        started_at: null,
+        completed_at: null,
+      },
+    ]);
+    const record = readFeatureDelivery(root, dir);
+    expect(record.pr).toMatchObject({ number: 12, state: 'open' });
+    expect(record.ci).toMatchObject({ state: 'fail', done: 2, total: 2 });
+    expect(record.ci!.jobs![1]).toMatchObject({ name: 'test', conclusion: 'FAILURE' });
+  });
+
   it('records an unknown CI read with its reason and never as a pass', async () => {
     const dir = openFeatureChange(root, 'ses-deliver', { adapter: 'claude-code', title: 'T' });
     const result = await runDeliver(

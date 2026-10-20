@@ -104,14 +104,12 @@ export function createDeliveryLinkCommand(): Command {
   withCommon(
     command
       .command('merge')
-      .description('Stamp the pulled merge commit on the branch-matched (or active) feature'),
+      .description('Stamp the pulled merge commit on the branch-matched feature only'),
   ).action((options: LinkOptions) => {
     const sha = git(options.projectRoot, ['rev-parse', 'HEAD']);
     const branch = git(options.projectRoot, ['branch', '--show-current']);
     const active = currentFeature(options.projectRoot, resolveSession(options));
-    const dir =
-      (branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch, active) : null) ??
-      active;
+    const dir = branch ? resolveDeliveryFeatureByBranch(options.projectRoot, branch, active) : null;
     if (!sha || !dir) {
       console.log(JSON.stringify({ linked: false, reason: 'no merge target' }));
       return;

@@ -6,6 +6,8 @@ import {
   recordShip,
   resolveDeliveryFeatureByBranch,
   type CiState,
+  type DeliveryCiJob,
+  type DeliveryPrState,
   type ShipPatch,
 } from '@/feature-evidence/delivery.js';
 import type { CapabilitySeam } from '@/kernel/registry.js';
@@ -32,12 +34,15 @@ export interface DeliveryCiReading {
   done: number | null;
   total: number | null;
   reason: string | null;
+  jobs?: DeliveryCiJob[];
 }
 
 export interface DeliveryPrReading {
   number: number | null;
   url: string | null;
   draft: boolean | null;
+  state?: DeliveryPrState | null;
+  head_sha?: string | null;
 }
 
 export type CommandRunner = (command: string, args: string[]) => Promise<CommandRun>;
@@ -154,10 +159,35 @@ function upper(value: unknown): string {
   return typeof value === 'string' ? value.toUpperCase() : '';
 }
 
+function textOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+export function rollupJobs(rollup: unknown): DeliveryCiJob[] {
+  const entries = Array.isArray(rollup) ? (rollup as Array<Record<string, unknown>>) : [];
+  return entries.map((entry) => ({
+    name: textOrNull(entry.name) ?? textOrNull(entry.context) ?? 'check',
+    status: textOrNull(entry.status) ?? textOrNull(entry.state),
+    conclusion: textOrNull(entry.conclusion),
+    started_at: textOrNull(entry.startedAt),
+    completed_at: textOrNull(entry.completedAt),
+  }));
+}
+
+const PR_STATES: Readonly<Record<string, DeliveryPrState>> = {
+  OPEN: 'open',
+  MERGED: 'merged',
+  CLOSED: 'closed',
+};
+
+export function readPrState(value: unknown): DeliveryPrState | null {
+  return PR_STATES[upper(value)] ?? null;
+}
+
 export function readRollup(rollup: unknown): DeliveryCiReading {
   const entries = Array.isArray(rollup) ? (rollup as Array<Record<string, unknown>>) : [];
   if (entries.length === 0) {
-    return { state: 'unknown', done: 0, total: 0, reason: 'no checks reported' };
+    return { state: 'unknown', done: 0, total: 0, reason: 'no checks reported', jobs: [] };
   }
   let done = 0;
   let failed = false;
@@ -168,7 +198,7 @@ export function readRollup(rollup: unknown): DeliveryCiReading {
   }
   const total = entries.length;
   const state: CiState = failed ? 'fail' : done === total ? 'pass' : 'pending';
-  return { state, done, total, reason: null };
+  return { state, done, total, reason: null, jobs: rollupJobs(entries) };
 }
 
 export function ghFailureReason(result: CommandRun): string {
@@ -229,7 +259,7 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     'view',
     branch,
     '--json',
-    'number,url,state,statusCheckRollup,body,isDraft',
+    'number,url,state,headRefOid,statusCheckRollup,body,isDraft',
   ]);
   if (prView.exitCode === 0) {
     ghAvailable = true;
@@ -237,6 +267,8 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
       const pr = JSON.parse(prView.stdout) as {
         number?: number;
         url?: unknown;
+        state?: unknown;
+        headRefOid?: unknown;
         isDraft?: unknown;
         statusCheckRollup?: unknown;
         body?: unknown;
@@ -246,6 +278,8 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         number: typeof pr.number === 'number' ? pr.number : null,
         url: typeof pr.url === 'string' ? pr.url : null,
         draft: typeof pr.isDraft === 'boolean' ? pr.isDraft : null,
+        state: readPrState(pr.state),
+        head_sha: textOrNull(pr.headRefOid),
       };
       ciReading = readRollup(pr.statusCheckRollup);
       if (policy.process.ci.gate === 'wait_for_green' && rollupHasFailure(pr.statusCheckRollup)) {

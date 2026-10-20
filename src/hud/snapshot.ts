@@ -29,7 +29,9 @@ import {
   readFeatureDelivery,
   type DeliveryCi,
   type DeliveryPr,
+  type DeliveryPrState,
   type DeliveryPush,
+  type DeliveryRecord,
 } from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
@@ -125,6 +127,29 @@ export interface HudFindings {
   near_copies: HudFindingsScan<DuplicationRowFinding>;
 }
 
+export interface HudShipCommit {
+  sha: string;
+  subject: string;
+  own: boolean | null;
+}
+
+export interface HudShip {
+  commits: number;
+  commit_list: HudShipCommit[];
+  commit_decision: string | null;
+  merge_commit: string | null;
+  push: DeliveryPush | null;
+  pr: DeliveryPr | null;
+  pr_state: DeliveryPrState | null;
+  ci: DeliveryCi | null;
+  ci_read_at: string | null;
+  all_green: boolean;
+  merged: boolean;
+  own: CommitGroup | null;
+  inherited: CommitGroup | null;
+  inherited_count: number;
+}
+
 export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
@@ -157,16 +182,7 @@ export interface HudSnapshot {
   };
   questions: { asked: number; answered: number; auto_answered: number; deferred: number } | null;
   last_block: RuleStopRecord | null;
-  ship: {
-    commits: number;
-    commit_decision: string | null;
-    merge_commit: string | null;
-    push: DeliveryPush | null;
-    pr: DeliveryPr | null;
-    ci: DeliveryCi | null;
-    own: CommitGroup | null;
-    inherited: CommitGroup | null;
-  } | null;
+  ship: HudShip | null;
   verdict: HudVerdictRecord | null;
   receipt: { path: string } | null;
   evidence_expected: Array<{
@@ -324,6 +340,60 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
         : null);
     return { name: code, required: verdict !== 'not-required', strength, verdict };
   });
+}
+
+function ownPr(delivery: DeliveryRecord, ownShas: ReadonlySet<string> | null): DeliveryPr | null {
+  const pr = delivery.pr ?? null;
+  if (!pr) return null;
+  const head = pr.head_sha ?? null;
+  return head !== null && ownShas !== null && ownShas.has(head) ? pr : null;
+}
+
+function readingIsCurrent(
+  ci: DeliveryCi,
+  pr: DeliveryPr | null,
+  push: DeliveryPush | null,
+): boolean {
+  if (pr?.head_sha && ci.sha !== pr.head_sha) return false;
+  if (push?.sha && ci.sha !== push.sha && Date.parse(ci.at) < Date.parse(push.at)) return false;
+  return true;
+}
+
+export function buildShip(delivery: DeliveryRecord): HudShip {
+  const split = delivery.commit_split ?? null;
+  const ownShas = split?.own_shas ? new Set(split.own_shas) : null;
+  const inheritedShas = split?.inherited_shas ?? [];
+  const commitList = delivery.commits.map((commit) => ({
+    sha: commit.sha.slice(0, 7),
+    subject: commit.subject,
+    own: ownShas === null ? null : ownShas.has(commit.sha),
+  }));
+  const pr = ownPr(delivery, ownShas);
+  const prState = pr?.state ?? null;
+  const rawCi = delivery.ci ?? null;
+  const ci =
+    rawCi && rawCi.state === 'pass' && !readingIsCurrent(rawCi, pr, delivery.push ?? null)
+      ? { ...rawCi, state: 'pending' as const }
+      : rawCi;
+  return {
+    commits:
+      ownShas === null
+        ? (split?.own?.count ?? 0)
+        : delivery.commits.filter((commit) => ownShas.has(commit.sha)).length,
+    commit_list: commitList,
+    commit_decision: delivery.commit_decision?.answer ?? null,
+    merge_commit: delivery.merge_commit,
+    push: delivery.push ?? null,
+    pr,
+    pr_state: prState,
+    ci,
+    ci_read_at: rawCi?.at ?? null,
+    all_green: ci?.state === 'pass' && prState === 'open',
+    merged: prState === 'merged',
+    own: split?.own ?? null,
+    inherited: split?.inherited ?? null,
+    inherited_count: inheritedShas.length,
+  };
 }
 
 function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['questions'] {
@@ -722,16 +792,7 @@ export function buildHudSnapshot(
     decisions,
     questions: buildQuestions(projectRoot, dirName),
     last_block: lastBlock,
-    ship: {
-      commits: delivery.commits.length,
-      commit_decision: delivery.commit_decision?.answer ?? null,
-      merge_commit: delivery.merge_commit,
-      push: delivery.push ?? null,
-      pr: delivery.pr ?? null,
-      ci: delivery.ci ?? null,
-      own: delivery.commit_split?.own ?? null,
-      inherited: delivery.commit_split?.inherited ?? null,
-    },
+    ship: buildShip(delivery),
     verdict,
     receipt,
     evidence_expected: buildEvidenceExpected(projectRoot, sessionId, dirName),

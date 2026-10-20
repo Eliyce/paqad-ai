@@ -72,7 +72,7 @@ describe('paqad-ai delivery-link', () => {
     expect(lines.some((l) => l.includes('"reconciled":true'))).toBe(true);
   });
 
-  it('merge stamps the merge commit on the active feature', async () => {
+  it('merge stamps the merge commit on the branch-matched feature', async () => {
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
     const lines = await run('merge');
     expect(lines.some((l) => l.includes('"linked":true'))).toBe(true);
@@ -83,6 +83,21 @@ describe('paqad-ai delivery-link', () => {
   it('reconcile reports reconciled:false when no feature can be resolved', async () => {
     const lines = await run('reconcile');
     expect(lines.some((l) => l.includes('"reconciled":false'))).toBe(true);
+  });
+
+  it('AC-8: merge on main stamps nothing, even with an active change on another branch', async () => {
+    openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
+    const dir = currentFeature(root, SES)!;
+    execFileSync('git', ['checkout', '-q', '-b', 'main'], { cwd: root, stdio: 'ignore' });
+    writeFileSync(join(root, 'release.txt'), 'release');
+    execFileSync('git', ['add', '-A'], { cwd: root, stdio: 'ignore' });
+    execFileSync('git', ['commit', '-q', '-m', 'chore: release'], { cwd: root, stdio: 'ignore' });
+
+    const lines = await run('merge');
+
+    expect(lines).toEqual([JSON.stringify({ linked: false, reason: 'no merge target' })]);
+    expect(readFeatureDelivery(root, dir).merge_commit).toBeNull();
+    expect(process.exitCode).toBeUndefined();
   });
 
   it('merge reports linked:false when there is no feature to stamp', async () => {

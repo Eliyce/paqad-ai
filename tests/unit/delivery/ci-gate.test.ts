@@ -1,4 +1,9 @@
-import { countChecks, runCiGate } from '@/delivery/ci-gate.js';
+import {
+  CI_REFRESH_INTERVAL_MS,
+  countChecks,
+  createCiRefresh,
+  runCiGate,
+} from '@/delivery/ci-gate.js';
 import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 
@@ -179,5 +184,64 @@ describe('CI gate check counts', () => {
     expect(warned.checks).toEqual({ done: 2, total: 3 });
     const skipped = await runCiGate(hostWith([status]), 'b', ci({ gate: 'off' }));
     expect(skipped.checks).toBeUndefined();
+  });
+});
+
+describe('CI refresh while checks run', () => {
+  const running: ChecksStatus = {
+    state: 'pending',
+    checks: [
+      { name: 'build', state: 'green' },
+      { name: 'test', state: 'pending' },
+    ],
+  };
+  const finished: ChecksStatus = {
+    state: 'green',
+    checks: [
+      { name: 'build', state: 'green' },
+      { name: 'test', state: 'green' },
+    ],
+  };
+
+  it('AC-14: saves at most once a minute while checks run and stops once all are done', () => {
+    let clock = 0;
+    const saved: number[] = [];
+    const refresh = createCiRefresh(
+      () => saved.push(clock),
+      () => clock,
+    );
+    expect(CI_REFRESH_INTERVAL_MS).toBe(60_000);
+    for (const at of [0, 15_000, 30_000, 45_000, 60_000, 75_000]) {
+      clock = at;
+      refresh(running);
+    }
+    expect(saved).toEqual([0, 60_000]);
+    clock = 80_000;
+    expect(refresh(finished)).toBe(true);
+    clock = 200_000;
+    expect(refresh(running)).toBe(false);
+    expect(saved).toEqual([0, 60_000, 80_000]);
+  });
+
+  it('treats a status with no checks as still running', () => {
+    let clock = 0;
+    const saved: number[] = [];
+    const refresh = createCiRefresh(
+      () => saved.push(clock),
+      () => clock,
+      10,
+    );
+    refresh({ state: 'unknown', checks: [] });
+    clock = 5;
+    refresh({ state: 'unknown', checks: [] });
+    clock = 10;
+    refresh({ state: 'unknown', checks: [] });
+    expect(saved).toEqual([0, 10]);
+  });
+
+  it('runCiGate hands every poll to onPoll', async () => {
+    const polls: ChecksStatus[] = [];
+    await runCiGate(hostWith([running, finished]), 'b', ci(), { onPoll: (s) => polls.push(s) });
+    expect(polls).toEqual([running, finished]);
   });
 });
