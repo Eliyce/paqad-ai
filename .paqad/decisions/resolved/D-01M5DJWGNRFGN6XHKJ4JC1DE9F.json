@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5DJWGNRFGN6XHKJ4JC1DE9F",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on HudVerdictRecord in src/hud/receipt-file.ts",
+  "context": "Chief architect: The two claims agree; this one carries the guardrail on a Stop-path script, which is the higher risk. The QA fixtures (other change id hidden, legacy hidden, written_at equal to latest edit shown, one millisecond earlier hidden) become the tests that prove it.\n\nTarget: HudVerdictRecord in src/hud/receipt-file.ts\n- solution-architect: the new change field is written by runtime/scripts/verify-backstop.mjs, a Stop-path script; the field must be added without changing that script's decision, stdout or exit code, and legacy records without it read as no verdict\n- qa-engineer: Verdict freshness needs three fixtures: verdict for another change id is hidden; a legacy record without change is hidden; verdict written_at equal to latestEditAt is shown and one millisecond earlier is hidden. The headline must never say Safe to merge in the hidden cases.\n\n[expert-conflict-fork:015df37566550778]",
+  "options": [
+    {
+      "option_key": "the-new-change-field-is-written-by-runti",
+      "label": "the new change field is written by runtime/scripts/verify-backstop.mjs, a Stop-path script; the field must be added without changing that script's decision, stdout or exit code, and legacy records without it read as no verdict — solution-architect",
+      "one_line_preview": "the new change field is written by runtime/scripts/verify-backstop.mjs, a Stop-path script; the field must be added without changing that script's decision, stdout or exit code, and legacy records without it read as no verdict — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "verdict-freshness-needs-three-fixtures-v",
+      "label": "Verdict freshness needs three fixtures: verdict for another change id is hidden; a legacy record without change is hidden; verdict written_at equal to latestEditAt is shown and one millisecond earlier is hidden. The headline must never say Safe to merge in the hidden cases. — qa-engineer",
+      "one_line_preview": "Verdict freshness needs three fixtures: verdict for another change id is hidden; a legacy record without change is hidden; verdict written_at equal to latestEditAt is shown and one millisecond earlier is hidden. The headline must never say Safe to merge in the hidden cases. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-new-change-field-is-written-by-runti",
+  "created_at": "2026-10-20T21:18:40.824Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "chosen": "the-new-change-field-is-written-by-runti",
+  "rationale": "Owner: build all compatible claims as the chief architect recommends; one PR",
+  "resolved_at": "2026-10-20T21:48:05.265Z",
+  "decision_id": "D-01M5DJWGNRFGN6XHKJ4JC1DE9F",
+  "fingerprint": "sha256:c42f0b05e06d9c484ed52fd289e64aaa793a29bdea3479e0431adea1f63492e9",
+  "question": "Experts disagree on HudVerdictRecord in src/hud/receipt-file.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "ttl_until": "2026-11-19T21:18:40.824Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-new-change-field-is-written-by-runti",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T21:48:05.265Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: build all compatible claims as the chief architect recommends; one PR"
+  }
+}

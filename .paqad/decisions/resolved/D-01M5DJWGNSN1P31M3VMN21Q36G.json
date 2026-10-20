@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5DJWGNSN1P31M3VMN21Q36G",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new src/pipeline/route-turns.ts",
+  "context": "Chief architect: No real disagreement. This claim also states why the record exists and that it is the only new shared record; the byte-identical proof from the other claim is held by EX-qa-engineer-11, which is accepted.\n\nTarget: new src/pipeline/route-turns.ts\n- solution-architect: the route-turn log is the one new shared record feeding change qualification, cost scoping and the workflow status entry; it is written next to writeWorkflowState in src/pipeline/prompt-lane.ts best effort, and a write fault must never change routing output\n- application-architect: the route-turn append in prompt-lane.ts is best effort and the routing output (stdout and lane record) stays byte-identical whether the write succeeds or fails\n\n[expert-conflict-fork:0871480775c204ca]",
+  "options": [
+    {
+      "option_key": "the-route-turn-log-is-the-one-new-shared",
+      "label": "the route-turn log is the one new shared record feeding change qualification, cost scoping and the workflow status entry; it is written next to writeWorkflowState in src/pipeline/prompt-lane.ts best effort, and a write fault must never change routing output — solution-architect",
+      "one_line_preview": "the route-turn log is the one new shared record feeding change qualification, cost scoping and the workflow status entry; it is written next to writeWorkflowState in src/pipeline/prompt-lane.ts best effort, and a write fault must never change routing output — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-route-turn-append-in-prompt-lane-ts-",
+      "label": "the route-turn append in prompt-lane.ts is best effort and the routing output (stdout and lane record) stays byte-identical whether the write succeeds or fails — application-architect",
+      "one_line_preview": "the route-turn append in prompt-lane.ts is best effort and the routing output (stdout and lane record) stays byte-identical whether the write succeeds or fails — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-route-turn-log-is-the-one-new-shared",
+  "created_at": "2026-10-20T21:18:40.825Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "chosen": "the-route-turn-log-is-the-one-new-shared",
+  "rationale": "Owner: build all compatible claims as the chief architect recommends; one PR",
+  "resolved_at": "2026-10-20T21:48:05.891Z",
+  "decision_id": "D-01M5DJWGNSN1P31M3VMN21Q36G",
+  "fingerprint": "sha256:bbdb949a352dda3cab58faa9521ea48fe7ca2a9a6d1daec0ae7aa22e6e86be39",
+  "question": "Experts disagree on new src/pipeline/route-turns.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "ttl_until": "2026-11-19T21:18:40.825Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-route-turn-log-is-the-one-new-shared",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T21:48:05.891Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: build all compatible claims as the chief architect recommends; one PR"
+  }
+}
