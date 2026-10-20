@@ -110,7 +110,6 @@ describe('createLogger', () => {
 
     const records = h.lines();
     expect(records.map((r) => r.correlation_id)).toEqual(['corr-1', 'corr-1', 'corr-1']);
-    // Shares the parent's redaction counter.
     expect(h.logger.getRedactionCount()).toBe(1);
   });
 

@@ -4,10 +4,7 @@ import { AGENT_ROLES } from '@/core/types/agent.js';
 import { ROLE_TOKEN_BUDGETS } from '@/core/constants/budgets.js';
 import { EXPERT_ROLES, expertBudget, isExpertRole } from '@/spec-pipeline/experts/roster.js';
 
-// Issue #547 — the roster grows by three roles. qa-engineer and user-flow-writer are pickable
-// experts; chief-architect never is (it runs automatically once any expert fired). ROLE_TOKEN_BUDGETS
-// is the only exhaustive Record<AgentRole, number>, so it compiles only when every role has a budget.
-describe('agent roles (issue #547)', () => {
+describe('agent roles', () => {
   it('AGENT_ROLES carries the three new roles', () => {
     expect(AGENT_ROLES).toContain('qa-engineer');
     expect(AGENT_ROLES).toContain('user-flow-writer');

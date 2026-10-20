@@ -53,7 +53,6 @@ describe('runHealthRetest', () => {
 
   it('marks a finding fixed once the underlying problem is gone', async () => {
     const root = repo();
-    // First run with the dead file present.
     const run = await runHealthAudit({
       projectRoot: root,
       gatherer: gatherer(true),
@@ -61,7 +60,6 @@ describe('runHealthRetest', () => {
     });
     expect(run.finding_count).toBe(1);
 
-    // Retest with the dead file gone → the finding is fixed.
     const result = await runHealthRetest({
       projectRoot: root,
       gatherer: gatherer(false),

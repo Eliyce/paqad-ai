@@ -89,7 +89,6 @@ describe('computeDependencyUsage', () => {
       join(root, 'package.json'),
       JSON.stringify({ dependencies: { chalk: '^5.0.0' } }),
     );
-    // A markdown file that merely mentions "chalk" must not count as an import.
     const md = 'see chalk for colors';
     writeFileSync(join(root, 'README.md'), md);
     const deps = await computeDependencyUsage(root, ['README.md'], new Map([['README.md', md]]));

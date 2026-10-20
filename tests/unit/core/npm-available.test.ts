@@ -14,12 +14,12 @@ afterEach(() => {
   resetNpmAvailableCache();
 });
 
-describe('isNpmAvailable (issue #616, Part 8)', () => {
+describe('isNpmAvailable', () => {
   it('is true when `npm --version` succeeds, and memoizes the probe', () => {
     execFileSync.mockReturnValue('10.0.0');
     expect(isNpmAvailable()).toBe(true);
     expect(isNpmAvailable()).toBe(true);
-    expect(execFileSync).toHaveBeenCalledTimes(1); // memoized
+    expect(execFileSync).toHaveBeenCalledTimes(1);
   });
 
   it('is false when npm is not on PATH', () => {

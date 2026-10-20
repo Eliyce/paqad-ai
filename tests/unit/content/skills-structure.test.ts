@@ -57,8 +57,6 @@ describe('runtime skills', () => {
         expect(parsed.body).toContain(section);
       }
 
-      // Skill bodies reference resources with forward slashes; relative()
-      // emits backslashes on Windows.
       const resourceReferences = [
         ...bundledReferences,
         toPosixPath(relative(process.cwd(), agentConfigPath)),

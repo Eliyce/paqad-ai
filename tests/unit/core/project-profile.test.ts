@@ -130,8 +130,6 @@ describe('project profile migration', () => {
   });
 
   it('treats coding without a stack profile as a converged state, not a migration', () => {
-    // First pass canonicalizes defaults (e.g. intelligence); the converged
-    // form must then be stable: no further migration, coding kept.
     const canonical = migrateProjectProfile({
       project: { name: 'Demo', id: 'demo', description: 'Demo' },
       active_capabilities: ['content', 'coding', 'security'],
@@ -156,9 +154,7 @@ describe('project profile migration', () => {
   it('migration converges: repeated reads of a legacy profile append exactly one audit line', () => {
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
     const legacyShapes: Record<string, unknown>[] = [
-      // coding declared, no stack profile at all
       { active_capabilities: ['coding'] },
-      // short-video framework is filtered out, leaving no usable stack profile
       {
         active_capabilities: ['coding'],
         stack_profile: {
@@ -169,7 +165,6 @@ describe('project profile migration', () => {
           sources: [],
         },
       },
-      // legacy routing says coding but provides no frameworks
       { routing: { domain: 'coding', stack: 'laravel', capabilities: [] } },
     ];
 

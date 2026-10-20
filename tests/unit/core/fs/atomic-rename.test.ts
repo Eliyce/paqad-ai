@@ -14,7 +14,7 @@ function codeError(code: string): NodeJS.ErrnoException {
   return Object.assign(new Error(`${code}: rename failed`), { code });
 }
 
-describe('atomic-rename (issue #647)', () => {
+describe('atomic-rename', () => {
   let dir: string;
   let from: string;
   let to: string;

@@ -1,17 +1,3 @@
-// The golden-fixture spine test.
-//
-// The disabled signal is resolved by THREE independent parsers that must always
-// agree — the spine's weakest joint (battle-test finding). This test pins them to
-// ONE shared case list:
-//   1. TS predicate   — src/core/framework-enabled.ts (isFrameworkDisabledForRoot)
-//   2. .mjs primitive — runtime/hooks/lib/paqad-disabled.mjs (isPaqadDisabled)
-//   3. .sh kill switch — runtime/hooks/lib/paqad-disabled.sh (paqad_is_disabled)
-//
-// Cases cover the locked precedence (PAQAD_DISABLED > PAQAD_ENABLE env > .config >
-// configs/.config.* merged > default-on, LOCAL WINS) plus the coercion edge cases
-// the battle test called out: CRLF, quoted, inline-comment, commented-out, case,
-// multi-file collision, and unrelated-falsy-key.
-
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -29,11 +15,8 @@ const itPosix = process.platform === 'win32' ? it.skip : it;
 
 interface ParityCase {
   name: string;
-  /** `.paqad/.config` (the dev-local layer) body. */
   dotConfig?: string;
-  /** `.paqad/configs/<name>` (the team layer) bodies. */
   configs?: Record<string, string>;
-  /** Extra env (PAQAD_* escape hatches / hard switch). */
   env?: Record<string, string>;
   expectedDisabled: boolean;
 }
@@ -147,8 +130,6 @@ function setupRoot(testCase: ParityCase): string {
   return root;
 }
 
-/** A clean env with ambient PAQAD_* stripped, plus the case's overrides — so all
- *  three parsers see exactly the same inputs the TS path is given explicitly. */
 function caseEnv(testCase: ParityCase): Record<string, string> {
   const base: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {

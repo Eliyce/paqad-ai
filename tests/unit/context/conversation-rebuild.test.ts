@@ -23,7 +23,6 @@ function dmsg(
   return { id, role: 'user', content, createdAt, ...extra };
 }
 
-/** A real optimizer; its `summarizeTurns` is pure (no disk I/O). */
 function makeOptimizer(root: string): ContextBudgetOptimizer {
   return new ContextBudgetOptimizer(
     new TurnSummarizer(),
@@ -107,7 +106,6 @@ describe('rebuildApiConversation', () => {
     expect(system?.content).toContain('chunk one');
     expect(system?.content).toContain('chunk two');
     expect(system?.content).toContain('chunk three');
-    // No leading system context ⇒ retrieval lands at the front.
     expect(result.messages[0]?.role).toBe('system');
   });
 
@@ -174,7 +172,7 @@ describe('rebuildApiConversation', () => {
       const result = await rebuildApiConversation({
         displayMessages: messages,
         classifierOutput: {},
-        budgetTokens: 60, // each turn is 50 tokens; only the newest fits
+        budgetTokens: 60,
         summarizer: new TurnSummarizer(),
         audit: { projectRoot: root, sessionId: 'sess-1' },
       });
@@ -330,7 +328,7 @@ describe('rebuildApiConversation', () => {
       estimateSpy.mockClear();
       const second = await rebuildApiConversation(input);
       expect(estimateSpy).not.toHaveBeenCalled();
-      expect(second).toBe(first); // same cached object reference
+      expect(second).toBe(first);
     });
 
     it('recomputes for a different conversation (distinct cache key)', async () => {

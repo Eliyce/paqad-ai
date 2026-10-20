@@ -6,8 +6,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { FileLockTimeoutError, withFileLockSync } from '@/core/fs/file-lock.js';
 
-// Issue #639, Part 13: the blocking lock that keeps parallel High Table seats from losing a note.
-
 const roots: string[] = [];
 function tempLock(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-file-lock-'));
@@ -63,7 +61,6 @@ describe('withFileLockSync', () => {
     expect(ran).toBe(false);
     expect(sleeps.length).toBeGreaterThanOrEqual(4);
     expect(sleeps.every((ms) => ms === 25)).toBe(true);
-    // The live holder's lock is left alone.
     expect(existsSync(lock)).toBe(true);
   });
 

@@ -6,9 +6,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { appendHooksLog, hooksLogPath } from '@/core/logging/hooks-log.js';
 
-// Issue #639 (AC-69): dist code a hook calls logs a failed record-only write to the same
-// .paqad/logs/hooks.log the hooks themselves write, and the log write itself never throws.
-
 const roots: string[] = [];
 afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
@@ -33,7 +30,6 @@ describe('appendHooksLog', () => {
 
   it('never throws when the log cannot be written', () => {
     const root = tempRoot();
-    // A file where the .paqad directory should be makes the mkdir fail.
     writeFileSync(join(root, '.paqad'), 'not a directory');
     expect(() => appendHooksLog(root, 'lost')).not.toThrow();
   });

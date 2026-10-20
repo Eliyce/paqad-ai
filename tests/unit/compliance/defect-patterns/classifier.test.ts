@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { classifyDefect, CLASSIFICATION_RULES } from '@/compliance/defect-patterns/classifier.js';
 
 describe('classifyDefect', () => {
-  // D3 — heuristic patterns
   it('classifies threshold/magic-number descriptions as D3.threshold-heuristic', () => {
     expect(classifyDefect('Unspecified threshold value detected', 'D3')).toBe(
       'D3.threshold-heuristic',
@@ -24,7 +23,6 @@ describe('classifyDefect', () => {
     );
   });
 
-  // D5 — spec omission patterns
   it('classifies CLI-related descriptions as D5.missing-cli-surface', () => {
     expect(classifyDefect('CLI must expose compliance report command', 'D5')).toBe(
       'D5.missing-cli-surface',
@@ -91,7 +89,6 @@ describe('classifyDefect', () => {
     );
   });
 
-  // D8 — test quality patterns
   it('classifies tautological test descriptions as D8.tautological-test', () => {
     expect(classifyDefect('Tautological assertion detected', 'D8')).toBe('D8.tautological-test');
     expect(classifyDefect('Test asserts trivial identity', 'D8')).toBe('D8.tautological-test');
@@ -104,13 +101,11 @@ describe('classifyDefect', () => {
     expect(classifyDefect('Stub-only assertion', 'D8')).toBe('D8.mock-only-test');
   });
 
-  // D1 — unspecified logic
   it('classifies unspecified-logic descriptions as D1.unspecified-logic', () => {
     expect(classifyDefect('Logic not in the spec was added', 'D1')).toBe('D1.unspecified-logic');
     expect(classifyDefect('Invented behavior not documented', 'D1')).toBe('D1.unspecified-logic');
   });
 
-  // D2 — wrong obligation mapping
   it('classifies wrong-obligation descriptions as D2.wrong-obligation-mapping', () => {
     expect(classifyDefect('Wrong obligation ID mapped to this test', 'D2')).toBe(
       'D2.wrong-obligation-mapping',
@@ -120,7 +115,6 @@ describe('classifyDefect', () => {
     );
   });
 
-  // Fallback
   it('falls back to {category}.unclassified when no rule matches', () => {
     expect(classifyDefect('Some totally generic obligation', 'D5')).toBe('D5.unclassified');
     expect(classifyDefect('Unrecognised pattern', 'D9')).toBe('D9.unclassified');

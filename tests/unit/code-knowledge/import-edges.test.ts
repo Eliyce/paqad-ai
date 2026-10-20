@@ -95,8 +95,6 @@ describe('buildEdges', () => {
       'src/lib.ts': 'export function foo(): void {}\n',
       'src/app.ts': 'import { foo } from "./lib.js";\n',
     };
-    // Write both files (so scanImports resolves the edge) but omit app.ts from the
-    // content map, exercising the `?? ''` fallback -> no imported names -> no ref edge.
     await run(files);
     const rels = Object.keys(files);
     const result = await buildEdges(

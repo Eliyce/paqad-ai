@@ -57,7 +57,6 @@ describe('RelevanceScorer.filterAndRank', () => {
   });
 
   it('filters chunks below threshold', () => {
-    // With default threshold 0.15, billing chunk (no auth keyword match) may be filtered
     const scorer = new RelevanceScorer(0.5);
     const { chunks } = scorer.filterAndRank([BILLING_CHUNK], {
       keywords: ['auth'],
@@ -73,10 +72,8 @@ describe('RelevanceScorer.filterAndRank', () => {
       baseCtx,
       [{ type: 'module_path_prefix', value: 'src/billing' }],
     );
-    // Only billing passes the filter (1 chunk < min 3 → fallback to all)
     expect(fusion_strategy.filter_fallback).toBe(true);
     expect(fusion_strategy.filters_applied).toEqual([]);
-    // After fallback, all chunks are in corpus
     expect(chunks.length).toBeGreaterThan(0);
   });
 

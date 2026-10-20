@@ -82,7 +82,6 @@ describe('core export surface', () => {
     expect(ENGINE_ERROR_CODES.UNKNOWN_ENGINE_ERROR).toBe('UNKNOWN_ENGINE_ERROR');
     const taxonomy = listErrorTaxonomy();
     expect(taxonomy.length).toBe(Object.keys(ENGINE_ERROR_CODES).length);
-    // Typed subclasses are importable from the package root and carry their code.
     const corrupt = new DecisionPacketCorruptError('x', { decision_id: 'd', reason: 'r' });
     expect(corrupt).toBeInstanceOf(FrameworkError);
     expect(corrupt.code).toBe('DECISION_PACKET_CORRUPT');
@@ -236,7 +235,6 @@ describe('core export surface', () => {
     expect(ESCALATION_MODES).toEqual(['block', 'require_approval', 'warn']);
     expect(AGENT_ROLES).toContain('reviewer');
     expect(DOC_TYPES).toContain('error-catalog');
-    // Issue #622 — `info` reports a fact with no verdict (the MCP recommendation check).
     expect(HEALTH_CHECK_STATUSES).toEqual(['pass', 'fail', 'warning', 'info']);
   });
 

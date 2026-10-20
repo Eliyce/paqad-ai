@@ -19,7 +19,7 @@ function writePkg(dir: string, body: string): void {
   writeFileSync(join(dir, 'package.json'), body);
 }
 
-describe('findPackageRoot (issue #579)', () => {
+describe('findPackageRoot', () => {
   let root: string;
 
   beforeEach(() => {
@@ -57,7 +57,6 @@ describe('findPackageRoot (issue #579)', () => {
     const nullBody = join(unparseable, 'b');
     writePkg(nullBody, 'null');
     const unreadable = join(nullBody, 'c');
-    // A directory named package.json makes readFileSync throw on every platform.
     mkdirSync(join(unreadable, 'package.json'), { recursive: true });
 
     expect(findPackageRoot(unreadable)).toBe(pkg);

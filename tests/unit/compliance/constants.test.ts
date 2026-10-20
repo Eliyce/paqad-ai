@@ -47,7 +47,6 @@ describe('specReportPath', () => {
   it('shares the same slug directory as specIndexPath', () => {
     const indexP = specIndexPath('docs/my-spec.md');
     const reportP = specReportPath('docs/my-spec.md');
-    // Same directory, different filenames
     expect(indexP.split('/').slice(0, -1).join('/')).toBe(
       reportP.split('/').slice(0, -1).join('/'),
     );

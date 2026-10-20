@@ -21,7 +21,6 @@ function makeObligation(obligation_id: string, overrides: Partial<Obligation> = 
 }
 
 describe('vitest skeletons', () => {
-  // FR-5.2: skeleton must contain @obligation annotation and always fail
   it('renders a failing skeleton with an @obligation annotation', () => {
     const skeleton = renderVitestSkeleton(
       makeObligation('FR-1-T1', { description: 'Must do the thing' }),
@@ -32,13 +31,11 @@ describe('vitest skeletons', () => {
     );
   });
 
-  // FR-5.2: obligation ID must appear in the test name
   it('uses the obligation ID in the test name', () => {
     const skeleton = renderVitestSkeleton(makeObligation('FR-2-T3', { description: 'My desc' }));
     expect(skeleton).toContain('it("FR-2-T3: My desc"');
   });
 
-  // FR-5.2: comment block must include pass_criteria and source_section
   it('includes pass_criteria and source_section in the comment block', () => {
     const skeleton = renderVitestSkeleton(
       makeObligation('FR-3-T1', {
@@ -133,7 +130,6 @@ describe('vitest skeletons', () => {
     expect(written[1]).toContain('FR-Z-T1');
   });
 
-  // FR-5.4: idempotent — second run must not overwrite existing files
   it('does not overwrite existing skeleton files on repeated runs (FR-5.4)', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'paqad-ai-'));
     const obligation = makeObligation('FR-7-T1', { description: 'Should not be overwritten' });
@@ -144,23 +140,19 @@ describe('vitest skeletons', () => {
       output_dir: 'tests/compliance-skeletons',
     });
 
-    // Simulate developer partially implementing the test
     const customContent = '// developer work in progress';
     await writeFile(firstRun!, customContent, 'utf8');
 
-    // Second run with the same obligation
     await generateVitestSkeletons({
       project_root: root,
       obligations: [obligation],
       output_dir: 'tests/compliance-skeletons',
     });
 
-    // Developer's content must be preserved
     const preserved = await readFile(firstRun!, 'utf8');
     expect(preserved).toBe(customContent);
   });
 
-  // FR-5.4: second run still returns the file path even when not overwriting
   it('still returns the file path on second run even though no write occurs (FR-5.4)', async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'paqad-ai-'));
     const obligation = makeObligation('FR-8-T1');
@@ -178,7 +170,6 @@ describe('vitest skeletons', () => {
     });
 
     expect(firstRun).toEqual(secondRun);
-    // File exists
     await expect(access(secondRun[0]!)).resolves.toBeUndefined();
   });
 });

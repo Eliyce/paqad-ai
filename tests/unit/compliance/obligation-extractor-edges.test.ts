@@ -33,7 +33,6 @@ describe('extractObligationIndex edge cases', () => {
       extracted_at: '2026-04-07T00:00:00.000Z',
     });
 
-    // The table is ignored, but explicit tagged requirements are still extracted.
     expect(index.obligations.map((o) => o.obligation_id)).toEqual(['FR-1-T1']);
   });
 
@@ -74,12 +73,10 @@ describe('extractObligationIndex edge cases', () => {
     const markdown = [
       '# Spec',
       '',
-      // Has ID + Pass, missing Condition/Criterion keyword.
       '| Test ID | Foo | Bar | Pass Criteria |',
       '|---|---|---|---|',
       '| FR-1-T1 | A | Unit | OK |',
       '',
-      // Has ID + Condition, missing Pass keyword.
       '| Test ID | Condition | Method | Output |',
       '|---|---|---|---|',
       '| FR-1-T2 | A | Unit | OK |',
@@ -92,7 +89,6 @@ describe('extractObligationIndex edge cases', () => {
       extracted_at: '2026-04-07T00:00:00.000Z',
     });
 
-    // These IDs still show up via explicit tag scanning, but not via table parsing.
     expect(index.obligations.map((o) => o.obligation_id)).toEqual(['FR-1-T1', 'FR-1-T2']);
     expect(index.obligations.every((o) => o.pass_criteria === null)).toBe(true);
   });

@@ -30,8 +30,6 @@ describe('assertComplianceSummaryInvariants', () => {
   });
 
   it('accepts a valid summary where all obligations are indeterminate (ratio 1, zero denominator guard)', () => {
-    // When total === indeterminate, denominator = 0, ratio is guarded to 1.
-    // uncovered = 0, so the invariant does not fire.
     expect(() =>
       assertComplianceSummaryInvariants({
         total: 3,
@@ -45,8 +43,6 @@ describe('assertComplianceSummaryInvariants', () => {
   });
 
   it('accepts a valid mixed summary', () => {
-    // 2 covered, 1 partial, 1 uncovered, 1 indeterminate → total 5
-    // ratio = 2 / (5 - 1) = 0.5
     expect(() =>
       assertComplianceSummaryInvariants({
         total: 5,

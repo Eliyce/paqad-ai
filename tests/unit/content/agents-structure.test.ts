@@ -5,10 +5,6 @@ import { describe, expect, it } from 'vitest';
 
 describe('runtime agents', () => {
   it('all shipped agents have the required sections', async () => {
-    // The Claude Code plugin's bundled stage agents (runtime/claude-plugin/agents, issue #616)
-    // follow the stage-agent template — frontmatter + stage instructions, not the content/capability
-    // agent contract checked here — so they are excluded; their shape is covered by the plugin
-    // manifest golden test and the stage-agent template.
     const files = (
       await fg('runtime/**/agents/*.md', {
         cwd: process.cwd(),

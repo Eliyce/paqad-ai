@@ -150,7 +150,6 @@ describe('composeMemorySection', () => {
       }),
     );
     const section = composeMemorySection(many, { charBudget: 1200 });
-    // The first (freshest) entry always lands; total stays near the budget.
     expect(section.length).toBeLessThan(1200 + 500 + 400);
     const bulletCount = (section.match(/^- /gm) ?? []).length;
     expect(bulletCount).toBeGreaterThanOrEqual(1);
@@ -184,7 +183,6 @@ describe('loadCodebaseMemory / recordCodebaseMemory (round trip)', () => {
       { kind: 'repo-fact', key: 'seam', text: 'the seam is runtime/scripts/context-seam.mjs' },
       '2026-06-27T01:00:00.000Z',
     );
-    // Simulate a fresh session: a brand-new read of the on-disk store.
     const reloaded = loadCodebaseMemory(projectRoot);
     expect(reloaded.entries).toHaveLength(1);
     expect(reloaded.entries[0].text).toContain('context-seam.mjs');

@@ -6,8 +6,6 @@ import { TurnSummarizer } from '@/context/turn-summarizer.js';
 import { PriorityClassifier } from '@/context/priority-classifier.js';
 import type { ContextSegmentPriority } from '@/core/types/context.js';
 
-// ── TurnSummarizer ─────────────────────────────────────────────────────────
-
 describe('TurnSummarizer', () => {
   const summarizer = new TurnSummarizer();
 
@@ -65,7 +63,7 @@ describe('TurnSummarizer', () => {
   });
 
   it('estimates tokens as ceil(length / 4)', () => {
-    const text = 'abcd'; // 4 chars → 1 token
+    const text = 'abcd';
     const result = summarizer.summarize(text, 0, '2024-01-01T00:00:00Z');
     expect(result.original_tokens).toBe(1);
   });
@@ -95,8 +93,6 @@ describe('TurnSummarizer', () => {
     expect(result.next_steps).toEqual([]);
   });
 });
-
-// ── ContextEvictor ─────────────────────────────────────────────────────────
 
 describe('ContextEvictor', () => {
   const evictor = new ContextEvictor();
@@ -177,8 +173,6 @@ describe('ContextEvictor', () => {
   });
 });
 
-// ── ContextBudgetOptimizer.classifyTier (via evaluate) ────────────────────
-
 describe('ContextBudgetOptimizer.evaluate', () => {
   function makeOptimizer(strategy: 'aggressive' | 'balanced' | 'conservative') {
     return new ContextBudgetOptimizer(
@@ -189,8 +183,6 @@ describe('ContextBudgetOptimizer.evaluate', () => {
       { strategy, summarize_after_turns: 15 },
     );
   }
-
-  // ── balanced strategy ───────────────────────────────────────────────────
 
   it('balanced: returns green + continue at 50% usage', async () => {
     const opt = makeOptimizer('balanced');
@@ -230,8 +222,6 @@ describe('ContextBudgetOptimizer.evaluate', () => {
     expect(action).toBe('compact');
   });
 
-  // ── aggressive strategy ─────────────────────────────────────────────────
-
   it('aggressive: returns yellow at 55% usage', async () => {
     const opt = makeOptimizer('aggressive');
     const { tier } = await opt.evaluate(5500, 10000);
@@ -249,8 +239,6 @@ describe('ContextBudgetOptimizer.evaluate', () => {
     const { tier } = await opt.evaluate(9000, 10000);
     expect(tier).toBe('red');
   });
-
-  // ── conservative strategy ───────────────────────────────────────────────
 
   it('conservative: returns green at 65% usage', async () => {
     const opt = makeOptimizer('conservative');
@@ -270,8 +258,6 @@ describe('ContextBudgetOptimizer.evaluate', () => {
     expect(tier).toBe('red');
   });
 });
-
-// ── ContextBudgetOptimizer.summarizeTurns ─────────────────────────────────
 
 describe('ContextBudgetOptimizer.summarizeTurns', () => {
   const optimizer = new ContextBudgetOptimizer(

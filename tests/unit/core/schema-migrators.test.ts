@@ -42,7 +42,7 @@ function readLog(projectRoot: string): Record<string, unknown>[] {
 }
 
 describe('runSchemaMigrators', () => {
-  it('ships exactly the issue #581 evidence migrator, for layouts before 1.1.0', () => {
+  it('ships exactly the evidence-envelope migrator, for layouts before 1.1.0', () => {
     expect(SCHEMA_MIGRATORS.map((migrator) => migrator.id)).toEqual(['feature-evidence']);
     const [migrator] = SCHEMA_MIGRATORS;
     expect(migrator!.appliesTo('1.0.0', '1.1.0')).toBe(true);
@@ -72,7 +72,6 @@ describe('runSchemaMigrators', () => {
     const [migrator] = SCHEMA_MIGRATORS;
     const root = makeProject();
     try {
-      // The ignore line has to go, but its temp file's path is taken by a folder: the write throws.
       mkdirSync(join(root, '.paqad', `.gitignore.tmp-${process.pid}`), { recursive: true });
       writeFileSync(join(root, '.paqad', '.gitignore'), '_specs/\n', 'utf8');
       const note = await migrator!.migrate({
@@ -125,7 +124,6 @@ describe('runSchemaMigrators', () => {
     );
 
     expect(calls).toEqual(['alpha', 'beta']);
-    // A migrator with a note is recorded "id: note"; one without is recorded by id alone.
     expect(notes).toEqual(['alpha: did alpha', 'beta']);
   });
 
@@ -220,7 +218,6 @@ describe('checkAndMigrateSchema migrator dispatch', () => {
       checkAndMigrateSchema(projectRoot, ENGINE_VERSION, { migrators: [boom] }),
     ).rejects.toThrow('migration failed');
 
-    // Marker NOT advanced; no migration record sealed — the next run retries.
     const marker = JSON.parse(readFileSync(schemaMarkerPath(projectRoot), 'utf8'));
     expect(marker.paqad_schema_version).toBe('0.9.0');
     expect(readLog(projectRoot)).toHaveLength(0);

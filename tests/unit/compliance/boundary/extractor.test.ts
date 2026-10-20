@@ -77,7 +77,6 @@ describe('extractUnhandledVariants', () => {
     const specTexts = new Map([['output-spec', 'When result is pass, continue.']]);
     const result = extractUnhandledVariants(boundary, specTexts);
     const unhandled = result.unhandled_by_consumer.get('output-spec')!;
-    // 'PASS' should match 'pass' in spec text (case-insensitive comparison)
     expect(unhandled.map((u) => u.state)).not.toContain('PASS');
     expect(unhandled.map((u) => u.state)).toContain('FAIL');
   });

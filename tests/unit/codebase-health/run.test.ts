@@ -72,7 +72,6 @@ describe('runHealthAudit', () => {
       existsSync(join(root, PATHS.HEALTH_RUNS_DIR, result.report_id, 'finding-index.json')),
     ).toBe(true);
     expect(readBaseline(root)).not.toBeNull();
-    // The gatherer's blocked check flows into the report.
     expect(result.blocked_checks.some((b) => b.check === 'vulnerable-dependency')).toBe(true);
   });
 

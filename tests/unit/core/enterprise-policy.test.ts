@@ -3,13 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { resolveEnterprisePolicy, writesLedger } from '@/core/enterprise-policy.js';
 import type { EnterpriseConfig, ProjectProfile } from '@/core/types/project-profile.js';
 
-/** A profile carrying only the bits the resolver reads — the rest is irrelevant
- *  to policy resolution, so we cast a minimal shape. */
 function profileWith(enterprise?: Partial<EnterpriseConfig>): ProjectProfile {
   return { enterprise } as unknown as ProjectProfile;
 }
 
-describe('resolveEnterprisePolicy (issue #187)', () => {
+describe('resolveEnterprisePolicy', () => {
   it('block absent ⇒ everything off', () => {
     expect(resolveEnterprisePolicy(profileWith(undefined))).toEqual({
       enabled: false,
@@ -80,7 +78,6 @@ describe('resolveEnterprisePolicy (issue #187)', () => {
   });
 
   it('missing/malformed sub-flags read as off even when enabled', () => {
-    // Only `enabled` is set; the others are absent.
     const policy = resolveEnterprisePolicy(profileWith({ enabled: true }));
     expect(policy).toEqual({
       enabled: true,
@@ -91,7 +88,7 @@ describe('resolveEnterprisePolicy (issue #187)', () => {
   });
 });
 
-describe('writesLedger (issue #187)', () => {
+describe('writesLedger', () => {
   const base = { enabled: true, compliance_citations: false };
 
   it('true when evidence_ledger or ai_bom is on', () => {

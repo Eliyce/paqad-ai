@@ -14,7 +14,6 @@ import {
 const REPO_ROOT = process.cwd();
 const RUNTIME_ROOT = join(REPO_ROOT, 'runtime');
 
-// The persona file that backs each expert role, when it is not `<role>.md` (issue #558, FR-11.3).
 const PERSONA_ALIAS: Record<string, string> = {
   'db-expert': 'runtime/capabilities/coding/agents/database-expert.md',
   'product-owner': 'runtime/base/agents/product-owner.md',
@@ -36,7 +35,7 @@ function lensExists(role: string): boolean {
   return existsSync(join(RUNTIME_ROOT, 'base/skills/expert-notes/references/lenses', `${role}.md`));
 }
 
-describe('agent roster drift (issue #558)', () => {
+describe('agent roster drift', () => {
   it('AGENT_ROLES has exactly 22 roles', () => {
     expect(AGENT_ROLES.length).toBe(22);
   });

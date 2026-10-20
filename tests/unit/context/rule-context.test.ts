@@ -78,16 +78,14 @@ describe('composeRuleContext', () => {
       ]),
       { changedPaths: ['src/app.ts'] },
     );
-    // Manifest lists everyone.
     expect(md).toContain('paqad rule manifest — 3 rules');
-    // Full text only for the matched scoped rule and the always-load rule.
     expect(md).toContain('## Loaded rule text');
     expect(md).toContain('SRC FULL TEXT');
     expect(md).toContain('ALWAYS FULL TEXT');
     expect(md).not.toContain('DOCS FULL TEXT');
   });
 
-  it('preserves inline code spans in the loaded text while the manifest stays corruption-free (#345)', () => {
+  it('preserves inline code spans in the loaded text while the manifest stays corruption-free', () => {
     const rawWithCode =
       '# Frontmatter\n\nUse the documented frontmatter — `name`, `description`, `license`.\n';
     const md = composeRuleContext(
@@ -102,9 +100,7 @@ describe('composeRuleContext', () => {
       ]),
       { changedPaths: ['src/app.ts'] },
     );
-    // The loaded rule text carries the rule's inline code spans verbatim (round-trip).
     expect(md).toContain('`name`, `description`, `license`');
-    // The manifest slice (before the loaded text) never emits the corrupted sequence.
     const manifestSlice = md.split('## Loaded rule text')[0];
     expect(manifestSlice).not.toContain('`, `');
   });
@@ -119,7 +115,6 @@ describe('composeRuleContext', () => {
   });
 
   it('falls back to the summary when a rule has no raw_text, with no options', () => {
-    // No options ⇒ changedPaths defaults to []; raw_text undefined ⇒ ruleTextBlock uses summary.
     const md = composeRuleContext(
       store([
         rule({
@@ -202,7 +197,6 @@ describe('refreshRuleContext', () => {
     const written = readFileSync(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT), 'utf8');
     expect(written).toContain('MEMORY BODY');
     expect(written).toContain('RETRIEVAL BODY');
-    // Durable memory sits ahead of the ephemeral retrieval slices.
     expect(written.indexOf('MEMORY BODY')).toBeLessThan(written.indexOf('RETRIEVAL BODY'));
   });
 
@@ -214,11 +208,8 @@ describe('refreshRuleContext', () => {
     expect(readFileSync(target as string, 'utf8')).toContain('MEMORY ONLY');
   });
 
-  // Rules load only on the feature-development route (issue #336): the worker passes
-  // loadRules:false for every other workflow, so the rule slice is not composed and
-  // the #316 fallback marker does NOT fire (the rules are deliberately absent).
-  describe('loadRules gate (#336)', () => {
-    it('omits the rule slice AND the #316 marker when loadRules is false', async () => {
+  describe('loadRules gate', () => {
+    it('omits the rule slice AND the rules-less fallback marker when loadRules is false', async () => {
       writeCompiled([
         rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'ALWAYS TEXT' }),
       ]);
@@ -231,7 +222,6 @@ describe('refreshRuleContext', () => {
       expect(written).not.toContain('paqad rule manifest');
       expect(written).not.toContain('ALWAYS TEXT');
       expect(written).not.toContain(RULES_MISSING_FALLBACK_MARKER);
-      // #345 G5 — the decision-pause reminder is a feature-development-only obligation.
       expect(written).not.toContain(DECISION_PAUSE_REMINDER);
     });
 
@@ -248,21 +238,16 @@ describe('refreshRuleContext', () => {
       const written = readFileSync(target as string, 'utf8');
       expect(written).toContain('paqad rule manifest');
       expect(written).toContain('ALWAYS TEXT');
-      // #345 G5 — the decision-pause reminder rides with the feature-development rule slice.
       expect(written).toContain(DECISION_PAUSE_REMINDER);
     });
   });
 
-  // Fail-safe (issue #316): a written artifact with no rule manifest must never look
-  // like a valid "rules loaded" contract, or a bootstrap-obedient agent silently drops
-  // every project rule (the exact drift-only bug this repo shipped).
-  describe('rules-less fail-safe (#316)', () => {
+  describe('rules-less fail-safe', () => {
     it('prepends the fallback marker to a drift-only artifact (no compiled rules)', async () => {
       const target = await refreshRuleContext(projectRoot, {
         driftSection: '## Base drift\nDRIFT HEADS-UP',
       });
       const written = readFileSync(target as string, 'utf8');
-      // The marker must lead the file so a reader sees it before the drift note.
       expect(written.startsWith(RULES_MISSING_FALLBACK_MARKER)).toBe(true);
       expect(written).toContain('DRIFT HEADS-UP');
     });
@@ -281,13 +266,10 @@ describe('refreshRuleContext', () => {
       });
       const written = readFileSync(target as string, 'utf8');
       expect(written).toContain(RULES_MISSING_FALLBACK_MARKER);
-      // The zero-rule manifest is still emitted after the marker.
       expect(written).toContain('paqad rule manifest — 0 rules');
     });
 
     it('returns null (writes NO file) when there are no rules and no sections', async () => {
-      // The bootstrap "load full rules when missing" clause handles this — never a
-      // rules-less file the reader would trust.
       expect(await refreshRuleContext(projectRoot)).toBeNull();
     });
 
@@ -300,7 +282,6 @@ describe('refreshRuleContext', () => {
       });
       const written = readFileSync(target as string, 'utf8');
       expect(written).not.toContain(RULES_MISSING_FALLBACK_MARKER);
-      // Byte-identical composition: manifest leads, rule text and drift follow.
       expect(written.startsWith('## paqad rule manifest')).toBe(true);
       expect(written).toContain('ALWAYS TEXT');
     });
@@ -317,9 +298,6 @@ describe('refreshRuleContext', () => {
     expect(written.indexOf('ALWAYS TEXT')).toBeLessThan(written.indexOf('DRIFT HEADS-UP'));
   });
 
-  // S1 (defect D1): the per-turn refresh recompiles a stale rule store, inside the
-  // single-flight lock and before writeRuleContext reads it, so the agent is never
-  // served rule text that has drifted from docs/instructions/rules/.
   describe('recompiles a stale rule store before reading it (S1)', () => {
     function writeRuleFile(rel: string, body: string): void {
       const target = join(projectRoot, PATHS.RULES_DIR, rel);
@@ -333,7 +311,6 @@ describe('refreshRuleContext', () => {
 
     it('a stale store is recompiled and the written context carries the fresh rule text', async () => {
       writeRuleFile('coding/x.md', '# X rule\nNEWRULEMARKER body');
-      // A stale store (source_hash sha256:x) that still carries the OLD rule text.
       writeCompiled([
         rule({
           rule_id: 'RULE-1',
@@ -351,7 +328,6 @@ describe('refreshRuleContext', () => {
 
     it('does not recompile when the store is already current (spy)', async () => {
       writeRuleFile('coding/x.md', '# X rule\ncurrent body');
-      // A genuinely current store, compiled from the rules dir above.
       await ruleCompiler.writeCompiledRules(
         projectRoot,
         await ruleCompiler.compileRules(projectRoot),
@@ -373,7 +349,6 @@ describe('refreshRuleContext', () => {
       const target = await refreshRuleContext(projectRoot);
 
       expect(target).toBe(join(projectRoot, PATHS.CONTEXT_SESSION_ARTIFACT));
-      // Fell through to the stale store rather than throwing.
       expect(readFileSync(target as string, 'utf8')).toContain('STALE BODY');
     });
 
@@ -394,7 +369,7 @@ describe('refreshRuleContext', () => {
   });
 });
 
-describe('composeLoadedRuleText (issue #557 — the one canonical rule-text composer)', () => {
+describe('composeLoadedRuleText', () => {
   it('renders each rule as a `### id · title` block joined by a blank line', () => {
     const text = composeLoadedRuleText([
       rule({ rule_id: 'R1', title: 'One', raw_text: 'body one' }),
@@ -414,7 +389,7 @@ describe('composeLoadedRuleText (issue #557 — the one canonical rule-text comp
   });
 });
 
-describe('computeRuleApplicability (issue #557)', () => {
+describe('computeRuleApplicability', () => {
   const rules = [
     rule({ rule_id: 'ALWAYS', trigger_patterns: ['**'], raw_text: 'a' }),
     rule({ rule_id: 'SRC', trigger_patterns: ['src/'], raw_text: 'b' }),
@@ -426,7 +401,7 @@ describe('computeRuleApplicability (issue #557)', () => {
     const byId = new Map(applicable.map((r) => [r.rule_id, r]));
     expect(byId.get('ALWAYS')).toMatchObject({ always_load: true, matched_paths: [] });
     expect(byId.get('SRC')).toMatchObject({ always_load: false, matched_paths: ['src/foo.ts'] });
-    expect(byId.has('DOCS')).toBe(false); // not triggered by these paths
+    expect(byId.has('DOCS')).toBe(false);
   });
 
   it('hashes exactly the composed loaded rule text', () => {
@@ -435,13 +410,13 @@ describe('computeRuleApplicability (issue #557)', () => {
   });
 
   it('the hash changes when the applicable set changes', () => {
-    const a = computeRuleApplicability(rules, []); // only ALWAYS
-    const b = computeRuleApplicability(rules, ['src/foo.ts']); // ALWAYS + SRC
+    const a = computeRuleApplicability(rules, []);
+    const b = computeRuleApplicability(rules, ['src/foo.ts']);
     expect(a.ruleTextHash).not.toBe(b.ruleTextHash);
   });
 });
 
-describe('resolveRuleApplicabilityForChange (issue #557)', () => {
+describe('resolveRuleApplicabilityForChange', () => {
   let projectRoot: string;
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-resolve-appl-'));
@@ -488,9 +463,7 @@ describe('resolveRuleApplicabilityForChange (issue #557)', () => {
   });
 });
 
-// Issue #639, Part 2 — rules match the change's own files: never paqad's own `.paqad/`
-// artifacts, and (with a session) never dirt the session inherited unchanged.
-describe('resolveRuleApplicabilityForChange matches only the change own files (#639 Part 2)', () => {
+describe('resolveRuleApplicabilityForChange matches only the change own files', () => {
   const RULES = store([
     rule({ rule_id: 'PAQAD-ONLY', trigger_patterns: ['.paqad/'] }),
     rule({ rule_id: 'SRC', trigger_patterns: ['src/'] }),
@@ -530,7 +503,6 @@ describe('resolveRuleApplicabilityForChange matches only the change own files (#
     writeFileSync(join(projectRoot, 'legacy/old.ts'), 'export const a = 1;\n');
     git(['add', '-A']);
     git(['commit', '-qm', 'base']);
-    // Dirty before the session starts, then the session edits only src/.
     writeFileSync(join(projectRoot, 'legacy/old.ts'), 'export const a = 2;\n');
     await captureSessionDirtyBaseline(projectRoot, 'ses-p2');
     writeFileSync(join(projectRoot, 'src/new.ts'), 'export const b = 1;\n');
@@ -539,11 +511,9 @@ describe('resolveRuleApplicabilityForChange matches only the change own files (#
     expect(scoped.applicable.map((r) => r.rule_id)).toEqual(['SRC']);
     expect(scoped.changedPaths).toEqual(['src/new.ts']);
 
-    // Without a session the working set is unchanged from before (#557 behaviour).
     const unscoped = await resolveRuleApplicabilityForChange(projectRoot);
     expect(unscoped.applicable.map((r) => r.rule_id).sort()).toEqual(['LEGACY', 'SRC']);
 
-    // Once the session edits the inherited file it is the change's own again.
     writeFileSync(join(projectRoot, 'legacy/old.ts'), 'export const a = 3;\n');
     const edited = await resolveRuleApplicabilityForChange(projectRoot, 'ses-p2');
     expect(edited.applicable.map((r) => r.rule_id).sort()).toEqual(['LEGACY', 'SRC']);

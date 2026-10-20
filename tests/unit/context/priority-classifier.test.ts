@@ -7,11 +7,6 @@ import {
 } from '@/context/priority-classifier.js';
 import type { TurnInput, TurnPriority } from '@/core/types/context.js';
 
-/**
- * Inline stub: returns a caller-controlled tag per turn_id, defaulting to
- * `normal` for any unmapped turn. Lets each test pin exactly what the "model"
- * says before the engine applies its invariants.
- */
 function stubModel(scores: Record<string, TurnPriority>): TurnClassifierModel {
   return {
     score: (turn: TurnInput) => scores[turn.turn_id] ?? 'normal',
@@ -47,14 +42,11 @@ describe('PriorityClassifier.tag', () => {
   });
 
   it('does not overwrite a protected turn already tagged high on a re-tag pass', () => {
-    // A model that would lower the turn — the re-tag guard must keep it high
-    // without raising a breach warning.
     const classifier = new PriorityClassifier(stubModel({ dp: 'low' }));
 
     const first = classifier.tag([turn({ turn_id: 'dp', decision_packet: true })]);
     expect(first.tagged[0].priority).toBe('high');
 
-    // Feed the tagged turns back in.
     const second = classifier.tag(first.tagged);
 
     expect(second.tagged[0].priority).toBe('high');
@@ -78,8 +70,6 @@ describe('PriorityClassifier.tag', () => {
   });
 
   it('flattens ordinary turns to normal under all_normal but keeps protected turns high', () => {
-    // Model would score the ordinary turn high; all_normal must override it to
-    // normal, while the protected turn stays high.
     const classifier = new PriorityClassifier(stubModel({ ord: 'high', dp: 'normal' }));
 
     const result = classifier.tag(
@@ -89,7 +79,6 @@ describe('PriorityClassifier.tag', () => {
 
     expect(result.tagged.find((t) => t.turn_id === 'ord')?.priority).toBe('normal');
     expect(result.tagged.find((t) => t.turn_id === 'dp')?.priority).toBe('high');
-    // The protected turn was corrected normal -> high, so one breach is expected.
     expect(result.warnings).toHaveLength(1);
     expect(result.warnings[0].turn_id).toBe('dp');
   });

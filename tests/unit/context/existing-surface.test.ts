@@ -18,7 +18,6 @@ import {
 } from '@/context/existing-surface.js';
 import { writeRuleContext } from '@/context/rule-context.js';
 
-/** 4-bytes-per-token estimate, mirroring the section's own budgeter. */
 function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
@@ -58,7 +57,6 @@ describe('composeExistingSurfaceSection (pure format)', () => {
     expect(section).toContain(
       '- `buildProjectRepoMap(projectRoot, options): Promise<RepoMapResult>` — src/rag/repo-map.ts:230 · called from 3 places · hybrid-rag',
     );
-    // Singular "place" for exactly one caller.
     expect(section).toContain('· called from 1 place · hybrid-rag');
   });
 
@@ -83,10 +81,7 @@ describe('composeExistingSurfaceSection (pure format)', () => {
     }));
     const section = composeExistingSurfaceSection(many, { tokenBudget: 200 });
     expect(section).toMatch(/…and \d+ more exported symbols — run `paqad-ai index query <name>`/);
-    // The rendered section respects the token budget (with a small allowance for the
-    // trailing truncation line, which is appended after the budget like the repo-map).
     expect(estimateTokens(section)).toBeLessThanOrEqual(200 + 40);
-    // First (highest-rank) card survives; a late one is dropped.
     expect(section).toContain('`symbol0(');
     expect(section).not.toContain('symbol199(');
   });
@@ -129,7 +124,6 @@ describe('gatherExistingSurface (IO)', () => {
       ['version: 2', 'modules:', '  - slug: context', '    sources: [src/context]'].join('\n'),
     );
     write(root, 'package.json', JSON.stringify({ main: 'src/cli/index.ts' }));
-    // Two files in the same module, with an import edge so PageRank is meaningful.
     write(
       root,
       'src/context/helpers.ts',
@@ -172,20 +166,17 @@ describe('gatherExistingSurface (IO)', () => {
     const cardCount = (section.match(/^- /gm) ?? []).length;
     expect(cardCount).toBeGreaterThanOrEqual(5);
     expect(section).toContain(EXISTING_SURFACE_HEADING);
-    // Signatures + caller counts come from the code-knowledge index.
     expect(section).toContain('firstHelper');
     expect(section).toMatch(/called from \d+ place/);
     expect(estimateTokens(section)).toBeLessThanOrEqual(DEFAULT_EXISTING_SURFACE_TOKENS + 40);
   });
 
   it('renders name-only cards from the repo-map resolvers when the index is absent (AC-3)', async () => {
-    // No index built — pure fallback path.
     const section = await gatherExistingSurface(root, {
       changedPaths: ['src/context/consumer.ts'],
     });
     expect(section).toContain(EXISTING_SURFACE_HEADING);
     expect(section).toContain('firstHelper');
-    // Name-only: no caller counts (those need the index).
     expect(section).not.toContain('called from');
   });
 
@@ -212,9 +203,6 @@ describe('route gating (AC-2 / INV-1)', () => {
   });
 
   it('drops the existing-surface section on a non-feature-development route', async () => {
-    // A project-question route (loadRules:false) that still retrieves: the artifact must
-    // carry the retrieval slice but NEVER the existing-surface section, even though a
-    // caller passed one.
     const target = await writeRuleContext(root, {
       loadRules: false,
       existingSurfaceSection: `${EXISTING_SURFACE_HEADING} — 3 existing symbols for the files in play\n${EXISTING_SURFACE_FRAMING}\n\n- \`x()\` — src/a.ts:1\n`,

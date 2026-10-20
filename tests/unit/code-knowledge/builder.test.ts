@@ -91,7 +91,6 @@ describe('buildCodeKnowledgeIndex', () => {
       caller_count: 0,
       orphan: true,
     });
-    // main() has no callers, but src/cli/index.ts is a bin entry -> not orphan.
     expect(index.symbols.find((s) => s.name === 'main')).toMatchObject({
       caller_count: 0,
       orphan: false,

@@ -52,7 +52,11 @@ while risk and scope are left to the model). The reasons below are not obvious f
 - **Portability.** Pipelines are kept POSIX so BSD and GNU awk behave alike on macOS and Linux, and
   carriage returns are stripped so CRLF input does not break a match. YAML scalars are read
   without `yq`. `expert-notes` checks a JSON shape, so it runs in node, which paqad already
-  depends on.
+  depends on. Debian's default awk is mawk, which silently fails to match a `{n,m}` interval
+  inside `match()` instead of erroring, so scripts check `length()` instead. Interval
+  expressions in `grep -E` are fine. `producer | grep -q` under `pipefail` is also banned: grep
+  exits on the first match, the producer dies of SIGPIPE, and the pipeline reports failure exactly
+  when the pattern was found. The script portability test enforces both.
 - **`analytics-instrumentation/scripts/instrument.mjs`.** The agent supplies only the event name
   and later the doc body; the slug, path, doc scaffold and tracking-call snippet are computed so
   casing variants cannot diverge and no path is hand-written. Providers are rows in a table, not

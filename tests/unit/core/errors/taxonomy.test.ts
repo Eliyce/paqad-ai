@@ -8,7 +8,6 @@ describe('error taxonomy', () => {
     const codes = entries.map((e) => e.code).sort();
     const expected = Object.values(ENGINE_ERROR_CODES).sort();
     expect(codes).toEqual(expected);
-    // No duplicates.
     expect(new Set(codes).size).toBe(codes.length);
   });
 
