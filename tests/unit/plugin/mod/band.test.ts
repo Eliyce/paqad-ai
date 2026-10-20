@@ -32,6 +32,8 @@ import {
   stages,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 
+import { ticketRef } from '../../../shared/ticket-ref.js';
+
 import { bandLines, bandOf, layoutLines } from './band-text.ts';
 
 describe('the band shell (FR-30, FR-31)', () => {
@@ -68,7 +70,7 @@ describe('the band shell (FR-30, FR-31)', () => {
   it('names a change by its issue number, else its ticket, else the short ULID', () => {
     const at = (change: Record<string, unknown>) =>
       changeChip(parseSnapshot(fileText({ ...FAST_ORD_490, change })));
-    expect(at({ issue: '702', id: '01M5DHQYW9J0Y7ZGF6QN0E34GE' })).toBe('#702');
+    expect(at({ issue: '702', id: '01M5DHQYW9J0Y7ZGF6QN0E34GE' })).toBe(ticketRef(702));
     expect(at({ issue: 'ORD-9', id: 'x' })).toBe('ORD-9');
     expect(at({ id: '01M5DHQYW9J0Y7ZGF6QN0E34GE' })).toBe('0E34GE');
     expect(at({})).toBeNull();
