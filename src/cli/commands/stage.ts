@@ -28,7 +28,7 @@ function runStageSettings(options: StageOptions): void {
   const sessionId = sessionHint?.trim() ? sessionHint.trim() : resolveSessionId(root, null);
   try {
     const settings = writeStageSettings(root, sessionId);
-    console.log(stageSettingsReport(settings).join('\n'));
+    console.log(JSON.stringify(stageSettingsReport(settings), null, 2));
   } catch (error) {
     console.error(`could not write the stage settings: ${(error as Error).message}`);
     process.exitCode = 1;

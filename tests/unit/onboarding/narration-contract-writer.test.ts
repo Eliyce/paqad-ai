@@ -22,6 +22,9 @@ describe('narration-contract-writer', () => {
       .find((line) => line.startsWith('2. Dispatch the stage agent'))!;
     expect(dispatch).toContain('`paqad-ai stage settings`');
     expect(dispatch).toContain(
+      "it prints JSON giving each stage this project's `effort` and `model` and a `pass` string",
+    );
+    expect(dispatch).toContain(
       "pass that stage's `model` and `effort` on each stage Agent call when the value is not `inherit`",
     );
     expect(dispatch).toContain(

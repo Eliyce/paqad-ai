@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5DGNVENWKC2RE9XWHMTTN01",
+  "category": "spec.contradiction",
+  "title": "#625 review: the inherit fix departs from the frozen spec (FR-20 JSON output, FR-22/AC-29 field names)",
+  "context": "Commit e098b713 fixed the review's inherit finding correctly, but it changed two things the frozen spec pins with no spec.change packet. (1) FR-20 says 'paqad-ai stage settings ... prints them as JSON'; the verb now prints one plain line per stage (src/cli/commands/stage.ts:31 via stageSettingsReport). The lines are regular ('<stage>: effort X, model Y. On its Agent call, ...') and the per-session JSON file is still written, so the values stay usable, but stdout is no longer JSON. (2) FR-22 and AC-29 say the stage-agent row carries 'effort' and 'model'; the schema and recorder now write 'requested_effort' and 'requested_model' (src/stage-evidence/schema.ts:70-71, src/stage-isolation/subagent-completion.ts:118-125). The rename is honest, because the row records what was asked for, not what ran. Everything else checks out: the guardrail fixture is byte-identical to a fresh render from main 1f85100f, and the 61 affected test files (865 tests) pass.",
+  "options": [
+    {
+      "option_key": "amend-spec",
+      "label": "Keep the code as is; re-freeze the spec so FR-20 says plain dispatch lines and FR-22/AC-29 name requested_effort/requested_model",
+      "one_line_preview": "Keep the code as is; re-freeze the spec so FR-20 says plain dispatch lines and FR-22/AC-29 name requested_effort/requested_model",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "json-with-advice",
+      "label": "Print JSON as FR-20 says, adding a per-stage 'pass' advice string; amend only FR-22/AC-29 for the requested_* names",
+      "one_line_preview": "Print JSON as FR-20 says, adding a per-stage 'pass' advice string; amend only FR-22/AC-29 for the requested_* names",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "revert-to-spec",
+      "label": "Go back to JSON stdout and effort/model row fields exactly as frozen; carry the 'requested' meaning only in docs",
+      "one_line_preview": "Go back to JSON stdout and effort/model row fields exactly as frozen; carry the 'requested' meaning only in docs",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "json-with-advice",
+  "created_at": "2026-10-20T20:40:05.334Z",
+  "status": "resolved",
+  "change": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "chosen": "json-with-advice",
+  "rationale": "Owner: JSON stdout as FR-20 with a per-stage pass advice; amend FR-22/AC-29 to requested_effort/requested_model",
+  "resolved_at": "2026-10-20T20:41:26.683Z",
+  "decision_id": "D-01M5DGNVENWKC2RE9XWHMTTN01",
+  "fingerprint": "sha256:5fc1705ce2825b7f848db48cb76d198141ccb7e04d4ef030854b0d606e05e468",
+  "question": "#625 review: the inherit fix departs from the frozen spec (FR-20 JSON output, FR-22/AC-29 field names)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "ttl_until": "2026-10-27T20:40:05.334Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "json-with-advice",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T20:41:26.683Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: JSON stdout as FR-20 with a per-stage pass advice; amend FR-22/AC-29 to requested_effort/requested_model"
+  }
+}

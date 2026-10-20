@@ -74,12 +74,14 @@ suggestions go to `.paqad/mcp-recommendations.json`.
 - **Agent files keep the defaults.** The helper files at user scope and in the plugin are shared by
   every project, so they always carry the default `effort` (omitted when it is inherit),
   `model: inherit` and `omitClaudeMd: true`. A project's own values apply on the next dispatch:
-  the orchestrator runs `paqad-ai stage settings` once per change, which prints them and writes
-  `.paqad/session/stage-settings.d/<session id>.json`, and passes `model` and `effort` on each
-  stage Agent call when they are not inherit. Because the files keep the defaults, inherit alone
-  would leave a default effort in force, so for a stage set to inherit whose file carries a
-  default effort the verb tells the orchestrator to pass its own current effort level on that
-  Agent call. The SubagentStop recorder copies that stage's values onto its one `stage-agent`
+  the orchestrator runs `paqad-ai stage settings` once per change, which writes
+  `.paqad/session/stage-settings.d/<session id>.json` and prints JSON giving each stage its
+  `effort`, its `model` and a `pass` string that says in plain words what to pass on that
+  stage's Agent call. The orchestrator passes `model` and `effort` when they are not inherit.
+  Because the files keep the defaults, inherit alone would leave a default effort in force, so
+  for a stage set to inherit whose file carries a default effort the `pass` string tells the
+  orchestrator to pass its own current effort level on that Agent call; for inherit with no file
+  default it says to pass nothing. The SubagentStop recorder copies that stage's values onto its one `stage-agent`
   row as `requested_effort` and `requested_model`: what the project asked for, not what the
   helper ran at.
 - **Claude Code versions.** The SubagentStart brief works on any Claude Code that runs paqad's

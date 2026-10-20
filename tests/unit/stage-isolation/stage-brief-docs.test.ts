@@ -23,6 +23,7 @@ describe('stage brief and stage settings docs', () => {
     expect(claudeDoc).toContain('`stage_effort_<stage>`');
     expect(claudeDoc).toContain('`stage_model_<stage>`');
     expect(claudeDoc).toContain('`paqad-ai stage settings`');
+    expect(claudeDoc).toContain('a `pass` string that says in plain words what to pass');
     expect(claudeDoc).toContain('2.1.271');
     expect(claudeDoc).toContain('2.1.292');
   });

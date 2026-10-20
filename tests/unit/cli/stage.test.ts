@@ -307,45 +307,41 @@ describe('paqad-ai stage command', () => {
       return join(root, '.paqad/session/stage-settings.d', `${session}.json`);
     }
 
-    it('prints and records the per-stage effort and model from the team config', async () => {
+    it('prints the per-stage effort, model and pass advice as JSON and records the settings', async () => {
       mkdirSync(join(root, '.paqad/configs'), { recursive: true });
       writeFileSync(
         join(root, '.paqad/configs/.config.models'),
-        'stage_model_checks=haiku\nstage_effort_review=medium\n',
+        'stage_model_checks=haiku\nstage_effort_review=medium\nstage_effort_planning=inherit\n',
         'utf8',
       );
-      const printed = (await run('settings')).join('\n').split('\n');
-      expect(printed).toHaveLength(6);
-      expect(printed).toContain(
-        'checks: effort low, model haiku. On its Agent call, pass effort low; pass model haiku.',
-      );
-      expect(printed).toContain(
-        "review: effort medium, model inherit. On its Agent call, pass effort medium; pass no model, so it runs on the session's model.",
+      const printed = JSON.parse((await run('settings')).join('\n'));
+      expect(Object.keys(printed)).toHaveLength(6);
+      for (const entry of Object.values(printed)) {
+        expect(typeof (entry as { pass: unknown }).pass).toBe('string');
+      }
+      expect(printed.checks).toEqual({
+        effort: 'low',
+        model: 'haiku',
+        pass: 'on its Agent call, pass effort low and model haiku',
+      });
+      expect(printed.review).toEqual({
+        effort: 'medium',
+        model: 'inherit',
+        pass: 'on its Agent call, pass effort medium',
+      });
+      expect(printed.planning).toEqual({
+        effort: 'inherit',
+        model: 'inherit',
+        pass: 'on its Agent call, pass your own current effort level as effort, because its agent file defaults to high effort',
+      });
+      expect(printed.development.pass).toBe(
+        "pass nothing on its Agent call, so it runs at the session's own effort and model",
       );
       const recorded = JSON.parse(readFileSync(settingsFile(SES), 'utf8'));
       expect(recorded.checks).toEqual({ effort: 'low', model: 'haiku' });
       expect(recorded.review).toEqual({ effort: 'medium', model: 'inherit' });
+      expect(recorded.planning).toEqual({ effort: 'inherit', model: 'inherit' });
       expect(process.exitCode).toBeUndefined();
-    });
-
-    it('tells the orchestrator to pass its own effort when inherit would leave a file default in force', async () => {
-      mkdirSync(join(root, '.paqad/configs'), { recursive: true });
-      writeFileSync(
-        join(root, '.paqad/configs/.config.models'),
-        'stage_effort_review=inherit\n',
-        'utf8',
-      );
-      const printed = (await run('settings')).join('\n').split('\n');
-      expect(printed).toContain(
-        "review: effort inherit, model inherit. On its Agent call, pass your own current effort level, because its agent file defaults to high effort and would otherwise run at that; pass no model, so it runs on the session's model.",
-      );
-      expect(printed).toContain(
-        "development: effort inherit, model inherit. On its Agent call, pass no effort, so it runs at the session's effort; pass no model, so it runs on the session's model.",
-      );
-      expect(JSON.parse(readFileSync(settingsFile(SES), 'utf8')).review).toEqual({
-        effort: 'inherit',
-        model: 'inherit',
-      });
     });
 
     it('records under SE_SESSION when no --session is given', async () => {

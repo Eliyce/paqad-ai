@@ -36,42 +36,49 @@ export function writeStageSettings(
   return settings;
 }
 
-function effortAdvice(configured: string, fileDefault: string): string {
-  if (configured !== 'inherit') {
-    return `pass effort ${configured}`;
-  }
-  if (fileDefault !== 'inherit') {
-    return `pass your own current effort level, because its agent file defaults to ${fileDefault} effort and would otherwise run at that`;
-  }
-  return "pass no effort, so it runs at the session's effort";
+export interface StageDispatchAdvice extends StageAgentSetting {
+  pass: string;
 }
 
-function modelAdvice(configured: string, fileDefault: string): string {
-  if (configured !== 'inherit') {
-    return `pass model ${configured}`;
-  }
+function effortToPass(configured: string, fileDefault: string): string | null {
+  if (configured !== 'inherit') return `effort ${configured}`;
   if (fileDefault !== 'inherit') {
-    return `pass your own current model, because its agent file defaults to ${fileDefault} and would otherwise run on that`;
+    return `your own current effort level as effort, because its agent file defaults to ${fileDefault} effort`;
   }
-  return "pass no model, so it runs on the session's model";
+  return null;
 }
 
-export function stageDispatchLine(
-  stage: string,
+function modelToPass(configured: string, fileDefault: string): string | null {
+  if (configured !== 'inherit') return `model ${configured}`;
+  if (fileDefault !== 'inherit') {
+    return `your own current model as model, because its agent file defaults to ${fileDefault}`;
+  }
+  return null;
+}
+
+export function stagePassAdvice(
   setting: StageAgentSetting,
   fileDefault: StageAgentSetting,
 ): string {
-  return (
-    `${stage}: effort ${setting.effort}, model ${setting.model}. On its Agent call, ` +
-    `${effortAdvice(setting.effort, fileDefault.effort)}; ` +
-    `${modelAdvice(setting.model, fileDefault.model)}.`
-  );
+  const parts = [
+    effortToPass(setting.effort, fileDefault.effort),
+    modelToPass(setting.model, fileDefault.model),
+  ].filter((part): part is string => part !== null);
+  if (parts.length === 0) {
+    return "pass nothing on its Agent call, so it runs at the session's own effort and model";
+  }
+  return `on its Agent call, pass ${parts.join(' and ')}`;
 }
 
-export function stageSettingsReport(settings: Record<string, StageAgentSetting>): string[] {
+export function stageSettingsReport(
+  settings: Record<string, StageAgentSetting>,
+): Record<string, StageDispatchAdvice> {
   const fileDefaults = resolveStageAgentSettings();
-  return Object.entries(settings).map(([stage, setting]) =>
-    stageDispatchLine(stage, setting, fileDefaults[stage]!),
+  return Object.fromEntries(
+    Object.entries(settings).map(([stage, setting]) => [
+      stage,
+      { ...setting, pass: stagePassAdvice(setting, fileDefaults[stage]!) },
+    ]),
   );
 }
 
