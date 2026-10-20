@@ -31,7 +31,6 @@ function question(overrides: Partial<PipelineQuestion> = {}): PipelineQuestion {
   };
 }
 
-/** Write a resolved decision packet straight to the resolved directory (the precedent seam). */
 function writeResolved(root: string, packet: DecisionPacket): void {
   const dir = join(root, PATHS.DECISIONS_RESOLVED_DIR);
   mkdirSync(dir, { recursive: true });
@@ -200,9 +199,7 @@ describe('autoAnswerQuestions', () => {
     const batch = [question()];
 
     const result = autoAnswerQuestions(root, batch);
-    // A synchronous return value structurally cannot have awaited a model call (AC-2 / INV-1).
     expect(result).not.toBeInstanceOf(Promise);
-    // Same inputs → byte-identical split (determinism / NFR-1).
     expect(autoAnswerQuestions(root, batch)).toEqual(result);
   });
 

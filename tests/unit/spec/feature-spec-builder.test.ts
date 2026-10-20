@@ -65,7 +65,7 @@ describe('buildFeatureSpec', () => {
     expect(second!.proof_type).toBe('manual');
   });
 
-  it('preserves an AC-TRACK-<slug> analytics tracking id (issue #279)', () => {
+  it('preserves an AC-TRACK-<slug> analytics tracking id', () => {
     const spec = buildFeatureSpec({
       spec_id: 'S-279',
       spec_file: '.paqad/specs/S-279.md',
@@ -203,7 +203,7 @@ describe('buildFeatureSpec', () => {
     expect(spec.open_questions).toEqual([]);
   });
 
-  it('parses a ## Non-goals section into non_goals (#512, FR-6.4)', () => {
+  it('parses a ## Non-goals section into non_goals', () => {
     const spec = buildFeatureSpec({
       spec_id: 'S-ng',
       spec_file: '.paqad/_specs/S-ng.md',

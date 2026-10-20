@@ -40,8 +40,6 @@ describe('checkSpecShape', () => {
   });
 });
 
-// FR-10.2 — the shared corpus must pass BOTH the S4 shape check AND the real freeze parser,
-// so the two can never drift apart.
 describe('parity corpus (S4 check ↔ freeze parser)', () => {
   for (const fixture of PARITY_CORPUS) {
     it(`"${fixture.name}" passes the S4 shape check`, () => {
@@ -63,9 +61,6 @@ describe('parity corpus (S4 check ↔ freeze parser)', () => {
     });
   }
 
-  // Issue #519 (B.5.2, AC-2 / FR-6.4): a crafted spec that reused edge-case-detection in S4
-  // carries a negative-path AC and routes a deliberate exclusion to `## Non-goals`, which must
-  // parse into FeatureSpec.non_goals.
   it('a negative-path fixture yields a negative-path AC and parsed non-goals', () => {
     const fixture = PARITY_CORPUS.find((f) =>
       f.name.includes('negative-path AC with edge-case-detection non-goals'),
@@ -76,9 +71,7 @@ describe('parity corpus (S4 check ↔ freeze parser)', () => {
       spec_file: '.paqad/_specs/neg.md',
       spec_markdown: fixture!.markdown,
     });
-    // A deliberate exclusion surfaced by edge-case-detection lands in non_goals.
     expect(spec.non_goals).toContain('does not add an undo path for an archive');
-    // At least one criterion guards a negative path (empty selection / missing permission).
     const guardsNegativePath = spec.acceptance_criteria.some((c) =>
       /empty selection|permission/i.test(`${c.given} ${c.when} ${c.then}`),
     );

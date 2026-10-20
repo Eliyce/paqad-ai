@@ -6,8 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { HealthChecker } from '@/health/checker.js';
 
-// FR-10 — the doctor spec-pipeline check. The parity-corpus branch (pass) is exercised by the
-// full HealthChecker suite; here we cover the config-coherence warn branch.
 describe('doctor: Spec pipeline check', () => {
   let root: string;
   let home: string;

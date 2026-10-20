@@ -45,7 +45,7 @@ const VOCAB: VocabularyEntry[] = [
   { term: 'Invoices page', kind: 'flow', source: 'docs/modules/billing/business.md' },
 ];
 
-describe('renderProjectVoice (issue #558, AC-5)', () => {
+describe('renderProjectVoice', () => {
   it('carries the stack line, guide pointers, pages and business words', () => {
     const block = renderProjectVoice({
       stackLine: 'Stack: Laravel with Vue; php / composer.',

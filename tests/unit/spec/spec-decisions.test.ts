@@ -26,13 +26,10 @@ describe('buildSpecChangePacket', () => {
     expect(packet.category).toBe('spec.change');
     expect(packet.recommendation).toBe('update-and-refreeze');
     expect(packet.invalidation_watch).toEqual(['.paqad/specs/S-102.md']);
-    // ttl_days for spec.change is 30
     expect(packet.ttl_until).toBe('2026-07-07T00:00:00.000Z');
   });
 
-  it('passes copy lint so it can be written through DecisionStore.writePending (#300)', () => {
-    // The spec-change guard mints this packet into the pending store; a copy-lint
-    // failure would silently prevent the pause from firing.
+  it('passes copy lint so it can be written through DecisionStore.writePending', () => {
     expect(lintDecisionCopy(buildSpecChangePacket(INPUT))).toEqual([]);
   });
 });

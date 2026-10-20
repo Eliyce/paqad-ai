@@ -1,9 +1,3 @@
-// Issue #581 (FR-1, AC-2) — one whole pipeline run, verb by verb, in a temp project: start,
-// the three expert verbs, questions, task, craft, finish, then freeze. The retired per-feature
-// scratch folder must not exist after ANY verb, not only at the end, and every bundle fact must
-// land in the bundle through a verb. After freeze the run lives in specification.json alone
-// (AC-9, AC-10, AC-11) and nothing it wrote is left in .paqad/tmp (AC-3).
-
 import {
   existsSync,
   mkdirSync,
@@ -70,7 +64,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
       ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
     });
 
-    /** Hand an input to a verb the way an agent does: a file under `.paqad/tmp/`. */
     const tmpInput = (name: string, value: unknown): string => {
       const path = join(root, '.paqad', 'tmp', name);
       writeFileSync(path, typeof value === 'string' ? value : JSON.stringify(value), 'utf8');
@@ -90,7 +83,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
       vi.restoreAllMocks();
       expect(err, `${args.join(' ')} failed`).toEqual([]);
       expect(process.exitCode ?? 0).toBe(0);
-      // The heart of AC-2: checked after every single verb.
       expect(existsSync(join(root, '.paqad', '_specs'))).toBe(false);
       return out;
     };
@@ -149,12 +141,10 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
         ],
       }),
     );
-    // Before freeze the bundle holds no specification.json (INV-12).
     expect(existsSync(join(root, featureDir(dir), 'specification.json'))).toBe(false);
     await pipeline('finish');
     await pipeline('status');
 
-    // Every handed-in .paqad/tmp input is remembered for freeze to delete (FR-4).
     expect(readRememberedInputs(root, dir)).toEqual([
       '.paqad/tmp/request.md',
       '.paqad/tmp/need.json',
@@ -175,7 +165,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
       '--confirm-invariants',
     );
 
-    // The bundle facts landed in the bundle, each through its verb.
     const bundle = readdirSync(join(root, featureDir(dir))).sort();
     expect(bundle).toEqual(
       expect.arrayContaining([
@@ -197,7 +186,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
     const spec = readFeatureSpecification(root, dir)!;
     expect(spec.pipeline?.produced).toBe(true);
 
-    // AC-9 — one spec source: spec.md's body hashes to spec_hash, and nothing points elsewhere.
     const specMd = readFileSync(join(root, featureFilePath(dir, 'specMd')), 'utf8');
     expect(sha256Hex(splitFrontMatter(specMd).body)).toBe(spec.spec_hash);
     expect(spec.spec_file).toBe('spec.md');
@@ -205,8 +193,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
     expect(JSON.stringify(spec)).not.toContain('run_dir');
     expect(bundle).not.toContain('specification.md');
 
-    // AC-10 — every behaviour, acceptance criterion and invariant has one trace entry, sourced
-    // from a ticket section or an expert finding that exists in experts.json.
     const ids = [
       ...spec.behaviour.map((line) => /^(?:FR|NFR)-\d+/.exec(line)![0]),
       ...spec.acceptance_criteria.map((criterion) => criterion.criterion_id),
@@ -225,7 +211,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
     expect(spec.task?.intent).toBe('index invoices');
     expect(spec.grounding && 'terms' in spec.grounding).toBe(false);
 
-    // AC-11 — the enforcement block is stored once in the whole bundle, in the pipeline section.
     expect(spec.pipeline?.enforcement).toMatchObject({ experts_enabled: true });
     const enforcementCount = bundle
       .filter((name) => /\.(json|jsonl|md)$/.test(name))
@@ -233,7 +218,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
       .reduce((sum, text) => sum + (text.match(/"enforcement"/g)?.length ?? 0), 0);
     expect(enforcementCount).toBe(1);
 
-    // One spec-step row per recorded step, none carrying the enforcement block (AC-11).
     const steps = readSpecStepRows(root, dir);
     expect(steps.map((row) => row.step)).toEqual([
       'ground',
@@ -246,8 +230,6 @@ describe('a whole spec pipeline run never touches the old scratch folder (AC-2)'
     ]);
     expect(readFeatureStageUnit(root, dir).some((row) => 'enforcement' in row)).toBe(false);
 
-    // AC-3 — nothing the pipeline or freeze wrote for this change is left in .paqad/tmp: no
-    // handed-in input and no staging dir.
     expect(readdirSync(join(root, '.paqad', 'tmp'))).toEqual([]);
     expect(readRememberedInputs(root, dir)).toEqual([]);
   });

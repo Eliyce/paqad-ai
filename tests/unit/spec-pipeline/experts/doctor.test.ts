@@ -8,7 +8,6 @@ import { HealthChecker } from '@/health/checker.js';
 
 import { pinSpecPipelineOff } from '../../../shared/spec-pipeline-off.js';
 
-// Issue #521, FR-9 / AC-6 — the doctor expert-roster coherence check.
 describe('doctor: Expert roster check', () => {
   let root: string;
   let home: string;
@@ -78,7 +77,6 @@ describe('doctor: Expert roster check', () => {
     expect(check?.detail).toMatch(/enabled and its config is coherent/);
   });
 
-  // Issue #547 — the FR-12.2 checks.
   it('warns when adoption is strict but the pipeline is off (FR-12.2a)', async () => {
     writeConfig(['spec_pipeline_enabled=false', 'spec_pipeline_adoption=strict'].join('\n'));
     const report = await new HealthChecker().run(root);
@@ -89,7 +87,7 @@ describe('doctor: Expert roster check', () => {
     );
   });
 
-  it('warns when the token ceiling is too low for the standing experts (issue #558, AC-12)', async () => {
+  it('warns when the token ceiling is too low for the standing experts', async () => {
     writeConfig(
       [
         'spec_pipeline_enabled=true',
@@ -102,7 +100,6 @@ describe('doctor: Expert roster check', () => {
       (c) => c.name === 'Spec pipeline token ceiling fits the experts',
     );
     expect(check?.status).toBe('warning');
-    // The default standing four need 24000; a ceiling below 30000 (24000 + one on-call ~6000) warns.
     expect(check?.detail).toContain(
       'the standing experts need 24000 and one on-call expert about 6000',
     );
@@ -115,11 +112,10 @@ describe('doctor: Expert roster check', () => {
     const check = report.checks.find(
       (c) => c.name === 'Spec pipeline token ceiling fits the experts',
     );
-    // The default ceiling is 40000, well above 24000 + 6000, so no clamp warning is emitted.
     expect(check).toBeUndefined();
   });
 
-  it('warns when a standing role is not an expert (issue #558, AC-12)', async () => {
+  it('warns when a standing role is not an expert', async () => {
     writeConfig(
       [
         'spec_pipeline_enabled=true',
@@ -139,13 +135,11 @@ describe('doctor: Expert roster check', () => {
     writeConfig(['spec_pipeline_enabled=true', 'spec_pipeline_experts_enabled=true'].join('\n'));
     const report = await new HealthChecker().run(root);
     const check = report.checks.find((c) => c.name === 'Expert lens files are shipped');
-    // The lenses ship in the framework runtime, so the packaging-truth check does not fail.
     expect(check).toBeUndefined();
   });
 });
 
-// Issue #640 (FR-15, AC-23) — doctor shows each spec-pipeline switch, its source and the cost.
-describe('doctor: Spec pipeline settings (issue #640)', () => {
+describe('doctor: Spec pipeline settings', () => {
   let root: string;
   let home: string;
   let prevHome: string | undefined;

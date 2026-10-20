@@ -131,8 +131,6 @@ describe('freezeSpec', () => {
     ).toThrow(/Cannot freeze spec S-102/);
   });
 
-  // Issue #401 — the review that gated the freeze rides in the record it produced, so the
-  // evidence no longer needs a separate `.paqad/compliance/<slug>/spec-review.json`.
   it('folds the review defect summary into the frozen record (AC-2)', () => {
     const frozen = freezeSpec(frozenReadySpec(), {
       signed_off_by: 'haider',
@@ -146,8 +144,6 @@ describe('freezeSpec', () => {
     });
   });
 
-  // Resolved defects are excluded, matching evaluateSpecFreeze — which is why a resolved
-  // CRITICAL defect neither blocks the freeze nor inflates the recorded count.
   it('excludes resolved defects from the summary (EC-1)', () => {
     const frozen = freezeSpec(frozenReadySpec(), {
       signed_off_by: 'haider',
@@ -185,8 +181,7 @@ describe('isFrozenSpecStale', () => {
   });
 });
 
-// Issue #581 — freezeSpec copies the spec-pipeline sections it is handed (FR-3), never provenance.
-describe('freezeSpec pipeline sections (issue #581)', () => {
+describe('freezeSpec pipeline sections', () => {
   it('copies each section it is given into the frozen record', () => {
     const sections = {
       task: { intent: 'greet', scope: {} },
@@ -224,7 +219,7 @@ describe('freezeSpec pipeline sections (issue #581)', () => {
   });
 });
 
-describe('evaluateSpecFreeze — visual acceptance criterion (issue #579, FR-14)', () => {
+describe('evaluateSpecFreeze — visual acceptance criterion', () => {
   const required = { requireVisualAc: { files: ['src/pages/Goals.tsx', 'src/goal.css'] } };
   const blocker =
     'Visual evidence is on and this change touches frontend files (src/pages/Goals.tsx, src/goal.css), so at least one acceptance criterion needs (proof: visual).';

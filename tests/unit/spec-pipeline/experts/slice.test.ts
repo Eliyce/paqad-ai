@@ -27,12 +27,9 @@ describe('planExpertSlices', () => {
     const roles = ['db-expert', 'security-auditor', 'ux-ui-analyst'] as const;
     const ceiling = 1000;
     const plan = planExpertSlices(roles, ceiling);
-    // No expert dropped.
     expect(plan.slices.map((s) => s.role)).toEqual([...roles]);
-    // A warning is recorded, never a drop.
     expect(plan.warnings).toHaveLength(1);
     expect(plan.warnings[0]).toMatch(/none dropped/);
-    // Every slice is clamped below its budget and the granted total fits the ceiling.
     for (const slice of plan.slices) {
       expect(slice.clamped).toBe(true);
       expect(slice.granted).toBeLessThan(slice.budget);

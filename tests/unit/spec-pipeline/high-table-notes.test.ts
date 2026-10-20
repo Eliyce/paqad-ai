@@ -23,9 +23,6 @@ import type { ExpertNotesArtifact } from '@/spec-pipeline/experts/types.js';
 import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 import { ORD_501_ON_CALL, ORD_501_REQUEST, ORD_501_SEATS, seatNote } from './high-table.fixture.js';
 
-// Issue #639, Part 13 (FR-15, AC-39): `experts notes` merges one role at a time, so each High
-// Table seat records only its own note, and seats that finish at the same moment lose nothing.
-
 const SES = 'ses_high_table_notes';
 const CLI = join(process.cwd(), 'dist/cli/index.js');
 const roots: string[] = [];
@@ -117,7 +114,6 @@ describe('experts notes merges one role at a time (AC-39)', () => {
     writeExpertNotes(root, dir, note('db-expert', ['read in pages', 'no new index'], 1800));
 
     const experts = readExperts(root, dir)!;
-    // Roster order, whatever order the notes landed in.
     expect(experts.findings!.map((finding) => finding.id)).toEqual([
       'EX-db-expert-1',
       'EX-db-expert-2',
@@ -134,7 +130,6 @@ describe('experts notes merges one role at a time (AC-39)', () => {
       { role: 'security-auditor', questions: [QUESTION] },
     ]);
 
-    // A second note for the same role replaces only that role's findings, warnings and tokens.
     writeExpertNotes(root, dir, {
       ...note('security-auditor', ['customer email stays out'], 900),
       voice_warnings: [],
@@ -148,9 +143,7 @@ describe('experts notes merges one role at a time (AC-39)', () => {
     expect(again.voice_warnings).toEqual([]);
     expect(again.roster.find((entry) => entry.role === 'security-auditor')!.tokens_used).toBe(900);
     expect(again.roster.find((entry) => entry.role === 'db-expert')!.tokens_used).toBe(1800);
-    // The redo carried no question, so that role's staged question is gone and the file with it.
     expect(readStagedExpertQuestions(root, dir)).toEqual([]);
-    // The lock is released after every write.
     expect(existsSync(expertNotesLockDir(root, dir))).toBe(false);
   });
 
@@ -171,7 +164,6 @@ describe('experts notes merges one role at a time (AC-39)', () => {
     writeExpertNotes(root, dir, {
       ...note('qa-engineer', ['an empty filter exports a header'], 800),
     });
-    // `EX-qa-engineer-x-1` is not a qa-engineer id, so it stays.
     expect(readExperts(root, dir)!.voice_warnings).toEqual([
       { id: 'EX-qa-engineer-x-1', target: 'other', hint: 'h' },
     ]);

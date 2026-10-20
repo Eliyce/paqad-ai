@@ -26,10 +26,8 @@ describe('mergeExpertNotes', () => {
       },
     ];
     const result = mergeExpertNotes(notes);
-    // Neither claim silently wins.
     expect(result.findings).toEqual([]);
     expect(result.conflicts).toHaveLength(1);
-    // Issue #547 — the conflict carries the ids of the clashing findings.
     expect(result.conflicts[0]).toEqual({
       target: 'orders',
       roles: ['db-expert', 'data-modeler'],

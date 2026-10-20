@@ -44,7 +44,6 @@ describe('buildExpertBriefs', () => {
     expect(db.content).toContain(`\`${lensPathForRole('db-expert')}\``);
     expect(db.content).toContain('Let customers download their invoices as CSV');
     expect(db.content).toContain('## Ticket acceptance criteria');
-    // Issue #581 — the grounding terms are not persisted, so the brief no longer lists them.
     expect(db.content).not.toContain('Terms:');
     expect(db.content).not.toContain('- invoice');
     expect(db.content).toContain('doc: docs/modules/billing/index.md');
@@ -75,7 +74,6 @@ describe('buildExpertBriefs', () => {
       sparse: false,
       path: 'docs-fallback',
     };
-    // A tiny ceiling clamps the single expert to a granted slice of a few tokens.
     const { briefs } = buildExpertBriefs({
       needs: [{ role: 'db-expert', reason: 'r' }],
       request: 'r',
@@ -87,12 +85,11 @@ describe('buildExpertBriefs', () => {
     expect(brief.granted).toBe(2);
     expect(brief.clamped).toBe(true);
     expect(brief.truncated).toBe(true);
-    // The longest pointer (the doc reference) is dropped; the short rule reference survives.
     expect(brief.content).not.toContain('a-very-long-reference-path');
     expect(brief.content).toContain('- rule: x');
   });
 
-  it('renders the same text and hash from the roster entry alone (issue #581, AC-8)', () => {
+  it('renders the same text and hash from the roster entry alone', () => {
     const need: ExpertNeed = { role: 'db-expert', reason: 'touches the invoices migration' };
     const input = { needs: [need], request: 'Export invoices', grounding, label, ceiling: 60000 };
     const built = buildExpertBriefs(input).briefs[0]!;
@@ -106,7 +103,6 @@ describe('buildExpertBriefs', () => {
       brief_hash: built.hash,
       tokens_used: null,
     });
-    // A rebuild needs only the recorded request, grounding references, label and roster entry.
     const rebuilt = renderExpertBrief({
       need: { role: entry.role, reason: entry.reason },
       request: 'Export invoices',

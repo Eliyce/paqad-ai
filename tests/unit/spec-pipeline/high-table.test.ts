@@ -29,10 +29,6 @@ import {
   type FixtureUsage,
 } from './high-table.fixture.js';
 
-// Issue #639, Part 13: the High Table recorded as it happens: seated, writing and done rows from
-// the experts verbs, exact per-seat tokens from the SubagentStop recorder, granted budgets after
-// the ceiling, and the chief's fixed budget.
-
 const SES = 'ses_high_table';
 const roots: string[] = [];
 
@@ -115,9 +111,8 @@ const SEAT_USAGE: FixtureUsage[] = [
   { input: 2, output: 640, cacheRead: 13000, cacheWrite: 500 },
 ];
 
-describe('High Table rows from the experts verbs (#639 Part 13)', () => {
+describe('High Table rows from the experts verbs', () => {
   it('AC-43: each seat carries its granted budget after the ceiling, and the chief carries 10000', async () => {
-    // 44000 tokens of budgets under a 22000 ceiling: every seat is halved and marked clamped.
     const root = tempRoot(22000);
     const dir = openChange(root);
     await seatOrd501(root);
@@ -141,7 +136,6 @@ describe('High Table rows from the experts verbs (#639 Part 13)', () => {
       expect(row.recorded_at).toEqual(expect.any(String));
       expect(row.session_id).toBe(SES);
     }
-    // The granted budget is the one on the roster.
     const roster = readExperts(root, dir)!.roster;
     for (const entry of roster) expect(budgets[entry.role]).toBe(entry.budget_tokens);
     const origins = Object.fromEntries(seated.map((row) => [row.role, row.origin]));
@@ -166,7 +160,6 @@ describe('High Table rows from the experts verbs (#639 Part 13)', () => {
     await run(root, ['experts', 'brief', 'db-expert']);
     expect(rowsOf(root, dir, 'writing').map((row) => row.role)).toEqual(['db-expert']);
 
-    // Before any note lands the chief has nothing to read: context records no chief row.
     await run(root, ['experts', 'context']);
     expect(rowsOf(root, dir, 'writing').map((row) => row.role)).toEqual(['db-expert']);
 
@@ -221,7 +214,6 @@ describe('High Table rows from the experts verbs (#639 Part 13)', () => {
     const root = tempRoot();
     const dir = openChange(root);
     await seatOrd501(root);
-    // A directory where the ledger file should be makes every append fail.
     const ledger = join(root, '.paqad/ledger/feature-evidence', dir, 'high-table.jsonl');
     rmSync(ledger, { force: true });
     mkdirSync(ledger);
@@ -244,7 +236,6 @@ describe('High Table rows from the experts verbs (#639 Part 13)', () => {
     await seatOrd501(root);
     const transcripts = join(root, 'subagents');
 
-    // All seven seats are dispatched in parallel: every brief runs before the first note lands.
     for (const role of ORD_501_SEATS) {
       tick();
       await run(root, ['experts', 'brief', role]);
@@ -257,7 +248,6 @@ describe('High Table rows from the experts verbs (#639 Part 13)', () => {
         writeArtifact(root, `${role}.json`, seatNote(role, 1000 + index * 100)),
       ]);
       expect(process.exitCode).toBe(0);
-      // The seat's subagent finishes: the SubagentStop recorder reads its own transcript.
       const path = writeSeatTranscript(
         transcripts,
         `seat${index}`,
@@ -289,7 +279,6 @@ describe('High Table rows from the experts verbs (#639 Part 13)', () => {
       expect(seat.tokens?.total).toBe(fixtureTotal(SEAT_USAGE));
       expect(seat.tokens!.total).toBeGreaterThan(0);
     }
-    // At least two seats were writing at the same time: one started before another finished.
     const first = seats.get(ORD_501_SEATS[0]!)!;
     const second = seats.get(ORD_501_SEATS[1]!)!;
     expect(Date.parse(second.started_at!)).toBeLessThan(Date.parse(first.done_at!));
@@ -297,13 +286,12 @@ describe('High Table rows from the experts verbs (#639 Part 13)', () => {
       (role) => Date.parse(seats.get(role)!.started_at!) < Date.parse(first.done_at!),
     );
     expect(overlapping.length).toBeGreaterThanOrEqual(2);
-    // Thirteen findings across the seven seats, every note kept.
     expect(readExperts(root, dir)!.findings).toHaveLength(13);
     expect(seats.get(CHIEF_ROLE)!.state).toBe('seated');
   });
 });
 
-describe('the SubagentStop usage recorder (#639 Part 13)', () => {
+describe('the SubagentStop usage recorder', () => {
   it('reads the role from the seat transcript, and the chief from its agent name', async () => {
     const root = tempRoot();
     const dir = openChange(root);
@@ -422,7 +410,6 @@ describe('the SubagentStop usage recorder (#639 Part 13)', () => {
     recordHighTableUsage({ projectRoot: root, payload: { ...payload, agent_id: 'a2' } });
     const seat = foldHighTable(readHighTable(root, dir)).get('db-expert')!;
     expect(seat.tokens?.total).toBe(2 * fixtureTotal(SEAT_USAGE));
-    // Usage alone never moves a seat's state.
     expect(seat.state).toBeNull();
   });
 });

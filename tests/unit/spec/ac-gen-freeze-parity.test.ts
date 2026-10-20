@@ -2,10 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { buildFeatureSpec } from '@/spec/feature-spec-builder.js';
 
-// Issue #512 (C4): the flat AC-N format the acceptance-criteria-gen skill emits is exactly
-// what the freeze obligation parser reads — every criterion is ingested with its authored
-// id, none renumbered or dropped. This is the shared-shape guarantee (FR-6.6 parity) that
-// the old dotted `### AC-1.1` shape broke (it collapsed to AC-1 and collided).
 describe('acceptance-criteria-gen ↔ freeze parser parity', () => {
   it('ingests flat AC-N criteria with their authored ids intact', () => {
     const markdown = [

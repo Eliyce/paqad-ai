@@ -12,7 +12,7 @@ import {
 } from '@/pipeline/feature-development-policy.js';
 import { LANE_PHASES } from '@/pipeline/router.js';
 
-describe('spec sign-off policy (issue #102)', () => {
+describe('spec sign-off policy', () => {
   it('requires spec sign-off on the specification stage by default', () => {
     const policy = defaultFeatureDevelopmentPolicy();
     expect(policy.stages.specification.strictness.require_spec_signoff).toBe(true);

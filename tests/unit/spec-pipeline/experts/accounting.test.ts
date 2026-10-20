@@ -16,7 +16,6 @@ const secNote: ExpertNote = {
 
 describe('buildExpertAccounting', () => {
   it('records role, reason, tokens, and trace-based changed_spec per expert (AC-5/AC-7)', () => {
-    // Both finding ids appear as trace sources ⇒ both experts changed the spec (FR-11.2).
     const result = buildExpertAccounting({
       needs: [
         { role: 'db-expert', reason: 'touches the invoices migration' },
@@ -45,7 +44,7 @@ describe('buildExpertAccounting', () => {
     ]);
   });
 
-  it('marks empty true and carries origin for a standing expert with no notes (issue #558)', () => {
+  it('marks empty true and carries origin for a standing expert with no notes', () => {
     const result = buildExpertAccounting({
       needs: [
         {
@@ -91,7 +90,6 @@ describe('buildExpertAccounting', () => {
   });
 
   it('marks changed_spec false for an expert whose finding never traced to a spec line (FR-11.2)', () => {
-    // db-expert's finding id is NOT a trace source ⇒ pure cost, changed nothing.
     const result = buildExpertAccounting({
       needs: [
         { role: 'db-expert', reason: 'x' },
