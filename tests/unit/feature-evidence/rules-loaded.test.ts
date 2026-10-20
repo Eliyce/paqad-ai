@@ -51,7 +51,6 @@ describe('buildRulesLoadedRecord', () => {
       now,
     });
     expect(record.doc_type).toBe('paqad.rules-loaded');
-    // Issue #581 — the envelope header; the host is on feature.json, never here.
     expect(record).toMatchObject({
       schema_version: 2,
       change: '01JABCDEFGHJKMNPQRSTVWXYZ0',
@@ -65,7 +64,6 @@ describe('buildRulesLoadedRecord', () => {
     expect(record.changed_files).toEqual(['src/a.ts']);
     expect(record.artifact).toBe('.paqad/context/session-context.md');
     expect(record.content_hash).toMatch(/^[0-9a-f]{64}$/);
-    // content_hash is stable across timestamps (identity excludes created_at).
     const later = buildRulesLoadedRecord(DIR, 'ses_1', {
       applicable,
       ruleTextHash: 'deadbeef',

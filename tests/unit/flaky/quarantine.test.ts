@@ -71,7 +71,6 @@ describe('applyQuarantine', () => {
 
     const registry = registryWith('flaky-test', 'suite');
     const app = applyQuarantine([], registry);
-    // No blocking failures, but a quarantine is in play → green is NOT meaningful.
     expect(passesBlockingGate(app)).toBe(true);
     expect(app.meaningful_green).toBe(false);
   });

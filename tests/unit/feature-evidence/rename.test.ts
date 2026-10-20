@@ -15,6 +15,7 @@ import {
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
 import { computeSessionRowHash } from '@/session-ledger/ledger.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -29,7 +30,6 @@ afterEach(() => {
 const clock = () => new Date('2026-07-19T00:00:00.000Z');
 const ULID = '01JABCDEFGHJKMNPQRSTVWXYZ0';
 
-/** Open an untitled feature (the bare-marker flow) and return its `change-<ULID>` dir. */
 function untitledFeature(root: string, sessionId = 'ses_1'): string {
   return openFeatureChange(root, sessionId, { adapter: 'claude-code', ulid: ULID, now: clock });
 }
@@ -40,11 +40,15 @@ describe('backfillFeatureSlug', () => {
     const dir = untitledFeature(root);
     expect(dir).toBe(`change-${ULID}`);
 
-    const result = backfillFeatureSlug(root, dir, 'fix(#403): back-fill generic slug', clock);
+    const result = backfillFeatureSlug(
+      root,
+      dir,
+      `fix(${ticketRef(403)}): back-fill generic slug`,
+      clock,
+    );
     expect(result.renamed).toBe(true);
     const parts = parseFeatureDirName(result.dirName);
     expect(parts).toMatchObject({ issue: '403', ulid: ULID });
-    // Issue #581 (FR-13) — the ref leads the name once; it is not repeated in the slug.
     expect(parts?.slug).toBe('fix-back-fill-generic-slug');
     expect(existsSync(join(root, featureDir(result.dirName)))).toBe(true);
     expect(existsSync(join(root, featureDir(dir)))).toBe(false);
@@ -53,14 +57,12 @@ describe('backfillFeatureSlug', () => {
   it('repoints the active pointer, paused entries, and other sessions (AC-2)', () => {
     const root = tempRoot();
     const dir = untitledFeature(root, 'ses_1');
-    // A forked second session pointing at the same dir, and a third holding it paused.
     openFeatureChange(root, 'ses_2', {
       adapter: 'claude-code',
       title: 'other',
       ulid: ULID,
       now: clock,
     });
-    // ses_2 got its own titled feature; make its paused stack carry the generic dir.
     const ses2 = readSessionControl(root, 'ses_2', clock);
     writeFileSync(
       join(root, '.paqad/ledger/feature-evidence/_session/ses_2.json'),
@@ -106,9 +108,7 @@ describe('backfillFeatureSlug', () => {
       `${featureDir(result.dirName)}/specification.json`,
       'docs/spec.md',
     ]);
-    // The rewritten row's content_hash was re-stamped by the script.
     expect(end.content_hash).toBe(computeSessionRowHash(end as Record<string, unknown>));
-    // Untouched rows (no artifact_paths) survive verbatim.
     expect(rows.some((row) => row.kind === 'open')).toBe(true);
   });
 
@@ -197,7 +197,6 @@ describe('backfillFeatureSlug', () => {
   it('repoints a rows-less feature that only lives in the session control', () => {
     const root = tempRoot();
     const dir = untitledFeature(root);
-    // Simulate a control-only feature: drop the bundle dir but keep the pointer.
     rmSync(join(root, featureDir(dir)), { recursive: true, force: true });
     const result = backfillFeatureSlug(root, dir, 'pointer only feature', clock);
     expect(result.renamed).toBe(true);
@@ -205,14 +204,14 @@ describe('backfillFeatureSlug', () => {
   });
 });
 
-describe('writeFeaturePlan slug back-fill (issue #403)', () => {
+describe('writeFeaturePlan slug back-fill', () => {
   it('a titled compile on a generic feature renames the bundle and records the descriptive slug (AC-1/AC-3/AC-4)', () => {
     const root = tempRoot();
     const dir = untitledFeature(root);
 
     const result = writeFeaturePlan(root, 'ses_1', {
       summary: 'Back-fill the generic slug from the plan title',
-      title: 'fix(#403): back-fill generic change bundle slug',
+      title: `fix(${ticketRef(403)}): back-fill generic change bundle slug`,
       reuse: {
         consulted: [{ source: 'grep', query: 'x', hits: 0 }],
         reusing: [],
@@ -221,7 +220,6 @@ describe('writeFeaturePlan slug back-fill (issue #403)', () => {
       now: clock,
     });
     expect(result.dirName).not.toBe(dir);
-    // Issue #581 — the plan carries the change key; the identity lives in feature.json.
     expect(result.record.change).toBe(ULID);
     const feature = readFeatureRecord(root, result.dirName);
     expect(feature?.slug).not.toBe('change');

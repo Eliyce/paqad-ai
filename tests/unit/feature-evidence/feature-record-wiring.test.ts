@@ -22,7 +22,7 @@ afterEach(() => {
 
 const clock = () => new Date('2026-09-04T00:00:00.000Z');
 
-describe('feature.json wiring (issue #511)', () => {
+describe('feature.json wiring', () => {
   it('openFeatureChange seeds feature.json with the adapter + lane', () => {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_1', {
@@ -56,7 +56,6 @@ describe('feature.json wiring (issue #511)', () => {
 
   it('plan compile lifts an untitled bundle out of the placeholder identity', () => {
     const root = tempRoot();
-    // Open untitled (no title) → change-<ULID> with the `change` placeholder.
     const untitled = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
       ulid: '01JABCDEFGHJKMNPQRSTVWXYZ2',

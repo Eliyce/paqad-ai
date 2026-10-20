@@ -10,9 +10,6 @@ import { defaultSimilarityFor } from '@/planning/decision-evidence.js';
 import { DecisionStore, readDecisionAuditEvents } from '@/planning/index.js';
 import { buildFixProofMethodPacket } from '@/fix-protocol/fix-proof-method-decision.js';
 
-// created_at is relative to the wall clock: the reuse path checks the packet's
-// ttl_until (created_at + 30d) against Date.now(), so a fixed date rots — the
-// original 2026-06-07 fixture started failing the day its TTL lapsed.
 const CREATED_AT = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const BASE = {
   defect_id: 'DEF-1',
@@ -21,9 +18,6 @@ const BASE = {
   created_at: CREATED_AT.toISOString(),
 };
 
-// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
-// `D-<ULID>` id. The builder unit tests keep legacy `D-1`/`D-2` ids (validate-only, never
-// written) to prove read tolerance stays intact.
 const WRITTEN_ID = 'D-01J000000000000000000000A1';
 
 describe('buildFixProofMethodPacket', () => {
@@ -41,7 +35,6 @@ describe('buildFixProofMethodPacket', () => {
       'recorded-baseline-snapshot',
       'measured-threshold',
     ]);
-    // ttl_days for fix.proof_method is 30.
     expect(packet.ttl_until).toBe(
       new Date(CREATED_AT.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(),
     );
@@ -79,7 +72,6 @@ describe('fix.proof_method reuse by kind', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
-    // Ask once for a "visual-appearance" defect and resolve it.
     const first = buildFixProofMethodPacket({
       ...BASE,
       decision_id: WRITTEN_ID,
@@ -98,7 +90,6 @@ describe('fix.proof_method reuse by kind', () => {
       },
     });
 
-    // A new same-kind defect (different detail) must reuse the prior answer.
     const second = buildFixProofMethodPacket({
       ...BASE,
       decision_id: 'D-2',

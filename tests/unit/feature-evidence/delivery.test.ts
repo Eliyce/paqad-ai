@@ -60,14 +60,12 @@ describe('delivery.json read/write/append', () => {
     const record = readFeatureDelivery(tempRepo(), 'nope-01JABCDEFGHJKMNPQRSTVWXYZ0');
     expect(record.commits).toEqual([]);
     expect(record.head_sha).toBeNull();
-    // Issue #581 — the branch lives in feature.json, never on delivery.json.
     expect(record).not.toHaveProperty('branch');
   });
 
   it('reads a fresh empty record when delivery.json is valid JSON but not a delivery record', () => {
     const root = tempRepo();
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 2 });
-    // Valid JSON, but `null` — isDelivery() must reject it and fall back to an empty record.
     const full = join(root, featureFilePath(dir, 'delivery'));
     mkdirSync(join(full, '..'), { recursive: true });
     writeFileSync(full, 'null');
@@ -102,10 +100,8 @@ describe('local-git reads', () => {
     execFileSync('git', ['add', '-A'], { cwd: root });
     execFileSync('git', ['commit', '-q', '-m', 'feat: add c'], { cwd: root });
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
-    // Opened off the branch (null), so the reconcile is what records it.
     updateFeatureRecord(root, dir, { branch: null, base_branch: null });
     const record = reconcileDeliveryFromGit(root, dir, AT);
-    // Issue #581 — the branch and base go to feature.json; delivery.json carries neither.
     expect(readFeatureRecord(root, dir)).toMatchObject({ branch: 'feat/y', base_branch: 'main' });
     expect(record).not.toHaveProperty('branch');
     expect(record.recorded_at).toBe(AT);
@@ -126,9 +122,7 @@ describe('branch resolution + commit recording', () => {
     });
     updateFeatureRecord(root, a, { branch: 'feat/shared' });
     updateFeatureRecord(root, b, { branch: 'feat/shared' });
-    // No active hint → most-recent (b sorts last by ULID seed 2 > 1).
     expect(resolveDeliveryFeatureByBranch(root, 'feat/shared')).toBe(b);
-    // Active hint wins the tie.
     expect(resolveDeliveryFeatureByBranch(root, 'feat/shared', a)).toBe(a);
     expect(resolveDeliveryFeatureByBranch(root, 'feat/none')).toBeNull();
   });
@@ -145,7 +139,7 @@ describe('branch resolution + commit recording', () => {
     expect(record.commits[0].sha).toBe(head);
   });
 
-  it('recordCommitForBranch stamps the branch on a feature.json that has none (issue #581)', () => {
+  it('recordCommitForBranch stamps the branch on a feature.json that has none', () => {
     const root = tempRepo();
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
     execFileSync('git', ['checkout', '-q', '-b', 'feat/late'], { cwd: root });

@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Covers openBrowser's actual spawn path (per-OS command + try/catch), which the
-// sibling opener.test.ts can't exercise without launching a real browser. spawn and
-// platform are mocked so no process is ever started.
 const { mockSpawn, mockPlatform } = vi.hoisted(() => ({
   mockSpawn: vi.fn(),
   mockPlatform: vi.fn(),
@@ -24,7 +21,6 @@ describe('openBrowser spawn paths', () => {
   let savedWayland: string | undefined;
 
   beforeEach(() => {
-    // Neutralise any ambient skip signals so the spawn path is reached.
     savedSsh = process.env.SSH_TTY;
     savedConn = process.env.SSH_CONNECTION;
     savedDisplay = process.env.DISPLAY;

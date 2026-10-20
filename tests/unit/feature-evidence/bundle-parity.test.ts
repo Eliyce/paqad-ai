@@ -1,12 +1,3 @@
-// Issue #468, Phase A — the dual-write parity window proof.
-//
-// Phase A lands the NEW per-feature bundle writers alongside the untouched old-home
-// writers. This suite drives BOTH writers for the same input and asserts the bundle row
-// carries the same payload as the old-home row, so Phase B (reader re-point) and Phase C
-// (writer cutover) can depend on the new writers with confidence. RAG and rule-run
-// already dual-write (issue #339 Phase 4), so the new-in-Phase-A types are covered here:
-// duplication, change-metrics, and the graded evidence rows.
-
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -72,14 +63,14 @@ function changeMetrics(): ChangeMetrics {
   };
 }
 
-describe('#468 Phase A dual-write parity', () => {
+describe('bundle dual-write parity', () => {
   it('duplication: bundle row payload equals the old-home project-ledger row', () => {
     const root = tempRoot();
     const dir = active(root);
     const report = duplicationReport();
 
-    recordDuplicationRun(root, report); // old home
-    appendDuplicationRun(root, 'ses_1', report); // new home
+    recordDuplicationRun(root, report);
+    appendDuplicationRun(root, 'ses_1', report);
 
     const oldRows = readProjectEvents(root, DUPLICATION_EVIDENCE_DOC_TYPE).filter(
       (r) => r.kind !== 'open',
@@ -103,8 +94,8 @@ describe('#468 Phase A dual-write parity', () => {
     const dir = active(root);
     const metrics = changeMetrics();
 
-    recordChangeMetrics(root, metrics); // old home
-    appendChangeMetrics(root, 'ses_1', metrics); // new home
+    recordChangeMetrics(root, metrics);
+    appendChangeMetrics(root, 'ses_1', metrics);
 
     const oldRows = readProjectEvents(root, CHANGE_METRICS_DOC_TYPE).filter(
       (r) => r.kind !== 'open',
@@ -137,11 +128,9 @@ describe('#468 Phase A dual-write parity', () => {
       }),
     ];
 
-    appendEvidenceRows(root, rows); // old home (top-level)
-    appendFeatureEvidenceRows(root, 'ses_1', rows); // new home (bundle)
+    appendEvidenceRows(root, rows);
+    appendFeatureEvidenceRows(root, 'ses_1', rows);
 
-    // Issue #581 — the bundle copy carries the envelope header (and its own row hash); the
-    // graded payload and the time are the same.
     const graded = (row: Record<string, unknown>) => ({
       ts: row.ts,
       engine: row.engine,
@@ -161,7 +150,6 @@ describe('#468 Phase A dual-write parity', () => {
     const root = tempRoot();
     recordDuplicationRun(root, duplicationReport());
     expect(appendDuplicationRun(root, 'ses_1', duplicationReport())).toBeNull();
-    // Old home has the row; no bundle exists to hold a new-home row.
     expect(
       readProjectEvents(root, DUPLICATION_EVIDENCE_DOC_TYPE).filter((r) => r.kind !== 'open'),
     ).toHaveLength(1);

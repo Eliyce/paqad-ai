@@ -30,7 +30,6 @@ describe('installGitHooks', () => {
       const body = readFileSync(join(dir, hook), 'utf8');
       expect(body).toContain(GIT_HOOK_MARKER);
       expect(body).toContain('paqad-ai delivery-link');
-      // Issue #616 Part 6 — keeps the PATH guard and adds a node + dist/cli fallback.
       expect(body).toContain('command -v paqad-ai');
       expect(body).toContain('command -v node');
       expect(body).toContain('dist/cli/index.js');
@@ -83,7 +82,6 @@ describe('installGitHooks', () => {
     writeFileSync(join(dir, 'post-commit'), original);
     installGitHooks(root);
     const body = readFileSync(join(dir, 'post-commit'), 'utf8');
-    // The original content is preserved AND our block is appended.
     expect(body).toContain('existing husky hook');
     expect(body).toContain(GIT_HOOK_MARKER);
     expect(body.indexOf('existing husky hook')).toBeLessThan(body.indexOf(GIT_HOOK_MARKER));
@@ -96,14 +94,11 @@ describe('installGitHooks', () => {
     expect(existsSync(join(root, '.husky', 'post-commit'))).toBe(true);
   });
 
-  // Issue #576 (Finding 9) — a `core.hooksPath` redirect to a git-TRACKED dir must not be written
-  // into (that is a tracked diff, and husky v9 drops the block on reinstall). Report the snippet.
   it('does not write into a git-tracked hooks dir; reports the snippet instead', () => {
     const root = tempRepo();
     execFileSync('git', ['config', 'user.email', 'h@example.test'], { cwd: root });
     execFileSync('git', ['config', 'user.name', 'Hooks'], { cwd: root });
     execFileSync('git', ['config', 'core.hooksPath', '.githooks'], { cwd: root });
-    // A tracked, committed hooks dir (as a repo that ships its own hooks would have).
     mkdirSync(join(root, '.githooks'), { recursive: true });
     const trackedHook = join(root, '.githooks', 'post-commit');
     writeFileSync(trackedHook, '#!/bin/sh\necho tracked\n');
@@ -115,7 +110,6 @@ describe('installGitHooks', () => {
     expect(result.trackedHooksDir).toBe(true);
     expect(result.installed).toEqual([]);
     expect(result.snippet).toContain('paqad-ai delivery-link');
-    // The tracked hook file was left byte-for-byte unchanged.
     expect(readFileSync(trackedHook, 'utf8')).toBe('#!/bin/sh\necho tracked\n');
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: root, encoding: 'utf8' })).toBe(
       '',

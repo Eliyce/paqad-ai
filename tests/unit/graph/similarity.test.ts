@@ -7,7 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { SimilarityResolver } from '@/graph/similarity';
 
 function makeResolver(root: string) {
-  // Build a tiny vector index: 3 chunks. A and B nearly identical, C orthogonal.
   const items = [
     { id: 'va', vector: [1, 0, 0] },
     { id: 'vb', vector: [0.98, 0.05, 0.05] },
@@ -80,10 +79,8 @@ describe('SimilarityResolver', () => {
   it('honours module scope by only comparing chunks under that module', async () => {
     const r = makeResolver(root);
     const all = await r.resolve({ threshold: 0.0, scope: { type: 'all', id: null } });
-    // 3 chunks ⇒ 3 unordered pairs
     expect(all.edges.length).toBe(3);
     const file = await r.resolve({ threshold: 0.0, scope: { type: 'file', id: 'file:src/a.ts' } });
-    // 2 chunks in file:src/a.ts ⇒ 1 pair
     expect(file.edges.length).toBe(1);
   });
 
@@ -104,7 +101,6 @@ describe('SimilarityResolver', () => {
       threshold: 0.0,
       scope: { type: 'chunk', id: 'chunk:src/a.ts#0' },
     });
-    // anchor mode: edges from the anchor only
     for (const e of res.edges) {
       expect(e.source === 'chunk:src/a.ts#0' || e.target === 'chunk:src/a.ts#0').toBe(true);
     }
@@ -115,7 +111,6 @@ describe('SimilarityResolver', () => {
     const r = makeResolver(root);
     const a = await r.resolve({ threshold: 0.5, scope: { type: 'all', id: null } });
     const b = await r.resolve({ threshold: 0.5, scope: { type: 'all', id: null } });
-    // Returned object identity should match since the second call hit cache.
     expect(b).toBe(a);
   });
 

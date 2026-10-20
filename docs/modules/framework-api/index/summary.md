@@ -213,7 +213,9 @@ The reasons below are not obvious from the code in `src/framework-api/`.
   bare array, composer 2 wraps it. The `v` prefix is dropped from versions. The cache key uses
   composer's `dist.reference` when there is one. `sources` names the tree read, not every file.
 - **`adapters/node.ts`.** A declaration file with no module symbol is a global script and can
-  assert nothing absent. Past the drill budget a container still gets its wildcard.
+  assert nothing absent. Past the drill budget a container still gets its wildcard. `sources`
+  lands in persisted JSON, so it is always posix: a Windows `node_modules\react\index.d.ts` must
+  never reach it, and the unit test asserts that on every platform, not only on the Windows leg.
 - **`deprecation.ts`.** Tag text arrives as display parts, so a `{@link Target label}` is
   rendered as its label (or target) instead of the concatenated parts. An explicit `@since` tag
   wins over a `since <version>` phrase, and a bare leading version is read only when the tag

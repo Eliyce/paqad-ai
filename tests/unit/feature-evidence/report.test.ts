@@ -41,7 +41,6 @@ const mk = (
 ): Partial<SessionLedgerRow> =>
   ({ kind, stage, ts, adapter: 'claude-code', evidence_source: 'live-mark', ...extra }) as never;
 
-/** A complete-in-order set of stage rows (planning → documentation_sync) with artifacts. */
 function completeStageRows(): Partial<SessionLedgerRow>[] {
   return [
     { kind: 'open', ts: '2026-07-13T09:00:00.000Z', adapter: 'claude-code', lane: 'full' } as never,
@@ -54,9 +53,7 @@ function completeStageRows(): Partial<SessionLedgerRow>[] {
     mk('stage_start', 'review', '2026-07-13T09:03:00.000Z'),
     mk('stage_end', 'review', '2026-07-13T09:03:30.000Z', { artifact_digest: 'a3' }),
     mk('stage_start', 'checks', '2026-07-13T09:04:00.000Z'),
-    // checks closed hours later by the backstop → "includes idle time"
     mk('stage_end', 'checks', '2026-07-13T13:00:00.000Z', { adapter: 'backstop' }),
-    // documentation_sync runs after checks closes (no ordering overlap).
     mk('stage_start', 'documentation_sync', '2026-07-13T13:00:01.000Z'),
     mk('stage_end', 'documentation_sync', '2026-07-13T13:00:05.000Z'),
   ];
@@ -75,7 +72,6 @@ function gradedRows(verdict: 'pass' | 'fail' | 'inconclusive'): EvidenceLedgerRo
       content_hash: `h-${verdict}`,
       detail: 'All 2 automated acceptance criteria map to a proving test.',
     }) as EvidenceLedgerRow;
-  // Two rows sharing a content_hash prove de-duplication by hash.
   return [row(AT), row('2026-07-13T10:00:01.000Z')];
 }
 
@@ -160,8 +156,6 @@ describe('verifyFeatureReceiptSelf', () => {
     const tampered = { ...envelope, payload: Buffer.from('{"tampered":true}').toString('base64') };
     expect(verifyFeatureReceiptSelf(tampered)).toBe(false);
     expect(verifyFeatureReceiptSelf({} as ReceiptEnvelope)).toBe(false);
-    // An envelope with a payload but no payloadType / no paqad block → the DSSE and
-    // ZERO_DIGEST fallbacks fire, and the missing receipt_hash fails the check.
     const bare = { payload: Buffer.from('x').toString('base64') } as ReceiptEnvelope;
     expect(verifyFeatureReceiptSelf(bare)).toBe(false);
   });
@@ -197,9 +191,7 @@ describe('deriveReportVerdict', () => {
   });
 });
 
-// Issue #639, Part 4 — one verdict rule. The chat receipt, report.html and the PR comment
-// must print the same word for the same run, including an inconclusive gate and a missing stage.
-describe('one verdict rule across chat, report and PR comment (#639 Part 4, AC-5)', () => {
+describe('one verdict rule across chat, report and PR comment', () => {
   type Status = 'pass' | 'fail' | 'inconclusive' | 'skipped';
   function evidence(statuses: Status[], gaps?: string[]): VerificationEvidence {
     return {
@@ -207,7 +199,6 @@ describe('one verdict rule across chat, report and PR comment (#639 Part 4, AC-5
       run_id: 'r',
       started_at: AT,
       completed_at: AT,
-      // overall_status folds inconclusive into fail, as the evidence writer does.
       overall_status: statuses.some((s) => s === 'fail' || s === 'inconclusive') ? 'fail' : 'pass',
       first_failure_gate: null,
       gates: statuses.map((status, i) => ({
@@ -296,23 +287,19 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
   });
 
   it('leads with a paqad-branded dashboard: wordmark, submenu, and stat tiles', () => {
-    // The paqad wordmark header + verdict pill.
     expect(html).toContain('class="brand"');
     expect(html).toContain('paqad');
     expect(html).toContain('class="verdict-pill');
-    // The submenu drills into each section by anchor.
     expect(html).toContain('class="submenu"');
     for (const id of ['#overview', '#timeline', '#plan', '#receipt', '#delivery']) {
       expect(html).toContain(`href="${id}"`);
     }
-    // The overview stat tiles carry the at-a-glance numbers.
     expect(html).toContain('class="tiles"');
     expect(html).toContain('Stages recorded');
     expect(html).toContain('Active time');
     expect(html).toContain('Rule findings');
     expect(html).toContain('AI-BOM files');
     expect(html).toContain('Commits');
-    // Detail sections are addressable panels (revealed via :target).
     expect(html).toContain('<section class="panel" id="timeline">');
   });
 
@@ -334,21 +321,18 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
   });
 
   it('shows per-stage durations, the idle-time flag, and the decoded receipt rows', () => {
-    expect(html).toContain('4.0s'); // planning 09:00:01 → 09:00:05
-    expect(html).toContain('includes idle time'); // checks closed by backstop
-    expect(html).toContain('reconstructed from the diff'); // inferred-git development
-    expect(html).toContain('ac-test-mapping'); // decoded receipt gate row
-    expect(html).toContain('FAILED'); // receipt verification result
-    expect(html).toContain('Integrity verified'); // hash recomputes
-    // De-duplicated: the single gate row appears once in the gates table body.
+    expect(html).toContain('4.0s');
+    expect(html).toContain('includes idle time');
+    expect(html).toContain('reconstructed from the diff');
+    expect(html).toContain('ac-test-mapping');
+    expect(html).toContain('FAILED');
+    expect(html).toContain('Integrity verified');
     expect(html.match(/ac-test-mapping/g)!.length).toBe(1);
-    expect(html).toContain('D-01ABC'); // linked decision
-    expect(html).toContain('CycloneDX serial'); // ai-bom
-    expect(html).toContain('feat/x'); // delivery branch
+    expect(html).toContain('D-01ABC');
+    expect(html).toContain('CycloneDX serial');
+    expect(html).toContain('feat/x');
   });
 
-  // Issue #402 — the review is a rigid bundle artifact now, not an agent-authored .md
-  // discovered from the stage row, so it renders structurally from review.json.
   it('renders the recorded review structurally, escaping every field', () => {
     const bundle = fullBundle();
     bundle.files.review = {
@@ -359,11 +343,9 @@ describe('renderFeatureReportHtml — full bundle (AC-1)', () => {
       rollback: 'Revert the commit.',
     };
     const html2 = renderFeatureReportHtml(bundle, fold(completeStageRows()), { generatedAt: AT });
-    // The verdict renders in the narration contract's own words.
     expect(html2).toContain('Needs your attention');
     expect(html2).toContain('unsafe cast');
     expect(html2).toContain('Revert the commit.');
-    // The script tag from the review is escaped, never live.
     expect(html2).not.toMatch(/<script/i);
     expect(html2).toContain('&lt;script&gt;');
   });
@@ -391,7 +373,7 @@ describe('renderFeatureReportHtml — partial bundle graceful empty states (AC-2
     expect(html).toContain('No rule-script runs were recorded');
     expect(html).toContain('No retrieval was recorded');
     expect(html).toContain('No verification receipt was written');
-    expect(html).toContain('enterprise governance capability'); // enterprise-off wording
+    expect(html).toContain('enterprise governance capability');
     expect(html).toContain('No AI-BOM was written');
     expect(html).toContain('No delivery record yet');
     expect(html).toContain('No review was recorded for this change');
@@ -400,7 +382,7 @@ describe('renderFeatureReportHtml — partial bundle graceful empty states (AC-2
   });
 });
 
-describe('renderFeatureReportHtml — visual evidence section (issue #551)', () => {
+describe('renderFeatureReportHtml — visual evidence section', () => {
   function withVisualEvidence(files: Record<string, unknown>): FeatureBundleExport {
     return {
       dir_name: DIR,
@@ -409,7 +391,7 @@ describe('renderFeatureReportHtml — visual evidence section (issue #551)', () 
     } as FeatureBundleExport;
   }
 
-  it('labels agent-attached steps and the manifest source (issue #579, INV-9)', () => {
+  it('labels agent-attached steps and the manifest source', () => {
     const step = {
       index: 1,
       journey_id: 'agent-attached',
@@ -527,11 +509,10 @@ describe('renderFeatureReportHtml — visual evidence section (issue #551)', () 
 
 describe('renderFeatureReportHtml — honest stage states (AC-4)', () => {
   it('renders a marker-only thinking stage as needs-a-look, never done', () => {
-    // planning end WITHOUT an artifact_digest → inconclusive ("marked, no recorded work").
     const rows: Partial<SessionLedgerRow>[] = [
       { kind: 'open', ts: AT, adapter: 'claude-code' },
       mk('stage_start', 'planning', AT),
-      mk('stage_end', 'planning', '2026-07-13T10:00:02.000Z'), // no artifact_digest
+      mk('stage_end', 'planning', '2026-07-13T10:00:02.000Z'),
     ];
     const bundle: FeatureBundleExport = {
       dir_name: DIR,
@@ -557,8 +538,7 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(html).toContain('Safe to merge');
   });
 
-  it('flags idle time on a stage the backstop closed, named by the row agent (issue #581)', () => {
-    // A row since #581 carries no adapter; the backstop names itself as the row's agent.
+  it('flags idle time on a stage the backstop closed, named by the row agent', () => {
     const rows = completeStageRows().map((row) => {
       const rest: Record<string, unknown> = { ...row };
       delete rest.adapter;
@@ -570,7 +550,6 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(render({ stageEvidence: noBackstop })).not.toContain('includes idle time');
   });
 
-  // Issue #581 — the title and the branches live in feature.json.
   it('reads the title and the branches from feature.json, ahead of a legacy plan or delivery', () => {
     const html = render({
       feature: { title: 'From feature json', slug: 'x', branch: 'feat/new', base_branch: 'dev' },
@@ -602,24 +581,18 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
   it('renders each honest stage state (failed, skipped, redone, running, inferred-artifact, near-zero, missing)', () => {
     const rows: Partial<SessionLedgerRow>[] = [
       { kind: 'open', ts: '2026-07-13T09:00:00.000Z', adapter: 'claude-code' },
-      // planning: end BEFORE start → negative → near-zero/unreliable, but complete (has artifact).
       mk('stage_start', 'planning', '2026-07-13T09:00:05.000Z'),
       mk('stage_end', 'planning', '2026-07-13T09:00:04.000Z', { artifact_digest: 'a' }),
-      // specification: skipped.
       mk('stage_start', 'specification', '2026-07-13T09:00:06.000Z'),
       mk('stage_end', 'specification', '2026-07-13T09:00:07.000Z', { event_status: 'skipped' }),
-      // development: redone (reached an end after a redo).
       mk('stage_start', 'development', '2026-07-13T09:00:08.000Z'),
       mk('stage_end', 'development', '2026-07-13T09:00:09.000Z', { event_status: 'redone' }),
-      // checks: running (start only).
       mk('stage_start', 'checks', '2026-07-13T09:00:10.000Z'),
-      // review: complete via inferred-artifact.
       mk('stage_start', 'review', '2026-07-13T09:00:11.000Z'),
       mk('stage_end', 'review', '2026-07-13T09:00:15.000Z', {
         evidence_source: 'inferred-artifact',
         artifact_digest: 'r',
       }),
-      // documentation_sync: failed.
       mk('stage_start', 'documentation_sync', '2026-07-13T09:00:16.000Z'),
       mk('stage_end', 'documentation_sync', '2026-07-13T09:00:17.000Z', { event_status: 'failed' }),
     ];
@@ -681,8 +654,6 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     expect(html).toContain('ac-test-mapping');
   });
 
-  // Issue #581 — a sealing receipt carries no rows; the report reads that run's rows from
-  // evidence.jsonl (earlier runs' rows left out, the late gates included).
   it('renders a sealing receipt from the evidence.jsonl rows of its run', () => {
     const statement = buildInTotoStatement({
       fileDigests: [{ name: 'src/x.ts', sha256: 'abc123' }],
@@ -705,7 +676,6 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
     });
     expect(html).toContain('ac-test-mapping');
     expect(html).toContain('rules-loaded');
-    // The late gate sits past the two sealed lines, so it is marked as not covered by the seal.
     expect(html).toMatch(
       /<code>rules-loaded<\/code> <em class="unsealed">\(recorded after the seal, not covered by it\)<\/em>/,
     );
@@ -726,8 +696,8 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
 
   it('renders an AI-BOM with no components key and a delivery with no commits key', () => {
     const html = render({
-      aiBom: {}, // no components / serialNumber keys → ?? [] fallbacks
-      delivery: { branch: 'feat/y' }, // no commits / base_branch / merge keys
+      aiBom: {},
+      delivery: { branch: 'feat/y' },
     });
     expect(html).toContain('No file components recorded');
     expect(html).toContain('No commits linked yet');
@@ -764,7 +734,7 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
 
   it('counts an unknown-shaped rag row as "other" activity and tolerates a bad timestamp', () => {
     const html = render({
-      rag: [{}], // no kind → "other"
+      rag: [{}],
       stageEvidence: [
         { kind: 'open', ts: AT },
         mk('stage_start', 'planning', 'not-a-real-date'),
@@ -781,24 +751,23 @@ describe('renderFeatureReportHtml — section + stage variants (branch coverage)
           summary: 'sparse',
           steps: [{ description: 'no id, no module' }],
           decisions: ['d'],
-          risks: [{ description: 'r' }], // no mitigation
+          risks: [{ description: 'r' }],
         },
         specification: {
           behaviour: ['b'],
-          acceptance_criteria: [{}], // no id / given / when / then
-          invariants: [{}], // no id / statement / confirmed
-          frozen: {}, // present but no frozen_at / signed_off_by
+          acceptance_criteria: [{}],
+          invariants: [{}],
+          frozen: {},
         },
-        // called present, but used/fallback absent (their false sides).
         rag: [{ kind: 'called' }],
-        aiBom: { components: [{}] }, // component with no name / no hashes
-        delivery: { commits: [{}] }, // no branch/base/merge; commit with no sha/subject
+        aiBom: { components: [{}] },
+        delivery: { commits: [{}] },
         stageEvidence: [
-          { kind: 'open', ts: AT }, // stage_end with no adapter handled below
-          { kind: 'stage_end', stage: 'planning', ts: AT }, // no adapter, no artifact → inconclusive
+          { kind: 'open', ts: AT },
+          { kind: 'stage_end', stage: 'planning', ts: AT },
         ],
       },
-      'not-a-valid-feature-dir', // unparseable dir → no issue/ULID in header
+      'not-a-valid-feature-dir',
     );
     expect(html).toContain('no given/when/then recorded');
     expect(html).toContain('Mitigation: —');
@@ -842,7 +811,7 @@ describe('renderFeatureReportHtml — determinism (AC-9)', () => {
   });
 });
 
-describe('renderFeatureReportHtml — Checks section (issue #554)', () => {
+describe('renderFeatureReportHtml — Checks section', () => {
   it('renders commands, mode, and flaky-under-parallel from a v2 checks report', () => {
     const bundle: FeatureBundleExport = {
       dir_name: DIR,
@@ -918,8 +887,6 @@ describe('renderFeatureReportHtml — Checks section (issue #554)', () => {
   });
 });
 
-// Issue #581 (FR-11) — the decisions panel lists the bundle's decisions.json index, with the
-// chosen option and rationale the writer read from each tracked packet.
 describe('renderFeatureReportHtml — decisions', () => {
   const entry = (id: string) => ({
     id,
@@ -975,7 +942,6 @@ describe('renderFeatureReportHtml — decisions', () => {
     expect(html).toContain('Chosen: draft');
     expect(html).toContain('since it was indexed');
     expect(html).toContain('the tracked packet is gone');
-    // An entry the writer had no view for still shows its id and tracked path.
     expect(html).toContain('<strong>D-4</strong>');
     expect(html).toContain('.paqad/decisions/resolved/D-4.json');
   });

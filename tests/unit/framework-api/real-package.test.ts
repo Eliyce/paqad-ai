@@ -1,10 +1,3 @@
-// Real-resource test (RULE-11, RL-1dc7): load the ACTUAL installed @types/react and
-// assert a non-empty, expected result, so a wrong resolution path fails loudly instead of
-// returning an empty set that reads as "this package has no deprecations".
-//
-// This is the AC-2 case from issue #397, exercised against the declarations really on
-// disk rather than a fixture: a legacy React class lifecycle must come back deprecated.
-
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -19,8 +12,6 @@ import {
   type FrameworkApiSymbol,
 } from '@/framework-api/types.js';
 
-// react is installed under the graph-ui sub-app in this repo, not at the root — which is
-// exactly why the builder carries a per-package `root`.
 const searchRoot = join(process.cwd(), 'graph-ui');
 const installed = existsSync(searchRoot) ? resolveInstalledVersion(searchRoot, 'react') : null;
 
@@ -43,9 +34,6 @@ function indexFor(symbols: FrameworkApiSymbol[], version: string): FrameworkApiI
   };
 }
 
-// Skipped rather than failed when the sub-app's dependencies are not installed (a fresh
-// clone without `pnpm run graph-ui:install`), because that is an environment gap, not a
-// regression in this code.
 describe.skipIf(installed === null)('framework-api against the real @types/react', () => {
   const version = installed?.version ?? '';
   const result = installed
@@ -80,8 +68,6 @@ describe.skipIf(installed === null)('framework-api against the real @types/react
     );
     expect(query.verdict).toBe('deprecated');
     expect(query.record?.message).toBeTruthy();
-    // Rendered from JSDoc display parts, so a {@link} reference reads as its label rather
-    // than as the mangled "componentDidMountcomponentDidMount" a naive join produces.
     expect(query.record?.message).not.toContain('componentDidMountcomponentDidMount');
   });
 

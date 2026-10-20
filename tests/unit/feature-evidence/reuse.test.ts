@@ -1,7 +1,3 @@
-// Issue #357 — the plan reuse gate. These tests are the AC record for Phase A: each
-// `describe` names the acceptance criterion it proves, so a regression points straight at
-// the promise it broke.
-
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -34,7 +30,6 @@ function writeJson(root: string, relative: string, value: unknown): void {
   writeFileSync(target, JSON.stringify(value), 'utf8');
 }
 
-/** A code-knowledge index carrying exactly the named symbols. */
 function withIndex(root: string, names: string[]): void {
   writeJson(root, '.paqad/indexes/code-knowledge.json', {
     schema_version: 1,
@@ -64,7 +59,6 @@ function withIndex(root: string, names: string[]): void {
   });
 }
 
-/** A stack snapshot carrying one resolved package. */
 function withSnapshot(root: string, name: string, lockedVersion: string): void {
   writeJson(root, '.paqad/stack-snapshot.json', {
     generated_at: '2026-07-20T00:00:00.000Z',
@@ -83,7 +77,6 @@ function withSnapshot(root: string, name: string, lockedVersion: string): void {
   });
 }
 
-/** A project profile declaring the given detected frameworks. */
 function withFrameworks(root: string, frameworks: string[]): void {
   const target = join(root, '.paqad/project-profile.yaml');
   mkdirSync(dirname(target), { recursive: true });
@@ -375,9 +368,6 @@ describe('AC-9 — a framework claim must agree with the resolved stack snapshot
       steps: [],
     });
     expect(result.errors).toEqual([]);
-    // Both unverified axes are reported: the version cross-check has no snapshot to read
-    // (Phase A, #357) and the symbol check has no framework-API index (Phase B, #397).
-    // Neither blocks — a project that built neither artifact is never gated on one.
     expect(result.warnings).toEqual([SNAPSHOT_ABSENT_WARNING, FRAMEWORK_API_INDEX_ABSENT_WARNING]);
   });
 });
@@ -431,8 +421,6 @@ describe('AC-5 — reuse counts for the receipt', () => {
   });
 });
 
-// A template may legitimately omit the two optional arrays entirely — only `consulted` is
-// required — so every path has to treat them as empty rather than assume they are present.
 describe('a reuse section with only the required consulted array', () => {
   it('validates with no errors and no warnings', () => {
     const result = validateReuseSection({

@@ -72,7 +72,6 @@ describe('runFixProtocol', () => {
     expect(guard?.linked_ac_id).toBe('AC-1');
     expect(guard?.failing_evidence).toEqual(FAILING_EVIDENCE);
 
-    // Ordering: the proof ran on the unfixed tree before the fix was applied.
     const unfixedOrder = (input.runProofOnUnfixedTree as ReturnType<typeof vi.fn>).mock
       .invocationCallOrder[0];
     const applyOrder = (input.applyFix as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];

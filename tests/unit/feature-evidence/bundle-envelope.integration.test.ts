@@ -1,16 +1,3 @@
-// Issue #581 — cross-cutting checks over the bundles a whole fixture run leaves behind, one
-// run per config case (see bundle-run.fixture.ts):
-//   AC-3  nothing the pipeline or freeze wrote is left in .paqad/tmp
-//   AC-4  every JSON document and JSONL row carries the one header, doc_type paqad.<stem>,
-//         change = the folder ULID, and no retired time key appears anywhere
-//   AC-5  issue, title and slug live only in feature.json
-//   AC-6  adapter, branch and lane live only in feature.json, never on a row
-//   AC-7  (M3) each expert finding is stored once, synthesis refers by id, only two .md files
-//   AC-8  (M3) a brief rebuilt from the frozen bundle hashes to the roster's brief_hash
-//   AC-9  spec.md's body hashes to spec_hash; no provenance, run_dir or specification.md
-//   AC-10 (pipeline on) every FR/AC/INV id has one trace source: a ticket section or a finding
-//   AC-11 (M2, M3) the enforcement block is stored once, never on a spec-step row
-
 import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 
@@ -54,10 +41,8 @@ const BANNED_TIME_KEYS = [
 const IDENTITY_KEYS = ['issue', 'title', 'slug'];
 const SESSION_CONSTANT_KEYS = ['adapter', 'branch', 'lane'];
 
-/** One parsed JSON value from the bundle: a whole document or one JSONL row. */
 interface BundleValue {
   file: string;
-  /** `<file>` for a document, `<file>:<line>` for a row. */
   where: string;
   value: Record<string, unknown>;
   row: boolean;
@@ -82,7 +67,6 @@ function readValues(run: BundleRun): BundleValue[] {
   return values;
 }
 
-/** Every key path in a JSON value, e.g. `pipeline.enforcement`, `steps[0].id`. */
 function keyPaths(value: unknown, prefix = ''): string[] {
   if (Array.isArray(value)) {
     return value.flatMap((item, index) => keyPaths(item, `${prefix}[${index}]`));
@@ -101,7 +85,6 @@ function lastKey(path: string): string {
     .replace(/\[\d+\]$/, '');
 }
 
-/** Every object anywhere in a value, with its key path. */
 function objectsIn(
   value: unknown,
   prefix = '',
@@ -137,7 +120,6 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
     for (const { file, where, value } of values) {
       const stem = file.replace(/\.jsonl?$/, '');
       if (file === 'receipt.json') {
-        // The DSSE receipt carries the header in its top-level `paqad` block.
         const block = value.paqad as Record<string, unknown>;
         expect(validateEnvelopeHeader(block), where).toEqual([]);
         expect(block.doc_type, where).toBe('paqad.receipt');
@@ -145,7 +127,6 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
         continue;
       }
       if (file === 'ai-bom.json') {
-        // CycloneDX carries it as `paqad:<field>` metadata properties.
         const header = fromAiBomProperties(
           (value.metadata as { properties?: Array<{ name: string; value: string }> }).properties,
         );
@@ -197,12 +178,10 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
       const carried = keyPaths(value).filter(
         (path) =>
           [...IDENTITY_KEYS, ...SESSION_CONSTANT_KEYS].includes(lastKey(path)) &&
-          // A loaded rule's own title is the rule's name, not the change identity.
           !(file === 'rules-loaded.json' && /^applicable_rules\[\d+\]\.title$/.test(path)),
       );
       expect(carried, where).toEqual([]);
     }
-    // Rows carry each writer's own session id instead (AC-26 keeps that).
     const rows = values.filter((entry) => entry.file === 'stage-evidence.jsonl');
     expect(rows.every((entry) => typeof entry.value.session_id === 'string')).toBe(true);
   });
@@ -288,8 +267,6 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
           .filter(({ object }) => typeof object.id === 'string' && /^EX-/.test(object.id))
           .map(({ path, object }) => ({ at: `${where}#${path}`, id: object.id as string })),
       );
-      // Issue #558 — the accepted findings are also snapshotted onto the frozen spec (FR-13.1), so
-      // the same EX id appears both in experts.json and in the specification's pipeline section.
       expect(stored).toEqual([
         { at: 'experts.json#findings[0]', id: EXPERT_FINDING },
         { at: 'specification.json#pipeline.findings[0]', id: EXPERT_FINDING },
@@ -317,7 +294,6 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
     () => {
       const { root, dir } = run();
       const entry = readExperts(root, dir)!.roster[0]!;
-      // After freeze the staging dir is gone: grounding now comes from specification.json.
       expect(existsSync(join(root, '.paqad', 'tmp', 'spec-pipeline'))).toBe(false);
       const brief = renderExpertBrief({
         need: { role: entry.role, reason: entry.reason },
@@ -325,8 +301,6 @@ describe.each(ORACLE_CASES)('the %s bundle', (caseId) => {
         grounding: readGrounding(root, dir)!,
         label: readLabel(root, dir)!,
         granted: entry.budget_tokens,
-        // Issue #558 — the brief carries the Project voice section; rebuild it the same way so the
-        // hash matches. The vocabulary is persisted in the frozen grounding, so it is reproducible.
         projectVoice: resolveProjectVoiceForRun(root, dir),
       });
       expect(brief.hash).toBe(entry.brief_hash);

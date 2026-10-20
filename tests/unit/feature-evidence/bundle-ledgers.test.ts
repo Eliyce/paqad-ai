@@ -45,7 +45,6 @@ function activeFeature(root: string): string {
   });
 }
 
-/** Issue #581 — a bundle row opens with the six-field header, for the change the dir names. */
 function expectBundleHeader(row: Record<string, unknown>, docType: string, dir: string): void {
   expect(Object.keys(row).slice(0, 6)).toEqual([
     'schema_version',
@@ -87,8 +86,6 @@ describe('RAG two-home routing', () => {
     expect(rows[0].kind).toBe('retrieval');
   });
 
-  // Issue #581 — the bundle copy is re-stamped with the bundle header and no adapter; the
-  // _chat home is not a bundle and keeps the recorder's row.
   it('re-stamps a bundle-bound RAG row as paqad.rag with no adapter', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
@@ -137,7 +134,6 @@ describe('per-feature rule-run.jsonl', () => {
     const rows = readRuleRun(root, dir);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ kind: 'findings', blocking: true });
-    // Issue #581 — the bundle header, and no adapter on the row (AC-4, AC-6).
     expectBundleHeader(rows[0] as unknown as Record<string, unknown>, 'paqad.rule-run', dir);
     expect(rows[0]).not.toHaveProperty('adapter');
   });
@@ -147,7 +143,7 @@ describe('per-feature rule-run.jsonl', () => {
     expect(appendRuleRun(root, 'ses_1', { kind: 'drift', counts: {}, blocking: false })).toBeNull();
   });
 
-  it('keeps each finding by name and marks a cached run (issue #639, AC-26, AC-28)', () => {
+  it('keeps each finding by name and marks a cached run', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     appendRuleRun(root, 'ses_1', {
@@ -181,7 +177,7 @@ describe('per-feature rule-run.jsonl', () => {
     });
   });
 
-  it('does not append a cache hit that repeats the last row (issue #639 review)', () => {
+  it('does not append a cache hit that repeats the last row', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     const finding = {
@@ -198,22 +194,18 @@ describe('per-feature rule-run.jsonl', () => {
       findings: [finding],
       from_cache: true,
     };
-    // A fresh run, then its first cache hit: both are recorded.
     appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
     expect(appendRuleRun(root, 'ses_1', hit)).not.toBeNull();
-    // The same cache hit again adds nothing.
     expect(appendRuleRun(root, 'ses_1', hit)).toBeNull();
     expect(readRuleRun(root, dir)).toHaveLength(2);
-    // A cache hit with different content is still recorded.
     appendRuleRun(root, 'ses_1', { ...hit, blocking: false });
     expect(readRuleRun(root, dir)).toHaveLength(3);
-    // A fresh run is always recorded, even when it repeats the last row.
     appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
     appendRuleRun(root, 'ses_1', { ...hit, from_cache: false });
     expect(readRuleRun(root, dir)).toHaveLength(5);
   });
 
-  it('keeps exactly the cap and counts the overflow (issue #639, AC-29)', () => {
+  it('keeps exactly the cap and counts the overflow', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     const findings = Array.from({ length: BUNDLE_FINDINGS_CAP + 3 }, (_, i) => ({
@@ -232,7 +224,6 @@ describe('per-feature rule-run.jsonl', () => {
     const [row] = readRuleRun(root, dir) as unknown as Array<Record<string, unknown>>;
     expect(row!.findings).toHaveLength(BUNDLE_FINDINGS_CAP);
     expect(row!.findings_overflow).toBe(3);
-    // Gate 3 (AC-30): the kept findings plus the overflow equal the counts.
     expect((row!.findings as unknown[]).length + (row!.findings_overflow as number)).toBe(
       findings.length,
     );
@@ -298,7 +289,7 @@ function gradedRows() {
   ];
 }
 
-describe('per-feature duplication.jsonl (issue #468)', () => {
+describe('per-feature duplication.jsonl', () => {
   it('appends a duplication row into the active feature and reads it back', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
@@ -306,7 +297,6 @@ describe('per-feature duplication.jsonl (issue #468)', () => {
     expect(row).not.toBeNull();
     const rows = readDuplication(root, dir);
     expect(rows).toHaveLength(1);
-    // Issue #581 — doc_type is the file stem, paqad.duplication.
     expectBundleHeader(rows[0] as unknown as Record<string, unknown>, 'paqad.duplication', dir);
     expect(rows[0]).toMatchObject({
       counts: { deterministic: 1, heuristic: 2 },
@@ -322,7 +312,7 @@ describe('per-feature duplication.jsonl (issue #468)', () => {
     expect(appendDuplicationRun(root, 'ses_1', duplicationReport())).toBeNull();
   });
 
-  it('keeps each near-copy by name, capped with the overflow counted (issue #639, AC-27, AC-29)', () => {
+  it('keeps each near-copy by name, capped with the overflow counted', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     const nearCopy = (i: number, symbol?: string): DuplicationFinding => ({
@@ -384,7 +374,7 @@ describe('per-feature duplication.jsonl (issue #468)', () => {
   });
 });
 
-describe('per-feature change-metrics.jsonl (issue #468)', () => {
+describe('per-feature change-metrics.jsonl', () => {
   it('appends a change-metrics row into the active feature and reads it back', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
@@ -418,8 +408,8 @@ describe('per-feature change-metrics.jsonl (issue #468)', () => {
   });
 });
 
-describe('per-feature evidence.jsonl (issue #468, D5)', () => {
-  it('appends the graded rows with the bundle header and reads them back (issue #581)', () => {
+describe('per-feature evidence.jsonl', () => {
+  it('appends the graded rows with the bundle header and reads them back', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     const rows = gradedRows();
@@ -428,7 +418,6 @@ describe('per-feature evidence.jsonl (issue #468, D5)', () => {
     const readBack = readFeatureEvidence(root, dir);
     expect(readBack).toHaveLength(2);
     expect(readBack[0]).toMatchObject({ code: 'code-tests-lint', verdict: 'pass' });
-    // What was written is what reads back, in the one row view (ts filled from recorded_at).
     expect(readBack).toEqual(written);
     expect(readBack[0]).toMatchObject({
       schema_version: 2,
@@ -438,7 +427,6 @@ describe('per-feature evidence.jsonl (issue #468, D5)', () => {
       recorded_at: rows[0].ts,
       ts: rows[0].ts,
     });
-    // On disk the header leads and the old `ts` is not written (AC-4).
     const line = JSON.parse(
       readFileSync(join(root, featureFilePath(dir, 'evidence')), 'utf8').split('\n')[0]!,
     ) as Record<string, unknown>;
@@ -467,7 +455,6 @@ describe('per-feature evidence.jsonl (issue #468, D5)', () => {
   it('swallows an internal failure (best-effort) and returns []', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    // A circular row makes the JSONL stringify inside the writer throw.
     const circular: Record<string, unknown> = {};
     circular.self = circular;
     expect(

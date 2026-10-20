@@ -21,14 +21,11 @@ let root: string;
 let home: string;
 
 interface JarFixture {
-  /** The `version=` line written into the jar pom.properties. */
   version?: string;
   classes?: ClassFixture[];
-  /** A sibling `.pom` naming the modules this artifact aggregates. */
   pom?: string;
 }
 
-/** Write a jar (and optionally its POM) into the fake Maven repository. */
 function installMaven(coordinate: string, version: string, fixture: JarFixture): string {
   const [group, artifact] = coordinate.split(':') as [string, string];
   const dir = join(home, '.m2', 'repository', ...group.split('.'), artifact, version);
@@ -41,7 +38,6 @@ function installMaven(coordinate: string, version: string, fixture: JarFixture):
   return jar;
 }
 
-/** Write a jar into the fake Gradle module cache. */
 function installGradle(coordinate: string, version: string, fixture: JarFixture): string {
   const [group, artifact] = coordinate.split(':') as [string, string];
   const dir = join(
@@ -80,8 +76,6 @@ let realProfile: string | undefined;
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), 'paqad-framework-api-jvm-'));
   home = mkdtempSync(join(tmpdir(), 'paqad-framework-api-home-'));
-  // `os.homedir()` reads HOME on posix and USERPROFILE on Windows, so both are pointed at
-  // the fixture — the same cross-platform contract the repo relies on elsewhere.
   realHome = process.env.HOME;
   realProfile = process.env.USERPROFILE;
   process.env.HOME = home;
@@ -408,16 +402,13 @@ describe('the JVM entry answered through the query (AC-4)', () => {
 });
 
 describe('jvmFrameworkApiAdapter.index — artifacts that only partly read', () => {
-  /** A jar holding entries the class reader cannot use, beside one it can. */
   function mixedJar(): Buffer {
     return buildZip([
       {
         name: 'META-INF/maven/com.acme/mixed/pom.properties',
         data: Buffer.from('version=4.0.0\n'),
       },
-      // Not a class file at all: parseClassFile returns null and it is skipped.
       { name: 'com/acme/Garbage.class', data: Buffer.from('not a class file') },
-      // Stored with a method the entry reader does not implement: skipped too.
       { name: 'com/acme/Packed.class', data: Buffer.from('whatever'), method: 12 },
       {
         name: 'com/acme/Real.class',

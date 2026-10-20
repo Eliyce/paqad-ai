@@ -27,7 +27,9 @@ inside the package.
   1 MB.
 - **`watcher.ts`.** Append-only logs that report builds and dashboard writes produce are ignored,
   because reacting to them would loop: build, append, change event, build again. A recursive watch
-  that fails on an unusual filesystem degrades silently.
+  that fails on an unusual filesystem degrades silently. On macOS, FSEvents can deliver coalesced
+  events with a null or parent-directory filename, so the ignore is best effort there; the
+  idempotent profile migration is what stops the loop on every platform.
 - **`import-scanner.ts`.** Only relative specifiers and the tsconfig `@/` alias are resolved, and an
   explicit `.js` extension is stripped because TypeScript sources import `.js` paths.
 - **`similarity.ts`.** The pairwise comparison is O(N²) over the scoped chunks; at about 4,000

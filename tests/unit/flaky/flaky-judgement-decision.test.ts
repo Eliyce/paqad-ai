@@ -17,9 +17,6 @@ const BASE = {
   created_at: '2026-06-08T00:00:00Z',
 };
 
-// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
-// `D-<ULID>` id. The builder unit tests above keep using legacy `D-1`/`D-2` ids on
-// purpose (they only validate, never write, proving read tolerance stays intact).
 const WRITTEN_ID = 'D-01J000000000000000000000A1';
 
 describe('buildFlakyJudgementPacket', () => {
@@ -37,7 +34,6 @@ describe('buildFlakyJudgementPacket', () => {
       'keep-as-real-fault',
       'gather-more-reruns',
     ]);
-    // ttl_days for test.flaky_judgement is 30.
     expect(packet.ttl_until).toBe('2026-07-08T00:00:00.000Z');
   });
 
@@ -62,9 +58,6 @@ describe('test.flaky_judgement reuse by kind', () => {
   let projectRoot: string;
 
   beforeEach(() => {
-    // Freeze the clock inside the packet's 30-day TTL window (created_at 2026-06-08)
-    // so reuse is deterministic regardless of the real date — otherwise the fixture
-    // rots the day its TTL lapses. Only Date is faked, so fs/timers are untouched.
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-06-15T00:00:00.000Z'));
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-flaky-judge-'));

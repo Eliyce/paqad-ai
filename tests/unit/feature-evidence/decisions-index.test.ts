@@ -1,7 +1,3 @@
-// Issue #581 (FR-11, AC-15) — the bundle's decisions.json is an index of the tracked resolved
-// packets linked to the change: id, category, tracked path and the sha256 of the tracked file.
-// It never copies a packet body.
-
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -41,7 +37,6 @@ function project(): { root: string; dir: string } {
   return { root, dir };
 }
 
-/** Write a tracked resolved packet and return its raw bytes. */
 function packet(root: string, id: string, body: Record<string, unknown>): string {
   mkdirSync(join(root, RESOLVED), { recursive: true });
   const raw = `${JSON.stringify({ id, ...body }, null, 2)}\n`;
@@ -49,7 +44,6 @@ function packet(root: string, id: string, body: Record<string, unknown>): string
   return raw;
 }
 
-/** Now, read after the change opened so it falls inside the change's window. */
 const now = (): string => new Date(Date.now() + 1000).toISOString();
 
 describe('collectFeatureDecisions — which packets belong to the change', () => {
@@ -76,7 +70,6 @@ describe('collectFeatureDecisions — which packets belong to the change', () =>
       context: `waive it [paqad-ve-readiness 581-decisions-${ULID}]`,
       resolved_at: '2000-01-01T00:00:00.000Z',
     });
-    // An automated packet, resolved while the change was open.
     mkdirSync(join(root, RESOLVED), { recursive: true });
     writeFileSync(
       join(root, RESOLVED, 'D-01JAAAAAAAAAAAAAAAAAAAAAA4.json'),
@@ -87,14 +80,11 @@ describe('collectFeatureDecisions — which packets belong to the change', () =>
       }),
       'utf8',
     );
-    // Resolved long before the change opened, naming nothing: not this change's.
     packet(root, 'D-01JAAAAAAAAAAAAAAAAAAAAAA5', {
       category: 'ux-pattern',
       resolved_at: '2000-01-01T00:00:00.000Z',
     });
-    // Only a creation time, inside the window; no category.
     packet(root, 'D-01JAAAAAAAAAAAAAAAAAAAAAA6', { created_at: now() });
-    // No time at all, a malformed file, an array, and a stray non-packet file are skipped.
     packet(root, 'D-01JAAAAAAAAAAAAAAAAAAAAAA7', { category: 'ux-pattern' });
     writeFileSync(join(root, RESOLVED, 'D-01JAAAAAAAAAAAAAAAAAAAAAA8.json'), '{nope', 'utf8');
     writeFileSync(join(root, RESOLVED, 'D-01JAAAAAAAAAAAAAAAAAAAAAA9.json'), '[]', 'utf8');
@@ -192,7 +182,6 @@ describe('writeFeatureDecisionsIndex', () => {
     expect(writeFeatureDecisionsIndex(root, dir).written).toBe(false);
     expect(readFileSync(abs, 'utf8')).toBe(before);
 
-    // The packet's link moves to another change: the index is rewritten, now empty.
     packet(root, 'D-01JAAAAAAAAAAAAAAAAAAAAAF1', { category: 'ux-pattern', change: OTHER });
     const again = writeFeatureDecisionsIndex(root, dir);
     expect(again.written).toBe(true);
@@ -240,7 +229,6 @@ describe('readIndexedDecisionViews', () => {
     packet(root, 'D-01JAAAAAAAAAAAAAAAAAAAAAG3', { category: 'ux-pattern', change: ULID });
     packet(root, 'D-01JAAAAAAAAAAAAAAAAAAAAAG4', { category: 'ux-pattern', change: ULID });
     writeFeatureDecisionsIndex(root, dir);
-    // One tracked file is edited after indexing, one is deleted, one is no longer JSON.
     packet(root, 'D-01JAAAAAAAAAAAAAAAAAAAAAG3', { category: 'ux-pattern', change: ULID, x: 1 });
     rmSync(join(root, RESOLVED, 'D-01JAAAAAAAAAAAAAAAAAAAAAG4.json'));
 

@@ -25,7 +25,7 @@ afterEach(() => {
 const DIR = '581-packet-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const AT = '2026-09-25T00:00:00.000Z';
 
-describe('documentSessionId (issue #581)', () => {
+describe('documentSessionId', () => {
   it('prefers the writer session, trimmed', () => {
     expect(documentSessionId(tempRoot(), DIR, '  ses_1  ')).toBe('ses_1');
   });
@@ -39,7 +39,7 @@ describe('documentSessionId (issue #581)', () => {
   });
 });
 
-describe('stampFeatureDocument (issue #581)', () => {
+describe('stampFeatureDocument', () => {
   it('stamps the six-field header for the change the folder names', () => {
     const doc = stampFeatureDocument({
       projectRoot: tempRoot(),

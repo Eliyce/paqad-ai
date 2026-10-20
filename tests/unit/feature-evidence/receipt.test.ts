@@ -70,7 +70,7 @@ const INPUT = {
   timeVerified: '2026-07-10T00:00:00.000Z',
 };
 
-describe('per-feature receipt + ai-bom projection (#343 B)', () => {
+describe('per-feature receipt + ai-bom projection', () => {
   it('writes a signed receipt.json and ai-bom.json into the feature bundle from its own rows', () => {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_1', {
@@ -83,15 +83,13 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
 
     expect(existsSync(join(root, featureFilePath(dir, 'receipt')))).toBe(true);
     expect(existsSync(join(root, featureFilePath(dir, 'aiBom')))).toBe(true);
-    // The signed receipt round-trips and carries a chain hash.
     const receipt = readFeatureReceipt(root, dir)!;
     expect(receipt.paqad.receipt_hash).toEqual(result.envelope.paqad.receipt_hash);
-    // The AI-BOM is the CycloneDX view of the same subject.
     const aiBom = readFeatureAiBom(root, dir)!;
     expect(JSON.stringify(aiBom)).toContain('src/app.ts');
   });
 
-  it('carries the change-shape metrics block into the receipt predicate (#362)', () => {
+  it('carries the change-shape metrics block into the receipt predicate', () => {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -121,7 +119,6 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
     });
     const first = projectFeatureReceipt(root, dir, INPUT);
     const second = projectFeatureReceipt(root, dir, INPUT);
-    // The second receipt embeds the first's hash as its previous link (a self-contained chain).
     expect(second.envelope.paqad.prev_receipt_hash).toBe(first.envelope.paqad.receipt_hash);
   });
 
@@ -134,7 +131,6 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
     });
     projectFeatureAiBom(root, dir, INPUT);
     expect(existsSync(join(root, featureFilePath(dir, 'aiBom')))).toBe(true);
-    // No receipt was written on the ai-bom-only path.
     expect(existsSync(join(root, featureFilePath(dir, 'receipt')))).toBe(false);
   });
 
@@ -167,7 +163,6 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
 
     const whole = projectAiBomFromFeatures(root, '1.52.0', '2026-07-10T00:00:00.000Z')!;
     const json = JSON.stringify(whole);
-    // Both features' file subjects appear in the unioned AI-BOM.
     expect(json).toContain('src/a.ts');
     expect(json).toContain('src/b.ts');
   });
@@ -178,7 +173,7 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
     expect(projectAiBomFromFeatures(root, '1.52.0', '2026-07-10T00:00:00.000Z')).toBeNull();
   });
 
-  describe('#468 Phase B — bundle receipt union + latest', () => {
+  describe('bundle receipt union + latest', () => {
     it('unions every feature receipt and skips dirs with none', () => {
       const root = tempRoot();
       const a = openFeatureChange(root, 'ses_1', {
@@ -187,7 +182,6 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
         issue: null,
       });
       projectFeatureReceipt(root, a, INPUT);
-      // A second feature dir exists (opened) but never projected a receipt → skipped.
       openFeatureChange(root, 'ses_1', { adapter: 'claude-code', title: 'B', issue: null });
       const receipts = readAllFeatureReceipts(root);
       expect(receipts).toHaveLength(1);
@@ -222,7 +216,7 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
       expect(latestFeatureReceipt(root)).toBeNull();
     });
 
-    it('carries authorship / compliance / reproducibility into the predicate (#468 FR-7)', () => {
+    it('carries authorship / compliance / reproducibility into the predicate', () => {
       const root = tempRoot();
       const dir = openFeatureChange(root, 'ses_1', {
         adapter: 'claude-code',
@@ -263,8 +257,7 @@ describe('per-feature receipt + ai-bom projection (#343 B)', () => {
   });
 });
 
-// Issue #547 — the end-of-change receipt's specification line (FR-12.3 / AC-18).
-describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () => {
+describe('the receipt seals evidence.jsonl instead of copying rows', () => {
   function openWithEvidence(rows: EvidenceLedgerRow[]): { root: string; dir: string } {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_1', {
@@ -284,7 +277,6 @@ describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () =
     expect(predicate.evidence_line_count).toBe(2);
     const bytes = readFileSync(join(root, featureFilePath(dir, 'evidence')), 'utf8');
     expect(predicate.evidence_sha256).toBe(createHash('sha256').update(bytes).digest('hex'));
-    // Graded counts and the verdict still come from the rows.
     expect(predicate.graded_results.deterministic.pass).toBe(2);
     expect(predicate.verification_result).toBe('PASSED');
     expect(verifyReceiptSeal(envelope)).toBe(true);
@@ -357,7 +349,6 @@ describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () =
     const earlier = { ...row('format', 'fail'), ts: '2026-07-09T00:00:00.000Z' };
     const late = row('rules-loaded', 'pass');
     const rows = receiptEvidenceRows(statement, [earlier, ...INPUT.rows, late]);
-    // The late gate sits past the sealed lines: shown as unsealed, never as the receipt's.
     expect(rows.map((r) => r.code)).toEqual(['format', 'tests']);
     const split = splitReceiptEvidenceRows(statement, [earlier, ...INPUT.rows, late]);
     expect(split.unsealed.map((r) => r.code)).toEqual(['rules-loaded']);
@@ -386,7 +377,6 @@ describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () =
     const split = readReceiptEvidenceRows(root, dir, statement);
     expect(split.sealed.map((r) => r.code)).toEqual(['format', 'tests']);
     expect(split.unsealed.map((r) => r.code)).toEqual(['rules-loaded']);
-    // The late fail is not the receipt's evidence, so the whole-project AI-BOM stays PASSED.
     const whole = projectAiBomFromFeatures(root, '1.52.0', INPUT.timeVerified)!;
     expect(JSON.stringify(whole)).toContain('"paqad:verification:result","value":"PASSED"');
   });
@@ -427,8 +417,7 @@ describe('the receipt seals evidence.jsonl instead of copying rows (#581)', () =
   });
 });
 
-// Issue #581 (FR-5) — each standard format carries the one header in the slot it allows.
-describe('receipt.json and ai-bom.json carry the envelope header (#581)', () => {
+describe('receipt.json and ai-bom.json carry the envelope header', () => {
   function open(): { root: string; dir: string } {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_owner', {
@@ -462,8 +451,6 @@ describe('receipt.json and ai-bom.json carry the envelope header (#581)', () => 
       recorded_at: INPUT.timeVerified,
       content_hash: envelope.paqad.receipt_hash,
     });
-    // The header sits outside the payload, so the seal still verifies and time_verified
-    // stays inside the signed statement.
     expect(verifyReceiptSeal(readFeatureReceipt(root, dir)!)).toBe(true);
     expect(decodeReceiptStatement(envelope)!.predicate.time_verified).toBe(INPUT.timeVerified);
     expect(validateEnvelopeHeader(block)).toEqual([]);
@@ -474,7 +461,6 @@ describe('receipt.json and ai-bom.json carry the envelope header (#581)', () => 
     const first = projectFeatureReceipt(root, dir, INPUT).envelope;
     const second = projectFeatureReceipt(root, dir, INPUT).envelope;
     expect(second.paqad.prev_receipt_hash).toBe(first.paqad.receipt_hash);
-    // No session given: the session that opened the change.
     expect(second.paqad.session_id).toBe('ses_owner');
   });
 
@@ -490,7 +476,6 @@ describe('receipt.json and ai-bom.json carry the envelope header (#581)', () => 
       recorded_at: INPUT.timeVerified,
     });
     expect(aiBom.metadata.properties[0]!.name).toBe('paqad:schema_version');
-    // The top-level evidence properties are untouched.
     expect(aiBom.properties[0]!.name).toBe('paqad:verification:result');
     expect(validateEnvelopeHeader(header)).toEqual([]);
     const ai = projectFeatureAiBom(root, dir, { ...INPUT, sessionId: 'ses_bom' });
@@ -521,7 +506,7 @@ describe('specificationReceiptLine', () => {
     );
   });
 
-  it('renders the standing line: four standing and no on-call (issue #558, AC-10)', () => {
+  it('renders the standing line: four standing and no on-call', () => {
     expect(
       specificationReceiptLine({
         pipeline_produced: true,
@@ -538,7 +523,7 @@ describe('specificationReceiptLine', () => {
     ).toBe('🟢 specification: pipeline-produced, experts: 4 standing');
   });
 
-  it('renders four standing plus on-call with a conflict and a rename (issue #558, AC-10)', () => {
+  it('renders four standing plus on-call with a conflict and a rename', () => {
     expect(
       specificationReceiptLine({
         pipeline_produced: true,
@@ -603,7 +588,7 @@ describe('specificationReceiptLine', () => {
     );
   });
 
-  it('reads the pipeline section of a record frozen since #581', () => {
+  it('reads the pipeline section of a record frozen since the evidence envelope', () => {
     expect(specificationReceiptLine({ produced: true })).toBe(
       '🟢 specification: pipeline-produced',
     );

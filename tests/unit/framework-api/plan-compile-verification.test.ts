@@ -1,7 +1,3 @@
-// Issue #397 — the acceptance record for verifying framework reuse claims at plan compile.
-// Each describe names the AC it proves, so a regression points straight at the promise it
-// broke. Sibling of tests/unit/feature-evidence/reuse.test.ts, which covers Phase A (#357).
-
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -27,7 +23,6 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-/** A stack snapshot whose `locked_version` agrees with the claim, so Phase A passes. */
 function withSnapshot(root: string, name: string, version: string): void {
   const target = join(root, '.paqad/stack-snapshot.json');
   mkdirSync(dirname(target), { recursive: true });
@@ -84,7 +79,6 @@ function withFrameworkIndex(root: string, version: string, symbols: FrameworkApi
   });
 }
 
-/** A reuse section making one framework-native claim on react. */
 function claiming(symbolName: string, version = '19.2.6'): PlanReuse {
   return {
     consulted: [

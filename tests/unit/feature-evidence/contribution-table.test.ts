@@ -42,7 +42,7 @@ describe('roleInPlainWords', () => {
   });
 });
 
-describe('renderContributionTable (issue #558, FR-13.2)', () => {
+describe('renderContributionTable', () => {
   it('joins trace to findings by id, one row per expert-sourced line', () => {
     const table = renderContributionTable(trace, findings);
     expect(table).toContain('## Who contributed what');

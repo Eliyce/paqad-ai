@@ -78,7 +78,6 @@ describe('whole-project projections from feature bundles', () => {
       stage: 'development',
     });
     const rows = readAllFeatureStageRows(root);
-    // Both features' open rows + the two stage_start rows.
     const stages = rows.filter((r) => r.kind === 'stage_start').map((r) => r.stage);
     expect(stages).toContain('planning');
     expect(stages).toContain('development');
@@ -107,7 +106,7 @@ describe('whole-project projections from feature bundles', () => {
     expect(readAllFeatureEvidence(root)).toEqual([]);
   });
 
-  it('unions duplication, change-metrics, and evidence rows across feature dirs (#468)', () => {
+  it('unions duplication, change-metrics, and evidence rows across feature dirs', () => {
     const root = tempRoot();
     const a = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -121,7 +120,6 @@ describe('whole-project projections from feature bundles', () => {
       issue: null,
       ulidSeed: 2,
     });
-    // Two features are open; the active one (b) receives the rows.
     appendDuplicationRun(root, 'ses_1', {
       schema_version: 1,
       generated_at: '2026-08-12T00:00:00.000Z',
@@ -162,10 +160,8 @@ describe('whole-project projections from feature bundles', () => {
     expect(a).not.toBe(b);
   });
 
-  it('windows the ts-sorted change-metrics tail across feature dirs (#468 Phase B)', () => {
+  it('windows the ts-sorted change-metrics tail across feature dirs', () => {
     const root = tempRoot();
-    // Two features whose change-metrics rows interleave by ts; the window is ts-sorted, not
-    // per-dir. Feature A gets ts 1 and 3, feature B gets ts 2 and 4.
     const a = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
       title: 'A',
@@ -195,7 +191,6 @@ describe('whole-project projections from feature bundles', () => {
       ulidSeed: 2,
     });
     appendChangeMetrics(root, 'ses_1', metrics(2), at(2));
-    // Re-activate A and add its later row (ts 3); then B's ts 4.
     openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
       title: 'A2',
@@ -205,12 +200,11 @@ describe('whole-project projections from feature bundles', () => {
     appendChangeMetrics(root, 'ses_1', metrics(3), at(3));
 
     const all = readFeatureChangeMetricsWindow(root, 20).map((r) => r.dup_new_pct);
-    expect(all).toEqual([1, 2, 3]); // ts-sorted across dirs, oldest first
+    expect(all).toEqual([1, 2, 3]);
     const windowed = readFeatureChangeMetricsWindow(root, 2).map((r) => r.dup_new_pct);
-    expect(windowed).toEqual([2, 3]); // last 2 by ts
+    expect(windowed).toEqual([2, 3]);
     expect(a).not.toBe(b);
 
-    // Issue #581 — a pre-#581 row carries `ts`, a new one `recorded_at`; both order by time.
     const legacy = join(root, featureFilePath(b, 'changeMetrics'));
     const legacyRow = {
       schema_version: 1,
@@ -225,9 +219,8 @@ describe('whole-project projections from feature bundles', () => {
     expect(mixed).toEqual([0.5, 1, 2, 3]);
   });
 
-  it('projects every FROZEN bundle specification and skips unfrozen/corrupt ones (#343 A1)', () => {
+  it('projects every FROZEN bundle specification and skips unfrozen/corrupt ones', () => {
     const root = tempRoot();
-    // A real active feature with a frozen specification.json.
     const good = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
       title: 'Good',
@@ -235,7 +228,6 @@ describe('whole-project projections from feature bundles', () => {
       ulidSeed: 1,
     });
     writeFeatureSpecification(root, 'ses_1', frozenSpec(), SPEC_MD);
-    // A second feature dir whose specification.json is UNFROZEN — must be skipped.
     const bad = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
       title: 'Bad',
@@ -249,7 +241,6 @@ describe('whole-project projections from feature bundles', () => {
     const specs = readAllFeatureSpecifications(root);
     expect(specs).toHaveLength(1);
     expect(specs[0].spec_id).toBe('S-1');
-    // The entries reader names the bundle each spec came from (issue #581).
     expect(readAllFeatureSpecificationEntries(root).map((entry) => entry.dirName)).toEqual([good]);
     expect(specs[0].frozen).not.toBeNull();
     expect(good).not.toBe(bad);

@@ -100,7 +100,6 @@ describe('feature stage ledger append / read / fold', () => {
     );
     const rows = readFeatureStageUnit(root, dir);
     expect(rows.map((r) => r.kind)).toEqual(['open', 'stage_start']);
-    // Issue #581 — the one envelope header, in order, with the folder ULID as the change key.
     expect(Object.keys(rows[0]!).slice(0, 6)).toEqual([
       'schema_version',
       'doc_type',
@@ -140,13 +139,13 @@ describe('feature stage ledger append / read / fold', () => {
     expect(fold.lane).toBe('full');
   });
 
-  it('folds the lane a pre-#581 open row stamped when feature.json has none (INV-8)', () => {
+  it('folds the lane a pre-envelope open row stamped when feature.json has none (INV-8)', () => {
     const root = tempRoot();
     appendLegacyStageRow(root, dir, 'ses_1', { kind: 'open', lane: 'graduated' });
     expect(foldFeature(root, 'ses_1', dir).lane).toBe('graduated');
   });
 
-  it('still validates a pre-#581 version-1 row that carries the constants (INV-8)', () => {
+  it('still validates a pre-envelope version-1 row that carries the constants (INV-8)', () => {
     const legacy = appendLegacyStageRow(tempRoot(), dir, 'ses_1', {
       kind: 'open',
       lane: 'full',
@@ -178,7 +177,6 @@ describe('active-change accessor', () => {
   it('currentFeature is null before any feature and never mints', () => {
     const root = tempRoot();
     expect(currentFeature(root, 'ses_1')).toBeNull();
-    // A read must not create a feature — the control stays empty.
     expect(readSessionControl(root, 'ses_1').active).toBeNull();
   });
 
@@ -239,7 +237,6 @@ describe('active-change accessor', () => {
 });
 
 describe('resolveFeatureRef / resumeFeatureByRef', () => {
-  /** Open two features (A paused, B active) and return their dir names. */
   function twoFeatures(root: string): { a: string; b: string } {
     const a = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -286,7 +283,7 @@ describe('resolveFeatureRef / resumeFeatureByRef', () => {
   it('resumeFeatureByRef reactivates a paused feature and returns its dir', () => {
     const root = tempRoot();
     const { a, b } = twoFeatures(root);
-    expect(currentFeature(root, 'ses_1')).toBe(b); // B active, A paused
+    expect(currentFeature(root, 'ses_1')).toBe(b);
     const resumed = resumeFeatureByRef(root, 'ses_1', '339');
     expect(resumed).toBe(a);
     expect(currentFeature(root, 'ses_1')).toBe(a);
@@ -299,52 +296,44 @@ describe('resolveFeatureRef / resumeFeatureByRef', () => {
     expect(resumeFeatureByRef(root, 'ses_1', 'missing')).toBeNull();
   });
 
-  // Issue #540 — the session control is not the whole record. `markDone` drops a
-  // finished change from it, so a control-only lookup left a complete bundle
-  // unreachable through every supported command.
-  it('resolves a ref against a bundle the session control has released (#540)', () => {
+  it('resolves a ref against a bundle the session control has released', () => {
     const root = tempRoot();
     const { a } = twoFeatures(root);
-    closeActiveFeature(root, 'ses_1'); // closes B, clearing `active`
-    markDone(root, 'ses_1', a); // and drop A, so the control holds neither
+    closeActiveFeature(root, 'ses_1');
+    markDone(root, 'ses_1', a);
     expect(readSessionControl(root, 'ses_1')).toMatchObject({ active: null, paused: [] });
     expect(resolveFeatureRef(root, 'ses_1', '339')).toBe(a);
     expect(resolveFeatureRef(root, 'ses_1', '01JABCDEFGHJKMNPQRSTVWXYZ0')).toBe(a);
     expect(resolveFeatureRef(root, 'ses_1', 'route')).toBe(a);
   });
 
-  it('resolves a ref for a session that never saw the bundle (a rotated id) — #540', () => {
+  it('resolves a ref for a session that never saw the bundle (a rotated id)', () => {
     const root = tempRoot();
     const { a } = twoFeatures(root);
     expect(resolveFeatureRef(root, 'ses_rotated', '339')).toBe(a);
   });
 
-  it('prefers the session control over the on-disk sweep for the same ref (#540)', () => {
+  it('prefers the session control over the on-disk sweep for the same ref', () => {
     const root = tempRoot();
     const { a, b } = twoFeatures(root);
-    // Both slugs contain "thing"-free text, so make the substring ambiguous: `b` is
-    // active (control tier) and `a` is only on disk, so the control tier must win.
     expect(resolveFeatureRef(root, 'ses_1', b)).toBe(b);
     markDone(root, 'ses_1', a);
     expect(resolveFeatureRef(root, 'ses_1', b)).toBe(b);
   });
 
-  it('resumeFeatureByRef activates a released bundle and pauses the outgoing one (#540)', () => {
+  it('resumeFeatureByRef activates a released bundle and pauses the outgoing one', () => {
     const root = tempRoot();
     const { a, b } = twoFeatures(root);
-    markDone(root, 'ses_1', a); // A is now on disk only; B stays active
+    markDone(root, 'ses_1', a);
     expect(currentFeature(root, 'ses_1')).toBe(b);
 
     expect(resumeFeatureByRef(root, 'ses_1', '339')).toBe(a);
 
     expect(currentFeature(root, 'ses_1')).toBe(a);
-    // AC-2: replacing `active` never drops the outgoing change.
     expect(readSessionControl(root, 'ses_1').paused).toContain(b);
   });
 
-  // Issue #591, AC-3 — a deliberate resume of a CLOSED change reopens it, so the next stage
-  // row lands there (the one legitimate way to write into a closed bundle again).
-  it('resumeFeatureByRef reopens a CLOSED bundle and the next stage row lands there (#591)', () => {
+  it('resumeFeatureByRef reopens a CLOSED bundle and the next stage row lands there', () => {
     const root = tempRoot();
     const a = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -352,24 +341,20 @@ describe('resolveFeatureRef / resumeFeatureByRef', () => {
       issue: '339',
       ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
     });
-    closeActiveFeature(root, 'ses_1', clock); // A earns a close row; the pointer is released
+    closeActiveFeature(root, 'ses_1', clock);
     expect(currentFeature(root, 'ses_1')).toBeNull();
     const closedRows = readFeatureStageUnit(root, a);
 
     expect(resumeFeatureByRef(root, 'ses_1', '339')).toBe(a);
 
-    // The guard no longer releases it — a reopen `open` row was appended (append-only: the
-    // close row stays, INV-1) and feature.json status is back to active.
     expect(currentFeature(root, 'ses_1')).toBe(a);
     const reopenedRows = readFeatureStageUnit(root, a);
     expect(reopenedRows.length).toBe(closedRows.length + 1);
     expect(reopenedRows.at(-1)).toMatchObject({ kind: 'open', note: 'reopened via resume' });
     expect(reopenedRows.some((row) => row.kind === 'close')).toBe(true);
     expect(readFeatureRecord(root, a)?.status).toBe('active');
-    // AC-4 — the resume writer is attributable.
     expect(readSessionControl(root, 'ses_1').written_by).toBe('resume');
 
-    // The next stage row lands in A, not in a freshly minted bundle.
     const target = currentFeature(root, 'ses_1')!;
     appendFeatureStageRow(
       root,

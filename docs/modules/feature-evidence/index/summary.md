@@ -887,5 +887,8 @@ If anything here disagrees with the map, the **map wins**.
   verdict, honesty tags, receipt integrity, graceful empty states, determinism).
 - `tests/unit/feature-evidence/report-writer.test.ts` — bundle → report.html writer, flags,
   review rendering from `review.json`, and ref resolution.
+- `tests/unit/feature-evidence/bundle-file-set.integration.test.ts` — the full bundle file set
+  per lane. Its timeout is raised because each case drives a full change plus verification and
+  Windows CI is slow.
 - `tests/unit/feature-evidence/bundle-integrity.test.ts` — bundle-path classification and
   stray detection (the rigid-only invariant).

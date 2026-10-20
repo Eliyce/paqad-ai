@@ -133,9 +133,6 @@ describe('queryFrameworkApi', () => {
   });
 
   it('answers from the version the claim named when a package is installed twice', () => {
-    // A monorepo can install the same package at two manifest roots at two versions.
-    // Answering from whichever sorted first would be an arbitrary tie-break on a blocking
-    // verdict, so the claimed version selects the entry.
     const index = indexWith([symbol({ name: 'useId' })]);
     index.packages.push({
       ...index.packages[0]!,

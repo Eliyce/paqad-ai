@@ -13,10 +13,6 @@ import {
 } from '@/feature-evidence/bundle-integrity.js';
 import { FEATURE_BUNDLE_FILES, featureDir } from '@/feature-evidence/paths.js';
 
-// Issue #402 — the feature bundle holds ONLY rigid, script-owned artifacts plus the
-// derived report.html. This module makes that invariant checkable in both directions:
-// classifyBundlePath judges a path at the stage-end boundary, strayBundleFiles reads a
-// bundle dir so the exporter can flag pollution.
 describe('bundle-integrity', () => {
   let root: string;
   const DIR = '402-rigid-bundle-01JABCDEFGHJKMNPQRSTVWXYZ0';
@@ -33,7 +29,7 @@ describe('bundle-integrity', () => {
   }
 
   describe('ALLOWED_BUNDLE_FILENAMES', () => {
-    it('is exactly the rigid set plus the derived report.html (issue #581 target set)', () => {
+    it('is exactly the rigid set plus the derived report.html', () => {
       for (const filename of Object.values(FEATURE_BUNDLE_FILES)) {
         expect(ALLOWED_BUNDLE_FILENAMES.has(filename)).toBe(true);
       }
@@ -80,9 +76,6 @@ describe('bundle-integrity', () => {
       }
     });
 
-    // Transience is a reason not to REPORT a file as a stray, never a reason to accept it
-    // as a stage artifact — otherwise `.tmp` is a bypass that is also invisible to
-    // strayBundleFiles.
     it('does not accept an atomic-write temp file as an artifact', () => {
       expect(
         classifyBundlePath(`.paqad/ledger/feature-evidence/${DIR}/plan.json.tmp`)!.allowed,
@@ -92,7 +85,6 @@ describe('bundle-integrity', () => {
       ).toBe(false);
     });
 
-    // The two files from the incident this issue reports.
     it('rejects a stray markdown file inside a bundle dir', () => {
       for (const stray of ['river-agent-spec.md', 'review-notes.md']) {
         const result = classifyBundlePath(`.paqad/ledger/feature-evidence/${DIR}/${stray}`);
@@ -101,8 +93,6 @@ describe('bundle-integrity', () => {
       }
     });
 
-    // The classifier decides whether a write is inside a bundle, so an unrecognized
-    // spelling must never fail OPEN into "not in a bundle".
     it('normalizes a ./ prefix and Windows backslashes rather than failing open', () => {
       const dotSlash = classifyBundlePath(`./.paqad/ledger/feature-evidence/${DIR}/stray.md`);
       expect(dotSlash?.allowed).toBe(false);
@@ -120,7 +110,6 @@ describe('bundle-integrity', () => {
       expect(result!.filename).toBe('sub/plan.json');
     });
 
-    // Issue #551 — visual-evidence.json is a new rigid bundle-root file.
     it('allows visual-evidence.json at the bundle root (not a screenshots path)', () => {
       const result = classifyBundlePath(
         `.paqad/ledger/feature-evidence/${DIR}/visual-evidence.json`,
@@ -129,7 +118,6 @@ describe('bundle-integrity', () => {
       expect(result!.screenshotSubtree).toBe(false);
     });
 
-    // Issue #551 — the screenshots/ carve-out: valid entries are allowed-in-bundle but flagged.
     it('allows exactly overview.gif and NN-slug/{image.png,caption.txt} under screenshots/', () => {
       for (const rel of [
         'screenshots/overview.gif',
@@ -147,13 +135,13 @@ describe('bundle-integrity', () => {
 
     it('flags every other screenshots/ path as not allowed but still in the subtree', () => {
       for (const rel of [
-        'screenshots', // the dir itself
-        'screenshots/overview.png', // wrong ext
-        'screenshots/1-bad/image.png', // NN not zero-padded 2-digit
-        'screenshots/001-bad/image.png', // three digits
-        'screenshots/01-Bad/image.png', // uppercase in slug
-        'screenshots/01-slug/other.txt', // not image.png/caption.txt
-        'screenshots/01-slug/image.png/extra', // deeper than allowed
+        'screenshots',
+        'screenshots/overview.png',
+        'screenshots/1-bad/image.png',
+        'screenshots/001-bad/image.png',
+        'screenshots/01-Bad/image.png',
+        'screenshots/01-slug/other.txt',
+        'screenshots/01-slug/image.png/extra',
         'screenshots/loose.txt',
       ]) {
         const result = classifyBundlePath(`.paqad/ledger/feature-evidence/${DIR}/${rel}`);
@@ -177,7 +165,6 @@ describe('bundle-integrity', () => {
       expect(strayBundleFiles(root, DIR)).toEqual([]);
     });
 
-    // AC-3: the incident's exact shape.
     it('reports stray markdown, sorted, and nothing that belongs', () => {
       const abs = bundle();
       writeFileSync(join(abs, 'plan.json'), '{}', 'utf8');
@@ -195,7 +182,6 @@ describe('bundle-integrity', () => {
       expect(strayBundleFiles(root, DIR)).toEqual(['scratch']);
     });
 
-    // Issue #551 — a well-formed screenshots subtree is clean, not stray.
     it('does not flag a well-formed screenshots subtree', () => {
       const abs = bundle();
       writeFileSync(join(abs, 'visual-evidence.json'), '{}', 'utf8');
@@ -222,9 +208,7 @@ describe('bundle-integrity', () => {
       ]);
     });
 
-    // Issue #581 (AC-20) — the migration only adds files, so an old bundle keeps its
-    // specification.md and context-efficiency.jsonl. Those are strays only in a new bundle.
-    describe('legacy bundles (issue #581)', () => {
+    describe('legacy bundles', () => {
       const OLD_OPEN_ROW = JSON.stringify({ kind: 'open', ts: '2026-01-01T00:00:00.000Z' });
       const NEW_OPEN_ROW = JSON.stringify({ kind: 'open', recorded_at: '2026-09-25T00:00:00Z' });
 
@@ -241,7 +225,7 @@ describe('bundle-integrity', () => {
         expect(strayBundleFiles(root, DIR)).toEqual([]);
       });
 
-      it('tolerates them in a bundle frozen from a pre-#581 source path', () => {
+      it('tolerates them in a bundle frozen from a pre-envelope source path', () => {
         const abs = bundle();
         writeFileSync(join(abs, 'stage-evidence.jsonl'), `${NEW_OPEN_ROW}\n`, 'utf8');
         writeFileSync(
@@ -253,7 +237,7 @@ describe('bundle-integrity', () => {
         expect(strayBundleFiles(root, DIR)).toEqual([]);
       });
 
-      it('flags them in a bundle written since #581', () => {
+      it('flags them in a bundle written since the evidence envelope', () => {
         const abs = bundle();
         writeFileSync(join(abs, 'stage-evidence.jsonl'), `${NEW_OPEN_ROW}\n`, 'utf8');
         writeFileSync(
