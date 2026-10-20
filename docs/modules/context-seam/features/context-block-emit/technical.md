@@ -35,10 +35,10 @@
 - Project root: `resolveProjectRoot()` from `lib/paqad-disabled.mjs`
   (CLAUDE_PROJECT_DIR / PAQAD_PROJECT_ROOT / cwd).
 - Disabled check: `isPaqadDisabled(projectRoot)` → emit nothing.
-- F3 master switch: `isRagEnabledValue(readLayeredKey(projectRoot, 'rag_enabled',
-  'PAQAD_RAG_ENABLED'))` → emit nothing when off. Default off mirrors the
-  `FRAMEWORK_CONFIG_SPECS` `rag_enabled` default (`false`); only an explicit
-  truthy token (`true`/`1`/`yes`/`on`) enables injection.
+- Switches: the block is emitted when `rag_enabled` (`PAQAD_RAG_ENABLED`) or
+  `lean_rules` (`PAQAD_LEAN_RULES`) is on, and nothing is emitted when both are off.
+  `rag_enabled` defaults off and only an explicit truthy token (`true`/`1`/`yes`/`on`)
+  turns it on. `lean_rules` defaults on and only `false`/`0`/`no`/`off` turns it off.
 - The prompt gate (`agent-entry-prompt-gate.mjs`) imports `emitContext` and calls
   it in-process, but ONLY when the sentinel is fresh (framework loaded). When the
   framework is not loaded it emits the load directive alone and suppresses the

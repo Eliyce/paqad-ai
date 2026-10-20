@@ -10,7 +10,7 @@
 | Spec JSON schema | `src/validators/schemas/feature-spec.schema.json` (registered as `feature-spec` in `src/validators/validator.ts`) |
 | Sidecar builder | `src/spec/feature-spec-builder.ts` |
 | Freeze gate | `src/spec/spec-freeze.ts` |
-| Frozen-spec sidecar store | `src/spec/frozen-spec-store.ts` (`writeFrozenSpec` / `readFrozenSpecs`) |
+| Frozen spec in the feature bundle | `src/feature-evidence/artifacts.ts` (`writeFeatureSpecification`, writes `specification.json`) |
 | Freeze CLI verb | `src/cli/commands/spec.ts` (`paqad-ai spec freeze`) |
 | "Done" bar | `src/spec/definition-of-done.ts` |
 | Spec decision packets | `src/spec/spec-decisions.ts` |
