@@ -34,6 +34,7 @@ export default tseslint.config(
     },
     rules: {
       'no-console': 'off',
+      'no-empty': ['error', { allowEmptyCatch: true }],
     },
   },
   {
