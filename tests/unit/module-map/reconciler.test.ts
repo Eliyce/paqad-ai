@@ -85,7 +85,6 @@ describe('module-map/reconciler', () => {
         '',
       ].join('\n'),
     );
-    // Source roots exist but no payments dir.
     writeFile('src/other/thing.ts');
     const report = await reconcileModuleMap({
       projectRoot: root,
@@ -144,7 +143,6 @@ describe('module-map/reconciler', () => {
       ].join('\n'),
     );
     writeFile('src/payments/stripe/index.ts');
-    // No paypal/ files.
     const report = await reconcileModuleMap({
       projectRoot: root,
       sourceRoots: ['src'],
@@ -228,7 +226,7 @@ describe('module-map/reconciler', () => {
     expect((await import('node:fs')).existsSync(driftPath)).toBe(true);
   });
 
-  it('appends a module.reconciled event to events.jsonl when writeReport is true (AC #36)', async () => {
+  it('appends a module.reconciled event to events.jsonl when writeReport is true', async () => {
     writeMap('modules: []\n');
     writeFile('src/foo/bar.ts');
     await reconcileModuleMap({

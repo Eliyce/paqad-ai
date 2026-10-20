@@ -59,7 +59,6 @@ describe('module-decisions/events', () => {
 
   it('skips malformed lines without throwing', () => {
     appendModuleMapEvent(root, { ts: '2026-05-28T00:00:00.000Z', type: 'module.declared' });
-    // Append a malformed line by hand.
     const path = join(root, PATHS.MODULE_MAP_EVENTS_LOG);
     const raw = readFileSync(path, 'utf8');
     writeFileSync(path, raw + 'not-json\n');

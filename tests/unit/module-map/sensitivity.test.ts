@@ -25,7 +25,7 @@ modules:
       - src/cli/commands/install.ts
 `;
 
-describe('resolvePathSensitivity (#324)', () => {
+describe('resolvePathSensitivity', () => {
   let root: string;
 
   beforeEach(() => {
@@ -80,13 +80,10 @@ describe('resolvePathSensitivity (#324)', () => {
   });
 
   it('does not match a sibling that only shares a prefix segment', () => {
-    // "src/verification-utils" must NOT match the "src/verification" prefix.
     expect(resolvePathSensitivity(root, 'src/verification-utils/helper.ts')).toBe('normal');
   });
 
   it('skips an empty source prefix without matching everything', () => {
-    // A high module with a blank source must not turn every path high (the empty
-    // prefix is skipped; only the real prefix matches).
     const dir = mkdtempSync(join(tmpdir(), 'paqad-sensitivity-empty-'));
     try {
       mkdirSync(join(dir, 'docs/instructions/rules'), { recursive: true });

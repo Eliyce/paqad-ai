@@ -81,8 +81,6 @@ describe('module-health/rollup', () => {
     expect(report.blocked).toBeNull();
     expect(report.modules.map((m) => m.slug).sort()).toEqual(['cli-refresh', 'module-map-engine']);
 
-    // AC #36 — when writeProfiles is true (default), the engine appends a
-    // module.health.rolled-up event to .paqad/module-map/events.jsonl.
     const { readModuleMapEvents } = await import('@/module-decisions/events.js');
     const events = readModuleMapEvents(root);
     expect(events.some((e) => e.type === 'module.health.rolled-up')).toBe(true);
@@ -97,10 +95,8 @@ describe('module-health/rollup', () => {
     const mapEng = report.modules.find((m) => m.slug === 'module-map-engine');
     expect(mapEng?.profile.metrics.coverage_pct).toBe(75);
 
-    // unattributed file surfaced
     expect(report.unattributed_files).toContain('src/unmapped/orphan.ts');
 
-    // profile written
     const onDisk = JSON.parse(
       readFileSync(join(root, PATHS.PLANNING_MODULE_HEALTH_DIR, 'cli-refresh.json'), 'utf8'),
     );

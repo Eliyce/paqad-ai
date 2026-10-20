@@ -16,13 +16,6 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 
 import { seedDetectionFixtures } from '../../shared/detection-fixtures.js';
 
-// Issue #293 (Option A) — mutation testing on a FRESH onboarded fixture project (the
-// tests/e2e/onboarding.e2e.test.ts pattern: mkdtemp, then `onboard --project-root`), not on this
-// repo. The fixture is a React + Vite project with a Stryker config; the Stryker report the
-// runner reads is a fixture file, so the expected survivor comes from the fixture. Only the test
-// command and the Stryker process are injected: tool detection, report parsing, the stack
-// profile and the tree check all run for real.
-
 const STRYKER_REPORT = 'reports/mutation/mutation.json';
 
 interface FixtureMutant {
@@ -48,7 +41,7 @@ function porcelain(root: string): string {
   return execaSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root }).stdout;
 }
 
-describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
+describe('mutation testing on a fresh onboarded fixture', () => {
   let tmp: string;
   let project: string;
   let survivor: FixtureMutant;
@@ -60,8 +53,6 @@ describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
     project = join(tmp, 'new-react');
     await runCli(['node', 'paqad-ai', 'onboard', '--project-root', project, '--stack', 'react']);
 
-    // The project supplies its mutation tool: a Stryker config marker, and a .gitignore that
-    // keeps Stryker's report out of the tree, as a real project would.
     write(project, 'stryker.conf.json', '{ "testRunner": "vitest" }\n');
     write(project, '.gitignore', 'node_modules/\nreports/\n');
     git(project, ['init', '-q', '-b', 'main']);
@@ -72,7 +63,6 @@ describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
     git(project, ['add', '-A']);
     git(project, ['commit', '-qm', 'onboarded base']);
 
-    // The change under verification: a source edit with its test.
     write(
       project,
       'src/App.tsx',
@@ -165,7 +155,6 @@ describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
         message: `Surviving mutant (${survivor.operator})`,
       }),
     ]);
-    // The run left the tree as it found it.
     expect(porcelain(project)).toBe(before);
   }, 120_000);
 

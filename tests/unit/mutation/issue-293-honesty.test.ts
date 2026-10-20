@@ -7,9 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { HOOK_COVERAGE_MATRIX } from '@/adapters/shared/paqad-hooks.js';
 
-// Issue #293 (Option A) — the decisions behind the wiring, the host tiers it claims, and the docs
-// that describe it. Each check reads the real shipped file, never a copy.
-
 const REPO = resolve(__dirname, '../../..');
 const read = (rel: string): string => readFileSync(join(REPO, rel), 'utf8');
 
@@ -19,7 +16,7 @@ interface Packet {
   chosen: string;
 }
 
-describe('issue #293 decisions', () => {
+describe('mutation wiring decisions', () => {
   it.each([
     ['D-01M5AKZP6RVHCMBJ6T1QR1M0H2', 'wire'],
     ['D-01M5AM6S3Z36HR2NRKN2XYNZWW', 'both-run-suite'],
@@ -31,7 +28,7 @@ describe('issue #293 decisions', () => {
   });
 });
 
-describe('issue #293 host tiers', () => {
+describe('mutation wiring host tiers', () => {
   it('AC-24: both completion hooks run the backstop on hook-completion only', () => {
     for (const hook of ['verification-record.mjs', 'verification-completion.mjs']) {
       const source = read(`runtime/hooks/${hook}`);
@@ -104,7 +101,7 @@ describe('issue #293 host tiers', () => {
   });
 });
 
-describe('issue #293 docs say what ships', () => {
+describe('mutation wiring docs say what ships', () => {
   it('AC-26: the mutation doc names the real wiring, not a pipeline phase file', () => {
     const doc = read('docs/modules/verification/mutation-testing.md');
     expect(doc).not.toContain('phases/verification.ts');

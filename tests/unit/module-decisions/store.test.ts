@@ -15,7 +15,6 @@ import {
 } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
 
-/** An `MD-` id whose body is a 26-char Crockford-base32 ULID (issue #184). */
 const ULID_MD_ID = /^MD-[0-9A-HJKMNP-TV-Z]{26}$/;
 
 function makeDecision(over: Partial<ModuleDecision> = {}): ModuleDecision {
@@ -56,8 +55,6 @@ describe('module-decisions/store', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  // Issue #184 — ids are `MD-<ULID>`: collision-free, time-sortable, allocated
-  // without touching the filesystem.
   it('nextDecisionId mints a ULID id without reading the directory', () => {
     expect(nextDecisionId()).toMatch(ULID_MD_ID);
     expect(listDecisionIds(root)).toEqual([]);

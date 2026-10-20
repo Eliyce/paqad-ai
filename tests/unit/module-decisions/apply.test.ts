@@ -56,7 +56,6 @@ describe('module-decisions/apply', () => {
     writeFileSync(join(root, PATHS.MODULE_MAP), 'old\n');
     atomicWriteModuleMap(root, 'new content\n');
     expect(readFileSync(join(root, PATHS.MODULE_MAP), 'utf8')).toBe('new content\n');
-    // No leftover tmp file alongside.
     const siblings = readdirSync(join(root, 'docs/instructions/rules'));
     expect(siblings.filter((f) => f.startsWith('module-map.yml.tmp-'))).toEqual([]);
   });
