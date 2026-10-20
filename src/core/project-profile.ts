@@ -14,6 +14,7 @@ import {
 import { ACTIVE_CAPABILITIES, type ActiveCapability, type Domain } from './types/domain.js';
 import type { DetectedStackProfile } from './types/introspection.js';
 import type { ProjectProfile } from './types/project-profile.js';
+import { readTextIfExistsSync } from './fs/read-if-exists.js';
 
 type LegacyRouting = {
   domain?: Domain;
@@ -279,7 +280,7 @@ function appendAuditLog(projectRoot: string, entry: string): void {
   const path = join(projectRoot, '.paqad', 'audit.log');
   mkdirSync(dirname(path), { recursive: true });
 
-  const current = existsSync(path) ? readFileSync(path, 'utf8') : '';
+  const current = readTextIfExistsSync(path) ?? '';
   const normalized = current.endsWith('\n') || current.length === 0 ? current : `${current}\n`;
   writeFileSync(path, `${normalized}${entry}\n`);
 }

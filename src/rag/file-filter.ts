@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { lstat, readFile, stat } from 'node:fs/promises';
+import { lstat, open } from 'node:fs/promises';
+import type { FileHandle } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { isAbsolute, join, matchesGlob, relative } from 'node:path';
 
@@ -432,13 +433,18 @@ export class RagFileFilter {
   }
 
   private async evaluateLayer4(absolutePath: string): Promise<string | undefined> {
+    let handle: FileHandle;
     try {
-      const fileLstat = await lstat(absolutePath);
-      if (fileLstat.isSymbolicLink()) {
+      handle = await open(absolutePath, 'r');
+    } catch {
+      return (await isSymlink(absolutePath)) ? 'symlink' : this.unreadable(absolutePath);
+    }
+    try {
+      if (await isSymlink(absolutePath)) {
         return 'symlink';
       }
 
-      const fileStat = await stat(absolutePath);
+      const fileStat = await handle.stat();
       const maxFileSize = this.options.intelligence?.rag_max_file_size ?? 153600;
 
       if (fileStat.size > maxFileSize) {
@@ -449,7 +455,7 @@ export class RagFileFilter {
         return 'empty-file';
       }
 
-      const preview = await readFile(absolutePath, { encoding: null });
+      const preview = await handle.readFile();
       const prefix = preview.subarray(0, Math.min(8192, preview.length));
       if (prefix.includes(0)) {
         return 'binary-nul-byte';
@@ -467,11 +473,24 @@ export class RagFileFilter {
       }
 
       return undefined;
-    } catch (error) {
-      void error;
-      engineLog('warn', `Skipping unreadable file: ${absolutePath}`);
-      return 'unreadable';
+    } catch {
+      return this.unreadable(absolutePath);
+    } finally {
+      await handle.close();
     }
+  }
+
+  private unreadable(absolutePath: string): string {
+    engineLog('warn', `Skipping unreadable file: ${absolutePath}`);
+    return 'unreadable';
+  }
+}
+
+async function isSymlink(absolutePath: string): Promise<boolean> {
+  try {
+    return (await lstat(absolutePath)).isSymbolicLink();
+  } catch {
+    return false;
   }
 }
 

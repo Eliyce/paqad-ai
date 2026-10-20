@@ -1,7 +1,19 @@
-import { chmodSync, existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  closeSync,
+  existsSync,
+  ftruncateSync,
+  mkdirSync,
+  openSync,
+  readFileSync,
+  statSync,
+  writeFileSync,
+  writeSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { isMissingFileError } from '@/core/fs/read-if-exists.js';
 
 function parseEnv(content: string): Record<string, string> {
   const result: Record<string, string> = {};
@@ -65,10 +77,19 @@ export function writeProjectSecret(projectRoot: string, key: string, value: stri
 
 export function removeProjectSecrets(projectRoot: string): void {
   const path = join(projectRoot, PATHS.SECRETS_ENV);
-  if (!existsSync(path)) {
-    return;
+  let fd: number;
+  try {
+    fd = openSync(path, 'r+');
+  } catch (error) {
+    if (isMissingFileError(error)) return;
+    throw error;
   }
-  writeFileSync(path, '# Local project secrets for paqad-ai RAG\n', 'utf8');
+  try {
+    ftruncateSync(fd, 0);
+    writeSync(fd, '# Local project secrets for paqad-ai RAG\n', 0, 'utf8');
+  } finally {
+    closeSync(fd);
+  }
 }
 
 export function getSecretPermissionWarning(projectRoot: string): string | null {

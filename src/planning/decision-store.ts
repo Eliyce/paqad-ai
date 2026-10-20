@@ -131,10 +131,7 @@ export class DecisionStore {
     ]) {
       const dir = join(this.projectRoot, relativePath);
       mkdirSync(dir, { recursive: true });
-      const keepFile = join(dir, '.gitkeep');
-      if (!existsSync(keepFile)) {
-        writeFileSync(keepFile, '');
-      }
+      writeFileSync(join(dir, '.gitkeep'), '', { flag: 'a' });
     }
     ensureDecisionAuditLog(this.projectRoot);
     if (!existsSync(this.indexPath())) {
