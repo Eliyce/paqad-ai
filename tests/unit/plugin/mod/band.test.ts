@@ -1,116 +1,207 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  changeChip,
   laneMode,
-  layoutBand,
   rowText,
   spinnerWord,
+  tokensChip,
   truncateRow,
   type BandRow,
 } from '../../../../runtime/claude-plugin/mod/band.ts';
-import { buildBandView, parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
+import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
+import {
+  BAND_BODIES,
+  cardRows,
+  controlSegment,
+  headerRow,
+  layoutShell,
+  type BandBody,
+  type ShellHeader,
+} from '../../../../runtime/claude-plugin/mod/shell.ts';
 import {
   EXPERTS_OFF,
   FAST_ORD_490,
   FULL_ORD_501,
+  FULL_ORD_501_COST,
   GRADUATED_ORD_482,
-  NOW,
   PAUSED,
   STATE_FIXTURES,
   fileText,
+  snapshot,
   stages,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 
-const view = (raw: Record<string, unknown> | null) =>
-  buildBandView(raw ? parseSnapshot(fileText(raw)) : null, NOW);
-const lines = (raw: Record<string, unknown> | null, columns = 95, maxRows = 12) =>
-  layoutBand(view(raw), { columns, maxRows }).map(rowText);
+import { bandLines, bandOf, layoutLines } from './band-text.ts';
 
-describe('the band rows (FR-26)', () => {
-  it('draws the headline, Stage, the High Table, Ship and the pills', () => {
-    expect(lines(FULL_ORD_501)).toEqual([
-      'paqad · Safe to merge · 1 flag open.',
-      'Stage  6 of 8 done  ·Intake ✓Planning ✓Spec ✓Build ✓Review ✓Checks ✓Docs ·Deliver',
-      'High Table  ●●●●●●● chief ●',
-      'Ship   3 commits  ✓Edit ✓Commit ·Push ·PR ·CI ·Merge (yours)',
-      '1 flag · cost: not yet',
-    ]);
-    for (const raw of [FAST_ORD_490, PAUSED]) {
-      expect(lines(raw).join('\n')).not.toContain('High Table');
+describe('the band shell (FR-30, FR-31)', () => {
+  it('draws one card: brand, change chip, headline, then the chips, Proof, minimise and close', () => {
+    const band = bandOf(FULL_ORD_501);
+    expect(band.kind).toBe('card');
+    expect(bandLines(FULL_ORD_501)[0]).toBe(
+      'paqad ORD-501  2 of 2 required gates pass | Safe to merge  1 flag  full lane  Proof  – Minimise  × Close',
+    );
+    if (band.kind !== 'card') return;
+    expect(band.tone).toBe('warn');
+    expect(band.header.left[0]).toMatchObject({ text: 'paqad', opens: 'trust' });
+    expect(band.header.right.find((s) => s.text === 'Proof')).toMatchObject({ opens: 'trust' });
+    expect(band.header.right.find((s) => s.text === '1 flag')).toMatchObject({
+      tone: 'warn',
+      opens: 'trust',
+    });
+  });
+
+  it('shows the tokens chip and opens Cost from it, saying whole session when not split', () => {
+    const band = bandOf(FULL_ORD_501_COST);
+    if (band.kind !== 'card') throw new Error('expected a card');
+    expect(band.header.right.find((s) => s.opens === 'cost')?.text).toBe('1.3M tokens');
+    const whole = parseSnapshot(
+      fileText({
+        ...FULL_ORD_501_COST,
+        cost: { ...(FULL_ORD_501_COST.cost as object), scope: 'whole-session' },
+      }),
+    );
+    expect(tokensChip(whole)).toBe('1.3M tokens · whole session');
+    expect(tokensChip(null)).toBeNull();
+  });
+
+  it('names a change by its issue number, else its ticket, else the short ULID', () => {
+    const at = (change: Record<string, unknown>) =>
+      changeChip(parseSnapshot(fileText({ ...FAST_ORD_490, change })));
+    expect(at({ issue: '702', id: '01M5DHQYW9J0Y7ZGF6QN0E34GE' })).toBe('#702');
+    expect(at({ issue: 'ORD-9', id: 'x' })).toBe('ORD-9');
+    expect(at({ id: '01M5DHQYW9J0Y7ZGF6QN0E34GE' })).toBe('0E34GE');
+    expect(at({})).toBeNull();
+    expect(changeChip(null)).toBeNull();
+  });
+
+  it('idles with only the header, minimise and close when no change qualifies (FR-4, FR-39)', () => {
+    for (const raw of [null, PAUSED, snapshot()]) {
+      expect(bandLines(raw)).toEqual([
+        'paqad  feature development · no change in progress | – Minimise  × Close',
+      ]);
     }
-    expect(lines(GRADUATED_ORD_482)[2]).toBe('High Table  ●●●● chief ●');
   });
 
-  it('shows the running stage with its clock, and the fast lane Spec as not required', () => {
-    const [head, stage, ship] = lines(FAST_ORD_490);
-    expect(head).toBe('paqad · Working · Build in progress. Next: Review.');
-    expect(stage).toBe(
-      'Stage  Build running 2m 00s  ·Intake ✓Planning -Spec ▸Build ·Review ·Checks ·Docs ·Deliver',
-    );
-    expect(ship).toBe('Ship   Edit running  ▸Edit ·Commit ·Push ·PR ·CI ·Merge (yours)');
+  it('labels each control in words and gives it a hotkey (FR-52, AC-47)', () => {
+    for (const action of ['minimise', 'restore', 'close'] as const) {
+      const control = controlSegment(action);
+      expect(control.text).toMatch(/^[–+×] [A-Z][a-z]+$/);
+      expect(control.hotkey).toMatch(/^[a-z]$/);
+      expect(control.action).toBe(action);
+    }
   });
 
-  it('reads "not yet" for every instrument with no record (AC-42)', () => {
-    expect(lines(null)).toEqual([
-      'paqad · Ready · Not yet. paqad has no record for this session.',
-      'Stage  not yet',
-      'Ship   not yet  ·Edit ·Commit ·Push ·PR ·CI ·Merge (yours)',
-      'cost: not yet',
-    ]);
-    expect(lines(PAUSED)[0]).toBe(
-      'paqad · Paused · A change is paused. Say "continue" to pick it up.',
-    );
-  });
-
-  it('reads the furthest ship step that is recorded', () => {
-    const shipped = {
-      ...FULL_ORD_501,
-      ship: { commits: 2, push: 'pushed', pr: 'draft', ci: '4 of 4', merge_commit: 'abc' },
-    };
-    const ship = (raw: Record<string, unknown>) =>
-      lines(raw).find((line) => line.startsWith('Ship'));
-    expect(ship(shipped)).toBe('Ship   Merge merged  ✓Edit ✓Commit ✓Push ✓PR ✓CI ✓Merge');
-    const edited = { ...FULL_ORD_501, ship: null };
-    expect(ship(edited)).toBe('Ship   Edit done  ✓Edit ·Commit ·Push ·PR ·CI ·Merge (yours)');
-  });
-
-  it('colours the state and the flag pill, and says both in words', () => {
-    const [head, , , , pills] = layoutBand(view(FULL_ORD_501), { columns: 95, maxRows: 12 });
-    expect(head!.find((s) => s.text === 'Safe to merge')?.tone).toBe('warn');
-    expect(pills!.find((s) => s.text === '1 flag')?.tone).toBe('warn');
+  it('registers only the feature-development body, and the shell holds no body code (INV-8)', () => {
+    expect(Object.keys(BAND_BODIES)).toEqual(['feature-development']);
   });
 });
 
-describe('the terminal band fits its box (FR-28, AC-43)', () => {
-  const STATES = Object.values(STATE_FIXTURES);
-  for (const columns of [40, 71, 95]) {
-    for (const maxRows of [3, 12]) {
-      it(`${columns} columns, ${maxRows} rows`, () => {
-        for (const raw of [...STATES, FULL_ORD_501, FAST_ORD_490]) {
-          const out = lines(raw, columns, maxRows);
-          expect(out.length).toBeLessThanOrEqual(maxRows);
-          for (const line of out) expect([...line].length).toBeLessThanOrEqual(columns);
-        }
-      });
+describe('the instruments lay out by width (FR-38, AC-30)', () => {
+  it('sits in one row at 110 columns and more, and stacks below', () => {
+    for (const columns of [120, 110]) {
+      const band = bandOf(FULL_ORD_501, columns, 12);
+      expect(band.kind === 'card' && band.direction).toBe('row');
+      expect(band.kind === 'card' && band.footer).not.toBeNull();
     }
-  }
+    for (const columns of [109, 80]) {
+      const band = bandOf(FULL_ORD_501, columns, 14);
+      expect(band.kind === 'card' && band.direction).toBe('column');
+      expect(band.kind === 'card' && band.footer).toBeNull();
+    }
+  });
 
-  it('keeps the state and the flag count on the headline when rows are short', () => {
-    expect(lines(FULL_ORD_501, 40, 3)).toEqual([
-      'paqad · Safe to merge · 1 flag · cost: …',
-      'Stage  6 of 8 done  ·Intake ✓Planning ✓…',
-      'High Table  ●●●●●●● chief ●',
+  it('drops the footer first, then falls back to one line when rows are short', () => {
+    const roomy = bandOf(FULL_ORD_501, 120, 7);
+    expect(roomy.kind === 'card' && roomy.footer).not.toBeNull();
+    const tight = bandOf(FULL_ORD_501, 120, 6);
+    expect(tight.kind === 'card' && tight.footer).toBeNull();
+    const line = bandOf(FULL_ORD_501, 120, 5);
+    expect(line.kind).toBe('line');
+    expect(layoutLines(line)).toEqual(['paqad · Safe to merge · 1 flag open.']);
+    expect(layoutLines(bandOf(null, 120, 2))).toEqual([
+      'paqad · feature development · no change in progress',
     ]);
-    expect(lines(EXPERTS_OFF, 95, 4).at(-1)).toBe('cost: not yet');
-    expect(lines(FULL_ORD_501, 95, 4)[0]).toContain('1 flag · cost: not yet');
-    expect(lines(FULL_ORD_501, 95, 1)).toEqual([
-      'paqad · Safe to merge · 1 flag · cost: not yet · 1 flag open.',
+    expect(layoutLines(bandOf(FULL_ORD_501, 20, 5))[0]).toBe('paqad · Safe to mer…');
+  });
+
+  it('counts the rows a card needs', () => {
+    const body: BandBody = {
+      blocks: [
+        { key: 'a', title: [{ text: 'A' }], cells: [], svg: null, note: null },
+        {
+          key: 'b',
+          title: [{ text: 'B' }],
+          cells: [{ key: 'c', top: { text: '●' }, bottom: { text: 'C' } }],
+          svg: null,
+          note: [{ text: 'note' }],
+        },
+        {
+          key: 'd',
+          title: [{ text: 'D' }],
+          cells: [],
+          svg: { source: '<svg/>', alt: 'd', width: 1, height: 1 },
+          note: null,
+        },
+      ],
+      footer: null,
+    };
+    expect(cardRows(body.blocks, 'row', true)).toBe(2 + 1 + 4 + 1);
+    expect(cardRows(body.blocks, 'column', false)).toBe(2 + 1 + 1 + 4 + 4);
+    expect(cardRows([], 'row', false)).toBe(3);
+    const header: ShellHeader = {
+      tone: 'neutral',
+      chip: null,
+      headline: 'h',
+      verdict: null,
+      flags: 0,
+      lane: null,
+      tokens: null,
+    };
+    expect(layoutShell(header, body, { columns: 50, maxRows: 0.5 }, [{ text: 'x' }])).toEqual({
+      kind: 'line',
+      row: [{ text: 'x' }],
+    });
+    expect(rowText(headerRow(header, true).right)).toBe('– Minimise  × Close');
+  });
+});
+
+describe('the STAGE instrument (FR-33)', () => {
+  it('draws eight labelled cells with marks and the running stage clock', () => {
+    const lines = bandLines(FAST_ORD_490);
+    expect(lines.slice(1, 4)).toEqual([
+      'STAGE  Build · 2:00',
+      '○ ● – ▸ ○ ○ ○ ○',
+      'Intake Plan Spec Build Review Checks Docs Deliver',
     ]);
   });
 
-  it('says each state in words, never by colour alone', () => {
-    for (const [state, raw] of Object.entries(STATE_FIXTURES)) {
-      expect(lines(raw, 40, 3)[0]).toContain(state);
+  it('says done, failed, marked and paused for you in words beside the marks', () => {
+    const at = (raw: Record<string, unknown>) => bandLines(raw)[1];
+    expect(at(FULL_ORD_501)).toBe('STAGE  Docs · done');
+    expect(at(GRADUATED_ORD_482)).toBe('STAGE  paused for you');
+    expect(
+      at({
+        ...GRADUATED_ORD_482,
+        stages: stages({ planning: 'complete', specification: 'running' }),
+      }),
+    ).toBe('STAGE  Spec · paused for you');
+    expect(at({ ...FULL_ORD_501, stages: stages({}) })).toBe('STAGE  not started');
+    const odd = bandLines({
+      ...FAST_ORD_490,
+      stages: stages(
+        { planning: 'failed', development: 'inconclusive', review: 'running' },
+        { review: 'never' },
+      ),
+    });
+    expect(odd.slice(1, 3)).toEqual(['STAGE  Review · running', '○ ✗ – ◐ ▸ ○ ○ ○']);
+  });
+});
+
+describe('the terminal band fits its box (AC-43)', () => {
+  it('never draws an em dash', () => {
+    for (const raw of [...Object.values(STATE_FIXTURES), EXPERTS_OFF, null]) {
+      expect(bandLines(raw).join('\n')).not.toContain('—');
     }
   });
 
@@ -120,12 +211,6 @@ describe('the terminal band fits its box (FR-28, AC-43)', () => {
     expect(truncateRow(row, 5)).toEqual([{ text: 'abcd', tone: 'good' }, { text: '…' }]);
     expect(truncateRow(row, 7)).toEqual([{ text: 'abcdef', tone: 'good' }, { text: '…' }]);
     expect(rowText(truncateRow(row, 0))).toBe('…');
-  });
-
-  it('never uses an em dash', () => {
-    for (const raw of [...Object.values(STATE_FIXTURES), null]) {
-      expect(lines(raw).join('\n')).not.toContain('—');
-    }
   });
 });
 

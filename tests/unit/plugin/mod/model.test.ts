@@ -80,10 +80,28 @@ describe('parseSnapshot', () => {
     expect(full.stages).toHaveLength(8);
   });
 
+  it('AC-28: reads a paqad.hud/2 snapshot, which has no scope, as idle', () => {
+    const legacy = parseSnapshot(
+      JSON.stringify({ ...FULL_ORD_501, schema: 'paqad.hud/2', scope: undefined }),
+    )!;
+    expect(legacy).toMatchObject({
+      scope: { qualified: false, reason: 'no scope recorded' },
+      active: false,
+      change: null,
+      stages: [],
+      flags: [],
+      ship: null,
+      verdict: null,
+      cost: null,
+      decisions: { pending: [], resolved: 0 },
+    });
+  });
+
   it('tolerates odd fields without guessing', () => {
     const odd = parseSnapshot(
       JSON.stringify({
-        schema: 'paqad.hud/2',
+        schema: 'paqad.hud/3',
+        scope: { qualified: true },
         headline: { text: 7, tone: 'shouting' },
         paused: [{}, 'x'],
         stages: [{ stage: 'planning' }, { state: 'complete' }, null],
@@ -141,6 +159,14 @@ describe('parseSnapshot', () => {
       ci_detail: null,
       own: null,
       inherited: null,
+      commit_list: [],
+      inherited_count: 0,
+      pr_number: null,
+      pr_state: null,
+      pr_head: null,
+      ci_read_at: null,
+      all_green: false,
+      merged: false,
     });
     expect(odd.verdict).toBeNull();
   });
@@ -442,7 +468,7 @@ describe('the Ship instrument (FR-26)', () => {
           push: 'pushed',
           pr: { state: 'draft' },
           ci: '4 of 4',
-          merge_commit: 'abc',
+          merged: true,
         },
       }),
     );

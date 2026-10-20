@@ -25,7 +25,10 @@ export type PaqadCostTokens = {
 
 export type PaqadCostLine = { tokens: PaqadCostTokens; usd: number | null };
 
+export type PaqadCostScope = 'change' | 'whole-session';
+
 export type PaqadCost = {
+  scope: PaqadCostScope;
   price_table_date: string;
   label: string;
   basis: string;
@@ -125,22 +128,48 @@ export type PaqadClaim = {
   test_id: string | null;
 };
 
+export type PaqadCiJob = {
+  name: string;
+  status: string | null;
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+};
+
 export type PaqadCi = {
   state: string;
   done: number | null;
   total: number | null;
   reason: string | null;
+  jobs: PaqadCiJob[];
+};
+
+export type PaqadShipCommit = { sha: string; subject: string; own: boolean | null };
+
+export type PaqadPrState = 'open' | 'merged' | 'closed';
+
+export type PaqadScope = { qualified: boolean; reason: string };
+
+export type PaqadWorkflow = {
+  name: string;
+  started_at: string | null;
+  tokens: number | null;
+  usd: number | null;
+  unpriced: string[];
 };
 
 export type PaqadHudSnapshot = {
   session_id: string;
   generated_at: string;
+  scope: PaqadScope;
+  workflow: PaqadWorkflow | null;
   active: boolean;
   route: string | null;
   lane: string | null;
   lane_reason: string | null;
   headline: { text: string; tone: PaqadTone };
   change: {
+    dir: string | null;
     id: string | null;
     issue: string | null;
     title: string | null;
@@ -172,6 +201,14 @@ export type PaqadHudSnapshot = {
     ci_detail?: PaqadCi | null;
     own?: PaqadCommitGroup | null;
     inherited?: PaqadCommitGroup | null;
+    commit_list: PaqadShipCommit[];
+    inherited_count: number;
+    pr_number: number | null;
+    pr_state: PaqadPrState | null;
+    pr_head: string | null;
+    ci_read_at: string | null;
+    all_green: boolean;
+    merged: boolean;
   } | null;
   verdict: {
     word: string;

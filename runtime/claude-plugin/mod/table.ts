@@ -1,4 +1,4 @@
-import { formatClock, fullTokens, roleWords } from './cost';
+import { formatClock, formatTokens, fullTokens, roleWords } from './cost';
 import type {
   PaqadChief,
   PaqadHighTable,
@@ -159,12 +159,21 @@ export function seatStateWords(seat: PaqadSeat, now: number): string {
   return 'seated';
 }
 
+export function noteTokens(seat: PaqadSeat): string | null {
+  if (seat.tokens_estimate === null) return null;
+  const budget =
+    seat.budget_tokens !== null ? ` of its ${formatTokens(seat.budget_tokens)} budget` : '';
+  return `Note: ~${formatTokens(seat.tokens_estimate)} tokens${budget}`;
+}
+
+export function runTokens(seat: PaqadSeat): string | null {
+  if (!seat.tokens) return null;
+  return `Run: ${formatTokens(seat.tokens.total)} tokens, mostly the code it read (${seat.tokens_exact ? 'exact' : 'estimate'})`;
+}
+
 export function seatTokens(seat: PaqadSeat): string | null {
-  if (seat.tokens_exact && seat.tokens) return `${fullTokens(seat.tokens.total)} tokens (exact)`;
-  if (seat.tokens_estimate !== null) {
-    return `about ${fullTokens(seat.tokens_estimate)} tokens (estimate)`;
-  }
-  return null;
+  const parts = [noteTokens(seat), runTokens(seat)].filter((part): part is string => part !== null);
+  return parts.length > 0 ? parts.join('. ') : null;
 }
 
 const LATE_WORDS = 'late: its note landed after the spec was frozen';
@@ -360,25 +369,24 @@ function detailLines(seat: PaqadSeat | PaqadChief, now: number): TableLine[] {
   lines.push([
     { text: `State: ${isChief ? chiefStateWords(seat, now) : seatStateWords(seat, now)}.` },
   ]);
-  if (seat.budget_tokens !== null) {
-    const clamp =
-      seat.clamped === true
-        ? ', cut to the ceiling'
-        : seat.clamped === false
-          ? ', within the ceiling'
-          : '';
-    lines.push([{ text: `Budget: ${fullTokens(seat.budget_tokens)} tokens granted${clamp}.` }]);
-  }
+  const clamp =
+    seat.clamped === true
+      ? ', cut to the ceiling'
+      : seat.clamped === false
+        ? ', within the ceiling'
+        : '';
+  const note = noteTokens(seat);
   lines.push([
     {
-      text:
-        seat.tokens_exact && seat.tokens
-          ? `Tokens: ${fullTokens(seat.tokens.total)} (exact, from the host's usage for its agent).`
-          : seat.tokens_estimate !== null
-            ? `Tokens: about ${fullTokens(seat.tokens_estimate)} (estimate, the seat's own count).`
-            : 'Tokens: not yet. They arrive with its note.',
+      text: note
+        ? `${note}${clamp}.`
+        : seat.budget_tokens !== null
+          ? `Note: not written yet, its budget is ${formatTokens(seat.budget_tokens)} tokens${clamp}.`
+          : 'Note: not written yet.',
     },
   ]);
+  const run = runTokens(seat);
+  if (run) lines.push([{ text: `${run}.` }]);
   const record = seat.track_record;
   if (record) lines.push([{ text: trackRecordWords(record) }]);
   if (!isChief) {

@@ -1,9 +1,24 @@
 import type { PaqadCost, PaqadCostLine, PaqadCostTokens } from './types';
 
+function scaled(value: number, unit: string): string {
+  const text = value < 100 ? value.toFixed(1).replace(/\.0$/, '') : String(Math.round(value));
+  return `${text}${unit}`;
+}
+
 export function formatTokens(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
+  if (tokens >= 1_000_000) return scaled(tokens / 1_000_000, 'M');
+  if (tokens >= 1_000) return scaled(tokens / 1_000, 'K');
   return String(Math.max(0, Math.round(tokens)));
+}
+
+export function formatStopwatch(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = String(total % 60).padStart(2, '0');
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
+    : `${minutes}:${seconds}`;
 }
 
 export function formatClock(ms: number): string {
@@ -90,15 +105,15 @@ function expertLines(cost: PaqadCost, options: CostLinesOptions): string[] {
   for (const seat of cost.by_expert) {
     lines.push(
       seat.exact
-        ? `  ${roleWords(seat.role)}: ${lineText(seat, date)}`
-        : `  ${roleWords(seat.role)}: about ${formatTokens(seat.tokens.total)} tokens, the seat's own estimate, already inside the total`,
+        ? `  ${roleWords(seat.role)}: Run: ${lineText(seat, date)}, mostly the code it read (exact)`
+        : `  ${roleWords(seat.role)}: Note: ~${formatTokens(seat.tokens.total)} tokens, the seat's own estimate, already inside the total`,
     );
   }
   if (cost.chief) {
     lines.push(
       cost.chief.exact
-        ? `Chief architect: ${lineText(cost.chief, date)}`
-        : `Chief architect: about ${formatTokens(cost.chief.tokens.total)} tokens, its own estimate, already inside the total`,
+        ? `Chief architect: Run: ${lineText(cost.chief, date)}, mostly the code it read (exact)`
+        : `Chief architect: Note: ~${formatTokens(cost.chief.tokens.total)} tokens, its own estimate, already inside the total`,
     );
   } else {
     lines.push('Chief architect: no tokens reported yet.');

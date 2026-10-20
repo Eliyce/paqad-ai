@@ -33,12 +33,14 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
         'commands.ts',
         'config.ts',
         'cost.ts',
+        'instruments.ts',
         'model.ts',
         'pane.ts',
         'paqad-cli.ts',
         'receipt.ts',
         'register.test.ts',
         'register.tsx',
+        'shell.ts',
         'table.ts',
         'tabs.ts',
         'test/fixtures.ts',
@@ -60,6 +62,11 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
       expect(text).not.toMatch(/from 'node:/);
     },
   );
+
+  it('INV-8: the band shell imports no body code', () => {
+    const shell = sources.find((s) => s.name === 'shell.ts')!.text;
+    expect(shell.match(/from '\.\/([a-z-]+)'/g)).toEqual(["from './types'"]);
+  });
 
   it('AC-21: runs processes only through the one paqad-ai helper, by argument vector', () => {
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
@@ -83,10 +90,12 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
       'commands.ts',
       'config.ts',
       'cost.ts',
+      'instruments.ts',
       'model.ts',
       'pane.ts',
       'paqad-cli.ts',
       'receipt.ts',
+      'shell.ts',
       'table.ts',
       'tabs.ts',
     ]) {

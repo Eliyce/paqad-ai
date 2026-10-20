@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { layoutBand } from '../../../../runtime/claude-plugin/mod/band.ts';
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
 import {
   costLines,
   costPill,
+  formatStopwatch,
   formatTokens,
   formatUsd,
   fullTokens,
@@ -35,6 +35,8 @@ import {
   fileText,
   snapshot,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
+
+import { bandOf } from './band-text.ts';
 import type { PaqadCost } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
 
 const parse = (raw: Record<string, unknown>) => parseSnapshot(fileText(raw))!;
@@ -62,7 +64,12 @@ function expectDatedMoney(text: string): void {
 describe('formatting', () => {
   it('says token counts short and in full', () => {
     expect(formatTokens(812)).toBe('812');
-    expect(formatTokens(45_300)).toBe('45.3k');
+    expect(formatTokens(45_300)).toBe('45.3K');
+    expect(formatTokens(230_490)).toBe('230K');
+    expect(formatTokens(8_000)).toBe('8K');
+    expect(formatStopwatch(272_000)).toBe('4:32');
+    expect(formatStopwatch(3_725_000)).toBe('1:02:05');
+    expect(formatStopwatch(-5)).toBe('0:00');
     expect(formatTokens(1_300_000)).toBe('1.3M');
     expect(fullTokens(1_234_567)).toBe('1,234,567');
   });
@@ -103,17 +110,14 @@ describe('the cost pill (AC-50)', () => {
   });
 
   it('shows tokens only for a model the table does not list', () => {
-    expect(costPill(costOf(UNPRICED_COST))).toBe('10.0k tokens');
+    expect(costPill(costOf(UNPRICED_COST))).toBe('10K tokens');
     expect(costPill(costOf(UNPRICED_COST))).not.toContain('$');
   });
 
-  it('is a pill in the band that opens the Cost tab', () => {
-    const rows = layoutBand(buildBandView(parse(FULL_ORD_501_COST), NOW), {
-      columns: 120,
-      maxRows: 12,
-    });
-    const pill = rows.flat().find((segment) => segment.opens === 'cost');
-    expect(pill?.text).toBe('1.3M tokens, ~$4.60 estimate, 2026-10-19 prices');
+  it('is a footer line in the band that opens the Cost tab', () => {
+    const band = bandOf(FULL_ORD_501_COST);
+    const footer = band.kind === 'card' ? band.footer : null;
+    expect(footer?.left[0]).toMatchObject({ text: '1.3M tokens · ~$4.60 est.', opens: 'cost' });
   });
 });
 
@@ -169,14 +173,18 @@ describe('the Cost tab and /paqad cost (AC-55)', () => {
     );
     expect(text).toContain('Counted from the first record to the seal.');
     expect(text).toContain('By stage:');
-    expect(text).toContain('  Build: 640.0k tokens, ~$2.30 estimate, 2026-10-19 prices');
-    expect(text).toContain('  Between stages: 70.0k tokens, ~$0.26 estimate, 2026-10-19 prices');
+    expect(text).toContain('  Build: 640K tokens, ~$2.30 estimate, 2026-10-19 prices');
+    expect(text).toContain('  Between stages: 70K tokens, ~$0.26 estimate, 2026-10-19 prices');
     expect(text).toContain('By expert:');
-    expect(text).toContain('  Security auditor: 40.0k tokens, ~$0.14 estimate, 2026-10-19 prices');
     expect(text).toContain(
-      "  QA engineer: about 1.8k tokens, the seat's own estimate, already inside the total",
+      '  Security auditor: Run: 40K tokens, ~$0.14 estimate, 2026-10-19 prices, mostly the code it read (exact)',
     );
-    expect(text).toContain('Chief architect: 25.0k tokens, ~$0.09 estimate, 2026-10-19 prices');
+    expect(text).toContain(
+      "  QA engineer: Note: ~1.8K tokens, the seat's own estimate, already inside the total",
+    );
+    expect(text).toContain(
+      'Chief architect: Run: 25K tokens, ~$0.09 estimate, 2026-10-19 prices, mostly the code it read (exact)',
+    );
     expect(text.find((line) => line.startsWith('Basis: '))).toContain(
       'API-equivalent estimate. Tokens come from the session',
     );
@@ -229,7 +237,7 @@ describe('the Cost tab and /paqad cost (AC-55)', () => {
       by_expert: [],
     });
     expect(lines(snapshot({ ...FULL_ORD_501, cost: estimate }))).toContain(
-      'Chief architect: about 900 tokens, its own estimate, already inside the total',
+      'Chief architect: Note: ~900 tokens, its own estimate, already inside the total',
     );
     const noChief = costRecord({ chief: null });
     expect(lines(snapshot({ ...FULL_ORD_501, cost: noChief }))).toContain(

@@ -57,7 +57,7 @@ export function snapshot(over: Raw = {}): Raw {
     schema: 'paqad.hud/3',
     session_id: 'ses-fixture',
     generated_at: '2026-10-18T09:00:00.000Z',
-    scope: { qualified: false, reason: 'not-feature-route' },
+    scope: { qualified: true, reason: 'qualified' },
     workflow: null,
     active: false,
     route: null,
@@ -522,12 +522,14 @@ export const NEEDS_ATTENTION = snapshot({
 });
 
 export const PAUSED = snapshot({
+  scope: { qualified: false, reason: 'not-feature-route' },
   route: 'project-question',
   headline: { text: 'A change is paused. Say "continue" to pick it up.', tone: 'neutral' },
   paused: [{ workflow: 'feature-development', lane: 'graduated' }],
 });
 
 export const OTHER_WORKFLOW = snapshot({
+  scope: { qualified: false, reason: 'not-feature-route' },
   route: 'project-question',
   headline: { text: 'Working on project question.', tone: 'working' },
 });

@@ -10,7 +10,7 @@ import {
   pendingPacketPath,
   questionTexts,
 } from './ask-evidence';
-import { laneMode, layoutBand, spinnerWord, type BandRow, type BandSegment } from './band';
+import { laneMode, layoutBand, spinnerWord } from './band';
 import { chimeClip } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
 import { runPaqadCommand } from './commands';
@@ -26,7 +26,6 @@ import {
   RULE_STOP_NO_REASON,
   RULE_STOP_REASON_HEADER,
   RULE_STOP_SHOW,
-  buildBandView,
   entrySentinelPath,
   freshRuleStop,
   heartbeatPath,
@@ -46,6 +45,14 @@ import {
 import { runPaqad } from './paqad-cli';
 import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
 import { isReceiptCommand, receiptCard, verdictKey, verdictToast, watchVerdict } from './receipt';
+import type {
+  BandAction,
+  BandBlock,
+  BandLayout,
+  BandRow,
+  BandSegment,
+  BandSplitRow,
+} from './shell';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
@@ -325,6 +332,126 @@ async function answerRuleStop(
   };
 }
 
+type UiElements = ReturnType<EngineInterface['ui']['resolve']>;
+
+async function pressAction($: EngineInterface, action: BandAction): Promise<void> {
+  void $;
+  void action;
+}
+
+function drawSegment($: EngineInterface, ui: UiElements, segment: BandSegment, index: number) {
+  const { Text, Button } = ui;
+  const tab = segment.opens;
+  const action = segment.action;
+  if (tab || action) {
+    return (
+      <Button
+        key={segment.key ?? `paqad-${tab ?? action}-${index}`}
+        plain
+        {...(segment.hotkey ? { hotkey: segment.hotkey } : {})}
+        dimColor={segment.dim === true}
+        onPress={() => void (tab ? openPane($, tab) : pressAction($, action!))}
+      >
+        <Text color={segment.tone ? TONE_COLOR[segment.tone] : undefined}>{segment.text}</Text>
+      </Button>
+    );
+  }
+  return (
+    <Text
+      color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
+      dimColor={segment.dim === true}
+    >
+      {segment.text}
+    </Text>
+  );
+}
+
+function drawRow($: EngineInterface, ui: UiElements, row: BandRow) {
+  const { Box, Text } = ui;
+  if (!row.some((segment) => segment.opens || segment.action)) {
+    return (
+      <Text wrap="truncate">{row.map((segment, index) => drawSegment($, ui, segment, index))}</Text>
+    );
+  }
+  return (
+    <Box flexDirection="row">{row.map((segment, index) => drawSegment($, ui, segment, index))}</Box>
+  );
+}
+
+function drawSplit($: EngineInterface, ui: UiElements, split: BandSplitRow) {
+  const { Box } = ui;
+  return (
+    <Box flexDirection="row">
+      <Box flexDirection="row" flexGrow={1}>
+        {drawRow($, ui, split.left)}
+      </Box>
+      <Box flexDirection="row">{drawRow($, ui, split.right)}</Box>
+    </Box>
+  );
+}
+
+function drawBlock($: EngineInterface, ui: UiElements, block: BandBlock, desktop: boolean) {
+  const { Box, Text } = ui;
+  const Svg = desktop && 'Svg' in ui ? ui.Svg : null;
+  return (
+    <Box key={block.key} flexDirection="column" flexGrow={1}>
+      {drawRow($, ui, block.title)}
+      {block.svg && Svg ? (
+        <Svg
+          source={block.svg.source}
+          alt={block.svg.alt}
+          width={block.svg.width}
+          height={block.svg.height}
+        />
+      ) : block.cells.length > 0 ? (
+        <Box flexDirection="row">
+          {block.cells.map((cell) => (
+            <Box key={cell.key} flexDirection="column" paddingRight={1}>
+              <Text
+                color={cell.top.tone ? TONE_COLOR[cell.top.tone] : undefined}
+                dimColor={cell.top.dim === true}
+              >
+                {cell.top.text}
+              </Text>
+              <Text
+                color={cell.bottom.tone ? TONE_COLOR[cell.bottom.tone] : undefined}
+                dimColor={cell.bottom.dim === true}
+              >
+                {cell.bottom.text}
+              </Text>
+            </Box>
+          ))}
+        </Box>
+      ) : null}
+      {block.note ? drawRow($, ui, block.note) : null}
+    </Box>
+  );
+}
+
+function drawBand($: EngineInterface, e: { surface: string }, layout: BandLayout) {
+  const ui = $.ui.resolve(e as never) as UiElements;
+  const { Box } = ui;
+  if (layout.kind === 'none') return null;
+  if (layout.kind === 'line') return drawRow($, ui, layout.row);
+  const desktop = e.surface === 'desktop';
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={TONE_COLOR[layout.tone]}
+      paddingX={1}
+    >
+      {drawSplit($, ui, layout.header)}
+      {layout.blocks.length > 0 ? (
+        <Box flexDirection={layout.direction}>
+          {layout.blocks.map((block) => drawBlock($, ui, block, desktop))}
+        </Box>
+      ) : null}
+      {layout.footer ? drawSplit($, ui, layout.footer) : null}
+    </Box>
+  );
+}
+
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
@@ -424,44 +551,17 @@ export const register: Register = (on) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const status = await read($, statusAtom);
     if (!status?.on || e.props.hasSurvey) return next(e);
-    const view = buildBandView(await read($, snapshotAtom), await read($, nowAtom));
-    const rows = layoutBand(view, { columns: e.props.bodyColumns, maxRows: e.props.maxRows });
-    const others = await next(e);
-    const { Box, Text, Button } = $.ui.resolve(e);
-    const part = (segment: BandSegment) => (
-      <Text
-        color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
-        dimColor={segment.dim === true}
-      >
-        {segment.text}
-      </Text>
+    const layout = layoutBand(
+      await read($, snapshotAtom),
+      { columns: e.props.bodyColumns, maxRows: e.props.maxRows },
+      { now: await read($, nowAtom), surface: e.surface === 'desktop' ? 'desktop' : 'terminal' },
     );
-    const line = (row: BandRow) => {
-      if (!row.some((segment) => segment.opens))
-        return <Text wrap="truncate">{row.map(part)}</Text>;
-      return (
-        <Box flexDirection="row">
-          {row.map((segment) => {
-            const tab = segment.opens;
-            return tab ? (
-              <Button
-                key={`paqad-open-${tab}`}
-                plain
-                dimColor={segment.dim === true}
-                onPress={() => void openPane($, tab)}
-              >
-                {segment.text}
-              </Button>
-            ) : (
-              part(segment)
-            );
-          })}
-        </Box>
-      );
-    };
+    const others = await next(e);
+    const drawn = drawBand($, e, layout);
+    const { Box } = $.ui.resolve(e);
     return (
       <Box flexDirection="column">
-        {rows.map(line)}
+        {drawn}
         {isBlank(others) ? null : (others as RenderElement)}
       </Box>
     );
