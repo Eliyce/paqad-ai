@@ -163,7 +163,7 @@ describe('the ship rail (FR-15, FR-35)', () => {
       'SHIP  CI · 4 of 6 green',
       '● ─ ● ─ ● ─ ● ─ ▸ ─ ○',
       'Edit   Commit   Push   PR   CI   Merge (yours)',
-      '+1 already on the branch, not yours',
+      'CI read 1:00 ago · +1 already on the branch, not yours',
     ]);
     expect(block.svg).toBeNull();
     expect(block.title[0]).toMatchObject({ opens: 'ships' });

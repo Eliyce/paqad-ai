@@ -94,6 +94,7 @@ const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null 
 const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false as boolean);
 const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as boolean);
 const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
+const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
@@ -154,6 +155,14 @@ async function readText($: EngineInterface, path: string): Promise<string | null
   }
 }
 
+async function existsSafe($: EngineInterface, path: string): Promise<boolean> {
+  try {
+    return await $.fs.exists(path);
+  } catch {
+    return true;
+  }
+}
+
 async function refresh($: EngineInterface): Promise<void> {
   if (!live) return;
   if (reading) {
@@ -166,11 +175,16 @@ async function refresh($: EngineInterface): Promise<void> {
       readAgain = false;
       const at = live;
       if (!at) return;
-      const text = await readText($, snapshotPath(at.root, at.sessionId));
+      const path = snapshotPath(at.root, at.sessionId);
+      const text = await readText($, path);
       const changed = text !== lastText;
       lastText = text;
       const snapshot = changed ? parseSnapshot(text) : await read($, snapshotAtom);
-      if (changed) await update($, snapshotAtom, () => snapshot);
+      if (changed) {
+        await update($, snapshotAtom, () => snapshot);
+        const broken = snapshot === null && (text !== null || (await existsSafe($, path)));
+        await update($, unavailableAtom, () => broken);
+      }
       const watch = watchVerdict(verdictSeen, verdictKey(snapshot?.verdict));
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
@@ -717,6 +731,7 @@ export const register: Register = (on) => {
         now: await read($, nowAtom),
         surface: e.surface === 'desktop' ? 'desktop' : 'terminal',
         turnStartedAt,
+        unavailable: (await read($, unavailableAtom)) === true,
       },
       readBandVisibility(
         { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },

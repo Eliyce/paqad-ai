@@ -49,7 +49,10 @@ export interface BodyContext {
   now: number;
   surface: 'terminal' | 'desktop';
   turnStartedAt?: number | null;
+  unavailable?: boolean;
 }
+
+export const UNAVAILABLE = 'HUD data unavailable';
 
 export type BodyRenderer = (snapshot: PaqadHudSnapshot, context: BodyContext) => BandBody;
 
@@ -60,6 +63,7 @@ export function registerBandBody(workflow: string, renderer: BodyRenderer): void
 }
 
 export interface ShellHeader {
+  unavailable?: boolean;
   tone: PaqadTone;
   chip: string | null;
   headline: string;
@@ -122,6 +126,7 @@ export function headerRow(header: ShellHeader, idle: boolean): BandSplitRow {
   const left: BandRow = [brandSegment(header.tone)];
   if (header.chip) left.push({ text: ` ${header.chip}`, dim: true });
   left.push({ text: `  ${header.headline}`, tone: header.tone });
+  if (header.unavailable) left.push({ text: `  ${UNAVAILABLE}`, dim: true });
   const right: BandRow = [];
   if (!idle) {
     if (header.verdict) right.push({ text: header.verdict.word, tone: header.verdict.tone }, gap());

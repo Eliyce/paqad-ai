@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   changeChip,
   laneMode,
+  layoutBand,
   rowText,
   spinnerWord,
   tokensChip,
@@ -172,6 +173,40 @@ describe('the instruments lay out by width (FR-38, AC-30)', () => {
       row: [{ text: 'x' }],
     });
     expect(rowText(headerRow(header, true).right)).toBe('– Minimise  × Close');
+  });
+});
+
+describe('partial and broken data (FR-40, FR-41, AC-42, AC-43)', () => {
+  it('keeps each instrument with a neutral mark when a qualified change has no gates or split', () => {
+    const raw = {
+      ...FULL_ORD_501_COST,
+      gates: [],
+      claims: [],
+      cost: { ...(FULL_ORD_501_COST.cost as object), scope: 'whole-session' },
+    };
+    const lines = bandLines(raw);
+    expect(lines.at(-1)).toBe(
+      '1.3M tokens · whole session | Not judged yet · 12 rules loaded · 0 rule findings',
+    );
+    expect(lines.some((line) => line.startsWith('SHIP'))).toBe(true);
+    expect(lines.some((line) => line.startsWith('STAGE'))).toBe(true);
+    const unloaded = bandLines({ ...raw, rules: { recorded: false } });
+    expect(unloaded.at(-1)).toContain('Not judged yet · rules not loaded yet');
+  });
+
+  it('says HUD data unavailable on the idle header when the snapshot could not be read', () => {
+    const band = layoutBand(
+      null,
+      { columns: 120, maxRows: 12 },
+      {
+        now: 0,
+        surface: 'terminal',
+        unavailable: true,
+      },
+    );
+    expect(layoutLines(band)).toEqual([
+      'paqad  feature development · no change in progress  HUD data unavailable | – Minimise  × Close',
+    ]);
   });
 });
 

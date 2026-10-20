@@ -241,6 +241,7 @@ declare module 'claude-code' {
       paneTab: PaqadPaneTab | null;
       greenSeen: string[];
       paneOpen: boolean;
+      unavailable: boolean;
       minimised: boolean;
       hidden: boolean;
       bandClosed: boolean;

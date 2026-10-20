@@ -206,6 +206,7 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface)));
       expect(text).toContain('no change in progress');
+      expect(text).toContain('HUD data unavailable');
       expect(text).not.toContain('Safe to merge');
     });
 

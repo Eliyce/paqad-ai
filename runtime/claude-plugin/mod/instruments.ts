@@ -11,6 +11,7 @@ import {
 } from './shell';
 import { RAIL_HEIGHT, RAIL_WIDTH, shipRail, shipRailSvg, type ShipStepState } from './ship';
 import { hasRuled, showsTable } from './table';
+import { readAgo } from './tabs';
 import type { PaqadHighTable, PaqadHudSnapshot, PaqadSeat, PaqadTone } from './types';
 
 export const STAGE_NAME = 'STAGE';
@@ -230,7 +231,12 @@ export function shipInstrumentBlock(snapshot: PaqadHudSnapshot, context: BodyCon
       ),
     );
   });
-  const note = inheritedNote(rail.inherited);
+  const read =
+    rail.prNumber !== null ? readAgo(snapshot.ship?.ci_read_at ?? null, context.now) : null;
+  const notes = [read ? `CI ${read}` : null, inheritedNote(rail.inherited)].filter(
+    (part): part is string => part !== null,
+  );
+  const note = notes.length > 0 ? notes.join(' · ') : null;
   return {
     key: 'paqad-instrument-ship',
     title: [
@@ -261,9 +267,13 @@ export function trustSummary(snapshot: PaqadHudSnapshot): string {
   if (snapshot.claims.length > 0) {
     return `${proving} of ${snapshot.claims.length} criteria proven by tests`;
   }
-  if (!snapshot.rules.recorded) return 'Rules not loaded yet';
+  const judged = snapshot.gates.some(
+    (gate) => gate.verdict !== 'not-judged' && gate.verdict !== 'pending',
+  );
+  const prefix = judged ? '' : 'Not judged yet · ';
+  if (!snapshot.rules.recorded) return `${prefix}rules not loaded yet`;
   const findings = snapshot.findings?.rules.total ?? 0;
-  return `${snapshot.rules.applicable ?? 0} rules loaded · ${findings} rule finding${findings === 1 ? '' : 's'}`;
+  return `${prefix}${snapshot.rules.applicable ?? 0} rules loaded · ${findings} rule finding${findings === 1 ? '' : 's'}`;
 }
 
 export function footerRow(snapshot: PaqadHudSnapshot): BandSplitRow {

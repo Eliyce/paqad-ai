@@ -142,7 +142,8 @@ export function layoutBand(
   const route = snapshot?.route ?? FEATURE_DEVELOPMENT;
   const renderer = active ? BAND_BODIES[route] : undefined;
   const body = snapshot && renderer ? renderer(snapshot, context) : null;
-  return layoutShell(shellHeader(snapshot, view), body, size, minimised);
+  const header = { ...shellHeader(snapshot, view), unavailable: context.unavailable === true };
+  return layoutShell(header, body, size, minimised);
 }
 
 const SPINNER_WORDS: Record<string, string> = {
