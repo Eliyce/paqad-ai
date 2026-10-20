@@ -67,3 +67,21 @@ export function resolveCompletionTranscriptText(stdin, adapter) {
   const inline = payload?.last_assistant_message ?? payload?.prompt_response;
   return typeof inline === 'string' ? inline : '';
 }
+
+export function resolveSubagentTranscriptText(stdin, adapter) {
+  let payload;
+  try {
+    payload = JSON.parse(stdin);
+  } catch {
+    payload = undefined;
+  }
+  const path = payload?.agent_transcript_path;
+  if (typeof path === 'string' && path.trim() !== '') {
+    try {
+      return readFileSync(path, 'utf8');
+    } catch {
+      return resolveCompletionTranscriptText(stdin, adapter);
+    }
+  }
+  return resolveCompletionTranscriptText(stdin, adapter);
+}

@@ -6,17 +6,12 @@
 // retired the separate `context-efficiency.jsonl`): what the isolated stage cost and the
 // carried history the orchestrator did not re-send. It NEVER blocks (SubagentStop blocking is
 // undocumented on Claude) and never throws — a measurement failure must not disrupt a turn.
-//
-// Token exactness is honest: `SubagentStop`'s usage payload is undocumented on both hosts,
-// so when no usage object is present the counts are ESTIMATED from the subagent transcript
-// (~4 chars per token). When a host surfaces exact usage on the payload, it is used verbatim.
-// The carried-history figure is always an estimate, so the row says `estimate: true`. The
-// row is keyed on the orchestrator's session id (the ledger cache the orchestrator aligned),
-// so every row in the change shares one identity even though the subagent ran in its own
-// context.
 
+import { readFileSync } from 'node:fs';
+
+import { readTranscriptUsage } from '@/cost/transcript-usage.js';
 import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { resolveHookSession } from '@/rag-ledger/session.js';
 import { recordHighTableUsage } from '@/spec-pipeline/high-table.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
@@ -104,6 +99,50 @@ export function resolveTokenCounts(
   return { tokens_input: estimate, tokens_cached: 0, tokens_output: 0, exact: false };
 }
 
+export interface StageAgentTokens {
+  tokens_used: number;
+  tokens_not_recarried: number;
+  exact: boolean;
+}
+
+function readAgentTranscriptText(path: string): string | null {
+  try {
+    return readFileSync(path, 'utf8');
+  } catch {
+    return null;
+  }
+}
+
+export function resolveStageAgentTokens(
+  payload: SubagentStopPayload,
+  transcriptText: string,
+): StageAgentTokens {
+  const path = payload.agent_transcript_path;
+  if (typeof path === 'string' && path.trim() !== '') {
+    const agentText = readAgentTranscriptText(path);
+    const usage = readTranscriptUsage(path);
+    if (agentText !== null && usage.messages.length > 0) {
+      return {
+        tokens_used: usage.totals.total,
+        tokens_not_recarried: estimateTokens(agentText),
+        exact: true,
+      };
+    }
+  }
+  const counts = resolveTokenCounts(payload, transcriptText);
+  return {
+    tokens_used: counts.tokens_input + counts.tokens_output,
+    tokens_not_recarried: estimateTokens(transcriptText),
+    exact: false,
+  };
+}
+
+function payloadSessionId(payload: SubagentStopPayload): string | null {
+  return typeof payload.session_id === 'string' && payload.session_id.trim() !== ''
+    ? payload.session_id.trim()
+    : null;
+}
+
 export interface RecordStageAgentCompletionInput {
   projectRoot: string;
   payload: SubagentStopPayload;
@@ -127,32 +166,23 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
     if (!stage) {
       return false;
     }
-    // Key on the orchestrator's ledger session id (aligned at its SessionStart), NOT the
-    // subagent's payload session_id, so every row in the change shares one identity. Passing
-    // no hint reads the single-slot cache rather than clobbering it with the subagent's id.
-    const sessionId = resolveSessionId(input.projectRoot, null);
+    const sessionId = resolveHookSession(input.projectRoot, input.payload);
     const dirName = currentFeature(input.projectRoot, sessionId);
     if (!dirName) {
       return false;
     }
-    const counts = resolveTokenCounts(input.payload, input.transcriptText);
+    const tokens = resolveStageAgentTokens(input.payload, input.transcriptText);
     appendFeatureStageRow(
       input.projectRoot,
-      sessionId,
+      payloadSessionId(input.payload) ?? sessionId,
       dirName,
       {
         kind: STAGE_AGENT_KIND,
         stage,
-        // The stage agent's own name (`paqad-development`), so the row is attributed to it.
         agent: input.payload.agent_type,
-        tokens_used: counts.tokens_input + counts.tokens_output,
-        // The isolated stage's own footprint is history the orchestrator did not carry
-        // forward. The exact orchestrator-vs-single-context delta needs a run-mode harness
-        // (an explicit follow-up), so this figure is always estimated, and a row with any
-        // estimated figure says so: `estimate` is never dressed up as exact, even when the
-        // host reported exact usage for `tokens_used`.
-        tokens_not_recarried: estimateTokens(input.transcriptText),
-        estimate: true,
+        tokens_used: tokens.tokens_used,
+        tokens_not_recarried: tokens.tokens_not_recarried,
+        estimate: !tokens.exact,
       },
       input.now,
     );

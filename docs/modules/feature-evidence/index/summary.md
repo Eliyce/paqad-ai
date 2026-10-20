@@ -139,12 +139,35 @@ any turn the session-ownership check skips (see below).
   `session_source` (`host` / `env` / `cache`), and a `cache` row never counts as this
   turn's edit, since the shared cache file may name another live session. The work of the
   session's own stage agents counts too (issue #669): in the unclosed bundle this session's
-  control points at (read with `readSessionControl`), every row a `paqad-<stage>` agent
-  wrote and every `stage-agent` completion row is the session's own, whatever session id it
-  carries, and one recorded since `turn_started_at` counts as an edit this turn. So an
-  orchestrator turn in which only its stage agents edited files is checked, not skipped.
+  control points at (read with `readSessionControl`), a row a `paqad-<stage>` agent wrote
+  or a `stage-agent` completion row is the session's own only when it carries this
+  session's id and was recorded at or after the session's last prompt (`turn_started_at`).
+  A row from another session, or one written before the last prompt, is not. With no prompt
+  stamp (a state file written before the stamp existed) any such row in that bundle counts,
+  as before. So an orchestrator turn in which only its stage agents edited files is checked,
+  not skipped, and a second session in the same checkout is never made an owner by them.
   Another session's bundle is never read this way. The check only reads bundles; it never
   repoints a session's active feature.
+- **Stage-agent rows** (`src/stage-isolation/subagent-completion.ts`) — the record-only
+  SubagentStop hook (`stage-agent-completion`) appends one `kind: 'stage-agent'` row
+  (`kind`, `stage`, `agent`, `tokens_used`, `tokens_not_recarried`, `estimate`) when a
+  `paqad-<stage>` agent finishes. The session is resolved by `resolveHookSession` in
+  `src/rag-ledger/session.ts`: the payload `session_id`, then `SE_SESSION`, then
+  `CLAUDE_SESSION_ID`, then the shared cache, taking the first one whose session control
+  names an in-flight bundle, and otherwise the cache (minting only when nothing is known).
+  The row is written into that session's bundle and stamped with the payload session id
+  when the payload carries one. The hook never rewrites `.paqad/session/ledger-session-id`:
+  `readLedgerSessionId` only reads it, and the marker backfill runs inside
+  `keepingLedgerSessionCache`, which puts the cache back exactly as it was. The marker
+  backfill reads the subagent's own `agent_transcript_path` first and takes its session
+  from the payload, then `SE_SESSION`, then `CLAUDE_SESSION_ID`. The change cost and the
+  High Table usage recorders resolve their session the same way. When the payload names a
+  readable `agent_transcript_path` with usage, `tokens_used` is that transcript's exact
+  total (input, cache read, cache write and output), `tokens_not_recarried` is estimated
+  from that subagent transcript (about 4 characters per token), and the row says
+  `estimate: false`, so the receipt's `context:` line reads `(exact)`. With no agent
+  transcript the row keeps the earlier estimate from the parent transcript and says
+  `estimate: true`.
 - **Rule-loading gate** (`rules-loaded-gate.ts`, issue #557) — the completion-seam backstop
   that a feature-development change actually LOADED its applicable rules, not just that the
   ceremony ran. `paqad-ai rules load` computes the applicable rules deterministically
@@ -406,7 +429,8 @@ existing code is open.`), so the band shows findings only as a count in the flag
   it runs before every edit and nothing it records reaches the snapshot yet.
 - **Never changes a decision.** Every write is atomic (temp file, then rename) and
   best-effort; a failure is logged to `.paqad/logs/hook-failures.log`. Measured cost on the
-  stage-writer hook: about 43 ms per run.
+  stage-writer hook: about 43 ms per run. Building the snapshot only reads the shared session
+  cache: it uses the hook's session id when it has one and never rewrites the cache.
 - **Stands down** in a project that was never onboarded and while paqad is disabled.
 - **Read it** with `paqad-ai status --hud` (text) or `--hud --format json` (the object).
 

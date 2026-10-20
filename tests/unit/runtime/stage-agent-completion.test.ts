@@ -70,7 +70,59 @@ describe('stage-agent-completion.mjs (issue #567)', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].stage).toBe('development');
     expect(rows[0].agent).toBe('paqad-development');
-    expect(rows[0].session_id).toBe('ses_it');
+    expect(rows[0].session_id).toBe('sub_abc');
+  });
+
+  it('leaves the shared session cache byte-identical and reads tokens from the agent transcript', async () => {
+    const root = tempRoot();
+    await openFeature(root, 'ses_it');
+    const cachePath = join(root, '.paqad/session/ledger-session-id');
+    writeFileSync(cachePath, 'ses_other_wrote_last', 'utf8');
+    const before = readFileSync(cachePath);
+
+    const parent = join(root, 'parent.jsonl');
+    writeFileSync(parent, 'x'.repeat(40000), 'utf8');
+    const agent = join(root, 'agent.jsonl');
+    writeFileSync(
+      agent,
+      [
+        {
+          type: 'assistant',
+          message: {
+            id: 'msg_a',
+            role: 'assistant',
+            content: 'paqad:stage development start',
+            usage: { input_tokens: 70, output_tokens: 30 },
+          },
+        },
+      ]
+        .map((line) => JSON.stringify(line))
+        .join('\n') + '\n',
+      'utf8',
+    );
+
+    const result = await execa('node', [HOOK], {
+      input: JSON.stringify({
+        session_id: 'ses_it',
+        transcript_path: parent,
+        agent_transcript_path: agent,
+        agent_id: 'agent_it',
+        agent_type: 'paqad-development',
+        hook_event_name: 'SubagentStop',
+      }),
+      env: { PAQAD_PROJECT_ROOT: root, SE_SESSION: '', CLAUDE_SESSION_ID: '' },
+      reject: false,
+    });
+    expect(result.exitCode).toBe(0);
+    expect(readFileSync(cachePath).equals(before)).toBe(true);
+
+    const rows = readFileSync(join(bundleDir(root), 'stage-evidence.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line))
+      .filter((row) => row.kind === 'stage-agent');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ session_id: 'ses_it', tokens_used: 100, estimate: false });
   });
 
   it('exits 0 on the documented Claude fixture even with no active feature (never blocks)', async () => {

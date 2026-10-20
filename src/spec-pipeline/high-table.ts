@@ -32,7 +32,7 @@ import {
 import { stampBundleRow } from '@/feature-evidence/envelope.js';
 import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { resolveHookSession, resolveSessionId } from '@/rag-ledger/session.js';
 import {
   appendStampedRowToUnit,
   readUnitFile,
@@ -206,6 +206,7 @@ export interface HighTableStopPayload {
   agent_id?: unknown;
   agent_type?: unknown;
   agent_transcript_path?: unknown;
+  session_id?: unknown;
 }
 
 export interface RecordHighTableUsageInput {
@@ -235,9 +236,7 @@ export function recordHighTableUsage(input: RecordHighTableUsageInput): HighTabl
   const isChief = stripPluginAgentNamespace(agentType.trim()) === CHIEF_ARCHITECT_AGENT_NAME;
   const role = isChief ? CHIEF_ROLE : roleFromSubagentTranscript(path);
   if (role === null) return 'no-role';
-  // Key on the orchestrator's ledger session (as the stage-agent recorder does), so every row of
-  // the change shares one identity even though the seat ran in its own context.
-  const sessionId = resolveSessionId(input.projectRoot, null);
+  const sessionId = resolveHookSession(input.projectRoot, input.payload);
   const dirName = currentFeature(input.projectRoot, sessionId);
   if (!dirName) return 'no-feature';
   appendHighTableRow(

@@ -320,10 +320,15 @@ describe('stage-agent work counts as the orchestrator session’s own (#669)', (
   };
 
   /** A `paqad-development` agent's live-mark development row, under the subagent's own id. */
-  function agentDevelopmentRow(root: string, dirName: string, now: () => Date): void {
+  function agentDevelopmentRow(
+    root: string,
+    dirName: string,
+    now: () => Date,
+    session: string = SUB,
+  ): void {
     appendFeatureStageRow(
       root,
-      SUB,
+      session,
       dirName,
       {
         kind: 'stage_start',
@@ -357,7 +362,7 @@ describe('stage-agent work counts as the orchestrator session’s own (#669)', (
   it('AC-10: an orchestrator whose own rows are only stage markers is enforced when its agent edited this turn', () => {
     const root = tempRoot();
     const dirO = ownChange(root, A, BEFORE); // the orchestrator's marker, before this turn
-    agentDevelopmentRow(root, dirO, AFTER);
+    agentDevelopmentRow(root, dirO, AFTER, A);
     route(root, A, DETOUR);
 
     expect(sessionOwnedRows(root, A).some((row) => row.agent === 'paqad-development')).toBe(true);
@@ -371,13 +376,46 @@ describe('stage-agent work counts as the orchestrator session’s own (#669)', (
   it('AC-10: a stage-agent row recorded this turn counts as edited this turn', () => {
     const root = tempRoot();
     const dirO = ownChange(root, A, BEFORE);
-    stageAgentRow(root, SUB, dirO, AFTER);
+    stageAgentRow(root, A, dirO, AFTER);
     route(root, A, DETOUR);
 
     expect(classifyCompletionEnforcement(root, A)).toMatchObject({
       enforce: true,
       reason: 'edited-this-turn',
     });
+  });
+
+  it('does not count a stage-agent row from another session in its own bundle', () => {
+    const root = tempRoot();
+    const dirO = ownChange(root, A, BEFORE);
+    stageAgentRow(root, SUB, dirO, AFTER);
+    agentDevelopmentRow(root, dirO, AFTER);
+    route(root, A, DETOUR);
+
+    const owned = sessionOwnedRows(root, A);
+    expect(owned.some((row) => row.session_id === SUB)).toBe(false);
+    expect(classifyCompletionEnforcement(root, A)).toMatchObject({
+      enforce: false,
+      reason: 'detour',
+    });
+  });
+
+  it('does not count its own stage-agent row written before its last prompt', () => {
+    const root = tempRoot();
+    const dirO = ownChange(root, A, BEFORE);
+    stageAgentRow(root, A, dirO, BEFORE);
+    route(root, A, DETOUR);
+
+    expect(sessionOwnedRows(root, A).some((row) => row.kind === 'stage-agent')).toBe(false);
+  });
+
+  it('counts a stage-agent row from any session when the session has no prompt stamp', () => {
+    const root = tempRoot();
+    const dirO = ownChange(root, A, BEFORE);
+    stageAgentRow(root, SUB, dirO, BEFORE);
+    route(root, A, { active: { workflow: 'project-question' }, paused: [] });
+
+    expect(sessionOwnedRows(root, A).some((row) => row.session_id === SUB)).toBe(true);
   });
 
   it('AC-10: a stage-agent row recorded before turn_started_at does not count as this turn', () => {

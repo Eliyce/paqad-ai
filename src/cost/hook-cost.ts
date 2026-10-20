@@ -8,7 +8,7 @@
 // depend on it.
 
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { resolveHookSession } from '@/rag-ledger/session.js';
 
 import {
   changeCostWindow,
@@ -28,9 +28,7 @@ export type RefreshChangeCostOutcome = 'written' | 'no-feature' | 'no-window' | 
 
 /** Record the payload's transcripts and rewrite the active change's `cost.json`. */
 export function refreshChangeCostFromHook(input: RefreshChangeCostInput): RefreshChangeCostOutcome {
-  // Key on the orchestrator's ledger session, as the stage-agent and High Table recorders do, so
-  // a subagent's payload lands on the same change as the main session's.
-  const sessionId = resolveSessionId(input.projectRoot, null);
+  const sessionId = resolveHookSession(input.projectRoot, input.payload);
   const dirName = currentFeature(input.projectRoot, sessionId);
   if (!dirName) return 'no-feature';
   const window = changeCostWindow(input.projectRoot, dirName, input.now);

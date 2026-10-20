@@ -18,7 +18,7 @@
 import { sessionClosedAnyFeature } from '@/feature-evidence/adoption.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { keepingLedgerSessionCache, resolveSessionId } from '@/rag-ledger/session.js';
 
 import { normalizeArtifactPath } from './artifact-path.js';
 import { checkBundleArtifacts } from './bundle-artifact.js';
@@ -38,6 +38,7 @@ export interface MarkerParseInput {
    *  pure/fs-free so the dts bundle stays clean). */
   transcriptText?: string;
   sessionId?: string | null;
+  keepSessionCache?: boolean;
   /** Provider whose completion hook is parsing (`claude-code`, `codex-cli`,
    *  `gemini-cli`). Threaded onto every recorded row so a cross-provider ledger
    *  attributes each stage to the host that ran it (issue #265). Absent → the
@@ -129,6 +130,13 @@ export function extractMarkers(text: string): Marker[] {
  * at both the Stop and pre-mutation seams).
  */
 export function parseAndRecordMarkers(input: MarkerParseInput): Marker[] {
+  if (input.keepSessionCache === true) {
+    return keepingLedgerSessionCache(input.projectRoot, () => recordMarkers(input));
+  }
+  return recordMarkers(input);
+}
+
+function recordMarkers(input: MarkerParseInput): Marker[] {
   try {
     const raw = input.transcriptText;
     if (!raw) return [];

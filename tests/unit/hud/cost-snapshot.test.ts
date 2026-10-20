@@ -69,6 +69,18 @@ describe('the snapshot cost (FR-22)', () => {
     expect(renderHudText(buildHudSnapshot(root, S))).not.toContain('cost:');
   });
 
+  it('writes cost.json for the payload session when another session wrote the cache last', () => {
+    const { root, dir } = project();
+    persistLedgerSessionId(root, 'ses-wrote-cache-last');
+    expect(
+      refreshChangeCostFromHook({
+        projectRoot: root,
+        payload: { session_id: S, transcript_path: writeMainTranscript(root) },
+      }),
+    ).toBe('written');
+    expect(readChangeCost(root, dir)).not.toBeNull();
+  });
+
   it('reads cost.json: totals, by stage, by expert, the chief, labelled with its price date', () => {
     const { root, dir } = project();
     expect(

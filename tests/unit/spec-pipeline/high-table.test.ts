@@ -340,6 +340,30 @@ describe('the SubagentStop usage recorder (#639 Part 13)', () => {
     ).toBe(fixtureTotal(SEAT_USAGE));
   });
 
+  it('records on the payload session when another session wrote the shared cache last', () => {
+    const root = tempRoot();
+    const dir = openChange(root);
+    persistLedgerSessionId(root, 'ses_wrote_cache_last');
+    const chief = writeSeatTranscript(
+      join(root, 'subagents'),
+      'chief',
+      'paqad-ai spec pipeline experts context',
+      SEAT_USAGE,
+    );
+    expect(
+      recordHighTableUsage({
+        projectRoot: root,
+        payload: {
+          session_id: SES,
+          agent_type: 'paqad-chief-architect',
+          agent_id: 'c2',
+          agent_transcript_path: chief,
+        },
+      }),
+    ).toBe('recorded');
+    expect(rowsOf(root, dir, 'usage')).toHaveLength(1);
+  });
+
   it('writes nothing for a stage agent, a missing or empty transcript, an unknown role, or no change', () => {
     const root = tempRoot();
     const transcripts = join(root, 'subagents');

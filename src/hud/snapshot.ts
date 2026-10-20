@@ -37,7 +37,7 @@ import {
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
 import { readWorkflowState } from '@/pipeline/workflow-state.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange } from '@/stage-evidence/types.js';
@@ -587,7 +587,8 @@ export function buildHudSnapshot(
   options: BuildHudSnapshotOptions = {},
 ): HudSnapshot {
   const now = options.now ?? (() => new Date());
-  const sessionId = resolveSessionId(projectRoot, sessionHint);
+  const sessionId =
+    sessionHint?.trim() || readLedgerSessionId(projectRoot) || resolveSessionId(projectRoot, null);
   const workflow = readWorkflowState(projectRoot, sessionId);
   const route = workflow.active?.workflow ?? null;
   const paused = workflow.paused.map((entry) => ({

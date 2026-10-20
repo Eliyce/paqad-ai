@@ -50,7 +50,8 @@ const AGENT_AUTHORED_SOURCES = new Set(['live-mark', 'redo']);
  * Every agent-authored stage row `sessionId` wrote into an unclosed bundle, across all
  * branches, plus the work its own stage agents did (issue #669): in the unclosed bundle this
  * session's control points at, every row a `paqad-<stage>` agent wrote and every `stage-agent`
- * completion row counts as this session's own, whatever session id it carries. The control is
+ * completion row counts as this session's own when it carries this session's id and was
+ * written at or after its last prompt, or always when no prompt stamp exists. The control is
  * read with `readSessionControl` only, never `currentFeature` / `reconcileSessionControl`, so
  * no bundle is ever adopted here. Tolerant: an absent or unreadable bundle contributes no rows,
  * and a failure to list bundles at all reads as none.
@@ -63,15 +64,34 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
     return [];
   }
   const ownBundle = readSessionControl(projectRoot, sessionId).active;
+  const lastPrompt = lastPromptAt(projectRoot, sessionId);
   return dirNames.flatMap((dirName) =>
     readFeatureStageUnit(projectRoot, dirName).filter(
       (row) =>
         (row.session_id === sessionId &&
           typeof row.evidence_source === 'string' &&
           AGENT_AUTHORED_SOURCES.has(row.evidence_source)) ||
-        (dirName === ownBundle && isStageAgentRow(row)),
+        (dirName === ownBundle &&
+          isStageAgentRow(row) &&
+          stageAgentRowIsOwn(row, sessionId, lastPrompt)),
     ),
   );
+}
+
+function lastPromptAt(projectRoot: string, sessionId: string): number {
+  const stamp = readWorkflowState(projectRoot, sessionId).turn_started_at;
+  return stamp === undefined ? NaN : Date.parse(stamp);
+}
+
+function stageAgentRowIsOwn(row: SessionLedgerRow, sessionId: string, lastPrompt: number): boolean {
+  if (Number.isNaN(lastPrompt)) {
+    return true;
+  }
+  if (row.session_id !== sessionId) {
+    return false;
+  }
+  const at = Date.parse(rowRecordedAt(row) ?? '');
+  return !Number.isNaN(at) && at >= lastPrompt;
 }
 
 /** A row a dispatched `paqad-<stage>` agent wrote, or the `stage-agent` row its completion left. */

@@ -22,7 +22,10 @@ import {
   parseHookPayload,
   resolveProjectRoot,
 } from './lib/paqad-disabled.mjs';
-import { resolveCompletionTranscriptText } from './lib/transcript.mjs';
+import {
+  resolveCompletionTranscriptText,
+  resolveSubagentTranscriptText,
+} from './lib/transcript.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 import { refreshCostFromHook } from './lib/cost-refresh.mjs';
 
@@ -66,17 +69,16 @@ async function main(input) {
       );
     }
 
-    // Belt and braces: record any paqad:stage markers the stage agent spoke in its own
-    // transcript. The stage CLI verbs already wrote the authoritative rows under the
-    // orchestrator's session id, so this only backfills a marker the agent narrated.
-    if (transcriptText) {
+    const agentText = resolveSubagentTranscriptText(input, ADAPTER) || '';
+    if (agentText) {
       try {
         const markerUrl = new URL('../../dist/stage-evidence/marker-parse.js', import.meta.url);
         const { parseAndRecordMarkers } = await import(markerUrl.href);
         parseAndRecordMarkers({
           projectRoot,
-          transcriptText,
-          sessionId: payload?.session_id ?? null,
+          transcriptText: agentText,
+          sessionId: markerSessionId(payload),
+          keepSessionCache: true,
           adapter: ADAPTER,
         });
       } catch {
@@ -88,6 +90,17 @@ async function main(input) {
     /* v8 ignore next */
     return 0;
   }
+}
+
+function markerSessionId(payload) {
+  for (const candidate of [
+    payload?.session_id,
+    process.env.SE_SESSION,
+    process.env.CLAUDE_SESSION_ID,
+  ]) {
+    if (typeof candidate === 'string' && candidate.trim() !== '') return candidate.trim();
+  }
+  return null;
 }
 
 let input = '';
