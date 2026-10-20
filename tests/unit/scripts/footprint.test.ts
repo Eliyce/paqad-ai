@@ -9,10 +9,8 @@ import {
   // @ts-expect-error -- pure JS helper shared with the runnable measure-footprint.mjs script
 } from '../../../scripts/lib/footprint.mjs';
 
-/** char/4, the same fallback tokenizer-cache uses; deterministic for assertions. */
 const heuristic = (text: string): number => Math.ceil(text.length / 4);
 
-/** A representative record set: entry, manifest, full tree (on-demand), task-loaded, extras. */
 const RECORDS = [
   { area: 'entry', kind: 'entry', path: 'CLAUDE.md', text: 'x'.repeat(400) },
   {
@@ -56,7 +54,6 @@ describe('RESIDENT_AREAS', () => {
 describe('aggregateFootprint', () => {
   it('sums resident as entry + resident-kind areas, excluding on-demand and task-loaded', () => {
     const { totals } = aggregateFootprint(RECORDS, heuristic);
-    // entry(400) + manifest(2000) + stack(1000) = 3400 chars
     expect(totals.resident.chars).toBe(3400);
     expect(totals.resident.tokens).toBe(heuristic('x'.repeat(3400)));
   });
@@ -69,13 +66,11 @@ describe('aggregateFootprint', () => {
 
   it('computes full by swapping the manifest floor for the full rule tree', () => {
     const { totals } = aggregateFootprint(RECORDS, heuristic);
-    // full = resident(3400) - manifest(2000) + fullRules(8000) = 9400
     expect(totals.full.chars).toBe(9400);
   });
 
   it('derives a positive reduction when the full tree dwarfs the manifest', () => {
     const { reduction } = aggregateFootprint(RECORDS, heuristic);
-    // (9400 - 3400) / 9400
     expect(reduction.chars).toBeCloseTo(6000 / 9400, 5);
     expect(reduction.chars).toBeGreaterThan(0);
   });

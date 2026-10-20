@@ -81,10 +81,6 @@ export interface PipelineRunContext {
   verification_context?: VerificationContext;
   verification_baseline_results?: GateResult[];
   verification_results?: GateResult[];
-  /**
-   * Optional consumer cancellation signal (PQD-104). The lane runner checks it
-   * at each phase boundary; phases may also read it to cancel cooperatively.
-   */
   signal?: AbortSignal;
 }
 
@@ -102,13 +98,6 @@ export interface PipelineResult {
   reviewMode?: ReviewMode;
   route_reason?: string | null;
   closure_summary: ChangeClosureSummary;
-  /**
-   * True when a consumer cancelled the run via an `AbortSignal` (PQD-104). When
-   * set, `blocked_at` holds the phase that was interrupted and
-   * `closure_summary.blocked` is true. The run resolves (does not throw) so the
-   * consumer can dispatch it through a typed result envelope.
-   */
   cancelled?: true;
-  /** Path to a resumable partial-state checkpoint, when the cancelled run wrote one. */
   cancelled_checkpoint?: string;
 }

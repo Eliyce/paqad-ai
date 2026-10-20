@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { TurnSummarizer, type InferenceMessage, type InferenceProvider } from '@/context/index.js';
 import type { SummarisationMessage } from '@/core/types/context.js';
 
-/** Provider stub that replays a scripted sequence of responses. */
 class StubProvider implements InferenceProvider {
   readonly calls: InferenceMessage[][] = [];
   private readonly script: Array<string | Error | 'hang'>;
@@ -16,9 +15,7 @@ class StubProvider implements InferenceProvider {
     this.calls.push(messages);
     const next = this.script.shift() ?? '';
     if (next === 'hang') {
-      return new Promise<string>(() => {
-        /* never resolves — exercises the timeout/cancel path */
-      });
+      return new Promise<string>(() => {});
     }
     if (next instanceof Error) {
       return Promise.reject(next);
@@ -67,20 +64,19 @@ describe('TurnSummarizer.summarise', () => {
     expect(result.valid_through_turn_id).toBe('t8');
     expect(result.truncated).toBe(false);
     expect(result.preserved_turn_ids).toEqual([]);
-    // The base prompt carries PII-redaction instructions into the inference call.
     expect(provider.calls[0][0].role).toBe('system');
     expect(provider.calls[0][0].content).toMatch(/PII/i);
   });
 
   it('AC2: re-issues with a stricter prompt then truncates at the 2000-token cap', async () => {
-    const tooLong = 'a'.repeat(9000); // 2250 estimated tokens
+    const tooLong = 'a'.repeat(9000);
     const provider = new StubProvider([tooLong, tooLong]);
 
     const result = await summarizer.summarise(EIGHT_TURNS, 500, { inferenceProvider: provider });
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(provider.calls).toHaveLength(2); // first + stricter retry
+    expect(provider.calls).toHaveLength(2);
     expect(result.truncated).toBe(true);
     expect(result.summary_token_count).toBeLessThanOrEqual(2000);
   });

@@ -1,23 +1,3 @@
-// `paqad-ai spec pipeline` — the grounded prompt->spec pipeline entry point (issue #512, FR-1).
-//
-// One command drives the deterministic step machine. The SCRIPT owns sequencing: `ground`
-// and `label` run in Node with zero model tokens; the model steps (`questions`, `task`,
-// `craft`) are agent-run and their artifacts are handed back through `record`, which validates
-// them and advances only when the shape is right; `finish` decides freeze vs non-blocking
-// review, A5-gated. Every action refuses when its predecessor is incomplete (step locks) and
-// resumes from the first incomplete step. This command reimplements none of the logic — it
-// wires src/spec-pipeline/*.
-//
-// The Phase 2 expert roster (issue #521) rides alongside as the `experts` subcommand group,
-// gated on `spec_pipeline_experts_enabled`: the model-decided need artifact and the experts'
-// notes are handed back the same way the model steps are, validated against the roster before
-// anything is stored, and folded into the finish provenance ONLY when experts actually ran.
-//
-// Issue #581 — every verb writes through the run store (src/spec-pipeline/run-store.ts): the
-// bundle facts (request.md, clarification.json, experts.json, spec-step rows) straight into the
-// change's bundle, the pre-freeze working state into `.paqad/tmp/spec-pipeline/<ULID>/`. Agents
-// hand content to a verb and read briefs from a verb; no pipeline file is written by hand.
-
 import { readFileSync } from 'node:fs';
 
 import { Command } from 'commander';
@@ -109,14 +89,11 @@ interface CommonOptions {
   session?: string;
 }
 
-/** The active feature dir and the session writing to it. */
 interface ResolvedRun {
   dirName: string;
-  /** Passed to every run-store writer, so each document and row names this session. */
   store: StoreWriteOptions;
 }
 
-/** Resolve the active feature dir, or print an error and set exit code. */
 function resolveDir(options: CommonOptions): ResolvedRun | null {
   const sessionId = resolveSessionId(
     options.projectRoot,
@@ -131,7 +108,6 @@ function resolveDir(options: CommonOptions): ResolvedRun | null {
   return { dirName, store: { sessionId } };
 }
 
-/** Build the plain-language sources (grounding terms + request) for a run's question checks. */
 function plainLanguageSources(projectRoot: string, dirName: string): PlainLanguageSources {
   const grounding = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
   return {
@@ -141,7 +117,6 @@ function plainLanguageSources(projectRoot: string, dirName: string): PlainLangua
   };
 }
 
-/** The sources the finding voice check reads (issue #558, FR-5.1). */
 function findingVoiceSources(projectRoot: string, dirName: string): FindingVoiceSources {
   const grounding = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
   return {
@@ -152,34 +127,20 @@ function findingVoiceSources(projectRoot: string, dirName: string): FindingVoice
   };
 }
 
-/**
- * Build the `## Project voice` block for a run's briefs (issue #558, FR-3.4 / FR-3.5). Reads the
- * grounding vocabulary, the stack profile and the active packs, and the architecture/stack/technical
- * pages that exist, then renders the block. A missing profile prints the unknown-stack line and
- * never fails (FR-3.5). Deterministic, so a brief rebuild gives the same hash (AC-8).
- */
 function resolveProjectVoice(projectRoot: string, dirName: string): string {
   return resolveProjectVoiceForRun(projectRoot, dirName);
 }
 
-/** The whole, non-negative `tokens` an agent artifact reported, handed to the spec-step row. */
 function reportedTokens(content: string): unknown {
   return (JSON.parse(content) as { tokens?: unknown }).tokens;
 }
 
-/** Whether any `spec.expert_conflict` packet is still pending a human decision (FR-6.4). */
 function hasPendingExpertConflict(projectRoot: string): boolean {
   return readContractDecisions(projectRoot).some(
     ({ packet, status }) => status === 'pending' && packet.category === 'spec.expert_conflict',
   );
 }
 
-/**
- * Resolve the request text for `spec pipeline start`, from `--request-file` or `--ticket` (FR-1.5).
- * Returns null after printing an error when neither is usable — a Jira ref (MCP-only), an
- * unrecognised ref, an unreadable file, or a fetch failure. A fetched ticket becomes the title, a
- * blank line, the description, then the acceptance criteria as a bullet list.
- */
 async function resolveRequestText(options: {
   projectRoot: string;
   dirName: string;
@@ -203,7 +164,7 @@ async function resolveRequestText(options: {
       console.error(
         kind === 'jira'
           ? `Jira tickets are fetched through the Atlassian MCP in your session — paste the request with --request-file instead`
-          : `"${options.ticket}" is not a GitHub issue ref — use --request-file, or a GitHub #123`,
+          : `"${options.ticket}" is not a GitHub issue ref — use --request-file, or a GitHub #<number>`,
       );
       process.exitCode = 1;
       return null;
@@ -238,14 +199,14 @@ const sessionOpt = [
 
 export function createSpecPipelineCommand(): Command {
   const command = new Command('pipeline').description(
-    'Grounded prompt->spec pipeline: ground, label, questions, task, craft, finish (issue #512)',
+    'Grounded prompt->spec pipeline: ground, label, questions, task, craft, finish',
   );
 
   command
     .command('start')
     .description('S0 + S1 in one go: ground and label the request (from a file or a ticket)')
     .option('--request-file <path>', 'Path to the request text to spec')
-    .option('--ticket <ref>', 'A ticket ref to fetch instead (GitHub #123 via gh)')
+    .option('--ticket <ref>', 'A ticket ref to fetch instead (GitHub #<number> via gh)')
     .option('--modules <list>', 'Comma-separated module slugs to scope grounding to')
     .option(...projectRootOpt)
     .option(...sessionOpt)
@@ -257,7 +218,7 @@ export function createSpecPipelineCommand(): Command {
         if (!resolved) return;
 
         const request = await resolveRequestText({ ...options, dirName: resolved.dirName });
-        if (request === null) return; // error already printed
+        if (request === null) return;
 
         const modules = options.modules
           ? options.modules
@@ -266,7 +227,6 @@ export function createSpecPipelineCommand(): Command {
               .filter((m) => m.length > 0)
           : undefined;
 
-        // S0 grounding (RAG-aware) then S1 labeling, both zero model tokens.
         const grounding = await groundAreaAsync(options.projectRoot, modules ? { modules } : {});
         writeStepArtifact(
           options.projectRoot,
@@ -276,7 +236,6 @@ export function createSpecPipelineCommand(): Command {
         );
         recordStep(options.projectRoot, resolved.dirName, 'ground', 'complete', resolved.store);
 
-        // Persist the request into the bundle so every later step reads the SAME text (FR-1.5).
         writeRequest(options.projectRoot, resolved.dirName, request, resolved.store);
 
         const label = labelPrompt(request, grounding);
@@ -325,8 +284,6 @@ export function createSpecPipelineCommand(): Command {
             .map((m) => m.trim())
             .filter((m) => m.length > 0)
         : undefined;
-      // RAG-aware (#520): draws terms/references from semantic retrieval when rag_enabled is
-      // on, else falls back to the docs glob. Records which path was taken.
       const grounding = await groundAreaAsync(options.projectRoot, modules ? { modules } : {});
       writeStepArtifact(
         options.projectRoot,
@@ -361,13 +318,11 @@ export function createSpecPipelineCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // The step lock above guarantees the staged grounding exists and validates.
       const grounding = readStagedJson<GroundingArtifact>(
         options.projectRoot,
         resolved.dirName,
         'grounding',
       )!;
-      // The prompt labelled here IS the request, so it is recorded the same way start records it.
       writeRequest(options.projectRoot, resolved.dirName, prompt, resolved.store);
       const label = labelPrompt(prompt, grounding);
       writeLabel(options.projectRoot, resolved.dirName, label, resolved.store);
@@ -401,7 +356,6 @@ export function createSpecPipelineCommand(): Command {
       }
       const pipelineStep = step as PipelineStep;
       const gate = assertCanRunStep(options.projectRoot, resolved.dirName, pipelineStep, {
-        // The question batch is locked while an expert conflict is unresolved (FR-6.4).
         hasPendingExpertConflict:
           pipelineStep === 'questions' && hasPendingExpertConflict(options.projectRoot),
       });
@@ -425,14 +379,9 @@ export function createSpecPipelineCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // S2 auto-answer (issue #517): run the agent's candidate questions through the ledger,
-      // then persist only the surviving batch plus the auto-answered list, so a ledger-answerable
-      // question never reaches the user (AC-1/AC-3). Every other step is written as-is.
       if (pipelineStep === 'questions') {
         const parsed = JSON.parse(content) as Partial<QuestionsArtifact> & { tokens?: unknown };
         const enrichment = (parsed.questions ?? []) as PipelineQuestion[];
-        // Merge the expert and chief questions into the one batch (issue #547, FR-7) ONLY when the
-        // roster is on; with it off this path is byte-identical to the v1 behaviour (INV-2).
         const config = readPipelineConfig(options.projectRoot);
         let batch = enrichment;
         let deferredFromExperts: PipelineQuestion[] = [];
@@ -442,7 +391,6 @@ export function createSpecPipelineCommand(): Command {
             readExpertNotes(options.projectRoot, resolved.dirName),
             readExpertSynthesis(options.projectRoot, resolved.dirName),
           );
-          // The step lock above guarantees the label was recorded.
           const merged = mergeQuestionBatch(
             enrichment,
             expertChief,
@@ -481,8 +429,6 @@ export function createSpecPipelineCommand(): Command {
         );
         return;
       }
-      // Craft trace gate (issue #547, FR-8): when the pipeline is on, `--trace` is required and
-      // every spec line must trace to a source, with every accepted expert finding reflected.
       if (pipelineStep === 'craft') {
         const config = readPipelineConfig(options.projectRoot);
         if (config.enabled) {
@@ -519,7 +465,6 @@ export function createSpecPipelineCommand(): Command {
             process.exitCode = 1;
             return;
           }
-          // Stable ids carry forward by source lineage so A5 tracks a requirement across re-craft.
           const stable = carryForwardIds(
             agentTrace.entries.map((entry) => ({ kind: entry.kind, source: entry.source })),
             readTrace(options.projectRoot, resolved.dirName),
@@ -558,17 +503,11 @@ export function createSpecPipelineCommand(): Command {
       const config = readPipelineConfig(options.projectRoot);
       const a5Live = specCodeCheckLive(options.projectRoot);
       const decision = decideFinish(config, a5Live);
-      // Provenance carries the answer references and FR-7.6 counts from the questions step
-      // (issue #517). The refs are the ledger sources of the auto-answered questions — honest
-      // human-input-by-reference, never a fabricated sign-off.
       const questions = readQuestionsArtifact(options.projectRoot, resolved.dirName);
       const answerRefs = questions?.auto_answered.map((entry) => entry.source) ?? [];
-      // Phase 2 (issue #521): fold the expert accounting in ONLY when the roster is active AND a
-      // need artifact was recorded. Off ⇒ null ⇒ provenance has no experts block (INV-1 / AC-7).
       const expertRun = expertsActive(config)
         ? assembleExpertRun(options.projectRoot, resolved.dirName, config.token_ceiling)
         : null;
-      // Full run metrics (issue #547, FR-11.1): measured from the run's own artifacts.
       const metrics = buildRunMetrics(
         options.projectRoot,
         resolved.dirName,
@@ -642,12 +581,11 @@ export function createSpecPipelineCommand(): Command {
 
   command
     .command('metrics')
-    .description('Report what the pipeline runs cost and changed (issue #547, FR-11.4)')
+    .description('Report what the pipeline runs cost and changed')
     .option('--all', 'Aggregate across every feature bundle, not just the active feature')
     .option(...projectRootOpt)
     .option(...sessionOpt)
     .action((options: CommonOptions & { all?: boolean }) => {
-      // Zero model tokens: this reads each bundle's pipeline record and its spec-correction rows.
       const dirNames = options.all ? listRunDirs(options.projectRoot) : [];
       if (!options.all) {
         const resolved = resolveDir(options);
@@ -656,8 +594,6 @@ export function createSpecPipelineCommand(): Command {
       }
       const report = aggregateSpecPipelineMetrics(options.projectRoot, dirNames);
       console.log(JSON.stringify(report, null, 2));
-      // A short table: which experts earn their keep, with their tier, empty rate and voice
-      // warnings alongside the changed_spec rate (issue #558, FR-9.2).
       const roles = Object.keys(report.changed_spec_rate).sort();
       if (roles.length > 0) {
         console.log(
@@ -685,19 +621,9 @@ export function createSpecPipelineCommand(): Command {
   return command;
 }
 
-/**
- * The `experts` subcommand group (issue #521): `record` stores the model-decided expert need as
- * the `experts.json` roster, `brief` prints one expert's brief, `context` prints what the need
- * detector and the chief architect read, `notes` stores the experts' findings and token actuals,
- * and `synthesis` stores the chief's verdict. Every verb is hard-gated on
- * `spec_pipeline_experts_enabled` (the flag off ⇒ the verb refuses, zero Phase 2 state), and
- * the writers validate their input against the roster first, so the model can never store a role
- * outside the roster. Issue #581: no brief, merge or notes file is ever written; the brief and
- * the merge are rebuilt in memory from what `experts.json` and the run already hold.
- */
 function createExpertsCommand(): Command {
   const experts = new Command('experts').description(
-    'Phase 2 expert roster (issue #521): record the model-decided expert need and their notes',
+    'Expert roster: record the model-decided expert need and their notes',
   );
 
   const refuseWhenOff = (options: CommonOptions): boolean => {
@@ -711,7 +637,6 @@ function createExpertsCommand(): Command {
     return false;
   };
 
-  /** Refuse when the roster is off OR an earlier step is incomplete (FR-2.3). */
   const gateExperts = (options: CommonOptions, dirName: string): boolean => {
     if (refuseWhenOff(options)) return true;
     const gate = assertCanRunStep(options.projectRoot, dirName, 'experts');
@@ -723,11 +648,6 @@ function createExpertsCommand(): Command {
     return false;
   };
 
-  /**
-   * Write High Table rows (issue #639, Part 13). The verb's own record is already written when
-   * this runs, so a failed row never changes the verb's result: it is reported on stderr and the
-   * verb carries on.
-   */
   const recordHighTable = (what: string, write: () => void): void => {
     try {
       write();
@@ -737,7 +657,6 @@ function createExpertsCommand(): Command {
     }
   };
 
-  /** Read an agent-handed file, remembering it when it sits under `.paqad/tmp/`. */
   const readHandedFile = (
     options: CommonOptions,
     dirName: string,
@@ -773,9 +692,6 @@ function createExpertsCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // Seat the configured standing experts alongside the detector's picks (issue #558, FR-2.3),
-      // then build one bounded brief per seated expert (FR-3), in memory: only its hash is stored.
-      // The step lock above guarantees the grounding and the label were recorded.
       const config = readPipelineConfig(options.projectRoot);
       const needs = seatStandingExperts(check.artifact.experts, config.standing_experts);
       const projectVoice = resolveProjectVoice(options.projectRoot, resolved.dirName);
@@ -789,8 +705,6 @@ function createExpertsCommand(): Command {
       });
       const roster = briefs.map((brief, index) => rosterEntryFor(needs[index]!, brief));
       writeExpertRoster(options.projectRoot, resolved.dirName, roster, resolved.store);
-      // Seat each expert on the High Table with the budget it was granted after the ceiling, and
-      // the chief with its fixed budget (issue #639, Part 13, FR-17).
       recordHighTable('seated', () =>
         recordSeatedRows(
           options.projectRoot,
@@ -805,8 +719,6 @@ function createExpertsCommand(): Command {
           resolved.store,
         ),
       );
-      // Nothing needed ⇒ the experts step is complete by skip, and the ledger says so (FR-2.2).
-      // With standing experts this is only reachable when the standing list is empty too.
       if (roster.length === 0) {
         recordStep(options.projectRoot, resolved.dirName, 'experts', 'skipped', resolved.store);
       }
@@ -855,7 +767,6 @@ function createExpertsCommand(): Command {
         granted: entry.budget_tokens,
         projectVoice: resolveProjectVoice(options.projectRoot, resolved.dirName),
       });
-      // The printed brief must be the one whose hash the roster recorded (AC-8).
       if (brief.hash !== entry.brief_hash) {
         console.error(
           `the brief for "${role}" no longer matches the recorded one (the request, grounding or label changed) — run \`experts record\` again`,
@@ -864,7 +775,6 @@ function createExpertsCommand(): Command {
         return;
       }
       console.log(brief.content);
-      // The seat's subagent runs this first, so it marks the seat as writing (Part 13, FR-14).
       recordHighTable('writing', () =>
         recordWritingRow(options.projectRoot, resolved.dirName, entry.role, resolved.store),
       );
@@ -889,8 +799,6 @@ function createExpertsCommand(): Command {
             label: readLabel(options.projectRoot, resolved.dirName),
             roster: readExperts(options.projectRoot, resolved.dirName)?.roster ?? [],
             notes: notes?.notes ?? null,
-            // The chief reads the merge; it is recomputed here, never stored (issue #581). The
-            // voice warnings (issue #558) ride along so the chief can settle the words.
             voice_warnings:
               readExperts(options.projectRoot, resolved.dirName)?.voice_warnings ?? [],
             merge: notes
@@ -904,8 +812,6 @@ function createExpertsCommand(): Command {
           2,
         ),
       );
-      // Once the notes are in, the reader is the chief architect: its seat starts writing. The
-      // need detector also reads this context, but before any seat or note exists (Part 13).
       if (seated && notes !== null) {
         recordHighTable('writing', () =>
           recordWritingRow(options.projectRoot, resolved.dirName, CHIEF_ROLE, resolved.store),
@@ -936,7 +842,6 @@ function createExpertsCommand(): Command {
         return;
       }
       writeExpertNotes(options.projectRoot, resolved.dirName, check.artifact, resolved.store);
-      // One done row per role the note covers, with its self-reported tokens (Part 13, FR-14).
       for (const note of check.artifact.notes) {
         recordHighTable('done', () =>
           recordDoneRow(
@@ -979,7 +884,6 @@ function createExpertsCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // The merge the chief judged, recomputed in memory from the recorded notes (FR-5.1).
       const experts = readExperts(options.projectRoot, resolved.dirName);
       const merged = mergeExpertNotes(notes.notes, experts?.voice_warnings);
       const content = readHandedFile(options, resolved.dirName, file, 'synthesis');
@@ -994,7 +898,6 @@ function createExpertsCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // Each conflict becomes one decision packet, reusing a resolved fork when one exists (FR-6).
       const { minted, autoResolved } = mintExpertConflictDecisions(
         options.projectRoot,
         merged,
@@ -1004,8 +907,6 @@ function createExpertsCommand(): Command {
         autoResolved.length > 0
           ? { ...check.artifact, auto_resolved: autoResolved }
           : check.artifact;
-      // Apply the chief's renames to the recorded findings before the synthesis is written, so the
-      // craft step reads the project's words (issue #558, FR-5.5).
       let renamed = 0;
       if (synthesis.renames && synthesis.renames.length > 0 && experts?.findings) {
         const updated = applyRenames(experts.findings, synthesis.renames);

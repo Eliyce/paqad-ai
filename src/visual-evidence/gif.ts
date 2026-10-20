@@ -1,36 +1,20 @@
-// Overview GIF assembly (issue #551, Part E.6).
-//
-// Composites each CLEAN per-step screenshot under a caption bar (white background, dark-gray
-// text, letterboxed ABOVE the page pixels — never over them) and encodes the frames into a
-// single GIF at 2000 ms/frame. The compositing runs inside the already-open Chromium (a 2D
-// canvas), so there are zero native image dependencies (no sharp, no canvas); encoding uses the
-// pure-JS `gifenc`. Per-step image.png files are never touched — the caption bar exists only in
-// the GIF frames.
-//
-// Real browser work → excluded from unit coverage; exercised by the env-gated integration test.
-
 import { readFileSync } from 'node:fs';
 
 import gifenc from 'gifenc';
 
 const { GIFEncoder, applyPalette, quantize } = gifenc;
 
-/** One frame's source: the clean screenshot on disk and its business-language caption. */
 export interface GifFrameInput {
   imageAbsPath: string;
   caption: string;
 }
 
 export interface GifAssemblyOptions {
-  /** Per-frame delay in ms (spec: 2000). */
   frameMs?: number;
-  /** Max frames (spec: first 12). */
   maxFrames?: number;
-  /** Max frame width in px; wider screenshots scale down, narrower never scale up (spec: 1280). */
   maxWidth?: number;
 }
 
-/** Caption bar geometry + style (spec: #fff bg, #333 text, 16px system-ui, 16px padding, ≥56px). */
 export const CAPTION_BAR = {
   minHeight: 56,
   padding: 16,
@@ -45,7 +29,6 @@ interface RgbaFrame {
   height: number;
 }
 
-/** A Playwright Page — typed structurally so this module never imports playwright. */
 export interface GifPage {
   setViewportSize(size: { width: number; height: number }): Promise<void>;
   evaluate<T>(fn: (arg: unknown) => T, arg: unknown): Promise<T>;
@@ -56,11 +39,6 @@ function toDataUrl(imageAbsPath: string): string {
   return `data:image/png;base64,${bytes.toString('base64')}`;
 }
 
-/**
- * Composite one frame inside the browser and return its RGBA pixels. The image is drawn below a
- * fixed caption bar, scaled to fit `frameWidth` (never upscaled), on a white canvas of the shared
- * frame size so every GIF frame is dimension-uniform.
- */
 async function renderFrame(
   page: GifPage,
   input: GifFrameInput,
@@ -87,10 +65,8 @@ async function renderFrame(
             reject(new Error('no 2d context'));
             return;
           }
-          // White ground.
           ctx.fillStyle = payload.bar.background;
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-          // Caption text in the top bar (never over the page pixels below it).
           ctx.fillStyle = payload.bar.color;
           ctx.font = `${payload.bar.fontPx}px system-ui, -apple-system, sans-serif`;
           ctx.textBaseline = 'middle';
@@ -101,7 +77,6 @@ async function renderFrame(
             barHeight / 2,
             canvas.width - payload.bar.padding * 2,
           );
-          // Image scaled to the frame width (never upscaled), drawn BELOW the bar.
           const scale = Math.min(1, payload.frameWidth / img.naturalWidth);
           const drawW = Math.round(img.naturalWidth * scale);
           const drawH = Math.round(img.naturalHeight * scale);
@@ -124,7 +99,6 @@ async function renderFrame(
   return { data: Uint8Array.from(raw.data), width: raw.width, height: raw.height };
 }
 
-/** Read one image's natural dimensions inside the browser. */
 async function naturalSize(page: GifPage, imageAbsPath: string): Promise<{ w: number; h: number }> {
   return page.evaluate(
     (dataUrlUnknown: unknown) =>
@@ -138,11 +112,6 @@ async function naturalSize(page: GifPage, imageAbsPath: string): Promise<{ w: nu
   );
 }
 
-/**
- * Assemble the overview GIF from the captured steps. Returns the GIF bytes, or `null` when there
- * is nothing to encode. Frames are dimension-uniform (a white canvas sized to the widest capped
- * image plus the caption bar), so the GIF plays cleanly.
- */
 export async function assembleOverviewGif(
   page: GifPage,
   frames: GifFrameInput[],
@@ -156,7 +125,6 @@ export async function assembleOverviewGif(
     return null;
   }
 
-  // First pass: measure, so every frame shares one canvas size.
   const sizes = [];
   for (const frame of selected) {
     sizes.push(await naturalSize(page, frame.imageAbsPath));

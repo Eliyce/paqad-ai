@@ -1,18 +1,12 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { syncFrameworkConfig } from '@/core/framework-config.js';
+import { generateConfigExample, syncFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { OnboardingOrchestrator } from '@/onboarding';
-
-// Config-visibility / preservation (issue #220 follow-up): a re-onboard is a
-// refresh, not a reset. Framework knobs live in `.paqad/.config`, which onboard
-// never touches, so a team's customizations persist across a re-onboard. paqad
-// resolves to enabled by default. See
-// docs/instructions/rules/coding/config-visibility.md.
 
 describe('onboarding preserves user config and materializes paqad.enabled', () => {
   let projectRoot: string;
@@ -52,7 +46,6 @@ describe('onboarding preserves user config and materializes paqad.enabled', () =
   it('preserves enterprise, RAG, and paqad.enabled (in .config) across a re-onboard', async () => {
     await onboard();
 
-    // The team customizes their framework config in `.paqad/.config`.
     const profile = readProjectProfile(projectRoot);
     expect(profile).not.toBeNull();
     syncFrameworkConfig(projectRoot, {
@@ -66,7 +59,6 @@ describe('onboarding preserves user config and materializes paqad.enabled', () =
       paqad: { enabled: false },
     });
 
-    // A refresh must not touch `.config`, so none of it is reset.
     await onboard();
 
     const after = readProjectProfile(projectRoot);
@@ -74,5 +66,20 @@ describe('onboarding preserves user config and materializes paqad.enabled', () =
     expect(after?.enterprise?.evidence_ledger).toBe(true);
     expect(after?.intelligence.rag_enabled).toBe(true);
     expect(after?.paqad?.enabled).toBe(false);
+  });
+
+  it('leaves the tracked config of a newer checkout byte-identical on a re-onboard', async () => {
+    await onboard();
+    const examplePath = join(projectRoot, '.paqad', '.config.example');
+    const appPath = join(projectRoot, '.paqad', 'configs', '.config.app');
+    const newerExample = generateConfigExample('999.0.0');
+    const app = '# team header\nfuture_knob=on\n';
+    writeFileSync(examplePath, newerExample);
+    writeFileSync(appPath, app);
+
+    await onboard();
+
+    expect(readFileSync(examplePath, 'utf8')).toBe(newerExample);
+    expect(readFileSync(appPath, 'utf8')).toBe(app);
   });
 });

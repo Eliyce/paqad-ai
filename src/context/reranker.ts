@@ -23,8 +23,6 @@ export interface RerankingConfig {
   api_key?: string;
 }
 
-// ─── PassthroughReranker ─────────────────────────────────────────────────────
-
 export class PassthroughReranker implements Reranker {
   readonly backend = 'passthrough';
   readonly model = 'none';
@@ -40,8 +38,6 @@ export class PassthroughReranker implements Reranker {
     };
   }
 }
-
-// ─── LocalReranker ────────────────────────────────────────────────────────────
 
 type CrossEncoderPipeline = (
   input: { text: string; text_pair: string } | { text: string; text_pair: string }[],
@@ -71,8 +67,6 @@ export class LocalReranker implements Reranker {
         options?: { dtype?: 'q8' },
       ) => Promise<CrossEncoderPipeline>;
     }>('@huggingface/transformers');
-    // Pin q8 so the quantized cross-encoder loads as under the @xenova v2
-    // default (@huggingface v3+ otherwise defaults to fp32).
     return pipeline('text-classification', this.model, { dtype: 'q8' });
   }
 
@@ -102,8 +96,6 @@ export class LocalReranker implements Reranker {
     };
   }
 }
-
-// ─── CohereReranker ───────────────────────────────────────────────────────────
 
 interface CohereRerankResult {
   results: { index: number; relevance_score: number }[];
@@ -152,8 +144,6 @@ export class CohereReranker implements Reranker {
     };
   }
 }
-
-// ─── Factory ──────────────────────────────────────────────────────────────────
 
 export function createReranker(config?: RerankingConfig): Reranker {
   if (!config?.enabled) {

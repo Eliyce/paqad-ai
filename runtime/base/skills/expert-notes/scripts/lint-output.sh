@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Purpose: Validate expert-notes output. Requires notes[]; each note names a role
-#          and findings[] of {target, claim}; kind/severity, when present, are known.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate expert-notes output. Requires notes[]; each note names a role
+         and findings[] of {target, claim}; kind/severity, when present, are known.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")
 else printf 'error: file not found: %s\n' "$1" >&2; exit 2
 fi
 
-# The shape check is JSON, so it runs in node (available as a paqad dependency); all
-# diagnostics go to stderr and the exit code is the verdict.
 printf '%s' "$body" | node -e '
 let raw = "";
 process.stdin.on("data", (c) => (raw += c));

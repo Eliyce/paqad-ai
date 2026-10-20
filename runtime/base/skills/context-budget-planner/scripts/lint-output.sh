@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate context-budget-planner output.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Validate context-budget-planner output.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
   exit 0
 fi
 

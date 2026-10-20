@@ -9,24 +9,9 @@ import type {
   SubscriptionState,
 } from './types.js';
 
-/** Tuning knobs for an {@link EngineEventBus} instance. */
 export interface EngineEventBusOptions {
-  /**
-   * Per-subscriber ring-buffer capacity. When a subscriber's buffer is full and
-   * a new droppable event arrives, the oldest droppable event is discarded and
-   * the subscriber receives an `events-coalesced` marker. Default 512.
-   */
   bufferSize?: number;
-  /**
-   * Event kinds that must never be dropped when a buffer overflows. The
-   * `events-coalesced` marker is always protected regardless of this set.
-   * Default: decision events, which a UI must not miss.
-   */
   neverDrop?: readonly EngineEventKind[];
-  /**
-   * Maximum serialised size (bytes) of an event payload before its string
-   * fields are truncated and the event is tagged `truncated`. Default 65536.
-   */
   maxPayloadBytes?: number;
 }
 
@@ -43,28 +28,14 @@ const DEFAULT_NEVER_DROP: readonly EngineEventKind[] = [
 interface SubscriberRecord {
   readonly id: string;
   readonly callback: EngineEventCallback;
-  /** `null` means "all kinds". */
   readonly kinds: ReadonlySet<EngineEventKind> | null;
   readonly capacity: number;
   ring: EngineEvent[];
-  /** Events dropped since the last delivered `events-coalesced` marker. */
   droppedSinceMarker: number;
   state: SubscriptionState;
   readonly handle: Subscription;
 }
 
-/**
- * In-process, unified engine event bus (PQD-99).
- *
- * Subscribers register a callback and an optional kind filter; the engine calls
- * {@link emit} which enqueues to each subscriber's ring buffer and schedules a
- * microtask drain — `emit` itself never invokes a callback and never blocks
- * engine work. A slow subscriber's overflow is absorbed by dropping its oldest
- * non-critical events and tagging the next delivery with an `events-coalesced`
- * marker. A throwing callback faults only its own subscription; all others keep
- * receiving events. Deliberately does not extend Node's `EventEmitter` so the
- * surface stays exactly `subscribe`/`emit`/`unsubscribe`.
- */
 export class EngineEventBus {
   private readonly subscribers = new Map<string, SubscriberRecord>();
   private readonly bufferSize: number;
@@ -82,10 +53,6 @@ export class EngineEventBus {
     this.neverDrop = new Set([...(options.neverDrop ?? DEFAULT_NEVER_DROP), 'events-coalesced']);
   }
 
-  /**
-   * Register a subscriber. Without a filter, every kind is delivered. The
-   * returned {@link Subscription} exposes live `state` and `unsubscribe()`.
-   */
   subscribe(callback: EngineEventCallback, filter?: EngineEventFilter): Subscription {
     const id = randomUUID();
     const subscribers = this.subscribers;
@@ -110,10 +77,6 @@ export class EngineEventBus {
     return handle;
   }
 
-  /**
-   * Emit an event to every matching active subscriber. Enqueues only and
-   * schedules an async drain — never invokes a callback inline, never blocks.
-   */
   emit(event: EngineEvent): void {
     const delivered = this.truncateIfOversized(event);
     for (const record of this.subscribers.values()) {
@@ -124,7 +87,6 @@ export class EngineEventBus {
     this.scheduleDrain();
   }
 
-  /** Stop delivery to a subscription and release its buffer. */
   unsubscribe(id: string): void {
     const record = this.subscribers.get(id);
     if (!record) return;
@@ -134,12 +96,10 @@ export class EngineEventBus {
     this.subscribers.delete(id);
   }
 
-  /** Total registered subscriptions (active + faulted; excludes cancelled). */
   subscriberCount(): number {
     return this.subscribers.size;
   }
 
-  /** Subscriptions currently in the `active` state. */
   activeSubscriberCount(): number {
     let count = 0;
     for (const record of this.subscribers.values()) {
@@ -152,8 +112,6 @@ export class EngineEventBus {
     if (record.ring.length >= record.capacity) {
       const dropIndex = record.ring.findIndex((e) => !this.neverDrop.has(e.kind));
       if (dropIndex === -1) {
-        // Buffer is full of protected events — drop the incoming one instead so
-        // the engine never stalls and surviving order is preserved.
         record.droppedSinceMarker += 1;
         return;
       }

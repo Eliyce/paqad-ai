@@ -12,11 +12,9 @@ import {
 import type { AppMap, Evidence } from '@/core/types/site-map.js';
 import type { EvidenceResolution } from '@/site-map/verification.js';
 
-/** A resolver that marks every pointer resolved — the "all evidence is live" world. */
 const resolveAll = (pointers: Evidence[]): EvidenceResolution[] =>
   pointers.map((pointer) => ({ file: pointer.file, line: pointer.line, status: 'resolved' }));
 
-/** A resolver that marks every pointer's file gone — the "code the map cites moved" world. */
 const resolveBroken = (pointers: Evidence[]): EvidenceResolution[] =>
   pointers.map((pointer) => ({ file: pointer.file, line: pointer.line, status: 'file-missing' }));
 
@@ -51,8 +49,6 @@ describe('restampCanonicalTrust', () => {
     const result = restampCanonicalTrust(root, resolveAll);
 
     expect(result).toEqual({ status: 'stamped', path: canonicalAppMapPath(root) });
-    // The stored map now carries the proven-in-code its resolving anchor earned and the freshness
-    // its one live anchor proves, so the dashboard reads both statically.
     const stored = readFileSync(canonicalAppMapPath(root), 'utf8');
     expect(stored).toContain('trust: proven-in-code');
     expect(stored).toContain('anchors_total: 1');
@@ -61,7 +57,6 @@ describe('restampCanonicalTrust', () => {
   });
 
   it('stamps freshness even when no trust tier changed, then is a byte-for-byte no-op', () => {
-    // No evidence anywhere → no tier can be earned, but the map still gains its {0,0,0} freshness.
     writeCanonicalSiteMap(root, mapWith());
 
     const first = vi.fn(resolveAll);
@@ -73,8 +68,6 @@ describe('restampCanonicalTrust', () => {
     const afterStamp = readFileSync(canonicalAppMapPath(root), 'utf8');
     expect(afterStamp).toContain('anchors_total: 0');
 
-    // Re-stamping the already-stamped map over the same code reads and resolves again (proving it
-    // checked), but writes nothing.
     const second = vi.fn(resolveAll);
     expect(restampCanonicalTrust(root, second)).toEqual({ status: 'unchanged' });
     expect(second).toHaveBeenCalledOnce();
@@ -89,7 +82,6 @@ describe('restampCanonicalTrust', () => {
       path: canonicalAppMapPath(root),
     });
     const stored = readFileSync(canonicalAppMapPath(root), 'utf8');
-    // A broken anchor collapses the tier to unverified (dropped from the map) and shows as stale.
     expect(stored).not.toContain('trust:');
     expect(stored).toContain('anchors_total: 1');
     expect(stored).toContain('anchors_resolved: 0');

@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-// Refreshes this OS's block of tests/shard-timings.json from vitest JSON reports (issue #654).
-// The CI shard sequencer (tests/shared/duration-sequencer.ts) reads that file to balance the
-// shards by duration. CI never commits it: a maintainer runs this when the shard budget warning
-// fires, then commits the result.
-//
-//   node scripts/update-shard-timings.mjs --report <file> [--report <file> ...]
-//                                         [--platform win32|linux|darwin] [--root <dir>]
-//
-// Make a report with `pnpm vitest run --reporter=json --outputFile=<file>` on the whole suite,
-// or pass every `durations-*.json` from one OS's CI shard artifacts. --platform defaults to this
-// machine's OS and --root to the current directory. Only that OS's block changes.
-// Exit codes: 0 = written, 2 = usage or read error.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -62,7 +50,6 @@ const reports = args.reports.map((file) => {
 });
 const durations = durationsFromReports(reports, root);
 const target = join(root, 'tests', 'shard-timings.json');
-// Read once and treat a missing or unreadable file as empty, so there is no check-then-read race.
 let existing;
 try {
   existing = JSON.parse(readFileSync(target, 'utf8'));

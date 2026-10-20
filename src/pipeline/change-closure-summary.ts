@@ -8,11 +8,6 @@ export interface BuildChangeClosureSummaryInput {
   phases: PhaseResult[];
   verification_results?: GateResult[];
   verification_context?: VerificationContext;
-  /**
-   * Forces the summary to `blocked` with this reason when no failing phase/gate
-   * already supplies one. Used for consumer-cancelled runs (PQD-104), whose
-   * interrupted phase never produced a fail result of its own.
-   */
   forced_blocking_reason?: string;
 }
 

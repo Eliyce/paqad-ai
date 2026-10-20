@@ -77,9 +77,7 @@ describe('ActionRouter.suggestActions', () => {
   it('evidence_chunk_ids contains only chunk IDs, not raw content', () => {
     const result = router.suggestActions([PENTEST_CHUNK], undefined, ['pentest']);
     const evidenceIds = result[0]?.evidence_chunk_ids ?? [];
-    // Should contain the chunk ID
     expect(evidenceIds).toContain('auth-gate');
-    // Should not contain raw chunk content
     for (const id of evidenceIds) {
       expect(typeof id).toBe('string');
       expect(id).not.toContain('export function');
@@ -90,16 +88,12 @@ describe('ActionRouter.suggestActions', () => {
   it('explanation does not contain raw chunk text', () => {
     const result = router.suggestActions([PENTEST_CHUNK], undefined, ['pentest']);
     const explanation = result[0]?.explanation ?? '';
-    // Explanation should not contain raw chunk content
     expect(explanation).not.toContain('validateToken');
     expect(explanation).not.toContain('export function runPentestScan');
-    // But should mention the workflow
     expect(explanation).toContain('pentest');
   });
 
   it('invalid workflow ID not in registry is dropped (registry validation)', () => {
-    // WorkflowId 'nonexistent-workflow' would not be in registry
-    // Here the registry IS ['pentest'] — nonexistent is not in it
     const result = router.suggestActions([PENTEST_CHUNK], undefined, ['pentest']);
     const ids = result.map((r) => r.workflow_id);
     expect(ids).toContain('pentest');

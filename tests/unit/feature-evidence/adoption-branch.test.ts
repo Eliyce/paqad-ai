@@ -19,7 +19,6 @@ afterEach(() => {
 
 const DIR = 'change-01JABCDEFGHJKMNPQRSTVWXYZ0';
 
-/** Write a delivery.json for a bundle so deliveryBranch has something to read. */
 function writeDelivery(root: string, body: Record<string, unknown>): void {
   const rel = featureFilePath(DIR, 'delivery');
   const full = join(root, rel);
@@ -27,9 +26,7 @@ function writeDelivery(root: string, body: Record<string, unknown>): void {
   writeFileSync(full, JSON.stringify(body));
 }
 
-// featureBranch prefers an `open` row's stamped branch, then falls back to delivery.json's
-// branch, then null. Passing `rows` explicitly exercises the fallbacks without a full bundle.
-describe('featureBranch fallbacks (issue #404 / #567)', () => {
+describe('featureBranch fallbacks', () => {
   it('returns the open-row branch when it is stamped', () => {
     const root = tempRoot();
     const rows = [{ kind: 'open', branch: 'feat/on-row' }] as never;
@@ -39,13 +36,13 @@ describe('featureBranch fallbacks (issue #404 / #567)', () => {
   it('falls back to delivery.json when no open row carries a branch', () => {
     const root = tempRoot();
     writeDelivery(root, { branch: 'feat/from-delivery' });
-    const rows = [{ kind: 'open' }] as never; // open row, no branch field
+    const rows = [{ kind: 'open' }] as never;
     expect(featureBranch(root, DIR, rows)).toBe('feat/from-delivery');
   });
 
   it('returns null when neither the row nor delivery.json names a branch', () => {
     const root = tempRoot();
-    writeDelivery(root, { branch: '' }); // present but empty → not a usable branch
+    writeDelivery(root, { branch: '' });
     const rows = [{ kind: 'open' }] as never;
     expect(featureBranch(root, DIR, rows)).toBeNull();
   });

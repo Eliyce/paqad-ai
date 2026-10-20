@@ -20,14 +20,7 @@ import { CancelledError } from '../core/errors/cancelled-error.js';
 import { appendRunCancelledEvent } from '../module-decisions/events.js';
 import type { EngineEventBus } from '../event-bus/index.js';
 
-/** Per-call options for cancellable workflow runs (PQD-104). */
 export interface WorkflowRunOptions {
-  /**
-   * Optional consumer cancellation signal. When it aborts, the run settles at
-   * the next step boundary with `status: 'cancelled'`, emits a single
-   * `run.cancelled` event, and persists progress atomically so the consumer can
-   * resume from the first not-yet-completed step.
-   */
   signal?: AbortSignal;
 }
 
@@ -35,12 +28,6 @@ export interface WorkflowEngineOptions {
   projectRoot: string;
   availableSkills: Set<string>;
   createStepExecutor?: (context: StepExecutionContext) => WorkflowStepRunner;
-  /**
-   * Optional engine event bus (PQD-99). When provided, the engine emits
-   * `workflow-step-started` before each step and `workflow-step-completed` /
-   * `workflow-step-failed` after it, so consumers can render progress live.
-   * Omitting it leaves behaviour unchanged.
-   */
   eventBus?: EngineEventBus;
 }
 
@@ -67,8 +54,6 @@ export class WorkflowEngine {
     const runId = randomUUID();
     const progress = this.initProgress(runId, template);
 
-    // Pre-flight: an already-aborted signal returns immediately without writing
-    // the initial progress file or emitting any started events (PQD-104).
     if (options.signal?.aborted) {
       return this.cancelRun(progress, templateName);
     }
@@ -108,8 +93,6 @@ export class WorkflowEngine {
     const parallelExecutor = new ParallelExecutor(stepExecutor);
 
     for (let i = 0; i < template.steps.length; i++) {
-      // Between-step cancellation boundary: settle as cancelled before starting
-      // the next step, leaving already-completed steps intact (PQD-104).
       if (signal?.aborted) {
         return this.cancelRun(progress, templateName);
       }
@@ -120,7 +103,7 @@ export class WorkflowEngine {
         stepProgress.status === 'completed' ||
         stepProgress.status === 'skipped'
       ) {
-        continue; // skip already done
+        continue;
       }
 
       const step: TemplateStep = template.steps[i];
@@ -154,8 +137,6 @@ export class WorkflowEngine {
           stepProgress.error = result.error ?? null;
         }
       } catch (error) {
-        // A consumer abort surfacing mid-step (pre-flight throw inside the step
-        // executor) settles the whole run as cancelled (PQD-104).
         if (error instanceof CancelledError) {
           return this.cancelRun(progress, templateName);
         }
@@ -183,7 +164,6 @@ export class WorkflowEngine {
       }
       await this.saveProgress(progress, templateName);
 
-      // Handle abort
       if (stepProgress.status === 'failed') {
         const onFailure = 'on_failure' in step ? (step.on_failure ?? 'abort') : 'abort';
         if (onFailure === 'abort') {
@@ -237,18 +217,11 @@ export class WorkflowEngine {
     progress.updated_at = new Date().toISOString();
     const path = this.progressPath(progress.run_id, templateName);
     await mkdir(dirname(path), { recursive: true });
-    // Atomic tmp → rename so a process killed mid-save never leaves a torn
-    // progress file — a prerequisite for the partial-checkpoint guarantee (PQD-104).
     const tmp = `${path}.tmp`;
     await writeFile(tmp, JSON.stringify(progress, null, 2), 'utf8');
     await rename(tmp, path);
   }
 
-  /**
-   * Settle the run as cancelled-by-consumer (PQD-104): record how many steps
-   * finished, persist atomically, and emit exactly one `run.cancelled` event.
-   * Callers return immediately afterward so no further events for this run follow.
-   */
   private async cancelRun(
     progress: WorkflowRunProgress,
     templateName: string,

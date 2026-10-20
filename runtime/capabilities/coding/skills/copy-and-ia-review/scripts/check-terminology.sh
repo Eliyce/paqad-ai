@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
-# Purpose: Find usages of disallowed terms in UI source given a glossary that
-#          maps preferred -> alternatives (each alternative is a finding).
-#
-# Usage:   bash scripts/check-terminology.sh --preferred <Word> --avoid <a,b,c>
-#                                            [--root <dir>] [--out <path>]
-#          Default --root: src
-#
-# Output:  TSV rows to stdout:
-#            <file>:<line>\t<found-word>\t<preferred>
-#          Word matches are case-insensitive but the original casing is
-#          reported in <found-word>.
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Find usages of disallowed terms in UI source given a glossary that
+         maps preferred -> alternatives (each alternative is a finding).
+
+Usage:   bash scripts/check-terminology.sh --preferred <Word> --avoid <a,b,c>
+                                           [--root <dir>] [--out <path>]
+         Default --root: src
+
+Output:  TSV rows to stdout:
+           <file>:<line>\t<found-word>\t<preferred>
+         Word matches are case-insensitive but the original casing is
+         reported in <found-word>.
+USAGE
   exit 0
 fi
 
@@ -42,16 +40,10 @@ if [ ! -d "$root" ]; then
   exit 0
 fi
 
-# Use ERE alternation with explicit boundaries (awk has no \b).
 avoid_alt=$(printf '%s' "$avoid_csv" | tr ',' '\n' | awk 'NF' | tr -d ' ' | paste -sd'|' -)
 
 emit() {
-  # `(^|[^class])` alternation is fragile under BSD grep on macOS. Use the
-  # ?-quantifier instead — matches zero-or-one boundary chars before the word.
   pattern="[^A-Za-z0-9_]?(${avoid_alt})[^A-Za-z0-9_]"
-  # awk's match() is case-sensitive even when grep used -i, so we lowercase
-  # both the excerpt and the pattern before matching, then map RSTART/RLENGTH
-  # back onto the original excerpt to report the user's actual casing.
   pattern_lower=$(printf '%s' "$pattern" | tr '[:upper:]' '[:lower:]')
   { grep -rEn --binary-files=without-match -i \
       --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build \

@@ -61,7 +61,6 @@ describe('summarizeSiteMapProgress (S6)', () => {
       file([unit('a', 'done', 'Billing'), unit('b', 'not_started', 'Admin')]),
     );
     expect(strip?.current).toBe('Up next: Admin');
-    // One done unit uses the singular skipped wording.
     expect(strip?.skipped).toBe('1 unit finished in a previous session');
   });
 

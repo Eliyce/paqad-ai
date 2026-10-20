@@ -1,21 +1,15 @@
-// Pure detectors: each takes already-gathered, normalized inputs and returns
-// findings without ids (assigned later). No I/O, no network, no shell — so every
-// branch is exercised with fixtures. The impure gather layer lives in `gather.ts`.
-
 import type { CodeKnowledgeIndex } from '@/code-knowledge/types.js';
 import type { OsvVulnerabilityRecord } from '@/pentest/osv.js';
 import type { HealthFinding } from '@/core/types/codebase-health.js';
 
 import { HEALTH_WHY_IT_MATTERS } from './copy.js';
 
-/** A finding before its content-addressed id is assigned. */
 export type HealthCandidate = Omit<HealthFinding, 'id'>;
 
 export interface SecretMatch {
   file: string;
   line: number;
   rule: string;
-  /** A stable, non-reversible fingerprint of the secret — never the bytes. */
   fingerprint: string;
   source: 'gitleaks' | 'builtin-regex';
 }
@@ -46,7 +40,6 @@ export interface StaleDocCandidate {
   referenced_sources: string[];
 }
 
-/** True when a package is corroborated by a second signal (raises confidence). */
 export interface ToolCorroboration {
   unusedDependencies?: Set<string>;
   deadFiles?: Set<string>;
@@ -56,7 +49,6 @@ function reason(category: HealthFinding['category']): string {
   return HEALTH_WHY_IT_MATTERS[category];
 }
 
-/** Declared-but-never-imported dependencies (code-knowledge index `imported:false`). */
 export function detectUnusedDependencies(
   index: CodeKnowledgeIndex,
   corroboration: ToolCorroboration = {},
@@ -92,7 +84,6 @@ export function detectUnusedDependencies(
     });
 }
 
-/** Orphan files and exported symbols with no production callers (dead code). */
 export function detectDeadCode(index: CodeKnowledgeIndex): HealthCandidate[] {
   const findings: HealthCandidate[] = [];
 
@@ -124,7 +115,6 @@ export function detectDeadCode(index: CodeKnowledgeIndex): HealthCandidate[] {
 
   for (const symbol of index.symbols) {
     if (!symbol.exported || symbol.caller_count !== 0 || symbol.orphan === false) continue;
-    // A symbol in an orphan file is already covered by the file finding above.
     if (index.files.some((file) => file.path === symbol.file && file.orphan)) continue;
     findings.push({
       title: `Unused export: ${symbol.name} (${symbol.file})`,
@@ -153,7 +143,6 @@ export function detectDeadCode(index: CodeKnowledgeIndex): HealthCandidate[] {
   return findings;
 }
 
-/** Known-vulnerable dependencies from OSV / native audit records. */
 export function detectVulnerableDependencies(records: OsvVulnerabilityRecord[]): HealthCandidate[] {
   const seen = new Set<string>();
   const findings: HealthCandidate[] = [];
@@ -187,7 +176,6 @@ export function detectVulnerableDependencies(records: OsvVulnerabilityRecord[]):
   return findings;
 }
 
-/** Deprecated / abandoned / end-of-life packages (registry metadata; online). */
 export function detectDeprecatedDependencies(records: DeprecationRecord[]): HealthCandidate[] {
   return records.map((record) => ({
     title: `${record.kind === 'eol' ? 'End-of-life' : 'Deprecated'} package: ${record.package}@${record.version}`,
@@ -213,7 +201,6 @@ export function detectDeprecatedDependencies(records: DeprecationRecord[]): Heal
   }));
 }
 
-/** Committed secrets — evidence is REDACTED: location + rule + fingerprint only. */
 export function detectSecrets(matches: SecretMatch[]): HealthCandidate[] {
   return matches.map((match) => ({
     title: `Possible secret: ${match.rule} at ${match.file}:${match.line}`,
@@ -239,7 +226,6 @@ export function detectSecrets(matches: SecretMatch[]): HealthCandidate[] {
   }));
 }
 
-/** Copy-paste blocks (jscpd, or cosine near-duplicate fallback). */
 export function detectDuplication(clusters: DuplicationCluster[]): HealthCandidate[] {
   return clusters.map((cluster) => {
     const locations = cluster.blocks
@@ -270,7 +256,6 @@ export function detectDuplication(clusters: DuplicationCluster[]): HealthCandida
   });
 }
 
-/** Stale-doc candidates — AI-judged: the model grades relevance, these never block. */
 export function detectStaleDocs(candidates: StaleDocCandidate[]): HealthCandidate[] {
   return candidates.map((candidate) => ({
     title: `Possibly stale doc: ${candidate.doc}`,
@@ -296,7 +281,6 @@ export function detectStaleDocs(candidates: StaleDocCandidate[]): HealthCandidat
   }));
 }
 
-/** AI-slop candidates — duplication clusters + one-caller wrapper symbols, AI-judged. */
 export function detectAiSlop(
   clusters: DuplicationCluster[],
   index: CodeKnowledgeIndex | null,

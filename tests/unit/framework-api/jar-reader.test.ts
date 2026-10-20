@@ -159,8 +159,6 @@ describe('parseClassFile', () => {
 
 describe('parseClassFile element_value walking', () => {
   it('stays in sync across array, nested-annotation and enum values', () => {
-    // The rich annotation is followed by a real @Deprecated: a reader that mis-walks any
-    // element_value shape loses that deprecation, so this asserts the walk, not the shapes.
     const parsed = parseClassFile(
       buildClassFile({ name: 'com/acme/Thing', methods: [{ name: 'rich', richAnnotation: true }] }),
     );

@@ -54,7 +54,6 @@ describe('attachment events', () => {
 
   it('reads back appended events and skips a corrupt line', () => {
     appendAttachmentEvent(root, { kind: 'attachment.indexed', file_name: 'a.txt', chunk_count: 1 });
-    // Inject a malformed line between valid records.
     appendFileSync(join(root, PATHS.ATTACHMENT_EVENTS_LOG), 'not json\n', 'utf8');
     appendAttachmentEvent(root, {
       kind: 'attachment.format_rejected',

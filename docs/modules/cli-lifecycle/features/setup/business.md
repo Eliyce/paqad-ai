@@ -5,7 +5,7 @@
 ## Overview
 
 `paqad-ai setup` carries a created workspace from an undecided stack through official installation
-to full onboarding (issue #596 Slice 3, SET). paqad **records and validates** a dependency-ordered
+to full onboarding. paqad **records and validates** a dependency-ordered
 setup plan and **verifies readiness to develop** — it never runs the installers itself; official
 installers, CLIs or connected tools do that (BND-04). The technical contract lives at
 [`technical.md`](./technical.md).

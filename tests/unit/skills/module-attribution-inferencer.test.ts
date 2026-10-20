@@ -10,8 +10,6 @@ const sh = (n: string) => join(SKILL, 'scripts', n);
 
 describe('module-attribution-inferencer scripts', () => {
   describe('infer.sh', () => {
-    // Thin wrapper around `paqad-ai module-decisions infer`. Test surface is
-    // input validation; CLI behaviour is covered by tests/unit/cli/.
     const path = sh('infer.sh');
 
     it('--help exits 2 with usage on stdout', () => {

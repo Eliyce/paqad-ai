@@ -31,13 +31,10 @@ describe('locateLineRange', () => {
   });
 
   it('skips a match whose computed start would be before the file start', () => {
-    // The anchor's first meaningful line is preceded by blank lines (anchorIndex > 0),
-    // but the only file match is on line 0 → start < 0 → skipped → undefined.
     expect(locateLineRange('foo\nbar', '\n\nfoo')).toBeUndefined();
   });
 
   it('stops extending when the chunk runs past the end of the file', () => {
-    // Anchor matches the last file line; the chunk has more lines than remain.
     expect(locateLineRange('x\nfoo', 'foo\nbar\nbaz')).toEqual({ start: 2, end: 2 });
   });
 });
@@ -118,7 +115,6 @@ describe('composeContextPack', () => {
     expect(section).toContain('`src/f.ts:L2-4`');
     expect(section).toContain('match 91%');
     expect(section).toContain('export function f() {');
-    // It is a pointer list, not a fenced code dump.
     expect(section).not.toContain('```');
   });
 
@@ -134,7 +130,6 @@ describe('composeContextPack', () => {
       { source_file: 'src/b.ts', hint: '' },
     ]);
     expect(section).toContain('2 pointers');
-    // The hint-less entry renders no " — " suffix.
     expect(section).toContain('`src/b.ts`\n');
   });
 });

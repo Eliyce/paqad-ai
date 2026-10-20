@@ -30,12 +30,6 @@ function emptySection(summary: string): SiteMapDashboardResult {
   };
 }
 
-/**
- * Dashboard section for the site map — read STATICALLY from the stored canonical map
- * (issue #466, ART-3/NFR-4): surfaces, journeys, and the stamped map-vs-code freshness.
- * There are no report dumps to collect; a map that has never been checked against the
- * code reads honestly as not yet checked, never as fresh.
- */
 export function collectSiteMap(projectRoot: string): SiteMapDashboardResult {
   const map = readCanonicalSiteMap(projectRoot);
   if (map === null) {

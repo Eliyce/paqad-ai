@@ -74,7 +74,6 @@ describe('glossary-maintainer', () => {
         );
         const r = runScript(path, ['refund window'], { cwd: dir });
         expect(r.stdout).toContain('api-endpoint\tPOST /invoices/{id}/refund');
-        // The unrelated GET endpoint should not be tagged for this term.
         expect(r.stdout).not.toContain('GET /invoices');
       });
     });

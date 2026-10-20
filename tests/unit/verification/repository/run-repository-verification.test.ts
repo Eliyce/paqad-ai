@@ -36,11 +36,9 @@ function writeTraceabilityMap(root: string, map: TraceabilityMap): void {
   writeFileSync(join(root, '.paqad/traceability/map.json'), JSON.stringify(map));
 }
 
-afterEach(() => {
-  // temp dirs are left for the OS to reap; nothing to restore.
-});
+afterEach(() => {});
 
-describe('runRepositoryVerification receipt (#325)', () => {
+describe('runRepositoryVerification receipt', () => {
   it('composes verdict.receipt with the per-stage evidence block from the fold', async () => {
     const root = makeProject();
     const context = createVerificationContext({
@@ -48,7 +46,6 @@ describe('runRepositoryVerification receipt (#325)', () => {
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
     });
-    // Open a change and record a proven planning stage under a known session.
     const SES = 'rv-receipt-sess';
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
     startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
@@ -80,9 +77,7 @@ describe('runRepositoryVerification receipt (#325)', () => {
   });
 });
 
-// Issue #472 — reconcile: a feature-development change whose gates pass but whose
-// mandatory stages are not all recorded reads "Inconclusive", not "Safe to merge".
-describe('runRepositoryVerification mandatory-stage reconcile (#472)', () => {
+describe('runRepositoryVerification mandatory-stage reconcile', () => {
   function passingChecks(): StructuredTestResult {
     return {
       schema_version: '1.0.0',
@@ -117,7 +112,6 @@ describe('runRepositoryVerification mandatory-stage reconcile (#472)', () => {
     };
   }
 
-  /** Record a proven artifact-bearing stage (planning/specification) under a session. */
   function recordStage(root: string, stage: string, ses: string, ordinal: number): void {
     startStage(root, stage, { sessionId: ses, ordinal, adapter: 'claude-code' });
     const rel = `.paqad/artifacts/${stage}.md`;
@@ -131,17 +125,11 @@ describe('runRepositoryVerification mandatory-stage reconcile (#472)', () => {
     );
   }
 
-  /** Record a mutation stage (development/documentation_sync) — no artifact needed. */
   function recordMutationStage(root: string, stage: string, ses: string, ordinal: number): void {
     startStage(root, stage, { sessionId: ses, ordinal, adapter: 'claude-code' });
     endStage(root, stage, {}, { sessionId: ses, ordinal, adapter: 'claude-code' });
   }
 
-  // ci-backstop is a non-hard origin, so the stage-evidence gate is informational
-  // (skipped) even in strict mode — isolating the receipt reconcile: verdict.ok stays
-  // true (gates + passing checks) while the fold still shows unrecorded stages. The
-  // expected-module lists are cleared so change-completeness does not block on the
-  // fixture's placeholder module-doc structure (unrelated to this reconcile).
   function featureDevContext(root: string) {
     return createVerificationContext({
       project_root: root,
@@ -165,7 +153,6 @@ describe('runRepositoryVerification mandatory-stage reconcile (#472)', () => {
     const context = featureDevContext(root);
     const SES = 'rv-472-gap';
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
-    // Everything but review + checks is recorded.
     recordStage(root, 'planning', SES, ordinal);
     recordStage(root, 'specification', SES, ordinal);
     recordMutationStage(root, 'development', SES, ordinal);
@@ -179,15 +166,12 @@ describe('runRepositoryVerification mandatory-stage reconcile (#472)', () => {
       now: () => '2026-01-01T00:00:00.000Z',
     });
 
-    // Gates held, so ok stays true (exit codes / warn-mode semantics untouched)...
     expect(verdict.ok).toBe(true);
-    // ...but the developer-facing verdict word is honest about the missing stages.
     expect(verdict.summary).toContain('Inconclusive');
     expect(verdict.summary).not.toContain('Safe to merge');
     expect(verdict.summary).toContain('mandatory stage(s) not recorded');
     expect(verdict.summary).toContain('review');
     expect(verdict.summary).toContain('checks');
-    // The composed receipt embeds the reconciled headline and agrees with its 🟡 lines.
     expect(verdict.receipt).toContain(verdict.summary);
     expect(verdict.receipt).toContain('review — not recorded');
     expect(verdict.receipt).toContain('checks — not recorded');
@@ -246,7 +230,6 @@ describe('runRepositoryVerification (prebuilt context)', () => {
     expect(verdict.ok).toBe(true);
     expect(verdict.origin).toBe('hook-completion');
     expect(verdict.gates.length).toBeGreaterThan(0);
-    // The model-judgment gates are not run by the backstop -> reported skipped.
     expect(verdict.gates.find((g) => g.gate === 'story-quality')?.status).toBe('skipped');
 
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -255,7 +238,7 @@ describe('runRepositoryVerification (prebuilt context)', () => {
     expect(received[0].gates.some((g) => g.gate === 'ac-test-mapping')).toBe(true);
   });
 
-  it('refreshes module health for the touched modules after the gates run (#80)', async () => {
+  it('refreshes module health for the touched modules after the gates run', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
@@ -270,9 +253,6 @@ describe('runRepositoryVerification (prebuilt context)', () => {
       prebuiltContext: { context, escalations: [] },
     });
 
-    // The backstop is the chokepoint that folds verification reality into each
-    // touched module's health profile — without it the profile stays frozen at
-    // its onboarding stub.
     const profilePath = join(context.project_root, '.paqad/module-health/core.json');
     expect(existsSync(profilePath)).toBe(true);
     const profile = JSON.parse(readFileSync(profilePath, 'utf8')) as {
@@ -329,17 +309,14 @@ describe('runRepositoryVerification (prebuilt context)', () => {
   });
 });
 
-describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () => {
+describe('runRepositoryVerification checks-evidence honesty', () => {
   it('records code-tests-lint INCONCLUSIVE for a feature-dev code change with no checks report', async () => {
-    // ci-backstop: the stage-evidence gate is informational at a non-local origin, so
-    // this isolates the checks signal — the ONLY not-ok reason is the missing report.
     const context = createVerificationContext({
       verification_origin: 'ci-backstop',
       verification_stage: 'backstop-completion',
       code_changed: true,
       changed_files: ['src/feature.ts'],
       changed_files_source: 'git',
-      // No structured_test_results → `paqad-ai checks run` was never run this change.
     });
 
     const verdict = await runRepositoryVerification({
@@ -351,7 +328,6 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
 
     const checks = verdict.gates.find((gate) => gate.gate === 'code-tests-lint');
     expect(checks?.status).toBe('inconclusive');
-    // Inconclusive flips ok=false → the headline is "Inconclusive", never "Safe to merge".
     expect(verdict.ok).toBe(false);
     expect(verdict.summary).toContain('Inconclusive');
     expect(verdict.summary).not.toContain('Safe to merge');
@@ -376,10 +352,8 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
 
     const checks = verdict.gates.find((gate) => gate.gate === 'code-tests-lint');
     expect(checks?.status).toBe('skipped');
-    // Issue #639, Part 10 — no code changed, so no tests were owed: not required.
     expect(checks?.skip_kind).toBe('not-required');
     expect(checks?.detail).toBe('No code changed, so there were no tests to check.');
-    // The gates the end-of-turn check does not re-judge did not run, and say so in one line.
     expect(verdict.gates.find((gate) => gate.gate === 'story-quality')?.skip_kind).toBe(
       'did-not-run',
     );
@@ -394,7 +368,7 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
     expect(gate.detail).toContain('paqad-ai checks run');
   });
 
-  it('FAILS a feature-dev change whose applicable rules were never loaded (#557)', async () => {
+  it('FAILS a feature-dev change whose applicable rules were never loaded', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
       verification_stage: 'backstop-completion',
@@ -402,7 +376,6 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
       changed_files: ['src/feature.ts'],
       changed_files_source: 'git',
     });
-    // A compiled rule store with an always-load rule → the change has applicable rules.
     mkdirSync(join(context.project_root, '.paqad'), { recursive: true });
     writeFileSync(
       join(context.project_root, PATHS.COMPILED_RULES),
@@ -431,7 +404,6 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
       issue: null,
     });
     ownInFlightChange(context.project_root, SES);
-    // No `paqad-ai rules load` was run → no rules-loaded.json in the bundle.
 
     const verdict = await runRepositoryVerification({
       projectRoot: context.project_root,
@@ -448,7 +420,7 @@ describe('runRepositoryVerification checks-evidence honesty (#368, AC-A2)', () =
   });
 });
 
-describe('runRepositoryVerification change-shape metrics (#362)', () => {
+describe('runRepositoryVerification change-shape metrics', () => {
   it('records a change-metrics row and renders the change-shape line for a feature-dev change', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
@@ -457,8 +429,6 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
       changed_files: ['src/feature.ts'],
       changed_files_source: 'git',
     });
-    // Issue #468 Phase C — the change-metrics row lands in the ACTIVE feature's bundle now
-    // (the retired project-scoped ledger write is gone), so open a feature under a known session.
     const SES = 'rv-metrics-sess';
     const sessionId = resolveSessionId(context.project_root, SES);
     const dir = openFeatureChange(context.project_root, sessionId, {
@@ -477,8 +447,6 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
     });
 
     expect(verdict.receipt).toContain('change shape');
-    // A row was recorded into the feature bundle's change-metrics.jsonl (no caches present
-    // → n/a parts, but still recorded).
     expect(readChangeMetrics(context.project_root, dir).length).toBe(1);
   });
 
@@ -490,8 +458,6 @@ describe('runRepositoryVerification change-shape metrics (#362)', () => {
       changed_files: ['docs/thing.md'],
       changed_files_source: 'git',
     });
-    // Open a feature so the bundle assertion is meaningful: even with an active bundle, a
-    // docs-only (non-feature-dev) change computes no metrics, so no row lands (issue #468 Phase C).
     const SES = 'rv-metrics-docs';
     const sessionId = resolveSessionId(context.project_root, SES);
     const dir = openFeatureChange(context.project_root, sessionId, {
@@ -525,7 +491,7 @@ describe('runRepositoryVerification (built from repository reality)', () => {
     expect(existsSync(join(root, '.paqad/session/verification-evidence.json'))).toBe(true);
   });
 
-  it('AC-32: a whole-tree map on disk with no frozen spec does not decide the AC gate: it reads not required (#639 Part 11)', async () => {
+  it('AC-32: a whole-tree map on disk with no frozen spec does not decide the AC gate: it reads not required', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);
     writeTraceabilityMap(root, {
@@ -558,8 +524,6 @@ describe('runRepositoryVerification (built from repository reality)', () => {
 
     const verdict = await runRepositoryVerification({ projectRoot: root, origin: 'ci-backstop' });
 
-    // The owner decision (D-01M5AM0EHCSXHFZDFCYW4WB925): the criteria come from the change's
-    // frozen spec. With none, there is nothing to map, whatever map an earlier run left.
     const acGate = verdict.gates.find((gate) => gate.gate === 'ac-test-mapping');
     expect(acGate).toMatchObject({ status: 'skipped', skip_kind: 'not-required' });
     expect(acGate?.detail).toBe('No frozen spec, so no acceptance criteria to map.');

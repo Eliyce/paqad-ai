@@ -8,12 +8,6 @@ import { resolveReportFeatureRef, writeFeatureReport } from '@/feature-evidence/
 import { currentFeature, resolveFeatureRef } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-/**
- * `paqad-ai feature <export|prune>` (issue #339, Phase 7) — the per-feature export + the
- * retention policy. `export` hands an auditor one feature's whole bundle (every rigid
- * file, parsed) as a single self-contained JSON document; `prune` keeps the N most-recent
- * feature bundles and removes older ones, never touching a feature still active or paused.
- */
 export function createFeatureCommand(): Command {
   const command = new Command('feature').description(
     'Export or prune per-feature evidence bundles',
@@ -38,8 +32,6 @@ export function createFeatureCommand(): Command {
         return;
       }
       const bundle = exportFeatureBundle(options.projectRoot, dirName, new Date().toISOString());
-      // Issue #402: a bundle holds only its rigid artifacts. Anything else is flagged on
-      // stderr so it never contaminates the export document on stdout.
       if (bundle.strays.length > 0) {
         const one = bundle.strays.length === 1;
         console.error(
@@ -58,7 +50,7 @@ export function createFeatureCommand(): Command {
 
   command
     .command('report')
-    .description('Render a self-contained HTML evidence report for a feature bundle (issue #371)')
+    .description('Render a self-contained HTML evidence report for a feature bundle')
     .argument(
       '[ref]',
       'Feature ref (ULID, issue, slug, or dir name); defaults to the active/most-recent feature',
@@ -103,8 +95,6 @@ export function createFeatureCommand(): Command {
         }
         if (!options.quiet) {
           const url = pathToFileURL(result.path).href;
-          // OSC 8 hyperlink (degrades to the label in unsupported terminals) plus the
-          // plain absolute path so it stays copyable everywhere.
           const ESC = String.fromCharCode(27);
           const link = `${ESC}]8;;${url}${ESC}\\report.html${ESC}]8;;${ESC}\\`;
           console.log(`**▸ paqad** · report: ${link}`);

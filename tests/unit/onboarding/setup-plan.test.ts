@@ -37,7 +37,7 @@ describe('buildSetupPlan', () => {
   it('assigns pending to every step and preserves dependency order (FR-5, AC-6)', () => {
     const plan = buildSetupPlan({
       projectRoot: '/tmp/demo',
-      slice: '#596 slice 3',
+      slice: 'new-project slice 3',
       steps: STEPS,
       now: () => new Date('2026-10-01T00:00:00.000Z'),
     });
@@ -49,9 +49,12 @@ describe('buildSetupPlan', () => {
   });
 
   it('records the slice scope and carries no "parent complete" field (INV-2)', () => {
-    const plan = buildSetupPlan({ projectRoot: '/tmp/demo', slice: '#596 slice 3', steps: STEPS });
-    expect(plan.slice).toBe('#596 slice 3');
-    // The record never claims the parent issue is done — it only names the slice it belongs to.
+    const plan = buildSetupPlan({
+      projectRoot: '/tmp/demo',
+      slice: 'new-project slice 3',
+      steps: STEPS,
+    });
+    expect(plan.slice).toBe('new-project slice 3');
     expect(Object.keys(plan)).not.toContain('parent_complete');
     expect(JSON.stringify(plan)).not.toContain('parent_complete');
   });
@@ -112,7 +115,6 @@ describe('validateSetupPlan (AC-6)', () => {
     const forward = buildSetupPlan({
       projectRoot: '/tmp/demo',
       slice: 's',
-      // First step references a step that only appears LATER — a forward reference.
       steps: [
         { ...STEPS[0]!, prerequisite: 'deps' },
         { ...STEPS[1]!, prerequisite: undefined },

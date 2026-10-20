@@ -34,11 +34,10 @@ describe('resolveActiveLineage', () => {
 
   it('flat history: follows only the active branch of the most-recent message', () => {
     const messages = [
-      msg('a', '2026-01-01T00:00:00Z'), // main branch (branchId undefined → null)
+      msg('a', '2026-01-01T00:00:00Z'),
       msg('b', '2026-01-01T00:01:00Z', { branchId: 'alt' }),
       msg('c', '2026-01-01T00:02:00Z', { branchId: 'alt' }),
     ];
-    // Leaf is c on branch "alt"; the main-branch message a is excluded.
     expect(ids(resolveActiveLineage(messages))).toEqual(['b', 'c']);
   });
 
@@ -75,7 +74,6 @@ describe('resolveActiveLineage', () => {
       msg('alt', '2026-01-01T00:01:30Z', { parentMessageId: 'a', branchId: 'alt' }),
       msg('c', '2026-01-01T00:02:00Z', { parentMessageId: 'b' }),
     ];
-    // Leaf c → b → a; the competing "alt" branch is not on that chain.
     expect(ids(resolveActiveLineage(messages))).toEqual(['a', 'b', 'c']);
   });
 

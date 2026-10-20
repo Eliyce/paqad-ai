@@ -147,8 +147,6 @@ mappings:
   });
 
   it('ships a discoverable, valid built-in eu-ai-act pack', () => {
-    // Default roots → the real runtime/ pack. Proves the shipped pack parses,
-    // validates, and references only real gates.
     const packs = loadCompliancePacks(projectRoot, { globalPacksRoot: globalRoot });
     const euAiAct = packs.find((p) => p.manifest.name === 'eu-ai-act');
     expect(euAiAct).toBeDefined();

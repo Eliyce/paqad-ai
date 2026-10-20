@@ -2,15 +2,9 @@ import { useEffect, useState } from 'react';
 
 interface Props {
   children: React.ReactNode;
-  /** Called once the line has fully faded out, about 4 seconds in. */
   onDone?: () => void;
 }
 
-/**
- * One-line confirmation with an accent dot (issue #146). Visible for
- * 4 seconds, then fades out over 250ms and calls onDone. Reuse-friendly
- * so the Approvals win line can migrate here later.
- */
 export function WinLine({ children, onDone }: Props) {
   const [fading, setFading] = useState(false);
 
@@ -21,7 +15,6 @@ export function WinLine({ children, onDone }: Props) {
       clearTimeout(fadeTimer);
       clearTimeout(doneTimer);
     };
-    // onDone is intentionally captured once; the timers run a single cycle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

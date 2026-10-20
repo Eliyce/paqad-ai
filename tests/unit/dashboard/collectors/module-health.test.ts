@@ -58,20 +58,18 @@ describe('collectModuleHealth', () => {
     expect(attention.length).toBe(1);
     expect(attention[0]?.message).toMatch(/payments/);
     expect(attention[0]?.severity).toBe('critical');
-    // Tier average: (100 + 25)/2 = 62.5 → 63 (rounded).
     expect(section.score).toBe(63);
     expect(section.band).toBe('amber');
   });
 
   it('penalises stale entries beyond the fresh window', () => {
     writeHealth(root, 'a', 'stable', 1);
-    writeHealth(root, 'b', 'stable', 60); // 30d penalty cap is 20 → score 80
+    writeHealth(root, 'b', 'stable', 60);
     const { section } = collectModuleHealth(root, NOW);
     expect(section.score).toBe(80);
   });
 
   it('flags modules whose health updated_at predates a recent source commit', () => {
-    // Stand up a real git repo so lastCommitTouchingSources() can resolve.
     const git = (args: string[]): void => {
       execFileSync('git', args, {
         cwd: root,
@@ -88,8 +86,6 @@ describe('collectModuleHealth', () => {
     git(['init', '-q']);
     mkdirSync(join(root, 'src/payments'), { recursive: true });
     writeFileSync(join(root, 'src/payments/index.ts'), 'export {}');
-    // module-map.yml declares the payments module so the collector can look
-    // its sources up.
     mkdirSync(join(root, 'docs/instructions/rules'), { recursive: true });
     writeFileSync(
       join(root, 'docs/instructions/rules/module-map.yml'),
@@ -106,7 +102,6 @@ describe('collectModuleHealth', () => {
     git(['add', '.']);
     git(['commit', '-q', '-m', 'init payments']);
 
-    // Stale module-health entry — updated long before the commit above.
     const dir = join(root, '.paqad/module-health');
     mkdirSync(dir, { recursive: true });
     writeFileSync(
@@ -121,8 +116,6 @@ describe('collectModuleHealth', () => {
     const { staleModules, attention, section } = collectModuleHealth(root, Date.now());
     expect(staleModules).toEqual(['payments']);
     expect(attention.some((a) => a.message.includes('payments'))).toBe(true);
-    // 100 tier - 20 freshness cliff (updated_at far past 30d) - 5 stale
-    // signal penalty = 75. Both penalties are exercised here.
     expect(section.score).toBe(75);
   });
 
@@ -130,17 +123,15 @@ describe('collectModuleHealth', () => {
     writeHealth(root, 'a', 'stable', 1);
     writeHealth(root, 'b', 'wobbly' as unknown as string, 1);
     const { section } = collectModuleHealth(root, NOW);
-    // 'wobbly' falls through to 'unknown' which weighs 0.
     expect(section.score).toBe(50);
   });
 
   it('skips a malformed entry and dates an entry without updated_at by mtime', () => {
     writeHealth(root, 'a', 'stable', 1);
     const dir = join(root, '.paqad/module-health');
-    writeFileSync(join(dir, 'bad.json'), '{bad json'); // unparseable → skipped
-    writeFileSync(join(dir, 'c.json'), JSON.stringify({ module: 'c', tier: 'stable' })); // no updated_at → mtime
+    writeFileSync(join(dir, 'bad.json'), '{bad json');
+    writeFileSync(join(dir, 'c.json'), JSON.stringify({ module: 'c', tier: 'stable' }));
     const { section } = collectModuleHealth(root, NOW);
-    // 'a' + 'c' counted (both stable), 'bad' skipped → still a real score.
     expect(section.score).toBe(100);
     expect(section.metrics.find((m) => m.label === 'stable')?.value).toBe('2');
   });

@@ -1,10 +1,3 @@
-// Validate the expert NOTES artifact (issue #521, FR-6/FR-7).
-//
-// After the roster decision (need.ts) the experts run and hand back structured notes plus their
-// token actuals. This module validates that returned artifact against the roster (an expert that
-// was never in the need set cannot smuggle notes in). Storing it is the run store's job
-// (`experts.json` findings and roster tokens, issue #581). Deterministic; zero model tokens.
-
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -32,30 +25,21 @@ const FINDING_KINDS: readonly FindingKind[] = [
 ];
 const FINDING_SEVERITIES: readonly FindingSeverity[] = ['must', 'should', 'could'];
 
-/** The notes each expert returned, plus the tokens they actually spent. */
 export interface ExpertNotesArtifact {
   notes: ExpertNote[];
   tokens: Partial<Record<AgentRole, number>>;
-  /** Targets the project does not name (issue #558, FR-5.2). Never a refusal; shown to the chief. */
   voice_warnings?: VoiceWarning[];
 }
 
-/** What the voice check reads to judge a finding's target (issue #558, FR-5.1). */
 export interface FindingVoiceSources {
-  /** The project vocabulary from grounding. */
   vocabulary: VocabularyEntry[];
-  /** The request text. */
   requestText: string;
-  /** The project root, for the path-exists rule. */
   projectRoot: string;
-  /** Whether a code-knowledge index exists (the symbol rule is skipped when it does not). */
   indexPresent: boolean;
 }
 
-/** The outcome of the voice check for one finding (issue #558, FR-5.1). */
 export interface VoiceCheckResult {
   ok: boolean;
-  /** The one-line hint, present only when `ok` is false. */
   hint?: string;
 }
 
@@ -63,7 +47,6 @@ function normalizeTarget(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/** The vocabulary entry closest to a target by simple substring match, or null. */
 function closestWord(target: string, entries: VocabularyEntry[]): VocabularyEntry | null {
   for (const entry of entries) {
     const term = normalizeTarget(entry.term);
@@ -79,27 +62,17 @@ function closestWord(target: string, entries: VocabularyEntry[]): VocabularyEntr
   return null;
 }
 
-/**
- * The deterministic voice check for one finding's target (issue #558, FR-5.1 / Section 5.4). A
- * target is allowed when it is a word the project already uses (a vocabulary term or a word from
- * the request), an existing path or an indexed symbol, or a `new `-prefixed / `this request`
- * target. Anything else records a warning with a hint naming the closest business and technical
- * word. Never a refusal (INV-5). Deterministic; zero model tokens.
- */
 export function checkFindingVoice(
   finding: ExpertFinding,
   sources: FindingVoiceSources,
 ): VoiceCheckResult {
   const target = normalizeTarget(finding.target);
-  // Rule 3: a new thing, or the whole request.
   if (target.startsWith('new ') || target === 'this request') return { ok: true };
 
-  // Rule 1: the target is a word the project uses (a vocabulary term or a word from the request).
   const inVocabulary = sources.vocabulary.some((entry) => normalizeTarget(entry.term) === target);
   if (inVocabulary) return { ok: true };
   if (normalizeTarget(sources.requestText).includes(target)) return { ok: true };
 
-  // Rule 2: the target names an existing path, or a symbol the code-knowledge index resolves.
   const stripped = finding.target.replace(/`/g, '').trim();
   if (stripped.length > 0 && existsSync(join(sources.projectRoot, stripped))) return { ok: true };
   if (sources.indexPresent) {
@@ -107,7 +80,6 @@ export function checkFindingVoice(
     if (index && queryCodeKnowledge(index, stripped).matches.length > 0) return { ok: true };
   }
 
-  // Rule 4: a warning, never a refusal. Name the closest business and technical word.
   const business = closestWord(
     target,
     sources.vocabulary.filter((entry) => entry.kind !== 'technical'),
@@ -136,17 +108,6 @@ function fail(error: string): ExpertNotesValidation {
   return { ok: false, error };
 }
 
-/**
- * Validate a raw notes artifact (issue #521, extended by #547 FR-4.4). `notes[]` is required; each
- * note names a roster role and a `findings[]` of `{ target, claim }` non-empty strings. A finding
- * MAY carry a `kind` (defaulted to `requirement`), a `severity` (defaulted to `should`) and an
- * optional `evidence` string; an unknown kind or severity is rejected. A note MAY carry
- * `questions[]`, each a `PipelineQuestion`; when {@link sources} is supplied every question is run
- * through the plain-language check and a failing one is rejected with its flagged terms. Every
- * finding is assigned a stable `EX-<role>-<n>` id in note order (FR-4.4). `tokens` is optional and
- * maps roster roles to non-negative numbers. Rejects a role outside the roster in both `notes` and
- * `tokens` — the guard extends to notes, not just the need decision.
- */
 export function validateExpertNotes(
   raw: unknown,
   sources?: PlainLanguageSources,
@@ -243,8 +204,6 @@ export function validateExpertNotes(
     }
   }
 
-  // Voice check (issue #558, FR-5.2): after every finding has its stable id, flag any target the
-  // project does not name. Never a refusal — the warnings are recorded and shown to the chief.
   let voice_warnings: VoiceWarning[] | undefined;
   if (voiceSources) {
     const warnings: VoiceWarning[] = [];
@@ -265,19 +224,12 @@ export function validateExpertNotes(
   };
 }
 
-/** The outcome of validating one raw question object. */
 export interface QuestionValidation {
   ok: boolean;
   error?: string;
   question?: PipelineQuestion;
 }
 
-/**
- * Validate one raw object as a {@link PipelineQuestion} (issue #547, FR-4.4 / FR-5.4). Requires
- * non-empty `business_text`, `why_it_matters`, a non-empty `options[]` of strings, and a
- * `grounded_in` that is a string or null. When {@link sources} is supplied the plain-language
- * check runs and a question written in model jargon is refused, naming the flagged terms.
- */
 export function validateQuestion(
   raw: unknown,
   path: string,

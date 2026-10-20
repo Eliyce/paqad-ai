@@ -9,11 +9,6 @@ const HELPER = {
     "All rule files in place for the project's stack, regenerated when capabilities change, refreshed in the last 30 days.",
 } as const;
 
-/**
- * Phase-1 expected minimum: 5 rule files. We avoid stack-aware
- * expectations here per the brief — that's a future enhancement once a
- * registry of "which rules each pack ships" exists.
- */
 const EXPECTED_MIN = 5;
 
 export function collectRules(projectRoot: string, now: number = Date.now()): SectionData {

@@ -1,20 +1,3 @@
-/**
- * Proactive base-drift awareness (RAG buildout F27).
- *
- * Warns "origin/main moved N commits ahead since you branched" BEFORE the developer pulls,
- * as a separate secondary context layer. The cost model is strict:
- *   - Off the critical path: the network step (a debounced `git fetch`) runs only in the
- *     detached background worker; the prompt path merely reads the persisted snapshot.
- *   - No per-prompt network: a debounce marker floors the fetch to one per interval
- *     (5-15 min), and an `ls-remote` tip-check skips the fetch entirely when the remote
- *     base has not moved.
- *   - Fail-silent: any git/network/auth failure degrades to "no drift surfaced", never an
- *     error and never a block.
- *
- * Drift itself is computed from LOCAL refs (`rev-list --count <merge-base>..origin/<base>`),
- * so once a fetch has happened the read is network-free. Reuses F7's base detection and the
- * F1 debounce-marker + single-flight-lock.
- */
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,25 +9,17 @@ import { PATHS } from '@/core/constants/paths.js';
 
 import { readGitState } from './git-state.js';
 
-/** A persisted base-drift reading (the secondary context layer's state). */
 export interface BaseDriftSnapshot {
-  /** The base branch compared against (e.g. `main`). */
   base_branch: string;
-  /** The remote-tracking ref checked (e.g. `origin/main`). */
   remote_ref: string;
-  /** Commits `origin/<base>` is ahead of where this branch diverged. 0 ⇒ no drift. */
   ahead: number;
-  /** ISO timestamp of the reading. */
   checked_at: string;
 }
 
-/** Default floor between background fetches (within the 5-15 min band the spec allows). */
 export const DEFAULT_BASE_DRIFT_INTERVAL_MS = 10 * 60 * 1000;
 
-/** A lock older than this (10 min) is treated as a crashed worker and reclaimed. */
 const STALE_LOCK_MS = 10 * 60 * 1000;
 
-/** Injectable git runner (defaults to a read-only `execFileSync` wrapper). */
 export type GitRunner = (args: string[]) => string | undefined;
 
 function defaultGit(projectRoot: string): GitRunner {
@@ -62,19 +37,11 @@ function defaultGit(projectRoot: string): GitRunner {
 }
 
 export interface BaseDriftOptions {
-  /** Base branch override (F10's `rag_base_branch`); auto-detected when omitted. */
   baseBranch?: string;
-  /** Remote name. Defaults to `origin`. */
   remote?: string;
-  /** Injectable git runner (tests). */
   git?: GitRunner;
 }
 
-/**
- * Compute base drift from LOCAL refs (no network). Returns null when there is no base, no
- * fetched remote-tracking ref, or git is unavailable. `ahead` is the number of commits the
- * remote base has advanced past this branch's merge-base.
- */
 export function computeBaseDrift(
   projectRoot: string,
   options: BaseDriftOptions = {},
@@ -86,7 +53,6 @@ export function computeBaseDrift(
     return null;
   }
   const remoteRef = `${remote}/${state.base_branch}`;
-  // The remote-tracking ref must exist locally (a fetch happened at some point).
   if (git(['rev-parse', '--verify', '--quiet', `${remoteRef}^{commit}`]) === undefined) {
     return null;
   }
@@ -101,9 +67,7 @@ export function computeBaseDrift(
 }
 
 export interface RefreshBaseDriftOptions extends BaseDriftOptions {
-  /** Clock (tests). */
   now?: () => number;
-  /** Minimum interval between real fetches. Defaults to {@link DEFAULT_BASE_DRIFT_INTERVAL_MS}. */
   minIntervalMs?: number;
 }
 
@@ -111,11 +75,6 @@ export type RefreshBaseDriftResult =
   | { refreshed: true }
   | { refreshed: false; reason: 'debounced' | 'in-flight' | 'no-base' | 'error' };
 
-/**
- * The background step: debounced + single-flight, `ls-remote` tip-check, conditional
- * `git fetch`, then compute + persist the snapshot. Never throws; any failure returns a
- * reason. Meant to run in the detached worker, never on the prompt path.
- */
 export async function refreshBaseDrift(
   projectRoot: string,
   options: RefreshBaseDriftOptions = {},
@@ -131,7 +90,6 @@ export async function refreshBaseDrift(
   if (!lock.acquired) {
     return { refreshed: false, reason: 'in-flight' };
   }
-  // Open the debounce window up front, so a crash mid-fetch still floors the next attempt.
   touchMarker(markerPath, now);
   try {
     const git = options.git ?? defaultGit(projectRoot);
@@ -143,8 +101,6 @@ export async function refreshBaseDrift(
     const base = state.base_branch;
     const remoteRef = `${remote}/${base}`;
 
-    // ls-remote tip-check: only fetch when the remote base actually moved. A failure
-    // (offline, auth) leaves remoteTip undefined and we skip the fetch, fail-silent.
     const lsRemote = git(['ls-remote', remote, base]);
     const remoteTip = lsRemote ? lsRemote.split(/\s+/)[0] : undefined;
     const localRemoteTip = git(['rev-parse', '--verify', '--quiet', remoteRef]);
@@ -167,7 +123,6 @@ export async function refreshBaseDrift(
   }
 }
 
-/** Read the persisted drift snapshot (no network). Best-effort; null on missing/corrupt. */
 export function loadBaseDrift(projectRoot: string): BaseDriftSnapshot | null {
   try {
     const parsed = JSON.parse(
@@ -187,11 +142,6 @@ export function loadBaseDrift(projectRoot: string): BaseDriftSnapshot | null {
   }
 }
 
-/**
- * Compose the base-drift secondary context layer. Returns `''` when there is no drift
- * (no snapshot, or `ahead === 0`), so it adds nothing in the common case. A one-line
- * heads-up otherwise — advisory, never blocking.
- */
 export function composeBaseDriftSection(snapshot: BaseDriftSnapshot | null): string {
   if (!snapshot || snapshot.ahead <= 0) {
     return '';

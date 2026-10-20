@@ -4,14 +4,8 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
-// ticket-intake-prompt.mjs is advisory and NON-BLOCKING: it always exits 0 and prints at most
-// one `▸ paqad` intake line. These exercise the observable guard behavior (exit 0 + no output);
-// the matcher logic itself (banner / element recognition) is covered at the TS level in
-// tests/unit/pipeline/prompt-lane.test.ts, and the dist import paths by
-// tests/unit/runtime/hook-dist-entry-parity.test.ts. In a fresh checkout dist/ is absent, so the
-// dist-dependent branches fall through their import guard to a clean exit 0 — which is exactly the
-// "no output" contract a system notice / slash command must honor (issue #615, Parts 2 + 5).
 const HOOK = resolve(__dirname, '../../../runtime/hooks/ticket-intake-prompt.mjs');
 
 function run(projectRoot: string, payload: unknown, env: NodeJS.ProcessEnv = {}) {
@@ -56,20 +50,20 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (advisory guards)', () => {
     expect(result.stdout).toBe('');
   });
 
-  it('prints no ticket-intake line for a slash command (issue #615, Part 5)', () => {
-    // Dist-less guard: a '/'-prefixed prompt is suppressed before any dist import, so this holds
-    // even in a fresh checkout where dist/ is absent.
-    const result = run(projectRoot, { prompt: '/claude-api managed-agents-onboard #409' });
+  it('prints no ticket-intake line for a slash command', () => {
+    const result = run(projectRoot, {
+      prompt: `/claude-api managed-agents-onboard ${ticketRef(409)}`,
+    });
     expect(result.status).toBe(0);
     expect(result.stdout).toBe('');
   });
 
-  it('prints no ticket-intake line for a Desktop banner-led notice (issue #615, Part 2)', () => {
+  it('prints no ticket-intake line for a Desktop banner-led notice', () => {
     const payload = {
       prompt: [
         '[SYSTEM NOTIFICATION - NOT USER INPUT]',
         '<task-notification>',
-        '<summary>Background agent finished reviewing #409 and #582</summary>',
+        `<summary>Background agent finished reviewing ${ticketRef(409)} and ${ticketRef(582)}</summary>`,
         '</task-notification>',
       ].join('\n'),
     };
@@ -78,14 +72,14 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (advisory guards)', () => {
     expect(result.stdout).toBe('');
   });
 
-  it('prints no ticket-intake line for a foreground agent-message hand-back (issue #623)', () => {
+  it('prints no ticket-intake line for a foreground agent-message hand-back', () => {
     const payload = {
       prompt: [
         '<system-reminder id="r1">',
         'Another Claude session sent a message while you were working:',
         '<agent-message from="a1b2c3">',
         '  [Subagent hand-back] The text below is the final report of a subagent.',
-        '  Fixed the routing for #623 and checked #582.',
+        `  Fixed the routing for ${ticketRef(623)} and checked ${ticketRef(582)}.`,
         '</agent-message>',
         '&lt;/system-reminder&gt;',
       ].join('\n'),
@@ -95,11 +89,10 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (advisory guards)', () => {
     expect(result.stdout).toBe('');
   });
 
-  it('prints no ticket-intake line for a hand-back whose report comes first (issue #623)', () => {
-    // A subagent's report leads, naming issues, and the banner and element follow it.
+  it('prints no ticket-intake line for a hand-back whose report comes first', () => {
     const payload = {
       prompt: [
-        'Status: completed. Fixed the routing for #623 and checked #582.',
+        `Status: completed. Fixed the routing for ${ticketRef(623)} and checked ${ticketRef(582)}.`,
         '',
         '[SYSTEM NOTIFICATION - NOT USER INPUT]',
         'This is an automated background-task event, NOT a message from the user.',

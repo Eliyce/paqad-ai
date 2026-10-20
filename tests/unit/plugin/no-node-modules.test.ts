@@ -6,21 +6,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-// Issue #616, Part 2 (INV-2 / AC-2): the Claude Code plugin works the moment it is downloaded —
-// Claude Code installs no packages for an npm-source plugin that ships no lockfile, so `dist/`
-// must be self-contained. These tests prove that the built `dist/` (a) carries no bare import of a
-// pure-JS dependency that bundling was supposed to inline, and (b) imports successfully from a
-// directory that has no `node_modules` at all. Only the three heavy embedding engines
-// (@huggingface/transformers, openai, voyageai) stay external, and they are lazy — a top-level
-// import never reaches them.
-
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..', '..');
 const distDir = join(repoRoot, 'dist');
 const runtimeDir = join(repoRoot, 'runtime');
 
-// Deps forced back into the bundle by `noExternal` in tsup.config.ts — none may remain as a bare
-// runtime import in dist/*.js, or the plugin breaks with no node_modules.
 const BUNDLED_DEPS = [
   'ajv',
   'execa',
@@ -35,11 +25,8 @@ const BUNDLED_DEPS = [
   'gifenc',
 ];
 
-// The still-external, lazy embedding engines — allowed to appear only inside a dynamic `import()`.
 const EXTERNAL_DEPS = ['@huggingface/transformers', 'openai', 'voyageai'];
 
-// Dist entry bundles the plugin's hooks and CLI load. If bundling is incomplete, importing one of
-// these from a node_modules-less directory throws ERR_MODULE_NOT_FOUND.
 const DIST_ENTRIES = [
   'index.js',
   'cli/index.js',
@@ -60,14 +47,12 @@ function listJsFiles(dir: string): string[] {
 }
 
 beforeAll(() => {
-  // CI runs `test:coverage` before `build`, so dist may be absent or stale here. Build it once so
-  // the guarantee is checked against a real, current bundle rather than skipped.
   if (!existsSync(join(distDir, 'index.js'))) {
     execFileSync('pnpm', ['run', 'build:server'], { cwd: repoRoot, stdio: 'ignore' });
   }
 }, 240_000);
 
-describe('plugin dist is self-contained (issue #616, Part 2)', () => {
+describe('plugin dist is self-contained', () => {
   it('has no bare import of a bundled dependency in any dist/*.js', () => {
     const offenders: string[] = [];
     const bare = new RegExp(
@@ -81,8 +66,6 @@ describe('plugin dist is self-contained (issue #616, Part 2)', () => {
   });
 
   it('keeps the heavy engines external only inside a lazy dynamic import()', () => {
-    // A static top-level `import X from 'openai'` would be loaded eagerly and break with no
-    // node_modules; the only allowed form is `await import('openai')`.
     for (const dep of EXTERNAL_DEPS) {
       const escaped = dep.replace(/[/\\^$*+?.()|[\]{}]/g, '\\$&');
       const staticImport = new RegExp(`(?:^|\\n)\\s*import[^\\n]*['"]${escaped}['"]`);
@@ -100,8 +83,6 @@ describe('plugin dist is self-contained (issue #616, Part 2)', () => {
       sandbox = mkdtempSync(join(tmpdir(), 'paqad-plugin-selfcontained-'));
       cpSync(distDir, join(sandbox, 'dist'), { recursive: true });
       cpSync(runtimeDir, join(sandbox, 'runtime'), { recursive: true });
-      // No node_modules is copied — the sandbox lives under the OS temp dir, which has none up its
-      // tree, so any unbundled bare import fails to resolve.
       expect(existsSync(join(sandbox, 'node_modules'))).toBe(false);
     });
 
@@ -112,8 +93,6 @@ describe('plugin dist is self-contained (issue #616, Part 2)', () => {
     for (const entry of DIST_ENTRIES) {
       it(`imports dist/${entry}`, () => {
         const target = pathToFileURL(join(sandbox, 'dist', entry)).href;
-        // Spawn a fresh node whose module resolution is anchored at the sandbox, so the import
-        // cannot fall back to the repo's node_modules.
         expect(() =>
           execFileSync(
             process.execPath,

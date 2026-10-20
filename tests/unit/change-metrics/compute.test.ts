@@ -18,10 +18,7 @@ import {
 
 describe('flaggedNewCodeLines', () => {
   it('unions overlapping spans so a line is never counted twice', () => {
-    const flagged = flaggedNewCodeLines([
-      finding('src/a.ts', 1, 10), // 10 lines
-      finding('src/a.ts', 5, 14), // overlaps 5–10, adds 11–14 → union 1–14 = 14
-    ]);
+    const flagged = flaggedNewCodeLines([finding('src/a.ts', 1, 10), finding('src/a.ts', 5, 14)]);
     expect(flagged).toBe(14);
   });
 
@@ -51,9 +48,9 @@ describe('crossFileReuseCalls', () => {
   it('counts only edges from a changed file into an untouched file', () => {
     const calls = crossFileReuseCalls(
       index([
-        { from: 'src/new.ts', to: 'src/existing.ts', symbol: 'a' }, // counts
-        { from: 'src/new.ts', to: 'src/other-changed.ts', symbol: 'b' }, // target changed → skip
-        { from: 'src/unchanged.ts', to: 'src/existing.ts', symbol: 'c' }, // source unchanged → skip
+        { from: 'src/new.ts', to: 'src/existing.ts', symbol: 'a' },
+        { from: 'src/new.ts', to: 'src/other-changed.ts', symbol: 'b' },
+        { from: 'src/unchanged.ts', to: 'src/existing.ts', symbol: 'c' },
       ]),
       ['src/new.ts', 'src/other-changed.ts'],
     );
@@ -134,7 +131,6 @@ describe('computeChangeMetrics', () => {
 
   it('clamps dup_new_pct to 100 when flagged spans exceed meaningful lines', async () => {
     const root = makeProject();
-    // 2 meaningful lines but a finding span of 10 lines (e.g. spanning blanks/comments).
     writeFile(root, 'src/a.ts', 'const a = 1;\nconst b = 2;');
     writeDuplicationCache(root, [finding('src/a.ts', 1, 10)]);
 

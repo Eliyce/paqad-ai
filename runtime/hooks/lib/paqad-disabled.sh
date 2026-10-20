@@ -1,27 +1,5 @@
 #!/usr/bin/env bash
-# Issue #220 / #227 — the global enable/disable master switch, shell side.
-#
-# Sourced by every shell enforcement surface so a disabled (or env-overridden)
-# project early-exits to a pure no-op before any blocking logic:
-#   - lib/agent-entry-sentinel.sh  (→ both entry gates)
-#   - decision-pause-gate.sh
-#
-# Exposes:
-#   paqad_is_disabled — returns 0 (disabled) when paqad is off, 1 otherwise.
-#
-# Precedence (must match runtime/hooks/lib/paqad-disabled.mjs and the TS predicate
-# src/core/framework-enabled.ts — pinned by the shared golden-fixture test):
-#   1. PAQAD_DISABLED env override (truthy ⇒ off) wins over everything.
-#   2. `paqad_enable` resolved across the layered config surfaces, highest first:
-#        PAQAD_ENABLE env > .paqad/.config (dev-local) > .paqad/configs/.config.*
-#        (team, merged sorted last-wins). A falsy token ⇒ off.
-#   3. absent ⇒ on (default-on; existing behavior unchanged).
-#
-# Deliberately dist-less: a raw read with no parser and no node, so a
-# disabled-and-uninstalled project can still evaluate its own toggle.
 
-# Echo the last uncommented `KEY=` value in FILE (surrounding quotes + inline
-# comment stripped, lowercased). Empty when the key is absent or the file missing.
 __paqad_read_key() {
   local file="$1" key="$2"
   [ -f "${file}" ] || return 0
@@ -31,13 +9,10 @@ __paqad_read_key() {
     | tr '[:upper:]' '[:lower:]'
 }
 
-# Echo the resolved (lowercased) value of `paqad_enable` across the layered
-# surfaces: team configs (merged, sorted last-wins) < local .config < PAQAD_ENABLE.
 __paqad_resolve_enable() {
   local root="$1" value="" v dir f
   dir="${root}/.paqad/configs"
   if [ -d "${dir}" ]; then
-    # Sorted (C collation) so the last filename wins, matching the TS resolver.
     while IFS= read -r f; do
       [ -e "${f}" ] || continue
       v=$(__paqad_read_key "${f}" 'paqad_enable')
@@ -45,16 +20,12 @@ __paqad_resolve_enable() {
     done < <(LC_ALL=C find "${dir}" -maxdepth 1 -name '.config.*' ! -name '.config.example' -type f 2>/dev/null | LC_ALL=C sort)
   fi
   v=$(__paqad_read_key "${root}/.paqad/.config" 'paqad_enable')
-  [ -n "${v}" ] && value="${v}" # LOCAL WINS over team
+  [ -n "${v}" ] && value="${v}"
   v=$(printf '%s' "${PAQAD_ENABLE:-}" | tr '[:upper:]' '[:lower:]' | sed -E 's/^[[:space:]]*//; s/[[:space:]]*$//')
-  [ -n "${v}" ] && value="${v}" # env escape hatch wins over both files
+  [ -n "${v}" ] && value="${v}"
   printf '%s' "${value}"
 }
 
-# Echo the project root the host is operating on, mirroring resolveProjectRoot in
-# paqad-disabled.mjs (issue #615, Part 1). When $1 (a hook payload's cwd) is non-empty,
-# walk up from it to the first directory that contains a `.paqad/` directory and echo that;
-# otherwise fall back to CLAUDE_PROJECT_DIR, PAQAD_PROJECT_ROOT, then the current directory.
 __paqad_resolve_project_root() {
   local cwd="${1:-}" dir parent
   if [ -n "${cwd}" ]; then
@@ -65,23 +36,20 @@ __paqad_resolve_project_root() {
         return 0
       fi
       parent="$(dirname "${dir}")"
-      [ "${parent}" = "${dir}" ] && break # reached the filesystem root
+      [ "${parent}" = "${dir}" ] && break
       dir="${parent}"
     done
   fi
   printf '%s' "${CLAUDE_PROJECT_DIR:-${PAQAD_PROJECT_ROOT:-$(pwd)}}"
 }
 
-# 0 = disabled, 1 = enabled. Optional $1 = the hook payload's cwd (worktree-aware).
 paqad_is_disabled() {
-  # 1. env hard override — identical truthy set to the .mjs/.ts primitives.
   case "$(printf '%s' "${PAQAD_DISABLED:-}" | tr '[:upper:]' '[:lower:]')" in
     1 | true | yes | on)
       return 0
       ;;
   esac
 
-  # 2. layered `paqad_enable` resolution. A falsy token means off.
   local root resolved
   root="$(__paqad_resolve_project_root "${1:-}")"
   resolved=$(__paqad_resolve_enable "${root}")
@@ -91,6 +59,5 @@ paqad_is_disabled() {
       ;;
   esac
 
-  # 3. default-on.
   return 1
 }

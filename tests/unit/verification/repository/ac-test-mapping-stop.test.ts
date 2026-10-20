@@ -18,9 +18,6 @@ import {
   type CriterionSeed,
 } from '../../traceability/change-map.fixture.js';
 
-// Issue #639, Part 11 — the Stop verification builds the change's acceptance-criteria map
-// itself and the `ac-test-mapping` gate reads it honestly.
-
 const roots: string[] = [];
 let priorSession: string | undefined;
 
@@ -42,7 +39,6 @@ interface ChangeSetup {
   title?: string;
 }
 
-/** A git repo whose changed files are `files`, with an open change and (optionally) a frozen spec. */
 function change(setup: ChangeSetup): { root: string; dir: string } {
   const root = mkdtempSync(join(tmpdir(), 'paqad-ac-stop-'));
   roots.push(root);
@@ -102,7 +98,7 @@ function failing(testId: string): StructuredTestResult {
   };
 }
 
-describe('ac-test-mapping at Stop verification (#639 Part 11)', () => {
+describe('ac-test-mapping at Stop verification', () => {
   it('AC-32: the ORD-490 fast-lane change with no frozen spec reads not required', async () => {
     const { root } = change({
       session: 'ses-490',
@@ -233,7 +229,6 @@ describe('ac-test-mapping at Stop verification (#639 Part 11)', () => {
       ['AC-1', true],
       ['AC-2', true],
     ]);
-    // AC-34: a full map passes keeping its computed detail.
     const result = await new AcTestMappingGate().check(context);
     expect(result).toEqual({
       gate: 'ac-test-mapping',
@@ -289,7 +284,6 @@ describe('ac-test-mapping at Stop verification (#639 Part 11)', () => {
     });
 
     expect(context.ac_test_mapping_outcome).toBe('not-required');
-    // The stale map neither claims a frozen spec nor draws a scope boundary.
     expect(escalations.join('\n')).toContain('spec-review');
     expect(context.spec_boundary).toBeUndefined();
   });

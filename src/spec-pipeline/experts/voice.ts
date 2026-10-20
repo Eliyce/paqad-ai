@@ -1,11 +1,3 @@
-// The Project voice brief section (issue #558, FR-3.4).
-//
-// Every expert brief carries a `## Project voice` section so an expert names things in the
-// project's own words, not from its own head: the stack line, the stack-pack guide pointers, the
-// architecture and stack pages, the touched modules' technical pages, and the business vocabulary
-// grounding extracted. Pure and model-free (INV-4): given the same resolved inputs it renders the
-// same text, so the brief hash is stable across a rebuild (AC-8).
-
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -19,10 +11,8 @@ import { StackPackLoader } from '@/packs/loader.js';
 import { readGrounding } from '../run-store.js';
 import type { VocabularyEntry } from '../types.js';
 
-/** At most this many business words are listed in a brief (Section 5.2). */
 export const MAX_VOICE_TERMS = 40;
 
-/** The four stack-pack guide files a brief points at, in order (FR-3.4). */
 export const PACK_GUIDE_FILES = [
   'rules/foundation/guide.md',
   'rules/modules.md',
@@ -30,21 +20,13 @@ export const PACK_GUIDE_FILES = [
   'rules/api.md',
 ] as const;
 
-/** The already-resolved inputs the renderer needs. Pure: no FS access here. */
 export interface ProjectVoiceInput {
-  /** The one-line stack sentence (e.g. `Stack: Laravel with Vue; php / composer.`). */
   stackLine: string;
-  /** Existing stack-pack guide pointers (project- or runtime-relative), in order. */
   guidePointers: string[];
-  /** True when packs are active but ship no guides (prints the fallback line). */
   noGuidesShipped: boolean;
-  /** The architecture page path, when it exists. */
   architecturePage?: string;
-  /** The stack page path, when it exists. */
   stackPage?: string;
-  /** The touched modules' technical pages that exist. */
   technicalPages: string[];
-  /** The project vocabulary from grounding. */
   vocabulary: VocabularyEntry[];
 }
 
@@ -56,10 +38,6 @@ const KIND_ORDER: Record<VocabularyEntry['kind'], number> = {
   technical: 4,
 };
 
-/**
- * Order the vocabulary for the brief: glossary first, then roles, flows, business rules, technical,
- * stable within a kind. Trimmed to {@link MAX_VOICE_TERMS} (Section 5.2). Pure.
- */
 export function orderVoiceTerms(vocabulary: VocabularyEntry[]): VocabularyEntry[] {
   return [...vocabulary]
     .map((entry, index) => ({ entry, index }))
@@ -68,7 +46,6 @@ export function orderVoiceTerms(vocabulary: VocabularyEntry[]): VocabularyEntry[
     .slice(0, MAX_VOICE_TERMS);
 }
 
-/** Render the `## Project voice` block. Pure; zero model tokens (FR-3.4). */
 export function renderProjectVoice(input: ProjectVoiceInput): string {
   const lines: string[] = ['## Project voice', '', input.stackLine];
 
@@ -107,7 +84,6 @@ export function renderProjectVoice(input: ProjectVoiceInput): string {
   return lines.join('\n');
 }
 
-/** Build the one-line stack sentence from the profile and the active packs (FR-3.4). Pure. */
 export function buildStackLine(
   profile: DetectedStackProfile | null,
   packs: PackRegistry | null,
@@ -137,7 +113,6 @@ export function buildStackLine(
   return `Stack: ${frameworkPart}; ${toolPart}.`;
 }
 
-/** Which active-framework packs ship at least one guide, and the guide pointers that exist. */
 export function resolveGuidePointers(
   runtimeRoot: string,
   profile: DetectedStackProfile | null,
@@ -158,7 +133,6 @@ export function resolveGuidePointers(
   return { guidePointers, noGuidesShipped: guidePointers.length === 0 };
 }
 
-/** Render a path under the runtime root as `runtime/…`, else the path unchanged. */
 function runtimeRelative(runtimeRoot: string, abs: string): string {
   const posixAbs = abs.replace(/\\/g, '/');
   const posixRoot = runtimeRoot.replace(/\\/g, '/').replace(/\/$/, '');
@@ -168,7 +142,6 @@ function runtimeRelative(runtimeRoot: string, abs: string): string {
   return posixAbs;
 }
 
-/** Resolve the architecture and stack page paths that exist under the project (FR-3.4). */
 export function resolveDocPages(projectRoot: string): {
   architecturePage?: string;
   stackPage?: string;
@@ -181,7 +154,6 @@ export function resolveDocPages(projectRoot: string): {
   };
 }
 
-/** The touched modules' `technical.md` pages that exist under the project. */
 export function resolveTechnicalPages(projectRoot: string, modules: readonly string[]): string[] {
   const pages: string[] = [];
   for (const slug of modules) {
@@ -191,17 +163,10 @@ export function resolveTechnicalPages(projectRoot: string, modules: readonly str
   return pages;
 }
 
-/** Whether `.paqad/glossary.md` exists — a convenience re-export used by callers. */
 export function glossaryPresent(projectRoot: string): boolean {
   return existsSync(join(projectRoot, PATHS.GLOSSARY));
 }
 
-/**
- * Build the `## Project voice` block for a run (issue #558, FR-3.4 / FR-3.5), reading the grounding
- * vocabulary, the stack profile and active packs, and the architecture/stack/technical pages that
- * exist. A missing profile prints the unknown-stack line and never throws. Deterministic, so a
- * brief rebuilt after freeze gives the same hash (AC-8). Shared by the CLI and the tests.
- */
 export function resolveProjectVoiceForRun(projectRoot: string, dirName: string): string {
   const grounding = readGrounding(projectRoot, dirName);
   const profile = readProjectProfile(projectRoot)?.stack_profile ?? null;
@@ -209,9 +174,7 @@ export function resolveProjectVoiceForRun(projectRoot: string, dirName: string):
   try {
     packs = new StackPackLoader().load({ runtimeRoot: getRuntimeRoot(), projectRoot });
     /* v8 ignore next 3 -- pack loading never throws today; belt-and-braces so a fault never fails record. */
-  } catch {
-    // A pack-loading fault leaves `packs` null (its initial value); the voice degrades gracefully.
-  }
+  } catch {}
   const { guidePointers, noGuidesShipped } = resolveGuidePointers(getRuntimeRoot(), profile, packs);
   const pages = resolveDocPages(projectRoot);
   const technicalPages = (grounding?.references ?? [])

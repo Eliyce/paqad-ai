@@ -11,16 +11,6 @@ import { SchemaValidator, type SchemaValidationIssue } from '@/validators/valida
 
 import { appendDashboardAudit } from './approvals.js';
 
-/**
- * Issue #146 — `/api/config/profile` and `/api/capabilities/{name}`.
- *
- * Reads and writes go through `readProjectProfile` / `writeProjectProfile`,
- * the exact functions every CLI command uses, so a dashboard edit is
- * indistinguishable from a CLI one (including canonical-form migration on
- * write). The profile is a structured form in the UI, so the PUT carries the
- * parsed object rather than raw YAML.
- */
-
 export class ProfileValidationError extends Error {
   readonly issues: SchemaValidationIssue[];
 
@@ -64,8 +54,6 @@ export function putProfile(projectRoot: string, candidate: unknown): PutProfileR
     ]);
   }
 
-  // Validate the canonical form — exactly what will be written to disk —
-  // so legacy-shaped payloads cannot bypass the schema.
   const migrated = migrateProjectProfile(candidate as ProjectProfile);
   const validation = new SchemaValidator().validate('project-profile', migrated.profile);
   if (!validation.valid) {
@@ -76,9 +64,6 @@ export function putProfile(projectRoot: string, candidate: unknown): PutProfileR
   }
 
   const path = writeProjectProfile(projectRoot, migrated.profile);
-  // The submitted form is the complete desired state. The YAML keeps only
-  // project facts (writeProjectProfile strips the rest); the framework knobs are
-  // synced authoritatively into `.paqad/.config` so a toggle-to-default clears.
   syncFrameworkConfig(projectRoot, migrated.profile);
   appendDashboardAudit(projectRoot, 'dashboard.config.profile.write', {
     path: '.paqad/project-profile.yaml',
@@ -117,8 +102,6 @@ export function setCapability(
     ...profile,
     active_capabilities: Array.from(current) as ActiveCapability[],
   };
-  // writeProjectProfile re-normalizes (capability ordering, security/coding
-  // coupling), so what lands is the canonical form.
   writeProjectProfile(projectRoot, updated);
   appendDashboardAudit(projectRoot, 'dashboard.capabilities.set', {
     capability: name,

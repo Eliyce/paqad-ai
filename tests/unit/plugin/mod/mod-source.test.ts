@@ -4,11 +4,6 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-// Issue #639, Part 8 (decisions 3 and 4, AC-34): the HUD mod never calls a model or the network
-// and starts no process. It runs in Claude Code's sandbox, so it also uses no Node module, no
-// `require` and no `import()` (a module holding one does not load). Checked on the source of every
-// file the mod ships.
-
 const MOD_DIR = join(
   dirname(fileURLToPath(import.meta.url)),
   '../../../../runtime/claude-plugin/mod',
@@ -23,14 +18,10 @@ function files(dir: string): string[] {
 }
 
 const sources = files(MOD_DIR).map((path) => ({
-  // Posix separators, so the names read the same on Windows.
   name: relative(MOD_DIR, path).replace(/\\/g, '/'),
   text: readFileSync(path, 'utf8'),
 }));
 
-// Issue #639, Part 23 (AC-54): the cost modules join the list and the same checks, so the cost
-// pill, the Cost tab and /paqad cost read a file and never the network. Part 14 adds table.ts
-// (the High Table's instrument, card and pane tab) under the same checks.
 describe('the HUD mod source (AC-34, AC-54)', () => {
   it('has the files the design names', () => {
     expect(sources.map((s) => s.name).sort()).toEqual(

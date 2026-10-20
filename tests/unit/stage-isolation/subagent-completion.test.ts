@@ -25,7 +25,6 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-/** Open a feature bundle under `ses_orch` and align the ledger cache to it. */
 function activeFeature(root: string): string {
   const dir = openFeatureChange(root, 'ses_orch', {
     adapter: 'claude-code',
@@ -40,11 +39,10 @@ function activeFeature(root: string): string {
 describe('stageFromAgentType', () => {
   it('strips the paqad- prefix to the stage name', () => {
     expect(stageFromAgentType('paqad-development')).toBe('development');
-    // The one hyphenated agent maps to the canonical underscore stage name.
     expect(stageFromAgentType('paqad-documentation-sync')).toBe('documentation_sync');
   });
 
-  it('strips the optional paqad: plugin namespace before the paqad- prefix (issue #616)', () => {
+  it('strips the optional paqad: plugin namespace before the paqad- prefix', () => {
     expect(stageFromAgentType('paqad:paqad-development')).toBe('development');
     expect(stageFromAgentType('paqad:paqad-documentation-sync')).toBe('documentation_sync');
   });
@@ -52,7 +50,6 @@ describe('stageFromAgentType', () => {
   it('returns null for a non-paqad agent or an empty stage', () => {
     expect(stageFromAgentType('general-purpose')).toBeNull();
     expect(stageFromAgentType('paqad-')).toBeNull();
-    // A bare `paqad:` namespace with no stage agent after it is not a stage agent.
     expect(stageFromAgentType('paqad:general-purpose')).toBeNull();
     expect(stageFromAgentType('paqad:paqad-')).toBeNull();
     expect(stageFromAgentType(null)).toBeNull();
@@ -125,7 +122,6 @@ describe('recordStageAgentCompletion', () => {
     });
     expect(written).toBe(true);
 
-    // Issue #581 — one `stage-agent` row in stage-evidence.jsonl, not a separate file.
     const rows = readStageAgentRows(root, dir);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
@@ -161,7 +157,6 @@ describe('recordStageAgentCompletion', () => {
   it('writes nothing, and never throws, when the ledger cannot be appended', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    // A directory where the ledger file should be makes the append fail.
     rmSync(join(root, featureStagePath(dir)));
     mkdirSync(join(root, featureStagePath(dir)));
     expect(

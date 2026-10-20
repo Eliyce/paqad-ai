@@ -1,9 +1,3 @@
-// `paqad-ai preflight <workflow>` — check everything a workflow needs before it runs, and report
-// every unanswered question in one place (issue: site-map rebuild S3a, fixing D5/D6). Read-only:
-// it probes requirements (a file exists, a binary answers `--version`) and never executes project
-// code that boots the app. Exit codes: 0 when the run may proceed, 1 when there are questions to
-// answer first, 2 on an unexpected error.
-
 import { Command } from 'commander';
 
 import { runPreflight } from '@/workflow-preflight/run.js';

@@ -60,8 +60,6 @@ function writeMap(root: string, map: TraceabilityMap): void {
   writeFileSync(join(root, '.paqad/traceability/map.json'), JSON.stringify(map));
 }
 
-// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
-// `D-<ULID>` id.
 const WID = 'D-01J000000000000000000000A1';
 
 function makePacket(): DecisionPacket {
@@ -166,7 +164,6 @@ describe('buildRepositoryVerificationContext', () => {
   it('leaves the spec boundary undefined when a frozen spec delivers no directories', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);
-    // Frozen AC present (so hasFrozenSpec) but no delivering directories.
     const map = frozenAcMap([]);
     map.forward[0].delivering_code = ['bare-file-no-dir'];
     writeMap(root, map);
@@ -193,9 +190,6 @@ describe('buildRepositoryVerificationContext', () => {
   });
 
   it('escalates test-evidence when code changed (backstop cannot collect structured results)', async () => {
-    // The agent-independent backstop never populates structured_test_results, so
-    // test-evidence strength is unprovable here. It must surface as an escalation
-    // (visible), not a false "incomplete" block. (issue #307 dogfood)
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);
 
@@ -220,10 +214,7 @@ describe('buildRepositoryVerificationContext', () => {
     expect(escalations.join('\n')).not.toContain('test-evidence');
   });
 
-  // Issue #205 — generated `.paqad/` artifacts leak into the working tree when the
-  // runtime self-hosts (runtime/base/.paqad/). They must never be counted as changed
-  // code by verification, or the completion gate loops demanding test evidence for logs.
-  it('excludes generated .paqad/ artifacts from the changed-file scan (issue #205)', async () => {
+  it('excludes generated .paqad/ artifacts from the changed-file scan', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, [
       'runtime/base/.paqad/audit.log',
@@ -238,13 +229,10 @@ describe('buildRepositoryVerificationContext', () => {
       origin: 'hook-completion',
     });
 
-    // No .paqad/ home reaches the changed-file set...
     expect(context.changed_files).toEqual([]);
-    // ...so nothing is treated as changed code and no test-evidence is demanded.
     expect(context.code_changed).toBe(false);
     expect(escalations.join('\n')).not.toContain('test-evidence');
 
-    // And the completeness gate passes rather than blocking on generated artifacts.
     const verdict = await runRepositoryVerification({
       projectRoot: root,
       origin: 'hook-completion',
@@ -253,7 +241,7 @@ describe('buildRepositoryVerificationContext', () => {
     expect(verdict.ok).toBe(true);
   });
 
-  it('keeps real code while dropping .paqad/ artifacts in a mixed change (issue #205)', async () => {
+  it('keeps real code while dropping .paqad/ artifacts in a mixed change', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts', 'runtime/base/.paqad/audit.log']);
 

@@ -38,11 +38,10 @@ describe('OnboardingOrchestrator.preview', () => {
     expect(result.entries.length).toBeGreaterThan(0);
     expect(result.entries.every((entry) => entry.action === 'create')).toBe(true);
     expect(result.entries.some((entry) => entry.path === 'CLAUDE.md')).toBe(true);
-    // Nothing was written: the project directory is still empty after the preview.
     expect(readdirSync(projectRoot)).toEqual([]);
   });
 
-  it('plans one MCP recommendations file and no host MCP path (issue #622)', async () => {
+  it('plans one MCP recommendations file and no host MCP path', async () => {
     const result = await new OnboardingOrchestrator().preview({
       projectRoot,
       selections: { ...SELECTIONS, providers: ['claude-code', 'cursor'] },
@@ -70,8 +69,6 @@ describe('OnboardingOrchestrator.preview', () => {
 
     const result = await orchestrator.preview({ projectRoot, selections: SELECTIONS });
 
-    // Every planned file now exists with identical bytes (auto-update) or is project-owned, so
-    // nothing should be re-created or overwritten.
     expect(result.entries.some((entry) => entry.action === 'create')).toBe(false);
     expect(result.entries.some((entry) => entry.action === 'overwrite')).toBe(false);
     expect(result.entries.every((entry) => entry.action === 'skip')).toBe(true);
@@ -84,7 +81,6 @@ describe('OnboardingOrchestrator.preview', () => {
     const orchestrator = new OnboardingOrchestrator();
     await orchestrator.run({ projectRoot, selections: SELECTIONS });
 
-    // settings.hooks.json is an auto-update artifact; mutate it so its bytes diverge.
     const hookConfigRelative = '.claude/settings.hooks.json';
     const hookConfigPath = join(projectRoot, hookConfigRelative);
     writeFileSync(hookConfigPath, '{ "hooks": {} }\n');
@@ -94,7 +90,6 @@ describe('OnboardingOrchestrator.preview', () => {
 
     expect(entry?.action).toBe('overwrite');
     expect(typeof entry?.mtimeMs).toBe('number');
-    // The file we edited was not touched by the preview.
     expect(readFileSync(hookConfigPath, 'utf8')).toBe('{ "hooks": {} }\n');
   });
 

@@ -7,8 +7,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { FRAMEWORK_CONFIG_SPECS } from '@/core/framework-config.js';
 import { DEFAULT_MUTATION_MODE, resolveMutationMode } from '@/mutation/mode.js';
 
-// Issue #293 (Option A) — mutation_mode is a floored capability mode: off by default, the team
-// value is the floor, and the local file or the env may only raise it (off < warn < strict).
 describe('resolveMutationMode', () => {
   let root: string;
   beforeEach(() => {

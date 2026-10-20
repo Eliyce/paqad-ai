@@ -67,7 +67,6 @@ describe('buildDocumentEnvelope', () => {
     const first = buildDocumentEnvelope({ ...identity, body: { summary: 's' }, now: T1 });
     const later = buildDocumentEnvelope({ ...identity, body: { summary: 's' }, now: T2 });
     expect(first.content_hash).toBe(later.content_hash);
-    // Re-hashing the stored document (recorded_at and content_hash included) gives the same hash.
     expect(computeContentHash(first)).toBe(first.content_hash);
     const edited = buildDocumentEnvelope({ ...identity, body: { summary: 't' }, now: T1 });
     expect(edited.content_hash).not.toBe(first.content_hash);
@@ -220,7 +219,6 @@ describe('text documents', () => {
   it('splits CRLF text, keeps the body bytes and a plain YAML value as text', () => {
     const split = splitFrontMatter('---\r\ndoc_type: paqad.spec\r\nnocolon\r\n---\r\nbody\r\n');
     expect(split.header).toEqual({ doc_type: 'paqad.spec' });
-    // The body is the signed spec source, so its line endings survive the split.
     expect(split.body).toBe('body\r\n');
   });
 
@@ -344,7 +342,6 @@ describe('ENVELOPE_SCHEMA_FRAGMENT', () => {
   });
 });
 
-// Issue #581 (FR-14, AC-24) — the hash checks the completeness gate uses as its backstop.
 describe('envelope hash checks', () => {
   const identity = { change: '01JABCDEFGHJKMNPQRSTVWXYZ0', sessionId: 'ses_1', schemaVersion: 1 };
 
@@ -357,12 +354,11 @@ describe('envelope hash checks', () => {
     expect(rowHashMatches({ ...row, a: 2 })).toBe(false);
   });
 
-  it('returns null for a value with no #581 header (old shapes stay unchecked)', () => {
+  it('returns null for a value with no envelope header (old shapes stay unchecked)', () => {
     for (const value of [null, 'x', [1], {}, { doc_type: 'd', change: 'c', recorded_at: 't' }]) {
       expect(documentHashMatches(value)).toBeNull();
       expect(rowHashMatches(value)).toBeNull();
     }
-    // A pre-#581 row: it had a content_hash but never a `change` or `recorded_at`.
     expect(rowHashMatches({ doc_type: 'd', ts: 't', content_hash: 'h' })).toBeNull();
   });
 

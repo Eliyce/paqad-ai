@@ -14,7 +14,7 @@ import {
   syncAnalyticsDocs,
 } from '@/analytics/doc-tree.js';
 
-describe('analytics doc-tree (issue #279)', () => {
+describe('analytics doc-tree', () => {
   it('normalizes casing and separators to one slug', () => {
     expect(normalizeEventSlug('Song Played')).toBe('song-played');
     expect(normalizeEventSlug('song played')).toBe('song-played');

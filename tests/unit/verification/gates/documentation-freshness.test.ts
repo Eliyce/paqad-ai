@@ -45,8 +45,6 @@ describe('DocumentationFreshnessGate', () => {
         },
       ],
     });
-    // The drift doc EXISTS, so the code change legitimately flags it for review. A
-    // framework-assumed doc the project never created can't be staled (issue #307).
     mkdirSync(join(context.project_root, 'docs/maintainers'), { recursive: true });
     writeFileSync(join(context.project_root, 'docs/maintainers/architecture-map.md'), '# Map\n');
 

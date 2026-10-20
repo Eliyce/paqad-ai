@@ -50,7 +50,7 @@ describe('quality baseline', () => {
     const baseline = createBaseline([sample('dead_code', 'core', 5)], NOW);
     const next = tightenBaseline(baseline, [sample('dead_code', 'core', 8)], LATER);
     expect(next.samples[0]?.value).toBe(5);
-    expect(next.updated_at).toBe(NOW); // nothing changed
+    expect(next.updated_at).toBe(NOW);
   });
 
   it('adds a newly-collectable measure without failing', () => {

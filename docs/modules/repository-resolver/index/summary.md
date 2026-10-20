@@ -17,6 +17,13 @@ and the module-map engine.
 
 _This module has no enumerated features in the map; the module itself is the unit of work._
 
+## Why the code works the way it does
+
+`discovery.ts` reads the tree into memory once, applying only the rules that need no git (dot
+entries, the static ignore sets, nested VCS boundaries, where descent stops), then resolves every
+git-ignored path with one batched `git check-ignore` call. Spawning two calls per folder used to
+stall onboarding for seconds on large repos. The output matches the old per-folder walk.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

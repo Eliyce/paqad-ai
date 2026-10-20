@@ -1,14 +1,5 @@
-// The Stop and SubagentStop seam for the change cost (issue #639, Part 23).
-//
-// Lazy-imported by `runtime/hooks/lib/cost-refresh.mjs` at the end of
-// `verification-completion.mjs` (Stop) and `stage-agent-completion.mjs` (SubagentStop), after
-// each hook's decision is final. It records the transcript paths the payload names, reads what
-// they gained since the last run, and rewrites the active change's `cost.json`. Record-only: it
-// throws on a write fault so the hook can log it, and the hook's exit code and output never
-// depend on it.
-
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { resolveSessionId } from '@/rag-ledger/session.js';
+import { resolveHookSession } from '@/rag-ledger/session.js';
 
 import {
   changeCostWindow,
@@ -26,11 +17,8 @@ export interface RefreshChangeCostInput {
 
 export type RefreshChangeCostOutcome = 'written' | 'no-feature' | 'no-window' | 'no-sources';
 
-/** Record the payload's transcripts and rewrite the active change's `cost.json`. */
 export function refreshChangeCostFromHook(input: RefreshChangeCostInput): RefreshChangeCostOutcome {
-  // Key on the orchestrator's ledger session, as the stage-agent and High Table recorders do, so
-  // a subagent's payload lands on the same change as the main session's.
-  const sessionId = resolveSessionId(input.projectRoot, null);
+  const sessionId = resolveHookSession(input.projectRoot, input.payload);
   const dirName = currentFeature(input.projectRoot, sessionId);
   if (!dirName) return 'no-feature';
   const window = changeCostWindow(input.projectRoot, dirName, input.now);
@@ -44,8 +32,6 @@ export function refreshChangeCostFromHook(input: RefreshChangeCostInput): Refres
   });
   const record = computeChangeCost(input.projectRoot, dirName, { now: input.now });
   if (record === null) return 'no-window';
-  // No transcript known yet (a host that names none): no file, so the HUD keeps "not yet"
-  // instead of showing a cost of zero tokens it never measured.
   if (record.sources === 0) return 'no-sources';
   writeChangeCost(input.projectRoot, dirName, record, sessionId);
   return 'written';

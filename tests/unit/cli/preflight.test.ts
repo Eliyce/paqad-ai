@@ -61,7 +61,6 @@ describe('paqad-ai preflight command', () => {
     const out = await invoke(['site-map']);
 
     expect(process.exitCode).toBe(1);
-    // Both glyphs render: 🟡 for needs-decision, 🔴 for unavailable.
     expect(out.some((l) => l.includes('🟡') && l.includes('Laravel route list'))).toBe(true);
     expect(out.some((l) => l.includes('🔴') && l.includes('Module documentation'))).toBe(true);
     expect(out.some((l) => l.includes('"ok":false'))).toBe(true);

@@ -11,29 +11,12 @@ import {
 
 import { appendDashboardAudit } from './approvals.js';
 
-/**
- * Issue #146 — `GET /api/packs` plus the install and remove mutations (spec
- * section 6.1). Listing enumerates pack directories the way
- * {@link StackPackLoader} discovers them, but validates each one explicitly
- * so invalid packs stay visible with `valid: false` instead of being
- * quarantined out of the list. Install and remove reuse the exact core
- * functions the `paqad-ai packs` CLI calls, with a name guard in front of
- * remove so no filesystem path is ever built from an unvetted name.
- */
-
-/** Same source precedence as the loader: later sources override earlier. */
 const SOURCE_ORDER = ['built-in', 'global', 'project'] as const;
 
 export type PackSource = (typeof SOURCE_ORDER)[number];
 
-/**
- * Safe pack-name shape, checked before any filesystem path is built from a
- * client-supplied name. Deliberately at least as strict as the manifest
- * schema's `^[a-z0-9]+(?:-[a-z0-9]+)*$` on the traversal-relevant characters.
- */
 const PACK_NAME_PATTERN = /^[a-z0-9][a-z0-9-]*$/;
 
-/** Thrown when a client-supplied pack name fails the safety pattern. */
 export class PackNameError extends Error {
   constructor(name: string) {
     super(
@@ -45,13 +28,11 @@ export class PackNameError extends Error {
 
 export interface DashboardPack {
   name: string;
-  /** The winning source after override precedence (project > global > built-in). */
   source: PackSource;
   version: string;
   valid: boolean;
 }
 
-/** Test hooks; production callers pass nothing and get the real roots. */
 export type PacksRootsOverrides = Partial<
   Pick<PackManagerRoots, 'runtimeRoot' | 'globalPacksRoot' | 'projectPacksRoot'>
 >;
@@ -63,10 +44,6 @@ function sourceRootFor(source: PackSource, roots: PackManagerRoots): string {
   return source === 'global' ? roots.globalPacksRoot : roots.projectPacksRoot;
 }
 
-/**
- * The effective pack list: every discoverable pack with its winning source,
- * manifest version, and validation verdict. Sorted by name.
- */
 export function listPacks(
   projectRoot: string,
   overrides: PacksRootsOverrides = {},
@@ -82,8 +59,6 @@ export function listPacks(
     }
     const packDirs = readdirSync(sourceRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
-      // Convention directories (`_shared`, VCS metadata) are never packs —
-      // same rule the loader applies during discovery.
       .filter((entry) => !entry.name.startsWith('_') && !entry.name.startsWith('.'));
 
     for (const entry of packDirs) {
@@ -101,7 +76,6 @@ export function listPacks(
 }
 
 export interface InstallPackInput {
-  /** Local path, git URL, or registry name — same forms the CLI accepts. */
   source: string;
   scope?: 'global' | 'project';
   roots?: PacksRootsOverrides;
@@ -114,12 +88,6 @@ export interface InstallPackResult {
   root: string;
 }
 
-/**
- * Install a pack through the CLI's core path ({@link installPackCore}), which
- * validates the manifest — including the schema's strict name pattern —
- * before anything is copied into the scope directory. Audited as
- * `dashboard.packs.install`.
- */
 export async function installPack(
   projectRoot: string,
   input: InstallPackInput,
@@ -157,12 +125,6 @@ export interface RemovePackResult {
   removed: true;
 }
 
-/**
- * Remove a global or project pack override through the CLI's core path
- * ({@link removePackCore}), which refuses built-in packs. The name is checked
- * against {@link PACK_NAME_PATTERN} first so the removal path can never be
- * steered outside the scope directory. Audited as `dashboard.packs.remove`.
- */
 export function removePack(projectRoot: string, input: RemovePackInput): RemovePackResult {
   if (!PACK_NAME_PATTERN.test(input.name)) {
     throw new PackNameError(input.name);

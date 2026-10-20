@@ -54,7 +54,6 @@ describe('ux-state-machine', () => {
         .split('\n')
         .filter((l) => l.trim())
         .map((l) => l.split(/\s+/, 1)[0]);
-      // Should include at least the universal 5: idle, loading, success, empty, error
       for (const must of ['idle', 'loading', 'success', 'empty', 'error']) {
         expect(tokens, `state ${must}`).toContain(must);
       }

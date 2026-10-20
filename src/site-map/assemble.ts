@@ -1,14 +1,3 @@
-// Pure report assembly: given the loaded map, the extraction result, and the baseline, compute
-// the deterministic reconciliation findings, assign stable ids, apply the baseline ratchet, and
-// produce the SiteMapReportIndex. No I/O — the impure collector in `run.ts` gathers the inputs
-// (reading the map, walking the tree via the injectable gatherer) and writes the outputs.
-//
-// The reconciliation implemented here is the "is every extracted surface mapped?" half of FR-7
-// (category SM-ADD). The remaining Tier-A checks — SM-REMOVE, evidence `file:line` resolution
-// (SM-EVIDENCE), cross-reference integrity (SM-XREF), and the graph invariants (SM-ORPHAN /
-// SM-DEADEND / SM-GUARDLESS) — live in `./verification.ts` and are concatenated in below via
-// `collectCandidates`, exactly as codebase-health's assemble concatenates detector outputs.
-
 import { join } from 'node:path';
 
 import { VERSION } from '@/index.js';
@@ -40,17 +29,13 @@ export interface SiteMapAssemblyInput {
   workflow: SiteMapWorkflowName;
   now: Date;
   app: SiteMapAppSummary;
-  /** The canonical map, or null when none exists yet (first run over an unmapped project). */
   map: AppMap | null;
   extraction: ExtractionResult;
-  /** How each `file:line` the map cites resolved against the tree (the gatherer's Tier-A I/O). */
   evidenceResolutions: EvidenceResolution[];
-  /** Raw navigation edges detected in the code (S9a), reconciled against the map at S9c. */
   codeTransitions: ExtractedTransition[];
   journeyCount: number;
   blockedChecks: SiteMapBlockedCheck[];
   baseline: SiteMapBaseline | null;
-  /** Named inputs that fed the run (extractor names, `app-map.yaml`, `journeys/`). */
   sources: string[];
 }
 
@@ -60,25 +45,17 @@ export interface AssembledSiteMapReport {
   findingIds: string[];
 }
 
-/** Normalize a single-or-list evidence ref into a flat array. */
 function normalizeEvidence(ref: EvidenceRef | undefined): Evidence[] {
   if (ref === undefined) return [];
   return Array.isArray(ref) ? ref : [ref];
 }
 
-/** Two evidence pointers match on the same file; a present line on both sides must also agree. */
 function evidenceMatch(a: Evidence, b: Evidence): boolean {
   if (a.file !== b.file) return false;
   if (a.line === undefined || b.line === undefined) return true;
   return a.line === b.line;
 }
 
-/**
- * SM-ADD: every extracted surface must be present in the map. An extracted surface is "mapped"
- * when the map cites overlapping `file:line` evidence for some surface; otherwise the map is
- * missing it. With no map (first run) every extracted surface is unmapped — the useful first
- * signal ("here is what to map"). Deterministic: pure over the sorted extraction + the map.
- */
 export function detectUnmappedSurfaces(
   map: AppMap | null,
   extraction: ExtractionResult,
@@ -99,8 +76,6 @@ export function detectUnmappedSurfaces(
         `The ${surface.kind} "${surface.label}" exists in code but is absent from the site ` +
         'map, so the map under-describes the product.',
       category: 'SM-ADD',
-      // A high-confidence extractor found a real surface (map incompleteness); the generic
-      // fallback is convention-based, so its gaps are lower severity.
       severity: surface.confidence === 'high' ? 'medium' : 'low',
       tier: 'deterministic',
       confidence: 1,
@@ -121,16 +96,6 @@ export function detectUnmappedSurfaces(
   return candidates;
 }
 
-/**
- * SM-EDGE-MISSING: every navigation edge the code proves must be recorded on the map. Given the
- * code's edges already resolved to surface ids (S9b's `resolveTransitions`), an edge is "recorded"
- * when its origin surface carries a transition to the same target; otherwise the map
- * under-describes how users move. The edge analogue of `detectUnmappedSurfaces` — pure over the
- * map + the resolved edges. An edge whose origin surface is absent from the map raises nothing
- * here (SM-ADD already reports that surface, and an edge cannot be recorded on a surface the map
- * does not carry); an edge the map already records raises nothing; two identical edges (same
- * origin and target) raise at most one finding. Kept distinct from SM-ADD, which is surface-only.
- */
 export function detectMissingEdges(
   map: AppMap,
   resolved: ResolvedTransition[],
@@ -148,11 +113,11 @@ export function detectMissingEdges(
     const from = edge.from_id;
     const to = edge.transition.to;
     const recordedFrom = recorded.get(from);
-    if (recordedFrom === undefined) continue; // origin surface not on the map — SM-ADD covers it
+    if (recordedFrom === undefined) continue;
     const key = `${from} -> ${to}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    if (recordedFrom.has(to)) continue; // the map already records this navigation
+    if (recordedFrom.has(to)) continue;
     const pointers = normalizeEvidence(edge.transition.evidence);
     const files = [...new Set(pointers.map((pointer) => pointer.file))].sort();
     candidates.push({
@@ -161,8 +126,6 @@ export function detectMissingEdges(
         `The code navigates from "${from}" to "${to}" (${edge.transition.trigger}), but the site ` +
         'map records no such transition, so the map under-describes how users move through the product.',
       category: 'SM-EDGE-MISSING',
-      // A high-confidence framework navigation call is a firmer signal than a convention-based
-      // match, mirroring the SM-ADD severity split.
       severity: edge.transition.confidence === 'high' ? 'medium' : 'low',
       tier: 'deterministic',
       confidence: 1,
@@ -184,12 +147,6 @@ export function detectMissingEdges(
   return candidates;
 }
 
-/**
- * Reconcile the code's navigation edges against the stored map (S9c). Resolves the raw code edges
- * to surfaces with S9b's pure resolver, turns each proven-but-unrecorded edge into an
- * SM-EDGE-MISSING finding, and surfaces any edge that resolves to no mapped surface as the S9b
- * unresolved-links blocked check — so a dropped link is a visible gap, never a silent pass (D4).
- */
 function reconcileEdges(
   map: AppMap,
   codeTransitions: ExtractedTransition[],
@@ -202,12 +159,6 @@ function reconcileEdges(
   };
 }
 
-/**
- * Concatenate every category's candidates in a stable order — SM-ADD (extraction reconciliation)
- * then the Tier-A verification categories, then SM-EDGE-MISSING (edge reconciliation) — plus any
- * check the verification could not run. Edge reconciliation runs only when a map exists; with no
- * map the `map-present` blocked check and SM-ADD already cover the gap.
- */
 function collectCandidates(input: SiteMapAssemblyInput): {
   candidates: Array<Omit<SiteMapFinding, 'id'>>;
   blockedChecks: SiteMapBlockedCheck[];
@@ -228,7 +179,6 @@ function collectCandidates(input: SiteMapAssemblyInput): {
   };
 }
 
-/** Assemble the full run-report index from gathered inputs (pure). */
 export function assembleSiteMapReport(input: SiteMapAssemblyInput): AssembledSiteMapReport {
   const { candidates, blockedChecks: verificationBlocked } = collectCandidates(input);
   const withIds = assignSiteMapFindingIds(candidates);

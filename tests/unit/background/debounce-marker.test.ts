@@ -17,10 +17,9 @@ describe('shouldDebounce', () => {
   it('is true while the last spawn is inside the window', () => {
     withTempDir((dir) => {
       const marker = join(dir, 'm');
-      const stamp = 1_000_000; // seconds
+      const stamp = 1_000_000;
       writeFileSync(marker, '');
       utimesSync(marker, stamp, stamp);
-      // now = 500ms after the marker, window = 1000ms → still debounced.
       expect(shouldDebounce(marker, 1000, () => stamp * 1000 + 500)).toBe(true);
     });
   });
@@ -31,7 +30,6 @@ describe('shouldDebounce', () => {
       const stamp = 1_000_000;
       writeFileSync(marker, '');
       utimesSync(marker, stamp, stamp);
-      // now = 1500ms after the marker, window = 1000ms → no longer debounced.
       expect(shouldDebounce(marker, 1000, () => stamp * 1000 + 1500)).toBe(false);
     });
   });
@@ -52,7 +50,6 @@ describe('touchMarker', () => {
       const stamp = 2_000_000;
       touchMarker(marker, () => stamp * 1000);
       expect(existsSync(marker)).toBe(true);
-      // Immediately after touching, a same-instant check is debounced.
       expect(shouldDebounce(marker, 1000, () => stamp * 1000)).toBe(true);
     });
   });
@@ -62,7 +59,6 @@ describe('touchMarker', () => {
       const marker = join(dir, 'm');
       const stamp = 3_000_000;
       touchMarker(marker, () => stamp * 1000);
-      // A later touch reopens the window relative to the new time.
       const later = stamp + 10;
       touchMarker(marker, () => later * 1000);
       expect(shouldDebounce(marker, 1000, () => later * 1000 + 500)).toBe(true);

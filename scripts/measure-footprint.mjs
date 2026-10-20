@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// Measure the resident session-start footprint paqad adds to a project (issue #285,
-// headline a). Read-only. Runs in whatever project it is pointed at — the paqad-ai
-// repo (dogfood) or a fresh onboarded fixture — never mutating anything.
-//
-//   node scripts/measure-footprint.mjs [--project <path>] [--tokenizer <version>] [--json]
-//
-// --project defaults to the current directory. --json prints only the JSON report.
-// Token counts use src/context/tokenizer-cache.ts (real tokenizer when
-// @huggingface/transformers is installed, else a labelled char/4 heuristic). Exit codes:
-// 0 = measured (including an empty project with no .paqad/ or docs/instructions),
-// 2 = usage error.
 
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
@@ -22,7 +11,6 @@ import {
   renderFootprintMarkdown,
 } from './lib/footprint.mjs';
 
-/** Default tokenizer id — a general text tokenizer, not the RAG embedding model. */
 const DEFAULT_TOKENIZER = 'Xenova/gpt2';
 
 function parseArgs(argv) {
@@ -50,16 +38,10 @@ function parseArgs(argv) {
 const USAGE =
   'Usage: node scripts/measure-footprint.mjs [--project <path>] [--tokenizer <version>] [--json]';
 
-/** char/4 — the same heuristic tokenizer-cache falls back to when the native load fails. */
 function heuristicCounter() {
   return { countTokens: (text) => Math.ceil(text.length / 4), tokenizer_version: 'heuristic' };
 }
 
-/**
- * Load the real tokenizer from the built dist bundle (dedicated tsup entry), mirroring
- * the runtime/hooks/*.mjs dist-import pattern. Falls back to the char/4 heuristic when
- * the dist bundle is absent (repo not built) so the script always produces a number.
- */
 async function loadTokenizer(version) {
   try {
     const distUrl = new URL('../dist/context/tokenizer-cache.js', import.meta.url);
@@ -91,7 +73,6 @@ async function main() {
     project: projectRoot,
     commit: shortCommit(projectRoot),
     tokenizerVersion: tokenizer.tokenizer_version,
-    // ISO date only (no time) — stable across a run, no Date.now dependency on output identity.
     date: new Date().toISOString().slice(0, 10),
   };
 

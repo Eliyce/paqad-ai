@@ -15,7 +15,6 @@ function isStructuredHandoff(data: unknown): data is StructuredHandoff {
 
 export class HandoffParser {
   async parse(projectRoot: string): Promise<ParsedHandoff | null> {
-    // Try structured JSON first
     try {
       const jsonPath = join(projectRoot, '.paqad', 'session', 'handoff.json');
       const raw = await readFile(jsonPath, 'utf8');
@@ -32,11 +31,8 @@ export class HandoffParser {
       if (error instanceof UnsupportedStructuredHandoffVersionError) {
         throw error;
       }
-
-      // fall through
     }
 
-    // Try legacy markdown
     try {
       const mdPath = join(projectRoot, '.paqad', 'session', 'handoff.md');
       const raw = await readFile(mdPath, 'utf8');

@@ -69,7 +69,6 @@ export function collectRagStatus(projectRoot: string, now: number = Date.now()):
   const indexMtime = fileMtime(vectorMeta) ?? fileMtime(vectorIndex);
   const indexFreshness = scoreFreshness(indexMtime, { now });
 
-  // Composite: provider configured (30) + index present (30) + freshness (40).
   let score = 0;
   if (provider !== null) score += 30;
   if (vectorPresent) score += 30;

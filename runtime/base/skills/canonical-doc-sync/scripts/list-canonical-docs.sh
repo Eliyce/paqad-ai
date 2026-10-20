@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Enumerate canonical doc paths the project ships (module docs,
-#          registries, business docs).
-# Usage:   bash scripts/list-canonical-docs.sh [docs-root]
-#          Default docs-root: docs
-# Output:  Sorted unique canonical doc paths.
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Enumerate canonical doc paths the project ships (module docs,
+         registries, business docs).
+Usage:   bash scripts/list-canonical-docs.sh [docs-root]
+         Default docs-root: docs
+Output:  Sorted unique canonical doc paths.
+Exits:   0 ok | 2 usage error
+USAGE
   exit 0
 fi
 

@@ -64,11 +64,9 @@ describe('traceability writer', () => {
       codeUniverse: [],
     });
     const dir = join(root, PATHS.TRACEABILITY_DIR);
-    // Two writes at once each use their own temp file, so both land whole.
     await Promise.all([writeTraceabilityMap(root, map), writeTraceabilityMap(root, map)]);
     expect(readdirSync(dir)).toEqual(['map.json']);
 
-    // A non-empty directory where the map goes makes the rename fail.
     const target = traceabilityMapPath(root);
     rmSync(target);
     mkdirSync(target);

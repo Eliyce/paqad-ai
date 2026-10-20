@@ -1,15 +1,10 @@
-// `paqad-ai module-map` — reconcile module-map.yml against the source tree.
-// Issue #80, Phase 2. Writes .paqad/module-map/drift.json and prints a JSON
-// summary on stdout. Hard-fails (non-zero exit) when source_roots is missing
-// and --fail-on-drift is set.
-
 import { Command } from 'commander';
 
 import { driftReportHasFindings, reconcileModuleMap } from '@/module-map/reconciler.js';
 
 export function createModuleMapCommand(): Command {
   const command = new Command('module-map').description(
-    'Reconcile module-map.yml against the source tree (issue #80 Phase 2)',
+    'Reconcile module-map.yml against the source tree',
   );
 
   command

@@ -8,7 +8,6 @@ import { STACK_ECOSYSTEMS, type StackEcosystem } from '@/core/types/introspectio
 
 import { buildDetectionReport } from './report.js';
 
-/** Top-level manifest files the AI path samples to compose its prompt. */
 const MANIFEST_FILES = [
   'package.json',
   'pubspec.yaml',
@@ -20,23 +19,13 @@ const MANIFEST_FILES = [
   'composer.json',
 ] as const;
 
-/** Per-file read cap (bytes) — keeps the prompt small and bounded. */
 const MAX_FILE_BYTES = 4096;
-/** Hard wall-clock timeout for the inference call. */
 const DEFAULT_TIMEOUT_MS = 10_000;
-/** Reports below this score are discarded so the static fallback runs instead. */
 const MIN_CONFIDENCE = 0.6;
 
 export interface AIDetectorOptions {
-  /**
-   * Inference provider that performs the actual LLM call. When omitted the AI path
-   * is considered unavailable and {@link AIDetector.detect} always returns `null`,
-   * so the engine falls through to static detection (AC2).
-   */
   provider?: InferenceProvider | null;
-  /** Override the hard timeout (ms). Defaults to 10s. */
   timeoutMs?: number;
-  /** Override the minimum accepted confidence. Defaults to 0.6. */
   minConfidence?: number;
 }
 
@@ -47,16 +36,6 @@ interface ParsedAIDetection {
   confidence_score: number;
 }
 
-/**
- * PQD-423: the AI-first stack detection path. Reads the project's top-level
- * manifests, asks an injected {@link InferenceProvider} to classify the stack, and
- * returns a {@link DetectionReport} tagged `source: 'ai'` — or `null` on any
- * failure (no provider, no manifests, call/parse error, timeout, or low
- * confidence), in which case the {@link Detector} runs its static fallback.
- *
- * Failure isolation is total: this class never throws. The static path therefore
- * remains the guaranteed last resort.
- */
 export class AIDetector {
   private readonly provider: InferenceProvider | null;
   private readonly timeoutMs: number;
@@ -105,11 +84,6 @@ export class AIDetector {
     });
   }
 
-  /**
-   * Run the provider call under a hard timeout. If the provider ignores the
-   * abort signal, the timer still rejects so the caller is never blocked past
-   * {@link timeoutMs}.
-   */
   private completeWithTimeout(
     provider: InferenceProvider,
     messages: InferenceMessage[],
@@ -140,13 +114,9 @@ function readManifestSamples(projectRoot: string): Array<{ file: string; content
   for (const file of MANIFEST_FILES) {
     const path = join(projectRoot, file);
     try {
-      // Read directly (no existsSync pre-check) to avoid a TOCTOU file-system race;
-      // a missing or unreadable file simply throws and is skipped.
       const content = readFileSync(path, 'utf8').slice(0, MAX_FILE_BYTES);
       samples.push({ file, content });
-    } catch {
-      // Missing or unreadable file — skip it; other manifests may still carry signal.
-    }
+    } catch {}
   }
   return samples;
 }

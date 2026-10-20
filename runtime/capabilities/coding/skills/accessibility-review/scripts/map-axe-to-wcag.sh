@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
-# Purpose: Map an axe-core rule id to its primary WCAG 2.2 success criterion id
-#          using the lookup in references/wcag-mapping.md. Deterministic table
-#          lookup so the LLM doesn't re-derive it per finding.
-#
-# Usage:   bash scripts/map-axe-to-wcag.sh <axe-rule-id>      (or read stdin)
-#
-# Output:  the WCAG id to stdout (e.g. WCAG-2.2-1.4.3).
-#          When the rule is not in the table, emits `WCAG-UNKNOWN` and a
-#          diagnostic to stderr — the LLM then maps it manually.
-#
-# Exits:   0 ok (incl. unknown)
-#          2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Map an axe-core rule id to its primary WCAG 2.2 success criterion id
+         using the lookup in references/wcag-mapping.md. Deterministic table
+         lookup so the LLM doesn't re-derive it per finding.
+
+Usage:   bash scripts/map-axe-to-wcag.sh <axe-rule-id>      (or read stdin)
+
+Output:  the WCAG id to stdout (e.g. WCAG-2.2-1.4.3).
+         When the rule is not in the table, emits `WCAG-UNKNOWN` and a
+         diagnostic to stderr — the LLM then maps it manually.
+
+Exits:   0 ok (incl. unknown)
+USAGE
   exit 0
 fi
 

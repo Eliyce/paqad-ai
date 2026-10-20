@@ -55,7 +55,7 @@ describe('readBaseline', () => {
     const root = repo();
     await writeBaseline(root, ['HL-2', 'HL-1'], new Date(2026, 0, 1));
     const loaded = readBaseline(root) as HealthBaseline;
-    expect(loaded.finding_ids).toEqual(['HL-1', 'HL-2']); // sorted
+    expect(loaded.finding_ids).toEqual(['HL-1', 'HL-2']);
     expect(loaded.generated_by).toBe('paqad-ai');
     expect(toPosixPath(baselinePath(root))).toContain(PATHS.HEALTH_BASELINE);
     expect(readFileSync(join(root, PATHS.HEALTH_BASELINE), 'utf8').endsWith('\n')).toBe(true);

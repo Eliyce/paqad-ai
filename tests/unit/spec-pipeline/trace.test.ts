@@ -22,17 +22,16 @@ describe('carryForwardIds', () => {
         { id: 'FR-2', kind: 'FR', source: 'answer:D-1' },
       ],
     };
-    // FR-2's source ('answer:D-1') is removed; a genuinely new source appears.
     const out = carryForwardIds(
       [
-        { kind: 'FR', source: 'task.intent' }, // unchanged → keeps FR-1
-        { kind: 'FR', source: 'answer:D-9' }, // new → must NOT reuse FR-2
+        { kind: 'FR', source: 'task.intent' },
+        { kind: 'FR', source: 'answer:D-9' },
       ],
       previous,
     );
     const bySource = new Map(out.entries.map((e) => [e.source, e.id]));
     expect(bySource.get('task.intent')).toBe('FR-1');
-    expect(bySource.get('answer:D-9')).toBe('FR-3'); // FR-2 retired, not reused
+    expect(bySource.get('answer:D-9')).toBe('FR-3');
   });
 
   it('is deterministic (exact source match, no fuzzy content matching)', () => {
@@ -63,7 +62,6 @@ describe('validateTrace', () => {
   });
 });
 
-// Issue #547 — the craft-trace gate, the writer/reader, and the raw parser.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -161,23 +159,20 @@ describe('trace staging io + parseTraceArtifact', () => {
   });
 });
 
-// Issue #547 — remaining branches (coverage).
 describe('trace io edge branches', () => {
   it('readTrace returns null on corrupt json and on a non-array entries', () => {
     const root = _tempRoot();
     writeTrace(root, 'c9', { entries: [] });
-    // Corrupt the file.
     const abs = join(root, stagedFilePath('c9', 'trace'));
     writeFileSync(abs, '{not json');
     expect(readTrace(root, 'c9')).toBeNull();
   });
 
-  it('readTrace falls back to the frozen trace map, then to an old provenance trace (#581)', () => {
+  it('readTrace falls back to the frozen trace map, then to an old provenance trace', () => {
     const root = _tempRoot();
     const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
     const specPath = join(root, featureFilePath(dir, 'specification'));
     mkdirSync(dirname(specPath), { recursive: true });
-    // The frozen map keeps well-formed requirement ids only.
     writeFileSync(
       specPath,
       JSON.stringify({
@@ -195,7 +190,6 @@ describe('trace io edge branches', () => {
     expect(readTrace(root, dir)).toEqual(legacy);
     writeFileSync(specPath, JSON.stringify({ trace: [], provenance: { trace: { entries: 'x' } } }));
     expect(readTrace(root, dir)).toBeNull();
-    // A staged trace wins over the frozen one.
     writeTrace(root, dir, { entries: [] });
     expect(readTrace(root, dir)).toEqual({ entries: [] });
   });

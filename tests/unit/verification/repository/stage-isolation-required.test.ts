@@ -1,16 +1,3 @@
-// Requiring the isolation evidence stream (issue #573).
-//
-// The core ask of #573: a graduated/full-lane change on a subagent-capable host that ran
-// entirely in one context must FAIL by name instead of reporting "Safe to merge". The
-// manifest previously marked `context-efficiency.jsonl` optional, with an accurate comment
-// saying the gate had no signal for whether a given change ran under isolation. #573 found
-// the missing signal — the lane was always null because the prompt-route seam was never
-// built — so the predicate is now well defined and lives here.
-//
-// The other half matters just as much: this must stay silent on the fast lane, on a host
-// with no subagent dispatch, and whenever the lane is unresolved (INV-2, INV-5). A gate
-// that false-fails legitimate work is worse than the gap it closes.
-
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,15 +34,10 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-/** A real bundle dir name for `name`, so feature.json can be written for it. */
 function bundle(name: string): string {
   return `573-${name}-01JABCDEFGHJKMNPQRSTVWXYZ0`;
 }
 
-/**
- * Write a bundle whose `feature.json` carries `lane` and `adapter` (issue #581: the one home
- * of the session constants), plus a full stage set of rows that carry neither.
- */
 function bundleWith(
   name: string,
   lane: 'fast' | 'graduated' | 'full' | null,
@@ -89,7 +71,6 @@ function bundleWith(
 
 describe('isSubagentCapableAdapter', () => {
   it('accepts the hosts the stage-agent writer actually renders for', () => {
-    // Derived from the same roster, so the installer and the gate cannot disagree.
     expect(STAGE_AGENT_HOSTS.length).toBeGreaterThan(0);
     for (const host of STAGE_AGENT_HOSTS) {
       expect(isSubagentCapableAdapter(host.adapter, STAGE_AGENT_HOSTS)).toBe(true);
@@ -107,7 +88,7 @@ describe('isSubagentCapableAdapter', () => {
   });
 });
 
-describe('stageIsolationExpected (issue #573)', () => {
+describe('stageIsolationExpected', () => {
   it('is true on a full lane on a subagent-capable host', () => {
     bundleWith('full-claude', 'full', 'claude-code');
 
@@ -133,13 +114,12 @@ describe('stageIsolationExpected (issue #573)', () => {
   });
 
   it('is false when the lane is unresolved, rather than inventing a requirement (INV-5)', () => {
-    // This is the state every change was in before #573. It must not start blocking.
     bundleWith('null-lane', null, 'claude-code');
 
     expect(stageIsolationExpected(root, SESSION, bundle('null-lane'))).toBe(false);
   });
 
-  it('reads the lane and host a pre-#581 bundle stamped on its open row (INV-8)', () => {
+  it('reads the lane and host a legacy-shape bundle stamped on its open row (INV-8)', () => {
     appendLegacyStageRow(root, bundle('legacy'), SESSION, {
       kind: 'open',
       adapter: 'claude-code',
@@ -166,7 +146,6 @@ describe('stageIsolationExpected (issue #573)', () => {
   });
 
   it('is false for a bundle whose ledger cannot be read, and its lane reads unresolved', () => {
-    // A stage ledger that is a directory makes the constants read throw.
     const dir = bundle('unreadable');
     mkdirSync(
       join(root, '.paqad/ledger/feature-evidence', dir, FEATURE_BUNDLE_FILES.stageEvidence),
@@ -175,22 +154,19 @@ describe('stageIsolationExpected (issue #573)', () => {
       },
     );
     expect(stageIsolationExpected(root, SESSION, dir)).toBe(false);
-    // Issue #640 — the shared builder reads the same constants once; an unreadable bundle has
-    // no lane, which the manifest treats as full (fails safe).
     expect(buildBundleCompletenessConfig(root, SESSION, dir).lane).toBeNull();
   });
 
-  it('reads the lane once for the builder, with or without a session (issue #640)', () => {
+  it('reads the lane once for the builder, with or without a session', () => {
     bundleWith('full-claude', 'full', 'claude-code');
     const withSession = buildBundleCompletenessConfig(root, SESSION, bundle('full-claude'));
     expect([withSession.lane, withSession.stageIsolationExpected]).toEqual(['full', true]);
-    // No session: isolation cannot be judged, but the lane still decides the pipeline files.
     const noSession = buildBundleCompletenessConfig(root, null, bundle('full-claude'));
     expect([noSession.lane, noSession.stageIsolationExpected]).toEqual(['full', false]);
   });
 });
 
-describe('stageIsolationStatus (issue #602)', () => {
+describe('stageIsolationStatus', () => {
   it('is "expected" on a graduated/full lane on a subagent-capable host', () => {
     bundleWith('full-claude', 'full', 'claude-code');
     bundleWith('grad-codex', 'graduated', 'codex-cli');
@@ -209,7 +185,6 @@ describe('stageIsolationStatus (issue #602)', () => {
     bundleWith('null-gemini', null, 'gemini-cli');
     expect(stageIsolationStatus(root, SESSION, bundle('fast-claude'))).toBe('not-applicable');
     expect(stageIsolationStatus(root, SESSION, bundle('full-gemini'))).toBe('not-applicable');
-    // An unresolved lane on a host that could never isolate is not surfaced either.
     expect(stageIsolationStatus(root, SESSION, bundle('null-gemini'))).toBe('not-applicable');
     expect(stageIsolationStatus(root, SESSION, null)).toBe('not-applicable');
     expect(stageIsolationStatus(root, null, bundle('fast-claude'))).toBe('not-applicable');
@@ -234,7 +209,7 @@ describe('stageIsolationStatus (issue #602)', () => {
   });
 });
 
-describe('the isolation evidence lives in stage-evidence.jsonl (issue #581, D9)', () => {
+describe('the isolation evidence lives in stage-evidence.jsonl', () => {
   it('has no separate bundle file or manifest entry any more', () => {
     expect(Object.values(FEATURE_BUNDLE_FILES)).not.toContain('context-efficiency.jsonl');
     expect(BUNDLE_MANIFEST.map((row) => row.file)).not.toContain('context-efficiency.jsonl');

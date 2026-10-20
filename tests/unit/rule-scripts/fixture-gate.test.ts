@@ -22,8 +22,6 @@ function write(path: string, body: string): void {
   writeFileSync(path, body, 'utf8');
 }
 
-// A real, self-contained rule script: flags `debugger` statements. Pure node,
-// reads { projectRoot, files } from stdin, emits the findings contract.
 const NO_DEBUGGER_SCRIPT = `// @paqad-rule-script
 // rule_id: RL-7f3a
 // source: docs/instructions/rules/coding/code-quality.md
@@ -137,7 +135,6 @@ describe('executeRuleScript', () => {
   it('honours valid findings even when the script exits non-zero (C-3)', () => {
     const root = createRoot();
     const scriptPath = join(root, 'exit-nonzero.mjs');
-    // Linter convention: emit findings, then exit 1 to signal "violations found".
     write(
       scriptPath,
       `process.stdout.write(JSON.stringify({ rule_id: 'RL-7f3a', kind: 'deterministic', findings: [{ file: 'a.ts', message: 'x', severity: 'low' }] }));\nprocess.exit(1);`,
@@ -178,8 +175,6 @@ describe('runFixtures (the gate)', () => {
     const scriptPath = join(root, '001-no-debugger.mjs');
     write(scriptPath, NO_DEBUGGER_SCRIPT);
     const fx = fixturesRoot(scriptPath);
-    // A "pass" fixture that actually contains a debugger -> script flags it ->
-    // the gate must reject (pass folder must produce zero findings).
     write(join(fx, 'pass', 'wrong.ts'), 'debugger;\n');
     write(join(fx, 'fail', 'leftover.ts'), 'debugger;\n');
 
@@ -211,7 +206,7 @@ describe('runFixtures (the gate)', () => {
 
     const result = runFixtures(scriptPath);
     expect(result.missing_binaries).toEqual(['definitely-not-a-real-binary-xyz']);
-    expect(result.failures).toHaveLength(0); // not a logic failure
+    expect(result.failures).toHaveLength(0);
   });
 });
 
@@ -219,7 +214,6 @@ describe('checkOverFlag', () => {
   it('flags a script that over-matches the in-scope files', () => {
     const root = createRoot();
     const scriptPath = join(root, 'greedy.mjs');
-    // Greedy: flags every file regardless of content.
     write(
       scriptPath,
       `import { readFileSync } from 'node:fs';

@@ -1,15 +1,7 @@
-// Dashboard collector for the change-shape metrics trend (issue #362).
-//
-// Reads the last 20 change-metrics rows off the project ledger and turns them into two
-// sparkline-ready series (duplication on new code, cross-file reuse rate) plus a band scored
-// on the latest duplication reading — SonarQube's 3% precedent for the green ceiling, 10% for
-// the amber/red boundary. `unknown` until a change has been measured.
-
 import { readFeatureChangeMetricsWindow } from '@/feature-evidence/projections.js';
 
 import type { AttentionItem, ScoreBand, SectionData } from '../types.js';
 
-/** How many recent changes the trend renders. */
 const WINDOW = 20;
 
 const HELPER = {
@@ -17,12 +9,10 @@ const HELPER = {
   goodLooksLike: 'Duplication trending toward 0% and reuse holding or rising over time.',
 } as const;
 
-/** A numeric field on a ledger row, or null when it was recorded as n/a / is missing. */
 function numberOrNull(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }
 
-/** Band + representative score from the latest numeric duplication reading. */
 function bandForDuplication(latestDup: number | null): { band: ScoreBand; score: number | null } {
   if (latestDup === null) {
     return { band: 'unknown', score: null };
@@ -60,7 +50,6 @@ export function collectChangeMetrics(projectRoot: string): {
   const dupSeries = rows.map((row) => numberOrNull(row.dup_new_pct));
   const reuseSeries = rows.map((row) => numberOrNull(row.reuse_rate));
 
-  // Band on the most recent change that actually produced a duplication reading.
   const latestDup = [...dupSeries].reverse().find((value) => value !== null) ?? null;
   const latestReuse = [...reuseSeries].reverse().find((value) => value !== null) ?? null;
   const { band, score } = bandForDuplication(latestDup);

@@ -1,11 +1,3 @@
-// What the paqad HUD shows, from the session's snapshot (issue #639, Parts 8 and 9).
-//
-// Pure: no Claude Code import, so vitest tests it without the host. `parseSnapshot` reads the
-// file `src/hud/snapshot.ts` writes, defensively: a missing, half-written or foreign file reads
-// as `null` ("not yet") and never throws. `buildBandView` turns a snapshot into the band's
-// state, headline and instruments (Stage and Ship, and the High Table from `table.ts`). Nothing here guesses: a field with no record reads
-// "not yet", and a stage reads done only when the receipt would say done.
-
 import { costPill, formatClock } from './cost';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
@@ -25,15 +17,12 @@ import type {
 
 export const NOT_YET = 'not yet';
 
-/** Where the session's snapshot lives under the project root, as `src/hud/files.ts` names it. */
 export const HUD_DIR = '.paqad/session/hud';
 
-/** A session id made safe for a filename, exactly as `src/hud/files.ts` does it. */
 export function safeSessionId(sessionId: string): string {
   return sessionId.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '_') || 'unknown';
 }
 
-/** `root` and a relative path joined with one `/` (a root like `/` or `C:\` keeps its own). */
 export function joinPath(root: string, rel: string): string {
   return /[\\/]$/.test(root) ? `${root}${rel}` : `${root}/${rel}`;
 }
@@ -45,8 +34,6 @@ export function snapshotPath(root: string, sessionId: string): string {
 export function receiptPath(root: string, sessionId: string): string {
   return joinPath(root, `${HUD_DIR}/${safeSessionId(sessionId)}.receipt.md`);
 }
-
-// ── reading the snapshot ─────────────────────────────────────────────────────
 
 type Rec = Record<string, unknown>;
 
@@ -92,16 +79,11 @@ function readTokens(value: unknown): PaqadCostTokens {
   };
 }
 
-/** One cost line; its money is dropped when the record carries no price date (INV-10). */
 function readCostLine(value: unknown, dated: boolean): PaqadCostLine {
   const line = rec(value);
   return { tokens: readTokens(line?.tokens), usd: dated ? num(line?.usd) : null };
 }
 
-/**
- * The snapshot's `cost` (Part 23), or `null` when absent or not an object. A record with no
- * price date keeps its tokens and loses its money, so money is never shown undated.
- */
 function readCost(value: unknown): PaqadCost | null {
   const cost = rec(value);
   if (!cost) return null;
@@ -138,7 +120,6 @@ function strings(value: unknown): string[] {
   return list(value).filter((entry): entry is string => typeof entry === 'string');
 }
 
-/** A seat's track record, or `null` when absent or when it sat on no earlier change. */
 function readTrackRecord(value: unknown): PaqadTrackRecord | null {
   const record = rec(value);
   const changes = num(record?.changes);
@@ -168,7 +149,6 @@ function readSeat(value: unknown): PaqadSeat | null {
     clamped: typeof seat.clamped === 'boolean' ? seat.clamped : null,
     tokens_estimate: num(seat.tokens_estimate),
     tokens: rec(seat.tokens) ? readTokens(seat.tokens) : null,
-    // Exact only when the host's usage is there to back it.
     tokens_exact: seat.tokens_exact === true && rec(seat.tokens) !== null,
     findings: num(seat.findings),
     late: seat.late === true,
@@ -181,7 +161,6 @@ function readChief(value: unknown): PaqadChief | null {
   return seat ? { ...seat, verdict: str(rec(value)?.verdict) } : null;
 }
 
-/** Each entry of `value` that is an object, read by `pick`. */
 function each<T>(value: unknown, pick: (entry: Rec) => T): T[] {
   return list(value).flatMap((entry) => {
     const record = rec(entry);
@@ -189,10 +168,6 @@ function each<T>(value: unknown, pick: (entry: Rec) => T): T[] {
   });
 }
 
-/**
- * The snapshot's `table` (Parts 13 and 14), or `null` when absent or not an object. A seat with
- * no role is dropped; anything else missing reads as empty, never as a guess.
- */
 function readTable(value: unknown): PaqadHighTable | null {
   const table = rec(value);
   if (!table) return null;
@@ -244,24 +219,19 @@ function readTable(value: unknown): PaqadHighTable | null {
   };
 }
 
-/** A recorded ship step (push, PR, CI) as a short word, or `null` while nothing is recorded. */
 function readStep(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const step = rec(value);
   return str(value) ?? str(step?.state) ?? str(step?.status) ?? 'recorded';
 }
 
-/**
- * Parse the snapshot file's text. Anything that is not a whole `paqad.hud/` snapshot (a missing
- * file, a half-written one, another schema) reads as `null`, never a throw.
- */
 export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot | null {
   if (typeof text !== 'string' || text.trim() === '') return null;
   let raw: unknown;
   try {
     raw = JSON.parse(text);
   } catch {
-    return null; // Half-written or not JSON: the band reads "not yet" until the next whole write.
+    return null;
   }
   const snap = rec(raw);
   if (!snap || typeof snap.schema !== 'string' || !snap.schema.startsWith('paqad.hud/')) {
@@ -371,9 +341,6 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
   };
 }
 
-// ── the nine states ───────────────────────────────────────────────────────────
-
-/** The verdict words, exactly as paqad speaks them everywhere. */
 export const VERDICT_WORDS = {
   pass: 'Safe to merge',
   fail: 'Needs your attention',
@@ -406,22 +373,10 @@ const STATE_TONE: Record<BandState, PaqadTone> = {
   Paused: 'neutral',
 };
 
-/** True when a flag warns about the branch (other tickets' commits riding along, Part 22). */
 function isBranchFlag(flag: { id: string }): boolean {
   return flag.id.startsWith('branch');
 }
 
-/**
- * The band's state, first match wins:
- *   1. Needs you: a decision is waiting.
- *   2. Stopped: a rule stopped an edit (`last_block`, Part 18).
- *   3. No change in progress: Paused when one is paused, Working on another workflow, else Ready.
- *   4. Branch warning: a branch flag is open on the change (Part 22).
- *   5. Working: a stage is running.
- *   6. The verdict: Safe to merge, Needs your attention or Inconclusive.
- *   7. Working: the change goes on, no verdict yet.
- * No snapshot at all reads Ready ("not yet").
- */
 export function bandState(snapshot: PaqadHudSnapshot | null): BandState {
   if (!snapshot) return 'Ready';
   if (snapshot.decisions.pending.length > 0) return 'Needs you';
@@ -437,17 +392,11 @@ export function bandState(snapshot: PaqadHudSnapshot | null): BandState {
   return 'Working';
 }
 
-/**
- * The band's colour. Any open flag turns it amber, even at Safe to merge (decision 17); red and
- * "needs you" keep their own colour, since they already ask for more than a flag does.
- */
 export function bandTone(state: BandState, flags: number): PaqadTone {
   const tone = STATE_TONE[state];
   if (flags > 0 && (tone === 'good' || tone === 'working' || tone === 'neutral')) return 'warn';
   return tone;
 }
-
-// ── the Stage instrument ──────────────────────────────────────────────────────
 
 export const STAGE_ORDER = [
   ['ticket_intake', 'Intake'],
@@ -460,7 +409,6 @@ export const STAGE_ORDER = [
   ['delivery', 'Deliver'],
 ] as const;
 
-/** A stage id in the band's words; `orchestrator` is the time between stages. */
 export function stageLabel(stage: string): string {
   if (stage === 'orchestrator') return 'Between stages';
   return STAGE_ORDER.find(([id]) => id === stage)?.[1] ?? stage;
@@ -472,22 +420,13 @@ export interface StageSegment {
   stage: string;
   label: string;
   state: SegmentState;
-  /** The running stage's start, for the live clock. */
   started_at: string | null;
 }
 
-/**
- * True when the checks a `checks` stage claims are backed by a passing tests-and-lint gate. The
- * receipt reads an unbacked `checks` stage as "tests not verified", never done (issue #368).
- */
 function checksBacked(snapshot: PaqadHudSnapshot): boolean {
   return snapshot.gates.some((gate) => gate.name === 'code-tests-lint' && gate.verdict === 'pass');
 }
 
-/**
- * One stage's segment. Honest by construction: done only when the receipt would print done, so
- * the band never shows a stage as done that the receipt does not (AC-45).
- */
 function segmentState(stage: PaqadHudStage | undefined, snapshot: PaqadHudSnapshot): SegmentState {
   if (!stage) return NOT_YET;
   switch (stage.state) {
@@ -506,7 +445,6 @@ function segmentState(stage: PaqadHudStage | undefined, snapshot: PaqadHudSnapsh
     case 'not-applicable':
       return 'not required';
     default:
-      // The fast lane needs no frozen spec, so Spec reads "not required" there (decision 12).
       if (stage.stage === 'specification' && snapshot.lane === 'fast') return 'not required';
       return NOT_YET;
   }
@@ -526,18 +464,14 @@ export function stageSegments(snapshot: PaqadHudSnapshot | null): StageSegment[]
 
 export { formatClock };
 
-/** The running stage's live clock, or `null` when nothing runs or its start is unreadable. */
 export function liveClock(segments: StageSegment[], now: number): string | null {
   const running = segments.find((segment) => segment.state === 'running');
   const started = running?.started_at ? Date.parse(running.started_at) : Number.NaN;
   return Number.isFinite(started) ? formatClock(now - started) : null;
 }
 
-// ── the Ship instrument ───────────────────────────────────────────────────────
-
 export interface ShipStep {
   label: 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
-  /** What the step says in words: `done`, `running`, `3 commits`, `not yet`, `stays yours`. */
   word: string;
   done: boolean;
 }
@@ -563,37 +497,24 @@ export function shipSteps(snapshot: PaqadHudSnapshot | null): ShipStep[] {
     step('Push', ship?.push),
     step('PR', ship?.pr),
     step('CI', ship?.ci),
-    // paqad never merges for you (decision 2): Merge stays yours until a merge is recorded.
     ship?.merge_commit
       ? { label: 'Merge', word: 'merged', done: true }
       : { label: 'Merge', word: 'stays yours', done: false },
   ];
 }
 
-// ── the band's view ───────────────────────────────────────────────────────────
-
 export interface BandView {
   state: BandState;
   tone: PaqadTone;
   headline: string;
-  /** Open flags (rule findings and near-copies count here, as flags, never as an instrument). */
   flags: number;
   stages: StageSegment[];
   clock: string | null;
   ship: ShipStep[];
-  /** The cost pill (Part 23): tokens and a dated money estimate, or "cost: not yet". */
   cost: string;
-  /**
-   * The High Table instrument (Part 14), or `null` when the band has none: the fast lane, the
-   * experts off, or no change in progress.
-   */
   table: TableInstrument | null;
 }
 
-/**
- * The headline with the state's own word taken off its front, so the band and `/paqad` say the
- * state once ("Safe to merge. 1 flag open." after the state "Safe to merge" reads "1 flag open.").
- */
 export function headlineAfterState(view: Pick<BandView, 'state' | 'headline'>): string {
   return view.headline.startsWith(view.state)
     ? view.headline.slice(view.state.length).replace(/^[.:]\s*/, '')
@@ -623,12 +544,10 @@ export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): B
   };
 }
 
-/** True while the band has something live to tick: a stage is running. */
 export function isLive(snapshot: PaqadHudSnapshot | null): boolean {
   return snapshot?.active === true && snapshot.stages.some((stage) => stage.state === 'running');
 }
 
-/** True for a running stage agent as `$.agent.list()` names it (`paqad:paqad-<stage>`). */
 export function isStageAgent(agent: { type?: unknown; status?: unknown }): boolean {
   return (
     typeof agent.type === 'string' &&
@@ -637,7 +556,6 @@ export function isStageAgent(agent: { type?: unknown; status?: unknown }): boole
   );
 }
 
-/** True for a finished tool call that may have moved paqad's records, so the band refreshes. */
 export function isRefreshTool(tool: string, input: { command?: unknown }): boolean {
   if (tool === 'Edit' || tool === 'Write' || tool === 'NotebookEdit') return true;
   if (tool === 'Agent' || tool === 'Task') return true;

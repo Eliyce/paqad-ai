@@ -1,10 +1,3 @@
-// Issue #581 — the M0-M5 oracle, end to end. For each config case a whole change runs in a
-// temp project (see bundle-run.fixture.ts) and the bundle must hold exactly the case's files
-// (AC-1), with `.paqad/_specs/` absent after every single step (AC-2). M0 proves the late
-// gates reach evidence.jsonl with enterprise off (AC-13), M5 proves experts without the
-// pipeline require no experts.json (AC-21), and an untitled run proves a pipeline change is
-// renamed by plan compile with nothing left under its old name (AC-17).
-
 import { readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
 
 import { join, relative } from 'pathe';
@@ -24,7 +17,6 @@ import {
   type BundleRun,
 } from './bundle-run.fixture.js';
 
-// Windows CI is slow and each case drives a full change plus verification.
 const E2E_TIMEOUT = 90_000;
 
 const runs: BundleRun[] = [];
@@ -39,7 +31,6 @@ async function run(...args: Parameters<typeof runBundleFixture>): Promise<Bundle
   return result;
 }
 
-/** Every path under `dir`, relative to it, posix separators, directories included. */
 function walk(dir: string, base = dir): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
@@ -50,19 +41,17 @@ function walk(dir: string, base = dir): string[] {
   return out;
 }
 
-describe('the #581 file-set oracle (AC-1, AC-2)', () => {
+describe('the bundle file-set oracle (AC-1, AC-2)', () => {
   it.each(ORACLE_CASES)(
     '%s leaves exactly its listed files and never creates .paqad/_specs',
     async (caseId) => {
       const result = await run(caseId);
       const files = readdirSync(bundlePath(result)).sort();
       expect(files).toEqual([...CASE_FILES[caseId], ...CHANGE_DEPENDENT_FILES].sort());
-      // And the completeness gate agrees: nothing required is missing, nothing was backfilled.
       const gate = readFeatureEvidence(result.root, result.dir).find(
         (row) => row.code === 'bundle-completeness',
       );
       expect(gate?.verdict, gate?.detail ?? '').toBe('pass');
-      // The AC-2 check ran after every step, verbs and turn-end seams alike.
       expect(result.steps).toContain('repository verification');
       expect(result.steps.length).toBeGreaterThan(10);
     },
@@ -76,12 +65,9 @@ describe('the passing turn closes the change after its evidence is written', () 
     async (caseId) => {
       const result = await run(caseId);
       const rows = readFeatureStageUnit(result.root, result.dir);
-      // The change passed and was closed, and the close is the LAST row: nothing the verifier
-      // wrote for this change landed after the change was released.
       expect(rows.at(-1)?.kind).toBe('close');
       expect(rows.filter((row) => row.kind === 'close')).toHaveLength(1);
       expect(currentFeature(result.root, RUN_SESSION)).toBeNull();
-      // And that same turn wrote the evidence rows, the completeness gate among them.
       const evidence = readFeatureEvidence(result.root, result.dir);
       expect(evidence.length).toBeGreaterThan(0);
       expect(evidence.some((row) => row.code === 'bundle-completeness')).toBe(true);
@@ -142,7 +128,6 @@ describe('experts without the pipeline (AC-21)', () => {
       expect(gate.verdict).toBe('pass');
       expect(detail).toContain('Every required bundle file is present');
       expect(detail).not.toMatch(/missing/i);
-      // experts.json is only ever named as not required here (the pipeline is off).
       const [required, skipped = ''] = detail.split('Skipped (flag off):');
       expect(required).not.toContain('experts.json');
       expect(skipped).toContain('experts.json');
@@ -174,7 +159,6 @@ describe('a change-<ULID> pipeline bundle renamed by plan compile (AC-17)', () =
         (name) => name !== '_session' && name !== '_chat',
       );
       expect(bundles).toEqual([result.dir]);
-      // Nothing under the old name anywhere in .paqad: no path, and no file content.
       const paqad = join(result.root, '.paqad');
       for (const path of walk(paqad)) {
         expect(path).not.toContain(untitled!);

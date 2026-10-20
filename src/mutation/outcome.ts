@@ -1,16 +1,3 @@
-// Mutation kill-rate maths. Issue #105.
-//
-// The bar (Settled): kill every mutant that could change behaviour; equivalent
-// mutants are set aside and do not count. We therefore compute:
-//   killed      = killed + timeout            (the mutant was caught)
-//   survived    = survived + no-coverage      (behaviour change went unnoticed)
-//   set aside   = equivalent + error          (excluded from the bar/denominator)
-//   kill_rate   = killed / (killed + survived)
-//
-// Confidence is decided by the adapter (mature tool vs weak-tooled language),
-// not here. The tree-clean safety check is decided by the runner. This module
-// is pure so the maths and the bar are independently testable.
-
 import type {
   MutationConfidence,
   MutationGateStatus,
@@ -46,25 +33,18 @@ function deriveStatus(input: {
   confidence: MutationConfidence;
   survivors: number;
 }): MutationGateStatus {
-  // Safety beats everything: a dirty tree may mean mutants were left behind.
   if (!input.treeClean) {
     return 'unsafe-tree';
   }
   if (input.survivors > 0) {
     return 'survivors';
   }
-  // No survivors, but a weak-tooled language → the clean result is still only
-  // lower-confidence.
   if (input.confidence === 'lower') {
     return 'lower-confidence';
   }
   return 'killed-all';
 }
 
-/**
- * Compute the mutation result from a tool's normalised mutants. Equivalent and
- * errored mutants are excluded from both the survivor list and the denominator.
- */
 export function computeMutationOutcome(input: MutationOutcomeInput): MutationResult {
   let killed = 0;
   let survived = 0;

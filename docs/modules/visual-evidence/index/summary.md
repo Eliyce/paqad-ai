@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Visual evidence (issue #551). When a feature-development change touches frontend files,
+Visual evidence. When a feature-development change touches frontend files,
 paqad captures ordered screenshots of the **documented** user flows the change affects,
 pairs each with a business-language caption, stores everything in the feature's evidence
 bundle, assembles an overview GIF, and verifies the evidence at end-of-change like every
@@ -27,8 +27,8 @@ reports `skipped`.
    `visual_evidence.frontend_globs`. Non-frontend ⇒ everything downstream is `not-frontend`.
    If the profile declares frameworks but paqad loads none of its built-in packs, that is an
    install fault (`PackRegistryEmptyError`), not a clean change: the gate reads `fail` under
-   `strict` and `inconclusive` under `warn`, and `run` / `plan` print the fault and exit 1
-   (issue #579). It is never reported as `not-frontend`.
+   `strict` and `inconclusive` under `warn`, and `run` / `plan` print the fault and exit 1.
+   It is never reported as `not-frontend`.
 2. **Plan** (`resolve-plan.ts`) — deterministic: changed frontend files → owning modules
    (module-map) **and** surfaces whose `evidence[].file` anchors match → union of surfaces →
    the **confirmed** journeys that reference those surfaces → their capture scripts. No match
@@ -44,7 +44,7 @@ reports `skipped`.
    (a failed selector stops only that flow and keeps its prior steps), assembles the GIF, and
    atomically replaces `screenshots/` + `visual-evidence.json`. Screenshots added with
    `visual-evidence attach` survive every run path: their folders, files and hashes are carried
-   into the new manifest, and scripted folders are numbered after them (issue #579). Both
+   into the new manifest, and scripted folders are numbered after them. Both
    writers go through the one manifest writer in `manifest.ts`, and both work out the merged
    result the same way (`mergedVisualEvidenceResult`): `partial` when any step failed,
    `captured` when at least one step was captured and none failed, else `skipped`. So a failed
@@ -54,7 +54,7 @@ reports `skipped`.
    and returns pass / skipped / inconclusive|fail, verifying existence + manifest integrity +
    every referenced screenshot's size and SHA-256 (never the screenshot content).
 
-## When a capture cannot run here (issue #579)
+## When a capture cannot run here
 
 A frontend change on a machine with no confirmed journey, no capture script, the `site_map`
 flag off, or no provisioned browser used to find out only at the Stop gate. Now it hears
@@ -79,8 +79,8 @@ about it at every stage:
   verdict prints a line so a turned-on gate that skipped is visible: "⚪ visual evidence: not
   required (<reason>)" when there was nothing to capture (no documented flow, waived), or
   "⚪ visual evidence: did not run (<reason>)" when screenshots were owed and none were taken
-  (no capture script, capture script invalid). Issue #639, Part 10 records this as the row's
-  `skip_kind`.
+  (no capture script, capture script invalid). The row's `skip_kind`
+  records this.
 
 A change with no frontend files still reads skipped and not required (`not-frontend`): no
 pause, no block.
@@ -123,7 +123,7 @@ steps as agent-attached so they are never read as scripted captures.
 `app-not-reachable` / `env-var-missing` / `selector-not-found`.
 
 `no-documented-flow` / `no-capture-script` / `capture-script-invalid` are documented "nothing
-to capture" outcomes and read `skipped` under `warn`. Under `strict` (issue #579), a manifest
+to capture" outcomes and read `skipped` under `warn`. Under `strict`, a manifest
 whose only skips are `no-documented-flow` or `no-capture-script` fails unless screenshots were
 attached or a waiver was resolved. A waiver is any resolved decision that chose `waive` and
 carries the change's `[paqad-ve-readiness <bundle>]` token: the readiness decision planning
@@ -171,6 +171,50 @@ app_preview:
   command: ""                  # optional; defaults to commands.dev; "" with a reachable url = attach only
   wait_ms: 30000               # optional; max wait for the url to respond after starting the command
 ```
+
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/visual-evidence/` and are not stated above.
+
+- **Coverage.** `boot.ts`, `provision.ts`, `gif.ts` and `runner.ts` do real network, browser,
+  subprocess and npm work, so they are left out of unit coverage and exercised by the env-gated
+  integration test (`PAQAD_VE_INTEGRATION=1`).
+- **`attach.ts`.** Every file is checked (it must exist and start with the PNG signature) before
+  anything is written, so a refused attach leaves the bundle untouched. An `--ac` id is checked
+  against the frozen spec; with no frozen spec it is accepted with a warning.
+- **`boot.ts`.** An app is reachable when it answers with any status below 500. The dev server
+  runs in its own detached process group and is unref'd so it never holds paqad open; with execa
+  10 the `unref` lives on `nodeChildProcess`. The kill that stops it rejects the subprocess
+  promise, so that rejection is handled on purpose, and an early crash already shows up as
+  `app-not-reachable`.
+- **`provision.ts`.** The provision record is read directly and the error caught, never checked
+  first, which avoids a check-then-read race; the runtime `package.json` is written
+  unconditionally for the same reason. Home comes from `os.homedir`, which honours `USERPROFILE`.
+  Subprocesses run with tokenized args and no shell. A failed install becomes the
+  `playwright-not-provisioned` skip rather than a crash.
+- **`gif.ts` and `runner.ts`.** Frames are composited on a 2D canvas inside the already open
+  Chromium and encoded with the pure-JS `gifenc`, so there is no native image dependency, and
+  Playwright is typed structurally so the module never imports it at build time. Every frame
+  shares one canvas size (measured first) so the GIF plays cleanly, and images are never scaled
+  up. The runner never throws for an environmental miss; those become recorded skips so the CLI
+  exits 0 and the gate decides. A capture's setup runs once, and a missing env var or failed
+  selector skips that flow's setup.
+- **`manifest.ts`.** Step slugs are deduplicated with `-2`, `-3` suffixes and positions are
+  clamped at 99 for the folder name. A step from an older manifest carries `captured_at` and is
+  read under the current `recorded_at` name, so carrying it forward writes the new shape. The gate
+  reads the stored bytes itself so it validates them as written.
+- **`reminder.ts`.** The once-per-change marker is created with an exclusive create, so the check
+  and the write are one step. Any failure other than "already reminded" skips the reminder
+  instead of repeating it on every edit. The reminder is model-facing only and never blocks.
+- **`readiness.ts`.** `doctor` and `plan compile` share one readiness list so they can never
+  disagree. The readiness packet carries a per-change machine token, so a re-run finds it and a
+  waiver applies to that change only. It does not check the visual-evidence flag itself.
+- **`resolve-plan.ts`.** A changed file matches a surface anchor exactly or when one path is a
+  directory-boundary prefix of the other, compared in posix form. Plans follow journey id order.
+- **`trigger.ts`.** The glob translator supports `**`, `*`, `?`, one level of `{a,b}` and a literal
+  `.`, and escapes every other regex metacharacter.
+- **`types.ts`.** The schema in `src/feature-evidence/schema.ts` reuses the const arrays here so
+  the type and the validated shape cannot drift. Manifest version 1 still reads.
 
 ## CLI
 

@@ -55,9 +55,6 @@ import {
 import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
 import { bundleCompletenessGate } from '@/verification/repository/bundle-completeness-gate.js';
 
-// Issue #581 (FR-12, AC-18, AC-19, AC-20, AC-28) — the one-time evidence migration, over a
-// fixture with one example of each case A to D, sealed history, and another session's change.
-
 const U_A = '01JABCDEFGHJKMNPQRSTVWXYZ1';
 const U_B = '01JABCDEFGHJKMNPQRSTVWXYZ2';
 const U_C = '01JABCDEFGHJKMNPQRSTVWXYZ3';
@@ -111,7 +108,6 @@ function pipeline(root: string, run: string, file: string, content: string): voi
   write(root, join(LEGACY_SPECS_DIR, run, 'pipeline', file), content);
 }
 
-/** A pre-#581 feature.json (schema version 1). */
 function legacyFeature(root: string, dir: string, ulid: string, title: string): void {
   write(
     root,
@@ -139,7 +135,6 @@ function legacyFeature(root: string, dir: string, ulid: string, title: string): 
   );
 }
 
-/** A pre-#581 frozen record, naming a tmp source and a `_specs` run dir. */
 function legacySpecification(): FeatureSpec & Record<string, unknown> {
   return {
     schema_version: '1',
@@ -156,13 +151,11 @@ function legacySpecification(): FeatureSpec & Record<string, unknown> {
   };
 }
 
-/** The full fixture: A (frozen, sealed), B (renamed + half run), C (no bundle), D (tmp). */
 function fixture(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-migrate-'));
   roots.push(root);
   write(root, '.paqad/.gitignore', GITIGNORE);
 
-  // Case A — a frozen old bundle with a receipt, and its pipeline run.
   legacyFeature(root, A, U_A, 'alpha');
   write(root, featureFilePath(A, 'plan'), '{"summary":"old plan"}\n');
   write(root, featureFilePath(A, 'specification'), `${JSON.stringify(legacySpecification())}\n`);
@@ -239,7 +232,6 @@ function fixture(): string {
     ]),
   );
 
-  // Case B — the renamed run reached finish, so the half run left by the rename is dropped.
   legacyFeature(root, B, U_B, 'beta');
   write(
     root,
@@ -267,11 +259,9 @@ function fixture(): string {
   pipeline(root, B, 'task.json', TASK);
   pipeline(root, B, 'spec.md', '# Working spec beta\n');
 
-  // Case C — a spec run whose change never opened.
   pipeline(root, C, 'request.md', '# Gamma\n');
   pipeline(root, C, 'log.jsonl', jsonl([logRow('ground', '2026-09-03T01:00:00.000Z')]));
 
-  // Case D — old record-verb inputs in tmp, beside files that must stay.
   write(root, '.paqad/tmp/alpha-request.md', REQUEST);
   write(root, '.paqad/tmp/100-alpha-questions.json', '{}');
   write(root, `.paqad/tmp/notes-${U_C}.md`, 'x');
@@ -282,7 +272,6 @@ function fixture(): string {
   return root;
 }
 
-/** Every file under the project, path to bytes. */
 function snapshot(root: string): Map<string, string> {
   const files = new Map<string, string>();
   const walk = (rel: string): void => {
@@ -296,7 +285,6 @@ function snapshot(root: string): Map<string, string> {
   return files;
 }
 
-/** The files under `rel`, relative to it, sorted. */
 function listFiles(root: string, rel: string): string[] {
   return [...snapshot(root).keys()]
     .filter((path) => path.startsWith(`${rel}/`))
@@ -308,7 +296,7 @@ function kinds(result: EvidenceMigrationResult): string[] {
   return result.actions.map((action) => action.kind);
 }
 
-describe('migrateFeatureEvidence cases A to D (issue #581, AC-18)', () => {
+describe('migrateFeatureEvidence cases A to D', () => {
   it('reaches the target layout and deletes the old folder and its ignore line', () => {
     const root = fixture();
     const result = migrateFeatureEvidence(root);
@@ -318,7 +306,6 @@ describe('migrateFeatureEvidence cases A to D (issue #581, AC-18)', () => {
     expect(kinds(result)).toContain('remove-specs-dir');
     expect(kinds(result)).toContain('remove-gitignore-line');
 
-    // A: the pipeline facts land in the bundle through the live writers, new header on each.
     const request = read(root, featureFilePath(A, 'request'));
     expect(splitFrontMatter(request).body).toBe(REQUEST);
     expect(textHashMatches(request)).toBe(true);
@@ -340,17 +327,14 @@ describe('migrateFeatureEvidence cases A to D (issue #581, AC-18)', () => {
     expect(steps.map((row) => row.step)).toEqual(['ground', 'label', 'finish']);
     expect(steps[0]!.recorded_at).toBe('2026-09-01T01:00:00.000Z');
     expect(steps[1]!.tokens).toBe(120);
-    // Dropped: the merge file and the briefs; a frozen run stages nothing.
     expect(readdirSync(join(root, featureDir(A)))).not.toContain('expert-merge.json');
     expect(readStagedText(root, A, 'task')).toBeNull();
 
-    // B: the renamed run is kept, the half run dropped, and the unfrozen state staged.
     expect(result.actions).toContainEqual({ kind: 'drop-duplicate', source: B_HALF, kept: B });
     expect(readSpecStepRows(root, B).map((row) => row.step)).toEqual(['ground', 'finish']);
     expect(readStagedText(root, B, 'task')).toBe(TASK);
     expect(readStagedText(root, B, 'craft')).toBe('# Working spec beta\n');
 
-    // C: a spec-only bundle under the run's name, closed so nothing adopts it.
     expect(readFeatureRecord(root, C)?.status).toBe('spec-only');
     expect(readUnitFile(root, featureFilePath(C, 'stageEvidence')).map((row) => row.kind)).toEqual([
       'spec-step',
@@ -358,7 +342,6 @@ describe('migrateFeatureEvidence cases A to D (issue #581, AC-18)', () => {
     ]);
     expect(listInFlightFeatures(root)).not.toContain(C);
 
-    // D: the old inputs go; files that name no migrated change stay.
     const tmp = readdirSync(join(root, '.paqad/tmp')).sort();
     expect(tmp).toEqual(['alpha-dir', 'change-notes.md', 'spec-pipeline', 'unrelated.md']);
     expect(stagingDir(B)).toContain('spec-pipeline');
@@ -371,7 +354,6 @@ describe('migrateFeatureEvidence cases A to D (issue #581, AC-18)', () => {
     const after = snapshot(root);
     for (const [path, bytes] of before) {
       if (!path.startsWith(`${featureDir(A)}/`) && !path.startsWith(`${featureDir(B)}/`)) continue;
-      // Appended to, never rewritten: every existing byte is still the file's prefix.
       expect(after.get(path)?.startsWith(bytes), path).toBe(true);
       if (!path.endsWith('stage-evidence.jsonl')) expect(after.get(path), path).toBe(bytes);
     }
@@ -416,7 +398,6 @@ describe('migrateFeatureEvidence and other sessions (AC-28)', () => {
   it('leaves a change another session holds, then migrates it once that change closes', () => {
     const root = fixture();
     setActiveFeature(root, 'ses_other', A);
-    // Unrelated controls: this session's own, one that holds a different change, and junk.
     setActiveFeature(root, 'ses_me', B);
     write(root, `${PATHS.FEATURE_EVIDENCE_SESSION_DIR}/readme.txt`, 'x');
     mkdirSync(join(root, PATHS.FEATURE_EVIDENCE_SESSION_DIR, 'sub.json'), { recursive: true });
@@ -425,10 +406,8 @@ describe('migrateFeatureEvidence and other sessions (AC-28)', () => {
     expect(held.actions).toContainEqual({ kind: 'skip-held', source: A, bundle: A });
     expect(existsSync(join(root, LEGACY_SPECS_DIR, A))).toBe(true);
     expect(existsSync(join(root, featureFilePath(A, 'request')))).toBe(false);
-    // Its folder stays, so the ignore line stays too.
     expect(read(root, '.paqad/.gitignore')).toContain('_specs/');
     expect(formatEvidenceMigration(held)).toContain('is open in another session');
-    // B belonged to this session, so it migrated.
     expect(existsSync(join(root, LEGACY_SPECS_DIR, B))).toBe(false);
 
     markDone(root, 'ses_other', A);
@@ -441,7 +420,7 @@ describe('migrateFeatureEvidence and other sessions (AC-28)', () => {
   it('treats a paused change as held, and a closed one as free', () => {
     const root = fixture();
     setActiveFeature(root, 'ses_other', A);
-    setActiveFeature(root, 'ses_other', B); // A is now paused under ses_other
+    setActiveFeature(root, 'ses_other', B);
     const held = migrateFeatureEvidence(root, { sessionId: '  ' });
     expect(held.actions).toContainEqual({ kind: 'skip-held', source: A, bundle: A });
 
@@ -559,7 +538,6 @@ describe('migrateFeatureEvidence edge cases', () => {
     pipeline(root, B, 'log.jsonl', jsonl([logRow('ground', '2026-09-02T02:00:00.000Z')]));
     const result = migrateFeatureEvidence(root);
     expect(result.actions).toContainEqual({ kind: 'drop-duplicate', source: B, kept: B_HALF });
-    // With no bundle, the kept run's own name becomes the spec-only bundle.
     expect(readFeatureRecord(root, B_HALF)?.status).toBe('spec-only');
   });
 
@@ -601,7 +579,6 @@ describe('migrateFeatureEvidence edge cases', () => {
 
   it('adds nothing a bundle already has, and copies no spec.md whose hash differs', () => {
     const root = fixture();
-    // A frozen record whose source changed since, and a bundle that already has spec-step rows.
     pipeline(root, A, 'spec.md', '# edited after freeze\n');
     write(root, featureFilePath(A, 'request'), 'already here\n');
     write(root, featureFilePath(A, 'clarification'), '{}\n');
@@ -627,7 +604,6 @@ describe('migrateFeatureEvidence edge cases', () => {
     expect(merge).toMatchObject({ added: [] });
     expect(formatEvidenceMigration(result)).toContain(`merge ${A} into ${A}: add nothing new`);
     expect(existsSync(join(root, featureFilePath(A, 'specMd')))).toBe(false);
-    // The edited spec.md was never merged, so it stays, and so does the old folder and its line.
     expect(result.actions).toContainEqual({
       kind: 'leave-files',
       source: A,
@@ -641,7 +617,6 @@ describe('migrateFeatureEvidence edge cases', () => {
     expect(read(root, `${LEGACY_SPECS_DIR}/${A}/pipeline/spec.md`)).toBe('# edited after freeze\n');
     expect(kinds(result)).not.toContain('remove-specs-dir');
     expect(read(root, '.paqad/.gitignore')).toContain('_specs/');
-    // The other runs still went in full.
     expect(existsSync(join(root, LEGACY_SPECS_DIR, B))).toBe(false);
   });
 
@@ -667,7 +642,6 @@ describe('migrateFeatureEvidence edge cases', () => {
     expect(listFiles(root, `${LEGACY_SPECS_DIR}/${A}`)).toEqual(expected);
     expect(result.leftBehind).toEqual(expected.map((rel) => `${LEGACY_SPECS_DIR}/${A}/${rel}`));
     expect(read(root, '.paqad/.gitignore')).toContain('_specs/');
-    // A second run merges nothing new and names the same files again.
     const again = migrateFeatureEvidence(root);
     expect(again.leftBehind).toEqual(result.leftBehind);
     expect(again.actions.find((action) => action.kind === 'merge')).toMatchObject({ added: [] });
@@ -675,7 +649,6 @@ describe('migrateFeatureEvidence edge cases', () => {
 
   it('keeps the working file of an unfrozen run when staging already holds different bytes', () => {
     const root = fixture();
-    // B never froze: its task was staged by a live run since, with other bytes.
     mkdirSync(join(root, stagingDir(B)), { recursive: true });
     write(root, `${stagingDir(B)}/task.json`, '{"intent":"newer"}\n');
     const result = migrateFeatureEvidence(root);
@@ -698,7 +671,6 @@ describe('migrateFeatureEvidence edge cases', () => {
 
   it('writes only the spec-step rows a partial merge did not (finding 6)', () => {
     const root = fixture();
-    // An earlier run wrote the first step, then stopped. The log also repeats a step.
     pipeline(
       root,
       A,
@@ -764,7 +736,6 @@ describe('migrateFeatureEvidence edge cases', () => {
     const result = migrateFeatureEvidence(root);
     expect(existsSync(join(root, featureFilePath(A, 'specMd')))).toBe(false);
     expect(readStagedText(root, A, 'task')).toBeNull();
-    // The frozen run's task is retired; its spec.md, never checked against a hash, stays.
     expect(result.leftBehind).toEqual([`${LEGACY_SPECS_DIR}/${A}/pipeline/spec.md`]);
   });
 
@@ -802,7 +773,6 @@ describe('migrateFeatureEvidence edge cases', () => {
 
   it('reports a run it could not migrate and leaves it in place', () => {
     const root = fixture();
-    // A directory where request.md belongs makes the write fail.
     mkdirSync(join(root, featureFilePath(A, 'request')), { recursive: true });
     const result = migrateFeatureEvidence(root);
     expect(result.actions.find((action) => action.kind === 'failed')).toMatchObject({ source: A });
@@ -815,7 +785,6 @@ describe('migrateFeatureEvidence edge cases', () => {
     'reports a delete the OS refuses and keeps going (finding 4)',
     () => {
       const root = fixture();
-      // Read-only parents make every delete under them fail, as a Windows lock would.
       chmodSync(join(root, LEGACY_SPECS_DIR), 0o500);
       chmodSync(join(root, '.paqad/tmp'), 0o500);
       try {
@@ -833,7 +802,6 @@ describe('migrateFeatureEvidence edge cases', () => {
         expect(formatEvidenceMigration(result)).toContain(
           `could not delete ${LEGACY_SPECS_DIR}/${A} (`,
         );
-        // The facts still reached the bundle.
         expect(existsSync(join(root, featureFilePath(A, 'request')))).toBe(true);
       } finally {
         chmodSync(join(root, LEGACY_SPECS_DIR), 0o700);
@@ -1026,7 +994,6 @@ describe('readers on a migrated old bundle and a new one (AC-20)', () => {
     expect(metrics.label_distribution.okay).toBe(1);
     expect(metrics.experts_fired['qa-engineer']).toBe(1);
 
-    // The migrated old bundle passes, the new files' hashes included (old headers stay unchecked).
     const gate = bundleCompletenessGate({
       projectRoot: root,
       sessionId: 'ses_1',
@@ -1039,7 +1006,6 @@ describe('readers on a migrated old bundle and a new one (AC-20)', () => {
     });
     expect(gate?.status, gate?.detail).toBe('pass');
 
-    // The signed source now sits in the bundle and still matches: nothing is stale.
     const guard = runSpecChangeGuard({
       projectRoot: root,
       sessionId: 'ses_1',
@@ -1065,7 +1031,6 @@ describe('paqad-ai evidence migrate', () => {
   });
 
   async function run(...args: string[]): Promise<void> {
-    // Never let a default project root fall back to the real checkout.
     vi.spyOn(process, 'cwd').mockReturnValue(join(tmpdir(), 'paqad-migrate-no-such-root'));
     await createEvidenceCommand().parseAsync(['node', 'evidence', 'migrate', ...args]);
   }

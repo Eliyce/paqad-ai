@@ -4,16 +4,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// The Stop-hook completion backstop no longer emits a user-facing `{systemMessage}`.
-// Claude Code changed: a Stop-hook `{systemMessage}` now RENDERS on Desktop as literal
-// `Stop says:` lines, inverting the #368/#409 premise that the channel was invisible.
-// Routing the receipt through it duplicated what the agent already speaks (#409) and
-// leaked the model-only narration advisory into chat (the "Stop says:" leak). So the
-// hook-completion origin now writes NOTHING on a clean/inconclusive turn and only a
-// model-only `{decision:'block'}` (no `systemMessage`) on a HARD failure. The git/CI
-// backstop keeps the plain-text + exit-code contract unchanged. These exercise the real
-// runVerificationBackstop with an injected {stdout,stderr} pair and a mocked dist api, so
-// the channel decision is asserted without a built dist.
 const DIST = resolve(process.cwd(), 'dist/index.js');
 
 function capture() {
@@ -29,12 +19,10 @@ async function loadBackstop() {
   return import('../../../runtime/scripts/verify-backstop.mjs');
 }
 
-describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enforcement', () => {
+describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + visible-verdict enforcement', () => {
   let projectRoot: string;
 
   beforeEach(() => {
-    // A fresh tmp project with no disable signal → paqad enabled → the backstop
-    // runs the (mocked) gate rather than the disabled fast-path.
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-verify-backstop-'));
     vi.resetModules();
   });
@@ -67,13 +55,10 @@ describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enfor
 
     expect(code).toBe(0);
     const parsed = JSON.parse(out.read());
-    // The model is told to keep working (real teeth — the enforcement channel).
     expect(parsed.decision).toBe('block');
     expect(parsed.reason).toContain('Needs your attention');
     expect(parsed.reason).toContain('paqad-ai checks run');
-    // No user-facing prose leaks: the receipt is the agent's job to speak, not the hook's.
     expect(parsed.systemMessage).toBeUndefined();
-    // Nothing leaks to stderr on the Stop hook.
     expect(err.read()).toBe('');
   });
 
@@ -93,7 +78,6 @@ describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enfor
     });
 
     expect(code).toBe(0);
-    // No decision → nothing to convey → the hook stays silent so it cannot loop.
     expect(out.read()).toBe('');
   });
 
@@ -118,7 +102,6 @@ describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enfor
     });
 
     expect(code).toBe(0);
-    // "do not over-trust", not "you must fix" → no block, and no prose leak.
     expect(out.read()).toBe('');
   });
 
@@ -142,8 +125,7 @@ describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enfor
     expect(err.read()).toBe('');
   });
 
-  it('#582 AC-9: a session-ownership skip writes nothing to stdout or stderr, exit 0', async () => {
-    // The exact shape runRepositoryVerification returns when the session owns no change.
+  it('a session-ownership skip writes nothing to stdout or stderr, exit 0', async () => {
     mockVerdict({
       origin: 'hook-completion',
       ok: true,
@@ -226,7 +208,7 @@ describe('runtime/scripts/verify-backstop.mjs — Stop-hook silence + #368 enfor
   });
 });
 
-describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
+describe('verdictHasHardFailure / blockReason helpers', () => {
   it('verdictHasHardFailure is true only when a gate reports fail', async () => {
     const { verdictHasHardFailure } = await loadBackstop();
     expect(verdictHasHardFailure({ ok: false, gates: [{ status: 'fail' }] })).toBe(true);
@@ -249,11 +231,7 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
     expect(blockReason({})).toContain('A verification gate is blocking');
   });
 
-  // Issue #409 — the narration advisory. It is written FOR the model, and now rides the
-  // model-only `{decision:'block'}` reason ONLY (never a user-facing systemMessage, which
-  // would render as `Stop says:` on Desktop). On a non-blocking turn there is no channel to
-  // the model, so the advisory is simply dropped — a silent voice is a defect, not a block.
-  describe('#409 narration advisory', () => {
+  describe('narration advisory', () => {
     let projectRoot: string;
 
     beforeEach(() => {
@@ -332,7 +310,6 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
       });
 
       expect(code).toBe(0);
-      // INV-1 — a silent turn is a voice defect, not a broken change: no block, no leak.
       expect(out.read()).toBe('');
     });
 
@@ -383,16 +360,12 @@ describe('verdictHasHardFailure / blockReason helpers (#368)', () => {
       expect(parsed.decision).toBe('block');
       expect(parsed.reason).toContain('paqad-ai checks run');
       expect(parsed.reason).toContain('never said out loud');
-      // The advisory rides the model-only reason, not a user-facing systemMessage.
       expect(parsed.systemMessage).toBeUndefined();
     });
   });
 });
 
-// Issue #639, Part 6 — the in-session Stop keeps paqad's own receipt every turn. It writes the
-// composed receipt and the verdict to the session's HUD files, prints nothing new, and a failed
-// write changes nothing about the decision or the exit code.
-describe('runtime/scripts/verify-backstop.mjs — keeps the receipt every turn (#639 Part 6)', () => {
+describe('runtime/scripts/verify-backstop.mjs — keeps the receipt every turn', () => {
   let projectRoot: string;
   const SES = 'ses-hud-receipt';
 
@@ -471,7 +444,6 @@ describe('runtime/scripts/verify-backstop.mjs — keeps the receipt every turn (
 
       expect(result.code).toBe(0);
       expect(result.err).toBe('');
-      // Prints nothing new: output only on the pre-existing hard-fail block.
       expect(result.out === '').toBe(!prints);
       expect(readFileSync(hudReceiptPath(projectRoot, SES), 'utf8')).toBe(`${verdict.receipt}\n`);
       const record = JSON.parse(readFileSync(hudVerdictPath(projectRoot, SES), 'utf8'));
@@ -479,7 +451,6 @@ describe('runtime/scripts/verify-backstop.mjs — keeps the receipt every turn (
     });
   }
 
-  // Issue #669 — a turn whose check was skipped keeps the last real verdict on screen.
   const SKIP = {
     ok: true,
     applicable: false,

@@ -4,10 +4,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Issue #579 (AC-17 / AC-18) — the first-frontend-edit reminder is MODEL-facing only: on the
-// allow path it goes out as PreToolUse hookSpecificOutput.additionalContext, on the block path it
-// is appended to the stderr reason, and no user-facing systemMessage is ever emitted. The dist
-// executor is mocked, as in capability-gate-loop.test.ts.
 const GATE = resolve(process.cwd(), 'dist/kernel/gate.js');
 const LINE =
   'This is a frontend change and visual evidence is on. Before review, run `paqad-ai visual-evidence run` or attach screenshots with `paqad-ai visual-evidence attach`.';

@@ -69,9 +69,6 @@ export function createProgram(): Command {
   program.addCommand(createMetricsCommand());
   program.addCommand(createIndexCommand());
   program.addCommand(createHealthCommand());
-  // The site map is both a dashboard area and a discoverable command: `sitemap draft`
-  // writes the map skeleton from the code and `sitemap status`/`run` drive and verify it,
-  // so the command is listed in help (unhidden in S8c) rather than hidden behind the dashboard.
   program.addCommand(createSitemapCommand());
   program.addCommand(createPacksCommand());
   program.addCommand(createComplianceCommand());
@@ -81,7 +78,6 @@ export function createProgram(): Command {
   program.addCommand(createEvidenceCommand());
   program.addCommand(createFeatureCommand());
   program.addCommand(createAuditCommand());
-  // Hidden deprecated alias (issue #159): the graph is now a dashboard area.
   program.addCommand(createGraphCommand(), { hidden: true });
   program.addCommand(createModuleDecisionsCommand());
   program.addCommand(createModuleEventsCommand());
@@ -116,8 +112,6 @@ export function createProgram(): Command {
   program.addCommand(createDiscoveryCommand());
   program.addCommand(createStatusCommand());
 
-  // Issue #639, Part 7 — the verbs that move a change refresh the session's HUD snapshot when
-  // they finish. Best-effort: refreshHudSnapshot never throws and never sets an exit code.
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);
     if (!isHudRefreshVerb(commandPath)) return;
@@ -132,7 +126,6 @@ export function createProgram(): Command {
   return program;
 }
 
-/** The space-joined command path below the program, e.g. `spec pipeline experts notes`. */
 function commandPathOf(command: Command): string {
   const names: string[] = [];
   for (let current: Command | null = command; current?.parent; current = current.parent) {

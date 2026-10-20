@@ -1,6 +1,6 @@
 # Rule-script runner contract
 
-How `feature-development.checks` consumes the rules-as-scripts gate (issue #89).
+How `feature-development.checks` consumes the rules-as-scripts gate.
 
 ## Modes (`checks.rule_compliance.mode`)
 

@@ -102,7 +102,6 @@ describe('retrieveFromAttachments', () => {
     const file = writeAttachment('invoice.ts', 'export const invoice = "invoice";\n');
     await indexer.index(projectRoot, 'session-a', [file], INTELLIGENCE);
 
-    // Simulate the desktop deleting the session: drop the registry row and dir.
     await deregisterCollection(projectRoot, 'session-a');
     await rm(resolveCollectionDir(projectRoot, 'session-a'), { recursive: true, force: true });
 
@@ -120,7 +119,6 @@ describe('retrieveFromAttachments', () => {
     const file = writeAttachment('invoice.ts', 'export const invoice = "invoice";\n');
     await indexer.index(projectRoot, 'session-a', [file], INTELLIGENCE);
 
-    // Remove only the on-disk collection, leaving the registry row dangling.
     await rm(resolveCollectionDir(projectRoot, 'session-a'), { recursive: true, force: true });
 
     const result = await retrieveFromAttachments(
@@ -134,7 +132,6 @@ describe('retrieveFromAttachments', () => {
   });
 
   it('respects the topN cap', async () => {
-    // Several distinct chunks so a small topN is observable.
     const body = Array.from(
       { length: 6 },
       (_unused, index) =>

@@ -1,7 +1,3 @@
-// Issue #121 — the SIEM exporter: read-only, local-first projection of the #118
-// evidence ledger + tamper-evident receipt chain into OCSF / ECS / CEF / JSONL
-// for the customer's own SIEM. No paqad-hosted endpoint.
-
 export * from './types.js';
 export * from './aggregate.js';
 export * from './redact.js';

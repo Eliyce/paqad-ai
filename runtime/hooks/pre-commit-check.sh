@@ -3,7 +3,6 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-# Parse all exit codes in a single node invocation
 RESULT=$(printf '%s' "$INPUT" | node -e "
 let d='';process.stdin.on('data',c=>d+=c).on('end',()=>{
   const j=JSON.parse(d||'{}');

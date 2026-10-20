@@ -35,7 +35,6 @@ const AVAILABLE = (): ProjectProfile['testing'] => ({
   recorded_at: '2026-09-11T00:00:00.000Z',
 });
 
-// The plan resolver (issue #554, AC-3): pure, os facts injected.
 describe('resolveTestPlan (AC-3)', () => {
   const os = (availableParallelism: number, totalmem: number): OsFacts => ({
     availableParallelism,

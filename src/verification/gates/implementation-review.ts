@@ -11,13 +11,6 @@ import type { Gate } from './gate.interface.js';
 
 import { checkBooleanGate, createFail, createPass } from './shared.js';
 
-/**
- * Every word the recorded review put on the page, as one searchable blob (issue #360).
- * The anchoring check is deliberately blunt — it asks "did the reviewer look at this
- * place?", not "is the prose good" — so it reads every field the model filled, including
- * what it says it checked and how it would roll back. Returns `''` when no review is on
- * record, which correctly reads as "nothing was addressed".
- */
 function activeReviewText(projectRoot: string): string {
   try {
     const sessionId = resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
@@ -53,12 +46,6 @@ export class ImplementationReviewGate implements Gate {
       );
     }
 
-    // Issue #360 — the review must confirm or contest what the machine already proved.
-    // An unaddressed deterministic finding is itself a review finding: a review that never
-    // mentions a high-severity machine finding by file:line did not review the change, it
-    // reviewed its own impression of it. Only deterministic, file-anchored, high-band rows
-    // can fire this (INV-2), so a change with no machine findings behaves exactly as
-    // before (AC-3).
     const unaddressed = unanchoredMachineFindings(
       collectMachineFindings(context.project_root),
       activeReviewText(context.project_root),

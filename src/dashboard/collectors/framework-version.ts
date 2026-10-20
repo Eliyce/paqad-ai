@@ -76,8 +76,6 @@ export function collectFrameworkVersion(
   const matches = recorded !== null && recorded === installed;
 
   const freshness = scoreFreshness(refTimestamp, { now });
-  // Out-of-sync versions cap the score at 60 (amber). In-sync just rides
-  // freshness.
   const score = matches ? freshness : Math.min(60, freshness);
   const age = ageInDays(refTimestamp, now);
 

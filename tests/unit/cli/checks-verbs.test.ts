@@ -45,6 +45,7 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
     sequential_reason: null,
     test_total: 8998,
     parallel_failures: 0,
+    testing_recorded: false,
     test_result: {
       schema_version: '1.0.0',
       summary: {
@@ -80,10 +81,10 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
   };
 }
 
-describe('renderReceipt (issue #554)', () => {
+describe('renderReceipt', () => {
   it('green parallel run shows tests + parallel ×N + critical path', () => {
     const lines = renderReceipt(baseResult({}), 'warn').join('\n');
-    expect(lines).toContain('checks green — Safe to merge');
+    expect(lines).toContain('checks green: Safe to merge');
     expect(lines).toContain('parallel ×11');
     expect(lines).toContain('Critical path: test');
     expect(lines).toContain('2 m 15 s');
@@ -106,7 +107,7 @@ describe('renderReceipt (issue #554)', () => {
     );
   });
 
-  it('a passing run with no countable tests says count unavailable, never 0 tests (#672, AC-5)', () => {
+  it('a passing run with no countable tests says count unavailable, never 0 tests', () => {
     const native = baseResult({
       test_total: 0,
       test_result: null,
@@ -134,6 +135,48 @@ describe('renderReceipt (issue #554)', () => {
     expect(renderReceipt(sequential, 'warn').join('\n')).toContain(
       '> - 🟢 test passed, count unavailable (2 m 02 s)',
     );
+  });
+
+  it('a pass read from plain text has no count to show', () => {
+    const base = baseResult({});
+    const plain = baseResult({
+      test_total: 1,
+      mode: {
+        parallel_commands: true,
+        test_mode: 'sequential',
+        processes: null,
+        fallback_reason: null,
+      },
+      test_result: {
+        ...base.test_result!,
+        summary: { ...base.test_result!.summary, total: 1, passed: 1 },
+        parse_metadata: {
+          ...base.test_result!.parse_metadata,
+          parse_strategy: 'plain-text-fallback',
+        },
+      },
+    });
+    const lines = renderReceipt(plain, 'warn').join('\n');
+    expect(lines).toContain('> - 🟢 test passed, count unavailable (2 m 02 s)');
+    expect(lines).not.toContain('1 tests');
+  });
+
+  it('a test step with no readable results is yellow and the run reads inconclusive', () => {
+    const base = baseResult({});
+    const unreadable = baseResult({
+      test_total: 0,
+      meaningful_green: false,
+      commands: base.commands.map((command) =>
+        command.logical_command === 'test'
+          ? { ...command, outcome: 'inconclusive' as const }
+          : command,
+      ),
+    });
+    const lines = renderReceipt(unreadable, 'warn').join('\n');
+    expect(lines).toContain('> - 🟡 test ran, but no test results could be read (2 m 02 s)');
+    expect(lines).toContain('checks ran, but no test results could be read: Inconclusive');
+    expect(lines).not.toContain('Safe to merge');
+    expect(lines).not.toContain('🟢 test');
   });
 
   it('a passing run with a parsed count still prints the count', () => {
@@ -276,7 +319,7 @@ describe('renderReceipt (issue #554)', () => {
       },
     });
     const lines = renderReceipt(red, 'warn').join('\n');
-    expect(lines).toContain('Needs your attention');
+    expect(lines).toContain('checks failed: Needs your attention');
     expect(lines).toContain('tests/InvoiceTest.php:42 › it totals the invoice');
   });
 });

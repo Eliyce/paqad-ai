@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Read a rollup report (JSON, from `rollup.sh` stdout or a file)
-#          and report whether the whole rollup is blocked (e.g.
-#          `module_health_unknown`).
-# Usage:   bash scripts/is-blocked.sh <report.json>   (or stdin)
-# Output:  Blocked reason on stdout (or `none`).
-# Exits:   0 not blocked | 1 blocked | 2 usage / parse error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Read a rollup report (JSON, from `rollup.sh` stdout or a file)
+         and report whether the whole rollup is blocked (e.g.
+         `module_health_unknown`).
+Usage:   bash scripts/is-blocked.sh <report.json>   (or stdin)
+Output:  Blocked reason on stdout (or `none`).
+Exits:   0 not blocked | 1 blocked | 2 usage / parse error
+USAGE
   exit 0
 fi
 

@@ -15,22 +15,10 @@ export default defineConfig({
     globals: true,
     root: '.',
     include: ['tests/**/*.test.ts'],
-    // Every test file gets a throwaway HOME, so onboarding/join/update never write the
-    // developer's real ~/.paqad-ai, ~/.claude or ~/.codex (tests/shared/isolate-home.ts).
     setupFiles: ['tests/shared/isolate-home.ts'],
-    // CI splits the run with `--shard` (issue #654). This sequencer balances the shards by each
-    // file's recorded duration (tests/shard-timings.json) instead of an equal file count. An
-    // unsharded run, like local `pnpm run ci`, never calls it and keeps the default order.
     sequence: { sequencer: DurationSequencer },
-    // Windows runners are noticeably slower than Linux/macOS — bump the
-    // default 5s test timeout and 10s hook timeout so e2e cases that build
-    // the CLI or chunk a small corpus don't fail spuriously.
     testTimeout: process.platform === 'win32' ? 30_000 : 10_000,
     hookTimeout: process.platform === 'win32' ? 60_000 : 30_000,
-    // On Windows, exclude test suites that depend on a POSIX bash on PATH.
-    // These exercise the runtime/**/scripts/*.sh helpers; the shipped product
-    // never invokes them on Windows. Tracked for proper Windows bash support
-    // (e.g. detecting Git Bash) in a follow-up.
     exclude:
       process.platform === 'win32'
         ? [
@@ -53,7 +41,6 @@ export default defineConfig({
         'src/change-metrics/types.ts',
         'src/context/types.ts',
         'src/context/inference-provider.ts',
-        // Issue #597 — Discovery record shapes are pure interfaces/type aliases (no runtime code).
         'src/discovery/records.ts',
         'src/core/types/design-tokens.ts',
         'src/core/types/document-generation.ts',
@@ -77,12 +64,7 @@ export default defineConfig({
         'src/verification/gates/gate.interface.ts',
         'src/workflows/types.ts',
         'src/cli/commands/refresh.ts',
-        // Issue #621 — a thin commander wrapper; its logic (rollbackPlugin) is unit-tested in
-        // tests/unit/install/plugin-migration.test.ts.
         'src/cli/commands/plugin.ts',
-        // Issue #551 — the visual-evidence CLI orchestrates the excluded impure capture path
-        // (runner/provision/boot); its resolution/formatting is covered via the pure modules it
-        // calls (trigger, resolve-plan) and their own tests.
         'src/cli/commands/visual-evidence.ts',
         'src/context/ast-chunker.ts',
         'src/context/budget-optimizer.ts',
@@ -122,20 +104,8 @@ export default defineConfig({
         'src/patterns/pattern-rag.ts',
         'src/patterns/pattern-recorder.ts',
         'src/patterns/pattern-suggester.ts',
-        // The codebase-health production gatherer (issue #355) is real subprocesses
-        // + fs, like the pentest engine — its pure inputs (parsers, detectors,
-        // assembly) are covered on their own; the orchestration is covered via a fake.
         'src/codebase-health/gatherer.ts',
-        // The site-map production gatherer (issue site-map S5) is the same shape: real
-        // filesystem scanning of the target project; the pure extractors it feeds and the
-        // run orchestrator around it are covered on their own via an injected fake gatherer.
         'src/site-map/gatherer.ts',
-        // The visual-evidence capture path (issue #551) is real browser + subprocess + fs work,
-        // like the pentest engine and site-map gatherer: provision (npm install + dynamic import),
-        // boot (spawn + HTTP probe), the runner (Playwright), and gif (Chromium screenshots) are
-        // exercised by the env-gated integration test (PAQAD_VE_INTEGRATION=1), while the pure
-        // inputs they feed (trigger, capture-script, resolve-plan, gate, mode, schema) are covered
-        // on their own.
         'src/visual-evidence/provision.ts',
         'src/visual-evidence/boot.ts',
         'src/visual-evidence/runner.ts',
@@ -187,10 +157,6 @@ export default defineConfig({
         'src/workflows/template-loader.ts',
         'src/workflows/template-validator.ts',
       ],
-      // CI runs the suite in shards and merges their coverage afterwards (issue #654). A shard
-      // sees only part of the code, so it sets PAQAD_TEST_SHARD=1 and checks no thresholds. The
-      // merge run and local `pnpm run ci` leave it unset and enforce these floors in full. Only
-      // the exact value '1' turns them off, so a stray local export like '0' changes nothing.
       thresholds:
         process.env.PAQAD_TEST_SHARD === '1'
           ? undefined
@@ -199,9 +165,6 @@ export default defineConfig({
               functions: 95,
               lines: 95,
               statements: 95,
-              // The stages workflow is the delivery-critical spine (issue #307): the
-              // block-forward gate, marker parse, live writer and narration must never
-              // regress unseen, so stage-evidence holds a 100% floor, not the repo's 95%.
               'src/stage-evidence/**': {
                 branches: 100,
                 functions: 100,

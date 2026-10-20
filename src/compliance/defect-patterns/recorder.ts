@@ -1,11 +1,3 @@
-/**
- * FR-DP1: Defect Recording
- *
- * Converts integrity-system outputs into DefectFinding records and persists
- * them via the pattern store. Recording is automatic and adds < 100ms latency
- * (NFR-DP1) because it fires after the gate/report has already returned.
- */
-
 import type { ComplianceReport } from '../types.js';
 import { classifyDefect } from './classifier.js';
 import { recordFindings } from './store.js';
@@ -17,10 +9,6 @@ export interface RecordFromComplianceOptions {
   storeRoot?: string;
 }
 
-/**
- * Record uncovered obligation defects from a compliance report (FR-DP1.1 source: compliance).
- * Returns the number of findings recorded.
- */
 export async function recordFromComplianceReport(
   options: RecordFromComplianceOptions,
 ): Promise<number> {

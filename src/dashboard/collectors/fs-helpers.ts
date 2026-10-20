@@ -2,26 +2,17 @@ import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 export interface ScannedEntry {
-  /** Path relative to the scanned root. */
   relPath: string;
-  /** Absolute path. */
   absPath: string;
   mtimeMs: number;
   sizeBytes: number;
 }
 
 export interface ScanOptions {
-  /** Limit recursion to this depth. Default Infinity. */
   maxDepth?: number;
-  /** Predicate filtering filenames (not paths). Default: include everything. */
   fileFilter?: (name: string) => boolean;
 }
 
-/**
- * Recursively list files under `root`. Silently returns `[]` if `root`
- * does not exist or is not a directory. Symlinks are not followed.
- * Hidden entries are included — collectors decide what to skip.
- */
 export function scanDirectory(root: string, options: ScanOptions = {}): ScannedEntry[] {
   const out: ScannedEntry[] = [];
   const maxDepth = options.maxDepth ?? Infinity;
@@ -51,9 +42,7 @@ export function scanDirectory(root: string, options: ScanOptions = {}): ScannedE
           mtimeMs: st.mtimeMs,
           sizeBytes: st.size,
         });
-      } catch {
-        // ignore — file removed mid-scan
-      }
+      } catch {}
     }
   };
 
@@ -61,7 +50,6 @@ export function scanDirectory(root: string, options: ScanOptions = {}): ScannedE
   return out;
 }
 
-/** Returns the mtime of a single file in ms, or `null` if not present. */
 export function fileMtime(path: string): number | null {
   try {
     return statSync(path).mtimeMs;

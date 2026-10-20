@@ -1,6 +1,6 @@
 ---
 name: rule-editor
-description: Single entry point for mutating rules in rules-as-scripts (issue #89) — add / edit / remove / downgrade — with a per-rule cascade and no global rebuild. Adding inserts a bullet + mints a stable RL-<hash> id; editing preserves the id and regenerates only that rule's scripts; removing archives the map entry (delayed delete); downgrading flips a rule to unverifiable and drops its scripts. The deterministic file + map mechanics live in src/rule-scripts/{editor,mutate}.ts; this skill orchestrates re-analysis, regeneration, and Decision Pause diffs. All map writes go through src/rule-scripts/apply.ts.
+description: Single entry point for mutating rules in rules-as-scripts — add / edit / remove / downgrade — with a per-rule cascade and no global rebuild. Adding inserts a bullet + mints a stable RL-<hash> id; editing preserves the id and regenerates only that rule's scripts; removing archives the map entry (delayed delete); downgrading flips a rule to unverifiable and drops its scripts. The deterministic file + map mechanics live in src/rule-scripts/{editor,mutate}.ts; this skill orchestrates re-analysis, regeneration, and Decision Pause diffs. All map writes go through src/rule-scripts/apply.ts.
 model_tier: medium
 triggers:
   - workflow:

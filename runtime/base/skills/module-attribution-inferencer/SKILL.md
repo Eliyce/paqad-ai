@@ -1,6 +1,6 @@
 ---
 name: module-attribution-inferencer
-description: Form a hypothesis about which existing module a user prompt belongs to when the deterministic extractor returns nothing. Reads existing module-map.yml features and source paths, scores token overlap, returns a ranked multi-choice draft, and surfaces it via the Decision Pause Contract. Second half of the Attribution Gate (issue #80, Phase 1 §4.3.b). TS-canonical (`src/module-decisions/inferencer.ts`).
+description: Form a hypothesis about which existing module a user prompt belongs to when the deterministic extractor returns nothing. Reads existing module-map.yml features and source paths, scores token overlap, returns a ranked multi-choice draft, and surfaces it via the Decision Pause Contract. Second half of the Attribution Gate. TS-canonical (`src/module-decisions/inferencer.ts`).
 model_tier: fast
 triggers:
   - workflow:
@@ -68,7 +68,7 @@ Only an explicit `Extend` selection promotes a draft to `proposed → accepted`;
 
 - Zero or one MD-XXXX YAML file written under `.paqad/decisions/module-decisions/<id>.yml` (only when the user picks `Extend "<name>"` or accepts the new-module fallback).
 - Exactly one Decision Pause packet surfaced per inferencer invocation.
-- The selected option drives the state transition; only an explicit `Extend` answer promotes a draft to `accepted` (spec AC #11).
+- The selected option drives the state transition; only an explicit `Extend` answer promotes a draft to `accepted`.
 - `no-attribution` records nothing and returns control to planning.
 
 ## Confidence Handling

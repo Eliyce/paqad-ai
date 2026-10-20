@@ -47,7 +47,6 @@ describe('collectRagStatus', () => {
     writeProfile(root, { intelligence: { rag_enabled: true, embedding_provider: 'local' } });
     const section = collectRagStatus(root, NOW);
     expect(section.summary).toMatch(/no index/i);
-    // Provider configured (30) + no index, no freshness → 30.
     expect(section.score).toBe(30);
     expect(section.band).toBe('red');
   });
@@ -63,9 +62,9 @@ describe('collectRagStatus', () => {
 
   it('decays as the index ages', () => {
     writeProfile(root, { intelligence: { rag_enabled: true, embedding_provider: 'openai' } });
-    writeIndex(root, 200); // past the stale cliff
+    writeIndex(root, 200);
     const section = collectRagStatus(root, NOW);
-    expect(section.score).toBe(60); // provider 30 + index present 30 + freshness 0
+    expect(section.score).toBe(60);
     expect(section.band).toBe('amber');
   });
 
@@ -76,7 +75,7 @@ describe('collectRagStatus', () => {
   });
 
   it('notes a missing embedding provider when enabled with an index present', () => {
-    writeProfile(root, { intelligence: { rag_enabled: true } }); // no embedding_provider
+    writeProfile(root, { intelligence: { rag_enabled: true } });
     writeIndex(root, 2);
     const section = collectRagStatus(root, NOW);
     expect(section.summary).toMatch(/no embedding provider/i);

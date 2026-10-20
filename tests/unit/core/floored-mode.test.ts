@@ -44,7 +44,7 @@ describe('resolveFlooredMode (C2 clamp, decision D1)', () => {
   });
 
   it('ignores unrecognised values (a typo never silently disables)', () => {
-    expect(resolve({ team: 'banana' })).toBe('strict'); // falls back to default floor
+    expect(resolve({ team: 'banana' })).toBe('strict');
     expect(resolve({ team: 'strict', local: 'nonsense' })).toBe('strict');
   });
 

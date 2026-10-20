@@ -12,12 +12,6 @@ import {
   checkBundleArtifacts,
 } from '@/stage-evidence/bundle-artifact.js';
 
-// Issue #394 — the rigid-bundle-artifact partition. planning/specification prove
-// themselves ONLY with the active bundle's plan.json / specification.json.
-//
-// Issue #402 extends it twice: `review` joins them as a rigid stage (review.json), and a
-// non-rigid stage may no longer prove itself with a file written INSIDE a bundle dir —
-// the bundle holds only rigid artifacts. An artifact anywhere else still passes through.
 describe('bundle-artifact', () => {
   let root: string;
   const SES = 'ses_bundle';
@@ -60,7 +54,6 @@ describe('bundle-artifact', () => {
       expect(check.verb).toBeNull();
     });
 
-    // AC-1/AC-2 (issue #402): review is rigid now, so only the bundle's review.json proves it.
     it('accepts ONLY the active bundle review.json for review', () => {
       setActiveFeature(root, SES, DIR);
       const reviewRel = featureFilePath(DIR, 'review');
@@ -72,7 +65,6 @@ describe('bundle-artifact', () => {
       expect(check.verb).toBe('paqad-ai review record');
     });
 
-    // AC-4: the wider hole — a non-rigid stage pointing INTO a bundle dir.
     it('rejects a non-rigid stage artifact written inside a bundle dir', () => {
       const stray = `.paqad/ledger/feature-evidence/${DIR}/scratch-notes.md`;
       const check = checkBundleArtifacts(root, SES, 'development', [stray, 'docs/notes.md']);
@@ -81,7 +73,6 @@ describe('bundle-artifact', () => {
       expect(check.rejected).toEqual([stray]);
     });
 
-    // Issue #551 — a valid screenshots entry is allowed-in-bundle but never a stage artifact.
     it('rejects a screenshots-subtree path as a non-rigid stage artifact', () => {
       const shot = `.paqad/ledger/feature-evidence/${DIR}/screenshots/01-open/image.png`;
       const check = checkBundleArtifacts(root, SES, 'development', [shot, 'src/app.tsx']);

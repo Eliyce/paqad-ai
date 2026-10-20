@@ -37,7 +37,6 @@ describe('module-health/parsers/jacoco', () => {
   });
 
   it('falls back when a sourcefile has no name and no LINE counter (joins to the package)', () => {
-    // package has a name, sourcefile has none, no LINE counter → file = package, 0/0.
     const xml = `
 <report>
   <package name="pkg">

@@ -1,10 +1,3 @@
-// Fixture snapshots for the paqad HUD mod's tests (issue #639, Parts 8 and 9), shaped exactly as
-// `src/hud/snapshot.ts` writes `.paqad/session/hud/<session>.json` (a vitest test pins the
-// keys). They follow the issue's made-up changes: ORD-490 (fast-lane copy fix), ORD-482
-// (graduated-lane bug fix) and ORD-501 (full-lane feature), plus one fixture per band state, and
-// (Part 14) the High Table of each: ORD-501's seven seats and ORD-482's four, as they move.
-// Shared by the vitest suite and the `claude plugin test` files; not shipped in the package.
-
 export const NOW = Date.parse('2026-10-18T09:00:00.000Z');
 
 type Raw = Record<string, unknown>;
@@ -29,7 +22,6 @@ const MANDATORY = new Set([
   'documentation_sync',
 ]);
 
-/** Stage rows for the eight stages; `states` names the ones that are not `missing`. */
 export function stages(
   states: Partial<Record<(typeof STAGE_IDS)[number], string>>,
   started: Partial<Record<(typeof STAGE_IDS)[number], string>> = {},
@@ -60,7 +52,6 @@ const ALL_DONE = {
   documentation_sync: 'complete',
 } as const;
 
-/** A whole snapshot with no change in progress; `over` replaces top-level fields. */
 export function snapshot(over: Raw = {}): Raw {
   return {
     schema: 'paqad.hud/2',
@@ -113,8 +104,6 @@ function verdict(kind: 'pass' | 'fail' | 'inconclusive', word: string, reasons: 
   };
 }
 
-// ── the High Table (Part 14) ───────────────────────────────────────────────────
-
 type SeatState = 'seated' | 'writing' | 'done';
 
 function seatTokens(input: number, output: number, cacheRead: number, cacheWrite: number): Raw {
@@ -134,19 +123,16 @@ interface SeatPlan {
   budget: number;
   clamped: boolean;
   findings: number;
-  /** The host's usage for the seat's agent, or null when only the seat's own count exists. */
   exact: Raw | null;
   estimate: number;
   started: string;
   done: string;
-  /** The role's record on earlier changes, or null for a role new to the project. */
   record?: Raw | null;
 }
 
 const STANDING_REASON = 'standing expert (always at the table)';
 const SEATED_AT = '2026-10-18T08:10:00.000Z';
 
-/** One seat exactly as `src/hud/high-table-view.ts` writes it, in the state asked for. */
 function seat(plan: SeatPlan, state: SeatState, late = false): Raw {
   const landed = state === 'done';
   return {
@@ -205,7 +191,6 @@ const standing = (
   done,
 });
 
-/** ORD-501's seven seats: the four standing experts, then security, the DB and performance. */
 export const ORD_501_SEATS: readonly SeatPlan[] = [
   {
     ...standing(
@@ -269,7 +254,6 @@ export const ORD_501_SEATS: readonly SeatPlan[] = [
     budget: 5000,
     clamped: false,
     findings: 1,
-    // The host gave no usage for this seat, so its tokens read as its own estimate.
     exact: null,
     estimate: 1900,
     started: '2026-10-18T08:10:08.000Z',
@@ -277,9 +261,7 @@ export const ORD_501_SEATS: readonly SeatPlan[] = [
   },
 ];
 
-/** The decision that settled a disagreement before this change (recorded 2026-10-02). */
 export const SETTLED_DECISION = 'D-01M3Y1RB507QW3K9F2D8MZXN4R';
-/** The decision a question was answered from (recorded 2026-09-24). */
 export const AUTO_ANSWER_DECISION = 'D-01M39VEJR07QW3K9F2D8MZXN4S';
 export const OPEN_CONFLICT = 'Customer email in the export';
 
@@ -329,7 +311,6 @@ const ORD_501_QUESTIONS = {
   ],
 };
 
-/** Who shaped each of ORD-501's 12 spec lines. */
 export const ORD_501_CREDITS = [
   { line: 'FR-1', roles: ['product-owner', 'user-flow-writer'] },
   { line: 'FR-2', roles: ['application-architect'] },
@@ -345,7 +326,6 @@ export const ORD_501_CREDITS = [
   { line: 'INV-2', roles: ['qa-engineer', 'product-owner'] },
 ];
 
-/** The ORD-501 High Table at each moment of its run, as the seats move. */
 export type Ord501Phase = 'seated' | 'writing' | 'landing' | 'chief' | 'ruled' | 'frozen';
 
 export const ORD_501_PHASES: readonly Ord501Phase[] = [
@@ -357,7 +337,6 @@ export const ORD_501_PHASES: readonly Ord501Phase[] = [
   'frozen',
 ];
 
-/** Which ORD-501 seats have landed their note by the `landing` moment. */
 const LANDED_EARLY = new Set(['user-flow-writer', 'product-owner', 'qa-engineer']);
 
 export function ord501Table(phase: Ord501Phase): Raw {
@@ -380,7 +359,6 @@ export function ord501Table(phase: Ord501Phase): Raw {
   };
 }
 
-/** ORD-482's four standing seats, writing in parallel. */
 export const ORD_482_SEATS: readonly SeatPlan[] = [
   standing(
     'product-owner',
@@ -450,7 +428,6 @@ export function ord482Table(phase: Ord482Phase): Raw {
   };
 }
 
-/** ORD-490, fast lane: plan only, no frozen spec, the build running for two minutes. */
 export const FAST_ORD_490 = snapshot({
   active: true,
   route: 'feature-development',
@@ -467,7 +444,6 @@ export const FAST_ORD_490 = snapshot({
   isolation: { status: 'not-applicable', stages: 0, tokens_not_recarried: 0 },
 });
 
-/** ORD-482, graduated lane: planned, a proof-method decision waiting. */
 export const GRADUATED_ORD_482 = snapshot({
   active: true,
   route: 'feature-development',
@@ -491,7 +467,6 @@ export const GRADUATED_ORD_482 = snapshot({
   ship: ship(0),
 });
 
-/** ORD-501, full lane: every stage done, Safe to merge, and one near-copy still open. */
 export const FULL_ORD_501 = snapshot({
   active: true,
   route: 'feature-development',
@@ -517,7 +492,6 @@ export const FULL_ORD_501 = snapshot({
   receipt: { path: '/repo/.paqad/session/hud/ses-fixture.receipt.md' },
 });
 
-/** The same change with nothing flagged: green. */
 export const SAFE_CLEAN = snapshot({
   ...FULL_ORD_501,
   headline: { text: 'Safe to merge.', tone: 'good' },
@@ -540,26 +514,22 @@ export const NEEDS_ATTENTION = snapshot({
   verdict: verdict('fail', 'Needs your attention', ['change-completeness: review missing']),
 });
 
-/** A paused change, nothing active. */
 export const PAUSED = snapshot({
   route: 'project-question',
   headline: { text: 'A change is paused. Say "continue" to pick it up.', tone: 'neutral' },
   paused: [{ workflow: 'feature-development', lane: 'graduated' }],
 });
 
-/** Another workflow is running (no change in progress). */
 export const OTHER_WORKFLOW = snapshot({
   route: 'project-question',
   headline: { text: 'Working on project question.', tone: 'working' },
 });
 
-/** A rule stopped an edit (Part 18 records this; nothing writes it today). */
 export const STOPPED = snapshot({
   ...FAST_ORD_490,
   last_block: { text: 'RULE-13 stopped an edit to src/orders/export.ts.' },
 });
 
-/** The branch carries other tickets' commits (Part 22 raises this flag; nothing does today). */
 export const BRANCH_WARNING = snapshot({
   ...GRADUATED_ORD_482,
   headline: { text: 'Next: Build.', tone: 'working' },
@@ -567,7 +537,6 @@ export const BRANCH_WARNING = snapshot({
   flags: [{ id: 'branch-inherited', text: '73 commits from other tickets ride on this branch.' }],
 });
 
-/** The fixture behind each of the nine band states. */
 export const STATE_FIXTURES = {
   Ready: snapshot(),
   Working: FAST_ORD_490,
@@ -586,12 +555,9 @@ export const RECEIPT_TEXT = [
   '> 🟢 specification: done',
 ].join('\n');
 
-/** The fixture's file text, as the snapshot writer leaves it on disk. */
 export function fileText(raw: Raw): string {
   return `${JSON.stringify(raw, null, 2)}\n`;
 }
-
-// ── the change cost (Part 23) ─────────────────────────────────────────────────
 
 function tokens(input: number, output: number, cacheRead: number, cacheWrite: number): Raw {
   return {
@@ -603,7 +569,6 @@ function tokens(input: number, output: number, cacheRead: number, cacheWrite: nu
   };
 }
 
-/** A whole `cost` field as `src/hud/cost-view.ts` writes it; `over` replaces top-level fields. */
 export function costRecord(over: Raw = {}): Raw {
   return {
     computed_at: '2026-10-18T08:59:30.000Z',
@@ -651,10 +616,8 @@ export function costRecord(over: Raw = {}): Raw {
   };
 }
 
-/** ORD-501 with its cost counted: seats, the chief, every stage. */
 export const FULL_ORD_501_COST = snapshot({ ...FULL_ORD_501, cost: costRecord() });
 
-/** ORD-490 on the fast lane with its cost so far: no High Table, so no expert tokens. */
 export const FAST_ORD_490_COST = snapshot({
   ...FAST_ORD_490,
   cost: costRecord({
@@ -670,7 +633,6 @@ export const FAST_ORD_490_COST = snapshot({
   }),
 });
 
-/** A change that ran only on a model the price table does not list: tokens, no money. */
 export const UNPRICED_COST = snapshot({
   ...FAST_ORD_490,
   cost: costRecord({
@@ -683,9 +645,6 @@ export const UNPRICED_COST = snapshot({
   }),
 });
 
-// ── the High Table as it moves (Part 14) ────────────────────────────────────────
-
-/** ORD-501 while its spec is written: the table at one moment of the run. */
 export function ord501At(phase: Ord501Phase): Raw {
   if (phase === 'frozen') return FULL_ORD_501;
   const ruled = phase === 'ruled';
@@ -719,10 +678,8 @@ export function ord501At(phase: Ord501Phase): Raw {
   });
 }
 
-/** ORD-501's snapshots in the order its High Table moves. */
 export const ORD_501_SEQUENCE = ORD_501_PHASES.map(ord501At);
 
-/** ORD-482 while its four seats write in parallel, then after the chief rules. */
 export function ord482At(phase: Ord482Phase): Raw {
   if (phase === 'ruled') return GRADUATED_ORD_482;
   return snapshot({
@@ -739,7 +696,6 @@ export function ord482At(phase: Ord482Phase): Raw {
 
 export const ORD_482_SEQUENCE = ORD_482_PHASES.map(ord482At);
 
-/** ORD-501 with a table that met after the freeze: the security seat late, no line credited. */
 export const LATE_TABLE = snapshot({
   ...FULL_ORD_501,
   headline: { text: 'Safe to merge. 1 flag open.', tone: 'warn' },
@@ -759,10 +715,8 @@ export const LATE_TABLE = snapshot({
   findings: null,
 });
 
-/** ORD-482 with the experts off: no table, so the band has two instruments. */
 export const EXPERTS_OFF = snapshot({ ...GRADUATED_ORD_482, table: null });
 
-/** A spec written by hand while the pipeline was on: the High Table reads skipped. */
 export const SKIPPED_TABLE = snapshot({
   ...FULL_ORD_501,
   table: {

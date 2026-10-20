@@ -28,17 +28,13 @@ describe('agent config templates', () => {
       context,
     );
 
-    // Lean stub (issue #229): a bootstrap pointer + the Adapter footer, nothing more.
     expect(output.split('\n').length).toBeLessThan(80);
     expect(output).toContain('.paqad/framework-path.txt');
     expect(output).toContain('AGENT-BOOTSTRAP.md');
     expect(output).toContain('Adapter:');
-    // The load order and the workflow-handling prose moved into the bootstrap, so
-    // the always-injected entry file must name neither.
     expect(output).not.toContain('docs/instructions');
     expect(output).not.toContain('docs/modules');
     expect(output).not.toContain('create documentation');
-    // No `##` sections, and neither contract is inlined.
     expect(output).not.toContain('## ');
     expect(output).not.toContain('Decision Pause Contract');
     expect(output).not.toContain('narration contract');

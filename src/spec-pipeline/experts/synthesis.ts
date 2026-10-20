@@ -1,57 +1,40 @@
-// The chief architect's synthesis (issue #547, FR-5).
-//
-// After the experts write notes and the script merges them, ONE more model call — the chief
-// architect (`expert-synthesis` skill) — reads the request, the grounding, every note and the
-// merge, and returns a verdict: which findings it accepts, which it declines and why, a
-// recommendation for each conflict, the gaps nobody covered, and the questions worth asking. This
-// module is the deterministic guard around THAT decision. The chief may accept, decline or flag a
-// gap; it may NOT invent a finding (INV-7). Deterministic; zero model tokens.
-
 import type { PlainLanguageSources } from '../plain-language.js';
 import type { PipelineQuestion } from '../types.js';
 import { validateQuestion } from './notes.js';
 import type { ExpertFinding, MergedExpertNotes } from './types.js';
 
-/** The chief architect's overall read of readiness. */
 export type SynthesisVerdict = 'ready' | 'needs-answers' | 'not-ready';
 
 const VERDICTS: readonly SynthesisVerdict[] = ['ready', 'needs-answers', 'not-ready'];
 
-/** A finding the chief declined, with its reason. */
 export interface SynthesisDeclined {
   id: string;
   reason: string;
 }
 
-/** The chief's recommended resolution for one conflict (a recommendation, never applied). */
 export interface SynthesisConflict {
   target: string;
-  /** One of the conflicting claims, verbatim — the chief recommends, the human decides. */
   recommendation: string;
   rationale: string;
 }
 
-/** An area no expert covered. */
 export interface SynthesisGap {
   area: string;
   why_it_matters: string;
   question?: PipelineQuestion;
 }
 
-/** A conflict auto-resolved from an identical prior decision (issue #547, FR-6.3). */
 export interface SynthesisAutoResolved {
   target: string;
   chosen: string;
   source: string;
 }
 
-/** The chief's rename of a warned finding's target to the project's word (issue #558, FR-5.5). */
 export interface SynthesisRename {
   id: string;
   target: string;
 }
 
-/** The validated chief-architect synthesis artifact (`expert-synthesis.json`). */
 export interface ExpertSynthesis {
   verdict: SynthesisVerdict;
   accepted: string[];
@@ -60,9 +43,7 @@ export interface ExpertSynthesis {
   gaps: SynthesisGap[];
   questions: PipelineQuestion[];
   tokens: number;
-  /** Conflicts the framework answered from a resolved fork before minting a packet (FR-6.3). */
   auto_resolved?: SynthesisAutoResolved[];
-  /** The chief's renames of warned targets to the project's words (issue #558, FR-5.5). */
   renames?: SynthesisRename[];
 }
 
@@ -80,17 +61,6 @@ function normalize(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/**
- * Validate a raw chief-architect synthesis against the merge it read (FR-5.4). Refuses:
- *   - a bad verdict;
- *   - an `accepted`/`declined` that does not cover every merged finding id EXACTLY once;
- *   - an id the merge does not know (the chief may not add a finding, INV-7);
- *   - a declined entry with an empty reason;
- *   - a conflict set that is not exactly one row per merge conflict, or a recommendation that is
- *     not one of that conflict's claims;
- *   - a question (in `questions` or a gap) that fails the plain-language check when {@link sources}
- *     is supplied.
- */
 export function validateExpertSynthesis(
   raw: unknown,
   merged: MergedExpertNotes,
@@ -190,11 +160,6 @@ interface RenameResult {
   renames: SynthesisRename[];
 }
 
-/**
- * Validate the chief's `renames` (issue #558, FR-5.5): every `id` must be a finding the merge knows
- * and every `target` a non-empty string. An unknown id is refused with the exact message so the
- * chief cannot rename a finding that is not there.
- */
 function validateRenames(raw: unknown, knownIds: ReadonlySet<string>): RenameResult {
   const renames: SynthesisRename[] = [];
   if (raw === undefined) return { ok: true, renames };
@@ -224,11 +189,6 @@ function validateRenames(raw: unknown, knownIds: ReadonlySet<string>): RenameRes
   return { ok: true, renames };
 }
 
-/**
- * Apply the chief's renames to a set of findings (issue #558, FR-5.5): each renamed finding takes
- * the project's word as its `target` and keeps its original as `renamed_from`. Pure; other findings
- * pass through unchanged.
- */
 export function applyRenames(
   findings: readonly ExpertFinding[],
   renames: readonly SynthesisRename[] = [],
@@ -339,7 +299,6 @@ function validateGaps(raw: unknown, sources?: PlainLanguageSources): GapResult {
   return { ok: true, gaps };
 }
 
-/** A light shape check for the step-lock — the full validation runs in the CLI verb. */
 export function isSynthesisShaped(raw: string | null): boolean {
   if (raw === null) return false;
   const data = parseJson(raw);

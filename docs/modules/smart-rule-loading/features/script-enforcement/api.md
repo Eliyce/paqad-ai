@@ -24,7 +24,7 @@ findings.
 - `blocking` is `mode === 'strict' && deterministic findings > 0`.
 - `violations: RuleViolation[]` — `{ rule_id, script, file, line?, message, severity }`.
 - `ran: false` (fast no-op) when there is no rule-script map or `mode === 'off'`.
-- **Empty change set (issue #580).** `scope` defaults to `changed-files`: an empty
+- **Empty change set.** `scope` defaults to `changed-files`: an empty
   working set means nothing changed this turn, so enforcement is skipped
   (`ran: false`, summary `⚪ scripted rules: skipped (no files changed this turn)`)
   rather than falling through to a whole-tree scan that would block on pre-existing

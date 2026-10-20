@@ -16,13 +16,8 @@ import { verdictKindFor } from '@/verification/verdict-kind.js';
 
 import { createVerificationContext } from './shared.fixture.js';
 
-// Issue #639, Part 10 — a gate can say not required or did not run. Both keep `passed: true`
-// (so the runner and the verdict kind never move) and are recorded as `skipped` with a
-// `skip_kind`, never as a pass (decision D-01M5AM0E9YEC7FBFHFN8N3SHCC).
-
 const ROW_CTX = { subjectDigest: 'sha-subject', ts: '2026-10-19T12:00:00.000Z' };
 
-/** A gate that returns a fixed result and counts how often it ran. */
 function fixedGate(result: GateResult): Gate & { runs: number } {
   const gate = {
     gate: result.gate,
@@ -203,15 +198,9 @@ describe('AC-7: evidence and ledger rows carry skipped + skip_kind, never pass',
   });
 });
 
-/**
- * Gates in backstopGates() that may still return a plain pass with empty inputs, and why. Each
- * one reads a verdict decided before the gate runs; the gate itself takes no measurement.
- */
 const GENUINE_OR_UPSTREAM_PASSES: Record<string, string> = {
-  // Read the recorded spec and implementation review verdicts the context builder computed.
   'spec-review': 'recorded review verdict',
   'implementation-review': 'recorded review verdict',
-  // Measures registry freshness and glossary state, which exist with or without a diff.
   'documentation-freshness': 'measures registries and glossary',
 };
 

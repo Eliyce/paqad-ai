@@ -1,9 +1,3 @@
-// Discovery workflow public surface (issue #597).
-//
-// The standalone Discovery workflow for existing paqad-onboarded projects: run identities and
-// storage under `.paqad/ledger/delivery/`, canonical script-written artifacts, its own stage
-// evidence, a route-self-gating isolation boundary, and a stage-local context contract.
-
 export * from './types.js';
 export * from './stages.js';
 export * from './paths.js';

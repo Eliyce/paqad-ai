@@ -48,7 +48,6 @@ describe('createStatusCommand', () => {
     process.exitCode = undefined;
   });
 
-  // Issue #639, Part 7 (AC-9) — the HUD snapshot through the status command.
   it('--hud --format json prints the HUD snapshot object for the session', async () => {
     writeWorkflowState(root, 'ses-hud', {
       active: { workflow: 'codebase-health', reason: 'a health check' },

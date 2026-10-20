@@ -98,7 +98,6 @@ describe('typed engine errors', () => {
     });
     expect(err.details?.decision_id).toBe('abc');
     expect(err.details?.reason).toBe('parse failed');
-    // No secrets configured ⇒ no redaction marker.
     expect(err.details?.redacted_fields).toBeUndefined();
   });
 

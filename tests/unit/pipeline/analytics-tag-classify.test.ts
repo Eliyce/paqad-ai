@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { RequestClassifier } from '@/pipeline/classifier.js';
 
-describe('classifier analytics gate (issue #241)', () => {
+describe('classifier analytics gate', () => {
   let projectRoot: string;
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-atc-'));

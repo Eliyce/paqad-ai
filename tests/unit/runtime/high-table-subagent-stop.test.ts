@@ -14,11 +14,6 @@ import {
   type FixtureUsage,
 } from '../spec-pipeline/high-table.fixture.js';
 
-// Issue #639, Part 13 (AC-40, AC-41): the EXISTING SubagentStop hook, unchanged in matcher,
-// order and registration, records a High Table seat's exact tokens from the seat's own
-// transcript, never a stage-agent row, and leaves the seat's estimate alone when the host gave
-// no subagent transcript.
-
 const HOOK = join(process.cwd(), 'runtime/hooks/stage-agent-completion.mjs');
 const CLI = join(process.cwd(), 'dist/cli/index.js');
 const SES = 'ses_ht_hook';
@@ -65,7 +60,7 @@ function stageAgentRows(bundle: string): unknown[] {
     .filter((row) => row.kind === 'stage-agent');
 }
 
-describe('SubagentStop for a High Table seat (#639 Part 13)', () => {
+describe('SubagentStop for a High Table seat', () => {
   it('AC-40: paqad-expert and paqad-chief-architect with agent_transcript_path record exact tokens and no stage-agent row', async () => {
     const root = tempRoot();
     const bundle = await openFeature(root);
@@ -110,7 +105,6 @@ describe('SubagentStop for a High Table seat (#639 Part 13)', () => {
       cache_read: 31000,
       cache_write: 7600,
     });
-    // Neither seat is a stage: no stage-agent row.
     expect(stageAgentRows(bundle)).toEqual([]);
 
     const table = buildHighTableView(root, dir, null, 'full')!;
@@ -182,7 +176,6 @@ describe('SubagentStop for a High Table seat (#639 Part 13)', () => {
     };
     const ok = await runHook(root, payload);
 
-    // A directory where the ledger file should be makes the append fail.
     rmSync(join(bundle, 'high-table.jsonl'), { force: true });
     mkdirSync(join(bundle, 'high-table.jsonl'));
     const failed = await runHook(root, { ...payload, agent_id: 'agent_qa2' });

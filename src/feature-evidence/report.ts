@@ -1,26 +1,3 @@
-// Per-feature evidence report renderer (issue #371).
-//
-// A PURE projection of a feature's on-disk bundle into ONE self-contained,
-// human-readable HTML page — no LLM, no network, no file reads. It consumes the
-// existing `exportFeatureBundle()` document plus the `foldFeature()` result and
-// returns an HTML string. The page follows the house contract established by
-// `src/dashboard/export-packet.ts`: inline styles only, NO <script> tags, NO
-// external requests. Interactivity is CSS-only (`<details>/<summary>`), so it works
-// from a `file://` origin and fully offline — which doubles as a provable
-// no-tracking property for the compliance story.
-//
-// Because the page is a pure function of the JSON on disk, its logic is byte-for-byte
-// identical whether the change was made in Claude Code, Codex, Gemini, Cursor, or
-// anywhere else. That sameness is the point: the chat surface always differs per host;
-// the report is the one place paqad's output is exactly the same everywhere.
-//
-// Honesty is load-bearing. A FAILED gate is rendered as plainly and prominently as a
-// PASSED one; a marker-only "thinking" stage reads 🟡 "marked (no recorded work)", never
-// 🟢 done; a backstop-closed stage is flagged as including idle time; a receipt whose
-// hash chain does not recompute says so. And every section — never a blank gap —
-// renders an explicit plain-English note when its source file or field is absent, with a
-// distinct note when the absence is because enterprise governance is off (issue #371).
-
 import { createHash } from 'node:crypto';
 
 import {
@@ -55,24 +32,11 @@ import { splitReceiptEvidenceRows } from './receipt.js';
 import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 
 export interface RenderFeatureReportOptions {
-  /** ISO timestamp stamped into the page; supplied so the render is deterministic. */
   generatedAt: string;
-  /** The paqad version that produced the change (for the header). */
   paqadVersion?: string | null;
-  /**
-   * The indexed decisions joined with their tracked packets (issue #581), read by the writer
-   * so the renderer stays free of file reads. Absent, the panel lists the index alone.
-   */
   decisions?: IndexedDecisionView[];
-  /**
-   * The verification verdict for this change, when the caller has it (issue #639, Part 4).
-   * It wins over the bundle-derived verdict so the page says the same word as the chat
-   * receipt and the PR comment.
-   */
   verdict?: VerdictKind;
 }
-
-// ── Small pure helpers ──────────────────────────────────────────────────────
 
 function escapeHtml(value: unknown): string {
   return String(value ?? '')
@@ -83,7 +47,6 @@ function escapeHtml(value: unknown): string {
     .replaceAll("'", '&#39;');
 }
 
-/** Humanise a wall-clock millisecond span: "820ms", "3.1s", "2m 5s", "1h 3m". */
 export function formatDuration(ms: number | null): string {
   if (ms === null || !Number.isFinite(ms) || ms < 0) return 'unknown';
   if (ms < 1000) return `${Math.round(ms)}ms`;
@@ -100,7 +63,6 @@ export function formatDuration(ms: number | null): string {
   return remMinutes === 0 ? `${hours}h` : `${hours}h ${remMinutes}m`;
 }
 
-/** A short clock label (HH:MM:SS UTC) for a timeline row, or '' when absent. */
 function clockLabel(iso: string | null): string {
   if (!iso) return '';
   const parsed = Date.parse(iso);
@@ -110,37 +72,19 @@ function clockLabel(iso: string | null): string {
 
 const GLYPH_FOR = PAQAD_STATUS_GLYPH;
 
-/** `🟢 done` — a glyph always paired with its word so the line survives the glyph stripped. */
 function glyphWord(kind: PaqadStatusKind, word: string): string {
   return `${GLYPH_FOR[kind]} ${escapeHtml(word)}`;
 }
 
-// ── Receipt integrity (self-consistency, honest) ─────────────────────────────
-
 export interface ReceiptIntegrity {
   present: boolean;
-  /** True only when the envelope's `receipt_hash` recomputes from its own bytes. */
   verified: boolean;
   statement: InTotoStatement | null;
   envelope: ReceiptEnvelope | null;
-  /**
-   * The graded rows the receipt stands for: carried by a pre-#581 receipt, read from the
-   * sealed lines of the bundle's `evidence.jsonl` for one that seals it (issue #581).
-   */
   rows: ReceiptRow[];
-  /** Rows of the same run recorded after the seal: shown, but marked as not covered by it. */
   unsealedRows: ReceiptRow[];
 }
 
-/**
- * Verify a SINGLE feature receipt envelope against ITSELF — recompute
- * `sha256(pae(payloadType, payload) + prev_receipt_hash)` and compare to the recorded
- * `receipt_hash`. A feature receipt is hash-chained to the feature's OWN prior receipt,
- * so `prev_receipt_hash` is legitimately non-zero; `verifyReceiptChain` (which assumes a
- * genesis-rooted array starting at ZERO_DIGEST) would falsely read it as broken. This is
- * the honest per-envelope check: it proves the bytes were not edited after signing, and
- * it is NOT an asymmetric signature — the page says "hash-chained", never "signed".
- */
 export function verifyFeatureReceiptSelf(envelope: ReceiptEnvelope): boolean {
   try {
     const payload = Buffer.from(envelope.payload, 'base64');
@@ -175,27 +119,13 @@ function readReceiptIntegrity(bundle: FeatureBundleExport): ReceiptIntegrity {
   };
 }
 
-// ── Verdict derivation ────────────────────────────────────────────────────────
-
-/**
- * The headline verdict, in the contract words. Derived from the same signals the
- * completion gate uses: a failed stage or a failed receipt gate is "Needs your
- * attention"; a complete/recovered change with no failure is "Safe to merge"; an
- * unverifiable change (`cannot-verify`) is "Inconclusive"; anything left (incomplete /
- * blocked) is "Needs your attention" — never dressed up as safe.
- */
 export function deriveReportVerdict(
   fold: FoldedChange,
   receiptStatement: InTotoStatement | null,
   evidenceRows?: unknown,
 ): VerdictKind {
   const hasFailedStage = fold.stages.some((stage) => stage.state === 'failed');
-  // A failed gate needs attention whether or not the seal covers it.
   const { rows, unsealedRows } = receiptRowsOf(receiptStatement, evidenceRows);
-  // Issue #639, Part 4 — the gate rows go through the one verdict rule, so an inconclusive
-  // gate reads Inconclusive here exactly as it does in the chat receipt.
-  // With no sealed receipt (enterprise off) the bundle's own gate rows are the only record,
-  // so they count too; before, an unsealed change could not read anything but its stages.
   const gateRows = receiptStatement?.predicate
     ? [...rows, ...unsealedRows]
     : (asRows(evidenceRows) as ReceiptRow[]);
@@ -219,15 +149,9 @@ interface ReceiptRow {
   strength_class?: string;
   detail?: string;
   content_hash?: string;
-  /** Issue #639, Part 10 — on a skipped row, `not-required` or `did-not-run`. */
   skip_kind?: string;
 }
 
-/**
- * The result cell for one receipt row. Issue #639, Part 10 — a skipped row is grey and says
- * "not required" or "did not run" (a row written before Part 10 reads not required), never the
- * yellow "needs a look" an inconclusive gate gets.
- */
 function receiptRowResult(row: ReceiptRow): { kind: PaqadStatusKind; word: string } {
   const v = String(row.verdict ?? '').toLowerCase();
   if (v === 'pass') return { kind: 'good', word: v };
@@ -241,12 +165,6 @@ function receiptRowResult(row: ReceiptRow): { kind: PaqadStatusKind; word: strin
   return { kind: 'needsLook', word: v };
 }
 
-/**
- * The rows a receipt stands for, and its run's rows recorded after the seal. A pre-#581 receipt
- * carries its rows; a sealing receipt is paired with the bundle's `evidence.jsonl` rows of the
- * same run (issue #581), split at the sealed line count. Tolerant of a receipt whose statement
- * decoded without a predicate.
- */
 function receiptRowsOf(
   statement: InTotoStatement | null,
   evidenceRows: unknown,
@@ -259,10 +177,6 @@ function receiptRowsOf(
   return { rows: split.sealed, unsealedRows: split.unsealed };
 }
 
-/**
- * De-duplicate graded rows by their `content_hash` (which excludes `ts`), so a receipt
- * that carries the same gate result twice from repeated verify passes shows it once.
- */
 function dedupeByHash(rows: ReceiptRow[]): ReceiptRow[] {
   const seen = new Set<string>();
   const out: ReceiptRow[] = [];
@@ -287,19 +201,12 @@ const VERDICT_KIND_GLYPH: Record<VerdictKind, PaqadStatusKind> = {
   inconclusive: 'needsLook',
 };
 
-// ── Stage timeline ────────────────────────────────────────────────────────────
-
 interface StageView {
   glyphKind: PaqadStatusKind;
   word: string;
   note: string;
 }
 
-/**
- * Map one folded stage to its honest glyph + note for the timeline. Mirrors the
- * end-of-change receipt's honesty (`src/verification/repository/receipt.ts`) and adds the
- * report-only "includes idle time" flag for a stage a backstop closed hours later.
- */
 function stageView(stage: FoldedStage, endedByBackstop: boolean): StageView {
   switch (stage.state) {
     case 'complete':
@@ -340,7 +247,6 @@ function stageView(stage: FoldedStage, endedByBackstop: boolean): StageView {
     case 'skipped':
       return { glyphKind: 'skipped', word: PAQAD_STATUS_LABEL.skipped, note: 'skipped' };
     default:
-      // 'missing' (a mandatory stage with no record) and any other unhandled state.
       return {
         glyphKind: 'needsLook',
         word: PAQAD_STATUS_LABEL.needsLook,
@@ -349,11 +255,6 @@ function stageView(stage: FoldedStage, endedByBackstop: boolean): StageView {
   }
 }
 
-/**
- * Whether the completion backstop wrote a stage's last `stage_end` row (drives the
- * idle-time flag). A row since #581 names the backstop as its `agent`; an older row named
- * it as its `adapter`, so both are read.
- */
 function stageEndedByBackstop(rawStageRows: LooseRow[], stage: string): boolean {
   let byBackstop = false;
   for (const row of rawStageRows) {
@@ -370,14 +271,6 @@ function asRows(value: unknown): LooseRow[] {
   return Array.isArray(value) ? (value as LooseRow[]) : [];
 }
 
-// ── Section rendering ─────────────────────────────────────────────────────────
-
-/**
- * A drill-in detail panel with a stable `id` so the submenu can navigate to it. Panels
- * are hidden until targeted (CSS `:target`) so the page opens on the overview and reveals
- * one section at a time — "first glance overview, then go deeper". `emptyNote` renders
- * when `body` is empty, so a section is never a blank gap. Print shows every panel.
- */
 function panel(id: string, title: string, body: string, emptyNote?: string): string {
   const inner =
     body.trim().length > 0
@@ -387,8 +280,6 @@ function panel(id: string, title: string, body: string, emptyNote?: string): str
 }
 
 function renderTimeline(fold: FoldedChange, rawStageRows: LooseRow[]): string {
-  // Show every mandatory stage (a missing one reads "not recorded", honestly) plus any
-  // optional stage that actually ran.
   const shown = fold.stages.filter(
     (stage) =>
       isMandatoryStage(stage.stage) || stage.started_at !== null || stage.ended_at !== null,
@@ -415,7 +306,6 @@ function renderTimeline(fold: FoldedChange, rawStageRows: LooseRow[]): string {
   return panel('timeline', 'Timeline', `<ol class="timeline">${items}</ol>`);
 }
 
-/** The status WORD without a glyph (the timeline already prints the glyph in its own cell). */
 function glyphWordless(word: string): string {
   return `<span class="word">${escapeHtml(word)}</span>`;
 }
@@ -480,8 +370,6 @@ function renderPlan(bundle: FeatureBundleExport): string {
   }
   const reuse = plan.reuse;
   if (reuse) {
-    // Issue #357 — what the plan checked before building. Rendered as three plain lists so
-    // the reader can see the reuse question was actually answered, not just claimed.
     const consulted = (reuse.consulted ?? [])
       .map(
         (entry) =>
@@ -510,7 +398,6 @@ function renderPlan(bundle: FeatureBundleExport): string {
   return panel('plan', 'Plan', parts.join(''), 'The plan is empty.');
 }
 
-/** A reuse claim as the report reads it. */
 interface ReuseClaimView {
   symbol?: string;
   file?: string;
@@ -520,16 +407,10 @@ interface ReuseClaimView {
   provenance?: string;
 }
 
-/** `react@19.2.6` when the version is known, otherwise just the package name. */
 function frameworkTag(claim: ReuseClaimView): string {
   return claim.version ? `${claim.package}@${claim.version}` : (claim.package ?? '');
 }
 
-/**
- * The verification note on a framework-native claim (issue #397). `asserted` means the
- * installed declarations were read and the symbol resolved; anything else says plainly
- * that the claim was not statically verified, rather than letting silence imply it was.
- */
 function verifiedNote(claim: ReuseClaimView): string {
   if (claim.package === undefined) {
     return '';
@@ -543,11 +424,6 @@ function verifiedNote(claim: ReuseClaimView): string {
   return ' <span class="unverified">🟡 not verified against an installed version</span>';
 }
 
-/**
- * A one-line count of framework-native reuse and how much of it paqad actually checked
- * (issue #397). Rendered only when the plan makes a framework claim, so a first-party-only
- * plan reads exactly as it did before.
- */
 function frameworkReuseSummary(claims: ReuseClaimView[]): string {
   const framework = claims.filter((claim) => claim.package !== undefined);
   if (framework.length === 0) {
@@ -598,8 +474,6 @@ function renderSpec(bundle: FeatureBundleExport): string {
   if (acs.length > 0) {
     const items = acs
       .map((ac) => {
-        // The parser can truncate a `then` mid-sentence (observed: "then": "the") — render
-        // defensively, showing whatever is present.
         const gwt = [
           ac.given ? `<span class="gwt-k">Given</span> ${escapeHtml(ac.given)}` : '',
           ac.when ? `<span class="gwt-k">When</span> ${escapeHtml(ac.when)}` : '',
@@ -622,7 +496,6 @@ function renderSpec(bundle: FeatureBundleExport): string {
       .join('');
     parts.push(`<h3>Invariants</h3><ul class="invariants">${items}</ul>`);
   }
-  // Issue #558 — who added each expert-sourced spec line, joining the trace to the finding snapshot.
   const findings = spec.pipeline?.findings ?? [];
   const trace = spec.trace ?? {};
   if (findings.length > 0 && Object.keys(trace).length > 0) {
@@ -726,8 +599,6 @@ function renderReceipt(integrity: ReceiptIntegrity): string {
     : `${glyphWord('failed', 'Could not verify integrity')} — the receipt's hash chain does not recompute; treat it as tampered or corrupt.`;
   const rows = dedupeByHash(integrity.rows);
   const unsealed = dedupeByHash(integrity.unsealedRows);
-  // A gate recorded after the receipt sealed evidence.jsonl is shown, but never as the
-  // receipt's own: the seal does not cover it.
   const rowHtml = (row: ReceiptRow, sealed: boolean): string => {
     const { kind, word } = receiptRowResult(row);
     const note = sealed
@@ -775,10 +646,6 @@ function renderAiBom(bundle: FeatureBundleExport): string {
   return panel('aibom', 'AI bill of materials', body);
 }
 
-/**
- * The branch a change is built on and the branch it merges into. Issue #581 — they live in
- * `feature.json`; a bundle written before #581 carried them in `delivery.json` (INV-8).
- */
 function deliveryBranches(bundle: FeatureBundleExport): {
   branch: string | null;
   base_branch: string | null;
@@ -831,12 +698,6 @@ function renderDelivery(bundle: FeatureBundleExport): string {
   return panel('delivery', 'Delivery', parts.join(''));
 }
 
-/**
- * Render the review from the bundle's rigid `review.json` (issue #402). This used to read
- * an agent-authored `.md` discovered from the review stage row — a design that invited the
- * model to free-write a review file, which is how `review-notes.md` landed in a bundle dir.
- * The review is now a rigid record like the plan, so it renders structurally.
- */
 function renderReview(bundle: FeatureBundleExport): string {
   const review = bundle.files.review as
     | {
@@ -886,11 +747,6 @@ function renderReview(bundle: FeatureBundleExport): string {
   return panel('review', 'Review', parts.join(''));
 }
 
-/**
- * Render the decisions the change rests on (issue #581, FR-11): each entry of the bundle's
- * `decisions.json` index with the chosen option and rationale from its tracked packet. A packet
- * edited since it was indexed, or gone, is said so plainly instead of shown as if it held.
- */
 function renderDecisions(bundle: FeatureBundleExport, views: IndexedDecisionView[]): string {
   const index = (bundle.files.decisions as { decisions?: DecisionIndexEntry[] } | undefined)
     ?.decisions;
@@ -924,7 +780,6 @@ function renderDecisions(bundle: FeatureBundleExport, views: IndexedDecisionView
   return panel('decisions', 'Decisions', `<ul class="findings">${items}</ul>`);
 }
 
-/** The narration contract's verdict words, spelled the way paqad says them. */
 function reviewVerdictLabel(verdict: string): string {
   if (verdict === 'safe-to-merge') return 'Safe to merge';
   if (verdict === 'needs-attention') return 'Needs your attention';
@@ -947,21 +802,14 @@ function renderFooter(): string {
 </footer>`;
 }
 
-// ── Overview (the at-a-glance dashboard) ──────────────────────────────────────
-
 interface OverviewTile {
-  /** The section id this tile drills into. */
   target: string;
   label: string;
-  /** The big value (a number, a duration, a short status word). */
   value: string;
-  /** A one-line sub-caption under the value. */
   sub: string;
-  /** Status glyph kind — present only for genuine status tiles (never decoration). */
   kind?: PaqadStatusKind;
 }
 
-/** Total wall-clock across stages whose duration is reliable (idle-inflated ends excluded). */
 function totalReliableDuration(fold: FoldedChange): number {
   return fold.stages.reduce(
     (sum, stage) =>
@@ -970,7 +818,6 @@ function totalReliableDuration(fold: FoldedChange): number {
   );
 }
 
-/** Build the overview stat tiles from the same data the detail panels render. */
 function buildOverviewTiles(
   bundle: FeatureBundleExport,
   fold: FoldedChange,
@@ -978,7 +825,6 @@ function buildOverviewTiles(
 ): OverviewTile[] {
   const tiles: OverviewTile[] = [];
 
-  // Stages — a status tile.
   const passed = fold.completeness.required_passed;
   const total = fold.completeness.required_total;
   tiles.push({
@@ -989,7 +835,6 @@ function buildOverviewTiles(
     kind: passed >= total ? 'good' : 'needsLook',
   });
 
-  // Active time — a metric tile (no status glyph).
   tiles.push({
     target: 'timeline',
     label: 'Active time',
@@ -997,7 +842,6 @@ function buildOverviewTiles(
     sub: 'summed across recorded stages',
   });
 
-  // Rules — a status tile.
   const ruleRows = asRows(bundle.files.ruleRun);
   let findings = 0;
   let blocked = false;
@@ -1019,7 +863,6 @@ function buildOverviewTiles(
     kind: ruleRows.length === 0 ? 'skipped' : blocked ? 'failed' : 'good',
   });
 
-  // Retrieval — a metric tile.
   const ragRows = asRows(bundle.files.rag);
   tiles.push({
     target: 'retrieval',
@@ -1028,7 +871,6 @@ function buildOverviewTiles(
     sub: ragRows.length === 0 ? 'grep only (RAG not used)' : 'index + query activity',
   });
 
-  // Receipt — a status tile.
   tiles.push({
     target: 'receipt',
     label: 'Verification receipt',
@@ -1041,7 +883,6 @@ function buildOverviewTiles(
     kind: !integrity.present ? 'skipped' : integrity.verified ? 'good' : 'failed',
   });
 
-  // AI-BOM — a metric tile.
   const aiBom = bundle.files.aiBom as { components?: unknown[] } | undefined;
   const componentCount = Array.isArray(aiBom?.components) ? aiBom.components.length : null;
   tiles.push({
@@ -1051,7 +892,6 @@ function buildOverviewTiles(
     sub: aiBom === undefined ? 'enterprise governance off' : 'inventoried with SHA-256',
   });
 
-  // Delivery — a metric tile.
   const delivery = bundle.files.delivery as { commits?: unknown[] } | undefined;
   const commitCount = Array.isArray(delivery?.commits) ? delivery.commits.length : 0;
   const deliveryBranch = delivery === undefined ? null : deliveryBranches(bundle).branch;
@@ -1065,7 +905,6 @@ function buildOverviewTiles(
   return tiles;
 }
 
-/** Render the overview: the verdict hero + the clickable stat tiles. */
 function renderOverview(
   title: string,
   headerMeta: string,
@@ -1082,7 +921,6 @@ function renderOverview(
   return `<section id="overview" class="overview"><h1 class="page-title">${escapeHtml(title)}</h1>${hero}<div class="tiles">${cards}</div></section>`;
 }
 
-/** The sticky submenu that drills into each detail section. */
 function renderSubmenu(): string {
   const items: [string, string][] = [
     ['overview', 'Overview'],
@@ -1104,12 +942,6 @@ function renderSubmenu(): string {
     .join('')}</nav>`;
 }
 
-/**
- * Render the visual-evidence section (issue #551): the overview GIF, the ordered per-step
- * screenshots with their business-language captions, and explicit "absent because <reason>"
- * notes. Images are referenced by RELATIVE path to the sibling `screenshots/` files, so the
- * report keeps working from a `file://` origin with no script and no external request.
- */
 function stepProvenance(step: VisualEvidenceManifest['steps'][number]): string {
   if (step.journey_id !== AGENT_ATTACHED_JOURNEY) return '';
   return step.ac ? ` (agent-attached, ${step.ac})` : ' (agent-attached)';
@@ -1127,8 +959,6 @@ function renderVisualEvidence(bundle: FeatureBundleExport): string {
   }
   const parts: string[] = [];
   const captured = ve.steps.filter((step) => step.status === 'captured');
-  // Issue #579 (INV-9) — say where the screenshots came from, so attached ones are never read
-  // as scripted captures.
   const source = ve.source ? ` Source: ${ve.source}.` : '';
   parts.push(
     `<p>${escapeHtml(`${captured.length} step(s) captured across ${ve.plan.length} flow(s) — result: ${ve.result}.${source}`)}</p>`,
@@ -1161,11 +991,6 @@ function renderVisualEvidence(bundle: FeatureBundleExport): string {
   return panel('visual-evidence', 'Visual evidence', parts.join(''));
 }
 
-/**
- * Render the Checks section (issue #554): each command with its verdict glyph and duration, how the
- * run executed (mode), and the tests that failed under parallel but passed alone. Reads the v2
- * `checks.json` from the bundle; a v1 report (no `commands`) shows the plain empty note. Zero LLM.
- */
 function renderChecks(bundle: FeatureBundleExport): string {
   const checks = bundle.files.checks as
     | {
@@ -1235,8 +1060,6 @@ function renderChecks(bundle: FeatureBundleExport): string {
   }
   return panel('checks', 'Checks', parts.join(''));
 }
-
-// ── Assembly ────────────────────────────────────────────────────────────────
 
 const STYLE = `
 :root{color-scheme:light dark;--bg:#fafafa;--card:#ffffff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#2563eb;--good:#16a34a;--fail:#dc2626;--warn:#d97706;--tag:#eef2ff;--tag-ink:#3730a3;--bar:#0f172a;--bar-fg:#f8fafc}
@@ -1324,19 +1147,12 @@ summary{cursor:pointer;list-style:revert}
 @media print{.topbar{position:static}.submenu{display:none}.panel{display:block!important;break-inside:avoid;border-color:#bbb}.back{display:none}body{background:#fff;color:#000}}
 `;
 
-/**
- * Render a feature's evidence bundle into ONE self-contained HTML page (issue #371).
- * Pure: no file reads, no network, no model. Every section renders whatever exists and
- * a graceful plain-English note for whatever does not.
- */
 export function renderFeatureReportHtml(
   bundle: FeatureBundleExport,
   fold: FoldedChange,
   options: RenderFeatureReportOptions,
 ): string {
   const parts = parseFeatureDirName(bundle.dir_name);
-  // Issue #581 — the title lives in feature.json; a plan written before #581 also carried it.
-  // A feature title still equal to the slug is the seed placeholder, so it reads as the slug.
   const feature = bundle.files.feature as { title?: string } | undefined;
   const featureTitle =
     feature?.title !== undefined && feature.title !== parts?.slug ? feature.title : undefined;

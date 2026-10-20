@@ -13,8 +13,6 @@ import {
   recordDecisionSuperseded,
 } from '@/planning/decision-ledger.js';
 
-// Buildout F6 — decision-pause evidence on the session-ledger (the decision store fold).
-
 const roots: string[] = [];
 
 function tempRoot(): string {

@@ -18,7 +18,6 @@ describe('redactEvent', () => {
     expect(out.detail).toBe(REDACTED);
     expect(out.subject_digest).toBe('subj');
     expect(out.content_hash).toBe('hash');
-    // original is untouched
     expect(event.detail).toContain('secret');
   });
 
@@ -35,7 +34,7 @@ describe('redactEvent', () => {
       },
     });
     expect(out.authorship?.accepting_human).toEqual({ name: REDACTED, email: REDACTED });
-    expect(out.authorship?.agent).toBe('claude-code'); // agent is not PII
+    expect(out.authorship?.agent).toBe('claude-code');
   });
 
   it('redacts only the fields the human actually carries', () => {

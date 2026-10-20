@@ -85,15 +85,12 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('CLAUDE.md');
     expect(result.stderr).toContain('.paqad/framework-path.txt');
-    // Issue #284 — the rules step is artifact-first (session-context.md, else full
-    // rules); stack/design-system/workflows still load in full.
     expect(result.stderr).toContain('.paqad/context/session-context.md');
     expect(result.stderr).toContain('docs/instructions/{stack,design-system,workflows}');
   });
 
   it('allows the call when the sentinel exists and is fresh', () => {
     writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
-    // Bump sentinel mtime forward so it's strictly newer than the sources.
     const future = new Date(Date.now() + 60_000);
     utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), future, future);
     const result = runGate(projectRoot);
@@ -104,7 +101,6 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{}');
     const past = new Date(Date.now() - 60_000);
     utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), past, past);
-    // CLAUDE.md is newer than the (back-dated) sentinel → block.
     const result = runGate(projectRoot);
     expect(result.status).toBe(2);
   });
@@ -120,9 +116,6 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     expect(result.status).toBe(2);
   });
 
-  // Issue #307 — the bootstrap's final step IS a Write of the sentinel; gating it
-  // deadlocked turn one (the gate's own remediation says "Write the sentinel"
-  // while blocking exactly that Write).
   it('allows the Write of the sentinel itself while the sentinel is missing', () => {
     const payload = JSON.stringify({
       tool_name: 'Write',
@@ -154,15 +147,11 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     expect(runGate(projectRoot, '{not json').status).toBe(2);
   });
 
-  // Issue #567 — per-agent entry sentinel. A stage subagent shares the orchestrator's
-  // session_id but carries a distinct agent_id, so the sentinel is keyed on agent_id: a
-  // subagent must prove its OWN cold load and cannot ride the orchestrator's fresh sentinel.
-  describe('per-agent sentinel keying (issue #567)', () => {
+  describe('per-agent sentinel keying', () => {
     const AGENT = 'agent_dev1';
     const markerPath = (root: string, id: string) =>
       join(root, '.paqad', 'session', 'agent-entry', id);
 
-    /** A fresh, future-dated MAIN-thread sentinel (what the orchestrator leaves behind). */
     function writeFreshBaseSentinel(root: string): void {
       writeFileSync(join(root, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
       const future = new Date(Date.now() + 60_000);
@@ -177,7 +166,6 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
         tool_name: 'Edit',
         tool_input: { file_path: join(projectRoot, 'src/index.ts') },
       });
-      // The base sentinel is fresh, but this agent has no marker → keyed state is missing.
       expect(runGate(projectRoot, payload).status).toBe(2);
       expect(existsSync(markerPath(projectRoot, AGENT))).toBe(false);
     });
@@ -190,12 +178,10 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
         tool_input: { file_path: join(projectRoot, '.paqad/.agent-entry-loaded') },
       });
       expect(runGate(projectRoot, payload).status).toBe(0);
-      // The exemption promoted the bootstrap write into this agent's keyed marker.
       expect(existsSync(markerPath(projectRoot, AGENT))).toBe(true);
     });
 
     it('allows the subagent edit once its marker is stamped, and keeps other agents blocked', () => {
-      // Stamp AGENT's marker via the sentinel-write exemption.
       runGate(
         projectRoot,
         JSON.stringify({
@@ -213,8 +199,8 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
             tool_input: { file_path: join(projectRoot, 'src/index.ts') },
           }),
         ).status;
-      expect(edit(AGENT)).toBe(0); // this agent proved its load
-      expect(edit('agent_other')).toBe(2); // a different subagent still must load
+      expect(edit(AGENT)).toBe(0);
+      expect(edit('agent_other')).toBe(2);
     });
 
     it('names the per-agent marker path in the block message for a subagent', () => {
@@ -232,7 +218,6 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     });
 
     it('a directly-created marker (the Bash path) clears the subagent gate', () => {
-      // Simulate the agent creating its keyed marker with a shell command (ungated by the hook).
       mkdirSync(join(projectRoot, '.paqad/session/agent-entry'), { recursive: true });
       writeFileSync(markerPath(projectRoot, AGENT), '{}');
       const result = runGate(
@@ -282,32 +267,22 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
     expect(result.stdout).toContain('MUST load the paqad framework');
     expect(result.stdout).toContain('CLAUDE.md');
     expect(result.stdout).toContain('.paqad/framework-path.txt');
-    // Issue #284 — artifact-first rules directive.
     expect(result.stdout).toContain('.paqad/context/session-context.md');
     expect(result.stdout).toContain('docs/instructions/{stack,design-system,workflows}');
   });
 
-  // Issue #498, Part A / AC-1 — the fired directive proves paqad is ON (the gate
-  // short-circuits silently when OFF), so it states that verdict first and marks the
-  // enablement step done; the agent must not spend a tool call re-checking it.
-  it('opens with the enablement verdict and marks enablement a done step (#498 AC-1)', () => {
+  it('opens with the enablement verdict and marks enablement a done step', () => {
     const result = runPromptGate(projectRoot);
     const lines = result.stdout.split('\n').filter((line) => line.startsWith('[paqad]'));
-    // First [paqad] content line states enablement is ON and already verified.
     expect(lines[0]).toMatch(/Enablement: ON — verified by this gate/);
     expect(lines[0]).toMatch(/do not re-check it/i);
-    // The step list carries an explicit, done enablement step and the router chain.
     expect(result.stdout).toMatch(/1\. Enablement — ON, already resolved by this gate/);
     expect(result.stdout).toContain('AGENT-BOOTSTRAP.md');
     expect(result.stdout).toContain('AGENT-ROUTER.md');
-    // The stale hardcoded workflow count is gone (AC-3).
     expect(result.stdout).not.toContain('9 workflows');
   });
 
-  // Issue #498, Part A / AC-3 — the numbered step prose lives in exactly one shared
-  // module, so the prompt-gate and the PreToolUse gate cannot drift. Both directives
-  // must therefore carry the identical step lines.
-  it('shares its step prose with the PreToolUse gate (#498 AC-3)', () => {
+  it('shares its step prose with the PreToolUse gate', () => {
     const promptSteps = runPromptGate(projectRoot)
       .stdout.split('\n')
       .filter((line) => /^\[paqad] {3}\d\./.test(line));
@@ -318,7 +293,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
     expect(gateSteps).toEqual(promptSteps);
   });
 
-  it('the PreToolUse gate block message also states enablement ON (#498)', () => {
+  it('the PreToolUse gate block message also states enablement ON', () => {
     const result = runGate(projectRoot);
     expect(result.status).toBe(2);
     expect(result.stderr).toMatch(/Enablement: ON — verified by this gate/);
@@ -333,8 +308,6 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
   });
 
   it('stays silent and exits 0 when the sentinel is fresh', () => {
-    // The spec-pipeline nudge is its own line (issue #640 turned it on by default); this test is
-    // about the load directive, so the pipeline is switched off here.
     writeFileSync(join(projectRoot, '.paqad/.config'), 'spec_pipeline_enabled=false\n');
     writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
     const future = new Date(Date.now() + 60_000);
@@ -355,7 +328,6 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
     const result = runPromptGate(projectRoot);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('changed mid-session');
-    // The shared helper must have deleted the now-stale sentinel.
     expect(() => {
       execFileSync('test', ['-e', join(projectRoot, '.paqad/.agent-entry-loaded')]);
     }).toThrow();
@@ -375,11 +347,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
   });
 });
 
-// Issue #576 (Finding 1a) — the prompt-gate must ROUTE every prompt, including the
-// not-yet-loaded (non-fresh sentinel) branch, so the per-session workflow-state exists
-// after the FIRST prompt of a session. Without it the Stop backstop reads an `unknown`
-// route and falsely blocks a read-only turn on pre-existing dirt.
-describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt (issue #576)', () => {
+describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt', () => {
   const PROMPT_GATE_SCRIPT = resolve(
     __dirname,
     '../../../runtime/hooks/agent-entry-prompt-gate.mjs',
@@ -418,7 +386,6 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
       mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
       writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
       writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
-      // Sentinel deliberately absent — this is the not-yet-loaded first prompt of a session.
       const sessionId = 'route-576';
       const result = runPromptGateWithInput(
         projectRoot,
@@ -427,18 +394,14 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
           session_id: sessionId,
         }),
       );
-      // The load directive still owns the output (routing narration is dropped in this branch).
       expect(result.status).toBe(0);
       expect(result.stdout).toContain('MUST load the paqad framework');
-      // The gap this fixes: the per-session workflow-state now exists after the first prompt.
       expect(existsSync(workflowStatePath(projectRoot, sessionId))).toBe(true);
     } finally {
       removeTempProject(projectRoot);
     }
   });
 
-  // Issue #582 — the host shell does not export the session id, so a feature-development
-  // prompt tells the model which id to prefix its paqad-ai commands with.
   it.each([
     ['implement a schema migration adding a pii payment column', true],
     ['why does the login page throw an error when I submit?', false],
@@ -451,7 +414,6 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
         mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
         writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
         writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
-        // The payload carries a session id, so the gate checks that session's own sentinel.
         const sentinel = join(projectRoot, '.paqad/.agent-entry-loaded.d/route-582');
         mkdirSync(join(projectRoot, '.paqad/.agent-entry-loaded.d'), { recursive: true });
         writeFileSync(sentinel, '{"loaded_at":"now"}');
@@ -468,15 +430,11 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
           '[paqad] session route-582: prefix paqad-ai commands with SE_SESSION=route-582';
         expect(result.stdout.includes(line)).toBe(named);
       } finally {
-        // NO_CONTEXT_REFRESH_ENV keeps the gate from spawning its detached context-refresh
-        // child, so nothing writes into projectRoot after the gate returns (issues #615, #649).
         removeTempProject(projectRoot);
       }
     },
   );
 
-  // Issue #640 (FR-14, AC-21) — the spec pipeline is on by default, but the fast lane never runs
-  // it, so the prompt gate nudges only a feature-development prompt off the fast lane.
   it.each([
     ['fix a one-line typo in a code comment', false],
     ['implement a schema migration adding a pii payment column and a breaking api change', true],
@@ -510,9 +468,7 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt 
 });
 
 describe('runtime/hooks/agent-entry-session-start.mjs', () => {
-  // Issue #576 (Finding 1b) — SessionStart captures a baseline of the already-dirty tracked files
-  // so the completion backstop can subtract inherited dirt. Drives the real hook (needs dist).
-  it('captures a dirty-file baseline for the session (issue #576)', () => {
+  it('captures a dirty-file baseline for the session', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-baseline-hook-'));
     try {
       execFileSync('git', ['init', '--quiet'], { cwd: projectRoot });
@@ -521,7 +477,6 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       writeFileSync(join(projectRoot, 'src.ts'), 'export const a = 1;\n');
       execFileSync('git', ['add', '.'], { cwd: projectRoot });
       execFileSync('git', ['commit', '--quiet', '-m', 'init'], { cwd: projectRoot });
-      // The tree is already dirty when the session starts.
       writeFileSync(join(projectRoot, 'src.ts'), 'export const a = 2;\n');
 
       execFileSync('node', [RESET_SCRIPT], {
@@ -548,7 +503,6 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
     try {
       mkdirSync(join(projectRoot, '.paqad/session/agent-entry'), { recursive: true });
       writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{}');
-      // A leftover per-agent marker from a prior session (issue #567).
       writeFileSync(join(projectRoot, '.paqad/session/agent-entry/agent_x'), '{}');
       execFileSync('node', [RESET_SCRIPT], {
         env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
@@ -562,10 +516,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
   });
 });
 
-// Issue #582 (AC-10) — the entry sentinel is keyed on the host session id, so two sessions in one
-// checkout never ungate each other. The legacy single file is honoured only when the payload
-// carries no session id.
-describe('per-session entry sentinel (issue #582)', () => {
+describe('per-session entry sentinel', () => {
   let projectRoot: string;
   const sessionFile = (id: string) => join(projectRoot, '.paqad/.agent-entry-loaded.d', id);
   const editPayload = (sessionId?: string) =>
@@ -575,7 +526,6 @@ describe('per-session entry sentinel (issue #582)', () => {
       tool_input: { file_path: join(projectRoot, 'src/index.ts') },
     });
 
-  /** A future-dated sentinel so it is strictly newer than the entry sources. */
   function writeFresh(path: string): void {
     mkdirSync(join(path, '..'), { recursive: true });
     writeFileSync(path, '{"loaded_at":"now"}');

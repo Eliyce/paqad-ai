@@ -9,7 +9,7 @@ import {
   type RoutedWorkflow,
 } from '@/pipeline/routed-workflow.js';
 
-describe('routed-workflow (#336)', () => {
+describe('routed-workflow', () => {
   it('exposes exactly the 12 routing outcomes', () => {
     expect([...ROUTED_WORKFLOWS]).toEqual([
       'feature-development',
@@ -27,7 +27,7 @@ describe('routed-workflow (#336)', () => {
     ]);
   });
 
-  it('maps discovery to itself as a real, non-feature-dev, retrieving route (#597)', () => {
+  it('maps discovery to itself as a real, non-feature-dev, retrieving route', () => {
     expect(resolveRoutedWorkflow('discovery')).toBe('discovery');
     expect(isFeatureDevelopmentRoute('discovery')).toBe(false);
     expect(routeUsesRetrieval('discovery')).toBe(true);

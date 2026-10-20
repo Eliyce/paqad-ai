@@ -1,33 +1,14 @@
-// The six mandatory feature-development stage agents (issue #567).
-//
-// Under stage isolation each mandatory stage runs in its own host subagent. This module is
-// the single source of truth for which stages get an agent, the agent's name, its per-stage
-// tool scope, and the cold-brief body every host renders. The names are `paqad-<stage>`
-// (hyphenated), so the `^paqad-` SubagentStop matcher fires only for these agents; the body
-// tells the agent to record under the LEDGER stage name (underscored, from STAGE_ORDER).
-//
-// ticket_intake and delivery are excluded: intake is orchestrator-side routing and delivery
-// is the human-gated PR step — neither is a "think and type in isolation" stage.
-
 import { STAGE_ORDER } from '@/pipeline/feature-development-policy.js';
 
-/** One stage agent's identity and tool scope. */
 export interface StageAgentDef {
-  /** The host agent name, `paqad-<stage>` with hyphens (matched by `^paqad-`). */
   agentName: string;
-  /** The canonical ledger stage name (underscored, a member of STAGE_ORDER). */
   ledgerStage: string;
-  /** Claude `tools` frontmatter — the tools this stage is allowed. */
   claudeTools: string;
-  /** A one-line role, used in the agent description. */
   role: string;
 }
 
-/** Read-only stages get discovery tools plus Bash (to run the paqad-ai stage verbs). */
 const READ_ONLY_TOOLS = 'Read, Grep, Glob, Bash';
-/** The development stage edits source. */
 const DEVELOPMENT_TOOLS = 'Read, Edit, Write, NotebookEdit, Grep, Glob, Bash';
-/** Documentation sync edits docs. */
 const DOC_SYNC_TOOLS = 'Read, Edit, Write, Grep, Glob, Bash';
 
 const STAGE_META: Record<string, { tools: string; role: string }> = {
@@ -45,17 +26,14 @@ const STAGE_META: Record<string, { tools: string; role: string }> = {
   },
 };
 
-/** The ledger stages that get an isolated agent, in STAGE_ORDER order. */
 export const STAGE_AGENT_STAGES: readonly string[] = STAGE_ORDER.filter(
   (stage) => stage in STAGE_META,
 );
 
-/** Turn a ledger stage name (`documentation_sync`) into an agent name (`paqad-documentation-sync`). */
 export function agentNameForStage(ledgerStage: string): string {
   return `paqad-${ledgerStage.replace(/_/g, '-')}`;
 }
 
-/** The six stage-agent definitions, derived from STAGE_ORDER so they cannot drift from it. */
 export const MANDATORY_STAGE_AGENTS: readonly StageAgentDef[] = STAGE_AGENT_STAGES.map(
   (ledgerStage) => ({
     agentName: agentNameForStage(ledgerStage),
@@ -65,13 +43,8 @@ export const MANDATORY_STAGE_AGENTS: readonly StageAgentDef[] = STAGE_AGENT_STAG
   }),
 );
 
-/**
- * The extra `paqad:` namespace a Claude Code *plugin* agent carries before its name
- * (`paqad:paqad-development`, issue #616, Part 3).
- */
 export const PLUGIN_AGENT_NAMESPACE = 'paqad:';
 
-/** An agent type without the plugin's `paqad:` namespace, so plugin and npm agents read alike. */
 export function stripPluginAgentNamespace(agentType: string): string {
   return agentType.startsWith(PLUGIN_AGENT_NAMESPACE)
     ? agentType.slice(PLUGIN_AGENT_NAMESPACE.length)
@@ -82,35 +55,19 @@ const STAGE_BY_AGENT_NAME: ReadonlyMap<string, string> = new Map(
   MANDATORY_STAGE_AGENTS.map((def) => [def.agentName, def.ledgerStage]),
 );
 
-/**
- * The ledger stage a `paqad-<stage>` agent name runs, or null for any other name (issue #639,
- * Part 13). Only the six stage agents are stages: a High Table seat (`paqad-expert`,
- * `paqad-chief-architect`) or any other `paqad-` name is not, so it can never add a
- * `stage-agent` row or count as an isolated stage.
- */
 export function stageForAgentName(agentName: string): string | null {
   return STAGE_BY_AGENT_NAME.get(agentName.trim()) ?? null;
 }
 
-// ── The High Table seats (issue #639, Part 13) ─────────────────────────────────────────
-
-/** The host agent that sits one expert seat at the High Table. Its role comes in the prompt. */
 export const EXPERT_AGENT_NAME = 'paqad-expert';
-/** The host agent that chairs the High Table. */
 export const CHIEF_ARCHITECT_AGENT_NAME = 'paqad-chief-architect';
 
-/** One High Table agent's identity: the same fields a stage agent renders from. */
 export interface HighTableAgentDef {
   agentName: string;
   claudeTools: string;
   description: string;
 }
 
-/**
- * The two High Table agents. Neither edits source: an expert reads its brief and writes one note,
- * the chief reads the notes and writes the synthesis, each through a `paqad-ai` verb. They write
- * their artifact with the shell under `.paqad/tmp/`, so they get no Edit or Write tool.
- */
 export const HIGH_TABLE_AGENTS: readonly HighTableAgentDef[] = [
   {
     agentName: EXPERT_AGENT_NAME,
@@ -126,7 +83,6 @@ export const HIGH_TABLE_AGENTS: readonly HighTableAgentDef[] = [
   },
 ];
 
-/** True when an agent type (with or without the plugin namespace) is a High Table seat. */
 export function isHighTableAgent(agentType: string | null | undefined): boolean {
   if (typeof agentType !== 'string') return false;
   const name = stripPluginAgentNamespace(agentType.trim());
@@ -146,7 +102,6 @@ const SEAT_RULES = [
   '  so every row you write lands under the one change.',
 ];
 
-/** The cold-brief body of the expert seat agent (issue #639, Part 13). */
 export function buildExpertAgentBody(): string {
   return [
     'You are one seat at the paqad **High Table**: a single expert writing request-time notes for',
@@ -172,7 +127,6 @@ export function buildExpertAgentBody(): string {
   ].join('\n');
 }
 
-/** The cold-brief body of the chief architect agent (issue #639, Part 13). */
 export function buildChiefArchitectAgentBody(): string {
   return [
     'You are the **chief architect** who chairs the paqad **High Table** for one',
@@ -197,20 +151,12 @@ export function buildChiefArchitectAgentBody(): string {
   ].join('\n');
 }
 
-/** The body a High Table agent carries, by its definition. */
 export function buildHighTableAgentBody(def: HighTableAgentDef): string {
   return def.agentName === CHIEF_ARCHITECT_AGENT_NAME
     ? buildChiefArchitectAgentBody()
     : buildExpertAgentBody();
 }
 
-/**
- * The cold-brief body every stage agent carries, identical across hosts (issue #567). It is
- * the whole contract a fresh subagent needs: load the framework, learn which stage and change
- * it is running, read the stage's own instructions, run the stage CLI verbs under the
- * orchestrator's session id, and return one short message — never ask the human, never edit a
- * bundle by hand, never skip a verb.
- */
 export function buildStageAgentBody(def: StageAgentDef): string {
   return [
     `You are the paqad **${def.ledgerStage}** stage agent. You run one stage of one`,
@@ -255,17 +201,6 @@ export function buildStageAgentBody(def: StageAgentDef): string {
   ].join('\n');
 }
 
-/**
- * Whether a recorded host adapter can dispatch stage subagents at all (issue #573).
- *
- * Derived from the SAME roster the agent writer renders for, so the completeness gate and
- * the installer can never disagree about which hosts isolation applies to (RULE-13
- * RL-3210). Gemini and the advisory IDEs expose no subagent dispatch, so a change recorded
- * against one of them must never be asked for isolation evidence.
- *
- * Imported lazily by callers that must not pull the writer's filesystem deps; the host
- * list itself lives in agent-writer.ts beside the templates it drives.
- */
 export function isSubagentCapableAdapter(
   adapter: string | null | undefined,
   hosts: readonly { adapter: string }[],

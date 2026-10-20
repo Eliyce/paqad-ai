@@ -1,10 +1,3 @@
-// Dashboard collector for module-map drift (issue #80 Phase 2 + Phase 4).
-//
-// Reads .paqad/module-map/drift.json (written by the reconciler) and surfaces
-// a per-module drift badge plus an overall section score. Phase 2 ships the
-// "drift count per module" badge. Phase 4 layers `--fail-on-drift` semantics
-// across this section and three others.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -84,7 +77,6 @@ export function collectModuleMapDrift(projectRoot: string): ModuleMapDriftResult
   }
 
   const total = report.findings.length;
-  // Each finding deducts 8; floor at 0.
   const score = Math.max(0, 100 - total * 8);
   const perModule = aggregatePerModule(report);
   const topModules = Object.entries(perModule)
@@ -97,8 +89,6 @@ export function collectModuleMapDrift(projectRoot: string): ModuleMapDriftResult
       : `${total} finding(s) across ${Object.keys(perModule).length} module(s)`;
 
   const attention: AttentionItem[] = [];
-  // Always surface MM-DOC-MISSING separately — Phase 4's --fail-on-drift
-  // treats it as a hard signal.
   const docMissing = report.findings.filter((f) => f.code === 'MM-DOC-MISSING');
   if (docMissing.length > 0) {
     attention.push({

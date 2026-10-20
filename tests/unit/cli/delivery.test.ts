@@ -16,7 +16,6 @@ import { createPendingDecision, resolvePendingDecision } from '@/decisions/autho
 import type { ChecksStatus, HostProvider } from '@/providers/host-provider.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
-/** A shell whose every command succeeds (exit 0). */
 function okShell(): { shell: DeliveryShell; calls: string[][] } {
   const calls: string[][] = [];
   return {
@@ -30,7 +29,6 @@ function okShell(): { shell: DeliveryShell; calls: string[][] } {
   };
 }
 
-/** A host stub for the CI gate: fixed checks state + a recording comment(). */
 function fakeHost(state: ChecksStatus['state']): { host: HostProvider; comments: string[] } {
   const comments: string[] = [];
   const host = {
@@ -92,7 +90,7 @@ describe('paqad-ai deliver', () => {
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('dry run');
     expect(result.output).toContain('branch:');
-    expect(calls).toEqual([]); // nothing shelled
+    expect(calls).toEqual([]);
   });
 
   it('pauses (non-zero) when the open_pr decision is unresolved', async () => {
@@ -125,7 +123,6 @@ describe('paqad-ai deliver', () => {
     );
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('no PR requested');
-    // branch + commit only — never push/pr.
     expect(calls.some((c) => c.includes('push'))).toBe(false);
     expect(calls.some((c) => c[0] === 'gh')).toBe(false);
   });
@@ -133,7 +130,6 @@ describe('paqad-ai deliver', () => {
   it('reports a stopped delivery when a git step fails', async () => {
     const failingShell: DeliveryShell = {
       async run(command, args) {
-        // branch ok, commit fails.
         const ok = !(command === 'git' && args[0] === 'commit');
         return { stdout: '', stderr: ok ? '' : 'nothing to commit', exitCode: ok ? 0 : 1 };
       },
@@ -144,7 +140,7 @@ describe('paqad-ai deliver', () => {
   });
 });
 
-describe('resolveOpenPrDecision (#323)', () => {
+describe('resolveOpenPrDecision', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-openpr-'));

@@ -114,7 +114,6 @@ describe('component-conformance-review', () => {
       const r = runScript(path, [join(FIX, 'components.md')]);
       expect(r.status).toBe(0);
       const rows = r.stdout.split('\n').filter((l) => l.length > 0);
-      // Fixture: Button, Input, Card, GhostComponent
       expect(rows.length).toBe(4);
       const map = Object.fromEntries(
         rows.map((r) => {
@@ -163,7 +162,6 @@ describe('component-conformance-review', () => {
         const lines = r.stdout.split('\n').filter((l) => l.length > 0);
         expect(lines).toContain('in-source-not-declared\tModal\tsrc/components/Modal.tsx');
         expect(lines).toContain('declared-not-in-source\tDropdown\t-');
-        // Components that appear on both sides emit no rows.
         expect(lines.find((l) => l.includes('\tButton\t'))).toBeUndefined();
         expect(lines.find((l) => l.includes('\tInput\t'))).toBeUndefined();
       });

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Purpose: Match raw request text against assets/routing-rules.txt and emit
-#          the canonical YAML routing decision.
-# Usage:   bash scripts/route-request.sh                  (text on stdin)
-#          bash scripts/route-request.sh "request text"
-# Output:  YAML lines: workflow / reason / matched_rule  (or workflow: none).
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Match raw request text against assets/routing-rules.txt and emit
+         the canonical YAML routing decision.
+Usage:   bash scripts/route-request.sh                  (text on stdin)
+         bash scripts/route-request.sh "request text"
+USAGE
+  exit 0
 fi
 
 if [ -n "${1:-}" ]; then text="$1"; else text=$(cat); fi

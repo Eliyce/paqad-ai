@@ -1,12 +1,3 @@
-// On-demand whole-project projections from the per-feature bundles (issue #339, Phase 6).
-//
-// The re-key (Phase 2) moved stage evidence out of the session-scoped
-// `<docType>/<session>/<ordinal>` layout that `readAllSessionRows` walks, so any
-// whole-project consumer (the SIEM `audit export` #121, the dashboard) must now PROJECT
-// the union from the feature dirs instead. This module is that projection: it reads every
-// feature bundle's `stage-evidence.jsonl` (and `rule-run.jsonl`) and returns the merged
-// rows, so external tooling still sees one whole document while nothing double-writes.
-
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import type { FeatureSpec } from '@/core/types/feature-spec.js';
 import { readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
@@ -17,63 +8,36 @@ import { readFeatureSpecification } from './artifacts.js';
 import { listFeatureDirs } from './delivery.js';
 import { featureFilePath } from './paths.js';
 
-/**
- * Every stage-evidence row across all feature bundles, feature dirs in name order. The
- * whole-project projection of the re-homed stage spine — the replacement for
- * `readAllSessionRows(STAGE_EVIDENCE_DOC_TYPE)` after the Phase-2 cutover.
- */
 export function readAllFeatureStageRows(projectRoot: string): SessionLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'stageEvidence')),
   );
 }
 
-/** Every per-feature rule-run row across all bundles (the whole-project projection). */
 export function readAllFeatureRuleRuns(projectRoot: string): SessionLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'ruleRun')),
   );
 }
 
-/**
- * Every per-feature duplication row across all bundles (issue #468, Phase A). The
- * whole-project projection consumed by the parity window now and the Phase-B readers
- * later, mirroring {@link readAllFeatureRuleRuns}.
- */
 export function readAllFeatureDuplication(projectRoot: string): SessionLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'duplication')),
   );
 }
 
-/** Every per-feature change-metrics row across all bundles (issue #468, Phase A). */
 export function readAllFeatureChangeMetrics(projectRoot: string): SessionLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'changeMetrics')),
   );
 }
 
-/**
- * Every per-feature RAG row across all bundles (issue #468, Phase C). The whole-project
- * projection of the feature-attributed retrieval rows, mirroring {@link readAllFeatureRuleRuns}.
- * `foldRagEvidenceSession` unions this (filtered by `session_id`) with the session's `_chat`
- * `rag.jsonl` — the two homes the two-home router writes to — so a re-pointed fold sees a
- * retrieval row wherever the feature was active when it was recorded.
- */
 export function readAllFeatureRag(projectRoot: string): SessionLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readUnitFile(projectRoot, featureFilePath(dirName, 'rag')),
   );
 }
 
-/**
- * Issue #468, Phase B — the last `limit` change-metrics rows across all bundles, oldest
- * first, ordered by `ts`. The bundle replacement for `readChangeMetricsRows(limit)`: the
- * Change Shape collector and `metrics report` render "the last N changes" as this ts-sorted
- * tail, since rows can now interleave across feature bundles (the accepted latest-by-ts
- * tradeoff, issue #468). `ts` is a stable ISO-8601 string, so a lexical sort is chronological.
- * A row written since #581 carries `recorded_at` instead; `rowRecordedAt` reads either.
- */
 export function readFeatureChangeMetricsWindow(
   projectRoot: string,
   limit: number,
@@ -84,35 +48,21 @@ export function readFeatureChangeMetricsWindow(
   return limit >= rows.length ? rows : rows.slice(rows.length - limit);
 }
 
-/** Every per-feature graded gate row across all bundles (issue #468, Phase A, D5). */
 export function readAllFeatureEvidence(projectRoot: string): EvidenceLedgerRow[] {
   return listFeatureDirs(projectRoot).flatMap((dirName) =>
     readFeatureEvidence(projectRoot, dirName),
   );
 }
 
-/**
- * Every FROZEN feature specification across all bundles (issue #343 A1). This is the
- * whole-project projection of the frozen spec — the replacement for the legacy
- * `.paqad/specs/<id>.frozen.json` sidecar scan (`readFrozenSpecs`) after the Phase-7
- * cutover. Each `specification.json` stores an already-frozen `FeatureSpec` carrying the
- * same `frozen`/`spec_hash` fields the spec-change guard compares against, so only the
- * read location moves. A missing/corrupt/unfrozen bundle spec is skipped, never thrown.
- */
 export function readAllFeatureSpecifications(projectRoot: string): FeatureSpec[] {
   return readAllFeatureSpecificationEntries(projectRoot).map((entry) => entry.spec);
 }
 
-/** A frozen specification together with the bundle it was read from. */
 export interface FeatureSpecificationEntry {
   dirName: string;
   spec: FeatureSpec;
 }
 
-/**
- * {@link readAllFeatureSpecifications} with each spec's bundle dir name, for a reader that
- * resolves the bundle-relative `spec_file` (`spec.md`, issue #581) against its bundle.
- */
 export function readAllFeatureSpecificationEntries(
   projectRoot: string,
 ): FeatureSpecificationEntry[] {

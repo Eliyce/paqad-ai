@@ -21,22 +21,8 @@ interface ReviewDigestOptions {
   session?: string;
 }
 
-/** The verdict words the narration contract uses everywhere paqad speaks. */
 const VERDICTS = ['safe-to-merge', 'needs-attention', 'inconclusive'] as const;
 
-/**
- * `paqad-ai review record <input.json>` — write the active feature's `review.json`
- * (issue #402) from a filled template, the review stage's counterpart to
- * `paqad-ai plan compile`. Before this, `review` owned no rigid bundle file, so the
- * stage's evidence was a free-written `.md` with no defined home; the incident that
- * motivated this dropped `review-notes.md` straight into the bundle dir. The model
- * fills `{ summary, verdict, findings, checked, rollback, title? }`; the script builds
- * a schema-validated record with a deterministic `content_hash` and writes it into the
- * bundle, so the model never owns the stored bytes. The transient input is deleted
- * after a successful record (only the rigid JSON persists) unless `--keep-input` is
- * passed. Exits non-zero when no feature is active or the template is malformed, with
- * nothing written.
- */
 export function createReviewCommand(): Command {
   const command = new Command('review').description(
     'Work with the per-feature review (build the evidence digest, record the review.json)',
@@ -93,8 +79,6 @@ export function createReviewCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // Caught here as well as in the schema so the message names the allowed words
-      // rather than surfacing a raw AJV enum error.
       if (!VERDICTS.includes(template.verdict)) {
         console.error(`review template needs a "verdict" of: ${VERDICTS.join(', ')}`);
         process.exitCode = 1;
@@ -122,14 +106,10 @@ export function createReviewCommand(): Command {
         process.exitCode = 1;
         return;
       }
-      // Transient scratch: the filled template is deleted so only the rigid JSON
-      // persists — the input is never a second, editable source of truth.
       if (!options.keepInput) {
         try {
           rmSync(inputFile, { force: true });
-        } catch {
-          /* best-effort: a leftover template is harmless, never fail the record for it */
-        }
+        } catch {}
       }
       console.log(`**▸ paqad** · recorded ${result.path}`);
       console.log(JSON.stringify({ recorded: true, path: result.path }));

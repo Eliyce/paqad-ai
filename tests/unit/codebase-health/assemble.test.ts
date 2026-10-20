@@ -86,7 +86,6 @@ describe('assembleHealthReport', () => {
     );
     expect(report.report_id).toMatch(/^RETEST-/);
     expect(report.report_path).toContain('2026-01-01-00-00-00-retest-2026-07-14-09-00-00.md');
-    // Nothing in the baseline id set → everything counts as new-since-baseline.
     expect(report.baseline.new_since_baseline).toBe(report.findings.length);
     expect(report.baseline.existed).toBe(true);
   });

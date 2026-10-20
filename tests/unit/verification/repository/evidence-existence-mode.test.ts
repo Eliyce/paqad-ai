@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { resolveEvidenceExistenceMode } from '@/verification/repository/evidence-existence-mode.js';
 
-describe('resolveEvidenceExistenceMode (issue #468 Phase C)', () => {
+describe('resolveEvidenceExistenceMode', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-eem-'));
@@ -38,7 +38,6 @@ describe('resolveEvidenceExistenceMode (issue #468 Phase C)', () => {
   });
 
   it('a local off cannot lower the warn floor (only raises)', () => {
-    // Default floor is warn; a local `off` is weaker, so it is clamped away.
     writeLocal('off');
     expect(resolveEvidenceExistenceMode(root, {})).toBe('warn');
   });

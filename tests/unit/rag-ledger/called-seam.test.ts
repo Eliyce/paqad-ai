@@ -29,7 +29,7 @@ function resultWith(files: string[]): RagRetrievalResult {
   } as unknown as RagRetrievalResult;
 }
 
-describe('called retrieval seam (#249 P2)', () => {
+describe('called retrieval seam', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-called-'));

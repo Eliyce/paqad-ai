@@ -1,19 +1,6 @@
-/**
- * FR-DP4: Feedback into Spec Quality Review
- * FR-DP5: Feedback into Agent Context
- *
- * Queries the pattern store for patterns relevant to the current spec or task
- * and formats them as advisories (review) or a warning block (agent context).
- */
-
 import { queryPatterns } from './store.js';
 import type { PatternAdvisory, PatternQueryOptions, StackContext } from './types.js';
 
-/**
- * FR-DP4: Build pattern advisories for the spec quality review report.
- * Returns an empty array when no relevant patterns meet the thresholds —
- * producing no noise in the first-implementation scenario (EC-DP1).
- */
 export async function buildPatternAdvisories(
   options: {
     stack_context?: StackContext;
@@ -39,11 +26,6 @@ export async function buildPatternAdvisories(
   }));
 }
 
-/**
- * FR-DP5: Format relevant patterns as a concise agent-context warning block.
- * Returns an empty string when no patterns qualify (EC-DP1 — no block, no error).
- * Caps at 5 patterns, each as a single sentence (FR-DP5.3).
- */
 export async function formatAgentContextWarnings(
   options: {
     stack_context?: StackContext;

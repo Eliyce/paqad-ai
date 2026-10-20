@@ -40,7 +40,7 @@ describe('classifyFinding — the four piles', () => {
     expect(canDriveCodeChange(v)).toBe(false);
   });
 
-  it('sorts a spec-silent finding into unclear-spec → spec (#102), not code', () => {
+  it('sorts a spec-silent finding into unclear-spec → spec, not code', () => {
     const v = classifyFinding(finding({ spec_silent: true }));
     expect(v.pile).toBe('unclear-spec');
     expect(v.route).toBe('spec');
@@ -62,7 +62,7 @@ describe('classifyFinding — the four piles', () => {
 });
 
 describe('classifyFinding — special routes and ambiguity', () => {
-  it('routes a measurable quality regression to the ratchet (#110), not the taste bin', () => {
+  it('routes a measurable quality regression to the ratchet, not the taste bin', () => {
     const v = classifyFinding(finding({ measurable_quality: true, style_only: true }));
     expect(v.pile).toBeNull();
     expect(v.route).toBe('ratchet');
@@ -118,12 +118,12 @@ describe('canDriveCodeChange — only confirmed-demonstrable may change code', (
 
   it('returns false for taste, false-alarm, unclear-spec, needs-repro, ratchet, ambiguous', () => {
     const cases: TriageSignals[] = [
-      { style_only: true, behavioural: false }, // taste
-      { refuted_by_evidence: true }, // false-alarm
-      { spec_silent: true }, // unclear-spec
-      { gate_failed: true, reproducible: false }, // needs-repro
-      { measurable_quality: true }, // ratchet
-      {}, // ambiguous
+      { style_only: true, behavioural: false },
+      { refuted_by_evidence: true },
+      { spec_silent: true },
+      { gate_failed: true, reproducible: false },
+      { measurable_quality: true },
+      {},
     ];
     for (const signals of cases) {
       expect(canDriveCodeChange(classifyFinding(finding(signals)))).toBe(false);

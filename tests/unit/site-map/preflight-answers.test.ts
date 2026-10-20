@@ -22,7 +22,6 @@ const ROUTE_OPTIONS = [
   { id: 'print', label: 'Print and paste' },
 ];
 
-/** A preflight result with one command-kind question and one workflow-kind question. */
 function preflight(outcome: 'needs-decision' | 'unavailable' = 'needs-decision'): PreflightResult {
   return {
     ok: false,
@@ -119,7 +118,6 @@ describe('recordCreationAnswers with a preflight result', () => {
     const answer = stored.answers.find(
       (a) => a.question_id === 'tool-access:laravel-route-list:needs-decision',
     );
-    // Category and anchors are re-derived from the candidate, never the agent's input.
     expect(answer?.category).toBe('tool-access');
     expect(answer?.anchors).toEqual([]);
     expect(answer?.decided_by).toBe('human');

@@ -1,8 +1,6 @@
 import type { GateSkipKind, VerificationGate } from './verification.js';
 import type { MutationConfidence } from './mutation.js';
 
-// 1.1.0 — added the optional `confidence` flag on gate entries so the
-// mutation-testing gate can surface lower-confidence results (issue #105).
 export const VERIFICATION_EVIDENCE_SCHEMA_VERSION = '1.1.0';
 
 export const EVIDENCE_GATE_STATUSES = ['pass', 'fail', 'inconclusive', 'skipped'] as const;
@@ -36,20 +34,8 @@ export interface VerificationEvidenceGate {
   detail: string;
   remediation: string | null;
   failures: VerificationEvidenceFailure[];
-  /**
-   * Issue #579 — a short reason for a `skipped` gate ("not-frontend", "no documented flow to
-   * capture"), shown in the verdict summary's skip line when the gate's flag is on.
-   */
   skip_reason?: string;
-  /**
-   * Issue #639, Part 10 — on a `skipped` gate, whether the change gave it nothing to check
-   * (`not-required`) or a check it was owed did not happen (`did-not-run`). Absent on rows
-   * written before Part 10, which read as not required.
-   */
   skip_kind?: GateSkipKind;
-  // Issue #105 — present on the mutation-testing gate. `lower` flags a
-  // weak-tooled language whose score must not be over-trusted; `mature` a
-  // result from an established per-language tool.
   confidence?: MutationConfidence;
 }
 
@@ -61,10 +47,5 @@ export interface VerificationEvidence {
   overall_status: EvidenceOverallStatus;
   first_failure_gate: VerificationGate | null;
   gates: VerificationEvidenceGate[];
-  /**
-   * Mandatory feature-development stages with no recorded evidence (issue #472), persisted so
-   * the PR comment reads the same verdict word as the chat receipt (issue #639, Part 4).
-   * Absent when every mandatory stage was recorded or the change is not feature-development.
-   */
   unrecorded_mandatory_stages?: string[];
 }

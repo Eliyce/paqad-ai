@@ -20,10 +20,6 @@ export async function compileRules(root: string): Promise<CompiledRulesStore> {
     onlyFiles: true,
   });
 
-  // Compile-time flag gate (issue #279): a rule may declare `<!--gate: <flag>-->`. When that
-  // flag is off it is excluded ENTIRELY — read, filtered, and never assigned a rule_id — so
-  // zero of its bytes reach the compiled store the LLM sees. Filtering before ordinal
-  // assignment keeps RULE-N contiguous.
   const gateFlags = resolveGateFlags(root);
   const kept: { file: string; raw: string }[] = [];
   for (const file of files.sort()) {
@@ -45,11 +41,6 @@ export async function compileRules(root: string): Promise<CompiledRulesStore> {
   };
 }
 
-/**
- * Resolve the feature-flag map used to decide whether a `gate:`-tagged rule compiles. A
- * malformed config yields an empty map, so every gated rule stays excluded (OFF-is-silent
- * default) — never throwing out of compilation.
- */
 function resolveGateFlags(root: string): Record<string, boolean> {
   try {
     return resolveFrameworkConfig(root).features as unknown as Record<string, boolean>;
@@ -59,7 +50,6 @@ function resolveGateFlags(root: string): Record<string, boolean> {
   }
 }
 
-/** Read a rule's `<!--gate: <flag>-->` directive, or undefined when the rule is ungated. */
 function extractGate(raw: string): string | undefined {
   return raw.match(/<!--\s*gate:\s*([a-z0-9_]+)\s*-->/i)?.[1];
 }
@@ -139,15 +129,6 @@ function compileRuleContent(file: string, raw: string, ordinal: number): Compile
   };
 }
 
-/**
- * Whether a candidate string looks like a file path / glob trigger, as opposed to prose
- * or a code fragment. A trigger is a single path-shaped token: no whitespace, drawn from
- * the path/glob charset, length-bounded, and carrying a path signal — a separator (`/`),
- * a glob wildcard (`*` / `?`), or a file-extension dot. This is the gate that keeps the
- * inline-code fallback from scooping up arbitrary backtick spans (identifiers, prose, and
- * multi-line code-fence contents) as "triggers", which previously exploded the manifest
- * and produced the `` `, ` `` corruption when those junk patterns were comma-joined.
- */
 export function looksLikeTriggerPattern(candidate: string): boolean {
   if (!candidate || candidate.length > 120) return false;
   if (/\s/.test(candidate)) return false;
@@ -155,14 +136,6 @@ export function looksLikeTriggerPattern(candidate: string): boolean {
   return candidate.includes('/') || /[*?]/.test(candidate) || /\.[A-Za-z0-9]+$/.test(candidate);
 }
 
-/**
- * Derive a rule's trigger patterns. An explicit `<!-- trigger: a, b -->` directive is
- * authoritative and taken verbatim. Otherwise triggers are inferred from inline-code spans,
- * but ONLY the ones that look like a path/glob ({@link looksLikeTriggerPattern}) — after
- * stripping fenced code blocks so a ``` block's contents never leak in. A doc with no
- * path-shaped inline code yields `[]` (the caller falls back to `**`, the safe over-include),
- * never a dropped or corrupted trigger.
- */
 function extractTriggerPatterns(raw: string): string[] {
   const explicitDirective = raw.match(/<!--\s*trigger:\s*([^>]+)\s*-->/i)?.[1];
   if (explicitDirective) {

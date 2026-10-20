@@ -39,10 +39,6 @@ function baseRun(root: string, lane: 'fast' | 'graduated' | 'full' = 'full') {
 
 describe('runQualityRatchetGate', () => {
   beforeEach(() => {
-    // Freeze the clock to the fixtures' NOW (2026-06-08) so the decision-reuse expiry
-    // check (which reads the real wall clock, not the injected `now`) stays inside the
-    // approved exception's TTL window — otherwise the reuse test rots once the TTL
-    // lapses. Only Date is faked, so fs and the injected `now` are untouched.
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date(NOW()));
   });
@@ -67,15 +63,14 @@ describe('runQualityRatchetGate', () => {
 
   it('refuses a strictness regression and does NOT move the recorded level', async () => {
     const root = project(true);
-    await runQualityRatchetGate(baseRun(root)); // baseline at looseness 7
+    await runQualityRatchetGate(baseRun(root));
     const before = await readQualityBaseline(root);
 
-    writeTsconfig(root, false); // loosen → looseness 15
+    writeTsconfig(root, false);
     const result = await runQualityRatchetGate(baseRun(root));
 
     expect(result.status).toBe('regressed');
     expect(result.blocking_regressions[0]?.measure).toBe('strictness');
-    // Refused change never writes the baseline.
     expect(await readQualityBaseline(root)).toEqual(before);
   });
 
@@ -91,7 +86,6 @@ describe('runQualityRatchetGate', () => {
     const root = project(true);
     await runQualityRatchetGate(baseRun(root));
 
-    // Pre-approve a strictness exception in the DPC store.
     const store = new DecisionStore(root);
     store.initialize();
     store.resolveExisting({

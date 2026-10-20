@@ -232,7 +232,7 @@ describe('StackPackLoader', () => {
     ).toBe(true);
   });
 
-  it('errors when parallel.mode=flag has a flag missing <processes> (issue #554)', () => {
+  it('errors when parallel.mode=flag has a flag missing <processes>', () => {
     const packRoot = join(projectRoot, '.paqad', 'packs', 'bad-parallel');
     mkdirSync(join(packRoot, 'rules'), { recursive: true });
     writeFileSync(join(packRoot, 'rules', 'conventions.md'), '# conventions\n');
@@ -270,7 +270,7 @@ describe('StackPackLoader', () => {
     ).toBe(true);
   });
 
-  it('errors when a non-flag parallel mode carries a flag (issue #554)', () => {
+  it('errors when a non-flag parallel mode carries a flag', () => {
     const packRoot = join(projectRoot, '.paqad', 'packs', 'native-with-flag');
     mkdirSync(join(packRoot, 'rules'), { recursive: true });
     writeFileSync(join(packRoot, 'rules', 'conventions.md'), '# conventions\n');
@@ -384,7 +384,6 @@ describe('StackPackLoader', () => {
 
   it('emits a skill.pack_load_failed event for an error-level schema failure', () => {
     mkdirSync(join(projectRoot, '.paqad', 'packs', 'bad-schema'), { recursive: true });
-    // Only `name` is present, so the manifest exists but fails schema validation.
     writeFileSync(
       join(projectRoot, '.paqad', 'packs', 'bad-schema', 'pack.yaml'),
       'name: bad-schema\n',

@@ -28,11 +28,6 @@ type RawFeatureDevelopmentPolicy = {
   rounds?: FeatureDevelopmentRoundsPolicy;
 };
 
-/**
- * The canonical feature-development stage order. Exported so the stage-evidence
- * ledger (issue #247) derives its ordered registry from THIS single source and the
- * two can never drift. Do not reorder without updating the ledger's expectations.
- */
 export const STAGE_ORDER: FeatureDevelopmentStageName[] = [
   'ticket_intake',
   'planning',
@@ -52,31 +47,16 @@ const REQUIRED_TRUE_STRICTNESS: Partial<Record<FeatureDevelopmentStageName, Reco
     documentation_sync: { require_canonical_sync: true },
   };
 
-/**
- * Issue #401 — the specification stage's spec-review clause, authored ONCE.
- *
- * The stage instructions exist in two forms here: the built-in default policy object and
- * the rendered YAML a project is onboarded with. Every other instruction is duplicated
- * verbatim between them, which is exactly how the freeze contract drifted from the freeze
- * code in the first place. This one is a shared constant so the two surfaces cannot say
- * different things about what freeze enforces.
- */
 const SPEC_REVIEW_ENFORCEMENT_INSTRUCTION =
-  'Spec-review enforcement (issue #401): SCRIPT-ENFORCED. `paqad-ai spec freeze` runs the ' +
+  'Spec-review enforcement: SCRIPT-ENFORCED. `paqad-ai spec freeze` runs the ' +
   'spec-quality review itself and refuses to freeze while a critical defect is open, so ' +
   'never run `compliance review` by hand to satisfy the clause above. Major and minor ' +
   "findings never block. The defect summary is folded into the bundle's specification.json " +
   'and no .paqad/compliance/<slug>/spec-review.json is written by this workflow. Author the ' +
   'spec markdown inside the project: a path resolving outside the project root is rejected.';
 
-/**
- * Issue #547 — the specification stage's spec-pipeline clause, authored ONCE (the same shared-
- * constant discipline as {@link SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}). It is present in both the
- * default policy object and the rendered YAML, and self-guards on `spec_pipeline_enabled`, so the
- * rendered stage text is a pure function of the policy and does not branch on the flag (INV-1).
- */
 const SPEC_PIPELINE_INSTRUCTION =
-  'Spec pipeline (issue #512): when `spec_pipeline_enabled` is on, produce the spec through ' +
+  'Spec pipeline: when `spec_pipeline_enabled` is on, produce the spec through ' +
   '`paqad-ai spec pipeline` (start, experts when enabled, questions, task, craft, finish) and ' +
   'freeze it with `paqad-ai spec freeze <spec.md> --from-pipeline`. The pipeline grounds the ' +
   "request in the project's own docs, brings in the domain experts the request needs, asks the " +
@@ -84,58 +64,31 @@ const SPEC_PIPELINE_INSTRUCTION =
   'writes the spec in the format the freeze accepts. Under spec_pipeline_adoption=strict a ' +
   'hand-written spec is refused at freeze (exit: `--manual --reason`); under warn it freezes and ' +
   'the record says pipeline.produced=false. The pipeline, its experts and strict adoption are on ' +
-  'by default on the graduated and full lanes (issue #640); a fast-lane change never runs the ' +
+  'by default on the graduated and full lanes; a fast-lane change never runs the ' +
   'pipeline and freezes a hand-written spec.';
 
-/**
- * Issue #359 — the reuse-first planning instructions, authored ONCE so the default policy
- * object and the rendered YAML cannot drift (the same shared-constant discipline as
- * {@link SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}). They wire four built-but-idle planning
- * helpers into the enforced planning stage, lane-gated by inline conditions so a fast-lane
- * change reads only the first sentence. The install-path skill names are load-bearing: the
- * model finds `runtime/.../skills/<name>/SKILL.md` through the bootstrap by that exact
- * directory name.
- */
 const REUSE_PLANNING_INSTRUCTION =
   'Reuse before you build: consult the Existing surface section (and `paqad-ai index ' +
   'query <name>`) for existing helpers; follow the solution-architect procedure — Reuse / ' +
   'Extend / Build-new, and record a rejection rationale for every Build-new.';
 
-/** Graduated/full-lane block: diff-minimizer + existing-doc-checker (issue #359). */
 const DIFF_MINIMIZER_PLANNING_INSTRUCTION =
   'On graduated and full lanes: run the diff-minimizer skill over the implementation ' +
   'sequence before compiling the plan; drop steps it classifies over-build or record why ' +
   'they stay. Run existing-doc-checker before creating any new doc or registry artifact.';
 
-/**
- * Issue #360 — the review stage's evidence-digest clause, authored ONCE (the same
- * shared-constant discipline as {@link SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}). Review was
- * the weakest stage in the pipeline because the reviewer had no hard facts in front of it,
- * while paqad had already computed them. This hands the stage the digest and makes
- * ignoring it detectable: the review gate fails on a deterministic high-severity machine
- * finding the review never cites by file:line.
- */
 const REVIEW_DIGEST_INSTRUCTION =
-  'Review digest (issue #360): before writing review findings, run `paqad-ai review ' +
+  'Review digest: before writing review findings, run `paqad-ai review ' +
   'digest` and read `.paqad/session/review-digest.md`. Each finding must either reference a ' +
   'digest row or be explicitly marked judgment-only. Confirm or contest every deterministic ' +
   'finding — an unaddressed deterministic finding is itself a review finding, and the review ' +
   'gate fails when a deterministic high-severity row is never cited by file:line.';
 
-/** Graduated/full-lane multi-module block: cross-module-impact-scanner (issue #359). */
 const CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION =
   'On graduated and full lanes touching more than one module: run ' +
   'cross-module-impact-scanner; surface breaking / silent-shift rows as Decision Packets ' +
   '(existing categories).';
 
-/**
- * The reuse-first planning instructions that apply to a given lane (issue #359). The fast
- * lane pays exactly one sentence — the reuse reflex — and loads no skill procedure; the
- * graduated and full lanes add the diff-minimizer + existing-doc-checker block, and a
- * multi-module change on those lanes additionally adds the cross-module-impact-scanner
- * block. This is the single source of the lane-gating logic that the static YAML documents
- * in prose, and it is what builds the default policy's planning instructions (below).
- */
 export function reusePlanningInstructions(
   lane: 'fast' | 'graduated' | 'full',
   options: { multiModule?: boolean } = {},
@@ -154,14 +107,6 @@ export function featureDevelopmentPolicyPath(projectRoot: string): string {
   return join(projectRoot, PATHS.WORKFLOWS_DIR, 'feature-development.yaml');
 }
 
-/**
- * The `checks.rule_compliance.mode` a project has EXPLICITLY committed in its own
- * `feature-development.yaml` (issue #319), or undefined when there is no file or it
- * does not set the field. Deliberately reads the raw on-disk file, NOT the merged
- * policy — the merged policy injects the framework default (`strict`), so reading it
- * would flip strict on universally rather than honouring an explicit team decision.
- * Best-effort: a missing or unparseable file yields undefined.
- */
 export function readProjectRuleComplianceModeOverride(projectRoot: string): string | undefined {
   const path = featureDevelopmentPolicyPath(projectRoot);
   if (!existsSync(path)) return undefined;
@@ -200,10 +145,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Review the canonical module and instruction docs before planning the change.',
           'Keep planning scoped to the requested feature and the current repository state.',
-          'Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues.',
-          // Issue #359 — the reuse-first block (all lanes) + the graduated/full skill blocks.
-          // The full+multiModule call materialises every lane-gated line; the inline lane
-          // conditions in each string keep a fast-lane read to the first sentence only.
+          'Rules-as-scripts: invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues.',
           ...reusePlanningInstructions('full', { multiModule: true }),
         ],
         required_inputs: ['active request', 'canonical docs'],
@@ -223,7 +165,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Write or refine the feature specification before implementation when the lane includes specification.',
-          'Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
+          'Spec sign-off: on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently.',
           SPEC_REVIEW_ENFORCEMENT_INSTRUCTION,
           SPEC_PIPELINE_INSTRUCTION,
           'Freeze the spec before writing code on graduated/full lanes: run `paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen spec into the active feature bundle (`specification.json`) that development builds against and the spec-change guard checks for drift.',
@@ -260,7 +202,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Review the change against correctness, regressions, and rollback risk before treating it as complete.',
           REVIEW_DIGEST_INSTRUCTION,
-          "Record the review with `paqad-ai review record` (issue #402). The review stage's artifact is the bundle's rigid review.json — a hand-written notes file is rejected, and nothing may be written into the feature bundle directory.",
+          "Record the review with `paqad-ai review record`. The review stage's artifact is the bundle's rigid review.json — a hand-written notes file is rejected, and nothing may be written into the feature bundle directory.",
         ],
         required_inputs: ['code diff', 'verification summary'],
         strictness: {
@@ -293,10 +235,6 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
           shell_commands: [],
           block_on_failure: true,
         },
-        // Rules-as-scripts gate (issue #89). Runs the registered rule scripts
-        // diff-scoped after the command checks. `deterministic` findings block
-        // under mode:strict; `heuristic` findings route to review and never
-        // block. The runner is the TS engine in src/rule-scripts/runner.ts.
         rule_compliance: {
           enabled: true,
           mode: 'strict',
@@ -389,13 +327,6 @@ export function loadFeatureDevelopmentPolicy(
   };
 }
 
-/**
- * Analytics v2 (issue #279): when the flag is on AND the classify-time gate resolved to
- * `instrument`, append analytics instructions to the planning, specification, and development
- * stages so the model reads the tracking plan first and instruments the change. OFF, or any
- * non-`instrument` sidecar (dormant / not_applicable / off / absent), leaves the policy
- * untouched — INV-1 keeps a non-analytics run silent.
- */
 function injectAnalyticsStageInstructions(
   policy: FeatureDevelopmentPolicy,
   projectRoot: string,
@@ -465,6 +396,10 @@ export function resolveFeatureDevelopmentCheckCommands(
 
     for (const logicalCommand of checks.commands) {
       const resolved = profile?.commands?.[logicalCommand];
+      if (typeof resolved === 'string' && resolved.trim().length === 0) {
+        warnings.push(`${logicalCommand} is not mapped in the profile; skipped`);
+        continue;
+      }
       if (!resolved) {
         warnings.push(
           `Feature development policy requested project command "${logicalCommand}" but it was not found in ${PATHS.PROJECT_PROFILE}.`,
@@ -534,11 +469,6 @@ function mergeFeatureDevelopmentPolicy(
                 defaultChecks?.block_on_failure === true ||
                 defaultStage.strictness.block_on_failure === true,
             },
-      // Preserve the rules-as-scripts gate config through the merge (issue #319).
-      // The old merge rebuilt only `checks` and silently dropped `rule_compliance`
-      // when a project supplied its own feature-development.yaml — so the strictness
-      // a team declared in the workflow file never reached the resolver. Field-merge
-      // it (project fields win over the default) so the yaml knob is a real input.
       ...(defaultStage.rule_compliance || rawStage.rule_compliance
         ? {
             rule_compliance: {
@@ -556,8 +486,6 @@ function mergeFeatureDevelopmentPolicy(
     stages,
   };
 
-  // Issue #108 — a project override of the loop round caps wins; the lane
-  // defaults apply otherwise (resolved at the loop, not stored here).
   const rounds = sanitizeRounds(raw.rounds);
   if (rounds) {
     merged.rounds = rounds;
@@ -637,7 +565,7 @@ export function renderDefaultFeatureDevelopmentPolicyYaml(): string {
 # This file customizes how the built-in feature-development workflow behaves in this project.
 # The framework still owns routing, phase order, and mandatory safety stages.
 #
-# Enforcement tiers (issue #368) — an escalation is honoured on one of two tiers, and
+# Enforcement tiers — an escalation is honoured on one of two tiers, and
 # this contract never claims script enforcement it does not have:
 #   - SCRIPT-ENFORCED (deterministic): checks.block_on_failure and the mandatory-stage
 #     completeness gate. \`paqad-ai checks run\` exits non-zero on any red command and the
@@ -650,7 +578,7 @@ export function renderDefaultFeatureDevelopmentPolicyYaml(): string {
 schema_version: "1"
 merge_mode: append
 
-# Issue #108 — bounded build-check-fix loop round caps, per lane. Each value is
+# Bounded build-check-fix loop round caps, per lane. Each value is
 # the most build-check-fix rounds the loop runs before stopping with one honest
 # "I couldn't get this fully clean" report. Omit a lane to use the framework
 # default (fast 2, graduated 3, full 5). Raise for the heaviest work.
@@ -685,7 +613,7 @@ stages:
     instructions:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.
-      - "Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
+      - "Rules-as-scripts: invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
       - "${REUSE_PLANNING_INSTRUCTION}"
       - "${DIFF_MINIMIZER_PLANNING_INSTRUCTION}"
       - "${CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION}"
@@ -705,7 +633,7 @@ stages:
   specification:
     instructions:
       - Write or refine the feature specification before implementation when the lane includes specification.
-      - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
+      - "Spec sign-off: on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
       - "${SPEC_REVIEW_ENFORCEMENT_INSTRUCTION}"
       - "${SPEC_PIPELINE_INSTRUCTION}"
       - "Freeze the spec before writing code on graduated/full lanes: run \`paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants\` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen spec into the active feature bundle (\`specification.json\`) that development builds against and the spec-change guard checks for drift."
@@ -772,7 +700,7 @@ stages:
       # Add project-specific commands here when needed.
       # shell_commands:
       #   - pnpm typecheck
-    # Rules-as-scripts gate (issue #89). Runs registered rule scripts diff-scoped
+    # Rules-as-scripts gate. Runs registered rule scripts diff-scoped
     # after the command checks. deterministic findings block under mode:strict;
     # heuristic findings route to review and never block.
     rule_compliance:

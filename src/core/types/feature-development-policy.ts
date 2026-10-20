@@ -26,14 +26,12 @@ export interface FeatureDevelopmentChecksPolicy {
   block_on_failure: boolean;
 }
 
-// Rules-as-scripts compliance gate (issue #89), attached to the `checks` stage.
 export interface FeatureDevelopmentRuleCompliancePolicy {
   enabled: boolean;
   mode: 'off' | 'warn' | 'strict';
   scope: 'changed-files' | 'whole-tree';
   diff_scope: boolean;
   cache_path: string;
-  // `deterministic` findings under mode:strict block the stage when this is 'stop'.
   escalation: FeatureDevelopmentEscalationAction;
 }
 
@@ -45,13 +43,9 @@ export interface FeatureDevelopmentStagePolicy {
   escalation: Record<string, FeatureDevelopmentEscalationAction>;
   artifacts: string[];
   checks: FeatureDevelopmentChecksPolicy | null;
-  // Present only on the `checks` stage when rules-as-scripts is configured.
   rule_compliance?: FeatureDevelopmentRuleCompliancePolicy;
 }
 
-// Issue #108 — per-lane round caps for the bounded build-check-fix loop. Each
-// value is the maximum number of build-check-fix rounds before the loop stops
-// with one honest report. Omitted lanes fall back to DEFAULT_MAX_ROUNDS_BY_LANE.
 export interface FeatureDevelopmentRoundsPolicy {
   fast?: number;
   graduated?: number;
@@ -62,7 +56,6 @@ export interface FeatureDevelopmentPolicy {
   schema_version: '1';
   merge_mode: 'append';
   stages: Record<FeatureDevelopmentStageName, FeatureDevelopmentStagePolicy>;
-  // Present only when the project overrides the lane-scaled loop round caps.
   rounds?: FeatureDevelopmentRoundsPolicy;
 }
 

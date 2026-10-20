@@ -23,8 +23,6 @@ function row(code: string, ts: string, detail?: string) {
   });
 }
 
-/** Seed graded evidence rows into a feature bundle's `evidence.jsonl` (issue #468 Phase B —
- *  the SIEM export projects evidence from the bundle union, not the top-level ledger). */
 function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
   const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
   const path = join(root, featureFilePath(dir, 'evidence'));
@@ -58,7 +56,7 @@ describe('exportAuditEvents', () => {
       const result = exportAuditEvents(root, { format, productVersion: '1.0.0' });
       expect(result.count).toBe(2);
       expect(result.output.split('\n')).toHaveLength(2);
-      expect(result.output.endsWith('\n')).toBe(false); // no trailing newline
+      expect(result.output.endsWith('\n')).toBe(false);
     }
   });
 
@@ -71,7 +69,7 @@ describe('exportAuditEvents', () => {
     expect(parsed.detail).toBe('d');
   });
 
-  it('exports a #249 session-ledger event with its doc type + session id (jsonl)', () => {
+  it('exports a session-ledger event with its doc type + session id (jsonl)', () => {
     recordDecisionOpened(root, {
       decisionId: 'D-1',
       category: 'scope',

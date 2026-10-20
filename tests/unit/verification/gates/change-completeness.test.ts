@@ -82,7 +82,7 @@ describe('ChangeCompletenessGate', () => {
     expect(result.detail).toContain('No test evidence recorded for changed code');
   });
 
-  it('blocks on out-of-scope changes outside the spec boundary (issue #117 C-4)', async () => {
+  it('blocks on out-of-scope changes outside the spec boundary', async () => {
     const result = await gate.check(
       createVerificationContext({
         code_changed: true,
@@ -184,7 +184,6 @@ describe('ChangeCompletenessGate', () => {
         },
       ],
     });
-    // The drift doc EXISTS, so a code change legitimately flags it for review.
     mkdirSync(join(context.project_root, 'docs/maintainers'), { recursive: true });
     writeFileSync(join(context.project_root, 'docs/maintainers/architecture-map.md'), '# Map\n');
 
@@ -197,9 +196,6 @@ describe('ChangeCompletenessGate', () => {
   });
 
   it('does not flag a framework-assumed drift doc that the project never created', async () => {
-    // docs/maintainers/architecture-map.md is NOT on disk (onboarding never seeds it)
-    // and the diff did not create it — a code change cannot stale an uncreated doc, so
-    // it is not blocking incomplete work. Weak test evidence still blocks in-session.
     const result = await gate.check(
       createVerificationContext({
         code_changed: true,
@@ -220,9 +216,6 @@ describe('ChangeCompletenessGate', () => {
     expect(result.detail).not.toContain('Canonical docs not updated');
   });
 
-  // Issue #307 dogfood — test-evidence strength is a provider-workflow concern the
-  // agent-independent backstop cannot collect. It escalates there (see
-  // repository-context), so change-completeness must NOT hard-block on it.
   it('does not block on missing test evidence at a backstop origin (hook-completion)', async () => {
     const result = await gate.check(
       createVerificationContext({

@@ -1,25 +1,24 @@
 #!/usr/bin/env bash
-# Purpose: Extract declared breakpoints from the responsive.md contract clause.
-#          Emits a structured TSV the runtime walk + the LLM both consume.
-#
-# Usage:   bash scripts/extract-breakpoints.sh <responsive.md>
-#
-# Expected line shape in responsive.md (per references/responsive-checklist.md):
-#
-#   - sm: 640
-#   - md: 768
-#   - lg: 1024
-#   - xl: 1280
-#
-# Output:  one TSV row per breakpoint to stdout:
-#            <name>\t<width-px>
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Extract declared breakpoints from the responsive.md contract clause.
+         Emits a structured TSV the runtime walk + the LLM both consume.
+
+Usage:   bash scripts/extract-breakpoints.sh <responsive.md>
+
+Expected line shape in responsive.md (per references/responsive-checklist.md):
+
+  - sm: 640
+  - md: 768
+  - lg: 1024
+  - xl: 1280
+
+Output:  one TSV row per breakpoint to stdout:
+           <name>\t<width-px>
+         Diagnostics to stderr.
+USAGE
   exit 0
 fi
 

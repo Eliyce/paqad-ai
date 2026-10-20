@@ -1,26 +1,11 @@
-// Per-language mutation-tool adapter. Issue #105.
-//
-// Maps a project's detected stack to its *mature* mutation tool — Stryker for
-// JS/TS, PIT for the JVM, mutmut for Python, Infection for PHP, mutant for
-// Ruby, cargo-mutants for Rust. We do not write a home-grown mutator (Settled
-// decision); we delegate to the established tool per language.
-//
-// Mainstream languages have mature tooling; long-tail languages (Elixir,
-// Haskell, OCaml, Kotlin, …) have weak or abandoned tooling, so for those we
-// still produce a result but mark it `lower` confidence so nobody over-trusts
-// it.
-
 import type { DetectedStackProfile } from '@/core/types/introspection.js';
 import type { MutationConfidence, MutationToolDescriptor } from '@/core/types/mutation.js';
 
 interface ToolDefinition {
   descriptor: MutationToolDescriptor;
-  // Lower-cased trait / framework tokens that select this tool.
   match: string[];
 }
 
-// Mature, actively-maintained tools keyed by the language tokens that select
-// them. Order matters only for disambiguation: the first match wins.
 const MATURE_TOOLS: ToolDefinition[] = [
   {
     descriptor: {
@@ -115,9 +100,6 @@ const MATURE_TOOLS: ToolDefinition[] = [
   },
 ];
 
-// The lower-confidence fallback for stacks with no mature tool. We still run
-// the best available generic approach, but flag it so the score is treated as
-// indicative rather than authoritative.
 const FALLBACK_TOOL: MutationToolDescriptor = {
   tool: 'generic',
   languages: [],
@@ -134,11 +116,6 @@ function normalizeTokens(stack: DetectedStackProfile | null): string[] {
   return [...new Set(tokens.filter((token) => token.length > 0))];
 }
 
-/**
- * Select the mature per-language mutation tool for a detected stack. Returns a
- * lower-confidence generic descriptor when no mature tool covers the stack (or
- * the stack is unknown), so a result can still be produced and clearly marked.
- */
 export function selectMutationTool(stack: DetectedStackProfile | null): MutationToolDescriptor {
   const tokens = normalizeTokens(stack);
   if (tokens.length === 0) {
@@ -151,15 +128,9 @@ export function selectMutationTool(stack: DetectedStackProfile | null): Mutation
     }
   }
 
-  // A known-but-weak-tooled language: record the primary language token for
-  // context but keep the lower-confidence generic descriptor.
   return { ...FALLBACK_TOOL, languages: [tokens[0] as string] };
 }
 
-/**
- * The confidence the adapter assigns to a stack without running anything.
- * Exposed so callers can pre-flight the "lower-confidence" path.
- */
 export function mutationConfidenceFor(stack: DetectedStackProfile | null): MutationConfidence {
   return selectMutationTool(stack).confidence;
 }

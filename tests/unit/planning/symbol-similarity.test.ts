@@ -28,7 +28,6 @@ describe('symbolNameSimilarity', () => {
   });
 
   it('scores a same-verb same-noun fork above the 0.85 default threshold', () => {
-    // The AC-1 pair: a new relative-date formatter next to an existing ISO one.
     expect(symbolNameSimilarity('formatRelativeDate', 'formatIsoDate')).toBe(0.87);
   });
 
@@ -39,8 +38,6 @@ describe('symbolNameSimilarity', () => {
   });
 
   it('keeps a read/write pair below the threshold even in the same module', () => {
-    // Two functions that read and write the same thing are not a reuse fork, so tail
-    // agreement alone must not be enough to reach 0.85.
     expect(symbolNameSimilarity('readFeaturePlan', 'writeFeaturePlan')).toBe(0.77);
     expect(symbolNameSimilarity('readFeaturePlan', 'writeFeaturePlan', { sameModule: true })).toBe(
       0.82,
@@ -48,7 +45,6 @@ describe('symbolNameSimilarity', () => {
   });
 
   it('catches a near-identical name the token reading would miss', () => {
-    // Dice sees `range` and `ranges` as different tokens; the edit-distance leg carries it.
     expect(symbolNameSimilarity('formatRange', 'formatRanges')).toBe(0.92);
   });
 

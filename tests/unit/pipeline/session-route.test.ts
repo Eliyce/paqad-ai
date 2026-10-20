@@ -15,7 +15,7 @@ function routePath(root: string): string {
   return join(root, dirname(PATHS.CONTEXT_SESSION_ARTIFACT), '.session-route.json');
 }
 
-describe('session-route pointer (#336)', () => {
+describe('session-route pointer', () => {
   let root: string;
 
   beforeEach(() => {
@@ -34,7 +34,7 @@ describe('session-route pointer (#336)', () => {
     });
   });
 
-  it('round-trips the routing host adapter (issue #566, AC-8)', () => {
+  it('round-trips the routing host adapter', () => {
     writeSessionRoute(root, { workflow: 'feature-development', query: 'x', adapter: 'codex-cli' });
     expect(readSessionRoute(root)).toEqual({
       workflow: 'feature-development',
@@ -72,9 +72,7 @@ describe('session-route pointer (#336)', () => {
   });
 });
 
-// Issue #582 (FR-10) — each session also keeps its own pointer, so the worker started for one
-// session never reads another session's route; the shared pointer stays the fallback.
-describe('per-session route pointer (issue #582)', () => {
+describe('per-session route pointer', () => {
   let root: string;
   const ownPath = (id: string) =>
     join(root, dirname(PATHS.CONTEXT_SESSION_ARTIFACT), '.session-route.d', `${id}.json`);
@@ -106,7 +104,6 @@ describe('per-session route pointer (issue #582)', () => {
     writeSessionRoute(root, { workflow: 'feature-development', query: 'build it' }, 'ses-B');
     expect(readSessionRoute(root, 'ses-A')?.workflow).toBe('project-question');
     expect(readSessionRoute(root, 'ses-B')?.workflow).toBe('feature-development');
-    // The shared pointer is last-writer-wins, as before.
     expect(readSessionRoute(root)?.workflow).toBe('feature-development');
   });
 
@@ -137,7 +134,7 @@ describe('per-session route pointer (issue #582)', () => {
   });
 });
 
-describe('compositionForRoute (#336)', () => {
+describe('compositionForRoute', () => {
   it('loads rules and retrieves when there is no route yet (first prompt fallback)', () => {
     expect(compositionForRoute(null)).toEqual({ loadRules: true, retrieves: true });
   });

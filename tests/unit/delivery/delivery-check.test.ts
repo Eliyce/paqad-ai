@@ -16,8 +16,8 @@ import {
 import { defaultDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { readLatestProjectEvent } from '@/session-ledger/project-ledger.js';
 import { DELIVERY_EVIDENCE_DOC_TYPE } from '@/delivery/delivery-ledger.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
-/** A policy clone with `enabled`, `branch.base`, `branch.type_map`, `ci.gate` tweakable. */
 function policy(
   over: {
     enabled?: boolean;
@@ -41,7 +41,6 @@ function policy(
   };
 }
 
-/** Build a runner from a lookup table keyed by the first arg that identifies the call. */
 function runner(handlers: {
   branch?: CommandRun;
   commit?: CommandRun;
@@ -54,7 +53,6 @@ function runner(handlers: {
     if (command === 'git') {
       return handlers.commit ?? { stdout: 'abc123', exitCode: 0 };
     }
-    // gh pr view …
     return handlers.gh ?? { stdout: '', exitCode: 1 };
   };
 }
@@ -63,7 +61,7 @@ const ok = (stdout: string): CommandRun => ({ stdout, exitCode: 0 });
 const fail: CommandRun = { stdout: '', exitCode: 1 };
 
 describe('evaluateDelivery — convention findings', () => {
-  const root = '/tmp/does-not-matter'; // git is faked, so the path is never touched
+  const root = '/tmp/does-not-matter';
 
   it('disabled policy → nothing to check (ran:false)', async () => {
     const result = await evaluateDelivery({
@@ -137,7 +135,7 @@ describe('evaluateDelivery — convention findings', () => {
     });
     expect(result.ghAvailable).toBe(true);
     expect(result.findings.map((f) => f.code)).toEqual(['ci-red']);
-    expect(result.findings[0]?.message).toContain('#42');
+    expect(result.findings[0]?.message).toContain(ticketRef(42));
   });
 
   it('gh red but gate is off → no ci-red warning', async () => {

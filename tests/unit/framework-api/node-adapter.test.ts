@@ -10,7 +10,6 @@ import type { FrameworkApiAdapterInput } from '@/framework-api/types.js';
 
 let root: string;
 
-/** Install a package with declarations, and return an adapter input pointing at it. */
 function install(
   name: string,
   version: string,
@@ -99,9 +98,6 @@ describe('nodeFrameworkApiAdapter.index', () => {
   });
 
   it('records sources in the posix-everywhere form, on every platform', () => {
-    // `sources` lands in persisted JSON, so it is an output boundary: a Windows
-    // `node_modules\react\index.d.ts` must never reach it. Asserted here rather than left
-    // for the Windows CI leg to catch, so a regression fails on any platform.
     const result = nodeFrameworkApiAdapter.index(
       install('acme', '1.0.0', 'export declare function go(): void;'),
     );
@@ -140,7 +136,6 @@ describe('nodeFrameworkApiAdapter.index', () => {
   });
 
   it('falls back to `unknown` for a declaration it cannot classify', () => {
-    // An `export *` alias carries only the Alias flag, none of the mapped ones.
     const input = install('acme', '1.0.0', "export * as bundled from './inner.js';");
     writeFileSync(join(input.packageDir, 'inner.d.ts'), 'export declare const x: number;');
     const result = nodeFrameworkApiAdapter.index(input);
@@ -172,7 +167,6 @@ describe('nodeFrameworkApiAdapter.index', () => {
   });
 
   it('resolves through `declare namespace` + `export =`, the @types/react shape', () => {
-    // The verified case a hand-rolled export scan misses entirely.
     const result = nodeFrameworkApiAdapter.index(
       install(
         'acme',
@@ -215,7 +209,6 @@ describe('nodeFrameworkApiAdapter.index', () => {
     const names = result.symbols.map((symbol) => symbol.name);
     expect(names).toContain('Widget.paint');
     expect(names).toContain('Widget.*');
-    // A live member is deliberately NOT enumerated; the wildcard covers it (INV-2).
     expect(names).not.toContain('Widget.render');
   });
 
@@ -235,8 +228,6 @@ describe('nodeFrameworkApiAdapter.index', () => {
   });
 
   it('still wildcards a container past the drill budget, never silently dropping it', () => {
-    // Past MAX_DRILLED_CONTAINERS the members are not walked — but the wildcard must still
-    // be emitted, or an un-drilled member would fall through to a false "absent" (INV-2).
     const containers = Array.from(
       { length: 260 },
       (_unused, i) => `export interface I${i} { a${i}: string; }`,
@@ -269,7 +260,6 @@ describe('nodeFrameworkApiAdapter.index', () => {
     );
     expect(result).toMatchObject({ indexed: false, reason: 'no-types' });
     if (result.indexed) return;
-    // The blocked detail is surfaced to the developer, so it carries a posix path too.
     expect(result.detail).not.toContain('\\');
   });
 });
@@ -282,7 +272,6 @@ describe('loadTypeScript', () => {
   });
 
   it('still resolves from paqad-ai when the project tree has no typescript', () => {
-    // The fallback hop: an empty temp dir has no node_modules of its own.
     expect(loadTypeScript(root)).not.toBeNull();
   });
 

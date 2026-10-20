@@ -17,7 +17,6 @@ const RECORD_KINDS: RagEvidenceKind[] = [
   'close',
 ];
 
-/** Render the session fold as a lean paqad-voice summary. */
 function renderSummary(fold: RagEvidenceSessionFold): string {
   const { totals, coverage } = fold;
   const usedRate =
@@ -58,12 +57,6 @@ interface RecordOptions {
   projectRoot: string;
 }
 
-/**
- * `paqad-ai rag-evidence` — read (`show`) and low-level write (`record`) of the
- * script-written RAG-evidence ledger (issue #249). `record` exists for the runtime
- * seams (background worker, prompt hook) on hookless providers; it is never for
- * hand-authoring evidence — the ledger is script-only.
- */
 export function createRagEvidenceCommand(): Command {
   const command = new Command('rag-evidence').description(
     'Read or record the script-written RAG-evidence ledger (refresh / call / use / fallback)',

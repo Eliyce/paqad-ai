@@ -10,11 +10,6 @@ import type {
 } from './types/introspection.js';
 import type { ProjectProfile } from './types/project-profile.js';
 
-/**
- * Which dependency name means which framework. Exported so the framework-API index
- * (issue #397) selects the packages to index from THIS map rather than keeping a second,
- * divergent copy of the same knowledge (RULE-13).
- */
 export const FRAMEWORK_PACKAGE_MAP: Record<string, Stack> = {
   'laravel/framework': 'laravel',
   flutter: 'flutter',
@@ -25,17 +20,9 @@ export const FRAMEWORK_PACKAGE_MAP: Record<string, Stack> = {
   flask: 'flask',
   '@nestjs/core': 'nestjs',
   '@nestjs/common': 'nestjs',
-  // Issue #398 — the non-node stacks paqad already ships packs and docs for, but whose
-  // dependency names were never in this map. Without them the framework-API index selects
-  // NOTHING for a Spring, Django, FastAPI or Rails project, so its adapter would be
-  // unreachable no matter how well it read that ecosystem's declarations. Every value here
-  // is a stack that already exists in `STACKS`, so detection gains the framework it was
-  // already modelled for rather than a new concept.
   'org.springframework.boot:spring-boot': 'spring-boot',
   'org.springframework.boot:spring-boot-starter': 'spring-boot',
   'org.springframework.boot:spring-boot-starter-web': 'spring-boot',
-  // pip is case-insensitive about distribution names and a manifest may spell it either
-  // way, so both spellings map to the one stack.
   django: 'django',
   Django: 'django',
   fastapi: 'fastapi',
@@ -234,15 +221,15 @@ export function compareStackProfiles(
 
   const changes: StackDriftChange[] = [];
 
-  const previousFrameworks = new Set(previous?.frameworks ?? []);
+  const previousFrameworks = new Set(previous.frameworks ?? []);
   const currentFrameworks = new Set(current.frameworks);
-  const previousTraits = new Set(previous?.traits ?? []);
+  const previousTraits = new Set(previous.traits ?? []);
   const currentTraits = new Set(current.traits);
   const previousBands = new Map(
-    (previous?.version_bands ?? []).map((band) => [band.package_name, band]),
+    (previous.version_bands ?? []).map((band) => [band.package_name, band]),
   );
   const currentBands = new Map(current.version_bands.map((band) => [band.package_name, band]));
-  const previousToolchains = JSON.stringify(previous?.toolchains ?? []);
+  const previousToolchains = JSON.stringify(previous.toolchains ?? []);
   const currentToolchains = JSON.stringify(current.toolchains);
 
   for (const framework of currentFrameworks) {
@@ -279,7 +266,7 @@ export function compareStackProfiles(
     }
   }
 
-  if (previous !== null && previousToolchains !== currentToolchains) {
+  if (previousToolchains !== currentToolchains) {
     changes.push({
       type: 'toolchain-changed',
       key: 'toolchains',

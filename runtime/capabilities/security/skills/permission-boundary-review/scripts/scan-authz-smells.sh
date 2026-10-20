@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Pattern-scan for authorization weaknesses.
-# Usage:   bash scripts/scan-authz-smells.sh [search-root]
-# Output:  smell | file:line | excerpt
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Pattern-scan for authorization weaknesses.
+Usage:   bash scripts/scan-authz-smells.sh [search-root]
+Output:  smell | file:line | excerpt
+USAGE
+  exit 0
 fi
 root="${1:-src}"
 [ -d "$root" ] || { printf 'note: search root not found: %s\n' "$root" >&2; exit 0; }

@@ -1,18 +1,3 @@
-// Per-expert briefs (issue #547, FR-3).
-//
-// After the roster decision, each needed expert gets ONE bounded brief — the request, the ticket
-// acceptance criteria, the grounding reference POINTERS (never file bodies, FR-2.2 of #512), the
-// clarity label and its signals, and the token budget the run granted it. The references are
-// trimmed to fit that budget (4 characters per token) so an expert never receives more than its
-// slice (INV-5). Deterministic; zero model tokens.
-//
-// Issue #581 (FR-8) — a brief is never written to a file. It is built in memory, its sha256 is
-// recorded on the expert's roster entry in `experts.json` (`brief_hash`), and
-// `paqad-ai spec pipeline experts brief <role>` prints it for the agent. Everything the brief is
-// built from is recorded (`request.md`, the grounding references, the `clarification.json` label,
-// the roster entry), so a rebuild gives the same text and the same hash (AC-8). The grounding
-// terms are not persisted, so the brief no longer lists them.
-
 import { sha256Hex } from '@/compliance/markdown.js';
 import type { AgentRole } from '@/core/types/agent.js';
 
@@ -21,26 +6,18 @@ import type { GroundingArtifact, LabelArtifact } from '../types.js';
 import { planExpertSlices } from './slice.js';
 import type { ExpertNeed } from './types.js';
 
-/** Characters per token used when trimming the grounding lists to a granted budget (FR-3.2). */
 const CHARS_PER_TOKEN = 4;
 
-/** The lens file the expert reads, shipped with the `expert-notes` skill. */
 export function lensPathForRole(role: AgentRole): string {
   return `runtime/base/skills/expert-notes/references/lenses/${role}.md`;
 }
 
-/** One rendered brief, ready to hand to the `expert-notes` skill. */
 export interface ExpertBrief {
   role: AgentRole;
-  /** The token budget the ceiling actually granted this expert. */
   granted: number;
-  /** Whether the ceiling shrank this expert's slice below its canonical budget. */
   clamped: boolean;
-  /** Whether the grounding references were trimmed to fit the granted budget. */
   truncated: boolean;
-  /** The rendered markdown brief. */
   content: string;
-  /** The sha256 of `content`, recorded on the roster entry as `brief_hash`. */
   hash: string;
 }
 
@@ -51,24 +28,14 @@ export interface BuildExpertBriefsInput {
   grounding: Pick<GroundingArtifact, 'references'>;
   label: LabelArtifact;
   ceiling: number;
-  /**
-   * The rendered `## Project voice` block (issue #558, FR-3.4), the same for every expert in a run.
-   * Appended to each brief after `## Clarity`. Absent ⇒ no voice section (experts-off parity, INV-2).
-   */
   projectVoice?: string;
 }
 
 export interface ExpertBriefsResult {
   briefs: ExpertBrief[];
-  /** Slice-planning warnings (a ceiling breach), surfaced but never a dropped expert. */
   warnings: string[];
 }
 
-/**
- * Build one brief per needed expert (FR-3.1/FR-3.2). Slice sizes come from
- * {@link planExpertSlices} (never re-derived), and each brief is rendered by
- * {@link renderExpertBrief} at the budget its slice was granted.
- */
 export function buildExpertBriefs(input: BuildExpertBriefsInput): ExpertBriefsResult {
   const plan = planExpertSlices(
     input.needs.map((need) => need.role),
@@ -88,7 +55,6 @@ export function buildExpertBriefs(input: BuildExpertBriefsInput): ExpertBriefsRe
   return { briefs, warnings: plan.warnings };
 }
 
-/** The `experts.json` roster entry for one built brief (`tokens_used` is filled in by notes). */
 export function rosterEntryFor(need: ExpertNeed, brief: ExpertBrief): ExpertRosterEntry {
   return {
     role: need.role,
@@ -108,18 +74,10 @@ export interface RenderExpertBriefInput {
   ticketAcceptanceCriteria?: readonly string[];
   grounding: Pick<GroundingArtifact, 'references'>;
   label: LabelArtifact;
-  /** The token budget this expert was granted (the roster entry's `budget_tokens`). */
   granted: number;
-  /** The rendered `## Project voice` block appended after `## Clarity` (issue #558, FR-3.4). */
   projectVoice?: string;
 }
 
-/**
- * Render one expert's brief at an already-granted budget. The grounding references are trimmed
- * to `granted` at {@link CHARS_PER_TOKEN} characters per token, the longest first, so the most
- * numerous pointers survive. This is the one renderer: the `experts record` verb hashes its
- * output and the `experts brief` verb prints it, so both see the same text (AC-8).
- */
 export function renderExpertBrief(
   input: RenderExpertBriefInput,
 ): Pick<ExpertBrief, 'truncated' | 'content' | 'hash'> {
@@ -133,11 +91,6 @@ interface FittedGrounding {
   truncated: boolean;
 }
 
-/**
- * Trim the grounding reference pointers to fit `granted * CHARS_PER_TOKEN` characters. When the
- * pool overflows, the longest pointers are dropped first (they cost the most budget), so the
- * largest number of pointers survives; `truncated` records whether anything fell.
- */
 function fitGroundingToBudget(
   grounding: Pick<GroundingArtifact, 'references'>,
   granted: number,

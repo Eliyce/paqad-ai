@@ -63,7 +63,7 @@ describe('castMerge', () => {
     });
     const merged = castMerge([big], 2000);
     expect(merged).toHaveLength(1);
-    expect(merged[0]).toBe(big); // single chunk returned verbatim, not re-hashed
+    expect(merged[0]).toBe(big);
   });
 
   it('unions exported symbols and re-hashes a merged chunk', () => {
@@ -85,7 +85,7 @@ describe('castMerge', () => {
       100,
     );
     expect(merged[0].exported_symbols.sort()).toEqual(['A', 'B']);
-    expect(merged[0].id).not.toBe('a.ts:one'); // recomputed from merged content
+    expect(merged[0].id).not.toBe('a.ts:one');
   });
 
   it('never drops content (round-trips every byte of every chunk)', () => {
@@ -113,15 +113,11 @@ describe('AstChunker (cAST integration)', () => {
   it('merges tiny adjacent symbols by default (cAST on)', () => {
     const merged = new AstChunker(2000, true).chunk('src/x.ts', tsSource);
     const raw = new AstChunker(2000, false).chunk('src/x.ts', tsSource);
-    // The merge pass produces no more chunks than the raw boundary split, and
-    // collapses the small adjacent symbols into fewer slices.
     expect(merged.length).toBeLessThanOrEqual(raw.length);
-    // Every chunk still belongs to the one source file.
     expect(merged.every((c) => c.source_file === 'src/x.ts')).toBe(true);
   });
 
   it('exposes a stable chunker version string', () => {
-    // Covers the whole index-build strategy: cAST chunking (F22) + contextual blurbs (F24).
     expect(CHUNKER_VERSION).toBe('cast-blurb-v1');
   });
 });

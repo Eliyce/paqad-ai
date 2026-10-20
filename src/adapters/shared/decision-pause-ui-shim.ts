@@ -1,14 +1,5 @@
 import type { AdapterType } from '@/core/types/adapter.js';
 
-/**
- * One-sentence interactive-UI note for each provider — the UI primitive its host
- * exposes for surfacing a pending decision packet (e.g. the Claude Code
- * `AskUserQuestion` "tray"). The notes are rendered into the per-adapter UI table
- * of the Decision Pause Contract, which is carried inline by the framework
- * bootstrap (`AGENT-BOOTSTRAP.md`). The agent uses the row matching the
- * `Adapter:` footer in the lean entry file that pointed it to the bootstrap
- * (issue #229).
- */
 export const DECISION_PAUSE_UI_NOTES: Record<AdapterType, string> = {
   'claude-code':
     'In Claude Code, surface the packet via `AskUserQuestion` and wait for the answer.',
@@ -24,10 +15,6 @@ export const DECISION_PAUSE_UI_NOTES: Record<AdapterType, string> = {
   aiassistant: 'In JetBrains AI Assistant, prompt the user and wait for a reply before continuing.',
 };
 
-/**
- * Generic fallback used when an adapter has no first-class interactive UI
- * primitive — defers to the file-wait fallback documented in the managed doc.
- */
 export const DECISION_PAUSE_UI_FALLBACK =
   'If no interactive UI is available, stop and wait until `.paqad/decisions/resolved/D-{id}.json` exists.';
 

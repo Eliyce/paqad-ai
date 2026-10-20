@@ -1,10 +1,4 @@
 #!/usr/bin/env node
-// Purpose: Delete orphaned rule-script .mjs files (and their __fixtures__) that
-//          are no longer referenced by an active rule in rule-script-map.yml —
-//          the prune step of a `generate rule scripts` cycle. Archived rules'
-//          scripts survive one cycle then get pruned here.
-// Usage:   node scripts/prune.mjs <project-root>
-// Output:  JSON { pruned: string[] } on stdout.
 import { loadRuleScriptMap, pruneOrphanScripts } from 'paqad-ai/rule-scripts';
 
 const projectRoot = process.argv[2];

@@ -56,10 +56,6 @@ const coveringMap: AppMap = {
   ],
 };
 
-// An AI-authored canonical map (docs/site-map/app-map.yaml) whose one surface cites a resolving
-// anchor but authors no trust tier — so a run that resolves the anchor earns it `proven-in-code`
-// and stamps freshness, exercising the C8 restampCanonicalTrust wire independent of the run's own
-// (legacy) map, which is null here.
 const canonicalMap: AppMap = {
   schema_version: 1,
   app: { name: 'paqad-ai', kind: 'cli' },
@@ -73,8 +69,6 @@ const canonicalMap: AppMap = {
   ],
 };
 
-// A navigable map: a rooted transition to a terminal surface, no cited evidence, so it clears
-// every Tier-A check and blocks nothing — the one shape that earns the `safe` verdict.
 const navigableMap: AppMap = {
   schema_version: 1,
   app: { name: 'paqad-ai', kind: 'cli' },
@@ -96,13 +90,11 @@ function gatherer(overrides: Partial<SiteMapGatherer> = {}): SiteMapGatherer {
     appSummary: () => ({ name: 'paqad-ai', kind: 'cli', frameworks: ['commander'] }),
     loadAppMap: () => null,
     journeyCount: () => 0,
-    // Default: every cited pointer resolves, so the map is clean unless a test says otherwise.
     resolveEvidence: (pointers) =>
       pointers.map((pointer) => ({ file: pointer.file, line: pointer.line, status: 'resolved' })),
     extractors: async (): Promise<ExtractorOutput[]> => [
       { extractor: 'node-cli', available: true, surfaces: [surface()] },
     ],
-    // Default: the code proves no navigation edge, so the run reconciles none unless a test says so.
     gatherTransitions: () => [],
     ...overrides,
   };
@@ -129,10 +121,9 @@ describe('runSiteMapAudit', () => {
     });
 
     expect(result.report_id).toBe('SITEMAP-2026-01-02-03-04-05');
-    expect(result.exit_code).toBe(1); // no map → the surface is an SM-ADD
+    expect(result.exit_code).toBe(1);
     expect(result.finding_count).toBe(1);
     expect(result.baseline_created).toBe(true);
-    // No stored map → the map-present gap is recorded; a finding makes the verdict attention (D4).
     expect(result.blocked_checks.map((check) => check.check)).toEqual(['map-present']);
     expect(result.verdict).toBe('attention');
 
@@ -144,7 +135,6 @@ describe('runSiteMapAudit', () => {
     );
     expect(extraction.surfaces).toHaveLength(1);
 
-    // ART-3: a run writes no report dumps and no derived views — docs/ stays untouched.
     expect(existsSync(join(root, 'docs'))).toBe(false);
 
     expect(readBaseline(root)).not.toBeNull();
@@ -175,7 +165,6 @@ describe('runSiteMapAudit', () => {
     });
     expect(result.exit_code).toBe(0);
     expect(result.finding_count).toBe(0);
-    // ART-3: even with a map, a run publishes no derived views — docs/ stays untouched.
     expect(existsSync(join(root, 'docs'))).toBe(false);
 
     const { report } = await gatherSiteMapReport({
@@ -222,7 +211,6 @@ describe('runSiteMapAudit', () => {
       projectRoot: root,
       gatherer: gatherer(),
       sessionId: 's-defaults',
-      // now and workflow omitted → the real-time clock and the 'site-map' workflow are used.
     });
     expect(result.report_id).toMatch(/^SITEMAP-\d{4}-/);
     expect(readAllSessionRows(root, SITE_MAP_RUN_DOC_TYPE)[0]!.workflow).toBe('site-map');
@@ -250,7 +238,6 @@ describe('runSiteMapAudit', () => {
       gatherer: gatherer({
         loadAppMap: () => map,
         extractors: async () => [],
-        // The cited file does not exist in the tree → the surface reads as removed.
         resolveEvidence: (pointers) =>
           pointers.map((pointer) => ({
             file: pointer.file,
@@ -264,7 +251,6 @@ describe('runSiteMapAudit', () => {
     expect(result.exit_code).toBe(1);
     const { findings } = readFindingIndex(root, result.bundle_dir);
     const categories = findings.map((finding) => finding.category).sort();
-    // SM-REMOVE (evidence file gone) + SM-XREF (transition to a missing surface).
     expect(categories).toContain('SM-REMOVE');
     expect(categories).toContain('SM-XREF');
   });
@@ -298,9 +284,7 @@ describe('runSiteMapAudit', () => {
       sessionId: 's-blocked',
       now: () => new Date(2026, 0, 2, 3, 4, 5),
     });
-    expect(result.exit_code).toBe(0); // nothing extracted → no findings
-    // The extractor gap plus the map-present gap (no stored map) are both recorded, and with a
-    // blocked check but no finding the verdict is inconclusive, never clean.
+    expect(result.exit_code).toBe(0);
     const checkNames = result.blocked_checks.map((check) => check.check);
     expect(checkNames).toContain('rails-routes surface extraction');
     expect(checkNames).toContain('map-present');
@@ -311,8 +295,6 @@ describe('runSiteMapAudit', () => {
     expect(extraction.low_confidence_fallback).toBe(true);
   });
 
-  // C8: the run wires restampCanonicalTrust in, so a real run re-earns the canonical map's honest
-  // trust tiers + map-vs-code freshness from the same evidence and writes them back.
   it('reports no-map and writes nothing when no canonical map is authored yet (C8)', async () => {
     const root = repo();
     const result = await runSiteMapAudit({
@@ -329,8 +311,6 @@ describe('runSiteMapAudit', () => {
     const root = repo();
     writeCanonicalSiteMap(root, canonicalMap);
     const result = await runSiteMapAudit({
-      // The run's own (legacy) map is null; restampCanonicalTrust still operates on the canonical
-      // map, and the default gatherer resolves every cited pointer.
       projectRoot: root,
       gatherer: gatherer({ loadAppMap: () => null }),
       sessionId: 's-stamp',
@@ -367,7 +347,6 @@ describe('runSiteMapAudit', () => {
     expect(second.trust_restamp.status).toBe('unchanged');
   });
 
-  // S2 (D4): the run's verdict is honest about what it could not confirm.
   describe('verdict (S2, D4)', () => {
     it('an absent map with no extracted surfaces is inconclusive with a map-present block, exit 0', async () => {
       const root = repo();
@@ -380,15 +359,13 @@ describe('runSiteMapAudit', () => {
       expect(result.finding_count).toBe(0);
       expect(result.blocked_checks.map((check) => check.check)).toEqual(['map-present']);
       expect(result.verdict).toBe('inconclusive');
-      expect(result.exit_code).toBe(0); // exit code unchanged: inconclusive-with-no-findings is 0
+      expect(result.exit_code).toBe(0);
     });
 
     it('a map with surfaces but zero transitions is inconclusive with a reachability block, exit 0', async () => {
       const root = repo();
       const result = await runSiteMapAudit({
         projectRoot: root,
-        // coveringMap's one surface is matched by the default extractor, so there is no SM-ADD;
-        // it records no transitions, so reachability is blocked.
         gatherer: gatherer({ loadAppMap: () => coveringMap }),
         sessionId: 's-verdict-notransitions',
         now: () => new Date(2026, 0, 2, 3, 4, 5),
@@ -417,8 +394,6 @@ describe('runSiteMapAudit', () => {
       const root = repo();
       const result = await runSiteMapAudit({
         projectRoot: root,
-        // coveringMap has zero transitions (→ reachability blocked); the extracted surface cites
-        // a file the map does not (→ one SM-ADD finding).
         gatherer: gatherer({
           loadAppMap: () => coveringMap,
           extractors: async () => [
@@ -442,10 +417,7 @@ describe('runSiteMapAudit', () => {
   });
 });
 
-// S9c (D3): the run reconciles the code's navigation edges against the stored map.
 describe('runSiteMapAudit — reconcile missing links (S9c)', () => {
-  // Origin s-a and two link targets reachable at entry values /b and /c; the map records no
-  // transitions itself, so every proven edge is a candidate SM-EDGE-MISSING.
   const linkMap: AppMap = {
     schema_version: 1,
     app: { name: 'paqad-ai', kind: 'cli' },
@@ -500,7 +472,6 @@ describe('runSiteMapAudit — reconcile missing links (S9c)', () => {
 
   it('fires reachability findings for real once the map records transitions (AC-7)', async () => {
     const root = repo();
-    // A rooted graph with one transition, plus an unreachable surface → SM-ORPHAN now fires.
     const graphMap: AppMap = {
       schema_version: 1,
       app: { name: 'paqad-ai', kind: 'cli' },
@@ -536,7 +507,6 @@ describe('runSiteMapAudit — reconcile missing links (S9c)', () => {
       evidence: [{ file: 'src/a.ts', line: 9 }],
       confidence: 'high',
     };
-    // First run: one proven edge, writes the baseline.
     await runSiteMapAudit({
       projectRoot: root,
       gatherer: gatherer({
@@ -547,7 +517,6 @@ describe('runSiteMapAudit — reconcile missing links (S9c)', () => {
       sessionId: 's-ratchet-1',
       now: () => new Date(2026, 0, 2, 3, 4, 5),
     });
-    // Second run: the original edge plus a new one.
     const second = await runSiteMapAudit({
       projectRoot: root,
       gatherer: gatherer({
@@ -583,8 +552,6 @@ describe('runSiteMapAudit — reconcile missing links (S9c)', () => {
   });
 });
 
-// The pure verdict helper, exercised branch by branch so the AC-3 ordering is locked
-// independently of the fs-driven run.
 describe('deriveSiteMapVerdict', () => {
   const clean = { findingCount: 0, hasStoredMap: true, hasTransitions: true, blockedChecks: [] };
 
@@ -614,7 +581,6 @@ describe('deriveSiteMapVerdict', () => {
   });
 });
 
-// S4 (D7): the run says how big the job is before it writes anything.
 function extractionOf(surfaces: ExtractedSurface[]): ExtractionResult {
   return {
     schema_version: 1,
@@ -633,14 +599,13 @@ describe('deriveSiteMapInventory', () => {
       extractionOf([
         surface({ raw_id: 'a', module: 'Billing', guards: ['web', 'auth'] }),
         surface({ raw_id: 'b', module: 'Auth', guards: ['web'] }),
-        // A guard repeated across surfaces is one distinct token; a surface may carry no module.
         surface({ raw_id: 'c', module: 'Billing', guards: ['auth', 'verified'] }),
         surface({ raw_id: 'd' }),
       ]),
     );
     expect(inventory.screens).toBe(4);
     expect(inventory.groups).toEqual(['Auth', 'Billing']);
-    expect(inventory.guards).toBe(3); // web, auth, verified
+    expect(inventory.guards).toBe(3);
   });
 
   it('reports zeroes and an empty group set for an empty extraction (AC-2)', () => {

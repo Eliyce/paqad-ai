@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { codexTrustHint } from '@/cli/ui/banner.js';
 
-describe('codexTrustHint (issue #566, step 6)', () => {
+describe('codexTrustHint', () => {
   it('names the /hooks trust step when Codex was onboarded', () => {
     const hint = codexTrustHint(['claude-code', 'codex-cli']);
     expect(hint).toContain('/hooks');

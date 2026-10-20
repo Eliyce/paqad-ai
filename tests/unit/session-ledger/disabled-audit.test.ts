@@ -10,9 +10,6 @@ import {
 } from '@/session-ledger/disabled-audit.js';
 import { readSessionDoc } from '@/session-ledger/ledger.js';
 
-// Buildout F2b (decision D1) — a session that runs while paqad is disabled is
-// audited with ONE row on the session-ledger so the bypass is visible.
-
 const roots: string[] = [];
 
 function tempRoot(): string {
@@ -68,13 +65,10 @@ describe('recordDisabledSession', () => {
     const root = tempRoot();
     const first = recordDisabledSession(root, {});
     expect(first).not.toBeNull();
-    // Same machine-local session resolves to the same id → still idempotent.
     expect(recordDisabledSession(root, {})).toBeNull();
   });
 
   it('returns null (never throws) when the ledger cannot be written', () => {
-    // A projectRoot that is a FILE makes the recorder's mkdirSync fail — the
-    // best-effort catch must swallow it and return null.
     const dir = tempRoot();
     const filePath = join(dir, 'not-a-dir');
     writeFileSync(filePath, 'x', 'utf8');

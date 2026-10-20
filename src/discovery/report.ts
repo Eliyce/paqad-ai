@@ -1,11 +1,3 @@
-// Discovery run report generator (issue #597, DW-06).
-//
-// Renders a read-only `report.html` from a run's canonical records so a fresh person can see the
-// value, decisions, evidence, blockers, and next step WITHOUT the original chat (DW-AC27). The
-// report is a PROJECTION: it carries the envelope header (doc type `paqad.discovery.report`, the
-// source run revision) and can never set machine completion state — the JSON records remain the one
-// authority. Its generation is itself recorded (the header names the source revision).
-
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -47,10 +39,6 @@ function section(title: string, inner: string): string {
   return `<section><h2>${escapeHtml(title)}</h2>${inner}</section>`;
 }
 
-/**
- * Render the run's `report.html` body + envelope header. Missing records render as an empty
- * section rather than failing — a partial run still produces a readable view.
- */
 export function renderDiscoveryReport(projectRoot: string, dirName: string): string {
   const run = readDiscoveryRun(projectRoot, dirName);
   const brief = readJson(projectRoot, discoveryRunFilePath(dirName, 'brief'));
@@ -117,7 +105,6 @@ export function renderDiscoveryReport(projectRoot: string, dirName: string): str
   ].join('\n');
 }
 
-/** Render and atomically write a run's `report.html`. Returns the project-relative path. */
 export function writeDiscoveryReport(projectRoot: string, dirName: string): string {
   const html = renderDiscoveryReport(projectRoot, dirName);
   const rel = discoveryReportPath(dirName);

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Purpose: Stop-condition gate — exit non-zero when the reconciler is
-#          blocked (typically source_roots_unknown).
-# Usage:   bash scripts/is-blocked.sh [project-root]
-#          project-root defaults to the current directory.
-# Output:  Blocked reason on stdout (or `none`).
-# Exits:   0 not blocked | 1 blocked | 2 drift.json missing
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Stop-condition gate — exit non-zero when the reconciler is
+         blocked (typically source_roots_unknown).
+Usage:   bash scripts/is-blocked.sh [project-root]
+         project-root defaults to the current directory.
+Output:  Blocked reason on stdout (or `none`).
+USAGE
   exit 0
 fi
 

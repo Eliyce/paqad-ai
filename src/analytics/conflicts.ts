@@ -1,8 +1,3 @@
-// Analytics conflict → Decision Pause mapping (issue #241). The closed list of situations
-// where the instrumentation agent stops and asks instead of guessing. Everything NOT here is
-// "instrument correctly and show the one-line summary". Each conflict maps to a decision
-// category (see DECISION_CATEGORIES) plus the plain-language question paqad surfaces.
-
 import type { DecisionCategory } from '@/planning/decision-packet.js';
 
 export type AnalyticsConflictKind =
@@ -14,7 +9,6 @@ export type AnalyticsConflictKind =
 
 export interface AnalyticsConflict {
   category: DecisionCategory;
-  /** Plain-language framing of what paqad caught (no jargon). */
   title: string;
 }
 
@@ -41,7 +35,6 @@ export const ANALYTICS_CONFLICTS: Record<AnalyticsConflictKind, AnalyticsConflic
   },
 };
 
-/** The decision category for a conflict kind. */
 export function conflictCategory(kind: AnalyticsConflictKind): DecisionCategory {
   return ANALYTICS_CONFLICTS[kind].category;
 }

@@ -79,13 +79,13 @@ describe('writeModuleMapEvidence', () => {
     expect(result).toEqual({ written: true, modulesUpdated: 2 });
 
     const raw = readFileSync(join(root, PATHS.MODULE_MAP), 'utf8');
-    expect(raw).toContain('# the core module'); // comment survived
-    expect(raw).toContain('sources: [src/core]'); // hand-authored flow style preserved (no padding)
+    expect(raw).toContain('# the core module');
+    expect(raw).toContain('sources: [src/core]');
     const parsed = parseYaml(raw) as {
       modules: Array<{ slug: string; evidence?: { symbols?: string[] } }>;
     };
     const core = parsed.modules.find((m) => m.slug === 'core');
-    expect(core?.evidence?.symbols).toEqual(['a', 'b']); // sorted + deduped
+    expect(core?.evidence?.symbols).toEqual(['a', 'b']);
     expect(parsed.modules.find((m) => m.slug === 'api')?.evidence?.symbols).toEqual(['routeThing']);
   });
 

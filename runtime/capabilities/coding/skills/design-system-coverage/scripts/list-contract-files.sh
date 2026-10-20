@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Purpose: Enumerate which design-system contract files exist and which are empty.
-# Usage:   bash scripts/list-contract-files.sh [contract-dir]
-#          Default contract-dir: docs/instructions/design-system
-# Output:  one TSV row per expected file: path<TAB>present<TAB>empty
-# Exits:   0 always (a missing dir is a valid finding for the LLM)
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Enumerate which design-system contract files exist and which are empty.
+Usage:   bash scripts/list-contract-files.sh [contract-dir]
+         Default contract-dir: docs/instructions/design-system
+Output:  one TSV row per expected file: path<TAB>present<TAB>empty
+Exits:   0 always (a missing dir is a valid finding for the LLM)
+USAGE
   exit 0
 fi
 

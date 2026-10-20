@@ -1,9 +1,3 @@
-// JUnit XML test report parser. The schema is permissive — different runners
-// emit slightly different attribute sets. We extract one TestRow per
-// <testcase> element. `file=` attribute (Vitest, Jest, pytest) maps to a
-// source path when present; otherwise the row is emitted with an empty file
-// and the rollup engine folds it into the unattributed bucket.
-
 import type { ParsedReport, TestRow } from './types.js';
 
 const TESTCASE_TAG = /<testcase\b([^>]*?)\s*(?:\/>|>([\s\S]*?)<\/testcase>)/g;

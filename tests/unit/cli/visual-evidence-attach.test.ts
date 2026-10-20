@@ -12,9 +12,6 @@ import { readVisualEvidenceManifest } from '@/visual-evidence/manifest.js';
 
 import { fixtureProfile } from '../adapters/shared.fixture.js';
 
-// Issue #579 (AC-15) — `paqad-ai visual-evidence attach` refuses with one plain line and exit 1,
-// writing nothing, when the flag is off, no bundle is active, or a file is missing / not a PNG.
-
 const SES = 'ses_cli_ve_attach';
 const PNG = Buffer.concat([
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -54,7 +51,6 @@ describe('paqad-ai visual-evidence attach', () => {
     return path;
   }
 
-  /** Write a frozen specification.json into the bundle carrying the given criterion ids. */
   function frozenSpec(dir: string, ids: string[] | null): void {
     const path = join(root, featureFilePath(dir, 'specification'));
     mkdirSync(join(root, featureDir(dir)), { recursive: true });

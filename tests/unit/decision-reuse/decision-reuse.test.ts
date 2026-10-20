@@ -54,7 +54,6 @@ describe('decision-reuse ledger', () => {
 
     const rows = reuseRows('ses_many');
     expect(rows.map((row) => row.decision_id)).toEqual(['D-1', 'D-2', 'D-3']);
-    // All in ordinal 1 (one unit per session).
     const dir = join(root, sessionLedgerDir(DECISION_REUSE_DOC_TYPE, 'ses_many'));
     expect(existsSync(join(dir, '1.jsonl'))).toBe(true);
     expect(existsSync(join(dir, '2.jsonl'))).toBe(false);
@@ -69,7 +68,6 @@ describe('decision-reuse ledger', () => {
   it('mints and caches a session id when the host supplies none', () => {
     const row = recordDecisionReuse(root, { decisionId: 'D-mint', matchKind: 'exact' }, {});
     expect(row).not.toBeNull();
-    // The same minted id is reused for the whole machine-local session.
     const sessionId = resolveSessionId(root);
     expect(reuseRows(sessionId).map((r) => r.decision_id)).toContain('D-mint');
   });

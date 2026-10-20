@@ -1,9 +1,5 @@
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-// Use posix.join so test paths use forward slashes on every platform —
-// matches what fast-glob (used by RagFileFilter) returns. Node's fs APIs
-// accept mixed separators on Windows, so setup calls (writeFileSync, mkdirSync)
-// still work. See https://github.com/Eliyce/paqad-ai/issues/17.
 import { posix } from 'node:path';
 
 const { join } = posix;
@@ -17,7 +13,6 @@ import { toPosixPath } from '@/core/path-utils.js';
 import type { EngineLogEntry } from '@/core/types/logger.js';
 import { RagFileFilter } from '@/rag/file-filter.js';
 
-/** Installs a recording engine logger and returns the entries it receives. */
 function captureEngineLogs(): EngineLogEntry[] {
   const entries: EngineLogEntry[] = [];
   setEngineLogger({ log: (entry) => void entries.push(entry) });
@@ -83,8 +78,6 @@ describe('RagFileFilter', () => {
   });
 
   function makeRoot() {
-    // Posix-normalize so join(root, ...) expectations match the posix paths
-    // discoverFiles returns (mkdtempSync emits backslashes on Windows).
     const root = toPosixPath(mkdtempSync(join(tmpdir(), 'paqad-rag-filter-')));
     tempRoots.push(root);
     return root;
@@ -394,14 +387,31 @@ describe('RagFileFilter', () => {
     });
   });
 
+  it('reads a candidate through one open handle and reports dangling links and missing files as not found', async () => {
+    const root = makeRoot();
+    writeText(root, 'docs/real.md', 'x'.repeat(80));
+    symlinkSync(join(root, 'docs/gone.md'), join(root, 'docs/dangling.md'));
+    const filter = new RagFileFilter({ projectRoot: root, packs: [] });
+
+    await expect(filter.probeFile(join(root, 'docs/real.md'))).resolves.toMatchObject({
+      excluded: false,
+    });
+    await expect(filter.probeFile(join(root, 'docs/dangling.md'))).resolves.toMatchObject({
+      excluded: true,
+      rule: 'not-found',
+    });
+    await expect(filter.probeFile(join(root, 'docs/missing.md'))).resolves.toMatchObject({
+      excluded: true,
+      rule: 'not-found',
+    });
+  });
+
   it('supports global gitignore opt-in and relative probe paths', async () => {
     const root = makeRoot();
     const home = makeRoot();
     const previousHome = process.env.HOME;
     const previousUserProfile = process.env.USERPROFILE;
     process.env.HOME = home;
-    // os.homedir() reads USERPROFILE on Windows; without this the global
-    // gitignore files land outside the resolved home and are never applied.
     process.env.USERPROFILE = home;
     mkdirSync(join(home, '.config', 'git'), { recursive: true });
     writeProjectFile(home, '.gitignore_global', 'global.md\n');
@@ -497,9 +507,6 @@ describe('RagFileFilter', () => {
 
     const files = await filter.discoverFiles();
 
-    // chmod 0o000 does not block reads on Windows, and root bypasses file
-    // permissions entirely (e.g. CI inside a Docker container), so the file
-    // stays legitimately readable (and admitted) in both cases.
     const runningAsRoot = typeof process.getuid === 'function' && process.getuid() === 0;
     if (process.platform !== 'win32' && !runningAsRoot) {
       expect(files).not.toContain(unreadablePath);
@@ -584,18 +591,15 @@ describe('RagFileFilter', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const anyFilter = new RagFileFilter({ projectRoot: root, packs: [] }) as any;
 
-    // _layer3RulesCache is null before any probe
     expect(anyFilter._layer3RulesCache).toBeNull();
 
     await anyFilter.probeFile(join(root, 'docs/page.md'));
 
-    // Cache is populated after the first call
     const firstCacheRef = anyFilter._layer3RulesCache;
     expect(firstCacheRef).not.toBeNull();
 
     await anyFilter.probeFile(join(root, 'README.md'));
 
-    // Same Promise reference — readIgnoreRules was not called a second time
     expect(anyFilter._layer3RulesCache).toBe(firstCacheRef);
   });
 });

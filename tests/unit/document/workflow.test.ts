@@ -107,8 +107,6 @@ describe('DocumentationWorkflow', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  // ─── Foundation mode ───────────────────────────────────────────────────────
-
   it('foundation mode writes module-map.yml and skips docs/modules/**', async () => {
     const result = await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
@@ -119,20 +117,16 @@ describe('DocumentationWorkflow', () => {
     expect(result.generated).toContain(PATHS.MODULE_MAP);
     expect(result.steps.map((s) => s.id)).toContain('module-map');
 
-    // module docs must NOT be generated
     expect(result.generated.some((p) => p.startsWith('docs/modules/'))).toBe(false);
     expect(existsSync(join(root, 'docs/modules'))).toBe(false);
 
-    // foundation docs must be present
     expect(result.generated.some((p) => p.startsWith('docs/instructions/stack/'))).toBe(true);
     expect(result.generated.some((p) => p.startsWith('docs/instructions/architecture/'))).toBe(
       true,
     );
 
-    // module map file must exist on disk
     expect(existsSync(join(root, PATHS.MODULE_MAP))).toBe(true);
 
-    // progress must record the pending stage
     const progress = readFileSync(join(root, PATHS.DOC_PROGRESS), 'utf8');
     expect(progress).toContain('pending_map_review');
   });
@@ -145,7 +139,6 @@ describe('DocumentationWorkflow', () => {
   });
 
   it('foundation mode writes a valid module-map.yml with business-language names', async () => {
-    // Add a business-named module directory
     mkdirSync(join(root, 'app/Modules/Billing'), { recursive: true });
     writeFileSync(
       join(root, 'app/Modules/Billing/BillingController.php'),
@@ -164,7 +157,6 @@ describe('DocumentationWorkflow', () => {
   });
 
   it('foundation mode rejects technical-layer names from discovered modules', async () => {
-    // All subdirs are technical layers — no business modules should appear
     mkdirSync(join(root, 'app/controllers'), { recursive: true });
     mkdirSync(join(root, 'app/middleware'), { recursive: true });
     mkdirSync(join(root, 'app/services'), { recursive: true });
@@ -182,7 +174,6 @@ describe('DocumentationWorkflow', () => {
     mkdirSync(join(root, 'app/Modules/Billing'), { recursive: true });
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
-    // Lock the billing module name
     const map = await loadModuleMap(root);
     const billing = map!.modules.find((m) => m.slug === 'billing');
     if (billing) {
@@ -191,7 +182,6 @@ describe('DocumentationWorkflow', () => {
     }
     writeFileSync(join(root, PATHS.MODULE_MAP), serializeModuleMap(map!));
 
-    // Re-run foundation — locked name must be preserved
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
     const updatedMap = await loadModuleMap(root);
@@ -199,8 +189,6 @@ describe('DocumentationWorkflow', () => {
     expect(locked?.name).toBe('Revenue');
     expect(locked?.auto_update_module_name).toBe(false);
   });
-
-  // ─── Module-docs mode ──────────────────────────────────────────────────────
 
   it('module-docs mode refuses with required message when module-map.yml is absent', async () => {
     await expect(
@@ -211,10 +199,8 @@ describe('DocumentationWorkflow', () => {
   });
 
   it('module-docs mode generates docs/modules/** from the reviewed map', async () => {
-    // Stage 1: foundation — creates map
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
-    // Manually update the map to add a known business module with one feature
     const map = await loadModuleMap(root);
     map!.modules = [
       {
@@ -230,7 +216,6 @@ describe('DocumentationWorkflow', () => {
     ];
     writeFileSync(join(root, PATHS.MODULE_MAP), serializeModuleMap(map!));
 
-    // Stage 2: module-docs
     const result = await new DocumentationWorkflow().run({
       projectRoot: root,
       mode: 'module-docs',
@@ -242,7 +227,7 @@ describe('DocumentationWorkflow', () => {
     expect(existsSync(join(root, 'docs/modules/users/index/summary.md'))).toBe(true);
   });
 
-  it('module-docs mode generates the per-event analytics tree when the flag is on (issue #279)', async () => {
+  it('module-docs mode generates the per-event analytics tree when the flag is on', async () => {
     writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n');
     mkdirSync(join(root, 'app/Analytics'), { recursive: true });
     writeFileSync(
@@ -271,8 +256,6 @@ describe('DocumentationWorkflow', () => {
             evidence: {},
           },
           {
-            // A feature with no analytics call sites yields no event doc (covers the
-            // "feature has zero call sites" path).
             name: 'Browse',
             slug: 'browse',
             auto_update_feature_name: false,
@@ -296,11 +279,9 @@ describe('DocumentationWorkflow', () => {
   });
 
   it('module-docs mode reads only from the map and does not re-run discovery', async () => {
-    // Stage 1
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
     const map = await loadModuleMap(root);
-    // Replace map with a single explicit module
     map!.modules = [
       {
         name: 'Billing',
@@ -321,16 +302,13 @@ describe('DocumentationWorkflow', () => {
     });
 
     expect(result.generated.some((p) => p.startsWith('docs/modules/billing/'))).toBe(true);
-    // The old Http folder should NOT appear since it's not in the map
     expect(result.generated.some((p) => p.startsWith('docs/modules/Http/'))).toBe(false);
   });
 
   it('module-docs mode lists orphaned module dirs and does not delete them', async () => {
-    // Create a pre-existing orphaned module dir
     mkdirSync(join(root, 'docs/modules/legacy-module'), { recursive: true });
     writeFileSync(join(root, 'docs/modules/legacy-module/README.md'), '# Legacy');
 
-    // Stage 1
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
     const map = await loadModuleMap(root);
@@ -354,7 +332,6 @@ describe('DocumentationWorkflow', () => {
     });
 
     expect(result.orphaned_module_dirs).toContain('docs/modules/legacy-module');
-    // Orphaned dir must still exist — not deleted
     expect(existsSync(join(root, 'docs/modules/legacy-module/README.md'))).toBe(true);
   });
 
@@ -389,12 +366,7 @@ describe('DocumentationWorkflow', () => {
     expect(result.generated.some((p) => p.includes('registries'))).toBe(true);
   });
 
-  // ─── Existing behaviour — unrelated to module docs ─────────────────────────
-
   it('skips unchanged foundation docs on re-run', async () => {
-    // Author real design tokens so the design-system docs are actually
-    // generated (the seeded placeholder is intentionally skipped). This keeps
-    // the test exercising the design-system doc idempotency path.
     mkdirSync(join(root, PATHS.DESIGN_SYSTEM_DIR), { recursive: true });
     writeFileSync(
       join(root, PATHS.DESIGN_TOKENS_FILE),
@@ -409,8 +381,6 @@ describe('DocumentationWorkflow', () => {
     await workflow.run({ projectRoot: root, mode: 'foundation' });
     const result2 = await workflow.run({ projectRoot: root, mode: 'foundation' });
 
-    // Design-system docs (derived from the stable tokens file) go through
-    // processEntry and are skipped on re-run when unchanged.
     expect(result2.skipped.some((p) => p.startsWith('docs/instructions/design-system/'))).toBe(
       true,
     );
@@ -418,10 +388,8 @@ describe('DocumentationWorkflow', () => {
 
   it('resets stale generating entries through the canonical recovery hook', async () => {
     const workflow = new DocumentationWorkflow();
-    // Run module-docs to get module progress entries to corrupt
     await workflow.run({ projectRoot: root, mode: 'foundation' });
 
-    // Now write a module-docs map and run
     const map = await loadModuleMap(root);
     map!.modules = [
       {
@@ -500,14 +468,12 @@ describe('DocumentationWorkflow', () => {
       await writeProfile(flutterRoot, { domain: 'coding', stack: 'flutter', capabilities: [] });
       await new DesignTokenService().seed(flutterRoot);
 
-      // Stage 1: foundation
       const foundationResult = await new DocumentationWorkflow().run({
         projectRoot: flutterRoot,
         mode: 'foundation',
       });
       expect(foundationResult.effective_routing.stack).toBe('flutter');
 
-      // Stage 2: module-docs with a known map
       const map = await loadModuleMap(flutterRoot);
       map!.modules = [
         {
@@ -576,7 +542,6 @@ describe('DocumentationWorkflow', () => {
       });
       await new DesignTokenService().seed(shortVideoRoot);
 
-      // Stage 1
       await new DocumentationWorkflow().run({
         projectRoot: shortVideoRoot,
         mode: 'foundation',
@@ -587,7 +552,6 @@ describe('DocumentationWorkflow', () => {
         },
       });
 
-      // Stage 2 with explicit map
       const map = await loadModuleMap(shortVideoRoot);
       map!.modules = [
         {
@@ -633,7 +597,6 @@ describe('DocumentationWorkflow', () => {
         'Document editorial states, publishing stages, and content workflow transitions.',
       );
 
-      // Content deliverable is generated during the foundation run
       expect(
         readFileSync(join(shortVideoRoot, 'content/launch-review-script.md'), 'utf8'),
       ).toContain('Use a direct editorial tone.');
@@ -709,8 +672,6 @@ describe('DocumentationWorkflow', () => {
     }
   });
 });
-
-// ─── Registry generator — discoverBusinessModules ───────────────────────────
 
 describe('discoverBusinessModules', () => {
   let root: string;
@@ -794,8 +755,6 @@ describe('discoverBusinessModules', () => {
   });
 });
 
-// ─── Finding 7: directory source_paths expand to contained files ─────────────
-
 describe('module-docs mode: directory source_paths resolve to contained files', () => {
   let root: string;
 
@@ -815,10 +774,8 @@ describe('module-docs mode: directory source_paths resolve to contained files', 
   });
 
   it('expands a directory source_path to all source files under that tree', async () => {
-    // Stage 1
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
-    // Set a directory path (not a file path) as the module source
     const map = await loadModuleMap(root);
     map!.modules = [
       {
@@ -827,21 +784,19 @@ describe('module-docs mode: directory source_paths resolve to contained files', 
         auto_update_module_name: false,
         derivation: 'user',
         confidence: 'high',
-        source_paths: ['app/Modules/Billing'], // directory, not a file
+        source_paths: ['app/Modules/Billing'],
         evidence: {},
         features: [],
       },
     ];
     writeFileSync(join(root, PATHS.MODULE_MAP), serializeModuleMap(map!));
 
-    // Stage 2 should find BillingController.php as evidence via the directory expansion
     const result = await new DocumentationWorkflow().run({
       projectRoot: root,
       mode: 'module-docs',
     });
 
     expect(result.generated.some((p) => p.startsWith('docs/modules/billing/'))).toBe(true);
-    // The summary doc must exist and reference the PHP file through its module context
     expect(existsSync(join(root, 'docs/modules/billing/index/summary.md'))).toBe(true);
     const summaryContent = readFileSync(
       join(root, 'docs/modules/billing/index/summary.md'),
@@ -850,8 +805,6 @@ describe('module-docs mode: directory source_paths resolve to contained files', 
     expect(summaryContent).toContain('Billing');
   });
 });
-
-// ─── Finding 8: glossary and evidence survive foundation re-runs ──────────────
 
 describe('generateModuleMapYaml: user-owned content survives re-runs', () => {
   let root: string;
@@ -870,11 +823,9 @@ describe('generateModuleMapYaml: user-owned content survives re-runs', () => {
     const { generateModuleMapYaml, loadModuleMap, writeModuleMap } =
       await import('@/onboarding/registry-generator.js');
 
-    // First run — creates the map
     const firstYaml = await generateModuleMapYaml(root);
     await writeModuleMap(root, firstYaml);
 
-    // User edits the glossary
     const map = await loadModuleMap(root);
     map!.domain_glossary = {
       preferred_terms: ['revenue', 'invoice'],
@@ -883,7 +834,6 @@ describe('generateModuleMapYaml: user-owned content survives re-runs', () => {
     };
     await writeModuleMap(root, YAML.stringify(map, { indent: 2, lineWidth: 0 }));
 
-    // Re-run foundation
     const secondYaml = await generateModuleMapYaml(root);
     await writeModuleMap(root, secondYaml);
 
@@ -931,8 +881,6 @@ describe('generateModuleMapYaml: user-owned content survives re-runs', () => {
   });
 });
 
-// ─── Finding 6: signal-based discovery for Laravel-style projects ─────────────
-
 describe('discoverBusinessModules: signal-based discovery', () => {
   let root: string;
 
@@ -947,7 +895,6 @@ describe('discoverBusinessModules: signal-based discovery', () => {
   it('extracts business names from PHP controllers when no container dir exists', async () => {
     const { discoverBusinessModules } = await import('@/onboarding/registry-generator.js');
 
-    // Standard Laravel layout: no app/Modules, only controllers/models
     mkdirSync(join(root, 'app/Http/Controllers'), { recursive: true });
     mkdirSync(join(root, 'app/Models'), { recursive: true });
     writeFileSync(
@@ -965,7 +912,6 @@ describe('discoverBusinessModules: signal-based discovery', () => {
     const slugs = modules.map((m) => m.slug);
     expect(slugs).toContain('billing');
     expect(slugs).toContain('invoice');
-    // Should NOT fall back to the bare Core placeholder
     expect(slugs).not.toEqual(['core']);
   });
 
@@ -1002,14 +948,11 @@ describe('discoverBusinessModules: signal-based discovery', () => {
   });
 });
 
-// ─── Finding 10: registries use business names from map ──────────────────────
-
 describe('foundation mode: registries reflect the proposed module map', () => {
   let root: string;
 
   beforeEach(async () => {
     root = mkdtempSync(join(tmpdir(), 'paqad-registry-ordering-'));
-    // Standard Laravel layout — no app/Modules, only controllers
     mkdirSync(join(root, 'app/Http/Controllers'), { recursive: true });
     mkdirSync(join(root, 'routes'), { recursive: true });
     mkdirSync(join(root, '.paqad'), { recursive: true });
@@ -1035,8 +978,6 @@ describe('foundation mode: registries reflect the proposed module map', () => {
 
     expect(result.generated).toContain(PATHS.MODULE_MAP);
 
-    // module-registry.md must list the signal-discovered business module (billing),
-    // not legacy folder names like 'Http' or the bare 'core' placeholder.
     const moduleRegistryPath = join(root, 'docs/instructions/registries/module-registry.md');
     expect(existsSync(moduleRegistryPath)).toBe(true);
     const registryContent = readFileSync(moduleRegistryPath, 'utf8');
@@ -1044,8 +985,6 @@ describe('foundation mode: registries reflect the proposed module map', () => {
     expect(registryContent).not.toContain('- Http');
   });
 });
-
-// ─── Finding 11: locked modules are never dropped ────────────────────────────
 
 describe('discoverBusinessModules: locked modules survive when not rediscovered', () => {
   let root: string;
@@ -1063,7 +1002,6 @@ describe('discoverBusinessModules: locked modules survive when not rediscovered'
     const { discoverBusinessModules, serializeModuleMap, writeModuleMap } =
       await import('@/onboarding/registry-generator.js');
 
-    // Write a map with a locked module whose source directory does NOT exist on disk
     const existingMap = {
       version: 1 as const,
       last_updated_at: new Date().toISOString(),
@@ -1072,10 +1010,10 @@ describe('discoverBusinessModules: locked modules survive when not rediscovered'
         {
           name: 'Revenue',
           slug: 'revenue',
-          auto_update_module_name: false, // locked
+          auto_update_module_name: false,
           derivation: 'user' as const,
           confidence: 'high' as const,
-          source_paths: ['app/Modules/Revenue'], // directory does not exist
+          source_paths: ['app/Modules/Revenue'],
           evidence: {},
           features: [],
         },
@@ -1106,7 +1044,7 @@ describe('discoverBusinessModules: locked modules survive when not rediscovered'
         {
           name: 'Payments Platform',
           slug: 'payments-platform',
-          auto_update_module_name: false, // locked, no matching directory
+          auto_update_module_name: false,
           derivation: 'user' as const,
           confidence: 'high' as const,
           source_paths: [],
@@ -1124,8 +1062,6 @@ describe('discoverBusinessModules: locked modules survive when not rediscovered'
     expect(slugs).toContain('billing');
   });
 });
-
-// ─── Finding 12: request-text module name hints ──────────────────────────────
 
 describe('foundation mode: request-text module name hints', () => {
   let root: string;
@@ -1182,13 +1118,10 @@ describe('foundation mode: request-text module name hints', () => {
     const slugs = parsed.modules.map((m) => m.slug);
     expect(slugs).toContain('inventory');
     expect(slugs).toContain('shipping');
-    // Hint-provided names are high confidence
     const inventory = parsed.modules.find((m) => m.slug === 'inventory');
     expect(inventory?.confidence).toBe('high');
   });
 });
-
-// ─── Finding 13: registry reruns pick up module-map-only changes ─────────────
 
 describe('foundation mode: processEntry regenerates when content changes without source changes', () => {
   let root: string;
@@ -1216,7 +1149,6 @@ describe('foundation mode: processEntry regenerates when content changes without
   });
 
   it('regenerates registries when a rerun adds modules via request hints without changing source files', async () => {
-    // First run — no hints, only billing from controller discovery
     await new DocumentationWorkflow().run({ projectRoot: root, mode: 'foundation' });
 
     const registryPath = join(root, 'docs/instructions/registries/module-registry.md');
@@ -1224,9 +1156,6 @@ describe('foundation mode: processEntry regenerates when content changes without
     expect(afterFirstRun).toContain('billing');
     expect(afterFirstRun).not.toContain('orders');
 
-    // Second run — same source files, but 'orders' is added via request hint.
-    // Without F13's content-comparison fix, processEntry would see an unchanged
-    // source-file hash and skip the registry, leaving 'orders' out.
     await new DocumentationWorkflow().run({
       projectRoot: root,
       mode: 'foundation',
@@ -1251,8 +1180,6 @@ describe('foundation mode: processEntry regenerates when content changes without
   });
 });
 
-// ─── Finding 14: per-module unknown keys and comments survive reruns ──────────
-
 describe('generateModuleMapYaml: per-module unknown keys and comments are preserved', () => {
   let root: string;
 
@@ -1269,7 +1196,6 @@ describe('generateModuleMapYaml: per-module unknown keys and comments are preser
     const { generateModuleMapYaml, writeModuleMap } =
       await import('@/onboarding/registry-generator.js');
 
-    // Write initial map with an unknown key at the module level
     const initialYaml =
       [
         'version: 1',
@@ -1285,7 +1211,7 @@ describe('generateModuleMapYaml: per-module unknown keys and comments are preser
         '    derivation: inferred',
         '    confidence: high',
         '    source_paths: []',
-        '    team_owner: billing-squad', // unknown key
+        '    team_owner: billing-squad',
         '    evidence: {}',
         '    features: []',
       ].join('\n') + '\n';
@@ -1293,7 +1219,6 @@ describe('generateModuleMapYaml: per-module unknown keys and comments are preser
     await writeModuleMap(root, initialYaml);
     mkdirSync(join(root, 'app/Modules/Billing'), { recursive: true });
 
-    // Rerun discovery — should update known fields but preserve team_owner
     const rerunYaml = await generateModuleMapYaml(root);
     await writeModuleMap(root, rerunYaml);
 
@@ -1348,7 +1273,7 @@ describe('generateModuleMapYaml: per-module unknown keys and comments are preser
         'modules:',
         '  - name: Revenue',
         '    slug: billing',
-        '    auto_update_module_name: false', // locked
+        '    auto_update_module_name: false',
         '    derivation: user',
         '    confidence: high',
         '    source_paths: []',
@@ -1364,25 +1289,18 @@ describe('generateModuleMapYaml: per-module unknown keys and comments are preser
     await writeModuleMap(root, rerunYaml);
     const afterRerun = await loadModuleMap(root);
 
-    // Locked name must be preserved, not overwritten by discovery
     expect(afterRerun!.modules.find((m) => m.slug === 'billing')?.name).toBe('Revenue');
     expect(reloadedMap!.modules.find((m) => m.slug === 'billing')?.name).toBe('Revenue');
   });
 });
 
-// ─── Onboarding next-steps.md ────────────────────────────────────────────────
-
 describe('onboarding next-steps guidance', () => {
   it('contains two-stage prompt instructions and does not claim create documentation generates docs/modules/**', () => {
-    // The next-steps guidance is no longer written to .paqad/next-steps.md; it is
-    // printed to the terminal at onboarding completion (printNextSteps). Guard the
-    // copy correctness against the banner source that now owns it.
     const bannerSource = readFileSync(join(process.cwd(), 'src/cli/ui/banner.ts'), 'utf8');
 
     expect(bannerSource).toContain('create documentation');
     expect(bannerSource).toContain('create module documentation');
     expect(bannerSource).toContain('module map');
-    // Must not imply "create documentation" itself generates the per-module docs.
     expect(bannerSource).not.toContain('docs/modules');
   });
 });

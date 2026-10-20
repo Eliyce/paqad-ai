@@ -1,9 +1,3 @@
-// The fold reads a row's time from the envelope's `recorded_at` (issue #581, S5).
-//
-// A bundle row written since #581 carries `recorded_at` instead of `ts`; a bundle written
-// before carries `ts`. A change that spans the upgrade holds both in one file, so the fold
-// must time a stage from either field, and a start in one shape with an end in the other.
-
 import { describe, expect, it } from 'vitest';
 
 import { foldRowsWithKey } from '@/stage-evidence/fold.js';

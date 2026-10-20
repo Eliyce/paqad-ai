@@ -1,10 +1,3 @@
-// The shared hook-failure log (issue #573).
-//
-// A runtime hook must never wedge the host, so it soft-fails. Before #573 that meant a
-// bare `catch {}`, and a dangling compiled-half import went unnoticed for ~10 weeks. The
-// helper under test keeps the soft-fail and adds the trace: one append-only line naming
-// the hook and the error. Its own contract is that it NEVER throws, whatever the disk does.
-
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -32,7 +25,7 @@ function logLines(projectRoot: string): string[] {
     .filter((line: string) => line.trim().length > 0);
 }
 
-describe('logHookFailure (issue #573)', () => {
+describe('logHookFailure', () => {
   it('writes one line naming the hook, the note and the error', () => {
     const written = hookLog.logHookFailure(
       root,
@@ -82,8 +75,6 @@ describe('logHookFailure (issue #573)', () => {
   });
 
   it('returns false instead of throwing when the log cannot be written', () => {
-    // `.paqad/logs` occupied by a FILE — mkdirSync recursive throws ENOTDIR/EEXIST. The
-    // host path must survive this: a hook that cannot log still must not throw.
     mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(join(root, '.paqad', 'logs'), 'not a directory');
 

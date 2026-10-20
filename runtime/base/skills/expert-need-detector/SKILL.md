@@ -1,6 +1,6 @@
 ---
 name: expert-need-detector
-description: Decide, from the request and the S0 grounding, which domain experts (db, security, ui, ...) the spec pipeline needs — the one model call that replaces a deterministic signal-scorer, because no script can reliably tell which expert a request needs without emitting false signals. Emits a roster-constrained JSON need artifact the pipeline script validates and records. Phase 2 of the spec pipeline (issue #521). TS guard is `src/spec-pipeline/experts/need.ts`.
+description: Decide, from the request and the S0 grounding, which domain experts (db, security, ui, ...) the spec pipeline needs — the one model call that replaces a deterministic signal-scorer, because no script can reliably tell which expert a request needs without emitting false signals. Emits a roster-constrained JSON need artifact the pipeline script validates and records. Phase 2 of the spec pipeline. TS guard is `src/spec-pipeline/experts/need.ts`.
 model_tier: fast
 triggers:
   - workflow:
@@ -30,7 +30,7 @@ spec needs** — a database expert when the request touches the data model, a se
 it touches auth or a trust boundary, a UI expert when it touches a screen, and so on. It returns
 a small JSON artifact naming each needed expert and, in one plain sentence, why it fired.
 
-This is the model call that **replaces a deterministic signal-scorer** (issue #521, the "one
+This is the model call that **replaces a deterministic signal-scorer** (the "one
 change"): a script cannot reliably tell which expert a request needs — file-path and keyword
 heuristics emit false signals both ways — so the judgement is the model's. The script's job is
 only to VALIDATE the result against the roster, never to make it. Nothing needed ⇒ an empty

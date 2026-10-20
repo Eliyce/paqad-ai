@@ -53,7 +53,6 @@ describe('refreshCodeKnowledgeIndex', () => {
     const index = readCodeKnowledgeIndex(root)!;
     expect(index.header.generated_at).toBe('2026-02-02T00:00:00.000Z');
     expect(index.symbols.map((s) => s.name).sort()).toEqual(['a', 'b']);
-    // The unchanged app.ts edge is preserved, so a() still has its caller.
     expect(index.symbols.find((s) => s.name === 'a')?.caller_count).toBe(1);
   });
 
@@ -79,7 +78,6 @@ describe('refreshCodeKnowledgeIndex', () => {
     expect(result.reason).toBe('incremental');
     const index = readCodeKnowledgeIndex(root)!;
     expect(index.files.some((f) => f.path === 'src/app.ts')).toBe(false);
-    // a() was only used by app.ts -> now orphan (src is not an entry point here).
     expect(index.symbols.find((s) => s.name === 'a')).toMatchObject({
       caller_count: 0,
       orphan: true,
@@ -112,9 +110,6 @@ describe('refreshCodeKnowledgeIndex', () => {
   });
 
   it('defaults to readGitState and normalises absent branch/commit to null', async () => {
-    // Rebuild the stored index with null git (as a non-git checkout would have), then
-    // refresh WITHOUT injecting gitState: readGitState on this non-git temp dir yields
-    // {}, which normalises to null and matches the stored header -> incremental.
     const nullGit = await buildCodeKnowledgeIndex(root, { now: () => 't0', gitState: {} });
     writeCodeKnowledgeIndex(root, nullGit);
     write(root, 'src/lib.ts', 'export function a(): void {}\nexport function c(): void {}\n');

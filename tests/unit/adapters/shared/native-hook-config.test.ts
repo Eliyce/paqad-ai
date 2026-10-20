@@ -22,12 +22,11 @@ import {
 
 const ENV = { PAQAD_FRAMEWORK_HOME: '/fake/home/.paqad-ai/current' } as NodeJS.ProcessEnv;
 
-describe('paqad-hooks command builders (issue #566)', () => {
+describe('paqad-hooks command builders', () => {
   it('capabilityGateCommand appends the host argv only for a non-default host', () => {
     expect(capabilityGateCommand('pre-mutation', undefined, ENV)).toBe(
       'node "/fake/home/.paqad-ai/current/hooks/capability-gate.mjs" pre-mutation',
     );
-    // The default host is never appended (keeps Claude byte-identical).
     expect(capabilityGateCommand('completion', DEFAULT_HOOK_ADAPTER, ENV)).toBe(
       'node "/fake/home/.paqad-ai/current/hooks/capability-gate.mjs" completion',
     );
@@ -61,8 +60,6 @@ describe('paqad-hooks command builders (issue #566)', () => {
   };
 
   it('buildHostHookChain renders every event in the fixed order and throws for an unknown host', () => {
-    // Stage isolation is core-engine behavior (issue #567) — the subagent-completion event is
-    // rendered unconditionally, so the chain always covers the full event order.
     const chain = buildHostHookChain('claude-code', ENV);
     expect(distinctEvents(chain)).toEqual(
       PAQAD_HOOK_EVENT_ORDER.map((event) => NATIVE_HOOK_EVENTS['claude-code'].nativeEvent[event]),
@@ -72,7 +69,6 @@ describe('paqad-hooks command builders (issue #566)', () => {
 
   it('buildHostHookChain renders SubagentStop (agent-type matched) last, after Stop', () => {
     const chain = buildHostHookChain('claude-code', ENV);
-    // SubagentStop is appended last, after Stop, matching the full event order.
     expect(distinctEvents(chain).at(-1)).toBe('SubagentStop');
     const subagent = chain.find((hook) => hook.nativeEvent === 'SubagentStop');
     expect(subagent?.matcher).toBe('^(paqad:)?paqad-');
@@ -88,7 +84,7 @@ describe('paqad-hooks command builders (issue #566)', () => {
   });
 });
 
-describe('mergeNativeHooks (issue #566)', () => {
+describe('mergeNativeHooks', () => {
   const chain: RenderedHook[] = [
     { nativeEvent: 'PreToolUse', matcher: 'X', command: 'node paqad-a' },
     { nativeEvent: 'Stop', command: 'node paqad-b' },
@@ -139,13 +135,12 @@ describe('mergeNativeHooks (issue #566)', () => {
     const commands = next.hooks.PreToolUse.flatMap((g) => g.hooks.map((h) => h.command));
     expect(commands).not.toContain('~/.paqad-ai/current/hooks/old.sh');
     expect(commands.some((c) => c.includes('rule-script-enforce.mjs'))).toBe(false);
-    // The user's own hook survives, and paqad's command is present exactly once.
     expect(commands).toContain('echo keep-me');
     expect(commands.filter((c) => c === 'node paqad-a')).toHaveLength(1);
   });
 });
 
-describe('buildNativeHookConfigFile transform (issue #566)', () => {
+describe('buildNativeHookConfigFile transform', () => {
   it('applies the post-merge transform and serializes with a trailing newline', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-nhc-'));
     const file = buildNativeHookConfigFile({
@@ -182,7 +177,6 @@ describe('buildNativeHookConfigFile transform (issue #566)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-nhc3-'));
     const full = join(root, '.host/hooks.json');
     mkdirSync(dirname(full), { recursive: true });
-    // Valid JSON, but an array — readJsonObject must fall back to `{}` and still merge.
     writeFileSync(full, '[]');
     const file = buildNativeHookConfigFile({
       projectRoot: root,
@@ -209,7 +203,6 @@ describe('buildNativeHookConfigFile transform (issue #566)', () => {
 
   it('rethrows a non-ENOENT read error (e.g. the settings path is a directory)', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-nhc4-'));
-    // The settings path is a directory, so readFileSync throws EISDIR, not ENOENT.
     mkdirSync(join(root, '.host/hooks.json'), { recursive: true });
     expect(() =>
       buildNativeHookConfigFile({
@@ -221,8 +214,7 @@ describe('buildNativeHookConfigFile transform (issue #566)', () => {
   });
 });
 
-// Issue #615 (Part 6) — the three pre-mutation edit gates fail closed on Claude only.
-describe('fail-closed edit gates (issue #615, Part 6)', () => {
+describe('fail-closed edit gates', () => {
   it('Claude renders onFailure:block + timeout:10 on exactly the three edit gates', () => {
     const chain = buildHostHookChain('claude-code', ENV);
     const withPolicy = chain.filter((hook) => hook.onFailure !== undefined);
@@ -237,7 +229,6 @@ describe('fail-closed edit gates (issue #615, Part 6)', () => {
     expect(
       commands.some((cmd) => cmd.includes('capability-gate.mjs') && cmd.includes('pre-mutation')),
     ).toBe(true);
-    // The completion capability-gate (a Stop seam) is NOT fail-closed.
     const completion = chain.find(
       (hook) => hook.command.includes('capability-gate.mjs') && hook.command.includes('completion'),
     );

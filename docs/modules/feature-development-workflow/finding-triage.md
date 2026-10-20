@@ -1,6 +1,6 @@
 # Finding Triage — Act Only on Confirmed Problems
 
-> **Slug:** `finding-triage` &nbsp;·&nbsp; **Issue:** #107 &nbsp;·&nbsp; **Owns:** the four-pile sort before any responsive change
+> **Slug:** `finding-triage` &nbsp;·&nbsp; **Owns:** the four-pile sort before any responsive change
 
 ## Why this exists
 
@@ -20,13 +20,13 @@ to a code change.
 
 | Pile | Meaning | Route |
 | ---- | ------- | ----- |
-| **Confirmed problem** | Demonstrable — ideally already reproducible (#103). | → a code change, via the prove-it protocol. |
-| **Unclear spec** | Really "the spec didn't say." | → the spec (#102), **not** a code patch. |
+| **Confirmed problem** | Demonstrable — ideally already reproducible. | → a code change, via the prove-it protocol. |
+| **Unclear spec** | Really "the spec didn't say." | → the spec, **not** a code patch. |
 | **False alarm** | A misread / not a real problem. | → set aside with a recorded reason. |
 | **Taste** | A different-but-fine way to write it. | → recorded, **not** acted on. |
 
 The honesty rule: **"confirmed" must mean *demonstrable*, not asserted.** A confirmed-but-not-yet-
-reproducible finding waits in a `needs-repro` sub-state and does **not** drive a change until #103's
+reproducible finding waits in a `needs-repro` sub-state and does **not** drive a change until the fix
 protocol reproduces it. Only a confirmed **and** demonstrable finding may edit code — everything else
 (taste, false-alarm, unclear-spec, needs-repro, ratchet, ambiguous) cannot.
 
@@ -74,14 +74,25 @@ ambiguous findings share one verdict.
 
 ## Boundaries (what this does NOT own)
 
-- **Proving** a confirmed problem and fixing it → [#103 fix-protocol](features/fix-protocol/business.md).
+- **Proving** a confirmed problem and fixing it → [fix-protocol](features/fix-protocol/business.md).
   Triage hands a confirmed finding off to that prove-it protocol; it does not prove anything itself.
-- The **spec content** the "unclear" pile lands in → [#102 spec & done bar](features/spec-and-done-bar/business.md).
-- A **measurable quality regression** masquerading as taste → #110 quality ratchet (open decision #3):
+- The **spec content** the "unclear" pile lands in → [spec & done bar](features/spec-and-done-bar/business.md).
+- A **measurable quality regression** masquerading as taste → the quality ratchet (an open decision):
   such a finding is routed to the ratchet, **not** binned as taste.
-- The outer **build-check-fix loop** that consumes triage verdicts → #108.
+- The outer **build-check-fix loop** that consumes triage verdicts → [build-check-fix loop](build-check-fix-loop.md).
 - The **settle-once memory** itself is the shipped Decision Pause Contract — triage reuses it, never a
   second store.
+
+## Why the code works the way it does
+
+- **`classifier.ts`.** Signals are checked strongest and most specific first. A misread (the cited
+  place does not exist) is set aside with a reason, never dropped. A measurable quality regression
+  goes to the ratchet, not the taste pile.
+- **`finding-triage-decision.ts`.** The packet is fingerprinted by kind only, so a taste call
+  settled as "not doing it" is reused for the same kind. A human-confirmed problem still enters
+  the needs-repro state, because a person's confirmation is not a reproduction.
+- **`ledger.ts`.** A corrupt ledger reads as empty, because it is an audit aid that must never
+  block a build. A re-triaged finding replaces its earlier entry instead of adding a second one.
 
 ## Related
 

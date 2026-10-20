@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// Purpose: Open a Decision Pause packet — mint a collision-free `D-<ULID>` id,
-//          build the pending packet from the supplied content, and write it to
-//          `.paqad/decisions/pending/D-<ULID>.json`. The agent supplies only
-//          content; the id, timestamps, and JSON plumbing are handled here so a
-//          hand-picked sequential `D-{N}` can never be minted (issue #272).
-// Usage:   node scripts/create.mjs <project-root> \
-//            --category <category> --title <title> --context <context> \
-//            --option <key>=<label> [--option <key>=<label> ...] \
-//            [--recommendation <key>]
-// Output:  JSON { id, path } on stdout.
-// Exit:    0 on success, 1 on usage/validation error.
 import { createPendingDecision } from 'paqad-ai';
 
 const argv = process.argv.slice(2);

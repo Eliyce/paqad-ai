@@ -15,6 +15,7 @@ import { FileVectorIndex } from '@/rag/vector-index.js';
 import { PatternStore } from './pattern-store.js';
 import { PatternSuggester, type PatternSemanticScorer } from './pattern-suggester.js';
 import type { Pattern, PatternMatch } from './types.js';
+import { slugifyAscii } from '@/core/text/trim-char.js';
 
 export interface StoredPatternVector extends StoredVectorItem {
   fingerprint: string;
@@ -39,11 +40,7 @@ function fingerprint(pattern: Pattern): string {
 }
 
 function sanitizeNamespaceSegment(value: string): string {
-  const normalized = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  const normalized = slugifyAscii(value.trim());
   return normalized.length > 0
     ? normalized
     : createHash('sha1').update(value).digest('hex').slice(0, 12);

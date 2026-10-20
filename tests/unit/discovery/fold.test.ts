@@ -22,7 +22,6 @@ function row(
   };
 }
 
-/** A start+end (with artifact) pair for a stage at the given clock minute. */
 function completePair(stage: string, minute: number): SessionLedgerRow[] {
   const t = (m: number) => `2026-09-30T10:${String(m).padStart(2, '0')}:00.000Z`;
   return [
@@ -50,7 +49,7 @@ describe('discovery fold', () => {
   it('incomplete when a stage ended without a real artifact', () => {
     const rows = [
       row('stage_start', 'understand', '2026-09-30T10:00:00.000Z'),
-      row('stage_end', 'understand', '2026-09-30T10:01:00.000Z'), // no artifact_digest
+      row('stage_end', 'understand', '2026-09-30T10:01:00.000Z'),
     ];
     const folded = foldDiscoveryRun(rows);
     expect(folded.verdict).toBe('incomplete');
@@ -63,7 +62,6 @@ describe('discovery fold', () => {
   it('flags an ordering violation when a later stage starts before an earlier stage ends', () => {
     const rows = [
       row('stage_start', 'understand', '2026-09-30T10:00:00.000Z'),
-      // investigate starts before understand ends
       row('stage_start', 'investigate', '2026-09-30T10:00:30.000Z'),
       row('stage_end', 'understand', '2026-09-30T10:05:00.000Z', { artifact_digest: 'd' }),
       row('stage_end', 'investigate', '2026-09-30T10:06:00.000Z', { artifact_digest: 'd' }),

@@ -8,7 +8,7 @@ import { routeIsAffirmativelyNonFeature } from '@/pipeline/route-gate.js';
 import { writeSessionRoute } from '@/pipeline/session-route.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
-describe('routeIsAffirmativelyNonFeature (#390)', () => {
+describe('routeIsAffirmativelyNonFeature', () => {
   let root: string;
   const SES = 'ses_route_gate';
 
@@ -28,13 +28,10 @@ describe('routeIsAffirmativelyNonFeature (#390)', () => {
   });
 
   it('is false when NO route state exists (unknown → cross-provider safe)', () => {
-    // Codex/Gemini never write route state; absence must NOT read as non-feature, or
-    // their feature-evidence recording would be silently killed.
     expect(routeIsAffirmativelyNonFeature(root, SES)).toBe(false);
   });
 
   it('falls back to the session-route pointer when no active workflow-state entry exists', () => {
-    // No workflow-state active entry, but the session-agnostic route pointer says pentest.
     writeSessionRoute(root, { workflow: 'pentest', query: 'check the app' });
     expect(routeIsAffirmativelyNonFeature(root, SES)).toBe(true);
   });
@@ -44,8 +41,6 @@ describe('routeIsAffirmativelyNonFeature (#390)', () => {
     expect(routeIsAffirmativelyNonFeature(root, SES)).toBe(false);
   });
 
-  // Issue #582 — the shared pointer holds whichever session routed last; this session's own
-  // pointer wins over it.
   it("prefers this session's own non-feature pointer over another session's shared one", () => {
     writeSessionRoute(root, { workflow: 'project-question', query: 'why?' }, SES);
     writeSessionRoute(root, { workflow: 'feature-development', query: 'build it' }, 'ses_other');

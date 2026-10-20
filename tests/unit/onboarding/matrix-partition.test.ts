@@ -2,8 +2,6 @@ import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 
 import { MATRIX_FIXTURES, MATRIX_GROUPS } from './matrix-harness.js';
 
-// The adapter matrix is split over five files so CI can shard it (issue #654). This fast test
-// makes sure the split can never quietly drop or repeat a fixture.
 describe('onboarding adapter matrix partition', () => {
   it('has the 25 fixtures in five groups of five', () => {
     expect(MATRIX_FIXTURES).toHaveLength(25);

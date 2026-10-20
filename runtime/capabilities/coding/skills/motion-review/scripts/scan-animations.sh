@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Purpose: Grep UI source for animation/transition declarations and emit each
-#          declaration with its duration normalized to milliseconds. The LLM
-#          then matches the duration against the motion.md budget.
-#
-# Usage:   bash scripts/scan-animations.sh [search-root]
-#          Default search-root: src
-#
-# Output:  TSV rows to stdout:
-#            <file>:<line>\t<duration-ms>\t<excerpt>
-#          A duration of 0 means "duration not parsed from this line" — the
-#          LLM treats that as needing a manual look rather than a finding.
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Grep UI source for animation/transition declarations and emit each
+         declaration with its duration normalized to milliseconds. The LLM
+         then matches the duration against the motion.md budget.
+
+Usage:   bash scripts/scan-animations.sh [search-root]
+         Default search-root: src
+
+Output:  TSV rows to stdout:
+           <file>:<line>\t<duration-ms>\t<excerpt>
+         A duration of 0 means "duration not parsed from this line" — the
+         LLM treats that as needing a manual look rather than a finding.
+         Diagnostics to stderr.
+
+USAGE
   exit 0
 fi
 
@@ -26,11 +26,6 @@ if [ ! -d "$root" ]; then
   exit 0
 fi
 
-# Find lines that look like a transition or animation declaration:
-#   transition: ... 300ms ...
-#   transition-duration: 0.4s;
-#   animation: name 200ms linear;
-#   framer-motion: transition={{ duration: 0.3 }}  (cap captures `duration:`)
 candidates=$(grep -rEn --binary-files=without-match \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build \
   --exclude='*.test.*' --exclude='*.spec.*' --exclude='*.stories.*' \

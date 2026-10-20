@@ -9,9 +9,6 @@ const sh = (n: string) => join(SKILL, 'scripts', n);
 
 describe('module-attribution-extractor scripts', () => {
   describe('extract.sh', () => {
-    // Thin wrapper around `paqad-ai module-decisions extract`. We don't invoke
-    // the real CLI from unit tests — that's covered by tests/unit/cli/. These
-    // assert the wrapper's input validation surface.
     const path = sh('extract.sh');
 
     it('--help exits 2 with usage on stdout', () => {

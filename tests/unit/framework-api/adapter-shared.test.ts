@@ -55,8 +55,6 @@ describe('createDefaultFrameworkApiAdapterRegistry', () => {
     expect(registry.get('php')).toBe(phpFrameworkApiAdapter);
     expect(registry.get('python')).toBe(pythonFrameworkApiAdapter);
     expect(registry.get('jvm')).toBe(jvmFrameworkApiAdapter);
-    // Deliberately unregistered: an ecosystem with no adapter must record `no-adapter`
-    // rather than be run through the wrong reader.
     expect(registry.get('go')).toBeNull();
     expect(registry.get('rust')).toBeNull();
     expect(registry.get('dart')).toBeNull();

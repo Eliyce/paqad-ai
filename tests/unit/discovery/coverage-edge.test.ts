@@ -1,6 +1,3 @@
-// Edge-branch coverage for the Discovery module (issue #597): the defensive/rarely-taken paths the
-// happy-path suites do not exercise, kept in one place so the intent of each is explicit.
-
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -67,11 +64,11 @@ describe('fold time-merge edge branches', () => {
   it('picks the earliest start and latest end across out-of-order rows (both ternary sides)', () => {
     const folded = foldDiscoveryRun([
       stageRow('stage_start', '2026-09-30T10:02:00.000Z'),
-      stageRow('stage_start', '2026-09-30T10:01:00.000Z'), // earlier than the first
-      stageRow('stage_start', '2026-09-30T10:03:00.000Z'), // later than the running min
+      stageRow('stage_start', '2026-09-30T10:01:00.000Z'),
+      stageRow('stage_start', '2026-09-30T10:03:00.000Z'),
       stageRow('stage_end', '2026-09-30T10:08:00.000Z'),
-      stageRow('stage_end', '2026-09-30T10:09:00.000Z'), // later than the first end
-      stageRow('stage_end', '2026-09-30T10:07:00.000Z'), // earlier than the running max
+      stageRow('stage_end', '2026-09-30T10:09:00.000Z'),
+      stageRow('stage_end', '2026-09-30T10:07:00.000Z'),
     ]);
     expect(folded.stages[0]!.startedAt).toBe('2026-09-30T10:01:00.000Z');
     expect(folded.stages[0]!.endedAt).toBe('2026-09-30T10:09:00.000Z');
@@ -110,7 +107,6 @@ describe('validate owner-unknown path', () => {
         assignments: [],
       },
     );
-    // Remove run.json so the owner cannot be established; the gate must fail closed.
     rmSync(join(root, discoveryRunFilePath(dirName, 'run')));
     const res = validateDiscoveryArtifact(
       root,

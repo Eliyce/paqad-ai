@@ -5,7 +5,6 @@ import {
   DELIVERY_POLICY_FILE,
 } from '@/pipeline/delivery-policy.js';
 
-/** Default PR body template (issue #42). Placeholders are filled at delivery time. */
 const DEFAULT_PR_BODY = `## Summary
 
 {summary}
@@ -23,12 +22,6 @@ const DEFAULT_PR_BODY = `## Summary
 🤖 Generated with paqad-ai delivery
 `;
 
-/**
- * Issue #42 — `paqad-ai onboard` writes the delivery policy (enabled, all
- * sections `auto`) and the PR-body template it references. Mirrors
- * `generateFeatureDevelopmentPolicy`: coding domain only, `autoUpdate: false`
- * so project edits are never clobbered by a framework refresh.
- */
 export function generateDeliveryPolicy(domain: 'coding' | 'content'): GeneratedFile[] {
   if (domain !== 'coding') {
     return [];

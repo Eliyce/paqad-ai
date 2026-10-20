@@ -84,7 +84,6 @@ describe('regression-guard registry', () => {
   });
 
   it('propagates a non-ENOENT read error', async () => {
-    // A directory at the guard path makes readFile throw EISDIR (not ENOENT).
     mkdirSync(join(projectRoot, PATHS.REGRESSION_GUARDS_DIR, 'DEF-9.json'), { recursive: true });
     await expect(readRegressionGuard(projectRoot, 'DEF-9')).rejects.toThrow();
   });

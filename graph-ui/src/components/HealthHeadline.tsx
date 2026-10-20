@@ -33,16 +33,9 @@ function tierCounts(graph: Graph | null): TierCounts {
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 
-/**
- * Issue #163 — the authored "state of your codebase" headline. A one-line
- * verdict plus a few framed facts, so an owner feels the state in seconds
- * before the canvas invites exploration. Facts come from the live module
- * health on the graph and the verification receipts.
- */
 export function HealthHeadline({ graph }: Props) {
   const activityByModule = useAppStore((s) => s.activityByModule);
 
-  // Modules an AI agent shipped to this week, from the receipt-backed activity.
   const weekModules = useMemo(() => {
     const cutoff = Date.now() - WEEK_MS;
     const week = Object.values(activityByModule).filter((a) => {

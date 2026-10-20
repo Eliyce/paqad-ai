@@ -16,13 +16,6 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 
 import { seedDetectionFixtures } from '../../shared/detection-fixtures.js';
 
-// Issue #293 (Option A) — mutation testing on a FRESH onboarded fixture project (the
-// tests/e2e/onboarding.e2e.test.ts pattern: mkdtemp, then `onboard --project-root`), not on this
-// repo. The fixture is a React + Vite project with a Stryker config; the Stryker report the
-// runner reads is a fixture file, so the expected survivor comes from the fixture. Only the test
-// command and the Stryker process are injected: tool detection, report parsing, the stack
-// profile and the tree check all run for real.
-
 const STRYKER_REPORT = 'reports/mutation/mutation.json';
 
 interface FixtureMutant {
@@ -48,7 +41,7 @@ function porcelain(root: string): string {
   return execaSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd: root }).stdout;
 }
 
-describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
+describe('mutation testing on a fresh onboarded fixture', () => {
   let tmp: string;
   let project: string;
   let survivor: FixtureMutant;
@@ -58,10 +51,11 @@ describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
     tmp = mkdtempSync(join(tmpdir(), 'paqad-mutation-e2e-'));
     seedDetectionFixtures(tmp);
     project = join(tmp, 'new-react');
+    const manifestPath = join(project, 'package.json');
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>;
+    writeFileSync(manifestPath, JSON.stringify({ ...manifest, scripts: { test: 'vitest run' } }));
     await runCli(['node', 'paqad-ai', 'onboard', '--project-root', project, '--stack', 'react']);
 
-    // The project supplies its mutation tool: a Stryker config marker, and a .gitignore that
-    // keeps Stryker's report out of the tree, as a real project would.
     write(project, 'stryker.conf.json', '{ "testRunner": "vitest" }\n');
     write(project, '.gitignore', 'node_modules/\nreports/\n');
     git(project, ['init', '-q', '-b', 'main']);
@@ -72,7 +66,6 @@ describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
     git(project, ['add', '-A']);
     git(project, ['commit', '-qm', 'onboarded base']);
 
-    // The change under verification: a source edit with its test.
     write(
       project,
       'src/App.tsx',
@@ -165,22 +158,29 @@ describe('mutation testing on a fresh onboarded fixture (issue #293)', () => {
         message: `Surviving mutant (${survivor.operator})`,
       }),
     ]);
-    // The run left the tree as it found it.
     expect(porcelain(project)).toBe(before);
   }, 120_000);
 
   it('AC-19: strict on ci-backstop blocks on the same survivor', async () => {
-    setMode('warn');
-    const warn = await verify(deps().mutationDeps);
     setMode('strict');
     const strict = await verify(deps().mutationDeps);
 
     expect(strict.gate?.status).toBe('fail');
     expect(strict.gate?.detail).toContain(`${survivor.file}:${survivor.line}`);
     expect(strict.verdict.ok).toBe(false);
-    // The block is the mutation gate's doing: it is the one gate strict adds to the failures.
-    const added = failing(strict.verdict).filter((name) => !failing(warn.verdict).includes(name));
-    expect(added).toEqual(['mutation-testing']);
+    expect(failing(strict.verdict)).toEqual(['mutation-testing']);
+  }, 120_000);
+
+  it('reads the rules load as not required on ci-backstop, so no gate fails in warn', async () => {
+    setMode('warn');
+    const { verdict } = await verify(deps().mutationDeps);
+
+    expect(verdict.gates.find((entry) => entry.gate === 'rules-loaded')).toMatchObject({
+      status: 'skipped',
+      skip_kind: 'not-required',
+      detail: 'No session loads rules on CI, so the load was not required here.',
+    });
+    expect(failing(verdict)).toEqual([]);
   }, 120_000);
 
   it('AC-23: the detected stack profile reaches selectMutationTool and selects Stryker', async () => {

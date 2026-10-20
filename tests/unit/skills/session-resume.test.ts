@@ -30,7 +30,6 @@ describe('session-resume', () => {
       withTempDir((dir) => {
         writeFile(dir, '.paqad/session/handoff.md', '# handoff');
         writeFile(dir, '.paqad/project-profile.yaml', 'slug: x\n');
-        // manifest missing
         const r = runScript(path, [], { cwd: dir });
         expect(r.status).toBe(1);
         expect(r.stderr).toMatch(/onboarding-manifest\.json/);
@@ -71,7 +70,6 @@ describe('session-resume', () => {
         expect(r.stdout).toContain('slug: demo');
         expect(r.stdout).toContain('lane: graduated');
         expect(r.stdout).toContain('=== manifest ===');
-        // Manifest is whitelisted to specific keys.
         expect(r.stdout).toContain('"projectSlug": "demo"');
         expect(r.stdout).toContain('"detectedStack": "node"');
         expect(r.stdout).not.toContain('extraField');
@@ -86,7 +84,6 @@ describe('session-resume', () => {
         const r = runScript(path, [], { cwd: dir });
         expect(r.status).toBe(0);
         expect(r.stdout).toContain('=== project ===');
-        // No scalar lines printed but section header still emitted.
       });
     });
   });

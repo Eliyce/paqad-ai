@@ -5,15 +5,6 @@ import { SchemaValidator, type SchemaValidationIssue } from '@/validators/valida
 
 import { readManagedFile, writeManagedFile, type ManagedFile } from './write-pipeline.js';
 
-/**
- * Issue #146: `/api/config/design-tokens`. The tokens file is the editable
- * source; the design-system docs and theme exports are derived from it by
- * `DesignTokenService`. Writes carry the raw JSON text, run the section 6.2
- * pipeline (schema validation, guarded write, audit, SSE), then regenerate
- * the derived artifacts. Regeneration failures are reported, never thrown:
- * a placeholder scaffold or a derive bug must not mask a successful save.
- */
-
 export class DesignTokensValidationError extends Error {
   readonly issues: SchemaValidationIssue[];
 
@@ -25,13 +16,9 @@ export class DesignTokensValidationError extends Error {
 }
 
 export interface DesignTokensConfig {
-  /** The raw project file plus the hash a PUT must echo back. */
   file: ManagedFile;
-  /** The parsed tokens document, or null when missing or unparseable. */
   tokens: Record<string, unknown> | null;
-  /** True while the file is still the unedited placeholder scaffold. */
   placeholder: boolean;
-  /** JSON schema driving the form UI and raw-editor validation. */
   schema: Record<string, unknown>;
 }
 
@@ -64,9 +51,7 @@ export interface PutDesignTokensInput {
 export interface PutDesignTokensResult {
   path: string;
   hash: string;
-  /** Derived doc and theme-export paths rewritten after the save. */
   regenerated: string[];
-  /** Set when the save succeeded but derived docs could not be rebuilt. */
   regenerationError?: string;
 }
 

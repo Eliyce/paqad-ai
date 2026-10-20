@@ -2,21 +2,12 @@ import { createHash } from 'node:crypto';
 
 import type { DetectionReport } from '@/core/types/health.js';
 
-/**
- * PQD-423: the `ModelResource` envelope permissions block. Kept at the IPC
- * boundary (this wrapper) rather than on the internal {@link DetectionReport}.
- */
 export interface StackDetectionPermissions {
   can_view: boolean;
   can_edit: boolean;
   can_delete: boolean;
 }
 
-/**
- * PQD-423: a {@link DetectionReport} wrapped in the seven mandatory `ModelResource`
- * envelope fields that every desktop/API response carries. This keeps the envelope
- * shape at the engine edge so internal detection types stay lean.
- */
 export interface StackDetectionResource {
   id: string;
   type: 'stack_detection';
@@ -29,23 +20,12 @@ export interface StackDetectionResource {
 }
 
 export interface ToStackDetectionResourceOptions {
-  /** Project folder the report was produced for; folded into the stable `id`. */
   projectRoot?: string;
-  /** Override any of the default permissions (view-only by default). */
   permissions?: Partial<StackDetectionPermissions>;
 }
 
-/** Separator between the project root and timestamp in the id seed. */
 const ID_SEED_SEPARATOR = '::';
 
-/**
- * Wrap a {@link DetectionReport} in the `ModelResource` envelope.
- *
- * The `id` is a deterministic SHA-256 of `projectRoot + report.timestamp`, so two
- * envelopes built from the same report (same folder, same detection run) share an
- * identical id. Human timestamps are formatted deterministically in UTC — no
- * locale or machine-timezone dependence — so the result is reproducible.
- */
 export function toStackDetectionResource(
   report: DetectionReport,
   options: ToStackDetectionResourceOptions = {},
@@ -72,10 +52,6 @@ export function toStackDetectionResource(
   };
 }
 
-/**
- * Deterministic `YYYY-MM-DD HH:MM UTC` rendering of an ISO-8601 timestamp. Falls
- * back to the raw input when it is not a parseable date so the envelope never throws.
- */
 function toHumanTimestamp(timestamp: string): string {
   const parsed = new Date(timestamp);
   if (Number.isNaN(parsed.getTime())) {

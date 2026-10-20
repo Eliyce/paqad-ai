@@ -48,9 +48,6 @@ import {
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 import type { PaqadHudSnapshot } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
 
-// Issue #639, Parts 8 and 9: the HUD mod's pure model. It reads the session's snapshot
-// defensively and turns it into the band's state, its Stage and Ship instruments and its pills.
-
 const parse = (raw: Record<string, unknown>): PaqadHudSnapshot => parseSnapshot(fileText(raw))!;
 
 describe('parseSnapshot', () => {
@@ -154,8 +151,6 @@ describe('parseSnapshot', () => {
 
 describe('paths match the snapshot writer (src/hud/files.ts)', () => {
   it.each(['ses-1', 'a/b c', '..hidden', ''])('session %j', (id) => {
-    // The mod builds posix paths (the engine accepts them on every OS); the writer uses the
-    // platform separator, so compare them in posix form.
     const posix = (path: string) => path.replace(/\\/g, '/');
     expect(snapshotPath('/repo', id)).toBe(posix(hudSnapshotPath('/repo', id)));
     expect(receiptPath('/repo', id)).toBe(posix(hudReceiptPath('/repo', id)));
@@ -265,7 +260,6 @@ describe('the Stage instrument (FR-26)', () => {
       'marked',
       'failed',
       'not required',
-      // No passing tests-and-lint gate backs the checks stage, so it reads marked (issue #368).
       'marked',
       NOT_YET,
       NOT_YET,

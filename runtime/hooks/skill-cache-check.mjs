@@ -21,7 +21,6 @@ process.stdin.on('end', () => {
   const hash = createHash('sha256');
   for (const file of files) {
     if (!existsSync(file)) {
-      // Skip missing files instead of crashing — file may have been deleted
       continue;
     }
     hash.update(readFileSync(file, 'utf8'));

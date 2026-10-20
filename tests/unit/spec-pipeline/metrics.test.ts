@@ -96,7 +96,6 @@ describe('buildRunMetrics', () => {
         deferred: 0,
       }),
     );
-    // The agent's question-round tokens ride on the step's latest complete spec-step row.
     recordStep(root, DIR, 'questions', 'skipped', { tokens: 1 });
     recordStep(root, DIR, 'task', 'complete', { tokens: 2 });
     recordStep(root, DIR, 'questions', 'complete', { tokens: 400 });
@@ -136,7 +135,6 @@ describe('buildRunMetrics', () => {
     expect(metrics.tiers_by_step.experts).toBe('reasoning');
     expect(metrics.a5_live).toBe(true);
     expect(metrics.a5_verdict).toBe('live');
-    // The spec is not confirmed at finish time, so the freeze would still fire the invariant check.
     expect(metrics.freeze_checks_fired.join(' ')).toMatch(/not human-confirmed/);
   });
 
@@ -191,7 +189,6 @@ describe('recordSpecCorrection', () => {
       changed_sections: ['acceptance_criteria'],
       at: '2026-09-10T00:00:00.000Z',
     });
-    // Stored as kind: 'spec-correction' rows on the bundle's stage evidence (issue #581).
     const ledger = readFileSync(join(root, featureStagePath(DIR)), 'utf8');
     expect(ledger).toContain('"kind":"spec-correction"');
   });
@@ -222,7 +219,6 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
 
   it('aggregates experts, tokens, corrections and labels from the bundles alone (FR-16)', () => {
     const root = tempRoot();
-    // A change frozen since #581: the run lives in specification.json + the bundle files.
     writeExpertRoster(root, DIR, [roster('db-expert'), roster('security-auditor')]);
     writeExpertNotes(root, DIR, {
       notes: [
@@ -242,7 +238,6 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
       JSON.stringify({ label: 'okay', signals: [], question_budget: 3 }),
     );
     recordStep(root, DIR, 'craft', 'complete', { tokens: 100 });
-    // A redo clears the step's tokens until it completes again.
     appendSpecStepRow(root, DIR, { step: 'craft', outcome: 'redone', artifactHash: '' });
     recordStep(root, DIR, 'task', 'complete', { tokens: 50 });
     appendSpecStepRow(root, DIR, { step: 'task', outcome: 'redone', artifactHash: '' });
@@ -258,7 +253,6 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
       at: '2026-09-12T00:00:00Z',
     });
 
-    // A change frozen before #581: its provenance block still counts (INV-8).
     writeSpecification(root, LEGACY, {
       provenance: {
         pipeline_produced: true,
@@ -268,7 +262,6 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
       },
     });
 
-    // A hand-frozen change: no run, but its corrections still count.
     writeSpecification(root, MANUAL, { pipeline: { produced: false, manual_reason: 'hotfix' } });
     recordSpecCorrection(root, MANUAL, {
       spec_id: 'S-2',
@@ -276,7 +269,6 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
       at: '2026-09-12T00:00:00Z',
     });
 
-    // A change whose run is finished but not yet frozen.
     writeStagedJson(root, STAGED, 'finish', {
       outcome: 'freeze',
       provenance: { outcome: 'freeze' },
@@ -293,7 +285,6 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
     const report = aggregateSpecPipelineMetrics(root, listRunDirs(root));
     expect(report.runs).toBe(3);
     expect(report.experts_fired).toEqual({ 'db-expert': 2, 'security-auditor': 1 });
-    // db-expert's finding is a trace source, so it changed the spec; the legacy run cannot say.
     expect(report.changed_spec_rate['db-expert']).toEqual({ fired: 2, changed: 1 });
     expect(report.changed_spec_rate['security-auditor']).toEqual({ fired: 1, changed: 0 });
     expect(report.tokens_by_role).toEqual({ 'db-expert': 1000, 'security-auditor': 500 });
@@ -309,7 +300,7 @@ describe('aggregateSpecPipelineMetrics + listRunDirs', () => {
     expect(report.grounding_sparse_runs).toBe(2);
   });
 
-  it('reports tier, empty rate, voice warnings and renames per role (issue #558, AC-11)', () => {
+  it('reports tier, empty rate, voice warnings and renames per role', () => {
     const root = tempRoot();
     writeExpertRoster(root, DIR, [
       {

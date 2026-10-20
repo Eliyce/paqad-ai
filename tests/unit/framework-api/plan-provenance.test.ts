@@ -1,9 +1,3 @@
-// Issue #397, FR-4/FR-8 — the computed provenance reaches the STORED plan.
-//
-// The verification is only worth having if the record it produces survives into
-// `plan.json`: that is what turns #357's model-declared `provenance` into a fact a
-// reviewer, a receipt, and a future `git blame` can rely on.
-
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -109,7 +103,6 @@ describe('the computed provenance is written onto the stored plan', () => {
 
     writeFeaturePlan(root, 'ses_1', {
       summary: 'use the framework hook',
-      // The model claimed doc-derived; the index resolved it, so `asserted` must win.
       reuse: reuseWith([
         {
           symbol: 'useId',

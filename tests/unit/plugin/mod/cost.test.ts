@@ -37,10 +37,6 @@ import {
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 import type { PaqadCost } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
 
-// Issue #639, Part 23 (FR-23, INV-10): the cost pill, the Cost tab and `/paqad cost`, all drawn
-// from the snapshot's `cost` field. Money always carries the word estimate and the price date; a
-// model with no price shows tokens only.
-
 const parse = (raw: Record<string, unknown>) => parseSnapshot(fileText(raw))!;
 const costOf = (raw: Record<string, unknown>): PaqadCost => parse(raw).cost!;
 const lines = (raw: Record<string, unknown>) =>
@@ -54,7 +50,6 @@ const command = (args: string, raw: Record<string, unknown> | null) =>
     now: NOW,
   }).text;
 
-/** Every money figure in `text` sits on a line that says estimate and the price date. */
 function expectDatedMoney(text: string): void {
   const money = text.split('\n').filter((line) => line.includes('$'));
   expect(money.length).toBeGreaterThan(0);

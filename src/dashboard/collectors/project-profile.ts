@@ -9,13 +9,6 @@ import { bandForScore, scorePresence } from '../scoring/index.js';
 import type { SectionData } from '../types.js';
 import { fileMtime } from './fs-helpers.js';
 
-/**
- * Subset of project-profile.yaml the dashboard inspects. We deliberately do
- * NOT call `readProjectProfile` from `src/core/project-profile.ts` because
- * that function may rewrite the file when a legacy schema is detected — a
- * side effect that would violate the dashboard's "read-only viewing"
- * contract. A minimal local YAML parse is sufficient.
- */
 interface ProfileSubset {
   project?: { name?: unknown; id?: unknown; description?: unknown };
   commands?: Record<string, unknown>;
@@ -110,7 +103,6 @@ export function collectProjectProfile(projectRoot: string): ProjectProfileSectio
   const mtime = fileMtime(profilePath);
   const name = typeof profile.project?.name === 'string' ? (profile.project.name as string) : null;
 
-  // Issue #622 — MCP servers are recommendations; paqad configures none, so never say so.
   const summary =
     presentFields === REQUIRED_FIELDS.length
       ? `Profile complete · RAG ${ragEnabled ? 'on' : 'off'} · ${mcpServers} MCP server(s) recommended`

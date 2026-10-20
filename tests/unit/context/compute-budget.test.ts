@@ -4,8 +4,6 @@ import { ContextBudgetEnforcer } from '@/context/budget-enforcer.js';
 import { clearTokenizerCache } from '@/context/tokenizer-cache.js';
 import type { ComputeBudgetInput, ModelCatalogEntry } from '@/core/types/context.js';
 
-// Mock @huggingface/transformers so the native tokenizer path is deterministic: one
-// token per character. The fallback path is exercised by rejecting the load.
 const { fromPretrained } = vi.hoisted(() => ({ fromPretrained: vi.fn() }));
 vi.mock('@huggingface/transformers', () => ({
   AutoTokenizer: { from_pretrained: fromPretrained },
@@ -32,7 +30,6 @@ function input(overrides: Partial<ComputeBudgetInput> = {}): ComputeBudgetInput 
   };
 }
 
-/** Build a string of exactly `n` characters → `n` tokens under the mock. */
 function chars(n: number): string {
   return 'a'.repeat(n);
 }
@@ -85,7 +82,6 @@ describe('ContextBudgetEnforcer.computeBudget', () => {
   });
 
   it('AC3: applies policy band thresholds (aggressive vs conservative vs standard)', async () => {
-    // usage_pct === 0.55 via a single 550-char slice in a 1000-token window.
     const at55 = (policy: ComputeBudgetInput['compression_policy']) =>
       ContextBudgetEnforcer.computeBudget(
         input({ new_user_message: chars(550), compression_policy: policy }),
@@ -96,9 +92,9 @@ describe('ContextBudgetEnforcer.computeBudget', () => {
     const standard = await at55('standard');
 
     expect(aggressive.ok && aggressive.usage_pct).toBeCloseTo(0.55, 10);
-    expect(aggressive.ok && aggressive.band).toBe('tightening'); // 55 ≥ 50, < 70
-    expect(conservative.ok && conservative.band).toBe('comfortable'); // 55 < 70
-    expect(standard.ok && standard.band).toBe('comfortable'); // 55 < 60
+    expect(aggressive.ok && aggressive.band).toBe('tightening');
+    expect(conservative.ok && conservative.band).toBe('comfortable');
+    expect(standard.ok && standard.band).toBe('comfortable');
   });
 
   it('AC3: maps the upper standard bands (compressed and force-summary)', async () => {
@@ -109,8 +105,8 @@ describe('ContextBudgetEnforcer.computeBudget', () => {
       input({ new_user_message: chars(960), compression_policy: 'standard' }),
     );
 
-    expect(compressed.ok && compressed.band).toBe('compressed'); // 85 ≥ 80, < 95
-    expect(forceSummary.ok && forceSummary.band).toBe('force-summary'); // 96 ≥ 95
+    expect(compressed.ok && compressed.band).toBe('compressed');
+    expect(forceSummary.ok && forceSummary.band).toBe('force-summary');
   });
 
   it('AC4: drops an over-budget chunk and records a compression audit', async () => {
@@ -125,7 +121,7 @@ describe('ContextBudgetEnforcer.computeBudget', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.dropped_chunk_count).toBe(1);
-    expect(result.retrieved_chunks_tokens).toBe(5); // the small chunk is kept
+    expect(result.retrieved_chunks_tokens).toBe(5);
     expect(result.compression_audit).toEqual({
       event: 'context.compression_applied',
       reason: 'chunk_exceeds_budget',
@@ -163,7 +159,7 @@ describe('ContextBudgetEnforcer.computeBudget', () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.total_used).toBeLessThanOrEqual(100);
-    expect(result.dropped_chunk_count).toBe(1); // the 50-token chunk overflows the 30 remaining
+    expect(result.dropped_chunk_count).toBe(1);
   });
 
   it('edge: rolling_summary_tokens is the "—" sentinel when no summary exists', async () => {
@@ -188,9 +184,7 @@ describe('ContextBudgetEnforcer.computeBudget', () => {
   it('falls back to the heuristic tokenizer when @huggingface/transformers is unavailable', async () => {
     fromPretrained.mockRejectedValue(new Error('module not installed'));
 
-    const result = await ContextBudgetEnforcer.computeBudget(
-      input({ system_prompt: chars(8) }), // ceil(8 / 4) = 2 tokens under the heuristic
-    );
+    const result = await ContextBudgetEnforcer.computeBudget(input({ system_prompt: chars(8) }));
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;

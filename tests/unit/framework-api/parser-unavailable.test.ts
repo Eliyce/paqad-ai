@@ -1,11 +1,3 @@
-// Issue #397, decision D-01KYCFNW46E4AZC9JAAH5ZCR9P — what happens on a project where the
-// TypeScript compiler cannot be resolved.
-//
-// This is the load-bearing consequence of making typescript an OPTIONAL peer dependency
-// rather than a runtime one: paqad-ai installs into projects of any stack, and a project
-// without typescript must degrade to a recorded, visible gap — never to a crash, and never
-// to a silent "checked, all fine".
-
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';

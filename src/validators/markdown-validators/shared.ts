@@ -18,7 +18,7 @@ export function validateRequiredHeadings(
 }
 
 export function validateAcStatements(markdown: string): MarkdownValidationResult {
-  const hasGwt = /Given[\s\S]*When[\s\S]*Then/m.test(markdown);
+  const hasGwt = containsInOrder(markdown, ['Given', 'When', 'Then']);
   const hasShall = /\bshall\b/i.test(markdown);
 
   if (hasGwt || hasShall) {
@@ -29,4 +29,14 @@ export function validateAcStatements(markdown: string): MarkdownValidationResult
     valid: false,
     errors: ['Acceptance criteria must use Given/When/Then or shall statements'],
   };
+}
+
+export function containsInOrder(text: string, words: string[]): boolean {
+  let from = 0;
+  for (const word of words) {
+    const at = text.indexOf(word, from);
+    if (at === -1) return false;
+    from = at + word.length;
+  }
+  return true;
 }

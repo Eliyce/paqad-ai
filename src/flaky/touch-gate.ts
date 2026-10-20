@@ -17,22 +17,10 @@ function isForcedFixLane(lane: Lane): lane is ForcedFixLane {
 export interface TouchGateInput {
   projectRoot: string;
   registry: FlakyRegistry;
-  /** Files the current change touches (repo-relative). */
   changedFiles: string[];
-  /** The routing lane of the current change. */
   lane: Lane;
 }
 
-/**
- * The forced-fix-on-touch gate (issue #106 §4). A quarantined test never blocks
- * unrelated progress — but the moment a change touches a module that owns a
- * quarantined test, fixing that test becomes part of the work. So a flake can be
- * set aside without being ignored forever.
- *
- * Lane behaviour mirrors the issue: cheap detection/quarantine runs on every lane
- * (a flaky failure must not block even a `fast` change), but this *forced-fix*
- * gate only bites on `graduated`/`full` — a trivial fast-lane change stays light.
- */
 export function evaluateTouchGate(input: TouchGateInput): TouchGateResult {
   if (!isForcedFixLane(input.lane)) {
     return {

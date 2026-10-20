@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Flag draft lines that violate either the project writing-style file
-#          or the bundled default rules.
-# Usage:   bash scripts/check-style.sh <draft> [style-file]
-#          Style file format: "<directive>\t<pattern>" per non-comment line.
-#          Directives: forbid | require-tone | warn
-# Output:  rule | line | excerpt
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Flag draft lines that violate either the project writing-style file
+         or the bundled default rules.
+Usage:   bash scripts/check-style.sh <draft> [style-file]
+         Style file format: "<directive>\t<pattern>" per non-comment line.
+         Directives: forbid | require-tone | warn
+Output:  rule | line | excerpt
+USAGE
+  exit 0
 fi
 [ -f "${1:-}" ] || { printf 'usage: %s <draft> [style-file]\n' "$0" >&2; exit 2; }
 draft="$1"
@@ -16,7 +17,6 @@ draft="$1"
 style="${2:-}"
 if [ -z "$style" ]; then
   if [ -f "docs/instructions/rules/writing-style.md" ]; then
-    # Extract simple "forbid:" lines from the markdown style file.
     style=$(mktemp)
     awk '
       /^[Ff]orbid:[[:space:]]*"?[^"]+"?/ {

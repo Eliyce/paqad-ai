@@ -15,10 +15,7 @@ import {
   writeRepoFile,
 } from './changed-files.fixture.js';
 
-// Issue #646 — changed files come from git alone: working-tree status plus every file
-// committed on the branch since its merge-base with main/master. The retired session
-// cache is never read, so a stale copy can neither add files nor hide them.
-describe('loadChangeEvidence is git-only (issue #646)', () => {
+describe('loadChangeEvidence is git-only', () => {
   const roots: string[] = [];
   function track(root: string): string {
     roots.push(root);
@@ -30,7 +27,7 @@ describe('loadChangeEvidence is git-only (issue #646)', () => {
 
   it('AC-2: a stale cache with one dirty entry no longer hides the other edited files', async () => {
     const root = track(makeRepoWithStaleCache());
-    writeRepoFile(root, DELIVERED_FILES[0]!, 'export const delivered = 2;\n'); // the dirty entry
+    writeRepoFile(root, DELIVERED_FILES[0]!, 'export const delivered = 2;\n');
     writeRepoFile(root, 'src/other-a.ts', 'export const a = 1;\n');
     writeRepoFile(root, 'src/other-b.ts', 'export const b = 1;\n');
 

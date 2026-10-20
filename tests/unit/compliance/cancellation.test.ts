@@ -43,7 +43,6 @@ describe('checkSpecCompliance consumer cancellation (PQD-104)', () => {
     }
 
     expect(cancelled).toBe(true);
-    // No report directory was created — the call wrote nothing to disk.
     await expect(readdir(path.join(root, '.paqad'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

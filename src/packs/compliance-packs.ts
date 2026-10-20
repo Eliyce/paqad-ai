@@ -1,15 +1,3 @@
-// Issue #122 — load community-authorable compliance packs that map verification
-// gates to legal-framework clauses (EU AI Act / NIST / ISO). A compliance pack
-// is a deliberately separate *kind* from a stack pack: it carries no detection
-// fields, only a framework header and `clause → gate` mappings. It is loaded by
-// the same built-in < global < project precedence skeleton the stack loader
-// uses, validated by its own registered schema, and quarantined (never thrown)
-// when invalid — a bad mapping must not break verification.
-//
-// Compliance packs live in their OWN roots, not the stack-pack roots, so the
-// stack loader never sees a `compliance-pack.yaml`-only directory and mis-files
-// it as a manifest-less stack pack.
-
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -31,8 +19,6 @@ import { SchemaValidator } from '@/validators/validator.js';
 
 const SOURCE_ORDER: PackInstallSource[] = ['built-in', 'global', 'project'];
 
-/** The known obligation categories a `satisfied_by` signal may reference, kept in
- *  sync with `src/compliance/types.ts` ObligationCategory. */
 const KNOWN_OBLIGATION_CATEGORIES = new Set([
   'functional',
   'edge-case',
@@ -49,7 +35,6 @@ export interface CompliancePackLoaderOptions {
   projectRoot?: string;
 }
 
-/** Resolve the three compliance-pack roots, in precedence order. */
 export function resolveCompliancePackRoots(
   options: CompliancePackLoaderOptions = {},
 ): Record<PackInstallSource, string | null> {
@@ -66,7 +51,6 @@ export function resolveCompliancePackRoots(
 export class CompliancePackLoader {
   private readonly validator = new SchemaValidator();
 
-  /** Load every compliance pack, later sources overriding earlier by name. */
   load(options: CompliancePackLoaderOptions = {}): CompliancePackRegistry {
     const roots = resolveCompliancePackRoots(options);
     const packs = new Map<string, LoadedCompliancePack>();
@@ -79,8 +63,6 @@ export class CompliancePackLoader {
       for (const pack of this.loadPacksFromRoot(root, source)) {
         warnings.push(...pack.validation.issues.filter((issue) => issue.level === 'warning'));
         if (!pack.validation.valid) {
-          // Quarantine: surface every error as a warning and skip the pack, so a
-          // mis-authored mapping never breaks the verification run.
           warnings.push(
             ...pack.validation.issues
               .filter((issue) => issue.level === 'error')
@@ -136,9 +118,6 @@ export class CompliancePackLoader {
       );
     }
 
-    // Semantic checks the JSON schema can't express: gate refs must be real
-    // gates, obligation refs real categories. A mis-typed gate would silently
-    // never cite, which is worse than a loud quarantine.
     const manifest = parsed as CompliancePackManifest;
     if (schema.valid) {
       for (const [m, mapping] of (manifest.mappings ?? []).entries()) {
@@ -190,8 +169,6 @@ function invalid(
   };
 }
 
-/** Convenience: the validated compliance packs for a project, newest-precedence
- *  wins. Returns an empty array (not an error) when none are installed. */
 export function loadCompliancePacks(
   projectRoot: string,
   options: Omit<CompliancePackLoaderOptions, 'projectRoot'> = {},
@@ -200,5 +177,4 @@ export function loadCompliancePacks(
   return [...registry.packs.values()];
 }
 
-// Re-export the value tuples so callers/tests share one source of truth.
 export { COMPLIANCE_RELATIONS, COMPLIANCE_EVIDENCE_STRENGTHS };

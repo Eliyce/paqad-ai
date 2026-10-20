@@ -9,10 +9,8 @@ import type { NormalizedTicket } from '@/providers/ticket-provider.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 
-/** Tracker kind inferred from a ref's shape (deterministic, no config needed). */
 export type IntakeRefKind = 'github-issues' | 'jira' | 'unknown';
 
-/** Classify a ref by shape: `#123` → GitHub, `PROJ-123` → Jira. */
 export function classifyRef(ref: string): IntakeRefKind {
   const trimmed = ref.trim();
   if (/^#?\d+$/.test(trimmed) || /^gh-\d+$/i.test(trimmed)) return 'github-issues';
@@ -20,7 +18,6 @@ export function classifyRef(ref: string): IntakeRefKind {
   return 'unknown';
 }
 
-/** Render a normalized ticket as a compact, human-readable block. */
 export function renderTicket(ticket: NormalizedTicket): string {
   const ac =
     ticket.acceptance_criteria.length > 0
@@ -43,21 +40,12 @@ export interface IntakeFetchResult {
 }
 
 export interface IntakeFetchDeps {
-  /** Injected `gh` runner (args -> stdout) so the fetch is testable without a live gh. */
   ghInvoke: GhInvoke;
   projectRoot: string;
   sessionId?: string | null;
-  /** Record the optional ticket_intake stage row (best-effort). Injected for tests. */
   recordStage?: (stage: string, phase: 'start' | 'end') => void;
 }
 
-/**
- * The testable core of `paqad-ai intake fetch <ref>`: classify the ref, fetch via the
- * matching provider, and return the rendered ticket + exit code. GitHub is the
- * shell-driven path (`gh`); Jira/unknown degrade to a clear message (Jira intake runs
- * through the Atlassian MCP in-session, which a CLI cannot invoke). Never throws — a
- * fetch failure returns a non-zero exit with the reason, so the caller reports it.
- */
 export async function runIntakeFetch(
   ref: string,
   deps: IntakeFetchDeps,
@@ -77,7 +65,7 @@ export async function runIntakeFetch(
       exitCode: 1,
       output:
         `**▸ paqad** · could not recognise "${ref}" as a ticket reference\n` +
-        `> Use a GitHub issue (\`#123\`) or a Jira key (\`PROJ-123\`).`,
+        `> Use a GitHub issue (\`#<number>\`) or a Jira key (\`PROJ-<number>\`).`,
     };
   }
 
@@ -94,26 +82,22 @@ export async function runIntakeFetch(
     };
   }
 
-  // Optional ticket_intake stage row (a bookend — never blocks). Best-effort.
   deps.recordStage?.('ticket_intake', 'start');
   deps.recordStage?.('ticket_intake', 'end');
   return { exitCode: 0, output: renderTicket(ticket) };
 }
 
-/**
- * `paqad-ai intake fetch <ref>` (issue #322) — the deterministic front door of the
- * ticket → PR loop. Pulls the REAL ticket so the spec grounds in its actual text
- * instead of a guess from the id. Optional bookend: it never blocks a change.
- */
 export function createIntakeCommand(): Command {
   const intake = new Command('intake').description(
-    'Deterministic ticket intake — fetch the real ticket a request references (issue #322)',
+    'Deterministic ticket intake — fetch the real ticket a request references',
   );
 
   intake
     .command('fetch')
-    .description('Fetch a ticket by ref (GitHub `#123` via gh; Jira `PROJ-123` via MCP in-session)')
-    .argument('<ref>', 'Ticket reference, e.g. #45 or PQD-123')
+    .description(
+      'Fetch a ticket by ref (GitHub `#<number>` via gh; Jira `PROJ-<number>` via MCP in-session)',
+    )
+    .argument('<ref>', 'Ticket reference, e.g. #<number> or PQD-<number>')
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--session <id>', 'Session id for the optional ticket_intake stage row')
     .action(async (ref: string, options: { projectRoot: string; session?: string }) => {
@@ -136,9 +120,7 @@ export function createIntakeCommand(): Command {
         recordStage: (stage, phase) => {
           try {
             recordMarkedStage(projectRoot, { sessionId, stage, phase });
-          } catch {
-            /* best-effort: intake is optional, its ledger row never blocks */
-          }
+          } catch {}
         },
       });
       if (result.exitCode === 0) {

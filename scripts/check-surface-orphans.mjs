@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-// Unused-API check for the engine extension surface contract (PQD-92, AC4).
-//
-// Parses docs/extension-surface.md and reports every documented entry whose
-// symbol is not referenced anywhere under src/ (outside its own declaring
-// module). Exits 0 by default (warning mode); pass --strict to exit 1 when
-// orphans are found, e.g. once the document is populated and stable.
-//
-//   node scripts/check-surface-orphans.mjs [--strict]
 
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -43,7 +35,7 @@ function collectUsedSymbols(entries) {
     const pattern = new RegExp(`\\b${escapeRegExp(entry.symbol)}\\b`, 'u');
     for (const [path, text] of fileText) {
       if (path === entry.engineModule) {
-        continue; // a symbol's own declaring module does not count as a consumer
+        continue;
       }
       if (pattern.test(text)) {
         used.add(entry.symbol);

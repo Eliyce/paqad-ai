@@ -1,6 +1,3 @@
-// Public surface of the site-map engine module: the schema validators, the persisted
-// store, the extraction + verification + trust pipeline, and the run orchestrator.
-
 export * from './schema.js';
 export * from './store.js';
 export * from './progress-store.js';

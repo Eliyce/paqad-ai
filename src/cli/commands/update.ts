@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 
-import { maybeMigrateToPlugin, runClaudePluginInstall } from '@/install/plugin-migration.js';
+import { maybeMigrateToPlugin, runClaudeInstallWith } from '@/install/plugin-migration.js';
 import { appendAuditLog, appendAuditLogFailure } from '@/update/audit.js';
 import { FrameworkUpdater } from '@/update/index.js';
 import { VERSION } from '@/index.js';
@@ -17,16 +17,12 @@ export function createUpdateCommand(): Command {
           console.log(JSON.stringify(report, null, 2));
         }
         appendAuditLog(options.projectRoot, report.previous_version, report.target_version);
-        // Issue #621 — at the end of the background self-update, best-effort move npm Claude Code
-        // users to the plugin. OFF by default; never throws, blocks, or prints in a session.
         if (options.silent) {
           try {
             maybeMigrateToPlugin(options.projectRoot, {
-              runClaudeInstall: runClaudePluginInstall,
+              runClaudeInstall: runClaudeInstallWith,
             });
-          } catch {
-            /* best-effort: the migration never breaks the update */
-          }
+          } catch {}
         }
       } catch (err) {
         if (!options.silent) {

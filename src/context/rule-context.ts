@@ -1,19 +1,3 @@
-/**
- * Deterministic trigger-load of full rule text (RAG buildout F5).
- *
- * Builds the rule slice of the session-context artifact: the always-resident
- * manifest (F4) plus the FULL text of only the rules that apply to the files in
- * play — the always-load rules (`**` / untriggered) and the scoped rules whose
- * declared `trigger_patterns` match the working-set paths. Non-matching scoped
- * rules are left out of the loaded text (their existence is still on the manifest
- * line). This replaces "load all ~50K of rule text every session" with a
- * deterministic, file-driven selection — never an embedding-RAG guess, because
- * omitting a rule that applies is a correctness failure.
- *
- * `refreshRuleContext` is the worker that recomposes the artifact under the F1
- * single-flight lock and atomic swap, so a reader never sees a half-written
- * artifact and concurrent refreshes never clobber each other.
- */
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -34,41 +18,13 @@ import {
 } from '@/planning/rule-compiler.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 
-/** A lock older than this (10 min) is treated as a crashed worker and reclaimed. */
 const STALE_LOCK_MS = 10 * 60 * 1000;
 
-/**
- * The product gate (issue #284): the resident rule footprint paqad adds to every
- * session — the manifest plus the always-load rule text, with NO files in play — must
- * stay under this byte budget. At ~4 bytes/token this is ≈4K tokens, the "paqad adds
- * at most N resident tokens" ceiling. It is a documented constant, deliberately NOT a
- * snapshot of any one project's live artifact: the committed budget test asserts a
- * representative rule fixture composes under it, and `paqad-ai doctor` reports each
- * project's actual footprint against its own full rule set. Trigger-loaded rule text
- * for the files in play rides on top and is bounded by the work, not by this budget.
- */
 export const LEAN_RULE_CONTEXT_BUDGET_BYTES = 16_384;
 
-/**
- * The fail-safe marker (issue #316) prepended to any written session-context artifact
- * that does NOT carry a real rule manifest with at least one rule. The framework
- * bootstrap tells the agent to treat this artifact as *the* rule contract and only
- * load the full `docs/instructions/rules/` tree when the file is MISSING. Without this
- * marker a drift/memory/retrieval-only artifact (compiled-rules store absent or empty)
- * looks like a valid "rules loaded" contract, so a bootstrap-obedient agent silently
- * loses every project rule. The marker makes that impossible: a rules-less artifact
- * always tells the reader to load the full rules tree before relying on rules.
- */
 export const RULES_MISSING_FALLBACK_MARKER =
   '> ⚠️ No compiled rules in this artifact — load `docs/instructions/rules/` in full before relying on rules.';
 
-/**
- * The compact Decision Pause Contract reminder (issue #345 G5) injected into the
- * feature-development rule slice so the model reliably pauses on a real fork instead of
- * deciding it unilaterally. It rides with the rules — a feature-development-only obligation —
- * and is never emitted on a non-feature-development route (composed only when `loadRules`).
- * Kept to two lines: the categories that require a packet, and the one CLI verb that mints it.
- */
 export const DECISION_PAUSE_REMINDER =
   '## Decision pause is active\n' +
   '> Before a create-vs-reuse, shared-abstraction, architecture-path, component-reuse, ' +
@@ -76,17 +32,10 @@ export const DECISION_PAUSE_REMINDER =
   '(`paqad-ai decision create …`) — do not decide it unilaterally.';
 
 export interface RuleSelection {
-  /** Rules that apply to every change (`**` / untriggered). */
   alwaysLoad: CompiledRule[];
-  /** Scoped rules whose triggers matched the working-set paths. */
   triggered: CompiledRule[];
 }
 
-/**
- * Split a rule set into the full-text rules to load for `changedPaths`. Always-
- * load rules are included regardless of `changedPaths`; scoped rules are included
- * only when a trigger matches. A rule is never in both lists.
- */
 export function selectTriggeredRules(
   rules: readonly CompiledRule[],
   changedPaths: readonly string[],
@@ -108,54 +57,29 @@ function ruleTextBlock(rule: CompiledRule): string {
   return `### ${rule.rule_id} · ${rule.title}\n${body}`;
 }
 
-/**
- * Compose the loaded-rule-text body — the `### <id> · <title>` blocks for a set of rules,
- * in order, joined by a blank line. The single canonical source for the rule text that a
- * change loads (issue #557, INV-1): `composeRuleContext` renders it under the "Loaded rule
- * text" heading, and `paqad-ai rules load` + the completion gate hash exactly these bytes,
- * so the recorded content hash can never drift from what the artifact shows. Returns `''`
- * for an empty set.
- */
 export function composeLoadedRuleText(rules: readonly CompiledRule[]): string {
   return rules.map(ruleTextBlock).join('\n\n');
 }
 
-/** One rule that applies to a change: which rule, whether it is always-on, and — for a
- *  scoped rule — which changed paths triggered it (issue #557). */
 export interface RuleApplicability {
   rule_id: string;
   title: string;
   always_load: boolean;
-  /** Changed paths that matched this scoped rule's triggers; empty for an always-load rule. */
   matched_paths: string[];
 }
 
-/** The applicable rules for a change plus the exact loaded rule text and its content hash. */
 export interface ChangeRuleApplicability {
   applicable: RuleApplicability[];
-  /** The composed loaded-rule-text — byte-identical to what {@link composeRuleContext} renders. */
   loadedRuleText: string;
-  /** sha256 (hex) of {@link loadedRuleText} — the hash the rules-loaded record carries. */
   ruleTextHash: string;
-  /** The changed-file working set the applicability was computed against. */
   changedPaths: string[];
-  /** False when there is no compiled rule store (nothing to load for this project). */
   hasStore: boolean;
 }
 
-/** sha256 (hex) of a string — the one hash used for the loaded rule text (issue #557). */
 export function hashRuleText(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
 
-/**
- * Compute which rules apply to a change, deterministically (issue #557). Reuses
- * {@link selectTriggeredRules} for the set and {@link composeLoadedRuleText} for the text,
- * so the applicable-rule record, the `rules load` verb, and the completion gate all agree
- * with the session-context artifact. Per-scoped-rule `matched_paths` re-uses the same
- * {@link ruleTriggersMatch} the selection used, one path at a time, so the record shows
- * exactly which changed file pulled each rule in.
- */
 export function computeRuleApplicability(
   rules: readonly CompiledRule[],
   changedPaths: readonly string[],
@@ -179,15 +103,6 @@ export function computeRuleApplicability(
   return { applicable, loadedRuleText, ruleTextHash: hashRuleText(loadedRuleText) };
 }
 
-/**
- * The change's own files, the working set rules are matched against (issue #639, Part 2).
- * paqad's own `.paqad/` artifacts (decision packets, session markers, evidence) are never
- * the project's source, so they must not pull a rule in. With a session id, a file that was
- * already dirty when the session started and is byte-identical since is inherited dirt,
- * not this change, the same subtraction the completion backstop applies (issue #576).
- * `rules load` and the rules-loaded gate both call this with one session, so the load and
- * the check can never disagree about which rules apply.
- */
 async function changeOwnPaths(projectRoot: string, sessionId: string | null): Promise<string[]> {
   const files = (await loadChangeEvidence(projectRoot)).files.filter(
     (filePath) => !isPaqadArtifactPath(filePath),
@@ -195,14 +110,6 @@ async function changeOwnPaths(projectRoot: string, sessionId: string | null): Pr
   return sessionId === null ? files : subtractUnchangedBaselineFiles(projectRoot, sessionId, files);
 }
 
-/**
- * Resolve the applicable rules for the CURRENT change from disk (issue #557): read the
- * compiled rule store and the changed-file working set, then compute the applicability.
- * Route-independent — it reads the compiled store directly, so `paqad-ai rules load` works
- * even where the background worker left rules out of the artifact (a non-feature route).
- * `hasStore` is false when there is no compiled rule store, so a project with no rules
- * loads nothing and the gate skips rather than blocks.
- */
 export async function resolveRuleApplicabilityForChange(
   projectRoot: string,
   sessionId: string | null = null,
@@ -231,12 +138,6 @@ export interface ComposeRuleContextOptions {
   scriptedPaths?: ReadonlySet<string>;
 }
 
-/**
- * Compose the rule slice of the session-context: the manifest, then the full text
- * of the always-load and trigger-matched rules. When nothing is loaded beyond the
- * manifest (e.g. no files in play and no always-load rules), only the manifest is
- * emitted, keeping resident rule tokens minimal.
- */
 export function composeRuleContext(
   store: CompiledRulesStore,
   options: ComposeRuleContextOptions = {},
@@ -259,63 +160,19 @@ export function composeRuleContext(
 }
 
 export interface WriteRuleContextOptions {
-  /**
-   * The composed `## Existing surface` planning digest (issue #356): the exported
-   * symbols that already exist for the files in play, so the model reuses instead of
-   * duplicating. Appended with the rules (a feature-development planning aid, ahead of
-   * the ephemeral retrieval slices) and emitted ONLY when {@link loadRules} is true —
-   * so no other route ever carries it (INV-1). Empty/absent ⇒ omitted.
-   */
   existingSurfaceSection?: string;
-  /**
-   * The composed codebase-memory slice (RAG buildout F21), appended after the rule
-   * slice (durable facts sit with the rules, ahead of the ephemeral retrieval slices).
-   * Empty/absent ⇒ omitted, so the artifact stays byte-identical to before F21.
-   */
   memorySection?: string;
-  /**
-   * The composed retrieval slice (RAG buildout F11), appended after the rule slice
-   * to form the single session-context artifact. Empty/absent ⇒ rule-only output,
-   * byte-identical to the pre-F11 artifact (the disabled/cold-start == today path).
-   */
   retrievalSection?: string;
-  /**
-   * The base-drift secondary context layer (RAG buildout F27), appended last as an
-   * advisory heads-up. Empty/absent ⇒ omitted (the common no-drift case).
-   */
   driftSection?: string;
-  /**
-   * Whether to compose the rule slice at all (issue #336). Defaults to `true` — the
-   * artifact-first rule contract, unchanged for every existing caller. The prompt-time
-   * worker passes `false` when the routed workflow is NOT feature-development: rules
-   * (and rule-scripts) load only on the feature-development route, so a question /
-   * pentest / docs / RCA / rules-analyze session composes memory + retrieval + drift
-   * with NO rule manifest and NO #316 fallback marker (the rules are deliberately
-   * absent, not accidentally missing). Feature-development keeps the full rule slice
-   * and the fallback marker.
-   */
   loadRules?: boolean;
 }
 
-/**
- * Compose the session-context artifact — the rule slice (manifest + trigger-loaded
- * full text) plus the optional retrieval slice — and atomic-write it. Returns the
- * artifact path, or `null` when there is nothing to write (no compiled rules AND no
- * retrieval section). This is the lock-free core: callers with no concurrency
- * (onboarding) use it directly; the background path uses {@link refreshRuleContext}
- * to serialise concurrent refreshes so a single artifact never has two writers.
- */
 export async function writeRuleContext(
   projectRoot: string,
   options: WriteRuleContextOptions = {},
 ): Promise<string | null> {
-  // #336 — rules load only on the feature-development route. When the worker passes
-  // loadRules:false (any other routed workflow) the rule slice is not composed at all.
   const loadRules = options.loadRules ?? true;
   const store = loadRules ? await readCompiledRules(projectRoot) : null;
-  // #356 — the existing-surface digest is a feature-development-only planning aid, so it
-  // rides with the rules (loadRules). On any other route it is dropped even if a caller
-  // passed it, keeping INV-1 structural rather than caller-trusted.
   const existingSurfaceSection = loadRules ? (options.existingSurfaceSection?.trim() ?? '') : '';
   const memorySection = options.memorySection?.trim() ?? '';
   const retrievalSection = options.retrievalSection?.trim() ?? '';
@@ -328,31 +185,16 @@ export async function writeRuleContext(
     const changedPaths = (await loadChangeEvidence(projectRoot)).files;
     const scriptedPaths = scriptedSourcePaths(loadRuleScriptMap(projectRoot));
     markdown = composeRuleContext(store, { changedPaths, scriptedPaths });
-    // #345 G5 — surface the Decision Pause Contract in the feature-development rule slice
-    // (loadRules is true only on that route), so the pause instruction reliably reaches the
-    // model each turn rather than sitting past the truncation cut of the old monolith.
     if ((store.rules?.length ?? 0) > 0) {
       markdown = `${markdown}\n${DECISION_PAUSE_REMINDER}\n`;
     }
   }
-  // Existing surface (#356, planning aid, feature-development only) → durable memory
-  // (F21) → ephemeral retrieval slices (F11) → base-drift heads-up (F27).
   for (const section of [existingSurfaceSection, memorySection, retrievalSection, driftSection]) {
     if (section) {
       markdown = markdown ? `${markdown}\n${section}\n` : `${section}\n`;
     }
   }
 
-  // Fail-safe (issue #316): the bootstrap only loads the full rules tree when this
-  // artifact is MISSING, so a written artifact without a real rule manifest would be
-  // mistaken for a "rules loaded" contract and silently drop every project rule. When
-  // no compiled rule made it in — the store is absent, or present but empty — prepend
-  // the fallback marker so a bootstrap-obedient reader always knows to load the rules
-  // in full. A populated store keeps its manifest and stays byte-identical to before.
-  //
-  // #336 refinement: the marker fires ONLY when rules were EXPECTED (loadRules) but
-  // none made it in. On a non-feature-development route (loadRules:false) the rules
-  // are deliberately absent — the reader must NOT be told to load them — so no marker.
   const hasRules = (store?.rules?.length ?? 0) > 0;
   if (loadRules && !hasRules) {
     markdown = `${RULES_MISSING_FALLBACK_MARKER}\n\n${markdown}`;
@@ -363,23 +205,7 @@ export async function writeRuleContext(
   return target;
 }
 
-/**
- * S1 (defect D1): keep the compiled rule store current before it is read. When the
- * store's `source_hash` no longer matches the authored rules under
- * `docs/instructions/rules/`, recompile and persist it, so the recomposed
- * session-context artifact reflects the current rules rather than a stale snapshot.
- * A store that is already current is left untouched — {@link compileRules} is not
- * called — so a hot path pays nothing when nothing changed.
- *
- * Failure-tolerant by design: one malformed rule file must never brick a session,
- * so a compile or persist that throws is swallowed and the caller falls through to
- * its existing behaviour — the stale store if there is one, or the #316
- * rules-missing fallback marker if there is not.
- */
 async function ensureCompiledRulesCurrent(projectRoot: string): Promise<void> {
-  // Nothing to compile from when there is no authored rules tree, so never clobber an
-  // existing compiled store with an empty one. In production the tree is always present;
-  // this guards a deleted/absent tree so a stale-looking store is left intact.
   if (!existsSync(join(projectRoot, PATHS.RULES_DIR))) {
     return;
   }
@@ -387,18 +213,9 @@ async function ensureCompiledRulesCurrent(projectRoot: string): Promise<void> {
     if (await isCompiledRulesStale(projectRoot)) {
       await writeCompiledRules(projectRoot, await compileRules(projectRoot));
     }
-  } catch {
-    // Swallowed on purpose (see doc comment): a bad rule file never aborts a refresh.
-  }
+  } catch {}
 }
 
-/**
- * Recompose the rule-context artifact under the F1 single-flight lock — the
- * worker the prompt-time trigger spawns. Returns the artifact path when written,
- * or `null` when there are no compiled rules or another refresh already holds the
- * lock. The lock dir is removed on completion; its parent `.paqad/locks` is shared
- * with other lock users, so it is intentionally left in place.
- */
 export async function refreshRuleContext(
   projectRoot: string,
   options: WriteRuleContextOptions = {},
@@ -409,10 +226,6 @@ export async function refreshRuleContext(
     return null;
   }
   try {
-    // S1 (defect D1): recompile a stale rule store inside this single-flight lock,
-    // before writeRuleContext reads it, so the agent is never served rules that have
-    // drifted from docs/instructions/rules/. Gated on loadRules because that is the
-    // only route that reads the compiled store — other workflows compose no rule slice.
     if (options.loadRules ?? true) {
       await ensureCompiledRulesCurrent(projectRoot);
     }

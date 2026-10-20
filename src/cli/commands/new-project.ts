@@ -6,11 +6,6 @@ import { createProjectWorkspace } from '@/onboarding/create-project.js';
 
 import { codexTrustHint, printBanner, printNewProjectNextSteps } from '../ui/banner.js';
 
-/**
- * `paqad-ai new project <name>` (Slice 3) — create a development workspace with an UNDECIDED
- * application stack. The surface mirrors {@link createOnboardCommand}'s options and banners;
- * the behavior is purely additive (it reuses the onboarding orchestrator under the hood).
- */
 export function createNewProjectCommand(): Command {
   const newCommand = new Command('new').description('Create something new with paqad-ai');
 
@@ -41,7 +36,6 @@ export function createNewProjectCommand(): Command {
             name,
             parentDir: options.parentDir,
             providers: options.provider,
-            // Only forward a RAG choice when the owner stated one; otherwise leave it off.
             rag: options.rag === undefined ? undefined : { enabled: options.rag },
             force: options.force,
           });

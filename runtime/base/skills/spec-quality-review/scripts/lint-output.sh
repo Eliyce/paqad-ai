@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate spec-quality-review output sections.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate spec-quality-review output sections.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")
@@ -15,7 +17,6 @@ issues=0
 say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings"'
-# Resolved is optional but if present must follow.
 
 [ "$issues" -gt 0 ] && exit 1
 printf 'ok\n'

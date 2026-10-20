@@ -17,22 +17,6 @@ interface PlanCompileOptions {
   keepInput?: boolean;
 }
 
-/**
- * `paqad-ai plan compile <input.json>` — compile the active feature's `plan.json`
- * (issue #339, Phase 3) from a filled template. The model fills a fixed JSON template
- * (`{ summary, steps, modules_touched, decisions, risks, reuse, title? }`); the script
- * builds a schema-validated `PlanRecord` with a deterministic `content_hash` and writes it
- * into the active feature's bundle — the model never owns the stored bytes. The transient
- * input is deleted after a successful compile (only the rigid JSON persists), unless
- * `--keep-input` is passed. Exits non-zero when no feature is active or the template is
- * malformed, with nothing written.
- *
- * The `reuse` section is required (issue #357): the plan must record what existing code it
- * consulted, what it will reuse, and why anything new is justified, so it cannot quietly
- * rebuild something the project already has. Its checks are deterministic and cost no
- * model tokens — they cross-reference the code-knowledge index and the stack snapshot, and
- * degrade to a printed warning when either has not been built.
- */
 export function createPlanCommand(): Command {
   const command = new Command('plan').description(
     'Work with the per-feature plan (compile the plan.json from a template)',
@@ -67,15 +51,11 @@ export function createPlanCommand(): Command {
         root,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
-      // Issue #579 — the git-reported changed files feed the visual-evidence readiness check.
       const changedFiles = (await loadChangeEvidence(root)).files;
       let result;
       try {
         result = writeFeaturePlan(root, sessionId, template, { changedFiles });
       } catch (error) {
-        // Issue #357 — a reuse-gate failure is the author's to fix, so its messages print
-        // as-is (one per line) rather than wrapped in "could not compile plan": each line
-        // already names the exact field and the edit that clears it.
         if (error instanceof ReuseDeclarationError) {
           for (const line of error.errors) {
             console.error(line);
@@ -93,15 +73,12 @@ export function createPlanCommand(): Command {
       for (const warning of result.warnings ?? []) {
         console.warn(`**▸ paqad** · ${warning}`);
       }
-      // Issue #361 — an evidence-armed pause blocks the next edit, so say so plainly rather
-      // than letting the developer discover it as a mystery block.
       for (const decisionId of result.armedDecisions ?? []) {
         console.warn(
           `**▸ paqad** · I hit a reuse-or-create choice that's yours to make — answer ${decisionId} ` +
             `(\`paqad-ai decision resolve ${decisionId} <option>\`), then I'll continue.`,
         );
       }
-      // Issue #579 — the readiness pause also blocks the next edit; name it and its options.
       if (result.readinessDecision) {
         const id = result.readinessDecision;
         console.warn(
@@ -109,14 +86,10 @@ export function createPlanCommand(): Command {
             `(\`paqad-ai decision resolve ${id} setup|attach|waive\`), then I'll continue.`,
         );
       }
-      // Transient scratch: the filled template is deleted so only the rigid JSON
-      // persists — the input is never a second, editable source of truth.
       if (!options.keepInput) {
         try {
           rmSync(inputFile, { force: true });
-        } catch {
-          /* best-effort: a leftover template is harmless, never fail the compile for it */
-        }
+        } catch {}
       }
       console.log(`**▸ paqad** · compiled ${result.path}`);
       console.log(

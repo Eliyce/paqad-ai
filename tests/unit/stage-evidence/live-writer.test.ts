@@ -29,15 +29,15 @@ describe('classifyStage — mutated file → stage (RCA fix A)', () => {
     ['runtime/hooks/x.mjs', 'development'],
     ['scripts/build.ts', 'development'],
     ['tests/unit/foo.test.ts', 'checks'],
-    ['src/foo.test.ts', 'checks'], // a src test is `checks`, not development
+    ['src/foo.test.ts', 'checks'],
     ['src/__tests__/x.ts', 'checks'],
-    ['docs/instructions/rules/x.md', 'specification'], // canonical contract
+    ['docs/instructions/rules/x.md', 'specification'],
     ['specs/feature.md', 'specification'],
     ['docs/modules/x/summary.md', 'documentation_sync'],
     ['README.md', 'documentation_sync'],
     ['CHANGELOG.md', 'documentation_sync'],
-    ['notes.md', 'documentation_sync'], // top-level doc
-    ['.paqad/ledger/x.jsonl', null], // never records itself
+    ['notes.md', 'documentation_sync'],
+    ['.paqad/ledger/x.jsonl', null],
     ['pnpm-lock.yaml', null],
     ['package.json', null],
   ];
@@ -71,9 +71,6 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
   const kinds = (kind: string, stage?: string) =>
     rows().filter((r) => r.kind === kind && (stage ? r.stage === stage : true));
 
-  /** Record the pre-code stages (planning + specification) so the writer's #310 defer
-   *  is satisfied and a following code edit records its stage. Mirrors the real flow:
-   *  planning/specification are marked (markers / CLI) before any code is written. */
   function seedPreCode(now?: () => Date): void {
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start', now });
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end', now });
@@ -81,7 +78,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
     recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'end', now });
   }
 
-  it('#310: a code edit records NOTHING until the pre-code stages are on the ledger', () => {
+  it('a code edit records NOTHING until the pre-code stages are on the ledger', () => {
     const stage = recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -89,8 +86,6 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
       targetPath: 'src/foo.ts',
       now: clock(),
     });
-    // No planning/specification yet → the writer defers, opening no change and
-    // recording no row (stamping "development" before planning poisons ordering).
     expect(stage).toBeNull();
     expect(rows()).toHaveLength(0);
   });
@@ -165,14 +160,14 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
       toolName: 'Write',
       targetPath: 'tests/foo.test.ts',
       now,
-    }); // checks
+    });
     const stage = recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
       toolName: 'Edit',
       targetPath: 'src/foo.ts',
       now,
-    }); // development < checks
+    });
     expect(stage).toBeNull();
     expect(kinds('stage_start', 'development')).toHaveLength(0);
   });
@@ -187,7 +182,6 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
       now: clock(),
     });
     expect(stage).toBeNull();
-    // Only the seeded pre-code rows exist; the lockfile edit added nothing.
     expect(kinds('stage_start', 'development')).toHaveLength(0);
     expect(kinds('stage_start', 'checks')).toHaveLength(0);
   });
@@ -225,12 +219,10 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
     expect(currentFeature(root, SES)).toBeNull();
   });
 
-  it('a titled start opens a fresh named feature (issue #339 new-work signal)', () => {
-    // No title → an untitled `change-<ULID>` feature.
+  it('a titled start opens a fresh named feature', () => {
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start' });
     const first = currentFeature(root, SES)!;
     expect(first.startsWith('change-')).toBe(true);
-    // A titled start opens a DISTINCT named feature (the prior one is paused).
     expect(
       recordMarkedStage(root, {
         sessionId: SES,
@@ -255,16 +247,11 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
       title: 'ignored on end',
       issue: null,
     });
-    // Still the same feature — an end never opens new work.
     expect(currentFeature(root, SES)).toBe(active);
   });
 
-  it('#380 Issue 2: closes the dangling last mutation stage when review is marked', () => {
+  it('closes the dangling last mutation stage when review is marked', () => {
     const now = clock();
-    // Pre-code stages (satisfy the #310 defer) then the mutation edits in canonical
-    // order: development → checks → documentation_sync. The live writer forward-closes
-    // each earlier mutation stage as the next opens, but documentation_sync (the LAST
-    // mutation stage) is left open — no later mutation edit closes it.
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start', now });
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end', now });
     recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'start', now });
@@ -293,7 +280,6 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
 
     const dir = currentFeature(root, SES)!;
     const before = readFeatureStageUnit(root, dir);
-    // documentation_sync is started but NOT ended — the exact #380 Issue 2 symptom.
     expect(before.some((r) => r.kind === 'stage_start' && r.stage === 'documentation_sync')).toBe(
       true,
     );
@@ -301,8 +287,6 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
       false,
     );
 
-    // Recording the marked, completion-anchored `review` stage (index 3, BELOW
-    // documentation_sync's index 5) now forward-closes the dangling stage.
     expect(recordMarkedStage(root, { sessionId: SES, stage: 'review', phase: 'start', now })).toBe(
       true,
     );
@@ -310,15 +294,12 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
     expect(after.some((r) => r.kind === 'stage_end' && r.stage === 'documentation_sync')).toBe(
       true,
     );
-    // INV-1: the target stage itself is opened, never closed by its own boundary.
     expect(after.some((r) => r.kind === 'stage_start' && r.stage === 'review')).toBe(true);
     expect(after.some((r) => r.kind === 'stage_end' && r.stage === 'review')).toBe(false);
   });
 
-  it('#380 AC-3: a titled start on a fresh feature closes nothing (no earlier rows)', () => {
+  it('a titled start on a fresh feature closes nothing (no earlier rows)', () => {
     const now = clock();
-    // A titled start opens a brand-new feature bundle with no prior stage rows, so the
-    // forward-close is a pure no-op and the stage opens normally.
     expect(
       recordMarkedStage(root, {
         sessionId: SES,
@@ -337,10 +318,6 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
   });
 
   it('returns false (never throws) when the ledger write itself fails', () => {
-    // A KNOWN stage passes the registry guard and enters the record path, but the
-    // ledger append throws because the project root is a FILE, not a directory
-    // (ENOTDIR). recordMarkedStage must swallow it and report false — a junk marker
-    // can never crash the pre-mutation sweep or the Stop re-parse.
     const fileRoot = join(tmpdir(), `paqad-marked-file-${SES}-${process.pid}`);
     writeFileSync(fileRoot, 'not a directory');
     expect(recordMarkedStage(fileRoot, { sessionId: SES, stage: 'planning', phase: 'start' })).toBe(
@@ -353,7 +330,7 @@ describe('recordMarkedStage — the shared marker seam (non-mutation stages)', (
   });
 });
 
-describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)', () => {
+describe('recordLiveStageEdits — one live-mark row per patch path', () => {
   let root: string;
   const SES = 'ses_batch';
 
@@ -383,7 +360,6 @@ describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)
       projectRoot: root,
       sessionId: SES,
       toolName: 'apply_patch',
-      // src/* → development (recorded once for two src paths), tests/* → checks.
       targetPaths: ['src/a.ts', 'src/b.ts', 'tests/a.test.ts'],
       adapter: 'codex-cli',
       now,
@@ -391,7 +367,6 @@ describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)
     expect(recorded).toEqual(['development', 'checks']);
     const dev = rows().find((r) => r.kind === 'stage_start' && r.stage === 'development');
     const checks = rows().find((r) => r.kind === 'stage_start' && r.stage === 'checks');
-    // The host is a session constant on feature.json, never on a row (issue #581).
     expect(dev).not.toHaveProperty('adapter');
     expect(checks).not.toHaveProperty('adapter');
     expect(readFeatureRecord(root, currentFeature(root, SES)!)?.adapter).toBe('codex-cli');
@@ -427,11 +402,7 @@ describe('recordLiveStageEdits — one live-mark row per patch path (issue #566)
   });
 });
 
-// Issue #590 — the live writer is lane-aware, matching the pre-mutation gate. On the
-// fast lane a change needs only `planning`; before this fix the writer still demanded
-// `specification` on every lane and so recorded none of a fast-lane change's mutation
-// stages.
-describe('recordLiveStageEdit — lane-aware pre-code defer (#590)', () => {
+describe('recordLiveStageEdit — lane-aware pre-code defer', () => {
   let root: string;
   const SES = 'ses_lane_writer';
 
@@ -448,7 +419,6 @@ describe('recordLiveStageEdit — lane-aware pre-code defer (#590)', () => {
   const started = (stage: string) =>
     rows().filter((r) => r.kind === 'stage_start' && r.stage === stage);
 
-  /** Open a change on `lane` and start planning only (the fast-lane pre-code set). */
   function openWithLaneAndPlanning(lane: 'fast' | 'graduated' | 'full' | null): void {
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code', lane });
     startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code' });
@@ -517,8 +487,6 @@ modules:
   it('AC-3: a fast-lane edit to a sensitivity:high path is floored to full — writer records nothing', () => {
     writeSensitiveModuleMap();
     openWithLaneAndPlanning('fast');
-    // Floored to full: specification is required, so a planning-only fast change
-    // records nothing for the sensitive path (mirrors the gate blocking it).
     const sensitive = recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -529,7 +497,6 @@ modules:
     expect(sensitive).toBeNull();
     expect(started('development')).toHaveLength(0);
 
-    // A non-sensitive path on the same fast change still records (stays fast).
     const normal = recordLiveStageEdit({
       projectRoot: root,
       sessionId: SES,
@@ -568,7 +535,6 @@ modules:
     for (const stage of ['development', 'checks', 'documentation_sync']) {
       const starts = started(stage);
       expect(starts, stage).toHaveLength(1);
-      // Recorded LIVE from the observed edit — not an inferred-git backfill.
       expect(starts[0]?.evidence_source, stage).toBe('live-mark');
     }
   });

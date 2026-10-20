@@ -19,9 +19,6 @@ describe('design-system-sync', () => {
     });
 
     it('accepts a sync proposal cast as a finding block when used in the design-test workflow', () => {
-      // design-system-sync's primary output is a proposal block (not a
-      // findings list), but when it runs inside design-test it can emit a
-      // documentation-drift finding pointing at a missing contract clause.
       const body = [
         '## Findings',
         '- **medium** (tokens.md → color.brand) — auth / documentation-drift: brand token used in code but undeclared. Evidence: `tailwind.config.ts:12`. Required action: append `color.brand = #abcdef` to tokens.md.',
@@ -73,7 +70,6 @@ describe('design-system-sync', () => {
         const r = runScript(path, [f]);
         expect(r.status).toBe(0);
         const rows = r.stdout.split('\n').filter((l) => l.length > 0);
-        // Only the hex value qualifies as token-shaped.
         expect(rows).toEqual(['brand\t#deadbe']);
       });
     });
@@ -96,8 +92,6 @@ describe('design-system-sync', () => {
       const r = runScript(path, [join(FIX, 'component-diff.patch')]);
       expect(r.status).toBe(0);
       const rows = r.stdout.split('\n').filter((l) => l.length > 0);
-      // Fixture adds Foo.tsx, Bar.tsx, helpers.ts, Foo.test.tsx.
-      // Expected matches: Foo.tsx, Bar.tsx (the rest are excluded).
       expect(rows).toContain('Foo\tsrc/components/Foo.tsx');
       expect(rows).toContain('Bar\tsrc/components/Bar.tsx');
       expect(rows.find((row) => row.includes('helpers'))).toBeUndefined();

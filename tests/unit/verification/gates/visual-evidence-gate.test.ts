@@ -27,7 +27,6 @@ function sha256(bytes: Buffer): string {
   return createHash('sha256').update(bytes).digest('hex');
 }
 
-/** Write a captured screenshot and return its {bytes, sha256}. */
 function writeShot(dir: string, content: string): { bytes: number; sha256: string } {
   const abs = join(bundleDir(), 'screenshots', dir);
   mkdirSync(abs, { recursive: true });
@@ -120,7 +119,7 @@ describe('visualEvidenceGate — applicability', () => {
   });
 });
 
-describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
+describe('visualEvidenceGate — strict documented skips', () => {
   function documentedManifest(reasons: VisualEvidenceManifest['skips'][number]['reason'][]): void {
     const m = baseManifest();
     m.result = 'skipped';
@@ -149,8 +148,6 @@ describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
     expect(gate.status).toBe('fail');
     expect(gate.detail).toContain('nothing was captured');
     expect(gate.remediation).toContain('paqad-ai visual-evidence attach');
-    // No readiness packet was opened at planning, so the waiver hint is a create command that
-    // carries this change's token, which is exactly what findVisualEvidenceWaiver looks for.
     expect(gate.remediation).toContain('paqad-ai decision create --category workflow-or-tool');
     expect(gate.remediation).toContain(readinessToken(DIR));
     expect(gate.remediation).toContain('paqad-ai decision resolve <D-id> waive');
@@ -233,7 +230,7 @@ describe('visualEvidenceGate — strict documented skips (issue #579)', () => {
   });
 });
 
-describe('visualEvidenceGate — skip reasons (issue #579)', () => {
+describe('visualEvidenceGate — skip reasons', () => {
   it('gives every applicability skip a short reason for the verdict skip line', () => {
     expect(visualEvidenceGate(input({ flagOn: false }))!.skip_reason).toBe(
       'visual evidence is off',
@@ -247,7 +244,7 @@ describe('visualEvidenceGate — skip reasons (issue #579)', () => {
   });
 });
 
-describe('visualEvidenceGate — install fault (issue #579)', () => {
+describe('visualEvidenceGate — install fault', () => {
   const fault = { runtimeRoot: '/opt/paqad/runtime' };
   const detail =
     'paqad could not load its built-in stack packs (looked in /opt/paqad/runtime). This is an install fault, not a clean change.';
@@ -354,7 +351,7 @@ describe('visualEvidenceGate — manifest outcomes', () => {
     expect(warn.skip_reason).toBe('no documented flow to capture');
   });
 
-  it('carries one short skip phrase per distinct documented reason (issue #579)', () => {
+  it('carries one short skip phrase per distinct documented reason', () => {
     const m = baseManifest();
     m.result = 'skipped';
     m.plan = [];

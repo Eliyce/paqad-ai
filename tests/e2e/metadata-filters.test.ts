@@ -146,17 +146,14 @@ describe('Metadata Filters — end-to-end', () => {
         symbolReferences: [],
         classification: {
           complexity: 'medium',
-          // This module doesn't exist — filtered set will be empty → fallback
           affected_modules: [join(projectRoot, 'src/nonexistent')],
         },
       },
     );
 
-    // Fallback means filter_fallback is true and chunks still returned
     if (result.stats.fusion_strategy?.filter_fallback) {
       expect(result.stats.fusion_strategy.filter_fallback).toBe(true);
     }
-    // Either way, we get a valid result
     expect(result.stats.fusion_strategy).toBeDefined();
   });
 

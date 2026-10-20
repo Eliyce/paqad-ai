@@ -1,18 +1,3 @@
-// Issue #540 — the displacement path, end to end (AC-5).
-//
-// A background `<task-notification>` (a Monitor firing on a PR's CI) reaches the session
-// as an ordinary user turn, so the short turn it produces ends in another Stop. The two
-// retrospective seams then re-read state that belongs to a change which is already
-// finished: the marker parser re-reads the whole transcript, and the git backstop re-reads
-// the branch's working-tree delta. With the session pointer released by the close, both
-// used to OPEN a fresh untitled `change-<ULID>` for that finished work — which stole the
-// session pointer, picked up the real diff through the inferred-git row, and reported five
-// missing stages for a change that had passed every one of them.
-//
-// Reproduced from the observed incident (session `b7c32628`, 2026-09-10): bundle
-// `538-…-01M25QJ2VNWCDDPA1AY3FKRDDB` closed complete at 13:58:40Z, the notification landed
-// at 14:00:08Z, and `change-01M25SX72YRJRD3HVAMB58FDB3` was minted at 14:00:22Z.
-
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -48,7 +33,6 @@ const MANDATORY = [
   'documentation_sync',
 ] as const;
 
-/** The transcript the agent actually leaves behind for a full six-stage change. */
 const TRANSCRIPT = MANDATORY.flatMap((stage) => [
   JSON.stringify({
     type: 'assistant',
@@ -66,7 +50,6 @@ const TRANSCRIPT = MANDATORY.flatMap((stage) => [
   }),
 ]).join('\n');
 
-/** End-stage args that satisfy the #320/#394 artifact requirement for a thinking stage. */
 function provenEndArgs(root: string, dirName: string, stage: string): EndStageInput {
   if (!isArtifactBearingStage(stage)) return {};
   const file = stage === 'planning' ? 'plan' : stage === 'specification' ? 'specification' : null;
@@ -87,7 +70,6 @@ describe('a background notification after a completed change (#540)', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  /** Run a change to a passing verdict, exactly as the finalizer closes it. */
   function completeChange(): string {
     const { dirName } = openStageEvidence(root, {
       sessionId: SESSION,
@@ -110,16 +92,10 @@ describe('a background notification after a completed change (#540)', () => {
       subjectDigest: 'sha256-realdiff',
     });
     expect(verdict?.verdict).toBe('complete');
-    // The close releases the session pointer — the precondition for the whole incident.
     expect(currentFeature(root, SESSION)).toBeNull();
     return dirName;
   }
 
-  /**
-   * The turn a notification produces: no edits, then both retrospective seams fire in
-   * hook order (marker parse, then the completion backstop). Returns the verdict the
-   * completion gate reached — the number the developer actually sees.
-   */
   function notificationTurn() {
     parseAndRecordMarkers({ projectRoot: root, transcriptText: TRANSCRIPT, sessionId: SESSION });
     return finalizeStageEvidence(root, {
@@ -161,10 +137,6 @@ describe('a background notification after a completed change (#540)', () => {
   it('AC-4: the notification turn reports no failing verdict at all', () => {
     completeChange();
 
-    // The trust-inverting symptom: the gate used to judge the phantom and report
-    // `incomplete` with every mandatory stage missing, for work that had just passed.
-    // With nothing left to verify there is no verdict, so no gate is added and nothing
-    // fails (`stageEvidenceGate(null, …)` returns null).
     expect(notificationTurn()).toBeNull();
   });
 
@@ -182,15 +154,12 @@ describe('a background notification after a completed change (#540)', () => {
   it('AC-3: the completed change is resumable with no hand-edit to the session file', () => {
     const done = completeChange();
     notificationTurn();
-    // What `paqad-ai resume --feature 538` does. Before the fix this returned null,
-    // because the control held neither the change nor anything else.
     expect(resumeFeatureByRef(root, SESSION, '538')).toBe(done);
     expect(currentFeature(root, SESSION)).toBe(done);
   });
 
   it('AC-2: resuming it pushes an outgoing active change onto the paused stack', () => {
     const done = completeChange();
-    // A second change opened by a deliberate signal, the way a real next change starts.
     const next = openStageEvidence(root, {
       sessionId: SESSION,
       adapter: 'claude-code',
@@ -205,9 +174,6 @@ describe('a background notification after a completed change (#540)', () => {
   });
 
   it("does not suppress a session's FIRST change (the guard is session-scoped)", () => {
-    // No close on record, so both seams behave exactly as they did before this fix: the
-    // markers open a bundle. This is what keeps the Codex and Gemini completion hooks —
-    // which share these seams and have no PreToolUse writer — recording as before.
     parseAndRecordMarkers({ projectRoot: root, transcriptText: TRANSCRIPT, sessionId: SESSION });
 
     const opened = currentFeature(root, SESSION);
@@ -240,8 +206,6 @@ describe('a background notification after a completed change (#540)', () => {
 
     parseAndRecordMarkers({ projectRoot: root, transcriptText: TRANSCRIPT, sessionId: SESSION });
 
-    // The guard only bites when NOTHING is active; with a bundle open the markers land in
-    // it exactly as before.
     expect(readFeatureStageUnit(root, next).some((row) => row.kind === 'stage_start')).toBe(true);
   });
 });

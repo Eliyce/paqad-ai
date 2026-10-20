@@ -12,15 +12,7 @@ const REGISTRY = resolve(
   '../../../docs/instructions/workflows/feature-development-stages.yml',
 );
 
-/**
- * Issue #247 C1 — the stage-evidence writer is ALWAYS-ON, independent of the
- * enterprise / AI-BOM machinery (which can be flag-disabled). Depending on it would
- * break stage-tracking whenever enterprise is off. This guard fails if any
- * stage-evidence source file imports an enterprise / AI-BOM / receipt module, so
- * the boundary can never erode. Enrichment is one-way only: enterprise code MAY
- * read these records; the records never depend on enterprise code.
- */
-describe('stage-evidence is independent of enterprise / AI-BOM (#247 C1)', () => {
+describe('stage-evidence is independent of enterprise / AI-BOM', () => {
   const FORBIDDEN = [/enterprise-policy/, /ai-bom/i, /receipt/i, /\/evidence\/receipt/];
 
   it('no stage-evidence source file imports enterprise / AI-BOM code', () => {
@@ -41,11 +33,6 @@ describe('stage-evidence is independent of enterprise / AI-BOM (#247 C1)', () =>
   });
 });
 
-/**
- * Issue #247 — the tracked registry must mirror the canonical STAGE_ORDER the
- * ledger derives from, so a human reading the registry sees the same order the
- * gate enforces. This fails if the two drift.
- */
 describe('stage registry mirrors the canonical stage order', () => {
   const registry = YAML.parse(readFileSync(REGISTRY, 'utf8')) as {
     stages: { id: string; mandatory: boolean }[];

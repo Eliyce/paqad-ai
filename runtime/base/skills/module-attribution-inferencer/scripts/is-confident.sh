@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Purpose: Read an inferencer JSON report and gate on the `confident` flag.
-# Usage:   bash scripts/is-confident.sh <report.json>   (or stdin)
-# Output:  `true` or `false` on stdout.
-# Exits:   0 confident | 1 not confident | 2 usage / parse error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Read an inferencer JSON report and gate on the `confident` flag.
+Usage:   bash scripts/is-confident.sh <report.json>   (or stdin)
+Output:  `true` or `false` on stdout.
+Exits:   0 confident | 1 not confident | 2 usage / parse error
+USAGE
   exit 0
 fi
 

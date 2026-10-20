@@ -7,13 +7,9 @@ import { describe, expect, it } from 'vitest';
 
 import { isDirectEntry } from '../../../runtime/hooks/lib/direct-entry.mjs';
 
-// Issue #636 (bug 2) — the one realpath-safe entry guard shared by every hook. The raw
-// `import.meta.url === \`file://${process.argv[1]}\`` comparison (which this replaces) misses on
-// Windows, on paths with spaces, and on symlinked paths, so a hook silently no-ops.
-
 const HOOKS_DIR = resolve(__dirname, '../../../runtime/hooks');
 
-describe('isDirectEntry (issue #636 bug 2)', () => {
+describe('isDirectEntry', () => {
   it('matches when import.meta.url is the real file URL of argv1', () => {
     const real = join(HOOKS_DIR, 'lib', 'direct-entry.mjs');
     const url = pathToFileURL(realpathSync(real)).href;
@@ -27,7 +23,6 @@ describe('isDirectEntry (issue #636 bug 2)', () => {
       const link = join(dir, 'linked.mjs');
       symlinkSync(real, link);
       const url = pathToFileURL(realpathSync(real)).href;
-      // argv1 is the symlink; import.meta.url is the resolved real URL — the raw compare would miss.
       expect(isDirectEntry(url, link)).toBe(true);
     } finally {
       rmSync(dir, { recursive: true, force: true });
@@ -55,7 +50,7 @@ describe('isDirectEntry (issue #636 bug 2)', () => {
   });
 });
 
-describe('no hook uses the raw file:// entry comparison (issue #636 bug 2 guard)', () => {
+describe('no hook uses the raw file:// entry comparison', () => {
   it('every runtime/hooks/*.mjs is free of `file://${process.argv[1]}`', () => {
     const offenders: string[] = [];
     const walk = (dir: string): void => {
@@ -65,7 +60,6 @@ describe('no hook uses the raw file:// entry comparison (issue #636 bug 2 guard)
           walk(path);
         } else if (entry.name.endsWith('.mjs')) {
           const src = readFileSync(path, 'utf8');
-          // The exact broken pattern: a template literal file URL built from the raw argv path.
           if (src.includes('`file://${process.argv[1]}`')) {
             offenders.push(path);
           }

@@ -15,10 +15,6 @@ import {
   type EndStageInput,
 } from '@/stage-evidence/index.js';
 
-// Block-forward (RCA fix B): the stages capability refuses a code edit at the
-// pre-mutation seam until planning + specification carry a start+end pair in the
-// ledger. Driven through the real kernel gate (runCapabilityGate), no mocks. The
-// project has no rule-script map, so only the stages capability contributes.
 describe('stages capability — block-forward at pre-mutation', () => {
   let root: string;
   const SES = 'ses_bf';
@@ -29,7 +25,6 @@ describe('stages capability — block-forward at pre-mutation', () => {
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
-  /** End-stage args that satisfy the #320 artifact requirement for a thinking stage. */
   function provenEndArgs(stage: string): EndStageInput {
     if (!isArtifactBearingStage(stage)) return {};
     const rel = `.paqad/artifacts/${stage}.md`;
@@ -38,8 +33,6 @@ describe('stages capability — block-forward at pre-mutation', () => {
     return { artifactPaths: [rel] };
   }
 
-  /** Record a full start+end pair for each stage, in order, under the shared session.
-   *  Thinking stages get a real artifact so the #320 gate unblocks. */
   function record(stages: string[]): void {
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
     for (const stage of stages) {
@@ -57,12 +50,6 @@ describe('stages capability — block-forward at pre-mutation', () => {
     writeFileSync(join(root, '.paqad/configs/.config.policy'), body);
   }
 
-  /**
-   * Open a KNOWN feature and write its rigid bundle plan.json + specification.json,
-   * returning their project-relative paths (issue #394). A planning/specification
-   * stage-end proves itself ONLY with these; the same-turn marker sweep drops anything
-   * else, so the markers below must point here to clear the gate.
-   */
   const BUNDLE_DIR = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
   function openBundle(): { planRel: string; specRel: string } {
     setActiveFeature(root, SES, BUNDLE_DIR);
@@ -83,7 +70,7 @@ describe('stages capability — block-forward at pre-mutation', () => {
   });
 
   it('BLOCKS on specification when planning is recorded but specification is not', async () => {
-    record(['planning']); // planning start+end, nothing else
+    record(['planning']);
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
     expect(result.summary).toContain('specification');
@@ -96,20 +83,18 @@ describe('stages capability — block-forward at pre-mutation', () => {
     expect(result.summary).toBe('');
   });
 
-  // Issue #320 — a bare marker pair (no artifact) no longer clears the gate for a
-  // thinking stage; the end must reference a real, non-empty artifact.
-  it('#320: BLOCKS when planning+specification have pairs but NO artifact digest', async () => {
+  it('BLOCKS when planning+specification have pairs but NO artifact digest', async () => {
     const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code' });
     for (const stage of ['planning', 'specification']) {
       startStage(root, stage, { sessionId: SES, ordinal, adapter: 'claude-code' });
-      endStage(root, stage, {}, { sessionId: SES, ordinal, adapter: 'claude-code' }); // bare, no artifact
+      endStage(root, stage, {}, { sessionId: SES, ordinal, adapter: 'claude-code' });
     }
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
     expect(result.summary).toContain('planning');
   });
 
-  it('#320: the planning block message teaches the `-- <artifact-path>` grammar', async () => {
+  it('the planning block message teaches the `-- <artifact-path>` grammar', async () => {
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.summary).toContain('paqad:stage planning end -- <artifact-path>');
     expect(result.summary).toContain('--artifact <artifact-path>');
@@ -139,25 +124,17 @@ describe('stages capability — block-forward at pre-mutation', () => {
   });
 
   it('no-ops at the COMPLETION seam (finalize path owns completion — no double-fire)', async () => {
-    // No change opened: at pre-mutation this blocks, but at completion the stages
-    // capability must stay silent so it never double-fires with finalize/verify.
     const result = await runCapabilityGate({ projectRoot: root, seam: 'completion' });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
   });
 
   it('is immune to the committed-clean-tree nullifier (reads the ledger, not a git delta)', async () => {
-    // There is no working tree here at all — the gate still blocks purely from the
-    // ledger state, which is the structural fix vs the Stop-path changedFileCount<=0.
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
   });
 
-  // Issue #307 — the same-turn unblock path. Markers the agent emitted EARLIER in
-  // the current turn are parsed at this seam, so the remediation the block message
-  // names works within the turn that follows it (not only after Stop).
-  describe('same-turn markers (issue #307)', () => {
-    /** A Claude-shaped JSONL transcript with one assistant message per text. */
+  describe('same-turn markers', () => {
     function transcript(...texts: string[]): string {
       const path = join(root, 'transcript.jsonl');
       writeFileSync(
@@ -175,8 +152,6 @@ describe('stages capability — block-forward at pre-mutation', () => {
     }
 
     it('ALLOWS the edit when the turn transcript already carries planning+specification pairs', async () => {
-      // #320/#394: the thinking-stage ends must reference the active bundle's rigid
-      // plan.json / specification.json, so the markers carry `-- <bundle path>`.
       const { planRel, specRel } = openBundle();
       const transcriptPath = transcript(
         `paqad:stage planning start\nplanning…\npaqad:stage planning end -- ${planRel}`,
@@ -188,10 +163,6 @@ describe('stages capability — block-forward at pre-mutation', () => {
         payload: { transcriptPath, sessionId: SES },
       });
       expect(result.block).toBe(false);
-      // Narration and ledger are both non-negotiable: the rows minted from the
-      // markers are narrated back to the user. #325 mutes the per-marker END line,
-      // so the narration carries the START line of each stage (planning + the spec
-      // stage's "writing the spec" phrasing), not a second "done" line.
       expect(result.narration).toContain('▸ paqad');
       expect(result.narration).toContain('planning');
       expect(result.narration).toContain('writing the spec');
@@ -230,9 +201,6 @@ describe('stages capability — block-forward at pre-mutation', () => {
     });
   });
 
-  // Issue #307 — the sentinel write is bootstrap bookkeeping, never a code change:
-  // gating it deadlocks turn one (the stages gate blocked the very Write the
-  // bootstrap needs to finish).
   it('exempts the agent-entry sentinel write from the block-forward gate', async () => {
     const result = await runCapabilityGate({
       projectRoot: root,
@@ -243,10 +211,7 @@ describe('stages capability — block-forward at pre-mutation', () => {
     expect(result.summary).toBe('');
   });
 
-  // Issue #310 — the gate governs FEATURE DEVELOPMENT only. A documentation-only or
-  // framework-internal edit is skipped (no planning/spec demanded); a code edit still
-  // blocks; and the gate must always be clearable (no deadlock).
-  describe('feature-development scope + deadlock-free (issue #310)', () => {
+  describe('feature-development scope + deadlock-free', () => {
     const gate = (targetPath: string, extra: Record<string, unknown> = {}) =>
       runCapabilityGate({
         projectRoot: root,
@@ -279,9 +244,6 @@ describe('stages capability — block-forward at pre-mutation', () => {
     });
 
     it('clears the block via same-turn markers even after a later-stage row was recorded first', async () => {
-      // Reproduce the old poison: a documentation_sync start lands before planning.
-      // The pre-mutation sweep must still record the planning + specification markers
-      // (F3 makes the recorder tolerant), so the code edit is no longer deadlocked.
       const { planRel, specRel } = openBundle();
       startStage(root, 'documentation_sync', { sessionId: SES, adapter: 'claude-code' });
       const transcriptPath = join(root, 'turn.jsonl');
@@ -306,11 +268,7 @@ describe('stages capability — block-forward at pre-mutation', () => {
     });
   });
 
-  // Issue #566 — a Codex apply_patch can touch several files. The gate classifies the
-  // whole call: feature-development iff ANY path is (via targetPaths), so a docs-only
-  // patch is skipped and a patch with any source file is gated — even when the
-  // representative targetPath is a docs file.
-  it('does NOT block a multi-path patch that touches only docs (#566)', async () => {
+  it('does NOT block a multi-path patch that touches only docs', async () => {
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',
@@ -324,13 +282,11 @@ describe('stages capability — block-forward at pre-mutation', () => {
     expect(result.summary).toBe('');
   });
 
-  it('BLOCKS a multi-path patch when ANY path is source, before planning (#566)', async () => {
+  it('BLOCKS a multi-path patch when ANY path is source, before planning', async () => {
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',
       payload: {
-        // The representative path is docs, but a source path in the set makes the whole
-        // call feature-development, so the gate blocks on the missing planning stage.
         targetPath: join(root, 'docs/a.md'),
         targetPaths: [join(root, 'docs/a.md'), join(root, 'src/x.ts')],
         sessionId: SES,

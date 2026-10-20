@@ -4,7 +4,7 @@
 - Escalate unresolved policy conflicts.
 - Escalate blockers caused by missing external access.
 
-## Stuck after N build-check-fix rounds (issue #108)
+## Stuck after N build-check-fix rounds
 
 The build-check-fix loop runs quietly: the person is not shown intermediate
 rounds or the problems found and fixed within them — that is plumbing. The

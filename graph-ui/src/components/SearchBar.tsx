@@ -14,7 +14,6 @@ export function SearchBar() {
   const setIndex = useAppStore((s) => s.setSearchIndex);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Recompute matches whenever the query changes.
   const matches = useMemo<string[]>(() => {
     if (!graph || !search.query.trim()) return [];
     const q = search.query.trim().toLowerCase();

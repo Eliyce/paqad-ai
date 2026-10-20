@@ -2,29 +2,14 @@ import type { ResolvedDeliveryCi } from '@/core/types/delivery-policy.js';
 
 import type { ChecksState, HostProvider } from '@/providers/host-provider.js';
 
-/**
- * Issue #42 — the delivery CI gate. Per `process.ci.gate`:
- *  - `wait_for_green` polls until checks are green (bounded by timeout_minutes);
- *    on red it applies `on_red`; on green it reports the `transition_on_green`.
- *  - `warn_only` reads once, surfaces status, never blocks.
- *  - `off` skips entirely.
- *
- * The clock + sleep are injected so the polling loop is unit-testable without
- * real waiting.
- */
 export type CiGateAction =
   'passed' | 'failed_stop' | 'failed_comment_and_stop' | 'timed_out' | 'warned' | 'skipped';
 
 export interface CiGateResult {
   action: CiGateAction;
   state: ChecksState;
-  /** Ticket status to move to on green, when configured (else null). */
   transitionTo: string | null;
   message: string;
-  /**
-   * Whether the rendered verification-evidence comment was posted to the PR
-   * (issue #119). Absent when no evidence body was supplied.
-   */
   evidenceCommentPosted?: boolean;
 }
 
@@ -32,15 +17,7 @@ export interface CiGateOptions {
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   pollIntervalMs?: number;
-  /** Hard cap on poll iterations — a safety net independent of the clock. */
   maxPolls?: number;
-  /**
-   * Rendered verification-evidence markdown (issue #119). When supplied, it is
-   * posted to the PR as the gate resolves — on green (the "safe to merge"
-   * proof) and on a `comment_and_stop` red (the proof of what blocked it).
-   * `null`/absent posts nothing, so projects without evidence are unaffected.
-   * Posting is best-effort: a failed comment never changes the gate verdict.
-   */
   evidenceComment?: string | null;
 }
 
@@ -80,7 +57,6 @@ export async function runCiGate(
     };
   }
 
-  // wait_for_green
   const now = options.now ?? (() => 0);
   const sleep = options.sleep ?? (async () => {});
   const pollIntervalMs = options.pollIntervalMs ?? 15_000;

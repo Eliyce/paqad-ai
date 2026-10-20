@@ -64,7 +64,6 @@ describe('collectStackDrift', () => {
       })),
     });
     const { section, attention } = collectStackDrift(root, NOW);
-    // 100 - 4*15 - 20 (stale > 90d) = 20.
     expect(section.score).toBe(20);
     expect(section.band).toBe('red');
     expect(attention[0]?.severity).toBe('critical');
@@ -92,6 +91,6 @@ describe('collectStackDrift', () => {
       material_changes: [{ type: 'framework-added', key: 'react' }],
     });
     const { attention } = collectStackDrift(root, NOW);
-    expect(attention[0]?.message).toMatch(/1 change\)/); // singular, no trailing 's'
+    expect(attention[0]?.message).toMatch(/1 change\)/);
   });
 });

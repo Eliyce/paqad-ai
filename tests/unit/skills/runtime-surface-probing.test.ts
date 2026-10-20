@@ -9,10 +9,6 @@ const sh = (n: string) => join(SKILL, 'scripts', n);
 
 describe('runtime-surface-probing', () => {
   describe('probe-surfaces.sh', () => {
-    // Live HTTP fixtures are not exercised here because spawnSync deadlocks
-    // with same-process listeners (curl reaches the kernel socket but Node's
-    // event loop is blocked). End-to-end probing is verified manually; the
-    // unit tests below cover the script's deterministic non-network paths.
     const path = sh('probe-surfaces.sh');
 
     it('--help exits 0', () => {

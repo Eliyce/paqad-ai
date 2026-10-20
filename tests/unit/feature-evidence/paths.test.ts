@@ -14,8 +14,8 @@ import {
   isFeatureDirName,
   parseFeatureDirName,
 } from '@/feature-evidence/paths.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
-// A valid 26-char Crockford-base32 ULID body.
 const ULID = '01JABCDEFGHJKMNPQRSTVWXYZ0';
 
 describe('feature-evidence path layer', () => {
@@ -31,7 +31,7 @@ describe('feature-evidence path layer', () => {
     expect(FEATURE_BUNDLE_FILES.rag).toBe('rag.jsonl');
   });
 
-  it('resolves the legacy specification.md, which is no longer a bundle member (#581)', () => {
+  it('resolves the legacy specification.md, which is no longer a bundle member', () => {
     expect(featureLegacySpecMarkdownPath('339-x-' + ULID)).toBe(
       `.paqad/ledger/feature-evidence/339-x-${ULID}/specification.md`,
     );
@@ -82,7 +82,7 @@ describe('feature-evidence path layer', () => {
   });
 
   it('rejects an issue ref that would not round-trip', () => {
-    expect(() => formatFeatureDirName({ issue: '#45', slug: 'ok', ulid: ULID })).toThrow(
+    expect(() => formatFeatureDirName({ issue: ticketRef(45), slug: 'ok', ulid: ULID })).toThrow(
       /Malformed feature issue ref/,
     );
     expect(() => formatFeatureDirName({ issue: 'not an issue', slug: 'ok', ulid: ULID })).toThrow(
@@ -97,7 +97,7 @@ describe('feature-evidence path layer', () => {
   });
 });
 
-describe('featureChangeKey (issue #581, INV-4)', () => {
+describe('featureChangeKey', () => {
   it('is the ULID at the end of the folder name, unchanged by a rename', () => {
     expect(featureChangeKey('581-one-packet-01JABCDEFGHJKMNPQRSTVWXYZ0')).toBe(
       '01JABCDEFGHJKMNPQRSTVWXYZ0',

@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { EngineEventBus } from '@/event-bus/engine-event-bus.js';
 import type { EngineEvent } from '@/event-bus/types.js';
 
-/** Flush the queueMicrotask-scheduled drain (and any re-scheduled drains). */
 async function flush(): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -27,7 +26,6 @@ describe('EngineEventBus', () => {
     });
     bus.emit({ kind: 'retrieval-started', at: '2026-01-01T00:00:02.000Z', queryId: 'q1' });
 
-    // emit is non-blocking: nothing delivered synchronously.
     expect(received).toHaveLength(0);
 
     await flush();
@@ -84,7 +82,6 @@ describe('EngineEventBus', () => {
     for (let i = 1; i <= 5; i++) {
       bus.emit(sliceStarted(String(i)));
     }
-    // emit() never blocked or delivered inline despite the overflow.
     expect(received).toHaveLength(0);
     await flush();
 
@@ -94,7 +91,7 @@ describe('EngineEventBus', () => {
   });
 
   it('never drops a protected kind: drops the incoming protected event instead', async () => {
-    const bus = new EngineEventBus({ bufferSize: 1 }); // default neverDrop includes decision-paused
+    const bus = new EngineEventBus({ bufferSize: 1 });
     const received: EngineEvent[] = [];
     bus.subscribe((e) => received.push(e));
 
@@ -153,7 +150,6 @@ describe('EngineEventBus', () => {
     expect(bad.state).toBe('faulted');
     expect(good.map((e) => e.kind)).toEqual(['slice-started']);
 
-    // A faulted subscription receives nothing further; others still do.
     bus.emit(sliceStarted('b'));
     await flush();
     expect(good).toHaveLength(2);

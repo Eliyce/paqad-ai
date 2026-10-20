@@ -1,7 +1,3 @@
-// The new-vs-pre-existing finding ratchet. A first run writes the baseline; later runs
-// mark each finding against it. Tolerant read (a missing/corrupt baseline degrades to "no
-// baseline yet"). Mirrors the codebase-health baseline discipline.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -15,7 +11,6 @@ export function baselinePath(projectRoot: string): string {
   return join(projectRoot, PATHS.SITE_MAP_BASELINE);
 }
 
-/** Tolerant read — a missing or corrupt baseline degrades to "no baseline yet". */
 export function readBaseline(projectRoot: string): SiteMapBaseline | null {
   const target = baselinePath(projectRoot);
   if (!existsSync(target)) return null;
@@ -44,11 +39,6 @@ export async function writeBaseline(
   return baseline;
 }
 
-/**
- * Mark each finding `new-since-baseline` or `pre-existing` against an existing baseline.
- * With no baseline (first run) every finding stays `unknown` — the run writes the baseline
- * afterwards, so the ratchet starts from the next run.
- */
 export function applyBaselineStatus<T extends SiteMapFinding>(
   findings: T[],
   baseline: SiteMapBaseline | null,

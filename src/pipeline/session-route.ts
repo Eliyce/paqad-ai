@@ -1,24 +1,3 @@
-// Latest-route pointer for the background context worker (issue #336).
-//
-// The route seam runs in-process on the prompt path and knows the routed workflow
-// and the prompt text. The context worker (`paqad-ai rag refresh-context`) runs
-// DETACHED afterwards and composes the single, session-agnostic session-context
-// artifact — so it needs to know which workflow the last prompt routed to (to load
-// rules only for feature-development and to skip retrieval for no-workflow) and the
-// prompt text (to seed retrieval, not just the working set). Threading those through
-// the detached trigger→worker chain is brittle, so the seam drops them here at a
-// fixed path next to the artifact and the worker reads them back.
-//
-// One value, last-writer-wins — the same shape as the shared artifact it feeds. The
-// read never throws: an absent or unreadable pointer means "no route recorded yet".
-//
-// Per-session pointer (issue #582). With two sessions in one checkout the shared pointer
-// holds whichever session routed last, so a worker started for a project question could
-// compose the rule slice because another session had just routed to feature-development.
-// When the session id is known the route is ALSO written to
-// `.paqad/context/.session-route.d/<sanitized id>.json`, and a reader given that id prefers
-// it, falling back to the shared pointer (still written, for older readers).
-
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -29,27 +8,18 @@ import { ROUTED_WORKFLOWS, type RoutedWorkflow } from './routed-workflow.js';
 const SESSION_ROUTE_FILE = '.session-route.json';
 const SESSION_ROUTE_DIR = '.session-route.d';
 
-/** The routed workflow of the last prompt, plus the prompt text (retrieval seed). */
 export interface SessionRoute {
   workflow: RoutedWorkflow;
   query: string;
-  /** The host that routed this prompt (issue #566, AC-8). Optional so a route written by an
-   *  older build still reads; absent → the reader leaves it undefined. */
   adapter?: string;
 }
 
-/** Directory of the session-context artifact — the pointer sits beside it. */
 function sessionRouteDir(projectRoot: string): string {
   return join(projectRoot, dirname(PATHS.CONTEXT_SESSION_ARTIFACT));
 }
 
 const VALID_WORKFLOWS = new Set<string>(ROUTED_WORKFLOWS);
 
-/**
- * The per-session pointer path for `sessionId`, or null when there is no usable id. The id is
- * reduced to `[A-Za-z0-9_-]` (the entry-sentinel rule) so it can never leave the directory and
- * never carries a character Windows forbids in a filename.
- */
 function perSessionRoutePath(projectRoot: string, sessionId?: string | null): string | null {
   const safe =
     typeof sessionId === 'string' ? sessionId.trim().replace(/[^A-Za-z0-9_-]/g, '_') : '';
@@ -58,10 +28,6 @@ function perSessionRoutePath(projectRoot: string, sessionId?: string | null): st
     : join(sessionRouteDir(projectRoot), SESSION_ROUTE_DIR, `${safe}.json`);
 }
 
-/**
- * Record the last route for the background worker: the shared pointer always, plus this
- * session's own pointer when `sessionId` is known (issue #582). Never throws into the caller.
- */
 export function writeSessionRoute(
   projectRoot: string,
   route: SessionRoute,
@@ -76,25 +42,14 @@ export function writeSessionRoute(
       mkdirSync(dirname(own), { recursive: true });
       writeFileSync(own, JSON.stringify(route), 'utf8');
     }
-  } catch {
-    // Best-effort — the worker falls back to loading rules + retrieving (today's
-    // behaviour) when no pointer is present, so a failed write never loses coverage.
-  }
+  } catch {}
 }
 
-/** What the background context worker should compose for a routed workflow (#336). */
 export interface ContextComposition {
-  /** Compose the rule slice? Only on the feature-development route. */
   loadRules: boolean;
-  /** Retrieve slices + codebase memory + base-drift? Every real workflow; not no-workflow. */
   retrieves: boolean;
 }
 
-/**
- * Decide what the artifact carries for a route. No pointer yet (the first prompt of
- * a session, before routing has run) falls back to today's behaviour — load rules and
- * retrieve — so nothing regresses before the seam records a route.
- */
 export function compositionForRoute(route: SessionRoute | null): ContextComposition {
   if (!route) {
     return { loadRules: true, retrieves: true };
@@ -105,10 +60,6 @@ export function compositionForRoute(route: SessionRoute | null): ContextComposit
   };
 }
 
-/**
- * Read the last route, or null when absent/unreadable/invalid. Given a `sessionId`, that
- * session's own pointer wins; the shared pointer is the fallback (issue #582).
- */
 export function readSessionRoute(
   projectRoot: string,
   sessionId?: string | null,

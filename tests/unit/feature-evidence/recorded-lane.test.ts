@@ -10,8 +10,6 @@ import {
   recordedLaneOrFull,
 } from '@/feature-evidence/stage-ledger.js';
 
-// Issue #639, Part 11 — the one recorded-lane reader the completion verification and
-// `checks run` share. It fails safe to `full`, never to a lighter lane.
 const roots: string[] = [];
 afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
@@ -45,7 +43,6 @@ describe('recordedLaneOrFull', () => {
       issue: null,
     });
     expect(recordedLaneOrFull(root, 's', unset)).toBe('full');
-    // A directory where the stage file should be makes the fold throw.
     rmSync(join(root, featureStagePath(unset)), { force: true });
     mkdirSync(join(root, featureStagePath(unset)), { recursive: true });
     expect(recordedLaneOrFull(root, 's', unset)).toBe('full');

@@ -14,6 +14,7 @@ import {
   writeFeatureReport,
 } from '@/feature-evidence/report-writer.js';
 import { appendFeatureStageRow, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -60,13 +61,12 @@ describe('writeFeatureReport', () => {
     expect(existsSync(expected)).toBe(true);
     const html = readFileSync(expected, 'utf8');
     expect(html).toContain('plan for A feature');
-    // Issue #581 — the only script is the inert JSON header tag; nothing executable.
     expect(
       html.replace(/<script type="application\/json" id="paqad-header">[^<]*<\/script>/, ''),
     ).not.toMatch(/<script/i);
   });
 
-  it('embeds the envelope header tag in the head, hashing the page without it (issue #581)', () => {
+  it('embeds the envelope header tag in the head, hashing the page without it', () => {
     const root = tempRoot();
     const dir = openWithPlan(root, 1, 'A feature');
     const { html } = writeFeatureReport(root, dir, { generatedAt: AT, sessionId: 'ses_1' });
@@ -99,7 +99,6 @@ describe('writeFeatureReport', () => {
     const abs = join(root, 'custom-report.html');
     expect(writeFeatureReport(root, dir, { sessionId: 'ses_1', outPath: abs }).path).toBe(abs);
     expect(existsSync(abs)).toBe(true);
-    // A relative --out is resolved against the project root.
     const rel = writeFeatureReport(root, dir, { sessionId: 'ses_1', outPath: 'sub/rep.html' });
     expect(rel.path).toBe(join(root, 'sub/rep.html'));
     expect(existsSync(rel.path)).toBe(true);
@@ -114,9 +113,6 @@ describe('featureReportEnabled', () => {
   });
 });
 
-// Issue #402 — the review used to be an agent-authored .md discovered from the review
-// stage row, a design that invited the model to free-write into the bundle dir. It is a
-// rigid bundle artifact now, so the report reads it like any other.
 describe('review rendering from the rigid review.json', () => {
   it('renders the recorded review from review.json', () => {
     const root = tempRoot();
@@ -146,14 +142,10 @@ describe('resolveReportFeatureRef', () => {
   it('defaults to the active feature, then the most recent by ULID, and resolves an explicit ref', () => {
     const root = tempRoot();
     const a = openWithPlan(root, 1, 'First');
-    const b = openWithPlan(root, 2, 'Second'); // b is now active, newer ULID
-    // No ref → active feature (b).
+    const b = openWithPlan(root, 2, 'Second');
     expect(resolveReportFeatureRef(root, 'ses_1', undefined, b)).toBe(b);
-    // No ref, no active → most recent by ULID (b).
     expect(resolveReportFeatureRef(root, 'ses_1', undefined, null)).toBe(b);
-    // Explicit ref by slug substring resolves the older one (a) via whole-tree scan.
     expect(resolveReportFeatureRef(root, 'ses_1', 'first', null)).toBe(a);
-    // Unknown ref → null.
     expect(resolveReportFeatureRef(root, 'ses_1', 'nope-nothing', null)).toBeNull();
   });
 
@@ -165,13 +157,12 @@ describe('resolveReportFeatureRef', () => {
       issue: '371',
       ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
     });
-    // Different session so the session-control resolver misses → whole-tree scan hits.
     expect(resolveReportFeatureRef(root, 'other-ses', dir, null)).toBe(dir);
     expect(resolveReportFeatureRef(root, 'other-ses', '01JABCDEFGHJKMNPQRSTVWXYZ0', null)).toBe(
       dir,
     );
     expect(resolveReportFeatureRef(root, 'other-ses', '371', null)).toBe(dir);
-    expect(resolveReportFeatureRef(root, 'other-ses', '#371', null)).toBe(dir);
+    expect(resolveReportFeatureRef(root, 'other-ses', ticketRef(371), null)).toBe(dir);
   });
 
   it('returns null with no ref, no active feature, and no bundles on disk', () => {

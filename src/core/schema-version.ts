@@ -1,22 +1,3 @@
-// PQD-95 — the cross-artifact `.paqad/` schema versioning baseline.
-//
-// This module owns the single authoritative version marker for a project's
-// `.paqad/` layout and the rules for moving it forward safely:
-//
-//   - `writeSchemaMarker` / `readSchemaMarker` — atomic read/write of the marker.
-//   - `checkSchemaCompatibility` — compares a marker against the running engine.
-//   - `appendMigrationRecord` — appends one JSONL line to the migration log.
-//   - `withSchemaMigrationLock` — serialises concurrent migrators on one project.
-//   - `checkAndMigrateSchema` — the entry point callers run at the start of any
-//     engine run: it stamps legacy projects, migrates older ones forward under a
-//     lock, and refuses (throws `SchemaVersionError`) on a future schema.
-//
-// Writes are atomic (temp-file-then-rename, matching `src/quality-ratchet/
-// baseline.ts`). The lock uses exclusive-create (`openSync(..., 'wx')`, matching
-// `src/planning/decision-store.ts`). That lock primitive is not reliable on some
-// network filesystems (NFS, SMB) — the same caveat already applies to
-// `DECISIONS_LOCK`.
-
 import {
   closeSync,
   existsSync,
@@ -39,9 +20,7 @@ import type {
   SchemaMigrationRecord,
 } from '@/core/types/schema-version.js';
 
-/** Max time to spin waiting for the migration lock before stealing it. */
 const STALE_LOCK_TIMEOUT_MS = 2000;
-/** Poll interval while waiting for the lock; yields the event loop. */
 const LOCK_POLL_MS = 20;
 
 export function schemaMarkerPath(projectRoot: string): string {
@@ -52,7 +31,6 @@ export function schemaMigrationLogPath(projectRoot: string): string {
   return join(projectRoot, PATHS.SCHEMA_MIGRATION_LOG);
 }
 
-/** Atomically writes the schema marker, creating `.paqad/` if absent. */
 export async function writeSchemaMarker(
   projectRoot: string,
   engineVersion: string,
@@ -70,10 +48,6 @@ export async function writeSchemaMarker(
   return marker;
 }
 
-/**
- * Synchronous sibling of `writeSchemaMarker`, for synchronous callers such as
- * `bootstrapFramework`. Same atomic temp-then-rename semantics.
- */
 export function writeSchemaMarkerSync(
   projectRoot: string,
   engineVersion: string,
@@ -91,11 +65,6 @@ export function writeSchemaMarkerSync(
   return marker;
 }
 
-/**
- * Reads and parses the marker. Returns `null` when the marker is absent (a
- * legacy project) or unreadable/corrupt — callers decide how to treat each via
- * the dedicated `checkAndMigrateSchema` flow, which distinguishes the two.
- */
 export async function readSchemaMarker(projectRoot: string): Promise<PaqadSchemaMarker | null> {
   const target = schemaMarkerPath(projectRoot);
   if (!existsSync(target)) return null;
@@ -108,7 +77,6 @@ export async function readSchemaMarker(projectRoot: string): Promise<PaqadSchema
   }
 }
 
-/** Synchronous sibling of `readSchemaMarker`. */
 export function readSchemaMarkerSync(projectRoot: string): PaqadSchemaMarker | null {
   const target = schemaMarkerPath(projectRoot);
   if (!existsSync(target)) return null;
@@ -121,13 +89,6 @@ export function readSchemaMarkerSync(projectRoot: string): PaqadSchemaMarker | n
   }
 }
 
-/**
- * Stamps the schema marker only when a valid one is not already present, leaving
- * an existing marker (and its `written_at`) untouched. Used by `bootstrapFramework`
- * so repeated bootstraps/onboards are idempotent — re-stamping the layout that is
- * already current would otherwise churn the timestamp on every run. Reconciling a
- * marker for an *older* or *future* layout is the job of `checkAndMigrateSchema`.
- */
 export function ensureSchemaMarkerSync(
   projectRoot: string,
   engineVersion: string,
@@ -148,10 +109,6 @@ function isValidMarker(value: unknown): value is PaqadSchemaMarker {
   );
 }
 
-/**
- * Classifies a marker against the running engine's `PAQAD_SCHEMA_VERSION`:
- * equal → `compatible`, older → `needs-migration`, newer → `future`.
- */
 export function checkSchemaCompatibility(marker: PaqadSchemaMarker): SchemaCompatibility {
   const comparison = compareSemver(marker.paqad_schema_version, PAQAD_SCHEMA_VERSION);
   if (comparison === 0) return 'compatible';
@@ -159,7 +116,6 @@ export function checkSchemaCompatibility(marker: PaqadSchemaMarker): SchemaCompa
   return 'future';
 }
 
-/** Appends one migration record as a newline-terminated JSON line. */
 export async function appendMigrationRecord(
   projectRoot: string,
   record: SchemaMigrationRecord,
@@ -169,12 +125,6 @@ export async function appendMigrationRecord(
   await appendFile(target, JSON.stringify(record) + '\n', 'utf8');
 }
 
-/**
- * Runs `fn` while holding an exclusive migration lock for `projectRoot`. The
- * spin-wait yields the event loop between attempts so an in-process holder can
- * make progress; after `STALE_LOCK_TIMEOUT_MS` the lock is treated as stale and
- * stolen (consistent with the decision-store pattern).
- */
 export async function withSchemaMigrationLock<T>(
   projectRoot: string,
   fn: () => Promise<T>,
@@ -207,31 +157,13 @@ async function acquireLock(lockPath: string): Promise<void> {
 async function releaseLock(lockPath: string): Promise<void> {
   try {
     await unlink(lockPath);
-  } catch {
-    // already released
-  }
+  } catch {}
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * The entry point callers run at the start of any engine run. Reads the marker
- * and reconciles it with the running engine:
- *
- *   - absent marker (legacy project) → stamp at the current version, no record.
- *   - corrupt/unparseable marker → overwrite at the current version and append a
- *     record with `from_version: null` (under the lock).
- *   - `future` → throw `SchemaVersionError` naming both versions; nothing mutated.
- *   - `needs-migration` → under the lock, re-check, migrate forward, append a
- *     record, and write the updated marker. The re-check makes concurrent runs
- *     converge to exactly one record.
- *   - `compatible` → no-op.
- *
- * Returns the marker the project is left with (`null` only for the `future`
- * branch, which throws before returning).
- */
 export async function checkAndMigrateSchema(
   projectRoot: string,
   engineVersion: string,
@@ -239,14 +171,12 @@ export async function checkAndMigrateSchema(
 ): Promise<PaqadSchemaMarker> {
   const markerFile = schemaMarkerPath(projectRoot);
 
-  // Absent marker → legacy project. Stamp it; no migration record.
   if (!existsSync(markerFile)) {
     return writeSchemaMarker(projectRoot, engineVersion);
   }
 
   const marker = await readSchemaMarker(projectRoot);
 
-  // Present but unparseable/invalid → corrupt. Reset under the lock and record it.
   if (marker === null) {
     return withSchemaMigrationLock(projectRoot, async () => {
       const written = await writeSchemaMarker(projectRoot, engineVersion);
@@ -282,18 +212,12 @@ export async function checkAndMigrateSchema(
     return marker;
   }
 
-  // needs-migration → serialise; re-check under the lock so only one run migrates.
   return withSchemaMigrationLock(projectRoot, async () => {
     const current = await readSchemaMarker(projectRoot);
     if (current !== null && checkSchemaCompatibility(current) !== 'needs-migration') {
-      // Another run migrated while we waited for the lock.
       return current;
     }
     const fromVersion = current?.paqad_schema_version ?? marker.paqad_schema_version;
-    // Run the per-artifact forward migrators (buildout F1) BEFORE the marker is
-    // advanced, so a migrator that throws leaves the project at the old version
-    // to be retried rather than sealed half-migrated. Empty registry (the 1.0.0
-    // baseline) => no notes, recorded exactly as a plain marker bump always was.
     const notes = await runSchemaMigrators(
       {
         projectRoot,
@@ -315,8 +239,6 @@ export async function checkAndMigrateSchema(
     return written;
   });
 }
-
-// ---- semver helpers (major.minor.patch only; pre-release tags ignored) ----
 
 function isSemver(value: string): boolean {
   return /^\d+\.\d+\.\d+$/.test(value.trim());

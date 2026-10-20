@@ -1,9 +1,3 @@
-// The HUD snapshot's `cost` field (issue #639, Part 23).
-//
-// Read from the change's `cost.json` only, which the Stop and SubagentStop hooks write. The
-// snapshot never reads a transcript itself, so building it stays cheap and a refresh from a verb
-// can never disagree with what the hooks recorded. No file reads `null` ("not yet").
-
 import {
   readChangeCost,
   type ChangeCostRecord,
@@ -23,7 +17,6 @@ export interface HudCost {
   label: string;
   plan_note: string;
   tokens: CostTokens;
-  /** The priced part in US dollars, an estimate; null when no token is priced. */
   usd: number | null;
   unpriced_models: string[];
   by_stage: CostStageLine[];
@@ -32,7 +25,6 @@ export interface HudCost {
   not_counted: string[];
 }
 
-/** The fields of a cost record the HUD shows, in a fixed order. */
 export function hudCostOf(record: ChangeCostRecord): HudCost {
   return {
     computed_at: record.computed_at,
@@ -52,7 +44,6 @@ export function hudCostOf(record: ChangeCostRecord): HudCost {
   };
 }
 
-/** The change's cost as the HUD shows it, or null when no `cost.json` was written yet. */
 export function buildHudCost(projectRoot: string, dirName: string): HudCost | null {
   const record = readChangeCost(projectRoot, dirName);
   return record ? hudCostOf(record) : null;

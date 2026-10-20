@@ -25,8 +25,6 @@ function writeDrift(dir: string, body: unknown): void {
 
 describe('module-map-reconciler scripts', () => {
   describe('reconcile.sh', () => {
-    // Thin wrapper around `paqad-ai module-map reconcile`. We assert the
-    // help surface only — full CLI behaviour is covered by tests/unit/cli/.
     const path = sh('reconcile.sh');
 
     it('--help exits 0 with usage on stdout', () => {

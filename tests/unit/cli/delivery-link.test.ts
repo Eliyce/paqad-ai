@@ -54,7 +54,7 @@ describe('paqad-ai delivery-link', () => {
     expect(readFeatureDelivery(root, dir).commits).toHaveLength(1);
   });
 
-  it('commit regenerates the feature report after linking (AC-6, #371)', async () => {
+  it('commit regenerates the feature report after linking (AC-6)', async () => {
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
     await run('commit');
     const dir = currentFeature(root, SES)!;

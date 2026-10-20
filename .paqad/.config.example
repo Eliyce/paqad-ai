@@ -56,6 +56,8 @@
 # checks_parallel=true
 # Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
 # checks_max_processes=0
+# Show the paqad HUD band above the prompt in the Claude Code plugin. OFF shows no band and registers no /paqad command. (env: PAQAD_HUD_VIEW)
+# hud_view=true
 
 # ── Claude Code plugin migration (issue #621) ───────────────
 # on | off — fleet-wide switch to move existing npm Claude Code users to the paqad plugin automatically in the background. Default off until manual sign-off; Claude Code only, npm is never removed and stays the fallback. (env: PAQAD_PLUGIN_MIGRATION)

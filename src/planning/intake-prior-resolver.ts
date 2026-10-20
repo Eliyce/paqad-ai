@@ -15,27 +15,11 @@ export interface IntakePriorLookupInput {
 }
 
 export interface IntakePriorMatch {
-  /** ID of the prior resolved decision that answered the same fingerprint. */
   priorDecisionId: string;
-  /** The chosen option key from the prior. Pre-fill `human_response.chosen_option_key` with this. */
   chosenOptionKey: string;
-  /** Free-text rationale for pre-filling — cites the prior decision ID. */
   rationale: string;
 }
 
-/**
- * Priors-first lookup for the ticket_intake decision elicitation sub-loop.
- *
- * Computes a fingerprint from (category, question, option_keys, repo_state)
- * and asks the DecisionStore whether a prior resolved decision answers the
- * same question. On a hit the caller pre-fills the new packet's
- * `human_response.chosen_option_key` with `chosenOptionKey` and uses the
- * returned `rationale` for `human_response.note`. The DecisionStore emits a
- * `decision-reused` audit event on every fingerprint hit — this function is
- * the first dedicated caller of that path for intake categories.
- *
- * Returns null when no prior matches; the caller must then ask the user.
- */
 export function findIntakePriorMatch(
   projectRoot: string,
   input: IntakePriorLookupInput,

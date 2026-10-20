@@ -18,10 +18,6 @@ import {
   fileText,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 
-// Issue #639, Part 9 (FR-26 to FR-29, AC-40 to AC-43): the band laid out as rows of text that
-// fit `bodyColumns` and `maxRows`, cut rather than wrapped, each row saying what it means in
-// words so it still reads with the colour gone.
-
 const view = (raw: Record<string, unknown> | null) =>
   buildBandView(raw ? parseSnapshot(fileText(raw)) : null, NOW);
 const lines = (raw: Record<string, unknown> | null, columns = 95, maxRows = 12) =>
@@ -36,7 +32,6 @@ describe('the band rows (FR-26)', () => {
       'Ship   3 commits  ✓Edit ✓Commit ·Push ·PR ·CI ·Merge (yours)',
       '1 flag · cost: not yet',
     ]);
-    // The fast lane has no High Table, and nor has a session with no change in progress.
     for (const raw of [FAST_ORD_490, PAUSED]) {
       expect(lines(raw).join('\n')).not.toContain('High Table');
     }
@@ -103,7 +98,6 @@ describe('the terminal band fits its box (FR-28, AC-43)', () => {
       'Stage  6 of 8 done  ·Intake ✓Planning ✓…',
       'High Table  ●●●●●●● chief ●',
     ]);
-    // With the experts off the band has two instruments, so four rows hold the pills apart.
     expect(lines(EXPERTS_OFF, 95, 4).at(-1)).toBe('cost: not yet');
     expect(lines(FULL_ORD_501, 95, 4)[0]).toContain('1 flag · cost: not yet');
     expect(lines(FULL_ORD_501, 95, 1)).toEqual([

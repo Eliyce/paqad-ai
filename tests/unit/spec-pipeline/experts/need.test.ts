@@ -15,7 +15,7 @@ describe('validateExpertNeed', () => {
     expect(result.artifact?.experts[0]?.role).toBe('db-expert');
   });
 
-  it('accepts an empty experts[] — nothing needed is valid (issue #521 §4)', () => {
+  it('accepts an empty experts[] — nothing needed is valid', () => {
     const result = validateExpertNeed({ experts: [] });
     expect(result.ok).toBe(true);
     expect(result.artifact?.experts).toEqual([]);
@@ -103,7 +103,7 @@ describe('validateExpertNeed', () => {
     );
   });
 
-  it('accepts the two new pickable experts (issue #547)', () => {
+  it('accepts the two new pickable experts', () => {
     const result = validateExpertNeed({
       experts: [
         { role: 'qa-engineer', reason: 'observable behaviour' },

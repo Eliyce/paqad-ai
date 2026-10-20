@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Emit one module slug per line for every profile the sync pass updated
-#          in a combined refresh report (`sync.updated_profiles`). These are the
-#          modules whose health moved this run.
-# Usage:   bash scripts/list-updated.sh <report.json>   (or stdin)
-# Output:  Sorted slugs on stdout; empty when the sync pass updated nothing.
-# Exits:   0 ok | 2 usage / parse error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Emit one module slug per line for every profile the sync pass updated
+         in a combined refresh report (`sync.updated_profiles`). These are the
+         modules whose health moved this run.
+Usage:   bash scripts/list-updated.sh <report.json>   (or stdin)
+Output:  Sorted slugs on stdout; empty when the sync pass updated nothing.
+Exits:   0 ok | 2 usage / parse error
+USAGE
   exit 0
 fi
 

@@ -252,8 +252,6 @@ export function createTestDelta(
   if (options.treat_missing_as_passing === true) {
     for (const [testId, before] of baselineMap) {
       if (currentMap.has(testId)) continue;
-      // Issue-only snapshots omit passed tests; a missing failing/errored entry
-      // indicates recovery into passing.
       if (before.status !== 'passed') {
         newlyPassing.push(testId);
       }
@@ -969,15 +967,58 @@ function calculateReductionRatio(originalSize: number, compactSize: number): num
 
 function extractFileLikeSegments(lines: string[]): string[] {
   const matches: string[] = [];
-  const pattern = /(?:\.?\/?[\w@.-]+\/)+[\w.-]+(?:\.[a-zA-Z0-9]+)?/g;
 
   for (const line of lines) {
-    for (const hit of line.match(pattern) ?? []) {
-      matches.push(hit);
+    for (const run of line.match(PATH_CHAR_RUN) ?? []) {
+      matches.push(...findPathSegmentsInRun(run));
     }
   }
 
   return sortUnique(matches).slice(0, 10);
+}
+
+const PATH_CHAR_RUN = /[\w@./-]+/g;
+
+function isPathTailChar(char: string | undefined): boolean {
+  return char !== undefined && char !== '/' && char !== '@';
+}
+
+function nextSegmentEnd(run: string, from: number): number {
+  let nameStart = from;
+  if (run[from] === '/') {
+    nameStart = from + 1;
+    if (nameStart >= run.length || run[nameStart] === '/') return -1;
+  }
+  const slash = run.indexOf('/', nameStart);
+  return slash === -1 ? -1 : slash + 1;
+}
+
+export function findPathSegmentsInRun(run: string): string[] {
+  const hits: string[] = [];
+  let start = 0;
+  while (start < run.length) {
+    let tailStart = -1;
+    let position = start;
+    for (
+      let next = nextSegmentEnd(run, position);
+      next !== -1;
+      next = nextSegmentEnd(run, position)
+    ) {
+      position = next;
+      if (isPathTailChar(run[position])) tailStart = position;
+    }
+    if (tailStart === -1) {
+      if (position !== start) start = position + 1;
+      else if (run[start] === '/') start += 1;
+      else break;
+      continue;
+    }
+    let end = tailStart;
+    while (isPathTailChar(run[end])) end += 1;
+    hits.push(run.slice(start, end));
+    start = end;
+  }
+  return hits;
 }
 
 function flattenJson(value: unknown, prefix = ''): string[] {

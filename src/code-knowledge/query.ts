@@ -1,8 +1,3 @@
-// Querying the code-knowledge index (issue #353). Given a name or a file path,
-// return a card a developer (or a later consumer) can act on: for a symbol, its
-// signature, file:line, caller count and top callers; for a file, its importers and
-// the symbols it defines. Pure over an already-loaded index — no I/O here.
-
 import type { CodeKnowledgeIndex } from './types.js';
 
 export interface SymbolCard {
@@ -15,7 +10,6 @@ export interface SymbolCard {
   extraction_tier: string;
   caller_count: number;
   orphan: boolean;
-  /** Distinct files that reference this symbol, most-relevant first (capped). */
   top_callers: string[];
 }
 
@@ -25,9 +19,7 @@ export interface FileCard {
   caller_count: number;
   orphan: boolean;
   entry_point: boolean;
-  /** Distinct files that import this file (capped). */
   importers: string[];
-  /** Symbols this file defines, with their own caller counts. */
   symbols: Array<{ name: string; caller_count: number }>;
 }
 
@@ -83,10 +75,6 @@ function fileCard(index: CodeKnowledgeIndex, file: CodeKnowledgeIndex['files'][n
   };
 }
 
-/**
- * Look up `term` as a symbol name (may match several definitions) and, failing that,
- * as a file path. Returns every matching card; an empty `matches` means not found.
- */
 export function queryCodeKnowledge(index: CodeKnowledgeIndex, term: string): QueryResult {
   const symbolMatches = index.symbols
     .filter((symbol) => symbol.name === term)

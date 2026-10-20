@@ -1,8 +1,3 @@
-/**
- * Mirrors the contract in src/dashboard/types.ts. Kept structurally
- * identical so JSON deserialisation just works. Update both sides when
- * adding fields.
- */
 export type ScoreBand = 'green' | 'amber' | 'red' | 'unknown';
 
 export interface SectionMetric {
@@ -39,8 +34,6 @@ export interface DashboardReport {
   attention: AttentionItem[];
   sections: SectionData[];
 }
-
-/* Approvals inbox — mirrors src/dashboard/approvals.ts. */
 
 export interface ApprovalsPauseOption {
   option_key: string;
@@ -82,8 +75,6 @@ export interface ApprovalsFeed {
   pendingCount: number;
 }
 
-/* Trust area — mirrors src/dashboard/trust.ts. */
-
 export interface EvidenceRow {
   ts: string;
   engine: string;
@@ -106,7 +97,6 @@ export interface ReceiptCheck {
   engine: string;
   verdict: EvidenceRow['verdict'];
   strength_class: EvidenceRow['strength_class'];
-  /** False for a check recorded after the receipt's seal (issue #581): not covered by it. */
   sealed?: boolean;
 }
 
@@ -126,9 +116,7 @@ export interface ReceiptCard {
     accepting_human?: { name?: string; email?: string };
     provenance: 'declared' | 'unknown';
   } | null;
-  // Issue #122 — which legal clauses the passing gates produce evidence toward.
   compliance: ComplianceCitation[];
-  // Issue #123 — the frozen-context reproducibility stamp, or null when absent.
   reproducibility: {
     context_hash: string;
     determinism: 'input-replay';
@@ -158,8 +146,6 @@ export interface ReceiptFeed {
   receipts: ReceiptCard[];
 }
 
-/* Functionality inventory — mirrors src/dashboard/inventory.ts. */
-
 export type InventoryClass = 'web' | 'prompt' | 'evidence' | 'operation';
 export type InventoryOwner = 'you' | 'paqad' | 'shared';
 export type DashboardArea =
@@ -174,11 +160,8 @@ export type DashboardArea =
   | 'site-map';
 
 export interface InventoryItemState {
-  /** True when the source of truth exists on disk. */
   exists: boolean;
-  /** One short sentence describing the live state. */
   detail: string;
-  /** Optional count behind the detail (files, entries, pending items). */
   count?: number;
 }
 
@@ -189,9 +172,7 @@ export interface InventoryItem {
   class: InventoryClass;
   managedBy: InventoryOwner;
   area: DashboardArea;
-  /** Hash route of the area page that renders this item. */
   route: string;
-  /** Project-relative source of truth (posix). */
   source: string;
   state: InventoryItemState;
 }
@@ -202,8 +183,6 @@ export interface InventoryReport {
   items: InventoryItem[];
 }
 
-/* Saved views — mirrors src/dashboard/saved-views.ts. */
-
 export type SavedViewArea = 'graph' | 'trust' | 'export';
 
 export interface SavedView {
@@ -213,9 +192,6 @@ export interface SavedView {
   scope: Record<string, unknown>;
   createdAt: string;
 }
-
-/* Delivery policy editor — mirrors src/core/types/delivery-policy.ts and
-   src/dashboard/config-delivery-policy.ts. */
 
 export type MaintenanceMode = 'auto' | 'manual';
 
@@ -294,7 +270,6 @@ export interface ResolvedDeliveryPolicy {
 
 export type DeliverySectionKey = keyof ResolvedDeliveryProcess;
 
-/** A dashboard-managed file plus the hash a PUT must echo back. */
 export interface ManagedFileInfo {
   path: string;
   exists: boolean;
@@ -315,7 +290,6 @@ export interface DeliveryPolicyIssue {
   message: string;
 }
 
-/** Discriminated PUT outcome so views never parse responses ad hoc. */
 export type PutDeliveryPolicyOutcome =
   | { status: 'ok'; path: string; hash: string; resolved: ResolvedDeliveryPolicy }
   | { status: 'invalid'; error: string; issues: DeliveryPolicyIssue[] }
@@ -324,10 +298,6 @@ export type PutDeliveryPolicyOutcome =
       error: string;
       conflict: { content: string | null; hash: string | null };
     };
-
-/* Shared mutation envelope — every PUT/POST under /api/config and friends
-   answers { ok: true, result } on 200, { error, issues } on 422 and
-   { error, conflict } on 409 (see src/dashboard/server.ts handleMutation). */
 
 export interface ValidationIssue {
   path: string;
@@ -343,13 +313,10 @@ export type MutationOutcome<T> =
       conflict: { content: string | null; hash: string | null };
     };
 
-/** PUT result for plain managed files (instructions, design tokens). */
 export interface PutManagedFileResult {
   path: string;
   hash: string;
 }
-
-/* Project profile + capabilities — mirrors src/dashboard/config-profile.ts. */
 
 export interface ProfileConfigResponse {
   profile: Record<string, unknown> | null;
@@ -365,8 +332,6 @@ export interface PutProfileResult {
 export interface SetCapabilityResult {
   active: string[];
 }
-
-/* Module map — mirrors src/dashboard/config-module-map.ts. */
 
 export interface ModuleMapFeature {
   slug: string;
@@ -409,8 +374,6 @@ export interface PutModuleMapResult {
   modules: ModuleMapModule[];
 }
 
-/* RAG settings — mirrors src/dashboard/config-rag.ts. */
-
 export interface RagStatus {
   enabled: boolean;
   provider: string | null;
@@ -429,8 +392,6 @@ export interface PutRagResult {
   intelligence: Record<string, unknown>;
 }
 
-/* Design tokens — mirrors src/dashboard/config-design-tokens.ts. */
-
 export interface DesignTokensConfigResponse {
   file: ManagedFileInfo;
   tokens: Record<string, unknown> | null;
@@ -445,10 +406,7 @@ export interface PutDesignTokensResult {
   regenerationError?: string;
 }
 
-/* Instructions files — mirrors src/dashboard/instructions-files.ts. */
-
 export interface InstructionsTreeNode {
-  /** Path relative to docs/instructions, posix. Empty string for the root. */
   path: string;
   name: string;
   type: 'directory' | 'file';
@@ -462,13 +420,9 @@ export interface InstructionsTreeResponse {
 }
 
 export interface InstructionsFileResponse extends ManagedFileInfo {
-  /** Parsed YAML frontmatter for .md files (empty object when none). */
   frontmatter: Record<string, unknown>;
-  /** File body with the frontmatter block removed (equals content for non-md). */
   body: string | null;
 }
-
-/* Packs — mirrors src/dashboard/packs-config.ts. */
 
 export type PackSource = 'built-in' | 'global' | 'project';
 
@@ -492,8 +446,6 @@ export interface RemovePackResult {
   removed: true;
 }
 
-/* Ops jobs — mirrors src/dashboard/ops-jobs.ts. */
-
 export type OpsAction =
   | 'reconcile'
   | 'refresh-rules'
@@ -505,7 +457,6 @@ export type OpsAction =
   | 'doctor'
   | 'site-map';
 
-/** A journey row for the Site map area's curation panel (issue #448). */
 export interface SiteMapJourney {
   id: string;
   label: string;
@@ -523,7 +474,6 @@ export interface OpsJob {
   error: string | null;
 }
 
-/** One `ops-progress` SSE event payload. */
 export interface OpsProgressEvent {
   jobId: string;
   action: OpsAction;
@@ -531,27 +481,19 @@ export interface OpsProgressEvent {
   message: string;
 }
 
-/* Onboarding checklist — mirrors src/dashboard/onboarding-checklist.ts. */
-
 export interface OnboardingChecklistStep {
   key: 'connect-agent' | 'first-gate' | 'first-decision' | 'first-receipt' | 'edit-instruction';
   label: string;
-  /** Hash route where the step happens, e.g. "#/trust". */
   route: string;
-  /** True when the underlying real event has happened (server-side view). */
   done: boolean;
   detail: string;
 }
 
 export interface OnboardingChecklist {
   steps: OnboardingChecklistStep[];
-  /** True once every server-knowable step is done. */
   complete: boolean;
-  /** A receipt exists, so the client may complete the receipt step on view. */
   receiptAvailable: boolean;
 }
-
-/* Audit feed — mirrors src/dashboard/audit-feed.ts. */
 
 export interface AuditFeedEntry {
   ts: string | null;

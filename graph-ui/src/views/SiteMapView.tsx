@@ -41,13 +41,6 @@ import {
   type FreshnessTone,
 } from '../lib/site-map-vocab';
 
-/**
- * The Site map area (issue #466). Its primary content is an interactive visual of the app, read
- * statically from the single canonical docs/site-map/ YML the server serves on /api/site-map/map
- * (no LLM at view time). Journeys are the hero: pick one and walk it station by station. A
- * text-first list toggle gives the same information without the diagram (A11Y-2).
- */
-
 type ViewMode = 'map' | 'list';
 
 function shapeGlyph(shape: string): string {
@@ -68,9 +61,6 @@ export function SiteMapView() {
   const [activeJourneyId, setActiveJourneyId] = useState<string | null>(null);
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<ViewMode>('map');
-  // Full screen (S7, D8). Deliberately not persisted (FR-7): a page load never opens in full screen.
-  // `method` records how we entered so the CSS fallback can style a fixed overlay and the native
-  // path can be exited cleanly.
   const [fullscreen, setFullscreen] = useState(false);
   const [fsMethod, setFsMethod] = useState<FullscreenMethod | null>(null);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -92,16 +82,13 @@ export function SiteMapView() {
         .then(() => apply(resolveFullscreenMethod(true, false)))
         .catch(() => apply(resolveFullscreenMethod(true, true)));
     } else {
-      // No Fullscreen API (older or embedded host): the CSS fixed-container fallback (FR-3).
       apply(resolveFullscreenMethod(false, false));
     }
   }, []);
 
   const exitFullscreen = useCallback((): void => {
     if (document.fullscreenElement && document.exitFullscreen) {
-      void document.exitFullscreen().catch(() => {
-        /* already out of native full screen; the state below still clears */
-      });
+      void document.exitFullscreen().catch(() => {});
     }
     setFsMethod(null);
     setFullscreen(false);
@@ -112,7 +99,6 @@ export function SiteMapView() {
     else enterFullscreen();
   }, [fullscreen, enterFullscreen, exitFullscreen]);
 
-  // Keyboard: `f` toggles, `Escape` exits — but never while the user is typing (FR-1).
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement | null;
@@ -129,7 +115,6 @@ export function SiteMapView() {
     return () => window.removeEventListener('keydown', onKey);
   }, [fullscreen, toggleFullscreen, exitFullscreen]);
 
-  // When the user leaves native full screen by the browser's own control, sync our state (FR-3).
   useEffect(() => {
     const onChange = (): void => {
       if (!document.fullscreenElement && fsMethod === 'api') {
@@ -141,7 +126,6 @@ export function SiteMapView() {
     return () => document.removeEventListener('fullscreenchange', onChange);
   }, [fsMethod]);
 
-  // A monotonically ticking focus request: selecting a gap/insight target flies the camera to it.
   const [focus, setFocus] = useState<{ id: string; nonce: number } | null>(null);
   const focusOn = useCallback((id: string): void => {
     setSelectedId(id);
@@ -160,11 +144,7 @@ export function SiteMapView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        /* chrome metadata is best-effort; the map still renders */
-      });
-    // The resumable run progress (S6): null when no run has recorded any yet, so the strip stays
-    // hidden until there is real progress to show.
+      .catch(() => {});
     fetchSiteMapProgress()
       .then(setProgress)
       .catch(() => setProgress(null));
@@ -178,7 +158,6 @@ export function SiteMapView() {
     const source = new EventSource('/api/events');
     source.addEventListener('open', () => setSseLive(true));
     source.addEventListener('error', () => setSseLive(false));
-    // Live reload: when the .paqad/docs artefacts change, refresh the map (FRESH-2).
     source.addEventListener('message', () => load());
     return () => source.close();
   }, [load]);
@@ -196,8 +175,6 @@ export function SiteMapView() {
     return map.surfaces.find((surface) => surface.id === selectedId) ?? null;
   }, [map, selectedId]);
 
-  // The map's real gaps, computed from the payload (no LLM): dead surfaces, dangling transition
-  // targets, and journey steps referencing an unknown surface. Drives the insight line and chip.
   const gaps = useMemo(() => {
     if (map === null) return { dead: [] as string[], dangling: [], broken: [] };
     return {
@@ -208,8 +185,6 @@ export function SiteMapView() {
   }, [map, ready]);
   const gapCount = gaps.dead.length + gaps.dangling.length + gaps.broken.length;
 
-  // The run-progress strip's fields, or null when there is no progress file (S6): render nothing
-  // rather than an empty bar.
   const progressStrip = useMemo(() => summarizeSiteMapProgress(progress), [progress]);
 
   const pickJourney = useCallback((id: string | null): void => {
@@ -217,7 +192,6 @@ export function SiteMapView() {
     setStep(0);
   }, []);
 
-  // When walking a journey, keep the current station selected so its detail shows (JM-2).
   useEffect(() => {
     if (activeJourney === null) return;
     const surface = activeJourney.steps[step]?.surface;
@@ -235,9 +209,6 @@ export function SiteMapView() {
         ref={shellRef}
         className="flex h-full flex-col"
         style={
-          // In the CSS fallback (embedded / API rejected) a fixed, full-viewport container gives the
-          // map the whole window (FR-3); the native path already fills the screen. The transition
-          // honours prefers-reduced-motion (FR-6).
           fullscreen && fsMethod === 'css'
             ? {
                 position: 'fixed',
@@ -263,8 +234,6 @@ export function SiteMapView() {
                 </span>
               )}
               <div className="ml-auto flex items-center gap-3">
-                {/* Reuse the shared ops button (SSE progress + poll backstop) to run the map from
-                    here; finishing reloads the view and the progress strip (S6, D8). */}
                 <OpButton action="site-map" label="Run site map" onDone={load} />
                 {ready && (
                   <button
@@ -355,8 +324,6 @@ export function SiteMapView() {
 
         {ready && map && (
           <div className="flex min-h-0 flex-1 flex-col">
-            {/* Journey picker: journeys are the default unit (UXR-2). Hidden in full screen; the
-                floating bar over the canvas carries the journeys and an exit control then (S7). */}
             {chrome.journeyBand && (
               <div
                 className="flex flex-wrap items-center gap-2 border-b px-6 py-2.5"
@@ -410,8 +377,6 @@ export function SiteMapView() {
 
             <div className="flex min-h-0 flex-1">
               <div className="relative min-w-0 flex-1">
-                {/* In full screen the chrome is gone, so a bar floats over the content with an
-                    always-visible exit control and the journey picker (S7, FR-2). */}
                 {fullscreen && (
                   <FullscreenBar
                     journeys={ready.journeys}
@@ -479,11 +444,6 @@ function surfaceLabel(map: AppMap, id: string): string {
   return map.surfaces.find((surface) => surface.id === id)?.label ?? id;
 }
 
-/**
- * The first-open insight line + gaps chip (issue #489, Phase 3). One true line computed from the
- * payload in priority order (dead surfaces first), and a chip that opens the full gap list; each
- * row flies the camera to its node. Hidden entirely when the map has no gaps (the caller gates it).
- */
 function InsightBar({
   map,
   gaps,
@@ -666,11 +626,6 @@ function ModeButton({
   );
 }
 
-/**
- * The floating full-screen bar (S7, FR-2). In full screen the four chrome pieces are gone, so this
- * one bar floats over the canvas carrying the journey picker and an always-visible exit control. The
- * canvas's own controls (zoom, minimap, wheel toggle) keep floating from the canvas itself.
- */
 function FullscreenBar({
   journeys,
   activeJourneyId,
@@ -748,20 +703,12 @@ function JourneyChip({
   );
 }
 
-/** The colour token for a freshness tone. Colour reinforces the glyph and word, never carries the
- *  meaning on its own (A11Y-3). */
 function toneColor(tone: FreshnessTone): string {
   if (tone === 'fresh') return 'var(--color-mod-green)';
   if (tone === 'stale') return 'var(--color-mod-amber)';
   return 'var(--color-mod-unknown)';
 }
 
-/**
- * The run-progress strip (S6, D8). While a run authors the map it shows how far along it is: the
- * current unit, a done / writing / remaining count, and one line naming what a previous session
- * already finished. Read statically from the served progress file; the caller renders it only when
- * a progress file exists, so it never shows an empty or zeroed bar.
- */
 function ProgressStrip({ model }: { model: SiteMapProgressStrip }) {
   return (
     <div
@@ -790,12 +737,6 @@ function ProgressStrip({ model }: { model: SiteMapProgressStrip }) {
   );
 }
 
-/**
- * The honesty strip (issue #466, C5c). It surfaces the proof layer the map already carries: how
- * fresh the map is versus the code it cites, and how much of it is proven in code rather than
- * inferred. Both are read statically from the served payload, so nothing resolves at view time
- * (NFR-1). It never claims more certainty than the elements earned (FR-3).
- */
 function HonestyStrip({ freshness, map }: { freshness: SiteMapFreshness; map: AppMap }) {
   const verdict = freshnessVerdict(freshness);
   const trust = trustRollup(map);

@@ -12,12 +12,6 @@ import { fetchDashboard, fetchGraph, fetchReceipts } from '../lib/api';
 import type { ReceiptCard } from '../lib/dashboard-types';
 import { useAppStore } from '../lib/store';
 
-/**
- * The project graph, now a first-class dashboard area (issue #159). It mounts
- * inside the shared DashboardChrome so it lives behind the same left rail as
- * every other area; its own control panel is an absolutely-positioned floating
- * panel, so it hovers over the canvas rather than the nav rail.
- */
 export function GraphView() {
   const graph = useAppStore((s) => s.graph);
   const loading = useAppStore((s) => s.loading);
@@ -52,31 +46,24 @@ export function GraphView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine; the graph error is the one that matters
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, [setGraph, setLoading, setError]);
 
-  // Receipts back the AI-activity overlay (issue #165): fetch once, refresh on
-  // the same SSE the graph listens to.
   useEffect(() => {
     let cancelled = false;
     fetchReceipts()
       .then((feed) => {
         if (!cancelled) setReceipts(feed.receipts);
       })
-      .catch(() => {
-        // the overlay simply stays empty if receipts cannot be read
-      });
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
   }, []);
 
-  // Recompute per-module activity whenever the graph or the receipts change.
   useEffect(() => {
     setActivityByModule(computeActivity(graph, receipts));
   }, [graph, receipts, setActivityByModule]);
@@ -94,9 +81,7 @@ export function GraphView() {
         .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)));
       fetchReceipts()
         .then((feed) => setReceipts(feed.receipts))
-        .catch(() => {
-          // overlay stays as-is on a transient receipt fetch failure
-        });
+        .catch(() => {});
     };
     source.addEventListener('open', () => setSseLive(true));
     source.addEventListener('error', () => setSseLive(false));

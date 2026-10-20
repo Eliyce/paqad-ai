@@ -46,7 +46,6 @@ describe('buildProvenance', () => {
     expect(prov.a5_live).toBe(true);
     expect(prov.outcome).toBe('freeze');
     expect(prov.enforcement.enabled).toBe(true);
-    // No `signed_off_by` / signature field is ever present.
     expect('signed_off_by' in prov).toBe(false);
   });
 
@@ -60,7 +59,7 @@ describe('buildProvenance', () => {
     expect('experts' in prov).toBe(false);
   });
 
-  it('folds the experts block in only when experts ran (issue #521, FR-8)', () => {
+  it('folds the experts block in only when experts ran', () => {
     const accounting: ExpertRunAccounting = {
       experts: [{ role: 'db-expert', reason: 'migration', tokens: 900, changed_spec: true }],
       total_tokens: 900,
@@ -78,7 +77,6 @@ describe('buildProvenance', () => {
   });
 });
 
-// Issue #547 — buildProvenance folds the metrics in only when given (FR-11.1).
 describe('buildProvenance metrics', () => {
   const metrics = {
     grounding_sparse: false,
@@ -119,7 +117,6 @@ describe('buildProvenance metrics', () => {
   });
 });
 
-// Issue #581 — the frozen `pipeline` section is shaped from the staged finish (D4).
 describe('frozenPipelineSection', () => {
   it('stores the enforcement once, without the master switch', () => {
     const config: PipelineConfig = {

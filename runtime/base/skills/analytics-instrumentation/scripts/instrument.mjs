@@ -1,19 +1,5 @@
 #!/usr/bin/env node
-// Purpose: Instrument one analytics event the tracking-plan-as-code way (issue #279). Writes
-//          the per-event doc + refreshes the per-module index via the framework doc-tree
-//          primitives, and prints the provider tracking-call snippet to paste into the source.
-//          The agent supplies only the event name (in the project convention) and later the doc
-//          body; the slug, path, doc scaffold, and snippet are computed here so casing-variant
-//          duplicates cannot diverge and no path is hand-authored.
-// Usage:   node scripts/instrument.mjs <project-root> \
-//            --module <m> --feature <f> --event <name> --provider <p> [--provider <p> ...]
-// Output:  JSON { docPath, written, snippet } on stdout.
-// Exit:    0 on success, 1 on usage error.
-// The `paqad-ai` package is imported dynamically AFTER argument validation so a usage error
-// never depends on the built package being resolvable.
 
-// Provider → how the event call reads at the call site. Data, not code: adding a provider is a
-// row here, never a new branch. `%s` is replaced with the exact event name.
 const SNIPPETS = {
   posthog: "posthog.capture('%s')",
   segment: "analytics.track('%s')",

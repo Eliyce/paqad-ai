@@ -15,7 +15,7 @@ const events: InstrumentedEvent[] = [
   { module: 'checkout', feature: 'cart', eventName: 'checkout_started' },
 ];
 
-describe('analytics enforcement (issue #279)', () => {
+describe('analytics enforcement', () => {
   describe('evaluateAnalyticsCompleteness', () => {
     it('off is always ok, even with missing docs', () => {
       const result = evaluateAnalyticsCompleteness({ mode: 'off', events, docExists: () => false });

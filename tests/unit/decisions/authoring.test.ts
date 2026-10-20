@@ -64,7 +64,6 @@ describe('mintDecisionId / isContractDecisionId', () => {
     expect(isContractDecisionId('D-1')).toBe(false);
     expect(isContractDecisionId('4')).toBe(false);
     expect(isContractDecisionId('D-01KWF47XSPQAH4KC4B3YYXC7CT')).toBe(true);
-    // ULID excludes I/L/O/U — a lookalike with those must not pass.
     expect(isContractDecisionId('D-0IKWF47XSPQAH4KC4B3YYXC7CT')).toBe(false);
   });
 
@@ -93,7 +92,6 @@ describe('createPendingDecision', () => {
     expect(packet.options).toHaveLength(2);
     expect(typeof packet.created_at).toBe('string');
     expect(Number.isNaN(Date.parse(packet.created_at))).toBe(false);
-    // File ends with a trailing newline (atomic JSON write).
     expect(readFileSync(path, 'utf8').endsWith('}\n')).toBe(true);
   });
 
@@ -182,7 +180,6 @@ describe('resolvePendingDecision', () => {
     expect(() => resolvePendingDecision(root, id, 'nope')).toThrow(
       /not one of the packet's options/u,
     );
-    // The packet stays pending on a failed resolve.
     expect(existsSync(pendingPath(id))).toBe(true);
   });
 
@@ -195,7 +192,7 @@ describe('resolvePendingDecision', () => {
   });
 });
 
-describe('listContractDecisions (#326)', () => {
+describe('listContractDecisions', () => {
   it('is empty for a project with no decisions dir', () => {
     expect(listContractDecisions(root)).toEqual([]);
   });
@@ -204,7 +201,6 @@ describe('listContractDecisions (#326)', () => {
     const pending = createPendingDecision(root, validInput()).id;
     const resolveMe = createPendingDecision(root, validInput()).id;
     resolvePendingDecision(root, resolveMe, 'skill');
-    // A malformed pending file must not break the listing.
     writeFileSync(join(root, PATHS.DECISIONS_PENDING_DIR, 'junk.json'), '{ not json');
 
     const rows = listContractDecisions(root);
@@ -213,7 +209,7 @@ describe('listContractDecisions (#326)', () => {
   });
 });
 
-describe('addWriteInOption (#326)', () => {
+describe('addWriteInOption', () => {
   it('appends a write-in option and returns its key', () => {
     const { id } = createPendingDecision(root, validInput());
     expect(addWriteInOption(root, id, 'A third way')).toBe('other');
@@ -242,7 +238,7 @@ describe('addWriteInOption (#326)', () => {
   });
 });
 
-describe('evidence-armed packet fields (#361)', () => {
+describe('evidence-armed packet fields', () => {
   it('round-trips an option evidence block through create and resolve', () => {
     const evidence = {
       file: 'src/utils/dates.ts',
@@ -263,8 +259,6 @@ describe('evidence-armed packet fields (#361)', () => {
     const stored = readContractDecisions(root).find((row) => row.packet.id === id);
     expect(stored?.packet.origin).toBe('evidence-armed');
     expect(stored?.packet.options[0].evidence).toEqual(evidence);
-    // An option without evidence carries an empty block: the one packet shape (#639 Part 3)
-    // is also a valid DecisionPacket, whose options always hold an evidence object.
     expect(stored?.packet.options[1].evidence).toEqual({});
 
     const { packet } = resolvePendingDecision(root, id, 'reuse');

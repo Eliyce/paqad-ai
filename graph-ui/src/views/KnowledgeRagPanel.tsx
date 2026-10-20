@@ -6,12 +6,6 @@ import { WinLine } from '../components/WinLine';
 import { fetchRagConfig, putRagConfig } from '../lib/api';
 import type { RagConfigResponse, ValidationIssue } from '../lib/dashboard-types';
 
-/**
- * The retrieval panel on the Knowledge area page (issue #146): the live
- * index status, the handful of RAG settings worth a form, and the three
- * index operations. Rendered by AreaView through its `extra` slot.
- */
-
 const WIN_LINE = 'Saved. Every agent picks this up automatically on its next session.';
 
 const RAG_CLEAR_CONFIRM =

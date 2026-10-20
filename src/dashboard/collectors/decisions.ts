@@ -18,15 +18,6 @@ const HELPER = {
   goodLooksLike: 'Zero pending packets, or pending packets resolved within a couple of days.',
 } as const;
 
-/**
- * Score the decisions section. Algorithm:
- *
- * - No decisions dir at all → unknown (project doesn't use the contract).
- * - 0 pending → 100.
- * - For each pending packet, lose points by age:
- *     ≤ 1 day → 10, ≤ 3 days → 20, ≤ 7 days → 35, > 7 days → 50.
- * - Floor at 0.
- */
 function scorePending(pending: PacketWithAge[]): number {
   if (pending.length === 0) return 100;
   let penalty = 0;
@@ -61,10 +52,6 @@ export function collectDecisions(projectRoot: string, now: number = Date.now()):
     };
   }
 
-  // Buildout F6 (hard cutover, D1) — the dashboard reads decision lifecycle evidence
-  // from the session-ledger, not by scanning the packet buckets. The directories stay
-  // as the gate's operational teeth; the DecisionStore writes both together so they
-  // never drift. The dir's existence above is only the "contract in use" signal.
   const evidence = readDecisionEvidence(projectRoot);
   const pending: PacketWithAge[] = evidence.pending
     .map((p) => {

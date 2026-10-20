@@ -1,11 +1,3 @@
-// Issue #118 — project an in-toto Statement (v1) with a SLSA-VSA-modelled
-// predicate from a window of graded ledger rows.
-//
-// The predicate's `graded_results` is the anti-theater payload: deterministic
-// passes and LLM-judged passes are counted separately and never summed into one
-// "N/16 passed" figure, and blocked/inconclusive rows are surfaced as their own
-// counts rather than hidden inside a pass total.
-
 import {
   IN_TOTO_STATEMENT_TYPE,
   PAQAD_VSA_PREDICATE_TYPE,
@@ -24,8 +16,6 @@ import {
   type VsaPredicate,
 } from '@/core/types/evidence-ledger.js';
 
-/** Tally rows into the graded summary. Passes are split by strength class so a
- *  computed pass is never pooled with a model's say-so. */
 export function summarizeGradedEvidence(rows: readonly EvidenceLedgerRow[]): GradedEvidenceSummary {
   const summary: GradedEvidenceSummary = {
     deterministic: { pass: 0, fail: 0 },
@@ -38,8 +28,6 @@ export function summarizeGradedEvidence(rows: readonly EvidenceLedgerRow[]): Gra
       summary.inconclusive += 1;
       continue;
     }
-    // Issue #579 — a skipped gate did not apply to the change: neither a pass nor a fail,
-    // so it never moves the graded counts.
     if (row.verdict === 'skipped') continue;
     if (row.verdict === 'blocked' || row.strength_class === 'blocked') {
       summary.blocked += 1;
@@ -62,25 +50,6 @@ function countByEngine(
   return counts;
 }
 
-/**
- * The three-way verification outcome (issue #368, AC-D2).
- *
- * A `blocked` row is a measure that COULD NOT RUN (an unwired or absent tool, e.g. a
- * quality-ratchet measure with no coverage report); an `inconclusive` row could not
- * be judged. Neither is a failure — conflating "couldn't verify" with "verification
- * failed" manufactured a false `FAILED` (a change with 9/9 + 2/2 real passes and only
- * three unwired ratchet measures still read `FAILED`). So:
- *   - a genuine `fail` (deterministic or llm-judged) → `FAILED`;
- *   - otherwise, any `inconclusive` row → `INCONCLUSIVE` (do not over-trust, but do not
- *     cry failure either);
- *   - everything else → `PASSED`.
- * A `blocked` row stays counted in `graded_results.blocked`, so the receipt still lists
- * every measure it could not take, but it no longer moves the result (issue #669, decision
- * D-01M5A0MG6537XJ7S3MD3Q4PSCR). The quality ratchet never blocks on a measure it could not
- * take, and the end-of-turn verdict reads gate statuses only, so counting those rows here
- * made the receipt read Inconclusive while the same run's verdict read Safe to merge.
- * A real failure always dominates, so a mix of fail + blocked is still `FAILED`.
- */
 export function deriveVerificationResult(
   summary: GradedEvidenceSummary,
 ): 'PASSED' | 'FAILED' | 'INCONCLUSIVE' {
@@ -98,25 +67,13 @@ export interface BuildStatementInput {
   rows: readonly EvidenceLedgerRow[];
   verifierVersion: string;
   timeVerified: string;
-  /** Issue #120 — who wrote/accepted the change. Omitted from the predicate
-   *  when absent, so receipts without authorship stay byte-identical. */
   authorship?: ChangeAuthorship;
-  /** Issue #122 — `gate → clause` citations. Omitted when empty/absent. */
   complianceCitations?: readonly ComplianceCitation[];
-  /** Issue #123 — frozen-context reproducibility stamp. Omitted when absent. */
   reproducibility?: ReproducibilityStampPredicate;
-  /** Issue #362 — per-change shape metrics. Omitted when absent, so receipts stay byte-identical. */
   metrics?: MetricsPredicate;
-  /**
-   * Issue #581 — seal the bundle's `evidence.jsonl` instead of copying the rows. When given, the
-   * predicate carries `evidence_sha256` + `evidence_line_count` and no `rows`; the graded
-   * counts and verdict are still computed from `rows`. Omitted by the whole-project receipt,
-   * which keeps carrying its rows.
-   */
   evidenceSeal?: EvidenceSeal;
 }
 
-/** Build the in-toto Statement: per-file subjects + a graded VSA predicate. */
 export function buildInTotoStatement(input: BuildStatementInput): InTotoStatement {
   const subject: InTotoSubject[] = input.fileDigests.map((digest) => ({
     name: digest.name,

@@ -31,7 +31,6 @@ afterEach(() => {
 
 const clock = () => new Date('2026-09-04T00:00:00.000Z');
 
-/** A `feature.json` exactly as a pre-#581 writer left it (schema version 1, no branch keys). */
 function legacyFeatureRecord(): Record<string, unknown> {
   return {
     schema_version: 1,
@@ -79,7 +78,6 @@ describe('seedFeatureRecord', () => {
     expect(record!.recorded_at).toBe(clock().toISOString());
     expect(record!.adapter).toBe('claude-code');
     expect(validateFeatureRecord(record)).toEqual([]);
-    // The file is on disk and re-readable.
     expect(readFeatureRecord(root, DIR)).toEqual(record);
   });
 
@@ -120,7 +118,7 @@ describe('updateFeatureRecord', () => {
     expect(updated!.lane).toBe('full');
     expect(updated!.issue).toBe('PQD-9');
     expect(updated!.content_hash).not.toBe(seeded.content_hash);
-    expect(updated!.created_at).toBe(seeded.created_at); // created_at is stable
+    expect(updated!.created_at).toBe(seeded.created_at);
     expect(updated!.updated_at).toBe('2026-09-05T00:00:00.000Z');
     expect(validateFeatureRecord(updated)).toEqual([]);
   });
@@ -155,7 +153,6 @@ describe('readFeatureRecord', () => {
   it('returns null for an absent file, and for a present-but-invalid one', () => {
     const root = tempRoot();
     expect(readFeatureRecord(root, DIR)).toBeNull();
-    // Seed a valid record, then clobber it with an invalid shape.
     seedFeatureRecord(root, DIR, { adapter: 'a', sessionId: 's', now: clock });
     const abs = join(root, featureFilePath(DIR, 'feature'));
     writeFileSync(abs, '{"not":"a feature"}', 'utf8');
@@ -183,11 +180,10 @@ describe('writeFeatureRecord', () => {
 });
 
 describe('best-effort write failures return null', () => {
-  /** Block writes into the bundle by placing a FILE where the bundle DIR must be. */
   function blockBundleDir(root: string): void {
     const bundleDir = dirname(join(root, featureFilePath(DIR, 'feature')));
     mkdirSync(dirname(bundleDir), { recursive: true });
-    writeFileSync(bundleDir, 'x'); // now mkdirSync(bundleDir) throws → the writer throws
+    writeFileSync(bundleDir, 'x');
   }
 
   it('seedFeatureRecord returns null when the bundle dir cannot be written', () => {
@@ -220,7 +216,6 @@ describe('featureRecordIsUntitled', () => {
   });
 });
 
-// Issue #581 (FR-6, AC-26) — the session constants live once, on feature.json.
 describe('session constants on feature.json', () => {
   it('seeds branch and base_branch at open, null when unknown', () => {
     const root = tempRoot();
@@ -237,11 +232,11 @@ describe('session constants on feature.json', () => {
     expect(bare).toMatchObject({ branch: null, base_branch: null });
   });
 
-  it('still validates a pre-#581 record with no branch keys (INV-8)', () => {
+  it('still validates a pre-envelope record with no branch keys (INV-8)', () => {
     expect(validateFeatureRecord(legacyFeatureRecord())).toEqual([]);
   });
 
-  it('reads a pre-#581 record under the current names (INV-8)', () => {
+  it('reads a pre-envelope record under the current names (INV-8)', () => {
     const root = tempRoot();
     writeLegacyFeatureRecord(root);
     expect(readFeatureRecord(root, DIR)).toMatchObject({
@@ -255,7 +250,7 @@ describe('session constants on feature.json', () => {
     });
   });
 
-  it('rewrites a pre-#581 record in the new shape on its next patch (INV-9)', () => {
+  it('rewrites a pre-envelope record in the new shape on its next patch (INV-9)', () => {
     const root = tempRoot();
     writeLegacyFeatureRecord(root);
     updateFeatureRecord(root, DIR, { status: 'done' }, clock);
@@ -294,7 +289,6 @@ describe('session constants on feature.json', () => {
     seedFeatureRecord(root, DIR, { adapter: 'claude-code', sessionId: 's', now: clock });
     const next = updateFeatureRecord(root, DIR, { adapter: 'codex-cli', branch: 'feat/y' }, clock);
     expect(next).toMatchObject({ adapter: 'codex-cli', branch: 'feat/y', base_branch: null });
-    // Unchanged constants keep what was recorded.
     expect(updateFeatureRecord(root, DIR, { status: 'done' }, clock)).toMatchObject({
       adapter: 'codex-cli',
       branch: 'feat/y',
@@ -311,13 +305,11 @@ describe('session constants on feature.json', () => {
     });
     recordChangeConstants(root, DIR, { adapter: 'backstop', lane: null, branch: null }, clock);
     expect(readFeatureRecord(root, DIR)).toMatchObject({ adapter: 'codex-cli', lane: 'full' });
-    // Issue #602 — the lane is monotonic: a lower lane on a later call never lowers the
-    // recorded one, but a non-lane constant on the same call still lands.
     recordChangeConstants(root, DIR, { lane: 'graduated', baseBranch: 'main' }, clock);
     expect(readFeatureRecord(root, DIR)).toMatchObject({ lane: 'full', base_branch: 'main' });
   });
 
-  it('ratchets the lane up but never down across recordChangeConstants calls (issue #602)', () => {
+  it('ratchets the lane up but never down across recordChangeConstants calls', () => {
     const root = tempRoot();
     seedFeatureRecord(root, DIR, {
       adapter: 'claude-code',
@@ -325,10 +317,8 @@ describe('session constants on feature.json', () => {
       lane: 'fast',
       now: clock,
     });
-    // A later turn that classifies the change bigger RAISES the lane.
     recordChangeConstants(root, DIR, { lane: 'full' }, clock);
     expect(readFeatureRecord(root, DIR)?.lane).toBe('full');
-    // A later small-fix turn classifying "fast" can NEVER relabel the big build down.
     recordChangeConstants(root, DIR, { lane: 'fast' }, clock);
     expect(readFeatureRecord(root, DIR)?.lane).toBe('full');
   });
@@ -341,7 +331,6 @@ describe('session constants on feature.json', () => {
       ulid: '01JABCDEFGHJKMNPQRSTVWXYZ3',
       now: clock,
     });
-    // The change continues on another host, in another session.
     openFeatureChange(root, 'ses_codex', {
       adapter: 'codex-cli',
       title: 'change',
@@ -368,7 +357,6 @@ describe('readChangeConstants', () => {
       baseBranch: 'main',
       now: clock,
     });
-    // A stale legacy open row never overrides what feature.json holds.
     appendLegacyStageRow(root, DIR, 's', { kind: 'open', adapter: 'claude-code', lane: 'fast' });
     expect(readChangeConstants(root, DIR)).toEqual({
       adapter: 'codex-cli',
@@ -378,9 +366,8 @@ describe('readChangeConstants', () => {
     });
   });
 
-  it('falls back field by field to a pre-#581 open row (INV-8)', () => {
+  it('falls back field by field to a pre-envelope open row (INV-8)', () => {
     const root = tempRoot();
-    // A pre-#581 record: a placeholder adapter, no lane, no branch keys.
     updateFeatureRecord(root, DIR, { status: 'active' }, clock);
     const rows = [
       appendLegacyStageRow(root, DIR, 's', {

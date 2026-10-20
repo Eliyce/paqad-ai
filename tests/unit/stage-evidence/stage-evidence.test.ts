@@ -29,12 +29,6 @@ import {
 } from '@/feature-evidence/stage-ledger.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
-/**
- * The stage-evidence store is re-keyed onto the per-feature bundle (issue #339): a
- * change's rows live in `<feature-dir>/stage-evidence.jsonl`, resolved from the active
- * feature in the `_session` control, not `<session>/<ordinal>.jsonl`. These helpers fold
- * a feature's rows and read them back for the disk-based assertions.
- */
 function foldRows(rows: SessionLedgerRow[], sessionId: string, ordinal: number) {
   return foldRowsWithKey(rows, {
     sessionId,
@@ -43,15 +37,6 @@ function foldRows(rows: SessionLedgerRow[], sessionId: string, ordinal: number) 
   });
 }
 
-/**
- * End-stage args that satisfy the #320 artifact requirement: for a thinking stage
- * (planning/specification/review) write a real, non-empty artifact and reference it, so
- * the stage folds to `complete` under the new contract; a mutation stage needs none.
- * planning/specification prove work with the RIGID bundle artifact (issue #394), so the
- * artifact is the active feature's plan.json / specification.json — which also makes it
- * present on disk for the completeness verdict's bundle-file assertion. `review` owns no
- * bundle file, so it uses a scratch findings file.
- */
 function provenEndArgs(root: string, dirName: string, stage: string): EndStageInput {
   if (!isArtifactBearingStage(stage)) return {};
   const file = stage === 'planning' ? 'plan' : stage === 'specification' ? 'specification' : null;
@@ -61,16 +46,12 @@ function provenEndArgs(root: string, dirName: string, stage: string): EndStageIn
   return { artifactPaths: [rel] };
 }
 
-/** A synthetic sha256 artifact digest for hand-built fold rows (#320). */
 const FAKE_DIGEST = `sha256-${'a'.repeat(64)}`;
 
-/** Artifact-digest field for a hand-built stage_end row: a thinking stage needs one to
- *  fold `complete` (#320); a mutation stage leaves it null (the edit is its evidence). */
 function digestFor(stage: string): { artifact_digest?: string } {
   return isArtifactBearingStage(stage) ? { artifact_digest: FAKE_DIGEST } : {};
 }
 
-/** A clock that advances `stepMs` on each call, for deterministic durations. */
 function clock(startMs = 1_000_000, stepMs = 1000): () => Date {
   let t = startMs - stepMs;
   return () => {
@@ -81,7 +62,7 @@ function clock(startMs = 1_000_000, stepMs = 1000): () => Date {
 
 const ADAPTER = 'claude-code';
 
-describe('stage-evidence ledger (#247)', () => {
+describe('stage-evidence ledger', () => {
   let root: string;
 
   beforeEach(() => {
@@ -91,7 +72,6 @@ describe('stage-evidence ledger (#247)', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  /** Record a run of stages against a fresh feature and return its dir name (the key). */
   function run(stages: string[], now: () => Date, sessionId = 'ses_test'): string {
     const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
     for (const stage of stages) {
@@ -110,11 +90,9 @@ describe('stage-evidence ledger (#247)', () => {
 
   it('opens a per-feature record; a titled re-open mints a distinct feature', () => {
     const a = openStageEvidence(root, { sessionId: 'ses_x', adapter: ADAPTER });
-    // Re-opening with no title resolves the SAME active feature (idempotent open).
     const same = openStageEvidence(root, { sessionId: 'ses_x', adapter: ADAPTER });
     expect(same.dirName).toBe(a.dirName);
     expect(a.changeKey).toBe(a.dirName);
-    // A titled open is the "new work" signal — a fresh, distinct feature.
     const b = openStageEvidence(root, {
       sessionId: 'ses_x',
       adapter: ADAPTER,
@@ -131,20 +109,15 @@ describe('stage-evidence ledger (#247)', () => {
     const planning = fold.stages.find((s) => s.stage === 'planning')!;
     expect(planning.started_at).not.toBeNull();
     expect(planning.ended_at).not.toBeNull();
-    // start at t=5000 (after open at 0), end at t=10000 → 5000ms.
     expect(planning.duration_ms).toBe(5000);
     expect(planning.duration_unreliable).toBe(false);
   });
 
-  it('records an out-of-order earlier start instead of rejecting it (issue #310)', () => {
+  it('records an out-of-order earlier start instead of rejecting it', () => {
     const now = clock();
     const { dirName } = openStageEvidence(root, { sessionId: 'ses_o', adapter: ADAPTER, now });
     startStage(root, 'development', { sessionId: 'ses_o', dirName, adapter: ADAPTER, now });
     endStage(root, 'development', {}, { sessionId: 'ses_o', dirName, adapter: ADAPTER, now });
-    // planning is earlier than development, recorded after it. The recorder used to
-    // THROW here — which made the pre-code stages unrecordable once a later stage was
-    // recorded (the #310 deadlock). It now records the start; the fold's ordering
-    // check is the single, non-destructive judge of order.
     expect(() =>
       startStage(root, 'planning', { sessionId: 'ses_o', dirName, adapter: ADAPTER, now }),
     ).not.toThrow();
@@ -171,13 +144,9 @@ describe('stage-evidence ledger (#247)', () => {
     expect(result.missing_stages).toEqual([]);
   });
 
-  // Issue #394 — the completeness verdict asserts the bundle actually CONTAINS the rigid
-  // plan.json + specification.json, not merely that the planning/specification rows exist.
-  describe('bundle-artifact assertion in the verdict (#394)', () => {
+  describe('bundle-artifact assertion in the verdict', () => {
     it('folds incomplete when plan.json is missing even though every stage row is complete', () => {
       const dir = run([...MANDATORY], clock(), 'ses_noplan');
-      // Rows all read complete; now the bundle loses its plan.json (the incident: a
-      // hand-written free-write elsewhere, plan.json never produced).
       rmSync(join(root, featureFilePath(dir, 'plan')), { force: true });
       const result = verifyChange(root, {
         sessionId: 'ses_noplan',
@@ -214,8 +183,6 @@ describe('stage-evidence ledger (#247)', () => {
     });
 
     describe('augmentWithBundleArtifacts (pure)', () => {
-      // A valid FoldedChange to override per case — the helper only reads/writes
-      // `completeness`, so an empty-row fold is a sufficient, dependency-free base.
       const base = foldRows([], 'ses', 1);
 
       it('leaves a fold untouched when both artifacts are present', () => {
@@ -292,21 +259,19 @@ describe('stage-evidence ledger (#247)', () => {
     const partial = MANDATORY.filter((s) => s !== 'review');
     const dir = run([...partial], clock(), 'ses_block');
     const ctx = { sessionId: 'ses_block', dirName: dir, adapter: ADAPTER };
-    expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // attempt 1
-    expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // attempt 2
-    const third = verifyChange(root, ctx); // cap hit
+    expect(verifyChange(root, ctx).verdict).toBe('incomplete');
+    expect(verifyChange(root, ctx).verdict).toBe('incomplete');
+    const third = verifyChange(root, ctx);
     expect(third.verdict).toBe('blocked');
     expect(third.blocked).toBe(true);
   });
 
-  it('#321: the redo cap resets when a new stage mutation is recorded', () => {
+  it('the redo cap resets when a new stage mutation is recorded', () => {
     const partial = MANDATORY.filter((s) => s !== 'review');
     const dir = run([...partial], clock(), 'ses_reset');
     const ctx = { sessionId: 'ses_reset', dirName: dir, adapter: ADAPTER };
-    expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // failure 1
-    expect(verifyChange(root, ctx).verdict).toBe('incomplete'); // failure 2 (cap would hit next)
-    // Fresh work: record a new stage row. This is a ledger mutation, so the redo-cap
-    // failure count resets — the next verify is incomplete again, NOT blocked.
+    expect(verifyChange(root, ctx).verdict).toBe('incomplete');
+    expect(verifyChange(root, ctx).verdict).toBe('incomplete');
     startStage(root, 'review', { sessionId: 'ses_reset', dirName: dir, adapter: ADAPTER });
     const afterReset = verifyChange(root, ctx);
     expect(afterReset.verdict).toBe('incomplete');
@@ -314,14 +279,13 @@ describe('stage-evidence ledger (#247)', () => {
   });
 
   it('flags an ordering violation when a later stage overlaps an earlier one', () => {
-    // Hand-build overlapping events: development starts before specification ends.
     const sessionId = 'ses_overlap';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
     const c = (stage: string, kind: 'stage_start' | 'stage_end', t: number) =>
       startStageRaw(root, sessionId, dirName, stage, kind, t);
     c('specification', 'stage_start', 1);
-    c('development', 'stage_start', 2); // dev starts...
-    c('specification', 'stage_end', 3); // ...before spec ends → violation
+    c('development', 'stage_start', 2);
+    c('specification', 'stage_end', 3);
     c('development', 'stage_end', 4);
     const fold = foldFeature(root, sessionId, dirName);
     expect(fold.completeness.ordering_violations).toContainEqual({
@@ -358,7 +322,7 @@ describe('stage-evidence ledger (#247)', () => {
     const dir = run(['planning'], clock(), 'ses_path');
     const file = join(root, featureStagePath(dir));
     const lines = readFileSync(file, 'utf8').trim().split('\n');
-    expect(lines.length).toBeGreaterThanOrEqual(3); // open + start + end
+    expect(lines.length).toBeGreaterThanOrEqual(3);
     expect(JSON.parse(lines[0]).kind).toBe('open');
     expect(featureStagePath(dir)).toContain('.paqad/ledger/feature-evidence/');
   });
@@ -369,10 +333,7 @@ describe('stage-evidence ledger (#247)', () => {
     );
   });
 
-  it('yields a null artifact_digest for a named-but-missing or empty artifact (#320)', () => {
-    // #320 inverts the old behaviour: a missing/empty artifact must NOT produce a
-    // digest — otherwise a thinking stage could name a nonexistent file and still look
-    // proven. A null digest folds the stage `inconclusive`, never `complete`.
+  it('yields a null artifact_digest for a named-but-missing or empty artifact', () => {
     const sessionId = 'ses_absent';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
     startStage(root, 'planning', { sessionId, dirName, adapter: ADAPTER });
@@ -384,7 +345,6 @@ describe('stage-evidence ledger (#247)', () => {
     );
     expect(missing.artifact_digest).toBeNull();
 
-    // An empty (0-byte) file is likewise not substantive → null.
     writeFileSync(join(root, 'empty.md'), '');
     startStage(root, 'specification', { sessionId, dirName, adapter: ADAPTER });
     const empty = endStage(
@@ -401,13 +361,11 @@ describe('stage-evidence ledger (#247)', () => {
       /no open stage-evidence change/i,
     );
     run(['planning'], clock(), 'ses_v1');
-    // No dirName passed → resolves via the active feature in the `_session` control.
     const result = verifyChange(root, { sessionId: 'ses_v1', adapter: ADAPTER });
-    expect(result.verdict).toBe('incomplete'); // only planning ran
+    expect(result.verdict).toBe('incomplete');
   });
 
   it('auto-opens a change when a stage is started without an explicit open', () => {
-    // No openStageEvidence call and no dirName — the recorder opens a feature itself.
     const row = startStage(root, 'planning', { sessionId: 'ses_auto', adapter: ADAPTER });
     const dir = currentFeature(root, 'ses_auto')!;
     expect(row).toMatchObject({ change: dir.slice(-26), recorded_at: expect.any(String) });
@@ -417,7 +375,7 @@ describe('stage-evidence ledger (#247)', () => {
   });
 });
 
-describe('foldRows edge cases (#247)', () => {
+describe('foldRows edge cases', () => {
   const row = (partial: Partial<SessionLedgerRow>): SessionLedgerRow =>
     ({
       schema_version: 1,
@@ -451,9 +409,6 @@ describe('foldRows edge cases (#247)', () => {
       );
       t += 200;
     }
-    // Inject an overlap: re-end `planning` long AFTER `specification` started. The
-    // re-end is the last planning end, so it must carry a digest too (planning is
-    // artifact-bearing) or the stage would fold inconclusive and hide the ordering test.
     rows.push(
       row({ kind: 'stage_start', stage: 'planning', event_status: 'started', ts: iso(900) }),
     );
@@ -537,7 +492,7 @@ describe('foldRows edge cases (#247)', () => {
   });
 });
 
-describe('completion-anchored review (#270)', () => {
+describe('completion-anchored review', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-stage-ev-270-'));
@@ -554,8 +509,6 @@ describe('completion-anchored review (#270)', () => {
     'documentation_sync',
   ] as const;
 
-  /** Record planning→docs in build order, so `checks`/`documentation_sync` are on the
-   *  ledger before the explicit review — the exact shape issue #270 describes. */
   function recordBuild(sessionId: string, now: () => Date): string {
     const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER, now });
     const ctx = { sessionId, dirName, adapter: ADAPTER, now };
@@ -578,7 +531,6 @@ describe('completion-anchored review (#270)', () => {
     const now = clock();
     const dir = recordBuild('ses_late_start', now);
     const ctx = { sessionId: 'ses_late_start', dirName: dir, adapter: ADAPTER, now };
-    // review is canonically before checks/docs; the strict recorder would throw here.
     expect(() => startStage(root, 'review', ctx)).not.toThrow();
     endStage(root, 'review', provenEndArgs(root, dir, 'review'), ctx);
     const rows = readFeatureStageUnit(root, dir);
@@ -616,13 +568,11 @@ describe('completion-anchored review (#270)', () => {
   });
 
   it('still flags a genuine out-of-order overlap between two NON-anchored stages', () => {
-    // Regression guard: the exemption is scoped to review only. A checks/docs overlap
-    // (documentation_sync starts before checks ends) must still be a violation.
     const sessionId = 'ses_realviolation';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
     startStageRaw(root, sessionId, dirName, 'checks', 'stage_start', 1);
-    startStageRaw(root, sessionId, dirName, 'documentation_sync', 'stage_start', 2); // docs starts…
-    startStageRaw(root, sessionId, dirName, 'checks', 'stage_end', 3); // …before checks ends → violation
+    startStageRaw(root, sessionId, dirName, 'documentation_sync', 'stage_start', 2);
+    startStageRaw(root, sessionId, dirName, 'checks', 'stage_end', 3);
     startStageRaw(root, sessionId, dirName, 'documentation_sync', 'stage_end', 4);
     const fold = foldFeature(root, sessionId, dirName);
     expect(fold.completeness.ordering_violations).toContainEqual({
@@ -631,11 +581,7 @@ describe('completion-anchored review (#270)', () => {
     });
   });
 
-  it('#310: a live-mark end with no matching start is inconclusive, not complete', () => {
-    // The orphan-end signature of the old deadlock: the recorder rejected the
-    // out-of-order start but accepted the end, leaving a stage with an end alone.
-    // It must NOT read as `complete`, so the completion fold and the pre-mutation gate
-    // (which needs a start+end pair) agree the stage is not done.
+  it('a live-mark end with no matching start is inconclusive, not complete', () => {
     const rows = [
       foldRow({ kind: 'stage_end', stage: 'planning', evidence_source: 'live-mark', ts: iso(1) }),
     ];
@@ -644,17 +590,17 @@ describe('completion-anchored review (#270)', () => {
     expect(foldRows(rows, 'ses', 1).completeness.missing_stages).toContain('planning');
   });
 
-  it('#320: an artifact-bearing stage with a start+end but no digest is inconclusive', () => {
+  it('an artifact-bearing stage with a start+end but no digest is inconclusive', () => {
     const rows = [
       foldRow({ kind: 'stage_start', stage: 'planning', ts: iso(1) }),
-      foldRow({ kind: 'stage_end', stage: 'planning', ts: iso(2) }), // no artifact_digest
+      foldRow({ kind: 'stage_end', stage: 'planning', ts: iso(2) }),
     ];
     const planning = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'planning')!;
     expect(planning.state).toBe('inconclusive');
     expect(foldRows(rows, 'ses', 1).completeness.missing_stages).toContain('planning');
   });
 
-  it('#320: an artifact-bearing stage WITH a digest folds complete', () => {
+  it('an artifact-bearing stage WITH a digest folds complete', () => {
     const rows = [
       foldRow({ kind: 'stage_start', stage: 'planning', ts: iso(1) }),
       foldRow({
@@ -668,16 +614,16 @@ describe('completion-anchored review (#270)', () => {
     expect(planning.state).toBe('complete');
   });
 
-  it('#320: a mutation stage (development) with a start+end but no digest stays complete', () => {
+  it('a mutation stage (development) with a start+end but no digest stays complete', () => {
     const rows = [
       foldRow({ kind: 'stage_start', stage: 'development', ts: iso(1) }),
-      foldRow({ kind: 'stage_end', stage: 'development', ts: iso(2) }), // no digest, but exempt
+      foldRow({ kind: 'stage_end', stage: 'development', ts: iso(2) }),
     ];
     const dev = foldRows(rows, 'ses', 1).stages.find((s) => s.stage === 'development')!;
     expect(dev.state).toBe('complete');
   });
 
-  it('#310: an inferred-git backstop end (no start) still counts as complete (exempt)', () => {
+  it('an inferred-git backstop end (no start) still counts as complete (exempt)', () => {
     const rows = [
       foldRow({
         kind: 'stage_end',
@@ -692,8 +638,6 @@ describe('completion-anchored review (#270)', () => {
   });
 });
 
-/** Build a minimal folded-input row (module-level so the #310 fold tests above are
- *  self-contained, mirroring the local `row` helper in the fold describe block). */
 function foldRow(partial: Partial<SessionLedgerRow>): SessionLedgerRow {
   return {
     schema_version: 1,
@@ -710,7 +654,6 @@ function iso(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-/** Append a raw stage_start/stage_end with a fixed clock instant (for overlap tests). */
 function startStageRaw(
   root: string,
   sessionId: string,

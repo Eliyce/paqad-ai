@@ -4,5 +4,6 @@
 # runtime/ (never a top-level bin/, which claude.ai org sharing and Cowork reject). plugin-session-
 # start.mjs prepends this directory to Claude's shell PATH. Resolves dist relative to this file:
 # runtime/claude-plugin/bin -> ../../../dist = the package root's dist.
+[ -n "$CLAUDE_PLUGIN_DATA" ] || export CLAUDE_PLUGIN_DATA="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/plugins/data/paqad-eliyce"
 d=$(cd "$(dirname "$0")" && pwd -P)
 exec node "$d/../../../dist/cli/index.js" "$@"

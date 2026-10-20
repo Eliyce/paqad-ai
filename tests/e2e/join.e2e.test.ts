@@ -65,9 +65,6 @@ function seedTrackedOnboarding(root: string): void {
   write(join(root, 'docs/instructions/rules/constitution.md'), '# Constitution\n\n- Safe.\n');
   write(join(root, '.gitignore'), '.codex/cache.json\n.codex/memory.json\n');
   write(join(root, 'AGENTS.md'), 'tracked agent entry\n');
-  // Issue #615 (Part 1) — onboarding now writes a repo-root `.worktreeinclude` carrying
-  // `.paqad/.config`, so a realistically onboarded repo has it committed. With it present, join's
-  // idempotent writeWorktreeInclude is a no-op, keeping join's zero-tracked-writes contract.
   write(join(root, '.worktreeinclude'), '.paqad/.config\n');
 }
 
@@ -81,10 +78,6 @@ describe('paqad-ai join — cloned project', () => {
 
   beforeEach(() => {
     temp = mkdtempSync(join(tmpdir(), 'paqad-join-e2e-'));
-    // Isolate the global install (issue #576, Finding 2): join now runs bootstrapFramework,
-    // which writes under the user home (~/.paqad-ai/current + ~/.claude|.codex/agents). Point
-    // HOME and the framework home at the temp dir so the test never touches the real install.
-    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
     home = join(temp, 'home');
     frameworkHome = join(home, '.paqad-ai', 'current');
     mkdirSync(home, { recursive: true });
@@ -104,14 +97,11 @@ describe('paqad-ai join — cloned project', () => {
     else process.env.PAQAD_FRAMEWORK_HOME = savedFrameworkHome;
   });
 
-  /** Seed an onboarded source repo and clone it, returning the clone path. */
   function makeClone(): string {
     const source = join(temp, 'source');
     const clone = join(temp, 'clone');
     mkdirSync(source, { recursive: true });
     seedTrackedOnboarding(source);
-    // A realistic teammate clone carries the managed `.paqad/.gitignore` from onboard, which
-    // ignores the per-machine artifacts join regenerates (issue #576, Findings 4/6/7/8).
     writeGitignore(source);
     execFileSync('git', ['init', '--quiet'], { cwd: source });
     execFileSync('git', ['config', 'user.email', 'join@example.test'], { cwd: source });
@@ -138,49 +128,35 @@ describe('paqad-ai join — cloned project', () => {
     );
   });
 
-  // Issue #576, Finding 2 (AC-5) — join now performs the global install, so a machine that
-  // never onboarded a project still gets ~/.paqad-ai/current and the stage agents, and the
-  // generated hook commands resolve to existing files.
   it('sets up the global framework install and stage agents (Finding 2)', async () => {
     const clone = makeClone();
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await joinProject({ projectRoot: clone, rag: false });
 
-    // The framework home symlink exists and its hooks resolve through it.
     expect(existsSync(frameworkHome)).toBe(true);
     expect(existsSync(join(frameworkHome, 'hooks/agent-entry-prompt-gate.mjs'))).toBe(true);
     expect(existsSync(join(frameworkHome, 'AGENT-BOOTSTRAP.md'))).toBe(true);
-    // The six stage-isolation agents are written under the user home (Claude scope).
     for (const stage of ['planning', 'specification', 'development', 'review', 'checks']) {
       expect(existsSync(join(home, '.claude/agents', `paqad-${stage}.md`))).toBe(true);
     }
-    // And the global install is home-only: the clone still has no tracked diff.
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: clone, encoding: 'utf8' })).toBe(
       '',
     );
   });
 
-  // Issue #576, Findings 4/6/7/8 — join regenerates the per-machine artifacts a teammate needs
-  // (doctor's detection/stack reports, the code-knowledge index, delivery detection, and the
-  // quality baseline), all git-ignored so the no-tracked-diff contract still holds.
   it('regenerates the per-machine artifacts a teammate needs (Findings 4/6/7/8)', async () => {
     const clone = makeClone();
     vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 
     await joinProject({ projectRoot: clone, rag: false });
 
-    // Finding 4 — doctor's per-machine reports.
     expect(existsSync(join(clone, '.paqad/detection-report.json'))).toBe(true);
     expect(existsSync(join(clone, '.paqad/stack-snapshot.json'))).toBe(true);
     expect(existsSync(join(clone, '.paqad/stack-drift.json'))).toBe(true);
-    // Finding 7 — the code-knowledge index.
     expect(existsSync(join(clone, '.paqad/indexes/code-knowledge.json'))).toBe(true);
-    // Finding 8 — delivery detection.
     expect(existsSync(join(clone, '.paqad/delivery-detection.json'))).toBe(true);
-    // Finding 6 — the quality baseline, seeded from the clean HEAD.
     expect(existsSync(join(clone, '.paqad/quality-baseline.json'))).toBe(true);
-    // All git-ignored: still no tracked diff.
     expect(execFileSync('git', ['status', '--porcelain'], { cwd: clone, encoding: 'utf8' })).toBe(
       '',
     );

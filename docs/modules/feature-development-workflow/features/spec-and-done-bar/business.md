@@ -1,6 +1,6 @@
 # Feature Spec & "Done" Bar
 
-> **Layer:** `agent-workflows` &nbsp;·&nbsp; **Slug:** `spec-and-done-bar` &nbsp;·&nbsp; **Issue:** #102
+> **Layer:** `agent-workflows` &nbsp;·&nbsp; **Slug:** `spec-and-done-bar`
 
 ## What it is
 
@@ -35,8 +35,7 @@ written, and a checkable bar gives autonomous loops a place to stop.
 ## Boundaries
 
 This feature owns the spec object and the "done" bar. It does not run the proofs
-([#103](https://github.com/Eliyce/paqad-ai/issues/103), [#105](https://github.com/Eliyce/paqad-ai/issues/105),
-[#106](https://github.com/Eliyce/paqad-ai/issues/106), [#108](https://github.com/Eliyce/paqad-ai/issues/108)),
-slice the spec into work units ([#104](https://github.com/Eliyce/paqad-ai/issues/104)), or build the
-spec↔code↔test map ([#109](https://github.com/Eliyce/paqad-ai/issues/109)). Those consume the spec this
+(the fix protocol, mutation testing, flaky-test detection and the build-check-fix loop),
+slice the spec into work units (slicing and reconnect), or build the
+spec↔code↔test map (the traceability engine). Those consume the spec this
 feature freezes.

@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import type { FreshnessMetadata } from './types.js';
 
-const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 hours
+const STALE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 const UNKNOWN_NOTE = 'Documentation freshness unknown — run paqad-ai onboard to establish baseline';
 
 export class FreshnessChecker {
@@ -31,9 +31,7 @@ export class FreshnessChecker {
         typeof parsed === 'object' &&
         !Array.isArray(parsed) &&
         Object.keys(parsed as object).length > 0;
-    } catch {
-      // no drift file — assume no drift
-    }
+    } catch {}
 
     const staleSources: string[] = [];
 
@@ -47,9 +45,7 @@ export class FreshnessChecker {
           if (ageDiff > STALE_THRESHOLD_MS) {
             staleSources.push(relativePath);
           }
-        } catch {
-          // can't stat — skip
-        }
+        } catch {}
       }
     }
 

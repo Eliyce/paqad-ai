@@ -58,7 +58,6 @@ describe('token-conformance-review', () => {
         writeFile(dir, 'src/baz.snap', `const c = '#1a73e8';`);
         const r = runScript(path, [join(dir, 'src')]);
         expect(r.status).toBe(0);
-        // Header is always emitted; no payload rows under the exclusions.
         const dataLines = r.stdout
           .split('\n')
           .filter((l) => l.includes('|') && !l.includes('category | file:line'));
@@ -140,8 +139,7 @@ describe('token-conformance-review', () => {
       const r = runScript(path, [join(FIX, 'tokens.md')]);
       expect(r.status).toBe(0);
       const rows = r.stdout.split('\n').filter((l) => l.length > 0);
-      expect(rows.length).toBe(11); // 11 declared tokens in the fixture
-      // Spot-check a color and a spacing entry.
+      expect(rows.length).toBe(11);
       expect(rows).toContain('color.primary.500\t#1a73e8\tcolor');
       expect(rows).toContain('spacing.4\t16px\tspacing');
       expect(rows).toContain('font.family.sans\tInter\tfont');
@@ -161,8 +159,8 @@ describe('token-conformance-review', () => {
             '',
             '- color.brand = #abcdef',
             '- not a token line',
-            '- color.invalid =', // missing value -> ignored
-            '- = #orphan', // missing name -> ignored
+            '- color.invalid =',
+            '- = #orphan',
             '* color.bullet-star = #112233',
           ].join('\n'),
         );
@@ -245,7 +243,6 @@ describe('token-conformance-review', () => {
 
     it('matches a hex leak to the exact declared token (case-insensitive)', () => {
       withTempDir((dir) => {
-        // First parse fixture tokens.md into the TSV the matcher expects.
         const parsed = runScript(sh('parse-tokens.sh'), [join(FIX, 'tokens.md')]);
         expect(parsed.status).toBe(0);
         const tsv = writeFile(dir, 'tokens.tsv', parsed.stdout);
@@ -295,10 +292,7 @@ describe('token-conformance-review', () => {
         const tsv = writeFile(
           dir,
           'tokens.tsv',
-          [
-            'color.primary.500\t16px\tcolor', // wrong namespace, same value
-            'spacing.4\t16px\tspacing',
-          ].join('\n'),
+          ['color.primary.500\t16px\tcolor', 'spacing.4\t16px\tspacing'].join('\n'),
         );
         const r = runScript(path, ['--leak', '16px', '--tokens', tsv, '--namespace', 'spacing']);
         expect(r.status).toBe(0);

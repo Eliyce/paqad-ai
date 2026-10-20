@@ -43,7 +43,7 @@ describe('delivery dashboard collector', () => {
       expect(section.id).toBe('delivery');
       expect(section.summary).toContain('Configured');
       expect(section.summary).toContain('dormant');
-      expect(attention.length).toBe(2); // connect host + connect tracker
+      expect(attention.length).toBe(2);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
@@ -76,8 +76,6 @@ describe('delivery dashboard collector', () => {
     const root = repo();
     try {
       writeProfile(root, '[{ name: atlassian, enabled: true, kind: jira }]');
-      // A detection that exists ONLY in the legacy file (not the ledger) must be
-      // invisible to the dashboard — the evidence read cut over to the ledger.
       const path = detectionPath(root);
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(
@@ -95,7 +93,6 @@ describe('delivery dashboard collector', () => {
         'utf8',
       );
       const { section } = collectDelivery(root);
-      // No ledger row → host shows as not detected despite the file present.
       expect(section.summary).toContain('✗');
       expect((section.details as { host: { detected: boolean } }).host.detected).toBe(false);
     } finally {
@@ -106,7 +103,7 @@ describe('delivery dashboard collector', () => {
   it('host detected but tracker dormant → one connection, nudge for the tracker only', () => {
     const root = repo();
     try {
-      writeProfile(root, '[]'); // no jira server → tracker dormant
+      writeProfile(root, '[]');
       writeDetection(
         root,
         detectDelivery({
@@ -117,7 +114,7 @@ describe('delivery dashboard collector', () => {
         }),
       );
       const { section, attention } = collectDelivery(root);
-      expect(section.score).toBe(70); // exactly one connected
+      expect(section.score).toBe(70);
       expect(section.summary).toContain('github ✓');
       expect(section.summary).toContain('dormant');
       expect(attention).toHaveLength(1);

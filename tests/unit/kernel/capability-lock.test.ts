@@ -13,9 +13,6 @@ import {
 } from '@/kernel/capability-lock.js';
 import { getCapability } from '@/kernel/registry.js';
 
-// Buildout F5 — the engine-owned integrity lock. Read is null-safe; write merges
-// so one capability's blessing never clobbers another's.
-
 const roots: string[] = [];
 
 function tempRoot(): string {
@@ -75,7 +72,6 @@ describe('capability-lock', () => {
     expect(readCapabilityDigest(root, 'rule-scripts')).toBe('new');
   });
 
-  // Buildout F7 — the bless stamps the install's current schema versions.
   it('stamps the registry version vector at bless time', () => {
     const root = tempRoot();
     writeCapabilityDigest(root, 'rule-scripts', 'abc');

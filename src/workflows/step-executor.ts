@@ -51,9 +51,6 @@ export class StepExecutor implements WorkflowStepRunner {
   }
 
   async execute(step: WorkflowStep, signal?: AbortSignal): Promise<StepExecutionResult> {
-    // Pre-flight cancellation: never start a step's work once the consumer has
-    // aborted (PQD-104). Throwing keeps the engine loop's cancellation handling
-    // and the parallel executor's short-circuit in a single place.
     if (signal?.aborted) {
       throw new CancelledError();
     }
@@ -98,7 +95,6 @@ export class StepExecutor implements WorkflowStepRunner {
     }
   }
 
-  /** Exposed for testing only. */
   getLastSkill(): string | undefined {
     return this.lastSkill;
   }

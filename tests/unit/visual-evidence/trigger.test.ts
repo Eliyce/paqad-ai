@@ -62,7 +62,6 @@ describe('frontendGlobToRegExp / matchesFrontendGlob', () => {
     expect(matchesFrontendGlob('src/x/y/z.css', 'src/**/*.css')).toBe(true);
     expect(matchesFrontendGlob('src/z.css', 'src/**/*.css')).toBe(true);
     expect(matchesFrontendGlob('lib/z.css', 'src/**/*.css')).toBe(false);
-    // a single * does not cross a slash
     expect(matchesFrontendGlob('src/a/b.vue', 'src/*.vue')).toBe(false);
     expect(matchesFrontendGlob('src/b.vue', 'src/*.vue')).toBe(true);
   });
@@ -110,7 +109,7 @@ describe('activeFrontendGlobs', () => {
   });
 });
 
-describe('PackRegistryEmptyError (issue #579)', () => {
+describe('PackRegistryEmptyError', () => {
   it('is thrown when frameworks are declared but no pack loads', () => {
     getPacks.mockReturnValue([]);
     let caught: unknown;

@@ -40,7 +40,7 @@ describe('RebuildCache', () => {
     const cache = new RebuildCache(2);
     cache.set('k1', result('1'));
     cache.set('k2', result('2'));
-    cache.set('k3', result('3')); // overflows the cap of 2 → evicts k1
+    cache.set('k3', result('3'));
     expect(cache.get('k1')).toBeUndefined();
     expect(cache.get('k2')).toBeDefined();
     expect(cache.get('k3')).toBeDefined();
@@ -51,8 +51,8 @@ describe('RebuildCache', () => {
     const cache = new RebuildCache(2);
     cache.set('k1', result('1'));
     cache.set('k2', result('2'));
-    cache.get('k1'); // k1 becomes most-recently used; k2 is now oldest
-    cache.set('k3', result('3')); // evicts k2
+    cache.get('k1');
+    cache.set('k3', result('3'));
     expect(cache.get('k2')).toBeUndefined();
     expect(cache.get('k1')).toBeDefined();
     expect(cache.get('k3')).toBeDefined();

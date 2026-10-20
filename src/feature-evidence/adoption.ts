@@ -1,44 +1,7 @@
-// In-flight bundle adoption across a session-id rotation (issue #404).
-//
-// The active feature is tracked per session in `_session/<sessionId>.json`. When the
-// host session id rotates mid-change — an app relaunch, a resumed conversation, an
-// unset/rotated `SE_SESSION` — the new session reads a DIFFERENT control, finds no
-// active feature, and mints a fresh `change-<ULID>`: the in-flight bundle is orphaned
-// and the stages already recorded against it stop counting (the incident forced the
-// agent to re-record `planning` by hand).
-//
-// This module is the carry-over. Before anything mints, a session's control is
-// reconciled:
-//   - a pointer naming a bundle dir that does not exist is dropped (it names no
-//     evidence, so trusting it can only mis-attribute later rows), and
-//   - when the session has no active feature and EXACTLY ONE in-flight bundle belongs to
-//     the current branch, that bundle is adopted as active.
-//
-// "In flight" reuses signals that already exist rather than inventing state: a bundle is
-// in flight when its `stage-evidence.jsonl` has real rows and carries no `kind:'close'`
-// row — the row the finalizer writes when a change passes verification (issue #321).
-//
-// That alone is nowhere near specific enough, which is the trap this module fell into
-// first: a change that was abandoned, or shipped without a passing verdict, never gets a
-// close row either, so a real repo accumulates in-flight bundles indefinitely (this one
-// held 13). With all of them candidates, "exactly one" never held and adoption never
-// ran. The BRANCH is the scope that makes it precise (decision
-// D-01KXY55ZM70Y3JNDM8E0XC7WSX): a session id rotates within a change, a branch does
-// not, so the branch names the rotated session's own work — deterministically, with no
-// clock heuristic and no tunable window. Adoption stays conservative on top of that: two
-// or more in-flight bundles on one branch is ambiguous, so nothing is adopted and the
-// caller mints, exactly as before.
-//
-// Nothing here MINTS. The reconcile only repoints a control at a bundle that already
-// exists on disk, which is what keeps it safe to run from a read path.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readGitState } from '@/rag/git-state.js';
-// Leaf imports only: `stage-ledger.ts` calls INTO this module, so reading its
-// `readFeatureStageUnit` here would close a cycle. The underlying primitives
-// (`readUnitFile` + the bundle path) are the same ones it wraps.
 import { readUnitFile } from '@/session-ledger/ledger.js';
 
 import { listFeatureDirs } from './enumerate.js';
@@ -46,34 +9,14 @@ import { readChangeConstants } from './feature-record.js';
 import { featureFilePath } from './paths.js';
 import { readSessionControl, writeSessionControl } from './session-control.js';
 
-/** A bundle's stage rows, tolerant of an absent/unreadable bundle (reads as none). */
 function stageRows(projectRoot: string, dirName: string) {
   return readUnitFile(projectRoot, featureFilePath(dirName, 'stageEvidence'));
 }
 
-/**
- * True when `dirName`'s bundle holds real stage evidence — the on-disk proof that the
- * bundle was actually materialized, not merely pointed at. A bundle dir is created by
- * the first row append, so a pointer at a rowless name is a dangling pointer.
- */
 export function isBundleMaterialized(projectRoot: string, dirName: string): boolean {
   return stageRows(projectRoot, dirName).length > 0;
 }
 
-/**
- * True when `dirName`'s change is CURRENTLY closed (issue #591): its last lifecycle row — of
- * kind `open` or `close` — is a `close`. A bundle that was closed and then deliberately
- * reopened (a later `open` row, written by `paqad-ai resume --feature`) reads as NOT closed,
- * so the active pointer may legitimately write into it again.
- *
- * This is deliberately NARROWER than the `rows.some(kind === 'close')` test used by
- * {@link listAdoptableFeatures} and {@link sessionClosedAnyFeature}, which answer "has this
- * change EVER closed" — the broad in-flight filter and the #540 stale-marker suppression keep
- * that meaning untouched. The guard that releases a stale active pointer needs the current
- * state, not the ever-closed one, which is why it cannot reuse those predicates: a reopened
- * bundle still carries a close row, and reusing the broad test would make the deliberate-resume
- * path impossible. A bundle with no lifecycle rows at all is not closed.
- */
 export function isBundleClosed(projectRoot: string, dirName: string): boolean {
   let closed = false;
   for (const row of stageRows(projectRoot, dirName)) {
@@ -86,13 +29,6 @@ export function isBundleClosed(projectRoot: string, dirName: string): boolean {
   return closed;
 }
 
-/**
- * The branch a bundle belongs to: its session constant on `feature.json` (issue #581), or
- * for a bundle written before that the branch stamped on its `open` row (issue #404),
- * falling back to the branch `delivery.json` recorded once the change reached its first commit. `null`
- * when neither is known — a bundle opened before the stamp existed, or a change made off
- * a branch (detached HEAD, non-git project).
- */
 export function featureBranch(
   projectRoot: string,
   dirName: string,
@@ -103,14 +39,6 @@ export function featureBranch(
   );
 }
 
-/**
- * The `branch` field of a bundle's `delivery.json`, or `null` when it has none.
- *
- * Read here rather than through `delivery.ts`'s `readFeatureDelivery`, which imports
- * `currentFeature` from the stage ledger and would close the cycle this module exists
- * outside of (adoption → delivery → stage-ledger → adoption). One field, read
- * tolerantly — not a second copy of the delivery record's shape or defaults.
- */
 function deliveryBranch(projectRoot: string, dirName: string): string | null {
   try {
     const raw: unknown = JSON.parse(
@@ -123,25 +51,6 @@ function deliveryBranch(projectRoot: string, dirName: string): string | null {
   }
 }
 
-/**
- * Every materialized, unclosed bundle that belongs to `branch`, in dir-name order.
- *
- * Two filters, and the branch one is what makes this usable. The finalizer appends
- * `kind:'close'` when a change earns a passing verdict, so its absence is the existing
- * signal for "still open" — but on its own that signal is far too broad: a change that
- * was abandoned, or shipped without a passing verdict, never gets a close row either, so
- * a real repo accumulates them (this one held 13 when the branch scope was added). With
- * every one of those a candidate, the "exactly one" guard below could never fire and
- * adoption was dead code.
- *
- * The branch is the scope that makes it precise, and it is deterministic rather than a
- * clock heuristic: a session-id rotation happens WITHIN a change, and a change is built
- * on one branch, so the branch identifies the rotated session's own work. A bundle whose
- * branch is unknown is never adoptable on a branch — no evidence it belongs here.
- *
- * `branch` of `null` (detached HEAD, or a non-git project) means the scope cannot be
- * applied, and the unscoped in-flight set is returned as before.
- */
 export function listAdoptableFeatures(projectRoot: string, branch: string | null): string[] {
   return listFeatureDirs(projectRoot).filter((dirName) => {
     const rows = stageRows(projectRoot, dirName);
@@ -152,33 +61,10 @@ export function listAdoptableFeatures(projectRoot: string, branch: string | null
   });
 }
 
-/**
- * Every materialized bundle that has not been closed, across all branches. The honest
- * whole-project view; `listAdoptableFeatures` is what adoption actually consults.
- */
 export function listInFlightFeatures(projectRoot: string): string[] {
   return listAdoptableFeatures(projectRoot, null);
 }
 
-/**
- * Whether `sessionId` has already FINISHED a change — any bundle carrying a `kind:'close'`
- * row stamped with this session id (issue #540).
- *
- * The one signal that separates a replayed transcript from a change that is genuinely
- * starting. The marker seam re-reads the WHOLE transcript on every turn, so once
- * `closeActiveFeature` has released the session pointer, every stale `paqad:stage` line
- * reads as unrecorded and would auto-open a phantom bundle for a change that is already
- * done. This says "that session's markers are spent", so the seam records nothing instead.
- *
- * Deliberately SESSION-scoped, not branch-scoped (decision D-01M269DKJ3PNEGGXH3HGZMFTFY):
- * the close row names the session that finished the change, so a session's FIRST change —
- * on any host, including the Codex/Gemini completion hooks that share the marker seam —
- * keeps the existing auto-open behaviour untouched. A session-id rotation after a close is
- * the known limit of that scope; adoption already carries rotation for changes still in
- * flight, and a closed change has nothing left to adopt.
- *
- * Tolerant like the rest of this module: an absent or unreadable bundle reads as no rows.
- */
 export function sessionClosedAnyFeature(projectRoot: string, sessionId: string): boolean {
   return listFeatureDirs(projectRoot).some((dirName) =>
     stageRows(projectRoot, dirName).some(
@@ -187,37 +73,12 @@ export function sessionClosedAnyFeature(projectRoot: string, sessionId: string):
   );
 }
 
-/**
- * Reconcile a session's control and return the feature it should be working on, or
- * `null` when there is none.
- *
- * The control is repointed at the single in-flight bundle when the session's own
- * `active` does not name real evidence — either because it is unset (the rotated-session
- * case: a fresh control) or because it names a bundle dir that was never materialized
- * (the dangling-pointer case). Two or more in-flight bundles is ambiguous, so nothing is
- * adopted and the caller mints exactly as before.
- *
- * REPOINT ONLY — a dangling pointer is never simply cleared (decision
- * D-01KXY2BDSN226DDCH9DZA1TAK6). `resolveActiveFeature` mints a feature and sets it
- * active BEFORE any row is appended, so a freshly minted pointer legitimately names an
- * unmaterialized dir until the first append lands; clearing it there would drop the
- * change the session just opened. With nothing to adopt, the existing pointer stands.
- *
- * NEVER mints a feature: every name it can return already holds stage evidence on disk,
- * which is why the read paths (`currentFeature`) can safely call it. The control is
- * rewritten only when the active pointer actually moves, so a healthy session does no
- * I/O beyond the read.
- */
 export function reconcileSessionControl(
   projectRoot: string,
   sessionId: string,
   now?: () => Date,
 ): string | null {
   const control = readSessionControl(projectRoot, sessionId, now);
-  // A stale pointer at a CLOSED change must never be served (issue #591): a closed bundle
-  // still has rows, so the materialized check alone handed a finished change back as active
-  // and the next stage/edit appended into it. Treat a currently-closed active pointer as no
-  // active change — release it (below) and fall through to adoption or the caller's mint.
   const activeClosed =
     control.active !== null &&
     isBundleMaterialized(projectRoot, control.active) &&
@@ -230,18 +91,10 @@ export function reconcileSessionControl(
     return control.active;
   }
 
-  // Scoped to the current branch: a session id rotates mid-change, a branch does not, so
-  // the branch is what tells this session's own in-flight bundle from every other open
-  // one. A paused bundle is in flight too, but the session deliberately set it aside — a
-  // detour must not silently resume it, so only bundles outside the stack are adopted.
   const branch = readGitState(projectRoot).branch ?? null;
   const candidates = listAdoptableFeatures(projectRoot, branch).filter(
     (name) => !control.paused.includes(name),
   );
-  // A dangling pointer (unmaterialized dir) is left in place — REPOINT ONLY (decision
-  // D-01KXY2BDSN226DDCH9DZA1TAK6), a just-minted change must not be dropped. A stale CLOSED
-  // pointer is different: it names finished evidence, so it is released so the next stage
-  // opens a fresh change (issue #591, FR-2).
   const fallback = activeClosed ? null : control.active;
   if (candidates.length !== 1) {
     if (activeClosed) {
@@ -255,12 +108,6 @@ export function reconcileSessionControl(
   return adopted;
 }
 
-/**
- * The unpaused in-flight bundles on the session's current branch — the same set
- * {@link reconcileSessionControl} adopts from. Exactly one is adopted; zero or two-plus is
- * ambiguous. Exposed (issue #567) so the mint path can refuse to fork a third bundle under
- * stage isolation instead of silently minting one (AC-9).
- */
 export function adoptableInFlightOnBranch(
   projectRoot: string,
   sessionId: string,

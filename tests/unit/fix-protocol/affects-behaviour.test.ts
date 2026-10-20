@@ -64,7 +64,6 @@ describe('affectsBehaviour', () => {
   });
 
   it('defaults a code change with comment markers from another language to behaviour-affecting', () => {
-    // `#` is not a comment in .ts; the line is code, so it stays behaviour-affecting.
     const verdict = affectsBehaviour({
       files: [{ path: 'src/baz.ts', added_lines: ['# not a ts comment'], removed_lines: [] }],
     });

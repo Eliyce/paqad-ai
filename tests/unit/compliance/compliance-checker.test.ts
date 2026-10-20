@@ -29,11 +29,6 @@ function makeIndex(obligations: ObligationIndex['obligations']): ObligationIndex
 
 describe('checkSpecCompliance', () => {
   it('classifies covered/partial/uncovered/indeterminate and enforces invariants', async () => {
-    // FR-1-T1: covered by @obligation annotation
-    // FR-1-T2: covered because obligation ID appears in a test call name (FR-3.2 strong signal)
-    // FR-1-T3: partial — ID appears in file content but not in a test name or annotation
-    // FR-1-T4: uncovered — no mention anywhere
-    // GEN-AAAAAAAAAAAA: indeterminate — GEN- prefix and no evidence
     const root = await makeTempProject();
 
     await writeFile(
@@ -111,7 +106,6 @@ describe('checkSpecCompliance', () => {
     expect(byId.get('FR-1-T1')!.state).toBe('covered');
     expect(byId.get('FR-1-T1')!.evidence).toHaveLength(1);
 
-    // FR-3.2: exact ID in test name is a strong coverage signal → covered
     expect(byId.get('FR-1-T2')!.state).toBe('covered');
     expect(byId.get('FR-1-T2')!.evidence).toHaveLength(1);
 
@@ -125,7 +119,6 @@ describe('checkSpecCompliance', () => {
     expect(report.summary.uncovered).toBe(1);
     expect(report.summary.indeterminate).toBe(1);
 
-    // FR-3.3: compliance_ratio = covered / (total - indeterminate) = 2 / (5 - 1) = 0.5
     expect(report.summary.compliance_ratio).toBe(0.5);
   });
 
@@ -154,7 +147,6 @@ describe('checkSpecCompliance', () => {
     });
     expect(report.summary.indeterminate).toBe(1);
     expect(report.summary.uncovered).toBe(0);
-    // denominator = 1 - 1 = 0 → guarded → ratio 1
     expect(report.summary.compliance_ratio).toBe(1);
   });
 
@@ -189,8 +181,6 @@ describe('checkSpecCompliance', () => {
   });
 
   it('compliance_ratio excludes indeterminate from denominator', async () => {
-    // 3 covered, 0 partial, 1 uncovered, 2 indeterminate → total 6
-    // ratio = 3 / (6 - 2) = 3/4 = 0.75
     const root = await makeTempProject();
 
     await writeFile(
@@ -243,7 +233,6 @@ describe('checkSpecCompliance', () => {
     expect(report.summary.compliance_ratio).toBe(0.75);
   });
 
-  // FR-3.3: uncovered_obligations convenience array
   it('populates uncovered_obligations with IDs of uncovered obligations (FR-3.3)', async () => {
     const root = await makeTempProject();
     await writeFile(
@@ -310,7 +299,6 @@ describe('checkSpecCompliance', () => {
     expect(report.uncovered_obligations).toEqual([]);
   });
 
-  // FR-3.5 + FR-3.6: report persistence and incremental caching
   it('persists the report to disk when report_path is provided (FR-3.5)', async () => {
     const root = await makeTempProject();
     const reportPath = '.paqad/compliance/test-spec/report.json';
@@ -353,7 +341,6 @@ describe('checkSpecCompliance', () => {
     const first = await checkSpecCompliance({ project_root: root, index, report_path: reportPath });
     expect(first.metadata.cache_hit).toBe(false);
 
-    // Mutate the test file
     await writeFile(testFile, "it('changed', () => {});\n", 'utf8');
 
     const second = await checkSpecCompliance({
@@ -376,7 +363,6 @@ describe('checkSpecCompliance', () => {
     });
     expect(first.metadata.cache_hit).toBe(false);
 
-    // Different spec_hash simulates spec modification
     const index2 = { ...index1, metadata: { ...index1.metadata, spec_hash: 'new-hash' } };
     const second = await checkSpecCompliance({
       project_root: root,

@@ -27,14 +27,10 @@ describe('gatherTraceabilityInputs — rebuilt from reality', () => {
   });
 
   it('joins source markers, the import graph, and compliance reports into a map', async () => {
-    // Reality: a feature file marked with @ac AC-1 that imports a shared util,
-    // plus a genuinely dead file imported by nothing.
     write('src/feature.ts', `// @ac AC-1\nimport './shared-util.js';\nexport const f = 1;\n`);
     write('src/shared-util.ts', `export const u = 2;\n`);
     write('src/dead.ts', `// this is fine\nexport const d = 3;\n`);
 
-    // A compliance report supplies the promise + its proving check (reused, not
-    // re-derived).
     write(
       '.paqad/compliance/spec/report.json',
       JSON.stringify({
@@ -64,13 +60,12 @@ describe('gatherTraceabilityInputs — rebuilt from reality', () => {
     expect(roles['src/feature.ts']).toBe('delivers-promise');
     expect(roles['src/shared-util.ts']).toBe('shared-groundwork');
     expect(roles['src/dead.ts']).toBe('orphan');
-    // The "this is fine" comment in dead.ts does not save it.
     expect(
       map.findings.some((f) => f.code === 'TR-CODE-ORPHAN' && f.paths[0] === 'src/dead.ts'),
     ).toBe(true);
   });
 
-  it('AC-35: never counts a failing gate ac_id as a proof, and takes away the proof it had (#639 Part 11)', async () => {
+  it('AC-35: never counts a failing gate ac_id as a proof, and takes away the proof it had', async () => {
     write('src/feature.ts', `// @ac AC-7\nexport const f = 1;\n`);
     write(
       '.paqad/compliance/spec/report.json',
@@ -117,7 +112,7 @@ describe('gatherTraceabilityInputs — rebuilt from reality', () => {
     );
   });
 
-  it('reads changed files from git and ignores a leftover session cache (issue #646)', async () => {
+  it('reads changed files from git and ignores a leftover session cache', async () => {
     write('src/base.ts', 'export const b = 1;\n');
     write('src/edited.ts', 'export const e = 1;\n');
     seedGitChangedFiles(root, ['src/edited.ts']);
@@ -127,7 +122,7 @@ describe('gatherTraceabilityInputs — rebuilt from reality', () => {
     expect(input.changedFiles).toEqual(['src/edited.ts']);
   });
 
-  it('has no changed files on a clean tree with no branch commits (issue #646)', async () => {
+  it('has no changed files on a clean tree with no branch commits', async () => {
     write('src/base.ts', 'export const b = 1;\n');
     seedGitChangedFiles(root, []);
 

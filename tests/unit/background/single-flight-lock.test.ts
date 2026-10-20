@@ -33,7 +33,6 @@ describe('tryAcquireLock', () => {
     withTempDir((dir) => {
       const lockDir = join(dir, 'job.lock');
       mkdirSync(lockDir, { recursive: true });
-      // Age the lock well past the stale threshold.
       const old = Date.now() / 1000 - 3600;
       utimesSync(lockDir, old, old);
 
@@ -47,7 +46,7 @@ describe('tryAcquireLock', () => {
     withTempDir((dir) => {
       const lockDir = join(dir, 'job.lock');
       mkdirSync(lockDir, { recursive: true });
-      const recent = Date.now() / 1000 - 1; // 1s old, threshold 60s
+      const recent = Date.now() / 1000 - 1;
       utimesSync(lockDir, recent, recent);
 
       const outcome = tryAcquireLock(lockDir, { staleLockMs: STALE });
@@ -60,16 +59,14 @@ describe('tryAcquireLock', () => {
       const lockDir = join(dir, 'job.lock');
       mkdirSync(lockDir, { recursive: true });
       const stamp = 1_000_000;
-      utimesSync(lockDir, stamp, stamp); // mtime = 1_000_000s
+      utimesSync(lockDir, stamp, stamp);
 
-      // now = stamp*1000 + 30s of ms → 30s old, below 60s threshold → not stale.
       const held = tryAcquireLock(lockDir, {
         staleLockMs: STALE,
         now: () => stamp * 1000 + 30_000,
       });
       expect(held).toEqual({ acquired: false });
 
-      // now = stamp*1000 + 90s → 90s old → stale → reclaimed.
       const reclaimed = tryAcquireLock(lockDir, {
         staleLockMs: STALE,
         now: () => stamp * 1000 + 90_000,

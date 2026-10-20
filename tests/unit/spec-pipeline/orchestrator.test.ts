@@ -41,8 +41,6 @@ const roots: string[] = [];
 function tempRoot(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-sp-orch-'));
   roots.push(r);
-  // Pin the spec-pipeline switches off (issue #640 made them default on); a test's own
-  // .paqad/.config lines still win.
   pinSpecPipelineOff(r);
   return r;
 }
@@ -134,7 +132,7 @@ describe('validateStepArtifact', () => {
 });
 
 describe('readQuestionsArtifact', () => {
-  it('reads the enriched shape with auto-answered refs and counts (issue #517)', () => {
+  it('reads the enriched shape with auto-answered refs and counts', () => {
     const root = tempRoot();
     writeStepArtifact(
       root,
@@ -160,7 +158,7 @@ describe('readQuestionsArtifact', () => {
     expect(readQuestionsArtifact(tempRoot(), DIR)).toBeNull();
   });
 
-  it('round-trips the questions the expert cap held back (issue #581, FR-9)', () => {
+  it('round-trips the questions the expert cap held back', () => {
     const root = tempRoot();
     const held = { business_text: 'q?', why_it_matters: 'w', options: ['a'], grounded_in: null };
     writeStepArtifact(
@@ -176,7 +174,6 @@ describe('readQuestionsArtifact', () => {
         deferred_from_experts: [held],
       }),
     );
-    // Stored as the clarification.json questions section: asked, auto_answered, deferred, counts.
     expect(readClarification(root, DIR)?.questions).toEqual({
       asked: [],
       auto_answered: [],
@@ -228,7 +225,7 @@ describe('step machine', () => {
   });
 });
 
-describe('spec-step rows + resume + redo (issue #581)', () => {
+describe('spec-step rows + resume + redo', () => {
   it('records a spec-step row with the artifact hash and no enforcement block (FR-1.5, AC-11)', () => {
     const root = tempRoot();
     writeStepArtifact(root, DIR, 'ground', GROUNDING);
@@ -271,7 +268,6 @@ describe('spec-step rows + resume + redo (issue #581)', () => {
     expect(invalidated).toEqual(['label', 'task']);
     expect(readClarification(root, DIR)?.label).toBeNull();
     expect(existsSync(join(root, stagedFilePath(DIR, 'task')))).toBe(false);
-    // ground (upstream of the redo point) is untouched.
     expect(readStepArtifact(root, DIR, 'ground')).toBe(GROUNDING);
     const rows = readSpecStepRows(root, DIR);
     expect(rows.map((row) => [row.step, row.outcome])).toEqual([
@@ -290,7 +286,6 @@ describe('spec-step rows + resume + redo (issue #581)', () => {
     expect(redoStep(root, DIR, 'experts')).toEqual(['experts', 'questions']);
     expect(readStepArtifact(root, DIR, 'experts')).toBeNull();
     expect(readStepArtifact(root, DIR, 'questions')).toBeNull();
-    // Nothing left to clear: a second redo invalidates nothing and writes no row.
     expect(redoStep(root, DIR, 'experts')).toEqual([]);
     expect(readSpecStepRows(root, DIR)).toHaveLength(2);
   });
@@ -307,14 +302,12 @@ describe('spec-step rows + resume + redo (issue #581)', () => {
     expect(readFileSync(join(root, stagedFilePath(DIR, 'grounding')), 'utf8')).toBe(GROUNDING);
     expect(readFileSync(join(root, stagedFilePath(DIR, 'craft')), 'utf8')).toBe(CRAFT);
     expect(existsSync(join(root, featureFilePath(DIR, 'clarification')))).toBe(true);
-    // The frozen spec is never written before freeze (INV-12).
     expect(existsSync(join(root, featureFilePath(DIR, 'specification')))).toBe(false);
     expect(readdirSync(join(root, '.paqad'))).not.toContain('_specs');
     expect(readdirSync(join(root, featureDir(DIR))).sort()).toEqual(['clarification.json']);
   });
 });
 
-// Issue #547 — the experts step and the tightened questions skip.
 describe('experts step', () => {
   const DB_EXPERT: ExpertRosterEntry = {
     role: 'db-expert',
@@ -393,7 +386,6 @@ describe('experts step', () => {
     const root2 = tempRoot();
     writeStepArtifact(root2, DIR, 'experts', JSON.stringify({ ...synthesis, questions: [{}] }));
     expect(hasExpertOrChiefQuestions(root2, DIR)).toBe(true);
-    // A synthesis with neither a question nor a gap question asks nothing.
     const root3 = tempRoot();
     writeStepArtifact(
       root3,

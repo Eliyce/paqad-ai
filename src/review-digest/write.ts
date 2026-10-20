@@ -1,17 +1,3 @@
-// The review-digest write seam (issue #360).
-//
-// Reads the cached inputs, hands them to the pure composer, and persists the result at
-// `.paqad/session/review-digest.md`. Nothing lands in a feature bundle directory (INV-3):
-// the digest is an INPUT to the review, and the review's artifact is still the bundle's
-// rigid `review.json`.
-//
-// Every read here is a direct read of a known path (INV-1), except the changed-file
-// list. That comes from `loadChangeEvidence`, which reads git alone (issue #646): the
-// working-tree status plus everything committed on the branch since its base. The old
-// session cache is never read, so a stale copy can no longer hide edited files. It costs
-// a few read-only git queries, never a model call, and a clean tree with no branch
-// commits degrades to an honest "none recorded".
-
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -24,16 +10,12 @@ import { buildReviewDigest, type DigestCriterion, type DigestStage } from './dig
 import { collectMachineFindings, type MachineFinding } from './sources.js';
 
 export interface WrittenDigest {
-  /** Project-relative path the digest was written to. */
   path: string;
-  /** The active feature's bundle dir name, or null when none is active. */
   feature: string | null;
-  /** How many machine-finding rows the digest carries. */
   findings: number;
   markdown: string;
 }
 
-/** The folded per-stage state for the active feature; empty when nothing folds. */
 function readStages(projectRoot: string, sessionId: string, feature: string | null): DigestStage[] {
   if (feature === null) return [];
   try {
@@ -47,7 +29,6 @@ function readStages(projectRoot: string, sessionId: string, feature: string | nu
   }
 }
 
-/** The frozen acceptance criteria for the active feature; empty when no spec is frozen. */
 function readCriteria(projectRoot: string, feature: string | null): DigestCriterion[] {
   if (feature === null) return [];
   const spec = readFeatureSpecification(projectRoot, feature);
@@ -61,11 +42,6 @@ function readCriteria(projectRoot: string, feature: string | null): DigestCriter
   }));
 }
 
-/**
- * Compose and persist the review digest. Never throws on a missing input — each source
- * degrades to nothing and the digest says so — so the only failure mode is being unable to
- * write the file itself, which the caller surfaces.
- */
 export async function writeReviewDigest(
   projectRoot: string,
   sessionId: string,

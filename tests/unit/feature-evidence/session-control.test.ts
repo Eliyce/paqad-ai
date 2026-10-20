@@ -99,8 +99,8 @@ describe('setActiveFeature', () => {
   it('lifts a paused feature back out when re-activated', () => {
     const root = tempRoot();
     setActiveFeature(root, 'ses_1', A);
-    setActiveFeature(root, 'ses_1', B); // paused: [A]
-    const control = setActiveFeature(root, 'ses_1', A); // A active again, B paused
+    setActiveFeature(root, 'ses_1', B);
+    const control = setActiveFeature(root, 'ses_1', A);
     expect(control.active).toBe(A);
     expect(control.paused).toEqual([B]);
   });
@@ -119,7 +119,7 @@ describe('resumeFeature', () => {
   it('pops a paused feature and pushes the current active', () => {
     const root = tempRoot();
     setActiveFeature(root, 'ses_1', A);
-    setActiveFeature(root, 'ses_1', B); // paused: [A], active B
+    setActiveFeature(root, 'ses_1', B);
     const control = resumeFeature(root, 'ses_1', A);
     expect(control?.active).toBe(A);
     expect(control?.paused).toEqual([B]);
@@ -136,7 +136,7 @@ describe('resumeFeature', () => {
   it('resumes with no current active', () => {
     const root = tempRoot();
     setActiveFeature(root, 'ses_1', A);
-    pauseActive(root, 'ses_1'); // active null, paused [A]
+    pauseActive(root, 'ses_1');
     const control = resumeFeature(root, 'ses_1', A);
     expect(control?.active).toBe(A);
     expect(control?.paused).toEqual([]);
@@ -168,7 +168,7 @@ describe('pauseActive / markDone / setLane', () => {
   it('markDone clears a matching active and removes it from paused', () => {
     const root = tempRoot();
     setActiveFeature(root, 'ses_1', A);
-    setActiveFeature(root, 'ses_1', B); // active B, paused [A]
+    setActiveFeature(root, 'ses_1', B);
     const doneA = markDone(root, 'ses_1', A);
     expect(doneA.active).toBe(B);
     expect(doneA.paused).toEqual([]);
@@ -185,9 +185,7 @@ describe('pauseActive / markDone / setLane', () => {
   });
 });
 
-// Issue #591, AC-4 — every write of the session control is attributable: it carries the
-// writing verb (`written_by`) and the process id (`pid`), so a stale rewrite is traceable.
-describe('writeSessionControl attribution (issue #591)', () => {
+describe('writeSessionControl attribution', () => {
   it('stamps written_by and the process id on a raw write, defaulting to unknown', () => {
     const root = tempRoot();
     const written = writeSessionControl(root, emptyControl('ses_1'));
@@ -210,8 +208,8 @@ describe('writeSessionControl attribution (issue #591)', () => {
 
   it('resumeFeature records written_by = resume', () => {
     const root = tempRoot();
-    setActiveFeature(root, 'ses_1', A); // A active
-    setActiveFeature(root, 'ses_1', B); // A paused, B active
+    setActiveFeature(root, 'ses_1', A);
+    setActiveFeature(root, 'ses_1', B);
     resumeFeature(root, 'ses_1', A);
     expect(readSessionControl(root, 'ses_1').written_by).toBe('resume');
   });
@@ -241,7 +239,6 @@ describe('writeSessionControl attribution (issue #591)', () => {
     const root = tempRoot();
     const abs = join(root, featureSessionControlPath('ses_legacy'));
     mkdirSync(dirname(abs), { recursive: true });
-    // No written_by / pid — the pre-#591 shape.
     writeFileSync(
       abs,
       JSON.stringify({

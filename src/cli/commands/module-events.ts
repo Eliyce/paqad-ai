@@ -1,12 +1,3 @@
-// `paqad-ai module-events` — inspect the .paqad/module-map/events.jsonl
-// audit trail written by module-decisions (accept), module-map (reconcile),
-// and module-health (rollup). Issue #80, Phase 4 (AC #34).
-//
-// Three read-only subcommands:
-//   list [--limit N] [--json]
-//   since <ISO-date>          [--json]
-//   for-module <slug>         [--json]
-
 import { Command } from 'commander';
 
 import {
@@ -36,7 +27,7 @@ function emit(events: ModuleMapEvent[], json: boolean): void {
 
 export function createModuleEventsCommand(): Command {
   const command = new Command('module-events').description(
-    'Inspect the module-map events.jsonl audit trail (issue #80)',
+    'Inspect the module-map events.jsonl audit trail',
   );
 
   command

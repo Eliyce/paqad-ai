@@ -4,14 +4,7 @@ import { DECISION_CATEGORY_DEFAULTS, type DecisionPacket } from '@/planning/deci
 export interface FixProofMethodInput {
   decision_id: string;
   defect_id: string;
-  /**
-   * The *kind* of un-checkable problem (e.g. "visual-appearance", "timing").
-   * The packet's options are stable per call, so two defects of the same kind
-   * produce overlapping packets — `findReusableDecision` matches them and the
-   * earlier answer is reused (issue #103: ask once, remember by kind).
-   */
   kind: string;
-  /** Defect-specific detail. Kept out of the fingerprint so the same kind reuses. */
   detail: string;
   task_session_id: string;
   created_at: string;
@@ -21,20 +14,11 @@ export interface FixProofMethodInput {
 const DEFAULT_REQUESTED_BY = 'fix-protocol';
 const CATEGORY = 'fix.proof_method' as const;
 
-/**
- * Builds the Decision Packet raised when a confirmed problem genuinely cannot
- * be auto-checked (timing, visual appearance). It asks the human *how* to
- * confirm this kind of problem. The option keys are stable so a later
- * same-kind case reuses the saved answer via the Decision Pause Contract — it
- * does not build a second memory (issue #103 Settled decision).
- */
 export function buildFixProofMethodPacket(input: FixProofMethodInput): DecisionPacket {
   const ttlDays = DECISION_CATEGORY_DEFAULTS[CATEGORY].ttl_days;
   const ttlUntil = new Date(
     new Date(input.created_at).getTime() + ttlDays * 24 * 60 * 60 * 1000,
   ).toISOString();
-  // Fingerprint by kind only (not the specific defect) so identical kinds get
-  // an exact match and differing details of the same kind still match fuzzily.
   const fingerprint = `sha256:${sha256Hex(`${CATEGORY}:${input.kind}`)}`;
 
   return {

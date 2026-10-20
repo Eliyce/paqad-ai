@@ -17,7 +17,7 @@ the `stack`, `design-system`, and `workflows` areas. Everything else under
 `docs/instructions` loads on demand and is reported separately, never counted in the
 resident number.
 
-Lean rule loading (issue #284, default on) is the reason the resident number is small:
+Lean rule loading (default on) is the reason the resident number is small:
 instead of the whole `docs/instructions/rules` tree, a session carries an always-present
 **manifest** (one capped line per rule) plus the rule bodies for the files in play. The
 manifest is the stable resident floor; the loaded rule bodies vary per session and are
@@ -73,8 +73,8 @@ works in a repo with no `.paqad/` at all (it reports what it finds and exits 0).
 ## Headline (b): deterministic findings caught
 
 **What it measures.** How many deterministic rule findings were present per fresh
-rule-script run, read from the per-feature `rule-run.jsonl` bundles (issue #468 Phase C —
-re-pointed off the retired `rule-evidence` ledger), bucketed by ISO week.
+rule-script run, read from the per-feature `rule-run.jsonl` bundles (re-pointed off the retired `rule-evidence` ledger),
+bucketed by ISO week.
 
 **The honest definition.** The rule runner appends a bundle row only on a fresh run (a
 cache hit appends nothing), and each row counts the findings **present** at that run, not
@@ -131,7 +131,7 @@ Both numbers apply differently across the 11 providers, matching
   task-success number from it is published as a product claim. Run
   `paqad-ai rag eval --mode feature-off-vs-on` to see the gate; its dataset is synthetic.
 - **RAG injection is surface-dependent, not just adapter-dependent.** The `UserPromptSubmit`
-  seam that injects retrieved context only runs where the host executes that hook. The #313
+  seam that injects retrieved context only runs where the host executes that hook. The
   cross-provider benchmark measured it firing on Claude Code Desktop but NOT on the Claude
   agent in JetBrains (PhpStorm) — same `claude-code` adapter, no `paqad.rag-evidence` session
   on the JetBrains surface. On a surface that does not run the hook, retrieval degrades to the
@@ -142,7 +142,7 @@ Both numbers apply differently across the 11 providers, matching
 
 - Token counts come from `src/context/tokenizer-cache.ts` (the one tokenizer path), with a
   labelled char/4 fallback. The findings reader globs the per-feature `rule-run.jsonl`
-  bundles (issue #468 Phase C — off the retired `rule-evidence` ledger); no new evidence
+  bundles (off the retired `rule-evidence` ledger); no new evidence
   store was added, and `.paqad/scripts/rules/.cache/report.json` is the engine's hash-cache, not a
   data source for this page.
 - The scripts live in `scripts/` (repo tooling), outside the coverage gate, and change no

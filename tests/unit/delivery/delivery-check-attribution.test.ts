@@ -35,10 +35,6 @@ function policy(): ResolvedDeliveryPolicy {
   };
 }
 
-/**
- * A runner that answers the four calls evaluateDelivery makes: current branch, HEAD sha,
- * the branch's commit messages, and `gh pr view`.
- */
 function runner(over: { branch?: string; log?: string; prBody?: string | null }): CommandRunner {
   return async (command, args): Promise<CommandRun> => {
     if (command === 'git' && args.includes('--abbrev-ref')) {
@@ -51,7 +47,7 @@ function runner(over: { branch?: string; log?: string; prBody?: string | null })
       return { stdout: 'abc123', exitCode: 0 };
     }
     if (over.prBody === null || over.prBody === undefined) {
-      return { stdout: '', exitCode: 1 }; // gh absent / no PR yet
+      return { stdout: '', exitCode: 1 };
     }
     return { stdout: JSON.stringify({ number: 7, body: over.prBody }), exitCode: 0 };
   };
@@ -61,8 +57,7 @@ function attributionFindings(result: { findings: { code: string; message: string
   return result.findings.filter((finding) => finding.code === 'ai-attribution');
 }
 
-describe('delivery backstop — AI attribution (issue #538)', () => {
-  // AC-9
+describe('delivery backstop — AI attribution', () => {
   it('warns when a vendor trailer is on the branch commits', async () => {
     const result = await evaluateDelivery({
       projectRoot: makeProject(),
@@ -75,7 +70,6 @@ describe('delivery backstop — AI attribution (issue #538)', () => {
     expect(findings[0].message).toContain('your commits');
   });
 
-  // AC-9 — the remediation is the useful half, especially for a vendor paqad cannot configure.
   it('hands back the vendor-specific fix for a vendor paqad does not configure', async () => {
     const result = await evaluateDelivery({
       projectRoot: makeProject(),
@@ -112,7 +106,6 @@ describe('delivery backstop — AI attribution (issue #538)', () => {
     expect(attributionFindings(result)).toHaveLength(2);
   });
 
-  // AC-10
   it('says nothing when the branch and PR body are clean', async () => {
     const result = await evaluateDelivery({
       projectRoot: makeProject(),
@@ -122,7 +115,6 @@ describe('delivery backstop — AI attribution (issue #538)', () => {
     expect(attributionFindings(result)).toEqual([]);
   });
 
-  // AC-8 / INV-2 — the footer paqad itself writes into every PR body must never trip this.
   it("never trips on paqad's own delivery footer in the PR body", async () => {
     const result = await evaluateDelivery({
       projectRoot: makeProject(),
@@ -135,7 +127,6 @@ describe('delivery backstop — AI attribution (issue #538)', () => {
     expect(attributionFindings(result)).toEqual([]);
   });
 
-  // AC-12
   it('scans nothing when the policy says keep', async () => {
     const root = makeProject({ '.paqad/configs/.config.policy': 'ai_attribution=keep' });
     const result = await evaluateDelivery({
@@ -184,7 +175,6 @@ describe('delivery backstop — AI attribution (issue #538)', () => {
     expect(summary).toContain('Claude Code attribution');
   });
 
-  // AC-11 / INV-3 — the whole check is advisory. It must never hold up a change.
   it('never blocks', async () => {
     const outcome = await runDeliveryCapability(
       makeProject(),

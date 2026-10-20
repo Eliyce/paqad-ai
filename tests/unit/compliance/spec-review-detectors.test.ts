@@ -1,7 +1,3 @@
-/**
- * Tests for the enhanced / generalised spec-review detectors.
- * Covers new code paths added in the Gap-1 improvements.
- */
 import { describe, expect, it } from 'vitest';
 
 import { formulaDetector } from '@/compliance/spec-review-detectors/formula-detector.js';
@@ -20,8 +16,6 @@ function makeContext(lines: string[]): ReviewContext {
     })),
   };
 }
-
-// ── formula-detector ────────────────────────────────────────────────────────
 
 describe('formulaDetector', () => {
   it('detects the canonical covered / (total - indeterminate) pattern', () => {
@@ -59,14 +53,12 @@ describe('formulaDetector', () => {
   });
 
   it('deduplicates when the canonical and generic patterns fire on the same line pair', () => {
-    // Both the specific pattern and generic pattern match the same two lines.
     const defects = formulaDetector.detect(
       makeContext([
         'ratio = covered / (total - indeterminate)',
         'All total obligations may be indeterminate.',
       ]),
     );
-    // Should deduplicate to one defect (same line pair)
     expect(defects).toHaveLength(1);
   });
 
@@ -95,7 +87,6 @@ describe('formulaDetector', () => {
   });
 
   it('does not flag when the zero-case is on the same line as the division', () => {
-    // Same line — should not pair with itself
     const defects = formulaDetector.detect(
       makeContext(['The ratio is covered / (eligible) when all eligible can be empty.']),
     );
@@ -114,8 +105,6 @@ describe('formulaDetector', () => {
     expect(defects).toEqual([]);
   });
 });
-
-// ── goal-conflict-detector ───────────────────────────────────────────────────
 
 describe('goalConflictDetector', () => {
   it('detects the canonical lossless vs ignore-table conflict', () => {
@@ -160,7 +149,6 @@ describe('goalConflictDetector', () => {
         'Records that fail validation must be excluded from the output.',
       ]),
     );
-    // Both rule 1 and rule 2 fire independently
     expect(defects.length).toBeGreaterThanOrEqual(2);
     expect(defects.every((d) => d.category === 'goal_conflict')).toBe(true);
   });

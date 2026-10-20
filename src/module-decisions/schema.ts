@@ -1,6 +1,3 @@
-// MD-XXXX prospective module decisions — schema, state machine, slug helpers.
-// Issue #80, Phase 1. Stored under .paqad/decisions/module-decisions/<id>.yml.
-
 export type ModuleDecisionState =
   'draft' | 'proposed' | 'accepted' | 'rejected' | 'expired' | 'superseded';
 
@@ -51,8 +48,6 @@ export interface ModuleDecision {
 export const DEFAULT_PROPOSED_TTL_DAYS = 7;
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-// Issue #184: accept both new `MD-<ULID>` ids and legacy `MD-{XXXX}` ordinals
-// so a directory holding a mix of both validates without error.
 const ID_RE = /^MD-(?:\d{4,}|[0-9A-HJKMNP-TV-Z]{26})$/;
 
 export function isValidSlug(value: string): boolean {
@@ -77,9 +72,6 @@ export function parseDecisionId(id: string): number {
   return Number(id.slice(3));
 }
 
-// Normalise an arbitrary user-supplied name to a kebab-case slug. Strips
-// non-alphanumerics, collapses runs of dashes, lowercases. Returns null if
-// the result is empty or would otherwise fail isValidSlug.
 export function normaliseSlug(input: string): string | null {
   const trimmed = input.trim().toLowerCase();
   if (trimmed.length === 0) return null;
@@ -88,8 +80,6 @@ export function normaliseSlug(input: string): string | null {
   return isValidSlug(slug) ? slug : null;
 }
 
-// Levenshtein distance — used for near-collision detection (issue §4.7.2).
-// Bounded by `max` for early exit on long strings.
 export function levenshtein(a: string, b: string, max = 2): number {
   if (a === b) return 0;
   if (Math.abs(a.length - b.length) > max) return max + 1;
@@ -105,11 +95,7 @@ export function levenshtein(a: string, b: string, max = 2): number {
     let rowMin = curr[0];
     for (let j = 1; j <= bl; j++) {
       const cost = a.charCodeAt(i - 1) === b.charCodeAt(j - 1) ? 0 : 1;
-      curr[j] = Math.min(
-        curr[j - 1] + 1, // insertion
-        (prev[j] ?? 0) + 1, // deletion
-        (prev[j - 1] ?? 0) + cost, // substitution
-      );
+      curr[j] = Math.min(curr[j - 1] + 1, (prev[j] ?? 0) + 1, (prev[j - 1] ?? 0) + cost);
       if (curr[j] < rowMin) rowMin = curr[j];
     }
     if (rowMin > max) return max + 1;
@@ -118,8 +104,6 @@ export function levenshtein(a: string, b: string, max = 2): number {
   return prev[bl] ?? 0;
 }
 
-// Allowed transitions. `accepted` is terminal-ish (only superseded can follow).
-// `rejected`, `expired`, `superseded` are terminal.
 const TRANSITIONS: Record<ModuleDecisionState, ModuleDecisionState[]> = {
   draft: ['proposed', 'rejected'],
   proposed: ['accepted', 'rejected', 'expired', 'superseded'],

@@ -1,24 +1,3 @@
-// The fail-closed bundle-completeness gate (issue #511, part B — RC-3).
-//
-// The successor to the warn-only evidence-existence gate. It reads the DECLARATIVE bundle
-// manifest (src/feature-evidence/manifest.ts) — the single source of truth for which files
-// a feature-development change must leave and who writes them — and, at end-of-change,
-// asserts every required file exists AND validates. A required file that is missing, empty,
-// or invalid FAILS the change under `strict` (the default), naming the file and its writer;
-// under `warn` it surfaces as Inconclusive without blocking (the bake-in tier).
-//
-// It ABSORBS the existence gate's cache backfill as a RECOVERY step: a recoverable file
-// (rule-run / duplication / change-metrics) missing from the live seam is minted from the
-// engine caches — but reported `backfilled` (🟡), never a clean pass, so the recorder defect
-// stays visible (AC-8). RAG is unrecoverable, so a genuine RAG gap is Inconclusive, never a
-// hard fail. feature.json gets the extra AC-2 check: the placeholder title with no ticket is
-// treated as missing (the change has no record of what it was).
-//
-// Scope is the SAME guard the existence gate uses: a non-feature-development / no-active-
-// bundle / affirmatively-non-feature turn skips the whole gate (no regression of the
-// #310/#390/#394 false-block fixes). Best-effort throughout: a read/backfill fault degrades
-// to a note, never a throw and never a wrong verdict.
-
 import type { ChangeMetrics } from '@/change-metrics/types.js';
 import type { VerificationGate, VerificationOrigin } from '@/core/types/verification.js';
 import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
@@ -64,8 +43,6 @@ import { join } from 'node:path';
 
 import type { BundleCompletenessMode } from './bundle-completeness-mode.js';
 
-/** Tolerant read of a project-relative file's raw bytes, or null when absent/unreadable. A
- *  single read + catch (never stat-then-read) avoids the TOCTOU race CodeQL flags. */
 function readFileSafe(projectRoot: string, rel: string): string | null {
   try {
     return readFileSync(join(projectRoot, rel), 'utf8');
@@ -74,50 +51,25 @@ function readFileSafe(projectRoot: string, rel: string): string | null {
   }
 }
 
-/** The gate marker (not a registered VERIFICATION_GATES member, like `evidence-existence`). */
 const GATE_NAME = 'bundle-completeness' as VerificationGate;
 
-/** The recoverable files the gate can mint from the engine caches (marked `backfilled`). */
 const RECOVERABLE = new Set<FeatureBundleFile>(['ruleRun', 'duplication', 'changeMetrics']);
 
-/**
- * Origins where the local feature bundle is present, so its incompleteness can be enforced
- * (mirrors the stage-evidence gate's STAGE_EVIDENCE_HARD_ORIGINS). `ci-backstop` is excluded:
- * a fresh CI checkout has no committed local bundle, so the gate must never break it.
- */
 const LOCAL_ORIGINS: ReadonlySet<VerificationOrigin> = new Set(['hook-completion', 'git-backstop']);
 
 export interface BundleCompletenessGateInput {
   projectRoot: string;
-  /** The session whose active feature bundle is checked/backfilled. */
   sessionId: string;
-  /** The active feature bundle dir, or null when none is open / route is non-feature. */
   dirName: string | null;
-  /** The resolved gate mode (`off` returns no gate). */
   mode: BundleCompletenessMode;
-  /** The verification origin — only LOCAL origins can hard-fail (CI clones have no bundle). */
   origin: VerificationOrigin;
-  /** Whether this change is feature-development (the gate only applies then). */
   isFeatureDev: boolean;
-  /** The resolved config flags the manifest predicates read. */
   config: BundleCompletenessConfig;
-  /** The live-computed metrics for this change, used to backfill change-metrics.jsonl. */
   changeMetrics: ChangeMetrics | null;
-  /**
-   * Issue #581 — true when the caller appends this gate's own row to evidence.jsonl right after
-   * it returns (the late-gate rows). The file is then written by this very run, so an absent
-   * evidence.jsonl (no graded rows yet) is not a missing file: the gate's row will be its first.
-   */
   evidenceRowsPending?: boolean;
-  /**
-   * Issue #669 — true when the caller seals receipt.json and ai-bom.json AFTER this gate, so
-   * they agree with the final verdict. Those files are then written by this very run, so a
-   * missing one is not a gap.
-   */
   receiptPending?: boolean;
 }
 
-/** Read a bundle file's raw bytes (project-relative), or null when absent/unreadable. */
 function readBundleFile(
   projectRoot: string,
   dirName: string,
@@ -130,7 +82,6 @@ function readBundleFile(
   return readFileSafe(projectRoot, rel);
 }
 
-/** Attempt to mint a recoverable file from the engine caches. Returns whether it minted. */
 function backfill(entry: BundleManifestEntry, input: BundleCompletenessGateInput): boolean {
   const { projectRoot, sessionId } = input;
   if (entry.key === 'ruleRun') {
@@ -166,7 +117,6 @@ function backfill(entry: BundleManifestEntry, input: BundleCompletenessGateInput
     }
     return false;
   }
-  // change-metrics
   if (input.changeMetrics) {
     appendChangeMetrics(projectRoot, sessionId, input.changeMetrics, undefined, true);
     return true;
@@ -180,22 +130,11 @@ interface GateState {
   missing: { file: string; writer: string }[];
   ragMissing: boolean;
   flagSkipped: string[];
-  /** Issue #640 — files their flag requires but the fast lane does not need. */
   laneSkipped: string[];
-  /** Issue #640 — pipeline files a spec frozen before the spec pipeline was on never had. */
   preSwitchSkipped: string[];
-  /** Issue #602 (FR-4) — the lane never resolved on a subagent-capable feature-dev change and
-   *  no isolation ran, so isolation could not be verified. Surfaced (Inconclusive), never a
-   *  hard block. */
   isolationUnverified: boolean;
 }
 
-/**
- * Run the bundle-completeness check for a change. Returns a
- * {@link VerificationEvidenceGate} (`pass` / `fail` / `inconclusive` / `skipped`), or `null`
- * when the knob is `off`. Side effect: mints any recoverable missing file from the caches
- * (best-effort, marked `backfilled`).
- */
 export function bundleCompletenessGate(
   input: BundleCompletenessGateInput,
 ): VerificationEvidenceGate | null {
@@ -203,16 +142,11 @@ export function bundleCompletenessGate(
     return null;
   }
   const { dirName, sessionId } = input;
-  // A non-feature / copy-only / chat turn (no active feature bundle) has no bundle to
-  // complete — skipped, never a block (the #310/#390/#394 scope guard).
   if (!input.isFeatureDev || !dirName) {
     return skipped(
       'No active feature bundle for this change — bundle-completeness check not applicable.',
     );
   }
-  // A non-local origin (CI) has no committed local bundle, so completeness is informational
-  // there — skipped, never a block (mirrors the stage-evidence gate). The teeth are the
-  // local Stop hook / git backstop.
   if (!LOCAL_ORIGINS.has(input.origin)) {
     return skipped(
       `Bundle-completeness is informational on ${input.origin} — no committed local bundle to check.`,
@@ -232,9 +166,6 @@ export function bundleCompletenessGate(
 
   try {
     for (const entry of BUNDLE_MANIFEST) {
-      // Optional evidence (issue #528): a known bundle file that is neither required nor
-      // flag-gated (e.g. checks.json). Count it when present, ignore it when absent — never a
-      // "Skipped (flag off)" note (there is no flag), and never a completeness failure.
       if (entry.required === 'optional') {
         const content = readBundleFile(input.projectRoot, dirName, entry);
         if (validateBundleFileContent(entry.validate, content)) {
@@ -243,9 +174,6 @@ export function bundleCompletenessGate(
         continue;
       }
       if (!isBundleFileRequired(entry, input.config)) {
-        // Issue #640 — a file the fast lane does not need is "not required on the fast lane",
-        // and a pipeline file a spec frozen before the pipeline was on never had is "frozen
-        // before the pipeline", not "flag off": the flag may well be on.
         const unlocked = {
           ...input.config,
           lane: 'full' as const,
@@ -265,20 +193,11 @@ export function bundleCompletenessGate(
     assertStageAgentRows(input, dirName, state);
     /* v8 ignore next 4 -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
-  } catch {
-    // Fall through to whatever was collected so far.
-  }
+  } catch {}
 
   return decide(input.mode, state);
 }
 
-/**
- * Issue #669 — judge the bundle again once the receipt seal has run. The gate counted
- * receipt.json and ai-bom.json present on the promise that this run seals them after every
- * gate. When that seal did not happen, the promise is withdrawn and the gate runs without it,
- * so a strict gate still fails for the missing file. A seal that held, or a gate that never
- * relied on the promise, keeps the gate it already returned.
- */
 export function recheckAfterReceiptSeal(
   gate: VerificationEvidenceGate | null,
   input: BundleCompletenessGateInput,
@@ -290,37 +209,24 @@ export function recheckAfterReceiptSeal(
   return bundleCompletenessGate({ ...input, receiptPending: false });
 }
 
-/**
- * Issue #573 / #581 (AC-14) — a graduated or full change on a subagent-capable host must
- * prove it ran its stages in stage agents. The proof is the `stage-agent` rows each
- * SubagentStop appends to stage-evidence.jsonl (an old bundle's context-efficiency.jsonl
- * still counts). Missing, the gate fails BY NAME. It is a property of the change, not a
- * flag, so a change that did not expect isolation is never told a flag was off.
- */
 function assertStageAgentRows(
   input: BundleCompletenessGateInput,
   dirName: string,
   state: GateState,
 ): void {
-  // Isolation actually ran → nothing to say, whatever the lane says.
   if (hasStageAgentEvidence(input.projectRoot, dirName)) return;
   if (input.config.stageIsolationExpected) {
-    // A graduated/full change that skipped isolation is a hard miss.
     state.missing.push({
       file: 'stage-agent rows in stage-evidence.jsonl',
       writer: 'dispatch each stage to its paqad-<stage> agent; the SubagentStop hook records it',
     });
     return;
   }
-  // Issue #602 (FR-4) — the lane never resolved on a subagent-capable feature-dev change, so
-  // isolation could not be judged. Surface it (Inconclusive) rather than reading a clean green;
-  // never a hard block (INV-2/INV-5).
   if (input.config.stageIsolationUnresolved) {
     state.isolationUnverified = true;
   }
 }
 
-/** Check one required entry and record its outcome into `state`. */
 function assertRequired(
   entry: BundleManifestEntry,
   input: BundleCompletenessGateInput,
@@ -330,8 +236,6 @@ function assertRequired(
 ): void {
   const content = readBundleFile(input.projectRoot, dirName, entry);
   if (validateBundleFileContent(entry.validate, content)) {
-    // feature.json exists + parses, but a placeholder title with no ticket means the change
-    // has no record of what it was (issue #511, AC-2) — treat that as a missing record.
     if (entry.key === 'feature') {
       const record = readFeatureRecord(input.projectRoot, dirName);
       if (record && featureRecordIsUntitled(record)) {
@@ -343,7 +247,6 @@ function assertRequired(
         return;
       }
     }
-    // Issue #581 (FR-15) — the signed source must be the one the record was frozen from.
     if (entry.key === 'specMd' && !specSourceMatches(input.projectRoot, dirName, content!)) {
       state.missing.push({
         file: `${entry.file} (its body does not hash to specification.json spec_hash)`,
@@ -352,9 +255,6 @@ function assertRequired(
       return;
     }
     if (entry.key === 'specification') {
-      // Strict-adoption content check (issue #547, FR-10.2): under strict adoption the frozen spec
-      // must record that the pipeline produced it, or a manual reason. Not applied under warn or
-      // with the pipeline off, so the gate is unchanged there.
       if (specPipelineStrictApplies(input.config)) {
         const adoption = validateSpecificationAdoption(content);
         if (!adoption.ok) {
@@ -371,27 +271,21 @@ function assertRequired(
     return;
   }
 
-  // A bundle frozen before issue #581 has no spec.md and never will (its source was deleted at
-  // freeze): its record names the old source and the re-rendered specification.md stands in.
   if (entry.key === 'specMd' && legacySpecProjectionPresent(input.projectRoot, dirName)) {
     state.present.push(entry.file);
     return;
   }
 
-  // Issue #581 — this run appends the gate's own row to evidence.jsonl once it returns.
   if (entry.key === 'evidence' && input.evidenceRowsPending) {
     state.present.push(entry.file);
     return;
   }
 
-  // Issue #669 — this run seals the receipt and AI-BOM once every gate, this one included, ran.
   if ((entry.key === 'receipt' || entry.key === 'aiBom') && input.receiptPending) {
     state.present.push(entry.file);
     return;
   }
 
-  // rag is unrecoverable: a genuine gap reads Inconclusive, never a hard fail. Present when
-  // either home carries a row (the bundle, or the session `_chat` home — the one-prompt lag).
   if (entry.unrecoverable) {
     const chat = readFileSafe(input.projectRoot, chatRagPath(sessionId));
     if (validateBundleFileContent(entry.validate, chat)) {
@@ -402,14 +296,11 @@ function assertRequired(
     return;
   }
 
-  // Recoverable files: try to mint from the caches. A backfilled file is 🟡, never a pass.
   if (RECOVERABLE.has(entry.key as FeatureBundleFile) && backfill(entry, input)) {
     state.backfilled.push(entry.file);
     return;
   }
 
-  // Issue #640 — a pipeline file owed only because the lane was raised after a fast-lane freeze
-  // cannot be written on its own: the spec has to be re-frozen through the pipeline, so say so.
   const refreeze =
     PIPELINE_FILE_KEYS.has(entry.key) &&
     isSpecFrozenOnFastLane(readSpecificationRecord(input.projectRoot, dirName));
@@ -419,21 +310,12 @@ function assertRequired(
   });
 }
 
-/** The bundle files only the spec pipeline writes (issue #640). */
 const PIPELINE_FILE_KEYS: ReadonlySet<BundleManifestEntry['key']> = new Set([
   'request',
   'clarification',
   'experts',
 ]);
 
-/**
- * Where a present file's envelope `content_hash` no longer matches its bytes (issue #581,
- * FR-14, AC-24): `null` when every hash holds, else the part that fails (the document, or the
- * first JSONL line). A hook cannot see a Bash write into the bundle, so this check is the
- * backstop on every host. Only files carrying the #581 header are checked: a pre-#581 file
- * hashed another identity, and a derived or standard-format file (`report.html`, the receipt,
- * the AI-BOM) keeps its header where the top-level check never reads it.
- */
 function contentHashMismatch(entry: BundleManifestEntry, content: string): string | null {
   if (entry.key === 'report') return null;
   if (entry.validate === 'nonempty') {
@@ -450,14 +332,13 @@ function contentHashMismatch(entry: BundleManifestEntry, content: string): strin
     try {
       row = JSON.parse(line);
     } catch {
-      continue; // an unparseable line is the reader's concern, not a hash mismatch
+      continue;
     }
     if (rowHashMatches(row) === false) return `line ${index + 1}`;
   }
   return null;
 }
 
-/** Record a content_hash mismatch for `entry` into `state`; true when one was recorded. */
 function recordHashMismatch(
   entry: BundleManifestEntry,
   content: string,
@@ -472,7 +353,6 @@ function recordHashMismatch(
   return true;
 }
 
-/** The bundle's parsed specification.json, or null when absent, corrupt, or not an object. */
 function readSpecificationRecord(
   projectRoot: string,
   dirName: string,
@@ -487,21 +367,12 @@ function readSpecificationRecord(
   }
 }
 
-/**
- * Whether spec.md's body (everything after the front matter) hashes to specification.json
- * `spec_hash`. True when there is no recorded hash to compare against: a missing or invalid
- * specification.json is reported by its own manifest entry, not twice.
- */
 function specSourceMatches(projectRoot: string, dirName: string, specMd: string): boolean {
   const record = readSpecificationRecord(projectRoot, dirName);
   if (typeof record?.spec_hash !== 'string') return true;
   return sha256Hex(splitFrontMatter(specMd).body) === record.spec_hash;
 }
 
-/**
- * A pre-#581 frozen bundle: its specification.json names a source other than the bundle's
- * spec.md, and the old specification.md projection is present and not blank.
- */
 function legacySpecProjectionPresent(projectRoot: string, dirName: string): boolean {
   const record = readSpecificationRecord(projectRoot, dirName);
   if (typeof record?.spec_file !== 'string' || record.spec_file === FEATURE_BUNDLE_FILES.specMd) {
@@ -527,8 +398,6 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
       ? ` Backfilled (live write missed): ${state.backfilled.join(', ')}.`
       : '';
 
-  // A required, non-recoverable file is genuinely absent → the gate bites (strict) or
-  // surfaces (warn). Names each missing file and the verb that produces it.
   if (state.missing.length > 0) {
     const named = state.missing.map((m) => `${m.file} (run: ${m.writer})`).join('; ');
     const detail = `The feature bundle is incomplete — missing/invalid: ${named}.${backfillNote}${skipNote}`;
@@ -539,9 +408,6 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
     return { name: GATE_NAME, status: 'inconclusive', detail, remediation, failures: [] };
   }
 
-  // No hard miss, but a backfill happened, RAG is unrecoverably absent, or the lane never
-  // resolved so isolation could not be verified → Inconclusive (🟡), so a recovered-from-cache,
-  // dark-RAG, or not-classified bundle is never read as a clean pass (AC-8; issue #602 FR-4).
   if (state.backfilled.length > 0 || state.ragMissing || state.isolationUnverified) {
     const ragNote = state.ragMissing
       ? ' rag.jsonl is absent (no bundle or _chat retrieval row); RAG evidence is unrecoverable.'
@@ -569,7 +435,6 @@ function decide(mode: BundleCompletenessMode, state: GateState): VerificationEvi
   };
 }
 
-/** Issue #639, Part 10 — every skip here is a change with nothing for this gate to check. */
 function skipped(detail: string): VerificationEvidenceGate {
   return {
     name: GATE_NAME,

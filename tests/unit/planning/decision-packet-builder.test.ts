@@ -128,10 +128,6 @@ describe('decision packet builder', () => {
       token_budget: 5000,
     };
 
-    // `ttl_overrides_days` is a project decision preference with no `.config`
-    // key, and readProjectProfile() now replaces `custom.decisions` from
-    // config+defaults. Overlay just this override onto the real resolved profile
-    // so the packet builder still applies the 10-day TTL.
     const realReadProjectProfile = projectProfileModule.readProjectProfile;
     const readSpy = vi
       .spyOn(projectProfileModule, 'readProjectProfile')
@@ -225,7 +221,6 @@ describe('decision packet builder', () => {
       'utf8',
     );
 
-    // Analytics v2 (#279): a new event is governed by a decision packet with no file options.
     expect(decisionQuestionForCategory('analytics.new_event')).toBe(
       'This adds a new tracked event — approve the name, rename it, or skip tracking?',
     );

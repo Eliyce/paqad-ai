@@ -1,6 +1,6 @@
 ---
 name: module-health-rollup
-description: Test-driven module-health rollup. Issue #80, Phase 3. Reads the active stack pack's module_health block, parses the declared coverage and test reports (or one provided via --from-report), attributes rows to module slugs via module-map.yml's source globs, computes per-module coverage_pct / tests_passing / tests_failing / tests_total / change_velocity, and writes the extended .paqad/module-health/<slug>.json record with blocked_metrics populated for any signal that could not be computed. The TS engine lives in `src/module-health/rollup.ts`; this skill is the agent-side wrapper that invokes it via the CLI and surfaces blocked-metric reasons.
+description: Test-driven module-health rollup. Reads the active stack pack's module_health block, parses the declared coverage and test reports (or one provided via --from-report), attributes rows to module slugs via module-map.yml's source globs, computes per-module coverage_pct / tests_passing / tests_failing / tests_total / change_velocity, and writes the extended .paqad/module-health/<slug>.json record with blocked_metrics populated for any signal that could not be computed. The TS engine lives in `src/module-health/rollup.ts`; this skill is the agent-side wrapper that invokes it via the CLI and surfaces blocked-metric reasons.
 model_tier: medium
 triggers:
   - workflow:
@@ -30,7 +30,7 @@ input_schema:
 
 ## What It Does
 
-Runs the test-driven module-health rollup defined by issue #80, Phase 3. For every module declared in `module-map.yml`, the rollup computes:
+Runs the test-driven module-health rollup. For every module declared in `module-map.yml`, the rollup computes:
 
 | Metric               | Source                                                          |
 | -------------------- | --------------------------------------------------------------- |

@@ -208,7 +208,6 @@ describe('computeHitAtK', () => {
       query_class: 'ambiguous',
       task_description: 'ambiguous',
       keywords: ['ambiguous'],
-      // no expected_file — excluded from denominator
     },
     {
       id: 'skip-1',
@@ -216,7 +215,7 @@ describe('computeHitAtK', () => {
       task_description: 'rename variable',
       keywords: ['rename'],
       expected_file: 'src/utils.ts',
-      should_skip_retrieval: true, // excluded from denominator
+      should_skip_retrieval: true,
     },
   ];
 
@@ -272,7 +271,6 @@ describe('computeHitAtK', () => {
     const traces: EvalTrace[] = [
       {
         item_id: 'hit-1',
-        // expected_file is at position 3 (index 2), outside k=2
         first_stage_chunk_ids: [
           '/abs/root/src/a.ts',
           '/abs/root/src/b.ts',
@@ -286,8 +284,8 @@ describe('computeHitAtK', () => {
         packed_chunk_ids: [],
       },
     ];
-    expect(computeHitAtK(dataset, traces, 2)).toBe(0.5); // hit-1 misses, hit-2 hits
-    expect(computeHitAtK(dataset, traces, 3)).toBe(1.0); // both hit
+    expect(computeHitAtK(dataset, traces, 2)).toBe(0.5);
+    expect(computeHitAtK(dataset, traces, 3)).toBe(1.0);
   });
 
   it('returns 0 when no eligible items exist', () => {
@@ -304,7 +302,6 @@ describe('computeHitAtK', () => {
   });
 
   it('excludes items without expected_file from both numerator and denominator', () => {
-    // Only 'hit-1' is eligible (hit-2 has no trace, no-expected excluded, skip excluded)
     const traces: EvalTrace[] = [
       {
         item_id: 'hit-1',
@@ -312,7 +309,6 @@ describe('computeHitAtK', () => {
         packed_chunk_ids: [],
       },
     ];
-    // hit-1 hits, hit-2 has no trace (miss) → 1/2 = 0.5
     expect(computeHitAtK(dataset, traces, 5)).toBe(0.5);
   });
 });
@@ -539,7 +535,7 @@ describe('on/off A/B gate (F15)', () => {
   it('snapshotFromTraces rolls the four gated metrics into a snapshot', () => {
     const snapshot = snapshotFromTraces(dataset, buildFeatureOffTraces(dataset));
     expect(snapshot.task_count).toBe(2);
-    expect(snapshot.hit_at_5).toBe(0); // no chunks off
+    expect(snapshot.hit_at_5).toBe(0);
     expect(snapshot.prompt_tokens_sent).toBe(0);
   });
 
@@ -568,7 +564,7 @@ describe('on/off A/B gate (F15)', () => {
   });
 
   it('fails the gate when feature-ON adds no retrieval value (regression blocked)', () => {
-    const onTraces = buildFeatureOffTraces(dataset); // ON == OFF: no improvement
+    const onTraces = buildFeatureOffTraces(dataset);
     const { comparison } = runFeatureOffVsOnGate(dataset, onTraces);
     expect(comparison.evaluation.passed).toBe(false);
   });

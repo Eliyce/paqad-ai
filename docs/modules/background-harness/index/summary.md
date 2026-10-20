@@ -24,6 +24,20 @@ index sync, and the codebase-memory tier all ride on it.
 - [Debounce Marker (burst coalescing)](../features/debounce-marker/business.md)
 - [Atomic Artifact Swap (build-to-temp + rename)](../features/atomic-artifact-swap/business.md)
 
+## Why the code works the way it does
+
+- **`atomic-artifact.ts`.** The temp name carries the pid and a per-process counter, so two
+  builders (a stale worker racing a reclaimed one) never share a temp file even if the lock is
+  bypassed.
+- **`single-flight-lock.ts`.** The lock is an atomic `mkdir`, which is portable and needs no
+  `flock`, the same as `silent-update.mjs`. If the lock disappears between the failed `mkdir` and
+  the `stat`, it retries once; if another process reclaims a stale lock first, it backs off as if
+  the lock were live.
+- **`worker-harness.ts`.** The debounce marker is stamped before the spawn, so a racing burst still
+  coalesces. A failed spawn hands the lock back so the job is not stuck until the lock goes stale.
+  The worker is a detached, unref'd child with no shared stdio, the same pattern as
+  `silent-update.mjs`, so a session never waits on it.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

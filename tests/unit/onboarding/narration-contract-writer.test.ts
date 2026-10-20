@@ -24,21 +24,17 @@ describe('narration-contract-writer', () => {
     expect(body).toContain('**▸ paqad**');
   });
 
-  // Issue #409 — the contract used to tell the Claude Code agent that "the entry lines
-  // and the end-of-change receipt are surfaced for you", so a compliant agent delegated
-  // its voice to a channel Claude Code Desktop never renders. AC-3.
-  describe('#409 who speaks, and on which channel', () => {
+  describe('who speaks, and on which channel', () => {
     it('AC-3: no longer promises that the hooks surface the narration for the agent', () => {
       expect(buildNarrationContractBody()).not.toContain(
         'the entry lines and the end-of-change receipt are surfaced for you',
       );
     });
 
-    it('AC-3: puts the voice on the Claude Code and Codex agents themselves (#566)', () => {
+    it('AC-3: puts the voice on the Claude Code and Codex agents themselves', () => {
       const body = buildNarrationContractBody();
       expect(body).toContain('On **Claude Code and Codex** YOU speak');
       expect(body).toContain('Never treat a hook as having spoken for you');
-      // Only Gemini stays record-only after the Codex parity change.
       expect(body).toContain('On **Gemini** the record hook is deliberately record-only');
     });
 
@@ -46,10 +42,7 @@ describe('narration-contract-writer', () => {
       const body = buildNarrationContractBody();
       expect(body).toContain('Claude Code CLI');
       expect(body).toContain('Claude Code Desktop');
-      // A PreToolUse `{systemMessage}` now renders on Desktop (the `Stop says:` leak,
-      // extended) — so the contract names the leak, not the old "invisible" premise.
       expect(body).toContain('PreToolUse:<Tool> says:');
-      // The channel the agent controls is named as the one that renders.
       expect(body).toContain('Your assistant text, final message of the turn');
     });
 
@@ -83,8 +76,6 @@ describe('narration-contract-writer', () => {
     }
   });
 
-  // Issue #639, Part 13: the High Table runs as subagents: one paqad-expert per seat in parallel,
-  // then the chief architect; inline on a host with no subagents.
   it('AC-46: tells the orchestrator to dispatch one expert subagent per seat in parallel, then the chief', () => {
     const body = buildNarrationContractBody();
     expect(body).toContain(

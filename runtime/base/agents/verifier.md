@@ -62,7 +62,7 @@ On the first blocking failure:
 
 ### Step 3b - Flaky-test trust (keep a pass meaningful)
 
-A pass must mean the code is fine — so a test that passes or fails at random must not be allowed to erode trust in real failures. Issue #106:
+A pass must mean the code is fine — so a test that passes or fails at random must not be allowed to erode trust in real failures:
 
 - **Assume real first.** Treat every test failure as a genuine fault. Never dismiss one as "probably flaky" before evidence rules out a real cause.
 - **Judge stability by re-runs.** When a non-quarantined failure is _suspected_ flaky, re-run it on the unchanged tree a bounded, project-tunable number of times (`custom.flaky.rerun_count`, default 3). It is flaky only if it _flips_ (passes at least once); failing every time stays real.

@@ -30,7 +30,6 @@ export interface ChunkContentRecord {
 export interface GraphExtraction {
   graph: Graph;
   chunkContents: Map<string, ChunkContentRecord>;
-  /** Maps vector store item id (chunk content hash id) → chunk graph node id. */
   vectorIdToNodeId: Map<string, string>;
 }
 
@@ -346,7 +345,6 @@ export async function extractGraphWithSidecar(options: ExtractOptions): Promise<
     }
   }
 
-  // Resolve imports across in-graph source files.
   const sourceFiles = Array.from(fileIds.keys()).filter((f) =>
     /\.(ts|tsx|js|jsx|mjs|cjs)$/i.test(f),
   );

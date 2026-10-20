@@ -32,7 +32,7 @@ describe('ui-doc-maintainer', () => {
         writeFile(dir, 'modules/users/ui/states.md', '');
         writeFile(dir, 'modules/users/ui/variants.md', '');
         writeFile(dir, 'modules/users/ui/flows.md', '');
-        writeFile(dir, 'modules/users/screens.md', 'wrong location'); // outside ui/
+        writeFile(dir, 'modules/users/screens.md', 'wrong location');
         const r = runScript(path, [join(dir, 'modules')]);
         const out = lines(r.stdout);
         expect(out.length).toBe(5);

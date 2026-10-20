@@ -6,7 +6,6 @@ const CHUNK_PREVIEW_CLIP = 500;
 export interface NeighbourIndex {
   parent: Map<string, string | null>;
   children: Map<string, string[]>;
-  /** edges grouped by node id, with the *other* endpoint and the edge type */
   edgesByNode: Map<string, { other: string; type: string; isOut: boolean }[]>;
   nodeById: Map<string, GraphNode>;
 }
@@ -93,8 +92,6 @@ export function buildNodeDetail(
   }
 
   if (node.type === 'module') {
-    // Phase 3 keeps these stubbed; richer history lands when health ledger
-    // begins recording diffs. The shape is preserved per FR-4.
     detail.health_history = [];
     detail.defect_samples = [];
     detail.complexity_correction_history = [];

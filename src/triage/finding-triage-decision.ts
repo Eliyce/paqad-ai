@@ -4,18 +4,8 @@ import type { TriagePile, TriageVerdict } from '@/core/types/triage.js';
 
 export interface FindingTriageInput {
   decision_id: string;
-  /** The finding under triage (stable id within the run). */
   finding_id: string;
-  /**
-   * The *kind* of finding (e.g. `naming-preference`, `error-handling-style`).
-   * The packet's options are stable per call, so two same-kind findings produce
-   * overlapping packets — `findReusableDecision` matches them and the earlier
-   * verdict is reused (issue #107: settle once, never re-raise, match by kind).
-   * The specific finding detail is kept out of the fingerprint so the same kind
-   * reuses — including a taste settled as "not doing it".
-   */
   kind: string;
-  /** Finding-specific detail. Kept out of the fingerprint so the same kind reuses. */
   detail: string;
   task_session_id: string;
   created_at: string;
@@ -25,7 +15,6 @@ export interface FindingTriageInput {
 const DEFAULT_REQUESTED_BY = 'finding-triage';
 const CATEGORY = 'finding.triage' as const;
 
-/** Stable option key → pile mapping, so a reused verdict maps back to a pile. */
 export const TRIAGE_DECISION_OPTION_TO_PILE: Record<string, TriagePile> = {
   'confirmed-problem': 'confirmed',
   'unclear-spec': 'unclear-spec',
@@ -33,21 +22,11 @@ export const TRIAGE_DECISION_OPTION_TO_PILE: Record<string, TriagePile> = {
   taste: 'taste',
 };
 
-/**
- * Builds the Decision Packet raised when the rules-first classifier genuinely
- * cannot sort a finding into one of the four piles. It asks the human which pile
- * the finding belongs in. The option keys are stable so a later same-kind
- * finding reuses the saved verdict via the Decision Pause Contract — it does not
- * build a second memory (issue #107 Settled decision). Per the research it does
- * not ask the model to over-explain; the human simply picks a pile.
- */
 export function buildFindingTriagePacket(input: FindingTriageInput): DecisionPacket {
   const ttlDays = DECISION_CATEGORY_DEFAULTS[CATEGORY].ttl_days;
   const ttlUntil = new Date(
     new Date(input.created_at).getTime() + ttlDays * 24 * 60 * 60 * 1000,
   ).toISOString();
-  // Fingerprint by kind only (not the specific finding) so identical kinds get
-  // an exact match and differing details of the same kind still match fuzzily.
   const fingerprint = `sha256:${sha256Hex(`${CATEGORY}:${input.kind}`)}`;
 
   return {
@@ -101,12 +80,6 @@ export function buildFindingTriagePacket(input: FindingTriageInput): DecisionPac
   };
 }
 
-/**
- * Maps a resolved `finding.triage` option key back to a triage verdict. A
- * human-confirmed problem still hands off to the prove-it protocol (#103) — the
- * human's confirmation is not itself a reproduction, so it enters the
- * needs-repro sub-state and does not directly drive a change.
- */
 export function verdictFromTriageOption(findingId: string, optionKey: string): TriageVerdict {
   const pile = TRIAGE_DECISION_OPTION_TO_PILE[optionKey];
   /* v8 ignore next 8 -- defensive: a resolved packet always carries one of the stable keys */
@@ -127,8 +100,7 @@ export function verdictFromTriageOption(findingId: string, optionKey: string): T
         ambiguous: false,
         confirmation: 'needs-repro',
         route: 'await-repro',
-        reason:
-          'Human-confirmed problem — hands off to the prove-it protocol (#103) before any change.',
+        reason: 'Human-confirmed problem — hands off to the prove-it protocol before any change.',
       };
     case 'unclear-spec':
       return {
@@ -136,7 +108,7 @@ export function verdictFromTriageOption(findingId: string, optionKey: string): T
         pile,
         ambiguous: false,
         route: 'spec',
-        reason: 'Human routed this to the spec (#102), not a code patch.',
+        reason: 'Human routed this to the spec, not a code patch.',
       };
     case 'false-alarm':
       return {

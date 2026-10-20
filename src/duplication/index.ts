@@ -1,5 +1,3 @@
-// Public surface of the duplication detector (issue #358).
-
 export { detectNewCodeDuplication, type DetectOptions } from './detect.js';
 export { runDuplicationScan, type ScanOptions } from './scan.js';
 export {

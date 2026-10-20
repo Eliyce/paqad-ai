@@ -83,13 +83,6 @@ export function printNextSteps(): void {
   console.log();
 }
 
-/**
- * Completion panel for `paqad-ai new project` (issue #612). The workspace is empty and its
- * application stack is undecided, so the onboarding panel's "create documentation" step does
- * not apply yet; this panel names the one step that does. A path too long for the frame is
- * printed as a plain line under it, because `pad()` never truncates and a long line would
- * break the right border.
- */
 export function printNewProjectNextSteps(options: {
   projectRoot: string;
   gitInitialized: boolean;
@@ -120,13 +113,6 @@ export function printNewProjectNextSteps(options: {
   console.log();
 }
 
-/**
- * One plain line telling a Codex developer to trust paqad's project hooks (issue #566,
- * step 6). Codex loads project-local `.codex/hooks.json` only when the `.codex/` layer is
- * trusted, so onboarding cannot make the gates fire on its own — the developer approves
- * them once in Codex's `/hooks` screen. Returns null when Codex was not onboarded, so a
- * non-Codex onboard prints nothing.
- */
 export function codexTrustHint(adapters: readonly string[] | undefined): string | null {
   if (!adapters?.includes('codex-cli')) {
     return null;

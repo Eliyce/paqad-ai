@@ -94,9 +94,7 @@ describe('rule-compiler and injection', () => {
     await expect(isCompiledRulesStale(join(root, 'missing'))).resolves.toBe(true);
   });
 
-  it('keeps only path/glob-shaped inline code as triggers, never prose or code fences (#345)', async () => {
-    // A doc modelled on skill-authoring.md: a real path trigger, prose inline code that is
-    // NOT a path, and a fenced code block (a directory tree) that must never leak in.
+  it('keeps only path/glob-shaped inline code as triggers, never prose or code fences', async () => {
     writeFileSync(
       join(root, 'docs/instructions/rules/coding/skill-authoring.md'),
       [
@@ -116,20 +114,17 @@ describe('rule-compiler and injection', () => {
 
     const compiled = await compileRules(root);
     const rule = compiled.rules.find((r) => r.title === 'Skill Authoring')!;
-    // The one real path glob is kept; the filename `SKILL.md` (extension dot) is kept;
-    // prose tokens (`name`, `description`) and the fenced-block contents are dropped.
     expect(rule.trigger_patterns).toContain('runtime/**/skills/*');
     expect(rule.trigger_patterns).toContain('SKILL.md');
     expect(rule.trigger_patterns).not.toContain('name');
     expect(rule.trigger_patterns).not.toContain('description');
-    // No multi-line / fenced content survived as a "trigger".
     for (const pattern of rule.trigger_patterns) {
       expect(pattern).not.toMatch(/\s/);
       expect(pattern).not.toContain('skill-name');
     }
   });
 
-  it('falls back to ** when a doc has no path-shaped inline code (#345)', async () => {
+  it('falls back to ** when a doc has no path-shaped inline code', async () => {
     writeFileSync(
       join(root, 'docs/instructions/rules/coding/prose.md'),
       '# Prose\n\nInstrument every `event` and log each `outcome`.\n',
@@ -139,7 +134,7 @@ describe('rule-compiler and injection', () => {
     expect(rule.trigger_patterns).toEqual(['**']);
   });
 
-  it('excludes a `gate:`-tagged rule when its flag is off — zero bytes compiled (issue #279)', async () => {
+  it('excludes a `gate:`-tagged rule when its flag is off — zero bytes compiled', async () => {
     writeFileSync(
       join(root, 'docs/instructions/rules/coding/architecture.md'),
       '# Architecture\n\nYou must update `src/planning` safely.\n',
@@ -157,11 +152,10 @@ describe('rule-compiler and injection', () => {
     const serialized = JSON.stringify(compiled);
     expect(serialized).not.toContain('Instrument every');
     expect(serialized).not.toContain('analytics_instrumentation');
-    // rule_ids stay contiguous after the gated rule is filtered out.
     expect(compiled.rules.map((rule) => rule.rule_id)).toEqual(['RULE-1']);
   });
 
-  it('compiles the `gate:`-tagged rule when its flag is on (issue #279)', async () => {
+  it('compiles the `gate:`-tagged rule when its flag is on', async () => {
     mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(join(root, '.paqad', '.config'), 'analytics_instrumentation=true\n');
     writeFileSync(

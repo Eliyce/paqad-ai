@@ -25,22 +25,15 @@ interface VectorIndexFile {
 
 export interface SimilarityResolverOptions {
   projectRoot: string;
-  /** Map vector item id → chunk graph node id. Items absent from the map are skipped. */
   vectorIdToNodeId: Map<string, string>;
-  /** Graph nodes by id, used to map module/file scope to chunk ids. */
   nodesById: Map<string, { id: string; type: string; parent_id: string | null }>;
-  /** parent → children index */
   childrenIndex: Map<string, string[]>;
-  /** Maximum cached result sets. */
   cacheSize?: number;
-  /** Maximum edges per query. Default 10000 (per FR-5). */
   defaultMaxEdges?: number;
 }
 
 interface ResolvedScope {
-  /** Chunk node ids to include as candidates, or null for "all". */
   candidates: Set<string> | null;
-  /** The original scope echoed back for telemetry. */
   echo: SimilarityRequestScope;
 }
 
@@ -133,7 +126,6 @@ export class SimilarityResolver {
     const parsed = JSON.parse(raw) as VectorIndexFile;
     this.vectorItems = parsed.items ?? [];
     this.loadedAtMtimeMs = mtime;
-    // mtime changed → bust cache
     this.cache.clear();
   }
 
@@ -148,7 +140,6 @@ export class SimilarityResolver {
     const cacheKey = cacheKeyFor(request.scope, threshold, maxEdges, mtime);
     const cached = this.cache.get(cacheKey);
     if (cached) {
-      // bump LRU position
       this.cache.delete(cacheKey);
       this.cache.set(cacheKey, cached);
       return cached.response;
@@ -157,7 +148,6 @@ export class SimilarityResolver {
     const { candidates } = resolveScope(request.scope, this.nodes, this.children);
     const items = this.vectorItems ?? [];
 
-    // Build the index space (id → vector) restricted to vectors that map to live nodes.
     const projected: { nodeId: string; vec: number[] }[] = [];
     for (const item of items) {
       const nodeId = this.nodeIdByVectorId.get(item.id);
@@ -170,7 +160,6 @@ export class SimilarityResolver {
     let capped = false;
 
     if (candidates && candidates.size === 1 && request.scope.type === 'chunk') {
-      // anchor mode: similarities from a single chunk to all others.
       const anchorId = request.scope.id!;
       const anchor = projected.find((p) => p.nodeId === anchorId);
       if (anchor) {
@@ -190,8 +179,6 @@ export class SimilarityResolver {
       }
     } else {
       const scoped = candidates ? projected.filter((p) => candidates.has(p.nodeId)) : projected;
-      // O(N²) pairwise over scoped chunks. For module-scope this is bounded; full project at
-      // 4k chunks worst-case ≈ 8M ops which is acceptable on commodity hardware.
       outer: for (let i = 0; i < scoped.length; i++) {
         const a = scoped[i]!;
         for (let j = i + 1; j < scoped.length; j++) {

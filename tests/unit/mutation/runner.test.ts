@@ -205,7 +205,6 @@ describe('default deps', () => {
       testsGreen: true,
       deps: { execute: async () => okRun, parse: async () => [], isTreeClean: async () => true },
     });
-    // Detection passed → it ran (no tool-not-configured skip).
     expect(result.skipped_reason).not.toBe('tool-not-configured');
   });
 
@@ -338,8 +337,6 @@ describe('default deps', () => {
 });
 
 describe('defaultExecute (execa 10, shell: true)', () => {
-  // The configured command goes to the shell as ONE string, so the quoting buildCommand writes
-  // around `--mutate "<globs>"` reaches the tool intact: a quoted arg with a space stays one arg.
   const node = `"${process.execPath}"`;
   const printArgs = `${node} -e "process.stdout.write(JSON.stringify(process.argv.slice(1)))" --`;
 

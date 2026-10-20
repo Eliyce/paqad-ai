@@ -15,16 +15,6 @@ const WEIGHTS: Record<string, number> = {
   default: 0.1,
 };
 
-/**
- * Total number of classification dimensions that can appear in a ResolutionMap.
- * Used as the denominator in the confidence formula so that unresolved dimensions
- * contribute 0, reducing overall confidence rather than being ignored.
- *
- * Dimensions: workflow, affected_modules, scope, database_impact, api_impact,
- * ui_impact, compliance_sensitivity, customer_facing_impact, reversibility,
- * data_sensitivity, delta_candidate, context_budget_hint, matched_rule_triggers,
- * complexity, risk = 15 total.
- */
 const TOTAL_CLASSIFICATION_DIMENSIONS = 15;
 
 export function computeClassificationConfidence(resolutionMap: ResolutionMap): number {

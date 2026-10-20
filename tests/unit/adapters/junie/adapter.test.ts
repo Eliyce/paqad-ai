@@ -14,9 +14,6 @@ describe('JunieAdapter', () => {
 
     expect(files[0]?.path).toBe('.junie/AGENTS.md');
 
-    // Issue #229 — the entry file is now a lean stub: a one-line pointer to the
-    // framework bootstrap, the graceful-degradation fallback clause, and the
-    // `Adapter:` footer. Nothing else.
     expect(content).toContain('.paqad/framework-path.txt');
     expect(content).toContain('AGENT-BOOTSTRAP.md');
     expect(content).toContain(
@@ -24,17 +21,13 @@ describe('JunieAdapter', () => {
     );
     expect(content).toMatch(/Adapter:\s*\njunie/);
 
-    // The load order, workflow-handling prose, and both contracts now live in
-    // the bootstrap — never inlined into the entry file.
     expect(content).not.toContain('docs/instructions');
     expect(content).not.toContain('docs/modules');
     expect(content).not.toContain('create documentation');
     expect(content).not.toContain('## paqad in your chat');
     expect(content).not.toContain('## Decision Pause Contract');
-    // A lean stub carries zero `## ` headings.
     expect(content).not.toMatch(/^## /m);
 
-    // Junie's onboarding prose is plain Markdown, never an apply-patch envelope.
     expect(content).not.toContain('*** End Patch');
     expect(content).not.toContain('functions.apply_patch');
   });

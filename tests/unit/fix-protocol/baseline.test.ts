@@ -69,7 +69,6 @@ describe('detectRegression', () => {
   });
 
   it('does not count the once-failing proof flipping to passing', () => {
-    // Baseline had the proof failing; after the fix nothing fails → no regression.
     const verdict = detectRegression([failing('proof')], []);
     expect(verdict.regressed).toBe(false);
     expect(verdict.newly_failing).toEqual([]);

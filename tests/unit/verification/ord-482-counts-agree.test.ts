@@ -27,13 +27,6 @@ import { buildRepositoryVerificationVerdict } from '@/verification/repository/ve
 
 import { ownInFlightChange } from './shared.fixture.js';
 
-// Issue #639, Part 10 (AC-12) — the ORD-482 prototype change: a graduated-lane bug fix. Three
-// required gates ran and passed, two were not required (visual evidence on a change with no
-// frontend file, mutation testing while it is off) and one did not run (the quality ratchet,
-// whose every measure was blocked). The verdict summary, the receipt statement, the PR comment,
-// the report.html receipt and the HUD gates must all count the three that ran, show the two grey
-// as "not required" and the other as "did not run", and agree.
-
 const AT = '2026-10-19T12:00:00.000Z';
 const SES = 'ses-ord-482';
 const RAN = 3;
@@ -85,7 +78,7 @@ const EVIDENCE: VerificationEvidence = {
 
 const ROWS = evidenceGatesToRows(ORD_482_GATES, { subjectDigest: 'sha-ord-482', ts: AT });
 
-describe('ORD-482: every surface counts only the required gates that ran (#639 Part 10, AC-12)', () => {
+describe('ORD-482: every surface counts only the required gates that ran', () => {
   let root: string;
 
   beforeEach(() => {
@@ -97,7 +90,6 @@ describe('ORD-482: every surface counts only the required gates that ran (#639 P
   });
 
   it('AC-12: verdict summary, receipt statement, PR comment, report.html receipt and HUD gates agree on the counts', () => {
-    // 1. The verdict summary (the chat headline) and the composed receipt.
     const verdict = buildRepositoryVerificationVerdict({
       origin: 'hook-completion',
       evidence: EVIDENCE,
@@ -113,13 +105,11 @@ describe('ORD-482: every surface counts only the required gates that ran (#639 P
       expect(text).toContain('⚪ quality ratchet: Quality ratchet did not run');
     }
 
-    // 2. The receipt statement: only the gates that ran are graded.
     const graded = summarizeGradedEvidence(ROWS);
     expect(graded.deterministic.pass).toBe(RAN);
     expect(graded.deterministic.fail + graded.llm_judged.pass + graded.llm_judged.fail).toBe(0);
     expect(graded.inconclusive + graded.blocked).toBe(0);
 
-    // 3. The PR comment.
     const comment = renderEvidenceMarkdown(EVIDENCE);
     expect(comment).toContain(
       `Gates: ${RAN} passed, 0 failed, 0 inconclusive, 2 not required, 1 did not run.`,
@@ -127,7 +117,6 @@ describe('ORD-482: every surface counts only the required gates that ran (#639 P
     expect(comment).not.toContain('Mutation');
     expect(comment).toContain('⚪ Quality ratchet: Quality ratchet did not run');
 
-    // 4. The report.html receipt table.
     const statement = buildInTotoStatement({
       fileDigests: [{ name: 'src/orders/total.ts', sha256: 'abc123' }],
       rows: ROWS,
@@ -165,7 +154,6 @@ describe('ORD-482: every surface counts only the required gates that ran (#639 P
     ]);
     expect(receiptPanel).not.toContain('🟡');
 
-    // 5. The HUD gates, read from the bundle's evidence.jsonl.
     const sessionId = resolveSessionId(root, SES);
     const dir = openFeatureChange(root, sessionId, {
       adapter: 'claude-code',

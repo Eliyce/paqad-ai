@@ -6,11 +6,6 @@ import { join, resolve } from 'node:path';
 import { execa } from 'execa';
 import { describe, expect, it } from 'vitest';
 
-// Issue #636 (bug 1) — the Claude Code plugin installs at USER scope, so its hooks run in EVERY repo.
-// In a project that was never onboarded (no .paqad/framework-path.txt) every plugin-reached hook must
-// be a pure no-op: exit 0, print nothing, create no .paqad/ folder. Enforcement in an onboarded repo
-// is unchanged. These tests drive the REAL hook files named in runtime/claude-plugin/hooks.json.
-
 const REPO = resolve(__dirname, '../../..');
 const HOOKS_JSON = join(REPO, 'runtime', 'claude-plugin', 'hooks.json');
 
@@ -20,7 +15,6 @@ interface HookCmd {
   event: string;
 }
 
-/** Every distinct hook command in the plugin's hooks.json, with its event and trailing argv. */
 function pluginHookCommands(): HookCmd[] {
   const parsed = JSON.parse(readFileSync(HOOKS_JSON, 'utf8')) as {
     hooks: Record<string, Array<{ hooks?: Array<{ command?: string }> }>>;
@@ -45,7 +39,6 @@ function pluginHookCommands(): HookCmd[] {
   return out;
 }
 
-/** An event-appropriate hook payload, with cwd pinned to the pristine project. */
 function payloadFor(event: string, projectDir: string): string {
   const base = { session_id: 's-noop', cwd: projectDir, hook_event_name: event };
   switch (event) {
@@ -79,7 +72,7 @@ function pluginEnv(projectDir: string, home: string): NodeJS.ProcessEnv {
   } as NodeJS.ProcessEnv;
 }
 
-describe('plugin hooks no-op in a project that was never onboarded (issue #636 bug 1)', () => {
+describe('plugin hooks no-op in a project that was never onboarded', () => {
   const commands = pluginHookCommands();
 
   it('every hook in hooks.json is discovered', () => {
@@ -117,10 +110,8 @@ describe('plugin hooks no-op in a project that was never onboarded (issue #636 b
     const home = mkdtempSync(join(tmpdir(), 'paqad-home-'));
     try {
       execFileSync('git', ['init', '-q'], { cwd: dir });
-      // Mark it onboarded.
       const paqadDir = join(dir, '.paqad');
       execFileSync('mkdir', ['-p', paqadDir]);
-      // Write the onboarding pointer the way the bootstrap resolves it.
       await execa('node', [
         '-e',
         `require('fs').writeFileSync(${JSON.stringify(join(paqadDir, 'framework-path.txt'))}, '~/.paqad-ai/current')`,

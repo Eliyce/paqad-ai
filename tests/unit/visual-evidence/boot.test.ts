@@ -7,8 +7,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
-// Wrap the real execa so each test can see the subprocess bootApp spawned and whether it was
-// unrefed. The dev server itself is a real child process on a free localhost port.
 const spawned = vi.hoisted(() => [] as Array<import('execa').ResultPromise>);
 vi.mock('execa', async (importOriginal) => {
   const actual = await importOriginal<typeof import('execa')>();

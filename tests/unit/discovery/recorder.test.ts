@@ -63,7 +63,6 @@ describe('discovery recorder', () => {
     });
     expect(typeof withArtifact!.artifact_digest).toBe('string');
 
-    // Empty artifact → null digest.
     writeFileSync(join(root, artifact), '', 'utf8');
     const empty = recordDiscoveryStage(root, dirName, {
       sessionId: 's',
@@ -74,7 +73,6 @@ describe('discovery recorder', () => {
     });
     expect(empty!.artifact_digest).toBeNull();
 
-    // Missing artifact → null digest, artifact_path preserved.
     const missing = recordDiscoveryStage(root, dirName, {
       sessionId: 's',
       stage: 'decide',

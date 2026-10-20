@@ -39,11 +39,9 @@ describe('resolveStagesMode (buildout F4 + F2 clamp)', () => {
   });
 
   it('local .config CANNOT lower below the team/default floor (the C2 fix)', () => {
-    // No team value → floor is the strict default; a local downgrade is ignored.
     writeLocalConfig('stages_mode=off\n');
     expect(resolveStagesMode(projectRoot, {})).toBe('strict');
 
-    // Team floor warn → a local off cannot drop below it.
     writeTeamConfig('stages_mode=warn\n');
     expect(resolveStagesMode(projectRoot, {})).toBe('warn');
   });

@@ -1,37 +1,13 @@
-// PQD-331 — parse a user-attached file into chunkable plain text, with the
-// format guards the ticket requires (PDF page cap, zip-bomb ceiling, encrypted
-// and corrupt detection, MIME sniffing).
-//
-// Design choice (recorded as a non-blocking decision): the engine does NOT take
-// a hard dependency on a PDF or ZIP library. Shipping `pdf-parse`/`pdfjs-dist`
-// and an archive expander inside a published npm package is a bundle-size and
-// security-surface decision the analysis flags as open (§8 Q2/Q5) — and the
-// hard rule is "additive, backward-compatible, no new third-party attack
-// surface unless required". So heavy extraction is INJECTABLE: the consumer
-// (desktop) supplies a `pdfExtractor` / `archiveInspector`. The engine owns the
-// orchestration and every guard (page cap, zip-bomb ceiling, encrypted/corrupt
-// classification, the text/code/json/yaml/markdown native path) regardless of
-// which library the consumer plugs in.
-
 import { readFile } from 'node:fs/promises';
 
-/** Hard cap on PDF pages before the file is rejected (spec: 2,000 pages). */
 export const PDF_PAGE_CAP = 2000;
 
-/** Decompressed-size ceiling for archives before zip-bomb rejection (500 MB). */
 export const ZIP_DECOMPRESSED_LIMIT_BYTES = 500 * 1024 * 1024;
 
-/** How many leading bytes are scanned for a NUL when sniffing binary content. */
 const BINARY_SNIFF_BYTES = 512;
 
-/**
- * Whether a rejection should surface as `attachment.index_failed` (the file is
- * broken or unreadable) or `attachment.format_rejected` (the file is well-formed
- * but its shape is disallowed — too many pages, zip-bomb, unsupported format).
- */
 export type AttachmentRejectionOutcome = 'index_failed' | 'format_rejected';
 
-/** Stable, routable reason for a parse rejection. */
 export type AttachmentRejectionReason =
   | 'parse-error'
   | 'encrypted-pdf'
@@ -41,10 +17,8 @@ export type AttachmentRejectionReason =
   | 'unsupported-format'
   | 'empty-file';
 
-/** The detected high-level kind of the attachment's content. */
 export type AttachmentContentKind = 'text' | 'pdf';
 
-/** Successful parse: plain text ready for the chunker. */
 export interface ParsedAttachment {
   ok: true;
   content: string;
@@ -52,7 +26,6 @@ export interface ParsedAttachment {
   pageCount?: number;
 }
 
-/** A parse that produced no indexable content, with a routable reason. */
 export interface AttachmentRejection {
   ok: false;
   outcome: AttachmentRejectionOutcome;
@@ -62,36 +35,25 @@ export interface AttachmentRejection {
 
 export type ParseAttachmentResult = ParsedAttachment | AttachmentRejection;
 
-/** Text + page count a consumer-supplied PDF extractor returns. */
 export interface PdfExtraction {
   text: string;
   pageCount: number;
-  /** Set true when the PDF is password-protected and could not be read. */
   encrypted?: boolean;
 }
 
-/** Consumer-supplied PDF text extractor. Throws or sets `encrypted` on failure. */
 export type PdfTextExtractor = (bytes: Buffer) => Promise<PdfExtraction>;
 
-/** What a consumer-supplied archive inspector reports for zip-bomb defence. */
 export interface ArchiveInspection {
-  /** Total bytes the archive expands to (measured during a guarded expansion). */
   decompressedBytes: number;
 }
 
-/** Consumer-supplied archive inspector. Used only to enforce the zip-bomb cap. */
 export type ArchiveInspector = (bytes: Buffer) => Promise<ArchiveInspection>;
 
 export interface ParseAttachmentOptions {
-  /** Injected PDF extractor; PDFs are rejected as unsupported when absent. */
   pdfExtractor?: PdfTextExtractor;
-  /** Injected archive inspector; archives are rejected as unsupported when absent. */
   archiveInspector?: ArchiveInspector;
-  /** Supply the file bytes directly, skipping the disk read. */
   bytes?: Buffer;
-  /** Override the PDF page cap (defaults to {@link PDF_PAGE_CAP}). */
   pageCap?: number;
-  /** Override the zip-bomb ceiling (defaults to {@link ZIP_DECOMPRESSED_LIMIT_BYTES}). */
   zipDecompressedLimitBytes?: number;
 }
 
@@ -110,7 +72,6 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** A PDF extractor failure that signals a password/encryption problem. */
 function looksEncrypted(error: unknown): boolean {
   return /encrypt|password|protected/i.test(errorMessage(error));
 }
@@ -129,11 +90,6 @@ function hasNullByte(bytes: Buffer): boolean {
   return bytes.subarray(0, BINARY_SNIFF_BYTES).includes(0x00);
 }
 
-/**
- * Round-trip the bytes through UTF-8: if re-encoding the decoded string does not
- * reproduce the original bytes, the input was not valid UTF-8 text (it carried
- * undecodable sequences that `toString` replaced with U+FFFD).
- */
 function isValidUtf8(bytes: Buffer): boolean {
   return Buffer.from(bytes.toString('utf8'), 'utf8').equals(bytes);
 }
@@ -206,7 +162,6 @@ async function parseArchive(
       `Archive decompresses to ${inspection.decompressedBytes} bytes; the limit is ${limit}`,
     );
   }
-  // Even a within-limit archive is not indexable as plain text by the engine.
   return reject(
     'format_rejected',
     'unsupported-format',
@@ -214,12 +169,6 @@ async function parseArchive(
   );
 }
 
-/**
- * Parse `filePath` into plain text for the chunker, applying every format guard.
- * Returns a {@link ParsedAttachment} on success, or a {@link AttachmentRejection}
- * carrying a stable `outcome`/`reason` the indexer maps to an attachment event.
- * Never throws for a bad file — read/parse failures become typed rejections.
- */
 export async function parseAttachment(
   filePath: string,
   options: ParseAttachmentOptions = {},

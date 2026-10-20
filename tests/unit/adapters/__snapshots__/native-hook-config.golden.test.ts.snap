@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`native hook-config byte-identity (issue #566) > renders the Claude settings.json exactly as before the shared-renderer change 1`] = `
+exports[`native hook-config byte-identity > renders the Claude settings.json exactly as before the shared-renderer change 1`] = `
 "{
   "hooks": {
     "PreToolUse": [
@@ -130,7 +130,7 @@ exports[`native hook-config byte-identity (issue #566) > renders the Claude sett
 "
 `;
 
-exports[`native hook-config byte-identity (issue #566) > renders the Gemini settings.json exactly as before the shared-renderer change 1`] = `
+exports[`native hook-config byte-identity > renders the Gemini settings.json exactly as before the shared-renderer change 1`] = `
 "{
   "hooks": {
     "AfterAgent": [

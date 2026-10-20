@@ -45,14 +45,12 @@ afterEach(() => {
 
 const clock = () => new Date('2026-07-10T00:00:00.000Z');
 
-/** Write a file inside the project, creating its parent directories. */
 function writeFileSync2(root: string, rel: string, content: string): void {
   const abs = join(root, rel);
   mkdirSync(dirname(abs), { recursive: true });
   writeFileSync(abs, content);
 }
 
-/** Open an active feature and return its dir name. */
 function activeFeature(root: string): string {
   return openFeatureChange(root, 'ses_1', {
     adapter: 'claude-code',
@@ -62,7 +60,6 @@ function activeFeature(root: string): string {
   });
 }
 
-/** The signed source `frozenSpec()` was built from. */
 const SPEC_MD = '# S-339\n\n- FR-1: does the thing\n';
 
 function frozenSpec(): FeatureSpec {
@@ -83,7 +80,6 @@ function frozenSpec(): FeatureSpec {
   };
 }
 
-/** A minimal valid reuse declaration (issue #357) — every plan compile now needs one. */
 function reuse(): PlanReuse {
   return {
     consulted: [{ source: 'index-query', query: 'router', hits: 0 }],
@@ -105,8 +101,6 @@ describe('writeFeaturePlan', () => {
     });
     expect(result.dirName).toBe(dir);
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/plan.json`);
-    // Issue #581 — the envelope header, with the change key from the dir name; the change
-    // identity (issue / title / slug) lives in feature.json only.
     expect(result.record).toMatchObject({
       schema_version: 2,
       doc_type: 'paqad.plan',
@@ -134,8 +128,6 @@ describe('writeFeaturePlan', () => {
     );
   });
 
-  // Issue #357 — the reuse gate runs before anything is resolved, so a plan that has not
-  // answered "did you check what already exists?" leaves no trace at all (INV-5).
   it('refuses a plan with no reuse section and writes nothing', () => {
     const root = tempRoot();
     const dir = activeFeature(root);
@@ -176,7 +168,6 @@ describe('writeFeatureSpecification', () => {
       session_id: 'ses_1',
       content_hash: record.spec_hash,
     });
-    // The re-rendered projection is gone (D5).
     expect(readdirSync(join(root, featureDir(dir)))).not.toContain('specification.md');
   });
 
@@ -232,8 +223,6 @@ describe('writeFeatureSpecification', () => {
   });
 });
 
-// Issue #402 — the review stage's rigid artifact. Before this, review owned no bundle
-// file, so its evidence was an agent-authored .md dropped wherever the model chose.
 describe('writeFeatureReview', () => {
   const template = {
     summary: 'Checked correctness, regressions and rollback.',
@@ -251,7 +240,6 @@ describe('writeFeatureReview', () => {
     expect(result.path).toBe(`.paqad/ledger/feature-evidence/${dir}/review.json`);
     const record = readFeatureReview(root, dir);
     expect(record?.doc_type).toBe('paqad.review');
-    // The change key is taken from the dir, never from the model; the identity is not repeated.
     expect(record?.change).toBe('01JABCDEFGHJKMNPQRSTVWXYZ0');
     expect(record?.session_id).toBe('ses_1');
     for (const key of ['issue', 'title', 'slug', 'ulid', 'created_at']) {
@@ -310,7 +298,7 @@ describe('writeFeatureReview', () => {
   });
 });
 
-describe('evidence-armed reuse pause at plan compile (#361)', () => {
+describe('evidence-armed reuse pause at plan compile', () => {
   function seedIndex(root: string): void {
     mkdirSync(join(root, 'src/utils'), { recursive: true });
     writeFileSync(join(root, 'src/utils/dates.ts'), 'export function formatIsoDate() {}\n');
@@ -364,7 +352,6 @@ describe('evidence-armed reuse pause at plan compile (#361)', () => {
 
     expect(result.armedDecisions).toHaveLength(1);
     expect(readdirSync(join(root, '.paqad/decisions/pending'))).toHaveLength(1);
-    // The plan itself is still written — arming rides on top, it does not gate the compile.
     expect(readFeaturePlan(root, result.dirName)).not.toBeNull();
   });
 

@@ -40,9 +40,7 @@ export async function detectDeltaCandidate(
           overlap,
         };
       }
-    } catch {
-      // Corrupt manifests should not block classification.
-    }
+    } catch {}
   }
 
   return {

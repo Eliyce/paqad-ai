@@ -19,8 +19,6 @@ export class ChangeCompletenessGate implements Gate {
 
   async check(context: Parameters<Gate['check']>[0]) {
     const blockerReasons = await collectBlockerReasons(context);
-    // Issue #639, Part 10 — no code diff and no blockers leaves nothing to complete: not
-    // required, never a pass.
     if (!context.code_changed && blockerReasons.length === 0) {
       return createNotRequired(
         this.gate,
@@ -56,14 +54,6 @@ async function collectIncompleteReasons(context: Parameters<Gate['check']>[0]): 
     structured_test_results: context.structured_test_results,
   });
 
-  // Test-evidence STRENGTH is a provider-workflow concern: it needs structured test
-  // results, which only the in-session agent records. The agent-independent backstop
-  // (hook-completion / git-backstop / ci-backstop) never collects them, so it cannot
-  // prove strength either way — exactly like code-tests-lint, which the backstop
-  // omits rather than hard-blocking on. At a backstop origin with no structured
-  // results, this is surfaced as an ESCALATION by repository-context (not a silent
-  // pass) instead of a false "incomplete" block. In-session (provider-workflow) and
-  // any run that DID collect structured results still block on weak evidence.
   const backstopCannotProve =
     isBackstopVerificationOrigin(context.verification_origin) &&
     (context.structured_test_results?.length ?? 0) === 0;
@@ -104,10 +94,6 @@ async function collectBlockerReasons(context: Parameters<Gate['check']>[0]): Pro
     reasons.push('Architecture compliance failed');
   }
 
-  // Issue #117 (C-4) — scope drift. On the hook/backstop path the context
-  // carries the frozen spec boundary; any changed file outside it is an
-  // out-of-scope change the developer never asked for. Surface the specific
-  // paths so a human can accept or reject them.
   if (context.spec_boundary && context.spec_boundary.length > 0) {
     const driftPaths = collectScopeDriftPaths(context.changed_files, context.spec_boundary);
     if (driftPaths.length > 0) {

@@ -1,21 +1,11 @@
 import { useState } from 'react';
 
-/**
- * Renders a JSON schema object's properties as a quiet form (issue #146).
- * Strings become text inputs (selects when the schema has an enum), booleans
- * toggles, numbers number inputs, arrays of strings comma-separated inputs,
- * nested objects fieldsets. Anything the form cannot represent faithfully
- * (records with arbitrary keys, arrays of objects) falls back to a small
- * monospace JSON textarea with parse validation, so no value is ever lost.
- */
-
 type JsonSchema = Record<string, unknown>;
 
 interface Props {
   schema: JsonSchema;
   value: Record<string, unknown>;
   onChange: (next: Record<string, unknown>) => void;
-  /** Unique prefix for input ids; defaults to 'sf'. */
   idPrefix?: string;
 }
 
@@ -53,7 +43,6 @@ function FieldLabel({ children, htmlFor }: { children: React.ReactNode; htmlFor?
   );
 }
 
-/** Comma-separated list editor with a local buffer so typing flows. */
 function CommaListField({
   id,
   label,
@@ -90,7 +79,6 @@ function CommaListField({
   );
 }
 
-/** JSON textarea fallback for subtrees the form cannot represent. */
 function JsonField({
   id,
   label,
@@ -271,7 +259,6 @@ function Field({
     );
   }
 
-  // Records with arbitrary keys, arrays of objects, unions: raw JSON.
   return <JsonField id={id} label={label} initial={value} onCommit={onCommit} />;
 }
 

@@ -1,8 +1,3 @@
-// Issue #117 — the agent-independent verification backstop: build a context
-// from repository reality, compute the judgment gate inputs, run the existing
-// gates, and emit one trust verdict. Consumed by the generated completion hook
-// and the git/CI backstop.
-
 export {
   buildRepositoryVerificationContext,
   type BuildRepositoryVerificationContextOptions,

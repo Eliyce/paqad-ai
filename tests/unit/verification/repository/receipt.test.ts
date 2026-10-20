@@ -40,7 +40,7 @@ function fold(stages: FoldedStage[]): FoldedChange {
   };
 }
 
-describe('formatStageEvidenceReceipt (#325)', () => {
+describe('formatStageEvidenceReceipt', () => {
   it('renders a complete stage as 🟢 done', () => {
     const out = formatStageEvidenceReceipt(fold([stage('planning', 'complete')]));
     expect(out).toContain(`${PAQAD_STATUS_GLYPH.good} planning — done`);
@@ -117,7 +117,7 @@ describe('formatStageEvidenceReceipt (#325)', () => {
     ).toBe('');
   });
 
-  describe('checks honesty (#368, AC-A2)', () => {
+  describe('checks honesty', () => {
     it('downgrades a "done" checks stage to 🟡 when no passing report backs it (checksVerified=false)', () => {
       const out = formatStageEvidenceReceipt(fold([stage('checks', 'complete')]), false);
       expect(out).toContain(`${PAQAD_STATUS_GLYPH.needsLook} checks — marked — tests not verified`);
@@ -147,7 +147,7 @@ describe('formatStageEvidenceReceipt (#325)', () => {
   });
 });
 
-describe('composeChangeReceipt (#325)', () => {
+describe('composeChangeReceipt', () => {
   it('joins the verdict headline with the per-stage block', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',
@@ -174,7 +174,7 @@ describe('composeChangeReceipt (#325)', () => {
     expect(receipt).toContain('> 🟢 delivery: on feat/x');
   });
 
-  it('names the report path when one was rendered (AC-8, #371)', () => {
+  it('names the report path when one was rendered', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',
       fold: null,
@@ -183,7 +183,7 @@ describe('composeChangeReceipt (#325)', () => {
     expect(receipt).toContain('> Report: /abs/path/report.html');
   });
 
-  it('threads checksVerified=false through to the stage block (#368)', () => {
+  it('threads checksVerified=false through to the stage block', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Inconclusive',
       fold: fold([stage('checks', 'complete')]),
@@ -192,7 +192,6 @@ describe('composeChangeReceipt (#325)', () => {
     expect(receipt).toContain('tests not verified');
   });
 
-  // Issue #362 — the change-shape line renders only when metrics are supplied.
   it('appends the change-shape line when metrics are supplied', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',
@@ -223,7 +222,6 @@ describe('composeChangeReceipt (#325)', () => {
     expect(receipt).not.toContain('change shape');
   });
 
-  // Issue #357 (AC-5) — the planning line shows what the plan declared it reused.
   it('suffixes the planning line with the declared reuse counts', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',
@@ -240,7 +238,6 @@ describe('composeChangeReceipt (#325)', () => {
     });
     expect(withoutReuse).toContain('planning — done');
     expect(withoutReuse).not.toContain('reuse:');
-    // An explicit null is the same as omitting it.
     expect(
       composeChangeReceipt({
         verdictSummary: '**▸ paqad** · Safe to merge',
@@ -260,7 +257,7 @@ describe('composeChangeReceipt (#325)', () => {
   });
 });
 
-describe('unrecordedMandatoryStages (#472)', () => {
+describe('unrecordedMandatoryStages', () => {
   it('returns the mandatory stages that are not provably done, excluding optional/skipped', () => {
     const gaps = unrecordedMandatoryStages(
       fold([
@@ -270,7 +267,6 @@ describe('unrecordedMandatoryStages (#472)', () => {
         stage('review', 'missing'),
         stage('checks', 'missing'),
         stage('documentation_sync', 'complete'),
-        // A skipped mandatory stage is intentional non-work → not a gap.
         stage('delivery', 'skipped'),
       ]),
     );
@@ -293,11 +289,9 @@ describe('unrecordedMandatoryStages (#472)', () => {
   });
 
   it('treats a checks stage the completion gate could not verify as a gap (checksVerified=false)', () => {
-    // A "done" checks marker with no passing report → 🟡, so it is a gap.
     expect(unrecordedMandatoryStages(fold([stage('checks', 'complete')]), false)).toEqual([
       'checks',
     ]);
-    // With a passing report it is provably done → not a gap.
     expect(unrecordedMandatoryStages(fold([stage('checks', 'complete')]), true)).toEqual([]);
   });
 
@@ -316,8 +310,6 @@ describe('unrecordedMandatoryStages (#472)', () => {
     expect(gaps).toEqual([]);
   });
 
-  // AC-5 — the exact #472 repro: a passing verdict + unrecorded review/checks must not
-  // render "Safe to merge" beside 🟡 stage lines. The reconciled headline agrees with the block.
   it('composes a self-consistent receipt: Inconclusive headline agrees with the 🟡 stage lines', () => {
     const repro = fold([
       stage('planning', 'complete'),
@@ -336,13 +328,10 @@ describe('unrecordedMandatoryStages (#472)', () => {
     });
     const receipt = composeChangeReceipt({ verdictSummary: reconciledHeadline, fold: repro });
 
-    // Headline is honest and never contradicts the block.
     expect(receipt).toContain(paqadFrameLead(PAQAD_VERDICT.inconclusive));
     expect(receipt).not.toContain(PAQAD_VERDICT.pass);
-    // The block still shows the two unrecorded stages 🟡.
     expect(receipt).toContain(`${PAQAD_STATUS_GLYPH.needsLook} review — not recorded`);
     expect(receipt).toContain(`${PAQAD_STATUS_GLYPH.needsLook} checks — not recorded`);
-    // The stages the headline names are exactly the ones the block flags.
     expect(receipt).toContain('mandatory stage(s) not recorded: review, checks');
   });
 });

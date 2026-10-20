@@ -84,7 +84,6 @@ describe('buildBoundaryReport', () => {
       ]),
     };
     const report = buildBoundaryReport([result]);
-    // 3 states × 2 consumers = 6 total
     expect(report.total_states).toBe(6);
     expect(report.unhandled_count).toBe(1);
   });

@@ -42,7 +42,7 @@ describe('gateResultsToRows', () => {
   });
 });
 
-describe('evidenceGatesToRows (issue #579)', () => {
+describe('evidenceGatesToRows', () => {
   function gate(
     name: string,
     status: VerificationEvidenceGate['status'],

@@ -26,10 +26,6 @@ export function assembleDecisionEvidence(input: EvidenceInput): DecisionOptionEv
   const absolutePath = join(input.projectRoot, input.file);
   const fileExists = existsSync(absolutePath);
 
-  // Issue #361 — when the code-knowledge index (#353) has been built it already knows this
-  // file's real in-edge count, so use it and the shared reuse-fork builder rather than the
-  // whole-tree filename-stem walk below. That keeps the prompt-armed path's evidence
-  // identical in meaning to the evidence-armed path's. No index ⇒ the original walk stands.
   const indexedCallers = indexedCallerCount(input.projectRoot, input.file);
   if (indexedCallers !== null) {
     const evidence = buildReuseForkEvidence({
@@ -126,9 +122,6 @@ export function defaultSimilarityFor(
       return Number((0.74 + callerBoost).toFixed(2));
     case 'workflow-or-tool':
       return Number((0.7 + callerBoost).toFixed(2));
-    // Intake and delivery bookend categories don't derive similarity from
-    // file evidence — they're produced by the ticket_intake / delivery stages
-    // with explicit options. Return a neutral default if reached.
     case 'intake.requirement':
     case 'intake.confirm_auto_resolution':
     case 'intake.write_back':
@@ -151,11 +144,6 @@ export function defaultSimilarityFor(
   }
 }
 
-/**
- * The file's caller count from the code-knowledge index, or null when no index exists or the
- * index does not know the file. Null means "fall back", never "zero callers" — reporting an
- * unknown file as having no callers would be a fabricated fact, not a missing one.
- */
 function indexedCallerCount(projectRoot: string, file: string): number | null {
   const index = readCodeKnowledgeIndex(projectRoot);
   if (!index) {

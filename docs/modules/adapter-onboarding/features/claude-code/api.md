@@ -24,10 +24,10 @@ The rest of the surface comes from `BaseAdapter` (`src/adapters/adapter.interfac
 | `generateAgents(agents)` | `.claude/agents/` |
 | `installHooks(hooks)` | `.claude/settings.hooks.json` |
 | `getMcpPath()` | `.mcp.json`, read only, used by the doctor MCP check |
-| `installMcp(mcpConfigs, profile)` | returns nothing (issue #622) |
+| `installMcp(mcpConfigs, profile)` | returns nothing |
 | `configureCaching(profile)` | `.claude/cache.json` |
 | `configureMemory(profile)` | `.claude/memory.json` |
 
-## MCP (issue #622)
+## MCP
 
 paqad never writes a tool's MCP config file. `getMcpPath()` returns `.mcp.json`, the project MCP file Claude Code reads, so `paqad-ai doctor` can list the servers found there next to the recommended ones. Recommendations are written once per project to `.paqad/mcp-recommendations.json` by the onboarding orchestrator, not by this adapter.

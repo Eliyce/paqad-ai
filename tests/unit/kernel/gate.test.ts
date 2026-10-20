@@ -21,9 +21,6 @@ import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
-// Issue #336 / #582 — rule-scripts run at the completion seam only for a session that
-// OWNS the change (a live-mark stage row stamped with its id), so a completion-seam test
-// must record a feature-development route AND make the session own an in-flight change.
 function markFeatureDevelopment(root: string, session: string): string {
   const sessionId = resolveSessionId(root, session);
   writeWorkflowState(root, sessionId, { active: { workflow: 'feature-development' }, paused: [] });
@@ -34,11 +31,6 @@ function markFeatureDevelopment(root: string, session: string): string {
 const MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
 const SCRIPT_REL = '.paqad/scripts/rules/coding/q/001-no-debugger.mjs';
 const LOCK_REL = '.paqad/capability-lock.json';
-
-// Buildout F3 — the capability-kernel executor. These tests drive a REAL
-// rule-script map through runCapabilityGate (the rule-scripts capability is the
-// first contract folded into the seam), proving the gate wires the leaf logic and
-// aggregates the block/allow decision — not a mocked stand-in.
 
 const roots: string[] = [];
 
@@ -64,8 +56,6 @@ for (const f of files) {
 process.stdout.write(JSON.stringify({ rule_id: '__RID__', kind: 'deterministic', findings }));
 `;
 
-/** Build a project with one deterministic rule-script and a `rule_compliance`
- *  team config, plus a target file to scan. */
 function setup(mode: 'off' | 'warn' | 'strict', targetBody: string): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-kernel-gate-'));
   roots.push(root);
@@ -94,9 +84,6 @@ function setup(mode: 'off' | 'warn' | 'strict', targetBody: string): string {
     via: 'test',
     event: { action: 'generate', rule_ids: [ruleId] },
   });
-  // The team-tracked floor sets the mode (the C2 clamp); no local override raises it.
-  // stages_mode=off isolates these rule-scripts tests from the block-forward stages
-  // capability (also pre-mutation, default strict) — stage-evidence has its own suite.
   write(join(root, '.paqad/configs/.config.policy'), `rule_compliance=${mode}\nstages_mode=off\n`);
   write(join(root, 'src/app.ts'), targetBody);
   return root;
@@ -119,8 +106,6 @@ describe('runCapabilityGate', () => {
   it('also evaluates the rule-scripts capability at the completion seam (feature-development route)', async () => {
     const root = setup('strict', 'debugger;\n');
     const session = markFeatureDevelopment(root, 'sess-completion');
-    // Issue #580 — the completion seam enforces diff-scoped: the violating file must be part
-    // of the turn's change for it to block (an empty diff skips — see the next test).
     seedGitChangedFiles(root, ['src/app.ts']);
     const result = await runCapabilityGate({
       projectRoot: root,
@@ -131,9 +116,7 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toContain('Needs your attention');
   });
 
-  it('skips rule-scripts at the completion seam on a clean tree — no whole-tree block (#580 AC-6)', async () => {
-    // A feature-development session that owns a change, but nothing changed THIS turn: the
-    // completion seam must not scan the whole tree and block on the pre-existing violation.
+  it('skips rule-scripts at the completion seam on a clean tree — no whole-tree block', async () => {
     const root = setup('strict', 'debugger;\n');
     const session = markFeatureDevelopment(root, 'sess-clean-tree');
     const result = await runCapabilityGate({
@@ -144,7 +127,7 @@ describe('runCapabilityGate', () => {
     expect(result.block).toBe(false);
   });
 
-  it('skips rule-scripts at the completion seam when the session did not route to feature-development (#336)', async () => {
+  it('skips rule-scripts at the completion seam when the session did not route to feature-development', async () => {
     const root = setup('strict', 'debugger;\n');
     const sessionId = resolveSessionId(root, 'sess-question');
     writeWorkflowState(root, sessionId, { active: { workflow: 'project-question' }, paused: [] });
@@ -157,11 +140,9 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toBe('');
   });
 
-  it('#582 AC-7: skips rule-scripts at completion for a session routed to feature-development that owns no change', async () => {
+  it('skips rule-scripts at completion for a session routed to feature-development that owns no change', async () => {
     const root = setup('strict', 'debugger;\n');
     const sessionId = resolveSessionId(root, 'sess-misrouted');
-    // A question misrouted to feature-development: the route says feature work, but the
-    // session never edited anything, so it owns no change.
     writeWorkflowState(root, sessionId, {
       active: { workflow: 'feature-development', lane: 'fast' },
       paused: [],
@@ -175,7 +156,7 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toBe('');
   });
 
-  it('#582: skips rule-scripts at completion for an owner on a detour that edited nothing this turn', async () => {
+  it('skips rule-scripts at completion for an owner on a detour that edited nothing this turn', async () => {
     const root = setup('strict', 'debugger;\n');
     const sessionId = resolveSessionId(root, 'sess-paused');
     startStage(root, 'development', {
@@ -196,7 +177,7 @@ describe('runCapabilityGate', () => {
     expect(result.block).toBe(false);
   });
 
-  it('skips rule-scripts at the pre-mutation seam for a docs-only edit (#336)', async () => {
+  it('skips rule-scripts at the pre-mutation seam for a docs-only edit', async () => {
     const root = setup('strict', 'debugger;\n');
     const result = await runCapabilityGate({
       projectRoot: root,
@@ -221,8 +202,7 @@ describe('runCapabilityGate', () => {
     expect(result.summary).toBe('');
   });
 
-  it('says "none armed" at the completion seam when no rule-scripts are armed (#345 G4)', async () => {
-    // A map that catalogues the rule but arms no script (scripts: []).
+  it('says "none armed" at the completion seam when no rule-scripts are armed', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-kernel-gate-unarmed-'));
     roots.push(root);
     write(join(root, 'docs/instructions/rules/coding/q.md'), '- No debugger statements.\n');
@@ -286,7 +266,6 @@ describe('runCapabilityGate', () => {
 
   it('clamps a local rule_compliance=off below the strict team floor (cannot weaken)', async () => {
     const root = setup('strict', 'debugger;\n');
-    // A dev-local attempt to disable enforcement must be ignored — team floor wins.
     write(join(root, '.paqad/.config'), 'rule_compliance=off\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
@@ -302,16 +281,11 @@ describe('runCapabilityGate', () => {
   it('is a clean no-op when the project has no rule-script map', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-kernel-gate-nomap-'));
     roots.push(root);
-    // Isolate rule-scripts: without stages_mode=off the block-forward gate would
-    // fire (no ledger → missing planning) on this bare project.
     write(join(root, '.paqad/configs/.config.policy'), 'stages_mode=off\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
   });
-
-  // Buildout F5 (decision D1, audit) — the integrity lock catches a binding
-  // edited outside the engine, so a weakening can't pass silently.
 
   it('writes the capability lock when the engine applies the map', () => {
     const root = setup('strict', 'export const x = 1;\n');
@@ -323,8 +297,7 @@ describe('runCapabilityGate', () => {
   });
 
   it('blocks under strict when a script is hand-edited outside the engine (tamper)', async () => {
-    const root = setup('strict', 'export const x = 1.0;\n'); // clean: a neutered script would pass
-    // Hand-edit the script WITHOUT going through the engine → lock goes stale.
+    const root = setup('strict', 'export const x = 1.0;\n');
     appendFileSync(join(root, SCRIPT_REL), '\n// hand-edit that the engine never blessed\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
@@ -333,7 +306,6 @@ describe('runCapabilityGate', () => {
 
   it('surfaces tamper without blocking under warn (map hand-edited)', async () => {
     const root = setup('warn', 'export const x = 1;\n');
-    // A semantic map edit that bypasses the single-writer (engine) path.
     const mapPath = join(root, MAP_REL);
     writeFileSync(
       mapPath,
@@ -346,8 +318,8 @@ describe('runCapabilityGate', () => {
   });
 
   it('surfaces an advisory (never blocks) when the bindings have no lock yet', async () => {
-    const root = setup('strict', 'export const x = 1;\n'); // clean code → no real violation
-    rmSync(join(root, LOCK_REL), { force: true }); // simulate a pre-F5 map (no lock)
+    const root = setup('strict', 'export const x = 1;\n');
+    rmSync(join(root, LOCK_REL), { force: true });
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toContain('not yet attested');
@@ -357,17 +329,12 @@ describe('runCapabilityGate', () => {
     const root = setup('strict', 'debugger;\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
-    // The real violation verdict, not the tamper one.
     expect(result.summary).toContain('Needs your attention');
     expect(result.summary).not.toContain('changed outside the engine');
   });
 
-  // Buildout F7 (decision D2) — an install older than the schema the project was
-  // blessed under refuses to enforce rather than misread it: clean, never blocking.
   it('refuses cleanly (no block) when the project was blessed by a newer paqad', async () => {
-    const root = setup('strict', 'debugger;\n'); // a real violation that WOULD block at parity
-    // Simulate a project blessed by a newer install: bump the locked policy version
-    // above this install's registry version.
+    const root = setup('strict', 'debugger;\n');
     const lockPath = join(root, LOCK_REL);
     const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as {
       capabilities: Record<string, { policy_version: number }>;

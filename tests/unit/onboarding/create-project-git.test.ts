@@ -9,8 +9,6 @@ const { run } = vi.hoisted(() => ({ run: vi.fn() }));
 
 vi.mock('execa', () => ({ execa }));
 
-// The onboarding run is exercised fully elsewhere; here it is stubbed so these tests isolate
-// the git / slug / error-handling branches of the thin creation wrapper.
 vi.mock('@/onboarding/orchestrator.js', () => ({
   OnboardingOrchestrator: class {
     run = run;
@@ -48,7 +46,6 @@ describe('createProjectWorkspace git + slug branches', () => {
       if (args[0] === 'rev-parse') {
         return Promise.resolve({ exitCode: 128, stdout: '' });
       }
-      // `git init` fails.
       return Promise.reject(new Error('git missing'));
     });
 
@@ -89,7 +86,6 @@ describe('createProjectWorkspace git + slug branches', () => {
 
     const result = await createProjectWorkspace({ name: 'g4', parentDir });
     expect(result.gitInitialized).toBe(false);
-    // Only the rev-parse probe ran — no init call.
     expect(execa).toHaveBeenCalledTimes(1);
   });
 

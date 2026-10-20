@@ -63,7 +63,6 @@ describe('site-map progress store (S5a)', () => {
         units: {},
       });
 
-      // The groups array is copied, not aliased.
       groups.push('mutated');
       expect(progress.inventory.groups).toEqual(['billing', 'checkout']);
     });
@@ -153,7 +152,6 @@ describe('site-map progress store (S5a)', () => {
       await Promise.all([saveProgress(root, a, T1), saveProgress(root, b, T2)]);
 
       const read = await readProgress(root);
-      // The file on disk is one complete, schema-valid document — never a mix of both.
       expect(read).not.toBeNull();
       expect([JSON.stringify(a), JSON.stringify(b)]).toContain(JSON.stringify(read));
 
@@ -187,7 +185,6 @@ describe('site-map progress store (S5a)', () => {
       const reset = await recoverInFlight(root, progress);
 
       expect(reset.sort()).toEqual(['writing-no-artifact', 'writing-with-artifact']);
-      // The half-written artifact is gone.
       expect(existsSync(artifactAbs)).toBe(false);
 
       for (const id of ['writing-with-artifact', 'writing-no-artifact']) {
@@ -195,7 +192,6 @@ describe('site-map progress store (S5a)', () => {
         expect(progress.units[id].started_at).toBeNull();
         expect(progress.units[id].error).toBeNull();
       }
-      // The done unit is left exactly as it was.
       expect(progress.units['done'].state).toBe('done');
       expect(progress.units['done'].source_hash).toBe('sha1:kept');
     });
@@ -216,7 +212,6 @@ describe('site-map progress store (S5a)', () => {
       });
       completeUnit(unit, hash, T0);
       progress.units['group:a'] = unit;
-      // A not_started unit must be ignored entirely.
       progress.units['group:b'] = createUnit({
         id: 'group:b',
         kind: 'group',
@@ -247,7 +242,6 @@ describe('site-map progress store (S5a)', () => {
       completeUnit(unit, staleHash, T0);
       progress.units['group:a'] = unit;
 
-      // The code the unit describes moves.
       writeFileSync(join(root, 'src.ts'), 'export const x = 2;\n', 'utf8');
 
       const result = await reconcileDoneUnits(root, progress);
@@ -286,8 +280,8 @@ describe('site-map progress store (S5a)', () => {
       put(progress, 'group:done', (u) => completeUnit(u, 'h', T1));
       put(progress, 'group:writing', (u) => startUnit(u, T1));
       put(progress, 'group:failed', (u) => failUnit(u, 'boom', T1));
-      put(progress, 'group:todo-1'); // not_started
-      put(progress, 'group:todo-2'); // not_started
+      put(progress, 'group:todo-1');
+      put(progress, 'group:todo-2');
 
       const summary = summarizeProgress(progress);
 
@@ -299,7 +293,6 @@ describe('site-map progress store (S5a)', () => {
         remaining: 2,
         next: { id: 'group:todo-1', label: 'label:group:todo-1' },
       });
-      // total = done + writing + failed + remaining (FR-5).
       expect(summary.done + summary.writing + summary.failed + summary.remaining).toBe(
         summary.total,
       );
@@ -307,8 +300,8 @@ describe('site-map progress store (S5a)', () => {
 
     it('next is the FIRST not_started unit in declaration order, not a later one', () => {
       const progress = seed();
-      put(progress, 'group:first'); // not_started
-      put(progress, 'group:second'); // not_started
+      put(progress, 'group:first');
+      put(progress, 'group:second');
 
       expect(summarizeProgress(progress).next).toEqual({
         id: 'group:first',
@@ -358,14 +351,12 @@ describe('site-map progress store (S5a)', () => {
 
     it('words each done unit as "<Kind> <ordinal> of <total-of-kind>: <label>", per kind', () => {
       const progress = createEmptyProgress({ screens: 0, groups: [] }, T0);
-      // Two groups (one done), three journeys (two done), one done stage. Ordinals count within a
-      // kind in declaration order, and the total is the count of that kind, not just the done ones.
       put(progress, 'group:billing', 'group', 'Billing', (u) => completeUnit(u, 'h', T1));
-      put(progress, 'group:admin', 'group', 'Admin'); // not_started — no line
+      put(progress, 'group:admin', 'group', 'Admin');
       put(progress, 'journey:checkout', 'journey', 'Checkout, guest', (u) =>
         completeUnit(u, 'h', T1),
       );
-      put(progress, 'journey:signup', 'journey', 'Sign up'); // not_started — no line
+      put(progress, 'journey:signup', 'journey', 'Sign up');
       put(progress, 'journey:reset', 'journey', 'Reset password', (u) => completeUnit(u, 'h', T1));
       put(progress, 'stage:links', 'stage', 'Links', (u) => completeUnit(u, 'h', T1));
 
@@ -381,7 +372,7 @@ describe('site-map progress store (S5a)', () => {
       const progress = createEmptyProgress({ screens: 0, groups: [] }, T0);
       put(progress, 'group:a', 'group', 'A', (u) => startUnit(u, T1));
       put(progress, 'group:b', 'group', 'B', (u) => failUnit(u, 'boom', T1));
-      put(progress, 'group:c', 'group', 'C'); // not_started
+      put(progress, 'group:c', 'group', 'C');
 
       expect(describeCompletedUnits(progress)).toEqual([]);
     });

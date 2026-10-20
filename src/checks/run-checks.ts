@@ -1,12 +1,3 @@
-// Deterministic check runner (issue #318, made fast without lowering the bar by #554).
-//
-// It executes the project's mapped format/test/build commands and parses each into a
-// `StructuredTestResult` — the shape the `code-tests-lint` gate consumes. Since #554 it runs the
-// commands as `&&` argv chains (never a shell), overlaps them with a scheduler, runs the test suite
-// with the runner's own parallel mode when the project has it, falls back to the sequential command
-// on a harness failure, and confirms every parallel-run failure alone before it blocks. Everything
-// at runtime is deterministic: exit codes, parsed result files, arithmetic. No LLM call from Node.
-
 import { availableParallelism as osAvailableParallelism, totalmem as osTotalmem } from 'node:os';
 import { rmSync } from 'node:fs';
 
@@ -14,7 +5,11 @@ import fg from 'fast-glob';
 
 import type { DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
-import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
+import {
+  readProjectProfile,
+  syncProjectProfile,
+  writeProjectProfile,
+} from '@/core/project-profile.js';
 import {
   loadFeatureDevelopmentPolicy,
   resolveFeatureDevelopmentCheckCommands,
@@ -38,7 +33,10 @@ import { resolveRerunCount } from '@/flaky/stability.js';
 import { OUTPUT_TAIL_LINES } from '@/checks/constants.js';
 import { parseTestOutput } from '@/test-output/service.js';
 import type { StructuredTestResult } from '@/core/types/test-output.js';
-import { TEST_OUTPUT_SCHEMA_VERSION } from '@/core/types/test-output.js';
+import {
+  TEST_OUTPUT_SCHEMA_VERSION,
+  UNKNOWN_TEST_OUTPUT_TIMESTAMP,
+} from '@/core/types/test-output.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 import type { StackPackTestRunner } from '@/core/types/pack.js';
 import type {
@@ -60,18 +58,13 @@ export interface ChecksRunResult {
   flaky_under_parallel: ChecksReportFlaky[];
   meaningful_green: boolean;
   critical_path: ChecksReportCriticalPath;
-  /** Count of tests set aside as flaky-under-parallel (for the --silent line). */
   recovered: number;
-  /** Total work time across every command (sum of durations). */
   duration_ms: number;
-  /** Why the test ran sequentially (paratest-missing, too-few-cores, harness-failure:…, unknown), for
-   *  the receipt line; null when it ran parallel/native or sequential by the user's own choice. */
   sequential_reason: string | null;
-  /** The parsed test result's total test count and the pre-isolation parallel failure count. */
   test_total: number;
   parallel_failures: number;
-  /** The final (post-isolation) parsed test result, for the failing-test list; null when no test ran. */
   test_result: StructuredTestResult | null;
+  testing_recorded: boolean;
 }
 
 export interface RunChecksOptions {
@@ -79,7 +72,6 @@ export interface RunChecksOptions {
   changedFiles?: readonly string[];
   shell?: DeliveryShell;
   now?: () => string;
-  /** Injectable ms clock and os facts so a unit test never depends on the host. */
   nowMs?: () => number;
   osFacts?: OsFacts;
   checksParallel?: boolean;
@@ -117,7 +109,12 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   const checksMaxProcesses = options.checksMaxProcesses ?? config.features.checks_max_processes;
   const flakyMode = options.flakyMode ?? resolveChecksFlakyMode(projectRoot);
 
-  if (profile) profile = refreshTestingRecord(profile, projectRoot, nowIso());
+  let testingRecorded = false;
+  if (profile) {
+    const refreshed = refreshTestingRecord(profile, projectRoot, nowIso());
+    profile = refreshed.profile;
+    testingRecorded = refreshed.recorded;
+  }
 
   const plan: TestPlan = profile
     ? resolveTestPlan(profile, osFacts, { checksParallel, checksMaxProcesses })
@@ -150,7 +147,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     }
   }
 
-  if (scheduled.length === 0) return emptyResult(warnings, checksParallel);
+  if (scheduled.length === 0) return emptyResult(warnings, checksParallel, testingRecorded);
 
   if (runner) deleteRunnerOutput(projectRoot, runner);
 
@@ -171,6 +168,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
   let meaningfulGreen = true;
   let recovered = 0;
   let testResult: StructuredTestResult | null = null;
+  let testRun: ScheduledCommandResult | null = null;
 
   for (const runResult of runResults) {
     reportCommands.push(toReportCommand(runResult));
@@ -179,10 +177,9 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
       continue;
     }
 
+    testRun = runResult;
     let parsed = await parseTestCommandOutputAsync(runner, runResult, projectRoot, changedFiles);
 
-    // Harness-failure fallback: a parallel run that produced no parsed test result means the
-    // parallel harness itself failed (paratest missing, DB denied, …) — run sequentially once.
     if (
       plan.mode === 'parallel' &&
       runResult.exit_code !== 0 &&
@@ -190,6 +187,7 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     ) {
       const seq = await runOneCommand(shell, profile!.commands.test, projectRoot, nowMs, nowIso);
       reportCommands.push(toReportCommand(seq));
+      testRun = seq;
       parsed = await parseTestCommandOutputAsync(runner, seq, projectRoot, changedFiles);
       testMode = 'sequential';
       fallbackReason = `harness-failure:${firstLine(runResult.stderr).slice(0, 200)}`;
@@ -208,8 +206,6 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
         now: nowIso,
         runSingle: async (command, outputOverride) => {
           const outcome = await runOneCommand(shell, command, projectRoot, nowMs, nowIso);
-          // Parse the re-run's REDIRECTED output file (rerun-<index>), not the runner's default one,
-          // so an isolated re-run never reads the crowd run's result file.
           const rerunRunner =
             outputOverride && runner.output_source === 'file'
               ? { ...runner, output_path_pattern: outputOverride }
@@ -235,6 +231,11 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
 
     testResult = parsed;
     results.push(parsed);
+  }
+
+  if (testRun !== null && unreadable(testRun, testResult!)) {
+    markInconclusive(reportCommands);
+    meaningfulGreen = false;
   }
 
   const nonTestPassed = runResults
@@ -279,7 +280,21 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     test_total: testResult?.summary.total ?? 0,
     parallel_failures: parallelFailures,
     test_result: testResult,
+    testing_recorded: testingRecorded,
   };
+}
+
+function unreadable(run: ScheduledCommandResult, result: StructuredTestResult): boolean {
+  return (
+    run.exit_code === 0 &&
+    result.summary.total === 0 &&
+    result.parse_metadata.parse_strategy !== 'plain-text-fallback'
+  );
+}
+
+function markInconclusive(commands: ChecksReportCommand[]): void {
+  const index = commands.map((command) => command.logical_command).lastIndexOf('test');
+  commands[index] = { ...commands[index]!, outcome: 'inconclusive' };
 }
 
 function toReportCommand(result: ScheduledCommandResult): ChecksReportCommand {
@@ -355,7 +370,11 @@ async function parseTestCommandOutputAsync(
     stdout: result.stdout,
     stderr: result.stderr,
   });
-  return withEvidence(parsed, changedFiles);
+  const timestamp =
+    parsed.summary.timestamp === UNKNOWN_TEST_OUTPUT_TIMESTAMP
+      ? result.ended_at
+      : parsed.summary.timestamp;
+  return withEvidence({ ...parsed, summary: { ...parsed.summary, timestamp } }, changedFiles);
 }
 
 function plainTextResult(
@@ -365,6 +384,7 @@ function plainTextResult(
   return withEvidence(
     baseResult('test', result.passed, firstLine(result.stderr), 'plain-text-fallback', {
       raw_byte_size: (result.stdout.length + result.stderr.length) | 0,
+      timestamp: result.ended_at,
     }),
     changedFiles,
   );
@@ -393,7 +413,7 @@ function baseResult(
   passed: boolean,
   message: string,
   strategy: 'structured' | 'plain-text-fallback',
-  extra: { raw_byte_size: number; duration_ms?: number; timestamp?: string },
+  extra: { raw_byte_size: number; duration_ms?: number; timestamp: string },
 ): StructuredTestResult {
   const failure = passed
     ? []
@@ -418,7 +438,7 @@ function baseResult(
       skipped: 0,
       errored: 0,
       duration_ms: extra.duration_ms ?? 0,
-      timestamp: extra.timestamp ?? '1970-01-01T00:00:00.000Z',
+      timestamp: extra.timestamp,
       runner_id: runnerId,
     },
     failures: failure,
@@ -452,13 +472,14 @@ function refreshTestingRecord(
   profile: ProjectProfile,
   projectRoot: string,
   now: string,
-): ProjectProfile {
-  if (!profile.stack_profile) return profile;
+): { profile: ProjectProfile; recorded: boolean } {
+  const unchanged = { profile, recorded: false };
+  if (!profile.stack_profile) return unchanged;
   const ecosystem = resolvePackageEcosystem(profile.stack_profile.frameworks, projectRoot);
   const currentHash = lockfileHash(projectRoot, ecosystem);
   const recorded = profile.testing;
   const stale = !recorded || (currentHash !== undefined && recorded.lockfile_hash !== currentHash);
-  if (!stale) return profile;
+  if (!stale) return unchanged;
 
   const derived = deriveTestingForProfile({
     stackProfile: profile.stack_profile,
@@ -466,10 +487,10 @@ function refreshTestingRecord(
     projectRoot,
     now,
   });
-  if (!derived.testing) return profile;
+  if (!derived.testing) return unchanged;
   const next: ProjectProfile = { ...profile, commands: derived.commands, testing: derived.testing };
-  writeProjectProfile(projectRoot, next, 'checks: recorded test runner parallel mode');
-  return next;
+  const write = syncProjectProfile(projectRoot, next, 'checks: recorded test runner parallel mode');
+  return { profile: next, recorded: write.written };
 }
 
 function persistHarnessFallback(
@@ -510,7 +531,11 @@ function deleteRunnerOutput(projectRoot: string, runner: StackPackTestRunner): v
   }
 }
 
-function emptyResult(warnings: string[], checksParallel: boolean): ChecksRunResult {
+function emptyResult(
+  warnings: string[],
+  checksParallel: boolean,
+  testingRecorded: boolean,
+): ChecksRunResult {
   return {
     ran: false,
     passed: true,
@@ -533,6 +558,7 @@ function emptyResult(warnings: string[], checksParallel: boolean): ChecksRunResu
     test_total: 0,
     parallel_failures: 0,
     test_result: null,
+    testing_recorded: testingRecorded,
   };
 }
 

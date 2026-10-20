@@ -8,14 +8,8 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ensureBuiltDist } from './helpers/ensure-built.js';
 
-// Issue #639, Part 7 — the HUD snapshot written by the real hooks from the built dist.
-// - A hook refreshes the snapshot after its decision is final, and prints nothing new.
-// - A plugin-reached hook in a repo that was never onboarded writes nothing (decision 5).
-// - Two writers at once never leave a broken file (atomic rename).
-
 const REPO = process.cwd();
 const STAGE_WRITER = resolve(REPO, 'runtime/hooks/stage-writer.mjs');
-// A file URL, not a path: `import()` rejects a bare Windows path such as C:\... .
 const REFRESH = pathToFileURL(resolve(REPO, 'dist/hud/refresh.js')).href;
 
 beforeAll(async () => {
@@ -61,7 +55,7 @@ async function runStageWriter(root: string, session: string, pluginRoot?: string
   });
 }
 
-describe('HUD snapshot from the real hooks (#639 Part 7)', () => {
+describe('HUD snapshot from the real hooks', () => {
   it('a hook refreshes the snapshot after deciding, and prints nothing new', async () => {
     const root = repo(true);
     const result = await runStageWriter(root, 'ses-e2e');
@@ -101,10 +95,7 @@ describe('HUD snapshot from the real hooks (#639 Part 7)', () => {
         let text: string | null = null;
         try {
           text = readFileSync(path, 'utf8');
-        } catch {
-          // Windows can refuse a read that lands mid-rename (EPERM/EBUSY). That is a missed
-          // read, not a broken file, so it is skipped rather than counted.
-        }
+        } catch {}
         if (text !== null) {
           reads += 1;
           try {

@@ -1,29 +1,17 @@
 import type { RedactionAllowlist } from '../types/logging.js';
 
-/** Literal token substituted for any allowlisted sensitive field value. */
 export const REDACTION_PLACEHOLDER = '[REDACTED]';
 
-/**
- * Canonical, engine-authoritative list of sensitive field names. All three
- * runtimes import this rather than defining their own copy.
- */
 export const DEFAULT_REDACTION_ALLOWLIST: RedactionAllowlist = Object.freeze([
   'credential',
   'prompt',
   'user_content',
 ]);
 
-/** A plain object is a non-null, non-array object literal. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/**
- * Returns a copy of `fields` with the value of any key that matches the
- * allowlist replaced by {@link REDACTION_PLACEHOLDER}. Redaction is applied at
- * the top level and one level deep inside plain nested objects. `count` is the
- * number of values replaced, so callers can drive an operational counter.
- */
 export function redactFields(
   fields: Record<string, unknown>,
   allowlist: RedactionAllowlist,

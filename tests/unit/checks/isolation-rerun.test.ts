@@ -56,7 +56,6 @@ function result(failures: StructuredTestIssue[], total: number): StructuredTestR
   };
 }
 
-/** A run outcome for a single parsed test: pass (1 passing test) or fail (1 failing test). */
 function outcome(pass: boolean, total = 1): SingleRunOutcome {
   return {
     exitCode: pass ? 0 : 1,
@@ -83,7 +82,6 @@ describe('confirmFailures', () => {
 
   const NOW = () => '2026-09-11T10:00:00.000Z';
 
-  // Map test_id -> whether every isolated re-run passes.
   function runSingleFor(passIds: Set<string>) {
     return async (command: string): Promise<SingleRunOutcome> => {
       const passes = [...passIds].some((id) => command.includes(id));
@@ -144,7 +142,6 @@ describe('confirmFailures', () => {
       calls += 1;
       return outcome(true);
     };
-    // 11 of 100 → over absolute cap
     const many = Array.from({ length: 11 }, (_, i) => issue(`t${i}`));
     const over = await confirmFailures({
       result: result(many, 100),
@@ -159,7 +156,6 @@ describe('confirmFailures', () => {
     expect(over.isolation_reruns.skipped_reason).toBe('too-many-failures');
     expect(calls).toBe(0);
 
-    // 3 of 40 (7.5%) → over ratio
     const ratio = await confirmFailures({
       result: result(
         Array.from({ length: 3 }, (_, i) => issue(`r${i}`)),
@@ -175,7 +171,6 @@ describe('confirmFailures', () => {
     });
     expect(ratio.isolation_reruns.skipped_reason).toBe('too-many-failures');
 
-    // 2 of 100 → re-runs performed
     const ok = await confirmFailures({
       result: result([issue('x'), issue('y')], 100),
       projectRoot: root,
@@ -191,7 +186,6 @@ describe('confirmFailures', () => {
   });
 
   it('is conservative about selectors and flip verdicts (AC-8)', async () => {
-    // no file_path under the file selector → no-selector, blocking, not re-run
     const noFile: StructuredTestIssue = { ...issue('nf'), file_path: null };
     const noSelector = await confirmFailures({
       result: result([noFile], 100),
@@ -206,7 +200,6 @@ describe('confirmFailures', () => {
     expect(noSelector.isolation_reruns.entries[0]!.reason).toBe('no-selector');
     expect(noSelector.isolation_reruns.entries[0]!.blocking).toBe(true);
 
-    // parsed total === 0 on every re-run → selector-matched-nothing, blocking
     const matchedNothing = await confirmFailures({
       result: result([issue('mn')], 100),
       projectRoot: root,
@@ -220,7 +213,6 @@ describe('confirmFailures', () => {
     expect(matchedNothing.isolation_reruns.entries[0]!.reason).toBe('selector-matched-nothing');
     expect(matchedNothing.isolation_reruns.entries[0]!.blocking).toBe(true);
 
-    // fails 1 of 3 isolated runs → flaky, blocking
     let n = 0;
     const flaky = await confirmFailures({
       result: result([issue('fk')], 100),

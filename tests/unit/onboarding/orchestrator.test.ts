@@ -21,6 +21,16 @@ import { OnboardingOrchestrator } from '@/onboarding';
 import { readOnboardingCheckpoint, writeOnboardingCheckpoint } from '@/onboarding/checkpoint.js';
 import { MANAGED_HEADER } from '@/onboarding/decision-pause-contract-writer.js';
 import { RagService } from '@/rag/service.js';
+import * as optionalPackage from '@/core/optional-package.js';
+
+vi.mock('@/core/optional-package.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/core/optional-package.js')>();
+  return {
+    ...actual,
+    describeOptionalEngine: vi.fn(actual.describeOptionalEngine),
+    maybeStartOptionalEngineInstall: vi.fn(actual.maybeStartOptionalEngineInstall),
+  };
+});
 
 const PROJECT_SKILL_DIRS = [
   '.claude/skills',
@@ -90,8 +100,6 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, 'docs/instructions/rules/_shared/constitution.md'))).toBe(
       true,
     );
-    // The silent-update hook is no longer copied into the project; it runs from
-    // the framework install as a cross-platform .mjs.
     expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.mjs'))).toBe(false);
     expect(existsSync(join(projectRoot, '.claude/settings.hooks.json'))).toBe(true);
@@ -103,11 +111,7 @@ describe('OnboardingOrchestrator', () => {
       existsSync(join(projectRoot, 'docs/instructions/workflows/feature-development.yaml')),
     ).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/compiled-rules.json'))).toBe(true);
-    // Issue #319 — onboarding now generates the rule-script map, arming the
-    // deterministic enforcement gate instead of leaving it disarmed on a missing map.
     expect(existsSync(join(projectRoot, 'docs/instructions/rules/rule-script-map.yml'))).toBe(true);
-    // Module-health profiles are no longer eagerly seeded; they are created on
-    // demand when a module first accrues real evidence.
     expect(existsSync(join(projectRoot, '.paqad/module-health/core.json'))).toBe(false);
     const onboardingManifest = JSON.parse(
       readFileSync(join(projectRoot, '.paqad/onboarding-manifest.json'), 'utf8'),
@@ -122,12 +126,6 @@ describe('OnboardingOrchestrator', () => {
   });
 
   it('documents the enterprise switches in the team config files and keeps the profile lean', async () => {
-    // Issue #187 + the `.config` cutover — the opt-in evidence-ledger / AI-BOM /
-    // compliance-citation switches are surfaced in the tracked `configs/.config.app`
-    // group file (commented out, the discoverability surface), not the profile.
-    // They default off (a normal user pays zero tokens) and stay at the code
-    // default until uncommented, so the generated profile carries no `enterprise:`
-    // block and resolution is unchanged.
     await new OnboardingOrchestrator().run({
       projectRoot,
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
@@ -142,7 +140,6 @@ describe('OnboardingOrchestrator', () => {
     expect(appConfig).toMatch(/^# enterprise_ai_bom=false$/m);
     expect(appConfig).toMatch(/^# enterprise_compliance_citations=false$/m);
 
-    // The single copy-paste catalog is also written, listing every knob commented.
     const example = readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8');
     expect(example).toMatch(/^# enterprise=false$/m);
     expect(example).toMatch(/^# rag_top_n=20$/m);
@@ -150,13 +147,10 @@ describe('OnboardingOrchestrator', () => {
   });
 
   it('returns the no-migration safety net: framework values a legacy fat profile reverted', async () => {
-    // First onboard produces a lean profile.
     await new OnboardingOrchestrator().run({
       projectRoot,
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
     });
-    // Simulate a team that hand-edited non-default framework values back into the
-    // (now legacy) profile. The hard-cutover strip reverts them on re-onboard.
     const profilePath = join(projectRoot, '.paqad/project-profile.yaml');
     writeFileSync(
       profilePath,
@@ -172,7 +166,6 @@ describe('OnboardingOrchestrator', () => {
       'enterprise=true',
       'research_depth=cutting-edge',
     ]);
-    // The strip reverts them; with no `.config`/`configs/` set, they are at defaults.
     expect(readFileSync(profilePath, 'utf8')).not.toContain('enterprise:');
     expect(existsSync(join(projectRoot, '.paqad/.config'))).toBe(false);
   });
@@ -243,22 +236,17 @@ describe('OnboardingOrchestrator', () => {
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
     });
 
-    // The managed policy lives under `.paqad/` now, never in the project root.
     const gitignore = readFileSync(join(projectRoot, '.paqad', '.gitignore'), 'utf8');
     expect(gitignore).toContain('# >>> paqad-ai managed');
     expect(gitignore).toContain('cache/');
     expect(gitignore).toContain('session/');
     expect(gitignore).toContain('pentest/');
-    // Decision 2 — the per-machine version file is ignored; the boot pointer is not.
     expect(gitignore).toContain('framework-version.txt');
     expect(gitignore).not.toContain('framework-path.txt');
-    // The ledger is always ignored so enabling it can never leak into git.
     expect(gitignore).toContain('ledger/');
   });
 
-  it('finishes a pending evidence migration on onboarding, as update does (issue #581)', async () => {
-    // No schema marker: onboarding only stamps it, so the one-time migrator never runs. The
-    // pending check still moves the old run into its bundle.
+  it('finishes a pending evidence migration on onboarding, as update does', async () => {
     const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
     mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
     writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
@@ -306,7 +294,6 @@ describe('OnboardingOrchestrator', () => {
       }),
       expect.any(Function),
     );
-    // The lead's RAG choice is tracked team truth; no local override is needed.
     const teamConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
     expect(teamConfig).toContain('rag_enabled=true');
     expect(teamConfig).toContain('rag_embedding_provider=local');
@@ -335,8 +322,6 @@ describe('OnboardingOrchestrator', () => {
       },
     });
 
-    // The failure path resets team RAG to disabled in `.config.rag`; the profile
-    // stays lean and never carries the embedding provider.
     const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
     expect(config).toContain('rag_enabled=false');
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
@@ -345,9 +330,86 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, '.paqad/detection-report.json'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/framework-version.txt'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/onboarding-manifest.json'))).toBe(true);
-    expect(output.warnings).toContain(
-      'RAG setup failed during onboarding: model download failed. Onboarding completed with RAG disabled.',
+    expect(output.warnings).toContain('RAG was turned off: model download failed');
+  });
+
+  it('keeps RAG on and starts the background engine install when the engine is missing', async () => {
+    vi.mocked(optionalPackage.describeOptionalEngine).mockReturnValueOnce({
+      state: 'not installed',
+    });
+    vi.mocked(optionalPackage.maybeStartOptionalEngineInstall).mockReturnValueOnce('started');
+    const configure = vi.spyOn(RagService.prototype, 'configureAndBuild');
+
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+        rag: { enabled: true, provider: 'local' },
+      },
+    });
+
+    expect(optionalPackage.maybeStartOptionalEngineInstall).toHaveBeenCalledWith(
+      expect.anything(),
+      {},
+      { projectRoot },
     );
+    expect(configure).not.toHaveBeenCalled();
+    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
+    expect(config).toContain('rag_enabled=true');
+    expect(config).not.toContain('rag_enabled=false');
+    const installing = output.warnings.filter((line) =>
+      line.includes('installing in the background'),
+    );
+    expect(installing).toEqual([
+      'search index is installing in the background; text search until it is ready',
+    ]);
+    expect(output.warnings.some((line) => line.startsWith('RAG was turned off'))).toBe(false);
+  });
+
+  it('turns RAG off and says why when the engine install cannot start', async () => {
+    vi.mocked(optionalPackage.describeOptionalEngine).mockReturnValueOnce({
+      state: 'not installed',
+    });
+    vi.mocked(optionalPackage.maybeStartOptionalEngineInstall).mockReturnValueOnce(
+      'no-plugin-data',
+    );
+    vi.spyOn(RagService.prototype, 'configureAndBuild').mockRejectedValue(
+      new Error('Failed to load local model Xenova/all-MiniLM-L6-v2'),
+    );
+
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: {
+        domain: 'coding',
+        stack: 'laravel',
+        capabilities: [],
+        rag: { enabled: true, provider: 'local' },
+      },
+    });
+
+    const config = readFileSync(join(projectRoot, '.paqad/configs/.config.rag'), 'utf8');
+    expect(config).toContain('rag_enabled=false');
+    expect(output.warnings).toContain(
+      'RAG was turned off: Failed to load local model Xenova/all-MiniLM-L6-v2',
+    );
+  });
+
+  it('reports a kept entry file in kept_files, never in warnings', async () => {
+    writeFileSync(join(projectRoot, 'CLAUDE.md'), '# Team notes\n');
+
+    const output = await new OnboardingOrchestrator().run({
+      projectRoot,
+      selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
+    });
+
+    expect(output.kept_files).toContain('CLAUDE.md');
+    expect(output.warnings).not.toContain('CLAUDE.md');
+    expect(Array.isArray(output.drift_review_targets)).toBe(true);
+    for (const target of output.drift_review_targets) {
+      expect(output.warnings).not.toContain(target);
+    }
   });
 
   it('does not create empty architecture or design-system folders during onboarding', async () => {
@@ -557,6 +619,7 @@ describe('OnboardingOrchestrator', () => {
       join(projectRoot, 'package.json'),
       JSON.stringify(
         {
+          scripts: { test: 'vitest run' },
           dependencies: { react: '^19.0.0', 'react-dom': '^19.0.0' },
         },
         null,
@@ -564,6 +627,7 @@ describe('OnboardingOrchestrator', () => {
       ),
     );
     writeFileSync(join(projectRoot, 'compose.yaml'), 'services:\n  web:\n    image: node:20\n');
+    writeFileSync(join(projectRoot, 'pnpm-lock.yaml'), 'lockfileVersion: 9.0\n');
     mkdirSync(join(projectRoot, 'src'), { recursive: true });
     writeFileSync(
       join(projectRoot, 'src/App.tsx'),
@@ -573,8 +637,6 @@ describe('OnboardingOrchestrator', () => {
     await new OnboardingOrchestrator().run({ projectRoot, adapters: ['claude-code'] });
 
     const profile = readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8');
-    // Issue #672 — no literal `--` after `pnpm test`: pnpm passes it on and vitest then ignores
-    // the reporter flag and the pattern.
     expect(profile).toContain('test: docker compose exec <node-service> pnpm test --reporter=tap');
     expect(profile).toContain(
       'test_single: docker compose exec <node-service> pnpm test <pattern> --reporter=tap',
@@ -828,7 +890,6 @@ describe('OnboardingOrchestrator', () => {
       const manifest = JSON.parse(
         readFileSync(join(projectRoot, PATHS.ONBOARDING_MANIFEST), 'utf8'),
       ) as Record<string, unknown>;
-      // The load-bearing file stays, but the per-release volatile field is gone.
       expect(manifest).not.toHaveProperty('framework_version');
       expect(manifest).toHaveProperty('adapter');
       expect(manifest).toHaveProperty('generated_artifacts');
@@ -864,7 +925,6 @@ describe('OnboardingOrchestrator', () => {
         }),
       ).rejects.toMatchObject({ code: 'PROJECT_CREATION_DISABLED' });
 
-      // No artifacts written — the project root stays empty.
       expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(false);
       expect(existsSync(join(projectRoot, '.paqad/project-profile.yaml'))).toBe(false);
     });
@@ -887,9 +947,6 @@ describe('OnboardingOrchestrator', () => {
       const claudePath = join(projectRoot, 'CLAUDE.md');
       writeFileSync(claudePath, '# user-customised entry\n');
 
-      // Issue #242 — a default re-run preserves the project-owned content and
-      // appends paqad's lean stub as a marker-fenced managed block (rather than
-      // silently leaving the entry file unwired).
       await new OnboardingOrchestrator().run({ projectRoot, selections });
       const rewired = readFileSync(claudePath, 'utf8');
       expect(rewired).toContain('# user-customised entry');
@@ -897,27 +954,22 @@ describe('OnboardingOrchestrator', () => {
       expect(rewired).toContain('.paqad/framework-path.txt');
       expect(rewired).toContain('AGENT-BOOTSTRAP.md');
 
-      // A second re-run is idempotent: the managed block is not duplicated.
       await new OnboardingOrchestrator().run({ projectRoot, selections });
       const reonboarded = readFileSync(claudePath, 'utf8');
       expect(reonboarded).toBe(rewired);
       expect(reonboarded.split('paqad-ai managed entry stub (do').length - 1).toBe(1);
 
-      // forceOverwrite regenerates it. Issue #229 — the entry file is now a lean
-      // bootstrap stub, so we assert on the bootstrap pointer it must carry rather
-      // than the workflow prose (which moved to AGENT-BOOTSTRAP.md).
       await new OnboardingOrchestrator().run({ projectRoot, selections, forceOverwrite: true });
       const regenerated = readFileSync(claudePath, 'utf8');
       expect(regenerated).not.toBe('# user-customised entry\n');
       expect(regenerated).toContain('.paqad/framework-path.txt');
       expect(regenerated).toContain('AGENT-BOOTSTRAP.md');
-      // The lean stub no longer inlines the workflow prose or the contracts.
       expect(regenerated).not.toContain('create documentation');
       expect(regenerated).not.toContain('docs/instructions');
       expect(regenerated).not.toContain('## Decision Pause Contract');
     });
 
-    it('does not wire an entry stub into a pre-existing entry file when paqad is disabled (#242 AC4)', async () => {
+    it('does not wire an entry stub into a pre-existing entry file when paqad is disabled', async () => {
       const claudePath = join(projectRoot, 'CLAUDE.md');
       writeFileSync(claudePath, '# Laravel Boost\n\nBoost-authored content.\n');
 
@@ -927,8 +979,6 @@ describe('OnboardingOrchestrator', () => {
         profileOverrides: { paqad: { enabled: false } },
       });
 
-      // Disabled ⇒ the existing entry file is left exactly as it was: no managed
-      // block, no paqad pointer (consistent with #229/#220).
       const after = readFileSync(claudePath, 'utf8');
       expect(after).toBe('# Laravel Boost\n\nBoost-authored content.\n');
       expect(after).not.toContain('paqad-ai managed entry stub');
@@ -936,8 +986,6 @@ describe('OnboardingOrchestrator', () => {
     });
 
     it('resumes from a checkpoint, skipping already-written files and producing the remainder', async () => {
-      // Simulate an interrupted run: cache.json was written, then the process died
-      // before the rest. The checkpoint records it as done.
       mkdirSync(join(projectRoot, '.claude'), { recursive: true });
       const cachePath = join(projectRoot, '.claude/cache.json');
       writeFileSync(cachePath, '{"sentinel":true}');
@@ -945,19 +993,13 @@ describe('OnboardingOrchestrator', () => {
 
       const output = await new OnboardingOrchestrator().run({ projectRoot, selections });
 
-      // The checkpointed file is skipped (not regenerated) and not reported as written.
       expect(readFileSync(cachePath, 'utf8')).toBe('{"sentinel":true}');
       expect(output.generated_files).not.toContain('.claude/cache.json');
-      // The remainder is produced.
       expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(true);
-      // A clean finish clears the checkpoint.
       expect(readOnboardingCheckpoint(projectRoot)).toBeNull();
     });
 
     it('translates an ENOSPC disk-full error into a clean DISK_FULL FrameworkError', async () => {
-      // Simulate the disk filling up mid-write: the core file batch throws ENOSPC.
-      // (node:fs itself cannot be spied under ESM, so we fail the orchestrator's
-      // own write entry point, which is exactly what the disk-full guard wraps.)
       const fileWriter = await import('@/onboarding/file-writer.js');
       const spy = vi.spyOn(fileWriter, 'writeGeneratedFiles').mockImplementation(() => {
         const error = new Error('ENOSPC: no space left on device') as NodeJS.ErrnoException;
@@ -1023,7 +1065,6 @@ describe('OnboardingOrchestrator', () => {
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
     });
 
-    // codex-cli generates AGENTS.md, antigravity generates ANTIGRAVITY.md, gemini-cli generates GEMINI.md
     expect(output.generated_files).toContain('AGENTS.md');
     expect(output.generated_files).toContain('ANTIGRAVITY.md');
     expect(output.generated_files).toContain('GEMINI.md');
@@ -1305,7 +1346,7 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, '.github/copilot-instructions.md'))).toBe(false);
   });
 
-  describe('MCP files (issue #622)', () => {
+  describe('MCP files', () => {
     const userOwned = (name: string): string =>
       `${JSON.stringify({ mcpServers: { [name]: { command: 'npx', args: [name] } } }, null, 2)}\n`;
 
@@ -1342,7 +1383,6 @@ describe('OnboardingOrchestrator', () => {
         expect(readFileSync(join(projectRoot, path), 'utf8')).toBe(content);
       }
       expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(false);
-      // The user-owned files carry no resolved_artifacts marker, so they are kept without a log line.
       expect(existsSync(join(projectRoot, PATHS.MCP_CLEANUP_LOG))).toBe(false);
     });
 
@@ -1393,7 +1433,6 @@ describe('OnboardingOrchestrator', () => {
     });
 
     expect(existsSync(join(projectRoot, 'ANTIGRAVITY.md'))).toBe(true);
-    // Issue #622 — no host MCP path; one recommendations file in paqad's own dir.
     expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad/mcp-recommendations.json'))).toBe(true);
     expect(existsSync(join(projectRoot, 'CLAUDE.md'))).toBe(false);
@@ -1473,15 +1512,7 @@ describe('OnboardingOrchestrator', () => {
     expect(existsSync(join(projectRoot, '.continue/rules/paqad.md'))).toBe(false);
   });
 
-  // Regression guard for #62: the RAG opt-in must never gate core onboarding writes.
-  // Phase 1 (every .paqad/** core artifact) must be on disk before any RAG-related code runs,
-  // and must remain intact even if RAG fails. Earlier the orchestrator interleaved the RAG
-  // prompt with file writes, so a parked inquirer handle on "No, skip" silently truncated
-  // onboarding. The invariants below pin the architecture so that class of bug cannot return.
-  describe('phase 1 / phase 2 invariants (regression guard for #62)', () => {
-    // Issue #229 — the decision-pause / narration contracts moved out of every
-    // project's `.paqad/` and into the framework bootstrap (`AGENT-BOOTSTRAP.md`).
-    // They are no longer Phase-1 artifacts, so they are not listed here.
+  describe('phase 1 / phase 2 invariants', () => {
     const CORE_PHASE1_ARTIFACTS = [
       '.paqad/project-profile.yaml',
       '.paqad/detection-report.json',
@@ -1559,8 +1590,6 @@ describe('OnboardingOrchestrator', () => {
       }
     });
 
-    // Issue #229 — onboarding no longer writes the managed contract docs into the
-    // project's `.paqad/`; they live in the framework bootstrap now.
     it('does not write the decision-pause or narration contract docs into the project', async () => {
       const output = await new OnboardingOrchestrator().run({
         projectRoot,
@@ -1573,9 +1602,6 @@ describe('OnboardingOrchestrator', () => {
       expect(output.generated_files).not.toContain('.paqad/narration-contract.md');
     });
 
-    // Issue #229 — a project onboarded before #229 still carries the managed copies
-    // on disk. Onboarding calls `removeObsoleteContractDocs`, which prunes only a
-    // file that begins with paqad's `MANAGED_HEADER`.
     it('prunes a pre-existing managed decision-pause contract doc on re-onboard', async () => {
       const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
       await new OnboardingOrchestrator().run({ projectRoot, selections });
@@ -1589,8 +1615,6 @@ describe('OnboardingOrchestrator', () => {
       expect(existsSync(contractPath)).toBe(false);
     });
 
-    // The cleanup is conservative: a file a team repurposed (no managed header) is
-    // left untouched.
     it('leaves a non-managed file at the contract path untouched on re-onboard', async () => {
       const selections = { domain: 'coding', stack: 'laravel', capabilities: [] } as const;
       await new OnboardingOrchestrator().run({ projectRoot, selections });

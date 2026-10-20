@@ -33,7 +33,7 @@ function evidence(gates: VerificationEvidenceGate[]): VerificationEvidence {
   };
 }
 
-describe('flag-on skip lines (issue #579)', () => {
+describe('flag-on skip lines', () => {
   const skippedVisual = gate({
     name: 'visual-evidence' as VerificationEvidenceGate['name'],
     status: 'skipped',
@@ -58,11 +58,9 @@ describe('flag-on skip lines (issue #579)', () => {
     });
     const lines = withLine.summary.split('\n');
     expect(lines).toContain('> ⚪ visual evidence: not required (not-frontend)');
-    // After the status lines, before the escalations.
     const skipAt = lines.indexOf('> ⚪ visual evidence: not required (not-frontend)');
     expect(lines[skipAt - 1]).toContain('1/1 checks held');
     expect(lines[skipAt + 1]).toContain('needs a look');
-    // Same ran/passed counts as the run without the line.
     expect(without.summary.split('\n')[1]).toBe(lines[1]);
     expect(withLine.gates.find((g) => g.gate === 'visual-evidence')?.skip_reason).toBe(
       'not-frontend',
@@ -112,7 +110,7 @@ describe('flag-on skip lines (issue #579)', () => {
   });
 });
 
-describe('did-not-run and not-required lines (issue #639, Part 10)', () => {
+describe('did-not-run and not-required lines', () => {
   it('AC-7: shows every did-not-run gate, grouped by reason, and keeps it out of the counts', () => {
     const summary = formatVerdictSummary({
       ok: true,
@@ -160,7 +158,6 @@ describe('did-not-run and not-required lines (issue #639, Part 10)', () => {
     expect(lines).toContain(
       '> ⚪ mutation testing: Mutation testing did not run: no mutation tool is configured for this stack.',
     );
-    // A not-required gate whose flag is not on stays quiet.
     expect(summary).not.toContain('extension surface');
   });
 
@@ -290,8 +287,7 @@ describe('formatVerdictSummary', () => {
     expect(summary).toContain('spec-review');
   });
 
-  // Issue #472 — reconcile down: passing gates + a mandatory-stage gap reads Inconclusive.
-  describe('mandatory-stage reconcile (#472)', () => {
+  describe('mandatory-stage reconcile', () => {
     const passingGates = [
       {
         gate: 'change-completeness' as const,
@@ -310,9 +306,7 @@ describe('formatVerdictSummary', () => {
       });
       expect(summary).toContain(PAQAD_VERDICT.inconclusive);
       expect(summary).not.toContain(PAQAD_VERDICT.pass);
-      // The gates that held are still credited.
       expect(summary).toContain('1/1 checks held');
-      // The offending stages are named.
       expect(summary).toContain('mandatory stage(s) not recorded: review, checks');
     });
 
@@ -342,5 +336,47 @@ describe('formatVerdictSummary', () => {
       expect(summary).toContain(PAQAD_VERDICT.fail);
       expect(summary).not.toContain('mandatory stage(s) not recorded');
     });
+  });
+});
+
+describe('waiting decision lines', () => {
+  const waiting = [
+    { decision_id: 'D-01JWAIT', category: 'architecture', question: 'Which approach?' },
+  ];
+
+  it('prints one skipped-glyph line per waiting decision without moving the counts or the word', () => {
+    const gates = [
+      {
+        gate: 'change-completeness' as const,
+        status: 'pass' as const,
+        detail: 'ok',
+        remediation: null,
+      },
+    ];
+    const without = formatVerdictSummary({ ok: true, gates, escalations: [] });
+    const withWaiting = formatVerdictSummary({
+      ok: true,
+      gates,
+      escalations: [],
+      waitingDecisions: waiting,
+    });
+    expect(withWaiting).toContain(PAQAD_VERDICT.pass);
+    expect(withWaiting).toContain('1/1 checks held for you.');
+    expect(withWaiting.split('\n')).toEqual([
+      ...without.split('\n'),
+      '> ⚪ a decision is waiting for you: D-01JWAIT (architecture): Which approach?',
+    ]);
+  });
+
+  it('passes waiting decisions through the verdict builder', () => {
+    const verdict = buildRepositoryVerificationVerdict({
+      origin: 'hook-completion',
+      evidence: evidence([gate({})]),
+      escalations: [],
+      evidencePath: null,
+      waitingDecisions: waiting,
+    });
+    expect(verdict.ok).toBe(true);
+    expect(verdict.summary).toContain('a decision is waiting for you: D-01JWAIT');
   });
 });

@@ -39,9 +39,6 @@ export class InstructionsDocsStructureGate implements Gate {
   async check(context: Parameters<Gate['check']>[0]) {
     const changedFiles = context.changed_files.map(normalizePath);
 
-    // Issue #639, Part 10 — this gate checks only at the in-session completion check. Anywhere
-    // else it never claims a pass: not required when no instruction doc changed, and did not
-    // run when one did (the structure was owed a check that this seam does not make).
     if (!isProviderCompletionCheck(context)) {
       const touched = changedFiles.some((filePath) =>
         ['docs/instructions/', ...NON_CANONICAL_ROOTS].some((root) => isUnderPath(filePath, root)),

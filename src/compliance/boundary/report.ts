@@ -1,13 +1,3 @@
-/**
- * FR-BT4: Gate and Report Integration
- *
- * Produces and persists the boundary coverage report from the extraction
- * results.  Gate behaviour (FR-BT4.3):
- *   - 'skip'  — no boundaries detected
- *   - 'warn'  — unhandled variants exist
- *   - 'pass'  — all variants handled
- */
-
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 

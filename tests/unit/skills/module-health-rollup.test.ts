@@ -9,8 +9,6 @@ const sh = (n: string) => join(SKILL, 'scripts', n);
 
 describe('module-health-rollup scripts', () => {
   describe('rollup.sh', () => {
-    // Thin wrapper around `paqad-ai module-health rollup`. Full CLI behaviour
-    // is covered by tests/unit/cli/; here we just assert the surface.
     const path = sh('rollup.sh');
 
     it('--help exits 0 with usage on stdout', () => {

@@ -1,14 +1,3 @@
-// Discovery run store (issue #597).
-//
-// Opens, reads, updates, lists, and resolves Discovery runs under `.paqad/ledger/delivery/`. The
-// run.json is the run's identity + lifecycle record; it is stamped through the shared feature-
-// evidence envelope (change key = the run ULID) and written atomically (temp + rename), so a
-// mid-crash write never leaves a half-written record and a hand edit is detectable by content hash.
-//
-// This layer is workflow-state-agnostic: it takes an explicit run dir name (or a ref to resolve).
-// Which run a SESSION is on is carried by the per-session workflow-state anchor (see boundary.ts),
-// never by a repo-level pointer — so no session ever borrows another's active run (DW-10, INV-5).
-
 import { mkdirSync, readFileSync, readdirSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -37,7 +26,6 @@ export interface OpenDiscoveryRunInput {
   title: string;
   issue?: string | null;
   adapter: string;
-  /** Deterministic ULID seam for tests. */
   ulid?: string;
   ulidSeed?: number;
   now?: () => Date;
@@ -48,10 +36,6 @@ export interface OpenedDiscoveryRun {
   record: DiscoveryRunRecord;
 }
 
-/**
- * Build a `run.json` record (envelope + body). `recorded_at` is pinned to `stampAt` so the identity
- * time is the writer's clock (open → opened_at; update → updated_at), never a re-read drift.
- */
 function buildRunRecord(
   change: string,
   sessionId: string,
@@ -68,10 +52,6 @@ function buildRunRecord(
   }) as DiscoveryRunRecord;
 }
 
-/**
- * Open a new Discovery run: mint the dir name, seed `run.json` with status `active`, revision 1,
- * and no outcome. The owning session is stamped into the envelope; every later update keeps it.
- */
 export function openDiscoveryRun(
   projectRoot: string,
   input: OpenDiscoveryRunInput,
@@ -100,7 +80,6 @@ export function openDiscoveryRun(
   return { dirName: minted.dirName, record };
 }
 
-/** Tolerant read of a run's `run.json`, or null when absent/corrupt. */
 export function readDiscoveryRun(projectRoot: string, dirName: string): DiscoveryRunRecord | null {
   try {
     const parsed = JSON.parse(
@@ -109,9 +88,7 @@ export function readDiscoveryRun(projectRoot: string, dirName: string): Discover
     if (isRunRecord(parsed)) {
       return parsed;
     }
-  } catch {
-    // Absent / unreadable / malformed.
-  }
+  } catch {}
   return null;
 }
 
@@ -131,16 +108,10 @@ function isRunRecord(value: unknown): value is DiscoveryRunRecord {
 export interface UpdateDiscoveryRunPatch {
   status?: DiscoveryRunStatus;
   outcome?: DiscoveryOutcome | null;
-  /** Bump the revision (a material change that invalidates dependent evidence). */
   bumpRevision?: boolean;
   now?: () => Date;
 }
 
-/**
- * Patch a run's lifecycle fields, re-stamping `run.json` (a new `updated_at` and a fresh identity
- * hash). The owning session and `opened_at` are preserved. Returns the updated record, or null when
- * the run cannot be read (nothing is written in that case).
- */
 export function updateDiscoveryRun(
   projectRoot: string,
   dirName: string,
@@ -168,7 +139,6 @@ export function updateDiscoveryRun(
   return record;
 }
 
-/** Every well-formed Discovery run dir name under the root, sorted (ULID-ascending = chronological). */
 export function listDiscoveryRuns(projectRoot: string): string[] {
   try {
     return readdirSync(join(projectRoot, discoveryDir()), { withFileTypes: true })
@@ -180,11 +150,6 @@ export function listDiscoveryRuns(projectRoot: string): string[] {
   }
 }
 
-/**
- * Resolve a run ref (an exact dir name, a bare ULID, or a slug) to its dir name, or null when no
- * run matches. An ambiguous slug resolves to the most recent (last, ULID-ascending) match. This
- * never guesses "the latest run" from a bare empty ref — an empty ref returns null (DW-12).
- */
 export function resolveDiscoveryRunDir(projectRoot: string, ref: string): string | null {
   const trimmed = ref.trim();
   if (trimmed.length === 0) {
@@ -198,11 +163,6 @@ export function resolveDiscoveryRunDir(projectRoot: string, ref: string): string
   if (byUlid.length > 0) {
     return byUlid[byUlid.length - 1]!;
   }
-  // Match the slug from the dir name OR — issue #597 (m5) — from the run's own `run.json`, which is
-  // authoritative. The dir-name parse reads a leading numeric slug segment as an issue prefix (the
-  // documented tie-break shared with feature-evidence), so a run minted from a title like "597 fix"
-  // with no issue has dir `597-fix-<ULID>` whose parsed slug is "fix". Falling back to the stored
-  // slug lets `resolve "597-fix"` find it regardless of the parse ambiguity.
   const bySlug = runs.filter((dir) => {
     if (parseDiscoveryRunDirName(dir)?.slug === trimmed) {
       return true;

@@ -73,9 +73,6 @@ describe('coverage core helpers', () => {
   it('returns package, runtime, and template roots', () => {
     const packageRoot = getPackageRoot();
     expect(packageRoot).toContain('paqad-ai');
-    // Use platform-native join — production code uses path.join which uses
-    // backslashes on Windows. The literal `${packageRoot}/runtime` would
-    // fail cross-platform.
     expect(getRuntimeRoot()).toBe(join(packageRoot, 'runtime'));
     expect(getRuntimeTemplatesRoot()).toBe(join(packageRoot, 'runtime', 'templates'));
   });

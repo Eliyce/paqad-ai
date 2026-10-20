@@ -1,6 +1,6 @@
 # Build in Small Pieces & Reconnect to the Whole
 
-> **Layer:** `agent-workflows` · **Slug:** `slicing-and-reconnect` · **Issue:** #104
+> **Layer:** `agent-workflows` · **Slug:** `slicing-and-reconnect`
 
 ## What it is
 
@@ -24,7 +24,7 @@ Working in small batches is among the best-evidenced levers on software *deliver
 changes integrate faster, carry less risk, and are easier to revert, while big batches let defects and
 integration problems compound. The AI-specific subtlety: an agent *can* slice smaller than a human team
 could, because it holds the whole feature in view — **but that grip fades on long jobs**. So the
-reconnect must anchor on the *written frozen spec* (#102), never on the agent's memory of the feature.
+reconnect must anchor on the *written frozen spec*, never on the agent's memory of the feature.
 
 ## How it behaves
 
@@ -45,6 +45,6 @@ reconnect must anchor on the *written frozen spec* (#102), never on the agent's 
 This feature owns **slicing** (default unit = one acceptance criterion) and the **reconnect-to-whole**
 check. It does **not** own:
 
-- what an acceptance criterion *is* / authoring it → #102 (reuses `VerificationCriterion`);
-- running, proving, or retrying the checks a slice passes through → substrate D, #103 & #108;
-- the durable two-way spec ↔ code ↔ test map → #109 (reconnect here is coherence *at build time*).
+- what an acceptance criterion *is* / authoring it → the spec & done bar (reuses `VerificationCriterion`);
+- running, proving, or retrying the checks a slice passes through → substrate D, the fix protocol & the build-check-fix loop;
+- the durable two-way spec ↔ code ↔ test map → the traceability engine (reconnect here is coherence *at build time*).

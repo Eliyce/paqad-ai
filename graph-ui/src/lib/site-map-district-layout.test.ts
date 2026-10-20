@@ -15,11 +15,6 @@ function surface(id: string, area: string | undefined, transitions?: Transition[
   return { id, kind: 'cli-command', label: `Surface ${id}`, area, transitions };
 }
 
-/**
- * A deliberately rich map that exercises every branch of the layout: a connected chain (with a
- * self-loop, a dangling target, and a cross-district edge), a pure chain district with no loose
- * cards, two districts tied on surface count, and an area-less surface that falls to Ungrouped.
- */
 function richMap(): AppMap {
   return {
     schema_version: 1,
@@ -32,22 +27,22 @@ function richMap(): AppMap {
     surfaces: [
       surface('s1', 'a1', [
         { to: 's2', trigger: 'next' },
-        { to: 's1', trigger: 'self' }, // self-loop: skipped, not merged
-        { to: 'ghost', trigger: 'dangling' }, // unknown target: skipped
+        { to: 's1', trigger: 'self' },
+        { to: 'ghost', trigger: 'dangling' },
       ]),
       surface('s2', 'a1', [{ to: 's3', trigger: 'next' }]),
-      surface('s3', 'a1', [{ to: 'x1', trigger: 'cross' }]), // cross-district edge: skipped in-district
+      surface('s3', 'a1', [{ to: 'x1', trigger: 'cross' }]),
       surface('s4', 'a1'),
       surface('s5', 'a1'),
       surface('s6', 'a1'),
       surface('s7', 'a1'),
       surface('s8', 'a1'),
       surface('s9', 'a1'),
-      surface('x1', 'a2', [{ to: 'x2', trigger: 'next' }]), // pure chain, no loose cards
+      surface('x1', 'a2', [{ to: 'x2', trigger: 'next' }]),
       surface('x2', 'a2'),
       surface('y1', 'a3'),
       surface('y2', 'a3'),
-      surface('z1', undefined), // area-less → Ungrouped
+      surface('z1', undefined),
     ],
   };
 }
@@ -95,7 +90,6 @@ describe('layoutSiteMapDistricts', () => {
     const ungrouped = layout.districts.find((d) => d.id === UNGROUPED_ID);
     expect(ungrouped?.label).toBe(UNGROUPED_LABEL);
     expect(ungrouped?.surfaceCount).toBe(1);
-    // a2 and a3 tie on count (2 each); a2 sorts first by id.
     expect(layout.districts[1].id).toBe('a2');
     expect(layout.districts[2].id).toBe('a3');
   });
@@ -106,7 +100,6 @@ describe('layoutSiteMapDistricts', () => {
     expect(total).toBe(14);
     for (const district of layout.districts) {
       for (const card of district.cards) {
-        // Cards sit within their district's box (child coordinates, positive, inside width).
         expect(card.x).toBeGreaterThanOrEqual(0);
         expect(card.y).toBeGreaterThanOrEqual(0);
         expect(card.x + card.width).toBeLessThanOrEqual(district.width + 0.001);
@@ -143,7 +136,6 @@ describe('layoutSiteMapDistricts', () => {
     const layout = layoutSiteMapDistricts(richMap(), { a1: { x: 1000, y: 2000 } });
     const a1 = layout.districts.find((d) => d.id === 'a1');
     expect(a1).toMatchObject({ x: 1000, y: 2000 });
-    // Every unpinned district flows strictly below the pinned one's bottom edge.
     const pinnedBottom = 2000 + (a1?.height ?? 0);
     for (const district of layout.districts) {
       if (district.id !== 'a1') expect(district.y).toBeGreaterThan(pinnedBottom);

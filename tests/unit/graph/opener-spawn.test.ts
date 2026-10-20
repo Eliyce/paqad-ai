@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Covers openBrowser's actual spawn path (per-OS command + try/catch), which the
-// sibling opener.test.ts can't exercise without launching a real browser. spawn and
-// platform are mocked so no process is ever started.
 const { mockSpawn, mockPlatform } = vi.hoisted(() => ({
   mockSpawn: vi.fn(),
   mockPlatform: vi.fn(),
@@ -24,7 +21,6 @@ describe('openBrowser spawn paths', () => {
   let savedWayland: string | undefined;
 
   beforeEach(() => {
-    // Neutralise any ambient skip signals so the spawn path is reached.
     savedSsh = process.env.SSH_TTY;
     savedConn = process.env.SSH_CONNECTION;
     savedDisplay = process.env.DISPLAY;
@@ -54,15 +50,44 @@ describe('openBrowser spawn paths', () => {
     expect(mockSpawn).toHaveBeenCalledWith('open', ['http://x'], expect.anything());
   });
 
-  it('spawns `cmd start` on win32', () => {
+  it('opens an http URL in the default browser on win32 through explorer.exe with no shell', () => {
     mockPlatform.mockReturnValue('win32');
     mockSpawn.mockReturnValue(fakeChild());
-    openBrowser({ url: 'http://x' });
+    expect(openBrowser({ url: 'http://127.0.0.1:4000/#/graph?a=1&b=2' })).toEqual({ opened: true });
     expect(mockSpawn).toHaveBeenCalledWith(
-      'cmd',
-      ['/c', 'start', '""', 'http://x'],
+      'explorer.exe',
+      ['http://127.0.0.1:4000/#/graph?a=1&b=2'],
+      expect.objectContaining({ shell: false }),
+    );
+  });
+
+  it('opens an existing absolute file path on win32 and darwin', () => {
+    mockSpawn.mockReturnValue(fakeChild());
+    mockPlatform.mockReturnValue('win32');
+    expect(openBrowser({ url: process.execPath })).toEqual({ opened: true });
+    expect(mockSpawn).toHaveBeenLastCalledWith(
+      'explorer.exe',
+      [process.execPath],
       expect.anything(),
     );
+    mockPlatform.mockReturnValue('darwin');
+    expect(openBrowser({ url: process.execPath })).toEqual({ opened: true });
+    expect(mockSpawn).toHaveBeenLastCalledWith('open', [process.execPath], expect.anything());
+  });
+
+  it('refuses option-like, non-http, and missing targets without spawning', () => {
+    mockPlatform.mockReturnValue('win32');
+    for (const url of [
+      '--help',
+      '-x',
+      '',
+      'javascript:alert(1)',
+      'file:///etc/passwd',
+      '/no/such/file/here',
+    ]) {
+      expect(openBrowser({ url }).opened).toBe(false);
+    }
+    expect(mockSpawn).not.toHaveBeenCalled();
   });
 
   it('spawns `xdg-open` on linux when a display is present', () => {

@@ -1,8 +1,3 @@
-// Impure edges kept thin: pure parsers turn tool JSON into normalized inputs, and
-// a built-in regex secret scanner is the fallback when gitleaks is absent. Every
-// parser tolerates malformed input by returning an empty array (never throws), so
-// a broken tool degrades to "found nothing" rather than crashing the run.
-
 import { createHash } from 'node:crypto';
 
 import type { OsvVulnerabilityRecord } from '@/pentest/osv.js';
@@ -17,7 +12,6 @@ function safeParse<T>(raw: string): T | null {
   }
 }
 
-/** Parse `osv-scanner --format json` output into normalized vuln records. */
 export function parseOsvScannerJson(raw: string): OsvVulnerabilityRecord[] {
   const parsed = safeParse<{
     results?: Array<{
@@ -46,7 +40,6 @@ export function parseOsvScannerJson(raw: string): OsvVulnerabilityRecord[] {
   return records;
 }
 
-/** Parse `npm audit --json` into normalized vuln records (offline-safe parser). */
 export function parseNpmAuditJson(raw: string): OsvVulnerabilityRecord[] {
   const parsed = safeParse<{
     vulnerabilities?: Record<
@@ -73,7 +66,6 @@ export function parseNpmAuditJson(raw: string): OsvVulnerabilityRecord[] {
   return records;
 }
 
-/** Parse `gitleaks detect --report-format json` — REDACTED to file:line + rule + fingerprint. */
 export function parseGitleaksJson(raw: string): SecretMatch[] {
   const parsed = safeParse<
     Array<{
@@ -89,14 +81,12 @@ export function parseGitleaksJson(raw: string): SecretMatch[] {
     file: entry.File ?? 'unknown',
     line: entry.StartLine ?? 0,
     rule: entry.RuleID ?? 'secret',
-    // Prefer gitleaks' own fingerprint; else hash the secret so bytes never persist.
     fingerprint:
       entry.Fingerprint ?? redactedFingerprint(entry.Secret ?? `${entry.File}:${entry.StartLine}`),
     source: 'gitleaks' as const,
   }));
 }
 
-/** Parse `jscpd --reporters json` (stdout or the report file contents). */
 export function parseJscpdJson(raw: string): DuplicationCluster[] {
   const parsed = safeParse<{
     duplicates?: Array<{
@@ -130,11 +120,6 @@ const SECRET_PATTERNS: Array<{ rule: string; pattern: RegExp }> = [
   { rule: 'bearer-token', pattern: /\bBearer\s+[A-Za-z0-9._-]{20,}\b/ },
 ];
 
-/**
- * Built-in, working-tree-only secret scan — the lower-confidence fallback when
- * gitleaks is not installed. Records only file:line + rule + a fingerprint; the
- * matched bytes are hashed away immediately and never stored.
- */
 export function builtinSecretScan(files: Array<{ path: string; content: string }>): SecretMatch[] {
   const matches: SecretMatch[] = [];
   for (const file of files) {
@@ -158,24 +143,15 @@ export function builtinSecretScan(files: Array<{ path: string; content: string }
 }
 
 function redactedFingerprint(value: string): string {
-  // SHA-256, one-way: the point is to record a stable, non-reversible marker for a
-  // secret WITHOUT persisting its bytes — never an integrity/auth primitive.
   return createHash('sha256').update(value).digest('hex').slice(0, 12);
 }
 
 export interface DocTimestampInput {
   doc: string;
-  /** Unix epoch (seconds) of the doc's last commit, or null when untracked. */
   doc_committed_at: number | null;
-  /** Referenced source files that exist, with their last-commit epoch. */
   references: Array<{ source: string; committed_at: number | null }>;
 }
 
-/**
- * A doc is a stale-doc candidate when it has at least one referenced source and
- * its last commit predates the last change of every source it references — the
- * git-timestamp drift heuristic. Pure over injected timestamps.
- */
 export function gatherStaleDocCandidates(inputs: DocTimestampInput[]): StaleDocCandidate[] {
   const candidates: StaleDocCandidate[] = [];
   for (const input of inputs) {

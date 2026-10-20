@@ -6,7 +6,6 @@ import { execaSync } from 'execa';
 
 import type { Chunk, ChunkIndex } from '@/context/types.js';
 
-/** Make a Chunk record for a fixture chunk index (absolute source_file, like the real index). */
 export function fixtureChunk(id: string, sourceFile: string, content: string): Chunk {
   return {
     id,
@@ -20,7 +19,6 @@ export function fixtureChunk(id: string, sourceFile: string, content: string): C
   };
 }
 
-/** Create a git-initialised tmp project and return its root. */
 export function makeGitProject(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-dup-'));
   execaSync('git', ['init', '-q'], { cwd: root });
@@ -29,20 +27,17 @@ export function makeGitProject(): string {
   return root;
 }
 
-/** Write a file (creating parent dirs) inside the project. */
 export function writeProjectFile(root: string, relPath: string, content: string): void {
   const abs = join(root, relPath);
   mkdirSync(join(abs, '..'), { recursive: true });
   writeFileSync(abs, content);
 }
 
-/** Commit everything currently in the working tree. */
 export function commitAll(root: string, message = 'base'): void {
   execaSync('git', ['add', '-A'], { cwd: root });
   execaSync('git', ['commit', '-qm', message], { cwd: root });
 }
 
-/** Write a minimal code-knowledge index carrying the given symbols. */
 export function writeCodeKnowledgeIndex(
   root: string,
   symbols: Array<{ name: string; file: string; line: number; caller_count: number }>,
@@ -76,7 +71,6 @@ export function writeCodeKnowledgeIndex(
   writeProjectFile(root, '.paqad/indexes/code-knowledge.json', JSON.stringify(index));
 }
 
-/** Write a chunk index built from `{ relPath: content }` entries (one chunk per file). */
 export function writeChunkIndex(root: string, files: Record<string, string>): void {
   const entries = Object.entries(files).map(([relPath, content], index) => {
     const abs = join(root, relPath);

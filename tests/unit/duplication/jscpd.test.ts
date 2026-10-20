@@ -43,7 +43,6 @@ describe('corroborateWithJscpd', () => {
   });
 
   it('degrades to an empty set when jscpd is not on PATH', async () => {
-    // jscpd is not installed in CI; the spawn fails and the function returns empty, never throws.
     const keys = await corroborateWithJscpd({ projectRoot: '/tmp', changedFiles: ['src/a.ts'] });
     expect(keys.size).toBe(0);
   });

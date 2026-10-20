@@ -19,7 +19,6 @@ import type { FrameworkApiAdapterInput, FrameworkApiIndex } from '@/framework-ap
 
 let root: string;
 
-/** Install a composer package with the given source files, composer-2 style. */
 function install(
   name: string,
   version: string,
@@ -54,7 +53,6 @@ function install(
   };
 }
 
-/** Wrap an adapter result's symbols in a minimal index, so the query path can be used. */
 function asIndex(input: FrameworkApiAdapterInput): FrameworkApiIndex {
   const result = phpFrameworkApiAdapter.index(input);
   if (!result.indexed) {
@@ -251,7 +249,6 @@ class Thing
     expect(names).toContain('Acme\\Thing::stale');
     expect(names).toContain('Acme\\Thing::promised');
     expect(names).toContain('Acme\\Thing.*');
-    // A member with no deprecation is not stored: the wildcard already answers for it.
     expect(names).not.toContain('Acme\\Thing::fine');
   });
 

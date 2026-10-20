@@ -48,7 +48,7 @@ function pendingIds(root: string): string[] {
   return existsSync(dir) ? readdirSync(dir).filter((f) => /^D-.*\.json$/.test(f)) : [];
 }
 
-describe('runSpecChangeGuard — deterministic frozen-spec staleness minter (#300)', () => {
+describe('runSpecChangeGuard — deterministic frozen-spec staleness minter', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-specchange-'));
@@ -204,8 +204,7 @@ describe('runSpecChangeGuard — deterministic frozen-spec staleness minter (#30
   });
 });
 
-// Issue #547 — the guard records a correction by section and carries it into the packet (FR-11.3).
-describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
+describe('runSpecChangeGuard — corrections by section', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-specchange-fr113-'));
@@ -222,7 +221,6 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
     '',
   ].join('\n');
 
-  /** Freeze a spec into a bundle, then drop its acceptance criterion from the bundle spec.md. */
   function freezeThenEdit(extra: Partial<FeatureSpec>): string {
     const dir = openFeatureChange(root, 'ses1', {
       adapter: 'claude-code',
@@ -256,9 +254,12 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
   }
 
   it.each([
-    ['a record frozen since #581 (pipeline section)', { pipeline: { produced: true } }],
     [
-      'a pre-#581 record (provenance block)',
+      'a record frozen in the current evidence shape (pipeline section)',
+      { pipeline: { produced: true } },
+    ],
+    [
+      'a legacy-shape record (provenance block)',
       { provenance: { pipeline_produced: true, run_dir: '.paqad/_specs/x/pipeline' } },
     ],
   ])(
@@ -276,7 +277,6 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
       expect(out.blocking).toBe(false);
       expect(pendingIds(root)).toHaveLength(1);
 
-      // The packet context names the changed section.
       const pendingDir = join(root, '.paqad/decisions/pending');
       const file = readdirSync(pendingDir).find((f) => f.endsWith('.json'))!;
       const packet = JSON.parse(readFileSync(join(pendingDir, file), 'utf8')) as {
@@ -286,7 +286,6 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
       expect(packet.category).toBe('spec.change');
       expect(packet.context).toMatch(/Changed sections: acceptance_criteria\./);
 
-      // The guard resolved the bundle that carries the spec and recorded the correction there.
       const rows = readSpecCorrectionRows(root, dir);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toMatchObject({
@@ -318,9 +317,7 @@ describe('runSpecChangeGuard — corrections by section (issue #547)', () => {
   });
 });
 
-// Issue #581 — a record written since #581 names the bundle's own signed `spec.md`, so the
-// guard watches that copy (its body, not its front matter) instead of a deleted tmp source.
-describe('runSpecChangeGuard — the bundle spec.md source (#581)', () => {
+describe('runSpecChangeGuard — the bundle spec.md source', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-specchange-bundle-'));
@@ -362,7 +359,7 @@ describe('runSpecChangeGuard — the bundle spec.md source (#581)', () => {
     expect(packet).toContain(featureFilePath(dir, 'specMd'));
   });
 
-  it('still watches the project-relative source of a pre-#581 record', () => {
+  it('still watches the project-relative source of a legacy-shape record', () => {
     const dir = freezeIntoBundle();
     const specPath = join(root, featureFilePath(dir, 'specification'));
     const record = JSON.parse(readFileSync(specPath, 'utf8')) as Record<string, unknown>;

@@ -77,8 +77,7 @@ describe('HealthChecker', () => {
     ).toBe('pass');
   });
 
-  it('lean footprint passes when there is no rules directory (issue #284)', async () => {
-    // A bare project (no docs/instructions/rules) has nothing to slim.
+  it('lean footprint passes when there is no rules directory', async () => {
     const report = await new HealthChecker().run(projectRoot);
     const check = report.checks.find((c) => c.name === 'Lean rule footprint acceptable');
     expect(check?.status).toBe('pass');
@@ -97,7 +96,7 @@ describe('HealthChecker', () => {
     expect(check?.detail).toContain('not reducing the resident footprint');
   });
 
-  it('reports the lean rule footprint against the full rule set (issue #284)', async () => {
+  it('reports the lean rule footprint against the full rule set', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       selections: { domain: 'coding', stack: 'laravel', capabilities: [] },
@@ -105,8 +104,6 @@ describe('HealthChecker', () => {
 
     const report = await new HealthChecker().run(projectRoot);
     const check = report.checks.find((c) => c.name === 'Lean rule footprint acceptable');
-    // Onboarding writes the lean artifact unconditionally, so the footprint is
-    // reported and passes (the lean slice is smaller than the full rule tree).
     expect(check?.status).toBe('pass');
     expect(check?.detail).toMatch(/Resident rule context is \d+ bytes vs \d+ bytes/);
   });
@@ -128,7 +125,6 @@ describe('HealthChecker', () => {
   it('fails the compiled-rules-current check when the store is stale (S1/D1)', async () => {
     mkdirSync(join(projectRoot, PATHS.RULES_DIR), { recursive: true });
     writeFileSync(join(projectRoot, PATHS.RULES_DIR, 'a.md'), '# A rule\nrule body');
-    // A compiled store whose hash does not match the rules dir → stale.
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
     writeFileSync(
       join(projectRoot, PATHS.COMPILED_RULES),
@@ -166,8 +162,6 @@ describe('HealthChecker', () => {
       },
     });
 
-    // audit.jsonl is git-ignored write-only telemetry; a clean clone never
-    // carries it and must still be healthy.
     const auditLog = join(projectRoot, PATHS.DECISIONS_AUDIT_LOG);
     if (existsSync(auditLog)) {
       unlinkSync(auditLog);
@@ -207,9 +201,7 @@ describe('HealthChecker', () => {
       },
     });
 
-    // Stage 1: foundation
     await new DocumentationWorkflow().run({ projectRoot, mode: 'foundation' });
-    // Stage 2: module-docs — inject known core module map then generate
     mkdirSync(join(projectRoot, PATHS.RULES_DIR), { recursive: true });
     writeFileSync(
       join(projectRoot, PATHS.MODULE_MAP),
@@ -270,7 +262,7 @@ describe('HealthChecker', () => {
     ).toBe('warning');
   });
 
-  it('reports MCP servers as a recommendation, never pass or warn (issue #622, AC-10)', async () => {
+  it('reports MCP servers as a recommendation, never pass or warn', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['claude-code', 'codex-cli', 'antigravity', 'gemini-cli'],
@@ -292,7 +284,7 @@ describe('HealthChecker', () => {
     expect(report.checks.some((check) => check.name === 'MCP servers configured')).toBe(false);
   });
 
-  it('never lets an info check move the overall status (issue #622, INV-6)', () => {
+  it('never lets an info check move the overall status', () => {
     const info = { name: 'MCP servers (recommended)', status: 'info' as const, detail: 'x' };
     const passed = { name: 'a', status: 'pass' as const, detail: 'ok' };
     const warned = { name: 'b', status: 'warning' as const, detail: 'look' };
@@ -329,9 +321,6 @@ describe('HealthChecker', () => {
   });
 
   it('passes the provider-entry bootstrap-pointer and fallback-clause checks on lean entry files', async () => {
-    // Issue #229 — a freshly onboarded entry file is a lean stub that points to
-    // the framework bootstrap (`.paqad/framework-path.txt`) and carries the
-    // graceful-degradation fallback clause, inlining no contract sections.
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['claude-code'],
@@ -375,8 +364,6 @@ describe('HealthChecker', () => {
       },
     });
 
-    // Strip the `.paqad/framework-path.txt` bootstrap pointer so the entry file
-    // no longer hands the agent off to the framework bootstrap.
     writeFileSync(
       join(projectRoot, 'CLAUDE.md'),
       readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8').replaceAll(
@@ -397,7 +384,7 @@ describe('HealthChecker', () => {
     );
   });
 
-  it('warns when a stale (pre-#229) entry file still inlines a Decision Pause Contract section', async () => {
+  it('warns when a stale (pre-lean-stub) entry file still inlines a Decision Pause Contract section', async () => {
     await new OnboardingOrchestrator().run({
       projectRoot,
       adapters: ['claude-code'],
@@ -408,9 +395,6 @@ describe('HealthChecker', () => {
       },
     });
 
-    // Re-inline a fat contract section to simulate a pre-#229 entry file that a
-    // refresh has not yet leaned out. The pointer is still present, so this is a
-    // warning (lean-out needed), not a failure.
     writeFileSync(
       join(projectRoot, 'CLAUDE.md'),
       `${readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8')}\n## Decision Pause Contract\n\nStale inlined contract prose.\n`,
@@ -423,7 +407,8 @@ describe('HealthChecker', () => {
     ).toEqual(
       expect.objectContaining({
         status: 'warning',
-        detail: 'Stale (pre-#229) entry file still inlines a contract section in: CLAUDE.md',
+        detail:
+          'Stale (older full-contract) entry file still inlines a contract section in: CLAUDE.md',
       }),
     );
   });
@@ -439,8 +424,6 @@ describe('HealthChecker', () => {
       },
     });
 
-    // Remove the byte-identical fallback clause so an absent/disabled paqad could
-    // hard-fail the host.
     writeFileSync(
       join(projectRoot, 'CLAUDE.md'),
       readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8').replace(
@@ -520,9 +503,6 @@ describe('HealthChecker', () => {
       embedding_model: 'fake-local',
     };
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
-    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
-    // reflects the enabled state via its overlay.
     syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
 
     const report = await new HealthChecker().run(projectRoot);
@@ -583,9 +563,6 @@ describe('HealthChecker', () => {
       embedding_model: 'fake-local',
     };
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
-    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
-    // reflects the enabled state via its overlay.
     syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
@@ -624,9 +601,6 @@ describe('HealthChecker', () => {
       embedding_model: 'Xenova/all-MiniLM-L6-v2',
     };
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
-    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
-    // reflects the enabled state via its overlay.
     syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
@@ -664,9 +638,6 @@ describe('HealthChecker', () => {
       embedding_model: 'text-embedding-3-small',
     };
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
-    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
-    // reflects the enabled state via its overlay.
     syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     const secretsPath = join(projectRoot, '.paqad', 'secrets.env');
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
@@ -707,9 +678,6 @@ describe('HealthChecker', () => {
       embedding_model: 'text-embedding-3-small',
     };
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
-    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
-    // reflects the enabled state via its overlay.
     syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
@@ -747,9 +715,6 @@ describe('HealthChecker', () => {
       embedding_model: 'fake-local',
     };
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (RAG/intelligence) now live in `.paqad/.config`, not the
-    // YAML (which writeProjectProfile strips). Persist them so readProjectProfile
-    // reflects the enabled state via its overlay.
     syncFrameworkConfig(projectRoot, { intelligence: profile.intelligence });
     vi.spyOn(RagService.prototype, 'getStatus').mockResolvedValue({
       enabled: true,
@@ -934,7 +899,6 @@ describe('HealthChecker', () => {
     );
     expect(nullFile?.detail).toContain('Found in .mcp.json: none.');
 
-    // A non-object mcpServers (an array or a string) lists no servers instead of indices or letters.
     for (const mcpServers of [['a', 'b'], 'abc']) {
       writeFileSync(join(projectRoot, '.mcp.json'), JSON.stringify({ mcpServers }));
       const odd = (await new HealthChecker().run(projectRoot)).checks.find(
@@ -973,7 +937,6 @@ describe('HealthChecker', () => {
       mcp_usage_rate: 0,
     });
   });
-  // Issue #616 Part 9 — doctor warns, with the verbatim update line, when the layout is from the future.
   it('warns when the .paqad layout was written by a newer paqad', async () => {
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
     writeFileSync(
@@ -996,7 +959,7 @@ describe('HealthChecker', () => {
   });
 });
 
-describe('doctor framework-link repair (issue #636 bug 3)', () => {
+describe('doctor framework-link repair', () => {
   const CMD = 'ln -sfn "$(npm root -g)/paqad-ai/runtime" ~/.paqad-ai/current';
   let saved: string | undefined;
   let link: string;
@@ -1008,9 +971,7 @@ describe('doctor framework-link repair (issue #636 bug 3)', () => {
   afterEach(() => {
     try {
       if (lstatSync(link)) rmSync(link, { force: true });
-    } catch {
-      /* not created */
-    }
+    } catch {}
     if (saved === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
     else process.env.PAQAD_FRAMEWORK_HOME = saved;
   });
@@ -1043,8 +1004,7 @@ describe('doctor framework-link repair (issue #636 bug 3)', () => {
   });
 });
 
-describe('doctor Claude Code install line (issue #648, B5)', () => {
-  // HOME is sandboxed per test file (tests/shared/isolate-home.ts), so these writes stay in a temp dir.
+describe('doctor Claude Code install line', () => {
   afterEach(() => {
     rmSync(join(homedir(), '.paqad-ai', 'plugin-migration.json'), { force: true });
     rmSync(join(homedir(), '.claude', 'settings.json'), { force: true });
@@ -1071,7 +1031,25 @@ describe('doctor Claude Code install line (issue #648, B5)', () => {
     }
   });
 
-  it('passes the project root, so it says when this project still runs the npm hooks (issue #667)', async () => {
+  it('is a warning with the IT fix when a managed policy blocks the hooks', async () => {
+    const policy = join(homedir(), 'fake-managed-settings.json');
+    writeFileSync(policy, JSON.stringify({ allowManagedHooksOnly: true }));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-doctor-'));
+    try {
+      const report = await new HealthChecker({ managedSettingsPaths: [policy] }).run(projectRoot);
+      const check = report.checks.find((c) => c.name === 'Claude Code install');
+      expect(check).toMatchObject({
+        status: 'warning',
+        detail: "A managed policy blocks paqad's hooks, so paqad's checks don't run here.",
+        remediation: 'Ask IT to deploy the paqad plugin as a managed plugin, or allow its hooks.',
+      });
+    } finally {
+      rmSync(policy, { force: true });
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('passes the project root, so it says when this project still runs the npm hooks', async () => {
     mkdirSync(join(homedir(), '.paqad-ai'), { recursive: true });
     writeFileSync(
       join(homedir(), '.paqad-ai', 'plugin-migration.json'),

@@ -1,6 +1,6 @@
 ---
 name: test-runner-discovery
-description: When no script can classify how a project's test runner parallelizes, read the manifests and lockfiles, decide whether a parallel mode exists and its prerequisite is installed, and emit a validated JSON record for `paqad-ai checks record-runner`. Issue #554, Part B.5. The deterministic guard is the `checks record-runner` verb (src/checks/record-runner.ts), which validates the result against an argv allowlist and never trusts it.
+description: When no script can classify how a project's test runner parallelizes, read the manifests and lockfiles, decide whether a parallel mode exists and its prerequisite is installed, and emit a validated JSON record for `paqad-ai checks record-runner`. The deterministic guard is the `checks record-runner` verb (src/checks/record-runner.ts), which validates the result against an argv allowlist and never trusts it.
 model_tier: fast
 triggers:
   - workflow:

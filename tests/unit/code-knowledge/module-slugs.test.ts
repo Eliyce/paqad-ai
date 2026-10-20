@@ -80,7 +80,6 @@ describe('loadModuleSlugResolver', () => {
         '    sources: [src]',
       ].join('\n'),
     );
-    // narrow matches first (best), broad matches after but is shorter -> stays narrow.
     expect(loadModuleSlugResolver(root).slugForFile('src/feature/x.ts')).toBe('narrow');
   });
 

@@ -17,7 +17,7 @@ function readPromptArg(opts: { prompt?: string; promptFile?: string }): string {
 
 export function createModuleDecisionsCommand(): Command {
   const command = new Command('module-decisions').description(
-    'Inspect MD-XXXX prospective module decisions (issue #80)',
+    'Inspect MD-XXXX prospective module decisions',
   );
 
   command

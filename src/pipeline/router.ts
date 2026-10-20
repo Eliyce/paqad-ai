@@ -97,9 +97,6 @@ export class PipelineRouter {
 
     const lane = classification.resume_lane ?? selectLaneFromClassification(classification);
 
-    // A capability gap only justifies the fast lane when the task itself is not high-complexity
-    // or high-risk. For high-stakes requests, respect the derived lane so the full spec/review
-    // process still runs — the gap will surface as a warning inside the analysis phase.
     if (
       !classification.resume_lane &&
       classification.capability_gap &&

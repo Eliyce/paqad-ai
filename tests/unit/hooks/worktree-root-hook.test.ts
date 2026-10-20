@@ -7,11 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { main as agentEntryGateMain } from '../../../runtime/hooks/agent-entry-gate.mjs';
 import { sentinelPath } from '../../../runtime/hooks/lib/agent-entry-sentinel.mjs';
 
-// Issue #615 (Part 1) — a worktree session sets CLAUDE_PROJECT_DIR to the MAIN checkout and
-// puts the worktree path only in the hook payload's `cwd`. This asserts that a real
-// PreToolUse gate (the entry gate) resolves the root from `cwd` and writes under the
-// worktree's `.paqad/`, not the main checkout's.
-describe('hook root resolution follows the worktree payload cwd (issue #615, Part 1)', () => {
+describe('hook root resolution follows the worktree payload cwd', () => {
   let main: string;
   let worktree: string;
   let savedProjectDir: string | undefined;
@@ -22,7 +18,7 @@ describe('hook root resolution follows the worktree payload cwd (issue #615, Par
     mkdirSync(join(main, '.paqad'), { recursive: true });
     mkdirSync(join(worktree, '.paqad'), { recursive: true });
     savedProjectDir = process.env.CLAUDE_PROJECT_DIR;
-    process.env.CLAUDE_PROJECT_DIR = main; // the main checkout, as Claude Code sets it
+    process.env.CLAUDE_PROJECT_DIR = main;
   });
 
   afterEach(() => {
@@ -41,7 +37,6 @@ describe('hook root resolution follows the worktree payload cwd (issue #615, Par
       session_id: sessionId,
       cwd: worktree,
       tool_name: 'Write',
-      // The bootstrap's own sentinel write — the gate promotes it into this session's keyed marker.
       tool_input: { file_path: join(worktree, '.paqad', '.agent-entry-loaded') },
     };
 

@@ -1,54 +1,3 @@
-// The one-time evidence migration (issue #581, FR-12).
-//
-// Before #581 the spec pipeline kept its run under `.paqad/_specs/<change>/pipeline/`, a
-// git-ignored scratch folder beside the bundle, and the record verbs were handed inputs under
-// `.paqad/tmp/`. Since #581 every fact lands in the change's bundle as the verb that owns it
-// runs, so an existing project still carries the old folders. This module moves them over, and
-// it is the only source module that names the old folder at all (AC-22).
-//
-// The four cases from the issue:
-//   A. `_specs/<dir>` with a bundle of the same ULID: merge the run into that bundle.
-//   B. `_specs/change-<ULID>` next to a renamed `_specs/<issue>-<slug>-<ULID>`: a half run a
-//      rename left behind. Keep the renamed run when its log has a `finish` step, else the run
-//      with more completed steps; delete the other.
-//   C. `_specs/<dir>` with no bundle: create one under the same name, `feature.json`
-//      `status: "spec-only"`, and merge the run in. A close row goes on it too, so no session
-//      ever adopts it as a change in flight.
-//   D. Files in `.paqad/tmp/` named for a migrated change (its slug or ULID), or byte-identical
-//      to one of its pipeline files: the old record-verb inputs. Deleted.
-// Then `.paqad/_specs/` goes, and its line leaves the managed `.paqad/.gitignore`.
-//
-// What a merge writes, per the issue's table, and only when the bundle does not have it yet:
-// `request.md`, `clarification.json` (label, questions), `experts.json` (roster, findings,
-// synthesis; `expert-merge.json` and the brief files are dropped, the brief's budget, truncation
-// and hash go on the roster entry), one `spec-step` row per logged step (at its original time),
-// one `spec-correction` row per line of `corrections.jsonl` (a later edit to the frozen spec, at
-// the time it was recorded), and `spec.md`, copied in when its sha256 equals the frozen
-// `spec_hash`. An artifact a redo archived (`<artifact>.redo-<stamp>`) is retired. The
-// pre-freeze working state (task, trace, grounding, finish, the working spec) only belongs in
-// `specification.json` at freeze. A bundle already frozen keeps its record as it is; a run that never froze gets
-// that state in its staging dir, exactly where a run started today keeps it, so a later
-// `spec freeze --from-pipeline` still works.
-//
-// Sealed history is never rewritten (AC-19): the migration only ADDS files to a bundle, and the
-// one file it appends to (`stage-evidence.jsonl`) keeps every existing byte. It never touches
-// `evidence.jsonl` or `receipt.json`, so an old receipt still verifies. New files carry the new
-// header, because they are written by the same writers a live run uses.
-//
-// A bundle whose change is open in ANOTHER session is left alone (AC-28): that session may still
-// be writing to it. Its run stays in `_specs/`, so `_specs/` stays too, and a later run migrates
-// it once the change closes. A hold goes stale once that session has not touched its control
-// or the bundle for {@link HELD_SESSION_STALE_MS} (a day): a session that crashed or was closed
-// never releases its control, and without the limit its change would never migrate.
-//
-// After a merge only the files the migration knows are removed: the ones it merged, the ones the
-// bundle already had, and the retired ones (the merge file, the briefs, a frozen run's working
-// state). Anything else in the run, such as a `spec.md` edited after the freeze or a file this
-// module has never heard of, stays where it is, and so does `_specs/`; the result names it in
-// `leftBehind`. Every step is idempotent: a second run finds nothing left to do (beyond naming
-// what it left behind again). A run that fails to migrate is reported and left in place, never
-// half-deleted, and a file the OS will not let go of (Windows EBUSY/EPERM) is reported too.
-
 import {
   readdirSync,
   readFileSync,
@@ -105,19 +54,14 @@ import { readSessionControl } from './session-control.js';
 import { appendFeatureStageRow } from './stage-ledger.js';
 import { FEATURE_DOC_SCHEMA_VERSION, SPEC_SOURCE_DOC_TYPE } from './types.js';
 
-/** The retired per-change scratch folder (project-relative). Named here and nowhere else. */
 export const LEGACY_SPECS_DIR = '.paqad/_specs';
 
-/** The line the managed `.paqad/.gitignore` carried for it. */
 const LEGACY_SPECS_IGNORE_LINE = '_specs/';
 
-/** The folder inside a run that held the pipeline files. */
 const PIPELINE_DIR = 'pipeline';
 
-/** The session id a record carries when the migration cannot know who wrote it. */
 const UNKNOWN = 'unknown';
 
-/** The old pipeline file the staged working state is copied from, per staged file. */
 const STAGED_SOURCES: readonly [StagedFile, string][] = [
   ['task', 'task.json'],
   ['trace', 'trace.json'],
@@ -126,7 +70,6 @@ const STAGED_SOURCES: readonly [StagedFile, string][] = [
   ['craft', 'spec.md'],
 ];
 
-/** Pipeline files a merge carries into the bundle (or finds the bundle already has). */
 const MERGED_SOURCES = [
   'log.jsonl',
   'request.md',
@@ -138,57 +81,35 @@ const MERGED_SOURCES = [
   'corrections.jsonl',
 ];
 
-/** Pipeline files the new layout retires: nothing reads them, so a merge drops them. */
 const RETIRED_SOURCES = ['expert-merge.json'];
 
-/**
- * An artifact a `redo` archived (`<artifact>.redo-<stamp>`): the run re-derived it and no reader
- * ever looked at the archived copy again, so it is retired with the rest.
- */
 const RETIRED_REDO = /\.redo-\d+$/;
 
-/** The folder of per-expert brief files, retired with them (their facts go on the roster). */
 const RETIRED_BRIEFS_DIR = 'briefs';
 
-/**
- * How long a session may sit idle before its hold on a change goes stale (24 hours). Measured
- * from the later of its control's `updated_at` and its newest row in the bundle.
- */
 export const HELD_SESSION_STALE_MS = 24 * 60 * 60 * 1000;
 
 export interface EvidenceMigrationOptions {
-  /** The session running the migration: its own open changes are not "another session's". */
   sessionId?: string | null;
-  /** Plan only: write and delete nothing. */
   dryRun?: boolean;
-  /** How long a session may be idle before its hold goes stale. Default {@link HELD_SESSION_STALE_MS}. */
   staleAfterMs?: number;
-  /** The clock the stale check reads; a seam for tests. */
   now?: () => Date;
 }
 
-/** One thing the migration did (or, on a dry run, would do). */
 export type EvidenceMigrationAction =
   | {
       kind: 'merge';
-      /** The `_specs/<dir>` name the run came from. */
       source: string;
-      /** The bundle it merged into. */
       bundle: string;
-      /** True when the bundle was created for it (case C). */
       created: boolean;
-      /** Bundle files added, plus `stage-evidence.jsonl (+N spec-step rows)` when rows were. */
       added: string[];
-      /** Staged working-state files written for a run that never froze. */
       staged: string[];
     }
   | { kind: 'drop-duplicate'; source: string; kept: string }
   | { kind: 'skip-held'; source: string; bundle: string }
   | { kind: 'skip-unrecognized'; source: string }
   | { kind: 'failed'; source: string; error: string }
-  /** A merged run's files the migration did not merge: kept in `_specs/<source>/`. */
   | { kind: 'leave-files'; source: string; files: string[] }
-  /** A delete the OS refused (a Windows lock, say): the path stays and the update goes on. */
   | { kind: 'delete-failed'; path: string; error: string }
   | { kind: 'delete-tmp'; path: string }
   | { kind: 'remove-specs-dir' }
@@ -197,15 +118,8 @@ export type EvidenceMigrationAction =
 export interface EvidenceMigrationResult {
   dryRun: boolean;
   actions: EvidenceMigrationAction[];
-  /**
-   * Project-relative paths that stay under `.paqad/_specs/` after this run: a held or failed
-   * run's folder, an entry that is not a change folder, a merged run's unmerged files, or a
-   * path a delete could not remove. Empty once the old folder is gone.
-   */
   leftBehind: string[];
 }
-
-// ── Reading the old layout ──────────────────────────────────────────────────────────────
 
 function readText(abs: string): string | null {
   try {
@@ -246,7 +160,6 @@ function listEntries(abs: string): { name: string; dir: boolean }[] {
   }
 }
 
-/** Every file under `abs`, as posix paths relative to it, sorted. */
 function listFilesUnder(abs: string, prefix = ''): string[] {
   return listEntries(abs)
     .flatMap((entry) => {
@@ -256,7 +169,6 @@ function listFilesUnder(abs: string, prefix = ''): string[] {
     .sort();
 }
 
-/** One old run: its `_specs/<dir>` name and its log rows. */
 interface LegacyRun {
   name: string;
   ulid: string;
@@ -267,7 +179,6 @@ function pipelinePath(projectRoot: string, run: string, file: string): string {
   return join(projectRoot, LEGACY_SPECS_DIR, run, PIPELINE_DIR, file);
 }
 
-/** An old run's `log.jsonl` (or `corrections.jsonl`): plain rows, a corrupt line skipped. */
 function readLog(projectRoot: string, run: string, file = 'log.jsonl'): Record<string, unknown>[] {
   const raw = readText(pipelinePath(projectRoot, run, file)) ?? '';
   return raw.split('\n').flatMap((line) => {
@@ -275,7 +186,7 @@ function readLog(projectRoot: string, run: string, file = 'log.jsonl'): Record<s
       const row: unknown = JSON.parse(line);
       return isRecord(row) ? [row] : [];
     } catch {
-      return []; // a blank or partial line
+      return [];
     }
   });
 }
@@ -284,7 +195,6 @@ function readRun(projectRoot: string, name: string): LegacyRun {
   return { name, ulid: featureChangeKey(name), log: readLog(projectRoot, name) };
 }
 
-/** The distinct steps a run's log marks complete. */
 function completedSteps(run: LegacyRun): Set<string> {
   return new Set(
     run.log
@@ -298,10 +208,6 @@ function isChangePlaceholder(name: string): boolean {
   return parts !== null && parts.issue === null && parts.slug === 'change';
 }
 
-/**
- * Case B: of several runs for one ULID, the one to keep. A renamed run whose log reached
- * `finish` wins; otherwise the run with more completed steps, a renamed run on a tie.
- */
 function pickRun(runs: LegacyRun[]): LegacyRun {
   const renamed = runs.filter((run) => !isChangePlaceholder(run.name));
   const finished = renamed.find((run) => completedSteps(run).has('finish'));
@@ -314,22 +220,17 @@ function pickRun(runs: LegacyRun[]): LegacyRun {
   )[0]!;
 }
 
-// ── Session ownership ───────────────────────────────────────────────────────────────────
-
-/** True when the bundle carries a `close` row: its change is finished, whoever held it. */
 function bundleClosed(projectRoot: string, bundle: string): boolean {
   return readUnitFile(projectRoot, featureFilePath(bundle, 'stageEvidence')).some(
     (row) => row.kind === 'close',
   );
 }
 
-/** The session's last sign of life for `bundle`: its control's stamp or its newest row there. */
 function lastSeenMs(updatedAt: string, rows: Record<string, unknown>[], sessionId: string): number {
   const times = [
     Date.parse(updatedAt),
     ...rows
       .filter((row) => row.session_id === sessionId)
-      // A readable ledger row always carries one of its two time fields.
       .map((row) => Date.parse(rowRecordedAt(row)!)),
   ].filter((time) => !Number.isNaN(time));
   return times.length === 0 ? Number.NEGATIVE_INFINITY : Math.max(...times);
@@ -341,11 +242,6 @@ interface HoldCheck {
   nowMs: number;
 }
 
-/**
- * Whether a session other than `self` has `bundle` open (active or paused), its change has not
- * closed, and that session was seen within the stale limit (AC-28). Read from the per-session
- * controls, the one place an open change is held.
- */
 function heldByAnotherSession(projectRoot: string, bundle: string, hold: HoldCheck): boolean {
   if (bundleClosed(projectRoot, bundle)) return false;
   let rows: Record<string, unknown>[] | null = null;
@@ -363,13 +259,10 @@ function heldByAnotherSession(projectRoot: string, bundle: string, hold: HoldChe
   return false;
 }
 
-// ── Planning one merge ──────────────────────────────────────────────────────────────────
-
 function bundleHas(projectRoot: string, bundle: string, file: FeatureBundleFile): boolean {
   return readText(join(projectRoot, featureFilePath(bundle, file))) !== null;
 }
 
-/** The logged steps that map onto a `spec-step` row; a row with an unknown outcome is dropped. */
 function stepRowsFrom(run: LegacyRun): {
   step: PipelineStep;
   outcome: SpecStepOutcome;
@@ -391,21 +284,18 @@ function stepRowsFrom(run: LegacyRun): {
         ...(typeof tokens === 'number' && Number.isInteger(tokens) && tokens >= 0
           ? { tokens }
           : {}),
-        // The row keeps the time the step ran; an unreadable one takes the migration's clock.
         at: typeof row.ts === 'string' && !Number.isNaN(Date.parse(row.ts)) ? row.ts : null,
       },
     ];
   });
 }
 
-/** One old correction: the frozen spec that moved, its changed sections, and when (or null). */
 interface LegacyCorrection {
   spec_id: string;
   changed_sections: string[];
   at: string | null;
 }
 
-/** The run's `corrections.jsonl` lines that name a spec; a line without one is dropped. */
 function correctionsFrom(projectRoot: string, run: LegacyRun): LegacyCorrection[] {
   return readLog(projectRoot, run.name, 'corrections.jsonl').flatMap((row) => {
     if (typeof row.spec_id !== 'string' || row.spec_id.length === 0) return [];
@@ -420,12 +310,6 @@ function correctionsFrom(projectRoot: string, run: LegacyRun): LegacyCorrection[
   });
 }
 
-/**
- * The old corrections the bundle has no `spec-correction` row for yet. A row matches on its spec
- * and its time (the old `at` became the row's `recorded_at`); a correction with no readable time
- * was written at the migration's clock, so it matches on its spec and sections instead. Each row
- * covers one correction, so a rerun writes nothing and a partial merge only what it missed.
- */
 function missingCorrections(
   corrections: LegacyCorrection[],
   existing: readonly Record<string, unknown>[],
@@ -447,7 +331,6 @@ function missingCorrections(
   });
 }
 
-/** The frozen `spec_hash` of a bundle's specification.json, null when unfrozen; undefined when absent. */
 function frozenSpecHash(projectRoot: string, bundle: string): string | null | undefined {
   const spec = readJson(join(projectRoot, featureFilePath(bundle, 'specification')));
   if (!isRecord(spec)) return undefined;
@@ -466,21 +349,14 @@ interface MergePlan {
   steps: ReturnType<typeof stepRowsFrom>;
   corrections: LegacyCorrection[];
   staged: StagedFile[];
-  /** The run's files (relative to `_specs/<run>/`) that are merged, covered or retired. */
   removable: string[];
-  /** The run's files the migration did not merge, which stay where they are. */
   leftovers: string[];
 }
 
-/** The key a `spec-step` row is matched on across a retry: its step and artifact hash. */
 function stepKey(step: unknown, hash: unknown): string {
   return `${String(step)}\0${typeof hash === 'string' ? hash : ''}`;
 }
 
-/**
- * The logged steps the bundle does not have a row for yet. Matched per step and hash, counting
- * repeats, so a merge interrupted part way through writes only the rows it had not written.
- */
 function missingSteps(
   steps: ReturnType<typeof stepRowsFrom>,
   existing: readonly Record<string, unknown>[],
@@ -520,7 +396,6 @@ function planMerge(
   const existingRows = created
     ? []
     : readUnitFile(projectRoot, featureFilePath(bundle, 'stageEvidence'));
-  // A run that never froze keeps its working state in staging, as a run started today would.
   const staged =
     specHash === undefined
       ? STAGED_SOURCES.filter(
@@ -529,9 +404,6 @@ function planMerge(
         ).map(([file]) => file)
       : [];
 
-  // Which of the run's files the merge accounts for. A frozen run's working state is retired
-  // (its facts are in specification.json), except a `spec.md` that is not the signed source.
-  // A run that never froze accounts for a staged file once staging holds exactly its bytes.
   const accounted = (rel: string): boolean => {
     const [top, name, ...rest] = rel.split('/');
     if (top !== PIPELINE_DIR || name === undefined) return false;
@@ -591,9 +463,6 @@ function describeAdds(plan: MergePlan): string[] {
   return added;
 }
 
-// ── Applying one merge ──────────────────────────────────────────────────────────────────
-
-/** A brief's recorded budget and truncation, read back from its rendered header lines. */
 function briefFacts(text: string | null): { budget: number; truncated: boolean; hash: string } {
   if (text === null) return { budget: 0, truncated: false, hash: '' };
   const budget = /^- Granted budget: (\d+) tokens$/m.exec(text);
@@ -624,8 +493,6 @@ function writeExperts(projectRoot: string, plan: MergePlan): void {
   });
   writeExpertRoster(projectRoot, plan.bundle, roster);
   if (isRecord(notes) && Array.isArray(notes.notes)) {
-    // The notes' questions were merged into the question round long ago, so only the findings
-    // and the reported tokens carry over; nothing is staged for a question round again.
     const artifact: ExpertNotesArtifact = {
       notes: (notes.notes as ExpertNotesArtifact['notes']).map(({ role, findings }) => ({
         role,
@@ -698,7 +565,6 @@ function applyMerge(projectRoot: string, plan: MergePlan): void {
     );
   }
   if (plan.created) {
-    // The spec ran but the change never opened: close it, so no session adopts it as in flight.
     appendFeatureStageRow(projectRoot, UNKNOWN, bundle, {
       kind: 'close',
       event_status: 'completed',
@@ -707,9 +573,6 @@ function applyMerge(projectRoot: string, plan: MergePlan): void {
   }
 }
 
-// ── Case D: stray tmp inputs ────────────────────────────────────────────────────────────
-
-/** Top-level `.paqad/tmp/` files that belong to a migrated run (case D). */
 function strayTmpFiles(projectRoot: string, runs: LegacyRun[], bundles: string[]): string[] {
   const tmpRoot = join(projectRoot, '.paqad', 'tmp');
   const stagingName = SPEC_PIPELINE_STAGING_DIR.split('/').pop()!;
@@ -719,7 +582,6 @@ function strayTmpFiles(projectRoot: string, runs: LegacyRun[], bundles: string[]
   for (const name of [...runs.map((run) => run.name), ...bundles]) {
     const parts = parseFeatureDirName(name)!;
     ulids.add(parts.ulid);
-    // `change` alone is too generic to name a change: only its ULID does.
     if (parts.slug !== 'change') {
       prefixes.add(parts.slug);
       if (parts.issue) prefixes.add(`${parts.issue}-${parts.slug}`);
@@ -747,8 +609,6 @@ function strayTmpFiles(projectRoot: string, runs: LegacyRun[], bundles: string[]
     .sort();
 }
 
-// ── The managed .gitignore line ─────────────────────────────────────────────────────────
-
 function gitignoreWithoutSpecsLine(projectRoot: string): { path: string; next: string } | null {
   const path = join(projectRoot, '.paqad', '.gitignore');
   const text = readText(path);
@@ -766,13 +626,6 @@ function specsDirExists(projectRoot: string): boolean {
   }
 }
 
-// ── Entry points ────────────────────────────────────────────────────────────────────────
-
-/**
- * Migrate a project's old evidence layout to the #581 one (cases A to D), or with `dryRun`
- * only report what that would do. Idempotent, and it never throws on one bad run: a run that
- * fails is reported as `failed` and left where it is.
- */
 export function migrateFeatureEvidence(
   projectRoot: string,
   options: EvidenceMigrationOptions = {},
@@ -843,7 +696,6 @@ export function migrateFeatureEvidence(
     }
   }
 
-  // A delete the OS refuses is reported and left, never allowed to stop the run (or an update).
   const remove = (rel: string, recursive: boolean): void => {
     try {
       rmSync(join(projectRoot, rel), { recursive, force: true });
@@ -853,7 +705,6 @@ export function migrateFeatureEvidence(
     }
   };
 
-  // Case D reads the runs' bytes, so it is planned before any run folder is deleted.
   const stray = strayTmpFiles(
     projectRoot,
     [...merged.map((plan) => plan.run), ...dropped],
@@ -869,7 +720,6 @@ export function migrateFeatureEvidence(
         remove(runRel, true);
         continue;
       }
-      // Only the files the merge accounts for go; the folders they leave empty go with them.
       for (const rel of plan.removable) remove(`${runRel}/${rel}`, false);
       pruneEmptyDirs(join(projectRoot, runRel));
     }
@@ -880,7 +730,6 @@ export function migrateFeatureEvidence(
     actions.push({ kind: 'remove-specs-dir' });
     if (!dryRun) remove(LEGACY_SPECS_DIR, true);
   }
-  // The ignore line stays while the folder does, so nothing in it can ever be committed.
   if (!specsDir || leftBehind.length === 0) {
     const gitignore = gitignoreWithoutSpecsLine(projectRoot);
     if (gitignore) {
@@ -892,43 +741,27 @@ export function migrateFeatureEvidence(
   return { dryRun, actions, leftBehind: [...new Set(leftBehind)].sort() };
 }
 
-/** Remove the empty folders under `abs` (deepest first), and `abs` itself once it is empty. */
 function pruneEmptyDirs(abs: string): void {
   for (const entry of listEntries(abs)) {
     if (entry.dir) pruneEmptyDirs(join(abs, entry.name));
   }
   try {
     rmdirSync(abs);
-  } catch {
-    // Not empty (a file was left behind) or already gone: either way it stays as it is.
-  }
+  } catch {}
 }
 
-/** The session a migration runs as: the host's, when it exported one. */
 export function migrationSessionId(env: NodeJS.ProcessEnv = process.env): string | null {
   return env.SE_SESSION ?? env.CLAUDE_SESSION_ID ?? null;
 }
 
-/**
- * The managed `.paqad/.gitignore` lines the old layout still needs: the old folder's line for
- * as long as the folder is there (a held run, a file the migration left), none once it is gone.
- * The ignore writer adds these, so a re-onboard never un-ignores a folder that still has files.
- */
 export function legacyEvidenceIgnoreEntries(projectRoot: string): string[] {
   return specsDirExists(projectRoot) ? [LEGACY_SPECS_IGNORE_LINE] : [];
 }
 
-/** True when the project still carries the old scratch folder, so a migration run has work. */
 export function evidenceMigrationPending(projectRoot: string): boolean {
   return specsDirExists(projectRoot);
 }
 
-/**
- * The pending-migration step `update` and onboarding both run: migrate when the old folder is
- * still there (a change another session held last time, or a project stamped before it had any
- * migration). It never throws: a failure is passed to `warn` and the caller carries on, so a
- * locked file on Windows cannot stop an update. Null when there was nothing to do or it failed.
- */
 export function runPendingEvidenceMigration(
   projectRoot: string,
   warn: (message: string) => void = (message) => process.stderr.write(`${message}\n`),
@@ -946,7 +779,6 @@ export function runPendingEvidenceMigration(
   }
 }
 
-/** One plain line per action, for the CLI and the schema-migration note. */
 export function formatEvidenceMigration(result: EvidenceMigrationResult): string {
   if (result.actions.length === 0) return 'Nothing to migrate: the evidence layout is current.';
   const verb = result.dryRun ? 'would' : 'did';

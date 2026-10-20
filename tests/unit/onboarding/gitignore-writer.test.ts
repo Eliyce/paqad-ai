@@ -53,12 +53,10 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     const content = read(projectRoot, '.paqad/.gitignore');
     expect(content).toContain(BEGIN);
     expect(content).toContain(END);
-    // Relative to .paqad/ — no `.paqad/` prefix.
     expect(content).toContain('cache/');
     expect(content).toContain('logs/');
     expect(content).toContain('module-health/');
     expect(content).toContain('module-health-evidence/');
-    // Both rule-script runtime subtrees (snapshots + cache) are local-only.
     expect(content).toContain('scripts/rules/.cache/');
     expect(content).toContain('scripts/rules/.history/');
   });
@@ -67,11 +65,9 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     writeGitignore(projectRoot);
 
     const content = read(projectRoot, '.paqad/.gitignore');
-    // Regenerable embeddings / collections — mirror of the already-ignored vectors/.
     expect(content).toContain('patterns/');
     expect(content).toContain('crs/');
     expect(content).toContain('attachments/');
-    // Per-machine append-only logs and regenerated snapshots.
     expect(content).toContain('attachment-events.jsonl');
     expect(content).toContain('traceability/');
     expect(content).toContain('module-map/drift.json');
@@ -79,7 +75,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     expect(content).toContain('schema-migrations.jsonl');
     expect(content).toContain('skills/');
     expect(content).toContain('delivery-detection.json');
-    // Conservative: the module-map history audit trail stays shared (tracked).
     expect(content).not.toContain('module-map/history/');
   });
 
@@ -87,13 +82,10 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     writeGitignore(projectRoot);
 
     const content = read(projectRoot, '.paqad/.gitignore');
-    // Decision 1 — framework-path.txt stays committed, so it is NOT ignored.
     expect(content).not.toContain('framework-path.txt');
-    // Decision 2 — framework-version.txt is per-machine, so it IS ignored.
     expect(content).toContain('framework-version.txt');
   });
 
-  // Issue #582: each host session keeps its own entry sentinel under .agent-entry-loaded.d/.
   it('ignores both the legacy and the per-session entry sentinels', () => {
     writeGitignore(projectRoot);
     const content = read(projectRoot, '.paqad/.gitignore');
@@ -102,29 +94,20 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
   });
 
   it('ignores the ledger unconditionally, with no project profile present', () => {
-    // No `.paqad/project-profile.yaml` / enterprise block at all.
     writeGitignore(projectRoot);
     expect(read(projectRoot, '.paqad/.gitignore')).toContain('ledger/');
   });
 
-  // Issue #401 — `.paqad/compliance/` was not ignored, so a spec-review report written
-  // there showed up as `?? .paqad/compliance/` in a consumer project and was committable.
   it('ignores the compliance directory, so a compliance artifact is never committable (AC-6)', () => {
     writeGitignore(projectRoot);
     expect(read(projectRoot, '.paqad/.gitignore')).toContain('compliance/');
   });
 
-  // Issue #512 — the editable spec source and spec-pipeline scratch under `.paqad/_specs/`
-  // are transient per-machine working state, never committed.
-  // Issue #581 — the spec pipeline keeps no scratch folder of its own any more, so a new project
-  // gets no line for it (the evidence migration removes the old line from an existing one).
   it('writes no line for the retired spec-pipeline scratch folder', () => {
     writeGitignore(projectRoot);
     expect(read(projectRoot, '.paqad/.gitignore').split('\n')).not.toContain('_specs/');
   });
 
-  // Issue #581 (review) — the record-verb inputs and the spec-pipeline staging dirs live under
-  // `.paqad/tmp/`, per-machine working files that must never be committable.
   it('ignores tmp/, which holds the spec-pipeline staging dirs', () => {
     writeGitignore(projectRoot);
     expect(read(projectRoot, '.paqad/.gitignore').split('\n')).toContain('tmp/');
@@ -169,8 +152,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
   });
 
   it('migrates: scrubs the old paqad-managed block out of the project root .gitignore', () => {
-    // A repo onboarded under the old layout carried paqad's block in the root
-    // file, surrounded by the project's own rules.
     const rootBefore = [
       'node_modules/',
       '',
@@ -188,18 +169,15 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     writeGitignore(projectRoot);
 
     const root = read(projectRoot, '.gitignore');
-    // paqad's block is gone from the root...
     expect(root).not.toContain(BEGIN);
     expect(root).not.toContain('.paqad/cache/');
-    // ...the project's own content is preserved, before and after...
     expect(root).toContain('node_modules/');
     expect(root).toContain('# my own rules');
     expect(root).toContain('coverage/');
-    // ...and the policy now lives under .paqad/.
     expect(read(projectRoot, '.paqad/.gitignore')).toContain('cache/');
   });
 
-  it('migrates: scrubs a pre-#184 "# paqad-ai" legacy block from the root .gitignore', () => {
+  it('migrates: scrubs an old "# paqad-ai" legacy block from the root .gitignore', () => {
     const legacy = [
       'node_modules/',
       '# paqad-ai',
@@ -215,7 +193,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     const root = read(projectRoot, '.gitignore');
     expect(root).not.toContain('# paqad-ai');
     expect(root).not.toContain('.paqad/cache/');
-    // Even the legacy boot-pointer entry is cleaned (it is no longer ignored).
     expect(root).not.toContain('.paqad/framework-path.txt');
     expect(root).toContain('node_modules/');
   });
@@ -261,26 +238,21 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
   it('untracks a now-ignored file an earlier onboarding committed, keeping the working tree', () => {
     gitInit(projectRoot);
-    // Older onboarding committed per-machine runtime state into git.
     commitFile(projectRoot, '.paqad/audit.log', 'old audit entry\n');
     commitFile(projectRoot, '.paqad/framework-version.txt', 'version=1.0.0\n');
     expect(trackedFiles(projectRoot, '.paqad/audit.log')).toBe('.paqad/audit.log');
 
     writeGitignore(projectRoot);
 
-    // Now-ignored paths are untracked...
     expect(trackedFiles(projectRoot, '.paqad/audit.log')).toBe('');
     expect(trackedFiles(projectRoot, '.paqad/framework-version.txt')).toBe('');
-    // ...but the working-tree files are preserved.
     expect(existsSync(join(projectRoot, '.paqad', 'audit.log'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad', 'framework-version.txt'))).toBe(true);
-    // ...and the untrack is recorded once in the (local) audit log.
     expect(read(projectRoot, '.paqad/audit.log')).toContain('gitignore.untracked-now-ignored');
   });
 
-  it('scrubs a previously-tracked .paqad/checks/last-run.json (#528), keeping the working tree', () => {
+  it('scrubs a previously-tracked .paqad/checks/last-run.json, keeping the working tree', () => {
     gitInit(projectRoot);
-    // A repo onboarded before #528 committed the global check report into git.
     commitFile(projectRoot, '.paqad/checks/last-run.json', '{"passed":true}\n');
     expect(trackedFiles(projectRoot, '.paqad/checks/last-run.json')).toBe(
       '.paqad/checks/last-run.json',
@@ -288,7 +260,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
     writeGitignore(projectRoot);
 
-    // Now-ignored (checks/ in the managed block) → untracked, working tree preserved.
     expect(trackedFiles(projectRoot, '.paqad/checks/last-run.json')).toBe('');
     expect(existsSync(join(projectRoot, '.paqad', 'checks', 'last-run.json'))).toBe(true);
     expect(read(projectRoot, '.paqad/.gitignore')).toContain('checks/');
@@ -300,7 +271,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
     writeGitignore(projectRoot);
 
-    // Decision 1 — the boot pointer is not in the ignore set, so it stays shared.
     expect(trackedFiles(projectRoot, '.paqad/framework-path.txt')).toBe(
       '.paqad/framework-path.txt',
     );
@@ -314,26 +284,22 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
   it('untracks AND removes deprecated artifacts an earlier onboarding committed', () => {
     gitInit(projectRoot);
-    // A repo onboarded before these files were dropped committed them.
     commitFile(projectRoot, '.paqad/version', 'schema_version=1\n');
     commitFile(projectRoot, '.paqad/classifier-config.json', '{"schema_version":1}\n');
     expect(trackedFiles(projectRoot, '.paqad/version')).toBe('.paqad/version');
 
     writeGitignore(projectRoot);
 
-    // Untracked from git AND the orphaned working-tree file is gone.
     expect(trackedFiles(projectRoot, '.paqad/version')).toBe('');
     expect(trackedFiles(projectRoot, '.paqad/classifier-config.json')).toBe('');
     expect(existsSync(join(projectRoot, '.paqad', 'version'))).toBe(false);
     expect(existsSync(join(projectRoot, '.paqad', 'classifier-config.json'))).toBe(false);
-    // Recorded once in the local audit log.
     expect(read(projectRoot, '.paqad/audit.log')).toContain(
       'gitignore.removed-deprecated-artifacts',
     );
   });
 
   it('removes a deprecated working-tree artifact outside a git repository', () => {
-    // No git repo: the untrack step is skipped, but the orphan is still unlinked.
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
     writeFileSync(join(projectRoot, '.paqad', 'classifier-config.json'), '{}\n');
 
@@ -344,8 +310,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
   it('unlinks a deprecated artifact that exists but was never committed in a git repo', () => {
     gitInit(projectRoot);
-    // Present on disk, untracked (nothing committed) — git rm is skipped, but the
-    // orphan is still unlinked.
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
     writeFileSync(join(projectRoot, '.paqad', 'version'), 'schema_version=1\n');
 
@@ -356,7 +320,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
 
   it('untracks a now-ignored directory whose files an earlier onboarding committed', () => {
     gitInit(projectRoot);
-    // A directory-form ignore entry (logs/) with a committed file beneath it.
     commitFile(projectRoot, '.paqad/logs/auto-update.log', 'old log line\n');
     expect(trackedFiles(projectRoot, '.paqad/logs/auto-update.log')).toBe(
       '.paqad/logs/auto-update.log',
@@ -365,7 +328,6 @@ describe('writeGitignore (nested .paqad-owned policy)', () => {
     writeGitignore(projectRoot);
 
     expect(trackedFiles(projectRoot, '.paqad/logs/auto-update.log')).toBe('');
-    // Working-tree file preserved (--cached only).
     expect(existsSync(join(projectRoot, '.paqad', 'logs', 'auto-update.log'))).toBe(true);
   });
 });

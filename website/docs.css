@@ -1,10 +1,3 @@
-/* ─────────────────────────────────────────────────────────────────────────
-   paqad-ai Documentation Styles
-   Inherits all CSS custom properties from styles.css
-   ───────────────────────────────────────────────────────────────────────── */
-
-/* ── Layout ─────────────────────────────────────────────────────────────── */
-
 .docs-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr) 220px;
@@ -63,8 +56,6 @@
   border-top: 1px solid var(--border);
 }
 
-/* ── Sidebar backdrop (mobile only) ─────────────────────────────────────── */
-
 .docs-sidebar-backdrop {
   display: none;
   position: fixed;
@@ -76,8 +67,6 @@
 .docs-sidebar-backdrop.is-visible {
   display: block;
 }
-
-/* ── Mobile toolbar ──────────────────────────────────────────────────────── */
 
 .docs-mobile-toolbar {
   display: none;
@@ -108,8 +97,6 @@
   border-color: var(--amber);
 }
 
-/* ── Breadcrumbs ─────────────────────────────────────────────────────────── */
-
 .docs-breadcrumbs {
   font-size: 0.78rem;
   color: var(--muted);
@@ -138,8 +125,6 @@
 .docs-breadcrumbs .bc-page {
   color: var(--text);
 }
-
-/* ── Search ──────────────────────────────────────────────────────────────── */
 
 .docs-search-wrap {
   position: relative;
@@ -249,8 +234,6 @@
   color: var(--muted);
 }
 
-/* ── Sidebar navigation ──────────────────────────────────────────────────── */
-
 .docs-nav-section {
   margin-bottom: 1.5rem;
 }
@@ -324,8 +307,6 @@
   border-left-color: var(--amber);
 }
 
-/* ── On-page Table of Contents ───────────────────────────────────────────── */
-
 .docs-toc-label {
   font-size: 0.72rem;
   color: var(--cyan);
@@ -372,8 +353,6 @@
   padding-left: 1.5rem;
   font-size: 0.74rem;
 }
-
-/* ── Article typography ──────────────────────────────────────────────────── */
 
 .docs-article {
   max-width: 72ch;
@@ -494,8 +473,6 @@
   color: var(--text);
 }
 
-/* ── Code blocks ─────────────────────────────────────────────────────────── */
-
 .docs-code-block {
   margin: 0 0 1.25rem;
   border: 1px solid var(--border);
@@ -586,8 +563,6 @@
   background: var(--border);
 }
 
-/* ── Callout boxes ───────────────────────────────────────────────────────── */
-
 .docs-callout {
   display: grid;
   gap: 0.3rem;
@@ -646,8 +621,6 @@
   margin-top: 0.5rem;
 }
 
-/* ── Prev / Next page navigation ─────────────────────────────────────────── */
-
 .docs-page-nav {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -705,8 +678,6 @@
   color: var(--muted);
 }
 
-/* ── Inline heading anchors ──────────────────────────────────────────────── */
-
 .docs-article h2 .heading-anchor,
 .docs-article h3 .heading-anchor {
   opacity: 0;
@@ -728,8 +699,6 @@
 .docs-article h3:hover .heading-anchor:hover {
   color: var(--amber);
 }
-
-/* ── Mobile ToC (inline <details>) ──────────────────────────────────────── */
 
 .docs-toc-inline {
   display: none;
@@ -781,15 +750,11 @@
   font-size: 0.75rem;
 }
 
-/* ── Horizontal rule in articles ─────────────────────────────────────────── */
-
 .docs-article hr {
   border: 0;
   border-top: 1px solid var(--border);
   margin: 2rem 0;
 }
-
-/* ── Strong / em in articles ─────────────────────────────────────────────── */
 
 .docs-article strong {
   color: var(--text);
@@ -800,8 +765,6 @@
   color: var(--muted);
   font-style: normal;
 }
-
-/* ── Responsive: tablet (≤1023px) ────────────────────────────────────────── */
 
 @media (max-width: 1023px) {
   .docs-layout {
@@ -817,8 +780,6 @@
     display: block;
   }
 }
-
-/* ── Responsive: mobile (≤767px) ─────────────────────────────────────────── */
 
 @media (max-width: 767px) {
   .docs-layout {
@@ -880,8 +841,6 @@
     margin-top: 2rem;
   }
 }
-
-/* ── Reduced motion ──────────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
   .docs-sidebar {

@@ -11,7 +11,7 @@ import type { DeliveryShell } from '@/delivery/runner.js';
 const GiB = 1024 ** 3;
 const CLOCK = { nowMs: () => Date.now(), now: () => '2026-01-01T00:00:00.000Z' };
 
-describe('runChecks (issue #554)', () => {
+describe('runChecks', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
@@ -142,7 +142,6 @@ describe('runChecks (issue #554)', () => {
     const profile = readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8');
     expect(profile).toContain('parallel: unavailable');
 
-    // A second run now resolves sequential directly (testing pinned unavailable).
     let sawParallel = false;
     const shell2: DeliveryShell = {
       async run(bin, args) {
@@ -231,6 +230,158 @@ describe('runChecks (issue #554)', () => {
     expect(result.passed).toBe(true);
   });
 
+  it('marks a test step that exits 0 with no readable results inconclusive, stamped with the run time', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: mkdir -p .paqad/test-results && ./vendor/bin/pest --log-junit .paqad/test-results/pest.xml',
+        '  test_single: ./vendor/bin/pest --filter="<pattern>" --log-junit .paqad/test-results/pest.xml',
+        'stack_profile:',
+        '  frameworks: [laravel]',
+        '  traits: [pest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: 'Docker is not running.\n', stderr: '', exitCode: 0 };
+      },
+    };
+    const runTime = '2026-03-04T05:06:07.000Z';
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 2, totalmem: 64 * GiB },
+      nowMs: () => 0,
+      now: () => runTime,
+    });
+
+    const test = result.commands.find((c) => c.logical_command === 'test');
+    expect(test?.outcome).toBe('inconclusive');
+    expect(result.meaningful_green).toBe(false);
+    expect(result.test_result?.summary.total).toBe(0);
+    expect(result.test_result?.summary.timestamp).toBe(runTime);
+    expect(result.test_result?.summary.timestamp).not.toBe('1970-01-01T00:00:00.000Z');
+
+    const receipt = renderReceipt(result, 'warn').join('\n');
+    expect(receipt).toContain('> - 🟡 test ran, but no test results could be read (0 s)');
+    expect(receipt).toContain('Inconclusive');
+    expect(receipt).not.toContain('🟢 test passed');
+    expect(receipt).not.toContain('Safe to merge');
+  });
+
+  it('keeps the timestamp a test report carries', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: mkdir -p .paqad/test-results && pytest --json-report --json-report-file=.paqad/test-results/pytest.json',
+        'stack_profile:',
+        '  frameworks: [django]',
+        '  traits: []',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run(bin) {
+        if (bin === 'pytest') {
+          writeFileSync(
+            join(root, '.paqad/test-results/pytest.json'),
+            JSON.stringify({
+              created: '2026-02-03T04:05:06.000Z',
+              duration: 1,
+              summary: { total: 1, passed: 1 },
+              tests: [{ nodeid: 'tests/test_ok.py::test_ok', outcome: 'passed' }],
+            }),
+          );
+        }
+        return { stdout: '', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 2, totalmem: 64 * GiB },
+      ...CLOCK,
+    });
+
+    expect(result.test_result?.summary.total).toBe(1);
+    expect(result.test_result?.summary.timestamp).toBe('2026-02-03T04:05:06.000Z');
+  });
+
+  it('keeps a test step with parsed results free of the inconclusive outcome', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: pnpm test -- --reporter=tap',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: 'TAP version 13\nok 1 - works\n1..1\n', stderr: '', exitCode: 0 };
+      },
+    };
+    const result = await runChecks({
+      projectRoot: root,
+      shell,
+      osFacts: { availableParallelism: 8, totalmem: 64 * GiB },
+      ...CLOCK,
+    });
+    const test = result.commands.find((c) => c.logical_command === 'test');
+    expect(test?.outcome).toBeUndefined();
+    expect(result.meaningful_green).toBe(true);
+    expect(result.test_result?.summary.timestamp).toBe(CLOCK.now());
+  });
+
+  it('records the test runner once and leaves the profile byte-identical on the next run', async () => {
+    writeFileSync(
+      join(root, '.paqad/project-profile.yaml'),
+      [
+        'commands:',
+        '  test: pnpm test -- --reporter=tap',
+        '  test_single: pnpm vitest run --reporter=tap --outputFile=.paqad/test-results/vitest-single.tap -t "<pattern>"',
+        'stack_profile:',
+        '  frameworks: [react]',
+        '  traits: [vitest]',
+        '  languages: []',
+        '  runtimes: []',
+      ].join('\n') + '\n',
+    );
+    const shell: DeliveryShell = {
+      async run() {
+        return { stdout: 'TAP version 13\nok 1 - works\n1..1\n', stderr: '', exitCode: 0 };
+      },
+    };
+    const run = () =>
+      runChecks({
+        projectRoot: root,
+        shell,
+        osFacts: { availableParallelism: 8, totalmem: 64 * GiB },
+        ...CLOCK,
+      });
+
+    const first = await run();
+    expect(first.testing_recorded).toBe(true);
+    const afterFirst = readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8');
+    expect(afterFirst).toContain('testing:');
+    expect(afterFirst).toContain(
+      '  test_single: pnpm vitest run --reporter=tap --outputFile=.paqad/test-results/vitest-single.tap -t "<pattern>"\n',
+    );
+
+    const second = await run();
+    expect(second.testing_recorded).toBe(false);
+    expect(readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8')).toBe(afterFirst);
+  });
+
   it('reports an unsupported-syntax test command red without spawning it', async () => {
     root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
@@ -291,8 +442,6 @@ describe('runChecks (issue #554)', () => {
       async run(bin, args) {
         if (bin === 'php') {
           const single = args.includes('--filter=flaky one');
-          // Write the junit to whatever --log-junit path this invocation names (the re-run
-          // redirects it to rerun-0.xml so the main result is never overwritten).
           const outPath = args[args.indexOf('--log-junit') + 1] ?? '.paqad/test-results/pest.xml';
           writeFileSync(join(root, outPath), single ? passing : failing);
           return { stdout: '', stderr: '', exitCode: single ? 0 : 1 };

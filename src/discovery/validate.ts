@@ -1,11 +1,3 @@
-// Discovery artifact validation (issue #597).
-//
-// Before a dependent Discovery operation trusts an artifact, this gate rejects it when it is on the
-// wrong path, malformed, from another run, owned by another session, stale (its content hash no
-// longer matches its bytes), or the wrong artifact for the stage (DW-07, DW-08). A blank template
-// or a model-authored JSON never clears the gate: the writer stamped the hash, so a hand edit is
-// detectable. Nothing here throws — the caller gets a precise reason and decides.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'pathe';
 
@@ -27,7 +19,6 @@ export type DiscoveryValidationReason =
 export interface DiscoveryValidationResult {
   ok: boolean;
   reason: DiscoveryValidationReason;
-  /** A human-readable explanation + recovery hint. */
   detail: string;
 }
 
@@ -35,15 +26,6 @@ function fail(reason: DiscoveryValidationReason, detail: string): DiscoveryValid
   return { ok: false, reason, detail };
 }
 
-/**
- * Validate a Discovery artifact JSON document for a run before a dependent operation trusts it.
- *
- * @param sessionId the session asking to use the artifact; ownership is the RUN's owner session, so
- *   a session that does not own the run is rejected as `foreign-owner` (DW-10, INV-5).
- * @param artifactRelPath project-relative path to the artifact (must be inside the run dir).
- * @param expectedDocType the doc type the stage requires, or undefined to skip the artifact-kind
- *   check.
- */
 export function validateDiscoveryArtifact(
   projectRoot: string,
   dirName: string,
@@ -57,9 +39,6 @@ export function validateDiscoveryArtifact(
     return fail('wrong-path', `artifact ${artifactRelPath} is outside the run dir ${runDir}`);
   }
 
-  // Read the artifact. A `.jsonl` artifact (sources/contributions) is validated per row: the FIRST
-  // row carries the identity checked below, and every row's hash must verify. A `.json` document is
-  // validated as one object. Either way `doc` is the identity record and `hashOk` the tamper verdict.
   let raw: string;
   try {
     raw = readFileSync(join(projectRoot, artifactRelPath), 'utf8');
@@ -112,9 +91,6 @@ export function validateDiscoveryArtifact(
     );
   }
 
-  // Ownership is proven by the run's own owner stamp. If run.json is missing or unreadable the
-  // owner cannot be established, so the gate fails CLOSED rather than trusting the artifact (a
-  // deleted/corrupted owner record must never validate as owner-OK for any caller).
   const owner = readDiscoveryRun(projectRoot, dirName)?.session_id ?? null;
   if (owner === null || doc.session_id !== owner || sessionId !== owner) {
     return fail(

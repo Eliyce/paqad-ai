@@ -33,16 +33,12 @@ describe('STAGE_NARRATION + stageNarrationLine', () => {
   });
 });
 
-// Issue #307 — marker-recorded stages narrate too: narration and ledger are both
-// non-negotiable, so a row minted from a `paqad:stage` marker is never silent.
 describe('markerNarrationLine + markerBatchNarration', () => {
   it('start reuses the canonical stage phrasing', () => {
     expect(markerNarrationLine('planning', 'start')).toBe(stageNarrationLine('planning'));
   });
 
-  it('#325: the end boundary is no longer spoken (muted — the receipt carries it)', () => {
-    // Issue #325 inverts the cadence: the per-marker END line duplicated the model's
-    // prose, so only the START narrates; the end-of-change receipt reports done-state.
+  it('the end boundary is no longer spoken (muted — the receipt carries it)', () => {
     expect(markerNarrationLine('documentation_sync', 'end')).toBe('');
     expect(markerNarrationLine('planning', 'end')).toBe('');
   });
@@ -56,7 +52,7 @@ describe('markerNarrationLine + markerBatchNarration', () => {
     const block = markerBatchNarration([
       { stage: 'planning', phase: 'start' },
       { stage: 'bogus', phase: 'start' },
-      { stage: 'planning', phase: 'end' }, // #325 — muted, contributes no line
+      { stage: 'planning', phase: 'end' },
       { stage: 'specification', phase: 'start' },
     ]);
     const lines = block.split('\n');
@@ -74,8 +70,6 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
   let root: string;
   const SES = 'ses_narr';
 
-  /** Seed planning + specification (issue #310) so the writer/narration defer is
-   *  satisfied — a code edit only enters (and narrates) a stage once these exist. */
   function seedPreCode(): void {
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start' });
     recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'end' });
@@ -95,9 +89,7 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
     ).toBeNull();
   });
 
-  it('#310: narrates nothing before the pre-code stages are recorded (mirrors the defer)', () => {
-    // No planning/specification yet → the writer records nothing on this edit, so it
-    // enters no stage and narrates nothing.
+  it('narrates nothing before the pre-code stages are recorded (mirrors the defer)', () => {
     expect(
       narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/a.ts' }),
     ).toBeNull();

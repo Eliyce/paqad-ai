@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5B96YKNAVT99NXTGKPZVD2Q",
+  "category": "ux-pattern",
+  "title": "Plugin install warning about the HUD view setting (#682.6)",
+  "context": "Issue 682 item 6 asks that 'claude plugin install paqad@eliyce' stop printing '1 userConfig option not yet set'. The installed Claude Code 2.1.302 binary counts an option as not set when no value is saved for it; the 'default' in plugin.json is ignored by that check. So there is no way to declare the 'view' option in plugin.json and avoid the warning. The fix needs a product choice about where the HUD on/off setting lives.",
+  "options": [
+    {
+      "option_key": "drop-userconfig",
+      "label": "Remove the view option from plugin.json and turn the HUD on or off with a paqad setting (on by default). The install prints no warning; /plugin configure no longer shows the toggle.",
+      "evidence": {},
+      "one_line_preview": "Remove the view option from plugin.json and turn the HUD on or off with a paqad setting (on by default). The install prints no warning; /plugin configure no longer shows the toggle.",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "keep-userconfig",
+      "label": "Keep the view option in /plugin configure. A manual install still shows the warning (documented as harmless); paqad's own automatic install passes --config view=true so it shows none.",
+      "evidence": {},
+      "one_line_preview": "Keep the view option in /plugin configure. A manual install still shows the warning (documented as harmless); paqad's own automatic install passes --config view=true so it shows none.",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "drop-userconfig",
+  "created_at": "2026-10-19T23:51:08.149Z",
+  "status": "resolved",
+  "change": "01M5B870H6E266E6QDDFQPSYRP",
+  "chosen": "drop-userconfig",
+  "rationale": "Owner chose a paqad setting: no install warning, HUD on by default",
+  "resolved_at": "2026-10-20T00:04:24.461Z",
+  "decision_id": "D-01M5B96YKNAVT99NXTGKPZVD2Q",
+  "fingerprint": "sha256:ba21269182788dd71f64cb961eab3997fc9d0d6f122184a724a231b68e55e83b",
+  "question": "Plugin install warning about the HUD view setting (#682.6)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5B870H6E266E6QDDFQPSYRP",
+  "ttl_until": "2026-11-18T23:51:08.149Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "drop-userconfig",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T00:04:24.461Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose a paqad setting: no install warning, HUD on by default"
+  }
+}

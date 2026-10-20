@@ -9,6 +9,7 @@ import {
 } from '@/feature-evidence/mint.js';
 import { parseFeatureDirName } from '@/feature-evidence/paths.js';
 import { validateFeatureRecord, validatePlanRecord } from '@/feature-evidence/schema.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 const ULID = '01JABCDEFGHJKMNPQRSTVWXYZ0';
 
@@ -42,7 +43,7 @@ describe('mintFeatureDirName', () => {
   });
 
   it('strips a leading # from a detected github ref so the name parses back', () => {
-    const minted = mintFeatureDirName({ title: 'Fix #45 crash', ulid: ULID });
+    const minted = mintFeatureDirName({ title: `Fix ${ticketRef(45)} crash`, ulid: ULID });
     expect(minted.issue).toBe('45');
     expect(minted.dirName).toBe(`45-fix-crash-${ULID}`);
     expect(parseFeatureDirName(minted.dirName)).toEqual({
@@ -60,7 +61,6 @@ describe('mintFeatureDirName', () => {
     expect(mintFeatureDirName({ title: 'x', issue: '#', ulid: ULID }).issue).toBeNull();
   });
 
-  // Issue #581 (AC-16, FR-13) — the ref appears once in the dir name.
   it('takes the detected ref out of the title before slugging (AC-16)', () => {
     expect(
       mintFeatureDirName({ title: 'PROJ-123 Checkout page cleanup', ulid: ULID }).dirName,
@@ -69,9 +69,9 @@ describe('mintFeatureDirName', () => {
       `PROJ-9-fix-leak-${ULID}`,
     );
     expect(mintFeatureDirName({ title: 'PROJ-9 - PROJ-9 twice', ulid: ULID }).slug).toBe('twice');
-    expect(mintFeatureDirName({ title: 'fix(#403): back-fill', ulid: ULID }).dirName).toBe(
-      `403-fix-back-fill-${ULID}`,
-    );
+    expect(
+      mintFeatureDirName({ title: `fix(${ticketRef(403)}): back-fill`, ulid: ULID }).dirName,
+    ).toBe(`403-fix-back-fill-${ULID}`);
   });
 
   it('strips an explicit issue from the title case-insensitively', () => {
@@ -85,7 +85,6 @@ describe('mintFeatureDirName', () => {
     expect(lead.dirName).toBe(`581-one-evidence-packet-${ULID}`);
     const wording = mintFeatureDirName({ title: 'Show 45 rows', issue: '45', ulid: ULID });
     expect(wording.slug).toBe('show-45-rows');
-    // Part of a longer token is not the ref.
     expect(
       mintFeatureDirName({ title: 'PROJ-12 PROJ-123x', issue: 'PROJ-12', ulid: ULID }).slug,
     ).toBe('proj-123x');
@@ -95,7 +94,7 @@ describe('mintFeatureDirName', () => {
     expect(mintFeatureDirName({ title: 'PROJ-5', ulid: ULID }).dirName).toBe(
       `PROJ-5-proj-5-${ULID}`,
     );
-    expect(mintFeatureDirName({ title: '#12:', ulid: ULID }).slug).toBe('12');
+    expect(mintFeatureDirName({ title: `${ticketRef(12)}:`, ulid: ULID }).slug).toBe('12');
   });
 
   it('detects no issue when the title has no ticket ref', () => {
@@ -122,7 +121,6 @@ describe('record builders', () => {
     expect(validateFeatureRecord(record)).toEqual([]);
     expect(record.status).toBe('active');
     expect(record.spec_id).toBeNull();
-    // Issue #581 — the envelope header leads, in its fixed order.
     expect(Object.keys(record).slice(0, 6)).toEqual([
       'schema_version',
       'doc_type',
@@ -239,7 +237,7 @@ describe('record builders', () => {
     expect(h1).toBe(h2);
   });
 
-  it('computeContentHash ignores the #581 recorded_at time field too', () => {
+  it('computeContentHash ignores the envelope recorded_at time field too', () => {
     expect(computeContentHash({ a: 1, recorded_at: 'y' })).toBe(computeContentHash({ a: 1 }));
     expect(computeContentHash({ a: 1 })).not.toBe(computeContentHash({ a: 2 }));
   });

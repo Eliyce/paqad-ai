@@ -4,7 +4,6 @@ import { ScoreBadge } from './ScoreBadge';
 
 interface Props {
   section: SectionData;
-  /** When true, the card border pulses to acknowledge an SSE refresh. */
   pulsing?: boolean;
   onOpen?: (section: SectionData) => void;
 }

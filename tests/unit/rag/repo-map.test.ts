@@ -14,7 +14,6 @@ import {
 
 describe('pageRank', () => {
   it('ranks an import hub above its leaf importers', () => {
-    // a, b, c all import the shared `hub`.
     const edges: RepoEdge[] = [
       { from: 'a.ts', to: 'hub.ts' },
       { from: 'b.ts', to: 'hub.ts' },
@@ -64,7 +63,7 @@ describe('buildRepoMap', () => {
     const map = buildRepoMap(many, [], { tokenBudget: 60 });
     expect(map.truncated).toBe(true);
     expect(map.skeleton).toContain('repo map truncated');
-    expect(map.entries.length).toBe(200); // ranking keeps every entry; only the render is cut
+    expect(map.entries.length).toBe(200);
   });
 
   it('returns an empty skeleton for no files', () => {

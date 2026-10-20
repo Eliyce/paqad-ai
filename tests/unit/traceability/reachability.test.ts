@@ -4,7 +4,6 @@ import { solveReachability } from '@/traceability/reachability.js';
 
 describe('solveReachability', () => {
   it('marks files transitively imported by an anchor as used', () => {
-    // anchor -> a -> b ; c is imported by nothing reachable.
     const result = solveReachability({
       edges: [
         { from: 'src/anchor.ts', to: 'src/a.ts' },
@@ -17,13 +16,11 @@ describe('solveReachability', () => {
 
     expect(result.used.has('src/a.ts')).toBe(true);
     expect(result.used.has('src/b.ts')).toBe(true);
-    // c is only reached from dead.ts, which no anchor reaches.
     expect(result.used.has('src/c.ts')).toBe(false);
     expect(result.orphans).toEqual(['src/c.ts', 'src/dead.ts']);
   });
 
   it('does not rescue a dead cluster that only imports itself', () => {
-    // Two files import each other but neither is reachable from an anchor.
     const result = solveReachability({
       edges: [
         { from: 'src/dead-a.ts', to: 'src/dead-b.ts' },

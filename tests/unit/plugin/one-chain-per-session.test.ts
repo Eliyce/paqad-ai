@@ -15,19 +15,6 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ensureBuiltDist } from '../../e2e/helpers/ensure-built';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// One hook chain per session (issue #667, AC-1/AC-4/AC-7, INV-1/INV-3). Claude Code loads the
-// SAME runtime/hooks/*.mjs scripts from two places when both copies are installed: the npm copy
-// wired into the project's .claude/settings.json (no CLAUDE_PLUGIN_ROOT) and the plugin copy
-// (CLAUDE_PLUGIN_ROOT set). This contract test runs the real hooks under both env shapes for ONE
-// payload in a temp npm-wired, onboarded project and checks that exactly one copy does the work:
-//   - passive (unclaimed session, live npm wiring): only the npm copy writes / blocks / injects;
-//   - claimed (plugin-active marker for the session): only the plugin copy does.
-// Every path is a temp dir: the project, the user Claude config dir (CLAUDE_CONFIG_DIR), and the
-// "installed" npm hook script. HOME is sandboxed by tests/shared/isolate-home.ts and the child env
-// is built from scratch, so the developer's real settings and markers are never read.
-// ─────────────────────────────────────────────────────────────────────────────
-
 const REPO = process.cwd();
 const HOOKS = resolve(REPO, 'runtime/hooks');
 const CLI = resolve(REPO, 'dist/cli/index.js');
@@ -56,7 +43,6 @@ interface Fixture {
   session: string;
 }
 
-/** An onboarded project whose own .claude/settings.json wires a live (existing) paqad npm hook. */
 function npmWiredProject(session: string): Fixture {
   const root = tempDir('paqad-one-chain-');
   const userDir = tempDir('claude-config-');
@@ -78,7 +64,6 @@ function npmWiredProject(session: string): Fixture {
   return { root, userDir, session };
 }
 
-/** Claim the session for the plugin, exactly as plugin-session-start does. */
 function claimForPlugin(fx: Fixture): void {
   const dir = join(fx.root, '.paqad', 'session', 'plugin-active.d');
   mkdirSync(dir, { recursive: true });
@@ -93,7 +78,6 @@ async function runHook(
   payload: unknown,
   extraEnv: NodeJS.ProcessEnv = {},
 ): Promise<{ exitCode: number; output: string }> {
-  // A clean env (not process.env), so the real session's SE_SESSION / CLAUDE_* never leak in.
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
     HOME: process.env.HOME,
@@ -112,7 +96,6 @@ async function runHook(
   return { exitCode: result.exitCode ?? 0, output: `${result.stdout ?? ''}${result.stderr ?? ''}` };
 }
 
-/** Open a titled feature bundle for the session through the real CLI. */
 async function openBundle(fx: Fixture): Promise<string> {
   await execa(
     'node',
@@ -129,7 +112,6 @@ async function openBundle(fx: Fixture): Promise<string> {
   return join(base, bundle!);
 }
 
-/** The Stop payload both copies receive: a stage marker in the transcript + a background stage agent. */
 function stopPayload(fx: Fixture): unknown {
   const transcript = join(fx.root, 'turn.jsonl');
   writeFileSync(
@@ -145,13 +127,10 @@ function stopPayload(fx: Fixture): unknown {
     transcript_path: transcript,
     hook_event_name: 'Stop',
     stop_hook_active: false,
-    // A running stage agent makes verification-completion record one `completion-deferred` row
-    // and exit, so its ledger effect is observable without running the full backstop.
     background_tasks: [{ agent_type: 'paqad-review', status: 'running' }],
   };
 }
 
-/** The Stop rows this test cares about: the parsed review marker and the completion breadcrumb. */
 function stopRows(bundle: string): { markers: number; deferred: number } {
   const path = join(bundle, 'stage-evidence.jsonl');
   const rows = existsSync(path)
@@ -174,17 +153,17 @@ async function runStop(fx: Fixture, route: Route, payload: unknown): Promise<voi
   }
 }
 
-describe('one hook chain per session (issue #667)', () => {
+describe('one hook chain per session', () => {
   it('passive session: only the npm copy of the Stop hooks writes the ledger rows (AC-4)', async () => {
     const fx = npmWiredProject('ses-passive');
     const bundle = await openBundle(fx);
     const payload = stopPayload(fx);
 
     await runStop(fx, 'plugin', payload);
-    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 }); // the plugin stood down
+    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 });
 
     await runStop(fx, 'npm', payload);
-    expect(stopRows(bundle)).toEqual({ markers: 1, deferred: 1 }); // exactly one row set
+    expect(stopRows(bundle)).toEqual({ markers: 1, deferred: 1 });
   });
 
   it('claimed session: only the plugin copy of the Stop hooks writes the ledger rows (AC-4, AC-7)', async () => {
@@ -194,7 +173,7 @@ describe('one hook chain per session (issue #667)', () => {
     const payload = stopPayload(fx);
 
     await runStop(fx, 'npm', payload);
-    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 }); // the npm copy stepped aside
+    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 });
 
     await runStop(fx, 'plugin', payload);
     expect(stopRows(bundle)).toEqual({ markers: 1, deferred: 1 });
@@ -209,7 +188,6 @@ describe('one hook chain per session (issue #667)', () => {
       tool_name: 'Edit',
       tool_input: { file_path: join(fx.root, 'src/x.ts') },
     };
-    // No load sentinel yet, so the entry gate blocks: once, from the npm copy only.
     const pluginEdit = await runHook(AGENT_ENTRY, fx, 'plugin', edit);
     const npmEdit = await runHook(AGENT_ENTRY, fx, 'npm', edit);
     expect(pluginEdit).toEqual({ exitCode: 0, output: '' });
@@ -231,7 +209,6 @@ describe('one hook chain per session (issue #667)', () => {
   it('paqad disabled stays a no-op on both copies (INV-3)', async () => {
     const fx = npmWiredProject('ses-off');
     const bundle = await openBundle(fx);
-    // No background task here; the disabled + background-task case is covered below (#673).
     const payload = { ...(stopPayload(fx) as object), background_tasks: [] };
     for (const route of ['npm', 'plugin'] as const) {
       for (const script of [MARKER_PARSE, VERIFICATION]) {
@@ -243,7 +220,6 @@ describe('one hook chain per session (issue #667)', () => {
   });
 });
 
-/** The disabled-session audit rows recorded for a session on the shared session ledger. */
 function disabledAuditRows(fx: Fixture): number {
   const dir = join(fx.root, '.paqad/ledger/disabled-session', fx.session);
   if (!existsSync(dir)) return 0;
@@ -253,18 +229,17 @@ function disabledAuditRows(fx: Fixture): number {
     .length;
 }
 
-describe('a disabled project writes no completion-deferred row (issue #673)', () => {
+describe('a disabled project writes no completion-deferred row', () => {
   it('disabled + a running stage agent: no deferred row, exactly one disabled audit row (AC-1)', async () => {
     const fx = npmWiredProject('ses-off-bg');
     const bundle = await openBundle(fx);
-    const payload = stopPayload(fx); // carries a running paqad-review background task
+    const payload = stopPayload(fx);
 
     const first = await runHook(VERIFICATION, fx, 'npm', payload, { PAQAD_DISABLED: '1' });
     expect(first).toEqual({ exitCode: 0, output: '' });
     expect(stopRows(bundle).deferred).toBe(0);
     expect(disabledAuditRows(fx)).toBe(1);
 
-    // A second disabled Stop in the same session still leaves exactly one audit row.
     await runHook(VERIFICATION, fx, 'npm', payload, { PAQAD_DISABLED: '1' });
     expect(stopRows(bundle).deferred).toBe(0);
     expect(disabledAuditRows(fx)).toBe(1);
@@ -278,5 +253,69 @@ describe('a disabled project writes no completion-deferred row (issue #673)', ()
     expect(r.exitCode).toBe(0);
     expect(stopRows(bundle).deferred).toBe(1);
     expect(disabledAuditRows(fx)).toBe(0);
+  });
+});
+
+describe('two plugin roots in one session run one chain', () => {
+  function claimForRoot(fx: Fixture, root: string): void {
+    const dir = join(fx.root, '.paqad', 'session', 'plugin-active.d');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, fx.session), JSON.stringify({ at: new Date().toISOString(), root }));
+  }
+
+  it('the Stop hooks of the second root stand down and the first root writes one row set', async () => {
+    const fx = npmWiredProject('ses-two-roots');
+    const bundle = await openBundle(fx);
+    claimForRoot(fx, REPO);
+    const second = tempDir('paqad-second-root-');
+    const payload = stopPayload(fx);
+
+    for (const script of [MARKER_PARSE, VERIFICATION]) {
+      const r = await runHook(script, fx, 'plugin', payload, { CLAUDE_PLUGIN_ROOT: second });
+      expect(r).toEqual({ exitCode: 0, output: '' });
+    }
+    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 });
+
+    await runStop(fx, 'npm', payload);
+    expect(stopRows(bundle)).toEqual({ markers: 0, deferred: 0 });
+
+    await runStop(fx, 'plugin', payload);
+    expect(stopRows(bundle)).toEqual({ markers: 1, deferred: 1 });
+  });
+
+  it('the edit gate blocks once, from the first root, and the second root stays quiet', async () => {
+    const fx = npmWiredProject('ses-two-roots-edit');
+    claimForRoot(fx, REPO);
+    const second = tempDir('paqad-second-root-');
+    const edit = {
+      session_id: fx.session,
+      cwd: fx.root,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: join(fx.root, 'src/x.ts') },
+    };
+    const fromSecond = await runHook(AGENT_ENTRY, fx, 'plugin', edit, {
+      CLAUDE_PLUGIN_ROOT: second,
+    });
+    const fromFirst = await runHook(AGENT_ENTRY, fx, 'plugin', edit);
+    expect(fromSecond).toEqual({ exitCode: 0, output: '' });
+    expect(fromFirst.exitCode).toBe(2);
+  });
+
+  it('a marker with no root keeps the gate running for any root', async () => {
+    const fx = npmWiredProject('ses-legacy-marker');
+    claimForPlugin(fx);
+    const second = tempDir('paqad-second-root-');
+    const edit = {
+      session_id: fx.session,
+      cwd: fx.root,
+      hook_event_name: 'PreToolUse',
+      tool_name: 'Edit',
+      tool_input: { file_path: join(fx.root, 'src/x.ts') },
+    };
+    const fromSecond = await runHook(AGENT_ENTRY, fx, 'plugin', edit, {
+      CLAUDE_PLUGIN_ROOT: second,
+    });
+    expect(fromSecond.exitCode).toBe(2);
   });
 });

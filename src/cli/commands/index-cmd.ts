@@ -1,9 +1,3 @@
-// `paqad-ai index build|query` (issue #353). Builds the deterministic, offline
-// code-knowledge index and queries it. Follows the createChecksCommand shape: a
-// parent command with subcommands, `--project-root` defaulting to cwd, a `--quiet`
-// flag that suppresses the machine-readable JSON line, and `process.exitCode` for a
-// failure rather than a mid-action process.exit.
-
 import { Command } from 'commander';
 
 import { buildCodeKnowledgeIndex } from '@/code-knowledge/builder.js';
@@ -58,9 +52,6 @@ export function createIndexCommand(): Command {
       }
 
       const path = writeCodeKnowledgeIndex(options.projectRoot, index);
-      // Regenerate the reuse catalog and fill module-map evidence.symbols from the
-      // fresh index (AC-6). These are the tracked writers the index feeds; the
-      // background refresh deliberately does NOT touch them.
       const catalogPath = writeReuseCatalog(options.projectRoot, index);
       const evidence = writeModuleMapEvidence(options.projectRoot, index);
 
@@ -123,12 +114,6 @@ export function createIndexCommand(): Command {
   return command;
 }
 
-/**
- * `paqad-ai index framework-api build|query` (issue #397). The installed framework-API
- * index: for each detected framework, at the version actually installed, which exported
- * symbols exist and which carry a static `@deprecated` marker. Same shape as the parent
- * command's build/query pair, so the two read alike.
- */
 function createFrameworkApiCommand(): Command {
   const command = new Command('framework-api').description(
     'Build and query the installed framework-API index (does a framework symbol exist, and is it deprecated?)',
@@ -145,9 +130,6 @@ function createFrameworkApiCommand(): Command {
       const { index, cacheHits } = buildFrameworkApiIndex(options.projectRoot, {
         force: options.force,
       });
-      // Issue #398 — the doc-derived backstop runs here, after the offline build, so the
-      // builder and every adapter stay synchronous and network-free. A failed or skipped
-      // fetch simply adds nothing.
       const backstop = await applyLaravelBackstop(options.projectRoot, index, {
         offline: options.offline,
       });
@@ -216,8 +198,6 @@ function createFrameworkApiCommand(): Command {
       }
       const result = queryFrameworkApi(index, packageName, symbol);
       console.log(formatFrameworkCard(result));
-      // A symbol that is absent or deprecated is the answer the caller acts on, so it is
-      // reported through the exit code too, exactly as `index query` reports a miss.
       if (result.verdict === 'absent' || result.verdict === 'deprecated') {
         process.exitCode = 1;
       }

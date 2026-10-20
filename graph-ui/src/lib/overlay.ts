@@ -17,10 +17,9 @@ const SYMBOL_COLOR = '#a78bfa';
 
 const RAMP_GRAY_50 = { r: 0xfa, g: 0xfa, b: 0xfa };
 const RAMP_END = {
-  defects: { r: 0xdc, g: 0x26, b: 0x26 }, // red 600
-  risk: { r: 0xd9, g: 0x77, b: 0x06 }, // amber 600
+  defects: { r: 0xdc, g: 0x26, b: 0x26 },
+  risk: { r: 0xd9, g: 0x77, b: 0x06 },
 };
-// Tailwind purple 600 = #9333ea
 const PURPLE_600 = { r: 0x93, g: 0x33, b: 0xea };
 
 function lerp(
@@ -34,7 +33,6 @@ function lerp(
 }
 
 function lighten(hex: string, t: number): string {
-  // Reduce saturation by blending toward white. t in [0,1].
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;
   const n = parseInt(m[1], 16);
@@ -44,16 +42,13 @@ function lighten(hex: string, t: number): string {
 }
 
 export interface OverlayMetrics {
-  // Per-module
   fileCounts: Map<string, number>;
   defectDensities: Map<string, number>;
   riskValues: Map<string, number>;
   complexityDeltas: Map<string, number>;
-  // Maxima (used for ramp normalisation)
   maxDefectDensityLog: number;
   maxRisk: number;
   maxComplexityDelta: number;
-  // Module color cache by overlay
   moduleColors: Map<OverlayKind, Map<string, string>>;
 }
 

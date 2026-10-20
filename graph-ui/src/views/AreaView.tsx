@@ -12,11 +12,9 @@ import { useHashRoute } from '../lib/router';
 interface Props {
   area: Extract<DashboardArea, 'build' | 'automation' | 'knowledge' | 'setup'>;
   title: string;
-  /** Optional area-specific panel rendered after the inventory groups. */
   extra?: React.ReactNode;
 }
 
-/** Per-class caption under each card. Honest about what the page can do. */
 const CLASS_CAPTION: Record<InventoryClass, string | null> = {
   web: 'Editable here soon. For now the CLI and your editor remain the path.',
   prompt: 'Lives in the conversation. This page shows status.',
@@ -29,11 +27,6 @@ interface EditAction {
   route: string;
 }
 
-/**
- * Web-class items with a real editor in the dashboard. A card listed here
- * swaps the "editable here soon" caption for the action; everything else
- * keeps the honest caption until its editor ships.
- */
 const EDIT_ACTIONS: Record<string, EditAction> = {
   'delivery-policy': { label: 'Edit the policy', route: '#/delivery-policy' },
   instructions: { label: 'Open the editor', route: '#/instructions' },
@@ -41,7 +34,6 @@ const EDIT_ACTIONS: Record<string, EditAction> = {
   'design-tokens': { label: 'Open the token editor', route: '#/design-tokens' },
 };
 
-/** Exported so SetupView can render the same cards for its evidence items. */
 export function ItemCard({
   item,
   onWhy,
@@ -100,11 +92,6 @@ export function ItemCard({
   );
 }
 
-/**
- * Generic area page (issue #146) powering Build, Automation, Knowledge
- * and Setup. Inventory cards grouped by the management rule: you manage
- * the web class, Paqad runs prompt and operation, evidence is view only.
- */
 export function AreaView({ area, title, extra }: Props) {
   const [items, setItems] = useState<InventoryItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -132,9 +119,7 @@ export function AreaView({ area, title, extra }: Props) {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine; the inventory error is the one that matters
-      });
+      .catch(() => {});
   }, [loadInventory]);
 
   useEffect(() => {

@@ -1,27 +1,3 @@
-// Decision Pause authoring helpers (issue #272).
-//
-// The Decision Pause Contract (shipped inline in the framework bootstrap,
-// `AGENT-BOOTSTRAP.md`) asks the agent to write a decision packet to
-// `.paqad/decisions/pending/D-{id}.json`, present it, then move it to
-// `.paqad/decisions/resolved/` with `chosen` / `rationale` / `resolved_at`. Left
-// to hand-author the JSON, an agent pattern-matches the legacy numeric `D-1` /
-// `D-2` / `D-3` fixtures and continues the sequence (`D-4`) — two developers on
-// parallel branches then mint the same id and collide (issue #184 introduced the
-// collision-free `D-<ULID>` form precisely to stop this).
-//
-// These helpers are the writer the contract lacked: they mint the ULID id, build
-// and validate the packet, and drive the pending -> resolved lifecycle, so the
-// agent supplies only content (never the id, the timestamps, or the JSON
-// plumbing). They are the exact counterpart to `paqad-ai stage` on the
-// stage-evidence ledger, and are surfaced to the agent through the bundled
-// `decision` skill's `create` / `resolve` scripts.
-//
-// This is the *contract* packet — the small, human-facing decision record the
-// agent writes by hand today — not the rich `DecisionPacket` in
-// `src/planning/decision-packet.ts`, which is the schema the automated intake /
-// reuse pipeline (`DecisionStore`) mints and consumes. The two are deliberately
-// separate: this one is a readable trail committed alongside the PR it justifies.
-
 import {
   existsSync,
   mkdirSync,
@@ -39,29 +15,14 @@ import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/deci
 
 import { richFieldsFor } from './packet-shape.js';
 
-/**
- * How a packet came to exist. Absent on a packet the agent opened by hand through
- * `paqad-ai decision create`; `evidence-armed` on one the machine minted from computed
- * evidence (issue #361), so a reader can tell an asked question from a detected one.
- */
 export type ContractDecisionOrigin = 'evidence-armed' | 'expert-conflict';
 
-/**
- * A single option offered by a decision packet.
- *
- * `evidence` is optional and additive (issue #361): a hand-authored option carries none,
- * while an evidence-armed option carries the proof behind it (the matched file, when it
- * last changed, how many callers it has, how similar it is). It reuses the
- * {@link DecisionOptionEvidence} shape the automated `DecisionPacket` already defines
- * rather than introducing a second evidence representation.
- */
 export interface ContractDecisionOption {
   option_key: string;
   label: string;
   evidence?: DecisionOptionEvidence;
 }
 
-/** The pending form written by {@link createPendingDecision}. */
 export interface PendingContractDecision {
   id: string;
   category: string;
@@ -71,17 +32,10 @@ export interface PendingContractDecision {
   recommendation: string | null;
   created_at: string;
   status: 'pending';
-  /** Set only on a machine-minted packet (issue #361); absent on a hand-opened one. */
   origin?: ContractDecisionOrigin;
-  /**
-   * The ULID of the change that was active when the packet was opened or resolved (issue #581),
-   * so the change's `decisions.json` index can list it. Absent when no change was active, and on
-   * packets written before the field existed.
-   */
   change?: string;
 }
 
-/** The resolved form written by {@link resolvePendingDecision}. */
 export interface ResolvedContractDecision extends Omit<PendingContractDecision, 'status'> {
   status: 'resolved';
   chosen: string;
@@ -89,38 +43,24 @@ export interface ResolvedContractDecision extends Omit<PendingContractDecision, 
   resolved_at: string;
 }
 
-/** Fields the agent supplies to open a decision; the id/timestamps are minted. */
 export interface CreateDecisionInput {
   category: string;
   title: string;
   context: string;
   options: ContractDecisionOption[];
   recommendation?: string | null;
-  /** Set by a machine minter (issue #361); omitted when the agent opens the packet. */
   origin?: ContractDecisionOrigin;
-  /** The active change's ULID (issue #581); omitted when no change is active. */
   change?: string | null;
 }
 
-/** Mint a fresh, collision-free decision id (`D-<ULID>`). */
 export function mintDecisionId(): string {
   return `D-${ulid()}`;
 }
 
-/**
- * True when `id` is the collision-free `D-<ULID>` form (not legacy `D-{N}`). Delegates
- * to the single canonical write-time guard (`isStrictDecisionId`, issue #387) so the
- * contract-packet and automated-packet paths never carry divergent id regexes.
- */
 export function isContractDecisionId(id: string): boolean {
   return isStrictDecisionId(id);
 }
 
-/**
- * Reject any id that is not the collision-free `D-<ULID>` form. A hand-written
- * sequential `D-4` (or any other shape) throws here, so a new packet can only
- * ever carry a minted ULID id — the guarantee issue #272 needs at creation time.
- */
 export function assertContractDecisionId(id: string): void {
   if (!isContractDecisionId(id)) {
     throw new Error(
@@ -169,11 +109,6 @@ function validateCreateInput(input: CreateDecisionInput): string[] {
   return errors;
 }
 
-/**
- * Open a decision: mint a `D-<ULID>` id, build the pending packet from the
- * supplied content, and write it atomically to `.paqad/decisions/pending/`.
- * Returns the minted id and the absolute path written.
- */
 export function createPendingDecision(
   projectRoot: string,
   input: CreateDecisionInput,
@@ -189,8 +124,6 @@ export function createPendingDecision(
     category: input.category,
     title: input.title,
     context: input.context,
-    // Copy field by field so a caller cannot smuggle extra keys into the stored packet;
-    // `evidence` rides along only when the option actually carries it (issue #361).
     options: input.options.map((option) => ({
       option_key: option.option_key,
       label: option.label,
@@ -208,13 +141,6 @@ export function createPendingDecision(
   return { id, path };
 }
 
-/**
- * Resolve a pending decision: record the chosen option (and any free-text
- * rationale), move the packet from `pending/` to `resolved/`, and stamp
- * `resolved_at`. `chosen` must reference one of the packet's option keys. A packet opened with
- * no change is linked to `options.change` (the change active at resolve, issue #581); one that
- * already names a change keeps it. Returns the resolved packet and the absolute path written.
- */
 export function resolvePendingDecision(
   projectRoot: string,
   id: string,
@@ -249,13 +175,6 @@ export function resolvePendingDecision(
   return { path: resolvedPath, packet: resolved };
 }
 
-/**
- * The stored form of a contract packet (issue #639, Part 3): every contract field, plus the
- * rich `DecisionPacket` fields when the packet can carry them, so Approvals, the completion
- * gate and auto-answer read the same packet the contract readers do. A packet that cannot be a
- * `DecisionPacket` (a category outside the canonical list, or more than five options) is
- * stored in contract shape alone, exactly as before.
- */
 function withRichFields(packet: PendingContractDecision | ResolvedContractDecision): object {
   const contractOnly = { ...packet, options: packet.options.map(contractOption) };
   for (const key of RICH_ONLY_KEYS) delete (contractOnly as Record<string, unknown>)[key];
@@ -263,7 +182,6 @@ function withRichFields(packet: PendingContractDecision | ResolvedContractDecisi
   return rich === null ? contractOnly : { ...contractOnly, ...rich };
 }
 
-/** The rich-only keys, dropped before re-deriving so a stale copy never lingers. */
 const RICH_ONLY_KEYS = [
   'decision_id',
   'fingerprint',
@@ -277,7 +195,6 @@ const RICH_ONLY_KEYS = [
   'human_response',
 ] as const;
 
-/** An option reduced to its contract fields. */
 function contractOption(option: ContractDecisionOption): ContractDecisionOption {
   return {
     option_key: option.option_key,
@@ -286,7 +203,6 @@ function contractOption(option: ContractDecisionOption): ContractDecisionOption 
   };
 }
 
-/** A compact listing row for `paqad-ai decision list`. */
 export interface ContractDecisionListEntry {
   id: string;
   category: string;
@@ -294,19 +210,11 @@ export interface ContractDecisionListEntry {
   status: 'pending' | 'resolved';
 }
 
-/** A stored packet plus which directory it was read from. */
 export interface StoredContractDecision {
   packet: PendingContractDecision;
   status: 'pending' | 'resolved';
 }
 
-/**
- * Read every stored decision packet (pending first, then resolved, each id-sorted). The one
- * reader for the contract store: the CLI listing renders it, and the evidence-armed minter
- * (issue #361) scans the packets' contexts for its machine tokens. Tolerant by design — a
- * missing directory yields no rows and a malformed packet is skipped, so a partial store
- * never throws.
- */
 export function readContractDecisions(projectRoot: string): StoredContractDecision[] {
   const rows: StoredContractDecision[] = [];
   const sources = [
@@ -325,18 +233,12 @@ export function readContractDecisions(projectRoot: string): StoredContractDecisi
       try {
         const packet = JSON.parse(readFileSync(join(abs, file), 'utf8')) as PendingContractDecision;
         rows.push({ packet, status });
-      } catch {
-        // Skip a malformed packet — a broken file never breaks the read.
-      }
+      } catch {}
     }
   }
   return rows;
 }
 
-/**
- * List every decision packet (pending first, then resolved), for `paqad-ai decision
- * list`.
- */
 export function listContractDecisions(projectRoot: string): ContractDecisionListEntry[] {
   return readContractDecisions(projectRoot).map(({ packet, status }) => ({
     id: packet.id,
@@ -346,12 +248,6 @@ export function listContractDecisions(projectRoot: string): ContractDecisionList
   }));
 }
 
-/**
- * Append a write-in option to a pending packet and return its minted key. Honors the
- * Decision Pause Contract's "Other" flow without hand-editing the JSON: the user
- * picked a write-in answer, so the option is added to the packet before it resolves to
- * it. The key is `other` (or `other-2`, … on collision), never a duplicate.
- */
 export function addWriteInOption(projectRoot: string, id: string, label: string): string {
   assertContractDecisionId(id);
   if (label.trim().length === 0) {

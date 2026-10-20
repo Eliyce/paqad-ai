@@ -13,13 +13,10 @@ describe('CursorAdapter', () => {
     });
     expect(files[0]?.path).toBe('.cursor/rules/paqad.mdc');
     const content = files[0]?.content ?? '';
-    // Issue #229 — the entry file is now a lean stub: a one-line bootstrap
-    // pointer plus the graceful-degradation fallback clause and the footer.
     expect(content).toContain('.paqad/framework-path.txt');
     expect(content).toContain('AGENT-BOOTSTRAP.md');
     expect(content).toContain('Adapter:');
     expect(content).toContain('Do not block.');
-    // The load steps and contracts moved to the bootstrap; nothing inlined here.
     expect(content).not.toContain('docs/instructions');
     expect(content).not.toContain('create documentation');
     expect(content).not.toContain('## ');
@@ -34,7 +31,7 @@ describe('CursorAdapter', () => {
     ]);
   });
 
-  it('writes no MCP config at .cursor/mcp.json (issue #622)', async () => {
+  it('writes no MCP config at .cursor/mcp.json', async () => {
     expect(await adapter.installMcp()).toEqual([]);
   });
 

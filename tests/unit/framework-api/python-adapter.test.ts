@@ -15,10 +15,6 @@ import type { FrameworkApiAdapterInput, FrameworkApiIndex } from '@/framework-ap
 
 let root: string;
 
-/**
- * Install a distribution into a venv-shaped site-packages, with its dist-info METADATA and
- * whatever module files the test needs.
- */
 function install(
   dist: string,
   version: string,
@@ -44,7 +40,6 @@ function install(
   return { projectRoot: root, searchRoot: root, package: dist, version, packageDir };
 }
 
-/** Wrap an adapter result's symbols in a minimal index, so the query path can be used. */
 function asIndex(input: FrameworkApiAdapterInput): FrameworkApiIndex {
   const result = pythonFrameworkApiAdapter.index(input);
   if (!result.indexed) {

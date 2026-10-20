@@ -97,8 +97,6 @@ describe('Action Routing — end-to-end', () => {
       { taskKeywords: ['pentest', 'scan'], tokenBudget: 2000, symbolReferences: [] },
     );
 
-    // May or may not match depending on keyword overlap
-    // But result structure is always correct
     if (result.action_recommendations) {
       for (const rec of result.action_recommendations) {
         expect(rec.requires_user_approval).toBe(true);
@@ -148,9 +146,7 @@ describe('Action Routing — end-to-end', () => {
     if (result.action_recommendations) {
       for (const rec of result.action_recommendations) {
         for (const id of rec.evidence_chunk_ids) {
-          // IDs should be strings that look like chunk IDs (source file paths or similar)
           expect(typeof id).toBe('string');
-          // Should not be raw function body text
           expect(id).not.toMatch(/export function|return scanFor/);
         }
       }

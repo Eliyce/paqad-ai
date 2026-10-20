@@ -11,32 +11,14 @@ import type {
 
 export const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
 
-/**
- * A selectable local (transformers.js) embedding model (RAG buildout F23). Every entry
- * runs fully offline after a one-time shared download under `~/.paqad/models`. MiniLM is
- * the default FLOOR — small, fast, general-purpose; the code-tuned model is an opt-in
- * upgrade that closes the code-retrieval gap for offline / no-API-key users.
- */
 export interface LocalEmbeddingModel {
-  /** transformers.js model id (also the cache directory name). */
   id: string;
-  /** Short menu label. */
   label: string;
-  /** One-line description shown in the picker. */
   description: string;
-  /** True for code-tuned models (vs the general-purpose floor). */
   codeTuned: boolean;
-  /** True for the default floor model. Exactly one entry sets this. */
   isDefault?: boolean;
 }
 
-/**
- * The curated local embedding models. MiniLM stays the default floor; the code-tuned
- * model is opt-in and must clear the eval gate before it is recommended (the local
- * counterpart to the remote `voyage-code-3` option). Adding a model here surfaces it in
- * the `rag` setup picker — the local provider downloads any transformers.js
- * feature-extraction model, so the list is a curated, supported subset, not a hard limit.
- */
 export const LOCAL_EMBEDDING_MODELS: readonly LocalEmbeddingModel[] = [
   {
     id: 'Xenova/all-MiniLM-L6-v2',
@@ -55,11 +37,9 @@ export const LOCAL_EMBEDDING_MODELS: readonly LocalEmbeddingModel[] = [
   },
 ];
 
-/** The default local model (the floor). Single source of truth for `getDefaultEmbeddingModel`. */
 export const DEFAULT_LOCAL_EMBEDDING_MODEL =
   LOCAL_EMBEDDING_MODELS.find((model) => model.isDefault)?.id ?? 'Xenova/all-MiniLM-L6-v2';
 
-/** Whether `model` is one of the curated code-tuned local models (RAG buildout F23). */
 export function isCodeTunedLocalModel(model: string | undefined): boolean {
   return LOCAL_EMBEDDING_MODELS.some((entry) => entry.id === model && entry.codeTuned);
 }
@@ -87,12 +67,6 @@ export const DEFAULT_ACTION_ROUTING: ActionRoutingConfig = {
   enabled: false,
 };
 
-/**
- * Issue #356 — default hard token budget for the `## Existing surface` planning digest.
- * ~1000 tokens (≈4KB at 4 bytes/token): the ONE deliberate token spend in the reuse-aware
- * plan, precomputed in the background and capped/truncating, in place of the model burning
- * far more tokens grepping for (or rewriting) code that already exists.
- */
 export const DEFAULT_EXISTING_SURFACE_TOKENS = 1000;
 
 export const DEFAULT_BENCHMARK_GATES: BenchmarkGateConfig = {
@@ -119,10 +93,6 @@ export function defaultIntelligenceConfig(): IntelligenceConfig {
   return {
     rag_enabled: false,
     rag_similarity_threshold: 0.75,
-    // Issue #354 — chosen from live probe data on this repo: genuine on-target queries
-    // top out at 0.37-0.52 (local MiniLM cosine on hybrid-fused results), while a truly
-    // irrelevant query ("kubernetes ingress") tops at 0.32. 0.35 sits between: it
-    // delivers the weakest real hit and darkens the negative control.
     rag_relief_floor: 0.35,
     rag_top_n: 20,
     rag_max_file_size: 153600,

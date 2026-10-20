@@ -33,7 +33,6 @@ describe('paqad-voice canonical vocabulary', () => {
   it('renders the glyph legend with each glyph next to its word', () => {
     const legend = paqadGlyphLegend();
     expect(legend).toBe('🟢 good · 🔴 failed · 🟡 needs a look · ⚪ skipped');
-    // Stripping the emoji must leave a still-meaningful line.
     const stripped = legend
       .replace(/[🟢🔴🟡⚪]/gu, '')
       .replace(/\s+/g, ' ')
@@ -57,7 +56,6 @@ describe('paqad-voice canonical vocabulary', () => {
     ]) {
       expect(terms).toContain(expected);
     }
-    // No raw jargon leaks into the plain phrasing the agent is told to use.
     for (const { plain } of PAQAD_TERM_TRANSLATIONS) {
       expect(plain.toLowerCase()).not.toContain('mutation testing');
       expect(plain.toLowerCase()).not.toContain('quality ratchet');

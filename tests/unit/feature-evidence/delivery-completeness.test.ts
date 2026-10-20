@@ -31,9 +31,8 @@ afterEach(() => {
 
 const AT = '2026-09-04T00:00:00.000Z';
 const DIR_A = 'a-thing-01JABCDEFGHJKMNPQRSTVWXYZ0';
-const DIR_B = 'b-thing-01JABCDEFGHJKMNPQRSTVWXYZ9'; // higher ULID → newer
+const DIR_B = 'b-thing-01JABCDEFGHJKMNPQRSTVWXYZ9';
 
-/** Seed a bundle on `branch` the way the open path does: the branch lives on feature.json. */
 function seedOnBranch(root: string, dirName: string, branch: string): void {
   seedFeatureRecord(root, dirName, {
     adapter: 'a',
@@ -80,7 +79,7 @@ describe('seedFeatureDelivery', () => {
     expect(again.commit_decision!.answer).toBe('commit');
   });
 
-  it('stamps the session that opened the change when the writer has none (issue #581)', () => {
+  it('stamps the session that opened the change when the writer has none', () => {
     const root = tempRepo();
     seedFeatureRecord(root, DIR_A, {
       adapter: 'a',
@@ -124,7 +123,6 @@ describe('resolveDeliveryFeatureByBranch status tie-break (RC-2.3)', () => {
     const root = tempRepo();
     seedOnBranch(root, DIR_A, 'feat/shared');
     seedOnBranch(root, DIR_B, 'feat/shared');
-    // B is newer but done; A is older but active → A wins.
     updateFeatureRecord(root, DIR_B, { status: 'done' }, () => new Date(AT));
     expect(resolveDeliveryFeatureByBranch(root, 'feat/shared')).toBe(DIR_A);
   });
@@ -139,14 +137,14 @@ describe('resolveDeliveryFeatureByBranch status tie-break (RC-2.3)', () => {
   });
 });
 
-describe('featureDeliveryBranch (issue #581)', () => {
+describe('featureDeliveryBranch', () => {
   it('reads the branch from feature.json', () => {
     const root = tempRepo();
     seedOnBranch(root, DIR_A, 'feat/x');
     expect(featureDeliveryBranch(root, DIR_A)).toBe('feat/x');
   });
 
-  it('falls back to the branch a pre-#581 delivery.json carried (INV-8)', () => {
+  it('falls back to the branch a pre-envelope delivery.json carried (INV-8)', () => {
     const root = tempRepo();
     const dir = join(root, '.paqad/ledger/feature-evidence', DIR_A);
     mkdirSync(dir, { recursive: true });

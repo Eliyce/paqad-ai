@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// ticket-intake-prompt.mjs — UserPromptSubmit hook (issue #322).
-//
-// The deterministic prompt seam for ticket intake: when the user's prompt names a
-// tracker ticket (Jira `PROJ-123` / GitHub `#123`), emit a `▸ paqad` systemMessage
-// arming intake — "detected PQD-123 — run `paqad-ai intake fetch PQD-123`" — so the
-// spec grounds in the REAL ticket instead of a guess from the id. Advisory only: it
-// never blocks and never fetches (fetch is the explicit CLI verb it names). On hosts
-// with no systemMessage-on-prompt seam this hook simply isn't wired.
-//
-// Best-effort and non-blocking: any error (no dist, no payload, disabled) exits 0
-// with no output, so it can never wedge or contaminate a turn.
 
 import process from 'node:process';
 
@@ -23,7 +12,6 @@ import {
 
 async function main(rawInput) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(rawInput));
-  // Disabled → pure no-op (no stdout), so an OFF A/B arm is never contaminated.
   if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(rawInput))) return 0;
 
   let payload;
@@ -35,30 +23,19 @@ async function main(rawInput) {
   const prompt = typeof payload?.prompt === 'string' ? payload.prompt : '';
   if (!prompt) return 0;
 
-  // Issue #615 (Part 5) — a slash command (/code-review, /claude-api, …) reaches this hook as the
-  // raw typed line before the host expands it. It is never a ticket, so arm nothing. Dist-less and
-  // checked before any import, so it holds even when the compiled seam is unavailable.
   if (prompt.trimStart().startsWith('/')) return 0;
 
   try {
-    // Issue #615 (Part 2) — a Desktop system notice (banner- or element-led) is not a ticket
-    // intake. Reuse the one matcher from the routing seam (imported from dist, the same way the
-    // detector below is) so routing and intake agree on what a notification is; a banner-led
-    // background report that merely mentions #409/#582 must not arm intake.
     const laneUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
     const { isSystemNotificationPrompt } = await import(laneUrl.href);
     if (isSystemNotificationPrompt(prompt)) return 0;
 
     const distUrl = new URL('../../dist/planning/ticket-ref-detect.js', import.meta.url);
     const { detectTicketRefs, armIntakeNarration } = await import(distUrl.href);
-    // 'generic' matches both Jira- and GitHub-style refs — a project that has not
-    // pinned a tracker still gets the nudge; the arming line is advisory either way.
     const refs = detectTicketRefs(prompt, 'generic');
     const line = armIntakeNarration(refs);
     if (line) process.stdout.write(line + '\n');
   } catch (error) {
-    // No nudge this turn — but record why, so a missing compiled half is diagnosable
-    // instead of silent (issue #573). Never throws.
     logHookFailure(projectRoot, 'ticket-intake-prompt', error, 'detecting ticket refs');
   }
   return 0;

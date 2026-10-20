@@ -17,7 +17,6 @@ import {
 } from '@/feature-evidence/manifest.js';
 import { FEATURE_BUNDLE_FILES } from '@/feature-evidence/paths.js';
 
-/** All flags on — every predicate-required file is required. */
 const ALL_ON: BundleCompletenessConfig = {
   lane: 'full',
   ruleComplianceOn: true,
@@ -36,7 +35,6 @@ const ALL_ON: BundleCompletenessConfig = {
   stageIsolationUnresolved: false,
 };
 
-/** All flags off — only the `always` files are required. */
 const ALL_OFF: BundleCompletenessConfig = {
   lane: 'full',
   ruleComplianceOn: false,
@@ -55,9 +53,8 @@ const ALL_OFF: BundleCompletenessConfig = {
   stageIsolationUnresolved: false,
 };
 
-// Issue #547 — the strict-adoption content check (FR-10.2 / AC-12).
 describe('validateSpecificationAdoption', () => {
-  it('reads the pipeline section of a record frozen since #581', () => {
+  it('reads the pipeline section of a record frozen since the evidence envelope', () => {
     expect(validateSpecificationAdoption(JSON.stringify({ pipeline: { produced: true } })).ok).toBe(
       true,
     );
@@ -69,7 +66,6 @@ describe('validateSpecificationAdoption', () => {
     expect(
       validateSpecificationAdoption(JSON.stringify({ pipeline: { produced: false } })).ok,
     ).toBe(false);
-    // The pipeline section wins over a stale provenance block.
     expect(
       validateSpecificationAdoption(
         JSON.stringify({ pipeline: { produced: false }, provenance: { pipeline_produced: true } }),
@@ -94,8 +90,6 @@ describe('validateSpecificationAdoption', () => {
     expect(readSpecAdoption('x')).toBeNull();
   });
 
-  // Issue #640 — a fast-lane freeze records that the fast lane skipped the pipeline, so it is not
-  // a pre-pipeline spec, and the strict check (only reached off the fast lane) asks for a re-freeze.
   it('reads a fast-lane freeze as recorded, not pre-pipeline, and asks for a re-freeze', () => {
     const fast = { pipeline: { produced: false, skipped: 'fast-lane' } };
     expect(isSpecFrozenBeforePipeline(fast)).toBe(false);
@@ -144,7 +138,6 @@ describe('bundle manifest', () => {
       expect(covered.has(key as never)).toBe(true);
     }
     expect(covered.has('report')).toBe(true);
-    // No stray keys: every manifest entry maps to a real bundle file or report.html.
     const known = new Set<string>([...Object.keys(FEATURE_BUNDLE_FILES), 'report']);
     for (const entry of BUNDLE_MANIFEST) {
       expect(known.has(entry.key)).toBe(true);
@@ -171,9 +164,7 @@ describe('bundle manifest', () => {
         'review',
         'stageEvidence',
         'delivery',
-        // Issue #581 — evidence.jsonl is always on, whatever the enterprise toggles.
         'evidence',
-        // Issue #581 — the signed spec source.
         'specMd',
       ]),
     );
@@ -219,18 +210,16 @@ describe('bundle manifest', () => {
     expect(requiredBundleFiles(bomWithoutEnterprise).map((e) => e.key)).not.toContain('aiBom');
   });
 
-  it('treats checks.json as optional — never required, never flag-gated (#528)', () => {
+  it('treats checks.json as optional — never required, never flag-gated', () => {
     const checks = BUNDLE_MANIFEST.find((entry) => entry.key === 'checks');
     expect(checks?.required).toBe('optional');
-    // Optional means never required, under any config.
     expect(isBundleFileRequired(checks!, ALL_ON)).toBe(false);
     expect(isBundleFileRequired(checks!, ALL_OFF)).toBe(false);
-    // And so it is never part of the required work list either way.
     expect(requiredBundleFiles(ALL_ON).map((e) => e.key)).not.toContain('checks');
     expect(requiredBundleFiles(ALL_OFF).map((e) => e.key)).not.toContain('checks');
   });
 
-  it('treats decisions.json as optional (#581)', () => {
+  it('treats decisions.json as optional', () => {
     const decisions = BUNDLE_MANIFEST.find((entry) => entry.key === 'decisions');
     expect(decisions?.required).toBe('optional');
     expect(requiredBundleFiles(ALL_ON).map((e) => e.key)).not.toContain('decisions');
@@ -267,10 +256,7 @@ describe('validateBundleFileContent', () => {
   });
 });
 
-// Issue #581 — the M0-M5 file-set oracle from the issue. rules-loaded.json and
-// visual-evidence.json are in the oracle's lists but are 'optional' here: their dedicated gates
-// (rulesLoadedGate, VisualEvidenceGate) enforce them with signals this manifest does not have.
-describe('the #581 M0-M5 required file sets', () => {
+describe('the M0-M5 required file sets', () => {
   const M0: BundleCompletenessConfig = ALL_OFF;
   const M1: BundleCompletenessConfig = {
     ...ALL_OFF,
@@ -333,9 +319,7 @@ describe('the #581 M0-M5 required file sets', () => {
   });
 });
 
-// Issue #640 (FR-13) — the spec-pipeline files and the strict provenance check apply only on the
-// graduated and full lanes; an unresolved lane fails safe to full; the fast lane never needs them.
-describe('lane-aware spec-pipeline requiredness (issue #640, FR-13)', () => {
+describe('lane-aware spec-pipeline requiredness', () => {
   const PIPELINE_FILES = ['request.md', 'clarification.json', 'experts.json'];
   const pipelineFilesFor = (config: BundleCompletenessConfig): string[] =>
     requiredBundleFiles(config)
@@ -357,11 +341,10 @@ describe('lane-aware spec-pipeline requiredness (issue #640, FR-13)', () => {
     expect(pipelineFilesFor(fast)).toEqual([]);
     expect(specPipelineApplies(fast)).toBe(false);
     expect(specPipelineStrictApplies(fast)).toBe(false);
-    // Everything else the flags turn on is still required on the fast lane.
     expect(requiredBundleFiles(fast).length).toBe(requiredBundleFiles(ALL_ON).length - 3);
   });
 
-  it('does not ask a spec frozen before the pipeline was on for its files (issue #640)', () => {
+  it('does not ask a spec frozen before the pipeline was on for its files', () => {
     const preSwitch: BundleCompletenessConfig = { ...ALL_ON, specFrozenBeforePipeline: true };
     expect(pipelineFilesFor(preSwitch)).toEqual([]);
     expect(specPipelineApplies(preSwitch)).toBe(false);
@@ -384,7 +367,6 @@ describe('lane-aware spec-pipeline requiredness (issue #640, FR-13)', () => {
   });
 });
 
-// Issue #640 — a spec frozen while the pipeline was off carries no pipeline record at all.
 describe('isSpecFrozenBeforePipeline', () => {
   it('reads a frozen record with no pipeline or provenance section as pre-switch', () => {
     expect(isSpecFrozenBeforePipeline({ spec_file: 'spec.md', spec_hash: 'abc' })).toBe(true);
@@ -392,7 +374,6 @@ describe('isSpecFrozenBeforePipeline', () => {
 
   it('never reads a record that names how it was produced as pre-switch', () => {
     expect(isSpecFrozenBeforePipeline({ pipeline: { produced: true } })).toBe(false);
-    // A hand-written spec frozen with the pipeline on (warn, or strict with --manual --reason).
     expect(isSpecFrozenBeforePipeline({ pipeline: { produced: false } })).toBe(false);
     expect(
       isSpecFrozenBeforePipeline({ pipeline: { produced: false, manual_reason: 'hotfix' } }),

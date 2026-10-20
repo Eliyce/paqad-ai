@@ -1,8 +1,3 @@
-// The orchestrator: gather raw inputs through an injectable HealthGatherer,
-// assemble the report (pure), and dual-write the outputs. Tests drive the whole
-// run offline with a fake gatherer; the production gatherer (real shell-outs) is
-// `createHealthGatherer` in ./gatherer.ts (excluded from coverage, like pentest).
-
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
@@ -28,7 +23,6 @@ import type {
   StaleDocCandidate,
 } from './detectors.js';
 
-/** Everything the run needs from the outside world — injected for tests. */
 export interface HealthGatherer {
   availability(): HealthToolStatus[];
   stack(): Promise<{ primary: string; traits: string[]; toolchains: string[] }>;
@@ -61,11 +55,9 @@ export interface HealthRunResult {
   finding_count: number;
   blocked_checks: HealthBlockedCheck[];
   baseline_created: boolean;
-  /** 0 clean · 1 findings · (2 is reserved for the CLI on an unexpected error). */
   exit_code: 0 | 1;
 }
 
-/** Run the full audit and dual-write the report. */
 export async function runHealthAudit(options: HealthRunOptions): Promise<HealthRunResult> {
   const { projectRoot } = options;
   const offline = options.offline ?? false;

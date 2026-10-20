@@ -1,15 +1,9 @@
-// Codebase-health workflow types (issue #355). Deliberately separate from the
-// framework self-health checker in `src/core/types/health.ts` (HealthReport et al.):
-// this is the on-demand project audit — dead code, unused/risky deps, secrets,
-// stale docs, and AI slop — modelled on the pentest finding/retest/report shapes.
-
 export const HEALTH_WORKFLOWS = ['codebase-health', 'health-retest'] as const;
 export type HealthWorkflowName = (typeof HEALTH_WORKFLOWS)[number];
 
 export const HEALTH_SEVERITIES = ['high', 'medium', 'low'] as const;
 export type HealthSeverity = (typeof HEALTH_SEVERITIES)[number];
 
-/** The six kinds of junk, expressed as eight machine categories. */
 export const HEALTH_CATEGORIES = [
   'unused-dependency',
   'vulnerable-dependency',
@@ -22,7 +16,6 @@ export const HEALTH_CATEGORIES = [
 ] as const;
 export type HealthCategory = (typeof HEALTH_CATEGORIES)[number];
 
-/** Whether a finding was mechanically proven or is a candidate the AI must judge. */
 export const HEALTH_TIERS = ['deterministic', 'ai-judged'] as const;
 export type HealthTier = (typeof HEALTH_TIERS)[number];
 
@@ -61,7 +54,6 @@ export type HealthRunStepStatus = (typeof HEALTH_RUN_STEP_STATUSES)[number];
 export const HEALTH_RUN_STATUSES = ['running', 'completed', 'blocked', 'failed'] as const;
 export type HealthRunStatus = (typeof HEALTH_RUN_STATUSES)[number];
 
-/** What to do about a finding — the plain-words next action. */
 export interface HealthSuggestion {
   action: HealthSuggestionAction;
   detail: string;
@@ -70,19 +62,15 @@ export interface HealthSuggestion {
 export interface HealthFinding {
   id: string;
   title: string;
-  /** The reason it matters, in plain words. */
   description: string;
   category: HealthCategory;
   severity: HealthSeverity;
   tier: HealthTier;
-  /** 0..1 — deterministic findings sit high; ai-judged carry the model's grade. */
   confidence: number;
-  /** Proof: tool/source + machine-readable location + a copy-paste reproduce command. */
   evidence: string[];
   suggestion: HealthSuggestion;
   affected_files: string[];
   affected_packages: string[];
-  /** True when the check needs the network (deprecation registry, EOL data). */
   requires_network: boolean;
   baseline_status: HealthBaselineStatus;
   status: HealthFindingStatus;
@@ -92,14 +80,12 @@ export interface HealthRetestFinding extends HealthFinding {
   retest_status: HealthRetestStatus;
 }
 
-/** A category (or sub-check) that could not run, with an actionable hint. */
 export interface HealthBlockedCheck {
   check: string;
   reason: string;
   install_hint: string;
 }
 
-/** Availability of an external scanner and which categories it powers. */
 export interface HealthToolStatus {
   tool: string;
   available: boolean;
@@ -138,7 +124,6 @@ export interface HealthReportIndex {
   raw_evidence_paths: string[];
 }
 
-/** Persisted first-run fingerprint set that powers the new-vs-pre-existing ratchet. */
 export interface HealthBaseline {
   schema_version: '1';
   generated_by: 'paqad-ai';

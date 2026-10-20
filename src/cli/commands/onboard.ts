@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { Command } from 'commander';
 
 import { isNpmAvailable } from '@/core/npm-available.js';
@@ -19,16 +20,41 @@ interface OnboardOptions {
   nonInteractive?: boolean;
 }
 
-/** In non-interactive mode, the first full-override flag that is missing (null when complete). */
 function firstMissingNonInteractiveFlag(
   options: OnboardOptions,
   npmAvailable: boolean,
 ): string | null {
-  // With no npm only claude-code can be wired, so --providers defaults rather than being required.
   if (npmAvailable && (!options.providers || options.providers.length === 0)) return '--providers';
   if (!options.stack) return '--stack';
   if (!options.capability || options.capability.length === 0) return '--capability';
   return null;
+}
+
+interface OnboardingNotices {
+  warnings?: readonly string[];
+  kept_files?: readonly string[];
+  drift_review_targets?: readonly string[];
+}
+
+function printOnboardingNotices(result: OnboardingNotices | undefined): void {
+  const kept = new Set(result?.kept_files ?? []).size;
+  const drift = [...new Set(result?.drift_review_targets ?? [])];
+  const warnings = [...new Set(result?.warnings ?? [])];
+  if (kept === 0 && drift.length === 0 && warnings.length === 0) return;
+
+  const tty = Boolean(process.stdout.isTTY);
+  process.stdout.write('\n');
+  if (kept > 0) {
+    process.stdout.write(`Kept ${kept} existing ${kept === 1 ? 'file' : 'files'} unchanged.\n`);
+  }
+  if (drift.length > 0) {
+    process.stdout.write('Review these for drift:\n');
+    for (const target of drift) process.stdout.write(`  ${target}\n`);
+  }
+  for (const warning of warnings) {
+    const line = `⚠ ${warning}`;
+    process.stdout.write(`${tty ? chalk.yellow(line) : line}\n`);
+  }
 }
 
 export function createOnboardCommand(): Command {
@@ -49,7 +75,6 @@ export function createOnboardCommand(): Command {
       'Never prompt; requires the selection flags (exit 2 with `missing --<flag>` when one is absent and stdin is not a TTY)',
     )
     .action(async (options: OnboardOptions) => {
-      // --detect: a read-only preview of what onboarding would target. Writes nothing.
       if (options.detect) {
         const detection = await new Detector().detect(options.projectRoot);
         const report = {
@@ -73,9 +98,6 @@ export function createOnboardCommand(): Command {
         return;
       }
 
-      // Issue #641 — a bad `--stack` used to surface the opaque schema error
-      // "must be equal to one of the allowed values". Validate it here and name the valid
-      // stacks so the fix is obvious (e.g. `node` → `node-library` / `node-cli` / `node-service`).
       if (options.stack && !(STACKS as readonly string[]).includes(options.stack)) {
         process.stderr.write(
           `unknown stack "${options.stack}". Valid stacks: ${STACKS.join(', ')}\n`,
@@ -86,7 +108,6 @@ export function createOnboardCommand(): Command {
 
       const npmAvailable = isNpmAvailable();
 
-      // --non-interactive: a missing answer with no TTY is a hard, scripted failure, never a prompt.
       if (options.nonInteractive) {
         const missing = firstMissingNonInteractiveFlag(options, npmAvailable);
         if (missing && !process.stdin.isTTY) {
@@ -96,8 +117,6 @@ export function createOnboardCommand(): Command {
         }
       }
 
-      // Without npm only the Claude Code plugin itself can be wired; the other providers ship via the
-      // npm package. Default to claude-code and reject any other explicit choice.
       let providers = options.providers;
       if (!npmAvailable) {
         if (providers && providers.some((p) => p !== 'claude-code')) {
@@ -117,8 +136,7 @@ export function createOnboardCommand(): Command {
           ? { enabled: true }
           : options.rag === 'off'
             ? { enabled: false }
-            : // In non-interactive mode default RAG off so the RAG opt-in never prompts on a TTY.
-              options.nonInteractive
+            : options.nonInteractive
               ? { enabled: false }
               : undefined;
 
@@ -137,18 +155,11 @@ export function createOnboardCommand(): Command {
               rag,
             }
           : undefined,
-        // Print the success banner as soon as the project is fully written to disk.
-        // The optional RAG phase runs after this and cannot drop core onboarding state
-        // even if it prompts, hangs, or fails. See #62.
         onPhase1Complete: () => {
           printNextSteps();
         },
       });
 
-      // No-migration safety net: if a legacy fat profile carried non-default
-      // framework values, the hard-cutover strip just reverted them to code
-      // defaults. Print a one-time, prominent notice so the revert is never
-      // silent. A clean onboard reverts nothing, so this stays quiet.
       const reverted = result?.reverted_framework_values ?? [];
       if (reverted.length > 0) {
         console.warn(
@@ -159,10 +170,11 @@ export function createOnboardCommand(): Command {
         );
       }
 
-      // Codex needs a one-time /hooks trust step for its project hooks (issue #566).
       const codexHint = codexTrustHint(result?.decision_pause_supported_adapters);
       if (codexHint) {
         console.log(`\n${codexHint}`);
       }
+
+      printOnboardingNotices(result);
     });
 }

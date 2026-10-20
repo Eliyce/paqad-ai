@@ -1,7 +1,3 @@
-// AJV schema for `paqad.stage-evidence` rows (issue #247). Framework-owned, lives
-// in src/ (never under .paqad/), so the LLM can never weaken it. Every recorded row
-// is validated against this before it is appended.
-
 import Ajv, { type ValidateFunction } from 'ajv';
 
 import { ENVELOPE_HEADER_PROPERTIES } from '@/feature-evidence/schema.js';
@@ -19,7 +15,6 @@ import {
 
 const nullableString = { type: ['string', 'null'] } as const;
 
-// Fields every version of a row may carry (the per-row facts, never a session constant).
 const ROW_PROPERTIES = {
   stage: nullableString,
   event_status: {
@@ -33,27 +28,11 @@ const ROW_PROPERTIES = {
   artifact_paths: { type: ['array', 'null'], items: { type: 'string' } },
   artifact_digest: nullableString,
   subject_digest: nullableString,
-  // Which agent produced this row (issue #573): `orchestrator` when the main chat wrote
-  // it, or the dispatched stage agent's name (`paqad-development`). REQUIRED, because the
-  // single write chokepoint (`appendFeatureStageRow`) always supplies it, so a row that
-  // reaches validation without one is a script bug, not a legacy row. Reads never run this
-  // validator (`readUnitFile` -> `readJsonl`), so rows written before #573 stay readable.
   agent: { type: 'string', minLength: 1 },
-  // Where the row's session id came from (issue #582): a hook payload (`host`), the
-  // flag/environment (`env`), or the shared cache file (`cache`). Optional and nullable,
-  // so rows written before it existed still validate; a `cache` row never counts as an
-  // edit made this turn by the completion check.
   session_source: { type: ['string', 'null'], enum: ['host', 'env', 'cache', null] },
   note: nullableString,
 } as const;
 
-/**
- * The current row shape (schema version 2, issue #581). A row carries the one bundle envelope
- * header (`schema_version`, `doc_type`, `change` = the folder-name ULID, `session_id`,
- * `recorded_at`, `content_hash`) and only what changes per row: the session constants
- * (`adapter`, `branch`, `lane`) live once, on `feature.json`, so the schema rejects them
- * here (AC-6), and the retired `conversation_ordinal` and `ts` are gone too.
- */
 export const STAGE_EVIDENCE_SCHEMA = {
   $id: 'paqad://schemas/stage-evidence.json',
   type: 'object',
@@ -72,10 +51,6 @@ export const STAGE_EVIDENCE_SCHEMA = {
     ...ENVELOPE_HEADER_PROPERTIES,
     schema_version: { type: 'integer', const: STAGE_EVIDENCE_SCHEMA_VERSION },
     doc_type: { const: STAGE_EVIDENCE_DOC_TYPE },
-    // Issue #581 (FR-7, D9) — `stage-agent` is one dispatched stage agent's footprint. It
-    // replaces the separate context-efficiency.jsonl stream, and the fold ignores it.
-    // Issue #581 (FR-7) — `spec-step` (one spec-pipeline step, replacing the run's log.jsonl)
-    // and `spec-correction` (a later edit to a frozen spec, replacing corrections.jsonl).
     kind: {
       enum: [
         ...STAGE_FAMILY_KIND_LIST,
@@ -86,24 +61,15 @@ export const STAGE_EVIDENCE_SCHEMA = {
       ],
     },
     ...ROW_PROPERTIES,
-    // The `completion-deferred` fields (issue #615, Part 4): why the Stop seam stepped aside and
-    // how many background tasks were in flight when it did.
     reason: { type: 'string', minLength: 1 },
     tasks: { type: 'integer', minimum: 0 },
-    // The `stage-agent` fields: tokens the stage agent used (input + output), the carried
-    // history the orchestrator did not re-send, and whether those counts are estimated.
     tokens_used: { type: 'integer', minimum: 0 },
     tokens_not_recarried: { type: 'integer', minimum: 0 },
     estimate: { type: 'boolean' },
-    // The `spec-step` fields: which step, how it ended, the hash of what it recorded, and the
-    // tokens the agent reported for it when it reported any. Never the enforcement block,
-    // which is stored once, on the frozen spec (AC-11). `step` is not an enum here: the
-    // feature-development path never imports the spec pipeline (FR-11), whose writer is typed.
     step: { type: 'string', minLength: 1 },
     outcome: { enum: SPEC_STEP_OUTCOMES },
     artifact_hash: { type: 'string' },
     tokens: { type: 'integer', minimum: 0 },
-    // The `spec-correction` fields: which frozen spec moved and which of its sections changed.
     spec_id: { type: 'string', minLength: 1 },
     changed_sections: { type: 'array', items: { type: 'string' } },
   },
@@ -127,12 +93,6 @@ export const STAGE_EVIDENCE_SCHEMA = {
   ],
 } as const;
 
-/**
- * The pre-#581 row shape (schema version 1): a `ts` and a `conversation_ordinal` instead of
- * the envelope's `recorded_at` and `change`, the `adapter` on every row, and the `lane`
- * and `branch` on the open row (issue #404). Kept so an old row still validates (INV-8);
- * no writer produces it any more (INV-9).
- */
 export const STAGE_EVIDENCE_SCHEMA_V1 = {
   $id: 'paqad://schemas/stage-evidence-v1.json',
   type: 'object',
@@ -166,7 +126,6 @@ export const STAGE_EVIDENCE_SCHEMA_V1 = {
 const ajv = new Ajv({ allErrors: true, allowUnionTypes: true });
 let compiled: { current: ValidateFunction; v1: ValidateFunction } | undefined;
 
-/** The validator for a row's own version: a v1 row is judged by the v1 shape, else current. */
 function validator(row: unknown): ValidateFunction {
   compiled ??= {
     current: ajv.compile(STAGE_EVIDENCE_SCHEMA),
@@ -176,19 +135,15 @@ function validator(row: unknown): ValidateFunction {
   return version === 1 ? compiled.v1 : compiled.current;
 }
 
-/** One human-readable line for a validation error. Exported so the fallback arms
- *  (root-level path, ajv omitting a message) stay directly testable. */
 export function formatValidationError(error: { instancePath?: string; message?: string }): string {
   return `${error.instancePath || '(root)'} ${error.message ?? 'invalid'}`;
 }
 
-/** Returns `[]` when the row is a valid `paqad.stage-evidence` row, else error strings. */
 export function validateStageEvidenceRow(row: unknown): string[] {
   const validate = validator(row);
   if (validate(row)) {
     return [];
   }
-  // ajv's contract: a false return always populates `errors` — no fallback branch.
   const errors = validate.errors as NonNullable<typeof validate.errors>;
   return errors.map(formatValidationError);
 }

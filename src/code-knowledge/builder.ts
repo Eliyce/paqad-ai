@@ -1,9 +1,3 @@
-// The code-knowledge index builder (issue #353). Orchestrates the deterministic,
-// offline pipeline: scan the working tree (gitignore-respecting) -> read + extract
-// symbols per file -> resolve import/reference edges -> derive reachability -> derive
-// dependency usage -> stamp a freshness header. No LLM, no network. The clock and
-// git state are injectable so tests are deterministic.
-
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
@@ -19,17 +13,13 @@ import { extractSymbols } from './symbol-extractor.js';
 import { CODE_KNOWLEDGE_SCHEMA_VERSION } from './types.js';
 import type { CodeKnowledgeIndex, CodeKnowledgeSymbol } from './types.js';
 
-/** Languages the index covers: TS/JS fully, PHP/Dart at the file level. */
 export const SOURCE_GLOBS = ['**/*.{ts,tsx,js,jsx,mjs,cjs,php,dart}'];
 
 export interface BuildOptions {
-  /** Injectable clock for a deterministic `generated_at`. */
   now?: () => string;
-  /** Injectable git state; defaults to reading the real repo. */
   gitState?: { branch?: string | null; head_commit?: string | null };
 }
 
-/** Read the source of every scanned file; an unreadable file is skipped. */
 export async function readSourceFiles(
   projectRoot: string,
   files: string[],
@@ -38,14 +28,11 @@ export async function readSourceFiles(
   for (const rel of files) {
     try {
       contentByFile.set(rel, await readFile(join(projectRoot, rel), 'utf8'));
-    } catch {
-      // Unreadable (race with a delete, permissions) -> omit; never fail the build.
-    }
+    } catch {}
   }
   return contentByFile;
 }
 
-/** Extract symbols per file and the exported-name set each file provides. */
 function extractAll(files: string[], contentByFile: Map<string, string>) {
   const rawSymbols: Array<{ file: string; symbol: ReturnType<typeof extractSymbols>[number] }> = [];
   const exportsByFile = new Map<string, Set<string>>();
@@ -65,7 +52,6 @@ function extractAll(files: string[], contentByFile: Map<string, string>) {
   return { rawSymbols, exportsByFile };
 }
 
-/** Build the full code-knowledge index for a project. */
 export async function buildCodeKnowledgeIndex(
   projectRoot: string,
   options: BuildOptions = {},

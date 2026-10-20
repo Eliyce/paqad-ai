@@ -52,7 +52,7 @@ describe('runDuplicationScan', () => {
     expect(readDuplicationReport(root)).toEqual(report);
   });
 
-  it('#468: additively writes the run into the active feature bundle (no-op with none)', async () => {
+  it('additively writes the run into the active feature bundle (no-op with none)', async () => {
     const root = nearCopyProject();
     const dir = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
@@ -71,7 +71,6 @@ describe('runDuplicationScan', () => {
     const rows = readDuplication(root, dir);
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ mode: 'strict', blocking: report.blocking });
-    // Issue #639 (AC-27) — the row names the near-copy, not just its count.
     const finding = report.findings[0]!;
     expect(rows[0]).toMatchObject({
       findings: [
@@ -86,12 +85,10 @@ describe('runDuplicationScan', () => {
       ],
       findings_overflow: 0,
     });
-    // The old-home cache write is untouched.
     expect(readDuplicationReport(root)).toEqual(report);
   });
 
   it('resolves changed files from change-evidence when none are passed', async () => {
-    // No changedFiles and no clock injected: exercises the git-status fallback and real clock.
     const root = nearCopyProject();
     const report = await runDuplicationScan({
       projectRoot: root,
@@ -118,7 +115,6 @@ describe('runDuplicationScan', () => {
   it('AC-5: a resolved create-vs-reuse decision unblocks the finding and is noted', async () => {
     const root = nearCopyProject();
     const strict = { mode: 'strict' as const, similarityThreshold: 0.9, minLines: 8 };
-    // Reproduce the finding to build the decision context against it.
     const [finding] = await detectNewCodeDuplication({
       projectRoot: root,
       changedFiles: ['src/stamp.ts'],
@@ -153,7 +149,6 @@ describe('runDuplicationScan', () => {
     writeProjectFile(root, 'src/dates.ts', `${HELPER}\n`);
     commitAll(root);
     writeChunkIndex(root, { 'src/dates.ts': HELPER });
-    // Two independent near-copies in two changed files.
     writeProjectFile(root, 'src/stamp.ts', `${NEAR_COPY}\n`);
     writeProjectFile(root, 'src/clock.ts', `${HELPER.replace('formatIsoDate', 'toClock')}\n`);
     const strict = { mode: 'strict' as const, similarityThreshold: 0.9, minLines: 8 };
@@ -184,7 +179,6 @@ describe('runDuplicationScan', () => {
       corroborate: false,
       clock,
     });
-    // clock.ts still blocks; stamp.ts was downgraded to heuristic.
     expect(report.blocking).toBe(true);
     const byFile = Object.fromEntries(
       report.findings.map((finding) => [finding.file, finding.kind]),
@@ -194,7 +188,7 @@ describe('runDuplicationScan', () => {
   });
 });
 
-describe('evidence-armed pause from a blocking finding (#361)', () => {
+describe('evidence-armed pause from a blocking finding', () => {
   it('opens a create-vs-reuse pause for the blocking finding in strict arm mode', async () => {
     const root = nearCopyProject();
     writeProjectFile(root, '.paqad/configs/.config.policy', 'decision_arm_mode=strict\n');

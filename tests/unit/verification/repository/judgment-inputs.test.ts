@@ -54,7 +54,7 @@ function specReview(defects: SpecReviewDefect[]): SpecReviewReport {
   return { metadata: {}, defects } as SpecReviewReport;
 }
 
-describe('computeAcTestMapping (#639 Part 11)', () => {
+describe('computeAcTestMapping', () => {
   it('AC-32: reads not required when there is no frozen spec', () => {
     const signal = computeAcTestMapping({ specFrozen: false, map: null });
     expect(signal).toEqual({
@@ -148,6 +148,55 @@ describe('computeImplementationReview', () => {
       decision_id: 'D-1',
     });
     expect(result.findings[0].detail).toContain('D-1');
+  });
+});
+
+describe('computeImplementationReview by when each decision was opened', () => {
+  const EDIT = '2026-05-01T10:00:00.000Z';
+  function opened(id: string, createdAt: string): DecisionPacket {
+    return { ...decisionPacket(id), created_at: createdAt } as DecisionPacket;
+  }
+
+  it('blocks a decision opened before the last source edit and lists a later one as waiting', () => {
+    const result = computeImplementationReview(
+      [opened('D-early', '2026-05-01T09:00:00.000Z'), opened('D-late', '2026-05-01T11:00:00.000Z')],
+      EDIT,
+    );
+    expect(result.passed).toBe(false);
+    expect(result.findings.map((finding) => finding.decision_id)).toEqual(['D-early']);
+    expect(result.waiting).toEqual([
+      { decision_id: 'D-late', category: 'architecture', question: 'Which approach?' },
+    ]);
+  });
+
+  it('passes when every pending decision was opened after the last source edit', () => {
+    const result = computeImplementationReview(
+      [opened('D-late', '2026-05-01T11:00:00.000Z')],
+      EDIT,
+    );
+    expect(result.passed).toBe(true);
+    expect(result.findings).toEqual([]);
+    expect(result.waiting).toHaveLength(1);
+  });
+
+  it('blocks a decision opened at the same moment as the last edit or with an unreadable time', () => {
+    const result = computeImplementationReview(
+      [opened('D-same', EDIT), opened('D-bad', 'not a date')],
+      EDIT,
+    );
+    expect(result.findings).toHaveLength(2);
+    expect(result.waiting).toEqual([]);
+  });
+
+  it('blocks every pending decision when the last edit time is unknown or unreadable', () => {
+    for (const editedAt of [null, 'not a date']) {
+      const result = computeImplementationReview(
+        [opened('D-late', '2026-05-01T11:00:00.000Z')],
+        editedAt,
+      );
+      expect(result.passed).toBe(false);
+      expect(result.waiting).toEqual([]);
+    }
   });
 });
 

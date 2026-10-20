@@ -210,7 +210,6 @@ describe('checkAndMigrateSchema', () => {
       new RegExp(PAQAD_SCHEMA_VERSION.replace(/\./g, '\\.')),
     );
 
-    // No file mutated.
     expect(readFileSync(schemaMarkerPath(projectRoot), 'utf8')).toBe(before);
     expect(readLog(projectRoot)).toHaveLength(0);
   });
@@ -289,7 +288,6 @@ describe('withSchemaMigrationLock', () => {
 
     await Promise.all([run('a'), run('b')]);
 
-    // Whichever ran first must fully exit before the other enters.
     const firstEnter = order[0];
     const owner = firstEnter.split(':')[0];
     expect(order[1]).toBe(`${owner}:exit`);
@@ -302,7 +300,6 @@ describe('withSchemaMigrationLock', () => {
       }),
     ).rejects.toThrow('boom');
 
-    // Lock is free again — a subsequent acquisition succeeds.
     await expect(withSchemaMigrationLock(projectRoot, async () => 'ok')).resolves.toBe('ok');
   });
 });

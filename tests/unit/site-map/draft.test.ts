@@ -107,7 +107,6 @@ describe('buildSiteMapDraft (S8a)', () => {
       ]),
       APP,
     );
-    // Sorted, distinct module attributions become the areas (the module map).
     expect(map.areas).toEqual([
       { id: 'auth', label: 'Auth' },
       { id: 'billing', label: 'Billing' },
@@ -128,7 +127,6 @@ describe('buildSiteMapDraft (S8a)', () => {
       ]),
       APP,
     );
-    // Both slug to `foo-bar`; the first label wins and only one area is emitted.
     expect(map.areas).toEqual([{ id: 'foo-bar', label: 'Foo Bar' }]);
     expect(map.surfaces.map((s) => s.area)).toEqual(['foo-bar', 'foo-bar']);
   });

@@ -20,8 +20,6 @@ export function collectSession(projectRoot: string, now: number = Date.now()): S
   const jsonMtime = fileMtime(handoffJson);
 
   if (mdMtime === null && jsonMtime === null) {
-    // The session dir itself might exist without a handoff — that's fine,
-    // it just means no handoff has been written yet.
     const sessionDir = join(projectRoot, PATHS.AGENCY_SESSION_DIR);
     return {
       id: 'session',
@@ -37,7 +35,6 @@ export function collectSession(projectRoot: string, now: number = Date.now()): S
   }
 
   const newest = Math.max(mdMtime ?? 0, jsonMtime ?? 0);
-  // Use a tighter window for session freshness — handoffs go stale fast.
   const freshness = scoreFreshness(newest, { now, freshWindowDays: 7, staleCliffDays: 60 });
   const age = ageInDays(newest, now);
 

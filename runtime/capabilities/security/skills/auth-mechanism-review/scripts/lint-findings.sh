@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# Purpose: Validate auth-mechanism-review output. Each finding must include
-#          a WSTG-* test id and an Evidence: file:line citation.
-# Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues found | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Validate auth-mechanism-review output. Each finding must include
+         a WSTG-* test id and an Evidence: file:line citation.
+Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues found | 2 usage error
+USAGE
   exit 0
 fi
 

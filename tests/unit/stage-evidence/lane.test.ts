@@ -12,7 +12,6 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 const SESSION = 'sess-fold-lane';
 const ADAPTER = 'claude-code';
 
-/** Minimal hand-built row envelope for fold unit coverage. */
 function row(fields: Partial<SessionLedgerRow>): SessionLedgerRow {
   return {
     schema_version: 1,
@@ -24,12 +23,11 @@ function row(fields: Partial<SessionLedgerRow>): SessionLedgerRow {
   } as SessionLedgerRow;
 }
 
-/** Fold hand-built rows under a synthetic feature key. */
 function foldRows(rows: SessionLedgerRow[]) {
   return foldRowsWithKey(rows, { sessionId: SESSION, changeKey: 'feat', promptOrdinal: 0 });
 }
 
-describe('fold lane read (#324)', () => {
+describe('fold lane read', () => {
   it('reads the lane from the open row', () => {
     const folded = foldRows([row({ kind: 'open', lane: 'fast' })]);
     expect(folded.lane).toBe('fast');
@@ -46,7 +44,7 @@ describe('fold lane read (#324)', () => {
   });
 });
 
-describe('openStageEvidence lane recording (#324)', () => {
+describe('openStageEvidence lane recording', () => {
   let root: string;
 
   beforeEach(() => {

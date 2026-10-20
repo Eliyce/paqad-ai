@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Pattern-scan source files for known performance hazards. LLM still
-#          confirms each hit and decides severity by hot-path context.
-# Usage:   bash scripts/scan-perf-smells.sh <file> [<file> ...]
-# Output:  smell | file:line | excerpt
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Pattern-scan source files for known performance hazards. LLM still
+         confirms each hit and decides severity by hot-path context.
+Usage:   bash scripts/scan-perf-smells.sh <file> [<file> ...]
+USAGE
+  exit 0
 fi
 [ "$#" -ge 1 ] || { printf 'usage: %s <file> ...\n' "$0" >&2; exit 2; }
 

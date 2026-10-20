@@ -7,10 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { buildRepositoryVerificationContext } from '@/verification/repository/repository-context.js';
 import { openStageEvidence, type StageLane } from '@/stage-evidence/index.js';
 
-// Issue #324 — the completion backstop consumes the recorded lane instead of a
-// hardcoded 'full'. `readRecordedLane` resolves the session from CLAUDE_SESSION_ID,
-// so the test pins it and opens a change under it with a known lane.
-describe('buildRepositoryVerificationContext lane consumption (#324)', () => {
+describe('buildRepositoryVerificationContext lane consumption', () => {
   let root: string;
   let priorSession: string | undefined;
   const SES = 'ctx-lane-sess';

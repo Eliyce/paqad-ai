@@ -29,7 +29,7 @@ describe('ClaudeCodeAdapter', () => {
     ]);
   });
 
-  it('writes no MCP config at a Claude Code path (issue #622)', async () => {
+  it('writes no MCP config at a Claude Code path', async () => {
     expect(await adapter.installMcp()).toEqual([]);
   });
 

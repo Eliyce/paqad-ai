@@ -37,7 +37,6 @@ const SEVERITY_COLOR: Record<AttentionItem['severity'], string> = {
   critical: 'var(--color-mod-red)',
 };
 
-/** Where each report section lives in the seven-area IA. */
 const SECTION_AREA: Partial<Record<string, Route>> = {
   architecture: 'build',
   'module-docs': 'build',
@@ -79,7 +78,6 @@ interface ActivityItem {
   dot: string;
 }
 
-/** "4m ago" style relative time. Tiny on purpose, no dependency. */
 function relativeTime(iso: string): string {
   const delta = Date.now() - new Date(iso).getTime();
   if (!Number.isFinite(delta)) return '';
@@ -91,7 +89,6 @@ function relativeTime(iso: string): string {
   return Math.floor(hours / 24) + 'd ago';
 }
 
-/** One sentence per dashboard-actor audit action (issue #146 polish). */
 function auditSentence(entry: AuditFeedEntry): string {
   const action = entry.action ?? '';
   if (/^dashboard\.config\..+\.write$/.test(action)) {
@@ -108,7 +105,6 @@ function auditSentence(entry: AuditFeedEntry): string {
   return action;
 }
 
-/** Merge gate evidence and dashboard-actor audit lines, newest first, ten. */
 function buildActivity(rows: EvidenceRow[], entries: AuditFeedEntry[]): ActivityItem[] {
   const items: ActivityItem[] = rows.map((row) => ({
     key: 'evidence:' + row.content_hash + row.ts,
@@ -134,11 +130,6 @@ function buildActivity(rows: EvidenceRow[], entries: AuditFeedEntry[]): Activity
   return items.slice(0, 10);
 }
 
-/**
- * Pulse — the home page of the comprehension layer (issue #146). One
- * health number, four stats, and at most five things worth attention,
- * each deep-linked to the area that explains it.
- */
 export function PulseView() {
   const [report, setReport] = useState<DashboardReport | null>(null);
   const [pendingCount, setPendingCount] = useState<number | null>(null);

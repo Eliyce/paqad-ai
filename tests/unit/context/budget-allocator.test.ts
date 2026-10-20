@@ -82,7 +82,6 @@ describe('BudgetAllocator', () => {
 
     it('trivial complexity takes priority over low scope signal', () => {
       const allocator = new BudgetAllocator();
-      // trivial matches first preset before low/single-module can match
       const result = allocator.allocate(1000, { complexity: 'trivial', scope: 'single-module' });
 
       expect(result.critical_budget).toBe(550);
@@ -153,7 +152,6 @@ describe('BudgetAllocator', () => {
   describe('allocate — floor rounding', () => {
     it('floors fractional token values', () => {
       const allocator = new BudgetAllocator();
-      // 100 * 0.4 = 40 exactly, 100 * 0.45 = 45 exactly, 100 * 0.15 = 15 exactly
       const result = allocator.allocate(100);
 
       expect(result.critical_budget).toBe(40);
@@ -163,7 +161,6 @@ describe('BudgetAllocator', () => {
 
     it('floors fractional values under trivial preset', () => {
       const allocator = new BudgetAllocator();
-      // 7 * 0.55 = 3.85 → 3, 7 * 0.4 = 2.8 → 2, 7 * 0.05 = 0.35 → 0
       const result = allocator.allocate(7, { complexity: 'trivial' });
 
       expect(result.critical_budget).toBe(3);

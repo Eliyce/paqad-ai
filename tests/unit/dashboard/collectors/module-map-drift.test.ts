@@ -119,7 +119,7 @@ describe('collectModuleMapDrift', () => {
       },
     });
     const result = collectModuleMapDrift(root);
-    expect(result.section.score).toBe(68); // 100 - 4*8
+    expect(result.section.score).toBe(68);
     const criticals = result.attention.filter((a) => a.severity === 'critical');
     expect(criticals).toHaveLength(1);
     expect(criticals[0]?.message).toContain('undeclared');

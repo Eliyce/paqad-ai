@@ -15,17 +15,7 @@ import type {
   DeliverySectionKey,
 } from '../lib/dashboard-types';
 
-/**
- * The delivery-policy editor (issue #146): the RuleBuilder for
- * docs/instructions/workflows/delivery-policy.yaml. Builder edits mutate a
- * YAML document so the user's comments and key order survive; raw mode edits
- * the text directly. Saves run the server's validate-then-write pipeline
- * with optimistic concurrency (409 renders the friendly merge prompt).
- */
-
 const WIN_LINE = 'From now on, releases follow these rules.';
-
-// --- Field model -----------------------------------------------------------
 
 type FieldDef =
   | { key: string; label: string; kind: 'string' | 'boolean' | 'number' | 'list' | 'map' }
@@ -120,7 +110,6 @@ const SECTION_FIELDS: Record<DeliverySectionKey, FieldDef[]> = {
 
 type SectionValues = Record<string, unknown>;
 
-/** The `process.<section>` mapping from doc.toJS(), or an empty record. */
 function docSection(docJs: unknown, section: DeliverySectionKey): SectionValues {
   if (docJs && typeof docJs === 'object') {
     const process = (docJs as Record<string, unknown>).process;
@@ -150,8 +139,6 @@ function asStringRecord(value: unknown): Record<string, string> {
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = String(v);
   return out;
 }
-
-// --- Plain-language previews -----------------------------------------------
 
 const TICKET_PROVIDER_NAME: Record<string, string> = {
   jira: 'Jira',
@@ -222,8 +209,6 @@ function previewFor(section: DeliverySectionKey, eff: SectionValues): string {
     }
   }
 }
-
-// --- Small controls ----------------------------------------------------------
 
 const inputStyle: React.CSSProperties = {
   background: 'var(--color-canvas)',
@@ -373,7 +358,6 @@ function BoolToggle({
   );
 }
 
-/** Comma-separated list editor with a local text buffer so typing flows. */
 function ListField({
   id,
   label,
@@ -409,7 +393,6 @@ function ListField({
   );
 }
 
-/** Key/value rows with add and remove, for branch.type_map. */
 function MapField({
   id,
   label,
@@ -439,7 +422,6 @@ function MapField({
       <FieldLabel>{label}</FieldLabel>
       <div className="mt-1 flex flex-col gap-1.5">
         {rows.map((row, index) => (
-          // Index keys are fine here: rows only append and remove in place.
           // eslint-disable-next-line react/no-array-index-key
           <div key={index} className="flex items-center gap-1.5">
             <input
@@ -529,8 +511,6 @@ function MaintainedToggle({
   );
 }
 
-// --- The view ----------------------------------------------------------------
-
 export function DeliveryPolicyView() {
   const [config, setConfig] = useState<DeliveryPolicyConfigResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -538,10 +518,8 @@ export function DeliveryPolicyView() {
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
   const [sseLive, setSseLive] = useState(false);
 
-  /** The YAML document being edited; mutated in place, mirrored by docJs. */
   const docRef = useRef<Document | null>(null);
   const [docJs, setDocJs] = useState<unknown>(null);
-  /** Bumps to remount field components after external content replacement. */
   const [resetKey, setResetKey] = useState(0);
   const [started, setStarted] = useState(false);
 
@@ -566,8 +544,6 @@ export function DeliveryPolicyView() {
           setStarted(true);
           const doc = parseDocument(cfg.file.content);
           if (doc.errors.length > 0) {
-            // Broken YAML on disk: the builder cannot represent it, so open
-            // in raw mode with the parse message inline.
             setMode('raw');
             setRawText(cfg.file.content);
             setRawError(doc.errors[0]?.message ?? 'YAML parse failed');
@@ -585,9 +561,7 @@ export function DeliveryPolicyView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine
-      });
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -635,7 +609,6 @@ export function DeliveryPolicyView() {
     touch();
   };
 
-  /** The exact text a save would write right now. */
   const currentContent = (): string =>
     mode === 'raw' ? rawText : (docRef.current?.toString() ?? '');
 
@@ -702,7 +675,6 @@ export function DeliveryPolicyView() {
   const saveRef = useRef(save);
   saveRef.current = save;
 
-  // Cmd+S and Ctrl+S save from anywhere on the page.
   useEffect(() => {
     const onKey = (event: KeyboardEvent): void => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {

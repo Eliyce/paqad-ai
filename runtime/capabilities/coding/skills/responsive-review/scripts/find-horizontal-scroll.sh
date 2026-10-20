@@ -1,19 +1,20 @@
 #!/usr/bin/env bash
-# Purpose: From a runtime-checks.json (Step 3 of design-test), emit the
-#          (route, breakpoint) pairs where horizontalScroll == true.
-#
-# Usage:   bash scripts/find-horizontal-scroll.sh <runtime-checks.json>
-#
-# Output:  one TSV row per offending pair to stdout:
-#            <route>\t<breakpoint>\t<scroll-width>\t<viewport-width>
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok (incl. empty result)
-#          2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: From a runtime-checks.json (Step 3 of design-test), emit the
+         (route, breakpoint) pairs where horizontalScroll == true.
+
+Usage:   bash scripts/find-horizontal-scroll.sh <runtime-checks.json>
+
+Output:  one TSV row per offending pair to stdout:
+           <route>\t<breakpoint>\t<scroll-width>\t<viewport-width>
+         Diagnostics to stderr.
+
+Exits:   0 ok (incl. empty result)
+         2 usage error
+USAGE
   exit 0
 fi
 

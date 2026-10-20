@@ -1,8 +1,3 @@
-// Fold a session's rag-evidence rows into the rollup `rag-evidence show` reports
-// (issue #249 §4). Pure: reads nothing, just aggregates rows. The accuracy dimension
-// is deliberately absent — this rollup is occurrence/use-rate only, never a
-// proof-of-benefit claim (issue #249 §3).
-
 import { foldByOrdinal, readUnitFile, type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { chatRagPath } from '@/feature-evidence/paths.js';
 import { readAllFeatureRag } from '@/feature-evidence/projections.js';
@@ -48,7 +43,6 @@ function foldConversation(ordinal: number, rows: RagEvidenceRow[]): RagEvidenceC
   };
 }
 
-/** Fold rows (already read) into a session rollup. */
 export function foldRagEvidenceRows(
   sessionId: string,
   rows: readonly SessionLedgerRow[],
@@ -72,8 +66,6 @@ export function foldRagEvidenceRows(
       fallbackReasons[row.fallback_reason] = (fallbackReasons[row.fallback_reason] ?? 0) + 1;
     }
   }
-  // A prompt "has RAG" when its conversation injected something; it "fell back" when it
-  // recorded a fallback and never injected.
   const promptsWithRag = conversations.filter((c) => c.used_count > 0).length;
   const promptsFallback = conversations.filter(
     (c) => c.used_count === 0 && c.fallback_count > 0,
@@ -92,14 +84,6 @@ export function foldRagEvidenceRows(
   };
 }
 
-/**
- * Read a session's rag-evidence rows from the two-home layout and fold them (issue #468
- * Phase C). The retired `paqad.rag-evidence/<session>` substrate is gone: a row lives in
- * the session's `_chat/<session>/rag.jsonl` (chat turns) or in a feature bundle's
- * `rag.jsonl` (feature-attributed turns), so the fold unions the `_chat` home with every
- * bundle's rag rows filtered to this session. `foldByOrdinal` groups by
- * `conversation_ordinal`, so the union order does not matter.
- */
 export function foldRagEvidenceSession(
   projectRoot: string,
   sessionId: string,

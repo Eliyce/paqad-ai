@@ -479,8 +479,6 @@ describe('spec review detectors', () => {
 
 describe('bug fixes', () => {
   it('does not false-positive dangling references for IDs defined only in headings', () => {
-    // Bug 1: collectDefinedIds used review_lines (headings filtered) so heading-defined
-    // IDs were invisible, causing false-positive dangling references.
     const report = reviewSpecification({
       spec_file: 'docs/spec.md',
       spec_markdown: [
@@ -501,8 +499,6 @@ describe('bug fixes', () => {
   });
 
   it('reports all always/never contradictions across multiple distinct quoted subjects', () => {
-    // Bug 2: return defects inside the inner for-loop exited the entire detect()
-    // on the first always/never match, silently dropping subsequent pairs.
     const report = reviewSpecification({
       spec_file: 'docs/spec.md',
       spec_markdown: [

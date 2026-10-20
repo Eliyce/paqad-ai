@@ -57,7 +57,7 @@ describe('expertBudget', () => {
   });
 });
 
-describe('standing tier (issue #558)', () => {
+describe('standing tier', () => {
   it('the four defaults are all expert roles (FR-1.3)', () => {
     expect(DEFAULT_STANDING_EXPERTS).toEqual([
       'product-owner',

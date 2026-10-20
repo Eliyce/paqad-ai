@@ -77,11 +77,6 @@ function EvidenceLine({ row }: { row: EvidenceRow }) {
   );
 }
 
-/**
- * Issue #122 — clause chips on a receipt. One chip per cited clause (deduped
- * across the gates that satisfy it), with the pack's disclaimer on hover. The
- * wording is deliberately "evidence toward", never "compliant".
- */
 function ComplianceChips({ citations }: { citations: ReceiptCard['compliance'] }) {
   const byClause = new Map<string, ReceiptCard['compliance'][number]>();
   for (const citation of citations) {
@@ -118,7 +113,6 @@ function ReceiptCardView({
 }: {
   receipt: ReceiptCard;
   onCopy: () => void;
-  /** Plays the one allowed spring: the 300ms seal scale on a new receipt. */
   animateSeal?: boolean;
 }) {
   const human = receipt.authorship?.accepting_human?.name;
@@ -231,11 +225,6 @@ function ReceiptCardView({
   );
 }
 
-/**
- * The Trust area (issue #146): evidence timeline, receipt cards, AI-BOM.
- * View and export only. Evidence is deliberately not editable, because
- * editable evidence is worthless.
- */
 export function TrustView() {
   const [evidence, setEvidence] = useState<EvidenceFeed | null>(null);
   const [receipts, setReceipts] = useState<ReceiptFeed | null>(null);
@@ -247,10 +236,8 @@ export function TrustView() {
   const [sseLive, setSseLive] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
-  /** The newest receipt's hash when it arrived live, so only it seals. */
   const [sealHash, setSealHash] = useState<string | null>(null);
   const receiptCountRef = useRef<number | null>(null);
-  // SIEM export utility (issue #160).
   const [siemFormat, setSiemFormat] = useState<SiemFormatValue>('ocsf');
   const [siemSince, setSiemSince] = useState('');
   const [siemRedact, setSiemRedact] = useState(false);
@@ -269,19 +256,14 @@ export function TrustView() {
         setAiBom(nextBom);
         setError(null);
         const count = nextReceipts.receipts.length;
-        // A new receipt arrived while the view was open: play the one
-        // allowed spring on the newest receipt's sealed indicator.
         if (receiptCountRef.current !== null && count > receiptCountRef.current) {
           setSealHash(nextReceipts.receipts[0]?.receipt_hash ?? null);
         }
         receiptCountRef.current = count;
-        // Receipts have been seen: completes the checklist's receipt step.
         if (count > 0) {
           try {
             localStorage.setItem('paqad-receipt-viewed', '1');
-          } catch {
-            // private mode; the checklist step stays pending, nothing breaks
-          }
+          } catch {}
         }
       })
       .catch((err: unknown) => {
@@ -296,9 +278,7 @@ export function TrustView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine
-      });
+      .catch(() => {});
   }, [loadAll]);
 
   useEffect(() => {

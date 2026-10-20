@@ -1,6 +1,6 @@
 # Cross-Platform Hooks
 
-Every hook paqad wires into a host's settings (Claude Code `.claude/settings.json`, Codex `.codex/hooks.json`, Gemini `.gemini/settings.json`) must run on Windows as well as macOS and Linux. The blocking gates fire on every edit, prompt, and session start, so a POSIX-only hook command hard-fails a Windows user on every action in an onboarded project (issue #240). Specific to this repo (paqad-ai).
+Every hook paqad wires into a host's settings (Claude Code `.claude/settings.json`, Codex `.codex/hooks.json`, Gemini `.gemini/settings.json`) must run on Windows as well as macOS and Linux. The blocking gates fire on every edit, prompt, and session start, so a POSIX-only hook command hard-fails a Windows user on every action in an onboarded project. Specific to this repo (paqad-ai).
 
 A bare command like `~/.paqad-ai/current/hooks/agent-entry-gate.sh` breaks three independent ways on Windows: `~` is not expanded by cmd.exe or PowerShell, `.sh` has no interpreter, and a `#!/usr/bin/env node` shebang is ignored. Renaming `.sh` to `.mjs` alone does not fix it. The bare-path invocation is the root cause.
 

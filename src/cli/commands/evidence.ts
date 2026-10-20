@@ -20,13 +20,6 @@ interface EvidenceCommandOptions {
   failOnRed: boolean;
 }
 
-/**
- * `paqad-ai evidence [<sha>]` — render the persisted verification evidence
- * as a short, scannable PR comment (Markdown or JSON). Read-only: it surfaces
- * what verification already computed and persisted; it never computes, gates,
- * or signs. Pipe it to `gh pr comment --body-file` to erase the AI-PR
- * review-latency penalty with deterministic counter-evidence.
- */
 export function createEvidenceCommand(): Command {
   const command = new Command('evidence')
     .description('Render verification evidence as a scannable PR comment (Markdown or JSON)')
@@ -77,13 +70,6 @@ export function createEvidenceCommand(): Command {
   return command;
 }
 
-/**
- * `paqad-ai evidence migrate [--dry-run] [--session <id>]` (issue #581, FR-12) — move an
- * existing project onto the one-packet evidence layout. The silent update runs it once on its
- * own; this is the same migration by hand. `--dry-run` prints the plan and writes nothing.
- * `--session` names the caller's session (default `SE_SESSION`), whose own open change is not
- * held against it.
- */
 function createEvidenceMigrateCommand(): Command {
   return new Command('migrate')
     .description('Move old spec-pipeline runs into their change bundles (runs once on update)')
@@ -93,8 +79,6 @@ function createEvidenceMigrateCommand(): Command {
       'Your session id, so a change you have open is not treated as held by another session',
     )
     .action((options: { dryRun: boolean; session?: string }, command: Command) => {
-      // `--project-root` belongs to the parent `evidence` command, which parses it wherever it
-      // appears, so it is read from there rather than declared twice.
       const { projectRoot } = command.optsWithGlobals<{ projectRoot: string }>();
       const result = migrateFeatureEvidence(resolve(projectRoot), {
         dryRun: options.dryRun,

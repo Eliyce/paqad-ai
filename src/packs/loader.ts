@@ -67,7 +67,6 @@ export class StackPackLoader {
                 level: 'warning' as const,
               })),
           );
-          // PQD-194 — record the quarantine so the desktop can badge the pack.
           emitSkillAuditEvent(
             buildPackLoadFailedEvent(pack),
             options.projectRoot,
@@ -106,17 +105,10 @@ export class StackPackLoader {
   }
 
   private loadPacksFromRoot(root: string, source: PackInstallSource): LoadedStackPack[] {
-    return (
-      readdirSync(root, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory())
-        // Convention directories (leading `_` or `.`) hold shared inheritance
-        // assets (e.g. `_shared/rules`) or VCS metadata — they are never packs, so
-        // they must not be enumerated as missing-manifest pack candidates (which
-        // would otherwise emit a spurious `skill.pack_load_failed` audit event on
-        // every load — PQD-194).
-        .filter((entry) => !entry.name.startsWith('_') && !entry.name.startsWith('.'))
-        .map((entry) => this.readPack(join(root, entry.name), source))
-    );
+    return readdirSync(root, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .filter((entry) => !entry.name.startsWith('_') && !entry.name.startsWith('.'))
+      .map((entry) => this.readPack(join(root, entry.name), source));
   }
 
   private readPack(packRoot: string, source: PackInstallSource): LoadedStackPack {
@@ -317,8 +309,6 @@ function validateTestRunners(manifest: StackPackManifest): PackValidationIssue[]
       });
     }
 
-    // Parallel capability (issue #554): `flag` mode must carry a `flag` with `<processes>` exactly
-    // once; the other modes must not carry a flag (nothing would consume it).
     if (runner.parallel) {
       const flagCount = (runner.parallel.flag?.match(/<processes>/g) ?? []).length;
       if (runner.parallel.mode === 'flag') {
@@ -379,15 +369,6 @@ function hasMatchingRunner(
   return [...aliases].some((alias) => runnersById.has(alias));
 }
 
-/**
- * Build the `skill.pack_load_failed` audit event for a quarantined pack
- * (PQD-194). When the manifest file exists the content hash is taken over its
- * bytes (so an unchanged invalid pack.yaml re-emits an identical hash for
- * de-dup); when it is absent there is nothing to hash, so the pack-root path
- * string is hashed instead. `validation_error_code` distinguishes the two
- * failure classes; `pack_id` is the manifest name, which falls back to the last
- * path segment via the placeholder manifest when the id is unrecoverable.
- */
 function buildPackLoadFailedEvent(pack: LoadedStackPack): SkillPackLoadFailedEvent {
   const errorIssues = pack.validation.issues.filter((issue) => issue.level === 'error');
   const manifestExists = existsSync(pack.manifestPath);

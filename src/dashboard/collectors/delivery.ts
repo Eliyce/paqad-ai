@@ -6,13 +6,6 @@ import { resolveTicketProvider } from '@/providers/registry.js';
 import { bandForScore } from '../scoring/index.js';
 import type { AttentionItem, SectionData } from '../types.js';
 
-/**
- * Issue #42 — the Delivery Workflow dashboard section. It is the always-on
- * answer to "is this on, and what will it do?": the configured/active state,
- * the resolved provider connections (GitHub / Jira), and the active
- * conventions. Git-only conventions are active immediately; provider-bound
- * capabilities are reported as dormant until their MCP / host is connected.
- */
 const HELPER = {
   what: 'docs/instructions/workflows/delivery-policy.yaml configures the ticket_intake → delivery loop: branch/commit/PR conventions, CI gate, and tracker transitions.',
   goodLooksLike:
@@ -25,9 +18,6 @@ export function collectDelivery(projectRoot: string): {
 } {
   const { policy } = loadDeliveryPolicy(projectRoot);
   const profile = readProjectProfile(projectRoot);
-  // Buildout F6 (hard cutover, D1) — the dashboard reads delivery evidence from
-  // the session-ledger, not the legacy file. The file remains the operational
-  // source the policy loader overlays; both are written together by writeDetection.
   const detection = readLatestDeliveryEvidence(projectRoot);
 
   if (!policy.enabled) {
@@ -47,8 +37,6 @@ export function collectDelivery(projectRoot: string): {
   }
 
   const ticketRes = resolveTicketProvider(profile?.mcp?.servers ?? [], policy.process.ticket);
-  // Host "connection" can't be auth-verified from a static collector; report
-  // whether the git remote we detected matches the configured host kind.
   const hostDetected =
     detection?.host?.value !== undefined && detection.host.value === policy.process.host.provider;
 

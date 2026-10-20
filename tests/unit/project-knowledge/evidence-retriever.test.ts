@@ -24,8 +24,6 @@ import {
   scoreFile,
 } from '@/project-knowledge/evidence-retriever.js';
 
-// The retriever reads files via native join(), so mocked readFile paths carry
-// backslashes on Windows; normalize before matching posix literals.
 function posix(path: unknown): string {
   return String(path).replace(/\\/g, '/');
 }
@@ -709,7 +707,6 @@ describe('EvidenceRetriever', () => {
       project_root: '/tmp/project',
     });
 
-    // Both have score 0, canonical-doc should come first by priority order
     expect(result[0].source_class).toBe('canonical-doc');
     expect(result[1].source_class).toBe('manifest');
   });
@@ -827,7 +824,6 @@ describe('EvidenceRetriever', () => {
         return Promise.resolve(map[pattern] ?? []);
       });
       mockReadFile.mockImplementation((path: string) => {
-        // canonical-doc gets a higher score (two keyword matches) vs framework-state (one)
         if (posix(path).includes('docs/modules/auth.md'))
           return Promise.resolve('auth keyword extra');
         return Promise.resolve('auth content');

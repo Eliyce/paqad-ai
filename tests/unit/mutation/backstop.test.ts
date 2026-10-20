@@ -16,9 +16,6 @@ import {
 } from '@/mutation/backstop.js';
 import { runMutationGate, type MutationRunnerDeps } from '@/mutation/runner.js';
 
-// Issue #293 (Option A) — the backstop seam that is runMutationGate's only caller. Every external
-// effect is injected, so no test here spawns a mutation tool.
-
 function tsStack(): DetectedStackProfile {
   return {
     frameworks: ['react'],
@@ -309,7 +306,6 @@ describe('runBackstopMutation — tree safety', () => {
     writeFileSync(join(root, 'dirty.ts'), 'export const d = 1;\n');
     git(['add', '-A']);
     git(['commit', '-qm', 'base']);
-    // Already dirty before the run: not the run's doing.
     writeFileSync(join(root, 'dirty.ts'), 'export const d = 2;\n');
 
     const outcomeFor = async (leaveMutant: boolean): Promise<MutationResult | undefined> => {
@@ -376,7 +372,6 @@ describe('runBackstopMutation — default effects', () => {
     expect((await run('node ./no-such-script.mjs')).mutation_result?.skipped_reason).toBe(
       'tests-not-green',
     );
-    // A shell operator the checks runner refuses is a red suite, never a shell run.
     expect((await run('node --version | cat')).mutation_result?.skipped_reason).toBe(
       'tests-not-green',
     );

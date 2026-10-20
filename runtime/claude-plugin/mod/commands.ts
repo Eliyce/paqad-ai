@@ -1,9 +1,3 @@
-// The `/paqad` commands (issue #639, Part 8): `/paqad`, `/paqad status`, `/paqad decisions`,
-// `/paqad rules`, `/paqad receipt` and `/paqad cost`.
-//
-// Pure: each answer is built from the snapshot (and, for `receipt`, the receipt file's text)
-// that `register.tsx` already read, so a command costs no model turn and starts no process.
-
 import { costLines } from './cost';
 import {
   buildBandView,
@@ -19,12 +13,9 @@ export const COMMAND_NAME = 'paqad';
 export const SUBCOMMANDS = ['status', 'decisions', 'rules', 'receipt', 'cost'] as const;
 
 export interface CommandInput {
-  /** Everything after `/paqad`, as typed. */
   args: string;
-  /** Why the mod stands down, or `null` while it is on. */
   standDown: PaqadStandDown | null;
   snapshot: PaqadHudSnapshot | null;
-  /** The text of the session's receipt file, or `null` when there is none yet. */
   receipt: string | null;
   now: number;
 }
@@ -39,7 +30,6 @@ const STAND_DOWN_WORDS: Record<PaqadStandDown, string> = {
   'old-engine': 'this Claude Code is older than 2.1.301',
 };
 
-/** The one line every command answers while the mod stands down. */
 export function notActiveText(reason: PaqadStandDown): string {
   return `paqad is not active here: ${STAND_DOWN_WORDS[reason]}.`;
 }
@@ -143,7 +133,6 @@ function receipt(text: string | null): string {
   return body ? body : 'No receipt yet. paqad writes one at the end of each turn.';
 }
 
-/** The answer to one `/paqad` command, as `{ text }`. */
 export function runPaqadCommand(input: CommandInput): { text: string } {
   if (input.standDown) return { text: notActiveText(input.standDown) };
   const sub = input.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';

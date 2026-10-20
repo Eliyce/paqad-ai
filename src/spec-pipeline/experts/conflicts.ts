@@ -1,12 +1,3 @@
-// Expert conflicts become decisions, never silent picks (issue #547, FR-6).
-//
-// When two experts make contradictory claims about the same target, the merge surfaces a conflict
-// and the chief architect recommends one claim — but a recommendation is never applied. Each
-// conflict becomes ONE `spec.expert_conflict` decision packet the human resolves, minted through
-// the sanctioned writer (`createPendingDecision`), never hand-authored. An identical fork already
-// answered in `.paqad/decisions/resolved/` is reused: its prior answer is applied and recorded,
-// and nothing is minted (the FR-4.5 auto-answer pattern). Deterministic; zero model tokens.
-
 import { createHash } from 'node:crypto';
 
 import {
@@ -20,11 +11,8 @@ import type { ExpertConflict, MergedExpertNotes } from './types.js';
 
 const CATEGORY = 'spec.expert_conflict';
 
-/** The outcome of turning the merge conflicts into decisions. */
 export interface ConflictMintResult {
-  /** Packets opened for conflicts with no prior answer. */
   minted: { id: string; target: string }[];
-  /** Conflicts answered from an identical resolved fork — recorded, nothing minted (FR-6.3). */
   autoResolved: SynthesisAutoResolved[];
 }
 
@@ -32,19 +20,16 @@ function normalize(text: string): string {
   return text.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
-/** A stable identity for a fork: the target plus its claim SET (order-independent). */
 function forkKey(target: string, claims: readonly string[]): string {
   const claimSet = [...new Set(claims.map(normalize))].sort();
   return `${normalize(target)}::${claimSet.join('|')}`;
 }
 
-/** The machine token embedded in a packet's context so a later run can recognise the same fork. */
 export function forkToken(target: string, claims: readonly string[]): string {
   const hash = createHash('sha256').update(forkKey(target, claims)).digest('hex').slice(0, 16);
   return `[expert-conflict-fork:${hash}]`;
 }
 
-/** A deterministic, unique option key derived from a claim (stable across runs and order). */
 function optionKeyFor(claim: string, used: Set<string>): string {
   const base =
     normalize(claim)
@@ -58,11 +43,6 @@ function optionKeyFor(claim: string, used: Set<string>): string {
   return key;
 }
 
-/**
- * Mint one `spec.expert_conflict` packet per merge conflict, reusing a resolved fork when one
- * exists (FR-6.2 / FR-6.3). The chief's recommendation for a conflict pre-fills the packet's
- * recommendation. Returns the packets minted and the conflicts auto-resolved from priors.
- */
 export function mintExpertConflictDecisions(
   projectRoot: string,
   merged: MergedExpertNotes,
@@ -101,11 +81,9 @@ export function mintExpertConflictDecisions(
 
 interface ResolvedFork {
   id: string;
-  /** The chosen claim label, mapped back from the resolved option key. */
   chosen: string;
 }
 
-/** Index resolved `spec.expert_conflict` packets by their fork token so a fork is matched once. */
 function collectResolvedForks(projectRoot: string): Map<string, ResolvedFork> {
   const forks = new Map<string, ResolvedFork>();
   for (const { packet, status } of readContractDecisions(projectRoot)) {
@@ -115,7 +93,6 @@ function collectResolvedForks(projectRoot: string): Map<string, ResolvedFork> {
     if (!match || typeof resolved.chosen !== 'string') continue;
     const chosenOption = packet.options.find((option) => option.option_key === resolved.chosen);
     if (!chosenOption) continue;
-    // First writer wins so the earliest resolution of a fork is the one reused.
     if (!forks.has(match[0])) forks.set(match[0], { id: packet.id, chosen: chosenOption.label });
   }
   return forks;

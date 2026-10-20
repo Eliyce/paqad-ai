@@ -77,9 +77,6 @@ describe('module-health-updater', () => {
 
   it('collects preflight changed-file evidence with default source metadata', async () => {
     mkdirSync(join(root, '.paqad/session'), { recursive: true });
-    // Use a path that maps to no module so the collected evidence is not
-    // consumed (and therefore not deleted) in the same sync — this test only
-    // verifies collection metadata, not consumption.
     seedGitChangedFiles(root, ['README.md']);
 
     await syncModuleHealth({
@@ -107,8 +104,6 @@ describe('module-health-updater', () => {
 
     const result = await syncModuleHealth({ projectRoot: root, silent: true });
 
-    // The event was applied to the 'planning' profile, so its evidence file is
-    // removed — but the metric it contributed survives in the profile.
     expect(result.processed_events).toBe(1);
     expect(existsSync(evidenceFile)).toBe(false);
     await expect(readModuleHealth(root, 'planning')).resolves.toMatchObject({
@@ -125,8 +120,6 @@ describe('module-health-updater', () => {
     await persistEvidence(root, event);
     await syncModuleHealth({ projectRoot: root, silent: true });
 
-    // Re-persist the same event (simulating a pre-cleanup backlog file) and sync
-    // again: it is already in the consumed index, so it is skipped and removed.
     await persistEvidence(root, event);
     const evidenceFile = join(root, '.paqad/module-health-evidence', `${event.event_id}.json`);
     expect(existsSync(evidenceFile)).toBe(true);

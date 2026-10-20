@@ -59,13 +59,11 @@ describe('LocalReranker', () => {
   });
 
   it('scores chunks and reorders them by descending score', async () => {
-    // Stub @huggingface/transformers so that 'auth' chunk gets higher score
     vi.doMock('@huggingface/transformers', () => ({
       pipeline: async (task: string, model: string) => {
         void task;
         void model;
         return async (input: { text: string; text_pair: string }) => {
-          // Give auth a high score, others low
           const score = input.text_pair.includes('canAuth') ? 0.9 : 0.1;
           return { score, label: 'LABEL_1' };
         };

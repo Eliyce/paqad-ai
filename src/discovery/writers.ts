@@ -1,11 +1,3 @@
-// Discovery canonical artifact writers (issue #597).
-//
-// Each writer stamps a body through the shared feature-evidence envelope (six-field header + a
-// content hash over the identity, so a hand edit is detectable) and writes it under the run dir:
-// JSON documents atomically (temp + rename), JSONL rows appended one line at a time. The change key
-// is the run ULID, so every artifact names the same run. Substantive body content is model-supplied
-// through the CLI input contract; the writer owns every mechanical field (DW-07).
-
 import { appendFileSync, mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -30,7 +22,6 @@ import type {
 } from './records.js';
 import { DISCOVERY_DOC_TYPES, DISCOVERY_SCHEMA_VERSION } from './types.js';
 
-/** The identity every writer needs: the run and the session writing the artifact. */
 export interface DiscoveryWriteContext {
   projectRoot: string;
   dirName: string;
@@ -82,7 +73,6 @@ function appendRow(
   appendFileSync(abs, `${JSON.stringify(stamped)}\n`, 'utf8');
 }
 
-/** Write the Understand-stage brief (`brief.json`). */
 export function writeBrief(
   ctx: DiscoveryWriteContext,
   body: DiscoveryBriefBody,
@@ -90,7 +80,6 @@ export function writeBrief(
   return writeDoc(ctx, 'brief', DISCOVERY_DOC_TYPES.brief, { ...body }) as DiscoveryBriefRecord;
 }
 
-/** Write the chief synthesis (`synthesis.json`). */
 export function writeSynthesis(
   ctx: DiscoveryWriteContext,
   body: DiscoverySynthesisBody,
@@ -100,7 +89,6 @@ export function writeSynthesis(
   }) as DiscoverySynthesisRecord;
 }
 
-/** Write the Decide-stage decision index (`decisions.json`). */
 export function writeDecisions(
   ctx: DiscoveryWriteContext,
   body: DiscoveryDecisionsBody,
@@ -110,7 +98,6 @@ export function writeDecisions(
   }) as DiscoveryDecisionsRecord;
 }
 
-/** Write the readiness verdict (`readiness.json`). */
 export function writeReadiness(
   ctx: DiscoveryWriteContext,
   body: DiscoveryReadinessBody,
@@ -120,7 +107,6 @@ export function writeReadiness(
   }) as DiscoveryReadinessRecord;
 }
 
-/** Write the hand-off record (`handoff.json`). */
 export function writeHandoff(
   ctx: DiscoveryWriteContext,
   body: DiscoveryHandoffBody,
@@ -130,12 +116,10 @@ export function writeHandoff(
   }) as DiscoveryHandoffRecord;
 }
 
-/** Append one attributable research source (`sources.jsonl`). */
 export function appendSource(ctx: DiscoveryWriteContext, row: DiscoverySourceRow): void {
   appendRow(ctx, 'sources', DISCOVERY_DOC_TYPES.source, { ...row });
 }
 
-/** Append one reusable-expert contribution (`contributions.jsonl`). */
 export function appendContribution(
   ctx: DiscoveryWriteContext,
   row: DiscoveryContributionRow,
@@ -143,7 +127,6 @@ export function appendContribution(
   appendRow(ctx, 'contributions', DISCOVERY_DOC_TYPES.contribution, { ...row });
 }
 
-/** Append one stage-local context load receipt (`context-receipts.jsonl`). */
 export function appendContextReceipt(
   ctx: DiscoveryWriteContext,
   row: DiscoveryContextReceiptRow,
@@ -151,7 +134,6 @@ export function appendContextReceipt(
   appendRow(ctx, 'contextReceipts', DISCOVERY_DOC_TYPES.contextReceipt, { ...row });
 }
 
-/** Append one recorded blocker (`blockers.jsonl`). */
 export function appendBlocker(ctx: DiscoveryWriteContext, row: DiscoveryBlockerRow): void {
   appendRow(ctx, 'blockers', DISCOVERY_DOC_TYPES.blocker, { ...row });
 }

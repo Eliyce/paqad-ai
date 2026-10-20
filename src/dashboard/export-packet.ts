@@ -1,16 +1,5 @@
 import { buildEvidenceFeed, buildReceiptFeed, readAiBomDocument } from './trust.js';
 
-/**
- * Issue #146 — `GET /api/export/evidence-packet` (spec sections 5.3 and 6.1).
- *
- * A polished, standalone bundle of the trust artifacts: the evidence
- * timeline, the receipt chain with seal status, and the AI-BOM summary.
- * Rendered as self-contained HTML (inline styles, no scripts, no external
- * requests) so it can be attached to a release or shown to a stakeholder
- * as-is, plus a Markdown form for PRs and chat, plus the raw JSON.
- * Evidence is view and export only; nothing here mutates.
- */
-
 export interface EvidencePacket {
   generatedAt: string;
   projectName: string | null;
@@ -31,7 +20,6 @@ function escapeHtml(value: string): string {
     .replaceAll('"', '&quot;');
 }
 
-/** Dot colour per verdict: a skipped gate (issue #579) is grey, never the amber "needs a look". */
 const VERDICT_COLORS: Record<string, string> = {
   pass: '#16a34a',
   fail: '#dc2626',

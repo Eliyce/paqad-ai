@@ -19,12 +19,10 @@ describe('reorderByRankedIds (F18)', () => {
   it('applies the reranked order while keeping the original objects (and scores)', () => {
     const out = reorderByRankedIds(hits, idOf, ['c', 'a', 'b']);
     expect(out.map((h) => h.id)).toEqual(['c', 'a', 'b']);
-    // Scores travel with the reordered objects, untouched.
     expect(out[0]).toEqual({ id: 'c', score: 0.8 });
   });
 
   it('appends hits the reranker did not score, in original order (nothing dropped)', () => {
-    // Reranker only scored a 2-item candidate pool.
     const out = reorderByRankedIds(hits, idOf, ['b', 'a']);
     expect(out.map((h) => h.id)).toEqual(['b', 'a', 'c']);
   });

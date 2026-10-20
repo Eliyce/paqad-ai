@@ -241,10 +241,17 @@ function looksLikeGitUrl(source: string): boolean {
   );
 }
 
+export function assertSafeCloneSource(source: string): void {
+  if (source.trim().length === 0 || source.startsWith('-')) {
+    throw new Error(`Refusing to clone pack source that looks like an option: ${source}`);
+  }
+}
+
 async function clonePackSource(source: string): Promise<string> {
+  assertSafeCloneSource(source);
   const tempRoot = mkdtempSync(join(homedir(), '.paqad-pack-clone-'));
   try {
-    await execa('git', ['clone', '--depth', '1', source, tempRoot]);
+    await execa('git', ['clone', '--depth', '1', '--', source, tempRoot]);
   } catch (error) {
     rmSync(tempRoot, { recursive: true, force: true });
     throw error;

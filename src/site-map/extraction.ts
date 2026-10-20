@@ -1,13 +1,3 @@
-// Surface extraction — the S1 (`extraction`) stage of the site-map workflow. Pure detectors
-// that turn already-gathered, normalized inputs into RAW surfaces: the deterministic material
-// the modeling stage (S2, LLM) later names, slugs, and attributes. Mirrors codebase-health's
-// `detectors.ts` — no I/O, no shell, no network — so every branch is exercised with fixtures;
-// the impure gathering (reading the commander program, walking the tree) lives in the gatherer.
-//
-// FR-2: extraction is deterministic and injectable (zero model tokens). FR-3: an unavailable
-// extractor is recorded as a blocked check and the run proceeds — a blocked check is a gap,
-// never a silent pass. See docs/specs/site-map-capability.plan.md §II.3 (S1) and §II.4.
-
 import { createHash } from 'node:crypto';
 
 import { slugify } from '@/pentest/shared.js';
@@ -22,7 +12,6 @@ import type {
 
 import type { SourcePointer } from './laravel-sources.js';
 
-/** Bumped when the in-memory extraction shape changes; independent of the map schema version. */
 export const SITE_MAP_EXTRACTION_SCHEMA_VERSION = 1;
 
 const NODE_CLI_SOURCE = 'node-cli';
@@ -35,25 +24,18 @@ const LARAVEL_SCHEDULE_SOURCE = 'laravel-schedule';
 const LARAVEL_JOBS_SOURCE = 'laravel-jobs';
 const LARAVEL_MAIL_SOURCE = 'laravel-mail';
 
-/** Most untraceable items a blocked check names before it says "and N more" (FR-13). */
 const UNRESOLVED_LIST_CAP = 10;
 
-/** One commander command as read from the CLI program (normalized by the gatherer). */
 export interface CliCommandRecord {
-  /** Space-joined command path, e.g. `sitemap` or `plan compile`. */
   name: string;
   description?: string;
-  /** Where the command is registered. */
   file: string;
   line?: number;
-  /** commander `.hidden()` commands are internal plumbing, not user-facing surfaces. */
   hidden?: boolean;
 }
 
-/** A raw surface entry from the generic fallback (any stack the gatherer can enumerate). */
 export interface GenericSurfaceRecord {
   kind: SurfaceKind;
-  /** Raw identifier: a route path, url, screen name, etc. */
   identifier: string;
   label?: string;
   file: string;
@@ -61,74 +43,45 @@ export interface GenericSurfaceRecord {
   entry?: SurfaceEntry;
 }
 
-/** A raw surface produced by extraction — deterministic material for the modeling stage. */
 export interface ExtractedSurface {
-  /** Stable, slug-shaped id derived from the raw identifier (the modeling stage refines it). */
   raw_id: string;
   kind: SurfaceKind;
   label: string;
-  /**
-   * The evidence contract every extractor keeps (issue #500): `file` is ALWAYS a
-   * project-relative path to a file that exists in the project, so verification can resolve it
-   * and a map that cites the same file reconciles. A command string such as
-   * `php artisan route:list` never goes in `file`, only in `note`. A surface an extractor
-   * cannot trace to project source is not emitted: artisan-listed framework or package
-   * built-ins are skipped, and untraceable routes or schedules become a blocked check instead.
-   */
   evidence: Evidence[];
   entry?: SurfaceEntry;
-  /** Extraction is always static/deterministic. */
   derivation: 'static';
   confidence: Confidence;
-  /** Which extractor produced it, e.g. `node-cli` or `generic`. */
   source: string;
-  /** Raw guard hints (e.g. route middleware tokens) for the guard-inference stage to resolve. */
   guards?: string[];
-  /** Module attribution (e.g. the owning `nwidart` module) when the source reveals it. */
   module?: string;
 }
 
-/** One extractor's contribution to a run: its surfaces, or a blocked check when unavailable. */
 export interface ExtractorOutput {
   extractor: string;
   available: boolean;
   surfaces: ExtractedSurface[];
-  /**
-   * Populated when `available` is false: why it could not run and how to enable it. An available
-   * extractor may carry one too, naming the items it found but could not trace to source (FR-3).
-   */
   blocked?: SiteMapBlockedCheck | null;
 }
 
-/** The merged, fingerprinted result of the extraction stage (the `extraction.json` shape). */
 export interface ExtractionResult {
   schema_version: number;
   app_kind: AppKind;
   surfaces: ExtractedSurface[];
   blocked_checks: SiteMapBlockedCheck[];
-  /** Content-addressed over the raw surface set — the drift signal for the freshness gate. */
   fingerprint: string;
-  /** How many extractors actually ran (available === true). */
   extractors_ran: number;
-  /** True when NO extractor ran: any downstream surfaces are an agent-led, low-confidence fallback. */
   low_confidence_fallback: boolean;
 }
 
-/** `file:line` evidence, omitting `line` when the gatherer could not pin one. */
 function toEvidence(file: string, line?: number): Evidence {
   return line === undefined ? { file } : { file, line };
 }
 
-/** A slug-shaped raw id: `<source>-<slug>`, or just `<source>` when the identifier has no word chars. */
 function toRawId(source: string, identifier: string): string {
   const slug = slugify(identifier);
   return slug.length > 0 ? `${source}-${slug}` : source;
 }
 
-/**
- * Node-CLI extractor: each non-hidden commander command becomes a `cli-command` surface whose
- * entry is the binary invocation. Hidden commands are internal plumbing, never a surface.
- */
 export function extractNodeCliSurfaces(records: CliCommandRecord[]): ExtractedSurface[] {
   const surfaces: ExtractedSurface[] = [];
   for (const record of records) {
@@ -148,11 +101,6 @@ export function extractNodeCliSurfaces(records: CliCommandRecord[]): ExtractedSu
   return surfaces;
 }
 
-/**
- * Generic fallback extractor: for stacks without a dedicated extractor, the gatherer hands over
- * already-enumerated raw entries. We trust their kind but flag the whole set `medium` confidence
- * — a convention-based read, not a first-class extractor.
- */
 export function extractGenericSurfaces(records: GenericSurfaceRecord[]): ExtractedSurface[] {
   return records.map((record) => {
     const label = record.label?.trim();
@@ -169,21 +117,13 @@ export function extractGenericSurfaces(records: GenericSurfaceRecord[]): Extract
   });
 }
 
-/** One declared React route as read from a route tree (React Router objects, Next app/pages). */
 export interface ReactRouteRecord {
-  /** Route path, e.g. `/checkout` or `/users/:id`. */
   path: string;
-  /** The component or page the route renders, used as the label when present. */
   component?: string;
   file: string;
   line?: number;
 }
 
-/**
- * React-route extractor: each declared route becomes a `page` surface whose entry is the URL.
- * High confidence — the route is read from an explicit declaration, not a naming convention.
- * The label is the component name when known, else the path.
- */
 export function extractReactRouteSurfaces(records: ReactRouteRecord[]): ExtractedSurface[] {
   return records.map((record) => {
     const component = record.component?.trim();
@@ -200,23 +140,14 @@ export function extractReactRouteSurfaces(records: ReactRouteRecord[]): Extracte
   });
 }
 
-/** One declared Laravel route, e.g. `Route::get('/users', ...)` or an `routes/api.php` entry. */
 export interface LaravelRouteRecord {
-  /** HTTP method, upper-cased, e.g. `GET`. */
   method: string;
-  /** Route uri without a leading slash, e.g. `users` or `api/orders`. */
   uri: string;
-  /** Controller@action or closure label, used as the label when present. */
   action?: string;
   file: string;
   line?: number;
 }
 
-/**
- * Laravel-route extractor: an `api/`-prefixed uri becomes an `api` surface, everything else a
- * `page`. High confidence — read from an explicit `Route::` declaration. The entry is the uri as
- * a rooted URL; the label is the controller action when known, else the method + uri.
- */
 export function extractLaravelRouteSurfaces(records: LaravelRouteRecord[]): ExtractedSurface[] {
   return records.map((record) => {
     const uri = record.uri.replace(/^\/+/, '');
@@ -235,75 +166,47 @@ export function extractLaravelRouteSurfaces(records: LaravelRouteRecord[]): Extr
   });
 }
 
-// --- Framework-native Laravel extraction (issue #445) --------------------------------------
-//
-// Prefer the framework's own introspection over grepping fixed directories: `php artisan
-// route:list --json` resolves modules, middleware, and controllers through the real router, so
-// modular routes (nwidart) and guards come for free. The impure shell-out + JSON read live in
-// the coverage-excluded gatherer; the normalization (parse*) and mapping (extract*) below are
-// pure and fully covered. Artisan says what is registered, not where, so each record is traced
-// back to project source through an injected resolver (see `laravel-sources.ts`); the artisan
-// command that listed it rides along in the evidence `note` (issue #500).
-
-/** One route as read from `php artisan route:list --json` (normalized by the parser). */
 export interface LaravelArtisanRouteRecord {
-  /** HTTP method(s), e.g. `GET|HEAD`. */
   method: string;
-  /** Route uri, e.g. `api/users/{user}` or `/`. */
   uri: string;
   name?: string;
-  /** `App\Http\Controllers\UserController@index`, `Closure`, etc. */
   action?: string;
-  /** Middleware tokens applied to the route (guard hints). */
   middleware?: string[];
   domain?: string;
 }
 
-/** One command as read from `php artisan list --format=json` (normalized by the parser). */
 export interface LaravelConsoleCommandRecord {
   name: string;
   description?: string;
   hidden?: boolean;
 }
 
-/** One scheduled task as read from `php artisan schedule:list` (normalized by the parser). */
 export interface LaravelScheduledTaskRecord {
-  /** Cron expression, e.g. `0 2 * * *` or `@daily`. */
   expression: string;
-  /** The command the schedule runs (or its description). */
   command: string;
 }
 
-/** One queued-job / mailable class as read by the modular-aware static class scan. */
 export interface LaravelClassSurfaceRecord {
-  /** Class name (short or FQCN), used as the label. */
   className: string;
   file: string;
   line?: number;
-  /** Owning module (from a `Modules/<Name>/` path or namespace) when known. */
   module?: string;
 }
 
-// ESC (0x1b) built at runtime so no control char appears in source (no-control-regex).
 const ANSI_RE = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
-/** A leading cron expression: a `@shorthand`, or 5-6 space-separated cron fields. */
 const CRON_LINE_RE = /^(@\w+|(?:[\d*,/-]+\s+){4,5}[\d*,/-]+)\s+(.+)$/;
-/** The owning module in a `…\Modules\<Name>\…` controller namespace. */
 const MODULE_NS_RE = /(?:^|\\)Modules\\([^\\]+)\\/;
 
-/** Strip a `?ref`/query and leading slashes from a uri, leaving the bare path. */
 function normalizeUri(uri: string): string {
   return uri.replace(/^\/+/, '');
 }
 
-/** The owning module from a controller action namespace, if it is a `Modules\<Name>` class. */
 function moduleFromAction(action: string | undefined): string | undefined {
   if (action === undefined) return undefined;
   const match = MODULE_NS_RE.exec(action);
   return match ? match[1] : undefined;
 }
 
-/** Coerce artisan's `middleware` (array, string, or absent) into a clean token list. */
 function normalizeMiddleware(raw: unknown): string[] {
   const tokens = Array.isArray(raw) ? raw : typeof raw === 'string' ? raw.split(/[\n,]/) : [];
   return tokens
@@ -311,11 +214,6 @@ function normalizeMiddleware(raw: unknown): string[] {
     .filter((token) => token.length > 0);
 }
 
-/**
- * Parse `php artisan route:list --json` stdout into normalized route records. Malformed output
- * (not JSON, not an array) yields an empty list rather than throwing, so the gatherer degrades
- * to the static scan instead of crashing the run.
- */
 export function parseArtisanRouteList(stdout: string): LaravelArtisanRouteRecord[] {
   let parsed: unknown;
   try {
@@ -344,11 +242,6 @@ export function parseArtisanRouteList(stdout: string): LaravelArtisanRouteRecord
   return records;
 }
 
-/**
- * Parse `php artisan list --format=json` stdout into normalized command records. Symfony wraps
- * the commands in a `{ commands: [...] }` envelope; a bare array is also accepted. Malformed
- * output yields an empty list.
- */
 export function parseArtisanCommandList(stdout: string): LaravelConsoleCommandRecord[] {
   let parsed: unknown;
   try {
@@ -380,11 +273,6 @@ export function parseArtisanCommandList(stdout: string): LaravelConsoleCommandRe
   return records;
 }
 
-/**
- * Parse `php artisan schedule:list` stdout (a table, no `--json`) into normalized task records.
- * Each task line begins with its cron expression; the remainder up to the trailing dotted
- * "Next Due" filler is the command. Lines without a leading cron expression are skipped.
- */
 export function parseArtisanScheduleList(stdout: string): LaravelScheduledTaskRecord[] {
   const records: LaravelScheduledTaskRecord[] = [];
   for (const rawLine of stdout.split('\n')) {
@@ -392,7 +280,6 @@ export function parseArtisanScheduleList(stdout: string): LaravelScheduledTaskRe
     const match = CRON_LINE_RE.exec(line);
     if (!match) continue;
     const expression = match[1]!.trim();
-    // The line is already outer-trimmed and the command is the `.+` tail, so it is never empty.
     const command = match[2]!
       .replace(/\s+\.{2,}.*$/, '')
       .replace(/\s+Next Due:.*$/, '')
@@ -402,27 +289,15 @@ export function parseArtisanScheduleList(stdout: string): LaravelScheduledTaskRe
   return records;
 }
 
-/** Extracted surfaces plus the items that could not be traced to project source. */
 export interface TracedExtraction {
   surfaces: ExtractedSurface[];
-  /** Human labels (`GET /a`, a scheduled command) of the items left out, for the blocked check. */
   unresolved: string[];
 }
 
-/** Attach the command that listed a surface as the note on each resolved source pointer. */
 function pointersToEvidence(pointers: SourcePointer[], note: string): Evidence[] {
   return pointers.map((pointer) => ({ ...pointer, note }));
 }
 
-/**
- * Artisan-route extractor: each registered route becomes a surface — `api`-prefixed uris are
- * `api`, the rest `page` — carrying its middleware as guard hints and its owning module (from a
- * `Modules\<Name>` controller namespace). `resolve` traces the route to source: the route-file
- * declaration and the controller method, both kept when both exist, so a map citing either one
- * reconciles. A route with no pointer (a closure or package route the static scan cannot see) is
- * not emitted; it is returned in `unresolved` for a visible blocked check. High confidence: read
- * from the real router, not a convention.
- */
 export function extractLaravelArtisanRoutes(
   records: LaravelArtisanRouteRecord[],
   resolve: (record: LaravelArtisanRouteRecord) => SourcePointer[],
@@ -457,12 +332,6 @@ export function extractLaravelArtisanRoutes(
   return { surfaces, unresolved };
 }
 
-/**
- * Console-command extractor: each non-hidden artisan command declared in project source becomes
- * a `cli-command` surface pointing at its declaration. `locate` finds that declaration; an
- * artisan-listed command it cannot find is a framework or package built-in (`migrate`,
- * `queue:work`), not an app surface, so it is skipped. Hidden commands are always plumbing.
- */
 export function extractLaravelConsoleCommands(
   records: LaravelConsoleCommandRecord[],
   locate: (name: string) => SourcePointer | undefined,
@@ -487,11 +356,6 @@ export function extractLaravelConsoleCommands(
   return surfaces;
 }
 
-/**
- * Scheduled-task extractor: each scheduled task becomes a `job` surface whose entry is the cron
- * expression and whose evidence is the line that schedules it. A task `locate` cannot find in the
- * schedule definition files is left out and returned in `unresolved` for a blocked check.
- */
 export function extractLaravelScheduledJobs(
   records: LaravelScheduledTaskRecord[],
   locate: (command: string) => SourcePointer | undefined,
@@ -518,11 +382,6 @@ export function extractLaravelScheduledJobs(
   return { surfaces, unresolved };
 }
 
-/**
- * The blocked check for items an available extractor found but could not trace to source
- * (FR-3: a gap is visible, never silent). Lists at most ten, then "and N more". Null when
- * nothing is unresolved.
- */
 export function unresolvedBlockedCheck(
   extractor: string,
   noun: string,
@@ -541,7 +400,6 @@ export function unresolvedBlockedCheck(
   };
 }
 
-/** Map a scanned class list to surfaces of a fixed kind (jobs → `job`, mailables → `email`). */
 function extractLaravelClassSurfaces(
   records: LaravelClassSurfaceRecord[],
   kind: SurfaceKind,
@@ -559,24 +417,14 @@ function extractLaravelClassSurfaces(
   }));
 }
 
-/**
- * Queued-job extractor: each `ShouldQueue` class (from the modular-aware scan) becomes a `job`
- * surface with resolving `file:line` evidence. Jobs are not registered like routes, so this is
- * the one Laravel family with no artisan introspection — a static scan is the primary source.
- */
 export function extractLaravelJobs(records: LaravelClassSurfaceRecord[]): ExtractedSurface[] {
   return extractLaravelClassSurfaces(records, 'job', LARAVEL_JOBS_SOURCE);
 }
 
-/**
- * Mailable extractor: each mailable / notification class (from the modular-aware scan) becomes
- * an `email` surface with resolving `file:line` evidence.
- */
 export function extractLaravelMailables(records: LaravelClassSurfaceRecord[]): ExtractedSurface[] {
   return extractLaravelClassSurfaces(records, 'email', LARAVEL_MAIL_SOURCE);
 }
 
-/** Merge two evidence lists, dropping exact `file:line:note` duplicates (stable order). */
 function mergeEvidence(a: Evidence[], b: Evidence[]): Evidence[] {
   const seen = new Set<string>();
   const merged: Evidence[] = [];
@@ -589,7 +437,6 @@ function mergeEvidence(a: Evidence[], b: Evidence[]): Evidence[] {
   return merged;
 }
 
-/** Collapse surfaces sharing a `raw_id` (first wins, evidence unioned) without mutating inputs. */
 function dedupeSurfaces(surfaces: ExtractedSurface[]): ExtractedSurface[] {
   const byId = new Map<string, ExtractedSurface>();
   for (const surface of surfaces) {
@@ -603,16 +450,10 @@ function dedupeSurfaces(surfaces: ExtractedSurface[]): ExtractedSurface[] {
   return [...byId.values()];
 }
 
-/** Order surfaces deterministically by `raw_id` so runs and fingerprints are reproducible. */
 export function sortExtractedSurfaces(surfaces: ExtractedSurface[]): ExtractedSurface[] {
   return [...surfaces].sort((a, b) => a.raw_id.localeCompare(b.raw_id));
 }
 
-/**
- * Content-addressed fingerprint over the raw surface set (id + kind + evidence), order-
- * independent so a re-run over the same code yields the same digest. This is the drift signal
- * the freshness gate compares against the map's recorded baseline (zero unexplained drift).
- */
 export function extractionFingerprint(surfaces: ExtractedSurface[]): string {
   const payload = JSON.stringify(
     [...surfaces]
@@ -623,12 +464,9 @@ export function extractionFingerprint(surfaces: ExtractedSurface[]): string {
       }))
       .sort((a, b) => a.raw_id.localeCompare(b.raw_id)),
   );
-  // SHA-256 (not for security — a stable content-addressed drift key; only already-safe map
-  // metadata reaches here).
   return createHash('sha256').update(payload).digest('hex').slice(0, 12);
 }
 
-/** Build a blocked-extractor output: it ran nothing, and records why plus how to enable it (FR-3). */
 export function blockedExtractor(
   extractor: string,
   reason: string,
@@ -642,18 +480,12 @@ export function blockedExtractor(
   };
 }
 
-/**
- * Merge every extractor's output into the fingerprinted `extraction.json` shape: available
- * extractors contribute surfaces (deduped and sorted), and any output carrying a blocked check
- * contributes it, and the run proceeds either way. `low_confidence_fallback` is true when nothing ran.
- */
 export function assembleExtraction(outputs: ExtractorOutput[], appKind: AppKind): ExtractionResult {
   const surfaces = sortExtractedSurfaces(
     dedupeSurfaces(
       outputs.filter((output) => output.available).flatMap((output) => output.surfaces),
     ),
   );
-  // An unavailable extractor's blocked check, and an available one's untraced-items check.
   const blockedChecks = outputs.flatMap((output) => (output.blocked ? [output.blocked] : []));
   const extractorsRan = outputs.filter((output) => output.available).length;
   return {

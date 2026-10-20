@@ -13,6 +13,7 @@ import {
   parseDiscoveryRunDirName,
 } from '@/discovery/paths.js';
 import { mintDiscoveryRunDirName } from '@/discovery/mint.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 const ULID = '01M3RWNS7194V0PV2RX340VM50';
 
@@ -30,7 +31,6 @@ describe('discovery paths', () => {
       `.paqad/ledger/delivery/${dir}/sources.jsonl`,
     );
     expect(discoveryReportPath(dir)).toBe(`.paqad/ledger/delivery/${dir}/report.html`);
-    // report.html is a projection, not a rigid file.
     expect(Object.values(DISCOVERY_RUN_FILES)).not.toContain('report.html');
   });
 
@@ -88,7 +88,10 @@ describe('discovery paths', () => {
 
 describe('discovery run mint', () => {
   it('mints a slug-and-ULID dir with a detected github issue', () => {
-    const minted = mintDiscoveryRunDirName({ title: 'Bulk invoice export #597', ulid: ULID });
+    const minted = mintDiscoveryRunDirName({
+      title: `Bulk invoice export ${ticketRef(597)}`,
+      ulid: ULID,
+    });
     expect(minted.issue).toBe('597');
     expect(minted.slug).toContain('bulk');
     expect(minted.dirName.endsWith(ULID)).toBe(true);
@@ -100,7 +103,7 @@ describe('discovery run mint', () => {
       'PQD-9',
     );
     expect(
-      mintDiscoveryRunDirName({ title: '#42 idea', issue: null, ulid: ULID }).issue,
+      mintDiscoveryRunDirName({ title: `${ticketRef(42)} idea`, issue: null, ulid: ULID }).issue,
     ).toBeNull();
   });
 
@@ -111,7 +114,7 @@ describe('discovery run mint', () => {
   });
 
   it('normalises a leading # off a detected github ref', () => {
-    const minted = mintDiscoveryRunDirName({ title: 'Ship #100 faster', ulid: ULID });
+    const minted = mintDiscoveryRunDirName({ title: `Ship ${ticketRef(100)} faster`, ulid: ULID });
     expect(minted.issue).toBe('100');
   });
 

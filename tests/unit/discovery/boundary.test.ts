@@ -23,7 +23,6 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-/** Put `sessionId` on an active Discovery run, returning the run dir name. */
 function onDiscoveryRun(root: string, sessionId: string): string {
   const { dirName } = openDiscoveryRun(root, { sessionId, title: 'idea', adapter: 'x' });
   writeWorkflowState(root, sessionId, {
@@ -127,7 +126,6 @@ describe('discovery ownership (INV-5)', () => {
     const root = tempRoot();
     const run = onDiscoveryRun(root, 'sess-C');
     expect(ownsDiscoveryRun(root, 'sess-C', run)).toBe(true);
-    // A different session, even pointed at the same run in its own state, is not the run owner.
     writeWorkflowState(root, 'sess-D', {
       active: { workflow: 'discovery', discoveryRunId: run },
       paused: [],

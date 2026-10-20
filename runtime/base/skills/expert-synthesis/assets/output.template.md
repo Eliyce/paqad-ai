@@ -38,4 +38,4 @@ Return exactly this JSON shape:
 - Every merged finding id appears once across `accepted` and `declined`.
 - Each merge conflict gets one row; `recommendation` is one of its claims verbatim.
 - A gap's `question` is optional.
-- `renames` is optional (issue #558): for each voice warning, rename the finding's target to the project's word, or leave it out when the word stands. Every `id` must be one the merge knows.
+- `renames` is optional: for each voice warning, rename the finding's target to the project's word, or leave it out when the word stands. Every `id` must be one the merge knows.

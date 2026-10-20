@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Purpose: Load failures from verification evidence (schema 1.0.x) into a flat
-#          one-failure-per-line JSON stream the LLM can iterate over.
-# Usage:   bash scripts/load-failures.sh [evidence-json]
-#          Default: .paqad/session/verification-evidence.json
-# Output:  One JSON object per line: {idx,gate,category,file,line,ac_id,test_id,suite,message}
-# Exits:   0 ok | 1 missing/invalid evidence or unsupported schema | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Load failures from verification evidence (schema 1.0.x) into a flat
+         one-failure-per-line JSON stream the LLM can iterate over.
+Usage:   bash scripts/load-failures.sh [evidence-json]
+         Default: .paqad/session/verification-evidence.json
+USAGE
+  exit 0
 fi
 ev="${1:-.paqad/session/verification-evidence.json}"
 [ -f "$ev" ] || { printf 'error: evidence not found: %s\n' "$ev" >&2; exit 1; }

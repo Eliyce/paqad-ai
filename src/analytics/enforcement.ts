@@ -1,9 +1,3 @@
-// Analytics completeness enforcement (issue #279). The gate input is doc-existence, not the
-// ledger: an instrumented event is "complete" when its per-event doc exists. The strictness
-// knob `analytics_strictness` decides what a missing doc means — off is silent, warn is a 🟡
-// at completion, strict blocks on Done. Modeled on the stages_mode / rule_compliance floor
-// clamp: the team value is a floor and a local override may only RAISE strictness.
-
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -14,17 +8,10 @@ import { analyticsEventDocPath } from './doc-tree.js';
 
 export type AnalyticsStrictness = 'off' | 'warn' | 'strict';
 
-/** Modes weakest → strictest, for the floor clamp. */
 export const ANALYTICS_STRICTNESS_MODES = ['off', 'warn', 'strict'] as const;
 
-/** Analytics is coding-first: the default never blocks a correct build (confirmed 2026-07-02). */
 export const DEFAULT_ANALYTICS_STRICTNESS: AnalyticsStrictness = 'warn';
 
-/**
- * Resolve the analytics strictness mode with the team value as a floor. The tracked
- * `configs/.config.*` value is the floor; the local `.config` and `PAQAD_ANALYTICS_STRICTNESS`
- * env may only RAISE strictness above it. Nothing set ⇒ `warn`.
- */
 export function resolveAnalyticsStrictness(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -48,17 +35,10 @@ export interface InstrumentedEvent {
 
 export interface AnalyticsCompletenessResult {
   mode: AnalyticsStrictness;
-  /** `ok` — every event doc exists. `warn` — some missing, non-blocking. `block` — strict, missing. */
   verdict: 'ok' | 'warn' | 'block';
-  /** Repo-relative event-doc paths that an instrumented event promised but that do not exist. */
   missingDocs: string[];
 }
 
-/**
- * Decide whether the instrumented events are completely documented. The gate is doc-existence:
- * strict requires the EVENT doc to exist (not each provider section — provider detection has
- * confidence, so blocking on a section would false-block). `off` is always `ok`.
- */
 export function evaluateAnalyticsCompleteness(input: {
   mode: AnalyticsStrictness;
   events: readonly InstrumentedEvent[];
@@ -82,10 +62,6 @@ export function evaluateAnalyticsCompleteness(input: {
   return { mode, verdict: mode === 'strict' ? 'block' : 'warn', missingDocs };
 }
 
-/**
- * Convenience over {@link evaluateAnalyticsCompleteness} that checks the docs against the real
- * filesystem under `projectRoot` and resolves the strictness mode from config.
- */
 export function evaluateAnalyticsCompletenessForProject(
   projectRoot: string,
   events: readonly InstrumentedEvent[],

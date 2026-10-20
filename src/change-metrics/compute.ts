@@ -1,11 +1,3 @@
-// Compute the change-shape metrics (issue #362).
-//
-// Pure fold over two caches the completion gates already produced — the #358 duplication
-// report and the #353 code-knowledge index — plus the change's meaningful added-line count.
-// No second scan, no model, no network (INV-3). Both metrics degrade to `null` (n/a) when
-// their source cache is absent or there are no meaningful changed lines, so an unbuilt index
-// or a duplication-off project reads honestly rather than as a misleading 0 (FR-2).
-
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import type { CodeKnowledgeIndex } from '@/code-knowledge/types.js';
 import { readDuplicationReport } from '@/duplication/report.js';
@@ -19,21 +11,14 @@ export interface ComputeChangeMetricsOptions {
   changedFiles: string[];
 }
 
-/** Normalize a path to the project-relative, forward-slash form the caches store. */
 function normalizePath(path: string): string {
   return path.replace(/\\/g, '/').replace(/^\.\//, '');
 }
 
-/** Round to one decimal place (6.0 stays 6, 4.25 → 4.3). */
 function round1(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-/**
- * Distinct changed-file lines covered by a duplication finding span. Findings can overlap
- * (two near-copies sharing lines) or repeat a file, so spans are unioned per file into a set
- * of line numbers rather than summed — a line never counts twice.
- */
 export function flaggedNewCodeLines(findings: readonly DuplicationFinding[]): number {
   const byFile = new Map<string, Set<number>>();
   for (const finding of findings) {
@@ -54,12 +39,6 @@ export function flaggedNewCodeLines(findings: readonly DuplicationFinding[]): nu
   return total;
 }
 
-/**
- * Cross-file reuse calls the change makes: reference edges whose source is a changed file and
- * whose target is a file NOT touched by this change (a pre-existing symbol the new code calls).
- * This is GitClear's "cross-file calls" signal (which fell 35% industry-wide since 2023),
- * scoped to one change.
- */
 export function crossFileReuseCalls(
   index: CodeKnowledgeIndex,
   changedFiles: readonly string[],
@@ -74,12 +53,6 @@ export function crossFileReuseCalls(
   return calls;
 }
 
-/**
- * Compute the change-shape metrics for a change. `dup_new_pct` folds the duplication cache's
- * flagged span lines over meaningful changed lines (clamped to [0, 100]); `reuse_rate` folds
- * the index's cross-file reuse calls per 100 meaningful changed lines. Either is `null` when
- * its source is absent or there are no meaningful changed lines.
- */
 export async function computeChangeMetrics(
   options: ComputeChangeMetricsOptions,
 ): Promise<ChangeMetrics> {

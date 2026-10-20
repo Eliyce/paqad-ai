@@ -1,8 +1,3 @@
-// Issue #581 (AC-22, INV-1) — no code other than the migration module names the retired
-// per-feature spec scratch folder. The pattern is pinned with a boundary on purpose: a bare
-// `_specs` search also matches the unrelated `consumer_specs` field in src/compliance/boundary,
-// so only the folder path or a quoted `_specs` literal counts.
-
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 
 import { join, relative, resolve } from 'pathe';

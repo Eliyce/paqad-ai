@@ -1,6 +1,6 @@
 # Spec Pipeline & Experts
 
-> **Layer:** `agent-workflows` &nbsp;·&nbsp; **Slug:** `spec-pipeline-and-experts` &nbsp;·&nbsp; **Issue:** #547
+> **Layer:** `agent-workflows` &nbsp;·&nbsp; **Slug:** `spec-pipeline-and-experts`
 
 ## What it is
 

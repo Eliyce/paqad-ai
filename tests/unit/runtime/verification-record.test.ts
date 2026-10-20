@@ -5,12 +5,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// verification-record.mjs is the record-only completion hook Codex/Gemini bind to
-// (issue #265 extended it to also record `paqad:stage` markers). It must ALWAYS
-// exit 0 and stay silent — a non-zero exit or any stdout/stderr would be misread as
-// a control signal (Codex rejects plain text on Stop; Gemini requires pure JSON).
-// These check the always-exit-0 contract across payload shapes; the marker-parse
-// logic itself is covered by tests/unit/stage-evidence/marker-parse.test.ts.
 const HOOK = resolve(__dirname, '../../../runtime/hooks/verification-record.mjs');
 
 function run(
@@ -44,8 +38,6 @@ describe('runtime/hooks/verification-record.mjs (record-only contract)', () => {
   });
   afterEach(() => rmSync(projectRoot, { recursive: true, force: true }));
 
-  // Disabled short-circuits before any dist import, so this is the case we can
-  // assert full silence on without a built dist.
   it('exits 0 and stays silent when disabled', () => {
     const r = run(
       projectRoot,
@@ -57,10 +49,6 @@ describe('runtime/hooks/verification-record.mjs (record-only contract)', () => {
     expect(r.stderr).toBe('');
   });
 
-  // The remaining cases assert only the always-exit-0 contract (INV-2): the record
-  // hook never halts the host, regardless of payload shape. Output silence on the
-  // enabled path depends on the injected silent streams inside the hook and is
-  // asserted in-process by tests/unit/runtime/verify-backstop.test.ts.
   it('exits 0 on an empty / non-JSON payload', () => {
     expect(run(projectRoot, '', { adapter: 'codex-cli' }).status).toBe(0);
   });

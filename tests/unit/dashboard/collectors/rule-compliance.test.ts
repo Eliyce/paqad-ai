@@ -51,10 +51,6 @@ function baseMap(rules: RuleScriptMap['rules']): RuleScriptMap {
   };
 }
 
-/**
- * Seed the live drift cache the dashboard now reads (issue #468 Phase B, D2). `counts`
- * accepts a partial and is filled with zeros so a test only names the codes it cares about.
- */
 function writeDriftCache(
   root: string,
   blocked: boolean,
@@ -146,15 +142,13 @@ describe('collectRuleCompliance', () => {
         }),
       ]),
     );
-    // Issue #468 Phase B (D2) — the dashboard reads drift LIVE from the reconciler's
-    // `.cache/drift.json`, since drift describes the project, not a change.
     writeDriftCache(root, true, { 'RS-RULE-EDITED': 1, 'RS-SCRIPT-STALE': 1 });
     const { section, attention } = collectRuleCompliance(root);
     expect(section.band).toBe('red');
     expect(attention.some((a) => a.message.includes('generate rule scripts'))).toBe(true);
   });
 
-  it('is red on deterministic findings from the latest bundle rule-run row (#468 Phase B)', () => {
+  it('is red on deterministic findings from the latest bundle rule-run row', () => {
     const root = createRoot();
     writeMap(
       root,
@@ -173,7 +167,6 @@ describe('collectRuleCompliance', () => {
         }),
       ]),
     );
-    // Findings now come from the per-feature bundle's rule-run.jsonl, latest by ts.
     openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
     appendRuleRun(root, 'ses_1', {
       kind: 'findings',
@@ -190,10 +183,9 @@ describe('collectRuleCompliance', () => {
     expect(section.details?.deterministic_findings).toBe(2);
   });
 
-  it('drift lives only in the cache, findings only in the bundle (#468 Phase B, D2)', () => {
+  it('drift lives only in the cache, findings only in the bundle', () => {
     const root = createRoot();
     writeMap(root, baseMap([ruleEntry('RL-aaaa')]));
-    // Drift blocked in the cache → red; no bundle findings row needed.
     writeDriftCache(root, true);
     const { section } = collectRuleCompliance(root);
     expect(section.band).toBe('red');

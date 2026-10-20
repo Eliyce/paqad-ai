@@ -85,13 +85,11 @@ describe('intake-prior-resolver', () => {
       },
     };
 
-    // Mirror the file shape that the DecisionStore expects.
     mkdirSync(join(projectRoot, '.paqad/decisions/resolved'), { recursive: true });
     writeFileSync(
       join(projectRoot, '.paqad/decisions/resolved/D-42.json'),
       JSON.stringify(priorPacket, null, 2),
     );
-    // Register the fingerprint in the index so the lookup hits the exact-match path.
     writeFileSync(
       join(projectRoot, '.paqad/decisions/index.json'),
       JSON.stringify(

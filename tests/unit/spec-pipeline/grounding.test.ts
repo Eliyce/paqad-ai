@@ -24,7 +24,6 @@ function writeDoc(root: string, rel: string, body: string): void {
   writeFileSync(abs, body, 'utf8');
 }
 
-/** Recursively list every file path under a root, relative + sorted (for the AC-4 snapshot). */
 function listFiles(root: string): string[] {
   const out: string[] = [];
   const walk = (dir: string): void => {
@@ -38,7 +37,6 @@ function listFiles(root: string): string[] {
   return out.sort();
 }
 
-/** A stub retrieval seam returning fixed chunks, so the RAG path runs without a real index. */
 function stubRetrieval(
   chunks: Array<{ id: string; source_file: string; content: string }>,
 ): RetrievalSource {
@@ -54,7 +52,6 @@ function stubRetrieval(
   };
 }
 
-/** A business.md fixture with two glossary entries, two roles, one flow, and junk to filter. */
 const VOCAB_FIXTURE = [
   '# Billing',
   '## Overview',
@@ -78,7 +75,7 @@ const VOCAB_FIXTURE = [
   '',
 ].join('\n');
 
-describe('vocabulary extraction (issue #558, FR-3)', () => {
+describe('vocabulary extraction', () => {
   it('extracts glossary, role, and flow entries and skips the scaffold line (AC-6)', () => {
     const root = tempRoot();
     writeDoc(root, 'docs/modules/billing/features/invoices/business.md', VOCAB_FIXTURE);
@@ -235,7 +232,6 @@ describe('groundAreaAsync', () => {
   it('uses the docs-glob fallback when RAG is off (AC-2)', async () => {
     const root = tempRoot();
     writeDoc(root, 'docs/modules/export/business.md', '## Clean export\n**hidden columns**\n');
-    // The stub would supply terms if consulted; RAG off means it must NOT be.
     const g = await groundAreaAsync(root, {
       ragEnabled: false,
       modules: ['export'],
@@ -256,7 +252,7 @@ describe('groundAreaAsync', () => {
     expect(g.path).toBe('docs-fallback');
   });
 
-  it('runs the same vocabulary extraction on the rag path (issue #558, AC-6 parity)', async () => {
+  it('runs the same vocabulary extraction on the rag path', async () => {
     const root = tempRoot();
     const body = VOCAB_FIXTURE;
     writeDoc(root, 'docs/modules/billing/features/invoices/business.md', body);

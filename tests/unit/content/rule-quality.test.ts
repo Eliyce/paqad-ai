@@ -6,13 +6,6 @@ import { describe, expect, it } from 'vitest';
 
 const RUNTIME = join(process.cwd(), 'runtime');
 
-/**
- * Workflow specifications that predate the rules-as-rules contract. They are
- * full workflows (triggers, steps, run state) that happen to live under
- * `rules/`. Relocating them out of the copied rule set is tracked separately;
- * until then they are allowlisted so the guard can enforce the contract on the
- * rest of the corpus. See `runtime/rules-authoring.md`.
- */
 const WORKFLOW_SPEC_ALLOWLIST = [
   'capabilities/coding/rules/design-test.md',
   'capabilities/coding/rules/design-retest.md',
@@ -27,13 +20,6 @@ const WORKFLOW_SPEC_ALLOWLIST = [
 const ruleFiles = fg.sync('**/rules/**/*.md', { cwd: RUNTIME }).sort();
 const guardedFiles = ruleFiles.filter((rel) => !WORKFLOW_SPEC_ALLOWLIST.includes(rel));
 
-/**
- * A rule must earn its place: a stack rule may sharpen an always-on rule with
- * stack-specific detail, but it must not merely restate one. Always-on rules
- * (base + capability-level + `_shared`) ship to every project alongside the
- * stack rules, so a near-verbatim copy is pure duplication the consumer reads
- * twice. This guard backstops that — see issue #94.
- */
 const REDUNDANCY_THRESHOLD = 0.6;
 
 const isAlwaysOnRule = (rel: string): boolean =>
@@ -94,7 +80,6 @@ describe('rule quality guard', () => {
 
   it.each(guardedFiles)('%s contains no workflow-spec markers', (rel) => {
     const content = readFileSync(join(RUNTIME, rel), 'utf8');
-    // A rule is a constraint, not a workflow: no triggers, numbered steps, or run state.
     expect(content, 'has a "## Trigger" section').not.toMatch(/^#{2,4}\s+Trigger\b/im);
     expect(content, 'has a "### Step N" section').not.toMatch(/^#{2,4}\s+Step\b/im);
     expect(content, 'references a workflow run_id').not.toMatch(/\brun_id\b/);
@@ -102,7 +87,6 @@ describe('rule quality guard', () => {
 
   it.each(guardedFiles)('%s does not leak framework plumbing', (rel) => {
     const content = readFileSync(join(RUNTIME, rel), 'utf8');
-    // Rules ship into the project and must survive deleting `.paqad/`.
     expect(content, 'references the .paqad/ runtime directory').not.toMatch(/\.paqad\//);
   });
 

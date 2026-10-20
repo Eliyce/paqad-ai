@@ -13,16 +13,12 @@ export class ContextEvictor {
     const toEvict: ContextSegmentPriority[] = [];
 
     if (tier === 'yellow') {
-      // Evict low priority only
       toEvict.push(...segments.filter((s) => s.tier === 'low'));
     } else if (tier === 'amber') {
-      // Evict low + medium
       toEvict.push(...segments.filter((s) => s.tier === 'low' || s.tier === 'medium'));
     } else if (tier === 'red') {
-      // Evict low + medium (compact flow handles the rest)
       toEvict.push(...segments.filter((s) => s.tier === 'low' || s.tier === 'medium'));
     }
-    // green: nothing to evict
 
     const remaining_segments = segments.filter((segment) => !toEvict.includes(segment));
     const evicted_count = toEvict.length;

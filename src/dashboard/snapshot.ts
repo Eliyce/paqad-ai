@@ -5,13 +5,6 @@ import { PATHS } from '@/core/constants/paths.js';
 
 import { buildReceiptFeed } from './trust.js';
 
-/**
- * Issue #161 — access-free shareable snapshots. A snapshot is a single
- * self-contained HTML document (inline styles, no scripts, no live calls) of
- * one trust receipt or one module-health card, so it renders correctly even
- * with the dashboard server stopped. Read-only; nothing here mutates.
- */
-
 function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
@@ -37,7 +30,6 @@ ${body}
 `;
 }
 
-/** Render one receipt (matched by full or short hash) as a static page, or null. */
 export function buildReceiptSnapshot(projectRoot: string, hash: string): string | null {
   const feed = buildReceiptFeed(projectRoot);
   const receipt =
@@ -82,7 +74,6 @@ interface ModuleHealthFile {
   updated_at?: string;
 }
 
-/** Render one module-health card (id may carry a `module:` prefix) as a static page, or null. */
 export function buildModuleSnapshot(projectRoot: string, id: string): string | null {
   const slug = id.replace(/^module:/, '');
   if (!/^[A-Za-z0-9._-]+$/.test(slug)) return null;

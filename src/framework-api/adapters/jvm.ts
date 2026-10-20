@@ -1,14 +1,3 @@
-// The Java / Spring framework-API adapter (issue #398).
-//
-// The JVM is the one ecosystem here whose install tree is NOT in the project: Maven and
-// Gradle resolve artifacts into per-user caches (`~/.m2/repository`,
-// `~/.gradle/caches/modules-2`). So `searchRoot` locates the build file that declares the
-// coordinate, and the artifact itself is looked up in those caches — read-only, and only
-// ever for a coordinate the project's own snapshot declared (INV-3, INV-5).
-//
-// A coordinate is `group:artifact`, matching what the JVM ecosystem parser already emits
-// from `pom.xml` and `build.gradle` (src/introspection/ecosystems/jvm.ts).
-
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -28,17 +17,10 @@ import { parseClassFile } from './class-file.js';
 import { readZipDirectory, readZipEntry } from './jar.js';
 import { dynamicRecord } from './shared.js';
 
-/** `version=3.5.0` in a jar's nested `META-INF/maven` pom.properties. */
 const POM_VERSION_PATTERN = /^version=(.+)$/m;
 
-/**
- * How many classes one jar contributes records for. spring-core alone ships ~2,800; the cap
- * keeps a fat uber-jar from dominating the index. Classes past it still get a wildcard from
- * their package, so nothing reads absent merely because it was not reached (INV-1).
- */
 const MAX_CLASSES = 4000;
 
-/** A `group:artifact` coordinate split into its parts, or null when it is not one. */
 export function parseCoordinate(coordinate: string): { group: string; artifact: string } | null {
   const parts = coordinate.split(':');
   if (parts.length < 2 || parts[0] === '' || parts[1] === '') {
@@ -47,14 +29,12 @@ export function parseCoordinate(coordinate: string): { group: string; artifact: 
   return { group: parts[0] as string, artifact: parts[1] as string };
 }
 
-/** The candidate jar paths for a coordinate, newest-version-last, across both caches. */
 export function jarCandidates(
   coordinate: { group: string; artifact: string },
   home: string,
 ): string[] {
   const found: string[] = [];
 
-  // Maven: ~/.m2/repository/<group as path>/<artifact>/<version>/<artifact>-<version>.jar
   const mavenDir = join(
     home,
     '.m2',
@@ -69,7 +49,6 @@ export function jarCandidates(
     }
   }
 
-  // Gradle: ~/.gradle/caches/modules-2/files-2.1/<group>/<artifact>/<version>/<sha1>/<jar>
   const gradleDir = join(
     home,
     '.gradle',
@@ -92,7 +71,6 @@ export function jarCandidates(
   return found.sort();
 }
 
-/** The subdirectories of `dir`, or an empty list when it does not exist. */
 function listDirs(dir: string): string[] {
   try {
     return readdirSync(dir, { withFileTypes: true })
@@ -104,7 +82,6 @@ function listDirs(dir: string): string[] {
   }
 }
 
-/** The version Maven stamped into the jar, read from its own `pom.properties` (FR-4). */
 export function versionFromJar(buffer: Buffer): string | null {
   const directory = readZipDirectory(buffer);
   if (directory === null) {
@@ -124,7 +101,6 @@ export function versionFromJar(buffer: Buffer): string | null {
   return POM_VERSION_PATTERN.exec(bytes.toString('utf8'))?.[1]?.trim() ?? null;
 }
 
-/** Read a jar off disk, or null when it cannot be read. */
 function readJar(path: string): Buffer | null {
   try {
     return readFileSync(path);
@@ -134,14 +110,6 @@ function readJar(path: string): Buffer | null {
   }
 }
 
-/**
- * The jar that answers for this coordinate, and the version IT stamps on itself.
- *
- * When several versions are cached the newest by sort order wins, and the version comes
- * from the jar's own `pom.properties` rather than from its directory name (FR-4) — so the
- * index always records the version of the artifact it actually read, and `sources` names
- * the exact jar it read it from.
- */
 function resolveJar(coordinate: {
   group: string;
   artifact: string;
@@ -160,15 +128,6 @@ function resolveJar(coordinate: {
   return null;
 }
 
-/**
- * The coordinates an aggregator POM pulls in.
- *
- * Spring's `*-starter-*` artifacts ship a jar with no classes: they exist to pull other
- * modules in. Indexing one and stopping would record "no classes here" for the single most
- * common Spring dependency a project declares, so its sibling `.pom` is read and the
- * modules it aggregates are indexed instead. The POM is parsed by the SAME jvm ecosystem
- * parser stack detection already uses, rather than a second `<dependency>` regex (RULE-13).
- */
 export function aggregatedCoordinates(pomXml: string): string[] {
   return jvmParser
     .parseManifest(pomXml, 'pom.xml')
@@ -176,7 +135,6 @@ export function aggregatedCoordinates(pomXml: string): string[] {
     .map((entry) => entry.name);
 }
 
-/** The `.pom` beside a resolved jar, or null when it is absent. */
 function siblingPom(jarPath: string): string | null {
   try {
     return readFileSync(jarPath.replace(/\.jar$/, '.pom'), 'utf8');
@@ -185,7 +143,6 @@ function siblingPom(jarPath: string): string | null {
   }
 }
 
-/** The records one class contributes: the class, its deprecated members, its wildcard. */
 function classRecords(
   className: string,
   parsed: NonNullable<ReturnType<typeof parseClassFile>>,
@@ -229,8 +186,6 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
     if (coordinate === null) {
       return null;
     }
-    // `searchRoot` must still be a real module root — a coordinate declared nowhere is not
-    // this project's dependency, whatever happens to sit in the user's caches.
     try {
       if (!statSync(searchRoot).isDirectory()) {
         return null;
@@ -242,10 +197,6 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
     return jar === null ? null : { dir: jar.path, version: jar.version };
   },
 
-  /**
-   * Content-address the artifact: coordinate + resolved version + the jar's size and mtime.
-   * A published jar is immutable, so this changes only when the resolved artifact does.
-   */
   contentHash(input: FrameworkApiAdapterInput): string {
     const hash = createHash('sha256').update(`${input.package}@${input.version}`);
     try {
@@ -271,9 +222,6 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
       return { indexed: true, sources: [cachePath(input.packageDir)], symbols: own.symbols };
     }
 
-    // No classes: this is an aggregator (a Spring `*-starter-*` or a BOM). Index what it
-    // pulls in, so the coordinate a project actually declares still answers for the API it
-    // gives that project.
     const pom = siblingPom(input.packageDir);
     if (pom === null) {
       return {
@@ -314,10 +262,8 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
   },
 };
 
-/** How many of an aggregator's dependencies are followed. Bounds a fat BOM's fan-out. */
 const MAX_AGGREGATED = 12;
 
-/** One jar's records, or null when the artifact could not be read at all. */
 function indexJar(jarPath: string): { symbols: FrameworkApiSymbol[]; classes: number } | null {
   const buffer = readJar(jarPath);
   /* v8 ignore next 3 -- readJar returns null only for a path that existed moments earlier. */
@@ -331,7 +277,6 @@ function indexJar(jarPath: string): { symbols: FrameworkApiSymbol[]; classes: nu
   const symbols: FrameworkApiSymbol[] = [];
   let classes = 0;
   for (const entry of directory) {
-    // Inner and anonymous classes carry no API a plan would claim by name.
     if (!entry.name.endsWith('.class') || entry.name.includes('$')) {
       continue;
     }
@@ -353,11 +298,6 @@ function indexJar(jarPath: string): { symbols: FrameworkApiSymbol[]; classes: nu
   return { symbols, classes };
 }
 
-/**
- * A cached artifact's path with the home directory folded to `~`, in the repo's
- * posix-everywhere form. The jar lives outside the project, so a project-relative path
- * would be a wall of `../` — and the index is read by people, not only by the query.
- */
 function cachePath(jarPath: string): string {
   const home = homedir();
   return toPosixPath(jarPath.startsWith(home) ? `~${jarPath.slice(home.length)}` : jarPath);

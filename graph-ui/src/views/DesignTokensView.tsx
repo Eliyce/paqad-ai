@@ -10,22 +10,13 @@ import { WinLine } from '../components/WinLine';
 import { fetchDashboard, fetchDesignTokensConfig, putDesignTokens } from '../lib/api';
 import type { DesignTokensConfigResponse, ValidationIssue } from '../lib/dashboard-types';
 
-/**
- * The design tokens editor (issue #146). The raw JSON text is the source of
- * truth; the swatch grid and scalar list are structured views over it that
- * write back through the same text, so the two surfaces can never disagree.
- * Saving regenerates the derived design-system docs and reports the count.
- */
-
 const HEX_PATTERN = /^#([0-9a-fA-F]{3,8})$/;
 
 interface TokenLeaf {
-  /** Object path segments down to the scalar. */
   path: string[];
   value: string | number | boolean;
 }
 
-/** Every scalar in the document, colors and otherwise, in document order. */
 function collectLeaves(node: unknown, path: string[], out: TokenLeaf[]): void {
   if (node === null || typeof node !== 'object' || Array.isArray(node)) return;
   for (const [key, value] of Object.entries(node as Record<string, unknown>)) {
@@ -37,7 +28,6 @@ function collectLeaves(node: unknown, path: string[], out: TokenLeaf[]): void {
   }
 }
 
-/** Display path: dots, with the W3C `$value` suffix trimmed for readability. */
 function displayPath(path: string[]): string {
   const joined = path.join('.');
   return joined.endsWith('.$value') ? joined.slice(0, -'.$value'.length) : joined;
@@ -54,7 +44,6 @@ function setAtPath(root: Record<string, unknown>, path: string[], value: unknown
   if (last !== undefined) node[last] = value;
 }
 
-/** Scalars worth listing: skip `$`-meta keys, keep `$value` leaves. */
 function isListable(leaf: TokenLeaf): boolean {
   const last = leaf.path[leaf.path.length - 1] ?? '';
   return !last.startsWith('$') || last === '$value';
@@ -139,9 +128,7 @@ export function DesignTokensView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome placeholders are fine
-      });
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -153,7 +140,6 @@ export function DesignTokensView() {
     };
   }, []);
 
-  /** Parsed view of the current text, or null while the JSON is broken. */
   let parsed: Record<string, unknown> | null = null;
   try {
     const candidate: unknown = JSON.parse(text);

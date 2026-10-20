@@ -50,7 +50,7 @@ const DUP_REPORT: DuplicationReport = {
   resolved_decisions: [],
 } as unknown as DuplicationReport;
 
-describe('evidenceExistenceGate (issue #468 Phase C)', () => {
+describe('evidenceExistenceGate', () => {
   let root: string;
   let dir: string;
   let sessionId: string;
@@ -78,7 +78,6 @@ describe('evidenceExistenceGate (issue #468 Phase C)', () => {
     };
   }
 
-  /** Seed a `_chat` rag row so the rag.jsonl check passes. */
   function seedChatRag(): void {
     const row = stampSessionRow('paqad.rag-evidence', sessionId, {
       kind: 'used',
@@ -124,12 +123,10 @@ describe('evidenceExistenceGate (issue #468 Phase C)', () => {
     const gate = evidenceExistenceGate(baseInput());
     expect(gate?.status).toBe('pass');
     expect(gate?.detail).not.toContain('Backfilled');
-    // No gate-minted rows — the live rows are the only ones.
     expect(readRuleRun(root, dir).every((r) => r.backfilled === undefined)).toBe(true);
   });
 
   it('backfills the recoverable files from the caches (marked backfilled:true) and passes', () => {
-    // Bundle files absent, but the engine caches are present.
     writeJson(PATHS.RULE_SCRIPTS_REPORT, {
       counts: { deterministic: 2, heuristic: 1, skipped: 0 },
       blocking: false,
@@ -142,20 +139,17 @@ describe('evidenceExistenceGate (issue #468 Phase C)', () => {
     expect(gate?.status).toBe('pass');
     expect(gate?.detail).toContain('Backfilled from cache');
 
-    // The gate minted rows into the bundle, each marked backfilled:true.
     const ruleRows = readRuleRun(root, dir);
     expect(ruleRows.length).toBeGreaterThan(0);
     expect(ruleRows.every((r) => r.backfilled === true)).toBe(true);
     expect(readDuplication(root, dir).every((r) => r.backfilled === true)).toBe(true);
-    // change-metrics is backfilled from the live value passed in.
     const metricRows = readChangeMetrics(root, dir);
     expect(metricRows).toHaveLength(1);
     expect(metricRows[0].backfilled).toBe(true);
-    // A cached report without its results list mints no findings list (issue #639, Gate 3).
     expect(ruleRows.find((r) => r.kind === 'findings')).not.toHaveProperty('findings');
   });
 
-  it('backfills the cached findings by name into the rule-run row (issue #639, Part 12)', () => {
+  it('backfills the cached findings by name into the rule-run row', () => {
     writeJson(PATHS.RULE_SCRIPTS_REPORT, {
       counts: { deterministic: 1, heuristic: 0, skipped: 0 },
       blocking: true,
@@ -186,7 +180,6 @@ describe('evidenceExistenceGate (issue #468 Phase C)', () => {
   });
 
   it('reports Inconclusive naming rag.jsonl when RAG is enabled but no retrieval row exists', () => {
-    // Recoverable files present so only rag is missing.
     appendRuleRun(root, sessionId, {
       kind: 'findings',
       counts: { deterministic: 0 },
@@ -228,7 +221,6 @@ describe('evidenceExistenceGate (issue #468 Phase C)', () => {
   });
 
   it('never returns a fail status', () => {
-    // A degenerate change with nothing present, no caches, rag dark.
     const gate = evidenceExistenceGate(
       baseInput({ ragEnabled: false, duplicationOn: false, metricsOn: false, changeMetrics: null }),
     );

@@ -17,10 +17,6 @@ import { isDecisionPacket, type DecisionPacket } from '@/planning/decision-packe
 import { DecisionStore } from '@/planning/decision-store.js';
 import { autoAnswerQuestions } from '@/spec-pipeline/auto-answer.js';
 
-// Issue #639, Part 3 — one decision packet shape. A `decision create` packet keeps every
-// contract field AND is a valid DecisionPacket, so Approvals, the completion gate and
-// auto-answer read the same packet the edit gate already counts.
-
 const INPUT = {
   category: 'intake.requirement',
   title: 'Should exports include archived orders?',
@@ -36,7 +32,7 @@ function readJson(path: string): Record<string, unknown> {
   return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
 }
 
-describe('one decision packet shape (#639 Part 3)', () => {
+describe('one decision packet shape', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-639-p3-'));
@@ -47,7 +43,6 @@ describe('one decision packet shape (#639 Part 3)', () => {
     const { id, path } = createPendingDecision(root, INPUT);
     const stored = readJson(path);
 
-    // Contract fields, unchanged.
     expect(stored).toMatchObject({
       id,
       title: INPUT.title,
@@ -55,7 +50,6 @@ describe('one decision packet shape (#639 Part 3)', () => {
       recommendation: 'include',
       status: 'pending',
     });
-    // Rich fields, valid.
     expect(isDecisionPacket(stored)).toBe(true);
     expect(stored).toMatchObject({ decision_id: id, question: INPUT.title });
     expect(readContractDecisions(root)[0]?.packet.id).toBe(id);
@@ -132,7 +126,6 @@ describe('one decision packet shape (#639 Part 3)', () => {
       created_at: new Date().toISOString(),
       status: 'pending',
     })!;
-    // writePending also lints the copy, so give the options copy that passes it.
     const packet: DecisionPacket = {
       ...upgraded,
       options: upgraded.options.map((option) => ({

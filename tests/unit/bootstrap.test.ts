@@ -51,8 +51,6 @@ describe('bootstrap', () => {
   });
 
   it('converts argv entries into file URLs when present', () => {
-    // Use pathToFileURL to compute the expected value so the test works
-    // cross-platform (on Windows `/tmp/foo` resolves to `D:/tmp/foo`).
     const argv = '/tmp/paqad-ai.js';
     expect(argvToEntrypoint(argv)).toBe(pathToFileURL(argv).href);
     expect(argvToEntrypoint(undefined)).toBeUndefined();
@@ -75,7 +73,6 @@ describe('bootstrap', () => {
   });
 
   it('detects direct command-line execution deterministically', () => {
-    // Use pathToFileURL to construct file:// URLs cross-platform.
     const argv = '/tmp/paqad-ai.js';
     const argvUrl = pathToFileURL(argv).href;
     const otherUrl = pathToFileURL('/tmp/other.js').href;

@@ -11,6 +11,7 @@ import {
   FRAMEWORK_CONFIG_SPECS,
   KNOWN_CONFIG_KEYS,
   applyFrameworkConfigToProfile,
+  checkoutIsNewer,
   configSaysPaqadDisabled,
   detectFlippedFrameworkValues,
   frameworkOverridesToFlat,
@@ -39,6 +40,8 @@ import {
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
+declare const __PKG_VERSION__: string;
+
 function tmpRoot(): string {
   return mkdtempSync(join(tmpdir(), 'paqad-fwcfg-'));
 }
@@ -53,7 +56,6 @@ function writeConfigsFile(root: string, name: string, body: string): void {
   writeFileSync(join(root, '.paqad', 'configs', name), body, 'utf8');
 }
 
-/** A minimal valid in-memory profile (project facts only). */
 function baseProfile(overrides: Partial<ProjectProfile> = {}): ProjectProfile {
   return {
     project: { name: 'demo', id: 'demo', description: 'x' },
@@ -259,15 +261,12 @@ describe('layeredConfigMap — four surfaces, LOCAL WINS', () => {
   });
 
   it('a present configs file picks up framework defaults for empty or absent keys', () => {
-    // The mere existence of a configs file forces nothing: a key set to an empty
-    // value, and a key not present at all, both resolve to the code default. Only
-    // an explicit, non-empty, recognised value overrides.
     writeConfigsFile(root, '.config.app', 'enterprise=true\nrag_top_n=\nmodel_default=\n');
     const c = resolveFrameworkConfig(root, {});
-    expect(c.enterprise.enabled).toBe(true); // the one explicit value overrides
-    expect(c.intelligence.rag_top_n).toBe(20); // empty value -> default
-    expect(c.model_routing.default_model).toBe('gpt-5'); // empty value -> default
-    expect(c.research.depth).toBe('standard'); // absent key -> default
+    expect(c.enterprise.enabled).toBe(true);
+    expect(c.intelligence.rag_top_n).toBe(20);
+    expect(c.model_routing.default_model).toBe('gpt-5');
+    expect(c.research.depth).toBe('standard');
   });
 
   it('resolveFrameworkConfig threads env through the full precedence', () => {
@@ -295,15 +294,15 @@ describe('readConfigsDir — merge + collisions', () => {
 
   it('merges multiple files; later filename wins on a collision and reports it', () => {
     writeConfigsFile(root, '.config.app', 'rag_top_n=5\nenterprise=true\n');
-    writeConfigsFile(root, '.config.rag', 'rag_top_n=9\n'); // collision on rag_top_n
+    writeConfigsFile(root, '.config.rag', 'rag_top_n=9\n');
     const { merged, collisions } = readConfigsDir(root);
-    expect(merged.get('rag_top_n')).toBe('9'); // .config.rag sorts after .config.app
+    expect(merged.get('rag_top_n')).toBe('9');
     expect(merged.get('enterprise')).toBe('true');
     expect(collisions).toEqual([{ key: 'rag_top_n', files: expect.any(Array) }]);
     expect(collisions[0].files).toHaveLength(2);
   });
 
-  it('names the file whose value won for each key (issue #640)', () => {
+  it('names the file whose value won for each key', () => {
     writeConfigsFile(root, '.config.app', 'rag_top_n=5\nenterprise=true\n');
     writeConfigsFile(root, '.config.rag', 'rag_top_n=9\n');
     const { sources } = readConfigsDir(root);
@@ -313,7 +312,6 @@ describe('readConfigsDir — merge + collisions', () => {
 
   it('never sweeps in the .config.example catalog', () => {
     writeConfigsFile(root, '.config.app', 'enterprise=true\n');
-    // A stray example inside configs/ must be ignored by the glob.
     writeConfigsFile(root, '.config.example', 'enterprise=false\n');
     expect(readConfigsDir(root).merged.get('enterprise')).toBe('true');
   });
@@ -337,7 +335,7 @@ describe('applyFrameworkConfigToProfile — overlay + hard cutover', () => {
       paqad: { enabled: false },
     } as Partial<ProjectProfile>);
     const profile = applyFrameworkConfigToProfile(stale, DEFAULT_FRAMEWORK_CONFIG);
-    expect(profile.intelligence.rag_enabled).toBe(false); // YAML value ignored
+    expect(profile.intelligence.rag_enabled).toBe(false);
     expect(profile.intelligence.rag_top_n).toBe(20);
     expect(profile.paqad?.enabled).toBe(true);
   });
@@ -353,7 +351,7 @@ describe('applyFrameworkConfigToProfile — overlay + hard cutover', () => {
     } as Partial<ProjectProfile>);
     const profile = applyFrameworkConfigToProfile(withCustom, DEFAULT_FRAMEWORK_CONFIG);
     expect(profile.custom.classification_dimensions).toHaveLength(1);
-    expect(profile.custom.decisions?.ask_threshold).toBe('strict'); // overlaid, not YAML's 'permissive'
+    expect(profile.custom.decisions?.ask_threshold).toBe('strict');
   });
 });
 
@@ -405,11 +403,11 @@ describe('generateGroupConfig — self-documenting group files, defaults by defa
   it('each group file has an intro header and documents its keys, all commented out', () => {
     for (const group of GROUPS) {
       const text = generateGroupConfig(group);
-      expect(text).toMatch(/^# \.paqad\/configs\/\.config\./m); // intro header line
+      expect(text).toMatch(/^# \.paqad\/configs\/\.config\./m);
       for (const spec of FRAMEWORK_CONFIG_SPECS.filter((s) => s.group === group)) {
-        expect(text).toContain(spec.env); // env equivalent documented
-        expect(text).toMatch(new RegExp(`^# ${spec.key}=`, 'm')); // present, commented out
-        expect(text).not.toMatch(new RegExp(`^${spec.key}=`, 'm')); // not active by default
+        expect(text).toContain(spec.env);
+        expect(text).toMatch(new RegExp(`^# ${spec.key}=`, 'm'));
+        expect(text).not.toMatch(new RegExp(`^${spec.key}=`, 'm'));
       }
     }
   });
@@ -430,7 +428,7 @@ describe('generateGroupConfig — self-documenting group files, defaults by defa
   it('round-trips: uncommenting every knob line resolves back to the code defaults', () => {
     const uncommented = GROUPS.map((g) => generateGroupConfig(g))
       .join('\n')
-      .replace(/^# ([a-z0-9_]+=.*)$/gm, '$1'); // activate the "# key=default" lines
+      .replace(/^# ([a-z0-9_]+=.*)$/gm, '$1');
     expect(resolveFrameworkConfigFromMap(parseDotConfig(uncommented))).toEqual(
       DEFAULT_FRAMEWORK_CONFIG,
     );
@@ -438,8 +436,8 @@ describe('generateGroupConfig — self-documenting group files, defaults by defa
 
   it('re-emits an already-active override instead of commenting it', () => {
     const text = generateGroupConfig('app', new Map([['enterprise', 'true']]));
-    expect(text).toMatch(/^enterprise=true$/m); // active
-    expect(text).not.toMatch(/^# enterprise=/m); // not the commented default
+    expect(text).toMatch(/^enterprise=true$/m);
+    expect(text).not.toMatch(/^# enterprise=/m);
   });
 });
 
@@ -449,8 +447,8 @@ describe('generateConfigExample — the single copy-paste catalog', () => {
   it('documents every knob and its env equivalent, all commented out', () => {
     for (const spec of FRAMEWORK_CONFIG_SPECS) {
       expect(example).toContain(spec.env);
-      expect(example).toMatch(new RegExp(`^# ${spec.key}=`, 'm')); // present, commented
-      expect(example).not.toMatch(new RegExp(`^${spec.key}=`, 'm')); // never active
+      expect(example).toMatch(new RegExp(`^# ${spec.key}=`, 'm'));
+      expect(example).not.toMatch(new RegExp(`^${spec.key}=`, 'm'));
     }
   });
 
@@ -471,7 +469,6 @@ describe('generateConfigExample — the single copy-paste catalog', () => {
       const path = writeConfigExample(root);
       expect(existsSync(path)).toBe(true);
       expect(readFileSync(path, 'utf8')).toBe(generateConfigExample());
-      // It is never read, so it never changes resolution.
       expect(resolveFrameworkConfig(root, {})).toEqual(DEFAULT_FRAMEWORK_CONFIG);
     } finally {
       rmSync(root, { recursive: true, force: true });
@@ -527,7 +524,7 @@ describe('integration — readProjectProfile / writeProjectProfile', () => {
     };
     writeFileSync(join(root, '.paqad', 'project-profile.yaml'), YAML.stringify(fat), 'utf8');
     const profile = readProjectProfile(root)!;
-    expect(profile.intelligence.rag_enabled).toBe(false); // defaulted, not 77/0.9/true
+    expect(profile.intelligence.rag_enabled).toBe(false);
     expect(profile.intelligence.rag_top_n).toBe(20);
     expect(profile.strictness.require_adversarial_review).toBe(true);
   });
@@ -614,8 +611,6 @@ describe('config value writers — local and tracked group paths', () => {
   });
 
   it('creates the group file with just the key when none exists yet', () => {
-    // No configs/.config.rag on disk → the read throws, and the empty-file branch writes the
-    // single assignment (covers the missing-file + empty-file paths of setGroupConfigValue).
     const path = setGroupConfigValue(root, 'rag', 'rag_enabled', 'true');
     expect(readFileSync(path, 'utf8')).toBe('rag_enabled=true\n');
   });
@@ -642,18 +637,18 @@ describe('config value writers — local and tracked group paths', () => {
   });
 
   it('configSaysPaqadDisabled tracks the layered off-signal', () => {
-    expect(configSaysPaqadDisabled(root)).toBe(false); // absent
+    expect(configSaysPaqadDisabled(root)).toBe(false);
     setConfigValue(root, 'paqad_enable', 'false');
     expect(configSaysPaqadDisabled(root)).toBe(true);
     setConfigValue(root, 'paqad_enable', 'true');
     expect(configSaysPaqadDisabled(root)).toBe(false);
-    setConfigValue(root, 'paqad_enable', 'banana'); // unrecognised ⇒ not disabled
+    setConfigValue(root, 'paqad_enable', 'banana');
     expect(configSaysPaqadDisabled(root)).toBe(false);
   });
 
   it('configSaysPaqadDisabled honors the PAQAD_ENABLE env escape hatch', () => {
     setConfigValue(root, 'paqad_enable', 'true');
-    expect(configSaysPaqadDisabled(root, { PAQAD_ENABLE: 'false' })).toBe(true); // env wins
+    expect(configSaysPaqadDisabled(root, { PAQAD_ENABLE: 'false' })).toBe(true);
   });
 
   it('configSaysPaqadDisabled reads a team configs/ off-signal', () => {
@@ -677,7 +672,7 @@ describe('frameworkOverridesToFlat — only non-default, only present sections',
       },
     } as Partial<ProjectProfile>);
     expect(flat.get('enterprise')).toBe('true');
-    expect(flat.has('enterprise_evidence_ledger')).toBe(false); // equals default
+    expect(flat.has('enterprise_evidence_ledger')).toBe(false);
   });
 
   it('ignores sections not present on the override', () => {
@@ -703,7 +698,7 @@ describe('syncFrameworkConfig — authoritative, section-scoped', () => {
     } as Partial<ProjectProfile>);
     const out = readFileSync(join(root, '.paqad', '.config'), 'utf8');
     expect(out).toMatch(/^rag_enabled=true$/m);
-    expect(out).not.toMatch(/^rag_top_n=/m); // reset to default ⇒ removed
+    expect(out).not.toMatch(/^rag_top_n=/m);
   });
 
   it('never touches sections absent from the passed profile', () => {
@@ -727,8 +722,8 @@ describe('reconcileConfigOverrides — prune obsolete keys, never reset', () => 
     const text = '# header\nenterprise=true\nlegacy_knob=on\n\nrag_top_n=9\n';
     const { text: out, removed } = pruneUnknownKeysFromText(text);
     expect(removed).toEqual(['legacy_knob']);
-    expect(out).toContain('# header'); // comment preserved
-    expect(out).toContain('enterprise=true'); // value preserved verbatim
+    expect(out).toContain('# header');
+    expect(out).toContain('enterprise=true');
     expect(out).toContain('rag_top_n=9');
     expect(out).not.toContain('legacy_knob');
   });
@@ -744,7 +739,6 @@ describe('reconcileConfigOverrides — prune obsolete keys, never reset', () => 
     const report = reconcileConfigOverrides(root);
     const pruned = report.flatMap((r) => r.removed).sort();
     expect(pruned).toEqual(['old_team_knob', 'removed_in_2_0']);
-    // Valid values survive untouched (never reset to default).
     expect(readFileSync(join(root, '.paqad', '.config'), 'utf8')).toContain('enterprise=true');
     expect(readFileSync(join(root, '.paqad', 'configs', '.config.app'), 'utf8')).toContain(
       'rag_top_n=9',
@@ -832,8 +826,8 @@ describe('decision sub-keys — simple knobs move, project-specific ones are pre
 
     const lean = stripFrameworkConfigFromProfile(profile) as Record<string, unknown>;
     const decisions = (lean.custom as Record<string, unknown>).decisions as Record<string, unknown>;
-    expect(decisions.ask_threshold).toBeUndefined(); // moved to the config layer
-    expect(decisions.max_pending).toBe(7); // preserved in YAML
+    expect(decisions.ask_threshold).toBeUndefined();
+    expect(decisions.max_pending).toBe(7);
     expect(decisions.ttl_overrides_days).toEqual({ 'spec.change': 5 });
   });
 });
@@ -877,7 +871,6 @@ describe('syncGroupConfigs / writeConfigsReadme — the tracked team files', () 
     for (const file of Object.values(CONFIG_GROUP_FILES)) {
       expect(existsSync(join(root, '.paqad', 'configs', file))).toBe(true);
     }
-    // All keys are commented out, so the resolved config equals the code defaults.
     expect(resolveFrameworkConfig(root, {})).toEqual(DEFAULT_FRAMEWORK_CONFIG);
   });
 
@@ -887,14 +880,12 @@ describe('syncGroupConfigs / writeConfigsReadme — the tracked team files', () 
   });
 
   it('appends a newly-introduced key (commented) to an existing file, preserving edits', () => {
-    // An older/hand-edited file: a custom comment + an active override, missing
-    // most of the app-group keys.
     writeConfigsFile(root, '.config.app', '# our team header\nenterprise=true\n');
     syncGroupConfigs(root);
     const app = readFileSync(join(root, '.paqad', 'configs', '.config.app'), 'utf8');
-    expect(app).toContain('# our team header'); // custom comment preserved
-    expect(app).toContain('enterprise=true'); // active override preserved (not reset)
-    expect(app).toMatch(/^# auto_update=true$/m); // a missing app-group key appended, commented
+    expect(app).toContain('# our team header');
+    expect(app).toContain('enterprise=true');
+    expect(app).toMatch(/^# auto_update=true$/m);
   });
 
   it('writes .paqad/configs/README.md matching generateConfigsReadme()', () => {
@@ -918,8 +909,6 @@ describe('edge paths — graceful handling of malformed input', () => {
   });
 
   it('readConfigsDir skips a configs entry it cannot read (e.g. a directory)', () => {
-    // A directory named like a config file matches the glob; reading it throws
-    // and must be skipped, not crash, while sibling files still resolve.
     mkdirSync(join(root, '.paqad', 'configs', '.config.dir'), { recursive: true });
     writeConfigsFile(root, '.config.app', 'enterprise=true\n');
     const { merged } = readConfigsDir(root);
@@ -934,15 +923,15 @@ describe('edge paths — graceful handling of malformed input', () => {
   it('pruneUnknownKeysFromText preserves a non-assignment, non-comment line', () => {
     const text = 'enterprise=true\nthis line has no equals sign\nrag_top_n=9\n';
     const { text: out, removed } = pruneUnknownKeysFromText(text);
-    expect(removed).toEqual([]); // nothing pruned (the prose line is not an assignment)
-    expect(out).toBe(text); // byte-identical
+    expect(removed).toEqual([]);
+    expect(out).toBe(text);
   });
 
   it('detectFlippedFrameworkValues returns [] for malformed or non-object YAML', () => {
     const p = join(root, '.paqad', 'project-profile.yaml');
     writeFileSync(p, ':\n: : not valid yaml ][', 'utf8');
     expect(detectFlippedFrameworkValues(root)).toEqual([]);
-    writeFileSync(p, 'just a scalar string', 'utf8'); // parses to a non-object
+    writeFileSync(p, 'just a scalar string', 'utf8');
     expect(detectFlippedFrameworkValues(root)).toEqual([]);
   });
 
@@ -957,5 +946,101 @@ describe('edge paths — graceful handling of malformed input', () => {
     } as Partial<ProjectProfile>);
     expect(written).toEqual(['enterprise']);
     expect(readFileSync(join(root, '.paqad', '.config'), 'utf8')).toMatch(/^enterprise=true$/m);
+  });
+});
+
+describe('an older paqad leaves a newer checkout untouched', () => {
+  let root: string;
+  beforeEach(() => {
+    root = tmpRoot();
+    mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  const examplePath = () => join(root, '.paqad', '.config.example');
+  const appPath = () => join(root, '.paqad', 'configs', '.config.app');
+  const readmePath = () => join(root, '.paqad', 'configs', 'README.md');
+
+  function seedNewerCheckout(example: string): { app: string; local: string } {
+    writeFileSync(examplePath(), example);
+    const app = '# team header\nenterprise=true\nfuture_knob=on\n';
+    const local = 'future_local_knob=1\n';
+    writeFileSync(appPath(), app);
+    writeFileSync(join(root, '.paqad', '.config'), local);
+    writeFileSync(readmePath(), 'team readme\n');
+    return { app, local };
+  }
+
+  it('stamps the catalog with the version that generated it', () => {
+    expect(generateConfigExample('1.2.3').split('\n')[1]).toBe('# generated by paqad-ai 1.2.3');
+    expect(generateConfigExample()).toContain(`# generated by paqad-ai ${__PKG_VERSION__}\n`);
+  });
+
+  it('reads a newer stamp as a newer checkout and the same or older stamp as not', () => {
+    writeFileSync(examplePath(), generateConfigExample('999.0.0'));
+    expect(checkoutIsNewer(root)).toBe(true);
+    expect(checkoutIsNewer(root, '999.0.0')).toBe(false);
+    expect(checkoutIsNewer(root, '999.0.1')).toBe(false);
+    writeFileSync(examplePath(), generateConfigExample());
+    expect(checkoutIsNewer(root)).toBe(false);
+  });
+
+  it('never reads an unstamped catalog as a newer checkout, even with a key it does not know', () => {
+    const unstamped = generateConfigExample().replace(/^# generated by paqad-ai .*\n/m, '');
+    writeFileSync(examplePath(), unstamped);
+    expect(checkoutIsNewer(root)).toBe(false);
+    writeFileSync(
+      examplePath(),
+      `${unstamped}# A knob from earlier (env: PAQAD_EARLIER)\n# earlier_knob=true\n`,
+    );
+    expect(checkoutIsNewer(root)).toBe(false);
+  });
+
+  it('refreshes and stamps an old unstamped catalog and keeps pruning removed keys', () => {
+    const unstamped = generateConfigExample()
+      .replace(/^# generated by paqad-ai .*\n/m, '')
+      .concat('# A knob from earlier (env: PAQAD_EARLIER)\n# earlier_knob=true\n');
+    seedNewerCheckout(unstamped);
+
+    writeConfigExample(root);
+    expect(readFileSync(examplePath(), 'utf8')).toBe(generateConfigExample());
+    expect(readFileSync(examplePath(), 'utf8')).not.toContain('earlier_knob');
+    expect(reconcileConfigOverrides(root).map((file) => file.removed)).toEqual([
+      ['future_local_knob'],
+      ['future_knob'],
+    ]);
+  });
+
+  it('is not a newer checkout when there is no catalog yet', () => {
+    expect(checkoutIsNewer(root)).toBe(false);
+  });
+
+  it('leaves every tracked file byte-identical and prunes nothing under a newer stamp', () => {
+    const newer = generateConfigExample('999.0.0');
+    const { app, local } = seedNewerCheckout(newer);
+
+    writeConfigExample(root);
+    expect(syncGroupConfigs(root)).toEqual([]);
+    expect(reconcileConfigOverrides(root)).toEqual([]);
+    writeConfigsReadme(root);
+
+    expect(readFileSync(examplePath(), 'utf8')).toBe(newer);
+    expect(readFileSync(appPath(), 'utf8')).toBe(app);
+    expect(readFileSync(join(root, '.paqad', '.config'), 'utf8')).toBe(local);
+    expect(readFileSync(readmePath(), 'utf8')).toBe('team readme\n');
+    expect(existsSync(join(root, '.paqad', 'configs', '.config.rag'))).toBe(false);
+  });
+
+  it('behaves as before when the stamp matches this version', () => {
+    seedNewerCheckout(generateConfigExample());
+
+    writeConfigExample(root);
+    expect(syncGroupConfigs(root).length).toBeGreaterThan(0);
+    expect(reconcileConfigOverrides(root).map((file) => file.removed)).toEqual([
+      ['future_local_knob'],
+      ['future_knob'],
+    ]);
+    expect(readFileSync(examplePath(), 'utf8')).toBe(generateConfigExample());
+    expect(readFileSync(appPath(), 'utf8')).not.toContain('future_knob');
   });
 });

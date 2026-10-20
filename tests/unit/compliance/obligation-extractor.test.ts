@@ -33,7 +33,7 @@ describe('extractObligationIndex', () => {
     expect(index.obligations[0]!.source_section).toBe('Spec > Functional Requirements');
   });
 
-  it('recognizes an AC-TRACK-<slug> analytics tracking id as an explicit obligation (issue #279)', () => {
+  it('recognizes an AC-TRACK-<slug> analytics tracking id as an explicit obligation', () => {
     const markdown = [
       '# Spec',
       '',
@@ -178,8 +178,6 @@ describe('extractObligationIndex', () => {
     expect(index.obligations[0]!.description).toBe('Real acceptance obligation');
   });
 
-  // Bug 7: per-section counter — adding list items in other sections must not
-  // shift generated IDs of acceptance-criteria items.
   it('generates stable IDs for AC items regardless of numbered lists in other sections', () => {
     const makeMarkdown = (extraTocItems: string[]) =>
       [
@@ -201,7 +199,6 @@ describe('extractObligationIndex', () => {
       extracted_at: '2026-04-07T00:00:00.000Z',
     });
 
-    // Add a new ToC entry before the AC section — should not change the AC item's ID
     const index2 = extractObligationIndex({
       spec_file: 'docs/spec.md',
       spec_markdown: makeMarkdown(['1. Introduction', '2. Background']),

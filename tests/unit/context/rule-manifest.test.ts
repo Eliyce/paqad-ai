@@ -71,7 +71,7 @@ describe('generateRuleManifest', () => {
     });
     const line = md.split('\n').find((l) => l.includes('RULE-4'))!;
     expect(line).toContain('…');
-    expect(line).not.toContain('\n- word'); // flattened, no leading bullet
+    expect(line).not.toContain('\n- word');
     const summarySeg = line.split(' — ')[1];
     expect(summarySeg.length).toBeLessThanOrEqual(30);
   });
@@ -82,7 +82,7 @@ describe('generateRuleManifest', () => {
     expect(md).toContain('No rules compiled yet');
   });
 
-  it('never emits the corrupted `, ` sequence, even with comma-separated inline code (#345)', () => {
+  it('never emits the corrupted `, ` sequence, even with comma-separated inline code', () => {
     const md = generateRuleManifest(
       store([
         rule({
@@ -94,7 +94,6 @@ describe('generateRuleManifest', () => {
       ]),
     );
     expect(md).not.toContain('`, `');
-    // Both triggers still render (space-separated, single backtick spans).
     expect(md).toContain('`runtime/**/skills/*`');
     expect(md).toContain('`SKILL.md`');
   });

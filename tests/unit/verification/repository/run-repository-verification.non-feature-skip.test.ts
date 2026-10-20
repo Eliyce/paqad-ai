@@ -16,11 +16,6 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 
 import { createVerificationContext } from '../shared.fixture.js';
 
-// Issue #582 (replacing the #499 route guess) — the in-session completion backstop runs
-// checks only for a session that OWNS a change: agent-authored stage rows stamped with its
-// own id in an unclosed bundle. A session that owns nothing, or an owner on a non-feature
-// detour that edited nothing this turn, is skipped, whatever the working tree holds.
-
 const roots: string[] = [];
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-nonfeature-verify-'));
@@ -31,7 +26,6 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-/** A temp git repo on `feat/login` with one commit, so bundles stamp a real branch. */
 function tempRepo(): string {
   const root = tempRoot();
   const g = (...args: string[]) => execFileSync('git', args, { cwd: root, stdio: 'ignore' });
@@ -52,7 +46,6 @@ const BEFORE_TURN = () => new Date('2026-03-01T09:00:00.000Z');
 const DURING_TURN = () => new Date('2026-03-01T10:05:00.000Z');
 const FEATURE_DIR = join('.paqad', 'ledger', 'feature-evidence');
 
-/** A prebuilt context standing in for a dirty working tree (a hand-edited source file). */
 function dirtyContext(root: string, origin: VerificationOrigin) {
   return {
     context: createVerificationContext({
@@ -79,7 +72,6 @@ function stop(root: string, session: string, origin: VerificationOrigin = 'hook-
   });
 }
 
-/** Session `session` opens a change and live-marks a development start at `now`. */
 function ownChange(root: string, session: string, now: () => Date = BEFORE_TURN): string {
   const dirName = openFeatureChange(root, session, {
     adapter: 'claude-code',
@@ -100,7 +92,7 @@ function featureDirs(root: string): string[] {
   return existsSync(dir) ? readdirSync(dir).sort() : [];
 }
 
-describe('runRepositoryVerification — session-owned enforcement (issue #582)', () => {
+describe('runRepositoryVerification — session-owned enforcement', () => {
   it('AC-1: skips a question session while another session owns an in-flight change', async () => {
     const root = tempRepo();
     route(root, A, {
@@ -116,11 +108,9 @@ describe('runRepositoryVerification — session-owned enforcement (issue #582)',
 
     expect(verdict.ok).toBe(true);
     expect(verdict.gates).toEqual([]);
-    // Issue #669 — the skip is marked, so the HUD never reads it as Safe to merge.
     expect(verdict.applicable).toBe(false);
     expect(verdict.summary).toContain('verification not applicable');
     expect(verdict.summary).toContain('made no code change of its own');
-    // B was never repointed at A's bundle, and A's bundle gained nothing.
     expect(readSessionControl(root, B).active).toBeNull();
     expect(readFeatureStageUnit(root, dirA)).toHaveLength(rowsBefore);
     const rows = skipAuditRows(root, B);
@@ -151,16 +141,13 @@ describe('runRepositoryVerification — session-owned enforcement (issue #582)',
 
   it('AC-3: skips a session with no route state and no owned rows on a dirty tree', async () => {
     const root = tempRoot();
-    // No writeWorkflowState and no bundle: this session never routed and never edited.
     const verdict = await stop(root, SES);
 
     expect(verdict.ok).toBe(true);
     expect(verdict.gates).toEqual([]);
     expect(verdict.evidence_path).toBeNull();
     expect(skipAuditRows(root)).toHaveLength(1);
-    // No inferred-git change record was minted (no feature bundle created at all).
     expect(existsSync(join(root, FEATURE_DIR))).toBe(false);
-    // No verification-evidence.json written.
     expect(existsSync(join(root, '.paqad/session/verification-evidence.json'))).toBe(false);
   });
 
@@ -205,7 +192,6 @@ describe('runRepositoryVerification — session-owned enforcement (issue #582)',
       paused: [],
       turn_started_at: TURN,
     });
-    // A real edit passes the pre-mutation gate and live-marks a stage during the turn.
     ownChange(root, SES, DURING_TURN);
 
     const verdict = await stop(root, SES);

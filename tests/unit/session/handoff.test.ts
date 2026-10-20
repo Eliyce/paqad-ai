@@ -74,9 +74,6 @@ describe('HandoffWriter', () => {
       },
     };
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (intelligence/strictness/escalation/...) now resolve from
-    // `.paqad/.config`, not the YAML which strips them. Persist them so
-    // readProjectProfile() returns the settings these tests depend on.
     syncFrameworkConfig(projectRoot, profile);
   });
 
@@ -256,11 +253,6 @@ describe('HandoffWriter', () => {
     };
     writeProjectProfile(projectRoot, profile);
     syncFrameworkConfig(projectRoot, profile);
-    // `context_budget_strategy` and `auto_summarize_interval` are
-    // framework-internal efficiency tuning (Bucket C) with no `.config` key, so
-    // readProjectProfile() resolves efficiency to defaults. Overlay just those two
-    // tuning knobs onto the real resolved profile for the duration of this test so
-    // the optimizer still sees the aggressive strategy this case exercises.
     const realReadProjectProfile = projectProfileModule.readProjectProfile;
     const readSpy = vi
       .spyOn(projectProfileModule, 'readProjectProfile')

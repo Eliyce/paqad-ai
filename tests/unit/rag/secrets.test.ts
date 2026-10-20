@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,6 +7,7 @@ import {
   getSecretPermissionWarning,
   readProjectSecrets,
   redactSecrets,
+  removeProjectSecrets,
   writeProjectSecret,
 } from '@/rag/secrets.js';
 import { appendRagAudit } from '@/rag/audit.js';
@@ -22,6 +23,24 @@ describe('RAG secrets helpers', () => {
     delete process.env.OPENAI_API_KEY;
     delete process.env.VOYAGE_API_KEY;
     rmSync(projectRoot, { recursive: true, force: true });
+  });
+
+  it('clears an existing secrets file in place and never creates a missing one', () => {
+    const path = writeProjectSecret(projectRoot, 'OPENAI_API_KEY', 'sk-a-much-longer-local-secret');
+    removeProjectSecrets(projectRoot);
+    expect(readFileSync(path, 'utf8')).toBe('# Local project secrets for paqad-ai RAG\n');
+    expect(readProjectSecrets(projectRoot)).toEqual({});
+
+    rmSync(path);
+    removeProjectSecrets(projectRoot);
+    expect(existsSync(path)).toBe(false);
+  });
+
+  it('surfaces errors other than a missing secrets file', () => {
+    const path = writeProjectSecret(projectRoot, 'OPENAI_API_KEY', 'sk-local');
+    rmSync(path);
+    mkdirSync(path);
+    expect(() => removeProjectSecrets(projectRoot)).toThrow();
   });
 
   it('writes and reads project-local secrets', () => {

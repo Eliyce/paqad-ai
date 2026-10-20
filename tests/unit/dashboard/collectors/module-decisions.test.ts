@@ -64,7 +64,6 @@ describe('collectModuleDecisions', () => {
         createdAt: new Date('2026-05-01T00:00:00Z'),
       }),
     );
-    // 2026-05-28 is well past the 7-day TTL from May 1.
     const result = collectModuleDecisions(root, Date.parse('2026-05-28T00:00:00Z'));
     expect(result.expiredIds).toEqual(['MD-0001']);
     expect(result.section.score).toBe(88);

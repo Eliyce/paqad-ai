@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# Purpose: Select stories from a story plan that need a rollback procedure.
-#          Criteria: reversibility: hard OR blast-radius: wide OR workflow=migration.
-# Usage:   bash scripts/select-stories.sh <story-plan-file> [workflow]
-# Output:  story-id per line, sorted unique.
-# Exits:   0 ok | 1 missing input | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Select stories from a story plan that need a rollback procedure.
+         Criteria: reversibility: hard OR blast-radius: wide OR workflow=migration.
+Usage:   bash scripts/select-stories.sh <story-plan-file> [workflow]
+Output:  story-id per line, sorted unique.
+USAGE
+  exit 0
 fi
 plan="${1:-}"
 workflow="${2:-}"
 [ -f "$plan" ] || { printf 'error: story plan not found: %s\n' "$plan" >&2; exit 1; }
 
-# Walk story blocks; a story starts with "### S-<n>" or "S-<n>:".
 node -e '
 const fs = require("fs");
 const txt = fs.readFileSync(process.argv[1], "utf8");

@@ -10,43 +10,25 @@ import { featureFilePath } from '@/feature-evidence/paths.js';
 import { readAllFeatureEvidence } from '@/feature-evidence/projections.js';
 import { projectAiBomFromFeatures, readAllFeatureReceipts } from '@/feature-evidence/receipt.js';
 
-/**
- * Issue #146 — the functionality inventory behind `/api/inventory`.
- *
- * Classifies every paqad functionality exactly once per the management rule
- * (spec section 2): web-managed settings are editable on the dashboard,
- * prompt-managed work is status-only, evidence is view and export only, and
- * safe operations are web-triggered jobs. The dashboard's area pages and
- * ownership badges are driven entirely by this report, so the
- * classification here is the single place the three-way split lives.
- */
-
 export type InventoryClass = 'web' | 'prompt' | 'evidence' | 'operation';
 export type InventoryOwner = 'you' | 'paqad' | 'shared';
 export type DashboardArea =
   'pulse' | 'approvals' | 'trust' | 'build' | 'automation' | 'knowledge' | 'setup';
 
 export interface InventoryItemState {
-  /** True when the source of truth exists on disk. */
   exists: boolean;
-  /** One short sentence describing the live state. */
   detail: string;
-  /** Optional count behind the detail (files, entries, pending items). */
   count?: number;
 }
 
 export interface InventoryItem {
   key: string;
-  /** Display name, benefit-led where the spec provides one. */
   name: string;
-  /** The why-sentence rendered under the card title (spec section 9 voice). */
   why: string;
   class: InventoryClass;
   managedBy: InventoryOwner;
   area: DashboardArea;
-  /** Hash route of the area page that renders this item. */
   route: string;
-  /** Project-relative source of truth (posix). */
   source: string;
   state: InventoryItemState;
 }
@@ -58,9 +40,7 @@ export interface InventoryReport {
 }
 
 export interface InventoryOptions {
-  /** Override for the legacy user-level paqad home (defaults to ~/.paqad-ai). */
   paqadHome?: string;
-  /** Override for the shared paqad home where packs/patterns are actually written (defaults to ~/.paqad). */
   paqadSharedHome?: string;
   now?: number;
 }
@@ -102,12 +82,6 @@ function countEntries(dir: string, suffix?: string): number {
   }
 }
 
-/**
- * Count feature bundles that carry a `specification.json` (issue #343 A3). The frozen spec
- * moved out of the retired `.paqad/specs` dir into each feature bundle, so the dashboard's
- * "specs" tile now reflects the bundle model. Best-effort: a missing feature-evidence dir
- * counts as zero.
- */
 function countFeatureSpecs(projectRoot: string): number {
   let count = 0;
   for (const dirName of listFeatureDirs(projectRoot)) {
@@ -164,9 +138,6 @@ export function buildInventory(
   options: InventoryOptions = {},
 ): InventoryReport {
   const paqadHome = options.paqadHome ?? join(homedir(), '.paqad-ai');
-  // Issue #616 Part 8b — packs/patterns are written under ~/.paqad/ (the shared home, same as the
-  // models cache), but the inventory read ~/.paqad-ai/ and always showed zero. Read the shared home
-  // first and fall back to the legacy one.
   const paqadShared = options.paqadSharedHome ?? join(homedir(), '.paqad');
   const at = (relative: string): string => join(projectRoot, relative);
 
@@ -208,7 +179,6 @@ export function buildInventory(
   })();
 
   const items: InventoryItem[] = [
-    // ── Web-managed (spec section 3A) ────────────────────────────────────
     {
       key: 'instructions',
       name: 'Canonical instructions',
@@ -380,7 +350,6 @@ export function buildInventory(
       ),
     },
 
-    // ── Prompt-managed (spec section 3B) ─────────────────────────────────
     {
       key: 'workflow-runs',
       name: 'Workflow execution',
@@ -436,10 +405,6 @@ export function buildInventory(
       state: presence(existsSync(at(PATHS.HANDOFF)), 'Handoff recorded', 'No handoff yet'),
     },
 
-    // ── Evidence (spec section 3C) ───────────────────────────────────────
-    // Issue #468 Phase B — evidence, receipts, and the AI-BOM are projected from the
-    // per-feature bundle union, not the retired top-level `evidence.jsonl` / `receipts.jsonl`
-    // / `ai-bom.json` snapshots. The source of truth is the feature-evidence bundle dir.
     {
       key: 'evidence-ledger',
       name: 'Evidence ledger',
@@ -618,7 +583,6 @@ export function buildInventory(
       state: presence(existsSync(at(PATHS.RULE_SCRIPTS_REPORT)), 'Report present', 'No report yet'),
     },
 
-    // ── Safe operations (spec section 3D) ────────────────────────────────
     {
       key: 'operations',
       name: 'Safe operations',

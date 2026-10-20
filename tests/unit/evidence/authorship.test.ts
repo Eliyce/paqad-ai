@@ -156,8 +156,6 @@ describe('readOnboardedAgent / resolveChangeAuthorship', () => {
   });
 
   it('readGitIdentity returns null when git cannot run for the path', async () => {
-    // A path that does not exist makes `git -C <path>` throw, exercising the
-    // tolerant catch — resolution degrades to null rather than throwing.
     const missing = join(root, 'no', 'such', 'dir');
     expect(await readGitIdentity(missing)).toBeNull();
   });

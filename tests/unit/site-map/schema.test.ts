@@ -62,7 +62,7 @@ describe('validateAppMap', () => {
   });
 
   it('rejects an unknown property (typo guard)', () => {
-    const map = { ...minimalAppMap(), surfaсes: [] } as Record<string, unknown>; // cyrillic с typo
+    const map = { ...minimalAppMap(), surfaсes: [] } as Record<string, unknown>;
     const result = validateAppMap(map);
     expect(result.valid).toBe(false);
   });

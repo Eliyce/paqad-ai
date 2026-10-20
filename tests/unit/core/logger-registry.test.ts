@@ -8,7 +8,6 @@ import {
 } from '@/core/logger-registry.js';
 import type { EngineLogEntry, EngineLogger } from '@/core/types/logger.js';
 
-/** Collects entries handed to an installed logger. */
 function recordingLogger(): EngineLogger & { entries: EngineLogEntry[] } {
   const entries: EngineLogEntry[] = [];
   return {
@@ -62,7 +61,6 @@ describe('logger-registry', () => {
       expect(logger.entries).toEqual([
         { level: 'warn', message: 'resume validation failed', payload: { provider: 'voyage' } },
       ]);
-      // Routed to the consumer logger, not duplicated to stderr.
       expect(stderr).not.toHaveBeenCalled();
     });
 
@@ -96,9 +94,7 @@ describe('logger-registry', () => {
       expect(() => engineLog('warn', 'first')).not.toThrow();
       expect(() => engineLog('warn', 'second')).not.toThrow();
 
-      // Logger is only called on the first fault; afterwards it is bypassed.
       expect(calls).toBe(1);
-      // Exactly one fallback notice, plus the stderr default for each warn line.
       const notices = stderr.mock.calls.filter((c) =>
         String(c[0]).includes('consumer logger faulted'),
       );
@@ -115,13 +111,10 @@ describe('logger-registry', () => {
       };
       setEngineLogger(asyncLogger);
 
-      // Two in-flight async calls share the same pending promise; when it
-      // rejects, both rejection handlers run but only one notice is emitted.
       expect(() => engineLog('error', 'async one')).not.toThrow();
       expect(() => engineLog('error', 'async two')).not.toThrow();
       rejecter();
       await pending.catch(() => undefined);
-      // Let the rejection handlers run.
       await Promise.resolve();
       await Promise.resolve();
 

@@ -53,7 +53,6 @@ describe('site-map store', () => {
     it('throws SiteMapSchemaError rather than persisting an invalid map', () => {
       const bad = { ...validAppMap(), schema_version: 99 } as unknown as AppMap;
       expect(() => writeCanonicalSiteMap(root, bad)).toThrow(SiteMapSchemaError);
-      // Nothing was written.
       expect(readCanonicalSiteMap(root)).toBeNull();
       try {
         writeCanonicalSiteMap(root, bad);
@@ -77,7 +76,7 @@ describe('site-map store', () => {
     it('reads null when the file is valid YAML but schema-invalid', () => {
       const target = canonicalAppMapPath(root);
       mkdirSync(join(target, '..'), { recursive: true });
-      writeFileSync(target, 'schema_version: 1\napp:\n  name: x\n', 'utf8'); // no surfaces
+      writeFileSync(target, 'schema_version: 1\napp:\n  name: x\n', 'utf8');
       expect(readCanonicalSiteMap(root)).toBeNull();
     });
 
@@ -113,7 +112,7 @@ describe('site-map store', () => {
       expect(readJourney(root, 'missing')).toBeNull();
       const target = journeyPath(root, 'broken');
       mkdirSync(journeysDir(root), { recursive: true });
-      writeFileSync(target, 'schema_version: 1\nid: broken\n', 'utf8'); // missing required fields
+      writeFileSync(target, 'schema_version: 1\nid: broken\n', 'utf8');
       expect(readJourney(root, 'broken')).toBeNull();
     });
 
@@ -132,7 +131,6 @@ describe('site-map store', () => {
     it('reads all valid journeys and skips invalid ones', () => {
       writeJourney(root, { ...validJourney(), id: 'a' });
       writeJourney(root, { ...minimalJourney(), id: 'b' });
-      // Drop a schema-invalid file directly into the dir; it must be skipped, not crash.
       writeFileSync(
         join(journeysDir(root), `c${''}.journey.yaml`),
         'schema_version: 1\nid: c\n',

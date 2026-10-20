@@ -49,8 +49,6 @@ export function buildVerificationEvidence(
   const gates: VerificationEvidenceGate[] = VERIFICATION_GATES.map((gate) => {
     const result = resultByGate.get(gate);
     if (!result) {
-      // Issue #639, Part 10 — a gate with no result was not checked this run (the backstop does
-      // not re-judge it, or the runner stopped after an earlier failure): it did not run.
       return {
         name: gate,
         status: 'skipped' satisfies EvidenceGateStatus,
@@ -119,8 +117,6 @@ export async function writeVerificationEvidence(
 }
 
 function mapGateStatus(result: GateResult): EvidenceGateStatus {
-  // Issue #639, Part 10 — a gate that measured nothing is skipped, never a pass, even though
-  // its `passed` stays true for the runner.
   if (result.outcome) {
     return 'skipped';
   }

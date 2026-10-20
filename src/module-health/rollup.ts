@@ -1,16 +1,3 @@
-// Test-driven module-health rollup. Issue #80, Phase 3.
-//
-// Reads the active stack pack's `module_health` block plus a coverage and/or
-// test report (either from `test_command` output paths or `--from-report
-// <path>`), maps covered/tested files to module slugs via `module-map.yml`'s
-// `sources:` globs, then writes `.paqad/module-health/<slug>.json` in the
-// extended shape (issue §6.4) with `blocked_metrics` populated for whatever
-// could not be computed.
-//
-// Hard rule (spec): no metric is fabricated or zeroed. When a metric cannot
-// be computed it is set to `null` and the reason recorded in
-// `blocked_metrics`.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
@@ -30,29 +17,15 @@ import {
   type TestRow,
 } from './parsers/index.js';
 
-// Issue #80: tighter than the 30-day default the issue proposed.
 export const DEFAULT_GIT_WINDOW_DAYS = 14;
 
 export interface RollupOptions {
   projectRoot: string;
-  // The active stack pack's module_health block. Required for non-blocked
-  // runs; pass null to trigger the `module_health_unknown` hard-fail report.
   moduleHealth: StackPackModuleHealthManifest | null;
-  // Override the coverage report path (otherwise pulled from
-  // moduleHealth.coverage_path). Either an absolute path or relative to
-  // projectRoot.
   coverageReportPath?: string;
-  // Override the test-report path.
   testReportPath?: string;
-  // When true, write each rolled-up profile to .paqad/module-health/<slug>.json
-  // via writeModuleHealthProfile. When false, the caller gets the profiles
-  // back without disk side effects (used by tests + dry runs).
   writeProfiles?: boolean;
-  // When true, run `moduleHealth.test_command` before parsing. Disabled by
-  // default — call sites that ship a test runner toggle this on; CLI users
-  // typically `--from-report <path>` so this stays off in unit tests.
   runTestCommand?: boolean;
-  // Optional ISO timestamp for deterministic output in tests.
   now?: () => string;
 }
 
@@ -97,9 +70,6 @@ function readReport(
   return { parsed: parser(content), format };
 }
 
-// Attribute a file path to a module slug via the module-map `sources:` globs.
-// Exported so other rollups (e.g. the issue-#110 quality baseline) reuse the
-// same attribution instead of forking a second one.
 export function assignToModule(
   filePath: string,
   modules: { slug: string; sources: string[] }[],
@@ -199,8 +169,6 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
   const source: 'rollup' | 'from-report' =
     opts.coverageReportPath || opts.testReportPath ? 'from-report' : 'rollup';
 
-  // Resolve report paths. Either side may be absent — rollup runs with
-  // whichever it can produce and records the missing one in blocked_metrics.
   const coveragePath = opts.coverageReportPath ?? mh.coverage_path;
   const coverageFormat = (mh.coverage_format ?? null) as CoverageFormat | null;
   const testReportPath = opts.testReportPath ?? mh.test_report_path;
@@ -235,7 +203,6 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
   const rawMap = readRawModuleMap(opts.projectRoot);
   const modules = rawMap?.modules ?? [];
 
-  // Pre-attribute each report row to a module slug once.
   const attributedCoverage: AttributedCoverageRow[] = coverage.map((row) => ({
     ...row,
     slug: assignToModule(row.file, modules),
@@ -278,17 +245,11 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
       blocked.push('change_velocity:unavailable');
     }
 
-    // contract_stability requires a public_api_extractor; absent for every
-    // shipped pack until the framework grows extractors. Surface the block
-    // explicitly rather than zeroing the metric.
     const stability: number | null = null;
     if (!mh.public_api_extractor) {
       blocked.push('contract_stability:no_public_api_extractor');
     }
 
-    // Mutation score is fed by the verification-gate path (module-health
-    // updater), not the coverage/test report rollup — so it is always blocked
-    // here rather than fabricated. See issue #105.
     blocked.push('mutation_score:not_configured');
 
     const metrics: ModuleHealthMetrics = {
@@ -329,9 +290,6 @@ export async function rollupModuleHealth(opts: RollupOptions): Promise<RollupRep
     for (const r of rollups) {
       await writeModuleHealthProfile(opts.projectRoot, r.profile);
     }
-    // AC #36: append a rollup audit record once persisted profiles have
-    // landed. Skipped on writeProfiles:false (test/dry-run paths) so unit
-    // tests don't accidentally inflate the log.
     appendModuleMapEvent(opts.projectRoot, {
       ts: now,
       type: 'module.health.rolled-up',

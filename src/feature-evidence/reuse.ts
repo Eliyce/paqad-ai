@@ -1,25 +1,3 @@
-// Plan reuse declaration + its deterministic compile-time checks (issue #357, Phase A).
-//
-// A plan could previously say "I'll build a date-formatting helper" while the project
-// already had one: nothing forced the plan to answer "did you check what already exists?".
-// This module makes that question part of the plan. The `reuse` section records what was
-// consulted, what will be reused, and why anything new is justified — and `plan compile`
-// refuses to write a plan without it.
-//
-// Every check here is deterministic and costs zero model tokens: it cross-references the
-// two artifacts paqad already produces (the code-knowledge index and the stack snapshot)
-// and otherwise only inspects the template's own shape. Nothing calls a model or the
-// network. Checks degrade gracefully by design — a missing index or a missing stack
-// snapshot downgrades a check to a WARNING, never a false block, so a project that has
-// not built an index is never gated on one.
-//
-// Phase B (issue #397) is now wired in too: a framework claim is checked against the
-// INSTALLED framework-API index, so "does this symbol exist at the installed version, and
-// is it deprecated?" is answered from the declarations shipped inside the package rather
-// than trusted from the model. That check overrides the declared `provenance` with a
-// computed one. Phase C's non-JS ecosystem adapters are #398; until they land, a non-node
-// framework is recorded `no-adapter` in the index and its claims warn rather than block.
-
 import { readCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { queryFrameworkApi, type FrameworkApiQueryResult } from '@/framework-api/query.js';
@@ -27,7 +5,6 @@ import { readFrameworkApiIndex } from '@/framework-api/store.js';
 import { readStackSnapshotSync } from '@/introspection/cache.js';
 import { levenshtein } from '@/module-decisions/schema.js';
 
-/** Where a reuse check was actually performed. */
 export type ReuseConsultedSource =
   | 'existing-surface'
   | 'index-query'
@@ -37,64 +14,42 @@ export type ReuseConsultedSource =
   | 'framework-api'
   | 'framework-docs';
 
-/** The tiered verdict a framework reuse claim carries; Phase B (#397) fills this properly. */
 export type ReuseProvenance = 'asserted' | 'unknown-dynamic' | 'doc-derived';
 
-/** What the plan author checked before deciding to build. */
 export interface ReuseConsulted {
   source: ReuseConsultedSource;
   query: string;
-  /** For `framework-api`/`framework-docs`, which `package@version` was consulted. */
   target?: string;
   hits: number;
 }
 
-/**
- * One thing the plan will reuse. A FIRST-PARTY claim names a `symbol` (and usually the
- * `file` it lives in); a FRAMEWORK-NATIVE claim additionally sets `package`, which is what
- * marks it as framework rather than first-party, plus the resolved `version` the claim is
- * made against.
- */
 export interface ReuseClaim {
   symbol: string;
   file?: string;
   how: string;
-  /** Set ⇒ this is a framework-native claim, not a first-party one. */
   package?: string;
-  /** Resolved installed version the framework claim is made against. */
   version?: string;
   provenance?: ReuseProvenance;
 }
 
-/** The framework equivalent that was checked before a new construct was justified. */
 export interface FrameworkChecked {
   package: string;
   nearest: string;
   verdict: 'reuse' | 'extend' | 'insufficient' | 'absent';
 }
 
-/** A new exported construct the plan introduces, and why it has to exist. */
 export interface NewConstruct {
   name: string;
   justification: string;
   framework_checked?: FrameworkChecked;
 }
 
-/** The plan's reuse declaration: what was checked, what is reused, what is new. */
 export interface PlanReuse {
   consulted: ReuseConsulted[];
   reusing: ReuseClaim[];
   new_constructs: NewConstruct[];
 }
 
-/**
- * Step phrasings that imply the plan introduces a new exported construct. Kept as ONE
- * exported constant so the list is tunable without touching the check itself (the issue
- * asks for exactly this). Matched case-insensitively against each step's description.
- *
- * Deliberately narrow: it pairs a create verb with a construct noun, so an incidental
- * "add a test" or "create the changeset" does not demand a `new_constructs` entry.
- */
 export const CREATE_KEYWORDS: readonly string[] = [
   'add helper',
   'add a helper',
@@ -114,43 +69,26 @@ export const CREATE_KEYWORDS: readonly string[] = [
   'new component',
 ];
 
-/** The expected shape, shown verbatim when the section is missing (AC-1). */
 const EXPECTED_SHAPE = `"reuse": {
   "consulted": [{ "source": "index-query", "query": "date formatting", "hits": 2 }],
   "reusing": [{ "symbol": "formatIsoDate", "file": "src/utils/dates.ts", "how": "call as-is" }],
   "new_constructs": [{ "name": "formatRelativeDate", "justification": "no existing helper handles the relative form" }]
 }`;
 
-/** The warning emitted when reuse claims cannot be checked against an index (AC-3). */
 export const INDEX_ABSENT_WARNING = 'reuse claims unverified: index not built';
 
-/** The warning emitted when a framework claim cannot be checked against a stack snapshot. */
 export const SNAPSHOT_ABSENT_WARNING =
   'framework reuse claims unverified: stack snapshot not built';
 
-/**
- * The warning emitted when framework claims cannot be checked against the installed
- * framework-API index (issue #397, AC-6). Mirrors {@link INDEX_ABSENT_WARNING}: a project
- * that has not built the index is never gated on one.
- */
 export const FRAMEWORK_API_INDEX_ABSENT_WARNING =
   'framework reuse claims unverified: framework-api index not built';
 
-/** What a reuse validation concluded: blocking `errors` and non-blocking `warnings`. */
 export interface ReuseValidation {
   errors: string[];
   warnings: string[];
-  /**
-   * The provenance the framework-API index COMPUTED per claimed symbol (issue #397),
-   * keyed by `package::symbol`. Returned rather than written onto the caller's object so
-   * the validator stays free of side effects; `writeFeaturePlan` applies it to the plan it
-   * stores, which is what makes the recorded `provenance` a verified fact rather than a
-   * model assertion.
-   */
   provenance: Record<string, ReuseProvenance>;
 }
 
-/** A plan step as the validator needs to see it (only the description matters here). */
 interface StepLike {
   description?: string;
 }
@@ -161,14 +99,6 @@ export interface ValidateReuseInput {
   steps: StepLike[];
 }
 
-/**
- * Validate a plan template's `reuse` section. Returns blocking `errors` (the compile must
- * write nothing) and non-blocking `warnings` (a check that could not be performed).
- *
- * The shape is checked first and short-circuits: once the section is structurally wrong
- * there is nothing meaningful to cross-check, and piling index errors on top of a shape
- * error would bury the actionable message.
- */
 export function validateReuseSection(input: ValidateReuseInput): ReuseValidation {
   const shape = validateShape(input.reuse);
   if (shape.errors.length > 0) {
@@ -187,20 +117,10 @@ export function validateReuseSection(input: ValidateReuseInput): ReuseValidation
   return { errors, warnings, provenance };
 }
 
-/** The key a computed provenance is recorded under. */
 export function frameworkClaimKey(packageName: string, symbol: string): string {
   return `${packageName}::${symbol}`;
 }
 
-/**
- * Phase B (issue #397): verify each framework claim against the INSTALLED framework-API
- * index, and record the provenance the index computed.
- *
- * This is what turns #357's declaration into a checked fact. Only two verdicts block —
- * a symbol that demonstrably is not exported at the installed version, and one carrying a
- * static `@deprecated` marker. Everything the index could not resolve warns instead
- * (INV-2), because a false "absent" would hard-block a perfectly good plan.
- */
 function verifyFrameworkSymbols(
   projectRoot: string,
   reuse: PlanReuse,
@@ -220,8 +140,6 @@ function verifyFrameworkSymbols(
     return;
   }
   for (const claim of claims) {
-    // Pass the claimed version so a monorepo with the same package at two roots answers
-    // from the version the plan actually named, not from whichever entry sorted first.
     const result = queryFrameworkApi(index, claim.package, claim.symbol, claim.version);
     const key = frameworkClaimKey(claim.package, claim.symbol);
     switch (result.verdict) {
@@ -246,8 +164,6 @@ function verifyFrameworkSymbols(
         );
         break;
       default:
-        // `package-not-indexed`: the index exists but this package produced no entry (its
-        // `blocked` list says why). Unverified is a warning, never a block.
         warnings.push(
           `reuse.reusing "${claim.symbol}" unverified: ${claim.package} is not in the framework-api index`,
         );
@@ -255,7 +171,6 @@ function verifyFrameworkSymbols(
   }
 }
 
-/** The blocking message for a deprecated framework symbol (AC-4). */
 function deprecatedMessage(
   claim: ReuseClaim & { package: string },
   result: FrameworkApiQueryResult,
@@ -266,7 +181,6 @@ function deprecatedMessage(
   return `reuse.reusing "${claim.symbol}" is deprecated in ${claim.package}@${result.version}${since}: ${detail}${removal}`;
 }
 
-/** Structural validation of the section itself (AC-1 and the non-empty `consulted` rule). */
 function validateShape(reuse: unknown): ReuseValidation {
   if (reuse === undefined || reuse === null) {
     return {
@@ -300,17 +214,11 @@ function validateShape(reuse: unknown): ReuseValidation {
   return { errors, warnings: [], provenance: {} };
 }
 
-/** The create-keyword a description matches, or null. */
 function matchedCreateKeyword(description: string): string | null {
   const haystack = description.toLowerCase();
   return CREATE_KEYWORDS.find((keyword) => haystack.includes(keyword)) ?? null;
 }
 
-/**
- * The declare-or-justify rule (AC-4): a plan whose steps say it will create a new helper,
- * util, or component, but which declares no new constructs, has skipped the question this
- * whole section exists to force.
- */
 function checkDeclaredConstructs(reuse: PlanReuse, steps: StepLike[], errors: string[]): void {
   if ((reuse.new_constructs ?? []).length > 0) {
     return;
@@ -326,11 +234,6 @@ function checkDeclaredConstructs(reuse: PlanReuse, steps: StepLike[], errors: st
   }
 }
 
-/**
- * Cross-check first-party reuse claims against the code-knowledge index (AC-2/AC-3). Only
- * claims WITHOUT a `package` are first-party; a framework claim is Phase B's business and
- * is deliberately not looked up here. An absent index is a warning, never a block.
- */
 function checkFirstPartySymbols(
   projectRoot: string,
   reuse: PlanReuse,
@@ -361,13 +264,6 @@ function checkFirstPartySymbols(
   }
 }
 
-/**
- * The closest known symbol within a small edit distance, or null when nothing is close.
- * Reuses the bounded `levenshtein` already exported for module-slug matching rather than
- * adding a second edit-distance implementation. The threshold scales with the name's
- * length so a short name cannot match an unrelated short name, and a null result is
- * deliberate: suggesting a wildly unrelated symbol is worse than suggesting nothing.
- */
 function nearestSymbol(symbol: string, known: string[]): string | null {
   const bound = Math.max(2, Math.floor(symbol.length / 4));
   let best: string | null = null;
@@ -382,17 +278,6 @@ function nearestSymbol(symbol: string, known: string[]): string | null {
   return best;
 }
 
-/**
- * Phase-A framework checks (AC-8/AC-9/AC-10). Two rules, both cross-checking detection
- * paqad ALREADY performs — no new index:
- *
- *   1. A framework-native reuse claim (one with `package`) must set `version`, and that
- *      `package@version` must match a dependency in the stack snapshot.
- *   2. When a framework is detected, a new construct must show the framework was checked.
- *
- * No framework detected ⇒ rule 2 does not apply and the compile is unchanged (AC-10), so a
- * framework-less project carries no new burden.
- */
 function checkFrameworkClaims(
   projectRoot: string,
   reuse: PlanReuse,
@@ -421,7 +306,6 @@ function checkFrameworkClaims(
   }
 }
 
-/** Rule 1: a framework claim's `version` must agree with the resolved stack snapshot. */
 function checkFrameworkVersions(
   projectRoot: string,
   claims: ReuseClaim[],
@@ -460,30 +344,22 @@ function checkFrameworkVersions(
   }
 }
 
-/** The frameworks detected in the project profile, or `[]` when none / no profile. */
 function detectedFrameworks(projectRoot: string): string[] {
   const profile = readProjectProfile(projectRoot);
   const frameworks = profile?.stack_profile?.frameworks;
   return Array.isArray(frameworks) ? frameworks : [];
 }
 
-/** Whether a free-text justification already names one of the detected frameworks. */
 function justificationNamesFramework(justification: string, frameworks: string[]): boolean {
   const haystack = justification.toLowerCase();
   return frameworks.some((framework) => haystack.includes(framework.toLowerCase()));
 }
 
-/** Reuse counts for the end-of-change receipt's planning line (AC-5). */
 export interface ReuseCounts {
   reused: number;
   newJustified: number;
 }
 
-/**
- * The reuse counts a stored plan declared, or null when it declared none. Tolerant by
- * design: an old `plan.json` written before this change carries no `reuse` section, and
- * the receipt must render exactly as it did before for those (INV-3).
- */
 export function reuseCounts(plan: { reuse?: PlanReuse } | null): ReuseCounts | null {
   const reuse = plan?.reuse;
   if (!reuse) {

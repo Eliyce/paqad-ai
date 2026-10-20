@@ -27,7 +27,6 @@ const INTELLIGENCE: IntelligenceConfig = {
 const PDF_HEADER = Buffer.from('%PDF-1.7\n');
 const ZIP_HEADER = Buffer.from([0x50, 0x4b, 0x03, 0x04, 0x00, 0x00]);
 
-/** A provider whose embed returns a fixed 2-D vector per text, with a call spy. */
 function spyProvider(): { provider: EmbeddingProvider; embed: ReturnType<typeof vi.fn> } {
   const embed = vi.fn(async (input: string | string[]) => {
     const batch = Array.isArray(input) ? input : [input];
@@ -142,7 +141,6 @@ describe('indexAttachment', () => {
     }
     expect(second.deduped).toBe(true);
     expect(second.chunkCount).toBe(first.chunkCount);
-    // No second round of embedding.
     expect(embed.mock.calls.length).toBe(callsAfterFirst);
   });
 
@@ -400,7 +398,6 @@ describe('indexAttachment', () => {
   it('aborts during a rate-limit backoff wait', async () => {
     const controller = new AbortController();
     const embed = vi.fn(async () => {
-      // Abort on the next tick — while the backoff sleep is pending.
       setTimeout(() => controller.abort(), 0);
       throw new EmbeddingProviderError('openai', 'rate_limited', 'rate limit reached');
     });

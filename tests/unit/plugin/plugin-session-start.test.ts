@@ -17,7 +17,6 @@ import { join } from 'node:path';
 import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// The hook keeps its logic in `__test` so each branch is exercised without touching the real home.
 import { __test, runPluginSessionStart } from '../../../runtime/hooks/plugin-session-start.mjs';
 
 const { compareVersions, readPackageVersion, repointFrameworkLink, ensureBinOnPath } = __test;
@@ -60,7 +59,7 @@ describe('readPackageVersion', () => {
   });
 });
 
-describe('repointFrameworkLink (issue #616, Part 4)', () => {
+describe('repointFrameworkLink', () => {
   function env(home: string): NodeJS.ProcessEnv {
     return { PAQAD_FRAMEWORK_HOME: home } as NodeJS.ProcessEnv;
   }
@@ -80,7 +79,7 @@ describe('repointFrameworkLink (issue #616, Part 4)', () => {
     expect(readlinkSync(home)).toBe(pluginRuntime);
   });
 
-  it('leaves an OLDER npm copy in place — never takes over a working npm install (issue #636 bug 3)', () => {
+  it('leaves an OLDER npm copy in place — never takes over a working npm install', () => {
     const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
     const npmRuntime = makeRuntime(join(root, 'npm', 'node_modules', 'paqad-ai'), '1.0.0');
     const home = join(root, 'current');
@@ -118,7 +117,7 @@ describe('repointFrameworkLink (issue #616, Part 4)', () => {
   });
 });
 
-describe('ensureBinOnPath (issue #616, Part 5)', () => {
+describe('ensureBinOnPath', () => {
   it('chmods the launcher and prepends its dir to CLAUDE_ENV_FILE PATH', () => {
     const pluginRuntime = makeRuntime(join(root, 'plugin'), '2.0.0');
     const binDir = join(pluginRuntime, 'claude-plugin', 'bin');
@@ -153,7 +152,7 @@ describe('ensureBinOnPath (issue #616, Part 5)', () => {
   });
 });
 
-describe('one-copy handshake (issue #616, Part 7)', () => {
+describe('one-copy handshake', () => {
   const {
     paqadHookScriptPath,
     hasLiveNpmHookLines,
@@ -231,7 +230,6 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     writeFileSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai'), '#!/bin/sh\n');
     const projectRoot = join(root, 'project');
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
-    // Issue #636 (bug 1) — the one-copy handshake and version refresh only run in an onboarded project.
     writeFileSync(join(projectRoot, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
     const configDir = join(root, 'claude-config');
     mkdirSync(configDir, { recursive: true });
@@ -244,7 +242,7 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     } as NodeJS.ProcessEnv;
   }
 
-  it('reports a plugin-source migration tick with the plugin CLI (issue #648, B4)', () => {
+  it('reports a plugin-source migration tick with the plugin CLI', () => {
     const env = pluginEnv();
     const calls: unknown[] = [];
     runPluginSessionStart(
@@ -283,6 +281,43 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     expect(existsSync(marker)).toBe(true);
   });
 
+  it('a second plugin root in a claimed session does no project work', () => {
+    const envFile = join(root, 'session-env');
+    const env = pluginEnv({ CLAUDE_ENV_FILE: envFile });
+    const first = join(root, 'first-root');
+    mkdirSync(first, { recursive: true });
+    const dir = join(env.CLAUDE_PROJECT_DIR as string, '.paqad', 'session', 'plugin-active.d');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'sTwo'), JSON.stringify({ at: 'now', root: first }));
+    runPluginSessionStart(env, { session_id: 'sTwo', cwd: env.CLAUDE_PROJECT_DIR });
+    expect(JSON.parse(readFileSync(join(dir, 'sTwo'), 'utf8')).root).toBe(first);
+    expect(existsSync(envFile)).toBe(false);
+    runPluginSessionStart(
+      { ...env, CLAUDE_PLUGIN_ROOT: first },
+      { session_id: 'sTwo', cwd: env.CLAUDE_PROJECT_DIR },
+    );
+    expect(existsSync(envFile)).toBe(true);
+  });
+
+  it('claims the session in a plugin-only project whose settings carry no paqad hook', () => {
+    const env = pluginEnv({ CLAUDE_PLUGIN_DATA: join(root, 'plugin-data') });
+    const projectSettings = join(env.CLAUDE_PROJECT_DIR as string, '.claude', 'settings.json');
+    mkdirSync(join(env.CLAUDE_PROJECT_DIR as string, '.claude'), { recursive: true });
+    writeFileSync(projectSettings, JSON.stringify({ attribution: { commit: '', pr: '' } }));
+    runPluginSessionStart(env, { session_id: 'sOnly', cwd: env.CLAUDE_PROJECT_DIR });
+    const marker = join(
+      env.CLAUDE_PROJECT_DIR as string,
+      '.paqad',
+      'session',
+      'plugin-active.d',
+      'sOnly',
+    );
+    expect(existsSync(marker)).toBe(true);
+    expect(readlinkSync(env.PAQAD_FRAMEWORK_HOME as string)).toBe(
+      join(root, 'plugin-data', 'runtime', 'runtime'),
+    );
+  });
+
   it('stays passive (no marker) when a live npm hook is still wired', () => {
     const env = pluginEnv();
     const live = join(root, 'live2.paqad.mjs');
@@ -299,7 +334,6 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     expect(existsSync(marker)).toBe(false);
   });
 
-  // ── Gap 2 (issue #641): the npm onboard wires the PROJECT's .claude/settings.json ──────────
   function projectClaudeSettings(projectRoot: string, file: string, commands: string[]): string {
     const dir = join(projectRoot, '.claude');
     mkdirSync(dir, { recursive: true });
@@ -341,7 +375,6 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     const env = pluginEnv();
     const live = join(root, 'proj-live.paqad.mjs');
     writeFileSync(live, '');
-    // User config has NO paqad hooks; the npm chain lives in the project's .claude/settings.json.
     projectClaudeSettings(env.CLAUDE_PROJECT_DIR as string, 'settings.json', [`node "${live}"`]);
     runPluginSessionStart(env, { session_id: 's3', cwd: env.CLAUDE_PROJECT_DIR });
     const marker = join(
@@ -374,7 +407,6 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
 
   it('claims the session when NO live npm hook is wired in user OR project settings', () => {
     const env = pluginEnv();
-    // Project .claude/settings.json exists but wires a non-paqad hook only → not a live npm copy.
     projectClaudeSettings(env.CLAUDE_PROJECT_DIR as string, 'settings.json', ['echo hi']);
     runPluginSessionStart(env, { session_id: 's5', cwd: env.CLAUDE_PROJECT_DIR });
     const marker = join(
@@ -388,7 +420,7 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
   });
 });
 
-describe('version refresh (issue #616, Part 9)', () => {
+describe('version refresh', () => {
   const { shouldRefreshVersion, frameworkVersionTxtVersion, maybeRefreshVersion } = __test;
 
   function pluginRoot(version: string): string {
@@ -454,7 +486,7 @@ describe('version refresh (issue #616, Part 9)', () => {
   });
 });
 
-describe('stable link location + self-heal (issue #636 bug 3)', () => {
+describe('stable link location + self-heal', () => {
   function env(home, data) {
     return { PAQAD_FRAMEWORK_HOME: home, CLAUDE_PLUGIN_DATA: data } as NodeJS.ProcessEnv;
   }
@@ -473,12 +505,13 @@ describe('stable link location + self-heal (issue #636 bug 3)', () => {
     expect(stableRuntimeHome({} as NodeJS.ProcessEnv)).toBeNull();
   });
 
-  it('ensureStablePluginRuntime links CLAUDE_PLUGIN_DATA/runtime at the plugin runtime', () => {
+  it('ensureStablePluginRuntime copies the plugin into CLAUDE_PLUGIN_DATA/runtime', () => {
     const pluginRuntime = makeRuntime(join(root, 'plugin'), '1.0.0');
     const data = join(root, 'data');
     const stable = ensureStablePluginRuntime(pluginRuntime, { CLAUDE_PLUGIN_DATA: data });
-    expect(stable).toBe(join(data, 'runtime'));
-    expect(readlinkSync(stable)).toBe(pluginRuntime);
+    expect(stable).toBe(join(data, 'runtime', 'runtime'));
+    expect(lstatSync(join(data, 'runtime')).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(data, 'runtime', 'version'), 'utf8').trim()).toBe('1.0.0');
   });
 
   it('fills a MISSING link at the stable location (not the version-specific cache)', () => {
@@ -489,8 +522,8 @@ describe('stable link location + self-heal (issue #636 bug 3)', () => {
     const home = join(root, 'current');
     const data = join(root, 'data');
     repointFrameworkLink(pluginRuntime, env(home, data));
-    expect(readlinkSync(home)).toBe(join(data, 'runtime'));
-    expect(readlinkSync(join(data, 'runtime'))).toBe(pluginRuntime);
+    expect(readlinkSync(home)).toBe(join(data, 'runtime', 'runtime'));
+    expect(readlinkSync(home)).not.toContain(join('cache', 'eliyce'));
   });
 
   it('self-heals after the plugin cache version is removed (link does not dangle)', () => {
@@ -499,27 +532,26 @@ describe('stable link location + self-heal (issue #636 bug 3)', () => {
     const data = join(root, 'data');
     repointFrameworkLink(v1, env(home, data));
     expect(existsSync(home)).toBe(true);
-    // The cache version goes away (uninstall / cleanup).
     rmSync(join(root, 'plugins', 'cache', 'eliyce', 'paqad', '1.0.0'), {
       recursive: true,
       force: true,
     });
-    // A later plugin session on a new cache version re-points the stable link.
+    expect(existsSync(home)).toBe(true);
     const v2 = makeRuntime(join(root, 'plugins', 'cache', 'eliyce', 'paqad', '1.1.0'), '1.1.0');
     repointFrameworkLink(v2, env(home, data));
     expect(existsSync(home)).toBe(true);
-    expect(readlinkSync(join(data, 'runtime'))).toBe(v2);
+    expect(readFileSync(join(data, 'runtime', 'version'), 'utf8').trim()).toBe('1.1.0');
   });
 });
 
-describe('runPluginSessionStart in a project that was never onboarded (issue #636 bug 1)', () => {
+describe('runPluginSessionStart in a project that was never onboarded', () => {
   it('writes no <project>/.paqad/ marker but still runs global PATH setup', () => {
     const pluginRoot = join(root, 'plugin');
     mkdirSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin'), { recursive: true });
     writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '2.0.0' }));
     writeFileSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai'), '#!/bin/sh\n');
     const projectRoot = join(root, 'pristine');
-    mkdirSync(projectRoot, { recursive: true }); // NO .paqad/ -> never onboarded
+    mkdirSync(projectRoot, { recursive: true });
     const envFile = join(root, 'env-file');
     writeFileSync(envFile, '');
     runPluginSessionStart(
@@ -532,24 +564,19 @@ describe('runPluginSessionStart in a project that was never onboarded (issue #63
       } as NodeJS.ProcessEnv,
       { session_id: 'sNo', cwd: projectRoot },
     );
-    // No per-project .paqad/ created at all.
     expect(existsSync(join(projectRoot, '.paqad'))).toBe(false);
-    // But the global PATH line was written so /paqad:onboard can run.
     expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
   });
 });
 
-describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 2)', () => {
-  // The hook SCRIPT is the real repo file, reached through a symlink (and/or a path with a space) so
-  // process.argv[1] differs from the resolved import.meta.url — the exact case the raw guard missed,
-  // silently skipping the main block. CLAUDE_PLUGIN_ROOT points at a separate test plugin dir.
+describe('plugin-session-start.mjs entry guard is realpath-safe', () => {
   function onboardedPluginRoot(dir) {
     const pluginRoot = join(dir, 'plugin');
     mkdirSync(join(pluginRoot, 'runtime', 'claude-plugin', 'bin'), { recursive: true });
     writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '2.0.0' }));
     const launcher = join(pluginRoot, 'runtime', 'claude-plugin', 'bin', 'paqad-ai');
     writeFileSync(launcher, '#!/bin/sh\n');
-    chmodSync(launcher, 0o644); // the npm tarball may drop the exec bit
+    chmodSync(launcher, 0o644);
     const projectRoot = join(dir, 'project');
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
     writeFileSync(join(projectRoot, '.paqad', 'framework-path.txt'), '~/.paqad-ai/current');
@@ -591,11 +618,10 @@ describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 
     const dir = mkdtempSync(join(tmpdir(), 'paqad-eg-sym-'));
     try {
       const link = join(dir, 'repo-link');
-      symlinkSync(process.cwd(), link); // run the real hook through a symlink to the repo
+      symlinkSync(process.cwd(), link);
       const { result, envFile, launcher } = await runFromScriptRoot(link, dir);
       expect(result.exitCode).toBe(0);
       expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
-      // POSIX only — ensureBinOnPath deliberately skips chmod on Windows (no exec bit there).
       if (process.platform !== 'win32') {
         expect(statSync(launcher).mode & 0o111).not.toBe(0);
       }
@@ -607,12 +633,11 @@ describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 
   it('runs its main block through a script path containing a SPACE', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'paqad eg space-'));
     try {
-      const link = join(dir, 'repo link'); // both the temp dir and the link name carry a space
+      const link = join(dir, 'repo link');
       symlinkSync(process.cwd(), link);
       const { result, envFile, launcher } = await runFromScriptRoot(link, dir);
       expect(result.exitCode).toBe(0);
       expect(readFileSync(envFile, 'utf8')).toContain('PATH=');
-      // POSIX only — ensureBinOnPath deliberately skips chmod on Windows (no exec bit there).
       if (process.platform !== 'win32') {
         expect(statSync(launcher).mode & 0o111).not.toBe(0);
       }
@@ -622,14 +647,13 @@ describe('plugin-session-start.mjs entry guard is realpath-safe (issue #636 bug 
   });
 });
 
-describe('plugin-seen marker (issue #621)', () => {
+describe('plugin-seen marker', () => {
   const { writePluginSeen, pluginSeenPath } = __test;
 
   it('records version, timestamp and root at ~/.paqad-ai/plugin-seen.json', () => {
     const pluginRoot = join(root, 'plugin');
     mkdirSync(pluginRoot, { recursive: true });
     writeFileSync(join(pluginRoot, 'package.json'), JSON.stringify({ version: '1.96.1' }));
-    // PAQAD_FRAMEWORK_HOME dir hosts the marker, so the test controls where it lands.
     const env = { PAQAD_FRAMEWORK_HOME: join(root, 'current') };
     writePluginSeen(pluginRoot, env);
     const seen = JSON.parse(readFileSync(pluginSeenPath(env), 'utf8'));

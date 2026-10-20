@@ -6,12 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { resolveRuleComplianceMode } from '@/kernel/capability.js';
 
-// The two-truth strictness fix (issue #319): the workflow yaml's
-// checks.rule_compliance.mode used to be read into the policy object and ignored
-// by the runtime resolver (which looked only at .config), so a team that set
-// `strict` in feature-development.yaml silently got the `warn` default. It is now
-// a real, team-tracked FLOOR.
-describe('resolveRuleComplianceMode — workflow yaml as a real floor (#319)', () => {
+describe('resolveRuleComplianceMode — workflow yaml as a real floor', () => {
   let root: string;
 
   beforeEach(() => {
@@ -67,7 +62,6 @@ describe('resolveRuleComplianceMode — workflow yaml as a real floor (#319)', (
 
   it('does not let a local/env value lower below the tracked yaml floor', () => {
     writeWorkflow('strict');
-    // env asks for warn, but the tracked floor is strict — clamp wins.
     expect(resolveRuleComplianceMode(root, { PAQAD_RULE_COMPLIANCE: 'warn' })).toBe('strict');
   });
 });

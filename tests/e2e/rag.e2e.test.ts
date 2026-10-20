@@ -380,9 +380,6 @@ describe('RAG end-to-end', () => {
         JSON.stringify(report, null, 2),
         'utf8',
       );
-      // This 32-task benchmark is the heaviest e2e case; the slower Windows
-      // runner needs the same headroom the global config grants (30s on win32,
-      // see vitest.config.ts). A flat 15s overrode that and timed out on Windows.
     },
     process.platform === 'win32' ? 30_000 : 15_000,
   );

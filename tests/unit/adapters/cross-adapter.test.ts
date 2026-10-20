@@ -24,13 +24,9 @@ describe('cross-adapter consistency', () => {
 
     for (const [index, adapter] of adapters.entries()) {
       const files = outputs[index] ?? [];
-      // Config file is always present as the first file.
       expect(files.length).toBeGreaterThan(0);
-      // Issue #229 — the entry file is now a lean stub pointing at the framework
-      // bootstrap, not a copy of the load order or the contracts.
       expect(files[0]?.content).toContain('.paqad/framework-path.txt');
       expect(files[0]?.content).toContain('AGENT-BOOTSTRAP.md');
-      // Issue #622 — no adapter writes MCP config at its host path, MCP-capable or not.
       expect(files.some((file) => file.path.includes('mcp'))).toBe(false);
       expect(files.some((file) => file.path.includes('cache'))).toBe(adapter.capabilities.caching);
       expect(files.some((file) => file.path.includes('memory'))).toBe(adapter.capabilities.memory);
@@ -54,19 +50,12 @@ describe('cross-adapter consistency', () => {
     for (const [index, content] of entries.entries()) {
       const type = ADAPTER_TYPES[index];
 
-      // The lean stub carries exactly three things across every host:
-      //   1. a one-line bootstrap pointer (framework-path + AGENT-BOOTSTRAP.md),
-      //   2. the graceful-degradation fallback clause,
-      //   3. the `Adapter:` footer naming this adapter.
       expect(content, type).toContain('.paqad/framework-path.txt');
       expect(content, type).toContain('AGENT-BOOTSTRAP.md');
       expect(content, type).toContain('proceed as a normal assistant');
       expect(content, type).toContain('Adapter:');
       expect(content, type).toContain(type);
 
-      // It NO LONGER inlines the load order, the workflow-handling prose, or
-      // either contract — those now live only in the framework bootstrap behind
-      // its enablement check.
       expect(content, type).not.toContain('docs/instructions');
       expect(content, type).not.toContain('create documentation');
       expect(content, type).not.toContain(
@@ -75,7 +64,6 @@ describe('cross-adapter consistency', () => {
       expect(content, type).not.toContain('## Decision Pause Contract');
       expect(content, type).not.toContain('## paqad in your chat');
 
-      // A lean stub has zero second-level headings.
       expect(content.includes('\n## '), type).toBe(false);
     }
   });

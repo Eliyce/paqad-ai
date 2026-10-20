@@ -1,6 +1,6 @@
 # Provider-Agnostic Delivery Workflow
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `delivery-workflow` &nbsp;·&nbsp; **Issue:** #42
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Confidence:** `high` &nbsp;·&nbsp; **Slug:** `delivery-workflow`
 
 ## Purpose
 
@@ -85,7 +85,7 @@ the provider layer, not a stage registry.
 - **Decision categories**: `delivery.open_pr` (PR gate) and `delivery.ci_red`
   (red build needing a human call) follow the existing Decision Pause Contract.
 
-## AI attribution — keeping the vendor out of the contributor graph (issue #538)
+## AI attribution — keeping the vendor out of the contributor graph
 
 A coding agent writes its own vendor's attribution into the change it produces:
 Claude Code appends a `Co-Authored-By: Claude` trailer to the commit and an
@@ -135,6 +135,40 @@ messages and, when `gh` answers, the PR body, and emits one `ai-attribution`
 finding per vendor detected, carrying that vendor's exact remediation. It is
 **warn-only** and never blocks — delivery is warn-floor, and this stays inside it.
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/delivery/` and are not stated above.
+
+- **`delivery-check.ts`.** The delivery policy had a loader, schema and detection but nothing read it
+  at runtime, so a commit straight to `main` went unnoticed; this is that reader, at the completion
+  seam, one turn late rather than never. Every subprocess goes through an injected runner so each
+  branch is testable without real git or `gh`, and the kernel wrapper is a one-line delegate. The
+  outcome type is declared locally so the module never imports the kernel at runtime. A detached
+  HEAD or no branch means nothing to check. On the base branch there is no commit range, so the
+  latest commit is scanned instead. A `gh` that is missing, signed out, has no PR for the branch or
+  returns unexpected JSON just skips the PR and CI checks, never a warning about `gh`. A spawn
+  failure leaves no exit code, which is read as 1 ("could not answer"). The attribution scan runs
+  only under `strip`.
+- **`ai-attribution.ts`.** A co-author trailer naming a real colleague must survive, so only known
+  vendor markers are matched, each with that vendor's own fix. The patterns are case-insensitive
+  (vendors mix `Co-Authored-By` and `Co-authored-by`) and not global, and at most one finding is
+  reported per vendor.
+- **`ci-gate.ts`.** A hard cap on poll iterations backs up the timeout, independent of the clock. The
+  rendered evidence comment is posted on green and on a `comment_and_stop` red; posting is
+  best-effort and never changes the verdict.
+- **`runner.ts`, `shell.ts` and `templates.ts`.** Any failed delivery step stops with a remediation
+  hint; it never falls back silently to a local-only commit. The production shell never throws on a
+  non-zero exit, and a process that cannot start reads as exit 1 with the message on stderr. Unknown
+  `{placeholder}` tokens are left in place so tests can see them.
+- **`host.ts`.** GitLab and Bitbucket are recognised but not automated yet, so they take the
+  manual-PR path, as does a remote whose host or owner and repo cannot be parsed.
+- **`delivery-ledger.ts`.** Detection is a project snapshot rebuilt from git history, not a
+  conversation event, so its rows go under a project sentinel session. Rows are appended so the
+  history is kept; the latest is current. A missed ledger write only affects the dashboard, never
+  the loader.
+- **`degradation.ts`.** A CI gate set to `off` is a choice, not a missing provider, so it is not
+  listed as skipped.
+
 ## On-disk + dashboard
 
 | Path | What |
@@ -148,6 +182,21 @@ The **Delivery Workflow** dashboard section (`src/dashboard/collectors/delivery.
 shows configured/active state and the resolved provider connections
 (GitHub ✓ / Jira ✗), also surfaced in `paqad-ai status`. It reads the current
 detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
+
+## Why the `src/providers/` code works the way it does
+
+- **Thin adapters.** The GitHub adapter shells out to `git` and `gh`, the GitHub Issues adapter
+  wraps `gh issue view`, and the Jira adapter wraps the Atlassian MCP tools. The shell or tool call
+  is injected, so the mapping is tested without a live remote.
+- **`github-host-provider.ts`.** A new branch is cut from the configured base so the team's base
+  branch is honoured wherever the working tree is. `gh pr checks` exits non-zero while checks are
+  pending or failing but still prints JSON, so stdout is parsed regardless of the exit code. Check
+  states combine with red first, then pending, then green.
+- **`github-issues-ticket-provider.ts`.** It is read-only for now; the write operations are left
+  unsupported so an accidental call fails loudly instead of doing nothing. GitHub issues have no
+  type, so a `type:` or `kind:` label is used, else "Issue".
+- **`registry.ts`.** The host provider counts as connected only when the CLI is available and the
+  real git remote matches the configured host kind.
 
 ## Boundaries
 

@@ -66,7 +66,6 @@ describe('buildTraceabilityMap — backward map + orphan code', () => {
         promises: [{ promise_id: 'AC-1', description: 'feature', source: 'acceptance-criterion' }],
         delivery: [{ promise_id: 'AC-1', files: ['src/feature.ts'] }],
         proofs: [{ promise_id: 'AC-1', checks: ['tests/feature.test.ts'] }],
-        // feature imports a genuine shared util; dead.ts is used by nothing.
         edges: [{ from: 'src/feature.ts', to: 'src/shared-util.ts' }],
         codeUniverse: ['src/feature.ts', 'src/shared-util.ts', 'src/dead.ts'],
       }),
@@ -84,9 +83,6 @@ describe('buildTraceabilityMap — backward map + orphan code', () => {
   });
 
   it('decides by dependency, not a label — a "this is fine" comment cannot suppress a dead flag', () => {
-    // The builder only sees edges + anchors; file *content* never reaches it,
-    // so an in-file "this is fine" note has no effect. We model that by giving
-    // the dead file no inbound edge from any anchor regardless of any comment.
     const map = buildTraceabilityMap(
       baseInput({
         promises: [{ promise_id: 'AC-1', description: 'feature', source: 'acceptance-criterion' }],
@@ -148,7 +144,6 @@ describe('buildTraceabilityMap — lane behaviour', () => {
 
     expect(map.mode).toBe('light');
     const orphans = map.findings.filter((f) => f.code === 'TR-CODE-ORPHAN');
-    // Only the newly-changed dead file is flagged; the pre-existing one is not.
     expect(orphans.map((f) => f.paths[0])).toEqual(['src/new-dead.ts']);
   });
 
@@ -166,7 +161,6 @@ describe('buildTraceabilityMap — lane behaviour', () => {
 
     expect(map.mode).toBe('full');
     const orphans = map.findings.filter((f) => f.code === 'TR-CODE-ORPHAN');
-    // Full lane ignores changedFiles — both dead files are flagged.
     expect(orphans.map((f) => f.paths[0])).toEqual(['src/dead-a.ts', 'src/dead-b.ts']);
   });
 });

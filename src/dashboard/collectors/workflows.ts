@@ -9,7 +9,6 @@ const HELPER = {
     'At least one workflow per active capability, regenerated when packs change, recently edited.',
 } as const;
 
-/** Phase-1 expected minimum: 1 workflow definition. */
 const EXPECTED_MIN = 1;
 
 export function collectWorkflows(projectRoot: string, now: number = Date.now()): SectionData {
@@ -20,7 +19,6 @@ export function collectWorkflows(projectRoot: string, now: number = Date.now()):
       title: 'Workflows',
       relPath: PATHS.WORKFLOWS_DIR,
       expectedMin: EXPECTED_MIN,
-      // Workflow files are YAML.
       fileFilter: (n) => n.endsWith('.yaml') || n.endsWith('.yml'),
       helper: HELPER,
       missingCommand: '`paqad-ai refresh`',

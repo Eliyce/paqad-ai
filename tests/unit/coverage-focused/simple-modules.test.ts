@@ -230,8 +230,6 @@ describe('coverage simple modules', () => {
     });
 
     it('sanitizes persisted paths to repo-relative values and preserves external paths', () => {
-      // Posix-normalized: the manifest writer persists external absolute paths
-      // in posix form, so expectations must match on Windows too.
       const externalRoot = toPosixPath(join(tmpdir(), 'paqad-external-root'));
       const externalIgnored = toPosixPath(join(tmpdir(), 'paqad-external-ignore'));
 

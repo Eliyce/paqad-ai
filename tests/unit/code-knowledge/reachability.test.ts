@@ -16,10 +16,8 @@ describe('computeReachability', () => {
     const byPath = new Map(result.files.map((f) => [f.path, f]));
 
     expect(byPath.get('src/b.ts')).toMatchObject({ caller_count: 2, orphan: false });
-    // src/a.ts has no in-edges and is not an entry point -> orphan.
     expect(byPath.get('src/a.ts')).toMatchObject({ caller_count: 0, orphan: true });
     expect(byPath.get('src/dead.ts')).toMatchObject({ caller_count: 0, orphan: true });
-    // An entry point with no in-edges is NOT orphan.
     expect(byPath.get('src/cli/index.ts')).toMatchObject({
       caller_count: 0,
       orphan: false,
@@ -37,7 +35,6 @@ describe('computeReachability', () => {
       referenceEdges: [],
       entryFiles: new Set(),
     });
-    // Only test callers -> production caller_count is 0, so it reads as orphan.
     expect(result.files[0]).toMatchObject({ caller_count: 0, orphan: true });
   });
 

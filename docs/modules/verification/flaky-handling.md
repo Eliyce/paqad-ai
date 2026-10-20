@@ -1,8 +1,8 @@
 # Flaky-Test Handling — Trust in a Pass
 
-> **Slug:** `flaky-handling` &nbsp;·&nbsp; **Issue:** #106, #554 &nbsp;·&nbsp; **Owns:** the test-trust signal
+> **Slug:** `flaky-handling` &nbsp;·&nbsp; **Owns:** the test-trust signal
 
-> **Wired since #554.** The check runner now uses this module: after a parallel test run,
+> **Wired.** The check runner uses this module: after a parallel test run,
 > `confirmFailures` (`src/checks/isolation-rerun.ts`) re-runs each failing test alone through
 > `judgeStability`, and a test that passes every isolated re-run is quarantined via `upsertQuarantine`
 > + `writeFlakyRegistry`, with `suspected_causes` from `detectFlakinessSmells`/`smellCategories` and
@@ -93,6 +93,21 @@ The entry is kept either way; clearing is an explicit, evidenced status change, 
 
 `test.flaky_judgement` — *"Is this a flaky test or a rare real fault?"* Reversibility `moderate`,
 TTL 30 days. Documented in the Decision Pause Contract category list.
+
+## Why the code works the way it does
+
+- **`registry.ts`.** A corrupt registry reads as empty instead of throwing, because quarantine only
+  ever reduces what blocks and a bad read must not stop a build. Re-quarantining a cleared test
+  reopens it and keeps its first `first_seen`.
+- **`stability.ts`.** The re-run only reports pass or fail; the caller runs the test, so the judge
+  stays deterministic. A single failure among many passes, or a single pass among failures, is the
+  ambiguous case that goes to a person; a balanced flip is plainly flaky.
+- **`smells.ts`.** Each pattern targets a concrete API or idiom rather than a broad word, to keep
+  false positives low. An empty result means no known smell, not "not flaky".
+- **`attribution.ts`.** Files map to modules through the same module-map matching the health rollup
+  uses, and a file can belong to more than one module.
+- **The judgement packet** is fingerprinted by kind only, so the same kind of ambiguity reuses the
+  saved answer.
 
 ## Sources
 

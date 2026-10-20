@@ -4,7 +4,6 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// Import the dist-less runtime primitive directly (it is a plain ESM export).
 import { readFlooredMode } from '../../../runtime/hooks/lib/paqad-disabled.mjs';
 
 const ORDER = ['off', 'warn', 'strict'];
@@ -40,10 +39,10 @@ describe('readFlooredMode — .mjs C2 clamp parity with TS resolveFlooredMode', 
 
   it('local cannot lower below the team/default floor', () => {
     local('rule_compliance=off\n');
-    expect(resolveMode()).toBe('warn'); // no team floor → default warn floor holds
+    expect(resolveMode()).toBe('warn');
 
     team('rule_compliance=warn\n');
-    expect(resolveMode()).toBe('warn'); // local off ignored
+    expect(resolveMode()).toBe('warn');
   });
 
   it('local and env may RAISE above the floor', () => {

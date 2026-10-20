@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Purpose: Estimate spoken runtime of a script (default 150 wpm).
-# Usage:   bash scripts/estimate-runtime.sh <file> [wpm]
-# Output:  Words: <N> | WPM: <N> | Runtime: <MM:SS>
-# Exits:   0 ok | 1 missing | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Estimate spoken runtime of a script (default 150 wpm).
+Usage:   bash scripts/estimate-runtime.sh <file> [wpm]
+Output:  Words: <N> | WPM: <N> | Runtime: <MM:SS>
+USAGE
+  exit 0
 fi
 [ -f "${1:-}" ] || { printf 'usage: %s <file> [wpm]\n' "$0" >&2; exit 2; }
 file="$1"; wpm="${2:-150}"
 
-# Count only VO: lines (the spoken portion).
 words=$( { grep -E '^[[:space:]]*-[[:space:]]*\*\*VO:\*\*|^VO:|^- VO:' "$file" 2>/dev/null || true; } \
   | sed -E 's/.*VO:[[:space:]]*//; s/\*\*//g' \
   | wc -w \

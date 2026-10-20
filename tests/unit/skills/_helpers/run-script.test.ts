@@ -19,7 +19,6 @@ describe('runScript helper', () => {
       const input = '## Findings\n- one finding with an em dash — kept verbatim';
       const r = runScript(script, [], { input });
       expect(r.status).toBe(0);
-      // $(cat) strips trailing newlines, so compare against the same.
       expect(r.stdout).toBe(input.replace(/\n+$/, ''));
     });
   });
@@ -35,8 +34,6 @@ describe('runScript helper', () => {
       const r = runScript(script);
       expect(r.status).toBe(2);
       expect(r.stdout).toContain('usage:');
-      // Output on stdout means the script really ran — exactly one invocation,
-      // no retry backoff burned on an expected non-zero exit.
       expect(readFileSync(counter, 'utf8')).toBe('x');
     });
   });
@@ -47,7 +44,6 @@ describe('runScript helper', () => {
       const script = writeScript(dir, 'silent-fail.sh', `printf 'x' >> '${counter}'; exit 1`);
       const r = runScript(script);
       expect(r.status).toBe(1);
-      // Initial attempt + three retries.
       expect(readFileSync(counter, 'utf8')).toBe('xxxx');
     });
   });

@@ -1,114 +1,43 @@
-// Issue #118 — the unified, append-only evidence ledger and the merge-time
-// provenance receipt projected from it.
-//
-// paqad already runs 16 verification gates plus standalone correctness engines,
-// and three of them write isolated append-only JSONL audit trails — but the
-// proof is discarded at merge. This module gives every engine one ledger to
-// write to, and a per-change receipt to project from it.
-//
-// The load-bearing design rule (the anti-"provenance-theater" requirement):
-// the ledger grades *how* each piece of evidence was established —
-// deterministic / computed (Tier A), LLM-judged (Tier B), or blocked /
-// inconclusive (Tier C) — so a receipt can never flatten a mutation-tested pass
-// and a model's say-so into the same "12/16 gates passed" number.
-
 import type { AdapterType } from './adapter.js';
 import type { ComplianceEvidenceStrength, ComplianceRelation } from './pack.js';
 import type { GateSkipKind } from './verification.js';
 
-/** Bumped when the on-disk ledger-row or receipt shape changes incompatibly. */
 export const EVIDENCE_LEDGER_SCHEMA_VERSION = 1 as const;
 
-/** Which engine produced a ledger row. */
 export type EvidenceEngine =
   'verification-gate' | 'quality-ratchet' | 'traceability' | 'pentest' | 'triage';
 
-/**
- * The outcome a row records. `blocked` is distinct from `inconclusive`: blocked
- * means the evidence could not be produced (no tool wired, missing config),
- * inconclusive means a check ran but could not reach a confident verdict. `skipped`
- * (issue #579) records a gate that did not apply to this change (for example a
- * not-frontend change under the visual-evidence gate); it is neither a pass nor a fail.
- */
 export type EvidenceVerdict = 'pass' | 'fail' | 'inconclusive' | 'blocked' | 'skipped';
 
-/**
- * How strongly the evidence was established — the anti-theater grade.
- *
- * - `deterministic` (Tier A): a computed, reproducible measure
- *   (mutation, ratchet, traceability, ac-test-mapping, lint/tests, …).
- * - `llm-judged` (Tier B): a verdict produced by a model judgment
- *   (spec-review, implementation-review, story-quality, requirement-completeness).
- * - `blocked` (Tier C): no evidence — the measure was unavailable or inconclusive.
- */
 export type EvidenceStrengthClass = 'deterministic' | 'llm-judged' | 'blocked';
 
-/**
- * One row in `.paqad/ledger/evidence.jsonl`. Append-only; readers tolerate
- * malformed lines so a mid-crash write can't poison the stream.
- *
- * `content_hash` is a SHA-256 over the *identity* fields (engine, code,
- * subject_digest, verdict, strength_class) and deliberately excludes `ts`, so
- * the same finding on the same subject de-duplicates across re-runs (de-dup is
- * a consumer responsibility — the writer only stamps the hash).
- */
 export interface EvidenceLedgerRow {
-  /**
-   * {@link EVIDENCE_LEDGER_SCHEMA_VERSION} for a top-level ledger row; 2 for a row read from a
-   * feature bundle's `evidence.jsonl`, which carries the envelope header (issue #581).
-   */
   schema_version: number;
-  /**
-   * ISO-8601 emission time. Not part of `content_hash`. A bundle row stores it as the
-   * header's `recorded_at`; the reader fills `ts` from it, so every consumer reads one field.
-   */
   ts: string;
-  /** Issue #581 — the envelope header of a row read from a feature bundle. */
   doc_type?: string;
   change?: string;
   session_id?: string;
   recorded_at?: string;
   engine: EvidenceEngine;
-  /** Gate name or finding code (e.g. `mutation-testing`, `TR-UNTESTED-PROMISE`). */
   code: string;
-  /** SHA-256 identifying the change subject these rows pertain to (see below). */
   subject_digest: string;
   verdict: EvidenceVerdict;
   strength_class: EvidenceStrengthClass;
-  /**
-   * SHA-256 hex over the identity fields, for consumer-side de-duplication. A bundle row's is
-   * the envelope row hash (every field but the times), issue #581.
-   */
   content_hash: string;
-  /** Human-readable detail, carried for the receipt/reviewers. Not hashed. */
   detail?: string;
-  /**
-   * Issue #639, Part 10 — on a `skipped` row, `not-required` (nothing to check) or
-   * `did-not-run` (an owed check did not happen). Never set on any other verdict. Not part of
-   * the identity hash, like `detail`.
-   */
   skip_kind?: GateSkipKind;
 }
 
-/** A single changed file and the SHA-256 of its bytes — an in-toto subject. */
 export interface EvidenceFileDigest {
-  /** Project-relative path. */
   name: string;
-  /** SHA-256 hex of the file bytes (or of the path string when unreadable). */
   sha256: string;
 }
 
-// --- Receipt (in-toto Statement v1 + SLSA-VSA-modelled predicate) -----------
-
-/** Pinned predicate type — a paqad URI modelled on the SLSA Verification
- *  Summary Attestation. Pinned so consumers can match on an exact version. */
 export const PAQAD_VSA_PREDICATE_TYPE =
   'https://paqad.ai/attestations/verification-summary/v1' as const;
 
 export const IN_TOTO_STATEMENT_TYPE = 'https://in-toto.io/Statement/v1' as const;
 
-/** Counts of rows by strength class and verdict — the graded summary that keeps
- *  the receipt honest (deterministic passes are never pooled with LLM-judged). */
 export interface GradedEvidenceSummary {
   deterministic: { pass: number; fail: number };
   llm_judged: { pass: number; fail: number };
@@ -116,43 +45,15 @@ export interface GradedEvidenceSummary {
   inconclusive: number;
 }
 
-/**
- * Issue #120 — the change-authorship dimension that makes paqad a *neutral,
- * producer-agnostic* attestor: who wrote the change and who accepted it, folded
- * into the same gate-derived receipt so the attestation is **gate-derived, not
- * agent-derived**. paqad can vouch for a change regardless of which of its
- * supported adapters produced it; no single-vendor tool can occupy that seat.
- *
- * The provenance is honestly graded. `agent` is a known fact (the onboarded
- * adapter), but `model`/`provider` are *declared* — an adapter knows it is
- * "cursor" yet Cursor routes to many models — so they are recorded with no false
- * certainty and `provenance: 'declared'` says so. Field names mirror the
- * cross-vendor `agent-trace` convention (`model_id` = `provider/model`) so the
- * record interoperates with that ecosystem rather than competing with it.
- */
 export interface ChangeAuthorship {
-  /** Which paqad adapter produced the change (a known fact from onboarding). */
   agent?: AdapterType;
-  /** Declared model, e.g. `claude-opus-4-8`. Not self-verified — see provenance. */
   model?: string;
-  /** Declared provider, e.g. `anthropic`. Not self-verified — see provenance. */
   provider?: string;
-  /** agent-trace–style `provider/model` identifier, when both are known. */
   model_id?: string;
-  /** Git identity of the human who accepted the change (EU AI Act Art. 14). */
   accepting_human?: { name?: string; email?: string };
-  /** How model/provider were established. `declared` = adapter/env said so,
-   *  not independently verified; `unknown` = not supplied. */
   provenance: 'declared' | 'unknown';
 }
 
-/**
- * Issue #122 — one `gate → legal clause` citation derived from an active
- * compliance pack. Emitted only for a gate that *passed* (never inconclusive /
- * blocked), so the receipt can say which clause each green gate produces
- * evidence toward. The verbatim `disclaimer` rides along on every citation: this
- * is evidence *toward* a clause, never a conformity assessment.
- */
 export interface ComplianceCitation {
   framework_id: string;
   framework_title: string;
@@ -160,99 +61,43 @@ export interface ComplianceCitation {
   clause_id: string;
   clause_title: string;
   clause_url?: string;
-  /** The passing gate that produced the evidence. */
   gate: string;
-  /** OSCAL relation between the gate and the clause (honestly graded). */
   relation: ComplianceRelation;
-  /** `partial` | `substantial` — never `full`. */
   evidence_strength: ComplianceEvidenceStrength;
   disclaimer: string;
 }
 
-/**
- * Issue #123 — the reproducibility stamp: a content hash over the exact frozen
- * context an agent saw, asserting the *input is replayable*. For a hosted LLM
- * (no stable seed; temp 0 is still non-deterministic) this proves replayable
- * input + recorded output, NOT bit-identical regeneration — so `determinism` is
- * fixed to `input-replay` and the field must never imply exact regeneration.
- */
 export interface ReproducibilityStampPredicate {
-  /** SHA-256 over the canonical, versioned rebuild materials. */
   context_hash: string;
-  /** The only honest claim for a hosted LLM. */
   determinism: 'input-replay';
-  /** Bumped when the preimage serialization changes, so a hash can be re-derived. */
   algo_version: number;
-  /** True when the materials are faithfully reconstructable (input-replay holds). */
   replayable: boolean;
 }
 
 export interface VsaPredicate {
   verifier: { id: string; version: string };
-  /** ISO-8601 time the verification completed. */
   time_verified: string;
   policy: { predicate_type: typeof PAQAD_VSA_PREDICATE_TYPE; schema_version: number };
-  /** Three-way outcome (issue #368, AC-D2): `FAILED` only when a row genuinely
-   *  `fail`ed; `INCONCLUSIVE` when nothing failed but a row could not be judged
-   *  (`inconclusive`), since a couldn't-verify is never a failure; `PASSED` otherwise.
-   *  A `blocked` row (a measure that could not run, e.g. a ratchet measure with no
-   *  coverage report) stays counted in `graded_results.blocked` but no longer moves the
-   *  result (issue #669, decision D-01M5A0MG6537XJ7S3MD3Q4PSCR). */
   verification_result: 'PASSED' | 'FAILED' | 'INCONCLUSIVE';
-  /** The anti-theater grade: passes split by how they were established. */
   graded_results: GradedEvidenceSummary;
-  /** Per-engine row counts, for at-a-glance provenance. */
   evidence_by_engine: Partial<Record<EvidenceEngine, number>>;
-  /** Issue #120 — who wrote and accepted the change. Omitted entirely when no
-   *  authorship could be resolved, so prior receipts stay byte-identical. */
   change_authorship?: ChangeAuthorship;
-  /** Issue #122 — which legal clauses each passing gate produces evidence
-   *  toward, from the active compliance packs. Omitted when no pack is installed
-   *  (or no passing gate maps to a clause), so prior receipts stay byte-identical. */
   compliance_citations?: ComplianceCitation[];
-  /** Issue #123 — the frozen-context reproducibility stamp. Omitted when no
-   *  context stamp was recorded for the change, so receipts stay byte-identical. */
   reproducibility?: ReproducibilityStampPredicate;
-  /** Issue #362 — the per-change shape metrics (duplication on new code + cross-file
-   *  reuse rate). Omitted when none were computed (metrics off, or a non-feature-dev
-   *  change), so a change that produces no metrics stays byte-identical. */
   metrics?: MetricsPredicate;
-  /**
-   * The graded rows themselves. Carried by the whole-project receipt and by every per-feature
-   * receipt sealed before issue #581. A per-feature receipt sealed since then carries
-   * `evidence_sha256` + `evidence_line_count` instead: the rows live once, in the bundle's
-   * `evidence.jsonl`, and the receipt seals them rather than copying them.
-   */
   rows?: EvidenceLedgerRow[];
-  /**
-   * Issue #581 — SHA-256 of the bundle's `evidence.jsonl` bytes at seal time (lowercase hex).
-   * Later gates append more rows after sealing, so a verifier re-hashes only the first
-   * {@link VsaPredicate.evidence_line_count} lines.
-   */
   evidence_sha256?: string;
-  /** Issue #581 — how many `evidence.jsonl` lines the receipt sealed. */
   evidence_line_count?: number;
 }
 
-/** Issue #581 — the per-feature receipt's seal over the bundle's `evidence.jsonl`. */
 export interface EvidenceSeal {
-  /** SHA-256 of the sealed bytes (the first `line_count` lines), lowercase hex. */
   sha256: string;
-  /** How many complete lines were sealed. */
   line_count: number;
 }
 
-/**
- * The per-change shape metrics carried on the receipt (issue #362). `dup_new_pct` and
- * `reuse_rate` are `null` when their source cache was absent (n/a), so the receipt never
- * implies a measurement that did not happen.
- */
 export interface MetricsPredicate {
-  /** % of meaningful changed lines that near-duplicate existing code, or null (n/a). */
   dup_new_pct: number | null;
-  /** Cross-file reuse calls per 100 meaningful changed lines, or null (n/a). */
   reuse_rate: number | null;
-  /** Non-blank, non-comment added/modified lines the change introduced. */
   meaningful_changed_lines: number;
 }
 
@@ -268,8 +113,6 @@ export interface InTotoStatement {
   predicate: VsaPredicate;
 }
 
-/** How the receipt was signed. paqad is local-first, so "signed" honestly
- *  degrades to a tamper-evident hash chain when no CI/OIDC identity exists. */
 export type ReceiptSigningMode = 'sigstore-keyless' | 'hash-chained';
 
 export interface DsseSignature {
@@ -277,21 +120,10 @@ export interface DsseSignature {
   sig: string;
 }
 
-/**
- * A DSSE (Dead Simple Signing Envelope) wrapping the in-toto Statement, plus a
- * paqad hash-chain extension that links each receipt to the previous one so the
- * ledger is tamper-evident even with no third-party anchor.
- */
 export interface ReceiptEnvelope {
   payloadType: string;
-  /** base64 of the canonical Statement JSON. */
   payload: string;
   signatures: DsseSignature[];
-  /**
-   * paqad extension — not part of the DSSE spec. A feature bundle's receipt carries the
-   * envelope header here, first (issue #581): outside the signed payload, so the chain bytes
-   * do not change. Optional because the header is added after signing.
-   */
   paqad: {
     schema_version?: number;
     doc_type?: string;
@@ -300,9 +132,7 @@ export interface ReceiptEnvelope {
     recorded_at?: string;
     content_hash?: string;
     signing_mode: ReceiptSigningMode;
-    /** SHA-256 of the previous receipt's PAE, or 64 zeros at genesis. */
     prev_receipt_hash: string;
-    /** SHA-256 of this receipt's PAE — the chain link the next receipt embeds. */
     receipt_hash: string;
   };
 }

@@ -1,21 +1,10 @@
-// The last step of every "write a temp file, then rename it onto the target" write (issue #647).
-//
-// On Windows a rename onto a target that another rename or reader is touching at that moment
-// fails with EPERM (sometimes EACCES or EBUSY) instead of replacing it. macOS and Linux never
-// fail that way, so the retry only runs on win32: elsewhere the first error is rethrown at once.
-// When the helper gives up it removes the temp file, so a failed write never leaves a stray
-// temp file next to the target.
-
 import { renameSync, rmSync } from 'node:fs';
 import { rename as renameAsync, rm as rmAsync } from 'node:fs/promises';
 
-/** Error codes Windows raises for a rename that is only blocked for a moment. */
 const RETRYABLE_CODES = new Set(['EPERM', 'EACCES', 'EBUSY']);
 
-/** At most 5 attempts in total. */
 export const RENAME_MAX_ATTEMPTS = 5;
 
-/** The wait before retry number `attempt` (1-based): 10, 20, 40, then 80 ms. */
 function waitBeforeRetry(attempt: number): number {
   return 10 * 2 ** (attempt - 1);
 }
@@ -26,7 +15,6 @@ function isRetryable(error: unknown, platform: NodeJS.Platform): boolean {
   return typeof code === 'string' && RETRYABLE_CODES.has(code);
 }
 
-/** Injectable seams for tests. Every field defaults to the real thing. */
 export interface RenameWithRetryDeps {
   rename?: (from: string, to: string) => Promise<void>;
   remove?: (path: string) => Promise<void>;
@@ -45,12 +33,10 @@ function sleepAsync(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Block the thread for `ms` without a busy loop. */
 export function sleepSync(ms: number): void {
   Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 }
 
-/** Rename `from` onto `to`, retrying a short-lived Windows lock. Removes `from` when it gives up. */
 export async function renameWithRetry(
   from: string,
   to: string,
@@ -66,7 +52,6 @@ export async function renameWithRetry(
       return;
     } catch (error) {
       if (attempt >= RENAME_MAX_ATTEMPTS || !isRetryable(error, platform)) {
-        // Keep the rename error as the one the caller sees, even if the cleanup fails too.
         await remove(from).catch(() => undefined);
         throw error;
       }
@@ -75,7 +60,6 @@ export async function renameWithRetry(
   }
 }
 
-/** The sync form of {@link renameWithRetry}, for writers that cannot await. */
 export function renameWithRetrySync(
   from: string,
   to: string,
@@ -92,9 +76,7 @@ export function renameWithRetrySync(
       if (attempt >= RENAME_MAX_ATTEMPTS || !isRetryable(error, platform)) {
         try {
           remove(from);
-        } catch {
-          // Keep the rename error as the one the caller sees.
-        }
+        } catch {}
         throw error;
       }
       sleep(waitBeforeRetry(attempt));

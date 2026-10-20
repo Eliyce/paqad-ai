@@ -12,18 +12,12 @@ interface Props {
   projectName: string | null;
   frameworkVersion: string | null;
   sseLive: boolean;
-  /**
-   * Suppress the left sidebar entirely (S7): the Site map area sets this when it goes full screen so
-   * the sidebar hides with the rest of the chrome. Optional and defaults to showing the sidebar, so
-   * every other caller is unchanged.
-   */
   hideSidebar?: boolean;
   children?: React.ReactNode;
 }
 
 const COLLAPSE_KEY = 'paqad-nav-collapsed';
 
-/** Tiny inline icons, 16px, stroke currentColor. No icon library. */
 function NavIcon({ name }: { name: DashboardArea }) {
   const paths: Record<DashboardArea, React.ReactNode> = {
     pulse: <path d="M2 8h3l2-4 3 8 2-4h2" />,
@@ -56,12 +50,6 @@ function NavIcon({ name }: { name: DashboardArea }) {
   );
 }
 
-/**
- * App shell (issue #146): a quiet left sidebar with the seven areas,
- * collapsible to icons, with the live indicator and theme toggle in the
- * footer. Content renders to the right via children. Dimmer than the
- * content, spacing over borders.
- */
 export function DashboardChrome({
   projectName,
   frameworkVersion,
@@ -80,8 +68,6 @@ export function DashboardChrome({
     }
   });
 
-  // Live badge on the Approvals entry. Re-counts whenever the .paqad/
-  // stream fires, quiet (no badge) at zero.
   useEffect(() => {
     const refresh = (): void => {
       fetchApprovals()
@@ -101,9 +87,7 @@ export function DashboardChrome({
       const next = !prev;
       try {
         localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
-      } catch {
-        // private mode; the toggle still works for this session
-      }
+      } catch {}
       return next;
     });
   };
@@ -114,9 +98,6 @@ export function DashboardChrome({
     setThemeMode(next);
   };
 
-  // Sub-pages highlight their parent area: the delivery-policy editor
-  // lives under Automation, the instructions and design-token editors
-  // under Knowledge, the module map under Build.
   const PARENT_AREA: Partial<Record<Route, Route>> = {
     'delivery-policy': 'automation',
     instructions: 'knowledge',

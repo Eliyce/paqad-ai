@@ -22,7 +22,7 @@ function writeLocalConfig(root: string, body: string): void {
 }
 
 describe('readPipelineConfig', () => {
-  it('defaults: enabled, clarification=warn, final_review=off, ceiling=40000, experts on, strict (#640)', () => {
+  it('defaults: enabled, clarification=warn, final_review=off, ceiling=40000, experts on, strict', () => {
     const cfg = readPipelineConfig(tempRoot(), {});
     expect(cfg).toEqual({
       enabled: true,
@@ -144,7 +144,7 @@ describe('readPipelineConfig', () => {
     expect(cfg.token_ceiling).toBe(40000);
   });
 
-  it('standing_experts: empty knob means none; unknown ids are dropped; deduped (issue #558)', () => {
+  it('standing_experts: empty knob means none; unknown ids are dropped; deduped', () => {
     const empty = tempRoot();
     writeLocalConfig(empty, 'spec_pipeline_standing_experts=');
     expect(readPipelineConfig(empty, {}).standing_experts).toEqual([]);

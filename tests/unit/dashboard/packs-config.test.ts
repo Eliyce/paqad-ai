@@ -12,10 +12,6 @@ import {
   type PacksRootsOverrides,
 } from '@/dashboard/packs-config.js';
 
-/**
- * Minimal pack.yaml that satisfies the stack-pack schema — the same shape
- * `paqad-ai packs create` scaffolds (mirrors runtime/.../stacks/react).
- */
 function packYaml(name: string, version: string): string {
   return [
     `name: ${name}`,
@@ -96,7 +92,6 @@ describe('dashboard packs config', () => {
     });
 
     it('keeps an invalid pack visible with valid: false', () => {
-      // A directory without pack.yaml is the loader's missing-manifest case.
       mkdirSync(join(globalPacksRoot, 'broken-pack'), { recursive: true });
 
       expect(listPacks(projectRoot, overrides)).toEqual([

@@ -18,9 +18,6 @@ import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 
-// Issue #387 — packets written through DecisionStore.writePending must carry a strict
-// `D-<ULID>` id. The corrupt-packet test below writes a legacy `D-1.json` straight to disk
-// on purpose, proving the read/resolve path stays tolerant of legacy ids.
 const WID = 'D-01J000000000000000000000A1';
 const WID2 = 'D-01J000000000000000000000A2';
 
@@ -204,7 +201,6 @@ describe('dashboard approvals', () => {
       expect(() =>
         resolvePauseDecision(root, { decisionId: WID, chosenOptionKey: 'nope' }),
       ).toThrow(ApprovalConflictError);
-      // and the packet is still pending
       expect(store.readPending(WID)).not.toBeNull();
     });
 

@@ -36,14 +36,12 @@ import { appendLegacyStageRow } from '../../shared/legacy-stage-row.js';
 
 const roots: string[] = [];
 
-/** A bare temp dir — NOT a git repo, so the branch scope cannot apply (the degrade path). */
 function tempRoot(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-adoption-'));
   roots.push(r);
   return r;
 }
 
-/** A temp git repo on `main`, so adoption resolves a real branch (the normal path). */
 function tempRepo(branch = 'main'): string {
   const r = tempRoot();
   const g = (...args: string[]) =>
@@ -57,7 +55,6 @@ function tempRepo(branch = 'main'): string {
   return r;
 }
 
-/** Move `root` onto a new branch, the way a developer would mid-change. */
 function checkoutBranch(root: string, branch: string): void {
   execFileSync('git', ['checkout', '-q', '-b', branch], {
     cwd: root,
@@ -71,10 +68,6 @@ afterEach(() => {
 
 const clock = () => new Date('2026-07-19T00:00:00.000Z');
 
-/**
- * Materialize a bundle by writing one `open` row into it, as the recorder would — with the
- * branch recorded where the recorder records it: on feature.json (issues #404, #581).
- */
 function materialize(
   root: string,
   dirName: string,
@@ -86,7 +79,6 @@ function materialize(
   return dirName;
 }
 
-/** Close a bundle the way the finalizer does (issue #321). */
 function close(root: string, dirName: string, sessionId = 'ses_a'): void {
   appendFeatureStageRow(
     root,
@@ -154,9 +146,6 @@ describe('reconcileSessionControl', () => {
     expect(readSessionControl(root, 'ses_a').active).toBe(BUNDLE_A);
   });
 
-  // Decision D-01KXY2BDSN226DDCH9DZA1TAK6 narrowed FR-2 to repoint-only: a dangling
-  // pointer is never simply cleared, because `resolveActiveFeature` sets a freshly minted
-  // feature active BEFORE its first row lands — clearing there would drop the live change.
   it('keeps a not-yet-materialized pointer when there is nothing to adopt (AC-2)', () => {
     const root = tempRepo();
     setActiveFeature(root, 'ses_a', BUNDLE_A, { now: clock });
@@ -233,9 +222,6 @@ describe('reconcileSessionControl', () => {
   });
 });
 
-// Decision D-01KXY2BDSN226DDCH9DZA1TAK6: releasing the pointer used to be the only
-// record that a change was finished, which no other session can see — so adoption would
-// resurrect it. `closeActiveFeature` now stamps the bundle itself.
 describe('closeActiveFeature writes a durable close row', () => {
   it('stamps a close row so another session cannot adopt the finished change', () => {
     const root = tempRepo();
@@ -247,7 +233,7 @@ describe('closeActiveFeature writes a durable close row', () => {
     expect(readFeatureStageUnit(root, dir).some((row) => row.kind === 'close')).toBe(true);
   });
 
-  it('leaves the adapter on feature.json and off the close row (issue #581)', () => {
+  it('leaves the adapter on feature.json and off the close row', () => {
     const root = tempRepo();
     const dir = openFeatureChange(root, 'ses_a', { adapter: 'codex-cli', ulidSeed: 1 });
     closeActiveFeature(root, 'ses_a');
@@ -263,8 +249,6 @@ describe('closeActiveFeature writes a durable close row', () => {
     setActiveFeature(root, 'ses_a', BUNDLE_A, { now: clock });
     closeActiveFeature(root, 'ses_a');
 
-    // Nothing to close: an empty bundle is not in flight, so no row is stamped and the
-    // bundle is not materialized just to close it.
     expect(readFeatureStageUnit(root, BUNDLE_A)).toEqual([]);
     expect(currentFeature(root, 'ses_a')).toBeNull();
   });
@@ -287,12 +271,10 @@ describe('closeActiveFeature writes a durable close row', () => {
   });
 });
 
-describe('session-id rotation mid-change (issue #404)', () => {
+describe('session-id rotation mid-change', () => {
   it('keeps one bundle when the id rotates between stage calls (AC-1, AC-4)', () => {
     const root = tempRepo();
 
-    // Session 1 opens the change and records a stage. `openFeatureChange` is what the
-    // live recorder calls, and it is what stamps the branch on the `open` row.
     const first = openFeatureChange(root, 'ses_before', {
       adapter: 'claude-code',
       title: 'Adopt in flight bundle',
@@ -308,7 +290,6 @@ describe('session-id rotation mid-change (issue #404)', () => {
       clock,
     );
 
-    // The host session id rotates. The next stage call resolves under the NEW id.
     const second = resolveActiveFeature(root, 'ses_after', { now: clock });
 
     expect(second).toBe(first);
@@ -326,8 +307,6 @@ describe('session-id rotation mid-change (issue #404)', () => {
       clock,
     );
 
-    // A rotated session resolves the same bundle, so the planning rows still count —
-    // no manual re-recording into a second bundle.
     expect(resolveActiveFeature(root, 'ses_after', { now: clock })).toBe(dir);
     expect(listFeatureDirs(root)).toEqual([dir]);
   });
@@ -336,8 +315,6 @@ describe('session-id rotation mid-change (issue #404)', () => {
     const root = tempRepo();
     materialize(root, BUNDLE_A, 'ses_before');
 
-    // `currentFeature` is what the pre-mutation gate and the finalizer read. Before the
-    // fix this was null after a rotation, so finalize wrote its backstop into a NEW bundle.
     expect(currentFeature(root, 'ses_after')).toBe(BUNDLE_A);
   });
 
@@ -355,13 +332,8 @@ describe('session-id rotation mid-change (issue #404)', () => {
   });
 });
 
-// Decision D-01KXY55ZM70Y3JNDM8E0XC7WSX. Without the branch scope, "in flight" meant
-// "materialized and never closed", which a real repo accumulates without bound — an
-// abandoned change and a change shipped without a passing verdict both stay in flight
-// forever. The repo this was found in held 13, so the "exactly one" guard never held and
-// adoption was dead code.
-describe('branch scoping (issue #404)', () => {
-  it('records the branch on feature.json at open, never on the row (issue #581)', () => {
+describe('branch scoping', () => {
+  it('records the branch on feature.json at open, never on the row', () => {
     const root = tempRepo();
     checkoutBranch(root, 'fix/404-rotation');
     const dir = openFeatureChange(root, 'ses_a', { adapter: 'claude-code', ulidSeed: 1 });
@@ -372,7 +344,7 @@ describe('branch scoping (issue #404)', () => {
     expect(featureBranch(root, dir)).toBe('fix/404-rotation');
   });
 
-  it('still reads the branch a pre-#581 bundle stamped on its open row (INV-8)', () => {
+  it('still reads the branch a pre-envelope bundle stamped on its open row (INV-8)', () => {
     const root = tempRepo();
     appendLegacyStageRow(root, BUNDLE_A, 'ses_a', { kind: 'open', branch: 'fix/legacy' });
     expect(featureBranch(root, BUNDLE_A)).toBe('fix/legacy');
@@ -380,12 +352,9 @@ describe('branch scoping (issue #404)', () => {
 
   it('falls back to delivery.json for a bundle opened before the stamp existed', () => {
     const root = tempRepo();
-    // An `open` row with no branch — exactly what a pre-#404 bundle carries on disk.
     appendLegacyStageRow(root, BUNDLE_A, 'ses_a', { kind: 'open' });
     expect(featureBranch(root, BUNDLE_A)).toBeNull();
 
-    // A pre-#581 delivery.json carried the branch; the writer no longer does, so write the
-    // legacy bytes directly.
     const deliveryAbs = join(root, featureFilePath(BUNDLE_A, 'delivery'));
     mkdirSync(dirname(deliveryAbs), { recursive: true });
     writeFileSync(
@@ -412,7 +381,6 @@ describe('branch scoping (issue #404)', () => {
 
   it('adopts across a rotation while other branches sit in flight (the real-repo case)', () => {
     const root = tempRepo();
-    // Four unrelated changes left in flight on other branches, as a real repo accumulates.
     for (const [i, other] of ['a', 'b', 'c', 'd'].entries()) {
       materialize(
         root,
@@ -424,7 +392,6 @@ describe('branch scoping (issue #404)', () => {
     checkoutBranch(root, 'fix/404-rotation');
     const mine = materialize(root, BUNDLE_A, 'ses_before', 'fix/404-rotation');
 
-    // The rotated session still lands on ITS change, not on nothing.
     expect(listInFlightFeatures(root)).toHaveLength(5);
     expect(reconcileSessionControl(root, 'ses_after', clock)).toBe(mine);
   });
@@ -450,15 +417,12 @@ describe('branch scoping (issue #404)', () => {
     const root = tempRoot();
     materialize(root, BUNDLE_A, 'ses_old', null);
 
-    // Nothing to scope by, so the pre-branch rule stands rather than blocking adoption.
     expect(listAdoptableFeatures(root, null)).toEqual([BUNDLE_A]);
     expect(reconcileSessionControl(root, 'ses_new', clock)).toBe(BUNDLE_A);
   });
 });
 
-// Issue #540 — the one signal that separates a replayed transcript from a change
-// genuinely starting: has THIS session already finished a change?
-describe('sessionClosedAnyFeature (#540)', () => {
+describe('sessionClosedAnyFeature', () => {
   it('is false when the session has recorded nothing', () => {
     expect(sessionClosedAnyFeature(tempRoot(), 'ses_a')).toBe(false);
   });
@@ -480,8 +444,6 @@ describe('sessionClosedAnyFeature (#540)', () => {
     const root = tempRoot();
     materialize(root, BUNDLE_A, 'ses_a');
     close(root, BUNDLE_A, 'ses_a');
-    // The scope is deliberately session-level (decision D-01M269DKJ3PNEGGXH3HGZMFTFY):
-    // another session's first change keeps the existing auto-open behaviour.
     expect(sessionClosedAnyFeature(root, 'ses_b')).toBe(false);
   });
 
@@ -494,14 +456,14 @@ describe('sessionClosedAnyFeature (#540)', () => {
   });
 });
 
-describe('isBundleClosed (issue #591)', () => {
+describe('isBundleClosed', () => {
   it('is false for a bundle with no rows', () => {
     expect(isBundleClosed(tempRoot(), BUNDLE_A)).toBe(false);
   });
 
   it('is false for a materialized, unclosed bundle', () => {
     const root = tempRoot();
-    materialize(root, BUNDLE_A); // open row only
+    materialize(root, BUNDLE_A);
     expect(isBundleClosed(root, BUNDLE_A)).toBe(false);
   });
 
@@ -523,28 +485,22 @@ describe('isBundleClosed (issue #591)', () => {
       { kind: 'open', note: 'reopened via resume' },
       clock,
     );
-    // Currently open again (the guard may write into it)…
     expect(isBundleClosed(root, BUNDLE_A)).toBe(false);
-    // …but the broad ever-closed predicate is unchanged (INV-2): still excluded from adoption.
     expect(listInFlightFeatures(root)).toEqual([]);
   });
 });
 
-describe('reconcileSessionControl — a closed change is never served as active (issue #591)', () => {
+describe('reconcileSessionControl — a closed change is never served as active', () => {
   it('AC-1: releases a stale pointer at a closed bundle and opens a fresh change on stage start', () => {
     const root = tempRepo();
     materialize(root, BUNDLE_A);
     close(root, BUNDLE_A);
-    // The incident shape: the control names the CLOSED bundle as active again.
     writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
 
-    // `stage start` resolves the active feature with no title → it must open a NEW change.
     const opened = openFeatureChange(root, 'ses_a', { adapter: 'claude-code', now: clock });
 
     expect(opened).not.toBe(BUNDLE_A);
-    // Nothing was appended to the closed bundle — still exactly its open + close rows.
     expect(readFeatureStageUnit(root, BUNDLE_A)).toHaveLength(2);
-    // The control now names the fresh change.
     expect(readSessionControl(root, 'ses_a').active).toBe(opened);
   });
 
@@ -554,12 +510,9 @@ describe('reconcileSessionControl — a closed change is never served as active 
     close(root, BUNDLE_A);
     writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
 
-    // currentFeature is what the live edit writer (recordLiveStageEdit) resolves through.
     const resolved = currentFeature(root, 'ses_a');
 
     expect(resolved).not.toBe(BUNDLE_A);
-    // The stale pointer was released (no adoptable in-flight bundle, so null) and the closed
-    // bundle gained no row from the resolve.
     expect(resolved).toBeNull();
     expect(readSessionControl(root, 'ses_a').active).toBeNull();
     expect(readFeatureStageUnit(root, BUNDLE_A)).toHaveLength(2);
@@ -567,9 +520,9 @@ describe('reconcileSessionControl — a closed change is never served as active 
 
   it('adopts a genuinely in-flight bundle on the branch after releasing the closed pointer', () => {
     const root = tempRepo();
-    materialize(root, BUNDLE_A); // closed, stale pointer
+    materialize(root, BUNDLE_A);
     close(root, BUNDLE_A);
-    materialize(root, BUNDLE_B); // the real in-flight change on this branch
+    materialize(root, BUNDLE_B);
     writeSessionControl(root, { ...readSessionControl(root, 'ses_a'), active: BUNDLE_A });
 
     expect(reconcileSessionControl(root, 'ses_a', clock)).toBe(BUNDLE_B);
@@ -580,16 +533,12 @@ describe('reconcileSessionControl — a closed change is never served as active 
     const root = tempRepo();
     materialize(root, BUNDLE_A);
     setActiveFeature(root, 'ses_a', BUNDLE_A, { now: clock });
-    // A process reads the control while the change is still active…
     const stale = readSessionControl(root, 'ses_a');
-    // …the change is closed through the normal finalizer path (close row + pointer released)…
     closeActiveFeature(root, 'ses_a', clock);
     expect(readSessionControl(root, 'ses_a').active).toBeNull();
-    // …then the stale in-memory copy (still naming the now-closed bundle) is written back.
     writeSessionControl(root, stale);
     expect(readSessionControl(root, 'ses_a').active).toBe(BUNDLE_A);
 
-    // The next stage start must still open a fresh bundle, not re-serve the closed one.
     const opened = openFeatureChange(root, 'ses_a', { adapter: 'claude-code', now: clock });
     expect(opened).not.toBe(BUNDLE_A);
     expect(readFeatureStageUnit(root, BUNDLE_A)).toHaveLength(2);

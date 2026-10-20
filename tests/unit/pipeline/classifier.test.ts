@@ -389,7 +389,6 @@ describe('RequestClassifier', () => {
   });
 
   it('uses buildFromPreResult path when shouldSkipLlm returns true', async () => {
-    // Force the LLM-skip branch by mocking shouldSkipLlm to return true.
     const llmSkipModule = await import('@/pipeline/llm-skip-evaluator.js');
     vi.spyOn(llmSkipModule, 'shouldSkipLlm').mockReturnValue(true);
 
@@ -412,7 +411,6 @@ describe('RequestClassifier', () => {
       },
     });
 
-    // With LLM skipped the classifier must still produce a valid result.
     expect(result.workflow).toBeDefined();
     expect(result.classification_confidence).toBeDefined();
     expect(result.resolution_map).toBeDefined();

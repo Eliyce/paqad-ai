@@ -1,21 +1,11 @@
-// Issue #121 — OCSF (Open Cybersecurity Schema Framework) projection.
-//
-// OCSF is the vendor-neutral lingua franca Splunk, Elastic, Datadog, AWS
-// Security Lake, and Microsoft Sentinel all ingest. We map each event to the
-// Application Activity class (uid 6003) with correct base attributes, and carry
-// paqad's graded-evidence fields — which core OCSF has no slot for — under the
-// `unmapped` extension. Honest, in the spirit of #118's "CycloneDX-adjacent"
-// AI-BOM: the format is honoured; the correctness fields are a faithful addition.
-
 import { epochMs, eventMessage, ocsfSeverityId, ocsfStatusId } from '../severity.js';
 import type { SiemEvent } from '../types.js';
 
-/** Pinned OCSF schema version the records target. */
 export const OCSF_SCHEMA_VERSION = '1.3.0';
 
-const CLASS_UID = 6003; // Application Activity
-const CATEGORY_UID = 6; // Application Activity
-const ACTIVITY_ID = 0; // Unknown — paqad events don't map to a CRUD-style verb.
+const CLASS_UID = 6003;
+const CATEGORY_UID = 6;
+const ACTIVITY_ID = 0;
 
 function statusLabel(statusId: number): string {
   if (statusId === 1) return 'Success';
@@ -23,7 +13,6 @@ function statusLabel(statusId: number): string {
   return 'Unknown';
 }
 
-/** OCSF `activity_name` for a paqad event kind. */
 function activityName(kind: SiemEvent['kind']): string {
   switch (kind) {
     case 'attestation':
@@ -35,7 +24,6 @@ function activityName(kind: SiemEvent['kind']): string {
   }
 }
 
-/** Build the OCSF record (a plain object; the orchestrator serializes it). */
 export function toOcsfRecord(event: SiemEvent, productVersion: string): Record<string, unknown> {
   const statusId = ocsfStatusId(event.verdict);
 
@@ -108,7 +96,6 @@ export function toOcsfRecord(event: SiemEvent, productVersion: string): Record<s
   return record;
 }
 
-/** One OCSF record, serialized as a single JSON line. */
 export function toOcsf(event: SiemEvent, productVersion: string): string {
   return JSON.stringify(toOcsfRecord(event, productVersion));
 }

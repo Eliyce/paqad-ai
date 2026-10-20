@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Purpose: Validate business-logic abuse findings.
-# Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
-# Checks:  has "## Findings"; each finding has Module:, Step:, Abuse case:,
-#          Missing proof:, and Reproduction: segments.
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Validate business-logic abuse findings.
+Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
+Checks:  has "## Findings"; each finding has Module:, Step:, Abuse case:,
+         Missing proof:, and Reproduction: segments.
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
   exit 0
 fi
 
@@ -21,7 +22,6 @@ say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings" heading'
 
-# Each finding starts with "### " under Findings.
 findings=$(printf '%s\n' "$body" | awk '/^## Findings/{f=1;next} /^## /{f=0} f' )
 count=$(printf '%s\n' "$findings" | grep -cE '^### ' || true)
 [ "${count:-0}" -eq 0 ] && say 'no "### ..." finding subsections'

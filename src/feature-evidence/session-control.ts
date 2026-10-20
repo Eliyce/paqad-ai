@@ -1,13 +1,3 @@
-// Per-session feature control (issue #339, Phase 1 — dark).
-//
-// `_session/<sessionId>.json` holds one active feature plus a paused-feature stack
-// and the pending lane. It folds today's `.open` + `.pending-lane` role at feature
-// grain: `active` is the feature the next stage/edit attaches to; `paused` is the
-// stack a detour pushed (most-recently-paused last), popped on resume. Values are
-// feature dir names (the immutable change key). Reads are tolerant — a missing or
-// corrupt file yields a fresh empty control, never a throw — so a mid-crash write
-// can't wedge the session. Nothing wires this into the live path yet.
-
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -19,7 +9,6 @@ import {
   type FeatureSessionControl,
 } from './types.js';
 
-/** A fresh, empty control for a session (no active, no paused, no lane). */
 export function emptyControl(
   sessionId: string,
   now: () => Date = () => new Date(),
@@ -35,11 +24,6 @@ export function emptyControl(
   };
 }
 
-/**
- * Read a session's control. A missing or corrupt/invalid file yields a fresh
- * empty control (tolerant, like the session-ledger reader) so a caller never has
- * to guard for absence.
- */
 export function readSessionControl(
   projectRoot: string,
   sessionId: string,
@@ -51,20 +35,10 @@ export function readSessionControl(
     if (isControl(parsed)) {
       return parsed;
     }
-  } catch {
-    // Absent / unreadable / malformed — fall through to a fresh control.
-  }
+  } catch {}
   return emptyControl(sessionId, now);
 }
 
-/**
- * Stamp `updated_at`, the writer attribution (issue #591) and the control to disk (creating
- * dirs). Returns it. `writtenBy` names the calling verb or hook (`set-active`, `resume`,
- * `reconcile`, `rename`, …); it is stamped on every write together with the writing
- * `process.pid`, so a stale rewrite — the #591 lost-update shape — can be traced to its
- * source. A caller that passes no label keeps any `written_by` already on the control, and
- * falls back to `unknown` so the field is never empty.
- */
 export function writeSessionControl(
   projectRoot: string,
   control: FeatureSessionControl,
@@ -84,19 +58,11 @@ export function writeSessionControl(
 }
 
 export interface SetActiveOptions {
-  /** Lane to stamp on the control; unchanged when omitted. */
   lane?: FeatureLane;
   now?: () => Date;
-  /** Writer attribution (issue #591) stamped on the control; defaults to `set-active`. */
   writtenBy?: string;
 }
 
-/**
- * Make `dirName` the active feature and persist. A different current active is
- * pushed onto the paused stack; if `dirName` was itself paused it is lifted out
- * of the stack first (a feature is never both active and paused). Setting the
- * already-active feature is a no-op beyond the optional lane update.
- */
 export function setActiveFeature(
   projectRoot: string,
   sessionId: string,
@@ -118,12 +84,6 @@ export function setActiveFeature(
   return writeSessionControl(projectRoot, next, now, options.writtenBy ?? 'set-active');
 }
 
-/**
- * Reactivate a paused feature. Pops `dirName` off the paused stack and makes it
- * active, pushing any current active back onto the stack. Returns `null` (no
- * write) when `dirName` is neither active nor paused — resume of an unknown
- * feature is a caller error, surfaced honestly rather than silently minting one.
- */
 export function resumeFeature(
   projectRoot: string,
   sessionId: string,
@@ -145,7 +105,6 @@ export function resumeFeature(
   return writeSessionControl(projectRoot, { ...control, active: dirName, paused }, now, writtenBy);
 }
 
-/** Pause the active feature (push it onto the stack, clear `active`) and persist. */
 export function pauseActive(
   projectRoot: string,
   sessionId: string,
@@ -164,10 +123,6 @@ export function pauseActive(
   );
 }
 
-/**
- * Drop `dirName` from the session control (its lifecycle `status:done` lives in
- * `feature.json`). Clears `active` when it matches and removes any paused entry.
- */
 export function markDone(
   projectRoot: string,
   sessionId: string,
@@ -183,7 +138,6 @@ export function markDone(
   return writeSessionControl(projectRoot, next, now, 'mark-done');
 }
 
-/** Stash the pending lane on the control and persist. */
 export function setLane(
   projectRoot: string,
   sessionId: string,

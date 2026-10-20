@@ -23,13 +23,6 @@ import {
   type FrontendTrigger,
 } from '@/visual-evidence/trigger.js';
 
-/**
- * `paqad-ai visual-evidence` (issue #551) — capture screenshots of the documented flows a
- * frontend change affects, as feature-bundle evidence. Everything at runtime is deterministic:
- * no LLM is involved. Four verbs: `run` (scripted captures), `attach` (agent-attached screenshots,
- * issue #579; the two are the only writers of visual-evidence.json + screenshots/), `plan`
- * (dry-run the resolution), and `setup` (provision the browser runtime).
- */
 export function createVisualEvidenceCommand(): Command {
   const command = new Command('visual-evidence').description(
     'Capture screenshots of documented flows for frontend changes as feature-bundle evidence',
@@ -225,10 +218,6 @@ export function createVisualEvidenceCommand(): Command {
   return command;
 }
 
-/**
- * Evaluate the frontend trigger, or print the install-fault line and set exit code 1 when the
- * built-in pack registry is empty (issue #579). Returns null on that fault.
- */
 async function triggerOrInstallFault(
   projectRoot: string,
   json: boolean,
@@ -247,7 +236,6 @@ async function triggerOrInstallFault(
   }
 }
 
-/** Emit a one-line human message (and, with --json, a machine line). */
 function report(json: boolean, status: string, message: string): void {
   console.log(`**▸ paqad** · visual evidence: ${message}`);
   if (json) {

@@ -6,7 +6,6 @@ import { currentFeature, recordChangeConstants } from '@/feature-evidence/stage-
 import type { FeatureLane } from '@/feature-evidence/types.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-/** The lanes an operator may set, in the canonical order. */
 const SETTABLE_LANES: readonly Exclude<FeatureLane, null>[] = ['fast', 'graduated', 'full'];
 
 interface LaneOptions {
@@ -14,22 +13,9 @@ interface LaneOptions {
   session?: string;
 }
 
-/**
- * `paqad-ai lane set <fast|graduated|full>` — the operator lane override (issue #602, FR-1).
- *
- * The automatic classifier decides a lane from the first message, before it has read the
- * ticket, and until now nothing could correct it — a wrong "small" (or missing) guess silently
- * switched the stage-isolation check off. This verb lets the person or AI doing the work record
- * the real lane on the active change's `feature.json`, which is exactly what the end-of-change
- * isolation check reads.
- *
- * It goes through the same monotonic ratchet as every other lane write (FR-3): it RAISES the
- * lane, and a downgrade request leaves the recorded lane untouched and reports that the
- * downgrade was refused — the safeguard only ever fails toward more scrutiny, never less.
- */
 export function createLaneCommand(): Command {
   const command = new Command('lane').description(
-    'Set or show the lane for the active feature-development change (issue #602)',
+    'Set or show the lane for the active feature-development change',
   );
 
   command
@@ -60,7 +46,6 @@ export function createLaneCommand(): Command {
       }
 
       const before = readChangeConstants(root, dirName).lane;
-      // The write ratchets (updateFeatureRecord holds INV-1), so this only ever raises the lane.
       recordChangeConstants(root, dirName, { lane: requested });
       const after = readChangeConstants(root, dirName).lane;
 

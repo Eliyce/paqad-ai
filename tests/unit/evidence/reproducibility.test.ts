@@ -37,8 +37,6 @@ describe('reproducibility stamp', () => {
   });
 
   it('tolerates a malformed stamp file (degrades to null)', () => {
-    // Issue #468 Phase C — the stamp relocated to `.paqad/session/`; create its dir via the
-    // constant so the test moves with the path.
     mkdirSync(dirname(join(root, PATHS.EVIDENCE_CONTEXT_STAMP)), { recursive: true });
     writeFileSync(join(root, PATHS.EVIDENCE_CONTEXT_STAMP), '{ not json', 'utf8');
     expect(readReproducibilityStamp(root)).toBeNull();

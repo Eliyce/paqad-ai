@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5C08KGNA3TPCHA94ZCYCW62",
+  "category": "workflow-or-tool",
+  "title": "Re-bless rule-script bindings edited by the comment cleanup",
+  "context": "Commit fe13c0d3 (remove issue numbers from docs/instructions) hand-edited text fields in docs/instructions/rules/rule-script-map.yml (RL-73a4, RL-c543), so the capability gate now reports the scripted-rule bindings as tampered and blocks every Write/Edit in this session. The development stage for the CodeQL fixes has most source edits staged in the working tree and cannot write its tests until the bindings are trusted again. Only text changed; text_hash and scripts are untouched.",
+  "options": [
+    {
+      "option_key": "rebless",
+      "label": "Re-bless now with paqad-ai rules compile and commit the updated lock with the cleanup",
+      "evidence": {},
+      "one_line_preview": "Re-bless now with paqad-ai rules compile and commit the updated lock with the cleanup",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "revert",
+      "label": "Revert the two rule-script-map.yml text edits so the lock matches again",
+      "evidence": {},
+      "one_line_preview": "Revert the two rule-script-map.yml text edits so the lock matches again",
+      "trade_off": "Not stated when the decision was opened."
+    },
+    {
+      "option_key": "wait",
+      "label": "Wait for the comment-cleanup agent to finish, then re-bless once",
+      "evidence": {},
+      "one_line_preview": "Wait for the comment-cleanup agent to finish, then re-bless once",
+      "trade_off": "Not stated when the decision was opened."
+    }
+  ],
+  "recommendation": "rebless",
+  "created_at": "2026-10-20T06:33:59.573Z",
+  "status": "resolved",
+  "change": "01M5B870H6E266E6QDDFQPSYRP",
+  "chosen": "revert",
+  "rationale": "Owner chose revert now; the final rule-registration commit recompiles the map and fixes the compile drift",
+  "resolved_at": "2026-10-20T06:36:56.877Z",
+  "decision_id": "D-01M5C08KGNA3TPCHA94ZCYCW62",
+  "fingerprint": "sha256:14abad1176289b79d6dea3a921752448c6ba04861edce5ee55f360af2064f43e",
+  "question": "Re-bless rule-script bindings edited by the comment cleanup",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5B870H6E266E6QDDFQPSYRP",
+  "ttl_until": "2026-10-27T06:33:59.573Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "revert",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T06:36:56.877Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose revert now; the final rule-registration commit recompiles the map and fixes the compile drift"
+  }
+}

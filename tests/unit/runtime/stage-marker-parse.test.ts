@@ -5,9 +5,6 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-// stage-marker-parse.mjs is a non-blocking Stop hook: always exits 0. These check
-// the dist-less guards (disabled, no transcript_path); the parse logic is covered
-// by tests/unit/stage-evidence/marker-parse.test.ts.
 const HOOK = resolve(__dirname, '../../../runtime/hooks/stage-marker-parse.mjs');
 
 function run(projectRoot: string, payload: unknown, env: NodeJS.ProcessEnv = {}) {

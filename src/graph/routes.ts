@@ -6,27 +6,8 @@ import { extractGraphWithSidecar, type ChunkContentRecord } from './extractor.js
 import { SimilarityResolver } from './similarity.js';
 import type { Graph, SimilarityRequest } from './types.js';
 
-/**
- * The read-only project-graph API, factored out of the old standalone graph
- * server (issue #159) so the dashboard server can mount it as a first-class
- * area. Exposes exactly four routes, all read-only:
- *
- *   GET  /api/graph
- *   GET  /api/node/:id
- *   GET  /api/chunk/:id/content
- *   POST /api/similar
- *
- * Extraction is lazy — the graph is built on the first `/api/graph` hit, not
- * at server boot — and `invalidate()` clears the cache so the next read
- * re-extracts after a `.paqad/` change.
- */
 export interface GraphRoutes {
-  /**
-   * Handle a graph API request. Returns true when the path was one of the
-   * graph routes (response written), false to let the caller continue routing.
-   */
   handle(req: IncomingMessage, res: ServerResponse, url: URL): Promise<boolean>;
-  /** Drop the cached graph so the next `/api/graph` read re-extracts. */
   invalidate(): void;
 }
 
@@ -62,7 +43,6 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
     req.setEncoding('utf8');
     req.on('data', (chunk: string) => {
       raw += chunk;
-      // Cap to 1MB to avoid pathological payloads.
       if (raw.length > 1_048_576) {
         raw = '';
       }

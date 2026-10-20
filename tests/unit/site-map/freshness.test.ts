@@ -4,7 +4,6 @@ import type { AppFreshness, AppMap } from '@/core/types/site-map.js';
 import { deriveMapFreshness, isStale, stampMapFreshness } from '@/site-map/freshness.js';
 import type { EvidenceResolution } from '@/site-map/verification.js';
 
-/** A map with no cited evidence anywhere — nothing to age against code. */
 function bareMap(): AppMap {
   return {
     schema_version: 1,
@@ -13,7 +12,6 @@ function bareMap(): AppMap {
   };
 }
 
-/** A map that cites one anchor on a surface, one on its transition, and one on a guard. */
 function citingMap(): AppMap {
   return {
     schema_version: 1,
@@ -68,7 +66,6 @@ describe('deriveMapFreshness', () => {
   });
 
   it('treats an anchor the gatherer did not resolve as live, so it never inflates staleness', () => {
-    // No resolutions supplied at all — buildStatusOf defaults each unlisted pointer to resolved.
     expect(deriveMapFreshness(citingMap(), [])).toEqual({
       anchors_total: 3,
       anchors_resolved: 3,
@@ -86,7 +83,6 @@ describe('stampMapFreshness', () => {
     expect(changed).toBe(true);
     expect(stamped.app.freshness).toEqual(fresh);
     expect(stamped.app.name).toBe('x');
-    // The original is left untouched (a fresh copy is returned).
     expect(map.app.freshness).toBeUndefined();
   });
 

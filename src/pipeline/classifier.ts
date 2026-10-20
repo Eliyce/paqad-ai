@@ -79,9 +79,6 @@ export class RequestClassifier {
       resolutionMap,
     );
 
-    // Complementary analytics gate (issue #241), resolved cheapest-first: the flag check is
-    // one config read, and OFF short-circuits BEFORE any detection — so with analytics off
-    // (the default) this adds no field and does no filesystem scan.
     const analyticsTag = this.resolveAnalyticsTag(baseClassification.workflow);
 
     return {
@@ -111,12 +108,6 @@ export class RequestClassifier {
     };
   }
 
-  /**
-   * Resolve the analytics tag (issue #241). Returns undefined (no field, no fs scan) when
-   * there is no project root or the `analytics_instrumentation` flag is off — the common
-   * case. Only when the flag is on do we run the gate (which then detects a provider).
-   * Best-effort: any config/detection failure yields undefined, never a thrown classify.
-   */
   private resolveAnalyticsTag(
     workflow: ClassificationWorkflow | null,
   ): AnalyticsGateStatus | undefined {

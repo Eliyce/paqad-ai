@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { platform } from 'node:os';
+import { isAbsolute } from 'node:path';
 
 export interface OpenBrowserOptions {
   url: string;
-  /** Skip opening the browser regardless of environment. */
   skip?: boolean;
 }
 
@@ -22,6 +23,15 @@ export function shouldSkipBrowser(env: NodeJS.ProcessEnv = process.env): string 
   return null;
 }
 
+export function isOpenableTarget(target: string): boolean {
+  if (target.trim().length === 0 || target.startsWith('-')) return false;
+  if (URL.canParse(target)) {
+    const { protocol } = new URL(target);
+    if (protocol === 'http:' || protocol === 'https:') return true;
+  }
+  return isAbsolute(target) && existsSync(target);
+}
+
 export function openBrowser(options: OpenBrowserOptions): OpenBrowserResult {
   if (options.skip) {
     return { opened: false, reason: 'browser open suppressed' };
@@ -31,24 +41,14 @@ export function openBrowser(options: OpenBrowserOptions): OpenBrowserResult {
     return { opened: false, reason: skipReason };
   }
   const url = options.url;
-  let command: string;
-  let args: string[];
-  const os = platform();
-  if (os === 'darwin') {
-    command = 'open';
-    args = [url];
-  } else if (os === 'win32') {
-    command = 'cmd';
-    args = ['/c', 'start', '""', url];
-  } else {
-    command = 'xdg-open';
-    args = [url];
+  if (!isOpenableTarget(url)) {
+    return { opened: false, reason: 'not an http(s) URL or an existing file path' };
   }
+  const os = platform();
+  const command = os === 'darwin' ? 'open' : os === 'win32' ? 'explorer.exe' : 'xdg-open';
   try {
-    const child = spawn(command, args, { detached: true, stdio: 'ignore' });
-    child.on('error', () => {
-      /* ignored — failure to open is informational */
-    });
+    const child = spawn(command, [url], { detached: true, stdio: 'ignore', shell: false });
+    child.on('error', () => {});
     child.unref();
     return { opened: true };
   } catch (err) {

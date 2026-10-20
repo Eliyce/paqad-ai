@@ -1,11 +1,3 @@
-// PQD-174 — retrieval over a session's ephemeral attachment collection.
-//
-// Called before an assistant turn to fetch grounding chunks from the files the
-// user attached to this session. Retrieval reads only the session's own
-// collection, so chunks can never cross over from another session. The query is
-// embedded with the same provider/model the collection was built with (read
-// from its stored meta) so the vectors are comparable.
-
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 
 import { collectionVectorPaths, getCollectionId } from './attachment-registry.js';
@@ -24,11 +16,6 @@ function emptyResult(fallbackReason: string): RagRetrievalResult {
   };
 }
 
-/**
- * Retrieve the top-N attachment chunks for `query` from a session's collection.
- * Returns an empty result with `fallback_reason: 'no-attachment-collection'`
- * when the session has no registered collection.
- */
 export async function retrieveFromAttachments(
   projectRoot: string,
   sessionId: string,
@@ -45,7 +32,6 @@ export async function retrieveFromAttachments(
   const index = new FileVectorIndex<StoredVectorChunk>(indexPath, metaPath);
   const meta = await index.loadMeta(projectRoot);
   if (!meta) {
-    // Registered but the index/meta is gone (e.g. removed out of band).
     return emptyResult('attachment-index-unavailable');
   }
 

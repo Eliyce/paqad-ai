@@ -9,20 +9,12 @@ import type {
   PullRequest,
 } from './host-provider.js';
 
-/**
- * Issue #42 — the GitHub adapter. Git operations shell out to `git`; PR and
- * check-status operations shell out to `gh`. The shell is injected (same
- * `DeliveryShell` seam the delivery runner uses) so this is fully testable
- * without touching a real remote.
- */
 export class GithubHostProvider implements HostProvider {
   readonly kind = 'github' as const;
 
   constructor(private readonly shell: DeliveryShell) {}
 
   async ensureBranch(name: string, base: string): Promise<HostStepResult> {
-    // Cut the new branch from the configured base so the team's base-branch
-    // convention is honored even when the working tree sits elsewhere.
     const result = await this.shell.run('git', ['checkout', '-b', name, base]);
     return {
       ok: result.exitCode === 0,
@@ -109,10 +101,7 @@ export class GithubHostProvider implements HostProvider {
   }
 
   async getChecksStatus(prOrBranch: string): Promise<ChecksStatus> {
-    // `gh pr checks <branch> --json name,state` returns one row per check run.
     const result = await this.shell.run('gh', ['pr', 'checks', prOrBranch, '--json', 'name,state']);
-    // gh exits non-zero when checks are still pending or failing, but still
-    // prints JSON on stdout — so parse stdout regardless of exit code.
     const checks = parseChecks(result.stdout);
     if (checks === null) {
       return { state: 'unknown', checks: [] };
@@ -121,7 +110,6 @@ export class GithubHostProvider implements HostProvider {
   }
 }
 
-/** gh prints the created PR URL on stdout; pull the number out of it. */
 export function parsePrUrl(stdout: string): PullRequest {
   const url =
     stdout
@@ -132,7 +120,6 @@ export function parsePrUrl(stdout: string): PullRequest {
   return { number: match ? Number(match[1]) : null, url };
 }
 
-/** Map gh's per-check `state` strings onto our normalized ChecksState. */
 export function normalizeCheckState(raw: string): ChecksState {
   const s = raw.toUpperCase();
   if (['SUCCESS', 'NEUTRAL', 'SKIPPED'].includes(s)) {
@@ -166,7 +153,6 @@ function parseChecks(stdout: string): { name: string; state: ChecksState }[] | n
   }
 }
 
-/** Aggregate per-check states into one: red dominates, then pending, then green. */
 export function aggregate(states: ChecksState[]): ChecksState {
   if (states.length === 0) {
     return 'unknown';

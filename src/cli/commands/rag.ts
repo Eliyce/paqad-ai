@@ -83,11 +83,6 @@ async function resolveProvider(
   });
 }
 
-/**
- * Pick the local embedding model (RAG buildout F23). Non-interactive runs (and any
- * caller that doesn't choose) keep the MiniLM floor; interactively, the user may opt into
- * the code-tuned model. Returns the model id to build with.
- */
 async function resolveLocalModel(current?: string): Promise<string> {
   const fallback = current ?? DEFAULT_LOCAL_EMBEDDING_MODEL;
   if (!isInteractive()) {
@@ -147,7 +142,6 @@ async function buildWithRecovery(
   options: {
     provider?: string;
     model?: string;
-    /** Issue #576 (Finding 3) — join builds the index without persisting the profile / `.config`. */
     buildOnly?: boolean;
   },
 ): Promise<Awaited<ReturnType<RagService['configureAndBuild']>>> {
@@ -159,8 +153,6 @@ async function buildWithRecovery(
     const carriedModel =
       explicitModel ??
       (current.configured_provider === provider ? current.configured_model : undefined);
-    // F23 — for the local provider, offer the MiniLM floor vs the opt-in code-tuned
-    // model when nothing is already chosen. Other providers keep their single default.
     const model =
       carriedModel ??
       (provider === 'local'
@@ -176,7 +168,6 @@ async function buildWithRecovery(
         },
         progressPrinter,
       ] as const;
-      // Finding 3 — join must not rewrite the tracked profile or the local `.config`.
       return options.buildOnly
         ? await service.buildIndexOnly(...buildArgs)
         : await service.configureAndBuild(...buildArgs);
@@ -231,15 +222,9 @@ export interface InitializeRagIndexOptions {
   provider?: string;
   model?: string;
   current?: Awaited<ReturnType<RagService['getStatus']>>;
-  /**
-   * Build the index WITHOUT persisting the project profile or the dev-local `.config` (issue #576,
-   * Finding 3). Set by teammate `join`, which must leave the tracked profile and local config
-   * exactly as the team committed them. `rag init` leaves it false and persists as before.
-   */
   buildOnly?: boolean;
 }
 
-/** Shared initial-build path used by both `rag init` and teammate `join`. */
 export async function initializeRagIndex(
   projectRoot: string,
   options: InitializeRagIndexOptions = {},
@@ -342,9 +327,6 @@ export function createRagCommand(): Command {
       process.stdout.write(`${JSON.stringify(await service.getStatus(), null, 2)}\n`);
     });
 
-  // Issue #354 — diagnostic probe. Prints the top pre-floor fused scores for a query so
-  // the gap between the best real score and the 0.75 precision floor is measurable on a
-  // live repo (the gap that made retrieval dark). Read-only; changes no state.
   command
     .command('probe <query>')
     .description(
@@ -386,15 +368,6 @@ export function createRagCommand(): Command {
       );
     });
 
-  // RAG buildout F5/F9/F11 — the background "refresh session context" worker the
-  // prompt-time trigger spawns detached. It (1) incrementally syncs the vector index
-  // to the working tree (F9, only when an index already exists), (2) retrieves the
-  // top-k slices relevant to the files in play over that fresh index (F11), and
-  // (3) recomposes the session-context artifact = rule slice (F5) + retrieval slice
-  // (F11). Sync runs first so retrieval queries the up-to-date index. Everything is
-  // single-flight-locked and never blocks. Quiet by default so a detached run
-  // produces no stray output. When rag is off / there is no index, the retrieval
-  // gather returns nothing and the artifact stays rule-only (disabled == today).
   command
     .command('refresh-context')
     .description(
@@ -404,35 +377,15 @@ export function createRagCommand(): Command {
     .option('--quiet', 'Suppress output (used by the background trigger)')
     .option('--session <id>', 'Host session the refresh was started for (reads its route)')
     .action(async (options: { projectRoot: string; quiet?: boolean; session?: string }) => {
-      // Issue #353 — keep the code-knowledge index current on this same detached
-      // worker, independent of rag_enabled (the index is deterministic, no-LLM). It
-      // re-parses only the changed files and no-ops when no index exists yet (the
-      // initial build is an explicit `index build`). Best-effort: a hiccup here must
-      // never wedge the context refresh, so failures are swallowed.
       try {
         await refreshCodeKnowledgeIndex(options.projectRoot);
-      } catch {
-        // ignore — the code-knowledge index is a best-effort background artifact
-      }
+      } catch {}
 
-      // Issue #336 — the routed workflow (from the prompt seam) decides what the
-      // artifact carries. Rules load only for feature-development; no-workflow retrieves
-      // nothing. With no pointer yet (first prompt), fall back to today's behaviour:
-      // load rules and retrieve, so nothing regresses before routing kicks in. Issue #582 —
-      // read the route of the session this refresh was started for, not whichever session
-      // routed last (the shared pointer is the fallback).
       const route = readSessionRoute(options.projectRoot, options.session);
       const { loadRules, retrieves } = compositionForRoute(route);
 
       const intelligence = resolveFrameworkConfig(options.projectRoot).intelligence;
 
-      // Issue #356 — the `## Existing surface` planning digest: existing exported symbols
-      // for the files in play, so the model reuses instead of duplicating. It is composed
-      // ONLY on the feature-development route (loadRules) and is embedding-free (repo-map +
-      // code-knowledge index), so it works on BOTH the lean rag-off path and the full path.
-      // With no working set and no prompt hit it returns '' (byte-identical to today), so
-      // the token-neutral default is untouched — this is the one deliberate spend, and only
-      // while feature work is actually implicated.
       const existingSurfaceSection = loadRules
         ? await gatherExistingSurface(options.projectRoot, {
             changedPaths: (await loadChangeEvidence(options.projectRoot)).files,
@@ -441,10 +394,6 @@ export function createRagCommand(): Command {
           })
         : '';
 
-      // Issue #284 — the lean (rag-off) path recomposes the rule slice (+ the embedding-free
-      // existing-surface digest) ONLY: no index sync, no retrieval, no codebase-memory, no
-      // base-drift network fetch. This is what keeps the token-neutral default provider-free.
-      // `rag_enabled` on restores the full compose (retrieval/memory/drift), unchanged.
       const ragEnabled = intelligence.rag_enabled;
       if (!ragEnabled) {
         const target = await refreshRuleContext(options.projectRoot, {
@@ -460,21 +409,12 @@ export function createRagCommand(): Command {
       }
 
       const sync = await backgroundIndexSync(options.projectRoot);
-      // #249 — the live background worker records the `called` retrieval event. #336 —
-      // no-workflow retrieves nothing; every real workflow seeds retrieval with the
-      // prompt (falling back to the working set when no prompt was recorded). #354 —
-      // gather now returns the top pre-floor score too, so a dark retrieval can render
-      // an honest "none above the floor" line instead of silently omitting the section.
       const { slices, bestScore } = retrieves
         ? await gatherWorkingSetSlices(options.projectRoot, {
             recordEvidence: { adapter: 'engine' },
             query: route?.query,
           })
         : { slices: [], bestScore: null };
-      // F26 — when the working set pulls more slices than the slice-display cap, the
-      // workflow is broad; distil to a lean context PACK (path:Lstart-Lend pointers,
-      // read the live file) instead of injecting many bodies. Narrow sets keep full
-      // slices. Line ranges are located against the live files (best-effort reader).
       const usesContextPack = slices.length > MAX_RETRIEVAL_SLICES;
       const packEntries = usesContextPack
         ? distillSlices(slices, {
@@ -493,13 +433,7 @@ export function createRagCommand(): Command {
       const retrievalSection = usesContextPack
         ? composeContextPack(packEntries)
         : composeRetrievalSection(slices, { bestScore });
-      // F21 — durable codebase memory, deterministic and embedding-free (no provider
-      // call), gathered from the on-disk store and injected ahead of the slices. #336 —
-      // no-workflow (small talk) uses nothing, so memory + drift are skipped too.
       const memorySection = retrieves ? gatherCodebaseMemory(options.projectRoot) : '';
-      // F27 — base-drift. The network fetch is debounced (≈10 min) + single-flight here in
-      // the detached worker, so the prompt path never waits on it; we then read the
-      // persisted snapshot (no network) and inject it as a secondary heads-up layer.
       let driftSection = '';
       if (retrieves) {
         await refreshBaseDrift(options.projectRoot);
@@ -513,12 +447,6 @@ export function createRagCommand(): Command {
         loadRules,
       });
 
-      // #354 — record what the worker actually DELIVERED into the artifact the seam
-      // injects (the guardrail: prove RAG was used, not just that retrieval ran). The
-      // `used` row's fields are hashed + validated by the recorder; the fold counts only
-      // rows with `injected: true`, so an honest injected=false (dark) row stays visible
-      // in rag.jsonl without inflating the "times injected" total. Best-effort — a
-      // recorder failure must never wedge the detached worker.
       if (retrieves) {
         const sliceCount = usesContextPack ? 0 : slices.length;
         const pointerCount = usesContextPack ? packEntries.length : 0;
@@ -614,14 +542,9 @@ export function createRagCommand(): Command {
           result.model_graded = await runner.runModelGraded(EVAL_DATASET, traces);
         }
 
-        // Derive candidate (feature-ON) snapshot from real traces.
         const candidateSnapshot = snapshotFromTraces(EVAL_DATASET, traces);
 
         let comparison: ConfigurationComparisonResult | undefined;
-        // F15 — the on/off A/B merge gate. In feature-off-vs-on mode we self-generate
-        // the feature-OFF baseline (no retrieval) and gate ON against it, no external
-        // baseline file required. A failed gate (quality down, or tokens up without a
-        // task-success improvement) sets a non-zero exit so CI blocks the merge.
         if (mode === 'feature-off-vs-on') {
           const ab = runFeatureOffVsOnGate(EVAL_DATASET, traces);
           comparison = ab.comparison;

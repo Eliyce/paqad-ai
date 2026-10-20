@@ -1,11 +1,3 @@
-// Dashboard collector for the .paqad/module-map/events.jsonl audit trail
-// (issue #80 Phase 4, AC #33 + #36).
-//
-// Summarises the most recent N entries grouped by event type. The events log
-// is an audit record — informational only. The collector renders an
-// `unknown` band when no log exists and a `green` band otherwise; it never
-// pushes attention items by itself.
-
 import { readModuleMapEvents } from '@/module-decisions/events.js';
 import type { ModuleMapEvent, ModuleMapEventType } from '@/module-decisions/events.js';
 
@@ -33,8 +25,6 @@ function groupByType(events: ModuleMapEvent[]): Record<string, number> {
 }
 
 function lastEventByType(events: ModuleMapEvent[]): Partial<Record<ModuleMapEventType, string>> {
-  // events.jsonl is append-only chronological; walk from the end so the first
-  // hit per type is the latest.
   const out: Partial<Record<ModuleMapEventType, string>> = {};
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i];
@@ -75,9 +65,6 @@ export function collectModuleEvents(projectRoot: string): ModuleEventsResult {
     section: {
       id: 'module-events',
       title: 'Module events',
-      // Informational section — log presence is the only signal. Score is
-      // a flat 100 once entries exist; consumers read `details.counts` and
-      // `details.last_by_type` for the real story.
       band: 'green',
       score: 100,
       summary,

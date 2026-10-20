@@ -84,7 +84,6 @@ describe('scanBoundaries', () => {
       spec_paths: new Map([['c', '/nonexistent/spec.md']]),
     });
     const unhandled = results[0]!.unhandled_by_consumer.get('c')!;
-    // All states unhandled since spec is empty
     expect(unhandled).toHaveLength(2);
   });
 

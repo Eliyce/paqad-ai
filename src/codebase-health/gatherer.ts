@@ -1,10 +1,3 @@
-// The production HealthGatherer: wires the real world (StackIntrospector, the
-// code-knowledge index, and shell-outs to osv-scanner / gitleaks / jscpd / git).
-// This file is excluded from coverage (like the pentest engine) because its work
-// is real subprocesses and fs the unit suite cannot exercise; the pure logic it
-// composes (parsers, detectors, assembly) is fully covered on its own. The
-// orchestration around it (`runHealthAudit`) is covered via an injected fake.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -33,7 +26,6 @@ import {
 import type { HealthGatherer } from './run.js';
 import { HEALTH_TOOLS, healthToolSpec, isToolAvailable, resolveToolAvailability } from './tools.js';
 
-/** Wire the real world: StackIntrospector, code-knowledge index, and shell-outs. */
 export function createHealthGatherer(
   projectRoot: string,
   shell: DeliveryShell = createDeliveryShell(projectRoot),
@@ -155,9 +147,7 @@ async function trackedFileContents(
   for (const file of files) {
     try {
       out.push({ path: toPosixPath(file), content: readFileSync(join(projectRoot, file), 'utf8') });
-    } catch {
-      // unreadable / binary — skip
-    }
+    } catch {}
   }
   return out;
 }
@@ -193,9 +183,7 @@ function extractReferencedSources(content: string, projectRoot: string): string[
     try {
       readFileSync(join(projectRoot, rel), 'utf8');
       found.add(rel);
-    } catch {
-      // referenced path no longer exists — skip
-    }
+    } catch {}
   }
   return [...found].slice(0, 20);
 }

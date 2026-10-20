@@ -12,7 +12,7 @@ function names(content: string): string[] {
 describe('McpConfigManager', () => {
   const manager = new McpConfigManager();
 
-  it('writes recommendations to paqad’s own file, never a host MCP path (issue #622)', () => {
+  it('writes recommendations to paqad’s own file, never a host MCP path', () => {
     const file = manager.generate(fixtureProfile('laravel'));
 
     expect(file.path).toBe('.paqad/mcp-recommendations.json');

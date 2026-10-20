@@ -1,4 +1,12 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -87,6 +95,22 @@ describe('profile config endpoint logic', () => {
 
     const config = getProfileConfig(root);
     expect(config.profile?.project.name).toBe('Demo');
+  });
+
+  it('leaves a long test_single line byte-identical when a save writes nothing new', () => {
+    const profile = baseProfile();
+    (profile.commands as Record<string, string>).test_single =
+      'pnpm vitest run --reporter=json --outputFile=.paqad/test-results/vitest.json -t "<pattern>" --no-coverage';
+    putProfile(root, profile);
+    const path = join(root, '.paqad/project-profile.yaml');
+    const before = readFileSync(path, 'utf8');
+    const past = new Date('2026-01-01T00:00:00.000Z');
+    utimesSync(path, past, past);
+
+    putProfile(root, getProfileConfig(root).profile);
+
+    expect(readFileSync(path, 'utf8')).toBe(before);
+    expect(statSync(path).mtimeMs).toBe(past.getTime());
   });
 
   it('rejects payloads that fail the schema after canonicalization', () => {

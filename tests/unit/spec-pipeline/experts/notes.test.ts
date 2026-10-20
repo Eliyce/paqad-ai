@@ -30,7 +30,7 @@ function voiceSources(overrides: Partial<FindingVoiceSources> = {}): FindingVoic
   };
 }
 
-describe('checkFindingVoice (issue #558, AC-7)', () => {
+describe('checkFindingVoice', () => {
   it('allows a documented role, a documented technical name, and a word from the request', () => {
     expect(checkFindingVoice({ target: 'Customer', claim: 'x' }, voiceSources()).ok).toBe(true);
     expect(checkFindingVoice({ target: 'customers', claim: 'x' }, voiceSources()).ok).toBe(true);
@@ -48,8 +48,6 @@ describe('checkFindingVoice (issue #558, AC-7)', () => {
     const result = checkFindingVoice({ target: 'users table', claim: 'x' }, voiceSources());
     expect(result.ok).toBe(false);
     expect(result.hint).toContain('target "users table" is not a name this project uses');
-    // The hint names the closest technical word by substring ("customers" contains no "users", but
-    // "users table" and "customers" share no token, so it may read "no close match").
     expect(result.hint).toBeTruthy();
   });
 
@@ -76,7 +74,7 @@ describe('checkFindingVoice (issue #558, AC-7)', () => {
   });
 });
 
-describe('validateExpertNotes voice warnings (issue #558, AC-7)', () => {
+describe('validateExpertNotes voice warnings', () => {
   it('collects one warning per undocumented target, never refusing the note', () => {
     const check = validateExpertNotes(
       {
@@ -112,7 +110,6 @@ describe('validateExpertNotes voice warnings (issue #558, AC-7)', () => {
   });
 });
 
-/** Record a roster the way `experts record` does (issue #581: the need lives in experts.json). */
 function writeExpertNeed(
   root: string,
   dir: string,
@@ -197,7 +194,6 @@ describe('validateExpertNotes', () => {
     expect(validateExpertNotes({ notes: [], tokens: { 'db-expert': 'x' } }).ok).toBe(false);
   });
 
-  // Issue #547 — the additive FR-4.4 validation.
   it('defaults kind/severity and assigns EX-<role>-<n> ids in note order', () => {
     const result = validateExpertNotes({
       notes: [
@@ -356,7 +352,6 @@ describe('assembleExpertRun', () => {
     expect(run).not.toBeNull();
     expect(run!.accounting.experts).toHaveLength(2);
     expect(run!.accounting.total_tokens).toBe(1500);
-    // Contradiction on `orders` ⇒ a surfaced conflict, and neither expert changed the spec.
     expect(run!.conflicts).toHaveLength(1);
     expect(run!.accounting.experts.every((e) => e.changed_spec === false)).toBe(true);
   });

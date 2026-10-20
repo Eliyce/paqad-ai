@@ -13,9 +13,6 @@ import {
   type MachineFinding,
 } from '@/review-digest/index.js';
 
-// Issue #360 — the collector is the single source of the machine-finding rows for BOTH
-// the digest the model reads and the gate that checks the model addressed them, so it is
-// tested against fixtures for all four cached sources plus every absent/corrupt path.
 describe('collectMachineFindings', () => {
   let root: string;
 

@@ -14,7 +14,7 @@ import {
   writeSiteMapLayout,
 } from '@/site-map/layout-store.js';
 
-describe('site-map layout store (issue #489, Phase 3)', () => {
+describe('site-map layout store', () => {
   let root: string;
   const layoutFile = (): string => join(root, PATHS.SITE_MAP_CANONICAL_LAYOUT);
 
@@ -45,7 +45,6 @@ describe('site-map layout store (issue #489, Phase 3)', () => {
     });
     const read = readSiteMapLayout(root);
     expect(read).toEqual(written);
-    // Persisted under a versioned envelope.
     const raw = YAML.parse(readFileSync(layoutFile(), 'utf8')) as { version: number };
     expect(raw.version).toBe(1);
   });
@@ -68,7 +67,6 @@ describe('site-map layout store (issue #489, Phase 3)', () => {
         /not allowed/,
       );
     }
-    // A benign write does not leave the prototype polluted.
     writeSiteMapLayout(root, { billing: { x: 1, y: 2, w: 3, h: 4 } });
     expect(({} as Record<string, unknown>).x).toBeUndefined();
   });
@@ -97,7 +95,6 @@ describe('site-map layout store (issue #489, Phase 3)', () => {
     expect(existsSync(layoutFile())).toBe(true);
     deleteSiteMapLayout(root);
     expect(existsSync(layoutFile())).toBe(false);
-    // No throw when already gone.
     expect(() => deleteSiteMapLayout(root)).not.toThrow();
   });
 });

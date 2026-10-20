@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Purpose: Compute token estimate from per-artifact (weight, path) rows.
-# Usage:   bash scripts/estimate-tokens.sh --available <N> --committed <N>
-#            (then provide rows on stdin: "<weight> <path>" per line)
-# Output:  Markdown block matching assets/output.template.md.
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Compute token estimate from per-artifact (weight, path) rows.
+Usage:   bash scripts/estimate-tokens.sh --available <N> --committed <N>
+           (then provide rows on stdin: "<weight> <path>" per line)
+Output:  Markdown block matching assets/output.template.md.
+Exits:   0 ok | 2 usage error
+USAGE
   exit 0
 fi
 
@@ -44,7 +45,6 @@ done
 
 headroom=$(( usable - total ))
 
-# Tier per heuristics: green > 50% headroom, yellow > 25%, amber > 10%, red <= 10%.
 pct=$(( usable > 0 ? (headroom * 100) / usable : 0 ))
 if   [ "$pct" -gt 50 ]; then tier=green
 elif [ "$pct" -gt 25 ]; then tier=yellow

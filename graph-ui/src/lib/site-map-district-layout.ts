@@ -1,19 +1,7 @@
-// Deterministic, containment-first layout for the site map (issue #489). App maps — CLI tools
-// especially — are area-centric with sparse edges: this repo's own map has 92 surfaces and 0
-// transitions. The old edge-driven dagre pass collapsed that into a 378x7316 sliver (defect D1).
-// Here containment carries the structure: each area becomes a district rectangle, surfaces sit as
-// a card grid inside it, and only genuinely connected chains inside a district are run through
-// dagre (LR) so real flows read left to right. Everything else is a stable shelf-packed grid.
-//
-// This module is PURE and DETERMINISTIC (INV-1, LAY-2 of #466): it reads no DOM, calls no clock
-// or RNG, and returns byte-identical geometry for identical input. It is the testable heart of the
-// rebuild, so it is unit-tested to 100%; the React Flow canvas that consumes it is build-gated.
-
 import dagre from '@dagrejs/dagre';
 
 import type { AppMap, Surface } from './site-map-types';
 
-/** A surface card, positioned RELATIVE to its district origin (React Flow child coordinates). */
 export interface LaidOutCard {
   id: string;
   surface: Surface;
@@ -23,11 +11,9 @@ export interface LaidOutCard {
   height: number;
 }
 
-/** A district rectangle in absolute canvas coordinates, holding its surface cards. */
 export interface LaidOutDistrict {
   id: string;
   label: string;
-  /** A stable tint index (0..PALETTE_SIZE-1) derived from the area id, never colour-only meaning. */
   colorIndex: number;
   x: number;
   y: number;
@@ -43,28 +29,22 @@ export interface DistrictLayout {
   height: number;
 }
 
-/** Slot for surfaces whose area is missing or undeclared, so every surface is still contained. */
 export const UNGROUPED_ID = '__ungrouped__';
 export const UNGROUPED_LABEL = 'Ungrouped';
 
-/** How many distinct district tints the palette carries; the canvas maps the index to a colour. */
 export const PALETTE_SIZE = 12;
 
 const CARD_HEIGHT = 46;
 const CARD_GUTTER = 16;
 const DISTRICT_PADDING = 24;
-/** Head-room at the top of a district for its name label. */
 const DISTRICT_LABEL_H = 30;
 const DISTRICT_GUTTER = 40;
-/** Bias grids and district rows wider than tall, toward a ~16:10 canvas (LAY at target aspect). */
 const ASPECT_BIAS = 1.6;
 
-/** A readable card width from its label, clamped so long labels never dominate (same as #466). */
 export function cardWidth(label: string): number {
   return Math.max(120, Math.min(260, label.length * 7.2 + 36));
 }
 
-/** A stable, order-independent tint index from an area id (FNV-1a hash, no randomness). */
 export function areaColorIndex(areaId: string): number {
   let hash = 0x811c9dc5;
   for (let i = 0; i < areaId.length; i += 1) {
@@ -80,7 +60,6 @@ interface PositionedBlock {
   height: number;
 }
 
-/** The surfaces of one district, split into connected chains (2+) and loose singletons. */
 function components(surfaces: Surface[]): { chains: Surface[][]; loose: Surface[] } {
   const ids = new Set(surfaces.map((s) => s.id));
   const adjacency = new Map<string, Set<string>>();
@@ -122,7 +101,6 @@ function components(surfaces: Surface[]): { chains: Surface[][]; loose: Surface[
   return { chains, loose };
 }
 
-/** Lay out one connected chain left-to-right via dagre (dagre only ever sees a connected set). */
 function layoutChain(chain: Surface[]): PositionedBlock {
   const graph = new dagre.graphlib.Graph({ multigraph: true });
   graph.setGraph({ rankdir: 'LR', nodesep: CARD_GUTTER, ranksep: 48, marginx: 0, marginy: 0 });
@@ -151,7 +129,6 @@ function layoutChain(chain: Surface[]): PositionedBlock {
   return normalizeBlock(cards);
 }
 
-/** Shelf-pack loose singleton cards into rows biased toward the target aspect. */
 function layoutGrid(loose: Surface[]): PositionedBlock {
   const widths = loose.map((surface) => cardWidth(surface.label));
   const maxWidth = widths.reduce((max, width) => Math.max(max, width), 0);
@@ -181,7 +158,6 @@ function layoutGrid(loose: Surface[]): PositionedBlock {
   return { cards, width: rowMax, height: cursorY + CARD_HEIGHT };
 }
 
-/** Shift a block so its top-left sits at the origin, and report its extent. */
 function normalizeBlock(cards: LaidOutCard[]): PositionedBlock {
   let minX = Infinity;
   let minY = Infinity;
@@ -197,7 +173,6 @@ function normalizeBlock(cards: LaidOutCard[]): PositionedBlock {
   return { cards: shifted, width: maxX - minX, height: maxY - minY };
 }
 
-/** Stack chain blocks then the loose grid vertically inside a district; place cards absolutely. */
 function layoutDistrictInterior(surfaces: Surface[]): {
   cards: LaidOutCard[];
   width: number;
@@ -221,7 +196,6 @@ function layoutDistrictInterior(surfaces: Surface[]): {
   return { cards, width, height };
 }
 
-/** Group surfaces into districts, ordered by surface count (desc) then area id (asc), stably. */
 function groupIntoDistricts(map: AppMap): { id: string; label: string; surfaces: Surface[] }[] {
   const declared = new Map((map.areas ?? []).map((area) => [area.id, area.label]));
   const buckets = new Map<string, Surface[]>();
@@ -242,25 +216,13 @@ function groupIntoDistricts(map: AppMap): { id: string; label: string; surfaces:
   }));
   districts.sort((a, b) => {
     if (b.surfaces.length !== a.surfaces.length) return b.surfaces.length - a.surfaces.length;
-    // District ids are unique Map keys, so equal counts always break cleanly on id.
     return a.id < b.id ? -1 : 1;
   });
   return districts;
 }
 
-/** A stored placement the caller has curated: only x,y is authoritative (size stays computed). */
 export type StoredPositions = Record<string, { x: number; y: number }>;
 
-/**
- * Compute the whole-map layout. Districts are laid out interior-first, then flowed into rows at a
- * target canvas aspect so the map never degenerates to a column (fixes D1). Same map in, same
- * geometry out.
- *
- * When `stored` positions are given (team-shared district curation, issue #489, Phase 3), a stored
- * district is pinned at its saved x,y and never auto-reflowed; districts with no stored position
- * flow into rows below the pinned bounding box, so new areas appear without disturbing the curated
- * ones. Passing no positions is byte-identical to the pure computed layout.
- */
 export function layoutSiteMapDistricts(map: AppMap, stored?: StoredPositions): DistrictLayout {
   const grouped = groupIntoDistricts(map);
   const sized = grouped.map((district) => {
@@ -292,7 +254,6 @@ export function layoutSiteMapDistricts(map: AppMap, stored?: StoredPositions): D
     }
   }
 
-  // New (unpinned) districts start below the pinned bounding box so they never cover a placed one.
   let canvasWidth = 0;
   let pinnedBottom = 0;
   for (const district of pinned) {
@@ -325,7 +286,6 @@ export function layoutSiteMapDistricts(map: AppMap, stored?: StoredPositions): D
   return { districts, width: canvasWidth, height: canvasHeight };
 }
 
-/** The absolute centre of a surface card, for metro-line stations and camera flights (Phase 2). */
 export function cardCenter(district: LaidOutDistrict, card: LaidOutCard): { x: number; y: number } {
   return { x: district.x + card.x + card.width / 2, y: district.y + card.y + card.height / 2 };
 }

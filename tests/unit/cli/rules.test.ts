@@ -65,7 +65,7 @@ describe('paqad-ai rules command', () => {
     writeFileSync(join(root, PATHS.COMPILED_RULES), JSON.stringify(store));
   }
 
-  it('load reports there is nothing to load when no rules are compiled (#557)', async () => {
+  it('load reports there is nothing to load when no rules are compiled', async () => {
     const out: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((line: string) => out.push(String(line)));
     await createRulesCommand().parseAsync(['load', '--project-root', root], { from: 'user' });
@@ -73,7 +73,7 @@ describe('paqad-ai rules command', () => {
     expect(out.some((line) => line.includes('"reason":"no-compiled-rules"'))).toBe(true);
   });
 
-  it('load prints the applicable rule text but records nothing with no active feature (#557)', async () => {
+  it('load prints the applicable rule text but records nothing with no active feature', async () => {
     writeCompiledRules();
     const out: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((line: string) => out.push(String(line)));
@@ -85,7 +85,7 @@ describe('paqad-ai rules command', () => {
     expect(out.some((line) => line.includes('"recorded":false'))).toBe(true);
   });
 
-  it('load writes rules-loaded.json into the active feature bundle (#557)', async () => {
+  it('load writes rules-loaded.json into the active feature bundle', async () => {
     writeCompiledRules();
     const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
     setActiveFeature(root, 'ses_x', dir);
@@ -98,7 +98,7 @@ describe('paqad-ai rules command', () => {
     expect(out.some((line) => line.includes('"recorded":true'))).toBe(true);
   });
 
-  it('load narrates the plural when more than one rule applies (#557)', async () => {
+  it('load narrates the plural when more than one rule applies', async () => {
     const store = {
       schema_version: 1,
       generated_at: 'now',
@@ -136,7 +136,7 @@ describe('paqad-ai rules command', () => {
     expect(out.some((line) => line.includes('2 applicable rules'))).toBe(true);
   });
 
-  it('load --silent suppresses the machine-readable summary line (#557)', async () => {
+  it('load --silent suppresses the machine-readable summary line', async () => {
     writeCompiledRules();
     const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
     setActiveFeature(root, 'ses_x', dir);

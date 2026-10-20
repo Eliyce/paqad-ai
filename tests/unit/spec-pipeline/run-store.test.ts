@@ -71,7 +71,7 @@ function entry(role: ExpertRosterEntry['role']): ExpertRosterEntry {
 
 const QUESTION = { business_text: 'q?', why_it_matters: 'w', options: ['a'], grounded_in: null };
 
-describe('staging dir (issue #581, FR-1)', () => {
+describe('staging dir', () => {
   it('is keyed by the change ULID, so a renamed bundle maps to the same staging dir', () => {
     expect(stagingDir(DIR)).toBe(`.paqad/tmp/spec-pipeline/${ULID}`);
     expect(stagingDir(`change-${ULID}`)).toBe(stagingDir(DIR));
@@ -155,7 +155,6 @@ describe('experts.json (FR-8)', () => {
           role: 'db-expert',
           findings: [{ id: 'EX-db-expert-1', target: 'invoices', claim: 'index it' }],
         },
-        // An expert with only a question and no finding.
         { role: 'qa-engineer', findings: [], questions: [QUESTION] },
       ],
       tokens: { 'db-expert': 700 },
@@ -169,7 +168,6 @@ describe('experts.json (FR-8)', () => {
     expect(readStagedExpertQuestions(root, DIR)).toEqual([
       { role: 'qa-engineer', questions: [QUESTION] },
     ]);
-    // The notes rebuild in memory: one per expert, the questions back on their expert.
     expect(readExpertNotes(root, DIR)).toEqual({
       notes: [
         {
@@ -187,12 +185,10 @@ describe('experts.json (FR-8)', () => {
       ],
     });
 
-    // A note recorded for one role leaves every other role alone (issue #639, Part 13).
     writeExpertNotes(root, DIR, { notes: [], tokens: {} });
     expect(readStagedExpertQuestions(root, DIR)).toEqual([
       { role: 'qa-engineer', questions: [QUESTION] },
     ]);
-    // Re-recording the only role with questions, now with none, clears the staged questions.
     writeExpertNotes(root, DIR, { notes: [{ role: 'qa-engineer', findings: [] }], tokens: {} });
     expect(existsSync(join(root, stagedFilePath(DIR, 'expertQuestions')))).toBe(false);
     expect(readStagedExpertQuestions(root, DIR)).toEqual([]);

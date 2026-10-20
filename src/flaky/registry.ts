@@ -21,16 +21,10 @@ function emptyRegistry(now: string): FlakyRegistry {
   };
 }
 
-/** A stable key for a test within the registry: `test_id` scoped by `suite`. */
 export function entryKey(testId: string, suite: string | null): string {
   return `${suite ?? ''}::${testId}`;
 }
 
-/**
- * Reads the flaky registry, or an empty one if none exists yet. A corrupt file
- * is treated as empty rather than throwing — the registry is a tracking aid, and
- * a bad read must not block a build (quarantine only ever *reduces* what blocks).
- */
 export async function readFlakyRegistry(
   projectRoot: string,
   now: string = new Date().toISOString(),
@@ -56,7 +50,6 @@ export async function readFlakyRegistry(
   }
 }
 
-/** Atomically writes the registry (temp file + rename), creating the dir. */
 export async function writeFlakyRegistry(
   projectRoot: string,
   registry: FlakyRegistry,
@@ -72,7 +65,6 @@ export async function writeFlakyRegistry(
   return targetPath;
 }
 
-/** Only the active (quarantined) entries — cleared ones stay for the audit trail. */
 export function activeQuarantines(registry: FlakyRegistry): FlakyRegistryEntry[] {
   return registry.entries.filter((entry) => entry.status === 'quarantined');
 }
@@ -88,12 +80,6 @@ export interface QuarantineInput {
   now: string;
 }
 
-/**
- * Adds (or refreshes) a quarantine entry. Quarantine **never deletes** the test
- * — it records it so it stops blocking AND stops giving false comfort while
- * staying visibly tracked (issue #106). Re-quarantining a previously-cleared
- * test re-opens it and preserves the original `first_seen`.
- */
 export function upsertQuarantine(registry: FlakyRegistry, input: QuarantineInput): FlakyRegistry {
   const key = entryKey(input.test_id, input.suite);
   const existing = registry.entries.find((e) => entryKey(e.test_id, e.suite) === key);
@@ -120,12 +106,6 @@ export function upsertQuarantine(registry: FlakyRegistry, input: QuarantineInput
   return { ...registry, updated_at: input.now, entries };
 }
 
-/**
- * Marks a quarantine cleared (it is kept, not removed, so the history is
- * auditable). Returns the registry unchanged if there is no active quarantine
- * for the key. Clearing is gated on empirical stability by `clear.ts` — this
- * function only records the already-justified decision.
- */
 export function markCleared(
   registry: FlakyRegistry,
   testId: string,

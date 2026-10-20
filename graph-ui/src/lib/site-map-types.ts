@@ -1,7 +1,3 @@
-// Client-side shape of the static site-map payload the server serves on GET /api/site-map/map
-// (issue #466). graph-ui is a separate package and cannot import the engine's types, so this
-// mirrors the fields the visual reads. The dashboard renders this as-is — no LLM at view time.
-
 export type TrustTier =
   'unverified' | 'inferred' | 'proven-in-code' | 'proven-by-test' | 'human-confirmed';
 
@@ -129,29 +125,20 @@ export interface Journey {
 }
 
 export interface SiteMapFreshness {
-  /** The code state the map was authored against (a commit ref), or null when unstated. */
   generated_from: string | null;
-  /** Distinct cited file:line anchors, or null before the map has been verified. */
   anchors_total: number | null;
-  /** How many of those anchors still resolve, or null before verification. */
   anchors_resolved: number | null;
-  /** How many no longer resolve, or null before verification. */
   anchors_broken: number | null;
-  /** True when at least one cited anchor is broken (the map has drifted from code). */
   stale: boolean;
 }
 
-/** The two documentation-family workflows site-map creation depends on, named as the person
- *  invokes them (mirrors the engine's SiteMapPrerequisiteWorkflow). */
 export type SiteMapPrerequisiteWorkflow = 'create documentation' | 'create module documentation';
 
-/** One unmet prerequisite the blocked state names: the workflow to run and why it matters. */
 export interface MissingSiteMapPrerequisite {
   workflow: SiteMapPrerequisiteWorkflow;
   reason: string;
 }
 
-/** One district's persisted placement in the team-shared layout (issue #489, Phase 3). */
 export interface DistrictPlacement {
   x: number;
   y: number;
@@ -161,10 +148,8 @@ export interface DistrictPlacement {
   label?: string;
 }
 
-/** The stored district curation: a placement per area id. */
 export type SiteMapStoredLayout = Record<string, DistrictPlacement>;
 
-/** The discriminated union the server returns; the client renders exactly one honest state. */
 export type SiteMapView =
   | { status: 'disabled' }
   | { status: 'blocked'; missing: MissingSiteMapPrerequisite[] }
@@ -178,13 +163,11 @@ export type SiteMapView =
       readOnly: boolean;
     };
 
-/** Normalize a single-or-list evidence ref to an array (empty when absent). */
 export function evidenceList(ref: EvidenceRef | undefined): Evidence[] {
   if (ref === undefined) return [];
   return Array.isArray(ref) ? ref : [ref];
 }
 
-/** Normalize a single-or-list guard ref to an array (empty when absent). */
 export function guardList(ref: string | string[] | undefined): string[] {
   if (ref === undefined) return [];
   return Array.isArray(ref) ? ref : [ref];

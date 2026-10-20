@@ -740,7 +740,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-module-decisions
     kind: cli-command
-    label: "Inspect MD-XXXX prospective module decisions (issue #80)"
+    label: "Inspect MD-XXXX prospective module decisions"
     entry:
       kind: bin
       value: module-decisions
@@ -826,7 +826,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-module-events
     kind: cli-command
-    label: "Inspect the module-map events.jsonl audit trail (issue #80)"
+    label: "Inspect the module-map events.jsonl audit trail"
     entry:
       kind: bin
       value: module-events
@@ -854,7 +854,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-module-map
     kind: cli-command
-    label: "Reconcile module-map.yml against the source tree (issue #80 Phase 2)"
+    label: "Reconcile module-map.yml against the source tree"
     entry:
       kind: bin
       value: module-map
@@ -952,8 +952,7 @@ surfaces:
     trust: proven-in-code
   - id: node-cli-intake
     kind: cli-command
-    label: "Deterministic ticket intake — fetch the real ticket a request references
-      (issue #322)"
+    label: "Deterministic ticket intake — fetch the real ticket a request references"
     entry:
       kind: bin
       value: intake

@@ -17,13 +17,6 @@ import * as projectPacks from '@/packs/project-packs.js';
 
 type FrameworkPack = ReturnType<typeof projectPacks.getPacksForFrameworks>[number];
 
-// The RAG/`intelligence` block resolves from `.paqad/.config` + defaults, never
-// the profile YAML. `.config` only carries the flat RAG knobs (enabled,
-// provider, model, threshold, top_n, max_file_size) — the nested sub-objects
-// (`adaptive_retrieval`, `reranking`, `action_routing`, `metadata_filters`) have
-// no `.config` representation. To exercise those, overlay the desired
-// intelligence onto the real (stack-bearing) profile read, the same way prod
-// resolves it. Restored via vi.restoreAllMocks() in afterEach.
 function overrideIntelligence(intelligence: Partial<IntelligenceConfig>): void {
   const original = projectProfile.readProjectProfile;
   vi.spyOn(projectProfile, 'readProjectProfile').mockImplementation((root: string) => {
@@ -227,7 +220,6 @@ describe('SemanticLoader', () => {
       },
     );
 
-    // Fusion strategy should record the filter was applied
     expect(result.stats.fusion_strategy?.filters_applied).toContain('module_path_prefix');
   });
 
@@ -1032,7 +1024,6 @@ describe('SemanticLoader', () => {
       critical_budget: number;
       supporting_budget: number;
     };
-    // trivial preset: critical=55%, supporting=5%
     expect(result.critical_budget).toBe(550);
     expect(result.supporting_budget).toBe(50);
 
@@ -1073,7 +1064,6 @@ describe('SemanticLoader', () => {
       critical_budget: number;
       supporting_budget: number;
     };
-    // very-high/system-wide preset: critical=35%, supporting=25%
     expect(result.critical_budget).toBe(350);
     expect(result.supporting_budget).toBe(250);
 
@@ -1114,7 +1104,6 @@ describe('SemanticLoader', () => {
       task_relevant_budget: number;
       supporting_budget: number;
     };
-    // default ratios: 40/45/15
     expect(result.critical_budget).toBe(400);
     expect(result.task_relevant_budget).toBe(450);
     expect(result.supporting_budget).toBe(150);

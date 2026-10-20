@@ -9,7 +9,7 @@ import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from
 import { writeHudReceipt } from '@/hud/receipt-file.js';
 import type { RepositoryVerificationVerdict } from '@/verification/repository/verdict.js';
 
-describe('HUD files (#639)', () => {
+describe('HUD files', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-hud-files-'));
@@ -29,7 +29,6 @@ describe('HUD files (#639)', () => {
     writeFileAtomic(target, 'one');
     expect(readFileSync(target, 'utf8')).toBe('one');
 
-    // A directory where the file should be makes the rename fail.
     const blocked = join(root, 'blocked');
     mkdirSync(join(blocked, 'x.json'), { recursive: true });
     expect(() => writeFileAtomic(join(blocked, 'x.json'), 'two')).toThrow();
@@ -37,7 +36,7 @@ describe('HUD files (#639)', () => {
   });
 });
 
-describe('writeHudReceipt (#639 Part 6)', () => {
+describe('writeHudReceipt', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-hud-receipt-'));
@@ -66,7 +65,6 @@ describe('writeHudReceipt (#639 Part 6)', () => {
       word: 'Needs your attention',
       kind: 'fail',
       passed: false,
-      // Failures first, then the inconclusive gates.
       reasons: ['stage-evidence: y', 'code-tests-lint: x'],
       written_at: '2026-10-18T00:00:00.000Z',
     });
@@ -83,8 +81,7 @@ describe('writeHudReceipt (#639 Part 6)', () => {
     expect(written!.verdict).toMatchObject({ word: 'Inconclusive', passed: false, reasons: [] });
   });
 
-  // Issue #669 — a turn that was not checked never writes Safe to merge.
-  describe('a skipped check (#669)', () => {
+  describe('a skipped check', () => {
     const graded = {
       summary: '**▸ paqad** · Needs your attention',
       receipt: '**▸ paqad** · Needs your attention\n> 🔴 stage-evidence: missing [review]',

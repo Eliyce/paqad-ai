@@ -18,7 +18,6 @@ import {
 } from '@/spec-pipeline/run-store.js';
 import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
-/** Seed one resolved intake.requirement decision so the S2 auto-answer seam can hit it. */
 function seedResolvedDecision(root: string): void {
   const dir = join(root, PATHS.DECISIONS_RESOLVED_DIR);
   mkdirSync(dir, { recursive: true });
@@ -72,8 +71,6 @@ const roots: string[] = [];
 function tempRoot(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-sp-cli-'));
   roots.push(r);
-  // Pin the spec-pipeline switches off (issue #640 made them default on); a test's own
-  // .paqad/.config lines still win.
   pinSpecPipelineOff(r);
   return r;
 }
@@ -150,7 +147,6 @@ describe('spec pipeline CLI', () => {
     await run(root, ['ground']);
     const { out } = await run(root, ['label', 'the export must exclude hidden columns']);
     expect(JSON.parse(out[0]!).step).toBe('label');
-    // The labelled prompt is the request, recorded in the bundle beside the label.
     expect(readClarification(root, dir)?.label?.value).toBeDefined();
     const request = readFileSync(join(root, featureFilePath(dir, 'request')), 'utf8');
     expect(splitFrontMatter(request).body).toBe('the export must exclude hidden columns');
@@ -164,7 +160,6 @@ describe('spec pipeline CLI', () => {
     expect(err.join('\n')).toMatch(/questions, task, craft/);
   });
 
-  /** Drive ground → label → questions → task → craft on a bare root, returning the dir. */
   async function driveToCraft(root: string): Promise<void> {
     activeFeature(root);
     await run(root, ['ground']);
@@ -262,9 +257,7 @@ describe('spec pipeline CLI', () => {
     const { out } = await run(root, ['record', 'questions', join(root, 'questions.json')]);
     expect(JSON.parse(out[0]!)).toMatchObject({ step: 'questions', asked: 1, auto_answered: 1 });
 
-    // Stored as the clarification.json questions section (issue #581, FR-9).
     const persisted = readClarification(root, dir)!.questions!;
-    // The ledger-answerable question never survives into the batch handed to the user.
     expect(persisted.asked).toHaveLength(1);
     expect(persisted.asked[0]!.business_text).toBe(
       'How long should the onboarding banner stay visible?',
@@ -341,8 +334,7 @@ describe('spec pipeline CLI', () => {
   });
 });
 
-// Issue #547 — the craft-trace gate and the question merge through the CLI.
-describe('spec pipeline CLI — craft trace + question merge (issue #547)', () => {
+describe('spec pipeline CLI — craft trace + question merge', () => {
   function enablePipeline(root: string, experts = false): void {
     mkdirSync(join(root, '.paqad'), { recursive: true });
     const lines = ['spec_pipeline_enabled=true'];
@@ -465,13 +457,11 @@ describe('spec pipeline CLI — craft trace + question merge (issue #547)', () =
       'questions',
       writeJson(root, 'q.json', { questions: [] }),
     ]);
-    // The expert's question survived into the asked batch.
     expect(JSON.parse(out[0]!).asked).toBe(1);
   });
 });
 
-// Issue #547 — the `start` verb grounds + labels a request in one go (FR-1.5).
-describe('spec pipeline CLI — start (issue #547)', () => {
+describe('spec pipeline CLI — start', () => {
   function writeReq(root: string, body: string): string {
     const p = join(root, 'request.md');
     writeFileSync(p, body, 'utf8');
@@ -487,7 +477,6 @@ describe('spec pipeline CLI — start (issue #547)', () => {
     expect(result).toHaveProperty('label');
     expect(result).toHaveProperty('next_step');
     expect(result.experts).toBe('off');
-    // request.md lands in the bundle with its header in front matter, body byte-for-byte.
     const request = readFileSync(join(root, featureFilePath(dir, 'request')), 'utf8');
     expect(splitFrontMatter(request).body).toBe('Let customers download their invoices as CSV.');
     expect(splitFrontMatter(request).header).toMatchObject({ doc_type: 'paqad.request' });
@@ -520,12 +509,10 @@ describe('spec pipeline CLI — start (issue #547)', () => {
   });
 });
 
-// Issue #547 — the metrics verb and remaining start/craft branches (coverage).
-describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
+describe('spec pipeline CLI — metrics + branches', () => {
   it('metrics reports the active run', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
-    // The run is read from the bundle: a staged finish and the experts.json roster.
     writeStagedJson(root, dir, 'finish', { provenance: { outcome: 'freeze' } });
     writeExpertRoster(root, dir, [
       {
@@ -541,7 +528,6 @@ describe('spec pipeline CLI — metrics + branches (issue #547)', () => {
     const { out } = await run(root, ['metrics']);
     const report = JSON.parse(out[0]!);
     expect(report.runs).toBe(1);
-    // The table renders because a role has a changed_spec rate.
     expect(out.join('\n')).toMatch(/db-expert/);
   });
 

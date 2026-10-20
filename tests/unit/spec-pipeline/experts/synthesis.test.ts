@@ -58,7 +58,7 @@ function validSynthesis(): ExpertSynthesis {
   };
 }
 
-describe('synthesis renames (issue #558, AC-8)', () => {
+describe('synthesis renames', () => {
   it('accepts renames referencing a known finding id', () => {
     const withRename = {
       ...validSynthesis(),
@@ -278,7 +278,6 @@ describe('synthesis store io', () => {
   });
 });
 
-// Issue #547 — remaining validation branches (coverage).
 describe('validateExpertSynthesis edge branches', () => {
   it('rejects a non-array accepted, declined, conflicts, gaps, or questions', () => {
     expect(validateExpertSynthesis({ verdict: 'ready', accepted: 'x' }, merged).error).toMatch(

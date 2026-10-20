@@ -13,19 +13,6 @@ import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { DECISION_CATEGORIES } from '@/planning/decision-packet.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-/**
- * `paqad-ai decision <create|resolve|list>` — the install-resolved CLI verb for the
- * Decision Pause Contract (issue #326). It replaces the `node runtime/base/skills/
- * decision/scripts/*.mjs` path the contract used to name, which ENOENTs in a real
- * onboarded project (the scripts only exist inside the paqad dev repo). This verb
- * resolves from the installed package on EVERY project, exactly like `paqad-ai stage`.
- *
- * It WRAPS the existing engine (`createPendingDecision` / `resolvePendingDecision`) —
- * same ULID mint, same packet format — and adds field-usability: category validation
- * with a nearest-match suggestion, a `--other` write-in on resolve, and a `list`.
- */
-
-/** Accumulate a repeatable `--option <key>=<label>` into typed options. */
 function collectOption(
   value: string,
   previous: ContractDecisionOption[] = [],
@@ -37,7 +24,6 @@ function collectOption(
   return [...previous, { option_key: value.slice(0, eq), label: value.slice(eq + 1) }];
 }
 
-/** Levenshtein distance — for the "did you mean" category suggestion. */
 function editDistance(a: string, b: string): number {
   const rows = Array.from({ length: a.length + 1 }, () => new Array<number>(b.length + 1).fill(0));
   for (let i = 0; i <= a.length; i++) rows[i][0] = i;
@@ -51,7 +37,6 @@ function editDistance(a: string, b: string): number {
   return rows[a.length][b.length];
 }
 
-/** The nearest known category to `input`, for a typo suggestion. */
 function nearestCategory(input: string): string {
   let best: string = DECISION_CATEGORIES[0];
   let bestDist = Infinity;
@@ -65,10 +50,6 @@ function nearestCategory(input: string): string {
   return best;
 }
 
-/**
- * The change active for this session (issue #581), so a packet can name it and its bundle's
- * `decisions.json` can be rewritten. Null when no change is active.
- */
 function activeChange(
   projectRoot: string,
   session: string | undefined,
@@ -166,8 +147,6 @@ export function createDecisionCommand(): Command {
           rationale.join(' '),
           { change: active ? featureChangeKey(active.dirName) : null },
         );
-        // Issue #581 (FR-11) — the active change's decisions.json index is rewritten from the
-        // tracked packets, the one just resolved included.
         if (active) {
           writeFeatureDecisionsIndex(options.projectRoot, active.dirName, {
             sessionId: active.sessionId,

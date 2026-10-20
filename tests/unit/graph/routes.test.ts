@@ -11,10 +11,6 @@ function writeJson(path: string, data: unknown): void {
   writeFileSync(path, JSON.stringify(data));
 }
 
-/**
- * The graph API is now mounted on the dashboard server (issue #159). These
- * tests drive the read-only graph routes through that single front door.
- */
 describe('graph routes on the dashboard server', () => {
   let root: string;
   let staticDir: string;
@@ -67,8 +63,6 @@ describe('graph routes on the dashboard server', () => {
       watch: false,
     });
 
-    // No mutating graph endpoint exists, so a forced write falls through to the
-    // unknown-endpoint 404 rather than mutating anything.
     const put = await fetch(`${server.url}/api/graph`, { method: 'PUT' });
     expect(put.status).toBe(404);
   });
@@ -218,7 +212,6 @@ describe('graph routes on the dashboard server', () => {
     });
     expect(bad.status).toBe(400);
 
-    // Empty body (readJsonBody resolves null) and unparseable body both reject.
     const empty = await fetch(`${server.url}/api/similar`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -251,7 +244,6 @@ describe('graph routes on the dashboard server', () => {
       watchDebounceMs: 60,
     });
 
-    // Stream the SSE events. Resolve when the first graph-updated event arrives.
     const events = (async () => {
       const res = await fetch(`${server!.url}/api/events`);
       const reader = res.body!.getReader();
@@ -270,7 +262,6 @@ describe('graph routes on the dashboard server', () => {
       reader.cancel();
       return false;
     })();
-    // Give the SSE connection time to register before we trigger a change.
     await new Promise((r) => setTimeout(r, 200));
     writeFileSync(join(root, '.paqad/touched.txt'), String(Date.now()));
     const got = await events;

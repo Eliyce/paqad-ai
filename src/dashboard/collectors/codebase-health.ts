@@ -46,7 +46,6 @@ function emptySection(summary: string): CodebaseHealthResult {
   };
 }
 
-/** Dashboard section for the codebase-health workflow — latest run, open findings, age. */
 export function collectCodebaseHealth(
   projectRoot: string,
   now: number = Date.now(),

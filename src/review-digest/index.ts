@@ -1,5 +1,3 @@
-// Public surface of the review evidence digest (issue #360).
-
 export {
   buildReviewDigest,
   DIGEST_LINE_CAP,

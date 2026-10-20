@@ -4,15 +4,6 @@ import { join } from 'node:path';
 import type { Gate } from './gate.interface.js';
 import { createFail, createNotRequired, createPass } from './shared.js';
 
-/**
- * Extension-surface gate (PQD-92).
- *
- * Backs AC2/AC3 inside the verification pipeline: when a public export barrel is
- * changed, the canonical surface document (`docs/extension-surface.md`) must be
- * amended in the same change set. The gate reads not required (issue #639, Part 10)
- * when the document is absent or no barrel changed, so it stays backward-compatible
- * for projects that predate the contract without claiming a pass it never checked.
- */
 export const SURFACE_DOC_PATH = 'docs/extension-surface.md';
 
 const PUBLIC_BARRELS = ['src/index.ts', 'src/cli/index.ts', 'src/rule-scripts/index.ts'] as const;

@@ -1,23 +1,9 @@
-// The review evidence digest, composed (issue #360).
-//
-// Pure over its inputs: everything it needs is handed in, and it returns markdown (FR-3).
-// The write seam (`write.ts`) does the reading. Keeping the composition pure is what makes
-// every section — including the honest `none recorded` degradations and the 150-line cap —
-// testable from fixtures without touching a filesystem.
-//
-// The shape is deliberately boring and fixed: a reviewer (human or model) should be able to
-// scan it top to bottom in seconds and know what the machine already proved, what the spec
-// promised, and — the section that keeps this honest — what nothing checked at all.
-
 import { findingAnchor, type MachineFinding } from './sources.js';
 
-/** The hard ceiling on digest length (FR-4). Never raise this without re-reading #360. */
 export const DIGEST_LINE_CAP = 150;
 
-/** How many changed files the header lists before it summarises the rest. */
 const CHANGED_FILE_LIMIT = 12;
 
-/** One acceptance criterion as the digest shows it. */
 export interface DigestCriterion {
   criterion_id: string;
   given?: string;
@@ -26,14 +12,12 @@ export interface DigestCriterion {
   proof_type?: string;
 }
 
-/** One stage's folded state, as the header reports it. */
 export interface DigestStage {
   stage: string;
   state: string;
 }
 
 export interface ReviewDigestInput {
-  /** The active feature's bundle dir name, or null when no feature is active. */
   feature: string | null;
   generated_at: string;
   changed_files: string[];
@@ -42,11 +26,6 @@ export interface ReviewDigestInput {
   findings: MachineFinding[];
 }
 
-/**
- * What no machine in this pipeline checks — stated plainly so the reviewer knows exactly
- * where their judgement is the only coverage there is. This list is the whole reason the
- * digest can be trusted: it never implies the green rows are the full picture.
- */
 const BLIND_SPOTS: readonly string[] = [
   'Semantic duplication — logic re-implemented in different words. The detector matches tokens, not meaning.',
   'Architectural fit — whether this belongs in this module at all.',
@@ -76,12 +55,6 @@ function findingLine(finding: MachineFinding): string {
   return `${finding.source} | ${finding.severity} | ${finding.tier} | ${anchor} | ${finding.message}`;
 }
 
-/**
- * Cap the digest at {@link DIGEST_LINE_CAP} lines, replacing the tail with a line that
- * says how much was dropped (FR-4). Truncation is always ANNOUNCED — a silently clipped
- * digest would read as "that was everything", which is precisely the false confidence this
- * whole feature exists to remove.
- */
 function capLines(lines: string[]): string[] {
   if (lines.length <= DIGEST_LINE_CAP) return lines;
   const kept = lines.slice(0, DIGEST_LINE_CAP - 1);
@@ -91,11 +64,6 @@ function capLines(lines: string[]): string[] {
   ];
 }
 
-/**
- * Build the review digest markdown. Absent inputs render as `none recorded` rather than
- * disappearing (AC-1), so the reviewer can tell "nothing found" apart from "nothing ran" —
- * the distinction the whole evidence contract rests on.
- */
 export function buildReviewDigest(input: ReviewDigestInput): string {
   const lines: string[] = [
     '# Review digest',

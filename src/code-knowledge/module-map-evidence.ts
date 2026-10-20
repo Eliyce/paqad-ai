@@ -1,12 +1,3 @@
-// Module-map evidence writer (issue #353, decision D-01KXD2Q175MVR5YXWKTWJR73NB).
-// Fills each module's `evidence.symbols` in docs/instructions/rules/module-map.yml
-// with the exported symbols the index attributes to it, so the reuse consumer can
-// see a module's surface. Comment-preserving via the YAML Document API (the same
-// idiom generateModuleMapYaml uses): only the `symbols` key is added/replaced, so
-// hand-authored comments, ordering, and any existing evidence (routes/tables)
-// survive (INV-5). Format-aware — it edits whatever module nodes exist, so this
-// repo's version:2 map and the generator's standard shape both work.
-
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -23,7 +14,6 @@ export interface ModuleMapEvidenceResult {
 
 const NOT_WRITTEN: ModuleMapEvidenceResult = { written: false, modulesUpdated: 0 };
 
-/** Group the index's exported symbol names by owning module slug (sorted, deduped). */
 function symbolNamesBySlug(index: CodeKnowledgeIndex): Map<string, string[]> {
   const bySlug = new Map<string, Set<string>>();
   for (const symbol of index.symbols) {
@@ -39,19 +29,12 @@ function symbolNamesBySlug(index: CodeKnowledgeIndex): Map<string, string[]> {
   return sorted;
 }
 
-/**
- * Write `evidence.symbols` into every module the index has symbols for, preserving
- * the rest of the map. A missing or malformed map, or a map no module matched, is a
- * no-op (nothing written).
- */
 export function writeModuleMapEvidence(
   projectRoot: string,
   index: CodeKnowledgeIndex,
 ): ModuleMapEvidenceResult {
   const mapPath = join(projectRoot, PATHS.MODULE_MAP);
 
-  // Read directly and let the try/catch handle a missing/unreadable/unparseable map,
-  // rather than existsSync-then-read (a check-then-use file-system race).
   let doc: YAML.Document.Parsed;
   try {
     doc = YAML.parseDocument(readFileSync(mapPath, 'utf8'));
@@ -73,7 +56,7 @@ export function writeModuleMapEvidence(
     const symbolsNode = doc.createNode(names);
     const evidence = item.get('evidence');
     if (YAML.isMap(evidence)) {
-      evidence.set('symbols', symbolsNode); // keep existing routes/tables
+      evidence.set('symbols', symbolsNode);
     } else {
       item.set('evidence', doc.createNode({ symbols: names }));
     }
@@ -81,8 +64,6 @@ export function writeModuleMapEvidence(
   }
 
   if (modulesUpdated === 0) return NOT_WRITTEN;
-  // Preserve the hand-authored flow-array style (`[a, b]`, no inner padding, no
-  // re-wrapping) so the diff is the evidence additions, not cosmetic churn (INV-5).
   writeFileSync(mapPath, doc.toString({ flowCollectionPadding: false, lineWidth: 0 }), 'utf8');
   return { written: true, modulesUpdated };
 }

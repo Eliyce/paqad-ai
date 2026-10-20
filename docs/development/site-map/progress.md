@@ -10,11 +10,11 @@ Update it after every commit. It is the handover between sessions.
 | | |
 | --- | --- |
 | **Branch** | `feat/site-map-rebuild` (created from `origin/main`) |
-| **PR** | [#509](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
+| **PR** | [site-map rebuild PR](https://github.com/Eliyce/paqad-ai/pull/509) (open) |
 | **Base** | `origin/main` at `35fdf431` when the plan was written; branch cut from `f56eedaf` |
 | **Tasks done** | **All ten tasks done.** S1–S8, S9a/S9b/S9c, and now **S10** (workflow rule rewritten). **All eight defects D1–D8 closed.** |
 | **Currently in flight** | nothing |
-| **Next action** | **The whole rebuild is code-complete.** Wait for PR [#509](https://github.com/Eliyce/paqad-ai/pull/509) CI to go green across the full Node 22/24 × ubuntu/macOS/windows matrix + CodeQL + Snyk, then the PR is ready for a human to review and squash-merge. No further tasks. If CI flakes on the unrelated macOS E2E timeout (sessions 14/15 class), re-run that leg — it is not site-map code. |
+| **Next action** | **The whole rebuild is code-complete.** Wait for the [site-map rebuild PR](https://github.com/Eliyce/paqad-ai/pull/509) CI to go green across the full Node 22/24 × ubuntu/macOS/windows matrix + CodeQL + Snyk, then the PR is ready for a human to review and squash-merge. No further tasks. If CI flakes on the unrelated macOS E2E timeout (sessions 14/15 class), re-run that leg — it is not site-map code. |
 | **Blocked on** | nothing. **DEC-1 resolved `run`** (packet `D-01M1CBV8WNZWXXGTHSETY2NMQG`, committed with S3a). |
 | **Last updated** | 2026-09-01, session 16: S10 landed — rebuild complete |
 
@@ -80,7 +80,7 @@ with the S3 commits.
 
 One entry per session. Newest at the top. Keep entries short and factual.
 
-- 2026-10-19, issue #500 follow-up: artisan-sourced surfaces now cite the route file and the
+- 2026-10-19, artisan surfaces follow-up: artisan-sourced surfaces now cite the route file and the
   controller method (console commands their declaration, schedules their line) instead of a
   `php artisan ...` label, untraceable routes become a blocked check, and artisan runs the way the
   project runs it (Sail, docker compose, or host PHP from its migrate command).
@@ -280,7 +280,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
   monotonic (`review` is completion-anchored and exempt). No code changed; the S9b commits
   `00ecd8d0` / `f2745fbf` are unchanged.
 - **Stage-ledger note (post-commit reconcile, sessions-6/7/8/10 class) + CI flake.** After the S9b
-  commits and push, the end-of-change gate's git reconcile (#450) minted a fresh active change
+  commits and push, the end-of-change gate's git reconcile minted a fresh active change
   bundle for the post-commit working set (only framework churn — `.paqad/checks/last-run.json`, the
   `agent-entry-directive.mjs` exec bit, and a `.junie/mcp/mcp.json` host edit — was uncommitted),
   orphaning the `s9b-…-01M1EBY80F…` feature bundle the stages were recorded into, so a later Stop
@@ -288,7 +288,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
   five against the active bundle (planning/specification/review pointed at the same rigid
   `plan.json`/`specification.json`/`review.json`; `checks` re-run green: format / test / build) and
   this note re-stamps `documentation_sync` last. No code changed; the S9b commits are unchanged.
-  **CI:** PR #509 is green on Node 22/24 × ubuntu, Node 22 × windows, CodeQL and Snyk; the
+  **CI:** the rebuild PR is green on Node 22/24 × ubuntu, Node 22 × windows, CodeQL and Snyk; the
   **Node 22 × macOS** leg flaked twice on unrelated E2E timeouts (attempt 1 `onboarding.e2e`;
   attempt 2 `rag.e2e` + `cli-interactions.e2e`), each a ~15 s timeout on a badly-starved runner
   (`orchestrator.test.ts` took 127 s, ~10× normal). None touch site-map; `transitions.test.ts` and
@@ -356,7 +356,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
 - **S8c done** (`2bb384d4`): the `sitemap` command is discoverable and every verb reads plainly,
   closing the last piece of **D2**.
   - **`src/cli/program.ts`**: dropped the `{ hidden: true }` option on
-    `program.addCommand(createSitemapCommand())` and replaced the stale issue-#448 "hidden" comment
+    `program.addCommand(createSitemapCommand())` and replaced the stale "hidden" comment
     with one saying the command is both a dashboard area and a listed command. Hidden commands still
     appear in `program.commands`, so the existing top-level registration test is unchanged; only the
     help output changes (commander omits hidden commands from `helpInformation()`).
@@ -380,7 +380,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
   planning → specification → development → checks → review, each with its rigid artifact;
   `documentation_sync` recorded last (this edit), after the code and checks, per session 11's lesson.
 - **Stage-ledger note (same reconcile class as sessions 6/7/8/10).** After the two S8c commits, the
-  end-of-change gate's git reconcile (#450) minted a fresh active change bundle for the post-commit
+  end-of-change gate's git reconcile minted a fresh active change bundle for the post-commit
   working set (only the two pre-existing framework-churn files — `.paqad/checks/last-run.json` and the
   `runtime/hooks/lib/agent-entry-directive.mjs` exec-bit flip — were uncommitted), orphaning the
   `…-s8c-01M1E1T0H7…` bundle the stages were first recorded into, so the Stop gate saw the change with
@@ -390,7 +390,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
   same session, `plan compile`/`spec freeze`/`review record` writing each rigid artifact into it),
   `paqad-ai checks run` re-run green (format / test / build), and this note records
   `documentation_sync` last. No code changed in the re-record; the S8c commit `2bb384d4` is unchanged,
-  and PR #509 CI is green across the full Node 22/24 × ubuntu/macOS/windows matrix plus CodeQL and Snyk.
+  and the rebuild PR CI is green across the full Node 22/24 × ubuntu/macOS/windows matrix plus CodeQL and Snyk.
 
 ### 2026-09-01, session 11: S8b
 
@@ -473,7 +473,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
     development → checks → review, each with its rigid artifact.
 - D2 stays open: S8a (skeleton write) is done; `S8b` (additive/resumable) and `S8c` (unhide) remain.
 - **Stage-ledger note (same class as sessions 6/7/8).** After the S8a commits, the end-of-change
-  gate's git reconcile (#450) minted a fresh active change bundle for the post-commit working set
+  gate's git reconcile minted a fresh active change bundle for the post-commit working set
   (the two pre-existing framework-churn files — `.paqad/checks/last-run.json` and the
   `runtime/hooks/lib/agent-entry-directive.mjs` exec-bit flip — were the only uncommitted changes),
   orphaning the `…-s8a-01M1CHS09S…` bundle the stages were first recorded into, so the Stop gate saw
@@ -552,7 +552,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
      `_chat` session (`acebff94…`) while the PreToolUse hook keys off this session (`ccb22e31…`), so
      the first edit was blocked. Re-ran `export SE_SESSION=$CLAUDE_SESSION_ID` (the real id) and
      re-recorded planning + specification into the active `…-s7-…` bundle before editing.
-  2. After the S7 commits, the end-of-change gate's git reconcile (#450) minted a fresh active change
+  2. After the S7 commits, the end-of-change gate's git reconcile minted a fresh active change
      bundle for the post-commit working set (`…-s7-01M1C9F8…`) and orphaned the bundle the stages
      were first recorded into, so the Stop gate saw the code change with no stages. The planning,
      specification and review stages were re-recorded against the active bundle (same session),
@@ -591,7 +591,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
   way".
 - D8 stays open: S6 (run progress) is done; `S7` (full screen + readable zoom floor) still remains
   before D8 can be ticked.
-- **Stage ledger note.** After the S6 commits, the end-of-change gate's git reconcile (#450) minted
+- **Stage ledger note.** After the S6 commits, the end-of-change gate's git reconcile minted
   a fresh active change bundle for the post-commit working set and orphaned the bundle the stages
   were first recorded into, so the Stop gate saw only `development`. The planning, specification,
   review and checks stages were re-recorded against the active bundle (same session), `paqad-ai
@@ -687,7 +687,7 @@ One entry per session. Newest at the top. Keep entries short and factual.
 
 ### 2026-08-31, session 2: S1
 
-- Created `feat/site-map-rebuild` from `origin/main` (`f56eedaf`). Opened PR #509.
+- Created `feat/site-map-rebuild` from `origin/main` (`f56eedaf`). Opened the rebuild PR.
 - Added the whole-rebuild `minor` changeset (`.changeset/site-map-rebuild.md`); `npx changeset status` clean.
 - **S1 done** (`3c2949a7`): `refreshRuleContext` recompiles a stale compiled rule store inside the
   single-flight lock before it is read, gated on the rule-loading path, guarded against an absent

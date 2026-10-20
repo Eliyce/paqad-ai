@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
-# Purpose: Given a unified-diff hunk that touches a token source file
-#          (src/design-tokens/* or tailwind.config.*), emit the tokens the
-#          diff adds. Deterministic so the LLM doesn't re-derive what counts
-#          as a "new token" from the prose of the diff.
-#
-# Usage:   bash scripts/detect-token-additions.sh                       (reads stdin)
-#          bash scripts/detect-token-additions.sh <file>                (reads file)
-#
-# Recognised additions:
-#   Lines beginning with `+` (and not `+++`) that contain a property
-#   declaration like `<key>: '<value>'` or `<key>: "<value>"` where `<value>`
-#   looks like a token value (hex, px, rem, em).
-#
-# Output:  TSV rows to stdout:
-#            <key>\t<value>
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,18p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Given a unified-diff hunk that touches a token source file
+         (src/design-tokens/* or tailwind.config.*), emit the tokens the
+         diff adds. Deterministic so the LLM doesn't re-derive what counts
+         as a "new token" from the prose of the diff.
+
+Usage:   bash scripts/detect-token-additions.sh                       (reads stdin)
+         bash scripts/detect-token-additions.sh <file>                (reads file)
+
+Recognised additions:
+  Lines beginning with `+` (and not `+++`) that contain a property
+  declaration like `<key>: '<value>'` or `<key>: "<value>"` where `<value>`
+  looks like a token value (hex, px, rem, em).
+
+Output:  TSV rows to stdout:
+           <key>\t<value>
+         Diagnostics to stderr.
+
+USAGE
   exit 0
 fi
 

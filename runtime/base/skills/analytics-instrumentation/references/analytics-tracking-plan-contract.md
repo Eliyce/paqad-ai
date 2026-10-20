@@ -1,4 +1,4 @@
-# Tracking-plan-as-code contract (issue #279)
+# Tracking-plan-as-code contract
 
 The per-event docs tree is the single source of truth for what a project tracks. This skill
 implements the governance triple that every tracked event carries.

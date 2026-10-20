@@ -18,8 +18,6 @@ async function builtCliIsCurrent(): Promise<boolean> {
   if (!existsSync(cliPath)) {
     return false;
   }
-  // A dist built from an older version makes `--version` assertions flake;
-  // treat a version mismatch the same as a missing build.
   try {
     const { stdout } = await execa('node', [cliPath, '--version'], { cwd: process.cwd() });
     return stdout.trim() === VERSION;
@@ -83,8 +81,6 @@ describe('package publishing readiness', () => {
           npm_config_cache: npmCache,
         },
       });
-      // npm 12 changed `npm pack --json` from a top-level array to an object
-      // keyed by package name (issue #332); parsePackManifest handles both.
       const files = parsePackManifest(pack.stdout).files;
 
       expect(version.stdout.trim()).toBe(VERSION);
@@ -94,10 +90,6 @@ describe('package publishing readiness', () => {
       expect(files.some((file) => file.path.startsWith('runtime/'))).toBe(true);
       expect(files.some((file) => file.path.startsWith('tests/'))).toBe(false);
       rmSync(npmCache, { recursive: true, force: true });
-      // npm pack --dry-run over the runtime/ tree is much slower on Windows
-      // runners; mirror the platform-aware defaults in vitest.config.ts.
-      // 30s elsewhere: two CLI spawns plus the pack scan can exceed 15s on a
-      // cold container running the suite at full parallelism.
     },
     process.platform === 'win32' ? 60_000 : 30_000,
   );

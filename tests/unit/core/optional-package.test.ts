@@ -23,10 +23,8 @@ const FAKE = 'paqad-fake-engine';
 
 let root: string;
 
-// require.resolve returns the real (symlink-resolved) path, so assertions match on the suffix.
 const FAKE_ENTRY_SUFFIX = join('node_modules', FAKE, 'index.cjs');
 
-/** Write a minimal resolvable CJS package `paqad-fake-engine` into `<dir>/node_modules`. */
 function seedFakePackage(dir: string): void {
   const pkgDir = join(dir, 'node_modules', FAKE);
   mkdirSync(pkgDir, { recursive: true });
@@ -46,9 +44,8 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe('resolveOptionalPackage (issue #616, Part 2b)', () => {
+describe('resolveOptionalPackage', () => {
   it('resolves a normally-installed dependency through hop 1', () => {
-    // `execa` is a real runtime dependency, so hop 1 (next to this module) finds it.
     const resolved = resolveOptionalPackage('execa', {});
     expect(resolved).toContain('execa');
   });
@@ -67,7 +64,6 @@ describe('resolveOptionalPackage (issue #616, Part 2b)', () => {
   });
 
   it('resolves from the npm copy one level above the framework link (hop 3a)', () => {
-    // The link resolves to `<pkgRoot>/runtime`; the engine lives in `<pkgRoot>/node_modules`.
     const pkgRoot = join(root, 'npm-copy');
     seedFakePackage(pkgRoot);
     mkdirSync(join(pkgRoot, 'runtime'), { recursive: true });
@@ -78,9 +74,8 @@ describe('resolveOptionalPackage (issue #616, Part 2b)', () => {
   });
 });
 
-describe('loadOptionalPackage (issue #616, Part 2b)', () => {
+describe('loadOptionalPackage', () => {
   it('loads a normally-installed dependency through the bare import (hop 1)', async () => {
-    // `execa` resolves next to this module, so the bare dynamic import returns it directly.
     const mod = await loadOptionalPackage<{ execa: unknown }>('execa', {});
     expect(typeof mod.execa).toBe('function');
   });
@@ -105,7 +100,7 @@ const MARKER = '.paqad-engine-install.json';
 const LOCK = '.paqad-engine-install.lock';
 const NONE = () => null;
 
-describe('maybeStartOptionalEngineInstall (issue #616, Part 2b)', () => {
+describe('maybeStartOptionalEngineInstall', () => {
   it('does nothing outside a plugin (no CLAUDE_PLUGIN_DATA)', () => {
     const start = vi.fn();
     expect(maybeStartOptionalEngineInstall({}, { startInstall: start })).toBe('no-plugin-data');
@@ -140,14 +135,24 @@ describe('maybeStartOptionalEngineInstall (issue #616, Part 2b)', () => {
       { resolve: NONE, readSpecs: () => ['pkg@^1'], startInstall: start, now },
     );
     expect(outcome).toBe('started');
-    expect(start).toHaveBeenCalledWith(['pkg@^1'], root, expect.anything());
+    expect(start).toHaveBeenCalledWith(['pkg@^1'], root, expect.anything(), undefined);
     expect(existsSync(join(root, LOCK))).toBe(true);
     const marker = JSON.parse(readFileSync(join(root, MARKER), 'utf8')) as { status: string };
     expect(marker.status).toBe('installing');
   });
 
+  it('hands the project root to the installer so it rebuilds the index after the install', () => {
+    const start = vi.fn();
+    const outcome = maybeStartOptionalEngineInstall(
+      { CLAUDE_PLUGIN_DATA: root },
+      { resolve: NONE, readSpecs: () => ['pkg@^1'], startInstall: start, now: () => 0 },
+      { projectRoot: '/work/repo' },
+    );
+    expect(outcome).toBe('started');
+    expect(start).toHaveBeenCalledWith(['pkg@^1'], root, expect.anything(), '/work/repo');
+  });
+
   it('pins the real package.json ranges when readSpecs is not injected', () => {
-    // A fake npm copy: package.json one level above the runtime link carries the engine ranges.
     const pkgRoot = join(root, 'npm-copy');
     mkdirSync(join(pkgRoot, 'runtime'), { recursive: true });
     writeFileSync(
@@ -173,6 +178,7 @@ describe('maybeStartOptionalEngineInstall (issue #616, Part 2b)', () => {
       ['@huggingface/transformers@^3.8.0', 'openai@^7.23.0', 'voyageai@^0.4.0'],
       installDir,
       expect.anything(),
+      undefined,
     );
   });
 
@@ -241,7 +247,7 @@ describe('maybeStartOptionalEngineInstall (issue #616, Part 2b)', () => {
   });
 });
 
-describe('describeOptionalEngine (issue #616, Part 2b)', () => {
+describe('describeOptionalEngine', () => {
   it('reports ready when the engine resolves', () => {
     expect(describeOptionalEngine({}, { resolve: () => '/x/transformers.cjs' })).toEqual({
       state: 'ready',
@@ -249,7 +255,6 @@ describe('describeOptionalEngine (issue #616, Part 2b)', () => {
   });
 
   it('uses the real resolver by default (the engine is installed in this repo)', () => {
-    // No injected resolve → the default resolveOptionalPackage finds the repo's own transformers.
     expect(describeOptionalEngine({})).toEqual({ state: 'ready' });
   });
 

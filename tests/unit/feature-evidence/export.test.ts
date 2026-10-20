@@ -49,15 +49,11 @@ describe('exportFeatureBundle', () => {
 
     const bundle = exportFeatureBundle(root, dir, AT);
     expect(bundle.dir_name).toBe(dir);
-    // plan.json parsed as an object.
     expect((bundle.files.plan as { summary?: string }).summary).toBe('do the thing');
-    // stage-evidence.jsonl parsed as a row array (open + stage_start).
     expect(Array.isArray(bundle.files.stageEvidence)).toBe(true);
-    // Absent files (receipt/ai-bom) are omitted.
     expect(bundle.files.receipt).toBeUndefined();
   });
 
-  // Issue #581 — spec.md and request.md are Markdown, exported as their text.
   it('exports the .md bundle files as text', () => {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_1', {
@@ -71,13 +67,10 @@ describe('exportFeatureBundle', () => {
     expect(bundle.files.specMd).toBe('---\nx: 1\n---\n# Spec\n');
     expect(bundle.files.request).toBeUndefined();
     expect(bundle.strays).toEqual([]);
-    // A corrupt JSON file is omitted, like an absent one.
     writeFileSync(join(root, featureDir(dir), 'decisions.json'), '{not json', 'utf8');
     expect(exportFeatureBundle(root, dir, AT).files.decisions).toBeUndefined();
   });
 
-  // Issue #581 — the report reads a sealing receipt's rows from the exported evidence.jsonl,
-  // read with the evidence reader: the bundle header, plus `ts` from `recorded_at`.
   it('exports the graded evidence.jsonl rows', () => {
     const root = tempRoot();
     const dir = openFeatureChange(root, 'ses_1', {
@@ -110,7 +103,6 @@ describe('exportFeatureBundle', () => {
 describe('pruneFeatureBundles', () => {
   it('keeps the N most-recent non-live bundles and removes the rest', () => {
     const root = tempRoot();
-    // Three features, ULID order 1 < 2 < 3 (time order).
     const a = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
       title: 'A',
@@ -129,13 +121,10 @@ describe('pruneFeatureBundles', () => {
       issue: null,
       ulidSeed: 3,
     });
-    // Pause all so none is "active" (else the active one is always kept).
     pauseActive(root, 'ses_1');
-    // Clear the control entirely so a/b/c are not "live" for this retention test.
     rmSync(join(root, '.paqad/ledger/feature-evidence/_session'), { recursive: true, force: true });
 
     const result = pruneFeatureBundles(root, 1);
-    // Only the newest (c) is kept; a + b removed.
     expect(result.kept).toEqual([c]);
     expect(result.removed.sort()).toEqual([a, b].sort());
     expect(existsSync(join(root, featureDir(a)))).toBe(false);
@@ -156,15 +145,12 @@ describe('pruneFeatureBundles', () => {
       issue: null,
       ulidSeed: 2,
     });
-    // a is paused, b is active — both live.
     const result = pruneFeatureBundles(root, 0);
     expect(result.removed).toEqual([]);
     expect(result.kept.sort()).toEqual([a, b].sort());
   });
 });
 
-// Issue #402 — the export reads a fixed allowlist, so a stray never broke it; it was
-// simply invisible. It now carries what does not belong so a polluted bundle is visible.
 describe('exportFeatureBundle strays', () => {
   function bundleWithPlan(root: string): string {
     const dir = openFeatureChange(root, 'ses_1', {
@@ -197,11 +183,9 @@ describe('exportFeatureBundle strays', () => {
     writeFileSync(join(root, featureDir(dir), 'review-notes.md'), '# notes', 'utf8');
     const bundle = exportFeatureBundle(root, dir, AT);
     expect(bundle.strays).toEqual(['review-notes.md']);
-    // The stray is reported, never parsed into the document.
     expect(bundle.files.plan).toBeTruthy();
   });
 
-  // AC-8: a bundle written before review.json existed must still export.
   it('omits the review key for a bundle that has no review.json', () => {
     const root = tempRoot();
     const dir = bundleWithPlan(root);

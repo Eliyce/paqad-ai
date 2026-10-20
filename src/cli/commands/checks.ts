@@ -30,12 +30,9 @@ import {
   upsertStackDocCommandRow,
 } from '@/checks/testing-record.js';
 
-/**
- * `paqad-ai checks` — the deterministic checks stage (issues #318, #554). `run` executes the mapped
- * commands (overlapped, with the runner's own parallel mode) and blocks on a red result. `plan`
- * prints the resolved plan. `record-runner` records an agent-discovered parallel mode. No LLM is
- * involved: a command's exit code and parsed result files are the verdict.
- */
+const TESTING_RECORDED_NOTE =
+  'recorded the test runner in .paqad/project-profile.yaml (once per lockfile change)';
+
 export function createChecksCommand(): Command {
   const command = new Command('checks').description(
     'Run the project format/test/build checks deterministically and record the result',
@@ -65,9 +62,6 @@ export function createChecksCommand(): Command {
         critical_path: result.critical_path,
       });
 
-      // Issue #639, Part 11 — write the change's acceptance-criteria map beside the report, from
-      // the same changed files and test results. Best-effort: a map that cannot be built is a
-      // warning, never a failed `checks run`.
       await buildAndWriteChangeTraceabilityMap(
         {
           projectRoot: options.projectRoot,
@@ -84,9 +78,10 @@ export function createChecksCommand(): Command {
       );
 
       for (const warning of result.warnings) console.error(`⚠️  ${warning}`);
+      if (result.testing_recorded) console.error(TESTING_RECORDED_NOTE);
 
       if (!result.ran) {
-        console.log('**▸ paqad** · no checks mapped — Inconclusive');
+        console.log('**▸ paqad** · no checks mapped: Inconclusive');
         console.log('> ⚪ No format/test/build command is mapped in the project profile.');
         if (!options.silent) console.log(JSON.stringify({ ran: false, passed: null }));
         return;
@@ -124,8 +119,6 @@ export function createChecksCommand(): Command {
         profile,
       );
       const config = resolveFrameworkConfig(options.projectRoot);
-      // Read-only: derive the testing record in-memory when the profile has none yet, so the plan
-      // reflects the runner's real parallel mode without a prior `checks run` (no doc mirror write).
       const planProfile =
         profile && !profile.testing && profile.stack_profile
           ? {
@@ -245,7 +238,6 @@ function describeTestMode(
   return `sequential (${reason ?? 'unknown'})`;
 }
 
-/** Wall-clock seconds, `13 s` or `2 m 04 s`. */
 function fmtSecs(ms: number): string {
   const total = Math.round(ms / 1000);
   if (total < 60) return `${total} s`;
@@ -258,15 +250,16 @@ function commandName(logical: string | null, command: string): string {
   return logical ?? command;
 }
 
-/** The end-of-change receipt (issue #554, Part E.2). Verbatim shapes, plain language. */
 export function renderReceipt(
   result: ChecksRunResult,
   flakyMode: 'pass' | 'warn' | 'fail',
 ): string[] {
   const lines: string[] = [];
-  const header = result.passed
-    ? `**▸ paqad** · checks green — Safe to merge (${fmtSecs(result.duration_ms)})`
-    : `**▸ paqad** · checks failed — Needs your attention (${fmtSecs(result.duration_ms)})`;
+  const header = !result.passed
+    ? `**▸ paqad** · checks failed: Needs your attention (${fmtSecs(result.duration_ms)})`
+    : testUnreadable(result)
+      ? `**▸ paqad** · checks ran, but no test results could be read: Inconclusive (${fmtSecs(result.duration_ms)})`
+      : `**▸ paqad** · checks green: Safe to merge (${fmtSecs(result.duration_ms)})`;
   lines.push(header);
 
   for (const command of result.commands) {
@@ -281,7 +274,6 @@ export function renderReceipt(
     );
   }
 
-  // Flaky-under-parallel line.
   if (result.recovered > 0) {
     if (flakyMode === 'fail') {
       lines.push(
@@ -294,7 +286,6 @@ export function renderReceipt(
     }
   }
 
-  // Sequential fallback line.
   if (result.sequential_reason) {
     lines.push(`> - 🟡 test ran sequentially: ${humanReason(result.sequential_reason)}`);
   }
@@ -314,11 +305,15 @@ function renderTestLines(result: ChecksRunResult, durationMs: number): string[] 
       : result.mode.test_mode === 'native'
         ? 'native parallel'
         : '';
+  if (testUnreadable(result)) {
+    return [`> - 🟡 test ran, but no test results could be read (${fmtSecs(durationMs)})`];
+  }
   if (blocking === 0) {
     const suffix = modeSuffix ? `, ${modeSuffix}` : '';
-    // Issue #672 — output that yielded no countable tests is not "0 tests": the run passed, the
-    // count is simply unknown.
-    const count = result.test_total > 0 ? `: ${result.test_total} tests` : ', count unavailable';
+    const count =
+      result.test_total > 0 && test?.parse_metadata.parse_strategy !== 'plain-text-fallback'
+        ? `: ${result.test_total} tests`
+        : ', count unavailable';
     return [`> - 🟢 test passed${count}${suffix} (${fmtSecs(durationMs)})`];
   }
   const lines = [
@@ -334,6 +329,12 @@ function renderTestLines(result: ChecksRunResult, durationMs: number): string[] 
     }
   }
   return lines;
+}
+
+function testUnreadable(result: ChecksRunResult): boolean {
+  return result.commands.some(
+    (command) => command.logical_command === 'test' && command.outcome === 'inconclusive',
+  );
 }
 
 function humanReason(reason: string): string {

@@ -329,7 +329,6 @@ describe('PipelineRouter', () => {
       }),
     );
 
-    // High complexity + high risk must still route through the full lane so spec / review phases run.
     expect(result.lane).toBe('full');
   });
 

@@ -16,7 +16,6 @@ import type { FrameworkApiSymbol } from '@/framework-api/types.js';
 
 let root: string;
 
-/** A fetch that answers with `body`, and records how many times it was called. */
 function fakeFetch(body: string, ok = true) {
   const impl = vi.fn(async () =>
     Promise.resolve({ ok, text: async () => Promise.resolve(body) } as Response),
@@ -24,7 +23,6 @@ function fakeFetch(body: string, ok = true) {
   return impl as unknown as typeof globalThis.fetch & { mock: { calls: unknown[] } };
 }
 
-/** Seed the on-disk cache with already-derived records. */
 function seedCache(major: string, names: string[], fetchedAt: number): void {
   const path = upgradeGuideCachePath(root, major);
   mkdirSync(dirname(path), { recursive: true });
@@ -40,7 +38,6 @@ function seedCache(major: string, names: string[], fetchedAt: number): void {
   );
 }
 
-/** A guide whose one deprecation is `Blueprint::getPrefix`. */
 const GUIDE = '### Database\n\nThe `Blueprint::getPrefix()` method is deprecated.\n';
 
 function record(overrides: Partial<FrameworkApiSymbol> & { name: string }): FrameworkApiSymbol {
@@ -72,8 +69,6 @@ describe('majorOf', () => {
   });
 
   it('returns null for anything that does not start with a major, so nothing is built from it', () => {
-    // The major reaches a URL and a cache filename, and the version behind it is read out
-    // of a project's own vendor tree — so a traversal attempt must produce "no guide".
     expect(majorOf('nonsense')).toBeNull();
     expect(majorOf('../../etc/passwd')).toBeNull();
     expect(majorOf('')).toBeNull();
@@ -86,7 +81,6 @@ describe('loadLaravelDeprecations', () => {
     const first = await loadLaravelDeprecations(root, '12.4.0', { fetchImpl, now: () => 1000 });
     expect(first?.map((entry) => entry.name)).toEqual(['Blueprint::getPrefix']);
 
-    // The cache holds derived records only — never the fetched document.
     const cached = JSON.parse(readFileSync(upgradeGuideCachePath(root, '12'), 'utf8')) as {
       fetched_at: number;
       parser_version: number;

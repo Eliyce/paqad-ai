@@ -72,14 +72,12 @@ export class RelevanceScorer {
     const chunkDir = dirname(chunk.source_file);
     const targetDir = dirname(targetPath);
 
-    // Same directory = 1.0, same parent = 0.5, different = 0
     if (chunkDir === targetDir) return 1.0;
     if (dirname(chunkDir) === dirname(targetDir)) return 0.5;
     if (basename(chunkDir) === basename(targetDir)) return 0.3;
     return 0;
   }
   private astDepthPenalty(chunk: Chunk): number {
-    // Deeper AST nodes get slight penalty
     const depth = (chunk.ast_node_path.match(/>/g) ?? []).length;
     return Math.min(depth * 0.2, 1.0);
   }

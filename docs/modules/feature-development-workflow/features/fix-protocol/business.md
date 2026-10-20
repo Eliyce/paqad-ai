@@ -1,6 +1,6 @@
 # Fix Protocol — Prove Before Fixing
 
-> **Layer:** `agent-workflows` · **Slug:** `fix-protocol` · **Issue:** #103
+> **Layer:** `agent-workflows` · **Slug:** `fix-protocol`
 
 ## What it is
 
@@ -44,7 +44,7 @@ test — is the recognised cure for the whack-a-mole "fix one thing, break anoth
 This feature owns the **content of one fix** (the prove → fix → prove → prove-no-regression protocol and
 the kept proof). It does **not** own:
 
-- the outer round loop / stop rule around repeated fixes → #108;
-- deciding whether a finding is a confirmed problem → #107;
-- judging whether the tests themselves are strong enough (mutation/flaky) → #105 / #106. A proof is only
+- the outer round loop / stop rule around repeated fixes → the build-check-fix loop;
+- deciding whether a finding is a confirmed problem → finding triage;
+- judging whether the tests themselves are strong enough (mutation/flaky) → mutation testing / flaky-test detection. A proof is only
   as trustworthy as the suite — this feature does not re-solve that.

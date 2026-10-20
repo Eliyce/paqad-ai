@@ -69,7 +69,6 @@ describe('rule-file parsing', () => {
     expect(first.rules.every((r) => r.isNew)).toBe(true);
     expect(first.rules).toHaveLength(2);
 
-    // Second pass over the already-marked content mints nothing and is a no-op.
     const second = embedRuleIds('x.md', first.content, new Set<string>());
     expect(second.content).toBe(first.content);
     expect(second.rules.every((r) => !r.isNew)).toBe(true);
@@ -102,14 +101,12 @@ describe('analyzer scan + assemble + apply', () => {
     expect(scan.changed_files).toHaveLength(2);
     expect(scan.rule_files_hash).toMatch(/^sha256-/);
 
-    // Markers are now persisted in the source files.
     const onDisk = readFileSync(
       join(root, 'docs/instructions/rules/coding/code-quality.md'),
       'utf8',
     );
     expect(onDisk).toMatch(/<!-- @rule RL-[0-9a-f]+ -->/);
 
-    // Re-scan is idempotent: no new ids, no file churn.
     const rescan = scanAndEmbedIds(root);
     expect(rescan.changed_files).toHaveLength(0);
     expect(rescan.inventory.map((i) => i.id)).toEqual(scan.inventory.map((i) => i.id));
@@ -164,11 +161,9 @@ describe('analyzer scan + assemble + apply', () => {
       },
     ];
 
-    // Unchanged text -> scripts carried over.
     const same = assembleMap(scan.inventory, new Map(), scan.rule_files_hash, prior);
     expect(same.rules[0].scripts).toHaveLength(1);
 
-    // Edit the rule text -> hash differs -> scripts dropped.
     writeRuleFile(
       root,
       'docs/instructions/rules/coding/q.md',
@@ -178,7 +173,7 @@ describe('analyzer scan + assemble + apply', () => {
       ),
     );
     const rescan = scanAndEmbedIds(root);
-    expect(rescan.inventory[0].id).toBe(id); // id preserved across edit
+    expect(rescan.inventory[0].id).toBe(id);
     const edited = assembleMap(rescan.inventory, new Map(), rescan.rule_files_hash, prior);
     expect(edited.rules[0].scripts).toHaveLength(0);
   });

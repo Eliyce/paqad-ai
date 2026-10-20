@@ -29,7 +29,5 @@ export function appendRagAudit(
     })
     .join(' ');
   appendFileSync(path, `[${ts}] ${level} ${event}${suffix ? ` ${suffix}` : ''}\n`);
-  // Issue #249 — also record the structured rag-evidence equivalent. Best-effort: the
-  // flat line above is unconditional, so a recorder failure never loses the event.
   recordRagEvidenceFromAudit(projectRoot, event, fields);
 }

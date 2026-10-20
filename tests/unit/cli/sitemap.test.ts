@@ -19,8 +19,6 @@ const writeCanonicalSiteMap = vi.fn(() => 'docs/site-map/app-map.yaml');
 const readCanonicalSiteMap = vi.fn();
 const hashSourceFiles = vi.fn();
 
-// Mock the two fs-touching run entry points but keep the real pure inventory helpers
-// (deriveSiteMapInventory / describeSiteMapInventory).
 vi.mock('@/site-map/run.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/run.js')>()),
   runSiteMapAudit,
@@ -28,15 +26,11 @@ vi.mock('@/site-map/run.js', async (importOriginal) => ({
 }));
 vi.mock('@/site-map/journey-curation.js', () => ({ runJourneyCuration }));
 vi.mock('@/site-map/gatherer.js', () => ({ createSiteMapGatherer, gatherSiteMapTransitions }));
-// Mock the two fs-touching composers but keep the real parseCreationDecisions.
 vi.mock('@/site-map/creation-flow.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/creation-flow.js')>()),
   deriveCreationQuestions,
   recordCreationAnswers,
 }));
-// Mock the fs-touching read/write/recover/reconcile of the progress store but keep the real,
-// pure pieces (summarizeProgress and the unit creators/mutators): `status` must be proven to
-// read only, and `draft` must be proven to advance real unit state.
 vi.mock('@/site-map/progress-store.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/progress-store.js')>()),
   readProgress,
@@ -44,15 +38,11 @@ vi.mock('@/site-map/progress-store.js', async (importOriginal) => ({
   recoverInFlight,
   reconcileDoneUnits,
 }));
-// Mock only the fs-touching canonical reader/writer; keep the real, pure buildSiteMapDraft,
-// deriveDraftUnits and mergeSiteMapDraft so `draft` is proven to build and merge a real
-// skeleton off the gathered extraction. `canonicalAppMapPath` stays real (a pure join).
 vi.mock('@/site-map/store.js', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/site-map/store.js')>()),
   writeCanonicalSiteMap,
   readCanonicalSiteMap,
 }));
-// The staleness hash is fs-touching; `draft` stamps it on every completed unit.
 vi.mock('@/document/staleness.js', () => ({ hashSourceFiles }));
 
 const { createSitemapCommand } = await import('@/cli/commands/sitemap.js');
@@ -84,7 +74,6 @@ describe('paqad-ai sitemap command', () => {
     hashSourceFiles.mockReset();
     writeCanonicalSiteMap.mockClear();
     writeCanonicalSiteMap.mockReturnValue('docs/site-map/app-map.yaml');
-    // Draft-flow defaults: no stored map, no progress yet, nothing recovered or skipped.
     readCanonicalSiteMap.mockReturnValue(null);
     readProgress.mockResolvedValue(null);
     saveProgress.mockResolvedValue(undefined);
@@ -106,8 +95,6 @@ describe('paqad-ai sitemap command', () => {
     const VERBS = ['run', 'draft', 'inventory', 'status', 'questions', 'answer', 'journey'];
 
     it('is no longer hidden, so it shows in the program help (S8c, AC-1)', () => {
-      // A hidden command is registered but omitted from help output; unhiding it in S8c
-      // means the top-level help now lists `sitemap` for a human to discover.
       expect(createProgram().helpInformation()).toContain('sitemap');
     });
 
@@ -122,7 +109,6 @@ describe('paqad-ai sitemap command', () => {
       const byName = new Map(
         createSitemapCommand().commands.map((c) => [c.name(), c.description()]),
       );
-      // Tokens deliberately reworded away in S8c, plus the em dash a plain sentence avoids.
       const jargon = [
         '—',
         'closed-list',
@@ -134,11 +120,9 @@ describe('paqad-ai sitemap command', () => {
         const description = byName.get(verb);
         expect(description, `verb "${verb}" is missing`).toBeTruthy();
         const text = description as string;
-        // No jargon token and no em dash.
         for (const token of jargon) {
           expect(text, `verb "${verb}" description still contains "${token}"`).not.toContain(token);
         }
-        // One sentence: no mid-string sentence break (a period followed by more words).
         expect(text, `verb "${verb}" description is more than one sentence`).not.toMatch(/\.\s+\S/);
       }
     });
@@ -170,7 +154,6 @@ describe('paqad-ai sitemap command', () => {
       'Stamped earned trust and freshness into docs/site-map/app-map.yaml',
     );
     expect(out.join('\n')).toContain('Baseline recorded');
-    // S9c: the run reports how many links the map records, in prose and in the JSON line.
     expect(out.join('\n')).toContain('3 navigation links recorded in the map.');
     expect(out.join('\n')).toContain('"verdict":"attention"');
     expect(out.join('\n')).toContain('"findings":2');
@@ -211,7 +194,6 @@ describe('paqad-ai sitemap command', () => {
     expect(process.exitCode).toBe(0);
     expect(out.join('\n')).toContain('the map matches the code');
     expect(out.join('\n')).toContain('Safe to merge');
-    // no-map means nothing was stamped, so no stamped line is printed.
     expect(out.join('\n')).not.toContain('Stamped earned trust');
     expect(out.join('\n')).not.toContain('"findings"');
   });
@@ -266,7 +248,6 @@ describe('paqad-ai sitemap command', () => {
     const out = await invoke(['inventory', '--project-root', '/tmp/app']);
     expect(process.exitCode).toBe(0);
     expect(createSiteMapGatherer).toHaveBeenCalledWith('/tmp/app');
-    // `inventory` never persists — it must not drive the writing run.
     expect(runSiteMapAudit).not.toHaveBeenCalled();
     expect(out.join('\n')).toContain('Found 2 screens across 2 groups.');
     expect(out.join('\n')).toContain('"screens":2');
@@ -298,8 +279,6 @@ describe('paqad-ai sitemap command', () => {
     let root: string;
 
     beforeEach(() => {
-      // A real empty tmp root so the never-clobber existence probe is exercised for real
-      // (no app-map.yaml on disk unless a test writes one).
       root = mkdtempSync(join(tmpdir(), 'paqad-sitemap-draft-cli-'));
     });
 
@@ -332,7 +311,6 @@ describe('paqad-ai sitemap command', () => {
       >;
     }
 
-    /** The progress object handed to every saveProgress call (mutated in place by draft). */
     function savedProgress(): SavedProgress {
       expect(saveProgress).toHaveBeenCalled();
       return saveProgress.mock.calls.at(-1)![1] as SavedProgress;
@@ -362,7 +340,6 @@ describe('paqad-ai sitemap command', () => {
       }
       expect(progress.units['group:billing'].source_files).toEqual(['b.ts']);
       expect(progress.units['group:ungrouped'].source_files).toEqual(['a.ts']);
-      // One canonical write per unit, each a merge of the accumulated map.
       expect(writeCanonicalSiteMap).toHaveBeenCalledTimes(2);
       const [, finalMap] = writeCanonicalSiteMap.mock.calls.at(-1)! as [
         string,
@@ -395,7 +372,6 @@ describe('paqad-ai sitemap command', () => {
         string,
         { surfaces: Array<{ id: string; label: string; note?: string }> },
       ];
-      // The authored entry is untouched, the vanished one still present, the new one appended.
       expect(finalMap.surfaces.map((s) => s.id)).toEqual([
         'node-cli-a',
         'node-cli-legacy',
@@ -438,7 +414,6 @@ describe('paqad-ai sitemap command', () => {
       expect(writeCanonicalSiteMap).not.toHaveBeenCalled();
       const progress = savedProgress();
       expect(progress.units['group:ungrouped'].state).toBe('done');
-      // The staleness inputs were refreshed from the current extraction before reconciling.
       expect(progress.units['group:ungrouped'].source_files).toEqual(['a.ts']);
       expect(out.join('\n')).toContain('nothing to redraw: 1 unchanged group(s)');
       expect(out.join('\n')).toContain('kept 1 existing surface(s)');
@@ -500,7 +475,6 @@ describe('paqad-ai sitemap command', () => {
       const progress = savedProgress();
       expect(progress.units['group:ghost'].state).toBe('done');
       expect(progress.units['group:ungrouped'].state).toBe('done');
-      // The ghost unit's write merged no surface; only the real one was appended.
       expect(out.join('\n')).toContain('drafted 1 new surface(s)');
     });
 
@@ -535,7 +509,6 @@ describe('paqad-ai sitemap command', () => {
           entry: { kind: 'url', value: '/cart' },
         }),
       ]);
-      // Home navigates to /cart — resolves to the cart surface.
       gatherSiteMapTransitions.mockReturnValue([
         {
           from_raw_id: 'react-routes-home',
@@ -561,7 +534,6 @@ describe('paqad-ai sitemap command', () => {
           confidence: 'high',
         },
       ]);
-      // A fully resolved run prints no unresolved-links line.
       expect(out.join('\n')).not.toContain('could not be matched to a mapped surface');
     });
 
@@ -576,7 +548,7 @@ describe('paqad-ai sitemap command', () => {
       gatherSiteMapTransitions.mockReturnValue([
         {
           from_raw_id: 'react-routes-home',
-          to_target: '/gone', // no surface carries this entry
+          to_target: '/gone',
           trigger: 'navigate',
           evidence: [{ file: 'src/Home.tsx', line: 8 }],
           confidence: 'high',
@@ -591,7 +563,6 @@ describe('paqad-ai sitemap command', () => {
         string,
         { surfaces: Array<{ id: string; transitions?: unknown[] }> },
       ];
-      // The unresolvable edge was dropped, never guessed onto the surface.
       expect(
         finalMap.surfaces.find((s) => s.id === 'react-routes-home')!.transitions,
       ).toBeUndefined();
@@ -619,7 +590,6 @@ describe('paqad-ai sitemap command', () => {
     expect(out.join('\n')).toContain('"status":"ready"');
     expect(out.join('\n')).toContain('"remaining":1');
     expect(out.join('\n')).toContain('"next":{"id":"group:c","label":"Checkout"}');
-    // A readout never writes, and never runs crash recovery (AC-4).
     expect(saveProgress).not.toHaveBeenCalled();
     expect(recoverInFlight).not.toHaveBeenCalled();
   });
@@ -644,7 +614,6 @@ describe('paqad-ai sitemap command', () => {
     const out = await invoke(['status']);
     expect(process.exitCode).toBe(0);
     expect(out.join('\n')).toContain('0 of 1 done, 1 writing, 0 failed, 0 to go');
-    // No not_started unit remains, so there is nothing to do next.
     expect(out.join('\n')).toContain('Nothing left to do.');
     expect(out.join('\n')).toContain('"writing":1');
     expect(out.join('\n')).toContain('"next":null');

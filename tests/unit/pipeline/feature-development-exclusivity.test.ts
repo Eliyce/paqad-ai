@@ -18,11 +18,6 @@ import { assembleMap, scanAndEmbedIds } from '@/rule-scripts/analyzer.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
 
-// Issue #345 G6 — one exclusivity table proving that NONE of the four feature-development
-// obligations fires on ANY other routed workflow: no rule slice, no module-doc retrieval
-// enforcement, no rule-scripts, and no decision-pause self-arm. Every obligation is
-// feature-development-only; this asserts that across all 8 non-feature-development outcomes.
-
 const NON_FEATURE_DEV: RoutedWorkflow[] = ROUTED_WORKFLOWS.filter(
   (w) => w !== 'feature-development',
 );
@@ -51,8 +46,6 @@ for (const f of files) {
 process.stdout.write(JSON.stringify({ rule_id: '__RID__', kind: 'deterministic', findings }));
 `;
 
-/** A project with a REAL armed rule-script and a violating file — so a route that would run
- *  rule-scripts WOULD block. Any route that does not block proves rule-scripts stayed off. */
 function armedProject(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-exclusivity-'));
   roots.push(root);
@@ -96,7 +89,7 @@ afterEach(() => {
   }
 });
 
-describe('feature-development exclusivity (#345 G6)', () => {
+describe('feature-development exclusivity', () => {
   it('feature-development is the ONLY route flagged for the heavy path', () => {
     expect(isFeatureDevelopmentRoute('feature-development')).toBe(true);
     expect(compositionForRoute({ workflow: 'feature-development', query: '' }).loadRules).toBe(
@@ -128,7 +121,6 @@ describe('feature-development exclusivity (#345 G6)', () => {
         seam: 'completion',
         payload: { sessionId: session },
       });
-      // The armed script would block on the debugger violation IF rule-scripts ran.
       expect(result.block).toBe(false);
       expect(result.summary).toBe('');
     },
@@ -144,7 +136,7 @@ describe('feature-development exclusivity (#345 G6)', () => {
     const out = runDecisionSelfArm({
       projectRoot: root,
       seam: 'pre-mutation',
-      env: {}, // no opt-in — only feature-development would arm by default
+      env: {},
       payload: { transcriptPath: '/t.jsonl', sessionId: session, targetPath: 'src/a.ts' },
       readTranscript: () => FORK,
     });

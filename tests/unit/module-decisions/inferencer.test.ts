@@ -73,7 +73,6 @@ describe('module-decisions/inferencer', () => {
       moduleMap: m,
     });
     expect(result.confident).toBe(false);
-    // Fallback choices still present.
     const kinds = result.choices.map((c) => c.kind);
     expect(kinds).toContain('new-module-fallback');
     expect(kinds).toContain('no-attribution');
@@ -109,7 +108,6 @@ describe('module-decisions/inferencer', () => {
       prompt: 'we will add the new feature to it on the of',
       moduleMap: null,
     });
-    // All function/stop words; nothing should remain.
     expect(result.prompt_tokens).toEqual([]);
   });
 
@@ -118,13 +116,11 @@ describe('module-decisions/inferencer', () => {
       mod({
         slug: 'payments',
         name: 'Payments',
-        // Path-only signal for "logging".
         source_paths: ['src/logging/payments-logger.ts'],
       }),
       mod({
         slug: 'logging',
         name: 'Logging',
-        // Name signal for "logging".
         source_paths: ['src/observability/**'],
       }),
     ]);

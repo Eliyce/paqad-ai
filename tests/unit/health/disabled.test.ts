@@ -6,10 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { HealthChecker } from '@/health/checker.js';
 
-// Issue #220 — `paqad-ai doctor` must report a deliberate disable as a healthy
-// "vanilla mode" state, not a fault.
-
-/** The durable local off-signal: paqad_enable=false in `.paqad/.config`. */
 const DISABLED_CONFIG = 'paqad_enable=false\n';
 
 describe('doctor reports the disabled (vanilla) state as healthy', () => {

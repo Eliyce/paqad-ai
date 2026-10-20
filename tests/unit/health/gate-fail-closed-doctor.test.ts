@@ -17,8 +17,6 @@ async function gateCheck(projectRoot: string): Promise<HealthCheckResult | undef
   return report.checks.find((check) => check.name === NAME);
 }
 
-/** Write a Claude settings.json from the real renderer, optionally stripping onFailure to
- *  simulate an install onboarded before #615. */
 function writeClaudeSettings(root: string, opts: { stripOnFailure?: boolean } = {}): void {
   const chain = buildHostHookChain('claude-code', ENV);
   const { content } = buildNativeHookConfigFile({
@@ -45,7 +43,7 @@ function writeClaudeSettings(root: string, opts: { stripOnFailure?: boolean } = 
   writeFileSync(join(root, '.claude/settings.json'), out);
 }
 
-describe('doctor — edit gates fail closed (issue #615, Part 6)', () => {
+describe('doctor — edit gates fail closed', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-gate-doctor-'));

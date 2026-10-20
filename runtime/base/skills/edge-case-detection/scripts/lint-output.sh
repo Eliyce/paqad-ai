@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
-# Purpose: Validate edge-case-detection output. Each finding must have
-#          Scenario, Why It Matters, Apply To.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate edge-case-detection output. Each finding must have
+         Scenario, Why It Matters, Apply To.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")
 else printf 'error: file not found: %s\n' "$1" >&2; exit 2
 fi
 
-# Empty short-circuit.
 if grep -qE '^No Additional Edge Cases$' <<<"$body"; then
   printf 'ok\n'; exit 0
 fi

@@ -129,9 +129,7 @@ describe('business-logic-abuse-review', () => {
         .split('\n')
         .filter((l) => l.trim() && !l.startsWith('#'))
         .map((l) => l.split(/\s+/, 1)[0]);
-      // No duplicate tokens
       expect(new Set(tokens).size).toBe(tokens.length);
-      // Each is kebab-case
       for (const t of tokens) expect(t).toMatch(/^[a-z][a-z0-9-]*$/);
     });
   });

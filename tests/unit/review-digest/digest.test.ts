@@ -7,8 +7,6 @@ import {
   type ReviewDigestInput,
 } from '@/review-digest/index.js';
 
-// Issue #360 — the composer is pure, so every section (including the honest degradations
-// and the hard line cap) is provable from fixtures without touching a filesystem.
 const EMPTY: ReviewDigestInput = {
   feature: null,
   generated_at: '2026-07-21T08:00:00.000Z',
@@ -44,7 +42,6 @@ describe('buildReviewDigest', () => {
     expect(markdown).toContain('- Stages: none recorded');
     expect(markdown).toContain('No frozen acceptance criteria on record');
     expect(markdown).toContain('No machine findings recorded');
-    // The blind spots are never "none" — they are the point of the section.
     expect(markdown).toContain('Semantic duplication');
   });
 
@@ -77,7 +74,6 @@ describe('buildReviewDigest', () => {
     expect(markdown).toContain('- AC-1 [test] — given a digest, when it builds, then it caps');
     expect(markdown).toContain('- AC-2 — no given/when/then recorded');
     expect(markdown).toContain('rule:RL-1 | high | deterministic | src/x.ts:12 | a machine fact');
-    // An anchor-less row still appears — it informs the reviewer, it just cannot be cited.
     expect(markdown).toContain('duplication | high | deterministic | - | a machine fact');
   });
 

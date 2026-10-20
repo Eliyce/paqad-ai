@@ -178,7 +178,6 @@ describe('DecisionStore.writePending enrichment (F25)', () => {
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
-  // Options that satisfy the store's copy-lint (verb-first label, fixed preview/trade-off stems).
   const compliantOptions = [
     {
       option_key: 'reuse',
@@ -199,7 +198,6 @@ describe('DecisionStore.writePending enrichment (F25)', () => {
   it('appends similar past decisions to a new pending packet context', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
-    // A prior resolved decision on the same topic.
     writeFileSync(
       join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, 'D-201.json'),
       JSON.stringify(
@@ -209,10 +207,7 @@ describe('DecisionStore.writePending enrichment (F25)', () => {
         }),
       ),
     );
-    // A new pending decision on the same topic (different task, no human response).
     const pending = resolvedPacket({
-      // Issue #387 — writePending rejects a non-ULID id; the D-201 precedent above stays
-      // legacy (disk-only read) to prove read tolerance.
       decision_id: 'D-01J000000000000000000000C2',
       task_session_id: 'task-2',
       status: 'pending',

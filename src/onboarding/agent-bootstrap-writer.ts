@@ -1,48 +1,9 @@
 import { buildDecisionPauseContractBody } from './decision-pause-contract-writer.js';
 import { buildNarrationContractBody } from './narration-contract-writer.js';
 
-/**
- * Issue #229 / #498 — the two core-owned framework docs, gate + router.
- *
- * Every provider's entry file (CLAUDE.md, AGENTS.md, GEMINI.md, …) is a lean stub
- * that does one thing: resolve `.paqad/framework-path.txt` to the framework install
- * directory (`~/.paqad-ai/current`, a symlink to this package's `runtime/`) and
- * load+follow the bootstrap doc that lives there (`AGENT-BOOTSTRAP.md`, the rendered
- * output of {@link buildAgentBootstrapDocument}).
- *
- * Issue #498 split the former monolith into two install docs so the enablement
- * verdict is provably resolved before any router / narration / stage prose is
- * loaded, and a DISABLED project ingests none of it:
- *
- *  - **{@link buildAgentBootstrapDocument} → `AGENT-BOOTSTRAP.md` (the gate).** Just
- *    the enablement check: it reads `paqad_enable` off the existing config surfaces
- *    (no new artifact) with the exact precedence the shell/TS/.mjs primitives use,
- *    the OFF bail-out (load nothing, write no sentinel, act normal), and a single
- *    pointer to load the router next when ON. Host-neutral: the self-probe is the
- *    default, and one conditional line lets the agent trust a host gate that already
- *    stated the verdict this turn (Claude Code's prompt-time hook, issue #498 Part A).
- *  - **{@link buildAgentRouterDocument} → `AGENT-ROUTER.md` (the router).** Loaded
- *    only when the gate resolves ON. It carries the workflow router, the always-load
- *    list (rules / stack / design-system / workflows) and workflow-handling note, the
- *    sentinel write, and the FULL narration and decision-pause contracts inline
- *    (including the per-adapter UI table — its `claude-code` row keeps the Claude Code
- *    decision tray / `AskUserQuestion` firing). Both contracts are sourced from the
- *    canonical body builders so the router cannot drift.
- *
- * Both rendered docs are committed under `runtime/` (they ship in the install and are
- * reached via the symlink — never written into a project). A golden test
- * (`tests/unit/onboarding/agent-bootstrap-writer.test.ts`) asserts each committed
- * file is byte-identical to its builder; regenerate them with
- * `pnpm vitest run agent-bootstrap-writer -u`.
- */
-
 const BOOTSTRAP_HEADER =
   '<!-- managed by paqad-ai — generated from src/onboarding/agent-bootstrap-writer.ts; regenerate with `pnpm vitest run agent-bootstrap-writer -u`. Do not edit by hand. -->';
 
-/**
- * The enablement **gate** (`AGENT-BOOTSTRAP.md`): resolve whether paqad is on, bail
- * out when off, and point at the router when on. Nothing else loads here.
- */
 export function buildAgentBootstrapDocument(): string {
   return `${BOOTSTRAP_HEADER}
 
@@ -70,12 +31,6 @@ paqad is enabled, so load \`AGENT-ROUTER.md\` from this same install directory n
 `;
 }
 
-/**
- * The **router** (`AGENT-ROUTER.md`): loaded only after the gate resolves paqad ON.
- * Everything the old monolith carried below the enablement check — routing, the
- * always-load contract, the sentinel, and the full narration + decision-pause
- * contracts — lives here, so a disabled project never ingests any of it.
- */
 export function buildAgentRouterDocument(): string {
   return `${BOOTSTRAP_HEADER}
 
@@ -123,9 +78,9 @@ Always load these and treat them as the canonical contract for documentation and
 - \`docs/instructions/design-system\`
 - \`docs/instructions/workflows\` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)
 
-**Rules load only for \`feature-development\` (issue #336).** When (and only when) you routed to feature-development, load the rules — artifact-first (issue #284): when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 11 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
+**Rules load only for \`feature-development\`.** When (and only when) you routed to feature-development, load the rules — artifact-first: when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 11 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
 
-**Loading the rules is required and recorded (issue #557).** Reading the applicable rule text is not optional and not on trust: after you have read the "Loaded rule text" section, run \`paqad-ai rules load\` (it prints the full text of the rules that apply to your changed files and writes \`rules-loaded.json\` into the feature bundle). paqad **blocks your first source edit** until that record exists, and the completion check **fails** a feature-development change whose applicable rules were never loaded — the same way a missing plan or spec fails. If you began editing on a non-feature route, \`paqad-ai rules load\` still works (it reads the compiled rules directly), so run it and re-try the edit. The record attests that the rules were loaded and acknowledged, not that they were comprehended.
+**Loading the rules is required and recorded.** Reading the applicable rule text is not optional and not on trust: after you have read the "Loaded rule text" section, run \`paqad-ai rules load\` (it prints the full text of the rules that apply to your changed files and writes \`rules-loaded.json\` into the feature bundle). paqad **blocks your first source edit** until that record exists, and the completion check **fails** a feature-development change whose applicable rules were never loaded — the same way a missing plan or spec fails. If you began editing on a non-feature route, \`paqad-ai rules load\` still works (it reads the compiled rules directly), so run it and re-try the edit. The record attests that the rules were loaded and acknowledged, not that they were comprehended.
 
 **RAG** (when \`rag_enabled\`): all 11 real workflows use retrieved context, scoped to the workflow; **no workflow** retrieves nothing.
 

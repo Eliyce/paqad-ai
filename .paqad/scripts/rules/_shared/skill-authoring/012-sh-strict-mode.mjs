@@ -11,11 +11,13 @@ const findings = [];
 const RE = null;
 const SKIP = null;
 const NEED = new RegExp("set -euo pipefail", "");
-const FILTER = new RegExp("\\.sh$", "");
+const FILTER = new RegExp("(^|/)skills/[^/]+/scripts/[^/]+\\.sh$", "");
+const SKIP_PATH = /(^|\/)(node_modules|__fixtures__)\//;
 const SEV = "low";
 const MSG = "Shell script missing `set -euo pipefail` at the top.";
 for (const file of files) {
   if (FILTER && !FILTER.test(file)) continue;
+  if (SKIP_PATH.test(file)) continue;
   let text; try { text = readFileSync(join(projectRoot, file), 'utf8'); } catch { continue; }
   const lines = text.split('\n');
   if (!NEED.test(text)) findings.push({ file, message: MSG, severity: SEV });

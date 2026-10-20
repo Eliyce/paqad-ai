@@ -20,6 +20,22 @@ overrides with deterministic precedence.
 - [Override Precedence](../features/pack-overrides/business.md)
 - [Custom Pack Authoring](../features/pack-authoring/business.md)
 
+## Why the code works the way it does
+
+- **`compliance-packs.ts`.** A compliance pack is a separate kind from a stack pack: it has no
+  detection fields, only a framework header and clause-to-gate mappings. Compliance packs live in
+  their own roots so the stack loader never mistakes one for a stack pack with no manifest. They
+  use the same built-in, global, project precedence. An invalid pack is quarantined with warnings
+  and skipped, never thrown, so a bad mapping cannot break verification. Gate and obligation
+  references are checked beyond the schema, because a misspelled gate would silently never be
+  cited, which is worse than a loud quarantine.
+- **`loader.ts`.** Folders starting with `_` or `.` hold shared assets or VCS data and are never
+  treated as packs, so they do not raise a false load-failure event on every load. A quarantined
+  pack records an event whose hash is over its `pack.yaml` bytes (or over its root path when there
+  is no manifest), so an unchanged failure repeats the same hash for de-duplication. A test
+  runner's `flag` parallel mode must carry a flag with `<processes>` exactly once, and the other
+  modes must carry none.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

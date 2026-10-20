@@ -9,13 +9,6 @@ import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.
 import { createProjectWorkspace } from '@/onboarding/create-project.js';
 import { verifyReadinessToDevelop } from '@/onboarding/readiness.js';
 
-// FR-7 — after installation and onboarding, creation verifies readiness to develop before
-// declaring setup complete. An undecided workspace is honestly NOT ready.
-//
-// Full onboarding is heavy (it builds the code-knowledge index and compiles rules), so it runs
-// exactly ONCE here: `beforeAll` creates one real undecided workspace as a template and each test
-// copies it into a fresh dir. Readiness is read-only, so a copy is a faithful stand-in and the
-// Windows CI worker is not starved by a dozen real onboarding runs.
 describe('verifyReadinessToDevelop (FR-7)', () => {
   let templateRoot: string;
   let templateHome: string;
@@ -51,7 +44,6 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
     rmSync(parentDir, { recursive: true, force: true });
   });
 
-  /** Copy the one onboarded template into a fresh project dir for a test to mutate. */
   function freshWorkspace(name: string): string {
     const projectRoot = join(parentDir, name);
     cpSync(templateRoot, projectRoot, { recursive: true });
@@ -72,7 +64,6 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
     const projectRoot = freshWorkspace('ready-proj');
     rmSync(join(projectRoot, PATHS.MODULES_DIR), { recursive: true, force: true });
 
-    // The owner chose a stack: real commands replace the undecided placeholders…
     const profile = readProjectProfile(projectRoot)!;
     profile.commands = {
       ...profile.commands,
@@ -83,7 +74,6 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
     };
     writeProjectProfile(projectRoot, profile);
 
-    // …and module documentation now exists (the template ships none).
     const modulesDir = join(projectRoot, PATHS.MODULES_DIR);
     mkdirSync(modulesDir, { recursive: true });
     writeFileSync(join(modulesDir, 'core.md'), '# Core module\n', 'utf8');
@@ -121,7 +111,6 @@ describe('verifyReadinessToDevelop (FR-7)', () => {
   it('treats a non-directory docs/modules as absent module docs', () => {
     const projectRoot = freshWorkspace('badmod-proj');
 
-    // docs/modules is a FILE, not a directory — readdirSync throws, which must read as "absent".
     const modulesPath = join(projectRoot, PATHS.MODULES_DIR);
     rmSync(modulesPath, { recursive: true, force: true });
     mkdirSync(join(projectRoot, 'docs'), { recursive: true });

@@ -2,12 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { gateFailureMessage } from '../../../runtime/hooks/lib/gate-failure.mjs';
 
-// Issue #615 (Part 6) — the three pre-mutation edit gates fail CLOSED: an unexpected exception
-// blocks the edit (exit 2) with a doctor-pointing message instead of being swallowed.
-
 const DISABLED_MOD = '../../../runtime/hooks/lib/paqad-disabled.mjs';
 
-/** Force the shared resolver to throw, so the gate's wrapper catch fires. */
 function mockResolverThrows() {
   vi.doMock(DISABLED_MOD, async (importOriginal) => {
     const actual = (await importOriginal()) as Record<string, unknown>;
@@ -42,7 +38,7 @@ describe('gateFailureMessage', () => {
   });
 });
 
-describe('edit gates fail closed on an unexpected throw (issue #615, Part 6)', () => {
+describe('edit gates fail closed on an unexpected throw', () => {
   afterEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();

@@ -1,13 +1,4 @@
 #!/usr/bin/env node
-// Purpose: Single entry point for the rule-editor sub-modes (issue #89). Does
-//          the deterministic file/map mechanics; the skill orchestrates
-//          re-analysis + regen + Decision Pause around it.
-// Usage:
-//   node scripts/edit-rule.mjs add      <project-root> <source-rel> <text>
-//   node scripts/edit-rule.mjs edit     <project-root> <rule-id> <text>
-//   node scripts/edit-rule.mjs remove   <project-root> <rule-id>
-//   node scripts/edit-rule.mjs downgrade <project-root> <rule-id> <reason>
-// Output:  JSON describing the change on stdout.
 import {
   addRule,
   addRuleEntry,
@@ -55,10 +46,6 @@ switch (mode) {
     if (!a || !b) fail('add requires <source-rel> <text>');
     const added = addRule(projectRoot, a, b);
     out = { mode, ...added };
-    // Keep the map in sync when one exists, so the reconciler doesn't emit a
-    // false RS-RULE-ADDED until the next `analyze rules` (D-1). On a project
-    // that has never been analyzed there is no map to maintain — the skill runs
-    // `analyze rules` next, which builds the full map.
     const map = loadRuleScriptMap(projectRoot);
     if (map) {
       const synced = addRuleEntry(map, added);
@@ -79,9 +66,6 @@ switch (mode) {
     if (!a || !b) fail('edit requires <rule-id> <text>');
     const located = editRuleText(projectRoot, a, b);
     if (!located) fail(`rule ${a} not found on disk`);
-    // Keep the map in sync in the same operation: new text + hash, stale
-    // scripts cleared. The skill then regenerates this rule's scripts. Uses the
-    // shared cleanRuleText helper so the hash matches editRuleText's on-disk text.
     const clean = cleanRuleText(b);
     const result = applyMapMutation(
       (m) => setRuleText(m, a, clean, ruleTextHash(clean)),

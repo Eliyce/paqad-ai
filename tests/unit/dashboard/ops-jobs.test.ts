@@ -27,7 +27,6 @@ function readAudit(root: string): string {
   return existsSync(path) ? readFileSync(path, 'utf8') : '';
 }
 
-/** A promise the test resolves or rejects by hand, to freeze a job mid-run. */
 function deferred<T>(): {
   promise: Promise<T>;
   resolve: (value: T) => void;
@@ -153,12 +152,9 @@ describe('ops job runner', () => {
       expect(() => runner.start('doctor')).toThrow(OpsConflictError);
       expect(() => runner.start('doctor')).toThrow(/already running/);
 
-      // A different action is not blocked.
       const other = runner.start('rag-clear');
       await vi.waitFor(() => expect(other.status).toBe('done'));
 
-      // After the first run finishes, the same action can start again. The
-      // counter is runner-wide, so the rag-clear job above consumed id 2.
       gate.resolve(null);
       await vi.waitFor(() => expect(job.status).toBe('done'));
       const second = runner.start('doctor');
@@ -195,7 +191,6 @@ describe('ops job runner', () => {
 
       const jobs = runner.list();
       expect(jobs).toHaveLength(50);
-      // The oldest five runs were pruned; the newest survives.
       expect(jobs[0].id).toBe('op-doctor-55');
       expect(jobs.at(-1)?.id).toBe('op-doctor-6');
     });
@@ -252,14 +247,12 @@ describe('ops job runner', () => {
       });
       expect(job.result).toHaveProperty('report_id');
       expect(job.progress.length).toBeGreaterThan(1);
-      // S4: the first progress line reports the inventory, replacing the generic scan sentence.
       expect(job.progress[0]).toMatch(/^Found \d+ screens across \d+ groups\.$/);
       expect(job.progress.join('\n')).not.toContain('Mapping the app');
       expect(readAudit(root)).toContain('dashboard.ops.site-map');
     });
 
     it('site-map emits one worded progress line per completed unit from the store (S6)', async () => {
-      // Seed the S5 progress store a previous draft would have written, with two done units.
       const progress = createEmptyProgress({ screens: 0, groups: [] }, new Date());
       const billing = createUnit({
         id: 'group:billing',
@@ -285,7 +278,6 @@ describe('ops job runner', () => {
       expect(job.status).toBe('done');
       expect(job.progress).toContain('Group 1 of 1: Billing');
       expect(job.progress).toContain('Journey 1 of 1: Checkout, guest');
-      // The inventory sentence still leads (S4) and the summary still trails.
       expect(job.progress[0]).toMatch(/^Found \d+ screens across \d+ groups\.$/);
       expect(job.progress.join('\n')).toContain('Mapped the app:');
     });
@@ -304,8 +296,6 @@ describe('ops job runner', () => {
     });
 
     it('reconcile scans declared source roots when a pack provides them', async () => {
-      // A project pack is the one source of module_health.source_roots that
-      // needs no built-in pack cooperation.
       const packRoot = join(root, '.paqad', 'packs', 'fixture-pack');
       mkdirSync(packRoot, { recursive: true });
       writeFileSync(
@@ -371,8 +361,6 @@ describe('ops job runner', () => {
     it('regenerate-docs writes docs and theme exports from real tokens', async () => {
       const tokensPath = join(root, PATHS.DESIGN_TOKENS_FILE);
       mkdirSync(dirname(tokensPath), { recursive: true });
-      // The placeholder values without the placeholder $comment count as
-      // real tokens, so generation proceeds.
       writeFileSync(tokensPath, `${JSON.stringify(PLACEHOLDER_DESIGN_TOKENS, null, 2)}\n`);
 
       const job = await run('regenerate-docs');

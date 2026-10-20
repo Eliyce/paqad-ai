@@ -4,12 +4,6 @@ import { Command } from 'cmdk';
 import type { AppMap, Journey } from '../lib/site-map-types';
 import { kindMeta } from '../lib/site-map-vocab';
 
-/**
- * The cmd+K / ctrl+K palette over surfaces, areas, and journeys (issue #489, Phase 2). Picking a
- * result flies the camera to it (the caller owns the flight) and, for a surface, selects it. Pure
- * client search over the served payload — no LLM, no network.
- */
-
 interface Props {
   map: AppMap;
   journeys: Journey[];
@@ -27,9 +21,6 @@ export function SiteMapSearch({
 }: Props) {
   const [open, setOpen] = useState(false);
 
-  // Claim cmd/ctrl+K in the capture phase so the map search wins over the dashboard's global nav
-  // palette (which also binds cmd+K) while the map is on screen; stopImmediatePropagation keeps the
-  // two from both opening. Scoped to this component's lifetime, so other views keep the nav palette.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {

@@ -62,8 +62,6 @@ export function collectStackDrift(projectRoot: string, now: number = Date.now())
   if (drift.status === 'no-drift') {
     score = 100;
   } else {
-    // Each material change deducts 15, floor at 0. > 90d old drift report
-    // adds extra 20 penalty since it's likely no longer accurate.
     let s = 100 - changeCount * 15;
     if (age !== null && age > 90) s -= 20;
     score = Math.max(0, s);

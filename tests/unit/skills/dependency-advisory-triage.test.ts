@@ -113,7 +113,6 @@ describe('dependency-advisory-triage', () => {
         );
         const r = runScript(path, [npm, osv]);
         const records = lines(r.stdout).map((l) => JSON.parse(l));
-        // Same key (npm|lodash|GHSA-x) → one merged record.
         expect(records.length).toBe(1);
         expect(records[0].severity).toBe('critical');
         expect(records[0].sources.length).toBe(2);

@@ -64,13 +64,11 @@ describe('applyMetadataFilters — module_path_prefix', () => {
   });
 
   it('falls back when filtered set is below min threshold', () => {
-    // Only 'billing' matches — 1 chunk < default min 3
     const result = applyMetadataFilters(CHUNKS, [
       { type: 'module_path_prefix', value: 'src/billing' },
     ]);
     expect(result.fallback).toBe(true);
     expect(result.fallback_reason).toBe('below-min-threshold');
-    // Fallback returns the full original set
     expect(result.chunks).toHaveLength(CHUNKS.length);
   });
 
@@ -158,7 +156,6 @@ describe('applyMetadataFilters — framework', () => {
 describe('applyMetadataFilters — recency_cutoff_ms', () => {
   it('accepts all chunks without modified_at_ms (no data available)', () => {
     const result = applyMetadataFilters(CHUNKS, [{ type: 'recency_cutoff_ms', value: 1000 }]);
-    // No modified_at_ms on any chunk → all accepted (conservative)
     expect(result.chunks).toHaveLength(CHUNKS.length);
   });
 
@@ -207,7 +204,6 @@ describe('applyMetadataFilters — edge cases', () => {
   });
 
   it('respects custom minFilteredSize', () => {
-    // Only 1 .tsx file; with minFilteredSize=1 it should NOT fall back
     const result = applyMetadataFilters(CHUNKS, [{ type: 'file_extension', value: '.tsx' }], {
       minFilteredSize: 1,
     });

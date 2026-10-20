@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import {
   chmodSync,
   existsSync,
@@ -15,6 +16,7 @@ import YAML from 'yaml';
 
 import { VERSION } from '@/index.js';
 import { PAQAD_SCHEMA_VERSION } from '@/core/constants/schema.js';
+import { generateConfigExample } from '@/core/framework-config.js';
 import { schemaMarkerPath, schemaMigrationLogPath } from '@/core/schema-version.js';
 import { FrameworkUpdater } from '@/update/index.js';
 
@@ -132,9 +134,102 @@ describe('FrameworkUpdater', () => {
     expect(versionFileContent).toMatch(/^updated_at=/m);
   });
 
+  it('leaves the tracked config of a newer checkout byte-identical on update', async () => {
+    const newerExample = generateConfigExample('999.0.0');
+    const app = '# team header\nenterprise=true\nfuture_knob=on\n';
+    mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/.config.example'), newerExample);
+    writeFileSync(join(projectRoot, '.paqad/configs/.config.app'), app);
+
+    const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(
+      projectRoot,
+    );
+
+    expect(readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8')).toBe(newerExample);
+    expect(readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8')).toBe(app);
+    expect(report.config_keys_pruned).toEqual([]);
+  });
+
+  it('refreshes the tracked config as before when the stamp matches this version', async () => {
+    mkdirSync(join(projectRoot, '.paqad/configs'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/.config.example'), generateConfigExample());
+    writeFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'future_knob=on\n');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(readFileSync(join(projectRoot, '.paqad/.config.example'), 'utf8')).toBe(
+      generateConfigExample(),
+    );
+    const app = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
+    expect(app).not.toContain('future_knob');
+    expect(app).toMatch(/^# auto_update=true$/m);
+  });
+
+  it('adds a missing managed ignore line and keeps every line outside the managed block', async () => {
+    const begin = '# >>> paqad-ai managed (do not edit between markers) >>>';
+    const end = '# <<< paqad-ai managed <<<';
+    const before = '# team lines\nmy-cache/\n\n';
+    const after = '\n# after the block\nnotes.txt\n';
+    writeFileSync(
+      join(projectRoot, '.paqad/.gitignore'),
+      `${before}${begin}\n.agent-entry-loaded\nvectors/\n${end}${after}`,
+    );
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    const text = readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8');
+    const block = text.slice(text.indexOf(begin), text.indexOf(end));
+    expect(block.split('\n')).toContain('.agent-entry-loaded.d/');
+    expect(block.split('\n')).toContain('vectors/');
+    expect(text.startsWith(before)).toBe(true);
+    expect(text.endsWith(after)).toBe(true);
+  });
+
+  it('adds the local config line to .worktreeinclude and keeps the existing lines', async () => {
+    writeFileSync(join(projectRoot, '.worktreeinclude'), 'secrets/dev.env\n.env.local\n');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(readFileSync(join(projectRoot, '.worktreeinclude'), 'utf8')).toBe(
+      'secrets/dev.env\n.env.local\n.paqad/.config\n',
+    );
+  });
+
+  it('leaves the git index, deprecated artifacts and the root ignore file untouched', async () => {
+    const git = (...args: string[]) =>
+      execFileSync('git', args, { cwd: projectRoot, stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString('utf8')
+        .trim();
+    git('init', '-q');
+    mkdirSync(join(projectRoot, '.paqad/session'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad/session/state.json'), '{}\n');
+    writeFileSync(join(projectRoot, '.paqad/version'), '1.0.0\n');
+    const rootIgnore =
+      'node_modules/\n\n# >>> paqad-ai managed (do not edit between markers) >>>\nvectors/\n# <<< paqad-ai managed <<<\n';
+    writeFileSync(join(projectRoot, '.gitignore'), rootIgnore);
+    git('add', '-f', '.paqad/session/state.json', '.paqad/version', '.gitignore');
+    const indexBefore = git('ls-files', '-s');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(git('ls-files', '-s')).toBe(indexBefore);
+    expect(existsSync(join(projectRoot, '.paqad/version'))).toBe(true);
+    expect(readFileSync(join(projectRoot, '.gitignore'), 'utf8')).toBe(rootIgnore);
+    expect(readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8')).toContain('session/');
+  });
+
+  it('leaves the managed ignore file alone when the checkout is newer', async () => {
+    writeFileSync(join(projectRoot, '.paqad/.config.example'), generateConfigExample('999.0.0'));
+    const ignore =
+      '# >>> paqad-ai managed (do not edit between markers) >>>\nfuture/\n# <<< paqad-ai managed <<<\n';
+    writeFileSync(join(projectRoot, '.paqad/.gitignore'), ignore);
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8')).toBe(ignore);
+  });
+
   it('migrates an already-onboarded project schema forward on update (buildout F1, C4)', async () => {
-    // An older-marker project: update must advance its `.paqad/` schema, which it
-    // never did before F1 (migration ran only at onboard).
     writeFileSync(
       schemaMarkerPath(projectRoot),
       JSON.stringify({
@@ -157,9 +252,7 @@ describe('FrameworkUpdater', () => {
     });
   });
 
-  it('finishes a pending evidence migration on a later update (issue #581, AC-28)', async () => {
-    // Already at the current schema, so the one-time migrator does not run again; a run the
-    // migration left behind (another session held it then) is still moved on this update.
+  it('finishes a pending evidence migration on a later update', async () => {
     writeFileSync(
       schemaMarkerPath(projectRoot),
       JSON.stringify({
@@ -181,12 +274,11 @@ describe('FrameworkUpdater', () => {
   });
 
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
-    'goes on with the update when the evidence migration cannot delete a file (issue #581)',
+    'goes on with the update when the evidence migration cannot delete a file',
     async () => {
       const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
       mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
       writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
-      // A read-only parent refuses the delete, as a Windows lock (EBUSY/EPERM) would.
       chmodSync(join(projectRoot, '.paqad/_specs'), 0o500);
       try {
         const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(
@@ -264,9 +356,7 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, 'docs/rules/team.md'), 'utf8')).toBe('current rule');
     expect(existsSync(join(projectRoot, 'scripts/new-script.sh'))).toBe(true);
   });
-  // Issue #622 — update regenerates its candidates in a temp root, so the legacy MCP cleanup has
-  // to run on the real project. User-owned MCP files stay byte-identical; paqad's own go.
-  describe('legacy MCP files on update (issue #622)', () => {
+  describe('legacy MCP files on update', () => {
     let userHome: string;
     const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
     const userOwned = (name: string): string =>
@@ -313,12 +403,7 @@ describe('FrameworkUpdater', () => {
     });
   });
 
-  // Issue #573 — the update path must render the stage agents too, not only onboarding.
-  // `writeStageAgents` was reachable ONLY from `bootstrapFramework` (install/onboard), but an
-  // already-onboarded project upgrades through silent-update -> `paqad-ai update --silent`,
-  // so every upgraded machine got the #567 SubagentStop hook with no agents behind it.
-  // HOME/USERPROFILE point os.homedir() at a temp dir so the test never touches the real home.
-  describe('stage-agent generation on update (issue #573)', () => {
+  describe('stage-agent generation on update', () => {
     let userHome: string;
     let savedHome: string | undefined;
     let savedUserProfile: string | undefined;
@@ -371,9 +456,6 @@ describe('FrameworkUpdater', () => {
       expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
     });
 
-    // Issue #616 Part 7 — when the plugin is installed it owns the stage agents + Claude hooks, so
-    // the npm updater must not re-write them. (Injected candidates isolate the updater's own
-    // writeStageAgents call from the candidate-generation onboard.)
     it('writes home stage agents on update by default', async () => {
       await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
       expect(existsSync(join(userHome, '.claude/agents'))).toBe(true);

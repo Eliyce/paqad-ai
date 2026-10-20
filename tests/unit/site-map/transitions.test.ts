@@ -25,7 +25,6 @@ function record(
   };
 }
 
-/** Sort by (trigger, to_target) so an assertion does not depend on detector concat order. */
 function sorted(transitions: ExtractedTransition[]): ExtractedTransition[] {
   return [...transitions].sort(
     (a, b) => a.trigger.localeCompare(b.trigger) || a.to_target.localeCompare(b.to_target),
@@ -36,10 +35,10 @@ describe('site-map transitions', () => {
   describe('detectLaravelTransitions', () => {
     it('records each framework navigation call, high-confidence, with resolving evidence', () => {
       const content = [
-        "        return redirect()->route('dashboard');", // line 1
-        "        return redirect('/home');", // line 2
-        "        return to_route('profile.edit');", // line 3
-        "        return Inertia::render('Users/Index');", // line 4
+        "        return redirect()->route('dashboard');",
+        "        return redirect('/home');",
+        "        return to_route('profile.edit');",
+        "        return Inertia::render('Users/Index');",
       ].join('\n');
       const transitions = detectLaravelTransitions([record(content)]);
 
@@ -87,7 +86,6 @@ describe('site-map transitions', () => {
     });
 
     it('does not record a bare route() URL build or a lookalike path string (negative fixture)', () => {
-      // route() alone builds a URL (no navigation); a lone path literal is just a string.
       const content = ["        $url = route('dashboard');", "        $path = '/checkout';"].join(
         '\n',
       );
@@ -98,10 +96,10 @@ describe('site-map transitions', () => {
   describe('detectReactRouterTransitions', () => {
     it('records navigate(), <Link to>, and <Navigate to> as high-confidence edges', () => {
       const content = [
-        '  const navigate = useNavigate();', // line 1: a hook call, not navigation
-        "  navigate('/checkout');", // line 2
-        '  return <Link className="btn" to="/cart">Cart</Link>;', // line 3
-        '  return <Navigate to="/login" replace />;', // line 4
+        '  const navigate = useNavigate();',
+        "  navigate('/checkout');",
+        '  return <Link className="btn" to="/cart">Cart</Link>;',
+        '  return <Navigate to="/login" replace />;',
       ].join('\n');
       const transitions = detectReactRouterTransitions([
         record(content, { from_raw_id: 'react-routes-checkout', file: 'src/pages/Checkout.tsx' }),
@@ -159,8 +157,8 @@ describe('site-map transitions', () => {
 
     it('does not record a command declaration or a description mention (negative fixture)', () => {
       const content = [
-        "  program.command('build');", // a declaration, not an invocation
-        "  console.log('run the build command');", // a mention in a string
+        "  program.command('build');",
+        "  console.log('run the build command');",
       ].join('\n');
       expect(detectNodeCliTransitions([record(content)])).toEqual([]);
     });
@@ -189,9 +187,9 @@ describe('site-map transitions', () => {
 
     it('resolves a target by route name, by URL path, and by command name (AC-1)', () => {
       const surfaces = [
-        surface('laravel-routes-get-dashboard', 'dashboard'), // a route name
-        surface('react-routes-cart', '/cart'), // a URL path
-        surface('node-cli-index-build', 'index build'), // a command name
+        surface('laravel-routes-get-dashboard', 'dashboard'),
+        surface('react-routes-cart', '/cart'),
+        surface('node-cli-index-build', 'index build'),
       ];
       const transitions = [
         transition({ from_raw_id: 'a', to_target: 'dashboard', trigger: 'redirect' }),
@@ -242,10 +240,7 @@ describe('site-map transitions', () => {
     it('drops and counts a target that matches no surface, never guessing (AC-2)', () => {
       const surfaces = [surface('react-routes-cart', '/cart')];
       const { resolved, dropped } = resolveTransitions(
-        [
-          transition({ to_target: '/cart' }),
-          transition({ to_target: '/nowhere' }), // no surface carries this entry
-        ],
+        [transition({ to_target: '/cart' }), transition({ to_target: '/nowhere' })],
         surfaces,
       );
       expect(dropped).toBe(1);
@@ -254,11 +249,7 @@ describe('site-map transitions', () => {
     });
 
     it('ignores surfaces with no entry and keeps the first surface for a shared entry value', () => {
-      const surfaces = [
-        surface('no-entry'), // never a resolution target
-        surface('first', '/dup'),
-        surface('second', '/dup'), // same entry.value — first wins
-      ];
+      const surfaces = [surface('no-entry'), surface('first', '/dup'), surface('second', '/dup')];
       const { resolved, dropped } = resolveTransitions(
         [transition({ to_target: '/dup' })],
         surfaces,
@@ -305,9 +296,7 @@ describe('site-map transitions', () => {
       expect(attached.find((s) => s.id === 'home')!.transitions).toEqual([
         { to: 'cart', trigger: 'link', evidence: [{ file: 'a.tsx', line: 2 }], confidence: 'high' },
       ]);
-      // cart has no outgoing edge and is returned unchanged (same reference).
       expect(attached.find((s) => s.id === 'cart')).toBe(base[1]);
-      // checkout keeps its authored edge and gains the resolved one (appended, not replaced).
       expect(attached.find((s) => s.id === 'checkout')!.transitions).toEqual([
         { to: 'home', trigger: 'link' },
         {
@@ -336,8 +325,6 @@ describe('site-map transitions', () => {
     });
 
     it('dedups by identity when evidence is a single anchor or absent', () => {
-      // A single (non-array) evidence anchor and an edge with no evidence at all both flow through
-      // the de-dup key, so an identical pair collapses in each case.
       const single = {
         from_id: 'home',
         transition: {
@@ -360,7 +347,6 @@ describe('site-map transitions', () => {
       expect(attached.find((s) => s.id === 'home')!.transitions).toEqual([
         { to: 'cart', trigger: 'link', evidence: { file: 'a.tsx', line: 2 }, confidence: 'high' },
       ]);
-      // checkout keeps its authored edge and gains the single de-duped anchorless one.
       expect(attached.find((s) => s.id === 'checkout')!.transitions).toEqual([
         { to: 'home', trigger: 'link' },
         { to: 'cart', trigger: 'navigate' },

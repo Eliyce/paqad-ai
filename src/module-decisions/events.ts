@@ -1,7 +1,3 @@
-// .paqad/module-map/events.jsonl writer/reader. Append-only audit trail of
-// every accepted module decision, reconciliation outcome, and rollup.
-// Issue #80, Phase 1 §4.6. Reused by Phases 2-4.
-
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -15,12 +11,7 @@ export type ModuleMapEventType =
   | 'module.decision.expired'
   | 'module.decision.rejected'
   | 'module.map.snapshot'
-  // PQD-104 — emitted once for a workflow/pipeline/index run that a consumer
-  // cancelled via an AbortSignal. No further events for that run_id follow.
   | 'run.cancelled'
-  // PQD-171 — emitted when a per-turn conversation rebuild had to drop the
-  // oldest turns to fit the model window after summarisation. Lets the desktop
-  // show an "older turns were removed" banner from the audit trail.
   | 'context.truncated';
 
 export interface ModuleMapEvent {
@@ -29,14 +20,7 @@ export interface ModuleMapEvent {
   slug?: string;
   via?: string;
   approved_by?: string;
-  /** Correlates the event to a specific workflow or pipeline run (PQD-104). */
   run_id?: string;
-  /**
-   * Stable taxonomy code for a terminal/failure event (PQD-107). Optional and
-   * backward-compatible: existing readers ignore it, old entries lack it. When a
-   * long-running operation fails, this carries the same code the call's returned
-   * or thrown error carries, so the consumer reconciles a single shape.
-   */
   error_code?: EngineErrorCode;
   payload?: Record<string, unknown>;
 }
@@ -56,11 +40,6 @@ export function appendModuleMapEvent(projectRoot: string, event: ModuleMapEvent)
   appendFileSync(path, JSON.stringify(event) + '\n', 'utf8');
 }
 
-/**
- * Append the single `run.cancelled` audit event for a consumer-cancelled run
- * (PQD-104). Call sites guard so this fires at most once per run; a second
- * abort on an already-cancelled run must not write a duplicate event.
- */
 export function appendRunCancelledEvent(
   projectRoot: string,
   runId: string,
@@ -75,13 +54,6 @@ export function appendRunCancelledEvent(
   });
 }
 
-/**
- * Append a `context.truncated` audit event for a per-turn conversation rebuild
- * that dropped the oldest turns to fit the model window (PQD-171). The same
- * facts are also returned synchronously on `ConversationRebuildResult`, so a
- * consumer can react without tailing the event stream; this is the durable
- * record for replay and inspectors.
- */
 export function emitContextTruncated(
   projectRoot: string,
   payload: { sessionId: string; turnsDropped: number; tokensReclaimed: number },
@@ -106,10 +78,7 @@ export function readModuleMapEvents(projectRoot: string): ModuleMapEvent[] {
       if (typeof parsed === 'object' && parsed !== null && typeof parsed.type === 'string') {
         out.push(parsed);
       }
-    } catch {
-      // Skip malformed lines; events.jsonl is append-only but partial writes
-      // (e.g. mid-crash) shouldn't poison the whole reader.
-    }
+    } catch {}
   }
   return out;
 }

@@ -11,9 +11,6 @@ export interface BudgetClassificationHints {
   scope?: SemanticLoadClassification['scope'];
 }
 
-// Ratio presets keyed by (complexity, scope) signal strength.
-// trivial / single-file → minimal supporting context
-// high-very-high / system-wide → larger supporting context for cross-cutting work
 const RATIO_PRESETS: Array<{
   test: (hints: BudgetClassificationHints) => boolean;
   critical: number;
@@ -21,28 +18,24 @@ const RATIO_PRESETS: Array<{
   supporting: number;
 }> = [
   {
-    // Trivial or single-file: very little supporting context needed
     test: ({ complexity, scope }) => complexity === 'trivial' || scope === 'single-file',
     critical: 0.55,
     task_relevant: 0.4,
     supporting: 0.05,
   },
   {
-    // Low complexity or single-module: small supporting context
     test: ({ complexity, scope }) => complexity === 'low' || scope === 'single-module',
     critical: 0.5,
     task_relevant: 0.42,
     supporting: 0.08,
   },
   {
-    // Very-high complexity or system-wide: large supporting context for cross-cutting work
     test: ({ complexity, scope }) => complexity === 'very-high' || scope === 'system-wide',
     critical: 0.35,
     task_relevant: 0.4,
     supporting: 0.25,
   },
   {
-    // High complexity or multi-module: moderately larger supporting context
     test: ({ complexity, scope }) => complexity === 'high' || scope === 'multi-module',
     critical: 0.38,
     task_relevant: 0.42,

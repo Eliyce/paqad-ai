@@ -1,14 +1,3 @@
-// Issue #581 (AC-1, AC-2) — one in-process fixture run of a whole feature-development change,
-// driven verb by verb the way an agent drives it: open the change, plan compile, the spec
-// pipeline where it is on, spec freeze, rules load, a source edit, review record, checks run,
-// and the end-of-turn repository verification. Every step goes through the real CLI verb or
-// the real writer the host would call, and after each one the run checks that the retired
-// `.paqad/_specs/` folder does not exist (AC-2, after every verb, not only at the end).
-//
-// The oracle below is the issue's "Expected file set per config" table. `checks.json` is left
-// out of the table's counts because it depends on what the change did; this run always
-// performs `checks run`, so it is always present and the harness adds it to every case.
-
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 
 import { dirname, join } from 'pathe';
@@ -47,7 +36,6 @@ export const ORACLE_CASES: readonly OracleCase[] = ['M0', 'M1', 'M2', 'M3', 'M4'
 const M2_CONFIG = ['spec_pipeline_enabled=true'];
 const M3_CONFIG = [...M2_CONFIG, 'spec_pipeline_experts_enabled=true'];
 
-/** The `.paqad/.config` lines for each case, from the issue's oracle table. */
 export const CASE_CONFIG: Readonly<Record<OracleCase, readonly string[]>> = {
   M0: [
     'rule_compliance=off',
@@ -88,10 +76,8 @@ const M1_FILES = [
   'report.html',
 ];
 const M2_FILES = [...M1_FILES, 'request.md', 'clarification.json'];
-// Issue #639, Part 13: a run that seats experts also leaves the High Table ledger.
 const M3_FILES = [...M2_FILES, 'experts.json', 'high-table.jsonl'];
 
-/** The exact oracle set per case (the issue's table, without the change-dependent files). */
 export const CASE_FILES: Readonly<Record<OracleCase, readonly string[]>> = {
   M0: M0_FILES,
   M1: M1_FILES,
@@ -101,7 +87,6 @@ export const CASE_FILES: Readonly<Record<OracleCase, readonly string[]>> = {
   M5: M1_FILES,
 };
 
-/** The change-dependent file this run always produces (it always runs `checks run`). */
 export const CHANGE_DEPENDENT_FILES: readonly string[] = ['checks.json'];
 
 export const RUN_SESSION = 'ses_bundle_run';
@@ -124,22 +109,14 @@ const SPEC = [
 
 export interface BundleRun {
   root: string;
-  /** The bundle folder name at the end of the run. */
   dir: string;
-  /** Every step the run performed, in order (each one was followed by the AC-2 check). */
   steps: string[];
   caseId: OracleCase;
 }
 
 export interface BundleRunOptions {
-  /**
-   * Open the change with a bare `stage start planning` (a `change-<ULID>` bundle) and let
-   * `plan compile` name it from the template title, as AC-17 describes.
-   */
   untitled?: boolean;
-  /** Called with the bundle folder name after every step, for checks beyond AC-2. */
   afterStep?: (root: string, step: string) => void;
-  /** Called with the project root and bundle folder name just before turn-end verification. */
   beforeVerification?: (root: string, dir: string) => void;
 }
 
@@ -159,11 +136,6 @@ type CliFactory = () => {
   parseAsync: (argv: string[], options: { from: 'user' }) => Promise<unknown>;
 };
 
-/**
- * Drive one whole change for `caseId` in a fresh temp project and return where it landed.
- * Fails the calling test on any verb that exits non-zero, and on `.paqad/_specs/` appearing
- * after any single step.
- */
 export async function runBundleFixture(
   caseId: OracleCase,
   options: BundleRunOptions = {},
@@ -180,10 +152,6 @@ export async function runBundleFixture(
   const root = context.project_root;
   const steps: string[] = [];
 
-  // Project setup: a lean profile with one passing test command (the `.config` overlay needs a
-  // profile to apply onto), the case's
-  // flags, one compiled rule so `rules load` has something to record, and an empty
-  // rule-script map so the rule-scripts runner records its run.
   mkdirSync(join(root, '.paqad', 'tmp'), { recursive: true });
   writeFileSync(
     join(root, '.paqad', 'project-profile.yaml'),
@@ -197,13 +165,9 @@ export async function runBundleFixture(
       '',
     ].join('\n'),
   );
-  // The case's flags go in the team file: the enforced mode knobs (rule_compliance,
-  // duplication_mode) take the team value as a floor that the local file can only raise.
   mkdirSync(join(root, '.paqad', 'configs'), { recursive: true });
   writeFileSync(
     join(root, '.paqad', 'configs', '.config.app'),
-    // Issue #640: the spec-pipeline switches default on, so every switch a case leaves unset is
-    // pinned off here, keeping the oracle table's meaning (a case names what it turns on).
     `${withSpecPipelineOff(CASE_CONFIG[caseId]).join('\n')}\n`,
     'utf8',
   );
@@ -235,7 +199,6 @@ export async function runBundleFixture(
     options.afterStep?.(root, step);
   };
 
-  /** Run one CLI verb in-process and fail the test when it exits non-zero. */
   const cli = async (factory: CliFactory, args: string[], withSession = true): Promise<void> => {
     const err: string[] = [];
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -258,7 +221,6 @@ export async function runBundleFixture(
     afterStep(args.slice(0, 3).join(' '));
   };
 
-  /** Hand an input to a verb the way an agent does: a file under `.paqad/tmp/`. */
   const tmpInput = (name: string, value: unknown): string => {
     const path = join(root, '.paqad', 'tmp', name);
     writeFileSync(path, typeof value === 'string' ? value : JSON.stringify(value), 'utf8');
@@ -272,13 +234,7 @@ export async function runBundleFixture(
   const previousSession = process.env.SE_SESSION;
   process.env.SE_SESSION = RUN_SESSION;
   try {
-    // The prompt seam stashes the lane for the change-open (issue #324). A case without the
-    // pipeline runs a small, inline single-context change, the fast lane. The spec pipeline runs
-    // only off the fast lane (issue #640, FR-13), so a pipeline case is a full-lane change. A
-    // resolved lane keeps the completeness gate focused on the file set rather than surfacing
-    // the unresolved-lane isolation note (issue #602, FR-4).
     writePendingLane(root, RUN_SESSION, pipelineOn(caseId) ? 'full' : 'fast');
-    // 1. Open the change.
     await cli(
       createStageCommand,
       options.untitled ? ['start', 'planning'] : ['start', 'planning', '--title', RUN_TITLE],
@@ -288,7 +244,6 @@ export async function runBundleFixture(
       paused: [],
     });
     if (flagOn(caseId, 'rag_enabled=true')) {
-      // The prompt seam opens the RAG conversation for the turn.
       openRagConversation(root, {
         sessionId: RUN_SESSION,
         ragEnabled: true,
@@ -297,8 +252,6 @@ export async function runBundleFixture(
       afterStep('rag open');
     }
 
-    // 2. The spec pipeline, where it is on. It runs before plan compile, so an untitled
-    //    change already has pipeline state when the plan names the bundle (AC-17).
     if (pipelineOn(caseId)) {
       const pipeline = (...args: string[]): Promise<void> =>
         cli(createSpecCommand, ['pipeline', ...args]);
@@ -362,7 +315,6 @@ export async function runBundleFixture(
       await pipeline('finish');
     }
 
-    // 3. Plan compile (it names an untitled bundle from the template title).
     await cli(createPlanCommand, [
       'compile',
       tmpInput('plan.json', {
@@ -378,7 +330,6 @@ export async function runBundleFixture(
     ]);
     await cli(createStageCommand, ['end', 'planning', '--artifact', artifact('plan')]);
 
-    // 4. Spec freeze.
     await cli(createStageCommand, ['start', 'specification']);
     await cli(createSpecCommand, [
       'freeze',
@@ -395,7 +346,6 @@ export async function runBundleFixture(
       artifact('specification'),
     ]);
 
-    // 5. Rules load, then the source edit.
     await cli(createStageCommand, ['start', 'development']);
     await cli(createRulesCommand, ['load', '--silent']);
     mkdirSync(dirname(join(root, sourceFile)), { recursive: true });
@@ -406,12 +356,10 @@ export async function runBundleFixture(
         : 'export function checkoutTotal(total: number): string {\n  return total.toFixed(2);\n}\n',
       'utf8',
     );
-    // The verbs that read change evidence see the source edit through git (issue #646).
     seedGitChangedFiles(root, [sourceFile]);
     afterStep('source edit');
     await cli(createStageCommand, ['end', 'development']);
     if (flagOn(caseId, 'visual_evidence=true')) {
-      // The capture runner, stubbed: it writes a valid manifest for a flow it could not find.
       writeVisualEvidenceManifest(root, dirNow(), {
         trigger: { changed_files: [sourceFile], matched_globs: ['src/**/*.tsx'], packs: ['react'] },
         plan: [],
@@ -425,7 +373,6 @@ export async function runBundleFixture(
       afterStep('visual-evidence capture');
     }
 
-    // 6. Review record.
     await cli(createStageCommand, ['start', 'review']);
     await cli(createReviewCommand, [
       'record',
@@ -439,29 +386,19 @@ export async function runBundleFixture(
     ]);
     await cli(createStageCommand, ['end', 'review', '--artifact', artifact('review')]);
 
-    // 7. Checks run (the verb takes its session from SE_SESSION).
     await cli(createStageCommand, ['start', 'checks']);
     await cli(createChecksCommand, ['run', '--silent'], false);
     await cli(createStageCommand, ['end', 'checks']);
 
-    // 7b. Documentation sync, so the change completes every mandatory stage and the turn-end
-    // verification below is the PASSING turn that closes it (issue #581: the evidence rows,
-    // receipt and metrics must still land in the bundle on the turn the change closes).
     await cli(createStageCommand, ['start', 'documentation_sync']);
     await cli(createStageCommand, ['end', 'documentation_sync']);
 
-    // 8. The turn-end seams: the rule-scripts runner, then repository verification.
     if (!flagOn(caseId, 'rule_compliance=off')) {
       runRuleScripts({ projectRoot: root, mode: 'warn', changedFiles: [sourceFile] });
       afterStep('rule-scripts run');
     }
-    // The passing verification closes the change and releases the active pointer, so take
-    // the bundle folder name before it runs.
     const dir = dirNow();
     if (pipelineOn(caseId)) {
-      // A full-lane change on a subagent-capable host dispatches its stages to stage agents;
-      // each one's SubagentStop appends a stage-agent row (issue #573). Record the one this
-      // inline fixture stands in for, so the isolation proof is present.
       appendFeatureStageRow(root, RUN_SESSION, dir, {
         kind: STAGE_AGENT_KIND,
         stage: 'development',
@@ -488,7 +425,6 @@ export async function runBundleFixture(
   }
 }
 
-/** The bundle folder's absolute path. */
 export function bundlePath(run: BundleRun): string {
   return join(run.root, featureDir(run.dir));
 }

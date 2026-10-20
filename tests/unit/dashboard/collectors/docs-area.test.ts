@@ -68,7 +68,7 @@ describe('collectDocsArea', () => {
 
   it('penalises stale files', () => {
     for (let i = 0; i < 5; i++) {
-      touch(join(root, `docs/instructions/rules/r${i}.md`), 200); // past cliff
+      touch(join(root, `docs/instructions/rules/r${i}.md`), 200);
     }
     const section = collectDocsArea(
       root,
@@ -81,7 +81,6 @@ describe('collectDocsArea', () => {
       },
       NOW,
     );
-    // presence 60 + freshness 0 = 60.
     expect(section.score).toBe(60);
     expect(section.band).toBe('amber');
   });
@@ -101,7 +100,6 @@ describe('collectDocsArea', () => {
       },
       NOW,
     );
-    // 2/5 = 0.4 presence → 24 + 40 freshness = 64.
     expect(section.score).toBe(64);
   });
 });

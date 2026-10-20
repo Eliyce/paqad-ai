@@ -1,10 +1,3 @@
-// `paqad-ai sitemap run` — the deterministic Site Map engine's CLI surface. `run` scans the
-// project through the production gatherer, reconciles the extracted surfaces against the
-// canonical map, and re-earns the stored map's trust tiers and freshness (zero model tokens).
-// A re-run is simply the same action run again (issue #466, ART-3) — there is no separate
-// retest engine. Exit codes follow the audit convention: 0 clean · 1 findings · 2 an
-// unexpected error.
-
 import { existsSync, readFileSync } from 'node:fs';
 
 import { Command } from 'commander';
@@ -68,9 +61,6 @@ export function createSitemapCommand(): Command {
           projectRoot: options.projectRoot,
           gatherer: createSiteMapGatherer(options.projectRoot),
         });
-        // Speak the verdict in the paqad contract words. A run over an absent or link-less map
-        // reads Inconclusive, never "Safe to merge" (D4): only a real, navigable, unblocked map
-        // with no findings earns the clean line.
         const verdictLine: Record<SiteMapVerdict, string> = {
           safe: '**▸ paqad** · site map — the map matches the code. Safe to merge.',
           attention: `**▸ paqad** · site map — found ${result.finding_count} thing(s) worth a look. Needs your attention.`,
@@ -115,9 +105,6 @@ export function createSitemapCommand(): Command {
     .action(async (options: { projectRoot: string }) => {
       try {
         const root = options.projectRoot;
-        // Never clobber (S8b, AC-1): a canonical map that exists on disk but reads back null is
-        // corrupt or schema-invalid. Treating it as absent would overwrite authored work on the
-        // first unit's write, so refuse and let a human fix or remove the file.
         const existing = readCanonicalSiteMap(root);
         if (existing === null && existsSync(canonicalAppMapPath(root))) {
           console.error(
@@ -127,9 +114,6 @@ export function createSitemapCommand(): Command {
           return;
         }
 
-        // Gather read-only through the same seam `inventory` uses (S8a). Nothing is invented —
-        // one surface per extracted surface, evidence unchanged, no transitions or journeys — so
-        // the model adds meaning to a grounded map instead of retyping hundreds of entries (D2).
         const gathered = await gatherSiteMapReport({
           projectRoot: root,
           gatherer: createSiteMapGatherer(root),
@@ -139,9 +123,6 @@ export function createSitemapCommand(): Command {
         const inventory = deriveSiteMapInventory(gathered.extraction);
         const unitDefs = deriveDraftUnits(gathered.extraction);
 
-        // Read or seed the resumable store (S8b, AC-3), reset anything a dead run left in
-        // flight (AC-5), then apply the skip rule (AC-4). The store object is mutated here and
-        // persisted only through `saveProgress` — the progress file has no second writer.
         let progress = await readProgress(root);
         if (progress === null) {
           progress = createEmptyProgress(inventory, new Date());
@@ -152,8 +133,6 @@ export function createSitemapCommand(): Command {
         for (const def of unitDefs) {
           const unit = progress.units[def.id];
           if (unit === undefined) {
-            // `artifact` stays null on purpose: units share the canonical map file, and crash
-            // recovery deletes a writing unit's artifact — it must never delete the map.
             progress.units[def.id] = createUnit({
               id: def.id,
               kind: 'group',
@@ -162,23 +141,12 @@ export function createSitemapCommand(): Command {
               source_files: def.source_files,
             });
           } else {
-            // Refresh the staleness inputs so a group that gained or lost a source file hashes
-            // differently and is redone; an untouched group keeps an identical list and hash.
             unit.source_files = [...def.source_files];
           }
         }
         const { skipped } = await reconcileDoneUnits(root, progress);
         await saveProgress(root, progress, new Date());
 
-        // Merge unit by unit (writing → merge → done), persisting the store around every map
-        // write, so an interrupt leaves exactly one `writing` unit for the next run to reset.
-        // A unit whose group vanished from the extraction merges nothing and converges to done.
-        // Resolve the code's navigation edges to surfaces and attach them to the draft skeleton
-        // (S9b). Detection reads each surface's source files (impure, in the gatherer); resolution
-        // matches each target to a surface `entry.value` and drops the unresolvable rather than
-        // guessing. Edges ride the additive merge on NEW surfaces, so authored transitions on
-        // existing surfaces are never clobbered; a code-proven edge an existing map lacks is S9c's
-        // reconciliation, not a draft-time overwrite. The dropped count is reported below.
         const skeleton = buildSiteMapDraft(gathered.extraction, gathered.report.app);
         const transitions = gatherSiteMapTransitions(root, gathered.extraction.surfaces);
         const resolution = resolveTransitions(transitions, skeleton.surfaces);
@@ -203,8 +171,6 @@ export function createSitemapCommand(): Command {
           await saveProgress(root, progress, new Date());
         }
         if (map === null) {
-          // No stored map and no units at all (an empty extraction): still write the skeleton,
-          // matching the S8a behaviour, so a first run always leaves a canonical map behind.
           map = draft;
           mapPath = writeCanonicalSiteMap(root, map);
           appended = draft.surfaces.length;
@@ -220,8 +186,6 @@ export function createSitemapCommand(): Command {
             `**▸ paqad** · site map — drafted ${appended} new surface(s) into ${mapPath} (kept ${kept} existing, skipped ${skipped.length} unchanged group(s)). Add the meaning the code does not carry, then run \`sitemap run\` to prove it.`,
           );
         }
-        // Make dropped links visible rather than silently swallowed (S9b, AC-3): a navigation
-        // call the code proves but whose target no surface carries is dropped, never guessed.
         const unresolved = buildUnresolvedLinksCheck(resolution.dropped);
         if (unresolved !== null) {
           console.log(`**▸ paqad** · site map — ${unresolved.reason} ${unresolved.install_hint}`);
@@ -242,8 +206,6 @@ export function createSitemapCommand(): Command {
     .option('--quiet', 'Suppress the machine-readable summary line', false)
     .action(async (options: RunFlags) => {
       try {
-        // A read-only gather (no bundle, no baseline, no ledger row), so `inventory` is safe to
-        // run at any time — it only says how big the job is before any write (S4, AC-2).
         const gathered = await gatherSiteMapReport({
           projectRoot: options.projectRoot,
           gatherer: createSiteMapGatherer(options.projectRoot),
@@ -267,11 +229,6 @@ export function createSitemapCommand(): Command {
     .description('Show how far the last mapping run got and what a resumed run would do next')
     .option('--project-root <path>', 'Project root', process.cwd())
     .action(async (options: { projectRoot: string }) => {
-      // A readout, not a gate (S5b). It reads through `readProgress` only — a tolerant, write-free
-      // read that never resets a `writing` unit (AC-4) — so `status` is safe to run at any moment,
-      // including while a run is in flight. There is deliberately no try/catch → exit 2: readProgress
-      // never throws and summarizeProgress is pure, so a catch branch would be unreachable, and AC-3
-      // requires status to always exit 0 regardless.
       const progress = await readProgress(options.projectRoot);
       if (progress === null) {
         console.log(

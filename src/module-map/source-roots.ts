@@ -1,10 +1,3 @@
-// source_roots discovery from the active stack pack(s). Issue #80, Phase 2.
-//
-// Phase 2 ships the discovery plumbing; Phase 3 populates every shipped pack
-// with a module_health.source_roots entry. Until then, discovery returns
-// null and the reconciler hard-fails with `blocked: source_roots_unknown` —
-// which is the spec-required behaviour (AC #17, no silent fallback).
-
 import { readProjectProfile } from '@/core/project-profile.js';
 import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import type { LoadedStackPack, StackPackManifest } from '@/core/types/pack.js';
@@ -20,10 +13,6 @@ function packModuleHealth(pack: LoadedStackPack): StackPackManifest['module_heal
   return pack.manifest.module_health;
 }
 
-// Walk the active stack packs for the project; return the first
-// module_health.source_roots found, in pack-priority order (project >
-// global > built-in). Returns null when no pack declares it — the
-// reconciler will surface this to the user with the actionable message.
 export function discoverSourceRoots(projectRoot: string): DiscoveredSourceRoots {
   const profile = readProjectProfile(projectRoot);
   const requested = profile?.stack_profile?.frameworks ?? [];
@@ -34,8 +23,6 @@ export function discoverSourceRoots(projectRoot: string): DiscoveredSourceRoots 
     projectRoot,
   });
 
-  // Try requested packs first; otherwise walk every loaded pack so projects
-  // without a profile still get a result if any pack declares the block.
   const orderedNames =
     requested.length > 0
       ? [...requested, ...Array.from(registry.packs.keys()).filter((n) => !requested.includes(n))]
@@ -53,11 +40,6 @@ export function discoverSourceRoots(projectRoot: string): DiscoveredSourceRoots 
   return { source_roots: null, reason: 'unknown', pack_name: null };
 }
 
-// Phase 3 — return the entire module_health manifest from the active pack,
-// not just source_roots. The rollup engine reads coverage_format /
-// coverage_path / test_report_format / test_report_path / git_window_days
-// off this block; callers treat a null return as `blocked:
-// module_health_unknown` (spec, no silent fallback).
 export interface DiscoveredModuleHealth {
   module_health: NonNullable<StackPackManifest['module_health']> | null;
   pack_name: string | null;

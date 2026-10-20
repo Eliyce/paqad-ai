@@ -54,8 +54,7 @@ describe('checks report store', () => {
     expect(readChecksReport(root)).toBeNull();
   });
 
-  // Issue #528 — the per-feature bundle writer/reader (checks.json inside the bundle dir).
-  describe('feature bundle checks.json (#528)', () => {
+  describe('feature bundle checks.json', () => {
     const dirName = '528-x-01M1SSERFEHGNJZ35W8BF9J8SZ';
 
     it('round-trips a report through the bundle write then read', () => {
@@ -67,7 +66,6 @@ describe('checks report store', () => {
         results: [],
       });
       expect(target).toBe(featureChecksPath(root, dirName));
-      // Normalise separators so the assertion holds on Windows (backslash) too.
       expect(target.replaceAll('\\', '/')).toContain(
         `ledger/feature-evidence/${dirName}/checks.json`,
       );
@@ -87,7 +85,6 @@ describe('checks report store', () => {
       expect(readFeatureChecks(root, dirName)).toBeNull();
     });
 
-    // Issue #581 — the bundle copy carries the one envelope header.
     it('stamps the envelope header, generated_at becoming recorded_at', () => {
       writeFeatureChecks(
         root,

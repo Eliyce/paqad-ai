@@ -7,10 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
 
-// Issue #581 (FR-14, AC-23) — every file in a feature bundle is created by a paqad verb, so the
-// pre-mutation seam refuses an agent Edit/Write/NotebookEdit/apply_patch aimed inside a bundle
-// and names the verb that owns the file. Driven through the real kernel gate, no mocks.
-describe('bundle write guard at pre-mutation (issue #581, AC-23)', () => {
+describe('bundle write guard at pre-mutation', () => {
   let root: string;
   const DIR = '581-x-01JABCDEFGHJKMNPQRSTVWXYZ0';
   const bundle = (file: string): string => `${PATHS.FEATURE_EVIDENCE_DIR}/${DIR}/${file}`;
@@ -18,7 +15,6 @@ describe('bundle write guard at pre-mutation (issue #581, AC-23)', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-bundle-guard-'));
     mkdirSync(join(root, '.paqad/configs'), { recursive: true });
-    // stages_mode=off: the guard is not tunable, so it must still refuse.
     writeFileSync(join(root, '.paqad/configs/.config.policy'), 'stages_mode=off\n');
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));

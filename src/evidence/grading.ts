@@ -1,23 +1,7 @@
-// Issue #118 — evidence-strength grading (the anti-"provenance-theater" core).
-//
-// Every gate is classified once, here, as Tier A (deterministic / self-computed)
-// or Tier B (LLM-judged — consumes a pre-computed boolean via `checkBooleanGate`).
-// An inconclusive result is Tier C (blocked) regardless of its gate, because no
-// evidence was actually established. This single map is the source of truth the
-// ledger and receipt grade across; flattening A and B is exactly the theater the
-// receipt exists to prevent.
-
 import type { GateResult, GateSkipKind, VerificationGate } from '@/core/types/verification.js';
 import type { EvidenceStrengthClass, EvidenceVerdict } from '@/core/types/evidence-ledger.js';
 
-/**
- * Tier A vs Tier B for every one of the 17 gates. Derived from reading
- * `src/verification/gates/`: Tier B gates consume a bare boolean verdict via
- * `checkBooleanGate` (the model/heuristic produced the pass/fail upstream);
- * every other gate computes its own verdict from artifacts.
- */
 export const GATE_STRENGTH_TIER: Record<VerificationGate, 'deterministic' | 'llm-judged'> = {
-  // Tier A — deterministic / self-computed.
   'change-completeness': 'deterministic',
   'ac-test-mapping': 'deterministic',
   'architecture-compliance': 'deterministic',
@@ -29,12 +13,9 @@ export const GATE_STRENGTH_TIER: Record<VerificationGate, 'deterministic' | 'llm
   'module-docs-structure': 'deterministic',
   'instructions-docs-structure': 'deterministic',
   'documentation-freshness': 'deterministic',
-  // Issue: the site-map freshness gate reads doc-progress source hashes (no LLM).
   'site-map-freshness': 'deterministic',
   'extension-surface': 'deterministic',
-  // Issue #358 — the duplication gate reads its own cached report (no LLM).
   duplication: 'deterministic',
-  // Tier B — LLM-judged (consume a pre-computed boolean verdict).
   'requirement-completeness': 'llm-judged',
   'story-quality': 'llm-judged',
   'spec-review': 'llm-judged',
@@ -44,21 +25,10 @@ export const GATE_STRENGTH_TIER: Record<VerificationGate, 'deterministic' | 'llm
 export interface GradedGateResult {
   verdict: EvidenceVerdict;
   strength_class: EvidenceStrengthClass;
-  /** Issue #639, Part 10 — set with verdict `skipped` when the gate measured nothing. */
   skip_kind?: GateSkipKind;
 }
 
-/**
- * Grade one gate result. An inconclusive gate has no usable evidence, so it is
- * Tier C (`blocked`) regardless of which gate it is; otherwise the strength is
- * the gate's tier and the verdict follows `passed`. `strength_class` describes
- * *how* the evidence was established, independent of pass/fail — a failed
- * deterministic gate is still deterministic evidence.
- */
 export function gradeGateResult(result: GateResult): GradedGateResult {
-  // Issue #639, Part 10 — a gate that measured nothing (not required, or did not run) keeps
-  // `passed: true` for the runner but is never graded a pass: it is skipped, graded like every
-  // other skipped gate row (see EVIDENCE_GATE_GRADES in fan-in.ts), and never cited.
   if (result.outcome) {
     return { verdict: 'skipped', strength_class: 'deterministic', skip_kind: result.outcome };
   }

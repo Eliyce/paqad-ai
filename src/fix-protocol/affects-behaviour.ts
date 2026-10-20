@@ -4,17 +4,8 @@ import type {
   FixChangedFile,
 } from '@/core/types/fix-protocol.js';
 
-/**
- * File extensions whose contents can never change runtime behaviour. A change
- * confined to these files is cosmetic by definition (docs, changelogs).
- */
 const NON_BEHAVIOURAL_EXTENSIONS = new Set(['.md', '.mdx', '.markdown', '.txt', '.rst', '.adoc']);
 
-/**
- * Single-line comment markers by file extension. A changed code line that is
- * *only* a comment cannot change behaviour. Anything we don't recognise is
- * treated as behaviour-affecting (the safe default).
- */
 const LINE_COMMENT_MARKERS: Record<string, string[]> = {
   '.ts': ['//'],
   '.tsx': ['//'],
@@ -45,12 +36,6 @@ function extensionOf(path: string): string {
   return path.slice(dot).toLowerCase();
 }
 
-/**
- * Whether a single changed line is incapable of affecting behaviour for the
- * given file extension: blank lines, full-line comments, and C-style
- * block-comment delimiter lines. A line that contains code before its comment
- * is behaviour-affecting.
- */
 function lineIsNonBehavioural(line: string, extension: string): boolean {
   const trimmed = line.trim();
   if (trimmed.length === 0) {
@@ -66,7 +51,6 @@ function lineIsNonBehavioural(line: string, extension: string): boolean {
     return true;
   }
 
-  // C-style block-comment lines (only meaningful where `//` is the marker).
   if (markers.includes('//')) {
     if (trimmed.startsWith('/*') || trimmed.startsWith('*/') || trimmed.startsWith('*')) {
       return true;
@@ -83,8 +67,6 @@ function fileChangeIsNonBehavioural(file: FixChangedFile): boolean {
   }
 
   const changedLines = [...file.added_lines, ...file.removed_lines];
-  // A file with no recorded line changes is conservatively behaviour-affecting:
-  // we cannot prove the change was cosmetic.
   if (changedLines.length === 0) {
     return false;
   }
@@ -92,18 +74,8 @@ function fileChangeIsNonBehavioural(file: FixChangedFile): boolean {
   return changedLines.every((line) => lineIsNonBehavioural(line, extension));
 }
 
-/**
- * The narrow skip-door classifier. Proof-first is skipped only when a change
- * *genuinely cannot* affect behaviour — comment text, blank lines, or edits
- * confined to documentation files. Anything else, and any uncertainty (unknown
- * file type, code lines, a file with no line detail), defaults to
- * behaviour-affecting (issue #103 Settled decision: when in doubt, treat as
- * behaviour-affecting).
- */
 export function affectsBehaviour(change: FixChange): AffectsBehaviourVerdict {
   if (change.files.length === 0) {
-    // No files at all is treated as behaviour-affecting: there is nothing to
-    // prove is cosmetic, so the safe default applies.
     return {
       affects: true,
       reason: 'No changed files were provided; defaulting to behaviour-affecting.',

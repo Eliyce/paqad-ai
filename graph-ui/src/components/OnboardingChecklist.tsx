@@ -19,13 +19,6 @@ function readFlag(key: string): boolean {
   }
 }
 
-/**
- * The first-loop checklist on Pulse (issue #146, final polish). Steps
- * complete from real events the server reports, never from clicks. The
- * one exception, "open your first receipt", completes client-side once
- * Trust has been opened while a receipt existed (the Trust view records
- * that in localStorage). Dismissing hides it forever and fires nothing.
- */
 export function OnboardingChecklist({ data }: Props) {
   const [dismissed, setDismissed] = useState<boolean>(() => readFlag(DISMISS_KEY));
   const [receiptViewed] = useState<boolean>(() => readFlag(RECEIPT_VIEWED_KEY));
@@ -35,9 +28,7 @@ export function OnboardingChecklist({ data }: Props) {
   const hide = (): void => {
     try {
       localStorage.setItem(DISMISS_KEY, '1');
-    } catch {
-      // private mode; hiding still works for this session
-    }
+    } catch {}
     setDismissed(true);
   };
 

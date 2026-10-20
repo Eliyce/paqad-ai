@@ -39,15 +39,13 @@ async function runOnboard(args: string[]): Promise<{ out: string; err: string }>
   return { out, err };
 }
 
-describe('paqad-ai onboard (issue #616, Part 8)', () => {
+describe('paqad-ai onboard', () => {
   it('--detect --json prints the detection and writes nothing', async () => {
     const { out } = await runOnboard(['--detect', '--json', '--project-root', root]);
     const report = JSON.parse(out) as Record<string, unknown>;
     expect(report).toHaveProperty('detected_stack');
     expect(report).toHaveProperty('detected_capabilities');
     expect(report).toHaveProperty('confidence');
-    // Read-only: it detects (which may cache an introspection snapshot) but writes no onboarding
-    // artifacts — no project profile, framework pointer, or provider entry files.
     expect(existsSync(join(root, '.paqad', 'project-profile.yaml'))).toBe(false);
     expect(existsSync(join(root, '.paqad', 'framework-path.txt'))).toBe(false);
     expect(existsSync(join(root, 'CLAUDE.md'))).toBe(false);
@@ -60,7 +58,6 @@ describe('paqad-ai onboard (issue #616, Part 8)', () => {
     expect(existsSync(join(root, '.paqad', 'project-profile.yaml'))).toBe(false);
   });
 
-  // Issue #641 — a bad --stack value lists the valid stacks instead of an opaque schema error.
   it('--stack with an unknown value exits 2 and lists the valid stacks', async () => {
     const { err } = await runOnboard([
       '--stack',

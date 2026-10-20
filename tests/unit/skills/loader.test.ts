@@ -14,11 +14,6 @@ import { SkillLoader } from '@/skills/loader.js';
 
 import { fixtureResolvedArtifact } from './shared.fixture.js';
 
-/**
- * A malformed SKILL.md is now excluded (not thrown) and recorded as a
- * `skill.load_failed` audit event (PQD-194). This drives an injected buffer so
- * the assertion is deterministic and needs no disk.
- */
 async function expectLoadFailure(skillFile: string, expectedCode: string): Promise<void> {
   const buffer = new SkillAuditBuffer();
   const skills = await new SkillLoader(buffer).load([fixtureResolvedArtifact(skillFile)]);

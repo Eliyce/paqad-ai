@@ -13,9 +13,6 @@ import {
 } from '@/stage-evidence/completion-deferred.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
-// Issue #615 (Part 4) — a Stop seam must not grade a change whose stage agents are still running
-// in the background. These cover the decision + the breadcrumb row.
-
 const roots: string[] = [];
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-defer-'));
@@ -59,7 +56,7 @@ describe('stageAgentTaskCount', () => {
         { agentType: 'paqad-planning' },
         { subagentType: 'paqad-specification' },
         { type: 'general-purpose' },
-        { name: 'paqad-development' }, // `name` is not an agent-type field
+        { name: 'paqad-development' },
       ]),
     ).toBe(5);
   });
@@ -95,7 +92,7 @@ describe('hasOpenUnendedStage', () => {
   });
 });
 
-describe('deferCompletionForBackgroundStage (issue #615, Part 4)', () => {
+describe('deferCompletionForBackgroundStage', () => {
   it('does not defer and writes no row for empty or missing background_tasks', () => {
     const root = tempRoot();
     const dirName = openWithStartedStage(root);
@@ -173,7 +170,7 @@ describe('deferCompletionForBackgroundStage (issue #615, Part 4)', () => {
   });
 
   it('does not fall back when there is no open stage to protect', () => {
-    const root = tempRoot(); // no bundle opened
+    const root = tempRoot();
     const result = deferCompletionForBackgroundStage({
       projectRoot: root,
       backgroundTasks: [{ id: 'bg-1' }],
@@ -205,7 +202,7 @@ describe('deferCompletionForBackgroundStage (issue #615, Part 4)', () => {
   });
 
   it('defers for a running stage agent even with no active bundle, writing no row', () => {
-    const root = tempRoot(); // no bundle opened, so nothing to record against
+    const root = tempRoot();
     const result = deferCompletionForBackgroundStage({
       projectRoot: root,
       backgroundTasks: [{ type: 'paqad-development' }],

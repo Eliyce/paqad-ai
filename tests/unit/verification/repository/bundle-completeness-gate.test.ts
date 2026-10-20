@@ -41,7 +41,6 @@ afterEach(() => {
 const DIR = '511-do-a-thing-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const UNTITLED = 'change-01JABCDEFGHJKMNPQRSTVWXYZ1';
 
-/** Config where only the `always` files are required (every flag off). */
 const ONLY_ALWAYS: BundleCompletenessConfig = {
   lane: 'full',
   ruleComplianceOn: false,
@@ -66,17 +65,14 @@ function write(root: string, rel: string, content: string): void {
   writeFileSync(abs, content, 'utf8');
 }
 
-/** Write every `always`-required file into the bundle so the gate can pass. */
 function writeAlwaysFiles(root: string, dir: string): void {
-  seedFeatureRecord(root, dir, { adapter: 'claude-code', sessionId: 'ses_1' }); // titled → feature.json
+  seedFeatureRecord(root, dir, { adapter: 'claude-code', sessionId: 'ses_1' });
   write(root, featureFilePath(dir, 'plan'), '{}');
   write(root, featureFilePath(dir, 'specification'), '{}');
-  // Issue #581 — the signed spec source is always required beside specification.json.
   write(root, featureFilePath(dir, 'specMd'), '# Specification\n');
   write(root, featureFilePath(dir, 'review'), '{}');
   write(root, featureFilePath(dir, 'stageEvidence'), '{"row":1}\n');
   write(root, featureFilePath(dir, 'delivery'), '{"branch":"feat/x"}');
-  // Issue #581 — evidence.jsonl is always required.
   write(root, featureFilePath(dir, 'evidence'), '{"code":"format"}\n');
 }
 
@@ -117,13 +113,11 @@ describe('bundleCompletenessGate scope', () => {
       mode: 'strict',
     });
     expect(gate!.status).toBe('skipped');
-    // Issue #639, Part 10 — no bundle to complete: not required.
     expect(gate!.skip_kind).toBe('not-required');
   });
 
   it('is informational (skipped, never a hard fail) on a non-local CI origin', () => {
     const root = tempRoot();
-    // Missing every file, but ci-backstop has no committed local bundle → skipped, not fail.
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
@@ -176,7 +170,7 @@ describe('bundleCompletenessGate verdict', () => {
   it('treats an empty/invalid required file as missing', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    write(root, featureFilePath(DIR, 'plan'), '   '); // present but not valid json
+    write(root, featureFilePath(DIR, 'plan'), '   ');
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
@@ -189,7 +183,7 @@ describe('bundleCompletenessGate verdict', () => {
 
   it('FAILS when feature.json has the placeholder title and no ticket (AC-2)', () => {
     const root = tempRoot();
-    writeAlwaysFiles(root, UNTITLED); // seedFeatureRecord on change-<ULID> → title `change`, issue null
+    writeAlwaysFiles(root, UNTITLED);
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
@@ -231,7 +225,6 @@ describe('bundleCompletenessGate verdict', () => {
   it('counts a rag row in the _chat home as present', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    // Write a _chat rag row (the documented one-prompt lag lands early rows there).
     write(root, chatRagPath('ses_1'), '{"q":"x"}\n');
     const gate = bundleCompletenessGate({
       ...base,
@@ -385,12 +378,10 @@ describe('every flag on (no flag-off skip note)', () => {
   it('passes with every required file present and no "Skipped (flag off)" note', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    // The spec pipeline files (issue #581, M3).
     write(root, featureFilePath(DIR, 'request'), '# Request\n');
     for (const key of ['clarification', 'experts'] as const) {
       write(root, featureFilePath(DIR, key), '{}');
     }
-    // The flag-gated files.
     for (const key of ['ruleRun', 'changeMetrics', 'duplication', 'rag', 'evidence'] as const) {
       write(root, featureFilePath(DIR, key), '{"row":1}\n');
     }
@@ -429,10 +420,7 @@ describe('every flag on (no flag-off skip note)', () => {
   });
 });
 
-describe('optional checks.json (#528)', () => {
-  // checks.json is `optional`: never required (absence never fails), and never named in the
-  // "flag off" note (it has no flag). The genuinely flag-gated files still surface there under
-  // ONLY_ALWAYS — the ALL_ON "no flag-off note" case is covered above.
+describe('optional checks.json', () => {
   it('passes and never names checks.json as skipped when it is absent', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
@@ -459,8 +447,6 @@ describe('optional checks.json (#528)', () => {
       config: ONLY_ALWAYS,
     });
     expect(gate!.status).toBe('pass');
-    // Present files are counted, not named; and checks.json must never appear in the skip note.
-    // 8 always-required files (evidence.jsonl and spec.md since #581) + the present checks.json.
     expect(gate!.detail).toContain('(9 checked)');
     expect(gate!.detail).not.toContain('checks.json');
   });
@@ -496,7 +482,6 @@ describe('featureReport required file', () => {
   });
 });
 
-/** Write a frozen spec pair: spec.md with front matter over `body`, and its record. */
 function writeSpecPair(root: string, dir: string, body: string, specHash = sha256Hex(body)): void {
   const header = buildTextHeader({
     docType: 'paqad.spec',
@@ -513,7 +498,7 @@ function writeSpecPair(root: string, dir: string, body: string, specHash = sha25
   );
 }
 
-describe('spec.md signed source (issue #581, FR-15)', () => {
+describe('spec.md signed source', () => {
   const run = (root: string, mode: 'strict' | 'warn' = 'strict') =>
     bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode, config: ONLY_ALWAYS });
 
@@ -535,7 +520,7 @@ describe('spec.md signed source (issue #581, FR-15)', () => {
     );
   });
 
-  it('fails closed when spec.md is missing from a bundle frozen since #581', () => {
+  it('fails closed when spec.md is missing from a bundle frozen in the current evidence shape', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
     writeSpecPair(root, DIR, '# Spec\n');
@@ -553,7 +538,7 @@ describe('spec.md signed source (issue #581, FR-15)', () => {
     expect(run(root)!.status).toBe('fail');
   });
 
-  it('accepts a pre-#581 bundle: old spec_file and a specification.md projection, no spec.md', () => {
+  it('accepts a legacy-shape bundle: old spec_file and a specification.md projection, no spec.md', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
     rmSync(join(root, featureFilePath(DIR, 'specMd')));
@@ -597,7 +582,6 @@ describe('spec.md signed source (issue #581, FR-15)', () => {
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('specification.json (run: paqad-ai spec freeze)');
     expect(gate!.detail).not.toContain('does not hash');
-    // Without spec.md the legacy fallback finds no readable record either.
     rmSync(join(root, featureFilePath(DIR, 'specMd')));
     expect(run(root)!.detail).toContain('spec.md (run: paqad-ai spec freeze)');
   });
@@ -619,7 +603,7 @@ describe('spec.md signed source (issue #581, FR-15)', () => {
   });
 });
 
-describe('spec pipeline files (issue #581, M2/M3/M5)', () => {
+describe('spec pipeline files', () => {
   const run = (root: string, config: BundleCompletenessConfig) =>
     bundleCompletenessGate({ ...base, projectRoot: root, dirName: DIR, mode: 'strict', config });
 
@@ -666,13 +650,9 @@ describe('spec pipeline files (issue #581, M2/M3/M5)', () => {
   });
 });
 
-// Issue #640 (FR-13, AC-20) — the pipeline files and the strict provenance check apply only on
-// the graduated and full lanes (an unresolved lane counts as full). The lane comes from the
-// change's own feature.json through the shared builder, with the pipeline on by default.
-describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
+describe('lane-aware spec pipeline files', () => {
   const LANE_DIR = '640-lane-01JABCDEFGHJKMNPQRSTVWXYZ2';
 
-  /** The real builder's lane and pipeline flags (nothing set, so the #640 defaults apply). */
   function configFor(root: string, lane: 'fast' | 'graduated' | 'full' | null) {
     seedFeatureRecord(root, LANE_DIR, { adapter: 'claude-code', sessionId: 'ses_1', lane });
     const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
@@ -721,7 +701,6 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
     expect(gate!.detail).toContain('experts.json');
   });
 
-  /** The real builder's flags read after the spec is frozen (issue #640 rollout). */
   function frozenConfigFor(root: string, lane: 'fast' | 'graduated', spec: unknown) {
     seedFeatureRecord(root, LANE_DIR, { adapter: 'claude-code', sessionId: 'ses_1', lane });
     writeAlwaysFiles(root, LANE_DIR);
@@ -759,8 +738,6 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
     expect(gate!.detail).not.toContain('Spec frozen before the spec pipeline was on');
   });
 
-  // A fast-lane freeze records that the fast lane skipped the pipeline. On the fast lane it needs
-  // nothing; once the lane is raised the files are owed, and only a re-freeze can write them.
   it('passes a fast-lane freeze on the fast lane, then asks for a re-freeze once the lane is raised', () => {
     const root = tempRoot();
     const fastSpec = { spec_file: 'spec.md', pipeline: { produced: false, skipped: 'fast-lane' } };
@@ -770,7 +747,6 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
     expect(fastGate!.status).toBe('pass');
     expect(fastGate!.detail).toContain('Not required on the fast lane:');
 
-    // `paqad-ai lane set graduated` on the same bundle.
     recordChangeConstants(root, LANE_DIR, { lane: 'graduated' });
     const built = buildBundleCompletenessConfig(root, 'ses_1', LANE_DIR);
     expect(built.lane).toBe('graduated');
@@ -786,7 +762,6 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
       'request.md (run: the lane was raised after a fast-lane freeze: re-freeze the spec through the spec pipeline',
     );
     expect(gate!.detail).toContain('clarification.json (run: the lane was raised');
-    // Strict adoption (the default) names the re-freeze too, never the pipeline being off.
     expect(gate!.detail).toContain('specification.json was frozen on the fast lane');
     expect(gate!.detail).not.toContain('Spec frozen before the spec pipeline was on');
   });
@@ -810,7 +785,6 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
     const gate = run(root, config);
     expect(gate!.status).toBe('fail');
     expect(gate!.detail).toContain('request.md');
-    // The manual reason satisfies strict provenance, so only the files are named.
     expect(gate!.detail).not.toMatch(/spec_pipeline_adoption=strict/);
     write(root, featureFilePath(LANE_DIR, 'request'), '# Request\n');
     write(root, featureFilePath(LANE_DIR, 'clarification'), '{}');
@@ -820,7 +794,7 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
 
   it('applies the strict provenance check off the fast lane only', () => {
     const root = tempRoot();
-    writeAlwaysFiles(root, DIR); // specification.json records no provenance
+    writeAlwaysFiles(root, DIR);
     const strict = { ...ONLY_ALWAYS, specPipelineStrict: true };
     const gateFor = (lane: BundleCompletenessConfig['lane']) =>
       bundleCompletenessGate({
@@ -836,7 +810,7 @@ describe('lane-aware spec pipeline files (issue #640, AC-20)', () => {
   });
 });
 
-describe('evidence.jsonl written by this run (issue #581)', () => {
+describe('evidence.jsonl written by this run', () => {
   it('counts an absent evidence.jsonl as present when the late-gate rows are pending', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
@@ -867,8 +841,7 @@ describe('evidence.jsonl written by this run (issue #581)', () => {
   });
 });
 
-// Issue #669 — the receipt and AI-BOM are sealed after every gate, this one included.
-describe('receipt.json and ai-bom.json sealed by this run (issue #669)', () => {
+describe('receipt.json and ai-bom.json sealed by this run', () => {
   const ENTERPRISE = { ...ONLY_ALWAYS, enterprise: true, evidenceLedger: true, aiBom: true };
 
   it('counts an absent receipt and AI-BOM as present when this run seals them', () => {
@@ -946,13 +919,12 @@ describe('receipt.json and ai-bom.json sealed by this run (issue #669)', () => {
   });
 });
 
-// Issue #547 — the strict-adoption content check on specification.json (FR-10.2 / AC-12).
 describe('spec pipeline strict adoption gate', () => {
   const STRICT = { ...ONLY_ALWAYS, specPipelineStrict: true };
 
   it('fails closed under strict when specification.json records no pipeline provenance', () => {
     const root = tempRoot();
-    writeAlwaysFiles(root, DIR); // specification.json is '{}' — no provenance
+    writeAlwaysFiles(root, DIR);
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
@@ -1002,7 +974,7 @@ describe('spec pipeline strict adoption gate', () => {
 
   it('does not apply the check under warn (specPipelineStrict off)', () => {
     const root = tempRoot();
-    writeAlwaysFiles(root, DIR); // no provenance
+    writeAlwaysFiles(root, DIR);
     const gate = bundleCompletenessGate({
       ...base,
       projectRoot: root,
@@ -1014,11 +986,8 @@ describe('spec pipeline strict adoption gate', () => {
   });
 });
 
-describe('the isolation evidence stream (issue #573)', () => {
+describe('the isolation evidence stream', () => {
   it('fails a graduated/full change on a subagent-capable host with no isolation evidence', () => {
-    // The core #573 scenario: the full pipeline ran, every pillar artifact is present, and
-    // the change nonetheless did all six stages in ONE context. Before this it read
-    // "Safe to merge"; now it must fail, and name the stream that is missing.
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
 
@@ -1031,7 +1000,6 @@ describe('the isolation evidence stream (issue #573)', () => {
     });
 
     expect(gate!.status).toBe('fail');
-    // Issue #581 (AC-14) — named by the rows that are missing, never a retired file.
     expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
     expect(gate!.remediation).toContain('stage-agent rows in stage-evidence.jsonl');
     expect(gate!.detail).not.toContain('context-efficiency.jsonl');
@@ -1060,7 +1028,6 @@ describe('the isolation evidence stream (issue #573)', () => {
   it('AC-42: a High Table seat row is not stage-agent evidence, so the change still fails by name', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
-    // A row an older recorder could leave for a paqad-expert seat (a made-up stage) never counts.
     write(
       root,
       featureFilePath(DIR, 'stageEvidence'),
@@ -1084,7 +1051,7 @@ describe('the isolation evidence stream (issue #573)', () => {
     expect(gate!.detail).toContain('stage-agent rows in stage-evidence.jsonl');
   });
 
-  it('still accepts a pre-#581 bundle that recorded isolation in context-efficiency.jsonl', () => {
+  it('still accepts a legacy-shape bundle that recorded isolation in context-efficiency.jsonl', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
     write(
@@ -1105,7 +1072,6 @@ describe('the isolation evidence stream (issue #573)', () => {
   });
 
   it('does not fail a change that never expected isolation (INV-2)', () => {
-    // Fast lane, or a host with no subagent dispatch. Identical bundle, no failure.
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
 
@@ -1121,9 +1087,6 @@ describe('the isolation evidence stream (issue #573)', () => {
   });
 
   it('never calls the absent stream a flag-off skip, because isolation has no flag', () => {
-    // Issue #528 added the `optional` category so a non-required file is not reported as
-    // a flag-off skip. Stage isolation is deliberately flagless, so that wording would be
-    // an outright lie about why the file is not required for this change.
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
 
@@ -1138,9 +1101,7 @@ describe('the isolation evidence stream (issue #573)', () => {
     expect(gate!.detail).not.toContain('context-efficiency.jsonl');
   });
 
-  it('surfaces an unresolved lane as Inconclusive, not a clean green (issue #602, FR-4/AC-4)', () => {
-    // A feature-development change on a subagent-capable host whose lane never resolved, with no
-    // isolation evidence: before, it read a clean pass; now it must be Inconclusive and say so.
+  it('surfaces an unresolved lane as Inconclusive, not a clean green', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
 
@@ -1157,7 +1118,7 @@ describe('the isolation evidence stream (issue #573)', () => {
     expect(gate!.detail).toContain('paqad-ai lane set');
   });
 
-  it('does not surface an unresolved-lane note once isolation actually ran (issue #602)', () => {
+  it('does not surface an unresolved-lane note once isolation actually ran', () => {
     const root = tempRoot();
     writeAlwaysFiles(root, DIR);
     write(
@@ -1179,10 +1140,7 @@ describe('the isolation evidence stream (issue #573)', () => {
   });
 });
 
-// Issue #581 (FR-14, AC-24) — a document or row changed outside its writer fails its envelope
-// content_hash, and the gate names the file. A hook cannot see a Bash write into the bundle, so
-// this is the backstop on every host.
-describe('bundleCompletenessGate content_hash backstop (issue #581, AC-24)', () => {
+describe('bundleCompletenessGate content_hash backstop', () => {
   const identity = { change: '01JABCDEFGHJKMNPQRSTVWXYZ0', sessionId: 'ses_1', schemaVersion: 1 };
 
   function run(root: string, config: BundleCompletenessConfig = ONLY_ALWAYS) {
@@ -1203,7 +1161,6 @@ describe('bundleCompletenessGate content_hash backstop (issue #581, AC-24)', () 
       docType: 'paqad.stage-evidence',
       row: { stage: 'x' },
     });
-    // A blank line and an unparseable line are the reader's concern, never a hash mismatch.
     write(root, featureFilePath(DIR, 'stageEvidence'), `${JSON.stringify(row)}\n\nnot json\n`);
     expect(run(root)!.status).toBe('pass');
   });

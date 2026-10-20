@@ -21,7 +21,6 @@ function ageLabel(createdAt: string): string {
   return 'just now';
 }
 
-/** One resolved-this-session card: collapsed, win line only. */
 function WinCard({ title }: { title: string }) {
   return (
     <div
@@ -210,18 +209,12 @@ function ProposalCard({
   );
 }
 
-/**
- * The Approvals inbox (issue #146). One list of everything waiting on the
- * human: decision pauses and module proposals. Resolutions write to the same
- * stores the agent reads, so the conversation picks them up on its next call.
- */
 export function ApprovalsView() {
   const [feed, setFeed] = useState<ApprovalsFeed | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [sseLive, setSseLive] = useState(false);
   const [projectName, setProjectName] = useState<string | null>(null);
   const [frameworkVersion, setFrameworkVersion] = useState<string | null>(null);
-  /** Items resolved in this browser session — kept visible as win lines. */
   const [resolved, setResolved] = useState<{ id: string; title: string }[]>([]);
 
   const loadFeed = useCallback((): void => {
@@ -242,9 +235,7 @@ export function ApprovalsView() {
         setProjectName(report.projectName);
         setFrameworkVersion(report.frameworkVersion);
       })
-      .catch(() => {
-        // chrome falls back to placeholders; the feed error is the one that matters
-      });
+      .catch(() => {});
   }, [loadFeed]);
 
   useEffect(() => {

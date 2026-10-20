@@ -66,7 +66,6 @@ describe('resolveInstalledVersion', () => {
   });
 
   it('searches the manifest root it is given, not the project root', () => {
-    // The monorepo case this repo itself has: react is installed under graph-ui.
     const subApp = join(root, 'graph-ui');
     installPackage(subApp, 'react', { name: 'react', version: '19.2.6' });
     expect(resolveInstalledVersion(root, 'react')).toBeNull();
@@ -182,7 +181,6 @@ describe('resolveTypesEntry', () => {
   });
 
   it('falls through to the @types companion — the react case', () => {
-    // react itself ships no declarations; @types/react does.
     const dir = installPackage(root, 'react', { name: 'react', version: '19.2.6' });
     installPackage(
       root,

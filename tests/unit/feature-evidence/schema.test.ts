@@ -62,7 +62,7 @@ describe('validatePlanRecord', () => {
     expect(validatePlanRecord({ ...plan(), steps: [{ id: 'S1' }] }).length).toBeGreaterThan(0);
   });
 
-  it('carries a diff-minimizer step classification through the builder (issue #359)', () => {
+  it('carries a diff-minimizer step classification through the builder', () => {
     const record = buildPlanRecord({
       change: ULID,
       session_id: 'ses_1',
@@ -80,7 +80,7 @@ describe('validatePlanRecord', () => {
     ]);
   });
 
-  it('rejects an unknown step classification (issue #359)', () => {
+  it('rejects an unknown step classification', () => {
     expect(
       validatePlanRecord({
         ...plan(),
@@ -101,8 +101,7 @@ describe('validatePlanRecord', () => {
   });
 });
 
-// Issue #581 — every document schema composes the envelope fragment and still reads v1.
-describe('versioned document schemas (issue #581)', () => {
+describe('versioned document schemas', () => {
   const legacyPlan = {
     schema_version: 1,
     doc_type: 'paqad.plan',
@@ -146,7 +145,7 @@ describe('versioned document schemas (issue #581)', () => {
     });
   }
 
-  it('accepts a pre-#581 plan and review (INV-8)', () => {
+  it('accepts a pre-envelope plan and review (INV-8)', () => {
     expect(validatePlanRecord(legacyPlan)).toEqual([]);
     expect(validateReviewRecord(legacyReview)).toEqual([]);
   });
@@ -166,7 +165,6 @@ describe('versioned document schemas (issue #581)', () => {
   });
 
   it('checks a v1-versioned document only against the v1 shape', () => {
-    // A v1 plan that dropped a v1-only key is invalid, even though v2 never had it.
     const noUlid: Record<string, unknown> = { ...legacyPlan };
     delete noUlid.ulid;
     expect(validatePlanRecord(noUlid).length).toBeGreaterThan(0);

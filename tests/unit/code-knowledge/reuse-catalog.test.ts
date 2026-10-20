@@ -59,7 +59,6 @@ describe('generateReuseCatalog', () => {
     expect(md).toContain('Do not edit by hand');
     expect(md).toContain('## api');
     expect(md).toContain('## core');
-    // Within core, `high` (9 callers) sorts before `low` (1).
     expect(md.indexOf('| high |')).toBeLessThan(md.indexOf('| low |'));
   });
 

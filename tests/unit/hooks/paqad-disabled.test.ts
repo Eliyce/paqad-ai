@@ -46,7 +46,6 @@ function writeConfig(root: string, body: string): void {
   writeFileSync(join(root, '.paqad', '.config'), body);
 }
 
-/** Source the shell primitive and report whether it considers paqad disabled. */
 function shDisabled(root: string, extraEnv: Record<string, string> = {}): boolean {
   const out = execFileSync(
     'bash',
@@ -56,7 +55,6 @@ function shDisabled(root: string, extraEnv: Record<string, string> = {}): boolea
   return out.trim() === 'disabled';
 }
 
-/** Import the .mjs primitive in a child node and report its verdict. */
 async function mjsDisabled(root: string, extraEnv: Record<string, string> = {}): Promise<boolean> {
   const script =
     `import { isPaqadDisabled } from ${JSON.stringify(pathToFileURL(MJS).href)};` +
@@ -118,7 +116,6 @@ describe('paqad-disabled primitives (.sh + .mjs agree)', () => {
   });
 });
 
-/** Echo __paqad_resolve_project_root's result for a given cwd arg + env (issue #615, Part 1). */
 function shResolveRoot(cwd: string, env: Record<string, string> = {}): string {
   return execFileSync('bash', ['-c', `. "${SH}"; __paqad_resolve_project_root "${cwd}"`], {
     env: { ...process.env, ...env },
@@ -126,7 +123,7 @@ function shResolveRoot(cwd: string, env: Record<string, string> = {}): string {
   }).trim();
 }
 
-describe('resolveProjectRoot — worktree payload cwd (issue #615, Part 1)', () => {
+describe('resolveProjectRoot — worktree payload cwd', () => {
   let main: string;
   let worktree: string;
 
@@ -206,7 +203,7 @@ describe('resolveProjectRoot — worktree payload cwd (issue #615, Part 1)', () 
   });
 });
 
-describe('one-copy handshake (issue #616, Part 7)', () => {
+describe('one-copy handshake', () => {
   let projectRoot;
 
   beforeEach(() => {
@@ -231,7 +228,6 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
     writePluginActiveMarker(payload, env);
     expect(existsSync(join(pluginActiveMarkerDir(projectRoot), 'ses-1'))).toBe(true);
     expect(isPluginActiveForSession(payload, env)).toBe(true);
-    // A different session is not claimed by this marker (per-session, INV-4).
     expect(isPluginActiveForSession({ session_id: 'ses-2' }, env)).toBe(false);
   });
 
@@ -243,15 +239,14 @@ describe('one-copy handshake (issue #616, Part 7)', () => {
   it('npmHookStepsAside only when the plugin claimed the session and this is a npm hook', () => {
     const env = { CLAUDE_PROJECT_DIR: projectRoot };
     const payload = { session_id: 'ses-1' };
-    expect(npmHookStepsAside(payload, env)).toBe(false); // no marker
+    expect(npmHookStepsAside(payload, env)).toBe(false);
     writePluginActiveMarker(payload, env);
-    expect(npmHookStepsAside(payload, env)).toBe(true); // npm hook steps aside
-    // A plugin-reached hook (CLAUDE_PLUGIN_ROOT set) never steps aside here.
+    expect(npmHookStepsAside(payload, env)).toBe(true);
     expect(npmHookStepsAside(payload, { ...env, CLAUDE_PLUGIN_ROOT: '/plugin' })).toBe(false);
   });
 });
 
-describe('future-schema handling (issue #616, Part 9)', () => {
+describe('future-schema handling', () => {
   let projectRoot;
 
   beforeEach(() => {
@@ -278,7 +273,7 @@ describe('future-schema handling (issue #616, Part 9)', () => {
   });
 });
 
-describe('isProjectOnboarded / pluginStandsDownUnonboarded (issue #636 bug 1)', () => {
+describe('isProjectOnboarded / pluginStandsDownUnonboarded', () => {
   it('isProjectOnboarded is true only when .paqad/framework-path.txt exists', () => {
     const root = makeRoot();
     expect(isProjectOnboarded(root)).toBe(false);
@@ -289,7 +284,6 @@ describe('isProjectOnboarded / pluginStandsDownUnonboarded (issue #636 bug 1)', 
 
   it('pluginStandsDownUnonboarded is false for an npm-reached hook (no CLAUDE_PLUGIN_ROOT)', () => {
     const root = makeRoot();
-    // No onboarding pointer, but also not a plugin hook -> never stand down (npm wires only onboarded).
     expect(
       pluginStandsDownUnonboarded(undefined, { CLAUDE_PROJECT_DIR: root } as NodeJS.ProcessEnv),
     ).toBe(false);
@@ -306,9 +300,7 @@ describe('isProjectOnboarded / pluginStandsDownUnonboarded (issue #636 bug 1)', 
   });
 });
 
-describe('one chain per session: pluginStandsDownPassive / hookStandsDown (issue #667)', () => {
-  // Every path is a temp dir: the project, the user Claude config dir (CLAUDE_CONFIG_DIR) and the
-  // "installed" npm hook script. HOME/USERPROFILE are already sandboxed by tests/shared/isolate-home.ts.
+describe('one chain per session: pluginStandsDownPassive / hookStandsDown', () => {
   let root: string;
   let userDir: string;
   let installDir: string;
@@ -358,14 +350,14 @@ describe('one chain per session: pluginStandsDownPassive / hookStandsDown (issue
     claim();
     expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(false);
     expect(hookStandsDown(payload, pluginEnv())).toBe(false);
-    expect(hookStandsDown(payload, npmEnv())).toBe(true); // the npm copy steps aside (AC-2)
+    expect(hookStandsDown(payload, npmEnv())).toBe(true);
   });
 
   it('is true for an unclaimed session when the project .claude/settings.json wires a live hook', () => {
     wireProject('settings.json');
     expect(pluginStandsDownPassive(payload, pluginEnv())).toBe(true);
     expect(hookStandsDown(payload, pluginEnv())).toBe(true);
-    expect(hookStandsDown(payload, npmEnv())).toBe(false); // the npm copy runs (AC-1)
+    expect(hookStandsDown(payload, npmEnv())).toBe(false);
   });
 
   it('is true when only the project settings.local.json wires a live hook', () => {
@@ -423,9 +415,6 @@ describe('one chain per session: pluginStandsDownPassive / hookStandsDown (issue
     expect(anyLiveNpmHookLines([join(userDir, 'missing.json')])).toBe(false);
   });
 
-  // INV-1 / AC-5: for every (claimed, npm-wired) pair exactly one chain runs. An npm hook only fires
-  // when the npm chain is wired, so the npm chain runs when it is wired and does not stand down; the
-  // plugin chain runs when it does not stand down.
   it.each([
     [true, true],
     [true, false],
@@ -437,7 +426,6 @@ describe('one chain per session: pluginStandsDownPassive / hookStandsDown (issue
     const npmRuns = wired && !hookStandsDown(payload, npmEnv());
     const pluginRuns = !hookStandsDown(payload, pluginEnv());
     expect([npmRuns, pluginRuns].filter(Boolean)).toHaveLength(1);
-    // When the npm chain is wired, the stand-down verdicts themselves are complementary.
     if (wired) {
       expect(hookStandsDown(payload, npmEnv())).not.toBe(hookStandsDown(payload, pluginEnv()));
     }

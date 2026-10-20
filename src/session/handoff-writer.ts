@@ -52,21 +52,17 @@ export class HandoffWriter {
       });
     }
 
-    // Collect top 5 most recent decisions across all turns
     const allDecisions = summarized
       .flatMap((s) => s.decisions.map((d) => ({ description: d, rationale: '' })))
       .slice(-5);
 
-    // Collect all unique files touched
     const filesModified = [...new Set(summarized.flatMap((s) => s.files_touched))].slice(0, 15);
 
-    // Collect blockers from last 5 turns
     const blockers = summarized
       .slice(-5)
       .flatMap((s) => s.blockers.map((b) => ({ description: b, severity: 'warning' as const })))
       .slice(0, 3);
 
-    // Collect next steps from last 5 turns
     const nextSteps = summarized
       .slice(-5)
       .flatMap((s) => s.next_steps)
@@ -91,7 +87,7 @@ export class HandoffWriter {
       execution_progress: executionProgress,
       compression_stats: {
         original_context_tokens: originalContextTokens,
-        handoff_tokens: 0, // filled below
+        handoff_tokens: 0,
         compression_ratio: 0,
       },
     };

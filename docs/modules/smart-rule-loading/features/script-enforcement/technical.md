@@ -16,8 +16,7 @@
   shared kernel seam; replaces the retired single-purpose
   `rule-script-enforce.mjs`).
 - `src/adapters/claude/claude-adapter.ts` — registers the hook.
-- Rule-compliance evidence lives in the per-feature bundle (issue #468 Phase C, finishing
-  #339 — the retired project-scoped `rule-evidence` doc and `src/rule-scripts/rule-ledger.ts`
+- Rule-compliance evidence lives in the per-feature bundle (the retired project-scoped `rule-evidence` doc and `src/rule-scripts/rule-ledger.ts`
   are gone). The runner records a `findings` row (mirrors `report.json`'s counts) via
   `appendRuleRun` into the active feature's `rule-run.jsonl`; the reconciler records a `drift`
   row (mirrors `drift.json`'s `blocked` + counts) the same way. The dashboard
@@ -31,7 +30,7 @@
 - `enforceRuleScripts({ projectRoot, mode, changedFiles?, scope? })` → `EnforcementResult`
   `{ ran, mode, blocking, violations, armed, summary }`. Wraps `runRuleScripts`; resolves
   the working set via `loadChangeEvidence` when `changedFiles` is omitted. `scope`
-  (default `changed-files`) decides how an EMPTY working set is treated (issue #580): a
+  (default `changed-files`) decides how an EMPTY working set is treated: a
   `changed-files` scope skips (`ran: false`, `⚪ skipped (no files changed this turn)`) so a
   clean tree never triggers a whole-tree block, while `whole-tree` scans the whole tree. The
   capability kernel passes `changed-files` at completion and `whole-tree` at pre-mutation.
@@ -46,7 +45,7 @@
   (default `warn`; local `.config` / `PAQAD_RULE_COMPLIANCE` may only RAISE). The
   team FLOOR is the stricter of the merged `configs/.config.*` `rule_compliance`
   value and the project's own `feature-development.yaml`
-  `checks.rule_compliance.mode` (issue #319). The workflow-yaml knob used to be a
+  `checks.rule_compliance.mode`. The workflow-yaml knob used to be a
   placebo — read into the policy object but ignored by the resolver — so a team that
   set `strict` there silently got `warn`; it is now a real input. The resolver reads
   the RAW on-disk workflow file (an explicit team decision), not the merged policy,
@@ -73,7 +72,7 @@
   like `verify-backstop.mjs`). The seam (`pre-mutation` | `completion`) is the
   hook's first argv.
 - At the `completion` seam, rule-scripts run only when
-  `classifyCompletionEnforcement` (`src/pipeline/session-ownership.ts`, issue #582)
+  `classifyCompletionEnforcement` (`src/pipeline/session-ownership.ts`)
   says this session's turn is due its checks, the same decision the Stop backstop
   uses. A session that owns no change, or an owner on a non-feature turn that edited
   nothing, runs no rule-scripts. The session id comes from the hook payload, else
@@ -85,7 +84,7 @@
   intentionally untouched (cross-provider rollout of the kernel seam is a
   follow-up).
 
-## Map generation (issue #319)
+## Map generation
 
 - `src/rule-scripts/compile.ts` — `compileRuleScripts(projectRoot)` GENERATES the
   `rule-script-map.yml` the whole engine depends on. It reuses the analyzer's
@@ -117,6 +116,138 @@
   developer can't hand-fix. Best-effort: git missing or not-a-repo falls back to
   the static list alone. `check-ignore` respects the index, so tracked source
   that merely matches an ignore pattern is still scanned.
+
+## Why the rule-scripts engine works the way it does
+
+The reasons below are not obvious from the code in `src/rule-scripts/`.
+
+- **Ids and markers (`rule-id.ts`, `rule-file.ts`, `editor.ts`).** A rule is a markdown bullet
+  under `docs/instructions/rules/` outside a fenced code block. It gets an opaque `RL-<hex>` id as
+  a trailing HTML comment marker, which is invisible when rendered and survives reformatting. The
+  id stays stable because the marker is persisted in the file, not because the hash ignores edits,
+  so a rule keeps its id through a reword, a move or a split. A new id is seeded by path and text
+  and grows its hex length on a collision; ids are checked against both the map and every marker
+  on disk. The canonical form is an uppercase `RL-` and lowercase hex. Embedding is idempotent.
+  The editor's text normalising is the one definition of what the hash is computed over, shared
+  with the rule-editor wrapper, and a target path that is not a `.md` under the rules tree is
+  rejected, since a typo would write a rule no scan ever finds. Files are read once with a
+  default instead of an existence check first, which avoids a check-then-read race.
+- **The map (`map.ts`, `apply.ts`, `mutate.ts`, `analyzer.ts`, `compile.ts`).** The map is YAML so
+  it can be reviewed in a PR, with a stable key order. `apply.ts` is its only writer: it snapshots
+  the old map into `.history/`, rewrites the map with a temp file and rename (no lockfile), appends
+  to `events.jsonl`, and blesses the new state in the capability lock so a hand edit can be
+  detected later. A per-process counter keeps two snapshots in the same millisecond from
+  colliding. Mutations are pure and per rule: an added rule becomes a stub entry at once, and an
+  edited rule has its scripts cleared, so the reconciler does not report a false added or edited
+  rule. Scripts carry over only for rules whose text hash is unchanged, so there is never a global
+  rebuild. The rule-file hash is computed after embedding so it matches what is on disk. Compile is
+  skipped when the map is present and its rule-file hash still matches, so re-onboarding an
+  unchanged tree writes nothing (no new timestamp, snapshot or event).
+- **Running scripts (`execute.ts`, `runner.ts`, `enforce.ts`).** A script reads `{ projectRoot,
+  files }` on stdin and writes a findings report to stdout, under a timeout. Stdout is parsed
+  before the exit code is judged, because many linters exit non-zero when they find something;
+  valid findings are kept and the exit code or stderr is kept as a diagnostic. Binaries are
+  resolved against `PATH` in Node, because `command -v` is a shell builtin and cannot be spawned
+  on Linux; a name with a separator is used as is, and on Windows a name that already has an
+  executable extension is not given another. The cache key hashes every file any registered
+  script can read, so a whole-tree script never serves a stale result after an unrelated change.
+  The rule-file hash in the key is the analyze-time one from the map; rule edits surface as drift
+  instead. A cache hit still writes a `rule-run.jsonl` row marked `from_cache`, and a cached report
+  without results records no findings rather than an empty list that would read as clean.
+  Enforcement is independent of `rag_enabled`. `armed` counts registered scripts, because a map
+  that arms nothing must read "none armed", not "all clear". At a diff-scoped seam an empty change
+  set is skipped instead of scanning the whole tree.
+- **Fixtures and the over-flagging guard (`fixture-runner.ts`, `guard.ts`).** A script is never
+  registered until it classifies its own pass and fail fixtures correctly. When a declared binary
+  is missing the check is deferred, not rejected, because the script never ran. A new script that
+  flags too large a share of existing files raises a decision pause, since it is more likely buggy
+  than the codebase is broken; deterministic scripts get a tighter threshold than heuristic ones.
+- **The header (`header.ts`).** Blank lines and a bare `//` inside the header block are allowed,
+  and the parse stops at the first line of code. The key pattern binds the colon straight to the
+  capture and the value is trimmed later, which avoids catastrophic backtracking. Id hex and the
+  closed-set fields are lowercased so a hand-edited header still validates.
+- **Integrity (`integrity.ts`).** The digest only hashes (it never runs a script), so it is safe on
+  the per-edit hot path. The map is hashed in its normalised form, so a whitespace reformat is not
+  read as tampering, and every referenced script's content (or its absence) is folded in.
+- **Drift (`reconciler.ts`, `prune.ts`).** The reconciler is read-only. `drift.json` has two
+  writers: the reconciler owns every code except `RS-CONFLICT`, and the analyzer's semantic pass
+  owns `RS-CONFLICT`. Each replaces only its own codes and both recompute counts over the union.
+  An unreadable `drift.json` is backed up instead of rebuilt, so the other writer's findings are
+  not lost. `RS-CACHE-INVALID` is suppressed when an actionable finding fired, since a rule edit
+  always changes the hash. Drift being present does not stop the workflow by itself; planning
+  reads `escalation.rule_scripts_stale`. Pruning deletes scripts no active rule references, so an
+  archived rule's scripts survive one regen cycle; only the `__fixtures__` subtree is removed and
+  the stem dir only when it is then empty.
+- **`validate.ts`.** The header and findings schemas are validated inside the module, so the
+  runtime engine does not depend on the project-artifact validator.
+
+## Why the capability kernel works the way it does
+
+The reasons below are not obvious from the code in `src/kernel/`.
+
+- **`registry.ts`.** The registry is the one versioned list of every governed contract, so a new
+  contract is one row and the mode knobs, ledger doc types and schema versions all come from one
+  place that a consistency test pins (a `modeKey` must be a registered framework config key). A
+  capability id is never renamed, because a bare rename orphans the project's lock and config and
+  resets the team's value; a rename needs an alias map. `pre-mutation` exists only on Claude Code
+  (the one PreToolUse host); `completion` is every hook-capable host. Narration is honestly
+  `unbindable`: chat output has no host seam on any provider, so the kernel records it as emitted,
+  never verified. Delivery binds only at completion (no git or CI hooks), so `warn` is its honest
+  floor. Decision-pause minting is advisory because the detector is a heuristic; the block lives in
+  the gate on an open packet. Rule loading has no mode knob and a `block` floor, because loading the
+  rules is not optional.
+- **`capability.ts`.** `CAPABILITY_IMPLS` lists only the contracts already moved onto the kernel
+  seam. A registry row without an implementation keeps its older path, and a contract is added here
+  only when its old path is removed, so nothing fires twice. `evaluate()` returns a no-op for an
+  ordinary "nothing to enforce" and lets infra errors propagate, so the hook soft-fails instead of
+  wedging the agent. Side-effect narration (stage markers recorded to the ledger) rides on the
+  outcome and is shown even when nothing blocks, because a ledger write must never be silent.
+  - Rule-compliance floor: an unrecognised value on either team surface is ignored, so a typo never
+    weakens the floor.
+  - Rule-scripts: when the compat check says this install predates the project's blessed schema,
+    the capability declines to enforce rather than misread a newer format, and never blocks. On a
+    tampered map enforcement is not run at all; the tamper is the verdict. "No scripts armed" is
+    reported as a skipped verdict only at the completion seam, so mid-edit seams do not nag on every
+    edit. A Codex `apply_patch` call counts as feature development when any of its paths is, and a
+    call with no payload fails closed for code.
+  - Stages block-forward: it reads the stage ledger, never a git delta, so a committed clean tree
+    cannot nullify it. Before reading the ledger it sweeps the turn transcript for `paqad:stage`
+    markers emitted earlier in the same turn and records them with the same idempotent routine the
+    Stop hook runs, so the remedy the block message names clears the block in the same turn and is
+    never recorded twice. Planning and specification ends must carry a real artifact digest, so a
+    bare marker pair or an empty file does not unblock; the block message teaches the `-- <path>`
+    form for those stages. The fast lane relaxes only the specification requirement; a path in a
+    `sensitivity: high` module floors the lane back to full, and an unknown lane is treated as full.
+  - Bundle write guard: it runs ahead of the mode and scope checks (bundle files sit under the
+    out-of-scope `.paqad/**`, and the rule is not tunable). The refusal names the verb that owns the
+    file from the bundle manifest's `writer` field, so a new bundle file needs no second list; the
+    `screenshots/` subtree belongs to the visual-evidence verbs, and a path outside the project is
+    never a bundle file. Framework scripts write through `fs`, not a host tool, so they never reach
+    this seam; a shell write is caught later by the envelope `content_hash` check.
+  - Rules-loaded: presence only, never coverage, so editing a new file mid-change never deadlocks;
+    staleness is the completion gate's non-blocking signal. It does nothing at the completion seam
+    (the rules-loaded gate owns that), when no feature is open (the stages gate blocks first, so the
+    same edit does not get two blocks) and when the project has no compiled rules to load.
+  - Delivery: warn only, completion only; the runner is injected so tests are deterministic.
+  - Decision pause: both minters only mint, never block (the decision-pause gate blocks the next
+    edit). The opt-in self-arm runs first and the spec-change guard runs only when self-arm minted
+    nothing, so there is at most one pause per turn.
+- **`capability-lock.ts`.** An unreadable lock is treated as no lock. Writing a capability's digest
+  merges into the existing lock, so other capabilities' entries and fields written by a newer
+  engine survive. Only the engine's single-writer path writes it, never the enforcement seam. The
+  blessing also stamps the capability's current policy and record schema versions; a lock written
+  before those existed reads as "unversioned".
+- **`compat.ts`.** The install's registry versions are the floor this engine knows how to enforce.
+  Lock equal to registry is current; lock older is forward compatible and re-blessed on the next
+  write; no versions recorded is unversioned and the digest gate still runs. A lock newer than the
+  install on either dimension wins and is the only verdict that refuses, because an old install
+  cannot be trusted to read a newer schema; the silent update heals the install and the next run is
+  current.
+- **`gate.ts`.** Any blocking outcome blocks the host (exit 2): stderr carries the blocking findings,
+  stdout the advisory ones when nothing blocks. A thrown infra error propagates so the hook
+  soft-fails to exit 0, which reads as "could not run", never a false all-clear. The first frontend
+  edit visual-evidence reminder is model-facing context only, so any failure on its path degrades
+  to no reminder instead of dropping a blocking outcome.
 
 ## Tests
 

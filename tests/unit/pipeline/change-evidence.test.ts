@@ -121,8 +121,6 @@ describe('isCodeFile', () => {
     expect(isCodeFile('tests/unit/foo.test.ts')).toBe(false);
   });
 
-  // Issue #205 — generated `.paqad/` artifacts (any `.paqad/` home) are never code,
-  // even under `runtime/` where the prefix rule would otherwise match them.
   it('does not match root .paqad/ artifacts', () => {
     expect(isCodeFile('.paqad/session/verification-evidence.json')).toBe(false);
   });
@@ -134,7 +132,7 @@ describe('isCodeFile', () => {
   });
 });
 
-describe('isPaqadArtifactPath (issue #205)', () => {
+describe('isPaqadArtifactPath', () => {
   it('matches the bare .paqad root', () => {
     expect(isPaqadArtifactPath('.paqad')).toBe(true);
   });
@@ -158,7 +156,7 @@ describe('isPaqadArtifactPath (issue #205)', () => {
   });
 });
 
-describe('loadChangeEvidence (git only, issue #646)', () => {
+describe('loadChangeEvidence', () => {
   it('is none in a directory that is not a git work tree', async () => {
     const root = makeTmpRoot();
 
@@ -222,7 +220,7 @@ describe('loadChangeEvidence (git only, issue #646)', () => {
     execSync('git add -A', { cwd: root });
     execSync('git commit -m "deliver"', { cwd: root });
     execSync('git branch -M main', { cwd: root });
-    writeChangedFiles(root, ['delivered.ts']); // stale cache, ignored
+    writeChangedFiles(root, ['delivered.ts']);
     writeFileSync(join(root, 'note.txt'), 'later session');
 
     const result = await loadChangeEvidence(root);

@@ -42,7 +42,6 @@ for (const f of files) {
 process.stdout.write(JSON.stringify({ rule_id: '__RID__', kind: 'deterministic', findings }));
 `;
 
-// Build a project with one rule, one registered script, and a target file.
 function setup(
   targetBody: string,
   scope: 'changed-files' | 'whole-tree' = 'changed-files',
@@ -140,14 +139,9 @@ describe('runRuleScripts', () => {
   });
 
   it('excludes git-ignored generated/vendored code from the whole-tree scan', () => {
-    // A whole-tree script must not read files the team gitignores (build output,
-    // vendored deps, generated code) — otherwise deterministic findings in code
-    // the developer cannot hand-fix block the strict gate. Regression for the
-    // v1.41.0 scanner reading gitignored build/vendor code.
     const { root } = setup('export const x = 1;\n', 'whole-tree');
     write(join(root, '.gitignore'), 'generated/\n');
     execFileSync('git', ['init', '-q'], { cwd: root });
-    // The only violation lives in gitignored generated output.
     write(join(root, 'generated/out.js'), 'debugger;\n');
 
     const report = runRuleScripts({
@@ -160,9 +154,6 @@ describe('runRuleScripts', () => {
   });
 
   it('falls back to scanning when git cannot resolve ignores (not a repo)', () => {
-    // Same layout, but no `git init` — `git check-ignore` cannot run, so the
-    // scanner keeps its best-effort static-ignore behaviour and still reads the
-    // file. Proves the git filter is what excludes it above, not the glob list.
     const { root } = setup('export const x = 1;\n', 'whole-tree');
     write(join(root, '.gitignore'), 'generated/\n');
     write(join(root, 'generated/out.js'), 'debugger;\n');
@@ -177,13 +168,10 @@ describe('runRuleScripts', () => {
   });
 
   it('invalidates the cache for whole-tree scripts when an unrelated file changes (BUG-3)', () => {
-    // A whole-tree-scoped script scans the whole tree even on a changed-files
-    // run, so an unrelated mutation must bust the cache.
     const { root } = setup('export const x = 1;\n', 'whole-tree');
     const first = runRuleScripts({ projectRoot: root, mode: 'warn', changedFiles: ['src/app.ts'] });
     expect(first.from_cache).toBeUndefined();
 
-    // Mutate a file NOT in changedFiles.
     write(join(root, 'src/other.ts'), 'debugger;\n');
     const second = runRuleScripts({
       projectRoot: root,
@@ -191,12 +179,11 @@ describe('runRuleScripts', () => {
       changedFiles: ['src/app.ts'],
     });
     expect(second.from_cache).toBeUndefined();
-    // The whole-tree script now sees the new violation.
     expect(second.counts.deterministic).toBe(1);
   });
 });
 
-describe('rule-run.jsonl rows (issue #639, Part 12)', () => {
+describe('rule-run.jsonl rows', () => {
   const previousSession = process.env.SE_SESSION;
   afterEach(() => {
     if (previousSession === undefined) delete process.env.SE_SESSION;
@@ -223,10 +210,8 @@ describe('rule-run.jsonl rows (issue #639, Part 12)', () => {
       changedFiles: ['src/app.ts'],
     });
     expect(cached.from_cache).toBe(true);
-    // The returned report is the cached report, unchanged apart from the cache mark.
     expect({ ...cached, from_cache: undefined }).toEqual({ ...fresh, from_cache: undefined });
 
-    // A second identical cache hit does not grow the bundle.
     runRuleScripts({ projectRoot: root, mode: 'strict', changedFiles: ['src/app.ts'] });
 
     const rows = readRuleRun(root, dir) as unknown as Array<Record<string, unknown>>;

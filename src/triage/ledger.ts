@@ -10,11 +10,6 @@ import {
   type TriageVerdict,
 } from '@/core/types/triage.js';
 
-// Issue #107 — the triage ledger records each finding's pile + reason so false
-// alarms and taste calls are auditable and reusable, and "confirmed → change"
-// is traceable. It is a per-run record, not a second decision memory — settle-
-// once / never-re-raise lives in the Decision Pause Contract.
-
 function ledgerPath(projectRoot: string): string {
   return join(projectRoot, PATHS.TRIAGE_LEDGER);
 }
@@ -27,11 +22,6 @@ function emptyLedger(now: string): TriageLedger {
   };
 }
 
-/**
- * Reads the triage ledger, or an empty one if none exists yet. A corrupt file
- * is treated as empty rather than throwing — the ledger is an audit aid and must
- * never block a build.
- */
 export async function readTriageLedger(
   projectRoot: string,
   now: string = new Date().toISOString(),
@@ -57,7 +47,6 @@ export async function readTriageLedger(
   }
 }
 
-/** Atomically writes the ledger (temp file + rename), creating the dir. */
 export async function writeTriageLedger(
   projectRoot: string,
   ledger: TriageLedger,
@@ -73,7 +62,6 @@ export async function writeTriageLedger(
   return targetPath;
 }
 
-/** Builds a ledger entry from a finding + its verdict. */
 export function toLedgerEntry(
   finding: TriageFinding,
   verdict: TriageVerdict,
@@ -93,10 +81,6 @@ export function toLedgerEntry(
   };
 }
 
-/**
- * Records a finding's verdict in the ledger, replacing any earlier entry for the
- * same finding id (a re-triaged finding updates in place rather than duplicating).
- */
 export function recordVerdict(
   ledger: TriageLedger,
   finding: TriageFinding,

@@ -72,7 +72,7 @@ function citation(overrides: Partial<ComplianceCitation> = {}): ComplianceCitati
   };
 }
 
-describe('renderComplianceLines (#122)', () => {
+describe('renderComplianceLines', () => {
   it('returns null when there are no citations', () => {
     expect(renderComplianceLines([])).toBeNull();
   });
@@ -95,7 +95,7 @@ describe('renderComplianceLines (#122)', () => {
   });
 });
 
-describe('renderReproducibilityLine (#123)', () => {
+describe('renderReproducibilityLine', () => {
   it('claims input-replay and never bit-identical regeneration', () => {
     const line = renderReproducibilityLine({
       context_hash: 'deadbeefcafe1234',
@@ -183,7 +183,6 @@ describe('renderEvidenceMarkdown', () => {
     expect(md).toContain(
       'Gates: 1 passed, 0 failed, 0 inconclusive, 1 not required, 2 did not run.',
     );
-    // A not-required trust gate is left out; a did-not-run one is grey, never green.
     expect(md).not.toContain('Mutation');
     expect(md).toContain(
       '- ⚪ Quality ratchet: Quality ratchet did not run: no quality measure could be taken.',
@@ -300,7 +299,6 @@ describe('renderEvidenceMarkdown', () => {
     expect(md).toContain(
       '> Authorship: written by `cursor` · model `openai/gpt-5` (declared) · accepted by Jane Dev.',
     );
-    // The accepter email stays out of the public comment.
     expect(md).not.toContain('jane@example.com');
   });
 
@@ -375,7 +373,7 @@ describe('buildEvidenceComment', () => {
     expect(body).toMatch(/## paqad evidence — deadbee {2}🟢 Safe to merge/);
   });
 
-  it('folds in authorship from the latest feature receipt (#468 Phase B)', () => {
+  it('folds in authorship from the latest feature receipt', () => {
     const path = join(root, VERIFICATION_EVIDENCE_RELATIVE_PATH);
     mkdirSync(join(path, '..'), { recursive: true });
     writeFileSync(path, JSON.stringify(PASSING), 'utf8');

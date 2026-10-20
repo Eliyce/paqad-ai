@@ -13,7 +13,7 @@ import { minimalAppMap, validAppMap, validJourney } from '../../fixtures/site-ma
 const FLAG_ON: NodeJS.ProcessEnv = { PAQAD_SITE_MAP: 'true' };
 const FLAG_OFF: NodeJS.ProcessEnv = { PAQAD_SITE_MAP: 'false' };
 
-describe('buildSiteMapView (issue #466)', () => {
+describe('buildSiteMapView', () => {
   let root: string;
 
   beforeEach(() => {
@@ -36,7 +36,6 @@ describe('buildSiteMapView (issue #466)', () => {
     writeFileSync(join(dir, `${id}.journey.yaml`), YAML.stringify(journey), 'utf8');
   }
 
-  /** The `create documentation` output: docs/instructions/rules/module-map.yml with one module. */
   function writeModuleMap(): void {
     const path = join(root, PATHS.MODULE_MAP);
     mkdirSync(join(path, '..'), { recursive: true });
@@ -49,7 +48,6 @@ describe('buildSiteMapView (issue #466)', () => {
     );
   }
 
-  /** The `create module documentation` output for a module: docs/modules/<slug>/index/summary.md. */
   function writeModuleDoc(slug: string): void {
     const dir = join(root, PATHS.MODULES_DIR, slug, 'index');
     mkdirSync(dir, { recursive: true });
@@ -97,7 +95,6 @@ describe('buildSiteMapView (issue #466)', () => {
     if (view.status !== 'ready') throw new Error('expected ready');
     expect(view.map).toEqual(map);
     expect(view.journeys.map((journey) => journey.id)).toEqual(['checkout']);
-    // No freshness has been stamped yet, so the anchor counts are null and nothing reads stale.
     expect(view.freshness).toEqual({
       generated_from: 'main@abc123',
       anchors_total: null,

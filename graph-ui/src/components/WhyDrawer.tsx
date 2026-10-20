@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
+
 interface Props {
   title: string;
   problem: string;
@@ -9,24 +11,16 @@ interface Props {
   onClose: () => void;
 }
 
-/**
- * Right-side why drawer (issue #146). 360px wide, slides in over 200ms
- * ease-out, closes on Escape and backdrop click. Carries the only soft
- * shadow in the app. Three blocks: the problem, what you get, what
- * happens without it.
- */
 export function WhyDrawer({ title, problem, benefit, without, docsHref, onClose }: Props) {
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
 
-  // Slide in on mount.
   useEffect(() => {
     const frame = requestAnimationFrame(() => setOpen(true));
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  // Focus lands on the close button; Escape closes; Tab stays inside.
   useEffect(() => {
     closeRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent): void => {
@@ -106,8 +100,7 @@ export function WhyDrawer({ title, problem, benefit, without, docsHref, onClose 
           <div className="mt-auto pt-6">
             <a
               href={docsHref}
-              target="_blank"
-              rel="noreferrer"
+              {...NEW_TAB}
               className="text-secondary"
               style={{ color: 'var(--color-accent)' }}
             >

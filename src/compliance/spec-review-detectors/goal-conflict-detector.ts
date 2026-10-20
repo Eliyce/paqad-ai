@@ -2,11 +2,8 @@ import type { SpecReviewDetector } from './types.js';
 import { makeLocation, normalizeText } from './shared.js';
 
 interface ConflictRule {
-  /** Description template (call with the matched pair). */
   description: string;
-  /** Matches lines that assert a preservation / completeness goal. */
   preservePattern: RegExp;
-  /** Matches lines that assert a discard / exclusion rule. */
   discardPattern: RegExp;
   suggested_resolution: string;
 }

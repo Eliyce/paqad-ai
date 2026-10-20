@@ -28,28 +28,14 @@ import { JourneyLines, type Station } from './JourneyLines';
 import { SiteMapSearch } from './SiteMapSearch';
 import { DistrictNode, districtTint, SurfaceNode, type DistrictNodeData } from './SiteMapNodes';
 
-/**
- * The interactive city map (issue #489). Areas are districts that carry the structure by
- * containment, so a CLI-shaped map with zero transitions is a first-class citizen, not the
- * degenerate sliver the old edge-driven SVG produced (D1). React Flow 12 supplies the correct
- * gesture substrate — cursor-anchored zoom, pinch, non-passive wheel, fitView, minimap — so all of
- * D2..D5 die in the swap. Journeys draw as metro lines from their own step order (Phase 2, fixes
- * D6). It renders only the static layout it is handed, from the served payload (NFR-1), so the same
- * map always looks the same (LAY-2).
- */
-
 interface Props {
   map: AppMap;
   journeys: Journey[];
   activeJourneyId: string | null;
-  /** The current walk station (drives the camera flight); null when not walking. */
   walkStationId: string | null;
   selectedId: string | null;
-  /** A focus request (from the insight line / gaps chip); the camera flies to `id` on each nonce. */
   focus: { id: string; nonce: number } | null;
-  /** Team-shared district curation to honor; null before anyone has arranged the map. */
   stored: SiteMapStoredLayout | null;
-  /** True in --read-only mode: the canvas hides its drag affordances and never persists. */
   readOnly: boolean;
   onSelect: (id: string | null) => void;
   onPickJourney: (id: string | null) => void;
@@ -71,7 +57,6 @@ function districtNodeId(areaId: string): string {
   return `${DISTRICT_PREFIX}${areaId}`;
 }
 
-/** The stored layout carries x,y,w,h; the layout pass pins on x,y only (size stays computed). */
 function toStoredPositions(stored: SiteMapStoredLayout | null): StoredPositions | undefined {
   if (stored === null || stored === undefined) return undefined;
   const positions: StoredPositions = {};
@@ -81,7 +66,6 @@ function toStoredPositions(stored: SiteMapStoredLayout | null): StoredPositions 
   return positions;
 }
 
-/** Follow the dashboard's theme (set as data-theme on the root) so React Flow matches it. */
 function useDashboardColorMode(): ColorMode {
   const read = (): ColorMode =>
     document.documentElement.dataset.theme === 'dark' ? 'dark' : 'light';
@@ -97,7 +81,6 @@ function useDashboardColorMode(): ColorMode {
   return mode;
 }
 
-/** The per-user wheel setting (locked decision): scroll pans by default; a toggle flips to zoom. */
 function useWheelMode(): [WheelMode, (next: WheelMode) => void] {
   const [mode, setMode] = useState<WheelMode>(() =>
     localStorage.getItem(WHEEL_KEY) === 'zoom' ? 'zoom' : 'pan',
@@ -126,8 +109,6 @@ function Flow({
   const { zoomIn, zoomOut, fitView, setCenter } = useReactFlow();
   const colorMode = useDashboardColorMode();
   const [wheelMode, setWheelMode] = useWheelMode();
-  // True when a fit-to-view was clamped at the zoom floor: the map is wider than the window can show
-  // at a readable zoom, so we point the reader at the minimap instead of shrinking cards (S7, FR-5).
   const [oversized, setOversized] = useState(false);
   const reducedMotion = useMemo(
     () => window.matchMedia('(prefers-reduced-motion: reduce)').matches,
@@ -147,7 +128,6 @@ function Flow({
   const journeyIds = useMemo(() => journeySurfaceIds(activeJourney), [activeJourney]);
   const journeyActive = activeJourney !== null;
 
-  // Absolute centre of every surface card — the stations for the metro lines and camera flights.
   const centers = useMemo(() => {
     const map2 = new Map<string, Station>();
     for (const district of layout.districts) {
@@ -199,13 +179,9 @@ function Flow({
     return out;
   }, [layout, dead, selectedId, journeyActive, journeyIds, onSelect, readOnly]);
 
-  // React Flow needs stateful nodes for dragging to stick; resync whenever the derived layout
-  // changes (map/journey/selection/stored refresh), so a persisted drag reappears at its new home.
   const [rfNodes, setRfNodes, onNodesChange] = useNodesState(nodes);
   useEffect(() => setRfNodes(nodes), [nodes, setRfNodes]);
 
-  // On a district drop, persist the WHOLE current arrangement so every district becomes an
-  // authoritative pin (new areas still append), and the team-shared layout survives refreshes.
   const onNodeDragStop = useCallback(() => {
     setRfNodes((current) => {
       const districts: SiteMapStoredLayout = {};
@@ -252,7 +228,6 @@ function Flow({
     return out;
   }, [map]);
 
-  // Walk mode: fly the camera to the current station (UXR-15). Jump-cut under reduced motion.
   useEffect(() => {
     if (walkStationId === null) return;
     const station = centers.get(walkStationId);
@@ -272,7 +247,6 @@ function Flow({
     [fitView, reducedMotion],
   );
 
-  // Focus request from the insight line / gaps chip: fly to the named node whenever the nonce ticks.
   useEffect(() => {
     if (focus === null) return;
     flyToNode(focus.id);
@@ -408,8 +382,6 @@ function Flow({
         )}
       </div>
 
-      {/* Over-size hint (S7, FR-5): shown only when a fit was clamped at the zoom floor, so cards
-          stay readable. It points at the minimap (bottom-right) rather than shrinking the map. */}
       {oversized && (
         <div
           className="absolute bottom-3 left-3 z-10 max-w-[60%] rounded-[8px] px-2.5 py-1 text-caption"

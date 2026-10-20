@@ -60,7 +60,6 @@ describe('delivery policy config endpoint logic', () => {
       expect(config.file.content).toBe(VALID_POLICY);
       expect(config.file.hash).toBe(contentHash(VALID_POLICY));
       expect(config.resolved.process.branch.base).toBe('develop');
-      // merge keeps framework defaults for untouched sections
       expect(config.resolved.process.pr.base).toBe('main');
     });
 

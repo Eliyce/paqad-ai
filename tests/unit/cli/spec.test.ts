@@ -30,13 +30,9 @@ import { writeStagedJson, writeStagedText } from '@/spec-pipeline/run-store.js';
 import { buildHighTableView } from '@/hud/high-table-view.js';
 import { pinSpecPipelineOff } from '../../shared/spec-pipeline-off.js';
 
-// `paqad-ai spec freeze <file>` — the caller that activates the built-but-dead spec
-// sign-off engine (issue #317). It reimplements no freeze logic; it wires
-// build → evaluate → freeze → write and refuses to freeze over blockers.
 describe('paqad-ai spec command', () => {
   let root: string;
 
-  // A spec that is complete except that its authored invariant needs confirming.
   const COMPLETE_SPEC = [
     '# Widget spec',
     '',
@@ -54,7 +50,6 @@ describe('paqad-ai spec command', () => {
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-cli-spec-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
-    // These tests prove freeze with the pipeline switched off unless a test turns it on.
     pinSpecPipelineOff(root);
   });
 
@@ -96,7 +91,6 @@ describe('paqad-ai spec command', () => {
   });
 
   it('prints blockers and exits non-zero, freezing nothing, when the spec is incomplete (AC-2)', async () => {
-    // Behaviour only — no acceptance criteria, no invariants ⇒ blockers.
     const path = writeSpec('S-1-thin.md', '# Thin\n\n## Behaviour\n- FR-1: does a thing.\n');
     const { err } = await run('freeze', path);
 
@@ -104,7 +98,6 @@ describe('paqad-ai spec command', () => {
     expect(err.join('\n')).toContain('Spec has no acceptance criteria.');
     expect(err.join('\n')).toContain('Spec has no invariants.');
     expect(err.join('\n')).toMatch(/blocker/i);
-    // Nothing frozen.
     expect(existsSync(join(root, '.paqad/specs'))).toBe(false);
   });
 
@@ -116,22 +109,18 @@ describe('paqad-ai spec command', () => {
     expect(err.join('\n')).toMatch(/INV-1 is not human-confirmed/);
   });
 
-  it('freezes a complete, confirmed spec and writes NO legacy sidecar (#343 AC-3)', async () => {
-    // With the Phase-7 cutover the frozen spec's only home is the feature bundle. A
-    // standalone freeze (no active feature) succeeds but persists no `.paqad/specs` sidecar.
+  it('freezes a complete, confirmed spec and writes NO legacy sidecar', async () => {
     const path = writeSpec('S-3-widget.md', COMPLETE_SPEC);
     const { out } = await run('freeze', path, '--signed-off-by', 'alice', '--confirm-invariants');
 
     expect(process.exitCode).toBeUndefined();
-    // The retired sidecar dir is never created.
     expect(existsSync(join(root, '.paqad/specs'))).toBe(false);
-    // Narrated in the ▸ paqad voice + machine-readable confirmation; no bundle when no feature.
     expect(out.some((line) => line.startsWith('**▸ paqad** · '))).toBe(true);
     expect(out.some((line) => line.includes('"frozen":true'))).toBe(true);
     expect(out.some((line) => line.includes('"specification":null'))).toBe(true);
   });
 
-  it('writes the frozen spec ONLY into the active feature bundle (#343)', async () => {
+  it('writes the frozen spec ONLY into the active feature bundle', async () => {
     const SES = 'ses_spec_feature';
     openFeatureChange(root, SES, {
       adapter: 'claude-code',
@@ -161,11 +150,7 @@ describe('paqad-ai spec command', () => {
     expect(err.join('\n')).toMatch(/could not read spec file/);
   });
 
-  // Issue #401 — the freeze contract promised "no critical spec-review defects" while the
-  // command evaluated the freeze with no review at all, so the clause was enforced nowhere.
-  describe('spec-quality review runs inside freeze (issue #401)', () => {
-    // The contradiction detector's critical case: a denominator-exclusion rule beside a
-    // formula that still divides by total.
+  describe('spec-quality review runs inside freeze', () => {
     const CRITICAL_SPEC = [
       '# Ratio spec',
       '',
@@ -198,7 +183,6 @@ describe('paqad-ai spec command', () => {
 
       expect(process.exitCode).toBe(1);
       expect(err.join('\n')).toMatch(/Critical spec-review defect open: SQ-/);
-      // Nothing frozen, and the source survives so the defect can be fixed.
       const dir = currentFeature(root, SES)!;
       expect(readFeatureSpecification(root, dir)).toBeNull();
       expect(existsSync(path)).toBe(true);
@@ -207,7 +191,6 @@ describe('paqad-ai spec command', () => {
     it('never writes a standalone spec-review report (AC-1, AC-2)', async () => {
       const SES = 'ses_spec_401_noartifact';
       activeFeature(SES);
-      // Run both paths: the blocked freeze and the clean one.
       await run(
         'freeze',
         writeSpec('S-401-blocked.md', CRITICAL_SPEC),
@@ -223,14 +206,12 @@ describe('paqad-ai spec command', () => {
         '--session',
         SES,
       );
-      // The stray artifact this issue was filed over is never produced by the freeze.
       expect(existsSync(join(root, '.paqad', 'compliance'))).toBe(false);
     });
 
     it('freezes over non-critical findings and records the defect summary (AC-2)', async () => {
       const SES = 'ses_spec_401_summary';
       activeFeature(SES);
-      // "always"/"never" on a shared subject is a MAJOR contradiction — it must not block.
       const path = writeSpec(
         'S-401-major.md',
         [
@@ -269,9 +250,7 @@ describe('paqad-ai spec command', () => {
     });
   });
 
-  // Issue #401 — a spec authored in /tmp used to freeze happily, recording an absolute,
-  // non-portable `spec_file` (and a `../../../..` escape in the report beside it).
-  describe('out-of-tree spec files (issue #401)', () => {
+  describe('out-of-tree spec files', () => {
     it('refuses a spec resolving outside the project root, freezing nothing (AC-3)', async () => {
       const outside = mkdtempSync(join(tmpdir(), 'paqad-outside-'));
       const path = join(outside, 'river-agent-spec.md');
@@ -280,16 +259,13 @@ describe('paqad-ai spec command', () => {
         const { err } = await run('freeze', path, '--confirm-invariants');
         expect(process.exitCode).toBe(1);
         expect(err.join('\n')).toMatch(/has to live inside the project/);
-        // Refused before anything was read: the source is untouched.
         expect(existsSync(path)).toBe(true);
       } finally {
         rmSync(outside, { recursive: true, force: true });
       }
     });
 
-    // Issue #581 (AC-9) supersedes the #401 relative path: the record names the bundle's own
-    // signed copy, `spec.md`, so it is portable whatever path the spec was frozen from.
-    it('records spec_file as the bundle spec.md for an absolute in-tree spec (AC-5, #581 AC-9)', async () => {
+    it('records spec_file as the bundle spec.md for an absolute in-tree spec (AC-5)', async () => {
       const SES = 'ses_spec_401_rel';
       openFeatureChange(root, SES, {
         adapter: 'claude-code',
@@ -297,7 +273,6 @@ describe('paqad-ai spec command', () => {
         issue: '401',
         ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
       });
-      // Addressed by its ABSOLUTE path — the frozen record must still be relative.
       const path = writeSpec('S-401-abs.md', COMPLETE_SPEC);
       await run('freeze', path, '--confirm-invariants', '--session', SES);
 
@@ -308,7 +283,6 @@ describe('paqad-ai spec command', () => {
       expect(sha256Hex(splitFrontMatter(specMd).body)).toBe(spec.spec_hash);
       expect(splitFrontMatter(specMd).body).toBe(COMPLETE_SPEC);
       expect(existsSync(join(root, featureDir(dir), 'specification.md'))).toBe(false);
-      // The tmp source is deleted: the bundle copy is now the only one, and it still verifies.
       expect(existsSync(path)).toBe(false);
     });
   });
@@ -319,25 +293,18 @@ describe('paqad-ai spec command', () => {
     expect(joined).toContain('paqad-ai spec freeze');
   });
 
-  // Issue #401 — the contract is what drifted from the code, so it is asserted too. The
-  // stage instructions live in two surfaces (the default policy object and the rendered
-  // YAML a project is onboarded with) and previously duplicated every line verbatim.
   it('both contract surfaces describe the review freeze actually runs (AC-7)', () => {
     const fromPolicy =
       defaultFeatureDevelopmentPolicy().stages.specification.instructions.join('\n');
     const fromYaml = renderDefaultFeatureDevelopmentPolicyYaml();
 
     for (const surface of [fromPolicy, fromYaml]) {
-      // Says freeze runs the review itself...
       expect(surface).toContain('spec freeze` runs the spec-quality review itself');
-      // ...and tells the agent not to do what produced the stray artifact.
       expect(surface).toContain('never run `compliance review` by hand');
       expect(surface).toContain('no .paqad/compliance/<slug>/spec-review.json is written');
     }
   });
 
-  // Issue #402 — the transient markdown is scratch, not a second source of truth. Leaving
-  // it behind is how a byte-identical copy of the spec ended up beside specification.json.
   describe('transient spec cleanup', () => {
     function activeFeature(): void {
       openFeatureChange(root, 'ses_spec_402', {
@@ -353,7 +320,6 @@ describe('paqad-ai spec command', () => {
       const path = writeSpec('S-402.md', COMPLETE_SPEC);
       await run('freeze', path, '--confirm-invariants', '--session', 'ses_spec_402');
       expect(existsSync(path)).toBe(false);
-      // The frozen record is what survives.
       const dir = currentFeature(root, 'ses_spec_402')!;
       expect(readFeatureSpecification(root, dir)?.frozen).toBeTruthy();
     });
@@ -382,12 +348,9 @@ describe('paqad-ai spec command', () => {
       expect(existsSync(path)).toBe(true);
     });
 
-    // A standalone freeze persists NOTHING (no active feature to write into), so deleting
-    // the source there would destroy the only copy of the spec.
     it('never deletes the source when no active feature received the spec (AC-5)', async () => {
       const path = writeSpec('S-402-standalone.md', COMPLETE_SPEC);
       const { out } = await run('freeze', path, '--confirm-invariants', '--session', 'ses_none');
-      // The freeze itself succeeded, but nothing was persisted to a bundle.
       expect(out.some((line) => line.includes('"specification":null'))).toBe(true);
       expect(existsSync(path)).toBe(true);
     });
@@ -408,13 +371,11 @@ describe('paqad-ai spec command', () => {
       );
       expect(process.exitCode).toBe(1);
       expect(err.join('\n')).toContain('holds only its rigid artifacts');
-      // Refused before anything was read or written: the file is untouched.
       expect(existsSync(path)).toBe(true);
       expect(readFeatureSpecification(root, dir)).toBeNull();
     });
   });
 
-  // Issue #547 — spec-pipeline adoption at freeze (FR-9 / AC-10).
   describe('spec pipeline adoption', () => {
     const SES = 'ses_freeze_547';
     function enablePipeline(adoption: 'warn' | 'strict' | 'off'): void {
@@ -430,7 +391,6 @@ describe('paqad-ai spec command', () => {
         ulid: '01JABCDEFGHJKMNPQRSTVWXYZ0',
       });
     }
-    // The run's working craft spec and finish result stage under .paqad/tmp (issue #581).
     function writeRun(
       dir: string,
       specMd: string,
@@ -478,7 +438,6 @@ describe('paqad-ai spec command', () => {
       );
       const stored = readFeatureSpecification(root, dir);
       expect(stored?.pipeline).toEqual({ produced: false, manual_reason: 'urgent hotfix' });
-      // A manual freeze has no run, so no run sections (issue #581, FR-3).
       expect(stored?.task).toBeUndefined();
       expect(stored?.trace).toBeUndefined();
     });
@@ -550,7 +509,6 @@ describe('paqad-ai spec command', () => {
         outcome: 'non-blocking-review',
         reason: 'A5 is not live',
         a5_live: false,
-        // Stored once, without the master switch (issue #581, D4).
         enforcement: {
           clarification: 'strict',
           final_review: 'off',
@@ -563,7 +521,6 @@ describe('paqad-ai spec command', () => {
         intent: 'greet',
         scope: { frontend: ['widget'], backend: [] },
       });
-      // The grounding terms stay behind (issue #581).
       expect(stored.grounding).toEqual({
         path: 'docs-fallback',
         sparse: true,
@@ -576,13 +533,10 @@ describe('paqad-ai spec command', () => {
       });
       expect('provenance' in stored).toBe(false);
       expect(JSON.stringify(stored)).not.toContain('run_dir');
-      // The staging dir went with the freeze (AC-3).
       expect(existsSync(join(root, '.paqad', 'tmp', 'spec-pipeline'))).toBe(false);
 
-      // A re-run whose crafted bytes differ from the spec being frozen is refused.
       writeRun(dir, COMPLETE_SPEC, provenance);
 
-      // A spec whose bytes differ from the run's crafted spec is refused.
       const dir2 = currentFeature(root, SES);
       expect(dir2).toBe(dir);
       const drifted = writeSpec('S-drift.md', COMPLETE_SPEC + '\n<!-- edited -->');
@@ -601,7 +555,6 @@ describe('paqad-ai spec command', () => {
 
     it('writes no pipeline sections when the pipeline is off (unchanged behaviour)', async () => {
       const dir = openFeature();
-      // pipeline disabled: no .config write
       const path = writeSpec('S-off.md', COMPLETE_SPEC);
       await run('freeze', path, '--session', SES, '--confirm-invariants');
       const stored = readFeatureSpecification(root, dir)!;
@@ -610,10 +563,7 @@ describe('paqad-ai spec command', () => {
       }
     });
 
-    // Issue #640 (INV-18) — the fast lane never runs the pipeline, so even strict adoption with
-    // the pipeline on freezes a fast-lane spec with no pipeline run. The pipeline section records
-    // that the fast lane skipped it, so a lane raised later still owes the pipeline files.
-    it('freezes a fast-lane spec under strict, marking the pipeline as skipped (issue #640)', async () => {
+    it('freezes a fast-lane spec under strict, marking the pipeline as skipped', async () => {
       const dir = openFeatureChange(root, SES, {
         adapter: 'claude-code',
         title: 'fast copy fix',
@@ -632,7 +582,7 @@ describe('paqad-ai spec command', () => {
       }
     });
 
-    it('still refuses a hand-written spec under strict on the graduated lane (issue #640)', async () => {
+    it('still refuses a hand-written spec under strict on the graduated lane', async () => {
       openFeatureChange(root, SES, {
         adapter: 'claude-code',
         title: 'graduated fix',
@@ -664,7 +614,7 @@ describe('paqad-ai spec command', () => {
     });
 
     it('refuses --from-pipeline with no active feature', async () => {
-      enablePipeline('strict'); // no openFeature()
+      enablePipeline('strict');
       const path = writeSpec('S-nofeature.md', COMPLETE_SPEC);
       const { err } = await run(
         'freeze',
@@ -686,7 +636,6 @@ describe('paqad-ai spec command', () => {
         outcome: 'freeze',
         questions: { asked: 0, answered: 0, auto_answered: 0, deferred: 0 },
       });
-      // A task with no scope object still records its intent.
       writeStagedJson(root, dir, 'task', { intent: 'greet' });
       const path = writeSpec('S-min.md', COMPLETE_SPEC);
       await run('freeze', path, '--session', SES, '--confirm-invariants', '--from-pipeline');
@@ -710,7 +659,6 @@ describe('paqad-ai spec command', () => {
         inputs: [
           '.paqad/tmp/need.json',
           '.paqad/tmp/S-inputs.md',
-          // A path that escapes .paqad/tmp is never deleted, whatever the manifest says.
           '.paqad/tmp/../keep.json',
           'docs/keep.md',
         ],
@@ -765,7 +713,7 @@ describe('paqad-ai spec command', () => {
     });
   });
 
-  describe('visual acceptance criterion at freeze (issue #579, FR-14)', () => {
+  describe('visual acceptance criterion at freeze', () => {
     const SES = 'ses_spec_visual';
 
     function frontendFeature(planFiles: string[]): void {

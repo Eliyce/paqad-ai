@@ -65,14 +65,12 @@ describe('RAG evaluation extension — end-to-end', () => {
     expect(result.dataset_size).toBe(EVAL_DATASET.length);
     expect(result.traces).toHaveLength(EVAL_DATASET.length);
 
-    // Write trace artifact (mirrors what pnpm test would do during a real benchmark run)
     mkdirSync(join(process.cwd(), 'coverage'), { recursive: true });
     writeFileSync(EVAL_TRACES_PATH, JSON.stringify(result.traces, null, 2), 'utf8');
     expect(existsSync(EVAL_TRACES_PATH)).toBe(true);
   });
 
   it('model-graded eval resolves without blocking and does not throw', async () => {
-    // No grader injected — must resolve silently with zero scores
     const runner = new EvalRunner();
     const traces = EVAL_DATASET.map((item) => ({
       item_id: item.id,

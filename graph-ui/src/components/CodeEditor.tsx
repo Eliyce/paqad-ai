@@ -14,7 +14,6 @@ interface Props {
   minHeight?: number;
 }
 
-/** Quiet CodeMirror theme matching the css vars: no line numbers, no chrome. */
 const quietTheme = EditorView.theme({
   '&': {
     backgroundColor: 'var(--color-surface)',
@@ -41,18 +40,12 @@ function langExtension(lang: CodeEditorLang): Extension {
   return [];
 }
 
-/**
- * Thin CodeMirror 6 wrapper for the issue #146 editors. Controlled-ish:
- * external `value` changes replace the document, local typing flows through
- * `onChange` without re-creating the view.
- */
 export function CodeEditor({ value, onChange, lang, ariaLabel, minHeight = 320 }: Props) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const langCompartment = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
-  /** The last value this editor emitted, to ignore echo updates. */
   const emittedRef = useRef(value);
 
   useEffect(() => {
@@ -80,7 +73,6 @@ export function CodeEditor({ value, onChange, lang, ariaLabel, minHeight = 320 }
       view.destroy();
       viewRef.current = null;
     };
-    // The view is created once; value and lang sync through the effects below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,45 +1,19 @@
 import { createHash } from 'node:crypto';
 import type { Chunk } from './types.js';
 
-/**
- * Identifies the chunking STRATEGY an index was built with (RAG buildout F22). It is
- * stamped into `RagIndexMeta.chunker_version` on every (re)build and compared on every
- * status check: an index built by a different chunker is treated as invalid, so it is
- * never incrementally synced (which would mix old and new chunk boundaries — corrupt)
- * and is fully rebuilt instead. Bump this whenever the chunking behaviour changes
- * (e.g. swapping the boundary detector for a tree-sitter parser).
- *
- * `cast-blurb-v1` = regex boundary detection + the cAST split-then-merge pass below
- * (F22) + deterministic contextual blurbs prepended before embedding/BM25 (F24). The
- * version covers the whole index-build strategy (how a file becomes index entries AND
- * what text those entries carry), so changing either half forces a clean rebuild.
- */
 export const CHUNKER_VERSION = 'cast-blurb-v1';
 
 export class AstChunker {
-  /**
-   * @param maxChunkChars per-chunk non-whitespace budget; also the cAST merge target.
-   * @param merge when true (default) the cAST split-then-merge pass coalesces small
-   *   adjacent same-file chunks up to the budget (RAG buildout F22). Disable for the
-   *   raw boundary-only chunks (used by tests / the legacy `regex` strategy).
-   */
   constructor(
     private readonly maxChunkChars = 2000,
     private readonly merge = true,
   ) {}
 
-  /**
-   * Chunk a file into AST-node-level slices, then (when enabled) apply the cAST
-   * split-then-merge refinement so tiny adjacent symbols ride together up to the
-   * budget instead of becoming one-line fragments. The boundary detection is the
-   * "split"; {@link castMerge} is the "merge".
-   */
   chunk(filePath: string, content: string): Chunk[] {
     const raw = this.chunkRaw(filePath, content);
     return this.merge ? castMerge(raw, this.maxChunkChars) : raw;
   }
 
-  /** Boundary-only chunking (the "split" half of cAST), per detected language. */
   private chunkRaw(filePath: string, content: string): Chunk[] {
     const lang = this.detectLanguage(filePath);
     try {
@@ -74,7 +48,6 @@ export class AstChunker {
 
   private parseTypeScript(filePath: string, content: string): Chunk[] {
     const chunks: Chunk[] = [];
-    // Match top-level functions, classes, arrow functions exported
     const blockPattern =
       /^(export\s+)?((?:async\s+)?function[\s*]+\w+|class\s+\w+|const\s+\w+\s*=\s*(?:async\s+)?\(|export\s+(?:default\s+)?(?:async\s+)?function|export\s+class\s+\w+)/gm;
 
@@ -94,7 +67,6 @@ export class AstChunker {
 
       const nonWhitespaceCount = segment.replace(/\s/g, '').length;
       if (nonWhitespaceCount > this.maxChunkChars) {
-        // Split further at method/function boundaries within the segment
         const subChunks = this.splitLargeSegment(filePath, segment);
         chunks.push(...subChunks);
       } else {
@@ -103,16 +75,12 @@ export class AstChunker {
       }
     }
 
-    // If no boundaries found, fall back
     if (chunks.length === 0) return this.fallbackSplit(filePath, content);
     return chunks;
   }
 
   private parsePhp(filePath: string, content: string): Chunk[] {
     const chunks: Chunk[] = [];
-    // Whitespace is kept unambiguous (no two adjacent `\s*`) to avoid polynomial
-    // backtracking (ReDoS) on lines with long runs of spaces — an optional modifier
-    // is matched together with its trailing whitespace as a single unit.
     const pattern =
       /^\s*(?:(?:public|protected|private|static|abstract|final)\s+)?(?:function|class|interface|trait)\s+\w+/gm;
 
@@ -157,7 +125,6 @@ export class AstChunker {
   }
 
   private splitLargeSegment(filePath: string, segment: string): Chunk[] {
-    // Split at method boundaries within a class
     const methodPattern =
       /(?:async\s+)?(?:public|private|protected|static)?\s*(?:async\s+)?\w+\s*\([^)]*\)\s*(?::\s*\w+)?\s*\{/g;
     const boundaries: number[] = [0];
@@ -178,7 +145,6 @@ export class AstChunker {
   }
 
   fallbackSplit(filePath: string, content: string): Chunk[] {
-    // Split at blank lines
     const paragraphs = content.split(/\n\s*\n/);
     const chunks: Chunk[] = [];
     let buffer = '';
@@ -230,19 +196,6 @@ export class AstChunker {
   }
 }
 
-/**
- * The cAST "merge" pass (RAG buildout F22). Boundary detection produces one chunk per
- * symbol, which leaves many tiny one-line chunks (a re-export, a small constant, a
- * two-line helper). cAST coalesces a run of ADJACENT chunks FROM THE SAME FILE into one
- * chunk as long as the combined non-whitespace size stays within `targetChars`, so the
- * model receives a coherent slice rather than a fragment, and the index holds fewer,
- * better-filled chunks.
- *
- * Safe-by-construction: it only ever joins chunks that were already adjacent within one
- * file, never crosses a file boundary, never drops or reorders content, and passes an
- * already-oversize chunk through untouched (the boundary splitter already shrank it as
- * far as it could). A single chunk is returned verbatim — no needless re-hash.
- */
 export function castMerge(chunks: readonly Chunk[], targetChars: number): Chunk[] {
   const result: Chunk[] = [];
   let buffer: Chunk[] = [];
@@ -271,7 +224,6 @@ export function castMerge(chunks: readonly Chunk[], targetChars: number): Chunk[
   return result;
 }
 
-/** Combine an adjacent same-file run of chunks into a single re-hashed chunk. */
 function mergeChunks(chunks: Chunk[]): Chunk {
   const source_file = chunks[0].source_file;
   const content = chunks.map((c) => c.content).join('\n\n');
@@ -285,8 +237,6 @@ function mergeChunks(chunks: Chunk[]): Chunk {
   return {
     id: createHash('sha256').update(`${source_file}:${ast_node_path}:${content}`).digest('hex'),
     source_file,
-    // The merged slice is rooted at its first node's kind; a precise "merged" tag would
-    // mean widening the closed Chunk union, which is not worth it for an advisory field.
     ast_node_type: chunks[0].ast_node_type,
     ast_node_path,
     exported_symbols,

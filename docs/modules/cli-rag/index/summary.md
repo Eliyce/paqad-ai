@@ -19,6 +19,29 @@ index that augments agent retrieval.
 - [rag clear](../features/rag-clear/business.md)
 - [rag eval](../features/rag-eval/business.md)
 
+## Why the code works the way it does
+
+The reasons below are not obvious from `src/cli/commands/rag.ts`.
+
+- `rag refresh-context` is the detached worker the prompt trigger spawns. It syncs the index first
+  so retrieval reads the fresh one, keeps the code-knowledge index current whatever `rag_enabled`
+  says (that index is deterministic), and is single-flight and quiet so a detached run prints
+  nothing.
+- The routed workflow decides what the session-context artifact carries: rules only for feature
+  development, nothing for no workflow, and with no route yet the old behaviour (rules plus
+  retrieval). It reads the route of the session the refresh was started for, not whichever session
+  routed last.
+- With RAG off, only the rule slice and the embedding-free existing-surface digest are composed:
+  no sync, retrieval, memory or base-drift fetch, which keeps the default free of any provider.
+- A broad working set is distilled into a context pack of line-range pointers instead of many
+  bodies. The base-drift fetch is debounced and single-flight in the worker, so the prompt never
+  waits on the network.
+- The `used` row records what was actually injected, and only rows with `injected: true` count
+  toward the total, so a dark retrieval stays visible without inflating it.
+- `join` builds the index without rewriting the tracked profile or the local `.config`.
+- `rag eval` builds the feature-off baseline itself, so no baseline file is needed, and a failed
+  gate exits non-zero so CI blocks the merge.
+
 ## Authority
 
 The single source of truth for this module's identity, slug, feature names, and source paths is

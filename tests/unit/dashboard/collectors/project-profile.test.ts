@@ -51,7 +51,6 @@ describe('collectProjectProfile', () => {
     expect(section.score).toBe(100);
     expect(projectName).toBe('demo');
     expect(section.summary).toMatch(/RAG on/);
-    // Issue #622 (AC-12) — recommended, never configured.
     expect(section.summary).toContain('2 MCP server(s) recommended');
     expect(section.summary).not.toContain('Configured');
     expect(section.metrics).toContainEqual({ label: 'mcp servers recommended', value: '2' });
@@ -59,9 +58,9 @@ describe('collectProjectProfile', () => {
 
   it('reports missing required fields', () => {
     writeProfile(root, {
-      project: { name: 'demo' }, // missing id
-      commands: { install: 'x' }, // missing test, build
-      routing: {}, // missing domain
+      project: { name: 'demo' },
+      commands: { install: 'x' },
+      routing: {},
     });
     const { section } = collectProjectProfile(root);
     expect(section.band).toBe('red');

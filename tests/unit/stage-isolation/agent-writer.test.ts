@@ -16,7 +16,7 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-describe('writeStageAgents (issue #567)', () => {
+describe('writeStageAgents', () => {
   it('writes six stage agents and two High Table agents per host at user scope (no config knob, AC-46)', () => {
     const home = tempDir('paqad-sa-home-');
     const written = writeStageAgents({ homeDir: home });

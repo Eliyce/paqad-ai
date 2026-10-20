@@ -113,7 +113,7 @@ describe('decision evidence', () => {
   });
 });
 
-describe('index-backed callers (#361)', () => {
+describe('index-backed callers', () => {
   let root: string;
 
   beforeEach(() => {
@@ -153,7 +153,6 @@ describe('index-backed callers (#361)', () => {
       category: 'create-vs-reuse',
       similarity: 0.9,
     });
-    // The tree holds one referencing file at most; 12 can only have come from the index.
     expect(evidence.callers).toBe(12);
     expect(evidence.similarity).toBe(0.9);
     expect(evidence.last_modified).toBeDefined();
@@ -185,7 +184,6 @@ describe('index-backed callers (#361)', () => {
     writeFileSync(join(root, 'src/other.ts'), 'export const a = 1;\n', 'utf8');
     seedIndex([{ path: 'src/utils/dates.ts', caller_count: 12 }]);
 
-    // Unknown to the index ⇒ counted by the walk (itself only), never reported as 12.
     expect(
       assembleDecisionEvidence({
         projectRoot: root,

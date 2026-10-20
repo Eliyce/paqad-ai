@@ -1,8 +1,3 @@
-// Hand-built zip and class-file fixtures for the JVM adapter's tests (issue #398).
-//
-// Both formats are written here rather than shelling out to `jar`/`javac`, so the suite
-// needs no JDK on the runner and every byte a test depends on is visible in the test.
-
 import { deflateRawSync } from 'node:zlib';
 
 const LOCAL_FILE_HEADER = 0x04034b50;
@@ -13,13 +8,10 @@ const ZIP64_LOCATOR = 0x07064b50;
 export interface ZipFixtureEntry {
   name: string;
   data: Buffer;
-  /** Store the bytes deflated (method 8). */
   deflate?: boolean;
-  /** Force a compression method, to exercise the reader's unsupported-method path. */
   method?: number;
 }
 
-/** A zip archive holding `entries`, written stored unless a method says otherwise. */
 export function buildZip(
   entries: ZipFixtureEntry[],
   options: { comment?: string; zip64Locator?: boolean } = {},
@@ -72,7 +64,6 @@ export function buildZip(
   return Buffer.concat([Buffer.concat(locals), directory, locator, end, comment]);
 }
 
-/** The `@Deprecated` detail a fixture member or class carries. */
 export interface DeprecationFixture {
   since?: string;
   forRemoval?: boolean;
@@ -80,14 +71,8 @@ export interface DeprecationFixture {
 
 export interface MemberFixture {
   name: string;
-  /** Present ⇒ the member carries the Deprecated attribute (plus an annotation when detailed). */
   deprecated?: DeprecationFixture;
-  /** Give the member a RuntimeVisibleAnnotations entry that is NOT a deprecation. */
   otherAnnotation?: boolean;
-  /**
-   * Give the member an annotation whose element values are an array, a nested annotation
-   * and an enum — the three element_value shapes the skipper has to walk to stay in sync.
-   */
   richAnnotation?: boolean;
 }
 
@@ -96,17 +81,12 @@ export interface ClassFixture {
   fields?: MemberFixture[];
   methods?: MemberFixture[];
   classDeprecated?: DeprecationFixture;
-  /** How many interface entries to write, exercising the interfaces-table skip. */
   interfaces?: number;
-  /** Add Long/Double/Class/Methodref constants, exercising the pool walk's widths. */
   wideConstants?: boolean;
-  /** Write a constant-pool tag the reader does not know. */
   unknownTag?: boolean;
-  /** Point this_class at a UTF-8 constant rather than a Class constant. */
   brokenThisClass?: boolean;
 }
 
-/** A growable constant pool that hands out 1-based indices. */
 class ConstantPool {
   private readonly parts: Buffer[] = [];
   private next = 1;
@@ -134,7 +114,6 @@ class ConstantPool {
     return this.push(entry);
   }
 
-  /** A `long`, which occupies two pool slots — the case a naive pool walk gets wrong. */
   long(): number {
     const entry = Buffer.alloc(9);
     entry.writeUInt8(5, 0);
@@ -183,7 +162,6 @@ function u4(value: number): Buffer {
   return buffer;
 }
 
-/** A class file matching `fixture`, valid enough for the reader under test. */
 export function buildClassFile(fixture: ClassFixture): Buffer {
   const pool = new ConstantPool();
   const nameIndex = pool.utf8(fixture.name);
@@ -205,7 +183,6 @@ export function buildClassFile(fixture: ClassFixture): Buffer {
     pool.unknown();
   }
 
-  /** The `RuntimeVisibleAnnotations` body for one annotation. */
   const annotation = (typeIndex: number, detail?: DeprecationFixture): Buffer => {
     const pairs: Buffer[] = [];
     if (detail?.since !== undefined) {
@@ -221,11 +198,6 @@ export function buildClassFile(fixture: ClassFixture): Buffer {
     return Buffer.concat([u2(1), u2(typeIndex), u2(pairs.length / 3), ...pairs]);
   };
 
-  /**
-   * An annotation carrying an array of strings, a nested annotation and an enum constant,
-   * followed by a real `@Deprecated` — so a reader that mis-walks any element_value shape
-   * loses the deprecation that follows it.
-   */
   const richAnnotation = (): Buffer => {
     const arrayValue = Buffer.concat([
       Buffer.from([0x5b]),
@@ -235,7 +207,6 @@ export function buildClassFile(fixture: ClassFixture): Buffer {
       Buffer.from([0x73]),
       u2(sinceName),
     ]);
-    // One pair inside the nested annotation, so the annotation skipper's loop body runs.
     const nested = Buffer.concat([
       Buffer.from([0x40]),
       u2(otherType),
@@ -296,7 +267,6 @@ export function buildClassFile(fixture: ClassFixture): Buffer {
       ),
     ]);
 
-  // The member tables are built first so every UTF-8 they need is already in the pool.
   const fields = members(fixture.fields ?? []);
   const methods = members(fixture.methods ?? []);
   const classAttributes = attributes({ deprecated: fixture.classDeprecated });

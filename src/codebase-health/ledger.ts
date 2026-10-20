@@ -1,7 +1,3 @@
-// Records a one-row summary of each health run on the shared session-ledger, so
-// run summaries auto-flow into `paqad-ai audit export` (SIEM) alongside the other
-// doc types. Best-effort: recording must never break a run.
-
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { openSessionDoc, type OpenSessionDocResult } from '@/session-ledger/ledger.js';
 
@@ -23,7 +19,6 @@ export interface RecordHealthRunContext {
   now?: () => Date;
 }
 
-/** Record a health-run summary row. Returns the open-doc result, or null on failure. */
 export function recordHealthRun(
   projectRoot: string,
   summary: HealthRunLedgerSummary,

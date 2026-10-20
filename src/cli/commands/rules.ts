@@ -6,14 +6,6 @@ import { writeRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { compileRuleScripts } from '@/rule-scripts/compile.js';
 
-/**
- * `paqad-ai rules compile` — generate/refresh `rule-script-map.yml` from the rule
- * tree (issue #319). The rule-scripts enforcement engine was live but disarmed on
- * every fresh project because nothing produced the map it needs; this verb closes
- * that. Onboarding runs it after the rule refresh, and it can be re-run whenever
- * rules change (the reconciler detects drift). Deterministic: it lists every rule
- * and carries over any scripts already bound, but authors no scripts itself.
- */
 export function createRulesCommand(): Command {
   const command = new Command('rules').description('Manage the rules-as-scripts enforcement map');
 
@@ -43,7 +35,7 @@ export function createRulesCommand(): Command {
   command
     .command('load')
     .description(
-      'Load the rules that apply to this change and record it (issue #557): prints the ' +
+      'Load the rules that apply to this change and record it: prints the ' +
         'applicable full rule text and writes rules-loaded.json into the active feature bundle',
     )
     .option('--project-root <path>', 'Project root', process.cwd())
@@ -70,9 +62,6 @@ export function createRulesCommand(): Command {
         return;
       }
 
-      // Surface the applicable full rule text so running the verb actually LOADS the rules
-      // into the agent's context (the tool result), independent of the route — this is the
-      // load, not a rubber stamp.
       console.log(
         `## Rules loaded for this change — ${applicability.applicable.length} apply` +
           `\n\n${applicability.loadedRuleText}\n`,

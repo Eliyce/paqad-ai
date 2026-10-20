@@ -18,7 +18,6 @@ import {
 import { SITE_MAP_SCHEMA_VERSION, type AppMap } from '@/core/types/site-map.js';
 import type { SiteMapAnswer, SiteMapAnswersFile } from '@/core/types/site-map-answers.js';
 
-/** A map with one ungrouped, evidenced surface — triggers exactly the `grouping` question. */
 function groupingMap(line = 1): AppMap {
   return {
     schema_version: SITE_MAP_SCHEMA_VERSION,
@@ -34,7 +33,6 @@ function groupingMap(line = 1): AppMap {
   };
 }
 
-/** A map whose only open question is `journey-priority` (surfaces grouped, no guards/keyed labels). */
 function journeyMap(): AppMap {
   return {
     schema_version: SITE_MAP_SCHEMA_VERSION,
@@ -45,7 +43,6 @@ function journeyMap(): AppMap {
   };
 }
 
-/** A fully-decided map (grouped surface, no guards, no proposed journeys, no keyed labels). */
 function settledMap(): AppMap {
   return {
     schema_version: SITE_MAP_SCHEMA_VERSION,
@@ -111,7 +108,6 @@ describe('site-map creation flow', () => {
 
     it('reopens a settled human answer when its motivating code moved', () => {
       writeCanonicalSiteMap(root, groupingMap(1));
-      // Persist a human answer against the OLD anchor (line 1).
       const oldCandidate = buildCandidateQuestions(groupingMap(1))[0];
       writeCreationAnswers(
         root,
@@ -126,7 +122,6 @@ describe('site-map creation flow', () => {
           },
         ]),
       );
-      // The surface moved to line 9, so the anchors no longer match.
       writeCanonicalSiteMap(root, groupingMap(9));
 
       const result = deriveCreationQuestions(root);
@@ -165,7 +160,6 @@ describe('site-map creation flow', () => {
       expect(result.answers_path).toBe(canonicalAnswersPath(root));
       expect(result.map_path).toBe(join(root, 'docs/site-map/app-map.yaml'));
 
-      // The persisted answer re-derived its anchors from the map, not from the caller.
       const persisted = YAML.parse(
         readFileSync(canonicalAnswersPath(root), 'utf8'),
       ) as SiteMapAnswersFile;
@@ -175,7 +169,6 @@ describe('site-map creation flow', () => {
         decided_by: 'human',
         anchors: ['src/cli/index.ts:1'],
       });
-      // The surface now reads as human-confirmed.
       const surface = readMap(root).surfaces[0];
       expect(surface.derivation).toBe('human');
       expect(surface.confidence).toBe('high');

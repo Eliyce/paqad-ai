@@ -19,7 +19,6 @@ import { readPendingLane, writePendingLane } from '@/stage-evidence/pending-lane
 import { startStage } from '@/stage-evidence/recorder.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
-// `paqad-ai route set <workflow>` — let the agent correct the hook's deterministic label (#580).
 describe('paqad-ai route set command', () => {
   let root: string;
   const SES = 'ses_cli_route';
@@ -49,7 +48,6 @@ describe('paqad-ai route set command', () => {
 
   it('flips enforcement off and records an audit row on a mislabelled question (AC-4)', async () => {
     const sessionId = resolveSessionId(root, SES);
-    // The hook mislabelled a question as feature-development, and stashed a lane.
     writeWorkflowState(root, sessionId, {
       active: { workflow: 'feature-development', lane: 'fast' },
       paused: [],
@@ -62,7 +60,6 @@ describe('paqad-ai route set command', () => {
     expect(process.exitCode).toBeUndefined();
     expect(readWorkflowState(root, sessionId).active?.workflow).toBe('project-question');
     expect(routeIsAffirmativelyNonFeature(root, sessionId)).toBe(true);
-    // The stashed lane is cleared so it cannot leak onto a later change.
     expect(readPendingLane(root, sessionId)).toBeNull();
 
     const overrides = readRouteOverrides(root, sessionId);
@@ -75,13 +72,12 @@ describe('paqad-ai route set command', () => {
     });
   });
 
-  describe('session-scoped refusal (#623)', () => {
+  describe('session-scoped refusal', () => {
     const OTHER = 'ses_cli_route_other';
     const TURN = '2026-03-01T10:00:00.000Z';
     const BEFORE = () => new Date('2026-03-01T09:00:00.000Z');
     const AFTER = () => new Date('2026-03-01T10:05:00.000Z');
 
-    /** `session` opens an in-flight bundle and live-marks a development edit at `now`. */
     function editSource(session: string, now: () => Date): void {
       const dirName = openFeatureChange(root, session, {
         adapter: 'claude-code',
@@ -111,7 +107,6 @@ describe('paqad-ai route set command', () => {
       expect(lines.join('\n')).toContain(
         'cannot leave feature-development: source files were edited this turn.',
       );
-      // The route is unchanged and no override was written.
       expect(readWorkflowState(root, SES).active?.workflow).toBe('feature-development');
       expect(readRouteOverrides(root, SES)).toHaveLength(0);
     });
@@ -162,7 +157,6 @@ describe('paqad-ai route set command', () => {
     it('allows the correction and logs why when no session id is given (AC-12)', async () => {
       vi.stubEnv('SE_SESSION', '');
       vi.stubEnv('CLAUDE_SESSION_ID', '');
-      // The shared cache names a session that did edit this turn: it must not be trusted.
       const cached = resolveSessionId(root, SES);
       onFeatureDev(cached);
       editSource(cached, AFTER);
@@ -238,7 +232,6 @@ describe('paqad-ai route set command', () => {
     await routeSet('feature-development');
 
     const state = readWorkflowState(root, sessionId);
-    // The most recent paused entry comes back with its anchors; the mislabel is dropped.
     expect(state.active).toEqual(paused);
     expect(state.paused).toEqual([
       { workflow: 'feature-development', changeKey: `${sessionId}#1`, lane: 'fast' },

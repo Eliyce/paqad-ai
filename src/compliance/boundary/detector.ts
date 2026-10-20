@@ -1,32 +1,12 @@
-/**
- * FR-BT1: Interface Contract Detection (annotation-based path)
- *
- * Scans TypeScript source files for @boundary annotations and TypeScript
- * enum/union exports, and builds a BoundaryInterface list.
- *
- * Annotation format (one line comment before the type declaration):
- *   // @boundary <TypeName> [producer:<spec-slug>] [consumer:<spec-slug>,...] [states:<a>,<b>,...]
- *
- * If no explicit states are given, states are extracted from the TypeScript
- * enum or union type definition immediately following the annotation.
- */
-
 import type { BoundaryInterface, BoundaryRelationship } from './types.js';
 
-// Matches: // @boundary TypeName [producer:spec] [consumer:spec1,spec2] [states:a,b,c]
 const ANNOTATION_PATTERN =
   /\/\/\s*@boundary\s+([A-Za-z_]\w*)(?:\s+producer:([^\s]+))?(?:\s+consumer:([^\s]+))?(?:\s+states:([^\s]+))?/;
 
-// Matches: enum TypeName { ... } (single-line or first line of multi-line)
 const ENUM_OPEN_PATTERN = /\benum\s+([A-Za-z_]\w*)\s*\{/;
 
-// Matches: type TypeName = 'a' | 'b' | ...
-const UNION_TYPE_PATTERN = /\btype\s+([A-Za-z_]\w*)\s*=\s*([^;]+);/;
+const UNION_TYPE_PATTERN = /\btype\s+([A-Za-z_]\w*)\s*=([^;]+);/;
 
-/**
- * Parse a TypeScript source file's text and return all BoundaryInterface
- * declarations it contains.
- */
 export function detectBoundariesInSource(filePath: string, source: string): BoundaryInterface[] {
   const lines = source.split('\n');
   const boundaries: BoundaryInterface[] = [];
@@ -41,7 +21,6 @@ export function detectBoundariesInSource(filePath: string, source: string): Boun
     const consumerSpecs = annotationMatch[3] ? annotationMatch[3].split(',') : [];
     const explicitStates = annotationMatch[4] ? annotationMatch[4].split(',') : null;
 
-    // Look ahead at the next non-blank line for the type definition
     const nextLine = findNextNonBlank(lines, i + 1);
     const states = explicitStates ?? extractStatesFromDefinition(lines, nextLine);
 
@@ -60,10 +39,6 @@ export function detectBoundariesInSource(filePath: string, source: string): Boun
   return boundaries;
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 function findNextNonBlank(lines: string[], from: number): number {
   for (let i = from; i < lines.length; i++) {
     if (lines[i]!.trim()) return i;
@@ -74,16 +49,15 @@ function findNextNonBlank(lines: string[], from: number): number {
 function extractStatesFromDefinition(lines: string[], lineIndex: number): string[] {
   const line = lines[lineIndex] ?? '';
 
-  // Try enum: collect members across lines until '}'
   const enumMatch = ENUM_OPEN_PATTERN.exec(line);
   if (enumMatch) {
     return extractEnumMembers(lines, lineIndex);
   }
 
-  // Try union type alias on a single line
   const unionMatch = UNION_TYPE_PATTERN.exec(line);
-  if (unionMatch) {
-    return extractUnionMembers(unionMatch[2]!);
+  const unionBody = unionMatch?.[2]?.trim();
+  if (unionBody) {
+    return extractUnionMembers(unionBody);
   }
 
   return [];
@@ -91,7 +65,6 @@ function extractStatesFromDefinition(lines: string[], lineIndex: number): string
 
 function extractEnumMembers(lines: string[], openLineIndex: number): string[] {
   const members: string[] = [];
-  // Collect everything between { and } (handles multi-line enums)
   let body = '';
   let depth = 0;
   for (let i = openLineIndex; i < lines.length; i++) {
@@ -104,7 +77,6 @@ function extractEnumMembers(lines: string[], openLineIndex: number): string[] {
     if (depth === 0 && i > openLineIndex) break;
   }
 
-  // Extract enum member names (before = or ,)
   const memberPattern = /\b([A-Za-z_]\w*)\s*(?:=|,|\n|})/g;
   for (const match of body.matchAll(memberPattern)) {
     const name = match[1]!;

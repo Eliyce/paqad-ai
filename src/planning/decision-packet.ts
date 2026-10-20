@@ -15,22 +15,16 @@ export const DECISION_CATEGORIES = [
   'delivery.ci_red',
   'spec.change',
   'spec.contradiction',
-  // Spec-pipeline expert conflict (issue #547): two experts make contradictory claims about the
-  // same target; the chief architect recommends but never applies — the human decides.
   'spec.expert_conflict',
   'fix.proof_method',
   'test.flaky_judgement',
   'finding.triage',
   'quality.ratchet_exception',
-  // Complementary analytics-instrumentation conflicts (issue #241). A closed list so the
-  // pause neither never-fires nor constantly-fires; everything else is instrument-and-show.
   'analytics.provider_version_mismatch',
   'analytics.taxonomy_violation',
   'analytics.pii_consent',
   'analytics.no_provider_flag',
   'analytics.architecture_conflict',
-  // Analytics v2 (issue #279): every NEW event is a decision, not a silent addition — the
-  // packet captures who proposed it and why, with name/casing/taxonomy/PII surfaced.
   'analytics.new_event',
 ] as const;
 
@@ -42,16 +36,8 @@ export const DECISION_STATUSES = [
   'superseded',
 ] as const;
 
-/**
- * The strict, collision-free decision-id shape (issue #387): literal `D-` followed by a
- * 26-char ULID body. This is the ONLY id a *newly created* packet may carry, on every
- * write path. Reads/lists deliberately stay tolerant of the legacy numeric `D-{N}` form
- * (see {@link validateDecisionPacket} and `DecisionStore.listDirectoryIds`) so
- * pre-existing packets keep validating — do not use this to tighten a read.
- */
 const STRICT_DECISION_ID = new RegExp(`^D-${ULID_BODY}$`, 'u');
 
-/** True when `id` is the strict write-time `D-<ULID>` form (not legacy `D-{N}`). */
 export function isStrictDecisionId(id: string): boolean {
   return STRICT_DECISION_ID.test(id);
 }
@@ -132,43 +118,18 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'ux-pattern': { create_new: false, reversibility: 'easy', ttl_days: 30 },
   'architecture-path': { create_new: false, reversibility: 'hard', ttl_days: 90 },
   'workflow-or-tool': { create_new: false, reversibility: 'easy', ttl_days: 7 },
-  // ticket_intake / delivery bookend categories — choices a refined ticket
-  // implies and the open-PR gate. All reversible (the agent can re-ask).
   'intake.requirement': { create_new: true, reversibility: 'easy', ttl_days: 14 },
   'intake.confirm_auto_resolution': { create_new: false, reversibility: 'easy', ttl_days: 7 },
   'intake.write_back': { create_new: false, reversibility: 'easy', ttl_days: 1 },
   'delivery.open_pr': { create_new: false, reversibility: 'easy', ttl_days: 1 },
-  // Delivery CI gate (issue #42). A red build where on_red needs a human call
-  // (retry / override / abandon). Reversible: the agent re-asks on the next run.
   'delivery.ci_red': { create_new: false, reversibility: 'easy', ttl_days: 1 },
-  // Spec lifecycle (issue #102). A mid-build goal change updates and re-freezes
-  // the spec; a work-vs-spec contradiction is put to the human (fix code or
-  // change spec) and is never resolved silently.
   'spec.change': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
   'spec.contradiction': { create_new: false, reversibility: 'hard', ttl_days: 7 },
-  // Expert conflict (issue #547). Moderate: re-picking a different expert claim later reworks
-  // the spec but not the code; asked once per fork and reused when the same fork recurs.
   'spec.expert_conflict': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
-  // Fix protocol (issue #103). How to confirm an un-auto-checkable problem
-  // (timing/appearance) is fixed — asked once, reused by kind. Reversible: the
-  // agent can re-ask if the confirmation method stops fitting.
   'fix.proof_method': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
-  // Flaky-test trust (issue #106). A rare flip that could be a real intermittent
-  // fault vs. flakiness — asked once, reused by kind. Reversible: the agent can
-  // re-ask if the judgement stops fitting.
   'test.flaky_judgement': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
-  // Finding triage (issue #107). A genuinely ambiguous finding the rules-first
-  // classifier could not sort into one of the four piles — asked once, reused by
-  // kind. Reversible: the agent can re-ask if the verdict stops fitting.
   'finding.triage': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
-  // Quality-ratchet exception (issue #110). A legitimate need to worsen one of
-  // the four quality measures — approved once, reused for the same kind by
-  // `findReusableDecision`. Reversible: the agent can re-ask if the approval
-  // stops fitting.
   'quality.ratchet_exception': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
-  // Analytics conflicts (issue #241). Instrumentation would rather ask one clear question
-  // than ship a confident guess. PII/consent + taxonomy are hard (a wrong tag ships bad
-  // data); provider/version + architecture are moderate; a flag-on-no-provider offer is easy.
   'analytics.provider_version_mismatch': {
     create_new: false,
     reversibility: 'moderate',
@@ -178,7 +139,6 @@ export const DECISION_CATEGORY_DEFAULTS: Record<
   'analytics.pii_consent': { create_new: false, reversibility: 'hard', ttl_days: 7 },
   'analytics.no_provider_flag': { create_new: false, reversibility: 'easy', ttl_days: 7 },
   'analytics.architecture_conflict': { create_new: false, reversibility: 'moderate', ttl_days: 30 },
-  // A new event names a stable identifier a whole team depends on; renaming it later is hard.
   'analytics.new_event': { create_new: true, reversibility: 'hard', ttl_days: 14 },
 };
 
@@ -194,8 +154,6 @@ export function validateDecisionPacket(value: unknown): string[] {
   const packet = value as Partial<DecisionPacket>;
   const errors: string[] = [];
 
-  // Issue #184: ids are now `D-<ULID>`. Accept both the new ULID form and the
-  // legacy numeric `D-{N}` form so pre-existing packets keep validating.
   if (!/^D-(?:\d+|[0-9A-HJKMNP-TV-Z]{26})$/.test(packet.decision_id ?? '')) {
     errors.push('decision_id must match D-{id}');
   }

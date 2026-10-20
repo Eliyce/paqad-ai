@@ -24,20 +24,17 @@ import { mergeNativeHooks } from '@/adapters/shared/native-hook-config.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 
+import { printedCode } from '../../shared/printed-code.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 import { writeSeatTranscript } from '../spec-pipeline/high-table.fixture.js';
 import { openChange, writeSpec } from '../traceability/change-map.fixture.js';
-
-// Issue #639, guardrails (INV-1 to INV-5, NFR-2): the stage enforcement every change relies on
-// is left exactly as the base branch shipped it, and nothing #639 added to a hook can change
-// what that hook decides or prints.
 
 const REPO = process.cwd();
 const CONTRACT = 'tests/e2e/stage-enforcement-contract.e2e.test.ts';
 const PLUGIN_HOOKS = 'runtime/claude-plugin/hooks.json';
 const HOOKS_SOURCE = 'src/adapters/shared/paqad-hooks.ts';
 
-/** The merge base with origin/main, or null when this checkout has no origin/main. */
 function mergeBase(): string | null {
   try {
     return execFileSync('git', ['merge-base', 'HEAD', 'origin/main'], {
@@ -67,12 +64,10 @@ interface HookLine {
   hook: string;
 }
 
-/** The hook file and its arguments, with whatever install root precedes its `hooks/` dir. */
 function hookOf(command: string): string {
   return command.replace(/^node "[^"]*\/hooks\/([^"]+)"/, '$1');
 }
 
-/** A hooks.json `hooks` object as one ordered list of (event, matcher, hook). */
 function flatten(
   hooks: Record<string, Array<{ matcher?: string; hooks: Array<{ command: string }> }>>,
 ) {
@@ -87,20 +82,22 @@ function flatten(
   return lines;
 }
 
-describe('the stage enforcement guardrails (#639)', () => {
+describe('the stage enforcement guardrails', () => {
   it('AC-66: the stage enforcement contract test is unchanged from the base branch', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
-    expect(working(CONTRACT)).toBe(atBase(CONTRACT));
+    expect(printedCode(working(CONTRACT))).toEqual(printedCode(atBase(CONTRACT)));
   });
 
   it('AC-67: hook events, matchers, commands and order are identical to the base branch', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     const baseText = atBase(PLUGIN_HOOKS);
     expect(working(PLUGIN_HOOKS)).toBe(baseText);
-    expect(working(HOOKS_SOURCE)).toBe(atBase(HOOKS_SOURCE));
+    const strip = { stripIssueRefs: true };
+    expect(printedCode(working(HOOKS_SOURCE), strip)).toEqual(
+      printedCode(atBase(HOOKS_SOURCE), strip),
+    );
 
     const base = JSON.parse(baseText) as { hooks: Parameters<typeof flatten>[0] };
-    // The plugin chain the builder renders today is the base file's chain, entry for entry.
     const built = mergeNativeHooks({}, buildPluginHookChain()) as {
       hooks: Parameters<typeof flatten>[0];
     };
@@ -108,9 +105,6 @@ describe('the stage enforcement guardrails (#639)', () => {
     const baseLines = flatten(base.hooks);
     expect(flatten(built.hooks)).toEqual(baseLines);
 
-    // The npm install's Claude chain is the same chain under its own root: same events,
-    // matchers, hook files, arguments and order, less the plugin's bootstrap and plus the npm
-    // copy's self-updater.
     const host = buildHostHookChain('claude-code')
       .map((line) => ({
         event: line.nativeEvent,
@@ -125,6 +119,57 @@ describe('the stage enforcement guardrails (#639)', () => {
       );
     expect(byEvent(host).sort((a, b) => a[0]!.event.localeCompare(b[0]!.event))).toEqual(
       byEvent(withoutBootstrap).sort((a, b) => a[0]!.event.localeCompare(b[0]!.event)),
+    );
+  });
+
+  it('AC-67: the hook source comparison ignores comments and issue references and catches any code change', () => {
+    const source = [
+      "const MATCHER = 'Edit|Write';",
+      'const pattern = /^node "([^"]+)"/u;',
+      'const label = `hook ${MATCHER} at ${pattern.source}`;',
+      'export const total = 4 / 2;',
+    ].join('\n');
+    const commented = [
+      '/** The matcher every edit gate uses. */',
+      "const MATCHER = 'Edit|Write'; // gate",
+      'const pattern = /^node "([^"]+)"/u;',
+      '',
+      'const label = `hook ${MATCHER} at ${pattern.source}`;',
+      '/* the total */ export const total = 4 / 2;',
+    ].join('\n');
+    const strip = { stripIssueRefs: true };
+    const described = (text: string) => `const description = '${text}';`;
+    const plain = printedCode(described('Block mutating tools while a packet is open.'), strip);
+    expect(printedCode(commented)).toEqual(printedCode(source));
+    expect(printedCode(source.replace("'Edit|Write'", "'Edit|Write|Bash'"))).not.toEqual(
+      printedCode(source),
+    );
+    expect(printedCode(source.replace('([^"]+)', '([^"]*)'))).not.toEqual(printedCode(source));
+    expect(printedCode(source.replace('hook ${', 'gate ${'))).not.toEqual(printedCode(source));
+    expect(printedCode(source.replace('4 / 2', '4 / 3'))).not.toEqual(printedCode(source));
+    const tagged = [
+      `Block mutating tools while a packet is open (${ticketRef(117)} C-3).`,
+      `Block mutating tools while a packet is open (${ticketRef(567)}, ${ticketRef(581)}).`,
+      `Block mutating tools while a packet is open ${ticketRef(336)}.`,
+    ];
+    for (const text of tagged) {
+      expect(printedCode(described(text), strip)).toEqual(plain);
+      expect(printedCode(described(text))).not.toEqual(printedCode(described(text), strip));
+    }
+    expect(
+      printedCode(described(`Inject the context block (Part 0, ${ticketRef(336)}).`), strip),
+    ).toEqual(printedCode(described('Inject the context block (Part 0).'), strip));
+    expect(
+      printedCode(described('Block mutating tools while a packet is shut.'), strip),
+    ).not.toEqual(plain);
+    expect(
+      printedCode(
+        described(`Block mutating tools (${ticketRef(117)}) while a packet is open.`),
+        strip,
+      ),
+    ).toEqual(plain);
+    expect(printedCode(source.replace("'Edit|Write'", "'Edit|Write|Bash'"), strip)).not.toEqual(
+      printedCode(source, strip),
     );
   });
 
@@ -150,7 +195,6 @@ describe('the stage enforcement guardrails (#639)', () => {
       };
       expect(await main('{}', 'pre-mutation')).toBe(2);
 
-      // Every fail-closed edit gate the chain renders is driven the same way by the gate test.
       const gateTest = working('tests/unit/hooks/gate-fail-closed.test.ts');
       const gates = PAQAD_LIVE_HOOKS.filter((spec) => spec.failClosed === true);
       expect(gates.length).toBeGreaterThan(0);
@@ -175,8 +219,6 @@ describe('the stage enforcement guardrails (#639)', () => {
   });
 });
 
-// ── AC-69: a failed record-only write inside a hook ─────────────────────────────
-
 const CLI = join(REPO, 'dist/cli/index.js');
 const STOP = join(REPO, 'runtime/hooks/verification-completion.mjs');
 const SUBAGENT_STOP = join(REPO, 'runtime/hooks/stage-agent-completion.mjs');
@@ -194,7 +236,6 @@ function scratch(): string {
   return root;
 }
 
-/** Make `path` unwritable as a file by putting a non-empty directory there. */
 function block(path: string): void {
   rmSync(path, { recursive: true, force: true });
   mkdirSync(path, { recursive: true });
@@ -214,7 +255,6 @@ function hook(file: string, root: string, payload: Record<string, unknown>) {
   });
 }
 
-/** Run a hook healthy, inject the fault, run it again: same exit code and stdout, one log line. */
 async function faultLeavesHookUnchanged(
   file: string,
   root: string,
@@ -269,7 +309,6 @@ describe('AC-69', () => {
   }
 
   it('AC-69: a failing high-table row, snapshot or AC-map write inside a hook leaves exit code and output unchanged and is logged to hooks.log', async () => {
-    // The High Table row: a seat's SubagentStop with high-table.jsonl unwritable.
     const seat = await stageAgentChange();
     const seatPayload = {
       session_id: 'sub_guardrail',
@@ -291,8 +330,6 @@ describe('AC-69', () => {
       /stage-agent-completion: high-table usage not recorded/,
     );
 
-    // The cost write and the HUD snapshot (which carries the High Table and the cost): a stage
-    // agent's SubagentStop with cost.json and the session's snapshot file unwritable.
     const stage = await stageAgentChange();
     const stagePayload = {
       session_id: SES,
@@ -316,8 +353,6 @@ describe('AC-69', () => {
       /hud-snapshot \(hook:stage-agent-completion\): not written/,
     );
 
-    // The acceptance-criteria map: the Stop verification with a frozen spec and the map file
-    // unwritable. The map is still built in memory, so the verdict and its output do not move.
     const root = scratch();
     seedGitChangedFiles(root, []);
     const dir = openChange(root, SES);

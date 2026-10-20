@@ -51,8 +51,8 @@ describe('parseNpmAuditJson', () => {
   it('falls back through name and advisory id when fields are missing', () => {
     const raw = JSON.stringify({
       vulnerabilities: {
-        anon: { via: [{ title: 'title-only' }] }, // no name, no url → title, then name key
-        empty: {}, // no via → skipped
+        anon: { via: [{ title: 'title-only' }] },
+        empty: {},
       },
     });
     const records = parseNpmAuditJson(raw);
@@ -76,7 +76,6 @@ describe('parseGitleaksJson', () => {
     const matches = parseGitleaksJson(raw);
     expect(matches[0]).toMatchObject({ file: 'a.ts', line: 3, rule: 'aws', fingerprint: 'fp' });
     expect(JSON.stringify(matches)).not.toContain('SUPERSECRET');
-    // Missing fingerprint → hashed, still no bytes.
     expect(matches[1]!.fingerprint).not.toContain('X');
   });
 

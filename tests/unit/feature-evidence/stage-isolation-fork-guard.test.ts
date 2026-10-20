@@ -19,7 +19,6 @@ const BUNDLE_A = '567-first-change-01JABCDEFGHJKMNPQRSTVWXYZ0';
 const BUNDLE_B = '567-second-change-01JABCDEFGHJKMNPQRSTVWXYZ1';
 const BUNDLE_C = '567-other-branch-01JABCDEFGHJKMNPQRSTVWXYZ2';
 
-/** A temp git repo on `main` with one commit, so readGitState resolves a real branch. */
 function tempRepo(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-fork-guard-'));
   roots.push(root);
@@ -37,7 +36,6 @@ function checkout(root: string, branch: string): void {
   execFileSync('git', ['checkout', '-q', '-b', branch], { cwd: root, stdio: 'ignore' });
 }
 
-/** Materialize an in-flight bundle (an `open` row, no close) on `branch`. */
 function materialize(root: string, dirName: string, branch = 'main'): string {
   recordChangeConstants(root, dirName, { adapter: 'claude-code', branch }, clock);
   appendFeatureStageRow(root, 'ses_open', dirName, { kind: 'open' }, clock);
@@ -48,13 +46,12 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-describe('stage-isolation fork guard (issue #567, AC-9)', () => {
+describe('stage-isolation fork guard', () => {
   it('refuses loudly to mint a third bundle when two are in flight on the branch', () => {
     const root = tempRepo();
     materialize(root, BUNDLE_A);
     materialize(root, BUNDLE_B);
 
-    // Stage isolation is core-engine behavior now — the guard is unconditional, no flag.
     expect(() => resolveActiveFeature(root, 'ses_new', { now: clock })).toThrow(
       /in-flight feature bundles|will not mint a third/i,
     );
@@ -65,7 +62,6 @@ describe('stage-isolation fork guard (issue #567, AC-9)', () => {
     materialize(root, BUNDLE_A);
     materialize(root, BUNDLE_B);
 
-    // The explicit-title path is a deliberate new change and must never be blocked by the guard.
     expect(() =>
       resolveActiveFeature(root, 'ses_new', { title: 'a deliberate new change', now: clock }),
     ).not.toThrow();
@@ -73,16 +69,13 @@ describe('stage-isolation fork guard (issue #567, AC-9)', () => {
 
   it('a stale in-flight bundle on ANOTHER branch does not count (explicit branch wins)', () => {
     const root = tempRepo();
-    // One in-flight on main, then move to a feature branch and open one there.
     materialize(root, BUNDLE_A, 'main');
     checkout(root, 'feature-x');
     materialize(root, BUNDLE_C, 'feature-x');
 
-    // Only the current-branch bundle is in flight here — the main one is out of scope.
     const inFlight = adoptableInFlightOnBranch(root, 'ses_new', clock);
     expect(inFlight).toEqual([BUNDLE_C]);
 
-    // Exactly one in-flight on this branch → adoption resolves it, no fork error.
     expect(() => resolveActiveFeature(root, 'ses_new', { now: clock })).not.toThrow();
   });
 });

@@ -1,28 +1,3 @@
-// Mutation-testing verification gate. Issue #105.
-//
-// Reads the mutation result the verification phase plants on the context and
-// turns it into a pass / inconclusive / fail outcome that flows through the
-// existing verification evidence — no parallel store.
-//
-// Open-decision resolutions (from the issue's recommendations):
-//   1. Runs as a gate within the verification run (reuses evidence + wiring).
-//   2. Survivors *escalate* (inconclusive) by default; a project-tunable strict
-//      mode (`mutation_strict`) turns them into a hard block. This avoids
-//      turning every survivor into a stop before baselines exist (#110 ratchet).
-//   3. Equivalent mutants are set aside by the tool and excluded from the bar.
-//
-// Issue #639, Part 10 — the gate is a pass only when mutation actually ran and
-// every behaviour-changing mutant was killed. When nothing ran it says so:
-//   - no result (mutation is off, or this seam never runs it) and the
-//     `fast-lane` / `no-changed-code` skips read NOT REQUIRED;
-//   - the `tests-not-green`, `no-test-command`, `tool-not-configured` and `run-failed` skips read
-//     DID NOT RUN, naming the reason.
-// Both keep `passed: true`, so no verdict kind changes, and the evidence records
-// them as skipped, never as a pass.
-//
-// Safety is non-negotiable: if the working tree was not clean after the run
-// (a mutant may have been left behind), the gate hard-fails regardless of mode.
-
 import type { MutationResult, MutationSkipReason } from '@/core/types/mutation.js';
 import type { GateSkipKind } from '@/core/types/verification.js';
 
@@ -35,7 +10,6 @@ import {
   createPass,
 } from './shared.js';
 
-/** The not-required detail when no mutation result was planted and no note says why. */
 export const MUTATION_OFF_DETAIL = 'Mutation testing is off (mutation_mode is off).';
 
 interface SkipReading {
@@ -44,7 +18,6 @@ interface SkipReading {
   remediation?: string;
 }
 
-/** The plain words for each skip reason, and whether it means not required or did not run. */
 const SKIP_READING: Record<MutationSkipReason, SkipReading> = {
   'fast-lane': {
     kind: 'not-required',
@@ -95,7 +68,6 @@ export class MutationTestingGate implements Gate {
   async check(context: Parameters<Gate['check']>[0]) {
     const result = context.mutation_result;
 
-    // Nothing ran: mutation is off, or this seam never runs it. Not required, never a pass.
     if (!result) {
       return createNotRequired(this.gate, context.mutation_note ?? MUTATION_OFF_DETAIL);
     }
@@ -103,7 +75,6 @@ export class MutationTestingGate implements Gate {
     if (result.status === 'skipped') {
       const reading = result.skipped_reason ? SKIP_READING[result.skipped_reason] : undefined;
       if (!reading) {
-        // An unknown reason is still a check that did not happen.
         return createDidNotRun(
           this.gate,
           `Mutation testing did not run (${result.skipped_reason ?? 'no reason recorded'}).`,
@@ -114,7 +85,6 @@ export class MutationTestingGate implements Gate {
         : createDidNotRun(this.gate, reading.words, reading.remediation);
     }
 
-    // Safety: a dirty tree means a planted mutant may not have been removed.
     if (result.status === 'unsafe-tree') {
       return createFail(
         this.gate,
@@ -126,7 +96,6 @@ export class MutationTestingGate implements Gate {
     const killRate = result.kill_rate === null ? 'n/a' : `${result.kill_rate}%`;
     const counts = `killed ${result.killed}, survived ${result.survived}, set-aside ${result.equivalent_set_aside}`;
 
-    // Weak-tooled language: present the result but never over-trust it.
     if (result.status === 'lower-confidence') {
       return createInconclusive(
         this.gate,

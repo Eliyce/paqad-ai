@@ -9,9 +9,6 @@ export interface SkillDirs {
   referencesDir: string;
 }
 
-/**
- * Enumerate all 55 runtime skill directories.
- */
 export async function listSkillDirs(): Promise<SkillDirs[]> {
   const skillFiles = (
     await fg(
@@ -37,9 +34,6 @@ export async function listSkillDirs(): Promise<SkillDirs[]> {
   });
 }
 
-/**
- * List every .sh script under a skill's scripts/ directory.
- */
 export async function listSkillScripts(scriptsDir: string): Promise<string[]> {
   return (await fg('*.sh', { cwd: scriptsDir, absolute: true })).sort();
 }

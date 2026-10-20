@@ -139,7 +139,6 @@ describe('recordFindings + loadIndex', () => {
 describe('queryPatterns', () => {
   it('returns patterns matching min_frequency and max_age_days (FR-DP3-T3)', async () => {
     const root = await tempStore();
-    // Record 4 findings under the same subcategory so frequency = 4
     for (let i = 0; i < 4; i++) {
       await recordFindings([makeFinding()], root);
     }
@@ -150,7 +149,7 @@ describe('queryPatterns', () => {
 
   it('excludes patterns below min_frequency', async () => {
     const root = await tempStore();
-    await recordFindings([makeFinding()], root); // frequency = 1
+    await recordFindings([makeFinding()], root);
     const results = await queryPatterns({ min_frequency: 3 }, root);
     expect(results).toHaveLength(0);
   });
@@ -161,7 +160,6 @@ describe('queryPatterns', () => {
       await recordFindings([makeFinding()], root);
     }
     const index = await loadIndex(root);
-    // Manually mark entry as stale
     index.entries[0]!.stale = true;
     const { writeFile: wf } = await import('node:fs/promises');
     await wf(path.join(root, 'index.json'), JSON.stringify(index, null, 2) + '\n', 'utf8');
@@ -244,7 +242,6 @@ describe('queryPatterns', () => {
       await recordFindings([makeFinding()], root);
     }
     const index = await loadIndex(root);
-    // Delete the entry file
     const { unlink } = await import('node:fs/promises');
     await unlink(path.join(root, 'entries', `${index.entries[0]!.pattern_id}.json`));
     const results = await queryPatterns({ min_frequency: 1 }, root);
@@ -257,7 +254,6 @@ describe('prunePatterns', () => {
     const root = await tempStore();
     const oldTimestamp = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString();
     await recordFindings([makeFinding({ recorded_at: oldTimestamp })], root);
-    // Manually adjust index last_seen to be old
     const index = await loadIndex(root);
     index.entries[0]!.last_seen = oldTimestamp;
     const { writeFile: wf } = await import('node:fs/promises');
@@ -284,7 +280,6 @@ describe('prunePatterns', () => {
     index.entries[0]!.last_seen = oldTimestamp;
     const { writeFile: wf, unlink } = await import('node:fs/promises');
     await wf(path.join(root, 'index.json'), JSON.stringify(index, null, 2) + '\n', 'utf8');
-    // Pre-delete the entry file to simulate missing file
     await unlink(path.join(root, 'entries', `${index.entries[0]!.pattern_id}.json`));
 
     await expect(prunePatterns(365, root)).resolves.toBe(1);
@@ -295,7 +290,6 @@ describe('loadIndex — rebuild from entries on corrupt index (EC-DP3)', () => {
   it('rebuilds the index when index.json is corrupt', async () => {
     const root = await tempStore();
     await recordFindings([makeFinding()], root);
-    // Corrupt the index
     await writeFile(path.join(root, 'index.json'), '{not-json', 'utf8');
     const rebuilt = await loadIndex(root);
     expect(rebuilt.entries).toHaveLength(1);
@@ -313,7 +307,6 @@ describe('loadIndex — rebuild from entries on corrupt index (EC-DP3)', () => {
     await mkdir(path.join(root, 'entries'), { recursive: true });
     await writeFile(path.join(root, 'entries', 'bad.json'), '{corrupt', 'utf8');
     await writeFile(path.join(root, 'index.json'), '{invalid}', 'utf8');
-    // Should not throw; corrupt entry is skipped
     const rebuilt = await loadIndex(root);
     expect(rebuilt.entries).toHaveLength(0);
   });

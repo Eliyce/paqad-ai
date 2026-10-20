@@ -34,8 +34,6 @@ import { VERIFICATION_EVIDENCE_RELATIVE_PATH } from '@/verification/evidence';
 const STATIC_DIR = mkdtempSync(join(tmpdir(), 'paqad-dash-static-'));
 writeFileSync(join(STATIC_DIR, 'index.html'), '<!doctype html><title>x</title>');
 
-// Issue #468 Phase B — the trust + SIEM endpoints project evidence from the per-feature
-// bundle union, so seed a bundle `evidence.jsonl` rather than the top-level ledger.
 function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
   const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
   const path = join(root, featureFilePath(dir, 'evidence'));
@@ -183,8 +181,6 @@ describe('startDashboardServer', () => {
     expect(await spa.text()).toMatch(/<!doctype html>/);
   });
 
-  // Issue #387 — packets written through DecisionStore.writePending must carry a strict
-  // `D-<ULID>` id; this is the id every packet these tests create is written under.
   const WID = 'D-01J000000000000000000000A1';
 
   function makePacket(overrides: Partial<DecisionPacket> = {}): DecisionPacket {
@@ -262,7 +258,7 @@ describe('startDashboardServer', () => {
     return server;
   }
 
-  describe('schema compatibility (issue #616, Part 8b)', () => {
+  describe('schema compatibility', () => {
     it('refuses a mutation with 409 and the update hint when the layout is from the future', async () => {
       bootstrap(root);
       writeFileSync(
@@ -330,7 +326,7 @@ describe('startDashboardServer', () => {
       expect(feed.pendingCount).toBe(0);
     });
 
-    it('lists journeys and curates a proposed one (#448)', async () => {
+    it('lists journeys and curates a proposed one', async () => {
       bootstrap(root);
       const journey: Journey = {
         schema_version: 1,
@@ -345,13 +341,11 @@ describe('startDashboardServer', () => {
       writeJourney(root, journey);
       await startServer();
 
-      // GET lists it with its status.
       const list = (await (await fetch(`${server!.url}/api/site-map/journeys`)).json()) as {
         journeys: { id: string; label: string; status: string }[];
       };
       expect(list.journeys).toEqual([{ id: 'checkout', label: 'Checkout', status: 'proposed' }]);
 
-      // POST confirm transitions it to confirmed.
       const res = await fetch(`${server!.url}/api/site-map/journeys/curate`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -371,14 +365,12 @@ describe('startDashboardServer', () => {
     it('serves the run progress on GET /api/site-map/progress, null when none (S6)', async () => {
       bootstrap(root);
 
-      // With no progress file, the route answers null.
       await startServer();
       const none = await (await fetch(`${server!.url}/api/site-map/progress`)).json();
       expect(none).toBeNull();
       await server!.close();
       server = null;
 
-      // With a progress file present, the route returns it verbatim.
       const progress = createEmptyProgress({ screens: 1, groups: ['billing'] }, new Date());
       const unit = createUnit({
         id: 'group:billing',
@@ -398,22 +390,20 @@ describe('startDashboardServer', () => {
       expect(body.units['group:billing']).toMatchObject({ state: 'done', label: 'Billing' });
     });
 
-    it('serves the site-map view on GET /api/site-map/map (disabled while the flag is off, #466)', async () => {
+    it('serves the site-map view on GET /api/site-map/map (disabled while the flag is off)', async () => {
       bootstrap(root);
       await startServer();
 
       const view = (await (await fetch(`${server!.url}/api/site-map/map`)).json()) as {
         status: string;
       };
-      // The flag defaults off, so the map endpoint is inert (INV-1) — it still answers, honestly.
       expect(view).toEqual({ status: 'disabled' });
     });
 
-    it('rejects a curate call with a bad body or a non-proposed journey (#448)', async () => {
+    it('rejects a curate call with a bad body or a non-proposed journey', async () => {
       bootstrap(root);
       await startServer();
 
-      // Missing id → 400.
       const bad = await fetch(`${server!.url}/api/site-map/journeys/curate`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -421,7 +411,6 @@ describe('startDashboardServer', () => {
       });
       expect(bad.status).toBe(400);
 
-      // Unknown journey → 400 from the curation reason.
       const unknown = await fetch(`${server!.url}/api/site-map/journeys/curate`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -430,7 +419,7 @@ describe('startDashboardServer', () => {
       expect(unknown.status).toBe(400);
     });
 
-    it('persists and resets district curation on POST /api/site-map/layout (#489)', async () => {
+    it('persists and resets district curation on POST /api/site-map/layout', async () => {
       bootstrap(root);
       await startServer();
 
@@ -448,7 +437,6 @@ describe('startDashboardServer', () => {
       expect(saved.result.layout.billing).toEqual({ x: 10, y: 20, w: 300, h: 200 });
       expect(readSiteMapLayout(root)).toEqual({ billing: { x: 10, y: 20, w: 300, h: 200 } });
 
-      // A malformed placement is refused (400) and nothing new is written.
       const bad = await fetch(`${server!.url}/api/site-map/layout`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -456,13 +444,12 @@ describe('startDashboardServer', () => {
       });
       expect(bad.status).toBe(400);
 
-      // Reset removes the file so the canvas reverts to its computed layout.
       const reset = await fetch(`${server!.url}/api/site-map/layout/reset`, { method: 'POST' });
       expect(reset.status).toBe(200);
       expect(readSiteMapLayout(root)).toBeNull();
     });
 
-    it('refuses layout curation in read-only mode (#489)', async () => {
+    it('refuses layout curation in read-only mode', async () => {
       bootstrap(root);
       await startServer({ readOnly: true });
 
@@ -554,7 +541,6 @@ describe('startDashboardServer', () => {
       expect(res.status).toBe(403);
       expect(store.readPending(WID)).not.toBeNull();
 
-      // reads still work
       expect((await fetch(`${server!.url}/api/decisions`)).status).toBe(200);
     });
 
@@ -581,8 +567,6 @@ describe('startDashboardServer', () => {
       });
       expect(foreignOrigin.status).toBe(403);
 
-      // fetch (undici) refuses to forward a custom Host header, so the
-      // DNS-rebinding leg goes through raw node:http.
       const reboundStatus = await new Promise<number>((resolvePromise, rejectPromise) => {
         const request = httpRequest(
           {
@@ -617,8 +601,6 @@ describe('startDashboardServer', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ chosen_option_key: 'reuse-button', note: 'x'.repeat(70 * 1024) }),
       }).catch(() => null);
-      // The server destroys the connection or answers 400 — either way the
-      // packet must still be pending.
       if (res !== null) expect(res.status).toBe(400);
       expect(store.readPending(WID)).not.toBeNull();
     });
@@ -769,7 +751,7 @@ describe('startDashboardServer', () => {
     });
   });
 
-  describe('full editing endpoints (#146 phase 3)', () => {
+  describe('full editing endpoints', () => {
     it('serves and updates the profile, and toggles capabilities', async () => {
       bootstrap(root);
       await startServer();
@@ -831,7 +813,6 @@ describe('startDashboardServer', () => {
       const started = (await start.json()) as { result: { id: string; status: string } };
       expect(started.result.status).toBe('running');
 
-      // Poll until the job settles (doctor on a fixture finishes quickly).
       let job: { status: string } | null = null;
       for (let attempt = 0; attempt < 100; attempt += 1) {
         const res = await fetch(`${server!.url}/api/ops/${started.result.id}`);
@@ -914,8 +895,6 @@ describe('startDashboardServer', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ content: JSON.stringify({ color: { accent: '#2563eb' } }) }),
       });
-      // 200 when the schema accepts it, 422 when stricter — both paths are the
-      // pipeline working; assert it is not a transport or guard failure.
       expect([200, 422]).toContain(tokensPut.status);
 
       const badBody = await fetch(`${server!.url}/api/config/module-map`, {
@@ -1152,7 +1131,7 @@ describe('startDashboardServer', () => {
     });
   });
 
-  describe('saved views (#161)', () => {
+  describe('saved views', () => {
     it('creates, lists, applies-by-reload, and deletes a saved view', async () => {
       bootstrap(root);
       await startServer();
@@ -1176,7 +1155,6 @@ describe('startDashboardServer', () => {
       expect(created.result.id).toBe('graph-1');
       expect(created.result.createdAt).toMatch(/^\d{4}-/);
 
-      // Reload (a fresh GET) restores the scope exactly.
       const listed = (await (await fetch(`${server!.url}/api/saved-views`)).json()) as {
         views: { id: string; scope: { threshold: number; overlay: string } }[];
       };
@@ -1208,7 +1186,6 @@ describe('startDashboardServer', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: 'n', area: 'graph', scope: {} }),
       });
-      // The id decodes to 'a/b', which the slug validator rejects → 400.
       expect(badId.status).toBe(400);
 
       const missing = await fetch(`${server!.url}/api/saved-views/never`, { method: 'DELETE' });
@@ -1227,7 +1204,7 @@ describe('startDashboardServer', () => {
     });
   });
 
-  describe('snapshots (#161)', () => {
+  describe('snapshots', () => {
     it('renders a static module-health snapshot with no live calls, 404 when absent', async () => {
       bootstrap(root);
       mkdirSync(join(root, '.paqad/module-health'), { recursive: true });
@@ -1250,7 +1227,6 @@ describe('startDashboardServer', () => {
       const html = await ok.text();
       expect(html).toContain('Module payments');
       expect(html).toContain('Static copy, no live data.');
-      // Fully static: no scripts and no live API calls.
       expect(html).not.toContain('<script');
       expect(html).not.toContain('/api/');
 

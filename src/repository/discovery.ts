@@ -69,10 +69,6 @@ export async function discoverRepositoryContext(
   const ignoredPaths = new Set<string>();
   const candidates = new Map<string, RepositoryProjectCandidate>();
 
-  // Walk the tree once into memory, then resolve git-ignored paths with a SINGLE
-  // batched `git check-ignore` call (issue #386). The previous implementation
-  // spawned two `git check-ignore` subprocesses per visited directory, so a
-  // large repo stalled onboarding for seconds before the provider prompt.
   const tree = await buildTree(projectRoot, '.', 0, maxDepth);
   const checkPaths = collectCheckPaths(tree);
   const visible = new Set(checkPaths.length > 0 ? dropGitIgnored(projectRoot, checkPaths) : []);
@@ -101,13 +97,6 @@ export function prefixRepositoryPath(root: string, relativePath: string): string
   return join(root, relativePath);
 }
 
-/**
- * A directory captured during the readdir pass. `markerCandidates`/`markerPaths`
- * are the project markers present in this directory (aligned by index);
- * `staticIgnored` are child paths excluded by the git-independent rules (dot
- * entries and the static ignore/non-canonical sets); `children` are the
- * directories worth resolving, each carrying whether it is a nested VCS boundary.
- */
 interface DirNode {
   relativeDir: string;
   markerCandidates: string[];
@@ -126,13 +115,6 @@ function emptyNode(relativeDir: string): DirNode {
   return { relativeDir, markerCandidates: [], markerPaths: [], staticIgnored: [], children: [] };
 }
 
-/**
- * Read the tree once into memory, applying only the git-independent rules (dot
- * entries, static ignore/non-canonical sets, and nested VCS boundaries). No
- * `git check-ignore` runs here — that resolution is batched into a single call
- * by the caller. Descent stops at a nested VCS boundary so we never read an
- * entire nested repository during collection.
- */
 async function buildTree(
   projectRoot: string,
   relativeDir: string,
@@ -185,7 +167,6 @@ async function buildTree(
   return node;
 }
 
-/** Flatten every marker and child-directory path so one batched git call covers them all. */
 function collectCheckPaths(node: DirNode, out: string[] = []): string[] {
   for (const markerPath of node.markerPaths) {
     out.push(markerPath);
@@ -197,12 +178,6 @@ function collectCheckPaths(node: DirNode, out: string[] = []): string[] {
   return out;
 }
 
-/**
- * Reproduce the prune-as-you-go output from the precomputed visibility set: a
- * git-ignored or nested-VCS child is recorded in `ignoredPaths` and never
- * descended, so paths beneath it never surface — identical to the previous
- * per-directory walk, but with zero further subprocesses.
- */
 function resolveTree(
   node: DirNode,
   visible: Set<string>,

@@ -30,7 +30,7 @@ const SESSION = 'ses_abc';
 let now = 0;
 const clock = () => new Date(1_700_000_000_000 + now++ * 1000);
 
-describe('path-agnostic row primitives (#339)', () => {
+describe('path-agnostic row primitives', () => {
   const roots: string[] = [];
   function root(): string {
     const r = mkdtempSync(join(tmpdir(), 'paqad-unit-prim-'));
@@ -56,7 +56,7 @@ describe('path-agnostic row primitives (#339)', () => {
     expect(rows[0].content_hash).toBe(stamped.content_hash);
   });
 
-  it('readUnitFile reads an envelope row with recorded_at and no ts beside an old row (#581)', () => {
+  it('readUnitFile reads an envelope row with recorded_at and no ts beside an old row', () => {
     const r = root();
     const rel = '.paqad/ledger/feature-evidence/x/stage-evidence.jsonl';
     const old = stampSessionRow(DOC, SESSION, { kind: 'open' }, { now: clock });
@@ -73,7 +73,7 @@ describe('path-agnostic row primitives (#339)', () => {
     expect(rows[1]).toMatchObject({ recorded_at: 't' });
   });
 
-  it('the content hash excludes recorded_at like ts (#581)', () => {
+  it('the content hash excludes recorded_at like ts', () => {
     const a = computeSessionRowHash({ kind: 'used', recorded_at: 't1' });
     const b = computeSessionRowHash({ kind: 'used', recorded_at: 't2' });
     expect(a).toBe(b);
@@ -91,7 +91,7 @@ describe('path-agnostic row primitives (#339)', () => {
   });
 });
 
-describe('session-ledger substrate (#249 P0)', () => {
+describe('session-ledger substrate', () => {
   let root: string;
 
   beforeEach(() => {
@@ -121,11 +121,9 @@ describe('session-ledger substrate (#249 P0)', () => {
     expect(currentOrdinal(root, DOC, SESSION)).toBe(0);
   });
 
-  it('closeSessionOrdinal resets the .open pointer so the next allocation is fresh (#321)', () => {
+  it('closeSessionOrdinal resets the .open pointer so the next allocation is fresh', () => {
     expect(allocateOrdinal(root, DOC, SESSION)).toBe(1);
     closeSessionOrdinal(root, DOC, SESSION);
-    // Pointer reset → currentOrdinal is 0, but the next allocation advances past the
-    // existing file (never reuses ordinal 1).
     expect(currentOrdinal(root, DOC, SESSION)).toBe(0);
     expect(allocateOrdinal(root, DOC, SESSION)).toBe(2);
     expect(currentOrdinal(root, DOC, SESSION)).toBe(2);
@@ -180,8 +178,8 @@ describe('session-ledger substrate (#249 P0)', () => {
     const a = computeSessionRowHash({ kind: 'used', injected: true, ts: 't1', note: 'x' });
     const b = computeSessionRowHash({ kind: 'used', injected: true, ts: 't2', note: 'y' });
     const c = computeSessionRowHash({ kind: 'used', injected: false, ts: 't1', note: 'x' });
-    expect(a).toBe(b); // ts/note do not change identity
-    expect(a).not.toBe(c); // injected does
+    expect(a).toBe(b);
+    expect(a).not.toBe(c);
   });
 
   it('runs the injected validator and throws on rejection', () => {
@@ -234,7 +232,6 @@ describe('session-ledger substrate (#249 P0)', () => {
       { kind: 'used', conversation_ordinal: ordinal },
       { now: clock },
     );
-    // Append a junk line directly after a valid one.
     appendFileSync(join(root, sessionLedgerPath(DOC, SESSION, ordinal)), 'not json{\n', 'utf8');
     const rows = readSessionUnit(root, DOC, SESSION, ordinal);
     expect(rows).toHaveLength(1);
@@ -266,7 +263,6 @@ describe('session-ledger substrate (#249 P0)', () => {
     expect(readSessionUnit(root, DOC, SESSION, ordinal)).toHaveLength(1);
   });
 
-  // Cross-session readers (buildout F6 — the SIEM fold needs every session's rows).
   it('lists no sessions and reads no rows for an absent doc type', () => {
     expect(listSessionIds(root, 'paqad.missing')).toEqual([]);
     expect(readAllSessionRows(root, 'paqad.missing')).toEqual([]);

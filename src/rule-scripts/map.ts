@@ -1,8 +1,3 @@
-// Load / serialize the rule-script map (issue #89).
-//
-// The map is YAML for human review in PRs. Reads are unrestricted; every write
-// goes through src/rule-scripts/apply.ts (single-writer invariant).
-
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -35,6 +30,5 @@ export function loadRuleScriptMap(projectRoot: string): RuleScriptMap | null {
 }
 
 export function serializeRuleScriptMap(map: RuleScriptMap): string {
-  // Stable key order and 2-space indent keep diffs reviewable.
   return YAML.stringify(map, { indent: 2, lineWidth: 0 });
 }

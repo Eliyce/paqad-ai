@@ -33,12 +33,10 @@ describe('tokenizeCode', () => {
 
 describe('shingles', () => {
   it('produces one overlapping k-token shingle per window', () => {
-    // 4 tokens, window 2 → 3 overlapping windows.
     expect(shingles(['a', 'b', 'c', 'd'], 2).size).toBe(3);
   });
 
   it('does not collide across different token boundaries', () => {
-    // ['a','bc'] and ['ab','c'] must not both map to the same shingle.
     const left = shingles(['a', 'bc'], 2);
     const right = shingles(['ab', 'c'], 2);
     const [l] = left;
@@ -70,7 +68,6 @@ describe('jaccard', () => {
   });
 
   it('computes the overlap ratio', () => {
-    // {a,b,c} vs {b,c,d}: intersection 2, union 4 → 0.5
     expect(jaccard(new Set(['a', 'b', 'c']), new Set(['b', 'c', 'd']))).toBe(0.5);
   });
 });

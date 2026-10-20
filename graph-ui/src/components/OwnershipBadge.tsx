@@ -6,11 +6,6 @@ const LABEL: Record<InventoryOwner, string> = {
   shared: 'Shared',
 };
 
-/**
- * Quiet ownership marker (issue #146): a 6px dot plus text, 12px,
- * secondary color. Placed top right of cards and beside page titles.
- * Never color-only: the dot is always paired with the label.
- */
 export function OwnershipBadge({ managedBy }: { managedBy: InventoryOwner }) {
   const dotStyle: React.CSSProperties =
     managedBy === 'you'

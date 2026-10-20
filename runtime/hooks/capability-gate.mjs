@@ -1,24 +1,4 @@
 #!/usr/bin/env node
-// capability-gate.mjs — the Capability Kernel host seam (buildout F3).
-//
-// ONE host hook that runs every kernel-bound capability registered at a lifecycle
-// seam, replacing the single-purpose rule-script-enforce.mjs. The seam is passed
-// as the first argv (`pre-mutation` for Claude PreToolUse, `completion` for Stop);
-// the dist executor (`runCapabilityGate`) iterates the registry for that seam and
-// returns one block/allow decision.
-//
-//   - PreToolUse fires before a mutating edit and sees prior in-turn disk state,
-//     so a violation already on disk fails loud before more is piled on.
-//   - Stop fires when the agent finishes and checks the full change.
-//
-// Blocking is strict-only: a blocking outcome exits 2 (the host surfaces stderr to
-// the model); advisory findings surface on stdout and exit 0. Any infra error
-// soft-fails to exit 0 so a broken install never wedges the agent.
-//
-// Dist-less fast-skips (no dist import on the common path): paqad disabled, no
-// rule-script map, or rule_compliance=off. These are the cheap triggers of the one
-// capability currently folded into the seam (rule-scripts); as F6 folds in
-// stages/decision-pause/delivery, this pre-check generalises per-capability.
 
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,33 +20,14 @@ import {
 import { stopHookActiveFromStdin } from './lib/loop-guard.mjs';
 import { refreshHudFromHook } from './lib/hud-snapshot.mjs';
 
-// Mirrors PATHS.RULE_SCRIPT_MAP — kept in sync by hand (runtime mjs has no dist).
 const RULE_SCRIPT_MAP_REL = 'docs/instructions/rules/rule-script-map.yml';
 const RULE_COMPLIANCE_MODES = ['off', 'warn', 'strict'];
 const STAGES_MODES = ['off', 'warn', 'strict'];
 
-// The host seam this invocation evaluates. Defaults to pre-mutation; the adapter
-// wires `completion` explicitly on the Stop seam.
 const SEAM = process.argv[2] === 'completion' ? 'completion' : 'pre-mutation';
-// The host that invoked the hook (issue #566): argv[3] after the seam. `claude-code`
-// (default, omitted for byte-identity) → undefined; Codex passes `codex-cli`.
 const ADAPTER = process.argv[3] || undefined;
 
-/**
- * Cheap, dist-less check for whether this seam has any kernel work to do, so the
- * common edit pays no dist-import cost. Kernel-bound capabilities today:
- *   - rules-loaded (issue #557) — required, mode-less: the pre-mutation seam ALWAYS has
- *     work on an enabled project, because any edit could be a feature-dev edit that must
- *     first load the rules. So the pre-mutation seam short-circuits to true regardless of
- *     the stages/rule-script config (a team that turns stages off still gets rule-loading).
- *   - stages (RCA fix B) — block-forward runs on EVERY enabled project by default
- *     (stages_mode defaults to strict), independent of any rule-script map, so the
- *     executor must load whenever stages is not floored off.
- *   - rule-scripts — has work only when a rule-script map exists AND rule_compliance
- *     is not floored to off (the team value is a floor; local/env may only RAISE).
- */
 function seamHasWork(projectRoot, seam) {
-  // Rules-loaded is required with no mode (issue #557): the pre-mutation seam always has work.
   if (seam === 'pre-mutation') {
     return true;
   }
@@ -93,18 +54,9 @@ function seamHasWork(projectRoot, seam) {
   return mode !== 'off';
 }
 
-/**
- * Parse the host PreToolUse/Stop stdin payload into the kernel `CapabilityPayload`
- * (tool name, edit target, transcript path, session id). Best-effort: a missing or
- * malformed payload yields `undefined`, and every capability treats that as "no
- * payload" — only the decision-pause self-arm reads it. Never throws.
- */
 function parsePayload(input) {
   try {
     const payload = JSON.parse(input);
-    // The edited paths across both host shapes (Claude file_path, Codex apply_patch).
-    // `targetPath` stays the representative first path; `targetPaths` carries all so a
-    // multi-file patch is gated iff any path is feature-dev (issue #566).
     const targets = editTargets(payload);
     return {
       toolName: payload?.tool_name,
@@ -120,12 +72,6 @@ function parsePayload(input) {
   }
 }
 
-/**
- * Issue #615 (Part 4) — true when a `paqad-<stage>` agent is still running in the Stop payload's
- * `background_tasks` (appending the `completion-deferred` breadcrumb as a side effect). Cheap and
- * best-effort: no `background_tasks` → no dist import, returns false; any error returns false so
- * the kernel still runs.
- */
 async function deferredForBackgroundStage(projectRoot, input) {
   const payload = parseHookPayload(input);
   const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
@@ -151,18 +97,12 @@ export async function main(input, seam = SEAM) {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
     if (isPaqadDisabled(projectRoot) || hookStandsDown(parseHookPayload(input))) return 0;
 
-    // Issue #615 (Part 4) — on the completion seam, don't run the capability kernel (which
-    // includes rule-scripts) while a `paqad-<stage>` agent is still working in the background:
-    // defer, record a breadcrumb, and exit 0. The pre-mutation seam is unaffected.
     if (seam === 'completion' && (await deferredForBackgroundStage(projectRoot, input))) {
       return 0;
     }
 
     if (!seamHasWork(projectRoot, seam)) return 0;
 
-    // Lazy-load the compiled executor only once there is real work. Resolved
-    // relative to this module so it works installed, vendored, or in the repo
-    // (mirrors verify-backstop.mjs / rule-script-enforce.mjs).
     const distUrl = new URL('../../dist/kernel/gate.js', import.meta.url);
     const { runCapabilityGate } = await import(distUrl.href);
 
@@ -172,20 +112,8 @@ export async function main(input, seam = SEAM) {
       payload: parsePayload(input),
     });
     if (result.block) {
-      // Narration rides ahead of the block reason: work already done for the user
-      // (e.g. stage markers recorded to the ledger) stays visible even when the
-      // edit is refused (issue #307 — a ledger write is never silent).
       const message = result.narration ? `${result.narration}\n${result.summary}` : result.summary;
-      // Issue #579 — the first-frontend-edit visual-evidence reminder rides the model-only
-      // block reason (stderr), never a user-facing systemMessage.
       process.stderr.write(result.context ? `${message}\n${result.context}\n` : `${message}\n`);
-      // Loop guard (fix #2) — the completion (Stop) seam is the only one the host
-      // re-runs after forcing a continuation. When Claude marks this Stop as a
-      // continuation of a prior block (`stop_hook_active`), the gate has already
-      // bitten once, so blocking again would loop on an unresolvable outcome:
-      // surface the summary (above) but exit non-blocking. The pre-mutation seam
-      // is a PreToolUse deny, not a Stop loop, so it always keeps its teeth. git/CI
-      // remain the hard, non-bypassable layer.
       if (seam === 'completion' && stopHookActiveFromStdin(input)) {
         process.stderr.write(
           '[paqad] already surfaced this turn — not blocking again so the session can end (git/CI remains the hard gate).\n',
@@ -194,24 +122,6 @@ export async function main(input, seam = SEAM) {
       }
       return 2;
     }
-    // Allow path: emit NOTHING user-facing, on either seam. paqad narration is the
-    // model's job — it speaks each `▸ paqad` line in its final message (the narration
-    // contract), and the ledger is written regardless of what this hook prints.
-    //
-    // Neither seam emits a `{systemMessage}` any more. A top-level `systemMessage` is a
-    // documented USER-FACING warning field, not the invisible back-channel this path once
-    // assumed. Claude Code now renders it on Desktop for BOTH hook kinds: a Stop-hook one
-    // as literal "Stop says:" lines, and a PreToolUse one as literal "PreToolUse:<Tool>
-    // says:" lines. Either would duplicate the narration the agent already speaks and leak
-    // framework prose into the developer's chat on every edit (the "Stop says:" leak,
-    // extended to PreToolUse). A strict violation still reaches the model on the blocking
-    // path above (stderr + exit 2); warn findings are advisory and non-blocking by contract.
-    //
-    // The one exception is MODEL-facing context (issue #579): the first-frontend-edit
-    // visual-evidence reminder goes out as PreToolUse `hookSpecificOutput.additionalContext`,
-    // which reaches the model and is not a user-facing warning. Claude Code only (the default
-    // adapter): other hosts get the reminder on the block path, the plan-time pause, the
-    // spec-freeze requirement and the Stop gate.
     if (seam === 'pre-mutation' && result.context && ADAPTER === undefined) {
       process.stdout.write(
         `${JSON.stringify({
@@ -221,24 +131,15 @@ export async function main(input, seam = SEAM) {
     }
     return 0;
   } catch (error) {
-    // Issue #616 Part 9 — a future-schema project (set up by a newer paqad) must never crash or
-    // block a hook. Log one diagnosable line and exit 0; doctor + the dashboard point to the update.
     if (isSchemaVersionError(error)) {
       try {
         appendHooksLog(
           resolveProjectRoot(process.env, parseHookPayload(input)),
           'capability-gate skipped: .paqad layout written by a newer paqad; run `claude plugin update paqad@eliyce`',
         );
-      } catch {
-        /* best-effort */
-      }
+      } catch {}
       return 0;
     }
-    // Issue #615 (Part 6) — the pre-mutation edit gate fails CLOSED: an unexpected exception
-    // (missing build, import failure, a thrown gate) blocks the edit (exit 2) with a
-    // doctor-pointing message, instead of silently letting it through. The completion seam still
-    // soft-fails (exit 0): a Stop hook must never wedge the turn, and onFailure has no effect on
-    // Stop anyway.
     if (seam === 'pre-mutation') {
       process.stderr.write(`${gateFailureMessage('capability', error)}\n`);
       return 2;
@@ -247,13 +148,6 @@ export async function main(input, seam = SEAM) {
   }
 }
 
-// Drain stdin (the host pipes the tool/Stop payload) then enforce. The payload is
-// parsed lazily inside main() and only the decision-pause self-arm reads it. Guarded
-// so importing this module for tests runs nothing. The guard resolves the entry
-// path with realpathSync: the host invokes this hook through the symlinked install
-// (~/.paqad-ai/current → the package runtime), and macOS also aliases /tmp →
-// /private/tmp, so a raw argv[1] compare would MISS the match and silently no-op
-// the whole gate. Comparing realpaths is symlink-safe.
 if (isDirectEntry(import.meta.url)) {
   let input = '';
   process.stdin.on('data', (chunk) => {
@@ -261,9 +155,6 @@ if (isDirectEntry(import.meta.url)) {
   });
   process.stdin.on('end', () => {
     main(input).then(async (code) => {
-      // Issue #639 (Part 7) — refresh the HUD snapshot at the completion seam once the
-      // decision is final. Not at pre-mutation: it runs before every edit, and nothing it
-      // records reaches the snapshot until the rule-stop record (Part 18).
       if (SEAM === 'completion') await refreshHudFromHook(input, 'capability-gate-completion');
       process.exit(code);
     });

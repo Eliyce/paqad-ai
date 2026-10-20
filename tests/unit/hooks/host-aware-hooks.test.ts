@@ -5,15 +5,13 @@ import { join } from 'node:path';
 import { execa } from 'execa';
 import { describe, expect, it } from 'vitest';
 
-// The shared, dist-free path extractor is imported directly from the runtime lib — the
-// same file every host-aware hook uses (issue #566).
 import { editTargets, parseApplyPatchPaths } from '../../../runtime/hooks/lib/edit-targets.mjs';
 import { isFeatureDevEdit } from '@/stage-evidence/scope.js';
 
 const FIXTURES = join(process.cwd(), 'tests/fixtures/hooks');
 const readFixture = (rel: string): unknown => JSON.parse(readFileSync(join(FIXTURES, rel), 'utf8'));
 
-describe('edit-targets — one extractor for both host payload shapes (issue #566)', () => {
+describe('edit-targets — one extractor for both host payload shapes', () => {
   it('extracts every path from a Codex apply_patch (Add/Update/Delete/Move)', () => {
     const paths = editTargets(readFixture('codex/pre-tool-apply-patch.json'));
     expect(paths).toEqual([
@@ -41,8 +39,6 @@ describe('edit-targets — one extractor for both host payload shapes (issue #56
   it('a docs-only Codex patch resolves to a documentation path (not feature-dev)', () => {
     const paths = editTargets(readFixture('codex/pre-tool-apply-patch-docs.json'));
     expect(paths).toEqual(['docs/guide.md']);
-    // The scope predicate the capability gate uses must treat it as NOT feature-dev, so a
-    // docs-only Codex patch is never over-blocked despite the fail-closed default.
     expect(paths.every((p) => isFeatureDevEdit(p) === false)).toBe(true);
   });
 
@@ -57,7 +53,7 @@ describe('edit-targets — one extractor for both host payload shapes (issue #56
   });
 });
 
-describe('agent-entry-gate — cross-host sentinel detection end to end (issue #566)', () => {
+describe('agent-entry-gate — cross-host sentinel detection end to end', () => {
   const GATE = join(process.cwd(), 'runtime/hooks/agent-entry-gate.mjs');
 
   async function runGate(payload: unknown): Promise<{ exitCode: number | undefined }> {
@@ -66,8 +62,6 @@ describe('agent-entry-gate — cross-host sentinel detection end to end (issue #
       const result = await execa('node', [GATE], {
         reject: false,
         input: JSON.stringify(payload),
-        // A bare temp project has no sentinel and paqad defaults ON, so the gate blocks
-        // unless the pending edit IS the sentinel write.
         env: { PAQAD_PROJECT_ROOT: root },
       });
       return { exitCode: result.exitCode };
@@ -86,8 +80,6 @@ describe('agent-entry-gate — cross-host sentinel detection end to end (issue #
     expect(exitCode).toBe(0);
   });
 
-  // Issue #582 — the gate names the per-session sentinel, so a Codex patch that adds it must
-  // be exempt too, or the agent could never clear its own gate.
   it('exempts the Codex apply_patch that writes the per-session sentinel', async () => {
     const payload = readFixture('codex/pre-tool-apply-patch-sentinel.json') as {
       session_id: string;

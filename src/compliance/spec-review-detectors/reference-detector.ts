@@ -7,9 +7,6 @@ export const referenceDetector: SpecReviewDetector = {
   name: 'references',
   detect(context) {
     const defects = [];
-    // Use all lines (including headings) so that IDs defined only as heading text
-    // (e.g. "### EC-5: Edge Case") are recognised as defined and do not produce
-    // false-positive dangling-reference findings.
     const definedIds = collectDefinedIds(context.lines);
 
     for (const line of context.review_lines) {

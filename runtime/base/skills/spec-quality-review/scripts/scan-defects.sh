@@ -1,17 +1,16 @@
 #!/usr/bin/env bash
-# Purpose: Pattern-scan a spec for known defect classes the LLM should
-#          investigate. Skips lines under "Open Questions" and TBD lines.
-# Usage:   bash scripts/scan-defects.sh <spec.md>
-# Output:  category | line | excerpt
-# Exits:   0 ok | 1 missing input | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Pattern-scan a spec for known defect classes the LLM should
+         investigate. Skips lines under "Open Questions" and TBD lines.
+Usage:   bash scripts/scan-defects.sh <spec.md>
+USAGE
+  exit 0
 fi
 spec="${1:-}"
 [ -f "$spec" ] || { printf 'error: spec not found: %s\n' "$spec" >&2; exit 1; }
 
-# Strip "## Open Questions" sections and TBD lines.
 filtered=$(awk '
   /^## Open Questions/ { skip=1; next }
   /^## / { skip=0 }
@@ -36,4 +35,4 @@ emit 'unbounded-modal'  '\b(may|might|could|should usually|typically)\b'
 emit 'tbd-leak'         '\b(TODO|FIXME|XXX|placeholder)\b'
 emit 'dangling-ref'     '\bsee section [A-Z0-9.]+|figure [0-9]+\b'
 emit 'goal-collision'   '\b(however|but also|except when|unless)\b'
-emit 'no-negative'      '^[[:space:]]*([-*+][[:space:]]+)?AC-[0-9]+[[:space:]]*:'   # informational; LLM verifies a negative AC exists per FR (flat AC-N, #512/C4)
+emit 'no-negative'      '^[[:space:]]*([-*+][[:space:]]+)?AC-[0-9]+[[:space:]]*:'

@@ -1,14 +1,4 @@
 #!/usr/bin/env node
-// Surface-drift check for the engine extension surface contract (PQD-92, AC2/AC3).
-//
-// Fails when a public export barrel changed in the current branch without the
-// surface document being amended in the same change set. Mirrors the
-// ExtensionSurfaceGate so local runs and verification agree. The symbol-granular
-// view is not meaningful for `export *` barrels, so enforcement is barrel-level.
-//
-//   node scripts/check-surface-drift.mjs [--base <ref>]
-//
-// The base ref defaults to $SURFACE_DRIFT_BASE, then origin/main.
 
 import { execFileSync } from 'node:child_process';
 

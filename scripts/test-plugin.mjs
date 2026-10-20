@@ -1,15 +1,4 @@
 #!/usr/bin/env node
-// Run the paqad HUD mod's `claude plugin test` files (issue #639, Part 8, AC-35).
-//
-// `claude plugin test <dir>` loads the plugin rooted at <dir> and runs every *.test.ts(x) under
-// it. The paqad plugin is rooted at the repo root, where that would also pick up the whole vitest
-// suite, so this stages a plugin of the mod alone in a temp folder, laid out as the real one is:
-// the real manifest (name, types and userConfig, minus the agents and skills), a hooks file that
-// names only the module, and a copy of runtime/claude-plugin/mod. The command hooks are left out
-// on purpose: the mod's tests are about the mod, and the hooks have tests of their own.
-//
-// Runs only when a `claude` CLI of 2.1.301 or newer is present (the mod's floor, #639 Q6);
-// otherwise it prints a skip note and exits 0, as scripts/validate-plugin.mjs does.
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
@@ -40,7 +29,9 @@ function newEnough(have) {
 const version = claudeVersion();
 if (!version || !newEnough(version)) {
   const found = version ? `found ${version.join('.')}` : 'not found';
-  console.log(`[paqad] claude CLI 2.1.301+ ${found}; skipping \`claude plugin test\` (#639).`);
+  console.log(
+    `[paqad] claude CLI 2.1.301+ ${found}; skipping \`claude plugin test\` (the HUD mod needs that version).`,
+  );
   process.exit(0);
 }
 
@@ -55,7 +46,6 @@ try {
     description: manifest.description,
     hooks: hooksRel,
     types: manifest.types,
-    userConfig: manifest.userConfig,
   };
   mkdirSync(join(sandbox, '.claude-plugin'), { recursive: true });
   writeFileSync(join(sandbox, '.claude-plugin', 'plugin.json'), JSON.stringify(staged, null, 2));
@@ -64,7 +54,6 @@ try {
   const modRel = join('runtime', 'claude-plugin', 'mod');
   cpSync(join(repoRoot, modRel), join(sandbox, modRel), {
     recursive: true,
-    // Types the engine lays beside a mod it loads are its own, never part of the plugin.
     filter: (src) => !src.includes(`${join(modRel, '.claude-plugin')}`),
   });
   const result = spawnSync('claude', ['plugin', 'test', sandbox], { stdio: 'inherit' });

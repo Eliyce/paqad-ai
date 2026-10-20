@@ -1,10 +1,3 @@
-// The isolated re-run verdict (issue #554, Part D). After the parallel run, every failing test is
-// re-run by itself. A test that fails any isolated re-run is real and blocks (INV-2); a test that
-// passes every isolated re-run only failed in the crowd, so it is quarantined in the flaky registry
-// and does not block (under the default `warn`/`pass` modes). The runner WRITES the registry for
-// tracking; it never READS it to change a verdict (INV-3) — the isolated re-run is the only
-// tie-breaker. Everything here is deterministic; the re-runs go through the injected shell.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { extname, isAbsolute, resolve } from 'node:path';
 
@@ -18,7 +11,6 @@ import type { StructuredTestIssue, StructuredTestResult } from '@/core/types/tes
 
 export type ChecksFlakyMode = 'pass' | 'warn' | 'fail';
 
-/** One isolated-re-run row, as it appears in `checks.json.isolation_reruns.entries`. */
 export interface IsolationRerunEntry {
   test_id: string;
   file_path: string | null;
@@ -28,7 +20,6 @@ export interface IsolationRerunEntry {
   passes: number;
   verdict: 'real' | 'recovered' | 'flaky';
   blocking: boolean;
-  /** `no-selector` / `selector-matched-nothing`, when that is why it blocked. */
   reason?: string;
 }
 
@@ -39,29 +30,21 @@ export interface FlakyUnderParallel {
   suspected_causes: string[];
 }
 
-/** The result of a single isolated re-run: the parsed result plus its exit code. */
 export interface SingleRunOutcome {
   exitCode: number;
   result: StructuredTestResult;
 }
 
 export interface ConfirmFailuresInput {
-  /** The parsed `test` result; a mutated COPY is returned (recovered removed, summary decremented). */
   result: StructuredTestResult;
   projectRoot: string;
-  /** `commands.test_single`, carrying `<pattern>` / `<path_or_file>`. */
   singleCommandTemplate: string;
   singleSelector: SingleTestSelector;
-  /** The runner's `output_path_pattern`, redirected per re-run so the main result is not overwritten. */
   outputPathPattern?: string;
   flakyMode: ChecksFlakyMode;
-  /** `resolveRerunCount(projectRoot)`; how many isolated re-runs per failure. */
   rerunCount: number;
   now: () => string;
-  /** Run one isolated test command (with the re-run output file it should parse) and return its
-   *  parsed result + exit code. `outputOverride` is the redirected result file for this re-run. */
   runSingle: (command: string, outputOverride?: string) => Promise<SingleRunOutcome>;
-  /** Injected for tests; defaults to reading the test file from disk. */
   readTestFile?: (absPath: string) => string | null;
 }
 
@@ -89,14 +72,12 @@ function collectFailing(result: StructuredTestResult): Failing[] {
   ];
 }
 
-/** `test_id` selector: the last `::` segment (a pytest node id) else the whole id; `file`: file_path. */
 function buildSelector(issue: StructuredTestIssue, selector: SingleTestSelector): string {
   if (selector === 'file') return issue.file_path ?? '';
   const id = issue.test_id ?? '';
   return id.includes('::') ? (id.split('::').pop() ?? '') : id;
 }
 
-/** Substitute the selector and redirect the re-run output file so the main result is preserved. */
 function buildRerunCommand(
   template: string,
   selector: string,
@@ -111,7 +92,6 @@ function buildRerunCommand(
   return command;
 }
 
-/** The redirected result file for a given failure index, or undefined for a stdout runner. */
 function rerunOutputPath(outputPathPattern: string | undefined, index: number): string | undefined {
   if (!outputPathPattern) return undefined;
   const ext = extname(outputPathPattern).replace(/^\./, '') || 'out';
@@ -138,10 +118,6 @@ function defaultReadTestFile(absPath: string): string | null {
   }
 }
 
-/**
- * Confirm every failure alone. Called only when the parsed `test` result has ≥ 1 failure or error.
- * See the module header for the invariants. Returns an updated result plus the report fields.
- */
 export async function confirmFailures(input: ConfirmFailuresInput): Promise<ConfirmFailuresOutput> {
   const result = structuredClone(input.result);
   const failing = collectFailing(result);
@@ -162,7 +138,6 @@ export async function confirmFailures(input: ConfirmFailuresInput): Promise<Conf
     return { result, ...base };
   }
 
-  // Re-run cap: a mass failure is a real failure — skip the re-runs and report red.
   const overRatio = failing.length > RERUN_MAX_FAILURE_RATIO * result.summary.total;
   if (failing.length > RERUN_MAX_FAILURES || overRatio) {
     return {
@@ -220,7 +195,6 @@ export async function confirmFailures(input: ConfirmFailuresInput): Promise<Conf
 
     if (!recovered) continue;
 
-    // Recovered: quarantine it for tracking and the touch gate (never to change a verdict).
     const source = readSource(input.projectRoot, issue.file_path, readTestFile);
     const suspected = smellCategories(detectFlakinessSmells(source));
     registry = upsertQuarantine(registry, {
@@ -242,7 +216,6 @@ export async function confirmFailures(input: ConfirmFailuresInput): Promise<Conf
     });
     recoveredKeys.add(`${bucket}:${issue.test_id}:${issue.file_path ?? ''}`);
 
-    // Under warn/pass the recovered test is set aside; under fail it stays blocking.
     if (input.flakyMode !== 'fail') {
       result.warnings.push({
         type: 'flaky-under-parallel',
@@ -252,7 +225,6 @@ export async function confirmFailures(input: ConfirmFailuresInput): Promise<Conf
     }
   }
 
-  // Remove the set-aside tests from failures[]/errors[] and decrement the summary (warn/pass only).
   if (input.flakyMode !== 'fail' && recoveredKeys.size > 0) {
     result.failures = result.failures.filter(
       (issue) => !recoveredKeys.has(`failures:${issue.test_id}:${issue.file_path ?? ''}`),

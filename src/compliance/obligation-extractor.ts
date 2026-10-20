@@ -51,8 +51,6 @@ export function extractObligationIndex(options: ExtractObligationsOptions): Obli
     obligations.push(obligation);
   }
 
-  // Per-section counter ensures generated IDs are stable even when numbered list
-  // items are added or removed in unrelated sections (Bug 7 / FR-2.6).
   const sectionItemCount = new Map<string, number>();
 
   for (const item of extractNumberedListItems(lines)) {

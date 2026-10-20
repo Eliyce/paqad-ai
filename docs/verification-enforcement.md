@@ -1,6 +1,6 @@
 # Verification enforcement boundary
 
-Issue [#117](https://github.com/Eliyce/paqad-ai/issues/117) makes paqad's
+paqad makes its
 verification gates **bind**: they fire automatically from hooks and from the
 git/CI backstop, against repository reality, with the judgment inputs computed
 instead of stubbed. This document is the honest map of what each layer enforces
@@ -36,7 +36,7 @@ pass `--no-verify` to CI, and CI applies to every agent and to humans.
   inputs (C-2), runs the gates the backstop can genuinely evaluate, writes the
   evidence artifact, and returns one machine-readable trust verdict (C-6).
 
-### Stage-evidence enforcement (issue #247)
+### Stage-evidence enforcement
 
 On every code change, `runRepositoryVerification` also folds the stage-evidence
 ledger (`.paqad/ledger/paqad.stage-evidence/`) into a deterministic
@@ -53,7 +53,7 @@ that has not adopted stage marking:
   committed local ledger) → **skipped** (informational). The committed-receipt path
   that would let CI enforce stage-completeness is deferred.
 
-#### Completion-anchored review (issue #270)
+#### Completion-anchored review
 
 The canonical stage order is `planning → specification → development → review →
 checks → documentation_sync`, and the ledger normally rejects an earlier stage that
@@ -78,11 +78,11 @@ distinction between "reviewed late" and "not reviewed" holds.
 The completion hook **soft-fails** on infrastructure errors (a missing build, an
 import failure) so a broken install never wedges the agent. Claude Code and Codex
 both run the blocking completion hook (`verification-completion.mjs`) on their
-`Stop` event (issue #566): it writes the evidence ledger, records the agent's
+`Stop` event: it writes the evidence ledger, records the agent's
 `paqad:stage` markers, and surfaces the trust verdict, blocking via a
 `{decision:"block"}`/exit-2 continuation the way the host documents. On **Gemini**
 the completion hook is **record-only** (`verification-record.mjs`): it writes the
-ledger **and records the agent's `paqad:stage` markers** (issue #265 — attributed to
+ledger **and records the agent's `paqad:stage` markers** (attributed to
 the host that ran via an adapter argv), but always exits 0 and stays silent, because
 Gemini requires pure JSON on stdout and cannot accept a blocking Stop decision, so
 the only non-disruptive channel is the ledger itself and there is **no in-chat
@@ -101,7 +101,7 @@ an entry-file contract the model is asked to follow, with no host seam to bind i
 | Adapter | Coverage | Binds | Notes |
 | --- | --- | --- | --- |
 | claude-code | `live-pre-and-completion` | block before edit + verify at end | `settings.json` PreToolUse (`Edit\|Write\|NotebookEdit`) + Stop |
-| codex-cli | `live-pre-and-completion` | block before edit + verify at end | `.codex/hooks.json` PreToolUse (`^apply_patch$`) + Stop; same hook scripts as Claude, host argv `codex-cli`; transcript falls back to the session rollout jsonl (#566) |
+| codex-cli | `live-pre-and-completion` | block before edit + verify at end | `.codex/hooks.json` PreToolUse (`^apply_patch$`) + Stop; same hook scripts as Claude, host argv `codex-cli`; transcript falls back to the session rollout jsonl |
 | gemini-cli | `live-completion-only` | record + verify at turn end | `.gemini/settings.json` `AfterAgent`; records markers from the inline `prompt_response` (its `transcript_path` is stubbed empty); no pre-mutation block, no in-chat verdict |
 | cursor | `advisory` | nothing in-session | entry-file contract only |
 | windsurf | `advisory` | nothing in-session | entry-file contract only |
@@ -116,9 +116,9 @@ an entry-file contract the model is asked to follow, with no host seam to bind i
 with an in-turn pre-mutation block; codex-cli and gemini-cli bind one turn late at
 completion. The previous matrix mislabelled cursor/windsurf as live and omitted
 continue/copilot/junie — corrected in buildout F7b; the `aiassistant` (JetBrains
-Claude Agent) row was added for issue #389.
+Claude Agent) row was added later.
 
-### Cross-provider enforcement guarantee (issue #265)
+### Cross-provider enforcement guarantee
 
 The feature-development enforcement fix (per-stage evidence + block-forward) binds
 to the extent each host's physics allow. This is the honest tier ladder — what
@@ -126,7 +126,7 @@ actually binds per host, stated without overclaim:
 
 | Tier | Hosts | What binds | What does NOT |
 | --- | --- | --- | --- |
-| **Hard block + verdict** | claude-code | Pre-edit deny on a feature-development edit until `planning` + `specification` are recorded; per-stage writer on every code edit; failing verdict on stderr at completion | Docs-only, framework-internal (`.paqad/**`), and paqad-managed host-agent config (`.claude/**`, `.codex/**`, `.gemini/**`, `.junie/**`, `.cursor/**`, `.windsurf/**`, `.continue/**`, `.aider/**`, `.aiassistant/**`, `.windsurfrules`) edits are out of scope — not gated, no stages demanded (#310, #449). `.github/**` stays in scope (CI workflows are code). |
+| **Hard block + verdict** | claude-code | Pre-edit deny on a feature-development edit until `planning` + `specification` are recorded; per-stage writer on every code edit; failing verdict on stderr at completion | Docs-only, framework-internal (`.paqad/**`), and paqad-managed host-agent config (`.claude/**`, `.codex/**`, `.gemini/**`, `.junie/**`, `.cursor/**`, `.windsurf/**`, `.continue/**`, `.aider/**`, `.aiassistant/**`, `.windsurfrules`) edits are out of scope — not gated, no stages demanded. `.github/**` stays in scope (CI workflows are code). |
 | **Record + ledger** | codex-cli, gemini-cli | `paqad:stage` markers recorded to the stage-evidence ledger at turn end, attributed to the host; evidence ledger written | No pre-edit block (no pre-mutation hook); no in-chat verdict (record-only, exit 0/silent) |
 | **Advisory** | cursor, windsurf, continue, github-copilot, junie, aider, antigravity, aiassistant | Nothing in-session | No executed hook at all — the prose entry-file contract only, never implied to bind |
 
@@ -146,7 +146,7 @@ Why the tiers differ, and why the gap is not closed with prose:
   or template edit. The advisory hosts describe the workflow in prose but the
   contract is explicitly non-binding there.
 
-**Both retrospective seams have a floor (issue #540).** The marker recorder and the
+**Both retrospective seams have a floor.** The marker recorder and the
 inferred-git backstop read state that OUTLIVES the change they belong to — the marker
 parser re-reads the whole transcript on every turn, and the backstop re-reads the whole
 branch delta — so once a change was closed and the session pointer released, each of them
@@ -168,7 +168,7 @@ that host to ship a pre-mutation hook (out of our control) or reintroducing a
 git/CI backstop (excluded by the no-git/CI mandate). Tracked as known and
 upstream-blocked; it advances only if a host adds the seam.
 
-### JetBrains: three products, three tiers (issue #389)
+### JetBrains: three products, three tiers
 
 "Running Claude inside a JetBrains IDE" is ambiguous — there are **three different
 products**, and they behave very differently for paqad. Naming the one you use
@@ -211,7 +211,7 @@ change, in order:
 npx paqad-ai stage start planning
 # … planning work …
 npx paqad-ai plan compile <plan-template.json>            # writes plan.json into the active feature bundle
-                                                          # the template MUST carry a "reuse" section (#357)
+                                                          # the template MUST carry a "reuse" section
 npx paqad-ai stage end planning --artifact <plan.json>
 
 npx paqad-ai stage start specification
@@ -226,7 +226,7 @@ npx paqad-ai stage end specification --artifact <specification.json>
 
 To verify, confirm `.paqad/ledger/paqad.stage-evidence/…/stage-evidence.jsonl` contains
 `planning` and `specification` rows with non-empty `artifact_digest` values. The
-bootstrap's advisory-host section (issue #389) now instructs this imperatively rather
+bootstrap's advisory-host section now instructs this imperatively rather
 than merely asking the model to "narrate" — narration alone leaves the ledger empty,
 which is exactly the gap the incident surfaced.
 
@@ -236,7 +236,7 @@ The backstop runs only the gates it can evaluate from artifacts:
 
 - **Computed (C-2):** `ac-test-mapping` from the change's acceptance-criteria
   map, which the backstop builds itself from the frozen spec's automated criteria
-  and the test files changed on the branch (issue #639, Part 11). With no frozen
+  and the test files changed on the branch. With no frozen
   spec it reads not required, with no map it reads did not run, and it fails
   naming every automated criterion that no changed test names in a title, a
   describe title or an `@obligation` tag. See the
@@ -245,9 +245,8 @@ The backstop runs only the gates it can evaluate from artifacts:
   spec-review reports. `change-completeness` adds scope-drift (C-4) against the
   derived spec boundary. `quality-ratchet`, `documentation-freshness`
   and the doc-structure gates compute genuine results when there is something to
-  check; otherwise they read not required or did not run, never a pass (issue
-  #639, Part 10).
-- **Mutation testing is opt-in (issue #293):** `mutation-testing` measures
+  check; otherwise they read not required or did not run, never a pass.
+- **Mutation testing is opt-in:** `mutation-testing` measures
   something only when the project sets `mutation_mode` to `warn` or `strict` and
   calls `runtime/scripts/verify-backstop.mjs` from its own CI or pre-push hook
   (the `ci-backstop` and `git-backstop` origins). The project's test command runs
@@ -263,7 +262,7 @@ The backstop runs only the gates it can evaluate from artifacts:
 - **Inconclusive escalation:** a signal that cannot be proven either way
   (e.g. "code changed but no frozen spec on record") is surfaced in the verdict
   as an escalation rather than silently passed or used to block every change.
-- **Mandatory-stage reconcile (#472):** the end-of-change receipt reconciles its
+- **Mandatory-stage reconcile:** the end-of-change receipt reconciles its
   headline with the per-stage evidence block. When a feature-development change's
   gates all pass but a mandatory stage (for example `review` or `checks`) has no
   evidence, the developer-facing verdict word is **Inconclusive**, not **Safe to

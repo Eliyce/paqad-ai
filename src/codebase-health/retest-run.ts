@@ -15,7 +15,6 @@ import { createHealthGatherer, type HealthGatherer } from './run.js';
 export interface HealthRetestOptions {
   projectRoot: string;
   offline?: boolean;
-  /** An explicit source sidecar; defaults to the newest `docs/health/*.json`. */
   sidecar?: string | null;
   now?: () => Date;
   gatherer?: HealthGatherer;
@@ -34,7 +33,6 @@ export type HealthRetestResult =
     }
   | { ok: false; reason: string };
 
-/** Re-run the evidence and reclassify each source finding by its stable id. */
 export async function runHealthRetest(options: HealthRetestOptions): Promise<HealthRetestResult> {
   const { projectRoot } = options;
   const offline = options.offline ?? false;

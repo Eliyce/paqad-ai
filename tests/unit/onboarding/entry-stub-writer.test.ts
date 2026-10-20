@@ -10,8 +10,6 @@ import { wireEntryStubs } from '@/onboarding/entry-stub-writer.js';
 const BEGIN = '<!-- >>> paqad-ai managed entry stub (do not edit between markers) >>> -->';
 const END = '<!-- <<< paqad-ai managed entry stub <<< -->';
 
-// A realistic lean stub body (what the Claude adapter renders): bootstrap
-// pointer + fallback clause + Adapter footer.
 const STUB_BODY = [
   '# Claude Entry Framework',
   '',
@@ -28,7 +26,7 @@ function countOccurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
-describe('wireEntryStubs (issue #242)', () => {
+describe('wireEntryStubs', () => {
   let projectRoot: string;
 
   beforeEach(() => {
@@ -49,9 +47,7 @@ describe('wireEntryStubs (issue #242)', () => {
 
     expect(result.wired).toEqual(['CLAUDE.md']);
     const wired = read('CLAUDE.md');
-    // Prior content preserved above the block.
     expect(wired.startsWith(boost.replace(/\s+$/, ''))).toBe(true);
-    // The managed block carries the bootstrap contract.
     expect(wired).toContain(BEGIN);
     expect(wired).toContain(END);
     expect(wired).toContain(PATHS.FRAMEWORK_PATH);
@@ -67,7 +63,6 @@ describe('wireEntryStubs (issue #242)', () => {
 
     const second = wireEntryStubs(projectRoot, [{ path: 'CLAUDE.md', content: STUB_BODY }]);
     expect(read('CLAUDE.md')).toBe(first);
-    // The block is reconciled in place — never duplicated.
     expect(countOccurrences(read('CLAUDE.md'), BEGIN)).toBe(1);
     expect(second.wired).toEqual(['CLAUDE.md']);
   });
@@ -78,7 +73,6 @@ describe('wireEntryStubs (issue #242)', () => {
   });
 
   it('does not double-wire a bare paqad lean stub (already carries the pointer, no markers)', () => {
-    // A fresh onboard wrote the bare lean stub (the pointer, no managed markers).
     writeFileSync(join(projectRoot, 'CLAUDE.md'), STUB_BODY);
 
     const result = wireEntryStubs(projectRoot, [{ path: 'CLAUDE.md', content: STUB_BODY }]);

@@ -59,7 +59,6 @@ describe('mintExpertConflictDecisions', () => {
       'stream the CSV in pages — db-expert',
       'generate in a background job — performance-analyst',
     ]);
-    // The recommendation points at the option carrying the chief's chosen claim.
     const recommended = packet.options.find((o) => o.option_key === packet.recommendation);
     expect(recommended?.label).toContain('generate in a background job');
     expect(packet.context).toMatch(/\[expert-conflict-fork:[0-9a-f]{16}\]/);
@@ -69,12 +68,10 @@ describe('mintExpertConflictDecisions', () => {
     const root = tempRoot();
     const first = mintExpertConflictDecisions(root, merged, synthesisConflicts);
     const id = first.minted[0]!.id;
-    // The human resolves the fork.
     const packet = pending(root)[0]!.packet;
     const chosenKey = packet.options[1]!.option_key;
     resolvePendingDecision(root, id, chosenKey, 'go async');
 
-    // A later run hits the same fork: nothing is minted, the prior answer is recorded.
     const second = mintExpertConflictDecisions(root, merged, synthesisConflicts);
     expect(second.minted).toEqual([]);
     expect(second.autoResolved).toEqual([
@@ -102,7 +99,6 @@ describe('mintExpertConflictDecisions', () => {
   });
 });
 
-// Issue #547 — remaining branches (coverage).
 describe('mintExpertConflictDecisions edge branches', () => {
   it('dedupes option keys derived from claims that slug the same, and tolerates a short roles array', () => {
     const merged2: MergedExpertNotes = {
@@ -110,7 +106,7 @@ describe('mintExpertConflictDecisions edge branches', () => {
       conflicts: [
         {
           target: 'orders',
-          roles: ['db-expert'], // shorter than claims — the second option falls back to "unknown"
+          roles: ['db-expert'],
           claims: ['Stream it!', 'stream it'],
           finding_ids: [],
         },
@@ -120,7 +116,6 @@ describe('mintExpertConflictDecisions edge branches', () => {
     const result = mintExpertConflictDecisions(root, merged2, []);
     expect(result.minted).toHaveLength(1);
     const packet = pending(root)[0]!.packet;
-    // Two distinct option keys even though the claims normalise to similar slugs.
     expect(new Set(packet.options.map((o) => o.option_key)).size).toBe(2);
     expect(packet.options[1]!.label).toContain('unknown');
   });

@@ -1,37 +1,10 @@
-// Laravel-style framework configuration — the four-surface `.config` layer.
-//
-// Framework knobs (paqad on/off, enterprise, RAG, strictness, escalation,
-// features, research depth, model routing, decision tuning, and version/update
-// behaviour) are NOT project facts. They used to live in `project-profile.yaml`,
-// which conflated "what this repo is" with "how the framework behaves". This
-// module is the new home for the second category, modelled on Laravel:
-//
-//   - framework code defaults (this file) ............ Laravel `config/*.php`
-//   - `.paqad/configs/.config.*` (tracked, merged) ... team-shared overrides
-//   - `.paqad/.config` (git-ignored, flat KEY=VALUE)  dev-local overrides
-//   - `PAQAD_*` env vars ............................. per-run escape hatch
-//
-// Onboarding writes one self-documenting `configs/.config.*` file per group, with
-// every knob commented out at its default (the discoverability surface). Resolution
-// precedence, lowest to highest (LOCAL WINS over team):
-//   defaults → configs/.config.* (merged) → .config → PAQAD_* env → overrides
-//
-// HARD CUTOVER: framework knobs are sourced ONLY from the surfaces above. Any
-// such keys still sitting in an existing `project-profile.yaml` are ignored on
-// read and stripped on write.
-//
-// A single `FRAMEWORK_CONFIG_SPECS` table (the knob registry) is the one source
-// of truth: it drives the defaults, the parser, the layered resolver, the
-// generated group files, the env mapping, and the reconcile/prune pass, so they
-// can never drift (tests assert the group files round-trip and the registry is
-// internally consistent).
-
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import YAML from 'yaml';
 
 import { PATHS } from './constants/paths.js';
+import { versionAtLeast } from './version-compare.js';
 import { normalizeIntelligenceConfig } from './project-intelligence.js';
 import type {
   DecisionProfileConfig,
@@ -48,25 +21,15 @@ import type {
 } from './types/project-profile.js';
 import { ESCALATION_MODES, RESEARCH_DEPTHS } from './types/project-profile.js';
 
+declare const __PKG_VERSION__: string;
+
 const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
 const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
-/** Enforced capability-mode values, weakest → strictest (buildout F2). */
 const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
-/** issue #554 — pass < warn < fail, matching src/checks/flaky-mode.ts (kept local to avoid a cycle). */
 const CHECKS_FLAKY_MODES = ['pass', 'warn', 'fail'] as const;
-// The spec-pipeline adoption knob is warn-or-strict only (issue #547): there is no "off"
-// — "off" is expressed by turning spec_pipeline_enabled off, not by a third adoption level.
 const SPEC_PIPELINE_ADOPTION_MODES = ['warn', 'strict'] as const;
-/** How firmly the specification stage adopts the spec pipeline (issue #547). */
 export type SpecPipelineAdoptionMode = (typeof SPEC_PIPELINE_ADOPTION_MODES)[number];
 
-/**
- * The code defaults for the three spec-pipeline switches (issue #640): the pipeline, the
- * experts and strict adoption are on unless a project switches them off. The registry below,
- * `readPipelineConfig`, `readSpecPipelineFlags` and the hook mirror in
- * `runtime/hooks/lib/agent-entry-directive.mjs` all use these values, and a unit test fails if
- * the hook mirror drifts. The fast lane never runs the pipeline whatever these say.
- */
 export const SPEC_PIPELINE_DEFAULTS: Readonly<{
   spec_pipeline_enabled: boolean;
   spec_pipeline_experts_enabled: boolean;
@@ -77,41 +40,17 @@ export const SPEC_PIPELINE_DEFAULTS: Readonly<{
   spec_pipeline_adoption: 'strict',
 });
 const VISUAL_EVIDENCE_MODES = ['warn', 'strict'] as const;
-/**
- * Evidence-existence-gate modes (issue #468 Phase C). Deliberately has NO `strict` tier:
- * the completion existence check is warn-only, never exit-blocking (the #310/#394/
- * pre-mutation false-block history). `off` disables it entirely.
- */
 const EVIDENCE_EXISTENCE_MODES = ['off', 'warn'] as const;
-/**
- * Host-agent AI attribution posture (issue #538), weakest → strictest. `keep` leaves the
- * coding agent's own vendor attribution alone; `strip` suppresses it where the provider
- * exposes a project-level knob and warns at delivery where it does not. Floored like the
- * other enforcement knobs, so a team that commits `strip` cannot have it lowered locally.
- */
 const AI_ATTRIBUTION_MODES = ['keep', 'strip'] as const;
-/**
- * Claude Code install-migration knobs (issue #621). `plugin_migration` is the fleet-wide
- * on/off switch for moving existing npm Claude Code users to the paqad plugin (default `off`
- * until manual sign-off). `claude_install_mode` is the per-project override: `settings` never
- * migrates, `plugin` forces the migration even while `plugin_migration` is `off` (test machines),
- * `auto` follows `plugin_migration`.
- */
 const PLUGIN_MIGRATION_MODES = ['on', 'off'] as const;
 const CLAUDE_INSTALL_MODES = ['auto', 'plugin', 'settings'] as const;
-/** Tokens that mean boolean true / false in a config value (case-insensitive). */
 const TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const FALSY = new Set(['0', 'false', 'no', 'off']);
 
 type ConfigValueType = 'boolean' | 'number' | 'string' | 'enum';
 
-/** The coarse logical group a knob belongs to — the suggested `configs/.config.*`
- *  file it lives in. Purely organizational: every config file is globbed and
- *  merged, so a key works in any file. Drives the group-file layout and the README. */
 export type ConfigGroup = 'app' | 'rag' | 'models' | 'policy';
 
-/** The suggested `configs/` filename for each group (the resolver ignores the
- *  split and merges them all; this is documentation/convention only). */
 export const CONFIG_GROUP_FILES: Record<ConfigGroup, string> = {
   app: '.config.app',
   rag: '.config.rag',
@@ -120,30 +59,18 @@ export const CONFIG_GROUP_FILES: Record<ConfigGroup, string> = {
 };
 
 export interface FrameworkConfigSpec {
-  /** Flat, bare, readable KEY as written in a `configs/.config.*` file. */
   key: string;
-  /** The `PAQAD_*` environment-variable escape hatch for this knob. */
   env: string;
   type: ConfigValueType;
-  /** The built-in default (the value when no override surface sets it). */
   default: boolean | number | string | undefined;
-  /** Allowed values for `type: 'enum'`. */
   enumValues?: readonly string[];
-  /** When true, an unset/empty value resolves to `undefined`, not the default. */
   optional?: boolean;
-  /** The coarse `configs/` group this knob belongs to (its `configs/.config.*` file). */
   group: ConfigGroup;
-  /** Section sub-header this key is grouped under in its group file. */
   section: string;
-  /** One-line explanation rendered as a comment above the key in its group file. */
   comment: string;
 }
 
-// ── The one source of truth (the knob registry) ────────────────────────────
-// Order here is the order rendered into each group file. Keys are bare and
-// readable; each maps to a `PAQAD_*` env var for the per-run escape hatch.
 export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
-  // ── app group ──────────────────────────────────────────────────────────
   {
     key: 'paqad_enable',
     env: 'PAQAD_ENABLE',
@@ -261,7 +188,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Opt in to complementary analytics instrumentation (issue #241, refined #279). ' +
+      'Opt in to complementary analytics instrumentation. ' +
       'OFF (default) is silent; ON authorizes wiring tracking + a per-event tracking-plan doc.',
   },
   {
@@ -295,7 +222,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Token-neutral rule loading (issue #284). ON (default) delivers the lean rule contract ' +
+      'Token-neutral rule loading. ON (default) delivers the lean rule contract ' +
       '(manifest + only the rule text that applies to the files in play) and lifts the full-load ' +
       'mandate. OFF restores loading docs/instructions/rules in full every session.',
   },
@@ -307,7 +234,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'app',
     section: 'Feature flags',
     comment:
-      'Render a per-feature evidence report.html from the bundle at end-of-change (issue #371). ' +
+      'Render a per-feature evidence report.html from the bundle at end-of-change. ' +
       'ON (default) is local, free, and zero-LLM. OFF stops writing the page.',
   },
   {
@@ -319,7 +246,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Feature flags',
     comment:
       'Compute the per-change shape metrics (duplication on new code + cross-file reuse rate) ' +
-      'and surface them on the receipt, ledger, and dashboard (issue #362). ON (default) is ' +
+      'and surface them on the receipt, ledger, and dashboard. ON (default) is ' +
       'local, deterministic, and zero-LLM — it folds over caches the gates already produced. ' +
       'OFF stops computing and recording them.',
   },
@@ -346,13 +273,24 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'limits).',
   },
   {
+    key: 'hud_view',
+    env: 'PAQAD_HUD_VIEW',
+    type: 'boolean',
+    default: true,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Show the paqad HUD band above the prompt in the Claude Code plugin. OFF shows no band ' +
+      'and registers no /paqad command.',
+  },
+  {
     key: 'plugin_migration',
     env: 'PAQAD_PLUGIN_MIGRATION',
     type: 'enum',
     enumValues: PLUGIN_MIGRATION_MODES,
     default: 'off',
     group: 'app',
-    section: 'Claude Code plugin migration (issue #621)',
+    section: 'Claude Code plugin migration',
     comment:
       'on | off — fleet-wide switch to move existing npm Claude Code users to the paqad plugin ' +
       'automatically in the background. Default off until manual sign-off; Claude Code only, npm ' +
@@ -365,14 +303,13 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     enumValues: CLAUDE_INSTALL_MODES,
     default: 'auto',
     group: 'app',
-    section: 'Claude Code plugin migration (issue #621)',
+    section: 'Claude Code plugin migration',
     comment:
       'auto | plugin | settings — per-project override of the plugin migration. settings never ' +
       'migrates (stay on npm hooks); plugin forces the migration even while plugin_migration is ' +
       'off; auto follows plugin_migration.',
   },
 
-  // ── rag group ──────────────────────────────────────────────────────────
   {
     key: 'rag_enabled',
     env: 'PAQAD_RAG_ENABLED',
@@ -463,7 +400,6 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       '(existing symbols the model should reuse). Cards drop by rank past this budget.',
   },
 
-  // ── models group ───────────────────────────────────────────────────────
   {
     key: 'research_depth',
     env: 'PAQAD_RESEARCH_DEPTH',
@@ -502,7 +438,6 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment: 'Cheap/fast model for lightweight steps.',
   },
 
-  // ── policy group ───────────────────────────────────────────────────────
   {
     key: 'full_lane_default',
     env: 'PAQAD_FULL_LANE_DEFAULT',
@@ -606,9 +541,6 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Decisions (pause-contract tuning)',
     comment: 'Auto-resolve a pending decision after this idle window.',
   },
-  // Enforced capability-mode knobs (buildout F2). These are FLOORED: the value
-  // here (team-tracked) is a floor; the local `.config` / `PAQAD_*` env may only
-  // RAISE strictness above it, never lower it (the C2 clamp, decision D1).
   {
     key: 'stages_mode',
     env: 'PAQAD_STAGES_MODE',
@@ -638,7 +570,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict — analytics instrumentation completeness (issue #279). ' +
+      'off | warn | strict — analytics instrumentation completeness. ' +
       'warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated.',
   },
   {
@@ -650,7 +582,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict — new-code duplication gate (issue #358). warn (default) flags a ' +
+      'off | warn | strict — new-code duplication gate. warn (default) flags a ' +
       'near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in.',
   },
   {
@@ -662,7 +594,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict: mutation testing on changed code (issue #293). Opt-in: off by ' +
+      'off | warn | strict: mutation testing on changed code. Opt-in: off by ' +
       'default. It runs only where the project calls runtime/scripts/verify-backstop.mjs from its ' +
       'own CI or pre-push hook, never at the end of an agent turn, and the project supplies the ' +
       'mutation tool for its stack. The project test command runs first; a red suite reads did ' +
@@ -682,7 +614,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'flag-gated rule-run / change-metrics / duplication / report / rag / receipt / evidence / ' +
       'ai-bom). strict (default) FAILS the change when a required file is missing/empty/invalid, ' +
       'naming the file and its writer; warn surfaces it as Inconclusive without blocking; off ' +
-      'falls back to the deprecated evidence_existence_gate (issue #511).',
+      'falls back to the deprecated evidence_existence_gate.',
   },
   {
     key: 'checks_flaky_under_parallel',
@@ -707,11 +639,11 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
       'warn | strict — how firmly the visual-evidence gate enforces once visual_evidence is on ' +
-      'and a change is frontend-triggering (issue #551). warn (default): an environmental miss ' +
+      'and a change is frontend-triggering. warn (default): an environmental miss ' +
       '(browser not provisioned, app not reachable, a failed selector, an absent/partial manifest) ' +
       'reads Inconclusive without blocking. strict: the same misses FAIL the change, and so does ' +
       'a frontend change with nothing captured because no documented flow or capture script ' +
-      'exists (issue #579), unless you attach screenshots (paqad-ai visual-evidence attach) or ' +
+      'exists, unless you attach screenshots (paqad-ai visual-evidence attach) or ' +
       'record a waiver decision (the gate prints the exact decision command). Under warn those ' +
       'skips stay skipped and show a skip line. Team value is the floor; local/env may only raise ' +
       'warn to strict.',
@@ -725,7 +657,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'DEPRECATED (issue #511): superseded by bundle_completeness, which covers every bundle file ' +
+      'DEPRECATED: superseded by bundle_completeness, which covers every bundle file ' +
       'and can fail. This warn-only check (rule-run / duplication / change-metrics / rag) now runs ' +
       'ONLY when bundle_completeness=off. warn (default) backfills the recoverable ones from the ' +
       'caches and reports an unrecoverable RAG gap as Inconclusive; it NEVER blocks. off disables it.',
@@ -738,7 +670,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'Minimum similarity (0..1) for a blocking duplication finding (issue #358). Default 0.90 — ' +
+      'Minimum similarity (0..1) for a blocking duplication finding. Default 0.90 — ' +
       'conservative, precision over recall. The 0.80–0.90 band routes to review, never blocks.',
   },
   {
@@ -749,8 +681,8 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'Minimum meaningful-line span a new code block must have to be scored for duplication ' +
-      '(issue #358). Default 8 — shorter snippets are never flagged.',
+      'Minimum meaningful-line span a new code block must have to be scored for duplication. ' +
+      'Default 8 — shorter snippets are never flagged.',
   },
   {
     key: 'decision_arm_mode',
@@ -761,7 +693,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'off | warn | strict — arm the create-vs-reuse decision pause from evidence (issue #361). ' +
+      'off | warn | strict — arm the create-vs-reuse decision pause from evidence. ' +
       'warn (default) reports the fork; strict opens a pause that blocks edits until answered.',
   },
   {
@@ -773,7 +705,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
       'Minimum name similarity (0..1) between a planned new construct and an existing symbol ' +
-      'before it counts as a reuse fork (issue #361). Default 0.85.',
+      'before it counts as a reuse fork. Default 0.85.',
   },
   {
     key: 'decision_arm_max_per_change',
@@ -783,7 +715,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'How many evidence-armed decision pauses one change may open (issue #361). Default 1 — ' +
+      'How many evidence-armed decision pauses one change may open. Default 1 — ' +
       'only the strongest fork is asked; the rest are reported as warnings.',
   },
   {
@@ -795,8 +727,8 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     group: 'policy',
     section: 'Enforcement (capability modes — team value is a floor)',
     comment:
-      'keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs ' +
-      '(issue #538). strip (default) suppresses it where the provider exposes a project-level knob ' +
+      'keep | strip — what happens to the CODING AGENT vendor attribution on your commits and PRs. ' +
+      'strip (default) suppresses it where the provider exposes a project-level knob ' +
       '(Claude Code, Aider) and warns at delivery where it does not (Codex, Cursor are user-level ' +
       "only). paqad's own delivery footer is never touched by this knob.",
   },
@@ -806,10 +738,10 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     type: 'boolean',
     default: SPEC_PIPELINE_DEFAULTS.spec_pipeline_enabled,
     group: 'policy',
-    section: 'Spec pipeline (issue #512)',
+    section: 'Spec pipeline',
     comment:
       'The grounded prompt->spec pipeline (`paqad-ai spec pipeline`). On by default on the ' +
-      'graduated and full lanes (issue #640); the fast lane never runs it. Set it to false to ' +
+      'graduated and full lanes; the fast lane never runs it. Set it to false to ' +
       'switch it off: feature-development then works as it did before the pipeline (FR-11). It ' +
       'sits upstream of the edit lock and feeds `spec freeze`.',
   },
@@ -820,9 +752,9 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     enumValues: STAGE_RULE_MODES,
     default: 'warn',
     group: 'policy',
-    section: 'Spec pipeline (issue #512)',
+    section: 'Spec pipeline',
     comment:
-      'off | warn | strict — the switchable clarification (question-round) gate (issue #512 B.3). ' +
+      'off | warn | strict — the switchable clarification (question-round) gate. ' +
       'warn (advisory): ask questions on an unclear prompt but never block. strict (required): ask ' +
       'and hold until answered or explicitly deferred. off: never ask. The fixed spine ' +
       '(grounding, no-invented-requirements, traceability) is never switchable.',
@@ -834,9 +766,9 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     enumValues: STAGE_RULE_MODES,
     default: 'off',
     group: 'policy',
-    section: 'Spec pipeline (issue #512)',
+    section: 'Spec pipeline',
     comment:
-      'off | warn | strict — the switchable final-review gate before freeze (issue #512 FR-7.3). ' +
+      'off | warn | strict — the switchable final-review gate before freeze. ' +
       'off: show a non-blocking readable spec. warn (advisory): show and freeze. strict (required): ' +
       'a human must approve before freeze, recording a named human. Independent of the A5 gate.',
   },
@@ -846,9 +778,9 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     type: 'number',
     default: 40000,
     group: 'policy',
-    section: 'Spec pipeline (issue #512)',
+    section: 'Spec pipeline',
     comment:
-      'Per-run model-token ceiling for the spec pipeline (issue #512 FR-8.6). Exceeding it raises a ' +
+      'Per-run model-token ceiling for the spec pipeline. Exceeding it raises a ' +
       'recorded warning (never a block) so R1 (over-heavy pipeline) is watched with data, not vibes.',
   },
   {
@@ -857,11 +789,11 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     type: 'boolean',
     default: SPEC_PIPELINE_DEFAULTS.spec_pipeline_experts_enabled,
     group: 'policy',
-    section: 'Spec pipeline (issue #512)',
+    section: 'Spec pipeline',
     comment:
-      'The Phase 2 expert roster (issue #521): a fast-tier skill decides which experts ' +
+      'The expert roster: a fast-tier skill decides which experts ' +
       '(db, security, ui, ...) a request needs, and their notes feed the crafted spec. On by ' +
-      'default on the graduated and full lanes (issue #640). Set it to false to switch it off: ' +
+      'default on the graduated and full lanes. Set it to false to switch it off: ' +
       'then zero Phase 2 code runs and a pipeline run is byte-identical to v1 (P2-INV-1). Needs ' +
       'spec_pipeline_enabled on to have any effect.',
   },
@@ -872,10 +804,10 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     enumValues: SPEC_PIPELINE_ADOPTION_MODES,
     default: SPEC_PIPELINE_DEFAULTS.spec_pipeline_adoption,
     group: 'policy',
-    section: 'Spec pipeline (issue #512)',
+    section: 'Spec pipeline',
     comment:
       'warn | strict: how firmly the specification stage adopts the pipeline once ' +
-      'spec_pipeline_enabled is on. strict (default since issue #640): `spec freeze` refuses a ' +
+      'spec_pipeline_enabled is on. strict (the default): `spec freeze` refuses a ' +
       'spec the pipeline did not produce; the only exit is `--manual --reason "<why>"`, which is ' +
       'recorded on the frozen spec. Set it to warn to soften this: the stage still tells the ' +
       'agent to produce the spec through `paqad-ai spec pipeline`, but a hand-written spec ' +
@@ -888,10 +820,10 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     type: 'string',
     default: 'product-owner,application-architect,user-flow-writer,qa-engineer',
     group: 'policy',
-    section: 'Spec pipeline (issue #512)',
+    section: 'Spec pipeline',
     comment:
       'Comma-separated expert roles that sit at the table on EVERY spec run once ' +
-      'spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: ' +
+      'spec_pipeline_experts_enabled is on, whatever the detector picked. Default: ' +
       'product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay ' +
       'on call and are picked per request. Empty means no standing experts (the detector alone ' +
       'decides, as before). A role outside the expert roster is ignored with a doctor warning. ' +
@@ -903,14 +835,10 @@ const SPEC_BY_KEY = new Map<string, FrameworkConfigSpec>(
   FRAMEWORK_CONFIG_SPECS.map((spec) => [spec.key, spec]),
 );
 
-/** Every bare key the registry knows — the allow-list for the prune pass. */
 export const KNOWN_CONFIG_KEYS: ReadonlySet<string> = new Set(
   FRAMEWORK_CONFIG_SPECS.map((spec) => spec.key),
 );
 
-// Framework-internal efficiency tuning (Bucket C): never surfaced in a group
-// file, never team-tuned. Lives here so the in-memory profile is complete for
-// readers; overridable only via the escape hatch below.
 const DEFAULT_EFFICIENCY_TUNING = {
   context_hit_rate_target: 0.7,
   skill_caching: true,
@@ -918,7 +846,6 @@ const DEFAULT_EFFICIENCY_TUNING = {
   mcp_first: true,
 } as const;
 
-/** The resolved framework-config sections, shaped to overlay onto a profile. */
 export interface ResolvedFrameworkConfig {
   paqad: { enabled: boolean };
   enterprise: EnterpriseConfig;
@@ -932,18 +859,6 @@ export interface ResolvedFrameworkConfig {
   efficiency: EfficiencyConfig;
 }
 
-// ── Parsing ────────────────────────────────────────────────────────────────
-
-/**
- * Parse flat `KEY=VALUE` config text into a map. Rules (Laravel `.env`-ish):
- * - Blank lines and full-line `#` comments are ignored.
- * - A line without `=` is ignored (not an assignment).
- * - `export KEY=...` is tolerated (the `export ` prefix is dropped).
- * - Quoted values (`"..."` / `'...'`) are taken verbatim, inner content only.
- * - Unquoted values are trimmed and an inline ` # comment` is stripped.
- * - A trailing `\r` (CRLF / Windows-authored file) is stripped by the split.
- * - Duplicate keys within one file: last assignment wins.
- */
 export function parseDotConfig(text: string): Map<string, string> {
   const out = new Map<string, string>();
   for (const rawLine of text.split(/\r?\n/)) {
@@ -979,7 +894,6 @@ function stripValue(raw: string): string {
   return inlineComment === -1 ? v : v.slice(0, inlineComment).trim();
 }
 
-/** Read and parse `.paqad/.config` (the local layer); absent/unreadable ⇒ empty. */
 export function readDotConfig(projectRoot: string): Map<string, string> {
   try {
     return parseDotConfig(readFileSync(join(projectRoot, PATHS.PROJECT_CONFIG), 'utf8'));
@@ -988,9 +902,6 @@ export function readDotConfig(projectRoot: string): Map<string, string> {
   }
 }
 
-/** The absolute paths of the team `configs/.config.*` files, sorted by filename
- *  for deterministic last-wins merge. A legacy `.paqad/.config.example` (from an
- *  older version) lives in the parent dir and is excluded defensively. */
 export function listConfigsFiles(projectRoot: string): string[] {
   const dir = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR);
   let entries: string[];
@@ -1005,19 +916,11 @@ export function listConfigsFiles(projectRoot: string): string[] {
     .map((name) => join(dir, name));
 }
 
-/** A collision: the same key set by more than one `configs/.config.*` file. */
 export interface ConfigsCollision {
   key: string;
   files: string[];
 }
 
-/**
- * Merge every `configs/.config.*` file (the tracked team layer) into one map,
- * filenames in sorted order so a later file wins deterministically. Keys are
- * meant to be globally unique across the files (the split is organizational), so
- * any key set by two files is reported as a collision for the caller to surface.
- * `sources` names, per key, the file whose value won (issue #640: doctor names it).
- */
 export function readConfigsDir(projectRoot: string): {
   merged: Map<string, string>;
   collisions: ConfigsCollision[];
@@ -1033,7 +936,7 @@ export function readConfigsDir(projectRoot: string): {
       continue;
     }
     for (const [key, value] of parsed) {
-      merged.set(key, value); // last file (sorted) wins
+      merged.set(key, value);
       seenIn.set(key, [...(seenIn.get(key) ?? []), file]);
     }
   }
@@ -1048,30 +951,17 @@ export function readConfigsDir(projectRoot: string): {
   return { merged, collisions, sources };
 }
 
-/**
- * The fully-layered override map for a project root, lowest precedence applied
- * first so the highest wins (LOCAL WINS over team):
- *   configs/.config.* (team)  →  .config (local)  →  PAQAD_* env (escape hatch)
- *
- * The framework code defaults sit below all of these and are applied during
- * coercion (an absent key ⇒ its registry default). Env values are keyed back to
- * the bare key via the registry's `env` mapping; an empty env var is ignored so
- * it never shadows a real lower-layer value.
- */
 export function layeredConfigMap(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
 ): Map<string, string> {
   const merged = new Map<string, string>();
-  // 1. team layer (configs/.config.*), lowest override
   for (const [key, value] of readConfigsDir(projectRoot).merged) {
     merged.set(key, value);
   }
-  // 2. local layer (.config) — LOCAL WINS over team
   for (const [key, value] of readDotConfig(projectRoot)) {
     merged.set(key, value);
   }
-  // 3. env escape hatch (PAQAD_*) — wins over both files
   for (const spec of FRAMEWORK_CONFIG_SPECS) {
     const raw = env[spec.env];
     if (typeof raw === 'string' && raw.trim() !== '') {
@@ -1081,13 +971,6 @@ export function layeredConfigMap(
   return merged;
 }
 
-/**
- * Read one NUMERIC knob from the layered (LOCAL-WINS) map, falling back to `fallback`
- * whenever the value is unset, unparseable, or fails `valid`. The single resolver for
- * every non-floored numeric knob: a bad hand-edited value degrades to the documented
- * default rather than throwing, which is what RULE-16's "a hand-trimmed config never
- * breaks" guarantee requires.
- */
 export function resolveNumericConfig(
   projectRoot: string,
   env: NodeJS.ProcessEnv,
@@ -1103,14 +986,6 @@ export function resolveNumericConfig(
   return Number.isFinite(parsed) && valid(parsed) ? parsed : fallback;
 }
 
-/**
- * Raw, side-effect-free read of the off-signal across the layered surfaces. True
- * iff the resolved `paqad_enable` (env `PAQAD_ENABLE` > `.config` > `configs/`)
- * is present and resolves to a falsy token (`false`/`0`/`no`/`off`). Absent,
- * truthy, or unrecognised ⇒ false (not disabled). Mirrors the dist-less
- * `paqad-disabled.{sh,mjs}` primitives so all three agree on "off". The dedicated
- * `PAQAD_DISABLED` hard switch is layered on top by `framework-enabled.ts`.
- */
 export function configSaysPaqadDisabled(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -1119,18 +994,11 @@ export function configSaysPaqadDisabled(
   return raw !== undefined && FALSY.has(raw.trim().toLowerCase());
 }
 
-/** Resolved Claude Code install-migration knobs (issue #621), across the four config surfaces. */
 export interface PluginMigrationConfig {
-  /** `on` | `off` — the fleet-wide migration switch. */
   migration: (typeof PLUGIN_MIGRATION_MODES)[number];
-  /** `auto` | `plugin` | `settings` — the per-project override. */
   install_mode: (typeof CLAUDE_INSTALL_MODES)[number];
 }
 
-/**
- * Resolve the plugin-migration knobs (issue #621) from the layered config. Bad/absent values
- * fall back to the registry defaults (`off` / `auto`), so a hand-trimmed config never throws.
- */
 export function resolvePluginMigrationConfig(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -1154,22 +1022,12 @@ function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
-/**
- * Upsert a single `KEY=value` assignment in `.paqad/.config` (the local layer),
- * preserving every other line, comment, and the ordering. Replaces the first
- * uncommented assignment of `key` if present; otherwise appends. Creates the file
- * (and `.paqad/`) when absent. This is the write behind `paqad-ai enable/disable`
- * and the dashboard — LOCAL WINS, so a local write always takes effect over team
- * files without dirtying a tracked file.
- */
 export function setConfigValue(projectRoot: string, key: string, value: string): string {
   const path = join(projectRoot, PATHS.PROJECT_CONFIG);
   let existing = '';
   try {
     existing = readFileSync(path, 'utf8');
-  } catch {
-    // keep the empty default — file will be created below
-  }
+  } catch {}
   const lines = existing.replace(/\n+$/u, '').split(/\r?\n/);
   const assignRe = new RegExp(`^\\s*(?:export\\s+)?${escapeRegExp(key)}\\s*=`, 'u');
   let replaced = false;
@@ -1192,12 +1050,6 @@ export function setConfigValue(projectRoot: string, key: string, value: string):
   return path;
 }
 
-/**
- * Set a team-shared override in one tracked `configs/.config.*` group file.
- * Unlike the local writer, this also recognizes the generated commented default
- * and replaces it in place so the file keeps its documentation and ordering
- * without appending a duplicate assignment.
- */
 export function setGroupConfigValue(
   projectRoot: string,
   group: ConfigGroup,
@@ -1208,9 +1060,7 @@ export function setGroupConfigValue(
   let existing = '';
   try {
     existing = readFileSync(path, 'utf8');
-  } catch {
-    // keep the empty default — file will be created below
-  }
+  } catch {}
 
   const lines = existing.replace(/\n+$/u, '').split(/\r?\n/);
   const escapedKey = escapeRegExp(key);
@@ -1234,8 +1084,6 @@ export function setGroupConfigValue(
   writeFileSync(path, `${lines.join('\n')}\n`, 'utf8');
   return path;
 }
-
-// ── Coercion ─────────────────────────────────────────────────────────────
 
 function asBool(raw: string | undefined, def: boolean): boolean {
   if (raw === undefined) {
@@ -1274,19 +1122,12 @@ function asEnum<T extends string>(raw: string | undefined, allowed: readonly T[]
   return (allowed as readonly string[]).includes(t) ? (t as T) : def;
 }
 
-/** The three spec-pipeline switches as resolved from a layered config map (issue #640). */
 export interface SpecPipelineSwitches {
   enabled: boolean;
   experts_enabled: boolean;
   adoption: SpecPipelineAdoptionMode;
 }
 
-/**
- * Resolve the three spec-pipeline switches from a layered (LOCAL-WINS) config map. An unset
- * key, or a value that is not a recognised token, takes its {@link SPEC_PIPELINE_DEFAULTS}
- * value (RULE-16: a hand-trimmed config never breaks). One resolver so `readPipelineConfig`
- * and `readSpecPipelineFlags` can never disagree about a default.
- */
 export function resolveSpecPipelineSwitches(
   map: ReadonlyMap<string, string>,
 ): SpecPipelineSwitches {
@@ -1319,9 +1160,6 @@ function defOf(key: string): boolean | number | string | undefined {
   return SPEC_BY_KEY.get(key)?.default;
 }
 
-// ── Resolution ───────────────────────────────────────────────────────────
-
-/** Resolve framework config from an already-layered override map. */
 export function resolveFrameworkConfigFromMap(raw: Map<string, string>): ResolvedFrameworkConfig {
   const rb = (key: string): boolean => asBool(raw.get(key), defOf(key) as boolean);
   const rn = (key: string): number => asNum(raw.get(key), defOf(key) as number);
@@ -1419,7 +1257,6 @@ export function resolveFrameworkConfigFromMap(raw: Map<string, string>): Resolve
   };
 }
 
-/** Resolve framework config for a project root across all four surfaces. */
 export function resolveFrameworkConfig(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -1427,25 +1264,16 @@ export function resolveFrameworkConfig(
   return resolveFrameworkConfigFromMap(layeredConfigMap(projectRoot, env));
 }
 
-/** The all-defaults resolution (no override surface present). */
 export const DEFAULT_FRAMEWORK_CONFIG: ResolvedFrameworkConfig = resolveFrameworkConfigFromMap(
   new Map(),
 );
 
-// ── Overlay / strip (the storage seam) ─────────────────────────────────────
-
-// The `custom.decisions` sub-keys owned by the config layer (the simple,
-// commonly-tuned knobs). The remaining sub-keys (`preferred_option_keys`,
-// `ttl_overrides_days`, `max_pending`) are project-specific values, not framework
-// tuning, so they STAY in `project-profile.yaml` and are preserved across the
-// overlay/strip seam.
 const DECISION_CONFIG_KEYS = [
   'ask_threshold',
   'max_screens_per_task',
   'idle_timeout_minutes',
 ] as const;
 
-/** The top-level profile keys owned by the framework-config layer. */
 export const FRAMEWORK_CONFIG_SECTIONS = [
   'paqad',
   'enterprise',
@@ -1458,13 +1286,6 @@ export const FRAMEWORK_CONFIG_SECTIONS = [
   'efficiency',
 ] as const;
 
-/**
- * Overlay resolved framework config onto a (lean) profile, producing the full
- * in-memory `ProjectProfile` the rest of the engine reads. Any framework keys
- * present on `base` are replaced (hard cutover): the profile is never the source
- * of truth for these. `custom.decisions` is overlaid while the project-owned
- * `custom` arrays are preserved.
- */
 export function applyFrameworkConfigToProfile(
   base: ProjectProfile,
   resolved: ResolvedFrameworkConfig = DEFAULT_FRAMEWORK_CONFIG,
@@ -1484,20 +1305,12 @@ export function applyFrameworkConfigToProfile(
       classification_dimensions: base.custom?.classification_dimensions ?? [],
       verification_plugins: base.custom?.verification_plugins ?? [],
       escalation_rules: base.custom?.escalation_rules ?? [],
-      // Merge the config-owned simple knobs OVER the project-specific advanced
-      // sub-keys preserved on the base profile (preferred_option_keys, etc.).
       decisions: { ...base.custom?.decisions, ...resolved.decisions },
       ...(base.custom?.flaky ? { flaky: base.custom.flaky } : {}),
     },
   };
 }
 
-/**
- * Strip framework-config sections from a profile so only project facts persist
- * to `project-profile.yaml`. The inverse of {@link applyFrameworkConfigToProfile}
- * for the write path. `custom.decisions` is dropped; the project-owned `custom`
- * arrays are kept.
- */
 export function stripFrameworkConfigFromProfile<T extends Partial<ProjectProfile>>(
   profile: T,
 ): Partial<ProjectProfile> {
@@ -1508,8 +1321,6 @@ export function stripFrameworkConfigFromProfile<T extends Partial<ProjectProfile
   const custom = (profile as ProjectProfile).custom;
   if (custom) {
     const { decisions, ...customRest } = custom;
-    // Drop only the config-owned simple knobs from `decisions`; keep any
-    // project-specific advanced sub-keys (and the block itself) in the YAML.
     if (decisions) {
       const kept: Record<string, unknown> = { ...decisions };
       for (const key of DECISION_CONFIG_KEYS) {
@@ -1524,9 +1335,6 @@ export function stripFrameworkConfigFromProfile<T extends Partial<ProjectProfile
   return clone as Partial<ProjectProfile>;
 }
 
-// ── `configs/.config.*` group-file + `configs/README` generation ───────────
-
-/** One-line title for each group's file header. */
 const CONFIG_GROUP_TITLES: Record<ConfigGroup, string> = {
   app: 'Application, version, enterprise, and feature flags',
   rag: 'Intelligence / RAG',
@@ -1534,7 +1342,6 @@ const CONFIG_GROUP_TITLES: Record<ConfigGroup, string> = {
   policy: 'Quality, escalation, and decision policy',
 };
 
-/** Intro prose for each group's file header (what this file controls). */
 const CONFIG_GROUP_INTROS: Record<ConfigGroup, string[]> = {
   app: [
     'The framework master switch, the background version/update policy, the licensed',
@@ -1558,20 +1365,10 @@ function renderDefault(spec: FrameworkConfigSpec): string {
   return spec.default === undefined ? '' : String(spec.default);
 }
 
-/** True when `text` already contains `key` in any form (active or commented). */
 function fileHasKey(text: string, key: string): boolean {
   return new RegExp(`^\\s*#?\\s*(?:export\\s+)?${escapeRegExp(key)}\\s*=`, 'mu').test(text);
 }
 
-/**
- * Render one tracked `configs/.config.<group>` file: an intro header explaining
- * what the group controls, then every knob in that group as a COMMENTED-OUT
- * assignment at its default, preceded by a one-line explanation and its `PAQAD_*`
- * env equivalent. Because every line is commented, the file is inert until a line
- * is uncommented, so a freshly-onboarded project runs entirely on code defaults.
- * `overrides` re-emits the team's already-active (uncommented) values when the
- * file is refreshed.
- */
 export function generateGroupConfig(
   group: ConfigGroup,
   overrides: Map<string, string> = new Map(),
@@ -1608,17 +1405,9 @@ export function generateGroupConfig(
   return lines.join('\n');
 }
 
-/**
- * Write/refresh the tracked `configs/.config.*` group files. Absent files (a
- * fresh onboard, or a project upgrading from before this feature) are generated
- * fully, with every key commented out. Existing files are left in place and only
- * GAIN newly-introduced keys (appended, commented) — every line the team has,
- * including the values they uncommented, is preserved verbatim. Removal of
- * obsolete keys is handled by {@link reconcileConfigOverrides}. Returns the file
- * paths that were created or appended to.
- */
 export function syncGroupConfigs(projectRoot: string): string[] {
   const written: string[] = [];
+  if (checkoutIsNewer(projectRoot)) return written;
   for (const group of Object.keys(CONFIG_GROUP_FILES) as ConfigGroup[]) {
     const file = join(projectRoot, PATHS.PROJECT_CONFIGS_DIR, CONFIG_GROUP_FILES[group]);
     let existing: string | null;
@@ -1639,7 +1428,7 @@ export function syncGroupConfigs(projectRoot: string): string[] {
       (s) => s.group === group && !fileHasKey(existing as string, s.key),
     );
     if (missing.length === 0) {
-      continue; // byte-identical: never rewrite a file we did not change
+      continue;
     }
     const additions = ['', `# ── Added in a newer paqad version ${'─'.repeat(28)}`];
     for (const spec of missing) {
@@ -1652,7 +1441,6 @@ export function syncGroupConfigs(projectRoot: string): string[] {
   return written;
 }
 
-/** Render the tracked `configs/README` explaining the team-override convention. */
 export function generateConfigsReadme(): string {
   const groupLines = (Object.keys(CONFIG_GROUP_FILES) as ConfigGroup[]).map(
     (group) => `- \`${CONFIG_GROUP_FILES[group]}\` — ${CONFIG_GROUP_TITLES[group]}`,
@@ -1684,29 +1472,25 @@ export function generateConfigsReadme(): string {
     '- `paqad-ai update` refreshes these files: it appends knobs added in a new version',
     '  (commented) and prunes knobs a new version removed, but never changes a value you',
     '  uncommented. It never resets your settings to defaults.',
+    '- `../.config.example` names the paqad version that generated it. A paqad older than',
+    '  that version leaves the example, these files and this README exactly as they are,',
+    '  so a teammate on an older install never rewrites a newer checkout.',
     '',
   ].join('\n');
 }
 
-/** Write the tracked `.paqad/configs/README` (framework-owned; refreshed on update). */
 export function writeConfigsReadme(projectRoot: string): string {
   const path = join(projectRoot, PATHS.PROJECT_CONFIGS_README);
+  if (checkoutIsNewer(projectRoot)) return path;
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, generateConfigsReadme(), 'utf8');
   return path;
 }
 
-/**
- * Render the single `.config.example` catalog: every framework knob (across all
- * groups), commented out at its default, with its one-line explanation and its
- * `PAQAD_*` env equivalent. A copy-paste reference so a team never has to guess a
- * variable name. Like Laravel's `.env.example`, it is tracked but **never read at
- * runtime** — copy a line into a `configs/.config.*` (team) or `.config` (local)
- * file, uncomment it, and set the value.
- */
-export function generateConfigExample(): string {
+export function generateConfigExample(version: string = __PKG_VERSION__): string {
   const lines: string[] = [
     '# paqad framework configuration — catalog of every knob (.paqad/.config.example)',
+    `${CONFIG_EXAMPLE_STAMP}${version}`,
     '#',
     '# A copy-paste reference: every framework knob, with its default, a one-line',
     '# explanation, and its PAQAD_* env equivalent. This file is NEVER read at',
@@ -1736,32 +1520,34 @@ export function generateConfigExample(): string {
   return lines.join('\n');
 }
 
-/** Write the tracked `.paqad/.config.example` catalog. Always refreshed (like
- *  Laravel's `.env.example`) so newly-shipped keys appear after an update. */
 export function writeConfigExample(projectRoot: string): string {
   const path = join(projectRoot, PATHS.PROJECT_CONFIG_EXAMPLE);
+  if (checkoutIsNewer(projectRoot)) return path;
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, generateConfigExample(), 'utf8');
   return path;
 }
 
-// ── Reconcile (the knob add/remove evolution path) ─────────────────────────
+const CONFIG_EXAMPLE_STAMP = '# generated by paqad-ai ';
 
-/** One override file that the reconcile pass pruned obsolete keys from. */
+export function checkoutIsNewer(projectRoot: string, version: string = __PKG_VERSION__): boolean {
+  let example: string;
+  try {
+    example = readFileSync(join(projectRoot, PATHS.PROJECT_CONFIG_EXAMPLE), 'utf8');
+  } catch {
+    return false;
+  }
+  const stamp = example.split('\n').find((line) => line.startsWith(CONFIG_EXAMPLE_STAMP));
+  if (stamp === undefined) return false;
+  const stamped = stamp.slice(CONFIG_EXAMPLE_STAMP.length).trim();
+  return !versionAtLeast(version, stamped);
+}
+
 export interface ReconciledConfigFile {
-  /** Project-relative path of the file. */
   path: string;
-  /** Keys removed because this version of the registry no longer knows them. */
   removed: string[];
 }
 
-/**
- * Surgically remove obsolete keys (keys the current registry no longer knows)
- * from one config file's text, preserving EVERY other line — comments, blank
- * lines, ordering, and every still-valid key's exact value. Returns the new text
- * and the list of removed keys. Never rewrites values or adds keys; a file with
- * only known keys is returned byte-identical.
- */
 export function pruneUnknownKeysFromText(
   text: string,
   known: ReadonlySet<string> = KNOWN_CONFIG_KEYS,
@@ -1770,11 +1556,11 @@ export function pruneUnknownKeysFromText(
   const kept = text.split('\n').filter((line) => {
     const trimmed = line.trimStart();
     if (trimmed === '' || trimmed.startsWith('#')) {
-      return true; // preserve blanks and comments verbatim
+      return true;
     }
     const m = trimmed.match(/^(?:export\s+)?([^=\s]+)\s*=/u);
     if (!m) {
-      return true; // not an assignment — leave it alone
+      return true;
     }
     if (known.has(m[1])) {
       return true;
@@ -1785,17 +1571,9 @@ export function pruneUnknownKeysFromText(
   return { text: kept.join('\n'), removed };
 }
 
-/**
- * Reconcile the team/local override files against the current knob registry.
- * Runs during `onboard`/`update` only. For `.config` and every `configs/.config.*`
- * file, it PRUNES uncommented keys this version no longer knows and leaves
- * everything else untouched — it never resets a value, never converts a file to
- * defaults, and never injects new keys here (newly-added keys are appended to
- * their group file, commented, by {@link syncGroupConfigs}). Returns the per-file
- * report of what was pruned (empty when nothing changed).
- */
 export function reconcileConfigOverrides(projectRoot: string): ReconciledConfigFile[] {
   const report: ReconciledConfigFile[] = [];
+  if (checkoutIsNewer(projectRoot)) return report;
   const localConfig = join(projectRoot, PATHS.PROJECT_CONFIG);
   const targets = [localConfig, ...listConfigsFiles(projectRoot)];
   for (const file of targets) {
@@ -1803,11 +1581,11 @@ export function reconcileConfigOverrides(projectRoot: string): ReconciledConfigF
     try {
       original = readFileSync(file, 'utf8');
     } catch {
-      continue; // absent ⇒ nothing to reconcile
+      continue;
     }
     const { text, removed } = pruneUnknownKeysFromText(original);
     if (removed.length === 0) {
-      continue; // byte-identical: never rewrite a file we did not change
+      continue;
     }
     writeFileSync(file, text, 'utf8');
     report.push({ path: file.slice(projectRoot.length + 1), removed });
@@ -1815,14 +1593,6 @@ export function reconcileConfigOverrides(projectRoot: string): ReconciledConfigF
   return report;
 }
 
-/**
- * The no-migration safety net. Read the RAW on-disk `project-profile.yaml` and
- * report the framework knobs it carries whose value differs from the code
- * default — i.e. exactly what a hard-cutover strip is about to revert. Returns
- * `key=value` strings (empty when the profile is absent, lean, or already at
- * defaults). The caller turns a silent revert into a one-time visible notice;
- * nothing is rewritten or preserved.
- */
 export function detectFlippedFrameworkValues(projectRoot: string): string[] {
   let raw: string;
   try {
@@ -1844,12 +1614,6 @@ export function detectFlippedFrameworkValues(projectRoot: string): string[] {
   );
 }
 
-/**
- * Map the framework sections of a (partial) profile to the flat config keys whose
- * value DIFFERS from the built-in default. Used to persist explicit overrides
- * (desktop onboarding, the dashboard) into `.config` without materializing the
- * full default set.
- */
 export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Map<string, string> {
   const out = new Map<string, string>();
   const d = DEFAULT_FRAMEWORK_CONFIG;
@@ -1975,12 +1739,6 @@ export function frameworkOverridesToFlat(overrides: Partial<ProjectProfile>): Ma
   return out;
 }
 
-/**
- * Persist explicit framework overrides into `.paqad/.config`. Only values that
- * differ from the default are written (the file stays minimal and meaningful).
- * Returns the keys written. The complementary "reset a key to default" path is a
- * direct {@link setConfigValue} call by the caller.
- */
 export function writeFrameworkOverridesToConfig(
   projectRoot: string,
   overrides: Partial<ProjectProfile>,
@@ -1993,8 +1751,6 @@ export function writeFrameworkOverridesToConfig(
   return written;
 }
 
-/** Remove every uncommented assignment of `key` from `.paqad/.config`, leaving
- *  comments and other keys untouched. No-op when the file is absent. */
 export function removeConfigValue(projectRoot: string, key: string): void {
   const path = join(projectRoot, PATHS.PROJECT_CONFIG);
   let existing: string;
@@ -2010,12 +1766,6 @@ export function removeConfigValue(projectRoot: string, key: string): void {
   writeFileSync(path, kept.join('\n'), 'utf8');
 }
 
-/**
- * Which config keys belong to which profile section, and how to tell that section
- * is present on a (partial) profile. Drives the authoritative sync below so a
- * partial profile only touches its own sections. A test asserts this covers every
- * spec key exactly once, so it cannot drift from FRAMEWORK_CONFIG_SPECS.
- */
 export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   present: (p: Partial<ProjectProfile>) => boolean;
   keys: readonly string[];
@@ -2096,11 +1846,6 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
     present: (p) => p.efficiency !== undefined,
     keys: ['auto_update', 'minimum_version', 'version_check_interval_hours'],
   },
-  // Enforced capability-mode knobs (buildout F2). Config-only — they are NOT
-  // derived from any profile section, so they are never profile-synced (present:
-  // false); a developer sets them only via the config layers, clamped by the
-  // floor in resolveFlooredMode. Listed here so the registry-coverage invariant
-  // (every spec key appears in exactly one section) holds.
   {
     present: () => false,
     keys: [
@@ -2128,26 +1873,16 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
       'checks_flaky_under_parallel',
     ],
   },
-  // Claude Code install-migration knobs (issue #621). Config-only — they drive install
-  // behaviour, are read directly from the layered map by the migration module, and are
-  // never derived from or synced to a profile section (present: false). Listed here so the
-  // registry-coverage invariant (every spec key appears in exactly one section) holds.
   {
     present: () => false,
     keys: ['plugin_migration', 'claude_install_mode'],
   },
+  {
+    present: () => false,
+    keys: ['hud_view'],
+  },
 ];
 
-/**
- * Make `.paqad/.config` authoritatively reflect the framework state of a profile,
- * SECTION BY SECTION: for each section present on `profile`, every knob that
- * differs from its default is written and every knob that equals its default is
- * removed. Sections absent from `profile` are left untouched (so a partial PUT —
- * e.g. RAG-only — never wipes unrelated keys). This is the write behind the
- * dashboard's management surface, where the submitted form is the COMPLETE
- * desired state for the sections it carries (a toggle back to default must clear
- * the key, not leave it stale). Comments and non-framework lines are preserved.
- */
 export function syncFrameworkConfig(projectRoot: string, profile: Partial<ProjectProfile>): void {
   const nonDefault = frameworkOverridesToFlat(profile);
   for (const section of CONFIG_KEY_SECTIONS) {

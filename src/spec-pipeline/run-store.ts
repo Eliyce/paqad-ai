@@ -1,24 +1,3 @@
-// The spec-pipeline run store (issue #581, FR-1 / FR-8 / FR-9).
-//
-// This is the only place the spec pipeline reads or writes its state. There are two homes and
-// no third:
-//
-//   - The change's bundle, for the facts that belong in the evidence packet. `request.md`
-//     (front-matter header, body-only hash) at start, `clarification.json` (`label` and
-//     `questions` sections) at label and questions, `experts.json` (`roster`, `findings`,
-//     `synthesis`) at the three expert verbs, and one `kind: 'spec-step'` row per step on
-//     `stage-evidence.jsonl`. Each is written here, through the envelope helpers, the moment
-//     the verb that owns it runs.
-//   - A staging dir, `.paqad/tmp/spec-pipeline/<ULID>/`, for the pre-freeze working state that
-//     only belongs in `specification.json` once the spec is frozen: the grounding (with the
-//     terms the plain-language checks need), the task, the trace, the working craft `spec.md`,
-//     the finish result, the expert-note questions still waiting for the question round, and
-//     the list of `.paqad/tmp/` inputs the record verbs were handed. It is keyed by the change
-//     ULID, not the folder name, so a bundle rename leaves nothing behind. `spec freeze` merges
-//     it into `specification.json` and deletes it.
-//
-// Nothing here creates or reads the retired per-feature scratch folder (INV-1).
-
 import { mkdirSync, readFileSync, realpathSync, rmdirSync, rmSync, writeFileSync } from 'node:fs';
 
 import { dirname, join, relative, resolve } from 'pathe';
@@ -80,36 +59,29 @@ import type {
   QuestionsArtifact,
 } from './types.js';
 
-/** Project-relative root of every change's staging dir. Git-ignored with the rest of `tmp/`. */
 export const SPEC_PIPELINE_STAGING_DIR = '.paqad/tmp/spec-pipeline';
 
-/** The files a staging dir can hold, and nothing else. */
 export const STAGED_FILES = {
   grounding: 'grounding.json',
   task: 'task.json',
   trace: 'trace.json',
   craft: 'spec.md',
   finish: 'finish.json',
-  /** Expert-note questions waiting for the question round to merge them (FR-9). */
   expertQuestions: 'expert-questions.json',
-  /** The `.paqad/tmp/` input paths the record verbs were handed, for freeze to delete (FR-4). */
   inputs: 'inputs.json',
 } as const;
 
 export type StagedFile = keyof typeof STAGED_FILES;
 
-/** Options every bundle writer takes: the writer's session and a clock seam for tests. */
 export interface StoreWriteOptions {
   sessionId?: string | null;
   now?: () => Date;
 }
 
-/** Project-relative staging dir for a change, keyed by the ULID at the end of its folder name. */
 export function stagingDir(dirName: string): string {
   return join(SPEC_PIPELINE_STAGING_DIR, featureChangeKey(dirName));
 }
 
-/** Project-relative path to one staged file. */
 export function stagedFilePath(dirName: string, file: StagedFile): string {
   return join(stagingDir(dirName), STAGED_FILES[file]);
 }
@@ -141,9 +113,6 @@ function atomicWrite(abs: string, text: string): void {
   renameWithRetrySync(tmp, abs);
 }
 
-// ── Staging ─────────────────────────────────────────────────────────────────────────────
-
-/** Read a staged file's text, or null when it was never written. */
 export function readStagedText(
   projectRoot: string,
   dirName: string,
@@ -152,7 +121,6 @@ export function readStagedText(
   return readText(join(projectRoot, stagedFilePath(dirName, file)));
 }
 
-/** Write a staged file's text as-is. */
 export function writeStagedText(
   projectRoot: string,
   dirName: string,
@@ -162,7 +130,6 @@ export function writeStagedText(
   atomicWrite(join(projectRoot, stagedFilePath(dirName, file)), text);
 }
 
-/** Read a staged JSON file, or null when it is missing or malformed. */
 export function readStagedJson<T>(
   projectRoot: string,
   dirName: string,
@@ -173,7 +140,6 @@ export function readStagedJson<T>(
   return parsed === undefined ? null : (parsed as T);
 }
 
-/** Write a staged JSON file (pretty-printed, trailing newline). */
 export function writeStagedJson(
   projectRoot: string,
   dirName: string,
@@ -183,14 +149,10 @@ export function writeStagedJson(
   writeStagedText(projectRoot, dirName, file, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-/** Delete a staged file (a no-op when it was never written). */
 export function clearStaged(projectRoot: string, dirName: string, file: StagedFile): void {
   rmSync(join(projectRoot, stagedFilePath(dirName, file)), { force: true });
 }
 
-// ── Bundle documents ────────────────────────────────────────────────────────────────────
-
-/** A bundle document's body: the parsed JSON with its envelope header stripped. */
 function readBundleBody(
   projectRoot: string,
   dirName: string,
@@ -204,7 +166,6 @@ function readBundleBody(
   return body;
 }
 
-/** Stamp a body with the envelope header and write it into the bundle. */
 function writeBundleBody(
   projectRoot: string,
   dirName: string,
@@ -228,9 +189,6 @@ function writeBundleBody(
   );
 }
 
-// ── request.md ──────────────────────────────────────────────────────────────────────────
-
-/** Write the request the run specs as `request.md`, the header in front matter (FR-5). */
 export function writeRequest(
   projectRoot: string,
   dirName: string,
@@ -251,26 +209,17 @@ export function writeRequest(
   );
 }
 
-/** The run's request text (the `request.md` body), or '' when no request was recorded. */
 export function readRequest(projectRoot: string, dirName: string): string {
   const raw = readText(join(projectRoot, featureFilePath(dirName, 'request')));
   return raw === null ? '' : splitFrontMatter(raw).body;
 }
 
-// ── clarification.json ──────────────────────────────────────────────────────────────────
-
-/** The `label` section: the S1 clarity label, the signals that fired, the question budget. */
 export interface ClarificationLabel {
   value: ClarityLabel;
   signals: ClaritySignal[];
   question_budget: number;
 }
 
-/**
- * The `questions` section: the batch asked of the user, the questions the ledger answered, the
- * expert and chief questions the cap held back (`deferred`), and the counts. `counts.deferred` is
- * how many the user chose to defer, which is a different thing from the `deferred` list.
- */
 export interface ClarificationQuestions {
   asked: PipelineQuestion[];
   auto_answered: AutoAnswer[];
@@ -283,7 +232,6 @@ export interface ClarificationBody {
   questions: ClarificationQuestions | null;
 }
 
-/** Read `clarification.json`, or null when neither section was ever written. */
 export function readClarification(projectRoot: string, dirName: string): ClarificationBody | null {
   const body = readBundleBody(projectRoot, dirName, 'clarification');
   if (body === null) return null;
@@ -312,7 +260,6 @@ function writeClarification(
   );
 }
 
-/** Write the S1 label into `clarification.json` (FR-9). */
 export function writeLabel(
   projectRoot: string,
   dirName: string,
@@ -333,7 +280,6 @@ export function writeLabel(
   );
 }
 
-/** The recorded S1 label in the step machine's shape, or null when labelling never ran. */
 export function readLabel(projectRoot: string, dirName: string): LabelArtifact | null {
   const section = readClarification(projectRoot, dirName)?.label;
   if (!section) return null;
@@ -344,7 +290,6 @@ export function readLabel(projectRoot: string, dirName: string): LabelArtifact |
   };
 }
 
-/** Write the S2 question batch into `clarification.json` (FR-9). */
 export function writeQuestions(
   projectRoot: string,
   dirName: string,
@@ -371,7 +316,6 @@ export function writeQuestions(
   );
 }
 
-/** The recorded S2 batch in the step machine's shape, or null when the question round never ran. */
 export function readQuestions(projectRoot: string, dirName: string): QuestionsArtifact | null {
   const section = readClarification(projectRoot, dirName)?.questions;
   if (!section) return null;
@@ -385,7 +329,6 @@ export function readQuestions(projectRoot: string, dirName: string): QuestionsAr
   };
 }
 
-/** Clear one `clarification.json` section (a redo). */
 export function clearClarificationSection(
   projectRoot: string,
   dirName: string,
@@ -395,24 +338,17 @@ export function clearClarificationSection(
   writeClarification(projectRoot, dirName, { [section]: null }, options);
 }
 
-// ── experts.json ────────────────────────────────────────────────────────────────────────
-
-/** One expert the run brought in (FR-8). `brief_hash` is the sha256 of the exact brief text. */
 export interface ExpertRosterEntry {
   role: AgentRole;
   reason: string;
   lens: string;
-  /** The token budget the run granted this expert. */
   budget_tokens: number;
   grounding_truncated: boolean;
   brief_hash: string;
-  /** The tokens the expert reported spending, null until its notes are recorded. */
   tokens_used: number | null;
-  /** Detector-named or script-seated as a standing expert (issue #558, FR-2.1). */
   origin?: ExpertOrigin;
 }
 
-/** One expert finding as stored: its `EX-*` id, the expert that made it, then the finding. */
 export interface RecordedExpertFinding extends ExpertFinding {
   id: string;
   role: AgentRole;
@@ -420,15 +356,11 @@ export interface RecordedExpertFinding extends ExpertFinding {
 
 export interface ExpertsBody {
   roster: ExpertRosterEntry[];
-  /** Null until `experts notes` runs; each `EX-*` finding appears here exactly once (INV-6). */
   findings: RecordedExpertFinding[] | null;
-  /** Null until `experts synthesis` runs; it refers to findings by id only. */
   synthesis: ExpertSynthesis | null;
-  /** Targets the project does not name, from the voice check (issue #558, FR-5.2). */
   voice_warnings?: VoiceWarning[];
 }
 
-/** Read `experts.json`, or null when `experts record` never ran. */
 export function readExperts(projectRoot: string, dirName: string): ExpertsBody | null {
   const body = readBundleBody(projectRoot, dirName, 'experts');
   if (body === null || !Array.isArray(body.roster)) return null;
@@ -463,7 +395,6 @@ function writeExperts(
   );
 }
 
-/** Write the roster section (`experts record`). */
 export function writeExpertRoster(
   projectRoot: string,
   dirName: string,
@@ -473,7 +404,6 @@ export function writeExpertRoster(
   writeExperts(projectRoot, dirName, { roster }, options);
 }
 
-/** The recorded roster as the need artifact the pipeline reasons over, or null before record. */
 export function readExpertNeed(projectRoot: string, dirName: string): ExpertNeedArtifact | null {
   const experts = readExperts(projectRoot, dirName);
   if (experts === null) return null;
@@ -490,22 +420,15 @@ interface StagedExpertQuestions {
   notes: { role: AgentRole; questions: PipelineQuestion[] }[];
 }
 
-/**
- * The lock that serialises the read-modify-write of one change's `experts.json` and its staged
- * expert questions (issue #639, Part 13). It lives under `.paqad/locks/`, never in the bundle, and
- * is keyed by the change ULID so a bundle rename cannot split it.
- */
 export function expertNotesLockDir(projectRoot: string, dirName: string): string {
   return join(projectRoot, PATHS.LOCKS_DIR, `experts-${featureChangeKey(dirName)}.lock`);
 }
 
-/** Whether a voice warning (`EX-<role>-<n>`) belongs to `role`. */
 function warningBelongsTo(warning: VoiceWarning, role: AgentRole): boolean {
   const prefix = `EX-${role}-`;
   return warning.id.startsWith(prefix) && /^\d+$/.test(warning.id.slice(prefix.length));
 }
 
-/** Order findings by the roster's seat order (then arrival), so parallel seats land the same way. */
 function inRosterOrder(
   findings: RecordedExpertFinding[],
   roster: ExpertRosterEntry[],
@@ -518,15 +441,6 @@ function inRosterOrder(
     .map(({ finding }) => finding);
 }
 
-/**
- * Write the experts' validated notes (`experts notes`), one role at a time (issue #639, Part 13).
- * A role named by the artifact (a note for it, or a token figure) has its findings, its voice
- * warnings, its staged questions and its reported tokens REPLACED; every other role keeps what it
- * already recorded. So each High Table seat, running in its own subagent, records only its own
- * note, and a second note never wipes the first. The whole read-modify-write of `experts.json`
- * and the staged questions runs under {@link expertNotesLockDir}, so seats that finish at the same
- * moment never lose a note (FR-15). The questions wait in staging for the question round (FR-9).
- */
 export function writeExpertNotes(
   projectRoot: string,
   dirName: string,
@@ -588,7 +502,6 @@ function mergeExpertNotesLocked(
   }
 }
 
-/** The expert-note questions still staged for the question round (empty when there are none). */
 export function readStagedExpertQuestions(
   projectRoot: string,
   dirName: string,
@@ -598,11 +511,6 @@ export function readStagedExpertQuestions(
   );
 }
 
-/**
- * The experts' notes rebuilt from `experts.json` findings, the staged questions and the roster
- * tokens, or null before `experts notes` ran. One note per expert, in the order the experts
- * first appear, so the in-memory merge sees the same notes the verb validated.
- */
 export function readExpertNotes(projectRoot: string, dirName: string): ExpertNotesArtifact | null {
   const experts = readExperts(projectRoot, dirName);
   if (experts === null || experts.findings === null) return null;
@@ -625,7 +533,6 @@ export function readExpertNotes(projectRoot: string, dirName: string): ExpertNot
   return { notes: [...byRole.values()], tokens };
 }
 
-/** Write the chief architect's synthesis section (`experts synthesis`). */
 export function writeExpertSynthesis(
   projectRoot: string,
   dirName: string,
@@ -635,11 +542,6 @@ export function writeExpertSynthesis(
   writeExperts(projectRoot, dirName, { synthesis }, options);
 }
 
-/**
- * Overwrite the recorded findings (issue #558, FR-5.5): the chief's renames are applied to the
- * merged findings before the synthesis is written, so the spec that reads these findings carries
- * the project's words. Roles are preserved from the stored findings by id.
- */
 export function writeExpertFindings(
   projectRoot: string,
   dirName: string,
@@ -649,12 +551,10 @@ export function writeExpertFindings(
   writeExperts(projectRoot, dirName, { findings }, options);
 }
 
-/** The recorded synthesis, or null when the chief never ran. */
 export function readExpertSynthesis(projectRoot: string, dirName: string): ExpertSynthesis | null {
   return readExperts(projectRoot, dirName)?.synthesis ?? null;
 }
 
-/** Clear the synthesis section (a redo of the experts step). */
 export function clearExpertSynthesis(
   projectRoot: string,
   dirName: string,
@@ -663,12 +563,6 @@ export function clearExpertSynthesis(
   writeExperts(projectRoot, dirName, { synthesis: null }, options);
 }
 
-// ── Grounding ───────────────────────────────────────────────────────────────────────────
-
-/**
- * The run's grounding: the staged copy before freeze, else the `grounding` section a frozen
- * `specification.json` carries (which has no terms). Null when neither exists.
- */
 export function readGrounding(projectRoot: string, dirName: string): GroundingArtifact | null {
   const staged = readStagedJson<GroundingArtifact>(projectRoot, dirName, 'grounding');
   if (staged) return staged;
@@ -677,7 +571,6 @@ export function readGrounding(projectRoot: string, dirName: string): GroundingAr
   return { terms: [], ...(frozen as unknown as Omit<GroundingArtifact, 'terms'>) };
 }
 
-/** The frozen `specification.json` body (header stripped), or null before freeze. */
 export function readFrozenSpecificationBody(
   projectRoot: string,
   dirName: string,
@@ -685,9 +578,6 @@ export function readFrozenSpecificationBody(
   return readBundleBody(projectRoot, dirName, 'specification');
 }
 
-// ── Freeze ──────────────────────────────────────────────────────────────────────────────
-
-/** The staged run, shaped as the sections `spec freeze --from-pipeline` merges (issue #581). */
 export interface FreezeSections {
   task?: SpecTaskSection;
   grounding?: SpecGroundingSection;
@@ -695,11 +585,6 @@ export interface FreezeSections {
   trace?: SpecTraceMap;
 }
 
-/**
- * Shape the staged run into the `specification.json` sections (FR-3): `task` (intent, scope),
- * `grounding` without its terms, `pipeline` from the finish result, and the `trace` map keyed by
- * requirement id. Null when `finish` has not run, so freeze can refuse an unfinished run.
- */
 export function readFreezeSections(projectRoot: string, dirName: string): FreezeSections | null {
   const finish = readStagedJson<StagedFinish>(projectRoot, dirName, 'finish');
   if (!isRecord(finish) || !isRecord(finish.provenance)) return null;
@@ -716,8 +601,6 @@ export function readFreezeSections(projectRoot: string, dirName: string): Freeze
             path: grounding.path,
             sparse: grounding.sparse,
             references: grounding.references,
-            // Persist the vocabulary (issue #558) so the Project voice section — and the brief hash
-            // (AC-8) — is reproducible after the staging dir is gone.
             ...(Array.isArray(grounding.vocabulary) ? { vocabulary: grounding.vocabulary } : {}),
           },
         }
@@ -736,12 +619,6 @@ export function readFreezeSections(projectRoot: string, dirName: string): Freeze
   };
 }
 
-/**
- * Fold the run's expert summary and the accepted-finding snapshot into the pipeline section at
- * freeze (issue #558, FR-8.2 / FR-13.1). The findings already carry the chief's renames (applied at
- * `experts synthesis`), so the snapshot is the project's own words. Pure of side effects; returns a
- * new section. Absent experts leave the section unchanged.
- */
 function withExpertFreezeSummary(
   pipeline: SpecPipelineSection,
   projectRoot: string,
@@ -782,16 +659,10 @@ function withExpertFreezeSummary(
   };
 }
 
-/** True for a project-relative path that stays inside `.paqad/tmp/`. */
 function isTmpPath(rel: string): boolean {
   return rel.startsWith('.paqad/tmp/') && !rel.split('/').includes('..');
 }
 
-/**
- * Delete what the pipeline and freeze left in `.paqad/tmp/` for this change once the spec is
- * frozen (FR-4, AC-3): every remembered input except the ones in `keep`, then the staging dir.
- * The shared staging root goes too when this was the last change in it. Best-effort.
- */
 export function clearFrozenRun(
   projectRoot: string,
   dirName: string,
@@ -803,26 +674,18 @@ export function clearFrozenRun(
   rmSync(join(projectRoot, stagingDir(dirName)), { recursive: true, force: true });
   try {
     rmdirSync(join(projectRoot, SPEC_PIPELINE_STAGING_DIR));
-  } catch {
-    // Another change is still staged there, or it never existed.
-  }
+  } catch {}
 }
 
-// ── Remembered inputs ───────────────────────────────────────────────────────────────────
-
-/** Both spellings of the project root (as given, and with symlinks resolved). */
 function rootForms(projectRoot: string): string[] {
   const given = resolve(projectRoot);
   let real = given;
   try {
     real = resolve(realpathSync(projectRoot));
-  } catch {
-    // An unresolvable root has only the spelling it was given.
-  }
+  } catch {}
   return [...new Set([given, real])];
 }
 
-/** The project-relative path of `file` when it sits under `.paqad/tmp/`, else null. */
 function tmpInputPath(projectRoot: string, file: string): string | null {
   const abs = resolve(file);
   for (const base of rootForms(projectRoot)) {
@@ -832,11 +695,6 @@ function tmpInputPath(projectRoot: string, file: string): string | null {
   return null;
 }
 
-/**
- * Remember an input path a record verb was handed, when it sits under `.paqad/tmp/`, so
- * `spec freeze` can delete exactly the inputs this change created (FR-4). Paths elsewhere are
- * the user's own files and are never recorded.
- */
 export function rememberInput(projectRoot: string, dirName: string, file: string): void {
   const rel = tmpInputPath(projectRoot, file);
   if (rel === null) return;
@@ -845,22 +703,17 @@ export function rememberInput(projectRoot: string, dirName: string, file: string
   writeStagedJson(projectRoot, dirName, 'inputs', { inputs: [...inputs, rel] });
 }
 
-/** The project-relative `.paqad/tmp/` inputs remembered for this change. */
 export function readRememberedInputs(projectRoot: string, dirName: string): string[] {
   return readStagedJson<{ inputs: string[] }>(projectRoot, dirName, 'inputs')?.inputs ?? [];
 }
-
-// ── stage-evidence rows ─────────────────────────────────────────────────────────────────
 
 export interface SpecStepRowInput {
   step: PipelineStep;
   outcome: SpecStepOutcome;
   artifactHash: string;
-  /** Tokens the agent reported for the step, when it reported a whole, non-negative number. */
   tokens?: number;
 }
 
-/** Append one `kind: 'spec-step'` row to the bundle's stage evidence (FR-7). */
 export function appendSpecStepRow(
   projectRoot: string,
   dirName: string,
@@ -882,12 +735,10 @@ export function appendSpecStepRow(
   );
 }
 
-/** The change's `spec-step` rows, in the order they were written. */
 export function readSpecStepRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readFeatureStageUnit(projectRoot, dirName).filter((row) => row.kind === SPEC_STEP_KIND);
 }
 
-/** Append one `kind: 'spec-correction'` row: a later edit to a frozen spec (FR-7). */
 export function appendSpecCorrectionRow(
   projectRoot: string,
   dirName: string,
@@ -907,7 +758,6 @@ export function appendSpecCorrectionRow(
   );
 }
 
-/** The change's `spec-correction` rows, in the order they were written. */
 export function readSpecCorrectionRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readFeatureStageUnit(projectRoot, dirName).filter(
     (row) => row.kind === SPEC_CORRECTION_KIND,

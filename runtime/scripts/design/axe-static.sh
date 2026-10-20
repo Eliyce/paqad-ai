@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Purpose: Run axe-core against component snapshots (HTML output) without
-#          booting the dev server. Designed for the "static-first" pass — the
-#          live phase (runtime-checks.ts) does the same against the running app.
-# Usage:   bash runtime/scripts/design/axe-static.sh [--snapshots <dir>] [--out <path>]
-#          Default snapshots dir: storybook-static (Storybook build) or
-#          .paqad/design-test/snapshots/ if the project produces its own.
-# Exits:   0 ok | 1 missing inputs (treated as blocked_check) | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Run axe-core against component snapshots (HTML output) without
+         booting the dev server. Designed for the "static-first" pass — the
+         live phase (runtime-checks.ts) does the same against the running app.
+Usage:   bash runtime/scripts/design/axe-static.sh [--snapshots <dir>] [--out <path>]
+         Default snapshots dir: storybook-static (Storybook build) or
+         .paqad/design-test/snapshots/ if the project produces its own.
+Exits:   0 ok | 1 missing inputs (treated as blocked_check) | 2 usage error
+USAGE
   exit 0
 fi
 
@@ -38,8 +39,6 @@ if ! command -v node >/dev/null 2>&1; then
   exit 2
 fi
 
-# axe-core is expected to be on the framework side (paqad-ai dep), not the
-# project's. We invoke it via a small inline runner.
 node - "$snapshots" "$out" <<'NODE'
 import { readdirSync, readFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, extname, dirname } from 'node:path';

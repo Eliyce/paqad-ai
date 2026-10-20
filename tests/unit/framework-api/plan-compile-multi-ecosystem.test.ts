@@ -1,8 +1,3 @@
-// Issue #398, AC-4 — the plan-compile gate treats a PHP, Python or JVM framework claim
-// exactly as it treats a JS/TS one. There is no new gate code to prove: the point of the
-// adapter contract is that the verifier Phase B (#397) already ships is ecosystem-agnostic,
-// so this suite is the evidence that it really is, per ecosystem.
-
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -31,15 +26,10 @@ interface Case {
   ecosystem: 'php' | 'python' | 'jvm';
   package: string;
   version: string;
-  /** The symbol the index resolves. */
   live: string;
-  /** How a plan would spell that symbol. */
   claim: string;
-  /** A symbol the index carries a deprecation for. */
   deprecated: string;
-  /** A member covered only by a wildcard container. */
   dynamic: string;
-  /** A symbol that genuinely is not there, with the suggestion it should draw. */
   absent: string;
   nearest: string;
 }
@@ -64,8 +54,6 @@ const CASES: Case[] = [
     claim: 'Flask',
     deprecated: 'flask.escape',
     dynamic: 'flask.something_dynamic',
-    // Unqualified on purpose: every Python module carries a wildcard, so `flask.anything`
-    // is `unknown-dynamic` by design and only a bare name can be asserted absent (INV-1).
     absent: 'Flaskk',
     nearest: 'flask.Flask',
   },
@@ -95,7 +83,6 @@ function symbol(overrides: Partial<FrameworkApiSymbol> & { name: string }): Fram
   };
 }
 
-/** A snapshot whose locked version agrees with the claim, so Phase A (#357) passes. */
 function withSnapshot(root: string, entry: Case): void {
   const target = join(root, '.paqad/stack-snapshot.json');
   mkdirSync(dirname(target), { recursive: true });
@@ -120,7 +107,6 @@ function withSnapshot(root: string, entry: Case): void {
   );
 }
 
-/** The index an adapter for this ecosystem would have produced. */
 function withIndex(root: string, entry: Case): void {
   writeFrameworkApiIndex(root, {
     schema_version: FRAMEWORK_API_SCHEMA_VERSION,

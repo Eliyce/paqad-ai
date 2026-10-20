@@ -29,7 +29,6 @@ describe('coverage adapter protected paths', () => {
       {
         adapter: new ClaudeCodeAdapter(),
         expected: {
-          // Issue #622 — the project file Claude Code reads; paqad only reads it.
           mcp: '.mcp.json',
           cache: '.claude/cache.json',
           memory: '.claude/memory.json',
@@ -38,8 +37,6 @@ describe('coverage adapter protected paths', () => {
       {
         adapter: new CodexCliAdapter(),
         expected: {
-          // The real Codex hook file (.codex/hooks.json) is emitted by
-          // generateConfig; this sidecar path holds base installHooks metadata.
           hooks: '.codex/settings.hooks.json',
           mcp: '.codex/mcp.json',
           cache: '.codex/cache.json',
@@ -58,8 +55,6 @@ describe('coverage adapter protected paths', () => {
       {
         adapter: new GeminiCliAdapter(),
         expected: {
-          // The real Gemini hooks live in .gemini/settings.json (emitted by
-          // generateConfig); this sidecar path holds base installHooks metadata.
           hooks: '.gemini/settings.hooks.json',
           mcp: '.gemini/mcp.json',
           cache: '.gemini/cache.json',

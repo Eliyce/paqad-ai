@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Cross-reference the AST-derived component inventory against the
-#          Playwright tests that exercise components. Emits per-component
-#          coverage rows.
-# Usage:   bash runtime/scripts/design/coverage.sh [--components-dir <dir>] [--tests-dir <dir>] [--out <path>]
-# Output:  JSON with { component, tested_states[], source_file, test_files[] }
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Cross-reference the AST-derived component inventory against the
+         Playwright tests that exercise components. Emits per-component
+         coverage rows.
+Usage:   bash runtime/scripts/design/coverage.sh [--components-dir <dir>] [--tests-dir <dir>] [--out <path>]
+Output:  JSON with { component, tested_states[], source_file, test_files[] }
+Exits:   0 ok | 2 usage error
+USAGE
   exit 0
 fi
 
@@ -45,8 +46,6 @@ emit() {
   printf '{\n'
   printf '  "components": [\n'
   first=1
-  # Empty-array expansion under `set -u` is fatal on Bash 3.2 (macOS default).
-  # Use the `${arr[@]+"${arr[@]}"}` idiom to expand to nothing when unset.
   for entry in ${components[@]+"${components[@]}"}; do
     name="${entry%%|*}"
     src="${entry#*|}"
@@ -61,7 +60,6 @@ emit() {
         if grep -qE "\b$st\b" "$tf" 2>/dev/null; then tested_states+=("$st"); fi
       done
     done
-    # de-dupe tested_states
     if [ ${#tested_states[@]} -gt 0 ]; then
       uniq_states=$(printf '%s\n' "${tested_states[@]}" | sort -u | paste -sd, -)
     else

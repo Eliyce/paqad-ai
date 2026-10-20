@@ -4,7 +4,6 @@ import { dirname } from 'node:path';
 
 import type { HealthFinding } from '@/core/types/codebase-health.js';
 
-/** Local, dependency-free timestamp for run ids and report filenames. */
 export function toHealthTimestamp(date: Date): string {
   const pad = (value: number): string => String(value).padStart(2, '0');
   return (
@@ -22,11 +21,6 @@ export async function writeJsonFile(target: string, data: unknown): Promise<void
   await writeFile(target, `${JSON.stringify(data, null, 2)}\n`);
 }
 
-/**
- * Content-addressed fingerprint over a finding's identity fields, so the same
- * problem gets the same id across runs (the retest precondition). Excludes the
- * volatile `id`, `status`, and `baseline_status` fields.
- */
 export function findingFingerprint(finding: Omit<HealthFinding, 'id'>): string {
   const payload = JSON.stringify({
     title: finding.title,
@@ -38,15 +32,9 @@ export function findingFingerprint(finding: Omit<HealthFinding, 'id'>): string {
     evidence: finding.evidence,
     suggestion: finding.suggestion,
   });
-  // SHA-256 (not for security — a stable content-addressed dedup key; secret bytes
-  // never reach here, only the already-redacted fingerprint does).
   return createHash('sha256').update(payload).digest('hex').slice(0, 8).toUpperCase();
 }
 
-/**
- * Assign stable `HL-<sha256[:8]>` ids, suffixing `-NN` on a fingerprint collision
- * (mirrors the pentest `assignFindingIds` scheme).
- */
 export function assignHealthFindingIds<T extends Omit<HealthFinding, 'id'>>(
   findings: T[],
 ): Array<T & { id: string }> {
@@ -69,7 +57,6 @@ const SEVERITY_RANK: Record<HealthFinding['severity'], number> = {
   low: 2,
 };
 
-/** Order findings most-severe first, deterministic ties broken by id. */
 export function sortFindings<T extends HealthFinding>(findings: T[]): T[] {
   return [...findings].sort((a, b) => {
     const bySeverity = SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity];

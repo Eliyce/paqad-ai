@@ -1,12 +1,3 @@
-// Issue #118 — a CycloneDX-adjacent AI-BOM view of the same predicate.
-//
-// Every shipping AI-BOM inventories *models and datasets*; none carries
-// *per-change correctness evidence*. So this is CycloneDX-shaped (consumable by
-// EU-AI-Act / procurement tooling that already parses CycloneDX) but **extended**
-// with a `paqad:evidence` property namespace holding the graded results
-// CycloneDX itself omits. We do not pretend to be a full, validated CycloneDX
-// document — the format is honoured, the correctness section is the addition.
-
 import { createHash } from 'node:crypto';
 
 import type { ChangeAuthorship, InTotoStatement } from '@/core/types/evidence-ledger.js';
@@ -25,7 +16,6 @@ export interface CycloneDxComponent {
 export interface AiBomDocument {
   bomFormat: 'CycloneDX';
   specVersion: '1.6';
-  /** Deterministic, content-derived serial (no randomness — replay-stable). */
   serialNumber: string;
   version: 1;
   metadata: {
@@ -33,9 +23,7 @@ export interface AiBomDocument {
     tools: { vendor: string; name: string; version: string }[];
     properties: CycloneDxProperty[];
   };
-  /** Changed files as file components with their digests. */
   components: CycloneDxComponent[];
-  /** The correctness-evidence extension CycloneDX omits. */
   properties: CycloneDxProperty[];
 }
 
@@ -44,12 +32,6 @@ export interface BuildAiBomInput {
   toolVersion: string;
 }
 
-/**
- * Project the in-toto Statement into the CycloneDX-adjacent AI-BOM. The graded
- * results are flattened into `paqad:evidence:*` properties so a generic
- * CycloneDX reader surfaces the honest split (deterministic vs LLM-judged vs
- * blocked) without understanding paqad's schema.
- */
 export function buildAiBom(input: BuildAiBomInput): AiBomDocument {
   const { predicate } = input.statement;
   const graded = predicate.graded_results;
@@ -69,14 +51,9 @@ export function buildAiBom(input: BuildAiBomInput): AiBomDocument {
     { name: 'paqad:evidence:blocked', value: String(graded.blocked) },
     { name: 'paqad:evidence:inconclusive', value: String(graded.inconclusive) },
     { name: 'paqad:predicateType', value: input.statement.predicateType },
-    // Issue #120 — flatten authorship into the same CycloneDX namespace so a
-    // generic AI-BOM reader (EU-AI-Act / procurement tooling) surfaces *who
-    // wrote and accepted* the change alongside *whether the gates passed*.
     ...authorshipProps(predicate.change_authorship),
   ];
 
-  // Deterministic serial: a UUID-shaped digest of the subjects + predicate, so
-  // re-projecting the same evidence yields the same BOM (no Math.random/UUIDv4).
   const serialSeed = JSON.stringify({
     subject: input.statement.subject,
     result: predicate.verification_result,
@@ -100,9 +77,6 @@ export function buildAiBom(input: BuildAiBomInput): AiBomDocument {
   };
 }
 
-/** Flatten change authorship into `paqad:authorship:*` CycloneDX properties.
- *  Only present keys are emitted, and the `provenance` grade always rides along
- *  so a reader never mistakes a *declared* model for a verified one. */
 function authorshipProps(authorship: ChangeAuthorship | undefined): CycloneDxProperty[] {
   if (authorship === undefined) return [];
   const props: CycloneDxProperty[] = [
@@ -129,8 +103,6 @@ function authorshipProps(authorship: ChangeAuthorship | undefined): CycloneDxPro
   return props;
 }
 
-/** Shape a hex digest into the 8-4-4-4-12 UUID layout (not RFC-versioned —
- *  this is a content-derived stable identifier, not a random UUID). */
 function formatUuid(hex: string): string {
   const h = hex.slice(0, 32);
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;

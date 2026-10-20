@@ -55,7 +55,7 @@
   scope from working-set breadth (`deriveScopeFromWorkingSet`). An explicit `topN`
   overrides the gate (eval/test hook).
 - Section is appended AFTER the rule slice (F5) so the seam injects one artifact.
-- Floor-with-relief (#354): the floor lives in ONE place — `RagService`. Candidates at
+- Floor-with-relief: the floor lives in ONE place — `RagService`. Candidates at
   or above `rag_similarity_threshold` (default **0.75**) are high-confidence hits. When
   none clear it, the top `RELIEF_SLICE_CAP` (2) candidates at or above `rag_relief_floor`
   (default **0.35**, chosen from live probe data — local-model cosine on hybrid-fused

@@ -18,11 +18,6 @@ import { refreshChangeCostFromHook } from '@/cost/hook-cost.js';
 
 import { assistant } from '../cost/cost.fixture.js';
 
-// Issue #639, Part 23 (AC-52, decision D-01M5AM0F03B730SDSAPVC96W38): the EXISTING Stop and
-// SubagentStop hooks, unchanged in matcher, order and registration, rewrite the change's
-// cost.json after their decision is final. A failed write is logged to .paqad/logs/hooks.log and
-// leaves the hook's exit code and output byte-identical.
-
 const REPO = process.cwd();
 const STOP = join(REPO, 'runtime/hooks/verification-completion.mjs');
 const SUBAGENT_STOP = join(REPO, 'runtime/hooks/stage-agent-completion.mjs');
@@ -53,10 +48,8 @@ async function openFeature(root: string): Promise<string> {
   return join(base, dirs[0]!);
 }
 
-/** Transcripts with usage stamped after the change opened, so the window holds them. */
 function transcripts(root: string): { main: string; agent: string } {
   const now = new Date().toISOString();
-  // The fixture helper stamps a fixed day; restamp each line to now, just after the open row.
   const restamp = (line: string) => line.replace(/"timestamp":"[^"]+"/, `"timestamp":"${now}"`);
   const dir = join(root, 'transcripts');
   mkdirSync(dir, { recursive: true });
@@ -99,7 +92,6 @@ describe('cost.json from the Stop and SubagentStop hooks (AC-52)', () => {
     };
     expect(cost.tokens.total).toBe(4000);
     expect(cost.by_stage.find((line) => line.stage === 'development')?.tokens.total).toBe(1000);
-    // The HUD refresh that follows picks the cost up.
     const snapshot = JSON.parse(
       readFileSync(join(root, '.paqad/session/hud', `${SES}.json`), 'utf8'),
     ) as { cost: { tokens: { total: number } } | null };
@@ -170,7 +162,6 @@ describe('the cost seam (cost-refresh.mjs and hook-cost.ts)', () => {
     expect(refreshChangeCostFromHook({ projectRoot: root, payload: {} })).toBe('no-sources');
     expect(existsSync(join(bundle, 'cost.json'))).toBe(false);
 
-    // A change whose ledger lost its open row has no window to count in.
     const ledger = join(bundle, 'stage-evidence.jsonl');
     const kept = readFileSync(ledger, 'utf8')
       .split('\n')

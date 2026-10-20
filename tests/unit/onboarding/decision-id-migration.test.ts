@@ -44,7 +44,6 @@ describe('migrateLegacyDecisionIds', () => {
     expect(isStrictDecisionId(to)).toBe(true);
     expect(dir).toBe(PATHS.DECISIONS_RESOLVED_DIR);
 
-    // Old file gone, new file present, in-file id updated, rest preserved.
     expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, 'D-2.json'))).toBe(false);
     const migrated = JSON.parse(
       readFileSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${to}.json`), 'utf8'),
@@ -75,7 +74,6 @@ describe('migrateLegacyDecisionIds', () => {
 
     expect(migrations).toEqual([]);
     expect(existsSync(join(root, PATHS.DECISIONS_RESOLVED_DIR, `${ulidId}.json`))).toBe(true);
-    // A second run still does nothing.
     expect(migrateLegacyDecisionIds(root)).toEqual([]);
   });
 
@@ -108,7 +106,6 @@ describe('migrateLegacyDecisionIds', () => {
 
     expect(migrations).toHaveLength(1);
     expect(isStrictDecisionId(migrations[0]!.to)).toBe(true);
-    // The malformed index is untouched, never rewritten into a broken half-state.
     expect(readFileSync(join(root, PATHS.DECISIONS_INDEX), 'utf8')).toBe('{ not json');
   });
 
@@ -118,7 +115,6 @@ describe('migrateLegacyDecisionIds', () => {
     const migrations = migrateLegacyDecisionIds(root);
 
     expect(migrations).toEqual([]);
-    // The unreadable file survives (never silently lost).
     expect(readdirSync(join(root, PATHS.DECISIONS_RESOLVED_DIR))).toContain('D-9.json');
   });
 

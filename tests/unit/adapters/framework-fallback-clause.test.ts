@@ -8,12 +8,6 @@ import { AdapterFactory } from '@/adapters';
 import { buildFrameworkFallbackClause } from '@/adapters/shared/framework-fallback-clause.js';
 import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 
-// Issue #220 — every host entry file carries one core-owned graceful-degradation
-// clause so an absent/disabled paqad never hard-fails a hook-less IDE
-// (PhpStorm/Junie et al.). It must be byte-identical across hosts and must NOT
-// be a `##` heading (it stays inside the entry-file heading allow-list — see
-// entry-file-minimal.test.ts).
-
 describe('entry-file framework fallback clause', () => {
   const clause = buildFrameworkFallbackClause();
 

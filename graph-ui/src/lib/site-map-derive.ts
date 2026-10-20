@@ -1,10 +1,5 @@
-// Small pure derivations over the served site map, shared by the canvas, the fog/insight overlays
-// (Phase 3), and the gaps chip (issue #489). All read only the payload already present — no LLM at
-// view time (NFR-1). Kept in one place so the dead-surface rule has a single definition.
-
 import type { AppMap, Journey } from './site-map-types';
 
-/** Surfaces that are dead: no entry, no inbound edge, and no outbound edge (DEAD-1, dimmed). */
 export function deadSurfaceIds(map: AppMap): Set<string> {
   const hasInbound = new Set<string>();
   const hasOutbound = new Set<string>();
@@ -26,7 +21,6 @@ export function deadSurfaceIds(map: AppMap): Set<string> {
   return dead;
 }
 
-/** The surface ids a journey visits, in order (its own steps carry the sequence; no edges needed). */
 export function journeySurfaceIds(journey: Journey | null): Set<string> {
   const ids = new Set<string>();
   if (journey === null) return ids;
@@ -34,7 +28,6 @@ export function journeySurfaceIds(journey: Journey | null): Set<string> {
   return ids;
 }
 
-/** Transition targets that name a surface the map does not contain (a dangling reference). */
 export function danglingTargets(map: AppMap): { from: string; to: string }[] {
   const known = new Set(map.surfaces.map((surface) => surface.id));
   const dangling: { from: string; to: string }[] = [];
@@ -46,7 +39,6 @@ export function danglingTargets(map: AppMap): { from: string; to: string }[] {
   return dangling;
 }
 
-/** Journey steps that reference a surface the map does not contain (a broken journey reference). */
 export function brokenJourneyRefs(
   map: AppMap,
   journeys: Journey[],

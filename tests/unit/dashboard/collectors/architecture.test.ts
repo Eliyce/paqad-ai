@@ -55,7 +55,6 @@ describe('collectArchitecture', () => {
       200,
     );
     const section = collectArchitecture(root, NOW);
-    // Presence 50 + freshness 0 = 50.
     expect(section.score).toBe(50);
     expect(section.band).toBe('amber');
   });

@@ -67,14 +67,13 @@ describe('composeRetrievalSection', () => {
     expect(md.length).toBeLessThan(big.length);
   });
 
-  it('dedupes identical slices so the same chunk is never injected twice (#345)', () => {
+  it('dedupes identical slices so the same chunk is never injected twice', () => {
     const md = composeRetrievalSection([
       slice({ source_file: 'src/a.ts', content: 'export const A = 1;' }),
       slice({ source_file: 'src/a.ts', content: 'export const A = 1;' }),
       slice({ source_file: 'src/b.ts', content: 'export const B = 2;' }),
     ]);
     expect(md).toContain('## Retrieved context — 2 slices relevant to the files in play');
-    // The duplicated body appears exactly once.
     expect(md.split('export const A = 1;').length - 1).toBe(1);
     expect(md).toContain('export const B = 2;');
   });
@@ -90,20 +89,18 @@ describe('composeRetrievalSection', () => {
     expect(heading).toBe('### src/a.ts');
   });
 
-  it('stays silent when there are no slices and no best score (disabled/cold == today) (#354)', () => {
-    // No bestScore ⇒ retrieval never scored anything ⇒ omit the section entirely.
+  it('stays silent when there are no slices and no best score (disabled/cold == today)', () => {
     expect(composeRetrievalSection([], { bestScore: null })).toBe('');
     expect(composeRetrievalSection([], {})).toBe('');
   });
 
-  it('renders ONE honest line naming the best score when retrieval went dark (#354)', () => {
+  it('renders ONE honest line naming the best score when retrieval went dark', () => {
     const md = composeRetrievalSection([], { bestScore: 0.58 });
     expect(md).toContain('## Retrieved context — none above the confidence floor (best match 58%)');
-    // One heading + one guidance line — no fenced slice blocks.
     expect(md).not.toContain('```');
   });
 
-  it('flags a low-confidence (relief-band) result so the model weighs it as weak (#354)', () => {
+  it('flags a low-confidence (relief-band) result so the model weighs it as weak', () => {
     const md = composeRetrievalSection([
       slice({
         source_file: 'src/a.ts',
@@ -201,7 +198,6 @@ describe('gatherWorkingSetSlices', () => {
       changedPaths: ['src/app.ts'],
     });
     expect(docsDefault.slices).toEqual([]);
-    // Explicit scope:'all' lets the same code slice through.
     const all = await gatherWorkingSetSlices('/proj', {
       service: source(result),
       changedPaths: ['src/app.ts'],
@@ -253,7 +249,7 @@ describe('gatherWorkingSetSlices', () => {
     expect(bestScore).toBe(0.91);
   });
 
-  it('tags relief-band slices low-confidence and passes the best score through (#354)', async () => {
+  it('tags relief-band slices low-confidence and passes the best score through', async () => {
     const result: RagRetrievalResult = {
       vector_scores: new Map([['c1', 0.36]]),
       chunks_retrieved: 1,
@@ -272,9 +268,7 @@ describe('gatherWorkingSetSlices', () => {
     expect(bestScore).toBe(0.36);
   });
 
-  it('returns the best score even when the dark result carried no slices (#354)', async () => {
-    // Service went below the relief band: empty chunks, but best_score set for the
-    // honest "none above the floor" line.
+  it('returns the best score even when the dark result carried no slices', async () => {
     const dark: RagRetrievalResult = {
       ...emptyResult(),
       fallback_reason: 'below-similarity-threshold',
@@ -305,8 +299,7 @@ describe('gatherWorkingSetSlices', () => {
     expect(called).toBe(false);
   });
 
-  it('retrieves from a prompt seed even with an empty working set (#336)', async () => {
-    // A question has no changed files; the prompt-driven query still retrieves.
+  it('retrieves from a prompt seed even with an empty working set', async () => {
     const captured: { input?: { taskDescription?: string; keywords: string[] } } = {};
     const service: RetrievalSource = {
       retrieveForEval: async (input) => {
@@ -329,7 +322,6 @@ describe('gatherWorkingSetSlices', () => {
       query: 'how does the router work',
     });
     expect(slices).toHaveLength(1);
-    // The prompt is the retrieval query (not a working-set-derived description).
     expect(captured.input?.taskDescription).toBe('how does the router work');
   });
 
@@ -411,7 +403,6 @@ describe('writeRuleContext + retrieval section (artifact integration)', () => {
     expect(written).toContain('RULE FULL TEXT');
     expect(written).toContain('## Retrieved context');
     expect(written).toContain('RETRIEVED SLICE');
-    // Rule slice precedes retrieval slice.
     expect(written.indexOf('RULE FULL TEXT')).toBeLessThan(written.indexOf('RETRIEVED SLICE'));
   });
 

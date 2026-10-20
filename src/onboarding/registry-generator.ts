@@ -75,11 +75,6 @@ const TECHNICAL_LAYER_NAMES = new Set([
   'validators',
 ]);
 
-/**
- * Names that are technically-flavoured even if not in TECHNICAL_LAYER_NAMES — used to
- * filter signal-extracted names (controllers, models, etc.) which can include framework
- * boilerplate that should not become business modules.
- */
 const TECHNICAL_SIGNAL_NAMES = new Set([
   'auth',
   'authorization',
@@ -178,10 +173,6 @@ async function listTopLevelDirs(root: string): Promise<string[]> {
   }
 }
 
-/**
- * Recursively lists all files under `dir` whose name ends with `ext`.
- * Returns paths relative to `dir`.
- */
 async function listFilesWithExtension(dir: string, ext: string): Promise<string[]> {
   const results: string[] = [];
   try {
@@ -195,9 +186,7 @@ async function listFilesWithExtension(dir: string, ext: string): Promise<string[
         results.push(name);
       }
     }
-  } catch {
-    // directory does not exist — return empty
-  }
+  } catch {}
   return results;
 }
 
@@ -206,15 +195,10 @@ function isBusinessSignalName(name: string): boolean {
   return name.length >= 3 && isBusinessName(name) && !TECHNICAL_SIGNAL_NAMES.has(lower);
 }
 
-/**
- * Extracts probable business-domain module names from source-file signals (controller,
- * model, service, and page filenames). Used as a fallback before the low-confidence
- * `Core` placeholder when no structural container directory is found.
- */
 async function extractModulesFromSignals(
   projectRoot: string,
 ): Promise<Array<{ name: string; slug: string; paths: string[] }>> {
-  const nameMap = new Map<string, string[]>(); // slug → source paths
+  const nameMap = new Map<string, string[]>();
 
   function add(rawName: string, sourcePath: string): void {
     if (!isBusinessSignalName(rawName)) return;
@@ -224,7 +208,6 @@ async function extractModulesFromSignals(
     nameMap.get(slug)!.push(toPosixPath(sourcePath));
   }
 
-  // PHP Controllers (Laravel, Symfony-style): BillingController.php → Billing
   for (const relDir of [
     'app/Http/Controllers',
     'app/Controllers',
@@ -238,7 +221,6 @@ async function extractModulesFromSignals(
     }
   }
 
-  // PHP Models (Laravel): Invoice.php → Invoice
   for (const relDir of ['app/Models', 'app/Entities']) {
     const files = await listFilesWithExtension(join(projectRoot, relDir), '.php');
     for (const file of files) {
@@ -246,14 +228,12 @@ async function extractModulesFromSignals(
     }
   }
 
-  // PHP Services: BillingService.php → Billing
   const phpServiceFiles = await listFilesWithExtension(join(projectRoot, 'app/Services'), '.php');
   for (const file of phpServiceFiles) {
     const stem = basename(file, '.php').replace(/Service$/, '') || basename(file, '.php');
     add(stem, `app/Services/${file}`);
   }
 
-  // TypeScript/JavaScript services: BillingService.ts → Billing
   for (const relDir of ['src/services', 'src/modules']) {
     for (const ext of ['.ts', '.js']) {
       const files = await listFilesWithExtension(join(projectRoot, relDir), ext);
@@ -264,7 +244,6 @@ async function extractModulesFromSignals(
     }
   }
 
-  // TypeScript/JavaScript models: Invoice.ts → Invoice
   for (const relDir of ['src/models', 'src/entities']) {
     for (const ext of ['.ts', '.js']) {
       const files = await listFilesWithExtension(join(projectRoot, relDir), ext);
@@ -274,7 +253,6 @@ async function extractModulesFromSignals(
     }
   }
 
-  // Page/view directories: pages/billing → Billing
   for (const relDir of ['pages', 'src/pages', 'app/pages', 'src/views', 'resources/views']) {
     const dirs = await listTopLevelDirs(join(projectRoot, relDir));
     for (const name of dirs) {
@@ -323,13 +301,11 @@ export async function generateInitialRegistries(projectRoot: string): Promise<Ge
 }
 
 export async function discoverModules(projectRoot: string): Promise<string[]> {
-  // Prefer the reviewed module map when it exists
   const map = await loadModuleMap(projectRoot);
   if (map !== null && map.modules.length > 0) {
     return map.modules.map((m) => m.slug);
   }
 
-  // Fall back to folder-based discovery (legacy path — used before map is reviewed)
   const candidates = [
     join(projectRoot, 'docs/modules'),
     join(projectRoot, 'app'),
@@ -362,13 +338,10 @@ export async function discoverModules(projectRoot: string): Promise<string[]> {
 
 export async function discoverBusinessModules(
   projectRoot: string,
-  /** Explicit module names extracted from the user's request text. These are added with
-   *  high confidence before any directory or signal discovery runs. */
   hintModuleNames: string[] = [],
 ): Promise<ModuleMapEntry[]> {
   const existing = await loadModuleMap(projectRoot);
 
-  // Build a locked-name index from the existing map for preservation
   const lockedModules = new Map<string, ModuleMapEntry>();
   const lockedFeatures = new Map<string, Map<string, ModuleFeatureEntry>>();
   if (existing !== null) {
@@ -390,7 +363,6 @@ export async function discoverBusinessModules(
 
   const entries: ModuleMapEntry[] = [];
 
-  // 0. Explicit prompt-provided names have the highest discovery priority.
   for (const hint of hintModuleNames) {
     const slug = toSlug(hint);
     if (!slug || entries.some((e) => e.slug === slug)) continue;
@@ -401,7 +373,6 @@ export async function discoverBusinessModules(
     }
   }
 
-  // 1. Codebase-native containers: app/Modules/*, app/Domain/*, etc.
   const nativeModuleDirs = [
     join(projectRoot, 'app', 'Modules'),
     join(projectRoot, 'app', 'Domain'),
@@ -425,7 +396,6 @@ export async function discoverBusinessModules(
     }
   }
 
-  // 2. Monorepo packages with business-domain names
   const packageDirs = [
     join(projectRoot, 'packages'),
     join(projectRoot, 'apps'),
@@ -448,7 +418,6 @@ export async function discoverBusinessModules(
     }
   }
 
-  // 3. Infer from top-level app/, src/ subdirectories that are business-named
   const inferCandidates = [
     join(projectRoot, 'app'),
     join(projectRoot, 'src'),
@@ -471,8 +440,6 @@ export async function discoverBusinessModules(
     }
   }
 
-  // If directory-based discovery found nothing, extract business names from source-file
-  // signals (controllers, models, services, page dirs) before falling back to Core.
   if (entries.length === 0) {
     const signalResults = await extractModulesFromSignals(projectRoot);
     for (const { name, slug, paths } of signalResults) {
@@ -484,16 +451,12 @@ export async function discoverBusinessModules(
     }
   }
 
-  // Re-insert any locked modules that were not encountered during directory or signal
-  // discovery. This prevents manually-added or temporarily-absent locked entries from
-  // being silently dropped on a foundation rerun.
   for (const [slug, lockedMod] of lockedModules) {
     if (!entries.some((e) => e.slug === slug)) {
       entries.push(lockedMod);
     }
   }
 
-  // Last resort: a single low-confidence placeholder
   if (entries.length === 0) {
     entries.push(buildEntry('Core', 'core', 'inferred', 'low', [], undefined));
   }
@@ -527,8 +490,6 @@ export async function generateModuleMapYaml(
   projectRoot: string,
   hintModuleNames: string[] = [],
 ): Promise<string> {
-  // Read the raw file first so we can do an in-place Document update that preserves
-  // user-owned content (comments, synonyms, glossary edits, unknown keys).
   let existingRaw: string | null;
   try {
     existingRaw = await readFile(join(projectRoot, PATHS.MODULE_MAP), 'utf8');
@@ -539,13 +500,9 @@ export async function generateModuleMapYaml(
   const modules = await discoverBusinessModules(projectRoot, hintModuleNames);
 
   if (existingRaw !== null) {
-    // In-place Document update so the glossary block (user-edited synonyms, notes,
-    // preferred_terms, unknown keys, and inline comments) is preserved verbatim.
     const doc = YAML.parseDocument(existingRaw);
     doc.set('last_updated_at', new Date().toISOString());
 
-    // Build a slug-keyed index of existing module YAML nodes.  Reusing these nodes
-    // preserves per-module unknown keys (e.g. team_owner) and inline comments.
     const existingSeq = doc.get('modules', true);
     const existingNodesBySlug = new Map<string, YAML.YAMLMap>();
     if (YAML.isSeq(existingSeq)) {
@@ -559,24 +516,19 @@ export async function generateModuleMapYaml(
       }
     }
 
-    // Merge newly-discovered modules into the existing YAML nodes.
     const newSeq = new YAML.YAMLSeq();
     for (const mod of modules) {
       const existingNode = existingNodesBySlug.get(mod.slug);
       if (existingNode !== undefined) {
-        // Reuse the existing node — unknown keys and comments survive.
-        // Auto-updatable fields are refreshed; locked fields are left untouched.
         if (mod.auto_update_module_name) {
           existingNode.set('name', mod.name);
           existingNode.set('derivation', mod.derivation);
           existingNode.set('confidence', mod.confidence);
           existingNode.set('source_paths', mod.source_paths);
         }
-        // Features are always kept in sync regardless of lock status.
         existingNode.set('features', mod.features);
         newSeq.add(existingNode);
       } else {
-        // New module — no prior YAML node exists; create a fresh one.
         newSeq.add(doc.createNode(mod));
       }
     }
@@ -598,11 +550,6 @@ export async function generateModuleMapYaml(
   return serializeModuleMap(map);
 }
 
-/**
- * Serialises a ModuleMap to YAML. Uses the `yaml` package so that all fields
- * (glossary synonyms, evidence, features) are written correctly and the output
- * is round-trippable through `loadModuleMap`.
- */
 export function serializeModuleMap(map: ModuleMap): string {
   return YAML.stringify(map, { indent: 2, lineWidth: 0 });
 }

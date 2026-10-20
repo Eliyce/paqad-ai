@@ -9,10 +9,6 @@ import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.
 import { createProjectWorkspace } from '@/onboarding/create-project.js';
 import { onboardInstalledStack } from '@/onboarding/onboard-installed-stack.js';
 
-// SET-03 / SET-05 (#596 Slice 3) — onboard the ACTUAL installed stack of a created-but-undecided
-// workspace. Full onboarding is heavy (code-knowledge index + rule compile), so the single real
-// undecided workspace is created ONCE in `beforeAll` and copied per test; the one re-onboard test
-// is the only place onboarding runs a second time.
 describe('onboardInstalledStack (SET-03/SET-05)', () => {
   let templateRoot: string;
   let frameworkHome: string;
@@ -28,7 +24,6 @@ describe('onboardInstalledStack (SET-03/SET-05)', () => {
       await createProjectWorkspace({ name: 'template-proj', parentDir: templateParent });
       templateRoot = join(templateParent, 'template-proj');
     } finally {
-      // Restored here; re-established around each real onboard below.
       restoreHome();
     }
   });
@@ -57,7 +52,6 @@ describe('onboardInstalledStack (SET-03/SET-05)', () => {
     }
   }
 
-  /** Copy the one onboarded undecided workspace into a fresh project dir for a test to mutate. */
   function freshWorkspace(name: string): string {
     const projectRoot = join(parentDir, name);
     cpSync(templateRoot, projectRoot, { recursive: true });
@@ -82,17 +76,14 @@ describe('onboardInstalledStack (SET-03/SET-05)', () => {
     expect(result.detectedFrameworks).toEqual([]);
     expect(result.commandsRederived).toBe(false);
     expect(result.recovery).toMatch(/No application framework detected/);
-    // The provider was recovered from the workspace manifest, not the fallback.
     expect(result.providers).toEqual(['claude-code']);
 
-    // The profile is untouched: its commands are still the undecided placeholders.
     const profile = readProjectProfile(projectRoot)!;
     expect(profile.commands.dev).toContain('choose an application stack first');
   });
 
   it('falls back to claude-code when the workspace has no onboarding manifest', async () => {
     const projectRoot = freshWorkspace('no-manifest');
-    // Remove the recorded manifest so the provider fallback branch is exercised.
     rmSync(join(projectRoot, '.paqad', 'onboarding-manifest.json'), { force: true });
 
     const result = await onboardInstalledStack({ projectRoot });
@@ -104,7 +95,6 @@ describe('onboardInstalledStack (SET-03/SET-05)', () => {
   it('re-derives real commands from the installed stack and preserves team-owned settings (SET-03/SET-05, INV-6)', async () => {
     const projectRoot = freshWorkspace('with-react');
 
-    // The owner installed their stack: a package.json a parser recognizes as React.
     writeFileSync(
       join(projectRoot, 'package.json'),
       `${JSON.stringify(
@@ -115,7 +105,6 @@ describe('onboardInstalledStack (SET-03/SET-05)', () => {
       'utf8',
     );
 
-    // A distinctive team-owned setting that onboarding must preserve on the re-run.
     const before = readProjectProfile(projectRoot)!;
     before.project = { ...before.project, description: 'owner-authored description' };
     writeProjectProfile(projectRoot, before);
@@ -128,13 +117,10 @@ describe('onboardInstalledStack (SET-03/SET-05)', () => {
     expect(result.commandsRederived).toBe(true);
 
     const after = readProjectProfile(projectRoot)!;
-    // Commands are now real, not the undecided placeholders (SET-03).
     expect(after.commands.dev).not.toContain('choose an application stack first');
     expect(after.stack_profile?.frameworks ?? []).toContain('react');
-    // The team-owned section survived the refresh (SET-05 / INV-6).
     expect(after.project.description).toBe('owner-authored description');
 
-    // A second run is a refresh, not a reset: commands are already decided, so they are kept.
     process.env.PAQAD_FRAMEWORK_HOME = frameworkHome;
     const second = await onboardInstalledStack({ projectRoot, providers: ['claude-code'] });
     expect(second.onboarded).toBe(true);

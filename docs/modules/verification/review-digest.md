@@ -1,6 +1,6 @@
 # Review Evidence Digest
 
-> **Layer:** `framework-internals` &nbsp;·&nbsp; **Slug:** `verification/review-digest` &nbsp;·&nbsp; **Issue:** #360
+> **Layer:** `framework-internals` &nbsp;·&nbsp; **Slug:** `verification/review-digest`
 
 ## Purpose
 
@@ -40,9 +40,9 @@ the digest is stable between runs:
 
 | Source | Cached at | Contributes |
 | --- | --- | --- |
-| Rule scripts (#89) | `.paqad/scripts/rules/.cache/report.json` | Findings with their own severity and `deterministic`/`heuristic` tier. |
-| Duplication (#358) | `.paqad/scripts/rules/.cache/duplication.json` | Near-copies; the detector's band **is** the severity (deterministic → high, heuristic → medium). |
-| Checks (#318, #528) | `.paqad/ledger/feature-evidence/<change>/checks.json` (global `.paqad/checks/last-run.json` fallback) | One row per command plus one per recorded failure. |
+| Rule scripts | `.paqad/scripts/rules/.cache/report.json` | Findings with their own severity and `deterministic`/`heuristic` tier. |
+| Duplication | `.paqad/scripts/rules/.cache/duplication.json` | Near-copies; the detector's band **is** the severity (deterministic → high, heuristic → medium). |
+| Checks | `.paqad/ledger/feature-evidence/<change>/checks.json` (global `.paqad/checks/last-run.json` fallback) | One row per command plus one per recorded failure. |
 | Verification evidence | `.paqad/session/verification-evidence.json` | Every failing or inconclusive gate, flattened one failure per row — including unresolved doc targets. |
 
 A source that is absent, empty, or unparseable contributes zero rows and never throws.
@@ -72,13 +72,13 @@ anchoring check.
 
 ## Honest limits
 
-- The changed-file header comes from `loadChangeEvidence`, which reads git alone
-  (issue #646): the working-tree changes plus every file committed on the branch since it
+- The changed-file header comes from `loadChangeEvidence`, which reads git alone:
+  the working-tree changes plus every file committed on the branch since it
   left `main` or `master`, exactly as the completion gates see the change. The old
   `.paqad/session/changed-files.json` cache is never read, so a leftover copy can neither
   head the digest with files from an already-merged change nor hide files you edited. That
   costs a few read-only git queries, never a model call.
-- Nothing else reads that cache either (issue #651). The `diff-doc-sync` skill takes its
+- Nothing else reads that cache either. The `diff-doc-sync` skill takes its
   changed files from this header (run `paqad-ai review digest` to refresh it) or straight
   from git. The generated `scripts/refresh-registry-diff.sh` asks git too: `git status` plus
   every file committed since the branch left the default branch (what `origin/HEAD` names,
@@ -95,6 +95,21 @@ anchoring check.
   is **absent** from the digest rather than proven clean.
 - Truncation is always announced. A silently clipped digest would read as "that was
   everything", which is the false confidence this feature exists to remove.
+
+## Why the code works the way it does
+
+- **`digest.ts`** is pure: every input is handed in and it returns markdown, so each section,
+  the `none recorded` fallbacks and the line cap are tested from fixtures. A missing input renders
+  `none recorded` instead of disappearing, so "nothing found" and "nothing ran" stay different.
+- **`sources.ts`** reads only known cached paths, with no subprocess, network or tree scan, which
+  keeps the digest under a second and free of model tokens. It replaces the old
+  `digest-evidence.sh` flattening in cross-platform Node; the shell script stays only as a skill
+  resource. Check rows have no file anchor at the command level, because a red test command is not
+  something a review addresses by citing a line. A failed gate with no itemised failures still
+  adds its own row. The check report is read from the active change's bundle, falling back to the
+  global path when no change is active.
+- **`write.ts`** writes the digest to `.paqad/session/`, never into a bundle, because the digest
+  is an input to the review and the review's artifact is still `review.json`.
 
 ## Source Footprint
 

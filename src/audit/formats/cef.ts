@@ -1,12 +1,3 @@
-// Issue #121 — ArcSight Common Event Format (CEF) projection.
-//
-// CEF is single-line and syslog-ready, still demanded by ArcSight/QRadar SOCs.
-// A paqad event is nested; CEF is flat, so we force-fit into the custom-string
-// slots (cs1..cs6) and standard keys (rt, outcome, msg, fileHash, suser). One
-// line per event, pipe to `logger`/rsyslog. Escaping follows the CEF spec:
-// header fields escape `\` and `|`; extension values escape `\`, `=`, and
-// newlines.
-
 import { cefSeverity, epochMs } from '../severity.js';
 import type { SiemEvent } from '../types.js';
 
@@ -14,12 +5,10 @@ const CEF_VERSION = 'CEF:0';
 const VENDOR = 'Paqad';
 const PRODUCT = 'paqad-ai';
 
-/** Escape a CEF header field: backslash and pipe. */
 export function escapeCefHeader(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|');
 }
 
-/** Escape a CEF extension value: backslash, equals, and newlines. */
 export function escapeCefExtension(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/=/g, '\\=').replace(/\r?\n/g, ' ');
 }
@@ -30,7 +19,6 @@ function pushPair(parts: string[], key: string, value: string | undefined): void
   }
 }
 
-/** Render one event as a single CEF line. */
 export function toCef(event: SiemEvent, productVersion: string): string {
   const name = `${event.kind} ${event.engine ?? event.code} ${event.verdict}`.trim();
   const header = [
@@ -69,8 +57,6 @@ export function toCef(event: SiemEvent, productVersion: string): string {
     }
   }
 
-  // #249 session-ledger fold — carry the doc type as the producing service and the
-  // session id as the correlation id, both standard CEF keys (only set when present).
   pushPair(ext, 'sourceServiceName', event.doc_type);
   pushPair(ext, 'externalId', event.session_id);
 

@@ -52,7 +52,6 @@ function symbol(overrides: Partial<CodeKnowledgeSymbol> = {}): CodeKnowledgeSymb
   };
 }
 
-/** Write an index holding `symbols`, and create each symbol's file so mtime resolves. */
 function seedIndex(root: string, symbols: CodeKnowledgeSymbol[]): CodeKnowledgeIndex {
   const index: CodeKnowledgeIndex = {
     schema_version: CODE_KNOWLEDGE_SCHEMA_VERSION,
@@ -268,12 +267,10 @@ describe('armDecisionFromPlan', () => {
     expect(reuseOption?.evidence?.similarity).toBeLessThanOrEqual(1);
     expect(reuseOption?.evidence?.file).toBe('src/utils/dates.ts');
 
-    // The create side carries the plan's own justification verbatim.
     const createOption = packet.options.find(
       (option) => option.option_key === CREATE_NEW_OPTION_KEY,
     );
     expect(createOption?.label).toContain('need the relative form');
-    // No evidence behind create-new: an empty block, as the one packet shape requires (#639).
     expect(createOption?.evidence).toEqual({});
   });
 
@@ -362,7 +359,6 @@ describe('armDecisionFromPlan', () => {
 
     expect(result.minted).toHaveLength(1);
     expect(result.warnings).toHaveLength(1);
-    // The suppressed fork is named, not silently dropped.
     expect(result.warnings[0]).toContain('formatRelativeDate');
     expect(pendingPackets(root)[0].title).toContain('parseUserRecord');
   });
@@ -432,7 +428,6 @@ describe('armDecisionFromPlan', () => {
   it('INV-4: degrades to nothing armed when the decision store cannot be written', () => {
     const root = makeProject();
     seedIndex(root, [symbol()]);
-    // A FILE where the pending directory must be — every write into it fails.
     writeFile(root, '.paqad/decisions/pending', 'not a directory');
     expect(() =>
       armDecisionFromPlan({
@@ -447,7 +442,6 @@ describe('armDecisionFromPlan', () => {
   it('resolves its own config when none is injected', () => {
     const root = makeProject();
     seedIndex(root, [symbol()]);
-    // No config file anywhere ⇒ the shipped `warn` default ⇒ reported, never minted.
     const result = armDecisionFromPlan({
       projectRoot: root,
       changeKey: CHANGE,
@@ -487,7 +481,6 @@ describe('armDecisionFromDuplicationFinding', () => {
       last_modified: expect.any(String),
     });
 
-    // #358's correlation token survives, so applyResolvedDecisions can still match it back.
     expect(packet.context).toContain('[paqad-duplication src/stamp.ts:12:src/utils/dates.ts]');
     expect(packet.context).toContain(`[paqad-arm ${duplicationForkKey(finding())}]`);
   });

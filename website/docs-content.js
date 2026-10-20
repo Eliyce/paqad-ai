@@ -1,11 +1,4 @@
-/**
- * paqad-ai Documentation Content
- * All pages as structured data consumed by docs.js
- */
-
 export const DOCS_PAGES = {
-  /* ── Getting Started ─────────────────────────────────────────────────── */
-
   introduction: {
     id: 'introduction',
     title: 'Introduction',
@@ -224,8 +217,6 @@ export const DOCS_PAGES = {
       },
     ],
   },
-
-  /* ── Core Concepts ───────────────────────────────────────────────────── */
 
   'how-it-works': {
     id: 'how-it-works',
@@ -467,8 +458,6 @@ export const DOCS_PAGES = {
       },
     ],
   },
-
-  /* ── CLI Reference ───────────────────────────────────────────────────── */
 
   'cli-onboard': {
     id: 'cli-onboard',
@@ -1073,8 +1062,6 @@ export const DOCS_PAGES = {
     ],
   },
 
-  /* ── Stack Packs ─────────────────────────────────────────────────────── */
-
   'packs-overview': {
     id: 'packs-overview',
     title: 'What Are Packs',
@@ -1270,8 +1257,6 @@ export const DOCS_PAGES = {
       },
     ],
   },
-
-  /* ── Adapters ────────────────────────────────────────────────────────── */
 
   'adapters-overview': {
     id: 'adapters-overview',
@@ -1633,8 +1618,6 @@ export const DOCS_PAGES = {
     ],
   },
 
-  /* ── Workflow Engine ─────────────────────────────────────────────────── */
-
   'workflow-overview': {
     id: 'workflow-overview',
     title: 'Overview',
@@ -1865,8 +1848,6 @@ export const DOCS_PAGES = {
       },
     ],
   },
-
-  /* ── Context & RAG ───────────────────────────────────────────────────── */
 
   'rag-context-intelligence': {
     id: 'rag-context-intelligence',
@@ -2212,8 +2193,6 @@ export const DOCS_PAGES = {
     ],
   },
 
-  /* ── Security ────────────────────────────────────────────────────────── */
-
   'security-break-locally': {
     id: 'security-break-locally',
     title: 'Break Locally First',
@@ -2372,8 +2351,6 @@ export const DOCS_PAGES = {
     ],
   },
 
-  /* ── Patterns Library ────────────────────────────────────────────────── */
-
   'patterns-overview': {
     id: 'patterns-overview',
     title: 'Overview',
@@ -2493,8 +2470,6 @@ export const DOCS_PAGES = {
       },
     ],
   },
-
-  /* ── Health & Maintenance ────────────────────────────────────────────── */
 
   'health-doctor': {
     id: 'health-doctor',
@@ -2712,8 +2687,6 @@ export const DOCS_PAGES = {
     ],
   },
 
-  /* ── MCP Integration ─────────────────────────────────────────────────── */
-
   'mcp-overview': {
     id: 'mcp-overview',
     title: 'Overview',
@@ -2810,8 +2783,6 @@ export const DOCS_PAGES = {
       },
     ],
   },
-
-  /* ── Session Continuity ──────────────────────────────────────────────── */
 
   'session-handoff': {
     id: 'session-handoff',
@@ -3323,8 +3294,6 @@ Stage 3: post-classification adjustment (deterministic)
     ],
   },
 };
-
-/* ── Sidebar navigation structure ───────────────────────────────────────── */
 
 export const DOCS_NAV = [
   {

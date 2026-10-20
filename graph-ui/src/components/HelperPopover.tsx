@@ -5,10 +5,6 @@ interface Props {
   goodLooksLike: string;
 }
 
-/**
- * `?` affordance that opens a small popover with helper text. Never
- * visible by default — the brief is explicit about that.
- */
 export function HelperPopover({ what, goodLooksLike }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);

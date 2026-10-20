@@ -38,7 +38,7 @@ const USER_OWNED = JSON.stringify(
   2,
 );
 
-describe('cleanupLegacyMcpFiles (issue #622)', () => {
+describe('cleanupLegacyMcpFiles', () => {
   let root: string;
 
   beforeEach(() => {
@@ -135,7 +135,6 @@ describe('cleanupLegacyMcpFiles (issue #622)', () => {
     const result = cleanupLegacyMcpFiles(root);
 
     expect(result.kept.sort()).toEqual(['.antigravity/mcp.json', '.continue/mcp.json']);
-    // Only the paqad-marked file is logged; the bare array is not paqad's.
     const lines = log().trim().split('\n');
     expect(lines).toHaveLength(1);
     expect(lines[0]).toContain('.antigravity/mcp.json');
@@ -199,7 +198,7 @@ describe('cleanupLegacyMcpFiles (issue #622)', () => {
     const result = cleanupLegacyMcpFiles(root, {
       canDelete: (path) => {
         if (path === '.codex/mcp.json') {
-          throw 'git missing'; // a non-Error throw still reads as a reason
+          throw 'git missing';
         }
         return true;
       },
@@ -232,7 +231,6 @@ describe('cleanupLegacyMcpFiles (issue #622)', () => {
 
   it('creates the log directory and writes to stderr when the log cannot be written', () => {
     put('.vscode/mcp.json', JSON.stringify({ servers: {}, resolved_artifacts: [] }));
-    // A file where the logs directory should be makes the log write fail.
     put('.paqad/logs', 'not a directory');
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 

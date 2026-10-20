@@ -1,0 +1,4 @@
+.a::before {
+  content: "/* not a comment */";
+  color: #333;
+}

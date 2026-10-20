@@ -1,14 +1,3 @@
-// Atomic apply path for rule-script-map mutations (issue #89).
-//
-// Mirrors src/module-decisions/apply.ts: this is the single writer of
-// rule-script-map.yml. There is no lockfile — atomicity is the rename in
-// step 2, and the pre-mutation snapshot in step 1 enables rollback.
-//
-// Sequence:
-//   1. Pre-mutation snapshot to .paqad/scripts/rules/.history/<ts>-<via>.yml
-//   2. rule-script-map.yml rewritten atomically (write-temp + rename)
-//   3. .paqad/scripts/rules/.history/events.jsonl appended
-
 import {
   appendFileSync,
   existsSync,
@@ -38,8 +27,6 @@ export interface RuleScriptMapEvent {
 export interface ApplyRuleScriptMapOptions {
   projectRoot: string;
   map: RuleScriptMap;
-  // Identifier of what triggered the apply (e.g. "rule-analyzer",
-  // "rule-editor:RL-7f3a"). Used in the snapshot filename and event payload.
   via: string;
   event: Omit<RuleScriptMapEvent, 'ts' | 'via'>;
 }
@@ -65,8 +52,6 @@ function timestampForFilename(now: Date): string {
   return now.toISOString().replace(/[:.]/g, '-');
 }
 
-// Monotonic per-process counter so two snapshots in the same millisecond with
-// the same `via` don't collide and overwrite each other (D-3).
 let snapshotSeq = 0;
 
 export function snapshotRuleScriptMap(
@@ -107,10 +92,6 @@ export function applyRuleScriptMap(opts: ApplyRuleScriptMapOptions): ApplyRuleSc
     via: opts.via,
     ...opts.event,
   });
-  // Buildout F5 (decision D1, audit) — bless the new state in the capability lock
-  // so the enforcement seam can later detect a hand-edit. Computed from the
-  // just-written map + its referenced scripts (the on-disk blessed state). A
-  // null digest (no map after write) is impossible here but skipped defensively.
   const digest = computeRuleScriptsDigest(opts.projectRoot);
   if (digest !== null) {
     writeCapabilityDigest(opts.projectRoot, 'rule-scripts', digest, now);

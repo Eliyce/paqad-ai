@@ -22,8 +22,6 @@ const roots: string[] = [];
 function tempRoot(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-experts-cli-'));
   roots.push(r);
-  // Pin the spec-pipeline switches off (issue #640 made them default on); a test's own
-  // .paqad/.config lines still win.
   pinSpecPipelineOff(r);
   return r;
 }
@@ -45,8 +43,6 @@ function activeFeature(root: string): string {
 
 function enableExperts(root: string): void {
   mkdirSync(join(root, '.paqad'), { recursive: true });
-  // These tests exercise the detector path in isolation, so pin an empty standing tier (the
-  // standing-seating behaviour is covered by its own tests below, issue #558).
   writeFileSync(
     join(root, '.paqad', '.config'),
     [
@@ -58,7 +54,6 @@ function enableExperts(root: string): void {
   );
 }
 
-/** Enable the roster with the default standing tier (issue #558 seating). */
 function enableExpertsWithStanding(root: string): void {
   mkdirSync(join(root, '.paqad'), { recursive: true });
   writeFileSync(
@@ -88,7 +83,6 @@ async function run(root: string, args: string[]): Promise<{ out: string[]; err: 
   return { out, err };
 }
 
-/** Run S0 ground + S1 label so the experts step lock (FR-2.3) is satisfied. */
 async function groundAndLabel(
   root: string,
   prompt = 'add a customer_id index to invoices',
@@ -141,11 +135,9 @@ describe('spec pipeline experts CLI', () => {
       tokens_used: null,
     });
     expect(entry.budget_tokens).toBeGreaterThan(0);
-    // No brief is ever written to disk: not in the bundle, not in staging (AC-7).
     expect(readdirSync(join(root, featureDir(dir)))).not.toContain('briefs');
     expect(existsSync(join(root, stagingDir(dir), 'briefs'))).toBe(false);
 
-    // The brief verb prints the brief whose sha256 the roster recorded (AC-8).
     const brief = await run(root, ['experts', 'brief', 'db-expert']);
     expect(process.exitCode).toBe(0);
     expect(brief.out[0]).toContain('# Expert brief — db-expert');
@@ -163,7 +155,7 @@ describe('spec pipeline experts CLI', () => {
     expect(experts.map((row) => row.outcome)).toEqual(['skipped']);
   });
 
-  it('seats the four standing experts alongside the detector pick (issue #558, AC-3)', async () => {
+  it('seats the four standing experts alongside the detector pick', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     enableExpertsWithStanding(root);
@@ -190,7 +182,7 @@ describe('spec pipeline experts CLI', () => {
     expect(roster[1]!.reason).toBe('standing expert (always at the table)');
   });
 
-  it('de-duplicates a detector-named standing role to one detector entry (issue #558, AC-4)', async () => {
+  it('de-duplicates a detector-named standing role to one detector entry', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     enableExpertsWithStanding(root);
@@ -200,7 +192,6 @@ describe('spec pipeline experts CLI', () => {
     });
     const { out } = await run(root, ['experts', 'record', file]);
     const result = JSON.parse(out[0]!);
-    // qa-engineer is standing, but the detector named it: it appears once, as detector.
     const roster = readExperts(root, dir)!.roster;
     const qa = roster.filter((entry) => entry.role === 'qa-engineer');
     expect(qa).toHaveLength(1);
@@ -231,13 +222,11 @@ describe('spec pipeline experts CLI', () => {
       'record',
       writeArtifact(root, 'need.json', { experts: [{ role: 'db-expert', reason: 'r' }] }),
     ]);
-    // A changed request no longer rebuilds the recorded brief, so the verb refuses to print it.
     writeRequest(root, dir, 'a different request');
     const moved = await run(root, ['experts', 'brief', 'db-expert']);
     expect(process.exitCode).toBe(1);
     expect(moved.err.join('\n')).toMatch(/no longer matches/);
 
-    // With the label redone there is nothing to rebuild the brief from.
     process.exitCode = 0;
     await run(root, ['redo', 'label']);
     const noLabel = await run(root, ['experts', 'brief', 'db-expert']);
@@ -283,11 +272,10 @@ describe('spec pipeline experts CLI', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  it('records a voice warning for an undocumented target and applies a chief rename (issue #558)', async () => {
+  it('records a voice warning for an undocumented target and applies a chief rename', async () => {
     const root = tempRoot();
     const dir = activeFeature(root);
     enableExperts(root);
-    // Grounding vocabulary: the project names a Customer (role) and a customers table (technical).
     mkdirSync(join(root, 'docs/modules/billing'), { recursive: true });
     writeFileSync(
       join(root, 'docs/modules/billing/business.md'),
@@ -395,7 +383,6 @@ describe('spec pipeline experts CLI', () => {
     const stored = readExpertNotes(root, dir)!;
     expect(stored.notes[0]!.findings[0]!.id).toBe('EX-db-expert-1');
     expect(stored.notes[0]!.findings[0]!.kind).toBe('requirement');
-    // Each finding is stored once, in experts.json findings; the tokens land on the roster.
     const experts = readExperts(root, dir)!;
     expect(experts.findings!.map((finding) => finding.id)).toEqual(['EX-db-expert-1']);
     expect(experts.roster[0]!.tokens_used).toBe(700);
@@ -435,7 +422,6 @@ describe('spec pipeline experts CLI', () => {
     activeFeature(root);
     enableExperts(root);
     await groundAndLabel(root);
-    // Experts run BEFORE questions now (FR-2.1): record need, notes, then the chief synthesis.
     const need = writeArtifact(root, 'need.json', {
       experts: [{ role: 'db-expert', reason: 'adds an index to invoices' }],
     });
@@ -457,7 +443,6 @@ describe('spec pipeline experts CLI', () => {
       tokens: 200,
     });
     await run(root, ['experts', 'synthesis', synthesis]);
-    // questions -> task -> craft -> finish.
     const q = writeArtifact(root, 'questions.json', { questions: [] });
     await run(root, ['record', 'questions', q]);
     const task = writeArtifact(root, 'task.json', { intent: 'index invoices' });

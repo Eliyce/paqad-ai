@@ -1,8 +1,3 @@
-// Issue #397, FR-15 — the per-feature report says what it verified, and what it did not.
-//
-// The report is the surface a reviewer reads, so an unverified framework claim must LOOK
-// unverified there. Silence would let the reader assume the check ran.
-
 import { describe, expect, it } from 'vitest';
 
 import type { FeatureBundleExport } from '@/feature-evidence/export.js';
@@ -13,7 +8,6 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 const DIR = '397-framework-api-index-01KXD47JQ2AKEF8C3KCMA977NB';
 const AT = '2026-07-25T10:00:00.000Z';
 
-/** Render a report whose plan carries the given reuse claims. */
 function renderWith(reusing: Record<string, unknown>[]): string {
   const rows = [{ kind: 'open', ts: AT, adapter: 'claude-code' }] as SessionLedgerRow[];
   const bundle: FeatureBundleExport = {
@@ -69,7 +63,6 @@ describe('framework reuse in the feature report', () => {
   it('marks a claim with no computed provenance as unverified rather than staying silent', () => {
     const html = renderWith([{ symbol: 'useId', how: 'call as-is', package: 'react' }]);
     expect(html).toContain('not verified against an installed version');
-    // No version resolved, so the tag falls back to the bare package name.
     expect(html).toContain('>react<');
   });
 

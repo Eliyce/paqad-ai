@@ -1,12 +1,5 @@
 import type { DesignTokensDocument } from '@/core/types/design-tokens.js';
 
-// A neutral, schema-valid *scaffold* — not a brand. `seed()` writes this so a
-// project has a tokens file to fill in, but the values are deliberately generic
-// placeholders, not invented brand colours/fonts. The documentation workflow
-// refuses to generate design-system docs from this scaffold (see
-// `DesignTokensPlaceholderError`) so it never ships docs describing a design
-// system that does not exist. Replace these values, delete the `$comment`
-// placeholder marker, then re-run the documentation workflow.
 export const PLACEHOLDER_DESIGN_TOKENS: DesignTokensDocument = {
   color: {
     primary: {

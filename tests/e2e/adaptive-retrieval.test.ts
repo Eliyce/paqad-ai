@@ -140,7 +140,6 @@ describe('Adaptive Retrieval Depth — end-to-end', () => {
       },
     );
 
-    // No classification → defaults to standard
     expect(result.stats.retrieval_depth).toBe('standard');
   });
 });

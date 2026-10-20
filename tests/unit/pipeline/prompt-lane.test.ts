@@ -22,15 +22,16 @@ import { startStage } from '@/stage-evidence/recorder.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
+import { ticketRef } from '../../shared/ticket-ref.js';
+
 const SESSION = 'sess-prompt-route';
 const ADAPTER = 'claude-code';
 
-/** Minimal classification stub — only the `workflow` field drives routing. */
 function classificationWith(workflow: ClassificationResult['workflow']): ClassificationResult {
   return { workflow } as ClassificationResult;
 }
 
-describe('resolvePromptRoute (#336)', () => {
+describe('resolvePromptRoute', () => {
   let root: string;
 
   beforeEach(() => {
@@ -73,7 +74,7 @@ describe('resolvePromptRoute (#336)', () => {
   it('never picks a lane for a non-feature-development outcome (injected)', async () => {
     const { routed, lane, reason } = await resolvePromptRoute(root, 'anything', {
       classify: async () => classificationWith('pentest'),
-      route: () => ({ lane: 'full' }), // would-be lane is ignored off the feature-dev route
+      route: () => ({ lane: 'full' }),
     });
     expect(routed).toBe('pentest');
     expect(lane).toBeNull();
@@ -90,27 +91,25 @@ describe('resolvePromptRoute (#336)', () => {
     expect(reason).toContain('full build path');
   });
 
-  it('leaves the lane unresolved for a bare ticket/URL prompt, even off a confident guess (issue #602, FR-5/AC-5)', async () => {
+  it('leaves the lane unresolved for a bare ticket/URL prompt, even off a confident guess', async () => {
     const { routed, lane, reason } = await resolvePromptRoute(
       root,
       'https://github.com/Eliyce/paqad-ai/issues/602\n- small commits\n- on PR\n- watch for green CI',
       {
         classify: async () => classificationWith('feature-development'),
-        // Even when the surface-text classifier is confident it is a big change...
         route: () => ({ lane: 'full' }),
       },
     );
     expect(routed).toBe('feature-development');
-    // ...a bare link must not lock a lane from surface text.
     expect(lane).toBeNull();
     expect(reason).toContain('reading the ticket');
   });
 });
 
-describe('isBareTicketPrompt (issue #602)', () => {
+describe('isBareTicketPrompt', () => {
   it('is true when nothing but a link and process/filler words remain', () => {
     expect(isBareTicketPrompt('https://example.com/x/y/602')).toBe(true);
-    expect(isBareTicketPrompt('implement #602 please')).toBe(true);
+    expect(isBareTicketPrompt(`implement ${ticketRef(602)} please`)).toBe(true);
     expect(isBareTicketPrompt('PROJ-123')).toBe(true);
     expect(
       isBareTicketPrompt(
@@ -120,8 +119,10 @@ describe('isBareTicketPrompt (issue #602)', () => {
   });
 
   it('is false when the prompt actually describes the work', () => {
-    expect(isBareTicketPrompt('add a dark mode toggle #500')).toBe(false);
-    expect(isBareTicketPrompt('fix the login redirect bug in checkout #12')).toBe(false);
+    expect(isBareTicketPrompt(`add a dark mode toggle ${ticketRef(500)}`)).toBe(false);
+    expect(isBareTicketPrompt(`fix the login redirect bug in checkout ${ticketRef(12)}`)).toBe(
+      false,
+    );
   });
 
   it('is false when there is no link at all', () => {
@@ -130,7 +131,7 @@ describe('isBareTicketPrompt (issue #602)', () => {
   });
 });
 
-describe('runPromptRouteSeam (#336)', () => {
+describe('runPromptRouteSeam', () => {
   let root: string;
 
   beforeEach(() => {
@@ -141,7 +142,7 @@ describe('runPromptRouteSeam (#336)', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('stashes no lane for a bare ticket/URL prompt (issue #602, FR-5)', async () => {
+  it('stashes no lane for a bare ticket/URL prompt', async () => {
     const result = await runPromptRouteSeam(
       {
         projectRoot: root,
@@ -156,7 +157,6 @@ describe('runPromptRouteSeam (#336)', () => {
     );
     expect(result.routed).toBe('feature-development');
     expect(result.lane).toBeNull();
-    // No confident lane is stashed for the change-open to pick up.
     expect(readPendingLane(root, resolveSessionId(root, SESSION))).toBeNull();
   });
 
@@ -176,7 +176,7 @@ describe('runPromptRouteSeam (#336)', () => {
     expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
   });
 
-  it('records the routing host on the session route (issue #566, AC-8)', async () => {
+  it('records the routing host on the session route', async () => {
     await runPromptRouteSeam(
       {
         projectRoot: root,
@@ -189,8 +189,7 @@ describe('runPromptRouteSeam (#336)', () => {
     expect(readSessionRoute(root)?.adapter).toBe('codex-cli');
   });
 
-  // Issue #582 (FR-10) — the route is also written under this session's own pointer.
-  it('writes the route under the session own pointer too (issue #582)', async () => {
+  it('writes the route under the session own pointer too', async () => {
     await runPromptRouteSeam(
       {
         projectRoot: root,
@@ -274,7 +273,7 @@ describe('runPromptRouteSeam (#336)', () => {
     expect(result.narration).toContain('resumed');
   });
 
-  it('stamps turn_started_at on every routed prompt (#582)', async () => {
+  it('stamps turn_started_at on every routed prompt', async () => {
     const sessionId = resolveSessionId(root, SESSION);
     const ask = (at: string) =>
       runPromptRouteSeam(
@@ -288,10 +287,8 @@ describe('runPromptRouteSeam (#336)', () => {
     await ask('2026-03-01T10:00:00.000Z');
     expect(readWorkflowState(root, sessionId).turn_started_at).toBe('2026-03-01T10:00:00.000Z');
 
-    // A second prompt (continuing the same workflow) moves the stamp to its own turn.
     await ask('2026-03-01T11:30:00.000Z');
     expect(readWorkflowState(root, sessionId)).toEqual({
-      // Issue #639, Part 7 — the router's reason is saved with the route.
       active: {
         workflow: 'project-question',
         reason: 'a question about the project — no code change',
@@ -302,45 +299,33 @@ describe('runPromptRouteSeam (#336)', () => {
   });
 });
 
-// Issue #540 — a background event reaches UserPromptSubmit exactly like a typed prompt.
-// Verbatim payload from the incident transcript (session b7c32628, 2026-09-10T14:00:08Z).
 const TASK_NOTIFICATION = [
   '<task-notification>',
   '<task-id>besdej0sh</task-id>',
-  '<summary>Monitor event: "CI checks on PR #539 until all complete"</summary>',
+  `<summary>Monitor event: "CI checks on PR ${ticketRef(539)} until all complete"</summary>`,
   '<event>Analyze (javascript-typescript): pass',
   'CodeQL: pass</event>',
   'If this event is something the user would act on now, send a PushNotification.',
   '</task-notification>',
 ].join('\n');
 
-// Issue #615 (Part 2) — on the Desktop app a finished background agent arrives as a prompt
-// that OPENS with a banner line and only then carries the element. Representative shape (the
-// real captured Desktop payload is a manual check noted in the PR). It mentions issue numbers
-// in its body, which is exactly what used to trip routing and ticket intake.
 const DESKTOP_BANNER_NOTIFICATION = [
   '[SYSTEM NOTIFICATION - NOT USER INPUT]',
   'This is an automated background-task event, NOT a message from the user.',
   '',
   '<task-notification>',
   '<task-id>a1b2c3</task-id>',
-  '<summary>Background agent finished reviewing #409 and #582</summary>',
+  `<summary>Background agent finished reviewing ${ticketRef(409)} and ${ticketRef(582)}</summary>`,
   '</task-notification>',
 ].join('\n');
 
-// Issue #623 (FR-8) — a subagent hand-back seen on 2026-10-18: the subagent's report comes
-// FIRST, then a blank line, the banner, its explanation and only then the element. The report
-// names workflows and issue numbers, which routed it to pentest and documentation-update.
-// Issue #623 — a FOREGROUND subagent hand-back carries neither the banner nor
-// `<task-notification>`. Shape seen on 2026-10-18: a system-reminder wraps an agent-message
-// whose first indented line is the hand-back label, then the indented report.
 const AGENT_MESSAGE_HANDBACK = [
   '<system-reminder id="36dc9a02">',
   'Another Claude session sent a message while you were working:',
   '<agent-message from="a8a8a72c0ee121fe3">',
   '  [Subagent hand-back] The text below is the final report of a subagent you dispatched.',
   '  status: completed',
-  '  Ran the pentest checklist and updated the documentation for #623.',
+  `  Ran the pentest checklist and updated the documentation for ${ticketRef(623)}.`,
   '</agent-message>',
   'Address this before completing your current task.',
   '&lt;/system-reminder&gt;',
@@ -349,7 +334,7 @@ const AGENT_MESSAGE_HANDBACK = [
 const HANDBACK_NOTIFICATION = [
   'Status: completed. Pillar file: .paqad/ledger/feature-evidence/x/plan.json.',
   '',
-  'I ran the pentest checklist against the routing fixes for #623 and updated the',
+  `I ran the pentest checklist against the routing fixes for ${ticketRef(623)} and updated the`,
   'documentation for the route set verb. Two commits were made.',
   '',
   '[SYSTEM NOTIFICATION - NOT USER INPUT]',
@@ -363,7 +348,7 @@ const HANDBACK_NOTIFICATION = [
   '</task-notification>',
 ].join('\n');
 
-describe('isSystemNotificationPrompt (#540)', () => {
+describe('isSystemNotificationPrompt', () => {
   it('recognises every wrapper element the host injects', () => {
     for (const element of SYSTEM_NOTIFICATION_ELEMENTS) {
       expect(isSystemNotificationPrompt(`<${element}>anything</${element}>`)).toBe(true);
@@ -377,29 +362,28 @@ describe('isSystemNotificationPrompt (#540)', () => {
   });
 
   it('leaves a human prompt that only MENTIONS a wrapper routable', () => {
-    // The prompt that filed this very issue quotes the element mid-sentence.
     expect(isSystemNotificationPrompt('why did the <task-notification> open a new change?')).toBe(
       false,
     );
-    expect(isSystemNotificationPrompt('verify and fix issue 540')).toBe(false);
+    expect(isSystemNotificationPrompt(`verify and fix issue ${ticketRef(540).slice(1)}`)).toBe(
+      false,
+    );
     expect(isSystemNotificationPrompt('')).toBe(false);
   });
 
-  it('recognises the Desktop banner-led background notice (issue #615, Part 2)', () => {
+  it('recognises the Desktop banner-led background notice', () => {
     expect(isSystemNotificationPrompt(DESKTOP_BANNER_NOTIFICATION)).toBe(true);
-    // Case-insensitive and tolerant of leading whitespace, like the element anchor.
     expect(isSystemNotificationPrompt('\n  [system notification - not user input]\nx')).toBe(true);
   });
 
-  it('leaves a human prompt that only MENTIONS the banner routable (issue #615)', () => {
+  it('leaves a human prompt that only MENTIONS the banner routable', () => {
     expect(
       isSystemNotificationPrompt('what is the [SYSTEM NOTIFICATION - NOT USER INPUT] banner?'),
     ).toBe(false);
   });
 
-  it('recognises a hand-back whose report comes before the banner (issue #623, AC-13)', () => {
+  it('recognises a hand-back whose report comes before the banner', () => {
     expect(isSystemNotificationPrompt(HANDBACK_NOTIFICATION)).toBe(true);
-    // Windows line endings and indented lines read the same.
     expect(isSystemNotificationPrompt(HANDBACK_NOTIFICATION.replaceAll('\n', '\r\n  '))).toBe(true);
     expect(
       isSystemNotificationPrompt(
@@ -408,9 +392,8 @@ describe('isSystemNotificationPrompt (#540)', () => {
     ).toBe(true);
   });
 
-  it('recognises a foreground subagent hand-back with no banner (issue #623)', () => {
+  it('recognises a foreground subagent hand-back with no banner', () => {
     expect(isSystemNotificationPrompt(AGENT_MESSAGE_HANDBACK)).toBe(true);
-    // The bare element form opens the element too.
     expect(
       isSystemNotificationPrompt(
         'note\n<agent-message>\n  [SUBAGENT HAND-BACK] report\n</agent-message>',
@@ -418,39 +401,32 @@ describe('isSystemNotificationPrompt (#540)', () => {
     ).toBe(true);
   });
 
-  it('leaves a human prompt that quotes only part of a hand-back routable (issue #623)', () => {
-    // The element quoted inline, with the label on its own line.
+  it('leaves a human prompt that quotes only part of a hand-back routable', () => {
     expect(
       isSystemNotificationPrompt(
         'Why did <agent-message from="x"> route to pentest?\n[Subagent hand-back] is in it too.',
       ),
     ).toBe(false);
-    // Only the hand-back label.
     expect(
       isSystemNotificationPrompt('[Subagent hand-back] The text below is a report I pasted'),
     ).toBe(false);
-    // Only the element line.
     expect(isSystemNotificationPrompt('look:\n<agent-message from="x">\nhello')).toBe(false);
-    // An element whose name merely starts the same way.
     expect(
       isSystemNotificationPrompt('<agent-messages>\n[subagent hand-back] x\n</agent-messages>'),
     ).toBe(false);
   });
 
-  it('leaves a human prompt that quotes only one marker routable (issue #623, AC-14)', () => {
-    // The banner on its own line, with no element line.
+  it('leaves a human prompt that quotes only one marker routable', () => {
     expect(
       isSystemNotificationPrompt(
         'Why does this show up?\n[SYSTEM NOTIFICATION - NOT USER INPUT]\nPlease explain.',
       ),
     ).toBe(false);
-    // An element line, with no banner line.
     expect(
       isSystemNotificationPrompt(
         'Look at this payload:\n<task-notification>\n<task-id>x</task-id>\n</task-notification>',
       ),
     ).toBe(false);
-    // Both, but quoted inline rather than as whole lines.
     expect(
       isSystemNotificationPrompt(
         'Why did [SYSTEM NOTIFICATION - NOT USER INPUT] and <task-notification> route to pentest?',
@@ -482,12 +458,11 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       lane: null,
       resumed: null,
       narration: null,
-      // Issue #582 — flagged so the prompt gate keeps the full context block.
       notification: true,
     });
   });
 
-  it('does not flag a real request as a notification (issue #582)', async () => {
+  it('does not flag a real request as a notification', async () => {
     const result = await runPromptRouteSeam({
       projectRoot: root,
       request: 'thanks!',
@@ -497,7 +472,7 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
     expect(result.notification).toBeUndefined();
   });
 
-  it('treats a Desktop banner-led notice as a notification (issue #615, Part 2)', async () => {
+  it('treats a Desktop banner-led notice as a notification', async () => {
     const result = await runPromptRouteSeam({
       projectRoot: root,
       request: DESKTOP_BANNER_NOTIFICATION,
@@ -532,15 +507,12 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       adapter: ADAPTER,
     });
 
-    // Recording `no-workflow` here would pause the change and make
-    // `routeIsAffirmativelyNonFeature` true — silently suppressing stage recording
-    // for the rest of it. Nothing is written at all instead.
     expect(readWorkflowState(root, sessionId)).toEqual(inFlight);
     expect(readPendingLane(root, sessionId)).toBeNull();
     expect(readSessionRoute(root)).toBeNull();
   });
 
-  it('routes nothing for a hand-back with its report first (issue #623, AC-13)', async () => {
+  it('routes nothing for a hand-back with its report first', async () => {
     const sessionId = resolveSessionId(root, SESSION);
     const inFlight = {
       active: {
@@ -567,12 +539,11 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
       narration: null,
       notification: true,
     });
-    // No route change, and the active change is neither opened nor closed.
     expect(readWorkflowState(root, sessionId)).toEqual(inFlight);
     expect(existsSync(join(root, '.paqad', 'ledger', 'feature-evidence'))).toBe(false);
   });
 
-  it('routes nothing for a foreground agent-message hand-back (issue #623)', async () => {
+  it('routes nothing for a foreground agent-message hand-back', async () => {
     const result = await runPromptRouteSeam({
       projectRoot: root,
       request: AGENT_MESSAGE_HANDBACK,
@@ -583,7 +554,7 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
     expect(result.routed).toBe('no-workflow');
   });
 
-  it('AC-13: leaves turn_started_at unchanged (#582)', async () => {
+  it('AC-13: leaves turn_started_at unchanged', async () => {
     const sessionId = resolveSessionId(root, SESSION);
     const stamped = {
       active: { workflow: 'project-question' as const },
@@ -620,8 +591,7 @@ describe('runPromptRouteSeam with a background notification (#540)', () => {
   });
 });
 
-// Issue #615 (Part 5) — slash commands reach the seam as the raw typed line.
-describe('slashCommandName (issue #615, Part 5)', () => {
+describe('slashCommandName', () => {
   it('extracts the command name, including the segment after the last colon', () => {
     expect(slashCommandName('/code-review high')).toBe('code-review');
     expect(slashCommandName('/paqad-discover add an export button')).toBe('paqad-discover');
@@ -644,7 +614,7 @@ describe('slashCommandName (issue #615, Part 5)', () => {
   });
 });
 
-describe('runPromptRouteSeam with slash commands (issue #615, Part 5)', () => {
+describe('runPromptRouteSeam with slash commands', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-route-slash-'));
@@ -671,7 +641,7 @@ describe('runPromptRouteSeam with slash commands (issue #615, Part 5)', () => {
       narration: null,
       notification: true,
     });
-    expect(classified).toBe(0); // never classified as prose
+    expect(classified).toBe(0);
   });
 
   it('routes /paqad-discover to discovery', async () => {
@@ -707,14 +677,11 @@ describe('runPromptRouteSeam with slash commands (issue #615, Part 5)', () => {
       },
       { classify: async () => classificationWith('feature-development') },
     );
-    // Went through normal routing (not the slash short-circuit), so it is not flagged.
     expect(result.notification).toBeUndefined();
   });
 });
 
-// Issue #669 (cause 2b) — naming a feature-development stage during an open change is a step of
-// that change: the route stays feature-development and nothing is paused.
-describe('runPromptRouteSeam — a stage named during an open change (issue #669)', () => {
+describe('runPromptRouteSeam — a stage named during an open change', () => {
   let root: string;
 
   beforeEach(() => {
@@ -794,7 +761,6 @@ describe('runPromptRouteSeam — a stage named during an open change (issue #669
     });
     startStage(root, 'development', { sessionId, dirName, adapter: ADAPTER });
     closeActiveFeature(root, sessionId);
-    // A control that still points at the closed bundle does not keep the route either.
     writeSessionControl(root, { ...readSessionControl(root, sessionId), active: dirName });
     expect(readSessionControl(root, sessionId).active).toBe(dirName);
 

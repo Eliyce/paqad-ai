@@ -18,7 +18,6 @@ import { backgroundIndexSync } from '@/rag/background-sync.js';
 import { clearEngineLogger, setEngineLogger } from '@/core/logger-registry.js';
 import type { EngineLogEntry } from '@/core/types/logger.js';
 
-/** Installs a recording engine logger and returns the entries it receives. */
 function captureEngineLogs(): EngineLogEntry[] {
   const entries: EngineLogEntry[] = [];
   setEngineLogger({ log: (entry) => void entries.push(entry) });
@@ -110,7 +109,6 @@ function fakeProviderFactory(): ProviderFactory {
   return async () => provider;
 }
 
-/** A provider that counts how many texts it is asked to embed (RAG F8). */
 function countingProviderFactory(model = 'fake-local'): {
   factory: ProviderFactory;
   calls: { embeddedTexts: number };
@@ -131,10 +129,6 @@ function countingProviderFactory(model = 'fake-local'): {
   return { factory: async () => provider, calls };
 }
 
-// Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
-// not the profile YAML. `configureAndBuild`/`writeProjectProfile` no longer
-// persist them there, so seed `.config` directly whenever a later
-// `readProjectProfile`/`getStatus` needs to observe the enabled RAG state.
 function persistIntelligence(root: string, intelligence: Partial<IntelligenceConfig>): void {
   syncFrameworkConfig(root, { intelligence: baseProfile(intelligence).intelligence });
 }
@@ -180,7 +174,6 @@ describe('RagService', () => {
     });
     const afterBuild = calls.embeddedTexts;
 
-    // Touch only auth.ts; a background sync should re-embed just its chunk(s).
     writeFileSync(
       join(projectRoot, 'src/auth.ts'),
       [
@@ -195,8 +188,8 @@ describe('RagService', () => {
     const result = await backgroundIndexSync(projectRoot, factory);
     expect(result).toEqual({ synced: true });
     const delta = calls.embeddedTexts - afterBuild;
-    expect(delta).toBeGreaterThan(0); // the changed file was re-embedded
-    expect(delta).toBeLessThanOrEqual(2); // but only it, not the whole tree
+    expect(delta).toBeGreaterThan(0);
+    expect(delta).toBeLessThanOrEqual(2);
   });
 
   it('F9: backgroundIndexSync reports no-index when nothing is built yet', async () => {
@@ -284,7 +277,6 @@ describe('RagService', () => {
     });
     expect((await service.getStatus()).valid).toBe(true);
 
-    // Simulate an index built by an older/different chunker (e.g. pre-F22 = no version).
     const metaPath = join(projectRoot, '.paqad', 'vectors', 'meta.json');
     const meta = JSON.parse(readFileSync(metaPath, 'utf8'));
     delete meta.chunker_version;
@@ -293,7 +285,6 @@ describe('RagService', () => {
     const status = await service.getStatus();
     expect(status.valid).toBe(false);
     expect(status.reason).toContain('chunker');
-    // A mismatched index is never incrementally synced — the guard against mixing.
     expect(await backgroundIndexSync(projectRoot, fakeProviderFactory())).toEqual({
       synced: false,
       reason: 'no-index',
@@ -325,7 +316,6 @@ describe('RagService', () => {
     const metaPath = join(projectRoot, '.paqad', 'vectors', 'meta.json');
     expect(JSON.parse(readFileSync(metaPath, 'utf8')).branch).toBe('main');
 
-    // Switch to a feature branch and change a file, then background-sync.
     g('checkout', '-q', '-b', 'feat/z');
     writeFileSync(
       join(projectRoot, 'src/auth.ts'),
@@ -348,9 +338,6 @@ describe('RagService', () => {
     expect(firstBuildEmbeds).toBeGreaterThan(0);
     expect(existsSync(join(projectRoot, '.paqad', 'vectors', 'embedding-cache.json'))).toBe(true);
 
-    // A full rebuild over the same (unchanged) sources hits the cache for every
-    // chunk — the provider is never called again. A previously-seen branch is the
-    // same case: its chunk text is already cached.
     await service.rebuild();
     expect(calls.embeddedTexts).toBe(firstBuildEmbeds);
   });
@@ -372,7 +359,6 @@ describe('RagService', () => {
       embedding_provider: 'local',
       embedding_model: 'model-b',
     });
-    // Different model → cache keys are a different namespace → full re-embed.
     expect(second.calls.embeddedTexts).toBeGreaterThan(0);
   });
 
@@ -409,8 +395,6 @@ describe('RagService', () => {
     expect(sync.added_files.some((file) => file.endsWith('billing.ts'))).toBe(true);
 
     await service.clear();
-    // `clear()` disables RAG on the (now framework-stripped) profile; mirror that
-    // into `.config`, the source of truth getStatus() reads.
     setConfigValue(projectRoot, 'RAG_ENABLED', 'false');
     expect((await service.getStatus()).enabled).toBe(false);
     expect((await service.getStatus()).index_present).toBe(false);
@@ -503,8 +487,6 @@ describe('RagService', () => {
   });
 
   it('falls back when vector matches clear neither the similarity nor the relief floor', async () => {
-    // #354 — floor-with-relief means "dark" requires the match to be below BOTH floors,
-    // so push the relief floor above the (impossible) similarity threshold too.
     writeProjectProfile(
       projectRoot,
       baseProfile({
@@ -543,9 +525,6 @@ describe('RagService', () => {
     expect(retrieval.fallback_reason).toBe('below-similarity-threshold');
   });
 
-  // Issue #354 — floor-with-relief. Bracket the (deterministic) auth match score S
-  // (>=0.75 per the test above) with the two thresholds to exercise each branch without
-  // needing a mid-range cosine: relief_floor <= S < similarity_threshold → relief.
   async function buildEnabled(overrides: Partial<IntelligenceConfig>) {
     const intelligence = {
       rag_enabled: true,
@@ -561,9 +540,7 @@ describe('RagService', () => {
     return { service, sync };
   }
 
-  it('#354: delivers a low-confidence relief slice when nothing clears the floor', async () => {
-    // similarity_threshold above S, relief_floor below S → the auth match falls into the
-    // relief band and is delivered tagged low-confidence rather than dropped.
+  it('delivers a low-confidence relief slice when nothing clears the floor', async () => {
     const { service, sync } = await buildEnabled({
       rag_similarity_threshold: 1.5,
       rag_relief_floor: 0.5,
@@ -579,9 +556,7 @@ describe('RagService', () => {
     expect(retrieval.best_score).toBeGreaterThanOrEqual(0.75);
   });
 
-  it('#354: stays dark but carries best_score when even the relief band is not met', async () => {
-    // Both thresholds above S → nothing delivered, but best_score flows out for the
-    // honest "none above the floor (best NN%)" artifact line.
+  it('stays dark but carries best_score when even the relief band is not met', async () => {
     const { service, sync } = await buildEnabled({
       rag_similarity_threshold: 1.5,
       rag_relief_floor: 1.4,
@@ -596,7 +571,7 @@ describe('RagService', () => {
     expect(retrieval.best_score).toBeGreaterThanOrEqual(0.75);
   });
 
-  it('#354: a high-confidence hit is not flagged low-confidence and carries best_score', async () => {
+  it('a high-confidence hit is not flagged low-confidence and carries best_score', async () => {
     const { service, sync } = await buildEnabled({ rag_similarity_threshold: 0.75 });
     const retrieval = await service.retrieve(sync, {
       taskDescription: 'debug auth policy',
@@ -608,7 +583,7 @@ describe('RagService', () => {
     expect(retrieval.best_score).toBeGreaterThanOrEqual(0.75);
   });
 
-  it('#354: probe returns pre-floor scored candidates for a query', async () => {
+  it('probe returns pre-floor scored candidates for a query', async () => {
     const { service } = await buildEnabled({ rag_similarity_threshold: 0.75 });
     const candidates = await service.probe({ taskDescription: 'auth', keywords: ['auth'] }, 5);
     expect(candidates.length).toBeGreaterThan(0);
@@ -616,8 +591,7 @@ describe('RagService', () => {
     expect(candidates[0].source_file).toContain('auth.ts');
   });
 
-  it('#354: probe returns nothing when RAG is disabled', async () => {
-    // Default profile has rag_enabled=false; probe short-circuits with no index work.
+  it('probe returns nothing when RAG is disabled', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     expect(await service.probe({ taskDescription: 'auth', keywords: ['auth'] })).toEqual([]);
   });
@@ -668,16 +642,12 @@ describe('RagService', () => {
 
   it('reports stale_metadata when RAG is disabled but the stored index was built with a different provider', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
-    // Build index with local provider
     await service.configureAndBuild({
       rag_enabled: true,
       embedding_provider: 'local',
       embedding_model: 'fake-local',
     });
 
-    // Now switch profile to a different provider and disable RAG. RAG state lives
-    // in `.paqad/.config`, so the switch is persisted there (the build above wrote
-    // local/enabled; this authoritatively resets to openai/disabled).
     writeProjectProfile(
       projectRoot,
       baseProfile({
@@ -694,7 +664,6 @@ describe('RagService', () => {
 
     const status = await service.getStatus();
     expect(status.enabled).toBe(false);
-    // Index was built with 'local/fake-local' but current config is 'openai/text-embedding-3-small'
     expect(status.stale_metadata).toBe(true);
     expect(status.reason).toContain('provider/model');
   });
@@ -970,7 +939,6 @@ describe('RagService', () => {
       5,
     );
 
-    // Should return results (the override topN is just 5, not 0, so retrieval runs)
     expect(retrieval.chunks_retrieved).toBeGreaterThanOrEqual(0);
   });
 
@@ -1265,9 +1233,7 @@ describe('RagService', () => {
       ) => Promise<unknown[]>;
     };
     const embedTextOf = (chunk: { content: string }) => chunk.content;
-    // First call warms (and flushes) the content-addressed cache.
     await cast.embedChunks(provider, chunks, { embedTextOf });
-    // Second call finds everything cached → the single all-cached tick.
     const progress = vi.fn();
     await cast.embedChunks(provider, chunks, { onProgress: progress, embedTextOf });
     expect(progress).toHaveBeenCalledTimes(1);
@@ -1286,7 +1252,6 @@ describe('RagService', () => {
       },
       async embed(input: string | string[]) {
         calls++;
-        // Abort after the first batch so the next loop iteration trips the guard.
         if (calls === 1) {
           controller.abort();
         }
@@ -1342,7 +1307,6 @@ describe('RagService', () => {
         config: { enabled: boolean; backend: string; candidate_pool_size: number },
       ) => Promise<typeof hits>;
     };
-    // A passthrough reranker needs no model — exercises the enabled try/return path.
     const reranked = await cast.applyReranking('q', hits, {
       enabled: true,
       backend: 'passthrough',
@@ -1369,7 +1333,6 @@ describe('RagService', () => {
         },
       ) => Promise<typeof hits>;
     };
-    // Cohere backend with no usable key throws inside rerank → audited fallback to input order.
     const reranked = await cast.applyReranking('q', hits, {
       enabled: true,
       backend: 'cohere',

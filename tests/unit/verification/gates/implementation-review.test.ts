@@ -58,10 +58,7 @@ describe('ImplementationReviewGate', () => {
   });
 });
 
-// Issue #360 — the review must confirm or contest what the machine already proved. The
-// gate re-derives the deterministic high-severity rows itself (D-01KY1TV1GFZ3CABQYWQR753XKT)
-// rather than parsing the written digest, so skipping `review digest` cannot disarm it.
-describe('ImplementationReviewGate · unaddressed machine findings (#360)', () => {
+describe('ImplementationReviewGate · unaddressed machine findings', () => {
   const SES = 'ses_gate_digest';
 
   afterEach(() => {

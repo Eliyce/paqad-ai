@@ -1,11 +1,5 @@
-// Schema-v1-valid fixtures for the site-map store + schema tests. Modeled on the
-// hand-authored docs/specs/site-map-samples/ (which stay illustrative at schema_version
-// `0-draft` and are never edited — INV-6); these are the strict, versioned equivalents
-// that exercise the full app-map + journey vocabulary, including the prompt-flow nodes.
-
 import { SITE_MAP_SCHEMA_VERSION, type AppMap, type Journey } from '@/core/types/site-map.js';
 
-/** A comprehensive, schema-valid app-map covering the classic + prompt-flow families. */
 export function validAppMap(): AppMap {
   return {
     schema_version: SITE_MAP_SCHEMA_VERSION,
@@ -98,7 +92,6 @@ export function validAppMap(): AppMap {
         visibility: 'backstage',
         note: 'invisible to shoppers',
       },
-      // A prompt-flow router surface with a mandatory fallback edge + guard modes.
       {
         id: 'agent.router',
         kind: 'router',
@@ -154,7 +147,6 @@ export function validAppMap(): AppMap {
   };
 }
 
-/** A minimal schema-valid app-map (only the required fields). */
 export function minimalAppMap(): AppMap {
   return {
     schema_version: SITE_MAP_SCHEMA_VERSION,
@@ -163,7 +155,6 @@ export function minimalAppMap(): AppMap {
   };
 }
 
-/** A comprehensive, schema-valid journey (with a flag-variant step + freeform ends/tests). */
 export function validJourney(): Journey {
   return {
     schema_version: SITE_MAP_SCHEMA_VERSION,
@@ -200,7 +191,6 @@ export function validJourney(): Journey {
   };
 }
 
-/** A minimal schema-valid journey (only the required fields). */
 export function minimalJourney(): Journey {
   return {
     schema_version: SITE_MAP_SCHEMA_VERSION,

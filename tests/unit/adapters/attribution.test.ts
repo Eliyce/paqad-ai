@@ -33,10 +33,9 @@ async function fileAt(adapter: AdapterInterface, projectRoot: string, path: stri
 
 const KEEP = { '.paqad/configs/.config.policy': 'ai_attribution=keep' };
 
-describe('ClaudeCodeAdapter attribution (issue #538)', () => {
+describe('ClaudeCodeAdapter attribution', () => {
   const adapter = new ClaudeCodeAdapter();
 
-  // AC-3
   it('writes the attribution object that silences the commit trailer, the PR line and the session URL', async () => {
     const settings = await fileAt(adapter, makeProject(), '.claude/settings.json');
     expect(JSON.parse(settings?.content ?? '{}').attribution).toEqual({
@@ -46,13 +45,11 @@ describe('ClaudeCodeAdapter attribution (issue #538)', () => {
     });
   });
 
-  // INV-5 — the deprecated key must never be written.
   it('never writes the deprecated includeCoAuthoredBy key', async () => {
     const settings = await fileAt(adapter, makeProject(), '.claude/settings.json');
     expect(settings?.content).not.toContain('includeCoAuthoredBy');
   });
 
-  // AC-4 / INV-4
   it('preserves an attribution value the team set by hand', async () => {
     const root = makeProject({
       '.claude/settings.json': JSON.stringify({ attribution: { commit: 'Built at Acme' } }),
@@ -60,7 +57,6 @@ describe('ClaudeCodeAdapter attribution (issue #538)', () => {
     const settings = await fileAt(adapter, root, '.claude/settings.json');
     const attribution = JSON.parse(settings?.content ?? '{}').attribution;
     expect(attribution.commit).toBe('Built at Acme');
-    // The keys the team did NOT set still get the safe default.
     expect(attribution.pr).toBe('');
     expect(attribution.sessionUrl).toBe(false);
   });
@@ -73,7 +69,6 @@ describe('ClaudeCodeAdapter attribution (issue #538)', () => {
     expect(JSON.parse(settings?.content ?? '{}').attribution.somethingNew).toBe('x');
   });
 
-  // AC-6
   it('writes no attribution key when the policy says keep', async () => {
     const settings = await fileAt(adapter, makeProject(KEEP), '.claude/settings.json');
     expect(JSON.parse(settings?.content ?? '{}').attribution).toBeUndefined();
@@ -85,10 +80,9 @@ describe('ClaudeCodeAdapter attribution (issue #538)', () => {
   });
 });
 
-describe('AiderAdapter attribution (issue #538)', () => {
+describe('AiderAdapter attribution', () => {
   const adapter = new AiderAdapter();
 
-  // AC-5 — all three, because aider rewrites the author and committer, not just the trailer.
   it('turns off the author, committer and co-authored-by attribution', async () => {
     const config = await fileAt(adapter, makeProject(), '.aider.conf.yml');
     expect(YAML.parse(config?.content ?? '')).toEqual({
@@ -98,7 +92,6 @@ describe('AiderAdapter attribution (issue #538)', () => {
     });
   });
 
-  // AC-5 / INV-4
   it('preserves unrelated keys and a hand-set attribution value in an existing config', async () => {
     const root = makeProject({
       '.aider.conf.yml': YAML.stringify({ model: 'gpt-4o', 'attribute-author': true }),
@@ -112,7 +105,6 @@ describe('AiderAdapter attribution (issue #538)', () => {
     });
   });
 
-  // INV-4 — a config people hand-edit is a config they annotate; re-onboard must not eat it.
   it("preserves the team's own comments and key order", async () => {
     const root = makeProject({
       '.aider.conf.yml': ['# our house model, do not change', 'model: gpt-4o', ''].join('\n'),
@@ -140,15 +132,12 @@ describe('AiderAdapter attribution (issue #538)', () => {
     });
   });
 
-  // AC-6
   it('writes no config file at all when the policy says keep', async () => {
     const files = await generate(adapter, makeProject(KEEP));
     expect(files.map((file) => file.path)).not.toContain('.aider.conf.yml');
   });
 });
 
-// AC-6 / INV-1 — Codex and Cursor only expose user-level config, so paqad writes nothing for
-// them. The delivery backstop is what covers those two.
 describe('adapters with no project-level attribution knob', () => {
   it.each([
     ['Codex', new CodexCliAdapter()],

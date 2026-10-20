@@ -15,32 +15,6 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { ensureBuiltDist } from './helpers/ensure-built';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Stage-enforcement contract (issue #621 guardrail). This regression fence drives
-// the REAL runtime hook scripts over a temporary onboarded repo and asserts their
-// block/allow decisions, on BOTH the npm route (no CLAUDE_PLUGIN_ROOT) and the
-// plugin route (CLAUDE_PLUGIN_ROOT set). Both routes invoke the identical
-// runtime/hooks/*.mjs scripts — the plugin migration only switches which copy of
-// the hooks Claude Code loads, so this test proves the enforcement is byte-for-byte
-// the same under both env shapes. It lands BEFORE the migration code and every later
-// change must keep it passing unchanged.
-//
-// The block contract for every gate is: BLOCK = process exit code 2 (+ a message on
-// stderr); ALLOW = exit 0. No gate emits a {decision:'block'} JSON — exit-2 is the
-// whole contract.
-//
-// Case coverage vs the issue's 10-case list:
-//   1 load-check ✓  2 planning gate ✓  3 spec-by-lane ✓  5 pending decision ✓
-//   6 bundle-dir write ✓  7 gate-throws fail-closed ✓  8 Stop verdict ✓
-//   9 SubagentStop row ✓  10 disabled / un-onboarded no-op ✓
-//   4 rules-loaded block — the rules-loaded sub-gate only arms with compiled,
-//     script-enforced rules, which a bare temp repo cannot deterministically
-//     produce (`rules load` reports `no-compiled-rules`); forcing it would make CI
-//     flaky. It has dedicated coverage in the rules-loaded enforcement suite
-//     (issue #557) and dist/kernel/gate tests. Case 3's "gate opens once the
-//     pre-code stages are satisfied" assertion exercises the same pre-mutation path.
-// ─────────────────────────────────────────────────────────────────────────────
-
 const REPO = process.cwd();
 const HOOKS = resolve(REPO, 'runtime/hooks');
 const CLI = resolve(REPO, 'dist/cli/index.js');
@@ -70,7 +44,6 @@ afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
 });
 
-/** Write a fresh (future-dated) per-session load sentinel so the agent-entry gate allows. */
 function freshSentinel(root: string, session: string): void {
   const dir = join(root, '.paqad/.agent-entry-loaded.d');
   mkdirSync(dir, { recursive: true });
@@ -84,8 +57,6 @@ interface Route {
   name: 'npm' | 'plugin';
   env: (root: string) => NodeJS.ProcessEnv;
 }
-// The npm route runs the hooks with no CLAUDE_PLUGIN_ROOT; the plugin route sets it
-// to the repo (the real plugin root in dev). Both drive the identical scripts.
 const ROUTES: Route[] = [
   { name: 'npm', env: (root) => ({ CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: '' }) },
   { name: 'plugin', env: (root) => ({ CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: REPO }) },
@@ -102,14 +73,9 @@ async function runHook(
   routeEnv: NodeJS.ProcessEnv,
   argv: string[] = [],
 ): Promise<HookResult> {
-  // Start from a clean env (not process.env) so the real session's SE_SESSION /
-  // CLAUDE_* never leak into the child, then layer the route env. PATH is kept so
-  // `node` resolves its own modules.
   const env: NodeJS.ProcessEnv = { PATH: process.env.PATH, HOME: process.env.HOME, ...routeEnv };
-  // An empty CLAUDE_PLUGIN_ROOT must read as unset to the hooks.
   if (env.CLAUDE_PLUGIN_ROOT === '') delete env.CLAUDE_PLUGIN_ROOT;
   const result = await execa('node', [script, ...argv], {
-    // A string payload is piped as-is, so a case can send a malformed (non-JSON) body.
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     env,
     reject: false,
@@ -132,7 +98,6 @@ function editPayload(root: string, session: string, file = 'src/x.ts', tool = 'E
   };
 }
 
-/** Open a feature bundle and record planning (via the real CLI) so the stages gate advances. */
 async function recordPlanning(root: string, session: string, issue: string): Promise<string> {
   await execa(
     'node',
@@ -187,7 +152,6 @@ function bundleDir(root: string): string {
   return join(base, dirs[0]!);
 }
 
-// ── Case 1: load-check ───────────────────────────────────────────────────────
 describe('contract: load-check (agent-entry-gate)', () => {
   for (const route of ROUTES) {
     it(`[${route.name}] blocks a source edit before the session load sentinel exists`, async () => {
@@ -206,7 +170,6 @@ describe('contract: load-check (agent-entry-gate)', () => {
   }
 });
 
-// ── Case 2: planning gate (capability-gate pre-mutation) ──────────────────────
 describe('contract: planning gate (capability-gate pre-mutation)', () => {
   for (const route of ROUTES) {
     it(`[${route.name}] blocks a source edit before planning is recorded, naming planning`, async () => {
@@ -221,7 +184,6 @@ describe('contract: planning gate (capability-gate pre-mutation)', () => {
   }
 });
 
-// ── Case 3: spec gate by lane ─────────────────────────────────────────────────
 describe('contract: spec gate by lane (capability-gate pre-mutation)', () => {
   it('after planning, a graduated-lane source edit is blocked naming specification', async () => {
     const root = freshRepo();
@@ -247,7 +209,6 @@ describe('contract: spec gate by lane (capability-gate pre-mutation)', () => {
   });
 });
 
-// ── Case 5: pending decision packet (decision-pause-gate) ─────────────────────
 describe('contract: pending decision packet (decision-pause-gate)', () => {
   for (const route of ROUTES) {
     it(`[${route.name}] blocks the edit while a decision packet is pending, allows once cleared`, async () => {
@@ -265,7 +226,6 @@ describe('contract: pending decision packet (decision-pause-gate)', () => {
   }
 });
 
-// ── Case 6: write inside a feature bundle dir (capability-gate) ───────────────
 describe('contract: feature-bundle write (capability-gate pre-mutation)', () => {
   for (const route of ROUTES) {
     it(`[${route.name}] blocks a hand write inside the feature evidence bundle`, async () => {
@@ -285,15 +245,6 @@ describe('contract: feature-bundle write (capability-gate pre-mutation)', () => 
   }
 });
 
-// ── Case 7: a gate never silently allows on bad input (fails CLOSED) ──────────
-// The forced-resolver-throw path has dedicated coverage in
-// tests/unit/hooks/gate-fail-closed.test.ts (it mocks the resolver to throw and
-// asserts exit 2 for all three edit gates). Here we assert the complementary
-// contract from the real script: a malformed payload is never silently allowed —
-// agent-entry-gate returns a block (exit 2), never 0. It runs against a fresh temp
-// repo like every other case: a malformed payload carries no session id, so the gate
-// falls back to the legacy .paqad/.agent-entry-loaded, and an in-process call would
-// read the developer's own repo and allow whenever a real session left that file.
 describe('contract: gates fail closed (never silently allow on bad input)', () => {
   for (const route of ROUTES) {
     it(`[${route.name}] agent-entry-gate blocks (exit 2) on a malformed payload`, async () => {
@@ -305,12 +256,11 @@ describe('contract: gates fail closed (never silently allow on bad input)', () =
   }
 });
 
-// ── Case 8: Stop with a mandatory stage missing ───────────────────────────────
 describe('contract: Stop verdict with an incomplete change (verification-completion)', () => {
   it('does not report "Safe to merge" when an open bundle is missing mandatory stages', async () => {
     const root = freshRepo();
     freshSentinel(root, 'ses8');
-    await recordPlanning(root, 'ses8', '621'); // planning only — spec/review/etc. missing
+    await recordPlanning(root, 'ses8', '621');
     const payload = {
       session_id: 'ses8',
       cwd: root,
@@ -318,14 +268,11 @@ describe('contract: Stop verdict with an incomplete change (verification-complet
       stop_hook_active: false,
     };
     const r = await runHook(VERIFICATION, payload, ROUTES[0]!.env(root));
-    // Soft-fail is allowed (exit 0 or 2); the contract is only that an incomplete
-    // change is never declared safe.
     expect([0, 2]).toContain(r.exitCode);
     expect(`${r.stdout}${r.stderr}`).not.toContain('Safe to merge');
   });
 });
 
-// ── Case 9: SubagentStop writes one stage-agent row ───────────────────────────
 describe('contract: SubagentStop records a stage-agent row (stage-agent-completion)', () => {
   it('appends exactly one stage-agent row and exits 0', async () => {
     const root = freshRepo();
@@ -354,7 +301,6 @@ describe('contract: SubagentStop records a stage-agent row (stage-agent-completi
   });
 });
 
-// ── Case 10: paqad disabled / un-onboarded → every hook is a no-op ────────────
 describe('contract: disabled and un-onboarded no-op', () => {
   it('every edit gate exits 0 when PAQAD_DISABLED=1', async () => {
     const root = freshRepo();
@@ -370,8 +316,6 @@ describe('contract: disabled and un-onboarded no-op', () => {
   });
 
   it('under the plugin, every edit gate no-ops in a repo that was never onboarded', async () => {
-    // A repo with NO .paqad/framework-path.txt is un-onboarded; with CLAUDE_PLUGIN_ROOT
-    // set, the plugin stands down everywhere it is not onboarded.
     const root = mkdtempSync(join(tmpdir(), 'paqad-contract-bare-'));
     roots.push(root);
     const env = { CLAUDE_PROJECT_DIR: root, CLAUDE_PLUGIN_ROOT: REPO };

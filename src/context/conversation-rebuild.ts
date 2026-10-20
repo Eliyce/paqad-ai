@@ -15,53 +15,24 @@ import { resolveActiveLineage } from './conversation-lineage.js';
 import type { RebuildCache } from './rebuild-cache.js';
 import { TurnSummarizer } from './turn-summarizer.js';
 
-// PQD-171 Step 3 — deterministic per-turn API-conversation rebuild.
-//
-// Reshapes a display conversation into the clean API conversation for the next
-// turn: active branch only, summarised-then-truncated to fit the model window,
-// with retrieved chunks inserted at the budgeted position. Pure apart from the
-// optional audit-event write; the same inputs always yield the same result.
-
-/** Recent turns kept verbatim when summarising older history under pressure. */
 const KEEP_RECENT_TURNS = 2;
 
-/** Inputs to {@link rebuildApiConversation}. */
 export interface RebuildInput {
-  /** Full persisted conversation (stopped/edited/branched messages included). */
   displayMessages: DisplayMessage[];
-  /** Classifier signals that drive retrieval and budgeting. */
   classifierOutput: Pick<ClassificationResult, 'retrieval_needed' | 'context_budget_hint'>;
-  /** Chunks to fold in when `classifierOutput.retrieval_needed` is true. */
   retrievedChunks?: { chunkId: string; content: string }[];
-  /** Token budget for the next turn (the model window from the budget enforcer). */
   budgetTokens: number;
-  /** Token estimator + (legacy) summariser; defaults to a fresh instance. */
   summarizer?: TurnSummarizer;
-  /** Compresses older turns before truncation; absent ⇒ straight to truncation. */
   optimizer?: ContextBudgetOptimizer;
-  /** When provided, a hit skips the classifier and budget passes entirely. */
   cache?: RebuildCache;
-  /** When set, a truncation also writes a durable `context.truncated` event. */
   audit?: { projectRoot: string; sessionId: string };
 }
 
-/**
- * Rebuild the API conversation for the next turn from a display conversation.
- *
- * Excludes stopped and discarded turns, follows only the active branch, and —
- * when the active branch plus retrieval exceeds `budgetTokens` — first compresses
- * older turns via the optimizer, then drops the oldest turns and reports
- * `truncated`. Retrieved chunks are inserted after any leading system context.
- *
- * Throws {@link RebuildFailedError} (no retry) when `budgetTokens` is malformed
- * or the optimizer throws.
- */
 export async function rebuildApiConversation(
   input: RebuildInput,
 ): Promise<ConversationRebuildResult> {
   const { budgetTokens } = input;
 
-  // Malformed budget breakdown ⇒ structured failure, never a retry (AC5).
   if (!Number.isFinite(budgetTokens) || budgetTokens <= 0) {
     throw new RebuildFailedError(`invalid budgetTokens: ${String(budgetTokens)}`);
   }
@@ -83,10 +54,8 @@ export async function rebuildApiConversation(
 
   const summarizer = input.summarizer ?? new TurnSummarizer();
 
-  // 1. Active branch only, chronological.
   const lineage = resolveActiveLineage(input.displayMessages);
 
-  // 2. Retrieval counts toward the window (history + retrieval combined).
   const retrievalNeeded = input.classifierOutput.retrieval_needed === true;
   const chunks = retrievalNeeded ? (input.retrievedChunks ?? []) : [];
   const retrievalTokens = chunks.reduce(
@@ -98,13 +67,11 @@ export async function rebuildApiConversation(
   const overBudget = (msgs: DisplayMessage[]): boolean =>
     estimateMessagesTokens(summarizer, msgs) > historyBudget;
 
-  // 3a. Compress older turns first when an optimizer is available.
   let working = lineage.slice();
   if (overBudget(working) && input.optimizer && working.length > KEEP_RECENT_TURNS) {
     working = await summariseOlderTurns(input.optimizer, working);
   }
 
-  // 3b. Truncate the oldest turns if still over (keep at least the newest).
   let truncated = false;
   let truncatedTurnCount = 0;
   let tokensReclaimed = 0;
@@ -116,7 +83,6 @@ export async function rebuildApiConversation(
     truncatedTurnCount += 1;
   }
 
-  // 4. Map to API messages and insert retrieval after leading system context.
   const messages: ApiMessage[] = working.map(toApiMessage);
   const retrievedChunkIds: string[] = [];
   if (chunks.length > 0) {
@@ -126,11 +92,6 @@ export async function rebuildApiConversation(
     }
   }
 
-  // Issue #123 — the reproducibility context hash over the frozen materials:
-  // the full active lineage (input), the chunks actually folded in, the
-  // classifier signals, the budget, the summariser mode, and the truncation
-  // outcome. The optimizer path is LLM-backed and non-deterministic, so its
-  // presence is recorded in the mode rather than silently hashed as equivalent.
   const contextHash = computeContextHash({
     lineage,
     classifierOutput: input.classifierOutput,
@@ -149,7 +110,6 @@ export async function rebuildApiConversation(
     contextHash,
   };
 
-  // 5. Durable audit signal (the synchronous flag is always on the result).
   if (truncated && input.audit) {
     emitContextTruncated(input.audit.projectRoot, {
       sessionId: input.audit.sessionId,
@@ -165,7 +125,6 @@ export async function rebuildApiConversation(
   return result;
 }
 
-/** Replace all-but-the-newest turns with one attributed summary message. */
 async function summariseOlderTurns(
   optimizer: ContextBudgetOptimizer,
   working: DisplayMessage[],
@@ -194,7 +153,6 @@ function toApiMessage(message: DisplayMessage): ApiMessage {
   return { role: message.role, content: message.content };
 }
 
-/** Compact, deterministic system message standing in for the collapsed turns. */
 function buildSummaryMessage(
   summaries: SummarizedTurn[],
   originals: DisplayMessage[],
@@ -216,7 +174,6 @@ function buildSummaryMessage(
   };
 }
 
-/** Insert one system message carrying the chunks after any leading system context. */
 function insertRetrieval(
   messages: ApiMessage[],
   chunks: { chunkId: string; content: string }[],

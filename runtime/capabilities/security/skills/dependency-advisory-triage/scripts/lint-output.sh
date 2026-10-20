@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate dependency-advisory-triage output. Each finding has the
-#          required fields and no duplicate (ecosystem,package,advisory_id).
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate dependency-advisory-triage output. Each finding has the
+         required fields and no duplicate (ecosystem,package,advisory_id).
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")
@@ -17,7 +18,6 @@ say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 grep -qE '^## Dependency Findings' <<<"$body" || say 'missing "## Dependency Findings"'
 
-# Each finding starts with "### <ecosystem>:<package> — <id>".
 keys=$(printf '%s\n' "$body" | grep -E '^### ' | sed -E 's/^### //; s/[[:space:]]+—.*$//')
 dupes=$(printf '%s\n' "$keys" | sort | uniq -d)
 [ -n "$dupes" ] && say "duplicate finding keys: $(printf '%s' "$dupes" | tr '\n' ' ')"

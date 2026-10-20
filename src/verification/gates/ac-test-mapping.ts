@@ -36,11 +36,6 @@ export function collectObservedAcIds(structuredResults: StructuredTestResult[]):
 export class AcTestMappingGate implements Gate {
   readonly gate = 'ac-test-mapping' as const;
 
-  /**
-   * Issue #639, Part 11 — the gate reports what the context builder computed and never
-   * replaces it with a canned line. A pass needs a computed detail; with none, no map was
-   * read, so the gate says it did not run instead of claiming the criteria map to tests.
-   */
   async check(context: Parameters<Gate['check']>[0]) {
     const detail = context.ac_test_mapping_detail;
 

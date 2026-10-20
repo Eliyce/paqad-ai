@@ -79,8 +79,6 @@ function baseProfile(intelligence?: Partial<IntelligenceConfig>) {
   };
 }
 
-// Embeds text to a 2D vector keyed on a marker word so retrieval is deterministic:
-// "invoice" -> [1, 0], "auth" -> [0, 1], otherwise [0.5, 0.5].
 function fakeProviderFactory(): ProviderFactory {
   const provider: EmbeddingProvider = {
     name: 'local',
@@ -114,10 +112,6 @@ async function buildService(projectRoot: string): Promise<RagService> {
     embedding_provider: 'local',
     embedding_model: 'fake-local',
   });
-  // Framework knobs (the RAG/`intelligence` block) live in `.paqad/.config`, not
-  // the profile YAML; configureAndBuild no longer persists them there. Seed
-  // `.config` so the ingest precondition (readProjectProfile → rag_enabled +
-  // provider) observes the enabled RAG state.
   syncFrameworkConfig(projectRoot, {
     intelligence: baseProfile({
       rag_enabled: true,
@@ -250,7 +244,6 @@ describe('RagService.ingestExtractedText', () => {
       service.ingestExtractedText({
         sourcePath: join(projectRoot, 'invoice.png'),
         text: 'invoice text',
-        // Force a kind outside the closed union to exercise runtime validation.
         extractionKind: 'transcription' as never,
       }),
     ).rejects.toMatchObject({ code: 'unknown_extraction_kind' });
@@ -318,7 +311,7 @@ describe('RagService.ingestExtractedText', () => {
   it('chunks oversized text and tags every chunk with the same path and kind', async () => {
     const service = await buildService(projectRoot);
     const imagePath = join(projectRoot, 'invoice.png');
-    const paragraph = 'invoice '.repeat(90); // ~630 non-whitespace chars
+    const paragraph = 'invoice '.repeat(90);
     const text = Array.from({ length: 5 }, () => paragraph).join('\n\n');
 
     const result = await service.ingestExtractedText({

@@ -21,8 +21,6 @@ function snapshotOf(
     packages: packages.map((entry) => ({
       name: entry.name,
       version_constraint: '^1.0.0',
-      // Deliberately a RANGE, exactly as the real snapshot stores it: the builder must
-      // ignore this and read the resolved version from the install tree instead (FR-2).
       locked_version: '^1.0.0',
       ecosystem: (entry.ecosystem ?? 'node') as StackSnapshot['packages'][number]['ecosystem'],
       is_dev: false,
@@ -71,7 +69,6 @@ describe('buildFrameworkApiIndex', () => {
   });
 
   it('searches the manifest root the dependency was declared under', () => {
-    // The monorepo case this repo has: react is installed beside graph-ui.
     installReactLike(join(root, 'graph-ui'), '19.2.6', 'export declare function useId(): string;');
     const { index } = buildFrameworkApiIndex(root, {
       snapshot: snapshotOf([{ name: 'react', root: 'graph-ui' }]),
@@ -99,8 +96,6 @@ describe('buildFrameworkApiIndex', () => {
   });
 
   it('records an ecosystem with no adapter as blocked, never run through the wrong one (FR-14)', () => {
-    // php, python and jvm gained adapters in issue #398; dart, go and rust deliberately
-    // have none, so this is still the live contract rather than a historical one.
     const { index } = buildFrameworkApiIndex(root, {
       snapshot: snapshotOf([{ name: 'flutter', ecosystem: 'dart' }]),
       now,
@@ -113,7 +108,6 @@ describe('buildFrameworkApiIndex', () => {
   });
 
   it("records an adapter refusal with the adapter's own reason", () => {
-    // react installed but shipping no declarations at all.
     const dir = join(root, 'node_modules', 'react');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'react', version: '19.2.6' }));
@@ -183,12 +177,11 @@ describe('buildFrameworkApiIndex', () => {
   });
 
   it('reads the project snapshot when none is injected', () => {
-    // No .paqad/stack-snapshot.json in a bare temp dir, so this exercises the default read.
     const { index } = buildFrameworkApiIndex(root, { now });
     expect(index.packages).toHaveLength(0);
   });
 
-  it('honours an injected registry, which is how #398 will add ecosystems', () => {
+  it('honours an injected registry, which is how new ecosystems are added', () => {
     installReactLike(root, '19.2.6', 'export declare function useId(): string;');
     const empty = new FrameworkApiAdapterRegistry();
     const { index } = buildFrameworkApiIndex(root, {

@@ -28,19 +28,16 @@ describe('pae', () => {
 });
 
 describe('verifyReceiptSeal', () => {
-  it('is true iff the receipt_hash recomputes from its own PAE + prev (#468 AC-7)', () => {
+  it('is true iff the receipt_hash recomputes from its own PAE + prev', () => {
     const genesis = signReceipt({ statement: statement(), mode: 'hash-chained' });
     expect(verifyReceiptSeal(genesis)).toBe(true);
-    // A non-genesis receipt whose prev is some prior hash still self-verifies in isolation,
-    // even though verifyReceiptChain (which also checks linkage) would reject it as element 0.
     const chained = signReceipt({
       statement: statement(),
       prevReceiptHash: 'a'.repeat(64),
       mode: 'hash-chained',
     });
     expect(verifyReceiptSeal(chained)).toBe(true);
-    expect(verifyReceiptChain([chained])).toBe(0); // linkage fails at genesis
-    // Tampering the recorded hash breaks the seal.
+    expect(verifyReceiptChain([chained])).toBe(0);
     const tampered = { ...genesis, paqad: { ...genesis.paqad, receipt_hash: 'f'.repeat(64) } };
     expect(verifyReceiptSeal(tampered)).toBe(false);
   });
@@ -94,8 +91,6 @@ describe('verifyReceiptChain', () => {
       prevReceiptHash: first.paqad.receipt_hash,
       mode: 'hash-chained',
     });
-    // Retroactively edit the first receipt's payload — its recorded hash no
-    // longer recomputes, so the chain breaks at index 0.
     const tampered = { ...first, payload: Buffer.from('{"_type":"evil"}').toString('base64') };
     expect(verifyReceiptChain([tampered, second])).toBe(0);
   });

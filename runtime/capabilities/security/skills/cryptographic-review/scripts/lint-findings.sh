@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate cryptographic-review findings.
-# Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate cryptographic-review findings.
+Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")
@@ -26,7 +28,6 @@ done <<EOF
 $findings
 EOF
 
-# No raw secret leak: simple guard against quoted long base64-like strings in findings.
 if grep -qE '"[A-Za-z0-9+/=]{32,}"' <<<"$body"; then
   say 'finding appears to embed a literal secret value — strip and reference file:line only'
 fi

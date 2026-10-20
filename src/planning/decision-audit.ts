@@ -44,9 +44,7 @@ export function appendDecisionAuditEvent(projectRoot: string, event: DecisionAud
 export function ensureDecisionAuditLog(projectRoot: string): string {
   const path = join(projectRoot, PATHS.DECISIONS_AUDIT_LOG);
   mkdirSync(dirname(path), { recursive: true });
-  if (!existsSync(path)) {
-    writeFileSync(path, '');
-  }
+  writeFileSync(path, '', { flag: 'a' });
   return path;
 }
 

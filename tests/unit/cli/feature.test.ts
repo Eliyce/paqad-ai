@@ -68,7 +68,7 @@ describe('paqad-ai feature command', () => {
     expect(errors.join('\n')).toContain('could not resolve feature');
   });
 
-  it('report renders report.html for the active feature and prints its path (#371)', async () => {
+  it('report renders report.html for the active feature and prints its path', async () => {
     const dir = openFeatureChange(root, SES, {
       adapter: 'claude-code',
       title: 'Reportable',
@@ -80,7 +80,6 @@ describe('paqad-ai feature command', () => {
     expect(parsed.rendered).toBe(true);
     expect(parsed.feature).toBe(dir);
     expect(existsSync(parsed.path)).toBe(true);
-    // Issue #581 — the only script is the inert JSON header tag; nothing executable.
     expect(
       readFileSync(parsed.path, 'utf8').replace(
         /<script type="application\/json" id="paqad-header">[^<]*<\/script>/,
@@ -111,8 +110,6 @@ describe('paqad-ai feature command', () => {
     expect(errors.join('\n')).toContain('--keep must be');
   });
 
-  // Issue #402 — a polluted bundle is flagged on stderr so it never contaminates the
-  // export document on stdout.
   it('export flags stray files in the bundle on stderr', async () => {
     const dir = openFeatureChange(root, SES, {
       adapter: 'claude-code',
@@ -126,7 +123,6 @@ describe('paqad-ai feature command', () => {
     await run('export', '402');
     expect(errors.join('\n')).toContain('1 file that does not belong in it: review-notes.md');
 
-    // Two strays read as plural.
     writeFileSync(join(root, featureDir(dir), 'river-agent-spec.md'), '# spec', 'utf8');
     errors.length = 0;
     await run('export', '402');

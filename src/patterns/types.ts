@@ -24,7 +24,7 @@ export interface PatternIndexEntry {
   stack_filter: Pattern['stack_filter'];
   tags: string[];
   created_at: string;
-  problem_preview: string; // first 100 chars of problem
+  problem_preview: string;
 }
 
 export interface PatternIndex {

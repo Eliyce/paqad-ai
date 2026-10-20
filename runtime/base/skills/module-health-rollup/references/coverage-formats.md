@@ -2,7 +2,7 @@
 
 The module-health rollup understands a fixed set of report formats, mirrored
 by the `coverage_format` / `test_report_format` enum on
-`module_health` blocks in stack-pack manifests (spec AC #21).
+`module_health` blocks in stack-pack manifests.
 
 | Format            | Kind        | Typical tooling                            |
 | ----------------- | ----------- | ------------------------------------------ |
@@ -27,7 +27,7 @@ The rollup never zeroes a metric to avoid the null path.
 
 ## No project-side parsers
 
-Extending the parser set is a framework PR (spec AC #28). A project that
+Extending the parser set is a framework change. A project that
 ships its own coverage tooling either picks the closest existing format or
 opens an issue for the new one — `module_health.coverage_format` is gated by
 a closed JSON-Schema enum in

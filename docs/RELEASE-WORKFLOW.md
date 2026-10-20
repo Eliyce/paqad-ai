@@ -190,7 +190,7 @@ when something needs to change.
   floor, so no workflow pins a patch version. The published `engines` field stays
   `>=22.0.0`: installing the package is unaffected.
 
-#### How the test run is sharded (issue #654)
+#### How the test run is sharded
 
 CI splits the test run so no OS has to run the whole suite in one job. Four kinds of job:
 
@@ -255,6 +255,81 @@ the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.te
   runs on push, PR, and Mondays 03:00 UTC.
 - Dependabot: [`.github/dependabot.yml`](../.github/dependabot.yml) — npm and
   github-actions, weekly, grouped.
+
+### Build, lint and test config
+
+The reasons behind the root config files, which carry no comments of their own.
+
+- **`tsup.config.ts`.** Besides the main and CLI entries, it builds one small dedicated bundle per
+  runtime hook seam (capability gate, stage writer and narration, stage-marker parse, session-id
+  alignment and in-flight bundle adoption, the session-start dirty-file baseline, prompt route and
+  ticket detection, stage-agent completion, background-stage deferral, HUD snapshot, change cost,
+  the disabled-session audit). The hooks lazy-import these so each path stays light. Every hook
+  import needs its entry here: a missing entry makes the import throw `ERR_MODULE_NOT_FOUND` on
+  every installed copy (that once left the recorded lane always null). Hook paths log such a
+  failure and never change a decision. The `rule-scripts` subpath export serves the rule-script
+  `.mjs` wrappers through `import 'paqad-ai/rule-scripts'`. The benchmark scripts and the plugin
+  manifest generator import their primitives from dist the same way, so nothing is
+  re-implemented. Everything except the heavy optional embedding engines is bundled, including
+  the pure-JS dependencies tsup would externalise by default, so `dist/` is self-contained and
+  the Claude Code plugin works with no `node_modules`. A `createRequire` banner gives bundled CJS
+  (such as `yaml`) a real `require`, since esbuild's shim otherwise throws "Dynamic require is not
+  supported" without `node_modules`. The package version is injected at build time so it never
+  drifts from `package.json`; vitest has its own define block.
+- **`eslint.config.js`.** `.paqad/` is a machine-local runtime folder, including generated
+  rule-scripts and their pass/fail fixtures that break rules on purpose, so lint ignores it as
+  prettier already does. CommonJS files may use `require` and `module.exports`.
+- **`vitest.config.ts`.** Every test file gets a throwaway HOME, so onboarding, join and update
+  never write the developer's real `~/.paqad-ai`, `~/.claude` or `~/.codex`. Windows runners are
+  slower, so the test and hook timeouts are raised there, and suites that need a POSIX bash (the
+  `runtime/**/scripts/*.sh` helpers, which the product never runs on Windows) are excluded on
+  Windows. The duration sequencer only acts on a sharded run. Coverage leaves out type-only files,
+  thin CLI wrappers whose logic is tested elsewhere, and the impure gatherers (codebase health,
+  site map, visual-evidence capture) whose pure inputs have their own tests and whose orchestration
+  runs against a fake or an env-gated integration test. Only `PAQAD_TEST_SHARD=1` exactly turns
+  the floors off, so a stray `0` changes nothing. The stage-evidence spine (block-forward gate,
+  marker parse, live writer, narration) holds a 100% floor instead of the repo's 95%, because it
+  must never regress unseen.
+
+### Repo scripts under `scripts/`
+
+Why each one works the way it does, for the parts the code does not say.
+
+- **`build-plugin-manifest.mjs`** runs after tsup in `pnpm build`. It writes
+  `.claude-plugin/plugin.json` (version from `package.json`), `runtime/claude-plugin/hooks.json`
+  and `runtime/claude-plugin/agents/*.md` from the one builder in `dist/plugin/manifest-build.js`,
+  which reuses the real hook renderer and stage-agent template, so there is no second copy. The
+  agents folder is rebuilt from scratch so a renamed or removed stage never leaves a stale file.
+  `tests/unit/plugin/manifest.test.ts` regenerates from the same builder and asserts a byte match.
+- **`validate-plugin.mjs`** runs `claude plugin validate` on the repo root (the marketplace file)
+  and on the packed tarball (the shipped manifest). Without a `claude` CLI it prints a skip note
+  and exits 0, so CI stays green on a runner without Claude Code. "Passed with warnings" (the
+  inherent npm-source warning) is allowed.
+- **`test-plugin.mjs`** runs the HUD mod's `claude plugin test` files. The plugin is rooted at the
+  repo root, where `claude plugin test` would also pick up the whole vitest suite, so it stages a
+  plugin of the mod alone in a temp folder: the real manifest minus agents and skills, a hooks file
+  naming only the module, and a copy of `runtime/claude-plugin/mod`. Command hooks are left out
+  because they have their own tests. It needs `claude` 2.1.301 or newer (the mod's floor) and
+  otherwise skips with exit 0.
+- **`check-surface-drift.mjs` and `check-surface-orphans.mjs`** mirror the extension-surface
+  verification gate, so a local run and verification agree. Drift is checked per barrel, because
+  per-symbol drift means nothing for `export *` barrels. A symbol used only inside its own
+  declaring module does not count as consumed. Orphans warn by default; `--strict` fails.
+- **`measure-footprint.mjs`** (with `lib/footprint.mjs`) measures what paqad makes the agent load at
+  session start: the host entry file plus the resident instruction areas. Inside the lean rule
+  slice only the manifest above the loaded-rules heading counts as resident, because the rule
+  bodies below it change per session. "Full" swaps the full rule tree back in, so the reported
+  saving is honest. It is read-only and uses the real tokenizer from the built dist bundle, or a
+  labelled characters-divided-by-4 fallback when the repo is not built. Files are read and caught
+  rather than checked first, to avoid a check-then-use race.
+- **`rule-findings-stats.mjs`** (with `lib/findings-stats.mjs`) reads the fresh-run findings rows
+  from every bundle's `rule-run.jsonl` and nothing else. A row is a snapshot of the findings
+  present at that run, not new catches, and cache hits write no row, so summing rows would count a
+  standing finding many times. The metric is therefore the per-run snapshot, reported per ISO week
+  as median and max. The host tiers are printed with the number so nobody reads it as enforcement
+  on advisory hosts. A partial or corrupt line is skipped.
+- **`se-mark.ts`** marks stages from the shell. It resolves the same session the live writer and
+  the pre-mutation gate key on, so a manual mark really clears the block; `SE_SESSION` overrides.
 
 ---
 

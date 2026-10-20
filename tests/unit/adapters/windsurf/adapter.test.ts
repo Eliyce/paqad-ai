@@ -14,9 +14,6 @@ describe('WindsurfAdapter', () => {
     const content = files[0]?.content ?? '';
     expect(files[0]?.path).toBe('.windsurfrules');
 
-    // Lean stub: a bootstrap pointer + the graceful-degradation fallback clause
-    // + the `Adapter:` footer, with zero `##` sections (issue #229). The load
-    // order and both contracts now live only in the framework bootstrap.
     expect(content).toContain('.paqad/framework-path.txt');
     expect(content).toContain('AGENT-BOOTSTRAP.md');
     expect(content).toContain('proceed as a normal assistant');
@@ -24,7 +21,6 @@ describe('WindsurfAdapter', () => {
     expect(content).toContain('Adapter:');
     expect(content.split('\n').filter((line) => line.startsWith('## '))).toEqual([]);
 
-    // No load steps, no docs paths, no inlined contracts.
     expect(content).not.toContain('docs/instructions');
     expect(content).not.toContain('docs/modules');
     expect(content).not.toContain('create documentation');
@@ -41,7 +37,7 @@ describe('WindsurfAdapter', () => {
     ]);
   });
 
-  it('writes no MCP config at .windsurf/mcp.json (issue #622)', async () => {
+  it('writes no MCP config at .windsurf/mcp.json', async () => {
     expect(await adapter.installMcp()).toEqual([]);
   });
 

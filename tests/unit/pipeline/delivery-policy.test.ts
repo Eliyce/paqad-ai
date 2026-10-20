@@ -31,7 +31,6 @@ describe('delivery policy loader', () => {
       expect(policy.enabled).toBe(true);
       expect(policy.process.branch.template).toBe('{type}/{ticket}-{title_slug}');
       expect(policy.process.ci.gate).toBe('wait_for_green');
-      // every section defaults to auto
       for (const section of Object.values(policy.process)) {
         expect(section.maintained).toBe('auto');
       }
@@ -74,18 +73,14 @@ describe('delivery policy loader', () => {
       );
       const { policy, warnings } = loadDeliveryPolicy(root);
       expect(warnings).toEqual([]);
-      // scalar override wins
       expect(policy.process.branch.base).toBe('develop');
       expect(policy.process.branch.maintained).toBe('manual');
       expect(policy.process.ci.gate).toBe('warn_only');
-      // type_map merges (default keys + new key)
       expect(policy.process.branch.type_map).toMatchObject({
         Story: 'feat',
         Spike: 'chore',
       });
-      // list appends
       expect(policy.process.pr.reviewers).toEqual(['alice']);
-      // untouched section keeps its default
       expect(policy.process.commit.template).toContain('{type}({scope})');
     } finally {
       rmSync(root, { recursive: true, force: true });

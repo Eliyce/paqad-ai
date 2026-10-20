@@ -54,7 +54,7 @@ describe('mapAuditEventToEvidence', () => {
   });
 });
 
-describe('appendRagAudit dual-write (#249 P2)', () => {
+describe('appendRagAudit dual-write', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-ab-'));
@@ -64,11 +64,9 @@ describe('appendRagAudit dual-write (#249 P2)', () => {
   it('keeps the flat audit.log line AND records a structured rag-evidence row', () => {
     appendRagAudit(root, 'INFO', 'rag-incremental-update', { changed_files: 1, chunks: 3 });
 
-    // Flat log unchanged (other subsystems still read it).
     const flat = readFileSync(join(root, PATHS.AUDIT_LOG), 'utf8');
     expect(flat).toContain('rag-incremental-update');
 
-    // Structured ledger now carries the event (read from the two-home `_chat` rag.jsonl).
     const sessions = readUnitFile(root, chatRagPath(readSessionId(root)));
     const refreshed = sessions.find((r) => r.kind === 'refreshed');
     expect(refreshed).toMatchObject({ refresh_kind: 'incremental-sync', changed_files: 1 });
@@ -85,7 +83,6 @@ describe('appendRagAudit dual-write (#249 P2)', () => {
   });
 });
 
-/** The ledger session id minted by the recorder (cached under .paqad/session). */
 function readSessionId(root: string): string {
   expect(existsSync(join(root, PATHS.LEDGER_SESSION_ID))).toBe(true);
   return readFileSync(join(root, PATHS.LEDGER_SESSION_ID), 'utf8').trim();

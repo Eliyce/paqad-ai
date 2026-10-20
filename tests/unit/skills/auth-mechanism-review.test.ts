@@ -24,7 +24,6 @@ describe('auth-mechanism-review', () => {
 
     it('detects every documented smell', () => {
       withTempDir((dir) => {
-        // One file per smell type, hits clearly identifiable.
         writeFile(dir, 'src/jwt.ts', `const opts = { alg: "none" };`);
         writeFile(dir, 'src/storage.ts', `localStorage.setItem("authToken", t);`);
         writeFile(dir, 'src/storage2.ts', `sessionStorage.setItem("Token", t);`);
@@ -65,7 +64,6 @@ describe('auth-mechanism-review', () => {
           ].join('\n'),
         );
         const r = runScript(path, [join(dir, 'src')]);
-        // Header line only.
         expect(r.stdout.trim()).toBe('smell | file:line | excerpt');
       });
     });
@@ -76,7 +74,6 @@ describe('auth-mechanism-review', () => {
         const r = runScript(path, [join(dir, 'src')]);
         const dataRow = r.stdout.split('\n').find((l) => l.startsWith('jwt-alg-none'));
         expect(dataRow).toBeDefined();
-        // Format: "<smell> | <file>:<line> | <excerpt>"
         expect(dataRow).toMatch(/^jwt-alg-none \| .+:\d+ \| .+$/);
       });
     });

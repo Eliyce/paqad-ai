@@ -31,8 +31,6 @@ describe('readDeprecation', () => {
   });
 
   it('renders a {@link Target label} reference as its label, not as concatenated parts', () => {
-    // The real @types/react shape: joining parts naively yields the mangled
-    // "componentDidMountcomponentDidMount" this rendering exists to prevent.
     const verdict = readDeprecation([
       tag(
         'deprecated',

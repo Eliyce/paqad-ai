@@ -106,7 +106,6 @@ describe('detectAnalyticsProvider', () => {
 
   it('picks the higher-scoring provider when several are present', () => {
     writePkg({ 'posthog-js': '^1.0.0', '@segment/analytics-next': '^1.0.0' });
-    // posthog also has a call site, so it outscores segment (dep only).
     writeSrc('src/track.ts', "posthog.capture('checkout_completed')");
     expect(detectAnalyticsProvider(root)?.provider).toBe('posthog');
   });
@@ -129,7 +128,6 @@ describe('detectAnalyticsProvider', () => {
     writeSrc('src/README.md', 'posthog.capture("not_code")');
     const detection = detectAnalyticsProvider(root);
     expect(detection?.provider).toBe('posthog');
-    // The .md file is not scanned, so only the .ts call site contributes an event.
     expect(detection?.signals.some((s) => s.signal.includes('deep_event'))).toBe(true);
   });
 

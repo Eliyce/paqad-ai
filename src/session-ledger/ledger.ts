@@ -1,24 +1,3 @@
-// Shared session-scoped evidence substrate (issue #249 P0).
-//
-// A *script-written, session-scoped, append-only JSONL evidence document* with:
-//   - atomic ordinal allocation (filesystem exclusive-create, race-safe across the
-//     background worker and the prompt seam),
-//   - an `.open` pointer to the current ordinal,
-//   - a script-clock `ts` and a SHA-256 `content_hash` (identity de-dup) stamped on
-//     every row,
-//   - a tolerant reader that skips malformed lines so a mid-crash write never poisons
-//     reads,
-//   - an injectable per-row validator (the consumer plugs its AJV schema).
-//
-// Layout: `.paqad/ledger/<docType>/<sessionId>/<ordinal>.jsonl`, one file per unit
-// (a conversation turn for rag-evidence, a prompt turn for the #247 stage-evidence
-// ledger). The `ledger/` root is already git-ignored (gitignore-writer), so no
-// gitignore change is needed. This substrate imports no enterprise code — the
-// writer is always-on, independent of any AI-BOM / enterprise flag (issue #249 C1).
-//
-// rag-evidence (#249) and stage-evidence (#247) both consume this ONE primitive
-// instead of duplicating it.
-
 import { createHash } from 'node:crypto';
 import {
   appendFileSync,
@@ -34,32 +13,25 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 
-/** The envelope every session-ledger row carries, plus consumer-specific fields. */
 export interface SessionLedgerRow {
   schema_version: number;
   doc_type: string;
   session_id: string;
-  /** ISO-8601 UTC, stamped by the recorder script (never the LLM). */
   ts: string;
-  /** SHA-256 over the row's identity (everything but `ts` / `content_hash` / `note`). */
   content_hash: string;
   [key: string]: unknown;
 }
 
-/** Returns `[]` when the row is valid, or a list of human-readable errors. */
 export type SessionRowValidator = (row: SessionLedgerRow) => string[];
 
-/** Project-relative directory holding one session's files for a doc type. */
 export function sessionLedgerDir(docType: string, sessionId: string): string {
   return join(PATHS.EVIDENCE_LEDGER_DIR, docType, sessionId);
 }
 
-/** Project-relative path to one unit's JSONL file. */
 export function sessionLedgerPath(docType: string, sessionId: string, ordinal: number): string {
   return join(sessionLedgerDir(docType, sessionId), `${ordinal}.jsonl`);
 }
 
-/** Project-relative path to the `.open` pointer (the current ordinal). */
 export function sessionOpenPointerPath(docType: string, sessionId: string): string {
   return join(sessionLedgerDir(docType, sessionId), '.open');
 }
@@ -68,7 +40,6 @@ function absDir(projectRoot: string, docType: string, sessionId: string): string
   return join(projectRoot, sessionLedgerDir(docType, sessionId));
 }
 
-/** Highest ordinal already present in the session dir, or 0 when empty/absent. */
 function highestOrdinal(dir: string): number {
   let max = 0;
   let entries: string[];
@@ -89,12 +60,6 @@ function highestOrdinal(dir: string): number {
   return max;
 }
 
-/**
- * Atomically allocate the next ordinal for a session by exclusive-creating its JSONL
- * file (`wx`), retrying on collision so two concurrent allocators (background worker
- * vs. prompt seam) never share an ordinal. Updates the `.open` pointer. Returns the
- * allocated ordinal.
- */
 export function allocateOrdinal(projectRoot: string, docType: string, sessionId: string): number {
   const dir = absDir(projectRoot, docType, sessionId);
   mkdirSync(dir, { recursive: true });
@@ -115,24 +80,13 @@ export function allocateOrdinal(projectRoot: string, docType: string, sessionId:
   }
 }
 
-/**
- * Close the current open unit by resetting its `.open` pointer to 0, so the next
- * `currentOrdinal` returns 0 and the next allocation opens a FRESH ordinal (issue
- * #321). The unit's file is untouched — its rows stay on disk as the closed change's
- * record; only the "which ordinal is open" pointer advances. Best-effort: a missing
- * session dir is a no-op (nothing was open to close). Writing "0" (rather than
- * deleting the file) keeps `currentOrdinal` robust and avoids an ENOENT race.
- */
 export function closeSessionOrdinal(projectRoot: string, docType: string, sessionId: string): void {
   const pointer = join(projectRoot, sessionOpenPointerPath(docType, sessionId));
   try {
     writeFileSync(pointer, '0', 'utf8');
-  } catch {
-    // No session dir / pointer → nothing open to close.
-  }
+  } catch {}
 }
 
-/** The current (latest-allocated) ordinal from the `.open` pointer, or 0 when none. */
 export function currentOrdinal(projectRoot: string, docType: string, sessionId: string): number {
   try {
     const raw = readFileSync(join(projectRoot, sessionOpenPointerPath(docType, sessionId)), 'utf8');
@@ -143,14 +97,8 @@ export function currentOrdinal(projectRoot: string, docType: string, sessionId: 
   }
 }
 
-/**
- * Keys excluded from the identity hash (volatile / non-identifying). `recorded_at` is the
- * #581 bundle-row time field that replaces `ts`, so it is excluded the same way; a row
- * written before #581 never carries it, so its hash is unchanged.
- */
 const HASH_EXCLUDED_KEYS = new Set(['ts', 'recorded_at', 'content_hash', 'note']);
 
-/** SHA-256 over the row's identity fields, in a stable key order. */
 export function computeSessionRowHash(row: Record<string, unknown>): string {
   const identity: Record<string, unknown> = {};
   for (const key of Object.keys(row).sort()) {
@@ -162,22 +110,11 @@ export function computeSessionRowHash(row: Record<string, unknown>): string {
 }
 
 export interface AppendOptions {
-  /** Schema version stamped on the envelope. Defaults to 1. */
   schemaVersion?: number;
-  /** Per-row validator (the consumer's AJV check). Throws on failure. */
   validate?: SessionRowValidator;
-  /** Clock seam for tests. */
   now?: () => Date;
 }
 
-/**
- * Stamp the envelope (`schema_version` / `doc_type` / `session_id` / script-clock `ts`
- * / `content_hash`) onto a caller row and validate it. Returns the stamped row without
- * touching disk. Throws when the validator rejects the row (a script bug, never
- * silently swallowed). Split out from {@link appendSessionEvent} so a consumer keyed on
- * a different path (the per-feature stage ledger, issue #339) reuses the identical
- * stamping + validation without the session/ordinal path computation.
- */
 export function stampSessionRow(
   docType: string,
   sessionId: string,
@@ -206,12 +143,6 @@ export function stampSessionRow(
   return stamped;
 }
 
-/**
- * Append a pre-stamped row as one JSONL line to an ARBITRARY project-relative unit
- * file, creating its directory. The path-agnostic writer the per-feature stage ledger
- * (#339) rides on: the feature bundle keeps its `stage-evidence.jsonl` inside the
- * feature dir, not under `<docType>/<session>/<ordinal>`.
- */
 export function appendStampedRowToUnit(
   projectRoot: string,
   unitRelPath: string,
@@ -222,17 +153,10 @@ export function appendStampedRowToUnit(
   appendFileSync(abs, `${JSON.stringify(stamped)}\n`, 'utf8');
 }
 
-/** Tolerant read of an ARBITRARY project-relative unit file (skips malformed lines). */
 export function readUnitFile(projectRoot: string, unitRelPath: string): SessionLedgerRow[] {
   return readJsonl(join(projectRoot, unitRelPath));
 }
 
-/**
- * Stamp the envelope (`schema_version` / `doc_type` / `session_id` / script-clock `ts`
- * / `content_hash`) onto a caller row, validate it, and append one JSONL line to the
- * unit's file. Returns the stamped row. Throws when the validator rejects the row (a
- * script bug, never silently swallowed).
- */
 export function appendSessionEvent(
   projectRoot: string,
   docType: string,
@@ -251,10 +175,6 @@ export interface OpenSessionDocResult {
   path: string;
 }
 
-/**
- * Allocate the next ordinal and write a `kind:open` row to it. The row's other fields
- * come from `openRow` (e.g. `rag_enabled`, `adapter`). Returns the ordinal + path.
- */
 export function openSessionDoc(
   projectRoot: string,
   docType: string,
@@ -274,7 +194,6 @@ export function openSessionDoc(
   return { ordinal, path: sessionLedgerPath(docType, sessionId, ordinal) };
 }
 
-/** Tolerant read of one unit's rows (skips malformed lines). */
 export function readSessionUnit(
   projectRoot: string,
   docType: string,
@@ -284,7 +203,6 @@ export function readSessionUnit(
   return readJsonl(join(projectRoot, sessionLedgerPath(docType, sessionId, ordinal)));
 }
 
-/** Tolerant read of every unit's rows for a session, ordinal-ascending. */
 export function readSessionDoc(
   projectRoot: string,
   docType: string,
@@ -305,7 +223,6 @@ export function readSessionDoc(
   return ordinals.flatMap((ordinal) => readSessionUnit(projectRoot, docType, sessionId, ordinal));
 }
 
-/** Every session id holding at least one unit for `docType`, sorted for determinism. */
 export function listSessionIds(projectRoot: string, docType: string): string[] {
   const dir = join(projectRoot, PATHS.EVIDENCE_LEDGER_DIR, docType);
   try {
@@ -318,18 +235,12 @@ export function listSessionIds(projectRoot: string, docType: string): string[] {
   }
 }
 
-/**
- * Every row for `docType` across all sessions, each session's rows in ordinal order
- * and sessions in id order. Use this when a consumer (e.g. the SIEM fold-view) needs
- * the whole history of a doc type, not one session's slice.
- */
 export function readAllSessionRows(projectRoot: string, docType: string): SessionLedgerRow[] {
   return listSessionIds(projectRoot, docType).flatMap((sessionId) =>
     readSessionDoc(projectRoot, docType, sessionId),
   );
 }
 
-/** Group a session's rows by their `conversation_ordinal` (ascending). */
 export function foldByOrdinal(rows: readonly SessionLedgerRow[]): Map<number, SessionLedgerRow[]> {
   const byOrdinal = new Map<number, SessionLedgerRow[]>();
   for (const row of rows) {
@@ -359,9 +270,7 @@ function readJsonl(absPath: string): SessionLedgerRow[] {
       if (isSessionLedgerRow(parsed)) {
         out.push(parsed);
       }
-    } catch {
-      // Skip a partial/corrupt line — an append-only log must survive a mid-crash write.
-    }
+    } catch {}
   }
   return out;
 }
@@ -371,8 +280,6 @@ function isSessionLedgerRow(value: unknown): value is SessionLedgerRow {
     return false;
   }
   const row = value as Record<string, unknown>;
-  // Issue #581 — a bundle row stamped by the envelope carries `recorded_at` instead of `ts`,
-  // so either time field makes a row readable (old and new rows in one file both read).
   return (
     typeof row.doc_type === 'string' &&
     typeof row.session_id === 'string' &&

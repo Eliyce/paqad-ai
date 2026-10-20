@@ -1,12 +1,11 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createPluginCommand } from '@/cli/commands/plugin.js';
 
-// HOME is sandboxed per test file by tests/shared/isolate-home.ts, so homedir() is a temp dir.
 const statePath = (): string => join(homedir(), '.paqad-ai', 'plugin-migration.json');
 
 function writeState(record: Record<string, unknown>): void {
@@ -18,7 +17,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('paqad-ai plugin tick (hidden, issue #648)', () => {
+describe('paqad-ai plugin tick (hidden)', () => {
   it('is hidden from help', () => {
     expect(createPluginCommand().helpInformation()).not.toContain('tick');
   });
@@ -43,5 +42,37 @@ describe('paqad-ai plugin tick (hidden, issue #648)', () => {
       's1',
     ]);
     expect(JSON.parse(readFileSync(statePath(), 'utf8')).state).toBe('installed');
+  });
+});
+
+describe('paqad-ai plugin rollback', () => {
+  it('prints the manual uninstall line when no claude can be reached and the plugin is still recorded', async () => {
+    const plugins = join(homedir(), '.claude', 'plugins');
+    mkdirSync(plugins, { recursive: true });
+    writeFileSync(join(plugins, 'installed_plugins.json'), JSON.stringify({ 'paqad@eliyce': {} }));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-rollback-'));
+    const path = process.env.PATH;
+    const appData = process.env.APPDATA;
+    process.env.PATH = '';
+    process.env.APPDATA = join(homedir(), 'AppData', 'Roaming');
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      await createPluginCommand().parseAsync([
+        'node',
+        'plugin',
+        'rollback',
+        '--project-root',
+        projectRoot,
+      ]);
+      expect(log).toHaveBeenCalledWith(
+        'The plugin is turned off. Run `claude plugin uninstall paqad@eliyce` to remove it.',
+      );
+    } finally {
+      process.env.PATH = path;
+      if (appData === undefined) delete process.env.APPDATA;
+      else process.env.APPDATA = appData;
+      rmSync(join(plugins, 'installed_plugins.json'), { force: true });
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
   });
 });

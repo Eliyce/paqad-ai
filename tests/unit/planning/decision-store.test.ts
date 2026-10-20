@@ -17,14 +17,8 @@ import { readDecisionEvidence } from '@/planning/decision-ledger.js';
 import { readSessionDoc } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-/** A `D-` id whose body is a 26-char Crockford-base32 ULID (issue #184). */
 const ULID_DECISION_ID = /^D-[0-9A-HJKMNP-TV-Z]{26}$/;
 
-// Issue #387 — the creation path (`writePending`) now rejects a non-ULID id, so every
-// packet written through it must carry the strict `D-<ULID>` form. These are fixed,
-// valid ULID-shaped ids for the packets these tests create. Legacy `D-{N}` ids that are
-// only ever read from disk (never written through `writePending`) are left as-is on
-// purpose — they prove read/list tolerance stays intact.
 const WID = 'D-01J000000000000000000000A1';
 const WID2 = 'D-01J000000000000000000000A2';
 const WID3 = 'D-01J000000000000000000000A3';
@@ -54,16 +48,12 @@ describe('DecisionStore', () => {
     expect(existsSync(join(projectRoot, PATHS.DECISIONS_AUDIT_LOG))).toBe(true);
   });
 
-  // Issue #184 — ids are `D-<ULID>`: collision-free, time-sortable, and never
-  // derived from the directory contents.
   it('mints ULID decision ids without reading the directory or colliding', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
     mkdirSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR), { recursive: true });
     mkdirSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR), { recursive: true });
     mkdirSync(join(projectRoot, PATHS.DECISIONS_EXPIRED_DIR), { recursive: true });
-    // A high numeric id on disk must not influence allocation (the old walk
-    // would have returned D-1000 here).
     writeFileSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-2.json'), '{}');
     writeFileSync(join(projectRoot, PATHS.DECISIONS_RESOLVED_DIR, 'D-999.json'), '{}');
 
@@ -72,9 +62,7 @@ describe('DecisionStore', () => {
 
     expect(first).toMatch(ULID_DECISION_ID);
     expect(second).toMatch(ULID_DECISION_ID);
-    // Not derived from the directory's max numeric id.
     expect(first).not.toMatch(/^D-\d+$/);
-    // Collision-free and lexicographically sortable in allocation order.
     expect(second).not.toBe(first);
     expect([second, first].sort()).toEqual([first, second]);
   });
@@ -86,11 +74,8 @@ describe('DecisionStore', () => {
     const lockPath = join(projectRoot, PATHS.DECISIONS_LOCK);
     const ids = Array.from({ length: 50 }, () => store.nextDecisionId());
 
-    // Every id is unique...
     expect(new Set(ids).size).toBe(ids.length);
-    // ...sorting by id preserves allocation order (ULID monotonicity)...
     expect([...ids].sort()).toEqual(ids);
-    // ...and allocation never touches a lock file (the walk it guarded is gone).
     expect(existsSync(lockPath)).toBe(false);
   });
 
@@ -115,8 +100,6 @@ describe('DecisionStore', () => {
     expect(existsSync(resolvedPath)).toBe(true);
     expect(store.findReusableDecision(packet)).toBe(packet.decision_id);
 
-    // The reuse is also mirrored into the git-ignored decision-reuse ledger
-    // (the #247/#249 sibling) — one record per reuse, on the shared substrate.
     const reuseSession = resolveSessionId(projectRoot);
     const reuseRows = readSessionDoc(projectRoot, DECISION_REUSE_DOC_TYPE, reuseSession).filter(
       (row) => row.kind === 'reuse',
@@ -146,9 +129,6 @@ describe('DecisionStore', () => {
     );
   });
 
-  // Buildout F6 — the store dual-sinks every lifecycle transition onto the
-  // session-ledger as `decision-evidence`, so the evidence consumers see the
-  // current state from the ledger (the packet files stay as the gate's teeth).
   it('folds lifecycle transitions onto the decision-evidence ledger', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
@@ -162,7 +142,6 @@ describe('DecisionStore', () => {
     store.writePending(pendingPacket);
     store.writePending(resolvedPacket);
 
-    // Both opened → both pending.
     expect(
       readDecisionEvidence(projectRoot)
         .pending.map((p) => p.id)
@@ -392,26 +371,20 @@ describe('DecisionStore', () => {
     expect(() => store.readPending('D-7')).toThrow(/Decision packet at/);
   });
 
-  // Issue #387 — the creation path is strict even though reads stay tolerant.
-  it('rejects writing a new packet whose id is a sequential D-{N} (issue #387)', () => {
+  it('rejects writing a new packet whose id is a sequential D-{N}', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
 
     expect(() => store.writePending(makePacket({ decision_id: 'D-4' }))).toThrow(
       /must be the collision-free D-<ULID> form/,
     );
-    // Nothing is written for the rejected packet.
     expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, 'D-4.json'))).toBe(false);
-    // The sanctioned mint is accepted.
     expect(() =>
       store.writePending(makePacket({ decision_id: store.nextDecisionId() })),
     ).not.toThrow();
   });
 
-  // Issue #387 — a pre-existing legacy `D-{N}` packet keeps reading and listing (the read
-  // path must not tighten). It is written straight to disk, bypassing the strict creation
-  // guard, exactly as a stale project would carry it.
-  it('still reads and lists a pre-existing legacy D-{N} packet (issue #387)', () => {
+  it('still reads and lists a pre-existing legacy D-{N} packet', () => {
     const store = new DecisionStore(projectRoot);
     store.initialize();
     const legacy = makePacket({ decision_id: 'D-1' });
@@ -634,7 +607,6 @@ describe('DecisionStore', () => {
       expect(bareStore.nextDecisionId()).toMatch(ULID_DECISION_ID);
       mkdirSync(join(bareRoot, PATHS.DECISIONS_PENDING_DIR), { recursive: true });
       writeFileSync(join(bareRoot, PATHS.DECISIONS_PENDING_DIR, 'D-9.json'), '{bad', 'utf8');
-      // Issue #639, Part 3: a lone malformed packet belongs to no task, so it never blocks.
       expect(bareStore.findPendingDecisionForTask('missing')).toBeNull();
     } finally {
       rmSync(bareRoot, { recursive: true, force: true });
@@ -885,7 +857,6 @@ describe('DecisionStore', () => {
         packetPath: `${PATHS.DECISIONS_PENDING_DIR}/${WID}.json`,
       });
       expect(paused?.kind === 'decision-paused' && paused.options).toHaveLength(2);
-      // path must be relative — never leak an absolute (home-dir) path
       expect(paused?.kind === 'decision-paused' && paused.packetPath?.startsWith('/')).toBe(false);
     });
 
@@ -944,7 +915,6 @@ describe('DecisionStore', () => {
       const events: DecisionPauseEvent[] = [];
       const store = new DecisionStore(projectRoot, { onEvent: (event) => events.push(event) });
       store.initialize();
-      // Fill to the (low, profile-driven) cap.
       writeProfileMaxPending(projectRoot, 2);
       store.writePending(makePacket({ decision_id: WID, task_session_id: 's-1' }));
       store.writePending(makePacket({ decision_id: WID2, task_session_id: 's-2' }));
@@ -955,7 +925,6 @@ describe('DecisionStore', () => {
 
       const capped = events.find((event) => event.kind === 'decision-cap-exceeded');
       expect(capped).toMatchObject({ kind: 'decision-cap-exceeded', pendingCount: 2, cap: 2 });
-      // The refused packet must not have been written.
       expect(existsSync(join(projectRoot, PATHS.DECISIONS_PENDING_DIR, `${WID3}.json`))).toBe(
         false,
       );
@@ -966,7 +935,6 @@ describe('DecisionStore', () => {
       store.initialize();
       writeProfileMaxPending(projectRoot, 1);
       store.writePending(makePacket({ decision_id: WID }));
-      // Same id, same task — a refresh, not a new pause.
       expect(() => store.writePending(makePacket({ decision_id: WID }))).not.toThrow();
     });
 
@@ -1013,10 +981,6 @@ function writeProfileMaxPending(projectRoot: string, maxPending: number): void {
     join(projectRoot, '.paqad', 'project-profile.yaml'),
     `custom:\n  decisions:\n    max_pending: ${maxPending}\n`,
   );
-  // `max_pending` is a project decision preference with no `.config` key, and
-  // readProjectProfile() now replaces `custom.decisions` from config+defaults.
-  // Overlay just this cap onto the real resolved profile so the store still
-  // enforces it. The spy is cleared by the suite's afterEach.
   const realReadProjectProfile = projectProfileModule.readProjectProfile;
   vi.spyOn(projectProfileModule, 'readProjectProfile').mockImplementation((root: string) => {
     const resolved = realReadProjectProfile(root);

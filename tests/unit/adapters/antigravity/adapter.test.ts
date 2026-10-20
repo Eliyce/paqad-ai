@@ -14,14 +14,12 @@ describe('AntigravityAdapter', () => {
     const content = files[0]?.content ?? '';
     expect(files[0]?.path).toBe('ANTIGRAVITY.md');
 
-    // Lean stub (issue #229): bootstrap pointer + fallback clause + Adapter footer.
     expect(content).toContain('.paqad/framework-path.txt');
     expect(content).toContain('AGENT-BOOTSTRAP.md');
     expect(content).toContain('proceed as a normal assistant');
     expect(content).toContain('Do not block');
     expect(content).toContain('Adapter:');
 
-    // No load steps, no inlined contracts, no `##` sections.
     expect(content).not.toContain('docs/instructions');
     expect(content).not.toContain('docs/modules');
     expect(content).not.toContain('create documentation');
@@ -39,7 +37,7 @@ describe('AntigravityAdapter', () => {
     ]);
   });
 
-  it('writes no MCP config at .antigravity/mcp.json (issue #622)', async () => {
+  it('writes no MCP config at .antigravity/mcp.json', async () => {
     expect(await adapter.installMcp()).toEqual([]);
   });
 });

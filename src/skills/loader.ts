@@ -18,14 +18,6 @@ export class SkillLoader {
 
   constructor(private readonly auditBuffer: SkillAuditBuffer = getSharedSkillAuditBuffer()) {}
 
-  /**
-   * Load every SKILL.md among the resolved artifacts. A file whose frontmatter
-   * fails validation is excluded from the result and recorded as a
-   * `skill.load_failed` audit event (written to `.paqad/skills/events.jsonl`
-   * when `projectRoot` is supplied, otherwise buffered) — it no longer crashes
-   * the whole batch (PQD-194). Non-validation errors (e.g. an unreadable file)
-   * still propagate.
-   */
   async load(artifacts: ResolvedArtifact[], projectRoot?: string): Promise<LoadedSkill[]> {
     const skillArtifacts = artifacts.filter((artifact) =>
       basename(artifact.path).endsWith('SKILL.md'),

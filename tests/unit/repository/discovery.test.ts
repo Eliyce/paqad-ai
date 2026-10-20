@@ -111,9 +111,6 @@ describe('discoverRepositoryContext', () => {
     git(root, ['init']);
     createProject(root, '.');
 
-    // Many directories within the default scan depth. The previous per-directory
-    // implementation called dropGitIgnored twice per directory (markers + child
-    // dirs), so this tree would spawn dozens of `git check-ignore` subprocesses.
     for (let index = 0; index < 25; index += 1) {
       mkdirSync(join(root, `dir-${index}`, 'sub', 'deep'), { recursive: true });
     }

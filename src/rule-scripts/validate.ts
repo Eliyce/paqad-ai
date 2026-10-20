@@ -1,7 +1,3 @@
-// ajv-backed validation for the rule-script header + findings contracts
-// (issue #89). Self-contained within the module so the runtime engine does not
-// depend on the project-artifact SchemaValidator.
-
 import Ajv, { type ValidateFunction } from 'ajv';
 
 import findingsSchema from './schemas/findings.schema.json';

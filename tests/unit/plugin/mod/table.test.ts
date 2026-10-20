@@ -60,11 +60,6 @@ import type {
   PaqadHudSnapshot,
 } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
 
-// Issue #639, Part 14 (FR-24 to FR-26, NFR-1): the High Table on the HUD, from the snapshot's
-// `table`: the band's instrument, the live card in the chat and the pane's High Table tab. These
-// test the pure modules; runtime/claude-plugin/mod/register.test.ts draws the same on the
-// terminal and on Desktop through Claude Code's own test kit.
-
 type Raw = Record<string, unknown>;
 const parse = (raw: Raw): PaqadHudSnapshot => parseSnapshot(fileText(raw))!;
 type WithTable = PaqadHudSnapshot & { table: PaqadHighTable };
@@ -138,7 +133,6 @@ describe('the snapshot table, read defensively (FR-24)', () => {
       }),
     ).table!;
     expect(odd.seats).toHaveLength(1);
-    // An unknown state reads as seated, and exact needs the host's usage to back it.
     expect(odd.seats[0]).toMatchObject({ state: 'seated', tokens_exact: false, tokens: null });
     expect(odd.chief).toBeNull();
     expect(odd.rulings).toEqual({
@@ -199,7 +193,6 @@ describe('the fixture table matches the one paqad writes', () => {
     expect(keys((fixture.seats as unknown as unknown[])[0])).toEqual(keys(real.seats[0]));
     expect(keys(fixture.chief)).toEqual(keys(real.chief));
     expect(keys(fixture.rulings)).toEqual(keys(real.rulings));
-    // And the mod reads the real table.
     expect(parse(snapshot({ table: real })).table?.seats[0]?.role).toBe('qa-engineer');
   });
 });
@@ -213,14 +206,12 @@ describe('the band instrument (FR-24, AC-56, AC-57)', () => {
     const off = bandLines(EXPERTS_OFF);
     expect(off.filter((line) => /^(Stage|High Table|Ship)/.test(line))).toHaveLength(2);
     expect(tableInstrument(parse(EXPERTS_OFF))).toBeNull();
-    // A fast-lane snapshot that carries a table still draws none (decision 12).
     expect(tableInstrument(parse({ ...FAST_ORD_490, table: FULL_ORD_501.table }))).toBeNull();
     expect(tableInstrument(null)).toBeNull();
   });
 
   it('AC-57: after the chief rules, only the dots, plus "1 flag" (or n flags) while one is open', () => {
     expect(tableRowOf(LATE_TABLE)).toBe('High Table  ●●●●●●● chief ●  1 flag');
-    // Ruled with the disagreement still waiting on its decision and the gap still asked.
     expect(tableRowOf(ord501At('ruled'))).toBe('High Table  ●●●●●●● chief ●  2 flags');
     expect(tableRowOf(FULL_ORD_501)).toBe('High Table  ●●●●●●● chief ●');
   });
@@ -404,7 +395,6 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
         'State: ruled in 2m 00s, verdict: proceed.',
       ]),
     );
-    // An unknown pick shows the first seat; a seat still writing has no tokens yet.
     const view = tablePaneView(withTable(ord501At('writing')), 'nobody', NOW);
     expect(view.buttons[0]).toMatchObject({ role: 'product-owner', selected: true });
     expect(view.buttons[0]!.label).toBe('Product owner (shown)');
@@ -476,7 +466,6 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
       'High Table: ● Chief architect at the centre, 7 seats around it',
       '  ● ● ● ● ● ● ●  7 done',
     ]);
-    // A table of one seat draws one whole arc; markup in a role is escaped.
     const one = tableSvg({ ...table, seats: [{ ...table.seats[0]!, role: 'a<b' }], chief: null });
     expect(one).toContain('<title>A&#60;b done</title>');
     expect(one).toContain(' 0 1 1 ');
@@ -514,7 +503,6 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
     expect(trackRecordWords({ changes: 1, changed_spec: 0, empty: 0, avg_tokens: 0 })).toBe(
       'Track record: on 1 earlier change, changed the spec on 0.',
     );
-    // A record with no earlier change, or none at all, reads as no history.
     const seatsWith = (record: unknown) =>
       parse({
         ...FULL_ORD_501,
@@ -593,9 +581,6 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
   });
 });
 
-// ── AC-62: the copy ───────────────────────────────────────────────────────────
-
-/** Every fixture the High Table copy is drawn from. */
 const COPY_FIXTURES: Raw[] = [
   ...Object.values(STATE_FIXTURES),
   ...ORD_501_SEQUENCE,
@@ -606,7 +591,6 @@ const COPY_FIXTURES: Raw[] = [
   FAST_ORD_490,
 ];
 
-/** Every line Part 14 draws, as segments: the band's High Table row, the card and the pane. */
 function allLines(): TableLine[] {
   const lines: TableLine[] = [];
   for (const raw of COPY_FIXTURES) {
@@ -634,7 +618,6 @@ function allLines(): TableLine[] {
   return lines;
 }
 
-/** Words that keep their capitals mid-sentence: names, the High Table, role and line ids. */
 const PROPER =
   /^(High|Table|Chief|QA|DB|UX|UI|API|DevOps|D-[0-9A-Z]+[.,]?|EX-[\w-]+[.,]?|(FR|NFR|INV)-\d+:?|Safe|Needs|Inconclusive|Build|Review|Next:|Spec|Stage|Ship|Merge|Edit|Commit|Push|PR|CI|Intake|Planning|Checks|Docs|Deliver)$/;
 
@@ -648,7 +631,6 @@ describe('AC-62: the High Table copy', () => {
   it('starts each line in sentence case and keeps labels in sentence case', () => {
     for (const line of lines) {
       const words = text(line).replace(/^[\s○◐●✓▸·~✗-]+/, '');
-      // The brand stays lower case, and the cost pill (Part 23) reads "cost: not yet" as a tag.
       if (words === '' || /^(paqad|cost:)/.test(words) || /^\d/.test(words)) continue;
       expect(words[0], words).toBe(words[0]!.toUpperCase());
     }
@@ -682,12 +664,10 @@ describe('AC-62: the High Table copy', () => {
         expect(segment.text.trim().length, text(line)).toBeGreaterThan(0);
         if (!glyphs.has(segment.text)) expect(segment.text, text(line)).toMatch(/[A-Za-z0-9]/);
       }
-      // A late (amber) dot is always said in words on the same line: "1 flag" or "late".
       if (line.some((s) => glyphs.has(s.text) && s.tone === 'warn')) {
         expect(text(line)).toMatch(/flag|late/);
       }
     }
-    // Each seat state has its own glyph, so the shapes alone tell them apart.
     expect(new Set(Object.values(SEAT_MARK)).size).toBe(3);
   });
 });

@@ -6,7 +6,6 @@ import {
   hasAiAttribution,
 } from '@/delivery/ai-attribution.js';
 
-/** The real thing each vendor writes, as it appears in a commit message or PR body. */
 const REAL_WORLD = {
   'claude-code': [
     'Co-Authored-By: Claude <noreply@anthropic.com>',
@@ -22,7 +21,6 @@ const REAL_WORLD = {
 } as const;
 
 describe('detectAiAttribution', () => {
-  // AC-7
   for (const [id, samples] of Object.entries(REAL_WORLD)) {
     for (const sample of samples) {
       it(`detects ${id} in ${JSON.stringify(sample)}`, () => {
@@ -32,7 +30,6 @@ describe('detectAiAttribution', () => {
     }
   }
 
-  // AC-8 / INV-2 — the one match this table must never make.
   it("never matches paqad's own delivery footer", () => {
     const prBody = [
       '## Summary',

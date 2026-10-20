@@ -7,9 +7,6 @@ import {
   type BuildCheckFixRoundsLog,
 } from '@/core/types/build-check-fix.js';
 
-// Issue #108 — the internal rounds log. Persisted for the agent's own stop
-// decision and for debugging; it is never surfaced round-by-round to the
-// person. Lives alongside the per-round verification evidence.
 export const BUILD_CHECK_FIX_ROUNDS_RELATIVE_PATH = '.paqad/session/build-check-fix-rounds.json';
 
 export function buildRoundsLog(

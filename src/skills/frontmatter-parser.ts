@@ -124,7 +124,6 @@ function normalizeDefinition(input: Record<string, unknown>): SkillDefinition {
   };
 }
 
-/** Stable sub-code for an invalid value in a named frontmatter field. */
 function fieldInvalidCode(field: string): string {
   return `SKILL_FIELD_INVALID:${field}`;
 }

@@ -37,10 +37,9 @@ function gitResult(stdout: string, exitCode = 0): Awaited<ReturnType<typeof exec
   } as Awaited<ReturnType<typeof execa>>;
 }
 
-describe('readGitChangedFiles (mocked git-state + execa, issue #646)', () => {
+describe('readGitChangedFiles', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // A resolvable git state with a base branch, so committed-since-base engages.
     mockedReadGitState.mockReturnValue({
       branch: 'feature',
       head_commit: 'HEAD_SHA',
@@ -51,8 +50,8 @@ describe('readGitChangedFiles (mocked git-state + execa, issue #646)', () => {
 
   it('unions working-tree status with files committed since the base, sorted and de-duplicated', async () => {
     mockedExeca
-      .mockResolvedValueOnce(gitResult(' M src/b.ts\n?? src/a.ts\n')) // status
-      .mockResolvedValueOnce(gitResult('src/c.ts\nsrc/b.ts\n')); // diff base..HEAD
+      .mockResolvedValueOnce(gitResult(' M src/b.ts\n?? src/a.ts\n'))
+      .mockResolvedValueOnce(gitResult('src/c.ts\nsrc/b.ts\n'));
 
     await expect(readGitChangedFiles(makeTmpRoot())).resolves.toEqual([
       'src/a.ts',
@@ -95,7 +94,7 @@ describe('readGitChangedFiles (mocked git-state + execa, issue #646)', () => {
   });
 
   it('reads working-tree status only when git has no base commit', async () => {
-    mockedReadGitState.mockReturnValueOnce({ head_commit: 'HEAD_SHA' }); // no base_commit
+    mockedReadGitState.mockReturnValueOnce({ head_commit: 'HEAD_SHA' });
     mockedExeca.mockResolvedValueOnce(gitResult(' M src/a.ts\n'));
 
     const result = await loadChangeEvidence(makeTmpRoot());
@@ -105,7 +104,7 @@ describe('readGitChangedFiles (mocked git-state + execa, issue #646)', () => {
   });
 
   it('reads working-tree status only when git has no head commit', async () => {
-    mockedReadGitState.mockReturnValueOnce({ base_commit: 'BASE_SHA' }); // unborn branch
+    mockedReadGitState.mockReturnValueOnce({ base_commit: 'BASE_SHA' });
     mockedExeca.mockResolvedValueOnce(gitResult(''));
 
     const result = await loadChangeEvidence(makeTmpRoot());

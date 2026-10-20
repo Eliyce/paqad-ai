@@ -9,7 +9,7 @@ export interface TransitionEntry {
 
 export interface TransitionLog {
   version: 1;
-  entries: Record<string, TransitionEntry[]>; // keyed by stack_key
+  entries: Record<string, TransitionEntry[]>;
   max_entries_per_key: number;
 }
 

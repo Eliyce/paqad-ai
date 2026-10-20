@@ -1,7 +1,3 @@
-// AJV schema for `paqad.decision-reuse` rows. Framework-owned, lives in src/ (never
-// under .paqad/), so the LLM can never weaken it. Every recorded row is validated
-// against this before it is appended.
-
 import Ajv, { type ValidateFunction } from 'ajv';
 
 import { DECISION_REUSE_DOC_TYPE } from './types.js';
@@ -51,7 +47,6 @@ function validator(): ValidateFunction {
   return compiled;
 }
 
-/** Returns `[]` when the row is a valid `paqad.decision-reuse` row, else error strings. */
 export function validateDecisionReuseRow(row: unknown): string[] {
   const validate = validator();
   if (validate(row)) {

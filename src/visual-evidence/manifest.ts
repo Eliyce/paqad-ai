@@ -1,11 +1,3 @@
-// The visual-evidence manifest writer and naming helpers (issue #551, shared since issue #579).
-//
-// Two verbs write `visual-evidence.json` into a feature bundle: `visual-evidence run` (scripted
-// captures) and `visual-evidence attach` (agent-attached screenshots). Both go through the one
-// writer here, which validates the record, stamps its content hash and its `source`, and writes it
-// atomically. A later scripted run keeps every agent-attached step (INV-8) through
-// `mergeAttachedSteps` + `copyAttachedStepDirs`.
-
 import { cpSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 
@@ -25,7 +17,6 @@ import {
   type VisualEvidenceManifest,
 } from './types.js';
 
-/** Windows-safe kebab slug of a caption: [a-z0-9-] only, max 40, non-empty fallback. */
 export function slugifyCaption(caption: string): string {
   const slug = caption
     .toLowerCase()
@@ -36,12 +27,10 @@ export function slugifyCaption(caption: string): string {
   return slug.length > 0 ? slug : 'step';
 }
 
-/** Zero-padded 2-digit position (01..99, clamped at 99 for the dir name). */
 export function pad2(n: number): string {
   return String(Math.min(n, 99)).padStart(2, '0');
 }
 
-/** A slug not yet in `used` (`slug`, then `slug-2`, `slug-3`, ...), recorded as used. */
 export function uniqueSlug(slug: string, used: Set<string>): string {
   if (!used.has(slug)) {
     used.add(slug);
@@ -54,7 +43,6 @@ export function uniqueSlug(slug: string, used: Set<string>): string {
   return out;
 }
 
-/** The slug part of a step dir (`screenshots/03-open-cart` -> `open-cart`). */
 export function stepDirSlug(dir: string): string {
   return basename(dir).replace(/^\d+-/, '');
 }
@@ -67,10 +55,6 @@ export interface WriteVisualEvidenceManifestInput {
   skips: VeSkip[];
   result: VeResult;
   now: () => string;
-  /**
-   * The session writing the manifest, when the verb knows it (issue #581). Absent, the header
-   * carries the session that opened the change.
-   */
   sessionId?: string | null;
 }
 
@@ -81,25 +65,21 @@ export interface WriteVisualEvidenceManifestResult {
   skips: VeSkip[];
 }
 
-/** True for a step the agent attached (never a scripted capture). */
 export function isAttachedStep(step: VeStep): boolean {
   return step.journey_id === AGENT_ATTACHED_JOURNEY;
 }
 
-/** `agent-attached` / `mixed` when attached steps are present, else undefined (scripted only). */
 function manifestSource(steps: readonly VeStep[]): VeSource | undefined {
   if (!steps.some(isAttachedStep)) return undefined;
   return steps.some((step) => !isAttachedStep(step)) ? 'mixed' : 'agent-attached';
 }
 
-/** Build, validate, and atomically write the manifest. */
 export function writeVisualEvidenceManifest(
   projectRoot: string,
   dirName: string,
   input: WriteVisualEvidenceManifestInput,
 ): WriteVisualEvidenceManifestResult {
   const source = manifestSource(input.steps);
-  // Issue #581 — the one envelope header: `recorded_at` replaces `generated_at`.
   const recordedAt = input.now();
   const manifest = stampFeatureDocument({
     projectRoot,
@@ -135,21 +115,12 @@ export function writeVisualEvidenceManifest(
   return { wrote: true, manifest, result: input.result, skips: input.skips };
 }
 
-/**
- * A step read from a manifest written before #581 carries `captured_at`; it is read under the
- * current `recorded_at` name (INV-8), so carrying it into a new manifest writes the new shape.
- */
 function normalizeStep(step: VeStep & { captured_at?: string }): VeStep {
   if (step.recorded_at !== undefined || step.captured_at === undefined) return step;
   const { captured_at: recordedAt, ...rest } = step;
   return { ...rest, recorded_at: recordedAt };
 }
 
-/**
- * The bundle's current manifest, or null when absent or unreadable. Its steps are read under the
- * current names, so a verb that carries them into a new manifest writes the new shape. (The gate
- * reads the stored bytes itself, to validate them as written.)
- */
 export function readVisualEvidenceManifest(
   projectRoot: string,
   dirName: string,
@@ -165,27 +136,15 @@ export function readVisualEvidenceManifest(
   }
 }
 
-/** The agent-attached steps of the bundle's current manifest (empty when none). */
 export function readAttachedSteps(projectRoot: string, dirName: string): VeStep[] {
   return (readVisualEvidenceManifest(projectRoot, dirName)?.steps ?? []).filter(isAttachedStep);
 }
 
-/**
- * The result of a manifest that mixes attached and scripted steps (issue #579): `partial` whenever
- * any step failed (a failed step is a real gap that attached screenshots never cover), `captured`
- * when at least one step was captured and none failed, else `skipped`. The one derivation both
- * attach and a scripted run use, so the order they happen in can never change the verdict.
- */
 export function mergedVisualEvidenceResult(steps: readonly VeStep[]): VeResult {
   if (steps.some((step) => step.status === 'failed')) return 'partial';
   return steps.some((step) => step.status === 'captured') ? 'captured' : 'skipped';
 }
 
-/**
- * Carry already-attached steps into a scripted run's manifest (issue #579, FR-13): they go first
- * and keep their dirs and hashes. The result is re-derived over all the steps by
- * {@link mergedVisualEvidenceResult}.
- */
 export function mergeAttachedSteps(
   attached: readonly VeStep[],
   input: WriteVisualEvidenceManifestInput,
@@ -195,10 +154,6 @@ export function mergeAttachedSteps(
   return { ...input, steps, result: mergedVisualEvidenceResult(steps) };
 }
 
-/**
- * Copy each attached step folder from the live `screenshots/` into a scripted run's temp build,
- * so the atomic swap that replaces `screenshots/` keeps the attached image files.
- */
 export function copyAttachedStepDirs(
   projectRoot: string,
   dirName: string,

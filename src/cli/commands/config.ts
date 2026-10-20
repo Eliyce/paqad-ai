@@ -10,28 +10,8 @@ import { resolveVisualEvidenceMode } from '@/verification/repository/visual-evid
 import { resolveChecksFlakyMode } from '@/checks/flaky-mode.js';
 import { resolveMutationMode } from '@/mutation/mode.js';
 
-/**
- * `paqad-ai config effective` (issue #326) — print, per knob, the value that ACTUALLY
- * binds, which surface it came from, and which gate consumes it. It turns the invisible
- * "which setting wins?" question into one command, and exposes the two-truth placebos:
- * a knob whose `consumed by:` is `NOTHING` is a setting a team can change with no effect,
- * because no running code reads it. Strictly read-only — it never writes any config.
- *
- * The consumer map is hand-curated and honest (`NOTHING` only for knobs verified to have
- * no runtime consumer). `rule_compliance` and `stages_mode` are shown via their real
- * floored resolvers, so the yaml/tracked stricter-of truth (#319) is visible, not the
- * raw surface value.
- */
-
-/** The `NOTHING` sentinel: a knob no running code reads (a placebo). */
 const NOTHING = 'NOTHING';
 
-/**
- * Knob → the gate/consumer that reads it, or `NOTHING` when nothing does. Verified by
- * source scan (issue #326): the `NOTHING` set is the "two-truth" strictness/escalation/
- * decision-threshold/research knobs that map to `feature-development.yaml` policy fields
- * no code consumes today.
- */
 const KNOB_CONSUMERS: Record<string, string> = {
   paqad_enable: 'enablement gate (bootstrap + every hook)',
   auto_update: 'silent background update',
@@ -99,7 +79,6 @@ interface EffectiveKnob {
   consumed_by: string;
 }
 
-/** Resolve every knob's effective value + winning surface + consumer. Read-only. */
 export function resolveEffectiveConfig(
   projectRoot: string,
   env: NodeJS.ProcessEnv = process.env,
@@ -120,15 +99,12 @@ export function resolveEffectiveConfig(
       surface = 'local .paqad/.config';
     } else if (teamMap.has(spec.key)) {
       value = teamMap.get(spec.key) ?? '';
-      // Issue #640 — name the team file that set it, so doctor can say where a value came from.
       surface = `team configs/${basename(team.sources.get(spec.key)!)}`;
     } else {
       value = spec.default === undefined ? '(unset)' : String(spec.default);
       surface = 'default';
     }
 
-    // The two floored knobs (#319): show the value the gate actually uses (the
-    // stricter of tracked/yaml + local/env), not the raw surface value.
     if (spec.key === 'rule_compliance') {
       value = resolveRuleComplianceMode(projectRoot, env);
       surface = `${surface} → floored`;

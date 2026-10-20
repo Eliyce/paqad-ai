@@ -1,9 +1,4 @@
 #!/usr/bin/env node
-// Run `claude plugin validate` against the repo root and the packed npm tarball (issue #616,
-// Part 1.3). Validation runs only when the `claude` CLI is present; otherwise it prints a skip note
-// and exits 0, so CI stays green on a runner without Claude Code installed. A real validation
-// failure (non-zero exit) fails the step; "passed with warnings" (the inherent npm-source warning)
-// exits 0 and is allowed.
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
@@ -35,10 +30,8 @@ if (!claudeAvailable()) {
   process.exit(0);
 }
 
-// 1. The repo root (validates .claude-plugin/marketplace.json).
 validate(repoRoot);
 
-// 2. The packed tarball (validates the shipped .claude-plugin/plugin.json, with no marketplace).
 const sandbox = mkdtempSync(join(tmpdir(), 'paqad-plugin-validate-'));
 try {
   execFileSync('npm', ['pack', '--pack-destination', sandbox], { cwd: repoRoot, stdio: 'ignore' });

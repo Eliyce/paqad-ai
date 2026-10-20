@@ -10,7 +10,6 @@ const BAND_TOKEN: Record<ScoreBand, string> = {
 interface Props {
   score: number | null;
   band: ScoreBand;
-  /** Tooltip text. Per the brief, always shows the math. */
   title?: string;
 }
 

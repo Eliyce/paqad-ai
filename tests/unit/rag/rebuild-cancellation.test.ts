@@ -75,8 +75,6 @@ function baseProfile(intelligence?: Partial<IntelligenceConfig>) {
   };
 }
 
-// A provider that aborts the consumer's controller the moment it is asked to
-// embed, so the rebuild is cancelled while chunks are in flight.
 function abortingProviderFactory(controller: AbortController): ProviderFactory {
   const provider: EmbeddingProvider = {
     name: 'local',
@@ -99,7 +97,6 @@ describe('RagService.rebuild consumer cancellation (PQD-104)', () => {
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-rag-cancel-'));
     mkdirSync(join(projectRoot, 'src'), { recursive: true });
-    // A substantive file so the chunker emits at least one chunk to embed.
     const body = Array.from(
       { length: 40 },
       (_unused, index) =>
@@ -113,8 +110,6 @@ describe('RagService.rebuild consumer cancellation (PQD-104)', () => {
       embedding_model: 'fake-local',
     });
     writeProjectProfile(projectRoot, profile);
-    // Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
-    // not the profile YAML; persist them so rebuild() sees RAG enabled.
     syncFrameworkConfig(projectRoot, profile);
   });
 
@@ -141,7 +136,6 @@ describe('RagService.rebuild consumer cancellation (PQD-104)', () => {
     expect(cancelled).toBe(true);
     expect(checkpointPath).toBe('.paqad/vectors/index.partial.json');
 
-    // The partial index is present and loadable; the full index is not written.
     const partialFile = join(projectRoot, '.paqad/vectors/index.partial.json');
     expect(existsSync(partialFile)).toBe(true);
     const partial = JSON.parse(readFileSync(partialFile, 'utf8')) as {
