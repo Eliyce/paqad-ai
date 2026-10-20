@@ -11,12 +11,6 @@ const HELPER = {
   goodLooksLike: 'chunk-index.json present, non-empty, and refreshed in the last 30 days.',
 } as const;
 
-/**
- * Phase-1 scoring is intentionally lightweight: the chunk index can be
- * multi-megabyte JSON, so we don't parse it on every dashboard refresh.
- * We score on existence + size + freshness only. Module-coverage scoring
- * (does every slug appear in the index?) is a phase-2 enhancement.
- */
 export function collectArchitecture(projectRoot: string, now: number = Date.now()): SectionData {
   const indexPath = join(projectRoot, PATHS.CHUNK_INDEX);
   if (!existsSync(indexPath)) {
@@ -38,7 +32,6 @@ export function collectArchitecture(projectRoot: string, now: number = Date.now(
     mtimeMs = st.mtimeMs;
     sizeBytes = st.size;
   } catch {
-    // file removed between existsSync and stat — treat as missing
     return {
       id: 'architecture',
       title: 'Architecture',
@@ -64,7 +57,6 @@ export function collectArchitecture(projectRoot: string, now: number = Date.now(
 
   const freshness = scoreFreshness(mtimeMs, { now });
   const age = ageInDays(mtimeMs, now);
-  // Presence alone is worth 50, freshness rides the other 50.
   const score = Math.round(50 + (freshness / 100) * 50);
 
   return {

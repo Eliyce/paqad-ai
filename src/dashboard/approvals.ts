@@ -1,12 +1,3 @@
-// Issue #146 — the Approvals inbox behind the dashboard.
-//
-// One feed and three mutations, all routed through the same stores the agent
-// uses: decision pauses resolve via DecisionStore (audit, index, supersede
-// logic included), module proposals transition through the MD-XXXX state
-// machine. The dashboard never re-implements file logic; it only adds the
-// `dashboard` actor to the existing audit trails so a web resolution is
-// indistinguishable, for the agent, from a CLI one.
-
 import { appendFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -17,10 +8,8 @@ import { listDecisionsByState, readDecision, writeDecision } from '@/module-deci
 import type { DecisionOption, DecisionPacket } from '@/planning/decision-packet.js';
 import { DecisionStore } from '@/planning/decision-store.js';
 
-/** Actor recorded on every audit trail a dashboard mutation touches. */
 export const DASHBOARD_ACTOR = 'dashboard';
 
-/** A pending decision pause, shaped for the inbox card. */
 export interface ApprovalsPauseItem {
   kind: 'pause';
   id: string;
@@ -35,7 +24,6 @@ export interface ApprovalsPauseItem {
   ttl_until: string;
 }
 
-/** A proposed MD-XXXX module decision, shaped for the inbox card. */
 export interface ApprovalsProposalItem {
   kind: 'module-proposal';
   id: string;
@@ -52,11 +40,9 @@ export interface ApprovalsFeed {
   generatedAt: string;
   pauses: ApprovalsPauseItem[];
   proposals: ApprovalsProposalItem[];
-  /** Sidebar badge count — everything that needs the human. */
   pendingCount: number;
 }
 
-/** Thrown when a mutation targets an id that has no pending item. */
 export class ApprovalNotFoundError extends Error {
   constructor(id: string) {
     super(`No pending approval found for ${id}.`);
@@ -64,7 +50,6 @@ export class ApprovalNotFoundError extends Error {
   }
 }
 
-/** Thrown when a mutation is valid in shape but not in state (e.g. already resolved). */
 export class ApprovalConflictError extends Error {
   constructor(message: string) {
     super(message);
@@ -107,11 +92,6 @@ function proposalItem(decision: ModuleDecision): ApprovalsProposalItem {
   };
 }
 
-/**
- * The unified inbox: pending decision pauses plus proposed (non-expired)
- * module decisions, newest first. Corrupt pause packets are skipped — the
- * inbox must render even when one file is broken mid-write.
- */
 export function buildApprovalsFeed(projectRoot: string): ApprovalsFeed {
   const store = new DecisionStore(projectRoot);
   const pauses: ApprovalsPauseItem[] = [];
@@ -138,11 +118,6 @@ export function buildApprovalsFeed(projectRoot: string): ApprovalsFeed {
   };
 }
 
-/**
- * Append a dashboard mutation to the framework audit log
- * (`.paqad/audit.log`), same line format as the rest of the framework:
- * `[ts] INFO <action> key="value" …` with `actor="dashboard"` always present.
- */
 export function appendDashboardAudit(
   projectRoot: string,
   action: string,
@@ -168,11 +143,6 @@ export interface ResolvePauseResult {
   chosen_option_key: string;
 }
 
-/**
- * Resolve a pending pause from the web page. Writes through
- * {@link DecisionStore.resolve} — the same store the agent polls — so the
- * conversation picks the answer up on its next tool call.
- */
 export function resolvePauseDecision(
   projectRoot: string,
   input: ResolvePauseInput,
@@ -257,17 +227,10 @@ function transitionModuleProposal(
   return { id, state: target, proposed_slug: decision.proposed_slug };
 }
 
-/**
- * Accept a proposed module decision. This is the state transition the
- * reconciler already understands (accepted-but-not-applied surfaces as
- * MM-MISMATCH guidance); applying the map mutation stays with the existing
- * apply path on the agent's next run, exactly as with a CLI acceptance.
- */
 export function acceptModuleProposal(projectRoot: string, id: string): ModuleProposalResult {
   return transitionModuleProposal(projectRoot, id, 'accepted');
 }
 
-/** Reject a proposed module decision. */
 export function rejectModuleProposal(projectRoot: string, id: string): ModuleProposalResult {
   return transitionModuleProposal(projectRoot, id, 'rejected');
 }

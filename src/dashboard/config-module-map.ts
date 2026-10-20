@@ -10,17 +10,6 @@ import type { SchemaValidationIssue } from '@/validators/validator.js';
 
 import { readManagedFile, writeManagedFile, type ManagedFile } from './write-pipeline.js';
 
-/**
- * Issue #146: `/api/config/module-map`. Reads go through `readRawModuleMap`,
- * the same lenient reader the reconciler uses, so the dashboard shows the
- * modules exactly as the drift detector sees them, alongside the latest
- * drift report. Writes carry the raw YAML text (the client edits a YAML
- * document so comments survive) and run the section 6.2 pipeline: shape
- * validation, guarded write, audit, SSE (the server broadcasts after every
- * mutation).
- */
-
-/** The lenient module shape `readRawModuleMap` produces. */
 type RawModuleMap = NonNullable<ReturnType<typeof readRawModuleMap>>;
 export type RawModule = RawModuleMap['modules'][number];
 
@@ -35,11 +24,8 @@ export class ModuleMapValidationError extends Error {
 }
 
 export interface ModuleMapConfig {
-  /** The raw project file plus the hash a PUT must echo back. */
   file: ManagedFile;
-  /** The declared modules as the reconciler reads them (lenient parse). */
   modules: RawModule[];
-  /** The latest drift report, or null when none has been written yet. */
   drift: ModuleMapDriftReport | null;
 }
 
@@ -62,14 +48,6 @@ export interface PutModuleMapResult {
   modules: RawModule[];
 }
 
-/**
- * Validates the candidate map to the same tolerance as `readRawModuleMap`:
- * the document must be a mapping, and `modules` (when present) must be an
- * array of mappings each carrying a string `slug` or `name`. Anything the
- * reconciler would silently coerce into an empty identifier is rejected
- * here instead, so the dashboard cannot save a map the reconciler cannot
- * attribute findings to.
- */
 export function putModuleMap(projectRoot: string, input: PutModuleMapInput): PutModuleMapResult {
   let parsed: unknown;
   try {

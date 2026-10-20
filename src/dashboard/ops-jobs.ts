@@ -21,22 +21,6 @@ import { describeSiteMapInventory, runSiteMapAudit } from '@/site-map/run.js';
 
 import { appendDashboardAudit } from './approvals.js';
 
-/**
- * Issue #146 — the idempotent job runner behind `POST /api/ops/{action}` and
- * `GET /api/ops/{jobId}` (spec sections 3D and 6.1). Every button on the
- * dashboard runs the exact core function the CLI runs — no reimplementation,
- * no shelling out. A job is in-memory state on the running server: start it,
- * poll it, watch its progress stream; the server forwards every progress push
- * as an `ops-progress` SSE event. Finished jobs append an
- * `actor="dashboard"` audit line so a web-triggered run is indistinguishable,
- * in the trail, from a CLI one.
- */
-
-/**
- * The actions this slice exposes. Deliberately excludes `update`,
- * `refresh-stack`, and `regenerate-registries` — those spawn heavier flows
- * and the closed type makes adding one an explicit decision.
- */
 export const OPS_ACTIONS = [
   'reconcile',
   'refresh-rules',
@@ -51,7 +35,6 @@ export const OPS_ACTIONS = [
 
 export type OpsAction = (typeof OPS_ACTIONS)[number];
 
-/** Route-boundary guard: is this path segment a runnable ops action? */
 export function isOpsAction(value: unknown): value is OpsAction {
   return typeof value === 'string' && (OPS_ACTIONS as readonly string[]).includes(value);
 }
@@ -62,14 +45,11 @@ export interface OpsJob {
   status: 'running' | 'done' | 'failed';
   startedAt: string;
   finishedAt: string | null;
-  /** Plain-language progress lines, oldest first. */
   progress: string[];
-  /** The action's summary payload once the job is done. */
   result: unknown;
   error: string | null;
 }
 
-/** One progress push, forwarded by the server as an `ops-progress` SSE event. */
 export interface OpsProgressEvent {
   jobId: string;
   action: OpsAction;
@@ -77,7 +57,6 @@ export interface OpsProgressEvent {
   message: string;
 }
 
-/** Thrown when the same action is started while a run is in flight (idempotency guard). */
 export class OpsConflictError extends Error {
   readonly action: OpsAction;
 
@@ -90,7 +69,6 @@ export class OpsConflictError extends Error {
 
 export interface OpsJobHelpers {
   projectRoot: string;
-  /** Push a progress line onto the job and notify the SSE forwarder. */
   progress: (message: string) => void;
 }
 
@@ -98,23 +76,12 @@ export type OpsExecutor = (job: OpsJob, helpers: OpsJobHelpers) => Promise<unkno
 
 export interface OpsJobRunnerOptions {
   projectRoot: string;
-  /** Forwarded by the server as `ops-progress` SSE events. */
   onEvent?: (event: OpsProgressEvent) => void;
-  /**
-   * Per-action overrides, for tests that need a long action to be cheap and
-   * deterministic. Production constructs the runner without this, so every
-   * action runs its real core function below.
-   */
   executors?: Partial<Record<OpsAction, OpsExecutor>>;
 }
 
-/** Finished (done or failed) jobs kept for `GET /api/ops/{jobId}` and `list()`. */
 const MAX_FINISHED_JOBS = 50;
 
-/**
- * The default executors — each one calls the same core function its CLI
- * command calls, and returns a compact plain-data summary as the job result.
- */
 const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
   reconcile: async (_job, { projectRoot, progress }) => {
     const discovered = discoverSourceRoots(projectRoot);
@@ -156,8 +123,6 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
   },
 
   'rag-rebuild': async (_job, { projectRoot, progress }) => {
-    // May hit a network embedding provider; any failure (provider, config,
-    // RAG disabled) marks the job failed cleanly via the runner's catch.
     const service = new RagService(projectRoot);
     await service.rebuild({ onProgress: (update) => progress(update.message) });
     return await service.getStatus();
@@ -178,8 +143,6 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
       const theme = await service.writeThemeExports(projectRoot, stack);
       return { docs, theme };
     } catch (error) {
-      // Placeholder or missing tokens are an expected state, not a failure:
-      // the docs are intentionally not generated until real tokens exist.
       if (
         error instanceof DesignTokensMissingError ||
         error instanceof DesignTokensPlaceholderError
@@ -215,20 +178,12 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
     return report.checks;
   },
 
-  // Issue #448 — the site-map run is a dashboard action, not a command the user types. This
-  // runs the exact core function the (hidden) `sitemap` verb runs: no reimplementation, no
-  // shelling out. runSiteMapAudit is flag-gated at its consumers, so this is inert with the
-  // site_map capability off.
   'site-map': async (_job, { projectRoot, progress }) => {
     const result = await runSiteMapAudit({
       projectRoot,
       gatherer: createSiteMapGatherer(projectRoot),
-      // Say how big the job is as the first progress line, straight off the extraction (S4).
       onInventory: (inventory) => progress(describeSiteMapInventory(inventory)),
     });
-    // Report how far the resumable authoring got: one plain line per completed unit read from the
-    // S5 progress store (S6). The store is authored by `sitemap draft` (S8); until then this run
-    // reports the units a previous draft finished, and emits nothing when no progress file exists.
     const progressFile = await readProgress(projectRoot);
     if (progressFile !== null) {
       for (const line of describeCompletedUnits(progressFile)) progress(line);
@@ -243,22 +198,12 @@ const DEFAULT_EXECUTORS: Record<OpsAction, OpsExecutor> = {
   },
 };
 
-/**
- * In-memory job runner, alive as long as the dashboard server. One running
- * job per action at a time; at most the last {@link MAX_FINISHED_JOBS}
- * finished jobs are retained.
- */
 export class OpsJobRunner {
   private jobs: OpsJob[] = [];
   private counter = 0;
 
   constructor(private readonly options: OpsJobRunnerOptions) {}
 
-  /**
-   * Start a job and return it immediately in `running` state; the action's
-   * work continues asynchronously. Throws {@link OpsConflictError} when a job
-   * for the same action is still running.
-   */
   start(action: OpsAction): OpsJob {
     const running = this.jobs.find((job) => job.action === action && job.status === 'running');
     if (running !== undefined) {
@@ -285,7 +230,6 @@ export class OpsJobRunner {
     return this.jobs.find((job) => job.id === jobId) ?? null;
   }
 
-  /** All retained jobs, newest first. */
   list(): OpsJob[] {
     return [...this.jobs].reverse();
   }
@@ -310,8 +254,6 @@ export class OpsJobRunner {
     } catch (error) {
       job.status = 'failed';
       job.finishedAt = new Date().toISOString();
-      // First line only: job errors are served to the browser, so no stack
-      // or multi-line exception detail crosses the boundary.
       job.error =
         error instanceof Error
           ? (error.message.split('\n')[0] ?? 'The operation failed.')

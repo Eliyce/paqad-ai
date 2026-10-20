@@ -68,13 +68,9 @@ export interface DashboardServerOptions {
   projectRoot: string;
   host: string;
   port: number;
-  /** Directory holding the bundled graph-ui SPA (re-used for the dashboard). */
   staticDir: string;
-  /** If false, the server does not watch `.paqad/` for changes. */
   watch?: boolean;
-  /** Quiet period for the watcher in milliseconds. Default 500. */
   watchDebounceMs?: number;
-  /** If true, every mutation endpoint refuses with 403 (for shared/CI usage). */
   readOnly?: boolean;
 }
 
@@ -99,11 +95,6 @@ const MIME_TYPES: Record<string, string> = {
   '.map': 'application/json; charset=utf-8',
 };
 
-/**
- * Per-format download metadata for the SIEM export (issue #160). Content types
- * mirror the spec: ndjson for the line-per-event schemas, json for jsonl, plain
- * text for CEF. Extensions stay posix-safe.
- */
 const SIEM_DOWNLOAD: Record<SiemFormat, { contentType: string; ext: string }> = {
   ocsf: { contentType: 'application/x-ndjson; charset=utf-8', ext: 'ndjson' },
   ecs: { contentType: 'application/x-ndjson; charset=utf-8', ext: 'ndjson' },
@@ -164,7 +155,6 @@ function serveStatic(
     return;
   }
   if (!existsSync(filePath)) {
-    // SPA fallback so the hash router can take over.
     filePath = join(staticDir, 'index.html');
     if (!existsSync(filePath)) {
       writeText(res, 'Not Found', 404);
@@ -207,7 +197,6 @@ function serveStatic(
 
 const MAX_BODY_BYTES = 64 * 1024;
 
-/** Read and parse a JSON request body, capped at {@link MAX_BODY_BYTES}. */
 function readJsonBody(req: IncomingMessage): Promise<unknown> {
   return new Promise((resolveBody, rejectBody) => {
     const chunks: Buffer[] = [];
@@ -236,26 +225,18 @@ function readJsonBody(req: IncomingMessage): Promise<unknown> {
   });
 }
 
-/** True when the request's Host header names a loopback address. */
 function isLoopbackHost(hostHeader: string | undefined): boolean {
   if (!hostHeader) return false;
   const name = hostHeader.replace(/:\d+$/, '').toLowerCase();
   return name === 'localhost' || name === '127.0.0.1' || name === '[::1]';
 }
 
-/**
- * True when the Origin header, if present, points back at this server.
- * Browsers always send Origin on cross-site POSTs, so a foreign value means a
- * web page elsewhere is trying to drive the local API (DNS-rebinding/CSRF).
- * Same-machine CLI clients send no Origin and pass.
- */
 function isSameOrigin(req: IncomingMessage): boolean {
   const origin = req.headers.origin;
   if (origin === undefined) return true;
   try {
     return new URL(origin).host === req.headers.host;
   } catch {
-    // Includes `Origin: null` (sandboxed iframes, file://) — treated as foreign.
     return false;
   }
 }
@@ -298,8 +279,6 @@ export async function startDashboardServer(
   const sseClients = new Set<ServerResponse>();
   let watcher: RunningWatcher | null = null;
 
-  // The graph area (issue #159) shares this front door. Read-only and lazy —
-  // extraction happens on the first `/api/graph` hit, never at boot.
   const graphRoutes = createGraphRoutes(options.projectRoot);
 
   function refreshReport(): void {
@@ -311,15 +290,11 @@ export async function startDashboardServer(
     for (const res of sseClients) {
       try {
         res.write(payload);
-      } catch {
-        // ignore — failed client will be cleaned up by its 'close' handler
-      }
+      } catch {}
     }
   }
 
   function onArtefactChange(): void {
-    // Drop the cached graph too so the Graph area re-extracts on its next
-    // read, and nudge any open GraphView via its existing listener.
     graphRoutes.invalidate();
     broadcastSse('graph-updated', { extracted_at: new Date().toISOString() });
     try {
@@ -339,8 +314,6 @@ export async function startDashboardServer(
     });
   }
 
-  // Safe operations (spec 3D): jobs stream progress over SSE and refresh the
-  // report when they finish, so cards update without waiting for the watcher.
   const opsRunner = new OpsJobRunner({
     projectRoot: options.projectRoot,
     onEvent: (event) => {
@@ -360,12 +333,6 @@ export async function startDashboardServer(
     });
   });
 
-  /**
-   * Gate every mutation behind the issue #146 guardrails: onboarded project
-   * only, refused in `--read-only` mode, loopback Host (DNS-rebinding guard),
-   * same-origin when a browser sends Origin. Returns null when the request may
-   * proceed; otherwise writes the refusal and returns the status it sent.
-   */
   function guardMutation(req: IncomingMessage, res: ServerResponse): number | null {
     if (options.readOnly === true) {
       writeJson(
@@ -389,8 +356,6 @@ export async function startDashboardServer(
       writeJson(res, req, { error: 'Mutations are accepted from this machine only.' }, 403);
       return 403;
     }
-    // Issue #616 Part 8b — a layout written by a newer paqad cannot be safely written by this
-    // engine. Refuse every mutation with 409 and the doctor update line rather than corrupting it.
     const marker = readSchemaMarkerSync(options.projectRoot);
     if (marker && checkSchemaCompatibility(marker) === 'future') {
       writeJson(res, req, { error: SCHEMA_VERSION_UPDATE_HINT }, 409);
@@ -399,15 +364,12 @@ export async function startDashboardServer(
     return null;
   }
 
-  /** Map a thrown mutation error onto the HTTP status the inbox expects. */
   function writeMutationError(req: IncomingMessage, res: ServerResponse, err: unknown): void {
     if (err instanceof ApprovalNotFoundError || err instanceof SavedViewNotFoundError) {
       writeJson(res, req, { error: err.message }, 404);
       return;
     }
     if (err instanceof WriteConflictError) {
-      // Spec 6.3 — the friendly merge prompt: 409 plus the current content so
-      // the client can render a side-by-side diff.
       writeJson(
         res,
         req,
@@ -436,7 +398,6 @@ export async function startDashboardServer(
       err instanceof DeliveryPolicyValidationError ||
       (err instanceof Error && Array.isArray((err as { issues?: unknown }).issues))
     ) {
-      // Every config validation error carries field-level `issues`.
       writeJson(
         res,
         req,
@@ -445,8 +406,6 @@ export async function startDashboardServer(
       );
       return;
     }
-    // Only the first line of a known Error's message crosses the boundary;
-    // anything else gets a static sentence so no exception detail leaks.
     const message =
       err instanceof Error
         ? (err.message.split('\n')[0] ?? 'The request could not be processed.')
@@ -462,8 +421,6 @@ export async function startDashboardServer(
     if (guardMutation(req, res) !== null) return;
     try {
       const result = await mutate();
-      // Refresh + broadcast immediately so every open client updates without
-      // waiting for the .paqad/ watcher debounce.
       onArtefactChange();
       writeJson(res, req, { ok: true, result });
     } catch (err) {
@@ -483,13 +440,6 @@ export async function startDashboardServer(
       writeJson(res, req, buildApprovalsFeed(options.projectRoot));
       return;
     }
-    // Issue #448 — the site map is a dashboard area, so journey curation (the human sign-off on
-    // proposed journeys) happens here. List is read-only; curate goes through the mutation guard
-    // and runs the same runJourneyCuration the (hidden) CLI verb runs.
-    // Issue #466 — the full behavioural map (surfaces, transitions, areas, actors, guards, and
-    // per-journey step detail) the dashboard renders as the interactive visual. Read statically
-    // from the canonical docs/site-map/ YML; no LLM at view time (NFR-4). Inert when the flag is
-    // off (the payload's own `disabled` status carries that; DATA-1, DATA-2).
     if (pathname === '/api/site-map/map' && req.method === 'GET') {
       writeJson(
         res,
@@ -500,16 +450,10 @@ export async function startDashboardServer(
       );
       return;
     }
-    // S6 — the resumable run progress the Site map area's strip reads. A static read of the S5
-    // progress store (`readProgress` is tolerant and never writes), returning the progress file or
-    // null when none, so it is safe to poll while a run is in flight.
     if (pathname === '/api/site-map/progress' && req.method === 'GET') {
       writeJson(res, req, await readSiteMapProgress(options.projectRoot));
       return;
     }
-    // Issue #489, Phase 3 — team-shared district curation. Dragging a district persists its
-    // arrangement to docs/site-map/layout.yaml through the mutation guard (refused in --read-only),
-    // and reset removes the file so the canvas reverts to its computed layout.
     if (pathname === '/api/site-map/layout' && req.method === 'POST') {
       await handleMutation(req, res, async () => {
         const body = (await readJsonBody(req)) as { districts?: unknown };
@@ -554,8 +498,6 @@ export async function startDashboardServer(
       });
       return;
     }
-    // Issue #387 — accept both the current `D-<ULID>` id and the legacy numeric `D-{N}`
-    // form so the resolve route matches real (ULID) decisions, not just pre-#184 ids.
     const resolveMatch = /^\/api\/decisions\/(D-(?:\d+|[0-9A-HJKMNP-TV-Z]{26}))\/resolve$/.exec(
       pathname,
     );
@@ -633,7 +575,6 @@ export async function startDashboardServer(
       writeJson(res, req, buildInventory(options.projectRoot));
       return;
     }
-    // Saved views (issue #161): project-scoped graph / trust / export scopes.
     if (pathname === '/api/saved-views' && req.method === 'GET') {
       writeJson(res, req, { views: listSavedViews(options.projectRoot) });
       return;
@@ -661,7 +602,6 @@ export async function startDashboardServer(
       await handleMutation(req, res, () => deleteSavedView(options.projectRoot, id));
       return;
     }
-    // Access-free snapshots (issue #161): one self-contained static HTML doc.
     const receiptSnapshotMatch = /^\/api\/snapshot\/receipt\/(.+)$/.exec(pathname);
     if (receiptSnapshotMatch && req.method === 'GET') {
       const html = buildReceiptSnapshot(
@@ -893,9 +833,6 @@ export async function startDashboardServer(
       return;
     }
     if (pathname === '/api/export/siem' && req.method === 'GET') {
-      // Read-only projection of the evidence ledger into the customer's SIEM
-      // schema (issue #160). Byte-identical to `paqad-ai audit export`; nothing
-      // is pushed anywhere, the browser just downloads what the CLI would write.
       const format = (url.searchParams.get('format') ?? 'ocsf').toLowerCase();
       if (!(SIEM_FORMATS as readonly string[]).includes(format)) {
         writeJson(
@@ -922,8 +859,6 @@ export async function startDashboardServer(
         redact: url.searchParams.get('redact') === 'true',
         productVersion: VERSION,
       });
-      // Match the CLI: a non-empty export ends in a newline, an empty one is
-      // a truly empty file.
       const payload = result.count > 0 ? `${result.output}\n` : '';
       const meta = SIEM_DOWNLOAD[format as SiemFormat];
       const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
@@ -938,8 +873,6 @@ export async function startDashboardServer(
       return;
     }
     if (pathname === '/api/dashboard') {
-      // Always rebuild — the report is cheap and the watcher might have
-      // lagged. Keeps SSE clients and direct hits consistent.
       refreshReport();
       writeJson(res, req, cachedReport);
       return;
@@ -961,9 +894,7 @@ export async function startDashboardServer(
       const heartbeat = setInterval(() => {
         try {
           res.write(': ping\n\n');
-        } catch {
-          /* ignore */
-        }
+        } catch {}
       }, 20000);
       const cleanup = (): void => {
         clearInterval(heartbeat);
@@ -973,9 +904,6 @@ export async function startDashboardServer(
       req.on('error', cleanup);
       return;
     }
-    // Read-only graph API (issue #159). Mounted directly, never through the
-    // mutation guard, so a write to a graph path falls through to the 404
-    // below instead of mutating anything.
     if (await graphRoutes.handle(req, res, url)) {
       return;
     }
@@ -1000,9 +928,7 @@ export async function startDashboardServer(
         for (const res of sseClients) {
           try {
             res.end();
-          } catch {
-            /* ignore */
-          }
+          } catch {}
         }
         sseClients.clear();
         server.close((err) => (err ? rejectClose(err) : resolveClose()));

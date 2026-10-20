@@ -2,8 +2,6 @@ import { PAQAD_STATUS_GLYPH } from '@/core/constants/paqad-voice.js';
 
 import type { DashboardReport, ScoreBand, SectionData } from './types.js';
 
-// Glyphs come from the canonical paqad-voice spec so the dashboard, the PR
-// evidence comment, and the in-chat narration contract share one vocabulary.
 const BAND_GLYPHS: Record<ScoreBand, string> = {
   green: PAQAD_STATUS_GLYPH.good,
   amber: PAQAD_STATUS_GLYPH.needsLook,
@@ -16,11 +14,6 @@ function scoreText(section: SectionData): string {
   return `${section.score}%`;
 }
 
-/**
- * Render a `DashboardReport` as Markdown suitable for piping into an LLM
- * prompt or pasting into a status update. Deterministic — same input,
- * same output (no timestamps re-formatted, no locale-dependent calls).
- */
 export function renderMarkdown(report: DashboardReport): string {
   const lines: string[] = [];
 

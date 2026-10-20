@@ -3,14 +3,6 @@ import { dirname, join } from 'node:path';
 
 import { appendDashboardAudit } from './approvals.js';
 
-/**
- * Issue #161 — project-scoped saved views. A saved view captures a scope a
- * person returns to: a graph filter, a Trust verdict filter, or a SIEM export
- * config. Stored in `.paqad/dashboard/saved-views.json` so a team shares them
- * through git. Writes flow through the dashboard mutation guard in
- * `server.ts`; this module owns parsing, validation, and the atomic write.
- */
-
 const SAVED_VIEWS_RELATIVE = '.paqad/dashboard/saved-views.json';
 
 export type SavedViewArea = 'graph' | 'trust' | 'export';
@@ -21,12 +13,10 @@ export interface SavedView {
   id: string;
   name: string;
   area: SavedViewArea;
-  /** Area-specific scope, opaque to the store (graph filter, verdict, export config). */
   scope: Record<string, unknown>;
   createdAt: string;
 }
 
-/** Thrown when a delete targets an id that is not present (→ HTTP 404). */
 export class SavedViewNotFoundError extends Error {
   constructor(id: string) {
     super(`No saved view with id ${id}.`);
@@ -52,7 +42,6 @@ function isSavedView(value: unknown): value is SavedView {
   );
 }
 
-/** Read the saved views, tolerating a missing or malformed file (returns []). */
 export function listSavedViews(projectRoot: string): SavedView[] {
   const path = savedViewsPath(projectRoot);
   if (!existsSync(path)) return [];
@@ -80,11 +69,6 @@ export interface PutSavedViewInput {
   scope: unknown;
 }
 
-/**
- * Create or replace a saved view by id. The id comes from the route and must
- * be a safe slug (it is also a JSON key and a URL segment). Creating stamps
- * `createdAt`; replacing preserves the original.
- */
 export function putSavedView(projectRoot: string, input: PutSavedViewInput): SavedView {
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(input.id)) {
     throw new Error('Saved view id must be 1-64 chars of letters, digits, dash, or underscore.');
@@ -125,7 +109,6 @@ export interface DeleteSavedViewResult {
   removed: true;
 }
 
-/** Remove a saved view by id, 404 when it is not present. */
 export function deleteSavedView(projectRoot: string, id: string): DeleteSavedViewResult {
   const views = listSavedViews(projectRoot);
   if (!views.some((view) => view.id === id)) {

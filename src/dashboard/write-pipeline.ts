@@ -15,20 +15,6 @@ import { toPosixPath } from '@/core/path-utils.js';
 
 import { appendDashboardAudit } from './approvals.js';
 
-/**
- * Issue #146 — the audited write pipeline behind every dashboard file
- * mutation (spec section 6.2 steps 2-3 and the section 6.3 guardrails).
- *
- * Route handlers never write files directly: they validate their payload,
- * then call {@link writeManagedFile}, which enforces the path allowlist,
- * detects concurrent edits via content hashes, writes atomically, and
- * appends the `actor="dashboard"` audit line. Agent sync (spec step 5) needs
- * no code here: the agent-entry gates compare mtimes under
- * `docs/instructions/**` against the sentinel, so the write itself
- * invalidates stale agent context.
- */
-
-/** Thrown when a PUT carries a stale content hash (spec 6.3 → HTTP 409). */
 export class WriteConflictError extends Error {
   readonly currentContent: string | null;
   readonly currentHash: string | null;
@@ -43,7 +29,6 @@ export class WriteConflictError extends Error {
   }
 }
 
-/** Thrown when a path falls outside the allowlist (spec 6.3 → HTTP 403). */
 export class PathNotAllowedError extends Error {
   constructor(relativePath: string, reason: string) {
     super(`Path is not editable from the dashboard: ${relativePath} (${reason}).`);
@@ -51,10 +36,6 @@ export class PathNotAllowedError extends Error {
   }
 }
 
-/**
- * Exact-file allowlist entries beyond `docs/instructions/**`. Named config
- * files only — evidence and ledgers have no mutation routes at all.
- */
 const ALLOWED_FILES: readonly string[] = [PATHS.PROJECT_PROFILE, PATHS.RAG_IGNORE_CONFIG];
 
 const ALLOWED_EXTENSIONS = ['.md', '.yml', '.yaml', '.json'];
@@ -65,12 +46,6 @@ export function contentHash(content: string): string {
   return `sha256:${createHash('sha256').update(content, 'utf8').digest('hex')}`;
 }
 
-/**
- * Normalizes and validates a project-relative path against the allowlist:
- * only `docs/instructions/**` plus the named config files; no traversal, no
- * dotfiles, editable extensions only; symlinks are resolved and rejected
- * when they escape the project root. Returns the absolute path.
- */
 export function resolveManagedPath(projectRoot: string, relativePath: string): string {
   const posix = toPosixPath(relativePath).replace(/^\/+/, '');
   if (posix.length === 0) {
@@ -81,8 +56,6 @@ export function resolveManagedPath(projectRoot: string, relativePath: string): s
     throw new PathNotAllowedError(relativePath, 'path traversal');
   }
 
-  // The named .paqad config files start with a dot segment, so the literal
-  // allowlist is checked before the dotfile rule.
   const named = ALLOWED_FILES.includes(posix);
   if (!named) {
     if (segments.some((segment) => segment.startsWith('.'))) {
@@ -99,8 +72,6 @@ export function resolveManagedPath(projectRoot: string, relativePath: string): s
     throw new PathNotAllowedError(relativePath, 'extension is not editable');
   }
 
-  // Canonicalize the root itself (macOS tmpdir lives behind /var → /private
-  // symlinks) so the escape checks compare like with like.
   const realRoot = existsSync(projectRoot)
     ? realpathSync(resolve(projectRoot))
     : resolve(projectRoot);
@@ -110,7 +81,6 @@ export function resolveManagedPath(projectRoot: string, relativePath: string): s
     throw new PathNotAllowedError(relativePath, 'outside the project root');
   }
 
-  // Reject symlinked targets (and symlinked parents) that escape the root.
   let probe = absolute;
   while (probe.startsWith(rootPrefix)) {
     if (existsSync(probe)) {
@@ -136,7 +106,6 @@ export interface ManagedFile {
   hash: string | null;
 }
 
-/** Reads an allowlisted file with the hash the client must echo on PUT. */
 export function readManagedFile(projectRoot: string, relativePath: string): ManagedFile {
   const absolute = resolveManagedPath(projectRoot, relativePath);
   const posix = toPosixPath(relativePath).replace(/^\/+/, '');
@@ -150,12 +119,7 @@ export function readManagedFile(projectRoot: string, relativePath: string): Mana
 export interface WriteManagedFileInput {
   relativePath: string;
   content: string;
-  /**
-   * Hash of the content the client loaded; `null` asserts the file is being
-   * created and must not already exist.
-   */
   baseHash: string | null;
-  /** Audit log action, e.g. `dashboard.config.delivery-policy.write`. */
   action: string;
 }
 
@@ -164,10 +128,6 @@ export interface WriteManagedFileResult {
   hash: string;
 }
 
-/**
- * The single write path for dashboard file mutations: allowlist, size cap,
- * optimistic-concurrency check, atomic write (temp file + rename), audit.
- */
 export function writeManagedFile(
   projectRoot: string,
   input: WriteManagedFileInput,

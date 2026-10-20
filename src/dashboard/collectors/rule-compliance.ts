@@ -1,9 +1,3 @@
-// Dashboard collector for rules-as-scripts (issue #89).
-//
-// Reads the rule-script map, the cached findings report, and the drift report
-// to derive a band + the exact prompt the user should type next. `unknown`
-// until `analyze rules` has produced a map (onboarding plants the prompt).
-
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import { readAllFeatureRuleRuns } from '@/feature-evidence/projections.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
@@ -18,19 +12,11 @@ const HELPER = {
     'Every verifiable rule covered by a passing script, no drift, findings report fresh.',
 } as const;
 
-/**
- * The latest-by-`ts` `findings` row's deterministic count across the per-feature
- * `rule-run.jsonl` bundles, or `null` when no findings row was recorded. The bundle
- * replacement for the retired `readLatestRuleFindings` (issue #468 Phase B, D2). The
- * bundle rule-run row stores `counts: { deterministic, heuristic, skipped }` at the top
- * level, exactly the shape the old project-ledger row carried.
- */
 function latestFindingsRow(rows: readonly SessionLedgerRow[]): { deterministic: number } | null {
   const findings = rows.filter((row) => row.kind === 'findings');
   if (findings.length === 0) {
     return null;
   }
-  // A bundle row since #581 carries `recorded_at`; an older one `ts`. `rowRecordedAt` reads either.
   const at = (row: SessionLedgerRow): string => rowRecordedAt(row) ?? '';
   const latest = findings.reduce((best, row) => (at(row) >= at(best) ? row : best));
   const counts = latest.counts as { deterministic?: number } | undefined;
@@ -44,7 +30,6 @@ export function collectRuleCompliance(projectRoot: string): {
   const map = loadRuleScriptMap(projectRoot);
   const attention: AttentionItem[] = [];
 
-  // Never analyzed — unknown band, plant the entry prompt.
   if (!map || map.rules.length === 0) {
     attention.push({
       sectionId: 'rule-compliance',
@@ -74,20 +59,12 @@ export function collectRuleCompliance(projectRoot: string): {
   const covered = verifiable.filter((r) => r.scripts.length > 0).length;
   const uncovered = verifiable.length - covered;
 
-  // Issue #468 Phase B — read compliance evidence from the per-feature bundles + the
-  // live drift cache, not the retired `rule-evidence/_project` session ledger. Findings
-  // come from the latest-by-`ts` `rule-run.jsonl` row across bundles (D2: the bundle
-  // rule-run row is now the only ledger record a change's rules fired); drift stays the
-  // reconciler's own `.cache/drift.json` (D2: drift describes the project, not a change,
-  // so it never enters a bundle).
   const drift = readDrift(projectRoot);
   const findings = latestFindingsRow(readAllFeatureRuleRuns(projectRoot));
 
   const driftBlocking = drift?.blocked ?? false;
   const deterministicFindings = findings?.deterministic ?? 0;
 
-  // Band: red on blocking drift or deterministic findings; amber on uncovered
-  // verifiable rules; green when everything is covered and clean.
   let band: SectionData['band'];
   let score: number;
   if (driftBlocking || deterministicFindings > 0) {
@@ -101,7 +78,6 @@ export function collectRuleCompliance(projectRoot: string): {
     score = 100;
   }
 
-  // Attention items, priority-ordered, each naming the exact prompt.
   if (drift && driftBlocking) {
     const stale = drift.counts['RS-SCRIPT-STALE'] + drift.counts['RS-RULE-EDITED'];
     if (stale > 0) {

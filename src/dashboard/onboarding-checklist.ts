@@ -5,33 +5,17 @@ import { PATHS } from '@/core/constants/paths.js';
 import { readAllFeatureEvidence } from '@/feature-evidence/projections.js';
 import { readAllFeatureReceipts } from '@/feature-evidence/receipt.js';
 
-/**
- * Issue #146 — `/api/onboarding-checklist` (spec section 10).
- *
- * The checklist completes from real events, never from clicks: each step is
- * derived from artifacts on disk. The one exception the server cannot know,
- * "open your first receipt", is tracked client-side; the server reports
- * whether a receipt exists so the client can light the step up only when
- * there is something to open.
- */
-
 export interface ChecklistStep {
   key: 'connect-agent' | 'first-gate' | 'first-decision' | 'first-receipt' | 'edit-instruction';
-  /** Benefit-led label, spec section 10 order. */
   label: string;
-  /** Where the step happens. */
   route: string;
-  /** True when the underlying real event has happened. */
   done: boolean;
-  /** One sentence shown under the label. */
   detail: string;
 }
 
 export interface OnboardingChecklist {
   steps: ChecklistStep[];
-  /** True once every server-knowable step is done. */
   complete: boolean;
-  /** A receipt exists, so the client may complete the receipt step on view. */
   receiptAvailable: boolean;
 }
 
@@ -51,8 +35,6 @@ export function buildOnboardingChecklist(projectRoot: string): OnboardingCheckli
       existsSync(at(entry)),
     ) && existsSync(at(PATHS.ONBOARDING_MANIFEST));
 
-  // Issue #468 Phase B — the first passing gate and the first receipt are read from the
-  // per-feature bundle union, not the retired top-level `evidence.jsonl` / `receipts.jsonl`.
   const firstGatePassed = readAllFeatureEvidence(projectRoot).some((row) => row.verdict === 'pass');
 
   const firstDecisionResolved = dirHasEntries(at(PATHS.DECISIONS_RESOLVED_DIR));

@@ -29,14 +29,9 @@ import { bandForScore } from './scoring/index.js';
 import type { AttentionItem, DashboardReport, ScoreBand, SectionData } from './types.js';
 
 export interface BuildReportOptions {
-  /** Reference timestamp; defaults to `Date.now()`. */
   now?: number;
 }
 
-/**
- * Severity ranking for attention items — lower = higher priority. Used
- * to pick the top-N for the summary band.
- */
 const SEVERITY_RANK: Record<AttentionItem['severity'], number> = {
   critical: 0,
   warn: 1,
@@ -45,11 +40,6 @@ const SEVERITY_RANK: Record<AttentionItem['severity'], number> = {
 
 const MAX_ATTENTION_ITEMS = 5;
 
-/**
- * Computes the overall score as the average of every applicable
- * section's score, ignoring `unknown` (N/A) sections. Returns `null`
- * when no section is applicable (typically: project not onboarded).
- */
 function computeOverall(sections: SectionData[]): { score: number | null; band: ScoreBand } {
   const applicable = sections.filter((s): s is SectionData & { score: number } => s.score !== null);
   if (applicable.length === 0) return { score: null, band: 'unknown' };
@@ -57,11 +47,6 @@ function computeOverall(sections: SectionData[]): { score: number | null; band: 
   return { score: avg, band: bandForScore(avg) };
 }
 
-/**
- * Build a complete dashboard report for `projectRoot`. Returns the
- * same payload regardless of consumer — the HTTP server, the
- * `paqad-ai status` printer, and any future consumer all key off this.
- */
 export function buildReport(
   projectRoot: string,
   options: BuildReportOptions = {},
@@ -70,8 +55,6 @@ export function buildReport(
   const root = resolve(projectRoot);
   const generatedAt = new Date(now).toISOString();
 
-  // Project not onboarded → short-circuit. Single empty-state report
-  // the UI renders as the "Run paqad-ai onboard first" card.
   const paqadDir = join(root, PATHS.AGENCY_DIR);
   const manifestPath = join(root, PATHS.ONBOARDING_MANIFEST);
   if (!existsSync(paqadDir) || !existsSync(manifestPath)) {
@@ -124,7 +107,6 @@ export function buildReport(
   const { section: attestationSection } = collectAttestation(root);
   const sessionSection = collectSession(root, now);
 
-  // Display order — matches the section table in the design brief.
   const sections: SectionData[] = [
     projectProfileSection,
     rulesSection,

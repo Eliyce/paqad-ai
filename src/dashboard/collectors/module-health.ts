@@ -16,14 +16,8 @@ interface HealthEntry {
   updated_at?: string;
 }
 
-// Issue #80, AC #29: stale-flag uses the same 14-day window the rollup
-// engine does for change_velocity.
 const STALE_FLAG_WINDOW_DAYS = 14;
 
-// Returns the ISO timestamp of the most recent commit touching any of
-// `sources` within the last `windowDays` days, or null when no such
-// commit exists or git is unavailable. Mirrors src/module-health/rollup.ts
-// changeVelocity()'s call shape so behaviour stays consistent.
 function lastCommitTouchingSources(
   projectRoot: string,
   sources: string[],
@@ -56,8 +50,6 @@ interface DistributionEntry {
   tier: HealthTier;
   module: string;
   ageDays: number;
-  // ISO timestamp of the entry's updated_at, normalised. Used for the
-  // AC #29 stale flag against last-commit-touching-sources.
   updatedAtIso: string | null;
 }
 
@@ -71,8 +63,6 @@ const TIER_WEIGHTS: Record<HealthTier, number> = {
 export interface ModuleHealthResult {
   section: SectionData;
   attention: AttentionItem[];
-  // Phase 4 (f): surfaced for `status --fail-on-drift` composition so the
-  // caller doesn't re-walk the module-map + git log itself.
   staleModules: string[];
 }
 
@@ -138,10 +128,6 @@ export function collectModuleHealth(
     };
   }
 
-  // AC #29 — stale flag: cross-reference each entry's updated_at against the
-  // last commit touching the module's sources in module-map.yml (same 14-day
-  // window the rollup engine uses). A module is "stale" when sources have
-  // commits within the window but updated_at predates the latest such commit.
   const map = readRawModuleMap(projectRoot);
   const sourcesBySlug = new Map<string, string[]>();
   for (const mod of map?.modules ?? []) {
@@ -156,8 +142,6 @@ export function collectModuleHealth(
     const updatedMs = e.updatedAtIso !== null ? Date.parse(e.updatedAtIso) : NaN;
     const commitMs = Date.parse(lastCommitIso);
     if (!Number.isFinite(commitMs)) continue;
-    // Treat a missing/unparseable updated_at as definitively stale once we
-    // know recent commits exist — the rollup never ran here.
     if (!Number.isFinite(updatedMs) || updatedMs < commitMs) {
       staleModules.push(e.module);
     }
@@ -174,11 +158,7 @@ export function collectModuleHealth(
   const tierScore =
     entries.reduce<number>((sum, e) => sum + TIER_WEIGHTS[e.tier], 0) / entries.length;
   const oldest = [...entries].sort((a, b) => b.ageDays - a.ageDays)[0];
-  // Penalise the section if the oldest entry is itself stale (> 30d).
   const stalenessPenalty = oldest && oldest.ageDays > 30 ? Math.min(20, oldest.ageDays - 30) : 0;
-  // AC #29 stale signal: each stale module deducts an additional 5 points, up
-  // to a cap of 30, so a project with many stale modules visibly drops out of
-  // the green band even when every tier is `stable`.
   const stalePenalty = Math.min(30, staleModules.length * 5);
   const score = Math.max(0, Math.min(100, Math.round(tierScore - stalenessPenalty - stalePenalty)));
 

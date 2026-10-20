@@ -13,33 +13,16 @@ import { scanDirectory, type ScannedEntry } from './fs-helpers.js';
 export interface DocsAreaSpec {
   id: DashboardSectionId;
   title: string;
-  /** Relative path under projectRoot. */
   relPath: string;
-  /**
-   * Minimum number of artifacts a "configured" area is expected to have.
-   * Areas with fewer artifacts are linearly penalised. Default 1.
-   */
   expectedMin?: number;
-  /** Filename predicate. Defaults to `.md` / `.yaml` / `.yml` / `.json`. */
   fileFilter?: (name: string) => boolean;
   helper: { what: string; goodLooksLike: string };
-  /** Optional command suggestion when the area is missing. */
   missingCommand?: string;
 }
 
 const DEFAULT_FILTER = (n: string): boolean =>
   n.endsWith('.md') || n.endsWith('.yaml') || n.endsWith('.yml') || n.endsWith('.json');
 
-/**
- * Score a documentation area by:
- *   - presence of the directory (else section returns `red` 0),
- *   - count of qualifying artifacts vs `expectedMin`,
- *   - average freshness of those artifacts.
- *
- * Per the design brief, no content-quality heuristics are applied — the
- * score only reflects whether files exist and how recently they were
- * touched.
- */
 export function collectDocsArea(
   projectRoot: string,
   spec: DocsAreaSpec,
@@ -81,8 +64,6 @@ export function collectDocsArea(
     entries.map((e) => e.mtimeMs),
     { now },
   );
-  // 60% presence, 40% freshness — closer to the brief's "presence dominates,
-  // freshness is the tiebreaker" framing.
   const score = Math.round(presenceRatio * 60 + (freshness / 100) * 40);
   const newestMs = Math.max(...entries.map((e) => e.mtimeMs));
   const newestAge = ageInDays(newestMs, now);

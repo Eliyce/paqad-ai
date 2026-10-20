@@ -1,10 +1,3 @@
-// Dashboard collector for prospective MD-XXXX module decisions
-// (issue #80 Phase 4, AC #30 + #32).
-//
-// Reads .paqad/decisions/module-decisions/*.yml and surfaces every pending
-// (proposed) and expired decision as an attention item. The `paqad-ai status
-// --fail-on-drift` flag treats expired decisions as a hard signal.
-
 import { listDecisions } from '@/module-decisions/store.js';
 import type { ModuleDecision } from '@/module-decisions/schema.js';
 import { isExpired } from '@/module-decisions/schema.js';
@@ -21,7 +14,6 @@ const HELPER = {
 export interface ModuleDecisionsResult {
   section: SectionData;
   attention: AttentionItem[];
-  // Phase 4f: surfaced for status --fail-on-drift composition.
   expiredIds: string[];
 }
 
@@ -44,9 +36,6 @@ function bucket(decisions: ModuleDecision[], now: Date): Buckets {
     draft: [],
   };
   for (const d of decisions) {
-    // Proposed entries that have passed TTL but haven't been swept yet count
-    // as expired for surfacing purposes. The state field is the source of
-    // truth once `expire-stale` runs; this collector is tolerant of either.
     if (d.state === 'proposed' && isExpired(d, now)) {
       buckets.expired.push(d);
       continue;
@@ -81,7 +70,6 @@ export function collectModuleDecisions(
 
   const b = bucket(all, now);
   const total = all.length;
-  // Each expired entry deducts 12; each pending deducts 4. Floor at 0.
   const score = Math.max(0, 100 - b.expired.length * 12 - b.proposed.length * 4);
 
   const summaryParts: string[] = [];

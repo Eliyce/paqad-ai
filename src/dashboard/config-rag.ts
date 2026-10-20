@@ -12,17 +12,6 @@ import { appendDashboardAudit } from './approvals.js';
 import { fileMtime } from './collectors/fs-helpers.js';
 import { ageInDays } from './scoring/index.js';
 
-/**
- * Issue #146: `/api/config/rag`. Reads and writes go through
- * `readProjectProfile` / `writeProjectProfile`, the exact functions every
- * CLI command uses, with `normalizeIntelligenceConfig` applying the same
- * defaults `paqad-ai rag` applies. The status block is deliberately light:
- * it reports what is on disk (profile flags plus vector index presence and
- * age) without instantiating any embedding provider, so a GET can never
- * touch the network. Rebuild and clear are ops jobs, not config writes, and
- * live elsewhere.
- */
-
 export class RagValidationError extends Error {
   readonly issues: SchemaValidationIssue[];
 
@@ -72,7 +61,6 @@ export interface PutRagConfigResult {
   intelligence: IntelligenceConfig;
 }
 
-/** The only keys a dashboard PUT may touch, with their value checks. */
 const FIELD_CHECKS: Record<string, (value: unknown) => string | null> = {
   rag_enabled: (value) => (typeof value === 'boolean' ? null : 'Expected a boolean.'),
   embedding_provider: (value) => (typeof value === 'string' ? null : 'Expected a string.'),
@@ -115,8 +103,6 @@ export function putRagConfig(projectRoot: string, candidate: unknown): PutRagCon
       });
     }
   }
-  // Iterate our own static key list, never client-provided names, so the
-  // written property names are provably from the allowlist.
   for (const key of allowedKeys) {
     const value = candidateRecord[key];
     if (value === undefined) {
@@ -146,9 +132,6 @@ export function putRagConfig(projectRoot: string, candidate: unknown): PutRagCon
   });
   const updated = { ...profile, intelligence };
 
-  // Validate the full profile that will land on disk, so the schema's
-  // intelligence constraints (e.g. the embedding_provider enum) apply to
-  // dashboard writes exactly as they do everywhere else.
   const validation = new SchemaValidator().validate('project-profile', updated);
   if (!validation.valid) {
     throw new RagValidationError(
@@ -158,9 +141,6 @@ export function putRagConfig(projectRoot: string, candidate: unknown): PutRagCon
   }
 
   const path = writeProjectProfile(projectRoot, updated);
-  // RAG is a framework knob: persist the intelligence section authoritatively to
-  // `.paqad/.config` (the YAML write above keeps only project facts). Scoped to
-  // `{ intelligence }` so unrelated `.config` keys are never touched.
   syncFrameworkConfig(projectRoot, { intelligence });
   appendDashboardAudit(projectRoot, 'dashboard.config.rag.write', {
     path: PATHS.PROJECT_CONFIG,

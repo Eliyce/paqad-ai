@@ -12,16 +12,6 @@ import { SchemaValidator, type SchemaValidationIssue } from '@/validators/valida
 
 import { readManagedFile, writeManagedFile, type ManagedFile } from './write-pipeline.js';
 
-/**
- * Issue #146 — `/api/config/delivery-policy` (the first full editor; spec
- * section 6.1). Reads go through `loadDeliveryPolicy`, the exact loader the
- * delivery pipeline uses, so the dashboard shows the resolved policy the
- * agent will actually follow. Writes carry the raw YAML text (the client
- * edits a YAML document so comments survive) and run the section 6.2
- * pipeline: schema validation, guarded write, audit, SSE (the server
- * broadcasts after every mutation).
- */
-
 const RELATIVE_PATH = `${PATHS.WORKFLOWS_DIR}/${DELIVERY_POLICY_FILE}`;
 
 export class DeliveryPolicyValidationError extends Error {
@@ -35,15 +25,10 @@ export class DeliveryPolicyValidationError extends Error {
 }
 
 export interface DeliveryPolicyConfig {
-  /** The effective policy after defaults, detection overlay, and merge. */
   resolved: ResolvedDeliveryPolicy;
-  /** Loader warnings (parse or schema problems with the on-disk file). */
   warnings: string[];
-  /** The raw project file plus the hash a PUT must echo back. */
   file: ManagedFile;
-  /** The fully commented default file, for "start from the template". */
   defaultsYaml: string;
-  /** JSON schema driving the form UI and raw-editor validation. */
   schema: Record<string, unknown>;
 }
 

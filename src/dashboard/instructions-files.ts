@@ -8,15 +8,7 @@ import { toPosixPath } from '@/core/path-utils.js';
 
 import { readManagedFile, type ManagedFile } from './write-pipeline.js';
 
-/**
- * Issue #146 — `/api/files/instructions*` read side. The tree drives the
- * Knowledge area's two-pane editor; file reads return parsed frontmatter so
- * the editor can render it as fields. Writes go through the shared
- * write-pipeline (allowlist, hash guard, audit) in the server route.
- */
-
 export interface InstructionsTreeNode {
-  /** Path relative to docs/instructions, posix. Empty string for the root. */
   path: string;
   name: string;
   type: 'directory' | 'file';
@@ -60,13 +52,10 @@ export function listInstructionsTree(projectRoot: string): InstructionsTree {
 }
 
 export interface InstructionsFile extends ManagedFile {
-  /** Parsed YAML frontmatter for .md files (empty object when none). */
   frontmatter: Record<string, unknown>;
-  /** File body with the frontmatter block removed (equals content for non-md). */
   body: string | null;
 }
 
-/** Splits a leading `---` YAML frontmatter block from a Markdown document. */
 function splitFrontmatter(content: string): { frontmatter: Record<string, unknown>; body: string } {
   const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(content);
   if (!match) {
