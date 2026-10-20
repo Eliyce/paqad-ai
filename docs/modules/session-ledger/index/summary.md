@@ -33,6 +33,24 @@ stays a pure no-op when disabled. A disabled project also never takes the Stop h
 background-stage step-aside in `runtime/hooks/verification-completion.mjs` (issue #673), so
 this audit row is the only thing a disabled Stop writes, with no `completion-deferred` row.
 
+## Why the code works the way it does
+
+- **`ledger.ts`.** Closing a unit writes `0` to the `.open` pointer instead of deleting it, which
+  keeps `currentOrdinal` simple and avoids a missing-file race; the unit's rows stay on disk.
+  `recorded_at`, the time field on evidence-bundle rows, is left out of the identity hash the same
+  way `ts` is, so rows written before it existed hash the same. A row is readable with either time
+  field, so old and new rows can share one file. `stampSessionRow` and `appendStampedRowToUnit` exist so
+  the per-feature stage ledger, which keeps `stage-evidence.jsonl` inside the bundle, reuses the
+  same stamping and validation without the session and ordinal path.
+- **`non-feature-skip-audit.ts`.** It mirrors the disabled-session audit: one best-effort row per
+  session when the completion backstop skips verification. The row carries the routed workflow
+  and why it skipped: `not-owner` (the session owns no change), `detour` (an owner on a
+  non-feature turn that edited nothing), or the default `non-feature-route`.
+- **`project-ledger.ts`.** Some stores are project snapshots (delivery detection, rule compliance)
+  rather than per-conversation records. They ride the same substrate under a sentinel "session",
+  one row per producer run, and the latest matching row is the current state. Writes are
+  best-effort so recording never breaks the producer.
+
 ## Source Footprint
 
 - `src/session-ledger`

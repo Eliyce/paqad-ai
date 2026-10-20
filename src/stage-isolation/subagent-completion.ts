@@ -1,12 +1,3 @@
-// Record-only SubagentStop handling for stage isolation (issue #567).
-//
-// When a paqad stage agent finishes, the host fires `SubagentStop` (matched to `^paqad-`),
-// and the thin `runtime/hooks/stage-agent-completion.mjs` hook lazy-imports this module. It
-// appends one `kind: 'stage-agent'` row to the bundle's `stage-evidence.jsonl` (issue #581
-// retired the separate `context-efficiency.jsonl`): what the isolated stage cost and the
-// carried history the orchestrator did not re-send. It NEVER blocks (SubagentStop blocking is
-// undocumented on Claude) and never throws — a measurement failure must not disrupt a turn.
-
 import { readFileSync } from 'node:fs';
 
 import { readTranscriptUsage } from '@/cost/transcript-usage.js';
@@ -19,27 +10,13 @@ import { stageForAgentName, stripPluginAgentNamespace } from './stage-agents.js'
 
 export { recordHighTableUsage };
 
-/** ~4 characters per token: the same rough estimate the issue specifies for the fallback. */
 const CHARS_PER_TOKEN = 4;
 
-/** Estimate a token count from text length (bytes/4), never negative. */
 export function estimateTokens(text: string | null | undefined): number {
   if (!text) return 0;
   return Math.ceil(text.length / CHARS_PER_TOKEN);
 }
 
-/**
- * Derive the feature-development stage a stage agent ran from its host agent type. A paqad
- * stage agent is named `paqad-<stage>` (e.g. `paqad-development`) as an npm install, and
- * `paqad:paqad-<stage>` when the Claude Code plugin supplies it (issue #616, Part 3). The optional
- * `paqad:` namespace is stripped first, then the `paqad-` prefix, so both forms derive the same
- * stage. Returns null for anything that is not a paqad stage agent, so a stray SubagentStop for
- * another agent records nothing (belt and braces behind the matcher).
- *
- * Issue #639, Part 13: only the six stage agents are stages. The `^(paqad:)?paqad-` matcher
- * also fires for the High Table seats (`paqad-expert`, `paqad-chief-architect`) and any other
- * `paqad-` name; none of them derives a stage, so none can add a `stage-agent` row.
- */
 export function stageFromAgentType(agentType: string | null | undefined): string | null {
   if (typeof agentType !== 'string') {
     return null;
@@ -47,12 +24,10 @@ export function stageFromAgentType(agentType: string | null | undefined): string
   return stageForAgentName(stripPluginAgentNamespace(agentType));
 }
 
-/** The shape of a host `SubagentStop` payload this recorder reads (all fields optional). */
 export interface SubagentStopPayload {
   agent_id?: unknown;
   agent_type?: unknown;
   session_id?: unknown;
-  /** The subagent's own transcript (Claude Code), read for a High Table seat's exact tokens. */
   agent_transcript_path?: unknown;
   usage?: {
     input_tokens?: unknown;
@@ -75,11 +50,6 @@ interface TokenCounts {
   exact: boolean;
 }
 
-/**
- * Read exact token counts from a payload `usage` object when the host surfaces one, else
- * estimate from the transcript. `cache_read_input_tokens` (Claude) and `cached_input_tokens`
- * (Codex) both name the cached slice, so either is accepted.
- */
 export function resolveTokenCounts(
   payload: SubagentStopPayload,
   transcriptText: string,
@@ -94,7 +64,6 @@ export function resolveTokenCounts(
       0;
     return { tokens_input: input, tokens_cached: cached, tokens_output: output, exact: true };
   }
-  // No host usage — estimate from the subagent transcript and mark the row inexact.
   const estimate = estimateTokens(transcriptText);
   return { tokens_input: estimate, tokens_cached: 0, tokens_output: 0, exact: false };
 }
@@ -147,17 +116,10 @@ export interface RecordStageAgentCompletionInput {
   projectRoot: string;
   payload: SubagentStopPayload;
   transcriptText: string;
-  /** The host the stage agent ran on. The host lives on feature.json, never on the row. */
   adapter: string;
-  /** Clock seam for tests. */
   now?: () => Date;
 }
 
-/**
- * Append one `stage-agent` row for a finished stage agent. Returns true when a row was
- * written, false when there was nothing to record (not a paqad stage agent, or no active
- * feature). Never throws — the caller is a non-blocking hook.
- */
 export function recordStageAgentCompletion(input: RecordStageAgentCompletionInput): boolean {
   try {
     const stage = stageFromAgentType(

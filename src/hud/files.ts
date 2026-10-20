@@ -1,17 +1,9 @@
-// The paqad HUD's per-session files (issue #639): where they live and how they are written.
-//
-// Every write is atomic (a temp file in the same directory, then a rename), so a reader never
-// sees half a file and two writers racing leave one whole file, never a mix. Nothing here
-// throws to a caller that did not ask for it: the HUD is a view, and a failed view write must
-// never change a hook's decision (issue #639, guardrail rule 3).
-
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 
-/** A session id made safe for a filename (no separators, no traversal). */
 function safeSessionId(sessionId: string): string {
   return sessionId.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '_') || 'unknown';
 }
@@ -28,20 +20,14 @@ export function hudVerdictPath(projectRoot: string, sessionId: string): string {
   return join(projectRoot, PATHS.HUD_DIR, `${safeSessionId(sessionId)}.verdict.json`);
 }
 
-/** Suffix of the per-session cost offset cache (issue #639, Part 23). */
 export const HUD_COST_CACHE_SUFFIX = '.cost-cache.json';
 
-/**
- * The per-session cost offset cache: which transcripts the change cost reads, how far each was
- * read, and the usage of every message counted so far (issue #639, Part 23).
- */
 export function hudCostCachePath(projectRoot: string, sessionId: string): string {
   return join(projectRoot, PATHS.HUD_DIR, `${safeSessionId(sessionId)}${HUD_COST_CACHE_SUFFIX}`);
 }
 
 let tempSeq = 0;
 
-/** Write `content` to `target` atomically. Throws on failure; callers decide how to degrade. */
 export function writeFileAtomic(target: string, content: string): void {
   mkdirSync(dirname(target), { recursive: true });
   tempSeq = (tempSeq + 1) % Number.MAX_SAFE_INTEGER;

@@ -1,11 +1,3 @@
-// The live High Table on the HUD snapshot (issue #639, Part 13).
-//
-// Built only from records: the seats and findings in `experts.json`, the seat events in
-// `high-table.jsonl`, the questions in `clarification.json`, and the frozen spec's `trace`
-// (each spec line id mapped to the source it came from, an `EX-<role>-<n>` finding for the lines
-// an expert shaped). A source that is not there yet reads null or empty, never a guess. The fast
-// lane has no High Table (decision 12), so the table is null there.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -29,11 +21,6 @@ export interface HudSeatTokens {
   total: number;
 }
 
-/**
- * How a role did on the project's earlier changes, from the spec pipeline's own metrics: on how
- * many it sat, how many of those it changed the spec on, how many it had nothing to add, and its
- * average tokens there. Null when the role has no earlier change on record.
- */
 export interface HudTrackRecord {
   changes: number;
   changed_spec: number;
@@ -41,7 +28,6 @@ export interface HudTrackRecord {
   avg_tokens: number;
 }
 
-/** One seat at the High Table. */
 export interface HudSeat {
   role: string;
   reason: string | null;
@@ -52,16 +38,11 @@ export interface HudSeat {
   done_at: string | null;
   budget_tokens: number | null;
   clamped: boolean | null;
-  /** The tokens the seat reported itself (labelled estimate), or null before its note landed. */
   tokens_estimate: number | null;
-  /** The host's exact usage for the seat's subagent, or null when the host gave none. */
   tokens: HudSeatTokens | null;
   tokens_exact: boolean;
-  /** The seat's findings, or null before its note landed (and for the chief). */
   findings: number | null;
-  /** True when the seat's note landed after the spec was frozen (shown amber, AC-44). */
   late: boolean;
-  /** The role's record on earlier changes (issue #639, Part 14), or null with no history. */
   track_record: HudTrackRecord | null;
 }
 
@@ -70,11 +51,9 @@ export interface HudChiefRulings {
   declined: Array<{ id: string; reason: string }>;
   conflicts: Array<{ target: string; recommendation: string; rationale: string }>;
   renames: Array<{ id: string; target: string }>;
-  /** Disagreements settled before, from a resolved decision (`source` names it). */
   settled: Array<{ target: string; chosen: string; source: string }>;
 }
 
-/** The chief architect's seat: a seat plus its verdict once it ruled. */
 export interface HudChief extends HudSeat {
   verdict: string | null;
 }
@@ -84,7 +63,6 @@ export interface HudHighTable {
   met_after_freeze: boolean;
   seats: HudSeat[];
   chief: HudChief | null;
-  /** The chief's rulings from the recorded synthesis, or null before it ruled. */
   rulings: HudChiefRulings | null;
   gaps: Array<{ area: string; why_it_matters: string; question: string | null }>;
   questions: { asked: number; auto_answered: Array<{ question: string; source: string }> } | null;
@@ -125,7 +103,6 @@ function after(at: string | null, frozenAt: number | null): boolean {
   return !Number.isNaN(time) && time > frozenAt;
 }
 
-/** The time the spec was frozen, or null when it is not frozen. */
 function frozenAtOf(specJson: unknown): number | null {
   const at = str(asRecord(asRecord(specJson)?.frozen)?.frozen_at);
   if (at === null) return null;
@@ -133,7 +110,6 @@ function frozenAtOf(specJson: unknown): number | null {
   return Number.isNaN(time) ? null : time;
 }
 
-/** The seat a roster entry and its folded ledger rows make. */
 function seatFrom(
   role: string,
   entry: Record<string, unknown> | null,
@@ -142,8 +118,6 @@ function seatFrom(
   frozenAt: number | null,
 ): HudSeat {
   const tokensUsed = num(entry?.tokens_used);
-  // A run recorded before the ledger existed has no rows: its note landed when tokens or
-  // findings are on record, else the seat is only seated.
   const fallbackState: HudSeatState =
     tokensUsed !== null || (recordedFindings ?? 0) > 0 ? 'done' : 'seated';
   const exact = folded?.tokens ?? null;
@@ -170,7 +144,6 @@ function seatFrom(
     tokens_exact: exact !== null,
     findings: folded?.findings ?? recordedFindings,
     late: after(folded?.done_at ?? null, frozenAt),
-    // Filled by the snapshot from the project's other bundles; the chief has no metrics.
     track_record: null,
   };
 }
@@ -210,7 +183,6 @@ function chiefFrom(
   const seat = seatFrom(CHIEF_ROLE, null, folded, null, frozenAt);
   return {
     ...seat,
-    // A synthesis on record means the chief ruled, whatever rows exist.
     state: synthesis ? 'done' : seat.state,
     tokens_estimate: seat.tokens_estimate ?? num(synthesis?.tokens),
     findings: null,
@@ -244,7 +216,6 @@ function questionsFrom(projectRoot: string, dirName: string): HudHighTable['ques
 
 const EXPERT_SOURCE = /^EX-(.+)-\d+$/;
 
-/** Who shaped each spec line: the expert roles behind its trace source, in line order. */
 function creditsFrom(specJson: unknown): HudHighTable['credits'] {
   const trace = asRecord(asRecord(specJson)?.trace);
   if (!trace) return [];
@@ -258,10 +229,6 @@ function creditsFrom(specJson: unknown): HudHighTable['credits'] {
   return credits;
 }
 
-/**
- * The High Table for one change, or null when it has none: the fast lane, or no roster, no
- * ledger and no hand-written spec under the pipeline.
- */
 export function buildHighTableView(
   projectRoot: string,
   dirName: string,
@@ -270,8 +237,6 @@ export function buildHighTableView(
 ): HudHighTable | null {
   if (lane === 'fast') return null;
   const adoption = readSpecAdoption(specJson);
-  // A spec frozen by hand while the pipeline ran shows the High Table as skipped (Q11). A
-  // fast-lane freeze never had a High Table to skip (issue #640), so it shows none.
   if (adoption?.fast_lane) return null;
   const skipped = adoption !== null && !adoption.produced;
 
@@ -327,7 +292,6 @@ export function buildHighTableView(
     rulings: synthesis ? rulingsFrom(synthesis) : null,
     gaps: gapsFrom(synthesis),
     questions: questionsFrom(projectRoot, dirName),
-    // A table that met after the freeze shaped no spec line, so it is credited with none.
     credits: metAfterFreeze ? [] : creditsFrom(specJson),
   };
 }

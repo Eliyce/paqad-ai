@@ -729,6 +729,56 @@ obvious from its code, grouped by file.
 - **`verify.ts`.** The redo cap counts only failed verifies since the last stage mutation, so new
   work resets it, while repeated Stops with no new work still reach `blocked`.
 
+### The HUD, stage agents and the plugin build (`src/hud/`, `src/stage-isolation/`, `src/plugin/`)
+
+- **`hud/cost-view.ts`.** The snapshot's cost reads `cost.json` only and never a transcript, so a
+  refresh from a verb stays cheap and can never disagree with what the hooks recorded.
+- **`hud/files.ts` and `hud/snapshot.ts`.** The HUD is a view, so `writeHudSnapshotSafe` never
+  throws: a failure is logged to `.paqad/logs/hook-failures.log` and `.paqad/logs/hooks.log`, and
+  when even the log write fails the caller still gets its answer, so a read-only tree never turns
+  into a throw. The latest row per gate wins, so a gate re-run later supersedes its first verdict,
+  and a drift row from the reconciler is not read as a rule scan. A stage whose recorded start and
+  end look implausible reads as marked, never done, the same as the receipt. The track record
+  reads only the newest few bundles so a refresh stays cheap, and a failed read counts as no
+  history.
+- **`hud/high-table-view.ts`.** A run recorded before the High Table ledger existed has no rows;
+  its note counts as landed when tokens or findings are on record. A synthesis on record means the
+  chief ruled, whatever rows exist. A fast-lane freeze never had a table to skip, so it shows none.
+- **`hud/receipt-file.ts`.** The Stop hook computes the full receipt but prints little of it, so
+  the backstop writes it to the session's HUD files for the HUD and `/paqad receipt`. A turn that
+  was not checked (a skip verdict, or no gates and no decided kind, which would otherwise derive
+  to Safe to merge) writes nothing, so the last real verdict stays on screen.
+- **`hud/refresh.ts`.** A verb path refreshes when it equals a listed path or starts with one
+  followed by a space, so `spec pipeline experts` covers its subcommands.
+- **`stage-isolation/agent-writer.ts`.** Stage agents are written only at user scope
+  (`~/.claude/agents`, `~/.codex/agents`), never into a project, which is why this does not use the
+  project-scoped `BaseAdapter.generateAgents()` (a test asserts agents are never written into a
+  project). The writer is synchronous so the synchronous `bootstrapFramework` can call it; the
+  templates use no custom Handlebars helpers. The plugin build renders its Claude agents through the
+  same function, so there is one template path.
+- **`stage-isolation/stage-agents.ts`.** Agent names are hyphenated (`paqad-<stage>`) so the
+  `^paqad-` SubagentStop matcher fires only for paqad agents, while the body records under the
+  underscored ledger stage name. `ticket_intake` and `delivery` get no agent: intake is orchestrator
+  routing and delivery is the human-gated PR step. Only the six stage agents map to a stage, so a
+  High Table seat or any other `paqad-` name never adds a `stage-agent` row.
+  `isSubagentCapableAdapter` reads the writer's host roster so the completeness gate and the
+  installer cannot disagree; Gemini and the advisory IDEs have no subagent dispatch.
+- **`stage-isolation/subagent-completion.ts`.** It never blocks, since SubagentStop blocking is
+  undocumented on Claude, and never throws. Without host usage it estimates about 4 characters per
+  token and marks the row inexact. Both `cache_read_input_tokens` (Claude) and
+  `cached_input_tokens` (Codex) are read as the cached slice. The optional `paqad:` plugin
+  namespace is stripped first, so plugin and npm agents derive the same stage.
+- **`stage-isolation/isolation-summary.ts`.** Older bundles kept the same facts in
+  `context-efficiency.jsonl`, which nothing writes any more but is still read. Both sources are
+  added together, because a change upgraded part-way has its early agents in the old file and its
+  later ones as rows, and each agent was recorded by exactly one writer. With no stage agent on
+  record the receipt prints no `context:` line rather than a zero.
+- **`plugin/manifest-build.ts`.** The build script (importing from dist) and a golden test
+  (importing from src) call the same pure builders, so there is no second renderer. Claude Code's
+  plugin schema wants `agents` as a list of `.md` paths, not a directory, and rejects
+  `displayName`. The mod is named beside `hooks`, so the hook entries are byte-identical with or
+  without it.
+
 ### The change verbs (`src/cli/commands/`)
 
 The CLI verbs that move a change are thin callers over the code above. The reasons below are not
