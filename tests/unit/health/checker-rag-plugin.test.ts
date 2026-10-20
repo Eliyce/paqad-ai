@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -112,5 +112,30 @@ describe('doctor RAG lines for a plugin install', () => {
     const report = await new HealthChecker().run(projectRoot);
 
     expect(find(report, 'RAG vector gitignore present')?.status).toBe('pass');
+  });
+});
+
+describe('doctor tracked session sentinels', () => {
+  it('warns and gives the untrack command when git tracks a sentinel', async () => {
+    git(['init', '-q']);
+    await onboard();
+    mkdirSync(join(projectRoot, '.paqad', '.agent-entry-loaded.d'), { recursive: true });
+    writeFileSync(join(projectRoot, '.paqad', '.agent-entry-loaded.d', 'session-1'), 'x');
+    git(['add', '-f', '.paqad/.agent-entry-loaded.d/session-1']);
+
+    const report = await new HealthChecker().run(projectRoot);
+    const check = find(report, 'Session sentinels untracked');
+
+    expect(check?.status).toBe('warning');
+    expect(check?.remediation).toContain('git rm -r --cached .paqad/.agent-entry-loaded.d');
+  });
+
+  it('passes when git tracks no sentinel', async () => {
+    git(['init', '-q']);
+    await onboard();
+
+    const report = await new HealthChecker().run(projectRoot);
+
+    expect(find(report, 'Session sentinels untracked')?.status).toBe('pass');
   });
 });

@@ -61,3 +61,19 @@ Source directories owned by this feature:
 - Console output / log lines emitted.
 - Tracker writes (`.paqad/doc-progress.json`, `.paqad/stack-drift.json`, etc.).
 - Exit codes (for CLI features).
+
+## Ignore file and worktree include
+
+- After the framework-version write, `paqad-ai update` (and `update --silent`) calls
+  `writeGitignore` and `writeWorktreeInclude`, the same writers onboarding uses. An upgraded
+  project therefore gains ignore lines a newer paqad added (for example
+  `.agent-entry-loaded.d/`) without being onboarded again.
+- `writeGitignore` rewrites only the managed block of `.paqad/.gitignore`, between the paqad
+  markers. Every line outside the block is kept. The managed block always lists `vectors/`,
+  whatever the RAG setting.
+- `writeWorktreeInclude` adds the one `.paqad/.config` line to the repo-root `.worktreeinclude`
+  when it is missing and keeps every other line, so a new Desktop worktree gets the developer's
+  local config.
+- When the checkout was stamped by a newer paqad (`checkoutIsNewer`), the ignore file is left
+  alone, the same rule the tracked config follows, so an older install never drops lines a
+  newer one added.

@@ -71,3 +71,11 @@ Source directories owned by this feature:
   trailing slash. The managed `.paqad/.gitignore` lists `vectors/` as a directory pattern, and
   git only matches that pattern for a path that is a directory. Before the folder exists, the
   slash is what tells git it is one.
+
+## Tracked session sentinels
+
+- `Session sentinels untracked` runs `git ls-files -- .paqad/.agent-entry-loaded.d`. The folder
+  holds one entry sentinel per session and is ignored by the managed `.paqad/.gitignore`, but a
+  file committed before that ignore line existed stays tracked and dirties the tree every
+  session. When git tracks any file there, doctor warns and gives the fix:
+  `git rm -r --cached .paqad/.agent-entry-loaded.d`, then commit.

@@ -164,6 +164,47 @@ describe('FrameworkUpdater', () => {
     expect(app).toMatch(/^# auto_update=true$/m);
   });
 
+  it('adds a missing managed ignore line and keeps every line outside the managed block', async () => {
+    const begin = '# >>> paqad-ai managed (do not edit between markers) >>>';
+    const end = '# <<< paqad-ai managed <<<';
+    const before = '# team lines\nmy-cache/\n\n';
+    const after = '\n# after the block\nnotes.txt\n';
+    writeFileSync(
+      join(projectRoot, '.paqad/.gitignore'),
+      `${before}${begin}\n.agent-entry-loaded\nvectors/\n${end}${after}`,
+    );
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    const text = readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8');
+    const block = text.slice(text.indexOf(begin), text.indexOf(end));
+    expect(block.split('\n')).toContain('.agent-entry-loaded.d/');
+    expect(block.split('\n')).toContain('vectors/');
+    expect(text.startsWith(before)).toBe(true);
+    expect(text.endsWith(after)).toBe(true);
+  });
+
+  it('adds the local config line to .worktreeinclude and keeps the existing lines', async () => {
+    writeFileSync(join(projectRoot, '.worktreeinclude'), 'secrets/dev.env\n.env.local\n');
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(readFileSync(join(projectRoot, '.worktreeinclude'), 'utf8')).toBe(
+      'secrets/dev.env\n.env.local\n.paqad/.config\n',
+    );
+  });
+
+  it('leaves the managed ignore file alone when the checkout is newer', async () => {
+    writeFileSync(join(projectRoot, '.paqad/.config.example'), generateConfigExample('999.0.0'));
+    const ignore =
+      '# >>> paqad-ai managed (do not edit between markers) >>>\nfuture/\n# <<< paqad-ai managed <<<\n';
+    writeFileSync(join(projectRoot, '.paqad/.gitignore'), ignore);
+
+    await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
+
+    expect(readFileSync(join(projectRoot, '.paqad/.gitignore'), 'utf8')).toBe(ignore);
+  });
+
   it('migrates an already-onboarded project schema forward on update (buildout F1, C4)', async () => {
     // An older-marker project: update must advance its `.paqad/` schema, which it
     // never did before F1 (migration ran only at onboard).

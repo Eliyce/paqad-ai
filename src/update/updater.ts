@@ -6,6 +6,7 @@ import { dirname, join, relative } from 'node:path';
 import type { GeneratedFile } from '@/adapters/adapter.interface.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
+  checkoutIsNewer,
   reconcileConfigOverrides,
   syncGroupConfigs,
   writeConfigExample,
@@ -19,8 +20,10 @@ import { runPendingEvidenceMigration } from '@/feature-evidence/migrate.js';
 import { isPluginInstalled } from '@/health/plugin-install.js';
 import { cleanupLegacyMcpFiles } from '@/mcp/cleanup.js';
 import { VERSION } from '@/index.js';
+import { writeGitignore } from '@/onboarding/gitignore-writer.js';
 import { writeFrameworkVersionPreservingTimestamp } from '@/onboarding/manifest-writer.js';
 import { OnboardingOrchestrator } from '@/onboarding/orchestrator.js';
+import { writeWorktreeInclude } from '@/onboarding/worktree-include-writer.js';
 import { writeStageAgents } from '@/stage-isolation/agent-writer.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
@@ -155,6 +158,10 @@ export class FrameworkUpdater {
       VERSION,
       new Date().toISOString(),
     );
+    if (!checkoutIsNewer(projectRoot)) {
+      writeGitignore(projectRoot);
+    }
+    writeWorktreeInclude(projectRoot);
 
     return {
       previous_version: previousVersion,

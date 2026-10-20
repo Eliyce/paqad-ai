@@ -48,6 +48,8 @@ import {
 
 const STALENESS_WINDOW_MS = 1000 * 60 * 60 * 24 * 7;
 
+const SENTINEL_DIR = '.paqad/.agent-entry-loaded.d';
+
 export class HealthChecker {
   private readonly validator = new SchemaValidator();
 
@@ -74,6 +76,7 @@ export class HealthChecker {
       this.checkTestRunnerParallel(profile),
       ...(await this.checkStructuredTestOutput(projectRoot, profile)),
       this.checkStableFrameworkPaths(projectRoot),
+      this.checkTrackedSentinels(projectRoot),
       this.checkFrameworkInstall(),
       this.checkClaudeInstall(projectRoot),
       this.checkSchemaVersion(projectRoot),
@@ -699,6 +702,28 @@ export class HealthChecker {
         `Structured test parsing is ready for ${runners.map((runner) => runner.runner_id).join(', ')}`,
       ),
     ];
+  }
+
+  private checkTrackedSentinels(projectRoot: string): HealthCheckResult {
+    const name = 'Session sentinels untracked';
+    let tracked: string;
+    try {
+      tracked = execFileSync('git', ['ls-files', '--', SENTINEL_DIR], {
+        cwd: projectRoot,
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+    } catch {
+      return pass(name, 'Not a git repository, nothing to check');
+    }
+    const count = tracked.split('\n').filter((line) => line.trim().length > 0).length;
+    return count === 0
+      ? pass(name, `git tracks nothing under ${SENTINEL_DIR}`)
+      : warn(
+          name,
+          `git tracks ${count} per-session file(s) under ${SENTINEL_DIR}, so every session dirties the tree`,
+          `Run \`git rm -r --cached ${SENTINEL_DIR}\` and commit the change.`,
+        );
   }
 
   private checkStableFrameworkPaths(projectRoot: string): HealthCheckResult {
