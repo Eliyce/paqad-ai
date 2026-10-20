@@ -148,6 +148,65 @@ entirely so prior receipts stay byte-identical.
 > disclosure; the env opt-out drops it, and the public PR comment shows the name
 > only (never the email).
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/evidence/` and are not stated above.
+
+- **`digests.ts`.** A changed file that cannot be read (deleted, or outside the tree) is hashed by
+  its path string instead, the same fallback the audit events use, so a row always has a stable
+  subject. An empty change collapses to the all-zero digest, which is also the genesis link.
+- **`ledger.ts`.** A row's identity hash leaves out `ts`, `content_hash`, `detail` and `skip_kind`,
+  so the same finding de-duplicates across re-runs. Readers skip malformed lines, so a write cut
+  short by a crash never poisons the log. A bundle row's `recorded_at` is mapped to `ts` in memory
+  only; the bytes on disk are never rewritten, so a receipt that sealed them still verifies.
+- **`fan-in.ts` and `grading.ts`.** The late evidence gates (bundle completeness, visual evidence,
+  rules loaded) have a separate mapper because their shape carries `skipped` and `inconclusive`,
+  which the gate-result shape cannot. A gate written before `skip_kind` existed reads as not
+  required. A gate that measured nothing keeps `passed: true` for the runner but is graded
+  `skipped`, never a pass. A failed deterministic gate is still deterministic evidence: the
+  strength says how the evidence was made, not whether it passed. A ratchet measure that could not
+  be computed is graded `blocked`.
+- **`compliance/citations.ts`.** A clause is cited only when every gate signal it lists passed in
+  the change's rows; an inconclusive or blocked gate never cites. Signals of another type do not
+  stop a gate-based citation but never produce one by themselves, because gates are the
+  deterministic join key. One citation is written per clause, gate and framework, so one passing
+  gate can cite several frameworks. The field is omitted when empty, so receipts stay
+  byte-identical for projects with no compliance pack, and a pack load failure means no citations,
+  never a broken receipt.
+- **`receipt/dsse.ts`.** The hash chain is computed over the DSSE pre-authentication encoding, the
+  exact bytes a real signature would cover, so adding Sigstore later changes only the signer. Keyless
+  intent needs CI plus the explicit `PAQAD_SIGSTORE=1` opt-in, because reaching Fulcio and Rekor
+  needs the network and cosign; the keyless branch is not implemented inline, so it falls back to
+  the hash chain and records that mode. The one "signature" is keyed `paqad-hash-chain` so nobody
+  mistakes it for an asymmetric signature. `verifyReceiptSeal` checks one receipt's own bytes
+  without the chain link, which is all a bundle can prove since it keeps only its latest receipt.
+- **`receipt/ai-bom.ts`.** The BOM is CycloneDX-shaped so existing tooling can read it, extended with
+  `paqad:evidence:*` properties for the graded results CycloneDX has no place for; it does not claim
+  to be a fully validated CycloneDX document. Its serial number is a UUID-shaped digest of the
+  content (not a random or RFC-versioned UUID), so re-projecting the same evidence gives the same
+  BOM. The authorship `provenance` grade is always emitted so a declared model is never read as a
+  verified one.
+- **`receipt/authorship.ts`.** `PAQAD_AGENT_MODEL` and `PAQAD_AGENT_PROVIDER` win over
+  `PAQAD_MODEL_ID`, which fills any gap; when both are known `model_id` is rebuilt in the canonical
+  form. When nothing resolves the field is left out. Resolution never throws.
+- **`receipt/envelope.ts`.** Decoding the wrapped statement lives in this leaf file so the
+  per-feature receipt readers can use it without importing `project.ts`, which imports them back.
+  `project.ts` re-exports it so existing importers keep working.
+- **`receipt/project.ts`.** Every write is atomic (temp file and rename), and the chain is appended
+  before the latest snapshot is written. The statement is always built because the AI-BOM needs it,
+  but the receipt and the AI-BOM are written under separate switches, and the envelope is returned
+  even when nothing is written.
+- **`receipt/statement.ts`.** A skipped row did not apply to the change, so it never moves the graded
+  counts. When the bundle's `evidence.jsonl` is sealed the predicate carries its hash and line count
+  instead of the rows, while the counts and verdict are still computed from the rows. Optional
+  predicate fields (authorship, citations, reproducibility, shape metrics) are omitted when absent
+  so older receipts stay byte-identical.
+- **`reproducibility.ts`.** The context hash is computed during a session rebuild but the receipt is
+  built later, so the stamp is stored here in between. It is written atomically and read tolerantly
+  (a malformed file means no stamp). It records `determinism: 'input-replay'`: the frozen input and
+  the recorded output identity, never a claim of bit-identical regeneration, because a hosted model
+  exposes no stable seed.
+
 ## Boundaries
 
 - **Owns:** the unified ledger, the merge-time receipt projected from it, and the

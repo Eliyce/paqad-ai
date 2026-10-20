@@ -1,10 +1,3 @@
-// Issue #118 — the unified append-only evidence ledger.
-//
-// Generalised from the PQD-194 skill audit-events writer: append-only JSONL,
-// `mkdir -p`, a tolerant reader that skips malformed lines so a mid-crash write
-// can't poison reads, and a SHA-256 `content_hash` over each row's identity
-// fields for consumer-side de-duplication. One file, every engine writes to it.
-
 import { createHash } from 'node:crypto';
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -15,14 +8,11 @@ import {
   type EvidenceLedgerRow,
 } from '@/core/types/evidence-ledger.js';
 
-/** The fields that define a row's identity (everything but `ts`/`content_hash`/
- *  `detail`). `ts` is excluded so the same finding de-dups across re-runs. */
 export type EvidenceRowIdentity = Pick<
   EvidenceLedgerRow,
   'engine' | 'code' | 'subject_digest' | 'verdict' | 'strength_class'
 >;
 
-/** SHA-256 hex over a row's identity fields, in a fixed key order. */
 export function computeRowContentHash(identity: EvidenceRowIdentity): string {
   const canonical = JSON.stringify([
     identity.engine,
@@ -37,11 +27,9 @@ export function computeRowContentHash(identity: EvidenceRowIdentity): string {
 export interface NewEvidenceRow extends EvidenceRowIdentity {
   ts: string;
   detail?: string;
-  /** Issue #639, Part 10 — carried on a `skipped` row only; not part of the identity hash. */
   skip_kind?: EvidenceLedgerRow['skip_kind'];
 }
 
-/** Stamp schema version + content hash onto a caller-supplied row. */
 export function buildEvidenceRow(row: NewEvidenceRow): EvidenceLedgerRow {
   return {
     schema_version: EVIDENCE_LEDGER_SCHEMA_VERSION,
@@ -63,7 +51,6 @@ function ledgerPath(projectRoot: string): string {
   return join(projectRoot, PATHS.EVIDENCE_LEDGER);
 }
 
-/** Append rows to `.paqad/ledger/evidence.jsonl`, one JSON object per line. */
 export function appendEvidenceRows(projectRoot: string, rows: readonly EvidenceLedgerRow[]): void {
   if (rows.length === 0) return;
   const path = ledgerPath(projectRoot);
@@ -72,23 +59,12 @@ export function appendEvidenceRows(projectRoot: string, rows: readonly EvidenceL
   appendFileSync(path, payload, 'utf8');
 }
 
-/**
- * Read graded evidence rows from an ARBITRARY project-relative JSONL file, skipping
- * malformed or wrong-shaped lines. The path-agnostic reader the per-feature bundle
- * `evidence.jsonl` (issue #468) rides on, alongside the top-level ledger.
- *
- * Issue #581 — a bundle row carries the envelope header, whose `recorded_at` replaces
- * `ts`. It is returned in the one {@link EvidenceLedgerRow} view every consumer reads, with
- * `ts` set from `recorded_at`; the bytes on disk are never rewritten, so a receipt that
- * sealed them still verifies.
- */
 export function readEvidenceRowsAt(projectRoot: string, relPath: string): EvidenceLedgerRow[] {
   const path = join(projectRoot, relPath);
   if (!existsSync(path)) return [];
   return parseEvidenceRows(readFileSync(path, 'utf8'));
 }
 
-/** The graded rows in a JSONL text, in line order; the {@link readEvidenceRowsAt} parser. */
 export function parseEvidenceRows(raw: string): EvidenceLedgerRow[] {
   const out: EvidenceLedgerRow[] = [];
   for (const line of raw.split('\n')) {
@@ -101,20 +77,15 @@ export function parseEvidenceRows(raw: string): EvidenceLedgerRow[] {
           typeof parsed.ts === 'string' ? parsed : { ...parsed, ts: parsed.recorded_at as string },
         );
       }
-    } catch {
-      // Skip partial/corrupt lines (mirrors readSkillAuditEvents): an append-only
-      // log must survive a mid-crash write without poisoning the whole reader.
-    }
+    } catch {}
   }
   return out;
 }
 
-/** Read all top-level ledger rows; malformed or wrong-shaped lines are skipped. */
 export function readEvidenceLedger(projectRoot: string): EvidenceLedgerRow[] {
   return readEvidenceRowsAt(projectRoot, PATHS.EVIDENCE_LEDGER);
 }
 
-/** Rows whose `subject_digest` matches a given change — the receipt's window. */
 export function readEvidenceWindow(
   projectRoot: string,
   subjectDigest: string,

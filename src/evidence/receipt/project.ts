@@ -1,11 +1,3 @@
-// Issue #118 — project a receipt at merge time from a window of ledger rows.
-//
-// Reads the change's evidence window, builds the in-toto Statement, signs it
-// into a DSSE envelope (hash-chained locally), appends the envelope to the
-// tamper-evident receipt chain, and writes the latest receipt + the CycloneDX
-// AI-BOM view. Every write is atomic (temp + rename) so a crash never leaves a
-// half-written receipt; the chain append is the one append-only file.
-
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -26,9 +18,6 @@ import { signReceipt, detectSigningMode } from './dsse.js';
 import { buildAiBom, type AiBomDocument } from './ai-bom.js';
 import { latestFeatureReceipt } from '@/feature-evidence/receipt.js';
 
-// Issue #468 Phase B — `decodeReceiptStatement` moved to the leaf `./envelope.js` so the
-// per-feature receipt readers can import it without a cycle. Re-exported here so every
-// existing `@/evidence/receipt/project.js` importer keeps working unchanged.
 export { decodeReceiptStatement } from './envelope.js';
 import { decodeReceiptStatement } from './envelope.js';
 
@@ -36,7 +25,6 @@ function chainPath(projectRoot: string): string {
   return join(projectRoot, PATHS.EVIDENCE_RECEIPT_CHAIN);
 }
 
-/** Read the receipt chain (append-only JSONL); malformed lines are skipped. */
 export function readReceiptChain(projectRoot: string): ReceiptEnvelope[] {
   const path = chainPath(projectRoot);
   if (!existsSync(path)) return [];
@@ -47,29 +35,16 @@ export function readReceiptChain(projectRoot: string): ReceiptEnvelope[] {
     try {
       const parsed = JSON.parse(trimmed) as ReceiptEnvelope;
       if (parsed?.paqad?.receipt_hash) out.push(parsed);
-    } catch {
-      // Tolerant reader: a mid-crash append must not poison the chain.
-    }
+    } catch {}
   }
   return out;
 }
 
-/** The chain link the next receipt embeds — the last receipt's hash, or
- *  {@link ZERO_DIGEST} at genesis. */
 export function latestReceiptHash(projectRoot: string): string {
   const chain = readReceiptChain(projectRoot);
   return chain.length === 0 ? ZERO_DIGEST : chain[chain.length - 1].paqad.receipt_hash;
 }
 
-/**
- * Issue #120 — the change authorship attested by the most recent receipt, or
- * `null` when no receipt exists or it carried no authorship. The single source
- * of truth every surface (PR comment, dashboard) reads, so the moat is shown
- * from the signed record rather than re-derived per surface.
- *
- * Issue #468 Phase B — "most recent receipt" is now the latest per-feature bundle
- * receipt (by `time_verified`), not the retired whole-project chain snapshot.
- */
 export function latestReceiptAuthorship(projectRoot: string): ChangeAuthorship | null {
   const latest = latestFeatureReceipt(projectRoot);
   if (latest === null) return null;
@@ -77,10 +52,6 @@ export function latestReceiptAuthorship(projectRoot: string): ChangeAuthorship |
   return statement?.predicate.change_authorship ?? null;
 }
 
-/** Issue #122/#123 — the compliance citations and reproducibility stamp attested
- *  by the most recent receipt. The single source every surface reads, so the PR
- *  comment and dashboard always agree with the signed record. Issue #468 Phase B:
- *  sourced from the latest per-feature bundle receipt. */
 export function latestReceiptTrustExtras(projectRoot: string): {
   compliance: ComplianceCitation[];
   reproducibility: ReproducibilityStampPredicate | null;
@@ -107,21 +78,10 @@ export interface ProjectReceiptInput {
   rows: readonly EvidenceLedgerRow[];
   verifierVersion: string;
   timeVerified: string;
-  /** Issue #120 — who wrote/accepted the change, folded into the predicate. */
   authorship?: ChangeAuthorship;
-  /** Issue #122 — `gate → clause` citations from the active compliance packs. */
   complianceCitations?: readonly ComplianceCitation[];
-  /** Issue #123 — the frozen-context reproducibility stamp. */
   reproducibility?: ReproducibilityStampPredicate;
   env?: NodeJS.ProcessEnv;
-  /**
-   * Issue #187 — which artifacts to persist. Both default to `true` so existing
-   * callers are unaffected. The statement is always built (it is the input to
-   * the AI-BOM), but the on-disk writes are gated independently:
-   * - `evidenceReceipt: false` skips the chain append + `receipt.dsse.json`.
-   * - `aiBom: false` skips `ai-bom.json`.
-   * With `evidenceReceipt: false, aiBom: true`, only `ai-bom.json` is produced.
-   */
   write?: {
     evidenceReceipt?: boolean;
     aiBom?: boolean;
@@ -135,12 +95,6 @@ export interface ProjectReceiptResult {
   aiBomPath: string;
 }
 
-/**
- * Build + sign + persist a receipt and its AI-BOM. The signing *mode* is
- * detected from the environment (CI+opt-in → keyless intent), but the actual
- * signature degrades honestly to the hash chain when keyless isn't obtainable —
- * see {@link signReceipt}.
- */
 export async function projectReceipt(input: ProjectReceiptInput): Promise<ProjectReceiptResult> {
   const statement = buildInTotoStatement({
     fileDigests: input.fileDigests,
@@ -152,8 +106,6 @@ export async function projectReceipt(input: ProjectReceiptInput): Promise<Projec
     reproducibility: input.reproducibility,
   });
 
-  // Mode detection is recorded for transparency even though the local signer
-  // always hash-chains; this is where a CI keyless signer would slot in.
   detectSigningMode(input.env ?? {});
 
   const envelope = signReceipt({
@@ -170,11 +122,7 @@ export async function projectReceipt(input: ProjectReceiptInput): Promise<Projec
   const writeEvidenceReceipt = input.write?.evidenceReceipt ?? true;
   const writeAiBom = input.write?.aiBom ?? true;
 
-  // Issue #187 — gate each write independently. The chain + receipt are the
-  // `evidence_ledger` write set; the AI-BOM is its own flag. The envelope is
-  // still returned (callers may use it in-memory) even when nothing is written.
   if (writeEvidenceReceipt) {
-    // Append to the tamper-evident chain first, then write the latest snapshot.
     const chain = chainPath(input.projectRoot);
     mkdirSync(dirname(chain), { recursive: true });
     appendFileSync(chain, `${JSON.stringify(envelope)}\n`, 'utf8');

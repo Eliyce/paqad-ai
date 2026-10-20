@@ -1,20 +1,3 @@
-// Issue #120 — resolve the change-authorship dimension folded into the #118
-// receipt: which adapter wrote the change, the declared model/provider, and the
-// human who accepted it.
-//
-// The trust split is deliberate. `agent` is a *known fact* — the onboarded
-// adapter recorded in the onboarding manifest. `model`/`provider` are *declared*
-// — an adapter knows it is "cursor" but Cursor routes to many models, so we read
-// them from the environment (the only place that can honestly say which model
-// ran) and stamp `provenance: 'declared'` rather than pretending to certainty.
-// `accepting_human` is the git identity that will author the commit; it is the
-// same name/email git already records in history, so recording it here adds no
-// new disclosure — and it can be suppressed entirely with an env opt-out.
-//
-// Field names follow the cross-vendor `agent-trace` convention (`model_id` =
-// `provider/model`) so the record interoperates with that ecosystem instead of
-// inventing a competing authorship format.
-
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -25,21 +8,17 @@ import { ADAPTER_TYPES, type AdapterType } from '@/core/types/adapter.js';
 import type { ChangeAuthorship } from '@/core/types/evidence-ledger.js';
 import type { OnboardingManifest } from '@/core/types/onboarding.js';
 
-/** Git identity (name/email) of the human accepting the change. */
 export interface GitIdentity {
   name?: string;
   email?: string;
 }
 
-/** Env opt-out: when set, `accepting_human` is omitted from the attestation. */
 const NO_HUMAN_ENV = 'PAQAD_NO_HUMAN_ATTESTATION';
 
 function isAdapterType(value: string | undefined): value is AdapterType {
   return value !== undefined && (ADAPTER_TYPES as readonly string[]).includes(value);
 }
 
-/** Read the onboarded adapter from the manifest, or `undefined` when the project
- *  is not onboarded / the manifest is unreadable. */
 export function readOnboardedAgent(projectRoot: string): AdapterType | undefined {
   const path = join(projectRoot, PATHS.ONBOARDING_MANIFEST);
   if (!existsSync(path)) return undefined;
@@ -51,8 +30,6 @@ export function readOnboardedAgent(projectRoot: string): AdapterType | undefined
   }
 }
 
-/** Read the local git identity that will author the commit. Returns `null` when
- *  git is unavailable or unconfigured — never throws. */
 export async function readGitIdentity(projectRoot: string): Promise<GitIdentity | null> {
   async function config(key: string): Promise<string | undefined> {
     try {
@@ -74,17 +51,6 @@ export interface BuildAuthorshipInput {
   gitIdentity?: GitIdentity | null;
 }
 
-/**
- * Assemble {@link ChangeAuthorship} from already-resolved inputs — pure, no IO.
- *
- * model/provider precedence: explicit `PAQAD_AGENT_MODEL` / `PAQAD_AGENT_PROVIDER`
- * win; the agent-trace–style `PAQAD_MODEL_ID` (`provider/model`) fills any gap.
- * When both model and provider are known, `model_id` is re-derived canonically so
- * the record always carries the interop identifier.
- *
- * Returns `undefined` when nothing meaningful resolved (no agent, no declared
- * model/provider, no accepting human) so the predicate omits the field entirely.
- */
 export function buildChangeAuthorship(input: BuildAuthorshipInput): ChangeAuthorship | undefined {
   const env = input.env ?? {};
 
@@ -118,16 +84,9 @@ export function buildChangeAuthorship(input: BuildAuthorshipInput): ChangeAuthor
 export interface ResolveAuthorshipInput {
   projectRoot: string;
   env?: NodeJS.ProcessEnv;
-  /** Injected for tests; defaults to {@link readGitIdentity}. */
   gitIdentity?: GitIdentity | null;
 }
 
-/**
- * Resolve authorship for a change: read the onboarded adapter from the manifest,
- * read the git identity (unless injected), then assemble via
- * {@link buildChangeAuthorship}. Never throws — a failed resolution yields
- * `undefined` (a weaker trust signal, not a verdict).
- */
 export async function resolveChangeAuthorship(
   input: ResolveAuthorshipInput,
 ): Promise<ChangeAuthorship | undefined> {
