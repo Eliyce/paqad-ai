@@ -76,6 +76,7 @@ import {
   type BundleCompletenessGateInput,
 } from './bundle-completeness-gate.js';
 import { rulesLoadedGate } from './rules-loaded-gate.js';
+import { evaluateFixProof, type FixProofSummary } from './fix-proof-gate.js';
 import { resolveBundleCompletenessMode } from './bundle-completeness-mode.js';
 import { visualEvidenceGate } from '../gates/visual-evidence.js';
 import { resolveVisualEvidenceMode } from './visual-evidence-mode.js';
@@ -522,6 +523,17 @@ export async function runRepositoryVerification(
     }
   }
 
+  const fixProofEvaluation = evaluateFixProof({
+    projectRoot: context.project_root,
+    dirName: completenessDir,
+    isFeatureDev,
+  });
+  const fixProof: FixProofSummary | null = fixProofEvaluation.summary;
+  if (fixProofEvaluation.gate) {
+    evidence.gates.push(fixProofEvaluation.gate);
+    lateGates.push(fixProofEvaluation.gate);
+  }
+
   const verdictGateRows = graded
     ? evidenceGatesToRows([...directGates, ...lateGates], graded.ctx)
     : [];
@@ -648,6 +660,7 @@ export async function runRepositoryVerification(
       ? readFeatureTechDebtIndex(context.project_root, receiptFeature)
       : null,
     ruleOverrides: receiptFeature ? readRuleOverrides(context.project_root, receiptFeature) : null,
+    fixProof,
   });
 
   if (reportPath) {

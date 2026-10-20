@@ -195,6 +195,19 @@ describe('composeChangeReceipt', () => {
     }
   });
 
+  it('adds one fix-proof line for a fix change only', () => {
+    const line = (fixProof: Parameters<typeof composeChangeReceipt>[0]['fixProof']) =>
+      composeChangeReceipt({ verdictSummary: 'v', fold: null, fixProof }).split('\n').slice(1);
+    expect(line({ required: true, state: 'red-green' })).toEqual([
+      '> 🟢 fix proof: fails before the fix, passes after',
+    ]);
+    expect(line({ required: true, state: 'none' })).toEqual(['> 🟡 fix proof: no proof recorded']);
+    expect(line({ required: false, state: 'none' })).toEqual([
+      '> ⚪ fix proof: not required (only tests, docs or comments changed)',
+    ]);
+    expect(line(null)).toEqual([]);
+  });
+
   it('appends an optional delivery line', () => {
     const receipt = composeChangeReceipt({
       verdictSummary: '**▸ paqad** · Safe to merge',

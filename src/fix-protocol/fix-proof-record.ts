@@ -71,3 +71,30 @@ export function countedRedRow(rows: readonly FixProofRow[]): FixProofRow | null 
   }
   return red;
 }
+
+export type FixProofState = 'none' | 'red' | 'red-green' | 'green-only' | 'not-reproduced' | 'held';
+
+export const FIX_PROOF_STATE_LABEL: Record<FixProofState, string> = {
+  none: 'no proof recorded',
+  red: 'fails before the fix, no green yet',
+  'red-green': 'fails before the fix, passes after',
+  'green-only': 'passes, but never shown failing before the fix',
+  'not-reproduced': 'passed before the fix, so it never reproduced the problem',
+  held: 'held: the fix broke a check that passed before',
+};
+
+export function foldFixProofState(rows: readonly FixProofRow[]): FixProofState {
+  const red = countedRedRow(rows);
+  if (red !== null) {
+    const after = rows.slice(rows.indexOf(red) + 1);
+    const settled = after.filter(
+      (row) => row.phase === 'green' && (row.outcome === 'green' || row.outcome === 'held'),
+    );
+    const last = settled.at(-1);
+    if (last === undefined) return 'red';
+    return last.outcome === 'green' ? 'red-green' : 'held';
+  }
+  if (rows.some((row) => row.phase === 'green' && row.outcome === 'green')) return 'green-only';
+  if (rows.some((row) => row.outcome === 'not-reproduced')) return 'not-reproduced';
+  return 'none';
+}

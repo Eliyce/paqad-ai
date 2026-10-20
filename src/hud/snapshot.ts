@@ -4,7 +4,13 @@ import { join } from 'node:path';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readContractDecisions } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
-import { GATE_STRENGTH_TIER } from '@/evidence/grading.js';
+import { GATE_STRENGTH_TIER, LATE_GATE_STRENGTH_TIER } from '@/evidence/grading.js';
+import {
+  FIX_PROOF_STATE_LABEL,
+  foldFixProofState,
+  readFixProofRows,
+  type FixProofState,
+} from '@/fix-protocol/fix-proof-record.js';
 import {
   readDuplication,
   readFeatureEvidence,
@@ -119,7 +125,7 @@ export interface HudSnapshot {
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: HudStage[];
   table: HudHighTable | null;
-  claims: [];
+  claims: HudClaim[];
   gates: HudGate[];
   flags: HudFlag[];
   rules: { recorded: boolean; applicable: number | null; loaded_at: string | null };
@@ -246,6 +252,29 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
   });
 }
 
+export interface HudClaim {
+  kind: 'fix-proof';
+  proof: FixProofState;
+  label: string;
+  verdict: 'pass' | 'inconclusive';
+  test_id: string | null;
+}
+
+function buildClaims(kind: string | undefined, projectRoot: string, dirName: string): HudClaim[] {
+  if (kind !== 'fix') return [];
+  const rows = readFixProofRows(projectRoot, dirName);
+  const proof = foldFixProofState(rows);
+  return [
+    {
+      kind: 'fix-proof',
+      proof,
+      label: FIX_PROOF_STATE_LABEL[proof],
+      verdict: proof === 'red-green' ? 'pass' : 'inconclusive',
+      test_id: rows.at(-1)?.test_id ?? null,
+    },
+  ];
+}
+
 function buildGates(projectRoot: string, dirName: string): HudGate[] {
   const latest = new Map<string, Record<string, unknown>>();
   for (const row of readFeatureEvidence(projectRoot, dirName)) {
@@ -262,7 +291,7 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
             ? 'did-not-run'
             : 'not-required'
           : 'pending';
-    const tier = GATE_STRENGTH_TIER[code as VerificationGate];
+    const tier = GATE_STRENGTH_TIER[code as VerificationGate] ?? LATE_GATE_STRENGTH_TIER[code];
     const strength =
       tier ??
       (row.strength_class === 'deterministic' || row.strength_class === 'llm-judged'
@@ -629,7 +658,7 @@ export function buildHudSnapshot(
     paused,
     stages,
     table,
-    claims: [],
+    claims: buildClaims(record?.kind, projectRoot, dirName),
     gates,
     flags,
     rules: {

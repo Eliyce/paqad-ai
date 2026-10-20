@@ -22,6 +22,10 @@ export const GATE_STRENGTH_TIER: Record<VerificationGate, 'deterministic' | 'llm
   'implementation-review': 'llm-judged',
 };
 
+export const LATE_GATE_STRENGTH_TIER: Readonly<Record<string, 'deterministic' | 'llm-judged'>> = {
+  'fix-proof': 'deterministic',
+};
+
 export interface GradedGateResult {
   verdict: EvidenceVerdict;
   strength_class: EvidenceStrengthClass;

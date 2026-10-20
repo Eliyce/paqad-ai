@@ -7,7 +7,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { PATHS } from '@/core/constants/paths.js';
 import { createPendingDecision } from '@/decisions/authoring.js';
 import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
+import { appendFixProofRow, type FixProofRow } from '@/fix-protocol/fix-proof-record.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 import { writeRuleStopRecord } from '@/hud/last-block.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
@@ -415,6 +416,48 @@ describe('buildHudSnapshot', () => {
     expect(buildHudSnapshot(root, S, { now: NOW }).tech_debt).toEqual({
       raised: [{ id: item.id, title: 'Found it', kind: 'bug', severity: 'low' }],
     });
+  });
+
+  it('shows one fixed fix-proof claim per proof state, passed only for red then green', () => {
+    const root = onboardedRoot();
+    const S = 'ses-claims';
+    const dir = openChange(root, S, 'fast', 'PQD-4 fix');
+    expect(buildHudSnapshot(root, S, { now: NOW }).claims).toEqual([]);
+    recordChangeConstants(root, dir, { kind: 'fix' });
+    const row = (phase: 'red' | 'green', outcome: FixProofRow['outcome']): FixProofRow => ({
+      phase,
+      outcome,
+      test_file: 't',
+      test_id: 'login > empty',
+      command: 'x',
+      exit_code: 1,
+      timed_out: false,
+      duration_ms: 1,
+      commit: null,
+      tree_dirty: null,
+      at: NOW().toISOString(),
+      reason: outcome,
+      output_tail: [],
+    });
+    const claim = () => buildHudSnapshot(root, S, { now: NOW }).claims[0]!;
+    expect(claim()).toEqual({
+      kind: 'fix-proof',
+      proof: 'none',
+      label: 'no proof recorded',
+      verdict: 'inconclusive',
+      test_id: null,
+    });
+    const steps: Array<[FixProofRow, string, string]> = [
+      [row('red', 'not-reproduced'), 'not-reproduced', 'inconclusive'],
+      [row('red', 'red'), 'red', 'inconclusive'],
+      [row('green', 'held'), 'held', 'inconclusive'],
+      [row('green', 'green'), 'red-green', 'pass'],
+    ];
+    for (const [next, proof, verdict] of steps) {
+      appendFixProofRow(root, dir, next);
+      expect(claim()).toMatchObject({ proof, verdict, test_id: 'login > empty' });
+    }
+    expect(claim().label).toBe('fails before the fix, passes after');
   });
 
   it('keeps the rule-stop record across full rebuilds, with and without an active change', () => {
