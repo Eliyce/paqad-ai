@@ -1,10 +1,3 @@
-// Issue #110 — read / write / tighten the quality baseline.
-//
-// The baseline is an artifact: `.paqad/quality-baseline.json`. It records the
-// lowest (best) deficiency seen per measure+module. Writes are atomic (temp +
-// rename) and a corrupt read returns null rather than throwing — the ratchet
-// recaptures from reality on the next run, so a damaged file is never fatal.
-
 import { existsSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
@@ -20,12 +13,10 @@ export function qualityBaselinePath(projectRoot: string): string {
   return join(projectRoot, PATHS.QUALITY_BASELINE);
 }
 
-/** Stable key for one measure+module sample. */
 export function sampleKey(measure: string, module: string): string {
   return `${measure}::${module}`;
 }
 
-/** Builds a fresh baseline from the captured samples. */
 export function createBaseline(samples: MeasureSample[], now: string): QualityBaseline {
   return {
     schema_version: QUALITY_BASELINE_SCHEMA_VERSION,
@@ -35,17 +26,6 @@ export function createBaseline(samples: MeasureSample[], now: string): QualityBa
   };
 }
 
-/**
- * Returns the baseline tightened against the current samples: every measure
- * moves to the *lower* (better) of baseline-vs-current, never higher. Measures
- * absent from the baseline are added (a newly-collectable measure captures its
- * reality, never retroactively failing). A measure that could not be measured
- * this run (`value === null`) leaves the recorded value untouched.
- *
- * This is the ratchet: the recorded level only ever moves down. A worsening is
- * never written here — an approved exception lifts the recorded value through
- * `applyApprovedRegressions`, which is the only path that may raise it.
- */
 export function tightenBaseline(
   baseline: QualityBaseline,
   current: MeasureSample[],
@@ -67,7 +47,6 @@ export function tightenBaseline(
       continue;
     }
 
-    // Can't measure it this run → keep the recorded value as-is.
     if (sample.value === null) continue;
 
     if (existing.value === null || sample.value < existing.value) {
@@ -83,12 +62,6 @@ export function tightenBaseline(
   };
 }
 
-/**
- * Raises the recorded level for measures whose worsening was approved as an
- * exception — the *only* path that may loosen the baseline, and only for the
- * specific measure+module the human signed off. Everything else is left to the
- * ratchet.
- */
 export function applyApprovedRegressions(
   baseline: QualityBaseline,
   approved: MeasureSample[],
@@ -116,7 +89,6 @@ function sortSamples(samples: MeasureSample[]): MeasureSample[] {
   );
 }
 
-/** Atomically writes the baseline to `.paqad/quality-baseline.json`. */
 export async function writeQualityBaseline(
   projectRoot: string,
   baseline: QualityBaseline,
@@ -129,7 +101,6 @@ export async function writeQualityBaseline(
   return target;
 }
 
-/** Reads the baseline, or null when absent / corrupt. */
 export async function readQualityBaseline(projectRoot: string): Promise<QualityBaseline | null> {
   const target = qualityBaselinePath(projectRoot);
   if (!existsSync(target)) return null;

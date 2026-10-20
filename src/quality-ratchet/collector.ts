@@ -1,22 +1,3 @@
-// Issue #110 — collect the four quality measures into module-attributed samples.
-//
-// Each measure is normalised to a deficiency count (lower is better) and rolled
-// up to every module it touches plus a PROJECT_SCOPE total, reusing the
-// module-health rollup's attribution (`assignToModule`) — not a second engine.
-//
-// The collector is tool-agnostic: it owns only the two measures it can read
-// cheaply and exactly without an external tool —
-//   - strictness  → tsconfig strict flags (this file's stack)
-//   - dead_code   → consumed from #109's reachability/orphan set (no re-scan)
-// and delegates the per-language tool measures (tangledness, risky_patterns) to
-// injectable runners that an onboarded project wires via its pack. With no
-// runner wired the measure is recorded as lower-confidence/blocked — never a
-// fabricated number, and a blocked measure never blocks the gate.
-//
-// Lane behaviour: the `fast` lane collects ONLY strictness, so trivial work is
-// not blocked by complexity/dead-code/risky noise — but it still cannot loosen
-// the recorded baseline (a strictness-loosening fast change trips the gate).
-
 import type { DetectedStackProfile } from '@/core/types/introspection.js';
 import type { Lane } from '@/core/types/routing.js';
 import {
@@ -30,7 +11,6 @@ import { assignToModule } from '@/module-health/rollup.js';
 
 import { measureStrictness } from './strictness.js';
 
-/** A deficiency located at a file (e.g. one complexity violation, one finding). */
 export interface FileDeficiency {
   file: string;
   count: number;
@@ -50,18 +30,11 @@ export interface MeasureRunResult {
 }
 
 export interface QualityCollectorDeps {
-  /** Per-language complexity tool (e.g. ESLint complexity). Null → blocked. */
   collectTangledness?: (opts: MeasureRunOptions) => Promise<MeasureRunResult | null>;
-  /** Risky-pattern / security signal (lint + pentest findings). Null → blocked. */
   collectRiskyPatterns?: (opts: MeasureRunOptions) => Promise<MeasureRunResult | null>;
 }
 
 export interface CollectQualityMeasuresOptions extends MeasureRunOptions {
-  /**
-   * Orphan/unused files from #109's reachability solver. `null` means the
-   * traceability map was unavailable this run → dead_code is recorded blocked
-   * rather than re-scanned.
-   */
   deadCodeFiles: string[] | null;
   deps?: QualityCollectorDeps;
 }
@@ -73,11 +46,6 @@ function readModules(projectRoot: string): ModuleEntry[] {
   return (raw?.modules ?? []).map((mod) => ({ slug: mod.slug, sources: mod.sources }));
 }
 
-/**
- * Roll a list of file deficiencies up to a PROJECT_SCOPE total plus a per-module
- * total. Unattributed files still count toward the project total (the project
- * roll-up is the whole truth; modules localise it).
- */
 function rollupFileDeficiencies(
   measure: QualityMeasure,
   files: FileDeficiency[],
@@ -116,10 +84,6 @@ function blockedSample(measure: QualityMeasure, reason: string): MeasureSample {
   };
 }
 
-/**
- * Collect the four measures for this run. Returns one or more samples per
- * measure (a PROJECT_SCOPE total plus per-module totals where attributable).
- */
 export async function collectQualityMeasures(
   options: CollectQualityMeasuresOptions,
 ): Promise<MeasureSample[]> {
@@ -132,7 +96,6 @@ export async function collectQualityMeasures(
   };
   const samples: MeasureSample[] = [];
 
-  // Strictness — always collected (the fast lane's loosen-guard depends on it).
   const strictness = measureStrictness(options.projectRoot);
   samples.push(
     strictness === null
@@ -147,13 +110,10 @@ export async function collectQualityMeasures(
         },
   );
 
-  // Fast lane stops here: trivial work is not measured for complexity / dead
-  // code / risky patterns (noise), but strictness above still cannot loosen.
   if (options.lane === 'fast') {
     return samples;
   }
 
-  // Dead code — consumed from #109, never re-scanned.
   if (options.deadCodeFiles === null) {
     samples.push(blockedSample('dead_code', 'traceability-map-unavailable'));
   } else {
@@ -168,7 +128,6 @@ export async function collectQualityMeasures(
     );
   }
 
-  // Tangledness + risky patterns — per-language tools, wired via deps/pack.
   const tangledness = await safeRun(options.deps?.collectTangledness, runOptions);
   samples.push(...resultToSamples('tangledness', tangledness, modules));
 
@@ -186,7 +145,6 @@ async function safeRun(
   try {
     return await runner(opts);
   } catch {
-    // A runner that throws is treated as "no signal" — blocked, never a crash.
     return null;
   }
 }

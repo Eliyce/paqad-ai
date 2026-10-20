@@ -1,5 +1,3 @@
-// Quality ratchet — issue #110. Records the four quality measures at the
-// project's real level and only ever allows equal-or-better.
 export {
   qualityBaselinePath,
   sampleKey,

@@ -1,15 +1,3 @@
-// Issue #110 — the `quality.ratchet_exception` Decision Pause.
-//
-// When a measure must legitimately worsen, the ratchet does not silently bend:
-// it pauses for human approval through the shipped Decision Pause Contract, and
-// that approval is reused for same-kind regressions by kind (`findReusableDecision`
-// → `decision-reused`). We build NO second memory — the DPC store is the memory.
-//
-// The fingerprint is keyed by the regression *kind* (the measure) and nothing
-// finding-specific, so a strictness exception approved once is reused for the
-// next strictness regression without re-asking (issue #107's settle-once,
-// reuse-by-kind mechanism, applied to quality).
-
 import { sha256Hex } from '@/compliance/markdown.js';
 import { DECISION_CATEGORY_DEFAULTS, type DecisionPacket } from '@/planning/decision-packet.js';
 import type { DecisionStore } from '@/planning/decision-store.js';
@@ -22,11 +10,8 @@ export const RATCHET_EXCEPTION_REFUSE = 'hold-the-line';
 
 export interface RatchetExceptionInput {
   decision_id: string;
-  /** The regression kind (e.g. `quality.strictness`) — the reuse key. */
   kind: string;
-  /** The measure that worsened, for the human-readable question. */
   measure: string;
-  /** Where it worsened (module slug or project scope). */
   module: string;
   baseline_value: number | null;
   current_value: number | null;
@@ -35,19 +20,11 @@ export interface RatchetExceptionInput {
   requested_by?: string;
 }
 
-/**
- * Build the Decision Packet raised when a measure worsens with no prior
- * approval. The human either approves the exception (recorded, reused by kind)
- * or holds the line (the change must bring the measure back). Option keys are
- * stable so a later same-kind regression reuses the saved verdict via the DPC.
- */
 export function buildRatchetExceptionPacket(input: RatchetExceptionInput): DecisionPacket {
   const ttlDays = DECISION_CATEGORY_DEFAULTS[CATEGORY].ttl_days;
   const ttlUntil = new Date(
     new Date(input.created_at).getTime() + ttlDays * 24 * 60 * 60 * 1000,
   ).toISOString();
-  // Fingerprint by kind only so identical kinds match exactly and same-kind
-  // regressions with different numbers still match fuzzily.
   const fingerprint = `sha256:${sha256Hex(`${CATEGORY}:${input.kind}`)}`;
 
   const from = input.baseline_value === null ? 'n/a' : String(input.baseline_value);
@@ -94,15 +71,6 @@ export function buildRatchetExceptionPacket(input: RatchetExceptionInput): Decis
   };
 }
 
-/**
- * For a set of candidate regression kinds, return those already approved as an
- * exception — reusing the saved decision by kind via `findReusableDecision`
- * (which emits `decision-reused`). A kind whose reusable decision chose
- * "hold the line" is NOT returned (the line still holds).
- *
- * `buildPacket` lets callers reuse the same packet shape the pause would write,
- * so the fingerprint and option keys match for the fuzzy reuse to fire.
- */
 export function resolveReusableExceptionKinds(
   store: DecisionStore,
   kinds: Iterable<string>,

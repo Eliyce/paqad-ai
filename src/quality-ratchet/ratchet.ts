@@ -1,14 +1,3 @@
-// Issue #110 — the ratchet comparison. Pure: baseline + current samples in,
-// verdicts out. No I/O, no tool runs — this is the rule that makes quality
-// only-tightens, and it is where the behaviour is tested per measure.
-//
-// The rule, in one sentence: a change is allowed only if every measure is equal
-// or better than the recorded level; a worsening blocks until it no longer does
-// (or an exception for that kind has been approved). Because the recorded level
-// is the *tightened* minimum (see baseline.ts), new work is held to at least the
-// existing level — the average can only climb. A measure with no baseline entry
-// captures today's reality and never fails retroactively.
-
 import type { Lane } from '@/core/types/routing.js';
 import {
   type MeasureSample,
@@ -24,15 +13,9 @@ export interface EvaluateRatchetOptions {
   baseline: QualityBaseline | null;
   current: MeasureSample[];
   lane: Lane;
-  /**
-   * Exception kinds approved (or reused via the DPC) this run. A regression
-   * whose kind is in this set is permitted and recorded, not blocked. Kinds are
-   * keyed by measure so one approval covers same-measure regressions by kind.
-   */
   approvedExceptionKinds?: ReadonlySet<string>;
 }
 
-/** The exception kind for a measure regression — keyed by measure (issue #110). */
 export function exceptionKind(measure: string): string {
   return `quality.${measure}`;
 }
@@ -41,7 +24,6 @@ export function evaluateRatchet(options: EvaluateRatchetOptions): QualityRatchet
   const { current, lane } = options;
   const approved = options.approvedExceptionKinds ?? new Set<string>();
 
-  // First run: no baseline. Capture today's reality; nothing fails retroactively.
   if (options.baseline === null) {
     const verdicts = current.map<RatchetMeasureVerdict>((sample) => verdict(sample, null, 'new'));
     return {
@@ -71,13 +53,11 @@ export function evaluateRatchet(options: EvaluateRatchetOptions): QualityRatchet
     const base = baselineByKey.get(sampleKey(sample.measure, sample.module)) ?? null;
     const baseValue = base?.value ?? null;
 
-    // Could not measure it this run → recorded, never blocks.
     if (sample.value === null) {
       verdicts.push(verdict(sample, baseValue, 'blocked'));
       continue;
     }
 
-    // New measure/module with no recorded level → capture, never fail.
     if (base === undefined || baseValue === null) {
       verdicts.push(verdict(sample, baseValue, 'new'));
       capturedNew = true;

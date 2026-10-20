@@ -1,16 +1,3 @@
-// Issue #110 — quality-ratchet orchestration.
-//
-// Ties the pieces together: read the baseline → collect the four measures →
-// compare (the ratchet) → reuse/raise a `quality.ratchet_exception` pause for
-// any worsening → tighten and persist the baseline on a clean run. Never throws:
-// like the mutation gate, any inability to run is recorded as a skipped/blocked
-// result so the gate decides what to do, not the orchestration.
-//
-// Persistence rule: the baseline is written only when the run does NOT block —
-// it tightens to the new minimums (and lifts only the measures whose worsening
-// was approved). A blocked (regressed) run never writes, so a refused change can
-// never quietly move the recorded level.
-
 import type { DetectedStackProfile } from '@/core/types/introspection.js';
 import type { Lane } from '@/core/types/routing.js';
 import type { QualityRatchetResult, RatchetMeasureVerdict } from '@/core/types/quality-ratchet.js';
@@ -36,14 +23,11 @@ export interface RunQualityRatchetOptions {
   changedFiles: string[];
   lane: Lane;
   stackProfile: DetectedStackProfile | null;
-  /** Orphan files from #109's reachability solver; null → dead_code blocked. */
   deadCodeFiles: string[] | null;
   deps?: QualityCollectorDeps;
   now?: () => string;
-  /** When set, blocking regressions reuse prior approvals and raise a pause. */
   decisionStore?: DecisionStore;
   taskSessionId?: string;
-  /** Persist baseline tighten/capture. Tests pass false to avoid disk writes. */
   writeBaseline?: boolean;
 }
 
@@ -62,7 +46,6 @@ export async function runQualityRatchetGate(
     deps: options.deps,
   });
 
-  // First run: capture today's reality and pass.
   if (baseline === null) {
     const result = evaluateRatchet({ baseline: null, current, lane: options.lane });
     if (options.writeBaseline !== false) {
@@ -71,7 +54,6 @@ export async function runQualityRatchetGate(
     return result;
   }
 
-  // Compare. First pass with no approvals to learn which kinds worsened.
   let result = evaluateRatchet({ baseline, current, lane: options.lane });
 
   if (result.blocking_regressions.length > 0 && options.decisionStore) {
@@ -79,7 +61,6 @@ export async function runQualityRatchetGate(
     const lookupTask = options.taskSessionId ?? 'quality-ratchet-lookup';
     const candidateKinds = result.blocking_regressions.map((r) => r.kind);
 
-    // Reuse any prior approval by kind (emits `decision-reused`; no re-ask).
     const approved = resolveReusableExceptionKinds(store, candidateKinds, (kind) =>
       buildRatchetExceptionPacket(
         exceptionInput('D-0', kind, result.blocking_regressions, lookupTask, now),
@@ -95,15 +76,11 @@ export async function runQualityRatchetGate(
       });
     }
 
-    // Raise a pause for each still-blocking kind, so the worsening is deliberate
-    // and visible rather than a silent block. Needs a real task id; best-effort
-    // (a pending decision may already exist for the task).
     if (options.taskSessionId) {
       raisePendingExceptions(store, result.blocking_regressions, options.taskSessionId, now);
     }
   }
 
-  // Persist only when the run does not block (refused changes never move the line).
   if (options.writeBaseline !== false && result.status !== 'regressed') {
     let next = tightenBaseline(baseline, current, now);
     if (result.excepted_regressions.length > 0) {
@@ -157,9 +134,6 @@ function raisePendingExceptions(
         exceptionInput(decisionId, kind, blocking, taskSessionId, now),
       );
       store.writePending(packet);
-    } catch {
-      // A pending decision may already exist for this task, or the kind was
-      // already raised — the gate still blocks, so this is best-effort only.
-    }
+    } catch {}
   }
 }
