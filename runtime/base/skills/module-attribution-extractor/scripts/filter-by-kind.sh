@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Filter the extractor's `candidates` array by `kind`.
-# Usage:   bash scripts/filter-by-kind.sh <kind> [report.json]
-#          kind is one of: exact-match | near-collision | unknown
-#          report.json defaults to stdin.
-# Output:  JSON array of matching candidates on stdout.
-# Exits:   0 ok (may be empty array) | 2 usage / parse error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Filter the extractor's `candidates` array by `kind`.
+Usage:   bash scripts/filter-by-kind.sh <kind> [report.json]
+         kind is one of: exact-match | near-collision | unknown
+         report.json defaults to stdin.
+Output:  JSON array of matching candidates on stdout.
+Exits:   0 ok (may be empty array) | 2 usage / parse error
+USAGE
   exit 2
 fi
 

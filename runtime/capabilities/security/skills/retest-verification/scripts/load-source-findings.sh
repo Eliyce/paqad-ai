@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Load and validate source pentest sidecar findings (the canonical
-#          schema produced by finding-normalizer).
-# Usage:   bash scripts/load-source-findings.sh <sidecar.json>
-# Output:  One JSON object per line: id, title, severity, status, evidence
-# Exits:   0 ok | 1 missing/invalid | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Load and validate source pentest sidecar findings (the canonical
+         schema produced by finding-normalizer).
+Usage:   bash scripts/load-source-findings.sh <sidecar.json>
+USAGE
+  exit 0
 fi
 [ -f "${1:-}" ] || { printf 'usage: %s <sidecar.json>\n' "$0" >&2; exit 2; }
 

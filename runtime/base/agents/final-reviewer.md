@@ -41,7 +41,7 @@ Confirm each gate executed and passed:
 3. **Build passes** - the project builds successfully
 4. **Lint passes** - no new lint violations introduced
 5. **Review complete** - adversarial-reviewer has run and all critical issues are resolved
-6. **Quality ratchet held** - the `quality-ratchet` gate did not regress any of the four measures (tangledness, dead code, risky patterns, strictness). A worsening blocks handoff unless a `quality.ratchet_exception` was approved for that kind (issue #110).
+6. **Quality ratchet held** - the `quality-ratchet` gate did not regress any of the four measures (tangledness, dead code, risky patterns, strictness). A worsening blocks handoff unless a `quality.ratchet_exception` was approved for that kind.
 
 If any gate was not run, flag it. If any gate failed and was not resolved, flag as a blocker.
 
@@ -97,11 +97,11 @@ Verify the handoff artifact at `.paqad/session/handoff.json` (or `.md`) contains
 ### Ready for Handoff: {yes|no}
 ```
 
-## Traceability map (issue #109)
+## Traceability map
 
 If `.paqad/traceability/map.json` is present, fold it into the review — it is the
-bidirectional promise ↔ code ↔ test map, rebuilt from reality this run. Since issue
-#639 (Part 11) it is the change map: the frozen spec's automated acceptance criteria
+bidirectional promise ↔ code ↔ test map, rebuilt from reality this run. It is the
+change map: the frozen spec's automated acceptance criteria
 against the test files changed on the branch, marked `scope: "change"` with the
 bundle directory in `change`. Ignore a change map whose `change` is not the change
 you are reviewing. The `ac-test-mapping` gate already fails a change whose automated

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate test-per-ac-planner output. Each AC subsection has a
-#          5-column table; T-id parent matches AC.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate test-per-ac-planner output. Each AC subsection has a
+         5-column table; T-id parent matches AC.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")
@@ -18,13 +19,11 @@ say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 grep -qE '^## Verification Plan' <<<"$body" || say 'missing "## Verification Plan"'
 grep -qE '^## Uncovered Criteria' <<<"$body" || say 'missing "## Uncovered Criteria"'
 
-# Each AC subsection must have the canonical 5-column header.
 sections=$(printf '%s' "$body" | grep -cE '^### AC-' || true)
 tables=$(printf '%s' "$body" | grep -cE '^\| Test ID \| Layer \| File \| Case \| Notes \|' || true)
 [ "${sections:-0}" -gt 0 ] && [ "${tables:-0}" -lt "${sections:-0}" ] \
   && say "fewer canonical 5-column tables (${tables:-0}) than AC subsections (${sections:-0})"
 
-# T-id parent vs AC parent check for the simple case.
 node -e '
 const txt = process.argv[1];
 const re = /^### (AC-(\d+(?:\.\d+)?))[^\n]*$/gm;

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Word count for a draft (excluding fenced code blocks and frontmatter).
-# Usage:   bash scripts/word-count.sh <file>
-# Output:  Single integer.
-# Exits:   0 ok | 1 missing | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Word count for a draft (excluding fenced code blocks and frontmatter).
+Usage:   bash scripts/word-count.sh <file>
+Output:  Single integer.
+USAGE
+  exit 0
 fi
 [ -f "${1:-}" ] || { printf 'usage: %s <file>\n' "$0" >&2; exit 2; }
 awk '

@@ -1,6 +1,6 @@
 ---
 name: rule-script-runner
-description: Executes the registered rule scripts diff-scoped during feature-development.checks, aggregates findings into .paqad/scripts/rules/.cache/report.json with hash-cache invalidation, and decides whether the checks stage is blocked (issue #89). No LLM — the TS engine is src/rule-scripts/runner.ts; this skill is the thin agent-side wrapper invoked from the checks stage. deterministic findings block under mode:strict; heuristic findings route to the review stage and never block.
+description: Executes the registered rule scripts diff-scoped during feature-development.checks, aggregates findings into .paqad/scripts/rules/.cache/report.json with hash-cache invalidation, and decides whether the checks stage is blocked. No LLM — the TS engine is src/rule-scripts/runner.ts; this skill is the thin agent-side wrapper invoked from the checks stage. deterministic findings block under mode:strict; heuristic findings route to the review stage and never block.
 model_tier: fast
 triggers:
   - workflow:

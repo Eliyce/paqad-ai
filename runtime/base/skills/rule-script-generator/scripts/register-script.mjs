@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-// Purpose: Register a fixture-validated script onto its rule in
-//          rule-script-map.yml, through the single-writer apply path. Re-runs
-//          validation first and refuses to register a script that fails.
-// Usage:   node scripts/register-script.mjs <project-root> <script-path-rel> \
-//             <rule-id> <kind> <scope>
-//          kind: deterministic | heuristic   scope: changed-files | whole-tree | ...
-// Output:  JSON { registered, fixtures } on stdout.
-// Exit:    0 if registered, 1 if rejected.
 import { join } from 'node:path';
 
 import {
@@ -31,7 +23,6 @@ const header = parseScriptHeader(readFileSync(scriptAbs, 'utf8'));
 const fixtures = runFixtures(scriptAbs);
 const deferred = (fixtures.missing_binaries ?? []).length > 0;
 if (deferred) {
-  // Environment issue, not a logic failure — defer rather than reject.
   process.stdout.write(
     `${JSON.stringify({ registered: false, deferred: true, fixtures }, null, 2)}\n`,
   );

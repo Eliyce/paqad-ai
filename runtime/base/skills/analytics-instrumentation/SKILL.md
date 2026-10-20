@@ -1,6 +1,6 @@
 ---
 name: analytics-instrumentation
-description: When the `analytics_instrumentation` flag is on and the classify-time gate resolved to `instrument`, this skill wires a feature's analytics the tracking-plan-as-code way (issue #279). The LLM only names the event (following the project's one consistent convention) and writes the doc body; the bundled `instrument.mjs` script computes the normalized slug and the module-owned doc path, writes the per-event doc and refreshes the per-module index via the framework's doc-tree primitives, and prints the provider tracking-call snippet. A brand-new event is never added silently — it goes through the `analytics.new_event` Decision Pause first. Scales to N providers by data (one doc, a section per provider), not by code.
+description: When the `analytics_instrumentation` flag is on and the classify-time gate resolved to `instrument`, this skill wires a feature's analytics the tracking-plan-as-code way. The LLM only names the event (following the project's one consistent convention) and writes the doc body; the bundled `instrument.mjs` script computes the normalized slug and the module-owned doc path, writes the per-event doc and refreshes the per-module index via the framework's doc-tree primitives, and prints the provider tracking-call snippet. A brand-new event is never added silently — it goes through the `analytics.new_event` Decision Pause first. Scales to N providers by data (one doc, a section per provider), not by code.
 model_tier: fast
 triggers:
   - workflow:

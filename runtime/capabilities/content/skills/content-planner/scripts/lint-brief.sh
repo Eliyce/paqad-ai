@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate a content brief has every required field filled.
-# Usage:   bash scripts/lint-brief.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate a content brief has every required field filled.
+Usage:   bash scripts/lint-brief.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")

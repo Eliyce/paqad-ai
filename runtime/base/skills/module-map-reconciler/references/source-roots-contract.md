@@ -2,7 +2,7 @@
 
 The reconciler refuses to run unless the active stack pack declares
 `module_health.source_roots`. There is **no silent fallback** to
-`module-map.yml`'s `sources:` paths (issue #80 spec AC #17).
+`module-map.yml`'s `sources:` paths.
 
 ## Why no fallback
 

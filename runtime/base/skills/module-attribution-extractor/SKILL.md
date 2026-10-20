@@ -1,6 +1,6 @@
 ---
 name: module-attribution-extractor
-description: Run the deterministic module-attribution extractor over a user prompt and surface any MD-XXXX drafts via the Decision Pause Contract. This is the first half of the Attribution Gate spliced into feature-development.planning (issue #80). Pattern set is finite, framework-owned, and TS-canonical (`src/module-decisions/extractor.ts`); extending it is a framework PR.
+description: Run the deterministic module-attribution extractor over a user prompt and surface any MD-XXXX drafts via the Decision Pause Contract. This is the first half of the Attribution Gate spliced into feature-development.planning. Pattern set is finite, framework-owned, and TS-canonical (`src/module-decisions/extractor.ts`); extending it is a framework PR.
 model_tier: fast
 triggers:
   - workflow:
@@ -60,7 +60,7 @@ For each candidate that needs a decision, the packet must include:
   - **Rename** — collect a new slug from the user; loop back through `extract`.
   - **Reject** — mark the draft `rejected`; no module-map mutation.
 
-The packet's selected option drives the state transition. Only an explicit `Accept` response promotes the MD-XXXX from `draft` → `proposed` → `accepted` (spec AC #11). No silent acceptance.
+The packet's selected option drives the state transition. Only an explicit `Accept` response promotes the MD-XXXX from `draft` → `proposed` → `accepted`. No silent acceptance.
 
 ## Output Contract
 

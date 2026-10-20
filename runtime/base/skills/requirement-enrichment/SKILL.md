@@ -26,7 +26,7 @@ input_schema:
 
 ## What It Does
 
-Turns the open decisions an incomplete request leaves behind into the pipeline's S2 clarification batch: a set of FR-4 two-layer question objects, each phrased in the project's own words so a non-technical owner can answer it. This is the S2 question-phrasing step of the spec pipeline (issue #512, B.5.2) — it phrases, it does not judge clarity and does not re-run the plain-language check.
+Turns the open decisions an incomplete request leaves behind into the pipeline's S2 clarification batch: a set of FR-4 two-layer question objects, each phrased in the project's own words so a non-technical owner can answer it. This is the S2 question-phrasing step of the spec pipeline — it phrases, it does not judge clarity and does not re-run the plain-language check.
 
 ## Use This When
 

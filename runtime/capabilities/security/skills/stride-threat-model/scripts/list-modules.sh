@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Enumerate canonical module slugs from docs/modules/ (or module-map.yml).
-# Usage:   bash scripts/list-modules.sh
-# Output:  Sorted unique module slugs, one per line.
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Enumerate canonical module slugs from docs/modules/ (or module-map.yml).
+Usage:   bash scripts/list-modules.sh
+Output:  Sorted unique module slugs, one per line.
+USAGE
+  exit 0
 fi
 if [ -d docs/modules ]; then
   for d in docs/modules/*/; do

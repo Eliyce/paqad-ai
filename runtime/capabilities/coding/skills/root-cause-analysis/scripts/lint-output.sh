@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate RCA output: 7 canonical sections in fixed order.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate RCA output: 7 canonical sections in fixed order.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")
@@ -25,7 +27,6 @@ required=(
   '## Verification & Follow-Up'
 )
 
-# Each section must be present and in this exact order.
 last_line=0
 for h in "${required[@]}"; do
   hp=$(printf '%s\n' "$body" | grep -nF -- "$h" | grep -E ":${h}\$" | head -1 || true)

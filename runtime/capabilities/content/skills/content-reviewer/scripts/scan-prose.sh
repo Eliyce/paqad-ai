@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Find common prose issues in a draft. LLM still confirms severity.
-# Usage:   bash scripts/scan-prose.sh <file>   (or stdin)
-# Output:  smell | line | excerpt
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Find common prose issues in a draft. LLM still confirms severity.
+Usage:   bash scripts/scan-prose.sh <file>   (or stdin)
+Output:  smell | line | excerpt
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat); src='/dev/stdin'
 elif [ -f "$1" ]; then body=$(cat "$1"); src="$1"

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Merge multiple advisory artifacts (npm audit, pnpm audit, OSV, etc.)
-#          into one dedup'd JSONL stream keyed by (ecosystem, package, advisory_id).
-# Usage:   bash scripts/normalize-advisories.sh <artifact> [<artifact> ...]
-# Output:  One JSON object per line: {ecosystem,package,version,advisory_id,severity,title,sources}
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Merge multiple advisory artifacts (npm audit, pnpm audit, OSV, etc.)
+         into one dedup'd JSONL stream keyed by (ecosystem, package, advisory_id).
+Usage:   bash scripts/normalize-advisories.sh <artifact> [<artifact> ...]
+USAGE
+  exit 0
 fi
 [ "$#" -ge 1 ] || { printf 'usage: %s <artifact> ...\n' "$0" >&2; exit 2; }
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Changed files come from git (issue #651): uncommitted work, plus everything committed on this
+# Changed files come from git: uncommitted work, plus everything committed on this
 # branch since it left the default branch. Without git, or when git reports nothing, run the
 # full refresh.
 if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then

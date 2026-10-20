@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Purpose: Validate an adversarial-review output block.
-# Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
-# Checks:  has "## Findings", every finding tagged with a severity from
-#          {Critical, High, Medium, Low}, severities are non-increasing, each
-#          finding has a "Required action:" segment.
-# Output:  "ok" on stdout when clean, issues on stderr otherwise.
-# Exits:   0 clean | 1 issues found | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Validate an adversarial-review output block.
+Usage:   bash scripts/lint-findings.sh <file>   (or stdin)
+Checks:  has "## Findings", every finding tagged with a severity from
+         {Critical, High, Medium, Low}, severities are non-increasing, each
+         finding has a "Required action:" segment.
+Output:  "ok" on stdout when clean, issues on stderr otherwise.
+Exits:   0 clean | 1 issues found | 2 usage error
+USAGE
   exit 0
 fi
 
@@ -27,7 +28,6 @@ say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 grep -qE '^## Findings' <<<"$body" || say 'missing "## Findings" heading'
 
-# Extract finding lines (lines starting with "- " under Findings).
 findings=$(printf '%s\n' "$body" | awk '
   /^## Findings/ { in_f=1; next }
   /^## / && in_f { in_f=0 }
@@ -35,7 +35,6 @@ findings=$(printf '%s\n' "$body" | awk '
 ')
 [ -z "$findings" ] && say 'no finding bullets ("- ...") under "## Findings"'
 
-# Check each finding has a severity tag and Required action.
 ranks="Critical 1
 High 2
 Medium 3

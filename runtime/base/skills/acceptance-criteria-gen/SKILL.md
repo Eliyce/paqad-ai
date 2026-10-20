@@ -45,7 +45,7 @@ Use this when a request is entering planning or solutioning and the current brie
 ## Output Contract
 
 - Match `assets/output.template.md`: a `## Acceptance criteria` heading, then one flat `- AC-N: Given …, when …, then … (proof: automated|manual|visual).` bullet per criterion, ending with a `## Coverage Notes` block.
-- Use FLAT `AC-N` identifiers only. Dotted two-level `AC-N.N` ids are forbidden — the freeze parser reads flat ids and would renumber or drop a dotted one (issue #512, C4), so a block passing this skill can never fail the freeze on shape.
+- Use FLAT `AC-N` identifiers only. Dotted two-level `AC-N.N` ids are forbidden — the freeze parser reads flat ids and would renumber or drop a dotted one, so a block passing this skill can never fail the freeze on shape.
 - Every criterion line carries an explicit `(proof: …)` tag so the frozen criterion has a proof type.
 - Identifiers must be stable across spec revisions — removed criteria do not have their identifier reused.
 - The output must pass `scripts/lint-ac-output.sh` with exit 0 before returning.

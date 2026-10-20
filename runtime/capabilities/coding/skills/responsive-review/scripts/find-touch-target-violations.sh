@@ -1,25 +1,24 @@
 #!/usr/bin/env bash
-# Purpose: Grep UI source for icon-only / tap targets whose declared sizing is
-#          below the WCAG-2.2-2.5.8 minimum (default 24×24 CSS pixels). The
-#          minimum is configurable via --min. Emits candidate lines the LLM
-#          confirms — anything declaring a width/height < the minimum or using
-#          a Tailwind size utility below the floor.
-#
-# Usage:   bash scripts/find-touch-target-violations.sh [search-root]
-#                                                       [--min <px>]
-#                                                       [--out <path>]
-#          Default search-root: src
-#          Default --min: 24
-#
-# Output:  TSV rows to stdout:
-#            <file>:<line>\t<size-px>\t<excerpt>
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Grep UI source for icon-only / tap targets whose declared sizing is
+         below the WCAG-2.2-2.5.8 minimum (default 24×24 CSS pixels). The
+         minimum is configurable via --min. Emits candidate lines the LLM
+         confirms — anything declaring a width/height < the minimum or using
+         a Tailwind size utility below the floor.
+
+Usage:   bash scripts/find-touch-target-violations.sh [search-root]
+                                                      [--min <px>]
+                                                      [--out <path>]
+         Default search-root: src
+         Default --min: 24
+
+Output:  TSV rows to stdout:
+           <file>:<line>\t<size-px>\t<excerpt>
+         Diagnostics to stderr.
+USAGE
   exit 0
 fi
 
@@ -44,9 +43,6 @@ if [ ! -d "$root" ]; then
   exit 0
 fi
 
-# Find lines that declare a width or height in raw px values OR Tailwind
-# size utilities (`w-N` / `h-N` where N is in Tailwind's 0.25rem scale).
-# Note: awk POSIX ERE has no `\b`, so we use explicit boundary chars.
 candidates=$(grep -rEn --binary-files=without-match \
   --exclude-dir=node_modules --exclude-dir=dist --exclude-dir=build \
   --exclude='*.test.*' --exclude='*.spec.*' --exclude='*.stories.*' \

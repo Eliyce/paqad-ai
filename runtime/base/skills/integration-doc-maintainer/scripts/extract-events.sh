@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Heuristic event-name extractor from changed source files.
-# Usage:   bash scripts/extract-events.sh <file> [<file> ...]
-# Output:  Sorted unique candidate event names (e.g. user.created, order.refunded).
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Heuristic event-name extractor from changed source files.
+Usage:   bash scripts/extract-events.sh <file> [<file> ...]
+Output:  Sorted unique candidate event names (e.g. user.created, order.refunded).
+USAGE
+  exit 0
 fi
 [ "$#" -ge 1 ] || { printf 'usage: %s <file> ...\n' "$0" >&2; exit 2; }
 {

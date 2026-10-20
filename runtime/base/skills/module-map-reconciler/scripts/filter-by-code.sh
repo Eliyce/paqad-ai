@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Purpose: Filter drift.json `findings` by MM-* code.
-# Usage:   bash scripts/filter-by-code.sh <MM-CODE> [project-root]
-#          project-root defaults to the current directory.
-# Output:  JSON array of matching findings on stdout.
-# Exits:   0 ok (may be empty array) | 2 usage / drift.json missing
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ] || [ "${1:-}" = "" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Filter drift.json `findings` by MM-* code.
+Usage:   bash scripts/filter-by-code.sh <MM-CODE> [project-root]
+         project-root defaults to the current directory.
+Output:  JSON array of matching findings on stdout.
+Exits:   0 ok (may be empty array) | 2 usage / drift.json missing
+USAGE
   exit 2
 fi
 

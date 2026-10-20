@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Emit one file path per line for every entry in the rollup
-#          report's `unattributed_files` list. These are the MM-ADD
-#          candidates the rollup hands off to the module-map reconciler.
-# Usage:   bash scripts/list-unattributed.sh <report.json>   (or stdin)
-# Output:  Sorted file paths on stdout; empty when nothing is unattributed.
-# Exits:   0 ok | 2 usage / parse error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Emit one file path per line for every entry in the rollup
+         report's `unattributed_files` list. These are the MM-ADD
+         candidates the rollup hands off to the module-map reconciler.
+Usage:   bash scripts/list-unattributed.sh <report.json>   (or stdin)
+Output:  Sorted file paths on stdout; empty when nothing is unattributed.
+Exits:   0 ok | 2 usage / parse error
+USAGE
   exit 0
 fi
 

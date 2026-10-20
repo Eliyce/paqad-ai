@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# Purpose: Parse the project's components.md contract clause into structured
-#          TSV rows the LLM matches the AST inventory against.
-#
-# Usage:   bash scripts/parse-components-md.sh <components.md>
-#
-# Output:  one TSV row per declared component to stdout:
-#            <name>\t<variants-csv>\t<states-csv>
-#          Empty CSV slots are represented as `-` so consumers can tell
-#          "declared empty" from "missing".
-#          Diagnostics to stderr.
-#
-# Expected components.md shape (the format documented in
-# references/component-conformance-checklist.md):
-#
-#   ## Button
-#
-#   - variants: primary, secondary, ghost
-#   - states: default, hover, focus, disabled
-#
-# Lines that don't fit are ignored with a stderr note.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Parse the project's components.md contract clause into structured
+         TSV rows the LLM matches the AST inventory against.
+
+Usage:   bash scripts/parse-components-md.sh <components.md>
+
+Output:  one TSV row per declared component to stdout:
+           <name>\t<variants-csv>\t<states-csv>
+         Empty CSV slots are represented as `-` so consumers can tell
+         "declared empty" from "missing".
+         Diagnostics to stderr.
+
+Expected components.md shape (the format documented in
+references/component-conformance-checklist.md):
+
+  ## Button
+
+  - variants: primary, secondary, ghost
+  - states: default, hover, focus, disabled
+
+Lines that don't fit are ignored with a stderr note.
+
+USAGE
   exit 0
 fi
 

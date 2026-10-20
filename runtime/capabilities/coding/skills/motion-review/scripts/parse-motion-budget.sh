@@ -1,26 +1,24 @@
 #!/usr/bin/env bash
-# Purpose: Parse the motion.md contract clause and emit the declared budget so
-#          downstream scripts (and the LLM) compare durations against a known
-#          ceiling instead of inferring one.
-#
-# Usage:   bash scripts/parse-motion-budget.sh <motion.md>
-#
-# Expected lines (per references/motion-checklist.md):
-#
-#   - duration-ceiling: 400ms
-#   - easing: standard, enter, exit
-#   - reduced-motion: respected
-#
-# Output:  one TSV row per declared key to stdout:
-#            <key>\t<value>
-#          (`value` for easing is the CSV-joined list as-is.)
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Parse the motion.md contract clause and emit the declared budget so
+         downstream scripts (and the LLM) compare durations against a known
+         ceiling instead of inferring one.
+
+Usage:   bash scripts/parse-motion-budget.sh <motion.md>
+
+Expected lines (per references/motion-checklist.md):
+
+  - duration-ceiling: 400ms
+  - easing: standard, enter, exit
+  - reduced-motion: respected
+
+Output:  one TSV row per declared key to stdout:
+           <key>\t<value>
+         (`value` for easing is the CSV-joined list as-is.)
+USAGE
   exit 0
 fi
 

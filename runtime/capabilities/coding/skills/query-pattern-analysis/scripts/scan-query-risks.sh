@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Pattern-scan source / SQL files for known query risks.
-# Usage:   bash scripts/scan-query-risks.sh <file> [<file> ...]
-# Output:  risk | file:line | excerpt
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Pattern-scan source / SQL files for known query risks.
+Usage:   bash scripts/scan-query-risks.sh <file> [<file> ...]
+Output:  risk | file:line | excerpt
+USAGE
+  exit 0
 fi
 [ "$#" -ge 1 ] || { printf 'usage: %s <file> ...\n' "$0" >&2; exit 2; }
 

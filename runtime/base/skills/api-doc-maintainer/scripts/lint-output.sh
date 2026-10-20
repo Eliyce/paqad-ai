@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Purpose: Validate api-doc-maintainer output: requires "## Updated API Docs"
-#          and "## Coverage Gaps" sections, with at least one backtick-quoted
-#          path under Updated API Docs.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Output:  "ok" on stdout; issues on stderr.
-# Exits:   0 clean | 1 issues found | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Validate api-doc-maintainer output: requires "## Updated API Docs"
+         and "## Coverage Gaps" sections, with at least one backtick-quoted
+         path under Updated API Docs.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+Output:  "ok" on stdout; issues on stderr.
+USAGE
   exit 0
 fi
 

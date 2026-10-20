@@ -1,27 +1,28 @@
 #!/usr/bin/env bash
-# Purpose: Derive the design-system tier (missing | bare | adequate | strong)
-#          from per-file clause counts. Pure function of the counts so the LLM
-#          doesn't recompute the tier rule from prose on every run.
-#
-# Usage:   bash scripts/derive-tier.sh
-#            Reads stdin: one TSV row per contract file as emitted by
-#            count-clauses.sh — `<path-ending-in-{name}.md>\t<count>`.
-#
-# Output:  single line to stdout: `tier=<missing|bare|adequate|strong>`
-#          then one diagnostic line per file (to stderr) explaining the count.
-#
-# Tier rules:
-#   missing  — every contract file absent or count 0
-#   bare     — tokens > 0 but components == 0 OR accessibility == 0
-#   adequate — tokens > 0 AND components > 0 AND accessibility > 0
-#              AND at least one of {responsive, motion, patterns} > 0
-#   strong   — all six > 0
-#
-# Exits:   0 ok | 2 usage / malformed input
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Derive the design-system tier (missing | bare | adequate | strong)
+         from per-file clause counts. Pure function of the counts so the LLM
+         doesn't recompute the tier rule from prose on every run.
+
+Usage:   bash scripts/derive-tier.sh
+           Reads stdin: one TSV row per contract file as emitted by
+           count-clauses.sh — `<path-ending-in-{name}.md>\t<count>`.
+
+Output:  single line to stdout: `tier=<missing|bare|adequate|strong>`
+         then one diagnostic line per file (to stderr) explaining the count.
+
+Tier rules:
+  missing  — every contract file absent or count 0
+  bare     — tokens > 0 but components == 0 OR accessibility == 0
+  adequate — tokens > 0 AND components > 0 AND accessibility > 0
+             AND at least one of {responsive, motion, patterns} > 0
+  strong   — all six > 0
+
+Exits:   0 ok | 2 usage / malformed input
+USAGE
   exit 0
 fi
 

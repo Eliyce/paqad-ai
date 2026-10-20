@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Purpose: Emit one `<slug>: <reason1>, <reason2>, ...` line per module with a
-#          non-empty `blocked_metrics` list in the rollup pass of a combined
-#          refresh report. These are the informational warnings the update
-#          workflow surfaces (config gaps, not Decision Pause packets).
-# Usage:   bash scripts/list-blocked-metrics.sh <report.json>   (or stdin)
-# Output:  Lines on stdout, sorted by slug; empty when nothing is blocked.
-# Exits:   0 ok | 2 usage / parse error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Emit one `<slug>: <reason1>, <reason2>, ...` line per module with a
+         non-empty `blocked_metrics` list in the rollup pass of a combined
+         refresh report. These are the informational warnings the update
+         workflow surfaces (config gaps, not Decision Pause packets).
+Usage:   bash scripts/list-blocked-metrics.sh <report.json>   (or stdin)
+Output:  Lines on stdout, sorted by slug; empty when nothing is blocked.
+Exits:   0 ok | 2 usage / parse error
+USAGE
   exit 0
 fi
 

@@ -1,25 +1,24 @@
 #!/usr/bin/env bash
-# Purpose: Compare button labels in source against a declared action-verb
-#          allow-list (from patterns.md). Anything outside the set is a copy
-#          finding candidate.
-#
-# Usage:   bash scripts/check-action-verbs.sh --verbs <a,b,c> [--root <dir>]
-#                                              [--out <path>]
-#          Default --root: src
-#
-# Output:  one TSV row per offending button label, to stdout:
-#            <file>:<line>\t<label>
-#          Diagnostics to stderr.
-#
-# Recognised button labels:
-#   <button ...>Label</button>
-#   <Button ...>Label</Button>
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Compare button labels in source against a declared action-verb
+         allow-list (from patterns.md). Anything outside the set is a copy
+         finding candidate.
+
+Usage:   bash scripts/check-action-verbs.sh --verbs <a,b,c> [--root <dir>]
+                                             [--out <path>]
+         Default --root: src
+
+Output:  one TSV row per offending button label, to stdout:
+           <file>:<line>\t<label>
+         Diagnostics to stderr.
+
+Recognised button labels:
+  <button ...>Label</button>
+  <Button ...>Label</Button>
+USAGE
   exit 0
 fi
 
@@ -42,7 +41,6 @@ if [ ! -d "$root" ]; then
   exit 0
 fi
 
-# Build a pipe-separated allow-list of verbs (lowercase) for awk.
 verbs_lower=$(printf '%s' "$verbs_csv" | tr ',' '\n' | tr -d ' ' | tr '[:upper:]' '[:lower:]' | awk 'NF' | paste -sd'|' -)
 
 emit() {

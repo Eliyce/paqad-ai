@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Grep the codebase for known auth anti-patterns the LLM should
-#          investigate. Emits one row per hit; LLM still confirms each.
-# Usage:   bash scripts/scan-auth-smells.sh [search-root]
-#          Default search-root: src
-# Output:  smell | file:line | excerpt
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Grep the codebase for known auth anti-patterns the LLM should
+         investigate. Emits one row per hit; LLM still confirms each.
+Usage:   bash scripts/scan-auth-smells.sh [search-root]
+         Default search-root: src
+Output:  smell | file:line | excerpt
+Exits:   0 ok | 2 usage error
+USAGE
   exit 0
 fi
 

@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Purpose: Run the test-driven module-health rollup.
-#          Writes .paqad/module-health/<slug>.json per declared module.
-# Usage:   bash scripts/rollup.sh [project-root] [--from-report <path>]
-#          project-root defaults to the current directory.
-#          --from-report short-circuits the rollup with a prebuilt report.
-# Output:  Rollup summary JSON on stdout.
-# Exits:   0 ok | non-zero when rollup is blocked (e.g. module_health_unknown)
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Run the test-driven module-health rollup.
+         Writes .paqad/module-health/<slug>.json per declared module.
+Usage:   bash scripts/rollup.sh [project-root] [--from-report <path>]
+         project-root defaults to the current directory.
+         --from-report short-circuits the rollup with a prebuilt report.
+Output:  Rollup summary JSON on stdout.
+USAGE
   exit 0
 fi
 

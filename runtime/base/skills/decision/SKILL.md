@@ -1,6 +1,6 @@
 ---
 name: decision
-description: Authors the small, human-facing Decision Pause packet described by the Decision Pause Contract (in the framework bootstrap AGENT-BOOTSTRAP.md) without the agent hand-authoring the id, timestamps, or JSON. `create` mints a collision-free `D-<ULID>` id and writes the pending packet; `resolve` records the chosen option and rationale and moves it to resolved. A hand-picked sequential `D-{N}` is rejected, so two developers on parallel branches never collide (issue #272). The writer lives in `src/decisions/authoring.ts`; this skill is the agent-side wrapper that invokes the bundled `create.mjs` / `resolve.mjs` scripts, the exact counterpart to `paqad-ai stage` on the stage-evidence ledger.
+description: Authors the small, human-facing Decision Pause packet described by the Decision Pause Contract (in the framework bootstrap AGENT-BOOTSTRAP.md) without the agent hand-authoring the id, timestamps, or JSON. `create` mints a collision-free `D-<ULID>` id and writes the pending packet; `resolve` records the chosen option and rationale and moves it to resolved. A hand-picked sequential `D-{N}` is rejected, so two developers on parallel branches never collide. The writer lives in `src/decisions/authoring.ts`; this skill is the agent-side wrapper that invokes the bundled `create.mjs` / `resolve.mjs` scripts, the exact counterpart to `paqad-ai stage` on the stage-evidence ledger.
 model_tier: fast
 triggers:
   - workflow:
@@ -55,7 +55,7 @@ only content, never id/lifecycle plumbing:
 
 A hand-written sequential `D-{N}` is rejected: a new packet can only carry a
 minted ULID id, so two developers on parallel branches never allocate the same id
-(issue #184's collision-free form, now enforced at creation time — issue #272).
+(the collision-free form, enforced at creation time).
 
 This is the _contract_ packet — distinct from the rich `DecisionPacket`
 (`src/planning/decision-packet.ts`) that the automated intake / reuse pipeline

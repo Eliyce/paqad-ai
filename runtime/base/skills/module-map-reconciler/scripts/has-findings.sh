@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Purpose: Read .paqad/module-map/drift.json and report whether any MM-*
-#          findings are present.
-# Usage:   bash scripts/has-findings.sh [project-root]
-#          project-root defaults to the current directory.
-# Output:  Number of findings on stdout.
-# Exits:   0 findings present
-#          1 clean (zero findings)
-#          2 reconciler blocked (e.g. source_roots_unknown)
-#          3 drift.json missing — reconcile not run yet
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Read .paqad/module-map/drift.json and report whether any MM-*
+         findings are present.
+Usage:   bash scripts/has-findings.sh [project-root]
+         project-root defaults to the current directory.
+Output:  Number of findings on stdout.
+Exits:   0 findings present
+         1 clean (zero findings)
+         2 reconciler blocked (e.g. source_roots_unknown)
+         3 drift.json missing — reconcile not run yet
+USAGE
   exit 0
 fi
 

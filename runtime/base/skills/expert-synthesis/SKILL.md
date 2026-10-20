@@ -1,6 +1,6 @@
 ---
 name: expert-synthesis
-description: The chief architect for the spec pipeline. Read the request, the grounding, every expert note and the script's merge, then accept or decline each finding with a reason, recommend a resolution for each conflict (never apply it), list the gaps nobody covered, and give a readiness verdict. It is never picked by the detector; it runs automatically once any expert fired, and it may not invent a finding. The pipeline script validates the output and turns each conflict into a decision packet. Phase 2 of the spec pipeline (issue #547). TS guard is `src/spec-pipeline/experts/synthesis.ts`.
+description: The chief architect for the spec pipeline. Read the request, the grounding, every expert note and the script's merge, then accept or decline each finding with a reason, recommend a resolution for each conflict (never apply it), list the gaps nobody covered, and give a readiness verdict. It is never picked by the detector; it runs automatically once any expert fired, and it may not invent a finding. The pipeline script validates the output and turns each conflict into a decision packet. Phase 2 of the spec pipeline. TS guard is `src/spec-pipeline/experts/synthesis.ts`.
 model_tier: reasoning
 triggers:
   - workflow:
@@ -33,7 +33,7 @@ that, and turns each conflict into one `spec.expert_conflict` decision packet.
 - The spec pipeline is running with the expert roster on and the experts' notes are recorded
   (`paqad-ai spec pipeline experts context` shows a `merge` that is not null). Run this once,
   after the notes step.
-- You run as the chief architect's own subagent (`paqad-chief-architect`, issue #639) once every
+- You run as the chief architect's own subagent (`paqad-chief-architect`) once every
   High Table seat has recorded its note. The context you print then holds every seat's note.
 
 Do **not** run it when no expert fired — the chief only runs when at least one expert did.
@@ -43,7 +43,7 @@ Do **not** run it when no expert fired — the chief only runs when at least one
 - `context` — required. Print it with `paqad-ai spec pipeline experts context`. It holds:
   - `merge`: the merged findings (each with an id) and the conflicts. The script recomputes it
     from the recorded notes each time; it is never a file.
-  - `voice_warnings`: findings whose target is not a name this project uses (issue #558). Settle
+  - `voice_warnings`: findings whose target is not a name this project uses. Settle
     each one: rename it to the project's word in `renames`, or leave it when it is a genuinely new
     thing.
   - `notes`: the expert notes, for the reasons behind each finding.

@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# Purpose: Digest .paqad/session/verification-evidence.json into a flat
-#          one-failure-per-line anchor table the LLM can cite directly.
-# Usage:   bash scripts/digest-evidence.sh [evidence-json]
-#          Default path: .paqad/session/verification-evidence.json
-# Output:  One line per failure: <gate> | <category> | <file>:<line> | <ac_id> | <message>
-#          Header line first; "(no failures)" if evidence file is clean.
-# Exits:   0 ok | 1 evidence missing/unreadable | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Digest .paqad/session/verification-evidence.json into a flat
+         one-failure-per-line anchor table the LLM can cite directly.
+Usage:   bash scripts/digest-evidence.sh [evidence-json]
+         Default path: .paqad/session/verification-evidence.json
+Output:  One line per failure: <gate> | <category> | <file>:<line> | <ac_id> | <message>
+         Header line first; "(no failures)" if evidence file is clean.
+Exits:   0 ok | 1 evidence missing/unreadable | 2 usage error
+USAGE
   exit 0
 fi
 

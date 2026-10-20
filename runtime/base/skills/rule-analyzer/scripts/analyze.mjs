@@ -1,12 +1,4 @@
 #!/usr/bin/env node
-// Purpose: Scan docs/instructions/rules/**, embed stable RL-<hash> markers into
-//          every rule bullet (idempotent), and print the rule inventory +
-//          rule_files_hash as JSON for the rule-analyzer skill to classify.
-// Usage:   node scripts/analyze.mjs [project-root]
-//          project-root defaults to the current directory.
-// Output:  JSON { inventory, files, rule_files_hash, changed_files } on stdout.
-// Note:    No paqad-ai CLI command is invoked — this imports the compiled
-//          engine via the package self-reference (issue #89).
 import { scanAndEmbedIds } from 'paqad-ai/rule-scripts';
 
 const arg = process.argv[2];

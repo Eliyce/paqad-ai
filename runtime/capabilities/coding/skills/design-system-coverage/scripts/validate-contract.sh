@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate design-system-coverage output JSON.
-# Usage:   bash scripts/validate-contract.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Validate design-system-coverage output JSON.
+Usage:   bash scripts/validate-contract.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage
+USAGE
   exit 0
 fi
 
@@ -23,8 +24,6 @@ grep -qE '"tier"[[:space:]]*:[[:space:]]*"(missing|bare|adequate|strong)"' <<<"$
 grep -qE '"files"[[:space:]]*:' <<<"$body" || say 'missing "files" array'
 grep -qE '"clauses"[[:space:]]*:' <<<"$body" || say 'missing "clauses" object'
 
-# If tier is adequate or strong, tokens/components/accessibility clause arrays
-# must be non-empty.
 if grep -qE '"tier"[[:space:]]*:[[:space:]]*"(adequate|strong)"' <<<"$body"; then
   for ns in tokens components accessibility; do
     if grep -qE "\"$ns\"[[:space:]]*:[[:space:]]*\\[[[:space:]]*\\]" <<<"$body"; then

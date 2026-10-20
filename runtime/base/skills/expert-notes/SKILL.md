@@ -1,6 +1,6 @@
 ---
 name: expert-notes
-description: Read one expert's brief and, through that expert's lens, write short request-time notes for the spec pipeline — what this request must do, must never break, and still leaves undecided — as findings plus plain-language questions. One runner skill with a lens per expert (db, security, ui, ...), so the procedure is shared and only the lens differs. The pipeline script validates the output against the roster; it never decides. Phase 2 of the spec pipeline (issue #547). TS guard is `src/spec-pipeline/experts/notes.ts`.
+description: Read one expert's brief and, through that expert's lens, write short request-time notes for the spec pipeline — what this request must do, must never break, and still leaves undecided — as findings plus plain-language questions. One runner skill with a lens per expert (db, security, ui, ...), so the procedure is shared and only the lens differs. The pipeline script validates the output against the roster; it never decides. Phase 2 of the spec pipeline. TS guard is `src/spec-pipeline/experts/notes.ts`.
 model_tier: reasoning
 triggers:
   - workflow:
@@ -38,7 +38,7 @@ and merges it; this skill does the reading and judgement, the script does the ch
 - The spec pipeline is running with the expert roster on (`spec_pipeline_experts_enabled`), the
   `expert-need-detector` has named the experts, and `experts record` has put them on the roster.
   Run this skill once per expert, with the brief the `experts brief` verb prints for it.
-- You run as one High Table seat (a `paqad-expert` subagent, issue #639) given one role. Then a
+- You run as one High Table seat (a `paqad-expert` subagent) given one role. Then a
   note covers that role only: write one note, hand it to `experts notes`, and the verb merges it
   beside the other seats' notes without touching them.
 

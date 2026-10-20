@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# Purpose: Parse the JSON axe-core results emitted by runtime-checks.ts and
-#          collapse them into flat TSV rows the LLM can drive findings from.
-#
-# Usage:   bash scripts/parse-axe-violations.sh <axe-results.json>
-#
-#          The input may be either:
-#            - the full runtime-checks.json (with .routes[].breakpoints[].axe_violations)
-#            - or a bare array of axe violation objects (test scaffolding)
-#
-# Output:  one TSV row per (route, axe-rule, node-target) triple, to stdout:
-#            <route>\t<rule-id>\t<impact>\t<target>\t<help>
-#          Diagnostics to stderr.
-#
-# Exits:   0 ok | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Parse the JSON axe-core results emitted by runtime-checks.ts and
+         collapse them into flat TSV rows the LLM can drive findings from.
+
+Usage:   bash scripts/parse-axe-violations.sh <axe-results.json>
+
+         The input may be either:
+           - the full runtime-checks.json (with .routes[].breakpoints[].axe_violations)
+           - or a bare array of axe violation objects (test scaffolding)
+
+Output:  one TSV row per (route, axe-rule, node-target) triple, to stdout:
+           <route>\t<rule-id>\t<impact>\t<target>\t<help>
+         Diagnostics to stderr.
+
+Exits:   0 ok | 2 usage error
+set -euo pipefail
+USAGE
   exit 0
 fi
 

@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate workflow-router output. Either workflow:none with reason,
-#          or a workflow line + reason + matched_rule.
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate workflow-router output. Either workflow:none with reason,
+         or a workflow line + reason + matched_rule.
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")

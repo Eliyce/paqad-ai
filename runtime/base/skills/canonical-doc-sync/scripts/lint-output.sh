@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Purpose: Validate canonical-doc-sync output: requires "## Updated Docs"
-#          (with at least one backticked .md path) and "## Known Drift"
-#          (either bullets with backticked paths or the literal "none").
-# Usage:   bash scripts/lint-output.sh <file>   (or stdin)
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Validate canonical-doc-sync output: requires "## Updated Docs"
+         (with at least one backticked .md path) and "## Known Drift"
+         (either bullets with backticked paths or the literal "none").
+Usage:   bash scripts/lint-output.sh <file>   (or stdin)
+Exits:   0 clean | 1 issues | 2 usage error
+USAGE
   exit 0
 fi
 

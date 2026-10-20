@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Purpose: Fail-closed check that at least one active spec artifact exists.
-# Usage:   bash scripts/check-spec-presence.sh [.paqad/specs]
-# Output:  Sorted list of spec paths on stdout.
-# Exits:   0 ≥1 spec found | 1 no specs (blocked-no-spec) | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Fail-closed check that at least one active spec artifact exists.
+Usage:   bash scripts/check-spec-presence.sh [.paqad/specs]
+Output:  Sorted list of spec paths on stdout.
+Exits:   0 ≥1 spec found | 1 no specs (blocked-no-spec) | 2 usage error
+USAGE
+  exit 0
 fi
 root="${1:-.paqad/specs}"
 if [ ! -d "$root" ]; then

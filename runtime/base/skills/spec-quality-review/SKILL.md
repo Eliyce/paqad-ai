@@ -17,7 +17,7 @@ input_schema:
 
 ## What It Does
 
-Surfaces likely spec defects — contradictions, formula inconsistencies, boundary gaps, goal conflicts, dangling references, and missing negative cases — as a human-readable list, so an author can fix them before freezing. It is an optional pre-pass, not the gate: `paqad-ai spec freeze` runs the authoritative, deterministic spec-quality review itself and blocks on a critical defect (issue #401). This skill neither persists a report nor hands anything authoritative downstream.
+Surfaces likely spec defects — contradictions, formula inconsistencies, boundary gaps, goal conflicts, dangling references, and missing negative cases — as a human-readable list, so an author can fix them before freezing. It is an optional pre-pass, not the gate: `paqad-ai spec freeze` runs the authoritative, deterministic spec-quality review itself and blocks on a critical defect. This skill neither persists a report nor hands anything authoritative downstream.
 
 ## Use This When
 

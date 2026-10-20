@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Purpose: Validate retest output. Status must be fixed | still-open |
-#          needs-manual-verification; no invented ids.
-# Usage:   bash scripts/lint-output.sh <retest.md> <source-sidecar.json>
-# Exits:   0 clean | 1 issues | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,4p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate retest output. Status must be fixed | still-open |
+         needs-manual-verification; no invented ids.
+Usage:   bash scripts/lint-output.sh <retest.md> <source-sidecar.json>
+USAGE
+  exit 0
 fi
 [ -f "${1:-}" ] && [ -f "${2:-}" ] || { printf 'usage: %s <retest.md> <source-sidecar.json>\n' "$0" >&2; exit 2; }
 
@@ -21,7 +22,6 @@ say() { printf '%s\n' "$1" >&2; issues=$((issues+1)); }
 
 grep -qE '^## Retest Decisions' <<<"$retest" || say 'missing "## Retest Decisions"'
 
-# Each retest entry like: "### PT-... → fixed|still-open|needs-manual-verification"
 entries=$(printf '%s\n' "$retest" | grep -E '^### ')
 while IFS= read -r line; do
   [ -z "$line" ] && continue

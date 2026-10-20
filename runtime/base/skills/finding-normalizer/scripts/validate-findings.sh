@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# Purpose: Validate a JSON array of normalized findings against the schema:
-#          required fields present, ids unique, severity allowed, effort allowed.
-# Usage:   bash scripts/validate-findings.sh <file>   (or stdin)
-# Exits:   0 ok | 1 invalid | 2 usage error
 set -euo pipefail
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0
+  cat <<'USAGE'
+Purpose: Validate a JSON array of normalized findings against the schema:
+         required fields present, ids unique, severity allowed, effort allowed.
+Usage:   bash scripts/validate-findings.sh <file>   (or stdin)
+Exits:   0 ok | 1 invalid | 2 usage error
+USAGE
+  exit 0
 fi
 if [ "${1:-}" = "" ] || [ "${1:-}" = "-" ]; then body=$(cat)
 elif [ -f "$1" ]; then body=$(cat "$1")

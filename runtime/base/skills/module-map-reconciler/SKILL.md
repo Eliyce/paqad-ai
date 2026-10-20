@@ -1,6 +1,6 @@
 ---
 name: module-map-reconciler
-description: Retrospective reconciler that scans the source tree against module-map.yml and docs/modules/, emits MM-* findings into .paqad/module-map/drift.json, and surfaces user-approvable deltas. Issue #80, Phase 2. The TS engine lives in `src/module-map/reconciler.ts`; this skill is the agent-side wrapper that invokes it via the CLI and routes accepted deltas through `src/module-decisions/apply.ts` (the only writer of module-map.yml).
+description: Retrospective reconciler that scans the source tree against module-map.yml and docs/modules/, emits MM-* findings into .paqad/module-map/drift.json, and surfaces user-approvable deltas. The TS engine lives in `src/module-map/reconciler.ts`; this skill is the agent-side wrapper that invokes it via the CLI and routes accepted deltas through `src/module-decisions/apply.ts` (the only writer of module-map.yml).
 model_tier: medium
 triggers:
   - workflow:
@@ -25,16 +25,16 @@ input_schema:
 
 Walks the source tree under `module_health.source_roots` (declared on the active stack pack), compares the files it finds against `module-map.yml`'s declared modules / features and the `docs/modules/<slug>/` tree, and emits findings:
 
-| Code             | Meaning                                                                                                                                                  |
-| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `MM-ADD`         | Source files exist under a directory that no module's `sources:` glob matches.                                                                           |
-| `MM-FEAT-ADD`    | Files under a known module match no declared feature glob.                                                                                               |
-| `MM-REMOVE`      | Declared module has no matching source files.                                                                                                            |
-| `MM-RENAME`      | Module's symbol moved (only emitted when the stack pack ships a `public_api_extractor`; otherwise falls back to `MM-REMOVE` + `MM-ADD` per spec AC #18). |
-| `MM-FEAT-STALE`  | Declared feature has no matching source files.                                                                                                           |
-| `MM-DOC-ORPHAN`  | `docs/modules/<slug>/` exists with no matching module declaration.                                                                                       |
-| `MM-DOC-MISSING` | Declared module has no `docs/modules/<slug>/` directory.                                                                                                 |
-| `MM-MISMATCH`    | A prospective `MD-XXXX` declaration and the actual code paths diverge.                                                                                   |
+| Code             | Meaning                                                                                                                                  |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `MM-ADD`         | Source files exist under a directory that no module's `sources:` glob matches.                                                           |
+| `MM-FEAT-ADD`    | Files under a known module match no declared feature glob.                                                                               |
+| `MM-REMOVE`      | Declared module has no matching source files.                                                                                            |
+| `MM-RENAME`      | Module's symbol moved (only emitted when the stack pack ships a `public_api_extractor`; otherwise falls back to `MM-REMOVE` + `MM-ADD`). |
+| `MM-FEAT-STALE`  | Declared feature has no matching source files.                                                                                           |
+| `MM-DOC-ORPHAN`  | `docs/modules/<slug>/` exists with no matching module declaration.                                                                       |
+| `MM-DOC-MISSING` | Declared module has no `docs/modules/<slug>/` directory.                                                                                 |
+| `MM-MISMATCH`    | A prospective `MD-XXXX` declaration and the actual code paths diverge.                                                                   |
 
 Findings are written to `.paqad/module-map/drift.json` and consumed by:
 

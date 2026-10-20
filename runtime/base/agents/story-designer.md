@@ -43,7 +43,7 @@ S-{n}: {verb} {object} - {one sentence describing the deliverable}
 Rules:
 
 - One story = one demonstrable behavior change
-- **Default unit = one acceptance criterion** (issue #104). Slice as small as sensible; the floor is one independently-testable acceptance criterion — never split a single criterion across stories. A criterion with several parts is built together and proven as one whole (use its `negative_cases` / `edge_cases`, not sub-criteria).
+- **Default unit = one acceptance criterion**. Slice as small as sensible; the floor is one independently-testable acceptance criterion — never split a single criterion across stories. A criterion with several parts is built together and proven as one whole (use its `negative_cases` / `edge_cases`, not sub-criteria).
 - Combine criteria into one story **only** when separating them would break the work, and record why in the slice's `combine_reason`. This is the rare exception, not the default.
 - A story must be completable in a single focused session (if it feels like more than ~2 hours of implementation, split it)
 - Each story must be independently verifiable - it has its own acceptance criteria, and passing them doesn't depend on a future story
@@ -147,10 +147,10 @@ S-2: {name}
 S-1 -> S-2 -> S-3 (parallel: S-4, S-5) -> S-6
 ```
 
-### Step 6 - Reconnect to the whole (issue #104)
+### Step 6 - Reconnect to the whole
 
 After the stories are built and each has passed its own checks, run a **reconnect check** against the
-**frozen** feature spec (#102) — not your memory of the feature. Confirm that, taken together, the
+**frozen** feature spec — not your memory of the feature. Confirm that, taken together, the
 slices fit the whole: every frozen acceptance criterion is covered by a slice and proven, no two slices
 contradict each other (a criterion owned twice, or a criterion absent from the spec), and no cross-slice
 seam is left unwired (a slice depending on a missing or unproven upstream). This is a real check, not a

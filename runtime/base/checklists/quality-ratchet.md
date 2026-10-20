@@ -1,6 +1,6 @@
 # Quality Ratchet — measure → tool mapping
 
-The quality ratchet (issue #110) records four measures at the project's real
+The quality ratchet records four measures at the project's real
 level today and only ever allows equal-or-better. It reuses existing per-language
 tools — it does **not** reinvent metric tooling. Each measure is normalised to a
 **deficiency count where lower is better** (violations / orphan files / disabled
@@ -11,7 +11,7 @@ strict flags), so "worse" is always "the number went up".
 | Measure          | What it means                    | How it is measured (per pack)                                                                                            | Confidence                                      |
 | ---------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
 | `tangledness`    | how tangled the code is          | the language's complexity tool, run via rule-scripts (TS/JS: ESLint `complexity`; Python: pylint/radon; Rust: clippy; …) | `mature` where a real tool exists, else `lower` |
-| `dead_code`      | dead / unused code               | **consumed** from #109's reachability/orphan output — never re-scanned                                                   | `mature`                                        |
+| `dead_code`      | dead / unused code               | **consumed** from the traceability reachability/orphan output — never re-scanned                                         | `mature`                                        |
 | `risky_patterns` | risky patterns                   | existing security / risky-pattern lint + pentest (OWASP) findings                                                        | `mature` where wired, else `lower`              |
 | `strictness`     | how strictly the code is written | the strict-config surface, read directly (TS: `tsconfig` strict flags; others: equivalent)                               | `mature` for TS, else `lower`                   |
 
@@ -21,11 +21,11 @@ never a fabricated number — and a blocked measure never blocks the gate.
 ## Per-pack wiring
 
 - **This repo (TypeScript)** — strictness from `tsconfig` strict flags; dead code
-  from #109; tangledness from ESLint `complexity`; risky patterns from the
+  from traceability; tangledness from ESLint `complexity`; risky patterns from the
   security lint + pentest findings.
 - **Other languages** — wire the complexity and risky-pattern runners through the
   pack's rule-scripts; mark measures with weak tooling `lower` confidence (mirrors
-  #105 mutation testing). Strictness and dead code carry over as above.
+  mutation testing). Strictness and dead code carry over as above.
 
 ## The rule (for agents)
 
