@@ -1,4 +1,4 @@
-import { sep } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 
 export function toPosixPath(path: string): string {
   return path.split(sep).join('/');
@@ -22,4 +22,18 @@ export function trimEdgeChars(value: string, chars: string): string {
     end -= 1;
   }
   return start === 0 && end === value.length ? value : value.slice(start, end);
+}
+
+export function toProjectRelativePath(projectRoot: string, path: string): string | null {
+  const root = resolve(projectRoot);
+  const relativePath = relative(root, resolve(root, path));
+  if (
+    relativePath === '' ||
+    relativePath === '..' ||
+    relativePath.startsWith(`..${sep}`) ||
+    isAbsolute(relativePath)
+  ) {
+    return null;
+  }
+  return toPosixPath(relativePath);
 }

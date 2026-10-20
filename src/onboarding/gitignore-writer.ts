@@ -2,6 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
+import { replaceMarkerBlock } from '@/core/text/marker-block.js';
 import { legacyEvidenceIgnoreEntries } from '@/feature-evidence/migrate.js';
 import { appendPlanningAudit } from '@/planning/audit.js';
 
@@ -150,13 +151,9 @@ function reconcileManagedBlock(
   entries: string[],
 ): string {
   const block = [begin, ...entries, end].join('\n');
-  const beginIdx = existing.indexOf(begin);
-  const endIdx = existing.indexOf(end);
-
-  if (beginIdx !== -1 && endIdx > beginIdx) {
-    const before = existing.slice(0, beginIdx);
-    const after = existing.slice(endIdx + end.length);
-    return ensureTrailingNewline(`${before}${block}${after}`);
+  const replaced = replaceMarkerBlock(existing, begin, end, block);
+  if (replaced !== null) {
+    return ensureTrailingNewline(replaced);
   }
 
   const trimmed = existing.replace(/\s+$/, '');
