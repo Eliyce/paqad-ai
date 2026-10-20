@@ -197,12 +197,63 @@ function canonicalRoot(path) {
   return process.platform === 'win32' ? trimmed.toLowerCase() : trimmed;
 }
 
+const PAQAD_PLUGIN_ID = 'paqad@eliyce';
+
+export function installedPluginRoots(env = process.env) {
+  let parsed;
+  try {
+    parsed = JSON.parse(
+      readFileSync(join(claudeDir(env), 'plugins', 'installed_plugins.json'), 'utf8'),
+    );
+  } catch {
+    return null;
+  }
+  if (!parsed || typeof parsed !== 'object') return null;
+  const plugins = parsed.plugins && typeof parsed.plugins === 'object' ? parsed.plugins : parsed;
+  const value = plugins[PAQAD_PLUGIN_ID];
+  const entries = Array.isArray(value) ? value : [value];
+  const roots = entries
+    .map((entry) => (entry && typeof entry === 'object' ? entry.installPath : undefined))
+    .filter((path) => typeof path === 'string' && path.trim() !== '')
+    .map((path) => canonicalRoot(path));
+  return roots.length > 0 ? roots : null;
+}
+
+export function isSyncedPluginRoot(root) {
+  const path = root.replaceAll('\\', '/');
+  if (path.includes('/plugins/synced/')) return true;
+  const sessions = path.indexOf('/Claude/local-agent-mode-sessions/');
+  return sessions !== -1 && path.indexOf('/rpm/plugin_', sessions) !== -1;
+}
+
+function claimedRootIsLive(claimed, env) {
+  if (isSyncedPluginRoot(claimed)) return true;
+  const installed = installedPluginRoots(env);
+  if (installed === null) return true;
+  return installed.includes(canonicalRoot(claimed));
+}
+
+function reclaimPluginActiveMarker(payload, env, root) {
+  const sid = sessionIdFrom(payload, env);
+  try {
+    writeFileSync(
+      join(pluginActiveMarkerDir(resolveProjectRoot(env, payload)), sid),
+      JSON.stringify({ at: new Date().toISOString(), root }),
+    );
+  } catch {
+    return;
+  }
+}
+
 export function pluginRootStandsDown(payload = undefined, env = process.env) {
   const mine = typeof env.CLAUDE_PLUGIN_ROOT === 'string' ? env.CLAUDE_PLUGIN_ROOT.trim() : '';
   if (!mine) return false;
   const claimed = pluginActiveMarkerRoot(payload, env);
   if (claimed === null || !existsSync(claimed)) return false;
-  return canonicalRoot(claimed) !== canonicalRoot(mine);
+  if (canonicalRoot(claimed) === canonicalRoot(mine)) return false;
+  if (claimedRootIsLive(claimed, env)) return true;
+  reclaimPluginActiveMarker(payload, env, mine);
+  return false;
 }
 
 export function npmHookStepsAside(payload, env = process.env) {

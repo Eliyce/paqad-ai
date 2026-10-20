@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   hookStandsDown,
+  installedPluginRoots,
   isPluginActiveForSession,
   pluginActiveMarkerDir,
   pluginActiveMarkerRoot,
@@ -47,6 +48,76 @@ const payload = { session_id: SID };
 function markerPath(): string {
   return join(pluginActiveMarkerDir(project), SID);
 }
+
+function recordInstalled(...installPaths: string[]): void {
+  const dir = join(scratch, 'claude-config', 'plugins');
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    join(dir, 'installed_plugins.json'),
+    JSON.stringify({
+      version: 2,
+      plugins: { 'paqad@eliyce': installPaths.map((installPath) => ({ installPath })) },
+    }),
+  );
+}
+
+describe('a stale claim never keeps the live plugin root down', () => {
+  it('the live root re-claims the session after an update left the old cache folder behind', () => {
+    const rootNew = join(scratch, 'cache', 'eliyce', 'paqad', '1.99.5');
+    mkdirSync(rootNew, { recursive: true });
+    recordInstalled(rootNew);
+    writePluginActiveMarker(payload, env(rootA));
+
+    expect(pluginRootStandsDown(payload, env(rootNew))).toBe(false);
+    expect(hookStandsDown(payload, env(rootNew))).toBe(false);
+    expect(pluginActiveMarkerRoot(payload, env(rootNew))).toBe(rootNew);
+    expect(pluginRootStandsDown(payload, env(rootA))).toBe(true);
+  });
+
+  it('a genuine second copy stands down while the claimed root is the installed one', () => {
+    recordInstalled(rootA);
+    writePluginActiveMarker(payload, env(rootA));
+
+    expect(pluginRootStandsDown(payload, env(rootB))).toBe(true);
+    expect(pluginActiveMarkerRoot(payload, env(rootB))).toBe(rootA);
+    expect(pluginRootStandsDown(payload, env(rootA))).toBe(false);
+  });
+
+  it('a claimed claude.ai synced root that still exists stays live without an install record', () => {
+    const synced = join(scratch, 'claude-config', 'plugins', 'synced', 'paqad');
+    mkdirSync(synced, { recursive: true });
+    recordInstalled(rootB);
+    writePluginActiveMarker(payload, env(synced));
+
+    expect(pluginRootStandsDown(payload, env(rootB))).toBe(true);
+    rmSync(synced, { recursive: true, force: true });
+    expect(pluginRootStandsDown(payload, env(rootB))).toBe(false);
+  });
+
+  it('an old marker without a root keeps the first chain running for every root', () => {
+    recordInstalled(rootA);
+    mkdirSync(pluginActiveMarkerDir(project), { recursive: true });
+    writeFileSync(markerPath(), new Date().toISOString());
+    for (const root of [rootA, rootB]) {
+      expect(pluginRootStandsDown(payload, env(root))).toBe(false);
+    }
+  });
+
+  it('reads the install record from CLAUDE_CONFIG_DIR and ignores records without paqad', () => {
+    expect(installedPluginRoots(env())).toBeNull();
+    recordInstalled();
+    expect(installedPluginRoots(env())).toBeNull();
+    recordInstalled(rootA);
+    expect(installedPluginRoots(env())).toHaveLength(1);
+    writeFileSync(
+      join(scratch, 'claude-config', 'plugins', 'installed_plugins.json'),
+      JSON.stringify({ 'paqad@eliyce': { installPath: rootB } }),
+    );
+    expect(installedPluginRoots(env())).toHaveLength(1);
+    writeFileSync(join(scratch, 'claude-config', 'plugins', 'installed_plugins.json'), 'null');
+    expect(installedPluginRoots(env())).toBeNull();
+  });
+});
 
 describe('only one plugin copy runs per session', () => {
   it('the first root to claim the session wins and the marker records it', () => {
