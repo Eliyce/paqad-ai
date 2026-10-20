@@ -1,5 +1,5 @@
 // @paqad-rule-script
-// rule_id: RL-3a9a
+// rule_id: RL-3059
 // source: docs/instructions/rules/coding/comments-and-issue-numbers.md
 // kind: deterministic
 // scope: changed-files
@@ -9,7 +9,7 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 
-const RULE_ID = 'RL-3a9a';
+const RULE_ID = 'RL-3059';
 const SEV = 'high';
 const MSG = 'Comment in code. Move the reason into docs/ and delete the comment.';
 const FILTER = /\.(ts|tsx|js|jsx|mjs|cjs|sh|ps1|css)$/;

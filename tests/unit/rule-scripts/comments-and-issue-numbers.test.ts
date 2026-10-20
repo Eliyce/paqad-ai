@@ -106,7 +106,7 @@ describe('comments and issue numbers rule scripts', { timeout: 60_000 }, () => {
       run(NO_COMMENTS, root, ['src/a.ts']),
       withFallback(() => run(NO_COMMENTS, root, ['src/a.ts'])),
     ]) {
-      expect(report.rule_id).toBe('RL-3a9a');
+      expect(report.rule_id).toBe('RL-3059');
       expect(report.kind).toBe('deterministic');
       expect(report.findings).toEqual([
         { file: 'src/a.ts', line: 2, message: COMMENT_MSG, severity: 'high' },
@@ -139,7 +139,7 @@ describe('comments and issue numbers rule scripts', { timeout: 60_000 }, () => {
       'src/c.css': `.a { color: ${ticketRef(333)}; }\n`,
     });
     const report = run(NO_NUMBERS, root, ['src/a.ts', 'docs/b.md', 'src/c.css']);
-    expect(report.rule_id).toBe('RL-145a');
+    expect(report.rule_id).toBe('RL-132e');
     expect(report.findings).toEqual([
       { file: 'src/a.ts', line: 2, message: NUMBER_MSG, severity: 'high' },
       { file: 'docs/b.md', line: 3, message: NUMBER_MSG, severity: 'high' },
@@ -188,15 +188,15 @@ describe('comments and issue numbers rule scripts', { timeout: 60_000 }, () => {
       'src/b.ts': 'export const b = 1;\n',
     });
     for (const [script, rule] of [
-      [NO_COMMENTS, 'RL-3a9a'],
-      [NO_NUMBERS, 'RL-145a'],
+      [NO_COMMENTS, 'RL-3059'],
+      [NO_NUMBERS, 'RL-132e'],
     ] as const) {
       const proc = spawnSync('node', [script, '--whole-tree', root], { encoding: 'utf8' });
       expect(proc.status).toBe(0);
       const report = JSON.parse(proc.stdout) as FindingsReport;
       expect(report.rule_id).toBe(rule);
       expect(report.findings.map((f) => `${f.file}:${f.line}`)).toEqual([
-        rule === 'RL-3a9a' ? 'src/a.ts:1' : 'src/a.ts:2',
+        rule === 'RL-3059' ? 'src/a.ts:1' : 'src/a.ts:2',
       ]);
     }
   });

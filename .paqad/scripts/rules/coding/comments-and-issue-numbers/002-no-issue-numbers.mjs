@@ -1,5 +1,5 @@
 // @paqad-rule-script
-// rule_id: RL-145a
+// rule_id: RL-132e
 // source: docs/instructions/rules/coding/comments-and-issue-numbers.md
 // kind: deterministic
 // scope: changed-files
@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
-const RULE_ID = 'RL-145a';
+const RULE_ID = 'RL-132e';
 const SEV = 'high';
 const MSG = 'Issue number in code or docs. Git keeps this history; remove it.';
 const CODE = /\.(ts|tsx|js|jsx|mjs|cjs|sh|ps1|css)$/;
