@@ -1,17 +1,8 @@
-// Symbol extraction for the code-knowledge index (issue #353). Regex-based, no LLM,
-// no type resolution. TypeScript/JavaScript is extracted fully (name, kind, line,
-// signature); PHP/Dart are extracted at the file level (name + line, name-only
-// signature) — the honest limit of a regex pass. Every symbol records
-// `extraction_tier: 'regex'` so a later tree-sitter upgrade can raise confidence
-// without the index shape changing.
-
 import type { ExtractionTier, SymbolKind } from './types.js';
 
-/** A symbol as the extractor sees it, before the builder derives module/callers/orphan. */
 export interface ExtractedSymbol {
   name: string;
   kind: SymbolKind;
-  /** 1-based line of the declaration. */
   line: number;
   signature: string;
   exported: boolean;
@@ -20,7 +11,6 @@ export interface ExtractedSymbol {
 
 const TS_JS_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
 
-/** Extract the exported symbols a file defines. Unknown extensions yield nothing. */
 export function extractSymbols(relPath: string, content: string): ExtractedSymbol[] {
   const ext = extensionOf(relPath);
   if (TS_JS_EXTENSIONS.has(ext)) {
@@ -41,13 +31,10 @@ function extensionOf(relPath: string): string {
   return dot <= 0 ? '' : base.slice(dot).toLowerCase();
 }
 
-// ── TypeScript / JavaScript ────────────────────────────────────────────────
-
 const FN_RE = /^export\s+(?:default\s+)?(?:async\s+)?function\s*\*?\s*([A-Za-z_$][\w$]*)/;
 const CLASS_RE = /^export\s+(?:default\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/;
 const TYPE_RE = /^export\s+(?:declare\s+)?(interface|type|enum)\s+([A-Za-z_$][\w$]*)/;
 const VAR_RE = /^export\s+(?:declare\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)/;
-/** RHS looks like a function value (arrow or `function` expression). */
 const FN_VALUE_RE =
   /=\s*(?:async\s+)?(?:function\b|(?:<[^>]*>\s*)?\([^)]*\)\s*(?::[^=]+?)?=>|[A-Za-z_$][\w$]*\s*=>)/;
 
@@ -102,12 +89,6 @@ function makeSymbol(
   };
 }
 
-/**
- * Build a readable signature: join the declaration line with up to a few following
- * lines (params/heritage often wrap), strip the leading `export`/modifiers, and cut
- * at the body (`{`) or initialiser tail. Falls back to name-only when the head is
- * empty or implausibly long.
- */
 function signatureHead(lines: string[], startIndex: number, name: string): string {
   const joined = lines
     .slice(startIndex, startIndex + 6)
@@ -134,8 +115,6 @@ function signatureHead(lines: string[], startIndex: number, name: string): strin
   return cut.length > 200 ? name : cut;
 }
 
-// ── PHP (file-level, name + line) ───────────────────────────────────────────
-
 const PHP_CLASS_RE = /^\s*(?:abstract\s+|final\s+)*(?:class|interface|trait)\s+([A-Za-z_]\w*)/;
 const PHP_FN_RE =
   /^\s*(?:public\s+|private\s+|protected\s+|static\s+)*function\s+([A-Za-z_]\w*)\s*\(/;
@@ -150,11 +129,8 @@ function extractPhp(content: string): ExtractedSymbol[] {
   });
 }
 
-// ── Dart (file-level, name + line) ──────────────────────────────────────────
-
 const DART_CLASS_RE = /^\s*(?:abstract\s+)?class\s+([A-Za-z_]\w*)/;
 const DART_FN_RE = /^\s*(?:[A-Za-z_][\w<>,.\s?]*\s+)?([A-Za-z_]\w*)\s*\([^)]*\)\s*(?:async\s*)?\{/;
-/** Control-flow keywords that look like a top-level function to DART_FN_RE. */
 const DART_CONTROL_KEYWORDS = new Set(['if', 'for', 'while', 'switch', 'catch', 'do']);
 
 function extractDart(content: string): ExtractedSymbol[] {

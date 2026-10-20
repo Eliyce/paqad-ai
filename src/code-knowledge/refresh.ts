@@ -1,18 +1,3 @@
-// Incremental refresh for the code-knowledge index (issue #353). Keeps a persisted
-// index current without the full-build cost: re-parse ONLY the changed files, splice
-// them into the existing symbol/edge sets, and recompute the (cheap) reachability
-// counting. A branch or head-commit change instead forces a full rebuild
-// (decision D-01KXD2PZNQABK79T00QEG4D6BX). The initial build stays explicit
-// (`index build`); with no existing index this is a no-op, mirroring the RAG
-// background sync.
-//
-// Honest limits of the incremental path (the full rebuild is authoritative):
-//  - dependency usage is carried over unchanged (deps change rarely; a branch
-//    switch or explicit build refreshes it);
-//  - a reference edge FROM an unchanged file INTO a changed file keeps its prior
-//    resolution, so a renamed/removed export is only reconciled on the next full
-//    build. Both are documented so a consumer never over-trusts a stale count.
-
 import { scanWorkingTree } from '@/core/fs/gitignore-scan.js';
 import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
 import { readGitState } from '@/rag/git-state.js';
@@ -38,14 +23,12 @@ const SOURCE_EXTENSION_RE = /\.(?:tsx?|jsx?|mjs|cjs|php|dart)$/;
 export type RefreshReason = 'no-index' | 'full-rebuild' | 'incremental' | 'up-to-date';
 
 export interface RefreshOptions extends BuildOptions {
-  /** Project-relative changed files; when omitted, derived from the change evidence (git status). */
   changedFiles?: string[];
 }
 
 export interface RefreshResult {
   refreshed: boolean;
   reason: RefreshReason;
-  /** Files re-parsed this run (all files on a full rebuild). */
   reparsed: string[];
   path?: string;
 }
@@ -57,10 +40,6 @@ function gitChanged(
   return (git.branch ?? null) !== header.branch || (git.head_commit ?? null) !== header.head_commit;
 }
 
-/**
- * Refresh the persisted index. Returns what it did so a caller (and AC-5) can see
- * whether it rebuilt, incrementally re-parsed a specific file set, or skipped.
- */
 export async function refreshCodeKnowledgeIndex(
   projectRoot: string,
   options: RefreshOptions = {},
@@ -95,7 +74,6 @@ export async function refreshCodeKnowledgeIndex(
   return { refreshed: true, reason: 'incremental', reparsed: changed, path };
 }
 
-/** Splice re-parsed changed files into the existing index without re-reading the rest. */
 async function incrementalIndex(
   projectRoot: string,
   existing: CodeKnowledgeIndex,
@@ -108,8 +86,6 @@ async function incrementalIndex(
   const entryPoints = resolveEntryPoints(projectRoot);
   const resolver = loadModuleSlugResolver(projectRoot);
 
-  // Reconstruct the exported-name set for EVERY file: from the existing index for
-  // unchanged files (no re-read), from a fresh parse for changed ones.
   const exportsByFile = new Map<string, Set<string>>();
   for (const symbol of existing.symbols) {
     if (changedSet.has(symbol.file)) continue;
@@ -144,8 +120,6 @@ async function incrementalIndex(
     if (names.size > 0) exportsByFile.set(file, names);
   }
 
-  // Fresh edges for the changed files; keep every other file's edges from the index,
-  // dropping any whose endpoints no longer exist.
   const fresh = await buildEdges(
     projectRoot,
     [...contentByFile.keys()],
@@ -186,9 +160,6 @@ async function incrementalIndex(
     };
   });
 
-  // Dependency usage refreshes on a full rebuild; carry it over here. When the
-  // existing index has none recorded, recompute once so a first incremental after a
-  // manual index edit is not left empty.
   const dependencies =
     existing.dependencies.length > 0
       ? existing.dependencies

@@ -1,9 +1,3 @@
-// Entry-point allowlist for the code-knowledge index (issue #353). A file with no
-// in-edges is only flagged `orphan` when it is NOT an entry point — otherwise every
-// bin, CLI command, runtime hook, and test would be a false "dead code" hit. The
-// resolved glob list rides in the index header so a consumer can see exactly why a
-// file was spared.
-
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -11,7 +5,6 @@ import fg from 'fast-glob';
 
 import { DEFAULT_IGNORE_GLOBS } from '@/core/fs/gitignore-scan.js';
 
-/** Framework-convention entry points that are reached from outside the import graph. */
 export const STATIC_ENTRY_GLOBS: readonly string[] = [
   'src/cli/**',
   'runtime/hooks/**',
@@ -23,7 +16,6 @@ export const STATIC_ENTRY_GLOBS: readonly string[] = [
   '**/__tests__/**',
 ];
 
-/** True for a test file — its imports never count toward a symbol's production callers. */
 export function isTestFile(relPath: string): boolean {
   return (
     /(?:^|\/)__tests__\//.test(relPath) ||
@@ -38,13 +30,10 @@ interface PackageJson {
   exports?: unknown;
 }
 
-/** Collect the string leaf values of package.json main/bin/exports as globs. */
 function packageEntryGlobs(projectRoot: string): string[] {
   const pkgPath = join(projectRoot, 'package.json');
   let pkg: PackageJson;
   try {
-    // Read directly; a missing/unreadable/invalid package.json throws and yields no
-    // entry globs (avoids an existsSync-then-read file-system race).
     pkg = JSON.parse(readFileSync(pkgPath, 'utf8')) as PackageJson;
   } catch {
     return [];
@@ -72,17 +61,10 @@ function collectStringLeaves(value: unknown, out: Set<string>): void {
 }
 
 export interface EntryPoints {
-  /** The full glob list (static conventions + package entries), for the index header. */
   globs: string[];
-  /** Project-relative files matched by any entry-point glob. */
   files: Set<string>;
 }
 
-/**
- * Resolve the entry-point allowlist for a project: the static convention globs plus
- * the package.json entry paths, expanded against the working tree so membership is a
- * simple set lookup.
- */
 export function resolveEntryPoints(projectRoot: string): EntryPoints {
   const globs = [...STATIC_ENTRY_GLOBS, ...packageEntryGlobs(projectRoot)];
   const files = new Set(

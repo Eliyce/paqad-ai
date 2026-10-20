@@ -1,9 +1,3 @@
-// AJV validation for the code-knowledge index (issue #353). Framework-owned; the
-// committed JSON schema lives in src/validators/schemas/ so it is packaged into
-// dist and can never be weakened from a project. `index build` validates the
-// index it just built before persisting, so a malformed index fails loudly (AC-1)
-// rather than shipping a shape a consumer would mis-read.
-
 import Ajv, { type ValidateFunction } from 'ajv';
 
 import codeKnowledgeSchema from '../validators/schemas/code-knowledge.schema.json';
@@ -20,11 +14,9 @@ function validator(): ValidateFunction {
 
 export interface CodeKnowledgeValidation {
   valid: boolean;
-  /** Human-readable `<path> <message>` lines; empty when valid. */
   errors: string[];
 }
 
-/** Validate a value against the committed code-knowledge schema. */
 export function validateCodeKnowledgeIndex(data: unknown): CodeKnowledgeValidation {
   const validate = validator();
   if (validate(data)) {
