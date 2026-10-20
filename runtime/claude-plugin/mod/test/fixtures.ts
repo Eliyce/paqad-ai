@@ -54,9 +54,10 @@ const ALL_DONE = {
 
 export function snapshot(over: Raw = {}): Raw {
   return {
-    schema: 'paqad.hud/2',
+    schema: 'paqad.hud/3',
     session_id: 'ses-fixture',
     generated_at: '2026-10-18T09:00:00.000Z',
+    scope: { qualified: false, reason: 'not-feature-route' },
     active: false,
     route: null,
     lane: null,
@@ -431,6 +432,7 @@ export function ord482Table(phase: Ord482Phase): Raw {
 }
 
 export const FAST_ORD_490 = snapshot({
+  scope: { qualified: true, reason: 'qualified' },
   active: true,
   route: 'feature-development',
   lane: 'fast',
@@ -447,6 +449,7 @@ export const FAST_ORD_490 = snapshot({
 });
 
 export const GRADUATED_ORD_482 = snapshot({
+  scope: { qualified: true, reason: 'qualified' },
   active: true,
   route: 'feature-development',
   lane: 'graduated',
@@ -470,6 +473,7 @@ export const GRADUATED_ORD_482 = snapshot({
 });
 
 export const FULL_ORD_501 = snapshot({
+  scope: { qualified: true, reason: 'qualified' },
   active: true,
   route: 'feature-development',
   lane: 'full',

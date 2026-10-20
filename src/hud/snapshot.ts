@@ -34,18 +34,19 @@ import {
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
-import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
+import {
+  featureChangeKey,
+  featureDir,
+  featureFilePath,
+  parseFeatureDirName,
+} from '@/feature-evidence/paths.js';
 import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
   readFeatureTechDebtIndex,
   type TechDebtIndexEntry,
 } from '@/feature-evidence/tech-debt-index.js';
-import {
-  currentFeature,
-  foldFeature,
-  readFeatureStageUnit,
-} from '@/feature-evidence/stage-ledger.js';
+import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
@@ -58,13 +59,20 @@ import {
 } from '@/verification/repository/bundle-completeness-config.js';
 import type { VerificationGate } from '@/core/types/verification.js';
 
+import {
+  gateIsJudged,
+  latestEditAt,
+  qualifyHudChange,
+  stageEndTimes,
+  type HudScopeReason,
+} from './change-scope.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 
-export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
+export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/3';
 
 export type HudTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';
 
@@ -81,7 +89,7 @@ export interface HudStage {
 }
 
 export type HudGateVerdict =
-  'pass' | 'fail' | 'inconclusive' | 'not-required' | 'did-not-run' | 'pending';
+  'pass' | 'fail' | 'inconclusive' | 'not-required' | 'did-not-run' | 'pending' | 'not-judged';
 
 export interface HudGate {
   name: string;
@@ -97,6 +105,7 @@ export interface HudFlag {
 
 export type { HudChief, HudHighTable, HudSeat, HudTrackRecord } from './high-table-view.js';
 export type { HudCost } from './cost-view.js';
+export type { HudScopeReason } from './change-scope.js';
 
 export type HudFindingsStatus = 'open' | 'clean' | 'did not run';
 
@@ -120,6 +129,7 @@ export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
   generated_at: string;
+  scope: { qualified: boolean; reason: HudScopeReason };
   active: boolean;
   route: string | null;
   lane: string | null;
@@ -288,22 +298,24 @@ function buildClaims(kind: string | undefined, projectRoot: string, dirName: str
   ];
 }
 
+function readGateVerdict(row: Record<string, unknown>): HudGateVerdict {
+  const raw = String(row.verdict ?? '').toLowerCase();
+  if (raw === 'pass' || raw === 'fail' || raw === 'inconclusive') return raw;
+  if (raw === 'skipped') return row.skip_kind === 'did-not-run' ? 'did-not-run' : 'not-required';
+  return 'pending';
+}
+
 function buildGates(projectRoot: string, dirName: string): HudGate[] {
   const latest = new Map<string, Record<string, unknown>>();
   for (const row of readFeatureEvidence(projectRoot, dirName)) {
     if (row.engine !== 'verification-gate') continue;
     latest.set(row.code, row as unknown as Record<string, unknown>);
   }
+  const stageEnds = stageEndTimes(projectRoot, dirName);
   return [...latest.entries()].map(([code, row]) => {
-    const raw = String(row.verdict ?? '').toLowerCase();
-    const verdict: HudGateVerdict =
-      raw === 'pass' || raw === 'fail' || raw === 'inconclusive'
-        ? raw
-        : raw === 'skipped'
-          ? row.skip_kind === 'did-not-run'
-            ? 'did-not-run'
-            : 'not-required'
-          : 'pending';
+    const verdict: HudGateVerdict = gateIsJudged(code, rowRecordedAt(row), stageEnds)
+      ? readGateVerdict(row)
+      : 'not-judged';
     const tier = GATE_STRENGTH_TIER[code as VerificationGate] ?? LATE_GATE_STRENGTH_TIER[code];
     const strength =
       tier ??
@@ -328,10 +340,13 @@ function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['ques
   };
 }
 
-function buildDecisions(projectRoot: string): HudSnapshot['decisions'] {
+function buildDecisions(projectRoot: string, dirName: string | null): HudSnapshot['decisions'] {
   const pending: HudSnapshot['decisions']['pending'] = [];
   let resolved = 0;
+  if (dirName === null) return { pending, resolved };
+  const changeKey = featureChangeKey(dirName);
   for (const { packet, status } of readContractDecisions(projectRoot)) {
+    if ((packet as unknown as Record<string, unknown>).change !== changeKey) continue;
     if (status === 'resolved') {
       resolved += 1;
       continue;
@@ -410,6 +425,19 @@ function buildFindings(projectRoot: string, dirName: string): HudFindings | null
 function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRecord | null {
   const record = asRecord(readJsonFile(hudVerdictPath(projectRoot, sessionId)));
   return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
+}
+
+function freshVerdict(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string,
+): HudVerdictRecord | null {
+  const verdict = readVerdictRecord(projectRoot, sessionId);
+  if (!verdict || typeof verdict.change !== 'string' || verdict.change !== dirName) return null;
+  const writtenAt = Date.parse(verdict.written_at);
+  if (Number.isNaN(writtenAt)) return null;
+  const editedAt = latestEditAt(projectRoot, dirName);
+  return editedAt === null || writtenAt >= editedAt ? verdict : null;
 }
 
 const STAGE_WORDS: Record<string, string> = {
@@ -575,11 +603,9 @@ export function buildHudSnapshot(
     workflow: entry.workflow,
     lane: entry.lane ?? null,
   }));
-  const dirName = currentFeature(projectRoot, sessionId);
-  const verdict = readVerdictRecord(projectRoot, sessionId);
-  const decisions = buildDecisions(projectRoot);
-  const receiptPath = hudReceiptPath(projectRoot, sessionId);
-  const receipt = existsSync(receiptPath) ? { path: receiptPath } : null;
+  const scope = qualifyHudChange(projectRoot, sessionId, now);
+  const dirName = scope.dir;
+  const decisions = buildDecisions(projectRoot, dirName);
   const lastBlock = readRuleStopRecord(projectRoot, sessionId);
 
   if (!dirName) {
@@ -587,6 +613,7 @@ export function buildHudSnapshot(
       schema: HUD_SNAPSHOT_SCHEMA,
       session_id: sessionId,
       generated_at: now().toISOString(),
+      scope: { qualified: false, reason: scope.reason },
       active: false,
       route,
       lane: workflow.active?.lane ?? null,
@@ -613,8 +640,8 @@ export function buildHudSnapshot(
       questions: null,
       last_block: lastBlock,
       ship: null,
-      verdict,
-      receipt,
+      verdict: null,
+      receipt: null,
       evidence_expected: [],
       isolation: null,
       cost: null,
@@ -623,6 +650,9 @@ export function buildHudSnapshot(
     };
   }
 
+  const verdict = freshVerdict(projectRoot, sessionId, dirName);
+  const receiptPath = hudReceiptPath(projectRoot, sessionId);
+  const receipt = verdict && existsSync(receiptPath) ? { path: receiptPath } : null;
   const record = readFeatureRecord(projectRoot, dirName);
   const fold = foldFeature(projectRoot, sessionId, dirName);
   const stages = buildStages(projectRoot, dirName, fold);
@@ -655,6 +685,7 @@ export function buildHudSnapshot(
     schema: HUD_SNAPSHOT_SCHEMA,
     session_id: sessionId,
     generated_at: now().toISOString(),
+    scope: { qualified: true, reason: scope.reason },
     active: true,
     route,
     lane,

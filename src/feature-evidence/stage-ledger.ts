@@ -175,8 +175,12 @@ function bundleFileNonEmpty(
   }
 }
 
-export function currentFeature(projectRoot: string, sessionId: string): string | null {
-  return reconcileSessionControl(projectRoot, sessionId);
+export function currentFeature(
+  projectRoot: string,
+  sessionId: string,
+  now?: () => Date,
+): string | null {
+  return reconcileSessionControl(projectRoot, sessionId, now);
 }
 
 export interface OpenFeatureChangeInput extends ResolveFeatureInput {

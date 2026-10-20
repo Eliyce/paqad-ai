@@ -1,4 +1,6 @@
 import { execFileSync } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 export interface GitState {
   branch?: string;
@@ -50,4 +52,44 @@ export function readGitState(projectRoot: string, options: GitStateOptions = {})
     : undefined;
 
   return { branch, head_commit, base_branch, base_commit };
+}
+
+export interface HeadRef {
+  repo: boolean;
+  branch: string | null;
+  detached: boolean;
+}
+
+function findGitDir(projectRoot: string): string | null {
+  let dir = resolve(projectRoot);
+  for (;;) {
+    const candidate = join(dir, '.git');
+    try {
+      if (statSync(candidate).isDirectory()) return candidate;
+      const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(candidate, 'utf8'));
+      if (pointer) {
+        const target = pointer[1]!.trim();
+        return isAbsolute(target) ? target : resolve(dir, target);
+      }
+      return null;
+    } catch {
+      const parent = dirname(dir);
+      if (parent === dir) return null;
+      dir = parent;
+    }
+  }
+}
+
+export function readHeadRef(projectRoot: string): HeadRef {
+  const gitDir = findGitDir(projectRoot);
+  if (gitDir === null) return { repo: false, branch: null, detached: false };
+  let head: string;
+  try {
+    head = readFileSync(join(gitDir, 'HEAD'), 'utf8').trim();
+  } catch {
+    return { repo: false, branch: null, detached: false };
+  }
+  const symbolic = /^ref:\s*refs\/heads\/(.+)$/.exec(head);
+  if (symbolic) return { repo: true, branch: symbolic[1]!, detached: false };
+  return { repo: true, branch: null, detached: true };
 }

@@ -117,11 +117,15 @@ function seats(roles: string[]): unknown {
   };
 }
 
-function evidenceRow(code: string, verdict: string): string {
+function evidenceRow(
+  code: string,
+  verdict: string,
+  recordedAt = '2026-10-18T08:59:00.000Z',
+): string {
   return JSON.stringify({
     schema_version: 2,
     doc_type: 'paqad.evidence',
-    recorded_at: '2026-10-18T08:59:00.000Z',
+    recorded_at: recordedAt,
     engine: 'verification-gate',
     code,
     subject_digest: 'sd',
@@ -206,6 +210,7 @@ describe('buildHudSnapshot', () => {
         { option_key: 'test', label: 'Write a failing test first' },
         { option_key: 'manual', label: 'Check it by hand' },
       ],
+      change: featureChangeKey(dir),
     });
 
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
@@ -293,21 +298,27 @@ describe('buildHudSnapshot', () => {
       ]),
     );
     writeBundleJson(root, dir, 'specification', { pipeline: { produced: true } });
+    const judgedAt = new Date(Date.now() + 60_000).toISOString();
     writeFileSync(
       join(root, featureFilePath(dir, 'evidence')),
       [
-        evidenceRow('code-tests-lint', 'pass'),
-        evidenceRow('mutation-testing', 'inconclusive'),
-        evidenceRow('spec-review', 'pass'),
-        evidenceRow('visual-evidence', 'skipped'),
+        evidenceRow('code-tests-lint', 'pass', judgedAt),
+        evidenceRow('mutation-testing', 'inconclusive', judgedAt),
+        evidenceRow('spec-review', 'pass', judgedAt),
+        evidenceRow('visual-evidence', 'skipped', judgedAt),
       ].join('\n') + '\n',
     );
-    writeHudReceipt(root, S, {
-      summary: 'Safe to merge',
-      receipt: 'receipt',
-      gates: [],
-      kind: 'pass',
-    });
+    writeHudReceipt(
+      root,
+      S,
+      {
+        summary: 'Safe to merge',
+        receipt: 'receipt',
+        gates: [],
+        kind: 'pass',
+      },
+      () => new Date(judgedAt),
+    );
 
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
 

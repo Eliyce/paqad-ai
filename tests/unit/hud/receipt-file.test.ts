@@ -62,6 +62,7 @@ describe('writeHudReceipt', () => {
     expect(written!.verdict).toEqual({
       schema: 'paqad.hud-verdict/1',
       session_id: 'ses-1',
+      change: null,
       word: 'Needs your attention',
       kind: 'fail',
       passed: false,
