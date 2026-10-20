@@ -50,9 +50,6 @@ describe('loadChangeEvidence (mocked execa)', () => {
   });
 
   it('preserves the first path character for worktree-only (leading-space) changes', async () => {
-    // Real `git status --short` porcelain: ` M ` (one separator space) for a
-    // tracked, unstaged modification; `?? ` for an untracked file. The leading
-    // space on the modified line must not shift the path slice.
     mockedExeca.mockResolvedValueOnce({
       exitCode: 0,
       stdout:

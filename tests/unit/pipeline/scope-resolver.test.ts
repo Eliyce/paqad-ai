@@ -33,7 +33,6 @@ describe('resolveScope', () => {
 
   it('returns single-module when all paths share the same top-level module root', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-scope-'));
-    // Both paths → topLevelModuleRoot = 'src/pipeline'
     const result = await resolveScope(root, [
       'src/pipeline/classifier',
       'src/pipeline/pre-classifier',
@@ -56,7 +55,6 @@ describe('resolveScope', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-scope-'));
     mkdirSync(join(root, 'src/api'), { recursive: true });
     mkdirSync(join(root, 'src/services'), { recursive: true });
-    // Only npm imports — no project-internal cross-module deps
     writeFileSync(
       join(root, 'src/api/routes.ts'),
       "import express from 'express'; import zod from 'zod';\n",
@@ -64,8 +62,6 @@ describe('resolveScope', () => {
     writeFileSync(join(root, 'src/services/auth.ts'), "import lodash from 'lodash';\n");
 
     const result = await resolveScope(root, ['src/api/routes.ts', 'src/services/auth.ts']);
-    // Both paths have different top-level roots (src/api vs src/services) → multi-module
-    // No project-internal imports → externalRoots empty → depth 0, totalRoots.size = 2 → multi-module
     expect(result.scope).toBe('multi-module');
     expect(result.scope_graph_depth).toBe(0);
   });
@@ -91,7 +87,6 @@ describe('resolveScope', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-scope-alias-'));
     mkdirSync(join(root, 'src/api'), { recursive: true });
     mkdirSync(join(root, 'src/services'), { recursive: true });
-    // Use @/ alias import pointing to a different module root
     writeFileSync(
       join(root, 'src/api/routes.ts'),
       "import { AuthService } from '@/services/auth';\n",
@@ -99,15 +94,12 @@ describe('resolveScope', () => {
     writeFileSync(join(root, 'src/services/auth.ts'), 'export class AuthService {}\n');
 
     const result = await resolveScope(root, ['src/api/routes.ts', 'src/services/auth.ts']);
-    // @/ resolves to src/services → external root detected → still multi-module
     expect(result.scope).toBe('multi-module');
   });
 
   it('gracefully handles unreadable files during import scan', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-scope-'));
-    // Paths that don't exist on disk — readFile will throw, caught internally
     const result = await resolveScope(root, ['src/missing/a.ts', 'src/other/b.ts']);
-    // No readable files, no external imports found → multi-module (ownRoots.size=2)
     expect(result.scope).toBe('multi-module');
     expect(result.scope_graph_depth).toBe(0);
   });

@@ -18,10 +18,6 @@ import {
 import { writeWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
-// Issue #582 — the completion check enforces only for a session that OWNS a change
-// (agent-authored rows stamped with its id in an unclosed bundle), and the route can only
-// turn a detour off, never make a non-owner enforce.
-
 const roots: string[] = [];
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-session-ownership-'));
@@ -38,7 +34,6 @@ const TURN = '2026-03-01T10:00:00.000Z';
 const BEFORE = () => new Date('2026-03-01T09:00:00.000Z');
 const AFTER = () => new Date('2026-03-01T10:05:00.000Z');
 
-/** Open a bundle for `session` and live-mark a development start at `now`. */
 function ownChange(root: string, session: string, now: () => Date = BEFORE): string {
   const dirName = openFeatureChange(root, session, {
     adapter: 'claude-code',
@@ -108,7 +103,6 @@ describe('sessionOwnedRows', () => {
   it('reads an unreadable bundle as no rows', () => {
     const root = tempRoot();
     const dirName = 'change-01M3AHBP2JKQS0K42Q51QGY1ZZ';
-    // A directory where the JSONL file should be: the read throws, which must not escape.
     mkdirSync(join(root, featureFilePath(dirName, 'stageEvidence')), { recursive: true });
     expect(sessionOwnedRows(root, A)).toEqual([]);
     expect(classifyCompletionEnforcement(root, A)).toMatchObject({
@@ -228,7 +222,6 @@ describe('classifyCompletionEnforcement', () => {
   it('ignores an owned row whose ts cannot be parsed when judging this turn', () => {
     const root = tempRoot();
     const dirName = openFeatureChange(root, A, { adapter: 'claude-code', title: 'x', issue: null });
-    // A hand-damaged row: the ledger read keeps it (ts is a string), but it names no time.
     appendFileSync(
       join(root, featureFilePath(dirName, 'stageEvidence')),
       `${JSON.stringify({
@@ -245,7 +238,7 @@ describe('classifyCompletionEnforcement', () => {
     expect(classifyCompletionEnforcement(root, A).reason).toBe('detour');
   });
 
-  it('judges a new row by recorded_at, and one with an empty time as no time (issue #581)', () => {
+  it('judges a new row by recorded_at, and one with an empty time as no time', () => {
     const root = tempRoot();
     const dirName = openFeatureChange(root, A, { adapter: 'claude-code', title: 'x', issue: null });
     const row = (recorded_at: string) =>
@@ -270,14 +263,12 @@ describe('classifyCompletionEnforcement', () => {
   it('resolves the session from the cache when no id is passed', () => {
     const root = tempRoot();
     ownChange(root, A);
-    // Resolving A with an explicit hint caches it; a later no-hint read resolves the same id.
     route(root, A, { active: null, paused: [], turn_started_at: TURN });
     classifyCompletionEnforcement(root, A);
     expect(classifyCompletionEnforcement(root, null).reason).toBe('owner-unknown-route');
   });
 });
 
-// Issue #623 — `route set` refuses only on this session's own development edit this turn.
 describe('editedDevelopmentThisTurn', () => {
   it('is true for this session’s development row written this turn', () => {
     const root = tempRoot();
@@ -309,9 +300,7 @@ describe('editedDevelopmentThisTurn', () => {
   });
 });
 
-// Issue #669 (cause 2a) — the work a session's own `paqad-<stage>` agents did in the bundle its
-// control points at is the session's own, even when the agent's rows carry another session id.
-describe('stage-agent work counts as the orchestrator session’s own (#669)', () => {
+describe('stage-agent work counts as the orchestrator session’s own', () => {
   const SUB = 'ses_stage_subagent';
   const DETOUR: WorkflowState = {
     active: { workflow: 'project-question' },
@@ -319,7 +308,6 @@ describe('stage-agent work counts as the orchestrator session’s own (#669)', (
     turn_started_at: TURN,
   };
 
-  /** A `paqad-development` agent's live-mark development row, under the subagent's own id. */
   function agentDevelopmentRow(
     root: string,
     dirName: string,
@@ -341,7 +329,6 @@ describe('stage-agent work counts as the orchestrator session’s own (#669)', (
     );
   }
 
-  /** The `stage-agent` completion row a finished stage agent leaves. */
   function stageAgentRow(root: string, session: string, dirName: string, now: () => Date): void {
     appendFeatureStageRow(
       root,
@@ -361,7 +348,7 @@ describe('stage-agent work counts as the orchestrator session’s own (#669)', (
 
   it('AC-10: an orchestrator whose own rows are only stage markers is enforced when its agent edited this turn', () => {
     const root = tempRoot();
-    const dirO = ownChange(root, A, BEFORE); // the orchestrator's marker, before this turn
+    const dirO = ownChange(root, A, BEFORE);
     agentDevelopmentRow(root, dirO, AFTER, A);
     route(root, A, DETOUR);
 
@@ -438,14 +425,12 @@ describe('stage-agent work counts as the orchestrator session’s own (#669)', (
     stageAgentRow(root, B, dirB, AFTER);
     route(root, A, { active: { workflow: 'project-question' }, paused: [], turn_started_at: TURN });
 
-    // A has no control and no rows of its own: B's stage agents never make A an owner.
     expect(sessionOwnedRows(root, A)).toEqual([]);
     expect(classifyCompletionEnforcement(root, A)).toMatchObject({
       enforce: false,
       reason: 'not-owner',
     });
 
-    // A owning its own change on a detour is still not held to B's agents' work this turn.
     ownChange(root, A, BEFORE);
     route(root, A, DETOUR);
     expect(classifyCompletionEnforcement(root, A)).toMatchObject({

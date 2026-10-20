@@ -151,10 +151,7 @@ describe('PreClassifier', () => {
     expect(result.resolved.workflow).toBe('documentation-update');
   });
 
-  // Issue #576 (Finding 5) — interrogative questions about the codebase resolve to
-  // project-question; greetings stay unresolved (→ no-workflow); imperative code requests keep
-  // their code workflow.
-  it('routes interrogative codebase questions to project-question (#576 AC-8)', async () => {
+  it('routes interrogative codebase questions to project-question', async () => {
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],
       source: 'default',
@@ -171,20 +168,18 @@ describe('PreClassifier', () => {
       expect(result.resolved.workflow, `"${request}" → project-question`).toBe('project-question');
     }
 
-    // Greetings/thanks carry no interrogative lead → unresolved (→ no-workflow downstream).
     for (const greeting of ['hi', 'thanks']) {
       const result = await new PreClassifier(process.cwd()).classify({ request: greeting });
       expect(result.unresolved, `"${greeting}" stays unresolved`).toContain('workflow');
     }
 
-    // An imperative code request still wins its workflow (not stolen by the question fallback).
     const fix = await new PreClassifier(process.cwd()).classify({
       request: 'Fix the typo in the order mapper',
     });
     expect(fix.resolved.workflow).toBe('bug-fix');
   });
 
-  it('routes health prompts to codebase-health while pentest phrasings stay pentest (#355 AC-6)', async () => {
+  it('routes health prompts to codebase-health while pentest phrasings stay pentest', async () => {
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],
       source: 'default',
@@ -230,8 +225,7 @@ describe('PreClassifier', () => {
   });
 });
 
-// Issue #580 — questions beat substring keywords; whole-word code-change matching.
-describe('PreClassifier · prompt router (#580)', () => {
+describe('PreClassifier · prompt router', () => {
   const mockNoModules = () =>
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],
@@ -275,7 +269,6 @@ describe('PreClassifier · prompt router (#580)', () => {
 
   it('matches code keywords on whole words, not substrings (AC-8)', async () => {
     mockNoModules();
-    // These embed a keyword inside another word — they must NOT resolve to a code workflow.
     const notCode = [
       'the address field',
       'the debug output',
@@ -286,7 +279,6 @@ describe('PreClassifier · prompt router (#580)', () => {
       const result = await new PreClassifier(process.cwd()).classify({ request });
       expect(result.unresolved, `"${request}" is not a code change`).toContain('workflow');
     }
-    // A real inflection SHOULD match.
     const added = await new PreClassifier(process.cwd()).classify({
       request: 'added a new column to the orders table',
     });
@@ -294,16 +286,14 @@ describe('PreClassifier · prompt router (#580)', () => {
   });
 });
 
-describe('isQuestionRoute / hasCodeNegation / isCreateArtifactAsk (#580 helpers)', () => {
+describe('isQuestionRoute / hasCodeNegation / isCreateArtifactAsk', () => {
   it('detects questions but not polite code requests', () => {
     expect(isQuestionRoute('Why does the prefix get dropped?')).toBe(true);
     expect(isQuestionRoute('Where is the rebuild step?')).toBe(true);
     expect(isQuestionRoute('Was the fix on our side or theirs?')).toBe(true);
     expect(isQuestionRoute('explain how the cart works')).toBe(true);
-    // Polite code requests are NOT questions.
     expect(isQuestionRoute('Can you add a logout button?')).toBe(false);
     expect(isQuestionRoute('Could you fix the failing test?')).toBe(false);
-    // Imperatives and greetings are not questions.
     expect(isQuestionRoute('do the thing')).toBe(false);
     expect(isQuestionRoute('add a logout button')).toBe(false);
     expect(isQuestionRoute('hi')).toBe(false);
@@ -325,19 +315,17 @@ describe('isQuestionRoute / hasCodeNegation / isCreateArtifactAsk (#580 helpers)
   });
 });
 
-// Issue #623 — prompts that talk about the work (issues, drafts, reports) are not code changes.
 const ABOUT_WORK_FIXTURES: Array<[string, string]> = [
   ['Post it to GitHub as drafted, label bug.', 'project-question'],
   ["Add the RAG points to the rewrite file only. Don't change GitHub yet.", 'project-question'],
   ['So user need to add the plugin, by hand?', 'project-question'],
   ['For automatic user migration, can you add another issue and link', 'project-question'],
   ['Please file remaining, you can recheck and reconfirm', 'project-question'],
-  // Controls: real code changes stay feature-development.
   ['fix the null check in src/api/users.ts', 'feature-development'],
   ['add a dark mode toggle to the settings page', 'feature-development'],
 ];
 
-describe('PreClassifier · talking about work (#623)', () => {
+describe('PreClassifier · talking about work', () => {
   it.each(ABOUT_WORK_FIXTURES)(
     'routes "%s" through the prompt route to %s (AC-9)',
     async (request, routed) => {
@@ -380,22 +368,15 @@ describe('PreClassifier · talking about work (#623)', () => {
     expect(isAboutWorkPrompt('post the findings to the report')).toBe(true);
     expect(isAboutWorkPrompt('update the plan on GitHub')).toBe(true);
     expect(isAboutWorkPrompt('update the draft')).toBe(true);
-    // A soft work noun (report, plan) with a code keyword and no tracker word is a code request.
     expect(isAboutWorkPrompt('add the findings to the report')).toBe(false);
-    // A soft work noun with only an everyday verb and no tracker target is not work talk.
     expect(isAboutWorkPrompt('update the plans table to include a trial flag')).toBe(false);
-    // "rewrite" used as a verb asks for a code change; used as a noun it names the work.
     expect(isAboutWorkPrompt('rewrite the auth flow in streaming mode')).toBe(false);
     expect(isAboutWorkPrompt('do a rewrite of the auth flow')).toBe(false);
-    // No work verb.
     expect(isAboutWorkPrompt('the issue is still open')).toBe(false);
-    // No work noun.
     expect(isAboutWorkPrompt('add a dark mode toggle to the settings page')).toBe(false);
-    // A source path or a source file keeps it a code change.
     expect(isAboutWorkPrompt('update the issue for src/api/users.ts')).toBe(false);
     expect(isAboutWorkPrompt('link the issue to lib/cart')).toBe(false);
     expect(isAboutWorkPrompt('update the plan in checkout.py')).toBe(false);
-    // A strong code verb keeps it a code change.
     expect(isAboutWorkPrompt('fix the typo in the report and update the PR')).toBe(false);
     expect(isAboutWorkPrompt('')).toBe(false);
   });
@@ -405,14 +386,12 @@ describe('PreClassifier · talking about work (#623)', () => {
       modules: [],
       source: 'default',
     });
-    // A work verb alone does not claim a prompt that names a source file or a code verb.
     for (const request of ['check src/cart.ts', 'refactor and recheck the cart']) {
       const result = await new PreClassifier(process.cwd()).classify({ request });
       expect(result.unresolved, `"${request}" is left unresolved`).toContain('workflow');
     }
   });
 
-  // Real code requests that mention a work noun must never be claimed as work talk.
   it.each([
     'add a CSV export to the orders report',
     'update the report page header',
@@ -459,17 +438,13 @@ describe('PreClassifier · talking about work (#623)', () => {
 
   it('counts "add ... to" only when a work noun follows "to"', () => {
     expect(isAboutWorkPrompt('add the RAG points to the rewrite file')).toBe(true);
-    // A work noun elsewhere, but "to" leads to something else and there is no other work verb.
     expect(isAboutWorkPrompt('add the report totals to the orders summary')).toBe(false);
-    // "label bug" names an issue label, so "bug" is not read as a code surface there.
     expect(isAboutWorkPrompt('post the issue, label bug')).toBe(true);
     expect(isAboutWorkPrompt('post the issue about the login bug')).toBe(false);
   });
 });
 
-// Issue #623 review: a real code request that mentions a report, plan, doc or research must
-// never be routed away from feature-development.
-describe('PreClassifier · code requests that name a soft work noun (#623)', () => {
+describe('PreClassifier · code requests that name a soft work noun', () => {
   beforeEach(() => {
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],

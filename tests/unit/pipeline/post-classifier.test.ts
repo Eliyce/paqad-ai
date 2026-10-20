@@ -105,7 +105,7 @@ describe('PostClassifier', () => {
         pattern_id: 'p1',
         subcategory: 'bug',
         description: 'moderate frequency',
-        frequency: 7, // >5 but ≤10 → medium floor
+        frequency: 7,
         recency: new Date().toISOString(),
         stack_contexts: [],
         example_obligations: [],
@@ -180,7 +180,7 @@ describe('PostClassifier', () => {
         complexity: 'low',
         risk: 'low',
         scope: 'single-file',
-        affected_modules: [], // empty → inner affectedModules.some() short-circuits to false
+        affected_modules: [],
         process_depth: 'fast lane',
         certainty: 'well-defined',
         output_type: 'code',
@@ -282,7 +282,6 @@ describe('PostClassifier', () => {
       {} as never,
     );
 
-    // pattern's example_files don't include our affected modules → frequency 0 → no floor
     expect(result.risk_floor).toBeNull();
   });
 
@@ -318,13 +317,11 @@ describe('PostClassifier', () => {
       {} as never,
     );
 
-    // queryPatterns threw → defect stats zeroed → no risk floor applied
     expect(result.risk_floor).toBeNull();
   });
 
   it('floors risk to medium when more than 3 open defect patterns match (matchCount>3 branch)', async () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-post-open-'));
-    // 4 matching patterns with low individual frequency (≤5) — triggers matchCount>3 floor
     vi.mocked(queryPatterns).mockResolvedValue(
       Array.from({ length: 4 }, (_, i) => ({
         pattern_id: `p${i}`,

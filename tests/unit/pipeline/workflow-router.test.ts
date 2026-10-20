@@ -193,7 +193,6 @@ input_schema:
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-workflow-router-'));
     const runtimeRoot = mkdtempSync(join(tmpdir(), 'paqad-runtime-'));
 
-    // Write a routing skill
     writeSkill(
       runtimeRoot,
       'base/skills/workflow-router/SKILL.md',
@@ -214,7 +213,6 @@ input_schema:
     required: true`,
     );
 
-    // Write a non-routing skill (no request_routing field)
     writeSkill(
       runtimeRoot,
       'base/skills/scope-check/SKILL.md',
@@ -243,7 +241,6 @@ input_schema:
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-workflow-router-'));
     const runtimeRoot = mkdtempSync(join(tmpdir(), 'paqad-runtime-'));
 
-    // A routing skill that works
     writeSkill(
       runtimeRoot,
       'base/skills/workflow-router/SKILL.md',
@@ -264,7 +261,6 @@ input_schema:
     required: true`,
     );
 
-    // A malformed file with no frontmatter (not starting with ---)
     const malformedPath = join(runtimeRoot, 'base/skills/broken/SKILL.md');
     mkdirSync(join(runtimeRoot, 'base/skills/broken'), { recursive: true });
     writeFileSync(malformedPath, '# No frontmatter here\nSome content.\n');
@@ -273,7 +269,6 @@ input_schema:
       'build feature',
     );
 
-    // The malformed file is skipped gracefully (no routing field found)
     expect(result.workflow).toBe('feature-development');
   });
 
@@ -301,7 +296,6 @@ input_schema:
     required: true`,
     );
 
-    // A file that starts with --- but has no closing ---
     const unclosedPath = join(runtimeRoot, 'base/skills/unclosed/SKILL.md');
     mkdirSync(join(runtimeRoot, 'base/skills/unclosed'), { recursive: true });
     writeFileSync(unclosedPath, '---\nname: unclosed\nno closing boundary\n');
@@ -310,7 +304,6 @@ input_schema:
       'build feature',
     );
 
-    // The unclosed-frontmatter file is skipped gracefully
     expect(result.workflow).toBe('feature-development');
   });
 
@@ -338,7 +331,6 @@ input_schema:
     required: true`,
     );
 
-    // A skill without request_routing - even if its body were malformed, routing should still work
     const noRoutingPath = join(runtimeRoot, 'base/skills/no-routing/SKILL.md');
     mkdirSync(join(runtimeRoot, 'base/skills/no-routing'), { recursive: true });
     writeFileSync(

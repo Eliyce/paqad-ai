@@ -19,7 +19,7 @@ function stateDir(root: string): string {
   return join(root, sessionLedgerDir(STAGE_EVIDENCE_DOC_TYPE, SESSION));
 }
 
-describe('workflow-state store (#336)', () => {
+describe('workflow-state store', () => {
   let root: string;
 
   beforeEach(() => {
@@ -83,7 +83,7 @@ describe('workflow-state store (#336)', () => {
     });
   });
 
-  it('round-trips a turn stamp and drops a non-string one (#582)', () => {
+  it('round-trips a turn stamp and drops a non-string one', () => {
     const stamped: WorkflowState = {
       active: { workflow: 'project-question' },
       paused: [],
@@ -134,7 +134,6 @@ describe('workflow-state store (#336)', () => {
     expect(t.switched).toBe(true);
     expect(t.resumed).toBeNull();
     expect(t.state.active).toEqual({ workflow: 'project-question' });
-    // the feature-development change is preserved with its anchors, not lost
     expect(t.state.paused).toEqual([
       { workflow: 'feature-development', changeKey: 'sess#3', lane: 'full', specId: 's' },
     ]);

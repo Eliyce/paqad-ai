@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { appendRouteOverride, readRouteOverrides } from '@/pipeline/route-override-log.js';
 
-describe('route-override-log (#580)', () => {
+describe('route-override-log', () => {
   let root: string;
   const SES = 'ses-override';
 

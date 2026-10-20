@@ -104,7 +104,7 @@ describe('feature development policy', () => {
     expect(result.policy.stages.review.strictness.require_review).toBe(true);
   });
 
-  it('merges per-lane build-check-fix round caps (issue #108)', () => {
+  it('merges per-lane build-check-fix round caps', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
     mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
     writeFileSync(
@@ -229,7 +229,7 @@ describe('feature development policy', () => {
     ]);
   });
 
-  describe('analytics stage injection (issue #279)', () => {
+  describe('analytics stage injection', () => {
     function seedProject(options: { flagOn: boolean; sidecar?: unknown }): string {
       const root = mkdtempSync(join(tmpdir(), 'paqad-analytics-policy-'));
       mkdirSync(join(root, '.paqad', 'planning'), { recursive: true });
@@ -299,10 +299,9 @@ describe('feature development policy', () => {
     });
   });
 
-  describe('reuse-first planning wiring (issue #359)', () => {
+  describe('reuse-first planning wiring', () => {
     const REPO_ROOT = resolve(__dirname, '../../..');
 
-    /** The `triggers` array declared in a SKILL.md frontmatter block. */
     function skillTriggers(relPath: string): Array<Record<string, string[]>> {
       const text = readFileSync(join(REPO_ROOT, relPath), 'utf8');
       const match = /^---\n([\s\S]*?)\n---/.exec(text);
@@ -325,7 +324,6 @@ describe('feature development policy', () => {
         expect(instructions).toHaveLength(2);
         expect(instructions[1]).toContain('diff-minimizer');
         expect(instructions[1]).toContain('existing-doc-checker');
-        // Without multiModule, the cross-module block does not load.
         expect(instructions.join('\n')).not.toContain('cross-module-impact-scanner');
       }
     });
@@ -336,7 +334,6 @@ describe('feature development policy', () => {
         expect(instructions).toHaveLength(3);
         expect(instructions[2]).toContain('cross-module-impact-scanner');
       }
-      // The fast lane never gets the cross-module block, multiModule or not.
       expect(reusePlanningInstructions('fast', { multiModule: true })).toHaveLength(1);
     });
 
@@ -359,12 +356,9 @@ describe('feature development policy', () => {
 
     it('AC-1 / INV-1: the rendered yaml carries the identical three instruction blocks', () => {
       const yaml = renderDefaultFeatureDevelopmentPolicyYaml();
-      // Every reuse instruction on the object must appear verbatim in the rendered yaml, so
-      // the two contract surfaces cannot drift (INV-1).
       for (const instruction of reusePlanningInstructions('full', { multiModule: true })) {
         expect(yaml).toContain(instruction);
       }
-      // And the rendered yaml parses back into a policy whose planning stage carries them.
       const parsed = YAML.parse(yaml) as {
         stages: { planning: { instructions: string[] } };
       };
@@ -382,8 +376,6 @@ describe('feature development policy', () => {
       ];
       for (const relPath of skills) {
         const name = relPath.split('/')[3]!;
-        // The instruction must name the skill by its exact directory name so the model can
-        // find it through the install path.
         expect(instructions, `instructions should name ${name}`).toContain(name);
         expect(existsSync(join(REPO_ROOT, relPath)), `${relPath} must exist`).toBe(true);
         const declaresFeatureDev = skillTriggers(relPath).some((trigger) =>
@@ -394,7 +386,6 @@ describe('feature development policy', () => {
           `${name} must declare feature-development in triggers.workflow`,
         ).toBe(true);
       }
-      // The solution-architect procedure is an agent, not a skill; assert it too resolves.
       expect(instructions).toContain('solution-architect');
       expect(
         existsSync(join(REPO_ROOT, 'runtime/capabilities/coding/agents/solution-architect.md')),
@@ -402,10 +393,7 @@ describe('feature development policy', () => {
     });
   });
 
-  // Issue #360 — the review stage gets machine-built evidence, and the instruction that
-  // says so is authored ONCE so the default policy object and the rendered yaml (the two
-  // contract surfaces a project actually reads) cannot say different things.
-  describe('review evidence digest wiring (issue #360)', () => {
+  describe('review evidence digest wiring', () => {
     function reviewDigestInstruction(): string {
       const review = defaultFeatureDevelopmentPolicy().stages.review.instructions;
       const found = review.find((instruction) => instruction.startsWith('Review digest:'));

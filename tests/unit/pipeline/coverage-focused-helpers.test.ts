@@ -29,7 +29,6 @@ vi.mock('@/compliance/defect-patterns/store.js', async () => {
 describe('pipeline helper coverage', () => {
   it('covers remaining helper branches', async () => {
     expect(computeClassificationConfidence({ workflow: undefined })).toBe(0);
-    // Unknown source falls back to weight 0.1; 0.1 / 15 ≈ 0.01
     expect(
       computeClassificationConfidence({
         workflow: 'custom-source' as never,
