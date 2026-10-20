@@ -2,7 +2,13 @@
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,6p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Enumerate the routes / screens of the running app. Detects
+         Next.js (app/ and pages/), Remix (routes/), React Router (declarative
+         route configs), and Vue Router. Emits JSON to stdout (or --out).
+Usage:   bash runtime/scripts/design/enumerate-surface.sh [--root <project-root>] [--out <path>]
+Exits:   0 ok | 2 usage error
+USAGE
   exit 0
 fi
 

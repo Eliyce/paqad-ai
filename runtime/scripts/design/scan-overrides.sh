@@ -2,7 +2,14 @@
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Scan UI source for override sprawl — !important, inline style=,
+         arbitrary-value Tailwind brackets, undocumented utility combos.
+Usage:   bash runtime/scripts/design/scan-overrides.sh [search-root] [--out <path>]
+Output:  category | file:line | excerpt
+Exits:   0 ok | 2 usage error
+set -euo pipefail
+USAGE
   exit 0
 fi
 

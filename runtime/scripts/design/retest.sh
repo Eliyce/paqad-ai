@@ -2,7 +2,12 @@
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Re-run the design-test evidence collection scoped to the findings
+         in a prior sidecar — used by the design-retest workflow.
+Usage:   bash runtime/scripts/design/retest.sh --sidecar <path.json> [--run-id <id>]
+Exits:   0 ok | 2 usage error
+USAGE
   exit 0
 fi
 

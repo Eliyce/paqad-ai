@@ -2,7 +2,15 @@
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Scan UI source for hard-coded design values that should reference a
+         declared token. Mirrors the skill-local scanner under
+         runtime/capabilities/coding/skills/token-conformance-review/scripts
+         but is the one wired into the design-test workflow's Step 2.
+Usage:   bash runtime/scripts/design/scan-tokens.sh [search-root] [--out <path>]
+Exits:   0 ok | 2 usage error
+set -euo pipefail
+USAGE
   exit 0
 fi
 

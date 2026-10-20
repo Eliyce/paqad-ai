@@ -2,7 +2,14 @@
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Cross-reference the AST-derived component inventory against the
+         Playwright tests that exercise components. Emits per-component
+         coverage rows.
+Usage:   bash runtime/scripts/design/coverage.sh [--components-dir <dir>] [--tests-dir <dir>] [--out <path>]
+Output:  JSON with { component, tested_states[], source_file, test_files[] }
+Exits:   0 ok | 2 usage error
+USAGE
   exit 0
 fi
 

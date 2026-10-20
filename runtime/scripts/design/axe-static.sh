@@ -2,7 +2,15 @@
 set -euo pipefail
 
 if [ "${1:-}" = "--help" ] || [ "${1:-}" = "-h" ]; then
-  sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+  cat <<'USAGE'
+Purpose: Run axe-core against component snapshots (HTML output) without
+         booting the dev server. Designed for the "static-first" pass — the
+         live phase (runtime-checks.ts) does the same against the running app.
+Usage:   bash runtime/scripts/design/axe-static.sh [--snapshots <dir>] [--out <path>]
+         Default snapshots dir: storybook-static (Storybook build) or
+         .paqad/design-test/snapshots/ if the project produces its own.
+Exits:   0 ok | 1 missing inputs (treated as blocked_check) | 2 usage error
+USAGE
   exit 0
 fi
 
