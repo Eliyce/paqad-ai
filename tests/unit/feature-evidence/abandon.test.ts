@@ -24,6 +24,7 @@ import {
 import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
 import { validateFeatureRecord } from '@/feature-evidence/schema.js';
 import { readFeatureStageUnit, resumeFeatureByRef } from '@/feature-evidence/stage-ledger.js';
+import { buildTimeline } from '@/hud/snapshot.js';
 
 import {
   checkout,
@@ -263,5 +264,9 @@ describe('abandoned counts as closed everywhere (AC-26)', () => {
     expect(resumeFeatureByRef(root, 'ses-back', featureChangeKey(dir))).toBe(dir);
     expect(isBundleClosed(root, dir)).toBe(false);
     expect(readFeatureRecord(root, dir)?.status).toBe('active');
+    expect(buildTimeline(root, dir).slice(-2)).toMatchObject([
+      { kind: 'close', note: 'abandoned: branch gone, no row for 24h' },
+      { kind: 'open', note: 'reopened via resume' },
+    ]);
   });
 });

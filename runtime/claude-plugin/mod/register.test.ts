@@ -331,7 +331,7 @@ describe('other workflows get one status entry and no band (FR-44, AC-40)', () =
         props: band(surface).props,
       });
       await mounted.press({ key: 'paqad-status-entry' });
-      expect(world.opened).toEqual(['paqad']);
+      expect(world.opened.at(-1)).toBe('paqad');
       await mounted.unmount();
     });
 
@@ -427,7 +427,7 @@ describe('minimise, close and hide (FR-46 to FR-52, AC-33 to AC-36, AC-47)', () 
       const mounted = await mountBand($, surface);
       await mounted.press({ key: 'paqad-close' });
       await mounted.unmount();
-      expect(world.store.size).toBe(0);
+      expect([...world.store.keys()].filter((key) => key.startsWith('band.'))).toEqual([]);
       expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
     });
 
@@ -448,7 +448,7 @@ describe('minimise, close and hide (FR-46 to FR-52, AC-33 to AC-36, AC-47)', () 
       const mounted = await mountBand($, surface);
       await mounted.press({ key: 'paqad-needs-you' });
       await mounted.unmount();
-      expect(world.store.size).toBe(0);
+      expect([...world.store.keys()].filter((key) => key.startsWith('band.'))).toEqual([]);
       expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
     });
 
@@ -464,7 +464,7 @@ describe('minimise, close and hide (FR-46 to FR-52, AC-33 to AC-36, AC-47)', () 
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       expect(await $.command.run(command('show'))).toEqual({ text: 'The paqad band is back.' });
-      expect(world.store.size).toBe(0);
+      expect([...world.store.keys()].filter((key) => key.startsWith('band.'))).toEqual([]);
       expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
     });
   }
@@ -499,6 +499,90 @@ describe('/paqad decisions lists every packet in the repo (AC-21)', () => {
       ].join('\n'),
     });
   });
+});
+
+describe('the paqad Ledger (FR-54 to FR-58, AC-32, AC-37 to AC-39)', () => {
+  for (const surface of SURFACES) {
+    test(`AC-39: opens titled paqad Ledger, with its subtitle, the five tabs and Trust shown on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const lines = drawnLines(await $.ui.render(pane(surface)));
+      expect(lines[0]).toBe('what happened, with proof');
+      expect(lines.slice(1, 6)).toEqual(['Trust (shown)', 'High Table', 'Ships', 'Record', 'Cost']);
+      expect(world.opened).toEqual(['paqad']);
+    });
+
+    test(`AC-32: the brand and the Proof Button open the Ledger on Trust, and High Table names who shaped the spec, on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]);
+      const raw = {
+        ...FULL_ORD_501,
+        change: { ...(FULL_ORD_501.change as object), dir: 'dir-ord-501' },
+      };
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(raw) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(world.opened).toEqual([]);
+      for (const key of ['paqad-proof', 'paqad-brand']) {
+        const mounted = await mountBand($, surface);
+        await mounted.press({ key });
+        await mounted.unmount();
+        expect(drawnLines(await $.ui.render(pane(surface)))).toContain('Trust (shown)');
+        const closer = await mountBand($, surface);
+        await closer.press({ key });
+        await closer.unmount();
+      }
+      expect(world.opened).toEqual(['paqad', 'paqad']);
+      expect(world.closedPanes).toEqual(['paqad', 'paqad']);
+      expect(drawnLines(await paneOn($, surface, 'table'))).toContain(
+        'Who shaped the spec (12 lines):',
+      );
+    });
+
+    test(`AC-38: the same target closes the Ledger, another switches its tab, a double press opens then closes, on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]);
+      const raw = {
+        ...FULL_ORD_501,
+        change: { ...(FULL_ORD_501.change as object), dir: 'dir-ord-501' },
+      };
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(raw) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-open-ship' });
+      await mounted.press({ key: 'paqad-open-stage' });
+      expect(world.closedPanes).toEqual([]);
+      expect(drawnLines(await $.ui.render(pane(surface)))).toContain('Record (shown)');
+      await mounted.press({ key: 'paqad-open-stage' });
+      expect(world.closedPanes).toEqual(['paqad']);
+      await mounted.press({ key: 'paqad-flags' });
+      await mounted.press({ key: 'paqad-flags' });
+      await mounted.unmount();
+      expect(world.opened).toEqual(['paqad', 'paqad', 'paqad']);
+      expect(world.closedPanes).toEqual(['paqad', 'paqad']);
+    });
+
+    test(`AC-37: auto-opens once per change, never again across sessions, and keeps 50 changes at most on ${surface}`, async ($, on) => {
+      const old = Array.from({ length: 50 }, (_, index) => `dir-${index}`);
+      const store = new Map<string, unknown>([['ledger.autoOpened', old]]);
+      const raw = {
+        ...FULL_ORD_501,
+        change: { ...(FULL_ORD_501.change as object), dir: 'dir-new' },
+      };
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(raw) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(world.opened).toEqual(['paqad']);
+      const kept = world.store.get('ledger.autoOpened') as string[];
+      expect(kept).toHaveLength(50);
+      expect(kept.at(-1)).toBe('dir-new');
+      expect(kept).not.toContain('dir-0');
+      world.put(SNAPSHOT, fileText({ ...raw, generated_at: '2026-10-18T09:00:30.000Z' }));
+      await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+      await $.session.start(START);
+      expect(world.opened).toEqual(['paqad']);
+    });
+  }
 });
 
 describe('the band fits its box (AC-30, AC-43)', () => {
@@ -607,7 +691,7 @@ describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => 
       const pill = await mounted.find({ key: 'paqad-tokens' });
       expect(pill?.text).toBe('1.3M tokens');
       await mounted.press({ key: 'paqad-tokens' });
-      expect(world.opened).toEqual(['paqad']);
+      expect(world.opened.at(-1)).toBe('paqad');
       await mounted.unmount();
 
       const strings = stringsOf(await $.ui.render(pane(surface)));
@@ -648,7 +732,7 @@ describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => 
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490_COST) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const strings = stringsOf(await $.ui.render(pane(surface)));
+      const strings = stringsOf(await paneOn($, surface, 'cost'));
       expect(strings).toContain('By expert: none. The fast lane seats no High Table.');
       expect(strings.join('\n')).not.toContain('Chief architect');
       expect(textOf(await $.ui.render(band(surface)))).not.toContain('High Table');
@@ -810,7 +894,7 @@ describe('the High Table in the band (AC-56, AC-57)', () => {
         props: band(surface).props,
       });
       await mounted.press({ key: 'paqad-open-table' });
-      expect(world.opened).toEqual(['paqad']);
+      expect(world.opened.at(-1)).toBe('paqad');
       await mounted.unmount();
       expect(drawnLines(await $.ui.render(pane(surface)))).toContain('High Table (shown)');
     });
@@ -896,6 +980,23 @@ describe('the live High Table card in the chat (AC-58)', () => {
   }
 });
 
+async function paneOn(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  surface: 'terminal' | 'desktop',
+  tab: string,
+) {
+  const mounted = await $.ui.mount({
+    plugin: PLUGIN,
+    surface,
+    component: 'Pane',
+    requestId: 'paqad',
+    props: pane(surface).props,
+  });
+  await mounted.press({ key: `paqad-tab-${tab}` });
+  await mounted.unmount();
+  return $.ui.render(pane(surface));
+}
+
 describe("the pane's High Table tab (AC-59)", () => {
   for (const surface of SURFACES) {
     test(`AC-59: ORD-501 shows every seat, the rulings, the questions and the 12-line credit on ${surface}`, async ($, on) => {
@@ -904,7 +1005,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const drawn = await $.ui.render(pane(surface));
+      const drawn = await paneOn($, surface, 'table');
       const lines = drawnLines(drawn);
       expect(lines).toContain('High Table (shown)');
       for (const plan of ORD_501_SEATS) {
@@ -941,7 +1042,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('ruled')) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const drawn = await $.ui.render(pane(surface));
+      const drawn = await paneOn($, surface, 'table');
       const line = drawnLines(drawn).find((text) => text.includes('Open disagreement'));
       expect(line).toContain('Open disagreement: Customer email in the export.');
       expect(line).toContain('The chief architect recommends:');
@@ -1004,7 +1105,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const drawn = await $.ui.render(pane(surface));
+      const drawn = await paneOn($, surface, 'table');
       const lines = drawnLines(drawn);
       expect(lines.find((line) => line.includes(' Security auditor: '))).toContain(
         'late: its note landed after the spec was frozen',
@@ -1015,7 +1116,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       expect(colorOf(textElement(drawn, credit))).toBe('warning');
     });
 
-    test(`the pane opens on the High Table while seats write, unless a tab was picked, on ${surface}`, async ($, on) => {
+    test(`the Ledger opens on Trust with no pick, and a picked tab holds, on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('writing')) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
@@ -1026,7 +1127,7 @@ describe("the pane's High Table tab (AC-59)", () => {
         requestId: 'paqad',
         props: pane(surface).props,
       });
-      expect((await mounted.find({ key: 'paqad-tab-table' }))?.text).toBe('High Table (shown)');
+      expect((await mounted.find({ key: 'paqad-tab-trust' }))?.text).toBe('Trust (shown)');
       await mounted.press({ key: 'paqad-tab-cost' });
       expect((await mounted.find({ key: 'paqad-tab-cost' }))?.text).toBe('Cost (shown)');
       await mounted.unmount();
@@ -1073,7 +1174,7 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
           'card',
           seatStates(linesOf(await $.ui.render(toolUse(surface, 'tu-1', EXPERTS_COMMAND)))),
         );
-        note('pane', seatStates(drawnLines(await $.ui.render(pane(surface)))));
+        note('pane', seatStates(drawnLines(await paneOn($, surface, 'table'))));
       }
       for (const where of ['card', 'pane'] as const) {
         expect(Object.keys(seen[where])).toHaveLength(7);
@@ -1415,18 +1516,18 @@ describe('the Trust, Ships and Record tabs', () => {
       const drawn = await $.ui.render(pane(surface));
       const lines = drawnLines(drawn);
       expect(lines).toContain('Trust (shown)');
-      expect(lines).toContain('Gates ●~  1 of 2 required passed');
-      expect(lines).toContain('  ● code-tests-lint  passed');
+      expect(lines).toContain('Gates ●~  1/2 required');
+      expect(lines).toContain('  ● code-tests-lint  pass');
       expect(lines).toContain('  ~ review-quality  inconclusive');
-      expect(colorOf(textElement(drawn, 'passed'))).toBe('success');
+      expect(colorOf(textElement(drawn, 'pass'))).toBe('success');
       expect(colorOf(textElement(drawn, 'inconclusive'))).toBe('warning');
     });
 
-    test(`a delivery in progress opens on Ships with CI partly done on ${surface}`, async ($, on) => {
+    test(`a delivery in progress shows CI partly done on Ships on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DELIVERING) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const lines = drawnLines(await $.ui.render(pane(surface)));
+      const lines = drawnLines(await paneOn($, surface, 'ships'));
       expect(lines).toContain('Ships (shown)');
       expect(lines.some((line) => line.startsWith('CI           running, 3 of 7 done'))).toBe(true);
       expect(lines).toContain('Merge        The merge is always yours. paqad never merges.');

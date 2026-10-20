@@ -87,6 +87,11 @@ export function roleWords(role: string): string {
   return words ? `${words[0]!.toUpperCase()}${words.slice(1)}` : role;
 }
 
+export const CHANGE_SCOPE_SENTENCE =
+  "Counted from the change's first row to its seal, this change only.";
+export const WHOLE_SESSION_SENTENCE =
+  "Whole session: paqad could not split this session's turns, so this is not the change's cost.";
+
 export interface CostLinesOptions {
   lane: string | null;
   stageLabel: (stage: string) => string;
@@ -127,12 +132,12 @@ export function costLines(cost: PaqadCost, options: CostLinesOptions): string[] 
     cost.usd === null
       ? 'no money figure, since no model it used is in the price table'
       : `~${formatUsd(cost.usd)}, ${cost.label}, prices of ${date}`;
+  const whole = cost.scope === 'whole-session';
   const lines = [
-    `Cost of this change: ${fullTokens(cost.tokens.total)} tokens, ${money}.`,
+    `${whole ? 'Cost of the whole session' : 'Cost of this change'}: ${fullTokens(cost.tokens.total)} tokens, ${money}.`,
     `Tokens: ${tokenKinds(cost.tokens)}.`,
-    cost.sealed
-      ? 'Counted from the first record to the seal.'
-      : 'Counted so far: the change is not sealed yet.',
+    whole ? WHOLE_SESSION_SENTENCE : CHANGE_SCOPE_SENTENCE,
+    ...(cost.sealed ? [] : ['Counted so far: the change is not sealed yet.']),
     'By stage:',
     ...(cost.by_stage.length === 0
       ? ['  none yet']

@@ -7,6 +7,7 @@ import type {
   PaqadGate,
   PaqadGateStrength,
   PaqadHudSnapshot,
+  PaqadTimelineEntry,
   PaqadTone,
 } from './types';
 
@@ -17,13 +18,20 @@ export const NO_PLAN = 'No plan recorded yet.';
 const NO_CHANGE = 'No change is in progress.';
 
 const GATE_WORDS: Record<string, { word: string; tone?: PaqadTone; mark: string }> = {
-  pass: { word: 'passed', tone: 'good', mark: '●' },
-  fail: { word: 'failed', tone: 'bad', mark: '✗' },
+  pass: { word: 'pass', tone: 'good', mark: '●' },
+  fail: { word: 'fail', tone: 'bad', mark: '✗' },
   inconclusive: { word: 'inconclusive', tone: 'warn', mark: '~' },
   'did-not-run': { word: 'did not run', tone: 'warn', mark: '○' },
-  'not-required': { word: 'not required', mark: '-' },
+  'not-required': { word: 'not required', mark: '–' },
+  'not-judged': { word: 'not judged yet', mark: '○' },
   pending: { word: 'pending', mark: '·' },
 };
+
+export const NOT_JUDGED = 'Not judged yet';
+export const NOT_JUDGED_WHY =
+  'Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.';
+export const CLAIMS_HEADING = 'Claims and the tests that prove them';
+export const FLAGS_HEADING = 'Flags';
 
 function gateWord(verdict: string): { word: string; tone?: PaqadTone; mark: string } {
   return GATE_WORDS[verdict] ?? GATE_WORDS.pending!;
@@ -63,13 +71,54 @@ export function gateRing(gates: readonly PaqadGate[]): TableLine {
   return [
     { text: 'Gates ', dim: true },
     ...marks,
-    { text: `  ${passed} of ${required.length} required passed` },
+    { text: `  ${passed}/${required.length} required` },
   ];
+}
+
+const RING_COLOR: Record<string, string> = {
+  pass: '#2e9d5b',
+  fail: '#d0573f',
+  inconclusive: '#d08b1e',
+  'did-not-run': '#d08b1e',
+};
+
+export function gateRingAlt(gates: readonly PaqadGate[]): string {
+  const required = requiredGates(gates);
+  const passed = required.filter((gate) => gate.verdict === 'pass').length;
+  const waiting = required.filter((gate) => gate.verdict === 'not-judged').length;
+  return `Gates: ${passed} of ${required.length} required pass${waiting > 0 ? `, ${waiting} not judged yet` : ''}.`;
+}
+
+export function gateRingSvg(gates: readonly PaqadGate[]): { source: string; alt: string } {
+  const required = requiredGates(gates);
+  const size = 96;
+  const centre = size / 2;
+  const radius = 38;
+  const n = Math.max(1, required.length);
+  const arcs = required.map((gate, index) => {
+    const from = ((index * 360) / n + 3 - 90) * (Math.PI / 180);
+    const to = (((index + 1) * 360) / n - 3 - 90) * (Math.PI / 180);
+    const point = (angle: number) =>
+      `${(centre + radius * Math.cos(angle)).toFixed(2)} ${(centre + radius * Math.sin(angle)).toFixed(2)}`;
+    const large = 360 / n - 6 > 180 ? 1 : 0;
+    const color = RING_COLOR[gate.verdict] ?? 'silver';
+    return `<path d="M ${point(from)} A ${radius} ${radius} 0 ${large} 1 ${point(to)}" stroke="${color}" stroke-width="10" fill="none"/>`;
+  });
+  const passed = required.filter((gate) => gate.verdict === 'pass').length;
+  return {
+    source: [
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">`,
+      ...arcs,
+      `<text x="${centre}" y="${centre + 5}" text-anchor="middle" font-size="14" fill="gray">${passed}/${required.length}</text>`,
+      '</svg>',
+    ].join(''),
+    alt: gateRingAlt(gates),
+  };
 }
 
 function gateLine(gate: PaqadGate): TableLine {
   const { word, tone, mark } = gateWord(gate.verdict);
-  const settled = gate.verdict === 'not-required';
+  const settled = gate.verdict === 'not-required' || gate.verdict === 'not-judged';
   return [
     { text: `  ${mark} ${gate.name}  ` },
     { text: word, ...(tone ? { tone } : {}), ...(settled ? { dim: true } : {}) },
@@ -100,6 +149,8 @@ export function trustLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
         { text: snapshot.verdict.word, ...(tone ? { tone } : {}) },
       ),
     );
+  } else {
+    lines.push(line({ text: NOT_JUDGED }), line({ text: NOT_JUDGED_WHY, dim: true }));
   }
   if (snapshot.gates.length === 0) {
     lines.push(line(NO_GATES));
@@ -111,13 +162,16 @@ export function trustLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
       lines.push(heading(group.label), ...gates.map(gateLine));
     }
   }
-  if (snapshot.claims.length > 0) lines.push(heading('Claims'), ...snapshot.claims.map(claimLine));
-  if (snapshot.flags.length > 0) {
-    lines.push(
-      heading('Flags'),
-      ...snapshot.flags.map((flag) => line({ text: '  flag ', tone: 'warn' }, flag.text)),
-    );
-  }
+  lines.push(
+    heading(CLAIMS_HEADING),
+    ...(snapshot.claims.length > 0
+      ? snapshot.claims.map(claimLine)
+      : [line({ text: '  No claim recorded for this change.', dim: true })]),
+    heading(FLAGS_HEADING),
+    ...(snapshot.flags.length > 0
+      ? snapshot.flags.map((flag) => line({ text: '  flag ', tone: 'warn' }, flag.text))
+      : [line({ text: '  No flag is open.', dim: true })]),
+  );
   return lines;
 }
 
@@ -274,17 +328,36 @@ export function recordLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
       ? row('Receipt', 'written, see /paqad receipt', 'good')
       : row('Receipt', 'not yet, written at the end of a turn', undefined, true),
   ];
+  if (snapshot.timeline.length > 0) {
+    lines.push(heading('Timeline'), ...snapshot.timeline.map(timelineLine));
+  }
   return lines;
+}
+
+const TIMELINE_STAGES: Readonly<Record<string, string>> = {
+  ticket_intake: 'Intake',
+  planning: 'Plan',
+  specification: 'Spec',
+  development: 'Build',
+  review: 'Review',
+  checks: 'Checks',
+  documentation_sync: 'Docs',
+  delivery: 'Deliver',
+};
+
+export function timelineWords(entry: PaqadTimelineEntry): string {
+  const stage = entry.stage ? (TIMELINE_STAGES[entry.stage] ?? entry.stage) : 'A stage';
+  const note = entry.note ? `: ${entry.note}` : '';
+  if (entry.kind === 'open') return entry.note ? `Reopened${note}` : 'Change opened';
+  if (entry.kind === 'close') return `Closed${note}`;
+  if (entry.kind === 'stage_start') return `${stage} started`;
+  return `${stage} ended${note}`;
+}
+
+function timelineLine(entry: PaqadTimelineEntry): TableLine {
+  return [{ text: `  ${entry.at.slice(11, 16)}  `, dim: true }, { text: timelineWords(entry) }];
 }
 
 export function linesText(lines: readonly TableLine[]): string {
   return lines.map((entry) => entry.map((segment) => segment.text).join('')).join('\n');
-}
-
-export function deliveryInProgress(snapshot: PaqadHudSnapshot | null): boolean {
-  if (!snapshot?.active) return false;
-  if (snapshot.stages.some((stage) => stage.stage === 'delivery' && stage.state === 'running')) {
-    return true;
-  }
-  return snapshot.ship?.ci_detail?.state === 'pending';
 }

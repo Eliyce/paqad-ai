@@ -538,6 +538,12 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
         },
       ];
     }),
+    timeline: each(snap.timeline, (entry) => ({
+      at: str(entry.at) ?? '',
+      kind: str(entry.kind) ?? 'unknown',
+      stage: str(entry.stage),
+      note: str(entry.note),
+    })).filter((entry) => entry.at !== ''),
     table: readTable(snap.table),
     gates: list(snap.gates).flatMap((entry) => readGate(entry) ?? []),
     claims: list(snap.claims).flatMap((entry) => readClaim(entry) ?? []),
@@ -611,6 +617,7 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     active: false,
     change: null,
     stages: [],
+    timeline: [],
     table: null,
     gates: [],
     claims: [],

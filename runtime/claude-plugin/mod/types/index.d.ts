@@ -144,6 +144,13 @@ export type PaqadCi = {
   jobs: PaqadCiJob[];
 };
 
+export type PaqadTimelineEntry = {
+  at: string;
+  kind: string;
+  stage: string | null;
+  note: string | null;
+};
+
 export type PaqadShipCommit = { sha: string; subject: string; own: boolean | null };
 
 export type PaqadPrState = 'open' | 'merged' | 'closed';
@@ -177,6 +184,7 @@ export type PaqadHudSnapshot = {
   } | null;
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: PaqadHudStage[];
+  timeline: PaqadTimelineEntry[];
   table: PaqadHighTable | null;
   gates: PaqadGate[];
   claims: PaqadClaim[];
@@ -232,6 +240,7 @@ declare module 'claude-code' {
       now: number;
       paneTab: PaqadPaneTab | null;
       greenSeen: string[];
+      paneOpen: boolean;
       minimised: boolean;
       hidden: boolean;
       bandClosed: boolean;

@@ -67,6 +67,7 @@ export function snapshot(over: Raw = {}): Raw {
     change: null,
     paused: [],
     stages: [],
+    timeline: [],
     table: null,
     claims: [],
     gates: [],

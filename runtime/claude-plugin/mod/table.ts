@@ -10,6 +10,9 @@ import type {
 } from './types';
 
 export const TABLE_NAME = 'High Table';
+export const WHO_SHAPED = 'Who shaped the spec';
+export const CREDITS_LATER =
+  'Shown when the spec is frozen: each spec line with the experts who shaped it.';
 export const CHIEF_WORDS = 'Chief architect';
 export const SKIPPED_TEXT =
   'High Table skipped: the spec was written by hand while the pipeline was on.';
@@ -492,9 +495,10 @@ function creditLines(snapshot: PaqadHudSnapshot & { table: PaqadHighTable }): Ta
         {
           text: specFrozen(snapshot)
             ? 'Who shaped the spec: no spec line came from an expert.'
-            : 'Who shaped the spec: not yet. Each line is credited when the spec is frozen.',
+            : WHO_SHAPED,
         },
       ],
+      ...(specFrozen(snapshot) ? [] : [[{ text: CREDITS_LATER }]]),
     ];
   }
   return [

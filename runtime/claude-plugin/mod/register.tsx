@@ -44,7 +44,18 @@ import {
   type RuleStop,
 } from './model';
 import { runPaqad } from './paqad-cli';
-import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
+import {
+  AUTO_OPENED_KEY,
+  DEFAULT_PANE_TAB,
+  PANE_ID,
+  PANE_TITLE,
+  buildPaneView,
+  ledgerKey,
+  readOpenedKeys,
+  rememberOpened,
+  shouldAutoOpenLedger,
+  shownTab,
+} from './pane';
 import { isReceiptCommand, receiptCard, verdictKey, verdictToast, watchVerdict } from './receipt';
 import {
   CLOSE_FOR_NOW,
@@ -83,6 +94,7 @@ const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null 
 const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false as boolean);
 const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as boolean);
 const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
+const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
@@ -163,6 +175,7 @@ async function refresh($: EngineInterface): Promise<void> {
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed) await landAllGreen($, snapshot);
+      if (changed) await autoOpenLedger($, snapshot);
       if (changed || isLive(snapshot) || turnStartedAt !== null) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
@@ -270,7 +283,41 @@ async function readStatus(
 
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
   try {
+    const open = (await read($, paneOpenAtom)) === true;
+    const shown = shownTab(await read($, paneTabAtom));
+    if (open && shown === tab) {
+      await update($, paneOpenAtom, () => false);
+      await $.ui.close({ id: PANE_ID });
+      return;
+    }
     await update($, paneTabAtom, () => tab);
+    await update($, paneOpenAtom, () => true);
+    await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
+  } catch {}
+}
+
+async function pickTab($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
+  await update($, paneTabAtom, () => tab);
+  await update($, paneOpenAtom, () => true);
+}
+
+async function autoOpenLedger(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<void> {
+  const key = ledgerKey(snapshot);
+  if (!key) return;
+  const opened = readOpenedKeys(await storeGet($, AUTO_OPENED_KEY));
+  if (!shouldAutoOpenLedger(key, opened)) return;
+  try {
+    await $.store.set(AUTO_OPENED_KEY, rememberOpened(key, opened));
+  } catch {
+    return;
+  }
+  if ((await read($, paneOpenAtom)) === true) return;
+  try {
+    await update($, paneTabAtom, () => DEFAULT_PANE_TAB);
+    await update($, paneOpenAtom, () => true);
     await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
   } catch {}
 }
@@ -687,6 +734,11 @@ export const register: Register = (on) => {
     );
   });
 
+  on('ui.close', async ($, e, next) => {
+    if (e.id === PANE_ID) await update($, paneOpenAtom, () => false);
+    return next(e);
+  }).catch(($, e, next) => next(e));
+
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== PANE_ID) return next(e);
     const status = await read($, statusAtom);
@@ -711,12 +763,13 @@ export const register: Register = (on) => {
     const Svg = e.surface === 'desktop' && 'Svg' in ui ? ui.Svg : null;
     return (
       <Box flexDirection="column">
+        <Text dimColor>{view.subtitle}</Text>
         <Box flexDirection="row">
           {view.tabs.map((tab) => (
             <Button
               key={tab.key}
               variant={tab.selected ? 'primary' : undefined}
-              onPress={() => void update($, paneTabAtom, () => tab.id)}
+              onPress={() => void pickTab($, tab.id)}
             >
               {tab.selected ? `${tab.label} (shown)` : tab.label}
             </Button>
@@ -725,6 +778,9 @@ export const register: Register = (on) => {
         {view.lines.map((text) => (
           <Text wrap="wrap">{text}</Text>
         ))}
+        {view.svg && Svg ? (
+          <Svg source={view.svg.source} alt={view.svg.alt} width={96} height={96} />
+        ) : null}
         {view.rows.map(draw)}
         {table ? (
           <Box flexDirection="column">

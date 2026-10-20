@@ -421,8 +421,9 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
           line.endsWith('The choice is yours.'),
       ),
     ).toBe(true);
+    expect(lines).toContain('Who shaped the spec');
     expect(lines).toContain(
-      'Who shaped the spec: not yet. Each line is credited when the spec is frozen.',
+      'Shown when the spec is frozen: each spec line with the experts who shaped it.',
     );
     const late = tablePaneView(withTable(LATE_TABLE), 'security-auditor', NOW);
     expect(late.detail.at(-1)).toEqual([
@@ -474,19 +475,19 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
     expect(one).toContain(' 0 1 1 ');
   });
 
-  it('opens on the High Table until a tab is picked, and says why when there is none', () => {
+  it('AC-32: shows Who shaped the spec on its tab, and says why when there is no table', () => {
     expect(PANE_TABS.map((tab) => tab.label)).toEqual([
-      'High Table',
-      'Cost',
       'Trust',
+      'High Table',
       'Ships',
       'Record',
+      'Cost',
     ]);
-    const writing = buildPaneView(parse(ord501At('writing')), null, { now: NOW });
+    const writing = buildPaneView(parse(ord501At('writing')), 'table', { now: NOW });
     expect(writing.tabs.find((tab) => tab.selected)?.id).toBe('table');
     expect(writing.table).not.toBeNull();
-    expect(buildPaneView(parse(ord501At('writing')), 'cost').tabs[1]!.selected).toBe(true);
-    expect(buildPaneView(parse(FAST_ORD_490), null).tabs[1]!.selected).toBe(true);
+    expect(writing.table!.rulings.map(text)).toContain('Who shaped the spec');
+    expect(buildPaneView(parse(ord501At('writing')), null).tabs[0]!.selected).toBe(true);
     expect(buildPaneView(parse(FAST_ORD_490), 'table').lines).toEqual([
       'The fast lane seats no High Table.',
     ]);

@@ -130,6 +130,35 @@ export interface HudFindings {
   near_copies: HudFindingsScan<DuplicationRowFinding>;
 }
 
+export interface HudTimelineEntry {
+  at: string;
+  kind: string;
+  stage: string | null;
+  note: string | null;
+}
+
+export const TIMELINE_ROWS = 20;
+
+const TIMELINE_KINDS: ReadonlySet<string> = new Set(['open', 'close', 'stage_start', 'stage_end']);
+
+export function buildTimeline(projectRoot: string, dirName: string): HudTimelineEntry[] {
+  return readFeatureStageUnit(projectRoot, dirName)
+    .filter((row) => TIMELINE_KINDS.has(String(row.kind)))
+    .flatMap((row) => {
+      const at = rowRecordedAt(row);
+      if (!at) return [];
+      return [
+        {
+          at,
+          kind: String(row.kind),
+          stage: str(row.stage),
+          note: str(row.note),
+        },
+      ];
+    })
+    .slice(-TIMELINE_ROWS);
+}
+
 export interface HudShipCommit {
   sha: string;
   subject: string;
@@ -182,6 +211,7 @@ export interface HudSnapshot {
   } | null;
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: HudStage[];
+  timeline: HudTimelineEntry[];
   table: HudHighTable | null;
   claims: HudClaim[];
   gates: HudGate[];
@@ -731,6 +761,7 @@ export function buildHudSnapshot(
       change: null,
       paused,
       stages: [],
+      timeline: [],
       table: null,
       claims: [],
       gates: [],
@@ -811,6 +842,7 @@ export function buildHudSnapshot(
     },
     paused,
     stages,
+    timeline: buildTimeline(projectRoot, dirName),
     table,
     claims: buildClaims(record?.kind, projectRoot, dirName),
     gates,
