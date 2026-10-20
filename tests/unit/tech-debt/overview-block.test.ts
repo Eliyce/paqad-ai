@@ -154,11 +154,11 @@ describe('reconcileTechDebtOverview', () => {
     const first = reconcileTechDebtOverview(root, [NEW]);
     expect(first.written).toBe(true);
     expect(existsSync(join(root, DIR, 'overview.md'))).toBe(true);
-    const past = new Date(Date.now() - 60_000);
+    const past = Math.floor(Date.now() / 1000) - 60;
     utimesSync(first.path, past, past);
     const second = reconcileTechDebtOverview(root, [NEW]);
     expect(second.written).toBe(false);
-    expect(statSync(first.path).mtimeMs).toBe(past.getTime());
+    expect(Math.floor(statSync(first.path).mtimeMs / 1000)).toBe(past);
   });
 
   it('keeps index.md prose byte for byte across add, promote and close', () => {
