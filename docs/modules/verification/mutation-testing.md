@@ -129,6 +129,30 @@ tree is a hard failure in both `warn` and `strict`: a mutant may have been left 
 seam "clean" means the run left the tree exactly as it found it (every dirty path and the digest of its
 bytes match), so an uncommitted edit that was already there at pre-push is not blamed on the run.
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/mutation/`.
+
+- **`scope.ts`.** Tests and docs are dropped with the change-evidence classifiers, then only files
+  with a mutable source extension in the languages the adapter covers are kept. It does not reuse
+  `isCodeFile`, whose rules are TypeScript-centred and would drop a Python or Rust file outside
+  `src/`. Manifests, `tsconfig`, shell scripts, config, markup and lockfiles are left out because
+  mutating them says nothing about behaviour. The list is sorted and de-duplicated so runs repeat.
+- **`adapter.ts`.** Tools are matched by lower-cased stack tokens and the first match wins. A known
+  language with weak tooling still records its language token but keeps the lower-confidence
+  descriptor.
+- **`runner.ts`.** Every outside effect is injected so the orchestration is tested without a real
+  run. Stryker gets an explicit `--mutate` list and other tools take files as arguments, always only
+  the changed files. The mutation command goes to the shell as one string so the quoting the command
+  builder writes reaches the tool unchanged. A Node tool counts as configured when it is only a
+  `package.json` dependency. Only Stryker's JSON report is parsed by default (its known locations
+  are tried in order); other tools plug in their own parser, and an unreadable report is a skip.
+- **`backstop.ts`.** Skips the runner would make anyway are decided before the suite runs, so the
+  suite never runs for nothing. The project test command runs as an `&&` argv chain, the same way
+  `paqad-ai checks` runs it, never through a shell.
+- **`outcome.ts`.** A dirty tree wins over every other result, since a mutant may have been left
+  behind. The maths is kept pure so the bar can be tested on its own.
+
 ## Boundaries
 
 - Flaky/non-deterministic tests that make the kill rate noisy → **#106 (flaky-test detection)**.

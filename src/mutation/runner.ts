@@ -1,17 +1,3 @@
-// Mutation run orchestration. Issue #105.
-//
-// Ties the pieces together: pick the per-language tool (adapter), scope to the
-// changed code (scope), run the tool, normalise its report, assert the tree is
-// clean afterward, and compute the outcome (outcome). Lane-gated — the `fast`
-// lane skips mutation entirely to stay light — and only runs once the suite is
-// already green, so survivors mean "a wrong implementation would pass," not
-// "the build is broken."
-//
-// Every external effect (running the tool, reading its report, checking the
-// tree) is injectable so the orchestration is unit-testable without spawning a
-// real mutation run. The default deps provide a working Stryker integration for
-// this repo's TypeScript; other languages plug in a `parse` adapter.
-
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -39,18 +25,13 @@ export interface MutationCommandResult {
 }
 
 export interface MutationRunnerDeps {
-  // Whether the onboarded project has actually configured the tool.
   detectTool?: (descriptor: MutationToolDescriptor, projectRoot: string) => Promise<boolean>;
-  // Run the tool, scoped to the changed files.
   execute?: (command: string, options: { cwd: string }) => Promise<MutationCommandResult>;
-  // Normalise the tool's report into mutants. Returns null when the report
-  // could not be interpreted (no parser for this tool yet).
   parse?: (
     descriptor: MutationToolDescriptor,
     projectRoot: string,
     run: MutationCommandResult,
   ) => Promise<RawMutant[] | null>;
-  // Assert the working tree is clean (no mutant left behind).
   isTreeClean?: (projectRoot: string) => Promise<boolean>;
 }
 
@@ -59,7 +40,6 @@ export interface RunMutationGateOptions {
   changedFiles: string[];
   lane: Lane;
   stackProfile: DetectedStackProfile | null;
-  // Mutation only runs on an already-green suite.
   testsGreen: boolean;
   deps?: MutationRunnerDeps;
 }
@@ -87,11 +67,6 @@ function skipped(
   };
 }
 
-/**
- * A skipped result for a reason decided before the runner starts (issue #293: the backstop found
- * no project test command). Uses the same tool selection as a real run, so the result names the
- * tool the stack would have used. Exported for the backstop seam.
- */
 export function skippedMutationResult(
   stackProfile: DetectedStackProfile | null,
   reason: MutationSkipReason,
@@ -99,11 +74,6 @@ export function skippedMutationResult(
   return skipped(selectMutationTool(stackProfile), [], reason);
 }
 
-/**
- * Run mutation testing on the changed code and return a result for the
- * verification evidence. Never throws: any failure to run is recorded as a
- * skipped result so the gate decides what to do, not the orchestration.
- */
 export async function runMutationGate(options: RunMutationGateOptions): Promise<MutationResult> {
   const descriptor = selectMutationTool(options.stackProfile);
   const deps = options.deps ?? {};
@@ -112,12 +82,10 @@ export async function runMutationGate(options: RunMutationGateOptions): Promise<
   const parse = deps.parse ?? defaultParse;
   const isTreeClean = deps.isTreeClean ?? defaultIsTreeClean;
 
-  // Lane gate: trivial work skips mutation to stay light.
   if (options.lane === 'fast') {
     return skipped(descriptor, [], 'fast-lane');
   }
 
-  // Only mutate an already-green suite — otherwise survivors are noise.
   if (!options.testsGreen) {
     return skipped(descriptor, [], 'tests-not-green');
   }
@@ -159,11 +127,7 @@ export async function runMutationGate(options: RunMutationGateOptions): Promise<
   });
 }
 
-/** Build the scoped run command for a tool. Exported for testing. */
 export function buildCommand(descriptor: MutationToolDescriptor, scopedFiles: string[]): string {
-  // Stryker accepts an explicit mutate glob list; other tools take the files
-  // positionally. Either way we pass only the changed files so the run stays
-  // scoped and quick.
   if (descriptor.tool === 'stryker') {
     const globs = scopedFiles.join(',');
     return `${descriptor.run_command} --mutate "${globs}"`;
@@ -179,7 +143,6 @@ async function defaultDetectTool(
     return true;
   }
 
-  // Node tools (Stryker) may be configured purely via a package.json dependency.
   if (descriptor.tool === 'stryker') {
     try {
       const manifest = JSON.parse(await readFile(join(projectRoot, 'package.json'), 'utf8')) as {
@@ -196,11 +159,6 @@ async function defaultDetectTool(
   return false;
 }
 
-/**
- * Run the configured mutation command through the shell. The whole string goes to the shell
- * as one command line, so the quoting `buildCommand` writes (`--mutate "a,b"`) reaches the tool
- * unchanged. Exported for testing.
- */
 export async function defaultExecute(
   command: string,
   options: { cwd: string },
@@ -218,7 +176,6 @@ export async function defaultExecute(
   };
 }
 
-// Stryker JSON report locations, in priority order.
 const STRYKER_REPORT_PATHS = [
   'reports/mutation/mutation.json',
   'reports/mutation/mutation-report.json',
@@ -260,7 +217,6 @@ async function defaultParse(
   descriptor: MutationToolDescriptor,
   projectRoot: string,
 ): Promise<RawMutant[] | null> {
-  // Only Stryker's report is parsed by default; other tools inject a `parse`.
   if (descriptor.tool !== 'stryker') {
     return null;
   }
