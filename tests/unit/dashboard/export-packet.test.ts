@@ -12,7 +12,6 @@ import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js'
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
-// Issue #468 Phase B — the packet composes the bundle-projected feeds, so seed bundles.
 function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
   const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
   const path = join(root, featureFilePath(dir, 'evidence'));
@@ -29,7 +28,6 @@ function projectFeature(root: string, ts: string, authorship?: ChangeAuthorship)
     issue: null,
     ulidSeed: seed,
   });
-  // Issue #581 — as in a real run, the rows land in evidence.jsonl before the receipt seals it.
   const rows = [
     buildEvidenceRow({
       ts,
@@ -93,7 +91,7 @@ describe('buildEvidencePacket', () => {
     expect(packet.markdown).toContain('PASS tests<script>');
   });
 
-  it('shows a skipped gate grey with the skipped glyph, never amber (issue #579)', () => {
+  it('shows a skipped gate grey with the skipped glyph, never amber', () => {
     seedBundleEvidence(root, [
       buildEvidenceRow({
         ts: '2026-06-12T00:00:00Z',
@@ -140,13 +138,11 @@ describe('buildEvidencePacket', () => {
   });
 
   it('renders the model-id voucher and a broken-link receipt', () => {
-    // A sound feature receipt carrying model-id authorship (newest ts → first card)...
     projectFeature(root, '2026-06-11T01:00:00.000Z', {
       agent: 'claude-code',
       model_id: 'anthropic/claude-opus-4-8',
       provenance: 'declared',
     });
-    // ...and a second feature whose receipt bytes are tampered (seal=false branch).
     const dir = openFeatureChange(root, 'ses_1', {
       adapter: 'claude-code',
       title: 'tampered',
@@ -165,8 +161,8 @@ describe('buildEvidencePacket', () => {
     );
 
     const packet = buildEvidencePacket(root);
-    expect(packet.html).toContain('claude-code'); // author present
-    expect(packet.html).toContain('anthropic/claude-opus-4-8'); // model-id voucher branch
-    expect(packet.html).toContain('broken link'); // unsealed receipt branch
+    expect(packet.html).toContain('claude-code');
+    expect(packet.html).toContain('anthropic/claude-opus-4-8');
+    expect(packet.html).toContain('broken link');
   });
 });

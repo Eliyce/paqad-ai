@@ -53,7 +53,6 @@ describe('discovery context contract', () => {
     expect(extraContextItems('understand', [...defaults, 'the-whole-rulebook'])).toEqual([
       'the-whole-rulebook',
     ]);
-    // Unknown stage: everything is extra.
     expect(extraContextItems('nope', ['x'])).toEqual(['x']);
   });
 
@@ -89,7 +88,6 @@ describe('discovery context receipts', () => {
     });
     expect(denied.ok).toBe(false);
     expect(denied.extra).toContain('the-entire-rulebook');
-    // Nothing written on refusal.
     expect(() =>
       readReceipts(c.root, discoveryRunFilePath(c.dirName, 'contextReceipts')),
     ).toThrow();

@@ -19,10 +19,6 @@ import { hudCostCachePath } from '@/hud/files.js';
 
 import { DIR, SES, assistant, at, writeTranscript } from './cost.fixture.js';
 
-// Issue #639, Part 23 (review fix): the cost cache's read-merge-write runs under a cross-process
-// lock, so parallel SubagentStop hooks (the High Table's seats end together) never lose a
-// transcript path. A lock that cannot be taken is logged to hooks.log and skipped, never thrown.
-
 const REPO = process.cwd();
 const CLI = join(REPO, 'dist/cli/index.js');
 const HOOK_COST = pathToFileURL(join(REPO, 'dist/cost/hook-cost.js')).href;
@@ -52,8 +48,6 @@ describe('the cost cache lock', () => {
     const path = hudCostCachePath(root, SES);
     const lockDir = `${path}.lock`;
 
-    // Another hook holds the lock. While we wait, it finishes its own update (recording
-    // `first`) and releases the lock; only then may our read-merge-write run.
     mkdirSync(lockDir, { recursive: true });
     let waits = 0;
     const cache = updateCostCache({
@@ -107,7 +101,6 @@ describe('the cost cache lock', () => {
     const root = tempRoot();
     const first = writeTranscript(root, 'first', [assistant('m1', '10:01', A)]);
     const path = hudCostCachePath(root, SES);
-    // A directory where the cache file goes makes the rename fail.
     mkdirSync(path, { recursive: true });
     writeFileSync(join(path, 'keep'), 'x');
     expect(() =>

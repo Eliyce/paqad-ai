@@ -11,7 +11,7 @@ import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js'
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
-describe('dashboard snapshots (#161)', () => {
+describe('dashboard snapshots', () => {
   let root: string;
 
   beforeEach(() => {
@@ -67,10 +67,7 @@ describe('dashboard snapshots (#161)', () => {
 
   describe('buildReceiptSnapshot', () => {
     function seedReceipt(): string {
-      // Issue #468 Phase B — the snapshot reads the bundle receipt feed, so project a
-      // per-feature bundle receipt.
       const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
-      // Issue #581 — as in a real run, the rows land in evidence.jsonl before the receipt seals it.
       const rows = [
         buildEvidenceRow({
           ts: '2026-06-11T00:00:00.000Z',

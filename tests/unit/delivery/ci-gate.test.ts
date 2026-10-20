@@ -13,7 +13,6 @@ function ci(overrides: Partial<ResolvedDeliveryCi> = {}): ResolvedDeliveryCi {
   };
 }
 
-/** Host stub that returns a scripted sequence of check statuses. */
 function hostWith(sequence: ChecksStatus[]): HostProvider {
   let i = 0;
   return {

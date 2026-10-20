@@ -40,7 +40,6 @@ describe('AIDetector', () => {
   it('skips an unreadable manifest and returns null when none remain', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'paqad-ai-aidetect-bad-'));
     try {
-      // A directory named like a manifest: existsSync is true but readFileSync throws.
       mkdirSync(join(dir, 'package.json'));
       const detector = new AIDetector({ provider: providerReturning('{}') });
       expect(await detector.detect(dir)).toBeNull();

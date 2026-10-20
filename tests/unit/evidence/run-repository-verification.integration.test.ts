@@ -19,14 +19,6 @@ import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 
 import { createVerificationContext, ownInFlightChange } from '../verification/shared.fixture.js';
 
-/**
- * Issue #187/#220 — the enterprise block moved out of `project-profile.yaml` into
- * `.paqad/.config` (flat KEY=VALUE), so opt the ledger on by syncing the
- * `enterprise` section into `.config`. A lean `project-profile.yaml` (project
- * facts only) must still exist so `readProjectProfile` returns a profile for the
- * `.config` overlay to apply onto. Defaults turn on the full ledger write set
- * (enabled + evidence_ledger + ai_bom); pass overrides to exercise sub-flags.
- */
 function enableEnterprise(projectRoot: string, enterprise: Partial<EnterpriseConfig> = {}): void {
   const block: EnterpriseConfig = {
     enabled: true,
@@ -43,12 +35,6 @@ function enableEnterprise(projectRoot: string, enterprise: Partial<EnterpriseCon
   syncFrameworkConfig(projectRoot, { enterprise: block });
 }
 
-/**
- * Issue #468 Phase C — the completion seam no longer writes the top-level
- * `.paqad/ledger/{evidence.jsonl,receipts.jsonl,receipt.dsse.json,ai-bom.json}`; the
- * per-feature bundle is the only projection. This is the INV-5 regression guard every
- * test asserts: none of the retired top-level homes exists after a run.
- */
 function noTopLevelLedger(projectRoot: string): void {
   expect(existsSync(join(projectRoot, PATHS.EVIDENCE_LEDGER))).toBe(false);
   expect(existsSync(join(projectRoot, PATHS.EVIDENCE_RECEIPT))).toBe(false);
@@ -56,8 +42,6 @@ function noTopLevelLedger(projectRoot: string): void {
   expect(existsSync(join(projectRoot, PATHS.EVIDENCE_AI_BOM))).toBe(false);
 }
 
-/** Open an active feature bundle under a known session (the seam resolves the same id).
- *  The session also live-marks a stage, so it OWNS the change and Stop verifies it (#582). */
 function openFeature(projectRoot: string, ses: string): { sessionId: string; dir: string } {
   const sessionId = resolveSessionId(projectRoot, ses);
   const dir = openFeatureChange(projectRoot, sessionId, {
@@ -69,7 +53,7 @@ function openFeature(projectRoot: string, ses: string): { sessionId: string; dir
   return { sessionId, dir };
 }
 
-describe('runRepositoryVerification — per-feature bundle evidence + receipt (issue #118/#343/#468)', () => {
+describe('runRepositoryVerification — per-feature bundle evidence + receipt', () => {
   it('fans gate results into the bundle evidence.jsonl + a verifiable bundle receipt, writing NO top-level ledger', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
@@ -78,7 +62,6 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
       changed_files_source: 'git',
     });
     const { dir } = openFeature(context.project_root, 'rv-evidence-sess');
-    // Issue #187 — the ledger is opt-in; enable it for this assertion.
     enableEnterprise(context.project_root, { evidence_ledger: true, ai_bom: true });
 
     await runRepositoryVerification({
@@ -88,33 +71,27 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
       hostSessionId: 'rv-evidence-sess',
     });
 
-    // Issue #468 Phase C — the graded rows live in the feature's own bundle now.
     const rows = readFeatureEvidence(context.project_root, dir);
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((r) => r.engine === 'verification-gate')).toBe(true);
-    // Every emitted row is graded — no flat booleans.
     expect(
       rows.every((r) => ['deterministic', 'llm-judged', 'blocked'].includes(r.strength_class)),
     ).toBe(true);
 
-    // The bundle receipt is the projection, and it verifies as a single sealed snapshot.
     const envelope = readFeatureReceipt(context.project_root, dir);
     expect(envelope).not.toBeNull();
     expect(envelope!.payloadType).toBe('application/vnd.in-toto+json');
     expect(verifyReceiptSeal(envelope!)).toBe(true);
 
-    // Issue #120 — authorship is wired in: when the resolver yields anything
-    // (env/git-dependent in this fixture), it is well-formed and inside the signed payload.
     const authorship = decodeReceiptStatement(envelope!)?.predicate.change_authorship;
     if (authorship !== undefined) {
       expect(['declared', 'unknown']).toContain(authorship.provenance);
     }
 
-    // Issue #468 Phase C / INV-5 — the retired top-level homes are never written.
     noTopLevelLedger(context.project_root);
   });
 
-  it('projects the per-feature receipt + ai-bom into the active feature bundle (#343 B)', async () => {
+  it('projects the per-feature receipt + ai-bom into the active feature bundle', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git',
@@ -129,13 +106,12 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
       hostSessionId: 'rv-feature-sess',
     });
 
-    // The graded rows are projected into the feature's own bundle — and only there.
     expect(existsSync(join(context.project_root, featureFilePath(dir, 'receipt')))).toBe(true);
     expect(existsSync(join(context.project_root, featureFilePath(dir, 'aiBom')))).toBe(true);
     noTopLevelLedger(context.project_root);
   });
 
-  it('per-feature honours the enterprise gating: ai_bom-only writes only the bundle ai-bom.json (#343 B)', async () => {
+  it('per-feature honours the enterprise gating: ai_bom-only writes only the bundle ai-bom.json', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git',
@@ -155,15 +131,12 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
     noTopLevelLedger(context.project_root);
   });
 
-  // Issue #390 — receipt/ai-bom/report render must consult the persisted route, not
-  // just "is a pointer active?", so a non-feature workflow projects nothing.
   it('projects NO receipt/ai-bom/report for a non-feature route even with an active pointer', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
       changed_files_source: 'git',
     });
     const { sessionId, dir } = openFeature(context.project_root, 'rv-nonfeature-route');
-    // The session's route is a non-feature workflow.
     writeWorkflowState(context.project_root, sessionId, {
       active: { workflow: 'root-cause-analysis' },
       paused: [],
@@ -214,12 +187,11 @@ describe('runRepositoryVerification — per-feature bundle evidence + receipt (i
       prebuiltContext: { context, escalations: [] },
     });
     expect(verdict).toBeDefined();
-    // No active feature + retired top-level home ⇒ nothing is written anywhere.
     noTopLevelLedger(context.project_root);
   });
 });
 
-describe('runRepositoryVerification — enterprise bundle gating (issue #187/#468)', () => {
+describe('runRepositoryVerification — enterprise bundle gating', () => {
   function run(context: ReturnType<typeof createVerificationContext>, ses: string) {
     return runRepositoryVerification({
       projectRoot: context.project_root,
@@ -229,7 +201,6 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
     });
   }
 
-  /** Which of the feature bundle's graded artifacts exist after a run. */
   function bundleFiles(projectRoot: string, dir: string) {
     return {
       evidence: existsSync(join(projectRoot, featureFilePath(dir, 'evidence'))),
@@ -238,7 +209,6 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
     };
   }
 
-  // Issue #581 — evidence.jsonl is always on; only the receipt and the AI-BOM are gated.
   it('writes only evidence.jsonl to the bundle when no enterprise block is present', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/core/ui/screens.md'],
@@ -248,7 +218,6 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
 
     const verdict = await run(context, 'rv-ent-none');
 
-    // The verdict is still produced — gating never changes the trust outcome.
     expect(verdict).toBeDefined();
     expect(bundleFiles(context.project_root, dir)).toEqual({
       evidence: true,
@@ -324,7 +293,7 @@ describe('runRepositoryVerification — enterprise bundle gating (issue #187/#46
   });
 });
 
-describe('runRepositoryVerification — late gates on the bundle ledger (issue #579)', () => {
+describe('runRepositoryVerification — late gates on the bundle ledger', () => {
   it('AC-4: records bundle-completeness, visual-evidence and rules-loaded rows, skips included', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
@@ -353,7 +322,6 @@ describe('runRepositoryVerification — late gates on the bundle ledger (issue #
     expect(visual.detail).toBe('visual evidence is off (flag off or coding capability absent).');
   });
 
-  // Issue #581 (AC-13) — M0: enterprise off, and the late gates are still on the ledger.
   it('AC-13: records the late gates in evidence.jsonl with enterprise off, skips with a reason', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
@@ -381,10 +349,7 @@ describe('runRepositoryVerification — late gates on the bundle ledger (issue #
   });
 });
 
-describe('runRepositoryVerification — evidence.jsonl and the completeness gate (issue #581)', () => {
-  // evidence.jsonl is 'always' required, and a fresh change has none until this run writes
-  // it. The gate must not name it missing: this run appends the graded rows before the gate
-  // and the gate's own row right after it.
+describe('runRepositoryVerification — evidence.jsonl and the completeness gate', () => {
   it('never reports evidence.jsonl missing on a change whose first run writes it', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
@@ -411,7 +376,7 @@ describe('runRepositoryVerification — evidence.jsonl and the completeness gate
   });
 });
 
-describe('runRepositoryVerification — the receipt seals evidence.jsonl (issue #581)', () => {
+describe('runRepositoryVerification — the receipt seals evidence.jsonl', () => {
   it('AC-12: two runs seal a growing file, copy no rows, and chain', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
@@ -451,11 +416,8 @@ describe('runRepositoryVerification — the receipt seals evidence.jsonl (issue 
     }
     const firstCount = decodeReceiptStatement(first)!.predicate.evidence_line_count!;
     const secondCount = decodeReceiptStatement(second)!.predicate.evidence_line_count!;
-    // Each run appends its rows before sealing, so the second seal covers more lines.
     expect(secondCount).toBeGreaterThan(firstCount);
-    // Issue #669 — the receipt is sealed after every gate, so no row of the run is left unsealed.
     expect(lines.filter((line) => line.length > 0).length).toBe(secondCount);
-    // The chain links the second receipt to the first, from genesis.
     expect(second.paqad.prev_receipt_hash).toBe(first.paqad.receipt_hash);
     expect(verifyReceiptChain([first, second])).toBeNull();
   });

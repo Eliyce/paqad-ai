@@ -20,7 +20,6 @@ describe('discovery types', () => {
     expect(DISCOVERY_RUN_STATUSES).toContain('completed');
     expect(DISCOVERY_OUTCOMES).toContain('experiment');
     expect(DISCOVERY_OUTCOMES).toContain('deferred');
-    // A status is never an outcome and vice versa.
     for (const status of DISCOVERY_RUN_STATUSES) {
       expect(DISCOVERY_OUTCOMES as readonly string[]).not.toContain(status);
     }

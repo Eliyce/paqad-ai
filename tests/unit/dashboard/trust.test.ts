@@ -37,11 +37,6 @@ function row(code: string, verdict: 'pass' | 'fail' = 'pass', ts = '2026-06-11T0
   });
 }
 
-/**
- * Issue #468 Phase B — the Trust surface projects from the per-feature bundles. Seed graded
- * rows straight into a bundle's `evidence.jsonl` (a single dir; the feed only reverses the
- * append order it reads), and receipts via `projectFeatureReceipt` into DISTINCT features.
- */
 function seedBundleEvidence(root: string, rows: EvidenceLedgerRow[]): void {
   const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
   const path = join(root, featureFilePath(dir, 'evidence'));
@@ -67,8 +62,6 @@ function projectFeature(
     issue: null,
     ulidSeed: seed,
   });
-  // Issue #581 — as in a real run, the graded rows land in evidence.jsonl before the receipt
-  // seals it.
   const rows = [row(opts.code, 'pass', ts)];
   appendFeatureEvidenceRows(root, 'ses_1', rows);
   projectFeatureReceipt(root, dir, {
@@ -150,7 +143,6 @@ describe('dashboard trust', () => {
       const feed = buildReceiptFeed(root);
       expect(feed.brokenAt).toBeNull();
       expect(feed.receipts).toHaveLength(2);
-      // Newest first by time_verified; each per-feature receipt is its own genesis.
       expect(feed.receipts[0].index).toBe(0);
       expect(feed.receipts[0].sealed).toBe(true);
       expect(feed.receipts[0].verification_result).toBe('PASSED');
@@ -165,12 +157,11 @@ describe('dashboard trust', () => {
         },
       ]);
       expect(feed.receipts[0].subjects).toEqual([{ name: 'src/a.ts', digest: 'aaa' }]);
-      // Both are genesis receipts (self-chained per feature), so both prev hashes are zero.
       expect(feed.receipts[0].prev_receipt_hash).toMatch(/^0+$/);
       expect(feed.receipts[1].prev_receipt_hash).toMatch(/^0+$/);
     });
 
-    it('surfaces compliance citations and the reproducibility stamp on the card (#122/#123)', () => {
+    it('surfaces compliance citations and the reproducibility stamp on the card', () => {
       projectFeature(root, {
         code: 'mutation-testing',
         compliance: [
@@ -209,8 +200,6 @@ describe('dashboard trust', () => {
 
     it('marks a tampered feature receipt as unsealed, independently of the others', () => {
       projectFeature(root, { code: 'mutation-testing', ts: '2026-06-11T00:00:00.000Z' });
-      // A second feature whose receipt bytes are tampered: valid JSON + decodable payload
-      // (so it still sorts newest by time_verified), but its receipt_hash no longer recomputes.
       const dir = projectFeature(root, { code: 'spec-review', ts: '2026-06-11T01:00:00.000Z' });
       const path = join(root, featureFilePath(dir, 'receipt'));
       const env = JSON.parse(readFileSync(path, 'utf8')) as ReceiptEnvelope;
@@ -218,13 +207,13 @@ describe('dashboard trust', () => {
       writeFileSync(path, JSON.stringify(env), 'utf8');
 
       const feed = buildReceiptFeed(root);
-      expect(feed.brokenAt).toBe(0); // the tampered receipt is newest → first card
-      expect(feed.receipts[0].sealed).toBe(false); // tampered
-      expect(feed.receipts[1].sealed).toBe(true); // the untouched one
+      expect(feed.brokenAt).toBe(0);
+      expect(feed.receipts[0].sealed).toBe(false);
+      expect(feed.receipts[1].sealed).toBe(true);
     });
   });
 
-  describe('buildReceiptFeed with sealing receipts (#581)', () => {
+  describe('buildReceiptFeed with sealing receipts', () => {
     it('marks a receipt unsealed when a sealed evidence.jsonl line was edited', () => {
       const dir = projectFeature(root, { code: 'spec-review' });
       const path = join(root, featureFilePath(dir, 'evidence'));
@@ -236,7 +225,6 @@ describe('dashboard trust', () => {
 
     it('shows a check recorded after the seal as not sealed, and keeps the receipt sealed', () => {
       const dir = projectFeature(root, { code: 'spec-review' });
-      // A late gate of the same run lands after the receipt sealed evidence.jsonl.
       appendFeatureEvidenceRows(root, 'ses_1', [row('rules-loaded', 'fail')]);
       const card = buildReceiptFeed(root).receipts.find((receipt) =>
         receipt.checks.some((check) => check.code === 'rules-loaded'),

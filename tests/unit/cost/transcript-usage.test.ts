@@ -11,10 +11,6 @@ import {
   scanTranscriptLines,
 } from '@/cost/transcript-usage.js';
 
-// Issue #639, Parts 13 and 23: the host's own token usage, read from a Claude Code transcript.
-// A message is written as several lines that repeat one usage object under one message id, so the
-// reader must count each message once.
-
 const roots: string[] = [];
 function tempFile(lines: string[], trailingNewline = true): string {
   const dir = mkdtempSync(join(tmpdir(), 'paqad-transcript-usage-'));
@@ -68,7 +64,7 @@ function assistant(
 
 const USER = JSON.stringify({ type: 'user', message: { role: 'user', content: 'go' } });
 
-describe('readTranscriptUsage (#639 Parts 13 and 23)', () => {
+describe('readTranscriptUsage', () => {
   it('counts a message written over several lines once, by message id', () => {
     const path = tempFile([
       USER,
@@ -230,7 +226,6 @@ describe('readTranscriptUsage (#639 Parts 13 and 23)', () => {
       until: '2026-10-19T10:30:00.000Z',
     });
     expect(usage.totals.input).toBe(10);
-    // A bad bound is ignored rather than dropping everything.
     expect(readTranscriptUsage(path, { since: 'not a date' }).totals.input).toBe(1111);
   });
 

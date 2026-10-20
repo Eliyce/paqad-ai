@@ -15,10 +15,6 @@ import {
 } from '@/cost/prices.js';
 import { emptyTokenUsage, type TokenUsage } from '@/cost/transcript-usage.js';
 
-// Issue #639, Part 23 (FR-21, INV-10): the dated API price table shipped in paqad, copied from
-// the public pricing page on 2026-10-19. Money is an estimate with its date; an unlisted model
-// gets no price.
-
 function usage(over: Partial<TokenUsage>): TokenUsage {
   const base = { ...emptyTokenUsage(), ...over };
   return { ...base, total: base.input + base.output + base.cache_read + base.cache_write };

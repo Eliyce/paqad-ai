@@ -44,7 +44,7 @@ describe('summarizeGradedEvidence', () => {
   });
 });
 
-describe('summarizeGradedEvidence — skipped rows (issue #579)', () => {
+describe('summarizeGradedEvidence — skipped rows', () => {
   it('INV-4: counts a skipped row as neither pass nor fail', () => {
     const base = [
       row({ strength_class: 'deterministic', verdict: 'pass' }),
@@ -70,12 +70,7 @@ describe('deriveVerificationResult', () => {
     ).toBe('PASSED');
   });
 
-  it('is neither FAILED nor INCONCLUSIVE when a measure was merely blocked (#368 AC-D2, #669)', () => {
-    // A `blocked` row is a measure that could not RUN (unwired/absent tooling), not a
-    // failure: reporting FAILED manufactured a false alarm from an unwired ratchet (#368).
-    // Issue #669, decision D-01M5A0MG6537XJ7S3MD3Q4PSCR (receipt-skips-unmeasured): it no
-    // longer reads INCONCLUSIVE either. It stays counted in `blocked`, and the result follows
-    // the gates, so the receipt agrees with the end-of-turn verdict.
+  it('is neither FAILED nor INCONCLUSIVE when a measure was merely blocked', () => {
     expect(
       deriveVerificationResult({
         deterministic: { pass: 9, fail: 0 },
@@ -137,12 +132,7 @@ describe('buildInTotoStatement', () => {
     expect(statement.predicate.rows).toHaveLength(2);
   });
 
-  it('reads PASSED end-to-end, blocked measures still listed, when every real gate passed (#368 AC-D2, #669)', () => {
-    // The exact shape observed in this repo's own ledger: 9 deterministic + 2 llm-judged
-    // passes, plus 3 quality-ratchet measures that could not run ("tool-not-wired").
-    // Before AC-D2 this produced a FALSE `FAILED`. Issue #669, decision
-    // D-01M5A0MG6537XJ7S3MD3Q4PSCR (receipt-skips-unmeasured): it no longer reads
-    // `INCONCLUSIVE` either; the three stay counted in `blocked`.
+  it('reads PASSED end-to-end, blocked measures still listed, when every real gate passed', () => {
     const rows: EvidenceLedgerRow[] = [
       ...Array.from({ length: 9 }, (_, i) =>
         row({ strength_class: 'deterministic', verdict: 'pass', code: `det-${i}` }),
@@ -203,8 +193,6 @@ describe('buildInTotoStatement', () => {
     });
   });
 
-  // Issues #122 / #123 — both new fields stay omitted when absent so prior
-  // receipts remain byte-identical, and fold in cleanly when supplied.
   it('omits compliance_citations and reproducibility when absent (byte-identical)', () => {
     const statement = buildInTotoStatement({
       fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
@@ -217,7 +205,7 @@ describe('buildInTotoStatement', () => {
     expect('metrics' in statement.predicate).toBe(false);
   });
 
-  it('folds the change-shape metrics into the predicate when supplied, omits otherwise (#362)', () => {
+  it('folds the change-shape metrics into the predicate when supplied, omits otherwise', () => {
     const statement = buildInTotoStatement({
       fileDigests: [{ name: 'src/a.ts', sha256: 'aaa' }],
       rows: [row({})],

@@ -19,7 +19,6 @@ describe('duplication edge cases', () => {
 
   it('loadCorpus degrades to empty when the only index (vectors) is corrupt', async () => {
     const root = makeGitProject();
-    // No chunk index; a corrupt vector index forces the FileVectorIndex.load throw path.
     writeProjectFile(root, '.paqad/vectors/index.json', '{ broken');
     writeProjectFile(root, '.paqad/vectors/meta.json', '{}');
     expect(await loadCorpus({ projectRoot: root, changedFiles: [] })).toEqual([]);
@@ -28,7 +27,6 @@ describe('duplication edge cases', () => {
   it('collectAddedRanges skips a path that resolves to a directory, not a file', async () => {
     const root = makeGitProject();
     writeProjectFile(root, 'src/base.ts', 'x\n');
-    // An untracked "changed file" that is actually a directory — readFile throws, degrades to none.
     mkdirSync(join(root, 'src/adir'), { recursive: true });
     writeFileSync(join(root, 'src/adir/inner.ts'), 'y\n');
     const ranges = await collectAddedRanges({ projectRoot: root, changedFiles: ['src/adir'] });

@@ -23,11 +23,6 @@ import { featureFilePath } from '@/feature-evidence/paths.js';
 import { projectFeatureReceipt } from '@/feature-evidence/receipt.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
-/**
- * Issue #468 Phase B — `latestReceiptAuthorship` now reads the per-feature bundle receipts,
- * so its tests seed a feature bundle receipt (with optional authorship) rather than the
- * whole-project chain.
- */
 let featureSeed = 0;
 function projectFeature(root: string, authorship?: ChangeAuthorship): void {
   featureSeed += 1;
@@ -41,7 +36,6 @@ function projectFeature(root: string, authorship?: ChangeAuthorship): void {
   });
 }
 
-/** Append a raw line to the receipt chain to exercise the tolerant reader. */
 function appendChainLine(root: string, line: string): void {
   const path = join(root, PATHS.EVIDENCE_RECEIPT_CHAIN);
   mkdirSync(dirname(path), { recursive: true });
@@ -95,7 +89,7 @@ describe('projectReceipt', () => {
     expect(verifyReceiptChain(chain)).toBeNull();
   });
 
-  it('reads back the authorship attested by the latest feature receipt (#468 Phase B)', () => {
+  it('reads back the authorship attested by the latest feature receipt', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-receipt-'));
     expect(latestReceiptAuthorship(root)).toBeNull();
 

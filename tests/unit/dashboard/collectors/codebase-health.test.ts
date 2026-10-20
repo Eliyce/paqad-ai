@@ -80,7 +80,6 @@ describe('collectCodebaseHealth', () => {
       blocked_checks: [],
     });
     const { section, attention } = collectCodebaseHealth(root, NOW);
-    // The retest sidecar is excluded, so runs === 1.
     expect(section.metrics.find((m) => m.label === 'runs')?.value).toBe('1');
     expect(attention[0]!.severity).toBe('critical');
   });

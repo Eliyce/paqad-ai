@@ -11,8 +11,6 @@ import { buildDetectionReport } from '@/detection/report.js';
 describe('coverage context indexing', () => {
   describe('AstChunker', () => {
     it('chunks TypeScript, PHP, and Dart source using language-specific parsing', () => {
-      // merge=false: assert the raw boundary detection (the cAST "split"); the merge pass
-      // is covered in ast-chunker.test.ts.
       const chunker = new AstChunker(40, false);
       const ts = ['export function alpha() { return 1; }', '', 'export class Beta {}'].join('\n');
       const php = ['<?php', 'class Example {}', '', 'public function save() {}'].join('\n');

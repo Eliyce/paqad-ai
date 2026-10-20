@@ -84,8 +84,6 @@ describe('rag config endpoint logic', () => {
         rag_top_n: 20,
       };
       writeFileSync(join(root, '.paqad/project-profile.yaml'), YAML.stringify(baseProfile()));
-      // RAG/intelligence is a framework knob: it resolves from `.paqad/.config`
-      // (overlaid onto the lean YAML), not the profile YAML, so configure it there.
       syncFrameworkConfig(root, { intelligence });
       mkdirSync(join(root, '.paqad/vectors'), { recursive: true });
       writeFileSync(join(root, '.paqad/vectors/meta.json'), '{}');
@@ -111,15 +109,10 @@ describe('rag config endpoint logic', () => {
       });
       expect(result.intelligence.rag_enabled).toBe(true);
       expect(result.intelligence.embedding_provider).toBe('openai');
-      // The provider default fills in when no model is given.
       expect(result.intelligence.embedding_model).toBe('text-embedding-3-small');
       expect(result.intelligence.rag_top_n).toBe(10);
-      // Untouched settings keep the normalized defaults.
       expect(result.intelligence.rag_similarity_threshold).toBe(0.75);
 
-      // RAG is a framework knob now: the YAML stays lean (no intelligence
-      // section), while the values are persisted to `.paqad/.config` and read
-      // back via readProjectProfile's overlay.
       const onDisk = YAML.parse(
         readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8'),
       ) as Record<string, Record<string, unknown>>;

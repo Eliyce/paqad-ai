@@ -1,7 +1,3 @@
-// Regression guard (#597, DW-15/INV-1/INV-2): Discovery must not disturb feature-development or the
-// other flows. These assertions fail loudly if a future change lets Discovery bleed into the
-// feature stage order, the feature-evidence tree, or the feature-dev routing decision.
-
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -34,7 +30,6 @@ describe('Discovery does not disturb feature-development (INV-1/INV-2)', () => {
     for (const stage of DISCOVERY_STAGE_ORDER) {
       expect(STAGE_ORDER as readonly string[]).not.toContain(stage);
     }
-    // The feature order is exactly its eight known stages, unchanged by #597.
     expect([...STAGE_ORDER]).toEqual([
       'ticket_intake',
       'planning',
@@ -66,19 +61,16 @@ describe('Discovery does not disturb feature-development (INV-1/INV-2)', () => {
       revision: 1,
     });
     expect(existsSync(join(root, discoveryDir(), dirName))).toBe(true);
-    // No feature bundle was created by any Discovery write.
     expect(existsSync(join(root, PATHS.FEATURE_EVIDENCE_DIR))).toBe(false);
   });
 
   it('a Discovery session never enforces on a feature-development session (DW-AC11)', () => {
     const root = tempRoot();
-    // Session A is building a feature; session C is running Discovery in the same checkout.
     writeWorkflowState(root, 'A', {
       active: { workflow: 'feature-development', changeKey: 'k' },
       paused: [],
     });
     writeWorkflowState(root, 'C', { active: { workflow: 'discovery' }, paused: [] });
-    // The Discovery gate does not apply to A's actions at all.
     const forA = discoveryBoundaryVerdict({
       projectRoot: root,
       sessionId: 'A',

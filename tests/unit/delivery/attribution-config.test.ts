@@ -22,7 +22,6 @@ function makeProject(files: Record<string, string> = {}): string {
 }
 
 describe('ai_attribution knob', () => {
-  // AC-1
   it('defaults to strip on a bare project', () => {
     expect(resolveAiAttributionMode(makeProject(), {})).toBe('strip');
     expect(DEFAULT_AI_ATTRIBUTION_MODE).toBe('strip');
@@ -43,7 +42,6 @@ describe('ai_attribution knob', () => {
     expect(resolveAiAttributionMode(root, {})).toBe('keep');
   });
 
-  // AC-2 — the whole point of flooring it: an enterprise floor is not a suggestion.
   it('refuses to let a local file lower a team strip to keep', () => {
     const root = makeProject({
       '.paqad/configs/.config.policy': 'ai_attribution=strip',

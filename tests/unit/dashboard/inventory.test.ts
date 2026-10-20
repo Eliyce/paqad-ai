@@ -14,8 +14,6 @@ function write(root: string, relative: string, content: string): void {
   writeFileSync(full, content);
 }
 
-// Issue #468 Phase B — the evidence/receipt inventory cards count the per-feature bundle
-// union, so tests seed a bundle `evidence.jsonl` (N graded rows) + `receipt.json`.
 function seedBundle(root: string, evidenceRows: number): void {
   const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
   const evidencePath = join(root, featureFilePath(dir, 'evidence'));
@@ -68,11 +66,7 @@ describe('buildInventory', () => {
     expect(new Set(keys).size).toBe(keys.length);
 
     const byClass = (cls: string) => report.items.filter((item) => item.class === cls);
-    // decision-contract retired (#229): the dashboard editor was removed, so the
-    // web class drops from 13 to 12.
     expect(byClass('web').length).toBe(12);
-    // plan-resume prompt item retired (F8): the slice-execution engine + `plan
-    // resume` CLI were deleted, so the prompt class drops from 5 to 4.
     expect(byClass('prompt').length).toBe(4);
     expect(byClass('evidence').length).toBe(12);
     expect(byClass('operation').length).toBe(1);
@@ -125,7 +119,7 @@ describe('buildInventory', () => {
     write(root, '.paqad/vectors/index.json', '{}');
     write(root, '.paqad/decisions/pending/D-1.json', '{}');
     write(root, '.paqad/decisions/module-decisions/MD-0001.json', '{}');
-    seedBundle(root, 2); // 2 bundle evidence rows + 1 bundle receipt
+    seedBundle(root, 2);
     write(root, '.paqad/audit.log', 'line one\nline two\nline three\n');
     write(root, '.paqad/module-map/drift.json', '{"findings":[{"code":"MM-ADD"}]}');
     write(root, 'CLAUDE.md', '# entry');
@@ -135,7 +129,6 @@ describe('buildInventory', () => {
 
     const { items } = buildInventory(root, { paqadHome: home });
 
-    // a.md + b.yml + module-map.yml + the two workflow yaml files
     expect(byKey(items, 'instructions').state.count).toBe(5);
     expect(byKey(items, 'workflows').state.count).toBe(2);
     expect(byKey(items, 'delivery-policy').state.detail).toBe('Policy file present');
@@ -182,8 +175,6 @@ describe('buildInventory', () => {
     const report = buildInventory(root, { paqadHome: home, now: 1750000000000 });
     expect(report.generatedAt).toBe(new Date(1750000000000).toISOString());
   });
-  // Issue #616 Part 8b — packs/patterns live under the shared ~/.paqad home; the inventory read the
-  // legacy ~/.paqad-ai home and always showed zero. Read shared first, fall back to legacy.
   it('counts packs/patterns from the shared ~/.paqad home', () => {
     const shared = mkdtempSync(join(tmpdir(), 'paqad-inventory-shared-'));
     mkdirSync(join(shared, 'packs', 'react'), { recursive: true });

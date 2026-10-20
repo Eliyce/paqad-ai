@@ -11,7 +11,7 @@ import {
   SavedViewNotFoundError,
 } from '@/dashboard/saved-views.js';
 
-describe('saved views store (#161)', () => {
+describe('saved views store', () => {
   let root: string;
 
   beforeEach(() => {
@@ -37,7 +37,6 @@ describe('saved views store (#161)', () => {
       writeRaw('{"not":"an array"}');
       expect(listSavedViews(root)).toEqual([]);
 
-      // Malformed entries are filtered out; the valid one survives.
       writeRaw(
         JSON.stringify([
           { id: 'ok', name: 'Good', area: 'graph', scope: {}, createdAt: '2026-01-01T00:00:00Z' },

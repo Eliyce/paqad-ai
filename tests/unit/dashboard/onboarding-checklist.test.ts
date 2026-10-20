@@ -14,8 +14,6 @@ function write(root: string, relative: string, content: string): void {
   writeFileSync(full, content);
 }
 
-// Issue #468 Phase B — the checklist reads the first passing gate and the first receipt from
-// the per-feature bundle union, so tests seed a bundle `evidence.jsonl` / `receipt.json`.
 function seedBundleGate(root: string, verdict: 'pass' | 'fail'): void {
   const dir = formatFeatureDirName({ issue: null, slug: 'x', ulid: '01ARZ3NDEKTSV4RRFFQ69G5FAV' });
   const path = join(root, featureFilePath(dir, 'evidence'));

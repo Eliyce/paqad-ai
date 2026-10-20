@@ -25,7 +25,6 @@ describe('scoreFreshness', () => {
   });
 
   it('decays linearly between the fresh window and the stale cliff', () => {
-    // Midpoint between 30 and 180 is 105 days → ~50.
     expect(scoreFreshness(at(105), { now: NOW })).toBe(50);
   });
 
@@ -46,7 +45,6 @@ describe('scoreFreshnessAverage', () => {
   });
 
   it('averages individual scores', () => {
-    // Two fresh (100) + one fully stale (0) → ~67.
     expect(scoreFreshnessAverage([at(1), at(2), at(365)], { now: NOW })).toBe(67);
   });
 });
@@ -78,8 +76,6 @@ describe('scorePresence', () => {
   });
 
   it('blends presence and freshness when stale count is given', () => {
-    // Present: 4/5 → 0.8 presence. Stale: 2 of 4 → 0.5 freshness.
-    // 0.8 * 0.7 + 0.5 * 0.3 = 0.71 → 71.
     expect(scorePresence({ expected: 5, present: 4, stale: 2 })).toBe(71);
   });
 

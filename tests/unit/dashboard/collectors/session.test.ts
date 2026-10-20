@@ -45,7 +45,7 @@ describe('collectSession', () => {
   });
 
   it('decays as the handoff ages past 7 days', () => {
-    writeHandoff(root, 'handoff.md', 60); // hits stale cliff
+    writeHandoff(root, 'handoff.md', 60);
     const section = collectSession(root, NOW);
     expect(section.score).toBe(0);
     expect(section.band).toBe('red');

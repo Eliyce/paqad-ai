@@ -29,10 +29,6 @@ import { recordDoneRow } from '@/spec-pipeline/high-table.js';
 
 import { DIR, SES, assistant, at, total, writeStageRows, writeTranscript } from './cost.fixture.js';
 
-// Issue #639, Part 23 (FR-20, FR-22): the change's tokens from the session's and each subagent's
-// transcript, each message once, over the window from the first `open` row to the seal, split by
-// stage, by expert and the chief.
-
 const roots: string[] = [];
 function tempRoot(): string {
   const root = mkdtempSync(join(tmpdir(), 'paqad-change-cost-'));
@@ -45,7 +41,6 @@ afterEach(() => {
 
 const NOW = () => new Date(at('11:00'));
 
-/** Record the payloads, then compute, as the hook does. */
 function run(root: string, payloads: CostHookPayload[], chunkBytes?: number): ChangeCostRecord {
   const window = changeCostWindow(root, DIR, NOW)!;
   for (const payload of payloads) {
@@ -83,17 +78,14 @@ const S2 = { input: 2, output: 250, cacheRead: 4000, cacheWrite: 0 };
 const X1 = { input: 4, output: 600, cacheRead: 7000, cacheWrite: 300 };
 const K1 = { input: 6, output: 800, cacheRead: 8000, cacheWrite: 200 };
 
-/** Main + two stage agents + two seats + the chief, with repeated message ids. */
 function fullChange(root: string) {
   writeStageRows(root, STAGES);
   const main = writeTranscript(root, 'main', [
     assistant('m1', '10:02', A),
     assistant('m2', '10:10', B),
     assistant('m3', '10:30', { ...C, output: 100 }),
-    // The same message written again with its final output count.
     assistant('m3', '10:30', C),
     assistant('m3', '10:30', C),
-    // A dev-agent message the host also copied into the main transcript: counted once.
     assistant('d1', '10:25', E),
   ]);
   const planning = writeTranscript(root, 'agent-plan', [
@@ -181,11 +173,9 @@ describe('computeChangeCost (AC-47)', () => {
     expect(cost.by_expert[0]!.tokens.total).toBe(total(S1) + total(S2));
     expect(cost.by_expert[1]!.tokens.total).toBe(total(X1));
     expect(cost.chief).toMatchObject({ exact: true, tokens: { total: total(K1) } });
-    // The table's seats and the chief plus everything else is the total: no seat counted twice.
     const table = sumTotals(cost.by_expert) + cost.chief!.tokens.total;
     expect(table + total(A) + total(B) + total(C) + total(D) + total(E)).toBe(cost.tokens.total);
 
-    // Every part is priced (Opus 5.5) and the money adds up to the total, to the rounding.
     const stageUsd = cost.by_stage.reduce((sum, line) => sum + line.usd!, 0);
     expect(stageUsd).toBeCloseTo(cost.usd!, 3);
     expect(cost).toMatchObject({
@@ -231,7 +221,6 @@ describe('computeChangeCost (AC-47)', () => {
     const main = writeTranscript(root, 'main', [
       assistant('m1', '10:01', { input: 1_000_000, output: 1_000_000 }),
       assistant('m2', '10:02', A, { model: 'claude-future-9' }),
-      // Synthetic zero-usage lines and a message with no time never count.
       assistant('m3', '10:03', {}, { model: '<synthetic>' }),
       assistant('m4', null, B),
     ]);
@@ -350,7 +339,6 @@ describe('the offset cache (AC-48)', () => {
     const stored = readCostCache(cachePath, SES).sources[main]!;
     expect(stored.offset).toBe(statSync(main).size);
 
-    // Blank the bytes already read (same length). A re-read would lose m1 and m2.
     const original = readFileSync(main, 'utf8');
     writeFileSync(main, original.replace(/[^\n]/g, ' '), 'utf8');
     const appended = [assistant('m3', '10:03', C), assistant('m2', '10:02', B)];

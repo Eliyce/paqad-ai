@@ -76,7 +76,7 @@ describe('resolveComplianceCitations', () => {
     expect(citations).toHaveLength(0);
   });
 
-  it('INV-5: never turns a skipped gate row into a citation (issue #579)', () => {
+  it('INV-5: never turns a skipped gate row into a citation', () => {
     const rows = [
       gateRow('behavioral-correctness', 'skipped'),
       gateRow('mutation-testing', 'skipped'),

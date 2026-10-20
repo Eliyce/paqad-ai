@@ -43,8 +43,6 @@ describe('dashboard write pipeline', () => {
     });
 
     it('rejects the retired decision-pause contract path (editor removed)', () => {
-      // #229 retired the dashboard decision-contract editor: the path is no
-      // longer on the named-file allowlist, so the dotfile rule rejects it.
       expect(() => resolveManagedPath(root, '.paqad/decision-pause-contract.md')).toThrow(
         PathNotAllowedError,
       );
@@ -58,7 +56,6 @@ describe('dashboard write pipeline', () => {
         ['docs/instructions/../../etc/passwd.md', /traversal/],
         ['docs/instructions/rules/.hidden.md', /dotfiles/],
         ['src/index.ts', /outside docs\/instructions/],
-        // not on the named-file allowlist, so the dotfile rule fires
         ['.paqad/audit.log', /dotfiles/],
         ['docs/instructions/rules/script.sh', /extension/],
         ['', /empty path/],
@@ -163,7 +160,6 @@ describe('dashboard write pipeline', () => {
       expect(conflict?.currentContent).toBe('agent edited this meanwhile');
       expect(conflict?.currentHash).toBe(contentHash('agent edited this meanwhile'));
       expect(conflict?.message).toContain('changed since you opened it');
-      // The losing write must not land.
       expect(readFileSync(join(root, 'docs/instructions/rules/a.md'), 'utf8')).toBe(
         'agent edited this meanwhile',
       );

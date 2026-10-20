@@ -7,8 +7,6 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { readLatestDeliveryEvidence, recordDeliveryEvidence } from '@/delivery/delivery-ledger.js';
 import { detectDelivery } from '@/delivery/detection.js';
 
-// Buildout F6 — delivery evidence on the session-ledger (the delivery store fold).
-
 const roots: string[] = [];
 
 function tempRoot(): string {

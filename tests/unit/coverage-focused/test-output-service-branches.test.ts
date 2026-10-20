@@ -34,16 +34,12 @@ describe('test-output parser branch coverage', () => {
       numTotalTests: 1,
       numPassedTests: 0,
       numFailedTests: 1,
-      // Intentionally omit numPendingTests so skipped falls back to loop count (0 here).
       testResults: [
-        // Intentionally omit assertionResults to hit the `?? []` fallback.
         { name: '/tmp/suite-without-assertions.test.ts' },
         {
           name: '/tmp/suite-with-assertions.test.ts',
           assertionResults: [
-            // Intentionally omit failureMessages and set status to null so message falls back to `Test unknown`.
             { title: 'mystery test', status: null },
-            // Include a real failing assertion so we get at least one emitted failure.
             { title: 'explicit failure', status: 'failed' },
           ],
         },
@@ -95,11 +91,7 @@ describe('test-output parser branch coverage', () => {
 
   it('covers pytest detail fallback to unknown when no call details or outcome exist', async () => {
     const pytestJson = JSON.stringify({
-      tests: [
-        {
-          // Intentionally omit nodeid/call/outcome to hit all fallbacks.
-        },
-      ],
+      tests: [{}],
     });
 
     const result = await parseTestOutput({
@@ -109,7 +101,6 @@ describe('test-output parser branch coverage', () => {
 
     expect(result.failures).toHaveLength(0);
     expect(result.errors).toHaveLength(0);
-    // The parser should still emit a deterministic summary object.
     expect(result.summary.total).toBeGreaterThanOrEqual(0);
   });
 
@@ -156,7 +147,6 @@ describe('test-output parser branch coverage', () => {
   it('covers rspec failure fallbacks and summary total fallback to examples length', async () => {
     const rspecJson = JSON.stringify({
       summary: {
-        // Intentionally omit example_count so total falls back to examples length.
         failure_count: 1,
         pending_count: 0,
         duration: 0.0,
@@ -168,7 +158,6 @@ describe('test-output parser branch coverage', () => {
           status: 'failed',
           file_path: 'spec/example_spec.rb',
           line_number: 10,
-          // Intentionally omit exception to hit message fallback and null stack trace path.
         },
       ],
     });
@@ -191,7 +180,6 @@ describe('test-output parser branch coverage', () => {
           id: 'rspec-2',
           status: 'failed',
           exception: { message: 'expected mismatch', backtrace: ['line1'] },
-          // Intentionally omit file_path and line_number so the parser emits nulls.
         },
       ],
     });

@@ -53,7 +53,6 @@ describe('collectModuleDocs', () => {
     writeSummary(root, 'a', 1);
     writeSummary(root, 'b', 1);
     const section = collectModuleDocs(root, NOW);
-    // 2/5 presence (24) + 2/2 fresh (40) = 64.
     expect(section.score).toBe(64);
     expect((section.details?.missing as string[]).length).toBe(3);
   });
@@ -61,9 +60,8 @@ describe('collectModuleDocs', () => {
   it('penalises stale module docs', () => {
     writeModuleMap(root, ['a', 'b']);
     writeSummary(root, 'a', 1);
-    writeSummary(root, 'b', 200); // stale
+    writeSummary(root, 'b', 200);
     const section = collectModuleDocs(root, NOW);
-    // 2/2 presence (60) + 1/2 fresh (20) = 80.
     expect(section.score).toBe(80);
     expect(section.metrics.find((m) => m.label === 'stale')?.value).toBe('1');
   });

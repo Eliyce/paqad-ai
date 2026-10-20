@@ -13,7 +13,6 @@ import {
 
 const NOW = Date.UTC(2026, 4, 26);
 
-/** Onboard the decisions contract (the dir's existence is the "in use" signal). */
 function useContract(root: string): void {
   mkdirSync(join(root, '.paqad/decisions'), { recursive: true });
 }
@@ -55,7 +54,6 @@ describe('collectDecisions', () => {
     openPending(root, 'D-1', 2);
     openPending(root, 'D-2', 5);
     const { section, attention } = collectDecisions(root, NOW);
-    // 20 (≤3d) + 35 (≤7d) = 55 penalty → 45.
     expect(section.score).toBe(45);
     expect(section.band).toBe('red');
     expect(attention.length).toBe(2);
@@ -93,13 +91,10 @@ describe('collectDecisions', () => {
       createdAt: '',
     });
     const { section, attention } = collectDecisions(root, NOW);
-    // No created_at → aged from `now` → 0 days → 10 penalty → 90, no attention (< 1d).
     expect(section.score).toBe(90);
     expect(attention).toEqual([]);
   });
 
-  // Hard-cutover proof (D1): a pending packet written ONLY to the legacy file bucket
-  // (never recorded to the ledger) is invisible to the dashboard.
   it('ignores a pending packet present only as a legacy file', () => {
     useContract(root);
     const dir = join(root, '.paqad/decisions/pending');

@@ -20,8 +20,6 @@ describe('collectAttestation', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  // Issue #468 Phase B — the attestation surface reads the per-feature bundle receipts, so
-  // each test opens a feature and projects its receipt (authorship now carried, D-01KZTSZ…).
   let seed = 0;
   function project(authorship?: ChangeAuthorship): void {
     seed += 1;
@@ -104,7 +102,6 @@ describe('collectAttestation', () => {
   });
 
   it('falls back to FAILED + unattributed when the latest receipt is undecodable', () => {
-    // A bundle receipt.json that is valid JSON but whose payload will not base64-decode.
     const dir = openFeatureChange(root, 'ses_1', { adapter: 'claude-code', ulidSeed: 99 });
     const path = join(root, featureFilePath(dir, 'receipt'));
     mkdirSync(dirname(path), { recursive: true });

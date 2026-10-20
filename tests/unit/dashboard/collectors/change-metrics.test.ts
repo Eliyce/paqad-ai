@@ -11,8 +11,6 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 function root(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-dash-metrics-'));
-  // Issue #468 Phase B — the collector reads the per-feature bundle change-metrics rows,
-  // so every test seeds an active feature to append into.
   openFeatureChange(r, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
   return r;
 }
@@ -31,8 +29,6 @@ function metrics(dup: number | null, reuse: number | null): ChangeMetrics {
   };
 }
 
-/** Append a change-metrics row into the active bundle with a controlled, increasing ts so
- *  the ts-sorted window is deterministic. */
 let seq = 0;
 function record(r: string, m: ChangeMetrics): void {
   seq += 1;

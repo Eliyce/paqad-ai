@@ -80,9 +80,7 @@ describe('appendEvidenceRows / readEvidenceLedger', () => {
   });
 });
 
-// Issue #581 — a feature bundle row carries the envelope header, `recorded_at` in place of
-// `ts`. The reader accepts both and returns one view with `ts` filled in.
-describe('readEvidenceRowsAt (issue #581)', () => {
+describe('readEvidenceRowsAt', () => {
   it('reads a bundle row by its recorded_at, filling ts, and still reads an old ts row', () => {
     const root = mkdtempSync(join(tmpdir(), 'paqad-ledger-'));
     const rel = '.paqad/ledger/feature-evidence/x/evidence.jsonl';
@@ -107,7 +105,7 @@ describe('readEvidenceRowsAt (issue #581)', () => {
       [
         JSON.stringify({ ...header, ...body }),
         JSON.stringify(buildEvidenceRow(newRow({ code: 'old' }))),
-        JSON.stringify({ ...body, content_hash: 'x' }), // neither ts nor recorded_at
+        JSON.stringify({ ...body, content_hash: 'x' }),
       ].join('\n') + '\n',
     );
     const rows = readEvidenceRowsAt(root, rel);

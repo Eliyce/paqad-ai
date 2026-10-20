@@ -109,7 +109,6 @@ describe('Detector — PQD-423 stack detection surface', () => {
 
     const [a, b] = await Promise.all([detector.detect(projectRoot), detector.detect(projectRoot)]);
 
-    // Same in-flight promise → referentially identical, so every field matches.
     expect(a).toBe(b);
     expect(a.detected_stack).toBe(b.detected_stack);
     expect(a.primary_language).toBe(b.primary_language);
@@ -124,7 +123,6 @@ describe('Detector — PQD-423 stack detection surface', () => {
     const first = await detector.detect(projectRoot);
     const second = await detector.detect(projectRoot);
 
-    // Sequential calls are not deduplicated (the first settled and cleared).
     expect(second).not.toBe(first);
     expect(second.detected_stack).toBe(first.detected_stack);
   });

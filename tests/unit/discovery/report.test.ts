@@ -31,7 +31,7 @@ describe('discovery report', () => {
   it('renders empty sections for a bare run and carries the envelope header', () => {
     const { root, dirName } = setup();
     const html = renderDiscoveryReport(root, dirName);
-    expect(html).toContain('Discovery — Bulk &lt;invoice&gt; export'); // title escaped
+    expect(html).toContain('Discovery — Bulk &lt;invoice&gt; export');
     expect(html).toContain('no brief yet');
     expect(html).toContain('not handed off yet');
     const header = readHeaderScript(html);
@@ -84,7 +84,6 @@ describe('discovery report', () => {
       phase: 'start',
       revision: 1,
     });
-    // A fully complete stage (start + end + real artifact) → 🟢 done row.
     recordDiscoveryStage(root, dirName, {
       sessionId: 'sess-A',
       stage: 'investigate',
@@ -98,7 +97,6 @@ describe('discovery report', () => {
       revision: 1,
       artifactPath: join('does', 'not', 'matter'),
     });
-    // Give the end a real digest by pointing at an existing file.
     recordDiscoveryStage(root, dirName, {
       sessionId: 'sess-A',
       stage: 'refine',
@@ -118,7 +116,7 @@ describe('discovery report', () => {
     expect(html).toContain('perf unverified');
     expect(html).toContain('open a feature');
     expect(html).toContain('🟡 in progress');
-    expect(html).toContain('🟢 done'); // refine is complete (start+end+real artifact)
+    expect(html).toContain('🟢 done');
   });
 
   it('writes report.html atomically and returns its path', () => {
@@ -130,13 +128,11 @@ describe('discovery report', () => {
 
   it('degrades gracefully when run.json is missing and a record is not an object', () => {
     const { root, dirName } = setup();
-    // A non-object brief.json → treated as no brief (readJson returns null).
     writeFileSync(join(root, discoveryRunFilePath(dirName, 'brief')), '[]', 'utf8');
-    // Remove run.json → run is unknown; the report still renders with fallbacks.
     rmSync(join(root, discoveryRunFilePath(dirName, 'run')));
     const html = renderDiscoveryReport(root, dirName);
-    expect(html).toContain('not decided'); // outcome fallback
-    expect(html).toContain('unknown'); // status fallback
+    expect(html).toContain('not decided');
+    expect(html).toContain('unknown');
     expect(html).toContain('no brief yet');
   });
 });

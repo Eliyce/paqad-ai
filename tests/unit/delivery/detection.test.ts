@@ -92,16 +92,13 @@ describe('detection — overlay respects maintained', () => {
     expect(out.host.provider).toBe('github');
     expect(out.branch.base).toBe('develop');
     expect(out.branch.template).toBe('{ticket}-{title_slug}');
-    // non-conventional commits → freeform template
     expect(out.commit.template).toBe('{summary}\n\nRefs: {ticket}');
   });
 
   it('skips a section flagged manual', () => {
     const out = overlayDetection(defaultDeliveryProcess(), detected, (s) => s !== 'branch');
-    // branch was manual → defaults preserved
     expect(out.branch.base).toBe('main');
     expect(out.branch.template).toBe('{type}/{ticket}-{title_slug}');
-    // host still filled
     expect(out.host.provider).toBe('github');
   });
 
@@ -153,9 +150,7 @@ describe('detection store + loader overlay', () => {
         'utf8',
       );
       const { policy } = loadDeliveryPolicy(root);
-      // branch is manual → default base kept, not the detected develop
       expect(policy.process.branch.base).toBe('main');
-      // host is still auto → overlaid
       expect(policy.process.host.provider).toBe('github');
     } finally {
       rmSync(root, { recursive: true, force: true });

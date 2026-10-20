@@ -12,6 +12,7 @@ import {
   resolveDiscoveryRunDir,
   updateDiscoveryRun,
 } from '@/discovery/run-store.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 const roots: string[] = [];
 function tempRoot(): string {
@@ -28,7 +29,7 @@ describe('discovery run store', () => {
     const root = tempRoot();
     const { dirName, record } = openDiscoveryRun(root, {
       sessionId: 'sess-A',
-      title: 'Bulk invoice export #597',
+      title: `Bulk invoice export ${ticketRef(597)}`,
       adapter: 'claude-code',
     });
     expect(isDiscoveryRunDirName(dirName)).toBe(true);
@@ -38,9 +39,7 @@ describe('discovery run store', () => {
     expect(record.outcome).toBeNull();
     expect(record.session_id).toBe('sess-A');
     expect(record.issue).toBe('597');
-    // recorded_at equals opened_at (writer clock pinned).
     expect(record.recorded_at).toBe(record.opened_at);
-    // On disk and readable back.
     expect(readDiscoveryRun(root, dirName)).toEqual(record);
   });
 
@@ -52,7 +51,6 @@ describe('discovery run store', () => {
       title: 'idea',
       adapter: 'claude-code',
     });
-    // Corrupt the file → tolerant read returns null.
     const path = join(root, discoveryRunFilePath(dirName, 'run'));
     rmSync(path);
     expect(readDiscoveryRun(root, dirName)).toBeNull();
@@ -84,7 +82,6 @@ describe('discovery run store', () => {
   it('applies a bare patch with default clock, no revision bump, and preserved outcome', () => {
     const root = tempRoot();
     const opened = openDiscoveryRun(root, { sessionId: 's', title: 'idea', adapter: 'x' });
-    // First set an outcome, then a bare status-only patch must preserve it and not bump revision.
     updateDiscoveryRun(root, opened.dirName, { outcome: 'deferred', now: () => new Date() });
     const updated = updateDiscoveryRun(root, opened.dirName, { status: 'paused' });
     expect(updated!.status).toBe('paused');
@@ -123,9 +120,6 @@ describe('discovery run store', () => {
 
   it('resolves a numeric-leading slug via the authoritative run.json (m5)', () => {
     const root = tempRoot();
-    // issue:null but a title that slugs to a numeric-leading slug → dir "597-fix-<ULID>", whose
-    // dir-name parse reads "597" as an issue and "fix" as the slug (the shared tie-break). The run's
-    // own run.json carries the true slug "597-fix", so resolving by it must still find the run.
     const { dirName, record } = openDiscoveryRun(root, {
       sessionId: 's',
       title: '597 fix',

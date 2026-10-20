@@ -51,8 +51,6 @@ describe('buildReport', () => {
     expect(report.notOnboarded).toBe(false);
     expect(report.projectName).toBe('demo');
     const ids = report.sections.map((s) => s.id);
-    // The contract list and the report must agree exactly on which
-    // sections exist.
     expect(new Set(ids)).toEqual(new Set(DASHBOARD_SECTION_IDS));
     expect(ids.length).toBe(DASHBOARD_SECTION_IDS.length);
   });
@@ -60,16 +58,12 @@ describe('buildReport', () => {
   it('computes overallScore as the average of applicable sections', () => {
     bootstrap(root);
     const report = buildReport(root, { now: NOW });
-    // At least one section (project-profile) is applicable, so overall
-    // is not null.
     expect(report.overallScore).not.toBeNull();
     expect(report.overallBand).not.toBe('unknown');
   });
 
   it('caps the attention list at 5 items and orders critical first', () => {
     bootstrap(root);
-    // Generate 4 fragile module-health entries (critical) + 2 ageing
-    // pending decisions (warn/critical depending on age).
     const mhDir = join(root, '.paqad/module-health');
     mkdirSync(mhDir, { recursive: true });
     for (let i = 0; i < 4; i++) {
@@ -96,7 +90,6 @@ describe('buildReport', () => {
     }
     const report = buildReport(root, { now: NOW });
     expect(report.attention.length).toBe(5);
-    // First items should all be critical.
     expect(report.attention[0]?.severity).toBe('critical');
   });
 });

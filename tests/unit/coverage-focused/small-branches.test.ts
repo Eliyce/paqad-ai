@@ -11,10 +11,6 @@ import { ParallelExecutor } from '@/workflows/parallel-executor.js';
 import { WorkflowTemplateValidator } from '@/workflows/template-validator.js';
 
 const { mockOnboardingRun, mockPrintBanner, mockPrintNextSteps } = vi.hoisted(() => ({
-  // The CLI hands phase-1 completion back via `onPhase1Complete` so the banner
-  // (which now also carries the next-steps guidance) runs only after the
-  // orchestrator has durably written every core `.paqad/**` artifact. The mock
-  // honors that contract by invoking the callback once before resolving. See #62.
   mockOnboardingRun: vi.fn(
     async (options: { projectRoot: string; onPhase1Complete?: () => void }) => {
       options.onPhase1Complete?.();
@@ -33,8 +29,6 @@ vi.mock('@/onboarding/orchestrator.js', () => ({
 vi.mock('@/cli/ui/banner.js', () => ({
   printBanner: mockPrintBanner,
   printNextSteps: mockPrintNextSteps,
-  // Issue #566 — the onboard command prints a Codex /hooks trust step when codex-cli was
-  // onboarded. The default orchestrator mock returns no adapters, so this returns null here.
   codexTrustHint: (adapters?: readonly string[]) =>
     adapters?.includes('codex-cli') ? 'Codex: run /hooks and approve paqad hooks.' : null,
 }));
@@ -78,7 +72,6 @@ describe('coverage small branches', () => {
         }),
       );
       expect(mockPrintBanner).toHaveBeenCalledOnce();
-      // The next-steps guidance is delivered via the banner, not an on-disk file.
       expect(mockPrintNextSteps).toHaveBeenCalledOnce();
 
       rmSync(root, { recursive: true, force: true });
@@ -111,7 +104,6 @@ describe('coverage small branches', () => {
     it('prints nothing extra for a clean onboard (no reverted values)', async () => {
       const root = mkdtempSync(join(tmpdir(), 'paqad-onboard-'));
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      // Default mock resolves undefined; the command must tolerate it and print no notice.
       await createOnboardCommand().parseAsync(['node', 'onboard', '--project-root', root], {
         from: 'node',
       });
