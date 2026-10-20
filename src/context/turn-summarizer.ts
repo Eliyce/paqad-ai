@@ -7,10 +7,8 @@ import type {
 
 import type { InferenceMessage, InferenceProvider } from './inference-provider.js';
 
-/** Hard cap on the summary size (best-effort, char/4 estimate). */
 const SUMMARY_TOKEN_CAP = 2000;
 
-/** Default inference deadline (AC: 30-second timeout). */
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 const BASE_SYSTEM_PROMPT = [
@@ -33,17 +31,11 @@ const ALT_SYSTEM_PROMPT = [
   'Drop all PII. Be concise.',
 ].join(' ');
 
-/** Options for {@link TurnSummarizer.summarise}. */
 export interface SummariseOptions {
-  /** Prior rolling summary to fold in (the summarise-the-summary path, AC3). */
   priorSummary?: { text: string; valid_through_turn_id: string };
-  /** Workspace model-tier preference forwarded to the provider's selection. */
   summaryModelPreference?: 'local' | 'cheapest' | 'default';
-  /** Cancellation signal; already-aborted yields a `cancelled` failure. */
   signal?: AbortSignal;
-  /** Provider that performs the actual inference; absent ⇒ graceful failure. */
   inferenceProvider?: InferenceProvider;
-  /** Inference deadline; defaults to the 30-second contract. Mainly for tests. */
   timeoutMs?: number;
 }
 
@@ -114,21 +106,6 @@ export class TurnSummarizer {
     return Math.ceil(text.length / 4);
   }
 
-  /**
-   * Collapse older user+assistant turns into a single attributed rolling summary
-   * via an injected {@link InferenceProvider} (PQD-169).
-   *
-   * Protected turns (`decision_packet`/`approval_turn`) are excluded from the
-   * collapsed span and reported in `preserved_turn_ids`. A `priorSummary` is
-   * folded in to summarise-the-summary. The result never exceeds the 2,000-token
-   * cap: an over-length response is re-issued with a stricter prompt and, if
-   * still over, truncated with `truncated: true`. An empty/malformed body is
-   * retried once with an alternate template before failing. Timeouts (30 s),
-   * cancellation, and a missing provider all return an explicit, non-partial
-   * failure result so the caller can fall back without losing the prior summary.
-   *
-   * Token counts are best-effort (character/4); the cap is approximate.
-   */
   async summarise(
     messages: SummarisationMessage[],
     targetTokenCount: number,
@@ -167,8 +144,6 @@ export class TurnSummarizer {
     const targetInstruction = `Aim for roughly ${Math.max(0, targetTokenCount)} tokens.`;
     const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-    // First attempt; an empty/malformed body is retried once with an alternate
-    // template before we give up (AC5).
     const first = await this.invoke(
       provider,
       `${BASE_SYSTEM_PROMPT} ${targetInstruction}`,
@@ -197,7 +172,6 @@ export class TurnSummarizer {
       summaryText = retry.text;
     }
 
-    // Hard cap: re-issue with a stricter prompt, then truncate as a last resort (AC2).
     let truncated = false;
     summaryText = summaryText.trim();
     if (this.estimateTokens(summaryText) > SUMMARY_TOKEN_CAP) {
@@ -231,15 +205,10 @@ export class TurnSummarizer {
     };
   }
 
-  /** Slice text down to the token cap using the char/4 estimate. */
   private truncateToTokenCap(text: string): string {
     return text.slice(0, SUMMARY_TOKEN_CAP * 4);
   }
 
-  /**
-   * Run one provider call under a merged timeout+cancellation signal. Classifies
-   * the outcome so the caller only ever sees a typed success or failure.
-   */
   private async invoke(
     provider: InferenceProvider,
     systemPrompt: string,
@@ -275,10 +244,6 @@ function isUsable(text: unknown): text is string {
   return typeof text === 'string' && text.trim().length > 0;
 }
 
-/**
- * Reject as soon as `signal` aborts, even if `promise` never settles (a provider
- * that ignores the signal must still be abandonable at the deadline).
- */
 function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     if (signal.aborted) {

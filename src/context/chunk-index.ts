@@ -41,9 +41,7 @@ export class ChunkIndexManager {
           modified_at: fileStat.mtime.toISOString(),
           chunks,
         });
-      } catch {
-        // Skip unreadable files
-      }
+      } catch {}
     }
 
     const index: ChunkIndex = {
@@ -77,9 +75,7 @@ export class ChunkIndexManager {
           modified_at: fileStat.mtime.toISOString(),
           chunks,
         });
-      } catch {
-        // Skip
-      }
+      } catch {}
     }
 
     const updated: ChunkIndex = {
@@ -103,7 +99,7 @@ export class ChunkIndexManager {
           changedFiles.push(entry.source_file);
         }
       } catch {
-        changedFiles.push(entry.source_file); // file deleted/moved
+        changedFiles.push(entry.source_file);
       }
     }
 
@@ -176,9 +172,7 @@ export class ChunkIndexManager {
           modified_at: fileStat.mtime.toISOString(),
           chunks,
         });
-      } catch {
-        // ignore unreadable file during sync
-      }
+      } catch {}
     }
 
     const updated: ChunkIndex = {

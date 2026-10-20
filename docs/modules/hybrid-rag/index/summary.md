@@ -91,6 +91,17 @@ The reasons below are not obvious from the code, grouped by file in `src/rag/`.
   without rewriting the tracked profile or the local `.config`. A cancelled rebuild writes a
   separate `.partial` index so a good `index.json` is never overwritten. A vision source path that
   is missing on disk is recorded, not rejected, because the desktop owns that file.
+- **`src/context/retrieval-context.ts`.** Retrieval runs only in the background worker, never on
+  the prompt path, and injects capped, truncated slices, not whole files. Without a prompt seed
+  the query is the working set, because the precomputed artifact never sees the prompt; with a
+  seed the prompt is the query and the paths ride along as keywords. Depth is gated by stage (or,
+  without a classification, by how many modules the working set spans), and a self-contained stage
+  skips retrieval. Code-changing workflows get docs and code slices; every other workflow stays
+  docs-only. The floor is trusted from `RagService` and never re-applied here. Duplicate slices
+  are dropped, keeping the best-ranked one. When retrieval scored something but nothing cleared
+  the relief band, one line names the best score so a dark tier is visible; when nothing was
+  scored at all the section is omitted, so a disabled RAG leaves the artifact unchanged. Relief
+  slices are marked as weaker hints.
 
 ## Authority
 

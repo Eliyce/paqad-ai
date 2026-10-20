@@ -24,7 +24,6 @@ export interface SemanticLoaderOptions {
   sessionId: string;
 }
 
-// Minimal resolved artifact interface
 interface ResolvedArtifact {
   path: string;
   content?: string;
@@ -61,7 +60,6 @@ export class SemanticLoader {
   }> {
     const sourcePaths = artifacts.map((a) => a.path).filter((p) => this.isSupportedFile(p));
 
-    // Calculate tokens_before (full-file load estimate)
     let tokensBefore = 0;
     for (const artifact of artifacts) {
       if (artifact.content) {
@@ -69,7 +67,6 @@ export class SemanticLoader {
       }
     }
 
-    // Full-context override bypasses semantic loading
     if (loadOptions.fullContextOverride) {
       const overrideChunks = artifacts.map((a) => this.artifactToChunk(a));
       const tokensAfter = overrideChunks.reduce(
@@ -93,7 +90,6 @@ export class SemanticLoader {
       };
     }
 
-    // Load or rebuild chunk index
     const sync = await this.indexManager.sync(sourcePaths, this.chunker);
     const index = sync.index;
     const allChunks = index.entries.flatMap((entry) => {
@@ -104,7 +100,6 @@ export class SemanticLoader {
       }));
     });
 
-    // Load profile and build reranker lazily (once per loader instance)
     const profile = readProjectProfile(this.options.projectRoot);
     const intelligence = normalizeIntelligenceConfig(profile?.intelligence);
     if (!this.reranker) {
@@ -129,7 +124,6 @@ export class SemanticLoader {
       symbolReferences: loadOptions.symbolReferences,
     };
 
-    // Extract metadata filters from request/classification/profile signals
     const metadataFiltersEnabled = intelligence.metadata_filters!.enabled;
     const metadataFilters: MetadataFilter[] = [];
     if (metadataFiltersEnabled) {
@@ -157,7 +151,6 @@ export class SemanticLoader {
       }
     }
 
-    // First-stage retrieval
     let ragResult = await this.rag.retrieve(
       sync,
       retrievalInput,
@@ -170,8 +163,6 @@ export class SemanticLoader {
       sessionStartMs: Date.now(),
       vectorScores: ragResult.vector_scores,
     };
-    // Bound the scoring corpus to RAG-retrieved chunks when RAG has results.
-    // For depth 'none' or when RAG returns nothing, fall back to full corpus (lexical path).
     const ragBoundedCorpus = new Set(ragResult.retrieved_chunk_ids);
     const corpus =
       intelligence.rag_enabled && ragBoundedCorpus.size > 0
@@ -180,7 +171,6 @@ export class SemanticLoader {
     let scorerResult = this.scorer.filterAndRank(corpus, scoringCtx, metadataFilters);
     let ranked = scorerResult.chunks;
 
-    // Escalation: if RAG is enabled and too few usable chunks returned and not already at deep
     let escalated = false;
     if (
       adaptiveEnabled &&
@@ -205,7 +195,6 @@ export class SemanticLoader {
       escalated = true;
     }
 
-    // Reranking: bounded candidate pool → reranked order
     const rerankingCfg = intelligence.reranking!;
     const candidatePoolSize = rerankingCfg.candidate_pool_size!;
     const rerankResult = await this.reranker!.rerank(
@@ -215,7 +204,6 @@ export class SemanticLoader {
     );
     const reranked = rerankResult.chunks;
 
-    // Allocate budget and pack (from reranked order)
     const allocation = this.allocator.allocate(loadOptions.tokenBudget, {
       complexity: loadOptions.classification?.complexity,
       scope: loadOptions.classification?.scope,
@@ -252,7 +240,6 @@ export class SemanticLoader {
 
     await this.persistStats(stats);
 
-    // Action routing: suggest applicable workflows from packed chunk evidence
     let action_recommendations: ActionRecommendation[] | undefined;
     if (intelligence.action_routing?.enabled) {
       const workflowLoader = new WorkflowTemplateLoader(this.options.projectRoot);
@@ -288,9 +275,7 @@ export class SemanticLoader {
       const statsPath = join(this.options.projectRoot, '.paqad', 'context', 'load-stats.json');
       await mkdir(dirname(statsPath), { recursive: true });
       await writeFile(statsPath, JSON.stringify(stats, null, 2), 'utf8');
-    } catch {
-      // non-critical
-    }
+    } catch {}
   }
 
   private packChunksByPriority(

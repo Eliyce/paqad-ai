@@ -16,11 +16,6 @@ import { selectModelForTier } from '@/skills/model-selector.js';
 
 import { getOrLoad } from './tokenizer-cache.js';
 
-/**
- * Band thresholds (as window-usage percentages) per workspace compression
- * policy: `[comfortable→tightening, tightening→compressed, compressed→force-summary]`.
- * Values are fixed by PQD-167 AC3.
- */
 const COMPRESSION_BAND_THRESHOLDS: Record<
   WorkspaceCompressionPolicy,
   readonly [number, number, number]
@@ -144,18 +139,6 @@ export class ContextBudgetEnforcer {
     };
   }
 
-  /**
-   * Compute an exact token-by-token breakdown of how the active model's context
-   * window is consumed by a fully-assembled set of per-turn slices (PQD-167).
-   *
-   * Returns an error union (rather than substituting a default window) when the
-   * model catalog entry has no `context_window_tokens`. Any single retrieved
-   * chunk whose token cost exceeds the remaining available budget is excluded
-   * from the total and reflected in `dropped_chunk_count` plus a
-   * `context.compression_applied` audit record.
-   *
-   * @since 1.10.0
-   */
   static async computeBudget(input: ComputeBudgetInput): Promise<BudgetBreakdown> {
     const { model } = input;
     if (
@@ -191,8 +174,6 @@ export class ContextBudgetEnforcer {
       recentTurnsTokens +
       newUserMessageTokens;
 
-    // Greedy chunk inclusion against the remaining budget guarantees the total
-    // never exceeds the window: included chunks sum to at most `available`.
     let remaining = window - nonChunkContent - reserved;
     let retrievedChunksTokens = 0;
     let droppedChunkCount = 0;

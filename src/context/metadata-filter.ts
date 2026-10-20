@@ -19,11 +19,6 @@ export interface MetadataFilterResult {
 
 const DEFAULT_MIN_FILTERED_SIZE = 3;
 
-/**
- * Apply metadata filters to a chunk set conservatively.
- * If the filtered set is smaller than `minFilteredSize`, the full set is returned
- * with `fallback = true` so callers can log/record the fallback.
- */
 export function applyMetadataFilters(
   chunks: Chunk[],
   filters: MetadataFilter[],
@@ -64,10 +59,6 @@ export function applyMetadataFilters(
   return { chunks: filtered, fallback: false, filter_types_applied: filterTypesApplied };
 }
 
-/**
- * Known file-extension patterns per framework name (lower-cased).
- * Used as a secondary signal when the framework name does not appear in the file path.
- */
 const FRAMEWORK_EXT_PATTERNS: Readonly<Record<string, readonly string[]>> = {
   react: ['.tsx', '.jsx'],
   'react-native': ['.tsx', '.jsx'],
@@ -88,8 +79,6 @@ function applyFilter(chunks: Chunk[], filter: MetadataFilter): Chunk[] {
       return chunks.filter((c) => c.source_file.endsWith(ext));
     }
     case 'module_path_prefix': {
-      // Normalize separators so repo-relative prefixes (e.g. 'src/billing') match
-      // both relative chunk paths and absolute paths ('/abs/root/src/billing/…').
       const prefix = String(filter.value)
         .replace(/\\/g, '/')
         .replace(/^\.?\//, '')
@@ -105,9 +94,6 @@ function applyFilter(chunks: Chunk[], filter: MetadataFilter): Chunk[] {
       });
     }
     case 'framework': {
-      // Primary: framework name appears anywhere in the source path.
-      // Secondary: file extension matches a known pattern for the framework
-      // (handles frameworks like 'react' or 'laravel' whose names rarely appear in paths).
       const fw = String(filter.value).toLowerCase();
       const extensions = FRAMEWORK_EXT_PATTERNS[fw] ?? [];
       return chunks.filter((c) => {
@@ -116,11 +102,8 @@ function applyFilter(chunks: Chunk[], filter: MetadataFilter): Chunk[] {
       });
     }
     case 'recency_cutoff_ms': {
-      // Recency filter: retain chunks whose source files were modified within
-      // the cutoff window. Falls back to accepting all if stat is unavailable.
       const cutoff = Date.now() - Number(filter.value);
       return chunks.filter((c) => {
-        // If no recency info is available for a chunk, accept it conservatively.
         const ts = c.modified_at_ms;
         if (ts === undefined) return true;
         return ts >= cutoff;

@@ -25,7 +25,6 @@ const TIER_THRESHOLDS = {
 };
 
 export class ContextBudgetOptimizer {
-  /** Reserved for priority-aware segment selection in future phases. */
   readonly classifier: PriorityClassifier;
 
   constructor(
@@ -99,12 +98,6 @@ export class ContextBudgetOptimizer {
     return { action, tier };
   }
 
-  /**
-   * Follow-on (PQD-172): once turns carry a `PriorityClassifier.tag` priority, a
-   * future pass should skip summarising turns where `priority === 'high'` so
-   * decision-packet/approval turns survive compaction verbatim. The signature is
-   * intentionally unchanged in this ticket — the AC does not require it.
-   */
   async summarizeTurns(
     turns: Array<{ text: string; timestamp: string }>,
     olderThanIndex: number,
@@ -137,9 +130,7 @@ export class ContextBudgetOptimizer {
       const statePath = join(this.projectRoot, '.paqad', 'session', 'context-budget.json');
       await mkdir(dirname(statePath), { recursive: true });
       await writeFile(statePath, JSON.stringify(state, null, 2), 'utf8');
-    } catch {
-      // non-critical
-    }
+    } catch {}
   }
 
   private classifyTier(ratio: number): BudgetTier {

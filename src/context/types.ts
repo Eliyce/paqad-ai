@@ -7,7 +7,7 @@ export interface Chunk {
   ast_node_path: string;
   exported_symbols: string[];
   content: string;
-  char_count: number; // non-whitespace chars
+  char_count: number;
   content_hash: string;
   modified_at_ms?: number;
 }
