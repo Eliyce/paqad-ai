@@ -41,6 +41,7 @@ import { writeStackArtifacts } from '@/stack-docs/generator.js';
 
 import { DocumentProgressTracker } from './progress-tracker.js';
 import { hashSourceFiles } from './staleness.js';
+import { slugifyAscii } from '@/core/text/trim-char.js';
 
 export type DocumentationWorkflowMode = 'foundation' | 'module-docs';
 
@@ -880,14 +881,16 @@ async function processEntry(input: {
   input.entry.tokens_used = Math.max(32, Math.round(input.content.length / 4));
 
   if (input.entry.output_path.endsWith('tokens.md')) {
+    const placeholders = findBracePlaceholders(input.content);
     input.entry.design_tokens = {
       extraction_state: 'done',
       total_tokens_found: (input.content.match(/`/g) ?? []).length / 2,
-      placeholder_count: (input.content.match(/\{[^}]+\}/g) ?? []).length,
+      placeholder_count: placeholders.length,
       populated_count: Math.max(0, input.content.split('\n').length - 4),
-      placeholder_keys: Array.from(
-        new Set((input.content.match(/\{[^}]+\}/g) ?? []).map((item) => item.slice(1, -1))),
-      ).slice(0, 10),
+      placeholder_keys: Array.from(new Set(placeholders.map((item) => item.slice(1, -1)))).slice(
+        0,
+        10,
+      ),
     };
   }
 
@@ -1017,11 +1020,7 @@ function defaultContentOutputPath(requestText: string): string {
 }
 
 function slugify(requestText: string): string {
-  const slug = requestText
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 80);
+  const slug = slugifyAscii(requestText).slice(0, 80);
 
   return slug.length > 0 ? slug : 'content-draft';
 }
@@ -1551,12 +1550,50 @@ function resolveSourcePaths(mappedPaths: string[], sourceFiles: string[]): strin
   return result;
 }
 
-function extractModuleNamesFromRequest(requestText: string | undefined): string[] {
+export function findBracePlaceholders(content: string): string[] {
+  const found: string[] = [];
+  let open = content.indexOf('{');
+  while (open !== -1) {
+    const close = content.indexOf('}', open + 1);
+    if (close === -1) break;
+    if (close > open + 1) {
+      found.push(content.slice(open, close + 1));
+      open = content.indexOf('{', close + 1);
+    } else {
+      open = content.indexOf('{', open + 1);
+    }
+  }
+  return found;
+}
+
+export function extractModuleNamesFromRequest(requestText: string | undefined): string[] {
   if (!requestText) return [];
   const match = /\bmodules?\s*(?:are|is|:)\s*([\w][\w\s,]*)/i.exec(requestText);
   if (!match?.[1]) return [];
   return match[1]
-    .split(/,|\s+and\s+/i)
+    .split(',')
+    .flatMap((part) => splitOnAndWord(part))
     .map((s) => s.trim())
     .filter((s) => s.length >= 2);
+}
+
+function splitOnAndWord(text: string): string[] {
+  const tokens = text.split(/(\s+)/);
+  const parts: string[] = [];
+  let current = '';
+  let index = 0;
+  while (index < tokens.length) {
+    const isSeparator =
+      index % 2 === 1 && index + 2 < tokens.length && tokens[index + 1]!.toLowerCase() === 'and';
+    if (isSeparator) {
+      parts.push(current);
+      current = '';
+      index += 3;
+      continue;
+    }
+    current += tokens[index]!;
+    index += 1;
+  }
+  parts.push(current);
+  return parts;
 }

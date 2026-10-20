@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
 import type { BoundaryInterface, UnhandledVariant } from './types.js';
+import { trimChar } from '@/core/text/trim-char.js';
 
 export interface GenerateBoundaryTestsOptions {
   project_root: string;
@@ -40,7 +41,7 @@ export async function generateBoundaryTests(
 
 function buildFileName(boundary: BoundaryInterface, consumerSpec: string): string {
   const producer = boundary.producer_spec ?? 'unknown';
-  const slugify = (s: string) => s.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '');
+  const slugify = (s: string) => trimChar(s.replace(/[^a-z0-9]+/gi, '-'), '-');
   return `${slugify(producer)}__${slugify(consumerSpec)}__${boundary.type_name}.test.ts`;
 }
 

@@ -72,13 +72,7 @@ export class TurnSummarizer {
   }
 
   private extractFilesTouched(text: string): string[] {
-    const files: string[] = [];
-    const filePattern = /(?:src|app|lib|tests?|routes?|config|docs?)\/[\w/.-]+\.\w{1,6}/g;
-    let match;
-    while ((match = filePattern.exec(text)) !== null) {
-      files.push(match[0]);
-    }
-    return [...new Set(files)];
+    return [...new Set(findTouchedFilePaths(text))];
   }
 
   private extractBlockers(text: string): string[] {
@@ -263,4 +257,32 @@ function raceAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
       },
     );
   });
+}
+
+const TOUCHED_PATH_START = /(?:src|app|lib|tests?|routes?|config|docs?)\/[\w/.-]+/g;
+const WORD_CHAR = /\w/;
+
+export function findTouchedFilePaths(text: string): string[] {
+  const files: string[] = [];
+  TOUCHED_PATH_START.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = TOUCHED_PATH_START.exec(text)) !== null) {
+    const run = match[0];
+    const bodyStart = run.indexOf('/') + 1;
+    const end = touchedPathEnd(run, bodyStart);
+    if (end === -1) continue;
+    files.push(run.slice(0, end));
+    TOUCHED_PATH_START.lastIndex = match.index + end;
+  }
+  return files;
+}
+
+function touchedPathEnd(run: string, bodyStart: number): number {
+  for (let dot = run.length - 2; dot > bodyStart; dot -= 1) {
+    if (run[dot] !== '.' || !WORD_CHAR.test(run[dot + 1]!)) continue;
+    let end = dot + 1;
+    while (end < run.length && end - dot <= 6 && WORD_CHAR.test(run[end]!)) end += 1;
+    return end;
+  }
+  return -1;
 }

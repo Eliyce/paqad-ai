@@ -1,7 +1,7 @@
 import type { MarkdownValidationResult } from './shared.js';
 import { validateRequiredHeadings } from './shared.js';
 
-const ERROR_HEADING = /^###\s+[A-Z]{2,5}-[0-9]{3}:\s+.+$/m;
+const ERROR_HEADING = /^###\s+[A-Z]{2,5}-[0-9]{3}:\s+\S/m;
 const REQUIRED_FIELDS = [
   '**Code**',
   '**User-Facing Message**',

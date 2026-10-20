@@ -5,7 +5,7 @@ const ANNOTATION_PATTERN =
 
 const ENUM_OPEN_PATTERN = /\benum\s+([A-Za-z_]\w*)\s*\{/;
 
-const UNION_TYPE_PATTERN = /\btype\s+([A-Za-z_]\w*)\s*=\s*([^;]+);/;
+const UNION_TYPE_PATTERN = /\btype\s+([A-Za-z_]\w*)\s*=([^;]+);/;
 
 export function detectBoundariesInSource(filePath: string, source: string): BoundaryInterface[] {
   const lines = source.split('\n');
@@ -55,8 +55,9 @@ function extractStatesFromDefinition(lines: string[], lineIndex: number): string
   }
 
   const unionMatch = UNION_TYPE_PATTERN.exec(line);
-  if (unionMatch) {
-    return extractUnionMembers(unionMatch[2]!);
+  const unionBody = unionMatch?.[2]?.trim();
+  if (unionBody) {
+    return extractUnionMembers(unionBody);
   }
 
   return [];

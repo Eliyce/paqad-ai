@@ -1,4 +1,5 @@
 import type { Chunk } from './types.js';
+import { trimTrailingChar } from '@/core/text/trim-char.js';
 
 export type MetadataFilterType =
   'file_extension' | 'module_path_prefix' | 'framework' | 'recency_cutoff_ms';
@@ -79,10 +80,12 @@ function applyFilter(chunks: Chunk[], filter: MetadataFilter): Chunk[] {
       return chunks.filter((c) => c.source_file.endsWith(ext));
     }
     case 'module_path_prefix': {
-      const prefix = String(filter.value)
-        .replace(/\\/g, '/')
-        .replace(/^\.?\//, '')
-        .replace(/\/+$/, '');
+      const prefix = trimTrailingChar(
+        String(filter.value)
+          .replace(/\\/g, '/')
+          .replace(/^\.?\//, ''),
+        '/',
+      );
       return chunks.filter((c) => {
         const filePath = c.source_file.replace(/\\/g, '/');
         return (

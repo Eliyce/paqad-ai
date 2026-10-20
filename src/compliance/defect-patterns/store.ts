@@ -11,6 +11,7 @@ import type {
   DefectPatternIndexEntry,
   StackContext,
 } from './types.js';
+import { slugifyAscii } from '@/core/text/trim-char.js';
 
 const EXAMPLE_CAP = 5;
 const STALENESS_DAYS = 365;
@@ -260,10 +261,7 @@ function stackMatches(stored: StackContext[], query: StackContext): boolean {
 }
 
 function generatePatternId(subcategory: string): string {
-  const slug = subcategory
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
+  const slug = slugifyAscii(subcategory);
   return `${slug}-${Date.now().toString(36)}`;
 }
 
