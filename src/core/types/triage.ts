@@ -17,6 +17,7 @@ export const TRIAGE_ROUTES = [
   'record',
   'ratchet',
   'ask-human',
+  'tech-debt',
 ] as const;
 export type TriageRoute = (typeof TRIAGE_ROUTES)[number];
 
@@ -31,6 +32,7 @@ export interface TriageSignals {
   style_only?: boolean;
   measurable_quality?: boolean;
   refuted_by_evidence?: boolean;
+  out_of_scope?: boolean;
 }
 
 export interface TriageFinding {

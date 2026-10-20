@@ -139,3 +139,28 @@ describe('canDriveCodeChange — only confirmed-demonstrable may change code', (
     expect(changeDrivingVerdicts(verdicts).map((v) => v.finding_id)).toEqual(['A']);
   });
 });
+
+describe('classifyFinding — confirmed but out of scope', () => {
+  it('routes a confirmed out-of-scope finding to tech debt, never to a code change', () => {
+    const demonstrable = classifyFinding(
+      finding({ gate_failed: true, reproducible: true, out_of_scope: true }),
+    );
+    expect(demonstrable).toMatchObject({
+      pile: 'confirmed',
+      confirmation: 'demonstrable',
+      route: 'tech-debt',
+    });
+    expect(demonstrable.reason).toContain('paqad-ai debt add');
+    expect(canDriveCodeChange(demonstrable)).toBe(false);
+
+    const pending = classifyFinding(finding({ gate_failed: true, out_of_scope: true }));
+    expect(pending).toMatchObject({ confirmation: 'needs-repro', route: 'tech-debt' });
+  });
+
+  it('keeps taste and false alarms out of tech debt', () => {
+    expect(classifyFinding(finding({ refuted_by_evidence: true, out_of_scope: true })).route).toBe(
+      'record',
+    );
+    expect(classifyFinding(finding({ style_only: true, out_of_scope: true })).pile).toBe('taste');
+  });
+});

@@ -97,6 +97,7 @@ export interface ReviewFinding {
   severity: ReviewFindingSeverity;
   description: string;
   file?: string;
+  deferred_to?: string;
 }
 
 export interface ReviewRecord extends EnvelopeHeader {

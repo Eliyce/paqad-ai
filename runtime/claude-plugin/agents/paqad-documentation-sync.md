@@ -35,6 +35,10 @@ so every row and artifact you write is recorded under the one change identity.
    edits for a mutation stage.
 4. `paqad-ai stage end documentation_sync --artifact <the-rigid-file>` (mutation stages need no artifact).
 
+## Out-of-scope findings
+
+Out-of-scope findings: when you find a real problem the change will not fix (a bug next to the change, a shortcut you had to take, a limit you chose to keep), record it with `paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you mark as deferred must name its TD id.
+
 ## Hard rules
 
 - **Never ask the human.** If you hit a decision pause, create the packet with

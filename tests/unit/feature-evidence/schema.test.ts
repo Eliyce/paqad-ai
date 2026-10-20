@@ -156,6 +156,21 @@ describe('versioned document schemas', () => {
     expect(validatePlanRecord({ ...plan(), slug: 's' }).length).toBeGreaterThan(0);
   });
 
+  it('accepts a finding deferred to a TD-<ULID> item and rejects any other deferred_to', () => {
+    const finding = { severity: 'minor', description: 'later' };
+    expect(
+      validateReviewRecord({
+        ...review(),
+        findings: [{ ...finding, deferred_to: 'TD-01M5CCWX6FTKY8C6EJKMR9EH3D' }],
+      }),
+    ).toEqual([]);
+    for (const bad of ['TD-1', 'D-01M5CCWX6FTKY8C6EJKMR9EH3D', '']) {
+      expect(
+        validateReviewRecord({ ...review(), findings: [{ ...finding, deferred_to: bad }] }).length,
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it('rejects a v2 document with a malformed header', () => {
     expect(validatePlanRecord({ ...plan(), change: 'not-a-ulid' }).length).toBeGreaterThan(0);
     expect(validatePlanRecord({ ...plan(), content_hash: 'H' }).length).toBeGreaterThan(0);

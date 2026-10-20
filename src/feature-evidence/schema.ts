@@ -307,6 +307,7 @@ const REVIEW_BODY_PROPERTIES = {
         severity: { enum: ['blocker', 'major', 'minor'] },
         description: { type: 'string', minLength: 1 },
         file: { type: 'string', minLength: 1 },
+        deferred_to: { type: 'string', pattern: `^TD-${ULID_BODY}$` },
       },
     },
   },

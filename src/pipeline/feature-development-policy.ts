@@ -84,6 +84,12 @@ const REVIEW_DIGEST_INSTRUCTION =
   'finding — an unaddressed deterministic finding is itself a review finding, and the review ' +
   'gate fails when a deterministic high-severity row is never cited by file:line.';
 
+export const OUT_OF_SCOPE_FINDINGS_INSTRUCTION =
+  'Out-of-scope findings: when you find a real problem the change will not fix (a bug next ' +
+  'to the change, a shortcut you had to take, a limit you chose to keep), record it with ' +
+  '`paqad-ai debt add` instead of fixing it or leaving it in chat. A review finding you ' +
+  'mark as deferred must name its TD id.';
+
 const CROSS_MODULE_IMPACT_PLANNING_INSTRUCTION =
   'On graduated and full lanes touching more than one module: run ' +
   'cross-module-impact-scanner; surface breaking / silent-shift rows as Decision Packets ' +
@@ -202,6 +208,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         instructions: [
           'Review the change against correctness, regressions, and rollback risk before treating it as complete.',
           REVIEW_DIGEST_INSTRUCTION,
+          OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
           "Record the review with `paqad-ai review record`. The review stage's artifact is the bundle's rigid review.json — a hand-written notes file is rejected, and nothing may be written into the feature bundle directory.",
         ],
         required_inputs: ['code diff', 'verification summary'],
@@ -248,6 +255,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         read: [],
         instructions: [
           'Sync canonical docs affected by the feature diff after verification passes.',
+          OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
         ],
         required_inputs: ['changed files'],
         strictness: {
@@ -666,6 +674,7 @@ stages:
     instructions:
       - Review the change against correctness, regressions, and rollback risk before treating it as complete.
       - "${REVIEW_DIGEST_INSTRUCTION}"
+      - "${OUT_OF_SCOPE_FINDINGS_INSTRUCTION}"
     required_inputs:
       - code diff
       - verification summary
@@ -714,6 +723,7 @@ stages:
   documentation_sync:
     instructions:
       - Sync canonical docs affected by the feature diff after verification passes.
+      - "${OUT_OF_SCOPE_FINDINGS_INSTRUCTION}"
     required_inputs:
       - changed files
     strictness:
