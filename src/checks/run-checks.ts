@@ -1,12 +1,3 @@
-// Deterministic check runner (issue #318, made fast without lowering the bar by #554).
-//
-// It executes the project's mapped format/test/build commands and parses each into a
-// `StructuredTestResult` — the shape the `code-tests-lint` gate consumes. Since #554 it runs the
-// commands as `&&` argv chains (never a shell), overlaps them with a scheduler, runs the test suite
-// with the runner's own parallel mode when the project has it, falls back to the sequential command
-// on a harness failure, and confirms every parallel-run failure alone before it blocks. Everything
-// at runtime is deterministic: exit codes, parsed result files, arithmetic. No LLM call from Node.
-
 import { availableParallelism as osAvailableParallelism, totalmem as osTotalmem } from 'node:os';
 import { rmSync } from 'node:fs';
 
@@ -67,17 +58,11 @@ export interface ChecksRunResult {
   flaky_under_parallel: ChecksReportFlaky[];
   meaningful_green: boolean;
   critical_path: ChecksReportCriticalPath;
-  /** Count of tests set aside as flaky-under-parallel (for the --silent line). */
   recovered: number;
-  /** Total work time across every command (sum of durations). */
   duration_ms: number;
-  /** Why the test ran sequentially (paratest-missing, too-few-cores, harness-failure:…, unknown), for
-   *  the receipt line; null when it ran parallel/native or sequential by the user's own choice. */
   sequential_reason: string | null;
-  /** The parsed test result's total test count and the pre-isolation parallel failure count. */
   test_total: number;
   parallel_failures: number;
-  /** The final (post-isolation) parsed test result, for the failing-test list; null when no test ran. */
   test_result: StructuredTestResult | null;
   testing_recorded: boolean;
 }
@@ -87,7 +72,6 @@ export interface RunChecksOptions {
   changedFiles?: readonly string[];
   shell?: DeliveryShell;
   now?: () => string;
-  /** Injectable ms clock and os facts so a unit test never depends on the host. */
   nowMs?: () => number;
   osFacts?: OsFacts;
   checksParallel?: boolean;
@@ -196,8 +180,6 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
     testRun = runResult;
     let parsed = await parseTestCommandOutputAsync(runner, runResult, projectRoot, changedFiles);
 
-    // Harness-failure fallback: a parallel run that produced no parsed test result means the
-    // parallel harness itself failed (paratest missing, DB denied, …) — run sequentially once.
     if (
       plan.mode === 'parallel' &&
       runResult.exit_code !== 0 &&
@@ -224,8 +206,6 @@ export async function runChecks(options: RunChecksOptions): Promise<ChecksRunRes
         now: nowIso,
         runSingle: async (command, outputOverride) => {
           const outcome = await runOneCommand(shell, command, projectRoot, nowMs, nowIso);
-          // Parse the re-run's REDIRECTED output file (rerun-<index>), not the runner's default one,
-          // so an isolated re-run never reads the crowd run's result file.
           const rerunRunner =
             outputOverride && runner.output_source === 'file'
               ? { ...runner, output_path_pattern: outputOverride }

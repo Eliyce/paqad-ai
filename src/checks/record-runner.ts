@@ -1,8 +1,3 @@
-// Validate + build the agent-discovered runner record (issue #554, Part B.5). The
-// `checks record-runner` verb NEVER trusts the JSON: it checks the shape, that the parallel command
-// only adds allowlisted parallel flags to the project's own runner invocation, and that its
-// evidence paths exist. A rejected file is reported with the offending token and nothing is written.
-
 import { existsSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 
@@ -10,7 +5,6 @@ import { tokenizeCommand } from '@/checks/command-chain.js';
 import type { ProjectProfile, ProjectTesting } from '@/core/types/project-profile.js';
 import type { SingleTestSelector } from '@/core/types/pack.js';
 
-/** The tokens a discovered `test_parallel` may add after the runner invocation. */
 const PARALLEL_TOKEN_ALLOWLIST = new Set<string>([
   '--parallel',
   '--processes=<processes>',
@@ -31,7 +25,6 @@ const PARALLEL_TOKEN_ALLOWLIST = new Set<string>([
   '--max-parallel-test-modules',
   '--test-threads=<processes>',
   '-p',
-  // The chain operator and the arg separator are structural, never a smuggled command.
   '&&',
   '--',
 ]);
@@ -70,11 +63,6 @@ function sharedPrefix(a: string[], b: string[]): string[] {
   return out;
 }
 
-/**
- * Validate a discovery artifact against the project's `commands.test` and build the `testing` record
- * (and `test_parallel`) it should write. Returns `{ ok: false }` with a one-line reason and the
- * offending token when the artifact is rejected.
- */
 export function validateRecordRunner(
   raw: unknown,
   profile: ProjectProfile,
@@ -138,11 +126,6 @@ export function validateRecordRunner(
   };
 }
 
-/**
- * The parallel command must start with the project's own runner invocation (its shared leading
- * tokens, including the runner executable) and then add only allowlisted parallel flags, with
- * `<processes>` exactly once and no shell metacharacter.
- */
 function validateParallelCommand(
   sequential: string,
   parallel: string,
@@ -159,8 +142,6 @@ function validateParallelCommand(
   }
 
   for (const token of parTokens.slice(prefix.length)) {
-    // Allowlisted parallel flags (including the `<processes>` placeholder) are trusted as-is; only an
-    // UNKNOWN token is checked for a shell metacharacter, so `--jobs=<processes>` is never a false hit.
     if (PARALLEL_TOKEN_ALLOWLIST.has(token)) continue;
     if (METACHARACTERS.test(token)) {
       return { ok: false, error: `test_parallel rejected: shell metacharacter in "${token}"` };

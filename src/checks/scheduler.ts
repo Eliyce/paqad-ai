@@ -1,22 +1,14 @@
-// The concurrent command scheduler (issue #554, Part C). Runs the mapped check commands in three
-// stages — formatters serialized first (they rewrite files), then the build and shell commands
-// overlapped, then the test command alone — and records each command's stage and wall-clock
-// duration. Every stage runs even after an earlier red command, so `passed` is computed at the end,
-// never short-circuited. With `checks_parallel=false` it collapses to one serial pass in order.
-
 import { parseCommandChain, runCommandChain } from '@/checks/command-chain.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
 export type CommandStage = 1 | 2 | 3;
 
-/** One command to run, pre-classified into its stage by the caller. */
 export interface ScheduledCommand {
   logical_command: string | null;
   command: string;
   stage: CommandStage;
 }
 
-/** One command's outcome with timing and captured output. */
 export interface ScheduledCommandResult {
   logical_command: string | null;
   command: string;
@@ -28,26 +20,17 @@ export interface ScheduledCommandResult {
   duration_ms: number;
   stdout: string;
   stderr: string;
-  /** The unsupported-syntax message when the mapped command was rejected before spawning. */
   invalid?: string;
 }
 
 export interface RunStagesOptions {
   cwd: string;
-  /** When false, every command runs serially in array order (today's behaviour), still timed. */
   parallel: boolean;
   availableParallelism: number;
-  /** Injectable monotonic ms clock (duration) and ISO clock (timestamps) for deterministic tests. */
   nowMs?: () => number;
   nowIso?: () => string;
 }
 
-/**
- * Run the scheduled commands. Returns one result per command in input order. Stage 1 runs serially
- * in order; stage 2 runs concurrently, at most `min(stage-2 count, availableParallelism)` at once;
- * stage 3 (the test command) runs alone after stage 2. With `parallel=false` the whole set runs
- * serially in the given order.
- */
 export async function runStages(
   commands: readonly ScheduledCommand[],
   shell: DeliveryShell,
@@ -110,7 +93,6 @@ export async function runStages(
   return results;
 }
 
-/** Run `cmds` through `runOne` with at most `limit` in flight; results keep input order. */
 async function runPool<T, R>(
   cmds: readonly T[],
   limit: number,

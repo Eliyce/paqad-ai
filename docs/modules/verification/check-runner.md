@@ -97,6 +97,50 @@ failing tests.
 - `checks_flaky_under_parallel` (`pass|warn|fail`, default `warn`, floored) — what a pass-alone test
   does; `resolveChecksFlakyMode` (`src/checks/flaky-mode.ts`).
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code in `src/checks/` and are not stated above.
+
+- **`command-chain.ts`.** The old runner split a command on whitespace and spawned the first token,
+  so `mkdir -p dir && ./vendor/bin/pest …` ran `mkdir` with the rest as directory names and read
+  green without running a test; the argv chain exists to make that impossible. `&` alone is not in
+  the rejected set because `&&` is the operator. The tokenizer only understands quotes (no escaping,
+  variables or globs); quote marks are dropped and the inner whitespace kept. A blank command parses
+  to no steps and is skipped. The first non-zero exit stops the chain and becomes its exit code.
+- **`constants.ts`.** The plan resolver, scheduler, re-run verdict and report share one set of
+  numbers, because a second copy would silently move the quality bar.
+- **`flaky-mode.ts`.** Floored like every enforced mode: the tracked value is the floor and local
+  config or `PAQAD_CHECKS_FLAKY_UNDER_PARALLEL` may only raise it (`pass` < `warn` < `fail`).
+- **`isolation-rerun.ts`.** Each re-run writes to its own redirected result file, so it never
+  overwrites or reads the crowd run's file. The selector is the last `::` segment of a pytest node
+  id, else the whole id. Set-aside tests are removed from a copy of the result and the summary is
+  decremented; under `fail` they stay blocking.
+- **`parallel-plan.ts`.** OS facts are injected so the resolver is pure and a unit test never
+  depends on the host. A record that says `available` but has no command degrades to sequential
+  rather than guessing one.
+- **`prerequisites.ts`.** It reads lockfiles and never runs a package manager. No lockfile for the
+  ecosystem returns unknown instead of a false "no". Names compare case-insensitively with `-` and
+  `_` treated alike, except `composer.lock`, which matches exactly.
+- **`record-runner.ts`.** The verb never trusts the discovery JSON. The parallel command must start
+  with the project's own runner invocation and add only allowlisted parallel flags, with
+  `<processes>` exactly once. Only unknown tokens are checked for shell metacharacters, so
+  `--jobs=<processes>` is never a false hit; `&&` and `--` are structural.
+- **`report-store.ts` and `report-target.ts`.** `checks run` is invoked mid-turn while the backstop is
+  a separate Stop-hook process, so the report on disk is how the backstop proves the checks ran
+  instead of assuming they passed. Writes are atomic. A corrupt or partial report reads as no report
+  (Inconclusive), never a throw or a false pass. In the bundle copy the envelope header's
+  `recorded_at` replaces `generated_at`; the global fallback file keeps the plain shape. One module
+  decides bundle versus global for the writer and both readers. Unlike `resolveActiveFeature`, the
+  lookup never mints a bundle, so a chat turn falls back to the global path, and an empty bundle read
+  also falls back so a report written before the bundle opened is not lost.
+- **`test-runner.ts`.** Onboarding and the runner share this one selector. A runner with no
+  structured format is skipped, since an unparseable runner counts as no runner.
+- **`testing-record.ts`.** The same path derives the record at onboarding and at `checks run`, and
+  writes the stack-doc mirror with it so the two always move together (`checks plan` passes a flag to
+  stay read-only). A lockfile hash means the decision is re-derived only after a lockfile changes.
+  The parallel flag is inserted right after the runner invocation and before the structured-output
+  flags so their order is kept. A project without `docs/instructions/stack/` gets no mirror.
+
 ## Source Footprint
 
 - `src/checks/run-checks.ts` — resolve + plan + schedule + parse + fallback + isolation.
