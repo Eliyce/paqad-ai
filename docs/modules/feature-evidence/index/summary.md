@@ -892,6 +892,17 @@ obvious from their code, grouped by file.
 - `src/feature-evidence`
 - `src/hud`
 - `src/cost`
+- `src/tech-debt`
+- `src/core/text/marker-block.ts`
+- `src/cli/commands/debt.ts`
+- `src/fix-protocol/fix-prove.ts`, `src/fix-protocol/fix-proof-record.ts`, `src/fix-protocol/fix-change.ts`, `src/cli/commands/fix.ts`
+- `src/rule-scripts/override.ts`
+
+## Features
+
+- [Tech debt (paqad-ai debt)](../features/tech-debt/business.md)
+- [Fix proof (paqad-ai fix prove)](../features/fix-proof/business.md)
+- [Rule stop and Allow once (paqad-ai rules override)](../features/rule-override/business.md)
 
 ## Authority
 

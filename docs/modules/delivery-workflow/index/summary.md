@@ -198,6 +198,10 @@ detection from the `delivery-evidence` ledger doc (F6), not the legacy file.
 - **`registry.ts`.** The host provider counts as connected only when the CLI is available and the
   real git remote matches the configured host kind.
 
+## Features
+
+- [Shipped commits and the commit question (paqad-ai delivery-link commit-decision)](../features/commit-decision/business.md)
+
 ## Boundaries
 
 - **Owns:** the provider contracts + Jira/GitHub adapters, the delivery-policy
