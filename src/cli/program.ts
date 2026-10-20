@@ -25,6 +25,7 @@ import { createInstallCommand } from './commands/install.js';
 import { createIntakeCommand } from './commands/intake.js';
 import { createJoinCommand } from './commands/join.js';
 import { createLaneCommand } from './commands/lane.js';
+import { createManagedSettingsCommand } from './commands/managed-settings.js';
 import { createMetricsCommand } from './commands/metrics.js';
 import { createModuleDecisionsCommand } from './commands/module-decisions.js';
 import { createModuleEventsCommand } from './commands/module-events.js';
@@ -115,6 +116,7 @@ export function createProgram(): Command {
   program.addCommand(createStatusCommand());
   program.addCommand(createDebtCommand());
   program.addCommand(createHookCommand());
+  program.addCommand(createManagedSettingsCommand());
 
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);

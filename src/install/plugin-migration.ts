@@ -294,7 +294,7 @@ function isConfigSkip(state: MigrationState, reason: string | undefined): boolea
   return state === 'skipped' && CONFIG_SKIP_REASONS.has(reason ?? '');
 }
 
-function pluginSettingsKeys(): {
+export function pluginSettingsKeys(): {
   extraKnownMarketplaces: Record<string, unknown>;
   enabledPlugins: Record<string, boolean>;
 } {
