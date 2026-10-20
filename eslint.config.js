@@ -10,11 +10,6 @@ export default tseslint.config(
       'node_modules/**',
       '.claude/**',
       '.codex-tracker/**',
-      // `.paqad/` is a machine-local runtime dir (decisions, ledger, context, and the
-      // generated rule-scripts + their intentionally-broken pass/fail fixtures) — runtime
-      // artifacts, not project source. Already prettier-ignored; ignore it here too so the
-      // generated `.paqad/scripts/**` `.mjs` never fail lint (they carry node globals and
-      // fixtures deliberately contain violations).
       '.paqad/**',
       'docs/slides/**',
       'graph-ui/**',
@@ -47,7 +42,6 @@ export default tseslint.config(
       },
     },
     rules: {
-      // CommonJS modules legitimately use require()/module.exports.
       '@typescript-eslint/no-require-imports': 'off',
     },
   },

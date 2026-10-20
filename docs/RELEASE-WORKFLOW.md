@@ -256,6 +256,41 @@ the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.te
 - Dependabot: [`.github/dependabot.yml`](../.github/dependabot.yml) — npm and
   github-actions, weekly, grouped.
 
+### Build, lint and test config
+
+The reasons behind the root config files, which carry no comments of their own.
+
+- **`tsup.config.ts`.** Besides the main and CLI entries, it builds one small dedicated bundle per
+  runtime hook seam (capability gate, stage writer and narration, stage-marker parse, session-id
+  alignment and in-flight bundle adoption, the session-start dirty-file baseline, prompt route and
+  ticket detection, stage-agent completion, background-stage deferral, HUD snapshot, change cost,
+  the disabled-session audit). The hooks lazy-import these so each path stays light. Every hook
+  import needs its entry here: a missing entry makes the import throw `ERR_MODULE_NOT_FOUND` on
+  every installed copy (that once left the recorded lane always null). Hook paths log such a
+  failure and never change a decision. The `rule-scripts` subpath export serves the rule-script
+  `.mjs` wrappers through `import 'paqad-ai/rule-scripts'`. The benchmark scripts and the plugin
+  manifest generator import their primitives from dist the same way, so nothing is
+  re-implemented. Everything except the heavy optional embedding engines is bundled, including
+  the pure-JS dependencies tsup would externalise by default, so `dist/` is self-contained and
+  the Claude Code plugin works with no `node_modules`. A `createRequire` banner gives bundled CJS
+  (such as `yaml`) a real `require`, since esbuild's shim otherwise throws "Dynamic require is not
+  supported" without `node_modules`. The package version is injected at build time so it never
+  drifts from `package.json`; vitest has its own define block.
+- **`eslint.config.js`.** `.paqad/` is a machine-local runtime folder, including generated
+  rule-scripts and their pass/fail fixtures that break rules on purpose, so lint ignores it as
+  prettier already does. CommonJS files may use `require` and `module.exports`.
+- **`vitest.config.ts`.** Every test file gets a throwaway HOME, so onboarding, join and update
+  never write the developer's real `~/.paqad-ai`, `~/.claude` or `~/.codex`. Windows runners are
+  slower, so the test and hook timeouts are raised there, and suites that need a POSIX bash (the
+  `runtime/**/scripts/*.sh` helpers, which the product never runs on Windows) are excluded on
+  Windows. The duration sequencer only acts on a sharded run. Coverage leaves out type-only files,
+  thin CLI wrappers whose logic is tested elsewhere, and the impure gatherers (codebase health,
+  site map, visual-evidence capture) whose pure inputs have their own tests and whose orchestration
+  runs against a fake or an env-gated integration test. Only `PAQAD_TEST_SHARD=1` exactly turns
+  the floors off, so a stray `0` changes nothing. The stage-evidence spine (block-forward gate,
+  marker parse, live writer, narration) holds a 100% floor instead of the repo's 95%, because it
+  must never regress unseen.
+
 ### Repo scripts under `scripts/`
 
 Why each one works the way it does, for the parts the code does not say.
