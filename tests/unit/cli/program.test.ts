@@ -63,6 +63,7 @@ describe('createProgram', () => {
       'delivery-link',
       'discovery',
       'status',
+      'debt',
     ]);
   });
 

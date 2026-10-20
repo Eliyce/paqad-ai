@@ -697,6 +697,8 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
       'stage',
       'deliver',
       'delivery-link commit',
+      'debt add',
+      'debt close',
     ]) {
       expect(isHudRefreshVerb(verb)).toBe(true);
     }
@@ -706,6 +708,7 @@ describe('refreshHudSnapshot stand-downs (decision 5)', () => {
       'rules compile',
       'delivery',
       'spec pipeline start',
+      'debt list',
     ]) {
       expect(isHudRefreshVerb(verb)).toBe(false);
     }

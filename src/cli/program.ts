@@ -37,6 +37,7 @@ import { createPlanCommand } from './commands/plan.js';
 import { createPreflightCommand } from './commands/preflight.js';
 import { createReviewCommand } from './commands/review.js';
 import { createConfigCommand } from './commands/config.js';
+import { createDebtCommand } from './commands/debt.js';
 import { createDecisionCommand } from './commands/decision.js';
 import { createRagCommand } from './commands/rag.js';
 import { createRagEvidenceCommand } from './commands/rag-evidence.js';
@@ -111,6 +112,7 @@ export function createProgram(): Command {
   program.addCommand(createDeliveryLinkCommand());
   program.addCommand(createDiscoveryCommand());
   program.addCommand(createStatusCommand());
+  program.addCommand(createDebtCommand());
 
   program.hook('postAction', (_program, actionCommand) => {
     const commandPath = commandPathOf(actionCommand);
