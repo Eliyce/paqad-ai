@@ -17,11 +17,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   PAQAD_LIVE_HOOKS,
   PAQAD_STAGE_HELPER_MATCHER,
+  PLUGIN_RUNTIME_ROOT,
   PLUGIN_SESSION_START_HOOK,
+  type RenderedHook,
   buildHostHookChain,
   buildPluginHookChain,
 } from '@/adapters/shared/paqad-hooks.js';
+import { AdapterFactory } from '@/adapters';
 import { mergeNativeHooks } from '@/adapters/shared/native-hook-config.js';
+import { ADAPTER_TYPES } from '@/core/types/adapter.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { hudSnapshotPath } from '@/hud/files.js';
 
@@ -47,6 +51,60 @@ interface PluginHooksFile {
 
 function withoutSeedHook(hooks: HookGroups): HookGroups {
   return Object.fromEntries(Object.entries(hooks).filter(([event]) => event !== SEED_EVENT));
+}
+
+interface PinnedRenderings {
+  frameworkHome: string;
+  chains: Record<'claude-code' | 'codex-cli', RenderedHook[]>;
+  plugin: RenderedHook[];
+  files: Record<string, Record<string, string>>;
+}
+
+const PINNED = JSON.parse(
+  readFileSync(
+    join(REPO, 'tests/fixtures/guardrails/hook-renderings-before-stage-seed.json'),
+    'utf8',
+  ),
+) as PinnedRenderings;
+
+function notSeed(line: RenderedHook): boolean {
+  return line.nativeEvent !== SEED_EVENT;
+}
+
+function seedLine(hooksDir: string): RenderedHook {
+  return {
+    nativeEvent: SEED_EVENT,
+    matcher: PAQAD_STAGE_HELPER_MATCHER,
+    command: `node "${hooksDir}/stage-agent-start.mjs"`,
+    timeout: 10,
+  };
+}
+
+async function renderHookFiles(): Promise<Record<string, Record<string, string>>> {
+  const prior = process.env.PAQAD_FRAMEWORK_HOME;
+  process.env.PAQAD_FRAMEWORK_HOME = PINNED.frameworkHome;
+  const out: Record<string, Record<string, string>> = {};
+  try {
+    for (const type of ADAPTER_TYPES) {
+      const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-guardrail-render-'));
+      temps.push(projectRoot);
+      const files = await AdapterFactory.create(type).generateConfig({
+        frameworkPath: '.paqad/framework-path.txt',
+        rulesPath: 'docs/instructions/rules',
+        projectRoot,
+      });
+      for (const file of files) {
+        const content = file.content.split(projectRoot).join('<root>');
+        if (content.includes('/hooks/')) {
+          (out[type] ??= {})[file.path] = content;
+        }
+      }
+    }
+  } finally {
+    if (prior === undefined) delete process.env.PAQAD_FRAMEWORK_HOME;
+    else process.env.PAQAD_FRAMEWORK_HOME = prior;
+  }
+  return out;
 }
 
 function mergeBase(): string | null {
@@ -144,6 +202,76 @@ describe('the stage enforcement guardrails', () => {
     expect(byEvent(host).sort((a, b) => a[0]!.event.localeCompare(b[0]!.event))).toEqual(
       byEvent(withoutBootstrap).sort((a, b) => a[0]!.event.localeCompare(b[0]!.event)),
     );
+  });
+
+  it('AC-67: every host and plugin hook rendering matches the main branch capture apart from the Claude Code seed block', async () => {
+    const env = { PAQAD_FRAMEWORK_HOME: PINNED.frameworkHome };
+    expect(buildHostHookChain('codex-cli', env)).toEqual(PINNED.chains['codex-cli']);
+    expect(buildHostHookChain('claude-code', env).filter(notSeed)).toEqual(
+      PINNED.chains['claude-code'],
+    );
+    expect(buildPluginHookChain(env).filter(notSeed)).toEqual(PINNED.plugin);
+    expect(buildHostHookChain('claude-code', env).filter((line) => !notSeed(line))).toEqual([
+      seedLine(`${PINNED.frameworkHome}/hooks`),
+    ]);
+    expect(buildPluginHookChain(env).filter((line) => !notSeed(line))).toEqual([
+      seedLine(`${PLUGIN_RUNTIME_ROOT}/hooks`),
+    ]);
+
+    const rendered = await renderHookFiles();
+    expect(Object.keys(rendered).sort()).toEqual(Object.keys(PINNED.files).sort());
+    for (const [adapter, files] of Object.entries(PINNED.files)) {
+      expect(Object.keys(rendered[adapter]!)).toEqual(Object.keys(files));
+      for (const [path, content] of Object.entries(files)) {
+        const now = rendered[adapter]![path]!;
+        if (adapter !== 'claude-code') {
+          expect(now).toBe(content);
+          continue;
+        }
+        const parsed = JSON.parse(now) as { hooks: HookGroups };
+        const events = Object.keys(parsed.hooks);
+        expect(events.indexOf(SEED_EVENT)).toBe(events.indexOf('SubagentStop') - 1);
+        expect(flatten({ [SEED_EVENT]: parsed.hooks[SEED_EVENT]! })).toEqual([
+          { event: SEED_EVENT, matcher: PAQAD_STAGE_HELPER_MATCHER, hook: 'stage-agent-start.mjs' },
+        ]);
+        parsed.hooks = withoutSeedHook(parsed.hooks);
+        expect(`${JSON.stringify(parsed, null, 2)}\n`).toBe(content);
+      }
+    }
+  });
+
+  it('AC-67: only the fail-closed gates and the seed hook render a timeout, and only the gates block on failure', () => {
+    const env = { PAQAD_FRAMEWORK_HOME: PINNED.frameworkHome };
+    const guarded = (chain: RenderedHook[]) =>
+      chain
+        .filter((line) => line.timeout !== undefined || line.onFailure !== undefined)
+        .map((line) => ({
+          hook: hookOf(line.command),
+          timeout: line.timeout,
+          onFailure: line.onFailure,
+        }));
+    expect(guarded(buildHostHookChain('claude-code', env))).toEqual([
+      { hook: 'agent-entry-gate.mjs', timeout: 10, onFailure: 'block' },
+      { hook: 'decision-pause-gate.mjs', timeout: 10, onFailure: 'block' },
+      { hook: 'capability-gate.mjs pre-mutation', timeout: 10, onFailure: 'block' },
+      { hook: 'stage-agent-start.mjs', timeout: 10, onFailure: undefined },
+    ]);
+    expect(guarded(buildHostHookChain('codex-cli', env))).toEqual([]);
+    expect(guarded(buildPluginHookChain(env))).toEqual([
+      { hook: 'stage-agent-start.mjs', timeout: 10, onFailure: undefined },
+    ]);
+    expect(
+      PAQAD_LIVE_HOOKS.filter((spec) => spec.timeoutSec !== undefined).map((spec) => [
+        spec.id,
+        spec.timeoutSec,
+        spec.failClosed === true,
+      ]),
+    ).toEqual([
+      ['agent-entry-gate', 10, true],
+      ['decision-pause-gate', 10, true],
+      ['capability-gate-pre-mutation', 10, true],
+      ['stage-agent-start', 10, false],
+    ]);
   });
 
   it('AC-67: the hook source comparison ignores comments and issue references and catches any code change', () => {
