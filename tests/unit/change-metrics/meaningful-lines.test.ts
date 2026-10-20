@@ -28,7 +28,6 @@ describe('isMeaningfulLine', () => {
 describe('countMeaningfulChangedLines', () => {
   it('counts only non-blank, non-comment added lines of the changed files', async () => {
     const root = makeProject();
-    // 5 meaningful + 1 blank + 1 comment = 5 meaningful.
     writeFile(root, 'src/a.ts', `${codeLines(5)}\n\n// a comment line`);
     const count = await countMeaningfulChangedLines({
       projectRoot: root,
@@ -41,7 +40,6 @@ describe('countMeaningfulChangedLines', () => {
     const root = makeProject();
     writeFile(root, 'src/a.ts', codeLines(3));
     writeFile(root, 'src/b.ts', codeLines(4));
-    // A file that is empty contributes no ranges (and no lines).
     writeFile(root, 'src/empty.ts', '   \n  \n');
     const count = await countMeaningfulChangedLines({
       projectRoot: root,

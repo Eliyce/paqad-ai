@@ -10,13 +10,8 @@ import { readChecksReport, readFeatureChecks } from '@/checks/report-store.js';
 import { resolveActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 
-// `paqad-ai checks run` end to end over real subprocesses (deterministic `node -e`
-// exit codes), asserting the verb blocks on red and persists the report the
-// completion backstop reads (issue #318).
 describe('paqad-ai checks command', () => {
   let root: string;
-  // The checks verbs prefer SE_SESSION over CLAUDE_SESSION_ID (#672), so a session id exported
-  // in the shell running the suite would otherwise steer these tests to another session's bundle.
   let priorSeSession: string | undefined;
 
   beforeEach(() => {
@@ -86,7 +81,7 @@ describe('paqad-ai checks command', () => {
     expect(failed?.summary.failed).toBe(1);
   });
 
-  it('writes the report into the active feature bundle, not the global path (#528)', async () => {
+  it('writes the report into the active feature bundle, not the global path', async () => {
     process.env.CLAUDE_SESSION_ID = 'ses-cli';
     const dir = resolveActiveFeature(root, 'ses-cli', { title: 'thing', issue: '528' });
     mapCommands({ format: 'node -e process.exitCode=0' });

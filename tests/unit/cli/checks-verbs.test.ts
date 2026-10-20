@@ -81,7 +81,7 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
   };
 }
 
-describe('renderReceipt (issue #554)', () => {
+describe('renderReceipt', () => {
   it('green parallel run shows tests + parallel ×N + critical path', () => {
     const lines = renderReceipt(baseResult({}), 'warn').join('\n');
     expect(lines).toContain('checks green — Safe to merge');
@@ -107,7 +107,7 @@ describe('renderReceipt (issue #554)', () => {
     );
   });
 
-  it('a passing run with no countable tests says count unavailable, never 0 tests (#672, AC-5)', () => {
+  it('a passing run with no countable tests says count unavailable, never 0 tests', () => {
     const native = baseResult({
       test_total: 0,
       test_result: null,

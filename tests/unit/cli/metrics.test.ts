@@ -11,12 +11,10 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
 function root(): string {
   const r = mkdtempSync(join(tmpdir(), 'paqad-cli-metrics-'));
-  // Issue #468 Phase B — `metrics report` reads the per-feature bundle change-metrics rows.
   openFeatureChange(r, 'ses_1', { adapter: 'claude-code', ulidSeed: 1 });
   return r;
 }
 
-/** Append a change-metrics row into the active bundle with a controlled, increasing ts. */
 let seq = 0;
 function recordChangeMetrics(r: string, m: ChangeMetrics): void {
   seq += 1;

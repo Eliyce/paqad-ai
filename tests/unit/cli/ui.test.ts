@@ -48,14 +48,13 @@ describe('cli ui helpers', () => {
       expect(output).toContain('ONBOARDING COMPLETE');
       expect(output).toContain('create documentation');
       expect(output).toContain('create module documentation');
-      // The optional rules-as-scripts guidance moved here from next-steps.md.
       expect(output).toContain('analyze rules');
     } finally {
       logSpy.mockRestore();
     }
   });
 
-  it('keeps the onboarding panel byte-identical (issue #612, INV-7)', () => {
+  it('keeps the onboarding panel byte-identical', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     try {
@@ -86,7 +85,7 @@ describe('cli ui helpers', () => {
     }
   });
 
-  it('prints the new-project panel with one next step and no onboarding steps (issue #612)', () => {
+  it('prints the new-project panel with one next step and no onboarding steps', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
 
     try {

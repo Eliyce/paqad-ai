@@ -91,7 +91,6 @@ const V2_RED = {
   critical_path: { logical_command: 'test', duration_ms: 100 },
 };
 
-// checks.json v2 is additive and read by every v1 reader (issue #554, AC-11 / INV-6).
 describe('checks report v1/v2 compatibility', () => {
   let root: string;
   beforeEach(() => {

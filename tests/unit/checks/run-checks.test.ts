@@ -11,7 +11,7 @@ import type { DeliveryShell } from '@/delivery/runner.js';
 const GiB = 1024 ** 3;
 const CLOCK = { nowMs: () => Date.now(), now: () => '2026-01-01T00:00:00.000Z' };
 
-describe('runChecks (issue #554)', () => {
+describe('runChecks', () => {
   let root: string;
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-run-checks-'));
@@ -142,7 +142,6 @@ describe('runChecks (issue #554)', () => {
     const profile = readFileSync(join(root, '.paqad/project-profile.yaml'), 'utf8');
     expect(profile).toContain('parallel: unavailable');
 
-    // A second run now resolves sequential directly (testing pinned unavailable).
     let sawParallel = false;
     const shell2: DeliveryShell = {
       async run(bin, args) {
@@ -443,8 +442,6 @@ describe('runChecks (issue #554)', () => {
       async run(bin, args) {
         if (bin === 'php') {
           const single = args.includes('--filter=flaky one');
-          // Write the junit to whatever --log-junit path this invocation names (the re-run
-          // redirects it to rerun-0.xml so the main result is never overwritten).
           const outPath = args[args.indexOf('--log-junit') + 1] ?? '.paqad/test-results/pest.xml';
           writeFileSync(join(root, outPath), single ? passing : failing);
           return { stdout: '', stderr: '', exitCode: single ? 0 : 1 };

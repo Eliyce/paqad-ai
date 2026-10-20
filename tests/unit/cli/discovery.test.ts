@@ -71,7 +71,6 @@ describe('paqad-ai discovery command', () => {
 
   it('start B activates B even when a Discovery run A is on the paused stack (M1)', async () => {
     const runA = await startRun();
-    // Simulate a workflow switch: a code question pauses discovery/A while feature-dev is active.
     writeWorkflowState(root, 'ses_cli_discovery', {
       active: { workflow: 'feature-development', changeKey: 'k' },
       paused: [{ workflow: 'discovery', discoveryRunId: runA }],
@@ -85,13 +84,11 @@ describe('paqad-ai discovery command', () => {
     vi.restoreAllMocks();
     const runB = (JSON.parse(outB[outB.length - 1]!) as { run: string }).run;
     expect(runB).not.toBe(runA);
-    // The active run must be B (not the resurrected paused A), so record verbs default to B.
     expect(activeDiscoveryRunForSession(root, 'ses_cli_discovery')).toBe(runB);
   });
 
   it('resume re-anchors to the requested run even when a different run is paused (M1)', async () => {
     const runA = await startRun();
-    // Start B (now active=B, A paused).
     const outB: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((l: string) => void outB.push(String(l)));
     await createDiscoveryCommand().parseAsync(
@@ -99,7 +96,6 @@ describe('paqad-ai discovery command', () => {
       { from: 'user' },
     );
     vi.restoreAllMocks();
-    // Resume A explicitly → active must be A.
     await run('resume', runA);
     expect(activeDiscoveryRunForSession(root, 'ses_cli_discovery')).toBe(runA);
   });
@@ -225,7 +221,6 @@ describe('paqad-ai discovery command', () => {
     assignments: [],
   };
 
-  /** Write every canonical artifact and record all six stages start→end (auto-artifact). */
   async function completeAllStages(): Promise<void> {
     await run('brief', tpl('brief', briefBody));
     await run(
@@ -295,10 +290,8 @@ describe('paqad-ai discovery command', () => {
     const dir = await startRun();
     await run('brief', tpl('brief', briefBody));
     await run('stage', 'start', 'understand');
-    // No --artifact: the canonical brief.json is resolved and hashed.
     const end = await run('stage', 'end', 'understand');
     expect(end.out.join('\n')).toContain('"recorded":true');
-    // A --artifact that is not understand's canonical file is rejected.
     const wrong = await run(
       'stage',
       'end',
@@ -315,10 +308,8 @@ describe('paqad-ai discovery command', () => {
     expect(paused.out.join('\n')).toContain('"status":"paused"');
     const resumed = await run('resume', dir);
     expect(resumed.out.join('\n')).toContain('"resumed":true');
-    // completed is refused while stages are incomplete.
     const tooEarly = await run('set-status', 'completed', '--outcome', 'experiment');
     expect(tooEarly.err.join('\n')).toContain('stage evidence is');
-    // After all six stages complete, completed is accepted.
     await completeAllStages();
     const completed = await run(
       'set-status',
@@ -333,9 +324,7 @@ describe('paqad-ai discovery command', () => {
 
   it('a non-owner session cannot write to a run but can read it (m6)', async () => {
     const dir = await startRun();
-    // A write verb from a different session is rejected...
     const write = await run('brief', tpl('b2', briefBody));
-    // (owner path — sanity: owner CAN write)
     expect(write.out.join('\n')).toContain('"recorded":true');
     const foreign: string[] = [];
     const foreignErr: string[] = [];
@@ -356,7 +345,6 @@ describe('paqad-ai discovery command', () => {
     vi.restoreAllMocks();
     process.exitCode = undefined;
     expect(foreignErr.join('\n')).toContain('owned by another session');
-    // ...but a read (status) from the non-owner still works.
     const readOut: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((l: string) => void readOut.push(String(l)));
     await createDiscoveryCommand().parseAsync(
@@ -368,7 +356,6 @@ describe('paqad-ai discovery command', () => {
   });
 
   it('reports precise errors for bad input', async () => {
-    // No run yet.
     expect((await run('status')).err.join('\n')).toContain('no Discovery run');
     process.exitCode = undefined;
     await startRun();
@@ -390,7 +377,6 @@ describe('paqad-ai discovery command', () => {
     process.exitCode = undefined;
     expect((await run('resume', 'no-such-run')).err.join('\n')).toContain('matches');
     process.exitCode = undefined;
-    // Context receipt refusal: extra item, no reason.
     const bad = await run(
       'context',
       tpl('ctxbad', {
@@ -414,7 +400,6 @@ describe('paqad-ai discovery command', () => {
         { from: 'user' },
       );
       const dir = (JSON.parse(out[out.length - 1]!) as { run: string }).run;
-      // Empty --run string falls through to the session anchor.
       out.length = 0;
       await createDiscoveryCommand().parseAsync(['status', '--run', '', '--project-root', root], {
         from: 'user',
@@ -432,7 +417,6 @@ describe('paqad-ai discovery command', () => {
       (await run('status', '--run', 'nope-01M3RWNS7194V0PV2RX340VM50')).err.join('\n'),
     ).toContain('no Discovery run');
     process.exitCode = undefined;
-    // A record subcommand with no active run and no --run.
     const t = tpl('b', {
       revision: 1,
       intent: 'i',
@@ -445,18 +429,15 @@ describe('paqad-ai discovery command', () => {
     });
     expect((await run('brief', t)).err.join('\n')).toContain('no Discovery run');
     process.exitCode = undefined;
-    // Report/stage with no run.
     expect((await run('report')).err.join('\n')).toContain('no Discovery run');
     process.exitCode = undefined;
     expect((await run('stage', 'start', 'understand')).err.join('\n')).toContain(
       'no Discovery run',
     );
     process.exitCode = undefined;
-    // context with no run.
     const c = tpl('c', { stage: 'understand', items: [], mode: 'read', reason: null });
     expect((await run('context', c)).err.join('\n')).toContain('no Discovery run');
     process.exitCode = undefined;
-    // set-status with no run.
     expect((await run('set-status', 'paused')).err.join('\n')).toContain('no Discovery run');
   });
 
@@ -466,20 +447,17 @@ describe('paqad-ai discovery command', () => {
     writeFileSync(bad, '[]', 'utf8');
     expect((await run('synthesis', bad)).err.join('\n')).toContain('readable JSON object');
     process.exitCode = undefined;
-    // The context handler has its own not-an-object guard.
     expect((await run('context', bad)).err.join('\n')).toContain('readable JSON object');
   });
 
   it('defaults a context template that omits stage/items', async () => {
     await startRun();
-    // No stage and no items → stage '' has an empty contract, items default to [] → recorded ok.
     const t = tpl('ctxmin', { mode: 'available' });
     expect((await run('context', t)).out.join('\n')).toContain('"recorded":true');
   });
 
   it('resolves a run by explicit --run ref when the session is not anchored', async () => {
     const dir = await startRun();
-    // A fresh command with a DIFFERENT session but an explicit --run resolves it.
     const out: string[] = [];
     vi.spyOn(console, 'log').mockImplementation((l: string) => void out.push(String(l)));
     await createDiscoveryCommand().parseAsync(

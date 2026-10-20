@@ -175,16 +175,13 @@ describe('refresh command', () => {
       from: 'node',
     });
 
-    // No target flag → nothing is materialized and no work is done.
     expect(writeStackArtifacts).not.toHaveBeenCalled();
     expect(DifferentialRefresh.prototype.refresh).not.toHaveBeenCalled();
     expect(existsSync(join(projectRoot, '.paqad/stack-drift.json'))).toBe(false);
-    // The profile is left exactly as seeded — no capability re-detection.
     const profile = YAML.parse(
       readFileSync(join(projectRoot, '.paqad/project-profile.yaml'), 'utf8'),
     ) as { active_capabilities: string[] };
     expect(profile.active_capabilities).toEqual(['content']);
-    // The user is told which opt-in targets exist.
     expect(errSpy.mock.calls.flat().join(' ')).toMatch(/--stack/);
   });
 
@@ -222,9 +219,7 @@ describe('refresh command', () => {
     });
   });
 
-  it('never refreshes a file an already-delivered change left in a stale cache (issues #544, #646)', async () => {
-    // The project is a git repo on a branch off `main`, where the cached file is
-    // committed and clean: it is base history, not this change, and the cache is ignored.
+  it('never refreshes a file an already-delivered change left in a stale cache', async () => {
     const git = (args: string[]) => execaSync('git', args, { cwd: projectRoot });
     git(['init', '-q', '-b', 'main']);
     git(['config', 'user.email', 'test@paqad.dev']);
@@ -315,9 +310,6 @@ describe('refresh command', () => {
       from: 'node',
     });
 
-    // The design system is owned solely by `create documentation`. A bare
-    // refresh must not seed the tokens file, generate docs, or write theme
-    // exports.
     expect(seedSpy).not.toHaveBeenCalled();
     expect(existsSync(join(projectRoot, PATHS.DESIGN_TOKENS_FILE))).toBe(false);
     expect(DesignTokenService.prototype.writeDocs).not.toHaveBeenCalled();
@@ -335,10 +327,6 @@ describe('refresh command', () => {
   });
 
   it('prunes a pre-existing managed contract doc and never re-writes it when --providers is passed', async () => {
-    // Issue #229 — the decision-pause + narration contracts moved into the
-    // framework install (carried by AGENT-BOOTSTRAP.md). A project onboarded
-    // before #229 still has the managed copy on disk; refresh --providers must
-    // delete it and must NOT regenerate a project-level copy.
     const contractPath = join(projectRoot, '.paqad/decision-pause-contract.md');
     writeFileSync(contractPath, buildDecisionPauseContractDocument());
 
@@ -347,16 +335,12 @@ describe('refresh command', () => {
       from: 'node',
     });
 
-    // The stale managed copy is pruned and not re-created.
     expect(existsSync(contractPath)).toBe(false);
-    // --providers should not trigger stack/design refresh
     expect(writeStackArtifacts).not.toHaveBeenCalled();
     expect(DesignTokenService.prototype.writeDocs).not.toHaveBeenCalled();
   });
 
   it('re-renders only adapter entry files that already exist when --providers is passed', async () => {
-    // Pre-seed CLAUDE.md to simulate a project that previously onboarded the
-    // claude-code adapter. AGENTS.md is intentionally absent.
     writeFileSync(join(projectRoot, 'CLAUDE.md'), '# stale CLAUDE.md\n');
 
     const command = createRefreshCommand();
@@ -365,16 +349,12 @@ describe('refresh command', () => {
     });
 
     const claudeMd = readFileSync(join(projectRoot, 'CLAUDE.md'), 'utf8');
-    // Issue #229 — the rendered entry file is now a lean stub: it only points at
-    // the framework bootstrap and carries no inline contracts or load steps.
     expect(claudeMd).toContain('.paqad/framework-path.txt');
     expect(claudeMd).toContain('AGENT-BOOTSTRAP.md');
     expect(claudeMd).not.toContain('## Decision Pause Contract');
     expect(claudeMd).not.toContain('.paqad/decision-pause-contract.md');
     expect(claudeMd).not.toContain('docs/instructions');
     expect(claudeMd).not.toContain('## ');
-    // The previously-absent AGENTS.md should still be absent: refresh must not
-    // silently onboard new providers.
     expect(existsSync(join(projectRoot, 'AGENTS.md'))).toBe(false);
   });
 
@@ -397,7 +377,6 @@ describe('refresh command', () => {
         from: 'node',
       });
 
-      // Dry run: the stale rule is untouched and nothing fresh is written.
       expect(existsSync(join(rulesDir(projectRoot), '_shared/stale-rule.md'))).toBe(true);
       expect(existsSync(join(rulesDir(projectRoot), '_shared/constitution.md'))).toBe(false);
       expect(errSpy.mock.calls.flat().join(' ')).toMatch(/dry run/i);
@@ -412,11 +391,9 @@ describe('refresh command', () => {
         { from: 'node' },
       );
 
-      // Stale generated rule removed; project-owned registries preserved.
       expect(existsSync(join(rulesDir(projectRoot), '_shared/stale-rule.md'))).toBe(false);
       expect(existsSync(join(rulesDir(projectRoot), 'module-map.yml'))).toBe(true);
       expect(existsSync(join(rulesDir(projectRoot), 'rule-script-map.yml'))).toBe(true);
-      // Fresh rules written from the framework packs.
       expect(existsSync(join(rulesDir(projectRoot), '_shared/constitution.md'))).toBe(true);
     });
 

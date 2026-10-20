@@ -10,7 +10,7 @@ import { createPendingDecision, resolvePendingDecision } from '@/decisions/autho
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
-describe('paqad-ai decision command (#326)', () => {
+describe('paqad-ai decision command', () => {
   let root: string;
 
   beforeEach(() => {
@@ -157,9 +157,7 @@ describe('paqad-ai decision command (#326)', () => {
     expect(packet.recommendation).toBe('b');
   });
 
-  // Issue #581 (FR-11, AC-15) — while a change is active, packets name it and resolving one
-  // rewrites the change's decisions.json index. Waivers and delivery decisions included.
-  describe('decisions.json index (#581)', () => {
+  describe('decisions.json index', () => {
     const SES = 'ses_decision_index';
     const ULID = '01JABCDEFGHJKMNPQRSTVWXYZ0';
 
@@ -170,7 +168,6 @@ describe('paqad-ai decision command (#326)', () => {
         issue: '581',
         ulid: ULID,
       });
-      // An agent-opened decision names the active change.
       const { out } = await run(
         'create',
         '--category',
@@ -191,7 +188,6 @@ describe('paqad-ai decision command (#326)', () => {
         readFileSync(join(root, '.paqad/decisions/pending', `${id}.json`), 'utf8'),
       ) as { change?: string };
       expect(pending.change).toBe(ULID);
-      // A delivery decision minted without a change, and a visual-evidence waiver.
       const delivery = createPendingDecision(root, {
         category: 'delivery.open_pr',
         title: 'Open a pull request for this change?',

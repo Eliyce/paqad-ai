@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { selectTestRunner } from '@/checks/test-runner.js';
 
-// The one runner selector (issue #554): trait-named first, then command-named, then first.
 describe('selectTestRunner', () => {
   it('prefers the runner whose id matches a detected trait', () => {
     const runner = selectTestRunner(

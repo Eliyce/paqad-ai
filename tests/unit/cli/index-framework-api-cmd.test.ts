@@ -1,7 +1,3 @@
-// `paqad-ai index framework-api build|query` (issue #397). The CLI surface of the
-// installed framework-API index; the verdict logic itself is covered in
-// tests/unit/framework-api/.
-
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -57,7 +53,6 @@ describe('paqad-ai index framework-api', () => {
     return { log, out };
   }
 
-  /** A project whose snapshot names react, with react actually installed. */
   function withReact(
     version = '19.2.6',
     declarations = 'export declare function useId(): string;',
@@ -126,7 +121,6 @@ describe('paqad-ai index framework-api', () => {
   });
 
   it('surfaces a skipped package with its reason rather than hiding it', async () => {
-    // react named in the snapshot but never installed.
     write(
       root,
       '.paqad/stack-snapshot.json',
@@ -153,7 +147,6 @@ describe('paqad-ai index framework-api', () => {
   });
 
   it('writes nothing and exits non-zero when the built index fails schema validation', async () => {
-    // INV-4: a malformed index must fail loudly, never ship a shape a consumer mis-reads.
     withReact();
     const schema = await import('@/framework-api/schema.js');
     vi.spyOn(schema, 'validateFrameworkApiIndex').mockReturnValue({

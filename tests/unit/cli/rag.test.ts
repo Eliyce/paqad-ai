@@ -92,8 +92,6 @@ describe('rag command', () => {
       rmSync(tempProjectRoot, { recursive: true, force: true });
     }
     tempProjectRoot = null;
-    // `rag eval --mode feature-off-vs-on` sets a non-zero exit code on a failed
-    // gate; reset it so it never leaks into the vitest process exit (F15).
     process.exitCode = 0;
     vi.restoreAllMocks();
   });
@@ -127,7 +125,7 @@ describe('rag command', () => {
     );
   });
 
-  it('refresh-context recomposes rule-only when rag is off (issue #284, no provider work)', async () => {
+  it('refresh-context recomposes rule-only when rag is off', async () => {
     const writes: string[] = [];
     (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       (chunk: unknown) => {
@@ -144,14 +142,12 @@ describe('rag command', () => {
       { from: 'node' },
     );
 
-    // The lean (rag-off) path recomposes rule-only and never touches the index or
-    // retrieval — no embedding/index/provider call happens.
     expect(writes.join('')).toContain('rule-only (rag off)');
     expect(refreshContext).not.toHaveBeenCalled();
     expect(retrieve).not.toHaveBeenCalled();
   });
 
-  it('refresh-context keeps the code-knowledge index fresh on the same worker (issue #353)', async () => {
+  it('refresh-context keeps the code-knowledge index fresh on the same worker', async () => {
     const refreshModule = await import('@/code-knowledge/refresh.js');
     const spy = vi
       .spyOn(refreshModule, 'refreshCodeKnowledgeIndex')
@@ -167,7 +163,6 @@ describe('rag command', () => {
     spy.mockRestore();
   });
 
-  // Issue #582 (FR-10) — the worker reads the route of the session that fired it.
   it('refresh-context reads the route of the --session it was started for', async () => {
     const routeModule = await import('@/pipeline/session-route.js');
     const spy = vi.spyOn(routeModule, 'readSessionRoute');
@@ -209,19 +204,15 @@ describe('rag command', () => {
       { from: 'node' },
     );
 
-    // The failure is swallowed; the context recompose still runs to completion.
     expect(writes.join('')).toContain('rule-only (rag off)');
     spy.mockRestore();
   });
 
-  it('#354: refresh-context records a `used` event with what it delivered (rag on)', async () => {
+  it('refresh-context records a `used` event with what it delivered (rag on)', async () => {
     const root = projectRoot(tempProjectRoot);
-    // Enable rag via the git-ignored local .config (the enablement surface the worker reads).
     mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(join(root, '.paqad/.config'), 'rag_enabled=true\nrag_embedding_provider=local\n');
 
-    // Deliver one above-floor slice; stub the other RAG-tier layers so the compose is
-    // deterministic and the assertion isolates the `used` accounting.
     const retrievalMod = await import('@/context/retrieval-context.js');
     vi.spyOn(retrievalMod, 'gatherWorkingSetSlices').mockResolvedValue({
       slices: [{ source_file: 'docs/instructions/a.md', content: 'a slice', score: 0.9 }],
@@ -254,12 +245,11 @@ describe('rag command', () => {
     expect((usedCall?.[2] as { bytes_injected: number }).bytes_injected).toBeGreaterThan(0);
   });
 
-  it('#354: records an honest injected:false `used` row when retrieval goes dark', async () => {
+  it('records an honest injected:false `used` row when retrieval goes dark', async () => {
     const root = projectRoot(tempProjectRoot);
     mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(join(root, '.paqad/.config'), 'rag_enabled=true\nrag_embedding_provider=local\n');
 
-    // Non-quiet run so the worker's enabled summary line is exercised too.
     const writes: string[] = [];
     (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       (chunk: unknown) => {
@@ -269,7 +259,6 @@ describe('rag command', () => {
     );
 
     const retrievalMod = await import('@/context/retrieval-context.js');
-    // Dark: no slices, but a best score below the relief band.
     vi.spyOn(retrievalMod, 'gatherWorkingSetSlices').mockResolvedValue({
       slices: [],
       bestScore: 0.3,
@@ -299,17 +288,14 @@ describe('rag command', () => {
     expect((usedCall?.[2] as { injected_sections: string[] }).injected_sections).not.toContain(
       'retrieval',
     );
-    // The enabled summary line reports the slice count.
     expect(writes.join('')).toContain('slices: 0');
   });
 
-  it('#354: a broad working set distils to a context pack and records pointer_count', async () => {
+  it('a broad working set distils to a context pack and records pointer_count', async () => {
     const root = projectRoot(tempProjectRoot);
     mkdirSync(join(root, '.paqad/context'), { recursive: true });
     writeFileSync(join(root, '.paqad/.config'), 'rag_enabled=true\nrag_embedding_provider=local\n');
 
-    // Real doc files so the worker's distil readFile path is exercised; one slice points
-    // at a MISSING file to cover the reader's catch branch (returns undefined).
     mkdirSync(join(root, 'docs/instructions'), { recursive: true });
     const manySlices = Array.from({ length: 8 }, (_unused, i) => {
       const rel = `docs/instructions/a-${i}.md`;
@@ -350,7 +336,7 @@ describe('rag command', () => {
     expect(used.score_top).toBe(0.9);
   });
 
-  it('#354: probe prints the pre-floor scores annotated against the floor + relief band', async () => {
+  it('probe prints the pre-floor scores annotated against the floor + relief band', async () => {
     const writes: string[] = [];
     (process.stdout.write as unknown as ReturnType<typeof vi.fn>).mockImplementation(
       (chunk: unknown) => {
@@ -380,14 +366,12 @@ describe('rag command', () => {
     expect(out.best_score).toBe(0.42);
     expect(out.similarity_threshold).toBe(0.75);
     expect(out.relief_floor).toBe(0.35);
-    // 0.42 is above the relief band but below the floor; 0.2 is below both.
     expect(out.rows[0]).toMatchObject({ above_floor: false, above_relief: true });
     expect(out.rows[1]).toMatchObject({ above_floor: false, above_relief: false });
   });
 
   it('F23: lets the user opt into the code-tuned local model interactively', async () => {
     setInteractive(true);
-    // provider picker -> local, then the local-model picker -> code-tuned jina.
     promptSelect
       .mockResolvedValueOnce('local')
       .mockResolvedValueOnce('Xenova/jina-embeddings-v2-base-code');
@@ -781,8 +765,6 @@ describe('rag command', () => {
     expect(parsed).toHaveProperty('feature_on_snapshot');
     expect(parsed).toHaveProperty('gate_passed');
     expect((parsed.eval_run as Record<string, unknown>)['mode']).toBe('feature-off-vs-on');
-    // The mocked retrieval returns no hits, so feature-ON does not beat OFF: the
-    // gate fails and the merge is blocked via a non-zero exit code.
     expect(parsed.gate_passed).toBe(false);
     expect(process.exitCode).toBe(1);
   });
@@ -1181,7 +1163,6 @@ describe('rag command', () => {
         size_bytes: 123,
       });
     promptInput.mockResolvedValueOnce('sk-bad');
-    // switch-provider -> pick local -> then the F23 local-model picker (MiniLM floor).
     promptSelect
       .mockResolvedValueOnce('switch-provider')
       .mockResolvedValueOnce('local')

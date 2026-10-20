@@ -4,8 +4,6 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock the dashboard server and the browser opener so the command logic can be
-// exercised without binding a port or launching a browser.
 const { startDashboardServer, closeMock, openBrowser } = vi.hoisted(() => {
   const closeMock = vi.fn(async () => undefined);
   return {
@@ -96,8 +94,6 @@ describe.each(COMMANDS)('paqad-ai $name command', ({ create, urlFragment }) => {
   });
 
   it('does not start the server when disabled via the .config flag', async () => {
-    // The durable disable signal moved from the profile's `paqad.enabled: false`
-    // to `paqad_enable=false` in `.paqad/.config`, which the command reads.
     onboard(ENABLED_PROFILE);
     writeFileSync(join(root, '.paqad', '.config'), 'paqad_enable=false\n');
     await run();

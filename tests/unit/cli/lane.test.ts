@@ -9,7 +9,6 @@ import { createProgram } from '@/cli/program.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
-// `paqad-ai lane set <lane>` — the operator lane override (issue #602, FR-1/FR-3).
 describe('paqad-ai lane command', () => {
   let root: string;
   const SES = 'ses_cli_lane';

@@ -6,7 +6,6 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createPluginCommand } from '@/cli/commands/plugin.js';
 
-// HOME is sandboxed per test file by tests/shared/isolate-home.ts, so homedir() is a temp dir.
 const statePath = (): string => join(homedir(), '.paqad-ai', 'plugin-migration.json');
 
 function writeState(record: Record<string, unknown>): void {
@@ -18,7 +17,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('paqad-ai plugin tick (hidden, issue #648)', () => {
+describe('paqad-ai plugin tick (hidden)', () => {
   it('is hidden from help', () => {
     expect(createPluginCommand().helpInformation()).not.toContain('tick');
   });

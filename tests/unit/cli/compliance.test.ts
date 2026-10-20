@@ -251,8 +251,6 @@ describe('paqad-ai compliance CLI', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  // --- report command ---
-
   it('report exits 0 when all obligations are covered and prints human-readable output', async () => {
     const root = await makeTempProject();
     const specPath = await writeSpecWithObligations(root, ['FR-1-T1']);
@@ -469,8 +467,6 @@ describe('paqad-ai compliance CLI', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  // --- check --gate ---
-
   it('check --gate passes when compliance ratio meets threshold', async () => {
     const root = await makeTempProject();
     const specPath = await writeSpecWithObligations(root, ['FR-1-T1']);
@@ -527,7 +523,6 @@ describe('paqad-ai compliance CLI', () => {
       INDEX_PATH,
     ]);
 
-    // Only cover FR-1-T1, leaving FR-1-T2 uncovered → ratio 0.5
     await writeFile(
       path.join(root, 'tests', 'x.test.ts'),
       ['it("x", () => {', '  // @obligation FR-1-T1', '});', ''].join('\n'),
@@ -553,7 +548,6 @@ describe('paqad-ai compliance CLI', () => {
   it('check --gate fails when uncovered critical obligations exceed threshold', async () => {
     const root = await makeTempProject();
 
-    // Write spec with an acceptance obligation
     const specPath = path.join(root, 'docs', 'spec.md');
     await writeFile(
       specPath,
@@ -601,8 +595,6 @@ describe('paqad-ai compliance CLI', () => {
     expect(process.exitCode).toBe(1);
   });
 
-  // --- spec-slug path derivation (FR-2.1) ---
-
   it('extract defaults index to spec-slug path when --index-path is omitted', async () => {
     const root = await makeTempProject();
     const specPath = await writeSpecWithObligations(root, ['FR-S-T1']);
@@ -617,18 +609,15 @@ describe('paqad-ai compliance CLI', () => {
       root,
       '--spec',
       path.relative(root, specPath),
-      // no --index-path
     ]);
     expect(process.exitCode).toBe(0);
 
-    // Index must land in the spec-slug directory, not the legacy flat path
     const slugIndex = await loadObligationIndex({
       project_root: root,
       index_path: '.paqad/compliance/spec/obligations.json',
     });
     expect(slugIndex?.obligations.length).toBe(1);
 
-    // Legacy path must NOT exist
     const legacyIndex = await loadObligationIndex({
       project_root: root,
       index_path: INDEX_PATH,
@@ -641,7 +630,6 @@ describe('paqad-ai compliance CLI', () => {
     const specPath = await writeSpecWithObligations(root, ['FR-S-T2']);
     const cmd = createComplianceCommand();
 
-    // Extract using spec-slug path
     await cmd.parseAsync([
       'node',
       'paqad-ai',
@@ -652,7 +640,6 @@ describe('paqad-ai compliance CLI', () => {
       path.relative(root, specPath),
     ]);
 
-    // Cover the obligation
     await writeFile(
       path.join(root, 'tests', 'x.test.ts'),
       "it('x', () => { /* @obligation FR-S-T2 */ });\n",
@@ -669,7 +656,6 @@ describe('paqad-ai compliance CLI', () => {
       root,
       '--spec',
       path.relative(root, specPath),
-      // no --index-path
     ]);
     expect(process.exitCode).toBe(0);
   });
@@ -699,8 +685,6 @@ describe('paqad-ai compliance CLI', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  // --- skeleton --all ---
-
   it('skeleton --all generates stubs for all obligations including covered ones', async () => {
     const root = await makeTempProject();
     const specPath = await writeSpecWithObligations(root, ['FR-1-T1', 'FR-1-T2']);
@@ -718,14 +702,12 @@ describe('paqad-ai compliance CLI', () => {
       INDEX_PATH,
     ]);
 
-    // Cover FR-1-T1 so only FR-1-T2 is uncovered
     await writeFile(
       path.join(root, 'tests', 'x.test.ts'),
       ['it("x", () => {', '  // @obligation FR-1-T1', '});', ''].join('\n'),
       'utf8',
     );
 
-    // Without --all: only FR-1-T2 skeleton
     process.exitCode = undefined;
     const cmd2 = createComplianceCommand();
     const writtenPartial: string[] = [];
@@ -733,9 +715,7 @@ describe('paqad-ai compliance CLI', () => {
     console.log = (msg: string) => {
       try {
         writtenPartial.push(...(JSON.parse(msg).written ?? []));
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     };
     await cmd2.parseAsync([
       'node',
@@ -751,15 +731,12 @@ describe('paqad-ai compliance CLI', () => {
     console.log = origLog;
     expect(writtenPartial).toHaveLength(1);
 
-    // With --all: both skeletons
     const writtenAll: string[] = [];
     const cmd3 = createComplianceCommand();
     console.log = (msg: string) => {
       try {
         writtenAll.push(...(JSON.parse(msg).written ?? []));
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     };
     process.exitCode = undefined;
     await cmd3.parseAsync([
@@ -1183,8 +1160,6 @@ describe('paqad-ai compliance CLI', () => {
     expect(output).toContain('stale');
   });
 
-  // ── compliance boundary ──────────────────────────────────────────────────
-
   it('boundary exits 0 and prints human-readable output by default', async () => {
     const root = await makeTempProject();
     await mkdir(path.join(root, 'src'), { recursive: true });
@@ -1270,8 +1245,6 @@ describe('paqad-ai compliance CLI', () => {
     expect(output).toContain('[unhandled]');
     expect(output).toContain('"warn"');
   });
-
-  // ── compliance patterns ───────────────────────────────────────────────────
 
   it('patterns lists an empty store without error', async () => {
     const root = await makeTempProject();
@@ -1453,8 +1426,6 @@ describe('paqad-ai compliance CLI', () => {
     expect(process.exitCode).toBe(0);
   });
 
-  // Issue #401 — `path.relative` produced the `../../../../../../tmp/river-agent-spec.md`
-  // escape that got recorded verbatim in the persisted report.
   it('review refuses a spec resolving outside the project root (AC-4)', async () => {
     const root = await makeTempProject();
     const outside = await makeTempProject();
@@ -1481,7 +1452,6 @@ describe('paqad-ai compliance CLI', () => {
 
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toMatch(/has to live inside the project/);
-    // Nothing persisted: the stray artifact this issue was filed over is never created.
     const review = await loadSpecReviewReport({ project_root: root, spec_file: 'spec.md' });
     expect(review).toBeNull();
   });

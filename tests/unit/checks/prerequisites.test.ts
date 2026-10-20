@@ -6,8 +6,6 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { hasPackage, nodePackageManager } from '@/checks/prerequisites.js';
 
-// Ecosystem-lockfile presence lookup (issue #554, Part B.2). true/false when a lockfile exists;
-// null (unknown) when the ecosystem has no lockfile in the project.
 describe('hasPackage', () => {
   let root: string;
   beforeEach(() => {

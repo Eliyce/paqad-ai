@@ -10,8 +10,6 @@ import { createProgram } from '@/cli/program.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { closeActiveFeature, currentFeature } from '@/feature-evidence/stage-ledger.js';
 
-// `paqad-ai resume --feature <ref>` — reactivate a feature-development change (issue
-// #339), whether the session control still holds it or it is only recorded on disk (#540).
 describe('paqad-ai resume command', () => {
   let root: string;
   const SES = 'ses_cli_resume';
@@ -27,7 +25,6 @@ describe('paqad-ai resume command', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  /** Run `stage start planning` (optionally with a --title) under the fixed session. */
   async function stage(...args: string[]): Promise<void> {
     vi.spyOn(console, 'log').mockImplementation(() => {});
     await createStageCommand().parseAsync([...args, '--project-root', root, '--session', SES], {
@@ -50,7 +47,6 @@ describe('paqad-ai resume command', () => {
   });
 
   it('reactivates a paused feature by issue ref', async () => {
-    // Feature A (issue 339) opened, then B — so A is paused and B is active.
     await stage('start', 'planning', '--title', 'Route first workflows', '--issue', '339');
     await stage('start', 'planning', '--title', 'Second feature', '--issue', '340');
     const active = currentFeature(root, SES)!;
@@ -70,14 +66,10 @@ describe('paqad-ai resume command', () => {
     expect(errors.join('\n')).toContain('could not resume');
   });
 
-  // Issue #540, AC-3: a change the session control has released — closed, or displaced
-  // while a rollover took the pointer — is reachable from the CLI, with no hand-edit to
-  // `.paqad/ledger/feature-evidence/_session/<id>.json`.
-  it('reaches a change the session control no longer holds (#540)', async () => {
+  it('reaches a change the session control no longer holds', async () => {
     await stage('start', 'planning', '--title', 'Displaced feature', '--issue', '540');
     const displaced = currentFeature(root, SES)!;
     expect(displaced.startsWith('540-')).toBe(true);
-    // Release it exactly as the finalizer does when the change passes.
     closeActiveFeature(root, SES);
     expect(currentFeature(root, SES)).toBeNull();
     expect(readSessionControl(root, SES)).toMatchObject({ active: null, paused: [] });

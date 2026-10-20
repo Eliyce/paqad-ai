@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createSetupCommand } from '@/cli/commands/setup.js';
 import { createProgram } from '@/cli/program.js';
 import type { SetupPlan } from '@/onboarding/setup-plan.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 const { validateSetupPlan, readSetupPlan, verifyReadinessToDevelop, onboardInstalledStack } =
   vi.hoisted(() => ({
@@ -34,7 +35,7 @@ vi.mock('@/onboarding/onboard-installed-stack.js', async (importOriginal) => {
 const PLAN: SetupPlan = {
   schema_version: '1',
   project_root: '/tmp/demo',
-  slice: '#596 slice 3',
+  slice: `${ticketRef(596)} slice 3`,
   created_at: '2026-10-01T00:00:00.000Z',
   steps: [
     {
@@ -218,7 +219,7 @@ describe('createSetupCommand', () => {
     await run('plan', 'show', '--project-root', root);
 
     const out = lines.join('\n');
-    expect(out).toContain('#596 slice 3');
+    expect(out).toContain(`${ticketRef(596)} slice 3`);
     expect(out).toContain('[pending] runtime');
     expect(out).toContain('[completed] deps');
     expect(out).toContain('after runtime');

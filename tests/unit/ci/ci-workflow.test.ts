@@ -2,9 +2,6 @@ import { readFileSync } from 'node:fs';
 
 import { parse } from 'yaml';
 
-// The sharded CI layout (issue #654). Branch protection requires the four gate names below,
-// so they must never drift, and the coverage floors must be checked on the merged result only.
-
 type Step = {
   name?: string;
   uses?: string;

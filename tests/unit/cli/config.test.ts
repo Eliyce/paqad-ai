@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createConfigCommand } from '@/cli/commands/config.js';
 import { resolveEffectiveConfig } from '@/cli/commands/config.js';
 
-describe('paqad-ai config effective (#326)', () => {
+describe('paqad-ai config effective', () => {
   let root: string;
 
   beforeEach(() => {
@@ -78,7 +78,6 @@ describe('paqad-ai config effective (#326)', () => {
 
   it('maps a genuinely-consumed knob to its consumer', () => {
     expect(knob('rag_enabled')?.consumed_by).toContain('context seam');
-    // Issue #640 — the spec-pipeline knobs that were missing a consumer.
     expect(knob('spec_pipeline_experts_enabled')?.consumed_by).toContain('expert roster');
     expect(knob('spec_pipeline_adoption')?.consumed_by).toContain('spec freeze');
     expect(knob('spec_pipeline_standing_experts')?.consumed_by).toContain('standing experts');
@@ -87,7 +86,6 @@ describe('paqad-ai config effective (#326)', () => {
 
   it('does not mutate or create any config file (read-only)', () => {
     resolveEffectiveConfig(root);
-    // A read-only resolve writes nothing — no .paqad dir is conjured in a bare project.
     expect(existsSync(join(root, '.paqad'))).toBe(false);
     expect(existsSync(join(root, '.paqad/.config'))).toBe(false);
   });

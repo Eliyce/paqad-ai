@@ -8,8 +8,6 @@ import { parseCommandChain, runCommandChain } from '@/checks/command-chain.js';
 import type { CommandStep } from '@/checks/command-chain.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
-// The && chain runner (issue #554, Part A): a mapped command is an ordered chain of argv steps,
-// split on the standalone `&&` token, with a quote-aware tokenizer and no shell interpretation.
 describe('parseCommandChain', () => {
   it('splits the onboarding mkdir-&&-pest command into two argv steps (AC-1)', () => {
     const parsed = parseCommandChain(
@@ -74,7 +72,6 @@ describe('runCommandChain', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  /** Records every spawn and returns a fixed exit per bin. */
   function recordingShell(exitByBin: Record<string, number> = {}): {
     shell: DeliveryShell;
     spawns: CommandStep[];

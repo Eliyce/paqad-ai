@@ -10,8 +10,6 @@ import { readTraceabilityMap } from '@/traceability/index.js';
 import { seedGitChangedFiles } from '../pipeline/changed-files.fixture.js';
 import { openChange, writeSpec } from '../traceability/change-map.fixture.js';
 
-// Issue #639, Part 11 — `paqad-ai checks run` writes the change's acceptance-criteria map
-// beside the check report.
 describe('paqad-ai checks run writes the acceptance-criteria map', () => {
   let root: string;
   let priorSeSession: string | undefined;

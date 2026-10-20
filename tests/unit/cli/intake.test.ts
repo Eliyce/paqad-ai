@@ -12,6 +12,7 @@ import {
 } from '@/cli/commands/intake.js';
 import { createProgram } from '@/cli/program.js';
 import type { NormalizedTicket } from '@/providers/ticket-provider.js';
+import { ticketRef } from '../../shared/ticket-ref.js';
 
 describe('paqad-ai intake', () => {
   let root: string;
@@ -34,7 +35,7 @@ describe('paqad-ai intake', () => {
   });
 
   it('classifyRef distinguishes GitHub, Jira, and unknown', () => {
-    expect(classifyRef('#45')).toBe('github-issues');
+    expect(classifyRef(ticketRef(45))).toBe('github-issues');
     expect(classifyRef('45')).toBe('github-issues');
     expect(classifyRef('PQD-123')).toBe('jira');
     expect(classifyRef('nonsense')).toBe('unknown');
@@ -42,14 +43,14 @@ describe('paqad-ai intake', () => {
 
   it('fetches a GitHub ticket and records the optional ticket_intake stage', async () => {
     const stages: Array<[string, string]> = [];
-    const result = await runIntakeFetch('#45', {
+    const result = await runIntakeFetch(ticketRef(45), {
       ghInvoke: async () => ghPayload,
       projectRoot: root,
       recordStage: (stage, phase) => stages.push([stage, phase]),
     });
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('Add retries');
-    expect(result.output).toContain('#45');
+    expect(result.output).toContain(ticketRef(45));
     expect(stages).toEqual([
       ['ticket_intake', 'start'],
       ['ticket_intake', 'end'],
@@ -57,7 +58,7 @@ describe('paqad-ai intake', () => {
   });
 
   it('degrades gracefully when gh fails (absent/unauthenticated)', async () => {
-    const result = await runIntakeFetch('#45', {
+    const result = await runIntakeFetch(ticketRef(45), {
       ghInvoke: async () => {
         throw new Error('gh: command not found');
       },
@@ -79,7 +80,7 @@ describe('paqad-ai intake', () => {
     });
     expect(result.exitCode).toBe(0);
     expect(result.output).toContain('Atlassian MCP');
-    expect(called).toBe(false); // Jira never shells gh
+    expect(called).toBe(false);
   });
 
   it('rejects an unrecognised ref with a helpful message', async () => {

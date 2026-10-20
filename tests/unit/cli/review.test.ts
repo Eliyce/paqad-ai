@@ -9,8 +9,6 @@ import { createProgram } from '@/cli/program.js';
 import { readFeatureReview } from '@/feature-evidence/artifacts.js';
 import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
-// Issue #402 — the review stage's counterpart to `plan compile`. Before it, review owned
-// no rigid bundle file, so its evidence was a free-written .md with no defined home.
 describe('paqad-ai review record', () => {
   let root: string;
   const SES = 'ses_cli_review';
@@ -71,7 +69,6 @@ describe('paqad-ai review record', () => {
     const record = readFeatureReview(root, dir);
     expect(record?.verdict).toBe('safe-to-merge');
     expect(record?.findings).toHaveLength(1);
-    // Transient scratch: the input file is gone.
     expect(existsSync(input)).toBe(false);
   });
 
@@ -128,15 +125,12 @@ describe('paqad-ai review record', () => {
     activeFeature();
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
-    // An empty finding description is rejected by REVIEW_SCHEMA (minLength 1).
     await run(writeTemplate({ ...valid, findings: [{ severity: 'minor', description: '' }] }));
     expect(process.exitCode).toBe(1);
     expect(errors.join('\n')).toContain('could not record review');
   });
 });
 
-// Issue #360 — `review digest` composes the machine-built evidence the review stage reads
-// before it writes a single finding.
 describe('paqad-ai review digest', () => {
   let root: string;
   const SES = 'ses_cli_review_digest';
@@ -196,7 +190,6 @@ describe('paqad-ai review digest', () => {
   it('exits non-zero when the digest cannot be written', async () => {
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((l: string) => errors.push(String(l)));
-    // A file where the session directory must be makes the write impossible.
     rmSync(join(root, '.paqad'), { recursive: true, force: true });
     writeFileSync(join(root, '.paqad'), 'not a directory');
 

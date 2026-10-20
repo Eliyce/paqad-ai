@@ -102,9 +102,6 @@ describe('paqad-ai join', () => {
 
   beforeEach(() => {
     root = mkdtempSync(join(tmpdir(), 'paqad-join-'));
-    // join now runs the home-only bootstrap (issue #576, Finding 2), which writes under HOME.
-    // Point HOME + the framework home at a temp dir so tests never touch the real install.
-    // os.homedir() reads USERPROFILE on Windows and HOME on POSIX, so set both.
     homeDir = mkdtempSync(join(tmpdir(), 'paqad-join-home-'));
     process.env.HOME = homeDir;
     process.env.USERPROFILE = homeDir;
@@ -134,7 +131,6 @@ describe('paqad-ai join', () => {
       size_bytes: 100,
     };
     vi.spyOn(RagService.prototype, 'configureAndBuild').mockResolvedValue(built);
-    // Issue #576 (Finding 3) — join builds the index without rewriting the profile / local config.
     vi.spyOn(RagService.prototype, 'buildIndexOnly').mockResolvedValue(built);
   });
 
@@ -197,9 +193,6 @@ describe('paqad-ai join', () => {
     expect(existsSync(join(root, '.paqad/compiled-rules.json'))).toBe(true);
     expect(existsSync(join(root, '.paqad/context/session-context.md'))).toBe(true);
     expect(existsSync(join(root, '.paqad/framework-version.txt'))).toBe(true);
-    // Issue #576 (Finding 10) — the dead .agent-entry-loaded write is gone (SessionStart deletes
-    // it every session), and framework-version.txt is seeded at the epoch so the next session's
-    // update check fires immediately.
     expect(existsSync(join(root, '.paqad/.agent-entry-loaded'))).toBe(false);
     expect(readFileSync(join(root, '.paqad/framework-version.txt'), 'utf8')).toContain(
       'updated_at=1970-01-01T00:00:00Z',
@@ -259,7 +252,6 @@ describe('paqad-ai join', () => {
     await joinProject({ projectRoot: root, interactive: true, yes: true });
 
     expect(output.join('')).toContain(JOIN_RAG_BUILDING_MESSAGE);
-    // Finding 3 — join builds the index only (never rewriting the tracked profile / local config).
     expect(RagService.prototype.buildIndexOnly).toHaveBeenCalledWith(
       expect.objectContaining({
         rag_enabled: true,
@@ -296,7 +288,7 @@ describe('paqad-ai join', () => {
     expect(output.join('')).not.toContain(JOIN_READY_MESSAGE);
   });
 
-  describe('MCP files (issue #622)', () => {
+  describe('MCP files', () => {
     const PAQAD_WRITTEN = `${JSON.stringify(
       {
         mcpServers: { 'laravel-boost': { enabled: true, stack: 'laravel' } },
@@ -364,7 +356,6 @@ describe('paqad-ai join', () => {
       await joinProject({ projectRoot: root, rag: false });
 
       expect(existsSync(join(root, '.codex/mcp.json'))).toBe(false);
-      // The recommendations file is a team file (not git-ignored), so join leaves it to onboard.
       expect(existsSync(join(root, '.paqad/mcp-recommendations.json'))).toBe(false);
     });
 

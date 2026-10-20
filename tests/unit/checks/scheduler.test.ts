@@ -11,8 +11,6 @@ const COMMANDS: ScheduledCommand[] = [
   { logical_command: 'test', command: 'testbin', stage: 3 },
 ];
 
-// The scheduler (issue #554, Part C / AC-5): format serial, build+shell overlapped, test alone,
-// every stage runs even after a red command.
 describe('runStages (AC-5)', () => {
   it('serializes stage 1, overlaps stage 2, runs test last, and does not stop on a red format', async () => {
     const events: string[] = [];
@@ -50,20 +48,16 @@ describe('runStages (AC-5)', () => {
       nowIso: () => '2026-01-01T00:00:00.000Z',
     });
 
-    // format finished before build started
     expect(events.indexOf('end:fmtbin')).toBeLessThan(events.indexOf('start:buildbin'));
-    // build and the shell command overlapped: both started before either ended
     const bothStarted = Math.max(
       events.indexOf('start:buildbin'),
       events.indexOf('start:shellbin'),
     );
     const firstEnded = Math.min(events.indexOf('end:buildbin'), events.indexOf('end:shellbin'));
     expect(bothStarted).toBeLessThan(firstEnded);
-    // test started only after both stage-2 commands ended
     expect(events.indexOf('start:testbin')).toBeGreaterThan(events.indexOf('end:buildbin'));
     expect(events.indexOf('start:testbin')).toBeGreaterThan(events.indexOf('end:shellbin'));
 
-    // a red format did not prevent the test from running; passed is false overall
     expect(results.find((r) => r.logical_command === 'format')?.passed).toBe(false);
     expect(results.find((r) => r.logical_command === 'test')).toBeDefined();
     expect(results.every((r) => r.duration_ms > 0)).toBe(true);
