@@ -1,11 +1,4 @@
-/**
- * paqad-ai Documentation Engine
- * Handles: routing, search, sidebar, ToC, code copy, mobile drawer, rain, scroll header
- */
-
 import { DOCS_PAGES, DOCS_NAV } from './docs-content.js';
-
-/* ── Utilities ───────────────────────────────────────────────────────────── */
 
 function escapeHtml(str) {
   return String(str)
@@ -15,7 +8,6 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
-/** Convert `backtick` spans in text to <code> elements */
 function renderInlineCode(text) {
   return escapeHtml(text).replace(/`([^`]+)`/g, '<code>$1</code>');
 }
@@ -36,8 +28,6 @@ function slugify(text) {
     .replace(/\s+/g, '-');
 }
 
-/* ── Rain layer (identical to main.js) ──────────────────────────────────── */
-
 function setupRain() {
   if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
   const layer = document.getElementById('rain-layer');
@@ -56,8 +46,6 @@ function setupRain() {
   }
 }
 
-/* ── Scroll header (identical to main.js) ────────────────────────────────── */
-
 function setupScrollHeader() {
   const header = document.querySelector('.site-header');
   if (!header) return;
@@ -66,8 +54,6 @@ function setupScrollHeader() {
   }, 40);
   window.addEventListener('scroll', onScroll, { passive: true });
 }
-
-/* ── Top-level mobile nav (same hamburger as index.html) ─────────────────── */
 
 function setupMobileTopNav() {
   const toggle = document.getElementById('nav-toggle');
@@ -98,8 +84,6 @@ function setupMobileTopNav() {
   });
 }
 
-/* ── Docs sidebar drawer (mobile) ────────────────────────────────────────── */
-
 function setupMobileSidebar() {
   const toggleBtn = document.getElementById('docs-sidebar-toggle');
   const sidebar = document.getElementById('docs-sidebar');
@@ -127,15 +111,12 @@ function setupMobileSidebar() {
     if (e.key === 'Escape' && sidebar.classList.contains('is-open')) closeSidebar();
   });
 
-  // Close drawer when a nav link is clicked
   sidebar.addEventListener('click', (e) => {
     if (e.target.classList.contains('docs-nav-link')) {
       if (window.innerWidth <= 767) closeSidebar();
     }
   });
 }
-
-/* ── Sidebar navigation rendering ────────────────────────────────────────── */
 
 function renderSidebarNav() {
   const nav = document.getElementById('docs-nav');
@@ -175,7 +156,6 @@ function renderSidebarNav() {
 
   nav.innerHTML = html;
 
-  // Wire collapsible section toggles
   nav.querySelectorAll('.docs-nav-section-label').forEach((label) => {
     const section = label.closest('.docs-nav-section');
     function toggle() {
@@ -201,22 +181,18 @@ function updateSidebarActiveState(pageId) {
     link.classList.toggle('is-active', active);
     if (active) {
       link.setAttribute('aria-current', 'page');
-      // Ensure the parent section is expanded
       const section = link.closest('.docs-nav-section');
       if (section && section.classList.contains('is-collapsed')) {
         section.classList.remove('is-collapsed');
         const label = section.querySelector('.docs-nav-section-label');
         if (label) label.setAttribute('aria-expanded', 'true');
       }
-      // Scroll link into view within sidebar
       link.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     } else {
       link.removeAttribute('aria-current');
     }
   });
 }
-
-/* ── Breadcrumbs ─────────────────────────────────────────────────────────── */
 
 function renderBreadcrumbs(page) {
   const html = `
@@ -229,8 +205,6 @@ function renderBreadcrumbs(page) {
   if (desktop) desktop.innerHTML = html;
   if (mobile) mobile.innerHTML = html;
 }
-
-/* ── Content node renderers ──────────────────────────────────────────────── */
 
 function renderInlineCodeBlock(node) {
   const langClass = node.lang ? ` lang-${escapeHtml(node.lang)}` : '';
@@ -329,8 +303,6 @@ function renderNode(node) {
   }
 }
 
-/* ── Page rendering ──────────────────────────────────────────────────────── */
-
 function renderPage(page) {
   const article = document.getElementById('docs-article');
   if (!article) return;
@@ -343,14 +315,10 @@ function renderPage(page) {
   renderToC(page);
   wireCodeCopy(article);
 
-  // Mobile inline ToC
   renderMobileToC(page);
 }
 
-/* ── Mobile inline ToC ───────────────────────────────────────────────────── */
-
 function renderMobileToC(page) {
-  // Remove existing
   const existing = document.querySelector('.docs-toc-inline');
   if (existing) existing.remove();
 
@@ -372,8 +340,6 @@ function renderMobileToC(page) {
   const article = document.getElementById('docs-article');
   if (article) article.insertAdjacentElement('beforebegin', details);
 }
-
-/* ── On-page ToC ─────────────────────────────────────────────────────────── */
 
 let tocObserver = null;
 
@@ -429,8 +395,6 @@ function setupToCObserver() {
   });
 }
 
-/* ── Prev / Next footer ──────────────────────────────────────────────────── */
-
 function renderPageNav(page) {
   const nav = document.getElementById('docs-page-nav');
   if (!nav) return;
@@ -466,8 +430,6 @@ function renderPageNav(page) {
   nav.innerHTML = html;
 }
 
-/* ── Code copy buttons ───────────────────────────────────────────────────── */
-
 function wireCodeCopy(container) {
   container.querySelectorAll('.docs-code-copy[data-copy]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -484,8 +446,6 @@ function wireCodeCopy(container) {
     });
   });
 }
-
-/* ── Router ──────────────────────────────────────────────────────────────── */
 
 const docsRouter = {
   currentPageId: null,
@@ -519,8 +479,6 @@ const docsRouter = {
     window.scrollTo({ top: 0, behavior: 'instant' });
   },
 };
-
-/* ── Search ──────────────────────────────────────────────────────────────── */
 
 let searchIndex = [];
 
@@ -571,7 +529,6 @@ function search(rawQuery) {
         if (bodyLower.includes(token)) score += 1;
       });
 
-      // Find snippet: find first occurrence of any token in body
       let snippet = '';
       if (score > 0) {
         let idx = -1;
@@ -699,14 +656,12 @@ function wireDriveSearch() {
     }
   });
 
-  // Close on outside click
   document.addEventListener('click', (e) => {
     if (!input.contains(e.target) && !results.contains(e.target)) {
       results.hidden = true;
     }
   });
 
-  // Global `/` shortcut
   document.addEventListener('keydown', (e) => {
     if (e.key === '/' && document.activeElement !== input) {
       const tag = document.activeElement?.tagName?.toLowerCase();
@@ -718,8 +673,6 @@ function wireDriveSearch() {
     }
   });
 }
-
-/* ── Boot ────────────────────────────────────────────────────────────────── */
 
 function init() {
   setupRain();
