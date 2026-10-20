@@ -148,7 +148,8 @@ describe('paqad-ai checks command', () => {
     const out = await run();
 
     expect(process.exitCode).toBeUndefined();
-    expect(out.join('\n')).toContain('Inconclusive');
+    expect(out).toContain('**▸ paqad** · no checks mapped: Inconclusive');
+    expect(out.join('\n')).not.toContain('—');
     expect(readChecksReport(root)?.ran).toBe(false);
   });
 });

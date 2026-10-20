@@ -81,7 +81,7 @@ export function createChecksCommand(): Command {
       if (result.testing_recorded) console.error(TESTING_RECORDED_NOTE);
 
       if (!result.ran) {
-        console.log('**▸ paqad** · no checks mapped — Inconclusive');
+        console.log('**▸ paqad** · no checks mapped: Inconclusive');
         console.log('> ⚪ No format/test/build command is mapped in the project profile.');
         if (!options.silent) console.log(JSON.stringify({ ran: false, passed: null }));
         return;
