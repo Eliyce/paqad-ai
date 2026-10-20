@@ -87,9 +87,12 @@ change, so the live feature-development stage spine is untouched:
 | `high-table.jsonl` | checked-when-present | `paqad-ai spec pipeline experts` (record, brief, context, notes, synthesis) + SubagentStop hook |
 | `cost.json` | checked-when-present | Stop and SubagentStop hooks (record-only) |
 | `decisions.json` | checked-when-present | `paqad-ai decision resolve` (decisions index) |
+| `tech-debt.json` | checked-when-present | `paqad-ai debt` (add, promote, close) and the end-of-change verification (the change's tech-debt index) |
+| `rule-overrides.jsonl` | checked-when-present | `paqad-ai rules override` |
+| `fix-proof.json` | checked-when-present | `paqad-ai fix prove` |
 | `review.json` | always | `paqad-ai review record` |
 | `stage-evidence.jsonl` | always | stage recorder |
-| `delivery.json` | always | feature open + `paqad-ai delivery-link` |
+| `delivery.json` | always | feature open, `paqad-ai delivery-link`, `paqad-ai deliver` and the Stop delivery check |
 | `checks.json` | checked-when-present | `paqad-ai checks run` |
 | `rules-loaded.json` | checked-when-present | `paqad-ai rules load` |
 | `rule-run.jsonl` | `rule_compliance != off` | rule-scripts runner |
@@ -662,7 +665,9 @@ writing `undefined`, which would hash differently.
 **`manifest.ts`.** `checks.json`, `visual-evidence.json` and `rules-loaded.json` are `optional`
 and not flag-gated: the completeness gate cannot tell whether a change mapped any checks or was a
 frontend change, so requiring them would fail changes falsely, and there is no flag to be off.
-Each has its own gate that does the real enforcement.
+Each has its own gate that does the real enforcement. `tech-debt.json`, `rule-overrides.jsonl`
+and `fix-proof.json` are `optional` for the same reason: most changes record no debt, no override
+and no fix proof. The fix-proof gate is the one that asks for proof on a fix.
 
 **`report.ts` and `report-writer.ts`.** A feature receipt is chained to the feature's own earlier
 receipt, so its `prev_receipt_hash` is legitimately non-zero; it is checked with
