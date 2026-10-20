@@ -1,24 +1,3 @@
-// Per-feature bundle ledgers (issue #339, Phase 4): rule-run.jsonl + the RAG two-home
-// router. These re-home feature-scoped evidence into the bundle so a feature dir holds
-// its whole workflow record, not just the stage spine.
-//
-// - RAG two-home routing: retrieval fires at prompt-submit, BEFORE a feature is minted
-//   at planning-start, so a rag row routes to the ACTIVE feature's `rag.jsonl` when one
-//   exists, else to the session's `_chat/<session>/rag.jsonl` home. A new feature's first
-//   prompt therefore lands in `_chat` and is feature-attributed from prompt 2 (the
-//   documented one-prompt lag), achieved purely by routing on the active feature.
-// - rule-run.jsonl: which rules fired on THIS change, appended into the active feature's
-//   bundle (a no-op when no feature is active). Rows are stamped + hashed by the shared
-//   session-ledger primitives, so the bytes are script-owned.
-//
-// Issue #581 (FR-5) — every row written into a bundle here (rule-run, duplication,
-// change-metrics, evidence, and the bundle copy of a RAG row) is stamped by the envelope's
-// `stampBundleRow`: the six-field header, with `change` the folder-name ULID and
-// `recorded_at` in place of `ts`, then the row's own fields. `doc_type` is the same on every
-// row of a file (`paqad.<file-stem>`). No row carries the `adapter`: the host is a session
-// constant of the change, stored once in feature.json. Readers take the time through
-// `rowRecordedAt`, so a bundle written before #581 still reads.
-
 import type { EvidenceLedgerRow } from '@/core/types/evidence-ledger.js';
 import { readEvidenceRowsAt } from '@/evidence/ledger.js';
 import {
@@ -37,35 +16,23 @@ import { ENVELOPE_HEADER_KEYS, stampBundleRow } from './envelope.js';
 import { chatRagPath, featureChangeKey, featureFilePath } from './paths.js';
 import { currentFeature } from './stage-ledger.js';
 
-/** Doc type stamped on a per-feature `rule-run.jsonl` row. */
 export const RULE_RUN_DOC_TYPE = 'paqad.rule-run';
-/** Version 2 (issue #581): the envelope header, no `adapter`. Version 1 rows still read. */
 export const RULE_RUN_SCHEMA_VERSION = 2;
 
-/**
- * Doc type stamped on a per-feature `duplication.jsonl` row (issue #468, Phase A). Issue
- * #581 renamed it from `paqad.duplication-run` so it matches the file stem; a reader maps the
- * old name through `normalizeDocType`.
- */
 export const DUPLICATION_RUN_DOC_TYPE = 'paqad.duplication';
 export const DUPLICATION_RUN_SCHEMA_VERSION = 2;
 
-/** Doc type stamped on a per-feature `change-metrics.jsonl` row (issue #468, Phase A). */
 export const CHANGE_METRICS_RUN_DOC_TYPE = 'paqad.change-metrics';
 export const CHANGE_METRICS_RUN_SCHEMA_VERSION = 2;
 
-/** Doc type of a feature bundle's `rag.jsonl` row (issue #581; the `_chat` home keeps its own). */
 export const BUNDLE_RAG_DOC_TYPE = 'paqad.rag';
 export const BUNDLE_RAG_SCHEMA_VERSION = 2;
 
-/** Doc type of a feature bundle's `evidence.jsonl` row (issue #581). */
 export const BUNDLE_EVIDENCE_DOC_TYPE = 'paqad.evidence';
 export const BUNDLE_EVIDENCE_SCHEMA_VERSION = 2;
 
-/** The keys a session-ledger or evidence row carries that the bundle header replaces. */
 const ROW_HEADER_KEYS: ReadonlySet<string> = new Set([...ENVELOPE_HEADER_KEYS, 'ts']);
 
-/** A row without its own header keys (and `ts`), ready to be re-stamped for a bundle. */
 function rowBody(
   row: Record<string, unknown>,
   drop: readonly string[] = [],
@@ -75,7 +42,6 @@ function rowBody(
   );
 }
 
-/** Stamp one row for the bundle `dirName` names (issue #581, FR-5). */
 function stampFeatureRow(
   dirName: string,
   sessionId: string,
@@ -94,48 +60,21 @@ function stampFeatureRow(
   }) as unknown as SessionLedgerRow;
 }
 
-/**
- * The project-relative home a RAG row for `sessionId` belongs to: the active feature's
- * `rag.jsonl` when a feature is open, else the session's `_chat` retrieval ledger. This
- * is the whole of the two-home routing — the one-prompt lag falls out of "no active
- * feature yet ⇒ chat".
- */
 export function resolveRagHome(projectRoot: string, sessionId: string): string {
   const dirName = currentFeature(projectRoot, sessionId);
   return dirName ? featureFilePath(dirName, 'rag') : chatRagPath(sessionId);
 }
 
-/**
- * DocType whose session-ledger directory coincides exactly with `_chat/<session>`
- * (`join('.paqad/ledger', '_chat', session)` === `chatDir(session)`), so the RAG
- * conversation ordinal — the `.open` pointer and the race-safe exclusive-create
- * allocation markers — lives in the same `_chat` home as the chat `rag.jsonl` rows
- * (issue #468 Phase C). Reusing the canonical session-ledger allocator keeps the
- * background worker, the TS recorder, and the mjs prompt seam on one ordinal.
- */
 const CHAT_ORDINAL_DOC = '_chat';
 
-/** Allocate the next RAG conversation ordinal in the session's `_chat` home. */
 export function allocateChatOrdinal(projectRoot: string, sessionId: string): number {
   return allocateOrdinal(projectRoot, CHAT_ORDINAL_DOC, sessionId);
 }
 
-/** The current open RAG conversation ordinal for the session's `_chat` home, or 0. */
 export function currentChatOrdinal(projectRoot: string, sessionId: string): number {
   return currentOrdinal(projectRoot, CHAT_ORDINAL_DOC, sessionId);
 }
 
-/**
- * Best-effort mirror of an already-stamped RAG row into its two-home destination (the
- * active feature's bundle or `_chat`). Additive: the session-substrate write the RAG
- * recorder already does is untouched; this co-locates the same row with the feature it
- * served. Never throws — RAG recording must never break the prompt path.
- *
- * Issue #581 — a row bound for a feature bundle is re-stamped with the bundle header
- * (`doc_type` `paqad.rag`, `change`, `recorded_at` = the row's own time) and without the
- * `adapter`, which the bundle keeps in feature.json. The `_chat` home is not a bundle and
- * keeps the recorder's row as it was stamped.
- */
 export function mirrorRagRow(
   projectRoot: string,
   sessionId: string,
@@ -156,19 +95,11 @@ export function mirrorRagRow(
       () => new Date(stampedRow.ts),
     );
     appendStampedRowToUnit(projectRoot, featureFilePath(dirName, 'rag'), bundleRow);
-  } catch {
-    // Best-effort: a mirror failure is invisible to the runtime path.
-  }
+  } catch {}
 }
 
-/**
- * Issue #639 (Part 12) — the most findings one `rule-run.jsonl` or `duplication.jsonl` row
- * keeps. The rest are counted in `findings_overflow`, so a noisy run cannot grow a row
- * without bound and the kept findings plus the overflow always add up to the full count.
- */
 export const BUNDLE_FINDINGS_CAP = 50;
 
-/** One rule finding as a bundle row keeps it (issue #639, Part 12). */
 export interface RuleRunFinding {
   rule_id: string;
   file: string;
@@ -177,7 +108,6 @@ export interface RuleRunFinding {
   severity: string;
 }
 
-/** One near-copy as a `duplication.jsonl` row keeps it (issue #639, Part 12). */
 export interface DuplicationRowFinding {
   file: string;
   line_range: { start: number; end: number };
@@ -189,7 +119,6 @@ export interface DuplicationRowFinding {
   kind: 'deterministic' | 'heuristic';
 }
 
-/** The fields of a near-copy a bundle row keeps; the long message is rebuilt from them. */
 function duplicationRowFinding(finding: DuplicationFinding): DuplicationRowFinding {
   return {
     file: finding.file,
@@ -203,7 +132,6 @@ function duplicationRowFinding(finding: DuplicationFinding): DuplicationRowFindi
   };
 }
 
-/** Keep the first {@link BUNDLE_FINDINGS_CAP} findings and count the rest. */
 function capFindings<T>(all: readonly T[]): { findings: T[]; findings_overflow: number } {
   return {
     findings: all.slice(0, BUNDLE_FINDINGS_CAP),
@@ -211,34 +139,17 @@ function capFindings<T>(all: readonly T[]): { findings: T[]; findings_overflow: 
   };
 }
 
-/** A per-change rule-run entry — which rules fired and the outcome. */
 export interface RuleRunEntry {
-  /** `findings` (a rule-script run) or `drift` (the reconciler), mirroring rule-ledger. */
   kind: 'findings' | 'drift';
-  /** Finding-code or category counts for this run. */
   counts: Record<string, number>;
-  /** Whether this run blocks (a strict deterministic violation). */
   blocking: boolean;
   note?: string | null;
-  /** Issue #468 Phase C — true when minted by the existence gate's backfill (not a live run). */
   backfilled?: boolean;
-  /**
-   * Issue #639 (Part 12) — every finding of the run, with the rule that raised it. The row
-   * keeps the first {@link BUNDLE_FINDINGS_CAP} and counts the rest. Omitted for a drift row.
-   */
   findings?: readonly RuleRunFinding[];
-  /** Issue #639 (Part 12) — true when the run was served from the rule-script cache. */
   from_cache?: boolean;
   now?: () => Date;
 }
 
-/**
- * Append a rule-run row into the ACTIVE feature's `rule-run.jsonl`, recording which
- * rules fired on this change. A no-op (returns null) when no feature is active — a
- * rule run outside a feature-development change has no bundle to attach to. Best-effort:
- * a failure never breaks enforcement. Returns the stamped row (or null). A cache hit whose
- * row would repeat the last row's content exactly is skipped and also returns null.
- */
 export function appendRuleRun(
   projectRoot: string,
   sessionId: string,
@@ -258,8 +169,6 @@ export function appendRuleRun(
       ...(entry.from_cache ? { from_cache: true } : {}),
       ...(entry.backfilled ? { backfilled: true } : {}),
     };
-    // A repeated cache hit says nothing new, so it is not appended again: the bundle would
-    // otherwise grow by a full findings list on every edit.
     if (entry.from_cache && repeatsLastRuleRun(projectRoot, dirName, payload)) {
       return null;
     }
@@ -278,7 +187,6 @@ export function appendRuleRun(
   }
 }
 
-/** Whether the bundle's last rule-run row carries exactly this content. */
 function repeatsLastRuleRun(
   projectRoot: string,
   dirName: string,
@@ -290,22 +198,10 @@ function repeatsLastRuleRun(
   return [...keys].every((key) => JSON.stringify(last[key]) === JSON.stringify(payload[key]));
 }
 
-/** Tolerant read of a feature's `rule-run.jsonl` rows. */
 export function readRuleRun(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readUnitFile(projectRoot, featureFilePath(dirName, 'ruleRun'));
 }
 
-/**
- * Issue #468, Phase A — append one duplication row into the ACTIVE feature's
- * `duplication.jsonl`, recording the scan's counts/threshold/mode for this change. A
- * no-op (returns null) when no feature is active, mirroring {@link appendRuleRun}. The
- * payload fields match the old-home `recordDuplicationRun` row so the parity window can
- * prove the two agree. Additive and best-effort: a failure never breaks the scan.
- *
- * Issue #639 (Part 12) — the row also keeps each near-copy (capped, overflow counted), so
- * the change's evidence names what was copied after the scan cache is overwritten. A cached
- * report with no findings list records none, rather than an empty list that reads as clean.
- */
 export function appendDuplicationRun(
   projectRoot: string,
   sessionId: string,
@@ -343,17 +239,10 @@ export function appendDuplicationRun(
   }
 }
 
-/** Tolerant read of a feature's `duplication.jsonl` rows. */
 export function readDuplication(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readUnitFile(projectRoot, featureFilePath(dirName, 'duplication'));
 }
 
-/**
- * Issue #468, Phase A — append one change-metrics row into the ACTIVE feature's
- * `change-metrics.jsonl`. A no-op (returns null) when no feature is active, mirroring
- * {@link appendRuleRun}. The payload fields match the old-home `recordChangeMetrics` row
- * so the parity window can prove the two agree. Additive and best-effort.
- */
 export function appendChangeMetrics(
   projectRoot: string,
   sessionId: string,
@@ -388,22 +277,10 @@ export function appendChangeMetrics(
   }
 }
 
-/** Tolerant read of a feature's `change-metrics.jsonl` rows. */
 export function readChangeMetrics(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readUnitFile(projectRoot, featureFilePath(dirName, 'changeMetrics'));
 }
 
-/**
- * Issue #468, Phase A (D5) — append the graded gate rows into the ACTIVE feature's
- * `evidence.jsonl`. A no-op (returns `[]`) when no feature is active or the row set is
- * empty. Best-effort.
- *
- * Issue #581 — each row is re-stamped with the bundle header: `doc_type` `paqad.evidence`,
- * `change`, `session_id`, and `recorded_at` = the row's own `ts` (the run time a sealing
- * receipt's `time_verified` names, so the receipt still finds its rows). `content_hash` is
- * the bundle row hash. The returned rows are what was written, read back in the
- * {@link EvidenceLedgerRow} view (`ts` = `recorded_at`).
- */
 export function appendFeatureEvidenceRows(
   projectRoot: string,
   sessionId: string,
@@ -434,7 +311,6 @@ export function appendFeatureEvidenceRows(
   }
 }
 
-/** Tolerant read of a feature's `evidence.jsonl` graded gate rows. */
 export function readFeatureEvidence(projectRoot: string, dirName: string): EvidenceLedgerRow[] {
   return readEvidenceRowsAt(projectRoot, featureFilePath(dirName, 'evidence'));
 }

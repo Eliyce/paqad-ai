@@ -1,11 +1,3 @@
-// Per-feature export + retention (issue #339, Phase 7 — the open threads).
-//
-// A feature's bundle is git-ignored, so an auditor can't just `git show` it. `export`
-// collects one feature's whole record — every rigid bundle file, parsed — into a single
-// self-contained JSON document you can hand off. `prune` is the retention policy: it
-// removes the oldest feature bundles beyond a keep-count, never touching a feature that
-// is still active or paused in any session control (that would drop live work).
-
 import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -24,17 +16,10 @@ import {
 } from './paths.js';
 import { readSessionControl } from './session-control.js';
 
-/** A feature's whole bundle as one document: each file parsed (JSONL → row array). */
 export interface FeatureBundleExport {
   dir_name: string;
   exported_at: string;
   files: Partial<Record<FeatureBundleFile, unknown>>;
-  /**
-   * Files present in the bundle dir that do not belong there (issue #402). The export
-   * itself reads a fixed allowlist, so a stray never breaks it — but it would otherwise
-   * be invisible, which is how a duplicate spec markdown sat in a bundle unnoticed.
-   * Empty for a clean bundle.
-   */
   strays: string[];
 }
 
@@ -56,12 +41,6 @@ function readJson(projectRoot: string, rel: string): unknown {
   }
 }
 
-/**
- * Collect one feature's entire bundle into a self-contained export document — every
- * rigid file parsed (a `.json` object, a `.jsonl` row array, a `.md` file as its text). Absent
- * files are omitted.
- * `exportedAt` is supplied so the call stays deterministic.
- */
 export function exportFeatureBundle(
   projectRoot: string,
   dirName: string,
@@ -71,14 +50,10 @@ export function exportFeatureBundle(
   for (const key of Object.keys(FEATURE_BUNDLE_FILES) as FeatureBundleFile[]) {
     const rel = featureFilePath(dirName, key);
     if (FEATURE_BUNDLE_FILES[key].endsWith('.jsonl')) {
-      // evidence.jsonl rows are graded gate rows with their own shape (no session envelope),
-      // so they are read with the evidence reader. Issue #581 — the report reads the rows a
-      // sealing receipt stands for from here.
       const rows =
         key === 'evidence' ? readEvidenceRowsAt(projectRoot, rel) : readUnitFile(projectRoot, rel);
       if (rows.length > 0) files[key] = rows;
     } else if (FEATURE_BUNDLE_FILES[key].endsWith('.md')) {
-      // Issue #581 — `spec.md` and `request.md` are Markdown with front matter, kept as text.
       const text = readText(projectRoot, rel);
       if (text !== null) files[key] = text;
     } else {
@@ -94,7 +69,6 @@ export function exportFeatureBundle(
   };
 }
 
-/** Every feature dir name that is active or paused in ANY session control. */
 function liveFeatureDirs(projectRoot: string): Set<string> {
   const live = new Set<string>();
   let sessionFiles: string[];
@@ -118,14 +92,8 @@ export interface PruneResult {
   kept: string[];
 }
 
-/**
- * Retention: keep the `keep` most-recent feature bundles (by ULID, time-ordered) and
- * remove the rest — but NEVER a feature still active or paused in a session control.
- * Returns which dirs were removed vs kept. A no-op when at or under the keep-count.
- */
 export function pruneFeatureBundles(projectRoot: string, keep: number): PruneResult {
   const live = liveFeatureDirs(projectRoot);
-  // Newest first, ordered by the time-sortable ULID (not the slug-dominated dir name).
   const ordered = listFeatureDirs(projectRoot).sort((a, b) =>
     (parseFeatureDirName(b)?.ulid ?? b).localeCompare(parseFeatureDirName(a)?.ulid ?? a),
   );
@@ -133,7 +101,6 @@ export function pruneFeatureBundles(projectRoot: string, keep: number): PruneRes
   const kept: string[] = [];
   let keptNonLive = 0;
   for (const dirName of ordered) {
-    // A live (active/paused) feature is always kept and never consumes the keep quota.
     if (live.has(dirName)) {
       kept.push(dirName);
       continue;

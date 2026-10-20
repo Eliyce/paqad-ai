@@ -1,15 +1,3 @@
-// Per-feature rigid artifact writers (issue #339, Phase 3): plan.json + specification.json.
-//
-// These replace the free-written `.paqad/plans/<change>.md` (a hallucination surface)
-// and co-locate the frozen spec inside the feature bundle. The model never owns the
-// stored bytes: `plan.json` is compiled from a fixed template into a schema-validated
-// `PlanRecord` with a deterministic `content_hash`; `specification.json` stores the
-// already-script-built frozen `FeatureSpec` (its `spec_hash` + freeze metadata are the
-// proof). Both are written into the ACTIVE feature's dir — the change key resolved from
-// the `_session` control — so a plan/spec is always attached to a real feature, never to
-// a session ordinal. Writes are atomic (temp + rename); readers tolerate a missing or
-// corrupt file.
-
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -49,31 +37,17 @@ import {
   type ReviewVerdict,
 } from './types.js';
 
-/** The slots a plan template exposes for the model to fill (identity comes from the dir). */
 export interface PlanCompileInput {
   summary: string;
   steps?: PlanStep[];
   modules_touched?: string[];
   decisions?: string[];
   risks?: PlanRisk[];
-  /**
-   * What the plan checked before deciding to build (issue #357). Required in practice:
-   * {@link writeFeaturePlan} refuses an input without a valid one, which is what makes the
-   * "did you check what already exists?" question part of the plan. Typed optional only so
-   * a malformed template reaches the validator and gets its actionable message, rather
-   * than dying at the JSON boundary.
-   */
   reuse?: PlanReuse;
-  /**
-   * The change's human title. It is recorded on `feature.json` (the one home of the change
-   * identity, issue #581) and drives the untitled-bundle rename; `plan.json` never repeats it.
-   * Defaults to the feature slug when absent.
-   */
   title?: string;
   now?: () => Date;
 }
 
-/** Thrown when a plan template's `reuse` section is missing or fails its checks (#357). */
 export class ReuseDeclarationError extends Error {
   readonly errors: string[];
   constructor(errors: string[]) {
@@ -83,7 +57,6 @@ export class ReuseDeclarationError extends Error {
   }
 }
 
-/** Thrown when a compile verb runs with no active feature to attach the artifact to. */
 export class NoActiveFeatureError extends Error {
   constructor() {
     super('No active feature — run `paqad-ai stage start planning` first.');
@@ -98,8 +71,6 @@ function atomicWriteJson(absPath: string, value: unknown): void {
   renameSync(tmp, absPath);
 }
 
-/** Atomic text write (temp + rename), the text sibling of {@link atomicWriteJson}. Used for
- *  the bundle's signed `spec.md` source (issue #581). */
 function atomicWriteText(absPath: string, text: string): void {
   mkdirSync(dirname(absPath), { recursive: true });
   const tmp = `${absPath}.tmp`;
@@ -119,37 +90,15 @@ export interface CompiledArtifact<T> {
   dirName: string;
   path: string;
   record: T;
-  /**
-   * Non-blocking notes from the compile (issue #357) — a check that could not be
-   * performed, such as reuse claims that could not be verified because no code-knowledge
-   * index has been built. Returned rather than logged so the caller decides how to
-   * surface them, and so nothing here depends on shared mutable state.
-   */
   warnings?: string[];
-  /**
-   * Ids of the create-vs-reuse pauses this compile opened from evidence (issue #361). Empty
-   * unless `decision_arm_mode=strict` found a fork worth asking about; the caller announces
-   * them so the developer knows an edit is now blocked and why.
-   */
   armedDecisions?: string[];
-  /**
-   * Issue #579 — the visual-evidence readiness pause this compile opened, when the change is
-   * frontend, visual evidence is on, and this machine cannot capture yet. Null otherwise.
-   */
   readinessDecision?: string | null;
 }
 
-/** Extra, non-template inputs to {@link writeFeaturePlan}. */
 export interface WriteFeaturePlanOptions {
-  /** The git-reported changed files, unioned with the plan step files for the frontend test. */
   changedFiles?: readonly string[];
 }
 
-/**
- * The active feature's dir name plus its parsed `{ issue, slug, ulid }`. Every rigid
- * artifact takes its identity from the dir name (never from the model), so both compile
- * verbs resolve it the same way through this one helper.
- */
 function activeFeatureParts(projectRoot: string, sessionId: string) {
   const dirName = currentFeature(projectRoot, sessionId);
   if (!dirName) {
@@ -162,26 +111,12 @@ function activeFeatureParts(projectRoot: string, sessionId: string) {
   return { dirName, parts };
 }
 
-/**
- * Compile the active feature's `plan.json` from a filled template. The record's identity
- * (issue / slug / ulid) is taken from the feature dir name so the plan can never drift
- * from the feature it belongs to; the model supplies only the plan body. When the
- * template carries a `title` and the active dir still has the generic untitled
- * `change-<ULID>` shape, the bundle is first renamed to the descriptive
- * `[<issue>-]<slug>-<ULID>` (issue #403) so the recorded slug is never the literal
- * `change`. Validates against `PLAN_SCHEMA` and throws on any violation, so a malformed
- * template is never persisted. Throws {@link NoActiveFeatureError} when no feature is
- * active.
- */
 export function writeFeaturePlan(
   projectRoot: string,
   sessionId: string,
   input: PlanCompileInput,
   options: WriteFeaturePlanOptions = {},
 ): CompiledArtifact<PlanRecord> {
-  // Issue #357 — the reuse gate runs BEFORE anything is resolved or renamed, so a plan
-  // that has not answered "did you check what already exists?" leaves no trace: no
-  // bundle rename, no file, nothing written (INV-5).
   const reuseCheck = validateReuseSection({
     projectRoot,
     reuse: input.reuse,
@@ -190,9 +125,6 @@ export function writeFeaturePlan(
   if (reuseCheck.errors.length > 0) {
     throw new ReuseDeclarationError(reuseCheck.errors);
   }
-  // Issue #397 — overwrite the model's declared `provenance` with the one the installed
-  // framework-API index computed, so the stored plan records a verified fact rather than
-  // an assertion. Claims the index could not reach keep whatever the plan declared.
   const reuse = applyComputedProvenance(input.reuse, reuseCheck.provenance);
 
   let { dirName, parts } = activeFeatureParts(projectRoot, sessionId);
@@ -224,9 +156,6 @@ export function writeFeaturePlan(
   const rel = featureFilePath(dirName, 'plan');
   atomicWriteJson(join(projectRoot, rel), record);
 
-  // Issue #511 (RC-1) — the plan carries the change's real title and (detected) ticket;
-  // fold both onto feature.json so the bundle records what it is, not the dir-name slug or
-  // the `change` placeholder. Idempotent + best-effort (no-op when identity is unchanged).
   updateFeatureRecord(
     projectRoot,
     dirName,
@@ -234,10 +163,6 @@ export function writeFeaturePlan(
     input.now,
   );
 
-  // Issue #361 — the plan has now DECLARED what it intends to build new. Score those against
-  // the code-knowledge index and, in strict mode, open a create-vs-reuse pause for the
-  // strongest fork. Runs after the write so a plan is never lost to an arming failure, and
-  // every fork it declines to ask about comes back as a warning rather than vanishing.
   const armed = armDecisionFromPlan({
     projectRoot,
     changeKey: dirName,
@@ -248,9 +173,6 @@ export function writeFeaturePlan(
     })),
   });
 
-  // Issue #579 — a frontend change on a machine that cannot capture screenshots gets ONE pause
-  // now, at planning, instead of a surprise at the Stop gate. Frontend-ness comes from the
-  // plan's own step files unioned with the changed files, since no code may exist yet.
   const readinessDecision = openVisualEvidenceReadinessPause({
     projectRoot,
     dirName,
@@ -272,15 +194,6 @@ export function writeFeaturePlan(
   };
 }
 
-/**
- * Return a copy of the plan's reuse section with each framework claim's `provenance`
- * replaced by the one the framework-API index computed (issue #397, FR-4/FR-8).
- *
- * A copy rather than a mutation: the caller's template object is the model's input, and a
- * validator that silently rewrites its input is the kind of surprise a reviewer should
- * never have to discover. A claim the index could not reach carries no computed entry and
- * keeps whatever the plan declared.
- */
 function applyComputedProvenance(
   reuse: PlanReuse | undefined,
   computed: Record<string, ReuseProvenance>,
@@ -300,18 +213,10 @@ function applyComputedProvenance(
   };
 }
 
-/** Tolerant read of a feature's `plan.json`, or null when absent/corrupt. */
 export function readFeaturePlan(projectRoot: string, dirName: string): PlanRecord | null {
   return readJson<PlanRecord>(join(projectRoot, featureFilePath(dirName, 'plan')));
 }
 
-/**
- * Write the active feature's `specification.json` from an already-frozen `FeatureSpec`
- * (its `spec_hash` + freeze metadata are the script-owned proof; this only relocates it
- * into the bundle), and the signed `markdown` it was built from as `spec.md` (issue #581).
- * Throws {@link NoActiveFeatureError} when no feature is active, and refuses an unfrozen
- * spec (it carries no hash to attest) or a `markdown` that does not hash to `spec_hash`.
- */
 export function writeFeatureSpecification(
   projectRoot: string,
   sessionId: string,
@@ -325,10 +230,6 @@ export function writeFeatureSpecification(
   if (spec.frozen === null || spec.frozen === undefined) {
     throw new Error(`Refusing to persist unfrozen spec ${spec.spec_id}: freeze it first.`);
   }
-  // Issue #581 (D5, FR-2) — the signed source itself goes into the bundle as `spec.md`, the
-  // header in YAML front matter and the markdown byte-for-byte as the body. `spec_hash` was
-  // computed over exactly those bytes, so it keeps verifying once the tmp source is deleted.
-  // A mismatch here means the caller handed the wrong source: refuse rather than record it.
   if (sha256Hex(markdown) !== spec.spec_hash) {
     throw new Error(
       `Refusing to persist spec ${spec.spec_id}: the source does not hash to its spec_hash.`,
@@ -342,13 +243,10 @@ export function writeFeatureSpecification(
     schemaVersion: FEATURE_DOC_SCHEMA_VERSION,
     body: markdown,
   });
-  // spec.md first, so a specification.json on disk always has its signed source beside it.
   atomicWriteText(
     join(projectRoot, featureFilePath(dirName, 'specMd')),
     renderFrontMatter(header, markdown),
   );
-  // The parsed record carries the envelope header in place of the builder's `schema_version`,
-  // and names its source bundle-relative (`spec.md`), whatever path it was frozen from.
   const body: Record<string, unknown> = { ...spec, spec_file: FEATURE_BUNDLE_FILES.specMd };
   delete body.schema_version;
   const record = stampFeatureDocument({
@@ -361,40 +259,24 @@ export function writeFeatureSpecification(
   }) as unknown as FeatureSpec;
   const rel = featureFilePath(dirName, 'specification');
   atomicWriteJson(join(projectRoot, rel), record);
-  // Issue #511 (RC-1) — record which frozen spec this feature carries on feature.json.
   updateFeatureRecord(projectRoot, dirName, { spec_id: spec.spec_id });
   return { dirName, path: rel, record };
 }
 
-/** Tolerant read of a feature's `specification.json`, or null when absent/corrupt. */
 export function readFeatureSpecification(projectRoot: string, dirName: string): FeatureSpec | null {
   return readJson<FeatureSpec>(join(projectRoot, featureFilePath(dirName, 'specification')));
 }
 
-/** The slots a review template exposes for the model to fill (identity comes from the dir). */
 export interface ReviewRecordInput {
   summary: string;
   verdict: ReviewVerdict;
   findings?: ReviewFinding[];
   checked?: string[];
   rollback: string;
-  /**
-   * Accepted so a template written before issue #581 still compiles, and no longer stored:
-   * the change title lives in `feature.json`, which `plan compile` sets.
-   */
   title?: string;
   now?: () => Date;
 }
 
-/**
- * Compile the active feature's `review.json` from a filled template (issue #402). Before
- * this, `review` owned no rigid bundle file, so its evidence was an agent-authored `.md`
- * dropped wherever the model chose — including inside the bundle dir, which is meant to
- * hold only rigid artifacts. Same contract as {@link writeFeaturePlan}: identity comes
- * from the feature dir name, the model supplies only the review body, and the record is
- * schema-validated before it is persisted. Throws {@link NoActiveFeatureError} when no
- * feature is active.
- */
 export function writeFeatureReview(
   projectRoot: string,
   sessionId: string,
@@ -420,7 +302,6 @@ export function writeFeatureReview(
   return { dirName, path: rel, record };
 }
 
-/** Tolerant read of a feature's `review.json`, or null when absent/corrupt. */
 export function readFeatureReview(projectRoot: string, dirName: string): ReviewRecord | null {
   return readJson<ReviewRecord>(join(projectRoot, featureFilePath(dirName, 'review')));
 }

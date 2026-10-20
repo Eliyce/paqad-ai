@@ -1,32 +1,3 @@
-// Per-feature receipt + AI-BOM projection (issue #343 Workstream B, finishing #339 Phase 6).
-//
-// The whole-project receipt (#118) is built from a verification run's graded gate rows and
-// snapshotted at `.paqad/ledger/receipt.dsse.json` / `ai-bom.json`. This projects the SAME
-// real rows into the active feature's bundle as `receipt.json` + `ai-bom.json`, so each
-// feature carries its own attested receipt and CycloneDX AI-BOM — the two reserved-but-
-// unwritten bundle files (`FEATURE_BUNDLE_FILES.receipt` / `.aiBom`). The whole-project
-// AI-BOM/receipt can then be PROJECTED on demand from the union of the feature bundles
-// (`projectAiBomFromFeatures`) instead of being authored continuously.
-//
-// Reuse over reinvention: the in-toto statement, DSSE signing, and CycloneDX rendering are
-// the existing `src/evidence/receipt/*` primitives, run on the feature's own rows. The
-// per-feature receipt is hash-chained to the feature's OWN prior receipt (a self-contained
-// chain), never the whole-project chain, so a feature bundle is a portable, verifiable unit.
-//
-// Issue #581 — the receipt seals the bundle's `evidence.jsonl` instead of copying its rows:
-// the predicate carries `evidence_sha256` (the file's bytes at seal time) and
-// `evidence_line_count`, so the rows are stored once. Rows appended after sealing (a later run,
-// or a receipt sealed before issue #669 moved the seal after the late gates) mean a verifier
-// re-hashes only the sealed prefix. Those later rows are not covered by the
-// seal, so a reader shows them as unsealed rather than as rows the receipt vouches for. A
-// receipt sealed before #581 still carries `predicate.rows` and every reader here falls back
-// to them.
-//
-// Both files also carry the one envelope header (issue #581, FR-5), each in the slot its
-// standard format allows: the receipt in its top-level `paqad` block, outside the signed DSSE
-// payload (so the chain bytes are unchanged; `time_verified` stays inside the payload, owned
-// by the SLSA-VSA shape), and the AI-BOM as `paqad:<field>` CycloneDX `metadata.properties`.
-
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -47,9 +18,6 @@ import { parseEvidenceRows } from '@/evidence/ledger.js';
 import { buildAiBom, type AiBomDocument } from '@/evidence/receipt/ai-bom.js';
 import { signReceipt } from '@/evidence/receipt/dsse.js';
 import { buildInTotoStatement } from '@/evidence/receipt/statement.js';
-// Issue #468 Phase B — import from the leaf `envelope.js`, NOT `project.js`: this module
-// is now imported BY `project.js` (for `latestFeatureReceipt`), so importing it back would
-// form a cycle.
 import { decodeReceiptStatement } from '@/evidence/receipt/envelope.js';
 
 import { documentSessionId } from './bundle-document.js';
@@ -63,29 +31,19 @@ import {
 import { computeContentHash } from './mint.js';
 import { featureChangeKey, featureFilePath } from './paths.js';
 
-/** Doc type of a bundle's `receipt.json` (`paqad.<file-stem>`, issue #581). */
 export const RECEIPT_DOC_TYPE = 'paqad.receipt';
-/** Version 2 (issue #581): the envelope header in the `paqad` block. */
 export const RECEIPT_SCHEMA_VERSION = 2;
 
-/** Doc type of a bundle's `ai-bom.json` (issue #581). */
 export const AI_BOM_DOC_TYPE = 'paqad.ai-bom';
-/** Version 2 (issue #581): the envelope header in `metadata.properties`. */
 export const AI_BOM_SCHEMA_VERSION = 2;
 
 interface BundleHeaderIdentity {
   projectRoot: string;
   dirName: string;
   sessionId?: string | null;
-  /** The run time: the statement's `time_verified`. */
   recordedAt: string;
 }
 
-/**
- * The receipt with the envelope header in its `paqad` block. `content_hash` is the
- * `receipt_hash` the chain already carries (the SHA-256 of the signed PAE and the prior
- * link), so the header names the same bytes the chain does without a second hash.
- */
 function withFeatureReceiptHeader(
   envelope: ReceiptEnvelope,
   identity: BundleHeaderIdentity,
@@ -101,10 +59,6 @@ function withFeatureReceiptHeader(
   return { ...envelope, paqad: withReceiptHeader(header, envelope.paqad) };
 }
 
-/**
- * The AI-BOM with the envelope header first in its `metadata.properties`. `content_hash` is
- * {@link computeContentHash} over the document as built, before the header is added.
- */
 function withFeatureAiBomHeader(
   aiBom: AiBomDocument,
   identity: BundleHeaderIdentity,
@@ -141,12 +95,6 @@ function readJson<T>(absPath: string): T | null {
   }
 }
 
-/**
- * The specification line for the end-of-change receipt (issue #547, FR-12.3), read from the
- * frozen spec's `pipeline` section (issue #581, `produced`) or an older record's `provenance`
- * block (`pipeline_produced`). `experts` is the run's expert summary where one is known. Absent
- * input renders today's plain line, so a pre-#547 record is unchanged. Pure and deterministic.
- */
 export function specificationReceiptLine(
   provenance?: (
     | { produced: boolean; pipeline_produced?: never }
@@ -158,11 +106,8 @@ export function specificationReceiptLine(
       accepted: number;
       declined: number;
       conflicts: number;
-      /** Issue #558 — the standing count. Present ⇒ the new standing/on-call line is rendered. */
       standing?: number;
-      /** Issue #558 — the on-call role names (the detector's picks). */
       on_call?: string[];
-      /** Issue #558 — how many findings the chief renamed to the project's word. */
       renamed?: number;
     };
   },
@@ -170,7 +115,6 @@ export function specificationReceiptLine(
   if (!provenance) return '🟢 specification: recorded';
   if (provenance.produced ?? provenance.pipeline_produced) {
     const experts = provenance.experts;
-    // Issue #558 — the standing/on-call line, rendered when the run recorded a standing count.
     if (experts && experts.standing !== undefined) {
       const onCall = experts.on_call ?? [];
       const roster =
@@ -200,37 +144,23 @@ export function specificationReceiptLine(
   return '🟡 specification: frozen without the pipeline';
 }
 
-/** Tolerant read of a feature bundle's signed `receipt.json`, or null when absent/corrupt. */
 export function readFeatureReceipt(projectRoot: string, dirName: string): ReceiptEnvelope | null {
   return readJson<ReceiptEnvelope>(join(projectRoot, featureFilePath(dirName, 'receipt')));
 }
 
-/** Tolerant read of a feature bundle's `ai-bom.json`, or null when absent/corrupt. */
 export function readFeatureAiBom(projectRoot: string, dirName: string): AiBomDocument | null {
   return readJson<AiBomDocument>(join(projectRoot, featureFilePath(dirName, 'aiBom')));
 }
 
-/**
- * Issue #468 Phase B — every feature bundle's `receipt.json`, in feature-dir order, skipping
- * any dir with no receipt yet. The whole-project projection of the retired append-only
- * receipt chain: after the cutover each bundle keeps its own self-chained receipt, so the
- * "all receipts" view is the union of the per-feature receipts. Each verifies independently
- * (issue #468, AC-10) via `verifyReceiptSeal`.
- */
 export function readAllFeatureReceipts(projectRoot: string): ReceiptEnvelope[] {
   return readAllFeatureReceiptEntries(projectRoot).map((entry) => entry.envelope);
 }
 
-/** One bundle's receipt together with the bundle it came from. */
 export interface FeatureReceiptEntry {
   dirName: string;
   envelope: ReceiptEnvelope;
 }
 
-/**
- * Every feature bundle's `receipt.json` with its dir name, in feature-dir order. The dir name
- * is what a reader needs to find the rows a post-#581 receipt sealed in `evidence.jsonl`.
- */
 export function readAllFeatureReceiptEntries(projectRoot: string): FeatureReceiptEntry[] {
   const entries: FeatureReceiptEntry[] = [];
   for (const dirName of listFeatureDirs(projectRoot)) {
@@ -250,11 +180,6 @@ function readText(absPath: string): string {
   }
 }
 
-/**
- * The first `lineCount` newline-terminated lines of `raw`, or null when `raw` holds fewer.
- * The bytes a seal covers: at seal time the file ended on its last sealed line, so the prefix
- * is byte-identical to the file as it was then, however many lines were appended since.
- */
 function sealedPrefix(raw: string, lineCount: number): string | null {
   let end = 0;
   for (let line = 0; line < lineCount; line += 1) {
@@ -265,11 +190,6 @@ function sealedPrefix(raw: string, lineCount: number): string | null {
   return raw.slice(0, end);
 }
 
-/**
- * Issue #581 — seal a bundle's `evidence.jsonl` as it stands now: the SHA-256 of every
- * complete line and how many there are. A trailing partial line (a write in flight) is left
- * out, so the seal only ever covers whole rows. An absent file seals as zero lines.
- */
 export function sealFeatureEvidence(projectRoot: string, dirName: string): EvidenceSeal {
   const raw = readText(join(projectRoot, featureFilePath(dirName, 'evidence')));
   const complete = raw.slice(0, raw.lastIndexOf('\n') + 1);
@@ -277,12 +197,6 @@ export function sealFeatureEvidence(projectRoot: string, dirName: string): Evide
   return { sha256: sha256Hex(complete), line_count: lineCount };
 }
 
-/**
- * Issue #581 — whether the `evidence.jsonl` lines a receipt sealed are still the bytes it
- * sealed. `true` when the first `evidence_line_count` lines re-hash to `evidence_sha256`;
- * `false` when they do not or the file lost lines; `null` for a receipt that carries its
- * own rows (sealed before #581), which has nothing in `evidence.jsonl` to check.
- */
 export function verifyEvidenceSeal(
   projectRoot: string,
   dirName: string,
@@ -295,25 +209,11 @@ export function verifyEvidenceSeal(
   return prefix !== null && sha256Hex(prefix) === sha256;
 }
 
-/** The graded rows of a receipt's run, split by whether its evidence seal covers them. */
 export interface ReceiptEvidenceRows {
-  /** The rows the receipt vouches for: carried in it, or in the sealed lines of evidence.jsonl. */
   sealed: EvidenceLedgerRow[];
-  /**
-   * Rows of the same run appended after sealing (the late gates). `evidence_sha256` does not
-   * cover them, so they are shown as unsealed, never attributed to the receipt.
-   */
   unsealed: EvidenceLedgerRow[];
 }
 
-/**
- * The graded rows of a receipt's run. A pre-#581 receipt carries them in `predicate.rows`, all
- * sealed. A sealing receipt does not, so they are the bundle's `evidence.jsonl` rows of that same
- * verification run (every row is stamped with the run's completion time, which is also the
- * receipt's `time_verified`, so earlier runs' rows are left out). `evidenceRows` is the file in
- * line order; the first `sealedRowCount` of them sit in the lines the seal covers, which is
- * `evidence_line_count` because the evidence writer puts exactly one row on each line.
- */
 export function splitReceiptEvidenceRows(
   statement: InTotoStatement,
   evidenceRows: readonly EvidenceLedgerRow[],
@@ -330,7 +230,6 @@ export function splitReceiptEvidenceRows(
   };
 }
 
-/** The rows a receipt vouches for: {@link splitReceiptEvidenceRows}, sealed part only. */
 export function receiptEvidenceRows(
   statement: InTotoStatement,
   evidenceRows: readonly EvidenceLedgerRow[],
@@ -338,11 +237,6 @@ export function receiptEvidenceRows(
   return splitReceiptEvidenceRows(statement, evidenceRows).sealed;
 }
 
-/**
- * {@link splitReceiptEvidenceRows} read straight from a bundle's `evidence.jsonl`, counting the
- * rows in the sealed lines exactly (an unreadable line there is not a row). A file that lost
- * sealed lines has no sealed rows left: every row of the run reads as unsealed.
- */
 export function readReceiptEvidenceRows(
   projectRoot: string,
   dirName: string,
@@ -358,14 +252,6 @@ export function readReceiptEvidenceRows(
   );
 }
 
-/**
- * Issue #468 Phase B — the most-recent per-feature receipt across all bundles, by decoded
- * `time_verified` (ISO-8601, so a lexical max is chronological). The replacement for
- * "the last link in the whole-project chain": every "latest receipt" surface (authorship,
- * compliance/reproducibility extras) reads this so they agree. A receipt whose statement
- * cannot be decoded carries no `time_verified` and loses ties to a decodable one; `null`
- * when no bundle carries a receipt.
- */
 export function latestFeatureReceipt(projectRoot: string): ReceiptEnvelope | null {
   let latest: ReceiptEnvelope | null = null;
   let latestTime = '';
@@ -384,27 +270,11 @@ export interface ProjectFeatureReceiptInput {
   rows: readonly EvidenceLedgerRow[];
   verifierVersion: string;
   timeVerified: string;
-  /**
-   * Which bundle files to persist, mirroring the whole-project receipt's independent gating
-   * (#187) so per-feature honours the SAME enterprise flags: `receipt` ⇐ `evidence_ledger`,
-   * `aiBom` ⇐ `ai_bom`. Both default to `true`. The statement/envelope/AI-BOM are always
-   * computed (and returned) even when a write is gated off.
-   */
   write?: { receipt?: boolean; aiBom?: boolean };
-  /** Issue #362 — the per-change shape metrics to carry on this receipt's predicate.
-   *  Omitted when none were computed, so the statement stays byte-identical to before. */
   metrics?: MetricsPredicate;
-  /**
-   * Issue #468 Phase B — the same trust predicates the whole-project receipt carries, so a
-   * per-feature receipt is a COMPLETE attestation record once it becomes the only one (D5):
-   * who wrote/accepted the change (#120), the `gate → clause` compliance citations (#122),
-   * and the frozen-context reproducibility stamp (#123). Each is omitted from the predicate
-   * when absent, so a receipt without them stays byte-identical to before this change.
-   */
   authorship?: ChangeAuthorship;
   complianceCitations?: readonly ComplianceCitation[];
   reproducibility?: ReproducibilityStampPredicate;
-  /** The session running the verification, stamped on the file headers (issue #581). */
   sessionId?: string | null;
 }
 
@@ -415,12 +285,6 @@ export interface ProjectFeatureReceiptResult {
   aiBomPath: string;
 }
 
-/**
- * Build + sign + write a feature bundle's `receipt.json` AND `ai-bom.json` from the feature's
- * own graded rows. The receipt is hash-chained to the feature's OWN prior receipt (so the
- * bundle is a self-contained, tamper-evident unit), and the AI-BOM is the CycloneDX view of
- * the same statement. Both writes are atomic. Returns the paths (project-relative) written.
- */
 export function projectFeatureReceipt(
   projectRoot: string,
   dirName: string,
@@ -470,11 +334,6 @@ export function projectFeatureReceipt(
   return { envelope, aiBom, receiptPath: receiptRel, aiBomPath: aiBomRel };
 }
 
-/**
- * Project the just-the-AI-BOM slice of a feature bundle without (re)writing the receipt —
- * the CycloneDX view of the feature's own rows. Used when only the AI-BOM is wanted (e.g. the
- * `ai_bom` enterprise flag is on but `evidence_ledger` is off). Writes `ai-bom.json`; returns it.
- */
 export function projectFeatureAiBom(
   projectRoot: string,
   dirName: string,
@@ -495,14 +354,6 @@ export function projectFeatureAiBom(
   return aiBom;
 }
 
-/**
- * Project the WHOLE-PROJECT AI-BOM on demand from the union of every feature bundle's own
- * receipt (issue #343 B) — the replacement for authoring a continuous whole-project ledger.
- * Each feature receipt stands for its graded rows (carried, or in the sealed lines of the
- * bundle's `evidence.jsonl` since #581) and file subjects; the union is
- * rebuilt into one statement and rendered as a single CycloneDX AI-BOM. Feature dirs whose
- * receipt is missing/corrupt are skipped. `null` when no feature carries a receipt.
- */
 export function projectAiBomFromFeatures(
   projectRoot: string,
   verifierVersion: string,
@@ -526,7 +377,6 @@ export function projectAiBomFromFeatures(
       seenSubjects.add(key);
       fileDigests.push({ name: subject.name, sha256: subject.digest.sha256 });
     }
-    // Only the rows the receipt vouches for: a row appended after its seal is not its evidence.
     for (const row of readReceiptEvidenceRows(projectRoot, dirName, statement).sealed) {
       if (seenRows.has(row.content_hash)) continue;
       seenRows.add(row.content_hash);

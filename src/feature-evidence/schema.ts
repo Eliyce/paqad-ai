@@ -1,9 +1,3 @@
-// AJV schemas for the per-feature `feature.json` / `plan.json` records (issue
-// #339, Phase 1). Framework-owned, in src/ (never under .paqad/), so the LLM can
-// never weaken them. `additionalProperties:false` everywhere — an unknown key is
-// rejected, which is what makes the stored bytes script-owned rather than a
-// hallucination surface. Mirrors `src/stage-evidence/schema.ts`.
-
 import Ajv, { type ValidateFunction } from 'ajv';
 
 import { ULID_BODY } from '@/core/ids/ulid.js';
@@ -26,14 +20,6 @@ import {
 
 const nullableString = { type: ['string', 'null'] } as const;
 
-/**
- * Issue #581 (FR-5) — the six-field envelope header every bundle document and row carries,
- * as one JSON Schema fragment. A file schema composes it through `allOf`, so the header is
- * declared once instead of per file. It sets no `additionalProperties`, which is what lets it
- * compose: a file schema that closes its own shape lists the header keys among its
- * properties (spread {@link ENVELOPE_HEADER_PROPERTIES}). `content_hash` is plain lowercase hex
- * (NFR-2) and `change` is the folder-name ULID (INV-4).
- */
 export const ENVELOPE_HEADER_PROPERTIES = {
   schema_version: { type: 'integer', minimum: 1 },
   doc_type: { type: 'string', pattern: '^paqad\\.[a-z0-9-]+$' },
@@ -43,19 +29,11 @@ export const ENVELOPE_HEADER_PROPERTIES = {
   content_hash: { type: 'string', pattern: '^[0-9a-f]{64}$' },
 } as const;
 
-// No `$id`: the fragment is embedded inline in many file schemas compiled by one Ajv
-// instance, and a repeated `$id` would register the same schema twice.
 export const ENVELOPE_SCHEMA_FRAGMENT = {
   type: 'object',
   required: [...ENVELOPE_HEADER_KEYS],
   properties: ENVELOPE_HEADER_PROPERTIES,
 } as const;
-/**
- * Issue #581 — the current shape of a bundle document: the envelope fragment composed through
- * `allOf` with the file's own closed body. The body schema lists the header keys too (with the
- * file's own `doc_type` and version pinned), which is what lets `additionalProperties:false`
- * close the shape without rejecting the header.
- */
 function envelopedDocumentSchema(
   docType: string,
   schemaVersion: number,
@@ -80,11 +58,6 @@ function envelopedDocumentSchema(
   } as const;
 }
 
-/**
- * Issue #581 (INV-8) — a file schema that reads both headers: a `schema_version: 1` document is
- * checked against its pre-#581 shape, anything else against the enveloped one. Writers only
- * build the new shape (INV-9); the v1 branch exists so an old bundle still validates.
- */
 function versionedSchema(id: string, legacy: object, current: object) {
   return {
     $id: id,
@@ -100,7 +73,6 @@ function versionedSchema(id: string, legacy: object, current: object) {
 
 const lane = { type: ['string', 'null'], enum: ['fast', 'graduated', 'full', null] } as const;
 
-/** The pre-#581 `feature.json` shape (schema version 1). Read-only (INV-8). */
 const FEATURE_SCHEMA_V1 = {
   type: 'object',
   additionalProperties: false,
@@ -134,19 +106,12 @@ const FEATURE_SCHEMA_V1 = {
     spec_id: nullableString,
     session_first_seen: { type: 'string', minLength: 1 },
     adapter: { type: 'string', minLength: 1 },
-    // Issue #581 — the session constants live here once. Optional: a pre-#581 record has
-    // neither and still validates.
     branch: nullableString,
     base_branch: nullableString,
     content_hash: { type: 'string', minLength: 1 },
   },
 } as const;
 
-/**
- * `feature.json`: version 1 as before, version 2 with the envelope header (issue #581). The
- * header's `change`, `session_id` and `recorded_at` replace `ulid`, `session_first_seen` and
- * `created_at`; it is the one bundle file that carries `issue`, `title` and `slug`.
- */
 export const FEATURE_SCHEMA = versionedSchema(
   'paqad://schemas/feature.json',
   FEATURE_SCHEMA_V1,
@@ -181,7 +146,6 @@ export const FEATURE_SCHEMA = versionedSchema(
   ),
 );
 
-/** The body of a plan, shared by both versions (the steps, risks and reuse shapes never changed). */
 const PLAN_BODY_PROPERTIES = {
   summary: { type: 'string' },
   steps: {
@@ -194,14 +158,9 @@ const PLAN_BODY_PROPERTIES = {
         id: { type: 'string', minLength: 1 },
         description: { type: 'string', minLength: 1 },
         module: { type: 'string', minLength: 1 },
-        // Issue #359 — the diff-minimizer verdict for the step. Optional and additive so a
-        // plan.json compiled before this change stays valid (INV-3); when present it must
-        // be one of the skill's four classifications.
         classification: {
           enum: ['ac-satisfying', 'necessary-setup', 'scaffolding', 'over-build'],
         },
-        // Issue #579 — the files the step expects to touch. Optional and additive, so a
-        // plan.json compiled before it stays valid.
         files: { type: 'array', items: { type: 'string', minLength: 1 } },
       },
     },
@@ -220,10 +179,6 @@ const PLAN_BODY_PROPERTIES = {
       },
     },
   },
-  // Issue #357 — the reuse declaration. OPTIONAL here on purpose: presence is enforced
-  // on the compile-INPUT side (`validateReuseSection`), so a `plan.json` written before
-  // this change stays valid and readable (AC-6 / INV-3). The nested shape is fully
-  // validated, so what IS stored is still script-owned rather than free text.
   reuse: {
     type: 'object',
     additionalProperties: false,
@@ -295,7 +250,6 @@ const PLAN_BODY_PROPERTIES = {
   },
 } as const;
 
-/** The pre-#581 `plan.json` shape (schema version 1). Read-only (INV-8). */
 const PLAN_SCHEMA_V1 = {
   type: 'object',
   additionalProperties: false,
@@ -329,10 +283,6 @@ const PLAN_SCHEMA_V1 = {
   },
 } as const;
 
-/**
- * `plan.json`: version 1 as before, version 2 with the envelope header and without the change
- * identity (`issue`, `title`, `slug`, `ulid`), which lives in `feature.json` (issue #581).
- */
 export const PLAN_SCHEMA = versionedSchema(
   'paqad://schemas/plan.json',
   PLAN_SCHEMA_V1,
@@ -344,10 +294,8 @@ export const PLAN_SCHEMA = versionedSchema(
   ),
 );
 
-/** The body of a review, shared by both versions. */
 const REVIEW_BODY_PROPERTIES = {
   summary: { type: 'string', minLength: 1 },
-  // The narration contract's three verdict words, so chat, report, and bundle agree.
   verdict: { enum: ['safe-to-merge', 'needs-attention', 'inconclusive'] },
   findings: {
     type: 'array',
@@ -366,7 +314,6 @@ const REVIEW_BODY_PROPERTIES = {
   rollback: { type: 'string', minLength: 1 },
 } as const;
 
-/** The pre-#581 `review.json` shape (schema version 1). Read-only (INV-8). */
 const REVIEW_SCHEMA_V1 = {
   type: 'object',
   additionalProperties: false,
@@ -400,10 +347,6 @@ const REVIEW_SCHEMA_V1 = {
   },
 } as const;
 
-/**
- * `review.json`: version 1 as before, version 2 with the envelope header and without the change
- * identity, which lives in `feature.json` (issue #581).
- */
 export const REVIEW_SCHEMA = versionedSchema(
   'paqad://schemas/review.json',
   REVIEW_SCHEMA_V1,
@@ -415,10 +358,6 @@ export const REVIEW_SCHEMA = versionedSchema(
   ),
 );
 
-/**
- * The `steps` array of a visual-evidence manifest. Only the per-step time key differs between
- * versions: `captured_at` before #581, `recorded_at` since (AC-4: no old time key anywhere).
- */
 function visualEvidenceStepsSchema(timeKey: 'captured_at' | 'recorded_at') {
   return {
     type: 'array',
@@ -438,14 +377,12 @@ function visualEvidenceStepsSchema(timeKey: 'captured_at' | 'recorded_at') {
         image_bytes: { type: 'integer', minimum: 0 },
         status: { enum: [...VE_STEP_STATUSES] },
         failure: { type: 'string' },
-        // Issue #579 — the criterion an agent-attached screenshot proves. Optional, additive.
         ac: { type: 'string', minLength: 1 },
       },
     },
   } as const;
 }
 
-/** The manifest body both versions share, apart from `steps`. */
 const VISUAL_EVIDENCE_BODY_PROPERTIES = {
   trigger: {
     type: 'object',
@@ -512,11 +449,9 @@ const VISUAL_EVIDENCE_BODY_PROPERTIES = {
     },
   },
   result: { enum: [...VE_RESULTS] },
-  // Issue #579 — present only when agent-attached steps are in the manifest.
   source: { enum: [...VE_SOURCES] },
 } as const;
 
-/** The pre-#581 `visual-evidence.json` shape (schema version 1). Read-only (INV-8). */
 const VISUAL_EVIDENCE_SCHEMA_V1 = {
   type: 'object',
   additionalProperties: false,
@@ -542,10 +477,6 @@ const VISUAL_EVIDENCE_SCHEMA_V1 = {
   },
 } as const;
 
-/**
- * `visual-evidence.json`: version 1 as before, version 2 with the envelope header, whose
- * `recorded_at` replaces `generated_at`, and `recorded_at` on each step (issue #581).
- */
 export const VISUAL_EVIDENCE_SCHEMA = versionedSchema(
   'paqad://schemas/visual-evidence.json',
   VISUAL_EVIDENCE_SCHEMA_V1,
@@ -564,7 +495,6 @@ let compiledReview: ValidateFunction | undefined;
 let compiledVisualEvidence: ValidateFunction | undefined;
 let compiledEnvelope: ValidateFunction | undefined;
 
-/** One human-readable line for a validation error. */
 export function formatValidationError(error: { instancePath?: string; message?: string }): string {
   return `${error.instancePath || '(root)'} ${error.message ?? 'invalid'}`;
 }
@@ -577,7 +507,6 @@ function runValidator(validate: ValidateFunction, row: unknown): string[] {
   return errors.map(formatValidationError);
 }
 
-/** Returns `[]` when `row` is a valid `feature.json` record, else error strings. */
 export function validateFeatureRecord(row: unknown): string[] {
   if (!compiledFeature) {
     compiledFeature = ajv.compile(FEATURE_SCHEMA);
@@ -585,7 +514,6 @@ export function validateFeatureRecord(row: unknown): string[] {
   return runValidator(compiledFeature, row);
 }
 
-/** Returns `[]` when `row` is a valid `plan.json` record, else error strings. */
 export function validatePlanRecord(row: unknown): string[] {
   if (!compiledPlan) {
     compiledPlan = ajv.compile(PLAN_SCHEMA);
@@ -593,7 +521,6 @@ export function validatePlanRecord(row: unknown): string[] {
   return runValidator(compiledPlan, row);
 }
 
-/** Returns `[]` when `row` is a valid `review.json` record, else error strings. */
 export function validateReviewRecord(row: unknown): string[] {
   if (!compiledReview) {
     compiledReview = ajv.compile(REVIEW_SCHEMA);
@@ -601,10 +528,6 @@ export function validateReviewRecord(row: unknown): string[] {
   return runValidator(compiledReview, row);
 }
 
-/**
- * Issue #581 — returns `[]` when `value` carries a valid six-field envelope header, else error
- * strings. Checks only the header, so any bundle document or row can be run through it.
- */
 export function validateEnvelopeHeader(value: unknown): string[] {
   if (!compiledEnvelope) {
     compiledEnvelope = ajv.compile(ENVELOPE_SCHEMA_FRAGMENT);
@@ -612,7 +535,6 @@ export function validateEnvelopeHeader(value: unknown): string[] {
   return runValidator(compiledEnvelope, value);
 }
 
-/** Returns `[]` when `row` is a valid `visual-evidence.json` manifest, else error strings. */
 export function validateVisualEvidenceRecord(row: unknown): string[] {
   if (!compiledVisualEvidence) {
     compiledVisualEvidence = ajv.compile(VISUAL_EVIDENCE_SCHEMA);

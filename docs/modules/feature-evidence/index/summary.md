@@ -530,6 +530,109 @@ table that ships with paqad.
   Cost tab, which shows the total, the split by stage, by expert and the chief, the basis in plain
   words and what is not counted. `/paqad cost` prints the same text.
 
+## Why the code works the way it does
+
+The reasons below are not obvious from the code, grouped by file in `src/feature-evidence/`.
+
+**Import cycles.** `adoption.ts`, `enumerate.ts` and `delivery.ts` stay leaves on purpose.
+`adoption.ts` reads the `branch` field of `delivery.json` itself instead of calling
+`readFeatureDelivery`, and `recordCommitForBranch` takes the active feature as an argument, because
+adoption to delivery to stage-ledger to adoption would be a cycle. `receipt.ts` imports from the
+leaf `envelope.js`, not `project.js`, for the same reason. `index.ts` does not star-export
+`enumerate.js`, because `delivery.js` re-exports its one symbol and `export *` would then see the
+same binding twice.
+
+**`artifacts.ts`.** The plan's `reuse` field is typed optional only so a malformed template reaches
+the validator and gets its message. The computed provenance is applied to a copy, never the
+caller's template. `spec.md` is written before `specification.json`, so a spec record on disk
+always has its signed source beside it. The create-vs-reuse pause is armed after the plan is
+written, so an arming failure never loses the plan. A review template may still carry a `title`
+from an older template; it is accepted and not stored.
+
+**`bundle-integrity.ts`.** `classifyBundlePath` normalises the path again even though callers
+already do, because a stray `./` or a backslash must never read as "not in a bundle". It does not
+accept an in-flight `.tmp` file as an artifact, since that would let `--artifact <bundle>/notes.tmp`
+pass and stay invisible to stray detection; `strayBundleFiles` does tolerate temp files, since
+they exist for an instant during a write. Whether a bundle predates the envelope is judged from
+the first stage row and the spec source, never `feature.json`, which `updateFeatureRecord`
+rewrites. Screenshot slugs are Windows-safe (no `:`). Nothing here deletes a file.
+
+**`bundle-ledgers.ts`.** The RAG ordinal uses a doc type whose session-ledger folder is exactly
+the session's `_chat` folder, so the background worker, the TS recorder and the prompt seam share
+one allocator. A rule-run cache hit that would repeat the last row is not appended, so the bundle
+does not grow on every edit. The RAG mirror never throws, so recording cannot break the prompt.
+
+**`decisions-index.ts`.** A resolved packet is linked to a change when it names the change in its
+`change` field; or names no change but carries the change's ULID in its context (the tokens
+automated pauses embed); or names neither and was resolved while the change was open (from
+`feature.json` `recorded_at` until done), which covers packets written before the `change` field
+existed. A packet naming another change is never linked. An unchanged index is not rewritten.
+
+**`delivery.ts`.** Commits are read with a NUL field separator so any subject round-trips. A
+`post-commit` fires after the bundle is closed, so the newest matching bundle that is not yet done
+wins over a finished one. "Newest" is ordered by the trailing ULID, never the full folder name,
+whose slug would dominate.
+
+**`envelope.ts`.** Front-matter values are written as JSON scalars, which are also valid YAML, so
+reading them back needs no YAML dependency. The body after the front matter is returned byte for
+byte, because for `spec.md` it is the signed source. `<` is escaped in the report header tag so
+no value can close the tag early.
+
+**`export.ts`.** Retention orders bundles by ULID and never removes a change that is active or
+paused in any session; such a change also does not use up the keep count.
+
+**`feature-record.ts`.** The lane only ever rises, and `updateFeatureRecord` is the one write path
+for it, so no caller can relabel a large build as fast. When the seed was missed, a minimal record
+is rebuilt with a placeholder adapter rather than inventing the session that opened it.
+`updated_at` moves only when the identity changed, so a per-stage patch never churns the file.
+
+**`git-hooks.ts`.** Git's own `post-commit` and `post-merge` are the one signal every host shares,
+and `--no-verify` does not skip them. The installer appends after an existing hook and never
+replaces it. A hooks folder git tracks (husky's `.husky/`, a committed `.githooks/`) is never
+written, since that would make a diff and husky drops appended blocks; the line is printed
+instead. Containment is checked on a folder boundary so `.githooks` is not read as inside `.git`.
+The tracked check uses a repo-relative, forward-slash pathspec, because an absolute one read empty
+on Linux CI. The hook block uses forward slashes since it runs under `sh`, also on Windows, and
+falls back to `node <paqad>/dist/cli/index.js` because the plugin puts `paqad-ai` on PATH only
+inside a Claude Code session. Every line ends in `|| true`, so git is never blocked.
+
+**`mint.ts` and `paths.ts`.** The ticket ref is removed from the title before slugging so the
+folder name does not repeat it. A bare number is removed only as `#45` or when it leads the title,
+so "Show 45 rows" keeps its number. A GitHub `#45` becomes `45` so the name stays parseable, and a
+leading numeric slug segment is read as a GitHub issue. Paths use `pathe` so the folder name, a
+stable key, is the same on every platform. A plan with no `reuse` omits the key rather than
+writing `undefined`, which would hash differently.
+
+**`manifest.ts`.** `checks.json`, `visual-evidence.json` and `rules-loaded.json` are `optional`
+and not flag-gated: the completeness gate cannot tell whether a change mapped any checks or was a
+frontend change, so requiring them would fail changes falsely, and there is no flag to be off.
+Each has its own gate that does the real enforcement.
+
+**`report.ts` and `report-writer.ts`.** A feature receipt is chained to the feature's own earlier
+receipt, so its `prev_receipt_hash` is legitimately non-zero; it is checked with
+`verifyFeatureReceiptSelf` because `verifyReceiptChain` assumes a chain from zero and would read it
+as broken. Rows are de-duplicated by `content_hash`. A plan's `then` text can arrive cut short, so
+it is rendered as found. Screenshots are linked by relative path so the page works from
+`file://`. The report flag is not gated on enterprise. `writeFeatureReport` throws so tests can see
+failures; every caller wraps it.
+
+**`reuse.ts`.** `CREATE_KEYWORDS` pairs a create verb with a construct noun, so "add a test" does
+not demand a new-construct entry. A shape error stops the checks, so index errors do not bury it.
+The nearest-symbol threshold grows with the name's length, and no suggestion is better than an
+unrelated one. A framework claim's version is passed to the index so a monorepo with two versions
+answers for the one the plan named.
+
+**`session-control.ts`.** A missing or corrupt control reads as a fresh one, so a crash mid-write
+cannot wedge a session. Resuming a feature the control does not know returns null rather than
+minting one.
+
+**`stage-ledger.ts`.** `agent` is required by the schema and defaulted at the one append path.
+When two or more bundles are already in flight on the branch, the mint path refuses instead of
+forking a third under stage isolation. A bundle file is checked with one read and a catch, never
+stat then read, to avoid the race CodeQL flags. The recorded lane fails safe to `full`.
+`currentFeature` reconciles on the read path too, so the finalizer never writes its backstop into
+a fresh bundle after a session-id rotation.
+
 ## Source Footprint
 
 - `src/feature-evidence`
