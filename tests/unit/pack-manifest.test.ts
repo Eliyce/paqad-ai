@@ -2,11 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { parsePackManifest } from '../shared/pack-manifest.js';
 
-// Regression coverage for issue #332: npm 12 changed the `npm pack --json`
-// output shape from a top-level array to an object keyed by package name. The
-// publish-time E2E crashed because it assumed the array shape. These tests
-// prove both shapes parse identically without needing npm 12 installed in CI.
-
 const npm11Output = JSON.stringify([
   {
     id: 'paqad-ai@1.48.0',

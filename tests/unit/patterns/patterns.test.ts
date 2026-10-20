@@ -11,8 +11,6 @@ import type { EmbeddingProvider } from '@/rag/types.js';
 async function importPatternModules(homeDir: string) {
   vi.resetModules();
   vi.stubEnv('HOME', homeDir);
-  // os.homedir() reads USERPROFILE on Windows — stub both or the fake home
-  // is ignored there and pattern state leaks into the runner's real home.
   vi.stubEnv('USERPROFILE', homeDir);
   const [
     {
@@ -171,9 +169,6 @@ describe('patterns', () => {
     const { PatternSuggester } = await importPatternModules(homeDir);
     const fresh = makePattern({
       id: 'pattern-fresh',
-      // Relative to real now (well within the 180-day staleness window) so the
-      // fixture is ALWAYS fresh — a fixed date silently tips over the threshold as
-      // wall-clock time advances (it did on 2026-06-30, 180 days after 2026-01-01).
       created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
       problem: 'Improve React list rendering speed with virtualization.',
       tags: ['react', 'virtualization'],
@@ -314,8 +309,6 @@ describe('patterns', () => {
         escalation_rules: [],
       },
     });
-    // Framework knobs (the RAG/`intelligence` block) resolve from `.paqad/.config`,
-    // not the profile YAML; persist them so pattern RAG sees the enabled config.
     syncFrameworkConfig(projectRoot, {
       intelligence: {
         rag_enabled: true,
