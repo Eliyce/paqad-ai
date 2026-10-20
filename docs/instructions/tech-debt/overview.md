@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5DFWBB40C2D5J1EBEFQ3TEC](TD-01M5DFWBB40C2D5J1EBEFQ3TEC.md) (bug, medium): Capability-gate pre-mutation hook times out on a cold run (about 10.4s vs its 10s timeout), blocking the first edit after a tree change
 - [TD-01M5D6STQ75DHDQ4Y05KCWB4TT](TD-01M5D6STQ75DHDQ4Y05KCWB4TT.md) (debt, medium): The build rewrites the tracked plugin.json version and flips two hook file modes
 - [TD-01M5D0M3XDBWAMK4H8DV6AJ543](TD-01M5D0M3XDBWAMK4H8DV6AJ543.md) (bug, medium): Commits after a bundle closes open a stray fast-lane bundle
 - [TD-01M5CY6GZB3NG4PMAG57YYMV9Z](TD-01M5CY6GZB3NG4PMAG57YYMV9Z.md) (gap, medium): Allow once also replaces a deny from another tool's PreToolUse hook on the same edit
