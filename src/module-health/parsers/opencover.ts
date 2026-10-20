@@ -1,11 +1,3 @@
-// OpenCover XML coverage parser. Format reference:
-//   https://github.com/OpenCover/opencover/wiki/Output-File
-//
-// Per <Module>: resolve fileid → fullPath from <File .../> tags, then walk
-// every <SequencePoint .../> tag and bucket it by fileid. Attribute order is
-// not guaranteed by the schema, so we extract each attribute by name from
-// the matched tag rather than from a positional regex.
-
 import type { CoverageRow, ParsedReport } from './types.js';
 
 const MODULE_BLOCK = /<Module\b[^>]*>([\s\S]*?)<\/Module>/g;

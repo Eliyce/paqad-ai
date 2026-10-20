@@ -1,9 +1,3 @@
-// Registry of framework-shipped coverage / test-report parsers. The closed
-// set mirrors the enum in src/validators/schemas/stack-pack.schema.json —
-// extending it is a framework PR (spec AC #28).
-//
-// Each parser is a tiny `parseReport(content)` function in a sibling file.
-
 import { parseReport as cobertura } from './cobertura.js';
 import { parseReport as coveragePyXml } from './coverage-py-xml.js';
 import { parseReport as gocover } from './gocover.js';

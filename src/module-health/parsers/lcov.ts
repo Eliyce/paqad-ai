@@ -1,10 +1,3 @@
-// LCOV info-file parser. Format reference:
-//   https://github.com/linux-test-project/lcov/blob/master/man/geninfo.1
-//
-// Each record is bounded by SF:<path> ... end_of_record. We read LF: (lines
-// found) and LH: (lines hit) for each record. Branch / function metrics are
-// ignored — module-health rolls up to a single coverage_pct per file.
-
 import type { ParsedReport } from './types.js';
 
 export function parseReport(content: string): ParsedReport {

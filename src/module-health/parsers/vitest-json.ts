@@ -1,13 +1,3 @@
-// Vitest JSON reporter parser. Reference: `vitest --reporter=json` emits a
-// top-level object with a `testResults` array, each entry having a `name`
-// (the test file's absolute path) and an `assertionResults` array of
-// `{ status: 'passed' | 'failed' | 'skipped' | 'pending' | 'todo' }`.
-//
-// We emit one TestRow per file, summing passing/failing across its assertion
-// results. The optional `coverage` field on the top-level Vitest JSON object
-// is not consumed here — coverage in vitest projects flows through the lcov
-// (or coverage-py-xml) reporter that Vitest's c8 backend produces.
-
 import type { ParsedReport, TestRow } from './types.js';
 
 interface VitestAssertion {

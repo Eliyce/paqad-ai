@@ -1,10 +1,3 @@
-// Cobertura XML coverage parser. Format reference:
-//   http://cobertura.github.io/cobertura/xml/coverage-04.dtd
-//
-// We aggregate <line number="N" hits="M"/> elements per <class filename="..."/>.
-// Sub-element ordering does not matter — we slice each <class …> … </class>
-// block and count its <line .../> entries.
-
 import type { CoverageRow, ParsedReport } from './types.js';
 
 const CLASS_BLOCK = /<class\b([^>]*)>([\s\S]*?)<\/class>/g;

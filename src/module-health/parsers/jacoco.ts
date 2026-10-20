@@ -1,12 +1,3 @@
-// JaCoCo XML report parser. Format reference:
-//   https://www.jacoco.org/jacoco/trunk/coverage/report.dtd
-//
-// One CoverageRow per <sourcefile name="…">. JaCoCo reports line totals as a
-// `<counter type="LINE" missed="M" covered="C"/>` element; attribute order is
-// not guaranteed, so we extract `missed` and `covered` by name. The
-// enclosing <package name="java/foo/bar"> is prepended so generated paths
-// match `src/main/java/foo/bar/Baz.java`-shaped globs in module-map.yml.
-
 import type { CoverageRow, ParsedReport } from './types.js';
 
 const PACKAGE_BLOCK = /<package\b([^>]*)>([\s\S]*?)<\/package>/g;

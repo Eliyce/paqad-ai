@@ -1,8 +1,3 @@
-// `go test -json` NDJSON parser. Each line is a JSON event with an `Action`
-// field; we count pass/fail events keyed by `Test` name, then bucket each
-// test under its `Package` (used as the file key — best-effort since Go
-// reports packages rather than files).
-
 import type { ParsedReport, TestRow } from './types.js';
 
 interface GoTestEvent {
