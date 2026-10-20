@@ -1,0 +1,52 @@
+{
+  "id": "D-01M5DCRA5NGVZ1MPNGZ3DZAEY4",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new runtime/hooks/stage-agent-start.mjs",
+  "context": "Chief architect: the nine claims do not contradict; they group on one file. This one is the trust boundary the entry gate depends on, and it settles the open choice in the fallback test (whether a failed run stamps the marker: it must not). The other claims (exact matcher plus safe id, thin hook, log message only, no-op on other route, boundary and non-stage tests) all hold alongside it.\n\nTarget: new runtime/hooks/stage-agent-start.mjs\n- security-auditor: the hook writes the per-agent entry marker only when agent_type matches the exact stage-helper pattern and agent_id is non-empty after the existing safeFileKey sanitising, so no other agent and no crafted id can earn an entry pass or write outside .paqad/session/agent-entry/\n- security-auditor: the marker is written only after the brief was built and printed, so a helper that got no brief keeps today's blocked-until-loaded path instead of passing the entry gate with neither the brief nor the framework loaded\n- security-auditor: on error the hook logs only the error message to .paqad/logs/hooks.log, never the brief text or the raw payload\n- application-architect: the hook stays thin like stage-agent-completion.mjs: resolve root, stand down when disabled or not the active route, call dist functions, print, stamp the marker; all brief logic stays in src so it is unit-tested under the coverage gate\n- qa-engineer: Given a SubagentStart payload whose agent_type is paqad-expert, paqad:paqad-chief-architect, paqad-foo, Explore, or missing, when the hook runs, then it exits 0, prints nothing, and writes no file under .paqad/session/agent-entry/ (unit, real script)\n- qa-engineer: Given buildStageBrief throws or dist/stage-isolation/stage-brief.js is missing, when the hook runs, then it exits 0, prints nothing, and appends one stage-agent-start line to .paqad/logs/hooks.log; the test also asserts whether the per-agent entry marker was written, so the fallback path is pinned either way (unit)\n- qa-engineer: stamping .paqad/session/agent-entry/<agent_id> when the brief was not delivered lets a helper edit with neither the brief nor the framework loaded, a quiet hole in the agent-entry-gate.mjs guarantee; stamp only after the brief is printed\n- qa-engineer: Given a stage agent_type but no agent_id, or an agent_id with path characters such as ../, when the hook runs, then no marker is written outside .paqad/session/agent-entry/ and the hook still exits 0 (unit, boundary)\n- qa-engineer: Given paqad disabled, a repo never onboarded, or a session whose hook route is the other install route, when the hook runs, then it is a no-op (no stdout, no marker), so npm and plugin together never produce two briefs (unit, both routes)\n\n[expert-conflict-fork:44742ac7b2177e3a]",
+  "options": [
+    {
+      "option_key": "the-hook-writes-the-per-agent-entry-mark",
+      "label": "the hook writes the per-agent entry marker only when agent_type matches the exact stage-helper pattern and agent_id is non-empty after the existing safeFileKey sanitising, so no other agent and no crafted id can earn an entry pass or write outside .paqad/session/agent-entry/ — security-auditor"
+    },
+    {
+      "option_key": "the-marker-is-written-only-after-the-bri",
+      "label": "the marker is written only after the brief was built and printed, so a helper that got no brief keeps today's blocked-until-loaded path instead of passing the entry gate with neither the brief nor the framework loaded — security-auditor"
+    },
+    {
+      "option_key": "on-error-the-hook-logs-only-the-error-me",
+      "label": "on error the hook logs only the error message to .paqad/logs/hooks.log, never the brief text or the raw payload — security-auditor"
+    },
+    {
+      "option_key": "the-hook-stays-thin-like-stage-agent-com",
+      "label": "the hook stays thin like stage-agent-completion.mjs: resolve root, stand down when disabled or not the active route, call dist functions, print, stamp the marker; all brief logic stays in src so it is unit-tested under the coverage gate — application-architect"
+    },
+    {
+      "option_key": "given-a-subagentstart-payload-whose-agen",
+      "label": "Given a SubagentStart payload whose agent_type is paqad-expert, paqad:paqad-chief-architect, paqad-foo, Explore, or missing, when the hook runs, then it exits 0, prints nothing, and writes no file under .paqad/session/agent-entry/ (unit, real script) — qa-engineer"
+    },
+    {
+      "option_key": "given-buildstagebrief-throws-or-dist-sta",
+      "label": "Given buildStageBrief throws or dist/stage-isolation/stage-brief.js is missing, when the hook runs, then it exits 0, prints nothing, and appends one stage-agent-start line to .paqad/logs/hooks.log; the test also asserts whether the per-agent entry marker was written, so the fallback path is pinned either way (unit) — qa-engineer"
+    },
+    {
+      "option_key": "stamping-paqad-session-agent-entry-agent",
+      "label": "stamping .paqad/session/agent-entry/<agent_id> when the brief was not delivered lets a helper edit with neither the brief nor the framework loaded, a quiet hole in the agent-entry-gate.mjs guarantee; stamp only after the brief is printed — qa-engineer"
+    },
+    {
+      "option_key": "given-a-stage-agent-type-but-no-agent-id",
+      "label": "Given a stage agent_type but no agent_id, or an agent_id with path characters such as ../, when the hook runs, then no marker is written outside .paqad/session/agent-entry/ and the hook still exits 0 (unit, boundary) — qa-engineer"
+    },
+    {
+      "option_key": "given-paqad-disabled-a-repo-never-onboar",
+      "label": "Given paqad disabled, a repo never onboarded, or a session whose hook route is the other install route, when the hook runs, then it is a no-op (no stdout, no marker), so npm and plugin together never produce two briefs (unit, both routes) — qa-engineer"
+    }
+  ],
+  "recommendation": "the-marker-is-written-only-after-the-bri",
+  "created_at": "2026-10-20T19:31:31.637Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "chosen": "the-marker-is-written-only-after-the-bri",
+  "rationale": "Owner: build all compatible claims as the chief architect recommends",
+  "resolved_at": "2026-10-20T19:41:59.675Z"
+}
