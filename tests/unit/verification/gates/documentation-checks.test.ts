@@ -20,8 +20,6 @@ describe('documentation checks helpers', () => {
       join(context.project_root, 'docs/maintainers/architecture-map.md'),
       '# Architecture Map\n',
     );
-    // The implementation-drift doc EXISTS on disk, so a code change legitimately
-    // flags it for review — a project that maintains this doc is still reminded.
     mkdirSync(join(context.project_root, 'docs/modules/verification/index'), { recursive: true });
     writeFileSync(
       join(context.project_root, 'docs/modules/verification/index/summary.md'),
@@ -59,9 +57,6 @@ describe('documentation checks helpers', () => {
 
   it('drops an implementation-drift doc that does not exist (cannot stale an uncreated doc)', async () => {
     const context = createVerificationContext();
-    // The framework-assumed drift owner (never seeded by onboarding) does not exist,
-    // and the diff did not create it. A code change cannot stale a doc the project
-    // never authored, so it is NOT an unresolved obligation (issue #307 dogfood).
     await expect(
       collectUnresolvedDocTargets(
         context.project_root,

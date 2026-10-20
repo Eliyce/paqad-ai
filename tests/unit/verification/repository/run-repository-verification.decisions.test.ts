@@ -1,7 +1,3 @@
-// Issue #581 (FR-11) — repository verification rewrites the change's decisions.json index from
-// the tracked packets before the completeness gate reads the bundle, and a broken packet store
-// never changes the run.
-
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -51,7 +47,7 @@ function run(root: string) {
   });
 }
 
-describe('runRepositoryVerification — decisions.json index (#581)', () => {
+describe('runRepositoryVerification — decisions.json index', () => {
   it('indexes a decision resolved outside the decision verb', async () => {
     const { root, dir } = makeProject();
     mkdirSync(join(root, RESOLVED), { recursive: true });
@@ -69,7 +65,6 @@ describe('runRepositoryVerification — decisions.json index (#581)', () => {
 
   it('never lets an unreadable packet store change the run', async () => {
     const { root, dir } = makeProject();
-    // A directory where a packet file should be makes the index read fail inside the writer.
     mkdirSync(join(root, RESOLVED, 'D-01JAAAAAAAAAAAAAAAAAAAAAA2.json'), { recursive: true });
     const verdict = await run(root);
     expect(verdict).toBeDefined();

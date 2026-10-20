@@ -2,8 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import { pad2, slugifyCaption } from '@/visual-evidence/runner.js';
 
-// runner.ts is coverage-excluded (real browser work), but its pure naming helpers are
-// deterministic and Windows-safety-critical, so lock their behaviour here.
 describe('slugifyCaption', () => {
   it('produces Windows-safe kebab-case with no colon', () => {
     expect(slugifyCaption('Open the cart: savings goal')).toBe('open-the-cart-savings-goal');

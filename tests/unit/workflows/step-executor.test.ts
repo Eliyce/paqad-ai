@@ -17,7 +17,6 @@ function makeConcreteExecutor(
       if (runStepFn) {
         return runStepFn();
       }
-      // no-op success
     }
   })();
 }
@@ -54,7 +53,6 @@ describe('StepExecutor predictive cache wiring', () => {
     const result = await executor.execute({ skill: 'code' });
 
     expect(result.status).toBe('completed');
-    // No assertion needed; if it threw, the test would fail
   });
 
   it('does not call onSkillComplete when the step is skipped', async () => {
@@ -65,7 +63,7 @@ describe('StepExecutor predictive cache wiring', () => {
 
     const result = await executor.execute({
       skill: 'code',
-      condition: { complexity: ['high'] }, // classification has complexity: 'low', so skip
+      condition: { complexity: ['high'] },
     });
 
     expect(result.status).toBe('skipped');
@@ -195,7 +193,7 @@ describe('StepExecutor skill cache wiring', () => {
 
     const result = await executor.execute({
       skill: 'analyze',
-      condition: { complexity: ['high'] }, // classification has complexity: 'low'
+      condition: { complexity: ['high'] },
     });
 
     expect(result.status).toBe('skipped');
@@ -247,7 +245,6 @@ describe('StepExecutor condition evaluation', () => {
   it('skips when condition field is missing from classification', async () => {
     const executor = makeConcreteExecutor();
     const result = await executor.execute({ skill: 'plan', condition: { risk: ['high'] } });
-    // classification has risk: 'low'
     expect(result.status).toBe('skipped');
   });
 

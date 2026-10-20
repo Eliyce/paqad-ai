@@ -133,7 +133,6 @@ describe('resolveVisualEvidencePlan', () => {
       { id: 'goals', kind: 'page', label: 'Goals', evidence: { file: 'src/pages/Goals.tsx' } },
     ]);
     writeJourney('review-flow', 'confirmed', 'goals', ['goals']);
-    // no review-flow.capture.yaml
     const plan = resolveVisualEvidencePlan(root, ['src/pages/Goals.tsx']);
     expect(plan.entries).toEqual([]);
     expect(plan.skips.some((s) => s.reason === 'no-capture-script')).toBe(true);
@@ -147,7 +146,6 @@ describe('resolveVisualEvidencePlan', () => {
     writeCapture('draft', 'draft', [1]);
     const plan = resolveVisualEvidencePlan(root, ['src/pages/Goals.tsx']);
     expect(plan.entries).toEqual([]);
-    // the proposed journey is not confirmed -> no-documented-flow, and its capture script is invalid
     expect(plan.skips.some((s) => s.reason === 'capture-script-invalid')).toBe(true);
     expect(plan.skips.some((s) => s.reason === 'no-documented-flow')).toBe(true);
   });
@@ -166,7 +164,6 @@ describe('resolveVisualEvidencePlan', () => {
 
   it('selects a surface by module match (no evidence anchor) via the module map', () => {
     writeModuleMap([{ slug: 'goals', sources: ['src/pages'] }]);
-    // Surface has a module but NO evidence anchor — only a module match can select it.
     writeAppMap([{ id: 'goals', kind: 'page', label: 'Goals', module: 'goals' }]);
     writeJourney('checkout', 'confirmed', 'goals', ['goals']);
     writeCapture('checkout', 'checkout', [1]);

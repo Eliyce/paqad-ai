@@ -1,6 +1,3 @@
-// Issue #581 — the spec-pipeline flags the bundle-completeness manifest reads, taken from the
-// layered config map (src/verification/** must not import the pipeline, FR-11). Issue #640 made
-// the pipeline, the experts and strict adoption the defaults for an unset key.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

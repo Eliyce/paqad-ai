@@ -72,7 +72,7 @@ steps:
     const controller = new AbortController();
     vi.spyOn(StepExecutor.prototype, 'execute').mockImplementation(async (step) => {
       if (step.skill === 'first') {
-        controller.abort(); // consumer aborts after the first step completes
+        controller.abort();
       }
       return { status: 'completed' };
     });
@@ -139,7 +139,7 @@ steps:
     vi.spyOn(StepExecutor.prototype, 'execute').mockImplementation(async (step) => {
       if (step.skill === 'first') {
         controller.abort();
-        controller.abort(); // second abort on an already-aborted controller is a no-op
+        controller.abort();
       }
       return { status: 'completed' };
     });
@@ -173,7 +173,6 @@ steps:
       availableSkills: new Set(['only']),
     }).run('one-step', { classification: {} }, { signal: controller.signal });
 
-    // Abort fires only after the run has already resolved.
     controller.abort();
 
     expect(progress.status).toBe('completed');

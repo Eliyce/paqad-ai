@@ -11,7 +11,6 @@ import { createVerificationContext } from '../shared.fixture.js';
 
 const gate = new SiteMapFreshnessGate();
 
-/** Write a stored canonical map carrying (or omitting) a stamped freshness verdict. */
 function seedCanonicalMap(projectRoot: string, freshness?: AppFreshness): void {
   writeCanonicalSiteMap(projectRoot, {
     schema_version: 1,
@@ -20,7 +19,6 @@ function seedCanonicalMap(projectRoot: string, freshness?: AppFreshness): void {
   });
 }
 
-/** Turn the site_map capability on for the temp project (local dev config, LOCAL WINS). */
 function enableSiteMap(projectRoot: string): void {
   mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
   writeFileSync(join(projectRoot, '.paqad/.config'), 'site_map=true\n');

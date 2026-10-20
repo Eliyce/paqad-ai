@@ -18,9 +18,6 @@ import {
 import { commitAll, git, makeEmptyRepo, writeRepoFile } from '../pipeline/changed-files.fixture.js';
 import { openChange, writeSpec } from './change-map.fixture.js';
 
-// Issue #639, Part 11 — the change-scoped acceptance-criteria map: the frozen spec's
-// automated criteria against the test files changed on the branch.
-
 const roots: string[] = [];
 afterEach(() => {
   while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
@@ -331,7 +328,6 @@ describe('buildChangeTraceabilityMap', () => {
     expect(byId['AC-1']).toMatchObject({ source: 'acceptance-criterion', proven: false });
     expect(byId['OBL-1']).toMatchObject({ source: 'obligation', proven: true });
     expect(byId['OBL-2']).toMatchObject({ source: 'obligation', proven: false });
-    // No delivery and no markers: anchors stay unknown, as before change maps existed.
     expect(built!.map.anchors_known).toBe(false);
     expect(built!.map.backward).toEqual([]);
   });
@@ -465,7 +461,6 @@ describe('buildAndWriteChangeTraceabilityMap', () => {
     const root = project();
     const errors: string[] = [];
     const built = await buildAndWriteChangeTraceabilityMap(
-      // A non-array changed-file list makes the scan throw.
       {
         projectRoot: root,
         dirName: openChangeWithSpec(root),
@@ -501,7 +496,6 @@ describe('buildAndWriteChangeTraceabilityMap', () => {
   it('keeps the built map when only the write fails', async () => {
     const root = project();
     const dir = openChangeWithSpec(root);
-    // A file where the traceability directory should be makes the write fail.
     writeFileSync(join(root, '.paqad/traceability'), 'not a directory');
     const errors: string[] = [];
     const built = await buildAndWriteChangeTraceabilityMap(

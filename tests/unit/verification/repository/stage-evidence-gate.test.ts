@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import { stageEvidenceGate } from '@/verification/repository/run-repository-verification.js';
 import type { VerifyResult } from '@/stage-evidence/verify.js';
 
-/** Build a VerifyResult with sane defaults for the field under test. */
 function result(over: Partial<VerifyResult>): VerifyResult {
   return {
     verdict: 'incomplete',
@@ -19,10 +18,6 @@ function result(over: Partial<VerifyResult>): VerifyResult {
 }
 
 describe('stageEvidenceGate — mode-gated stage enforcement (buildout F4, RCA closure)', () => {
-  // N1 fix: the working-tree diff count no longer gates. A committed change has a
-  // clean tree (changedFileCount === 0) yet, if incomplete, must STILL fail —
-  // otherwise the gate vacuously passes the moment the agent commits. The
-  // empty-turn guard is a null result (from finalizeStageEvidence), not a zero diff.
   it('N1: fails a committed (zero-diff) incomplete change instead of vacuously passing', () => {
     const gate = stageEvidenceGate(result({}), 'hook-completion', 0, 'strict');
     expect(gate?.status).toBe('fail');
@@ -45,9 +40,6 @@ describe('stageEvidenceGate — mode-gated stage enforcement (buildout F4, RCA c
     }
   });
 
-  // THE FIX: strict fails an incomplete change at a local origin REGARDLESS of
-  // live_marked. Before F4 this returned `skipped` (live_marked was always false),
-  // which is exactly how a cannot-verify change shipped.
   it('strict: hard-FAILS an incomplete change at a local origin even when never live-marked', () => {
     for (const origin of ['hook-completion', 'git-backstop'] as const) {
       const gate = stageEvidenceGate(result({ live_marked: false }), origin, 4, 'strict');

@@ -33,7 +33,7 @@ function evidence(gates: VerificationEvidenceGate[]): VerificationEvidence {
   };
 }
 
-describe('flag-on skip lines (issue #579)', () => {
+describe('flag-on skip lines', () => {
   const skippedVisual = gate({
     name: 'visual-evidence' as VerificationEvidenceGate['name'],
     status: 'skipped',
@@ -58,11 +58,9 @@ describe('flag-on skip lines (issue #579)', () => {
     });
     const lines = withLine.summary.split('\n');
     expect(lines).toContain('> ⚪ visual evidence: not required (not-frontend)');
-    // After the status lines, before the escalations.
     const skipAt = lines.indexOf('> ⚪ visual evidence: not required (not-frontend)');
     expect(lines[skipAt - 1]).toContain('1/1 checks held');
     expect(lines[skipAt + 1]).toContain('needs a look');
-    // Same ran/passed counts as the run without the line.
     expect(without.summary.split('\n')[1]).toBe(lines[1]);
     expect(withLine.gates.find((g) => g.gate === 'visual-evidence')?.skip_reason).toBe(
       'not-frontend',
@@ -112,7 +110,7 @@ describe('flag-on skip lines (issue #579)', () => {
   });
 });
 
-describe('did-not-run and not-required lines (issue #639, Part 10)', () => {
+describe('did-not-run and not-required lines', () => {
   it('AC-7: shows every did-not-run gate, grouped by reason, and keeps it out of the counts', () => {
     const summary = formatVerdictSummary({
       ok: true,
@@ -160,7 +158,6 @@ describe('did-not-run and not-required lines (issue #639, Part 10)', () => {
     expect(lines).toContain(
       '> ⚪ mutation testing: Mutation testing did not run: no mutation tool is configured for this stack.',
     );
-    // A not-required gate whose flag is not on stays quiet.
     expect(summary).not.toContain('extension surface');
   });
 
@@ -290,8 +287,7 @@ describe('formatVerdictSummary', () => {
     expect(summary).toContain('spec-review');
   });
 
-  // Issue #472 — reconcile down: passing gates + a mandatory-stage gap reads Inconclusive.
-  describe('mandatory-stage reconcile (#472)', () => {
+  describe('mandatory-stage reconcile', () => {
     const passingGates = [
       {
         gate: 'change-completeness' as const,
@@ -310,9 +306,7 @@ describe('formatVerdictSummary', () => {
       });
       expect(summary).toContain(PAQAD_VERDICT.inconclusive);
       expect(summary).not.toContain(PAQAD_VERDICT.pass);
-      // The gates that held are still credited.
       expect(summary).toContain('1/1 checks held');
-      // The offending stages are named.
       expect(summary).toContain('mandatory stage(s) not recorded: review, checks');
     });
 

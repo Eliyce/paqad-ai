@@ -14,10 +14,6 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 import { ownInFlightChange } from '../shared.fixture.js';
 import { seedGitChangedFiles } from '../../pipeline/changed-files.fixture.js';
 
-// Issue #293 (Option A) — the mutation step wired into repository verification, end to end
-// through buildRepositoryVerificationContext and runRepositoryVerification. The mode is read from
-// the real config files; only the test command and the mutation runner are injected.
-
 type Origin = Extract<VerificationOrigin, 'hook-completion' | 'git-backstop' | 'ci-backstop'>;
 const ORIGINS: Origin[] = ['hook-completion', 'git-backstop', 'ci-backstop'];
 
@@ -98,7 +94,6 @@ describe('mutation wiring: mode off or absent (disabled == missing)', () => {
         readings.push(`${origin}:${JSON.stringify(gate)}`);
       }
     }
-    // Off and absent give identical results on every origin.
     expect(readings.slice(0, ORIGINS.length)).toEqual(readings.slice(ORIGINS.length));
   }, 60_000);
 });

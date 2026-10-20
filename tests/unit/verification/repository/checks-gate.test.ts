@@ -54,7 +54,7 @@ function structuredResult(runnerId: string, failed: number): StructuredTestResul
   };
 }
 
-describe('checksEvidenceGate (#318)', () => {
+describe('checksEvidenceGate', () => {
   it('returns null when there are no structured results (Inconclusive, not a pass)', () => {
     expect(checksEvidenceGate(undefined)).toBeNull();
     expect(checksEvidenceGate([])).toBeNull();
@@ -73,7 +73,7 @@ describe('checksEvidenceGate (#318)', () => {
   });
 });
 
-describe('runRepositoryVerification consumes the check report (#318)', () => {
+describe('runRepositoryVerification consumes the check report', () => {
   it('blocks the verdict when the check report is red', async () => {
     const context = createVerificationContext({
       verification_origin: 'hook-completion',
@@ -112,7 +112,7 @@ describe('runRepositoryVerification consumes the check report (#318)', () => {
   });
 });
 
-describe('buildRepositoryVerificationContext reads the persisted report (#318)', () => {
+describe('buildRepositoryVerificationContext reads the persisted report', () => {
   let root: string;
 
   beforeEach(() => {
@@ -125,7 +125,7 @@ describe('buildRepositoryVerificationContext reads the persisted report (#318)',
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('reads the report from the active feature bundle when one is open (#528)', async () => {
+  it('reads the report from the active feature bundle when one is open', async () => {
     process.env.CLAUDE_SESSION_ID = 'ses-ctx';
     const dir = resolveActiveFeature(root, 'ses-ctx', { title: 'thing', issue: '528' });
     writeFeatureChecks(root, dir, {

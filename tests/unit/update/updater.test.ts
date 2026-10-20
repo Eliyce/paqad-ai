@@ -206,8 +206,6 @@ describe('FrameworkUpdater', () => {
   });
 
   it('migrates an already-onboarded project schema forward on update (buildout F1, C4)', async () => {
-    // An older-marker project: update must advance its `.paqad/` schema, which it
-    // never did before F1 (migration ran only at onboard).
     writeFileSync(
       schemaMarkerPath(projectRoot),
       JSON.stringify({
@@ -230,9 +228,7 @@ describe('FrameworkUpdater', () => {
     });
   });
 
-  it('finishes a pending evidence migration on a later update (issue #581, AC-28)', async () => {
-    // Already at the current schema, so the one-time migrator does not run again; a run the
-    // migration left behind (another session held it then) is still moved on this update.
+  it('finishes a pending evidence migration on a later update', async () => {
     writeFileSync(
       schemaMarkerPath(projectRoot),
       JSON.stringify({
@@ -254,12 +250,11 @@ describe('FrameworkUpdater', () => {
   });
 
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
-    'goes on with the update when the evidence migration cannot delete a file (issue #581)',
+    'goes on with the update when the evidence migration cannot delete a file',
     async () => {
       const run = '300-gamma-01JABCDEFGHJKMNPQRSTVWXYZ3';
       mkdirSync(join(projectRoot, '.paqad/_specs', run, 'pipeline'), { recursive: true });
       writeFileSync(join(projectRoot, '.paqad/_specs', run, 'pipeline/request.md'), '# Gamma\n');
-      // A read-only parent refuses the delete, as a Windows lock (EBUSY/EPERM) would.
       chmodSync(join(projectRoot, '.paqad/_specs'), 0o500);
       try {
         const report = await new FrameworkUpdater({ generateCandidates: async () => [] }).run(
@@ -337,9 +332,7 @@ describe('FrameworkUpdater', () => {
     expect(readFileSync(join(projectRoot, 'docs/rules/team.md'), 'utf8')).toBe('current rule');
     expect(existsSync(join(projectRoot, 'scripts/new-script.sh'))).toBe(true);
   });
-  // Issue #622 — update regenerates its candidates in a temp root, so the legacy MCP cleanup has
-  // to run on the real project. User-owned MCP files stay byte-identical; paqad's own go.
-  describe('legacy MCP files on update (issue #622)', () => {
+  describe('legacy MCP files on update', () => {
     let userHome: string;
     const saved = { HOME: process.env.HOME, USERPROFILE: process.env.USERPROFILE };
     const userOwned = (name: string): string =>
@@ -386,12 +379,7 @@ describe('FrameworkUpdater', () => {
     });
   });
 
-  // Issue #573 — the update path must render the stage agents too, not only onboarding.
-  // `writeStageAgents` was reachable ONLY from `bootstrapFramework` (install/onboard), but an
-  // already-onboarded project upgrades through silent-update -> `paqad-ai update --silent`,
-  // so every upgraded machine got the #567 SubagentStop hook with no agents behind it.
-  // HOME/USERPROFILE point os.homedir() at a temp dir so the test never touches the real home.
-  describe('stage-agent generation on update (issue #573)', () => {
+  describe('stage-agent generation on update', () => {
     let userHome: string;
     let savedHome: string | undefined;
     let savedUserProfile: string | undefined;
@@ -444,9 +432,6 @@ describe('FrameworkUpdater', () => {
       expect(existsSync(join(projectRoot, '.codex/agents'))).toBe(false);
     });
 
-    // Issue #616 Part 7 — when the plugin is installed it owns the stage agents + Claude hooks, so
-    // the npm updater must not re-write them. (Injected candidates isolate the updater's own
-    // writeStageAgents call from the candidate-generation onboard.)
     it('writes home stage agents on update by default', async () => {
       await new FrameworkUpdater({ generateCandidates: async () => [] }).run(projectRoot);
       expect(existsSync(join(userHome, '.claude/agents'))).toBe(true);

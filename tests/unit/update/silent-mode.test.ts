@@ -62,7 +62,6 @@ describe('FrameworkUpdater — version file format', () => {
   beforeEach(() => {
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-updater-'));
     mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
-    // Write old single-line format to ensure backward-compat parsing
     writeFileSync(join(projectRoot, '.paqad/framework-version.txt'), '0.0.1\n');
   });
 

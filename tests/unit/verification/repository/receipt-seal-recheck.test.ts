@@ -14,13 +14,9 @@ import { runRepositoryVerification } from '@/verification/repository/run-reposit
 
 import { createVerificationContext, ownInFlightChange } from '../shared.fixture.js';
 
-// Issue #669 — the bundle-completeness gate counts receipt.json present because the run seals
-// it after every gate. When that seal fails, the strict gate must still fail for the missing
-// receipt instead of passing on a promise that was never kept.
-
 const SES = 'ses-seal-recheck-669';
 
-describe('a failed receipt seal still fails bundle completeness (#669)', () => {
+describe('a failed receipt seal still fails bundle completeness', () => {
   let context: VerificationContext;
   let dir: string;
 
@@ -72,7 +68,6 @@ describe('a failed receipt seal still fails bundle completeness (#669)', () => {
     });
   }
 
-  /** The last bundle-completeness row in the bundle's evidence.jsonl. */
   function lastCompletenessRow() {
     return readFeatureEvidence(context.project_root, dir)
       .filter((row) => row.code === 'bundle-completeness')
@@ -87,7 +82,6 @@ describe('a failed receipt seal still fails bundle completeness (#669)', () => {
   });
 
   it('fails the strict gate by naming receipt.json when the seal cannot be written', async () => {
-    // A non-empty directory where receipt.json belongs makes the seal's write throw.
     const receiptPath = join(context.project_root, featureFilePath(dir, 'receipt'));
     mkdirSync(receiptPath, { recursive: true });
     writeFileSync(join(receiptPath, 'blocker'), 'x');
@@ -98,7 +92,6 @@ describe('a failed receipt seal still fails bundle completeness (#669)', () => {
     const gate = verdict.gates.find((g) => g.gate === 'bundle-completeness');
     expect(gate?.status).toBe('fail');
     expect(gate?.detail).toContain('receipt.json');
-    // The re-judged gate is on the ledger too, after the first judgement.
     const row = lastCompletenessRow();
     expect(row?.verdict).toBe('fail');
     expect(row?.detail).toContain('receipt.json');

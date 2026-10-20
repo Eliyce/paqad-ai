@@ -21,9 +21,6 @@ const BASE = {
   created_at: '2026-06-08T00:00:00Z',
 };
 
-// Issue #387 — a packet written through DecisionStore.writePending must carry a strict
-// `D-<ULID>` id. The builder unit tests keep legacy `D-1`/`D-2` ids (validate-only, never
-// written) to prove read tolerance stays intact.
 const WRITTEN_ID = 'D-01J000000000000000000000A1';
 
 describe('buildFindingTriagePacket', () => {
@@ -38,7 +35,6 @@ describe('buildFindingTriagePacket', () => {
       'false-alarm',
       'taste',
     ]);
-    // ttl_days for finding.triage is 30.
     expect(packet.ttl_until).toBe('2026-07-08T00:00:00.000Z');
   });
 
@@ -69,7 +65,7 @@ describe('verdictFromTriageOption maps each pile back to a verdict', () => {
     });
   });
 
-  it('a human-confirmed problem still hands off to prove-it (#103) — needs-repro, no direct change', () => {
+  it('a human-confirmed problem still hands off to prove-it — needs-repro, no direct change', () => {
     const v = verdictFromTriageOption('F-1', 'confirmed-problem');
     expect(v.pile).toBe('confirmed');
     expect(v.confirmation).toBe('needs-repro');
@@ -87,9 +83,6 @@ describe('finding.triage reuse by kind (settle once, never re-raise)', () => {
   let projectRoot: string;
 
   beforeEach(() => {
-    // Freeze the clock inside the packet's 30-day TTL window (created_at 2026-06-08)
-    // so reuse is deterministic regardless of the real date — otherwise the fixture
-    // rots the day its TTL lapses. Only Date is faked, so fs/timers are untouched.
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-06-15T00:00:00.000Z'));
     projectRoot = mkdtempSync(join(tmpdir(), 'paqad-triage-decision-'));
@@ -122,7 +115,6 @@ describe('finding.triage reuse by kind (settle once, never re-raise)', () => {
       },
     });
 
-    // A later finding of the SAME kind but different detail must not be re-raised.
     const second = buildFindingTriagePacket({
       ...BASE,
       decision_id: 'D-2',

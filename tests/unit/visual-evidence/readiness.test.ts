@@ -36,8 +36,6 @@ import {
 
 import { fixtureProfile } from '../adapters/shared.fixture.js';
 
-// The four doctor rows, copied verbatim from HealthChecker.checkVisualEvidence before the #579
-// extraction, so the byte-identical requirement (AC-19) is pinned against the old text.
 const PRE_EXTRACTION_ROWS = [
   {
     name: 'Visual evidence is ready',
@@ -91,7 +89,7 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe('visualEvidenceReadiness (issue #579)', () => {
+describe('visualEvidenceReadiness', () => {
   it('reports every problem in doctor order when nothing is in place', () => {
     writeConfig('visual_evidence=true\n');
     expect(visualEvidenceReadiness(root).map((p) => p.code)).toEqual([
@@ -150,7 +148,6 @@ const DIR = '579-readiness-01JABCDEFGHJKMNPQRSTVWXYZ0';
 
 function writeProfile(capabilities: string[]): void {
   if (!capabilities.includes('coding')) {
-    // A content-only profile: no stack, so the migration cannot infer coding.
     mkdirSync(join(root, '.paqad'), { recursive: true });
     writeFileSync(
       join(root, '.paqad', 'project-profile.yaml'),
@@ -171,7 +168,7 @@ function writeProfile(capabilities: string[]): void {
   } as never);
 }
 
-describe('openVisualEvidenceReadinessPause (issue #579, FR-9)', () => {
+describe('openVisualEvidenceReadinessPause', () => {
   it('AC-13: opens exactly one packet for a frontend change on an unready machine', () => {
     writeProfile(['coding']);
     writeConfig('visual_evidence=true\n');
@@ -250,11 +247,11 @@ describe('findVisualEvidenceWaiver', () => {
 
   it('finds only a resolved waive packet for this change', () => {
     expect(findVisualEvidenceWaiver(root, DIR)).toBeNull();
-    packet(DIR); // pending: not a waiver yet
+    packet(DIR);
     const other = packet('other-change-01JABCDEFGHJKMNPQRSTVWXYZ1');
-    resolvePendingDecision(root, other, 'waive'); // another change's waiver
+    resolvePendingDecision(root, other, 'waive');
     const setup = packet(DIR);
-    resolvePendingDecision(root, setup, 'setup'); // resolved, but not waived
+    resolvePendingDecision(root, setup, 'setup');
     expect(findVisualEvidenceWaiver(root, DIR)).toBeNull();
 
     const waived = packet(DIR);
@@ -263,7 +260,7 @@ describe('findVisualEvidenceWaiver', () => {
   });
 });
 
-describe('visualAcRequiredFiles (issue #579, FR-14)', () => {
+describe('visualAcRequiredFiles', () => {
   it('returns the deduped frontend files when visual evidence is on', () => {
     writeProfile(['coding']);
     writeConfig('visual_evidence=true\n');

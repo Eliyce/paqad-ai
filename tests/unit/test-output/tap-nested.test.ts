@@ -4,13 +4,6 @@ import { __testOutputInternals } from '@/test-output/service.js';
 
 import { TEST_OUTPUT_FIXTURES } from './fixtures.js';
 
-// Issue #672 — vitest's TAP reporter nests tests under per-file and per-suite entries, indenting
-// the leaves; node:test prints subtests before their parent. parseTap counts leaf tests only.
-
-// Captured `vitest run --reporter=tap` output (vitest 3.2.4), only the absolute paths in `at:`
-// shortened: a file that failed to load, a file block with two flat leaves (one failing), and a
-// file block whose describe nests a describe (named with an escaped `\#`) holding a failing and a
-// skipped leaf, then a top-level leaf after the nested block closes.
 const VITEST_NESTED = String.raw`TAP version 13
 1..3
 not ok 1 - broken.test.js
@@ -55,14 +48,11 @@ not ok 3 - nested.test.js # time=4.94ms {
 }
 `;
 
-// Captured `pnpm test --reporter=tap tests/unit/cli/checks.test.ts
-// tests/unit/checks/report-target.test.ts` (vitest 3.2.4), every leaf passing. The default
-// reporter counts 16 tests for these two files: 11 + 5.
 const VITEST_PASSING = String.raw`TAP version 13
 1..2
 ok 1 - tests/unit/checks/report-target.test.ts # time=93.21ms {
     1..1
-    ok 1 - checks report target (\#528) # time=92.85ms {
+    ok 1 - checks report target # time=92.85ms {
         1..3
         ok 1 - activeFeatureDirOrNull # time=85.38ms {
             1..5
@@ -93,13 +83,12 @@ ok 2 - tests/unit/cli/checks.test.ts # time=1405.29ms {
         ok 1 - is registered on the program # time=103.00ms
         ok 2 - exits 0 and persists a green report when every command passes (AC-3) # time=408.50ms
         ok 3 - exits non-zero and persists a red report when a command fails (AC-2) # time=401.47ms
-        ok 4 - writes the report into the active feature bundle, not the global path (\#528) # time=276.11ms
+        ok 4 - writes the report into the active feature bundle, not the global path # time=276.11ms
         ok 5 - reports Inconclusive and does not block when no command is mapped # time=215.41ms
     }
 }
 `;
 
-// Real `node --test --test-reporter=tap` output: subtests print before their parent.
 const NODE_TEST_SUBTESTS = `TAP version 13
 # Subtest: parent
     # Subtest: child passes
@@ -140,11 +129,9 @@ ok 3 - skipped one # SKIP
 # tests 5
 `;
 
-describe('parseTap — nested TAP (#672)', () => {
+describe('parseTap — nested TAP', () => {
   it('counts vitest leaf tests, not file or suite blocks (AC-3)', () => {
     const { summary, failures } = __testOutputInternals.parseTap(VITEST_NESTED, 'vitest');
-    // Leaves: the file that never loaded, flat pass, flat fail, passes at the first level,
-    // passes deep, fails deep, is skipped, and the top-level test.
     expect(summary).toMatchObject({ total: 8, passed: 4, failed: 3, skipped: 1 });
     expect(failures.map((f) => f.test_id)).toEqual([
       'broken.test.js',
@@ -166,7 +153,6 @@ describe('parseTap — nested TAP (#672)', () => {
   });
 
   it('counts the AC-3 shape exactly: two passes, one indented failure, one skip', () => {
-    // The nested file's describe blocks only: two passes, one failure, one skip.
     const fixture = VITEST_NESTED.slice(
       VITEST_NESTED.indexOf('not ok 3 - nested.test.js'),
       VITEST_NESTED.indexOf('    ok 2 - top-level test'),

@@ -54,7 +54,7 @@ function specReview(defects: SpecReviewDefect[]): SpecReviewReport {
   return { metadata: {}, defects } as SpecReviewReport;
 }
 
-describe('computeAcTestMapping (#639 Part 11)', () => {
+describe('computeAcTestMapping', () => {
   it('AC-32: reads not required when there is no frozen spec', () => {
     const signal = computeAcTestMapping({ specFrozen: false, map: null });
     expect(signal).toEqual({

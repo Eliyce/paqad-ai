@@ -39,8 +39,8 @@ function record(ruleIds: string[]): RulesLoadedRecord {
 
 const base = { projectRoot: '/x', dirName: 'bundle', isFeatureDev: true };
 
-describe('rulesLoadedGate (issue #557)', () => {
-  it('resolves applicability for the owning session, the same one rules load used (#639 Part 2)', async () => {
+describe('rulesLoadedGate', () => {
+  it('resolves applicability for the owning session, the same one rules load used', async () => {
     const sessions: Array<string | null> = [];
     await rulesLoadedGate(
       { ...base, sessionId: 'ses-owner' },
@@ -145,7 +145,7 @@ describe('rulesLoadedGate (issue #557)', () => {
             { rule_id: 'RULE-13', title: 'y', always_load: false, matched_paths: ['src/a.ts'] },
           ],
         }),
-      readRecord: () => record(['RULE-2']), // RULE-13 became applicable after the load
+      readRecord: () => record(['RULE-2']),
     });
     expect(gate?.status).toBe('inconclusive');
     expect(gate?.detail).toContain('RULE-13');
@@ -174,7 +174,7 @@ describe('rulesLoadedGate (issue #557)', () => {
 
     const staleGate = await rulesLoadedGate(base, {
       resolveApplicability: async () => many,
-      readRecord: () => record([]), // both RULE-2 and RULE-13 uncovered
+      readRecord: () => record([]),
     });
     expect(staleGate?.status).toBe('inconclusive');
     expect(staleGate?.detail).toContain('2 rules became');

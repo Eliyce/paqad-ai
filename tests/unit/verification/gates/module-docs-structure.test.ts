@@ -158,15 +158,11 @@ describe('ModuleDocsStructureGate', () => {
     });
   });
 
-  // #313 finding 2 (#310 family): a doc-sync that edits a flat feature doc which
-  // is the repo's established convention must NOT be forced to revert.
   it('passes when a touched flat feature doc is the pre-existing repo-wide convention', async () => {
     const context = createVerificationContext({
       changed_files: ['docs/modules/user/features/profile.md'],
       documentation_files_changed: true,
     });
-    // Pre-existing flat siblings NOT in the change set — proof the flat layout is
-    // the repo convention, so touching profile.md did not introduce it.
     writeFlatFeatureDoc(context.project_root, 'user', 'api-tokens.md');
     writeFlatFeatureDoc(context.project_root, 'user', 'two-factor.md');
     writeFlatFeatureDoc(context.project_root, 'user', 'profile.md');
@@ -181,7 +177,6 @@ describe('ModuleDocsStructureGate', () => {
       changed_files: ['docs/modules/user/features/profile.md'],
       documentation_files_changed: true,
     });
-    // The only flat doc on disk is the one being changed → not pre-existing.
     writeFlatFeatureDoc(context.project_root, 'user', 'profile.md');
 
     const result = await new ModuleDocsStructureGate().check(context);
@@ -212,7 +207,6 @@ describe('ModuleDocsStructureGate', () => {
     });
     writeFlatFeatureDoc(context.project_root, 'user', 'profile.md');
     writeFlatFeatureDoc(context.project_root, 'billing', 'invoices.md');
-    // A module with no `features/` subdir — readdir throws and is skipped.
     mkdirSync(join(context.project_root, 'docs/modules/orphan'), { recursive: true });
 
     const result = await new ModuleDocsStructureGate().check(context);

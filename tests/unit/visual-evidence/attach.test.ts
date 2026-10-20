@@ -81,7 +81,7 @@ afterEach(() => {
   rmSync(shots, { recursive: true, force: true });
 });
 
-describe('attachVisualEvidence (issue #579, FR-11)', () => {
+describe('attachVisualEvidence', () => {
   it('writes a new agent-attached manifest with numbered folders, captions and hashes', () => {
     const first = png('Cart page.png', 'one');
     const second = png('checkout.PNG', 'two');
@@ -123,7 +123,7 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
     });
 
     const manifest = readVisualEvidenceManifest(root, DIR)!;
-    expect(manifest.skips).toHaveLength(1); // the documented skip is kept
+    expect(manifest.skips).toHaveLength(1);
     expect(manifest.steps[0]!.ac).toBe('AC-6');
     expect(manifest.steps[0]!.dir).toBe('screenshots/01-savings-goal-saved');
     const gate = strictGate();
@@ -224,7 +224,6 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
     expect(result.manifest!.steps[0]!.recorded_at).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  // Issue #581 — the manifest carries the one envelope header.
   it('stamps the envelope header, with the attaching session', () => {
     const result = attachVisualEvidence({
       projectRoot: root,
@@ -253,7 +252,7 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
     expect(result.manifest!.content_hash).toBe(raw.content_hash);
   });
 
-  it('carries the steps of a pre-#581 manifest forward under recorded_at (INV-8)', () => {
+  it('carries the steps of a legacy-shape manifest forward under recorded_at (INV-8)', () => {
     mkdirSync(bundleFile('screenshots/01-old'), { recursive: true });
     writeFileSync(
       manifestPath(),
@@ -291,7 +290,7 @@ describe('attachVisualEvidence (issue #579, FR-11)', () => {
   });
 });
 
-describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)', () => {
+describe('a later scripted run keeps attached steps', () => {
   it('the no-documented-flow path carries the attached steps, files and hashes forward', async () => {
     attachVisualEvidence({
       projectRoot: root,
@@ -374,7 +373,6 @@ describe('a later scripted run keeps attached steps (issue #579, FR-13 / AC-16)'
   });
 
   it('an attach after an all-failed scripted run reads partial, so strict fails', () => {
-    // What runner.ts writes when every scripted step failed: result skipped, failed steps kept.
     writeVisualEvidenceManifest(root, DIR, {
       trigger: { changed_files: ['src/a.tsx'], matched_globs: [], packs: [] },
       plan: [{ journey_id: 'checkout', capture_script: 'x.capture.yaml', matched_by: [] }],

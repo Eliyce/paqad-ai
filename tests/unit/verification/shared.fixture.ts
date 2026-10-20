@@ -83,12 +83,6 @@ Use stable codes with a prefix and numeric suffix.
   };
 }
 
-/**
- * Issue #187 — write a minimal project profile into a fixture's `project_root`
- * that opts the enterprise ledger on. `readProjectProfile` tolerates/migrates a
- * partial profile, preserving the `enterprise` block. Defaults turn on the full
- * ledger write set; pass overrides to exercise individual sub-flags.
- */
 export function writeEnterpriseProfile(
   projectRoot: string,
   enterprise: Partial<EnterpriseConfig> = {},
@@ -112,12 +106,6 @@ export function writeEnterpriseProfile(
   writeFileSync(join(projectRoot, '.paqad', 'project-profile.yaml'), lines.join('\n'));
 }
 
-/**
- * Issue #582 — make `sessionId` (or the cached session, when omitted) OWN an in-flight
- * change, so the `hook-completion` seam verifies its turn instead of skipping it. A live-mark
- * `planning` start is the smallest agent-authored row; the change auto-opens when none is
- * active, or attaches to `dirName` when given.
- */
 export function ownInFlightChange(projectRoot: string, sessionId?: string, dirName?: string): void {
   startStage(projectRoot, 'planning', {
     sessionId: sessionId ?? null,

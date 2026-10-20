@@ -7,15 +7,11 @@ import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { startStage } from '@/stage-evidence/recorder.js';
 
-// Issue #639, Part 11 fixtures: an open change whose bundle carries a specification.json,
-// frozen or not, with the criteria a test names.
-
 export interface CriterionSeed {
   id: string;
   proof: ProofType;
 }
 
-/** Open a change for `session` and own it, so the completion run resolves its bundle. */
 export function openChange(
   root: string,
   session: string,
@@ -33,7 +29,6 @@ export function openChange(
   return dir;
 }
 
-/** Write the bundle's specification.json with `criteria`, frozen unless `frozen` is false. */
 export function writeSpec(
   root: string,
   dir: string,

@@ -56,7 +56,7 @@ describe('runRepositoryVerification — feature report (AC-5)', () => {
     expect(verdict.receipt).toContain('Report: ');
   });
 
-  it('re-renders report.html with the final verdict word the receipt carries (#639 Part 4)', async () => {
+  it('re-renders report.html with the final verdict word the receipt carries', async () => {
     const root = makeProject();
     const dir = openFeatureChange(root, SES, {
       adapter: 'claude-code',
@@ -91,10 +91,8 @@ describe('runRepositoryVerification — feature report (AC-5)', () => {
       title: 'Broken',
       issue: null,
     });
-    // Make the report target a directory so the atomic rename fails inside the writer.
     mkdirSync(join(root, featureReportPath(dir)), { recursive: true });
     const verdict = await run(root);
-    // The run still returns a verdict; the render failure degraded to a null path only.
     expect(verdict).toBeDefined();
     expect(verdict.reportPath).toBeNull();
     expect(typeof verdict.ok).toBe('boolean');

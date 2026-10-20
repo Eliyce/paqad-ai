@@ -163,7 +163,6 @@ describe('buildVerificationEvidence', () => {
         stderr_excerpt: null,
       },
     ]);
-    // Other gates carry no mutation confidence flag and no mutation failures.
     expect(evidence.gates.find((gate) => gate.name === 'spec-review')?.confidence).toBeUndefined();
   });
 

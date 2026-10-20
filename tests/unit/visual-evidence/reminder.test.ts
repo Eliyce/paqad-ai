@@ -47,14 +47,13 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
 
-describe('visualEvidenceReminder (issue #579, FR-15)', () => {
+describe('visualEvidenceReminder', () => {
   it('fires once per change on the first frontend edit, with an absolute or relative target', () => {
     project(true);
     const dir = openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 1 });
 
     expect(remind([join(root, 'src', 'pages', 'Goals.tsx')])).toBe(VISUAL_EVIDENCE_REMINDER);
     expect(remind(['src/pages/Other.tsx'])).toBeNull();
-    // INV-10: the marker lives under .paqad/session, never in the bundle.
     expect(REMINDER_MARKER_DIR.split(/[\\/]/).slice(0, 2)).toEqual(['.paqad', 'session']);
     expect(dir).not.toContain('session');
   });
@@ -110,7 +109,6 @@ describe('visualEvidenceReminder (issue #579, FR-15)', () => {
   it('skips the reminder when the marker cannot be written', () => {
     project(true);
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 4 });
-    // A file where the marker directory should be makes the mkdir fail on every platform.
     mkdirSync(join(root, '.paqad', 'session'), { recursive: true });
     writeFileSync(join(root, REMINDER_MARKER_DIR), 'not a dir');
     expect(remind(['src/a.tsx'])).toBeNull();
@@ -119,14 +117,13 @@ describe('visualEvidenceReminder (issue #579, FR-15)', () => {
   it('skips the reminder on a marker failure other than EEXIST', () => {
     project(true);
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 7 });
-    // A file where .paqad/session should be: the mkdir fails with ENOTDIR (ENOENT on Windows).
     rmSync(join(root, '.paqad', 'session'), { recursive: true, force: true });
     writeFileSync(join(root, '.paqad', 'session'), 'not a dir');
     expect(remind(['src/a.tsx'])).toBeNull();
   });
 });
 
-describe('runCapabilityGate context (issue #579)', () => {
+describe('runCapabilityGate context', () => {
   it('carries the reminder on the pre-mutation seam only', async () => {
     project(true);
     openFeatureChange(root, SES, { adapter: 'claude-code', ulidSeed: 5 });
