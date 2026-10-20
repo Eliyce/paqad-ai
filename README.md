@@ -84,6 +84,42 @@ A few things worth knowing:
   - The Claude Desktop app picks up a plugin added on claude.ai, but a `claude` session in a terminal does not load plugins uploaded to claude.ai. Terminal users install it themselves with the two `/plugin` commands above, or IT deploys it as a managed plugin.
   - The plugin and its `eliyce` marketplace live together in the public repo `Eliyce/paqad-claude-plugin`. You never edit that repo: every npm release builds the plugin here, writes its marketplace file, and pushes it there with a `v<version>` tag, but only after npm publish succeeds. When nothing in the plugin changed, it pushes no new commit. The release job needs the repository secret `PAQAD_PLUGIN_PUSH_TOKEN`, a token that can push to `Eliyce/paqad-claude-plugin`. Without it, or when the push fails, the release job fails, so a missing plugin release never goes unnoticed. To see what would be pushed, run `pnpm build && node scripts/assemble-plugin.mjs <folder>`.
 
+## Deploy for your organization
+
+If you run Claude Code for a team, you can put paqad's edit-time rule block on every machine with one file that nobody on the machine can loosen. It uses Claude Code's managed settings, which IT pushes with the MDM tool you already use.
+
+1. Turn on the team features (`enterprise=true` in `.paqad/.config`, or `PAQAD_ENTERPRISE=true`) and write the file:
+
+   ```bash
+   paqad-ai managed-settings --write ./managed
+   ```
+
+   This writes `./managed/paqad.json`. Run it without `--write` to print the file instead, and add `--no-plugin` if you install the paqad plugin some other way.
+
+2. Install paqad-ai globally on every machine through MDM (`npm install -g paqad-ai`). Do this before the file goes out: the file calls `paqad-ai` on every edit.
+
+3. Push `paqad.json` into the managed settings folder for each OS:
+
+   | OS            | Folder                                                        |
+   | ------------- | ------------------------------------------------------------- |
+   | macOS         | `/Library/Application Support/ClaudeCode/managed-settings.d/` |
+   | Linux and WSL | `/etc/claude-code/managed-settings.d/`                        |
+   | Windows       | `C:\Program Files\ClaudeCode\managed-settings.d\`             |
+
+4. Check it on one machine. Start `claude --debug` and look for the two `paqad-ai hook --managed` commands among the loaded hooks, then run `/status` inside Claude Code to see the managed settings it picked up.
+
+<details>
+<summary>What developers will notice</summary>
+
+- In a repository that has no `.paqad/` folder, nothing happens. The hook checks for the folder, finds none, and steps aside before loading anything else.
+- In a paqad project, the rule block runs before every edit, even if someone sets `PAQAD_DISABLED=1` or `paqad_enable=false` locally. A stop says "This rule is enforced by your organization's settings." and cannot be allowed once from the HUD.
+- If `paqad-ai` is missing, broken, or takes longer than 30 seconds, the edit is blocked, not waved through. When paqad-ai itself cannot run its check, the message names the fix: "paqad-ai must be installed globally on this machine; ask IT to install it." If the command is not installed at all, the block shows the shell's "command not found" error instead, and the fix is the same.
+- The file also turns on the `paqad` plugin from `Eliyce/paqad-claude-plugin`.
+
+</details>
+
+**Rolling back.** Delete `paqad.json` from the managed settings folder through MDM. Claude Code goes back to normal on its next start, and there is no paqad state to clean up.
+
 ## What you get, at a glance
 
 | Area                         | What it means for you                                                                  |
@@ -408,19 +444,25 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendatio
 
 `onboard` is the one you start with. The rest keep the project honest over time. Full reference at [paqad.ai/docs.html](https://paqad.ai/docs.html).
 
-| Command                 | What it does                                                                              |
-| ----------------------- | ----------------------------------------------------------------------------------------- |
-| `paqad-ai onboard`      | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP          |
-| `paqad-ai doctor`       | Check that everything paqad-ai manages is present and valid                               |
-| `paqad-ai compliance`   | Pull obligations from a spec and check which ones the tests actually prove                |
-| `paqad-ai refresh`      | Re-detect the stack and regenerate the derived docs                                       |
-| `paqad-ai update`       | Regenerate framework-managed files after a version change                                 |
-| `paqad-ai capabilities` | Turn `content`, `coding`, and `security` on or off                                        |
-| `paqad-ai packs`        | List, install, validate, and scaffold stack packs                                         |
-| `paqad-ai rag`          | Build, inspect, clear, and benchmark the optional search index                            |
-| `paqad-ai dashboard`    | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors |
-| `paqad-ai status`       | Print the same health report for an agent to read                                         |
-| `paqad-ai patterns`     | Query, prune, and export the reusable pattern library                                     |
+| Command                                  | What it does                                                                                   |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| `paqad-ai onboard`                       | Detect the stack, confirm, then generate the agent configs, rules, docs, and MCP               |
+| `paqad-ai doctor`                        | Check that everything paqad-ai manages is present and valid                                    |
+| `paqad-ai compliance`                    | Pull obligations from a spec and check which ones the tests actually prove                     |
+| `paqad-ai refresh`                       | Re-detect the stack and regenerate the derived docs                                            |
+| `paqad-ai update`                        | Regenerate framework-managed files after a version change                                      |
+| `paqad-ai capabilities`                  | Turn `content`, `coding`, and `security` on or off                                             |
+| `paqad-ai packs`                         | List, install, validate, and scaffold stack packs                                              |
+| `paqad-ai rag`                           | Build, inspect, clear, and benchmark the optional search index                                 |
+| `paqad-ai dashboard`                     | Open the management surface: pulse, approvals, trust, the Graph area, and the web editors      |
+| `paqad-ai status`                        | Print the same health report for an agent to read                                              |
+| `paqad-ai patterns`                      | Query, prune, and export the reusable pattern library                                          |
+| `paqad-ai debt`                          | Record a problem the change will not fix as a tracked item, then list, promote, or close it    |
+| `paqad-ai fix prove`                     | Record that a fix's test fails before the fix (`red`) and passes after it (`green`)            |
+| `paqad-ai rules override`                | Record a person allowing one edit past a rule stop, once, with the reason                      |
+| `paqad-ai delivery-link commit-decision` | Record how the "commit this change?" question was answered                                     |
+| `paqad-ai managed-settings`              | Print or write the managed settings file that puts paqad on every machine in your organization |
+| `paqad-ai hook`                          | Run one of paqad's edit gates; the managed settings file calls it                              |
 
 ```bash
 # a few common runs
