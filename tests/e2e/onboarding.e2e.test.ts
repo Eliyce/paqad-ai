@@ -83,7 +83,6 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, '.windsurfrules'))).toBe(true);
     expect(existsSync(join(projectRoot, '.continue/rules/paqad.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'CONVENTIONS.md'))).toBe(true);
-    // Issue #622 — paqad writes no host MCP config; suggestions live in its own file.
     expect(existsSync(join(projectRoot, '.claude/settings.mcp.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.junie/mcp/mcp.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.antigravity/mcp.json'))).toBe(false);
@@ -92,11 +91,7 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, '.windsurf/mcp.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.continue/mcp.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.claude/settings.hooks.json'))).toBe(true);
-    // Codex executes .codex/hooks.json; Gemini executes .gemini/settings.json —
-    // each now carries paqad's native completion hook so the ledger fires there too.
     expect(existsSync(join(projectRoot, '.codex/hooks.json'))).toBe(true);
-    // Codex now renders the full pre-and-completion chain (issue #566): all four lifecycle
-    // events with paqad's hooks, and the blocking completion hook — not the record-only one.
     const codexHooks = readFileSync(join(projectRoot, '.codex/hooks.json'), 'utf8');
     for (const event of ['PreToolUse', 'UserPromptSubmit', 'SessionStart', 'Stop']) {
       expect(codexHooks).toContain(`"${event}"`);
@@ -121,12 +116,6 @@ describe('framework end-to-end onboarding', () => {
     expect(existsSync(join(projectRoot, '.junie/hooks.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.junie/cache.json'))).toBe(false);
     expect(existsSync(join(projectRoot, '.junie/memory.json'))).toBe(false);
-    // Entry files are now lean stubs (issue #229): they only carry a one-line
-    // bootstrap pointer to `.paqad/framework-path.txt` + `AGENT-BOOTSTRAP.md`,
-    // the graceful-degradation fallback clause, and the `Adapter:` footer. The
-    // load steps + workflow prose moved into runtime/AGENT-BOOTSTRAP.md, so the
-    // old contents (`docs/instructions`, `create documentation`, `## ` sections)
-    // no longer live in the entry files.
     for (const entryFile of [
       'AGENTS.md',
       'CLAUDE.md',
@@ -154,14 +143,10 @@ describe('framework end-to-end onboarding', () => {
     expect(readFileSync(join(projectRoot, '.junie/AGENTS.md'), 'utf8')).not.toContain(
       'silent-update.sh',
     );
-    // The silent-update hook runs from the framework install, not a project copy.
     expect(existsSync(join(projectRoot, '.paqad/hooks/silent-update.sh'))).toBe(false);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/README.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/boost.md'))).toBe(true);
     expect(existsSync(join(projectRoot, 'docs/instructions/tools/laravel/testing.md'))).toBe(true);
-    // Issue #284 (AC1) — token-neutral by default. After a default onboard the lean
-    // rule-context artifact is written unconditionally (no flags, no RAG index), and
-    // the tracked app config documents the `lean_rules` knob at its default (on).
     expect(existsSync(join(projectRoot, '.paqad/context/session-context.md'))).toBe(true);
     expect(existsSync(join(projectRoot, '.paqad/vectors'))).toBe(false);
     const appConfig = readFileSync(join(projectRoot, '.paqad/configs/.config.app'), 'utf8');
@@ -169,8 +154,6 @@ describe('framework end-to-end onboarding', () => {
     expect(appConfig).toContain('PAQAD_LEAN_RULES');
     assertNoProjectLocalSkillsOrAgents(projectRoot);
     expect(existsSync(join(projectRoot, 'scripts/health-check.sh'))).toBe(false);
-    // next-steps.md is no longer written to disk; the guidance is printed to the
-    // terminal at onboarding completion (printNextSteps).
     expect(existsSync(join(projectRoot, '.paqad/next-steps.md'))).toBe(false);
   });
 
@@ -499,16 +482,13 @@ describe('framework end-to-end onboarding', () => {
 
     await runOnboard(projectRoot, { stack: 'laravel' });
 
-    // paqad manages its policy inside `.paqad/`, never in the project root.
     const gitignore = readFileSync(join(projectRoot, '.paqad', '.gitignore'), 'utf8');
     expect(gitignore).toContain('# >>> paqad-ai managed');
     expect(gitignore).toContain('cache/');
     expect(gitignore).toContain('session/');
     expect(gitignore).toContain('pentest/');
-    // The per-machine version file is ignored; the committed boot pointer is not.
     expect(gitignore).toContain('framework-version.txt');
     expect(gitignore).not.toContain('framework-path.txt');
-    // The ledger is always ignored so enabling it can never leak into git.
     expect(gitignore).toContain('ledger/');
   });
 
@@ -553,7 +533,6 @@ describe('framework end-to-end onboarding', () => {
     expect(content).toContain('cryptographic-review');
     expect(content).toContain('logging-monitoring-review');
     expect(content).toContain('rate-limiting-review');
-    // STRIDE must appear before other skills (runs first in Step 1)
     expect(content.indexOf('stride-threat-model')).toBeLessThan(
       content.indexOf('input-validation-review'),
     );
@@ -632,7 +611,6 @@ async function snapshot(root: string): Promise<Record<string, string>> {
 
 function normalizeSnapshotValue(file: string, content: string): string {
   if (file === '.paqad/framework-version.txt') {
-    // updated_at changes every run — normalize it for idempotency comparison
     return content.replace(/^updated_at=.+$/m, 'updated_at=<normalized>');
   }
 
@@ -657,9 +635,6 @@ function normalizeSnapshotValue(file: string, content: string): string {
     delete parsed.generated_at;
   }
 
-  // Issue #576 (Finding 7) — onboard now builds the code-knowledge index; its header carries a
-  // per-run generated_at timestamp. The index is otherwise content-addressed and deterministic,
-  // so strip the timestamp for the idempotency comparison (same as the artifacts above).
   if (
     file === '.paqad/indexes/code-knowledge.json' &&
     parsed.header &&
@@ -682,8 +657,6 @@ async function walk(root: string, current = root): Promise<string[]> {
       continue;
     }
 
-    // relative() emits backslashes on Windows; snapshot keys must stay posix so
-    // normalizeSnapshotValue's file-name matches keep stripping volatile fields.
     files.push(toPosixPath(relative(root, absolute)));
   }
 

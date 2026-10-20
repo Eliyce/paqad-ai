@@ -14,12 +14,6 @@ import { fixtureProfile } from '../unit/adapters/shared.fixture.js';
 
 import { DIST_BUNDLES, ensureBuiltDist } from './helpers/ensure-built.js';
 
-// Issue #579 — the regression the unit suite could not see. The Stop hook imports the
-// depth-one dist/index.js, the CLI runs the depth-two dist/cli/index.js, and a fixed `../..`
-// resolved one folder too high from the first, so the pack registry came back empty and the
-// visual-evidence gate read every change as not-frontend. These assertions run against the
-// BUILT bundles and the real verify-backstop.mjs, never src and never a mocked dist.
-
 const [DIST_INDEX, DIST_CLI] = DIST_BUNDLES as [string, string];
 const BACKSTOP = join(process.cwd(), 'runtime', 'scripts', 'verify-backstop.mjs');
 const SESSION = 'e2e-579-session';
@@ -38,7 +32,7 @@ async function git(cwd: string, ...args: string[]): Promise<void> {
   await execa('git', args, { cwd });
 }
 
-describe('dist runtime root (issue #579)', () => {
+describe('dist runtime root', () => {
   let root: string;
   let api: DistApi;
 
@@ -70,7 +64,6 @@ describe('dist runtime root (issue #579)', () => {
       'visual_evidence=true\nvisual_evidence_mode=strict\n',
     );
     openStageEvidence(root, { sessionId: SESSION, adapter: 'claude-code' });
-    // Issue #582 — the session must OWN the change (a live-mark row) for Stop to verify it.
     startStage(root, 'development', { sessionId: SESSION, adapter: 'claude-code' });
 
     mkdirSync(join(root, 'resources', 'js', 'Pages'), { recursive: true });

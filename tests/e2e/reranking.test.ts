@@ -9,11 +9,6 @@ import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import * as projectProfile from '@/core/project-profile.js';
 import type { ProjectProfile } from '@/core/types/project-profile.js';
 
-// The advanced RAG internals (reranking, adaptive_retrieval, …) are framework
-// tuning that resolves from code defaults, not project config. To exercise the
-// reranking engine with a non-default config we inject the resolved profile via
-// the read path (the same approach the semantic-loader unit tests use), rather
-// than persisting it to `project-profile.yaml`.
 function makeProfile(projectRoot: string, rerankingEnabled: boolean) {
   void projectRoot;
   const profile = {

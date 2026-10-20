@@ -238,8 +238,6 @@ describe('archetype pack detection (E2E)', () => {
         rmSync(caseRoot, { recursive: true, force: true });
       }
     }
-    // Five full onboards in one test; the slow Windows CI runner lands just over the
-    // 20s default, so give it headroom (it is slow, not hung).
   }, 60000);
 
   it('packs list shows archetype tier for node-cli and framework tier for laravel', async () => {

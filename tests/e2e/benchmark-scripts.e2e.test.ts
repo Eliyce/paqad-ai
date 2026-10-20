@@ -1,8 +1,3 @@
-// Issue #285 AC2/AC3: the footprint and findings-stats scripts must be validated on a
-// FRESH ONBOARDED fixture project (temp-dir onboard, the tests/e2e/onboarding pattern),
-// not only on the paqad-ai repo. This drives the scripts' pure logic against a real
-// onboarded tree using the same primitives the CLIs use (tokenizer-cache, readProjectEvents).
-
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -54,17 +49,14 @@ describe('benchmark scripts on a fresh onboarded fixture', () => {
 
     const records = discoverFootprintFiles(projectRoot);
     const areas = new Set(records.map((r: { area: string }) => r.area));
-    // The lean slice split produced a resident manifest and the full tree is present.
     expect(areas.has('rules-manifest')).toBe(true);
     expect(areas.has('rules')).toBe(true);
     expect(records.some((r: { area: string; kind: string }) => r.area === 'entry')).toBe(true);
 
-    // Real tokenizer via tokenizer-cache (falls back to the labelled heuristic offline).
     const tokenizer = await getOrLoad('Xenova/gpt2');
     const aggregate = aggregateFootprint(records, (text: string) => tokenizer.countTokens(text));
 
     expect(aggregate.totals.resident.tokens).toBeGreaterThan(0);
-    // The full rule tree dwarfs the manifest floor, so paqad's resident load is smaller.
     expect(aggregate.totals.full.tokens).toBeGreaterThan(aggregate.totals.resident.tokens);
     expect(aggregate.reduction.tokens).toBeGreaterThan(0);
     expect(aggregate.reduction.tokens).toBeLessThan(1);
@@ -82,11 +74,8 @@ describe('benchmark scripts on a fresh onboarded fixture', () => {
       'claude-code',
     ]);
 
-    // No rows yet → "no data" shape.
     expect(bucketFindings(readAllFeatureRuleRuns(projectRoot)).total_runs).toBe(0);
 
-    // Issue #468 Phase C — the findings home is the active feature's `rule-run.jsonl`.
-    // Mark a feature active so the canonical writer (appendRuleRun) records into its bundle.
     const sessionId = 'ses_bench';
     const featureDir = 'PQD-1-bench-01ARZ3NDEKTSV4RRFFQ69G5FAV';
     const control = join(projectRoot, featureSessionControlPath(sessionId));
@@ -104,7 +93,6 @@ describe('benchmark scripts on a fresh onboarded fixture', () => {
       'utf8',
     );
 
-    // Two fresh-run snapshots land in the bundle the stats script globs.
     appendRuleRun(projectRoot, sessionId, {
       kind: 'findings',
       counts: { deterministic: 3, heuristic: 1, skipped: 0 },

@@ -1,27 +1,3 @@
-// PTY-driven E2E regression guard for #62.
-//
-// The bug: when a user walked through the full interactive onboarding prompt chain
-// (providers → stack → stack-detail prompts → confirmation → RAG) and chose
-// "No, skip" on RAG, the orchestrator hung after writeGitignore and never wrote
-// detection-report.json, framework-version.txt, onboarding-manifest.json, etc.
-// Cause: an inquirer/Node interaction left a stuck readline handle in the event
-// loop. Picking "Yes" worked because a second nested prompt flushed the handle.
-//
-// Every existing E2E always passed --stack/--capability/--providers, which routes
-// resolveSelections() through hasFullOverrides() and bypasses every inquirer call.
-// So the failure path lived entirely outside CI coverage.
-//
-// This test drives the built CLI through a real pseudoterminal using the system
-// `expect(1)` binary — the same tool used to originally reproduce the bug —
-// walks the full prompt chain, picks "No, skip" on RAG, and asserts the complete
-// .paqad/** artifact set is on disk afterward.
-//
-// On platforms without `expect` (Windows, minimal containers), the suite skips
-// itself rather than failing. The structural fix in src/onboarding/orchestrator.ts
-// plus the invariant unit tests in tests/unit/onboarding/orchestrator.test.ts
-// already prove the no-drop-on-prompt-fail guarantee. This PTY test catches the
-// orthogonal "real-terminal regression" class for the No-skip RAG path.
-
 import { execa, execaSync } from 'execa';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -83,12 +59,6 @@ const CORE_PHASE1_ARTIFACTS = [
 ];
 
 function buildExpectScript(opts: { projectRoot: string; cliPath: string }): string {
-  // Walks every prompt the full Laravel interactive flow emits. Each match sends
-  // Enter (accept default) except the RAG prompt, which sends Down+Enter to pick
-  // "No, skip for now". After the RAG prompt is handled, we wait for ONBOARDING
-  // COMPLETE (or process exit / timeout). Either way the test asserts file state
-  // on disk after expect returns — the structural fix guarantees files are written
-  // before any prompt opens.
   return `
 set timeout 120
 log_user 0
@@ -108,7 +78,7 @@ expect {
             # writeProjectProfile of intelligence=default-off. Give it a generous
             # window to finish, then SIGKILL and exit immediately. The spawned
             # process may park its event loop on a stuck inquirer/readline handle
-            # (the very mechanism #62 protects against), so we cannot rely on a
+            # (the very hang the phase split protects against), so we cannot rely on a
             # clean SIGTERM exit. Every phase 1 artifact is already on disk by
             # the time the RAG prompt opens — killing here cannot drop data the
             # test is asserting on.
@@ -139,7 +109,7 @@ exit 0
 `;
 }
 
-describe.runIf(hasExpect())('onboarding interactive PTY E2E (regression guard for #62)', () => {
+describe.runIf(hasExpect())('onboarding interactive PTY E2E', () => {
   let projectRoot: string;
   let originalFrameworkHome: string | undefined;
 
@@ -152,9 +122,6 @@ describe.runIf(hasExpect())('onboarding interactive PTY E2E (regression guard fo
     originalFrameworkHome = process.env.PAQAD_FRAMEWORK_HOME;
     process.env.PAQAD_FRAMEWORK_HOME = join(projectRoot, '.framework-home');
 
-    // Seed a Laravel-shaped fixture so detection lands on coding/laravel and the
-    // full interactive prompt chain (providers → stack → laravel detail prompts
-    // → confirmation → RAG) fires — which is the only path the #62 bug lives on.
     writeFileSync(join(projectRoot, 'artisan'), '');
     writeFileSync(
       join(projectRoot, 'composer.json'),
