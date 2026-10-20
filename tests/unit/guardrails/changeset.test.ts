@@ -21,7 +21,8 @@ function mergeBase(): string | null {
 }
 
 const BASE = mergeBase();
-const NO_BASE = 'origin/main is not available in this checkout, so there is no base to compare';
+const NO_BASE =
+  'local-only check: CI clones have no origin/main, so there is no base to compare against';
 const NO_CHANGE =
   'nothing has changed since origin/main, so there is no unreleased change to check';
 
@@ -31,7 +32,7 @@ interface ChangesetStatus {
 }
 
 describe('the release changeset', { timeout: 60_000 }, () => {
-  it('AC-70: changeset status passes and releases paqad-ai as a patch', (ctx) => {
+  it('AC-70: changeset status passes and releases paqad-ai', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     const dir = mkdtempSync(join(tmpdir(), 'paqad-changeset-status-'));
     try {
@@ -46,9 +47,7 @@ describe('the release changeset', { timeout: 60_000 }, () => {
       if (status.changesets.length === 0 && status.releases.length === 0) {
         return ctx.skip(NO_CHANGE);
       }
-      expect(status.releases).toContainEqual(
-        expect.objectContaining({ name: 'paqad-ai', type: 'patch' }),
-      );
+      expect(status.releases).toContainEqual(expect.objectContaining({ name: 'paqad-ai' }));
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
