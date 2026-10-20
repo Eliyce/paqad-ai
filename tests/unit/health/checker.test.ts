@@ -1071,6 +1071,24 @@ describe('doctor Claude Code install line (issue #648, B5)', () => {
     }
   });
 
+  it('is a warning with the IT fix when a managed policy blocks the hooks', async () => {
+    const policy = join(homedir(), 'fake-managed-settings.json');
+    writeFileSync(policy, JSON.stringify({ allowManagedHooksOnly: true }));
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-doctor-'));
+    try {
+      const report = await new HealthChecker({ managedSettingsPaths: [policy] }).run(projectRoot);
+      const check = report.checks.find((c) => c.name === 'Claude Code install');
+      expect(check).toMatchObject({
+        status: 'warning',
+        detail: "A managed policy blocks paqad's hooks, so paqad's checks don't run here.",
+        remediation: 'Ask IT to deploy the paqad plugin as a managed plugin, or allow its hooks.',
+      });
+    } finally {
+      rmSync(policy, { force: true });
+      rmSync(projectRoot, { recursive: true, force: true });
+    }
+  });
+
   it('passes the project root, so it says when this project still runs the npm hooks (issue #667)', async () => {
     mkdirSync(join(homedir(), '.paqad-ai'), { recursive: true });
     writeFileSync(

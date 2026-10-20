@@ -83,6 +83,17 @@ function baseDeps(over: Partial<MigrationDeps> = {}): MigrationDeps {
   };
 }
 
+const NPM_CLI = '/usr/lib/node_modules/paqad-ai/dist/cli/index.js';
+
+function doctorLine(
+  at: string,
+  root?: string,
+  env: NodeJS.ProcessEnv = {},
+  cliEntry = NPM_CLI,
+): string {
+  return describeClaudeInstall(at, root, env, { managedSettingsPaths: [], cliEntry }).detail;
+}
+
 function userSettings(): string {
   return join(home, '.claude', 'settings.json');
 }
@@ -1171,7 +1182,7 @@ describe('turning the plugin off after done is declined (B5)', () => {
   it('the doctor line shows declined at once, before any state write (AC-13)', () => {
     done();
     enabled(false);
-    expect(describeClaudeInstall(home)).toBe('npm (migration declined: user-disabled)');
+    expect(doctorLine(home)).toBe('npm (migration declined: user-disabled)');
     expect(readMigrationState(home)?.state).toBe('done');
   });
   it('done with the plugin on, or unset, or unreadable settings stays done (AC-14)', async () => {
@@ -1181,7 +1192,7 @@ describe('turning the plugin off after done is declined (B5)', () => {
       enabled(value);
       expect(maybeMigrateToPlugin(projectRoot, baseDeps()).state).toBe('done');
       expect((await tick('npm', 's1')).reason).toBe('nothing-to-record');
-      expect(describeClaudeInstall(home)).toBe('plugin (migrated 2026-10-17, via cli)');
+      expect(doctorLine(home)).toBe('plugin (migrated 2026-10-17, via cli)');
     }
     done();
     writeFileSync(userSettings(), '{ broken');
@@ -1267,9 +1278,16 @@ describe('runClaudePluginUninstall (B6)', () => {
   it('runs nothing when there is no claude on PATH (AC-16)', () => {
     const { exec, calls } = fakeExec({});
     const log = vi.fn();
-    runClaudePluginUninstall(home, { claudeVersion: () => null, exec, log });
+    expect(
+      runClaudePluginUninstall(home, {
+        claudeVersion: () => null,
+        bundledClaude: () => null,
+        exec,
+        log,
+      }),
+    ).toBe('no-claude');
     expect(calls).toEqual([]);
-    expect(log).toHaveBeenCalledWith('uninstall skipped: no claude on PATH');
+    expect(log).toHaveBeenCalledWith('uninstall skipped: no claude on PATH and no bundled claude');
   });
   it('logs a failing uninstall and never throws (AC-16)', () => {
     const { exec } = fakeExec({ uninstall: 'exit' });
@@ -1289,7 +1307,7 @@ describe('runClaudePluginUninstall (B6)', () => {
     runClaudePluginUninstall(home, { claudeVersion: () => '2.1.300', env: { PATH: '' }, log });
     expect(log).toHaveBeenCalledWith(expect.stringMatching(/^uninstall via cli: (error|exit)$/));
   });
-  it('a failing uninstall still lets the rollback complete', () => {
+  it('a failing uninstall still completes the rollback and turns the plugin off', () => {
     writeInstalledRecord();
     const { exec } = fakeExec({ uninstall: 'timeout' });
     const message = rollbackPlugin(projectRoot, {
@@ -1297,8 +1315,13 @@ describe('runClaudePluginUninstall (B6)', () => {
       runClaudeUninstall: (h) => runClaudePluginUninstall(h, { claudeVersion: () => '1', exec }),
       writeInstallModeSettings: () => {},
     });
-    expect(message).toContain('The plugin was removed.');
+    expect(message).toBe(
+      'The plugin is turned off. Run `claude plugin uninstall paqad@eliyce` to remove it.',
+    );
     expect(readMigrationState(home)?.state).toBe('rolled-back');
+    expect(JSON.parse(readFileSync(userSettings(), 'utf8')).enabledPlugins).toEqual({
+      'paqad@eliyce': false,
+    });
   });
 });
 
@@ -1435,11 +1458,11 @@ describe('coverage: edge branches', () => {
   });
   it('describeClaudeInstall reports npm for a pending record', () => {
     writeMigrationState(home, { state: 'pending', attempts: 0, version: '1' });
-    expect(describeClaudeInstall(home)).toBe('npm');
+    expect(doctorLine(home)).toBe('npm');
   });
   it('describeClaudeInstall uses "unknown" when a done record has no timestamp', () => {
     writeMigrationState(home, { state: 'done', path: 'settings', attempts: 1, version: '1' });
-    expect(describeClaudeInstall(home)).toBe('plugin (migrated unknown, via settings)');
+    expect(doctorLine(home)).toBe('plugin (migrated unknown, via settings)');
   });
   it('describeClaudeInstall defaults the path to settings when a done record has none', () => {
     writeMigrationState(home, {
@@ -1448,7 +1471,7 @@ describe('coverage: edge branches', () => {
       version: '1',
       last_attempt_at: '2026-10-17T10:00:00Z',
     });
-    expect(describeClaudeInstall(home)).toBe('plugin (migrated 2026-10-17, via settings)');
+    expect(doctorLine(home)).toBe('plugin (migrated 2026-10-17, via settings)');
   });
   it('defaultManagedSettingsPaths returns the per-OS files', () => {
     expect(defaultManagedSettingsPaths('darwin')[0]).toContain('ClaudeCode');
@@ -1517,15 +1540,15 @@ describe('coverage: edge branches', () => {
     const message = rollbackPlugin(projectRoot, { writeInstallModeSettings: () => {} });
     expect(message).toContain('paqad now runs from the npm package');
   });
-  it('describeClaudeInstall uses n/a when an in-flight state has no reason', () => {
+  it('describeClaudeInstall leaves the reason out when an in-flight state has none', () => {
     writeMigrationState(home, { state: 'failed', attempts: 1, version: '1' });
-    expect(describeClaudeInstall(home)).toBe('npm (migration failed: n/a)');
+    expect(doctorLine(home)).toBe('npm (migration failed)');
   });
 });
 
 describe('describeClaudeInstall (Part 7)', () => {
   it('reports npm when nothing has happened', () => {
-    expect(describeClaudeInstall(home)).toBe('npm');
+    expect(doctorLine(home)).toBe('npm');
   });
   it('reports a migrated plugin with date and path', () => {
     writeMigrationState(home, {
@@ -1535,11 +1558,11 @@ describe('describeClaudeInstall (Part 7)', () => {
       version: '1',
       last_attempt_at: '2026-10-17T10:00:00Z',
     });
-    expect(describeClaudeInstall(home)).toBe('plugin (migrated 2026-10-17, via cli)');
+    expect(doctorLine(home)).toBe('plugin (migrated 2026-10-17, via cli)');
   });
   it('reports the synced route', () => {
     writeMigrationState(home, { state: 'done', path: 'synced', attempts: 1, version: '1' });
-    expect(describeClaudeInstall(home)).toBe('plugin (synced from claude.ai)');
+    expect(doctorLine(home)).toBe('plugin (synced from claude.ai)');
   });
   it('reports an in-flight / undone migration state', () => {
     writeMigrationState(home, {
@@ -1548,7 +1571,7 @@ describe('describeClaudeInstall (Part 7)', () => {
       attempts: 1,
       version: '1',
     });
-    expect(describeClaudeInstall(home)).toBe('npm (migration rolled-back: manual)');
+    expect(doctorLine(home)).toBe('npm (migration rolled-back: manual)');
   });
 });
 
@@ -1596,31 +1619,27 @@ describe('doctor line says when this project still runs the npm hooks (issue #66
     doneVia('cli');
     wire('settings.json', [`node "${liveScript()}" pre-mutation`]);
     expect(projectWiresLiveNpmHooks(projectRoot)).toBe(true);
-    expect(describeClaudeInstall(home, projectRoot)).toBe(
-      `plugin (migrated 2026-10-17, via cli)${SUFFIX}`,
-    );
+    expect(doctorLine(home, projectRoot)).toBe(`plugin (migrated 2026-10-17, via cli)${SUFFIX}`);
     expect(PROJECT_NPM_HOOKS_SUFFIX).toBe(SUFFIX);
   });
 
   it('appends the suffix for a synced record, with the wiring in settings.local.json (bare path)', () => {
     doneVia('synced');
     wire('settings.local.json', [`node ${liveScript()}`]);
-    expect(describeClaudeInstall(home, projectRoot)).toBe(
-      `plugin (synced from claude.ai)${SUFFIX}`,
-    );
+    expect(doctorLine(home, projectRoot)).toBe(`plugin (synced from claude.ai)${SUFFIX}`);
   });
 
   it('adds no suffix without a project root', () => {
     doneVia('cli');
     wire('settings.json', [`node "${liveScript()}"`]);
-    expect(describeClaudeInstall(home)).toBe('plugin (migrated 2026-10-17, via cli)');
+    expect(doctorLine(home)).toBe('plugin (migrated 2026-10-17, via cli)');
   });
 
   it('adds no suffix when the wired paqad script is missing on disk (a dead line)', () => {
     doneVia('cli');
     wire('settings.json', [`node "${join(home, 'paqad-ai', 'hooks', 'gone.mjs')}"`]);
     expect(projectWiresLiveNpmHooks(projectRoot)).toBe(false);
-    expect(describeClaudeInstall(home, projectRoot)).toBe('plugin (migrated 2026-10-17, via cli)');
+    expect(doctorLine(home, projectRoot)).toBe('plugin (migrated 2026-10-17, via cli)');
   });
 
   it('adds no suffix for non-paqad hooks', () => {
@@ -1633,7 +1652,7 @@ describe('doctor line says when this project still runs the npm hooks (issue #66
       // Not a paqad command; a paqad command with no .mjs; a .mjs path without paqad in it.
       wire('settings.json', [`node "${other}"`, 'paqad-ai status', `node "${other}" # paqad`]);
       expect(projectWiresLiveNpmHooks(projectRoot)).toBe(false);
-      expect(describeClaudeInstall(home, projectRoot)).toBe('plugin (synced from claude.ai)');
+      expect(doctorLine(home, projectRoot)).toBe('plugin (synced from claude.ai)');
     } finally {
       rmSync(toolsDir, { recursive: true, force: true });
     }
@@ -1642,9 +1661,9 @@ describe('doctor line says when this project still runs the npm hooks (issue #66
   it('adds no suffix when the record is not done', () => {
     writeMigrationState(home, { state: 'failed', reason: 'x', attempts: 1, version: '1' });
     wire('settings.json', [`node "${liveScript()}"`]);
-    expect(describeClaudeInstall(home, projectRoot)).toBe('npm (migration failed: x)');
+    expect(doctorLine(home, projectRoot)).toBe('npm (migration failed: x)');
     writeMigrationState(home, { state: 'pending', attempts: 0, version: '1' });
-    expect(describeClaudeInstall(home, projectRoot)).toBe('npm');
+    expect(doctorLine(home, projectRoot)).toBe('npm');
   });
 
   it('projectWiresLiveNpmHooks is false for missing, malformed, or oddly shaped settings', () => {
@@ -1705,46 +1724,44 @@ describe('doctor names the user settings file that keeps the npm hooks on (issue
 
   it('names ~/.claude/settings.json when only the user file wires a live hook', () => {
     wireUser();
-    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(
+    expect(doctorLine(home, projectRoot, NO_CONFIG_DIR)).toBe(
       `${DONE}${LEAD} (~/.claude/settings.json)`,
     );
   });
 
   it('keeps the project suffix when only the project file wires a live hook', () => {
     wireProject();
-    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(
-      `${DONE}${PROJECT_NPM_HOOKS_SUFFIX}`,
-    );
+    expect(doctorLine(home, projectRoot, NO_CONFIG_DIR)).toBe(`${DONE}${PROJECT_NPM_HOOKS_SUFFIX}`);
   });
 
   it('names the user file first when both wire a live hook', () => {
     wireUser();
     wireProject();
-    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(
+    expect(doctorLine(home, projectRoot, NO_CONFIG_DIR)).toBe(
       `${DONE}${LEAD} (~/.claude/settings.json and project .claude/settings.json)`,
     );
   });
 
   it('adds no suffix when neither file wires a live hook', () => {
-    expect(describeClaudeInstall(home, projectRoot, NO_CONFIG_DIR)).toBe(DONE);
+    expect(doctorLine(home, projectRoot, NO_CONFIG_DIR)).toBe(DONE);
   });
 
   it('reads and names the CLAUDE_CONFIG_DIR settings file when that variable is set', () => {
     const configDir = join(home, 'custom-claude');
     wireAt(join(configDir, 'settings.json'));
     const env = { CLAUDE_CONFIG_DIR: configDir };
-    expect(describeClaudeInstall(home, projectRoot, env)).toBe(
+    expect(doctorLine(home, projectRoot, env)).toBe(
       `${DONE}${LEAD} (${join(configDir, 'settings.json')})`,
     );
     // The default ~/.claude file is not the one the hooks read then, even when it is wired.
     rmSync(join(configDir, 'settings.json'));
     wireUser();
-    expect(describeClaudeInstall(home, projectRoot, env)).toBe(DONE);
+    expect(doctorLine(home, projectRoot, env)).toBe(DONE);
   });
 
   it('treats a blank CLAUDE_CONFIG_DIR as unset', () => {
     wireUser();
-    expect(describeClaudeInstall(home, projectRoot, { CLAUDE_CONFIG_DIR: '  ' })).toBe(
+    expect(doctorLine(home, projectRoot, { CLAUDE_CONFIG_DIR: '  ' })).toBe(
       `${DONE}${LEAD} (~/.claude/settings.json)`,
     );
   });
@@ -1851,12 +1868,13 @@ describe('sessions before Claude Code installs the plugin do not count (issue #6
   it('AC-17: doctor says it is waiting for Claude Code and writes nothing', () => {
     installedAwaitingPlugin();
     const before = readFileSync(migrationStatePath(home), 'utf8');
-    expect(describeClaudeInstall(home, projectRoot, {})).toBe(
+    expect(doctorLine(home, projectRoot, {})).toBe(
       'npm (migration installed: waiting for Claude Code to install the plugin)',
     );
     expect(readFileSync(migrationStatePath(home), 'utf8')).toBe(before);
-    // Once Claude Code lists the plugin the line goes back to the plain installed state.
     writeInstalledRecord();
-    expect(describeClaudeInstall(home, projectRoot, {})).toBe('npm (migration installed: n/a)');
+    expect(doctorLine(home, projectRoot, {})).toBe(
+      'npm (moving to the plugin: waiting for the plugin to load in a new session)',
+    );
   });
 });

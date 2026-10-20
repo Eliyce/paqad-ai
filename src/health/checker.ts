@@ -50,8 +50,14 @@ const STALENESS_WINDOW_MS = 1000 * 60 * 60 * 24 * 7;
 
 const SENTINEL_DIR = '.paqad/.agent-entry-loaded.d';
 
+export interface HealthCheckerOptions {
+  managedSettingsPaths?: string[];
+}
+
 export class HealthChecker {
   private readonly validator = new SchemaValidator();
+
+  constructor(private readonly options: HealthCheckerOptions = {}) {}
 
   async run(projectRoot: string): Promise<HealthReport> {
     const profile = this.readProfile(projectRoot);
@@ -768,12 +774,13 @@ export class HealthChecker {
    * fault — a Claude Code plugin re-points it at the next session start, and an npm reinstall fixes
    * the npm case; either way doctor names the fix instead of reading broken.
    */
-  /**
-   * Issue #621 (Part 7) — the Claude Code install line: npm, or the plugin-migration state. Issue
-   * #667 — given the project root, it also says when this project still runs the npm hooks.
-   */
   private checkClaudeInstall(projectRoot: string): HealthCheckResult {
-    return pass('Claude Code install', describeClaudeInstall(undefined, projectRoot));
+    const line = describeClaudeInstall(undefined, projectRoot, process.env, {
+      managedSettingsPaths: this.options.managedSettingsPaths,
+    });
+    return line.level === 'warning'
+      ? warn('Claude Code install', line.detail, line.remediation ?? '')
+      : pass('Claude Code install', line.detail);
   }
 
   private checkFrameworkInstall(): HealthCheckResult {
@@ -797,11 +804,11 @@ export class HealthChecker {
         'Restore it with `ln -sfn "$(npm root -g)/paqad-ai/runtime" ~/.paqad-ai/current` (npm copy), or start a Claude Code session with the paqad plugin installed, to re-point the link.',
       );
     }
-    const version = info.version ?? 'unknown';
     const copyLabel = info.copy === 'unknown' ? 'framework' : info.copy;
+    const version = info.version === null ? '' : ` (v${info.version})`;
     return pass(
       name,
-      `Framework link points at the ${copyLabel} copy (v${version}) at ${info.linkTarget}.`,
+      `Framework link points at the ${copyLabel} copy${version} at ${info.linkTarget}.`,
     );
   }
 

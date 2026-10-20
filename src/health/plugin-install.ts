@@ -63,6 +63,19 @@ export function readPackageVersion(dir: string): string | null {
   }
 }
 
+export function readRuntimeCopyVersion(copyRoot: string): string | null {
+  try {
+    const version = readFileSync(join(copyRoot, 'version'), 'utf8').trim();
+    return version === '' ? null : version;
+  } catch {
+    return null;
+  }
+}
+
+function readCopyVersion(dir: string): string | null {
+  return readPackageVersion(dir) ?? readRuntimeCopyVersion(dir);
+}
+
 /** Infer which copy a resolved runtime path belongs to from its location. */
 export function classifyFrameworkCopy(target: string): FrameworkCopy {
   // The plugin runtime lives under Claude Code's plugin cache (…/plugins/…); the npm copy lives
@@ -91,7 +104,7 @@ export function describeFrameworkLink(env: NodeJS.ProcessEnv = process.env): Fra
       linkTarget: null,
       targetExists: isDir,
       copy: isDir ? 'directory' : 'unknown',
-      version: isDir ? readPackageVersion(dirname(home)) : null,
+      version: isDir ? readCopyVersion(dirname(home)) : null,
     };
   }
 
@@ -101,6 +114,6 @@ export function describeFrameworkLink(env: NodeJS.ProcessEnv = process.env): Fra
     linkTarget,
     targetExists,
     copy: targetExists ? classifyFrameworkCopy(linkTarget) : 'unknown',
-    version: targetExists ? readPackageVersion(dirname(linkTarget)) : null,
+    version: targetExists ? readCopyVersion(dirname(linkTarget)) : null,
   };
 }

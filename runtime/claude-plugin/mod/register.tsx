@@ -10,7 +10,6 @@
 // `.paqad/`, never calls a model or the network, and starts no process (decisions 3 and 4).
 //
 // How each stand-down (decision 5) is applied:
-//   - `view` off: `register` returns before any `on(...)`, so nothing at all is registered.
 //   - every other one (never onboarded, `CLAUDE_CODE_REMOTE=true`, paqad off, Claude Code older
 //     than 2.1.301) needs `$` to read, so it is decided at `session.start`. Until then, and from
 //     then on when standing down, every hook passes straight to `next(e)`: no read, no timer, no
@@ -205,13 +204,12 @@ async function readStatus($: EngineInterface): Promise<PaqadStatus & { root: str
     // An engine that cannot say its version counts as too old.
   }
   const status = decideStatus({
-    // `view` off never gets here: `register` returns before adding any hook.
-    view: true,
     onboarded: root !== null,
     env: {
       CLAUDE_CODE_REMOTE: await $.env.get('CLAUDE_CODE_REMOTE'),
       PAQAD_DISABLED: await $.env.get('PAQAD_DISABLED'),
       PAQAD_ENABLE: await $.env.get('PAQAD_ENABLE'),
+      PAQAD_HUD_VIEW: await $.env.get('PAQAD_HUD_VIEW'),
     },
     localConfig,
     teamConfigs,
@@ -251,10 +249,7 @@ function isBlank(node: RenderNode | null | undefined): boolean {
   return children.every((child) => isBlank(child));
 }
 
-export const register: Register = (on, options) => {
-  // `view` off registers nothing at all (decision 5, AC-36).
-  if (options.view === false) return;
-
+export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
     lastText = undefined;

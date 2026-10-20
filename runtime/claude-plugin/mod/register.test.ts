@@ -211,15 +211,9 @@ describe('the terminal band fits its box (AC-43)', () => {
 });
 
 describe('stand-downs: the mod registers nothing (AC-36)', () => {
-  test('view off adds no hook at all', { options: { view: false } }, async ($, on) => {
-    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
-    await $.session.start(START);
-    expect(world.commands).toEqual([]);
-    expect(world.reads).toEqual([]);
-    expect(textOf(await $.ui.render(band('terminal')))).not.toContain('paqad');
-  });
-
   const cases = [
+    ['PAQAD_HUD_VIEW is false', { env: { PAQAD_HUD_VIEW: 'false' } }],
+    ['the local config turns the HUD off', { extra: { '.paqad/.config': 'hud_view=false\n' } }],
     ['Claude Code runs in the cloud', { env: { CLAUDE_CODE_REMOTE: 'true' } }],
     ['PAQAD_DISABLED is set', { env: { PAQAD_DISABLED: '1' } }],
     ['the local config turns paqad off', { extra: { '.paqad/.config': 'paqad_enable=off\n' } }],

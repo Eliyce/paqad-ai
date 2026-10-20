@@ -65,3 +65,5 @@ site_map=true
 # checks_parallel=true
 # Cap on parallel test processes. 0 = auto (cores minus one, capped by memory and container limits). (env: PAQAD_CHECKS_MAX_PROCESSES)
 # checks_max_processes=0
+# Show the paqad HUD band above the prompt in the Claude Code plugin. OFF shows no band and registers no /paqad command. (env: PAQAD_HUD_VIEW)
+# hud_view=true

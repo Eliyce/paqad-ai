@@ -21,14 +21,13 @@ const ENV_TRUTHY = new Set(['1', 'true', 'yes', 'on']);
 const FALSY = new Set(['false', '0', 'no', 'off']);
 
 export interface StandDownInput {
-  /** The `view` field of the plugin's `userConfig` (on by default). */
-  view: boolean;
   /** True when `.paqad/framework-path.txt` exists at the project root. */
   onboarded: boolean;
   env: {
     CLAUDE_CODE_REMOTE?: string;
     PAQAD_DISABLED?: string;
     PAQAD_ENABLE?: string;
+    PAQAD_HUD_VIEW?: string;
   };
   /** The text of `.paqad/.config`, or `null` when it is missing. */
   localConfig: string | null;
@@ -57,23 +56,36 @@ export function readConfigKey(text: string | null, key: string): string | undefi
   return v;
 }
 
-/** True when paqad is off for this project, resolved as the hooks resolve it. */
-export function isPaqadOff(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
-  const disabled = input.env.PAQAD_DISABLED;
-  if (typeof disabled === 'string' && ENV_TRUTHY.has(disabled.trim().toLowerCase())) return true;
+type LayeredInput = Pick<StandDownInput, 'localConfig' | 'teamConfigs'>;
+
+function layeredValue(input: LayeredInput, key: string, fromEnv: string | undefined) {
   let value: string | undefined;
   const team = input.teamConfigs
     .filter((file) => /^\.config\..+/.test(file.name) && file.name !== '.config.example')
     .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   for (const file of team) {
-    const fromFile = readConfigKey(file.text, 'paqad_enable');
+    const fromFile = readConfigKey(file.text, key);
     if (fromFile !== undefined) value = fromFile;
   }
-  const local = readConfigKey(input.localConfig, 'paqad_enable');
+  const local = readConfigKey(input.localConfig, key);
   if (local !== undefined) value = local;
-  const fromEnv = input.env.PAQAD_ENABLE;
   if (typeof fromEnv === 'string' && fromEnv.trim() !== '') value = fromEnv.trim();
+  return value;
+}
+
+function isFalsy(value: string | undefined): boolean {
   return value !== undefined && FALSY.has(value.trim().toLowerCase());
+}
+
+/** True when paqad is off for this project, resolved as the hooks resolve it. */
+export function isPaqadOff(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
+  const disabled = input.env.PAQAD_DISABLED;
+  if (typeof disabled === 'string' && ENV_TRUTHY.has(disabled.trim().toLowerCase())) return true;
+  return isFalsy(layeredValue(input, 'paqad_enable', input.env.PAQAD_ENABLE));
+}
+
+export function isHudViewOff(input: Pick<StandDownInput, 'env' | 'localConfig' | 'teamConfigs'>) {
+  return isFalsy(layeredValue(input, 'hud_view', input.env.PAQAD_HUD_VIEW));
 }
 
 /** `[major, minor, patch]` from a release like `2.1.302` or `2.1.302-dev`, or `null`. */
@@ -95,7 +107,7 @@ export function isEngineNewEnough(engine: StandDownInput['engine']): boolean {
 
 /** The first reason the mod stands down, in decision 5's order, or `null` to run. */
 export function standDownReason(input: StandDownInput): PaqadStandDown | null {
-  if (!input.view) return 'view-off';
+  if (isHudViewOff(input)) return 'view-off';
   if (!input.onboarded) return 'not-onboarded';
   if (input.env.CLAUDE_CODE_REMOTE?.trim().toLowerCase() === 'true') return 'remote';
   if (isPaqadOff(input)) return 'disabled';

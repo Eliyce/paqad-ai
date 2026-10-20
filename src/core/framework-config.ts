@@ -349,6 +349,17 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
       'limits).',
   },
   {
+    key: 'hud_view',
+    env: 'PAQAD_HUD_VIEW',
+    type: 'boolean',
+    default: true,
+    group: 'app',
+    section: 'Feature flags',
+    comment:
+      'Show the paqad HUD band above the prompt in the Claude Code plugin. OFF shows no band ' +
+      'and registers no /paqad command.',
+  },
+  {
     key: 'plugin_migration',
     env: 'PAQAD_PLUGIN_MIGRATION',
     type: 'enum',
@@ -2167,6 +2178,10 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
   {
     present: () => false,
     keys: ['plugin_migration', 'claude_install_mode'],
+  },
+  {
+    present: () => false,
+    keys: ['hud_view'],
   },
 ];
 

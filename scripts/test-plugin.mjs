@@ -55,7 +55,6 @@ try {
     description: manifest.description,
     hooks: hooksRel,
     types: manifest.types,
-    userConfig: manifest.userConfig,
   };
   mkdirSync(join(sandbox, '.claude-plugin'), { recursive: true });
   writeFileSync(join(sandbox, '.claude-plugin', 'plugin.json'), JSON.stringify(staged, null, 2));

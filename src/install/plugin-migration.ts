@@ -16,6 +16,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   renameSync,
   rmSync,
   statSync,
@@ -30,7 +31,12 @@ import type { OnboardingManifest } from '@/core/types/onboarding.js';
 import { versionAtLeast } from '@/core/version-compare.js';
 import { VERSION } from '@/index.js';
 
-import { PLUGIN_ID } from '../health/plugin-install.js';
+import {
+  classifyFrameworkCopy,
+  PLUGIN_ID,
+  readPackageVersion,
+  readRuntimeCopyVersion,
+} from '../health/plugin-install.js';
 
 /** The marketplace the plugin ships from (the claude.ai / CLI source). */
 export const PLUGIN_MARKETPLACE_REPO = 'Eliyce/paqad-ai';
@@ -986,29 +992,27 @@ export function releaseLock(home: string): void {
 export const ROLLBACK_MESSAGE =
   'paqad now runs from the npm package in Claude Code again. The plugin was removed.';
 
+export const ROLLBACK_NO_CLAUDE_MESSAGE =
+  'The plugin is turned off. Run `claude plugin uninstall paqad@eliyce` to remove it.';
+
+export type ClaudeUninstallOutcome = ClaudeExecOutcome | 'no-claude';
+
 export interface RollbackDeps {
   home?: string;
   now?: () => Date;
   version?: string;
-  /** `claude plugin uninstall`, run when Claude Code lists the plugin (any path); injected for tests. */
-  runClaudeUninstall?: (home: string) => void;
-  /** Writes `claude_install_mode=settings` to the project's local `.paqad/.config`. */
+  runClaudeUninstall?: (home: string) => ClaudeUninstallOutcome | void;
   writeInstallModeSettings?: (projectRoot: string) => void;
 }
 
-/**
- * `paqad-ai plugin rollback` — remove the plugin, undo the settings keys, record `rolled-back`
- * (reason `manual`), pin `claude_install_mode=settings` locally so it never re-migrates, and
- * return the message to print verbatim. The uninstall runs whenever Claude Code lists the plugin,
- * on any path, because Claude Code may have installed it from the settings keys too (B6).
- */
 export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): string {
   const home = deps.home ?? homedir();
   const prior = readMigrationState(home);
-  if (deps.runClaudeUninstall && isPluginInstalledRecord(home)) {
-    deps.runClaudeUninstall(home);
-  }
+  const listed = isPluginInstalledRecord(home);
+  const outcome = listed && deps.runClaudeUninstall ? deps.runClaudeUninstall(home) : undefined;
   undoViaSettings(home);
+  const stillInstalled = listed && outcome !== undefined && outcome !== 'ok';
+  if (stillInstalled) disableViaSettings(home);
   clearPluginSeen(home);
   writeMigrationState(home, {
     attempts: prior?.attempts ?? 0,
@@ -1022,42 +1026,174 @@ export function rollbackPlugin(projectRoot: string, deps: RollbackDeps = {}): st
     deps.writeInstallModeSettings ??
     ((root: string) => setConfigValue(root, 'claude_install_mode', 'settings'))
   )(projectRoot);
-  return ROLLBACK_MESSAGE;
+  return stillInstalled ? ROLLBACK_NO_CLAUDE_MESSAGE : ROLLBACK_MESSAGE;
+}
+
+function disableViaSettings(home: string): void {
+  const path = userClaudeSettingsPath(home);
+  let settings: Record<string, unknown> = {};
+  if (existsSync(path)) {
+    try {
+      const parsed: unknown = JSON.parse(readFileSync(path, 'utf8'));
+      if (!isRecord(parsed)) return;
+      settings = parsed;
+    } catch {
+      return;
+    }
+  }
+  const enabled = isRecord(settings.enabledPlugins) ? settings.enabledPlugins : {};
+  const next = { ...settings, enabledPlugins: { ...enabled, [PLUGIN_ID]: false } };
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+    const tmp = `${path}.${process.pid}.tmp`;
+    writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
+    renameSync(tmp, path);
+  } catch {
+    return;
+  }
 }
 
 // ── Doctor line (Part 7) ──────────────────────────────────────────────────────
 
-/**
- * The one-line Claude Code install state `paqad-ai doctor` reports (Part 7): `npm` when no move
- * has happened, `plugin (migrated <date>, via <path>)` once done, `plugin (synced from claude.ai)`
- * for the synced route, or `npm (migration <state>: <reason>)` while a move is in flight or undone.
- * paqad never prints this in a Claude session — only `doctor` surfaces it.
- *
- * Issue #667: when the move is done but `projectRoot`'s own Claude settings still wire a live paqad
- * npm hook, this project still runs the npm chain (the plugin stays passive there), so the plugin
- * line gains {@link PROJECT_NPM_HOOKS_SUFFIX}. Issue #674: the user settings file (honouring
- * `CLAUDE_CONFIG_DIR` from `env`) keeps the npm hooks on too, and the suffix names it first.
- */
+export interface ClaudeInstallLine {
+  detail: string;
+  level: 'pass' | 'warning';
+  remediation?: string;
+}
+
+export interface ClaudeInstallLineOptions {
+  managedSettingsPaths?: string[];
+  version?: string;
+  cliEntry?: string;
+}
+
+export const HOOKS_BLOCKED_DETAIL =
+  "A managed policy blocks paqad's hooks, so paqad's checks don't run here.";
+export const HOOKS_BLOCKED_FIX =
+  'Ask IT to deploy the paqad plugin as a managed plugin, or allow its hooks.';
+export const PLUGIN_BLOCKED_DETAIL = 'plugin blocked by policy; paqad stays on npm';
+export const WAITING_FOR_LOAD_DETAIL =
+  'npm (moving to the plugin: waiting for the plugin to load in a new session)';
+export const VERSION_MISMATCH_FIX =
+  'The plugin and paqad-ai are on different versions. Start a new Claude Code session so the plugin updates, or run `claude plugin update paqad@eliyce`.';
+
 export function describeClaudeInstall(
   home: string = homedir(),
   projectRoot?: string,
   env: NodeJS.ProcessEnv = process.env,
-): string {
+  options: ClaudeInstallLineOptions = {},
+): ClaudeInstallLine {
+  const policy = classifyManagedPolicy(
+    options.managedSettingsPaths ?? defaultManagedSettingsPaths(),
+  );
+  if (policy === 'hooks-blocked') {
+    return { detail: HOOKS_BLOCKED_DETAIL, level: 'warning', remediation: HOOKS_BLOCKED_FIX };
+  }
+  if (policy === 'plugin-blocked') return { detail: PLUGIN_BLOCKED_DETAIL, level: 'pass' };
   const record = readMigrationState(home);
-  if (!record || record.state === 'pending') return 'npm';
-  // Read-only: the next update or session records the declined state; doctor shows it at once.
-  if (doneButDisabled(record, home)) return `npm (migration declined: ${USER_DISABLED_REASON})`;
+  if (doneButDisabled(record, home)) {
+    return { detail: `npm (migration declined: ${USER_DISABLED_REASON})`, level: 'pass' };
+  }
+  const suffix = (): string =>
+    projectRoot !== undefined ? npmHooksSuffix(home, projectRoot, env) : '';
+  const installedRecord = isPluginInstalledRecord(home);
+  if (installedRecord && !userDisabledPlugin(home) && !hasNpmCopy(home, env, options)) {
+    return withPluginVersion('plugin', home, env, options);
+  }
+  if (
+    isSyncedRoot(readPluginSeen(home)?.root) ||
+    (record?.state === 'done' && record.path === 'synced')
+  ) {
+    return { detail: `plugin (synced from claude.ai)${suffix()}`, level: 'pass' };
+  }
+  if (!record || record.state === 'pending') return { detail: 'npm', level: 'pass' };
   if (record.state === 'done') {
-    const suffix = projectRoot !== undefined ? npmHooksSuffix(home, projectRoot, env) : '';
-    if (record.path === 'synced') return `plugin (synced from claude.ai)${suffix}`;
     const date = record.last_attempt_at ? record.last_attempt_at.slice(0, 10) : 'unknown';
-    return `plugin (migrated ${date}, via ${record.path ?? 'settings'})${suffix}`;
+    const detail = `plugin (migrated ${date}, via ${record.path ?? 'settings'})${suffix()}`;
+    return installedRecord
+      ? withPluginVersion(detail, home, env, options)
+      : { detail, level: 'pass' };
   }
-  // Issue #670: the move is in, but Claude Code has not installed the plugin yet (read-only).
-  if (record.state === 'installed' && !isPluginInstalledRecord(home)) {
-    return 'npm (migration installed: waiting for Claude Code to install the plugin)';
+  if (record.state === 'installed') {
+    if (!installedRecord) {
+      return {
+        detail: 'npm (migration installed: waiting for Claude Code to install the plugin)',
+        level: 'pass',
+      };
+    }
+    const fresh = isPluginSeenFresh(withSeededInstalledAt(record), readPluginSeen(home));
+    return { detail: fresh ? 'npm (migration installed)' : WAITING_FOR_LOAD_DETAIL, level: 'pass' };
   }
-  return `npm (migration ${record.state}: ${record.reason ?? 'n/a'})`;
+  const reason = record.reason ? `: ${record.reason}` : '';
+  return { detail: `npm (migration ${record.state}${reason})`, level: 'pass' };
+}
+
+function withSeededInstalledAt(record: MigrationRecord): InstalledRecord {
+  return {
+    ...record,
+    installed_at: record.installed_at ?? record.last_attempt_at ?? new Date(0).toISOString(),
+  };
+}
+
+function hasNpmCopy(
+  home: string,
+  env: NodeJS.ProcessEnv,
+  options: ClaudeInstallLineOptions,
+): boolean {
+  const entry = options.cliEntry ?? process.argv[1] ?? '';
+  if (entry.includes('node_modules')) return true;
+  const link = env.PAQAD_FRAMEWORK_HOME ?? join(home, '.paqad-ai', 'current');
+  try {
+    return classifyFrameworkCopy(readlinkSync(link)) === 'npm';
+  } catch {
+    return false;
+  }
+}
+
+function withPluginVersion(
+  detail: string,
+  home: string,
+  env: NodeJS.ProcessEnv,
+  options: ClaudeInstallLineOptions,
+): ClaudeInstallLine {
+  const plugin = readInstalledPluginVersion(home, env);
+  if (plugin === null) return { detail, level: 'pass' };
+  const own = options.version ?? VERSION;
+  const line = `${detail}; plugin v${plugin}, paqad-ai v${own}`;
+  return plugin === own
+    ? { detail: line, level: 'pass' }
+    : { detail: line, level: 'warning', remediation: VERSION_MISMATCH_FIX };
+}
+
+export function readInstalledPluginVersion(
+  home: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string | null {
+  for (const entry of installedPluginEntries(home)) {
+    const installPath = typeof entry.installPath === 'string' ? entry.installPath : null;
+    const fromRoot = installPath === null ? null : readPackageVersion(installPath);
+    if (fromRoot !== null) return fromRoot;
+    if (typeof entry.version === 'string' && entry.version !== '') return entry.version;
+  }
+  const data = env.CLAUDE_PLUGIN_DATA?.trim()
+    ? env.CLAUDE_PLUGIN_DATA
+    : join(home, '.claude', 'plugins', 'data', 'paqad-eliyce');
+  return readRuntimeCopyVersion(join(data, 'runtime'));
+}
+
+function installedPluginEntries(home: string): Record<string, unknown>[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(
+      readFileSync(join(home, '.claude', 'plugins', 'installed_plugins.json'), 'utf8'),
+    );
+  } catch {
+    return [];
+  }
+  if (!isRecord(parsed)) return [];
+  const value = isRecord(parsed.plugins) ? parsed.plugins[PLUGIN_ID] : parsed[PLUGIN_ID];
+  const list = Array.isArray(value) ? value : [value];
+  return list.filter(isRecord);
 }
 
 /** The doctor suffix for a plugin-done machine whose project still runs the npm hooks (#667). */
@@ -1231,31 +1367,43 @@ export function runClaudePluginInstall(
   return { ok: true };
 }
 
-/** Injectable seams for {@link runClaudePluginUninstall}. */
 export interface UninstallDeps {
   env?: NodeJS.ProcessEnv;
   claudeVersion?: () => string | null;
+  bundledClaude?: () => string | null;
   exec?: ClaudeExec;
   log?: (message: string) => void;
 }
 
-/**
- * Run `claude plugin uninstall paqad@eliyce --scope user` when a `claude` is on PATH. Logs the
- * outcome and never throws; with no `claude` it runs nothing (the settings undo still applies).
- */
-export function runClaudePluginUninstall(home: string, deps: UninstallDeps = {}): void {
+export function runClaudePluginUninstall(
+  home: string,
+  deps: UninstallDeps = {},
+): ClaudeUninstallOutcome {
   const log = deps.log ?? ((message: string) => appendMigrationLog(home, message));
   try {
-    if ((deps.claudeVersion ?? defaultClaudeVersion)() === null) {
-      log('uninstall skipped: no claude on PATH');
-      return;
+    let exec: ClaudeExec | null = null;
+    let via = 'cli';
+    if ((deps.claudeVersion ?? defaultClaudeVersion)() !== null) {
+      exec = deps.exec ?? defaultClaudeExec;
+    } else {
+      const bundled = (deps.bundledClaude ?? (() => findBundledClaude(home)))();
+      if (bundled !== null) {
+        exec = deps.exec ?? claudeExecFor(bundled);
+        via = 'bundled-cli';
+      }
     }
-    const outcome = (deps.exec ?? defaultClaudeExec)(
-      ['plugin', 'uninstall', PLUGIN_ID, '--scope', 'user'],
-      { timeoutMs: UNINSTALL_TIMEOUT_MS, env: deps.env ?? process.env },
-    );
-    log(`uninstall via cli: ${outcome}`);
+    if (exec === null) {
+      log('uninstall skipped: no claude on PATH and no bundled claude');
+      return 'no-claude';
+    }
+    const outcome = exec(['plugin', 'uninstall', PLUGIN_ID, '--scope', 'user'], {
+      timeoutMs: UNINSTALL_TIMEOUT_MS,
+      env: deps.env ?? process.env,
+    });
+    log(`uninstall via ${via}: ${outcome}`);
+    return outcome;
   } catch (error) {
     log(`uninstall via cli: error (${(error as Error).message})`);
+    return 'error';
   }
 }

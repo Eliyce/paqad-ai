@@ -479,8 +479,12 @@ network, and starts no process.
   `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
   session's `<session>.receipt.md`) and `/paqad cost` (the same text as the Cost tab). Each answer comes from files already on
   disk, so it costs no model turn.
-- **The `view` setting.** The plugin's `userConfig.view` ("Show the paqad HUD", on by default)
-  turns the band off. Off, the mod registers nothing at all.
+- **The `hud_view` setting.** The paqad config key `hud_view` (env `PAQAD_HUD_VIEW`, on by
+  default) turns the band off. The mod reads it the same way it reads `paqad_enable`: the env
+  variable first, then `.paqad/.config`, then `.paqad/configs/.config.*` with the last file name
+  winning. Off, the mod draws no band, reads nothing and registers no `/paqad` command. The
+  plugin declares no `userConfig`, because Claude Code lists every declared option with no saved
+  value as "not yet set" when the plugin is installed, even one with a default.
 - **Stand-downs.** The mod also stands down when the project was never onboarded, when the
   session runs in the cloud (`CLAUDE_CODE_REMOTE=true`), when paqad is off for the project
   (resolved the same way the hooks resolve it), and on Claude Code older than 2.1.301. While it

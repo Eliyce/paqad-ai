@@ -64,15 +64,6 @@ export function buildPluginManifest(packageVersion: string): Record<string, unkn
     agents: pluginAgentPaths(),
     skills: './runtime/claude-plugin/skills',
     types: PLUGIN_MOD_TYPES,
-    // The HUD is on by default (#639 decision 11). Off, the mod registers nothing at all.
-    userConfig: {
-      view: {
-        type: 'boolean',
-        title: 'Show the paqad HUD',
-        description: 'Show where the change stands in a band above the prompt.',
-        default: true,
-      },
-    },
   };
 }
 

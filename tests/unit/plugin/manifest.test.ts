@@ -31,17 +31,12 @@ describe('plugin manifest + marketplace (issue #616, Part 1)', () => {
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+/);
   });
 
-  it('names the HUD mod contract and a view switch that is on by default (#639 AC-32)', () => {
-    const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as {
-      types: string;
-      userConfig: Record<string, Record<string, unknown>>;
-    };
+  it('names the HUD mod contract and declares no userConfig, so install prints no warning', () => {
+    const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as Record<string, unknown>;
     expect(manifest.types).toBe('./runtime/claude-plugin/mod/types/index.d.ts');
-    expect(read(manifest.types)).toContain('interface PluginState');
-    expect(Object.keys(manifest.userConfig)).toEqual(['view']);
-    expect(manifest.userConfig.view).toMatchObject({ type: 'boolean', default: true });
-    expect(typeof manifest.userConfig.view!.title).toBe('string');
-    expect(typeof manifest.userConfig.view!.description).toBe('string');
+    expect(read(manifest.types as string)).toContain('interface PluginState');
+    expect(manifest).not.toHaveProperty('userConfig');
+    expect(buildPluginManifest('1.0.0')).not.toHaveProperty('userConfig');
   });
 
   it('ships the mod but not its tests in the npm package (#639)', () => {

@@ -22,7 +22,6 @@ import {
 // older than 2.1.301. The enable switch must resolve exactly as the hooks resolve it.
 
 const ON: StandDownInput = {
-  view: true,
   onboarded: true,
   env: {},
   localConfig: null,
@@ -37,7 +36,9 @@ describe('mod stand-downs (decision 5)', () => {
   });
 
   it.each([
-    ['view-off', { view: false }],
+    ['view-off', { env: { PAQAD_HUD_VIEW: 'false' } }],
+    ['view-off', { localConfig: 'hud_view=false\n' }],
+    ['view-off', { teamConfigs: [{ name: '.config.app', text: 'hud_view=off\n' }] }],
     ['not-onboarded', { onboarded: false }],
     ['remote', { env: { CLAUDE_CODE_REMOTE: 'true' } }],
     ['remote', { env: { CLAUDE_CODE_REMOTE: ' TRUE ' } }],
@@ -55,10 +56,30 @@ describe('mod stand-downs (decision 5)', () => {
     expect(standDownReason({ ...ON, env: { CLAUDE_CODE_REMOTE: 'false' } })).toBeNull();
   });
 
-  it('checks the view first, so view off registers nothing even in a broken setup', () => {
-    expect(standDownReason({ ...ON, view: false, onboarded: false, engine: null })).toBe(
+  it('checks hud_view first, so the HUD off registers nothing even in a broken setup', () => {
+    expect(
+      standDownReason({ ...ON, env: { PAQAD_HUD_VIEW: '0' }, onboarded: false, engine: null }),
+    ).toBe('view-off');
+  });
+
+  it('layers hud_view like paqad_enable: env, then .paqad/.config, then the last team file', () => {
+    const team = [
+      { name: '.config.app', text: 'hud_view=false\n' },
+      { name: '.config.zz', text: 'hud_view=true\n' },
+    ];
+    expect(standDownReason({ ...ON, teamConfigs: team })).toBeNull();
+    expect(standDownReason({ ...ON, teamConfigs: team, localConfig: 'hud_view=no\n' })).toBe(
       'view-off',
     );
+    expect(
+      standDownReason({
+        ...ON,
+        teamConfigs: team,
+        localConfig: 'hud_view=no\n',
+        env: { PAQAD_HUD_VIEW: 'true' },
+      }),
+    ).toBeNull();
+    expect(standDownReason({ ...ON, env: { PAQAD_HUD_VIEW: '  ' } })).toBeNull();
   });
 });
 
