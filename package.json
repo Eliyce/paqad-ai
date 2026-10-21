@@ -99,7 +99,7 @@
     "prepublishOnly": "pnpm run ci"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.0",
+    "@huggingface/transformers": "^4.3.1",
     "@inquirer/prompts": "^8.7.3",
     "ajv": "^8.20.0",
     "chalk": "^6.0.1",
@@ -138,5 +138,11 @@
     "typescript-eslint": "^8.71.2",
     "vitest": "^3.2.4"
   },
-  "packageManager": "pnpm@10.17.1"
+  "packageManager": "pnpm@10.17.1",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "onnxruntime-node",
+      "sharp"
+    ]
+  }
 }
