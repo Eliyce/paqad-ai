@@ -13,9 +13,10 @@ import {
   type DeliveryRecord,
 } from '@/feature-evidence/delivery.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { openFeatureChange, recordChangeConstants } from '@/feature-evidence/stage-ledger.js';
 import { buildHudSnapshot, buildShip, computeDeliveryPlan } from '@/hud/snapshot.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
+import { buildChangeTraceabilityMap } from '@/traceability/change-map.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 
@@ -31,6 +32,11 @@ import {
 vi.mock('@/pipeline/delivery-policy.js', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/pipeline/delivery-policy.js')>();
   return { ...real, loadDeliveryPolicy: vi.fn(real.loadDeliveryPolicy) };
+});
+
+vi.mock('@/traceability/change-map.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('@/traceability/change-map.js')>();
+  return { ...real, buildChangeTraceabilityMap: vi.fn(real.buildChangeTraceabilityMap) };
 });
 
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
@@ -326,5 +332,108 @@ describe('AC-27: files changed and plan steps built', () => {
       plan: null,
       ship: null,
     });
+  });
+});
+
+describe('AC-27: acceptance claims and the tests that prove them', () => {
+  afterEach(() => cleanupScopeFixtures());
+
+  const criterion = (id: string, then: string, proof: string) => ({
+    criterion_id: id,
+    given: 'a change',
+    when: 'it is checked',
+    then,
+    proof_type: proof,
+    status: 'pending',
+    source: 'spec',
+    linked_requirement_ids: [],
+  });
+
+  function writeSpec(root: string, dir: string, frozen: boolean): void {
+    writeFileSync(
+      join(root, featureFilePath(dir, 'specification')),
+      JSON.stringify({
+        schema_version: 2,
+        spec_id: 'spec',
+        spec_file: 'spec.md',
+        spec_hash: 'hash',
+        behaviour: ['FR-1: binds', 'FR-2: names'],
+        acceptance_criteria: [
+          criterion('AC-1', 'the band binds', 'automated'),
+          criterion('AC-2', 'every hint names the command', 'automated'),
+          criterion('AC-3', 'it looks right', 'visual'),
+        ],
+        invariants: [],
+        open_questions: [],
+        frozen: frozen
+          ? { frozen_at: '2026-10-18T08:30:00.000Z', spec_hash: 'hash', signed_off_by: 'owner' }
+          : null,
+      }),
+    );
+  }
+
+  function changeWithTests(session: string): { root: string; dir: string } {
+    const root = repoRoot();
+    checkout(root, `feat/${session}`, true);
+    const dir = openChangeHere(root, session);
+    runStage(root, session, 'planning');
+    mkdirSync(join(root, 'tests'), { recursive: true });
+    writeFileSync(join(root, 'tests', 'b.test.ts'), "it('AC-1: binds again', () => {});\n");
+    writeFileSync(join(root, 'tests', 'a.test.ts'), "it('AC-1: binds first', () => {});\n");
+    return { root, dir };
+  }
+
+  it('lists each automated criterion with its first proving test once the spec is frozen', () => {
+    const S = 'ses-claims-frozen';
+    const { root, dir } = changeWithTests(S);
+    writeSpec(root, dir, true);
+    expect(buildHudSnapshot(root, S).claims).toEqual([
+      {
+        kind: 'acceptance',
+        id: 'AC-1',
+        label: 'the band binds',
+        test_id: 'tests/a.test.ts',
+        verdict: 'pass',
+      },
+      {
+        kind: 'acceptance',
+        id: 'AC-2',
+        label: 'every hint names the command',
+        test_id: null,
+        verdict: 'missing',
+      },
+    ]);
+  });
+
+  it('lists none before the freeze, and none when git cannot say which tests changed', () => {
+    const S = 'ses-claims-open';
+    const { root, dir } = changeWithTests(S);
+    writeSpec(root, dir, false);
+    expect(buildHudSnapshot(root, S).claims).toEqual([]);
+
+    const plain = onboardedRoot();
+    const P = 'ses-claims-no-git';
+    const plainDir = openChange(plain, P, 'full');
+    writeSpec(plain, plainDir, true);
+    expect(buildHudSnapshot(plain, P, { now: NOW }).claims).toEqual([]);
+  });
+
+  it('keeps a fix-proof claim first, and leaves the claims out with a logged reason on a failure', () => {
+    const S = 'ses-claims-broken';
+    const { root, dir } = changeWithTests(S);
+    writeSpec(root, dir, true);
+    recordChangeConstants(root, dir, { kind: 'fix' });
+    expect(buildHudSnapshot(root, S).claims.map((claim) => claim.kind)).toEqual([
+      'fix-proof',
+      'acceptance',
+      'acceptance',
+    ]);
+    vi.mocked(buildChangeTraceabilityMap).mockImplementationOnce(() => {
+      throw new Error('map unreadable');
+    });
+    expect(buildHudSnapshot(root, S).claims.map((claim) => claim.kind)).toEqual(['fix-proof']);
+    expect(readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8')).toContain(
+      'hud-snapshot (claims): map unreadable',
+    );
   });
 });

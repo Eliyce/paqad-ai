@@ -52,6 +52,8 @@ import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledg
 import { workflowCostSince } from '@/cost/session-cost.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
+import { LANES } from '@/core/types/routing.js';
+import { buildChangeTraceabilityMap } from '@/traceability/change-map.js';
 import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
@@ -435,12 +437,68 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
   });
 }
 
-export interface HudClaim {
+export interface HudFixProofClaim {
   kind: 'fix-proof';
   proof: FixProofState;
   label: string;
   verdict: 'pass' | 'inconclusive';
   test_id: string | null;
+}
+
+export interface HudAcceptanceClaim {
+  kind: 'acceptance';
+  id: string;
+  label: string;
+  test_id: string | null;
+  verdict: 'pass' | 'missing';
+}
+
+export type HudClaim = HudFixProofClaim | HudAcceptanceClaim;
+
+function criterionThens(specJson: unknown): Map<string, string> {
+  const criteria = asRecord(specJson)?.acceptance_criteria;
+  const thens = new Map<string, string>();
+  for (const entry of Array.isArray(criteria) ? criteria : []) {
+    const criterion = asRecord(entry);
+    const id = str(criterion?.criterion_id);
+    const then = str(criterion?.then);
+    if (id && then) thens.set(id, then);
+  }
+  return thens;
+}
+
+function buildAcceptanceClaims(
+  projectRoot: string,
+  dirName: string,
+  lane: string | null,
+  changedFiles: readonly string[] | null,
+  specJson: unknown,
+): HudAcceptanceClaim[] {
+  if (changedFiles === null) return [];
+  try {
+    const result = buildChangeTraceabilityMap({
+      projectRoot,
+      dirName,
+      changedFiles,
+      lane: LANES.find((known) => known === lane) ?? 'graduated',
+    });
+    if (!result) return [];
+    const thens = criterionThens(specJson);
+    const links = new Map(result.map.forward.map((link) => [link.promise_id, link]));
+    return result.automated.map((id) => {
+      const testId = links.get(id)?.proving_checks[0] ?? null;
+      return {
+        kind: 'acceptance',
+        id,
+        label: thens.get(id) ?? id,
+        test_id: testId,
+        verdict: testId ? 'pass' : 'missing',
+      };
+    });
+  } catch (error) {
+    logHudWriteError(projectRoot, 'claims', error);
+    return [];
+  }
 }
 
 function buildClaims(kind: string | undefined, projectRoot: string, dirName: string): HudClaim[] {
@@ -966,7 +1024,10 @@ export function buildHudSnapshot(
     stages,
     timeline: buildTimeline(projectRoot, dirName),
     table,
-    claims: buildClaims(record?.kind, projectRoot, dirName),
+    claims: [
+      ...buildClaims(record?.kind, projectRoot, dirName),
+      ...buildAcceptanceClaims(projectRoot, dirName, lane, changedFiles, specJson),
+    ],
     gates,
     gates_expected: [...DEFAULT_GATE_CODES],
     flags,
