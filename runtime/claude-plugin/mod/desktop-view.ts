@@ -1,14 +1,40 @@
 import { allGreenNow, changeChip } from './band';
-import { formatStopwatch, formatTokens, formatUsd } from './cost';
+import {
+  CHANGE_SCOPE_SENTENCE,
+  WHOLE_SESSION_SENTENCE,
+  formatClock,
+  formatStopwatch,
+  formatTokens,
+  formatUsd,
+  roleWords,
+} from './cost';
 import { needsAnswers, roleInitials, tableStatus } from './instruments';
 import { stageSegments, type SegmentState } from './model';
 import type { Signal } from './palette';
 import { shipRail, type ShipStepState } from './ship';
 import { FEATURE_ROUTE, statusEntryRoute, workflowCost, workflowWords } from './status-entry';
-import type { ChiefState, Mark, SeatState, ShipState, StageState, StripInput } from './strip';
-import { hasRuled, showsTable } from './table';
+import type {
+  ChiefState,
+  GateMark,
+  Mark,
+  SeatState,
+  ShipState,
+  StageState,
+  StripInput,
+  TableSeat,
+} from './strip';
+import { hasRuled, showsTable, trackRecordWords } from './table';
 import { needsYou, visibilityMode, type BandVisibility } from './visibility';
-import type { PaqadHudSnapshot } from './types';
+import type {
+  PaqadCiJob,
+  PaqadCost,
+  PaqadCostLine,
+  PaqadHighTable,
+  PaqadHudSnapshot,
+  PaqadPaneTab,
+  PaqadSeat,
+  PaqadTimelineEntry,
+} from './types';
 
 export const READY_WORDS = 'Ready';
 export const UNREADABLE = "paqad cannot read this session's record";
@@ -601,6 +627,909 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
 export function bandIsLive(band: DesktopBand): boolean {
   if (band.kind === 'workflow') return band.running;
   return band.kind === 'feature' && band.headline.live;
+}
+
+export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'dim';
+
+export interface LightView {
+  signal: Signal;
+  title: string;
+  why: string | null;
+}
+
+export interface LedgerTab {
+  id: PaqadPaneTab;
+  label: string;
+  width: string;
+  shown: boolean;
+}
+
+export const LEDGER_TABS: ReadonlyArray<{ id: PaqadPaneTab; label: string }> = [
+  { id: 'trust', label: 'Trust' },
+  { id: 'table', label: 'High Table' },
+  { id: 'ships', label: 'Delivery' },
+  { id: 'record', label: 'Record' },
+  { id: 'cost', label: 'Cost' },
+];
+
+export function tableSat(
+  snapshot: PaqadHudSnapshot | null,
+): snapshot is PaqadHudSnapshot & { table: PaqadHighTable } {
+  return showsTable(snapshot) && !snapshot.table.skipped;
+}
+
+export function ledgerTabs(snapshot: PaqadHudSnapshot | null, shown: PaqadPaneTab): LedgerTab[] {
+  const tabs = LEDGER_TABS.filter((tab) => tab.id !== 'table' || tableSat(snapshot));
+  const picked = tabs.some((tab) => tab.id === shown) ? shown : 'trust';
+  const width = `${Math.floor(100 / tabs.length)}%`;
+  return tabs.map((tab) => ({ ...tab, width, shown: tab.id === picked }));
+}
+
+export function ledgerSubtitle(snapshot: PaqadHudSnapshot | null): string {
+  const chip = changeChip(snapshot);
+  return chip ? `What happened, with proof  ·  ${chip}` : 'What happened, with proof';
+}
+
+const NOT_JUDGED_LIGHT: LightView = {
+  signal: 'idle',
+  title: 'Not judged yet',
+  why: 'Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.',
+};
+
+export const GATE_WORDS: Readonly<Record<string, string>> = {
+  'spec-review': 'The spec was reviewed',
+  'requirement-completeness': 'Every requirement is complete',
+  'story-quality': 'The stories are well formed',
+  'implementation-review': 'The code was reviewed',
+  'code-tests-lint': 'Tests, types and lint pass',
+  'behavioral-correctness': 'The behaviour matches the spec',
+  'quality-ratchet': 'Quality did not drop',
+  duplication: 'No near-copies added',
+  'documentation-freshness': 'Docs match the code',
+  'ac-test-mapping': 'Every criterion has a test',
+  'change-completeness': 'Nothing left half done',
+  'mutation-testing': 'Tests catch real mutations',
+  'module-docs-structure': 'Module docs keep their shape',
+  'instructions-docs-structure': 'Instruction docs keep their shape',
+  'extension-surface': 'Public surface stays stable',
+  'architecture-compliance': 'The architecture rules hold',
+  'database-quality': 'Database changes are safe',
+  'fix-proof': 'The fix is proven by a test',
+  'site-map-freshness': 'The site map matches the app',
+  'bundle-completeness': 'The evidence bundle is complete',
+};
+
+export interface TrustGate {
+  name: string;
+  words: string;
+  how: string;
+  required: boolean;
+  verdict: string;
+  word: string;
+  tone: WordTone;
+  arc: GateMark;
+}
+
+const HOW_JUDGED: Readonly<Record<string, string>> = {
+  deterministic: 'Checked by a script',
+  'llm-judged': 'Judged by a reviewer agent',
+};
+
+const VERDICT_WORDS_DESKTOP: Readonly<Record<string, { word: string; tone: WordTone }>> = {
+  pass: { word: 'Pass', tone: 'pass' },
+  fail: { word: 'Fail', tone: 'fail' },
+  inconclusive: { word: 'Inconclusive', tone: 'att' },
+  'did-not-run': { word: 'Did not run', tone: 'att' },
+  'not-required': { word: 'Not required', tone: 'dim' },
+};
+
+const ARC_TONE: Readonly<Record<string, GateMark['verdict']>> = {
+  pass: 'pass',
+  fail: 'fail',
+  inconclusive: 'attention',
+  'did-not-run': 'attention',
+};
+
+export function trustGates(snapshot: PaqadHudSnapshot): TrustGate[] {
+  const rows = new Map(snapshot.gates.map((gate) => [gate.name, gate]));
+  const names = [
+    ...snapshot.gates_expected,
+    ...snapshot.gates
+      .map((gate) => gate.name)
+      .filter((name) => !snapshot.gates_expected.includes(name)),
+  ];
+  const judged = snapshot.verdict !== null;
+  const gates = [...new Set(names)].map((name, order) => {
+    const row = rows.get(name);
+    const verdict = row ? row.verdict : judged ? 'not-required' : 'not-judged';
+    const required = row ? row.required && row.verdict !== 'not-required' : !judged;
+    const look = VERDICT_WORDS_DESKTOP[verdict] ?? { word: 'Not judged yet', tone: 'dim' as const };
+    return {
+      order,
+      gate: {
+        name,
+        words: GATE_WORDS[name] ?? name,
+        how: (row?.strength && HOW_JUDGED[row.strength]) || 'How it is judged is not recorded',
+        required,
+        verdict,
+        word: look.word,
+        tone: look.tone,
+        arc: { required, verdict: ARC_TONE[verdict] ?? 'wait' },
+      },
+    };
+  });
+  return gates
+    .sort((a, b) => Number(b.gate.required) - Number(a.gate.required) || a.order - b.order)
+    .map(({ gate }) => gate);
+}
+
+export interface GateRingView {
+  marks: GateMark[];
+  passed: number;
+  required: number;
+  alt: string;
+}
+
+export function gateRingView(gates: readonly TrustGate[]): GateRingView {
+  const required = gates.filter((gate) => gate.required).length;
+  const passed = gates.filter((gate) => gate.required && gate.verdict === 'pass').length;
+  return {
+    marks: gates.map((gate) => gate.arc),
+    passed,
+    required,
+    alt: `${passed} of ${required} required gates pass`,
+  };
+}
+
+export function trustLight(
+  snapshot: PaqadHudSnapshot | null,
+  unreadable: Unreadable | null,
+  now: number,
+): LightView {
+  if (unreadable)
+    return { signal: 'attention', title: UNREADABLE, why: UNREADABLE_WHY[unreadable] };
+  if (!snapshot || !snapshot.active) {
+    return {
+      signal: 'idle',
+      title: GETTING_READY,
+      why: 'The change opens when planning starts. Nothing is judged before that.',
+    };
+  }
+  const head = desktopHeadline(snapshot, now);
+  const pending = snapshot.decisions.pending.length;
+  const pr = prName(snapshot);
+  switch (head.row) {
+    case 4: {
+      const questions = snapshot.decisions.pending.filter(
+        (decision) => decision.category === CONFLICT_CATEGORY,
+      ).length;
+      return {
+        signal: 'attention',
+        title: 'Waiting for your answers',
+        why: `The chief ruled "needs answers". The spec freezes once you answer the ${plural(questions, 'question', 'questions')}.`,
+      };
+    }
+    case 5:
+      return {
+        signal: 'attention',
+        title: 'Waiting for your answers',
+        why: `${pending === 1 ? '1 decision needs' : `${pending} decisions need`} your answer before work goes on.`,
+      };
+    case 6: {
+      const block = snapshot.last_block!;
+      return {
+        signal: 'attention',
+        title: 'A rule stopped an edit',
+        why: block.title ?? block.rule ?? block.text,
+      };
+    }
+    case 7:
+      return { signal: 'pass', title: 'Merged', why: `${pr} is merged.` };
+    case 8:
+    case 17:
+      return { signal: 'pass', title: 'Safe to merge', why: safeToMergeWhy(snapshot) };
+    case 9:
+      return { signal: 'attention', title: 'PR closed', why: `${pr} was closed without a merge.` };
+    case 10:
+      return {
+        signal: 'fail',
+        title: 'CI failed',
+        why: `CI failed on ${pr}. Fix it and push again.`,
+      };
+    case 11:
+      return { signal: 'fail', title: 'The push failed', why: null };
+    case 12:
+      return {
+        signal: 'fail',
+        title: 'Needs your attention',
+        why: `${failureHeadline(snapshot)}. Fix it and run the checks again.`,
+      };
+    case 13:
+      return {
+        signal: 'attention',
+        title: 'Inconclusive',
+        why: snapshot.verdict?.reasons.join('; ') || null,
+      };
+    case 16:
+      return {
+        signal: 'pass',
+        title: 'Checks passed',
+        why: 'Nothing to merge: the edit is in your working tree, uncommitted, as you asked.',
+      };
+    default:
+      return NOT_JUDGED_LIGHT;
+  }
+}
+
+function safeToMergeWhy(snapshot: PaqadHudSnapshot): string {
+  const gates = trustGates(snapshot);
+  const required = gates.filter((gate) => gate.required).length;
+  const passed = gates.filter((gate) => gate.required && gate.verdict === 'pass').length;
+  const skipped = gates.length - required;
+  const head = `${passed} of ${required} required gates pass.`;
+  return skipped > 0
+    ? `${head} ${plural(skipped, 'gate was', 'gates were')} not required for this change and ${skipped === 1 ? 'is' : 'are'} not counted.`
+    : head;
+}
+
+export interface ClaimRow {
+  key: string;
+  id: string | null;
+  label: string;
+  sub: string;
+  word: string;
+  tone: WordTone;
+}
+
+export interface ClaimsView {
+  rows: ClaimRow[];
+  more: string | null;
+  empty: string | null;
+}
+
+export const CLAIMS_LATER =
+  'Claims appear when the spec is frozen. Each one is listed with the test that proves it.';
+export const CLAIMS_LIMIT = 4;
+
+function specFrozen(snapshot: PaqadHudSnapshot): boolean {
+  const spec = snapshot.stages.find((stage) => stage.stage === 'specification');
+  return spec?.state === 'complete' || spec?.state === 'redone';
+}
+
+export function claimsView(snapshot: PaqadHudSnapshot): ClaimsView {
+  const rows: ClaimRow[] = snapshot.claims.map((claim, index) => {
+    const proven = claim.verdict === 'pass';
+    const fix = claim.kind === 'fix-proof';
+    return {
+      key: claim.id ?? `${claim.kind}-${index}`,
+      id: claim.id,
+      label: claim.label,
+      sub: claim.test_id ?? 'No proving test recorded',
+      word: proven ? 'Proven' : 'Not proven',
+      tone: proven ? 'pass' : fix ? 'att' : 'dim',
+    };
+  });
+  if (rows.length === 0) {
+    return {
+      rows,
+      more: null,
+      empty: specFrozen(snapshot) ? 'No claim recorded for this change.' : CLAIMS_LATER,
+    };
+  }
+  const rest = rows.slice(CLAIMS_LIMIT);
+  const more =
+    rest.length === 0
+      ? null
+      : rest.every((row) => row.word === 'Proven')
+        ? `+${rest.length} more, all proven`
+        : `+${rest.length} more`;
+  return { rows: rows.slice(0, CLAIMS_LIMIT), more, empty: null };
+}
+
+export interface FlagRow {
+  id: string;
+  text: string;
+}
+
+export interface TrustView {
+  light: LightView;
+  ring: GateRingView;
+  gates: TrustGate[];
+  claims: ClaimsView;
+  flags: FlagRow[];
+}
+
+export function trustView(snapshot: PaqadHudSnapshot, now: number): TrustView {
+  const gates = trustGates(snapshot);
+  return {
+    light: trustLight(snapshot, null, now),
+    ring: gateRingView(gates),
+    gates,
+    claims: claimsView(snapshot),
+    flags: snapshot.active ? snapshot.flags.map((flag) => ({ id: flag.id, text: flag.text })) : [],
+  };
+}
+
+export interface SeatRow {
+  role: string;
+  initials: string;
+  words: string;
+  picked: boolean;
+  word: string;
+  tone: WordTone;
+  details: string[];
+}
+
+export interface ChiefView {
+  state: ChiefState;
+  light: LightView;
+  conflicts: Array<{ target: string; recommendation: string; rationale: string }>;
+  answer: string | null;
+}
+
+export interface TableView {
+  ring: TableSeat[];
+  chief: ChiefState;
+  alt: string;
+  summary: { notes: string; findings: string; picked: string; standing: string };
+  chiefView: ChiefView;
+  seats: SeatRow[];
+  shaped: {
+    rows: Array<{ id: string; line: string; who: string }>;
+    total: string | null;
+    empty: string | null;
+  };
+}
+
+export const ANSWER_TOAST =
+  'Type your answers in the chat. The questions are in the High Table tab.';
+export const SHAPED_LATER =
+  'Shown when the spec is frozen: each spec line with the experts who shaped it.';
+
+function spanClock(from: string | null, to: string | null): string | null {
+  const ms = Date.parse(to ?? '') - Date.parse(from ?? '');
+  return Number.isFinite(ms) && ms >= 0 ? formatClock(ms) : null;
+}
+
+function seatTokens(seat: PaqadSeat): number | null {
+  return seat.tokens?.total ?? seat.tokens_estimate ?? null;
+}
+
+function seatDetails(seat: PaqadSeat): string[] {
+  const details: string[] = [];
+  if (seat.reason) details.push(seat.reason);
+  if (seat.tokens_estimate !== null && seat.budget_tokens !== null) {
+    details.push(
+      `Note: ~${formatTokens(seat.tokens_estimate)} tokens of its ${formatTokens(seat.budget_tokens)} budget`,
+    );
+  }
+  if (seat.tokens) {
+    details.push(
+      `Run: ${formatTokens(seat.tokens.total)} tokens (${seat.tokens_exact ? 'exact, from Claude Code' : 'estimate'})`,
+    );
+  }
+  if (seat.track_record) details.push(trackRecordWords(seat.track_record));
+  return details;
+}
+
+function seatRow(seat: PaqadSeat): SeatRow {
+  const took = spanClock(seat.started_at, seat.done_at);
+  const findings = seat.findings === null ? null : plural(seat.findings, 'finding', 'findings');
+  const done = [took, findings].filter((part): part is string => part !== null).join(' · ');
+  return {
+    role: seat.role,
+    initials: roleInitials(seat.role),
+    words: roleWords(seat.role),
+    picked: seat.origin !== 'standing',
+    word:
+      seat.state === 'writing' ? 'writing…' : seat.state === 'seated' ? 'seated' : done || 'done',
+    tone: seat.state === 'writing' ? 'acc' : 'dim',
+    details: seatDetails(seat),
+  };
+}
+
+function chiefLight(table: PaqadHighTable, state: ChiefState): LightView {
+  const chief = table.chief;
+  const tokens =
+    chief && seatTokens(chief) !== null ? `${formatTokens(seatTokens(chief)!)} tokens` : null;
+  const ruledIn = chief ? spanClock(chief.started_at, chief.done_at) : null;
+  const join = (...parts: Array<string | null>) =>
+    parts.filter((part): part is string => part !== null).join(' · ') || null;
+  if (state === 'needs') {
+    return {
+      signal: 'attention',
+      title: 'Needs your answers',
+      why: join(ruledIn ? `Ruled in ${ruledIn}` : null, tokens),
+    };
+  }
+  if (state === 'done') {
+    const answers = table.rulings?.settled.length ?? 0;
+    return {
+      signal: 'idle',
+      title: 'Approved',
+      why: join(
+        answers > 0
+          ? `After your ${plural(answers, 'answer', 'answers')}`
+          : ruledIn
+            ? `Ruled in ${ruledIn}`
+            : null,
+        tokens,
+      ),
+    };
+  }
+  if (state === 'ruling') {
+    return { signal: 'accent', title: 'Ruling', why: 'The chief architect is reading the notes.' };
+  }
+  return {
+    signal: 'idle',
+    title: 'Listening',
+    why: `Rules when all ${plural(table.seats.length, 'note has', 'notes have')} landed`,
+  };
+}
+
+function specLines(specText: string | null): { lines: Map<string, string>; total: number } {
+  const lines = new Map<string, string>();
+  let total = 0;
+  for (const raw of (specText ?? '').split(/\r?\n/)) {
+    const match = /^\s*-\s+((?:FR|AC)-\d+):\s*(.*)$/.exec(raw);
+    if (!match) continue;
+    total += 1;
+    if (!lines.has(match[1]!)) lines.set(match[1]!, match[2]!);
+  }
+  return { lines, total };
+}
+
+export function tableView(snapshot: PaqadHudSnapshot, specText: string | null): TableView | null {
+  if (!tableSat(snapshot)) return null;
+  const table = snapshot.table;
+  const state = chiefState(snapshot);
+  const seats = table.seats;
+  const done = seats.filter((seat) => seat.state === 'done' || seat.late).length;
+  const findings = seats.reduce((sum, seat) => sum + (seat.findings ?? 0), 0);
+  const standing = seats.filter((seat) => seat.origin === 'standing').length;
+  const open = snapshot.decisions.pending.filter(
+    (decision) => decision.category === CONFLICT_CATEGORY,
+  ).length;
+  const { lines, total } = specLines(specText);
+  return {
+    ring: seats.map((seat) => ({
+      label: roleInitials(seat.role),
+      state: seat.late ? 'late' : seat.state,
+      findings: seat.findings,
+    })),
+    chief: state,
+    alt: `${done} of ${seats.length} notes landed`,
+    summary: {
+      notes: `${done} of ${plural(seats.length, 'note', 'notes')}`,
+      findings: plural(findings, 'finding', 'findings'),
+      picked: `${seats.length - standing} picked for this change`,
+      standing: `${standing} always at the table`,
+    },
+    chiefView: {
+      state,
+      light: chiefLight(table, state),
+      conflicts: state === 'needs' ? (table.rulings?.conflicts ?? []) : [],
+      answer:
+        state === 'needs'
+          ? `Walk me through the ${plural(Math.max(open, 1), 'open decision', 'open decisions')}`
+          : null,
+    },
+    seats: seats.map(seatRow),
+    shaped: {
+      rows: table.credits.map((credit) => ({
+        id: credit.line,
+        line: lines.get(credit.line) ?? credit.line,
+        who: credit.roles.map(roleInitials).join(' · '),
+      })),
+      total:
+        table.credits.length > 0 && total > 0
+          ? `${table.credits.length} of ${total} spec lines came from an expert note.`
+          : null,
+      empty: table.credits.length === 0 ? SHAPED_LATER : null,
+    },
+  };
+}
+
+export interface DeliveryJob {
+  name: string;
+  time: string;
+  tone: WordTone;
+  share: number | null;
+}
+
+export interface DeliveryBlock {
+  label: DeliveryLabel;
+  state: ShipState;
+  title: string;
+  sub: string | null;
+  right: string | null;
+  reached: boolean;
+  commits: Array<{ sha: string; subject: string; own: boolean }>;
+  jobs: DeliveryJob[];
+  link: { href: string; text: string } | null;
+  ci: number | null;
+}
+
+const JOB_PASSED = new Set(['SUCCESS', 'NEUTRAL', 'SKIPPED']);
+const JOB_FAILED = new Set(['FAILURE', 'ERROR', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED']);
+const JOB_QUEUED = new Set(['QUEUED', 'PENDING', 'EXPECTED', 'WAITING', 'REQUESTED']);
+
+function deliveryJob(job: PaqadCiJob): DeliveryJob {
+  const outcome = (job.conclusion ?? job.status ?? '').toUpperCase();
+  const took = spanClock(job.started_at, job.completed_at);
+  if (JOB_FAILED.has(outcome))
+    return { name: job.name, time: took ?? 'failed', tone: 'fail', share: 1 };
+  if (JOB_PASSED.has(outcome))
+    return { name: job.name, time: took ?? 'done', tone: 'dim', share: 1 };
+  if (JOB_QUEUED.has(outcome)) return { name: job.name, time: 'queued', tone: 'dim', share: 0 };
+  return { name: job.name, time: 'running', tone: 'dim', share: null };
+}
+
+function ciSub(ship: NonNullable<PaqadHudSnapshot['ship']>): string {
+  const ci = ship.ci_detail;
+  if (!ci || ci.total === null || ci.total === 0) return 'Runs on the pull request';
+  if (ci.state === 'pass') {
+    const started = ci.jobs.map((job) => Date.parse(job.started_at ?? '')).filter(Number.isFinite);
+    const ended = ci.jobs.map((job) => Date.parse(job.completed_at ?? '')).filter(Number.isFinite);
+    const took =
+      started.length > 0 && ended.length > 0
+        ? formatClock(Math.max(...ended) - Math.min(...started))
+        : null;
+    return `All ${ci.total} checks passed${took ? ` in ${took}` : ''}`;
+  }
+  return `${ci.done ?? 0} of ${ci.total} checks green`;
+}
+
+function blockText(
+  snapshot: PaqadHudSnapshot,
+  label: DeliveryLabel,
+  state: ShipState,
+): {
+  title: string;
+  sub: string | null;
+  right: string | null;
+} {
+  const ship = snapshot.ship;
+  const pr = prName(snapshot);
+  switch (label) {
+    case 'Edit': {
+      const files = ship?.files_changed ?? null;
+      return {
+        title: 'Edit',
+        sub:
+          state === 'todo'
+            ? 'Code changes start after the spec is frozen.'
+            : files === null
+              ? null
+              : `${plural(files, 'file', 'files')} changed by this change`,
+        right: null,
+      };
+    }
+    case 'Commit': {
+      const own = ship?.commits ?? 0;
+      return {
+        title: 'Commits',
+        sub: own > 0 ? `${own} by this change` : 'None of yours yet',
+        right: null,
+      };
+    }
+    case 'Push':
+      return {
+        title: 'Push',
+        sub:
+          ship?.push === 'failed'
+            ? 'The push failed'
+            : ship?.push === 'pushed'
+              ? `${ship.push_branch ?? 'The branch'} on origin`
+              : 'After Checks and Docs',
+        right: null,
+      };
+    case 'PR': {
+      const opened = ship !== null && ship.pr_number !== null;
+      const size =
+        ship && ship.pr_additions !== null && ship.pr_deletions !== null
+          ? `+${ship.pr_additions} −${ship.pr_deletions}`
+          : null;
+      return {
+        title: 'Pull request',
+        sub: opened
+          ? `#${ship.pr_number}${ship.pr_title ? ` ${ship.pr_title}` : ''}`
+          : 'Opened after the push',
+        right: opened ? size : null,
+      };
+    }
+    case 'CI':
+      return { title: 'CI', sub: ship ? ciSub(ship) : 'Runs on the pull request', right: null };
+    case 'Merge':
+      return {
+        title: 'Merge',
+        sub: ship?.merged
+          ? `${pr} is merged.`
+          : state === 'ready'
+            ? 'Everything is green. The merge is yours.'
+            : 'The merge is always yours. paqad never merges.',
+        right: null,
+      };
+  }
+}
+
+export interface DeliveryView {
+  blocks: DeliveryBlock[];
+  empty: string | null;
+}
+
+export function deliveryView(snapshot: PaqadHudSnapshot): DeliveryView {
+  if (!snapshot.active) return { blocks: [], empty: 'Nothing to deliver yet.' };
+  const strip = deliveryStrip(snapshot);
+  const ship = snapshot.ship;
+  return {
+    empty: null,
+    blocks: strip.steps.map(({ label, state }) => {
+      const text = blockText(snapshot, label as DeliveryLabel, state);
+      const reached = state !== 'todo';
+      return {
+        label: label as DeliveryLabel,
+        state,
+        ...text,
+        reached,
+        commits:
+          label === 'Commit' && ship
+            ? ship.commit_list.map((commit) => ({
+                sha: commit.sha.slice(0, 7),
+                subject: commit.subject,
+                own: commit.own !== false,
+              }))
+            : [],
+        jobs:
+          label === 'CI' && reached && ship?.ci_detail ? ship.ci_detail.jobs.map(deliveryJob) : [],
+        link:
+          label === 'Merge' && state === 'ready' && ship?.pr_url
+            ? { href: ship.pr_url, text: `Open ${prName(snapshot)}` }
+            : null,
+        ci: label === 'CI' ? strip.ci : null,
+      };
+    }),
+  };
+}
+
+export function localTime(at: string): string {
+  const date = new Date(Date.parse(at));
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function recordWords(snapshot: PaqadHudSnapshot, entry: PaqadTimelineEntry): string | null {
+  const stage = entry.stage ? stageWord(entry.stage) : 'A stage';
+  const count = entry.count ?? 0;
+  switch (entry.kind) {
+    case 'open': {
+      if (entry.note) return `Reopened: ${entry.note}`;
+      const issue = entry.issue
+        ? /^\d+$/.test(entry.issue)
+          ? `#${entry.issue}`
+          : entry.issue
+        : null;
+      const name = [issue, entry.title].filter(Boolean).join(' ');
+      const lane = entry.lane ? `${entry.lane} lane` : null;
+      const what = [name || null, lane].filter(Boolean).join(', ');
+      return what ? `Change opened: ${what}` : 'Change opened';
+    }
+    case 'close':
+      return entry.note ? `Closed: ${entry.note}` : 'Closed';
+    case 'stage_start':
+      return entry.own_agent ? `${stage} started in its own agent` : `${stage} started`;
+    case 'stage_end':
+      return entry.duration_ms !== undefined
+        ? `${stage} done in ${formatClock(entry.duration_ms)}`
+        : `${stage} done`;
+    case 'rules_loaded':
+      return `Rules loaded: ${count} apply`;
+    case 'table_seated':
+      return `High Table seated: ${entry.picked ?? 0} picked, ${entry.standing ?? 0} standing`;
+    case 'notes_landed':
+      return `All ${plural(count, 'note', 'notes')} landed, ${plural(entry.findings ?? 0, 'finding', 'findings')}`;
+    case 'chief_ruled': {
+      const took = entry.duration_ms !== undefined ? ` in ${formatClock(entry.duration_ms)}` : '';
+      return `Chief ruled${took}${entry.verdict ? `: ${entry.verdict}` : ''}`;
+    }
+    case 'decisions_opened':
+      return `${plural(count, 'decision', 'decisions')} opened for you`;
+    case 'decisions_answered':
+      return `You answered ${plural(count, 'decision', 'decisions')}`;
+    case 'spec_frozen':
+      return `Spec frozen: ${plural(entry.requirements ?? 0, 'requirement', 'requirements')}, ${plural(entry.criteria ?? 0, 'criterion', 'criteria')}`;
+    case 'commit':
+      return `Commit ${(entry.sha ?? '').slice(0, 5)}: ${entry.subject ?? ''}`.trim();
+    case 'push':
+      return entry.state === 'failed'
+        ? 'The push failed'
+        : `Pushed ${plural(count, 'commit', 'commits')}`;
+    case 'pr_opened':
+      return entry.number !== undefined
+        ? `PR #${entry.number} opened`
+        : `${prName(snapshot)} opened`;
+    case 'ci':
+      return entry.state === 'fail'
+        ? 'CI failed'
+        : `CI green on all ${plural(count, 'job', 'jobs')}`;
+    default:
+      return null;
+  }
+}
+
+export interface RecordView {
+  rows: Array<{ key: string; time: string; text: string }>;
+  empty: string | null;
+}
+
+export const RECORD_LATER = 'The record starts when the change opens.';
+
+export function recordView(snapshot: PaqadHudSnapshot): RecordView {
+  const rows = snapshot.active
+    ? snapshot.timeline.flatMap((entry, index) => {
+        const text = recordWords(snapshot, entry);
+        return text ? [{ key: `${entry.at}-${index}`, time: localTime(entry.at), text }] : [];
+      })
+    : [];
+  return { rows, empty: rows.length === 0 ? RECORD_LATER : null };
+}
+
+export interface CostMeter {
+  key: string;
+  name: string;
+  right: string;
+  share: number;
+}
+
+export interface CostView {
+  total: string;
+  money: string;
+  note: string;
+  live: string | null;
+  stages: CostMeter[];
+  table: CostMeter[];
+  notCounted: string;
+}
+
+export const NOT_COUNTED_WORDS =
+  'Not counted: your own typing time, other sessions, and the HUD itself (0 tokens).';
+export const COUNTING_WORDS = 'Counting: this turn is still running.';
+
+function lineRight(line: PaqadCostLine): string {
+  const tokens = formatTokens(line.tokens.total);
+  return line.usd === null ? tokens : `${tokens} · ${formatUsd(line.usd)}`;
+}
+
+function meters(entries: Array<{ key: string; name: string; line: PaqadCostLine }>): CostMeter[] {
+  const largest = Math.max(0, ...entries.map((entry) => entry.line.tokens.total));
+  return entries.map((entry) => ({
+    key: entry.key,
+    name: entry.name,
+    right: lineRight(entry.line),
+    share: largest > 0 ? entry.line.tokens.total / largest : 0,
+  }));
+}
+
+function costStageName(stage: string, table: boolean): string {
+  if (stage === 'orchestrator') return 'Between stages';
+  if (stage === 'specification' && table) return 'Spec, with the High Table';
+  return stageWord(stage);
+}
+
+export function costMoney(cost: PaqadCost): string {
+  return cost.usd === null
+    ? cost.unpriced_models.length > 0
+      ? `No price for ${cost.unpriced_models.join(', ')}`
+      : 'No money figure'
+    : `~${formatUsd(cost.usd)} estimate at API prices · ${cost.price_table_date} prices`;
+}
+
+export function costView(snapshot: PaqadHudSnapshot): CostView | null {
+  const cost = snapshot.active ? snapshot.cost : null;
+  if (!cost) return null;
+  const sat = tableSat(snapshot);
+  const scope = cost.scope === 'whole-session' ? WHOLE_SESSION_SENTENCE : CHANGE_SCOPE_SENTENCE;
+  return {
+    total: `${formatTokens(cost.tokens.total)} tokens`,
+    money: costMoney(cost),
+    note: [cost.plan_note, scope].filter((part) => part.length > 0).join(' '),
+    live: cost.live ? COUNTING_WORDS : null,
+    stages: meters(
+      cost.by_stage.map((line) => ({
+        key: line.stage,
+        name: costStageName(line.stage, sat),
+        line,
+      })),
+    ),
+    table: sat
+      ? meters([
+          ...(cost.chief ? [{ key: 'chief', name: 'Chief architect', line: cost.chief }] : []),
+          ...cost.by_expert.map((line) => ({ key: line.role, name: roleWords(line.role), line })),
+        ])
+      : [],
+    notCounted: NOT_COUNTED_WORDS,
+  };
+}
+
+export interface WorkflowLedger {
+  light: LightView;
+  total: string;
+  money: string | null;
+  note: string;
+}
+
+export function workflowLedger(snapshot: PaqadHudSnapshot, route: string): WorkflowLedger {
+  const words = workflowWords(route);
+  const workflow = snapshot.workflow?.name === route ? snapshot.workflow : null;
+  return {
+    light: {
+      signal: 'accent',
+      title: capitalised(words),
+      why: 'No change in this session, so there is nothing to prove. paqad shows what this workflow cost.',
+    },
+    total:
+      workflow?.tokens === null || !workflow
+        ? 'counting'
+        : `${formatTokens(workflow.tokens)} tokens`,
+    money:
+      workflow && workflow.usd !== null
+        ? `~${formatUsd(workflow.usd)} estimate at API prices`
+        : null,
+    note: `Counted from when this ${words} started in this session. Nothing from other sessions or earlier changes.`,
+  };
+}
+
+export type DesktopLedger =
+  | { kind: 'none' }
+  | { kind: 'unreadable'; light: LightView }
+  | { kind: 'workflow'; view: WorkflowLedger }
+  | {
+      kind: 'feature';
+      subtitle: string;
+      tabs: LedgerTab[];
+      shown: PaqadPaneTab;
+      trust: TrustView;
+      table: TableView | null;
+      delivery: DeliveryView;
+      record: RecordView;
+      cost: CostView | null;
+    };
+
+export interface DesktopLedgerInput {
+  snapshot: PaqadHudSnapshot | null;
+  unbound: boolean;
+  unavailable: boolean;
+  tab: PaqadPaneTab | null;
+  now: number;
+  specText: string | null;
+}
+
+export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
+  const unreadable = unreadableReason(input);
+  if (unreadable) return { kind: 'unreadable', light: trustLight(null, unreadable, input.now) };
+  const snapshot = input.snapshot;
+  if (!snapshot) return { kind: 'none' };
+  const route = statusEntryRoute(snapshot);
+  if (route) return { kind: 'workflow', view: workflowLedger(snapshot, route) };
+  const tabs = ledgerTabs(snapshot, input.tab ?? 'trust');
+  return {
+    kind: 'feature',
+    subtitle: ledgerSubtitle(snapshot),
+    tabs,
+    shown: tabs.find((tab) => tab.shown)!.id,
+    trust: trustView(snapshot, input.now),
+    table: tableView(snapshot, input.specText),
+    delivery: deliveryView(snapshot),
+    record: recordView(snapshot),
+    cost: costView(snapshot),
+  };
+}
+
+export function ledgerIsLive(ledger: DesktopLedger): boolean {
+  if (ledger.kind !== 'feature') return false;
+  const writing = ledger.table?.seats.some((seat) => seat.word === 'writing…') ?? false;
+  const ruling = ledger.table?.chief === 'ruling' || ledger.table?.chief === 'needs';
+  const running = ledger.delivery.blocks.some((block) => block.state === 'run');
+  return writing || ruling || running;
 }
 
 export const UPDATE_PLAN_TOOL = 'mcp__ccd_turn__update_plan';
