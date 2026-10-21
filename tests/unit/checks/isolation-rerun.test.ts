@@ -257,4 +257,55 @@ describe('confirmFailures', () => {
     expect(out.isolation_reruns.performed).toBe(false);
     expect(out.isolation_reruns.skipped_reason).toBeNull();
   });
+
+  it('reruns errors and file-less failures, redirecting output that has no extension', async () => {
+    const fileless = { ...issue('suite::fileless'), file_path: null };
+    const outside = issue('outside', '/elsewhere/outside.test.ts');
+    const inside = issue('inside', join(root, 'tests/inside.test.ts'));
+    const failing = result([fileless, outside], 100);
+    failing.errors = [inside];
+    failing.summary.errored = 1;
+    const commands: string[] = [];
+
+    const out = await confirmFailures({
+      result: failing,
+      projectRoot: root,
+      singleCommandTemplate: 'run <pattern> --out results',
+      singleSelector: 'test_id',
+      outputPathPattern: 'results',
+      flakyMode: 'warn',
+      rerunCount: 2,
+      now: NOW,
+      readTestFile: () => null,
+      runSingle: async (command, output) => {
+        commands.push(`${command} | ${output}`);
+        return outcome(true);
+      },
+    });
+
+    expect(commands).toContain(
+      'run fileless --out .paqad/test-results/rerun-0.out | .paqad/test-results/rerun-0.out',
+    );
+    expect(out.result.failures).toEqual([]);
+    expect(out.result.errors).toEqual([]);
+    expect(out.flaky_under_parallel.map((entry) => entry.test_id)).toEqual([
+      'suite::fileless',
+      'outside',
+      'inside',
+    ]);
+  });
+
+  it('treats a rerun that never reports as a failed attempt', async () => {
+    const out = await confirmFailures({
+      result: result([issue('a')], 100),
+      projectRoot: root,
+      singleCommandTemplate: 'run <pattern>',
+      singleSelector: 'file',
+      flakyMode: 'warn',
+      rerunCount: 0,
+      now: NOW,
+      runSingle: async () => outcome(true),
+    });
+    expect(out.isolation_reruns.entries[0]?.selector).toBe('tests/a.test.ts');
+  });
 });
