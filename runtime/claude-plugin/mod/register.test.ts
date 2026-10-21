@@ -984,7 +984,7 @@ describe('the Desktop Ledger', () => {
     expect(lines).toContain('WHO SHAPED THE SPEC');
     expect(lines).toContain('FR-1  Export the orders page to CSV');
     expect(lines).toContain('NFR-1  ');
-    expect(lines).toContain('12 of 3 spec lines came from an expert note.');
+    expect(lines).toContain('2 of 3 spec lines came from an expert note.');
     expect(lines).toContain('● Approved');
   });
 

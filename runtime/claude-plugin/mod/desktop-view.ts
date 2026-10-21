@@ -1067,16 +1067,18 @@ function chiefLight(table: PaqadHighTable, state: ChiefState): LightView {
   };
 }
 
-function specLines(specText: string | null): { lines: Map<string, string>; total: number } {
+const COUNTED_LINE = /^(?:FR|AC)-\d+$/;
+
+function specLines(specText: string | null): { lines: Map<string, string>; counted: Set<string> } {
   const lines = new Map<string, string>();
-  let total = 0;
+  const counted = new Set<string>();
   for (const raw of (specText ?? '').split(/\r?\n/)) {
     const match = /^\s*-\s+([A-Z]+-\d+):\s*(.*)$/.exec(raw);
     if (!match) continue;
-    if (/^(?:FR|AC)-/.test(match[1]!)) total += 1;
+    if (COUNTED_LINE.test(match[1]!)) counted.add(match[1]!);
     if (!lines.has(match[1]!)) lines.set(match[1]!, match[2]!);
   }
-  return { lines, total };
+  return { lines, counted };
 }
 
 export function tableView(snapshot: PaqadHudSnapshot, specText: string | null): TableView | null {
@@ -1090,7 +1092,10 @@ export function tableView(snapshot: PaqadHudSnapshot, specText: string | null): 
   const open = snapshot.decisions.pending.filter(
     (decision) => decision.category === CONFLICT_CATEGORY,
   ).length;
-  const { lines, total } = specLines(specText);
+  const { lines, counted } = specLines(specText);
+  const shapedCount = new Set(
+    table.credits.map((credit) => credit.line).filter((line) => counted.has(line)),
+  ).size;
   return {
     ring: seats.map((seat) => ({
       label: roleInitials(seat.role),
@@ -1122,8 +1127,8 @@ export function tableView(snapshot: PaqadHudSnapshot, specText: string | null): 
         who: credit.roles.map(roleInitials).join(' · '),
       })),
       total:
-        table.credits.length > 0 && total > 0
-          ? `${table.credits.length} of ${total} spec lines came from an expert note.`
+        table.credits.length > 0 && counted.size > 0
+          ? `${shapedCount} of ${counted.size} spec lines came from an expert note.`
           : null,
       empty: table.credits.length === 0 ? SHAPED_LATER : null,
     },

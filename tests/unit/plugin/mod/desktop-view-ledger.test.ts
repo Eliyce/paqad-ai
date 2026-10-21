@@ -468,9 +468,7 @@ describe('AC-21: the High Table tab', () => {
     const first = frozen.shaped.rows[0]!;
     expect(first.who).toMatch(/^[A-Z]{2}( · [A-Z]{2})*$/);
     expect(frozen.shaped.empty).toBeNull();
-    expect(frozen.shaped.total).toBe(
-      `${frozen.shaped.rows.length} of 3 spec lines came from an expert note.`,
-    );
+    expect(frozen.shaped.total).toBe('2 of 3 spec lines came from an expert note.');
     const fr1 = frozen.shaped.rows.find((row) => row.id === 'FR-1');
     if (fr1) expect(fr1.line).toBe('The start hook writes the brief');
     expect(frozen.shaped.rows.find((row) => row.id === 'NFR-1')?.line).toBe(
@@ -478,6 +476,16 @@ describe('AC-21: the High Table tab', () => {
     );
     expect(frozen.shaped.rows.find((row) => row.id === 'INV-1')?.line).toBe('INV-1');
     expect(tableView(open({ table: ord501Table('frozen') }), null)!.shaped.total).toBeNull();
+    const whole = [
+      ...Array.from({ length: 8 }, (_, index) => `- FR-${index + 1}: Line ${index + 1}`),
+      '- FR-1: The same line again',
+      '- AC-1: A criterion',
+      '- NFR-1: Not counted',
+      '- INV-1: Not counted',
+    ].join('\n');
+    expect(tableView(open({ table: ord501Table('frozen') }), whole)!.shaped.total).toBe(
+      '8 of 9 spec lines came from an expert note.',
+    );
     expect(tableView(open({ table: ord501Table('ruled') }), SPEC)!.shaped).toEqual({
       rows: [],
       total: null,
