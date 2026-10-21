@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
@@ -50,6 +50,7 @@ import {
 } from '@/feature-evidence/tech-debt-index.js';
 import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { workflowCostSince } from '@/cost/session-cost.js';
+import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
 import type { RoutedWorkflow } from '@/pipeline/routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
@@ -191,6 +192,64 @@ export interface HudWorkflow {
   unpriced: string[];
 }
 
+export interface HudDeliveryPlan {
+  commit: boolean;
+  push: boolean;
+  pr: boolean;
+  ci: boolean;
+  merge: boolean;
+  reason: string | null;
+}
+
+export interface DeliveryPlanInput {
+  enabled: boolean;
+  commitDeclined: boolean;
+  ciGate: string;
+  hasCi: boolean;
+}
+
+export function computeDeliveryPlan(input: DeliveryPlanInput): HudDeliveryPlan {
+  const commit = !input.commitDeclined;
+  const push = input.enabled && commit;
+  const ci = push && input.ciGate !== 'off' && input.hasCi;
+  const reason = !commit
+    ? 'Edit only · no commit'
+    : !push
+      ? 'No push for this change'
+      : !ci
+        ? 'No CI'
+        : null;
+  return { commit, push, pr: push, ci, merge: push, reason };
+}
+
+function repoHasCi(projectRoot: string): boolean {
+  try {
+    return readdirSync(join(projectRoot, '.github', 'workflows')).some((name) =>
+      /\.ya?ml$/.test(name),
+    );
+  } catch {
+    return false;
+  }
+}
+
+function buildDeliveryPlan(
+  projectRoot: string,
+  delivery: DeliveryRecord | null,
+): HudDeliveryPlan | null {
+  try {
+    const { policy } = loadDeliveryPolicy(projectRoot);
+    return computeDeliveryPlan({
+      enabled: policy.enabled,
+      commitDeclined: delivery?.commit_decision?.answer === 'decline',
+      ciGate: policy.process.ci.gate,
+      hasCi: repoHasCi(projectRoot),
+    });
+  } catch (error) {
+    logHudWriteError(projectRoot, 'delivery plan', error);
+    return null;
+  }
+}
+
 export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
@@ -226,6 +285,7 @@ export interface HudSnapshot {
   };
   questions: { asked: number; answered: number; auto_answered: number; deferred: number } | null;
   last_block: RuleStopRecord | null;
+  delivery_plan: HudDeliveryPlan | null;
   ship: HudShip | null;
   verdict: HudVerdictRecord | null;
   receipt: { path: string } | null;
@@ -782,6 +842,7 @@ export function buildHudSnapshot(
       decisions,
       questions: null,
       last_block: lastBlock,
+      delivery_plan: buildDeliveryPlan(projectRoot, null),
       ship: null,
       verdict: null,
       receipt: null,
@@ -868,6 +929,7 @@ export function buildHudSnapshot(
     decisions,
     questions: buildQuestions(projectRoot, dirName),
     last_block: lastBlock,
+    delivery_plan: buildDeliveryPlan(projectRoot, delivery),
     ship: buildShip(delivery),
     verdict,
     receipt,
