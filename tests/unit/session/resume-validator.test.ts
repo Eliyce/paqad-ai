@@ -74,7 +74,7 @@ describe('SessionResumeValidator', () => {
           data: {
             retrieval: {
               rag_enabled: true,
-              embedding_provider: 'voyageai',
+              embedding_provider: 'openai',
             },
           },
         }),
@@ -91,7 +91,7 @@ describe('SessionResumeValidator', () => {
 
     await expect(validator.validate('/tmp/project')).resolves.toEqual({
       rag_enabled: true,
-      embedding_provider: 'voyageai',
+      embedding_provider: 'openai',
       index_valid: true,
       rebuild_required: false,
     });

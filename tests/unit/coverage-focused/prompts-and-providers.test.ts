@@ -15,7 +15,6 @@ const openAiCtor = vi.hoisted(() =>
     embeddings: { create: openAiEmbeddingsCreate },
   })),
 );
-const voyageCtor = vi.hoisted(() => vi.fn());
 
 vi.mock('@inquirer/prompts', () => ({
   checkbox: mockCheckbox,
@@ -29,10 +28,6 @@ vi.mock('@huggingface/transformers', () => ({
 
 vi.mock('openai', () => ({
   OpenAI: openAiCtor,
-}));
-
-vi.mock('voyageai', () => ({
-  VoyageAIClient: voyageCtor,
 }));
 
 function setInteractive(value: boolean): void {
@@ -192,12 +187,12 @@ describe('coverage-focused prompt and provider branches', () => {
     expect(mockSelect).not.toHaveBeenCalled();
   });
 
-  it('covers local provider raw outputs, failure cleanup, remote retry exhaustion, and missing voyage keys', async () => {
+  it('covers local provider raw outputs, failure cleanup, and remote retry exhaustion', async () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-rag-provider-'));
     const progress = vi.fn();
 
     try {
-      const { LocalEmbeddingProvider, OpenAiEmbeddingProvider, VoyageEmbeddingProvider } =
+      const { LocalEmbeddingProvider, OpenAiEmbeddingProvider } =
         await import('@/rag/providers.js');
 
       transformerPipeline.mockResolvedValueOnce(async (batch: string[]) =>
@@ -226,16 +221,7 @@ describe('coverage-focused prompt and provider branches', () => {
       expect(progress).toHaveBeenCalledWith(
         expect.objectContaining({ message: expect.stringContaining('retrying in 250ms') }),
       );
-
       vi.unstubAllEnvs();
-      const voyage = new VoyageEmbeddingProvider(
-        projectRoot,
-        makeIntelligence({
-          embedding_provider: 'voyageai',
-          embedding_model: 'voyage-code-3',
-        }),
-      );
-      await expect(voyage.embed('auth')).rejects.toThrow('Missing VOYAGE_API_KEY');
     } finally {
       rmSync(projectRoot, { recursive: true, force: true });
     }

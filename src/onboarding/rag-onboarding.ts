@@ -96,11 +96,6 @@ export async function resolveRagSelection(
         name: 'Using my OpenAI key',
         description: 'Uses text-embedding-3-small for remote embeddings',
       },
-      {
-        value: 'voyageai',
-        name: 'Using my Voyage AI key',
-        description: 'Uses voyage-code-3, purpose-built for code embeddings',
-      },
     ],
   });
 
@@ -147,13 +142,11 @@ export async function enableRagDuringOnboarding(
   const service = new RagService(projectRoot);
   if (ragSelection.provider !== 'local' && !service.hasApiKey(ragSelection.provider)) {
     if (!isInteractive()) {
-      throw new Error(
-        `Missing ${ragSelection.provider === 'openai' ? 'OPENAI_API_KEY' : 'VOYAGE_API_KEY'}`,
-      );
+      throw new Error('Missing OPENAI_API_KEY');
     }
 
     const key = await input({
-      message: `Enter your ${ragSelection.provider === 'openai' ? 'OpenAI' : 'Voyage AI'} API key`,
+      message: 'Enter your OpenAI API key',
       validate: (value) => (value.trim().length > 0 ? true : 'API key is required'),
     });
     service.storeApiKey(ragSelection.provider, key.trim());

@@ -234,13 +234,6 @@ export interface OpenAiEmbeddingClient {
   };
 }
 
-export interface VoyageEmbeddingClient {
-  embed(input: {
-    input: string | string[];
-    model: string;
-  }): Promise<{ data: Array<{ embedding: number[] }> }>;
-}
-
 export interface ProviderProgressUpdate {
   phase: 'download' | 'load' | 'build';
   message: string;

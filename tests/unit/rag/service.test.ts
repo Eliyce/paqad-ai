@@ -910,7 +910,6 @@ describe('RagService', () => {
 
     expect(secretPath).toContain('.paqad');
     expect(service.resolveApiKeyName('openai')).toBe('OPENAI_API_KEY');
-    expect(service.resolveApiKeyName('voyageai')).toBe('VOYAGE_API_KEY');
     expect(service.hasApiKey('openai')).toBe(true);
   });
 
@@ -1654,6 +1653,78 @@ describe('RagService', () => {
     const audit = readFileSync(join(projectRoot, '.paqad/audit.log'), 'utf8');
     expect(audit).toContain('rag-api-key-validation-failed');
     expect(audit).toContain('rag-build-failed');
+  });
+
+  describe('with the removed voyageai provider saved', () => {
+    const emptySync = {
+      index: { version: 1, generated_at: '', entries: [] },
+      changed_files: [],
+      added_files: [],
+      deleted_files: [],
+      updated: false,
+    };
+
+    function saveVoyage(): void {
+      writeFileSync(
+        join(projectRoot, '.paqad/.config'),
+        'rag_enabled=true\nrag_embedding_provider=voyageai\n',
+      );
+    }
+
+    it('refuses every RAG operation before embedding or writing an index', async () => {
+      saveVoyage();
+      const factory = vi.fn(countingProviderFactory().factory);
+      const service = new RagService(projectRoot, factory);
+      const message = 'The Voyage embedding provider was removed from paqad-ai';
+
+      await expect(service.rebuild()).rejects.toThrow(message);
+      await expect(service.buildIndexOnly({})).rejects.toThrow(message);
+      await expect(service.configureAndBuild({})).rejects.toThrow(message);
+      await expect(service.refreshContext()).rejects.toThrow(message);
+      await expect(service.retrieve(emptySync, { keywords: ['auth'] })).rejects.toThrow(message);
+      await expect(service.retrieveForEval({ keywords: ['auth'] })).rejects.toThrow(message);
+      await expect(service.probe({ keywords: ['auth'] })).rejects.toThrow(message);
+      writeFileSync(join(projectRoot, 'scan.png'), 'png');
+      await expect(
+        service.ingestExtractedText({
+          sourcePath: join(projectRoot, 'scan.png'),
+          text: 'invoice total',
+          extractionKind: 'ocr',
+        }),
+      ).rejects.toThrow(message);
+
+      expect(factory).not.toHaveBeenCalled();
+      expect(existsSync(join(projectRoot, '.paqad/vectors'))).toBe(false);
+      await expect(backgroundIndexSync(projectRoot, factory)).resolves.toEqual({
+        synced: false,
+        reason: 'no-index',
+      });
+    });
+
+    it('builds with an explicitly chosen provider that replaces the saved one', async () => {
+      saveVoyage();
+      const { factory, calls } = countingProviderFactory();
+      const service = new RagService(projectRoot, factory);
+
+      await service.configureAndBuild({
+        embedding_provider: 'local',
+        embedding_model: 'fake-local',
+      });
+
+      expect(calls.embeddedTexts).toBeGreaterThan(0);
+      expect(readFileSync(join(projectRoot, '.paqad/.config'), 'utf8')).not.toContain('voyageai');
+    });
+
+    it('leaves a disabled RAG setup alone', async () => {
+      writeFileSync(
+        join(projectRoot, '.paqad/.config'),
+        'rag_enabled=false\nrag_embedding_provider=voyageai\n',
+      );
+      const service = new RagService(projectRoot, fakeProviderFactory());
+
+      await expect(service.refreshContext()).resolves.toMatchObject({ updated: true });
+      await expect(service.probe({ keywords: ['auth'] })).resolves.toEqual([]);
+    });
   });
 });
 

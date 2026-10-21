@@ -25,7 +25,7 @@ const BUNDLED_DEPS = [
   'gifenc',
 ];
 
-const EXTERNAL_DEPS = ['@huggingface/transformers', 'openai', 'voyageai'];
+const EXTERNAL_DEPS = ['@huggingface/transformers', 'openai'];
 
 const DIST_ENTRIES = [
   'index.js',

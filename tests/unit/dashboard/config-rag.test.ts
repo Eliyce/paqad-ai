@@ -8,6 +8,7 @@ import YAML from 'yaml';
 import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { readProjectProfile } from '@/core/project-profile.js';
 import { getRagConfig, putRagConfig, RagValidationError } from '@/dashboard/config-rag.js';
+import { REMOVED_EMBEDDING_PROVIDER_MESSAGE } from '@/rag/removed-provider.js';
 
 function baseProfile(): Record<string, unknown> {
   return {
@@ -134,20 +135,34 @@ describe('rag config endpoint logic', () => {
       writeFileSync(join(root, '.paqad/project-profile.yaml'), YAML.stringify(baseProfile()));
       const result = putRagConfig(root, {
         rag_enabled: true,
-        embedding_provider: 'voyageai',
-        embedding_model: 'voyage-3-large',
+        embedding_provider: 'openai',
+        embedding_model: 'text-embedding-3-large',
         rag_similarity_threshold: 0.5,
         rag_top_n: 5,
         rag_max_file_size: 100000,
       });
       expect(result.intelligence).toMatchObject({
         rag_enabled: true,
-        embedding_provider: 'voyageai',
-        embedding_model: 'voyage-3-large',
+        embedding_provider: 'openai',
+        embedding_model: 'text-embedding-3-large',
         rag_similarity_threshold: 0.5,
         rag_top_n: 5,
         rag_max_file_size: 100000,
       });
+    });
+
+    it('refuses the removed voyageai provider with the removal message', () => {
+      writeFileSync(join(root, '.paqad/project-profile.yaml'), YAML.stringify(baseProfile()));
+      let caught: unknown;
+      try {
+        putRagConfig(root, { embedding_provider: 'voyageai' });
+      } catch (error) {
+        caught = error;
+      }
+      expect(caught).toBeInstanceOf(RagValidationError);
+      expect((caught as RagValidationError).issues).toEqual([
+        { path: '/embedding_provider', message: REMOVED_EMBEDDING_PROVIDER_MESSAGE },
+      ]);
     });
 
     it('ignores keys passed as undefined', () => {

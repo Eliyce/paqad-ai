@@ -1953,6 +1953,8 @@ modules:
         - ProjectKnowledgeAnswerer
         - ProviderFactory
         - ProviderProgressUpdate
+        - REMOVED_EMBEDDING_PROVIDERS
+        - REMOVED_EMBEDDING_PROVIDER_MESSAGE
         - RRF_K
         - RagBenchmarkEvaluation
         - RagBenchmarkMetricResult
@@ -1972,6 +1974,8 @@ modules:
         - RefreshBaseDriftResult
         - ReindexProgressEvent
         - ReindexProgressHandler
+        - RemovedEmbeddingProviderError
+        - RemovedEmbeddingProviderName
         - RepoEdge
         - RepoFile
         - RepoMapEntry
@@ -1992,11 +1996,10 @@ modules:
         - VisionChunk
         - VisionIngestInput
         - VisionIngestResult
-        - VoyageEmbeddingClient
-        - VoyageEmbeddingProvider
         - ZIP_DECOMPRESSED_LIMIT_BYTES
         - appendAttachmentEvent
         - appendRagAudit
+        - assertEmbeddingProviderAvailable
         - attachmentCollectionsRoot
         - backgroundIndexSync
         - buildContextualBlurb
@@ -2027,6 +2030,7 @@ modules:
         - evaluateBenchmarkGates
         - extractKeywords
         - filterToScope
+        - findRemovedEmbeddingProvider
         - gatherWorkingSetSlices
         - getCollectionId
         - getDatasetByClass
@@ -2039,6 +2043,7 @@ modules:
         - isEmbeddingProviderError
         - isIndexAttachmentFailure
         - isRagIngestError
+        - isRemovedEmbeddingProviderError
         - lexicalDocumentText
         - listCollections
         - loadBaseDrift
@@ -2054,6 +2059,7 @@ modules:
         - removeProjectSecrets
         - reorderByRankedIds
         - resolveCollectionDir
+        - resolveRemovedEmbeddingProvider
         - retrieveFromAttachments
         - runFeatureOffVsOnGate
         - runOrphanSweep

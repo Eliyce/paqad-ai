@@ -9,7 +9,7 @@ import type {
   RerankingConfig,
 } from './types/project-profile.js';
 
-export const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
+export const EMBEDDING_PROVIDERS = ['local', 'openai'] as const;
 
 export interface LocalEmbeddingModel {
   id: string;
@@ -81,8 +81,6 @@ export function getDefaultEmbeddingModel(provider: EmbeddingProviderName): strin
   switch (provider) {
     case 'openai':
       return 'text-embedding-3-small';
-    case 'voyageai':
-      return 'voyage-code-3';
     case 'local':
     default:
       return DEFAULT_LOCAL_EMBEDDING_MODEL;

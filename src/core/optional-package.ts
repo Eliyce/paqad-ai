@@ -75,7 +75,7 @@ export async function loadOptionalPackage<T = unknown>(
   throw new Error(`optional package ${name} is not installed`);
 }
 
-const OPTIONAL_ENGINES = ['@huggingface/transformers', 'openai', 'voyageai'] as const;
+const OPTIONAL_ENGINES = ['@huggingface/transformers', 'openai'] as const;
 
 const PRIMARY_ENGINE = '@huggingface/transformers';
 

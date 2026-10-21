@@ -44,9 +44,6 @@ importers:
       pathe:
         specifier: ^2.0.3
         version: 2.0.3
-      voyageai:
-        specifier: ^0.4.0
-        version: 0.4.0(@huggingface/transformers@4.3.1(@types/node@26.6.5))(onnxruntime-node@1.30.0)
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
@@ -2134,15 +2131,6 @@ packages:
   neo-async@2.6.2:
     resolution: {integrity: sha512-Yd3UES5mWCSqR+qNT93S3UoYUkqAZ9lLg8a7g9rimsWmYGK8cVToA4/sF3RrshdyV3sAGMXVUmpMYOw+dLpOuw==}
 
-  node-fetch@2.7.0:
-    resolution: {integrity: sha512-c4FRfUm/dbcWZ7U+1Wq0AwCyFL+3nt2bEw05wfxSz+DWpWsitgmSgYmy2dQdWyKC1694ELPqMs/YzUSNozLt8A==}
-    engines: {node: 4.x || >=6.0.0}
-    peerDependencies:
-      encoding: ^0.1.0
-    peerDependenciesMeta:
-      encoding:
-        optional: true
-
   npm-run-path@6.0.0:
     resolution: {integrity: sha512-9qny7Z9DsQU8Ou39ERsPU4OZQlSTP47ShQzuKZ6PRXpYLtIFgl/DEBYEXKlvcEa+9tHVcK8CF81Y2V72qaZhWA==}
     engines: {node: '>=18'}
@@ -2518,9 +2506,6 @@ packages:
     resolution: {integrity: sha512-65P7iz6X5yEr1cwcgvQxbbIw7Uk3gOy5dIdtZ4rDveLqhrdJP+Li/Hx6tyK0NEb+2GCyneCMJiGqrADCSNk8sQ==}
     engines: {node: '>=8.0'}
 
-  tr46@0.0.3:
-    resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
-
   tree-kill@1.2.2:
     resolution: {integrity: sha512-L0Orpi8qGpRG//Nd+H90vFB+3iHnue1zSSGmNOOCh1GLJ7rUKVwV2HvijphGQS2UmhUZewS9VgvxYIdgr+fG1A==}
     hasBin: true
@@ -2673,24 +2658,6 @@ packages:
         optional: true
       jsdom:
         optional: true
-
-  voyageai@0.4.0:
-    resolution: {integrity: sha512-RCWGknFqwbZORdRo7dHwBuZYeO64TnE+G30Qv4IGxq5jkMa2uK+eqMbOv/DhszcFUtE1iZjb4LqO9G/hj2EjxA==}
-    engines: {node: '>=18.0.0'}
-    peerDependencies:
-      '@huggingface/transformers': ^3.8.0
-      onnxruntime-node: '>=1.17.0'
-    peerDependenciesMeta:
-      '@huggingface/transformers':
-        optional: true
-      onnxruntime-node:
-        optional: true
-
-  webidl-conversions@3.0.1:
-    resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
-
-  whatwg-url@5.0.0:
-    resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
 
   which-command@0.1.0:
     resolution: {integrity: sha512-XZyoF5/5hZtXitIwzrU4NKK+Wtbb9aB9CezUEw2Q0wlYK8NUYQxC1rRXgNueYLtBAJwXIb+/tFVk4dozciNJMA==}
@@ -4683,10 +4650,6 @@ snapshots:
 
   neo-async@2.6.2: {}
 
-  node-fetch@2.7.0:
-    dependencies:
-      whatwg-url: 5.0.0
-
   npm-run-path@6.0.0:
     dependencies:
       path-key: 4.0.0
@@ -5081,8 +5044,6 @@ snapshots:
     dependencies:
       is-number: 7.0.0
 
-  tr46@0.0.3: {}
-
   tree-kill@1.2.2: {}
 
   ts-api-utils@2.5.0(typescript@6.0.3):
@@ -5232,22 +5193,6 @@ snapshots:
       - terser
       - tsx
       - yaml
-
-  voyageai@0.4.0(@huggingface/transformers@4.3.1(@types/node@26.6.5))(onnxruntime-node@1.30.0):
-    dependencies:
-      node-fetch: 2.7.0
-    optionalDependencies:
-      '@huggingface/transformers': 4.3.1(@types/node@26.6.5)
-      onnxruntime-node: 1.30.0
-    transitivePeerDependencies:
-      - encoding
-
-  webidl-conversions@3.0.1: {}
-
-  whatwg-url@5.0.0:
-    dependencies:
-      tr46: 0.0.3
-      webidl-conversions: 3.0.1
 
   which-command@0.1.0: {}
 

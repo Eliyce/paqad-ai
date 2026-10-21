@@ -159,9 +159,8 @@ describe('maybeStartOptionalEngineInstall', () => {
       join(pkgRoot, 'package.json'),
       JSON.stringify({
         dependencies: {
-          '@huggingface/transformers': '^3.8.0',
+          '@huggingface/transformers': '^4.3.1',
           openai: '^7.23.0',
-          voyageai: '^0.4.0',
         },
       }),
     );
@@ -175,7 +174,7 @@ describe('maybeStartOptionalEngineInstall', () => {
     );
     expect(outcome).toBe('started');
     expect(start).toHaveBeenCalledWith(
-      ['@huggingface/transformers@^3.8.0', 'openai@^7.23.0', 'voyageai@^0.4.0'],
+      ['@huggingface/transformers@^4.3.1', 'openai@^7.23.0'],
       installDir,
       expect.anything(),
       undefined,

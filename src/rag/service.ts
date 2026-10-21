@@ -30,6 +30,7 @@ import { reciprocalRankFusion } from './rrf-fusion.js';
 import { crsCollectionLayout, crsCollectionPaths } from './crs-paths.js';
 import { RagFileFilter } from './file-filter.js';
 import { createEmbeddingProvider, localModelDir, localModelsRoot } from './providers.js';
+import { assertEmbeddingProviderAvailable } from './removed-provider.js';
 import { getProjectSecret, writeProjectSecret } from './secrets.js';
 import type {
   BuildIndexOptions,
@@ -65,6 +66,8 @@ const CRS_EMBED_BATCH_SIZE = 32;
 const HYBRID_FUSION_POOL_MULTIPLIER = 4;
 
 const RELIEF_SLICE_CAP = 2;
+
+const REMOTE_API_KEY_NAMES = { openai: 'OPENAI_API_KEY' } as const;
 
 function toRetrievalResult(
   candidates: readonly RagScoredCandidate[],
@@ -214,6 +217,7 @@ export class RagService {
       ...partial,
       rag_enabled: true,
     });
+    assertEmbeddingProviderAvailable(this.projectRoot, intelligence.embedding_provider);
 
     if (intelligence.embedding_provider === undefined) {
       throw new Error('Embedding provider is required when enabling RAG');
@@ -235,6 +239,7 @@ export class RagService {
     const intelligence = normalizeIntelligenceConfig(
       options?.intelligence ?? profile?.intelligence,
     );
+    assertEmbeddingProviderAvailable(this.projectRoot, intelligence.embedding_provider);
 
     if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
       throw new Error('RAG must be enabled and configured before rebuilding');
@@ -373,10 +378,11 @@ export class RagService {
   }
 
   async refreshContext(): Promise<ChunkIndexSyncResult> {
-    const sourceFiles = await this.discoverSourceFiles();
-    const syncResult = await this.indexManager.sync(sourceFiles, this.chunker);
     const profile = readProjectProfile(this.projectRoot);
     const intelligence = normalizeIntelligenceConfig(profile?.intelligence);
+    this.refuseRemovedProvider(intelligence);
+    const sourceFiles = await this.discoverSourceFiles();
+    const syncResult = await this.indexManager.sync(sourceFiles, this.chunker);
     if (!intelligence.rag_enabled) {
       return syncResult;
     }
@@ -430,6 +436,7 @@ export class RagService {
   ): Promise<RagRetrievalResult> {
     const profile = readProjectProfile(this.projectRoot);
     const intelligence = normalizeIntelligenceConfig(profile?.intelligence);
+    this.refuseRemovedProvider(intelligence);
     if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
       return {
         vector_scores: new Map(),
@@ -593,6 +600,7 @@ export class RagService {
     const intelligence = normalizeIntelligenceConfig(
       readProjectProfile(this.projectRoot)?.intelligence,
     );
+    this.refuseRemovedProvider(intelligence);
     if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
       return [];
     }
@@ -642,6 +650,7 @@ export class RagService {
 
     const profile = readProjectProfile(this.projectRoot);
     const intelligence = normalizeIntelligenceConfig(profile?.intelligence);
+    this.refuseRemovedProvider(intelligence);
     if (!intelligence.rag_enabled || !intelligence.embedding_provider) {
       throw new Error('RAG must be enabled and configured before ingesting extracted text');
     }
@@ -695,16 +704,22 @@ export class RagService {
     };
   }
 
-  resolveApiKeyName(provider: 'openai' | 'voyageai'): 'OPENAI_API_KEY' | 'VOYAGE_API_KEY' {
-    return provider === 'openai' ? 'OPENAI_API_KEY' : 'VOYAGE_API_KEY';
+  resolveApiKeyName(provider: 'openai'): 'OPENAI_API_KEY' {
+    return REMOTE_API_KEY_NAMES[provider];
   }
 
-  storeApiKey(provider: 'openai' | 'voyageai', value: string): string {
+  storeApiKey(provider: 'openai', value: string): string {
     return writeProjectSecret(this.projectRoot, this.resolveApiKeyName(provider), value);
   }
 
-  hasApiKey(provider: 'openai' | 'voyageai'): boolean {
+  hasApiKey(provider: 'openai'): boolean {
     return Boolean(getProjectSecret(this.projectRoot, this.resolveApiKeyName(provider)));
+  }
+
+  private refuseRemovedProvider(intelligence: IntelligenceConfig): void {
+    if (intelligence.rag_enabled) {
+      assertEmbeddingProviderAvailable(this.projectRoot, intelligence.embedding_provider);
+    }
   }
 
   localModelPath(): string {

@@ -265,7 +265,7 @@
         "rag_enabled": { "type": "boolean" },
         "embedding_provider": {
           "type": "string",
-          "enum": ["local", "openai", "voyageai"]
+          "enum": ["local", "openai"]
         },
         "embedding_model": { "type": "string" },
         "rag_similarity_threshold": { "type": "number" },
