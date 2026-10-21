@@ -1,112 +1,34 @@
-import { flagPill, headlineAfterState, NOT_YET, type BandView, type SegmentState } from './model';
-import { dotSegment, tableSummary, TABLE_NAME } from './table';
-import type { PaqadHudSnapshot, PaqadPaneTab, PaqadTone } from './types';
+import { formatTokens } from './cost';
+import './instruments';
+import { buildBandView, headlineAfterState, type BandView } from './model';
+import {
+  BAND_BODIES,
+  layoutShell,
+  type BandLayout,
+  type BandRow,
+  type BandSegment,
+  type BodyContext,
+  type ShellHeader,
+} from './shell';
+import { shipRail } from './ship';
+import { NO_WORKFLOW, statusEntryRoute, statusEntryRow } from './status-entry';
+import {
+  IDLE_WORDS,
+  closedLine,
+  minimisedLine,
+  needsYou,
+  needsYouLine,
+  visibilityMode,
+  type BandVisibility,
+} from './visibility';
+import type { PaqadHudSnapshot, PaqadTone } from './types';
 
-export interface BandSegment {
-  text: string;
-  tone?: PaqadTone;
-  dim?: boolean;
-  opens?: PaqadPaneTab;
-}
-
-export type BandRow = BandSegment[];
+export type { BandLayout, BandRow, BandSegment };
 
 const ELLIPSIS = '…';
 
-const SEGMENT_MARK: Record<SegmentState, string> = {
-  done: '✓',
-  running: '▸',
-  marked: '~',
-  failed: '✗',
-  'not required': '-',
-  'not yet': '·',
-};
-
-const SEGMENT_TONE: Partial<Record<SegmentState, PaqadTone>> = {
-  done: 'good',
-  running: 'working',
-  marked: 'warn',
-  failed: 'bad',
-};
-
-function stageSummary(view: BandView): string {
-  if (view.stages.every((segment) => segment.state === NOT_YET)) return NOT_YET;
-  const running = view.stages.find((segment) => segment.state === 'running');
-  if (running) return `${running.label} running${view.clock ? ` ${view.clock}` : ''}`;
-  const done = view.stages.filter((segment) => segment.state === 'done').length;
-  return `${done} of ${view.stages.length} done`;
-}
-
-function headlineRow(view: BandView, withPills: boolean): BandRow {
-  const row: BandRow = [
-    { text: 'paqad', tone: view.tone },
-    { text: ' · ' },
-    { text: view.state, tone: view.tone },
-  ];
-  if (withPills) row.push({ text: ' · ' }, ...pills(view));
-  const rest = headlineAfterState(view);
-  if (rest) row.push({ text: ' · ' }, { text: rest });
-  return row;
-}
-
-function stageRow(view: BandView): BandRow {
-  const row: BandRow = [{ text: 'Stage', dim: true }, { text: `  ${stageSummary(view)}` }];
-  if (view.stages.every((segment) => segment.state === NOT_YET)) return row;
-  row.push({ text: '  ' });
-  view.stages.forEach((segment, index) => {
-    if (index > 0) row.push({ text: ' ' });
-    row.push({
-      text: `${SEGMENT_MARK[segment.state]}${segment.label}`,
-      tone: SEGMENT_TONE[segment.state],
-      dim: segment.state === 'not yet' || segment.state === 'not required',
-    });
-  });
-  return row;
-}
-
-function tableRow(view: BandView): BandRow | null {
-  const table = view.table;
-  if (!table) return null;
-  const label: BandSegment = { text: TABLE_NAME, dim: true, opens: 'table' };
-  if (table.skipped) return [label, { text: ' skipped', tone: 'warn' }];
-  if (table.dots.length === 0 && !table.chief) return [label, { text: `  ${NOT_YET}` }];
-  const row: BandRow = [label];
-  if (!table.ruled) row.push({ text: `  ${tableSummary(table)}` });
-  row.push({ text: '  ' }, ...table.dots.map(dotSegment));
-  if (table.chief) row.push({ text: ' chief ' }, dotSegment(table.chief));
-  const flag = table.ruled ? flagPill(table.flags) : null;
-  if (flag) row.push({ text: '  ' }, { text: flag, tone: 'warn' });
-  return row;
-}
-
-function shipSummary(view: BandView): string {
-  const running = view.ship.find((step) => step.word === 'running');
-  if (running) return `${running.label} running`;
-  const last = [...view.ship].reverse().find((step) => step.done);
-  if (!last) return NOT_YET;
-  return last.label === 'Commit' ? last.word : `${last.label} ${last.word}`;
-}
-
-function shipRow(view: BandView): BandRow {
-  const row: BandRow = [{ text: 'Ship', dim: true }, { text: `   ${shipSummary(view)}  ` }];
-  view.ship.forEach((step, index) => {
-    if (index > 0) row.push({ text: ' ' });
-    const mark = step.done ? '✓' : step.word === 'running' ? '▸' : '·';
-    const label = step.label === 'Merge' && !step.done ? 'Merge (yours)' : step.label;
-    row.push({
-      text: `${mark}${label}`,
-      tone: step.done ? 'good' : step.word === 'running' ? 'working' : undefined,
-      dim: !step.done && step.word !== 'running',
-    });
-  });
-  return row;
-}
-
-function pills(view: BandView): BandRow {
-  const flag = flagPill(view.flags);
-  const cost: BandSegment = { text: view.cost, dim: true, opens: 'cost' };
-  return flag ? [{ text: flag, tone: 'warn' }, { text: ' · ' }, cost] : [cost];
-}
+export const FEATURE_DEVELOPMENT = 'feature-development';
+export const IDLE_HEADLINE = IDLE_WORDS;
 
 export function rowText(row: BandRow): string {
   return row.map((segment) => segment.text).join('');
@@ -128,14 +50,100 @@ export function truncateRow(row: BandRow, columns: number): BandRow {
   return out.filter((segment) => segment.text.length > 0);
 }
 
-export function layoutBand(view: BandView, size: { columns: number; maxRows: number }): BandRow[] {
-  const maxRows = Math.max(1, Math.floor(size.maxRows));
-  const table = tableRow(view);
-  const instruments = [stageRow(view), ...(table ? [table] : []), shipRow(view)];
-  const roomy = maxRows >= instruments.length + 2;
-  const rows: BandRow[] = [headlineRow(view, !roomy), ...instruments];
-  if (roomy) rows.push(pills(view));
-  return rows.slice(0, maxRows).map((row) => truncateRow(row, size.columns));
+export function changeChip(snapshot: PaqadHudSnapshot | null): string | null {
+  const change = snapshot?.active ? snapshot.change : null;
+  if (!change) return null;
+  if (change.issue) return /^\d+$/.test(change.issue) ? `#${change.issue}` : change.issue;
+  return change.id ? change.id.slice(-6) : null;
+}
+
+export function tokensChip(snapshot: PaqadHudSnapshot | null): string | null {
+  const cost = snapshot?.active ? snapshot.cost : null;
+  if (!cost) return null;
+  const tokens = `${formatTokens(cost.tokens.total)} tokens`;
+  return cost.scope === 'whole-session' ? `${tokens} · whole session` : tokens;
+}
+
+const VERDICT_TONE: Record<'pass' | 'fail' | 'inconclusive', PaqadTone> = {
+  pass: 'good',
+  fail: 'bad',
+  inconclusive: 'warn',
+};
+
+export function allGreenNow(snapshot: PaqadHudSnapshot | null): boolean {
+  return (
+    snapshot?.active === true &&
+    snapshot.decisions.pending.length === 0 &&
+    shipRail(snapshot).allGreen
+  );
+}
+
+export function allGreenKey(snapshot: PaqadHudSnapshot | null): string | null {
+  if (!allGreenNow(snapshot)) return null;
+  const change = snapshot?.change?.dir ?? snapshot?.change?.id ?? 'change';
+  return `${change}:${snapshot?.ship?.pr_head ?? 'head'}`;
+}
+
+export function bandHeadline(snapshot: PaqadHudSnapshot, view: BandView): string {
+  if (allGreenNow(snapshot)) {
+    const number = snapshot.ship?.pr_number ?? null;
+    return `All green: ${number === null ? 'the PR' : `PR #${number}`} is ready for your merge`;
+  }
+  if (snapshot.decisions.pending.length > 0 || !snapshot.verdict) return view.headline;
+  const required = snapshot.gates.filter(
+    (gate) => gate.required && gate.verdict !== 'not-required',
+  );
+  if (required.length === 0) return headlineAfterState(view) || view.headline;
+  const passed = required.filter((gate) => gate.verdict === 'pass').length;
+  return `${passed} of ${required.length} required gates pass`;
+}
+
+export function shellHeader(snapshot: PaqadHudSnapshot | null, view: BandView): ShellHeader {
+  const active = snapshot?.active === true;
+  const verdict = active ? (snapshot?.verdict ?? null) : null;
+  return {
+    tone: active ? (allGreenNow(snapshot) ? 'good' : view.tone) : 'neutral',
+    chip: changeChip(snapshot),
+    headline: snapshot && active ? bandHeadline(snapshot, view) : IDLE_HEADLINE,
+    verdict: verdict ? { word: verdict.word, tone: VERDICT_TONE[verdict.kind] } : null,
+    flags: active ? view.flags : 0,
+    lane: active ? (snapshot?.lane ?? null) : null,
+    tokens: tokensChip(snapshot),
+  };
+}
+
+const SHOWN: BandVisibility = { minimised: false, closed: false, hidden: false };
+
+export function layoutBand(
+  snapshot: PaqadHudSnapshot | null,
+  size: { columns: number; maxRows: number },
+  context: BodyContext,
+  visibility: BandVisibility = SHOWN,
+): BandLayout {
+  if (snapshot && (snapshot.route === null || snapshot.route === NO_WORKFLOW)) {
+    return { kind: 'none' };
+  }
+  const entryRoute = statusEntryRoute(snapshot);
+  if (snapshot && entryRoute) {
+    return {
+      kind: 'line',
+      row: statusEntryRow(snapshot, entryRoute, context.now, context.turnStartedAt ?? null),
+    };
+  }
+  const view = buildBandView(snapshot, context.now);
+  const mode = visibilityMode(visibility);
+  if (mode !== 'band' && needsYou(snapshot)) return { kind: 'line', row: needsYouLine() };
+  if (mode === 'closed' || mode === 'hidden') {
+    return { kind: 'line', row: closedLine(mode, view) };
+  }
+  const minimised = minimisedLine(snapshot, view, size.columns, context.now);
+  if (mode === 'minimised') return { kind: 'line', row: minimised };
+  const active = snapshot?.active === true;
+  const route = snapshot?.route ?? FEATURE_DEVELOPMENT;
+  const renderer = active ? BAND_BODIES[route] : undefined;
+  const body = snapshot && renderer ? renderer(snapshot, context) : null;
+  const header = { ...shellHeader(snapshot, view), unavailable: context.unavailable === true };
+  return layoutShell(header, body, size, minimised);
 }
 
 const SPINNER_WORDS: Record<string, string> = {

@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5DCRA5QQWMZ06YQGWVAFFX4",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/templates/stage-agents/claude.md.hbs frontmatter",
+  "context": "Chief architect: this states the outcome teams need without forcing version detection into paqad; whether to also state a minimum Claude Code version is the owner question below.\n\nTarget: runtime/templates/stage-agents/claude.md.hbs frontmatter\n- integration-architect: effort, model and omitClaudeMd depend on newer Claude Code releases; on an older Claude Code an unknown value such as effort: xhigh may be ignored or refuse the agent, so the minimum supported Claude Code version must be stated and tested or the keys omitted when unsupported\n- devops-engineer: older Claude Code builds that do not know omitClaudeMd or a given effort level must not fail to load the helper; with omitClaudeMd ignored and no hook the helper falls back as today\n\n[expert-conflict-fork:daf650996d4db037]",
+  "options": [
+    {
+      "option_key": "effort-model-and-omitclaudemd-depend-on-",
+      "label": "effort, model and omitClaudeMd depend on newer Claude Code releases; on an older Claude Code an unknown value such as effort: xhigh may be ignored or refuse the agent, so the minimum supported Claude Code version must be stated and tested or the keys omitted when unsupported — integration-architect",
+      "one_line_preview": "effort, model and omitClaudeMd depend on newer Claude Code releases; on an older Claude Code an unknown value such as effort: xhigh may be ignored or refuse the agent, so the minimum supported Claude Code version must be stated and tested or the keys omitted when unsupported — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "older-claude-code-builds-that-do-not-kno",
+      "label": "older Claude Code builds that do not know omitClaudeMd or a given effort level must not fail to load the helper; with omitClaudeMd ignored and no hook the helper falls back as today — devops-engineer",
+      "one_line_preview": "older Claude Code builds that do not know omitClaudeMd or a given effort level must not fail to load the helper; with omitClaudeMd ignored and no hook the helper falls back as today — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "older-claude-code-builds-that-do-not-kno",
+  "created_at": "2026-10-20T19:31:31.639Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "chosen": "older-claude-code-builds-that-do-not-kno",
+  "rationale": "Owner: build all compatible claims as the chief architect recommends",
+  "resolved_at": "2026-10-20T19:42:00.705Z",
+  "decision_id": "D-01M5DCRA5QQWMZ06YQGWVAFFX4",
+  "fingerprint": "sha256:233809aa371c425f27ed74eb5e559ac5df567490b07578c7ffd492df310c6d41",
+  "question": "Experts disagree on runtime/templates/stage-agents/claude.md.hbs frontmatter",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "ttl_until": "2026-11-19T19:31:31.639Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "older-claude-code-builds-that-do-not-kno",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T19:42:00.705Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: build all compatible claims as the chief architect recommends"
+  }
+}

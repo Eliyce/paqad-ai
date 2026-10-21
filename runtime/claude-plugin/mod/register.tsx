@@ -10,10 +10,10 @@ import {
   pendingPacketPath,
   questionTexts,
 } from './ask-evidence';
-import { laneMode, layoutBand, spinnerWord, type BandRow, type BandSegment } from './band';
+import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
 import { chimeClip } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
-import { runPaqadCommand } from './commands';
+import { readRepoDecision, runPaqadCommand, type RepoDecision } from './commands';
 import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
 import {
   EDIT_TOOLS,
@@ -44,8 +44,36 @@ import {
   type RuleStop,
 } from './model';
 import { runPaqad } from './paqad-cli';
-import { PANE_ID, PANE_TITLE, buildPaneView } from './pane';
+import {
+  AUTO_OPENED_KEY,
+  DEFAULT_PANE_TAB,
+  PANE_ID,
+  PANE_TITLE,
+  buildPaneView,
+  ledgerKey,
+  readOpenedKeys,
+  rememberOpened,
+  shouldAutoOpenLedger,
+  shownTab,
+} from './pane';
 import { isReceiptCommand, receiptCard, verdictKey, verdictToast, watchVerdict } from './receipt';
+import {
+  CLOSE_FOR_NOW,
+  CLOSE_HEADER,
+  CLOSE_QUESTION,
+  HIDE_ALWAYS,
+  MINIMISED_KEY,
+  hiddenKey,
+  readBandVisibility,
+} from './visibility';
+import type {
+  BandAction,
+  BandBlock,
+  BandLayout,
+  BandRow,
+  BandSegment,
+  BandSplitRow,
+} from './shell';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
@@ -63,6 +91,12 @@ const snapshotAtom = atom(
 const nowAtom = atom({ plugin: 'paqad', key: 'now' } as const, 0);
 const paneTabAtom = atom({ plugin: 'paqad', key: 'paneTab' } as const, null as PaqadPaneTab | null);
 const tableSeatAtom = atom({ plugin: 'paqad', key: 'tableSeat' } as const, null as string | null);
+const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false as boolean);
+const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as boolean);
+const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
+const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, false as boolean);
+const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
+const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
   {} as Record<string, string>,
@@ -108,6 +142,7 @@ let lastText: string | null | undefined;
 let verdictSeen: string | null | undefined;
 let chimeOn = false;
 let heartbeat: Timer | null = null;
+let turnStartedAt: number | null = null;
 const rawCalls = new Set<string>();
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
@@ -117,6 +152,14 @@ async function readText($: EngineInterface, path: string): Promise<string | null
     return typeof text === 'string' ? text : null;
   } catch {
     return null;
+  }
+}
+
+async function existsSafe($: EngineInterface, path: string): Promise<boolean> {
+  try {
+    return await $.fs.exists(path);
+  } catch {
+    return true;
   }
 }
 
@@ -132,15 +175,22 @@ async function refresh($: EngineInterface): Promise<void> {
       readAgain = false;
       const at = live;
       if (!at) return;
-      const text = await readText($, snapshotPath(at.root, at.sessionId));
+      const path = snapshotPath(at.root, at.sessionId);
+      const text = await readText($, path);
       const changed = text !== lastText;
       lastText = text;
       const snapshot = changed ? parseSnapshot(text) : await read($, snapshotAtom);
-      if (changed) await update($, snapshotAtom, () => snapshot);
+      if (changed) {
+        await update($, snapshotAtom, () => snapshot);
+        const broken = snapshot === null && (text !== null || (await existsSafe($, path)));
+        await update($, unavailableAtom, () => broken);
+      }
       const watch = watchVerdict(verdictSeen, verdictKey(snapshot?.verdict));
       verdictSeen = watch.seen;
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
-      if (changed || isLive(snapshot)) {
+      if (changed) await landAllGreen($, snapshot);
+      if (changed) await autoOpenLedger($, snapshot);
+      if (changed || isLive(snapshot) || turnStartedAt !== null) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
       }
@@ -155,6 +205,21 @@ async function refresh($: EngineInterface): Promise<void> {
 function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {
   try {
     $.ui.toast(verdictToast(verdict));
+  } catch {}
+  if (!chimeOn) return;
+  try {
+    void $.audio.play(chimeClip()).catch(() => {});
+  } catch {}
+}
+
+async function landAllGreen($: EngineInterface, snapshot: PaqadHudSnapshot | null): Promise<void> {
+  const key = allGreenKey(snapshot);
+  if (!key || !snapshot) return;
+  const seen = (await read($, greenSeenAtom)) ?? [];
+  if (seen.includes(key)) return;
+  await update($, greenSeenAtom, (keys) => [...(keys ?? []), key]);
+  try {
+    $.ui.toast(bandHeadline(snapshot, buildBandView(snapshot, await read($, nowAtom))));
   } catch {}
   if (!chimeOn) return;
   try {
@@ -178,7 +243,7 @@ function startTicker($: EngineInterface): void {
   if (ticker || !live) return;
   ticker = $.clock.every(AGENT_TICK_MS, () => {
     void (async () => {
-      let running = agentCalls > 0;
+      let running = agentCalls > 0 || turnStartedAt !== null;
       try {
         running ||= (await $.agent.list()).some(isStageAgent);
       } catch {}
@@ -232,7 +297,41 @@ async function readStatus(
 
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
   try {
+    const open = (await read($, paneOpenAtom)) === true;
+    const shown = shownTab(await read($, paneTabAtom));
+    if (open && shown === tab) {
+      await update($, paneOpenAtom, () => false);
+      await $.ui.close({ id: PANE_ID });
+      return;
+    }
     await update($, paneTabAtom, () => tab);
+    await update($, paneOpenAtom, () => true);
+    await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
+  } catch {}
+}
+
+async function pickTab($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
+  await update($, paneTabAtom, () => tab);
+  await update($, paneOpenAtom, () => true);
+}
+
+async function autoOpenLedger(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<void> {
+  const key = ledgerKey(snapshot);
+  if (!key) return;
+  const opened = readOpenedKeys(await storeGet($, AUTO_OPENED_KEY));
+  if (!shouldAutoOpenLedger(key, opened)) return;
+  try {
+    await $.store.set(AUTO_OPENED_KEY, rememberOpened(key, opened));
+  } catch {
+    return;
+  }
+  if ((await read($, paneOpenAtom)) === true) return;
+  try {
+    await update($, paneTabAtom, () => DEFAULT_PANE_TAB);
+    await update($, paneOpenAtom, () => true);
     await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
   } catch {}
 }
@@ -275,6 +374,24 @@ async function chooseRuleStop($: EngineInterface, stop: RuleStop): Promise<strin
     options: [RULE_STOP_FIX, RULE_STOP_ALLOW],
     header: RULE_STOP_HEADER,
   });
+}
+
+async function readRepoDecisions($: EngineInterface, root: string): Promise<RepoDecision[]> {
+  const dir = joinPath(root, PENDING_DECISIONS_DIR);
+  if (!(await $.fs.exists(dir))) return [];
+  try {
+    const names = (await $.fs.list(dir))
+      .filter((entry) => entry.kind === 'file' && entry.name.endsWith('.json'))
+      .map((entry) => entry.name)
+      .sort();
+    const packets: RepoDecision[] = [];
+    for (const name of names) {
+      packets.push(readRepoDecision(name, await readText($, joinPath(dir, name))));
+    }
+    return packets;
+  } catch {
+    return [];
+  }
 }
 
 async function hasPendingDecision($: EngineInterface, root: string): Promise<boolean> {
@@ -325,9 +442,177 @@ async function answerRuleStop(
   };
 }
 
+type UiElements = ReturnType<EngineInterface['ui']['resolve']>;
+
+async function storeSet($: EngineInterface, key: string, value: boolean): Promise<void> {
+  try {
+    if (value) await $.store.set(key, true);
+    else await $.store.delete(key);
+  } catch {}
+}
+
+async function storeGet($: EngineInterface, key: string): Promise<unknown> {
+  try {
+    return await $.store.get(key);
+  } catch {
+    return undefined;
+  }
+}
+
+async function setMinimised($: EngineInterface, value: boolean): Promise<void> {
+  await update($, minimisedAtom, () => value);
+  await storeSet($, MINIMISED_KEY, value);
+}
+
+async function setHidden($: EngineInterface, value: boolean): Promise<void> {
+  await update($, hiddenAtom, () => value);
+  if (live) await storeSet($, hiddenKey(live.root), value);
+}
+
+async function askClose($: EngineInterface): Promise<void> {
+  let answer: string;
+  try {
+    answer = await $.ui.ask(CLOSE_QUESTION, {
+      options: [CLOSE_FOR_NOW, HIDE_ALWAYS],
+      header: CLOSE_HEADER,
+    });
+  } catch {
+    return;
+  }
+  if (answer === CLOSE_FOR_NOW) await update($, closedAtom, () => true);
+  else if (answer === HIDE_ALWAYS) await setHidden($, true);
+}
+
+async function showBand($: EngineInterface, all: boolean): Promise<void> {
+  await update($, closedAtom, () => false);
+  await setHidden($, false);
+  if (all) await setMinimised($, false);
+}
+
+async function pressAction($: EngineInterface, action: BandAction): Promise<void> {
+  if (action === 'minimise') await setMinimised($, true);
+  else if (action === 'restore') await setMinimised($, false);
+  else if (action === 'close') await askClose($);
+  else await showBand($, action === 'show');
+}
+
+function drawSegment($: EngineInterface, ui: UiElements, segment: BandSegment, index: number) {
+  const { Text, Button } = ui;
+  const tab = segment.opens;
+  const action = segment.action;
+  if (tab || action) {
+    return (
+      <Button
+        key={segment.key ?? `paqad-${tab ?? action}-${index}`}
+        plain
+        {...(segment.hotkey ? { hotkey: segment.hotkey } : {})}
+        dimColor={segment.dim === true}
+        onPress={() => void (tab ? openPane($, tab) : pressAction($, action!))}
+      >
+        <Text color={segment.tone ? TONE_COLOR[segment.tone] : undefined}>{segment.text}</Text>
+      </Button>
+    );
+  }
+  return (
+    <Text
+      color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
+      dimColor={segment.dim === true}
+    >
+      {segment.text}
+    </Text>
+  );
+}
+
+function drawRow($: EngineInterface, ui: UiElements, row: BandRow) {
+  const { Box, Text } = ui;
+  if (!row.some((segment) => segment.opens || segment.action)) {
+    return (
+      <Text wrap="truncate">{row.map((segment, index) => drawSegment($, ui, segment, index))}</Text>
+    );
+  }
+  return (
+    <Box flexDirection="row">{row.map((segment, index) => drawSegment($, ui, segment, index))}</Box>
+  );
+}
+
+function drawSplit($: EngineInterface, ui: UiElements, split: BandSplitRow) {
+  const { Box } = ui;
+  return (
+    <Box flexDirection="row">
+      <Box flexDirection="row" flexGrow={1}>
+        {drawRow($, ui, split.left)}
+      </Box>
+      <Box flexDirection="row">{drawRow($, ui, split.right)}</Box>
+    </Box>
+  );
+}
+
+function drawBlock($: EngineInterface, ui: UiElements, block: BandBlock, desktop: boolean) {
+  const { Box, Text } = ui;
+  const Svg = desktop && 'Svg' in ui ? ui.Svg : null;
+  return (
+    <Box key={block.key} flexDirection="column" flexGrow={1}>
+      {drawRow($, ui, block.title)}
+      {block.svg && Svg ? (
+        <Svg
+          source={block.svg.source}
+          alt={block.svg.alt}
+          width={block.svg.width}
+          height={block.svg.height}
+        />
+      ) : block.cells.length > 0 ? (
+        <Box flexDirection="row">
+          {block.cells.map((cell) => (
+            <Box key={cell.key} flexDirection="column" paddingRight={1}>
+              <Text
+                color={cell.top.tone ? TONE_COLOR[cell.top.tone] : undefined}
+                dimColor={cell.top.dim === true}
+              >
+                {cell.top.text}
+              </Text>
+              <Text
+                color={cell.bottom.tone ? TONE_COLOR[cell.bottom.tone] : undefined}
+                dimColor={cell.bottom.dim === true}
+              >
+                {cell.bottom.text}
+              </Text>
+            </Box>
+          ))}
+        </Box>
+      ) : null}
+      {block.note ? drawRow($, ui, block.note) : null}
+    </Box>
+  );
+}
+
+function drawBand($: EngineInterface, e: { surface: string }, layout: BandLayout) {
+  const ui = $.ui.resolve(e as never) as UiElements;
+  const { Box } = ui;
+  if (layout.kind === 'none') return null;
+  if (layout.kind === 'line') return drawRow($, ui, layout.row);
+  const desktop = e.surface === 'desktop';
+  return (
+    <Box
+      flexDirection="column"
+      borderStyle="round"
+      borderColor={TONE_COLOR[layout.tone]}
+      paddingX={1}
+    >
+      {drawSplit($, ui, layout.header)}
+      {layout.blocks.length > 0 ? (
+        <Box flexDirection={layout.direction}>
+          {layout.blocks.map((block) => drawBlock($, ui, block, desktop))}
+        </Box>
+      ) : null}
+      {layout.footer ? drawSplit($, ui, layout.footer) : null}
+    </Box>
+  );
+}
+
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
+    turnStartedAt = null;
     lastText = undefined;
     verdictSeen = undefined;
     chimeOn = false;
@@ -343,14 +628,19 @@ export const register: Register = (on) => {
         await $.command.register({
           name: 'paqad',
           description:
-            'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, ships, record',
-          argumentHint: '[status|decisions|rules|receipt|cost|trust|ships|record]',
+            'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, ships, record, or show the band again',
+          argumentHint: '[status|decisions|rules|receipt|cost|trust|ships|record|show]',
           immediate: true,
         });
       }
       if (status.on && status.root) {
         chimeOn = status.chime;
         live = { root: status.root, sessionId: await $.session.id() };
+        const minimised = (await storeGet($, MINIMISED_KEY)) === true;
+        const hidden = (await storeGet($, hiddenKey(status.root))) === true;
+        await update($, minimisedAtom, () => minimised);
+        await update($, hiddenAtom, () => hidden);
+        await update($, closedAtom, () => false);
         await beat($);
         heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
         await refresh($);
@@ -363,7 +653,12 @@ export const register: Register = (on) => {
     const status = await read($, statusAtom);
     if (live) await refresh($);
     const at = live;
+    const sub = e.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+    if (status?.on && at && sub === 'show') await showBand($, true);
     return runPaqadCommand({
+      ...(status?.on && at && sub === 'decisions'
+        ? { repoDecisions: await readRepoDecisions($, at.root) }
+        : {}),
       args: e.args,
       standDown: status?.on ? null : (status?.reason ?? 'not-onboarded'),
       snapshot: await read($, snapshotAtom),
@@ -373,6 +668,10 @@ export const register: Register = (on) => {
   }).catch(() => ({ text: 'paqad could not read its record for this session. Try again.' }));
 
   on('prompt.submit', async ($, e, next) => {
+    if (live) {
+      turnStartedAt = await $.clock.now();
+      startTicker($);
+    }
     await beat($);
     const result = await next(e);
     await refresh($);
@@ -413,6 +712,7 @@ export const register: Register = (on) => {
   }
 
   on('turn.complete', async ($, e, next) => {
+    if (!e.agentId) turnStartedAt = null;
     const result = await next(e);
     if (live) {
       await refresh($);
@@ -424,48 +724,35 @@ export const register: Register = (on) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const status = await read($, statusAtom);
     if (!status?.on || e.props.hasSurvey) return next(e);
-    const view = buildBandView(await read($, snapshotAtom), await read($, nowAtom));
-    const rows = layoutBand(view, { columns: e.props.bodyColumns, maxRows: e.props.maxRows });
-    const others = await next(e);
-    const { Box, Text, Button } = $.ui.resolve(e);
-    const part = (segment: BandSegment) => (
-      <Text
-        color={segment.tone ? TONE_COLOR[segment.tone] : undefined}
-        dimColor={segment.dim === true}
-      >
-        {segment.text}
-      </Text>
+    const layout = layoutBand(
+      await read($, snapshotAtom),
+      { columns: e.props.bodyColumns, maxRows: e.props.maxRows },
+      {
+        now: await read($, nowAtom),
+        surface: e.surface === 'desktop' ? 'desktop' : 'terminal',
+        turnStartedAt,
+        unavailable: (await read($, unavailableAtom)) === true,
+      },
+      readBandVisibility(
+        { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
+        await read($, closedAtom),
+      ),
     );
-    const line = (row: BandRow) => {
-      if (!row.some((segment) => segment.opens))
-        return <Text wrap="truncate">{row.map(part)}</Text>;
-      return (
-        <Box flexDirection="row">
-          {row.map((segment) => {
-            const tab = segment.opens;
-            return tab ? (
-              <Button
-                key={`paqad-open-${tab}`}
-                plain
-                dimColor={segment.dim === true}
-                onPress={() => void openPane($, tab)}
-              >
-                {segment.text}
-              </Button>
-            ) : (
-              part(segment)
-            );
-          })}
-        </Box>
-      );
-    };
+    const others = await next(e);
+    const drawn = drawBand($, e, layout);
+    const { Box } = $.ui.resolve(e);
     return (
       <Box flexDirection="column">
-        {rows.map(line)}
+        {drawn}
         {isBlank(others) ? null : (others as RenderElement)}
       </Box>
     );
   });
+
+  on('ui.close', async ($, e, next) => {
+    if (e.id === PANE_ID) await update($, paneOpenAtom, () => false);
+    return next(e);
+  }).catch(($, e, next) => next(e));
 
   on('ui.render', { component: 'Pane' }, async ($, e, next) => {
     if (e.requestId !== PANE_ID) return next(e);
@@ -478,17 +765,26 @@ export const register: Register = (on) => {
     });
     const ui = $.ui.resolve(e);
     const { Box, Text, Button } = ui;
-    const draw = (line: TableLine) => drawLine(Text, line);
+    const Link = 'Link' in ui ? ui.Link : null;
+    const draw = (line: TableLine) => {
+      const link = line.find((segment) => segment.href);
+      return link?.href && Link ? (
+        <Link href={link.href}>{link.text.trim()}</Link>
+      ) : (
+        drawLine(Text, line)
+      );
+    };
     const table = view.table;
     const Svg = e.surface === 'desktop' && 'Svg' in ui ? ui.Svg : null;
     return (
       <Box flexDirection="column">
+        <Text dimColor>{view.subtitle}</Text>
         <Box flexDirection="row">
           {view.tabs.map((tab) => (
             <Button
               key={tab.key}
               variant={tab.selected ? 'primary' : undefined}
-              onPress={() => void update($, paneTabAtom, () => tab.id)}
+              onPress={() => void pickTab($, tab.id)}
             >
               {tab.selected ? `${tab.label} (shown)` : tab.label}
             </Button>
@@ -497,6 +793,9 @@ export const register: Register = (on) => {
         {view.lines.map((text) => (
           <Text wrap="wrap">{text}</Text>
         ))}
+        {view.svg && Svg ? (
+          <Svg source={view.svg.source} alt={view.svg.alt} width={96} height={96} />
+        ) : null}
         {view.rows.map(draw)}
         {table ? (
           <Box flexDirection="column">

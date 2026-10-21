@@ -6,7 +6,7 @@ import { sha256Hex } from '@/compliance/markdown.js';
 import { PATHS } from '@/core/constants/paths.js';
 
 import { readFeatureIndexEntries, writeFeatureIndexDocument } from './bundle-document.js';
-import { readFeatureRecord } from './feature-record.js';
+import { isFeatureFinished, readFeatureRecord } from './feature-record.js';
 import { featureChangeKey } from './paths.js';
 import { DECISIONS_DOC_TYPE, FEATURE_DOC_SCHEMA_VERSION } from './types.js';
 
@@ -69,7 +69,7 @@ function changeWindow(projectRoot: string, dirName: string): { from: number; to:
   if (record === null) return null;
   return {
     from: Date.parse(record.recorded_at),
-    to: record.status === 'done' ? Date.parse(record.updated_at) : Number.POSITIVE_INFINITY,
+    to: isFeatureFinished(record.status) ? Date.parse(record.updated_at) : Number.POSITIVE_INFINITY,
   };
 }
 

@@ -32,6 +32,17 @@ export interface CiGateOptions {
   pollIntervalMs?: number;
   maxPolls?: number;
   evidenceComment?: string | null;
+  onPoll?: (status: ChecksStatus) => void;
+}
+
+export const CI_REFRESH_INTERVAL_MS = 60_000;
+
+export function waitFor(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function pollBudget(timeoutMinutes: number, pollIntervalMs: number): number {
+  return Math.ceil((timeoutMinutes * 60_000) / Math.max(1, pollIntervalMs)) + 1;
 }
 
 async function postEvidence(
@@ -71,14 +82,17 @@ export async function runCiGate(
     };
   }
 
-  const now = options.now ?? (() => 0);
-  const sleep = options.sleep ?? (async () => {});
-  const pollIntervalMs = options.pollIntervalMs ?? 15_000;
-  const maxPolls = options.maxPolls ?? 10_000;
+  const now = options.now ?? Date.now;
+  const sleep = options.sleep ?? waitFor;
+  const pollIntervalMs = options.pollIntervalMs ?? CI_REFRESH_INTERVAL_MS;
+  const maxPolls = Math.max(1, options.maxPolls ?? pollBudget(ci.timeout_minutes, pollIntervalMs));
   const deadline = now() + ci.timeout_minutes * 60_000;
+  let last: ChecksStatus = { state: 'unknown', checks: [] };
 
   for (let poll = 0; poll < maxPolls; poll += 1) {
     const status = await host.getChecksStatus(branch);
+    last = status;
+    options.onPoll?.(status);
 
     if (status.state === 'green') {
       const evidenceCommentPosted = await postEvidence(host, branch, options.evidenceComment);
@@ -123,14 +137,14 @@ export async function runCiGate(
       };
     }
 
-    await sleep(pollIntervalMs);
+    if (poll + 1 < maxPolls) await sleep(pollIntervalMs);
   }
 
-  /* v8 ignore next 6 -- safety backstop: the timeout check returns first in every real run; only reachable if maxPolls is hit before the deadline */
   return {
     action: 'timed_out',
-    state: 'unknown',
+    state: last.state,
     transitionTo: null,
-    message: `CI gate exceeded the poll cap without a verdict. Stopping.`,
+    message: `CI gate read the checks ${maxPolls} time(s) without a verdict. Stopping.`,
+    checks: countChecks(last),
   };
 }

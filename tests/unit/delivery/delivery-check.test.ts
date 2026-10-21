@@ -10,6 +10,7 @@ import {
   execaCommandRunner,
   formatDeliverySummary,
   ghFailureReason,
+  readPrState,
   readRollup,
   runDeliveryCapability,
   saveDeliveryReading,
@@ -321,8 +322,102 @@ describe('the Stop delivery check saves what ships', () => {
       policy: policy(),
       run: runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
     });
-    expect(result.pr).toEqual({ number: 7, url: 'https://example.test/pull/7', draft: true });
-    expect(result.ci).toEqual({ state: 'pending', done: 1, total: 3, reason: null });
+    expect(result.pr).toEqual({
+      number: 7,
+      url: 'https://example.test/pull/7',
+      draft: true,
+      state: null,
+      head_sha: null,
+    });
+    expect(result.ci).toMatchObject({ state: 'pending', done: 1, total: 3, reason: null });
+  });
+
+  it('saves the PR state and head commit gh already reports (FR-8)', async () => {
+    const dir = branchChange();
+    const gh = ok(
+      JSON.stringify({
+        number: 9,
+        url: 'https://example.test/pull/9',
+        state: 'MERGED',
+        headRefOid: 'head-9',
+        statusCheckRollup: [],
+      }),
+    );
+    await runDeliveryCapability(
+      root,
+      'completion',
+      runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh }),
+    );
+    expect(readFeatureDelivery(root, dir).pr).toMatchObject({
+      number: 9,
+      state: 'merged',
+      head_sha: 'head-9',
+    });
+    expect(readPrState('OPEN')).toBe('open');
+    expect(readPrState('closed')).toBe('closed');
+    expect(readPrState('DRAFT')).toBeNull();
+    expect(readPrState(undefined)).toBeNull();
+  });
+
+  it('AC-7: a failed gh pr view leaves pr.state null and throws nothing', async () => {
+    const dir = branchChange();
+    await expect(
+      runDeliveryCapability(root, 'completion', runner({ branch: ok('feat/x'), gh: fail })),
+    ).resolves.toMatchObject({ blocking: false });
+    expect(readFeatureDelivery(root, dir).pr?.state ?? null).toBeNull();
+    const noState = await evaluateDelivery({
+      projectRoot: root,
+      policy: policy(),
+      run: runner({ branch: ok('feat/x'), gh: ok(JSON.stringify({ number: 3 })) }),
+    });
+    expect(noState.pr?.state).toBeNull();
+  });
+
+  it('AC-13: keeps every job of both rollup shapes, counting only finished ones as done', () => {
+    const reading = readRollup([
+      {
+        __typename: 'CheckRun',
+        name: 'build',
+        status: 'COMPLETED',
+        conclusion: 'SUCCESS',
+        startedAt: '2026-10-20T10:00:00Z',
+        completedAt: '2026-10-20T10:03:00Z',
+      },
+      { __typename: 'CheckRun', name: 'test', status: 'QUEUED', conclusion: '' },
+      { __typename: 'CheckRun', name: 'lint', status: 'IN_PROGRESS', conclusion: null },
+      { __typename: 'StatusContext', context: 'deploy', state: 'PENDING' },
+      { __typename: 'StatusContext', context: 'license', state: 'EXPECTED' },
+      { __typename: 'StatusContext', context: 'cla', state: 'SUCCESS' },
+      {},
+    ]);
+    expect(reading).toMatchObject({ state: 'pending', done: 2, total: 7 });
+    expect(reading.jobs).toEqual([
+      {
+        name: 'build',
+        status: 'COMPLETED',
+        conclusion: 'SUCCESS',
+        started_at: '2026-10-20T10:00:00Z',
+        completed_at: '2026-10-20T10:03:00Z',
+      },
+      { name: 'test', status: 'QUEUED', conclusion: null, started_at: null, completed_at: null },
+      {
+        name: 'lint',
+        status: 'IN_PROGRESS',
+        conclusion: null,
+        started_at: null,
+        completed_at: null,
+      },
+      { name: 'deploy', status: 'PENDING', conclusion: null, started_at: null, completed_at: null },
+      {
+        name: 'license',
+        status: 'EXPECTED',
+        conclusion: null,
+        started_at: null,
+        completed_at: null,
+      },
+      { name: 'cla', status: 'SUCCESS', conclusion: null, started_at: null, completed_at: null },
+      { name: 'check', status: null, conclusion: null, started_at: null, completed_at: null },
+    ]);
   });
 
   it('records unknown with the reason when gh cannot answer, and the outcome is unchanged', async () => {
@@ -465,7 +560,7 @@ describe('the Stop delivery check saves what ships', () => {
 
   it('reads a rollup as pass, fail, pending or unknown', () => {
     expect(readRollup([{ conclusion: 'SUCCESS' }, { conclusion: 'SKIPPED' }]).state).toBe('pass');
-    expect(readRollup([{ conclusion: 'FAILURE' }, { status: 'QUEUED' }])).toEqual({
+    expect(readRollup([{ conclusion: 'FAILURE' }, { status: 'QUEUED' }])).toMatchObject({
       state: 'fail',
       done: 1,
       total: 2,
@@ -477,6 +572,7 @@ describe('the Stop delivery check saves what ships', () => {
       done: 0,
       total: 0,
       reason: 'no checks reported',
+      jobs: [],
     });
   });
 

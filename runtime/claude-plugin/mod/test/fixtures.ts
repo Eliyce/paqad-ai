@@ -54,9 +54,11 @@ const ALL_DONE = {
 
 export function snapshot(over: Raw = {}): Raw {
   return {
-    schema: 'paqad.hud/2',
+    schema: 'paqad.hud/3',
     session_id: 'ses-fixture',
     generated_at: '2026-10-18T09:00:00.000Z',
+    scope: { qualified: true, reason: 'qualified' },
+    workflow: null,
     active: false,
     route: null,
     lane: null,
@@ -65,6 +67,7 @@ export function snapshot(over: Raw = {}): Raw {
     change: null,
     paused: [],
     stages: [],
+    timeline: [],
     table: null,
     claims: [],
     gates: [],
@@ -431,6 +434,7 @@ export function ord482Table(phase: Ord482Phase): Raw {
 }
 
 export const FAST_ORD_490 = snapshot({
+  scope: { qualified: true, reason: 'qualified' },
   active: true,
   route: 'feature-development',
   lane: 'fast',
@@ -447,6 +451,7 @@ export const FAST_ORD_490 = snapshot({
 });
 
 export const GRADUATED_ORD_482 = snapshot({
+  scope: { qualified: true, reason: 'qualified' },
   active: true,
   route: 'feature-development',
   lane: 'graduated',
@@ -470,6 +475,7 @@ export const GRADUATED_ORD_482 = snapshot({
 });
 
 export const FULL_ORD_501 = snapshot({
+  scope: { qualified: true, reason: 'qualified' },
   active: true,
   route: 'feature-development',
   lane: 'full',
@@ -517,12 +523,14 @@ export const NEEDS_ATTENTION = snapshot({
 });
 
 export const PAUSED = snapshot({
+  scope: { qualified: false, reason: 'not-feature-route' },
   route: 'project-question',
   headline: { text: 'A change is paused. Say "continue" to pick it up.', tone: 'neutral' },
   paused: [{ workflow: 'feature-development', lane: 'graduated' }],
 });
 
 export const OTHER_WORKFLOW = snapshot({
+  scope: { qualified: false, reason: 'not-feature-route' },
   route: 'project-question',
   headline: { text: 'Working on project question.', tone: 'working' },
 });
@@ -580,6 +588,7 @@ export function costRecord(over: Raw = {}): Raw {
       sealed: true,
       sealed_by: 'receipt',
     },
+    scope: 'change',
     price_table_date: '2026-10-19',
     price_source: 'https://platform.claude.com/docs/en/about-claude/pricing',
     basis: 'API-equivalent estimate',

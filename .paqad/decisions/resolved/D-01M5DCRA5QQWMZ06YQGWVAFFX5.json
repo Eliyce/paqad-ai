@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5DCRA5QQWMZ06YQGWVAFFX5",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new src/stage-isolation/stage-brief.ts buildStageBrief",
+  "context": "Chief architect: the size cap is an acceptance criterion of the request and the host truncates past 10,000 characters; the missing-pillar and session-match tests are compatible and should also be written.\n\nTarget: new src/stage-isolation/stage-brief.ts buildStageBrief\n- qa-engineer: Given each of the six stages on this repo, a minimal fixture repo, and a fixture whose feature-development.yaml stage instructions are long enough to overflow, when buildStageBrief runs, then the result is at most 9000 characters, and the overflow case ends with the pointer line to docs/instructions/workflows/feature-development.yaml (unit)\n- qa-engineer: Given no active change, a closed bundle, or a bundle where plan.json exists but specification.json does not, when the development brief is built, then it lists only pillar files that exist and the no-active-change line when there is none (unit, fixture data)\n- qa-engineer: the SE_SESSION value in the brief commands must equal the session the completion hook uses for the stage-agent row; a payload session_id that differs from SE_SESSION is the known session-fork trap and needs its own test\n\n[expert-conflict-fork:fb8ac711c6a025af]",
+  "options": [
+    {
+      "option_key": "given-each-of-the-six-stages-on-this-rep",
+      "label": "Given each of the six stages on this repo, a minimal fixture repo, and a fixture whose feature-development.yaml stage instructions are long enough to overflow, when buildStageBrief runs, then the result is at most 9000 characters, and the overflow case ends with the pointer line to docs/instructions/workflows/feature-development.yaml (unit) — qa-engineer",
+      "one_line_preview": "Given each of the six stages on this repo, a minimal fixture repo, and a fixture whose feature-development.yaml stage instructions are long enough to overflow, when buildStageBrief runs, then the result is at most 9000 characters, and the overflow case ends with the pointer line to docs/instructions/workflows/feature-development.yaml (unit) — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-no-active-change-a-closed-bundle-o",
+      "label": "Given no active change, a closed bundle, or a bundle where plan.json exists but specification.json does not, when the development brief is built, then it lists only pillar files that exist and the no-active-change line when there is none (unit, fixture data) — qa-engineer",
+      "one_line_preview": "Given no active change, a closed bundle, or a bundle where plan.json exists but specification.json does not, when the development brief is built, then it lists only pillar files that exist and the no-active-change line when there is none (unit, fixture data) — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-se-session-value-in-the-brief-comman",
+      "label": "the SE_SESSION value in the brief commands must equal the session the completion hook uses for the stage-agent row; a payload session_id that differs from SE_SESSION is the known session-fork trap and needs its own test — qa-engineer",
+      "one_line_preview": "the SE_SESSION value in the brief commands must equal the session the completion hook uses for the stage-agent row; a payload session_id that differs from SE_SESSION is the known session-fork trap and needs its own test — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "given-each-of-the-six-stages-on-this-rep",
+  "created_at": "2026-10-20T19:31:31.639Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "chosen": "given-each-of-the-six-stages-on-this-rep",
+  "rationale": "Owner: build all compatible claims as the chief architect recommends",
+  "resolved_at": "2026-10-20T19:42:01.052Z",
+  "decision_id": "D-01M5DCRA5QQWMZ06YQGWVAFFX5",
+  "fingerprint": "sha256:fd5c84d96870feca335bc7b2f3b7b5b8a7e33018d90e31715199f25a13402a45",
+  "question": "Experts disagree on new src/stage-isolation/stage-brief.ts buildStageBrief",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "ttl_until": "2026-11-19T19:31:31.639Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-each-of-the-six-stages-on-this-rep",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T19:42:01.052Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: build all compatible claims as the chief architect recommends"
+  }
+}

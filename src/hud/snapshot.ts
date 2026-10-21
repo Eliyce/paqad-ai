@@ -29,24 +29,30 @@ import {
   readFeatureDelivery,
   type DeliveryCi,
   type DeliveryPr,
+  type DeliveryPrState,
   type DeliveryPush,
+  type DeliveryRecord,
 } from '@/feature-evidence/delivery.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { BUNDLE_MANIFEST, isBundleFileRequired } from '@/feature-evidence/manifest.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
-import { featureDir, featureFilePath, parseFeatureDirName } from '@/feature-evidence/paths.js';
+import {
+  featureChangeKey,
+  featureDir,
+  featureFilePath,
+  parseFeatureDirName,
+} from '@/feature-evidence/paths.js';
 import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import {
   readFeatureTechDebtIndex,
   type TechDebtIndexEntry,
 } from '@/feature-evidence/tech-debt-index.js';
-import {
-  currentFeature,
-  foldFeature,
-  readFeatureStageUnit,
-} from '@/feature-evidence/stage-ledger.js';
-import { readWorkflowState } from '@/pipeline/workflow-state.js';
+import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { workflowCostSince } from '@/cost/session-cost.js';
+import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
+import type { RoutedWorkflow } from '@/pipeline/routed-workflow.js';
+import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
@@ -58,13 +64,20 @@ import {
 } from '@/verification/repository/bundle-completeness-config.js';
 import type { VerificationGate } from '@/core/types/verification.js';
 
+import {
+  gateIsJudged,
+  latestEditAt,
+  qualifyHudChange,
+  stageEndTimes,
+  type HudScopeReason,
+} from './change-scope.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
 
-export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/2';
+export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/3';
 
 export type HudTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';
 
@@ -81,7 +94,7 @@ export interface HudStage {
 }
 
 export type HudGateVerdict =
-  'pass' | 'fail' | 'inconclusive' | 'not-required' | 'did-not-run' | 'pending';
+  'pass' | 'fail' | 'inconclusive' | 'not-required' | 'did-not-run' | 'pending' | 'not-judged';
 
 export interface HudGate {
   name: string;
@@ -97,6 +110,7 @@ export interface HudFlag {
 
 export type { HudChief, HudHighTable, HudSeat, HudTrackRecord } from './high-table-view.js';
 export type { HudCost } from './cost-view.js';
+export type { HudScopeReason } from './change-scope.js';
 
 export type HudFindingsStatus = 'open' | 'clean' | 'did not run';
 
@@ -116,10 +130,72 @@ export interface HudFindings {
   near_copies: HudFindingsScan<DuplicationRowFinding>;
 }
 
+export interface HudTimelineEntry {
+  at: string;
+  kind: string;
+  stage: string | null;
+  note: string | null;
+}
+
+export const TIMELINE_ROWS = 20;
+
+const TIMELINE_KINDS: ReadonlySet<string> = new Set(['open', 'close', 'stage_start', 'stage_end']);
+
+export function buildTimeline(projectRoot: string, dirName: string): HudTimelineEntry[] {
+  return readFeatureStageUnit(projectRoot, dirName)
+    .filter((row) => TIMELINE_KINDS.has(String(row.kind)))
+    .flatMap((row) => {
+      const at = rowRecordedAt(row);
+      if (!at) return [];
+      return [
+        {
+          at,
+          kind: String(row.kind),
+          stage: str(row.stage),
+          note: str(row.note),
+        },
+      ];
+    })
+    .slice(-TIMELINE_ROWS);
+}
+
+export interface HudShipCommit {
+  sha: string;
+  subject: string;
+  own: boolean | null;
+}
+
+export interface HudShip {
+  commits: number;
+  commit_list: HudShipCommit[];
+  commit_decision: string | null;
+  merge_commit: string | null;
+  push: DeliveryPush | null;
+  pr: DeliveryPr | null;
+  pr_state: DeliveryPrState | null;
+  ci: DeliveryCi | null;
+  ci_read_at: string | null;
+  all_green: boolean;
+  merged: boolean;
+  own: CommitGroup | null;
+  inherited: CommitGroup | null;
+  inherited_count: number;
+}
+
+export interface HudWorkflow {
+  name: string;
+  started_at: string | null;
+  tokens: number | null;
+  usd: number | null;
+  unpriced: string[];
+}
+
 export interface HudSnapshot {
   schema: typeof HUD_SNAPSHOT_SCHEMA;
   session_id: string;
   generated_at: string;
+  scope: { qualified: boolean; reason: HudScopeReason };
+  workflow: HudWorkflow | null;
   active: boolean;
   route: string | null;
   lane: string | null;
@@ -135,6 +211,7 @@ export interface HudSnapshot {
   } | null;
   paused: Array<{ workflow: string; lane: string | null }>;
   stages: HudStage[];
+  timeline: HudTimelineEntry[];
   table: HudHighTable | null;
   claims: HudClaim[];
   gates: HudGate[];
@@ -147,16 +224,7 @@ export interface HudSnapshot {
   };
   questions: { asked: number; answered: number; auto_answered: number; deferred: number } | null;
   last_block: RuleStopRecord | null;
-  ship: {
-    commits: number;
-    commit_decision: string | null;
-    merge_commit: string | null;
-    push: DeliveryPush | null;
-    pr: DeliveryPr | null;
-    ci: DeliveryCi | null;
-    own: CommitGroup | null;
-    inherited: CommitGroup | null;
-  } | null;
+  ship: HudShip | null;
   verdict: HudVerdictRecord | null;
   receipt: { path: string } | null;
   evidence_expected: Array<{
@@ -288,22 +356,24 @@ function buildClaims(kind: string | undefined, projectRoot: string, dirName: str
   ];
 }
 
+function readGateVerdict(row: Record<string, unknown>): HudGateVerdict {
+  const raw = String(row.verdict ?? '').toLowerCase();
+  if (raw === 'pass' || raw === 'fail' || raw === 'inconclusive') return raw;
+  if (raw === 'skipped') return row.skip_kind === 'did-not-run' ? 'did-not-run' : 'not-required';
+  return 'pending';
+}
+
 function buildGates(projectRoot: string, dirName: string): HudGate[] {
   const latest = new Map<string, Record<string, unknown>>();
   for (const row of readFeatureEvidence(projectRoot, dirName)) {
     if (row.engine !== 'verification-gate') continue;
     latest.set(row.code, row as unknown as Record<string, unknown>);
   }
+  const stageEnds = stageEndTimes(projectRoot, dirName);
   return [...latest.entries()].map(([code, row]) => {
-    const raw = String(row.verdict ?? '').toLowerCase();
-    const verdict: HudGateVerdict =
-      raw === 'pass' || raw === 'fail' || raw === 'inconclusive'
-        ? raw
-        : raw === 'skipped'
-          ? row.skip_kind === 'did-not-run'
-            ? 'did-not-run'
-            : 'not-required'
-          : 'pending';
+    const verdict: HudGateVerdict = gateIsJudged(code, rowRecordedAt(row), stageEnds)
+      ? readGateVerdict(row)
+      : 'not-judged';
     const tier = GATE_STRENGTH_TIER[code as VerificationGate] ?? LATE_GATE_STRENGTH_TIER[code];
     const strength =
       tier ??
@@ -312,6 +382,86 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
         : null);
     return { name: code, required: verdict !== 'not-required', strength, verdict };
   });
+}
+
+function ownPr(
+  delivery: DeliveryRecord,
+  ownShas: ReadonlySet<string> | null,
+  inheritedShas: readonly string[],
+): DeliveryPr | null {
+  const pr = delivery.pr ?? null;
+  if (!pr) return null;
+  const head = pr.head_sha ?? null;
+  if (head === null) return (pr.state ?? null) === null ? pr : null;
+  if (ownShas !== null && ownShas.has(head)) return pr;
+  const recordedHere =
+    delivery.commits.some((commit) => commit.sha === head) && !inheritedShas.includes(head);
+  return pr.state === 'merged' && recordedHere ? pr : null;
+}
+
+function readingIsCurrent(
+  ci: DeliveryCi,
+  pr: DeliveryPr | null,
+  push: DeliveryPush | null,
+): boolean {
+  if (pr?.head_sha && ci.sha !== pr.head_sha) return false;
+  if (push?.sha && ci.sha !== push.sha && Date.parse(ci.at) < Date.parse(push.at)) return false;
+  return true;
+}
+
+export function buildShip(delivery: DeliveryRecord): HudShip {
+  const split = delivery.commit_split ?? null;
+  const ownShas = split?.own_shas ? new Set(split.own_shas) : null;
+  const inheritedShas = split?.inherited_shas ?? [];
+  const commitList = delivery.commits.map((commit) => ({
+    sha: commit.sha.slice(0, 7),
+    subject: commit.subject,
+    own: ownShas === null ? null : ownShas.has(commit.sha),
+  }));
+  const pr = ownPr(delivery, ownShas, inheritedShas);
+  const prState = pr?.state ?? null;
+  const rawCi = delivery.ci ?? null;
+  const ci =
+    rawCi && rawCi.state === 'pass' && !readingIsCurrent(rawCi, pr, delivery.push ?? null)
+      ? { ...rawCi, state: 'pending' as const }
+      : rawCi;
+  return {
+    commits:
+      ownShas === null
+        ? (split?.own?.count ?? 0)
+        : delivery.commits.filter((commit) => ownShas.has(commit.sha)).length,
+    commit_list: commitList,
+    commit_decision: delivery.commit_decision?.answer ?? null,
+    merge_commit: delivery.merge_commit,
+    push: delivery.push ?? null,
+    pr,
+    pr_state: prState,
+    ci,
+    ci_read_at: rawCi?.at ?? null,
+    all_green: ci?.state === 'pass' && prState === 'open',
+    merged: prState === 'merged',
+    own: split?.own ?? null,
+    inherited: split?.inherited ?? null,
+    inherited_count: inheritedShas.length,
+  };
+}
+
+function buildWorkflow(
+  projectRoot: string,
+  sessionId: string,
+  state: WorkflowState,
+): HudWorkflow | null {
+  const name = state.active?.workflow ?? null;
+  if (name === null || name === 'feature-development' || name === 'no-workflow') return null;
+  const startedAt =
+    episodeStart(readRouteTurns(projectRoot, sessionId), name as RoutedWorkflow) ??
+    state.turn_started_at ??
+    null;
+  const cost =
+    startedAt === null
+      ? { tokens: null, usd: null, unpriced: [] }
+      : workflowCostSince(projectRoot, sessionId, startedAt);
+  return { name, started_at: startedAt, ...cost };
 }
 
 function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['questions'] {
@@ -328,10 +478,13 @@ function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['ques
   };
 }
 
-function buildDecisions(projectRoot: string): HudSnapshot['decisions'] {
+function buildDecisions(projectRoot: string, dirName: string | null): HudSnapshot['decisions'] {
   const pending: HudSnapshot['decisions']['pending'] = [];
   let resolved = 0;
+  if (dirName === null) return { pending, resolved };
+  const changeKey = featureChangeKey(dirName);
   for (const { packet, status } of readContractDecisions(projectRoot)) {
+    if ((packet as unknown as Record<string, unknown>).change !== changeKey) continue;
     if (status === 'resolved') {
       resolved += 1;
       continue;
@@ -410,6 +563,19 @@ function buildFindings(projectRoot: string, dirName: string): HudFindings | null
 function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRecord | null {
   const record = asRecord(readJsonFile(hudVerdictPath(projectRoot, sessionId)));
   return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
+}
+
+function freshVerdict(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string,
+): HudVerdictRecord | null {
+  const verdict = readVerdictRecord(projectRoot, sessionId);
+  if (!verdict || typeof verdict.change !== 'string' || verdict.change !== dirName) return null;
+  const writtenAt = Date.parse(verdict.written_at);
+  if (Number.isNaN(writtenAt)) return null;
+  const editedAt = latestEditAt(projectRoot, dirName);
+  return editedAt === null || writtenAt >= editedAt ? verdict : null;
 }
 
 const STAGE_WORDS: Record<string, string> = {
@@ -575,11 +741,9 @@ export function buildHudSnapshot(
     workflow: entry.workflow,
     lane: entry.lane ?? null,
   }));
-  const dirName = currentFeature(projectRoot, sessionId);
-  const verdict = readVerdictRecord(projectRoot, sessionId);
-  const decisions = buildDecisions(projectRoot);
-  const receiptPath = hudReceiptPath(projectRoot, sessionId);
-  const receipt = existsSync(receiptPath) ? { path: receiptPath } : null;
+  const scope = qualifyHudChange(projectRoot, sessionId, now);
+  const dirName = scope.dir;
+  const decisions = buildDecisions(projectRoot, dirName);
   const lastBlock = readRuleStopRecord(projectRoot, sessionId);
 
   if (!dirName) {
@@ -587,6 +751,8 @@ export function buildHudSnapshot(
       schema: HUD_SNAPSHOT_SCHEMA,
       session_id: sessionId,
       generated_at: now().toISOString(),
+      scope: { qualified: false, reason: scope.reason },
+      workflow: buildWorkflow(projectRoot, sessionId, workflow),
       active: false,
       route,
       lane: workflow.active?.lane ?? null,
@@ -603,6 +769,7 @@ export function buildHudSnapshot(
       change: null,
       paused,
       stages: [],
+      timeline: [],
       table: null,
       claims: [],
       gates: [],
@@ -613,8 +780,8 @@ export function buildHudSnapshot(
       questions: null,
       last_block: lastBlock,
       ship: null,
-      verdict,
-      receipt,
+      verdict: null,
+      receipt: null,
       evidence_expected: [],
       isolation: null,
       cost: null,
@@ -623,6 +790,9 @@ export function buildHudSnapshot(
     };
   }
 
+  const verdict = freshVerdict(projectRoot, sessionId, dirName);
+  const receiptPath = hudReceiptPath(projectRoot, sessionId);
+  const receipt = verdict && existsSync(receiptPath) ? { path: receiptPath } : null;
   const record = readFeatureRecord(projectRoot, dirName);
   const fold = foldFeature(projectRoot, sessionId, dirName);
   const stages = buildStages(projectRoot, dirName, fold);
@@ -655,6 +825,8 @@ export function buildHudSnapshot(
     schema: HUD_SNAPSHOT_SCHEMA,
     session_id: sessionId,
     generated_at: now().toISOString(),
+    scope: { qualified: true, reason: scope.reason },
+    workflow: null,
     active: true,
     route,
     lane,
@@ -678,6 +850,7 @@ export function buildHudSnapshot(
     },
     paused,
     stages,
+    timeline: buildTimeline(projectRoot, dirName),
     table,
     claims: buildClaims(record?.kind, projectRoot, dirName),
     gates,
@@ -691,16 +864,7 @@ export function buildHudSnapshot(
     decisions,
     questions: buildQuestions(projectRoot, dirName),
     last_block: lastBlock,
-    ship: {
-      commits: delivery.commits.length,
-      commit_decision: delivery.commit_decision?.answer ?? null,
-      merge_commit: delivery.merge_commit,
-      push: delivery.push ?? null,
-      pr: delivery.pr ?? null,
-      ci: delivery.ci ?? null,
-      own: delivery.commit_split?.own ?? null,
-      inherited: delivery.commit_split?.inherited ?? null,
-    },
+    ship: buildShip(delivery),
     verdict,
     receipt,
     evidence_expected: buildEvidenceExpected(projectRoot, sessionId, dirName),

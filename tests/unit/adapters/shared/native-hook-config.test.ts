@@ -10,12 +10,14 @@ import {
 } from '@/adapters/shared/native-hook-config.js';
 import {
   buildHostHookChain,
+  buildPluginHookChain,
   capabilityGateCommand,
   completionRecordCommand,
   DEFAULT_HOOK_ADAPTER,
   hookCommand,
   NATIVE_HOOK_EVENTS,
   PAQAD_HOOK_EVENT_ORDER,
+  PAQAD_STAGE_HELPER_MATCHER,
   rendersFullHookChain,
   type RenderedHook,
 } from '@/adapters/shared/paqad-hooks.js';
@@ -81,6 +83,80 @@ describe('paqad-hooks command builders', () => {
     expect(subagent?.matcher).toBe('^(paqad:)?paqad-');
     expect(subagent?.command).toContain('stage-agent-completion.mjs');
     expect(subagent?.command).toMatch(/ codex-cli$/);
+  });
+
+  it('claude-code renders one SubagentStart seed hook with the stage-helper matcher and a timeout, before SubagentStop', () => {
+    const chain = buildHostHookChain('claude-code', ENV);
+    const starts = chain.filter((hook) => hook.nativeEvent === 'SubagentStart');
+    expect(starts).toEqual([
+      {
+        nativeEvent: 'SubagentStart',
+        matcher: PAQAD_STAGE_HELPER_MATCHER,
+        command: 'node "/fake/home/.paqad-ai/current/hooks/stage-agent-start.mjs"',
+        timeout: 10,
+      },
+    ]);
+    const events = distinctEvents(chain);
+    expect(events.indexOf('SubagentStart')).toBe(events.indexOf('SubagentStop') - 1);
+  });
+
+  it('the Codex chain has no SubagentStart because Codex has no such event', () => {
+    const chain = buildHostHookChain('codex-cli', ENV);
+    expect(chain.some((hook) => hook.nativeEvent === 'SubagentStart')).toBe(false);
+    expect(chain.some((hook) => hook.command.includes('stage-agent-start.mjs'))).toBe(false);
+    expect(distinctEvents(chain).at(-1)).toBe('SubagentStop');
+    expect(NATIVE_HOOK_EVENTS['codex-cli'].nativeEvent['subagent-start']).toBeUndefined();
+  });
+
+  it('the plugin chain carries the same SubagentStart entry and keeps SubagentStop last', () => {
+    const chain = buildPluginHookChain(ENV);
+    const start = chain.find((hook) => hook.nativeEvent === 'SubagentStart');
+    expect(start?.matcher).toBe(PAQAD_STAGE_HELPER_MATCHER);
+    expect(start?.timeout).toBe(10);
+    expect(start?.command).toContain('stage-agent-start.mjs');
+    expect(distinctEvents(chain).at(-1)).toBe('SubagentStop');
+    expect(chain.filter((hook) => hook.timeout !== undefined)).toHaveLength(1);
+  });
+
+  it('fail-closed hooks keep their block-on-failure entries and the seed hook carries none', () => {
+    const chain = buildHostHookChain('claude-code', ENV);
+    const blocking = chain.filter((hook) => hook.onFailure === 'block');
+    expect(blocking.map((hook) => hook.command.match(/hooks\/([^"]+)/)?.[1])).toEqual([
+      'agent-entry-gate.mjs',
+      'decision-pause-gate.mjs',
+      'capability-gate.mjs',
+    ]);
+    const start = chain.find((hook) => hook.nativeEvent === 'SubagentStart');
+    expect(start?.onFailure).toBeUndefined();
+  });
+});
+
+describe('PAQAD_STAGE_HELPER_MATCHER', () => {
+  const matcher = new RegExp(PAQAD_STAGE_HELPER_MATCHER);
+  it.each([
+    'paqad-planning',
+    'paqad-specification',
+    'paqad-development',
+    'paqad-review',
+    'paqad-checks',
+    'paqad-documentation-sync',
+    'paqad:paqad-planning',
+    'paqad:paqad-documentation-sync',
+  ])('matches the stage helper %s', (agentType) => {
+    expect(matcher.test(agentType)).toBe(true);
+  });
+
+  it.each([
+    'paqad-expert',
+    'paqad:paqad-chief-architect',
+    'paqad-foo',
+    'paqad-documentation_sync',
+    'xpaqad-planning',
+    'paqad-planning-extra',
+    'Explore',
+    '',
+  ])('does not match %s', (agentType) => {
+    expect(matcher.test(agentType)).toBe(false);
   });
 });
 

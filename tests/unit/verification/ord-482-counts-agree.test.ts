@@ -18,6 +18,8 @@ import { appendFeatureEvidenceRows } from '@/feature-evidence/bundle-ledgers.js'
 import { renderFeatureReportHtml } from '@/feature-evidence/report.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { buildHudSnapshot } from '@/hud/snapshot.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
+import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { foldRowsWithKey } from '@/stage-evidence/fold.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
@@ -161,6 +163,15 @@ describe('ORD-482: every surface counts only the required gates that ran', () =>
       issue: '482',
     });
     ownInFlightChange(root, sessionId, dir);
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'feature-development' },
+      paused: [],
+    });
+    for (const stage of ['development', 'checks']) {
+      const ctx = { sessionId, dirName: dir, adapter: 'claude-code', now: () => new Date(0) };
+      startStage(root, stage, ctx);
+      endStage(root, stage, {}, ctx);
+    }
     appendFeatureEvidenceRows(root, sessionId, ROWS);
     const hud = buildHudSnapshot(root, SES, { now: () => new Date(AT) });
     const ran = hud.gates.filter(

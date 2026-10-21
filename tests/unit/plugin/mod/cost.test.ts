@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { layoutBand } from '../../../../runtime/claude-plugin/mod/band.ts';
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
 import {
   costLines,
   costPill,
+  formatStopwatch,
   formatTokens,
   formatUsd,
   fullTokens,
@@ -19,6 +19,7 @@ import {
 import {
   DEFAULT_PANE_TAB,
   PANE_ID,
+  PANE_TITLE,
   PANE_TABS,
   buildPaneView,
   isPaneTab,
@@ -35,6 +36,8 @@ import {
   fileText,
   snapshot,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
+
+import { bandOf } from './band-text.ts';
 import type { PaqadCost } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
 
 const parse = (raw: Record<string, unknown>) => parseSnapshot(fileText(raw))!;
@@ -62,7 +65,12 @@ function expectDatedMoney(text: string): void {
 describe('formatting', () => {
   it('says token counts short and in full', () => {
     expect(formatTokens(812)).toBe('812');
-    expect(formatTokens(45_300)).toBe('45.3k');
+    expect(formatTokens(45_300)).toBe('45.3K');
+    expect(formatTokens(230_490)).toBe('230K');
+    expect(formatTokens(8_000)).toBe('8K');
+    expect(formatStopwatch(272_000)).toBe('4:32');
+    expect(formatStopwatch(3_725_000)).toBe('1:02:05');
+    expect(formatStopwatch(-5)).toBe('0:00');
     expect(formatTokens(1_300_000)).toBe('1.3M');
     expect(fullTokens(1_234_567)).toBe('1,234,567');
   });
@@ -103,17 +111,14 @@ describe('the cost pill (AC-50)', () => {
   });
 
   it('shows tokens only for a model the table does not list', () => {
-    expect(costPill(costOf(UNPRICED_COST))).toBe('10.0k tokens');
+    expect(costPill(costOf(UNPRICED_COST))).toBe('10K tokens');
     expect(costPill(costOf(UNPRICED_COST))).not.toContain('$');
   });
 
-  it('is a pill in the band that opens the Cost tab', () => {
-    const rows = layoutBand(buildBandView(parse(FULL_ORD_501_COST), NOW), {
-      columns: 120,
-      maxRows: 12,
-    });
-    const pill = rows.flat().find((segment) => segment.opens === 'cost');
-    expect(pill?.text).toBe('1.3M tokens, ~$4.60 estimate, 2026-10-19 prices');
+  it('is a footer line in the band that opens the Cost tab', () => {
+    const band = bandOf(FULL_ORD_501_COST);
+    const footer = band.kind === 'card' ? band.footer : null;
+    expect(footer?.left[0]).toMatchObject({ text: '1.3M tokens · ~$4.60 est.', opens: 'cost' });
   });
 });
 
@@ -167,16 +172,20 @@ describe('the Cost tab and /paqad cost (AC-55)', () => {
     expect(text).toContain(
       'Tokens: 2,000 input, 98,000 output, 1,100,000 cache read, 100,000 cache write.',
     );
-    expect(text).toContain('Counted from the first record to the seal.');
+    expect(text).toContain("Counted from the change's first row to its seal, this change only.");
     expect(text).toContain('By stage:');
-    expect(text).toContain('  Build: 640.0k tokens, ~$2.30 estimate, 2026-10-19 prices');
-    expect(text).toContain('  Between stages: 70.0k tokens, ~$0.26 estimate, 2026-10-19 prices');
+    expect(text).toContain('  Build: 640K tokens, ~$2.30 estimate, 2026-10-19 prices');
+    expect(text).toContain('  Between stages: 70K tokens, ~$0.26 estimate, 2026-10-19 prices');
     expect(text).toContain('By expert:');
-    expect(text).toContain('  Security auditor: 40.0k tokens, ~$0.14 estimate, 2026-10-19 prices');
     expect(text).toContain(
-      "  QA engineer: about 1.8k tokens, the seat's own estimate, already inside the total",
+      '  Security auditor: Run: 40K tokens, ~$0.14 estimate, 2026-10-19 prices, mostly the code it read (exact)',
     );
-    expect(text).toContain('Chief architect: 25.0k tokens, ~$0.09 estimate, 2026-10-19 prices');
+    expect(text).toContain(
+      "  QA engineer: Note: ~1.8K tokens, the seat's own estimate, already inside the total",
+    );
+    expect(text).toContain(
+      'Chief architect: Run: 25K tokens, ~$0.09 estimate, 2026-10-19 prices, mostly the code it read (exact)',
+    );
     expect(text.find((line) => line.startsWith('Basis: '))).toContain(
       'API-equivalent estimate. Tokens come from the session',
     );
@@ -229,7 +238,7 @@ describe('the Cost tab and /paqad cost (AC-55)', () => {
       by_expert: [],
     });
     expect(lines(snapshot({ ...FULL_ORD_501, cost: estimate }))).toContain(
-      'Chief architect: about 900 tokens, its own estimate, already inside the total',
+      'Chief architect: Note: ~900 tokens, its own estimate, already inside the total',
     );
     const noChief = costRecord({ chief: null });
     expect(lines(snapshot({ ...FULL_ORD_501, cost: noChief }))).toContain(
@@ -253,31 +262,59 @@ describe('the fast lane (AC-53)', () => {
   });
 });
 
-describe('the pane (Parts 23 and 14)', () => {
-  it('has one pane id and the High Table, Cost, Trust, Ships and Record tabs', () => {
+describe('the cost scope sentence (FR-55, AC-18)', () => {
+  it('says this change only, or names the whole session and never calls it the change cost', () => {
+    const own = lines(FULL_ORD_501_COST);
+    expect(own[0]).toMatch(/^Cost of this change: /);
+    const whole = lines(
+      snapshot({ ...FULL_ORD_501, cost: costRecord({ scope: 'whole-session' }) }),
+    );
+    expect(whole[0]).toMatch(/^Cost of the whole session: /);
+    expect(whole).toContain(
+      "Whole session: paqad could not split this session's turns, so this is not the change's cost.",
+    );
+    expect(whole.join('\n')).not.toContain('Cost of this change');
+    const open = lines(
+      snapshot({
+        ...FULL_ORD_501,
+        cost: costRecord({ window: { from: 'a', to: 'b', sealed: false, sealed_by: null } }),
+      }),
+    );
+    expect(open).toContain('Counted so far: the change is not sealed yet.');
+    const band = bandOf(
+      snapshot({ ...FULL_ORD_501, cost: costRecord({ scope: 'whole-session' }) }),
+    );
+    expect(band.kind === 'card' && band.footer?.left[0]?.text).toBe('1.3M tokens · whole session');
+  });
+});
+
+describe('the paqad Ledger (FR-54, AC-39)', () => {
+  it('keeps one pane id and names its tabs Trust, High Table, Ships, Record and Cost', () => {
     expect(PANE_ID).toBe('paqad');
-    expect(PANE_TABS.map((tab) => tab.id)).toEqual(['table', 'cost', 'trust', 'ships', 'record']);
-    expect(DEFAULT_PANE_TAB).toBe('cost');
+    expect(PANE_TITLE).toBe('paqad Ledger');
+    expect(PANE_TABS.map((tab) => tab.id)).toEqual(['trust', 'table', 'ships', 'record', 'cost']);
+    expect(DEFAULT_PANE_TAB).toBe('trust');
     expect(isPaneTab('cost')).toBe(true);
     expect(isPaneTab('table')).toBe(true);
     expect(isPaneTab('nope')).toBe(false);
     const view = buildPaneView(parse(FULL_ORD_501_COST), 'cost');
     expect(view.tabs).toEqual([
-      { id: 'table', key: tabKey('table'), label: 'High Table', selected: false },
-      { id: 'cost', key: tabKey('cost'), label: 'Cost', selected: true },
       { id: 'trust', key: tabKey('trust'), label: 'Trust', selected: false },
+      { id: 'table', key: tabKey('table'), label: 'High Table', selected: false },
       { id: 'ships', key: tabKey('ships'), label: 'Ships', selected: false },
       { id: 'record', key: tabKey('record'), label: 'Record', selected: false },
+      { id: 'cost', key: tabKey('cost'), label: 'Cost', selected: true },
     ]);
     expect(view.table).toBeNull();
+    expect(view.svg).toBeNull();
   });
 
-  it('opens on its own pick for a tab it does not have: the High Table when there is one, else Cost', () => {
+  it('opens on Trust for a tab it does not have, with the gate ring as an Svg source', () => {
     const view = buildPaneView(parse({ ...FULL_ORD_501_COST, verdict: null }), 'nope' as never);
     expect(view.tabs[0]!.selected).toBe(true);
-    expect(view.table).not.toBeNull();
-    const fast = buildPaneView(parse(FAST_ORD_490_COST), null);
-    expect(fast.tabs[1]!.selected).toBe(true);
+    expect(view.svg?.alt).toMatch(/^Gates: \d+ of \d+ required pass/);
+    expect(view.svg?.source).toContain('<svg');
+    const fast = buildPaneView(parse(FAST_ORD_490_COST), 'cost');
     expect(fast.lines[0]).toContain('Cost of this change');
   });
 });

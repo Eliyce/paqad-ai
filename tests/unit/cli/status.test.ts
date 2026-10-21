@@ -60,7 +60,7 @@ describe('createStatusCommand', () => {
     );
     const snapshot = JSON.parse(writes.join(''));
     expect(snapshot).toMatchObject({
-      schema: 'paqad.hud/2',
+      schema: 'paqad.hud/3',
       session_id: 'ses-hud',
       route: 'codebase-health',
       lane_reason: 'a health check',

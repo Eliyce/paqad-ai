@@ -15,10 +15,14 @@ import type {
   PaqadHudSnapshot,
   PaqadHudStage,
   PaqadLastBlock,
+  PaqadPrState,
+  PaqadScope,
   PaqadSeat,
+  PaqadShipCommit,
   PaqadSeatState,
   PaqadTone,
   PaqadTrackRecord,
+  PaqadWorkflow,
 } from './types';
 
 export const NOT_YET = 'not yet';
@@ -224,6 +228,7 @@ function readCost(value: unknown): PaqadCost | null {
   const dated = date !== null;
   const chief = rec(cost.chief);
   return {
+    scope: cost.scope === 'change' ? 'change' : 'whole-session',
     price_table_date: date ?? '',
     label: str(cost.label) ?? 'estimate at API prices',
     basis: str(cost.basis) ?? 'API-equivalent estimate',
@@ -376,7 +381,54 @@ function readCiDetail(value: unknown): PaqadCi | null {
   const ci = rec(value);
   const state = str(ci?.state);
   if (!ci || !state) return null;
-  return { state, done: num(ci.done), total: num(ci.total), reason: str(ci.reason) };
+  return {
+    state,
+    done: num(ci.done),
+    total: num(ci.total),
+    reason: str(ci.reason),
+    jobs: each(ci.jobs, (job) => ({
+      name: str(job.name) ?? 'check',
+      status: str(job.status),
+      conclusion: str(job.conclusion),
+      started_at: str(job.started_at),
+      completed_at: str(job.completed_at),
+    })),
+  };
+}
+
+function readShipCommits(value: unknown): PaqadShipCommit[] {
+  return each(value, (commit) => ({
+    sha: str(commit.sha) ?? '',
+    subject: str(commit.subject) ?? '',
+    own: typeof commit.own === 'boolean' ? commit.own : null,
+  })).filter((commit) => commit.sha !== '');
+}
+
+const PR_STATES: readonly PaqadPrState[] = ['open', 'merged', 'closed'];
+
+function readPrState(value: unknown): PaqadPrState | null {
+  return PR_STATES.find((state) => state === value) ?? null;
+}
+
+function readScope(value: unknown): PaqadScope {
+  const scope = rec(value);
+  return {
+    qualified: scope?.qualified === true,
+    reason: str(scope?.reason) ?? 'no scope recorded',
+  };
+}
+
+function readWorkflow(value: unknown): PaqadWorkflow | null {
+  const workflow = rec(value);
+  const name = str(workflow?.name);
+  if (!workflow || !name) return null;
+  return {
+    name,
+    started_at: str(workflow.started_at),
+    tokens: num(workflow.tokens),
+    usd: num(workflow.usd),
+    unpriced: strings(workflow.unpriced),
+  };
 }
 
 const GATE_STRENGTHS: readonly PaqadGateStrength[] = ['deterministic', 'llm-judged'];
@@ -447,16 +499,20 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
   const lastBlock = rec(snap.last_block);
   const writtenAt = str(verdict?.written_at);
   const receiptFile = str(rec(snap.receipt)?.path);
-  return {
+  const scope = readScope(snap.scope);
+  const parsed: PaqadHudSnapshot = {
     session_id: str(snap.session_id) ?? '',
     generated_at: str(snap.generated_at) ?? '',
-    active: snap.active === true,
+    scope,
+    workflow: readWorkflow(snap.workflow),
+    active: snap.active === true && scope.qualified,
     route: str(snap.route),
     lane: str(snap.lane),
     lane_reason: str(snap.lane_reason),
     headline: { text: str(headline?.text) ?? '', tone },
     change: change
       ? {
+          dir: str(change.dir),
           id: str(change.id),
           issue: str(change.issue),
           title: str(change.title),
@@ -482,6 +538,12 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
         },
       ];
     }),
+    timeline: each(snap.timeline, (entry) => ({
+      at: str(entry.at) ?? '',
+      kind: str(entry.kind) ?? 'unknown',
+      stage: str(entry.stage),
+      note: str(entry.note),
+    })).filter((entry) => entry.at !== ''),
     table: readTable(snap.table),
     gates: list(snap.gates).flatMap((entry) => readGate(entry) ?? []),
     claims: list(snap.claims).flatMap((entry) => readClaim(entry) ?? []),
@@ -524,6 +586,14 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           ci_detail: readCiDetail(ship.ci),
           own: readCommitGroup(ship.own),
           inherited: readCommitGroup(ship.inherited),
+          commit_list: readShipCommits(ship.commit_list),
+          inherited_count: num(ship.inherited_count) ?? 0,
+          pr_number: num(rec(ship.pr)?.number),
+          pr_state: readPrState(ship.pr_state),
+          pr_head: str(rec(ship.pr)?.head_sha),
+          ci_read_at: str(ship.ci_read_at),
+          all_green: ship.all_green === true,
+          merged: ship.merged === true,
         }
       : null,
     verdict:
@@ -537,6 +607,28 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
         : null,
     receipt: receiptFile ? { path: receiptFile } : null,
     cost: readCost(snap.cost),
+  };
+  return scope.qualified ? parsed : idleSnapshot(parsed);
+}
+
+function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
+  return {
+    ...snapshot,
+    active: false,
+    change: null,
+    stages: [],
+    timeline: [],
+    table: null,
+    gates: [],
+    claims: [],
+    bundle_files: [],
+    flags: [],
+    findings: null,
+    decisions: { pending: [], resolved: 0 },
+    ship: null,
+    verdict: null,
+    receipt: null,
+    cost: null,
   };
 }
 
@@ -669,41 +761,6 @@ export function liveClock(segments: StageSegment[], now: number): string | null 
   return Number.isFinite(started) ? formatClock(now - started) : null;
 }
 
-export interface ShipStep {
-  label: 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
-  word: string;
-  done: boolean;
-}
-
-export function shipSteps(snapshot: PaqadHudSnapshot | null): ShipStep[] {
-  const active = snapshot?.active === true;
-  const build = snapshot?.stages.find((stage) => stage.stage === 'development');
-  const edit: ShipStep =
-    active && build?.state === 'running'
-      ? { label: 'Edit', word: 'running', done: false }
-      : active && (build?.state === 'complete' || build?.state === 'redone')
-        ? { label: 'Edit', word: 'done', done: true }
-        : { label: 'Edit', word: NOT_YET, done: false };
-  const ship = active ? (snapshot?.ship ?? null) : null;
-  const commits = ship?.commits ?? 0;
-  const step = (label: 'Push' | 'PR' | 'CI', value: string | null | undefined): ShipStep =>
-    value ? { label, word: value, done: true } : { label, word: NOT_YET, done: false };
-  return [
-    edit,
-    commits > 0
-      ? { label: 'Commit', word: `${commits} commit${commits === 1 ? '' : 's'}`, done: true }
-      : { label: 'Commit', word: NOT_YET, done: false },
-    step('Push', ship?.push),
-    step('PR', ship?.pr),
-    ship?.ci_detail && ship.ci_detail.state !== 'pass'
-      ? { label: 'CI', word: ship.ci ?? ship.ci_detail.state, done: false }
-      : step('CI', ship?.ci),
-    ship?.merge_commit
-      ? { label: 'Merge', word: 'merged', done: true }
-      : { label: 'Merge', word: 'stays yours', done: false },
-  ];
-}
-
 export interface BandView {
   state: BandState;
   tone: PaqadTone;
@@ -711,7 +768,6 @@ export interface BandView {
   flags: number;
   stages: StageSegment[];
   clock: string | null;
-  ship: ShipStep[];
   cost: string;
   table: TableInstrument | null;
 }
@@ -739,7 +795,6 @@ export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): B
     flags,
     stages,
     clock: liveClock(stages, now),
-    ship: shipSteps(snapshot),
     cost: costPill(snapshot?.cost ?? null),
     table: tableInstrument(snapshot),
   };

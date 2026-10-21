@@ -1,8 +1,10 @@
 ---
 name: {{agentName}}
 description: '{{description}}'
-model: inherit
-tools: {{tools}}
+model: {{model}}
+{{#if effort}}effort: {{effort}}
+{{/if}}{{#if omitClaudeMd}}omitClaudeMd: true
+{{/if}}tools: {{tools}}
 ---
 
 {{{body}}}

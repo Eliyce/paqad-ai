@@ -67,3 +67,13 @@ site_map=true
 # checks_max_processes=0
 # Show the paqad HUD band above the prompt in the Claude Code plugin. OFF shows no band and registers no /paqad command. (env: PAQAD_HUD_VIEW)
 # hud_view=true
+
+# ── Added in a newer paqad version ────────────────────────────
+# on | off — fleet-wide switch to move existing npm Claude Code users to the paqad plugin automatically in the background. Default off until manual sign-off; Claude Code only, npm is never removed and stays the fallback. (env: PAQAD_PLUGIN_MIGRATION)
+# plugin_migration=off
+# auto | plugin | settings — per-project override of the plugin migration. settings never migrates (stay on npm hooks); plugin forces the migration even while plugin_migration is off; auto follows plugin_migration. (env: PAQAD_CLAUDE_INSTALL_MODE)
+# claude_install_mode=auto
+
+# ── Added in a newer paqad version ────────────────────────────
+# Play a short chime in the Claude Code plugin when the verdict lands, once per verdict. A chime only, never speech. (env: PAQAD_HUD_CHIME)
+# hud_chime=false

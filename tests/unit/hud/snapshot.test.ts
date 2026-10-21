@@ -22,6 +22,7 @@ import {
 } from '@/feature-evidence/bundle-ledgers.js';
 import {
   buildHudSnapshot,
+  buildShip,
   computeHudFlags,
   computeHudHeadline,
   HUD_SNAPSHOT_SCHEMA,
@@ -47,9 +48,21 @@ import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import { raiseTechDebt } from '@/tech-debt/index.js';
 import {
   readFeatureDelivery,
+  reconcileDeliveryFromGit,
   recordShip,
+  stampMergeCommit,
   writeFeatureDelivery,
+  type DeliveryRecord,
 } from '@/feature-evidence/delivery.js';
+
+import {
+  checkout,
+  cleanupScopeFixtures,
+  commit,
+  openChangeHere,
+  repoRoot,
+  runStage,
+} from './scope-fixtures.js';
 
 const NOW = () => new Date('2026-10-18T09:00:00.000Z');
 const roots: string[] = [];
@@ -117,11 +130,15 @@ function seats(roles: string[]): unknown {
   };
 }
 
-function evidenceRow(code: string, verdict: string): string {
+function evidenceRow(
+  code: string,
+  verdict: string,
+  recordedAt = '2026-10-18T08:59:00.000Z',
+): string {
   return JSON.stringify({
     schema_version: 2,
     doc_type: 'paqad.evidence',
-    recorded_at: '2026-10-18T08:59:00.000Z',
+    recorded_at: recordedAt,
     engine: 'verification-gate',
     code,
     subject_digest: 'sd',
@@ -206,6 +223,7 @@ describe('buildHudSnapshot', () => {
         { option_key: 'test', label: 'Write a failing test first' },
         { option_key: 'manual', label: 'Check it by hand' },
       ],
+      change: featureChangeKey(dir),
     });
 
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
@@ -293,21 +311,27 @@ describe('buildHudSnapshot', () => {
       ]),
     );
     writeBundleJson(root, dir, 'specification', { pipeline: { produced: true } });
+    const judgedAt = new Date(Date.now() + 60_000).toISOString();
     writeFileSync(
       join(root, featureFilePath(dir, 'evidence')),
       [
-        evidenceRow('code-tests-lint', 'pass'),
-        evidenceRow('mutation-testing', 'inconclusive'),
-        evidenceRow('spec-review', 'pass'),
-        evidenceRow('visual-evidence', 'skipped'),
+        evidenceRow('code-tests-lint', 'pass', judgedAt),
+        evidenceRow('mutation-testing', 'inconclusive', judgedAt),
+        evidenceRow('spec-review', 'pass', judgedAt),
+        evidenceRow('visual-evidence', 'skipped', judgedAt),
       ].join('\n') + '\n',
     );
-    writeHudReceipt(root, S, {
-      summary: 'Safe to merge',
-      receipt: 'receipt',
-      gates: [],
-      kind: 'pass',
-    });
+    writeHudReceipt(
+      root,
+      S,
+      {
+        summary: 'Safe to merge',
+        receipt: 'receipt',
+        gates: [],
+        kind: 'pass',
+      },
+      () => new Date(judgedAt),
+    );
 
     const snapshot = buildHudSnapshot(root, S, { now: NOW });
 
@@ -768,6 +792,8 @@ describe('what ships on the HUD', () => {
         base_commit: 'b',
         own: group(3, ['ORD-482']),
         inherited: group(73, ['ORD-470']),
+        own_shas: ['s'],
+        inherited_shas: ['i1', 'i2'],
       },
     });
     recordShip(
@@ -775,7 +801,13 @@ describe('what ships on the HUD', () => {
       dir,
       {
         push: { state: 'pushed', branch: 'feat/ORD-470-x', sha: 's' },
-        pr: { number: 9, url: 'https://example.test/pull/9', draft: false },
+        pr: {
+          number: 9,
+          url: 'https://example.test/pull/9',
+          draft: false,
+          state: 'open',
+          head_sha: 's',
+        },
         ci: { sha: 's', state: 'pending', done: 3, total: 7, reason: null, source: 'stop-check' },
       },
       NOW().toISOString(),
@@ -787,8 +819,196 @@ describe('what ships on the HUD', () => {
       ci: { state: 'pending', done: 3, total: 7 },
       own: { count: 3 },
       inherited: { count: 73, tickets: ['ORD-470'] },
+      inherited_count: 2,
+      pr_state: 'open',
+      ci_read_at: NOW().toISOString(),
+      all_green: false,
+      merged: false,
     });
     expect(snapshot.flags.map((flag) => flag.id)).toContain('branch:shared');
+  });
+});
+
+describe('ship honesty', () => {
+  afterEach(cleanupScopeFixtures);
+  const S = 'ses-ship-honest';
+  const group = (count: number, tickets: string[] = []) => ({
+    count,
+    tickets,
+    merges: 0,
+    untagged: count - tickets.length,
+  });
+
+  function shipOn(delivery: Partial<DeliveryRecord>) {
+    return buildShip({
+      schema_version: 2,
+      doc_type: 'paqad.delivery',
+      commits: [
+        { sha: 'own-sha-1234567', subject: 'feat: mine' },
+        { sha: 'old-sha-1234567', subject: 'chore: before' },
+      ],
+      head_sha: null,
+      merge_commit: null,
+      commit_split: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(1, []),
+        inherited: group(1, []),
+        own_shas: ['own-sha-1234567'],
+        inherited_shas: ['old-sha-1234567'],
+      },
+      ...delivery,
+    });
+  }
+
+  const at = '2026-10-18T09:00:00.000Z';
+  const openPr = {
+    number: 12,
+    url: 'https://example.test/pull/12',
+    draft: false,
+    state: 'open' as const,
+    head_sha: 'own-sha-1234567',
+    at,
+  };
+
+  it('AC-6: a merge commit on main never lights Merge; only a merged PR does', () => {
+    expect(shipOn({ merge_commit: 'release-sha', pr: openPr }).merged).toBe(false);
+    expect(shipOn({ merge_commit: 'release-sha', pr: { ...openPr, state: null } }).merged).toBe(
+      false,
+    );
+    expect(shipOn({ merge_commit: 'release-sha' }).merged).toBe(false);
+    expect(shipOn({ pr: { ...openPr, state: 'merged' } })).toMatchObject({
+      merged: true,
+      pr_state: 'merged',
+    });
+  });
+
+  it('AC-11: a PR whose head is not one of this change commits is not shown', () => {
+    const ship = shipOn({ pr: { ...openPr, head_sha: 'someone-else', state: 'merged' } });
+    expect(ship).toMatchObject({ pr: null, pr_state: null, merged: false });
+    expect(shipOn({ pr: { ...openPr, head_sha: null } }).pr).toBeNull();
+  });
+
+  it('a PR merged with a merge commit still reads merged once the base holds the branch', () => {
+    const afterMerge = {
+      commit_split: {
+        state: 'known' as const,
+        reason: null,
+        base_commit: 'b',
+        own: group(0, []),
+        inherited: group(0, []),
+        own_shas: [],
+        inherited_shas: [],
+      },
+    };
+    expect(shipOn({ ...afterMerge, pr: { ...openPr, state: 'merged' } })).toMatchObject({
+      pr: { number: 12 },
+      pr_state: 'merged',
+      merged: true,
+    });
+    expect(shipOn({ ...afterMerge, pr: openPr })).toMatchObject({ pr: null, merged: false });
+    expect(
+      shipOn({ pr: { ...openPr, head_sha: 'old-sha-1234567', state: 'merged' } }),
+    ).toMatchObject({ pr: null, merged: false });
+  });
+
+  it('a legacy PR saved with no state and no head reads unknown, never merged', () => {
+    const legacy = { number: 12, url: 'https://example.test/pull/12', draft: false, at };
+    expect(shipOn({ pr: legacy })).toMatchObject({
+      pr: { number: 12 },
+      pr_state: null,
+      merged: false,
+      all_green: false,
+    });
+  });
+
+  it('AC-12: a PR closed without merging keeps Merge dark', () => {
+    expect(shipOn({ pr: { ...openPr, state: 'closed' } })).toMatchObject({
+      pr_state: 'closed',
+      merged: false,
+      all_green: false,
+    });
+  });
+
+  it('AC-15: a pass read against an older head reads pending, never all green', () => {
+    const ci = {
+      sha: 'older-head',
+      state: 'pass' as const,
+      done: 6,
+      total: 6,
+      reason: null,
+      source: 'stop-check' as const,
+      at,
+    };
+    expect(shipOn({ pr: openPr, ci })).toMatchObject({
+      ci: { state: 'pending' },
+      all_green: false,
+      ci_read_at: at,
+    });
+    const pushedLater = {
+      state: 'pushed' as const,
+      branch: 'feat/x',
+      sha: 'newer-push',
+      at: '2026-10-18T10:00:00.000Z',
+    };
+    expect(
+      shipOn({ pr: { ...openPr, head_sha: null }, push: pushedLater, ci: { ...ci, sha: 'own' } }).ci
+        ?.state,
+    ).toBe('pending');
+    const current = shipOn({ pr: openPr, ci: { ...ci, sha: 'own-sha-1234567' } });
+    expect(current).toMatchObject({ all_green: true, ci: { state: 'pass' } });
+  });
+
+  it('a legacy split without shas falls back to the own count with own unknown', () => {
+    const legacy = shipOn({
+      commit_split: {
+        state: 'known',
+        reason: null,
+        base_commit: 'b',
+        own: group(4, []),
+        inherited: group(0, []),
+      },
+    });
+    expect(legacy.commits).toBe(4);
+    expect(legacy.commit_list.map((commit) => commit.own)).toEqual([null, null]);
+    expect(shipOn({ commit_split: null }).commits).toBe(0);
+  });
+
+  it('AC-10: a commit already on the branch at change start is listed, never counted', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/inherit', true);
+    const before = commit(root, 'before.txt', 'chore: already here');
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    reconcileDeliveryFromGit(root, dir, new Date().toISOString());
+
+    const ship = buildHudSnapshot(root, S).ship!;
+
+    expect(ship.commits).toBe(0);
+    expect(ship.commit_list).toEqual([
+      { sha: before.slice(0, 7), subject: 'chore: already here', own: false },
+    ]);
+    expect(ship.inherited_count).toBe(1);
+  });
+
+  it('a release commit on main stamped as the merge commit does not read merged', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/release', true);
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'development');
+    commit(root, 'mine.txt', 'feat: mine');
+    reconcileDeliveryFromGit(root, dir, new Date().toISOString());
+    stampMergeCommit(root, dir, 'release-commit-on-main', new Date().toISOString());
+
+    const ship = buildHudSnapshot(root, S).ship!;
+
+    expect(ship).toMatchObject({
+      commits: 1,
+      merged: false,
+      pr: null,
+      merge_commit: 'release-commit-on-main',
+    });
   });
 });
 

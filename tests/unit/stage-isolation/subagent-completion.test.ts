@@ -1,8 +1,7 @@
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { featureStagePath, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { readStageAgentRows } from '@/stage-isolation/isolation-summary.js';
@@ -14,16 +13,11 @@ import {
   resolveTokenCounts,
   stageFromAgentType,
 } from '@/stage-isolation/subagent-completion.js';
+import { writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
-const roots: string[] = [];
-function tempRoot(): string {
-  const r = mkdtempSync(join(tmpdir(), 'paqad-subagent-stop-'));
-  roots.push(r);
-  return r;
-}
-afterEach(() => {
-  while (roots.length > 0) rmSync(roots.pop()!, { recursive: true, force: true });
-});
+import { useTempRoots } from '../_helpers/temp-roots.js';
+
+const tempRoot = useTempRoots('paqad-subagent-stop-');
 
 function activeFeature(root: string): string {
   const dir = openFeatureChange(root, 'ses_orch', {
@@ -136,6 +130,57 @@ describe('recordStageAgentCompletion', () => {
     });
     expect(rows[0]).not.toHaveProperty('adapter');
     expect(validateStageEvidenceRow(rows[0])).toEqual([]);
+  });
+
+  it('adds the requested effort and model from the session stage settings to the one stage-agent row', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    writeStageSettings(root, 'ses_orch', { PAQAD_STAGE_MODEL_REVIEW: 'opus' });
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { agent_id: 'agent_r', agent_type: 'paqad-review' },
+      transcriptText: 'review work',
+      adapter: 'claude-code',
+    });
+    const rows = readStageAgentRows(root, dir);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      stage: 'review',
+      requested_effort: 'high',
+      requested_model: 'opus',
+    });
+    expect(rows[0]).not.toHaveProperty('effort');
+    expect(rows[0]).not.toHaveProperty('model');
+    expect(validateStageEvidenceRow(rows[0])).toEqual([]);
+  });
+
+  it('leaves the requested effort and model off the row when no stage settings were recorded', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { agent_type: 'paqad-checks' },
+      transcriptText: 'checks work',
+      adapter: 'claude-code',
+    });
+    const [row] = readStageAgentRows(root, dir);
+    expect(row).not.toHaveProperty('requested_effort');
+    expect(row).not.toHaveProperty('requested_model');
+    expect(validateStageEvidenceRow(row)).toEqual([]);
+  });
+
+  it('rejects a stage-agent row with an unknown requested effort or model', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload: { agent_type: 'paqad-checks' },
+      transcriptText: 'checks work',
+      adapter: 'claude-code',
+    });
+    const [row] = readStageAgentRows(root, dir);
+    expect(validateStageEvidenceRow({ ...row, requested_effort: 'turbo' })).not.toEqual([]);
+    expect(validateStageEvidenceRow({ ...row, requested_model: 'gpt' })).not.toEqual([]);
   });
 
   it('sums host-reported input and output as tokens_used, still labelled an estimate', () => {

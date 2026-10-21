@@ -100,6 +100,18 @@
         ]
       }
     ],
+    "SubagentStart": [
+      {
+        "matcher": "^(paqad:)?paqad-(planning|specification|development|review|checks|documentation-sync)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/runtime/hooks/stage-agent-start.mjs\"",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "matcher": "^(paqad:)?paqad-",

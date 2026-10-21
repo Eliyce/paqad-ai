@@ -8,7 +8,12 @@ import { readGitState } from '@/rag/git-state.js';
 import { stampFeatureDocument } from './bundle-document.js';
 import type { EnvelopeHeader } from './envelope.js';
 import { listFeatureDirs } from './enumerate.js';
-import { readChangeConstants, readFeatureRecord, updateFeatureRecord } from './feature-record.js';
+import {
+  isFeatureFinished,
+  readChangeConstants,
+  readFeatureRecord,
+  updateFeatureRecord,
+} from './feature-record.js';
 import { featureChangeKey, featureFilePath } from './paths.js';
 
 export { listFeatureDirs };
@@ -38,11 +43,23 @@ export interface DeliveryPush {
   at: string;
 }
 
+export type DeliveryPrState = 'open' | 'merged' | 'closed';
+
 export interface DeliveryPr {
   number: number | null;
   url: string | null;
   draft: boolean | null;
+  state?: DeliveryPrState | null;
+  head_sha?: string | null;
   at: string;
+}
+
+export interface DeliveryCiJob {
+  name: string;
+  status: string | null;
+  conclusion: string | null;
+  started_at: string | null;
+  completed_at: string | null;
 }
 
 export interface DeliveryCi {
@@ -52,6 +69,7 @@ export interface DeliveryCi {
   total: number | null;
   reason: string | null;
   source: 'deliver' | 'ci-gate' | 'stop-check';
+  jobs?: DeliveryCiJob[];
   at: string;
 }
 
@@ -321,7 +339,7 @@ export function resolveDeliveryFeatureByBranch(
   const newest = (dirs: string[]): string | null =>
     [...dirs].sort((x, y) => featureChangeKey(x).localeCompare(featureChangeKey(y))).at(-1) ?? null;
   const notDone = matches.filter(
-    (dirName) => readFeatureRecord(projectRoot, dirName)?.status !== 'done',
+    (dirName) => !isFeatureFinished(readFeatureRecord(projectRoot, dirName)?.status),
   );
   return newest(notDone.length > 0 ? notDone : matches);
 }

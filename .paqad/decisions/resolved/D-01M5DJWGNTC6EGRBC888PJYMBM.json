@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5DJWGNTC6EGRBC888PJYMBM",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on this request",
+  "context": "Chief architect: This pins the scope shut and matches the request's guardrail and the design's out-of-scope list. Whether to split the leak fix from the redesign is a sequencing choice only the owner can make, so it is asked as its own question rather than settled here.\n\nTarget: this request\n- solution-architect: out of scope: instruments for other workflows, any change to what a gate decides, any hook stdout or decision, hooks.json and the settings golden, /paqad subcommands other than show, graph-ui; tests/e2e/stage-enforcement-contract.e2e.test.ts passes unedited\n- solution-architect: the change spans engine (src/hud, src/feature-evidence, src/cost, src/delivery, src/pipeline), one SessionStart hook and the mod; a single PR is large, and splitting engine scoping (the critical leak) from the band and Ledger redesign would let the leak fix ship first\n\n[expert-conflict-fork:dc01ea90351400c1]",
+  "options": [
+    {
+      "option_key": "out-of-scope-instruments-for-other-workf",
+      "label": "out of scope: instruments for other workflows, any change to what a gate decides, any hook stdout or decision, hooks.json and the settings golden, /paqad subcommands other than show, graph-ui; tests/e2e/stage-enforcement-contract.e2e.test.ts passes unedited — solution-architect",
+      "one_line_preview": "out of scope: instruments for other workflows, any change to what a gate decides, any hook stdout or decision, hooks.json and the settings golden, /paqad subcommands other than show, graph-ui; tests/e2e/stage-enforcement-contract.e2e.test.ts passes unedited — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-change-spans-engine-src-hud-src-feat",
+      "label": "the change spans engine (src/hud, src/feature-evidence, src/cost, src/delivery, src/pipeline), one SessionStart hook and the mod; a single PR is large, and splitting engine scoping (the critical leak) from the band and Ledger redesign would let the leak fix ship first — solution-architect",
+      "one_line_preview": "the change spans engine (src/hud, src/feature-evidence, src/cost, src/delivery, src/pipeline), one SessionStart hook and the mod; a single PR is large, and splitting engine scoping (the critical leak) from the band and Ledger redesign would let the leak fix ship first — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "out-of-scope-instruments-for-other-workf",
+  "created_at": "2026-10-20T21:18:40.826Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "chosen": "out-of-scope-instruments-for-other-workf",
+  "rationale": "Owner: build all compatible claims as the chief architect recommends; one PR",
+  "resolved_at": "2026-10-20T21:48:06.200Z",
+  "decision_id": "D-01M5DJWGNTC6EGRBC888PJYMBM",
+  "fingerprint": "sha256:3290ea86e968b43100f44d79ae24d5d3496315644e1be7aa4c5247c0d38b96a6",
+  "question": "Experts disagree on this request",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "ttl_until": "2026-11-19T21:18:40.826Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "out-of-scope-instruments-for-other-workf",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T21:48:06.200Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: build all compatible claims as the chief architect recommends; one PR"
+  }
+}

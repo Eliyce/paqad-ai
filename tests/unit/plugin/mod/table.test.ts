@@ -7,13 +7,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { buildHighTableView } from '@/hud/high-table-view.js';
 
-import { layoutBand, rowText, type BandRow } from '../../../../runtime/claude-plugin/mod/band.ts';
+import { roleInitials } from '../../../../runtime/claude-plugin/mod/instruments.ts';
 import { roleWords } from '../../../../runtime/claude-plugin/mod/cost.ts';
-import {
-  VERDICT_WORDS,
-  buildBandView,
-  parseSnapshot,
-} from '../../../../runtime/claude-plugin/mod/model.ts';
+import { VERDICT_WORDS, parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import { PANE_TABS, buildPaneView } from '../../../../runtime/claude-plugin/mod/pane.ts';
 import {
   SEAT_COLOR,
@@ -24,6 +20,8 @@ import {
   isExpertsCall,
   isOpenConflict,
   noTableText,
+  noteTokens,
+  runTokens,
   seatTokens,
   showsTable,
   tableCardLines,
@@ -60,6 +58,8 @@ import type {
   PaqadHudSnapshot,
 } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
 
+import { bandOf, blockLines, blockOf, layoutLines } from './band-text.ts';
+
 type Raw = Record<string, unknown>;
 const parse = (raw: Raw): PaqadHudSnapshot => parseSnapshot(fileText(raw))!;
 type WithTable = PaqadHudSnapshot & { table: PaqadHighTable };
@@ -68,9 +68,10 @@ const withTable = (raw: Raw): WithTable => {
   if (!showsTable(snap)) throw new Error('fixture has no table');
   return snap;
 };
-const bandLines = (raw: Raw, columns = 120, maxRows = 12) =>
-  layoutBand(buildBandView(parse(raw), NOW), { columns, maxRows }).map(rowText);
-const tableRowOf = (raw: Raw) => bandLines(raw).find((line) => line.startsWith('High Table'));
+const tableRowOf = (raw: Raw): string | undefined => {
+  const block = blockOf(bandOf(raw), 'paqad-instrument-table');
+  return block ? blockLines(block).join(' / ') : undefined;
+};
 const text = (line: TableLine) => line.map((segment) => segment.text).join('');
 const cardText = (raw: Raw, now = NOW) => tableCardLines(withTable(raw).table, now).map(text);
 const paneText = (raw: Raw, seat: string | null = null) => {
@@ -197,23 +198,20 @@ describe('the fixture table matches the one paqad writes', () => {
   });
 });
 
-describe('the band instrument (FR-24, AC-56, AC-57)', () => {
-  it('AC-56: shows on ORD-482 and ORD-501, never on ORD-490, and two instruments with the experts off', () => {
-    expect(tableRowOf(GRADUATED_ORD_482)).toBe('High Table  ●●●● chief ●');
-    expect(tableRowOf(FULL_ORD_501)).toBe('High Table  ●●●●●●● chief ●');
+describe('the HIGH TABLE instrument (FR-34, AC-31, AC-56, AC-57)', () => {
+  it('AC-56: shows on ORD-482 and ORD-501, never on the fast lane, paused or with the experts off', () => {
+    expect(tableRowOf(GRADUATED_ORD_482)).toBe(
+      'HIGH TABLE  needs answers / ● ● ● ● │ ◆ / PO AA UF QA   CA',
+    );
+    expect(tableRowOf(FULL_ORD_501)).toBe(
+      'HIGH TABLE  spec approved / ● ● ● ● ● ● ● │ ◆ / PO AA UF QA SA DE PA   CA',
+    );
     expect(tableRowOf(FAST_ORD_490)).toBeUndefined();
     expect(tableRowOf(PAUSED)).toBeUndefined();
-    const off = bandLines(EXPERTS_OFF);
-    expect(off.filter((line) => /^(Stage|High Table|Ship)/.test(line))).toHaveLength(2);
+    expect(tableRowOf(EXPERTS_OFF)).toBeUndefined();
     expect(tableInstrument(parse(EXPERTS_OFF))).toBeNull();
     expect(tableInstrument(parse({ ...FAST_ORD_490, table: FULL_ORD_501.table }))).toBeNull();
     expect(tableInstrument(null)).toBeNull();
-  });
-
-  it('AC-57: after the chief rules, only the dots, plus "1 flag" (or n flags) while one is open', () => {
-    expect(tableRowOf(LATE_TABLE)).toBe('High Table  ●●●●●●● chief ●  1 flag');
-    expect(tableRowOf(ord501At('ruled'))).toBe('High Table  ●●●●●●● chief ●  2 flags');
-    expect(tableRowOf(FULL_ORD_501)).toBe('High Table  ●●●●●●● chief ●');
   });
 
   it('counts the flags from the records: late once, each waiting disagreement, each gap until the freeze', () => {
@@ -224,40 +222,39 @@ describe('the band instrument (FR-24, AC-56, AC-57)', () => {
     expect(isOpenConflict(parse(FULL_ORD_501), 'Customer email in the export')).toBe(false);
   });
 
-  it('says the live count in words while the table sits', () => {
-    expect(ORD_501_SEQUENCE.map(tableRowOf)).toEqual([
-      'High Table  7 seated  ○○○○○○○',
-      'High Table  7 writing  ◐◐◐◐◐◐◐',
-      'High Table  4 writing, 3 done  ●◐●●◐◐◐',
-      'High Table  7 done, the chief architect writing  ●●●●●●● chief ◐',
-      'High Table  ●●●●●●● chief ●  2 flags',
-      'High Table  ●●●●●●● chief ●',
+  it('says the live state in words while the table sits', () => {
+    expect(
+      ORD_501_SEQUENCE.map((raw) => tableRowOf(raw)!.split(' / ').slice(0, 2).join(' / ')),
+    ).toEqual([
+      'HIGH TABLE  7 standing / ○ ○ ○ ○ ○ ○ ○ │ ◇',
+      'HIGH TABLE  0 of 7 notes / ◉ ◉ ◉ ◉ ◉ ◉ ◉ │ ◇',
+      'HIGH TABLE  3 of 7 notes / ● ◉ ● ● ◉ ◉ ◉ │ ◇',
+      'HIGH TABLE  chief is ruling / ● ● ● ● ● ● ● │ ◇',
+      'HIGH TABLE  needs answers / ● ● ● ● ● ● ● │ ◆',
+      'HIGH TABLE  spec approved / ● ● ● ● ● ● ● │ ◆',
     ]);
-    const lateSitting = {
-      ...LATE_TABLE,
-      table: { ...(LATE_TABLE.table as Raw), chief: null },
-    };
-    expect(tableRowOf(lateSitting)).toBe('High Table  7 done, 1 late  ●●●●●●●');
   });
 
-  it('reads "High Table skipped" for a hand-written spec, and "not yet" with nobody seated', () => {
-    expect(tableRowOf(SKIPPED_TABLE)).toBe('High Table skipped');
+  it('reads skipped for a hand-written spec, and standing with nobody seated', () => {
+    expect(tableRowOf(SKIPPED_TABLE)).toBe('HIGH TABLE  skipped');
     const empty = {
       ...GRADUATED_ORD_482,
       table: { ...(SKIPPED_TABLE.table as Raw), skipped: false },
     };
-    expect(tableRowOf(empty)).toBe('High Table  not yet');
+    expect(tableRowOf(empty)).toBe('HIGH TABLE  0 standing / │ ◇ /   CA');
   });
 
-  it('the label opens the pane on the High Table tab, and the dots carry their state colour', () => {
-    const rows = layoutBand(buildBandView(parse(ord501At('landing')), NOW), {
-      columns: 120,
-      maxRows: 12,
-    });
-    const row = rows.find((r) => r[0]?.text === 'High Table') as BandRow;
-    expect(row[0]).toMatchObject({ opens: 'table', dim: true });
-    const dots = row.filter((segment) => Object.values(SEAT_MARK).includes(segment.text));
-    expect(dots.map((d) => d.tone)).toEqual([
+  it('names seats by two letters, with the chief last after a separator', () => {
+    expect(roleInitials('product-owner')).toBe('PO');
+    expect(roleInitials('devops-engineer')).toBe('DO');
+    expect(roleInitials('db-expert')).toBe('DE');
+    expect(roleInitials('auditor')).toBe('AU');
+  });
+
+  it('the label opens the High Table tab, the marks carry their state colour and the chief turns amber when it needs answers', () => {
+    const block = blockOf(bandOf(ord501At('landing')), 'paqad-instrument-table')!;
+    expect(block.title[0]).toMatchObject({ text: 'HIGH TABLE', opens: 'table', dim: true });
+    expect(block.cells.slice(0, 7).map((cell) => cell.top.tone)).toEqual([
       'good',
       'working',
       'good',
@@ -266,26 +263,11 @@ describe('the band instrument (FR-24, AC-56, AC-57)', () => {
       'working',
       'working',
     ]);
-    const late = layoutBand(buildBandView(parse(LATE_TABLE), NOW), { columns: 120, maxRows: 12 });
-    const lateRow = late.find((r) => r[0]?.text === 'High Table')!;
-    expect(lateRow.filter((s) => s.text === '●' && s.tone === 'warn')).toHaveLength(1);
-    expect(lateRow.at(-1)).toEqual({ text: '1 flag', tone: 'warn' });
-  });
-
-  it('fits the box, with the pills on the headline when the rows cannot all fit (FR-28)', () => {
-    for (const raw of [...ORD_501_SEQUENCE, ...ORD_482_SEQUENCE, LATE_TABLE, SKIPPED_TABLE]) {
-      for (const [columns, maxRows] of [
-        [40, 3],
-        [71, 5],
-        [95, 12],
-      ] as const) {
-        const out = bandLines(raw, columns, maxRows);
-        expect(out.length).toBeLessThanOrEqual(maxRows);
-        for (const line of out) expect([...line].length).toBeLessThanOrEqual(columns);
-      }
-    }
-    expect(bandLines(FULL_ORD_501, 95, 4)[0]).toContain('1 flag · cost: not yet');
-    expect(bandLines(FULL_ORD_501, 95, 5).at(-1)).toBe('1 flag · cost: not yet');
+    const late = blockOf(bandOf(LATE_TABLE), 'paqad-instrument-table')!;
+    expect(late.cells.filter((cell) => cell.top.tone === 'warn')).toHaveLength(1);
+    const asking = blockOf(bandOf(ord501At('ruled')), 'paqad-instrument-table')!;
+    expect(asking.cells.at(-1)?.top).toMatchObject({ text: '◆', tone: 'needs-you' });
+    expect(asking.title[1]).toMatchObject({ tone: 'warn' });
   });
 });
 
@@ -318,9 +300,11 @@ describe('the live card (FR-25, AC-58)', () => {
     ]);
     const ruled = cardText(FULL_ORD_501);
     expect(ruled[0]).toBe('High Table · 7 seats · the chief architect ruled: proceed');
-    expect(ruled).toContain('  ● QA engineer: done in 2m 14s, 24,035 tokens (exact), 2 findings');
     expect(ruled).toContain(
-      '  ● Performance analyst: done in 2m 22s, about 1,900 tokens (estimate), 1 finding',
+      '  ● QA engineer: done in 2m 14s, Note: ~900 tokens of its 4K budget. Run: 24K tokens, mostly the code it read (exact), 2 findings',
+    );
+    expect(ruled).toContain(
+      '  ● Performance analyst: done in 2m 22s, Note: ~1.9K tokens of its 5K budget, 1 finding',
     );
     expect(ruled.at(-1)).toBe(
       'Verdict: proceed. 13 findings, 9 accepted, 1 declined, 1 renamed, 1 disagreement, 1 settled before, 1 gap.',
@@ -342,9 +326,26 @@ describe('the live card (FR-25, AC-58)', () => {
   it('says a skipped table is skipped, and labels tokens exact or estimate', () => {
     expect(cardText(SKIPPED_TABLE)).toEqual([SKIPPED_TEXT]);
     const seat = withTable(FULL_ORD_501).table.seats[0]!;
-    expect(seatTokens(seat)).toBe('21,415 tokens (exact)');
-    expect(seatTokens({ ...seat, tokens_exact: false })).toBe('about 900 tokens (estimate)');
-    expect(seatTokens({ ...seat, tokens_exact: false, tokens_estimate: null })).toBeNull();
+    expect(seatTokens(seat)).toBe(
+      'Note: ~900 tokens of its 4K budget. Run: 21.4K tokens, mostly the code it read (exact)',
+    );
+    expect(seatTokens({ ...seat, tokens_exact: false })).toBe(
+      'Note: ~900 tokens of its 4K budget. Run: 21.4K tokens, mostly the code it read (estimate)',
+    );
+    expect(seatTokens({ ...seat, tokens: null, budget_tokens: null })).toBe('Note: ~900 tokens');
+    expect(seatTokens({ ...seat, tokens: null, tokens_estimate: null })).toBeNull();
+  });
+
+  it('AC-22: never prints a note budget and run tokens side by side unlabelled', () => {
+    const seat = {
+      ...withTable(FULL_ORD_501).table.seats[0]!,
+      budget_tokens: 8000,
+      tokens_estimate: 6200,
+      tokens: { input: 0, output: 0, cache_read: 0, cache_write: 0, total: 230490 },
+      tokens_exact: true,
+    };
+    expect(noteTokens(seat)).toBe('Note: ~6.2K tokens of its 8K budget');
+    expect(runTokens(seat)).toBe('Run: 230K tokens, mostly the code it read (exact)');
   });
 });
 
@@ -381,13 +382,12 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
         'DB expert, picked for this change.',
         'Why: the export reads every order in a date range',
         'State: done in 2m 48s.',
-        'Budget: 6,000 tokens granted, cut to the ceiling.',
-        "Tokens: 26,546 (exact, from the host's usage for its agent).",
+        'Run: 26.5K tokens, mostly the code it read (exact).',
         'Findings: 2.',
       ]),
     );
     expect(paneText(FULL_ORD_501, 'qa-engineer')).toContain(
-      'Budget: 4,000 tokens granted, within the ceiling.',
+      'Note: ~900 tokens of its 4K budget, within the ceiling.',
     );
     expect(paneText(FULL_ORD_501, 'chief-architect')).toEqual(
       expect.arrayContaining([
@@ -399,7 +399,10 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
     expect(view.buttons[0]).toMatchObject({ role: 'product-owner', selected: true });
     expect(view.buttons[0]!.label).toBe('Product owner (shown)');
     expect(view.detail.map(text)).toEqual(
-      expect.arrayContaining(['Tokens: not yet. They arrive with its note.', 'Findings: not yet.']),
+      expect.arrayContaining([
+        'Note: not written yet, its budget is 4K tokens, within the ceiling.',
+        'Findings: not yet.',
+      ]),
     );
     expect(view.buttons.map((b) => b.key)).not.toContain('paqad-seat-chief-architect');
     const ruled = tablePaneView(withTable(FULL_ORD_501), null, NOW);
@@ -418,8 +421,9 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
           line.endsWith('The choice is yours.'),
       ),
     ).toBe(true);
+    expect(lines).toContain('Who shaped the spec');
     expect(lines).toContain(
-      'Who shaped the spec: not yet. Each line is credited when the spec is frozen.',
+      'Shown when the spec is frozen: each spec line with the experts who shaped it.',
     );
     const late = tablePaneView(withTable(LATE_TABLE), 'security-auditor', NOW);
     expect(late.detail.at(-1)).toEqual([
@@ -471,19 +475,19 @@ describe("the pane's High Table tab (FR-26, AC-59)", () => {
     expect(one).toContain(' 0 1 1 ');
   });
 
-  it('opens on the High Table until a tab is picked, and says why when there is none', () => {
+  it('AC-32: shows Who shaped the spec on its tab, and says why when there is no table', () => {
     expect(PANE_TABS.map((tab) => tab.label)).toEqual([
-      'High Table',
-      'Cost',
       'Trust',
+      'High Table',
       'Ships',
       'Record',
+      'Cost',
     ]);
-    const writing = buildPaneView(parse(ord501At('writing')), null, { now: NOW });
+    const writing = buildPaneView(parse(ord501At('writing')), 'table', { now: NOW });
     expect(writing.tabs.find((tab) => tab.selected)?.id).toBe('table');
     expect(writing.table).not.toBeNull();
-    expect(buildPaneView(parse(ord501At('writing')), 'cost').tabs[1]!.selected).toBe(true);
-    expect(buildPaneView(parse(FAST_ORD_490), null).tabs[1]!.selected).toBe(true);
+    expect(writing.table!.rulings.map(text)).toContain('Who shaped the spec');
+    expect(buildPaneView(parse(ord501At('writing')), null).tabs[0]!.selected).toBe(true);
     expect(buildPaneView(parse(FAST_ORD_490), 'table').lines).toEqual([
       'The fast lane seats no High Table.',
     ]);
@@ -572,17 +576,17 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
     expect(
       writing!.slice(1, 5).every((line) => line.includes('writing') && !line.includes('tokens')),
     ).toBe(true);
-    expect(landing!.slice(1, 5).map((line) => line.includes('tokens (exact)'))).toEqual([
+    expect(landing!.slice(1, 5).map((line) => line.includes('(exact)'))).toEqual([
       true,
       false,
       true,
       false,
     ]);
-    expect(ruled!.slice(1, 5).every((line) => line.includes('tokens (exact)'))).toBe(true);
+    expect(ruled!.slice(1, 5).every((line) => line.includes('(exact)'))).toBe(true);
     expect(ORD_482_SEQUENCE.map(tableRowOf)).toEqual([
-      'High Table  4 writing  ◐◐◐◐',
-      'High Table  2 writing, 2 done  ●◐●◐',
-      'High Table  ●●●● chief ●',
+      'HIGH TABLE  0 of 4 notes / ◉ ◉ ◉ ◉ │ ◇ / PO AA UF QA   CA',
+      'HIGH TABLE  2 of 4 notes / ● ◉ ● ◉ │ ◇ / PO AA UF QA   CA',
+      'HIGH TABLE  needs answers / ● ● ● ● │ ◆ / PO AA UF QA   CA',
     ]);
   });
 });
@@ -601,9 +605,8 @@ function allLines(): TableLine[] {
   const lines: TableLine[] = [];
   for (const raw of COPY_FIXTURES) {
     const snap = parse(raw);
-    for (const row of layoutBand(buildBandView(snap, NOW), { columns: 200, maxRows: 12 })) {
-      lines.push(row);
-    }
+    for (const line of layoutLines(bandOf(raw, 200, 12))) lines.push([{ text: line }]);
+    void snap;
     for (const tab of ['table', 'cost'] as const) {
       const view = buildPaneView(snap, tab, { now: NOW });
       lines.push([{ text: view.tabs.map((t) => t.label).join(' ') }]);

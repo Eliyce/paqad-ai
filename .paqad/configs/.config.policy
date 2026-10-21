@@ -97,3 +97,7 @@ spec_pipeline_token_ceiling=60000
 # ── Added in a newer paqad version ────────────────────────────
 # Comma-separated expert roles that sit at the table on EVERY spec run once spec_pipeline_experts_enabled is on, whatever the detector picked (issue #558). Default: product-owner,application-architect,user-flow-writer,qa-engineer. The other experts stay on call and are picked per request. Empty means no standing experts (the detector alone decides, as before). A role outside the expert roster is ignored with a doctor warning. No effect while the pipeline or the experts are off. (env: PAQAD_SPEC_PIPELINE_STANDING_EXPERTS)
 # spec_pipeline_standing_experts=product-owner,application-architect,user-flow-writer,qa-engineer
+
+# ── Added in a newer paqad version ────────────────────────────
+# off | warn | strict: mutation testing on changed code (issue #293). Opt-in: off by default. It runs only where the project calls runtime/scripts/verify-backstop.mjs from its own CI or pre-push hook, never at the end of an agent turn, and the project supplies the mutation tool for its stack. The project test command runs first; a red suite reads did not run. warn: a surviving mutant reads Inconclusive. strict: it fails the check. (env: PAQAD_MUTATION_MODE)
+# mutation_mode=off

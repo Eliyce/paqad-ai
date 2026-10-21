@@ -7,6 +7,8 @@ import {
   stageSegments,
   type BandView,
 } from './model';
+import { shipRail, STEP_WORDS } from './ship';
+import { SHOWN_AGAIN } from './visibility';
 import { linesText, recordLines, shipsLines, trustLines } from './tabs';
 import type { PaqadFindingsScan, PaqadHudSnapshot, PaqadStandDown } from './types';
 
@@ -20,6 +22,7 @@ export const SUBCOMMANDS = [
   'trust',
   'ships',
   'record',
+  'show',
 ] as const;
 
 export interface CommandInput {
@@ -28,10 +31,11 @@ export interface CommandInput {
   snapshot: PaqadHudSnapshot | null;
   receipt: string | null;
   now: number;
+  repoDecisions?: readonly RepoDecision[];
 }
 
 const HELP =
-  'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships or /paqad record.';
+  'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.';
 
 const STAND_DOWN_WORDS: Record<PaqadStandDown, string> = {
   'view-off': 'the paqad HUD is turned off in the plugin settings',
@@ -57,8 +61,10 @@ function stageLine(view: BandView): string {
     .join(', ')}.`;
 }
 
-function shipLine(view: BandView): string {
-  return `Ship: ${view.ship.map((step) => `${step.label} ${step.word}`).join(', ')}.`;
+function shipLine(snapshot: PaqadHudSnapshot): string {
+  return `Ship: ${shipRail(snapshot)
+    .steps.map((step) => `${step.label} ${STEP_WORDS[step.state]}`)
+    .join(', ')}.`;
 }
 
 function stateLine(view: BandView): string {
@@ -69,7 +75,7 @@ function stateLine(view: BandView): string {
 
 function overview(snapshot: PaqadHudSnapshot, now: number): string {
   const view = buildBandView(snapshot, now);
-  return [stateLine(view), stageLine(view), shipLine(view), view.cost, HELP].join('\n');
+  return [stateLine(view), stageLine(view), shipLine(snapshot), view.cost, HELP].join('\n');
 }
 
 function status(snapshot: PaqadHudSnapshot, now: number): string {
@@ -101,14 +107,38 @@ function status(snapshot: PaqadHudSnapshot, now: number): string {
   return lines.join('\n');
 }
 
-function decisions(snapshot: PaqadHudSnapshot): string {
-  const { pending, resolved } = snapshot.decisions;
-  const done = `${resolved} resolved.`;
-  if (pending.length === 0) return `No decision is waiting. ${done}`;
+export interface RepoDecision {
+  id: string;
+  category: string;
+  question: string;
+}
+
+function decisions(snapshot: PaqadHudSnapshot, repo: readonly RepoDecision[] | undefined): string {
+  const pending = repo ?? snapshot.decisions.pending;
+  const where = repo ? ' in this repo' : '';
+  const done = `${snapshot.decisions.resolved} resolved for this change.`;
+  if (pending.length === 0) return `No decision is waiting${where}. ${done}`;
   return [
-    `${pending.length} decision${pending.length === 1 ? '' : 's'} waiting. ${done}`,
+    `${pending.length} decision${pending.length === 1 ? '' : 's'} waiting${where}. ${done}`,
     ...pending.map((d) => `  ${d.id} (${d.category}): ${d.question || 'no question recorded'}`),
   ].join('\n');
+}
+
+export function readRepoDecision(name: string, text: string | null): RepoDecision {
+  const fallback = name.replace(/\.json$/, '');
+  let packet: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = text === null ? null : JSON.parse(text);
+    if (typeof parsed === 'object' && parsed !== null) packet = parsed as Record<string, unknown>;
+  } catch {
+    packet = {};
+  }
+  const word = (key: string) => (typeof packet[key] === 'string' ? (packet[key] as string) : null);
+  return {
+    id: word('id') ?? word('decision_id') ?? fallback,
+    category: word('category') ?? 'unknown',
+    question: word('question') ?? word('title') ?? '',
+  };
 }
 
 function scanLine(label: string, scan: PaqadFindingsScan | undefined): string {
@@ -150,17 +180,18 @@ export function runPaqadCommand(input: CommandInput): { text: string } {
   if (input.standDown) return { text: notActiveText(input.standDown) };
   const sub = input.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
   if (sub === 'receipt') return { text: receipt(input.receipt) };
+  if (sub === 'show') return { text: SHOWN_AGAIN };
   if (sub !== '' && !(SUBCOMMANDS as readonly string[]).includes(sub)) {
     return { text: `There is no /paqad ${sub}. ${HELP}` };
   }
   const snapshot = input.snapshot;
   if (!snapshot) return { text: `${NO_RECORD} ${HELP}` };
   if (sub === 'status') return { text: status(snapshot, input.now) };
-  if (sub === 'decisions') return { text: decisions(snapshot) };
+  if (sub === 'decisions') return { text: decisions(snapshot, input.repoDecisions) };
   if (sub === 'rules') return { text: rules(snapshot) };
   if (sub === 'cost') return { text: cost(snapshot) };
   if (sub === 'trust') return { text: linesText(trustLines(snapshot)) };
-  if (sub === 'ships') return { text: linesText(shipsLines(snapshot)) };
+  if (sub === 'ships') return { text: linesText(shipsLines(snapshot, input.now)) };
   if (sub === 'record') return { text: linesText(recordLines(snapshot)) };
   return { text: overview(snapshot, input.now) };
 }

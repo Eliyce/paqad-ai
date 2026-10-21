@@ -16,6 +16,12 @@ import type {
   LegacyFeatureRecord,
 } from './types.js';
 
+const FINISHED_FEATURE_STATUSES: ReadonlySet<FeatureStatus> = new Set(['done', 'abandoned']);
+
+export function isFeatureFinished(status: FeatureStatus | null | undefined): boolean {
+  return status !== null && status !== undefined && FINISHED_FEATURE_STATUSES.has(status);
+}
+
 function atomicWriteJson(absPath: string, value: unknown): void {
   mkdirSync(dirname(absPath), { recursive: true });
   const tmp = `${absPath}.tmp`;

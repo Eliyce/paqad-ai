@@ -8,6 +8,7 @@ import { createRulesCommand } from '@/cli/commands/rules.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { readRuleOverrides } from '@/feature-evidence/rule-overrides.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { buildHudSnapshot } from '@/hud/snapshot.js';
 import { readRuleStopRecord, writeRuleStopRecord } from '@/hud/last-block.js';
 import {
@@ -28,6 +29,7 @@ describe('paqad-ai rules override', () => {
     root = mkdtempSync(join(tmpdir(), 'paqad-rules-override-'));
     mkdirSync(join(root, '.paqad'), { recursive: true });
     dir = openFeatureChange(root, SES, { adapter: 'claude-code', lane: 'fast' });
+    writeWorkflowState(root, SES, { active: { workflow: 'feature-development' }, paused: [] });
     noManaged = [join(root, 'no-managed.json')];
   });
 

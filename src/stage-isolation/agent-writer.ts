@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import Handlebars from 'handlebars';
 
+import { resolveStageAgentSettings, type StageAgentSetting } from '@/core/framework-config.js';
 import { getRuntimeTemplatesRoot } from '@/core/runtime-paths.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
@@ -42,12 +43,21 @@ export interface WriteStageAgentsOptions {
   homeDir?: string;
 }
 
-function agentContext(def: StageAgentDef): Record<string, unknown> {
+const CLAUDE_CODE_ADAPTER = 'claude-code';
+
+function agentContext(
+  def: StageAgentDef,
+  setting: StageAgentSetting,
+  adapter: string,
+): Record<string, unknown> {
   return {
     agentName: def.agentName,
     description: `paqad feature-development stage: ${def.ledgerStage}. Dispatched by the paqad orchestrator only.`,
     tools: def.claudeTools,
-    body: buildStageAgentBody(def),
+    model: setting.model,
+    effort: setting.effort === 'inherit' ? undefined : setting.effort,
+    omitClaudeMd: adapter === CLAUDE_CODE_ADAPTER,
+    body: buildStageAgentBody(def, adapter),
   };
 }
 
@@ -56,15 +66,19 @@ function highTableAgentContext(def: HighTableAgentDef): Record<string, unknown> 
     agentName: def.agentName,
     description: def.description,
     tools: def.claudeTools,
+    model: 'inherit',
     body: buildHighTableAgentBody(def),
   };
 }
 
-function allAgentContexts(): { agentName: string; context: Record<string, unknown> }[] {
+function allAgentContexts(
+  adapter: string,
+  settings: Record<string, StageAgentSetting> = resolveStageAgentSettings(),
+): { agentName: string; context: Record<string, unknown> }[] {
   return [
     ...MANDATORY_STAGE_AGENTS.map((def) => ({
       agentName: def.agentName,
-      context: agentContext(def),
+      context: agentContext(def, settings[def.ledgerStage]!, adapter),
     })),
     ...HIGH_TABLE_AGENTS.map((def) => ({
       agentName: def.agentName,
@@ -73,19 +87,40 @@ function allAgentContexts(): { agentName: string; context: Record<string, unknow
   ];
 }
 
+function renderHostAgents(
+  host: HostTarget,
+  settings?: Record<string, StageAgentSetting>,
+): { name: string; content: string }[] {
+  const templateSource = readFileSync(
+    join(getRuntimeTemplatesRoot(), 'stage-agents', host.template),
+    'utf8',
+  );
+  const template = Handlebars.compile(templateSource);
+  return allAgentContexts(host.adapter, settings).map(({ agentName, context }) => ({
+    name: `${agentName}.${host.extension}`,
+    content: template(context),
+  }));
+}
+
+export function renderStageAgentFiles(
+  adapter: string,
+  settings?: Record<string, StageAgentSetting>,
+): { name: string; content: string }[] {
+  const host = STAGE_AGENT_HOSTS.find((candidate) => candidate.adapter === adapter);
+  if (!host) {
+    throw new Error(`no stage-agent host configured for "${adapter}"`);
+  }
+  return renderHostAgents(host, settings);
+}
+
 export function writeStageAgents(options: WriteStageAgentsOptions = {}): string[] {
   const home = options.homeDir ?? homedir();
-  const templatesRoot = getRuntimeTemplatesRoot();
   const written: string[] = [];
-
   for (const host of STAGE_AGENT_HOSTS) {
     const dir = join(home, host.agentsSubdir);
     mkdirSync(dir, { recursive: true });
-    const templateSource = readFileSync(join(templatesRoot, 'stage-agents', host.template), 'utf8');
-    const template = Handlebars.compile(templateSource);
-    for (const { agentName, context } of allAgentContexts()) {
-      const content = template(context);
-      const filePath = join(dir, `${agentName}.${host.extension}`);
+    for (const { name, content } of renderHostAgents(host)) {
+      const filePath = join(dir, name);
       writeFileSync(filePath, content, 'utf8');
       written.push(toPosixPath(filePath));
     }
@@ -94,18 +129,7 @@ export function writeStageAgents(options: WriteStageAgentsOptions = {}): string[
 }
 
 export function renderClaudePluginStageAgents(): { name: string; content: string }[] {
-  const templatesRoot = getRuntimeTemplatesRoot();
-  const host = STAGE_AGENT_HOSTS.find((candidate) => candidate.adapter === 'claude-code');
-  /* v8 ignore next 3 -- the claude-code host is a static list entry; this guard is defensive */
-  if (!host) {
-    throw new Error('no claude-code stage-agent host configured');
-  }
-  const templateSource = readFileSync(join(templatesRoot, 'stage-agents', host.template), 'utf8');
-  const template = Handlebars.compile(templateSource);
-  return allAgentContexts().map(({ agentName, context }) => ({
-    name: `${agentName}.${host.extension}`,
-    content: template(context),
-  }));
+  return renderStageAgentFiles(CLAUDE_CODE_ADAPTER);
 }
 
 export function writeClaudePluginStageAgents(destDir: string): string[] {

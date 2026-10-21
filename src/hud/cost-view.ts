@@ -1,6 +1,7 @@
 import {
   readChangeCost,
   type ChangeCostRecord,
+  type CostScope,
   type CostExpertLine,
   type CostLine,
   type CostStageLine,
@@ -11,6 +12,7 @@ import {
 export interface HudCost {
   computed_at: string;
   window: CostWindow;
+  scope: CostScope;
   price_table_date: string;
   price_source: string;
   basis: string;
@@ -29,6 +31,7 @@ export function hudCostOf(record: ChangeCostRecord): HudCost {
   return {
     computed_at: record.computed_at,
     window: record.window,
+    scope: record.scope ?? 'whole-session',
     price_table_date: record.price_table_date,
     price_source: record.price_source,
     basis: record.basis,

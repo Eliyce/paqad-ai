@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,6 +21,7 @@ import { readPendingKind, readPendingLane } from '@/stage-evidence/pending-lane.
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { startStage } from '@/stage-evidence/recorder.js';
 import { readWorkflowState, writeWorkflowState } from '@/pipeline/workflow-state.js';
+import { readRouteTurns, routeTurnsPath } from '@/pipeline/route-turns.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { ticketRef } from '../../shared/ticket-ref.js';
@@ -336,6 +337,55 @@ describe('runPromptRouteSeam', () => {
       paused: [],
       turn_started_at: '2026-03-01T11:30:00.000Z',
     });
+  });
+
+  it('appends one route-turn row per routed prompt', async () => {
+    const sessionId = resolveSessionId(root, SESSION);
+    const ask = (at: string, workflow: ClassificationResult['workflow']) =>
+      runPromptRouteSeam(
+        { projectRoot: root, request: 'explain the router', sessionId: SESSION, adapter: ADAPTER },
+        { classify: async () => classificationWith(workflow), now: () => new Date(at) },
+      );
+
+    await ask('2026-03-01T10:00:00.000Z', 'project-question');
+    await ask('2026-03-01T10:10:00.000Z', 'pentest');
+    expect(readRouteTurns(root, sessionId)).toEqual([
+      { at: '2026-03-01T10:00:00.000Z', workflow: 'project-question' },
+      { at: '2026-03-01T10:10:00.000Z', workflow: 'pentest' },
+    ]);
+  });
+
+  it('routes byte-identically when the route-turn append throws', async () => {
+    const run = (projectRoot: string) =>
+      runPromptRouteSeam(
+        {
+          projectRoot,
+          request: 'implement a schema migration adding a pii payment column',
+          sessionId: SESSION,
+          adapter: ADAPTER,
+        },
+        { now: () => new Date('2026-03-01T10:00:00.000Z') },
+      );
+    const brokenRoot = mkdtempSync(join(tmpdir(), 'paqad-route-seam-broken-'));
+    try {
+      mkdirSync(routeTurnsPath(brokenRoot, resolveSessionId(brokenRoot, SESSION)), {
+        recursive: true,
+      });
+      const healthy = await run(root);
+      const broken = await run(brokenRoot);
+      expect(broken).toEqual(healthy);
+      expect(readWorkflowState(brokenRoot, resolveSessionId(brokenRoot, SESSION))).toEqual(
+        readWorkflowState(root, resolveSessionId(root, SESSION)),
+      );
+      expect(readPendingLane(brokenRoot, resolveSessionId(brokenRoot, SESSION))).toBe(
+        readPendingLane(root, resolveSessionId(root, SESSION)),
+      );
+      expect(readFileSync(join(brokenRoot, '.paqad', 'logs', 'hooks.log'), 'utf8')).toContain(
+        'route-turns: append failed',
+      );
+    } finally {
+      rmSync(brokenRoot, { recursive: true, force: true });
+    }
   });
 });
 

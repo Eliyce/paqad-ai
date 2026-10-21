@@ -63,7 +63,7 @@ describe('HUD snapshot from the real hooks', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe('');
     const snapshot = JSON.parse(readFileSync(hudPath(root, 'ses-e2e'), 'utf8'));
-    expect(snapshot).toMatchObject({ schema: 'paqad.hud/2', session_id: 'ses-e2e' });
+    expect(snapshot).toMatchObject({ schema: 'paqad.hud/3', session_id: 'ses-e2e' });
   });
 
   it('a plugin hook in a repo that was never onboarded writes nothing at all', async () => {
@@ -112,6 +112,6 @@ describe('HUD snapshot from the real hooks', () => {
     expect(results.map((r) => r.exitCode)).toEqual([0, 0]);
     expect(broken).toBe(0);
     expect(reads).toBeGreaterThan(0);
-    expect(JSON.parse(readFileSync(hudPath(root, 'ses-race'), 'utf8')).schema).toBe('paqad.hud/2');
+    expect(JSON.parse(readFileSync(hudPath(root, 'ses-race'), 'utf8')).schema).toBe('paqad.hud/3');
   }, 60_000);
 });

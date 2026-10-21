@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5DTY78K20D7FAZQHY6E2CR5",
+  "category": "spec.change",
+  "title": "FR-9: which PR counts as this change's PR",
+  "context": "Frozen FR-9 says the PR counts as this change's PR only when its head commit is one of the change's own_shas, otherwise the rail shows no PR. Fix commit 46f06075 (src/hud/snapshot.ts:387-400 ownPr) now also keeps two PRs FR-9 would drop: (1) a PR with state merged whose head is a commit recorded in this change's delivery.commits and not inherited, because after a merge-commit merge the base holds the branch tip, own_shas becomes empty and FR-37/INV-10 could never light Merge; (2) a legacy PR saved with no head_sha and no state, kept so the spec edge case 'a delivery.json without pr.state reads Merge as unknown' holds (it reads PR #n, Merge unknown, never merged, never all green). No path lights Merge without pr.state merged, so INV-10 holds. The code matches the spec's intent but not FR-9's literal words.",
+  "options": [
+    {
+      "option_key": "amend",
+      "label": "Amend FR-9 to match the code: own PR = head in own_shas, or a merged PR whose head is a recorded non-inherited commit of this change; a legacy PR with no head and no state is kept and reads Merge unknown",
+      "one_line_preview": "Amend FR-9 to match the code: own PR = head in own_shas, or a merged PR whose head is a recorded non-inherited commit of this change; a legacy PR with no head and no state is kept and reads Merge unknown",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "revert",
+      "label": "Keep FR-9 literal: revert 46f06075 so a merge-commit merged PR disappears from the rail and a legacy PR reads not yet",
+      "one_line_preview": "Keep FR-9 literal: revert 46f06075 so a merge-commit merged PR disappears from the rail and a legacy PR reads not yet",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "amend-merged-only",
+      "label": "Amend FR-9 for the merged case only; drop a legacy PR with no head (Merge reads not yet, not unknown) and reword the edge case",
+      "one_line_preview": "Amend FR-9 for the merged case only; drop a legacy PR with no head (Merge reads not yet, not unknown) and reword the edge case",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "amend",
+  "created_at": "2026-10-20T23:39:25.331Z",
+  "status": "resolved",
+  "change": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "chosen": "amend",
+  "rationale": "Owner: amend FR-9 to match the code (merged PR with own non-inherited head; legacy PR with no head/state reads Merge unknown)",
+  "resolved_at": "2026-10-21T02:38:27.943Z",
+  "decision_id": "D-01M5DTY78K20D7FAZQHY6E2CR5",
+  "fingerprint": "sha256:1311327ac75037437b9f46b036467023493be7da8577c03d491790a3730e51b0",
+  "question": "FR-9: which PR counts as this change's PR",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "ttl_until": "2026-11-19T23:39:25.331Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "amend",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T02:38:27.943Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: amend FR-9 to match the code (merged PR with own non-inherited head; legacy PR with no head/state reads Merge unknown)"
+  }
+}

@@ -1,11 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import { ticketRef } from '../../../shared/ticket-ref.js';
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
-import { parseSnapshot, shipSteps } from '../../../../runtime/claude-plugin/mod/model.ts';
+import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   SHORT_TAB_COLUMNS,
-  autoTab,
   buildPaneView,
   shownTab,
 } from '../../../../runtime/claude-plugin/mod/pane.ts';
@@ -14,12 +12,12 @@ import {
   NO_GATES,
   NO_PLAN,
   NOTHING_PUSHED,
-  deliveryInProgress,
+  NOT_JUDGED,
+  NOT_JUDGED_WHY,
   gateRing,
   linesText,
   recordLines,
   requiredGates,
-  shipsLines,
   trustLines,
 } from '../../../../runtime/claude-plugin/mod/tabs.ts';
 import {
@@ -28,9 +26,7 @@ import {
   NOW,
   PAUSED,
   fileText,
-  ord501At,
   snapshot,
-  stages,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 
 const parse = (raw: Record<string, unknown>) => parseSnapshot(fileText(raw))!;
@@ -44,17 +40,6 @@ const GATES = [
   { name: 'late-gate', required: true, strength: null, verdict: 'did-not-run' },
 ];
 
-const SHIPPING = {
-  commits: 76,
-  commit_decision: 'commit',
-  merge_commit: null,
-  push: { state: 'pushed', branch: 'feat/ORD-501-csv-export', sha: 'abc', at: 'x' },
-  pr: { number: 12, url: 'https://example.test/pull/12', draft: true, at: 'x' },
-  ci: { sha: 'abc', state: 'pending', done: 3, total: 7, reason: null, source: 'deliver', at: 'x' },
-  own: { count: 3, tickets: ['ORD-501'], merges: 0, untagged: 0 },
-  inherited: { count: 73, tickets: ['ORD-470', 'ORD-471'], merges: 2, untagged: 5 },
-};
-
 const PRESENT = (files: string[]) =>
   files.map((file) => ({ file, expectation: 'always', present: true }));
 
@@ -63,9 +48,9 @@ describe('the Trust tab', () => {
     const lines = text(trustLines(parse({ ...FULL_ORD_501, gates: GATES })));
     expect(lines[0]).toBe('Verdict Safe to merge');
     expect(lines).toContain('Deterministic');
-    expect(lines).toContain('  ● code-tests-lint  passed');
-    expect(lines).toContain('  ✗ duplication  failed');
-    expect(lines).toContain('  - mutation-testing  not required');
+    expect(lines).toContain('  ● code-tests-lint  pass');
+    expect(lines).toContain('  ✗ duplication  fail');
+    expect(lines).toContain('  – mutation-testing  not required');
     expect(lines).toContain('Judged by a model');
     expect(lines).toContain('  ~ review-quality  inconclusive');
     expect(lines).toContain('Strength not recorded');
@@ -82,7 +67,7 @@ describe('the Trust tab', () => {
       'late-gate',
     ]);
     const ring = gateRing(gates);
-    expect(ring.map((segment) => segment.text).join('')).toBe('Gates ●✗~○  1 of 4 required passed');
+    expect(ring.map((segment) => segment.text).join('')).toBe('Gates ●✗~○  1/4 required');
     expect(ring.filter((segment) => segment.tone).map((segment) => segment.tone)).toEqual([
       'good',
       'bad',
@@ -115,7 +100,7 @@ describe('the Trust tab', () => {
         }),
       ),
     );
-    expect(lines).toContain('Claims');
+    expect(lines).toContain('Claims and the tests that prove them');
     expect(lines).toContain(
       '  Fix proof: fails before the fix, passes after  passed  proving test tests/orders.test.ts > keeps the phone',
     );
@@ -164,96 +149,17 @@ describe('the Trust tab', () => {
   });
 
   it('names its empty state when no gate was judged', () => {
-    expect(text(trustLines(parse({ ...FAST_ORD_490 })))).toEqual([NO_GATES]);
+    expect(text(trustLines(parse({ ...FAST_ORD_490 })))).toEqual([
+      NOT_JUDGED,
+      NOT_JUDGED_WHY,
+      NO_GATES,
+      'Claims and the tests that prove them',
+      '  No claim recorded for this change.',
+      'Flags',
+      '  No flag is open.',
+    ]);
     expect(text(trustLines(null))).toEqual([NO_GATES]);
     expect(text(trustLines(parse(PAUSED)))).toEqual(['No change is in progress.']);
-  });
-});
-
-describe('the Ships tab', () => {
-  it('shows own and riding-along commits, PR, a partial CI, merge and rollback', () => {
-    const lines = text(shipsLines(parse({ ...FULL_ORD_501, ship: SHIPPING })));
-    expect(lines).toEqual([
-      'Own          3 commits, from ORD-501',
-      'Riding along 73 commits, from ORD-470, ORD-471, 2 merges, 5 with no ticket',
-      'Push         pushed to feat/ORD-501-csv-export',
-      `PR           draft ${ticketRef(12)} https://example.test/pull/12`,
-      'CI           running, 3 of 7 done',
-      'Merge        stays yours',
-      'Rollback     nothing merged, so nothing to undo',
-    ]);
-  });
-
-  it('shows only untagged earlier commits neutrally and keeps amber for other tickets', () => {
-    const untagged = { ...SHIPPING, inherited: { count: 4, tickets: [], merges: 0, untagged: 4 } };
-    const quiet = shipsLines(parse({ ...FULL_ORD_501, ship: untagged }));
-    const riding = quiet.find((line) => line[0]?.text.startsWith('Riding along'))!;
-    expect(riding[1]).toEqual({ text: '4 commits, untagged, made before this change started' });
-    const single = { ...SHIPPING, inherited: { count: 1, tickets: [], merges: 0, untagged: 1 } };
-    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: single })))).toContain(
-      'Riding along 1 commit, untagged, made before this change started',
-    );
-    const other = shipsLines(parse({ ...FULL_ORD_501, ship: SHIPPING }));
-    const flagged = other.find((line) => line[0]?.text.startsWith('Riding along'))!;
-    expect(flagged[1]).toMatchObject({ tone: 'warn' });
-  });
-
-  it('reads CI unknown, never green, when it was never saved, and names an unknown reason', () => {
-    const never = { ...SHIPPING, ci: null };
-    const ships = shipsLines(parse({ ...FULL_ORD_501, ship: never }));
-    const ci = ships.find((line) => line[0]?.text.startsWith('CI'))!;
-    expect(ci[1]).toEqual({ text: 'unknown, never recorded', tone: 'warn' });
-    const unknown = { ...SHIPPING, ci: { state: 'unknown', reason: 'gh is signed out' } };
-    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: unknown })))).toContain(
-      'CI           unknown: gh is signed out',
-    );
-    const passed = { ...SHIPPING, ci: { state: 'pass', done: 7, total: 7 } };
-    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: passed })))).toContain(
-      'CI           passed',
-    );
-    const failed = { ...SHIPPING, ci: { state: 'fail' } };
-    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: failed })))).toContain(
-      'CI           failed',
-    );
-  });
-
-  it('gives the revert for a merged change and reads an unknown split in words', () => {
-    const merged = {
-      ...SHIPPING,
-      merge_commit: 'f00d',
-      own: null,
-      inherited: null,
-      push: { state: 'failed' },
-      pr: null,
-    };
-    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: merged })))).toEqual([
-      'Own          76 commits, split unknown',
-      'Riding along unknown',
-      'Push         failed',
-      'PR           not yet',
-      'CI           running, 3 of 7 done',
-      'Merge        merged f00d',
-      'Rollback     git revert -m 1 f00d',
-    ]);
-    const alone = { ...SHIPPING, inherited: { count: 0, tickets: [], merges: 0, untagged: 0 } };
-    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: alone })))[1]).toBe('Riding along none');
-  });
-
-  it('names its empty state when nothing shipped', () => {
-    expect(text(shipsLines(parse({ ...FULL_ORD_501, ship: null })))).toEqual([NOTHING_PUSHED]);
-    expect(text(shipsLines(parse(FAST_ORD_490)))).toEqual([NOTHING_PUSHED]);
-    expect(text(shipsLines(null))).toEqual([NOTHING_PUSHED]);
-  });
-
-  it('keeps a failing CI off the band as done', () => {
-    const steps = shipSteps(
-      parse({ ...FULL_ORD_501, ship: { ...SHIPPING, ci: { state: 'fail' } } }),
-    );
-    expect(steps.find((step) => step.label === 'CI')).toEqual({
-      label: 'CI',
-      word: 'fail',
-      done: false,
-    });
   });
 });
 
@@ -292,44 +198,36 @@ describe('the Record tab', () => {
   });
 });
 
-describe('which tab the pane opens on', () => {
+describe('which tab the Ledger opens on (FR-55, AC-39)', () => {
   const verdictLanded = parse({ ...FULL_ORD_501 });
-  const delivering = parse({
-    ...FULL_ORD_501,
-    stages: stages({ development: 'complete', delivery: 'running' }),
-  });
 
-  it('follows the auto rule when nobody picked a tab', () => {
-    expect(autoTab(verdictLanded)).toBe('trust');
-    expect(autoTab(delivering)).toBe('ships');
-    expect(autoTab(parse({ ...FULL_ORD_501, verdict: null, ship: SHIPPING }))).toBe('ships');
-    expect(autoTab(parse(ord501At('writing')))).toBe('table');
-    expect(autoTab(parse(FAST_ORD_490))).toBe('cost');
-    expect(autoTab(null)).toBe('cost');
-    expect(deliveryInProgress(parse(PAUSED))).toBe(false);
+  it('opens on Trust when nobody picked a tab', () => {
+    expect(shownTab(null)).toBe('trust');
+    expect(shownTab('nope')).toBe('trust');
+    const view = buildPaneView(verdictLanded, null);
+    expect(view.subtitle).toBe('what happened, with proof');
+    expect(view.tabs.find((tab) => tab.selected)?.id).toBe('trust');
   });
 
   it('never overrides a tab the person picked', () => {
-    for (const snap of [verdictLanded, delivering, parse(FAST_ORD_490)]) {
-      expect(shownTab(snap, 'record')).toBe('record');
-    }
+    expect(shownTab('record')).toBe('record');
     const view = buildPaneView(verdictLanded, 'record');
     expect(view.tabs.find((tab) => tab.selected)?.id).toBe('record');
     expect(view.rows.length).toBeGreaterThan(0);
     expect(view.lines).toEqual([]);
   });
 
-  it('collapses the tab labels below 80 columns and keeps them whole at 80', () => {
+  it('orders the tabs Trust, High Table, Ships, Record, Cost and shortens them below 80 columns', () => {
     const wide = buildPaneView(verdictLanded, null, { columns: SHORT_TAB_COLUMNS });
     expect(wide.tabs.map((tab) => tab.label)).toEqual([
-      'High Table',
-      'Cost',
       'Trust',
+      'High Table',
       'Ships',
       'Record',
+      'Cost',
     ]);
     const narrow = buildPaneView(verdictLanded, null, { columns: SHORT_TAB_COLUMNS - 1 });
-    expect(narrow.tabs.map((tab) => tab.label)).toEqual(['Table', 'Cost', 'Trust', 'Ships', 'Rec']);
+    expect(narrow.tabs.map((tab) => tab.label)).toEqual(['Trust', 'Table', 'Ships', 'Rec', 'Cost']);
   });
 });
 
@@ -344,10 +242,53 @@ describe('/paqad trust, ships and record', () => {
     }).text;
 
   it('print the same lines as the tabs', () => {
-    expect(run('trust', FAST_ORD_490)).toBe(NO_GATES);
+    expect(run('trust', FAST_ORD_490)).toContain(NO_GATES);
+    expect(run('trust', FAST_ORD_490).split('\n')[0]).toBe(NOT_JUDGED);
     expect(run('ships', snapshot({ active: true, ship: null }))).toBe(NOTHING_PUSHED);
     expect(run('record', { ...FULL_ORD_501, evidence_expected: PRESENT(['plan.json']) })).toContain(
       'Plan         recorded in plan.json',
     );
+  });
+});
+
+describe('the Record timeline (FR-61, AC-48)', () => {
+  it('lists the change rows in words, with an abandoned close and its note', () => {
+    const lines = text(
+      recordLines(
+        parse({
+          ...FULL_ORD_501,
+          timeline: [
+            { at: '2026-10-01T09:00:00.000Z', kind: 'open', stage: null, note: null },
+            { at: '2026-10-01T09:05:00.000Z', kind: 'stage_start', stage: 'planning', note: null },
+            { at: '2026-10-01T09:09:00.000Z', kind: 'stage_end', stage: 'planning', note: null },
+            {
+              at: '2026-10-03T10:00:00.000Z',
+              kind: 'close',
+              stage: null,
+              note: 'abandoned: branch gone, no row for 24h',
+            },
+            {
+              at: '2026-10-04T08:00:00.000Z',
+              kind: 'open',
+              stage: null,
+              note: 'reopened via resume',
+            },
+            { at: '2026-10-04T08:01:00.000Z', kind: 'stage_end', stage: null, note: 'held' },
+            { at: '2026-10-04T08:02:00.000Z', kind: 'stage_start', stage: 'custom', note: null },
+          ],
+        }),
+      ),
+    );
+    expect(lines.slice(lines.indexOf('Timeline'))).toEqual([
+      'Timeline',
+      '  09:00  Change opened',
+      '  09:05  Plan started',
+      '  09:09  Plan ended',
+      '  10:00  Closed: abandoned: branch gone, no row for 24h',
+      '  08:00  Reopened: reopened via resume',
+      '  08:01  A stage ended: held',
+      '  08:02  custom started',
+    ]);
+    expect(text(recordLines(parse(FULL_ORD_501)))).not.toContain('Timeline');
   });
 });

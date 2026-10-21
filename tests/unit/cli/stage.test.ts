@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -139,7 +139,7 @@ describe('paqad-ai stage command', () => {
     });
     await run('begin', 'planning');
     expect(process.exitCode).toBe(1);
-    expect(errors.join('\n')).toContain("use 'start' or 'end'");
+    expect(errors.join('\n')).toContain("use 'start', 'end' or 'settings'");
   });
 
   it('a --title on start opens a fresh named feature', async () => {
@@ -295,6 +295,96 @@ describe('paqad-ai stage command', () => {
 
       await run('start', 'planning');
       expect(classifyCompletionEnforcement(root, SES).reason).toBe('edited-this-turn');
+    });
+  });
+
+  describe('stage settings', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    function settingsFile(session: string): string {
+      return join(root, '.paqad/session/stage-settings.d', `${session}.json`);
+    }
+
+    it('prints the per-stage effort, model and pass advice as JSON and records the settings', async () => {
+      mkdirSync(join(root, '.paqad/configs'), { recursive: true });
+      writeFileSync(
+        join(root, '.paqad/configs/.config.models'),
+        'stage_model_checks=haiku\nstage_effort_review=medium\nstage_effort_planning=inherit\n',
+        'utf8',
+      );
+      const printed = JSON.parse((await run('settings')).join('\n'));
+      expect(Object.keys(printed)).toHaveLength(6);
+      for (const entry of Object.values(printed)) {
+        expect(typeof (entry as { pass: unknown }).pass).toBe('string');
+      }
+      expect(printed.checks).toEqual({
+        effort: 'low',
+        model: 'haiku',
+        pass: 'on its Agent call, pass effort low and model haiku',
+      });
+      expect(printed.review).toEqual({
+        effort: 'medium',
+        model: 'inherit',
+        pass: 'on its Agent call, pass effort medium',
+      });
+      expect(printed.planning).toEqual({
+        effort: 'inherit',
+        model: 'inherit',
+        pass: 'on its Agent call, pass your own current effort level as effort, because its agent file defaults to high effort',
+      });
+      expect(printed.development.pass).toBe(
+        "pass nothing on its Agent call, so it runs at the session's own effort and model",
+      );
+      const recorded = JSON.parse(readFileSync(settingsFile(SES), 'utf8'));
+      expect(recorded.checks).toEqual({ effort: 'low', model: 'haiku' });
+      expect(recorded.review).toEqual({ effort: 'medium', model: 'inherit' });
+      expect(recorded.planning).toEqual({ effort: 'inherit', model: 'inherit' });
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it('records under SE_SESSION when no --session is given', async () => {
+      vi.stubEnv('SE_SESSION', 'ses_orch_env');
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      await createStageCommand().parseAsync(['settings', '--project-root', root], {
+        from: 'user',
+      });
+      expect(existsSync(settingsFile('ses_orch_env'))).toBe(true);
+    });
+
+    it('falls back to the resolved local session when nothing names one', async () => {
+      vi.stubEnv('SE_SESSION', undefined);
+      vi.stubEnv('CLAUDE_SESSION_ID', undefined);
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      await createStageCommand().parseAsync(['settings', '--project-root', root], {
+        from: 'user',
+      });
+      expect(existsSync(settingsFile(resolveSessionId(root, null)))).toBe(true);
+    });
+
+    it('writes nothing and exits non-zero for an unsafe SE_SESSION', async () => {
+      vi.stubEnv('SE_SESSION', 'x; rm -rf ~');
+      const errors: string[] = [];
+      vi.spyOn(console, 'error').mockImplementation((line: string) => {
+        errors.push(String(line));
+      });
+      await createStageCommand().parseAsync(['settings', '--project-root', root], {
+        from: 'user',
+      });
+      expect(process.exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('unsafe session id');
+      expect(existsSync(join(root, '.paqad/session/stage-settings.d'))).toBe(false);
+    });
+
+    it('still asks for a stage on start and end', async () => {
+      const errors: string[] = [];
+      vi.spyOn(console, 'error').mockImplementation((line: string) => {
+        errors.push(String(line));
+      });
+      await run('start');
+      expect(process.exitCode).toBe(1);
+      expect(errors.join('\n')).toContain('name the stage to start');
     });
   });
 });

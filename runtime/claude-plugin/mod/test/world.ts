@@ -10,6 +10,8 @@ export const LAST_BLOCK = `.paqad/session/hud/${SESSION_ID}.last-block.json`;
 
 export interface World {
   files: Map<string, string>;
+  store: Map<string, unknown>;
+  closedPanes: string[];
   commands: string[];
   reads: string[];
   agents: AgentInfo[];
@@ -30,6 +32,7 @@ export interface World {
 
 export interface WorldOptions {
   files?: Readonly<Record<string, string>>;
+  store?: Map<string, unknown>;
   env?: Readonly<Record<string, string>>;
   version?: { version: string; base?: string };
   band?: RenderElement;
@@ -45,6 +48,8 @@ const relOf = (path: string): string =>
 export function worldOf(on: On, options: WorldOptions = {}): World {
   const world: World = {
     files: new Map(Object.entries(options.files ?? {})),
+    store: options.store ?? new Map(),
+    closedPanes: [],
     commands: [],
     reads: [],
     agents: [],
@@ -99,6 +104,20 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('command.register', ($, e) => {
     world.commands.push(e.name);
     return { value: { command: e.name } };
+  });
+  on('store.get', ($, e) => ({ value: world.store.get(e.key) }) as never);
+  on('store.set', ($, e) => {
+    world.store.set(e.key, e.value);
+    return { value: undefined } as never;
+  });
+  on('store.delete', ($, e) => {
+    world.store.delete(e.key);
+    return { value: undefined } as never;
+  });
+  on('store.keys', () => ({ value: [...world.store.keys()] }) as never);
+  on('ui.close', ($, e) => {
+    world.closedPanes.push(e.id);
+    return { value: true } as never;
   });
   on('ui.open', ($, e) => {
     world.opened.push(e.id);

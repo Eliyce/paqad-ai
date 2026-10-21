@@ -28,8 +28,11 @@ import {
   removeConfigValue,
   resolveFrameworkConfig,
   resolveFrameworkConfigFromMap,
+  resolveStageAgentSettings,
   setConfigValue,
   setGroupConfigValue,
+  STAGE_EFFORT_LEVELS,
+  STAGE_MODELS,
   stripFrameworkConfigFromProfile,
   syncFrameworkConfig,
   syncGroupConfigs,
@@ -1065,5 +1068,115 @@ describe('an older paqad leaves a newer checkout untouched', () => {
     ]);
     expect(readFileSync(examplePath(), 'utf8')).toBe(generateConfigExample());
     expect(readFileSync(appPath(), 'utf8')).not.toContain('future_knob');
+  });
+});
+
+describe('stage agent effort and model settings', () => {
+  const STAGES = [
+    'planning',
+    'specification',
+    'development',
+    'review',
+    'checks',
+    'documentation_sync',
+  ];
+
+  it('defaults planning, specification and review to high, checks and docs to low, every model to inherit', () => {
+    const settings = resolveStageAgentSettings();
+    expect(settings).toEqual({
+      planning: { effort: 'high', model: 'inherit' },
+      specification: { effort: 'high', model: 'inherit' },
+      development: { effort: 'inherit', model: 'inherit' },
+      review: { effort: 'high', model: 'inherit' },
+      checks: { effort: 'low', model: 'inherit' },
+      documentation_sync: { effort: 'low', model: 'inherit' },
+    });
+  });
+
+  it('declares twelve enum keys in the models group under Stage agents with stage env names', () => {
+    const specs = FRAMEWORK_CONFIG_SPECS.filter((spec) => spec.section === 'Stage agents');
+    expect(specs.map((spec) => spec.key)).toEqual(
+      STAGES.flatMap((stage) => [`stage_effort_${stage}`, `stage_model_${stage}`]),
+    );
+    for (const spec of specs) {
+      expect(spec.group).toBe('models');
+      expect(spec.type).toBe('enum');
+      expect(spec.comment).not.toContain('—');
+    }
+    expect(specs.find((spec) => spec.key === 'stage_effort_documentation_sync')?.env).toBe(
+      'PAQAD_STAGE_EFFORT_DOCUMENTATION_SYNC',
+    );
+    expect(specs.find((spec) => spec.key === 'stage_model_checks')?.env).toBe(
+      'PAQAD_STAGE_MODEL_CHECKS',
+    );
+    expect(specs.find((spec) => spec.key === 'stage_effort_review')?.comment).toContain(
+      'a lighter review catches less',
+    );
+    expect(STAGE_EFFORT_LEVELS).toEqual(['low', 'medium', 'high', 'xhigh', 'inherit']);
+    expect(STAGE_MODELS).toEqual(['inherit', 'haiku', 'sonnet', 'opus']);
+  });
+
+  it('lists the twelve keys in CONFIG_KEY_SECTIONS and the generated example', () => {
+    const listed = CONFIG_KEY_SECTIONS.flatMap((section) => section.keys);
+    const example = generateConfigExample();
+    for (const stage of STAGES) {
+      for (const key of [`stage_effort_${stage}`, `stage_model_${stage}`]) {
+        expect(listed).toContain(key);
+        expect(example).toContain(`# ${key}=`);
+      }
+      expect(example).toContain(`PAQAD_STAGE_EFFORT_${stage.toUpperCase()}`);
+      expect(example).toContain(`PAQAD_STAGE_MODEL_${stage.toUpperCase()}`);
+    }
+  });
+
+  it('reads the layered project config and lets env win over the team file', () => {
+    const root = tmpRoot();
+    try {
+      writeConfigsFile(
+        root,
+        '.config.models',
+        'stage_effort_checks=low\nstage_model_checks=haiku\nstage_effort_review=medium\n',
+      );
+      writeConfig(root, 'stage_model_planning=opus\n');
+      const settings = resolveStageAgentSettings(root, {
+        PAQAD_STAGE_EFFORT_CHECKS: 'high',
+      } as NodeJS.ProcessEnv);
+      expect(settings.checks).toEqual({ effort: 'high', model: 'haiku' });
+      expect(settings.review).toEqual({ effort: 'medium', model: 'inherit' });
+      expect(settings.planning).toEqual({ effort: 'high', model: 'opus' });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('falls back to the default on an invalid value', () => {
+    const root = tmpRoot();
+    try {
+      writeConfigsFile(
+        root,
+        '.config.models',
+        'stage_effort_checks=turbo\nstage_model_review=gpt\n',
+      );
+      const settings = resolveStageAgentSettings(root, {} as NodeJS.ProcessEnv);
+      expect(settings.checks.effort).toBe('low');
+      expect(settings.review.model).toBe('inherit');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps a team value when config reconcile and group sync run', () => {
+    const root = tmpRoot();
+    try {
+      writeConfigsFile(root, '.config.models', 'stage_effort_review=medium\n');
+      reconcileConfigOverrides(root);
+      syncGroupConfigs(root);
+      const text = readFileSync(join(root, '.paqad', 'configs', '.config.models'), 'utf8');
+      expect(text).toContain('stage_effort_review=medium');
+      expect(text).toContain('# stage_model_checks=inherit');
+      expect(resolveStageAgentSettings(root, {} as NodeJS.ProcessEnv).review.effort).toBe('medium');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

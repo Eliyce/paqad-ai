@@ -154,7 +154,10 @@ any turn the session-ownership check skips (see below).
 - **Stage-agent rows** (`src/stage-isolation/subagent-completion.ts`) — the record-only
   SubagentStop hook (`stage-agent-completion`) appends one `kind: 'stage-agent'` row
   (`kind`, `stage`, `agent`, `tokens_used`, `tokens_not_recarried`, `estimate`) when a
-  `paqad-<stage>` agent finishes. The session is resolved by `resolveHookSession` in
+  `paqad-<stage>` agent finishes. When `paqad-ai stage settings` wrote
+  `.paqad/session/stage-settings.d/<session id>.json` for the resolved session, the row also
+  carries that stage's `requested_effort` and `requested_model`; with no file it carries neither. They record what the project asked for, not what the helper ran at: paqad cannot see the effort or model the host actually used. The SubagentStart
+  seed hook (`stage-agent-start`) writes no row, so there is still exactly one row per stage agent. The session is resolved by `resolveHookSession` in
   `src/rag-ledger/session.ts`: the payload `session_id`, then `SE_SESSION`, then
   `CLAUDE_SESSION_ID`, then the shared cache, taking the first one whose session control
   names an in-flight bundle, and otherwise the cache (minting only when nothing is known).
@@ -324,6 +327,23 @@ any turn the session-ownership check skips (see below).
   bundle opened before the stamp existed, and a bundle with no knowable branch is never
   adopted while on one. Off a branch entirely (detached HEAD, non-git project) the scope
   cannot apply and the unscoped in-flight set stands.
+- **Abandoned close** (`abandon.ts`): `closeAbandonedBundles` closes changes left behind, so the
+  in-flight set stops growing. The SessionStart hook calls it before `reconcileSessionControl`,
+  in its own try/catch, with no stdout and no change to its exit code; a fault is logged to
+  `.paqad/logs/hooks.log`. A bundle is closed only when all hold: it has stage rows, is not
+  closed and its `feature.json` status is neither `done` nor `abandoned`; it has a recorded
+  branch that is not the branch checked out now; that branch is gone (no `refs/heads/<b>` and no
+  `refs/remotes/*/<b>`, read for all bundles with one `git for-each-ref`) or merged (its own
+  pull request reads `merged`, or its tip is an ancestor of the base branch and it has at least
+  one own commit, so a branch freshly cut from main is never merged); and its newest row is older
+  than 24 hours. The close writes one `close` row (`event_status: null`, note `abandoned: branch
+  gone, no row for 24h` or `abandoned: branch merged, no row for 24h`, session
+  `paqad-housekeeping`) through `appendFeatureStageRow` and sets `feature.json` status
+  `abandoned` through `updateFeatureRecord`, the same writers `closeActiveFeature` uses. It is
+  silent: the close row is the record, and resuming the change by name reopens it.
+  `abandoned` counts as finished everywhere `done` does (`isFeatureFinished` in
+  `feature-record.ts`): adoption and `listInFlightFeatures` skip it, the delivery bundle pick
+  and the decisions index treat it as finished, and the bundle schema accepts it.
 
   Three further limits keep it honest: it **never mints** (every name it returns
   already holds evidence on disk, which is why a read path may call it); it adopts only
@@ -399,7 +419,7 @@ onto this base.
 
 `src/hud/` is the data layer of the paqad HUD, the Claude Code mod that keeps the change on
 screen. It writes one file per session, `.paqad/session/hud/<session>.json` (schema
-`paqad.hud/2`), built only from records paqad already keeps: the routed workflow and its saved
+`paqad.hud/3`), built only from records paqad already keeps: the routed workflow and its saved
 reason, this bundle's `feature.json`, folded stages, `experts.json`, `high-table.jsonl`, `clarification.json`,
 `specification.json`, `evidence.jsonl` (with `GATE_STRENGTH_TIER`), `rules-loaded.json`,
 `rule-run.jsonl`, `duplication.jsonl`, `delivery.json`, `cost.json`, the decision folders, the bundle manifest (with the shared
@@ -407,6 +427,45 @@ reason, this bundle's `feature.json`, folded stages, `experts.json`, `high-table
 exist yet (claims, the last rule stop, push/PR/CI, a cost no hook has written) is `null` or
 empty, never guessed. The headline and the flags are decided in one place
 (`computeHudHeadline`, `computeHudFlags`); any open flag turns a Safe to merge amber.
+
+**Which change it shows** (`src/hud/change-scope.ts`). The snapshot shows a change only when
+`qualifyHudChange` says so, and every reader of the snapshot gets the same answer. A change
+qualifies only when all hold: the session is on the `feature-development` route; the change is
+the session's active change (`currentFeature`), has rows, is not closed and its status is not
+`done` or `abandoned`; its recorded branch is the branch checked out now (read from `.git/HEAD`,
+no git process; a change with no recorded branch qualifies only while HEAD is attached, and a
+detached HEAD never qualifies); and this session wrote one of its rows since the current
+feature-development episode began, or started a stage it has not ended (so a "continue" keeps the
+card). Otherwise `scope` is `{ qualified: false, reason }` with the reason
+`not-feature-route`, `no-active-change`, `closed`, `other-branch` or `no-row-this-episode`, and
+the change fields are empty: no stages, table, gates, claims, flags, ship, verdict, cost or
+decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-ownership.ts`.
+
+- **Verdict.** `HudVerdictRecord` carries the `change` it was written for (from
+  `currentFeature`). A verdict shows only when it names this change and was written at or after
+  the change's latest edit (`latestEditAt`: the newest `development`, `checks` or
+  `documentation_sync` row, or a `specification` row that carries a tree digest). A record
+  with no `change` is legacy and never shows.
+- **Gates.** `GATE_JUDGED_AFTER` ties each gate to the stage that must have ended first
+  (specification, development, review, checks or documentation sync; an unknown gate waits for
+  checks). A gate row before its stage ended, or with no end at all, reads `not-judged`, and no
+  flag derives from it.
+- **Decisions.** `decisions.pending` holds only packets whose `change` is this change's key.
+- **Ship.** `ship.commits` counts only this change's own commits (`own_shas` from
+  `computeCommitSplit`); `ship.commit_list` lists every delivery commit with `own` true, false
+  or (for a split written before shas were kept) null. `ship.pr` is this change's pull request
+  only when its head commit is one of its own commits. A merged pull request whose head is a
+  commit this change recorded stays its pull request after a merge-commit merge, when the base
+  branch holds the tip and the split finds no branch commits. A pull request saved before the state
+  and head were kept reads with no state, so Merge reads unknown. `ship.pr_state`, `ship.merged` and
+  `ship.all_green` come from the saved gh state: Merge is merged only when the pull request is,
+  and all green needs a passing CI reading on the pull request's current head while it is open; a
+  pass read against an older head reads pending. `ship.ci_read_at` is when CI was last read.
+- **Cost and workflow.** `cost.scope` says `change` or `whole-session`. On another workflow the
+  `workflow` field carries its name, when it started in this session (the route-turn log) and its
+  tokens and money since then, from the session cost cache.
+- **Timeline.** `timeline` lists the change's last 20 open, close, stage start and stage end rows
+  with their notes, for the Ledger's Record tab.
 
 The `table` field (`src/hud/high-table-view.ts`) is the live High
 Table: each seat with its state (`seated`, `writing`, `done`), its times, granted budget, findings,
@@ -447,43 +506,30 @@ answers: every check stays one of the plugin's hooks in `hooks.json`, so the mod
 blocked or broken changes no hook's decision. It reads only `.paqad/`, calls no model and no
 network, and starts no process.
 
-- **What the band shows.** A state word with its colour, the headline, a flag pill when flags
-  are open, and two instruments (three when the High Table sits). *Stage* walks Intake, Planning, Spec, Build, Review, Checks,
-  Docs and Deliver, with a live clock on the running stage. *Ship* walks Edit, Commit, Push, PR,
-  CI and Merge, and Merge reads "stays yours" until a merge is recorded. A stage reads done only
-  when the receipt would say done: an unbacked `checks` stage is marked, not done. A field with
-  no record reads "not yet". The cost pill reads "not yet" until a hook writes the cost, then
-  shows the tokens and a dated estimate, and opens the Cost tab when pressed.
-- **The High Table instrument** (`runtime/claude-plugin/mod/table.ts`).
-  On the graduated and full lanes, with the experts on, a third row sits between Stage and Ship:
-  one dot per seat plus the chief, each state with its own glyph (seated, writing, done) so it
-  reads without colour, and a live count in words while the table sits. Once the chief has ruled
-  only the dots stay, plus a flag pill while the table has an open flag (a late seat, a
-  disagreement still waiting on its decision). A skipped table says so. Pressing the label opens
-  the High Table tab.
+- **What the band shows.** On the feature-development route, one card with a header (brand,
+  change chip, headline, verdict, flag chip, lane, tokens, Proof, minimise and close) and three
+  instruments: STAGE, HIGH TABLE (not on the fast lane) and SHIP. A change that does not qualify
+  shows only the header, `paqad  feature development · no change in progress`. Any other workflow
+  gets one status line with its own tokens instead of a band, and no workflow gets nothing. The
+  band can be minimised, closed for the session or hidden in this project, and comes back with
+  `/paqad show`; while it is out of the way and a decision waits, its line turns amber and reads
+  Needs you. The full layout, the marks and the mod API limits are in
+  [the Claude Code adapter technical doc](../../adapter-onboarding/features/claude-code/technical.md).
 - **The live card.** While the table sits, a card is drawn over the change's first
   `paqad-ai spec pipeline experts` call in the chat and redrawn in place as seats move: each
-  seat's state and time, tokens and findings, then the chief's ruling in counts.
-- **The paqad pane.** One pane with five tabs, opened by the High Table label or the cost pill
-  (`runtime/claude-plugin/mod/pane.ts`, the tab lines in `tabs.ts`).
-  *High Table* shows the round table with the chief in the centre (a picture on Desktop, text in
-  the terminal), a button per seat with its detail and track record on earlier changes, the
-  chief's rulings (accepted, declined, renamed, disagreements and those settled before) and
-  which spec lines each role shaped. *Cost* shows the change cost described below. *Trust* shows
-  the verdict, a ring of the required gates only (a not-required gate is listed but never
-  counted), every gate grouped by strength (deterministic, judged by a model, strength not
-  recorded) with its verdict in words, each claim with its proving test, and the open flags.
-  *Ships* shows the change's own commits against the commits riding along from other tickets
-  (amber), or, when the only earlier commits carry no ticket, plainly as "untagged, made before
-  this change started", then the push, the PR, CI (a partial "3 of 7 done", and "unknown, never recorded" when no CI was
-  saved, never a green default), the merge and how to roll it back; every value comes from the
-  bundle's `delivery.json`. *Record* shows the plan, the decisions waiting and resolved, the rules
-  and whether the receipt is written. An empty tab names its state: "No gates judged yet.",
-  "Nothing pushed yet.", "No plan recorded yet.". Below 80 columns the tab labels shorten.
-  The pane picks its tab on its own only until the person picks one: a delivery in progress
-  (the delivery stage running, or CI pending) opens Ships, a landed verdict opens Trust, a
-  sitting High Table opens High Table, otherwise Cost. Once a tab is picked it stays for the
-  session. A failing or pending CI is never drawn as done on the band's Ship row.
+  seat's state and time, its note tokens against its budget and its run tokens, and findings,
+  then the chief's ruling in counts.
+- **The paqad Ledger** (`runtime/claude-plugin/mod/pane.ts`, the tab lines in `tabs.ts`). The pane
+  is titled paqad Ledger, with the subtitle what happened, with proof, and its tabs read Trust,
+  High Table, Ships, Record and Cost. It opens on Trust unless a tab was picked, and opens itself
+  once per change. Trust shows the verdict or Not judged yet, the gate ring, every gate in words
+  (`pass`, `fail`, `not judged yet`, `did not run`, `not required`), the claims with the tests
+  that prove them and the flags. Ships shows Edit, own commits and inherited ones marked "on the
+  branch already", Push, the pull request with its state, CI per job with the read time, and
+  Merge, which stays yours. Record shows the plan, decisions, rules, receipt and the change's
+  timeline. Cost shows the change cost and says whether it is this change only or the whole
+  session. An empty tab names its state: "No gates judged yet.", "Nothing pushed yet.", "No plan
+  recorded yet.". Below 80 columns the tab labels shorten.
 - **The receipt card and the seal** (`runtime/claude-plugin/mod/receipt.ts`). `/paqad receipt`
   is drawn as a card in the command's output row: a seal line with the verdict in words and its
   colour ("Not sealed" before a verdict lands), then the receipt itself. When a new verdict lands
@@ -502,16 +548,18 @@ network, and starts no process.
 - **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
   Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
   Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
-  or Inconclusive. Any open flag turns a good or neutral state amber. The words always say what
-  the colour says.
+  or Inconclusive. Any open flag turns a good or neutral state amber, and all green turns the band
+  green. The words always say what the colour says.
 - **When it refreshes.** On session start, prompt submit, a finished edit, an Agent call or a
   Bash call that runs `paqad-ai`, once more shortly after a turn ends, and on a short tick
   while a stage agent runs.
 - **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
   `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
   session's `<session>.receipt.md`), `/paqad cost` (the same text as the Cost tab) and
-  `/paqad trust`, `/paqad ships` and `/paqad record` (the same lines as those tabs). Each answer comes from files already on
-  disk, so it costs no model turn.
+  `/paqad trust`, `/paqad ships` and `/paqad record` (the same lines as those tabs), and `/paqad show`
+  (brings a minimised, closed or hidden band back). `/paqad decisions` lists every pending packet
+  in the repo, labelled in this repo, while the band shows only this change's. Each answer comes
+  from files already on disk, so it costs no model turn.
 - **The `hud_view` setting.** The paqad config key `hud_view` (env `PAQAD_HUD_VIEW`, on by
   default) turns the band off. The mod reads it the same way it reads `paqad_enable`: the env
   variable first, then `.paqad/.config`, then `.paqad/configs/.config.*` with the last file name
@@ -544,6 +592,22 @@ table that ships with paqad.
   copies it into two transcripts.
 - **Which tokens count.** Only those inside the change's window: from its first `open` row in
   `stage-evidence.jsonl` to its seal (the receipt's verified time, else the close row, else now).
+  Inside the window a paqad agent's messages count in full, and a main-transcript message counts
+  only when it falls in a turn of that session routed to `feature-development`, read from the
+  route-turn log. A question asked in the middle of a change is not its cost. When a contributing
+  session has no route-turn log that covers a message, the record says `scope: whole-session`
+  and counts the whole main transcript in the window; the HUD then says "whole session" and never
+  calls the number the change's cost. Otherwise `scope` is `change`.
+- **The route-turn log.** `src/pipeline/route-turns.ts` keeps `.route-turns.jsonl` next to the
+  session's `.workflow-state.json`: one `{ at, workflow }` row per routed prompt, appended by
+  `prompt-lane.ts` right after it saves the workflow state, capped at 2000 rows. The append is
+  best effort: a fault is logged to `.paqad/logs/hooks.log` and routing output is unchanged.
+  `episodeStart` gives the first row of the trailing run of one workflow (when the current
+  episode began), and `turnRouteAt` gives the workflow a time fell in. It feeds the HUD's change
+  qualification, this cost split and the status line of other workflows.
+- **Tokens with no change open.** With no change current, the hook still keeps the session's
+  main transcript in the cost cache (from the session's first routed prompt) and writes no
+  bundle, so the status line of another workflow can show its tokens since it started.
 - **Who spent what.** A stage agent is charged to its stage. A High Table seat is charged to its
   role (the chief to the chief) and, since the table sits while the spec is written, to the
   specification stage. Everything else is charged to the stage whose recorded start and end hold
@@ -625,8 +689,19 @@ existed. A packet naming another change is never linked. An unchanged index is n
 
 **`delivery.ts`.** Commits are read with a NUL field separator so any subject round-trips. A
 `post-commit` fires after the bundle is closed, so the newest matching bundle that is not yet done
-wins over a finished one. "Newest" is ordered by the trailing ULID, never the full folder name,
-whose slug would dominate.
+wins over a finished one (done or abandoned). "Newest" is ordered by the trailing ULID, never the
+full folder name, whose slug would dominate. `delivery-link merge` stamps the merge commit only on
+the bundle whose branch matches the branch checked out now. It used to fall back to the active
+change when no bundle matched, which is how a release commit made on main was once stamped as a
+change's merge; off a feature branch it now stamps nothing and prints `linked: false`. The
+post-merge git hook still ends in `|| true`, so a pull is never disturbed. The pull request that
+`gh pr view` finds by branch name is saved with its `state` (`open`, `merged` or `closed`) and
+its `head_sha`, and the CI reading keeps one entry per job (name, status, conclusion, start and
+end) from both the CheckRun and the StatusContext shapes; queued, in-progress, pending and
+expected jobs count in the total but not as done. `paqad-ai deliver` reads the checks once a
+minute on the real clock while its gate waits, saves each reading with its read time, and stops
+once the checks are done or the delivery policy's `timeout_minutes` has passed; the HUD only ever
+reads the saved file.
 
 **`envelope.ts`.** Front-matter values are written as JSON scalars, which are also valid YAML, so
 reading them back needs no YAML dependency. The body after the front matter is returned byte for

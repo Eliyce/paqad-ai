@@ -4,7 +4,12 @@ import { rmSync } from 'node:fs';
 import process from 'node:process';
 
 import { clearAgentEntryMarkers, sentinelPath } from './lib/agent-entry-sentinel.mjs';
-import { hookStandsDown, parseHookPayload, resolveProjectRoot } from './lib/paqad-disabled.mjs';
+import {
+  appendHooksLog,
+  hookStandsDown,
+  parseHookPayload,
+  resolveProjectRoot,
+} from './lib/paqad-disabled.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 
 async function main(input) {
@@ -16,6 +21,15 @@ async function main(input) {
     rmSync(sentinelPath(projectRoot, sessionIdFromStdin(input)), { force: true });
     clearAgentEntryMarkers(projectRoot);
   } catch {}
+
+  try {
+    const abandonUrl = new URL('../../dist/feature-evidence/abandon.js', import.meta.url);
+    const { closeAbandonedBundles } = await import(abandonUrl.href);
+    closeAbandonedBundles(projectRoot);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    appendHooksLog(projectRoot, `session-start: abandoned close skipped: ${message}`);
+  }
 
   try {
     const hostSessionId = sessionIdFromStdin(input);

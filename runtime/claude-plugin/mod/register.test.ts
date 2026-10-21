@@ -10,6 +10,7 @@ import {
   GRADUATED_ORD_482,
   LATE_TABLE,
   NOW,
+  OTHER_WORKFLOW,
   ORD_482_SEQUENCE,
   ORD_501_SEATS,
   ORD_501_SEQUENCE,
@@ -62,15 +63,47 @@ function textElement(node: RenderNode, text: string): RenderElement | undefined 
 const colorOf = (node: RenderElement | undefined): unknown =>
   (node as { props?: { color?: unknown } } | undefined)?.props?.color;
 
-describe('the band draws each of the nine states (AC-41)', () => {
+function cardOf(node: RenderNode | null | undefined): RenderElement | undefined {
+  if (node === null || node === undefined || typeof node === 'string') return undefined;
+  if ((node as { props?: { borderStyle?: unknown } }).props?.borderStyle === 'round') {
+    return node as RenderElement;
+  }
+  for (const child of (node as { children?: readonly RenderNode[] }).children ?? []) {
+    const found = cardOf(child);
+    if (found) return found;
+  }
+  return undefined;
+}
+
+const BORDER: Record<string, string | null | undefined> = {
+  Ready: null,
+  Working: 'suggestion',
+  'Branch warning': 'warning',
+  'Needs you': 'permission',
+  Stopped: 'error',
+  Inconclusive: 'warning',
+  'Safe to merge': 'success',
+  'Needs your attention': 'error',
+  Paused: null,
+};
+
+describe('the band is one card in the tone of its state (AC-41, FR-31)', () => {
   for (const surface of SURFACES) {
     for (const state of STATES) {
       test(`${state} on ${surface}`, async ($, on) => {
         worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(STATE_FIXTURES[state]) } });
         mock.clock(on, { now: NOW });
         await $.session.start(START);
-        const drawn = await $.ui.render(band(surface));
-        expect(linesOf(drawn)[0]).toStartWith(`paqad · ${state}`);
+        const card = cardOf(await $.ui.render(band(surface)));
+        if (BORDER[state] === null) {
+          expect(card).toBeUndefined();
+          return;
+        }
+        expect(card).toBeDefined();
+        expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe(
+          BORDER[state],
+        );
+        expect(textOf(card!)).toStartWith('paqad');
       });
     }
   }
@@ -91,20 +124,24 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
           component: 'AbovePrompt',
           props: band(surface).props,
         });
-        expect(await mounted.find({ text: /^Stage/ })).toBeDefined();
-        expect(await mounted.find({ text: /^Ship/ })).toBeDefined();
+        if (fixture === PAUSED) {
+          expect(await mounted.find({ key: 'paqad-status-entry' })).toBeDefined();
+        } else {
+          expect(await mounted.find({ key: 'paqad-brand' })).toBeDefined();
+          expect(await mounted.find({ key: 'paqad-minimise' })).toBeDefined();
+        }
         await mounted.unmount();
       }
     });
 
-    test(`fast lane: 8 Stage segments, Spec not required, no High Table on ${surface}`, async ($, on) => {
+    test(`fast lane: eight STAGE cells, Spec not required, no HIGH TABLE on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const text = textOf(await $.ui.render(band(surface)));
+      const text = textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
       for (const label of [
         'Intake',
-        'Planning',
+        'Plan',
         'Spec',
         'Build',
         'Review',
@@ -114,19 +151,20 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       ]) {
         expect(text).toContain(label);
       }
-      expect(text).toContain('-Spec');
-      expect(text).toContain('Build running 2m 00s');
-      expect(text).not.toContain('High Table');
+      expect(text).toContain('STAGE');
+      expect(text).toContain('Build · 2:00');
+      expect(text).toContain('SHIP');
+      expect(text).not.toContain('HIGH TABLE');
     });
 
-    test(`graduated lane: Needs you, Merge stays yours, and the High Table on ${surface}`, async ($, on) => {
+    test(`graduated lane: Needs you and the HIGH TABLE asking for answers on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const text = textOf(await $.ui.render(band(surface)));
-      expect(text).toContain('Needs you');
-      expect(text).toContain('Merge (yours)');
-      expect(text).toContain('High Table');
+      const text = textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
+      expect(text).toContain('Needs you: 1 decision waiting.');
+      expect(text).toContain('HIGH TABLE');
+      expect(text).toContain('needs answers');
     });
 
     test(`an open flag at Safe to merge turns the band amber on ${surface} (AC-41)`, async ($, on) => {
@@ -134,8 +172,11 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(band(surface));
-      expect(colorOf(textElement(drawn, 'Safe to merge'))).toBe('warning');
-      expect(textElement(drawn, '1 flag')).toBeDefined();
+      expect(colorOf(textElement(drawn, 'Safe to merge'))).toBe('success');
+      expect(colorOf(textElement(drawn, '1 flag'))).toBe('warning');
+      expect((cardOf(drawn) as { props: { borderColor?: unknown } }).props.borderColor).toBe(
+        'warning',
+      );
     });
 
     test(`Safe to merge with no flag is green on ${surface}`, async ($, on) => {
@@ -143,26 +184,30 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(band(surface));
-      expect(colorOf(textElement(drawn, 'Safe to merge'))).toBe('success');
+      expect((cardOf(drawn) as { props: { borderColor?: unknown } }).props.borderColor).toBe(
+        'success',
+      );
       expect(textOf(drawn)).not.toContain('flag');
     });
 
-    test(`no snapshot reads "not yet" on ${surface} (AC-42)`, async ($, on) => {
+    test(`no snapshot yet shows the idle line, never an empty or stale card, on ${surface} (FR-39, AC-42)`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface)));
-      expect(text).toContain('Not yet.');
-      expect(text).toContain('Stage  not yet');
-      expect(text).toContain('Ship   not yet');
-      expect(text).toContain('cost: not yet');
+      expect(text).toContain('paqad');
+      expect(text).toContain('feature development · no change in progress');
+      expect(text).not.toContain('STAGE');
     });
 
-    test(`a half-written snapshot reads "not yet" and never throws on ${surface}`, async ($, on) => {
-      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: '{"schema":"paqad.hud/2","headl' } });
+    test(`a half-written snapshot shows the idle line and never throws on ${surface}`, async ($, on) => {
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: '{"schema":"paqad.hud/3","headl' } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      expect(textOf(await $.ui.render(band(surface)))).toContain('Stage  not yet');
+      const text = textOf(await $.ui.render(band(surface)));
+      expect(text).toContain('no change in progress');
+      expect(text).toContain('HUD data unavailable');
+      expect(text).not.toContain('Safe to merge');
     });
 
     test(`a survey holds the band: paqad draws nothing of its own on ${surface} (AC-44)`, async ($, on) => {
@@ -181,29 +226,384 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const lines = linesOf(await $.ui.render(band(surface)));
-      expect(lines[0]).toContain('paqad');
+      expect(lines[0]).toStartWith('paqad');
       expect(lines.at(-1)).toBe('another mod');
     });
   }
 });
 
-describe('the terminal band fits its box (AC-43)', () => {
-  for (const [columns, maxRows] of [
-    [40, 3],
-    [71, 12],
-    [95, 3],
-  ] as const) {
-    test(`${columns} columns, ${maxRows} rows`, async ($, on) => {
-      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+const ALL_GREEN = {
+  ...FULL_ORD_501,
+  flags: [],
+  ship: {
+    commits: 2,
+    push: { state: 'pushed', branch: 'feat/x', sha: 'aaa' },
+    pr: { number: 12, url: 'https://example.test/pull/12', draft: false, head_sha: 'aaa' },
+    pr_state: 'open',
+    ci: { sha: 'aaa', state: 'pass', done: 6, total: 6, reason: null, source: 'stop-check' },
+    commit_list: [],
+    inherited_count: 0,
+    all_green: true,
+    merged: false,
+  },
+};
+
+function elementsOf(node: RenderNode | null | undefined, type: string): RenderElement[] {
+  if (node === null || node === undefined || typeof node === 'string') return [];
+  const own = node.type === type ? [node as RenderElement] : [];
+  return [
+    ...own,
+    ...((node as { children?: readonly RenderNode[] }).children ?? []).flatMap((child) =>
+      elementsOf(child, type),
+    ),
+  ];
+}
+
+describe('the ship rail on each surface (FR-35, FR-36, AC-44, AC-45)', () => {
+  test('the terminal draws marks and never an Svg; Desktop draws the rail Svg with words', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ALL_GREEN) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    const terminal = await $.ui.render(band('terminal', { bodyColumns: 120 }));
+    expect(elementsOf(terminal, 'Svg')).toEqual([]);
+    expect(textOf(terminal)).toContain('All green · merge is yours');
+    const desktop = await $.ui.render(band('desktop', { bodyColumns: 120 }));
+    const svgs = elementsOf(desktop, 'Svg');
+    expect(svgs).toHaveLength(1);
+    expect((svgs[0] as { props: { alt?: string } }).props.alt).toBe(
+      'Ship: Edit done, Commit done, Push done, PR done, CI 6 of 6 green, Merge ready, yours to merge.',
+    );
+  });
+
+  test('the all-green toast fires once per change and head across rebuilds and re-renders', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ALL_GREEN) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    for (let index = 0; index < 10; index += 1) {
+      world.put(
+        SNAPSHOT,
+        fileText({ ...ALL_GREEN, generated_at: `2026-10-18T09:00:${10 + index}.000Z` }),
+      );
+      await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+      await $.ui.render(band('terminal'));
+    }
+    const green = world.toasts.filter((text) => text.startsWith('All green'));
+    expect(green).toHaveLength(1);
+    expect(green[0]).toBe(`All green: PR ${'#'}12 is ready for your merge`);
+    const card = cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
+    expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe('success');
+  });
+});
+
+const QUESTION = {
+  ...OTHER_WORKFLOW,
+  workflow: {
+    name: 'project-question',
+    started_at: '2026-10-18T08:50:00.000Z',
+    tokens: 84000,
+    usd: 0.05,
+    unpriced: [],
+  },
+};
+
+describe('other workflows get one status entry and no band (FR-44, AC-40)', () => {
+  for (const surface of SURFACES) {
+    test(`a question shows one row with its tokens, and the running time while a turn is in flight, on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
+      const clock = mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const idle = await $.ui.render(band(surface));
+      expect(cardOf(idle)).toBeUndefined();
+      expect(linesOf(idle)).toEqual(['paqad · question · 84K tokens · ~$0.05']);
+      await $.prompt.submit({ text: 'what is this?' } as never);
+      await clock.advance(42_000);
+      await clock.settle();
+      expect(linesOf(await $.ui.render(band(surface)))[0]).toBe(
+        'paqad · question · running 0:42 · 84K tokens · ~$0.05',
+      );
+      await $.turn.complete({ text: '' } as never);
+      expect(linesOf(await $.ui.render(band(surface)))[0]).toBe(
+        'paqad · question · 84K tokens · ~$0.05',
+      );
+      const mounted = await $.ui.mount({
+        plugin: PLUGIN,
+        surface,
+        component: 'AbovePrompt',
+        props: band(surface).props,
+      });
+      await mounted.press({ key: 'paqad-status-entry' });
+      expect(world.opened.at(-1)).toBe('paqad');
+      await mounted.unmount();
+    });
+
+    test(`no workflow draws nothing at all on ${surface}`, async ($, on) => {
+      worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText({ ...QUESTION, route: 'no-workflow' }) },
+      });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const lines = linesOf(await $.ui.render(band('terminal', { bodyColumns: columns, maxRows })));
-      expect(lines.length).toBeLessThanOrEqual(maxRows);
-      for (const line of lines) expect([...line].length).toBeLessThanOrEqual(columns);
-      expect(lines[0]).toContain('Safe to merge');
-      expect(lines[0]).toContain('1 flag');
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('paqad');
     });
   }
+});
+
+async function mountBand(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  surface: 'terminal' | 'desktop',
+) {
+  return $.ui.mount({
+    plugin: PLUGIN,
+    surface,
+    component: 'AbovePrompt',
+    props: band(surface, { bodyColumns: 120 }).props,
+  });
+}
+
+describe('minimise, close and hide (FR-46 to FR-52, AC-33 to AC-36, AC-47)', () => {
+  for (const surface of SURFACES) {
+    test(`minimise keeps one line across sessions and restore brings the card back on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await mountBand($, surface);
+      const minimise = await mounted.find({ key: 'paqad-minimise' });
+      expect(minimise?.text).toBe('– Minimise');
+      await mounted.press({ key: 'paqad-minimise' });
+      await mounted.unmount();
+      expect(world.store.get('band.minimised')).toBe(true);
+      const short = await $.ui.render(band(surface, { bodyColumns: 120 }));
+      expect(cardOf(short)).toBeUndefined();
+      expect(textOf(short)).toContain('+ Restore');
+      await $.session.start(START);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeUndefined();
+      const again = await mountBand($, surface);
+      await again.press({ key: 'paqad-restore' });
+      await again.unmount();
+      expect(world.store.has('band.minimised')).toBe(false);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`close asks, Close for now lasts the session, Hide always lasts in this project only on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      world.answers.push('Close for now');
+      let mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-close' });
+      await mounted.unmount();
+      expect(world.asked.at(-1)).toMatchObject({ options: ['Close for now', 'Hide always'] });
+      expect(world.asked.at(-1)!.question).toStartWith('Close the paqad band?');
+      expect(textOf(await $.ui.render(band(surface)))).toContain(
+        'Closed for this session · /paqad show',
+      );
+      await $.session.start(START);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+      world.answers.push('Hide always');
+      mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-close' });
+      await mounted.unmount();
+      expect(world.store.get('band.hidden:/work')).toBe(true);
+      await $.session.start(START);
+      expect(textOf(await $.ui.render(band(surface)))).toContain('Hidden always · /paqad show');
+      const reopen = await mountBand($, surface);
+      await reopen.press({ key: 'paqad-reopen' });
+      await reopen.unmount();
+      expect(world.store.has('band.hidden:/work')).toBe(false);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`AC-34: Hide always in another project leaves this band showing on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([['band.hidden:/elsewhere', true]]);
+      worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`AC-35: a dismissed close question changes nothing on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      world.answers.push(null);
+      const mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-close' });
+      await mounted.unmount();
+      expect([...world.store.keys()].filter((key) => key.startsWith('band.'))).toEqual([]);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`AC-36: a pending decision turns the closed line amber, and pressing it brings the band back on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([
+        ['band.hidden:/work', true],
+        ['band.minimised', true],
+      ]);
+      const world = worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) },
+        store,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const drawn = await $.ui.render(band(surface));
+      expect(textOf(drawn)).toBe('paqad · Needs you ▸');
+      expect(colorOf(textElement(drawn, 'paqad · Needs you ▸'))).toBe('permission');
+      const mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-needs-you' });
+      await mounted.unmount();
+      expect([...world.store.keys()].filter((key) => key.startsWith('band.'))).toEqual([]);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+
+    test(`/paqad show clears minimise, close and hide and says so on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([
+        ['band.hidden:/work', true],
+        ['band.minimised', true],
+      ]);
+      const world = worldOf(on, {
+        files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) },
+        store,
+      });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(await $.command.run(command('show'))).toEqual({ text: 'The paqad band is back.' });
+      expect([...world.store.keys()].filter((key) => key.startsWith('band.'))).toEqual([]);
+      expect(cardOf(await $.ui.render(band(surface, { bodyColumns: 120 })))).toBeDefined();
+    });
+  }
+});
+
+describe('/paqad decisions lists every packet in the repo (AC-21)', () => {
+  test('packets of other changes and unstamped ones are listed, labelled in this repo', async ($, on) => {
+    worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(FULL_ORD_501),
+        '.paqad/decisions/pending/D-01OTHER.json': JSON.stringify({
+          id: 'D-01OTHER',
+          category: 'ux-pattern',
+          title: 'Which layout?',
+          change: 'another-change',
+        }),
+        '.paqad/decisions/pending/D-02LOOSE.json': JSON.stringify({
+          id: 'D-02LOOSE',
+          category: 'create-vs-reuse',
+          title: 'Reuse it?',
+        }),
+      },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(await $.command.run(command('decisions'))).toEqual({
+      text: [
+        '2 decisions waiting in this repo. 4 resolved for this change.',
+        '  D-01OTHER (ux-pattern): Which layout?',
+        '  D-02LOOSE (create-vs-reuse): Reuse it?',
+      ].join('\n'),
+    });
+  });
+});
+
+describe('the paqad Ledger (FR-54 to FR-58, AC-32, AC-37 to AC-39)', () => {
+  for (const surface of SURFACES) {
+    test(`AC-39: opens titled paqad Ledger, with its subtitle, the five tabs and Trust shown on ${surface}`, async ($, on) => {
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const lines = drawnLines(await $.ui.render(pane(surface)));
+      expect(lines[0]).toBe('what happened, with proof');
+      expect(lines.slice(1, 6)).toEqual(['Trust (shown)', 'High Table', 'Ships', 'Record', 'Cost']);
+      expect(world.opened).toEqual(['paqad']);
+    });
+
+    test(`AC-32: the brand and the Proof Button open the Ledger on Trust, and High Table names who shaped the spec, on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]);
+      const raw = {
+        ...FULL_ORD_501,
+        change: { ...(FULL_ORD_501.change as object), dir: 'dir-ord-501' },
+      };
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(raw) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(world.opened).toEqual([]);
+      for (const key of ['paqad-proof', 'paqad-brand']) {
+        const mounted = await mountBand($, surface);
+        await mounted.press({ key });
+        await mounted.unmount();
+        expect(drawnLines(await $.ui.render(pane(surface)))).toContain('Trust (shown)');
+        const closer = await mountBand($, surface);
+        await closer.press({ key });
+        await closer.unmount();
+      }
+      expect(world.opened).toEqual(['paqad', 'paqad']);
+      expect(world.closedPanes).toEqual(['paqad', 'paqad']);
+      expect(drawnLines(await paneOn($, surface, 'table'))).toContain(
+        'Who shaped the spec (12 lines):',
+      );
+    });
+
+    test(`AC-38: the same target closes the Ledger, another switches its tab, a double press opens then closes, on ${surface}`, async ($, on) => {
+      const store = new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]);
+      const raw = {
+        ...FULL_ORD_501,
+        change: { ...(FULL_ORD_501.change as object), dir: 'dir-ord-501' },
+      };
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(raw) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      const mounted = await mountBand($, surface);
+      await mounted.press({ key: 'paqad-open-ship' });
+      await mounted.press({ key: 'paqad-open-stage' });
+      expect(world.closedPanes).toEqual([]);
+      expect(drawnLines(await $.ui.render(pane(surface)))).toContain('Record (shown)');
+      await mounted.press({ key: 'paqad-open-stage' });
+      expect(world.closedPanes).toEqual(['paqad']);
+      await mounted.press({ key: 'paqad-flags' });
+      await mounted.press({ key: 'paqad-flags' });
+      await mounted.unmount();
+      expect(world.opened).toEqual(['paqad', 'paqad', 'paqad']);
+      expect(world.closedPanes).toEqual(['paqad', 'paqad']);
+    });
+
+    test(`AC-37: auto-opens once per change, never again across sessions, and keeps 50 changes at most on ${surface}`, async ($, on) => {
+      const old = Array.from({ length: 50 }, (_, index) => `dir-${index}`);
+      const store = new Map<string, unknown>([['ledger.autoOpened', old]]);
+      const raw = {
+        ...FULL_ORD_501,
+        change: { ...(FULL_ORD_501.change as object), dir: 'dir-new' },
+      };
+      const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(raw) }, store });
+      mock.clock(on, { now: NOW });
+      await $.session.start(START);
+      expect(world.opened).toEqual(['paqad']);
+      const kept = world.store.get('ledger.autoOpened') as string[];
+      expect(kept).toHaveLength(50);
+      expect(kept.at(-1)).toBe('dir-new');
+      expect(kept).not.toContain('dir-0');
+      world.put(SNAPSHOT, fileText({ ...raw, generated_at: '2026-10-18T09:00:30.000Z' }));
+      await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+      await $.session.start(START);
+      expect(world.opened).toEqual(['paqad']);
+    });
+  }
+});
+
+describe('the band fits its box (AC-30, AC-43)', () => {
+  test('one row of instruments at 120 columns, stacked at 80, one line when rows run out', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    const directionOf = async (bodyColumns: number) => {
+      const card = cardOf(await $.ui.render(band('terminal', { bodyColumns, maxRows: 14 })));
+      const body = (card as { children: RenderNode[] }).children[1] as {
+        props: { flexDirection?: string };
+      };
+      return body.props.flexDirection;
+    };
+    expect(await directionOf(120)).toBe('row');
+    expect(await directionOf(80)).toBe('column');
+    const short = await $.ui.render(band('terminal', { bodyColumns: 120, maxRows: 4 }));
+    expect(cardOf(short)).toBeUndefined();
+    expect(linesOf(short)[0]).toContain('paqad ORD-501 Safe to merge');
+  });
 });
 
 describe('stand-downs: the mod registers nothing (AC-36)', () => {
@@ -266,7 +666,9 @@ describe('/paqad answers from the snapshot, with no model turn (AC-39)', () => {
     }
     expect(answers['']).toContain('Safe to merge (1 flag)');
     expect(answers.status).toContain('Change: #ORD-501 Add CSV export to the orders page.');
-    expect(answers.decisions).toBe('No decision is waiting. 4 resolved.');
+    expect(answers.decisions).toBe(
+      'No decision is waiting in this repo. 4 resolved for this change.',
+    );
     expect(answers.rules).toContain('Near-copies: 1 open.');
     expect(answers.receipt).toBe(RECEIPT_TEXT);
     expect(answers.cost).toContain('not yet');
@@ -287,10 +689,10 @@ describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => 
         component: 'AbovePrompt',
         props: band(surface).props,
       });
-      const pill = await mounted.find({ key: 'paqad-open-cost' });
-      expect(pill?.text).toBe('1.3M tokens, ~$4.60 estimate, 2026-10-19 prices');
-      await mounted.press({ key: 'paqad-open-cost' });
-      expect(world.opened).toEqual(['paqad']);
+      const pill = await mounted.find({ key: 'paqad-tokens' });
+      expect(pill?.text).toBe('1.3M tokens');
+      await mounted.press({ key: 'paqad-tokens' });
+      expect(world.opened.at(-1)).toBe('paqad');
       await mounted.unmount();
 
       const strings = stringsOf(await $.ui.render(pane(surface)));
@@ -331,7 +733,7 @@ describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => 
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490_COST) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const strings = stringsOf(await $.ui.render(pane(surface)));
+      const strings = stringsOf(await paneOn($, surface, 'cost'));
       expect(strings).toContain('By expert: none. The fast lane seats no High Table.');
       expect(strings.join('\n')).not.toContain('Chief architect');
       expect(textOf(await $.ui.render(band(surface)))).not.toContain('High Table');
@@ -384,7 +786,9 @@ describe('when the band reads the snapshot again (FR-24)', () => {
     await $.session.start(START);
     world.put(SNAPSHOT, fileText(PAUSED));
     await $.prompt.submit({ text: 'hello' } as never);
-    expect(linesOf(await $.ui.render(band('terminal')))[0]).toContain('Paused');
+    expect(textOf(await $.ui.render(band('terminal')))).toContain(
+      'paqad · question · running 0:00 · counting',
+    );
   });
 
   test('every 1.5 s only while a stage agent runs', async ($, on) => {
@@ -427,7 +831,6 @@ function elementOf(node: RenderNode, type: string): RenderElement | undefined {
   return undefined;
 }
 
-const tableLineOf = (lines: string[]) => lines.find((line) => line.startsWith('High Table'));
 const ENGINE_ROW = { type: 'Text', props: {}, children: ['engine row'] } as RenderElement;
 const ROLE_WORDS: Record<string, string> = {
   'product-owner': 'Product owner',
@@ -455,27 +858,28 @@ describe('the High Table in the band (AC-56, AC-57)', () => {
       const world = worldOf(on, { files: { ...ONBOARDED } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const linesFor = async (raw: Record<string, unknown>) => {
+      const textFor = async (raw: Record<string, unknown>) => {
         world.put(SNAPSHOT, fileText(raw));
         await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
-        return linesOf(await $.ui.render(band(surface)));
+        return textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
       };
-      expect(tableLineOf(await linesFor(GRADUATED_ORD_482))).toBe('High Table  ●●●● chief ●');
-      expect(tableLineOf(await linesFor(FULL_ORD_501))).toBe('High Table  ●●●●●●● chief ●');
-      expect(tableLineOf(await linesFor(FAST_ORD_490))).toBeUndefined();
-      const off = await linesFor(EXPERTS_OFF);
-      expect(tableLineOf(off)).toBeUndefined();
-      const instruments = off.filter((line) => /^(Stage|High Table|Ship)/.test(line));
-      expect(instruments.map((line) => line.split(' ')[0])).toEqual(['Stage', 'Ship']);
-      expect(tableLineOf(await linesFor(SKIPPED_TABLE))).toBe('High Table skipped');
+      expect(await textFor(GRADUATED_ORD_482)).toContain('HIGH TABLE  needs answers');
+      expect(await textFor(FULL_ORD_501)).toContain('HIGH TABLE  spec approved');
+      expect(await textFor(FAST_ORD_490)).not.toContain('HIGH TABLE');
+      const off = await textFor(EXPERTS_OFF);
+      expect(off).not.toContain('HIGH TABLE');
+      expect(off).toContain('STAGE');
+      expect(off).toContain('SHIP');
+      expect(await textFor(SKIPPED_TABLE)).toContain('HIGH TABLE  skipped');
     });
 
-    test(`AC-57: after the ruling only the dots, plus "1 flag" when flagged, on ${surface}`, async ($, on) => {
+    test(`AC-57: after the ruling the table reads approved and the flag sits in the header on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(LATE_TABLE) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const drawn = await $.ui.render(band(surface));
-      expect(tableLineOf(linesOf(drawn))).toBe('High Table  ●●●●●●● chief ●  1 flag');
+      const drawn = await $.ui.render(band(surface, { bodyColumns: 120 }));
+      expect(textOf(drawn)).toContain('HIGH TABLE  spec approved');
+      expect(colorOf(textElement(drawn, '1 flag'))).toBe('warning');
     });
 
     test(`the High Table label opens the pane on its tab on ${surface}`, async ($, on) => {
@@ -491,7 +895,7 @@ describe('the High Table in the band (AC-56, AC-57)', () => {
         props: band(surface).props,
       });
       await mounted.press({ key: 'paqad-open-table' });
-      expect(world.opened).toEqual(['paqad']);
+      expect(world.opened.at(-1)).toBe('paqad');
       await mounted.unmount();
       expect(drawnLines(await $.ui.render(pane(surface)))).toContain('High Table (shown)');
     });
@@ -534,7 +938,7 @@ describe('the live High Table card in the chat (AC-58)', () => {
       const lines = linesOf(await $.ui.render(toolUse(surface, 'tu-1', EXPERTS_COMMAND)));
       expect(lines[0]).toBe('High Table · 7 seats · the chief architect ruled: proceed');
       expect(lines).toContain(
-        '  ● Chief architect: ruled in 2m 00s, verdict: proceed, 28,512 tokens (exact)',
+        '  ● Chief architect: ruled in 2m 00s, verdict: proceed, Note: ~3K tokens of its 10K budget. Run: 28.5K tokens, mostly the code it read (exact)',
       );
       expect(lines.at(-1)).toBe(
         'Verdict: proceed. 13 findings, 9 accepted, 1 declined, 1 renamed, 1 disagreement, 1 settled before, 1 gap.',
@@ -577,6 +981,23 @@ describe('the live High Table card in the chat (AC-58)', () => {
   }
 });
 
+async function paneOn(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  surface: 'terminal' | 'desktop',
+  tab: string,
+) {
+  const mounted = await $.ui.mount({
+    plugin: PLUGIN,
+    surface,
+    component: 'Pane',
+    requestId: 'paqad',
+    props: pane(surface).props,
+  });
+  await mounted.press({ key: `paqad-tab-${tab}` });
+  await mounted.unmount();
+  return $.ui.render(pane(surface));
+}
+
 describe("the pane's High Table tab (AC-59)", () => {
   for (const surface of SURFACES) {
     test(`AC-59: ORD-501 shows every seat, the rulings, the questions and the 12-line credit on ${surface}`, async ($, on) => {
@@ -585,7 +1006,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const drawn = await $.ui.render(pane(surface));
+      const drawn = await paneOn($, surface, 'table');
       const lines = drawnLines(drawn);
       expect(lines).toContain('High Table (shown)');
       for (const plan of ORD_501_SEATS) {
@@ -622,7 +1043,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('ruled')) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const drawn = await $.ui.render(pane(surface));
+      const drawn = await paneOn($, surface, 'table');
       const line = drawnLines(drawn).find((text) => text.includes('Open disagreement'));
       expect(line).toContain('Open disagreement: Customer email in the export.');
       expect(line).toContain('The chief architect recommends:');
@@ -650,11 +1071,11 @@ describe("the pane's High Table tab (AC-59)", () => {
       await mounted.press({ key: 'paqad-seat-db-expert' });
       expect((await mounted.find({ key: 'paqad-seat-db-expert' }))?.text).toBe('DB expert (shown)');
       expect(
-        await mounted.find({ text: 'Budget: 6,000 tokens granted, cut to the ceiling.' }),
+        await mounted.find({ text: 'Run: 26.5K tokens, mostly the code it read (exact).' }),
       ).toBeDefined();
       await mounted.press({ key: 'paqad-seat-performance-analyst' });
       expect(
-        await mounted.find({ text: "Tokens: about 1,900 (estimate, the seat's own count)." }),
+        await mounted.find({ text: 'Note: ~1.9K tokens of its 5K budget, within the ceiling.' }),
       ).toBeDefined();
       await mounted.unmount();
     });
@@ -685,7 +1106,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const drawn = await $.ui.render(pane(surface));
+      const drawn = await paneOn($, surface, 'table');
       const lines = drawnLines(drawn);
       expect(lines.find((line) => line.includes(' Security auditor: '))).toContain(
         'late: its note landed after the spec was frozen',
@@ -696,7 +1117,7 @@ describe("the pane's High Table tab (AC-59)", () => {
       expect(colorOf(textElement(drawn, credit))).toBe('warning');
     });
 
-    test(`the pane opens on the High Table while seats write, unless a tab was picked, on ${surface}`, async ($, on) => {
+    test(`the Ledger opens on Trust with no pick, and a picked tab holds, on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('writing')) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
@@ -707,7 +1128,7 @@ describe("the pane's High Table tab (AC-59)", () => {
         requestId: 'paqad',
         props: pane(surface).props,
       });
-      expect((await mounted.find({ key: 'paqad-tab-table' }))?.text).toBe('High Table (shown)');
+      expect((await mounted.find({ key: 'paqad-tab-trust' }))?.text).toBe('Trust (shown)');
       await mounted.press({ key: 'paqad-tab-cost' });
       expect((await mounted.find({ key: 'paqad-tab-cost' }))?.text).toBe('Cost (shown)');
       await mounted.unmount();
@@ -754,7 +1175,7 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
           'card',
           seatStates(linesOf(await $.ui.render(toolUse(surface, 'tu-1', EXPERTS_COMMAND)))),
         );
-        note('pane', seatStates(drawnLines(await $.ui.render(pane(surface)))));
+        note('pane', seatStates(drawnLines(await paneOn($, surface, 'table'))));
       }
       for (const where of ['card', 'pane'] as const) {
         expect(Object.keys(seen[where])).toHaveLength(7);
@@ -775,26 +1196,29 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
         world.put(SNAPSHOT, fileText(raw));
         await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
         return {
-          band: tableLineOf(linesOf(await $.ui.render(band(surface)))),
+          band: textOf(await $.ui.render(band(surface, { bodyColumns: 120 }))),
           card: linesOf(await $.ui.render(toolUse(surface, 'tu-1', EXPERTS_COMMAND))).slice(1, 5),
         };
       };
       const [writing, landing, ruled] = ORD_482_SEQUENCE;
       const first = await look(writing!);
-      expect(first.band).toBe('High Table  4 writing  ◐◐◐◐');
+      expect(first.band).toContain('HIGH TABLE  0 of 4 notes');
       for (const line of first.card) {
         expect(line).toContain('writing for');
         expect(line).not.toContain('tokens');
       }
       const second = await look(landing!);
-      expect(second.band).toBe('High Table  2 writing, 2 done  ●◐●◐');
-      expect(second.card.filter((line) => line.includes('tokens (exact)'))).toHaveLength(2);
+      expect(second.band).toContain('HIGH TABLE  2 of 4 notes');
+      expect(second.card.filter((line) => line.includes('(exact)'))).toHaveLength(2);
       expect(second.card.find((line) => line.includes('Product owner'))).toContain(
-        'done in 1m 39s, 16,424 tokens (exact)',
+        'done in 1m 39s, Note: ~',
+      );
+      expect(second.card.find((line) => line.includes('Product owner'))).toContain(
+        'Run: 16.4K tokens, mostly the code it read (exact)',
       );
       const third = await look(ruled!);
-      expect(third.band).toBe('High Table  ●●●● chief ●');
-      expect(third.card.every((line) => line.includes('tokens (exact)'))).toBe(true);
+      expect(third.band).toContain('HIGH TABLE  needs answers');
+      expect(third.card.every((line) => line.includes('(exact)'))).toBe(true);
     });
   }
 });
@@ -1093,21 +1517,21 @@ describe('the Trust, Ships and Record tabs', () => {
       const drawn = await $.ui.render(pane(surface));
       const lines = drawnLines(drawn);
       expect(lines).toContain('Trust (shown)');
-      expect(lines).toContain('Gates ●~  1 of 2 required passed');
-      expect(lines).toContain('  ● code-tests-lint  passed');
+      expect(lines).toContain('Gates ●~  1/2 required');
+      expect(lines).toContain('  ● code-tests-lint  pass');
       expect(lines).toContain('  ~ review-quality  inconclusive');
-      expect(colorOf(textElement(drawn, 'passed'))).toBe('success');
+      expect(colorOf(textElement(drawn, 'pass'))).toBe('success');
       expect(colorOf(textElement(drawn, 'inconclusive'))).toBe('warning');
     });
 
-    test(`a delivery in progress opens on Ships with CI partly done on ${surface}`, async ($, on) => {
+    test(`a delivery in progress shows CI partly done on Ships on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(DELIVERING) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
-      const lines = drawnLines(await $.ui.render(pane(surface)));
+      const lines = drawnLines(await paneOn($, surface, 'ships'));
       expect(lines).toContain('Ships (shown)');
-      expect(lines).toContain('CI           running, 3 of 7 done');
-      expect(lines).toContain('Riding along none');
+      expect(lines.some((line) => line.startsWith('CI           running, 3 of 7 done'))).toBe(true);
+      expect(lines).toContain('Merge        The merge is always yours. paqad never merges.');
     });
 
     test(`AC-36: a picked Record tab holds when the verdict lands and a delivery starts on ${surface}`, async ($, on) => {

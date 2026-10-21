@@ -6,6 +6,7 @@ import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
 import { bundleArtifactFile, checkBundleArtifacts } from '@/stage-evidence/bundle-artifact.js';
 import { recordMarkedStage } from '@/stage-evidence/live-writer.js';
 import { markerNarrationLine } from '@/stage-evidence/narration.js';
+import { stageSettingsReport, writeStageSettings } from '@/stage-isolation/stage-settings.js';
 
 function collectArtifact(value: string, previous: string[] = []): string[] {
   return [...previous, value];
@@ -20,14 +21,31 @@ interface StageOptions {
   agent?: string;
 }
 
+function runStageSettings(options: StageOptions): void {
+  const root = options.projectRoot;
+  const sessionHint =
+    options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null;
+  const sessionId = sessionHint?.trim() ? sessionHint.trim() : resolveSessionId(root, null);
+  try {
+    const settings = writeStageSettings(root, sessionId);
+    console.log(JSON.stringify(stageSettingsReport(settings), null, 2));
+  } catch (error) {
+    console.error(`could not write the stage settings: ${(error as Error).message}`);
+    process.exitCode = 1;
+  }
+}
+
 export function createStageCommand(): Command {
   return new Command('stage')
     .description(
       'Mark a feature-development stage boundary in the stage-evidence ledger ' +
         '(clears the pre-code block for planning/specification)',
     )
-    .argument('<phase>', "'start' or 'end'")
-    .argument('<stage>', `one of: ${STAGE_ORDER.join(', ')}`)
+    .argument(
+      '<phase>',
+      "'start' or 'end', or 'settings' to print and record this project's per-stage effort and model",
+    )
+    .argument('[stage]', `one of: ${STAGE_ORDER.join(', ')}`)
     .option('--project-root <path>', 'Project root', process.cwd())
     .option(
       '--session <id>',
@@ -51,9 +69,18 @@ export function createStageCommand(): Command {
         'stage agent passes its own name so the row is attributable; omitted means the ' +
         'orchestrator marked it inline. Defaults to PAQAD_STAGE_AGENT when set.',
     )
-    .action((phase: string, stage: string, options: StageOptions) => {
+    .action((phase: string, stage: string | undefined, options: StageOptions) => {
+      if (phase === 'settings') {
+        runStageSettings(options);
+        return;
+      }
       if (phase !== 'start' && phase !== 'end') {
-        console.error(`unknown phase "${phase}" — use 'start' or 'end'`);
+        console.error(`unknown phase "${phase}" — use 'start', 'end' or 'settings'`);
+        process.exitCode = 1;
+        return;
+      }
+      if (!stage) {
+        console.error(`name the stage to ${phase}: one of ${STAGE_ORDER.join(', ')}`);
         process.exitCode = 1;
         return;
       }

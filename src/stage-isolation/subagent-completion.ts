@@ -7,6 +7,7 @@ import { recordHighTableUsage } from '@/spec-pipeline/high-table.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
 import { stageForAgentName, stripPluginAgentNamespace } from './stage-agents.js';
+import { readStageSetting } from './stage-settings.js';
 
 export { recordHighTableUsage };
 
@@ -114,6 +115,15 @@ export interface RecordStageAgentCompletionInput {
   now?: () => Date;
 }
 
+function requestedSetting(
+  projectRoot: string,
+  sessionId: string,
+  stage: string,
+): { requested_effort?: string; requested_model?: string } {
+  const setting = readStageSetting(projectRoot, sessionId, stage);
+  return setting ? { requested_effort: setting.effort, requested_model: setting.model } : {};
+}
+
 export function recordStageAgentCompletion(input: RecordStageAgentCompletionInput): boolean {
   try {
     const stage = stageFromAgentType(
@@ -139,6 +149,7 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
         tokens_used: tokens.tokens_used,
         tokens_not_recarried: tokens.tokens_not_recarried,
         estimate: !tokens.exact,
+        ...requestedSetting(input.projectRoot, sessionId, stage),
       },
       input.now,
     );

@@ -36,6 +36,15 @@ describe('installGitHooks', () => {
     }
   });
 
+  it('AC-9: the post-merge hook can never fail a git pull', () => {
+    const root = tempRepo();
+    installGitHooks(root);
+    const body = readFileSync(join(resolveHooksDir(root)!, 'post-merge'), 'utf8');
+    const calls = body.split('\n').filter((line) => line.includes('delivery-link merge'));
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.every((line) => line.includes('>/dev/null 2>&1 || true'))).toBe(true);
+  });
+
   it('is idempotent — a second install skips both hooks', () => {
     const root = tempRepo();
     installGitHooks(root);

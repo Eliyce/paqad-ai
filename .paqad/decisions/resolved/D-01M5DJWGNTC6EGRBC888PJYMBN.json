@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5DJWGNTC6EGRBC888PJYMBN",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new qualifyHudChange in src/hud/snapshot.ts",
+  "context": "Chief architect: Both are needed and do not contradict; this one is the headline acceptance that maps to the critical leak. The negative cases (detached HEAD, no recorded branch, another session's row, row before the episode, stage still running across a continue) stay as their own fixtures under it.\n\nTarget: new qualifyHudChange in src/hud/snapshot.ts\n- qa-engineer: Given a repo with an unclosed bundle on branch A whose last Stop verdict reads Safe to merge, when a session on branch B (or on the project-question route on branch A) builds its snapshot, then it carries active false, change null, verdict null, flags [], ship null, cost null, decisions.pending [] and scope.reason other-branch (or not-feature-route); proof_type unit with a temp git repo fixture, one test per reason value.\n- qa-engineer: Negative cases each need their own fixture: detached HEAD never qualifies; a bundle with no recorded branch qualifies only while HEAD is attached; a row by another session id does not qualify; a row recorded before episodeStart does not qualify; a stage_start by this session with no later stage_end does qualify across a continue.\n\n[expert-conflict-fork:9a89eaffe0b422ee]",
+  "options": [
+    {
+      "option_key": "given-a-repo-with-an-unclosed-bundle-on-",
+      "label": "Given a repo with an unclosed bundle on branch A whose last Stop verdict reads Safe to merge, when a session on branch B (or on the project-question route on branch A) builds its snapshot, then it carries active false, change null, verdict null, flags [], ship null, cost null, decisions.pending [] and scope.reason other-branch (or not-feature-route); proof_type unit with a temp git repo fixture, one test per reason value. — qa-engineer",
+      "one_line_preview": "Given a repo with an unclosed bundle on branch A whose last Stop verdict reads Safe to merge, when a session on branch B (or on the project-question route on branch A) builds its snapshot, then it carries active false, change null, verdict null, flags [], ship null, cost null, decisions.pending [] and scope.reason other-branch (or not-feature-route); proof_type unit with a temp git repo fixture, one test per reason value. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "negative-cases-each-need-their-own-fixtu",
+      "label": "Negative cases each need their own fixture: detached HEAD never qualifies; a bundle with no recorded branch qualifies only while HEAD is attached; a row by another session id does not qualify; a row recorded before episodeStart does not qualify; a stage_start by this session with no later stage_end does qualify across a continue. — qa-engineer",
+      "one_line_preview": "Negative cases each need their own fixture: detached HEAD never qualifies; a bundle with no recorded branch qualifies only while HEAD is attached; a row by another session id does not qualify; a row recorded before episodeStart does not qualify; a stage_start by this session with no later stage_end does qualify across a continue. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "given-a-repo-with-an-unclosed-bundle-on-",
+  "created_at": "2026-10-20T21:18:40.826Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "chosen": "given-a-repo-with-an-unclosed-bundle-on-",
+  "rationale": "Owner: build all compatible claims as the chief architect recommends; one PR",
+  "resolved_at": "2026-10-20T21:48:06.509Z",
+  "decision_id": "D-01M5DJWGNTC6EGRBC888PJYMBN",
+  "fingerprint": "sha256:8df0fd5b0fb27f109abe6c7e25c4b4e64a4094f258c712eae05b4b67674ce7de",
+  "question": "Experts disagree on new qualifyHudChange in src/hud/snapshot.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "ttl_until": "2026-11-19T21:18:40.826Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-a-repo-with-an-unclosed-bundle-on-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-20T21:48:06.509Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: build all compatible claims as the chief architect recommends; one PR"
+  }
+}

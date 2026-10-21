@@ -17,7 +17,10 @@ The reasons below are not obvious from the code in `src/install/`.
   under the user home) writes nothing into the project, so `paqad-ai join` can set up a new machine
   without producing a diff; the project-side writes are layered on top for `onboard` and `install`.
   The stage agents are always rendered (stage isolation has no knob) and a failure there never fails
-  the install, since the agents are inert until dispatched and the next update retries. The `.paqad/`
+  the install, since the agents are inert until dispatched and the next update retries. The files
+  live in the user home and are shared by every project, so they carry only the default stage
+  effort and model, never one project's config; `paqad-ai stage settings` applies a project's own
+  values at dispatch time. The `.paqad/`
   schema marker is created only when missing; migrating it is another module's job.
 - **The plugin-safe link rule in `bootstrap.ts`** is a hand mirror of `repointFrameworkLink` and its
   helpers in `runtime/hooks/plugin-session-start.mjs`. The runtime hooks have no dist and no

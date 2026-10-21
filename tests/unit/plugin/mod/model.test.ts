@@ -14,8 +14,6 @@ import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import type { FoldedChange, FoldedStage } from '@/stage-evidence/types.js';
 import { formatStageEvidenceReceipt } from '@/verification/repository/receipt.js';
 
-import { ticketRef } from '../../../shared/ticket-ref.js';
-
 import {
   BAND_STATES,
   NOT_YET,
@@ -34,7 +32,6 @@ import {
   parseSnapshot,
   receiptPath,
   safeSessionId,
-  shipSteps,
   snapshotPath,
   stageSegments,
 } from '../../../../runtime/claude-plugin/mod/model.ts';
@@ -80,10 +77,65 @@ describe('parseSnapshot', () => {
     expect(full.stages).toHaveLength(8);
   });
 
+  it('AC-28: reads a paqad.hud/2 snapshot, which has no scope, as idle', () => {
+    const legacy = parseSnapshot(
+      JSON.stringify({ ...FULL_ORD_501, schema: 'paqad.hud/2', scope: undefined }),
+    )!;
+    expect(legacy).toMatchObject({
+      scope: { qualified: false, reason: 'no scope recorded' },
+      active: false,
+      change: null,
+      stages: [],
+      flags: [],
+      ship: null,
+      verdict: null,
+      cost: null,
+      decisions: { pending: [], resolved: 0 },
+    });
+  });
+
+  it('AC-28: the previous mod reader took paqad.hud/3 snapshots without throwing', () => {
+    interface OldReading {
+      threw: string | null;
+      parsed: boolean;
+      headline: string;
+      stages: string[];
+      ship: Array<{ label: string; word: string; done: boolean }>;
+    }
+    const captured = JSON.parse(
+      readFileSync(join(process.cwd(), 'tests/fixtures/hud/old-mod-reads-hud3.json'), 'utf8'),
+    ) as { inputs: Record<string, Record<string, unknown>>; readings: Record<string, OldReading> };
+    const names = Object.keys(captured.inputs);
+    expect(names).toEqual(expect.arrayContaining(['FAST_ORD_490', 'FULL_ORD_501', 'SHIPPED']));
+    expect(Object.keys(captured.readings)).toEqual(names);
+    for (const name of names) {
+      const input = captured.inputs[name]!;
+      const reading = captured.readings[name]!;
+      expect(input.schema).toBe('paqad.hud/3');
+      expect(parseSnapshot(JSON.stringify(input))).not.toBeNull();
+      expect(reading.threw).toBeNull();
+      expect(reading.parsed).toBe(true);
+      expect(reading.headline.length).toBeGreaterThan(0);
+      expect(reading.stages).toHaveLength(8);
+      expect(reading.ship.map((step) => step.label)).toEqual([
+        'Edit',
+        'Commit',
+        'Push',
+        'PR',
+        'CI',
+        'Merge',
+      ]);
+      expect(reading.ship.every((step) => !step.word.startsWith('<'))).toBe(true);
+    }
+    const today = Object.keys(JSON.parse(JSON.stringify(FULL_ORD_501)) as object);
+    expect(Object.keys(captured.inputs.FULL_ORD_501!)).toEqual(expect.arrayContaining(today));
+  });
+
   it('tolerates odd fields without guessing', () => {
     const odd = parseSnapshot(
       JSON.stringify({
-        schema: 'paqad.hud/2',
+        schema: 'paqad.hud/3',
+        scope: { qualified: true },
         headline: { text: 7, tone: 'shouting' },
         paused: [{}, 'x'],
         stages: [{ stage: 'planning' }, { state: 'complete' }, null],
@@ -141,6 +193,14 @@ describe('parseSnapshot', () => {
       ci_detail: null,
       own: null,
       inherited: null,
+      commit_list: [],
+      inherited_count: 0,
+      pr_number: null,
+      pr_state: null,
+      pr_head: null,
+      ci_read_at: null,
+      all_green: false,
+      merged: false,
     });
     expect(odd.verdict).toBeNull();
   });
@@ -378,81 +438,6 @@ describe('the band never shows a stage done that the receipt does not (AC-45)', 
       });
     }
   }
-});
-
-describe('the Ship instrument (FR-26)', () => {
-  it('reads "not yet" for every step with no record, and Merge stays yours', () => {
-    expect(shipSteps(null).map((s) => `${s.label} ${s.word}`)).toEqual([
-      'Edit not yet',
-      'Commit not yet',
-      'Push not yet',
-      'PR not yet',
-      'CI not yet',
-      'Merge stays yours',
-    ]);
-  });
-
-  it('reads the build as the Edit step and counts commits', () => {
-    expect(shipSteps(parse(FAST_ORD_490))[0]).toEqual({
-      label: 'Edit',
-      word: 'running',
-      done: false,
-    });
-    const full = shipSteps(parse(FULL_ORD_501));
-    expect(full[0]).toEqual({ label: 'Edit', word: 'done', done: true });
-    expect(full[1]).toEqual({ label: 'Commit', word: '3 commits', done: true });
-    const one = shipSteps(parse({ ...FULL_ORD_501, ship: { commits: 1 } }));
-    expect(one[1]!.word).toBe('1 commit');
-  });
-
-  it('reads the PR number, a partial CI and the own and inherited commits', () => {
-    const parsed = parse({
-      ...FULL_ORD_501,
-      ship: {
-        commits: 76,
-        push: { state: 'pushed', sha: 's' },
-        pr: { number: 9, url: 'https://example.test/pull/9', draft: true },
-        ci: { state: 'pending', done: 3, total: 7 },
-        own: { count: 3, tickets: ['ORD-482'], merges: 0, untagged: 1 },
-        inherited: { count: 73, tickets: ['ORD-470'], merges: 'x' },
-      },
-    })!;
-    expect(parsed.ship).toMatchObject({
-      push: 'pushed',
-      pr: `draft ${ticketRef(9)}`,
-      ci: '3 of 7 done',
-      own: { count: 3, tickets: ['ORD-482'], merges: 0, untagged: 1 },
-      inherited: { count: 73, tickets: ['ORD-470'], merges: 0, untagged: 0 },
-    });
-    const settled = parse({
-      ...FULL_ORD_501,
-      ship: { pr: { number: 9, draft: false }, ci: { state: 'pass', done: 7, total: 7 } },
-    })!;
-    expect(settled.ship).toMatchObject({ pr: ticketRef(9), ci: 'pass' });
-    const unknown = parse({ ...FULL_ORD_501, ship: { ci: { state: 'pending' } } })!;
-    expect(unknown.ship?.ci).toBe('pending');
-  });
-
-  it('reads a recorded push, PR, CI and merge', () => {
-    const shipped = shipSteps(
-      parse({
-        ...FULL_ORD_501,
-        ship: {
-          commits: 2,
-          push: 'pushed',
-          pr: { state: 'draft' },
-          ci: '4 of 4',
-          merge_commit: 'abc',
-        },
-      }),
-    );
-    expect(shipped.slice(2).map((s) => `${s.label} ${s.word} ${s.done}`)).toEqual([
-      'Push pushed true',
-      'PR draft true',
-      'CI 4 of 4 true',
-      'Merge merged true',
-    ]);
-  });
 });
 
 describe('pills and live checks', () => {

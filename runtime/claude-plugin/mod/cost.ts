@@ -1,9 +1,24 @@
 import type { PaqadCost, PaqadCostLine, PaqadCostTokens } from './types';
 
+function scaled(value: number, unit: string): string {
+  const text = value < 100 ? value.toFixed(1).replace(/\.0$/, '') : String(Math.round(value));
+  return `${text}${unit}`;
+}
+
 export function formatTokens(tokens: number): string {
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(1)}k`;
+  if (tokens >= 1_000_000) return scaled(tokens / 1_000_000, 'M');
+  if (tokens >= 1_000) return scaled(tokens / 1_000, 'K');
   return String(Math.max(0, Math.round(tokens)));
+}
+
+export function formatStopwatch(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = String(total % 60).padStart(2, '0');
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}`
+    : `${minutes}:${seconds}`;
 }
 
 export function formatClock(ms: number): string {
@@ -72,6 +87,11 @@ export function roleWords(role: string): string {
   return words ? `${words[0]!.toUpperCase()}${words.slice(1)}` : role;
 }
 
+export const CHANGE_SCOPE_SENTENCE =
+  "Counted from the change's first row to its seal, this change only.";
+export const WHOLE_SESSION_SENTENCE =
+  "Whole session: paqad could not split this session's turns, so this is not the change's cost.";
+
 export interface CostLinesOptions {
   lane: string | null;
   stageLabel: (stage: string) => string;
@@ -90,15 +110,15 @@ function expertLines(cost: PaqadCost, options: CostLinesOptions): string[] {
   for (const seat of cost.by_expert) {
     lines.push(
       seat.exact
-        ? `  ${roleWords(seat.role)}: ${lineText(seat, date)}`
-        : `  ${roleWords(seat.role)}: about ${formatTokens(seat.tokens.total)} tokens, the seat's own estimate, already inside the total`,
+        ? `  ${roleWords(seat.role)}: Run: ${lineText(seat, date)}, mostly the code it read (exact)`
+        : `  ${roleWords(seat.role)}: Note: ~${formatTokens(seat.tokens.total)} tokens, the seat's own estimate, already inside the total`,
     );
   }
   if (cost.chief) {
     lines.push(
       cost.chief.exact
-        ? `Chief architect: ${lineText(cost.chief, date)}`
-        : `Chief architect: about ${formatTokens(cost.chief.tokens.total)} tokens, its own estimate, already inside the total`,
+        ? `Chief architect: Run: ${lineText(cost.chief, date)}, mostly the code it read (exact)`
+        : `Chief architect: Note: ~${formatTokens(cost.chief.tokens.total)} tokens, its own estimate, already inside the total`,
     );
   } else {
     lines.push('Chief architect: no tokens reported yet.');
@@ -112,12 +132,12 @@ export function costLines(cost: PaqadCost, options: CostLinesOptions): string[] 
     cost.usd === null
       ? 'no money figure, since no model it used is in the price table'
       : `~${formatUsd(cost.usd)}, ${cost.label}, prices of ${date}`;
+  const whole = cost.scope === 'whole-session';
   const lines = [
-    `Cost of this change: ${fullTokens(cost.tokens.total)} tokens, ${money}.`,
+    `${whole ? 'Cost of the whole session' : 'Cost of this change'}: ${fullTokens(cost.tokens.total)} tokens, ${money}.`,
     `Tokens: ${tokenKinds(cost.tokens)}.`,
-    cost.sealed
-      ? 'Counted from the first record to the seal.'
-      : 'Counted so far: the change is not sealed yet.',
+    whole ? WHOLE_SESSION_SENTENCE : CHANGE_SCOPE_SENTENCE,
+    ...(cost.sealed ? [] : ['Counted so far: the change is not sealed yet.']),
     'By stage:',
     ...(cost.by_stage.length === 0
       ? ['  none yet']

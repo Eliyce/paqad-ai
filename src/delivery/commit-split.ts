@@ -16,6 +16,8 @@ export interface CommitSplit {
   base_commit: string | null;
   own: CommitGroup | null;
   inherited: CommitGroup | null;
+  own_shas?: string[];
+  inherited_shas?: string[];
 }
 
 export interface CommitSplitInput {
@@ -103,13 +105,17 @@ export function computeCommitSplit(projectRoot: string, input: CommitSplitInput 
   const own = new Set(input.ownTickets ?? []);
   const beforeStart = commitsBeforeStart(projectRoot, state.base_commit, input.startCommit);
   const split = { own: emptyGroup(), inherited: emptyGroup() };
+  const ownShas: string[] = [];
+  const inheritedShas: string[] = [];
   for (const commit of readBranchCommits(projectRoot, state.base_commit)) {
     const ours = commit.tickets.some((ticket) => own.has(ticket));
     const foreign = own.size > 0 && commit.tickets.length > 0 && !ours;
     const afterStart = beforeStart === null || !beforeStart.has(commit.sha);
     if (ours || (!foreign && afterStart)) {
       addTo(split.own, commit, commit.tickets);
+      ownShas.push(commit.sha);
     } else {
+      inheritedShas.push(commit.sha);
       addTo(
         split.inherited,
         commit,
@@ -123,6 +129,8 @@ export function computeCommitSplit(projectRoot: string, input: CommitSplitInput 
     base_commit: state.base_commit,
     own: split.own,
     inherited: split.inherited,
+    own_shas: ownShas,
+    inherited_shas: inheritedShas,
   };
 }
 

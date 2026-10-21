@@ -1,4 +1,5 @@
 import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import type { RepositoryVerificationVerdict } from '@/verification/repository/verdict.js';
 import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
@@ -8,6 +9,7 @@ import { hudReceiptPath, hudVerdictPath, writeFileAtomic } from './files.js';
 export interface HudVerdictRecord {
   schema: 'paqad.hud-verdict/1';
   session_id: string;
+  change: string | null;
   word: string;
   kind: VerdictKind;
   passed: boolean;
@@ -38,6 +40,7 @@ export function writeHudReceipt(
   const record: HudVerdictRecord = {
     schema: 'paqad.hud-verdict/1',
     session_id: sessionId,
+    change: activeChange(projectRoot, sessionId),
     word: PAQAD_VERDICT[kind],
     kind,
     passed: kind === 'pass',
@@ -52,4 +55,12 @@ export function writeHudReceipt(
   writeFileAtomic(receiptPath, `${verdict.receipt ?? verdict.summary}\n`);
   writeFileAtomic(verdictPath, `${JSON.stringify(record, null, 2)}\n`);
   return { receiptPath, verdictPath, verdict: record };
+}
+
+function activeChange(projectRoot: string, sessionId: string): string | null {
+  try {
+    return currentFeature(projectRoot, sessionId);
+  } catch {
+    return null;
+  }
 }

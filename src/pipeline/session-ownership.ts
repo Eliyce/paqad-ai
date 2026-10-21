@@ -46,6 +46,37 @@ export function sessionOwnedRows(projectRoot: string, sessionId: string): Sessio
   );
 }
 
+export function sessionWroteInEpisode(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string,
+  episodeStartAt: string | null,
+): boolean {
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  const since = episodeStartAt === null ? NaN : Date.parse(episodeStartAt);
+  const wroteSince = rows.some((row) => {
+    if (row.session_id !== sessionId) return false;
+    if (Number.isNaN(since)) return true;
+    const at = Date.parse(rowRecordedAt(row) ?? '');
+    return !Number.isNaN(at) && at >= since;
+  });
+  return (
+    wroteSince || rows.some((row, index) => isOwnRunningStageStart(rows, row, index, sessionId))
+  );
+}
+
+function isOwnRunningStageStart(
+  rows: readonly SessionLedgerRow[],
+  row: SessionLedgerRow,
+  index: number,
+  sessionId: string,
+): boolean {
+  if (row.kind !== 'stage_start' || row.session_id !== sessionId) return false;
+  return !rows
+    .slice(index + 1)
+    .some((later) => later.kind === 'stage_end' && later.stage === row.stage);
+}
+
 function lastPromptAt(projectRoot: string, sessionId: string): number {
   const stamp = readWorkflowState(projectRoot, sessionId).turn_started_at;
   return stamp === undefined ? NaN : Date.parse(stamp);

@@ -1,0 +1,54 @@
+{
+  "servers": [
+    {
+      "name": "figma",
+      "provides": [
+        "design-specs",
+        "components",
+        "layouts"
+      ],
+      "replaces": [
+        "web-search-design-research"
+      ],
+      "why": "react project"
+    },
+    {
+      "name": "vite-inspector",
+      "provides": [
+        "build-graph",
+        "asset-manifest",
+        "hmr-config"
+      ],
+      "replaces": [
+        "vite-config-scanning",
+        "asset-manifest-scanning"
+      ],
+      "why": "react project"
+    },
+    {
+      "name": "react-router-mcp",
+      "provides": [
+        "route-tree",
+        "lazy-chunks",
+        "navigation-boundaries"
+      ],
+      "replaces": [
+        "manual-route-documentation"
+      ],
+      "why": "react project"
+    },
+    {
+      "name": "tailwind-mcp",
+      "provides": [
+        "design-tokens",
+        "utility-classes",
+        "theme-config"
+      ],
+      "replaces": [
+        "css-web-search",
+        "manual-tailwind-scanning"
+      ],
+      "why": "react project"
+    }
+  ]
+}
