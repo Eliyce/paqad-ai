@@ -50,6 +50,9 @@ import {
 } from '@/feature-evidence/tech-debt-index.js';
 import { foldFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { workflowCostSince } from '@/cost/session-cost.js';
+import { toPosixPath } from '@/core/path-utils.js';
+import type { ResolvedDeliveryPolicy } from '@/core/types/delivery-policy.js';
+import { readFeaturePlan } from '@/feature-evidence/artifacts.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { episodeStart, readRouteTurns } from '@/pipeline/route-turns.js';
 import type { RoutedWorkflow } from '@/pipeline/routed-workflow.js';
@@ -73,6 +76,7 @@ import {
   stageEndTimes,
   type HudScopeReason,
 } from './change-scope.js';
+import { readChangedFiles } from './changed-files.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
@@ -186,6 +190,7 @@ export interface HudShip {
   own: CommitGroup | null;
   inherited: CommitGroup | null;
   inherited_count: number;
+  files_changed: number | null;
 }
 
 export interface HudWorkflow {
@@ -236,22 +241,52 @@ function repoHasCi(projectRoot: string): boolean {
   }
 }
 
-function buildDeliveryPlan(
-  projectRoot: string,
-  delivery: DeliveryRecord | null,
-): HudDeliveryPlan | null {
+function readPolicy(projectRoot: string): ResolvedDeliveryPolicy | null {
   try {
-    const { policy } = loadDeliveryPolicy(projectRoot);
-    return computeDeliveryPlan({
-      enabled: policy.enabled,
-      commitDeclined: delivery?.commit_decision?.answer === 'decline',
-      ciGate: policy.process.ci.gate,
-      hasCi: repoHasCi(projectRoot),
-    });
+    return loadDeliveryPolicy(projectRoot).policy;
   } catch (error) {
-    logHudWriteError(projectRoot, 'delivery plan', error);
+    logHudWriteError(projectRoot, 'delivery policy', error);
     return null;
   }
+}
+
+function buildDeliveryPlan(
+  projectRoot: string,
+  policy: ResolvedDeliveryPolicy | null,
+  delivery: DeliveryRecord | null,
+): HudDeliveryPlan | null {
+  if (!policy) return null;
+  return computeDeliveryPlan({
+    enabled: policy.enabled,
+    commitDeclined: delivery?.commit_decision?.answer === 'decline',
+    ciGate: policy.process.ci.gate,
+    hasCi: repoHasCi(projectRoot),
+  });
+}
+
+export interface HudPlanProgress {
+  steps: number;
+  done: number;
+}
+
+function planFile(path: string): string {
+  return toPosixPath(path).replace(/^\.\//, '');
+}
+
+function buildPlanProgress(
+  projectRoot: string,
+  dirName: string,
+  changedFiles: readonly string[] | null,
+): HudPlanProgress | null {
+  const steps = readFeaturePlan(projectRoot, dirName)?.steps;
+  if (!Array.isArray(steps) || steps.length === 0 || changedFiles === null) return null;
+  const changed = new Set(changedFiles.map(planFile));
+  const done = steps.filter(
+    (step) =>
+      Array.isArray(step?.files) &&
+      step.files.some((file) => typeof file === 'string' && changed.has(planFile(file))),
+  ).length;
+  return { steps: steps.length, done };
 }
 
 export interface HudSnapshot {
@@ -290,6 +325,7 @@ export interface HudSnapshot {
   questions: { asked: number; answered: number; auto_answered: number; deferred: number } | null;
   last_block: RuleStopRecord | null;
   delivery_plan: HudDeliveryPlan | null;
+  plan: HudPlanProgress | null;
   ship: HudShip | null;
   verdict: HudVerdictRecord | null;
   receipt: { path: string } | null;
@@ -475,7 +511,7 @@ function readingIsCurrent(
   return true;
 }
 
-export function buildShip(delivery: DeliveryRecord): HudShip {
+export function buildShip(delivery: DeliveryRecord, filesChanged: number | null = null): HudShip {
   const split = delivery.commit_split ?? null;
   const ownShas = split?.own_shas ? new Set(split.own_shas) : null;
   const inheritedShas = split?.inherited_shas ?? [];
@@ -513,6 +549,7 @@ export function buildShip(delivery: DeliveryRecord): HudShip {
     own: split?.own ?? null,
     inherited: split?.inherited ?? null,
     inherited_count: inheritedShas.length,
+    files_changed: filesChanged,
   };
 }
 
@@ -850,7 +887,8 @@ export function buildHudSnapshot(
       decisions,
       questions: null,
       last_block: lastBlock,
-      delivery_plan: buildDeliveryPlan(projectRoot, null),
+      delivery_plan: buildDeliveryPlan(projectRoot, readPolicy(projectRoot), null),
+      plan: null,
       ship: null,
       verdict: null,
       receipt: null,
@@ -878,6 +916,10 @@ export function buildHudSnapshot(
   );
   const rulesLoaded = readRulesLoaded(projectRoot, dirName);
   const delivery = readFeatureDelivery(projectRoot, dirName);
+  const policy = readPolicy(projectRoot);
+  const changedFiles = readChangedFiles(projectRoot, policy?.process.pr.base ?? null, (error) =>
+    logHudWriteError(projectRoot, 'changed files', error),
+  );
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
   const isolationSummary = summarizeStageIsolation(projectRoot, dirName);
   const findings = buildFindings(projectRoot, dirName);
@@ -937,8 +979,9 @@ export function buildHudSnapshot(
     decisions,
     questions: buildQuestions(projectRoot, dirName),
     last_block: lastBlock,
-    delivery_plan: buildDeliveryPlan(projectRoot, delivery),
-    ship: buildShip(delivery),
+    delivery_plan: buildDeliveryPlan(projectRoot, policy, delivery),
+    plan: buildPlanProgress(projectRoot, dirName, changedFiles),
+    ship: buildShip(delivery, changedFiles ? changedFiles.length : null),
     verdict,
     receipt,
     evidence_expected: buildEvidenceExpected(projectRoot, sessionId, dirName),

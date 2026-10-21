@@ -6,16 +6,27 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import {
+  readFeatureDelivery,
   recordShip,
   setCommitDecision,
   type DeliveryPr,
   type DeliveryRecord,
 } from '@/feature-evidence/delivery.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { buildHudSnapshot, buildShip, computeDeliveryPlan } from '@/hud/snapshot.js';
 import { loadDeliveryPolicy } from '@/pipeline/delivery-policy.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
+
+import {
+  checkout,
+  cleanupScopeFixtures,
+  commit,
+  openChangeHere,
+  repoRoot,
+  runStage,
+} from './scope-fixtures.js';
 
 vi.mock('@/pipeline/delivery-policy.js', async (importOriginal) => {
   const real = await importOriginal<typeof import('@/pipeline/delivery-policy.js')>();
@@ -164,7 +175,7 @@ describe('AC-27: the delivery plan', () => {
     expect(snapshot.delivery_plan).toBeNull();
     expect(snapshot.active).toBe(true);
     expect(readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8')).toContain(
-      'hud-snapshot (delivery plan): policy unreadable',
+      'hud-snapshot (delivery policy): policy unreadable',
     );
   });
 });
@@ -251,6 +262,69 @@ describe('AC-27: the pull request title and size', () => {
       pr_files: 14,
       pr_additions: 412,
       pr_deletions: 87,
+    });
+  });
+});
+
+describe('AC-27: files changed and plan steps built', () => {
+  afterEach(() => cleanupScopeFixtures());
+
+  function writePlan(root: string, dir: string, steps: unknown): void {
+    writeFileSync(join(root, featureFilePath(dir, 'plan')), JSON.stringify({ steps }));
+  }
+
+  it('counts the files this change touched and the plan steps whose files it touched', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/plan', true);
+    const S = 'ses-plan-steps';
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writePlan(root, dir, [
+      { id: 'S1', description: 'a', files: ['src/a.ts'] },
+      { id: 'S2', description: 'docs', files: ['./docs/b.md', 7] },
+      { id: 'S3', description: 'nothing listed' },
+    ]);
+    mkdirSync(join(root, 'src'), { recursive: true });
+    commit(root, 'src/a.ts', 'feat: a');
+    writeFileSync(join(root, 'notes.txt'), 'untracked\n');
+
+    const snapshot = buildHudSnapshot(root, S);
+    expect(snapshot.ship?.files_changed).toBe(2);
+    expect(snapshot.plan).toEqual({ steps: 3, done: 1 });
+
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    writeFileSync(join(root, 'docs', 'b.md'), 'docs\n');
+    expect(buildHudSnapshot(root, S).plan).toEqual({ steps: 3, done: 2 });
+  });
+
+  it('leaves both out when git cannot say, and the plan out when it has no steps', () => {
+    const root = onboardedRoot();
+    const S = 'ses-plan-no-git';
+    const dir = openChange(root, S, 'full');
+    writePlan(root, dir, [{ id: 'S1', description: 'a', files: ['src/a.ts'] }]);
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+    expect(snapshot.ship?.files_changed).toBeNull();
+    expect(snapshot.plan).toBeNull();
+    expect(buildShip(readFeatureDelivery(root, dir)).files_changed).toBeNull();
+
+    const repo = repoRoot();
+    checkout(repo, 'feat/empty-plan', true);
+    const R = 'ses-plan-empty';
+    const empty = openChangeHere(repo, R);
+    runStage(repo, R, 'planning');
+    expect(buildHudSnapshot(repo, R).plan).toBeNull();
+    writePlan(repo, empty, []);
+    expect(buildHudSnapshot(repo, R).plan).toBeNull();
+    writePlan(repo, empty, 'not a list');
+    expect(buildHudSnapshot(repo, R)).toMatchObject({ plan: null, ship: { files_changed: 0 } });
+  });
+
+  it('is left out before a change opens', () => {
+    const root = onboardedRoot();
+    persistLedgerSessionId(root, 'ses-plan-idle');
+    expect(buildHudSnapshot(root, 'ses-plan-idle', { now: NOW })).toMatchObject({
+      plan: null,
+      ship: null,
     });
   });
 });

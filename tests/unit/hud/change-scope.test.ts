@@ -353,7 +353,15 @@ describe('the HUD reads saved files only (AC-49)', () => {
         .map((name) => join('runtime/claude-plugin/mod', name)),
     ].filter((path) => /\.(ts|tsx)$/.test(path));
     expect(sources.length).toBeGreaterThan(10);
-    const forbidden = /child_process|node:https?['"]|node:net['"]|\bfetch\(|['"]gh['"]|undici/;
-    expect(sources.filter((path) => forbidden.test(readFileSync(path, 'utf8')))).toEqual([]);
+    const gitReader = join('src/hud', 'changed-files.ts');
+    const network = /node:https?['"]|node:net['"]|\bfetch\(|['"]gh['"]|undici/;
+    const forbidden = new RegExp(`child_process|${network.source}`);
+    expect(
+      sources.filter((path) => path !== gitReader && forbidden.test(readFileSync(path, 'utf8'))),
+    ).toEqual([]);
+    const reader = readFileSync(gitReader, 'utf8');
+    expect(reader).not.toMatch(network);
+    expect(reader.match(/execFileSync\('[^']+'/g)).toEqual(["execFileSync('git'"]);
+    expect(reader).toContain('timeout: GIT_READ_TIMEOUT_MS');
   });
 });
