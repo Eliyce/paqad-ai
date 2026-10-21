@@ -26,8 +26,9 @@ const versions = (process.env.FAKE_NPM_VERSIONS || '').split(',').filter(Boolean
 const spec = args[1] || '';
 if (spec.startsWith('paqad-ai@')) {
   const version = spec.slice('paqad-ai@'.length);
-  if (versions.includes(version)) console.log(version);
-  process.exit(0);
+  if (versions.includes(version)) { console.log(version); process.exit(0); }
+  console.error('npm error code E404');
+  process.exit(1);
 }
 if (args[2] === 'versions') { console.log(JSON.stringify(versions)); process.exit(0); }
 if (args[2] === 'dist-tags.latest') { console.log(process.env.FAKE_NPM_LATEST || ''); process.exit(0); }
