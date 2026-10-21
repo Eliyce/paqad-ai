@@ -1112,7 +1112,13 @@ export function computeHudHeadline(input: HudHeadlineInput): { text: string; ton
 
 export interface BuildHudSnapshotOptions {
   now?: () => Date;
+  turnRunning?: boolean;
 }
+
+export const TURN_END_SOURCES: ReadonlySet<string> = new Set([
+  'hook:verification-completion',
+  'hook:capability-gate-completion',
+]);
 
 export function buildHudSnapshot(
   projectRoot: string,
@@ -1291,7 +1297,11 @@ export function buildHudSnapshot(
       stages: isolationSummary?.stages ?? 0,
       tokens_not_recarried: isolationSummary?.tokensNotRecarried ?? 0,
     },
-    cost: buildHudCost(projectRoot, dirName),
+    cost: buildHudCost(projectRoot, dirName, {
+      turnRunning: options.turnRunning === true,
+      now,
+      onError: (error) => logHudWriteError(projectRoot, 'cost', error),
+    }),
     tech_debt: { raised: readFeatureTechDebtIndex(projectRoot, dirName) ?? [] },
     rule_overrides: readRuleOverrides(projectRoot, dirName).map(({ rule, file, by, at }) => ({
       rule,
@@ -1319,7 +1329,9 @@ export function writeHudSnapshotSafe(
   source: string,
 ): string | null {
   try {
-    return writeHudSnapshot(projectRoot, sessionHint).path;
+    return writeHudSnapshot(projectRoot, sessionHint, {
+      turnRunning: !TURN_END_SOURCES.has(source),
+    }).path;
   } catch (error) {
     logHudWriteError(projectRoot, source, error);
     return null;

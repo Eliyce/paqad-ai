@@ -71,12 +71,15 @@ export function snapshot(over: Raw = {}): Raw {
     table: null,
     claims: [],
     gates: [],
+    gates_expected: [],
     flags: [],
     rules: { recorded: false, applicable: null, loaded_at: null },
     findings: null,
     decisions: { pending: [], resolved: 0 },
     questions: null,
     last_block: null,
+    delivery_plan: null,
+    plan: null,
     ship: null,
     verdict: null,
     receipt: null,
@@ -623,6 +626,7 @@ export function costRecord(over: Raw = {}): Raw {
       'The 1.1 times multiplier for US-only inference',
       'Batch discounts',
     ],
+    live: false,
     ...over,
   };
 }
