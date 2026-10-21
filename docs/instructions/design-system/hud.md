@@ -181,7 +181,8 @@ atom from `$.clock.now()`. It runs only while a live state is drawn and stops wh
 ### Band state and headline
 
 The band resolves its state from the snapshot in this order; the first match wins. `signal` picks
-the light's colour; live states breathe and show the clock.
+the light's colour; live states breathe and show the clock. State 1 still draws the identity row
+with its `Ledger`, `−` and `×` controls, so the Ledger's Trust tab can give the reason.
 
 | #   | When                                                                             | Signal          | Live | Headline                                                                                                  |
 | --- | -------------------------------------------------------------------------------- | --------------- | ---- | --------------------------------------------------------------------------------------------------------- |
