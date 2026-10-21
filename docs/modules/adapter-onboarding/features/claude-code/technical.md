@@ -185,7 +185,9 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   with no passing tests-and-lint gate reads "tests not verified". Spec reads "not required" on the
   fast lane, which needs no frozen spec. Merge lights only when this change's own pull request is
   merged (`ship.merged`); a merge commit on main, a release commit or a pull request of another
-  change never lights it, and Merge reads unknown when the pull request state could not be read.
+  change never lights it. A merged pull request whose head is a commit this change recorded stays
+  its own after a merge-commit merge, and Merge reads unknown when the pull request state could not
+  be read, as for one saved before its state was kept.
   paqad never merges.
 - **State and colour.** The state is the first match of: a waiting decision, a rule stop, no change
   in progress (paused, another workflow, or ready), an open branch flag, a running stage, the
