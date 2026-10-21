@@ -300,7 +300,12 @@ function tableTab(ui: D, view: TableView | null, state: LedgerState, actions: Le
           </Text>,
           <Box flexDirection="row" alignItems="center" columnGap="xs">
             {word(ui, seat.word, seat.tone)}
-            <Button plain dimColor key={`paqad-seat-${seat.role}`} onPress={() => actions.seat(seat.role)}>
+            <Button
+              plain
+              dimColor
+              key={`paqad-seat-${seat.role}`}
+              onPress={() => actions.seat(seat.role)}
+            >
               ›
             </Button>
           </Box>,

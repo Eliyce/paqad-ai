@@ -121,7 +121,12 @@ function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
   );
 }
 
-function minimisedRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, tick: number, actions: BandActions) {
+function minimisedRow(
+  ui: D,
+  band: Extract<DesktopBand, { kind: 'feature' }>,
+  tick: number,
+  actions: BandActions,
+) {
   const { Box, Text, Svg } = ui;
   const view = band.minimised;
   return (
@@ -144,7 +149,12 @@ function minimisedRow(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, ti
   );
 }
 
-function featureBand(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, tick: number, actions: BandActions) {
+function featureBand(
+  ui: D,
+  band: Extract<DesktopBand, { kind: 'feature' }>,
+  tick: number,
+  actions: BandActions,
+) {
   const { Box, Svg } = ui;
   if (band.mode === 'minimised') {
     return (
@@ -166,7 +176,11 @@ function featureBand(ui: D, band: Extract<DesktopBand, { kind: 'feature' }>, tic
   );
 }
 
-function closedBand(ui: D, band: Extract<DesktopBand, { kind: 'closed' | 'hidden' }>, actions: BandActions) {
+function closedBand(
+  ui: D,
+  band: Extract<DesktopBand, { kind: 'closed' | 'hidden' }>,
+  actions: BandActions,
+) {
   const { Box, Text, Button } = ui;
   return (
     <Box key="paqad-band" flexDirection="row" alignItems="center" columnGap="sm">
@@ -186,7 +200,12 @@ function closedBand(ui: D, band: Extract<DesktopBand, { kind: 'closed' | 'hidden
   );
 }
 
-function workflowBand(ui: D, band: Extract<DesktopBand, { kind: 'workflow' }>, tick: number, actions: BandActions) {
+function workflowBand(
+  ui: D,
+  band: Extract<DesktopBand, { kind: 'workflow' }>,
+  tick: number,
+  actions: BandActions,
+) {
   const { Box, Text, Button } = ui;
   return (
     <Box key="paqad-band" flexDirection="row" alignItems="center" columnGap="sm">
