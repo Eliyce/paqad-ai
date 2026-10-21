@@ -464,8 +464,20 @@ decisions. The row check is `sessionWroteInEpisode` in `src/pipeline/session-own
 - **Cost and workflow.** `cost.scope` says `change` or `whole-session`. On another workflow the
   `workflow` field carries its name, when it started in this session (the route-turn log) and its
   tokens and money since then, from the session cost cache.
-- **Timeline.** `timeline` lists the change's last 20 open, close, stage start and stage end rows
-  with their notes, for the Ledger's Record tab.
+- **Timeline.** `timeline` lists the change's open, close, stage start and stage end rows with
+  their notes, and the events the Record tab names: rules loaded, the High Table seated, all notes
+  landed, the chief's ruling, decisions opened and answered, the spec frozen, each commit, the push,
+  the pull request and CI. A stage end carries its time from the matching start. The terminal keeps
+  showing only the stage rows.
+- **Desktop data.** `gates_expected` is the gate list the checks will run, in their order, so Trust
+  can show every gate before Checks. `delivery_plan` says which of commit, push, pull request, CI
+  and merge this change's policy takes, and `plan` counts the plan steps and the steps built.
+  `ship.files_changed` counts the files the change touched (one bounded git read), and
+  `ship.pr_title`, `ship.pr_files`, `ship.pr_additions` and `ship.pr_deletions` come from the same
+  gh call that reads the pull request. Once the spec is frozen, `claims` adds one acceptance claim
+  per automated criterion: its id, its then text and the test that proves it, from the change
+  traceability map. `cost.live` is true while the turn is still being counted. Each field is `null`
+  or empty when its source is missing, and a failed read leaves it out and never stops the write.
 
 The `table` field (`src/hud/high-table-view.ts`) is the live High
 Table: each seat with its state (`seated`, `writing`, `done`), its times, granted budget, findings,
@@ -509,12 +521,21 @@ network, and starts no process.
 - **What the band shows.** On the feature-development route, one card with a header (brand,
   change chip, headline, verdict, flag chip, lane, tokens, Proof, minimise and close) and three
   instruments: STAGE, HIGH TABLE (not on the fast lane) and SHIP. A change that does not qualify
-  shows only the header, `paqad  feature development · no change in progress`. Any other workflow
+  shows only the header, `paqad  Getting ready`. Any other workflow
   gets one status line with its own tokens instead of a band, and no workflow gets nothing. The
   band can be minimised, closed for the session or hidden in this project, and comes back with
   `/paqad show`; while it is out of the way and a decision waits, its line turns amber and reads
   Needs you. The full layout, the marks and the mod API limits are in
   [the Claude Code adapter technical doc](../../adapter-onboarding/features/claude-code/technical.md).
+- **On Desktop.** The Claude Code Desktop app gets its own card, drawn from the pure view model in
+  `runtime/claude-plugin/mod/desktop-view.ts`: an identity row (workflow, lane, change, cost, the
+  flags and the `Ledger`, minimise and close Buttons), one message row with a light in the signal
+  colour and the headline, and one plain-image Svg strip of the stages, the High Table and the
+  delivery steps the change's policy takes. A live state breathes and its clock ticks on a 400 ms
+  tick that runs only while something live is drawn. Close asks inline. A record paqad cannot read
+  says so in coral. The Ledger on Desktop has equal tabs (Trust, High Table, Delivery, Record, Cost),
+  and `Answer in chat` fills the prompt box. The full design is in
+  [the HUD design doc](../../../instructions/design-system/hud.md).
 - **The live card.** While the table sits, a card is drawn over the change's first
   `paqad-ai spec pipeline experts` call in the chat and redrawn in place as seats move: each
   seat's state and time, its note tokens against its budget and its run tokens, and findings,
@@ -556,8 +577,10 @@ network, and starts no process.
 - **`/paqad` commands.** `/paqad` (overview), `/paqad status`, `/paqad decisions`,
   `/paqad rules` (rules loaded plus open rule findings and near-copies), `/paqad receipt` (the
   session's `<session>.receipt.md`), `/paqad cost` (the same text as the Cost tab) and
-  `/paqad trust`, `/paqad ships` and `/paqad record` (the same lines as those tabs), and `/paqad show`
-  (brings a minimised, closed or hidden band back). `/paqad decisions` lists every pending packet
+  `/paqad trust`, `/paqad ships` (also `/paqad delivery`) and `/paqad record` (the same lines as
+  those tabs), `/paqad show` (brings a minimised, closed or hidden band back) and `/paqad hide`
+  (hides it in this project). When another plugin already owns `/paqad`, the HUD still binds and
+  its command is `/paqad-hud`, with every hint naming it. `/paqad decisions` lists every pending packet
   in the repo, labelled in this repo, while the band shows only this change's. Each answer comes
   from files already on disk, so it costs no model turn.
 - **The `hud_view` setting.** The paqad config key `hud_view` (env `PAQAD_HUD_VIEW`, on by
