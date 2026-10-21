@@ -99,7 +99,7 @@
     "prepublishOnly": "pnpm run ci"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.0",
+    "@huggingface/transformers": "^4.3.0",
     "@inquirer/prompts": "^8.7.3",
     "ajv": "^8.20.0",
     "chalk": "^6.0.1",
