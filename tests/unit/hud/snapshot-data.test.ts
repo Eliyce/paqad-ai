@@ -429,6 +429,32 @@ describe('AC-27: acceptance claims and the tests that prove them', () => {
     expect(buildHudSnapshot(plain, P, { now: NOW }).claims).toEqual([]);
   });
 
+  it('reads a change with no lane as graduated, and a spec with no criteria list as no claims', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/no-lane', true);
+    const S = 'ses-claims-no-lane';
+    const dir = openFeatureChange(root, S, {
+      adapter: 'claude-code',
+      title: 'ORD-9 x',
+      issue: 'ORD-9',
+    });
+    persistLedgerSessionId(root, S);
+    writeWorkflowState(root, S, { active: { workflow: 'feature-development' }, paused: [] });
+    runStage(root, S, 'planning');
+    writeFileSync(
+      join(root, featureFilePath(dir, 'specification')),
+      JSON.stringify({
+        frozen: { frozen_at: '2026-10-18T08:30:00.000Z' },
+        acceptance_criteria: 'none',
+      }),
+    );
+    vi.mocked(buildChangeTraceabilityMap).mockClear();
+    expect(buildHudSnapshot(root, S).claims).toEqual([]);
+    expect(vi.mocked(buildChangeTraceabilityMap).mock.calls[0]?.[0]).toMatchObject({
+      lane: 'graduated',
+    });
+  });
+
   it('keeps a fix-proof claim first, and leaves the claims out with a logged reason on a failure', () => {
     const S = 'ses-claims-broken';
     const { root, dir } = changeWithTests(S);
