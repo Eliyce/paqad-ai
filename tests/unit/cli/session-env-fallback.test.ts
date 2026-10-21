@@ -5,8 +5,10 @@ import { join } from 'node:path';
 import type { Command } from 'commander';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { createDiscoveryCommand } from '@/cli/commands/discovery.js';
 import { createFeatureCommand } from '@/cli/commands/feature.js';
 import { createLaneCommand } from '@/cli/commands/lane.js';
+import { createRulesCommand } from '@/cli/commands/rules.js';
 import { createSpecPipelineCommand } from '@/cli/commands/spec-pipeline.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 
@@ -65,6 +67,19 @@ describe('session id fallbacks on change-scoped commands', () => {
       expect(err.join('\n')).not.toMatch(/no active feature/);
     },
   );
+
+  it.each([
+    ['no session', undefined, undefined],
+    ['CLAUDE_SESSION_ID', undefined, 'ses-claude'],
+    ['SE_SESSION', 'ses-se', undefined],
+  ])('rules load and discovery status read %s', async (_label, se, claude) => {
+    vi.stubEnv('SE_SESSION', se);
+    vi.stubEnv('CLAUDE_SESSION_ID', claude);
+    await run(createRulesCommand, ['load', '--silent']);
+    expect(out.join('\n')).toContain('no compiled rules for this project');
+    await run(createDiscoveryCommand, ['status']);
+    expect(err.join('\n')).toContain('no Discovery run to report');
+  });
 
   it('prefers SE_SESSION over CLAUDE_SESSION_ID', async () => {
     vi.stubEnv('SE_SESSION', 'ses-se');
