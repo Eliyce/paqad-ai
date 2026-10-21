@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, readFileSync } from 'node:fs';
+import { appendFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -38,19 +38,20 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-export function packageVersion(ref) {
-  const text = ref
-    ? mustExec('git', ['show', `${ref}:package.json`])
-    : readFileSync('package.json', 'utf8');
-  const version = JSON.parse(text).version;
+export function releaseRef() {
+  return process.env.GITHUB_SHA || 'HEAD';
+}
+
+export function packageVersion(ref = releaseRef()) {
+  const version = JSON.parse(mustExec('git', ['show', `${ref}:package.json`])).version;
   if (typeof version !== 'string' || version.length === 0) {
-    throw new Error(`package.json${ref ? ` at ${ref}` : ''} has no version`);
+    throw new Error(`package.json at ${ref} has no version`);
   }
   return version;
 }
 
-export function versionCommits() {
-  const shas = mustExec('git', ['log', '--format=%H', '--', 'package.json']).split('\n');
+export function versionCommits(ref = releaseRef()) {
+  const shas = mustExec('git', ['log', '--format=%H', ref, '--', 'package.json']).split('\n');
   const firstCommit = new Map();
   for (const sha of shas.filter(Boolean)) {
     const version = exec('git', ['show', `${sha}:package.json`]);

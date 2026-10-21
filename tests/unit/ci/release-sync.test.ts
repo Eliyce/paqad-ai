@@ -160,7 +160,7 @@ function run(f: Fixture, command: string, env: Record<string, string> = {}) {
 }
 
 describe.skipIf(process.platform === 'win32')('release-sync state', () => {
-  it('needs the plugin when npm has the version and the plugin repo lacks its tag', () => {
+  it('AC-1: needs the plugin when npm has the version and the plugin repo lacks its tag', () => {
     const f = fixture(['1.0.0', '1.1.0']);
     commitVersion(f.repo, '1.1.0', ' with a later edit');
     tagPlugin(f, '1.0.0');
@@ -175,7 +175,7 @@ describe.skipIf(process.platform === 'win32')('release-sync state', () => {
     });
   });
 
-  it('does not need the plugin when its tag already exists', () => {
+  it('AC-2: does not need the plugin when its tag already exists', () => {
     const f = fixture(['1.0.0']);
     tagPlugin(f, '1.0.0');
 
@@ -185,7 +185,7 @@ describe.skipIf(process.platform === 'win32')('release-sync state', () => {
     expect(result.outputs.plugin_needed).toBe('false');
   });
 
-  it('does not need the plugin when npm does not have the version', () => {
+  it('AC-3: does not need the plugin when npm does not have the version', () => {
     const f = fixture(['1.0.0', '1.1.0']);
 
     const result = run(f, 'state', { FAKE_NPM_VERSIONS: '1.0.0' });
@@ -193,6 +193,23 @@ describe.skipIf(process.platform === 'win32')('release-sync state', () => {
     expect(result.status).toBe(0);
     expect(result.outputs.plugin_needed).toBe('false');
     expect(result.stdout).toContain('not on npm');
+  });
+
+  it('reads the version at GITHUB_SHA, not a release branch the changesets step left checked out', () => {
+    const f = fixture(['1.0.0', '1.1.0']);
+    commitVersion(f.repo, '1.2.0');
+
+    const result = run(f, 'state', {
+      FAKE_NPM_VERSIONS: '1.0.0,1.1.0',
+      GITHUB_SHA: f.commits['1.1.0']!,
+    });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.outputs).toEqual({
+      version: '1.1.0',
+      sha: f.commits['1.1.0'],
+      plugin_needed: 'true',
+    });
   });
 
   it('fails instead of guessing when npm cannot be reached', () => {
@@ -217,7 +234,7 @@ describe.skipIf(process.platform === 'win32')('release-sync state', () => {
 });
 
 describe.skipIf(process.platform === 'win32')('release-sync tags', () => {
-  it('tags each published version after the newest tag on its release commit, once', () => {
+  it('AC-4: tags each published version after the newest tag on its release commit, once', () => {
     const f = fixture(['0.9.0', '1.0.0', '1.1.0', '1.2.0']);
     git(f.repo, ['push', '--quiet', 'origin', `${f.commits['1.0.0']}:refs/tags/v1.0.0`]);
     writeFileSync(f.releases, JSON.stringify([{ tag: 'v1.0.0' }]));
@@ -261,7 +278,7 @@ describe.skipIf(process.platform === 'win32')('release-sync tags', () => {
 });
 
 describe.skipIf(process.platform === 'win32')('release-sync check', () => {
-  it('fails red when npm latest is ahead of the newest plugin tag', () => {
+  it('AC-5: fails red when npm latest is ahead of the newest plugin tag', () => {
     const f = fixture(['1.0.0']);
     tagPlugin(f, '1.0.0');
 

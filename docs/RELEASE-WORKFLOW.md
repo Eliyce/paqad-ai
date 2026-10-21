@@ -344,7 +344,7 @@ Why each one works the way it does, for the parts the code does not say.
   or the push fails.
 - **`release-sync.mjs`** is how the release decides what to ship, from npm and git only, never
   from changesets output. `state` writes `version`, `sha` (the oldest commit whose `package.json`
-  carries that version) and `plugin_needed` to `GITHUB_OUTPUT`; it retries npm for a minute so a
+  carries that version) and `plugin_needed` to `GITHUB_OUTPUT`. It reads `package.json` and its history at `GITHUB_SHA` (else `HEAD`), because with changesets pending the changesets step leaves the checkout on its release branch with the next version already bumped; it retries npm for a minute so a
   just-published version is not missed. `tags` pushes missing `v<version>` tags by commit, so a
   local tag changesets made does not matter, and creates the missing GitHub Releases, oldest
   first. `check` fails when the plugin lags npm `latest`. A failure to reach npm or a git remote
