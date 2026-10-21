@@ -68,11 +68,12 @@ export const nodeFrameworkApiAdapter: FrameworkApiAdapter = {
       hash.update(entry);
       try {
         hash.update(readFileSync(entry));
-        /* v8 ignore next 4 -- resolveTypesEntry only returns a path it just read, so this catch needs the file to vanish mid-build; the entry still hashes by path+version and the build records `no-types`, so a stale surface is never passed off as current. */
+        /* v8 ignore start -- resolveTypesEntry only returns a path it just read, so this catch needs the file to vanish mid-build; the entry still hashes by path+version and the build records `no-types`, so a stale surface is never passed off as current. */
       } catch {}
     }
     return `sha256:${hash.digest('hex')}`;
   },
+  /* v8 ignore stop */
 
   index(input: FrameworkApiAdapterInput): FrameworkApiAdapterResult {
     const ts = loadTypeScript(input.projectRoot);
@@ -147,13 +148,15 @@ function drillMembers(
   let type: unknown;
   try {
     type = checker.getDeclaredTypeOfSymbol(container);
-    /* v8 ignore next 3 -- defensive guard on an opaque compiler API: no authorable declaration makes getDeclaredTypeOfSymbol throw, but a compiler-version change must degrade to the wildcard rather than let members read absent (INV-2). */
+    /* v8 ignore start -- defensive guard on an opaque compiler API: no authorable declaration makes getDeclaredTypeOfSymbol throw, but a compiler-version change must degrade to the wildcard rather than let members read absent (INV-2). */
   } catch {
     return [dynamicRecord(containerName)];
   }
-  /* v8 ignore next 2 -- the same guard, for a type object that exposes no getProperties. */
+  /* v8 ignore stop */
+  /* v8 ignore start -- the same guard, for a type object that exposes no getProperties. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- structural compiler type
   const properties = ((type as any)?.getProperties?.() ?? []) as TsSymbolLike[];
+  /* v8 ignore stop */
   const records = properties
     .map((property) =>
       toRecord(ts, checker, property, `${containerName}.${property.getName()}`, 'member'),

@@ -150,9 +150,10 @@ export function validateStepArtifact(step: PipelineStep, raw: string | null): St
         return { ok: false, error: 'the finish result needs an outcome' };
       }
       return { ok: true };
-    /* v8 ignore next 2 -- exhaustive; craft handled above */
+    /* v8 ignore start -- exhaustive; craft handled above */
     default:
       return { ok: true };
+    /* v8 ignore stop */
   }
 }
 export function stepArtifactValid(

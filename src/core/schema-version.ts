@@ -150,9 +150,10 @@ async function acquireLock(lockPath: string): Promise<void> {
       await delay(LOCK_POLL_MS);
     }
   }
-  /* v8 ignore next 2 -- stale-lock steal only reachable after 2s of contention */
+  /* v8 ignore start -- stale-lock steal only reachable after 2s of contention */
   writeFileSync(lockPath, String(process.pid));
 }
+/* v8 ignore stop */
 
 async function releaseLock(lockPath: string): Promise<void> {
   try {

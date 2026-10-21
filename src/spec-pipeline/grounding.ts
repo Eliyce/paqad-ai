@@ -241,10 +241,11 @@ export function groundArea(projectRoot: string, options: GroundOptions = {}): Gr
       .sync(patterns, { cwd: projectRoot, onlyFiles: true, dot: false })
       .sort()
       .slice(0, maxFiles);
-    /* v8 ignore next 3 -- a glob fault degrades to empty/sparse, never a throw. */
+    /* v8 ignore start -- a glob fault degrades to empty/sparse, never a throw. */
   } catch {
     files = [];
   }
+  /* v8 ignore stop */
 
   const references: GroundingReference[] = [];
   const termSet = new Set<string>();
@@ -320,10 +321,11 @@ async function groundViaRetrieval(
       ...(options.changedPaths ? { changedPaths: options.changedPaths } : {}),
       ...(options.service ? { service: options.service } : {}),
     }));
-    /* v8 ignore next 4 -- gatherWorkingSetSlices never throws today; belt-and-braces fallback. */
+    /* v8 ignore start -- gatherWorkingSetSlices never throws today; belt-and-braces fallback. */
   } catch {
     return null;
   }
+  /* v8 ignore stop */
 
   if (slices.length === 0) return null;
 

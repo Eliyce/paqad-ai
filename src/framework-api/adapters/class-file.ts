@@ -231,8 +231,9 @@ export function parseClassFile(buffer: Buffer): ParsedClassFile | null {
     const methods = readMembers(cursor, pool);
     const classDeprecation = readAttributes(cursor, pool);
     return { name, ...classDeprecation, members: [...fields, ...methods] };
-    /* v8 ignore next 4 -- every read above is bounds-checked by Buffer itself; this catch turns a truncated or hostile class file into "unreadable" rather than a thrown build. */
+    /* v8 ignore start -- every read above is bounds-checked by Buffer itself; this catch turns a truncated or hostile class file into "unreadable" rather than a thrown build. */
   } catch {
     return null;
   }
 }
+/* v8 ignore stop */

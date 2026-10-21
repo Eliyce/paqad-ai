@@ -18,7 +18,8 @@ export async function checkboxPrompt<T>(
   return checkbox({ message, choices });
 }
 
-/* v8 ignore next 3 -- exported UI helper; not exercised in unit tests */
+/* v8 ignore start -- exported UI helper; not exercised in unit tests */
 export async function inputPrompt(message: string, defaultValue?: string): Promise<string> {
   return input({ message, default: defaultValue });
 }
+/* v8 ignore stop */

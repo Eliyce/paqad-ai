@@ -120,9 +120,10 @@ function hasPreexistingFlatFeatureDocs(projectRoot: string, changedSet: Set<stri
     moduleEntries = readdirSync(modulesRoot, { withFileTypes: true })
       .filter((entry) => entry.isDirectory())
       .map((entry) => entry.name);
-    /* v8 ignore next 2 */
+    /* v8 ignore start */
   } catch {
     return false;
+    /* v8 ignore stop */
   }
   for (const moduleName of moduleEntries) {
     const featuresDir = join(modulesRoot, moduleName, 'features');

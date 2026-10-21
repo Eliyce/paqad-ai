@@ -35,9 +35,10 @@ function incrementIndices(indices: number[]): number[] {
     }
     next[i] = 0;
   }
-  /* v8 ignore next 2 -- same-ms entropy overflow is not reachable in practice */
+  /* v8 ignore start -- same-ms entropy overflow is not reachable in practice */
   return randomIndices();
 }
+/* v8 ignore stop */
 
 export function ulid(seedTime: number = Date.now()): string {
   if (seedTime <= lastTime) {

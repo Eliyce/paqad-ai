@@ -82,7 +82,7 @@ export function buildFindingTriagePacket(input: FindingTriageInput): DecisionPac
 
 export function verdictFromTriageOption(findingId: string, optionKey: string): TriageVerdict {
   const pile = TRIAGE_DECISION_OPTION_TO_PILE[optionKey];
-  /* v8 ignore next 8 -- defensive: a resolved packet always carries one of the stable keys */
+  /* v8 ignore start -- defensive: a resolved packet always carries one of the stable keys */
   if (!pile) {
     return {
       finding_id: findingId,
@@ -91,6 +91,7 @@ export function verdictFromTriageOption(findingId: string, optionKey: string): T
       route: 'ask-human',
       reason: `Unrecognized triage option "${optionKey}".`,
     };
+    /* v8 ignore stop */
   }
   switch (pile) {
     case 'confirmed':

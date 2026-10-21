@@ -342,10 +342,11 @@ function injectAnalyticsStageInstructions(
   let flagOn: boolean;
   try {
     flagOn = resolveFrameworkConfig(projectRoot).features.analytics_instrumentation;
-    /* v8 ignore next 3 -- defensive: a malformed config never breaks policy loading */
+    /* v8 ignore start -- defensive: a malformed config never breaks policy loading */
   } catch {
     flagOn = false;
   }
+  /* v8 ignore stop */
   if (!flagOn) {
     return policy;
   }

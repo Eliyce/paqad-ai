@@ -86,9 +86,10 @@ function writeCache(path: string, records: FrameworkApiSymbol[], now: number): v
     };
     writeFileSync(tmp, JSON.stringify(payload), 'utf8');
     renameSync(tmp, path);
-    /* v8 ignore next 4 -- a cache that cannot be written costs a re-fetch next build, which is not worth failing an index build over. */
+    /* v8 ignore start -- a cache that cannot be written costs a re-fetch next build, which is not worth failing an index build over. */
   } catch {}
 }
+/* v8 ignore stop */
 
 export interface UpgradeGuideOptions {
   offline?: boolean;

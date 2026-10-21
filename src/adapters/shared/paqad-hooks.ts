@@ -285,10 +285,11 @@ export function buildPluginHookChain(env: NodeJS.ProcessEnv = process.env): Rend
   const chain: RenderedHook[] = [];
   for (const event of PAQAD_HOOK_EVENT_ORDER) {
     const nativeEvent = host.nativeEvent[event];
-    /* v8 ignore next 3 -- the claude-code map names every event the plugin chain renders */
+    /* v8 ignore start -- the claude-code map names every event the plugin chain renders */
     if (nativeEvent === undefined) {
       continue;
     }
+    /* v8 ignore stop */
     if (event === 'session-start') {
       chain.push({
         nativeEvent,

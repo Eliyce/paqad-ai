@@ -794,10 +794,11 @@ function resolveEffectiveRouting(
 function resolveAnalyticsInstrumentation(projectRoot: string): boolean {
   try {
     return resolveFrameworkConfig(projectRoot).features.analytics_instrumentation;
-    /* v8 ignore next 3 -- defensive: a malformed config never breaks doc generation */
+    /* v8 ignore start -- defensive: a malformed config never breaks doc generation */
   } catch {
     return false;
   }
+  /* v8 ignore stop */
 }
 
 async function collectAnalyticsEntries(
@@ -813,10 +814,11 @@ async function collectAnalyticsEntries(
       let text: string;
       try {
         text = await readFile(join(projectRoot, file), 'utf8');
-        /* v8 ignore next 3 -- defensive: an unreadable source file is skipped, not fatal */
+        /* v8 ignore start -- defensive: an unreadable source file is skipped, not fatal */
       } catch {
         continue;
       }
+      /* v8 ignore stop */
       for (const site of extractCallSites(text)) {
         const key = `${site.provider}:${site.eventName}`;
         if (seen.has(key)) continue;

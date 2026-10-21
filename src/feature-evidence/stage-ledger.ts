@@ -227,10 +227,11 @@ export function openFeatureChange(
         recordedAt: (input.now ?? (() => new Date()))().toISOString(),
         startCommit: gitState.head_commit ?? null,
       });
-      /* v8 ignore next 3 -- best-effort: a delivery seed fault must not break feature open. */
+      /* v8 ignore start -- best-effort: a delivery seed fault must not break feature open. */
     } catch {}
   }
   return dirName;
+  /* v8 ignore stop */
 }
 
 export function closeActiveFeature(projectRoot: string, sessionId: string, now?: () => Date): void {

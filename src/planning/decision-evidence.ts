@@ -44,10 +44,11 @@ export function assembleDecisionEvidence(input: EvidenceInput): DecisionOptionEv
   }
 
   const callers = fileExists ? countFileReferences(input.projectRoot, input.file) : 0;
-  /* v8 ignore next 3 -- input.similarity fallback; tests always pass explicit similarity values */
+  /* v8 ignore start -- input.similarity fallback; tests always pass explicit similarity values */
   const similarity = clampSimilarity(
     input.similarity ?? defaultSimilarityFor(input.category, fileExists, callers),
   );
+  /* v8 ignore stop */
   const ruleMatch = findSupportingRule(input.projectRoot, input.file);
 
   const evidence: DecisionOptionEvidence = {
@@ -76,8 +77,9 @@ export function countFileReferences(projectRoot: string, file: string): number {
   }
 
   const relativePath = normalizePath(relative(projectRoot, absoluteTarget));
-  /* v8 ignore next 1 -- ?? relativePath fallback for root-level files without a directory component */
+  /* v8 ignore start -- ?? relativePath fallback for root-level files without a directory component */
   const baseName = relativePath.split('/').pop() ?? relativePath;
+  /* v8 ignore stop */
   const stem = baseName.replace(/\.[^.]+$/, '');
   const matcher = new RegExp(`\\b${escapeRegExp(stem)}\\b|${escapeRegExp(relativePath)}`, 'g');
 
@@ -102,18 +104,20 @@ export function defaultSimilarityFor(
   fileExists: boolean,
   callers: number,
 ): number {
-  /* v8 ignore next 3 -- file-missing early return; all test inputs refer to existing files */
+  /* v8 ignore start -- file-missing early return; all test inputs refer to existing files */
   if (!fileExists) {
     return category === 'workflow-or-tool' ? 0.44 : 0.38;
   }
+  /* v8 ignore stop */
 
-  /* v8 ignore next 1 -- high-caller (>=3) branch not exercised; test files have at most 1 reference */
+  /* v8 ignore start -- high-caller (>=3) branch not exercised; test files have at most 1 reference */
   const callerBoost = callers >= 3 ? 0.06 : callers > 0 ? 0.03 : 0;
+  /* v8 ignore stop */
   switch (category) {
     case 'component-reuse':
     case 'create-vs-reuse':
       return Number((0.86 + callerBoost).toFixed(2));
-    /* v8 ignore next 8 -- individual category branches are exercised by integration; unit tests only hit the top two */
+    /* v8 ignore start -- individual category branches are exercised by integration; unit tests only hit the top two */
     case 'shared-abstraction':
       return Number((0.78 + callerBoost).toFixed(2));
     case 'ux-pattern':
@@ -122,6 +126,7 @@ export function defaultSimilarityFor(
       return Number((0.74 + callerBoost).toFixed(2));
     case 'workflow-or-tool':
       return Number((0.7 + callerBoost).toFixed(2));
+    /* v8 ignore stop */
     case 'intake.requirement':
     case 'intake.confirm_auto_resolution':
     case 'intake.write_back':

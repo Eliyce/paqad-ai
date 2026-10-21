@@ -585,11 +585,12 @@ export async function runRepositoryVerification(
     evidencePath = await writeVerificationEvidence(evidence, {
       project_root: context.project_root,
     });
-    /* v8 ignore next 4 -- best-effort: a re-write fault leaves the pre-gate artifact on disk;
+    /* v8 ignore start -- best-effort: a re-write fault leaves the pre-gate artifact on disk;
        the in-memory verdict is unaffected and this path is not reproduced in tests. */
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     engineLog('warn', `paqad: could not re-write verification-evidence.json (${message})`);
+    /* v8 ignore stop */
   }
 
   const verdict = buildRepositoryVerificationVerdict({
@@ -632,11 +633,12 @@ export async function runRepositoryVerification(
       await writeVerificationEvidence(evidence, {
         project_root: context.project_root,
       });
-      /* v8 ignore next 4 -- best-effort: the in-memory verdict is unaffected */
+      /* v8 ignore start -- best-effort: the in-memory verdict is unaffected */
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       engineLog('warn', `paqad: could not record stage gaps in evidence (${message})`);
     }
+    /* v8 ignore stop */
   }
 
   const receiptFeature = currentFeature(

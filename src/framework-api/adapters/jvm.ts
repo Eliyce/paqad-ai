@@ -104,10 +104,11 @@ export function versionFromJar(buffer: Buffer): string | null {
 function readJar(path: string): Buffer | null {
   try {
     return readFileSync(path);
-    /* v8 ignore next 3 -- every caller passes a path an existsSync or statSync hit just proved, so reaching this needs the artifact to vanish mid-build. */
+    /* v8 ignore start -- every caller passes a path an existsSync or statSync hit just proved, so reaching this needs the artifact to vanish mid-build. */
   } catch {
     return null;
   }
+  /* v8 ignore stop */
 }
 
 function resolveJar(coordinate: {
@@ -116,10 +117,11 @@ function resolveJar(coordinate: {
 }): { path: string; version: string } | null {
   for (const candidate of [...jarCandidates(coordinate, homedir())].reverse()) {
     const buffer = readJar(candidate);
-    /* v8 ignore next 3 -- readJar only fails on a path that existed a moment ago; an unreadable candidate is skipped rather than failing the whole resolve. */
+    /* v8 ignore start -- readJar only fails on a path that existed a moment ago; an unreadable candidate is skipped rather than failing the whole resolve. */
     if (buffer === null) {
       continue;
     }
+    /* v8 ignore stop */
     const version = versionFromJar(buffer);
     if (version !== null) {
       return { path: candidate, version };
@@ -202,10 +204,11 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
     try {
       const stats = statSync(input.packageDir);
       hash.update(`${stats.size}:${stats.mtimeMs}`);
-      /* v8 ignore next 3 -- the jar was just read by resolveInstalled; this needs a race. */
+      /* v8 ignore start -- the jar was just read by resolveInstalled; this needs a race. */
     } catch {
       hash.update('unstat');
     }
+    /* v8 ignore stop */
     return `sha256:${hash.digest('hex')}`;
   },
 
@@ -235,10 +238,11 @@ export const jvmFrameworkApiAdapter: FrameworkApiAdapter = {
     const sources: string[] = [cachePath(input.packageDir)];
     for (const dependency of aggregatedCoordinates(pom).slice(0, MAX_AGGREGATED)) {
       const coordinate = parseCoordinate(dependency);
-      /* v8 ignore next 3 -- the ecosystem parser only ever emits `group:artifact`, so this cannot trip today; it keeps a future parser change from indexing a malformed coordinate. */
+      /* v8 ignore start -- the ecosystem parser only ever emits `group:artifact`, so this cannot trip today; it keeps a future parser change from indexing a malformed coordinate. */
       if (coordinate === null) {
         continue;
       }
+      /* v8 ignore stop */
       const jar = resolveJar(coordinate);
       if (jar === null) {
         continue;
@@ -266,10 +270,11 @@ const MAX_AGGREGATED = 12;
 
 function indexJar(jarPath: string): { symbols: FrameworkApiSymbol[]; classes: number } | null {
   const buffer = readJar(jarPath);
-  /* v8 ignore next 3 -- readJar returns null only for a path that existed moments earlier. */
+  /* v8 ignore start -- readJar returns null only for a path that existed moments earlier. */
   if (buffer === null) {
     return null;
   }
+  /* v8 ignore stop */
   const directory = readZipDirectory(buffer);
   if (directory === null) {
     return null;
@@ -280,10 +285,11 @@ function indexJar(jarPath: string): { symbols: FrameworkApiSymbol[]; classes: nu
     if (!entry.name.endsWith('.class') || entry.name.includes('$')) {
       continue;
     }
-    /* v8 ignore next 3 -- the cap only bites on a jar with more than 4,000 top-level classes; a fixture that large would dominate the suite's runtime to prove a bound. */
+    /* v8 ignore start -- the cap only bites on a jar with more than 4,000 top-level classes; a fixture that large would dominate the suite's runtime to prove a bound. */
     if (classes >= MAX_CLASSES) {
       break;
     }
+    /* v8 ignore stop */
     const bytes = readZipEntry(buffer, entry);
     if (bytes === null) {
       continue;

@@ -72,9 +72,10 @@ export function measureStrictness(projectRoot: string): StrictnessMeasure | null
   try {
     raw = readFileSync(path, 'utf8');
   } catch {
-    /* v8 ignore next 2 -- existsSync passed but read failed (race / permissions) */
+    /* v8 ignore start -- existsSync passed but read failed (race / permissions) */
     return null;
   }
+  /* v8 ignore stop */
   const parsed = parseTsconfig(raw);
   if (parsed === null) return null;
   return measureStrictnessFromOptions(parsed.compilerOptions ?? {});

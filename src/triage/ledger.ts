@@ -42,9 +42,10 @@ export async function readTriageLedger(
     }
     return parsed;
   } catch {
-    /* v8 ignore next 2 -- corrupt-JSON fallback is covered; the branch itself is defensive */
+    /* v8 ignore start -- corrupt-JSON fallback is covered; the branch itself is defensive */
     return emptyLedger(now);
   }
+  /* v8 ignore stop */
 }
 
 export async function writeTriageLedger(

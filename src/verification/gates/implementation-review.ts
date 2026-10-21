@@ -24,10 +24,11 @@ function activeReviewText(projectRoot: string): string {
       ...(review.checked ?? []),
       ...(review.findings ?? []).flatMap((finding) => [finding.description, finding.file ?? '']),
     ].join('\n');
-    /* v8 ignore next 3 -- defensive: an unreadable ledger must never crash a gate */
+    /* v8 ignore start -- defensive: an unreadable ledger must never crash a gate */
   } catch {
     return '';
   }
+  /* v8 ignore stop */
 }
 
 export class ImplementationReviewGate implements Gate {

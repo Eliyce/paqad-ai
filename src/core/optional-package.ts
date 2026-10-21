@@ -19,10 +19,11 @@ function alternateBases(env: NodeJS.ProcessEnv): string[] {
     bases.push(join(dirname(runtimeReal), 'package.json'));
   } catch {}
 
-  /* v8 ignore next 3 -- npm is present in this repo's env so npmGlobalRoot is non-null here; the absent-npm branch guards other hosts. */
+  /* v8 ignore start -- npm is present in this repo's env so npmGlobalRoot is non-null here; the absent-npm branch guards other hosts. */
   const globalRoot = npmGlobalRoot();
   if (globalRoot) {
     bases.push(join(globalRoot, 'paqad-ai', 'package.json'));
+    /* v8 ignore stop */
   }
 
   return bases;

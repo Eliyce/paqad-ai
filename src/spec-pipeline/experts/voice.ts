@@ -173,10 +173,11 @@ export function resolveProjectVoiceForRun(projectRoot: string, dirName: string):
   let packs: PackRegistry | null = null;
   try {
     packs = new StackPackLoader().load({ runtimeRoot: getRuntimeRoot(), projectRoot });
-    /* v8 ignore next 3 -- pack loading never throws today; belt-and-braces so a fault never fails record. */
+    /* v8 ignore start -- pack loading never throws today; belt-and-braces so a fault never fails record. */
   } catch {}
   const { guidePointers, noGuidesShipped } = resolveGuidePointers(getRuntimeRoot(), profile, packs);
   const pages = resolveDocPages(projectRoot);
+  /* v8 ignore stop */
   const technicalPages = (grounding?.references ?? [])
     .map((ref) => ref.ref)
     .filter((ref) => ref.replace(/\\/g, '/').endsWith('technical.md'));

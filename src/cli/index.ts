@@ -31,10 +31,11 @@ export function shouldRunFromCommandLine(
   return entrypoint !== undefined && importMetaUrl === entrypoint;
 }
 
-/* v8 ignore next 3 - covered via packaged CLI/e2e entrypoint tests rather than module import */
+/* v8 ignore start - covered via packaged CLI/e2e entrypoint tests rather than module import */
 if (shouldRunFromCommandLine(import.meta.url, process.argv[1])) {
   await runCli();
 }
+/* v8 ignore stop */
 
 export function argvToEntrypoint(value: string | undefined): string | undefined {
   if (value === undefined) {

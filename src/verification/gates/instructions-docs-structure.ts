@@ -134,9 +134,10 @@ function validateInstructionPath(filePath: string): string | null {
     case 'benchmarks':
     case 'tech-debt':
       return validateFlatExtensionPath(filePath, segments, ['.md']);
-    /* v8 ignore next 2 -- ALLOWED_TOP_LEVEL_AREAS is exhaustive with the switch cases above */
+    /* v8 ignore start -- ALLOWED_TOP_LEVEL_AREAS is exhaustive with the switch cases above */
     default:
       return `Invalid instruction documentation path ${filePath}`;
+    /* v8 ignore stop */
   }
 }
 
@@ -292,10 +293,11 @@ function hasTopLevelModulesArray(value: unknown): boolean {
 }
 
 function validateModuleMap(value: unknown, relativePath: string): ContentError | null {
-  /* v8 ignore next 3 -- hasTopLevelModulesArray rejects non-mappings before this validator runs */
+  /* v8 ignore start -- hasTopLevelModulesArray rejects non-mappings before this validator runs */
   if (!isPlainObject(value)) {
     return moduleMapError(relativePath, 'must be a YAML mapping');
   }
+  /* v8 ignore stop */
 
   const requiredRootFields = ['version', 'last_updated_at', 'domain_glossary', 'modules'];
   for (const field of requiredRootFields) {
@@ -316,10 +318,11 @@ function validateModuleMap(value: unknown, relativePath: string): ContentError |
       'field domain_glossary must include preferred_terms, synonyms, and notes',
     );
   }
-  /* v8 ignore next 3 -- hasTopLevelModulesArray already requires modules to be an array */
+  /* v8 ignore start -- hasTopLevelModulesArray already requires modules to be an array */
   if (!Array.isArray(value['modules'])) {
     return moduleMapError(relativePath, 'field modules must be an array');
   }
+  /* v8 ignore stop */
 
   for (const [index, moduleEntry] of value['modules'].entries()) {
     const error = validateModuleMapEntry(moduleEntry, `modules[${index}]`);
@@ -428,8 +431,9 @@ function validateSharedMapFields(
 }
 
 function validateWorkflowYaml(value: unknown, relativePath: string): ContentError | null {
-  /* v8 ignore next 1 -- split('/').at(-1) always returns a string for a relative path */
+  /* v8 ignore start -- split('/').at(-1) always returns a string for a relative path */
   const filename = relativePath.split('/').at(-1) ?? relativePath;
+  /* v8 ignore stop */
   if (isReservedWorkflowPolicyFile(filename)) {
     const validation = new SchemaValidator().validate('feature-development-policy', value);
     if (!validation.valid) {

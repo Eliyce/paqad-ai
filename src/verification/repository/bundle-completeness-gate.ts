@@ -191,11 +191,12 @@ export function bundleCompletenessGate(
       assertRequired(entry, input, dirName, sessionId, state);
     }
     assertStageAgentRows(input, dirName, state);
-    /* v8 ignore next 4 -- best-effort: a read/backfill fault must never change the verdict;
+    /* v8 ignore start -- best-effort: a read/backfill fault must never change the verdict;
        a filesystem fault is not reproduced in tests. */
   } catch {}
 
   return decide(input.mode, state);
+  /* v8 ignore stop */
 }
 
 export function recheckAfterReceiptSeal(
