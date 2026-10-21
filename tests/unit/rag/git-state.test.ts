@@ -3,7 +3,22 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const fsOverride = vi.hoisted(() => ({ readCode: null as string | null }));
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    readFileSync: ((path: Parameters<typeof actual.readFileSync>[0], options?: unknown) => {
+      if (fsOverride.readCode !== null && String(path).endsWith('.git')) {
+        throw Object.assign(new Error(fsOverride.readCode), { code: fsOverride.readCode });
+      }
+      return actual.readFileSync(path, options as Parameters<typeof actual.readFileSync>[1]);
+    }) as typeof actual.readFileSync,
+  };
+});
 
 import { readGitState, readHeadRef } from '@/rag/git-state.js';
 
@@ -109,6 +124,7 @@ describe('readHeadRef', () => {
   });
 
   afterEach(() => {
+    fsOverride.readCode = null;
     rmSync(root, { recursive: true, force: true });
   });
 
@@ -121,6 +137,38 @@ describe('readHeadRef', () => {
     git(root, 'add', '-A');
     git(root, 'commit', '-q', '-m', 'first');
   }
+
+  function fakeGitDir(at: string, branch: string): void {
+    mkdirSync(join(at, '.git'), { recursive: true });
+    writeFileSync(join(at, '.git', 'HEAD'), `ref: refs/heads/${branch}\n`);
+  }
+
+  it('recognises a .git directory from the read error alone', () => {
+    fakeGitDir(root, 'dir-branch');
+    expect(readHeadRef(root)).toEqual({ repo: true, branch: 'dir-branch', detached: false });
+  });
+
+  it('still recognises a .git directory when reading it fails with another code', () => {
+    fakeGitDir(root, 'eperm-branch');
+    fsOverride.readCode = 'EPERM';
+    expect(readHeadRef(root).branch).toBe('eperm-branch');
+  });
+
+  it('walks up past an unreadable .git that is not a directory', () => {
+    const child = join(root, 'child');
+    mkdirSync(child);
+    writeFileSync(join(child, '.git'), 'gitdir: nowhere\n');
+    fakeGitDir(root, 'parent-branch');
+    fsOverride.readCode = 'EACCES';
+    expect(readHeadRef(child).branch).toBe('parent-branch');
+  });
+
+  it('reads no repo when nothing up the tree has a .git', () => {
+    const deep = join(root, 'a', 'b');
+    mkdirSync(deep, { recursive: true });
+    fsOverride.readCode = 'ENOENT';
+    expect(readHeadRef(deep)).toEqual({ repo: false, branch: null, detached: false });
+  });
 
   it('reads the checked-out branch from a subdirectory without running git', () => {
     initRepo();

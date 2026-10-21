@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFileSync, statSync } from 'node:fs';
+import { opendirSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 export interface GitState {
@@ -60,23 +60,35 @@ export interface HeadRef {
   detached: boolean;
 }
 
+function opensAsDirectory(path: string): boolean {
+  try {
+    opendirSync(path).closeSync();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function findGitDir(projectRoot: string): string | null {
   let dir = resolve(projectRoot);
   for (;;) {
     const candidate = join(dir, '.git');
+    let contents: string;
     try {
-      if (statSync(candidate).isDirectory()) return candidate;
-      const pointer = /^gitdir:\s*(.+)$/m.exec(readFileSync(candidate, 'utf8'));
-      if (pointer) {
-        const target = pointer[1]!.trim();
-        return isAbsolute(target) ? target : resolve(dir, target);
-      }
-      return null;
-    } catch {
+      contents = readFileSync(candidate, 'utf8');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (code === 'EISDIR') return candidate;
+      if (code !== 'ENOENT' && code !== 'ENOTDIR' && opensAsDirectory(candidate)) return candidate;
       const parent = dirname(dir);
       if (parent === dir) return null;
       dir = parent;
+      continue;
     }
+    const pointer = /^gitdir:\s*(.+)$/m.exec(contents);
+    if (!pointer) return null;
+    const target = pointer[1]!.trim();
+    return isAbsolute(target) ? target : resolve(dir, target);
   }
 }
 
