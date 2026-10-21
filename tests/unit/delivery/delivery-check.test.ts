@@ -328,8 +328,58 @@ describe('the Stop delivery check saves what ships', () => {
       draft: true,
       state: null,
       head_sha: null,
+      title: null,
+      changed_files: null,
+      additions: null,
+      deletions: null,
     });
     expect(result.ci).toMatchObject({ state: 'pending', done: 1, total: 3, reason: null });
+  });
+
+  it('AC-27: reads the PR title and size in the same bounded gh call and saves them', async () => {
+    const dir = branchChange();
+    const calls: string[][] = [];
+    const gh = ok(
+      JSON.stringify({
+        number: 12,
+        url: 'https://example.test/pull/12',
+        state: 'OPEN',
+        headRefOid: 'head-12',
+        title: 'Seed stage helpers',
+        changedFiles: 14,
+        additions: 412,
+        deletions: 87,
+        statusCheckRollup: [],
+      }),
+    );
+    const base = runner({ branch: ok('feat/x'), commit: ok('sha-1'), gh });
+    await runDeliveryCapability(root, 'completion', async (command, args) => {
+      if (command === 'gh') calls.push(args);
+      return base(command, args);
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.at(-1)).toContain('title,changedFiles,additions,deletions');
+    expect(readFeatureDelivery(root, dir).pr).toMatchObject({
+      number: 12,
+      title: 'Seed stage helpers',
+      changed_files: 14,
+      additions: 412,
+      deletions: 87,
+    });
+    const odd = await evaluateDelivery({
+      projectRoot: root,
+      policy: policy(),
+      run: runner({
+        branch: ok('feat/x'),
+        gh: ok(JSON.stringify({ number: 3, title: '', changedFiles: -1, additions: 1.5 })),
+      }),
+    });
+    expect(odd.pr).toMatchObject({
+      title: null,
+      changed_files: null,
+      additions: null,
+      deletions: null,
+    });
   });
 
   it('saves the PR state and head commit gh already reports (FR-8)', async () => {

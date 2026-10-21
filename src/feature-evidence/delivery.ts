@@ -51,6 +51,10 @@ export interface DeliveryPr {
   draft: boolean | null;
   state?: DeliveryPrState | null;
   head_sha?: string | null;
+  title?: string | null;
+  changed_files?: number | null;
+  additions?: number | null;
+  deletions?: number | null;
   at: string;
 }
 

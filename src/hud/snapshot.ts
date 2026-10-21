@@ -175,6 +175,10 @@ export interface HudShip {
   push: DeliveryPush | null;
   pr: DeliveryPr | null;
   pr_state: DeliveryPrState | null;
+  pr_title: string | null;
+  pr_files: number | null;
+  pr_additions: number | null;
+  pr_deletions: number | null;
   ci: DeliveryCi | null;
   ci_read_at: string | null;
   all_green: boolean;
@@ -498,6 +502,10 @@ export function buildShip(delivery: DeliveryRecord): HudShip {
     push: delivery.push ?? null,
     pr,
     pr_state: prState,
+    pr_title: pr?.title ?? null,
+    pr_files: pr?.changed_files ?? null,
+    pr_additions: pr?.additions ?? null,
+    pr_deletions: pr?.deletions ?? null,
     ci,
     ci_read_at: rawCi?.at ?? null,
     all_green: ci?.state === 'pass' && prState === 'open',

@@ -43,6 +43,10 @@ export interface DeliveryPrReading {
   draft: boolean | null;
   state?: DeliveryPrState | null;
   head_sha?: string | null;
+  title?: string | null;
+  changed_files?: number | null;
+  additions?: number | null;
+  deletions?: number | null;
 }
 
 export type CommandRunner = (command: string, args: string[]) => Promise<CommandRun>;
@@ -163,6 +167,10 @@ function textOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
+function countOrNull(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
+}
+
 export function rollupJobs(rollup: unknown): DeliveryCiJob[] {
   const entries = Array.isArray(rollup) ? (rollup as Array<Record<string, unknown>>) : [];
   return entries.map((entry) => ({
@@ -259,7 +267,7 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
     'view',
     branch,
     '--json',
-    'number,url,state,headRefOid,statusCheckRollup,body,isDraft',
+    'number,url,state,headRefOid,statusCheckRollup,body,isDraft,title,changedFiles,additions,deletions',
   ]);
   if (prView.exitCode === 0) {
     ghAvailable = true;
@@ -272,6 +280,10 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         isDraft?: unknown;
         statusCheckRollup?: unknown;
         body?: unknown;
+        title?: unknown;
+        changedFiles?: unknown;
+        additions?: unknown;
+        deletions?: unknown;
       };
       prBody = typeof pr.body === 'string' ? pr.body : '';
       prReading = {
@@ -280,6 +292,10 @@ export async function evaluateDelivery(input: EvaluateDeliveryInput): Promise<De
         draft: typeof pr.isDraft === 'boolean' ? pr.isDraft : null,
         state: readPrState(pr.state),
         head_sha: textOrNull(pr.headRefOid),
+        title: textOrNull(pr.title),
+        changed_files: countOrNull(pr.changedFiles),
+        additions: countOrNull(pr.additions),
+        deletions: countOrNull(pr.deletions),
       };
       ciReading = readRollup(pr.statusCheckRollup);
       if (policy.process.ci.gate === 'wait_for_green' && rollupHasFailure(pr.statusCheckRollup)) {
