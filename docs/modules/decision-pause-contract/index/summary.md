@@ -139,7 +139,10 @@ reasons below are not obvious from the code.
   A packet opened with no change is linked to the change active at resolve; one that already
   names a change keeps it. The rich-only keys are dropped before re-deriving so a stale copy
   never lingers. The reader skips a missing folder or a malformed packet. A write-in answer
-  becomes option `other` (or `other-2` and so on), never a duplicate.
+  becomes option `other` (or `other-2` and so on), never a duplicate. A packet the hooks wrote
+  (rich fields only, `decision_id` and `question`, no `id`) is resolved through
+  `DecisionStore.resolve`, so it keeps its own fingerprint and lands in the decision index, and
+  the self-arm sees the fork as already resolved instead of opening it again.
 - **`decisions/packet-shape.ts`.** A resolved contract packet records a human answer, never a
   model guess.
 - **`decision-reuse/`.** Every reuse of a resolved decision in a session appends to one unit on

@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5ERXBAP7SWTDGBS07M59BHE](TD-01M5ERXBAP7SWTDGBS07M59BHE.md) (bug, medium): CLI-resolved contract decisions never reach the decision index, so answered forks can be re-asked
+- [TD-01M5ERXAVWBZ4D9RK3DMP4HY6X](TD-01M5ERXAVWBZ4D9RK3DMP4HY6X.md) (bug, medium): Decision self-arm mints create-vs-reuse from injected CLAUDE.md/memory text and for files outside the repo
 - [TD-01M5DSTMPPCAXKJ25R9162YBCR](TD-01M5DSTMPPCAXKJ25R9162YBCR.md) (gap, low): HUD band, close and Ledger flows have no site-map journey
 - [TD-01M5DFWBB40C2D5J1EBEFQ3TEC](TD-01M5DFWBB40C2D5J1EBEFQ3TEC.md) (bug, medium): Capability-gate pre-mutation hook times out on a cold run (about 10.4s vs its 10s timeout), blocking the first edit after a tree change
 - [TD-01M5D6STQ75DHDQ4Y05KCWB4TT](TD-01M5D6STQ75DHDQ4Y05KCWB4TT.md) (debt, medium): The build rewrites the tracked plugin.json version and flips two hook file modes

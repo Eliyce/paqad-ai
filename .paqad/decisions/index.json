@@ -1,4 +1,19 @@
 {
-  "fingerprints": {},
-  "decisions": {}
+  "fingerprints": {
+    "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d": "D-01M5ER46TG4V66PTAHS7DJV7RB"
+  },
+  "decisions": {
+    "D-01M5ER46TG4V66PTAHS7DJV7RB": {
+      "decision_id": "D-01M5ER46TG4V66PTAHS7DJV7RB",
+      "fingerprint": "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d",
+      "category": "create-vs-reuse",
+      "chosen_option_key": "reuse-existing",
+      "responded_at": "2026-10-21T08:10:19.756Z",
+      "status": "resolved",
+      "option_keys": [
+        "make-new",
+        "reuse-existing"
+      ]
+    }
+  }
 }

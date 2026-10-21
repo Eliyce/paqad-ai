@@ -82,8 +82,11 @@ the npm package. The plugin ships its own manifest
 [`scripts/build-plugin-manifest.mjs`](../../scripts/build-plugin-manifest.mjs) from the one hook
 renderer and stage-agent template (no second copy). The plugin and its `eliyce` marketplace
 live together in the public repo `Eliyce/paqad-claude-plugin`; this repo keeps no marketplace
-file. On every release whose npm publish succeeded, the `publish-plugin` job in
-[`.github/workflows/release.yml`](../../.github/workflows/release.yml) builds the package,
+file. Whenever npm has the version in `package.json` and that repo has no `v<version>` tag (read
+by [`scripts/release-sync.mjs`](../../scripts/release-sync.mjs), never from changesets output),
+the `publish-plugin` job in
+[`.github/workflows/release.yml`](../../.github/workflows/release.yml) checks out the release
+commit, builds the package,
 clones that repo, assembles the plugin tree into it with
 [`scripts/assemble-plugin.mjs`](../../scripts/assemble-plugin.mjs)
 (`.claude-plugin/plugin.json`, `package.json`, `dist/`, `runtime/` without the mod tests,
