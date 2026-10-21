@@ -42,7 +42,7 @@ interface ChangesetStatus {
 }
 
 describe('the release changeset', { timeout: 60_000 }, () => {
-  it('AC-70: changeset status passes and releases paqad-ai', (ctx) => {
+  it('AC-70, AC-51: changeset status passes and releases paqad-ai', (ctx) => {
     if (!BASE) return ctx.skip(NO_BASE);
     if (commitsSince(REPO, BASE) === 0) return ctx.skip(NO_CHANGE);
     const dir = mkdtempSync(join(tmpdir(), 'paqad-changeset-status-'));
