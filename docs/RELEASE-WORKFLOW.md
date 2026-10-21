@@ -234,7 +234,10 @@ the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.te
 - Workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
 - Triggers: `push` to `main`, manual `workflow_dispatch`
 - Token: GitHub PAT stored as `GH_RELEASE_TOKEN` repo secret (so the bot's
-  release PR can trigger CI; the default `GITHUB_TOKEN` cannot).
+  release PR can trigger CI; the default `GITHUB_TOKEN` cannot). The checkout and the tag step
+  use it too, because tagging an older version whose workflow files differ from `main` needs
+  the Workflows permission, which the default token can never have. As a fine-grained token on
+  `Eliyce/paqad-ai` it needs Contents, Pull requests and Workflows set to Read and write.
 - npm auth: **Trusted Publishing (OIDC)** — configured at
   <https://www.npmjs.com/package/paqad-ai/access>. No `NPM_TOKEN` secret.
 - Provenance: enabled (`NPM_CONFIG_PROVENANCE=true`); requires
@@ -382,6 +385,7 @@ Why each one works the way it does, for the parts the code does not say.
 | Release workflow runs but no release PR opens | No pending changesets | Expected when no `.changeset/*.md` files exist |
 | Release PR (`chore(release): version packages`) opens but has **no CI checks** | The default `GITHUB_TOKEN` was used instead of `GH_RELEASE_TOKEN` | Confirm `GH_RELEASE_TOKEN` secret exists and `release.yml` references it as `GITHUB_TOKEN` for the changesets step |
 | Release PR CI fails on `expected '1.0.X' to be '1.0.Y'` | The build-time `__PKG_VERSION__` injection is broken or missing | Confirm `tsup.config.ts` and `vitest.config.ts` both `define: { __PKG_VERSION__: JSON.stringify(pkg.version) }`. `src/index.ts` reads only this constant — there should be no hardcoded version string anywhere |
+| Tag step fails: `refusing to allow a GitHub App to create or update workflow ... without workflows permission` | The tag was pushed with the default `GITHUB_TOKEN`, or `GH_RELEASE_TOKEN` lacks the Workflows permission | Confirm the checkout `token:` and the tag step's `GH_TOKEN` both use `GH_RELEASE_TOKEN`, and that the token has Workflows: Read and write |
 | Provenance error in workflow log | Missing `id-token: write` permission | Confirm the `permissions` block in `release.yml` includes `id-token: write` |
 | Need to undo a published version (≤ 72 h) | npm policy allows brief unpublish | `npm unpublish paqad-ai@x.y.z --force` then ship a higher version |
 | Need to undo a published version (> 72 h) | Cannot unpublish | `npm deprecate paqad-ai@x.y.z "Use x.y.z+1 instead — this version has <bug>"` then ship a fix |

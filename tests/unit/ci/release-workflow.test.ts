@@ -114,8 +114,11 @@ describe('the release workflow publishes the plugin', () => {
   it('tags and releases every published version after the changesets step', () => {
     const tags = release.steps.at(-1)!;
     expect(tags.run).toBe('node scripts/release-sync.mjs tags');
-    expect(tags.env).toEqual({ GH_TOKEN: '${{ github.token }}' });
-    expect(release.steps[0]!.with).toEqual({ 'fetch-depth': 0 });
+    expect(tags.env).toEqual({ GH_TOKEN: '${{ secrets.GH_RELEASE_TOKEN }}' });
+    expect(release.steps[0]!.with).toEqual({
+      'fetch-depth': 0,
+      token: '${{ secrets.GH_RELEASE_TOKEN }}',
+    });
   });
 
   it('builds the plugin from the released commit', () => {
