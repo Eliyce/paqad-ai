@@ -1,0 +1,26 @@
+name: Plugin sync check
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Plugin matches npm
+    runs-on: ubuntu-latest
+    if: github.repository_owner == 'Eliyce'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Fail when the plugin is behind npm
+        run: node scripts/release-sync.mjs check

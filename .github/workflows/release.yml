@@ -5,10 +5,6 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Required permissions for the changesets bot:
-#  - contents: write       -> create release commits, tags, GitHub releases
-#  - pull-requests: write  -> open and update the "Version Packages" PR
-#  - id-token: write       -> publish with provenance (npm verifies the build came from this repo)
 permissions:
   contents: write
   pull-requests: write
@@ -21,10 +17,11 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    # Guard against forked-repo pushes - secrets aren't available there.
     if: github.repository_owner == 'Eliyce'
     outputs:
-      published: ${{ steps.changesets.outputs.published }}
+      published: ${{ steps.published.outputs.plugin_needed }}
+      version: ${{ steps.published.outputs.version }}
+      sha: ${{ steps.published.outputs.sha }}
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v7
@@ -47,17 +44,11 @@ jobs:
       - name: Install graph-ui dependencies
         run: pnpm --dir graph-ui install --frozen-lockfile
 
-      # Pin to the 11.x line: Trusted Publishing needs npm >= 11.5.1, but a
-      # moving @latest let npm 12 in, which changed `npm pack --json` output
-      # and crashed the publish-time E2E (issue #332). A range floor keeps
-      # provenance/OIDC working while excluding surprise breaking majors.
       - name: Upgrade npm (Trusted Publishing needs npm >= 11.5.1)
         run: npm install -g "npm@>=11.5.1 <12"
 
       - name: Build
         run: pnpm run build
-        # Match CI (issue #615): give tsup's DTS worker heap headroom so the release build never
-        # hits ERR_WORKER_OUT_OF_MEMORY.
         env:
           NODE_OPTIONS: --max-old-space-size=4096
 
@@ -70,13 +61,17 @@ jobs:
           commit: 'chore(release): version packages'
           title: 'chore(release): version packages'
         env:
-          # PAT (not default GITHUB_TOKEN) so CI runs on the bot's release PR.
-          # Workflow tokens cannot trigger downstream workflow runs.
           GITHUB_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
-          # No NPM_TOKEN: publishes use Trusted Publishing (OIDC) configured at
-          # https://www.npmjs.com/package/paqad-ai/access. The npm CLI exchanges
-          # the workflow's id-token for short-lived publish credentials.
           NPM_CONFIG_PROVENANCE: 'true'
+
+      - name: Read what npm and the plugin repo have
+        id: published
+        run: node scripts/release-sync.mjs state
+
+      - name: Tag and create the GitHub Release for every published version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release-sync.mjs tags
 
   publish-plugin:
     name: Publish the plugin
@@ -96,8 +91,20 @@ jobs:
             exit 1
           fi
 
-      - name: Checkout
+      - name: Checkout the released commit
         uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.sha }}
+
+      - name: Check the checkout is the released version
+        env:
+          RELEASED_VERSION: ${{ needs.release.outputs.version }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$RELEASED_VERSION" ]; then
+            echo "::error::package.json at the released commit is ${VERSION}, but npm published ${RELEASED_VERSION}."
+            exit 1
+          fi
 
       - name: Enable Corepack
         run: corepack enable
@@ -149,3 +156,22 @@ jobs:
             git tag "v${VERSION}"
             git push --quiet origin "refs/tags/v${VERSION}"
           fi
+
+  plugin-in-sync:
+    name: Plugin matches npm
+    needs: [release, publish-plugin]
+    if: always() && needs.release.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Fail when the plugin is behind npm
+        run: node scripts/release-sync.mjs check

@@ -13,6 +13,7 @@ type Step = {
   run?: string;
   if?: string;
   env?: Record<string, string>;
+  with?: Record<string, string | number>;
 };
 type Job = {
   needs?: string | string[];
@@ -28,6 +29,10 @@ const workflow = parse(readFileSync('.github/workflows/release.yml', 'utf8')) as
 };
 const release = workflow.jobs.release!;
 const publish = workflow.jobs['publish-plugin']!;
+const inSync = workflow.jobs['plugin-in-sync']!;
+const versionStep = publish.steps.find(
+  (step) => step.name === 'Check the checkout is the released version',
+)!;
 const tokenStep = publish.steps.find((step) => step.id === 'token')!;
 const pushStep = publish.steps.at(-1)!;
 const dirs: string[] = [];
@@ -87,12 +92,68 @@ function runTokenCheck(token: string) {
 }
 
 describe('the release workflow publishes the plugin', () => {
-  it('runs publish-plugin only after npm publish succeeds', () => {
-    expect(release.outputs?.published).toBe('${{ steps.changesets.outputs.published }}');
+  it('decides publish-plugin from npm and the plugin repo, never from changesets output', () => {
+    expect(release.outputs).toEqual({
+      published: '${{ steps.published.outputs.plugin_needed }}',
+      version: '${{ steps.published.outputs.version }}',
+      sha: '${{ steps.published.outputs.sha }}',
+    });
+    const ids = release.steps.map((step) => step.id);
+    expect(ids.indexOf('published')).toBeGreaterThan(ids.indexOf('changesets'));
+    expect(release.steps.find((step) => step.id === 'published')?.run).toBe(
+      'node scripts/release-sync.mjs state',
+    );
+    expect(readFileSync('.github/workflows/release.yml', 'utf8')).not.toContain(
+      'steps.changesets.outputs',
+    );
     expect(publish.needs).toBe('release');
     expect(publish.if).toBe("needs.release.outputs.published == 'true'");
     expect(publish.permissions).toEqual({ contents: 'read' });
   });
+
+  it('tags and releases every published version after the changesets step', () => {
+    const tags = release.steps.at(-1)!;
+    expect(tags.run).toBe('node scripts/release-sync.mjs tags');
+    expect(tags.env).toEqual({ GH_TOKEN: '${{ github.token }}' });
+    expect(release.steps[0]!.with).toEqual({ 'fetch-depth': 0 });
+  });
+
+  it('builds the plugin from the released commit', () => {
+    const checkout = publish.steps.find((step) => step.uses?.startsWith('actions/checkout'));
+    expect(checkout?.with).toEqual({ ref: '${{ needs.release.outputs.sha }}' });
+    expect(publish.steps.indexOf(versionStep)).toBe(publish.steps.indexOf(checkout!) + 1);
+    expect(versionStep.env).toEqual({ RELEASED_VERSION: '${{ needs.release.outputs.version }}' });
+  });
+
+  it('fails red, never skips, when the plugin is behind npm', () => {
+    expect(inSync.needs).toEqual(['release', 'publish-plugin']);
+    expect(inSync.if).toBe("always() && needs.release.result == 'success'");
+    expect(inSync.steps.at(-1)?.run).toBe('node scripts/release-sync.mjs check');
+    const daily = parse(readFileSync('.github/workflows/plugin-sync-check.yml', 'utf8')) as {
+      on: { schedule: { cron: string }[] };
+      jobs: Record<string, Job>;
+    };
+    expect(daily.on.schedule).toEqual([{ cron: '0 6 * * *' }]);
+    expect(daily.jobs.check!.steps.at(-1)?.run).toBe('node scripts/release-sync.mjs check');
+  });
+
+  it.skipIf(process.platform === 'win32')(
+    'fails the version check when the checkout is not the released version',
+    () => {
+      const run = (released: string) =>
+        spawnSync('bash', ['-c', versionStep.run!], {
+          cwd: builtWorkspace('1.2.3'),
+          encoding: 'utf8',
+          env: { PATH: process.env.PATH, RELEASED_VERSION: released },
+        });
+      const mismatch = run('1.2.4');
+      expect(mismatch.status).toBe(1);
+      expect(mismatch.stdout).toContain(
+        '::error::package.json at the released commit is 1.2.3, but npm published 1.2.4.',
+      );
+      expect(run('1.2.3').status).toBe(0);
+    },
+  );
 
   it.skipIf(process.platform === 'win32')(
     'fails the job with an error naming the plugin repo when PAQAD_PLUGIN_PUSH_TOKEN is empty',
