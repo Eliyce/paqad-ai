@@ -1,5 +1,9 @@
 import type { EvaluateEscalationInput } from '@/core/types/token-efficiency.js';
-import type { GateResult, VerificationContext } from '@/core/types/verification.js';
+import type {
+  GateResult,
+  VerificationContext,
+  VerificationGate,
+} from '@/core/types/verification.js';
 import type { DeltaReasoningPayload, VerificationDelta } from '@/core/types/token-efficiency.js';
 import { buildVerificationGateDeltaPayload } from './delta.js';
 
@@ -21,6 +25,26 @@ import { RequirementCompletenessGate } from './gates/requirement-completeness.js
 import { SiteMapFreshnessGate } from './gates/site-map-freshness.js';
 import { SpecReviewGate } from './gates/spec-review.js';
 import { StoryQualityGate } from './gates/story-quality.js';
+
+export const DEFAULT_GATE_CODES: readonly VerificationGate[] = [
+  'change-completeness',
+  'requirement-completeness',
+  'story-quality',
+  'ac-test-mapping',
+  'spec-review',
+  'architecture-compliance',
+  'code-tests-lint',
+  'implementation-review',
+  'behavioral-correctness',
+  'mutation-testing',
+  'quality-ratchet',
+  'database-quality',
+  'module-docs-structure',
+  'instructions-docs-structure',
+  'documentation-freshness',
+  'site-map-freshness',
+  'extension-surface',
+];
 
 export class VerificationGateRunner {
   constructor(private readonly gates: Gate[] = defaultGates()) {}

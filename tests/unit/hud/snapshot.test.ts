@@ -46,6 +46,7 @@ import {
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import { raiseTechDebt } from '@/tech-debt/index.js';
+import { DEFAULT_GATE_CODES } from '@/verification/gate-runner.js';
 import {
   readFeatureDelivery,
   reconcileDeliveryFromGit,
@@ -1475,5 +1476,20 @@ describe('the live High Table on the snapshot', () => {
     recordTable(root, S, dir);
 
     expect(buildHudSnapshot(root, S, { now: NOW }).table).toBeNull();
+  });
+});
+
+describe('AC-27: the gate list before Checks', () => {
+  it('names every default gate in run order, before a change opens and while one is open', () => {
+    const root = onboardedRoot();
+    const S = 'ses-gates-expected';
+    persistLedgerSessionId(root, S);
+    const idle = buildHudSnapshot(root, S, { now: NOW });
+    expect(idle.gates_expected).toEqual([...DEFAULT_GATE_CODES]);
+    openChange(root, S, 'full', 'ORD-501 csv export');
+    const open = buildHudSnapshot(root, S, { now: NOW });
+    expect(open.gates_expected).toEqual([...DEFAULT_GATE_CODES]);
+    expect(open.gates_expected[0]).toBe('change-completeness');
+    expect(open.gates_expected.at(-1)).toBe('extension-surface');
   });
 });

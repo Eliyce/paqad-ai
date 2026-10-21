@@ -63,6 +63,7 @@ import {
   stageIsolationStatus,
 } from '@/verification/repository/bundle-completeness-config.js';
 import type { VerificationGate } from '@/core/types/verification.js';
+import { DEFAULT_GATE_CODES } from '@/verification/gate-runner.js';
 
 import {
   gateIsJudged,
@@ -215,6 +216,7 @@ export interface HudSnapshot {
   table: HudHighTable | null;
   claims: HudClaim[];
   gates: HudGate[];
+  gates_expected: string[];
   flags: HudFlag[];
   rules: { recorded: boolean; applicable: number | null; loaded_at: string | null };
   findings: HudFindings | null;
@@ -773,6 +775,7 @@ export function buildHudSnapshot(
       table: null,
       claims: [],
       gates: [],
+      gates_expected: [...DEFAULT_GATE_CODES],
       flags: [],
       rules: { recorded: false, applicable: null, loaded_at: null },
       findings: null,
@@ -854,6 +857,7 @@ export function buildHudSnapshot(
     table,
     claims: buildClaims(record?.kind, projectRoot, dirName),
     gates,
+    gates_expected: [...DEFAULT_GATE_CODES],
     flags,
     rules: {
       recorded: rulesLoaded !== null,
