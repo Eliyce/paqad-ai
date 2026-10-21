@@ -1,5 +1,11 @@
 # paqad-ai
 
+## 1.103.1
+
+### Patch Changes
+
+- 0c74902: The release job now tags and publishes GitHub Releases with the release token, so it can tag older versions whose workflow files differ from main.
+
 ## 1.103.0
 
 ### Minor Changes
