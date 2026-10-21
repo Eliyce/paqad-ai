@@ -229,7 +229,7 @@ describe('resolvePendingDecision on a packet the hooks wrote', () => {
     };
   }
 
-  it('resolves it through the store, keeping its fingerprint so the answer is reused', () => {
+  it('AC-7: resolves it through the store, keeping its fingerprint so the answer is reused', () => {
     const store = new DecisionStore(root);
     store.initialize();
     const packet = storePacket();

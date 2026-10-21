@@ -92,7 +92,7 @@ function runTokenCheck(token: string) {
 }
 
 describe('the release workflow publishes the plugin', () => {
-  it('decides publish-plugin from npm and the plugin repo, never from changesets output', () => {
+  it('AC-6: decides publish-plugin from npm and the plugin repo, never from changesets output', () => {
     expect(release.outputs).toEqual({
       published: '${{ steps.published.outputs.plugin_needed }}',
       version: '${{ steps.published.outputs.version }}',
