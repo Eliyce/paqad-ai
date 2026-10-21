@@ -236,11 +236,19 @@ function workflowBand(
   );
 }
 
-function unreadableBand(ui: D, band: Extract<DesktopBand, { kind: 'unreadable' }>) {
+function unreadableBand(
+  ui: D,
+  band: Extract<DesktopBand, { kind: 'unreadable' }>,
+  actions: BandActions,
+) {
   const { Box, Text } = ui;
   return (
     <Box key="paqad-band" flexDirection="column" rowGap="xs">
-      <Text>{brand(ui)}</Text>
+      <Box key="paqad-identity" flexDirection="row" alignItems="center" columnGap="sm">
+        <Text>{brand(ui)}</Text>
+        <Box flexGrow={1} />
+        {controls(ui, actions, false)}
+      </Box>
       <Text wrap="truncate-end">
         <Text size="heading" color={SIGNAL.attention}>
           ●{' '}
@@ -266,7 +274,7 @@ export function drawDesktopBand(ui: D, band: DesktopBand, tick: number, actions:
         </Text>
       );
     case 'unreadable':
-      return unreadableBand(ui, band);
+      return unreadableBand(ui, band, actions);
     case 'workflow':
       return workflowBand(ui, band, tick, actions);
     case 'closed':

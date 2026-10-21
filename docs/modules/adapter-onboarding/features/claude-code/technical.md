@@ -170,7 +170,8 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   only presses and `tool.call` do. On any failure the mod stays dark. A snapshot file that exists
   but cannot be read or parsed shows the idle line with a dim `HUD data unavailable` on the
   terminal, and `● paqad cannot read this session's record` in coral on Desktop (also when the
-  session id cannot be read), never a verdict, flags, ship rail or cost from a partial read. State is rebuilt at `session.start`, since a hot reload drops module
+  session id cannot be read) under the brand row with its `Ledger`, `−` and `×` controls, so the
+  Ledger's Trust tab can still give the reason; never a verdict, flags, ship rail or cost from a partial read. State is rebuilt at `session.start`, since a hot reload drops module
   variables and timers.
 - **Stand-down order** (`config.ts`): never onboarded, a cloud session (`CLAUDE_CODE_REMOTE=true`),
   paqad off, the view turned off, or Claude Code older than 2.1.301 (an engine that cannot state its

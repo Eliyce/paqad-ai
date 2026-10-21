@@ -691,8 +691,29 @@ describe('the Desktop band', () => {
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     const drawn = await $.ui.render(band('desktop'));
-    expect(textOf(drawn)).toBe("paqad● paqad cannot read this session's record");
+    expect(textOf(drawn)).toBe("paqadLedger−×● paqad cannot read this session's record");
     expect(lightOf(drawn)).toBe('#F37748');
+    expect(buttonKeys(drawn)).toEqual(['paqad-ledger', 'paqad-minimise', 'paqad-close']);
+    for (const element of everyElement(drawn)) {
+      const props = propsOf(element);
+      expect(props.hotkey).toBeUndefined();
+      expect(props.role).toBeUndefined();
+    }
+  });
+
+  test('AC-5: the unreadable band opens the Ledger, whose Trust tab gives the reason', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: '{"schema":"paqad.hud/3","headl' },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const mounted = await mountDesktop($);
+    await mounted.press({ key: 'paqad-ledger' });
+    await mounted.unmount();
+    expect(world.opened).toEqual(['paqad']);
+    const trust = await $.ui.render(pane('desktop'));
+    expectDesktopSafe(trust);
+    expect(drawnLines(trust)).toContain('The snapshot file is not valid.');
   });
 
   test('AC-5: a session id that cannot be read says the same', async ($, on) => {
