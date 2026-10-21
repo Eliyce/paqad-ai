@@ -141,6 +141,7 @@ jobs:
           PAQAD_TEST_SHARD: '1'
         run: >-
           pnpm exec vitest run --coverage --reporter=blob --reporter=json
+          --outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}-${{ matrix.total }}.json
           --outputFile.json=.vitest-durations/durations-${{ matrix.shard }}.json
           --shard=${{ matrix.shard }}/${{ matrix.total }}
 
@@ -206,7 +207,7 @@ jobs:
       # PAQAD_TEST_SHARD is not set here, so the 95% global and 100% src/stage-evidence/**
       # floors apply to the merged coverage, and a failed test in any shard fails this step.
       - name: Merge the shard reports and check coverage
-        run: pnpm exec vitest run --merge-reports --coverage
+        run: pnpm exec vitest run --merge-reports=.vitest-reports --coverage
 
       - name: Check the shard time budget
         if: ${{ !cancelled() }}

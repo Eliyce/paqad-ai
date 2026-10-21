@@ -129,6 +129,9 @@ describe('.github/workflows/ci.yml', () => {
       expect(step.run).toContain('vitest run --coverage --reporter=blob');
       expect(step.run).toContain('--reporter=json');
       expect(step.run).toContain(
+        '--outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}-${{ matrix.total }}.json',
+      );
+      expect(step.run).toContain(
         '--outputFile.json=.vitest-durations/durations-${{ matrix.shard }}.json',
       );
       expect(step.run).toContain('--shard=${{ matrix.shard }}/${{ matrix.total }}');
@@ -183,7 +186,7 @@ describe('.github/workflows/ci.yml', () => {
 
     it('merges with coverage and the floors on, then checks the time budget', () => {
       const merge = stepNamed(job, /^Merge/)!;
-      expect(merge.run).toBe('pnpm exec vitest run --merge-reports --coverage');
+      expect(merge.run).toBe('pnpm exec vitest run --merge-reports=.vitest-reports --coverage');
       for (const step of job.steps) expect(step.env?.PAQAD_TEST_SHARD).toBeUndefined();
       expect(job.env?.PAQAD_TEST_SHARD).toBeUndefined();
       expect(workflow.env.PAQAD_TEST_SHARD).toBeUndefined();

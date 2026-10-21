@@ -19,11 +19,13 @@ import {
 const transformerEnv: Record<string, unknown> = {};
 const transformerPipeline = vi.fn();
 const openAiEmbeddingsCreate = vi.fn();
-const openAiCtor = vi.fn().mockImplementation(() => ({
-  embeddings: {
-    create: openAiEmbeddingsCreate,
-  },
-}));
+const openAiCtor = vi.fn().mockImplementation(function () {
+  return {
+    embeddings: {
+      create: openAiEmbeddingsCreate,
+    },
+  };
+});
 const loadOptionalPackageSpy = vi.hoisted(() => vi.fn());
 
 vi.mock('@/core/optional-package.js', async (importOriginal) => {

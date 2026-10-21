@@ -12,11 +12,13 @@ import { RagService } from '@/rag/service.js';
 const transformerEnv: Record<string, unknown> = {};
 const transformerPipeline = vi.fn();
 const openAiEmbeddingsCreate = vi.fn();
-const openAiCtor = vi.fn().mockImplementation(() => ({
-  embeddings: {
-    create: openAiEmbeddingsCreate,
-  },
-}));
+const openAiCtor = vi.fn().mockImplementation(function () {
+  return {
+    embeddings: {
+      create: openAiEmbeddingsCreate,
+    },
+  };
+});
 
 vi.mock('@huggingface/transformers', () => ({
   env: transformerEnv,

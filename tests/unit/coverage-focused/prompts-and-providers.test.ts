@@ -11,9 +11,11 @@ const transformerEnv = vi.hoisted(() => ({}) as Record<string, unknown>);
 const transformerPipeline = vi.hoisted(() => vi.fn());
 const openAiEmbeddingsCreate = vi.hoisted(() => vi.fn());
 const openAiCtor = vi.hoisted(() =>
-  vi.fn().mockImplementation(() => ({
-    embeddings: { create: openAiEmbeddingsCreate },
-  })),
+  vi.fn().mockImplementation(function () {
+    return {
+      embeddings: { create: openAiEmbeddingsCreate },
+    };
+  }),
 );
 
 vi.mock('@inquirer/prompts', () => ({
