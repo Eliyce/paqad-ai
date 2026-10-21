@@ -34,10 +34,13 @@ import { drawDesktopBand, type BandActions } from './desktop-band';
 import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
   ANSWER_TOAST,
+  UPDATE_PLAN_TOOL,
   bandIsLive,
   buildDesktopBand,
   buildDesktopLedger,
   ledgerIsLive,
+  refusesTaskList,
+  taskListSentence,
   type DesktopBand,
 } from './desktop-view';
 import {
@@ -99,6 +102,7 @@ import type {
   BandSegment,
   BandSplitRow,
 } from './shell';
+import { FEATURE_ROUTE } from './status-entry';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
@@ -174,6 +178,7 @@ let heartbeat: Timer | null = null;
 let turnStartedAt: number | null = null;
 let tickTimer: Timer | null = null;
 let desktopSession = false;
+let taskListRefused = false;
 const rawCalls = new Set<string>();
 
 const TICK_MS = 400;
@@ -864,6 +869,7 @@ export const register: Register = (on) => {
     heartbeat?.cancel();
     heartbeat = null;
     stopTick();
+    taskListRefused = false;
     desktopSession = (e as { surface?: unknown }).surface === 'desktop';
     setCommandName(COMMAND_NAMES[0]);
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
@@ -885,6 +891,7 @@ export const register: Register = (on) => {
   }
 
   on('prompt.submit', async ($, e, next) => {
+    taskListRefused = false;
     if (live) {
       turnStartedAt = await $.clock.now();
       startTicker($);
@@ -894,6 +901,15 @@ export const register: Register = (on) => {
     const result = await next(e);
     await refresh($);
     return result;
+  }).catch(($, e, next) => next(e));
+
+  on('tool.call', { tool: UPDATE_PLAN_TOOL }, async ($, e, next) => {
+    if (!live || taskListRefused) return next(e);
+    const snapshot = await read($, snapshotAtom);
+    if (snapshot?.route !== FEATURE_ROUTE) return next(e);
+    if (!refusesTaskList(snapshot.lane, e as unknown as Record<string, unknown>)) return next(e);
+    taskListRefused = true;
+    return { deny: taskListSentence(snapshot.lane) };
   }).catch(($, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {

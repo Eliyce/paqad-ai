@@ -1,7 +1,7 @@
 import type { RenderElement, RenderNode } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 
-import { ANSWER_TOAST, localTime } from './desktop-view';
+import { ANSWER_TOAST, TASK_LIST_SENTENCES, UPDATE_PLAN_TOOL, localTime } from './desktop-view';
 import {
   EXPERTS_OFF,
   FAST_ORD_490,
@@ -698,7 +698,7 @@ describe('the Desktop band', () => {
     );
   });
 
-  test('draws Ready before the first snapshot, and Getting ready on the feature route with no change', async ($, on) => {
+  test('AC-6: draws Ready before the first snapshot, and Getting ready on the feature route with no change', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -889,7 +889,7 @@ const CLAIMED = {
 };
 
 describe('the Desktop Ledger', () => {
-  test('AC-19: opens on Trust with the subtitle, equal tabs, the tab rule, the light, the gates, the claims and the flags', async ($, on) => {
+  test('AC-19, AC-20: opens on Trust with the subtitle, equal tabs, the tab rule, the light, the gates, the claims and the flags', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CLAIMED) }, store: QUIET_STORE() });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -926,7 +926,7 @@ describe('the Desktop Ledger', () => {
     expect(propsOf(ring!)).toMatchObject({ width: 92, height: 92 });
   });
 
-  test('AC-20: the High Table tab draws the ring, the chief, Answer in chat and See each side, and the seat details', async ($, on) => {
+  test('AC-21: the High Table tab draws the ring, the chief, Answer in chat and See each side, and the seat details', async ($, on) => {
     const world = worldOf(on, {
       files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('ruled')) },
       store: new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]),
@@ -968,7 +968,7 @@ describe('the Desktop Ledger', () => {
     );
   });
 
-  test('AC-20: who shaped the spec reads each line from the bundle spec', async ($, on) => {
+  test('AC-21: who shaped the spec reads each line from the bundle spec', async ($, on) => {
     const spec = ['# Spec', '- FR-1: Export the orders page to CSV', '- FR-2: Keep the filters', '- AC-1: A file downloads'];
     worldOf(on, {
       files: {
@@ -988,7 +988,7 @@ describe('the Desktop Ledger', () => {
     expect(lines).toContain('● Approved');
   });
 
-  test('AC-21: Delivery draws one block per step with its node, and the Open PR link when the merge is ready', async ($, on) => {
+  test('AC-22: Delivery draws one block per step with its node, and the Open PR link when the merge is ready', async ($, on) => {
     worldOf(on, {
       files: {
         ...ONBOARDED,
@@ -1012,7 +1012,7 @@ describe('the Desktop Ledger', () => {
     expect(stringsOf(link!).join('')).toBe(`Open PR ${'#'}12`);
   });
 
-  test('AC-22, AC-23: Record lists the events in local time and Cost draws the total, the stages and the High Table', async ($, on) => {
+  test('AC-23: Record lists the events in local time and Cost draws the total, the stages and the High Table', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CLAIMED) }, store: QUIET_STORE() });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1032,7 +1032,7 @@ describe('the Desktop Ledger', () => {
     );
   });
 
-  test('AC-23: the fast lane leaves the High Table out of the tabs and the Cost tab', async ($, on) => {
+  test('AC-19, AC-23: the fast lane leaves the High Table out of the tabs and the Cost tab', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490_COST) } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1044,7 +1044,7 @@ describe('the Desktop Ledger', () => {
     expect(cost.join('\n')).not.toContain('Chief architect');
   });
 
-  test('AC-24: another workflow gets a light and its cost, and an unreadable record says so', async ($, on) => {
+  test('AC-24, AC-5: another workflow gets a light and its cost, and an unreadable record says so', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1807,6 +1807,89 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
       expect(third.card.every((line) => line.includes('(exact)'))).toBe(true);
     });
   }
+});
+
+const planItems = (...words: string[]) =>
+  words.map((content) => ({ content, status: 'pending' }));
+
+const FULL_PLAN = planItems(
+  'Read the ticket',
+  'Plan the change',
+  'Spec: freeze it',
+  'Load rules',
+  'Build the export',
+  'Review',
+  'Checks',
+  'Docs',
+  'Open the PR',
+);
+
+async function updatePlan(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  input: Record<string, unknown>,
+): Promise<unknown> {
+  return $.tool.call({ tool: UPDATE_PLAN_TOOL, ...input } as never);
+}
+
+function servePlan(on: Parameters<Parameters<typeof test>[1]>[1]): void {
+  on('tool.call', { tool: UPDATE_PLAN_TOOL }, () => ({ result: 'planned' }) as never);
+}
+
+describe('the task list carries the stages (AC-18)', () => {
+  test('AC-18: a full-lane list without the stage words is refused once per turn with the lane sentence', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
+    servePlan(on);
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.prompt.submit({ text: 'build it' } as never);
+    const bad = { items: planItems('Read the ticket', 'Write the code', 'Open the PR') };
+    expect(await updatePlan($, bad)).toMatchObject({ deny: TASK_LIST_SENTENCES.full });
+    expect(await updatePlan($, bad)).not.toHaveProperty('deny');
+    await $.prompt.submit({ text: 'again' } as never);
+    const outOfOrder = { items: planItems('Spec', 'Plan', 'Load rules', 'Build', 'Review', 'Checks', 'Docs') };
+    expect(await updatePlan($, outOfOrder)).toMatchObject({ deny: TASK_LIST_SENTENCES.full });
+  });
+
+  test('AC-18: the stage words in order pass with other items around them, and advance, done and start always pass', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
+    servePlan(on);
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.prompt.submit({ text: 'build it' } as never);
+    expect(await updatePlan($, { items: FULL_PLAN })).not.toHaveProperty('deny');
+    for (const action of ['advance', 'done', 'start']) {
+      expect(await updatePlan($, { action, items: planItems('Write the code') })).not.toHaveProperty(
+        'deny',
+      );
+    }
+    expect(await updatePlan($, { status: 'done' })).not.toHaveProperty('deny');
+    expect(await updatePlan($, { items: planItems('Write the code') })).toMatchObject({
+      deny: TASK_LIST_SENTENCES.full,
+    });
+  });
+
+  test('AC-18: the fast lane checks its own three words and says its own sentence', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    servePlan(on);
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.prompt.submit({ text: 'fix it' } as never);
+    expect(await updatePlan($, { items: planItems('plan', 'build', 'checks') })).not.toHaveProperty(
+      'deny',
+    );
+    expect(await updatePlan($, { items: planItems('Plan', 'Checks') })).toMatchObject({
+      deny: TASK_LIST_SENTENCES.fast,
+    });
+  });
+
+  test('AC-18: other routes are never checked', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
+    servePlan(on);
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    await $.prompt.submit({ text: 'what is this?' } as never);
+    expect(await updatePlan($, { items: planItems('Read the code') })).not.toHaveProperty('deny');
+  });
 });
 
 describe('the rule stop answer on tool.check', () => {
