@@ -22,6 +22,7 @@ export interface World {
   runs: Array<{ argv: readonly string[]; cwd?: string; timeoutMs?: number }>;
   run: { exitCode: number; stdout: string; stderr: string } | 'reject';
   toasts: string[];
+  logs: Array<{ text: string; to: string | undefined }>;
   writes: Array<{ path: string; text: string }>;
   played: unknown[];
   spoken: string[];
@@ -36,7 +37,11 @@ export interface WorldOptions {
   env?: Readonly<Record<string, string>>;
   version?: { version: string; base?: string };
   band?: RenderElement;
+  refuse?: Readonly<Record<string, string>>;
+  sessionId?: string | null;
 }
+
+export const TAKEN = `"/paqad" refused: it is the plugin's /paqad-product-discovery:paqad`;
 
 export const ENGINE_CARD = { type: 'engine', ref: 0 } as const;
 
@@ -60,6 +65,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     runs: [],
     run: { exitCode: 0, stdout: '', stderr: '' },
     toasts: [],
+    logs: [],
     writes: [],
     played: [],
     spoken: [],
@@ -96,14 +102,24 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   });
   on('env.get', ($, e) => ({ value: options.env?.[e.name] }));
   on('session.root', () => ({ value: ROOT }));
-  on('session.id', () => ({ value: SESSION_ID }));
+  on('session.id', () =>
+    options.sessionId === null
+      ? { deny: 'the session id is not available' }
+      : { value: options.sessionId ?? SESSION_ID },
+  );
   on('session.version', () => ({
     value: options.version ?? { version: '2.1.302', base: '2.1.302' },
   }));
   on('agent.list', () => ({ value: world.agents }));
   on('command.register', ($, e) => {
+    const refusal = options.refuse?.[e.name];
+    if (refusal !== undefined) return { deny: refusal };
     world.commands.push(e.name);
     return { value: { command: e.name } };
+  });
+  on('ui.log', ($, e) => {
+    world.logs.push({ text: e.text, to: e.to });
+    return { value: undefined } as never;
   });
   on('store.get', ($, e) => ({ value: world.store.get(e.key) }) as never);
   on('store.set', ($, e) => {
@@ -211,9 +227,9 @@ export function pane(surface: 'terminal' | 'desktop', requestId = 'paqad'): Rend
   } as RenderInput<'Pane'>;
 }
 
-export function command(args = '') {
+export function command(args = '', name = 'paqad') {
   return {
-    command: 'paqad',
+    command: name,
     args,
     origin: { kind: 'composer' as const },
     presentation: { isFullscreen: false, columns: 100 },

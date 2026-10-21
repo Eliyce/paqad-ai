@@ -1,4 +1,5 @@
 import {
+  computeChangeCost,
   readChangeCost,
   type ChangeCostRecord,
   type CostScope,
@@ -25,9 +26,10 @@ export interface HudCost {
   by_expert: CostExpertLine[];
   chief: (CostLine & { exact: boolean }) | null;
   not_counted: string[];
+  live: boolean;
 }
 
-export function hudCostOf(record: ChangeCostRecord): HudCost {
+export function hudCostOf(record: ChangeCostRecord, live = false): HudCost {
   return {
     computed_at: record.computed_at,
     window: record.window,
@@ -44,10 +46,39 @@ export function hudCostOf(record: ChangeCostRecord): HudCost {
     by_expert: record.by_expert,
     chief: record.chief,
     not_counted: record.not_counted,
+    live,
   };
 }
 
-export function buildHudCost(projectRoot: string, dirName: string): HudCost | null {
+export interface BuildHudCostOptions {
+  turnRunning?: boolean;
+  now?: () => Date;
+  onError?: (error: unknown) => void;
+}
+
+function countFromCache(
+  projectRoot: string,
+  dirName: string,
+  options: BuildHudCostOptions,
+): ChangeCostRecord | null {
+  try {
+    const counted = computeChangeCost(projectRoot, dirName, { now: options.now });
+    return counted && counted.sources > 0 && counted.tokens.total > 0 ? counted : null;
+  } catch (error) {
+    options.onError?.(error);
+    return null;
+  }
+}
+
+export function buildHudCost(
+  projectRoot: string,
+  dirName: string,
+  options: BuildHudCostOptions = {},
+): HudCost | null {
+  const running = options.turnRunning === true;
   const record = readChangeCost(projectRoot, dirName);
-  return record ? hudCostOf(record) : null;
+  if (record) return hudCostOf(record, running && !record.window.sealed);
+  if (!running) return null;
+  const counted = countFromCache(projectRoot, dirName, options);
+  return counted ? hudCostOf(counted, true) : null;
 }

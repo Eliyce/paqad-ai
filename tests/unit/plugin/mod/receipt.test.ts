@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { setCommandName } from '../../../../runtime/claude-plugin/mod/command-name.ts';
 import { NO_RECEIPT } from '../../../../runtime/claude-plugin/mod/commands.ts';
 import {
   isReceiptCommand,
@@ -40,13 +41,26 @@ describe('the verdict watch', () => {
       'paqad sealed the receipt: Safe to merge. /paqad receipt shows why.',
     );
   });
+
+  it('AC-2: names /paqad-hud in the toast under the fallback', () => {
+    setCommandName('paqad-hud');
+    try {
+      expect(verdictToast(PASS)).toBe(
+        'paqad sealed the receipt: Safe to merge. /paqad-hud receipt shows why.',
+      );
+    } finally {
+      setCommandName('paqad');
+    }
+  });
 });
 
 describe('the receipt card', () => {
-  it('answers /paqad receipt only', () => {
+  it('answers /paqad receipt and /paqad-hud receipt only', () => {
     expect(isReceiptCommand('paqad', 'receipt')).toBe(true);
     expect(isReceiptCommand('paqad', '  Receipt now')).toBe(true);
+    expect(isReceiptCommand('paqad-hud', 'receipt')).toBe(true);
     expect(isReceiptCommand('paqad', 'status')).toBe(false);
+    expect(isReceiptCommand('paqad-hud', 'ships')).toBe(false);
     expect(isReceiptCommand('cost', 'receipt')).toBe(false);
   });
 

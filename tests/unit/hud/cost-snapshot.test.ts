@@ -11,7 +11,13 @@ import { refreshChangeCostFromHook } from '@/cost/hook-cost.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { hudCostOf } from '@/hud/cost-view.js';
 import { hudSnapshotPath } from '@/hud/files.js';
-import { buildHudSnapshot, writeHudSnapshot } from '@/hud/snapshot.js';
+import {
+  buildHudSnapshot,
+  TURN_END_SOURCES,
+  writeHudSnapshot,
+  writeHudSnapshotSafe,
+} from '@/hud/snapshot.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { appendRouteTurn } from '@/pipeline/route-turns.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
@@ -60,7 +66,7 @@ function writeMainTranscript(root: string): string {
   return path;
 }
 
-describe('the snapshot cost (FR-22)', () => {
+describe('the snapshot cost', () => {
   it('is null until a hook wrote cost.json', () => {
     const { root } = project();
     expect(buildHudSnapshot(root, S).cost).toBeNull();
@@ -123,7 +129,7 @@ describe('the snapshot cost (FR-22)', () => {
   });
 });
 
-describe('status --hud --format json (AC-65)', () => {
+describe('status --hud --format json', () => {
   it('prints the same cost and table as the snapshot file', async () => {
     const { root } = project();
     refreshChangeCostFromHook({
@@ -152,7 +158,7 @@ describe('status --hud --format json (AC-65)', () => {
   });
 });
 
-describe('the workflow cost on another route (AC-40, engine side)', () => {
+describe('the workflow cost on another route', () => {
   function questionRoot(): string {
     const root = mkdtempSync(join(tmpdir(), 'paqad-workflow-cost-'));
     roots.push(root);
@@ -210,5 +216,61 @@ describe('the workflow cost on another route (AC-40, engine side)', () => {
       usd: null,
       unpriced: [],
     });
+  });
+});
+
+describe('AC-27: the cost while the turn is still running', () => {
+  function counted(): { root: string; dir: string } {
+    const project_ = project();
+    refreshChangeCostFromHook({
+      projectRoot: project_.root,
+      payload: { transcript_path: writeMainTranscript(project_.root) },
+    });
+    return project_;
+  }
+
+  const snapshotFile = (root: string) =>
+    JSON.parse(readFileSync(hudSnapshotPath(root, S), 'utf8')) as {
+      cost: { live: boolean } | null;
+    };
+
+  it('reads live while a turn runs on an unsealed record, and settled once the turn ends', () => {
+    const { root } = counted();
+    expect(buildHudSnapshot(root, S).cost?.live).toBe(false);
+    expect(buildHudSnapshot(root, S, { turnRunning: true }).cost?.live).toBe(true);
+    writeHudSnapshotSafe(root, S, 'hook:stage-writer');
+    expect(snapshotFile(root).cost?.live).toBe(true);
+    for (const source of TURN_END_SOURCES) {
+      writeHudSnapshotSafe(root, S, source);
+      expect(snapshotFile(root).cost?.live).toBe(false);
+    }
+  });
+
+  it('never reads live once the record is sealed', () => {
+    const { root, dir } = counted();
+    const path = join(root, featureFilePath(dir, 'cost'));
+    const record = JSON.parse(readFileSync(path, 'utf8')) as { window: { sealed: boolean } };
+    record.window.sealed = true;
+    writeFileSync(path, JSON.stringify(record));
+    expect(buildHudSnapshot(root, S, { turnRunning: true }).cost?.live).toBe(false);
+  });
+
+  it('counts the first turn from the cost cache before cost.json exists', () => {
+    const { root, dir } = counted();
+    rmSync(join(root, featureFilePath(dir, 'cost')));
+    expect(buildHudSnapshot(root, S).cost).toBeNull();
+    const live = buildHudSnapshot(root, S, { turnRunning: true }).cost;
+    expect(live).toMatchObject({ live: true, tokens: { total: 2_000_000 } });
+  });
+
+  it('leaves the cost out while the cache is empty, and with a logged reason while it cannot be read', () => {
+    const { root } = project();
+    expect(buildHudSnapshot(root, S, { turnRunning: true }).cost).toBeNull();
+    mkdirSync(join(root, '.paqad', 'session'), { recursive: true });
+    writeFileSync(join(root, PATHS.HUD_DIR), 'not a directory\n');
+    expect(buildHudSnapshot(root, S, { turnRunning: true }).cost).toBeNull();
+    expect(readFileSync(join(root, '.paqad/logs/hook-failures.log'), 'utf8')).toContain(
+      'hud-snapshot (cost):',
+    );
   });
 });

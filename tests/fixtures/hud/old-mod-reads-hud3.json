@@ -1,6 +1,6 @@
 {
-  "captured_from": "main 1f85100f",
-  "reader": "runtime/claude-plugin/mod/model.ts parseSnapshot + buildBandView + isLive",
+  "captured_from": "main 82110d10",
+  "reader": "runtime/claude-plugin/mod/model.ts parseSnapshot + buildBandView + isLive, ship.ts shipRail",
   "now": 1792314000000,
   "inputs": {
     "FAST_ORD_490": {
@@ -123,6 +123,7 @@
       "table": null,
       "claims": [],
       "gates": [],
+      "gates_expected": [],
       "flags": [],
       "rules": {
         "recorded": true,
@@ -136,6 +137,8 @@
       },
       "questions": null,
       "last_block": null,
+      "delivery_plan": null,
+      "plan": null,
       "ship": {
         "commits": 0,
         "commit_decision": null,
@@ -416,6 +419,7 @@
       },
       "claims": [],
       "gates": [],
+      "gates_expected": [],
       "flags": [],
       "rules": {
         "recorded": true,
@@ -435,6 +439,8 @@
       },
       "questions": null,
       "last_block": null,
+      "delivery_plan": null,
+      "plan": null,
       "ship": {
         "commits": 0,
         "commit_decision": null,
@@ -567,7 +573,78 @@
           "proof_file": null
         }
       ],
-      "timeline": [],
+      "timeline": [
+        {
+          "at": "2026-10-18T08:00:00.000Z",
+          "kind": "open",
+          "stage": null,
+          "note": null,
+          "title": "csv-export",
+          "issue": "ORD-501",
+          "lane": "full"
+        },
+        {
+          "at": "2026-10-18T08:01:00.000Z",
+          "kind": "stage_start",
+          "stage": "planning",
+          "note": null,
+          "agent": "paqad:paqad-planning",
+          "own_agent": true
+        },
+        {
+          "at": "2026-10-18T08:02:41.000Z",
+          "kind": "stage_end",
+          "stage": "planning",
+          "note": null,
+          "duration_ms": 101000
+        },
+        {
+          "at": "2026-10-18T08:03:00.000Z",
+          "kind": "rules_loaded",
+          "stage": null,
+          "note": null,
+          "count": 12
+        },
+        {
+          "at": "2026-10-18T08:13:00.000Z",
+          "kind": "spec_frozen",
+          "stage": null,
+          "note": null,
+          "requirements": 12,
+          "criteria": 9
+        },
+        {
+          "at": "2026-10-18T08:30:00.000Z",
+          "kind": "commit",
+          "stage": null,
+          "note": null,
+          "sha": "aaa1111",
+          "subject": "feat: one"
+        },
+        {
+          "at": "2026-10-18T08:40:00.000Z",
+          "kind": "push",
+          "stage": null,
+          "note": null,
+          "state": "pushed",
+          "count": 2
+        },
+        {
+          "at": "2026-10-18T08:45:00.000Z",
+          "kind": "pr_opened",
+          "stage": null,
+          "note": null,
+          "number": 12
+        },
+        {
+          "at": "2026-10-18T08:55:00.000Z",
+          "kind": "ci",
+          "stage": null,
+          "note": null,
+          "state": "pass",
+          "count": 6
+        }
+      ],
       "table": {
         "skipped": false,
         "met_after_freeze": false,
@@ -863,7 +940,15 @@
           }
         ]
       },
-      "claims": [],
+      "claims": [
+        {
+          "kind": "acceptance",
+          "id": "AC-1",
+          "label": "the export downloads a CSV",
+          "test_id": "tests/export.test.ts",
+          "verdict": "pass"
+        }
+      ],
       "gates": [
         {
           "name": "code-tests-lint",
@@ -877,6 +962,25 @@
           "strength": "deterministic",
           "verdict": "pass"
         }
+      ],
+      "gates_expected": [
+        "change-completeness",
+        "requirement-completeness",
+        "story-quality",
+        "ac-test-mapping",
+        "spec-review",
+        "architecture-compliance",
+        "code-tests-lint",
+        "implementation-review",
+        "behavioral-correctness",
+        "mutation-testing",
+        "quality-ratchet",
+        "database-quality",
+        "module-docs-structure",
+        "instructions-docs-structure",
+        "documentation-freshness",
+        "site-map-freshness",
+        "extension-surface"
       ],
       "flags": [
         {
@@ -909,6 +1013,18 @@
       },
       "questions": null,
       "last_block": null,
+      "delivery_plan": {
+        "commit": true,
+        "push": true,
+        "pr": true,
+        "ci": true,
+        "merge": true,
+        "reason": null
+      },
+      "plan": {
+        "steps": 5,
+        "done": 3
+      },
       "ship": {
         "commits": 3,
         "commit_decision": null,
@@ -931,7 +1047,164 @@
       },
       "evidence_expected": [],
       "isolation": null,
-      "cost": null,
+      "cost": {
+        "computed_at": "2026-10-18T08:59:30.000Z",
+        "window": {
+          "from": "2026-10-18T08:00:00.000Z",
+          "to": "2026-10-18T08:59:00.000Z",
+          "sealed": true,
+          "sealed_by": "receipt"
+        },
+        "scope": "change",
+        "price_table_date": "2026-10-19",
+        "price_source": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "basis": "API-equivalent estimate",
+        "label": "estimate at API prices (API-equivalent on a Pro or Max plan)",
+        "plan_note": "On a Pro or Max plan you pay a flat fee, not these prices. The figure is what the same tokens would cost on the API.",
+        "tokens": {
+          "input": 2000,
+          "output": 98000,
+          "cache_read": 1100000,
+          "cache_write": 100000,
+          "total": 1300000
+        },
+        "usd": 4.6,
+        "unpriced_models": [],
+        "by_stage": [
+          {
+            "stage": "planning",
+            "tokens": {
+              "input": 200,
+              "output": 9800,
+              "cache_read": 100000,
+              "cache_write": 10000,
+              "total": 120000
+            },
+            "usd": 0.42
+          },
+          {
+            "stage": "specification",
+            "tokens": {
+              "input": 500,
+              "output": 24500,
+              "cache_read": 260000,
+              "cache_write": 25000,
+              "total": 310000
+            },
+            "usd": 1.1
+          },
+          {
+            "stage": "development",
+            "tokens": {
+              "input": 900,
+              "output": 45100,
+              "cache_read": 544000,
+              "cache_write": 50000,
+              "total": 640000
+            },
+            "usd": 2.3
+          },
+          {
+            "stage": "review",
+            "tokens": {
+              "input": 100,
+              "output": 6900,
+              "cache_read": 78000,
+              "cache_write": 5000,
+              "total": 90000
+            },
+            "usd": 0.31
+          },
+          {
+            "stage": "checks",
+            "tokens": {
+              "input": 100,
+              "output": 2900,
+              "cache_read": 35000,
+              "cache_write": 2000,
+              "total": 40000
+            },
+            "usd": 0.12
+          },
+          {
+            "stage": "documentation_sync",
+            "tokens": {
+              "input": 100,
+              "output": 1900,
+              "cache_read": 26000,
+              "cache_write": 2000,
+              "total": 30000
+            },
+            "usd": 0.09
+          },
+          {
+            "stage": "orchestrator",
+            "tokens": {
+              "input": 100,
+              "output": 6900,
+              "cache_read": 57000,
+              "cache_write": 6000,
+              "total": 70000
+            },
+            "usd": 0.26
+          }
+        ],
+        "by_expert": [
+          {
+            "role": "security-auditor",
+            "tokens": {
+              "input": 40,
+              "output": 1960,
+              "cache_read": 34000,
+              "cache_write": 4000,
+              "total": 40000
+            },
+            "usd": 0.14,
+            "exact": true
+          },
+          {
+            "role": "db-expert",
+            "tokens": {
+              "input": 30,
+              "output": 1470,
+              "cache_read": 25500,
+              "cache_write": 3000,
+              "total": 30000
+            },
+            "usd": 0.11,
+            "exact": true
+          },
+          {
+            "role": "qa-engineer",
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "cache_read": 0,
+              "cache_write": 1800,
+              "total": 1800
+            },
+            "usd": null,
+            "exact": false
+          }
+        ],
+        "chief": {
+          "tokens": {
+            "input": 25,
+            "output": 1225,
+            "cache_read": 21250,
+            "cache_write": 2500,
+            "total": 25000
+          },
+          "usd": 0.09,
+          "exact": true
+        },
+        "not_counted": [
+          "The fast mode premium",
+          "The 1.1 times multiplier for US-only inference",
+          "Batch discounts"
+        ],
+        "live": true
+      },
       "tech_debt": null,
       "rule_overrides": null
     },
@@ -1051,7 +1324,78 @@
           "proof_file": null
         }
       ],
-      "timeline": [],
+      "timeline": [
+        {
+          "at": "2026-10-18T08:00:00.000Z",
+          "kind": "open",
+          "stage": null,
+          "note": null,
+          "title": "csv-export",
+          "issue": "ORD-501",
+          "lane": "full"
+        },
+        {
+          "at": "2026-10-18T08:01:00.000Z",
+          "kind": "stage_start",
+          "stage": "planning",
+          "note": null,
+          "agent": "paqad:paqad-planning",
+          "own_agent": true
+        },
+        {
+          "at": "2026-10-18T08:02:41.000Z",
+          "kind": "stage_end",
+          "stage": "planning",
+          "note": null,
+          "duration_ms": 101000
+        },
+        {
+          "at": "2026-10-18T08:03:00.000Z",
+          "kind": "rules_loaded",
+          "stage": null,
+          "note": null,
+          "count": 12
+        },
+        {
+          "at": "2026-10-18T08:13:00.000Z",
+          "kind": "spec_frozen",
+          "stage": null,
+          "note": null,
+          "requirements": 12,
+          "criteria": 9
+        },
+        {
+          "at": "2026-10-18T08:30:00.000Z",
+          "kind": "commit",
+          "stage": null,
+          "note": null,
+          "sha": "aaa1111",
+          "subject": "feat: one"
+        },
+        {
+          "at": "2026-10-18T08:40:00.000Z",
+          "kind": "push",
+          "stage": null,
+          "note": null,
+          "state": "pushed",
+          "count": 2
+        },
+        {
+          "at": "2026-10-18T08:45:00.000Z",
+          "kind": "pr_opened",
+          "stage": null,
+          "note": null,
+          "number": 12
+        },
+        {
+          "at": "2026-10-18T08:55:00.000Z",
+          "kind": "ci",
+          "stage": null,
+          "note": null,
+          "state": "pass",
+          "count": 6
+        }
+      ],
       "table": {
         "skipped": false,
         "met_after_freeze": false,
@@ -1347,7 +1691,15 @@
           }
         ]
       },
-      "claims": [],
+      "claims": [
+        {
+          "kind": "acceptance",
+          "id": "AC-1",
+          "label": "the export downloads a CSV",
+          "test_id": "tests/export.test.ts",
+          "verdict": "pass"
+        }
+      ],
       "gates": [
         {
           "name": "code-tests-lint",
@@ -1361,6 +1713,25 @@
           "strength": "deterministic",
           "verdict": "pass"
         }
+      ],
+      "gates_expected": [
+        "change-completeness",
+        "requirement-completeness",
+        "story-quality",
+        "ac-test-mapping",
+        "spec-review",
+        "architecture-compliance",
+        "code-tests-lint",
+        "implementation-review",
+        "behavioral-correctness",
+        "mutation-testing",
+        "quality-ratchet",
+        "database-quality",
+        "module-docs-structure",
+        "instructions-docs-structure",
+        "documentation-freshness",
+        "site-map-freshness",
+        "extension-surface"
       ],
       "flags": [
         {
@@ -1393,6 +1764,18 @@
       },
       "questions": null,
       "last_block": null,
+      "delivery_plan": {
+        "commit": true,
+        "push": true,
+        "pr": true,
+        "ci": true,
+        "merge": true,
+        "reason": null
+      },
+      "plan": {
+        "steps": 5,
+        "done": 3
+      },
       "ship": {
         "commits": 2,
         "commit_decision": null,
@@ -1406,7 +1789,9 @@
           "number": 12,
           "url": "https://example.test/pull/12",
           "draft": false,
-          "head_sha": "aaa"
+          "head_sha": "aaa",
+          "title": "Add CSV export",
+          "first_at": "2026-10-18T08:45:00.000Z"
         },
         "ci": {
           "sha": "aaa",
@@ -1430,7 +1815,12 @@
         "pr_state": "open",
         "ci_read_at": "2026-10-18T08:59:00.000Z",
         "all_green": true,
-        "merged": false
+        "merged": false,
+        "pr_title": "Add CSV export",
+        "pr_files": 14,
+        "pr_additions": 412,
+        "pr_deletions": 87,
+        "files_changed": 14
       },
       "verdict": {
         "schema": "paqad.hud-verdict/1",
@@ -1446,7 +1836,164 @@
       },
       "evidence_expected": [],
       "isolation": null,
-      "cost": null,
+      "cost": {
+        "computed_at": "2026-10-18T08:59:30.000Z",
+        "window": {
+          "from": "2026-10-18T08:00:00.000Z",
+          "to": "2026-10-18T08:59:00.000Z",
+          "sealed": true,
+          "sealed_by": "receipt"
+        },
+        "scope": "change",
+        "price_table_date": "2026-10-19",
+        "price_source": "https://platform.claude.com/docs/en/about-claude/pricing",
+        "basis": "API-equivalent estimate",
+        "label": "estimate at API prices (API-equivalent on a Pro or Max plan)",
+        "plan_note": "On a Pro or Max plan you pay a flat fee, not these prices. The figure is what the same tokens would cost on the API.",
+        "tokens": {
+          "input": 2000,
+          "output": 98000,
+          "cache_read": 1100000,
+          "cache_write": 100000,
+          "total": 1300000
+        },
+        "usd": 4.6,
+        "unpriced_models": [],
+        "by_stage": [
+          {
+            "stage": "planning",
+            "tokens": {
+              "input": 200,
+              "output": 9800,
+              "cache_read": 100000,
+              "cache_write": 10000,
+              "total": 120000
+            },
+            "usd": 0.42
+          },
+          {
+            "stage": "specification",
+            "tokens": {
+              "input": 500,
+              "output": 24500,
+              "cache_read": 260000,
+              "cache_write": 25000,
+              "total": 310000
+            },
+            "usd": 1.1
+          },
+          {
+            "stage": "development",
+            "tokens": {
+              "input": 900,
+              "output": 45100,
+              "cache_read": 544000,
+              "cache_write": 50000,
+              "total": 640000
+            },
+            "usd": 2.3
+          },
+          {
+            "stage": "review",
+            "tokens": {
+              "input": 100,
+              "output": 6900,
+              "cache_read": 78000,
+              "cache_write": 5000,
+              "total": 90000
+            },
+            "usd": 0.31
+          },
+          {
+            "stage": "checks",
+            "tokens": {
+              "input": 100,
+              "output": 2900,
+              "cache_read": 35000,
+              "cache_write": 2000,
+              "total": 40000
+            },
+            "usd": 0.12
+          },
+          {
+            "stage": "documentation_sync",
+            "tokens": {
+              "input": 100,
+              "output": 1900,
+              "cache_read": 26000,
+              "cache_write": 2000,
+              "total": 30000
+            },
+            "usd": 0.09
+          },
+          {
+            "stage": "orchestrator",
+            "tokens": {
+              "input": 100,
+              "output": 6900,
+              "cache_read": 57000,
+              "cache_write": 6000,
+              "total": 70000
+            },
+            "usd": 0.26
+          }
+        ],
+        "by_expert": [
+          {
+            "role": "security-auditor",
+            "tokens": {
+              "input": 40,
+              "output": 1960,
+              "cache_read": 34000,
+              "cache_write": 4000,
+              "total": 40000
+            },
+            "usd": 0.14,
+            "exact": true
+          },
+          {
+            "role": "db-expert",
+            "tokens": {
+              "input": 30,
+              "output": 1470,
+              "cache_read": 25500,
+              "cache_write": 3000,
+              "total": 30000
+            },
+            "usd": 0.11,
+            "exact": true
+          },
+          {
+            "role": "qa-engineer",
+            "tokens": {
+              "input": 0,
+              "output": 0,
+              "cache_read": 0,
+              "cache_write": 1800,
+              "total": 1800
+            },
+            "usd": null,
+            "exact": false
+          }
+        ],
+        "chief": {
+          "tokens": {
+            "input": 25,
+            "output": 1225,
+            "cache_read": 21250,
+            "cache_write": 2500,
+            "total": 25000
+          },
+          "usd": 0.09,
+          "exact": true
+        },
+        "not_counted": [
+          "The fast mode premium",
+          "The 1.1 times multiplier for US-only inference",
+          "Batch discounts"
+        ],
+        "live": true
+      },
       "tech_debt": null,
       "rule_overrides": null
     }
@@ -1497,7 +2044,7 @@
         },
         {
           "label": "Merge",
-          "word": "stays yours",
+          "word": "not yet",
           "done": false
         }
       ],
@@ -1549,7 +2096,7 @@
         },
         {
           "label": "Merge",
-          "word": "stays yours",
+          "word": "not yet",
           "done": false
         }
       ],
@@ -1581,7 +2128,7 @@
         },
         {
           "label": "Commit",
-          "word": "3 commits",
+          "word": "done",
           "done": true
         },
         {
@@ -1601,11 +2148,11 @@
         },
         {
           "label": "Merge",
-          "word": "stays yours",
+          "word": "not yet",
           "done": false
         }
       ],
-      "cost": "cost: not yet",
+      "cost": "1.3M tokens, ~$4.60 estimate, 2026-10-19 prices",
       "live": false
     },
     "SHIPPED": {
@@ -1633,31 +2180,31 @@
         },
         {
           "label": "Commit",
-          "word": "2 commits",
+          "word": "done",
           "done": true
         },
         {
           "label": "Push",
-          "word": "pushed",
+          "word": "done",
           "done": true
         },
         {
           "label": "PR",
-          "word": "#12",
+          "word": "done",
           "done": true
         },
         {
           "label": "CI",
-          "word": "pass",
+          "word": "done",
           "done": true
         },
         {
           "label": "Merge",
-          "word": "stays yours",
+          "word": "ready, yours to merge",
           "done": false
         }
       ],
-      "cost": "cost: not yet",
+      "cost": "1.3M tokens, ~$4.60 estimate, 2026-10-19 prices",
       "live": false
     }
   }

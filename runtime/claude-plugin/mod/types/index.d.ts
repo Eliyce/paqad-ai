@@ -7,7 +7,20 @@ export type PaqadHudStage = {
   started_at: string | null;
   ended_at: string | null;
   duration_unreliable: boolean;
+  duration_ms: number | null;
+  agent: string | null;
 };
+
+export type PaqadDeliveryPlan = {
+  commit: boolean;
+  push: boolean;
+  pr: boolean;
+  ci: boolean;
+  merge: boolean;
+  reason: string | null;
+};
+
+export type PaqadPlanProgress = { steps: number; done: number };
 
 export type PaqadFindingsScan = {
   status: 'open' | 'clean' | 'did not run';
@@ -41,6 +54,7 @@ export type PaqadCost = {
   by_expert: Array<PaqadCostLine & { role: string; exact: boolean }>;
   chief: (PaqadCostLine & { exact: boolean }) | null;
   not_counted: string[];
+  live: boolean;
 };
 
 export type PaqadSeatState = 'seated' | 'writing' | 'done';
@@ -123,6 +137,7 @@ export type PaqadGate = {
 
 export type PaqadClaim = {
   kind: string;
+  id: string | null;
   label: string;
   verdict: string;
   test_id: string | null;
@@ -149,6 +164,23 @@ export type PaqadTimelineEntry = {
   kind: string;
   stage: string | null;
   note: string | null;
+  agent?: string;
+  own_agent?: boolean;
+  duration_ms?: number;
+  count?: number;
+  picked?: number;
+  standing?: number;
+  findings?: number;
+  verdict?: string;
+  title?: string;
+  issue?: string;
+  lane?: string;
+  sha?: string;
+  subject?: string;
+  number?: number;
+  requirements?: number;
+  criteria?: number;
+  state?: string;
 };
 
 export type PaqadShipCommit = { sha: string; subject: string; own: boolean | null };
@@ -187,6 +219,7 @@ export type PaqadHudSnapshot = {
   timeline: PaqadTimelineEntry[];
   table: PaqadHighTable | null;
   gates: PaqadGate[];
+  gates_expected: string[];
   claims: PaqadClaim[];
   bundle_files: string[];
   flags: Array<{ id: string; text: string }>;
@@ -197,6 +230,8 @@ export type PaqadHudSnapshot = {
     resolved: number;
   };
   last_block: PaqadLastBlock | null;
+  delivery_plan: PaqadDeliveryPlan | null;
+  plan: PaqadPlanProgress | null;
   ship: {
     commits: number;
     commit_decision: string | null;
@@ -214,6 +249,11 @@ export type PaqadHudSnapshot = {
     pr_number: number | null;
     pr_state: PaqadPrState | null;
     pr_head: string | null;
+    pr_title: string | null;
+    pr_files: number | null;
+    pr_additions: number | null;
+    pr_deletions: number | null;
+    files_changed: number | null;
     ci_read_at: string | null;
     all_green: boolean;
     merged: boolean;
@@ -242,11 +282,15 @@ declare module 'claude-code' {
       greenSeen: string[];
       paneOpen: boolean;
       unavailable: boolean;
+      unbound: boolean;
       minimised: boolean;
       hidden: boolean;
       bandClosed: boolean;
       tableSeat: string | null;
       tableCards: Record<string, string>;
+      tick: number;
+      closing: boolean;
+      tableSides: boolean;
     };
   }
 }

@@ -13,6 +13,7 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { TASK_LIST_SENTENCES } from '../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { NO_CONTEXT_REFRESH_ENV, removeTempProject } from './temp-project.js';
 
 const GATE_SCRIPT = resolve(__dirname, '../../../runtime/hooks/agent-entry-gate.mjs');
@@ -437,6 +438,71 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs — routes the first prompt'
   );
 
   it.each([
+    ['implement a schema migration adding a pii payment column', TASK_LIST_SENTENCES.full],
+    ['fix a one-line typo in a code comment', TASK_LIST_SENTENCES.fast],
+    ['why does the login page throw an error when I submit?', null],
+    ['what does this project do', null],
+  ])(
+    "AC-17: prints the lane's task-list sentence verbatim on a feature-development prompt only (%s)",
+    (prompt, sentence) => {
+      const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-prompt-tasks-'));
+      try {
+        mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+        mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
+        writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
+        writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+        const sentinel = join(projectRoot, '.paqad/.agent-entry-loaded.d/tasks-17');
+        mkdirSync(join(projectRoot, '.paqad/.agent-entry-loaded.d'), { recursive: true });
+        writeFileSync(sentinel, '{"loaded_at":"now"}');
+        const future = new Date(Date.now() + 60_000);
+        utimesSync(sentinel, future, future);
+
+        const result = runPromptGateWithInput(
+          projectRoot,
+          JSON.stringify({ prompt, session_id: 'tasks-17' }),
+        );
+
+        expect(result.status).toBe(0);
+        const printed = result.stdout
+          .split('\n')
+          .filter((line) => line.startsWith('paqad task list:'));
+        expect(printed).toEqual(sentence === null ? [] : [sentence]);
+        if (sentence !== null) {
+          const lines = result.stdout.split('\n');
+          const session = lines.findIndex((line) => line.includes('SE_SESSION=tasks-17'));
+          expect(lines[session + 1]).toBe(sentence);
+        }
+      } finally {
+        removeTempProject(projectRoot);
+      }
+    },
+  );
+
+  it('AC-17: a prompt with no session id still gets the task-list sentence and no session line', () => {
+    const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-prompt-tasks-'));
+    try {
+      mkdirSync(join(projectRoot, '.paqad'), { recursive: true });
+      mkdirSync(join(projectRoot, 'docs/instructions'), { recursive: true });
+      writeFileSync(join(projectRoot, 'CLAUDE.md'), '# entry');
+      writeFileSync(join(projectRoot, '.paqad/framework-path.txt'), '~/.paqad-ai/current\n');
+      writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{"loaded_at":"now"}');
+      const future = new Date(Date.now() + 60_000);
+      utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), future, future);
+
+      const result = runPromptGateWithInput(
+        projectRoot,
+        JSON.stringify({ prompt: 'implement a schema migration adding a pii payment column' }),
+      );
+
+      expect(result.status).toBe(0);
+      expect(result.stdout).not.toContain('SE_SESSION=');
+      expect(result.stdout).toContain(TASK_LIST_SENTENCES.full);
+    } finally {
+      removeTempProject(projectRoot);
+    }
+  });
+
+  it.each([
     ['fix a one-line typo in a code comment', false],
     ['implement a schema migration adding a pii payment column and a breaking api change', true],
     ['what does this project do', false],
@@ -548,7 +614,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
     }
   });
 
-  it('INV-3: a fault in the abandoned close keeps exit 0 and empty stdout, and is logged', () => {
+  it('a fault in the abandoned close keeps exit 0 and empty stdout, and is logged', () => {
     const { projectRoot, dir } = abandonedFixture();
     const ledger = join(projectRoot, '.paqad/ledger/feature-evidence', dir, 'stage-evidence.jsonl');
     try {
@@ -629,7 +695,7 @@ describe('per-session entry sentinel', () => {
     removeTempProject(projectRoot);
   });
 
-  it('SessionStart for session B leaves session A sentinel, and A can still edit (AC-10)', () => {
+  it('SessionStart for session B leaves session A sentinel, and A can still edit', () => {
     writeFresh(sessionFile('session-A'));
     writeFresh(sessionFile('session-B'));
 

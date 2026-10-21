@@ -1,3 +1,4 @@
+import { slash } from './command-name';
 import { formatTokens } from './cost';
 import { stageStatus, STAGE_MARK, tableStatus } from './instruments';
 import { stageSegments, type BandView } from './model';
@@ -14,13 +15,30 @@ export const CLOSE_HEADER = 'Close band?';
 export const CLOSE_FOR_NOW = 'Close for now';
 export const CLOSE_FOR_NOW_MEANS = 'Comes back in your next session';
 export const HIDE_ALWAYS = 'Hide always';
-export const HIDE_ALWAYS_MEANS =
-  'Stays hidden until you click paqad under the prompt or run /paqad show';
-export const CLOSE_QUESTION = `Close the paqad band? ${CLOSE_FOR_NOW}: ${CLOSE_FOR_NOW_MEANS}. ${HIDE_ALWAYS}: ${HIDE_ALWAYS_MEANS}.`;
-export const CLOSED_HINT = 'Closed for this session · /paqad show';
-export const HIDDEN_HINT = 'Hidden always · /paqad show';
 export const NEEDS_YOU = 'Needs you';
 export const SHOWN_AGAIN = 'The paqad band is back.';
+
+export function hideAlwaysMeans(surface: 'terminal' | 'desktop' = 'terminal'): string {
+  return surface === 'desktop'
+    ? `Stays hidden until you press Show or run ${slash('show')}`
+    : `Stays hidden until you click paqad under the prompt or run ${slash('show')}`;
+}
+
+export function closeQuestion(): string {
+  return `Close the paqad band? ${CLOSE_FOR_NOW}: ${CLOSE_FOR_NOW_MEANS}. ${HIDE_ALWAYS}: ${hideAlwaysMeans()}.`;
+}
+
+export function closedHint(): string {
+  return `Closed for this session · ${slash('show')}`;
+}
+
+export function hiddenHint(): string {
+  return `Hidden always · ${slash('show')}`;
+}
+
+export function hiddenReply(): string {
+  return `The paqad band is hidden. Run ${slash('show')} to bring it back.`;
+}
 
 export function hiddenKey(root: string): string {
   const key = `${HIDDEN_KEY_PREFIX}${root}`;
@@ -80,7 +98,7 @@ export function closedLine(mode: 'closed' | 'hidden', view: BandView): BandRow {
       hotkey: CONTROL_HOTKEYS.reopen,
       key: 'paqad-reopen',
     },
-    { text: `  ${mode === 'closed' ? CLOSED_HINT : HIDDEN_HINT}`, dim: true },
+    { text: `  ${mode === 'closed' ? closedHint() : hiddenHint()}`, dim: true },
   ];
 }
 
@@ -92,7 +110,7 @@ function stageBar(snapshot: PaqadHudSnapshot): string {
 
 type Field = { key: 'tokens' | 'ship' | 'table' | 'bar' | 'flags'; segments: BandRow };
 
-export const IDLE_WORDS = 'feature development · no change in progress';
+export const IDLE_WORDS = 'Getting ready';
 
 export function minimisedLine(
   snapshot: PaqadHudSnapshot | null,

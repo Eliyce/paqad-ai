@@ -152,19 +152,26 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `table.ts` draws the High Table (its seat data, its live chat card and its Ledger tab), `receipt.ts` draws the receipt card and decides
   when a verdict has landed, `ask-evidence.ts` reads a decision packet's evidence, `chips.ts`
   turns paqad's own Bash rows into chips, `chime.ts` builds the chime clip, and `paqad-cli.ts` is
-  the one helper that runs `paqad-ai`. The pure modules import nothing from Claude
+  the one helper that runs `paqad-ai`. On Desktop, `desktop-view.ts` is the pure view model of the
+  band and the Ledger, `desktop-band.tsx` and `desktop-ledger.tsx` draw them, `strip.ts` draws the
+  plain-image Svg art and `palette.ts` holds every colour it uses; `command-name.ts` names the
+  command in every hint. The pure modules import nothing from Claude
   Code, so vitest tests them without the host; `cost.ts` and `table.ts` import nothing from
   `model.ts`, so `model.ts` can use them without an import cycle. `register.test.ts` runs the glue
-  against Claude Code's own test kit (`pnpm run plugin:test`), each UI test on both the terminal and
-  Desktop; `test/world.ts` and `test/fixtures.ts` are test-only and not shipped.
+  against Claude Code's own test kit (`pnpm run plugin:test`): terminal tests keep the terminal
+  drawing, Desktop tests follow the Desktop design, and one test per scene mounts the band and every
+  Ledger tab on Desktop and presses every control; `test/world.ts` and `test/fixtures.ts` are
+  test-only and not shipped.
 - **It only shows and asks.** Every check stays a hook in `hooks.json`, so the mod being off,
   blocked or broken changes no hook's decision. It reads only `.paqad/`, writes only its own
   heartbeat, calls no model or network, and starts a process only through `paqad-cli.ts` for the
   fixed `paqad-ai` verbs it lists. Refresh points pass each event on untouched and return what `next`
   answered, and a `.catch` replays `next` if anything throws. A render hook never writes state;
   only presses and `tool.call` do. On any failure the mod stays dark. A snapshot file that exists
-  but cannot be read or parsed shows the idle line with a dim `HUD data unavailable`, never a
-  verdict, flags, ship rail or cost from a partial read. State is rebuilt at `session.start`, since a hot reload drops module
+  but cannot be read or parsed shows the idle line with a dim `HUD data unavailable` on the
+  terminal, and `● paqad cannot read this session's record` in coral on Desktop (also when the
+  session id cannot be read) under the brand row with its `Ledger`, `−` and `×` controls, so the
+  Ledger's Trust tab can still give the reason; never a verdict, flags, ship rail or cost from a partial read. State is rebuilt at `session.start`, since a hot reload drops module
   variables and timers.
 - **Stand-down order** (`config.ts`): never onboarded, a cloud session (`CLAUDE_CODE_REMOTE=true`),
   paqad off, the view turned off, or Claude Code older than 2.1.301 (an engine that cannot state its
@@ -195,12 +202,12 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   success, `warn` to warning, `bad` to error. Any open flag turns the band amber, even at Safe to
   merge; red and "needs you" keep their own colour, and all green turns it success. Every state is
   said in words and by a glyph of its own shape, so each line reads the same with the colour gone.
-- **The band card.** On the feature-development route the band is one rounded card whose border
-  takes the headline tone. The header holds the `paqad` brand Button, the change chip (the issue
+- **The band card (terminal).** On the feature-development route the band is one rounded card
+  whose border takes the headline tone. The header holds the `paqad` brand Button, the change chip (the issue
   number, else the ticket, else the last six characters of the ULID), the headline, then on the
   right the verdict chip (a fresh verdict only), one amber flag chip, the lane, the tokens chip,
   a `Proof` Button, `– Minimise` and `× Close`. With no change qualified the card shows the header
-  only: `paqad  feature development · no change in progress`. The body comes from `BAND_BODIES`, a
+  only: `paqad  Getting ready`. The body comes from `BAND_BODIES`, a
   per-workflow registry in `shell.ts` that only feature development fills; the shell imports no
   body code.
 - **Instruments.** STAGE shows eight labelled cells (Intake Plan Spec Build Review Checks Docs
@@ -219,6 +226,20 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   first, then the band falls back to the minimised line. A seat's note budget and its run tokens
   always carry their own labels: `Note: ~6.2K tokens of its 8K budget` and `Run: 230K tokens,
   mostly the code it read (exact)`.
+- **The band on Desktop.** Desktop draws its own card with no border, tint, logo or hotkey. The
+  identity row holds `paqad` (plain text), the workflow, the lane, the change and its cost, then the
+  coral `⚑` with the flag count as a plain dim Button, a `Ledger` Button, and plain dim `−` (or `⤢`
+  when minimised) and `×`. The message row has one light in the signal colour and the headline,
+  with a running clock while something is live. The strip is one plain-image Svg (stages, the High
+  Table when it sat, and only the `delivery_plan` steps) with an `alt` that says the same in words.
+  The headline is the first match of the Part B table in `desktop-view.ts`. The card needs 5 rows (6
+  with the close menu open) and falls back to the minimised row below that. `×` opens an inline
+  menu: `Close for now`, `Hide always` and `Cancel`. Before the first snapshot the band reads
+  `paqad   Ready`. Other workflows get one row with the workflow, `running · m:ss` or `idle`, the
+  cost and a `Ledger` Button.
+- **Motion on Desktop.** A live light breathes and a live clock ticks on one 400 ms tick that sets
+  the clock from `$.clock.now()`; the tick runs only while the band or the Ledger draws something
+  live and stops otherwise. Every other motion lives in the Svg's own CSS and SMIL animations.
 - **All green.** When the saved CI reading is a pass on the pull request's current head and the
   pull request is open, the headline reads `All green: PR <n> is ready for your merge`, the band
   turns success and one toast fires per change and head commit (kept in `$.state`), with the
@@ -230,7 +251,7 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   are known. It opens the Ledger in workflow mode, which shows only the cost block. With
   `no-workflow` or no route nothing is drawn. `$.ui.status` is not used, since it is plain,
   uncoloured text that cannot be pressed.
-- **Minimise, close and hide.** `– Minimise` keeps one line (brand, change chip, state word, stage
+- **Minimise, close and hide (terminal).** `– Minimise` keeps one line (brand, change chip, state word, stage
   bar, stage clock, High Table count, ship step, flag chip, tokens, `+ Restore` and `× Close`) and is
   kept in `$.store` as `band.minimised`, so it survives sessions. When narrow, the line drops tokens,
   then the ship step, then the High Table count, then the stage bar, and never wraps. `× Close` asks
@@ -240,10 +261,11 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   /paqad show`; pressing it brings the band back. While the band is out of the way and a decision of
   this change or an unused rule stop waits, the line turns amber and reads `paqad · Needs you ▸`;
   the band never reopens by itself and the question is still asked in chat. `/paqad show` clears
-  all three and answers `The paqad band is back.` Each control has a hotkey and names its action in
+  all three and answers `The paqad band is back.` `/paqad hide` sets `band.hidden:<project root>`
+  and answers `The paqad band is hidden. Run /paqad show to bring it back.` Each control has a hotkey and names its action in
   words. None of this changes what paqad enforces, and the mod writes no file for it.
-- **The paqad Ledger.** The pane keeps the id `paqad`, is titled `paqad Ledger` and starts with the
-  dim subtitle `what happened, with proof`. Its tabs are Trust, High Table, Ships, Record and Cost,
+- **The paqad Ledger (terminal).** The pane keeps the id `paqad`, is titled `paqad Ledger` and
+  starts with the dim subtitle `what happened, with proof`. Its tabs are Trust, High Table, Ships, Record and Cost,
   and it opens on Trust unless a tab was picked. Trust shows the fresh verdict or `Not judged yet`
   with `Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.`, the
   gate ring `n/m required` (an SVG on Desktop), each gate as `pass`, `fail`, `not judged yet`, `did
@@ -260,13 +282,27 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   the change key is kept in `$.store` `ledger.autoOpened` (the last 50), so it never opens itself
   again for that change, in any session. On a narrow terminal the engine holds an unasked pane
   until the terminal is widened; that still counts as opened.
+- **The paqad Ledger on Desktop.** The same pane draws the Desktop design: the subtitle `What
+  happened, with proof` and the change, then equal tabs (Trust, High Table when the table sat,
+  Delivery, Record, Cost) with a pink rule under the shown one. Trust starts with one light that
+  says why, the gate ring with its legend, every gate in words with how it is judged, the claims
+  with the tests that prove them, and the flags. High Table shows the ring, the summary, the chief
+  (`Answer in chat` fills the prompt box with `Walk me through the N open decisions`, or toasts when
+  the box cannot take it, and `See each side` shows each conflict's recommendation), the seats with
+  their details behind `›`, and who shaped the spec, read from the bundle's `spec.md`. Delivery has
+  one block per `delivery_plan` step with its node art, CI jobs with meters and an `Open PR` link
+  when the merge is ready. Record lists the events in local time, and Cost the total, each stage
+  and each seat. Another workflow gets only its light and its cost. The `Ledger` Button toggles the
+  pane on Trust and the flags open it on Trust; the brand and the strip open nothing on Desktop.
 - **Mod API limits.** Buttons hold only strings and Text, so an instrument opens its tab from its
   title, not from the whole box. `$.ui.ask` takes plain option labels and a header of at most 12
   characters, so the close question uses the header `Close band?` and carries the spec's full
   words in its text: `Close the paqad band?`, then each option with its meaning. `$.ui.open` takes no
-  `focus: false`; leaving `focus` out keeps the prompt focused. There is no animation primitive, so
-  the static marks and SVGs carry the whole meaning. `Svg` draws only on Desktop and mobile; the
-  terminal never gets one.
+  `focus: false`; leaving `focus` out keeps the prompt focused. On the terminal the static marks
+  carry the whole meaning. `Svg` draws only on Desktop and mobile; the terminal never gets one. On
+  Desktop a Button with a `label` draws only the label, a `plain` Button drops its child styles,
+  `role="dismiss"` and `hotkey` draw chips, an `isInteractive` Svg sits in a tall frame, and a Box
+  `width` must be a whole-number percent, so the Desktop drawers use none of those.
 - **Cost.** Every money figure carries the word estimate and the price table's date; a record with
   no price date keeps its tokens and loses its money, and a model the price table does not list
   adds tokens only.
@@ -294,6 +330,17 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   `/paqad decisions` lists every pending packet in the repo, labelled `in this repo`, so a packet of
   another change or one with no change is never lost.
 - **Command name.** The `/paqad` hook name is written as a literal in the hook and its matcher, so
-  `claude plugin validate` reads it as a hook that answers its own command, not a gate.
+  `claude plugin validate` reads it as a hook that answers its own command, not a gate. The mod
+  binds the session before it registers any command, so the HUD draws even when another plugin
+  owns `/paqad`. If the engine refuses `/paqad`, the mod registers `/paqad-hud` with the same
+  subcommands and writes the refusal to the debug log only; every hint (`slash()` in
+  `command-name.ts`) then names `/paqad-hud`. If both are refused the HUD still draws and nothing
+  escapes the hook. `/paqad delivery` is an alias of `/paqad ships`.
+- **Task list.** On a feature-development prompt the prompt gate prints the lane's task-list
+  sentence next to the `SE_SESSION` line (Plan, Spec, Load rules, Build, Review, Checks, Docs; the
+  fast lane Plan, Build, Checks). The mod's `tool.call` hook on `mcp__ccd_turn__update_plan`
+  refuses, once per turn and only on the feature route, a list with items whose openings miss the
+  lane's stage words in order, answering with the same sentence; `advance`, `done` and `start` calls
+  always pass, and a new prompt resets the turn.
 - **Types.** `types/index.d.ts` is the `$.state` contract named in the plugin's `plugin.json`; it is
   self-contained (no import or reference), as Claude Code wants a plugin contract to be.

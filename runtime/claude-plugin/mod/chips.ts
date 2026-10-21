@@ -1,4 +1,4 @@
-import { stageLabel } from './model';
+import { fixProofClaims, stageLabel } from './model';
 import type { TableLine, TableSegment } from './table';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
@@ -90,7 +90,7 @@ export function inBundle(call: PaqadCall, snapshot: PaqadHudSnapshot): boolean {
     case 'checks':
       return present(snapshot, 'checks.json');
     case 'fix':
-      return present(snapshot, 'fix-proof.json') || snapshot.claims.length > 0;
+      return present(snapshot, 'fix-proof.json') || fixProofClaims(snapshot).length > 0;
     case 'rules':
       return call.sub === 'override'
         ? present(snapshot, 'rule-overrides.jsonl')

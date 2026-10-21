@@ -1,5 +1,12 @@
 import { atom, read, update } from 'claude-code';
-import type { EngineInterface, Register, RenderElement, RenderNode, Timer } from 'claude-code';
+import type {
+  Elements,
+  EngineInterface,
+  Register,
+  RenderElement,
+  RenderNode,
+  Timer,
+} from 'claude-code';
 
 import {
   evidenceCard,
@@ -13,8 +20,29 @@ import {
 import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
 import { chimeClip } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
-import { readRepoDecision, runPaqadCommand, type RepoDecision } from './commands';
+import { COMMAND_NAMES, refusalReason, setCommandName, takenLine } from './command-name';
+import {
+  ARGUMENT_HINT,
+  COMMAND_DESCRIPTION,
+  readRepoDecision,
+  runPaqadCommand,
+  subcommandOf,
+  type RepoDecision,
+} from './commands';
 import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
+import { drawDesktopBand, type BandActions } from './desktop-band';
+import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
+import {
+  ANSWER_TOAST,
+  UPDATE_PLAN_TOOL,
+  bandIsLive,
+  buildDesktopBand,
+  buildDesktopLedger,
+  ledgerIsLive,
+  refusesTaskList,
+  taskListSentence,
+  type DesktopBand,
+} from './desktop-view';
 import {
   EDIT_TOOLS,
   ORG_ENFORCED,
@@ -60,9 +88,9 @@ import { isReceiptCommand, receiptCard, verdictKey, verdictToast, watchVerdict }
 import {
   CLOSE_FOR_NOW,
   CLOSE_HEADER,
-  CLOSE_QUESTION,
   HIDE_ALWAYS,
   MINIMISED_KEY,
+  closeQuestion,
   hiddenKey,
   readBandVisibility,
 } from './visibility';
@@ -74,6 +102,7 @@ import type {
   BandSegment,
   BandSplitRow,
 } from './shell';
+import { FEATURE_ROUTE } from './status-entry';
 import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
@@ -95,6 +124,10 @@ const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false
 const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as boolean);
 const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
 const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, false as boolean);
+const unboundAtom = atom({ plugin: 'paqad', key: 'unbound' } as const, false as boolean);
+const tickAtom = atom({ plugin: 'paqad', key: 'tick' } as const, 0);
+const closingAtom = atom({ plugin: 'paqad', key: 'closing' } as const, false as boolean);
+const sidesAtom = atom({ plugin: 'paqad', key: 'tableSides' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
@@ -143,7 +176,13 @@ let verdictSeen: string | null | undefined;
 let chimeOn = false;
 let heartbeat: Timer | null = null;
 let turnStartedAt: number | null = null;
+let tickTimer: Timer | null = null;
+let desktopSession = false;
+let taskListRefused = false;
 const rawCalls = new Set<string>();
+
+const TICK_MS = 400;
+const FEATURE_EVIDENCE_DIR = '.paqad/ledger/feature-evidence';
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
   try {
@@ -200,6 +239,7 @@ async function refresh($: EngineInterface): Promise<void> {
   } finally {
     reading = false;
   }
+  await syncTick($);
 }
 
 function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {
@@ -472,7 +512,7 @@ async function setHidden($: EngineInterface, value: boolean): Promise<void> {
 async function askClose($: EngineInterface): Promise<void> {
   let answer: string;
   try {
-    answer = await $.ui.ask(CLOSE_QUESTION, {
+    answer = await $.ui.ask(closeQuestion(), {
       options: [CLOSE_FOR_NOW, HIDE_ALWAYS],
       header: CLOSE_HEADER,
     });
@@ -494,6 +534,145 @@ async function pressAction($: EngineInterface, action: BandAction): Promise<void
   else if (action === 'restore') await setMinimised($, false);
   else if (action === 'close') await askClose($);
   else await showBand($, action === 'show');
+}
+
+async function desktopBandOf(
+  $: EngineInterface,
+  size: { columns: number; maxRows: number },
+): Promise<DesktopBand> {
+  return buildDesktopBand({
+    snapshot: await read($, snapshotAtom),
+    unbound: (await read($, unboundAtom)) === true,
+    unavailable: (await read($, unavailableAtom)) === true,
+    now: (await read($, nowAtom)) ?? 0,
+    turnStartedAt,
+    visibility: readBandVisibility(
+      { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
+      await read($, closedAtom),
+    ),
+    menuOpen: (await read($, closingAtom)) === true,
+    ...size,
+  });
+}
+
+async function drawsLive($: EngineInterface): Promise<boolean> {
+  const status = await read($, statusAtom);
+  if (!desktopSession || !status?.on) return false;
+  if (bandIsLive(await desktopBandOf($, { columns: 93, maxRows: 12 }))) return true;
+  if ((await read($, paneOpenAtom)) !== true) return false;
+  return ledgerIsLive(
+    buildDesktopLedger({
+      snapshot: await read($, snapshotAtom),
+      unbound: (await read($, unboundAtom)) === true,
+      unavailable: (await read($, unavailableAtom)) === true,
+      tab: await read($, paneTabAtom),
+      now: (await read($, nowAtom)) ?? 0,
+      specText: null,
+    }),
+  );
+}
+
+function stopTick(): void {
+  tickTimer?.cancel();
+  tickTimer = null;
+}
+
+async function advanceTick($: EngineInterface): Promise<void> {
+  try {
+    const now = await $.clock.now();
+    await update($, nowAtom, () => now);
+    await update($, tickAtom, (tick) => (tick ?? 0) + 1);
+  } catch {
+    stopTick();
+  }
+}
+
+async function syncTick($: EngineInterface): Promise<void> {
+  try {
+    if (!(await drawsLive($))) {
+      stopTick();
+      return;
+    }
+    if (!tickTimer) tickTimer = $.clock.every(TICK_MS, () => void advanceTick($));
+  } catch {
+    stopTick();
+  }
+}
+
+async function toggleLedger($: EngineInterface): Promise<void> {
+  if ((await read($, paneOpenAtom)) === true) {
+    await update($, paneOpenAtom, () => false);
+    await $.ui.close({ id: PANE_ID });
+    return;
+  }
+  await showLedger($, DEFAULT_PANE_TAB);
+}
+
+async function showLedger($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
+  await update($, paneTabAtom, () => tab);
+  await update($, paneOpenAtom, () => true);
+  await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
+}
+
+async function specTextOf(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<string | null> {
+  const dir = snapshot?.change?.dir;
+  if (!live || !dir || !snapshot?.table?.credits.length) return null;
+  return readText($, joinPath(live.root, `${FEATURE_EVIDENCE_DIR}/${dir}/spec.md`));
+}
+
+async function answerInChat($: EngineInterface, text: string): Promise<void> {
+  let filled = false;
+  try {
+    filled = (await $.prompt.fill({ text, mode: 'replace' })).isFilled;
+  } catch {}
+  if (filled) return;
+  try {
+    $.ui.toast(ANSWER_TOAST);
+  } catch {}
+}
+
+function ledgerActions($: EngineInterface): LedgerActions {
+  const act = (work: () => Promise<unknown>) =>
+    void work()
+      .then(() => syncTick($))
+      .catch(() => syncTick($));
+  return {
+    tab: (tab) => act(() => pickTab($, tab)),
+    answer: (text) => act(() => answerInChat($, text)),
+    sides: () => act(() => update($, sidesAtom, (open) => open !== true)),
+    seat: (role) => act(() => update($, tableSeatAtom, (seat) => (seat === role ? null : role))),
+  };
+}
+
+function desktopActions($: EngineInterface): BandActions {
+  const act = (work: () => Promise<void>) => () =>
+    void work()
+      .then(() => syncTick($))
+      .catch(() => syncTick($));
+  const closing = (open: boolean) => update($, closingAtom, () => open);
+  return {
+    ledger: act(() => toggleLedger($)),
+    flags: act(() => showLedger($, DEFAULT_PANE_TAB)),
+    minimise: act(async () => {
+      await closing(false);
+      await setMinimised($, true);
+    }),
+    expand: act(() => setMinimised($, false)),
+    close: act(() => update($, closingAtom, (open) => open !== true)),
+    closeNow: act(async () => {
+      await closing(false);
+      await update($, closedAtom, () => true);
+    }),
+    hideAlways: act(async () => {
+      await closing(false);
+      await setHidden($, true);
+    }),
+    cancel: act(() => closing(false)),
+    show: act(() => showBand($, true)),
+  };
 }
 
 function drawSegment($: EngineInterface, ui: UiElements, segment: BandSegment, index: number) {
@@ -609,6 +788,74 @@ function drawBand($: EngineInterface, e: { surface: string }, layout: BandLayout
   );
 }
 
+async function bind($: EngineInterface, root: string, chime: boolean): Promise<void> {
+  chimeOn = chime;
+  let sessionId: string | null = null;
+  try {
+    sessionId = await $.session.id();
+  } catch {}
+  if (!sessionId) {
+    try {
+      await update($, unboundAtom, () => true);
+    } catch {}
+    return;
+  }
+  live = { root, sessionId };
+  try {
+    const minimised = (await storeGet($, MINIMISED_KEY)) === true;
+    const hidden = (await storeGet($, hiddenKey(root))) === true;
+    await update($, minimisedAtom, () => minimised);
+    await update($, hiddenAtom, () => hidden);
+    await update($, closedAtom, () => false);
+  } catch {}
+  await beat($);
+  try {
+    heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
+  } catch {}
+  await refresh($);
+}
+
+async function registerCommand($: EngineInterface): Promise<void> {
+  const refusals: string[] = [];
+  for (const name of COMMAND_NAMES) {
+    try {
+      await $.command.register({
+        name,
+        description: COMMAND_DESCRIPTION,
+        argumentHint: ARGUMENT_HINT,
+        immediate: true,
+      });
+      setCommandName(name);
+      break;
+    } catch (error) {
+      refusals.push(refusalReason(error));
+    }
+  }
+  if (refusals.length === 0) return;
+  try {
+    await $.ui.log(takenLine(refusals), { to: 'debug' });
+  } catch {}
+}
+
+async function answerCommand($: EngineInterface, args: string): Promise<{ text: string }> {
+  const status = await read($, statusAtom);
+  if (live) await refresh($);
+  const at = live;
+  const sub = subcommandOf(args);
+  if (status?.on && at && sub === 'show') await showBand($, true);
+  if (status?.on && at && sub === 'hide') await setHidden($, true);
+  return runPaqadCommand({
+    ...(status?.on && at && sub === 'decisions'
+      ? { repoDecisions: await readRepoDecisions($, at.root) }
+      : {}),
+    args,
+    standDown: status?.on ? null : (status?.reason ?? 'not-onboarded'),
+    snapshot: await read($, snapshotAtom),
+    receipt: at ? await readText($, receiptPath(at.root, at.sessionId)) : null,
+    now: await $.clock.now(),
+  });
+}
+
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
@@ -621,61 +868,48 @@ export const register: Register = (on) => {
     ticker = null;
     heartbeat?.cancel();
     heartbeat = null;
+    stopTick();
+    taskListRefused = false;
+    desktopSession = (e as { surface?: unknown }).surface === 'desktop';
+    setCommandName(COMMAND_NAMES[0]);
+    let status: Awaited<ReturnType<typeof readStatus>> | null = null;
     try {
-      const status = await readStatus($);
-      await update($, statusAtom, () => ({ on: status.on, reason: status.reason }));
-      if (registersCommand(status)) {
-        await $.command.register({
-          name: 'paqad',
-          description:
-            'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, ships, record, or show the band again',
-          argumentHint: '[status|decisions|rules|receipt|cost|trust|ships|record|show]',
-          immediate: true,
-        });
-      }
-      if (status.on && status.root) {
-        chimeOn = status.chime;
-        live = { root: status.root, sessionId: await $.session.id() };
-        const minimised = (await storeGet($, MINIMISED_KEY)) === true;
-        const hidden = (await storeGet($, hiddenKey(status.root))) === true;
-        await update($, minimisedAtom, () => minimised);
-        await update($, hiddenAtom, () => hidden);
-        await update($, closedAtom, () => false);
-        await beat($);
-        heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
-        await refresh($);
-      }
+      const found = await readStatus($);
+      status = found;
+      await update($, unboundAtom, () => false);
+      await update($, statusAtom, () => ({ on: found.on, reason: found.reason }));
     } catch {}
+    if (status?.on && status.root) await bind($, status.root, status.chime);
+    if (status && registersCommand(status)) await registerCommand($);
     return next(e);
   });
 
-  on('command.run', { command: 'paqad' }, async ($, e) => {
-    const status = await read($, statusAtom);
-    if (live) await refresh($);
-    const at = live;
-    const sub = e.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
-    if (status?.on && at && sub === 'show') await showBand($, true);
-    return runPaqadCommand({
-      ...(status?.on && at && sub === 'decisions'
-        ? { repoDecisions: await readRepoDecisions($, at.root) }
-        : {}),
-      args: e.args,
-      standDown: status?.on ? null : (status?.reason ?? 'not-onboarded'),
-      snapshot: await read($, snapshotAtom),
-      receipt: at ? await readText($, receiptPath(at.root, at.sessionId)) : null,
-      now: await $.clock.now(),
-    });
-  }).catch(() => ({ text: 'paqad could not read its record for this session. Try again.' }));
+  for (const name of COMMAND_NAMES) {
+    on('command.run', { command: name }, async ($, e) => answerCommand($, e.args)).catch(() => ({
+      text: 'paqad could not read its record for this session. Try again.',
+    }));
+  }
 
   on('prompt.submit', async ($, e, next) => {
+    taskListRefused = false;
     if (live) {
       turnStartedAt = await $.clock.now();
       startTicker($);
+      await syncTick($);
     }
     await beat($);
     const result = await next(e);
     await refresh($);
     return result;
+  }).catch(($, e, next) => next(e));
+
+  on('tool.call', { tool: UPDATE_PLAN_TOOL }, async ($, e, next) => {
+    if (!live || taskListRefused) return next(e);
+    const snapshot = await read($, snapshotAtom);
+    if (snapshot?.route !== FEATURE_ROUTE) return next(e);
+    if (!refusesTaskList(snapshot.lane, e as unknown as Record<string, unknown>)) return next(e);
+    taskListRefused = true;
+    return { deny: taskListSentence(snapshot.lane) };
   }).catch(($, e, next) => next(e));
 
   on('tool.call', async ($, e, next) => {
@@ -724,6 +958,21 @@ export const register: Register = (on) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const status = await read($, statusAtom);
     if (!status?.on || e.props.hasSurvey) return next(e);
+    if (e.surface === 'desktop') {
+      const band = await desktopBandOf($, {
+        columns: e.props.bodyColumns,
+        maxRows: e.props.maxRows,
+      });
+      const engine = await next(e);
+      const ui = $.ui.resolve(e) as Elements['desktop'];
+      const { Box } = ui;
+      return (
+        <Box flexDirection="column">
+          {drawDesktopBand(ui, band, (await read($, tickAtom)) ?? 0, desktopActions($))}
+          {isBlank(engine) ? null : (engine as RenderElement)}
+        </Box>
+      );
+    }
     const layout = layoutBand(
       await read($, snapshotAtom),
       { columns: e.props.bodyColumns, maxRows: e.props.maxRows },
@@ -758,6 +1007,27 @@ export const register: Register = (on) => {
     if (e.requestId !== PANE_ID) return next(e);
     const status = await read($, statusAtom);
     if (!status?.on) return next(e);
+    if (e.surface === 'desktop') {
+      const snapshot = await read($, snapshotAtom);
+      const tab = await read($, paneTabAtom);
+      const ledger = buildDesktopLedger({
+        snapshot,
+        unbound: (await read($, unboundAtom)) === true,
+        unavailable: (await read($, unavailableAtom)) === true,
+        tab,
+        now: (await read($, nowAtom)) ?? 0,
+        specText: tab === 'table' ? await specTextOf($, snapshot) : null,
+      });
+      return drawDesktopLedger(
+        $.ui.resolve(e) as Elements['desktop'],
+        ledger,
+        {
+          sides: (await read($, sidesAtom)) === true,
+          seat: (await read($, tableSeatAtom)) ?? null,
+        },
+        ledgerActions($),
+      );
+    }
     const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
       seat: await read($, tableSeatAtom),
       now: await read($, nowAtom),

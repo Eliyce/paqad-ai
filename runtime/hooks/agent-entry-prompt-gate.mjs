@@ -28,6 +28,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 const ADAPTER = process.argv[2] || undefined;
 
+const TASK_LIST_SENTENCES = {
+  full: 'paqad task list: Plan, Spec, Load rules, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
+  fast: 'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
+};
+
+function taskListSentence(lane) {
+  return lane === 'fast' ? TASK_LIST_SENTENCES.fast : TASK_LIST_SENTENCES.full;
+}
+
 function reasonFor(state, ef, sentinelRel) {
   switch (state) {
     case 'missing':
@@ -106,6 +115,9 @@ async function emitRoute(stdin, projectRoot, sink) {
     }
     if (routed === 'feature-development' && sessionId) {
       sink(`[paqad] session ${sessionId}: prefix paqad-ai commands with SE_SESSION=${sessionId}\n`);
+    }
+    if (routed === 'feature-development') {
+      sink(`${taskListSentence(lane ?? null)}\n`);
     }
     return { routed, lane: lane ?? null };
   } catch (error) {

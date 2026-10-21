@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { VerificationGateRunner } from '@/verification/gate-runner.js';
+import { DEFAULT_GATE_CODES, VerificationGateRunner } from '@/verification/gate-runner.js';
 
 import { createVerificationContext } from './shared.fixture.js';
 
@@ -67,6 +67,18 @@ describe('VerificationGateRunner', () => {
       'site-map-freshness',
       'extension-surface',
     ]);
+  });
+
+  it('AC-27: lists the default gate codes in the order the runner runs them', async () => {
+    const results = await new VerificationGateRunner().run(
+      createVerificationContext({
+        code_changed: true,
+        test_files_changed: false,
+        changed_files: ['src/service.ts'],
+        structured_test_results: [strongStructuredResult],
+      }),
+    );
+    expect(results.map((result) => result.gate)).toEqual([...DEFAULT_GATE_CODES]);
   });
 
   it('stops on first failure', async () => {

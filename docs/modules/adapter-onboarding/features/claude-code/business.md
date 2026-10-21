@@ -51,8 +51,11 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
 
 - **Only your change, right now.** The band shows a change only while you are on the feature
   development route, on that change's branch, and this session has worked on it since the route
-  started. Otherwise it says `no change in progress`. An old change on another branch, or a
-  question you asked, never fills the band with someone else's story.
+  started. Otherwise it says `Getting ready`. An old change on another branch, or a question you
+  asked, never fills the band with someone else's story.
+- **It always binds.** The band draws even when another plugin already owns `/paqad`. Then the HUD
+  command is `/paqad-hud`, and every hint names the command that works. If paqad cannot read this
+  session's record, the band says so in coral instead of looking idle.
 - **Three instruments.** STAGE shows where the change is, HIGH TABLE shows the experts while they
   write and rule, and SHIP shows Edit, Commit, Push, PR, CI and Merge. Merge lights only when your
   own pull request is merged; paqad never merges. Commits already on the branch before the change
@@ -63,10 +66,22 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
 - **Other workflows.** A question, a health check or any other workflow gets one line under the
   prompt with its own tokens and cost, and a running clock while it works.
 - **Out of the way when you want.** Minimise the band to one line, close it for this session or
-  hide it in this project. `/paqad show` brings it back. If a decision waits while it is out of
-  the way, the line turns amber and reads Needs you; the question is still asked in chat.
-- **The paqad Ledger.** Pressing paqad, Proof or any instrument opens the Ledger beside the chat:
-  Trust, High Table, Ships, Record and Cost, starting on Trust. It opens on its own once per change.
+  hide it in this project. `/paqad hide` hides it from the prompt, and `/paqad show` brings it
+  back. If a decision waits while it is out of the way, the line reads Needs you; the question is
+  still asked in chat.
+- **The paqad Ledger.** It opens beside the chat on Trust, with Trust, High Table, Delivery,
+  Record and Cost. On the terminal, pressing paqad, Proof or any instrument opens it. On Desktop,
+  the Ledger button and the flags open it. It opens on its own once per change. `/paqad ships`
+  and `/paqad delivery` both print the Delivery view.
+- **Desktop has its own band.** In the Claude Code Desktop app the band is a card: who is working
+  and what it costs, one line that says what is happening, and a strip that draws the stages, the
+  High Table and the delivery steps that apply to this change. A live state has a light that
+  breathes and a running clock; a settled one stays still. The close button asks inline: close for
+  now, hide always, or cancel.
+- **The task list follows the stages.** On a feature change, each prompt reminds Claude of the
+  lane's stage list (Plan, Spec, Load rules, Build, Review, Checks, Docs; on the fast lane Plan,
+  Build, Checks). A task list that leaves them out is turned back once per turn with the same
+  sentence.
 
 ## Glossary
 
