@@ -199,7 +199,8 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface)));
       expect(text).toContain('paqad');
-      expect(text).toContain('feature development · no change in progress');
+      expect(text).toContain('Getting ready');
+      expect(text).not.toContain('no change in progress');
       expect(text).not.toContain('STAGE');
     });
 
@@ -208,7 +209,7 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface)));
-      expect(text).toContain('no change in progress');
+      expect(text).toContain('Getting ready');
       expect(text).toContain('HUD data unavailable');
       expect(text).not.toContain('Safe to merge');
     });

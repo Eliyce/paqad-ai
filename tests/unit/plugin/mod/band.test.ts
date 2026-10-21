@@ -79,7 +79,7 @@ describe('the band shell (FR-30, FR-31)', () => {
   });
 
   it('idles with only the header, minimise and close when no change qualifies (FR-4, FR-39)', () => {
-    const idle = ['paqad  feature development · no change in progress | – Minimise  × Close'];
+    const idle = ['paqad  Getting ready | – Minimise  × Close'];
     expect(bandLines(null)).toEqual(idle);
     expect(
       bandLines({ ...FULL_ORD_501, scope: { qualified: false, reason: 'other-branch' } }),
@@ -128,7 +128,7 @@ describe('the instruments lay out by width (FR-38, AC-30)', () => {
       'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
     ]);
     expect(layoutLines(bandOf(null, 120, 2))).toEqual([
-      'paqad · feature development · no change in progress + Restore × Close',
+      'paqad · Getting ready + Restore × Close',
     ]);
     expect(layoutLines(bandOf(FULL_ORD_501, 20, 5))[0]).toBe(
       'paqad ORD-501 Safe to merge 1 flag + Restore × Close',
@@ -205,7 +205,7 @@ describe('partial and broken data (FR-40, FR-41, AC-42, AC-43)', () => {
       },
     );
     expect(layoutLines(band)).toEqual([
-      'paqad  feature development · no change in progress  HUD data unavailable | – Minimise  × Close',
+      'paqad  Getting ready  HUD data unavailable | – Minimise  × Close',
     ]);
   });
 });

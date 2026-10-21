@@ -24,7 +24,7 @@ import type {
   TableSeat,
 } from './strip';
 import { hasRuled, showsTable, trackRecordWords } from './table';
-import { needsYou, visibilityMode, type BandVisibility } from './visibility';
+import { IDLE_WORDS, needsYou, visibilityMode, type BandVisibility } from './visibility';
 import type {
   PaqadCiJob,
   PaqadCost,
@@ -42,7 +42,7 @@ export const UNREADABLE_WHY = {
   'session-id': 'The session id could not be read.',
   snapshot: 'The snapshot file is not valid.',
 } as const;
-export const GETTING_READY = 'Getting ready';
+export const GETTING_READY = IDLE_WORDS;
 export const FEATURE_WORDS = 'Feature development';
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';

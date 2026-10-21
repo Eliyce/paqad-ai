@@ -110,7 +110,7 @@ function stageBar(snapshot: PaqadHudSnapshot): string {
 
 type Field = { key: 'tokens' | 'ship' | 'table' | 'bar' | 'flags'; segments: BandRow };
 
-export const IDLE_WORDS = 'feature development · no change in progress';
+export const IDLE_WORDS = 'Getting ready';
 
 export function minimisedLine(
   snapshot: PaqadHudSnapshot | null,
