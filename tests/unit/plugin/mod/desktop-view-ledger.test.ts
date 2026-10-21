@@ -385,6 +385,7 @@ describe('AC-21: the High Table tab', () => {
     '- FR-1: The start hook writes the brief',
     '- FR-2: Each stage reads its model',
     '- AC-1: Given x, then y',
+    '- NFR-1: A large export stays fast',
     'Not a line',
   ].join('\n');
 
@@ -472,6 +473,10 @@ describe('AC-21: the High Table tab', () => {
     );
     const fr1 = frozen.shaped.rows.find((row) => row.id === 'FR-1');
     if (fr1) expect(fr1.line).toBe('The start hook writes the brief');
+    expect(frozen.shaped.rows.find((row) => row.id === 'NFR-1')?.line).toBe(
+      'A large export stays fast',
+    );
+    expect(frozen.shaped.rows.find((row) => row.id === 'INV-1')?.line).toBe('INV-1');
     expect(tableView(open({ table: ord501Table('frozen') }), null)!.shaped.total).toBeNull();
     expect(tableView(open({ table: ord501Table('ruled') }), SPEC)!.shaped).toEqual({
       rows: [],

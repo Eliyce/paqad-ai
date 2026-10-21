@@ -31,7 +31,9 @@ import {
 } from './commands';
 import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
 import { drawDesktopBand, type BandActions } from './desktop-band';
+import { drawDesktopLedger, type LedgerActions } from './desktop-ledger';
 import {
+  ANSWER_TOAST,
   bandIsLive,
   buildDesktopBand,
   buildDesktopLedger,
@@ -121,6 +123,7 @@ const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, f
 const unboundAtom = atom({ plugin: 'paqad', key: 'unbound' } as const, false as boolean);
 const tickAtom = atom({ plugin: 'paqad', key: 'tick' } as const, 0);
 const closingAtom = atom({ plugin: 'paqad', key: 'closing' } as const, false as boolean);
+const sidesAtom = atom({ plugin: 'paqad', key: 'tableSides' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
@@ -174,6 +177,7 @@ let desktopSession = false;
 const rawCalls = new Set<string>();
 
 const TICK_MS = 400;
+const FEATURE_EVIDENCE_DIR = '.paqad/ledger/feature-evidence';
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
   try {
@@ -605,6 +609,39 @@ async function showLedger($: EngineInterface, tab: PaqadPaneTab): Promise<void> 
   await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
 }
 
+async function specTextOf(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<string | null> {
+  const dir = snapshot?.change?.dir;
+  if (!live || !dir || !snapshot?.table?.credits.length) return null;
+  return readText($, joinPath(live.root, `${FEATURE_EVIDENCE_DIR}/${dir}/spec.md`));
+}
+
+async function answerInChat($: EngineInterface, text: string): Promise<void> {
+  let filled = false;
+  try {
+    filled = (await $.prompt.fill({ text, mode: 'replace' })).isFilled;
+  } catch {}
+  if (filled) return;
+  try {
+    $.ui.toast(ANSWER_TOAST);
+  } catch {}
+}
+
+function ledgerActions($: EngineInterface): LedgerActions {
+  const act = (work: () => Promise<unknown>) =>
+    void work()
+      .then(() => syncTick($))
+      .catch(() => syncTick($));
+  return {
+    tab: (tab) => act(() => pickTab($, tab)),
+    answer: (text) => act(() => answerInChat($, text)),
+    sides: () => act(() => update($, sidesAtom, (open) => open !== true)),
+    seat: (role) => act(() => update($, tableSeatAtom, (seat) => (seat === role ? null : role))),
+  };
+}
+
 function desktopActions($: EngineInterface): BandActions {
   const act = (work: () => Promise<void>) => () =>
     void work()
@@ -954,6 +991,27 @@ export const register: Register = (on) => {
     if (e.requestId !== PANE_ID) return next(e);
     const status = await read($, statusAtom);
     if (!status?.on) return next(e);
+    if (e.surface === 'desktop') {
+      const snapshot = await read($, snapshotAtom);
+      const tab = await read($, paneTabAtom);
+      const ledger = buildDesktopLedger({
+        snapshot,
+        unbound: (await read($, unboundAtom)) === true,
+        unavailable: (await read($, unavailableAtom)) === true,
+        tab,
+        now: (await read($, nowAtom)) ?? 0,
+        specText: tab === 'table' ? await specTextOf($, snapshot) : null,
+      });
+      return drawDesktopLedger(
+        $.ui.resolve(e) as Elements['desktop'],
+        ledger,
+        {
+          sides: (await read($, sidesAtom)) === true,
+          seat: (await read($, tableSeatAtom)) ?? null,
+        },
+        ledgerActions($),
+      );
+    }
     const view = buildPaneView(await read($, snapshotAtom), await read($, paneTabAtom), {
       seat: await read($, tableSeatAtom),
       now: await read($, nowAtom),

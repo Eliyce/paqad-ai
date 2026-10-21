@@ -1,6 +1,7 @@
 import type { RenderElement, RenderNode } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 
+import { ANSWER_TOAST, localTime } from './desktop-view';
 import {
   EXPERTS_OFF,
   FAST_ORD_490,
@@ -512,6 +513,7 @@ describe('/paqad decisions lists every packet in the repo (AC-21)', () => {
 
 describe('the paqad Ledger (FR-54 to FR-58, AC-32, AC-37 to AC-39)', () => {
   for (const surface of SURFACES) {
+    if (surface === 'terminal')
     test(`AC-39: opens titled paqad Ledger, with its subtitle, the five tabs and Trust shown on ${surface}`, async ($, on) => {
       const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
       mock.clock(on, { now: NOW });
@@ -842,6 +844,226 @@ describe('the Desktop band', () => {
   });
 });
 
+async function desktopPane(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  press: string[] = [],
+): Promise<RenderNode> {
+  const mounted = await $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'desktop',
+    component: 'Pane',
+    requestId: 'paqad',
+    props: pane('desktop').props,
+  });
+  for (const key of press) await mounted.press({ key });
+  await mounted.unmount();
+  return $.ui.render(pane('desktop'));
+}
+
+function expectDesktopSafe(tree: RenderNode): void {
+  for (const element of everyElement(tree)) {
+    const props = propsOf(element);
+    expect(props.hotkey).toBeUndefined();
+    expect(props.role).toBeUndefined();
+    expect(props.isInteractive).toBeUndefined();
+    expect(props.borderStyle).toBeUndefined();
+    expect(props.backgroundColor).toBeUndefined();
+    if (typeof props.width === 'string') expect(props.width).toMatch(/^\d+%$/);
+  }
+}
+
+const CLAIMED = {
+  ...QUIET_501,
+  claims: Array.from({ length: 6 }, (_, index) => ({
+    kind: 'acceptance',
+    id: `AC-${index + 1}`,
+    label: `Claim ${index + 1}`,
+    verdict: 'pass',
+    test_id: `tests/claim-${index + 1}.test.ts`,
+  })),
+  timeline: [
+    { at: '2026-10-18T08:41:00.000Z', kind: 'stage_end', stage: 'planning', duration_ms: 101_000 },
+    { at: '2026-10-18T08:42:00.000Z', kind: 'rules_loaded', count: 12 },
+  ],
+};
+
+describe('the Desktop Ledger', () => {
+  test('AC-19: opens on Trust with the subtitle, equal tabs, the tab rule, the light, the gates, the claims and the flags', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CLAIMED) }, store: QUIET_STORE() });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const tree = await $.ui.render(pane('desktop'));
+    expectDesktopSafe(tree);
+    const lines = drawnLines(tree);
+    expect(lines[0]).toStartWith('What happened, with proof');
+    expect(lines.slice(1, 6)).toEqual(['Trust', 'High Table', 'Delivery', 'Record', 'Cost']);
+    const tabs = everyElement(tree).filter((element) => String(keyOf(element)).startsWith('paqad-tab-'));
+    expect(tabs.map(keyOf)).toEqual(
+      expect.arrayContaining(['paqad-tab-trust', 'paqad-tab-table', 'paqad-tab-cost']),
+    );
+    for (const box of tabs.filter((element) => element.type === 'Box')) {
+      expect(propsOf(box).width).toBe('20%');
+    }
+    const trust = tabs.find((element) => keyOf(element) === 'paqad-tab-trust' && element.type === 'Button')!;
+    expect(propsOf(trust)).toMatchObject({ plain: true, dimColor: false });
+    const rule = everyElement(tree).find((element) => propsOf(element).alt === 'Trust tab is shown');
+    expect(propsOf(rule!).height).toBe(2);
+    expect(lines).toContain('● Safe to merge');
+    expect(lines).toContain('2 of 2 required gates pass.');
+    for (const line of ['GATES', 'Tests, types and lint pass', 'Checked by a script', 'Pass'])
+      expect(lines).toContain(line);
+    expect(lines).toContain('CLAIMS AND THE TESTS THAT PROVE THEM');
+    expect(lines).toContain('AC-1  Claim 1');
+    expect(lines).toContain('tests/claim-1.test.ts');
+    expect(lines).not.toContain('AC-5  Claim 5');
+    expect(lines).toContain('+2 more, all proven');
+    expect(lines).toContain('⚑ 1 near-copy of existing code is open.');
+    expect(lines).toContain('Open');
+    const ring = everyElement(tree).find(
+      (element) => propsOf(element).alt === '2 of 2 required gates pass',
+    );
+    expect(propsOf(ring!)).toMatchObject({ width: 92, height: 92 });
+  });
+
+  test('AC-20: the High Table tab draws the ring, the chief, Answer in chat and See each side, and the seat details', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('ruled')) },
+      store: new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]),
+    });
+    const fills: string[] = [];
+    let fill = false;
+    on('prompt.fill', ($, e) => {
+      fills.push(e.text);
+      return { isFilled: fill };
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const table = await desktopPane($, ['paqad-tab-table']);
+    expectDesktopSafe(table);
+    const lines = drawnLines(table);
+    expect(lines).toContain('CHIEF ARCHITECT');
+    expect(lines).toContain('● Needs your answers');
+    expect(lines).toContain('1.  Customer email in the export');
+    expect(lines).toContain('Answer in chat');
+    expect(lines).toContain('See each side');
+    expect(lines.some((line) => line.startsWith('The chief architect recommends'))).toBe(false);
+    const ring = everyElement(table).find((element) => propsOf(element).width === 150);
+    expect(propsOf(ring!)).toMatchObject({ height: 150, alt: '7 of 7 notes landed' });
+    expect(lines).toContain('SA   Security auditor   picked');
+    expect(lines).not.toContain('the export carries customer emails and addresses');
+    const pressed = await desktopPane($, ['paqad-answer', 'paqad-sides', 'paqad-seat-security-auditor']);
+    expect(fills).toEqual(['Walk me through the 1 open decision']);
+    expect(world.toasts).toContain(ANSWER_TOAST);
+    const after = drawnLines(pressed);
+    expect(after).toContain(
+      'The chief architect recommends: leave the email out by default and let an admin turn it on.',
+    );
+    expect(after).toContain('the export carries customer emails and addresses');
+    fill = true;
+    await desktopPane($, ['paqad-answer', 'paqad-seat-security-auditor']);
+    expect(world.toasts.filter((text) => text === ANSWER_TOAST)).toHaveLength(1);
+    expect(drawnLines(await $.ui.render(pane('desktop')))).not.toContain(
+      'the export carries customer emails and addresses',
+    );
+  });
+
+  test('AC-20: who shaped the spec reads each line from the bundle spec', async ($, on) => {
+    const spec = ['# Spec', '- FR-1: Export the orders page to CSV', '- FR-2: Keep the filters', '- AC-1: A file downloads'];
+    worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText(QUIET_501),
+        '.paqad/ledger/feature-evidence/dir-ord-501/spec.md': spec.join('\n'),
+      },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const lines = drawnLines(await desktopPane($, ['paqad-tab-table']));
+    expect(lines).toContain('WHO SHAPED THE SPEC');
+    expect(lines).toContain('FR-1  Export the orders page to CSV');
+    expect(lines).toContain('NFR-1  ');
+    expect(lines).toContain('12 of 3 spec lines came from an expert note.');
+    expect(lines).toContain('● Approved');
+  });
+
+  test('AC-21: Delivery draws one block per step with its node, and the Open PR link when the merge is ready', async ($, on) => {
+    worldOf(on, {
+      files: {
+        ...ONBOARDED,
+        [SNAPSHOT]: fileText({ ...ALL_GREEN, change: QUIET_501.change }),
+      },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const tree = await desktopPane($, ['paqad-tab-ships']);
+    expectDesktopSafe(tree);
+    const lines = drawnLines(tree);
+    expect(lines).toContain('Everything is green. The merge is yours.');
+    expect(lines).toContain('feat/x on origin');
+    const nodes = everyElement(tree).filter(
+      (element) => element.type === 'Svg' && propsOf(element).width === 24,
+    );
+    expect(nodes.length).toBeGreaterThan(3);
+    const link = everyElement(tree).find((element) => element.type === 'Link');
+    expect(propsOf(link!).href).toBe('https://example.test/pull/12');
+    expect(stringsOf(link!).join('')).toBe(`Open PR ${'#'}12`);
+  });
+
+  test('AC-22, AC-23: Record lists the events in local time and Cost draws the total, the stages and the High Table', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CLAIMED) }, store: QUIET_STORE() });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const record = drawnLines(await desktopPane($, ['paqad-tab-record']));
+    expect(record).toContain(`${localTime('2026-10-18T08:41:00.000Z')}   Plan done in 1m 41s`);
+    expect(record).toContain(`${localTime('2026-10-18T08:42:00.000Z')}   Rules loaded: 12 apply`);
+    const cost = await desktopPane($, ['paqad-tab-cost']);
+    expectDesktopSafe(cost);
+    const lines = drawnLines(cost);
+    expect(lines).toContain('1.3M tokens');
+    expect(lines.some((line) => line.startsWith('~$4.60 estimate at API prices'))).toBe(true);
+    expect(lines).toContain('BY STAGE');
+    expect(lines).toContain('HIGH TABLE');
+    expect(lines).toContain('Chief architect');
+    expect(lines).toContain(
+      'Not counted: your own typing time, other sessions, and the HUD itself (0 tokens).',
+    );
+  });
+
+  test('AC-23: the fast lane leaves the High Table out of the tabs and the Cost tab', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490_COST) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const trust = await $.ui.render(pane('desktop'));
+    expect(drawnLines(trust).slice(1, 5)).toEqual(['Trust', 'Delivery', 'Record', 'Cost']);
+    expectDesktopSafe(trust);
+    const cost = drawnLines(await desktopPane($, ['paqad-tab-cost']));
+    expect(cost).not.toContain('HIGH TABLE');
+    expect(cost.join('\n')).not.toContain('Chief architect');
+  });
+
+  test('AC-24: another workflow gets a light and its cost, and an unreadable record says so', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const lines = drawnLines(await $.ui.render(pane('desktop')));
+    expect(lines).toEqual([
+      '● Question',
+      'No change in this session, so there is nothing to prove. paqad shows what this workflow cost.',
+      '84K tokens',
+      '~$0.05 estimate at API prices',
+      'Counted from when this question started in this session. Nothing from other sessions or earlier changes.',
+    ]);
+    world.put(SNAPSHOT, '{"schema":"paqad.hud/3","headl');
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    expect(drawnLines(await $.ui.render(pane('desktop')))).toEqual([
+      "● paqad cannot read this session's record",
+      'The snapshot file is not valid.',
+    ]);
+  });
+});
+
 describe('the band fits its box (AC-30, AC-43)', () => {
   test('one row of instruments at 120 columns, stacked at 80, one line when rows run out', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
@@ -1072,6 +1294,7 @@ describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => 
       }
     });
 
+    if (surface === 'terminal')
     test(`the Cost tab button keeps the pane on Cost on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501_COST) } });
       mock.clock(on, { now: NOW });
@@ -1089,6 +1312,7 @@ describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => 
       await mounted.unmount();
     });
 
+    if (surface === 'terminal')
     test(`fast lane: the Cost tab shows no expert tokens on ${surface} (AC-53)`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490_COST) } });
       mock.clock(on, { now: NOW });
@@ -1359,7 +1583,7 @@ async function paneOn(
 }
 
 describe("the pane's High Table tab (AC-59)", () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     test(`AC-59: ORD-501 shows every seat, the rulings, the questions and the 12-line credit on ${surface}`, async ($, on) => {
       worldOf(on, {
         files: { ...ONBOARDED, [SNAPSHOT]: fileText({ ...FULL_ORD_501, verdict: null }) },
@@ -1513,7 +1737,7 @@ describe("the pane's High Table tab (AC-59)", () => {
 });
 
 describe('the High Table as it moves (AC-60, AC-61)', () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     test(`AC-60: ORD-501's seats go seated, writing, done in order on ${surface}`, async ($, on) => {
       const world = worldOf(on, {
         files: { ...ONBOARDED, [SNAPSHOT]: fileText(ORD_501_SEQUENCE[0]!) },
@@ -1870,7 +2094,7 @@ async function mountPane(
 }
 
 describe('the Trust, Ships and Record tabs', () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     test(`a landed verdict opens on Trust, gates in words, on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(TRUSTED) } });
       mock.clock(on, { now: NOW });

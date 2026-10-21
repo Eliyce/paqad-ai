@@ -1071,9 +1071,9 @@ function specLines(specText: string | null): { lines: Map<string, string>; total
   const lines = new Map<string, string>();
   let total = 0;
   for (const raw of (specText ?? '').split(/\r?\n/)) {
-    const match = /^\s*-\s+((?:FR|AC)-\d+):\s*(.*)$/.exec(raw);
+    const match = /^\s*-\s+([A-Z]+-\d+):\s*(.*)$/.exec(raw);
     if (!match) continue;
-    total += 1;
+    if (/^(?:FR|AC)-/.test(match[1]!)) total += 1;
     if (!lines.has(match[1]!)) lines.set(match[1]!, match[2]!);
   }
   return { lines, total };
@@ -1393,6 +1393,8 @@ export interface CostView {
 export const NOT_COUNTED_WORDS =
   'Not counted: your own typing time, other sessions, and the HUD itself (0 tokens).';
 export const COUNTING_WORDS = 'Counting: this turn is still running.';
+export const COST_LATER = 'Nothing counted yet. The cost starts when the change opens.';
+export const NO_FLAGS = 'No open flags.';
 
 function lineRight(line: PaqadCostLine): string {
   const tokens = formatTokens(line.tokens.total);
