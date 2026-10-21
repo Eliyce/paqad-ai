@@ -242,6 +242,7 @@ declare module 'claude-code' {
       greenSeen: string[];
       paneOpen: boolean;
       unavailable: boolean;
+      unbound: boolean;
       minimised: boolean;
       hidden: boolean;
       bandClosed: boolean;

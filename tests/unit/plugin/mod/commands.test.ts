@@ -4,8 +4,10 @@ import {
   COMMAND_NAMES,
   commandName,
   isCommandName,
+  refusalReason,
   setCommandName,
   slash,
+  takenLine,
 } from '../../../../runtime/claude-plugin/mod/command-name.ts';
 import {
   ARGUMENT_HINT,
@@ -58,6 +60,20 @@ describe('the command name', () => {
     expect(commandName()).toBe('paqad-hud');
     expect(slash()).toBe('/paqad-hud');
     expect(slash('receipt')).toBe('/paqad-hud receipt');
+  });
+
+  it('words a refusal for the debug log, with the engine reason', () => {
+    const taken = new Error(
+      `paqad: $.command.register: "/paqad" refused: it is the plugin's /paqad-product-discovery:paqad`,
+    );
+    expect(refusalReason(taken)).toBe("it is the plugin's /paqad-product-discovery:paqad");
+    expect(refusalReason('no room')).toBe('no room');
+    expect(takenLine([refusalReason(taken)])).toBe(
+      "paqad: /paqad is taken (it is the plugin's /paqad-product-discovery:paqad); the HUD command is /paqad-hud",
+    );
+    expect(takenLine(['one', 'two'])).toBe(
+      'paqad: /paqad is taken (one) and /paqad-hud is taken (two); the HUD has no command',
+    );
   });
 
   it('knows both names and no other', () => {

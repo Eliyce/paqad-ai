@@ -13,7 +13,15 @@ import {
 import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
 import { chimeClip } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
-import { readRepoDecision, runPaqadCommand, type RepoDecision } from './commands';
+import { COMMAND_NAMES, refusalReason, setCommandName, takenLine } from './command-name';
+import {
+  ARGUMENT_HINT,
+  COMMAND_DESCRIPTION,
+  readRepoDecision,
+  runPaqadCommand,
+  subcommandOf,
+  type RepoDecision,
+} from './commands';
 import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
 import {
   EDIT_TOOLS,
@@ -95,6 +103,7 @@ const minimisedAtom = atom({ plugin: 'paqad', key: 'minimised' } as const, false
 const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as boolean);
 const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
 const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, false as boolean);
+const unboundAtom = atom({ plugin: 'paqad', key: 'unbound' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
@@ -609,6 +618,74 @@ function drawBand($: EngineInterface, e: { surface: string }, layout: BandLayout
   );
 }
 
+async function bind($: EngineInterface, root: string, chime: boolean): Promise<void> {
+  chimeOn = chime;
+  let sessionId: string | null = null;
+  try {
+    sessionId = await $.session.id();
+  } catch {}
+  if (!sessionId) {
+    try {
+      await update($, unboundAtom, () => true);
+    } catch {}
+    return;
+  }
+  live = { root, sessionId };
+  try {
+    const minimised = (await storeGet($, MINIMISED_KEY)) === true;
+    const hidden = (await storeGet($, hiddenKey(root))) === true;
+    await update($, minimisedAtom, () => minimised);
+    await update($, hiddenAtom, () => hidden);
+    await update($, closedAtom, () => false);
+  } catch {}
+  await beat($);
+  try {
+    heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
+  } catch {}
+  await refresh($);
+}
+
+async function registerCommand($: EngineInterface): Promise<void> {
+  const refusals: string[] = [];
+  for (const name of COMMAND_NAMES) {
+    try {
+      await $.command.register({
+        name,
+        description: COMMAND_DESCRIPTION,
+        argumentHint: ARGUMENT_HINT,
+        immediate: true,
+      });
+      setCommandName(name);
+      break;
+    } catch (error) {
+      refusals.push(refusalReason(error));
+    }
+  }
+  if (refusals.length === 0) return;
+  try {
+    await $.ui.log(takenLine(refusals), { to: 'debug' });
+  } catch {}
+}
+
+async function answerCommand($: EngineInterface, args: string): Promise<{ text: string }> {
+  const status = await read($, statusAtom);
+  if (live) await refresh($);
+  const at = live;
+  const sub = subcommandOf(args);
+  if (status?.on && at && sub === 'show') await showBand($, true);
+  if (status?.on && at && sub === 'hide') await setHidden($, true);
+  return runPaqadCommand({
+    ...(status?.on && at && sub === 'decisions'
+      ? { repoDecisions: await readRepoDecisions($, at.root) }
+      : {}),
+    args,
+    standDown: status?.on ? null : (status?.reason ?? 'not-onboarded'),
+    snapshot: await read($, snapshotAtom),
+    receipt: at ? await readText($, receiptPath(at.root, at.sessionId)) : null,
+    now: await $.clock.now(),
+  });
+}
+
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
@@ -621,51 +698,24 @@ export const register: Register = (on) => {
     ticker = null;
     heartbeat?.cancel();
     heartbeat = null;
+    setCommandName(COMMAND_NAMES[0]);
+    let status: Awaited<ReturnType<typeof readStatus>> | null = null;
     try {
-      const status = await readStatus($);
-      await update($, statusAtom, () => ({ on: status.on, reason: status.reason }));
-      if (registersCommand(status)) {
-        await $.command.register({
-          name: 'paqad',
-          description:
-            'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, ships, record, or show the band again',
-          argumentHint: '[status|decisions|rules|receipt|cost|trust|ships|record|show]',
-          immediate: true,
-        });
-      }
-      if (status.on && status.root) {
-        chimeOn = status.chime;
-        live = { root: status.root, sessionId: await $.session.id() };
-        const minimised = (await storeGet($, MINIMISED_KEY)) === true;
-        const hidden = (await storeGet($, hiddenKey(status.root))) === true;
-        await update($, minimisedAtom, () => minimised);
-        await update($, hiddenAtom, () => hidden);
-        await update($, closedAtom, () => false);
-        await beat($);
-        heartbeat = $.clock.every(HEARTBEAT_MS, () => void beat($));
-        await refresh($);
-      }
+      const found = await readStatus($);
+      status = found;
+      await update($, unboundAtom, () => false);
+      await update($, statusAtom, () => ({ on: found.on, reason: found.reason }));
     } catch {}
+    if (status?.on && status.root) await bind($, status.root, status.chime);
+    if (status && registersCommand(status)) await registerCommand($);
     return next(e);
   });
 
-  on('command.run', { command: 'paqad' }, async ($, e) => {
-    const status = await read($, statusAtom);
-    if (live) await refresh($);
-    const at = live;
-    const sub = e.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
-    if (status?.on && at && sub === 'show') await showBand($, true);
-    return runPaqadCommand({
-      ...(status?.on && at && sub === 'decisions'
-        ? { repoDecisions: await readRepoDecisions($, at.root) }
-        : {}),
-      args: e.args,
-      standDown: status?.on ? null : (status?.reason ?? 'not-onboarded'),
-      snapshot: await read($, snapshotAtom),
-      receipt: at ? await readText($, receiptPath(at.root, at.sessionId)) : null,
-      now: await $.clock.now(),
-    });
-  }).catch(() => ({ text: 'paqad could not read its record for this session. Try again.' }));
+  for (const name of COMMAND_NAMES) {
+    on('command.run', { command: name }, async ($, e) => answerCommand($, e.args)).catch(() => ({
+      text: 'paqad could not read its record for this session. Try again.',
+    }));
+  }
 
   on('prompt.submit', async ($, e, next) => {
     if (live) {

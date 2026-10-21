@@ -33,6 +33,7 @@ import {
   SESSION_ID,
   SNAPSHOT,
   START,
+  TAKEN,
   band,
   command,
   linesOf,
@@ -647,6 +648,109 @@ describe('stand-downs: the mod registers nothing (AC-36)', () => {
     expect(textOf(await $.ui.render(band('terminal')))).not.toContain('paqad');
     const answer = await $.command.run(command('status'));
     expect(answer.text).toBe('paqad is not active here: this project was never onboarded.');
+  });
+});
+
+describe('the HUD binds first and falls back to /paqad-hud', () => {
+  const PRODUCT_TAKEN = "it is the plugin's /paqad-product-discovery:paqad";
+  const FILES = { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501), [RECEIPT]: RECEIPT_TEXT };
+
+  test('AC-1: with /paqad owned by another plugin the session binds and draws the change', async ($, on) => {
+    const world = worldOf(on, { files: FILES, refuse: { paqad: TAKEN } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.files.has(HEARTBEAT)).toBe(true);
+    expect(world.reads).toContain(SNAPSHOT);
+    for (const surface of SURFACES) {
+      expect(textOf(await $.ui.render(band(surface)))).toContain('ORD-501');
+    }
+  });
+
+  test('AC-2: a refused /paqad registers /paqad-hud and says so in the debug log only', async ($, on) => {
+    const world = worldOf(on, { files: FILES, refuse: { paqad: TAKEN } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.commands).toEqual(['paqad-hud']);
+    expect(world.logs).toEqual([
+      {
+        text: `paqad: /paqad is taken (${PRODUCT_TAKEN}); the HUD command is /paqad-hud`,
+        to: 'debug',
+      },
+    ]);
+    expect(world.toasts).toEqual([]);
+  });
+
+  test('AC-2: /paqad-hud answers every subcommand and every hint names it', async ($, on) => {
+    const world = worldOf(on, { files: FILES, refuse: { paqad: TAKEN } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    const run = async (args: string) =>
+      (await $.command.run(command(args, 'paqad-hud'))).text ?? '';
+    expect(await run('')).toContain('Try /paqad-hud status, /paqad-hud decisions');
+    expect(await run('status')).toContain('Change: #ORD-501 Add CSV export to the orders page.');
+    expect(await run('rules')).toContain('Near-copies: 1 open.');
+    expect(await run('receipt')).toBe(RECEIPT_TEXT);
+    expect(await run('delivery')).toBe(await run('ships'));
+    expect(await run('record')).toContain('written, see /paqad-hud receipt');
+    expect(await run('nope')).toStartWith('There is no /paqad-hud nope. Try /paqad-hud status');
+    expect(await run('hide')).toBe(
+      'The paqad band is hidden. Run /paqad-hud show to bring it back.',
+    );
+    expect(world.store.get('band.hidden:/work')).toBe(true);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain(
+      'Hidden always · /paqad-hud show',
+    );
+    expect(await run('show')).toBe('The paqad band is back.');
+    expect(world.store.has('band.hidden:/work')).toBe(false);
+    const card = await $.ui.render({
+      component: 'CommandOutput',
+      surface: 'terminal',
+      requestId: 'out',
+      props: { command: 'paqad-hud', args: 'receipt', text: RECEIPT_TEXT, isErrored: false },
+    } as never);
+    expect(drawnLines(card)[0]).toBe('paqad receipt');
+  });
+
+  test('AC-3: with /paqad free the HUD registers /paqad and every hint names it', async ($, on) => {
+    const world = worldOf(on, { files: FILES });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.commands).toEqual(['paqad']);
+    expect(world.logs).toEqual([]);
+    expect((await $.command.run(command(''))).text).toContain(
+      'Try /paqad status, /paqad decisions',
+    );
+    expect((await $.command.run(command('hide'))).text).toBe(
+      'The paqad band is hidden. Run /paqad show to bring it back.',
+    );
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('Hidden always · /paqad show');
+  });
+
+  test('AC-4: with both names refused the HUD still binds and nothing escapes the hook', async ($, on) => {
+    const world = worldOf(on, {
+      files: FILES,
+      refuse: { paqad: TAKEN, 'paqad-hud': '"/paqad-hud" refused: it is taken too' },
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.commands).toEqual([]);
+    expect(world.files.has(HEARTBEAT)).toBe(true);
+    expect(world.logs).toEqual([
+      {
+        text: `paqad: /paqad is taken (${PRODUCT_TAKEN}) and /paqad-hud is taken (it is taken too); the HUD has no command`,
+        to: 'debug',
+      },
+    ]);
+    expect(textOf(await $.ui.render(band('terminal')))).toContain('ORD-501');
+  });
+
+  test('a session id that cannot be read leaves the session unbound and the hook quiet', async ($, on) => {
+    const world = worldOf(on, { files: FILES, sessionId: null });
+    mock.clock(on, { now: NOW });
+    await $.session.start(START);
+    expect(world.commands).toEqual(['paqad']);
+    expect(world.writes).toEqual([]);
+    expect(world.reads.filter((path) => path.startsWith('.paqad/session'))).toEqual([]);
   });
 });
 
