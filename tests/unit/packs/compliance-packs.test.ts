@@ -146,6 +146,48 @@ mappings:
     expect(registry.warnings.some((w) => w.message.includes('unknown gate'))).toBe(true);
   });
 
+  it('quarantines packs that are missing, unparseable, off-schema or name an unknown obligation', () => {
+    const packs = join(projectRoot, '.paqad', 'compliance-packs');
+    mkdirSync(join(packs, 'no-manifest'), { recursive: true });
+    mkdirSync(join(packs, '_draft'), { recursive: true });
+    writeFileSync(join(packs, 'stray.txt'), 'x');
+    writeCompliancePack(join(packs, 'broken'), 'name: [unclosed');
+    writeCompliancePack(join(packs, 'off-schema'), 'kind: compliance-pack\nname: off\n');
+    writeCompliancePack(
+      join(packs, 'obligations'),
+      VALID.replace(/NAME/g, 'obligations').replace(
+        '{ type: gate, ref: behavioral-correctness, relation: subset-of }',
+        '{ type: obligation_category, ref: astrology, relation: subset-of }',
+      ),
+    );
+    writeCompliancePack(
+      join(packs, 'known-obligation'),
+      VALID.replace(/NAME/g, 'known-obligation').replace(
+        '{ type: gate, ref: behavioral-correctness, relation: subset-of }',
+        '{ type: obligation_category, ref: functional, relation: subset-of }',
+      ),
+    );
+
+    const registry = new CompliancePackLoader().load({
+      runtimeRoot,
+      globalPacksRoot: join(root, 'no-global'),
+      projectRoot,
+    });
+
+    expect([...registry.packs.keys()]).toEqual(['known-obligation']);
+    const messages = registry.warnings.map((warning) => warning.message);
+    expect(messages).toContain('missing compliance-pack.yaml');
+    expect(messages.some((message) => message.startsWith('unparseable YAML: '))).toBe(true);
+    expect(messages).toContain("unknown obligation category 'astrology'");
+    expect(messages.length).toBeGreaterThan(3);
+  });
+
+  it('loads only built-in and global packs when no project is given', () => {
+    writeCompliancePack(join(globalRoot, 'global-pack'), VALID.replace(/NAME/g, 'global-pack'));
+    const registry = new CompliancePackLoader().load({ runtimeRoot, globalPacksRoot: globalRoot });
+    expect([...registry.packs.keys()]).toEqual(['global-pack']);
+  });
+
   it('ships a discoverable, valid built-in eu-ai-act pack', () => {
     const packs = loadCompliancePacks(projectRoot, { globalPacksRoot: globalRoot });
     const euAiAct = packs.find((p) => p.manifest.name === 'eu-ai-act');
