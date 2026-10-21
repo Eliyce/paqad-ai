@@ -55,6 +55,7 @@ export interface DeliveryPr {
   changed_files?: number | null;
   additions?: number | null;
   deletions?: number | null;
+  first_at?: string;
   at: string;
 }
 
@@ -401,6 +402,7 @@ export function recordShip(
       draft: null,
       ...record.pr,
       ...definedFields(patch.pr),
+      first_at: record.pr?.first_at ?? record.pr?.at ?? at,
       at,
     };
   }

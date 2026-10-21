@@ -2,7 +2,7 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from
 import { join } from 'node:path';
 
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
-import { readContractDecisions } from '@/decisions/authoring.js';
+import { readContractDecisions, type StoredContractDecision } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
 import { GATE_STRENGTH_TIER, LATE_GATE_STRENGTH_TIER } from '@/evidence/grading.js';
 import {
@@ -64,6 +64,7 @@ import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isMandatoryStage } from '@/stage-evidence/stages.js';
 import type { FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
+import { stageForAgentName, stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 import {
   buildBundleCompletenessConfig,
   stageIsolationStatus,
@@ -78,7 +79,7 @@ import {
   stageEndTimes,
   type HudScopeReason,
 } from './change-scope.js';
-import { readChangedFiles } from './changed-files.js';
+import { readChangeGit } from './changed-files.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
@@ -143,28 +144,244 @@ export interface HudTimelineEntry {
   kind: string;
   stage: string | null;
   note: string | null;
+  agent?: string | null;
+  own_agent?: boolean;
+  duration_ms?: number | null;
+  count?: number;
+  picked?: number;
+  standing?: number;
+  findings?: number;
+  verdict?: string | null;
+  title?: string | null;
+  issue?: string | null;
+  lane?: string | null;
+  sha?: string;
+  subject?: string;
+  number?: number;
+  requirements?: number;
+  criteria?: number;
+  state?: string;
 }
 
 export const TIMELINE_ROWS = 20;
+export const TIMELINE_COMMITS = 10;
 
 const TIMELINE_KINDS: ReadonlySet<string> = new Set(['open', 'close', 'stage_start', 'stage_end']);
 
-export function buildTimeline(projectRoot: string, dirName: string): HudTimelineEntry[] {
-  return readFeatureStageUnit(projectRoot, dirName)
-    .filter((row) => TIMELINE_KINDS.has(String(row.kind)))
-    .flatMap((row) => {
-      const at = rowRecordedAt(row);
-      if (!at) return [];
-      return [
-        {
-          at,
-          kind: String(row.kind),
-          stage: str(row.stage),
-          note: str(row.note),
-        },
-      ];
+export interface TimelineChange {
+  title: string | null;
+  issue: string | null;
+  lane: string | null;
+}
+
+function isTime(value: string | null | undefined): value is string {
+  return typeof value === 'string' && Number.isFinite(Date.parse(value));
+}
+
+function spanMs(from: string | null | undefined, to: string | null | undefined): number | null {
+  if (!isTime(from) || !isTime(to)) return null;
+  const ms = Date.parse(to) - Date.parse(from);
+  return ms >= 0 ? ms : null;
+}
+
+function inOrder(times: ReadonlyArray<string | null | undefined>): string[] {
+  return times.filter(isTime).sort((a, b) => Date.parse(a) - Date.parse(b));
+}
+
+function stageEndDuration(
+  rows: readonly Record<string, unknown>[],
+  index: number,
+  stage: string | null,
+): number | null {
+  const start = rows
+    .slice(0, index)
+    .reverse()
+    .find((row) => row.kind === 'stage_start' && str(row.stage) === stage);
+  return start ? spanMs(rowRecordedAt(start), rowRecordedAt(rows[index]!)) : null;
+}
+
+function startedInOwnAgent(agent: string | null, stage: string | null): boolean {
+  return (
+    agent !== null &&
+    stage !== null &&
+    stageForAgentName(stripPluginAgentNamespace(agent)) === stage
+  );
+}
+
+export function buildTimeline(
+  projectRoot: string,
+  dirName: string,
+  change: TimelineChange | null = null,
+): HudTimelineEntry[] {
+  const rows = readFeatureStageUnit(projectRoot, dirName) as unknown as Record<string, unknown>[];
+  const entries: HudTimelineEntry[] = [];
+  rows.forEach((row, index) => {
+    const kind = String(row.kind);
+    const at = rowRecordedAt(row);
+    if (!TIMELINE_KINDS.has(kind) || !at) return;
+    const stage = str(row.stage);
+    const entry: HudTimelineEntry = { at, kind, stage, note: str(row.note) };
+    if (kind === 'open' && entry.note === null && change) Object.assign(entry, change);
+    if (kind === 'stage_start') {
+      entry.agent = str(row.agent);
+      entry.own_agent = startedInOwnAgent(entry.agent, stage);
+    }
+    if (kind === 'stage_end') entry.duration_ms = stageEndDuration(rows, index, stage);
+    entries.push(entry);
+  });
+  return entries.slice(-TIMELINE_ROWS);
+}
+
+export interface RecordEventSources {
+  rulesLoaded: { recorded_at?: string | null; applicable_rules?: readonly unknown[] } | null;
+  table: HudHighTable | null;
+  decisions: readonly StoredContractDecision[];
+  specJson: unknown;
+  delivery: DeliveryRecord;
+  ship: HudShip;
+  commitTimes: ReadonlyMap<string, string>;
+}
+
+function event(at: string, kind: string, fields: Partial<HudTimelineEntry> = {}): HudTimelineEntry {
+  return { at, kind, stage: null, note: null, ...fields };
+}
+
+function tableEvents(table: HudHighTable | null): HudTimelineEntry[] {
+  if (!table || table.skipped) return [];
+  const events: HudTimelineEntry[] = [];
+  const seatedAt = inOrder(table.seats.map((seat) => seat.seated_at))[0];
+  if (seatedAt) {
+    const standing = table.seats.filter((seat) => seat.origin === 'standing').length;
+    events.push(
+      event(seatedAt, 'table_seated', { picked: table.seats.length - standing, standing }),
+    );
+  }
+  const landed = table.seats.length > 0 && table.seats.every((seat) => seat.state === 'done');
+  const landedAt = landed ? inOrder(table.seats.map((seat) => seat.done_at)).at(-1) : undefined;
+  if (landedAt) {
+    events.push(
+      event(landedAt, 'notes_landed', {
+        count: table.seats.length,
+        findings: table.seats.reduce((sum, seat) => sum + (seat.findings ?? 0), 0),
+      }),
+    );
+  }
+  const chief = table.chief;
+  if (chief && isTime(chief.done_at)) {
+    events.push(
+      event(chief.done_at, 'chief_ruled', {
+        duration_ms: spanMs(chief.started_at, chief.done_at),
+        verdict: chief.verdict,
+      }),
+    );
+  }
+  return events;
+}
+
+function minuteGroups(times: readonly string[]): Array<{ at: string; count: number }> {
+  const groups = new Map<string, { at: string; count: number }>();
+  for (const at of inOrder(times)) {
+    const key = new Date(at).toISOString().slice(0, 16);
+    const group = groups.get(key);
+    if (group) group.count += 1;
+    else groups.set(key, { at, count: 1 });
+  }
+  return [...groups.values()];
+}
+
+function decisionEvents(decisions: readonly StoredContractDecision[]): HudTimelineEntry[] {
+  const raw = decisions.map(
+    ({ packet, status }) => [packet as unknown as Record<string, unknown>, status] as const,
+  );
+  const opened = raw.map(([packet]) => str(packet.created_at)).filter(isTime);
+  const answered = raw
+    .filter(([, status]) => status === 'resolved')
+    .map(([packet]) => str(packet.resolved_at))
+    .filter(isTime);
+  return [
+    ...minuteGroups(opened).map(({ at, count }) => event(at, 'decisions_opened', { count })),
+    ...minuteGroups(answered).map(({ at, count }) => event(at, 'decisions_answered', { count })),
+  ];
+}
+
+function specEvents(specJson: unknown): HudTimelineEntry[] {
+  const spec = asRecord(specJson);
+  const at = str(asRecord(spec?.frozen)?.frozen_at);
+  if (!spec || !isTime(at)) return [];
+  const count = (value: unknown) => (Array.isArray(value) ? value.length : 0);
+  return [
+    event(at, 'spec_frozen', {
+      requirements: count(spec.behaviour),
+      criteria: count(spec.acceptance_criteria),
+    }),
+  ];
+}
+
+function deliveryEvents(
+  delivery: DeliveryRecord,
+  ship: HudShip,
+  commitTimes: ReadonlyMap<string, string>,
+): HudTimelineEntry[] {
+  const own = delivery.commit_split?.own_shas ? new Set(delivery.commit_split.own_shas) : null;
+  const events = delivery.commits
+    .filter((commit) => own === null || own.has(commit.sha))
+    .flatMap((commit) => {
+      const at = commitTimes.get(commit.sha);
+      return at
+        ? [event(at, 'commit', { sha: commit.sha.slice(0, 7), subject: commit.subject })]
+        : [];
     })
-    .slice(-TIMELINE_ROWS);
+    .slice(-TIMELINE_COMMITS);
+  if (ship.push) {
+    events.push(event(ship.push.at, 'push', { state: ship.push.state, count: ship.commits }));
+  }
+  if (ship.pr && typeof ship.pr.number === 'number') {
+    events.push(event(ship.pr.first_at ?? ship.pr.at, 'pr_opened', { number: ship.pr.number }));
+  }
+  const ci = ship.ci;
+  if (ci && (ci.state === 'pass' || ci.state === 'fail')) {
+    const jobs = ci.jobs ?? [];
+    events.push(
+      event(inOrder(jobs.map((job) => job.completed_at)).at(-1) ?? ci.at, 'ci', {
+        state: ci.state,
+        count: ci.total ?? jobs.length,
+      }),
+    );
+  }
+  return events;
+}
+
+export function buildRecordEvents(sources: RecordEventSources): HudTimelineEntry[] {
+  const rulesAt = sources.rulesLoaded?.recorded_at;
+  return [
+    ...(isTime(rulesAt)
+      ? [
+          event(rulesAt, 'rules_loaded', {
+            count: sources.rulesLoaded?.applicable_rules?.length ?? 0,
+          }),
+        ]
+      : []),
+    ...tableEvents(sources.table),
+    ...decisionEvents(sources.decisions),
+    ...specEvents(sources.specJson),
+    ...deliveryEvents(sources.delivery, sources.ship, sources.commitTimes),
+  ].filter((entry) => isTime(entry.at));
+}
+
+function recordEventsSafe(projectRoot: string, sources: RecordEventSources): HudTimelineEntry[] {
+  try {
+    return buildRecordEvents(sources);
+  } catch (error) {
+    logHudWriteError(projectRoot, 'record events', error);
+    return [];
+  }
+}
+
+function mergeTimeline(
+  stages: readonly HudTimelineEntry[],
+  events: readonly HudTimelineEntry[],
+): HudTimelineEntry[] {
+  return [...stages, ...events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
 }
 
 export interface HudShipCommit {
@@ -643,13 +860,18 @@ function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['ques
   };
 }
 
-function buildDecisions(projectRoot: string, dirName: string | null): HudSnapshot['decisions'] {
+function changeDecisions(projectRoot: string, dirName: string | null): StoredContractDecision[] {
+  if (dirName === null) return [];
+  const changeKey = featureChangeKey(dirName);
+  return readContractDecisions(projectRoot).filter(
+    ({ packet }) => (packet as unknown as Record<string, unknown>).change === changeKey,
+  );
+}
+
+function buildDecisions(rows: readonly StoredContractDecision[]): HudSnapshot['decisions'] {
   const pending: HudSnapshot['decisions']['pending'] = [];
   let resolved = 0;
-  if (dirName === null) return { pending, resolved };
-  const changeKey = featureChangeKey(dirName);
-  for (const { packet, status } of readContractDecisions(projectRoot)) {
-    if ((packet as unknown as Record<string, unknown>).change !== changeKey) continue;
+  for (const { packet, status } of rows) {
     if (status === 'resolved') {
       resolved += 1;
       continue;
@@ -908,7 +1130,8 @@ export function buildHudSnapshot(
   }));
   const scope = qualifyHudChange(projectRoot, sessionId, now);
   const dirName = scope.dir;
-  const decisions = buildDecisions(projectRoot, dirName);
+  const decisionRows = changeDecisions(projectRoot, dirName);
+  const decisions = buildDecisions(decisionRows);
   const lastBlock = readRuleStopRecord(projectRoot, sessionId);
 
   if (!dirName) {
@@ -975,9 +1198,11 @@ export function buildHudSnapshot(
   const rulesLoaded = readRulesLoaded(projectRoot, dirName);
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const policy = readPolicy(projectRoot);
-  const changedFiles = readChangedFiles(projectRoot, policy?.process.pr.base ?? null, (error) =>
+  const changeGit = readChangeGit(projectRoot, policy?.process.pr.base ?? null, (error) =>
     logHudWriteError(projectRoot, 'changed files', error),
   );
+  const changedFiles = changeGit?.files ?? null;
+  const ship = buildShip(delivery, changedFiles ? changedFiles.length : null);
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
   const isolationSummary = summarizeStageIsolation(projectRoot, dirName);
   const findings = buildFindings(projectRoot, dirName);
@@ -1022,7 +1247,22 @@ export function buildHudSnapshot(
     },
     paused,
     stages,
-    timeline: buildTimeline(projectRoot, dirName),
+    timeline: mergeTimeline(
+      buildTimeline(projectRoot, dirName, {
+        title: record?.title ?? null,
+        issue: record?.issue ?? null,
+        lane,
+      }),
+      recordEventsSafe(projectRoot, {
+        rulesLoaded,
+        table,
+        decisions: decisionRows,
+        specJson,
+        delivery,
+        ship,
+        commitTimes: changeGit?.commitTimes ?? new Map(),
+      }),
+    ),
     table,
     claims: [
       ...buildClaims(record?.kind, projectRoot, dirName),
@@ -1042,7 +1282,7 @@ export function buildHudSnapshot(
     last_block: lastBlock,
     delivery_plan: buildDeliveryPlan(projectRoot, policy, delivery),
     plan: buildPlanProgress(projectRoot, dirName, changedFiles),
-    ship: buildShip(delivery, changedFiles ? changedFiles.length : null),
+    ship,
     verdict,
     receipt,
     evidence_expected: buildEvidenceExpected(projectRoot, sessionId, dirName),

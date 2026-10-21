@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { GIT_READ_TIMEOUT_MS, readChangedFiles } from '@/hud/changed-files.js';
+import { GIT_READ_TIMEOUT_MS, readChangeGit } from '@/hud/changed-files.js';
 
 import {
   checkout,
@@ -32,6 +32,8 @@ const noError = () => {
   throw new Error('no read error was expected');
 };
 
+const files = (root: string, base: string | null) => readChangeGit(root, base, noError)?.files;
+
 describe('AC-27: the files this change touched', () => {
   it('lists committed, edited, staged and untracked files once each, leaving .paqad out', () => {
     const root = repoRoot();
@@ -48,49 +50,62 @@ describe('AC-27: the files this change touched', () => {
     writeFileSync(join(root, 'pkg', '.paqad', 'state.json'), '{}\n');
     commit(root, 'a.ts', 'feat: a again');
 
-    expect(readChangedFiles(root, 'main', noError)).toEqual([
-      'README.md',
-      'a.ts',
-      'b.ts',
-      'c d.ts',
-    ]);
+    expect(files(root, 'main')).toEqual(['README.md', 'a.ts', 'b.ts', 'c d.ts']);
   });
 
   it('reads against the policy base branch, and falls back to main or master', () => {
     const root = repoRoot('trunk');
     checkout(root, 'feat/y', true);
     commit(root, 'y.ts', 'feat: y');
-    expect(readChangedFiles(root, 'trunk', noError)).toEqual(['y.ts']);
-    expect(readChangedFiles(root, null, noError)).toBeNull();
+    expect(files(root, 'trunk')).toEqual(['y.ts']);
+    expect(readChangeGit(root, null, noError)).toBeNull();
     git(root, 'branch', 'main', 'trunk');
-    expect(readChangedFiles(root, 'develop', noError)).toEqual(['y.ts']);
+    expect(files(root, 'develop')).toEqual(['y.ts']);
   });
 
   it('is null outside git, with nothing logged', () => {
-    expect(readChangedFiles(plainRoot(), 'main', noError)).toBeNull();
+    expect(readChangeGit(plainRoot(), 'main', noError)).toBeNull();
+  });
+
+  it('keeps the commit time of each commit since the base, for the Record', () => {
+    const root = repoRoot();
+    const onMain = git(root, 'rev-parse', 'HEAD');
+    checkout(root, 'feat/times', true);
+    const first = commit(root, 'one.ts', 'feat: one');
+    const second = commit(root, 'two.ts', 'feat: two');
+    const times = readChangeGit(root, 'main', noError)!.commitTimes;
+    expect([...times.keys()].sort()).toEqual([first, second].sort());
+    expect(times.has(onMain)).toBe(false);
+    expect(Number.isFinite(Date.parse(times.get(first)!))).toBe(true);
   });
 
   it('bounds every read, and is null with the failure passed on when git fails', () => {
     const root = repoRoot();
     checkout(root, 'feat/z', true);
     commit(root, 'z.ts', 'feat: z');
-    expect(readChangedFiles(root, 'main', noError)).toEqual(['z.ts']);
+    expect(files(root, 'main')).toEqual(['z.ts']);
     const reads = vi
       .mocked(execFileSync)
       .mock.calls.filter(
-        ([, args]) => Array.isArray(args) && ['diff', 'ls-files'].includes(args[0]!),
+        ([, args]) => Array.isArray(args) && ['diff', 'ls-files', 'log'].includes(args[0]!),
       );
-    expect(reads).toHaveLength(2);
+    expect(reads).toHaveLength(3);
     for (const [, , options] of reads) {
       expect(options).toMatchObject({ timeout: GIT_READ_TIMEOUT_MS });
     }
+
+    vi.mocked(execFileSync).mockImplementation(((command, args, options) => {
+      if (Array.isArray(args) && args[0] === 'log') return 'nonsense\0';
+      return realExec(command, args, options);
+    }) as typeof execFileSync);
+    expect(readChangeGit(root, 'main', noError)?.commitTimes.size).toBe(0);
 
     vi.mocked(execFileSync).mockImplementation(((command, args, options) => {
       if (Array.isArray(args) && args[0] === 'diff') throw new Error('git timed out');
       return realExec(command, args, options);
     }) as typeof execFileSync);
     const errors: unknown[] = [];
-    expect(readChangedFiles(root, 'main', (error) => errors.push(error))).toBeNull();
+    expect(readChangeGit(root, 'main', (error) => errors.push(error))).toBeNull();
     expect(errors.map((error) => (error as Error).message)).toEqual(['git timed out']);
   });
 });
