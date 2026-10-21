@@ -1,5 +1,21 @@
 # paqad-ai
 
+## 1.102.0
+
+### Minor Changes
+
+- 631a12f: The Claude Code HUD now shows only the change this session is working on, and says plainly what it does not know.
+
+  The band shows a change only when this session is on its branch, on the feature-development route, and has written a stage row for it since the route started. Otherwise it shows `no change in progress`. A verdict shows only when it was written for this change after its latest edit, gates read `not judged yet` until the stage that owns them has ended, and decisions show only for this change. Merge lights only when this change's own pull request is merged, commits count only this change's own, and cost counts only this change's feature-development turns or says `whole session`.
+
+  The band is redrawn as one card with three instruments (STAGE, HIGH TABLE and SHIP), can be minimised, closed for the session or hidden for this project, and comes back with `/paqad show`. Other workflows get one status line with their own tokens. The side pane is now the paqad Ledger and opens on Trust. At session start, paqad quietly closes a change as `abandoned` when its branch is gone or merged and it has had no activity for 24 hours.
+
+- 631a12f: Stage helpers on Claude Code now start with a short stage brief instead of re-reading the framework files.
+
+  A new SubagentStart hook hands each paqad stage helper its role, its read list and instructions, the change, the lane, the previous pillar files and the exact stage commands, then records its entry check. If the hook is missing or fails, the helper loads the framework the way it did before. Codex is unchanged.
+
+  Each stage helper can now run at its own effort and model. Planning, specification and review now default to high effort, checks and documentation sync to low, and development keeps the main session's effort. Every model defaults to inherit. Set any of them in `.paqad/configs/.config.models`: `stage_effort_<stage>` and `stage_model_<stage>`. The helper files are shared by every project, so they always keep these defaults, and a project value reaches a helper through `paqad-ai stage settings`, which prints JSON giving each stage its `effort`, its `model` and a `pass` string that says what the main session passes on that stage call. To run a stage at the main session's effort again, set its key to `inherit`; because its helper file still carries the default, the `pass` string then tells the main session to pass its own current effort level on that call. Each stage helper's record now notes the `requested_effort` and `requested_model`, which are what the project asked for, not a reading of what the helper ran at.
+
 ## 1.101.1
 
 ### Patch Changes
