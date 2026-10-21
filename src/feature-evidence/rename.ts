@@ -42,10 +42,11 @@ export function backfillFeatureSlug(
   try {
     renameSync(absOld, absNew);
   } catch (error) {
-    /* c8 ignore next 3 -- a real fs error (EPERM/EBUSY): degrade to the generic name. */
+    /* c8 ignore start -- a real fs error (EPERM/EBUSY): degrade to the generic name. */
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       return unchanged;
     }
+    /* c8 ignore stop */
   }
   repointSessionControls(projectRoot, dirName, minted.dirName, now);
   rewriteArtifactPaths(projectRoot, dirName, minted.dirName);
@@ -90,10 +91,11 @@ function repointSessionControls(
         now,
         'rename',
       );
-      /* c8 ignore next 3 -- best-effort: an unwritable control is tolerated everywhere else too. */
+      /* c8 ignore start -- best-effort: an unwritable control is tolerated everywhere else too. */
     } catch {}
   }
 }
+/* c8 ignore stop */
 
 function rewriteArtifactPaths(projectRoot: string, oldName: string, newName: string): void {
   const absLedger = join(projectRoot, featureFilePath(newName, 'stageEvidence'));
@@ -130,7 +132,8 @@ function rewriteArtifactPaths(projectRoot: string, oldName: string, newName: str
   if (changed) {
     try {
       writeFileSync(absLedger, lines.join('\n'), 'utf8');
-      /* c8 ignore next 3 -- best-effort: stale paths in old rows are cosmetic — digests are already stamped. */
+      /* c8 ignore start -- best-effort: stale paths in old rows are cosmetic — digests are already stamped. */
     } catch {}
   }
 }
+/* c8 ignore stop */

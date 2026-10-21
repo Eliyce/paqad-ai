@@ -301,9 +301,10 @@ export async function runRepositoryVerification(
     if (existingIndex >= 0) {
       evidence.gates[existingIndex] = inconclusiveGate;
     } else {
-      /* c8 ignore next 2 -- defensive: the evidence builder always emits a
+      /* c8 ignore start -- defensive: the evidence builder always emits a
          `code-tests-lint` placeholder, so existingIndex is never -1 here (mirrors the
          checksGate branch above). Kept so a future builder change fails safe, not silently. */
+      /* c8 ignore stop */
       evidence.gates.push(inconclusiveGate);
     }
     directGates.push(inconclusiveGate);

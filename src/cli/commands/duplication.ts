@@ -53,9 +53,10 @@ function printSummary(findings: DuplicationFinding[], blocking: boolean): void {
   for (const finding of findings.slice(0, 20)) {
     console.log(`> - ${glyph} ${finding.message}`);
   }
-  /* c8 ignore next 3 -- display-only truncation past 20 findings; a single change rarely
+  /* c8 ignore start -- display-only truncation past 20 findings; a single change rarely
      introduces that many near-copies, so this line is not worth a 21-fixture test. */
   if (findings.length > 20) {
     console.log(`> - …and ${findings.length - 20} more`);
+    /* c8 ignore stop */
   }
 }
