@@ -27,6 +27,9 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          # The tag step pushes tags on older commits whose workflow files differ from main.
+          # GitHub only allows that with a token that has the Workflows permission.
+          token: ${{ secrets.GH_RELEASE_TOKEN }}
 
       - name: Enable Corepack
         run: corepack enable
@@ -70,7 +73,7 @@ jobs:
 
       - name: Tag and create the GitHub Release for every published version
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GH_RELEASE_TOKEN }}
         run: node scripts/release-sync.mjs tags
 
   publish-plugin:
