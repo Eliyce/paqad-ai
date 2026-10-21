@@ -1,5 +1,12 @@
 import { atom, read, update } from 'claude-code';
-import type { EngineInterface, Register, RenderElement, RenderNode, Timer } from 'claude-code';
+import type {
+  Elements,
+  EngineInterface,
+  Register,
+  RenderElement,
+  RenderNode,
+  Timer,
+} from 'claude-code';
 
 import {
   evidenceCard,
@@ -23,6 +30,14 @@ import {
   type RepoDecision,
 } from './commands';
 import { ancestorDirs, decideStatus, isChimeOn, registersCommand } from './config';
+import { drawDesktopBand, type BandActions } from './desktop-band';
+import {
+  bandIsLive,
+  buildDesktopBand,
+  buildDesktopLedger,
+  ledgerIsLive,
+  type DesktopBand,
+} from './desktop-view';
 import {
   EDIT_TOOLS,
   ORG_ENFORCED,
@@ -104,6 +119,8 @@ const hiddenAtom = atom({ plugin: 'paqad', key: 'hidden' } as const, false as bo
 const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false as boolean);
 const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, false as boolean);
 const unboundAtom = atom({ plugin: 'paqad', key: 'unbound' } as const, false as boolean);
+const tickAtom = atom({ plugin: 'paqad', key: 'tick' } as const, 0);
+const closingAtom = atom({ plugin: 'paqad', key: 'closing' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
@@ -152,7 +169,11 @@ let verdictSeen: string | null | undefined;
 let chimeOn = false;
 let heartbeat: Timer | null = null;
 let turnStartedAt: number | null = null;
+let tickTimer: Timer | null = null;
+let desktopSession = false;
 const rawCalls = new Set<string>();
+
+const TICK_MS = 400;
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
   try {
@@ -209,6 +230,7 @@ async function refresh($: EngineInterface): Promise<void> {
   } finally {
     reading = false;
   }
+  await syncTick($);
 }
 
 function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['verdict']>): void {
@@ -505,6 +527,112 @@ async function pressAction($: EngineInterface, action: BandAction): Promise<void
   else await showBand($, action === 'show');
 }
 
+async function desktopBandOf(
+  $: EngineInterface,
+  size: { columns: number; maxRows: number },
+): Promise<DesktopBand> {
+  return buildDesktopBand({
+    snapshot: await read($, snapshotAtom),
+    unbound: (await read($, unboundAtom)) === true,
+    unavailable: (await read($, unavailableAtom)) === true,
+    now: (await read($, nowAtom)) ?? 0,
+    turnStartedAt,
+    visibility: readBandVisibility(
+      { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
+      await read($, closedAtom),
+    ),
+    menuOpen: (await read($, closingAtom)) === true,
+    ...size,
+  });
+}
+
+async function drawsLive($: EngineInterface): Promise<boolean> {
+  const status = await read($, statusAtom);
+  if (!desktopSession || !status?.on) return false;
+  if (bandIsLive(await desktopBandOf($, { columns: 93, maxRows: 12 }))) return true;
+  if ((await read($, paneOpenAtom)) !== true) return false;
+  return ledgerIsLive(
+    buildDesktopLedger({
+      snapshot: await read($, snapshotAtom),
+      unbound: (await read($, unboundAtom)) === true,
+      unavailable: (await read($, unavailableAtom)) === true,
+      tab: await read($, paneTabAtom),
+      now: (await read($, nowAtom)) ?? 0,
+      specText: null,
+    }),
+  );
+}
+
+function stopTick(): void {
+  tickTimer?.cancel();
+  tickTimer = null;
+}
+
+async function advanceTick($: EngineInterface): Promise<void> {
+  try {
+    const now = await $.clock.now();
+    await update($, nowAtom, () => now);
+    await update($, tickAtom, (tick) => (tick ?? 0) + 1);
+  } catch {
+    stopTick();
+  }
+}
+
+async function syncTick($: EngineInterface): Promise<void> {
+  try {
+    if (!(await drawsLive($))) {
+      stopTick();
+      return;
+    }
+    if (!tickTimer) tickTimer = $.clock.every(TICK_MS, () => void advanceTick($));
+  } catch {
+    stopTick();
+  }
+}
+
+async function toggleLedger($: EngineInterface): Promise<void> {
+  if ((await read($, paneOpenAtom)) === true) {
+    await update($, paneOpenAtom, () => false);
+    await $.ui.close({ id: PANE_ID });
+    return;
+  }
+  await showLedger($, DEFAULT_PANE_TAB);
+}
+
+async function showLedger($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
+  await update($, paneTabAtom, () => tab);
+  await update($, paneOpenAtom, () => true);
+  await $.ui.open({ id: PANE_ID, title: PANE_TITLE });
+}
+
+function desktopActions($: EngineInterface): BandActions {
+  const act = (work: () => Promise<void>) => () =>
+    void work()
+      .then(() => syncTick($))
+      .catch(() => syncTick($));
+  const closing = (open: boolean) => update($, closingAtom, () => open);
+  return {
+    ledger: act(() => toggleLedger($)),
+    flags: act(() => showLedger($, DEFAULT_PANE_TAB)),
+    minimise: act(async () => {
+      await closing(false);
+      await setMinimised($, true);
+    }),
+    expand: act(() => setMinimised($, false)),
+    close: act(() => update($, closingAtom, (open) => open !== true)),
+    closeNow: act(async () => {
+      await closing(false);
+      await update($, closedAtom, () => true);
+    }),
+    hideAlways: act(async () => {
+      await closing(false);
+      await setHidden($, true);
+    }),
+    cancel: act(() => closing(false)),
+    show: act(() => showBand($, true)),
+  };
+}
+
 function drawSegment($: EngineInterface, ui: UiElements, segment: BandSegment, index: number) {
   const { Text, Button } = ui;
   const tab = segment.opens;
@@ -698,6 +826,8 @@ export const register: Register = (on) => {
     ticker = null;
     heartbeat?.cancel();
     heartbeat = null;
+    stopTick();
+    desktopSession = (e as { surface?: unknown }).surface === 'desktop';
     setCommandName(COMMAND_NAMES[0]);
     let status: Awaited<ReturnType<typeof readStatus>> | null = null;
     try {
@@ -721,6 +851,7 @@ export const register: Register = (on) => {
     if (live) {
       turnStartedAt = await $.clock.now();
       startTicker($);
+      await syncTick($);
     }
     await beat($);
     const result = await next(e);
@@ -774,6 +905,21 @@ export const register: Register = (on) => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     const status = await read($, statusAtom);
     if (!status?.on || e.props.hasSurvey) return next(e);
+    if (e.surface === 'desktop') {
+      const band = await desktopBandOf($, {
+        columns: e.props.bodyColumns,
+        maxRows: e.props.maxRows,
+      });
+      const engine = await next(e);
+      const ui = $.ui.resolve(e) as Elements['desktop'];
+      const { Box } = ui;
+      return (
+        <Box flexDirection="column">
+          {drawDesktopBand(ui, band, (await read($, tickAtom)) ?? 0, desktopActions($))}
+          {isBlank(engine) ? null : (engine as RenderElement)}
+        </Box>
+      );
+    }
     const layout = layoutBand(
       await read($, snapshotAtom),
       { columns: e.props.bodyColumns, maxRows: e.props.maxRows },

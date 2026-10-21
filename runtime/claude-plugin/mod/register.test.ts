@@ -45,6 +45,7 @@ import {
 } from './test/world';
 
 const SURFACES = ['terminal', 'desktop'] as const;
+const TERMINAL = ['terminal'] as const;
 const PLUGIN = 'paqad';
 const STATES = Object.keys(STATE_FIXTURES) as Array<keyof typeof STATE_FIXTURES>;
 
@@ -89,7 +90,7 @@ const BORDER: Record<string, string | null | undefined> = {
 };
 
 describe('the band is one card in the tone of its state (AC-41, FR-31)', () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     for (const state of STATES) {
       test(`${state} on ${surface}`, async ($, on) => {
         worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(STATE_FIXTURES[state]) } });
@@ -111,7 +112,7 @@ describe('the band is one card in the tone of its state (AC-41, FR-31)', () => {
 });
 
 describe('the band on each fixture change (AC-40, AC-42)', () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     test(`the surface accepts every fixture's band on ${surface}`, async ($, on) => {
       const world = worldOf(on, { files: { ...ONBOARDED } });
       mock.clock(on, { now: NOW });
@@ -210,7 +211,9 @@ describe('the band on each fixture change (AC-40, AC-42)', () => {
       expect(text).toContain('HUD data unavailable');
       expect(text).not.toContain('Safe to merge');
     });
+  }
 
+  for (const surface of SURFACES) {
     test(`a survey holds the band: paqad draws nothing of its own on ${surface} (AC-44)`, async ($, on) => {
       const survey = { type: 'Text', props: {}, children: [ENGINE_BAND] } as RenderElement;
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) }, band: survey });
@@ -268,12 +271,14 @@ describe('the ship rail on each surface (FR-35, FR-36, AC-44, AC-45)', () => {
     const terminal = await $.ui.render(band('terminal', { bodyColumns: 120 }));
     expect(elementsOf(terminal, 'Svg')).toEqual([]);
     expect(textOf(terminal)).toContain('All green · merge is yours');
-    const desktop = await $.ui.render(band('desktop', { bodyColumns: 120 }));
+    const desktop = await $.ui.render(band('desktop', { bodyColumns: 93 }));
     const svgs = elementsOf(desktop, 'Svg');
     expect(svgs).toHaveLength(1);
-    expect((svgs[0] as { props: { alt?: string } }).props.alt).toBe(
-      'Ship: Edit done, Commit done, Push done, PR done, CI 6 of 6 green, Merge ready, yours to merge.',
-    );
+    const props = (svgs[0] as { props: { alt?: string; width?: unknown; height?: unknown } })
+      .props;
+    expect(props.alt).toMatch(/ is ready for your merge\. Stage .*Delivery Merge is yours\.$/);
+    expect(props.width).toBeUndefined();
+    expect(props.height).toBeUndefined();
   });
 
   test('the all-green toast fires once per change and head across rebuilds and re-renders', async ($, on) => {
@@ -308,7 +313,7 @@ const QUESTION = {
 };
 
 describe('other workflows get one status entry and no band (FR-44, AC-40)', () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     test(`a question shows one row with its tokens, and the running time while a turn is in flight, on ${surface}`, async ($, on) => {
       const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
       const clock = mock.clock(on, { now: NOW });
@@ -336,7 +341,9 @@ describe('other workflows get one status entry and no band (FR-44, AC-40)', () =
       expect(world.opened.at(-1)).toBe('paqad');
       await mounted.unmount();
     });
+  }
 
+  for (const surface of SURFACES) {
     test(`no workflow draws nothing at all on ${surface}`, async ($, on) => {
       worldOf(on, {
         files: { ...ONBOARDED, [SNAPSHOT]: fileText({ ...QUESTION, route: 'no-workflow' }) },
@@ -361,7 +368,7 @@ async function mountBand(
 }
 
 describe('minimise, close and hide (FR-46 to FR-52, AC-33 to AC-36, AC-47)', () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     test(`minimise keeps one line across sessions and restore brings the card back on ${surface}`, async ($, on) => {
       const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
       mock.clock(on, { now: NOW });
@@ -515,6 +522,7 @@ describe('the paqad Ledger (FR-54 to FR-58, AC-32, AC-37 to AC-39)', () => {
       expect(world.opened).toEqual(['paqad']);
     });
 
+    if (surface === 'terminal') {
     test(`AC-32: the brand and the Proof Button open the Ledger on Trust, and High Table names who shaped the spec, on ${surface}`, async ($, on) => {
       const store = new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]);
       const raw = {
@@ -563,6 +571,7 @@ describe('the paqad Ledger (FR-54 to FR-58, AC-32, AC-37 to AC-39)', () => {
       expect(world.opened).toEqual(['paqad', 'paqad', 'paqad']);
       expect(world.closedPanes).toEqual(['paqad', 'paqad']);
     });
+    }
 
     test(`AC-37: auto-opens once per change, never again across sessions, and keeps 50 changes at most on ${surface}`, async ($, on) => {
       const old = Array.from({ length: 50 }, (_, index) => `dir-${index}`);
@@ -585,6 +594,252 @@ describe('the paqad Ledger (FR-54 to FR-58, AC-32, AC-37 to AC-39)', () => {
       expect(world.opened).toEqual(['paqad']);
     });
   }
+});
+
+const DESKTOP_START = { ...START, surface: 'desktop' as const };
+
+function everyElement(node: RenderNode | null | undefined): RenderElement[] {
+  if (node === null || node === undefined || typeof node === 'string') return [];
+  const children = (node as { children?: readonly RenderNode[] }).children ?? [];
+  return [node as RenderElement, ...children.flatMap(everyElement)];
+}
+
+const propsOf = (node: RenderElement): Record<string, unknown> =>
+  (node as { props?: Record<string, unknown> }).props ?? {};
+
+const keyOf = (node: RenderElement): unknown =>
+  (node as { key?: unknown }).key ?? propsOf(node).key;
+
+function lightOf(node: RenderNode): unknown {
+  const dot = everyElement(node).find(
+    (element) =>
+      element.type === 'Text' &&
+      ((element as { children?: readonly RenderNode[] }).children ?? []).every(
+        (child) => typeof child === 'string',
+      ) &&
+      stringsOf(element).join('').startsWith('●'),
+  );
+  return dot ? propsOf(dot).color : undefined;
+}
+
+const buttonKeys = (node: RenderNode): unknown[] =>
+  everyElement(node)
+    .filter((element) => element.type === 'Button')
+    .map(keyOf);
+
+async function mountDesktop(
+  $: Parameters<Parameters<typeof test>[1]>[0],
+  props: Partial<Parameters<typeof band>[1]> = {},
+) {
+  return $.ui.mount({
+    plugin: PLUGIN,
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: band('desktop', props).props,
+  });
+}
+
+const QUIET_501 = {
+  ...FULL_ORD_501_COST,
+  change: { ...(FULL_ORD_501_COST.change as object), dir: 'dir-ord-501' },
+};
+const QUIET_STORE = () => new Map<string, unknown>([['ledger.autoOpened', ['dir-ord-501']]]);
+
+describe('the Desktop band', () => {
+  test('AC-7, AC-9: draws the card with its identity, headline and strip, and no hotkey, label, border or tint', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop', { bodyColumns: 93 }));
+    const text = textOf(drawn);
+    expect(text).toStartWith(
+      'paqad   Feature development  ·  Full lane  ·  ORD-501  ·  1.3M tokens · ~$4.60',
+    );
+    expect(text).toContain('Safe to merge');
+    const elements = everyElement(drawn);
+    const svgs = elements.filter((element) => element.type === 'Svg');
+    expect(svgs).toHaveLength(1);
+    expect(String(propsOf(svgs[0]!).alt)).toStartWith('Safe to merge');
+    expect(propsOf(svgs[0]!).width).toBeUndefined();
+    expect(propsOf(svgs[0]!).isInteractive).toBeUndefined();
+    expect(buttonKeys(drawn)).toEqual([
+      'paqad-flags',
+      'paqad-ledger',
+      'paqad-minimise',
+      'paqad-close',
+    ]);
+    for (const element of elements) {
+      const props = propsOf(element);
+      expect(props.hotkey).toBeUndefined();
+      expect(props.role).toBeUndefined();
+      expect(props.borderStyle).toBeUndefined();
+      expect(props.backgroundColor).toBeUndefined();
+    }
+  });
+
+  test('AC-5: an unreadable record says so in coral and never reads idle', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: '{"schema":"paqad.hud/3","headl' } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    expect(textOf(drawn)).toBe("paqad● paqad cannot read this session's record");
+    expect(lightOf(drawn)).toBe('#F37748');
+  });
+
+  test('AC-5: a session id that cannot be read says the same', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) }, sessionId: null });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain(
+      "paqad cannot read this session's record",
+    );
+  });
+
+  test('draws Ready before the first snapshot, and Getting ready on the feature route with no change', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    expect(textOf(await $.ui.render(band('desktop')))).toBe('paqad   Ready');
+    world.put(SNAPSHOT, fileText(snapshot({ route: 'feature-development' })));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    const ready = await $.ui.render(band('desktop'));
+    expect(textOf(ready)).toContain('Getting ready');
+    expect(lightOf(ready)).toBe('#8E979D');
+  });
+
+  test('AC-13: the close menu opens inline; Cancel, Close for now, Show and Hide always do what they say', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const mounted = await mountDesktop($);
+    expect(await mounted.find({ key: 'paqad-close-now' })).toBeUndefined();
+    await mounted.press({ key: 'paqad-close' });
+    expect(await mounted.find({ key: 'paqad-close-now' })).toBeDefined();
+    expect(textOf(await $.ui.render(band('desktop')))).toContain(
+      'Close the paqad band?Close for nowHide alwaysCancel',
+    );
+    await mounted.press({ key: 'paqad-close-cancel' });
+    expect(await mounted.find({ key: 'paqad-close-now' })).toBeUndefined();
+    await mounted.press({ key: 'paqad-close' });
+    await mounted.press({ key: 'paqad-close-now' });
+    expect(textOf(await $.ui.render(band('desktop')))).toBe('paqad   Closed for this sessionShow');
+    expect(world.asked).toEqual([]);
+    await mounted.press({ key: 'paqad-show' });
+    expect(await mounted.find({ key: 'paqad-minimise' })).toBeDefined();
+    await mounted.press({ key: 'paqad-close' });
+    await mounted.press({ key: 'paqad-close-always' });
+    await mounted.unmount();
+    expect(world.store.get('band.hidden:/work')).toBe(true);
+    expect(textOf(await $.ui.render(band('desktop')))).toBe('paqad   HiddenShow');
+  });
+
+  test('AC-14: minimise draws one row with the expand glyph, and expand brings the card back', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const mounted = await mountDesktop($);
+    await mounted.press({ key: 'paqad-minimise' });
+    expect(world.store.get('band.minimised')).toBe(true);
+    expect(await mounted.find({ key: 'paqad-expand' })).toBeDefined();
+    const row = await $.ui.render(band('desktop'));
+    expect(textOf(row)).toStartWith('paqad   Feature development   ● Build · 2:00');
+    expect(buttonKeys(row)).toEqual(['paqad-ledger', 'paqad-expand', 'paqad-close']);
+    await mounted.press({ key: 'paqad-expand' });
+    await mounted.unmount();
+    expect(world.store.has('band.minimised')).toBe(false);
+  });
+
+  test('AC-14: a closed band with a decision waiting reads Needs you in coral', async ($, on) => {
+    const store = new Map<string, unknown>([['band.hidden:/work', true]]);
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) }, store });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    expect(textOf(drawn)).toBe('paqad   ● Needs youShow');
+    expect(colorOf(textElement(drawn, '   ● Needs you'))).toBe('#F37748');
+  });
+
+  test('AC-16: the card needs 5 rows, 6 with the menu, and falls back to the minimised row', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const keys = async (maxRows: number) => buttonKeys(await $.ui.render(band('desktop', { maxRows })));
+    expect(await keys(4)).toContain('paqad-expand');
+    expect(await keys(5)).toContain('paqad-minimise');
+    const mounted = await mountDesktop($);
+    await mounted.press({ key: 'paqad-close' });
+    await mounted.unmount();
+    const menu = await keys(5);
+    expect(menu).toContain('paqad-expand');
+    expect(menu).toContain('paqad-close-now');
+    expect(await keys(6)).toContain('paqad-minimise');
+  });
+
+  test('the Ledger Button toggles the Ledger and the flags open it on Trust', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    expect(world.opened).toEqual([]);
+    const mounted = await mountDesktop($);
+    await mounted.press({ key: 'paqad-ledger' });
+    expect(world.opened).toEqual(['paqad']);
+    await mounted.press({ key: 'paqad-ledger' });
+    expect(world.closedPanes).toEqual(['paqad']);
+    await mounted.press({ key: 'paqad-flags' });
+    await mounted.unmount();
+    expect(world.opened).toEqual(['paqad', 'paqad']);
+    expect(drawnLines(await $.ui.render(pane('terminal')))).toContain('Trust (shown)');
+  });
+
+  test('AC-15: another workflow gets one row with its cost, running while a turn is in flight', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUESTION) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const idle = await $.ui.render(band('desktop'));
+    expect(textOf(idle)).toBe('paqad   Question   ● idle84K tokens · ~$0.05Ledger');
+    expect(everyElement(idle).some((element) => element.type === 'Svg')).toBe(false);
+    await $.prompt.submit({ text: 'what is this?' } as never);
+    await clock.advance(42_000);
+    await clock.settle();
+    const running = await $.ui.render(band('desktop'));
+    expect(textOf(running)).toContain('Question   ● running · 0:42');
+    expect(lightOf(running)).toMatch(/^#F90093[0-9A-F]{2}$/);
+    await $.turn.complete({ text: '' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('● idle');
+    const mounted = await mountDesktop($);
+    await mounted.press({ key: 'paqad-workflow-ledger' });
+    await mounted.unmount();
+    expect(world.opened.at(-1)).toBe('paqad');
+  });
+
+  test('AC-25: the live light breathes on the 400 ms tick and the clock follows it; a settled light stays still', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    const clock = mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const first = lightOf(await $.ui.render(band('desktop')));
+    await clock.advance(400);
+    await clock.settle();
+    const second = lightOf(await $.ui.render(band('desktop')));
+    expect(first).toMatch(/^#F90093[0-9A-F]{2}$/);
+    expect(second).toMatch(/^#F90093[0-9A-F]{2}$/);
+    expect(second).not.toBe(first);
+    await clock.advance(1_000);
+    await clock.settle();
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Building    2:01');
+    world.put(SNAPSHOT, fileText(SAFE_CLEAN));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    const settled = lightOf(await $.ui.render(band('desktop')));
+    expect(settled).toBe('#2F8F6B');
+    await clock.advance(800);
+    await clock.settle();
+    expect(lightOf(await $.ui.render(band('desktop')))).toBe(settled);
+  });
 });
 
 describe('the band fits its box (AC-30, AC-43)', () => {
@@ -781,6 +1036,7 @@ describe('/paqad answers from the snapshot, with no model turn (AC-39)', () => {
 
 describe('the cost pill and the Cost tab (Part 23, AC-50, AC-53, AC-55)', () => {
   for (const surface of SURFACES) {
+    if (surface === 'terminal')
     test(`the pill shows a dated estimate and opens the pane on the Cost tab on ${surface}`, async ($, on) => {
       const world = worldOf(on, {
         files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501_COST) },
@@ -957,7 +1213,7 @@ function seatStates(lines: string[]): Record<string, string> {
 }
 
 describe('the High Table in the band (AC-56, AC-57)', () => {
-  for (const surface of SURFACES) {
+  for (const surface of TERMINAL) {
     test(`AC-56: the instrument on ORD-482 and ORD-501, never on ORD-490 or with the experts off, on ${surface}`, async ($, on) => {
       const world = worldOf(on, { files: { ...ONBOARDED } });
       mock.clock(on, { now: NOW });
@@ -1289,6 +1545,7 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
       }
     });
 
+    if (surface === 'terminal')
     test(`AC-61: ORD-482's four seats write in parallel, tokens land with each note, then only dots on ${surface}`, async ($, on) => {
       const world = worldOf(on, {
         files: { ...ONBOARDED, [SNAPSHOT]: fileText(ORD_482_SEQUENCE[0]!) },

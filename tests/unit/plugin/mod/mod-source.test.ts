@@ -34,6 +34,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
         'commands.ts',
         'config.ts',
         'cost.ts',
+        'desktop-band.tsx',
         'desktop-view.ts',
         'instruments.ts',
         'model.ts',
