@@ -111,7 +111,7 @@ describe('the Trust tab', () => {
     expect(lines).toContain('  flag 1 near-copy of existing code is open.');
   });
 
-  it('AC-31: shows each proof state with its one fixed label, and none and not-reproduced read Inconclusive', () => {
+  it('shows each proof state with its one fixed label, and none and not-reproduced read Inconclusive', () => {
     const states: Array<[string, string, string]> = [
       ['none', 'no proof recorded', 'Inconclusive'],
       ['red', 'fails before the fix, no green yet', 'Inconclusive'],
@@ -198,7 +198,7 @@ describe('the Record tab', () => {
   });
 });
 
-describe('which tab the Ledger opens on (FR-55, AC-39)', () => {
+describe('which tab the Ledger opens on', () => {
   const verdictLanded = parse({ ...FULL_ORD_501 });
 
   it('opens on Trust when nobody picked a tab', () => {
@@ -251,7 +251,7 @@ describe('/paqad trust, ships and record', () => {
   });
 });
 
-describe('the Record timeline (FR-61, AC-48)', () => {
+describe('the Record timeline', () => {
   it('lists the change rows in words, with an abandoned close and its note', () => {
     const lines = text(
       recordLines(

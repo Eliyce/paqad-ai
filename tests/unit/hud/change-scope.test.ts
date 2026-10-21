@@ -79,7 +79,7 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S).dir).toBeNull();
   });
 
-  it('reads other-branch for a change recorded on another branch (AC-2)', () => {
+  it('reads other-branch for a change recorded on another branch', () => {
     const root = repoRoot();
     checkout(root, 'feat/a', true);
     openChangeHere(root, S);
@@ -146,7 +146,7 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S)).toEqual({ dir, reason: 'qualified' });
   });
 
-  it('goes from idle to the card on the first row and back to idle on a branch switch (AC-29)', () => {
+  it('goes from idle to the card on the first row and back to idle on a branch switch', () => {
     const root = repoRoot();
     checkout(root, 'feat/a', true);
     openChangeHere(root, S, 'ORD-1 scoped change', 'full', new Date(PAST));
@@ -160,7 +160,7 @@ describe('qualifyHudChange', () => {
 });
 
 describe('an unqualified snapshot carries no change story', () => {
-  it('a question-only session over an old unclosed change shows nothing of it (AC-1)', () => {
+  it('a question-only session over an old unclosed change shows nothing of it', () => {
     const root = repoRoot();
     const dir = openChangeHere(root, S);
     runStage(root, S, 'development');
@@ -206,7 +206,7 @@ describe('verdict freshness', () => {
     return { root, dir };
   }
 
-  it('hides a verdict written before the latest edit (AC-4)', () => {
+  it('hides a verdict written before the latest edit', () => {
     const { root } = qualifiedWithEdit();
     writeVerdict(root, S, 'pass', new Date(PAST));
     const snapshot = buildHudSnapshot(root, S);
@@ -214,7 +214,7 @@ describe('verdict freshness', () => {
     expect(snapshot.headline.text).not.toContain('Safe to merge');
   });
 
-  it('shows a verdict written exactly at the latest edit and hides one a millisecond earlier (AC-5)', () => {
+  it('shows a verdict written exactly at the latest edit and hides one a millisecond earlier', () => {
     const { root, dir } = qualifiedWithEdit();
     const editedAt = latestEditAt(root, dir)!;
     writeVerdict(root, S, 'pass', new Date(editedAt));
@@ -225,7 +225,7 @@ describe('verdict freshness', () => {
     expect(stale.headline.text).not.toContain('Safe to merge');
   });
 
-  it('hides a verdict of another change and a legacy verdict without a change (AC-5)', () => {
+  it('hides a verdict of another change and a legacy verdict without a change', () => {
     const { root } = qualifiedWithEdit();
     writeVerdict(root, S, 'pass', later());
     const path = hudVerdictPath(root, S);
@@ -251,7 +251,7 @@ describe('verdict freshness', () => {
   });
 });
 
-describe('gates are judged only after their stage ended (AC-16)', () => {
+describe('gates are judged only after their stage ended', () => {
   it('reads not-judged with no stage_end and raises no flag from it', () => {
     const root = repoRoot();
     const dir = openChangeHere(root, S);
@@ -309,7 +309,7 @@ describe('gates are judged only after their stage ended (AC-16)', () => {
   });
 });
 
-describe('decisions belong to this change only (AC-21)', () => {
+describe('decisions belong to this change only', () => {
   it('keeps only packets stamped with this change', () => {
     const root = repoRoot();
     const dir = openChangeHere(root, S);
@@ -344,7 +344,7 @@ describe('decisions belong to this change only (AC-21)', () => {
   });
 });
 
-describe('the HUD reads saved files only (AC-49)', () => {
+describe('the HUD reads saved files only', () => {
   it('neither the snapshot builder nor the mod imports a child-process or network module or calls gh', () => {
     const sources = [
       ...readdirSync('src/hud').map((name) => join('src/hud', name)),

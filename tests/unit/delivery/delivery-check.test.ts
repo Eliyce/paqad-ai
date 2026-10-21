@@ -382,7 +382,7 @@ describe('the Stop delivery check saves what ships', () => {
     });
   });
 
-  it('saves the PR state and head commit gh already reports (FR-8)', async () => {
+  it('saves the PR state and head commit gh already reports', async () => {
     const dir = branchChange();
     const gh = ok(
       JSON.stringify({
@@ -409,7 +409,7 @@ describe('the Stop delivery check saves what ships', () => {
     expect(readPrState(undefined)).toBeNull();
   });
 
-  it('AC-7: a failed gh pr view leaves pr.state null and throws nothing', async () => {
+  it('a failed gh pr view leaves pr.state null and throws nothing', async () => {
     const dir = branchChange();
     await expect(
       runDeliveryCapability(root, 'completion', runner({ branch: ok('feat/x'), gh: fail })),
@@ -423,7 +423,7 @@ describe('the Stop delivery check saves what ships', () => {
     expect(noState.pr?.state).toBeNull();
   });
 
-  it('AC-13: keeps every job of both rollup shapes, counting only finished ones as done', () => {
+  it('keeps every job of both rollup shapes, counting only finished ones as done', () => {
     const reading = readRollup([
       {
         __typename: 'CheckRun',
@@ -488,7 +488,7 @@ describe('the Stop delivery check saves what ships', () => {
     expect(readFeatureDelivery(root, dir).pr ?? null).toBeNull();
   });
 
-  it('AC-33: keeps a recorded pass when gh later signs out for the same commit', async () => {
+  it('keeps a recorded pass when gh later signs out for the same commit', async () => {
     const dir = branchChange();
     recordShip(
       root,
@@ -527,7 +527,7 @@ describe('the Stop delivery check saves what ships', () => {
     ],
     ['timing out', { stdout: '', exitCode: 1, timedOut: true }, 'gh timed out after 10 s'],
   ] as const)(
-    'AC-33: gh %s records CI unknown with the reason and leaves the Stop outcome unchanged',
+    'gh %s records CI unknown with the reason and leaves the Stop outcome unchanged',
     async (_name, gh, reason) => {
       const dir = branchChange();
       const baseline = await runDeliveryCapability(

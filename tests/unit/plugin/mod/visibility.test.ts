@@ -53,7 +53,7 @@ const layout = (
     ),
   );
 
-describe('the visibility state (FR-46 to FR-49)', () => {
+describe('the visibility state', () => {
   it('reads one precedence: hidden beats closed, closed beats minimised', () => {
     const at = (minimised: boolean, closed: boolean, hidden: boolean) =>
       visibilityMode(readBandVisibility({ minimised, hidden }, closed));
@@ -83,7 +83,7 @@ describe('the visibility state (FR-46 to FR-49)', () => {
     expect(needsYou(null)).toBe(false);
   });
 
-  it('asks the close question in the spec words, with a header that fits the ask limit (FR-47)', () => {
+  it('asks the close question in the spec words, with a header that fits the ask limit', () => {
     expect(CLOSE_HEADER.length).toBeLessThanOrEqual(12);
     expect(closeQuestion()).toBe(
       'Close the paqad band? Close for now: Comes back in your next session. Hide always: Stays hidden until you click paqad under the prompt or run /paqad show.',
@@ -91,7 +91,7 @@ describe('the visibility state (FR-46 to FR-49)', () => {
   });
 });
 
-describe('the minimised line (FR-46, FR-53, AC-46)', () => {
+describe('the minimised line', () => {
   it('carries the stage bar, the clock, the table, the ship step, flags and tokens', () => {
     expect(lineAt(FAST_ORD_490, 120)).toBe(
       'paqad ORD-490 Working ○●–▸○○○○ Build · 2:00 editing + Restore × Close',
@@ -118,7 +118,7 @@ describe('the minimised line (FR-46, FR-53, AC-46)', () => {
   });
 });
 
-describe('closed, hidden and needs you (FR-47, FR-50, AC-36)', () => {
+describe('closed, hidden and needs you', () => {
   it('replaces the band with a one-line entry that says how to bring it back', () => {
     expect(layout(FULL_ORD_501, { minimised: false, closed: true, hidden: false })).toEqual([
       `paqad · Safe to merge ▸  ${closedHint()}`,

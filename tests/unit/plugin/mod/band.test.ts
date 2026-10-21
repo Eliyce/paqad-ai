@@ -37,7 +37,7 @@ import { ticketRef } from '../../../shared/ticket-ref.js';
 
 import { bandLines, bandOf, layoutLines } from './band-text.ts';
 
-describe('the band shell (FR-30, FR-31)', () => {
+describe('the band shell', () => {
   it('draws one card: brand, change chip, headline, then the chips, Proof, minimise and close', () => {
     const band = bandOf(FULL_ORD_501);
     expect(band.kind).toBe('card');
@@ -78,7 +78,7 @@ describe('the band shell (FR-30, FR-31)', () => {
     expect(changeChip(null)).toBeNull();
   });
 
-  it('idles with only the header, minimise and close when no change qualifies (FR-4, FR-39)', () => {
+  it('idles with only the header, minimise and close when no change qualifies', () => {
     const idle = ['paqad  Getting ready | – Minimise  × Close'];
     expect(bandLines(null)).toEqual(idle);
     expect(
@@ -89,7 +89,7 @@ describe('the band shell (FR-30, FR-31)', () => {
     expect(bandLines(PAUSED)).toEqual(['paqad · question · counting']);
   });
 
-  it('labels each control in words and gives it a hotkey (FR-52, AC-47)', () => {
+  it('labels each control in words and gives it a hotkey', () => {
     for (const action of ['minimise', 'restore', 'close'] as const) {
       const control = controlSegment(action);
       expect(control.text).toMatch(/^[–+×] [A-Z][a-z]+$/);
@@ -98,12 +98,12 @@ describe('the band shell (FR-30, FR-31)', () => {
     }
   });
 
-  it('registers only the feature-development body, and the shell holds no body code (INV-8)', () => {
+  it('registers only the feature-development body, and the shell holds no body code', () => {
     expect(Object.keys(BAND_BODIES)).toEqual(['feature-development']);
   });
 });
 
-describe('the instruments lay out by width (FR-38, AC-30)', () => {
+describe('the instruments lay out by width', () => {
   it('sits in one row at 110 columns and more, and stacks below', () => {
     for (const columns of [120, 110]) {
       const band = bandOf(FULL_ORD_501, columns, 12);
@@ -127,9 +127,7 @@ describe('the instruments lay out by width (FR-38, AC-30)', () => {
     expect(layoutLines(line)).toEqual([
       'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag + Restore × Close',
     ]);
-    expect(layoutLines(bandOf(null, 120, 2))).toEqual([
-      'paqad · Getting ready + Restore × Close',
-    ]);
+    expect(layoutLines(bandOf(null, 120, 2))).toEqual(['paqad · Getting ready + Restore × Close']);
     expect(layoutLines(bandOf(FULL_ORD_501, 20, 5))[0]).toBe(
       'paqad ORD-501 Safe to merge 1 flag + Restore × Close',
     );
@@ -176,7 +174,7 @@ describe('the instruments lay out by width (FR-38, AC-30)', () => {
   });
 });
 
-describe('partial and broken data (FR-40, FR-41, AC-42, AC-43)', () => {
+describe('partial and broken data', () => {
   it('keeps each instrument with a neutral mark when a qualified change has no gates or split', () => {
     const raw = {
       ...FULL_ORD_501_COST,
@@ -210,7 +208,7 @@ describe('partial and broken data (FR-40, FR-41, AC-42, AC-43)', () => {
   });
 });
 
-describe('the STAGE instrument (FR-33)', () => {
+describe('the STAGE instrument', () => {
   it('draws eight labelled cells with marks and the running stage clock', () => {
     const lines = bandLines(FAST_ORD_490);
     expect(lines.slice(1, 4)).toEqual([
@@ -242,7 +240,7 @@ describe('the STAGE instrument (FR-33)', () => {
   });
 });
 
-describe('the terminal band fits its box (AC-43)', () => {
+describe('AC-30: the terminal band fits its box', () => {
   it('never draws an em dash', () => {
     for (const raw of [...Object.values(STATE_FIXTURES), EXPERTS_OFF, null]) {
       expect(bandLines(raw).join('\n')).not.toContain('—');

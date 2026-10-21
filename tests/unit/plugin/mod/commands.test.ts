@@ -147,7 +147,7 @@ describe('/paqad while the mod stands down', () => {
   });
 });
 
-describe('/paqad answers (AC-39)', () => {
+describe('/paqad answers', () => {
   it('gives the overview with no subcommand', () => {
     expect(run('', FULL_ORD_501)).toBe(
       [
@@ -212,7 +212,7 @@ describe('/paqad answers (AC-39)', () => {
     );
   });
 
-  it('AC-21: lists every pending packet in the repo, labelled in this repo, when the mod read them', () => {
+  it('lists every pending packet in the repo, labelled in this repo, when the mod read them', () => {
     const repo = [
       readRepoDecision(
         'D-A.json',
@@ -277,7 +277,7 @@ describe('/paqad answers (AC-39)', () => {
     expect(run('receipt', null)).toBe('No receipt yet. paqad writes one at the end of each turn.');
   });
 
-  it('says cost is not yet counted until a hook wrote it (Part 23)', () => {
+  it('says cost is not yet counted until a hook wrote it', () => {
     expect(run('cost', FULL_ORD_501)).toBe(
       'Cost: not yet. paqad counts it from the transcripts at the end of each turn.',
     );

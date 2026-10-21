@@ -448,7 +448,7 @@ describe('buildHudSnapshot', () => {
     });
   });
 
-  it('AC-31: shows one fixed fix-proof claim per proof state, passed only for red then green', () => {
+  it('shows one fixed fix-proof claim per proof state, passed only for red then green', () => {
     const root = onboardedRoot();
     const S = 'ses-claims';
     const dir = openChange(root, S, 'fast', 'PQD-4 fix');
@@ -584,7 +584,7 @@ describe('findings kept in the bundle', () => {
     expect(scan.items!.length + scan.overflow).toBe(scan.total);
   }
 
-  it('names a rule finding and a near-copy in the snapshot, each raising a flag (AC-26, AC-27)', () => {
+  it('names a rule finding and a near-copy in the snapshot, each raising a flag', () => {
     const root = onboardedRoot();
     const S = 'ses-482-findings';
     openChange(root, S, 'graduated', 'ORD-482 keep copied phone');
@@ -629,7 +629,7 @@ describe('findings kept in the bundle', () => {
     expectCountsMatchFindings(snapshot.findings!.near_copies);
   });
 
-  it('shows the cap and the overflow, and the count only in a flag (AC-28, AC-29)', () => {
+  it('shows the cap and the overflow, and the count only in a flag', () => {
     const root = onboardedRoot();
     const S = 'ses-501-findings';
     openChange(root, S, 'full', 'ORD-501 loyalty points');
@@ -660,7 +660,7 @@ describe('findings kept in the bundle', () => {
     expectCountsMatchFindings(snapshot.findings!.near_copies);
   });
 
-  it('reads "did not run" for a scan with no row, never clean (Gate 3, AC-30)', () => {
+  it('reads "did not run" for a scan with no row, never clean', () => {
     const root = onboardedRoot();
     const S = 'ses-490-findings';
     openChange(root, S, 'fast', 'ORD-490 copy fix');
@@ -873,7 +873,7 @@ describe('ship honesty', () => {
     at,
   };
 
-  it('AC-6: a merge commit on main never lights Merge; only a merged PR does', () => {
+  it('a merge commit on main never lights Merge; only a merged PR does', () => {
     expect(shipOn({ merge_commit: 'release-sha', pr: openPr }).merged).toBe(false);
     expect(shipOn({ merge_commit: 'release-sha', pr: { ...openPr, state: null } }).merged).toBe(
       false,
@@ -885,7 +885,7 @@ describe('ship honesty', () => {
     });
   });
 
-  it('AC-11: a PR whose head is not one of this change commits is not shown', () => {
+  it('a PR whose head is not one of this change commits is not shown', () => {
     const ship = shipOn({ pr: { ...openPr, head_sha: 'someone-else', state: 'merged' } });
     expect(ship).toMatchObject({ pr: null, pr_state: null, merged: false });
     expect(shipOn({ pr: { ...openPr, head_sha: null } }).pr).toBeNull();
@@ -924,7 +924,7 @@ describe('ship honesty', () => {
     });
   });
 
-  it('AC-12: a PR closed without merging keeps Merge dark', () => {
+  it('a PR closed without merging keeps Merge dark', () => {
     expect(shipOn({ pr: { ...openPr, state: 'closed' } })).toMatchObject({
       pr_state: 'closed',
       merged: false,
@@ -932,7 +932,7 @@ describe('ship honesty', () => {
     });
   });
 
-  it('AC-15: a pass read against an older head reads pending, never all green', () => {
+  it('a pass read against an older head reads pending, never all green', () => {
     const ci = {
       sha: 'older-head',
       state: 'pass' as const,
@@ -976,7 +976,7 @@ describe('ship honesty', () => {
     expect(shipOn({ commit_split: null }).commits).toBe(0);
   });
 
-  it('AC-10: a commit already on the branch at change start is listed, never counted', () => {
+  it('a commit already on the branch at change start is listed, never counted', () => {
     const root = repoRoot();
     checkout(root, 'feat/inherit', true);
     const before = commit(root, 'before.txt', 'chore: already here');
@@ -1341,7 +1341,7 @@ describe('the live High Table on the snapshot', () => {
     ]);
   });
 
-  it('AC-44: a done row after the freeze flags the table late, marks that seat, and credits no spec line', () => {
+  it('a done row after the freeze flags the table late, marks that seat, and credits no spec line', () => {
     const root = onboardedRoot();
     const S = 'ses-table-late';
     const dir = openChange(root, S, 'full', 'ORD-501 late table');
@@ -1421,7 +1421,7 @@ describe('the live High Table on the snapshot', () => {
     });
   }
 
-  it('Part 14: each seat carries its track record from the OTHER bundles, null with no history', () => {
+  it('each seat carries its track record from the OTHER bundles, null with no history', () => {
     const root = onboardedRoot();
     const S = 'ses-table-record';
     const dir = openChange(root, S, 'full', 'ORD-501 csv export');
@@ -1460,7 +1460,7 @@ describe('the live High Table on the snapshot', () => {
     expect(table.chief).toBeNull();
   });
 
-  it('Part 14: the active change never counts toward its own track record', () => {
+  it('the active change never counts toward its own track record', () => {
     const root = onboardedRoot();
     const S = 'ses-table-record-self';
     const dir = openChange(root, S, 'full', 'ORD-501 csv export');

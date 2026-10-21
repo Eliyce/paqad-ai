@@ -614,7 +614,7 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
     }
   });
 
-  it('INV-3: a fault in the abandoned close keeps exit 0 and empty stdout, and is logged', () => {
+  it('a fault in the abandoned close keeps exit 0 and empty stdout, and is logged', () => {
     const { projectRoot, dir } = abandonedFixture();
     const ledger = join(projectRoot, '.paqad/ledger/feature-evidence', dir, 'stage-evidence.jsonl');
     try {
@@ -695,7 +695,7 @@ describe('per-session entry sentinel', () => {
     removeTempProject(projectRoot);
   });
 
-  it('SessionStart for session B leaves session A sentinel, and A can still edit (AC-10)', () => {
+  it('SessionStart for session B leaves session A sentinel, and A can still edit', () => {
     writeFresh(sessionFile('session-A'));
     writeFresh(sessionFile('session-B'));
 

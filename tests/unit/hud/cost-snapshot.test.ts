@@ -66,7 +66,7 @@ function writeMainTranscript(root: string): string {
   return path;
 }
 
-describe('the snapshot cost (FR-22)', () => {
+describe('the snapshot cost', () => {
   it('is null until a hook wrote cost.json', () => {
     const { root } = project();
     expect(buildHudSnapshot(root, S).cost).toBeNull();
@@ -129,7 +129,7 @@ describe('the snapshot cost (FR-22)', () => {
   });
 });
 
-describe('status --hud --format json (AC-65)', () => {
+describe('status --hud --format json', () => {
   it('prints the same cost and table as the snapshot file', async () => {
     const { root } = project();
     refreshChangeCostFromHook({
@@ -158,7 +158,7 @@ describe('status --hud --format json (AC-65)', () => {
   });
 });
 
-describe('the workflow cost on another route (AC-40, engine side)', () => {
+describe('the workflow cost on another route', () => {
   function questionRoot(): string {
     const root = mkdtempSync(join(tmpdir(), 'paqad-workflow-cost-'));
     roots.push(root);

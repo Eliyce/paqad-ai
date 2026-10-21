@@ -22,7 +22,7 @@ const sources = files(MOD_DIR).map((path) => ({
   text: readFileSync(path, 'utf8'),
 }));
 
-describe('the HUD mod source (AC-34, AC-54)', () => {
+describe('the HUD mod source', () => {
   it('has the files the design names', () => {
     expect(sources.map((s) => s.name).sort()).toEqual(
       [
@@ -60,7 +60,7 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
   });
 
   it.each(sources.map((s) => [s.name, s.text]))(
-    'AC-21: %s calls no model, no network and no process outside the paqad-ai helper',
+    '%s calls no model, no network and no process outside the paqad-ai helper',
     (name, text) => {
       expect(text).not.toMatch(/\$\.model\b/);
       expect(text).not.toMatch(/\$\.http\b/);
@@ -72,12 +72,12 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
     },
   );
 
-  it('INV-8: the band shell imports no body code', () => {
+  it('the band shell imports no body code', () => {
     const shell = sources.find((s) => s.name === 'shell.ts')!.text;
     expect(shell.match(/from '\.\/([a-z-]+)'/g)).toEqual(["from './types'"]);
   });
 
-  it('AC-21: runs processes only through the one paqad-ai helper, by argument vector', () => {
+  it('runs processes only through the one paqad-ai helper, by argument vector', () => {
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
     expect(helper.match(/\$\.process\./g)).toEqual(['$.process.']);
     expect(helper).toContain('$.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS })');
@@ -88,6 +88,19 @@ describe('the HUD mod source (AC-34, AC-54)', () => {
 
   it.each(sources.map((s) => [s.name, s.text]))('%s uses no em dash', (_name, text) => {
     expect(text).not.toContain('—');
+  });
+
+  it('AC-32: ci ends with plugin:validate and plugin:test, after the build', () => {
+    const scripts = (
+      JSON.parse(readFileSync(join(MOD_DIR, '../../../package.json'), 'utf8')) as {
+        scripts: Record<string, string>;
+      }
+    ).scripts;
+    expect(scripts.ci).toMatch(
+      /pnpm run build && pnpm run plugin:validate && pnpm run plugin:test$/,
+    );
+    expect(scripts['plugin:validate']).toBe('node scripts/validate-plugin.mjs');
+    expect(scripts['plugin:test']).toBe('node scripts/test-plugin.mjs');
   });
 
   it('keeps the pure modules free of Claude Code imports, so vitest runs them', () => {

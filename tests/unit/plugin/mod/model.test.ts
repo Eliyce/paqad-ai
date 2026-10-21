@@ -78,7 +78,7 @@ describe('parseSnapshot', () => {
     expect(full.stages).toHaveLength(8);
   });
 
-  it('AC-28: reads a paqad.hud/2 snapshot, which has no scope, as idle', () => {
+  it('reads a paqad.hud/2 snapshot, which has no scope, as idle', () => {
     const legacy = parseSnapshot(
       JSON.stringify({ ...FULL_ORD_501, schema: 'paqad.hud/2', scope: undefined }),
     )!;
@@ -95,7 +95,7 @@ describe('parseSnapshot', () => {
     });
   });
 
-  it('AC-28: the previous mod reader took paqad.hud/3 snapshots without throwing', () => {
+  it('the previous mod reader took paqad.hud/3 snapshots without throwing', () => {
     interface OldReading {
       threw: string | null;
       parsed: boolean;
@@ -428,7 +428,7 @@ describe('paths match the snapshot writer (src/hud/files.ts)', () => {
   });
 });
 
-describe('the nine band states (FR-27, AC-41)', () => {
+describe('the nine band states', () => {
   it('has exactly nine, each reached by its fixture', () => {
     expect(BAND_STATES).toHaveLength(9);
     for (const state of BAND_STATES) {
@@ -470,7 +470,7 @@ describe('the nine band states (FR-27, AC-41)', () => {
   });
 });
 
-describe('the Stage instrument (FR-26)', () => {
+describe('the Stage instrument', () => {
   it('draws 8 segments, Intake to Deliver', () => {
     expect(STAGE_ORDER.map(([, label]) => label)).toEqual([
       'Intake',
@@ -550,7 +550,7 @@ describe('the Stage instrument (FR-26)', () => {
   });
 });
 
-describe('the band never shows a stage done that the receipt does not (AC-45)', () => {
+describe('the band never shows a stage done that the receipt does not', () => {
   const STATES = [
     'complete',
     'redone',

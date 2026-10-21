@@ -745,3 +745,196 @@ export const SKIPPED_TABLE = snapshot({
     credits: [],
   },
 });
+
+const FULL_DELIVERY = { commit: true, push: true, pr: true, ci: true, merge: true, reason: null };
+
+const OPEN_PR = {
+  number: 12,
+  url: 'https://example.test/pull/12',
+  draft: false,
+  head_sha: 'aaa1111',
+};
+
+const COMMITS = [
+  { sha: 'a1c9e2f0000000', subject: 'Add the CSV export button', own: true },
+  { sha: '7f02d410000000', subject: 'Stream the rows', own: true },
+  { sha: '64e4c850000000', subject: 'Upgrade changes from main', own: false },
+];
+
+function job(name: string, status: string, conclusion: string | null, seconds: number | null) {
+  return {
+    name,
+    status,
+    conclusion,
+    started_at: seconds === null ? null : '2026-10-18T08:58:00.000Z',
+    completed_at:
+      seconds === null
+        ? null
+        : new Date(Date.parse('2026-10-18T08:58:00.000Z') + seconds * 1000).toISOString(),
+  };
+}
+
+function shipped(over: Raw = {}): Raw {
+  return {
+    commits: 2,
+    commit_decision: null,
+    merge_commit: null,
+    push: { state: 'pushed', branch: 'feat/ORD-501-csv-export', sha: 'aaa1111' },
+    pr: OPEN_PR,
+    pr_state: 'open',
+    pr_title: 'Add CSV export to the orders page',
+    pr_additions: 412,
+    pr_deletions: 87,
+    files_changed: 14,
+    commit_list: COMMITS,
+    inherited_count: 1,
+    all_green: false,
+    merged: false,
+    ...over,
+  };
+}
+
+const DELIVERING_STAGES = stages(
+  { ...ALL_DONE, delivery: 'running' },
+  { delivery: '2026-10-18T08:57:00.000Z' },
+);
+
+export const SCENE_FIXTURES = {
+  'Getting ready': snapshot({ route: 'feature-development' }),
+  'High Table writing': ord501At('writing'),
+  Building: snapshot({
+    ...FULL_ORD_501,
+    headline: { text: 'Build in progress. Next: Review.', tone: 'working' },
+    stages: stages(
+      { planning: 'complete', specification: 'complete', development: 'running' },
+      { development: '2026-10-18T08:55:00.000Z' },
+    ),
+    flags: [],
+    findings: null,
+    verdict: null,
+    receipt: null,
+    delivery_plan: FULL_DELIVERY,
+    ship: shipped({
+      push: null,
+      pr: null,
+      pr_state: null,
+      commits: 1,
+      commit_list: COMMITS.slice(0, 1),
+    }),
+  }),
+  'Needs you': ord501At('ruled'),
+  'Shipping with CI live': snapshot({
+    ...FULL_ORD_501,
+    headline: { text: 'Delivering. Watching CI.', tone: 'working' },
+    stages: DELIVERING_STAGES,
+    flags: [],
+    delivery_plan: FULL_DELIVERY,
+    ship: shipped({
+      ci: {
+        sha: 'aaa1111',
+        state: 'pending',
+        done: 3,
+        total: 6,
+        reason: null,
+        source: 'deliver',
+        jobs: [
+          job('Lint and types', 'completed', 'success', 38),
+          job('Unit 1 of 3', 'completed', 'success', 64),
+          job('Unit 2 of 3', 'completed', 'success', 71),
+          job('Unit 3 of 3', 'in_progress', null, null),
+          job('End to end', 'in_progress', null, null),
+          job('Windows', 'queued', null, null),
+        ],
+      },
+    }),
+  }),
+  Failed: snapshot({
+    ...FULL_ORD_501,
+    headline: { text: 'Needs your attention.', tone: 'bad' },
+    stages: stages({ ...ALL_DONE, checks: 'failed' }),
+    gates: [
+      { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'fail' },
+      { name: 'duplication', required: true, strength: 'deterministic', verdict: 'pass' },
+    ],
+    flags: [],
+    verdict: verdict('fail', 'Needs your attention', ['code-tests-lint: 3 tests failed']),
+  }),
+  'All green': snapshot({
+    ...FULL_ORD_501,
+    flags: [],
+    stages: DELIVERING_STAGES,
+    delivery_plan: FULL_DELIVERY,
+    ship: shipped({
+      ci: {
+        sha: 'aaa1111',
+        state: 'pass',
+        done: 6,
+        total: 6,
+        reason: null,
+        source: 'stop-check',
+        jobs: [
+          job('Lint and types', 'completed', 'success', 38),
+          job('Unit', 'completed', 'success', 96),
+        ],
+      },
+      all_green: true,
+    }),
+  }),
+  'Fast lane': FAST_ORD_490,
+  'Edit only': snapshot({
+    ...FAST_ORD_490,
+    headline: { text: 'Checks passed.', tone: 'good' },
+    stages: stages({ planning: 'complete', development: 'complete', checks: 'complete' }),
+    gates: [
+      { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
+    ],
+    delivery_plan: {
+      commit: false,
+      push: false,
+      pr: false,
+      ci: false,
+      merge: false,
+      reason: 'edit only',
+    },
+    ship: shipped({
+      commits: 0,
+      commit_decision: 'decline',
+      push: null,
+      pr: null,
+      pr_state: null,
+      commit_list: [],
+      files_changed: 1,
+    }),
+    verdict: verdict('pass', 'Safe to merge'),
+  }),
+  'No CI': snapshot({
+    ...FULL_ORD_501,
+    flags: [],
+    stages: DELIVERING_STAGES,
+    delivery_plan: { ...FULL_DELIVERY, ci: false },
+    ship: shipped(),
+  }),
+  Closed: FULL_ORD_501,
+  Question: snapshot({
+    ...OTHER_WORKFLOW,
+    workflow: {
+      name: 'project-question',
+      started_at: '2026-10-18T08:50:00.000Z',
+      tokens: 84000,
+      usd: 0.05,
+      unpriced: [],
+    },
+  }),
+  'Health check': snapshot({
+    ...OTHER_WORKFLOW,
+    route: 'codebase-health',
+    headline: { text: 'Working on codebase health.', tone: 'working' },
+    workflow: {
+      name: 'codebase-health',
+      started_at: '2026-10-18T08:40:00.000Z',
+      tokens: null,
+      usd: null,
+      unpriced: [],
+    },
+  }),
+} as const;
