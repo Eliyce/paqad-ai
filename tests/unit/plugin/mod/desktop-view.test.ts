@@ -1,0 +1,741 @@
+import { describe, expect, it } from 'vitest';
+
+import {
+  CARD_ROWS,
+  GETTING_READY,
+  TASK_LIST_SENTENCES,
+  UNREADABLE,
+  bandIsLive,
+  buildDesktopBand,
+  cardRows,
+  costWords,
+  deliveryStrip,
+  desktopHeadline,
+  failurePhrase,
+  identityText,
+  identityView,
+  refusesTaskList,
+  stageStrip,
+  stripOf,
+  tableStrip,
+  taskListSentence,
+  type DesktopBandInput,
+} from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
+import {
+  FAST_ORD_490,
+  FULL_ORD_501,
+  NOW,
+  OTHER_WORKFLOW,
+  costRecord,
+  fileText,
+  ord482Table,
+  ord501Table,
+  snapshot,
+  stages,
+} from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
+import type { PaqadHudSnapshot } from '../../../../runtime/claude-plugin/mod/types/index.d.ts';
+
+type Raw = Record<string, unknown>;
+
+const parse = (raw: Raw): PaqadHudSnapshot => parseSnapshot(fileText(raw))!;
+
+const SHIP0 = {
+  commits: 0,
+  commit_decision: null,
+  merge_commit: null,
+  push: null,
+  pr: null,
+  ci: null,
+};
+
+const PR = `PR #${702}`;
+
+const PR_OPEN = {
+  ...SHIP0,
+  commits: 2,
+  push: { state: 'pushed', branch: 'feat/x' },
+  pr: { number: 702, url: 'https://example.test/pull/702' },
+  pr_state: 'open',
+};
+
+const OPEN: Raw = {
+  ...FULL_ORD_501,
+  stages: stages({}),
+  table: null,
+  gates: [],
+  flags: [],
+  decisions: { pending: [], resolved: 0 },
+  ship: SHIP0,
+  verdict: null,
+  delivery_plan: { commit: true, push: true, pr: true, ci: true, merge: true, reason: null },
+};
+
+const open = (over: Raw = {}) => parse(snapshot({ ...OPEN, ...over }));
+const head = (over: Raw = {}) => desktopHeadline(open(over), NOW);
+
+const SHOWN = { minimised: false, closed: false, hidden: false };
+
+function band(over: Partial<DesktopBandInput> = {}) {
+  return buildDesktopBand({
+    snapshot: open(),
+    unbound: false,
+    unavailable: false,
+    now: NOW,
+    turnStartedAt: null,
+    visibility: SHOWN,
+    menuOpen: false,
+    columns: 93,
+    maxRows: 12,
+    ...over,
+  });
+}
+
+const conflict = { id: 'D-1', category: 'spec.expert_conflict', question: 'Email?' };
+const other = { id: 'D-2', category: 'fix.proof_method', question: 'Prove it?' };
+
+describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', () => {
+  it('row 1: a session that should be bound and cannot read its record', () => {
+    expect(band({ snapshot: null, unbound: true })).toEqual({
+      kind: 'unreadable',
+      reason: 'session-id',
+      headline: UNREADABLE,
+    });
+    expect(band({ snapshot: null, unavailable: true })).toMatchObject({ reason: 'snapshot' });
+    expect(band({ unbound: true })).toMatchObject({ kind: 'unreadable', reason: 'session-id' });
+    expect(band({ snapshot: null })).toEqual({ kind: 'ready' });
+    expect(band({ unavailable: true })).toMatchObject({ kind: 'feature' });
+  });
+
+  it('row 2: another workflow gets the workflow band, and no workflow draws nothing', () => {
+    expect(band({ snapshot: parse(OTHER_WORKFLOW) })).toEqual({
+      kind: 'workflow',
+      words: 'Question',
+      running: false,
+      clock: null,
+      cost: 'counting',
+    });
+    const priced = parse(
+      snapshot({
+        ...OTHER_WORKFLOW,
+        route: 'codebase-health',
+        workflow: {
+          name: 'codebase-health',
+          started_at: null,
+          tokens: 84000,
+          usd: 0.05,
+          unpriced: [],
+        },
+      }),
+    );
+    expect(band({ snapshot: priced, turnStartedAt: NOW - 283_000 })).toEqual({
+      kind: 'workflow',
+      words: 'Codebase health',
+      running: true,
+      clock: '4:43',
+      cost: '84K tokens · ~$0.05',
+    });
+    expect(band({ snapshot: parse(snapshot({ route: 'no-workflow' })) })).toEqual({
+      kind: 'none',
+    });
+    expect(band({ snapshot: parse(snapshot()) })).toEqual({ kind: 'none' });
+  });
+
+  it('row 3: the feature route with no change reads Getting ready', () => {
+    const idle = parse(snapshot({ route: 'feature-development' }));
+    expect(desktopHeadline(idle, NOW)).toEqual({
+      row: 3,
+      signal: 'idle',
+      live: false,
+      text: GETTING_READY,
+      clock: null,
+    });
+    expect(band({ snapshot: idle })).toMatchObject({
+      kind: 'feature',
+      headline: { text: 'Getting ready' },
+    });
+  });
+
+  it('rows 4 and 5: the chief questions, then any other decision', () => {
+    const ruled = ord501Table('ruled');
+    expect(
+      head({ table: ruled, decisions: { pending: [conflict, conflict], resolved: 0 } }),
+    ).toMatchObject({
+      row: 4,
+      signal: 'attention',
+      text: 'The chief architect has 2 questions for you',
+    });
+    expect(head({ table: ruled, decisions: { pending: [conflict], resolved: 0 } }).text).toBe(
+      'The chief architect has 1 question for you',
+    );
+    expect(head({ table: ruled, decisions: { pending: [other], resolved: 0 } })).toMatchObject({
+      row: 5,
+      text: '1 decision is waiting for you',
+    });
+    expect(
+      head({
+        table: ord501Table('writing'),
+        decisions: { pending: [conflict, other], resolved: 0 },
+      }),
+    ).toMatchObject({ row: 5, text: '2 decisions are waiting for you' });
+  });
+
+  it('row 6: an unused rule stop, named by its title or rule', () => {
+    expect(
+      head({ last_block: { text: 'x', title: 'No React.FC', rule: 'RL-693b' } }),
+    ).toMatchObject({
+      row: 6,
+      signal: 'attention',
+      text: 'A rule stopped an edit: No React.FC',
+    });
+    expect(head({ last_block: { text: 'x', rule: 'RL-693b' } }).text).toBe(
+      'A rule stopped an edit: RL-693b',
+    );
+    expect(head({ last_block: { text: 'x' } }).text).toBe('A rule stopped an edit');
+    expect(head({ last_block: { text: 'x', used: true } }).row).toBe(19);
+  });
+
+  it('rows 7 to 11: merged, all green, closed, CI failed, push failed', () => {
+    expect(head({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toMatchObject({
+      row: 7,
+      signal: 'pass',
+      text: `${PR} is merged`,
+    });
+    expect(
+      head({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
+    ).toMatchObject({ row: 8, signal: 'pass', text: `${PR} is ready for your merge` });
+    expect(head({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toMatchObject({
+      row: 9,
+      signal: 'attention',
+      text: `${PR} was closed`,
+    });
+    expect(head({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toMatchObject({
+      row: 10,
+      signal: 'fail',
+      text: `CI failed on ${PR}`,
+    });
+    expect(head({ ship: { ...SHIP0, push: { state: 'failed' } } })).toMatchObject({
+      row: 11,
+      signal: 'fail',
+      text: 'The push failed',
+    });
+    expect(head({ ship: { ...SHIP0, merged: true } }).text).toBe('The PR is merged');
+  });
+
+  it('row 12: the failure phrase of the first failing required gate, and how many more', () => {
+    const verdict = {
+      schema: 'paqad.hud-verdict/1',
+      kind: 'fail',
+      word: 'Needs your attention',
+      reasons: [],
+    };
+    const gate = (name: string, verdictWord = 'fail', required = true) => ({
+      name,
+      required,
+      strength: 'deterministic',
+      verdict: verdictWord,
+    });
+    const order = ['change-completeness', 'ac-test-mapping', 'code-tests-lint'];
+    expect(
+      head({
+        verdict,
+        gates_expected: order,
+        gates: [
+          gate('code-tests-lint'),
+          gate('ac-test-mapping'),
+          gate('duplication', 'fail', false),
+        ],
+      }),
+    ).toMatchObject({ row: 12, signal: 'fail', text: 'A criterion has no test and 1 more' });
+    expect(head({ verdict, gates: [gate('code-tests-lint')] }).text).toBe(
+      'Tests, types or lint failed',
+    );
+    expect(head({ verdict, gates: [gate('custom-gate')] }).text).toBe('custom-gate failed');
+    expect(head({ verdict, gates: [] }).text).toBe('Needs your attention');
+    expect(failurePhrase('bundle-completeness')).toBe('The evidence bundle is incomplete');
+  });
+
+  it('row 13: inconclusive, with the first reason', () => {
+    const verdict = (reasons: string[]) => ({
+      schema: 'paqad.hud-verdict/1',
+      kind: 'inconclusive',
+      word: 'Inconclusive',
+      reasons,
+    });
+    expect(head({ verdict: verdict(['mutation-testing: did not run', 'b']) })).toMatchObject({
+      row: 13,
+      signal: 'attention',
+      text: 'Inconclusive: mutation-testing: did not run',
+    });
+    expect(head({ verdict: verdict([]) }).text).toBe('Inconclusive');
+  });
+
+  it('row 14: watching CI on the PR, live, timed from the delivery stage', () => {
+    const watching = head({
+      stages: stages({ delivery: 'running' }, { delivery: '2026-10-18T08:57:00.000Z' }),
+      ship: { ...PR_OPEN, ci: { state: 'pending', done: 3, total: 6 } },
+    });
+    expect(watching).toEqual({
+      row: 14,
+      signal: 'accent',
+      live: true,
+      text: `Watching CI on ${PR}`,
+      clock: '3:00',
+    });
+    expect(head({ ship: { ...PR_OPEN, ci: { state: 'pending' } } }).clock).toBeNull();
+  });
+
+  it('row 15: each running stage in its own words, live with the stage clock', () => {
+    const running = (stage: string, over: Raw = {}) =>
+      head({
+        stages: stages({ [stage]: 'running' }, { [stage]: '2026-10-18T08:58:00.000Z' }),
+        ...over,
+      });
+    expect(running('ticket_intake')).toMatchObject({
+      row: 15,
+      text: 'Reading the ticket',
+      live: true,
+      clock: '2:00',
+    });
+    expect(running('planning').text).toBe('Planning the change');
+    expect(running('specification').text).toBe('Writing the spec');
+    expect(running('specification', { table: ord501Table('writing') }).text).toBe(
+      'The High Table is writing its notes',
+    );
+    expect(running('specification', { table: ord501Table('chief') }).text).toBe(
+      'The chief architect is ruling',
+    );
+    expect(running('development').text).toBe('Building');
+    expect(running('development', { plan: { steps: 5, done: 3 } }).text).toBe(
+      '3 of 5 plan steps built',
+    );
+    expect(running('review').text).toBe('Reviewing the change');
+    expect(running('checks').text).toBe('Running the checks');
+    expect(running('documentation_sync').text).toBe('Syncing the docs');
+    expect(running('delivery').text).toBe('Delivering');
+    expect(desktopHeadline(parse(FAST_ORD_490), NOW)).toMatchObject({
+      text: 'Building',
+      clock: '2:00',
+    });
+    expect(
+      head({ stages: [{ stage: 'development', state: 'running', mandatory: true }] }).clock,
+    ).toBeNull();
+  });
+
+  it('rows 16 and 17: a pass verdict, with the edit-only words when the commit was declined', () => {
+    const pass = {
+      schema: 'paqad.hud-verdict/1',
+      kind: 'pass',
+      word: 'Safe to merge',
+      reasons: [],
+    };
+    expect(head({ verdict: pass, ship: { ...SHIP0, commit_decision: 'decline' } })).toMatchObject({
+      row: 16,
+      signal: 'pass',
+      text: 'Done: the edit is in your working tree',
+    });
+    expect(head({ verdict: pass })).toMatchObject({
+      row: 17,
+      signal: 'pass',
+      text: 'Safe to merge',
+    });
+  });
+
+  it('rows 18 to 20: the last done stage and the next, nothing done, every stage recorded', () => {
+    expect(head({ stages: stages({ planning: 'complete' }) })).toMatchObject({
+      row: 18,
+      signal: 'idle',
+      live: false,
+      text: 'Plan done. Next: Spec',
+    });
+    expect(head()).toMatchObject({ row: 19, text: 'Next: Plan' });
+    expect(
+      head({
+        stages: stages({
+          planning: 'complete',
+          specification: 'complete',
+          development: 'complete',
+          review: 'complete',
+          checks: 'complete',
+          documentation_sync: 'complete',
+        }),
+      }),
+    ).toMatchObject({ row: 20, text: 'Every stage is recorded. Waiting for the verdict.' });
+  });
+
+  it('only live rows breathe', () => {
+    expect(bandIsLive(band({ snapshot: parse(FAST_ORD_490) }))).toBe(true);
+    expect(bandIsLive(band())).toBe(false);
+    expect(bandIsLive(band({ snapshot: parse(OTHER_WORKFLOW), turnStartedAt: NOW }))).toBe(true);
+    expect(bandIsLive(band({ snapshot: parse(OTHER_WORKFLOW) }))).toBe(false);
+    expect(bandIsLive(band({ snapshot: null }))).toBe(false);
+  });
+});
+
+describe('the identity row', () => {
+  it('names the workflow, the lane, the change and the cost, only the parts that apply', () => {
+    const full = parse(snapshot({ ...FULL_ORD_501, cost: costRecord() }));
+    expect(identityView(full)).toEqual({
+      parts: ['Feature development', 'Full lane', 'ORD-501', '1.3M tokens · ~$4.60'],
+      flags: 1,
+    });
+    expect(identityText(identityView(full))).toBe(
+      '   Feature development  ·  Full lane  ·  ORD-501  ·  1.3M tokens · ~$4.60',
+    );
+    const idle = parse(snapshot({ route: 'feature-development', lane: 'fast' }));
+    expect(identityView(idle)).toEqual({ parts: ['Feature development'], flags: 0 });
+    expect(identityView(open({ lane: 'sideways' })).parts).toEqual([
+      'Feature development',
+      'ORD-501',
+    ]);
+  });
+
+  it('says so far while the turn is counted, whole session when it is, and tokens when unpriced', () => {
+    const cost = parse(snapshot({ ...FULL_ORD_501, cost: costRecord() })).cost!;
+    expect(costWords({ ...cost, live: true })).toBe('1.3M tokens so far · ~$4.60');
+    expect(costWords({ ...cost, scope: 'whole-session' })).toBe('1.3M tokens · whole session');
+    expect(costWords({ ...cost, usd: null })).toBe('1.3M tokens');
+    expect(costWords(null)).toBeNull();
+  });
+});
+
+describe('AC-10, AC-29: the strip draws only what applies', () => {
+  it('draws the lane stages: all eight on graduated, full or unresolved, three on the fast lane', () => {
+    expect(stageStrip(open()).stages.map((mark) => mark.label)).toEqual([
+      'Intake',
+      'Plan',
+      'Spec',
+      'Build',
+      'Review',
+      'Checks',
+      'Docs',
+      'Deliver',
+    ]);
+    expect(stageStrip(open({ lane: null })).stages).toHaveLength(8);
+    expect(stageStrip(open({ lane: 'graduated' })).stages).toHaveLength(8);
+    expect(stageStrip(parse(FAST_ORD_490)).stages).toEqual([
+      { label: 'Plan', state: 'done' },
+      { label: 'Build', state: 'run' },
+      { label: 'Checks', state: 'todo' },
+    ]);
+  });
+
+  it('draws only the delivery steps in the plan, with the words for what is left out', () => {
+    const steps = (plan: Raw) =>
+      deliveryStrip(open({ delivery_plan: plan })).steps.map((step) => step.label);
+    const all = { commit: true, push: true, pr: true, ci: true, merge: true, reason: null };
+    expect(steps(all)).toEqual(['Edit', 'Commit', 'Push', 'PR', 'CI', 'Merge']);
+    expect(steps({ ...all, ci: false, reason: 'No CI' })).toEqual([
+      'Edit',
+      'Commit',
+      'Push',
+      'PR',
+      'Merge',
+    ]);
+    const editOnly = {
+      commit: false,
+      push: false,
+      pr: false,
+      ci: false,
+      merge: false,
+      reason: 'Edit only · no commit',
+    };
+    expect(steps(editOnly)).toEqual(['Edit']);
+    expect(deliveryStrip(open({ delivery_plan: editOnly })).value).toBe('Edit only · no commit');
+    const noPush = { ...editOnly, commit: true, reason: 'No push for this change' };
+    expect(steps(noPush)).toEqual(['Edit', 'Commit']);
+    expect(
+      deliveryStrip(open({ delivery_plan: noPush, ship: { ...SHIP0, commits: 2 } })).value,
+    ).toBe('No push for this change');
+    expect(steps({ delivery_plan: null } as Raw)).toHaveLength(6);
+    expect(deliveryStrip(open({ delivery_plan: null })).steps).toHaveLength(6);
+  });
+
+  it('AC-6: before a change opens the stages and delivery are faint, with no table and no values', () => {
+    const idle = parse(
+      snapshot({
+        route: 'feature-development',
+        delivery_plan: {
+          commit: false,
+          push: false,
+          pr: false,
+          ci: false,
+          merge: false,
+          reason: 'Edit only · no commit',
+        },
+      }),
+    );
+    const strip = stripOf(idle, 93);
+    expect(strip.stages.every((mark) => mark.state === 'todo')).toBe(true);
+    expect(strip.delivery).toEqual([{ label: 'Edit', state: 'todo' }]);
+    expect(strip.seats).toBeNull();
+    expect([strip.stageValue, strip.tableValue, strip.deliveryValue]).toEqual(['', '', '']);
+  });
+
+  it('R-3: marks each stage state and says the stage value', () => {
+    const value = (over: Raw) => stageStrip(open(over)).value;
+    expect(value({ stages: stages({ development: 'running' }) })).toBe('Build');
+    const pausedStrip = stageStrip(
+      open({
+        stages: stages({ development: 'running' }),
+        decisions: { pending: [other], resolved: 0 },
+      }),
+    );
+    expect(pausedStrip.value).toBe('Build · paused');
+    expect(pausedStrip.stages[3]).toEqual({ label: 'Build', state: 'paused' });
+    expect(
+      stageStrip(open({ stages: stages({ development: 'running' }), last_block: { text: 'x' } }))
+        .value,
+    ).toBe('Build · paused');
+    expect(value({ stages: stages({ review: 'failed' }) })).toBe('Review failed');
+    const unreliable = stages({ planning: 'complete' }).map((stage) =>
+      stage.stage === 'planning' ? { ...stage, duration_unreliable: true } : stage,
+    );
+    expect(value({ stages: unreliable })).toBe('Plan marked: no recorded work');
+    expect(value({ stages: stages({ checks: 'complete' }) })).toBe('Checks: no test run recorded');
+    expect(value({ stages: stages({ review: 'inconclusive' }) })).toBe('Review inconclusive');
+    const skipped = stageStrip(open({ stages: stages({ ticket_intake: 'skipped' }) }));
+    expect(skipped.stages[0]).toEqual({ label: 'Intake', state: 'skip' });
+    const done = {
+      ticket_intake: 'skipped',
+      planning: 'complete',
+      specification: 'complete',
+      development: 'complete',
+      review: 'complete',
+      checks: 'complete',
+      documentation_sync: 'complete',
+      delivery: 'complete',
+    };
+    const gates = [
+      { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
+    ];
+    expect(value({ stages: stages(done), gates })).toBe('All stages done');
+    expect(value({ stages: stages(done), gates, ship: { ...SHIP0, merged: true } })).toBe(
+      'Delivered',
+    );
+    expect(value({ stages: stages({ planning: 'complete' }) })).toBe('');
+  });
+
+  it('R-4: says the delivery value, first match wins', () => {
+    const value = (over: Raw) => deliveryStrip(open(over)).value;
+    expect(value({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toBe(`${PR} merged`);
+    expect(
+      value({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
+    ).toBe('Merge is yours');
+    expect(value({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toBe('PR closed');
+    expect(value({ ship: { ...PR_OPEN, pr_state: null } })).toBe('PR state unknown');
+    expect(value({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toBe(
+      'CI failed',
+    );
+    expect(value({ ship: { ...PR_OPEN, ci: { state: 'pending', done: 3, total: 6 } } })).toBe(
+      '3 of 6 checks green',
+    );
+    const noCi = { commit: true, push: true, pr: true, ci: false, merge: true, reason: 'No CI' };
+    expect(value({ ship: PR_OPEN, delivery_plan: noCi })).toBe('No CI · merge is yours');
+    expect(value({ ship: PR_OPEN })).toBe(PR);
+    expect(value({ ship: { ...SHIP0, push: { state: 'failed' } } })).toBe('Push failed');
+    expect(value({ ship: { ...SHIP0, push: { state: 'pushed' } } })).toBe('Pushed');
+    expect(value({ ship: { ...SHIP0, commits: 1 } })).toBe('1 commit of yours');
+    expect(value({ ship: { ...SHIP0, commits: 2 } })).toBe('2 commits of yours');
+    expect(value({ stages: stages({ development: 'running' }) })).toBe('Editing');
+    expect(value({})).toBe('');
+  });
+
+  it('R-4: draws each delivery node state, with the CI share only while CI runs', () => {
+    const strip = deliveryStrip(
+      open({
+        stages: stages({ development: 'complete' }),
+        ship: { ...PR_OPEN, ci: { state: 'pending', done: 3, total: 6 } },
+      }),
+    );
+    expect(strip.steps).toEqual([
+      { label: 'Edit', state: 'done' },
+      { label: 'Commit', state: 'done' },
+      { label: 'Push', state: 'done' },
+      { label: 'PR', state: 'done' },
+      { label: 'CI', state: 'run' },
+      { label: 'Merge', state: 'todo' },
+    ]);
+    expect(strip.ci).toBe(0.5);
+    const ready = deliveryStrip(
+      open({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
+    );
+    expect(ready.steps.at(-1)).toEqual({ label: 'Merge', state: 'ready' });
+    expect(ready.ci).toBeNull();
+    const closed = deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: 'closed' } }));
+    expect(closed.steps[3]).toEqual({ label: 'PR', state: 'fail' });
+    expect(deliveryStrip(open({ ship: { ...PR_OPEN, pr_state: null } })).steps.at(-1)?.state).toBe(
+      'todo',
+    );
+  });
+
+  it('R-5: draws the High Table seats and chief with its value, and leaves a skipped table out', () => {
+    expect(tableStrip(open({ table: ord501Table('seated') }))).toMatchObject({
+      chief: 'waiting',
+      value: 'Seated',
+    });
+    const writing = tableStrip(open({ table: ord501Table('landing') }));
+    expect(writing.value).toBe('3 of 7 notes');
+    expect(writing.seats?.map((seat) => seat.label)).toEqual([
+      'PO',
+      'AA',
+      'UF',
+      'QA',
+      'SA',
+      'DE',
+      'PA',
+    ]);
+    expect(writing.seats?.[0]).toEqual({ label: 'PO', state: 'done' });
+    expect(writing.seats?.[1]).toEqual({ label: 'AA', state: 'writing' });
+    expect(tableStrip(open({ table: ord501Table('chief') }))).toMatchObject({
+      chief: 'ruling',
+      value: 'Chief is ruling',
+    });
+    expect(
+      tableStrip(
+        open({ table: ord501Table('ruled'), decisions: { pending: [conflict], resolved: 0 } }),
+      ),
+    ).toMatchObject({ chief: 'needs', value: 'Needs answers' });
+    expect(tableStrip(open({ table: ord501Table('ruled') }))).toMatchObject({
+      chief: 'done',
+      value: 'Chief ruled',
+    });
+    expect(
+      tableStrip(
+        open({ table: ord501Table('frozen'), stages: stages({ specification: 'complete' }) }),
+      ),
+    ).toMatchObject({ value: 'Spec approved' });
+    const late = ord501Table('frozen') as { seats: Raw[] };
+    late.seats[0] = { ...late.seats[0], late: true };
+    expect(tableStrip(open({ table: late })).seats?.[0]).toEqual({ label: 'PO', state: 'late' });
+    expect(
+      tableStrip(open({ table: { ...ord482Table('ruled'), skipped: true } })).seats,
+    ).toBeNull();
+    expect(tableStrip(open({ lane: 'fast', table: ord501Table('ruled') })).seats).toBeNull();
+    expect(tableStrip(open())).toEqual({ seats: null, chief: 'waiting', value: '' });
+  });
+
+  it('says the headline, the stage value and each section value in the strip alt', () => {
+    const feature = band({ snapshot: parse(FAST_ORD_490) });
+    expect(feature).toMatchObject({
+      kind: 'feature',
+      alt: 'Building. Stage Build. Delivery Editing.',
+    });
+  });
+});
+
+describe('AC-16: the card falls back to the minimised row when it does not fit', () => {
+  it('costs identity 1, message 1 and strip 3, and the menu 1 more while it is open', () => {
+    expect(CARD_ROWS).toEqual({ identity: 1, message: 1, strip: 3, menu: 1 });
+    expect(cardRows(false)).toBe(5);
+    expect(cardRows(true)).toBe(6);
+  });
+
+  it('draws the minimised row at 4 rows, the card at 5, and the minimised row with the menu at 5', () => {
+    expect(band({ maxRows: 4 })).toMatchObject({ kind: 'feature', mode: 'minimised', menu: false });
+    expect(band({ maxRows: 5 })).toMatchObject({ kind: 'feature', mode: 'card', menu: false });
+    expect(band({ maxRows: 5, menuOpen: true })).toMatchObject({ mode: 'minimised', menu: true });
+    expect(band({ maxRows: 6, menuOpen: true })).toMatchObject({ mode: 'card', menu: true });
+  });
+});
+
+describe('AC-14: minimised, closed and hidden', () => {
+  it('minimises on request, with the stage and clock when live, or the static word', () => {
+    const live = band({ snapshot: parse(FAST_ORD_490), visibility: { ...SHOWN, minimised: true } });
+    expect(live).toMatchObject({
+      kind: 'feature',
+      mode: 'minimised',
+      minimised: {
+        light: 'accent',
+        live: true,
+        text: 'Build · 2:00',
+        stages: ['done', 'run', 'todo'],
+        cost: null,
+      },
+    });
+    const settled = band({ visibility: { ...SHOWN, minimised: true } });
+    expect(settled).toMatchObject({
+      minimised: { light: 'idle', live: false, text: 'Next: Plan' },
+    });
+    const unclocked = band({
+      snapshot: open({ stages: [{ stage: 'development', state: 'running', mandatory: true }] }),
+      visibility: { ...SHOWN, minimised: true },
+    });
+    expect(unclocked).toMatchObject({ minimised: { text: 'Build' } });
+    const valued = band({
+      snapshot: open({ stages: stages({ review: 'failed' }) }),
+      visibility: { ...SHOWN, minimised: true },
+    });
+    expect(valued).toMatchObject({ minimised: { text: 'Review failed' } });
+    const priced = band({
+      snapshot: parse(snapshot({ ...FULL_ORD_501, cost: costRecord() })),
+      visibility: { ...SHOWN, minimised: true },
+    });
+    expect(priced).toMatchObject({ minimised: { cost: '1.3M tokens · ~$4.60' } });
+  });
+
+  it('closes for the session or hides, and says Needs you when something waits', () => {
+    expect(band({ visibility: { ...SHOWN, closed: true } })).toEqual({
+      kind: 'closed',
+      needsYou: false,
+    });
+    expect(band({ visibility: { ...SHOWN, hidden: true, closed: true } })).toEqual({
+      kind: 'hidden',
+      needsYou: false,
+    });
+    expect(
+      band({
+        snapshot: open({ decisions: { pending: [other], resolved: 0 } }),
+        visibility: { ...SHOWN, hidden: true },
+      }),
+    ).toEqual({ kind: 'hidden', needsYou: true });
+  });
+});
+
+describe('AC-18: the task list carries the stages of the lane', () => {
+  const call = (items: unknown[], extra: Raw = {}) => ({ items, ...extra });
+  const full = ['Plan the change', 'Spec', 'Load rules', 'Build it', 'Review', 'Checks', 'Docs'];
+
+  it('passes the stage words as item openings in order, with any other items around them', () => {
+    expect(refusesTaskList('full', call(full.map((content) => ({ content }))))).toBe(false);
+    expect(
+      refusesTaskList(
+        'graduated',
+        call(
+          ['Read the ticket', ...full, 'Open the PR'].map((content) => ({
+            content: `  ${content.toUpperCase()} `,
+          })),
+        ),
+      ),
+    ).toBe(false);
+    expect(refusesTaskList('fast', call(['Plan', 'Build', 'Write notes', 'Checks']))).toBe(false);
+  });
+
+  it('refuses a list that misses a stage word or has them out of order', () => {
+    expect(refusesTaskList('full', call([{ content: 'Plan' }, { content: 'Build' }]))).toBe(true);
+    expect(refusesTaskList('fast', call(['Build', 'Plan', 'Checks']))).toBe(true);
+    expect(refusesTaskList(null, call(['Plan', 'Build', 'Checks']))).toBe(true);
+    expect(refusesTaskList('fast', call([{ title: 'Plan' }, null, 7]))).toBe(true);
+  });
+
+  it('never checks a call without items, or an advance, done or start call', () => {
+    expect(refusesTaskList('full', {})).toBe(false);
+    expect(refusesTaskList('full', { items: 'Plan' })).toBe(false);
+    for (const action of ['advance', 'done', 'START']) {
+      expect(refusesTaskList('full', call(['nothing'], { action }))).toBe(false);
+    }
+    expect(refusesTaskList('full', call(['nothing'], { type: 'done' }))).toBe(false);
+    expect(refusesTaskList('full', call(['nothing'], { action: 'replace' }))).toBe(true);
+  });
+
+  it('answers with the verbatim sentence of the lane', () => {
+    expect(taskListSentence('fast')).toBe(TASK_LIST_SENTENCES.fast);
+    expect(taskListSentence('full')).toBe(TASK_LIST_SENTENCES.full);
+    expect(taskListSentence(null)).toBe(
+      'paqad task list: Plan, Spec, Load rules, Build, Review, Checks, Docs. Start each item with that word, in this order. Items before Plan (read the ticket) and after Docs (open the PR) are fine.',
+    );
+    expect(TASK_LIST_SENTENCES.fast).toBe(
+      'paqad task list: Plan, Build, Checks. Start each item with that word, in this order. Items before Plan and after Checks are fine.',
+    );
+  });
+});
