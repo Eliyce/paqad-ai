@@ -292,3 +292,24 @@ describe('the Record timeline (FR-61, AC-48)', () => {
     expect(text(recordLines(parse(FULL_ORD_501)))).not.toContain('Timeline');
   });
 });
+
+describe('AC-30: the terminal tabs read as before when the snapshot carries the Desktop data', () => {
+  const desktopData = {
+    claims: [
+      { kind: 'acceptance', id: 'AC-1', label: 'binds', test_id: 't.test.ts', verdict: 'pass' },
+    ],
+    timeline: [
+      { at: '2026-10-18T09:00:00.000Z', kind: 'open', stage: null, note: null, title: 'csv' },
+      { at: '2026-10-18T09:03:00.000Z', kind: 'rules_loaded', stage: null, note: null, count: 3 },
+      { at: '2026-10-18T09:05:00.000Z', kind: 'commit', stage: null, note: null, sha: 'a1c9e2f' },
+    ],
+  };
+
+  it('keeps acceptance claims and Record events off the terminal Trust and Record lines', () => {
+    const plain = parse({ ...FULL_ORD_501, timeline: [desktopData.timeline[0]] });
+    const rich = parse({ ...FULL_ORD_501, ...desktopData });
+    expect(text(trustLines(rich))).toEqual(text(trustLines(plain)));
+    expect(text(recordLines(rich))).toEqual(text(recordLines(plain)));
+    expect(text(recordLines(rich)).slice(-2)).toEqual(['Timeline', '  09:00  Change opened']);
+  });
+});

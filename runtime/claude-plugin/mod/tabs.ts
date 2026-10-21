@@ -1,5 +1,6 @@
 import { slash } from './command-name';
 import { formatStopwatch } from './cost';
+import { STAGE_TIMELINE_KINDS, fixProofClaims } from './model';
 import { shipRail } from './ship';
 import type { TableLine, TableSegment } from './table';
 import type {
@@ -163,10 +164,11 @@ export function trustLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
       lines.push(heading(group.label), ...gates.map(gateLine));
     }
   }
+  const claims = fixProofClaims(snapshot);
   lines.push(
     heading(CLAIMS_HEADING),
-    ...(snapshot.claims.length > 0
-      ? snapshot.claims.map(claimLine)
+    ...(claims.length > 0
+      ? claims.map(claimLine)
       : [line({ text: '  No claim recorded for this change.', dim: true })]),
     heading(FLAGS_HEADING),
     ...(snapshot.flags.length > 0
@@ -329,8 +331,9 @@ export function recordLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
       ? row('Receipt', `written, see ${slash('receipt')}`, 'good')
       : row('Receipt', 'not yet, written at the end of a turn', undefined, true),
   ];
-  if (snapshot.timeline.length > 0) {
-    lines.push(heading('Timeline'), ...snapshot.timeline.map(timelineLine));
+  const timeline = snapshot.timeline.filter((entry) => STAGE_TIMELINE_KINDS.has(entry.kind));
+  if (timeline.length > 0) {
+    lines.push(heading('Timeline'), ...timeline.map(timelineLine));
   }
   return lines;
 }

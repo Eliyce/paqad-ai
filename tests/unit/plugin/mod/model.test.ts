@@ -41,6 +41,7 @@ import {
   GRADUATED_ORD_482,
   NOW,
   STATE_FIXTURES,
+  costRecord,
   fileText,
   snapshot,
   stages,
@@ -164,6 +165,8 @@ describe('parseSnapshot', () => {
         started_at: null,
         ended_at: null,
         duration_unreliable: false,
+        duration_ms: null,
+        agent: null,
       },
     ]);
     expect(odd.gates).toEqual([{ name: 'g', verdict: 'pending', required: true, strength: null }]);
@@ -198,11 +201,172 @@ describe('parseSnapshot', () => {
       pr_number: null,
       pr_state: null,
       pr_head: null,
+      pr_title: null,
+      pr_files: null,
+      pr_additions: null,
+      pr_deletions: null,
+      files_changed: null,
       ci_read_at: null,
       all_green: false,
       merged: false,
     });
     expect(odd.verdict).toBeNull();
+  });
+
+  it('AC-27: reads every Part I field, and leaves out each one that is absent or odd', () => {
+    const full = parse(
+      snapshot({
+        ...FULL_ORD_501,
+        gates_expected: ['change-completeness', 7, 'spec-review'],
+        delivery_plan: {
+          commit: true,
+          push: false,
+          pr: false,
+          ci: false,
+          merge: false,
+          reason: 'No push for this change',
+        },
+        plan: { steps: 5, done: 3 },
+        claims: [
+          { kind: 'acceptance', id: 'AC-1', label: 'binds', test_id: 't.test.ts', verdict: 'pass' },
+        ],
+        ship: {
+          ...(FULL_ORD_501.ship as Record<string, unknown>),
+          pr_title: 'Add CSV export',
+          pr_files: 14,
+          pr_additions: 412,
+          pr_deletions: 87,
+          files_changed: 14,
+        },
+        timeline: [
+          {
+            at: '2026-10-18T08:01:00.000Z',
+            kind: 'stage_start',
+            stage: 'planning',
+            note: null,
+            agent: 'paqad:paqad-planning',
+            own_agent: true,
+          },
+          {
+            at: '2026-10-18T08:02:41.000Z',
+            kind: 'stage_end',
+            stage: 'planning',
+            note: null,
+            duration_ms: 101000,
+            agent: null,
+            own_agent: 'yes',
+          },
+          {
+            at: '2026-10-18T08:30:00.000Z',
+            kind: 'commit',
+            stage: null,
+            note: null,
+            sha: 'a1c9e2f',
+            subject: 'one',
+            count: 'two',
+          },
+        ],
+        cost: costRecord({ live: true }),
+        stages: [
+          {
+            stage: 'planning',
+            state: 'complete',
+            mandatory: true,
+            started_at: null,
+            ended_at: null,
+            duration_ms: 101000,
+            agent: 'paqad:paqad-planning',
+            duration_unreliable: false,
+          },
+        ],
+      }),
+    );
+    expect(full.gates_expected).toEqual(['change-completeness', 'spec-review']);
+    expect(full.delivery_plan).toEqual({
+      commit: true,
+      push: false,
+      pr: false,
+      ci: false,
+      merge: false,
+      reason: 'No push for this change',
+    });
+    expect(full.plan).toEqual({ steps: 5, done: 3 });
+    expect(full.claims[0]).toMatchObject({ kind: 'acceptance', id: 'AC-1', verdict: 'pass' });
+    expect(full.ship).toMatchObject({
+      pr_title: 'Add CSV export',
+      pr_files: 14,
+      pr_additions: 412,
+      pr_deletions: 87,
+      files_changed: 14,
+    });
+    expect(full.timeline).toEqual([
+      {
+        at: '2026-10-18T08:01:00.000Z',
+        kind: 'stage_start',
+        stage: 'planning',
+        note: null,
+        agent: 'paqad:paqad-planning',
+        own_agent: true,
+      },
+      {
+        at: '2026-10-18T08:02:41.000Z',
+        kind: 'stage_end',
+        stage: 'planning',
+        note: null,
+        duration_ms: 101000,
+      },
+      {
+        at: '2026-10-18T08:30:00.000Z',
+        kind: 'commit',
+        stage: null,
+        note: null,
+        sha: 'a1c9e2f',
+        subject: 'one',
+      },
+    ]);
+    expect(full.cost?.live).toBe(true);
+    expect(full.stages[0]).toMatchObject({ duration_ms: 101000, agent: 'paqad:paqad-planning' });
+
+    const bare = parse(
+      snapshot({
+        ...FULL_ORD_501,
+        delivery_plan: { commit: true, push: 'yes', pr: true, ci: true, merge: true },
+        plan: { steps: 0, done: 0 },
+        cost: costRecord({ live: 'yes' }),
+      }),
+    );
+    expect(bare.gates_expected).toEqual([]);
+    expect(bare.delivery_plan).toBeNull();
+    expect(bare.plan).toBeNull();
+    expect(bare.cost?.live).toBe(false);
+    expect(bare.claims.every((claim) => claim.id === null)).toBe(true);
+    expect(parse(snapshot({ plan: 'five', delivery_plan: 'all' }))).toMatchObject({
+      plan: null,
+      delivery_plan: null,
+    });
+  });
+
+  it('keeps the delivery plan and the gate list on an unqualified snapshot, and drops the plan', () => {
+    const idle = parse(
+      snapshot({
+        ...FULL_ORD_501,
+        scope: { qualified: false, reason: 'no-change' },
+        gates_expected: ['spec-review'],
+        delivery_plan: {
+          commit: true,
+          push: true,
+          pr: true,
+          ci: false,
+          merge: true,
+          reason: 'No CI',
+        },
+        plan: { steps: 5, done: 1 },
+      }),
+    );
+    expect(idle.active).toBe(false);
+    expect(idle.gates_expected).toEqual(['spec-review']);
+    expect(idle.delivery_plan?.reason).toBe('No CI');
+    expect(idle.plan).toBeNull();
   });
 
   it('reads a rule stop by its text or reason, and names one with neither', () => {

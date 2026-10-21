@@ -1,5 +1,5 @@
 import { formatStopwatch, formatTokens, formatUsd } from './cost';
-import { stageSegments, type SegmentState } from './model';
+import { fixProofClaims, stageSegments, type SegmentState } from './model';
 import {
   registerBandBody,
   type BandBlock,
@@ -263,9 +263,10 @@ export function costLine(snapshot: PaqadHudSnapshot): string {
 }
 
 export function trustSummary(snapshot: PaqadHudSnapshot): string {
-  const proving = snapshot.claims.filter((claim) => claim.test_id !== null).length;
-  if (snapshot.claims.length > 0) {
-    return `${proving} of ${snapshot.claims.length} criteria proven by tests`;
+  const claims = fixProofClaims(snapshot);
+  const proving = claims.filter((claim) => claim.test_id !== null).length;
+  if (claims.length > 0) {
+    return `${proving} of ${claims.length} criteria proven by tests`;
   }
   const judged = snapshot.gates.some(
     (gate) => gate.verdict !== 'not-judged' && gate.verdict !== 'pending',

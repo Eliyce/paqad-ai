@@ -8,6 +8,7 @@ import type {
   PaqadCost,
   PaqadCostLine,
   PaqadCostTokens,
+  PaqadDeliveryPlan,
   PaqadFindingsScan,
   PaqadGate,
   PaqadGateStrength,
@@ -15,12 +16,14 @@ import type {
   PaqadHudSnapshot,
   PaqadHudStage,
   PaqadLastBlock,
+  PaqadPlanProgress,
   PaqadPrState,
   PaqadScope,
   PaqadSeat,
   PaqadShipCommit,
   PaqadSeatState,
   PaqadTone,
+  PaqadTimelineEntry,
   PaqadTrackRecord,
   PaqadWorkflow,
 } from './types';
@@ -249,6 +252,7 @@ function readCost(value: unknown): PaqadCost | null {
     }),
     chief: chief ? { ...readCostLine(chief, dated), exact: chief.exact === true } : null,
     not_counted: list(cost.not_counted).filter((t): t is string => typeof t === 'string'),
+    live: cost.live === true,
   };
 }
 
@@ -452,10 +456,85 @@ function readClaim(value: unknown): PaqadClaim | null {
   if (!claim || !kind) return null;
   return {
     kind,
+    id: str(claim.id),
     label: str(claim.label) ?? kind,
     verdict: str(claim.verdict) ?? 'inconclusive',
     test_id: str(claim.test_id),
   };
+}
+
+const TIMELINE_TEXT = [
+  'agent',
+  'verdict',
+  'title',
+  'issue',
+  'lane',
+  'sha',
+  'subject',
+  'state',
+] as const;
+
+const TIMELINE_COUNTS = [
+  'duration_ms',
+  'count',
+  'picked',
+  'standing',
+  'findings',
+  'number',
+  'requirements',
+  'criteria',
+] as const;
+
+function readTimelineEntry(entry: Record<string, unknown>): PaqadTimelineEntry {
+  const read: PaqadTimelineEntry = {
+    at: str(entry.at) ?? '',
+    kind: str(entry.kind) ?? 'unknown',
+    stage: str(entry.stage),
+    note: str(entry.note),
+  };
+  for (const key of TIMELINE_TEXT) {
+    const value = str(entry[key]);
+    if (value !== null) read[key] = value;
+  }
+  for (const key of TIMELINE_COUNTS) {
+    const value = num(entry[key]);
+    if (value !== null) read[key] = value;
+  }
+  if (typeof entry.own_agent === 'boolean') read.own_agent = entry.own_agent;
+  return read;
+}
+
+function readDeliveryPlan(value: unknown): PaqadDeliveryPlan | null {
+  const plan = rec(value);
+  if (!plan) return null;
+  const { commit, push, pr, ci, merge } = plan;
+  if (![commit, push, pr, ci, merge].every((step) => typeof step === 'boolean')) return null;
+  return {
+    commit: commit === true,
+    push: push === true,
+    pr: pr === true,
+    ci: ci === true,
+    merge: merge === true,
+    reason: str(plan.reason),
+  };
+}
+
+export const STAGE_TIMELINE_KINDS: ReadonlySet<string> = new Set([
+  'open',
+  'close',
+  'stage_start',
+  'stage_end',
+]);
+
+export function fixProofClaims(snapshot: PaqadHudSnapshot): PaqadClaim[] {
+  return snapshot.claims.filter((claim) => claim.kind === 'fix-proof');
+}
+
+function readPlan(value: unknown): PaqadPlanProgress | null {
+  const plan = rec(value);
+  const steps = num(plan?.steps);
+  const done = num(plan?.done);
+  return steps !== null && steps > 0 && done !== null ? { steps, done } : null;
 }
 
 function readBundleFiles(value: unknown): string[] {
@@ -535,17 +614,15 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           started_at: str(stage.started_at),
           ended_at: str(stage.ended_at),
           duration_unreliable: stage.duration_unreliable === true,
+          duration_ms: num(stage.duration_ms),
+          agent: str(stage.agent),
         },
       ];
     }),
-    timeline: each(snap.timeline, (entry) => ({
-      at: str(entry.at) ?? '',
-      kind: str(entry.kind) ?? 'unknown',
-      stage: str(entry.stage),
-      note: str(entry.note),
-    })).filter((entry) => entry.at !== ''),
+    timeline: each(snap.timeline, readTimelineEntry).filter((entry) => entry.at !== ''),
     table: readTable(snap.table),
     gates: list(snap.gates).flatMap((entry) => readGate(entry) ?? []),
+    gates_expected: strings(snap.gates_expected),
     claims: list(snap.claims).flatMap((entry) => readClaim(entry) ?? []),
     bundle_files: readBundleFiles(snap.evidence_expected),
     flags: list(snap.flags).flatMap((entry) => {
@@ -573,6 +650,8 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
       snap.last_block === null || snap.last_block === undefined
         ? null
         : readLastBlock(snap.last_block, lastBlock),
+    delivery_plan: readDeliveryPlan(snap.delivery_plan),
+    plan: readPlan(snap.plan),
     ship: ship
       ? {
           commits: num(ship.commits) ?? 0,
@@ -591,6 +670,11 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
           pr_number: num(rec(ship.pr)?.number),
           pr_state: readPrState(ship.pr_state),
           pr_head: str(rec(ship.pr)?.head_sha),
+          pr_title: str(ship.pr_title),
+          pr_files: num(ship.pr_files),
+          pr_additions: num(ship.pr_additions),
+          pr_deletions: num(ship.pr_deletions),
+          files_changed: num(ship.files_changed),
           ci_read_at: str(ship.ci_read_at),
           all_green: ship.all_green === true,
           merged: ship.merged === true,
@@ -625,6 +709,7 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     flags: [],
     findings: null,
     decisions: { pending: [], resolved: 0 },
+    plan: null,
     ship: null,
     verdict: null,
     receipt: null,
