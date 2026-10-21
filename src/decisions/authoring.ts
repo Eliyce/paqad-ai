@@ -12,6 +12,7 @@ import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 import { ulid } from '@/core/ids/ulid.js';
 import { isStrictDecisionId, type DecisionOptionEvidence } from '@/planning/decision-packet.js';
+import { DecisionStore } from '@/planning/decision-store.js';
 
 import { richFieldsFor } from './packet-shape.js';
 
@@ -152,7 +153,11 @@ export function resolvePendingDecision(
     throw new Error(`Pending decision ${id} not found at ${pendingPath}.`);
   }
 
-  const pending = JSON.parse(readFileSync(pendingPath, 'utf8')) as PendingContractDecision;
+  const stored = JSON.parse(readFileSync(pendingPath, 'utf8')) as StoredPacket;
+  if (stored.id === undefined && stored.decision_id !== undefined) {
+    return resolveStorePacket(projectRoot, id, stored, chosen, rationale);
+  }
+  const pending = stored as PendingContractDecision;
   if (!pending.options?.some((option) => option.option_key === chosen)) {
     const keys = pending.options?.map((option) => option.option_key).join(', ') ?? '';
     throw new Error(`Chosen option "${chosen}" is not one of the packet's options (${keys}).`);
@@ -171,6 +176,50 @@ export function resolvePendingDecision(
   atomicWriteJson(resolvedPath, withRichFields(resolved));
   unlinkSync(pendingPath);
   return { path: resolvedPath, packet: resolved };
+}
+
+type StoredPacket = Partial<PendingContractDecision> & { decision_id?: string; question?: string };
+
+function resolveStorePacket(
+  projectRoot: string,
+  id: string,
+  stored: StoredPacket,
+  chosen: string,
+  rationale: string,
+): { path: string; packet: ResolvedContractDecision } {
+  if (!stored.options?.some((option) => option.option_key === chosen)) {
+    const keys = stored.options?.map((option) => option.option_key).join(', ') ?? '';
+    throw new Error(`Chosen option "${chosen}" is not one of the packet's options (${keys}).`);
+  }
+  const resolvedAt = new Date().toISOString();
+  const path = new DecisionStore(projectRoot).resolve({
+    decisionId: id,
+    humanResponse: {
+      chosen_option_key: chosen,
+      intent: 'explicit',
+      explanation_rounds_used: 0,
+      responded_at: resolvedAt,
+      responded_by: 'paqad-decision-cli',
+      carry_over_scope: 'session',
+      ...(rationale ? { note: rationale } : {}),
+    },
+  });
+  return {
+    path,
+    packet: {
+      id,
+      category: stored.category ?? '',
+      title: stored.question ?? '',
+      context: stored.context ?? '',
+      options: stored.options,
+      recommendation: stored.recommendation ?? null,
+      created_at: stored.created_at ?? resolvedAt,
+      status: 'resolved',
+      chosen,
+      rationale,
+      resolved_at: resolvedAt,
+    },
+  };
 }
 
 function withRichFields(packet: PendingContractDecision | ResolvedContractDecision): object {

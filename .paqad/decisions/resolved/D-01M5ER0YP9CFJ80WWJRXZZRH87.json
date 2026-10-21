@@ -1,0 +1,58 @@
+{
+  "category": "create-vs-reuse",
+  "context": "This looks like a reuse-or-create choice that affects /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/.changeset/release-plugin-facts.md. Pick the path before more is built on it.\n\nSimilar past decisions you already resolved:\n- [create-vs-reuse] \"Use what exists or make new?\" → Reuse what exists — Owner: false positive on a scratch plan template outside the repo; keep the same file.\n- [create-vs-reuse] \"Code-knowledge index: file-discovery mechanism\" → Extract the check-ignore batch into a small shared helper; use it in the new module AND reroute runner.ts through it — Canonical-helper rule (RULE-13/14): extract the batched check-ignore scan once, reuse in the new module and reroute runner.ts.\n- [create-vs-reuse] \"Part 10: how 'not required' and 'did not run' are recorded\" → Reuse 'skipped' and add one field, skip_kind: 'not-required' | 'did-not-run', on gate results, evidence gates and ledger rows; GateResult gains outcome?: 'not-required'|'did-not-run' with passed:true so the runner never treats it as a failure; every count already ignores skipped — Owner chose reuse: skipped + skip_kind not-required|did-not-run; GateResult.outcome with passed:true",
+  "options": [
+    {
+      "option_key": "reuse-existing",
+      "label": "Reuse what exists",
+      "one_line_preview": "If you pick this, we will update /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/.changeset/release-plugin-facts.md.",
+      "trade_off": "You give up: a blank-slate implementation.",
+      "evidence": {
+        "file": "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/.changeset/release-plugin-facts.md",
+        "callers": 0,
+        "similarity": 0.91,
+        "rule_match": "RULE-1",
+        "evidence_partial": true
+      }
+    },
+    {
+      "option_key": "make-new",
+      "label": "Make a new one",
+      "one_line_preview": "If you pick this, we will create /Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/.changeset/new-release-plugin-facts.md.",
+      "trade_off": "You give up: the shared path that already exists.",
+      "evidence": {
+        "file": "/Users/haider.lasani/Desktop/projects/paqad-ai/paqad-ai npm/.changeset/new-release-plugin-facts.md",
+        "callers": 0,
+        "similarity": 0.42,
+        "rule_match": "RULE-1",
+        "evidence_partial": true
+      }
+    }
+  ],
+  "created_at": "2026-10-21T08:07:43.561Z",
+  "status": "resolved",
+  "id": "D-01M5ER0YP9CFJ80WWJRXZZRH87",
+  "title": "Use what exists or make new?",
+  "recommendation": null,
+  "change": "01M5EQRYSFA51HDMC4XW13AFNB",
+  "chosen": "reuse-existing",
+  "rationale": "Same false-positive fork the owner already answered (reuse-existing); re-minted because the resolver rewrote the fingerprint.",
+  "resolved_at": "2026-10-21T08:09:17.248Z",
+  "decision_id": "D-01M5ER0YP9CFJ80WWJRXZZRH87",
+  "fingerprint": "sha256:56bc201e7cea20ccec11527f3fcbd302420b3339d2467dbb0f9a1fe4383aa93d",
+  "question": "Use what exists or make new?",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5EQRYSFA51HDMC4XW13AFNB",
+  "ttl_until": "2026-11-20T08:07:43.561Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "reuse-existing",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T08:09:17.248Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Same false-positive fork the owner already answered (reuse-existing); re-minted because the resolver rewrote the fingerprint."
+  }
+}

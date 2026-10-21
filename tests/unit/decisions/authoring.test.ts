@@ -16,6 +16,8 @@ import {
   resolvePendingDecision,
   type CreateDecisionInput,
 } from '@/decisions/authoring.js';
+import type { DecisionPacket } from '@/planning/decision-packet.js';
+import { DecisionStore } from '@/planning/decision-store.js';
 import { writeFileSync } from 'node:fs';
 
 let root: string;
@@ -189,6 +191,81 @@ describe('resolvePendingDecision', () => {
 
   it('throws when the pending packet does not exist', () => {
     expect(() => resolvePendingDecision(root, mintDecisionId(), 'skill')).toThrow(/not found/u);
+  });
+});
+
+describe('resolvePendingDecision on a packet the hooks wrote', () => {
+  function storePacket(): DecisionPacket {
+    const now = new Date();
+    return {
+      decision_id: mintDecisionId(),
+      fingerprint: 'sha256:hook-fingerprint',
+      category: 'create-vs-reuse',
+      question: 'Use what exists or make new?',
+      context: 'A reuse-or-create choice.',
+      options: [
+        {
+          option_key: 'reuse-existing',
+          label: 'Reuse what exists',
+          one_line_preview: 'If you pick this, we will reuse it.',
+          trade_off: 'You give up: a blank slate.',
+          evidence: {},
+        },
+        {
+          option_key: 'make-new',
+          label: 'Make a new one',
+          one_line_preview: 'If you pick this, we will make it.',
+          trade_off: 'You give up: one shared path.',
+          evidence: {},
+        },
+      ],
+      confidence: 0.92,
+      requested_by: 'paqad',
+      task_session_id: 'session-a',
+      created_at: now.toISOString(),
+      status: 'pending',
+      ttl_until: new Date(now.getTime() + 86_400_000).toISOString(),
+      invalidation_watch: ['src/a.ts'],
+    };
+  }
+
+  it('resolves it through the store, keeping its fingerprint so the answer is reused', () => {
+    const store = new DecisionStore(root);
+    store.initialize();
+    const packet = storePacket();
+    store.writePending(packet);
+    const id = packet.decision_id;
+
+    const result = resolvePendingDecision(root, id, 'reuse-existing', 'Owner picked reuse.');
+
+    expect(result.path).toBe(resolvedPath(id));
+    expect(existsSync(pendingPath(id))).toBe(false);
+    expect(result.packet).toMatchObject({
+      id,
+      title: 'Use what exists or make new?',
+      status: 'resolved',
+      chosen: 'reuse-existing',
+      rationale: 'Owner picked reuse.',
+    });
+    const onDisk = JSON.parse(readFileSync(result.path, 'utf8'));
+    expect(onDisk.fingerprint).toBe('sha256:hook-fingerprint');
+    expect(onDisk.human_response).toMatchObject({
+      chosen_option_key: 'reuse-existing',
+      note: 'Owner picked reuse.',
+    });
+    expect(store.findReusableDecision(packet)).toBe(id);
+  });
+
+  it('rejects a chosen option the packet does not offer', () => {
+    const store = new DecisionStore(root);
+    store.initialize();
+    const packet = storePacket();
+    store.writePending(packet);
+
+    expect(() => resolvePendingDecision(root, packet.decision_id, 'nope')).toThrow(
+      /reuse-existing, make-new/u,
+    );
+    expect(existsSync(pendingPath(packet.decision_id))).toBe(true);
   });
 });
 
