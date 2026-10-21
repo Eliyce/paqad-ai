@@ -1,7 +1,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join, relative } from 'node:path';
 
 import { getPackageRoot } from '@/core/runtime-paths.js';
 import { frameworkLinkHome } from '@/health/plugin-install.js';
@@ -63,16 +63,25 @@ export async function loadOptionalPackage<T = unknown>(
     return (await import(name)) as T;
   } catch {}
   for (const base of alternateBases(env)) {
+    let loaded: T;
     try {
-      return createRequire(base)(name) as T;
-    } catch {}
+      loaded = createRequire(base)(name) as T;
+    } catch {
+      continue;
+    }
+    kickOffEngineInstall(env);
+    return loaded;
   }
+  kickOffEngineInstall(env);
+  throw new Error(`optional package ${name} is not installed`);
+}
+
+function kickOffEngineInstall(env: NodeJS.ProcessEnv): void {
   /* v8 ignore start -- best-effort kick-off; its internals already fail safe, so this catch rarely fires. */
   try {
     maybeStartOptionalEngineInstall(env);
   } catch {}
   /* v8 ignore stop */
-  throw new Error(`optional package ${name} is not installed`);
 }
 
 const OPTIONAL_ENGINES = ['@huggingface/transformers', 'openai'] as const;
@@ -102,6 +111,7 @@ function enginePaths(pluginData: string): EnginePaths {
 interface InstallMarker {
   status: 'installing' | 'ready' | 'failed';
   attempted_at: string;
+  specs?: string[];
   error?: string;
 }
 
@@ -148,6 +158,29 @@ export interface EngineInstallDeps {
   startInstall?: (specs: string[], dir: string, paths: EnginePaths, projectRoot?: string) => void;
 }
 
+function isWithin(dir: string, file: string): boolean {
+  const rel = relative(dir, file);
+  return rel.length > 0 && !rel.startsWith('..') && !isAbsolute(rel);
+}
+
+function resolvesFromPluginData(resolved: string, pluginData: string): boolean {
+  if (isWithin(pluginData, resolved)) {
+    return true;
+  }
+  try {
+    return isWithin(realpathSync(pluginData), resolved);
+  } catch {
+    return false;
+  }
+}
+
+function installedSpecsMatch(marker: InstallMarker | null, declared: string[]): boolean {
+  const installed = marker?.status === 'ready' ? marker.specs : undefined;
+  return (
+    Array.isArray(installed) && [...installed].sort().join(' ') === [...declared].sort().join(' ')
+  );
+}
+
 export interface EngineInstallOptions {
   projectRoot?: string;
 }
@@ -162,11 +195,16 @@ export function maybeStartOptionalEngineInstall(
     return 'no-plugin-data';
   }
   const resolve = deps.resolve ?? resolveOptionalPackage;
-  if (resolve(PRIMARY_ENGINE, env) !== null) {
+  const resolved = resolve(PRIMARY_ENGINE, env);
+  if (resolved !== null && !resolvesFromPluginData(resolved, pluginData)) {
     return 'already-present';
   }
   const paths = enginePaths(pluginData);
   const marker = readInstallMarker(paths.marker);
+  const specs = (deps.readSpecs ?? readEngineSpecs)(env);
+  if (resolved !== null && (specs.length === 0 || installedSpecsMatch(marker, specs))) {
+    return 'already-present';
+  }
   if (marker?.status === 'installing' && existsSync(paths.lock)) {
     return 'in-progress';
   }
@@ -174,7 +212,6 @@ export function maybeStartOptionalEngineInstall(
   if (marker && now() - Date.parse(marker.attempted_at) < INSTALL_RETRY_INTERVAL_MS) {
     return 'throttled';
   }
-  const specs = (deps.readSpecs ?? readEngineSpecs)(env);
   if (specs.length === 0) {
     return 'no-pinned-range';
   }
@@ -186,7 +223,7 @@ export function maybeStartOptionalEngineInstall(
   writeFileSync(paths.lock, String(process.pid));
   writeFileSync(
     paths.marker,
-    JSON.stringify({ status: 'installing', attempted_at: new Date(now()).toISOString() }),
+    JSON.stringify({ status: 'installing', attempted_at: new Date(now()).toISOString(), specs }),
   );
   /* v8 ignore next -- the real spawn default is exercised under manual-scenario sign-off, not units. */
   (deps.startInstall ?? spawnEngineInstall)(specs, pluginData, paths, options.projectRoot);
@@ -211,7 +248,7 @@ function spawnEngineInstall(
       execFileSync('npm', ['install', ...specs, '--no-audit', '--no-fund', '--omit=dev'], {
         cwd: process.env.PAQAD_ENGINE_DIR, stdio: ['ignore', fd, fd],
       });
-      writeFileSync(process.env.PAQAD_ENGINE_MARKER, JSON.stringify({ status: 'ready', attempted_at: new Date().toISOString() }));
+      writeFileSync(process.env.PAQAD_ENGINE_MARKER, JSON.stringify({ status: 'ready', attempted_at: new Date().toISOString(), specs }));
       if (process.env.PAQAD_ENGINE_REBUILD_ROOT && process.env.PAQAD_ENGINE_CLI) {
         try {
           execFileSync(process.execPath, [process.env.PAQAD_ENGINE_CLI, 'rag', 'rebuild', '--project-root', process.env.PAQAD_ENGINE_REBUILD_ROOT], {
