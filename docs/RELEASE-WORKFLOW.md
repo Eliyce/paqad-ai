@@ -239,6 +239,28 @@ the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.te
   <https://www.npmjs.com/package/paqad-ai/access>. No `NPM_TOKEN` secret.
 - Provenance: enabled (`NPM_CONFIG_PROVENANCE=true`); requires
   `id-token: write` permission (set in the workflow).
+- npm CLI: pinned to `>=11.5.1 <12`. Trusted Publishing needs 11.5.1 or newer, and npm 12
+  changed the `npm pack --json` output the publish-time end-to-end test reads.
+- Build heap: `NODE_OPTIONS=--max-old-space-size=4096`, the same as CI, so the type-declaration
+  build never runs out of memory.
+- What was published is read from facts, never from the changesets console output (changesets
+  CLI v3 stopped printing the `New tag:` lines the action looked for, so its `published` output
+  stayed `false`). After the changesets step, `node scripts/release-sync.mjs state` reads the
+  version in `package.json`, finds its release commit, asks npm whether that version exists and
+  asks `Eliyce/paqad-claude-plugin` whether tag `v<version>` exists. The job outputs `published`
+  (true only when npm has the version and the plugin tag is missing), `version` and `sha`.
+- Tags and GitHub Releases: `node scripts/release-sync.mjs tags` pushes `v<version>` on the
+  release commit and creates the GitHub Release (notes from that version's `CHANGELOG.md`
+  section) for every published version from the newest existing tag onwards that lacks one.
+  Only the current version is marked latest. Its first run backfilled every version since 1.78.0.
+- Plugin: `publish-plugin` checks out the release commit, fails if its `package.json` version is
+  not the published one, builds, and pushes the plugin with `PAQAD_PLUGIN_PUSH_TOKEN`. Because the
+  gate reads facts, any later run on `main`, including a manual `workflow_dispatch`, ships a
+  plugin that is behind npm.
+- Plugin lag: the `plugin-in-sync` job runs after every release, and
+  [`.github/workflows/plugin-sync-check.yml`](../.github/workflows/plugin-sync-check.yml) runs
+  daily at 06:00 UTC. Both run `node scripts/release-sync.mjs check`, which fails red when npm
+  `latest` is newer than the newest `v*` tag in the plugin repo.
 
 ### Branch protection (`main`)
 
@@ -317,8 +339,17 @@ Why each one works the way it does, for the parts the code does not say.
   `Eliyce/paqad-claude-plugin`: the plugin files plus a generated `.claude-plugin/marketplace.json`
   (marketplace `eliyce`, plugin `paqad`, source `./`). It wipes everything in the target except
   `.git`, which is why the marketplace file is written there and not kept here. The job runs only
-  after npm publish succeeds, commits nothing when the tree is unchanged, creates `main` on an
-  empty repo, and fails when `PAQAD_PLUGIN_PUSH_TOKEN` is missing or the push fails.
+  when npm has the version and the plugin repo lacks its tag, commits nothing when the tree is
+  unchanged, creates `main` on an empty repo, and fails when `PAQAD_PLUGIN_PUSH_TOKEN` is missing
+  or the push fails.
+- **`release-sync.mjs`** is how the release decides what to ship, from npm and git only, never
+  from changesets output. `state` writes `version`, `sha` (the oldest commit whose `package.json`
+  carries that version) and `plugin_needed` to `GITHUB_OUTPUT`; it retries npm for a minute so a
+  just-published version is not missed. `tags` pushes missing `v<version>` tags by commit, so a
+  local tag changesets made does not matter, and creates the missing GitHub Releases, oldest
+  first. `check` fails when the plugin lags npm `latest`. A failure to reach npm or a git remote
+  fails the step rather than reading as "not published" or "tag missing". Tests in
+  `tests/unit/ci/release-sync.test.ts` run it against local bare remotes with fake `npm` and `gh`.
 - **`check-surface-drift.mjs` and `check-surface-orphans.mjs`** mirror the extension-surface
   verification gate, so a local run and verification agree. Drift is checked per barrel, because
   per-symbol drift means nothing for `export *` barrels. A symbol used only inside its own
@@ -355,6 +386,8 @@ Why each one works the way it does, for the parts the code does not say.
 | Need to undo a published version (≤ 72 h) | npm policy allows brief unpublish | `npm unpublish paqad-ai@x.y.z --force` then ship a higher version |
 | Need to undo a published version (> 72 h) | Cannot unpublish | `npm deprecate paqad-ai@x.y.z "Use x.y.z+1 instead — this version has <bug>"` then ship a fix |
 | Need to re-run a stuck release | `package.json` bumped but never published to npm | `gh workflow run release.yml --repo Eliyce/paqad-ai --ref main` |
+| `Plugin matches npm` fails: the plugin is behind npm | npm has a version the plugin repo has no tag for | `gh workflow run release.yml --repo Eliyce/paqad-ai --ref main`; the `published` gate sees the missing tag and ships the plugin |
+| `Read what npm and the plugin repo have` fails | npm or the plugin repo could not be reached | Re-run the job; the gate never guesses "not published" on a failed lookup |
 
 ### Manual recovery: re-fire a stuck release
 
