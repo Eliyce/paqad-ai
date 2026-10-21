@@ -1,3 +1,4 @@
+import { slash } from './command-name';
 import { costLines } from './cost';
 import {
   buildBandView,
@@ -8,11 +9,10 @@ import {
   type BandView,
 } from './model';
 import { shipRail, STEP_WORDS } from './ship';
-import { SHOWN_AGAIN } from './visibility';
+import { hiddenReply, SHOWN_AGAIN } from './visibility';
 import { linesText, recordLines, shipsLines, trustLines } from './tabs';
 import type { PaqadFindingsScan, PaqadHudSnapshot, PaqadStandDown } from './types';
 
-export const COMMAND_NAME = 'paqad';
 export const SUBCOMMANDS = [
   'status',
   'decisions',
@@ -21,9 +21,22 @@ export const SUBCOMMANDS = [
   'cost',
   'trust',
   'ships',
+  'delivery',
   'record',
   'show',
+  'hide',
 ] as const;
+
+const ALIASES: Readonly<Record<string, string>> = { delivery: 'ships' };
+
+export const COMMAND_DESCRIPTION =
+  'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, delivery, record, or show or hide the band';
+export const ARGUMENT_HINT = `[${SUBCOMMANDS.join('|')}]`;
+
+export function subcommandOf(args: string): string {
+  const word = args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+  return ALIASES[word] ?? word;
+}
 
 export interface CommandInput {
   args: string;
@@ -34,8 +47,10 @@ export interface CommandInput {
   repoDecisions?: readonly RepoDecision[];
 }
 
-const HELP =
-  'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.';
+function help(): string {
+  const listed = SUBCOMMANDS.filter((sub) => ALIASES[sub] === undefined).map((sub) => slash(sub));
+  return `Try ${listed.slice(0, -1).join(', ')} or ${listed.at(-1)}.`;
+}
 
 const STAND_DOWN_WORDS: Record<PaqadStandDown, string> = {
   'view-off': 'the paqad HUD is turned off in the plugin settings',
@@ -75,7 +90,7 @@ function stateLine(view: BandView): string {
 
 function overview(snapshot: PaqadHudSnapshot, now: number): string {
   const view = buildBandView(snapshot, now);
-  return [stateLine(view), stageLine(view), shipLine(snapshot), view.cost, HELP].join('\n');
+  return [stateLine(view), stageLine(view), shipLine(snapshot), view.cost, help()].join('\n');
 }
 
 function status(snapshot: PaqadHudSnapshot, now: number): string {
@@ -178,14 +193,15 @@ function receipt(text: string | null): string {
 
 export function runPaqadCommand(input: CommandInput): { text: string } {
   if (input.standDown) return { text: notActiveText(input.standDown) };
-  const sub = input.args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+  const sub = subcommandOf(input.args);
   if (sub === 'receipt') return { text: receipt(input.receipt) };
   if (sub === 'show') return { text: SHOWN_AGAIN };
+  if (sub === 'hide') return { text: hiddenReply() };
   if (sub !== '' && !(SUBCOMMANDS as readonly string[]).includes(sub)) {
-    return { text: `There is no /paqad ${sub}. ${HELP}` };
+    return { text: `There is no ${slash(sub)}. ${help()}` };
   }
   const snapshot = input.snapshot;
-  if (!snapshot) return { text: `${NO_RECORD} ${HELP}` };
+  if (!snapshot) return { text: `${NO_RECORD} ${help()}` };
   if (sub === 'status') return { text: status(snapshot, input.now) };
   if (sub === 'decisions') return { text: decisions(snapshot, input.repoDecisions) };
   if (sub === 'rules') return { text: rules(snapshot) };

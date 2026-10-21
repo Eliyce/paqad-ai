@@ -1,10 +1,20 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  COMMAND_NAMES,
+  commandName,
+  isCommandName,
+  setCommandName,
+  slash,
+} from '../../../../runtime/claude-plugin/mod/command-name.ts';
+import {
+  ARGUMENT_HINT,
+  COMMAND_DESCRIPTION,
   SUBCOMMANDS,
   notActiveText,
   readRepoDecision,
   runPaqadCommand,
+  subcommandOf,
   type CommandInput,
 } from '../../../../runtime/claude-plugin/mod/commands.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
@@ -31,6 +41,81 @@ const run = (args: string, raw: Record<string, unknown> | null, over: Partial<Co
     ...over,
   }).text;
 
+const HUD_HELP =
+  'Try /paqad-hud status, /paqad-hud decisions, /paqad-hud rules, /paqad-hud receipt, /paqad-hud cost, /paqad-hud trust, /paqad-hud ships, /paqad-hud record, /paqad-hud show or /paqad-hud hide.';
+
+describe('the command name', () => {
+  afterEach(() => setCommandName('paqad'));
+
+  it('AC-3: is /paqad until the fallback is set', () => {
+    expect(commandName()).toBe('paqad');
+    expect(slash()).toBe('/paqad');
+    expect(slash('show')).toBe('/paqad show');
+  });
+
+  it('AC-2: becomes /paqad-hud when the fallback is set', () => {
+    setCommandName('paqad-hud');
+    expect(commandName()).toBe('paqad-hud');
+    expect(slash()).toBe('/paqad-hud');
+    expect(slash('receipt')).toBe('/paqad-hud receipt');
+  });
+
+  it('knows both names and no other', () => {
+    expect(COMMAND_NAMES).toEqual(['paqad', 'paqad-hud']);
+    expect(isCommandName('paqad')).toBe(true);
+    expect(isCommandName('paqad-hud')).toBe(true);
+    expect(isCommandName('paqad-product-discovery:paqad')).toBe(false);
+    expect(isCommandName('cost')).toBe(false);
+  });
+
+  it('AC-2: names /paqad-hud in the help and unknown-subcommand lines under the fallback', () => {
+    setCommandName('paqad-hud');
+    expect(run('deploy', FULL_ORD_501)).toBe(`There is no /paqad-hud deploy. ${HUD_HELP}`);
+    expect(run('', FULL_ORD_501).split('\n').at(-1)).toBe(HUD_HELP);
+    expect(run('status', null)).toBe(`Not yet. paqad has no record for this session. ${HUD_HELP}`);
+    expect(run('hide', null)).toBe(
+      'The paqad band is hidden. Run /paqad-hud show to bring it back.',
+    );
+    expect(run('record', FULL_ORD_501)).toContain('Receipt      written, see /paqad-hud receipt');
+  });
+
+  it('AC-2: answers every subcommand under the fallback as it does under /paqad', () => {
+    const answers = SUBCOMMANDS.map((sub) => run(sub, FULL_ORD_501, { receipt: RECEIPT_TEXT }));
+    setCommandName('paqad-hud');
+    expect(
+      SUBCOMMANDS.map((sub) =>
+        run(sub, FULL_ORD_501, { receipt: RECEIPT_TEXT }).replaceAll('/paqad-hud', '/paqad'),
+      ),
+    ).toEqual(answers);
+  });
+});
+
+describe('the hide and delivery subcommands', () => {
+  it('registers one argument hint and description for both names', () => {
+    expect(ARGUMENT_HINT).toBe(
+      '[status|decisions|rules|receipt|cost|trust|ships|delivery|record|show|hide]',
+    );
+    expect(COMMAND_DESCRIPTION).toBe(
+      'Where the paqad change stands: status, decisions, rules, receipt, cost, trust, delivery, record, or show or hide the band',
+    );
+  });
+
+  it('answers /paqad hide with how to bring the band back', () => {
+    expect(run('hide', null)).toBe('The paqad band is hidden. Run /paqad show to bring it back.');
+    expect(run(' HIDE ', FULL_ORD_501)).toBe(
+      'The paqad band is hidden. Run /paqad show to bring it back.',
+    );
+  });
+
+  it('answers /paqad delivery as /paqad ships', () => {
+    expect(subcommandOf('  Delivery now')).toBe('ships');
+    expect(subcommandOf('status')).toBe('status');
+    expect(subcommandOf('')).toBe('');
+    expect(run('delivery', FULL_ORD_501)).toBe(run('ships', FULL_ORD_501));
+    expect(run('delivery', null)).toBe(run('ships', null));
+  });
+});
+
 describe('/paqad while the mod stands down', () => {
   it.each([
     ['not-onboarded', 'paqad is not active here: this project was never onboarded.'],
@@ -54,7 +139,7 @@ describe('/paqad answers (AC-39)', () => {
         'Stage: Intake not yet, Planning done, Spec done, Build done, Review done, Checks done, Docs done, Deliver not yet.',
         'Ship: Edit done, Commit done, Push not yet, PR not yet, CI not yet, Merge not yet.',
         'cost: not yet',
-        'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.',
+        'Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record, /paqad show or /paqad hide.',
       ].join('\n'),
     );
   });
@@ -185,10 +270,10 @@ describe('/paqad answers (AC-39)', () => {
 
   it('answers an unknown subcommand and a missing snapshot', () => {
     expect(run('deploy', FULL_ORD_501)).toBe(
-      'There is no /paqad deploy. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.',
+      'There is no /paqad deploy. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record, /paqad show or /paqad hide.',
     );
     expect(run('status', null)).toBe(
-      'Not yet. paqad has no record for this session. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record or /paqad show.',
+      'Not yet. paqad has no record for this session. Try /paqad status, /paqad decisions, /paqad rules, /paqad receipt, /paqad cost, /paqad trust, /paqad ships, /paqad record, /paqad show or /paqad hide.',
     );
   });
 

@@ -1,18 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { layoutBand } from '../../../../runtime/claude-plugin/mod/band.ts';
+import { setCommandName } from '../../../../runtime/claude-plugin/mod/command-name.ts';
 import { buildBandView, parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
 import {
-  CLOSED_HINT,
   CLOSE_HEADER,
-  CLOSE_QUESTION,
-  HIDDEN_HINT,
   HIDDEN_KEY_PREFIX,
   SHOWN_AGAIN,
   STORE_KEY_LIMIT,
+  closeQuestion,
+  closedHint,
   closedLine,
+  hiddenHint,
   hiddenKey,
+  hiddenReply,
+  hideAlwaysMeans,
   minimisedLine,
   needsYou,
   needsYouLine,
@@ -82,7 +85,7 @@ describe('the visibility state (FR-46 to FR-49)', () => {
 
   it('asks the close question in the spec words, with a header that fits the ask limit (FR-47)', () => {
     expect(CLOSE_HEADER.length).toBeLessThanOrEqual(12);
-    expect(CLOSE_QUESTION).toBe(
+    expect(closeQuestion()).toBe(
       'Close the paqad band? Close for now: Comes back in your next session. Hide always: Stays hidden until you click paqad under the prompt or run /paqad show.',
     );
   });
@@ -118,10 +121,10 @@ describe('the minimised line (FR-46, FR-53, AC-46)', () => {
 describe('closed, hidden and needs you (FR-47, FR-50, AC-36)', () => {
   it('replaces the band with a one-line entry that says how to bring it back', () => {
     expect(layout(FULL_ORD_501, { minimised: false, closed: true, hidden: false })).toEqual([
-      `paqad · Safe to merge ▸  ${CLOSED_HINT}`,
+      `paqad · Safe to merge ▸  ${closedHint()}`,
     ]);
     expect(layout(FULL_ORD_501, { minimised: false, closed: true, hidden: true })).toEqual([
-      `paqad · Safe to merge ▸  ${HIDDEN_HINT}`,
+      `paqad · Safe to merge ▸  ${hiddenHint()}`,
     ]);
     const view = buildBandView(parse(FULL_ORD_501), NOW);
     expect(closedLine('closed', view)[0]).toMatchObject({ action: 'reopen', hotkey: 'o' });
@@ -145,5 +148,38 @@ describe('closed, hidden and needs you (FR-47, FR-50, AC-36)', () => {
     expect(
       runPaqadCommand({ args: 'show', standDown: null, snapshot: null, receipt: null, now: NOW }),
     ).toEqual({ text: SHOWN_AGAIN });
+  });
+});
+
+describe('the hints name the registered command', () => {
+  afterEach(() => setCommandName('paqad'));
+
+  it('AC-3: names /paqad show while /paqad is registered', () => {
+    expect(closedHint()).toBe('Closed for this session · /paqad show');
+    expect(hiddenHint()).toBe('Hidden always · /paqad show');
+    expect(hideAlwaysMeans()).toBe(
+      'Stays hidden until you click paqad under the prompt or run /paqad show',
+    );
+    expect(hideAlwaysMeans('desktop')).toBe('Stays hidden until you press Show or run /paqad show');
+    expect(hiddenReply()).toBe('The paqad band is hidden. Run /paqad show to bring it back.');
+  });
+
+  it('AC-2: names /paqad-hud show under the fallback', () => {
+    setCommandName('paqad-hud');
+    expect(closedHint()).toBe('Closed for this session · /paqad-hud show');
+    expect(hiddenHint()).toBe('Hidden always · /paqad-hud show');
+    expect(hideAlwaysMeans()).toBe(
+      'Stays hidden until you click paqad under the prompt or run /paqad-hud show',
+    );
+    expect(hideAlwaysMeans('desktop')).toBe(
+      'Stays hidden until you press Show or run /paqad-hud show',
+    );
+    expect(closeQuestion()).toBe(
+      'Close the paqad band? Close for now: Comes back in your next session. Hide always: Stays hidden until you click paqad under the prompt or run /paqad-hud show.',
+    );
+    expect(hiddenReply()).toBe('The paqad band is hidden. Run /paqad-hud show to bring it back.');
+    expect(layout(FULL_ORD_501, { minimised: false, closed: true, hidden: false })).toEqual([
+      'paqad · Safe to merge ▸  Closed for this session · /paqad-hud show',
+    ]);
   });
 });

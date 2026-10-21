@@ -1,4 +1,5 @@
-import { COMMAND_NAME, NO_RECEIPT } from './commands';
+import { isCommandName, slash } from './command-name';
+import { NO_RECEIPT, subcommandOf } from './commands';
 import type { TableLine } from './table';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
@@ -27,11 +28,11 @@ export function watchVerdict(seen: string | null | undefined, key: string | null
 }
 
 export function verdictToast(verdict: Verdict): string {
-  return `paqad sealed the receipt: ${verdict.word}. /paqad receipt shows why.`;
+  return `paqad sealed the receipt: ${verdict.word}. ${slash('receipt')} shows why.`;
 }
 
 export function isReceiptCommand(command: string, args: string): boolean {
-  return command === COMMAND_NAME && args.trim().split(/\s+/)[0]?.toLowerCase() === 'receipt';
+  return isCommandName(command) && subcommandOf(args) === 'receipt';
 }
 
 function bodyLine(raw: string): TableLine {

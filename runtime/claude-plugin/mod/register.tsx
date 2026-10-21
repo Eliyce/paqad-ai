@@ -60,9 +60,9 @@ import { isReceiptCommand, receiptCard, verdictKey, verdictToast, watchVerdict }
 import {
   CLOSE_FOR_NOW,
   CLOSE_HEADER,
-  CLOSE_QUESTION,
   HIDE_ALWAYS,
   MINIMISED_KEY,
+  closeQuestion,
   hiddenKey,
   readBandVisibility,
 } from './visibility';
@@ -472,7 +472,7 @@ async function setHidden($: EngineInterface, value: boolean): Promise<void> {
 async function askClose($: EngineInterface): Promise<void> {
   let answer: string;
   try {
-    answer = await $.ui.ask(CLOSE_QUESTION, {
+    answer = await $.ui.ask(closeQuestion(), {
       options: [CLOSE_FOR_NOW, HIDE_ALWAYS],
       header: CLOSE_HEADER,
     });

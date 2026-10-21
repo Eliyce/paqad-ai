@@ -1,3 +1,4 @@
+import { slash } from './command-name';
 import { formatStopwatch } from './cost';
 import { shipRail } from './ship';
 import type { TableLine, TableSegment } from './table';
@@ -325,7 +326,7 @@ export function recordLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
       ? row('Rules', `${snapshot.rules.applicable ?? 0} apply, loaded`, 'good')
       : row('Rules', 'not loaded yet', 'warn'),
     snapshot.receipt
-      ? row('Receipt', 'written, see /paqad receipt', 'good')
+      ? row('Receipt', `written, see ${slash('receipt')}`, 'good')
       : row('Receipt', 'not yet, written at the end of a turn', undefined, true),
   ];
   if (snapshot.timeline.length > 0) {
