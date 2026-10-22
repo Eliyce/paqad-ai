@@ -6,8 +6,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildPluginManifest,
+  PLUGIN_ICON,
   renderClaudePluginStageAgents,
   serializePluginHooksJson,
+  serializePluginManifest,
 } from '@/plugin/manifest-build.js';
 import { PLUGIN_MARKETPLACE_REPO } from '@/install/plugin-migration.js';
 
@@ -24,6 +26,54 @@ describe('plugin manifest and marketplace', () => {
     const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as { version: string };
     expect(manifest).toEqual(buildPluginManifest(manifest.version));
     expect(manifest.version).toMatch(/^\d+\.\d+\.\d+/);
+    expect(read('.claude-plugin/plugin.json')).toBe(serializePluginManifest(manifest.version));
+  });
+
+  it('AC-3 carries the listing data the plugin directory reads', () => {
+    const manifest = buildPluginManifest('1.0.0');
+    expect(manifest).toMatchObject({
+      displayName: 'paqad',
+      author: { name: 'Eliyce', email: 'hello@eliyce.com', url: 'https://eliyce.com' },
+      homepage: 'https://paqad.ai',
+      repository: 'https://github.com/Eliyce/paqad-claude-plugin',
+      license: 'MIT',
+      keywords: ['governance', 'code-review', 'evidence', 'rules', 'quality-gates', 'compliance'],
+      icon: PLUGIN_ICON,
+      documentationUrl: 'https://paqad.ai/docs/',
+      supportUrl: 'https://paqad.ai/support/',
+      privacyPolicyUrl: 'https://paqad.ai/privacy/',
+      termsOfServiceUrl: 'https://paqad.ai/terms/',
+    });
+    for (const key of ['documentationUrl', 'supportUrl', 'privacyPolicyUrl', 'termsOfServiceUrl']) {
+      expect(manifest[key]).toMatch(/^https:\/\//);
+    }
+    expect(PLUGIN_ICON).toBe('./assets/icon.png');
+    const icon = readFileSync(join(repoRoot, PLUGIN_ICON));
+    expect(icon.subarray(1, 4).toString('latin1')).toBe('PNG');
+    expect(icon.readUInt32BE(16)).toBe(512);
+    expect(icon.readUInt32BE(20)).toBe(512);
+  });
+
+  it('keeps the directory listing fields out of the marketplace entry', () => {
+    const [entry] = PLUGIN_MARKETPLACE.plugins as Record<string, unknown>[];
+    expect(entry).toMatchObject({ displayName: 'paqad', homepage: 'https://paqad.ai' });
+    for (const key of [
+      'icon',
+      'documentationUrl',
+      'supportUrl',
+      'privacyPolicyUrl',
+      'termsOfServiceUrl',
+      'version',
+    ]) {
+      expect(entry).not.toHaveProperty(key);
+    }
+  });
+
+  it('ships the listing icon and the security policy in the npm package', () => {
+    const files = (JSON.parse(read('package.json')) as { files: string[] }).files;
+    expect(files).toContain('assets/icon.png');
+    expect(files).toContain('SECURITY.md');
+    expect(read('SECURITY.md')).toContain('security@eliyce.com');
   });
 
   it('names the HUD mod contract and declares no userConfig, so install prints no warning', () => {

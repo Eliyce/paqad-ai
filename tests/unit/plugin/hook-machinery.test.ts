@@ -107,8 +107,12 @@ describe('plugin manifest-build generators', () => {
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-development.md');
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-expert.md');
     expect(manifest.agents).toContain('./runtime/claude-plugin/agents/paqad-chief-architect.md');
-    expect(manifest).not.toHaveProperty('displayName');
-    expect(manifest.author).toEqual({ name: 'Eliyce' });
+    expect(manifest.displayName).toBe('paqad');
+    expect(manifest.author).toEqual({
+      name: 'Eliyce',
+      email: 'hello@eliyce.com',
+      url: 'https://eliyce.com',
+    });
   });
 
   it('renders the six Claude stage agents and the two High Table agents from the shared template', () => {

@@ -1,10 +1,29 @@
 {
   "name": "paqad",
+  "displayName": "paqad",
   "description": "Your team's rules, enforced at edit time, with evidence for every change.",
-  "version": "1.101.1",
+  "version": "1.104.0",
   "author": {
-    "name": "Eliyce"
+    "name": "Eliyce",
+    "email": "hello@eliyce.com",
+    "url": "https://eliyce.com"
   },
+  "homepage": "https://paqad.ai",
+  "repository": "https://github.com/Eliyce/paqad-claude-plugin",
+  "license": "MIT",
+  "keywords": [
+    "governance",
+    "code-review",
+    "evidence",
+    "rules",
+    "quality-gates",
+    "compliance"
+  ],
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://paqad.ai/docs/",
+  "supportUrl": "https://paqad.ai/support/",
+  "privacyPolicyUrl": "https://paqad.ai/privacy/",
+  "termsOfServiceUrl": "https://paqad.ai/terms/",
   "hooks": "./runtime/claude-plugin/hooks.json",
   "agents": [
     "./runtime/claude-plugin/agents/paqad-planning.md",
