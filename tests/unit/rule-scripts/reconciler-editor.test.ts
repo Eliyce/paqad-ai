@@ -1,4 +1,12 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -7,7 +15,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { assembleMap, scanAndEmbedIds, type RuleClassification } from '@/rule-scripts/analyzer.js';
 import { addRule, editRuleText, removeRuleBullet } from '@/rule-scripts/editor.js';
-import { loadRuleScriptMap } from '@/rule-scripts/map.js';
+import {
+  loadRuleScriptMap,
+  ruleScriptMapPath,
+  serializeRuleScriptMap,
+} from '@/rule-scripts/map.js';
 import { setRuleText } from '@/rule-scripts/mutate.js';
 import { pruneOrphanScripts } from '@/rule-scripts/prune.js';
 import {
@@ -16,6 +28,7 @@ import {
   recordConflictFindings,
 } from '@/rule-scripts/reconciler.js';
 import { parseRuleMarker, ruleTextHash } from '@/rule-scripts/rule-id.js';
+import type { RuleScriptMap, ScriptEntry } from '@/rule-scripts/types.js';
 
 const roots: string[] = [];
 
@@ -229,5 +242,93 @@ describe('pruneOrphanScripts (B-3)', () => {
       false,
     );
     expect(existsSync(join(root, '.paqad/scripts/rules/coding/q/001-orphan/notes.md'))).toBe(true);
+  });
+});
+
+describe('reconciler drift edges', () => {
+  function writeMap(root: string, map: RuleScriptMap): void {
+    writeFileSync(ruleScriptMapPath(root), serializeRuleScriptMap(map), 'utf8');
+  }
+
+  function scriptEntry(path: string): ScriptEntry {
+    return {
+      path,
+      kind: 'deterministic',
+      runtime: 'node',
+      scope: 'changed-files',
+      last_validated_at: '2026-01-01T00:00:00.000Z',
+      fixtures_passed: true,
+    };
+  }
+
+  it('moves an unreadable drift file aside and writes a fresh one', () => {
+    const { root } = syncedProject();
+    const drift = join(root, '.paqad/scripts/rules/.cache/drift.json');
+    write(drift, '{ not json');
+    const report = reconcileRuleScripts(root);
+    expect(report.findings).toHaveLength(0);
+    expect(readDrift(root)?.findings).toEqual([]);
+    const siblings = readdirSync(dirname(drift));
+    expect(siblings.some((name) => name.startsWith('drift.json.corrupt-'))).toBe(true);
+  });
+
+  it('reports every marked rule as added when no map exists yet', () => {
+    const { root, ids } = syncedProject();
+    rmSync(ruleScriptMapPath(root));
+    const report = reconcileRuleScripts(root);
+    expect(report.counts['RS-RULE-ADDED']).toBe(ids.length);
+    expect(report.counts['RS-RULE-REMOVED']).toBe(0);
+    expect(report.findings.map((f) => f.rule_id).sort()).toEqual([...ids].sort());
+  });
+
+  it('flags an edited rule with scripts as stale and a script without fixtures as failing', () => {
+    const { root, ids, file } = syncedProject();
+    const scriptPath = '.paqad/scripts/rules/coding/q/001-no-debugger.mjs';
+    write(join(root, scriptPath), 'export default () => [];\n');
+    const map = loadRuleScriptMap(root)!;
+    map.rules = map.rules.map((rule) =>
+      rule.id === ids[0]
+        ? {
+            ...rule,
+            scripts: [
+              scriptEntry(scriptPath),
+              scriptEntry('.paqad/scripts/rules/coding/q/gone.mjs'),
+            ],
+          }
+        : rule,
+    );
+    writeMap(root, map);
+    const edited = readFileSync(join(root, file), 'utf8').replace(
+      'No debugger.',
+      'No debugger at all.',
+    );
+    writeFileSync(join(root, file), edited, 'utf8');
+
+    const report = reconcileRuleScripts(root);
+    expect(report.counts['RS-RULE-EDITED']).toBe(1);
+    expect(report.counts['RS-SCRIPT-STALE']).toBe(1);
+    expect(report.counts['RS-FIXTURE-FAIL']).toBe(1);
+    const fixtureFinding = report.findings.find((f) => f.code === 'RS-FIXTURE-FAIL');
+    expect(fixtureFinding?.source).toBe(scriptPath);
+    expect(report.blocked).toBe(true);
+  });
+
+  it('marks a cached report with an old rule-files hash as invalid without blocking', () => {
+    const { root } = syncedProject();
+    const reportPath = join(root, '.paqad/scripts/rules/.cache/report.json');
+    write(reportPath, JSON.stringify({ rule_files_hash: 'an-older-hash', results: [] }));
+    const report = reconcileRuleScripts(root);
+    expect(report.counts['RS-CACHE-INVALID']).toBe(1);
+    expect(report.blocked).toBe(false);
+  });
+
+  it('accepts a cached report that carries no rule-files hash', () => {
+    const { root } = syncedProject();
+    write(
+      join(root, '.paqad/scripts/rules/.cache/report.json'),
+      JSON.stringify({ rule_files_hash: '', results: [] }),
+    );
+    const report = reconcileRuleScripts(root);
+    expect(report.findings).toHaveLength(0);
   });
 });
