@@ -20,10 +20,18 @@ export const PRE_CODE_STAGES: readonly StageId[] = MANDATORY_STAGES.slice(
   MANDATORY_STAGES.indexOf('development'),
 );
 
+const FAST_LANE_STAGES: readonly StageId[] = ['planning', 'development', 'checks'];
+
+export function laneStages(lane: StageLane): StageId[] {
+  return lane === 'fast' ? [...FAST_LANE_STAGES] : [...MANDATORY_STAGES];
+}
+
+export function isLaneStage(lane: StageLane, stage: string): boolean {
+  return (laneStages(lane) as readonly string[]).includes(stage);
+}
+
 export function requiredPreCodeStages(lane: StageLane): StageId[] {
-  return lane === 'fast'
-    ? PRE_CODE_STAGES.filter((stage) => stage !== 'specification')
-    : [...PRE_CODE_STAGES];
+  return laneStages(lane).filter((stage) => PRE_CODE_STAGES.includes(stage));
 }
 
 export const COMPLETION_ANCHORED_STAGES: readonly StageId[] = ['review'];

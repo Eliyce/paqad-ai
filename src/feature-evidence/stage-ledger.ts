@@ -140,10 +140,12 @@ export function readFeatureStageUnit(projectRoot: string, dirName: string): Sess
 
 export function foldFeature(projectRoot: string, sessionId: string, dirName: string): FoldedChange {
   const rows = readFeatureStageUnit(projectRoot, dirName);
-  const fold = {
-    ...foldRowsWithKey(rows, { sessionId, changeKey: dirName, promptOrdinal: 0 }),
+  const fold = foldRowsWithKey(rows, {
+    sessionId,
+    changeKey: dirName,
+    promptOrdinal: 0,
     lane: readChangeConstants(projectRoot, dirName, rows).lane,
-  };
+  });
   return augmentWithBundleArtifacts(fold, {
     plan: bundleFileNonEmpty(projectRoot, dirName, 'plan'),
     specification: bundleFileNonEmpty(projectRoot, dirName, 'specification'),

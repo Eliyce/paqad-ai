@@ -1,3 +1,4 @@
+import { isLaneStage } from '@/stage-evidence/stages.js';
 import type { StageLane } from '@/stage-evidence/types.js';
 
 import { FEATURE_BUNDLE_FILES, type FeatureBundleFile } from './paths.js';
@@ -37,6 +38,10 @@ export function laneRunsSpecPipeline(lane: StageLane | undefined): boolean {
   return lane !== 'fast';
 }
 
+function laneHasStage(stage: string): (config: BundleCompletenessConfig) => boolean {
+  return (config) => isLaneStage(config.lane, stage);
+}
+
 export function specPipelineApplies(config: BundleCompletenessConfig): boolean {
   return (
     config.specPipelineEnabled &&
@@ -71,14 +76,14 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
   {
     key: 'specification',
     file: FEATURE_BUNDLE_FILES.specification,
-    required: 'always',
+    required: laneHasStage('specification'),
     writer: 'paqad-ai spec freeze',
     validate: 'json',
   },
   {
     key: 'specMd',
     file: FEATURE_BUNDLE_FILES.specMd,
-    required: 'always',
+    required: laneHasStage('specification'),
     writer: 'paqad-ai spec freeze',
     validate: 'nonempty',
   },
@@ -149,7 +154,7 @@ export const BUNDLE_MANIFEST: readonly BundleManifestEntry[] = [
   {
     key: 'review',
     file: FEATURE_BUNDLE_FILES.review,
-    required: 'always',
+    required: laneHasStage('review'),
     writer: 'paqad-ai review record',
     validate: 'json',
   },
