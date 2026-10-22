@@ -116,14 +116,26 @@ function writeOutputs(outputs) {
   for (const line of lines) console.log(line);
 }
 
-export function releaseState({ waitSeconds = 10, attempts = 6 } = {}) {
+export function releaseState({ waitSeconds = 10, attempts = 90 } = {}) {
   const version = packageVersion();
   const sha = versionCommits().get(version);
   if (!sha) throw new Error(`No commit in history sets package.json to ${version}`);
   let published = npmHasVersion(version);
-  for (let attempt = 1; !published && attempt < attempts; attempt++) {
-    sleep(waitSeconds);
-    published = npmHasVersion(version);
+  if (!published && attempts > 1) {
+    const spec = `${PACKAGE_NAME}@${version}`;
+    const minutes = Math.round(((attempts - 1) * waitSeconds) / 60);
+    console.log(`Waiting for npm to list ${spec} (up to ${minutes} min)...`);
+    let waited = 0;
+    for (let attempt = 1; !published && attempt < attempts; attempt++) {
+      sleep(waitSeconds);
+      waited += waitSeconds;
+      published = npmHasVersion(version);
+    }
+    console.log(
+      published
+        ? `npm lists ${spec} after ${waited} s.`
+        : `npm still does not list ${spec} after ${minutes} min.`,
+    );
   }
   const pluginTagged = remoteHasTag(PLUGIN_REMOTE, `v${version}`);
   return { version, sha, published, pluginTagged, pluginNeeded: published && !pluginTagged };

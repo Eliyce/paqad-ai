@@ -26,6 +26,16 @@ const versions = (process.env.FAKE_NPM_VERSIONS || '').split(',').filter(Boolean
 const spec = args[1] || '';
 if (spec.startsWith('paqad-ai@')) {
   const version = spec.slice('paqad-ai@'.length);
+  const calls = process.env.FAKE_NPM_CALLS;
+  if (calls) {
+    const fs = require('node:fs');
+    const count = (fs.existsSync(calls) ? Number(fs.readFileSync(calls, 'utf8')) : 0) + 1;
+    fs.writeFileSync(calls, String(count));
+    if (count <= Number(process.env.FAKE_NPM_LISTED_AFTER || 0)) {
+      console.error('npm error code E404');
+      process.exit(1);
+    }
+  }
   if (versions.includes(version)) { console.log(version); process.exit(0); }
   console.error('npm error code E404');
   process.exit(1);
@@ -193,6 +203,23 @@ describe.skipIf(process.platform === 'win32')('release-sync state', () => {
     expect(result.status).toBe(0);
     expect(result.outputs.plugin_needed).toBe('false');
     expect(result.stdout).toContain('not on npm');
+  });
+
+  it.each([3, 10])('needs the plugin when npm lists the version only after %i misses', (misses) => {
+    const f = fixture(['1.0.0']);
+    const calls = join(f.repo, '..', 'npm-calls');
+
+    const result = run(f, 'state', {
+      FAKE_NPM_VERSIONS: '1.0.0',
+      FAKE_NPM_CALLS: calls,
+      FAKE_NPM_LISTED_AFTER: String(misses),
+    });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.outputs.plugin_needed).toBe('true');
+    expect(readFileSync(calls, 'utf8')).toBe(String(misses + 1));
+    expect(result.stdout).toContain('Waiting for npm to list paqad-ai@1.0.0 (up to ');
+    expect(result.stdout).toContain('npm lists paqad-ai@1.0.0 after ');
   });
 
   it('reads the version at GITHUB_SHA, not a release branch the changesets step left checked out', () => {
