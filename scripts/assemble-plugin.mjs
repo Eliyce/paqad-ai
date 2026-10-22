@@ -8,7 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 export const PLUGIN_TREE = [
@@ -18,6 +18,8 @@ export const PLUGIN_TREE = [
   'runtime',
   'README.md',
   'LICENSE',
+  'SECURITY.md',
+  'assets/icon.png',
 ];
 
 export const PLUGIN_REPO = 'Eliyce/paqad-claude-plugin';
@@ -33,14 +35,19 @@ export const PLUGIN_MARKETPLACE = {
   plugins: [
     {
       name: 'paqad',
+      displayName: 'paqad',
       source: './',
       description: "Your team's rules, enforced at edit time, with evidence for every change.",
       category: 'governance',
+      homepage: 'https://paqad.ai',
+      keywords: ['governance', 'code-review', 'evidence', 'rules', 'quality-gates', 'compliance'],
     },
   ],
 };
 
 const KEEP_IN_OUTPUT = new Set(['.git']);
+
+export const NEVER_SHIPPED = new Set(['.DS_Store', 'Thumbs.db', 'desktop.ini', '__MACOSX']);
 
 function readVersion(path) {
   try {
@@ -51,7 +58,8 @@ function readVersion(path) {
   }
 }
 
-function isShippedRuntimeFile(runtimeRoot, path) {
+function isShippedFile(runtimeRoot, path) {
+  if (NEVER_SHIPPED.has(basename(path)) || path.endsWith('.map')) return false;
   const rel = relative(runtimeRoot, path).split(sep).join('/');
   if (rel.startsWith('..') || !rel.startsWith('claude-plugin/mod')) return true;
   if (rel === 'claude-plugin/mod/test' || rel.startsWith('claude-plugin/mod/test/')) return false;
@@ -85,7 +93,7 @@ export function assemblePlugin({ repoRoot, outDir }) {
     mkdirSync(dirname(join(out, name)), { recursive: true });
     cpSync(join(root, name), join(out, name), {
       recursive: true,
-      filter: (path) => isShippedRuntimeFile(runtimeRoot, path),
+      filter: (path) => isShippedFile(runtimeRoot, path),
     });
   }
   writeFileSync(

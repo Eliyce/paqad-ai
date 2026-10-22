@@ -63,6 +63,8 @@
     ".claude-plugin/plugin.json",
     "README.md",
     "LICENSE",
+    "SECURITY.md",
+    "assets/icon.png",
     "CHANGELOG.md"
   ],
   "publishConfig": {
