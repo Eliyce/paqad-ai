@@ -1,4 +1,4 @@
-# Embedding Providers (local / openai / voyageai) — Technical View
+# Embedding Providers (local / openai) — Technical View
 
 > Module: **Hybrid RAG Runtime** (`hybrid-rag`) · Layer: `framework-internals` · Feature slug: `embedding-providers`
 
@@ -15,6 +15,23 @@ Source directories owned by this feature:
 
 - Imported by other paqad-ai modules — see the source list above for the public surface.
 
+## Providers
+
+- The providers are `local` and `openai`. `createEmbeddingProvider` in `src/rag/providers.ts`
+  builds the `openai` provider for `openai` and the local provider otherwise.
+- The local provider needs `@huggingface/transformers` v4 (`^4.3.1`). Both transformers
+  pipelines, feature-extraction in the local provider and text-classification in the reranker
+  (`src/context/reranker.ts`), keep the `dtype: 'q8'` pin, so the default MiniLM embeddings
+  stay the same and existing indexes under `.paqad/vectors/` stay valid.
+- The OpenAI provider reads `OPENAI_API_KEY` from the environment or `.paqad/secrets.env`.
+- A saved `voyageai` value is refused with the removal message from
+  `src/rag/removed-provider.ts`. The value can come from `rag_embedding_provider` in the config
+  file, from `PAQAD_RAG_EMBEDDING_PROVIDER`, or from `intelligence.embedding_provider` in the
+  project profile. The refusal comes before any network call, model download or index write,
+  and paqad never falls back to the local provider. The message names `local` and `openai`, the
+  `rag_embedding_provider` setting and `paqad-ai rag init --provider local`. Hook-driven context
+  loading reports the same message as a warning and loads no RAG context.
+
 ## Data Model / Schema
 
 - Tables, JSON schemas, or YAML schemas owned by this feature.
@@ -29,7 +46,7 @@ Source directories owned by this feature:
 - **MiniLM (`Xenova/all-MiniLM-L6-v2`) is the default FLOOR** — `getDefaultEmbeddingModel('local')`
   and `DEFAULT_LOCAL_EMBEDDING_MODEL` both resolve to it.
 - A **code-tuned** model (`Xenova/jina-embeddings-v2-base-code`) is the opt-in upgrade for
-  stronger code retrieval offline (the local counterpart to the remote `voyage-code-3`).
+  stronger code retrieval offline.
   `isCodeTunedLocalModel(id)` reports membership.
 - The list is a curated, supported subset, not a hard limit — the local provider
   downloads any transformers.js feature-extraction model. The code-tuned model is opt-in
@@ -57,6 +74,11 @@ Source directories owned by this feature:
   `paqad-ai rag rebuild --project-root <root>` after a successful install, so the index the
   onboarding could not build gets built once the engine is there. The rebuild output goes to
   the same install log.
+- The install marker records the specs it installed. When the engine resolves from
+  `CLAUDE_PLUGIN_DATA` but the recorded specs differ from the declared ones (or the marker
+  recorded none), the declared specs are installed again, so an engine still on transformers v3
+  is replaced. The in-progress lock and the 24-hour retry throttle still apply, and an engine
+  that resolves outside `CLAUDE_PLUGIN_DATA` is left alone.
 
 ## API / Interface Contract
 

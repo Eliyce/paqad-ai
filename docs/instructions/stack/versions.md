@@ -17,7 +17,7 @@ running the package is unaffected.
 
 ## Root Package — Production
 
-- `@huggingface/transformers ^3.8.0`
+- `@huggingface/transformers ^4.3.1` (pipelines pinned to `dtype: 'q8'`)
 - `@inquirer/prompts ^8.7.3`
 - `ajv ^8.20.0`
 - `chalk ^6.0.1`
@@ -29,16 +29,20 @@ running the package is unaffected.
 - `openai ^7.34.0`
 - `ora ^9.4.1`
 - `pathe ^2.0.3`
-- `voyageai ^0.4.0`
 - `yaml ^2.9.1`
 
 ## Root Package Build and Test Tools
 
 - `tsup ^9.0.0`
 - `typescript ^6.0.3`
-- `vitest ^3.2.4`, `@vitest/coverage-v8 ^3.2.4`
+- `vitest ^5.0.5`, `@vitest/coverage-v8 ^5.0.5`
 - `eslint ^10.12.0`, `typescript-eslint ^8.71.2`
 - `prettier ^3.9.10`
+- `markdownlint-cli2 ^0.24.0`
+
+`pnpm.overrides` holds floors for dev-only packages, each capped below the next major (for
+example `vite >=7.3.7 <8`). No shipped runtime fix relies on an override.
+`pnpm.auditConfig.ignoreGhsas` lists the one advisory the CI audit step ignores, by GHSA id.
 
 ## graph-ui (SPA)
 
@@ -47,7 +51,7 @@ running the package is unaffected.
 - `vite ^6.4.3`
 - `vitest ^5.0.5`, `@vitest/coverage-v8 5.0.5`
 
-graph-ui runs Vitest 5 while the root package stays on Vitest 3.
+The root package and graph-ui both run Vitest 5.
 
 ## Notes
 

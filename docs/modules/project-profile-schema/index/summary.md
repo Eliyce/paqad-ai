@@ -179,7 +179,7 @@ an empty vector or a zero-norm input returns 0, never `NaN`.
 shim; there is no input, so there is no injection risk.
 
 **`optional-package.ts`.** The plugin ships `dist/` with no `node_modules`, so the heavy engines
-(`@huggingface/transformers`, `openai`, `voyageai`) are looked up in order: normal resolution, the
+(`@huggingface/transformers`, `openai`) are looked up in order: normal resolution, the
 plugin data dir, the npm copy beside the framework link, then the global install. The first hop is
 a bare `import()` (ESM named exports, and what test mocks intercept); the others use
 `createRequire`, whose CJS named exports survive. When nothing resolves, a background,

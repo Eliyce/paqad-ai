@@ -1811,7 +1811,7 @@ modules:
       - slug: vector-index
         name: Vector Index
       - slug: embedding-providers
-        name: Embedding Providers (local / openai / voyageai)
+        name: Embedding Providers (local / openai)
       - slug: hybrid-scoring
         name: Hybrid Scoring
       - slug: reranking

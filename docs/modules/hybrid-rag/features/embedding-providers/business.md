@@ -1,4 +1,4 @@
-# Embedding Providers (local / openai / voyageai) — Business View
+# Embedding Providers (local / openai) — Business View
 
 > Module: **Hybrid RAG Runtime** (`hybrid-rag`) · Layer: `framework-internals` · Feature slug: `embedding-providers`
 
@@ -11,7 +11,12 @@ general-purpose default (MiniLM) and an opt-in code-tuned model for stronger cod
 both running fully offline after a one-time download. MiniLM stays the default floor; the
 code-tuned model is proven by the eval gate before it is recommended (RAG buildout F23).
 
-This page describes **Embedding Providers (local / openai / voyageai)** from a business / user-facing perspective.
+Two providers ship: `local` (the default) and `openai`. The Voyage provider was removed. A
+project that still has `voyageai` saved gets a message on every RAG command telling the
+Developer to switch to `local` or `openai`, for example with
+`paqad-ai rag init --provider local`. paqad never switches provider on its own.
+
+This page describes **Embedding Providers (local / openai)** from a business / user-facing perspective.
 The technical contract lives at [`technical.md`](./technical.md).
 
 ## User Roles
