@@ -254,8 +254,9 @@ export async function syncModuleHealthFromVerification(input: {
       action: 'updater-failure',
       source: 'verification-gate',
       provider: input.provider,
-      /* v8 ignore next 1 -- String(error) branch for non-Error throws; all tested errors are Error instances */
+      /* v8 ignore start -- String(error) branch for non-Error throws; all tested errors are Error instances */
       detail: error instanceof Error ? error.message : String(error),
+      /* v8 ignore stop */
     });
     return {
       processed_events: 0,
@@ -316,7 +317,7 @@ async function readConsumedEventIndex(projectRoot: string): Promise<ConsumedEven
     ) as Partial<ConsumedEventIndex>;
     return {
       schema_version: 1,
-      /* v8 ignore next 10 -- defensive fallbacks for malformed persisted data; always valid schema in practice */
+      /* v8 ignore start -- defensive fallbacks for malformed persisted data; always valid schema in practice */
       event_ids: Array.isArray(parsed.event_ids)
         ? [
             ...new Set(
@@ -327,6 +328,7 @@ async function readConsumedEventIndex(projectRoot: string): Promise<ConsumedEven
       updated_at:
         typeof parsed.updated_at === 'string' ? parsed.updated_at : new Date(0).toISOString(),
     };
+    /* v8 ignore stop */
   } catch {
     return {
       schema_version: 1,
@@ -423,10 +425,11 @@ async function applyEvidenceToProfile(
   event: ModuleHealthEvidence,
 ): Promise<'created' | 'updated' | 'skipped'> {
   const existing = await readProfileConservatively(projectRoot, moduleName, event);
-  /* v8 ignore next 3 -- deduplication skip path; event replay not exercised in unit tests */
+  /* v8 ignore start -- deduplication skip path; event replay not exercised in unit tests */
   if (existing?.evidence?.processed_event_ids?.includes(event.event_id)) {
     return 'skipped';
   }
+  /* v8 ignore stop */
 
   const base = existing ?? createUnknownProfile(moduleName);
   const nextMetrics = mergeMetrics(base.metrics, event);

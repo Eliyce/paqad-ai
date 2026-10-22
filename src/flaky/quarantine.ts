@@ -25,8 +25,9 @@ export function applyQuarantine(
     };
     if (isQuarantined) {
       quarantined.push(annotated);
-      /* v8 ignore next 1 -- key is non-null whenever isQuarantined is true */
+      /* v8 ignore start -- key is non-null whenever isQuarantined is true */
       if (key) applied.add(key);
+      /* v8 ignore stop */
     } else {
       blocking.push(annotated);
     }

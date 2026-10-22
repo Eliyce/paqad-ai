@@ -53,17 +53,19 @@ async function writeAnalyticsDoc(projectRoot: string, stackDir: string): Promise
   let flagEnabled: boolean;
   try {
     flagEnabled = resolveFrameworkConfig(projectRoot).features.analytics_instrumentation;
-    /* v8 ignore next 3 -- defensive: a malformed config never breaks doc generation */
+    /* v8 ignore start -- defensive: a malformed config never breaks doc generation */
   } catch {
     flagEnabled = false;
   }
+  /* v8 ignore stop */
   if (!flagEnabled) {
     try {
       await rm(docPath, { force: true });
-      /* v8 ignore next 3 -- defensive: rm(force) only throws on rare fs errors */
+      /* v8 ignore start -- defensive: rm(force) only throws on rare fs errors */
     } catch {}
     return;
   }
+  /* v8 ignore stop */
   await writeFile(docPath, buildAnalytics(projectRoot));
 }
 

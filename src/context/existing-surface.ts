@@ -199,18 +199,20 @@ export async function gatherExistingSurface(
     }
 
     return composeExistingSurfaceSection(cards, { tokenBudget });
-    /* v8 ignore next 3 -- defensive best-effort guard; the readers above are all tolerant, so no test path throws here, but a surprise throw must never wedge the detached worker */
+    /* v8 ignore start -- defensive best-effort guard; the readers above are all tolerant, so no test path throws here, but a surprise throw must never wedge the detached worker */
   } catch {
     return '';
   }
+  /* v8 ignore stop */
 }
 
 function extractNames(projectRoot: string, relPath: string): string[] {
   try {
     const content = readFileSync(join(projectRoot, relPath), 'utf8');
     return extractSymbols(relPath, content).map((symbol) => symbol.name);
-    /* v8 ignore next 3 -- candidates come from the working-tree scan so the read succeeds; this guard only covers a scan-then-delete race, not reproduced in tests */
+    /* v8 ignore start -- candidates come from the working-tree scan so the read succeeds; this guard only covers a scan-then-delete race, not reproduced in tests */
   } catch {
     return [];
   }
+  /* v8 ignore stop */
 }

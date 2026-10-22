@@ -6,6 +6,10 @@ import { syncFrameworkConfig } from '@/core/framework-config.js';
 import { normalizeIntelligenceConfig } from '@/core/project-intelligence.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
 import type { IntelligenceConfig } from '@/core/types/project-profile.js';
+import {
+  findRemovedEmbeddingProvider,
+  REMOVED_EMBEDDING_PROVIDER_MESSAGE,
+} from '@/rag/removed-provider.js';
 import { SchemaValidator, type SchemaValidationIssue } from '@/validators/validator.js';
 
 import { appendDashboardAudit } from './approvals.js';
@@ -63,7 +67,12 @@ export interface PutRagConfigResult {
 
 const FIELD_CHECKS: Record<string, (value: unknown) => string | null> = {
   rag_enabled: (value) => (typeof value === 'boolean' ? null : 'Expected a boolean.'),
-  embedding_provider: (value) => (typeof value === 'string' ? null : 'Expected a string.'),
+  embedding_provider: (value) => {
+    if (typeof value !== 'string') {
+      return 'Expected a string.';
+    }
+    return findRemovedEmbeddingProvider(value) ? REMOVED_EMBEDDING_PROVIDER_MESSAGE : null;
+  },
   embedding_model: (value) => (typeof value === 'string' ? null : 'Expected a string.'),
   rag_similarity_threshold: (value) =>
     typeof value === 'number' && value >= 0 && value <= 1

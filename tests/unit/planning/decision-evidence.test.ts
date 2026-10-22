@@ -10,6 +10,7 @@ import {
   countFileReferences,
   defaultSimilarityFor,
 } from '@/planning/decision-evidence.js';
+import { DECISION_CATEGORIES } from '@/planning/decision-packet.js';
 
 describe('decision evidence', () => {
   let root: string;
@@ -77,6 +78,22 @@ describe('decision evidence', () => {
     expect(countFileReferences(root, 'src/missing.ts')).toBe(0);
     expect(defaultSimilarityFor('workflow-or-tool', false, 0)).toBe(0.44);
     expect(defaultSimilarityFor('component-reuse', true, 4)).toBe(0.92);
+  });
+
+  it('gives each reuse-style category its own band, lifted by callers, and every other category 0.5', () => {
+    const bands: Record<string, [number, number, number]> = {
+      'component-reuse': [0.86, 0.89, 0.92],
+      'create-vs-reuse': [0.86, 0.89, 0.92],
+      'shared-abstraction': [0.78, 0.81, 0.84],
+      'ux-pattern': [0.82, 0.85, 0.88],
+      'architecture-path': [0.74, 0.77, 0.8],
+      'workflow-or-tool': [0.7, 0.73, 0.76],
+    };
+    for (const category of DECISION_CATEGORIES) {
+      const scores = [0, 1, 3].map((callers) => defaultSimilarityFor(category, true, callers));
+      expect(scores, category).toEqual(bands[category] ?? [0.5, 0.5, 0.5]);
+    }
+    expect(defaultSimilarityFor('ux-pattern', false, 5)).toBe(0.38);
   });
 
   it('covers fallback readers, wildcard rule matching, and similarity clamps', () => {

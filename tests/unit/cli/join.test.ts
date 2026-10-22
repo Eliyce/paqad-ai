@@ -264,6 +264,22 @@ describe('paqad-ai join', () => {
     expect(promptConfirm).not.toHaveBeenCalled();
   });
 
+  it('refuses a saved voyageai provider instead of building a local index', async () => {
+    seedOnboardedProject(root);
+    write(
+      join(root, '.paqad/configs/.config.rag'),
+      'rag_enabled=true\nrag_embedding_provider=voyageai\n',
+    );
+
+    await expect(joinProject({ projectRoot: root, yes: true })).rejects.toThrow(
+      'The Voyage embedding provider was removed from paqad-ai',
+    );
+
+    expect(RagService.prototype.getStatus).not.toHaveBeenCalled();
+    expect(RagService.prototype.buildIndexOnly).not.toHaveBeenCalled();
+    expect(RagService.prototype.configureAndBuild).not.toHaveBeenCalled();
+  });
+
   it('honors a local RAG-off override above team enablement', async () => {
     seedOnboardedProject(root);
     write(join(root, '.paqad/configs/.config.rag'), 'rag_enabled=true\n');

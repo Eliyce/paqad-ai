@@ -13,11 +13,12 @@ export function persistLedgerSessionId(projectRoot: string, sessionId?: string |
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, cleaned, 'utf8');
     return true;
-    /* v8 ignore next 4 -- best-effort cache write; a fs failure is not reproduced in tests */
+    /* v8 ignore start -- best-effort cache write; a fs failure is not reproduced in tests */
   } catch {
     return false;
   }
 }
+/* v8 ignore stop */
 
 export function resolveSessionId(projectRoot: string, hint?: string | null): string {
   const path = join(projectRoot, PATHS.LEDGER_SESSION_ID);
@@ -26,10 +27,11 @@ export function resolveSessionId(projectRoot: string, hint?: string | null): str
     try {
       mkdirSync(dirname(path), { recursive: true });
       writeFileSync(path, cleaned, 'utf8');
-      /* v8 ignore next 3 -- best-effort cache write; a fs failure is not reproduced in tests */
+      /* v8 ignore start -- best-effort cache write; a fs failure is not reproduced in tests */
     } catch {}
     return cleaned;
   }
+  /* v8 ignore stop */
   try {
     const existing = readFileSync(path, 'utf8').trim();
     if (existing) {
@@ -40,10 +42,11 @@ export function resolveSessionId(projectRoot: string, hint?: string | null): str
   try {
     mkdirSync(dirname(path), { recursive: true });
     writeFileSync(path, minted, 'utf8');
-    /* v8 ignore next 3 -- best-effort cache write; a fs failure is not reproduced in tests */
+    /* v8 ignore start -- best-effort cache write; a fs failure is not reproduced in tests */
   } catch {}
   return minted;
 }
+/* v8 ignore stop */
 
 export function readLedgerSessionId(projectRoot: string): string | null {
   try {

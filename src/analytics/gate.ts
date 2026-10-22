@@ -64,7 +64,8 @@ export function resolveAndPersistAnalyticsGate(input: AnalyticsGateInput): Analy
   try {
     mkdirSync(dirname(abs), { recursive: true });
     writeFileSync(abs, `${JSON.stringify(decision, null, 2)}\n`, 'utf8');
-    /* v8 ignore next 3 -- best-effort sidecar write; a fs failure is not reproduced in tests */
+    /* v8 ignore start -- best-effort sidecar write; a fs failure is not reproduced in tests */
   } catch {}
   return decision;
 }
+/* v8 ignore stop */

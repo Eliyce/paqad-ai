@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5FTW9XHYWB2Y5RFPGQZ62WG",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new pnpm audit step in the static job of .github/workflows/ci.yml",
+  "context": "Chief architect: Both claims hold together. The owner already settled that braces is ignored by GHSA id in the audit gate, which is this claim. Running the step once in the static job (the other claim) is how to build it and does not contradict it.\n\nTarget: new pnpm audit step in the static job of .github/workflows/ci.yml\n- devops-engineer: pnpm audit --prod --audit-level high will fail on its first run because braces alert #78 is high, runtime and has no patched release, so the step needs a recorded ignore for GHSA-vfj7-8cjw-p6xm (pnpm auditConfig.ignoreGhsas) carrying the same dismissal reason, or the gate is red from day one\n- devops-engineer: the audit step runs once in the static job after pnpm install --frozen-lockfile, not in every test shard, so it adds one gate without adding minutes to the 7-minute shard budget\n\n[expert-conflict-fork:9133f21b82b7e208]",
+  "options": [
+    {
+      "option_key": "pnpm-audit-prod-audit-level-high-will-fa",
+      "label": "pnpm audit --prod --audit-level high will fail on its first run because braces alert #78 is high, runtime and has no patched release, so the step needs a recorded ignore for GHSA-vfj7-8cjw-p6xm (pnpm auditConfig.ignoreGhsas) carrying the same dismissal reason, or the gate is red from day one — devops-engineer",
+      "one_line_preview": "pnpm audit --prod --audit-level high will fail on its first run because braces alert #78 is high, runtime and has no patched release, so the step needs a recorded ignore for GHSA-vfj7-8cjw-p6xm (pnpm auditConfig.ignoreGhsas) carrying the same dismissal reason, or the gate is red from day one — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-audit-step-runs-once-in-the-static-j",
+      "label": "the audit step runs once in the static job after pnpm install --frozen-lockfile, not in every test shard, so it adds one gate without adding minutes to the 7-minute shard budget — devops-engineer",
+      "one_line_preview": "the audit step runs once in the static job after pnpm install --frozen-lockfile, not in every test shard, so it adds one gate without adding minutes to the 7-minute shard budget — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "pnpm-audit-prod-audit-level-high-will-fa",
+  "created_at": "2026-10-21T18:16:51.377Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "pnpm-audit-prod-audit-level-high-will-fa",
+  "rationale": "Owner picked the recommendation; per the chief architect both claims hold and both are kept.",
+  "resolved_at": "2026-10-21T19:01:32.438Z",
+  "decision_id": "D-01M5FTW9XHYWB2Y5RFPGQZ62WG",
+  "fingerprint": "sha256:d35f623f8ae551ca9d07522558628f614e46ebe4b086634d5f0f7282f378ce4d",
+  "question": "Experts disagree on new pnpm audit step in the static job of .github/workflows/ci.yml",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T18:16:51.377Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "pnpm-audit-prod-audit-level-high-will-fa",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:01:32.438Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the recommendation; per the chief architect both claims hold and both are kept."
+  }
+}

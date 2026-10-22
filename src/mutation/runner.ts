@@ -207,11 +207,12 @@ function mapStrykerStatus(status: string): RawMutant['status'] {
       return 'no-coverage';
     case 'Ignored':
       return 'equivalent';
-    /* v8 ignore next 4 -- defensive: RuntimeError/CompileError map to set-aside */
+    /* v8 ignore start -- defensive: RuntimeError/CompileError map to set-aside */
     default:
       return 'error';
   }
 }
+/* v8 ignore stop */
 
 async function defaultParse(
   descriptor: MutationToolDescriptor,
@@ -252,7 +253,8 @@ async function defaultIsTreeClean(projectRoot: string): Promise<boolean> {
     });
     return result.exitCode === 0 && result.stdout.trim() === '';
   } catch {
-    /* v8 ignore next 2 -- git invocation failure is environment-specific */
+    /* v8 ignore start -- git invocation failure is environment-specific */
     return false;
   }
+  /* v8 ignore stop */
 }

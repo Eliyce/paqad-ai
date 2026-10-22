@@ -75,10 +75,11 @@ function answerFromPrecedent(projectRoot: string, question: PipelineQuestion): A
   if (!top) {
     return null;
   }
-  /* v8 ignore next 3 */
+  /* v8 ignore start */
   if (top.chosen === null) {
     return null;
   }
+  /* v8 ignore stop */
   return { question: question.business_text, answer: top.chosen, source: top.decision_id };
 }
 

@@ -99,7 +99,7 @@
     "prepublishOnly": "pnpm run ci"
   },
   "dependencies": {
-    "@huggingface/transformers": "^3.8.0",
+    "@huggingface/transformers": "^4.3.1",
     "@inquirer/prompts": "^8.7.3",
     "ajv": "^8.20.0",
     "chalk": "^6.0.1",
@@ -111,7 +111,6 @@
     "openai": "^7.34.0",
     "ora": "^9.4.1",
     "pathe": "^2.0.3",
-    "voyageai": "^0.4.0",
     "yaml": "^2.9.1"
   },
   "peerDependencies": {
@@ -128,15 +127,36 @@
     "@changesets/cli": "^3.0.3",
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
-    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/coverage-v8": "^5.0.5",
     "eslint": "^10.12.0",
     "globals": "^17.13.0",
-    "markdownlint-cli2": "^0.23.3",
+    "markdownlint-cli2": "^0.24.0",
     "prettier": "^3.9.10",
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.71.2",
-    "vitest": "^3.2.4"
+    "vitest": "^5.0.5"
   },
-  "packageManager": "pnpm@10.17.1"
+  "packageManager": "pnpm@10.17.1",
+  "pnpm": {
+    "overrides": {
+      "vite": ">=7.3.7 <8",
+      "postcss": ">=8.5.23 <9",
+      "nanoid@3": ">=3.3.12 <4",
+      "source-map-js": ">=1.2.2 <2",
+      "picomatch@4": ">=4.0.4 <5",
+      "launch-editor": ">=2.14.2 <3",
+      "shell-quote": ">=1.12.0 <2",
+      "katex": ">=0.18.2 <1"
+    },
+    "auditConfig": {
+      "ignoreGhsas": [
+        "GHSA-vfj7-8cjw-p6xm"
+      ]
+    },
+    "onlyBuiltDependencies": [
+      "onnxruntime-node",
+      "sharp"
+    ]
+  }
 }

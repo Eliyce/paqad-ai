@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5FTW9XJHTDNGWHBG9X2519V",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on VoyageEmbeddingProvider",
+  "context": "Chief architect: Keeping the change inside one class is what keeps this a small change, as the owner chose with option A. The error mapping is already required by the accepted EX-security-auditor-2 and EX-integration-architect-1. The other claim names a 'network' error code that does not exist: the real codes are missing_api_key, invalid_api_key, rate_limited and provider_error.\n\nTarget: VoyageEmbeddingProvider\n- application-architect: the fetch call to the Voyage embeddings endpoint stays inside VoyageEmbeddingProvider in src/rag/providers.ts behind the existing VoyageEmbeddingClient interface in src/rag/types.ts, so createEmbeddingProvider and every caller stay unchanged\n- application-architect: non-2xx responses from the Voyage endpoint map to the same providerError codes the SDK path produced (missing_api_key, invalid key on 401, rate limit, network), so the provider error contract and its tests keep their shape\n\n[expert-conflict-fork:2cebd55b2338e84b]",
+  "options": [
+    {
+      "option_key": "the-fetch-call-to-the-voyage-embeddings-",
+      "label": "the fetch call to the Voyage embeddings endpoint stays inside VoyageEmbeddingProvider in src/rag/providers.ts behind the existing VoyageEmbeddingClient interface in src/rag/types.ts, so createEmbeddingProvider and every caller stay unchanged — application-architect",
+      "one_line_preview": "the fetch call to the Voyage embeddings endpoint stays inside VoyageEmbeddingProvider in src/rag/providers.ts behind the existing VoyageEmbeddingClient interface in src/rag/types.ts, so createEmbeddingProvider and every caller stay unchanged — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "non-2xx-responses-from-the-voyage-endpoi",
+      "label": "non-2xx responses from the Voyage endpoint map to the same providerError codes the SDK path produced (missing_api_key, invalid key on 401, rate limit, network), so the provider error contract and its tests keep their shape — application-architect",
+      "one_line_preview": "non-2xx responses from the Voyage endpoint map to the same providerError codes the SDK path produced (missing_api_key, invalid key on 401, rate limit, network), so the provider error contract and its tests keep their shape — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-fetch-call-to-the-voyage-embeddings-",
+  "created_at": "2026-10-21T18:16:51.378Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "the-fetch-call-to-the-voyage-embeddings-",
+  "rationale": "Owner picked the recommendation; both hold. Errors map to the existing codes missing_api_key, invalid_api_key, rate_limited, provider_error.",
+  "resolved_at": "2026-10-21T19:01:33.480Z",
+  "decision_id": "D-01M5FTW9XJHTDNGWHBG9X2519V",
+  "fingerprint": "sha256:47bfa67f4fc1b5aabd03bdd081cd86199009f0073aa0bef1631608ad0da15188",
+  "question": "Experts disagree on VoyageEmbeddingProvider",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T18:16:51.378Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-fetch-call-to-the-voyage-embeddings-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:01:33.480Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the recommendation; both hold. Errors map to the existing codes missing_api_key, invalid_api_key, rate_limited, provider_error."
+  }
+}

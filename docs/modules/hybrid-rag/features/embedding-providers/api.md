@@ -1,4 +1,4 @@
-# Embedding Providers (local / openai / voyageai): API View
+# Embedding Providers (local / openai): API View
 
 > Module: **Hybrid RAG Runtime** (`hybrid-rag`) · Layer: `framework-internals` · Feature slug: `embedding-providers`
 
@@ -15,17 +15,16 @@ export function createEmbeddingProvider(
 
 export class LocalEmbeddingProvider implements EmbeddingProvider {}
 export class OpenAiEmbeddingProvider implements EmbeddingProvider {}
-export class VoyageEmbeddingProvider implements EmbeddingProvider {}
 
 export function localModelsRoot(): string;
 export function localModelDir(model: string): string;
 ```
 
-`intelligence.embedding_provider` picks the class: `openai`, `voyageai`, or `local` (also the fallback for any other value). Every provider has the same shape (`src/rag/types.ts`):
+`intelligence.embedding_provider` picks the class: `openai`, or `local` (also used when the value is unset). A saved `voyageai` value is refused before any class is built: `createEmbeddingProvider` throws `RemovedEmbeddingProviderError` (`src/rag/removed-provider.ts`), whose message says the Voyage embedding provider was removed and names `local` and `openai` as the choices. Every provider has the same shape (`src/rag/types.ts`):
 
 ```ts
 interface EmbeddingProvider {
-  readonly name: 'local' | 'openai' | 'voyageai';
+  readonly name: 'local' | 'openai';
   readonly model: string;
   validate(): Promise<void>;
   embed(input: string | string[]): Promise<number[][]>;

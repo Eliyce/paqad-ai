@@ -53,10 +53,11 @@ function sitePackagesDirs(searchRoot: string): string[] {
     let versionDirs: string[];
     try {
       versionDirs = readdirSync(base);
-      /* v8 ignore next 3 -- `base` was just proven to exist; an unreadable one needs a race. */
+      /* v8 ignore start -- `base` was just proven to exist; an unreadable one needs a race. */
     } catch {
       continue;
     }
+    /* v8 ignore stop */
     for (const versionDir of versionDirs) {
       const candidate = join(base, versionDir, 'site-packages');
       if (existsSync(candidate)) {
@@ -76,10 +77,11 @@ function findDistInfo(
     let entries: string[];
     try {
       entries = readdirSync(siteDir);
-      /* v8 ignore next 3 -- the dir was just proven to exist; unreadable needs a race. */
+      /* v8 ignore start -- the dir was just proven to exist; unreadable needs a race. */
     } catch {
       continue;
     }
+    /* v8 ignore stop */
     for (const entry of entries) {
       if (!entry.endsWith('.dist-info')) {
         continue;

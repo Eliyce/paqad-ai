@@ -3,6 +3,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -118,6 +119,197 @@ describe('maybeStartOptionalEngineInstall', () => {
     expect(start).not.toHaveBeenCalled();
   });
 
+  describe('when the engine resolves from CLAUDE_PLUGIN_DATA', () => {
+    const DECLARED = ['@huggingface/transformers@^4.3.1', 'openai@^7.34.0'];
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const NOW = Date.parse('2026-10-21T12:00:00.000Z');
+
+    function engineIn(dir: string): () => string {
+      return () => join(dir, 'node_modules', '@huggingface', 'transformers', 'dist', 'index.cjs');
+    }
+
+    function writeMarker(marker: Record<string, unknown>): void {
+      writeFileSync(join(root, MARKER), JSON.stringify(marker));
+    }
+
+    function readMarker(): { status: string; specs?: string[] } {
+      return JSON.parse(readFileSync(join(root, MARKER), 'utf8')) as {
+        status: string;
+        specs?: string[];
+      };
+    }
+
+    it('AC-18 reinstalls the declared specs when the marker recorded none', () => {
+      writeMarker({ status: 'ready', attempted_at: new Date(NOW - 2 * DAY_MS).toISOString() });
+      const start = vi.fn();
+
+      const outcome = maybeStartOptionalEngineInstall(
+        { CLAUDE_PLUGIN_DATA: root },
+        { resolve: engineIn(root), readSpecs: () => DECLARED, startInstall: start, now: () => NOW },
+      );
+
+      expect(outcome).toBe('started');
+      expect(start).toHaveBeenCalledWith(DECLARED, root, expect.anything(), undefined);
+      expect(readMarker()).toMatchObject({ status: 'installing', specs: DECLARED });
+    });
+
+    it('reinstalls an engine that has no marker at all', () => {
+      const start = vi.fn();
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: root },
+          {
+            resolve: engineIn(root),
+            readSpecs: () => DECLARED,
+            startInstall: start,
+            now: () => NOW,
+          },
+        ),
+      ).toBe('started');
+      expect(start).toHaveBeenCalledOnce();
+    });
+
+    it('reinstalls when the installed specs are from an older declared range', () => {
+      writeMarker({
+        status: 'ready',
+        attempted_at: new Date(NOW - 2 * DAY_MS).toISOString(),
+        specs: ['@huggingface/transformers@^3.8.0', 'openai@^7.34.0'],
+      });
+      const start = vi.fn();
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: root },
+          {
+            resolve: engineIn(root),
+            readSpecs: () => DECLARED,
+            startInstall: start,
+            now: () => NOW,
+          },
+        ),
+      ).toBe('started');
+      expect(readMarker().specs).toEqual(DECLARED);
+    });
+
+    it('AC-19 leaves an engine alone when the installed specs match the declared ones', () => {
+      writeMarker({
+        status: 'ready',
+        attempted_at: new Date(NOW - 2 * DAY_MS).toISOString(),
+        specs: [...DECLARED].reverse(),
+      });
+      const start = vi.fn();
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: root },
+          {
+            resolve: engineIn(root),
+            readSpecs: () => DECLARED,
+            startInstall: start,
+            now: () => NOW,
+          },
+        ),
+      ).toBe('already-present');
+      expect(start).not.toHaveBeenCalled();
+    });
+
+    it('leaves an engine alone when no declared range can be read', () => {
+      const start = vi.fn();
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: root },
+          { resolve: engineIn(root), readSpecs: () => [], startInstall: start, now: () => NOW },
+        ),
+      ).toBe('already-present');
+      expect(start).not.toHaveBeenCalled();
+    });
+
+    it('AC-20 throttles a reinstall whose last attempt failed less than 24 hours ago', () => {
+      writeMarker({
+        status: 'failed',
+        attempted_at: new Date(NOW - 60 * 60 * 1000).toISOString(),
+        error: 'network down',
+      });
+      const start = vi.fn();
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: root },
+          {
+            resolve: engineIn(root),
+            readSpecs: () => DECLARED,
+            startInstall: start,
+            now: () => NOW,
+          },
+        ),
+      ).toBe('throttled');
+      expect(start).not.toHaveBeenCalled();
+      expect(readMarker().status).toBe('failed');
+    });
+
+    it('reports a reinstall that is still running', () => {
+      writeMarker({ status: 'installing', attempted_at: new Date(NOW).toISOString() });
+      writeFileSync(join(root, LOCK), '123');
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: root },
+          {
+            resolve: engineIn(root),
+            readSpecs: () => DECLARED,
+            startInstall: vi.fn(),
+            now: () => NOW,
+          },
+        ),
+      ).toBe('in-progress');
+    });
+
+    it('follows a symlinked CLAUDE_PLUGIN_DATA to the real engine location', () => {
+      const realData = join(root, 'real-data');
+      mkdirSync(realData, { recursive: true });
+      const linkedData = join(root, 'linked-data');
+      symlinkSync(realData, linkedData);
+      const start = vi.fn();
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: linkedData },
+          {
+            resolve: engineIn(realpathSync(realData)),
+            readSpecs: () => DECLARED,
+            startInstall: start,
+            now: () => NOW,
+          },
+        ),
+      ).toBe('started');
+      expect(start).toHaveBeenCalledWith(DECLARED, linkedData, expect.anything(), undefined);
+    });
+
+    it('treats the plugin data directory itself and missing directories as outside', () => {
+      const start = vi.fn();
+
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: root },
+          { resolve: () => root, readSpecs: () => DECLARED, startInstall: start },
+        ),
+      ).toBe('already-present');
+      expect(
+        maybeStartOptionalEngineInstall(
+          { CLAUDE_PLUGIN_DATA: join(root, 'missing') },
+          {
+            resolve: engineIn(join(root, 'elsewhere')),
+            readSpecs: () => DECLARED,
+            startInstall: start,
+          },
+        ),
+      ).toBe('already-present');
+      expect(start).not.toHaveBeenCalled();
+    });
+  });
+
   it('declines when no pinned range can be read', () => {
     expect(
       maybeStartOptionalEngineInstall(
@@ -159,9 +351,8 @@ describe('maybeStartOptionalEngineInstall', () => {
       join(pkgRoot, 'package.json'),
       JSON.stringify({
         dependencies: {
-          '@huggingface/transformers': '^3.8.0',
+          '@huggingface/transformers': '^4.3.1',
           openai: '^7.23.0',
-          voyageai: '^0.4.0',
         },
       }),
     );
@@ -175,11 +366,40 @@ describe('maybeStartOptionalEngineInstall', () => {
     );
     expect(outcome).toBe('started');
     expect(start).toHaveBeenCalledWith(
-      ['@huggingface/transformers@^3.8.0', 'openai@^7.23.0', 'voyageai@^0.4.0'],
+      ['@huggingface/transformers@^4.3.1', 'openai@^7.23.0'],
       installDir,
       expect.anything(),
       undefined,
     );
+  });
+
+  it('AC-15 installs only the transformers and openai specs when package.json still lists voyageai', () => {
+    const pkgRoot = join(root, 'npm-copy');
+    mkdirSync(join(pkgRoot, 'runtime'), { recursive: true });
+    writeFileSync(
+      join(pkgRoot, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          '@huggingface/transformers': '^4.3.1',
+          openai: '^7.34.0',
+          voyageai: '^0.4.0',
+        },
+      }),
+    );
+    const link = join(root, 'current');
+    symlinkSync(join(pkgRoot, 'runtime'), link);
+    const installDir = join(root, 'plugin-data');
+    const start = vi.fn();
+
+    maybeStartOptionalEngineInstall(
+      { CLAUDE_PLUGIN_DATA: installDir, PAQAD_FRAMEWORK_HOME: link },
+      { resolve: NONE, startInstall: start, now: () => 0 },
+    );
+
+    expect(start.mock.calls[0]?.[0]).toEqual([
+      '@huggingface/transformers@^4.3.1',
+      'openai@^7.34.0',
+    ]);
   });
 
   it('declines with no pinned range when the package.json cannot be read', () => {

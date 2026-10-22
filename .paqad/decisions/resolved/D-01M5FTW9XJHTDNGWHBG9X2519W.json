@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5FTW9XJHTDNGWHBG9X2519W",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new CI step pnpm audit --prod --audit-level high",
+  "context": "Chief architect: This matches the owner's decision to ignore braces by GHSA id, and it adds a check that proves the gate can fail. The flakiness note in the other claim is still true, and the accepted EX-user-flow-writer-7 covers it by requiring the log to name the advisory.\n\nTarget: new CI step pnpm audit --prod --audit-level high\n- qa-engineer: braces #78 is a high runtime advisory with no patched release, so this step fails on day one unless the exception is recorded in config (pnpm.auditConfig.ignoreGhsas for GHSA-vfj7-8cjw-p6xm). Acceptance: given the lockfile after this change, the step exits 0; given a fixture with a known unignored high advisory, it exits non-zero.\n- qa-engineer: Flaky area: the advisory database changes outside our control, so an unrelated PR can turn red the day a new advisory is published. The failure message must name the package and advisory so the cause is obvious, not read as a test flake.\n\n[expert-conflict-fork:c3993f22e1a9ee88]",
+  "options": [
+    {
+      "option_key": "braces-78-is-a-high-runtime-advisory-wit",
+      "label": "braces #78 is a high runtime advisory with no patched release, so this step fails on day one unless the exception is recorded in config (pnpm.auditConfig.ignoreGhsas for GHSA-vfj7-8cjw-p6xm). Acceptance: given the lockfile after this change, the step exits 0; given a fixture with a known unignored high advisory, it exits non-zero. — qa-engineer",
+      "one_line_preview": "braces #78 is a high runtime advisory with no patched release, so this step fails on day one unless the exception is recorded in config (pnpm.auditConfig.ignoreGhsas for GHSA-vfj7-8cjw-p6xm). Acceptance: given the lockfile after this change, the step exits 0; given a fixture with a known unignored high advisory, it exits non-zero. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "flaky-area-the-advisory-database-changes",
+      "label": "Flaky area: the advisory database changes outside our control, so an unrelated PR can turn red the day a new advisory is published. The failure message must name the package and advisory so the cause is obvious, not read as a test flake. — qa-engineer",
+      "one_line_preview": "Flaky area: the advisory database changes outside our control, so an unrelated PR can turn red the day a new advisory is published. The failure message must name the package and advisory so the cause is obvious, not read as a test flake. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "braces-78-is-a-high-runtime-advisory-wit",
+  "created_at": "2026-10-21T18:16:51.378Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "braces-78-is-a-high-runtime-advisory-wit",
+  "rationale": "Owner picked the recommendation; per the chief architect both claims hold and both are kept.",
+  "resolved_at": "2026-10-21T19:01:33.744Z",
+  "decision_id": "D-01M5FTW9XJHTDNGWHBG9X2519W",
+  "fingerprint": "sha256:6a08efc4dcf825bf26304807dc2e13385834b32ff554f790ffa1676e081cce4f",
+  "question": "Experts disagree on new CI step pnpm audit --prod --audit-level high",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T18:16:51.378Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "braces-78-is-a-high-runtime-advisory-wit",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:01:33.744Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the recommendation; per the chief architect both claims hold and both are kept."
+  }
+}

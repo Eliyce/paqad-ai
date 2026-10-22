@@ -74,10 +74,11 @@ function phpFiles(dir: string): string[] {
     let entries: import('node:fs').Dirent[];
     try {
       entries = readdirSync(current, { withFileTypes: true });
-      /* v8 ignore next 3 -- the directory came from a readdir hit one level up; an unreadable subtree is skipped rather than failing the package. */
+      /* v8 ignore start -- the directory came from a readdir hit one level up; an unreadable subtree is skipped rather than failing the package. */
     } catch {
       continue;
     }
+    /* v8 ignore stop */
     for (const entry of entries) {
       if (entry.isDirectory()) {
         if (!SKIPPED_DIRS.has(entry.name)) {
@@ -174,11 +175,12 @@ export const phpFrameworkApiAdapter: FrameworkApiAdapter = {
       let source: string;
       try {
         source = readFileSync(file, 'utf8');
-        /* v8 ignore next 4 -- the file was just enumerated, so reading it needs it to vanish mid-build; skipping it keeps the rest of the package indexed instead of failing the whole entry. */
+        /* v8 ignore start -- the file was just enumerated, so reading it needs it to vanish mid-build; skipping it keeps the rest of the package indexed instead of failing the whole entry. */
       } catch {
         continue;
       }
       const scan = scanPhpFile(source);
+      /* v8 ignore stop */
       for (const declared of scan.classes) {
         symbols.push(...classRecords(scan.namespace, declared));
       }

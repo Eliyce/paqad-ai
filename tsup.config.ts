@@ -40,7 +40,7 @@ export default defineConfig({
   banner: {
     js: "import { createRequire as __paqadCreateRequire } from 'module'; const require = __paqadCreateRequire(import.meta.url);",
   },
-  external: ['@huggingface/transformers', 'openai', 'voyageai'],
+  external: ['@huggingface/transformers', 'openai'],
   noExternal: [
     'ajv',
     'execa',

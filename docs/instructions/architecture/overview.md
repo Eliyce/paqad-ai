@@ -46,7 +46,7 @@ graph-ui/  →  separate Vite + React 19 SPA, consumes graph data exported by th
    `docs/instructions/`.
 4. **Workflows engine** (`src/workflows/`) — Loads YAML workflow definitions, plans steps, runs sequential/parallel
    executors with handlebars templating.
-5. **Intelligence layer** — RAG indexing (`src/rag`), embeddings (cloud via VoyageAI, local via transformers), context
+5. **Intelligence layer** — RAG indexing (`src/rag`), embeddings (local via transformers, cloud via OpenAI), context
    budget planning (`src/context`, `src/token-efficiency`), caching (`src/cache`).
 6. **Skills system** (`src/skills/`) — Discovers and loads skills from `runtime/base/skills/**`.
 7. **Module map / health** (`src/module-map`, `src/module-health`, `src/introspection`) — Static analysis of repo
@@ -103,9 +103,9 @@ detection-report.json   onboarding-manifest.json
 
 ## External Dependencies
 
-- **OpenAI API** — default reasoning model (`gpt-5`), fast model (`gpt-5-mini`).
-- **VoyageAI** — cloud embedding provider (optional).
-- **Local embeddings** — `Xenova/all-MiniLM-L6-v2` via `@huggingface/transformers` (default when
+- **OpenAI API** — default reasoning model (`gpt-5`), fast model (`gpt-5-mini`), and the optional
+  cloud embedding provider (`rag_embedding_provider=openai`).
+- **Local embeddings** — `Xenova/all-MiniLM-L6-v2` via `@huggingface/transformers` v4 (default when
   `rag_embedding_provider=local`, a framework knob in the config layer).
 - **MCP servers** — none configured (`mcp.servers: []` in `project-profile.yaml`).
 

@@ -15,7 +15,9 @@ async function invoke(args: string[]): Promise<string[]> {
 }
 
 describe('paqad-ai preflight command', () => {
-  beforeEach(() => runPreflight.mockReset());
+  beforeEach(() => {
+    runPreflight.mockReset();
+  });
   afterEach(() => {
     vi.restoreAllMocks();
     process.exitCode = undefined;

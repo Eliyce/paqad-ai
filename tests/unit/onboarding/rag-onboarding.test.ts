@@ -150,10 +150,10 @@ describe('RAG onboarding helpers', () => {
     await expect(
       enableRagDuringOnboarding('/tmp/project', {
         enabled: true,
-        provider: 'voyageai',
-        model: 'voyage-code-3',
+        provider: 'openai',
+        model: 'text-embedding-3-small',
       }),
-    ).rejects.toThrow('Missing VOYAGE_API_KEY');
+    ).rejects.toThrow('Missing OPENAI_API_KEY');
   });
 
   it('preserves explicit disabled presets when applying RAG selection', async () => {

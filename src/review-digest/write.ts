@@ -23,10 +23,11 @@ function readStages(projectRoot: string, sessionId: string, feature: string | nu
       stage: stage.stage,
       state: stage.state,
     }));
-    /* v8 ignore next 3 -- defensive: an unreadable ledger degrades the header, never the digest */
+    /* v8 ignore start -- defensive: an unreadable ledger degrades the header, never the digest */
   } catch {
     return [];
   }
+  /* v8 ignore stop */
 }
 
 function readCriteria(projectRoot: string, feature: string | null): DigestCriterion[] {
@@ -50,10 +51,11 @@ export async function writeReviewDigest(
   let feature: string | null;
   try {
     feature = currentFeature(projectRoot, sessionId);
-    /* v8 ignore next 3 -- defensive: no active feature is a header line, never a failure */
+    /* v8 ignore start -- defensive: no active feature is a header line, never a failure */
   } catch {
     feature = null;
   }
+  /* v8 ignore stop */
 
   const findings: MachineFinding[] = collectMachineFindings(projectRoot);
   const { files: changedFiles } = await loadChangeEvidence(projectRoot);

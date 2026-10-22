@@ -56,10 +56,10 @@ describe('logger-registry', () => {
       const logger = recordingLogger();
       setEngineLogger(logger);
 
-      engineLog('warn', 'resume validation failed', { provider: 'voyage' });
+      engineLog('warn', 'resume validation failed', { provider: 'openai' });
 
       expect(logger.entries).toEqual([
-        { level: 'warn', message: 'resume validation failed', payload: { provider: 'voyage' } },
+        { level: 'warn', message: 'resume validation failed', payload: { provider: 'openai' } },
       ]);
       expect(stderr).not.toHaveBeenCalled();
     });

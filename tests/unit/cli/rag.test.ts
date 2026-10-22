@@ -3,6 +3,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { RagService } from '@/rag/service.js';
+import {
+  REMOVED_EMBEDDING_PROVIDER_MESSAGE,
+  RemovedEmbeddingProviderError,
+} from '@/rag/removed-provider.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 
 const { promptConfirm, promptInput, promptSelect } = vi.hoisted(() => ({
@@ -392,9 +396,9 @@ describe('rag command', () => {
     );
   });
 
-  it('prompts for provider interactively when none is specified', async () => {
+  it('AC-17 offers only local and OpenAI in the interactive provider picker', async () => {
     setInteractive(true);
-    promptSelect.mockResolvedValueOnce('voyageai');
+    promptSelect.mockResolvedValueOnce('openai');
 
     const createRagCommand = await loadCreateRagCommand();
     const command = createRagCommand();
@@ -407,10 +411,12 @@ describe('rag command', () => {
 
     expect(RagService.prototype.configureAndBuild).toHaveBeenCalledWith(
       expect.objectContaining({
-        embedding_provider: 'voyageai',
+        embedding_provider: 'openai',
       }),
       expect.any(Function),
     );
+    const picker = promptSelect.mock.calls[0]?.[0] as { choices: Array<{ value: string }> };
+    expect(picker.choices.map((choice) => choice.value)).toEqual(['local', 'openai']);
   });
 
   it('falls back to interactive provider selection when an explicit provider is invalid', async () => {
@@ -572,9 +578,7 @@ describe('rag command', () => {
     expect(RagService.prototype.storeApiKey).not.toHaveBeenCalled();
   });
 
-  it('requires Voyage AI API keys for remote providers in non-interactive mode', async () => {
-    vi.mocked(RagService.prototype.hasApiKey).mockReturnValue(false);
-
+  it('AC-17 refuses rag init --provider voyageai with the removal message', async () => {
     const createRagCommand = await loadCreateRagCommand();
     const command = createRagCommand();
     await expect(
@@ -593,7 +597,167 @@ describe('rag command', () => {
           from: 'node',
         },
       ),
-    ).rejects.toThrow('Missing VOYAGE_API_KEY');
+    ).rejects.toThrow(REMOVED_EMBEDDING_PROVIDER_MESSAGE);
+    expect(RagService.prototype.getStatus).not.toHaveBeenCalled();
+    expect(RagService.prototype.configureAndBuild).not.toHaveBeenCalled();
+    expect(RagService.prototype.storeApiKey).not.toHaveBeenCalled();
+  });
+
+  describe('with a saved voyageai provider', () => {
+    function saveConfig(text: string): string {
+      const root = projectRoot(tempProjectRoot);
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+      writeFileSync(join(root, '.paqad/.config'), text);
+      return root;
+    }
+
+    async function runRag(args: string[]): Promise<unknown> {
+      const createRagCommand = await loadCreateRagCommand();
+      return createRagCommand()
+        .parseAsync(['node', 'rag', ...args], { from: 'node' })
+        .then(
+          () => undefined,
+          (error: unknown) => error,
+        );
+    }
+
+    it('refuses rag init without falling back to the local provider', async () => {
+      const root = saveConfig('rag_enabled=true\nrag_embedding_provider=voyageai\n');
+
+      const error = await runRag(['init', '--project-root', root, '--yes']);
+
+      expect(error).toBeInstanceOf(RemovedEmbeddingProviderError);
+      expect((error as Error).message).toContain('local');
+      expect((error as Error).message).toContain('openai');
+      expect((error as Error).message).toContain('rag_embedding_provider');
+      expect((error as Error).message).toContain('paqad-ai rag init --provider local');
+      expect(RagService.prototype.configureAndBuild).not.toHaveBeenCalled();
+      expect(existsSync(join(root, '.paqad/vectors'))).toBe(false);
+    });
+
+    it('lets rag init --provider local replace the saved setting', async () => {
+      const root = saveConfig('rag_embedding_provider=voyageai\n');
+
+      await expect(
+        runRag(['init', '--project-root', root, '--provider', 'local', '--yes']),
+      ).resolves.toBeUndefined();
+
+      expect(RagService.prototype.configureAndBuild).toHaveBeenCalledWith(
+        expect.objectContaining({ embedding_provider: 'local' }),
+        expect.any(Function),
+      );
+    });
+
+    it('refuses rag probe and rag eval before any retrieval', async () => {
+      const root = saveConfig('rag_enabled=true\nrag_embedding_provider=voyageai\n');
+      const probe = vi.spyOn(RagService.prototype, 'probe');
+
+      await expect(runRag(['probe', 'query', '--project-root', root])).resolves.toBeInstanceOf(
+        RemovedEmbeddingProviderError,
+      );
+      await expect(runRag(['eval', '--project-root', root])).resolves.toBeInstanceOf(
+        RemovedEmbeddingProviderError,
+      );
+
+      expect(probe).not.toHaveBeenCalled();
+      expect(RagService.prototype.refreshContext).not.toHaveBeenCalled();
+      expect(RagService.prototype.retrieve).not.toHaveBeenCalled();
+    });
+
+    it('AC-12 refuses when the provider comes from PAQAD_RAG_EMBEDDING_PROVIDER', async () => {
+      const root = saveConfig('rag_enabled=true\nrag_embedding_provider=local\n');
+      vi.stubEnv('PAQAD_RAG_EMBEDDING_PROVIDER', 'voyageai');
+      const probe = vi.spyOn(RagService.prototype, 'probe');
+      try {
+        const error = await runRag(['probe', 'query', '--project-root', root]);
+        expect(error).toBeInstanceOf(RemovedEmbeddingProviderError);
+        expect((error as Error).message).toBe(REMOVED_EMBEDDING_PROVIDER_MESSAGE);
+        expect(probe).not.toHaveBeenCalled();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('AC-13 refuses when the provider comes from the project profile', async () => {
+      const root = projectRoot(tempProjectRoot);
+      mkdirSync(join(root, '.paqad'), { recursive: true });
+      writeFileSync(
+        join(root, '.paqad/project-profile.yaml'),
+        'intelligence:\n  rag_enabled: true\n  embedding_provider: voyageai\n',
+      );
+
+      const error = await runRag(['eval', '--project-root', root]);
+
+      expect(error).toBeInstanceOf(RemovedEmbeddingProviderError);
+      expect((error as Error).message).toBe(REMOVED_EMBEDDING_PROVIDER_MESSAGE);
+    });
+
+    it('refresh-context warns, loads no RAG context and keeps the rules', async () => {
+      const root = saveConfig('rag_enabled=true\nrag_embedding_provider=voyageai\n');
+      const retrievalMod = await import('@/context/retrieval-context.js');
+      const gather = vi.spyOn(retrievalMod, 'gatherWorkingSetSlices');
+      const ruleContextMod = await import('@/context/rule-context.js');
+      const refreshRules = vi.spyOn(ruleContextMod, 'refreshRuleContext').mockResolvedValue(null);
+      const stderr: string[] = [];
+      const stdout: string[] = [];
+      vi.mocked(process.stderr.write).mockImplementation((chunk: unknown) => {
+        stderr.push(String(chunk));
+        return true;
+      });
+      vi.mocked(process.stdout.write).mockImplementation((chunk: unknown) => {
+        stdout.push(String(chunk));
+        return true;
+      });
+
+      await expect(runRag(['refresh-context', '--project-root', root])).resolves.toBeUndefined();
+      await expect(
+        runRag(['refresh-context', '--project-root', root, '--quiet']),
+      ).resolves.toBeUndefined();
+
+      expect(gather).not.toHaveBeenCalled();
+      expect(RagService.prototype.refreshContext).not.toHaveBeenCalled();
+      expect(refreshRules).toHaveBeenCalledWith(
+        root,
+        expect.objectContaining({
+          retrievalSection: expect.stringContaining(REMOVED_EMBEDDING_PROVIDER_MESSAGE),
+        }),
+      );
+      expect(stderr.join('')).toContain(`Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}`);
+      expect(stdout).toEqual(['nothing to compose; rule-only (embedding provider removed)\n']);
+      expect(readFileSync(join(root, '.paqad/audit.log'), 'utf8')).toContain(
+        'rag-provider-removed',
+      );
+      expect(existsSync(join(root, '.paqad/vectors'))).toBe(false);
+    });
+  });
+
+  it('prompts for the OpenAI key and trims it before storing', async () => {
+    setInteractive(true);
+    vi.mocked(RagService.prototype.hasApiKey).mockReturnValue(false);
+    promptInput.mockResolvedValueOnce('  sk-trimmed  ');
+
+    const createRagCommand = await loadCreateRagCommand();
+    const command = createRagCommand();
+    await command.parseAsync(
+      [
+        'node',
+        'rag',
+        'init',
+        '--project-root',
+        projectRoot(tempProjectRoot),
+        '--provider',
+        'openai',
+        '--yes',
+      ],
+      { from: 'node' },
+    );
+
+    expect(promptInput).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Enter your OpenAI API key',
+      }),
+    );
+    expect(RagService.prototype.storeApiKey).toHaveBeenCalledWith('openai', 'sk-trimmed');
   });
 
   it('uses the api-key prompt validator to reject blank values', async () => {
@@ -622,35 +786,6 @@ describe('rag command', () => {
     };
     expect(promptOptions.validate('   ')).toBe('API key is required');
     expect(promptOptions.validate('sk-valid')).toBe(true);
-  });
-
-  it('prompts for the Voyage AI key and trims it before storing', async () => {
-    setInteractive(true);
-    vi.mocked(RagService.prototype.hasApiKey).mockReturnValue(false);
-    promptInput.mockResolvedValueOnce('  voyage-key  ');
-
-    const createRagCommand = await loadCreateRagCommand();
-    const command = createRagCommand();
-    await command.parseAsync(
-      [
-        'node',
-        'rag',
-        'init',
-        '--project-root',
-        projectRoot(tempProjectRoot),
-        '--provider',
-        'voyageai',
-        '--yes',
-      ],
-      { from: 'node' },
-    );
-
-    expect(promptInput).toHaveBeenCalledWith(
-      expect.objectContaining({
-        message: 'Enter your Voyage AI API key',
-      }),
-    );
-    expect(RagService.prototype.storeApiKey).toHaveBeenCalledWith('voyageai', 'voyage-key');
   });
 
   it('rethrows build errors immediately in non-interactive mode', async () => {

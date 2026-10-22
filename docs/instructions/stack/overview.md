@@ -16,7 +16,7 @@
 | Node engine     | `>=22.0.0` to install; building needs 22.18+ (24.11+ on 24)    |
 | Package manager | pnpm (root + `graph-ui`)                                       |
 | Bundler         | tsup 9 (library/CLI), Vite (graph-ui SPA)                      |
-| Test runner     | Vitest 3 (root), Vitest 5 (graph-ui)                           |
+| Test runner     | Vitest 5 (root and graph-ui)                                   |
 | Lint            | ESLint (flat config: `eslint.config.js`)                       |
 | Format          | Prettier                                                       |
 | Typecheck       | `tsc --noEmit`                                                 |
@@ -37,8 +37,8 @@ needs it. The published `engines` field stays `>=22.0.0`. Exact ranges are in
 - `handlebars` — template rendering (workflow & doc templates)
 - `yaml` — config / profile parsing
 - `ajv` — JSON Schema validation
-- `openai` — model API client (default routing target)
-- `voyageai`, `@huggingface/transformers` — embeddings (cloud + local)
+- `openai` — model API client (default routing target) and the optional cloud embeddings
+- `@huggingface/transformers` v4 — local embeddings and reranking, pinned to `dtype: 'q8'`
 - `gifenc` — GIF encoding for visual evidence
 
 ### Embedded UI (`graph-ui/`)
@@ -46,7 +46,7 @@ needs it. The published `engines` field stays `>=22.0.0`. Exact ranges are in
 - React 19
 - Tailwind CSS 4
 - Vite SPA toolchain
-- Vitest 5 (the root package stays on Vitest 3)
+- Vitest 5 (the same major as the root package)
 
 ## Capabilities (active)
 

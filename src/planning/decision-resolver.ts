@@ -72,20 +72,23 @@ async function resolveByCompiledRule(
       touchedFiles.some((file) => matchesGlobish(file, pattern)),
     ),
   );
-  /* v8 ignore next 3 -- no-rule early return; tests always supply a matching rule file */
+  /* v8 ignore start -- no-rule early return; tests always supply a matching rule file */
   if (!matchingRule) {
     return null;
   }
+  /* v8 ignore stop */
 
   const matchingOption =
     packet.options.find((option) => option.evidence.rule_match === matchingRule.rule_id) ??
-    /* v8 ignore next 6 */
-    packet.options.find((option) =>
-      option.evidence.file
-        ? matchingRule.trigger_patterns.some((pattern) =>
-            matchesGlobish(option.evidence.file!, pattern),
-          )
-        : false,
+    /* v8 ignore start */
+    packet.options.find(
+      (option) =>
+        option.evidence.file
+          ? matchingRule.trigger_patterns.some((pattern) =>
+              matchesGlobish(option.evidence.file!, pattern),
+            )
+          : false,
+      /* v8 ignore stop */
     );
   if (!matchingOption && !packet.recommendation) {
     return null;
@@ -93,8 +96,9 @@ async function resolveByCompiledRule(
 
   return {
     source: 'rule',
-    /* v8 ignore next 1 -- fallback chain for missing option or recommendation; always resolved in tests */
+    /* v8 ignore start -- fallback chain for missing option or recommendation; always resolved in tests */
     option_key: matchingOption?.option_key ?? packet.recommendation ?? undefined,
+    /* v8 ignore stop */
     reason: `Matched compiled rule ${matchingRule.rule_id}.`,
   };
 }

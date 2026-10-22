@@ -260,4 +260,65 @@ describe('formatDecisionPrecedents', () => {
     expect(block).toContain('→ Reuse');
     expect(block).toContain('it works');
   });
+
+  it('says when no choice was recorded and leaves out a missing reason', () => {
+    expect(
+      formatDecisionPrecedents([
+        { decision_id: 'D-1', category: 'ux-pattern', question: 'Tabs?', chosen: null, score: 1 },
+      ]),
+    ).toBe(`${PRECEDENT_BLOCK_HEADING}\n- [ux-pattern] "Tabs?" → no choice recorded`);
+  });
+});
+
+describe('findDecisionPrecedents ordering and labels', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'decision-precedents-order-'));
+    mkdirSync(join(root, PATHS.DECISIONS_RESOLVED_DIR), { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function writeResolved(packet: DecisionPacket): void {
+    writeFileSync(
+      join(root, PATHS.DECISIONS_RESOLVED_DIR, `${packet.decision_id}.json`),
+      JSON.stringify(packet),
+    );
+  }
+
+  it('breaks score ties by id and leaves out a blank reason', () => {
+    writeResolved(resolvedPacket({ decision_id: 'D-202' }));
+    writeResolved(
+      resolvedPacket({
+        decision_id: 'D-201',
+        status: 'delegated',
+        human_response: {
+          ...resolvedPacket({ decision_id: 'x' }).human_response!,
+          chosen_option_key: 'new',
+          note: '  ',
+        },
+      }),
+    );
+
+    const found = findDecisionPrecedents(root, {
+      category: 'create-vs-reuse',
+      question: 'Reuse the existing parser or write a new one?',
+      context: 'parser work',
+    });
+
+    expect(found.map((precedent) => [precedent.decision_id, precedent.chosen])).toEqual([
+      ['D-201', 'Write a new parser'],
+      ['D-202', 'Reuse the existing parser'],
+    ]);
+    expect(found[0]?.rationale).toBeUndefined();
+  });
+
+  it('scores a question with no words on category alone', () => {
+    const packet = resolvedPacket({ decision_id: 'D-1' });
+    expect(scorePrecedent({ category: 'create-vs-reuse', question: '' }, packet)).toBe(0.5);
+    expect(scorePrecedent({ category: 'ux-pattern', question: '?!' }, packet)).toBe(0);
+  });
 });

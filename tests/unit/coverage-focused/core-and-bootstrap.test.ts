@@ -82,11 +82,11 @@ describe('coverage bootstrap branches', () => {
   afterEach(() => {
     vi.resetModules();
     vi.restoreAllMocks();
-    vi.unmock('@/core/runtime-paths.js');
-    vi.unmock('@/onboarding/manifest-writer.js');
-    vi.unmock('@/index.js');
-    vi.unmock('@/core/schema-version.js');
-    vi.unmock('node:fs');
+    vi.doUnmock('@/core/runtime-paths.js');
+    vi.doUnmock('@/onboarding/manifest-writer.js');
+    vi.doUnmock('@/index.js');
+    vi.doUnmock('@/core/schema-version.js');
+    vi.doUnmock('node:fs');
   });
 
   it('treats an EEXIST race on the expected symlink as success', async () => {

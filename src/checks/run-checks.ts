@@ -347,10 +347,11 @@ async function runOneCommand(
     stderr,
     ...(invalid ? { invalid } : {}),
   });
-  /* v8 ignore next 3 -- runOneCommand only runs commands the scheduler already validated (fallback + re-runs) */
+  /* v8 ignore start -- runOneCommand only runs commands the scheduler already validated (fallback + re-runs) */
   if (!parsed.ok) {
     return finish(1, '', '', `Unsupported shell syntax in mapped command: ${parsed.invalidToken}`);
   }
+  /* v8 ignore stop */
   const res = await runCommandChain(shell, parsed.steps, cwd);
   return finish(res.exitCode, res.stdout, res.stderr);
 }

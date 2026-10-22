@@ -12,15 +12,13 @@ import { RagService } from '@/rag/service.js';
 const transformerEnv: Record<string, unknown> = {};
 const transformerPipeline = vi.fn();
 const openAiEmbeddingsCreate = vi.fn();
-const openAiCtor = vi.fn().mockImplementation(() => ({
-  embeddings: {
-    create: openAiEmbeddingsCreate,
-  },
-}));
-const voyageEmbed = vi.fn();
-const voyageCtor = vi.fn().mockImplementation(() => ({
-  embed: voyageEmbed,
-}));
+const openAiCtor = vi.fn().mockImplementation(function () {
+  return {
+    embeddings: {
+      create: openAiEmbeddingsCreate,
+    },
+  };
+});
 
 vi.mock('@huggingface/transformers', () => ({
   env: transformerEnv,
@@ -29,10 +27,6 @@ vi.mock('@huggingface/transformers', () => ({
 
 vi.mock('openai', () => ({
   OpenAI: openAiCtor,
-}));
-
-vi.mock('voyageai', () => ({
-  VoyageAIClient: voyageCtor,
 }));
 
 function semanticVector(text: string): number[] {
@@ -221,10 +215,6 @@ describe('RAG end-to-end', () => {
       const batch = Array.isArray(input) ? input : [input];
       return { data: batch.map((text) => ({ embedding: semanticVector(text) })) };
     });
-    voyageEmbed.mockImplementation(async ({ input }: { input: string | string[] }) => {
-      const batch = Array.isArray(input) ? input : [input];
-      return { data: batch.map((text) => ({ embedding: semanticVector(text) })) };
-    });
   });
 
   afterEach(() => {
@@ -232,11 +222,10 @@ describe('RAG end-to-end', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('runs local, OpenAI, and Voyage RAG flows through the CLI', async () => {
+  it('AC-16 runs local and OpenAI RAG flows through the CLI', async () => {
     const providerCases = [
       { provider: 'local', model: 'Xenova/all-MiniLM-L6-v2', env: undefined },
       { provider: 'openai', model: 'text-embedding-3-small', env: ['OPENAI_API_KEY', 'sk-test'] },
-      { provider: 'voyageai', model: 'voyage-code-3', env: ['VOYAGE_API_KEY', 'voyage-test'] },
     ] as const;
 
     for (const providerCase of providerCases) {

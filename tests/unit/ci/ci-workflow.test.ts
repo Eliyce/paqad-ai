@@ -85,6 +85,22 @@ describe('.github/workflows/ci.yml', () => {
     it('installs the pinned Claude Code so the plugin checks really run', () => {
       expect(runs(job)).toContain('npm install -g @anthropic-ai/claude-code@2.1.302');
     });
+
+    it('audits the shipped dependencies once, right after the frozen install', () => {
+      const commands = job.steps.map((step) => step.run ?? '');
+      const audit = commands.indexOf('pnpm audit --prod --audit-level high');
+      expect(audit).toBe(commands.indexOf('pnpm install --frozen-lockfile') + 1);
+      expect(commands.indexOf('pnpm run typecheck')).toBeGreaterThan(audit);
+      const everyJob = Object.values(jobs).flatMap((each) => each.steps.map((s) => s.run ?? ''));
+      expect(everyJob.filter((run) => run.includes('pnpm audit'))).toHaveLength(1);
+    });
+
+    it('ignores the braces advisory by its GHSA id only', () => {
+      const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+        pnpm: { auditConfig: Record<string, unknown> };
+      };
+      expect(pkg.pnpm.auditConfig).toEqual({ ignoreGhsas: ['GHSA-vfj7-8cjw-p6xm'] });
+    });
   });
 
   describe('test', () => {
@@ -128,6 +144,9 @@ describe('.github/workflows/ci.yml', () => {
       expect(step.env?.PAQAD_TEST_SHARD).toBe('1');
       expect(step.run).toContain('vitest run --coverage --reporter=blob');
       expect(step.run).toContain('--reporter=json');
+      expect(step.run).toContain(
+        '--outputFile.blob=.vitest-reports/blob-${{ matrix.shard }}-${{ matrix.total }}.json',
+      );
       expect(step.run).toContain(
         '--outputFile.json=.vitest-durations/durations-${{ matrix.shard }}.json',
       );
@@ -181,9 +200,9 @@ describe('.github/workflows/ci.yml', () => {
       expect(runs(job)).toContain('test "${#blobs[@]}" -eq "${{ matrix.total }}"');
     });
 
-    it('merges with coverage and the floors on, then checks the time budget', () => {
+    it('AC-10 merges with coverage and the floors on, then checks the time budget', () => {
       const merge = stepNamed(job, /^Merge/)!;
-      expect(merge.run).toBe('pnpm exec vitest run --merge-reports --coverage');
+      expect(merge.run).toBe('pnpm exec vitest run --merge-reports=.vitest-reports --coverage');
       for (const step of job.steps) expect(step.env?.PAQAD_TEST_SHARD).toBeUndefined();
       expect(job.env?.PAQAD_TEST_SHARD).toBeUndefined();
       expect(workflow.env.PAQAD_TEST_SHARD).toBeUndefined();
@@ -209,5 +228,100 @@ describe('.github/workflows/ci.yml', () => {
       expect(step.run).toContain(`jq -e 'all(.[]; .result == "success")'`);
       expect(job.steps.every((s) => s.uses === undefined)).toBe(true);
     });
+  });
+});
+
+describe('.github/dependabot.yml', () => {
+  it('AC-21 groups npm security updates next to the version-update groups', () => {
+    const config = parse(readFileSync('.github/dependabot.yml', 'utf8')) as {
+      updates: Array<{
+        'package-ecosystem': string;
+        groups?: Record<string, { 'applies-to'?: string; patterns?: string[] }>;
+      }>;
+    };
+    const npm = config.updates.find((entry) => entry['package-ecosystem'] === 'npm');
+    const groups = npm?.groups ?? {};
+    expect(Object.keys(groups)).toEqual(
+      expect.arrayContaining(['dev-dependencies-minor-patch', 'prod-dependencies-patch']),
+    );
+    const security = Object.values(groups).filter(
+      (group) => group['applies-to'] === 'security-updates',
+    );
+    expect(security).toEqual([{ 'applies-to': 'security-updates', patterns: ['*'] }]);
+  });
+});
+
+describe('package.json pnpm.overrides', () => {
+  it('AC-22 keeps every override a capped floor on a dev-only package and CI installs then lints', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      dependencies: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+      scripts: Record<string, string>;
+      pnpm: { overrides: Record<string, string> };
+    };
+    const lock = parse(readFileSync('pnpm-lock.yaml', 'utf8')) as {
+      overrides: Record<string, string>;
+      importers: Record<string, Record<string, Record<string, { version: string }>>>;
+      snapshots: Record<
+        string,
+        { dependencies?: Record<string, string>; optionalDependencies?: Record<string, string> }
+      >;
+    };
+    const overrides = Object.entries(pkg.pnpm.overrides);
+    expect(overrides.length).toBeGreaterThan(0);
+    expect(lock.overrides).toEqual(pkg.pnpm.overrides);
+
+    const root = lock.importers['.'];
+    const queue = Object.entries({ ...root.dependencies, ...root.optionalDependencies }).map(
+      ([name, entry]) => `${name}@${entry.version}`,
+    );
+    const shipped = new Set<string>();
+    while (queue.length > 0) {
+      const key = queue.pop()!;
+      if (shipped.has(key)) continue;
+      shipped.add(key);
+      const snapshot = lock.snapshots[key];
+      expect(snapshot, key).toBeDefined();
+      for (const [name, version] of Object.entries({
+        ...snapshot.dependencies,
+        ...snapshot.optionalDependencies,
+      })) {
+        queue.push(`${name}@${version}`);
+      }
+    }
+    expect(shipped.size).toBeGreaterThanOrEqual(Object.keys(pkg.dependencies).length);
+
+    const productionNames = new Set([
+      ...Object.keys(pkg.dependencies),
+      ...Object.keys(pkg.optionalDependencies ?? {}),
+      ...Object.keys(pkg.peerDependencies ?? {}),
+    ]);
+    for (const [selector, range] of overrides) {
+      const match = /^(@?[^@]+)(?:@(\d+))?$/.exec(selector);
+      expect(match, selector).not.toBeNull();
+      const [, name, selectedMajor] = match!;
+      expect(productionNames.has(name), selector).toBe(false);
+
+      const floor = /^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/.exec(range);
+      expect(floor, `${selector} ${range}`).not.toBeNull();
+      const floorMajor = Number(floor![1]);
+      expect(Number(floor![4]), selector).toBe(floorMajor + 1);
+      if (selectedMajor !== undefined) expect(Number(selectedMajor), selector).toBe(floorMajor);
+
+      const shippedCopies = [...shipped].filter((key) => {
+        if (!key.startsWith(`${name}@`)) return false;
+        const major = Number(key.slice(name.length + 1).split('.')[0]);
+        return selectedMajor === undefined || major === Number(selectedMajor);
+      });
+      expect(shippedCopies, selector).toEqual([]);
+    }
+
+    const commands = jobs.static.steps.map((step) => step.run ?? '');
+    const install = commands.indexOf('pnpm install --frozen-lockfile');
+    const lint = commands.indexOf('pnpm run lint');
+    expect(install).toBeGreaterThan(-1);
+    expect(lint).toBeGreaterThan(install);
+    expect(pkg.scripts.lint).toBe('eslint .');
   });
 });

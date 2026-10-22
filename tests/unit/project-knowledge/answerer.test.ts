@@ -15,17 +15,23 @@ const { mockRetrieve, mockCheck, mockDetect, mockReadProjectProfile } = vi.hoist
 }));
 
 vi.mock('@/project-knowledge/evidence-retriever.js', () => ({
-  EvidenceRetriever: vi.fn().mockImplementation(() => ({ retrieve: mockRetrieve })),
+  EvidenceRetriever: vi.fn().mockImplementation(function () {
+    return { retrieve: mockRetrieve };
+  }),
   extractKeywords: vi.fn(),
   scoreFile: vi.fn(),
 }));
 
 vi.mock('@/project-knowledge/freshness-checker.js', () => ({
-  FreshnessChecker: vi.fn().mockImplementation(() => ({ check: mockCheck })),
+  FreshnessChecker: vi.fn().mockImplementation(function () {
+    return { check: mockCheck };
+  }),
 }));
 
 vi.mock('@/project-knowledge/contradiction-detector.js', () => ({
-  ContradictionDetector: vi.fn().mockImplementation(() => ({ detect: mockDetect })),
+  ContradictionDetector: vi.fn().mockImplementation(function () {
+    return { detect: mockDetect };
+  }),
 }));
 
 vi.mock('@/core/project-profile.js', () => ({

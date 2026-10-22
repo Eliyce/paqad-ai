@@ -128,10 +128,11 @@ export function classifyCompletionEnforcement(
   let resolved: string;
   try {
     resolved = resolveSessionId(projectRoot, sessionId ?? null);
-    /* v8 ignore next 3 -- resolveSessionId swallows its own fs errors; kept so any future
+    /* v8 ignore start -- resolveSessionId swallows its own fs errors; kept so any future
        throw reads as "owns nothing" instead of crashing the completion seam. */
   } catch {
     return { enforce: false, reason: 'not-owner', activeWorkflow: null };
+    /* v8 ignore stop */
   }
   const state = readWorkflowState(projectRoot, resolved);
   const activeWorkflow = state.active?.workflow ?? null;

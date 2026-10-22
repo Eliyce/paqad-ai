@@ -31,11 +31,12 @@ export function clearQuarantineWithEvidence(input: ClearQuarantineInput): ClearQ
   }
 
   if (judgement.reruns < 2 || judgement.passes < judgement.reruns) {
-    /* v8 ignore next 4 -- defensive: a `recovered` verdict already implies passes === reruns */
+    /* v8 ignore start -- defensive: a `recovered` verdict already implies passes === reruns */
     return {
       registry: input.registry,
       cleared: false,
       reason: 'insufficient-evidence: need passing stability re-runs',
+      /* v8 ignore stop */
     };
   }
 

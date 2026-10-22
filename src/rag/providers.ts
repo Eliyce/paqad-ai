@@ -8,6 +8,7 @@ import { getDefaultEmbeddingModel } from '@/core/project-intelligence.js';
 import { toPosixPath } from '@/core/path-utils.js';
 import type { EmbeddingProviderName, IntelligenceConfig } from '@/core/types/project-profile.js';
 
+import { assertEmbeddingProviderAvailable } from './removed-provider.js';
 import { getProjectSecret } from './secrets.js';
 import type {
   EmbeddingProvider,
@@ -17,7 +18,6 @@ import type {
   OpenAiEmbeddingClient,
   ProviderProgressUpdate,
   TransformersRuntimeEnv,
-  VoyageEmbeddingClient,
 } from './types.js';
 import { EmbeddingProviderError } from './types.js';
 
@@ -40,10 +40,7 @@ function providerError(
   return new EmbeddingProviderError(provider, code, message, cause);
 }
 
-function classifyRemoteError(
-  provider: 'openai' | 'voyageai',
-  error: unknown,
-): EmbeddingProviderError {
+function classifyRemoteError(provider: 'openai', error: unknown): EmbeddingProviderError {
   if (error instanceof EmbeddingProviderError) {
     return error;
   }
@@ -60,12 +57,7 @@ function classifyRemoteError(
   const message = error instanceof Error ? error.message : String(error);
 
   if (status === 401 || status === 403) {
-    return providerError(
-      provider,
-      'invalid_api_key',
-      `Invalid ${provider === 'openai' ? 'OPENAI_API_KEY' : 'VOYAGE_API_KEY'}`,
-      error,
-    );
+    return providerError(provider, 'invalid_api_key', 'Invalid OPENAI_API_KEY', error);
   }
   if (status === 429 || /rate.?limit/i.test(message)) {
     return providerError(
@@ -83,7 +75,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function withRemoteRetry<T>(
-  provider: 'openai' | 'voyageai',
+  provider: 'openai',
   operation: () => Promise<T>,
   onProgress?: (update: ProviderProgressUpdate) => void,
 ): Promise<T> {
@@ -249,66 +241,15 @@ export class OpenAiEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
-export class VoyageEmbeddingProvider implements EmbeddingProvider {
-  readonly name = 'voyageai' as const;
-  readonly model: string;
-  private clientPromise?: Promise<VoyageEmbeddingClient>;
-
-  constructor(
-    private readonly projectRoot: string,
-    intelligence: IntelligenceConfig,
-    private readonly onProgress?: (update: ProviderProgressUpdate) => void,
-  ) {
-    this.model = intelligence.embedding_model ?? getDefaultEmbeddingModel('voyageai');
-  }
-
-  async validate(): Promise<void> {
-    await this.embed('validation');
-  }
-
-  async embed(input: string | string[]): Promise<number[][]> {
-    const client = await this.getClient();
-    const response = await withRemoteRetry(
-      'voyageai',
-      () =>
-        client.embed({
-          input,
-          model: this.model,
-        }),
-      this.onProgress,
-    );
-    return response.data.map((entry: { embedding: number[] }) => entry.embedding);
-  }
-
-  private async getClient(): Promise<VoyageEmbeddingClient> {
-    if (!this.clientPromise) {
-      this.clientPromise = this.createClient();
-    }
-    return this.clientPromise;
-  }
-
-  private async createClient(): Promise<VoyageEmbeddingClient> {
-    const apiKey = getProjectSecret(this.projectRoot, 'VOYAGE_API_KEY');
-    if (!apiKey) {
-      throw providerError('voyageai', 'missing_api_key', 'Missing VOYAGE_API_KEY');
-    }
-    const { VoyageAIClient } = await loadOptionalPackage<{
-      VoyageAIClient: new (options: { apiKey: string }) => VoyageEmbeddingClient;
-    }>('voyageai');
-    return new VoyageAIClient({ apiKey });
-  }
-}
-
 export async function createEmbeddingProvider(
   projectRoot: string,
   intelligence: IntelligenceConfig,
   onProgress?: (update: ProviderProgressUpdate) => void,
 ): Promise<EmbeddingProvider> {
+  assertEmbeddingProviderAvailable(projectRoot, intelligence.embedding_provider);
   switch (intelligence.embedding_provider) {
     case 'openai':
       return new OpenAiEmbeddingProvider(projectRoot, intelligence, onProgress);
-    case 'voyageai':
-      return new VoyageEmbeddingProvider(projectRoot, intelligence, onProgress);
     case 'local':
     default:
       return new LocalEmbeddingProvider(intelligence, onProgress);

@@ -217,8 +217,9 @@ export function validateDecisionPacket(value: unknown): string[] {
     }
   }
   if (packet.human_response !== undefined) {
-    /* v8 ignore next 1 -- human_response validation path not exercised in packet-builder unit tests */
+    /* v8 ignore start -- human_response validation path not exercised in packet-builder unit tests */
     errors.push(...validateHumanResponse(packet.human_response, packet.options ?? []));
+    /* v8 ignore stop */
   }
 
   return errors;
@@ -250,8 +251,9 @@ export function toDecisionRecord(packet: DecisionPacket): DecisionRecord | null 
         alternative: option.label,
         rejection_reason: option.trade_off,
       })),
-    /* v8 ignore next 1 -- linked_requirements is always set in practice; ?? [] is a safety net */
+    /* v8 ignore start -- linked_requirements is always set in practice; ?? [] is a safety net */
     linked_requirements: packet.linked_requirements ?? [],
+    /* v8 ignore stop */
     reversibility: DECISION_CATEGORY_DEFAULTS[packet.category].reversibility,
   };
 }

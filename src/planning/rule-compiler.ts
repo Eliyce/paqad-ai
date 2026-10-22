@@ -44,10 +44,11 @@ export async function compileRules(root: string): Promise<CompiledRulesStore> {
 function resolveGateFlags(root: string): Record<string, boolean> {
   try {
     return resolveFrameworkConfig(root).features as unknown as Record<string, boolean>;
-    /* v8 ignore next 3 -- defensive: a malformed config never breaks rule compilation */
+    /* v8 ignore start -- defensive: a malformed config never breaks rule compilation */
   } catch {
     return {};
   }
+  /* v8 ignore stop */
 }
 
 function extractGate(raw: string): string | undefined {

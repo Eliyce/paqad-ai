@@ -17,7 +17,6 @@ describe('project intelligence defaults', () => {
   it('returns the documented default embedding model per provider', () => {
     expect(getDefaultEmbeddingModel('local')).toBe('Xenova/all-MiniLM-L6-v2');
     expect(getDefaultEmbeddingModel('openai')).toBe('text-embedding-3-small');
-    expect(getDefaultEmbeddingModel('voyageai')).toBe('voyage-code-3');
   });
 
   describe('local embedding models (F23)', () => {

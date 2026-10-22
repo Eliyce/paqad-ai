@@ -62,9 +62,10 @@ export async function listRegressionGuards(projectRoot: string): Promise<Regress
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
       return [];
     }
-    /* v8 ignore next 2 -- non-ENOENT readdir failures are not exercised in unit tests */
+    /* v8 ignore start -- non-ENOENT readdir failures are not exercised in unit tests */
     throw error;
   }
+  /* v8 ignore stop */
 
   const guards: RegressionGuard[] = [];
   for (const entry of entries.sort()) {

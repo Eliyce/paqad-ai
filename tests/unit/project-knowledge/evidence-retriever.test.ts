@@ -12,10 +12,12 @@ const { mockGetStatus, mockRetrieveForEval } = vi.hoisted(() => ({
 vi.mock('fast-glob', () => ({ default: mockGlob }));
 vi.mock('node:fs/promises', () => ({ readFile: mockReadFile }));
 vi.mock('@/rag/service.js', () => ({
-  RagService: vi.fn().mockImplementation(() => ({
-    getStatus: mockGetStatus,
-    retrieveForEval: mockRetrieveForEval,
-  })),
+  RagService: vi.fn().mockImplementation(function () {
+    return {
+      getStatus: mockGetStatus,
+      retrieveForEval: mockRetrieveForEval,
+    };
+  }),
 }));
 
 import {

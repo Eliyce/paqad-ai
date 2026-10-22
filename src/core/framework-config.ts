@@ -23,7 +23,7 @@ import { ESCALATION_MODES, RESEARCH_DEPTHS } from './types/project-profile.js';
 
 declare const __PKG_VERSION__: string;
 
-const EMBEDDING_PROVIDERS = ['local', 'openai', 'voyageai'] as const;
+const EMBEDDING_PROVIDERS = ['local', 'openai'] as const;
 const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
 const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
 const CHECKS_FLAKY_MODES = ['pass', 'warn', 'fail'] as const;
@@ -359,7 +359,7 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     optional: true,
     group: 'rag',
     section: 'Intelligence / RAG',
-    comment: 'local | openai | voyageai. Unset uses the local model.',
+    comment: 'local | openai. Unset uses the local model.',
   },
   {
     key: 'rag_embedding_model',

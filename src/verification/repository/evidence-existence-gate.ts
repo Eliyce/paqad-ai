@@ -117,11 +117,12 @@ export function evidenceExistenceGate(
     } else {
       ragMissing = true;
     }
-    /* v8 ignore next 4 -- best-effort: a read/backfill failure must never change the
+    /* v8 ignore start -- best-effort: a read/backfill failure must never change the
        verdict; a filesystem fault is not reproduced in tests. */
   } catch {}
 
   return decide({ present, backfilled, absent, flagSkipped, ragMissing });
+  /* v8 ignore stop */
 }
 
 function decide(state: {

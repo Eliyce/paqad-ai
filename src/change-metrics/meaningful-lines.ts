@@ -28,11 +28,12 @@ export async function countMeaningfulChangedLines(options: {
     let content: string;
     try {
       content = await readFile(join(projectRoot, entry.file), 'utf8');
-      /* c8 ignore next 4 -- defensive TOCTOU: collectAddedRanges reported ranges for this
+      /* c8 ignore start -- defensive TOCTOU: collectAddedRanges reported ranges for this
          file, so it existed a moment ago; it can only be unreadable here if it vanished
          between the two reads. Degrade that file to zero rather than throw (INV-1). */
     } catch {
       continue;
+      /* c8 ignore stop */
     }
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {

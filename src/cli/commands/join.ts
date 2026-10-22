@@ -43,6 +43,7 @@ import {
 } from '@/onboarding/manifest-writer.js';
 import { writeWorktreeInclude } from '@/onboarding/worktree-include-writer.js';
 import { compileRules, writeCompiledRules } from '@/planning/index.js';
+import { assertEmbeddingProviderAvailable } from '@/rag/removed-provider.js';
 import { RagService } from '@/rag/service.js';
 import { Resolver } from '@/resolver/resolver.js';
 import { writeRuleContext } from '@/context/rule-context.js';
@@ -253,6 +254,7 @@ async function joinRag(
     process.stdout.write(`${JOIN_RAG_OFF_MESSAGE}\n`);
     return true;
   }
+  assertEmbeddingProviderAvailable(projectRoot, intelligence.embedding_provider);
 
   const service = new RagService(projectRoot);
   const status = await service.getStatus();

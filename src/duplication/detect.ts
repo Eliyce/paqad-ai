@@ -67,9 +67,10 @@ export async function detectNewCodeDuplication(
       continue;
     }
     const fileText = await readFileText(options.projectRoot, file);
-    /* c8 ignore next 3 -- `file` came from the added-ranges map, so it existed when its ranges
+    /* c8 ignore start -- `file` came from the added-ranges map, so it existed when its ranges
        were computed a moment ago; an unreadable file here is a mid-run race, guarded only. */
     if (fileText === null) {
+      /* c8 ignore stop */
       continue;
     }
     for (const candidate of new AstChunker().chunk(file, fileText)) {
@@ -120,9 +121,10 @@ interface ScoreInput {
 
 async function scoreCandidate(input: ScoreInput): Promise<DuplicationFinding | null> {
   const range = resolveChunkLineRange(input.fileText, input.candidateContent);
-  /* c8 ignore next 3 -- the candidate content is a chunk of fileText itself, so it always
+  /* c8 ignore start -- the candidate content is a chunk of fileText itself, so it always
      resolves; the guard is defensive against a future chunker that rewrites content. */
   if (!range) {
+    /* c8 ignore stop */
     return null;
   }
   if (!rangesOverlap(range.start, range.end, input.ranges)) {
@@ -186,9 +188,10 @@ function bestMatch(
 }
 
 function withinSizeRatio(a: number, b: number): boolean {
-  /* c8 ignore next 3 -- defensive: candidate and corpus chunks both clear the min-lines
+  /* c8 ignore start -- defensive: candidate and corpus chunks both clear the min-lines
      floor, so neither char count is ever 0 by the time this runs. */
   if (a === 0 || b === 0) {
+    /* c8 ignore stop */
     return a === b;
   }
   const ratio = a > b ? a / b : b / a;

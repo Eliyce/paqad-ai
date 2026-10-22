@@ -21,7 +21,6 @@ describe('RAG secrets helpers', () => {
 
   afterEach(() => {
     delete process.env.OPENAI_API_KEY;
-    delete process.env.VOYAGE_API_KEY;
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
@@ -66,15 +65,28 @@ describe('RAG secrets helpers', () => {
 
   it('redacts secret values from rag audit entries', () => {
     writeProjectSecret(projectRoot, 'OPENAI_API_KEY', 'sk-local');
-    process.env.VOYAGE_API_KEY = 'voyage-env';
+    process.env.OPENAI_API_KEY = 'sk-env';
 
     appendRagAudit(projectRoot, 'WARN', 'rag-build-failed', {
-      reason: 'provider rejected sk-local and voyage-env',
+      reason: 'provider rejected sk-local and sk-env',
     });
 
     const audit = readFileSync(join(projectRoot, '.paqad', 'audit.log'), 'utf8');
     expect(audit).toContain('[REDACTED]');
     expect(audit).not.toContain('sk-local');
-    expect(audit).not.toContain('voyage-env');
+    expect(audit).not.toContain('sk-env');
+  });
+
+  it('AC-25 still redacts a leftover VOYAGE_API_KEY stored in the secrets file', () => {
+    writeProjectSecret(projectRoot, 'VOYAGE_API_KEY', 'pa-leftover-voyage-key');
+
+    expect(redactSecrets('Bearer pa-leftover-voyage-key', projectRoot)).toBe('Bearer [REDACTED]');
+    appendRagAudit(projectRoot, 'WARN', 'rag-provider-removed', {
+      reason: 'old key pa-leftover-voyage-key',
+    });
+
+    const audit = readFileSync(join(projectRoot, '.paqad', 'audit.log'), 'utf8');
+    expect(audit).toContain('[REDACTED]');
+    expect(audit).not.toContain('pa-leftover-voyage-key');
   });
 });

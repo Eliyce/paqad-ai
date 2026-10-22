@@ -51,7 +51,9 @@ describe('evaluateRequirements applies gate', () => {
 });
 
 describe('runPreflight', () => {
-  beforeEach(() => requirementsFor.mockReset());
+  beforeEach(() => {
+    requirementsFor.mockReset();
+  });
 
   it('is ok with no questions when every probe is ok (AC-1)', async () => {
     requirementsFor.mockReturnValue([req('a', 'ok'), req('b', 'ok')]);

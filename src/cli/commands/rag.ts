@@ -34,6 +34,12 @@ import { compareConfigurations } from '@/rag/benchmark-gates.js';
 import type { ConfigurationComparisonResult, RagBenchmarkSnapshot } from '@/rag/benchmark-gates.js';
 import { EVAL_DATASET } from '@/rag/eval-dataset.js';
 import { EvalRunner, runFeatureOffVsOnGate, snapshotFromTraces } from '@/rag/eval-runner.js';
+import { appendRagAudit } from '@/rag/audit.js';
+import {
+  assertEmbeddingProviderAvailable,
+  REMOVED_EMBEDDING_PROVIDER_MESSAGE,
+  resolveRemovedEmbeddingProvider,
+} from '@/rag/removed-provider.js';
 import { RagService } from '@/rag/service.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 import type { ComparisonMode, EvalTrace } from '@/rag/types.js';
@@ -74,11 +80,6 @@ async function resolveProvider(
         name: 'Using my OpenAI key',
         description: 'Uses text-embedding-3-small for remote embeddings',
       },
-      {
-        value: 'voyageai',
-        name: 'Using my Voyage AI key',
-        description: 'Uses voyage-code-3 for remote code embeddings',
-      },
     ],
   });
 }
@@ -109,11 +110,11 @@ async function maybePromptApiKey(
   }
 
   if (!isInteractive()) {
-    throw new Error(`Missing ${provider === 'openai' ? 'OPENAI_API_KEY' : 'VOYAGE_API_KEY'}`);
+    throw new Error('Missing OPENAI_API_KEY');
   }
 
   const key = await input({
-    message: `Enter your ${provider === 'openai' ? 'OpenAI' : 'Voyage AI'} API key`,
+    message: 'Enter your OpenAI API key',
     validate: (value) => (value.trim().length > 0 ? true : 'API key is required'),
   });
   service.storeApiKey(provider, key.trim());
@@ -229,6 +230,7 @@ export async function initializeRagIndex(
   projectRoot: string,
   options: InitializeRagIndexOptions = {},
 ): Promise<Awaited<ReturnType<RagService['configureAndBuild']>>> {
+  assertEmbeddingProviderAvailable(projectRoot, options.provider);
   const service = new RagService(projectRoot);
   const current = options.current ?? (await service.getStatus());
   return buildWithRecovery(service, current, {
@@ -245,7 +247,7 @@ export function createRagCommand(): Command {
     .command('init')
     .description('Enable RAG for the current project and build the vector index')
     .option('--project-root <path>', 'Project root', process.cwd())
-    .option('--provider <provider>', 'Embedding provider: local, openai, or voyageai')
+    .option('--provider <provider>', 'Embedding provider: local, openai')
     .option('--model <model>', 'Override the default embedding model')
     .option('--yes', 'Accept rebuild prompts automatically')
     .action(
@@ -255,6 +257,7 @@ export function createRagCommand(): Command {
         model?: string;
         yes?: boolean;
       }) => {
+        assertEmbeddingProviderAvailable(options.projectRoot, options.provider);
         const service = new RagService(options.projectRoot);
         const current = await service.getStatus();
         if (current.index_present && current.valid && !options.yes) {
@@ -335,6 +338,7 @@ export function createRagCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--top-n <n>', 'How many candidates to show', '10')
     .action(async (query: string, options: { projectRoot: string; topN: string }) => {
+      assertEmbeddingProviderAvailable(options.projectRoot);
       const service = new RagService(options.projectRoot);
       const { intelligence } = resolveFrameworkConfig(options.projectRoot);
       const floor = intelligence.rag_similarity_threshold;
@@ -403,6 +407,25 @@ export function createRagCommand(): Command {
         if (!options.quiet) {
           process.stdout.write(
             `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (rag off)\n`,
+          );
+        }
+        return;
+      }
+
+      const removedProvider = resolveRemovedEmbeddingProvider(options.projectRoot);
+      if (removedProvider) {
+        appendRagAudit(options.projectRoot, 'WARN', 'rag-provider-removed', {
+          provider: removedProvider,
+        });
+        const target = await refreshRuleContext(options.projectRoot, {
+          existingSurfaceSection,
+          retrievalSection: `## Retrieved context — none\n> Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`,
+          loadRules,
+        });
+        process.stderr.write(`Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`);
+        if (!options.quiet) {
+          process.stdout.write(
+            `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (embedding provider removed)\n`,
           );
         }
         return;
@@ -501,6 +524,7 @@ export function createRagCommand(): Command {
         baseline?: string;
         modelGraded?: boolean;
       }) => {
+        assertEmbeddingProviderAvailable(options.projectRoot);
         const service = new RagService(options.projectRoot);
         const runner = new EvalRunner();
         const sync = await service.refreshContext();

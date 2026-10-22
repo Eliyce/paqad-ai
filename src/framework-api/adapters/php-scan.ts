@@ -95,10 +95,11 @@ export function scanPhpFile(source: string): PhpFileScan {
   for (const match of source.matchAll(CLASS_PATTERN)) {
     const keyword = match[3];
     const name = match[4];
-    /* v8 ignore next 3 -- both groups are mandatory in CLASS_PATTERN, so a match always carries them; the guard exists so a future pattern edit degrades to skipping a declaration rather than recording an undefined name. */
+    /* v8 ignore start -- both groups are mandatory in CLASS_PATTERN, so a match always carries them; the guard exists so a future pattern edit degrades to skipping a declaration rather than recording an undefined name. */
     if (keyword === undefined || name === undefined || match.index === undefined) {
       continue;
     }
+    /* v8 ignore stop */
     const doc = match[1] === undefined ? null : stripDocComment(match[1]);
     /* v8 ignore next -- the attribute group always participates, empty string included. */
     const attributes = match[2] ?? '';
@@ -123,10 +124,11 @@ export function scanPhpFile(source: string): PhpFileScan {
 
   for (const match of source.matchAll(METHOD_PATTERN)) {
     const name = match[3];
-    /* v8 ignore next 3 -- the name group is mandatory in METHOD_PATTERN; same defensive contract as the class loop above. */
+    /* v8 ignore start -- the name group is mandatory in METHOD_PATTERN; same defensive contract as the class loop above. */
     if (name === undefined || match.index === undefined) {
       continue;
     }
+    /* v8 ignore stop */
     const owner = ownerOf(classes, match.index);
     if (owner === null) {
       continue;

@@ -212,6 +212,14 @@ describe('framework signal detectors', () => {
     );
   });
 
+  it('finds no Laravel signals in manifests that declare none of its packages', () => {
+    expect(detectLaravelSignals(root)).toEqual({ signals: [], capabilities: [] });
+    writeFileSync(join(root, 'composer.json'), JSON.stringify({ require: { php: '^8.3' } }));
+    writeFileSync(join(root, 'package.json'), JSON.stringify({ devDependencies: { vite: '^7' } }));
+
+    expect(detectLaravelSignals(root)).toEqual({ signals: [], capabilities: [] });
+  });
+
   it('detects Flutter only when pubspec declares flutter', () => {
     writeFileSync(join(root, 'pubspec.yaml'), 'dependencies:\n  flutter:\n    sdk: flutter\n');
 

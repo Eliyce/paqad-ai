@@ -18,7 +18,7 @@ to the side.
 ## Features
 
 - [Vector Index](../features/vector-index/business.md)
-- [Embedding Providers (local / openai / voyageai)](../features/embedding-providers/business.md)
+- [Embedding Providers (local / openai)](../features/embedding-providers/business.md)
 - [Hybrid Scoring](../features/hybrid-scoring/business.md)
 - [Reranking](../features/reranking/business.md)
 - [Pattern Vectors](../features/pattern-vectors/business.md)

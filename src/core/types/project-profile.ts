@@ -72,7 +72,7 @@ export interface ModelRoutingConfig {
   fast_model: string;
 }
 
-export const EMBEDDING_PROVIDER_NAMES = ['local', 'openai', 'voyageai'] as const;
+export const EMBEDDING_PROVIDER_NAMES = ['local', 'openai'] as const;
 export type EmbeddingProviderName = (typeof EMBEDDING_PROVIDER_NAMES)[number];
 
 export interface BenchmarkGateConfig {

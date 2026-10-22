@@ -50,10 +50,11 @@ export function ensureDecisionAuditLog(projectRoot: string): string {
 
 export function readDecisionAuditEvents(projectRoot: string): DecisionAuditEvent[] {
   const path = join(projectRoot, PATHS.DECISIONS_AUDIT_LOG);
-  /* v8 ignore next 3 -- early return when audit log has not yet been created */
+  /* v8 ignore start -- early return when audit log has not yet been created */
   if (!existsSync(path)) {
     return [];
   }
+  /* v8 ignore stop */
 
   return readFileSync(path, 'utf8')
     .split('\n')

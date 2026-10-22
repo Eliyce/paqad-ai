@@ -1,0 +1,53 @@
+{
+  "id": "D-01M5FXM5SMZ1H1RDKQ141KW72C",
+  "category": "intake.requirement",
+  "title": "When Voyage is briefly down or slow while a Developer builds the index, what should happen?",
+  "context": "Chief architect gap: EX-integration-architect-2 (accepted, must) keeps today's retry ladder where only rate limits (429) are retried at 250/500/1000 ms, while EX-qa-engineer-2 (accepted) expects 5xx and network failures to be retried too. The voyageai SDK being removed retried short outages itself, so dropping it changes what a Developer sees during a Voyage blip. The plan reuses withRemoteRetry untouched (stop right away). Either way the new AbortSignal timeout surfaces as provider_error.",
+  "options": [
+    {
+      "option_key": "retry-short-outages-a-few-times-the-same-as-when-voyage-says-to-slow-down",
+      "label": "retry short outages a few times, the same as when Voyage says to slow down",
+      "one_line_preview": "retry short outages a few times, the same as when Voyage says to slow down",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "stop-right-away-with-a-clear-message-and-let-the-developer-run-it-again",
+      "label": "stop right away with a clear message and let the Developer run it again",
+      "one_line_preview": "stop right away with a clear message and let the Developer run it again",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Remove the Voyage embedding provider entirely",
+      "one_line_preview": "Remove the Voyage embedding provider entirely",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "stop-right-away-with-a-clear-message-and-let-the-developer-run-it-again",
+  "created_at": "2026-10-21T19:04:50.740Z",
+  "status": "resolved",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "other",
+  "rationale": "",
+  "resolved_at": "2026-10-21T19:08:52.906Z",
+  "decision_id": "D-01M5FXM5SMZ1H1RDKQ141KW72C",
+  "fingerprint": "sha256:89f2bd86197bd0817dfdb53238539bbbc9353689cb5b886e6c859d4201ecb757",
+  "question": "When Voyage is briefly down or slow while a Developer builds the index, what should happen?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-04T19:04:50.740Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:08:52.906Z",
+    "responded_by": "human",
+    "carry_over_scope": "task"
+  }
+}

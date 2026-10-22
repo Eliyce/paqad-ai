@@ -906,13 +906,13 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'init', text: 'rag init' },
       {
         type: 'p',
-        text: 'Enable RAG and build the initial vector index. Pick a provider, `local` is free and runs entirely on your machine; `openai` and `voyageai` use remote APIs.',
+        text: 'Enable RAG and build the initial vector index. Pick a provider, `local` is free and runs entirely on your machine; `openai` uses a remote API.',
       },
       {
         type: 'terminal',
         lang: 'bash',
         copyable: true,
-        code: 'paqad-ai rag init\npaqad-ai rag init --provider local\npaqad-ai rag init --provider openai\npaqad-ai rag init --provider voyageai',
+        code: 'paqad-ai rag init\npaqad-ai rag init --provider local\npaqad-ai rag init --provider openai',
       },
       { type: 'h2', id: 'rebuild', text: 'rag rebuild' },
       { type: 'p', text: 'Force a full rebuild of the vector index.' },
@@ -950,10 +950,6 @@ export const DOCS_PAGES = {
             'Default. Xenova/all-MiniLM-L6-v2 runs in-process. No API key, cached under ~/.paqad/models.',
           ],
           ['openai', 'text-embedding-3-small. Requires OPENAI_API_KEY in `.paqad/secrets.env`.'],
-          [
-            'voyageai',
-            'voyage-code-3, optimized for code. Requires VOYAGE_API_KEY in `.paqad/secrets.env`.',
-          ],
         ],
       },
       {
@@ -1047,7 +1043,7 @@ export const DOCS_PAGES = {
       { type: 'h2', id: 'rag-requirements', text: 'RAG and similarity' },
       {
         type: 'p',
-        text: 'Similarity edges and chunk nodes need a vector store. They work with any embedding provider, `local`, `openai`, or `voyageai`. If RAG is disabled, the graph still renders fully: modules, files, imports, symbols, overlays, search, and detail panel all work normally. The similarity slider is disabled with a clear banner, and chunk nodes are hidden until you run `paqad-ai rag init`.',
+        text: 'Similarity edges and chunk nodes need a vector store. They work with either embedding provider, `local` or `openai`. If RAG is disabled, the graph still renders fully: modules, files, imports, symbols, overlays, search, and detail panel all work normally. The similarity slider is disabled with a clear banner, and chunk nodes are hidden until you run `paqad-ai rag init`.',
       },
       {
         type: 'callout',

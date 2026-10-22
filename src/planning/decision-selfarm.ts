@@ -228,9 +228,10 @@ export function runDecisionSelfArm(input: RunSelfArmInput): SelfArmOutcome {
     sessionId,
     targetPath: input.payload?.targetPath ?? null,
   });
-  /* v8 ignore next 3 -- the `&& result.category` guard is defensive: a minted result
+  /* v8 ignore start -- the `&& result.category` guard is defensive: a minted result
      always carries its category, so the minted-without-category branch is unreachable. */
   return result.minted && result.category
     ? { ran: true, blocking: false, summary: mintedSummary(result.category) }
-    : NO_OP;
+    : /* v8 ignore stop */
+      NO_OP;
 }
