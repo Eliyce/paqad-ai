@@ -1,0 +1,5 @@
+---
+'paqad-ai': minor
+---
+
+The HUD now tells what is really happening. "Needs you" shows only while a question is on screen, a permission waits for you, or a decision is pending, and it clears when you answer. A rule that stopped an edit no longer asks for you; it stays in the Ledger as history, and answering "Let Claude fix it" closes it. Expert-conflict and near-copy decisions that block every edit now show in the band. The fast lane is Plan, Build, Checks: it no longer requires Spec, Review or Docs, and its strips draw only those three. Build, Checks and Docs are recorded whenever an edit touches them, in any order, so a root `SECURITY.md` edit no longer drops every later Build and Checks edit. The Edit step stays current while files are being edited, a failure from an earlier turn no longer leads while Claude works, and info-level hints no longer raise a flag. The feature card appears only once a change starts, and the router no longer reads "implement-ready" or "style" as a code change. Coral now means waiting on you; flags and marked stages use a new amber.

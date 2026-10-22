@@ -75,6 +75,15 @@ clock. This forgives **ordering only, never absence**: a review that is never ma
 is still `missing`, so the completeness verdict remains `incomplete` and the honest
 distinction between "reviewed late" and "not reviewed" holds.
 
+The edit stages (`development`, `checks`, `documentation_sync`) are not ordered
+against each other either, because real work goes back and forth between source,
+tests and docs. Each is recorded whenever an edit touches it, a stage started again
+after it ended reads as running, and the turn-end backstop closes it. Planning and
+specification before any edit stage stay enforced. Which stages are required at all
+comes from `laneStages` in `src/stage-evidence/stages.ts`: the fast lane requires
+planning, development and checks; graduated, full and an unresolved lane require all
+six, and the bundle asks for the spec and review files only on those lanes.
+
 The completion hook **soft-fails** on infrastructure errors (a missing build, an
 import failure) so a broken install never wedges the agent. Claude Code and Codex
 both run the blocking completion hook (`verification-completion.mjs`) on their

@@ -126,7 +126,7 @@ Fixed, reserved meaning, never decoration. Always paired with a word:
 
 ## Marking feature-development stages
 
-When you run the feature-development workflow, record each stage as you enter and finish it, so the stage-evidence ledger proves the workflow actually ran (not just that you said it did). Stages that touch files are recorded for you automatically as you edit — `development` (a source edit), `checks` (a test edit), `documentation_sync` (a doc edit), `specification` (a spec/contract edit). The stages that produce no file change — **planning**, **specification** (when it is thinking, not a written spec), and **review** — you mark with a control line on its own line, in exactly this form:
+When you run the feature-development workflow, record each stage as you enter and finish it, so the stage-evidence ledger proves the workflow actually ran (not just that you said it did). Stages that touch files are recorded for you automatically as you edit — `development` (a source edit), `checks` (a test edit), `documentation_sync` (a doc edit), `specification` (a spec/contract edit). The edit stages (`development`, `checks`, `documentation_sync`) are recorded whenever they are touched, in any order, and a stage started again after it ended reads as running. The fast lane requires only Plan, Build and Checks, so on it a doc edit counts as Build; graduated, full and an unresolved lane require all six mandatory stages. The stages that produce no file change — **planning**, **specification** (when it is thinking, not a written spec), and **review** — you mark with a control line on its own line, in exactly this form:
 
 ```
 paqad:stage planning start

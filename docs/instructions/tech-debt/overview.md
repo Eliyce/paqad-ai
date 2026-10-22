@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5JE09CZQAYQZ9ZMFVAG046T](TD-01M5JE09CZQAYQZ9ZMFVAG046T.md) (bug, high): Every coding prompt is guessed onto the fast lane because the prompt seam classifies without the project profile
 - [TD-01M5H0JNXKCZP80ST1AW0AWTN8](TD-01M5H0JNXKCZP80ST1AW0AWTN8.md) (debt, low): Plugin engine loads now spawn an extra npm root -g per optional-package load
 - [TD-01M5H0JMNJGP9Q62GATTFZYHW1](TD-01M5H0JMNJGP9Q62GATTFZYHW1.md) (debt, medium): stage-guardrail AC-69 test is flaky under full-suite load
 - [TD-01M5H0JKDRHQE25RE3K96DXHW3](TD-01M5H0JKDRHQE25RE3K96DXHW3.md) (bug, low): Dashboard serveStatic sends the directory's size as content-length when it serves a directory index.html without gzip

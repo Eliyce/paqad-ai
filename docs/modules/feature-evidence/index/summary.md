@@ -520,12 +520,24 @@ network, and starts no process.
 
 - **What the band shows.** On the feature-development route, one card with a header (brand,
   change chip, headline, verdict, flag chip, lane, tokens, Proof, minimise and close) and three
-  instruments: STAGE, HIGH TABLE (not on the fast lane) and SHIP. A change that does not qualify
-  shows only the header, `paqad  Getting ready`. Any other workflow
-  gets one status line with its own tokens instead of a band, and no workflow gets nothing. The
-  band can be minimised, closed for the session or hidden in this project, and comes back with
-  `/paqad show`; while it is out of the way and a decision waits, its line turns amber and reads
-  Needs you. The full layout, the marks and the mod API limits are in
+  instruments: STAGE, HIGH TABLE (not on the fast lane) and SHIP. Before the first snapshot is
+  read it shows only the header, `paqad  Getting ready`; once read, nothing is drawn until a
+  change opens. Any other workflow gets one status line with its own tokens instead of a band, and
+  no workflow gets nothing. The band can be minimised, closed for the session or hidden in this
+  project, and comes back with `/paqad show`; while it is out of the way and something waits on
+  you, its line turns amber and reads Needs you.
+- **Live session state** (`runtime/claude-plugin/mod/live.ts`). The snapshot is an audit trail
+  written at a few hook moments, so the mod keeps what is happening right now in a `live` atom
+  fed by first-party events: `turn.start` and `turn.complete` on the main loop (a subagent turn
+  changes nothing), an `Edit`, `Write` or `NotebookEdit` call from start to end, an
+  `AskUserQuestion` call or the mod's own rule-stop question while it is open, and a
+  `tool.check` that asks with `approver: 'person'`. The next tool start clears a permission wait,
+  so an auto-mode answer cannot leave it standing, and the end of the main turn clears all of it.
+- **Needs you** (`waitingOnHuman` in `runtime/claude-plugin/mod/attention.ts`) is the one
+  definition every surface uses: a question on screen, a permission a person must answer, or a
+  pending decision packet. A rule stop, a flag, a failed verdict, an inconclusive verdict or a
+  paused change never means it. A rule-stop question that ends without Allow once writes the stop
+  back as used, and the stop stays in the Trust tab as history. The full layout, the marks and the mod API limits are in
   [the Claude Code adapter technical doc](../../adapter-onboarding/features/claude-code/technical.md).
 - **On Desktop.** The Claude Code Desktop app gets its own card, drawn from the pure view model in
   `runtime/claude-plugin/mod/desktop-view.ts`: an identity row (workflow, lane, change, cost, the
@@ -566,10 +578,10 @@ network, and starts no process.
   longer list shows as many rows as fit and a last "+N more" row. A missing or unreadable
   packet, or one with no evidence, draws nothing and the question is answered as usual. paqad's
   own rule-stop questions (headers "Rule stop" and "Reason") are left alone.
-- **The nine states** (`BAND_STATES`, first match wins): Needs you (a decision is waiting),
-  Stopped (a rule stopped an edit), Paused, Ready or Working when no change is in progress,
-  Branch warning, Working (a stage runs), then the verdict: Safe to merge, Needs your attention
-  or Inconclusive. Any open flag turns a good or neutral state amber, and all green turns the band
+- **The eight states** (`BAND_STATES`, first match wins): Needs you (`waitingOnHuman`),
+  Paused, Ready or Working when no change is in progress, Branch warning, Working (a stage runs),
+  then the verdict: Safe to merge, Needs your attention or Inconclusive. A verdict written before
+  the current turn started does not lead while that turn runs. Any open flag turns a good or neutral state amber, and all green turns the band
   green. The words always say what the colour says.
 - **When it refreshes.** On session start, prompt submit, a finished edit, an Agent call or a
   Bash call that runs `paqad-ai`, once more shortly after a turn ends, and on a short tick
@@ -839,14 +851,23 @@ obvious from its code, grouped by file.
   `development` row is exempt). A thinking stage whose end carries no digest is inconclusive. A
   stage whose end predates its own start is reported as an ordering violation against itself,
   because the pair loop only compares two different stages. `review` takes part in no ordering
-  pair. A missing or empty `plan.json` or `specification.json` drops a complete verdict to
-  `incomplete`; presence is passed in so the fold stays free of the filesystem.
+  pair, and neither does a pair of edit stages (`development`, `checks`, `documentation_sync`).
+  A stage whose last start comes after its last end reads `running`. The required set comes from
+  `laneStages(lane)` (the fast lane is planning, development and checks; graduated, full and an
+  unresolved lane all six), with the lane passed in from `feature.json` when the caller has it;
+  a mandatory stage outside the lane with no rows reads `not-applicable`. A missing or empty
+  `plan.json`, or `specification.json` on a lane that requires the spec, drops a complete
+  verdict to `incomplete`; presence is passed in so the fold stays free of the filesystem.
 - **`live-writer.ts`.** Only file-mutating stages are inferred from edits; `planning` and `review`
   arrive through markers, since inferring them from an edit would be a false mark. Tests map to
   `checks` before `development`, and `docs/instructions/**` maps to `specification`. No stage is
   recorded until the lane's pre-code stages have started, using the same helper as the gate.
-  Without a host session id the row is left unstamped rather than guessed. An out-of-order edit is
-  left for the completion gate. Before a marked stage opens, every other open stage is closed,
+  Without a host session id the row is left unstamped rather than guessed. An edit outside the
+  lane's stages counts as `development`, so a root `SECURITY.md` on the fast lane is Build. Edit
+  stages are recorded whenever they are touched, in any order: starting one closes only open
+  pre-code stages, an open one writes nothing, and one the turn-end backstop ended starts again.
+  The turn-end backstop ends every live stage whose last start comes after its last end. Before a
+  marked stage opens, every other open stage is closed,
   because `review` sits below `checks` and `documentation_sync` in the order and an index-based
   close would miss them. The writer never throws.
 - **`marker-parse.ts`.** Only assistant text is read (Claude nests it under `message`, a Codex

@@ -12,7 +12,14 @@
 schema_version: "1"
 
 # In canonical order, lowest first. `ticket_intake` (intake-only) and `delivery`
-# (post-merge) are optional bookends; the rest are mandatory for a code change.
+# (post-merge) are optional bookends; the rest are mandatory for a code change on the
+# graduated, full and an unresolved lane. The fast lane requires only planning,
+# development and checks (`laneStages` in src/stage-evidence/stages.ts); its other
+# mandatory stages read not-applicable when they never ran.
+#
+# development, checks and documentation_sync are the edit stages. They are recorded
+# whenever an edit touches them and are not ordered against each other. Planning and
+# specification before code, and review after code, are still enforced.
 stages:
   - id: ticket_intake
     mandatory: false
