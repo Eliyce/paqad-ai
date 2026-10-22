@@ -6,6 +6,8 @@ export const PLUGIN_MOD_MODULES = ['./mod/register.tsx'] as const;
 
 export const PLUGIN_MOD_TYPES = './runtime/claude-plugin/mod/types/index.d.ts';
 
+export const PLUGIN_ICON = './assets/icon.png';
+
 export function buildPluginHooksConfig(): Record<string, unknown> {
   return { ...mergeNativeHooks({}, buildPluginHookChain()), modules: [...PLUGIN_MOD_MODULES] };
 }
@@ -23,9 +25,19 @@ export function pluginAgentPaths(): string[] {
 export function buildPluginManifest(packageVersion: string): Record<string, unknown> {
   return {
     name: 'paqad',
+    displayName: 'paqad',
     description: "Your team's rules, enforced at edit time, with evidence for every change.",
     version: packageVersion,
-    author: { name: 'Eliyce' },
+    author: { name: 'Eliyce', email: 'hello@eliyce.com', url: 'https://eliyce.com' },
+    homepage: 'https://paqad.ai',
+    repository: 'https://github.com/Eliyce/paqad-claude-plugin',
+    license: 'MIT',
+    keywords: ['governance', 'code-review', 'evidence', 'rules', 'quality-gates', 'compliance'],
+    icon: PLUGIN_ICON,
+    documentationUrl: 'https://paqad.ai/docs/',
+    supportUrl: 'https://paqad.ai/support/',
+    privacyPolicyUrl: 'https://paqad.ai/privacy/',
+    termsOfServiceUrl: 'https://paqad.ai/terms/',
     hooks: './runtime/claude-plugin/hooks.json',
     agents: pluginAgentPaths(),
     skills: './runtime/claude-plugin/skills',

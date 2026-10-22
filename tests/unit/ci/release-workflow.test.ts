@@ -60,6 +60,8 @@ function builtWorkspace(version: string): string {
   write(root, 'runtime/claude-plugin/hooks.json', '{}');
   write(root, 'README.md');
   write(root, 'LICENSE');
+  write(root, 'SECURITY.md');
+  write(root, 'assets/icon.png');
   cpSync(resolve('scripts/assemble-plugin.mjs'), join(root, 'scripts/assemble-plugin.mjs'));
   return root;
 }

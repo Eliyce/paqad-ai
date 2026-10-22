@@ -84,6 +84,43 @@ A few things worth knowing:
   - The Claude Desktop app picks up a plugin added on claude.ai, but a `claude` session in a terminal does not load plugins uploaded to claude.ai. Terminal users install it themselves with the two `/plugin` commands above, or IT deploys it as a managed plugin.
   - The plugin and its `eliyce` marketplace live together in the public repo `Eliyce/paqad-claude-plugin`. You never edit that repo: every npm release builds the plugin here, writes its marketplace file, and pushes it there with a `v<version>` tag, but only after npm publish succeeds. When nothing in the plugin changed, it pushes no new commit. The release job needs the repository secret `PAQAD_PLUGIN_PUSH_TOKEN`, a token that can push to `Eliyce/paqad-claude-plugin`. Without it, or when the push fails, the release job fails, so a missing plugin release never goes unnoticed. To see what would be pushed, run `pnpm build && node scripts/assemble-plugin.mjs <folder>`.
 
+## What paqad runs, writes and sends
+
+paqad runs on your machine. There's no paqad account, no paqad server, and no telemetry.
+
+**What it runs.** Node scripts inside the plugin, as Claude Code hooks: at session start, when you send a prompt, before Edit, Write and NotebookEdit, when Claude stops, and when a subagent stops. Some of them block an edit on purpose:
+
+- before paqad has loaded in the session
+- before planning on a feature change, and before the spec when the change needs one
+- while a decision is waiting for you
+- inside a closed evidence folder
+
+When a gate hits an unexpected error, it blocks the edit instead of letting it through. Turn paqad off for a project with `paqad_enable=false` in `.paqad/.config`, or everywhere with the `PAQAD_DISABLED=1` environment variable.
+
+**What it writes.** Files under `.paqad/` in your project (settings, rules, the evidence record and logs), plus `docs/instructions/` when you onboard. It also uses the plugin's own data folder under `~/.claude/plugins/data/` for the optional search engine.
+
+**What it sends.** Nothing from your project leaves your machine unless you turn on one of the services in the last three rows of this table:
+
+| Destination                 | When                                                                                                                                                                     | What is sent                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `registry.npmjs.org`        | In the background, the first time paqad needs its optional search engine (when you turn on RAG, or a feature that uses it runs), retried at most once a day if it failed | A normal npm install of `@huggingface/transformers` and `openai` into the plugin's data folder |
+| `huggingface.co`            | The first time local search or local reranking runs                                                                                                                      | Requests for the model files. Nothing from your project                                        |
+| `raw.githubusercontent.com` | When indexing a Laravel project                                                                                                                                          | A request for Laravel's public upgrade guide. Nothing from your project                        |
+| `api.osv.dev`               | When you run a codebase health check or a pentest workflow                                                                                                               | Package names and versions from your lockfiles                                                 |
+| `api.openai.com`            | Only if you set `rag_embedding_provider=openai`                                                                                                                          | The doc and code passages being indexed, with your OpenAI key                                  |
+| `api.cohere.com`            | Only if you turn on reranking with the `cohere` backend                                                                                                                  | Your search query and the candidate passages, with your Cohere key                             |
+
+The dashboard and graph views run on `127.0.0.1` only.
+
+### Try it in 2 minutes
+
+1. Install the plugin, then open Claude Code in any project with a git repository (a new folder after `git init` works too).
+2. Run `/paqad:onboard` and accept the suggested setup. paqad does nothing in a project until it's onboarded.
+3. Ask Claude one of these:
+   - "Add a CSV export button to the orders list" (paqad plans it, writes the spec, then builds, checks and records evidence)
+   - "Review the changes on this branch against our rules"
+   - "Run a codebase health check and show me the top risks"
+
 ## Deploy for your organization
 
 If you run Claude Code for a team, you can put paqad's edit-time rule block on every machine with one file that nobody on the machine can loosen. It uses Claude Code's managed settings, which IT pushes with the MDM tool you already use.

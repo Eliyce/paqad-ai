@@ -6,6 +6,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -15,6 +16,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   assemblePlugin,
+  NEVER_SHIPPED,
   PLUGIN_MARKETPLACE,
   PLUGIN_REPO,
 } from '../../../scripts/assemble-plugin.mjs';
@@ -54,6 +56,8 @@ function builtRepo(version = '1.99.4', pluginVersion = version): string {
   write(root, 'runtime/claude-plugin/mod/test/world.ts');
   write(root, 'README.md');
   write(root, 'LICENSE');
+  write(root, 'SECURITY.md');
+  write(root, 'assets/icon.png');
   write(root, 'CHANGELOG.md');
   write(root, 'src/index.ts');
   write(root, 'tests/unit/a.test.ts');
@@ -66,8 +70,18 @@ describe('scripts/assemble-plugin.mjs', () => {
     const outDir = join(tempDir('paqad-assemble-out-'), 'plugin');
     expect(assemblePlugin({ repoRoot, outDir })).toEqual({ version: '1.99.4', outDir });
     expect(readdirSync(outDir).sort()).toEqual(
-      ['.claude-plugin', 'LICENSE', 'README.md', 'dist', 'package.json', 'runtime'].sort(),
+      [
+        '.claude-plugin',
+        'LICENSE',
+        'README.md',
+        'SECURITY.md',
+        'assets',
+        'dist',
+        'package.json',
+        'runtime',
+      ].sort(),
     );
+    expect(existsSync(join(outDir, 'assets/icon.png'))).toBe(true);
     expect(readdirSync(join(outDir, '.claude-plugin')).sort()).toEqual([
       'marketplace.json',
       'plugin.json',
@@ -78,6 +92,55 @@ describe('scripts/assemble-plugin.mjs', () => {
     expect(existsSync(join(outDir, 'runtime/claude-plugin/mod/types/index.d.ts'))).toBe(true);
     expect(existsSync(join(outDir, 'runtime/claude-plugin/mod/register.test.ts'))).toBe(false);
     expect(existsSync(join(outDir, 'runtime/claude-plugin/mod/test'))).toBe(false);
+  });
+
+  it('AC-1 leaves source maps and OS junk out of the plugin tree', () => {
+    const repoRoot = builtRepo();
+    write(repoRoot, 'dist/cli/index.js.map');
+    write(repoRoot, 'dist/index.js.map');
+    write(repoRoot, 'runtime/templates/.DS_Store');
+    write(repoRoot, 'runtime/templates/Thumbs.db');
+    write(repoRoot, 'runtime/templates/desktop.ini');
+    write(repoRoot, 'runtime/__MACOSX/stray.md');
+    const outDir = join(tempDir('paqad-assemble-out-'), 'plugin');
+    assemblePlugin({ repoRoot, outDir });
+    expect(existsSync(join(outDir, 'dist/cli/index.js'))).toBe(true);
+    expect(existsSync(join(outDir, 'dist/cli/index.js.map'))).toBe(false);
+    expect(existsSync(join(outDir, 'dist/index.js.map'))).toBe(false);
+    expect(existsSync(join(outDir, 'runtime/templates/.DS_Store'))).toBe(false);
+    expect(existsSync(join(outDir, 'runtime/templates/Thumbs.db'))).toBe(false);
+    expect(existsSync(join(outDir, 'runtime/templates/desktop.ini'))).toBe(false);
+    expect(existsSync(join(outDir, 'runtime/__MACOSX'))).toBe(false);
+  });
+
+  it('refuses a repository without the listing icon', () => {
+    const repoRoot = builtRepo();
+    rmSync(join(repoRoot, 'assets'), { recursive: true });
+    expect(() => assemblePlugin({ repoRoot, outDir: tempDir('paqad-assemble-out-') })).toThrow(
+      'assets/icon.png is missing. Run pnpm build first.',
+    );
+  });
+
+  it('AC-2 keeps every file of the build under the directory limit of 5 MiB with no OS junk', () => {
+    let repoRoot = resolve('.');
+    if (!existsSync(join(repoRoot, 'dist/cli/index.js'))) {
+      repoRoot = builtRepo();
+      write(repoRoot, 'dist/cli/index.js.map', 'x'.repeat(6 * 1024 * 1024));
+      write(repoRoot, 'runtime/templates/.DS_Store');
+    }
+    const outDir = join(tempDir('paqad-assemble-real-'), 'plugin');
+    assemblePlugin({ repoRoot, outDir });
+    const offenders: string[] = [];
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (NEVER_SHIPPED.has(entry.name) || entry.name.endsWith('.map')) offenders.push(full);
+        if (entry.isDirectory()) walk(full);
+        else if (statSync(full).size > 5 * 1024 * 1024) offenders.push(full);
+      }
+    };
+    walk(outDir);
+    expect(offenders).toEqual([]);
   });
 
   it('keeps the clone history and removes everything an older publish left', () => {

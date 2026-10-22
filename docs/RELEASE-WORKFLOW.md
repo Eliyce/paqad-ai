@@ -340,8 +340,12 @@ Why each one works the way it does, for the parts the code does not say.
   otherwise skips with exit 0.
 - **`assemble-plugin.mjs`** builds the tree the `publish-plugin` release job pushes to
   `Eliyce/paqad-claude-plugin`: the plugin files plus a generated `.claude-plugin/marketplace.json`
-  (marketplace `eliyce`, plugin `paqad`, source `./`). It wipes everything in the target except
-  `.git`, which is why the marketplace file is written there and not kept here. The job runs only
+  (marketplace `eliyce`, plugin `paqad`, source `./`). The tree includes `SECURITY.md` and the
+  listing icon `assets/icon.png`. It leaves out every `*.map` file and the OS junk names
+  `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX`, because Anthropic's plugin directory
+  stops validation on any file over 5 MiB (the source maps are the only files that big) and
+  blocks those junk names. The npm package keeps its source maps. It wipes everything in the
+  target except `.git`, which is why the marketplace file is written there and not kept here. The job runs only
   when npm has the version and the plugin repo lacks its tag, commits nothing when the tree is
   unchanged, creates `main` on an empty repo, and fails when `PAQAD_PLUGIN_PUSH_TOKEN` is missing
   or the push fails.
