@@ -674,7 +674,7 @@ describe('lane-aware spec pipeline files', () => {
       config,
     });
 
-  it('passes a fast-lane change with no request.md, clarification.json or experts.json', () => {
+  it('passes a fast-lane change with no pipeline, spec or review files', () => {
     const root = tempRoot();
     const config = configFor(root, 'fast');
     expect([config.specPipelineEnabled, config.expertsEnabled]).toEqual([true, true]);
@@ -682,7 +682,7 @@ describe('lane-aware spec pipeline files', () => {
     const gate = run(root, config);
     expect(gate!.status).toBe('pass');
     expect(gate!.detail).toContain(
-      'Not required on the fast lane: clarification.json, experts.json, request.md.',
+      'Not required on the fast lane: clarification.json, experts.json, request.md, review.json, spec.md, specification.json.',
     );
     expect(gate!.detail).not.toContain('Skipped (flag off): clarification.json');
   });
