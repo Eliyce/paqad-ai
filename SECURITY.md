@@ -22,7 +22,7 @@ privately through one of the following channels:
 1. **Preferred — GitHub Security Advisory.** Open a draft advisory at
    <https://github.com/Eliyce/paqad-ai/security/advisories/new>. This is
    end-to-end encrypted and only visible to the maintainers.
-2. **Email.** Send a report to **haider@eliyce.com** with the subject line
+2. **Email.** Send a report to **security@eliyce.com** with the subject line
    `[paqad-ai security]`. Include enough detail for us to reproduce the issue.
 
 ## What to include in a report
