@@ -250,3 +250,78 @@ describe('.github/dependabot.yml', () => {
     expect(security).toEqual([{ 'applies-to': 'security-updates', patterns: ['*'] }]);
   });
 });
+
+describe('package.json pnpm.overrides', () => {
+  it('AC-22 keeps every override a capped floor on a dev-only package and CI installs then lints', () => {
+    const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+      dependencies: Record<string, string>;
+      optionalDependencies?: Record<string, string>;
+      peerDependencies?: Record<string, string>;
+      scripts: Record<string, string>;
+      pnpm: { overrides: Record<string, string> };
+    };
+    const lock = parse(readFileSync('pnpm-lock.yaml', 'utf8')) as {
+      overrides: Record<string, string>;
+      importers: Record<string, Record<string, Record<string, { version: string }>>>;
+      snapshots: Record<
+        string,
+        { dependencies?: Record<string, string>; optionalDependencies?: Record<string, string> }
+      >;
+    };
+    const overrides = Object.entries(pkg.pnpm.overrides);
+    expect(overrides.length).toBeGreaterThan(0);
+    expect(lock.overrides).toEqual(pkg.pnpm.overrides);
+
+    const root = lock.importers['.'];
+    const queue = Object.entries({ ...root.dependencies, ...root.optionalDependencies }).map(
+      ([name, entry]) => `${name}@${entry.version}`,
+    );
+    const shipped = new Set<string>();
+    while (queue.length > 0) {
+      const key = queue.pop()!;
+      if (shipped.has(key)) continue;
+      shipped.add(key);
+      const snapshot = lock.snapshots[key];
+      expect(snapshot, key).toBeDefined();
+      for (const [name, version] of Object.entries({
+        ...snapshot.dependencies,
+        ...snapshot.optionalDependencies,
+      })) {
+        queue.push(`${name}@${version}`);
+      }
+    }
+    expect(shipped.size).toBeGreaterThanOrEqual(Object.keys(pkg.dependencies).length);
+
+    const productionNames = new Set([
+      ...Object.keys(pkg.dependencies),
+      ...Object.keys(pkg.optionalDependencies ?? {}),
+      ...Object.keys(pkg.peerDependencies ?? {}),
+    ]);
+    for (const [selector, range] of overrides) {
+      const match = /^(@?[^@]+)(?:@(\d+))?$/.exec(selector);
+      expect(match, selector).not.toBeNull();
+      const [, name, selectedMajor] = match!;
+      expect(productionNames.has(name), selector).toBe(false);
+
+      const floor = /^>=(\d+)\.(\d+)\.(\d+) <(\d+)$/.exec(range);
+      expect(floor, `${selector} ${range}`).not.toBeNull();
+      const floorMajor = Number(floor![1]);
+      expect(Number(floor![4]), selector).toBe(floorMajor + 1);
+      if (selectedMajor !== undefined) expect(Number(selectedMajor), selector).toBe(floorMajor);
+
+      const shippedCopies = [...shipped].filter((key) => {
+        if (!key.startsWith(`${name}@`)) return false;
+        const major = Number(key.slice(name.length + 1).split('.')[0]);
+        return selectedMajor === undefined || major === Number(selectedMajor);
+      });
+      expect(shippedCopies, selector).toEqual([]);
+    }
+
+    const commands = jobs.static.steps.map((step) => step.run ?? '');
+    const install = commands.indexOf('pnpm install --frozen-lockfile');
+    const lint = commands.indexOf('pnpm run lint');
+    expect(install).toBeGreaterThan(-1);
+    expect(lint).toBeGreaterThan(install);
+    expect(pkg.scripts.lint).toBe('eslint .');
+  });
+});
