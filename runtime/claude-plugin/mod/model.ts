@@ -587,6 +587,9 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     active: snap.active === true && scope.qualified,
     route: str(snap.route),
     lane: str(snap.lane),
+    ...(Array.isArray(snap.lane_stages)
+      ? { lane_stages: list(snap.lane_stages).filter((s): s is string => typeof s === 'string') }
+      : {}),
     lane_reason: str(snap.lane_reason),
     headline: { text: str(headline?.text) ?? '', tone },
     change: change

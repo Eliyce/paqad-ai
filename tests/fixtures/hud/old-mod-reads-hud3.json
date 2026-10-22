@@ -1,5 +1,5 @@
 {
-  "captured_from": "main 82110d10",
+  "captured_from": "main a273f226",
   "reader": "runtime/claude-plugin/mod/model.ts parseSnapshot + buildBandView + isLive, ship.ts shipRail",
   "now": 1792314000000,
   "inputs": {
@@ -15,6 +15,7 @@
       "active": true,
       "route": "feature-development",
       "lane": "fast",
+      "lane_stages": ["planning", "development", "checks"],
       "lane_reason": "a one-line copy fix",
       "headline": {
         "text": "Build in progress. Next: Review.",
@@ -171,6 +172,14 @@
       "active": true,
       "route": "feature-development",
       "lane": "graduated",
+      "lane_stages": [
+        "planning",
+        "specification",
+        "development",
+        "review",
+        "checks",
+        "documentation_sync"
+      ],
       "lane_reason": "a bug fix that touches contact matching",
       "headline": {
         "text": "Needs you: 1 decision waiting.",
@@ -469,6 +478,14 @@
       "active": true,
       "route": "feature-development",
       "lane": "full",
+      "lane_stages": [
+        "planning",
+        "specification",
+        "development",
+        "review",
+        "checks",
+        "documentation_sync"
+      ],
       "lane_reason": "a new export of customer data",
       "headline": {
         "text": "Safe to merge. 1 flag open.",
@@ -1220,6 +1237,14 @@
       "active": true,
       "route": "feature-development",
       "lane": "full",
+      "lane_stages": [
+        "planning",
+        "specification",
+        "development",
+        "review",
+        "checks",
+        "documentation_sync"
+      ],
       "lane_reason": "a new export of customer data",
       "headline": {
         "text": "Safe to merge. 1 flag open.",

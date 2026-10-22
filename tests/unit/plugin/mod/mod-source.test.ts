@@ -38,6 +38,7 @@ describe('the HUD mod source', () => {
         'desktop-ledger.tsx',
         'desktop-view.ts',
         'instruments.ts',
+        'live.ts',
         'model.ts',
         'palette.ts',
         'pane.ts',

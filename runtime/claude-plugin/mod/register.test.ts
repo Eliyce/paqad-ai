@@ -2136,16 +2136,25 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.runs[0]!.argv).toEqual(OVERRIDE_ARGV);
   });
 
-  test('Let Claude fix it, a dismissed card or no answer keeps the deny, runs nothing and keeps the stop', async ($, on) => {
+  test('Let Claude fix it keeps the deny, runs nothing and marks the stop answered', async ($, on) => {
     const world = await stopped($, on);
-    world.answers.push('Let Claude fix it', null);
+    world.answers.push('Let Claude fix it');
     expect(await check($)).toEqual(DENY);
     expect(await check($)).toEqual(DENY);
-    expect(await check($)).toEqual(DENY);
-    expect(world.asked).toHaveLength(3);
+    expect(world.asked).toHaveLength(1);
     expect(world.runs).toEqual([]);
-    expect(world.files.get(LAST_BLOCK)).toBe(JSON.stringify(STOP));
+    expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...STOP, used: true });
   });
+
+  for (const answer of [null, undefined]) {
+    test(`a ${answer === null ? 'dismissed card' : 'missing answer'} keeps the deny and marks the stop answered`, async ($, on) => {
+      const world = await stopped($, on);
+      if (answer === null) world.answers.push(null);
+      expect(await check($)).toEqual(DENY);
+      expect(world.runs).toEqual([]);
+      expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...STOP, used: true });
+    });
+  }
 
   test('Show the rule asks again with the rule text', async ($, on) => {
     const world = await stopped($, on);
