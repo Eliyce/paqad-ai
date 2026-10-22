@@ -344,15 +344,16 @@ Why each one works the way it does, for the parts the code does not say.
   listing icon `assets/icon.png`. It leaves out every `*.map` file and the OS junk names
   `.DS_Store`, `Thumbs.db`, `desktop.ini` and `__MACOSX`, because Anthropic's plugin directory
   stops validation on any file over 5 MiB (the source maps are the only files that big) and
-  blocks those junk names. The npm package keeps its source maps. It wipes everything in the
+  blocks those junk names. Neither the npm package nor the plugin tree ships source maps:
+  `tsup.config.ts` builds none, and the assembler still filters `*.map` as a guard. It wipes everything in the
   target except `.git`, which is why the marketplace file is written there and not kept here. The job runs only
   when npm has the version and the plugin repo lacks its tag, commits nothing when the tree is
   unchanged, creates `main` on an empty repo, and fails when `PAQAD_PLUGIN_PUSH_TOKEN` is missing
   or the push fails.
 - **`release-sync.mjs`** is how the release decides what to ship, from npm and git only, never
   from changesets output. `state` writes `version`, `sha` (the oldest commit whose `package.json`
-  carries that version) and `plugin_needed` to `GITHUB_OUTPUT`. It reads `package.json` and its history at `GITHUB_SHA` (else `HEAD`), because with changesets pending the changesets step leaves the checkout on its release branch with the next version already bumped; it retries npm for a minute so a
-  just-published version is not missed. `tags` pushes missing `v<version>` tags by commit, so a
+  carries that version) and `plugin_needed` to `GITHUB_OUTPUT`. It reads `package.json` and its history at `GITHUB_SHA` (else `HEAD`), because with changesets pending the changesets step leaves the checkout on its release branch with the next version already bumped; `state` waits up to 15 minutes for npm to list the new version, because npm takes 3 to 7 minutes after `changeset publish` reports success. It
+  returns as soon as npm lists it, and logs one line when it starts waiting and one when the wait ends. `tags` pushes missing `v<version>` tags by commit, so a
   local tag changesets made does not matter, and creates the missing GitHub Releases, oldest
   first. `check` fails when the plugin lags npm `latest`. A failure to reach npm or a git remote
   fails the step rather than reading as "not published" or "tag missing". Tests in
