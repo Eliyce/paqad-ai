@@ -1,3 +1,4 @@
+import { IDLE_LIVE, type LiveState } from './live';
 import type { PaqadHudSnapshot } from './types';
 
 export type ShipLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
@@ -19,10 +20,15 @@ export interface ShipRail {
   merged: boolean;
 }
 
-function editState(snapshot: PaqadHudSnapshot | null): ShipStepState {
-  const build = snapshot?.stages.find((stage) => stage.stage === 'development');
-  if (build?.state === 'running') return 'current';
-  if (build?.state === 'complete' || build?.state === 'redone') return 'done';
+const EDIT_STAGE_IDS = ['development', 'checks', 'documentation_sync'];
+
+function editState(snapshot: PaqadHudSnapshot | null, live: LiveState): ShipStepState {
+  const stateOf = (id: string) => snapshot?.stages.find((stage) => stage.stage === id)?.state;
+  const open = EDIT_STAGE_IDS.some((id) => stateOf(id) === 'running');
+  if (live.editing !== null || open) return 'current';
+  if (EDIT_STAGE_IDS.some((id) => stateOf(id) === 'complete' || stateOf(id) === 'redone')) {
+    return 'done';
+  }
   return 'todo';
 }
 
@@ -37,7 +43,7 @@ function ciState(hasPr: boolean, closed: boolean, state: string | null): ShipSte
   return state === 'pending' ? 'current' : 'unknown';
 }
 
-export function shipRail(snapshot: PaqadHudSnapshot | null): ShipRail {
+export function shipRail(snapshot: PaqadHudSnapshot | null, live: LiveState = IDLE_LIVE): ShipRail {
   const active = snapshot?.active === true;
   const ship = active ? (snapshot?.ship ?? null) : null;
   const commits = ship?.commits ?? 0;
@@ -49,7 +55,7 @@ export function shipRail(snapshot: PaqadHudSnapshot | null): ShipRail {
   const merged = ship?.merged === true;
   const allGreen = ship?.all_green === true && !merged;
   const steps: ShipRailStep[] = [
-    { label: 'Edit', state: active ? editState(snapshot) : 'todo' },
+    { label: 'Edit', state: active ? editState(snapshot, live) : 'todo' },
     { label: 'Commit', state: commits > 0 ? 'done' : 'todo' },
     {
       label: 'Push',

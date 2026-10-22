@@ -593,6 +593,7 @@ async function desktopBandOf(
     unavailable: (await read($, unavailableAtom)) === true,
     now: (await read($, nowAtom)) ?? 0,
     turnStartedAt: (await liveState($)).turnStartedAt,
+    live: await liveState($),
     visibility: readBandVisibility(
       { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
       await read($, closedAtom),
@@ -615,6 +616,7 @@ async function drawsLive($: EngineInterface): Promise<boolean> {
       tab: await read($, paneTabAtom),
       now: (await read($, nowAtom)) ?? 0,
       specText: null,
+      live: await liveState($),
     }),
   );
 }
@@ -1051,6 +1053,7 @@ export const register: Register = (on) => {
         surface: e.surface === 'desktop' ? 'desktop' : 'terminal',
         turnStartedAt: (await liveState($)).turnStartedAt,
         unavailable: (await read($, unavailableAtom)) === true,
+        live: await liveState($),
       },
       readBandVisibility(
         { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
@@ -1087,6 +1090,7 @@ export const register: Register = (on) => {
         tab,
         now: (await read($, nowAtom)) ?? 0,
         specText: tab === 'table' ? await specTextOf($, snapshot) : null,
+        live: await liveState($),
       });
       return drawDesktopLedger(
         $.ui.resolve(e) as Elements['desktop'],

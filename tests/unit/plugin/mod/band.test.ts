@@ -78,12 +78,12 @@ describe('the band shell', () => {
     expect(changeChip(null)).toBeNull();
   });
 
-  it('idles with only the header, minimise and close when no change qualifies', () => {
-    const idle = ['paqad  Getting ready | – Minimise  × Close'];
-    expect(bandLines(null)).toEqual(idle);
+  it('idles with only the header before the first read, and draws nothing until a change opens', () => {
+    expect(bandLines(null)).toEqual(['paqad  Getting ready | – Minimise  × Close']);
     expect(
-      bandLines({ ...FULL_ORD_501, scope: { qualified: false, reason: 'other-branch' } }),
-    ).toEqual(idle);
+      bandOf({ ...FULL_ORD_501, scope: { qualified: false, reason: 'other-branch' } }).kind,
+    ).toBe('none');
+    expect(bandOf({ ...FULL_ORD_501, active: false }).kind).toBe('none');
     expect(bandOf(snapshot()).kind).toBe('none');
     expect(bandOf({ ...snapshot(), route: 'no-workflow' }).kind).toBe('none');
     expect(bandLines(PAUSED)).toEqual(['paqad · question · counting']);
@@ -213,7 +213,7 @@ describe('the STAGE instrument', () => {
     const lines = bandLines(FAST_ORD_490);
     expect(lines.slice(1, 4)).toEqual([
       'STAGE  Build · 2:00',
-      '○ ● – ▸ ○ ○ ○ ○',
+      '○ ● – ▸ – ○ – ○',
       'Intake Plan Spec Build Review Checks Docs Deliver',
     ]);
   });
@@ -236,7 +236,7 @@ describe('the STAGE instrument', () => {
         { review: 'never' },
       ),
     });
-    expect(odd.slice(1, 3)).toEqual(['STAGE  Review · running', '○ ✗ – ◐ ▸ ○ ○ ○']);
+    expect(odd.slice(1, 3)).toEqual(['STAGE  Review · running', '○ ✗ – ◐ ▸ ○ – ○']);
   });
 });
 

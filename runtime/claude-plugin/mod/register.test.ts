@@ -84,7 +84,6 @@ const BORDER: Record<string, string | null | undefined> = {
   Working: 'suggestion',
   'Branch warning': 'warning',
   'Needs you': 'permission',
-  Stopped: 'error',
   Inconclusive: 'warning',
   'Safe to merge': 'success',
   'Needs your attention': 'error',
@@ -161,14 +160,14 @@ describe('the band on each fixture change', () => {
       expect(text).not.toContain('HIGH TABLE');
     });
 
-    test(`graduated lane: Needs you and the HIGH TABLE asking for answers on ${surface}`, async ($, on) => {
+    test(`graduated lane: Needs you for the waiting decision, and the HIGH TABLE done on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(GRADUATED_ORD_482) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
       expect(text).toContain('Needs you: 1 decision waiting.');
       expect(text).toContain('HIGH TABLE');
-      expect(text).toContain('needs answers');
+      expect(text).toContain('spec approved');
     });
 
     test(`an open flag at Safe to merge turns the band amber on ${surface}`, async ($, on) => {
@@ -725,16 +724,86 @@ describe('the Desktop band', () => {
     );
   });
 
-  test('AC-6: draws Ready before the first snapshot, and Getting ready on the feature route with no change', async ($, on) => {
+  test('AC-6: draws Ready before the first snapshot, and nothing on the feature route until a change opens', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     expect(textOf(await $.ui.render(band('desktop')))).toBe('paqad   Ready');
     world.put(SNAPSHOT, fileText(snapshot({ route: 'feature-development' })));
     await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
-    const ready = await $.ui.render(band('desktop'));
-    expect(textOf(ready)).toContain('Getting ready');
-    expect(lightOf(ready)).toBe('#8E979D');
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('paqad');
+  });
+
+  test('a permission a person must answer leads the band until the next tool starts', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: { command: 'rm -rf build' },
+      tool_use_id: 'tu_9',
+      approver: 'person',
+    } as never);
+    const waiting = await $.ui.render(band('desktop'));
+    expect(textOf(waiting)).toContain('Waiting for your permission');
+    expect(lightOf(waiting)).toBe('#F37748');
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_9' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('an ask the host answers, or an allow, never waits for you', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({ tool: 'Bash', input: {}, tool_use_id: 'tu_1', approver: 'host' } as never);
+    world.verdict = { decision: 'allow' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_2',
+      approver: 'person',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your');
+  });
+
+  test('the end of the main turn clears a wait, a subagent turn does not', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_1',
+      approver: 'person',
+    } as never);
+    await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    await $.turn.complete({ text: '' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('a failure from an earlier turn yields to the running stage once a new turn starts', async ($, on) => {
+    const failed = {
+      ...FAST_ORD_490,
+      verdict: {
+        kind: 'fail',
+        word: 'Needs your attention',
+        reasons: [],
+        written_at: new Date(NOW - 60_000).toISOString(),
+      },
+      gates: [
+        { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'fail' },
+      ],
+    };
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(failed) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Build');
+    await $.turn.start({ text: 'go on', turnId: 'turn-2' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Building');
   });
 
   test('AC-13: the close menu opens inline; Cancel, Close for now, Show and Hide always do what they say', async ($, on) => {
@@ -1112,7 +1181,6 @@ const SCENE_NAMES = Object.keys(SCENE_FIXTURES) as Array<keyof typeof SCENE_FIXT
 const WORKFLOW_SCENES: ReadonlySet<string> = new Set(['Question', 'Health check']);
 
 const SCENE_WORDS: Record<keyof typeof SCENE_FIXTURES, string> = {
-  'Getting ready': 'Getting ready',
   'High Table writing': 'The High Table is writing its notes',
   Building: 'Building',
   'Needs you': 'The chief architect has 1 question for you',
@@ -1607,7 +1675,7 @@ describe('the High Table in the band', () => {
         await $.tool.call({ tool: 'Bash', command: 'paqad-ai status' } as never);
         return textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
       };
-      expect(await textFor(GRADUATED_ORD_482)).toContain('HIGH TABLE  needs answers');
+      expect(await textFor(GRADUATED_ORD_482)).toContain('HIGH TABLE  spec approved');
       expect(await textFor(FULL_ORD_501)).toContain('HIGH TABLE  spec approved');
       expect(await textFor(FAST_ORD_490)).not.toContain('HIGH TABLE');
       const off = await textFor(EXPERTS_OFF);
@@ -1962,7 +2030,7 @@ describe('the High Table as it moves', () => {
           'Run: 16.4K tokens, mostly the code it read (exact)',
         );
         const third = await look(ruled!);
-        expect(third.band).toContain('HIGH TABLE  needs answers');
+        expect(third.band).toContain('HIGH TABLE  spec approved');
         expect(third.card.every((line) => line.includes('(exact)'))).toBe(true);
       });
   }
@@ -2144,6 +2212,9 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.asked).toHaveLength(1);
     expect(world.runs).toEqual([]);
     expect(JSON.parse(world.files.get(LAST_BLOCK)!)).toEqual({ ...STOP, used: true });
+    for (const surface of SURFACES) {
+      expect(textOf(await $.ui.render(band(surface)))).not.toContain('Needs you');
+    }
   });
 
   for (const answer of [null, undefined]) {

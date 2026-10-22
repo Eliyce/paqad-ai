@@ -16,11 +16,11 @@ import {
   IDLE_WORDS,
   closedLine,
   minimisedLine,
-  needsYou,
   needsYouLine,
   visibilityMode,
   type BandVisibility,
 } from './visibility';
+import { waitingOnHuman } from './attention';
 import type { PaqadHudSnapshot, PaqadTone } from './types';
 
 export type { BandLayout, BandRow, BandSegment };
@@ -130,9 +130,12 @@ export function layoutBand(
       row: statusEntryRow(snapshot, entryRoute, context.now, context.turnStartedAt ?? null),
     };
   }
-  const view = buildBandView(snapshot, context.now);
+  const view = buildBandView(snapshot, context.now, context.live);
   const mode = visibilityMode(visibility);
-  if (mode !== 'band' && needsYou(snapshot)) return { kind: 'line', row: needsYouLine() };
+  if (mode !== 'band' && waitingOnHuman(snapshot, context.live)) {
+    return { kind: 'line', row: needsYouLine() };
+  }
+  if (snapshot && !snapshot.active) return { kind: 'none' };
   if (mode === 'closed' || mode === 'hidden') {
     return { kind: 'line', row: closedLine(mode, view) };
   }

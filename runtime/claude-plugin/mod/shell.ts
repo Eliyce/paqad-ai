@@ -1,4 +1,4 @@
-import type { PaqadHudSnapshot, PaqadPaneTab, PaqadTone } from './types';
+import type { LiveState, PaqadHudSnapshot, PaqadPaneTab, PaqadTone } from './types';
 
 export type BandAction = 'minimise' | 'restore' | 'close' | 'show' | 'reopen';
 
@@ -50,6 +50,7 @@ export interface BodyContext {
   surface: 'terminal' | 'desktop';
   turnStartedAt?: number | null;
   unavailable?: boolean;
+  live?: LiveState;
 }
 
 export const UNAVAILABLE = 'HUD data unavailable';

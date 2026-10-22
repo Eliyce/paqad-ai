@@ -72,12 +72,6 @@ export function visibilityMode(visibility: BandVisibility): VisibilityMode {
   return visibility.minimised ? 'minimised' : 'band';
 }
 
-export function needsYou(snapshot: PaqadHudSnapshot | null): boolean {
-  if (!snapshot) return false;
-  const stop = snapshot.last_block !== null && snapshot.last_block.used !== true;
-  return (snapshot.active && snapshot.decisions.pending.length > 0) || stop;
-}
-
 export function needsYouLine(): BandRow {
   return [
     {

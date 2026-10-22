@@ -1,10 +1,6 @@
-export interface LiveState {
-  turnId: string | null;
-  turnStartedAt: number | null;
-  editing: { toolUseId: string | null; file: string | null } | null;
-  waitingOn: 'question' | 'permission' | null;
-  waitingToolUseId: string | null;
-}
+import type { LiveState } from './types';
+
+export type { LiveState };
 
 export const IDLE_LIVE: LiveState = {
   turnId: null,

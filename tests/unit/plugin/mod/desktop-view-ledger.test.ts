@@ -1,3 +1,4 @@
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -165,12 +166,15 @@ describe('AC-20: the Trust tab', () => {
     expect(light({ decisions: { pending: [conflict, conflict], resolved: 0 } }).why).toBe(
       '2 decisions need your answer before work goes on.',
     );
-    expect(light({ last_block: { text: 'x', title: 'No React.FC' } })).toEqual({
+    expect(light({ last_block: { text: 'x', title: 'No React.FC' } }).signal).toBe('idle');
+    const waiting = (waitingOn: 'question' | 'permission') =>
+      trustLight(open({}), null, NOW, { ...IDLE_LIVE, turnId: 't', waitingOn });
+    expect(waiting('question')).toEqual({
       signal: 'attention',
-      title: 'A rule stopped an edit',
-      why: 'No React.FC',
+      title: 'Waiting for your answer',
+      why: 'Claude asked you a question. Work goes on once you answer it.',
     });
-    expect(light({ last_block: { text: 'stopped' } }).why).toBe('stopped');
+    expect(waiting('permission').title).toBe('Waiting for your permission');
     expect(light({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toEqual({
       signal: 'pass',
       title: 'Merged',
@@ -376,6 +380,19 @@ describe('AC-20: the Trust tab', () => {
       { id: 'f', text: 'one flag' },
     ]);
     expect(trustView(parse(snapshot({ route: 'feature-development' })), NOW).flags).toEqual([]);
+  });
+
+  it('keeps a rule stop as history, not as a question for you', () => {
+    const block = { text: 'x', rule: 'RL-13', file: 'src/x.ts' };
+    expect(trustView(open({ last_block: block }), NOW).flags).toEqual([
+      { id: 'rule-stop', text: 'A rule stopped an edit to src/x.ts.' },
+    ]);
+    expect(trustView(open({ last_block: { ...block, used: true } }), NOW).flags).toEqual([
+      { id: 'rule-stop', text: 'A rule stopped an edit to src/x.ts. It was answered.' },
+    ]);
+    expect(trustView(open({ last_block: { text: 'x' } }), NOW).flags).toEqual([
+      { id: 'rule-stop', text: 'A rule stopped an edit.' },
+    ]);
   });
 });
 

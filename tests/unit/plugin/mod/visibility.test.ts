@@ -17,7 +17,6 @@ import {
   hiddenReply,
   hideAlwaysMeans,
   minimisedLine,
-  needsYou,
   needsYouLine,
   readBandVisibility,
   visibilityMode,
@@ -28,7 +27,6 @@ import {
   FULL_ORD_501_COST,
   GRADUATED_ORD_482,
   NOW,
-  STOPPED,
   fileText,
 } from '../../../../runtime/claude-plugin/mod/test/fixtures.ts';
 
@@ -76,13 +74,6 @@ describe('the visibility state', () => {
     expect(long.startsWith(HIDDEN_KEY_PREFIX)).toBe(true);
   });
 
-  it('needs you for a decision of this change or an unused rule stop', () => {
-    expect(needsYou(parse(GRADUATED_ORD_482))).toBe(true);
-    expect(needsYou(parse(STOPPED))).toBe(true);
-    expect(needsYou(parse(FULL_ORD_501))).toBe(false);
-    expect(needsYou(null)).toBe(false);
-  });
-
   it('asks the close question in the spec words, with a header that fits the ask limit', () => {
     expect(CLOSE_HEADER.length).toBeLessThanOrEqual(12);
     expect(closeQuestion()).toBe(
@@ -94,7 +85,7 @@ describe('the visibility state', () => {
 describe('the minimised line', () => {
   it('carries the stage bar, the clock, the table, the ship step, flags and tokens', () => {
     expect(lineAt(FAST_ORD_490, 120)).toBe(
-      'paqad ORD-490 Working ○●–▸○○○○ Build · 2:00 editing + Restore × Close',
+      'paqad ORD-490 Working ○●–▸–○–○ Build · 2:00 editing + Restore × Close',
     );
     expect(lineAt(FULL_ORD_501_COST, 200)).toBe(
       'paqad ORD-501 Safe to merge ○●●●●●●○ Docs · done High Table spec approved 3 of your commits 1 flag 1.3M tokens + Restore × Close',

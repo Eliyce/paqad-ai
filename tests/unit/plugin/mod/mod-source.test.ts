@@ -27,6 +27,7 @@ describe('the HUD mod source', () => {
     expect(sources.map((s) => s.name).sort()).toEqual(
       [
         'ask-evidence.ts',
+        'attention.ts',
         'band.ts',
         'chime.ts',
         'chips.ts',

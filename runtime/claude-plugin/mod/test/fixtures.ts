@@ -567,7 +567,6 @@ export const STATE_FIXTURES = {
   Working: FAST_ORD_490,
   'Branch warning': BRANCH_WARNING,
   'Needs you': GRADUATED_ORD_482,
-  Stopped: STOPPED,
   Inconclusive: INCONCLUSIVE,
   'Safe to merge': SAFE_CLEAN,
   'Needs your attention': NEEDS_ATTENTION,
@@ -812,7 +811,6 @@ const DELIVERING_STAGES = stages(
 );
 
 export const SCENE_FIXTURES = {
-  'Getting ready': snapshot({ route: 'feature-development' }),
   'High Table writing': ord501At('writing'),
   Building: snapshot({
     ...FULL_ORD_501,
