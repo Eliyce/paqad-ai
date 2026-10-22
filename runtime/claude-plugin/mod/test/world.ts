@@ -153,7 +153,8 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     if (answer === 'throw') throw new Error('question failed');
     return { result: { questions: [asked], answers: { [asked.question]: answer } } } as never;
   });
-  on('tool.check', () => {
+  on('tool.check', ($, e) => {
+    if (e.tool === 'AskUserQuestion') return { decision: 'allow' };
     if (world.verdict === 'throw') throw new Error('engine check failed');
     return world.verdict;
   });
