@@ -61,7 +61,7 @@ import type { RoutedWorkflow } from '@/pipeline/routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
-import { isMandatoryStage } from '@/stage-evidence/stages.js';
+import { isLaneStage, laneStages } from '@/stage-evidence/stages.js';
 import type { FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { stageForAgentName, stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
@@ -517,6 +517,7 @@ export interface HudSnapshot {
   active: boolean;
   route: string | null;
   lane: string | null;
+  lane_stages?: string[];
   lane_reason: string | null;
   headline: { text: string; tone: HudTone };
   change: {
@@ -643,7 +644,7 @@ function buildStages(projectRoot: string, dirName: string, fold: FoldedChange): 
     return {
       stage: stage.stage,
       state: stage.state,
-      mandatory: isMandatoryStage(stage.stage),
+      mandatory: isLaneStage(fold.lane, stage.stage),
       started_at: stage.started_at,
       ended_at: stage.ended_at,
       duration_ms: stage.duration_ms,
@@ -863,9 +864,10 @@ function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['ques
 function changeDecisions(projectRoot: string, dirName: string | null): StoredContractDecision[] {
   if (dirName === null) return [];
   const changeKey = featureChangeKey(dirName);
-  return readContractDecisions(projectRoot).filter(
-    ({ packet }) => (packet as unknown as Record<string, unknown>).change === changeKey,
-  );
+  return readContractDecisions(projectRoot).filter(({ packet }) => {
+    const change = (packet as unknown as Record<string, unknown>).change;
+    return change === changeKey || change === undefined || change === null;
+  });
 }
 
 function buildDecisions(rows: readonly StoredContractDecision[]): HudSnapshot['decisions'] {
@@ -1034,7 +1036,7 @@ export function computeHudFlags(input: {
       text: 'The lane was never set, so isolation is unproven.',
     });
   }
-  const ruleFindings = input.findings?.rules.total ?? 0;
+  const ruleFindings = input.findings?.rules.blocking ? (input.findings.rules.total ?? 0) : 0;
   if (ruleFindings > 0) {
     flags.push({
       id: 'rule-findings',
@@ -1233,6 +1235,7 @@ export function buildHudSnapshot(
     active: true,
     route,
     lane,
+    lane_stages: laneStages(fold.lane),
     lane_reason: workflow.active?.reason ?? null,
     headline: computeHudHeadline({
       route,

@@ -15,6 +15,7 @@ import {
   DUPLICATION_DECISION_CATEGORY,
 } from '@/duplication/decisions.js';
 import type { DuplicationFinding } from '@/duplication/types.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
 
 import { resolveDecisionArmConfig, type DecisionArmConfig } from './decision-arm-config.js';
 import type { DecisionOptionEvidence } from './decision-packet.js';
@@ -302,6 +303,7 @@ function mintForks(input: ArmInput, config: DecisionArmConfig, forks: MintableFo
       options: fork.options,
       recommendation: fork.recommendation,
       origin: 'evidence-armed',
+      change: featureChangeKey(input.changeKey),
     });
     result.minted.push(created.id);
     openedForChange += 1;

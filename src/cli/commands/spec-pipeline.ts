@@ -906,6 +906,7 @@ function createExpertsCommand(): Command {
         options.projectRoot,
         merged,
         check.artifact.conflicts,
+        resolved.dirName,
       );
       const synthesis =
         autoResolved.length > 0

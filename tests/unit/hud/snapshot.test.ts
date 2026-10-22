@@ -188,6 +188,8 @@ describe('buildHudSnapshot', () => {
       duration_unreliable: false,
     });
     expect(snapshot.stages.find((stage) => stage.stage === 'ticket_intake')?.mandatory).toBe(false);
+    expect(snapshot.lane_stages).toEqual(['planning', 'development', 'checks']);
+    expect(snapshot.stages.find((stage) => stage.stage === 'review')?.mandatory).toBe(false);
     expect(snapshot.flags.map((flag) => flag.id)).toEqual(['rules-not-loaded']);
     expect(snapshot.rules).toEqual({ recorded: false, applicable: null, loaded_at: null });
     expect(snapshot.ship).toMatchObject({ commits: 0, push: null, pr: null, ci: null });
@@ -653,7 +655,6 @@ describe('findings kept in the bundle', () => {
     expect(snapshot.findings?.rules).toMatchObject({ overflow: 2, from_cache: true, total: 52 });
     expect(snapshot.findings?.near_copies).toMatchObject({ overflow: 1, total: 51 });
     expect(snapshot.flags.filter((flag) => /open\.$/.test(flag.text))).toEqual([
-      { id: 'rule-findings', text: '52 rule findings are open.' },
       { id: 'near-copies', text: '51 near-copies of existing code are open.' },
     ]);
     expectCountsMatchFindings(snapshot.findings!.rules);

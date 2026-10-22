@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { featureChangeKey } from '@/feature-evidence/paths.js';
+
 import { writeCodeKnowledgeIndex } from '@/code-knowledge/store.js';
 import {
   CODE_KNOWLEDGE_SCHEMA_VERSION,
@@ -257,6 +259,7 @@ describe('armDecisionFromPlan', () => {
     const packet = packets[0];
     expect(packet.category).toBe('create-vs-reuse');
     expect(packet.origin).toBe('evidence-armed');
+    expect((packet as unknown as { change?: string }).change).toBe(featureChangeKey(CHANGE));
     expect(packet.recommendation).toBe(reuseOptionKey('formatIsoDate'));
 
     const reuseOption = packet.options.find(
