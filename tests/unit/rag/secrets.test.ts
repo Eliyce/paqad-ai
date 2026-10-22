@@ -77,7 +77,7 @@ describe('RAG secrets helpers', () => {
     expect(audit).not.toContain('sk-env');
   });
 
-  it('still redacts a leftover VOYAGE_API_KEY stored in the secrets file', () => {
+  it('AC-25 still redacts a leftover VOYAGE_API_KEY stored in the secrets file', () => {
     writeProjectSecret(projectRoot, 'VOYAGE_API_KEY', 'pa-leftover-voyage-key');
 
     expect(redactSecrets('Bearer pa-leftover-voyage-key', projectRoot)).toBe('Bearer [REDACTED]');

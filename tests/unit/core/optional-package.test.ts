@@ -139,7 +139,7 @@ describe('maybeStartOptionalEngineInstall', () => {
       };
     }
 
-    it('reinstalls the declared specs when the marker recorded none', () => {
+    it('AC-18 reinstalls the declared specs when the marker recorded none', () => {
       writeMarker({ status: 'ready', attempted_at: new Date(NOW - 2 * DAY_MS).toISOString() });
       const start = vi.fn();
 
@@ -192,7 +192,7 @@ describe('maybeStartOptionalEngineInstall', () => {
       expect(readMarker().specs).toEqual(DECLARED);
     });
 
-    it('leaves an engine alone when the installed specs match the declared ones', () => {
+    it('AC-19 leaves an engine alone when the installed specs match the declared ones', () => {
       writeMarker({
         status: 'ready',
         attempted_at: new Date(NOW - 2 * DAY_MS).toISOString(),
@@ -226,7 +226,7 @@ describe('maybeStartOptionalEngineInstall', () => {
       expect(start).not.toHaveBeenCalled();
     });
 
-    it('throttles a reinstall whose last attempt failed less than 24 hours ago', () => {
+    it('AC-20 throttles a reinstall whose last attempt failed less than 24 hours ago', () => {
       writeMarker({
         status: 'failed',
         attempted_at: new Date(NOW - 60 * 60 * 1000).toISOString(),
@@ -371,6 +371,35 @@ describe('maybeStartOptionalEngineInstall', () => {
       expect.anything(),
       undefined,
     );
+  });
+
+  it('AC-15 installs only the transformers and openai specs when package.json still lists voyageai', () => {
+    const pkgRoot = join(root, 'npm-copy');
+    mkdirSync(join(pkgRoot, 'runtime'), { recursive: true });
+    writeFileSync(
+      join(pkgRoot, 'package.json'),
+      JSON.stringify({
+        dependencies: {
+          '@huggingface/transformers': '^4.3.1',
+          openai: '^7.34.0',
+          voyageai: '^0.4.0',
+        },
+      }),
+    );
+    const link = join(root, 'current');
+    symlinkSync(join(pkgRoot, 'runtime'), link);
+    const installDir = join(root, 'plugin-data');
+    const start = vi.fn();
+
+    maybeStartOptionalEngineInstall(
+      { CLAUDE_PLUGIN_DATA: installDir, PAQAD_FRAMEWORK_HOME: link },
+      { resolve: NONE, startInstall: start, now: () => 0 },
+    );
+
+    expect(start.mock.calls[0]?.[0]).toEqual([
+      '@huggingface/transformers@^4.3.1',
+      'openai@^7.34.0',
+    ]);
   });
 
   it('declines with no pinned range when the package.json cannot be read', () => {

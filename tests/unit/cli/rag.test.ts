@@ -396,7 +396,7 @@ describe('rag command', () => {
     );
   });
 
-  it('prompts for provider interactively when none is specified', async () => {
+  it('AC-17 offers only local and OpenAI in the interactive provider picker', async () => {
     setInteractive(true);
     promptSelect.mockResolvedValueOnce('openai');
 
@@ -578,7 +578,7 @@ describe('rag command', () => {
     expect(RagService.prototype.storeApiKey).not.toHaveBeenCalled();
   });
 
-  it('refuses rag init --provider voyageai with the removal message', async () => {
+  it('AC-17 refuses rag init --provider voyageai with the removal message', async () => {
     const createRagCommand = await loadCreateRagCommand();
     const command = createRagCommand();
     await expect(
@@ -664,19 +664,21 @@ describe('rag command', () => {
       expect(RagService.prototype.retrieve).not.toHaveBeenCalled();
     });
 
-    it('refuses when the provider comes from PAQAD_RAG_EMBEDDING_PROVIDER', async () => {
+    it('AC-12 refuses when the provider comes from PAQAD_RAG_EMBEDDING_PROVIDER', async () => {
       const root = saveConfig('rag_enabled=true\nrag_embedding_provider=local\n');
       vi.stubEnv('PAQAD_RAG_EMBEDDING_PROVIDER', 'voyageai');
+      const probe = vi.spyOn(RagService.prototype, 'probe');
       try {
-        await expect(runRag(['probe', 'query', '--project-root', root])).resolves.toBeInstanceOf(
-          RemovedEmbeddingProviderError,
-        );
+        const error = await runRag(['probe', 'query', '--project-root', root]);
+        expect(error).toBeInstanceOf(RemovedEmbeddingProviderError);
+        expect((error as Error).message).toBe(REMOVED_EMBEDDING_PROVIDER_MESSAGE);
+        expect(probe).not.toHaveBeenCalled();
       } finally {
         vi.unstubAllEnvs();
       }
     });
 
-    it('refuses when the provider comes from the project profile', async () => {
+    it('AC-13 refuses when the provider comes from the project profile', async () => {
       const root = projectRoot(tempProjectRoot);
       mkdirSync(join(root, '.paqad'), { recursive: true });
       writeFileSync(

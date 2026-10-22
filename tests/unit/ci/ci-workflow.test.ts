@@ -184,7 +184,7 @@ describe('.github/workflows/ci.yml', () => {
       expect(runs(job)).toContain('test "${#blobs[@]}" -eq "${{ matrix.total }}"');
     });
 
-    it('merges with coverage and the floors on, then checks the time budget', () => {
+    it('AC-10 merges with coverage and the floors on, then checks the time budget', () => {
       const merge = stepNamed(job, /^Merge/)!;
       expect(merge.run).toBe('pnpm exec vitest run --merge-reports=.vitest-reports --coverage');
       for (const step of job.steps) expect(step.env?.PAQAD_TEST_SHARD).toBeUndefined();

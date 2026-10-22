@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -107,5 +107,29 @@ describe('removed embedding provider guard', () => {
     expect(error.provider).toBe('voyageai');
     expect(isRemovedEmbeddingProviderError(error)).toBe(true);
     expect(isRemovedEmbeddingProviderError(new Error('other'))).toBe(false);
+  });
+});
+
+describe('voyageai package left out of the test suite and the build', () => {
+  function testFiles(dir: string): string[] {
+    const out: string[] = [];
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) out.push(...testFiles(full));
+      else if (/\.(?:test|e2e)\.[cm]?[jt]sx?$|\.[cm]?[jt]s$/.test(entry.name)) out.push(full);
+    }
+    return out;
+  }
+
+  it('AC-15 has no test mocking voyageai and no voyageai engine kept external', () => {
+    const mocksVoyage = /vi\.(?:do)?[mM]ock\(\s*['"]voyageai['"]/;
+    const offenders = testFiles('tests').filter((file) =>
+      mocksVoyage.test(readFileSync(file, 'utf8')),
+    );
+    expect(offenders).toEqual([]);
+
+    const pluginTest = readFileSync('tests/unit/plugin/no-node-modules.test.ts', 'utf8');
+    expect(pluginTest).toMatch(/const EXTERNAL_DEPS = \['@huggingface\/transformers', 'openai'\];/);
+    expect(readFileSync('tsup.config.ts', 'utf8')).not.toContain("'voyageai'");
   });
 });

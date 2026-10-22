@@ -142,7 +142,7 @@ describe('RAG embedding providers', () => {
     await expect(provider.embed('auth')).rejects.toThrow('Missing OPENAI_API_KEY');
   });
 
-  it('retries rate-limited remote embedding calls before succeeding', async () => {
+  it('AC-26 retries a 429 and succeeds on the following 200', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'sk-test');
     openAiEmbeddingsCreate
       .mockRejectedValueOnce({ status: 429, message: 'Rate limit' })
@@ -160,7 +160,7 @@ describe('RAG embedding providers', () => {
     expect(openAiEmbeddingsCreate).toHaveBeenCalledTimes(2);
   }, 10000);
 
-  it('surfaces invalid API keys with a clear provider error', async () => {
+  it('AC-26 surfaces a 401 as Invalid OPENAI_API_KEY', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'sk-test');
     openAiEmbeddingsCreate.mockRejectedValueOnce({ status: 401, message: 'Unauthorized' });
 
@@ -176,7 +176,7 @@ describe('RAG embedding providers', () => {
     expect(openAiEmbeddingsCreate).toHaveBeenCalledOnce();
   });
 
-  it('retries a rate-limited OpenAI call at 250, 500 and 1000 ms, then reports rate_limited', async () => {
+  it('AC-26 retries repeated 429s at 250, 500 and 1000 ms, then reports rate_limited', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'sk-test');
     const updates: string[] = [];
     const provider = new OpenAiEmbeddingProvider(
@@ -207,7 +207,7 @@ describe('RAG embedding providers', () => {
     openAiEmbeddingsCreate.mockReset();
   });
 
-  it('refuses a removed provider name instead of returning another provider', async () => {
+  it('AC-14 refuses a removed provider name instead of returning another provider', async () => {
     const removed = makeIntelligence({
       embedding_provider: 'voyageai' as IntelligenceConfig['embedding_provider'],
     });
@@ -235,10 +235,11 @@ describe('RAG embedding providers', () => {
     expect(readdirSync(join(projectRoot, '.paqad'))).toEqual(['.config']);
   });
 
-  it('never loads the voyageai package for any provider setting', async () => {
+  it('AC-14 never returns a Voyage provider or loads voyageai for any provider setting', async () => {
     vi.stubEnv('OPENAI_API_KEY', 'sk-test');
     openAiEmbeddingsCreate.mockResolvedValue({ data: [{ embedding: [1] }] });
     transformerPipeline.mockResolvedValue(async () => [[1]]);
+    const returned: string[] = [];
 
     for (const name of ['local', 'openai', 'voyageai', undefined]) {
       const provider = await createEmbeddingProvider(
@@ -247,9 +248,15 @@ describe('RAG embedding providers', () => {
           embedding_provider: name as IntelligenceConfig['embedding_provider'],
         }),
       ).catch(() => undefined);
+      if (provider) returned.push(provider.constructor.name);
       await provider?.embed('probe');
     }
 
+    expect(returned).toEqual([
+      LocalEmbeddingProvider.name,
+      OpenAiEmbeddingProvider.name,
+      LocalEmbeddingProvider.name,
+    ]);
     expect(loadOptionalPackageSpy.mock.calls.map(([name]) => name)).not.toContain('voyageai');
     expect(loadOptionalPackageSpy.mock.calls.map(([name]) => name)).toEqual(
       expect.arrayContaining(['@huggingface/transformers', 'openai']),

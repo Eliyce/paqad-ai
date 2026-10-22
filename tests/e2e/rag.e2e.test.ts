@@ -222,7 +222,7 @@ describe('RAG end-to-end', () => {
     rmSync(root, { recursive: true, force: true });
   });
 
-  it('runs local and OpenAI RAG flows through the CLI', async () => {
+  it('AC-16 runs local and OpenAI RAG flows through the CLI', async () => {
     const providerCases = [
       { provider: 'local', model: 'Xenova/all-MiniLM-L6-v2', env: undefined },
       { provider: 'openai', model: 'text-embedding-3-small', env: ['OPENAI_API_KEY', 'sk-test'] },
