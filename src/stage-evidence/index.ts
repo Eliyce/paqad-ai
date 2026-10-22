@@ -18,6 +18,8 @@ export {
   ARTIFACT_BEARING_STAGES,
   isKnownStage,
   isMandatoryStage,
+  EDIT_STAGES,
+  isEditStage,
   isLaneStage,
   laneStages,
   isCompletionAnchoredStage,

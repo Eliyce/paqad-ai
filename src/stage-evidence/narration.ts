@@ -3,13 +3,8 @@ import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-l
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { resolveEffectiveLane } from './effective-lane.js';
-import {
-  classifyStage,
-  highestStartedIndex,
-  preCodeStagesRecorded,
-  stagesWithKind,
-} from './live-writer.js';
-import { stageIndex, type StageId } from './stages.js';
+import { classifyStage, liveStageToStart } from './live-writer.js';
+import { type StageId } from './stages.js';
 
 export const STAGE_NARRATION: Record<StageId, string> = {
   ticket_intake: 'picking up the ticket and reading what it needs',
@@ -45,17 +40,8 @@ export function narrateStageEntry(input: NarrateStageInput): string | null {
       ? readChangeConstants(input.projectRoot, dirName, rows).lane
       : null;
     const lane = resolveEffectiveLane(input.projectRoot, input.targetPath, recordedLane);
-    if (!preCodeStagesRecorded(rows, lane)) {
-      return null;
-    }
-    if (stagesWithKind(rows, 'stage_start').has(stage)) {
-      return null;
-    }
-    const highest = highestStartedIndex(rows);
-    if (highest >= 0 && stageIndex(stage) < highest) {
-      return null;
-    }
-    return stageNarrationLine(stage);
+    const toStart = liveStageToStart(rows, lane, stage);
+    return toStart ? stageNarrationLine(toStart) : null;
   } catch {
     return null;
   }

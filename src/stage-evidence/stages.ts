@@ -20,6 +20,12 @@ export const PRE_CODE_STAGES: readonly StageId[] = MANDATORY_STAGES.slice(
   MANDATORY_STAGES.indexOf('development'),
 );
 
+export const EDIT_STAGES: readonly StageId[] = ['development', 'checks', 'documentation_sync'];
+
+export function isEditStage(stage: string): boolean {
+  return (EDIT_STAGES as readonly string[]).includes(stage);
+}
+
 const FAST_LANE_STAGES: readonly StageId[] = ['planning', 'development', 'checks'];
 
 export function laneStages(lane: StageLane): StageId[] {

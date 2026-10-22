@@ -4,6 +4,7 @@ import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 import {
   isArtifactBearingStage,
   isCompletionAnchoredStage,
+  isEditStage,
   isLaneStage,
   isMandatoryStage,
   STAGE_EVIDENCE_STAGES,
@@ -66,7 +67,8 @@ export function foldRowsWithKey(
 function foldStage(stage: string, rows: readonly SessionLedgerRow[], lane: StageLane): FoldedStage {
   const events = rows.filter((row) => row.stage === stage);
   const start = lastOf(events, 'stage_start');
-  const end = lastOf(events, 'stage_end');
+  const lastEnd = lastOf(events, 'stage_end');
+  const end = lastEnd && startedAfterLastEnd(events) ? undefined : lastEnd;
 
   const startedAt = start ? rowRecordedAt(start) : null;
   const endedAt = end ? rowRecordedAt(end) : null;
@@ -93,6 +95,16 @@ function foldStage(stage: string, rows: readonly SessionLedgerRow[], lane: Stage
     evidence_source: coerceEvidenceSource((end ?? start)?.evidence_source),
     artifact_digest: typeof end?.artifact_digest === 'string' ? end.artifact_digest : null,
   };
+}
+
+export function startedAfterLastEnd(events: readonly SessionLedgerRow[]): boolean {
+  let lastStart = -1;
+  let lastEnd = -1;
+  events.forEach((row, index) => {
+    if (row.kind === 'stage_start') lastStart = index;
+    if (row.kind === 'stage_end') lastEnd = index;
+  });
+  return lastStart > lastEnd;
 }
 
 function readRecordedLane(rows: readonly SessionLedgerRow[]): StageLane {
@@ -142,6 +154,9 @@ function computeOrderingViolations(stages: readonly FoldedStage[]): OrderingViol
   for (const a of ran) {
     for (const b of ran) {
       if (isCompletionAnchoredStage(a.stage) || isCompletionAnchoredStage(b.stage)) {
+        continue;
+      }
+      if (isEditStage(a.stage) && isEditStage(b.stage)) {
         continue;
       }
       if (stageIndex(a.stage) < stageIndex(b.stage) && a.ended_at && b.started_at) {

@@ -177,7 +177,7 @@ describe('buildHudSnapshot', () => {
     });
     expect(snapshot.change).toMatchObject({ issue: 'ORD-490' });
     expect(snapshot.headline).toEqual({
-      text: 'Build in progress. Next: Review.',
+      text: 'Build in progress. Next: Checks.',
       tone: 'working',
     });
     const planning = snapshot.stages.find((stage) => stage.stage === 'planning');

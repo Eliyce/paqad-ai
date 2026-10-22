@@ -7,7 +7,15 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { resolveEffectiveLane } from './effective-lane.js';
 import { endStage, openStageEvidence, startStage } from './recorder.js';
-import { isKnownStage, requiredPreCodeStages, stageIndex, type StageId } from './stages.js';
+import { startedAfterLastEnd } from './fold.js';
+import {
+  isEditStage,
+  isKnownStage,
+  isLaneStage,
+  PRE_CODE_STAGES,
+  requiredPreCodeStages,
+  type StageId,
+} from './stages.js';
 import type { StageLane, StageSessionSource } from './types.js';
 
 function toRelativePosix(projectRoot: string, targetPath: string): string {
@@ -73,16 +81,6 @@ export interface LiveWriteInput {
   now?: () => Date;
 }
 
-export function highestStartedIndex(rows: readonly SessionLedgerRow[]): number {
-  let highest = -1;
-  for (const row of rows) {
-    if (row.kind === 'stage_start' && typeof row.stage === 'string') {
-      highest = Math.max(highest, stageIndex(row.stage));
-    }
-  }
-  return highest;
-}
-
 export function stagesWithKind(rows: readonly SessionLedgerRow[], kind: string): Set<string> {
   const set = new Set<string>();
   for (const row of rows) {
@@ -96,10 +94,28 @@ export function preCodeStagesRecorded(rows: readonly SessionLedgerRow[], lane: S
   return requiredPreCodeStages(lane).every((stage) => started.has(stage));
 }
 
+export function stageIsOpen(rows: readonly SessionLedgerRow[], stage: string): boolean {
+  return startedAfterLastEnd(rows.filter((row) => row.stage === stage));
+}
+
+export function liveEditStage(lane: StageLane, classified: StageId): StageId {
+  return isLaneStage(lane, classified) ? classified : 'development';
+}
+
+export function liveStageToStart(
+  rows: readonly SessionLedgerRow[],
+  lane: StageLane,
+  classified: StageId,
+): StageId | null {
+  if (!preCodeStagesRecorded(rows, lane)) return null;
+  const stage = liveEditStage(lane, classified);
+  return !isEditStage(stage) || stageIsOpen(rows, stage) ? null : stage;
+}
+
 export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
   const { projectRoot, targetPath, now } = input;
-  const stage = classifyStage(targetPath, projectRoot);
-  if (!stage) return null;
+  const classified = classifyStage(targetPath, projectRoot);
+  if (!classified) return null;
 
   try {
     const sessionId = resolveSessionId(projectRoot, input.sessionId);
@@ -108,6 +124,8 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
     const recordedLane = dirName ? readChangeConstants(projectRoot, dirName, rows).lane : null;
     const lane = resolveEffectiveLane(projectRoot, targetPath, recordedLane);
     if (!preCodeStagesRecorded(rows, lane)) return null;
+    const stage = liveEditStage(lane, classified);
+    if (!liveStageToStart(rows, lane, classified)) return stage;
     const ctx = {
       sessionId,
       sessionSource: input.sessionId?.trim() ? ('host' as const) : undefined,
@@ -116,24 +134,8 @@ export function recordLiveStageEdit(input: LiveWriteInput): StageId | null {
       agent: input.agent,
       now,
     };
-
-    const started = stagesWithKind(rows, 'stage_start');
-    const ended = stagesWithKind(rows, 'stage_end');
-    if (started.has(stage)) return stage;
-
-    const targetIndex = stageIndex(stage);
-    const highest = highestStartedIndex(rows);
-    if (highest >= 0 && targetIndex < highest) return null;
-
-    for (const row of rows) {
-      if (row.kind !== 'stage_start' || typeof row.stage !== 'string') continue;
-      const s = row.stage;
-      if (started.has(s) && !ended.has(s) && stageIndex(s) < targetIndex) {
-        ended.add(s);
-        try {
-          endStage(projectRoot, s, {}, ctx);
-        } catch {}
-      }
+    for (const preCode of PRE_CODE_STAGES) {
+      if (stageIsOpen(rows, preCode)) endStage(projectRoot, preCode, {}, ctx);
     }
     startStage(projectRoot, stage, ctx);
     return stage;

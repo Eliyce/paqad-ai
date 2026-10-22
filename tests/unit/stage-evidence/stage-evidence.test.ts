@@ -570,14 +570,14 @@ describe('completion-anchored review', () => {
   it('still flags a genuine out-of-order overlap between two NON-anchored stages', () => {
     const sessionId = 'ses_realviolation';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: ADAPTER });
-    startStageRaw(root, sessionId, dirName, 'checks', 'stage_start', 1);
-    startStageRaw(root, sessionId, dirName, 'documentation_sync', 'stage_start', 2);
-    startStageRaw(root, sessionId, dirName, 'checks', 'stage_end', 3);
-    startStageRaw(root, sessionId, dirName, 'documentation_sync', 'stage_end', 4);
+    startStageRaw(root, sessionId, dirName, 'specification', 'stage_start', 1);
+    startStageRaw(root, sessionId, dirName, 'development', 'stage_start', 2);
+    startStageRaw(root, sessionId, dirName, 'specification', 'stage_end', 3);
+    startStageRaw(root, sessionId, dirName, 'development', 'stage_end', 4);
     const fold = foldFeature(root, sessionId, dirName);
     expect(fold.completeness.ordering_violations).toContainEqual({
-      before: 'checks',
-      after: 'documentation_sync',
+      before: 'specification',
+      after: 'development',
     });
   });
 

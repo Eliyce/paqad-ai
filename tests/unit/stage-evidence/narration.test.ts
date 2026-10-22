@@ -129,7 +129,7 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
     expect(line).toBe(stageNarrationLine('checks'));
   });
 
-  it('does NOT narrate an out-of-order edit (an earlier stage after a later one began)', () => {
+  it('narrates an earlier edit stage that starts after a later one began', () => {
     seedPreCode();
     recordLiveStageEdit({
       projectRoot: root,
@@ -138,6 +138,18 @@ describe('narrateStageEntry — first-entry predicate (mirrors the live writer)'
       targetPath: 'tests/a.test.ts',
     });
     const line = narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/a.ts' });
+    expect(line).toBe(stageNarrationLine('development'));
+  });
+
+  it('does NOT narrate an edit to a stage that is already open', () => {
+    seedPreCode();
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/a.ts',
+    });
+    const line = narrateStageEntry({ projectRoot: root, sessionId: SES, targetPath: 'src/b.ts' });
     expect(line).toBeNull();
   });
 });

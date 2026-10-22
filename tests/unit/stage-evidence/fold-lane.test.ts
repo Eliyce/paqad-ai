@@ -90,3 +90,17 @@ describe('foldRowsWithKey — the lane decides which stages are required', () =>
     expect(folded.completeness.missing_stages).toContain('specification');
   });
 });
+
+describe('foldRowsWithKey — a stage started again after its end', () => {
+  it('reads running until it ends again', () => {
+    const rows = [...ran('development'), row('stage_start', 'development')];
+    const folded = fold(rows, 'fast');
+    const development = folded.stages.find((entry) => entry.stage === 'development');
+    expect(development?.state).toBe('running');
+    expect(development?.ended_at).toBeNull();
+    expect(development?.duration_unreliable).toBe(false);
+    expect(fold([...rows, row('stage_end', 'development')], 'fast').stages[3]?.state).toBe(
+      'complete',
+    );
+  });
+});
