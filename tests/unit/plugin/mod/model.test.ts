@@ -1,5 +1,6 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -402,9 +403,9 @@ describe('parseSnapshot', () => {
       token: 'abc',
       used: false,
     });
-    expect(bandState(parse({ ...FULL_ORD_501, last_block: record }))).toBe('Stopped');
-    expect(bandState(parse({ ...FULL_ORD_501, last_block: { ...record, used: true } }))).not.toBe(
-      'Stopped',
+    expect(bandState(parse({ ...FULL_ORD_501, last_block: record }))).toBe('Safe to merge');
+    expect(bandState(parse({ ...FULL_ORD_501, last_block: { ...record, used: true } }))).toBe(
+      'Safe to merge',
     );
   });
 
@@ -428,9 +429,9 @@ describe('paths match the snapshot writer (src/hud/files.ts)', () => {
   });
 });
 
-describe('the nine band states', () => {
-  it('has exactly nine, each reached by its fixture', () => {
-    expect(BAND_STATES).toHaveLength(9);
+describe('the eight band states', () => {
+  it('has exactly eight, each reached by its fixture', () => {
+    expect(BAND_STATES).toHaveLength(8);
     for (const state of BAND_STATES) {
       expect(bandState(parse(STATE_FIXTURES[state]))).toBe(state);
     }
@@ -444,6 +445,33 @@ describe('the nine band states', () => {
   it('reads Working while a change goes on with no verdict and nothing running', () => {
     const between = parse({ ...FULL_ORD_501, verdict: null, flags: [] });
     expect(bandState(between)).toBe('Working');
+  });
+
+  it('needs you while a question or a permission waits, whatever the snapshot says', () => {
+    const question = { ...IDLE_LIVE, turnId: 't', waitingOn: 'question' as const };
+    const permission = { ...IDLE_LIVE, turnId: 't', waitingOn: 'permission' as const };
+    expect(bandState(parse(FULL_ORD_501), question)).toBe('Needs you');
+    expect(bandState(parse(FAST_ORD_490), permission)).toBe('Needs you');
+  });
+
+  it('a verdict written before the current turn started does not lead', () => {
+    const at = Date.parse('2026-10-18T09:00:00.000Z');
+    const judged = parse({
+      ...FULL_ORD_501,
+      verdict: {
+        kind: 'fail',
+        word: 'Needs your attention',
+        reasons: [],
+        written_at: new Date(at).toISOString(),
+      },
+    });
+    expect(bandState(judged)).toBe('Needs your attention');
+    expect(bandState(judged, { ...IDLE_LIVE, turnId: 't', turnStartedAt: at + 1000 })).toBe(
+      'Working',
+    );
+    expect(bandState(judged, { ...IDLE_LIVE, turnId: 't', turnStartedAt: at - 1000 })).toBe(
+      'Needs your attention',
+    );
   });
 
   it('puts a waiting decision ahead of everything else', () => {
@@ -492,11 +520,13 @@ describe('the Stage instrument', () => {
       'done',
       'not required',
       'running',
+      'not required',
       NOT_YET,
-      NOT_YET,
-      NOT_YET,
+      'not required',
       NOT_YET,
     ]);
+    const older = parse({ ...FAST_ORD_490, lane_stages: undefined });
+    expect(stageSegments(older).map((s) => s.state)[4]).toBe(NOT_YET);
   });
 
   it('reads every segment "not yet" with no change in progress or no snapshot', () => {

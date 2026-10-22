@@ -198,6 +198,11 @@ the framework owns phase order and the mandatory safety stages.
 | **checks** | format → test → build, overlapped and with the runner's own parallel mode; every parallel-run failure confirmed alone before it blocks; plus module-health and diff-scoped rule scripts | [`rule-script-runner`](../../runtime/base/skills/rule-script-runner/SKILL.md), [`module-health-rollup`](../../runtime/base/skills/module-health-rollup/SKILL.md), [`test-runner-discovery`](../../runtime/base/skills/test-runner-discovery/SKILL.md) (only when `checks plan` reports the runner's parallel mode unknown) |
 | **documentation_sync** | Sync only the docs the diff made stale | [`documentation-sync-engine`](../../runtime/base/skills/documentation-sync-engine/SKILL.md) routes to [`api-doc-maintainer`](../../runtime/base/skills/api-doc-maintainer/SKILL.md), [`integration-doc-maintainer`](../../runtime/base/skills/integration-doc-maintainer/SKILL.md), [`error-catalog-maintainer`](../../runtime/base/skills/error-catalog-maintainer/SKILL.md), [`canonical-doc-sync`](../../runtime/base/skills/canonical-doc-sync/SKILL.md), [`glossary-maintainer`](../../runtime/base/skills/glossary-maintainer/SKILL.md); [`diff-doc-sync`](../../runtime/base/skills/diff-doc-sync/SKILL.md) narrows the set |
 
+Which of these a change must record depends on its lane: the fast lane requires planning,
+development and checks; graduated, full and an unresolved lane require all six
+([`laneStages`](../../src/stage-evidence/stages.ts)). Development, checks and documentation_sync
+are recorded whenever an edit touches them, in any order.
+
 ---
 
 ## 3. Full catalog: every skill and agent, by lifecycle phase

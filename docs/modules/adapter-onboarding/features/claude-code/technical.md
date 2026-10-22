@@ -196,9 +196,11 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   its own after a merge-commit merge, and Merge reads unknown when the pull request state could not
   be read, as for one saved before its state was kept.
   paqad never merges.
-- **State and colour.** The state is the first match of: a waiting decision, a rule stop, no change
-  in progress (paused, another workflow, or ready), an open branch flag, a running stage, the
-  verdict, then working. Tones map `working` to suggestion, `needs-you` to permission, `good` to
+- **State and colour.** The state is the first match of: waiting on you (`waitingOnHuman`: a
+  question on screen, a permission a person must answer, or a pending decision), no change in
+  progress (paused, another workflow, or ready), an open branch flag, a running stage, the
+  verdict (skipped when it was written before the current turn started), then working. A rule
+  stop is never a state. Tones map `working` to suggestion, `needs-you` to permission, `good` to
   success, `warn` to warning, `bad` to error. Any open flag turns the band amber, even at Safe to
   merge; red and "needs you" keep their own colour, and all green turns it success. Every state is
   said in words and by a glyph of its own shape, so each line reads the same with the colour gone.
@@ -206,8 +208,8 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   whose border takes the headline tone. The header holds the `paqad` brand Button, the change chip (the issue
   number, else the ticket, else the last six characters of the ULID), the headline, then on the
   right the verdict chip (a fresh verdict only), one amber flag chip, the lane, the tokens chip,
-  a `Proof` Button, `– Minimise` and `× Close`. With no change qualified the card shows the header
-  only: `paqad  Getting ready`. The body comes from `BAND_BODIES`, a
+  a `Proof` Button, `– Minimise` and `× Close`. Before the first snapshot is read the card shows the
+  header only, `paqad  Getting ready`; with a snapshot but no change open, nothing is drawn. The body comes from `BAND_BODIES`, a
   per-workflow registry in `shell.ts` that only feature development fills; the shell imports no
   body code.
 - **Instruments.** STAGE shows eight labelled cells (Intake Plan Spec Build Review Checks Docs
@@ -258,8 +260,8 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   Close for now (the `paqad.bandClosed` atom, this session only) or Hide always (`$.store` key
   `band.hidden:<project root>`, so it applies to this project only). Closed or hidden, the band is
   one line `paqad · <state> ▸` with a dim `Closed for this session · /paqad show` or `Hidden always ·
-  /paqad show`; pressing it brings the band back. While the band is out of the way and a decision of
-  this change or an unused rule stop waits, the line turns amber and reads `paqad · Needs you ▸`;
+  /paqad show`; pressing it brings the band back. While the band is out of the way and something
+  waits on you (`waitingOnHuman`), the line turns amber and reads `paqad · Needs you ▸`;
   the band never reopens by itself and the question is still asked in chat. `/paqad show` clears
   all three and answers `The paqad band is back.` `/paqad hide` sets `band.hidden:<project root>`
   and answers `The paqad band is hidden. Run /paqad show to bring it back.` Each control has a hotkey and names its action in

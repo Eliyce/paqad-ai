@@ -11,6 +11,8 @@ export const INK = {
 export const SIGNAL = {
   accent: '#F90093',
   attention: '#F37748',
+  caution: '#C98A1B',
+  cautionDark: '#E3B04B',
   pass: '#2F8F6B',
   passDark: '#5FC29C',
   fail: '#D23B3B',
@@ -41,11 +43,12 @@ export const BREATH = ['FF', 'CC', '8C', '66', '8C', 'CC'] as const;
 export const SVG_FONT =
   "-apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif";
 
-export type Signal = 'accent' | 'attention' | 'pass' | 'fail' | 'idle';
+export type Signal = 'accent' | 'attention' | 'caution' | 'pass' | 'fail' | 'idle';
 
 export function signalColor(signal: Signal): string {
   if (signal === 'accent') return SIGNAL.accent;
   if (signal === 'attention') return SIGNAL.attention;
+  if (signal === 'caution') return SIGNAL.caution;
   if (signal === 'pass') return STATUS_B.done;
   if (signal === 'fail') return STATUS_B.failed;
   return INK.muted;

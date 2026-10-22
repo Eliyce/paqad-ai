@@ -21,7 +21,8 @@ module writes a colour literal; `strip.ts` imports every Svg colour from the pal
 | `faintStroke`   | `muted` at 45% (stroke)            | same                          | not-yet rings, dashed not-required lines                                                        |
 | `hair`          | `muted` at 28%                     | same                          | dividers, rules, hairlines                                                                      |
 | `accent`        | `#F90093` (paqad vivid pink)       | same                          | running, the shown tab                                                                          |
-| `attention`     | `#F37748` (paqad coral)            | same                          | needs you, flags, marked, paused                                                                |
+| `attention`     | `#F37748` (paqad coral)            | same                          | waiting on you only: a question, a permission, a pending decision, and the stage paused for it |
+| `caution`       | `#C98A1B`                          | `#E3B04B`                     | needs a look: flags, marked stages, a late seat, inconclusive or skipped gates, PR closed      |
 | `pass`          | `#2F8F6B`                          | `#5FC29C`                     | pass, all green, ready to merge                                                                 |
 | `fail`          | `#D23B3B`                          | `#F08080`                     | fail                                                                                            |
 | `onSignal`      | `#FFFFFF`                          | same                          | only on a solid signal: the ready node's icon, the High Table badge numbers, the running sheen |
@@ -69,7 +70,7 @@ Three rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
   lane (`Fast lane`, `Graduated lane`, `Full lane`), the change chip, and the cost
   (`<tokens> tokens · ~$<usd>`, `<tokens> tokens · whole session`, or
   `<tokens> tokens so far · ~$<usd>` while the turn is still being counted). Then `Box flexGrow`,
-  then, only with open flags, a coral `⚑` `Text` and a plain dim `N flag(s)` Button, then the
+  then, only with open flags, an amber `⚑` `Text` and a plain dim `N flag(s)` Button, then the
   bordered dim `Ledger` Button and the plain dim `−` and `×` Buttons.
 - **Message row**: one `Text wrap="truncate-end"`: `●` (heading size, the signal colour) + the
   headline (heading, semibold) + on live states a dim footnote clock `m:ss`.
@@ -82,15 +83,18 @@ Three rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
   - Each section has a cap (8.5 px, weight 600, letter-spacing 1.1 px, muted) on the left and a
     value (10.5 px, weight 500, ink) on the right, drawn only when the section is wider than
     150 px.
-  - STAGE: one bar per stage of the lane (graduated, full and unresolved: Intake, Plan, Spec,
-    Build, Review, Checks, Docs, Deliver; fast: Plan, Build, Checks), 3 px tall, `rx 1.5`, 4 px
+  - STAGE: one bar per stage the snapshot's `lane_stages` names, with Intake and Deliver on every
+    lane but fast (graduated, full and unresolved: Intake, Plan, Spec, Build, Review, Checks, Docs,
+    Deliver; fast: Plan, Build, Checks). An older engine with no `lane_stages` gets the same lists
+    from the lane. Bars are 3 px tall, `rx 1.5`, 4 px
     gaps, a 9 px label under each.
   - HIGH TABLE (only when the table sat): seats r 4, spaced at most 22 px, initials under each
     (`SA IA DO PO AA UF QA`, or the first letters of other roles), a 12 px hairline, then the chief
     r 5 labelled `CA`.
   - DELIVERY: one round node (r 8.5, the git icon at scale .625, stroke 1.9) per step of the
     delivery plan (Edit, Commit, Push, PR, CI, Merge as they apply), spacing capped at 96 px, inset
-    12 px from both section edges. Connectors run between circles only, 4 px clear of each, 1.2 px
+    12 px from both section edges. Edit is current while a file is being edited or any edit stage
+    (Build, Checks, Docs) runs, and done once one of them has finished. Connectors run between circles only, 4 px clear of each, 1.2 px
     wide, ink when the next node is reached and faint otherwise.
 - **Close menu**: pressing `×` adds an inline row under the identity row: footnote
   `Close the paqad band?`, bordered `Close for now` (this session), bordered `Hide always` (this
@@ -106,9 +110,9 @@ mini stage Svg of the lane's stages; `Box flexGrow`; dim footnote cost; `Ledger`
 ### Closed and hidden rows
 
 One small row: footnote `Text` of `paqad` (semibold) + dim `   Closed for this session` or
-`   Hidden`; `Box flexGrow`; plain dim `Show`. When something needs the person the words become coral
-`● Needs you`. `Show` reopens and un-minimises. Hide always stays until the person presses Show or
-runs `/paqad show`.
+`   Hidden`; `Box flexGrow`; plain dim `Show`. When something waits on the person (a question, a
+permission or a pending decision) the words become coral `● Needs you`. `Show` reopens and
+un-minimises. Hide always stays until the person presses Show or runs `/paqad show`.
 
 ### Workflow band
 
@@ -136,16 +140,16 @@ on Trust; the brand text and the strip image are not pressable.
   table did not sit.
 - **Heading**: `Text size="caption" weight="semibold" dimColor`, capitals, `marginTop={1}`.
 - **Row**: a `Box` column: a row with a left `Box flexGrow` (label in body, an optional dim footnote
-  under it) and a right verdict word (footnote, weight medium: green `Pass`, red `Fail`, coral
+  under it) and a right verdict word (footnote, weight medium: green `Pass`, red `Fail`, amber
   `Open`, pink `writing…`, dim for the rest), then a hairline Svg (2000 × 1, `height={1}`).
 - **Light**: one `Text` of `●` (heading, signal colour) + title (heading, semibold), then a dim
   footnote reason.
 - **Gate ring**: 92 × 92, one arc per gate. Required gates are 5 px round-capped arcs (green pass,
-  red fail, coral inconclusive or did not run, `faintStroke` not judged); not required gates are
+  red fail, amber inconclusive or did not run, `faintStroke` not judged); not required gates are
   2 px dashed faint arcs. The centre reads `passed/required` (19 px semibold ink) over `REQUIRED`
   (8.5 px muted).
 - **Table ring**: 150 × 150, r 52, one 7 px round-capped arc per seat (ink done, pink pulsing
-  writing, faint seated, coral late), a 1 px spoke from each started seat to r 30 (dashed pink
+  writing, faint seated, amber late), a 1 px spoke from each started seat to r 30 (dashed pink
   while writing), initials at r 67, a findings badge (ink disc r 6.5, count in `onSignal`) on each
   landed arc, and the chief ring r 24 in the centre with `Chief` and its state word.
 - **Node**: 24 × 24, the strip's node art and states.
@@ -180,25 +184,29 @@ atom from `$.clock.now()`. It runs only while a live state is drawn and stops wh
 
 ### Band state and headline
 
-The band resolves its state from the snapshot in this order; the first match wins. `signal` picks
-the light's colour; live states breathe and show the clock. State 1 still draws the identity row
-with its `Ledger`, `−` and `×` controls, so the Ledger's Trust tab can give the reason.
+The band resolves its state from the snapshot and the mod's live session state in this order; the
+first match wins. `signal` picks the light's colour; live states breathe and show the clock. State 1
+still draws the identity row with its `Ledger`, `−` and `×` controls, so the Ledger's Trust tab can
+give the reason. A feature route with no change open draws nothing. While a newer turn runs, a
+verdict written before that turn started is skipped (rows 12, 13, 16 and 17), so the running stage
+leads; the verdict words stay as they are in the receipt and the Ledger. A rule stop is never a
+row: Claude handles it, and the Trust tab keeps it as history.
 
 | #   | When                                                                             | Signal          | Live | Headline                                                                                                  |
 | --- | -------------------------------------------------------------------------------- | --------------- | ---- | --------------------------------------------------------------------------------------------------------- |
 | 1   | paqad is on but the session id could not be read, or the snapshot does not parse | attention       | no   | `paqad cannot read this session's record`                                                                 |
 | 2   | the route is another workflow                                                    | (workflow band) |      |                                                                                                           |
-| 3   | feature route and no change yet                                                  | idle            | no   | `Getting ready`                                                                                           |
-| 4   | the chief ruled and has open expert-conflict decisions                           | attention       | no   | `The chief architect has N questions for you`                                                             |
-| 5   | other decisions pending                                                          | attention       | no   | `N decision(s) are waiting for you`                                                                       |
-| 6   | an unused rule stop                                                              | attention       | no   | `A rule stopped an edit: <rule title>`                                                                    |
+| 3   | a question is on screen                                                          | attention       | no   | `Waiting for your answer`                                                                                 |
+| 4   | a permission prompt waits for a person                                           | attention       | no   | `Waiting for your permission`                                                                             |
+| 5   | the chief ruled and has open expert-conflict decisions                           | attention       | no   | `The chief architect has N questions for you`                                                             |
+| 6   | other decisions pending                                                          | attention       | no   | `N decision(s) are waiting for you`                                                                       |
 | 7   | the PR is merged                                                                 | pass            | no   | `PR #N is merged`                                                                                         |
 | 8   | everything is green                                                              | pass            | no   | `PR #N is ready for your merge`                                                                           |
-| 9   | the PR was closed                                                                | attention       | no   | `PR #N was closed`                                                                                        |
+| 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
 | 10  | CI failed                                                                        | fail            | no   | `CI failed on PR #N`                                                                                      |
 | 11  | the push failed                                                                  | fail            | no   | `The push failed`                                                                                         |
 | 12  | the verdict is fail                                                              | fail            | no   | the failure phrase of the first failing required gate, plus ` and N more`                                 |
-| 13  | the verdict is inconclusive                                                      | attention       | no   | `Inconclusive: <first reason>`                                                                            |
+| 13  | the verdict is inconclusive                                                      | caution         | no   | `Inconclusive: <first reason>`                                                                            |
 | 14  | CI is running on the change's PR                                                 | accent          | yes  | `Watching CI on PR #N`                                                                                    |
 | 15  | a stage is running                                                               | accent          | yes  | the stage's running words (`Planning the change`, `N of M plan steps built`, `Reviewing the change`, ...) |
 | 16  | the verdict is pass and the commit was declined                                  | pass            | no   | `Done: the edit is in your working tree`                                                                  |
@@ -216,8 +224,8 @@ says `Getting ready`.
 | ------------------------------------------- | ------------------------ | --------- | ------------------ |
 | done                                        | ink                      | ink       |                    |
 | running                                     | pink, glow, pulse, sheen | pink 650  | the stage word     |
-| running while a decision or rule stop waits | coral, no motion         | coral 650 | `<Stage> · paused` |
-| marked                                      | coral                    | ink       | why it is marked   |
+| running while something waits on you        | coral, no motion         | coral 650 | `<Stage> · paused` |
+| marked                                      | amber                    | ink       | why it is marked   |
 | failed                                      | red                      | red 650   | `<Stage> failed`   |
 | not required                                | dashed faint line        | muted     |                    |
 | not yet                                     | faint                    | muted     |                    |
@@ -233,13 +241,8 @@ When every drawn stage is done the value is `Delivered` once merged, else `All s
 | ready               | solid green disc, `onSignal` icon, a soft green glow                                                            |
 
 High Table seats: done ink disc; writing pink 22% disc with a 1.4 px pink ring, pulsing; seated a
-faint 1.2 px ring; late a coral ring. Chief: waiting a dashed faint ring; ruling a pink dashed ring
+faint 1.2 px ring; late an amber ring. Chief: waiting a dashed faint ring; ruling a pink dashed ring
 spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
-
-### Getting ready
-
-Before a change opens the card draws faint stages, no High Table, faint delivery nodes for the
-delivery plan and no values.
 
 ## Responsive
 

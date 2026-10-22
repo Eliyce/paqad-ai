@@ -141,6 +141,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   });
   on('session.start', ($, e) => ({ cwd: e.cwd }));
   on('prompt.submit', ($, e) => ({ text: e.text }));
+  on('turn.start', ($, e) => ({ turnId: e.turnId }));
   on('turn.complete', () => ({ text: '' }));
   on('tool.call', ($, e) => {
     if (e.tool !== 'AskUserQuestion') return { result: 'ok' } as never;

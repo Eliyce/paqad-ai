@@ -93,22 +93,27 @@ describe('computeHudHeadline', () => {
 });
 
 describe('computeHudFlags', () => {
-  it('counts one rule finding and several near copies', () => {
-    const flags = computeHudFlags({
+  const flagsFor = (rules: { total: number; blocking: boolean }) =>
+    computeHudFlags({
       stages: [stage('development', 'missing')],
       gates: [],
       rulesRecorded: false,
       tableSkipped: false,
       isolationStatus: 'not-required',
       isolatedStages: 0,
-      findings: {
-        rules: { total: 1 },
-        near_copies: { total: 3 },
-      } as never,
+      findings: { rules, near_copies: { total: 3 } } as never,
     });
-    expect(flags.map((flag) => flag.text)).toEqual([
+
+  it('counts one blocking rule finding and several near copies', () => {
+    expect(flagsFor({ total: 1, blocking: true }).map((flag) => flag.text)).toEqual([
       '1 rule finding is open.',
       '3 near-copies of existing code are open.',
+    ]);
+  });
+
+  it('raises no rule flag for findings that block nothing', () => {
+    expect(flagsFor({ total: 18, blocking: false }).map((flag) => flag.id)).toEqual([
+      'near-copies',
     ]);
   });
 });

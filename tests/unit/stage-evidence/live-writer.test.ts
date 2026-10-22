@@ -11,7 +11,7 @@ import {
   recordLiveStageEdits,
   recordMarkedStage,
 } from '@/stage-evidence/live-writer.js';
-import { openStageEvidence, startStage } from '@/stage-evidence/index.js';
+import { foldRowsWithKey, openStageEvidence, startStage } from '@/stage-evidence/index.js';
 import { stageIndex } from '@/stage-evidence/stages.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
@@ -107,7 +107,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
     expect(typeof start[0]?.recorded_at).toBe('string');
   });
 
-  it('AC-2: a later stage boundary ends the earlier stage (ended_at) then starts the new one', () => {
+  it('AC-2: a later edit stage starts without ending the earlier edit stage', () => {
     const now = clock();
     seedPreCode(now);
     recordLiveStageEdit({
@@ -125,9 +125,8 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
       now,
     });
 
-    expect(kinds('stage_end', 'development')).toHaveLength(1);
+    expect(kinds('stage_end', 'development')).toHaveLength(0);
     expect(kinds('stage_start', 'checks')).toHaveLength(1);
-    expect(kinds('stage_end', 'development')[0]?.recorded_at).toBeTruthy();
     expect(stageIndex('development')).toBeLessThan(stageIndex('checks'));
   });
 
@@ -151,7 +150,7 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
     expect(kinds('stage_start', 'development')).toHaveLength(1);
   });
 
-  it('AC-4: an out-of-order edit records nothing and never throws', () => {
+  it('AC-4: an earlier edit stage after a later one is still recorded', () => {
     const now = clock();
     seedPreCode(now);
     recordLiveStageEdit({
@@ -168,8 +167,41 @@ describe('recordLiveStageEdit — deterministic per-stage writer', () => {
       targetPath: 'src/foo.ts',
       now,
     });
-    expect(stage).toBeNull();
-    expect(kinds('stage_start', 'development')).toHaveLength(0);
+    expect(stage).toBe('development');
+    expect(kinds('stage_start', 'development')).toHaveLength(1);
+  });
+
+  it('starting an edit stage ends an open pre-code stage', () => {
+    const now = clock();
+    recordMarkedStage(root, { sessionId: SES, stage: 'planning', phase: 'start', now });
+    recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'start', now });
+    recordLiveStageEdit({
+      projectRoot: root,
+      sessionId: SES,
+      toolName: 'Edit',
+      targetPath: 'src/foo.ts',
+      now,
+    });
+    expect(kinds('stage_end', 'specification')).toHaveLength(1);
+    expect(kinds('stage_start', 'development')).toHaveLength(1);
+  });
+
+  it('a stage ended by the turn-end backstop starts again on its next edit', () => {
+    const now = clock();
+    seedPreCode(now);
+    const edit = () =>
+      recordLiveStageEdit({
+        projectRoot: root,
+        sessionId: SES,
+        toolName: 'Edit',
+        targetPath: 'src/foo.ts',
+        now,
+      });
+    edit();
+    recordMarkedStage(root, { sessionId: SES, stage: 'development', phase: 'end', now });
+    edit();
+    edit();
+    expect(kinds('stage_start', 'development')).toHaveLength(2);
   });
 
   it('a non-stage-bearing edit (lockfile) records nothing', () => {
@@ -507,7 +539,7 @@ modules:
     expect(normal).toBe('development');
   });
 
-  it('AC-5: a fast-lane run records live development, checks and documentation_sync (no backfill needed)', () => {
+  it('AC-5: a fast-lane run records development and checks, and a docs edit counts as development', () => {
     openWithLaneAndPlanning('fast');
     const now = clock();
     recordLiveStageEdit({
@@ -532,10 +564,64 @@ modules:
       now,
     });
 
-    for (const stage of ['development', 'checks', 'documentation_sync']) {
+    for (const stage of ['development', 'checks']) {
       const starts = started(stage);
       expect(starts, stage).toHaveLength(1);
       expect(starts[0]?.evidence_source, stage).toBe('live-mark');
     }
+    expect(started('documentation_sync')).toHaveLength(0);
+  });
+});
+
+describe('recordLiveStageEdit — interleaved edit sequence', () => {
+  let root: string;
+  const SES = 'ses_interleaved';
+  const SEQUENCE = ['src/a.ts', 'SECURITY.md', 'src/manifest-build.ts', 'tests/a.test.ts'];
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-live-interleaved-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  function rows(): SessionLedgerRow[] {
+    const dir = currentFeature(root, SES);
+    return dir ? readFeatureStageUnit(root, dir) : [];
+  }
+  const started = (stage: string) =>
+    rows().filter((r) => r.kind === 'stage_start' && r.stage === stage);
+
+  function openAndPlan(lane: 'fast' | 'graduated', now: () => Date): void {
+    const { ordinal } = openStageEvidence(root, { sessionId: SES, adapter: 'claude-code', lane });
+    startStage(root, 'planning', { sessionId: SES, ordinal, adapter: 'claude-code', now });
+    if (lane !== 'fast') {
+      recordMarkedStage(root, { sessionId: SES, stage: 'specification', phase: 'start', now });
+    }
+  }
+
+  function edit(targetPath: string, now: () => Date): void {
+    recordLiveStageEdit({ projectRoot: root, sessionId: SES, toolName: 'Edit', targetPath, now });
+  }
+
+  it('fast lane: records development and checks, never documentation_sync', () => {
+    const now = clock();
+    openAndPlan('fast', now);
+    for (const path of SEQUENCE) edit(path, now);
+
+    expect(started('development')).toHaveLength(1);
+    expect(started('checks')).toHaveLength(1);
+    expect(started('documentation_sync')).toHaveLength(0);
+  });
+
+  it('graduated lane: records development, documentation_sync and checks with no ordering violation', () => {
+    const now = clock();
+    openAndPlan('graduated', now);
+    for (const path of SEQUENCE) edit(path, now);
+
+    expect(started('development')).toHaveLength(1);
+    expect(started('documentation_sync')).toHaveLength(1);
+    expect(started('checks')).toHaveLength(1);
+    const fold = foldRowsWithKey(rows(), { sessionId: SES, changeKey: 'c', promptOrdinal: 0 });
+    expect(fold.completeness.ordering_violations).toEqual([]);
   });
 });

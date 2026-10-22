@@ -51,8 +51,12 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
 
 - **Only your change, right now.** The band shows a change only while you are on the feature
   development route, on that change's branch, and this session has worked on it since the route
-  started. Otherwise it says `Getting ready`. An old change on another branch, or a question you
-  asked, never fills the band with someone else's story.
+  started. Until then it draws nothing. An old change on another branch, or a question you asked,
+  never fills the band with someone else's story.
+- **Needs you means you.** The band asks for you only while a question is on screen, a permission
+  prompt waits for you, or a decision is pending. A rule that stopped an edit is Claude's to fix,
+  so it never asks for you; it stays in the Ledger's Trust tab as history. Coral means waiting on
+  you; amber marks something that needs a look, such as a flag or a marked stage.
 - **It always binds.** The band draws even when another plugin already owns `/paqad`. Then the HUD
   command is `/paqad-hud`, and every hint names the command that works. If paqad cannot read this
   session's record, the band says so in coral instead of looking idle.
@@ -67,8 +71,8 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
   prompt with its own tokens and cost, and a running clock while it works.
 - **Out of the way when you want.** Minimise the band to one line, close it for this session or
   hide it in this project. `/paqad hide` hides it from the prompt, and `/paqad show` brings it
-  back. If a decision waits while it is out of the way, the line reads Needs you; the question is
-  still asked in chat.
+  back. If something waits on you while it is out of the way, the line reads Needs you; the
+  question is still asked in chat.
 - **The paqad Ledger.** It opens beside the chat on Trust, with Trust, High Table, Delivery,
   Record and Cost. On the terminal, pressing paqad, Proof or any instrument opens it. On Desktop,
   the Ledger button and the flags open it. It opens on its own once per change. `/paqad ships`

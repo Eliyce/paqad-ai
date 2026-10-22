@@ -5,6 +5,7 @@ import {
   readContractDecisions,
   type ContractDecisionOption,
 } from '@/decisions/authoring.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
 
 import type { SynthesisAutoResolved, SynthesisConflict } from './synthesis.js';
 import type { ExpertConflict, MergedExpertNotes } from './types.js';
@@ -47,6 +48,7 @@ export function mintExpertConflictDecisions(
   projectRoot: string,
   merged: MergedExpertNotes,
   synthesisConflicts: readonly SynthesisConflict[],
+  dirName: string | null = null,
 ): ConflictMintResult {
   const resolvedForks = collectResolvedForks(projectRoot);
   const recommendationByTarget = new Map(
@@ -72,6 +74,7 @@ export function mintExpertConflictDecisions(
       options,
       recommendation,
       origin: 'expert-conflict',
+      ...(dirName ? { change: featureChangeKey(dirName) } : {}),
     });
     minted.push({ id, target: conflict.target });
   }

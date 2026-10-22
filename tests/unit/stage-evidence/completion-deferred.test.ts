@@ -89,6 +89,13 @@ describe('hasOpenUnendedStage', () => {
       { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW },
     );
     expect(hasOpenUnendedStage(readFeatureStageUnit(root, dirName))).toBe(false);
+    startStage(root, 'development', {
+      sessionId: SESSION,
+      dirName,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+    expect(hasOpenUnendedStage(readFeatureStageUnit(root, dirName))).toBe(true);
   });
 });
 

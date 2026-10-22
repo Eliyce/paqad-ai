@@ -43,6 +43,15 @@ export function stages(
   });
 }
 
+const ALL_LANE_STAGES = [
+  'planning',
+  'specification',
+  'development',
+  'review',
+  'checks',
+  'documentation_sync',
+];
+
 const ALL_DONE = {
   planning: 'complete',
   specification: 'complete',
@@ -441,6 +450,7 @@ export const FAST_ORD_490 = snapshot({
   active: true,
   route: 'feature-development',
   lane: 'fast',
+  lane_stages: ['planning', 'development', 'checks'],
   lane_reason: 'a one-line copy fix',
   headline: { text: 'Build in progress. Next: Review.', tone: 'working' },
   change: change('ORD-490', 'The order email says recieved', 'fix/ORD-490-received'),
@@ -458,6 +468,7 @@ export const GRADUATED_ORD_482 = snapshot({
   active: true,
   route: 'feature-development',
   lane: 'graduated',
+  lane_stages: ALL_LANE_STAGES,
   lane_reason: 'a bug fix that touches contact matching',
   headline: { text: 'Needs you: 1 decision waiting.', tone: 'needs-you' },
   change: change(
@@ -482,6 +493,7 @@ export const FULL_ORD_501 = snapshot({
   active: true,
   route: 'feature-development',
   lane: 'full',
+  lane_stages: ALL_LANE_STAGES,
   lane_reason: 'a new export of customer data',
   headline: { text: 'Safe to merge. 1 flag open.', tone: 'warn' },
   change: change('ORD-501', 'Add CSV export to the orders page', 'feat/ORD-501-csv-export'),
@@ -555,7 +567,6 @@ export const STATE_FIXTURES = {
   Working: FAST_ORD_490,
   'Branch warning': BRANCH_WARNING,
   'Needs you': GRADUATED_ORD_482,
-  Stopped: STOPPED,
   Inconclusive: INCONCLUSIVE,
   'Safe to merge': SAFE_CLEAN,
   'Needs your attention': NEEDS_ATTENTION,
@@ -800,7 +811,6 @@ const DELIVERING_STAGES = stages(
 );
 
 export const SCENE_FIXTURES = {
-  'Getting ready': snapshot({ route: 'feature-development' }),
   'High Table writing': ord501At('writing'),
   Building: snapshot({
     ...FULL_ORD_501,

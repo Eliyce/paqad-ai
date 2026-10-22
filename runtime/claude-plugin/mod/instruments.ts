@@ -121,8 +121,13 @@ function specApproved(snapshot: PaqadHudSnapshot): boolean {
   return spec?.state === 'complete' || spec?.state === 'redone';
 }
 
+const CONFLICT_CATEGORY = 'spec.expert_conflict';
+
 export function needsAnswers(snapshot: PaqadHudSnapshot, table: PaqadHighTable): boolean {
-  return hasRuled(table) && snapshot.decisions.pending.length > 0;
+  return (
+    hasRuled(table) &&
+    snapshot.decisions.pending.some((decision) => decision.category === CONFLICT_CATEGORY)
+  );
 }
 
 export function tableStatus(snapshot: PaqadHudSnapshot, table: PaqadHighTable): string {

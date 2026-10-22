@@ -15,7 +15,7 @@
 | Language        | TypeScript (ES modules, `"type": "module"`)                    |
 | Node engine     | `>=22.0.0` to install; building needs 22.18+ (24.11+ on 24)    |
 | Package manager | pnpm (root + `graph-ui`)                                       |
-| Bundler         | tsup 9 (library/CLI), Vite (graph-ui SPA)                      |
+| Bundler         | tsup 9 (library/CLI, shared chunks, no source maps), Vite (graph-ui SPA) |
 | Test runner     | Vitest 5 (root and graph-ui)                                   |
 | Lint            | ESLint (flat config: `eslint.config.js`)                       |
 | Format          | Prettier                                                       |

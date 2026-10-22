@@ -32,10 +32,10 @@ export default defineConfig({
   },
   format: ['esm'],
   dts: true,
-  sourcemap: true,
+  sourcemap: false,
   clean: true,
   target: 'node22',
-  splitting: false,
+  splitting: true,
   shims: true,
   banner: {
     js: "import { createRequire as __paqadCreateRequire } from 'module'; const require = __paqadCreateRequire(import.meta.url);",

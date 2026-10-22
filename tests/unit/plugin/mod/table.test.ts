@@ -201,7 +201,7 @@ describe('the fixture table matches the one paqad writes', () => {
 describe('the HIGH TABLE instrument (FR-34, AC-31, AC-56, AC-57)', () => {
   it('AC-56: shows on ORD-482 and ORD-501, never on the fast lane, paused or with the experts off', () => {
     expect(tableRowOf(GRADUATED_ORD_482)).toBe(
-      'HIGH TABLE  needs answers / ● ● ● ● │ ◆ / PO AA UF QA   CA',
+      'HIGH TABLE  spec approved / ● ● ● ● │ ◆ / PO AA UF QA   CA',
     );
     expect(tableRowOf(FULL_ORD_501)).toBe(
       'HIGH TABLE  spec approved / ● ● ● ● ● ● ● │ ◆ / PO AA UF QA SA DE PA   CA',
@@ -586,7 +586,7 @@ describe('the High Table as it moves (AC-60, AC-61)', () => {
     expect(ORD_482_SEQUENCE.map(tableRowOf)).toEqual([
       'HIGH TABLE  0 of 4 notes / ◉ ◉ ◉ ◉ │ ◇ / PO AA UF QA   CA',
       'HIGH TABLE  2 of 4 notes / ● ◉ ● ◉ │ ◇ / PO AA UF QA   CA',
-      'HIGH TABLE  needs answers / ● ● ● ● │ ◆ / PO AA UF QA   CA',
+      'HIGH TABLE  spec approved / ● ● ● ● │ ◆ / PO AA UF QA   CA',
     ]);
   });
 });

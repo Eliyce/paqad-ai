@@ -267,6 +267,29 @@ describe('PreClassifier · prompt router', () => {
     }
   });
 
+  it('does not read hyphenated words, "style" or a leading "yes" as a code change', async () => {
+    mockNoModules();
+    const expected: Array<[string, string]> = [
+      [
+        'Yes, rewrite the plugin issue with the full checklist, following the implement-ready issue style.',
+        'project-question',
+      ],
+      [
+        'rewrite the plugin issue with the full checklist, following the ready issue style.',
+        'project-question',
+      ],
+      ['Yes, update the issue', 'project-question'],
+      ['Ok, post the build-time numbers to the PR', 'project-question'],
+      ['implement the implement-ready checklist parser', 'feature-development'],
+      ['Yes, add a logout button', 'feature-development'],
+      ['fix the login bug and open an issue', 'bug-fix'],
+    ];
+    for (const [request, workflow] of expected) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow, `"${request}" → ${workflow}`).toBe(workflow);
+    }
+  });
+
   it('matches code keywords on whole words, not substrings (AC-8)', async () => {
     mockNoModules();
     const notCode = [

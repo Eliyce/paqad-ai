@@ -197,14 +197,15 @@ describe('the strip marks', () => {
     expect(source).toMatch(/<text class="lbl acc cur"[^>]*>Spec<\/text>/);
   });
 
-  it('draws paused coral without motion, marked coral with an ink label, failed red', () => {
+  it('draws paused coral without motion, marked amber with an ink label, failed red', () => {
     const source = draw({
       stages: stages('skip', 'done', 'paused', 'marked', 'fail', 'todo', 'todo', 'todo'),
     });
     expect(source).toMatch(/<text class="lbl att cur"[^>]*>Spec<\/text>/);
     expect(source).toMatch(/<text class="lbl ink"[^>]*>Build<\/text>/);
     expect(source).toMatch(/<text class="lbl fail cur"[^>]*>Review<\/text>/);
-    expect(source.match(/<rect class="att"/g)).toHaveLength(2);
+    expect(source.match(/<rect class="att"/g)).toHaveLength(1);
+    expect(source.match(/<rect class="cau"/g)).toHaveLength(1);
     expect(source).toMatch(/<rect class="fail"/);
     expect(source).not.toContain('<animate');
     expect(source).not.toMatch(/class="[^"]*pulse/);
@@ -219,13 +220,13 @@ describe('the strip marks', () => {
     expect(source).toMatch(/<text class="lbl mut"[^>]*>Intake<\/text>/);
   });
 
-  it('draws the High Table seats, a late seat in coral and the chief by its state', () => {
+  it('draws the High Table seats, a late seat in amber and the chief by its state', () => {
     const writing = draw({
       seats: seats('done', 'writing', 'late', 'seated', 'done', 'done', 'done'),
       chief: 'ruling',
     });
     expect(writing).toMatch(/<circle class="acc pulse" [^>]*r="4" fill-opacity=".22"/);
-    expect(writing).toMatch(/<circle class="atts" [^>]*r="4" fill="none"/);
+    expect(writing).toMatch(/<circle class="caus" [^>]*r="4" fill="none"/);
     expect(writing).toMatch(/<circle class="faints" [^>]*r="3.6"/);
     expect(writing).toMatch(/<circle class="accs spin" [^>]*r="5"/);
     for (const initials of [...INITIALS, 'CA']) expect(writing).toContain(`>${initials}</text>`);
@@ -297,7 +298,7 @@ describe('the Ledger drawings', () => {
       [
         { required: true, verdict: 'pass' },
         { required: true, verdict: 'fail' },
-        { required: true, verdict: 'attention' },
+        { required: true, verdict: 'caution' },
         { required: true, verdict: 'wait' },
         { required: false, verdict: 'pass' },
       ],
@@ -306,7 +307,7 @@ describe('the Ledger drawings', () => {
     );
     expect(source).toContain('viewBox="0 0 92 92" width="92" height="92"');
     expect(source.match(/<path /g)).toHaveLength(5);
-    for (const tone of ['passs', 'fails', 'atts', 'faints']) {
+    for (const tone of ['passs', 'fails', 'caus', 'faints']) {
       expect(source).toContain(`<path class="${tone}" stroke-width="5"`);
     }
     expect(source).toContain('<path class="faints" stroke-width="2" stroke-dasharray="1.5 2.5"');
@@ -328,7 +329,7 @@ describe('the Ledger drawings', () => {
     );
     expect(source).toContain('viewBox="0 0 150 150" width="150" height="150"');
     expect(source).toMatch(/<path class="accs pulse"/);
-    expect(source).toMatch(/<path class="atts"/);
+    expect(source).toMatch(/<path class="caus"/);
     expect(source).toMatch(/<path class="faints"[^>]*style="stroke-opacity:.3"/);
     expect(source.match(/<circle class="ink" [^>]*r="6.5"/g)).toHaveLength(2);
     expect(source).toContain('>9</text>');

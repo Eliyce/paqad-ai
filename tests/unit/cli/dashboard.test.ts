@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createDashboardCommand } from '@/cli/commands/dashboard';
+import { createDashboardCommand, resolveStaticDir } from '@/cli/commands/dashboard';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 
 describe('createDashboardCommand', () => {
   let root: string;
@@ -42,5 +43,16 @@ describe('createDashboardCommand', () => {
       from: 'user',
     });
     expect(process.exitCode).toBe(2);
+  });
+});
+
+describe('resolveStaticDir', () => {
+  it('finds runtime/graph-ui through the package root when no folder is given', () => {
+    expect(resolveStaticDir(undefined)).toBe(join(getRuntimeRoot(), 'graph-ui'));
+  });
+
+  it('keeps an absolute folder and resolves a relative one from the working directory', () => {
+    expect(resolveStaticDir('/srv/ui')).toBe('/srv/ui');
+    expect(resolveStaticDir('ui')).toBe(join(process.cwd(), 'ui'));
   });
 });

@@ -100,17 +100,24 @@ describe('a stage inverted against itself', () => {
   });
 
   it('still reports a cross-stage violation as the ordered pair it is', () => {
+    const rows = healthyRows().filter((r) => r.stage !== 'development');
+    rows.push(...stagePair('development', '2026-01-01T10:03:30.000Z', '2026-01-01T10:06:00.000Z'));
+
+    const folded = fold(rows);
+
+    expect(folded.completeness.ordering_violations).toContainEqual({
+      before: 'specification',
+      after: 'development',
+    });
+  });
+
+  it('never orders the edit stages against each other', () => {
     const rows = healthyRows().filter((r) => r.stage !== 'documentation_sync');
     rows.push(
       ...stagePair('documentation_sync', '2026-01-01T10:09:30.000Z', '2026-01-01T10:12:00.000Z'),
     );
 
-    const folded = fold(rows);
-
-    expect(folded.completeness.ordering_violations).toContainEqual({
-      before: 'checks',
-      after: 'documentation_sync',
-    });
+    expect(fold(rows).completeness.ordering_violations).toEqual([]);
   });
 });
 

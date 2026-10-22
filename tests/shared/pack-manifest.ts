@@ -1,6 +1,6 @@
 export interface PackManifest {
   id?: string;
-  files: Array<{ path: string }>;
+  files: Array<{ path: string; size?: number }>;
 }
 
 export function parsePackManifest(stdout: string): PackManifest {

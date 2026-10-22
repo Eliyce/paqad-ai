@@ -157,16 +157,7 @@ describe('bundle manifest', () => {
       (entry) => entry.key,
     );
     expect(alwaysKeys).toEqual(
-      expect.arrayContaining([
-        'feature',
-        'plan',
-        'specification',
-        'review',
-        'stageEvidence',
-        'delivery',
-        'evidence',
-        'specMd',
-      ]),
+      expect.arrayContaining(['feature', 'plan', 'stageEvidence', 'delivery', 'evidence']),
     );
     for (const entry of BUNDLE_MANIFEST) {
       if (entry.required === 'always') {
@@ -341,7 +332,20 @@ describe('lane-aware spec-pipeline requiredness', () => {
     expect(pipelineFilesFor(fast)).toEqual([]);
     expect(specPipelineApplies(fast)).toBe(false);
     expect(specPipelineStrictApplies(fast)).toBe(false);
-    expect(requiredBundleFiles(fast).length).toBe(requiredBundleFiles(ALL_ON).length - 3);
+    expect(requiredBundleFiles(fast).length).toBe(requiredBundleFiles(ALL_ON).length - 6);
+  });
+
+  it('asks for the spec and review files on every lane but the fast lane', () => {
+    const LANE_FILES = ['review', 'specMd', 'specification'];
+    const laneFilesFor = (config: BundleCompletenessConfig): string[] =>
+      requiredBundleFiles(config)
+        .map((entry) => entry.key)
+        .filter((key) => LANE_FILES.includes(key))
+        .sort();
+    for (const lane of ['graduated', 'full', null] as const) {
+      expect(laneFilesFor({ ...ALL_OFF, lane })).toEqual(LANE_FILES);
+    }
+    expect(laneFilesFor({ ...ALL_OFF, lane: 'fast' })).toEqual([]);
   });
 
   it('does not ask a spec frozen before the pipeline was on for its files', () => {

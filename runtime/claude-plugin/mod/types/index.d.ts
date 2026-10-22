@@ -1,3 +1,11 @@
+export type LiveState = {
+  turnId: string | null;
+  turnStartedAt: number | null;
+  editing: { toolUseId: string | null; file: string | null } | null;
+  waitingOn: 'question' | 'permission' | null;
+  waitingToolUseId: string | null;
+};
+
 export type PaqadTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';
 
 export type PaqadHudStage = {
@@ -205,6 +213,7 @@ export type PaqadHudSnapshot = {
   active: boolean;
   route: string | null;
   lane: string | null;
+  lane_stages?: string[];
   lane_reason: string | null;
   headline: { text: string; tone: PaqadTone };
   change: {
@@ -291,6 +300,7 @@ declare module 'claude-code' {
       tick: number;
       closing: boolean;
       tableSides: boolean;
+      live: LiveState;
     };
   }
 }

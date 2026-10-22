@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { preCodeStagesRecorded } from '@/stage-evidence/live-writer.js';
-import { PRE_CODE_STAGES, requiredPreCodeStages } from '@/stage-evidence/stages.js';
+import {
+  isLaneStage,
+  laneStages,
+  MANDATORY_STAGES,
+  PRE_CODE_STAGES,
+  requiredPreCodeStages,
+} from '@/stage-evidence/stages.js';
 import { type StageLane } from '@/stage-evidence/types.js';
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
@@ -51,5 +57,31 @@ describe('gate/writer agreement via the shared helper', () => {
     for (const lane of LANES) {
       expect(preCodeStagesRecorded(rows, lane)).toBe(true);
     }
+  });
+});
+
+describe('laneStages — the one engine answer to which stages a lane requires', () => {
+  it('the fast lane is planning, development and checks', () => {
+    expect(laneStages('fast')).toEqual(['planning', 'development', 'checks']);
+  });
+
+  it('graduated, full and an unknown lane require every mandatory stage', () => {
+    for (const lane of ['graduated', 'full', null] as const) {
+      expect(laneStages(lane)).toEqual([...MANDATORY_STAGES]);
+    }
+  });
+
+  it('requiredPreCodeStages is laneStages intersected with the pre-code stages on every lane', () => {
+    for (const lane of ['fast', 'graduated', 'full', null] as const) {
+      expect(requiredPreCodeStages(lane)).toEqual(
+        laneStages(lane).filter((stage) => PRE_CODE_STAGES.includes(stage)),
+      );
+    }
+  });
+
+  it('isLaneStage answers membership', () => {
+    expect(isLaneStage('fast', 'checks')).toBe(true);
+    expect(isLaneStage('fast', 'review')).toBe(false);
+    expect(isLaneStage(null, 'review')).toBe(true);
   });
 });

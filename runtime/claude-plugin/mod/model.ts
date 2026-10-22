@@ -1,4 +1,6 @@
+import { verdictFromEarlierTurn, waitingOnHuman } from './attention';
 import { costPill, formatClock } from './cost';
+import { IDLE_LIVE, type LiveState } from './live';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
   PaqadChief,
@@ -587,6 +589,9 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     active: snap.active === true && scope.qualified,
     route: str(snap.route),
     lane: str(snap.lane),
+    ...(Array.isArray(snap.lane_stages)
+      ? { lane_stages: list(snap.lane_stages).filter((s): s is string => typeof s === 'string') }
+      : {}),
     lane_reason: str(snap.lane_reason),
     headline: { text: str(headline?.text) ?? '', tone },
     change: change
@@ -728,7 +733,6 @@ export const BAND_STATES = [
   'Working',
   'Branch warning',
   'Needs you',
-  'Stopped',
   'Inconclusive',
   'Safe to merge',
   'Needs your attention',
@@ -742,7 +746,6 @@ const STATE_TONE: Record<BandState, PaqadTone> = {
   Working: 'working',
   'Branch warning': 'warn',
   'Needs you': 'needs-you',
-  Stopped: 'bad',
   Inconclusive: 'warn',
   'Safe to merge': 'good',
   'Needs your attention': 'bad',
@@ -753,10 +756,12 @@ function isBranchFlag(flag: { id: string }): boolean {
   return flag.id.startsWith('branch');
 }
 
-export function bandState(snapshot: PaqadHudSnapshot | null): BandState {
+export function bandState(
+  snapshot: PaqadHudSnapshot | null,
+  live: LiveState = IDLE_LIVE,
+): BandState {
   if (!snapshot) return 'Ready';
-  if (snapshot.decisions.pending.length > 0) return 'Needs you';
-  if (snapshot.last_block && snapshot.last_block.used !== true) return 'Stopped';
+  if (waitingOnHuman(snapshot, live)) return 'Needs you';
   if (!snapshot.active) {
     if (snapshot.paused.length > 0) return 'Paused';
     if (snapshot.route && snapshot.route !== 'no-workflow') return 'Working';
@@ -764,7 +769,9 @@ export function bandState(snapshot: PaqadHudSnapshot | null): BandState {
   }
   if (snapshot.flags.some(isBranchFlag)) return 'Branch warning';
   if (snapshot.stages.some((stage) => stage.state === 'running')) return 'Working';
-  if (snapshot.verdict) return VERDICT_WORDS[snapshot.verdict.kind];
+  if (snapshot.verdict && !verdictFromEarlierTurn(snapshot, live)) {
+    return VERDICT_WORDS[snapshot.verdict.kind];
+  }
   return 'Working';
 }
 
@@ -803,6 +810,21 @@ function checksBacked(snapshot: PaqadHudSnapshot): boolean {
   return snapshot.gates.some((gate) => gate.name === 'code-tests-lint' && gate.verdict === 'pass');
 }
 
+const MANDATORY_STAGE_IDS = [
+  'planning',
+  'specification',
+  'development',
+  'review',
+  'checks',
+  'documentation_sync',
+];
+
+function outsideLane(stage: string, snapshot: PaqadHudSnapshot): boolean {
+  if (!MANDATORY_STAGE_IDS.includes(stage)) return false;
+  if (snapshot.lane_stages) return !snapshot.lane_stages.includes(stage);
+  return stage === 'specification' && snapshot.lane === 'fast';
+}
+
 function segmentState(stage: PaqadHudStage | undefined, snapshot: PaqadHudSnapshot): SegmentState {
   if (!stage) return NOT_YET;
   switch (stage.state) {
@@ -821,7 +843,7 @@ function segmentState(stage: PaqadHudStage | undefined, snapshot: PaqadHudSnapsh
     case 'not-applicable':
       return 'not required';
     default:
-      if (stage.stage === 'specification' && snapshot.lane === 'fast') return 'not required';
+      if (outsideLane(stage.stage, snapshot)) return 'not required';
       return NOT_YET;
   }
 }
@@ -869,8 +891,12 @@ export function flagPill(flags: number): string | null {
 
 export { costPill };
 
-export function buildBandView(snapshot: PaqadHudSnapshot | null, now: number): BandView {
-  const state = bandState(snapshot);
+export function buildBandView(
+  snapshot: PaqadHudSnapshot | null,
+  now: number,
+  live: LiveState = IDLE_LIVE,
+): BandView {
+  const state = bandState(snapshot, live);
   const flags = snapshot?.flags.length ?? 0;
   const stages = stageSegments(snapshot);
   return {

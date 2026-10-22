@@ -82,6 +82,9 @@ describe('package publishing readiness', () => {
         },
       });
       const files = parsePackManifest(pack.stdout).files;
+      const unpacked = files.reduce((sum, file) => sum + (file.size ?? 0), 0);
+      expect(files.filter((file) => file.path.endsWith('.map'))).toEqual([]);
+      expect(unpacked).toBeLessThan(12 * 1024 * 1024);
 
       expect(version.stdout.trim()).toBe(VERSION);
       expect(help.stdout).toContain('install');

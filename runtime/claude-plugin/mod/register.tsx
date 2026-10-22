@@ -71,6 +71,20 @@ import {
   snapshotPath,
   type RuleStop,
 } from './model';
+import {
+  IDLE_LIVE,
+  answeredRuleStopText,
+  liveToolCall,
+  permissionAsked,
+  promptSubmitted,
+  questionClosed,
+  questionShown,
+  toolEnded,
+  toolStarted,
+  turnEnded,
+  turnStarted,
+  type LiveState,
+} from './live';
 import { runPaqad } from './paqad-cli';
 import {
   AUTO_OPENED_KEY,
@@ -126,6 +140,7 @@ const closedAtom = atom({ plugin: 'paqad', key: 'bandClosed' } as const, false a
 const unavailableAtom = atom({ plugin: 'paqad', key: 'unavailable' } as const, false as boolean);
 const unboundAtom = atom({ plugin: 'paqad', key: 'unbound' } as const, false as boolean);
 const tickAtom = atom({ plugin: 'paqad', key: 'tick' } as const, 0);
+const liveAtom = atom({ plugin: 'paqad', key: 'live' } as const, IDLE_LIVE as LiveState);
 const closingAtom = atom({ plugin: 'paqad', key: 'closing' } as const, false as boolean);
 const sidesAtom = atom({ plugin: 'paqad', key: 'tableSides' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
@@ -175,7 +190,6 @@ let lastText: string | null | undefined;
 let verdictSeen: string | null | undefined;
 let chimeOn = false;
 let heartbeat: Timer | null = null;
-let turnStartedAt: number | null = null;
 let tickTimer: Timer | null = null;
 let desktopSession = false;
 let taskListRefused = false;
@@ -183,6 +197,16 @@ const rawCalls = new Set<string>();
 
 const TICK_MS = 400;
 const FEATURE_EVIDENCE_DIR = '.paqad/ledger/feature-evidence';
+
+async function liveState($: EngineInterface): Promise<LiveState> {
+  return (await read($, liveAtom)) ?? IDLE_LIVE;
+}
+
+async function moveLive($: EngineInterface, step: (state: LiveState) => LiveState): Promise<void> {
+  try {
+    await update($, liveAtom, (state) => step(state ?? IDLE_LIVE));
+  } catch {}
+}
 
 async function readText($: EngineInterface, path: string): Promise<string | null> {
   try {
@@ -229,7 +253,7 @@ async function refresh($: EngineInterface): Promise<void> {
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed) await landAllGreen($, snapshot);
       if (changed) await autoOpenLedger($, snapshot);
-      if (changed || isLive(snapshot) || turnStartedAt !== null) {
+      if (changed || isLive(snapshot) || (await liveState($)).turnStartedAt !== null) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
       }
@@ -283,7 +307,7 @@ function startTicker($: EngineInterface): void {
   if (ticker || !live) return;
   ticker = $.clock.every(AGENT_TICK_MS, () => {
     void (async () => {
-      let running = agentCalls > 0 || turnStartedAt !== null;
+      let running = agentCalls > 0 || (await liveState($)).turnStartedAt !== null;
       try {
         running ||= (await $.agent.list()).some(isStageAgent);
       } catch {}
@@ -444,6 +468,19 @@ async function hasPendingDecision($: EngineInterface, root: string): Promise<boo
   }
 }
 
+async function markRuleStopAnswered(
+  $: EngineInterface,
+  root: string,
+  sessionId: string,
+): Promise<void> {
+  const path = lastBlockPath(root, sessionId);
+  const text = answeredRuleStopText(await readText($, path));
+  if (text === null) return;
+  try {
+    await $.fs.write(path, text);
+  } catch {}
+}
+
 async function answerRuleStop(
   $: EngineInterface,
   toolUseId: string | undefined,
@@ -463,8 +500,18 @@ async function answerRuleStop(
   }
   if (!stop.sole || (await hasPendingDecision($, at.root))) return verdict;
   if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return verdict;
-  if ((await chooseRuleStop($, stop)) !== RULE_STOP_ALLOW) return verdict;
+  await moveLive($, questionShown);
+  let choice: string | null = null;
+  try {
+    choice = await chooseRuleStop($, stop);
+  } finally {
+    await moveLive($, questionClosed);
+    if (choice !== RULE_STOP_ALLOW) await markRuleStopAnswered($, at.root, at.sessionId);
+  }
+  if (choice !== RULE_STOP_ALLOW) return verdict;
+  await moveLive($, questionShown);
   const reason = await askReason($);
+  await moveLive($, questionClosed);
   const ran = await runPaqad(
     $,
     'rules override',
@@ -545,7 +592,8 @@ async function desktopBandOf(
     unbound: (await read($, unboundAtom)) === true,
     unavailable: (await read($, unavailableAtom)) === true,
     now: (await read($, nowAtom)) ?? 0,
-    turnStartedAt,
+    turnStartedAt: (await liveState($)).turnStartedAt,
+    live: await liveState($),
     visibility: readBandVisibility(
       { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
       await read($, closedAtom),
@@ -568,6 +616,7 @@ async function drawsLive($: EngineInterface): Promise<boolean> {
       tab: await read($, paneTabAtom),
       now: (await read($, nowAtom)) ?? 0,
       specText: null,
+      live: await liveState($),
     }),
   );
 }
@@ -859,7 +908,7 @@ async function answerCommand($: EngineInterface, args: string): Promise<{ text: 
 export const register: Register = (on) => {
   on('session.start', async ($, e, next) => {
     live = null;
-    turnStartedAt = null;
+    await moveLive($, turnEnded);
     lastText = undefined;
     verdictSeen = undefined;
     chimeOn = false;
@@ -893,7 +942,8 @@ export const register: Register = (on) => {
   on('prompt.submit', async ($, e, next) => {
     taskListRefused = false;
     if (live) {
-      turnStartedAt = await $.clock.now();
+      const now = await $.clock.now();
+      await moveLive($, (state) => promptSubmitted(state, now));
       startTicker($);
       await syncTick($);
     }
@@ -924,12 +974,15 @@ export const register: Register = (on) => {
       agentCalls += 1;
       startTicker($);
     }
+    const call = liveToolCall(e as never);
+    await moveLive($, (state) => toolStarted(state, call));
     try {
       const result = await next(e);
       if (isRefreshTool(tool, input)) await refresh($);
       return result;
     } finally {
       if (isAgent) agentCalls = Math.max(0, agentCalls - 1);
+      await moveLive($, (state) => toolEnded(state, call));
     }
   }).catch(($, e, next) => next(e));
 
@@ -945,8 +998,27 @@ export const register: Register = (on) => {
     }).catch(() => ({ decision: 'deny' as const }));
   }
 
+  on('turn.start', async ($, e, next) => {
+    if (live && !e.agentId) {
+      const now = await $.clock.now();
+      await moveLive($, (state) => turnStarted(state, e.turnId, now));
+    }
+    return next(e);
+  }).catch(($, e, next) => next(e));
+
+  on('tool.check', async ($, e, next) => {
+    const verdict = await next(e);
+    if (live) {
+      const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
+      await moveLive($, (state) =>
+        permissionAsked(state, { decision: verdict.decision, approver: e.approver, toolUseId }),
+      );
+    }
+    return verdict;
+  }).catch(($, e, next) => next(e));
+
   on('turn.complete', async ($, e, next) => {
-    if (!e.agentId) turnStartedAt = null;
+    if (!e.agentId) await moveLive($, turnEnded);
     const result = await next(e);
     if (live) {
       await refresh($);
@@ -979,8 +1051,9 @@ export const register: Register = (on) => {
       {
         now: await read($, nowAtom),
         surface: e.surface === 'desktop' ? 'desktop' : 'terminal',
-        turnStartedAt,
+        turnStartedAt: (await liveState($)).turnStartedAt,
         unavailable: (await read($, unavailableAtom)) === true,
+        live: await liveState($),
       },
       readBandVisibility(
         { minimised: await read($, minimisedAtom), hidden: await read($, hiddenAtom) },
@@ -1017,6 +1090,7 @@ export const register: Register = (on) => {
         tab,
         now: (await read($, nowAtom)) ?? 0,
         specText: tab === 'table' ? await specTextOf($, snapshot) : null,
+        live: await liveState($),
       });
       return drawDesktopLedger(
         $.ui.resolve(e) as Elements['desktop'],

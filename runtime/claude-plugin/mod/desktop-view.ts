@@ -12,7 +12,7 @@ import { needsAnswers, roleInitials, tableStatus } from './instruments';
 import { stageSegments, type SegmentState } from './model';
 import type { Signal } from './palette';
 import { shipRail, type ShipStepState } from './ship';
-import { FEATURE_ROUTE, statusEntryRoute, workflowCost, workflowWords } from './status-entry';
+import { statusEntryRoute, workflowCost, workflowWords } from './status-entry';
 import type {
   ChiefState,
   GateMark,
@@ -24,7 +24,9 @@ import type {
   TableSeat,
 } from './strip';
 import { hasRuled, showsTable, trackRecordWords } from './table';
-import { IDLE_WORDS, needsYou, visibilityMode, type BandVisibility } from './visibility';
+import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
+import { verdictFromEarlierTurn, waitingOnHuman } from './attention';
+import { IDLE_LIVE, type LiveState } from './live';
 import type {
   PaqadCiJob,
   PaqadCost,
@@ -43,6 +45,8 @@ export const UNREADABLE_WHY = {
   snapshot: 'The snapshot file is not valid.',
 } as const;
 export const GETTING_READY = IDLE_WORDS;
+export const WAITING_FOR_ANSWER = 'Waiting for your answer';
+export const WAITING_FOR_PERMISSION = 'Waiting for your permission';
 export const FEATURE_WORDS = 'Feature development';
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
@@ -99,10 +103,21 @@ const FULL_STAGES: ReadonlyArray<readonly [string, string]> = [
   ['delivery', 'Deliver'],
 ];
 
-const FAST_STAGES = new Set(['planning', 'development', 'checks']);
+const OLD_ENGINE_FAST_STAGES = new Set(['planning', 'development', 'checks']);
 
-export function laneStages(lane: string | null): ReadonlyArray<readonly [string, string]> {
-  return lane === 'fast' ? FULL_STAGES.filter(([stage]) => FAST_STAGES.has(stage)) : FULL_STAGES;
+const BOOKEND_STAGES = new Set(['ticket_intake', 'delivery']);
+
+export function laneStages(
+  snapshot: Pick<PaqadHudSnapshot, 'lane' | 'lane_stages'>,
+): ReadonlyArray<readonly [string, string]> {
+  const fast = snapshot.lane === 'fast';
+  const required = snapshot.lane_stages;
+  if (!required) {
+    return fast ? FULL_STAGES.filter(([stage]) => OLD_ENGINE_FAST_STAGES.has(stage)) : FULL_STAGES;
+  }
+  return FULL_STAGES.filter(
+    ([stage]) => required.includes(stage) || (!fast && BOOKEND_STAGES.has(stage)),
+  );
 }
 
 export function stageWord(stage: string): string {
@@ -125,10 +140,6 @@ function prName(snapshot: PaqadHudSnapshot): string {
 function clockSince(startedAt: string | null | undefined, now: number): string | null {
   const started = startedAt ? Date.parse(startedAt) : Number.NaN;
   return Number.isFinite(started) ? formatStopwatch(now - started) : null;
-}
-
-function ruleStopped(snapshot: PaqadHudSnapshot): boolean {
-  return snapshot.last_block !== null && snapshot.last_block.used !== true;
 }
 
 function gateOrder(snapshot: PaqadHudSnapshot): (name: string) => number {
@@ -202,7 +213,7 @@ function headline(
 
 function settledHeadline(snapshot: PaqadHudSnapshot): DesktopHeadline {
   const segments = stageSegments(snapshot);
-  const lane = new Set(laneStages(snapshot.lane).map(([stage]) => stage));
+  const lane = new Set(laneStages(snapshot).map(([stage]) => stage));
   const drawn = segments.filter((segment) => lane.has(segment.stage));
   const done = [...drawn].reverse().find((segment) => segment.state === 'done');
   const next = drawn.find(
@@ -217,52 +228,48 @@ function settledHeadline(snapshot: PaqadHudSnapshot): DesktopHeadline {
   return headline(20, 'idle', 'Every stage is recorded. Waiting for the verdict.');
 }
 
-export function desktopHeadline(snapshot: PaqadHudSnapshot, now: number): DesktopHeadline {
-  if (!snapshot.active) return headline(3, 'idle', GETTING_READY);
+export function desktopHeadline(
+  snapshot: PaqadHudSnapshot,
+  now: number,
+  live: LiveState = IDLE_LIVE,
+): DesktopHeadline {
+  if (live.waitingOn === 'question') return headline(3, 'attention', WAITING_FOR_ANSWER);
+  if (live.waitingOn === 'permission') return headline(4, 'attention', WAITING_FOR_PERMISSION);
   const pending = snapshot.decisions.pending;
   const table = snapshot.table;
   const conflicts = pending.filter((decision) => decision.category === CONFLICT_CATEGORY).length;
   if (pending.length > 0 && table && hasRuled(table) && conflicts > 0) {
     return headline(
-      4,
+      5,
       'attention',
       `The chief architect has ${plural(conflicts, 'question', 'questions')} for you`,
     );
   }
   if (pending.length > 0) {
     return headline(
-      5,
+      6,
       'attention',
       pending.length === 1
         ? '1 decision is waiting for you'
         : `${pending.length} decisions are waiting for you`,
     );
   }
-  if (ruleStopped(snapshot)) {
-    const block = snapshot.last_block!;
-    const what = block.title ?? block.rule;
-    return headline(
-      6,
-      'attention',
-      what ? `A rule stopped an edit: ${what}` : 'A rule stopped an edit',
-    );
-  }
-  const rail = shipRail(snapshot);
+  const rail = shipRail(snapshot, live);
   const step = (label: string) => rail.steps.find((entry) => entry.label === label)?.state;
   if (snapshot.ship?.merged) return headline(7, 'pass', `${prName(snapshot)} is merged`);
   if (allGreenNow(snapshot)) {
     return headline(8, 'pass', `${prName(snapshot)} is ready for your merge`);
   }
   if (snapshot.ship?.pr_state === 'closed') {
-    return headline(9, 'attention', `${prName(snapshot)} was closed`);
+    return headline(9, 'caution', `${prName(snapshot)} was closed`);
   }
   if (step('CI') === 'failed') return headline(10, 'fail', `CI failed on ${prName(snapshot)}`);
   if (snapshot.ship?.push === 'failed') return headline(11, 'fail', 'The push failed');
-  const verdict = snapshot.verdict;
+  const verdict = verdictFromEarlierTurn(snapshot, live) ? null : snapshot.verdict;
   if (verdict?.kind === 'fail') return headline(12, 'fail', failureHeadline(snapshot));
   if (verdict?.kind === 'inconclusive') {
     const reason = verdict.reasons[0];
-    return headline(13, 'attention', reason ? `Inconclusive: ${reason}` : 'Inconclusive');
+    return headline(13, 'caution', reason ? `Inconclusive: ${reason}` : 'Inconclusive');
   }
   if (step('CI') === 'current') {
     const delivery = snapshot.stages.find((stage) => stage.stage === 'delivery');
@@ -325,8 +332,8 @@ export function flagWords(flags: number): string {
   return plural(flags, 'flag', 'flags');
 }
 
-function paused(snapshot: PaqadHudSnapshot): boolean {
-  return snapshot.decisions.pending.length > 0 || ruleStopped(snapshot);
+function paused(snapshot: PaqadHudSnapshot, live: LiveState): boolean {
+  return waitingOnHuman(snapshot, live);
 }
 
 const STAGE_STATE: Readonly<Record<SegmentState, StageState>> = {
@@ -353,10 +360,10 @@ export interface StageStrip {
   word: string | null;
 }
 
-export function stageStrip(snapshot: PaqadHudSnapshot): StageStrip {
+export function stageStrip(snapshot: PaqadHudSnapshot, live: LiveState = IDLE_LIVE): StageStrip {
   const segments = stageSegments(snapshot);
-  const hold = paused(snapshot);
-  const stages = laneStages(snapshot.lane).map(([stage, label]) => {
+  const hold = paused(snapshot, live);
+  const stages = laneStages(snapshot).map(([stage, label]) => {
     const state = segments.find((segment) => segment.stage === stage)?.state ?? 'not yet';
     const mark: StageState = state === 'running' && hold ? 'paused' : STAGE_STATE[state];
     return { stage, label, state: mark };
@@ -447,9 +454,9 @@ export interface DeliveryStrip {
   value: string;
 }
 
-function deliveryValue(snapshot: PaqadHudSnapshot): string {
+function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
   if (!snapshot.active) return '';
-  const rail = shipRail(snapshot);
+  const rail = shipRail(snapshot, live);
   const plan = snapshot.delivery_plan;
   const ship = snapshot.ship;
   const state = (label: string) => rail.steps.find((step) => step.label === label)?.state;
@@ -472,8 +479,11 @@ function deliveryValue(snapshot: PaqadHudSnapshot): string {
   return '';
 }
 
-export function deliveryStrip(snapshot: PaqadHudSnapshot): DeliveryStrip {
-  const rail = shipRail(snapshot);
+export function deliveryStrip(
+  snapshot: PaqadHudSnapshot,
+  live: LiveState = IDLE_LIVE,
+): DeliveryStrip {
+  const rail = shipRail(snapshot, live);
   const steps = deliverySteps(snapshot).map((label) => ({
     label,
     state: SHIP_STATE[rail.steps.find((step) => step.label === label)?.state ?? 'todo'],
@@ -482,14 +492,18 @@ export function deliveryStrip(snapshot: PaqadHudSnapshot): DeliveryStrip {
   return {
     steps,
     ci: ciRunning && rail.ci ? rail.ci.done / rail.ci.total : null,
-    value: deliveryValue(snapshot),
+    value: deliveryValue(snapshot, live),
   };
 }
 
-export function stripOf(snapshot: PaqadHudSnapshot, columns: number): StripInput {
-  const stage = stageStrip(snapshot);
+export function stripOf(
+  snapshot: PaqadHudSnapshot,
+  columns: number,
+  live: LiveState = IDLE_LIVE,
+): StripInput {
+  const stage = stageStrip(snapshot, live);
   const table = tableStrip(snapshot);
-  const delivery = deliveryStrip(snapshot);
+  const delivery = deliveryStrip(snapshot, live);
   return {
     columns,
     stages: stage.stages,
@@ -567,6 +581,7 @@ export interface DesktopBandInput {
   unavailable: boolean;
   now: number;
   turnStartedAt: number | null;
+  live?: LiveState;
   visibility: BandVisibility;
   menuOpen: boolean;
   columns: number;
@@ -606,11 +621,14 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   if (!snapshot) return { kind: 'ready' };
   const route = statusEntryRoute(snapshot);
   if (route) return workflowBand(snapshot, route, input.now, input.turnStartedAt);
-  if (!snapshot.active && snapshot.route !== FEATURE_ROUTE) return { kind: 'none' };
+  if (!snapshot.active) return { kind: 'none' };
+  const live = input.live ?? IDLE_LIVE;
   const mode = visibilityMode(input.visibility);
-  if (mode === 'closed' || mode === 'hidden') return { kind: mode, needsYou: needsYou(snapshot) };
-  const head = desktopHeadline(snapshot, input.now);
-  const strip = stripOf(snapshot, input.columns);
+  if (mode === 'closed' || mode === 'hidden') {
+    return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
+  }
+  const head = desktopHeadline(snapshot, input.now, live);
+  const strip = stripOf(snapshot, input.columns, live);
   const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',
@@ -620,7 +638,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     headline: head,
     strip,
     alt: stripAltText(head.text, strip),
-    minimised: minimisedView(snapshot, head, stageStrip(snapshot)),
+    minimised: minimisedView(snapshot, head, stageStrip(snapshot, live)),
   };
 }
 
@@ -629,7 +647,7 @@ export function bandIsLive(band: DesktopBand): boolean {
   return band.kind === 'feature' && band.headline.live;
 }
 
-export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'dim';
+export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'cau' | 'dim';
 
 export interface LightView {
   signal: Signal;
@@ -718,16 +736,16 @@ const HOW_JUDGED: Readonly<Record<string, string>> = {
 const VERDICT_WORDS_DESKTOP: Readonly<Record<string, { word: string; tone: WordTone }>> = {
   pass: { word: 'Pass', tone: 'pass' },
   fail: { word: 'Fail', tone: 'fail' },
-  inconclusive: { word: 'Inconclusive', tone: 'att' },
-  'did-not-run': { word: 'Did not run', tone: 'att' },
+  inconclusive: { word: 'Inconclusive', tone: 'cau' },
+  'did-not-run': { word: 'Did not run', tone: 'cau' },
   'not-required': { word: 'Not required', tone: 'dim' },
 };
 
 const ARC_TONE: Readonly<Record<string, GateMark['verdict']>> = {
   pass: 'pass',
   fail: 'fail',
-  inconclusive: 'attention',
-  'did-not-run': 'attention',
+  inconclusive: 'caution',
+  'did-not-run': 'caution',
 };
 
 export function trustGates(snapshot: PaqadHudSnapshot): TrustGate[] {
@@ -785,6 +803,7 @@ export function trustLight(
   snapshot: PaqadHudSnapshot | null,
   unreadable: Unreadable | null,
   now: number,
+  live: LiveState = IDLE_LIVE,
 ): LightView {
   if (unreadable)
     return { signal: 'attention', title: UNREADABLE, why: UNREADABLE_WHY[unreadable] };
@@ -795,11 +814,23 @@ export function trustLight(
       why: 'The change opens when planning starts. Nothing is judged before that.',
     };
   }
-  const head = desktopHeadline(snapshot, now);
+  const head = desktopHeadline(snapshot, now, live);
   const pending = snapshot.decisions.pending.length;
   const pr = prName(snapshot);
   switch (head.row) {
-    case 4: {
+    case 3:
+      return {
+        signal: 'attention',
+        title: WAITING_FOR_ANSWER,
+        why: 'Claude asked you a question. Work goes on once you answer it.',
+      };
+    case 4:
+      return {
+        signal: 'attention',
+        title: WAITING_FOR_PERMISSION,
+        why: 'Claude is waiting for you to allow or refuse a tool call.',
+      };
+    case 5: {
       const questions = snapshot.decisions.pending.filter(
         (decision) => decision.category === CONFLICT_CATEGORY,
       ).length;
@@ -809,27 +840,19 @@ export function trustLight(
         why: `The chief ruled "needs answers". The spec freezes once you answer the ${plural(questions, 'question', 'questions')}.`,
       };
     }
-    case 5:
+    case 6:
       return {
         signal: 'attention',
         title: 'Waiting for your answers',
         why: `${pending === 1 ? '1 decision needs' : `${pending} decisions need`} your answer before work goes on.`,
       };
-    case 6: {
-      const block = snapshot.last_block!;
-      return {
-        signal: 'attention',
-        title: 'A rule stopped an edit',
-        why: block.title ?? block.rule ?? block.text,
-      };
-    }
     case 7:
       return { signal: 'pass', title: 'Merged', why: `${pr} is merged.` };
     case 8:
     case 17:
       return { signal: 'pass', title: 'Safe to merge', why: safeToMergeWhy(snapshot) };
     case 9:
-      return { signal: 'attention', title: 'PR closed', why: `${pr} was closed without a merge.` };
+      return { signal: 'caution', title: 'PR closed', why: `${pr} was closed without a merge.` };
     case 10:
       return {
         signal: 'fail',
@@ -846,7 +869,7 @@ export function trustLight(
       };
     case 13:
       return {
-        signal: 'attention',
+        signal: 'caution',
         title: 'Inconclusive',
         why: snapshot.verdict?.reasons.join('; ') || null,
       };
@@ -906,7 +929,7 @@ export function claimsView(snapshot: PaqadHudSnapshot): ClaimsView {
       label: claim.label,
       sub: claim.test_id ?? 'No proving test recorded',
       word: proven ? 'Proven' : 'Not proven',
-      tone: proven ? 'pass' : fix ? 'att' : 'dim',
+      tone: proven ? 'pass' : fix ? 'cau' : 'dim',
     };
   });
   if (rows.length === 0) {
@@ -939,14 +962,34 @@ export interface TrustView {
   flags: FlagRow[];
 }
 
-export function trustView(snapshot: PaqadHudSnapshot, now: number): TrustView {
-  const gates = trustGates(snapshot);
+export function ruleStopHistory(snapshot: PaqadHudSnapshot): FlagRow | null {
+  const block = snapshot.last_block;
+  if (!block) return null;
+  const stopped = block.file ? `A rule stopped an edit to ${block.file}` : 'A rule stopped an edit';
   return {
-    light: trustLight(snapshot, null, now),
+    id: 'rule-stop',
+    text: block.used === true ? `${stopped}. It was answered.` : `${stopped}.`,
+  };
+}
+
+export function trustView(
+  snapshot: PaqadHudSnapshot,
+  now: number,
+  live: LiveState = IDLE_LIVE,
+): TrustView {
+  const gates = trustGates(snapshot);
+  const history = snapshot.active ? ruleStopHistory(snapshot) : null;
+  return {
+    light: trustLight(snapshot, null, now, live),
     ring: gateRingView(gates),
     gates,
     claims: claimsView(snapshot),
-    flags: snapshot.active ? snapshot.flags.map((flag) => ({ id: flag.id, text: flag.text })) : [],
+    flags: snapshot.active
+      ? [
+          ...snapshot.flags.map((flag) => ({ id: flag.id, text: flag.text })),
+          ...(history ? [history] : []),
+        ]
+      : [],
   };
 }
 
@@ -1263,9 +1306,12 @@ export interface DeliveryView {
   empty: string | null;
 }
 
-export function deliveryView(snapshot: PaqadHudSnapshot): DeliveryView {
+export function deliveryView(
+  snapshot: PaqadHudSnapshot,
+  live: LiveState = IDLE_LIVE,
+): DeliveryView {
   if (!snapshot.active) return { blocks: [], empty: 'Nothing to deliver yet.' };
-  const strip = deliveryStrip(snapshot);
+  const strip = deliveryStrip(snapshot, live);
   const ship = snapshot.ship;
   return {
     empty: null,
@@ -1508,6 +1554,7 @@ export interface DesktopLedgerInput {
   tab: PaqadPaneTab | null;
   now: number;
   specText: string | null;
+  live?: LiveState;
 }
 
 export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
@@ -1523,9 +1570,9 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
     subtitle: ledgerSubtitle(snapshot),
     tabs,
     shown: tabs.find((tab) => tab.shown)!.id,
-    trust: trustView(snapshot, input.now),
+    trust: trustView(snapshot, input.now, input.live),
     table: tableView(snapshot, input.specText),
-    delivery: deliveryView(snapshot),
+    delivery: deliveryView(snapshot, input.live),
     record: recordView(snapshot),
     cost: costView(snapshot),
   };

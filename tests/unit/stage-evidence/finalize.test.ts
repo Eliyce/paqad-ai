@@ -121,6 +121,27 @@ describe('finalizeStageEvidence', () => {
     expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
   });
 
+  it('ends a live-mark stage that was started again after an earlier end', () => {
+    const sessionId = 'ses_reopened';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    const ctx = { sessionId, dirName, adapter: 'claude-code' };
+    startStage(root, 'development', ctx);
+    endStage(root, 'development', {}, ctx);
+    startStage(root, 'development', ctx);
+
+    finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+    const development = readFeatureStageUnit(root, dirName).filter(
+      (row) => row.stage === 'development',
+    );
+    expect(development.map((row) => row.kind)).toEqual([
+      'stage_start',
+      'stage_end',
+      'stage_start',
+      'stage_end',
+    ]);
+  });
+
   it('anchors a review the agent left open, but an artifact-less review is inconclusive', () => {
     const sessionId = 'ses_late_review';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });

@@ -6,7 +6,7 @@ import {
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
-import { stagesWithKind } from './live-writer.js';
+import { stageIsOpen, stagesWithKind } from './live-writer.js';
 import { COMPLETION_DEFERRED_KIND } from './types.js';
 
 const AGENT_TYPE_FIELDS = [
@@ -39,10 +39,8 @@ export function tasksCarryAgentType(tasks: readonly unknown[]): boolean {
 }
 
 export function hasOpenUnendedStage(rows: readonly SessionLedgerRow[]): boolean {
-  const started = stagesWithKind(rows, 'stage_start');
-  const ended = stagesWithKind(rows, 'stage_end');
-  for (const stage of started) {
-    if (!ended.has(stage)) {
+  for (const stage of stagesWithKind(rows, 'stage_start')) {
+    if (stageIsOpen(rows, stage)) {
       return true;
     }
   }

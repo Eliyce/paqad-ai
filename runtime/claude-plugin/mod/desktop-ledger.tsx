@@ -40,6 +40,7 @@ function toneColor(tone: WordTone): string | null {
   if (tone === 'fail') return STATUS_B.failed;
   if (tone === 'acc') return SIGNAL.accent;
   if (tone === 'att') return SIGNAL.attention;
+  if (tone === 'cau') return SIGNAL.caution;
   return null;
 }
 
@@ -221,10 +222,10 @@ function trustTab(ui: D, view: TrustView) {
           ui,
           `paqad-flag-${flag.id}`,
           <Text>
-            <Text color={SIGNAL.attention}>⚑ </Text>
+            <Text color={SIGNAL.caution}>⚑ </Text>
             {flag.text}
           </Text>,
-          word(ui, 'Open', 'att'),
+          word(ui, 'Open', 'cau'),
         ),
       )}
     </Box>

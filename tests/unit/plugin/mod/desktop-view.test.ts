@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   CARD_ROWS,
-  GETTING_READY,
   TASK_LIST_SENTENCES,
   UNREADABLE,
   bandIsLive,
@@ -19,8 +18,11 @@ import {
   stripOf,
   tableStrip,
   taskListSentence,
+  WAITING_FOR_ANSWER,
+  WAITING_FOR_PERMISSION,
   type DesktopBandInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   FAST_ORD_490,
@@ -141,27 +143,35 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ snapshot: parse(snapshot()) })).toEqual({ kind: 'none' });
   });
 
-  it('row 3: the feature route with no change reads Getting ready', () => {
+  it('the feature route draws nothing until a change opens', () => {
     const idle = parse(snapshot({ route: 'feature-development' }));
-    expect(desktopHeadline(idle, NOW)).toEqual({
-      row: 3,
-      signal: 'idle',
-      live: false,
-      text: GETTING_READY,
-      clock: null,
-    });
-    expect(band({ snapshot: idle })).toMatchObject({
-      kind: 'feature',
-      headline: { text: 'Getting ready' },
-    });
+    expect(band({ snapshot: idle })).toEqual({ kind: 'none' });
+    expect(band({ snapshot: { ...open(), active: false } })).toEqual({ kind: 'none' });
   });
 
-  it('rows 4 and 5: the chief questions, then any other decision', () => {
+  it('rows 3 and 4: a question or a permission waiting for you leads', () => {
+    const waiting = (waitingOn: 'question' | 'permission') =>
+      desktopHeadline(open({ decisions: { pending: [other], resolved: 0 } }), NOW, {
+        ...IDLE_LIVE,
+        turnId: 't',
+        waitingOn,
+      });
+    expect(waiting('question')).toEqual({
+      row: 3,
+      signal: 'attention',
+      live: false,
+      text: WAITING_FOR_ANSWER,
+      clock: null,
+    });
+    expect(waiting('permission')).toMatchObject({ row: 4, text: WAITING_FOR_PERMISSION });
+  });
+
+  it('rows 5 and 6: the chief questions, then any other decision', () => {
     const ruled = ord501Table('ruled');
     expect(
       head({ table: ruled, decisions: { pending: [conflict, conflict], resolved: 0 } }),
     ).toMatchObject({
-      row: 4,
+      row: 5,
       signal: 'attention',
       text: 'The chief architect has 2 questions for you',
     });
@@ -169,7 +179,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
       'The chief architect has 1 question for you',
     );
     expect(head({ table: ruled, decisions: { pending: [other], resolved: 0 } })).toMatchObject({
-      row: 5,
+      row: 6,
       text: '1 decision is waiting for you',
     });
     expect(
@@ -177,22 +187,30 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
         table: ord501Table('writing'),
         decisions: { pending: [conflict, other], resolved: 0 },
       }),
-    ).toMatchObject({ row: 5, text: '2 decisions are waiting for you' });
+    ).toMatchObject({ row: 6, text: '2 decisions are waiting for you' });
   });
 
-  it('row 6: an unused rule stop, named by its title or rule', () => {
-    expect(
-      head({ last_block: { text: 'x', title: 'No React.FC', rule: 'RL-693b' } }),
-    ).toMatchObject({
-      row: 6,
-      signal: 'attention',
-      text: 'A rule stopped an edit: No React.FC',
-    });
-    expect(head({ last_block: { text: 'x', rule: 'RL-693b' } }).text).toBe(
-      'A rule stopped an edit: RL-693b',
-    );
-    expect(head({ last_block: { text: 'x' } }).text).toBe('A rule stopped an edit');
+  it('a rule stop, used or not, never asks for you', () => {
+    expect(head({ last_block: { text: 'x', title: 'No React.FC', rule: 'RL-693b' } }).row).toBe(19);
     expect(head({ last_block: { text: 'x', used: true } }).row).toBe(19);
+    expect(
+      band({
+        snapshot: open({ last_block: { text: 'x' } }),
+        visibility: { ...SHOWN, closed: true },
+      }),
+    ).toEqual({ kind: 'closed', needsYou: false });
+  });
+
+  it('a verdict from before the current turn yields to the running stage', () => {
+    const written = '2026-10-18T08:50:00.000Z';
+    const judged = {
+      stages: stages({ development: 'running' }, { development: '2026-10-18T08:58:00.000Z' }),
+      verdict: { kind: 'fail', word: 'Needs your attention', reasons: [], written_at: written },
+    };
+    const turn = (turnStartedAt: number) => ({ ...IDLE_LIVE, turnId: 't', turnStartedAt });
+    expect(head(judged).row).toBe(12);
+    expect(desktopHeadline(open(judged), NOW, turn(Date.parse(written) + 1000)).row).toBe(15);
+    expect(desktopHeadline(open(judged), NOW, turn(Date.parse(written) - 1000)).row).toBe(12);
   });
 
   it('rows 7 to 11: merged, all green, closed, CI failed, push failed', () => {
@@ -206,7 +224,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     ).toMatchObject({ row: 8, signal: 'pass', text: `${PR} is ready for your merge` });
     expect(head({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toMatchObject({
       row: 9,
-      signal: 'attention',
+      signal: 'caution',
       text: `${PR} was closed`,
     });
     expect(head({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toMatchObject({
@@ -264,7 +282,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     });
     expect(head({ verdict: verdict(['mutation-testing: did not run', 'b']) })).toMatchObject({
       row: 13,
-      signal: 'attention',
+      signal: 'caution',
       text: 'Inconclusive: mutation-testing: did not run',
     });
     expect(head({ verdict: verdict([]) }).text).toBe('Inconclusive');
@@ -486,6 +504,12 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
     expect(
       stageStrip(open({ stages: stages({ development: 'running' }), last_block: { text: 'x' } }))
         .value,
+    ).toBe('Build');
+    expect(
+      stageStrip(open({ stages: stages({ development: 'running' }) }), {
+        ...IDLE_LIVE,
+        waitingOn: 'question',
+      }).value,
     ).toBe('Build · paused');
     expect(value({ stages: stages({ review: 'failed' }) })).toBe('Review failed');
     const unreliable = stages({ planning: 'complete' }).map((stage) =>

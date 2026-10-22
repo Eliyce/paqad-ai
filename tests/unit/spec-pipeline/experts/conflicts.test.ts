@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { featureChangeKey } from '@/feature-evidence/paths.js';
+
 import { readContractDecisions, resolvePendingDecision } from '@/decisions/authoring.js';
 import { mintExpertConflictDecisions } from '@/spec-pipeline/experts/conflicts.js';
 import type { SynthesisConflict } from '@/spec-pipeline/experts/synthesis.js';
@@ -62,6 +64,15 @@ describe('mintExpertConflictDecisions', () => {
     const recommended = packet.options.find((o) => o.option_key === packet.recommendation);
     expect(recommended?.label).toContain('generate in a background job');
     expect(packet.context).toMatch(/\[expert-conflict-fork:[0-9a-f]{16}\]/);
+    expect((packet as unknown as { change?: string }).change).toBeUndefined();
+  });
+
+  it('stamps the change id from the bundle dir, so the HUD shows the packet', () => {
+    const root = tempRoot();
+    const dirName = 'export-orders-01M5JAC57SYAJ69SV5MZN8A40K';
+    mintExpertConflictDecisions(root, merged, synthesisConflicts, dirName);
+    const packet = pending(root)[0]!.packet as unknown as { change?: string };
+    expect(packet.change).toBe(featureChangeKey(dirName));
   });
 
   it('reuses an identical resolved fork instead of minting again (FR-6.3)', () => {

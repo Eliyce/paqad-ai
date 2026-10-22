@@ -293,14 +293,15 @@ function resolveWorkflow(
     return 'project-question';
   }
 
+  const codeWords = codeWordText(requestText);
   const codeChange = highestMatch(CODE_CHANGE_PATTERNS, (pattern) =>
-    matchesWholeWord(normalized, pattern),
+    matchesWholeWord(codeWords, pattern),
   );
   if (codeChange) {
     return codeChange;
   }
 
-  if (hasTrackerVerb(normalized) && !namesCode(requestText, normalized)) {
+  if (hasTrackerVerb(normalized) && !namesCode(requestText)) {
     return 'project-question';
   }
 
@@ -419,7 +420,23 @@ export function hasCodeNegation(normalized: string): boolean {
 const CREATE_VERBS = ['create', 'file', 'open', 'write', 'draft'];
 const ARTIFACT_NOUNS = ['issue', 'ticket', 'bug report', 'write up'];
 
+const LEADING_CODE_VERBS = new Set([
+  'fix',
+  'fixes',
+  'implement',
+  'implements',
+  'build',
+  'builds',
+  'refactor',
+  'refactors',
+  'add',
+  'adds',
+]);
+
 export function isCreateArtifactAsk(normalized: string): boolean {
+  if (LEADING_CODE_VERBS.has(tokensOf(normalized)[0] ?? '')) {
+    return false;
+  }
   const hasCreateVerb = CREATE_VERBS.some((verb) => matchesWholeWord(normalized, verb));
   const hasArtifactNoun = ARTIFACT_NOUNS.some((noun) => normalized.includes(normalizeText(noun)));
   if (!hasCreateVerb || !hasArtifactNoun) {
@@ -508,6 +525,16 @@ const VERB_LEADS = new Set([
   'you',
   'i',
   'we',
+  'yes',
+  'yeah',
+  'yep',
+  'ok',
+  'okay',
+  'sure',
+  'great',
+  'perfect',
+  'alright',
+  'thanks',
 ]);
 
 const ADD_TO_RE = new RegExp(
@@ -551,7 +578,6 @@ const CODE_SURFACE_NOUNS = new Set([
   'mobile',
   'desktop',
   'css',
-  'style',
   'layout',
 ]);
 
@@ -567,11 +593,12 @@ function namesSourcePath(requestText: string): boolean {
   return SOURCE_PATH_RE.test(requestText);
 }
 
-function namesCode(requestText: string, normalized: string): boolean {
-  if (namesSourcePath(requestText) || STRONG_CODE_VERB_RE.test(normalized)) {
+function namesCode(requestText: string): boolean {
+  const codeWords = codeWordText(requestText);
+  if (namesSourcePath(requestText) || STRONG_CODE_VERB_RE.test(codeWords)) {
     return true;
   }
-  const withoutLabels = normalized.replace(LABEL_PAIR_RE, ' ').trim();
+  const withoutLabels = codeWords.replace(LABEL_PAIR_RE, ' ').trim();
   return withoutLabels.split(/\s+/).some((token) => CODE_SURFACE_NOUNS.has(token));
 }
 
@@ -604,14 +631,15 @@ function hasTrackerNoun(normalized: string): boolean {
 
 export function isAboutWorkPrompt(requestText: string): boolean {
   const normalized = normalizeText(requestText);
-  if (namesCode(requestText, normalized)) {
+  if (namesCode(requestText)) {
     return false;
   }
   const tokens = tokensOf(normalized);
   const trackerNoun = hasTrackerNoun(normalized);
   const target = tokens.some((token) => TRACKER_TARGETS.has(token));
+  const codeWords = codeWordText(requestText);
   const codeKeyword = CODE_CHANGE_PATTERNS.some((entry) =>
-    entry.patterns.some((pattern) => matchesWholeWord(normalized, pattern)),
+    entry.patterns.some((pattern) => matchesWholeWord(codeWords, pattern)),
   );
   if (codeKeyword && !trackerNoun && !target) {
     return false;
@@ -623,6 +651,10 @@ export function isAboutWorkPrompt(requestText: string): boolean {
   }
   const softNoun = tokens.some((token) => SOFT_WORK_NOUNS.has(token));
   return softNoun && (trackerVerb || (target && workVerb));
+}
+
+function codeWordText(requestText: string): string {
+  return normalizeText(requestText.toLowerCase().replace(/\b[a-z0-9]+(?:-[a-z0-9]+)+\b/g, ' '));
 }
 
 function normalizeText(value: string): string {

@@ -1,10 +1,10 @@
 import { existsSync } from 'node:fs';
-import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isAbsolute, join, resolve } from 'node:path';
 
 import { Command } from 'commander';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { getRuntimeRoot } from '@/core/runtime-paths.js';
 import { startDashboardServer } from '@/dashboard/server.js';
 import { isFrameworkDisabledForRoot } from '@/core/framework-enabled.js';
 import { openBrowser } from '@/graph/opener.js';
@@ -24,19 +24,11 @@ interface DashboardCommandOptions {
 
 const DEFAULT_PORT = 5372;
 
-function resolveStaticDir(override: string | undefined): string {
+export function resolveStaticDir(override: string | undefined): string {
   if (override) {
     return isAbsolute(override) ? override : resolve(process.cwd(), override);
   }
-  const here = dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    resolve(here, '../../runtime/graph-ui'),
-    resolve(here, '../../../runtime/graph-ui'),
-  ];
-  for (const c of candidates) {
-    if (existsSync(join(c, 'index.html'))) return c;
-  }
-  return candidates[0]!;
+  return join(getRuntimeRoot(), 'graph-ui');
 }
 
 export function createDashboardCommand(): Command {

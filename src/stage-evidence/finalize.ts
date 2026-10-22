@@ -8,6 +8,7 @@ import {
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { agentForWriter } from './agent-identity.js';
+import { startedAfterLastEnd } from './fold.js';
 import { endStage, openStageEvidence } from './recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { verifyChange, type VerifyResult } from './verify.js';
@@ -112,14 +113,12 @@ function endDanglingLiveStages(
   input: FinalizeStageEvidenceInput,
 ): void {
   const started = new Set<string>();
-  const ended = new Set<string>();
   for (const row of rows) {
     if (typeof row.stage !== 'string') continue;
     if (row.kind === 'stage_start' && row.evidence_source === 'live-mark') started.add(row.stage);
-    if (row.kind === 'stage_end') ended.add(row.stage);
   }
   for (const stage of started) {
-    if (ended.has(stage)) continue;
+    if (!startedAfterLastEnd(rows.filter((row) => row.stage === stage))) continue;
     try {
       endStage(
         projectRoot,

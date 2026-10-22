@@ -81,7 +81,7 @@ describe('a change the completeness gate fails stays open', () => {
     'keeps the change active for the redo loop instead of closing it',
     async () => {
       const result = await run('M1', {
-        beforeVerification: (root, dir) => rmSync(join(root, featureDir(dir), 'review.json')),
+        beforeVerification: (root, dir) => rmSync(join(root, featureDir(dir), 'plan.json')),
       });
       const gate = readFeatureEvidence(result.root, result.dir).find(
         (row) => row.code === 'bundle-completeness',
