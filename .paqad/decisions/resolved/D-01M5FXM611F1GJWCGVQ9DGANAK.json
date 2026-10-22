@@ -1,0 +1,53 @@
+{
+  "id": "D-01M5FXM611F1GJWCGVQ9DGANAK",
+  "category": "intake.requirement",
+  "title": "Must someone confirm Voyage search still works with a real key before this is merged, or is a check right after release enough?",
+  "context": "Chief architect gap (EX-integration-architect-8, EX-security-auditor-11): the Voyage call is rewritten by hand with fetch, and only a real-key run proves Voyage still accepts the request; automated tests only prove the request we send. The issue lists it as a manual acceptance check without saying whether it blocks merge; the plan assumes before merge.",
+  "options": [
+    {
+      "option_key": "confirm-with-a-real-key-before-merge",
+      "label": "confirm with a real key before merge",
+      "one_line_preview": "confirm with a real key before merge",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "confirm-right-after-release-before-announcing-it",
+      "label": "confirm right after release, before announcing it",
+      "one_line_preview": "confirm right after release, before announcing it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Remove the Voyage embedding provider entirely",
+      "one_line_preview": "Remove the Voyage embedding provider entirely",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "confirm-with-a-real-key-before-merge",
+  "created_at": "2026-10-21T19:04:50.977Z",
+  "status": "resolved",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "other",
+  "rationale": "",
+  "resolved_at": "2026-10-21T19:08:53.345Z",
+  "decision_id": "D-01M5FXM611F1GJWCGVQ9DGANAK",
+  "fingerprint": "sha256:b03ed8524279c7cf98d9db06e0ebbef379bbec491cedb33e80d0e9b92c66a07c",
+  "question": "Must someone confirm Voyage search still works with a real key before this is merged, or is a check right after release enough?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-04T19:04:50.977Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:08:53.345Z",
+    "responded_by": "human",
+    "carry_over_scope": "task"
+  }
+}

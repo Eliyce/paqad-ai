@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5FTW9XFAEGCRG6KY23C7YSZ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on VoyageEmbeddingProvider in src/rag/providers.ts",
+  "context": "Chief architect: The three claims do not really conflict and all three should hold. The key-handling rule is the load-bearing one. The timeout is also carried by the accepted EX-integration-architect-3. The test shape in the third claim is right except for input_type: today's code sends only {input, model}, and EX-integration-architect-4 shows adding input_type changes the vectors, so the request must not send it.\n\nTarget: VoyageEmbeddingProvider in src/rag/providers.ts\n- security-auditor: VOYAGE_API_KEY is sent only in the Authorization header to the fixed host https://api.voyageai.com, never in the URL, the request body, a progress message or a log line, and the endpoint host is not read from project config\n- security-auditor: the Voyage fetch call needs an AbortSignal timeout, because global fetch has no default timeout and the voyageai SDK it replaces did; without it a stalled connection hangs Build the index\n- qa-engineer: Given VOYAGE_API_KEY is set and global fetch is stubbed, when embed(['a','b']) runs, then exactly one POST goes to https://api.voyageai.com/v1/embeddings with header Authorization: Bearer <key>, body {input, model} (input_type only when set), and the returned vectors equal data[].embedding in input order. Proof: unit (vi.stubGlobal fetch).\n\n[expert-conflict-fork:0f5cb59b9a7b3e79]",
+  "options": [
+    {
+      "option_key": "voyage-api-key-is-sent-only-in-the-autho",
+      "label": "VOYAGE_API_KEY is sent only in the Authorization header to the fixed host https://api.voyageai.com, never in the URL, the request body, a progress message or a log line, and the endpoint host is not read from project config — security-auditor",
+      "one_line_preview": "VOYAGE_API_KEY is sent only in the Authorization header to the fixed host https://api.voyageai.com, never in the URL, the request body, a progress message or a log line, and the endpoint host is not read from project config — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-voyage-fetch-call-needs-an-abortsign",
+      "label": "the Voyage fetch call needs an AbortSignal timeout, because global fetch has no default timeout and the voyageai SDK it replaces did; without it a stalled connection hangs Build the index — security-auditor",
+      "one_line_preview": "the Voyage fetch call needs an AbortSignal timeout, because global fetch has no default timeout and the voyageai SDK it replaces did; without it a stalled connection hangs Build the index — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-voyage-api-key-is-set-and-global-f",
+      "label": "Given VOYAGE_API_KEY is set and global fetch is stubbed, when embed(['a','b']) runs, then exactly one POST goes to https://api.voyageai.com/v1/embeddings with header Authorization: Bearer <key>, body {input, model} (input_type only when set), and the returned vectors equal data[].embedding in input order. Proof: unit (vi.stubGlobal fetch). — qa-engineer",
+      "one_line_preview": "Given VOYAGE_API_KEY is set and global fetch is stubbed, when embed(['a','b']) runs, then exactly one POST goes to https://api.voyageai.com/v1/embeddings with header Authorization: Bearer <key>, body {input, model} (input_type only when set), and the returned vectors equal data[].embedding in input order. Proof: unit (vi.stubGlobal fetch). — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "voyage-api-key-is-sent-only-in-the-autho",
+  "created_at": "2026-10-21T18:16:51.375Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "voyage-api-key-is-sent-only-in-the-autho",
+  "rationale": "Owner picked the recommendation; all three claims hold (key only in header, AbortSignal timeout, stubbed-fetch unit test). input_type is not sent.",
+  "resolved_at": "2026-10-21T19:01:32.169Z",
+  "decision_id": "D-01M5FTW9XFAEGCRG6KY23C7YSZ",
+  "fingerprint": "sha256:2d67171a0f2158bedaa6b5f8bbbbaf8936729992b8c870eb95c1ed3fabd3b549",
+  "question": "Experts disagree on VoyageEmbeddingProvider in src/rag/providers.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T18:16:51.375Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "voyage-api-key-is-sent-only-in-the-autho",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:01:32.169Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the recommendation; all three claims hold (key only in header, AbortSignal timeout, stubbed-fetch unit test). input_type is not sent."
+  }
+}

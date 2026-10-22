@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5FXKX8VHDCYXTWCVD52AFGE",
+  "category": "intake.requirement",
+  "title": "People who use paqad through the Claude plugin already have the old local search engine installed. Should this release replace it for them?",
+  "context": "Chief architect gap (EX-application-architect-4): the plugin's background engine install reports already-present when any version of @huggingface/transformers is found, and its install marker stores no version. So plugin users who installed v3 keep v3 and its runtime security alerts (sharp, adm-zip, sprintf-js) after this release, even though the npm package moves to v4. Not answered by the issue or the resolved expert packets. Replacing it means a small change in src/core/optional-package.ts (remember the installed range and reinstall when it differs); leaving it keeps this change to dependency bumps.",
+  "options": [
+    {
+      "option_key": "replace-it-automatically-the-next-time-they-use-paqad",
+      "label": "replace it automatically the next time they use paqad",
+      "one_line_preview": "replace it automatically the next time they use paqad",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "leave-it-and-tell-them-in-the-release-note-how-to-refresh-it",
+      "label": "leave it, and tell them in the release note how to refresh it",
+      "one_line_preview": "leave it, and tell them in the release note how to refresh it",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "leave-it-for-now-and-track-the-fix-as-follow-up-work",
+      "label": "leave it for now and track the fix as follow-up work",
+      "one_line_preview": "leave it for now and track the fix as follow-up work",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "replace-it-automatically-the-next-time-they-use-paqad",
+  "created_at": "2026-10-21T19:04:42.011Z",
+  "status": "resolved",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "replace-it-automatically-the-next-time-they-use-paqad",
+  "rationale": "Owner picked auto-replace: remember the installed range, reinstall when it differs.",
+  "resolved_at": "2026-10-21T19:08:52.455Z",
+  "decision_id": "D-01M5FXKX8VHDCYXTWCVD52AFGE",
+  "fingerprint": "sha256:1e9ae9d824306af047412247b89d81914f39d45a9b2a543bcd8f29fcfa2ae9ff",
+  "question": "People who use paqad through the Claude plugin already have the old local search engine installed. Should this release replace it for them?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-04T19:04:42.011Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "replace-it-automatically-the-next-time-they-use-paqad",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:08:52.455Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked auto-replace: remember the installed range, reinstall when it differs."
+  }
+}

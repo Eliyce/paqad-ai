@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5FTW9XHYWB2Y5RFPGQZ62WJ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on Embedding Providers (local / openai / voyageai)",
+  "context": "Chief architect: The owner already decided to keep the key lookup and the error messages, so this claim is settled. The docs update in the other claim is also needed and is already covered by the accepted EX-application-architect-6 and -7.\n\nTarget: Embedding Providers (local / openai / voyageai)\n- product-owner: a Developer who already set VOYAGE_API_KEY keeps the same provider name, the same key lookup and the same error messages after the voyageai package is dropped: no config change on their side\n- product-owner: the embedding-providers docs and any install hint that tells people to add the voyageai package must be updated in the same PR, otherwise the docs promise a step that no longer exists\n\n[expert-conflict-fork:60a3c20050b8b05d]",
+  "options": [
+    {
+      "option_key": "a-developer-who-already-set-voyage-api-k",
+      "label": "a Developer who already set VOYAGE_API_KEY keeps the same provider name, the same key lookup and the same error messages after the voyageai package is dropped: no config change on their side — product-owner",
+      "one_line_preview": "a Developer who already set VOYAGE_API_KEY keeps the same provider name, the same key lookup and the same error messages after the voyageai package is dropped: no config change on their side — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-embedding-providers-docs-and-any-ins",
+      "label": "the embedding-providers docs and any install hint that tells people to add the voyageai package must be updated in the same PR, otherwise the docs promise a step that no longer exists — product-owner",
+      "one_line_preview": "the embedding-providers docs and any install hint that tells people to add the voyageai package must be updated in the same PR, otherwise the docs promise a step that no longer exists — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "a-developer-who-already-set-voyage-api-k",
+  "created_at": "2026-10-21T18:16:51.377Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "a-developer-who-already-set-voyage-api-k",
+  "rationale": "Owner picked the recommendation; per the chief architect both claims hold and both are kept.",
+  "resolved_at": "2026-10-21T19:01:32.962Z",
+  "decision_id": "D-01M5FTW9XHYWB2Y5RFPGQZ62WJ",
+  "fingerprint": "sha256:a40bb7f9881207c74c9e34e63ac302d64c401878bfb79d72ae3b5856b11dbfcd",
+  "question": "Experts disagree on Embedding Providers (local / openai / voyageai)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T18:16:51.377Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "a-developer-who-already-set-voyage-api-k",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:01:32.962Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the recommendation; per the chief architect both claims hold and both are kept."
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5FTW9XHYWB2Y5RFPGQZ62WH",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on Dependabot security tab",
+  "context": "Chief architect: This is the issue's own definition of done. The braces caveat in the other claim is compatible: the owner already accepted braces as a tolerable risk, and the accepted EX-security-auditor-9 makes the reason text name where glob patterns come from.\n\nTarget: Dependabot security tab\n- product-owner: done from the owner's seat is the security tab reading 0 open alerts, each one closed by an upgrade or dismissed with the written reason from the issue\n- product-owner: dismissing the braces alert as tolerable risk is only honest while paqad never expands glob patterns that come from outside its own code and config; if that ever changes the dismissal must be revisited\n\n[expert-conflict-fork:6088931d3a7744a1]",
+  "options": [
+    {
+      "option_key": "done-from-the-owner-s-seat-is-the-securi",
+      "label": "done from the owner's seat is the security tab reading 0 open alerts, each one closed by an upgrade or dismissed with the written reason from the issue — product-owner",
+      "one_line_preview": "done from the owner's seat is the security tab reading 0 open alerts, each one closed by an upgrade or dismissed with the written reason from the issue — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "dismissing-the-braces-alert-as-tolerable",
+      "label": "dismissing the braces alert as tolerable risk is only honest while paqad never expands glob patterns that come from outside its own code and config; if that ever changes the dismissal must be revisited — product-owner",
+      "one_line_preview": "dismissing the braces alert as tolerable risk is only honest while paqad never expands glob patterns that come from outside its own code and config; if that ever changes the dismissal must be revisited — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "done-from-the-owner-s-seat-is-the-securi",
+  "created_at": "2026-10-21T18:16:51.377Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "done-from-the-owner-s-seat-is-the-securi",
+  "rationale": "Owner picked the recommendation; per the chief architect both claims hold and both are kept.",
+  "resolved_at": "2026-10-21T19:01:32.693Z",
+  "decision_id": "D-01M5FTW9XHYWB2Y5RFPGQZ62WH",
+  "fingerprint": "sha256:d5ecbe9221728ad55b7f82f20d2c766bd9b068ae9d495d29f2f3a5ce53fe3dad",
+  "question": "Experts disagree on Dependabot security tab",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T18:16:51.377Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "done-from-the-owner-s-seat-is-the-securi",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:01:32.693Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the recommendation; per the chief architect both claims hold and both are kept."
+  }
+}

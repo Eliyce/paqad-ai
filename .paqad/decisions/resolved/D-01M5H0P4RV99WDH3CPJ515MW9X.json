@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5H0P4RV99WDH3CPJ515MW9X",
+  "category": "spec.change",
+  "title": "Reclassify AC-22 (install plus lint with the override floors) as manual proof",
+  "context": "AC-22 says that with the override floors, pnpm install --frozen-lockfile and pnpm run lint both pass. It is marked (proof: automated), but no unit test proves it, so the ac-test-mapping completion gate fails on it. The proof is two commands. Both pass on the branch: install --frozen-lockfile exits 0 and lint exits 0. The CI static job also runs both on every PR. A unit test that runs pnpm install would be slow, need the network and not be hermetic. Separately, pnpm run lint is eslint only and nothing runs markdownlint-cli2, so the katex floor cannot break lint and that clause of AC-22 is moot. Choose how AC-22 is proven.",
+  "options": [
+    {
+      "option_key": "reclassify-manual",
+      "label": "Change AC-22 to (proof: manual), record the install and lint run as its proof, and drop the moot katex clause",
+      "one_line_preview": "Change AC-22 to (proof: manual), record the install and lint run as its proof, and drop the moot katex clause",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "structural-test",
+      "label": "Keep AC-22 automated and have development add a unit test naming AC-22 that checks the overrides are dev-only floors capped below the next major and that the CI static job runs install --frozen-lockfile and lint (a partial proof, like AC-10)",
+      "one_line_preview": "Keep AC-22 automated and have development add a unit test naming AC-22 that checks the overrides are dev-only floors capped below the next major and that the CI static job runs install --frozen-lockfile and lint (a partial proof, like AC-10)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "reclassify-manual",
+  "created_at": "2026-10-22T05:17:35.387Z",
+  "status": "resolved",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "structural-test",
+  "rationale": "Owner: keep AC-22 automated with a structural unit test; CI's static job runs the real install and lint.",
+  "resolved_at": "2026-10-22T06:05:20.960Z",
+  "decision_id": "D-01M5H0P4RV99WDH3CPJ515MW9X",
+  "fingerprint": "sha256:e29a352253a7734bcaf359cf37e3daf1fbbc17ad77b4927250147f7fa7b1b721",
+  "question": "Reclassify AC-22 (install plus lint with the override floors) as manual proof",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-21T05:17:35.387Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "structural-test",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-22T06:05:20.960Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: keep AC-22 automated with a structural unit test; CI's static job runs the real install and lint."
+  }
+}

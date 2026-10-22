@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5FTW9XJHTDNGWHBG9X2519T",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on this request",
+  "context": "Chief architect: Both non-goals are true and fit together. This one pins the wider scope shut, matching the issue and EX-application-architect-10. The no-journey-change claim is a narrower point that this list does not contradict.\n\nTarget: this request\n- product-owner: out of scope: moving the 32 fast-glob call sites to tinyglobby, any new embedding provider or model, any change to RAG scoring, and graph-ui dependencies (it has no alerts)\n- user-flow-writer: no new screens or multi-step journeys: the only user-visible paths are install, the Voyage provider and contributor CI, so no docs/site-map/journeys entry changes\n\n[expert-conflict-fork:bdadae5c5d233fbe]",
+  "options": [
+    {
+      "option_key": "out-of-scope-moving-the-32-fast-glob-cal",
+      "label": "out of scope: moving the 32 fast-glob call sites to tinyglobby, any new embedding provider or model, any change to RAG scoring, and graph-ui dependencies (it has no alerts) — product-owner",
+      "one_line_preview": "out of scope: moving the 32 fast-glob call sites to tinyglobby, any new embedding provider or model, any change to RAG scoring, and graph-ui dependencies (it has no alerts) — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-new-screens-or-multi-step-journeys-th",
+      "label": "no new screens or multi-step journeys: the only user-visible paths are install, the Voyage provider and contributor CI, so no docs/site-map/journeys entry changes — user-flow-writer",
+      "one_line_preview": "no new screens or multi-step journeys: the only user-visible paths are install, the Voyage provider and contributor CI, so no docs/site-map/journeys entry changes — user-flow-writer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "out-of-scope-moving-the-32-fast-glob-cal",
+  "created_at": "2026-10-21T18:16:51.378Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "out-of-scope-moving-the-32-fast-glob-cal",
+  "rationale": "Owner picked the recommendation; per the chief architect both claims hold and both are kept.",
+  "resolved_at": "2026-10-21T19:01:33.219Z",
+  "decision_id": "D-01M5FTW9XJHTDNGWHBG9X2519T",
+  "fingerprint": "sha256:7750275d71c349868a7e55a43d0b0ba1aa9ee56776e4661a1c6c1746c4aca9b1",
+  "question": "Experts disagree on this request",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T18:16:51.378Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "out-of-scope-moving-the-32-fast-glob-cal",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T19:01:33.219Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner picked the recommendation; per the chief architect both claims hold and both are kept."
+  }
+}

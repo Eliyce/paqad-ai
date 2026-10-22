@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5G0KMAD82APM9WVX937AKP6",
+  "category": "quality.ratchet_exception",
+  "title": "Branch coverage floor under vitest 5",
+  "context": "Moving root vitest and @vitest/coverage-v8 to 5.0.5 (FR-14) changes how branches are counted: coverage-v8 5 maps coverage through the source AST, so ?? / ?. / && / default values become branches. Full run, same code, same tests (all green except the changeset guard that the changeset commit fixes): vitest 3 = statements 97.76, branches 95.57, functions 98.92, lines 97.76; vitest 5 = statements 97.50, branches 93.43, functions 98.31, lines 97.87. The 100% src/stage-evidence/** floor still passes. Only the 95% global branches floor fails (93.43). The extra ~304 uncovered branches are spread over about 100 files (largest: cli/commands/module-decisions.ts 20, module-map.ts 16, onboard.ts 16, module-health/rollup.ts 14); only 68 sit under 'v8 ignore next N' hints, which coverage-v8 5 no longer reads as line counts. NFR-3 forbids lowering a floor silently, so the owner decides.",
+  "options": [
+    {
+      "option_key": "lower",
+      "label": "Lower only the global branches floor from 95 to 93 in vitest.config.ts, with the before/after numbers in the commit and changeset; every other floor stays",
+      "one_line_preview": "Lower only the global branches floor from 95 to 93 in vitest.config.ts, with the before/after numbers in the commit and changeset; every other floor stays",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "cover",
+      "label": "Keep 95 and add tests in this PR for about 400 more branches across about 100 files (large scope growth, many src files outside this change)",
+      "one_line_preview": "Keep 95 and add tests in this PR for about 400 more branches across about 100 files (large scope growth, many src files outside this change)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "followup",
+      "label": "Lower the branches floor to 93 now and open a follow-up issue to restore 95 under vitest 5",
+      "one_line_preview": "Lower the branches floor to 93 now and open a follow-up issue to restore 95 under vitest 5",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "followup",
+  "created_at": "2026-10-21T19:56:58.573Z",
+  "status": "resolved",
+  "change": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "chosen": "cover",
+  "rationale": "Owner: keep the 95% branches floor and add tests in this PR to cover the branches vitest 5 now counts.",
+  "resolved_at": "2026-10-21T20:09:23.268Z",
+  "decision_id": "D-01M5G0KMAD82APM9WVX937AKP6",
+  "fingerprint": "sha256:428b5cda4c5e31f012e8102a3912cf654170b4555e89110e1d79b019c1aa941c",
+  "question": "Branch coverage floor under vitest 5",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5FTB2H17C1WTKHNGVTZVZQJ",
+  "ttl_until": "2026-11-20T19:56:58.573Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "cover",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-21T20:09:23.268Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: keep the 95% branches floor and add tests in this PR to cover the branches vitest 5 now counts."
+  }
+}

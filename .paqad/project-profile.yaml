@@ -21,8 +21,8 @@ custom:
 testing:
   runner_id: vitest
   detected_by: script
-  recorded_at: 2026-10-19T12:25:31.366Z
-  lockfile_hash: sha256:ea3e41f74adb8bfa4979548644325d41b99aa701c54fe24cd37fa94a44e3a595
+  recorded_at: 2026-10-22T06:06:59.451Z
+  lockfile_hash: sha256:1f1cc152460b2362e1cf33d6f3e58e504f1ea5eecb3fcb6c3c71aac9ce55c4af
   parallel: native
 active_capabilities:
   - content
