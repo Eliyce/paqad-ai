@@ -224,7 +224,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     ).toMatchObject({ row: 8, signal: 'pass', text: `${PR} is ready for your merge` });
     expect(head({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toMatchObject({
       row: 9,
-      signal: 'attention',
+      signal: 'caution',
       text: `${PR} was closed`,
     });
     expect(head({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toMatchObject({
@@ -282,7 +282,7 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     });
     expect(head({ verdict: verdict(['mutation-testing: did not run', 'b']) })).toMatchObject({
       row: 13,
-      signal: 'attention',
+      signal: 'caution',
       text: 'Inconclusive: mutation-testing: did not run',
     });
     expect(head({ verdict: verdict([]) }).text).toBe('Inconclusive');

@@ -4,7 +4,7 @@ export type StageState = 'done' | 'run' | 'paused' | 'marked' | 'fail' | 'skip' 
 export type SeatState = 'done' | 'writing' | 'seated' | 'late';
 export type ChiefState = 'waiting' | 'ruling' | 'needs' | 'done';
 export type ShipState = 'done' | 'run' | 'todo' | 'ready' | 'fail';
-export type GateTone = 'pass' | 'fail' | 'attention' | 'wait';
+export type GateTone = 'pass' | 'fail' | 'caution' | 'wait';
 export type MeterTone = 'ink' | 'acc' | 'pass';
 
 export interface Mark<S> {
@@ -78,6 +78,7 @@ function css(): string {
     `.hair{stroke:${INK.muted};stroke-opacity:${INK.hairOpacity}}`,
     `.acc{fill:${SIGNAL.accent}}.accs{stroke:${SIGNAL.accent}}`,
     `.att{fill:${SIGNAL.attention}}.atts{stroke:${SIGNAL.attention}}`,
+    `.cau{fill:${SIGNAL.caution}}.caus{stroke:${SIGNAL.caution}}`,
     `.pass{fill:${STATUS_B.done}}.passs{stroke:${STATUS_B.done}}`,
     `.fail{fill:${STATUS_B.failed}}.fails{stroke:${STATUS_B.failed}}`,
     '.cap{font-size:8.5px;font-weight:600;letter-spacing:1.1px}',
@@ -87,6 +88,7 @@ function css(): string {
     `.ink{fill:${INK.inkDark}}.inks{stroke:${INK.inkDark}}.mut{fill:${INK.mutedDark}}`,
     `.pass{fill:${STATUS_B.doneDark}}.passs{stroke:${STATUS_B.doneDark}}`,
     `.fail{fill:${STATUS_B.failedDark}}.fails{stroke:${STATUS_B.failedDark}}`,
+    `.cau{fill:${SIGNAL.cautionDark}}.caus{stroke:${SIGNAL.cautionDark}}`,
     '}',
     '@keyframes pulse{0%,100%{opacity:1}50%{opacity:.45}}',
     '@keyframes spin{to{transform:rotate(360deg)}}',
@@ -161,7 +163,7 @@ const STAGE_BAR: Readonly<Record<StageState, string>> = {
   done: 'ink',
   run: 'acc pulse',
   paused: 'att',
-  marked: 'att',
+  marked: 'cau',
   fail: 'fail',
   skip: 'faints',
   todo: 'faint',
@@ -212,7 +214,7 @@ function seatMark(state: SeatState, cx: string): string {
     return `<circle class="acc pulse" cx="${cx}" cy="${Y_MARK}" r="4" fill-opacity=".22"/><circle class="accs" cx="${cx}" cy="${Y_MARK}" r="4" fill="none" stroke-width="1.4"/>`;
   }
   if (state === 'late') {
-    return `<circle class="atts" cx="${cx}" cy="${Y_MARK}" r="4" fill="none" stroke-width="1.4"/>`;
+    return `<circle class="caus" cx="${cx}" cy="${Y_MARK}" r="4" fill="none" stroke-width="1.4"/>`;
   }
   return `<circle class="faints" cx="${cx}" cy="${Y_MARK}" r="3.6" fill="none" stroke-width="1.2"/>`;
 }
@@ -431,7 +433,7 @@ export function hairline(): string {
 const GATE_STROKE: Readonly<Record<GateTone, string>> = {
   pass: 'passs',
   fail: 'fails',
-  attention: 'atts',
+  caution: 'caus',
   wait: 'faints',
 };
 
@@ -459,7 +461,7 @@ const SEAT_ARC: Readonly<Record<SeatState, string>> = {
   done: 'inks',
   writing: 'accs pulse',
   seated: 'faints',
-  late: 'atts',
+  late: 'caus',
 };
 
 const CHIEF_RING: Readonly<Record<ChiefState, string>> = {

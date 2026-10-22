@@ -204,7 +204,7 @@ describe('AC-20: the Trust tab', () => {
       why: 'Tests, types or lint failed. Fix it and run the checks again.',
     });
     expect(light({ verdict: verdict('inconclusive', 'Inconclusive', ['a', 'b']) })).toEqual({
-      signal: 'attention',
+      signal: 'caution',
       title: 'Inconclusive',
       why: 'a; b',
     });
@@ -279,8 +279,8 @@ describe('AC-20: the Trust tab', () => {
     expect(after.map((entry) => [entry.name, entry.required, entry.word, entry.tone])).toEqual([
       ['code-tests-lint', true, 'Fail', 'fail'],
       ['spec-review', true, 'Pass', 'pass'],
-      ['custom-gate', true, 'Inconclusive', 'att'],
-      ['ac-test-mapping', true, 'Did not run', 'att'],
+      ['custom-gate', true, 'Inconclusive', 'cau'],
+      ['ac-test-mapping', true, 'Did not run', 'cau'],
       ['change-completeness', false, 'Not required', 'dim'],
       ['mutation-testing', false, 'Not required', 'dim'],
     ]);
@@ -367,7 +367,7 @@ describe('AC-20: the Trust tab', () => {
       id: null,
       key: 'fix-proof-0',
       word: 'Not proven',
-      tone: 'att',
+      tone: 'cau',
     });
     expect(claimsView(open())).toEqual({ rows: [], more: null, empty: CLAIMS_LATER });
     expect(claimsView(open({ stages: stages({ specification: 'complete' }) })).empty).toBe(

@@ -261,7 +261,7 @@ export function desktopHeadline(
     return headline(8, 'pass', `${prName(snapshot)} is ready for your merge`);
   }
   if (snapshot.ship?.pr_state === 'closed') {
-    return headline(9, 'attention', `${prName(snapshot)} was closed`);
+    return headline(9, 'caution', `${prName(snapshot)} was closed`);
   }
   if (step('CI') === 'failed') return headline(10, 'fail', `CI failed on ${prName(snapshot)}`);
   if (snapshot.ship?.push === 'failed') return headline(11, 'fail', 'The push failed');
@@ -269,7 +269,7 @@ export function desktopHeadline(
   if (verdict?.kind === 'fail') return headline(12, 'fail', failureHeadline(snapshot));
   if (verdict?.kind === 'inconclusive') {
     const reason = verdict.reasons[0];
-    return headline(13, 'attention', reason ? `Inconclusive: ${reason}` : 'Inconclusive');
+    return headline(13, 'caution', reason ? `Inconclusive: ${reason}` : 'Inconclusive');
   }
   if (step('CI') === 'current') {
     const delivery = snapshot.stages.find((stage) => stage.stage === 'delivery');
@@ -647,7 +647,7 @@ export function bandIsLive(band: DesktopBand): boolean {
   return band.kind === 'feature' && band.headline.live;
 }
 
-export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'dim';
+export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'cau' | 'dim';
 
 export interface LightView {
   signal: Signal;
@@ -736,16 +736,16 @@ const HOW_JUDGED: Readonly<Record<string, string>> = {
 const VERDICT_WORDS_DESKTOP: Readonly<Record<string, { word: string; tone: WordTone }>> = {
   pass: { word: 'Pass', tone: 'pass' },
   fail: { word: 'Fail', tone: 'fail' },
-  inconclusive: { word: 'Inconclusive', tone: 'att' },
-  'did-not-run': { word: 'Did not run', tone: 'att' },
+  inconclusive: { word: 'Inconclusive', tone: 'cau' },
+  'did-not-run': { word: 'Did not run', tone: 'cau' },
   'not-required': { word: 'Not required', tone: 'dim' },
 };
 
 const ARC_TONE: Readonly<Record<string, GateMark['verdict']>> = {
   pass: 'pass',
   fail: 'fail',
-  inconclusive: 'attention',
-  'did-not-run': 'attention',
+  inconclusive: 'caution',
+  'did-not-run': 'caution',
 };
 
 export function trustGates(snapshot: PaqadHudSnapshot): TrustGate[] {
@@ -852,7 +852,7 @@ export function trustLight(
     case 17:
       return { signal: 'pass', title: 'Safe to merge', why: safeToMergeWhy(snapshot) };
     case 9:
-      return { signal: 'attention', title: 'PR closed', why: `${pr} was closed without a merge.` };
+      return { signal: 'caution', title: 'PR closed', why: `${pr} was closed without a merge.` };
     case 10:
       return {
         signal: 'fail',
@@ -869,7 +869,7 @@ export function trustLight(
       };
     case 13:
       return {
-        signal: 'attention',
+        signal: 'caution',
         title: 'Inconclusive',
         why: snapshot.verdict?.reasons.join('; ') || null,
       };
@@ -929,7 +929,7 @@ export function claimsView(snapshot: PaqadHudSnapshot): ClaimsView {
       label: claim.label,
       sub: claim.test_id ?? 'No proving test recorded',
       word: proven ? 'Proven' : 'Not proven',
-      tone: proven ? 'pass' : fix ? 'att' : 'dim',
+      tone: proven ? 'pass' : fix ? 'cau' : 'dim',
     };
   });
   if (rows.length === 0) {

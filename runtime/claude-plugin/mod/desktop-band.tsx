@@ -60,7 +60,7 @@ function flags(ui: D, count: number, actions: BandActions) {
   const { Text, Button } = ui;
   if (count === 0) return [];
   return [
-    <Text key="paqad-flag-mark" size="footnote" color={SIGNAL.attention}>
+    <Text key="paqad-flag-mark" size="footnote" color={SIGNAL.caution}>
       ⚑
     </Text>,
     <Button plain dimColor key="paqad-flags" onPress={actions.flags}>
