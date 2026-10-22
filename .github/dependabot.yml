@@ -17,6 +17,9 @@ updates:
       prod-dependencies-patch:
         dependency-type: production
         update-types: [patch]
+      security-updates:
+        applies-to: security-updates
+        patterns: ['*']
     labels:
       - dependencies
     commit-message:

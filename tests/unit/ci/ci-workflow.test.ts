@@ -85,6 +85,22 @@ describe('.github/workflows/ci.yml', () => {
     it('installs the pinned Claude Code so the plugin checks really run', () => {
       expect(runs(job)).toContain('npm install -g @anthropic-ai/claude-code@2.1.302');
     });
+
+    it('audits the shipped dependencies once, right after the frozen install', () => {
+      const commands = job.steps.map((step) => step.run ?? '');
+      const audit = commands.indexOf('pnpm audit --prod --audit-level high');
+      expect(audit).toBe(commands.indexOf('pnpm install --frozen-lockfile') + 1);
+      expect(commands.indexOf('pnpm run typecheck')).toBeGreaterThan(audit);
+      const everyJob = Object.values(jobs).flatMap((each) => each.steps.map((s) => s.run ?? ''));
+      expect(everyJob.filter((run) => run.includes('pnpm audit'))).toHaveLength(1);
+    });
+
+    it('ignores the braces advisory by its GHSA id only', () => {
+      const pkg = JSON.parse(readFileSync('package.json', 'utf8')) as {
+        pnpm: { auditConfig: Record<string, unknown> };
+      };
+      expect(pkg.pnpm.auditConfig).toEqual({ ignoreGhsas: ['GHSA-vfj7-8cjw-p6xm'] });
+    });
   });
 
   describe('test', () => {
@@ -212,5 +228,25 @@ describe('.github/workflows/ci.yml', () => {
       expect(step.run).toContain(`jq -e 'all(.[]; .result == "success")'`);
       expect(job.steps.every((s) => s.uses === undefined)).toBe(true);
     });
+  });
+});
+
+describe('.github/dependabot.yml', () => {
+  it('AC-21 groups npm security updates next to the version-update groups', () => {
+    const config = parse(readFileSync('.github/dependabot.yml', 'utf8')) as {
+      updates: Array<{
+        'package-ecosystem': string;
+        groups?: Record<string, { 'applies-to'?: string; patterns?: string[] }>;
+      }>;
+    };
+    const npm = config.updates.find((entry) => entry['package-ecosystem'] === 'npm');
+    const groups = npm?.groups ?? {};
+    expect(Object.keys(groups)).toEqual(
+      expect.arrayContaining(['dev-dependencies-minor-patch', 'prod-dependencies-patch']),
+    );
+    const security = Object.values(groups).filter(
+      (group) => group['applies-to'] === 'security-updates',
+    );
+    expect(security).toEqual([{ 'applies-to': 'security-updates', patterns: ['*'] }]);
   });
 });
