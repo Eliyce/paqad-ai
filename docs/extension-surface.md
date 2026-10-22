@@ -29,6 +29,8 @@ rather than at integration (PQD-92).
 - **Orphans:** `pnpm run check:surface-orphans` reports every entry whose symbol
   no consumer references, with a recommendation to remove it or downgrade it to
   `internal` (AC4). Add an **Exempt** reason to silence a known false positive.
+- A coverage or lint directive inside a public entry point does not change the
+  surface, so the tables do not change.
 - The exhaustive per-symbol inventory of the `export *` barrels is enforced
   programmatically by those checks; this document records the depended-upon
   contract surface and the stability promise attached to each entry.
