@@ -1,5 +1,15 @@
 # paqad-ai
 
+## 1.105.0
+
+### Minor Changes
+
+- 5e85255: The HUD now tells what is really happening. "Needs you" shows only while a question is on screen, a permission waits for you, or a decision is pending, and it clears when you answer. A rule that stopped an edit no longer asks for you; it stays in the Ledger as history, and answering "Let Claude fix it" closes it. Expert-conflict and near-copy decisions that block every edit now show in the band. The fast lane is Plan, Build, Checks: it no longer requires Spec, Review or Docs, and its strips draw only those three. Build, Checks and Docs are recorded whenever an edit touches them, in any order, so a root `SECURITY.md` edit no longer drops every later Build and Checks edit. The Edit step stays current while files are being edited, a failure from an earlier turn no longer leads while Claude works, and info-level hints no longer raise a flag. The feature card appears only once a change starts, and the router no longer reads "implement-ready" or "style" as a code change. Coral now means waiting on you; flags and marked stages use a new amber.
+
+### Patch Changes
+
+- 5e85255: The npm package is much smaller: about 9 MB unpacked instead of 69 MB, and a 2.4 MB download instead of 15 MB. It no longer ships source maps, and the bundles share their common code instead of each carrying a copy. The dashboard finds its files the same way from any build layout. Each release now waits up to 15 minutes for npm to list the new version before it decides whether to publish the Claude Code plugin, so the plugin no longer falls behind npm.
+
 ## 1.104.1
 
 ### Patch Changes
