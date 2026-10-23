@@ -34,6 +34,13 @@ describe('routed-workflow', () => {
     expect(routeUsesRetrieval('discovery')).toBe(true);
   });
 
+  it('maps design-test and rules-analyze and their companions to their own routes', () => {
+    expect(resolveRoutedWorkflow('design-test')).toBe('design-test');
+    expect(resolveRoutedWorkflow('design-retest')).toBe('design-test');
+    expect(resolveRoutedWorkflow('rules-analyze')).toBe('rules-analyze');
+    expect(resolveRoutedWorkflow('rules-generate')).toBe('rules-analyze');
+  });
+
   it('maps null and undefined to no-workflow', () => {
     expect(resolveRoutedWorkflow(null)).toBe('no-workflow');
     expect(resolveRoutedWorkflow(undefined)).toBe('no-workflow');
