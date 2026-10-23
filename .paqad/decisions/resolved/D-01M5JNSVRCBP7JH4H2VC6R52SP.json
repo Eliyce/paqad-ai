@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5JNSVRCBP7JH4H2VC6R52SP",
+  "category": "architecture-path",
+  "title": "Module attribution for the plugin eval benchmark",
+  "context": "Attribution gate: the extractor found no module named in the request, and the inferencer is not confident (best match hybrid-rag at 0.06, on unrelated shared words). No module in module-map.yml owns any path this change touches: evals/, scripts/, tests/, .github/workflows/, eslint.config.js, vitest.config.ts, .gitignore and docs/instructions/benchmarks/. Which module should this change be attributed to? The plan is drafted and ready to compile once this is answered: /private/tmp/claude-501/-Users-haider-lasani-Desktop-projects-paqad-ai-paqad-ai-npm/36466929-a6e4-456b-8ffe-d045c79ed49e/scratchpad/plan-template.json",
+  "options": [
+    {
+      "option_key": "no-attribution",
+      "label": "Skip attribution: keep evals and ci as plan labels only, no module-map change",
+      "one_line_preview": "Skip attribution: keep evals and ci as plan labels only, no module-map change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "new-module",
+      "label": "Add a new plugin-eval module to module-map.yml through the module-decisions apply path",
+      "one_line_preview": "Add a new plugin-eval module to module-map.yml through the module-decisions apply path",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "extend-hybrid-rag",
+      "label": "Attribute to the existing hybrid-rag module (the inferencer's weak top match)",
+      "one_line_preview": "Attribute to the existing hybrid-rag module (the inferencer's weak top match)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "no-attribution",
+  "created_at": "2026-10-22T20:45:51.756Z",
+  "status": "resolved",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "no-attribution",
+  "rationale": "Owner chose no module: the eval suite is test tooling, not product code",
+  "resolved_at": "2026-10-22T21:00:07.504Z",
+  "decision_id": "D-01M5JNSVRCBP7JH4H2VC6R52SP",
+  "fingerprint": "sha256:d30a2852655e31ac7ef9cec54cf888e30264122226d53afd4ed2985340e1c3e0",
+  "question": "Module attribution for the plugin eval benchmark",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2027-01-20T20:45:51.756Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "no-attribution",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-22T21:00:07.504Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose no module: the eval suite is test tooling, not product code"
+  }
+}

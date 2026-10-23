@@ -1,0 +1,18 @@
+schema_version: 1
+generated_at: 2026-10-22T20:28:56.685Z
+rule_files_hash: sha256-d14b581423395c5731cfcda5540583c6d47e0e7bf2c90c5e4e5738f6b2f9f97a
+rules:
+  - id: RL-569d
+    source: docs/instructions/rules/coding/architecture.md
+    text: Files under `src/api/` never import from `src/db/`.
+    text_hash: ac20709087329fd33b582c6f78a96cb5e7cd9d49afc917bb8ba1d531a0913bad
+    verifiability:
+      kind: deterministic
+    enforced_by: []
+    scripts:
+      - path: .paqad/scripts/rules/coding/architecture/001-api-never-imports-db.mjs
+        kind: deterministic
+        runtime: node
+        scope: changed-files
+        last_validated_at: 2026-10-22T00:00:00Z
+        fixtures_passed: true
