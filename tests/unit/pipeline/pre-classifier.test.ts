@@ -206,6 +206,46 @@ describe('PreClassifier', () => {
     expect(pentest.resolved.workflow).toBe('pentest');
   });
 
+  it('routes specialist phrasings ahead of the question and code tiers', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    const cases: Array<[string, string]> = [
+      ["let's do a pentest", 'pentest'],
+      ['check the app for vulnerabilities', 'pentest'],
+      ['run a design test', 'design-test'],
+      ['run a design retest', 'design-retest'],
+      ['map our app', 'site-map'],
+      ['analyze our rules', 'rules-analyze'],
+      ['generate rule scripts', 'rules-generate'],
+      ['what should my rough idea for exports become?', 'discovery'],
+      ['help me shape an idea for onboarding', 'discovery'],
+    ];
+    for (const [request, workflow] of cases) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow, request).toBe(workflow);
+    }
+  });
+
+  it('reads a source path plus an edit verb as a code change, a path alone as unresolved', async () => {
+    vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
+      modules: [],
+      source: 'default',
+    });
+    for (const request of [
+      'In src/api/users.ts, make toUserDto return a default',
+      'move parseDate from src/utils/a.ts into src/utils/dates.ts',
+    ]) {
+      const result = await new PreClassifier(process.cwd()).classify({ request });
+      expect(result.resolved.workflow, request).toBe('feature-development');
+    }
+    const question = await new PreClassifier(process.cwd()).classify({
+      request: 'what does src/api/users.ts change?',
+    });
+    expect(question.resolved.workflow).toBe('project-question');
+  });
+
   it('routes map-authoring prompts to site-map and its retest above the base (S9)', async () => {
     vi.spyOn(ModuleResolver.prototype, 'resolve').mockResolvedValue({
       modules: [],
@@ -409,10 +449,12 @@ describe('PreClassifier · talking about work', () => {
       modules: [],
       source: 'default',
     });
-    for (const request of ['check src/cart.ts', 'refactor and recheck the cart']) {
-      const result = await new PreClassifier(process.cwd()).classify({ request });
-      expect(result.unresolved, `"${request}" is left unresolved`).toContain('workflow');
-    }
+    const check = await new PreClassifier(process.cwd()).classify({ request: 'check src/cart.ts' });
+    expect(check.unresolved).toContain('workflow');
+    const refactor = await new PreClassifier(process.cwd()).classify({
+      request: 'refactor and recheck the cart',
+    });
+    expect(refactor.resolved.workflow).toBe('refactor');
   });
 
   it.each([
