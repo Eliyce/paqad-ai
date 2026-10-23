@@ -10,6 +10,7 @@ type Step = {
   run?: string;
   if?: string;
   shell?: string;
+  'timeout-minutes'?: number;
   with?: Record<string, unknown>;
   env?: Record<string, string>;
 };
@@ -86,21 +87,30 @@ describe('plugin-eval workflow', () => {
     }
   });
 
-  it('runs three suites in order, then the score check, then the upload', () => {
+  it('runs the gated suites, scores them, then the receipt suite, its report and the upload', () => {
     const at = [
       /routing suite/i,
       /firewall suite/i,
-      /receipt suite/i,
       /score check/i,
+      /receipt suite/i,
+      /receipt report/i,
       /upload/i,
     ].map(index);
     expect(at.every((i) => i >= 0)).toBe(true);
     expect([...at].sort((a, b) => a - b)).toEqual(at);
-    for (const suite of ['firewall', 'receipt']) {
-      expect(step(new RegExp(`${suite} suite`, 'i')).if).toBe('${{ !cancelled() }}');
+    for (const name of [/firewall suite/i, /score check/i, /receipt suite/i, /receipt report/i]) {
+      expect(step(name).if).toBe('${{ !cancelled() }}');
     }
-    expect(step(/score check/i).if).toBe('${{ !cancelled() }}');
     expect(step(/upload/i).if).toBe('always()');
+  });
+
+  it('bounds every suite step inside the job timeout', () => {
+    const suites = [/routing suite/i, /firewall suite/i, /receipt suite/i].map(step);
+    const total = suites.reduce((sum, s) => {
+      expect(s['timeout-minutes']).toBeGreaterThan(0);
+      return sum + (s['timeout-minutes'] ?? 0);
+    }, 0);
+    expect(total).toBeLessThan(job['timeout-minutes']!);
   });
 
   it.each([
@@ -142,9 +152,14 @@ describe('plugin-eval workflow', () => {
     expect(score.run).toContain('node scripts/check-plugin-eval-score.mjs');
     expect(score.run).toContain('routing="$RESULTS/routing.json"');
     expect(score.run).toContain('firewall="$RESULTS/firewall.json"');
-    expect(score.run).toContain('--report-only receipt="$RESULTS/receipt.json"');
+    expect(score.run).not.toContain('receipt');
     expect(score.run).toContain('--min 0.9');
     expect(score.run).toContain('tee -a "$GITHUB_STEP_SUMMARY"');
+    const receipt = step(/receipt report/i);
+    expect(receipt.shell).toBe('bash');
+    expect(receipt.run).toContain('--report-only receipt="$RESULTS/receipt.json"');
+    expect(receipt.run).not.toMatch(/(routing|firewall)=/);
+    expect(receipt.run).toContain('tee -a "$GITHUB_STEP_SUMMARY"');
   });
 
   it('uploads each report and result by explicit path', () => {

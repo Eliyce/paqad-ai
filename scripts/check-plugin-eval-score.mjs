@@ -35,8 +35,8 @@ function parseArgs(argv) {
   if (args.min === null || !Number.isFinite(args.min) || args.min < 0 || args.min > 1) {
     args.errors.push('--min must be a number from 0 to 1');
   }
-  if (args.gated.length === 0) {
-    args.errors.push('name at least one gated <suite>=<json>');
+  if (args.gated.length === 0 && args.reported.length === 0) {
+    args.errors.push('name at least one <suite>=<json>');
   }
   return args;
 }

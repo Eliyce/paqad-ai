@@ -182,6 +182,9 @@ describe('check-plugin-eval-score CLI', () => {
     );
     expect(gone.status).toBe(0);
     expect(gone.stdout).toContain('receipt: NO SCORE');
+    const alone = cli('--report-only', `receipt=${join(dir, 'x.json')}`, '--min', '0.9');
+    expect(alone.status).toBe(0);
+    expect(alone.stdout).toContain('REPORTED');
   });
 
   it('exits 1 on bad arguments', () => {

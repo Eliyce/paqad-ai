@@ -23,7 +23,7 @@ jobs:
   eval:
     name: Plugin eval
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 320
     env:
       DISABLE_AUTOUPDATER: '1'
       RESULTS: ${{ github.workspace }}/evals/results
@@ -71,6 +71,7 @@ jobs:
 
       - name: Routing suite
         id: routing
+        timeout-minutes: 75
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: >-
@@ -80,6 +81,7 @@ jobs:
 
       - name: Firewall suite
         id: firewall
+        timeout-minutes: 100
         if: ${{ !cancelled() }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -88,8 +90,18 @@ jobs:
           --trust-plugin --no-publish --threshold 0 --max-cost-usd 20 --concurrency 2
           --json "$RESULTS/firewall.json" --report "$RESULTS/firewall.html"
 
+      - name: Score check
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: >-
+          node scripts/check-plugin-eval-score.mjs
+          routing="$RESULTS/routing.json" firewall="$RESULTS/firewall.json"
+          --min 0.9
+          | tee -a "$GITHUB_STEP_SUMMARY"
+
       - name: Receipt suite
         id: receipt
+        timeout-minutes: 110
         if: ${{ !cancelled() }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -99,12 +111,11 @@ jobs:
           --judge-model sonnet --concurrency 3
           --json "$RESULTS/receipt.json" --report "$RESULTS/receipt.html"
 
-      - name: Score check
+      - name: Receipt report
         if: ${{ !cancelled() }}
         shell: bash
         run: >-
           node scripts/check-plugin-eval-score.mjs
-          routing="$RESULTS/routing.json" firewall="$RESULTS/firewall.json"
           --report-only receipt="$RESULTS/receipt.json" --min 0.9
           | tee -a "$GITHUB_STEP_SUMMARY"
 
