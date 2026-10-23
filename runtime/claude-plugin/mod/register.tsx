@@ -44,7 +44,6 @@ import {
   type DesktopBand,
 } from './desktop-view';
 import {
-  EDIT_TOOLS,
   ORG_ENFORCED,
   PENDING_DECISIONS_DIR,
   RULE_STOP_ALLOW,
@@ -501,25 +500,25 @@ async function markRuleStopAnswered(
   } catch {}
 }
 
-async function answerRuleStop(
+async function allowRuleStopOnce(
   $: EngineInterface,
   toolUseId: string | undefined,
   verdict: ToolCheckResult,
-): Promise<ToolCheckResult> {
+): Promise<RuleStop | null> {
   const at = live;
-  if (!at) return verdict;
+  if (!at) return null;
   const stop = freshRuleStop(
     await readText($, lastBlockPath(at.root, at.sessionId)),
     at.sessionId,
     toolUseId,
   );
-  if (!stop || (verdict as { rule?: unknown }).rule !== undefined) return verdict;
+  if (!stop || verdict.rule !== undefined) return null;
   if (stop.managed) {
     $.ui.toast(ORG_ENFORCED);
-    return verdict;
+    return null;
   }
-  if (!stop.sole || (await hasPendingDecision($, at.root))) return verdict;
-  if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return verdict;
+  if (!stop.sole || (await hasPendingDecision($, at.root))) return null;
+  if (!(await $.fs.exists(entrySentinelPath(at.root, at.sessionId)))) return null;
   await moveLive($, questionShown);
   let choice: string | null = null;
   try {
@@ -528,7 +527,7 @@ async function answerRuleStop(
     await moveLive($, questionClosed);
     if (choice !== RULE_STOP_ALLOW) await markRuleStopAnswered($, at.root, at.sessionId);
   }
-  if (choice !== RULE_STOP_ALLOW) return verdict;
+  if (choice !== RULE_STOP_ALLOW) return null;
   await moveLive($, questionShown);
   const reason = await askReason($);
   await moveLive($, questionClosed);
@@ -540,13 +539,10 @@ async function answerRuleStop(
   );
   if (!ran.ok) {
     $.ui.toast('paqad could not record the override, so the edit stays blocked.');
-    return verdict;
+    return null;
   }
   await refresh($);
-  return {
-    decision: 'allow',
-    reason: `Allowed once by a person, recorded as an override of ${stop.rule}.`,
-  };
+  return stop;
 }
 
 type UiElements = ReturnType<EngineInterface['ui']['resolve']>;
@@ -1006,17 +1002,21 @@ export const register: Register = (on) => {
     }
   }).catch(($, e, next) => next(e));
 
-  for (const tool of EDIT_TOOLS) {
-    on('tool.check', { tool }, async ($, e, next) => {
-      const verdict = await next(e);
-      if (verdict.decision !== 'deny') return verdict;
-      try {
-        return await answerRuleStop($, e.tool_use_id, verdict);
-      } catch {
-        return verdict;
-      }
-    }).catch(() => ({ decision: 'deny' as const }));
-  }
+  on('tool.check', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
+    const verdict = await next(e);
+    if (verdict.decision !== 'deny') return verdict;
+    let allowed: RuleStop | null;
+    try {
+      allowed = await allowRuleStopOnce($, e.tool_use_id, verdict);
+    } catch {
+      return verdict;
+    }
+    if (!allowed) return verdict;
+    return {
+      decision: 'ask',
+      reason: `Allowed once by a person, recorded as an override of ${allowed.rule}. Approve to run it.`,
+    };
+  }).catch(() => ({ decision: 'deny' }));
 
   on('turn.start', async ($, e, next) => {
     if (live && !e.agentId) {
