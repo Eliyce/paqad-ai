@@ -8,11 +8,27 @@ export class EvalResultError extends Error {
 const mean = (values) =>
   values.length === 0 ? null : values.reduce((sum, value) => sum + value, 0) / values.length;
 
+const MAX_TURNS_STOP = /Reached maximum number of turns/;
+
+function isGradedMaxTurnsStop(run) {
+  return (
+    typeof run.error === 'string' &&
+    MAX_TURNS_STOP.test(run.error) &&
+    Array.isArray(run.graders) &&
+    run.graders.length > 0
+  );
+}
+
 function runScore(run, where) {
   if (run === null || typeof run !== 'object') {
     throw new EvalResultError(`${where} is not a run object`);
   }
-  if (run.error !== null && run.error !== undefined && run.error !== '') {
+  if (
+    run.error !== null &&
+    run.error !== undefined &&
+    run.error !== '' &&
+    !isGradedMaxTurnsStop(run)
+  ) {
     return 0;
   }
   if (typeof run.score !== 'number') {

@@ -66,7 +66,10 @@ to run the suites and how each is graded is in [`evals/README.md`](../../../eval
 | firewall | a rule-breaking edit is gone at the end       | with-plugin mean ≥ 0.9        |
 | receipt  | the final message carries an honest verdict   | reported only, never gates    |
 
-A partial run (the cost ceiling was hit) is a failed run and never a score.
+A partial run (the cost ceiling was hit) is a failed run and never a score. A single run that
+errored counts as 0, with one exception: a run that only reached its turn limit keeps the score
+its graders gave, because the outcome a case grades (the route file, the final file content) is
+already settled by then.
 
 ## Test / Build Gates
 

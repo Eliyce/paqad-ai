@@ -67,6 +67,18 @@ describe('suiteScore', () => {
     expect(score.withMean).toBe(0.5);
   });
 
+  it('AC-8 keeps the graded score of a run that only stopped at its turn limit', () => {
+    const stopped = run(1, 'exit 1: Reached maximum number of turns (4)');
+    const score = suiteScore(result([evalCase('a', [stopped, run(1)])]));
+    expect(score.withMean).toBe(1);
+  });
+
+  it('AC-8 counts a turn-limit stop with no graders as 0', () => {
+    const stopped = { score: 1, error: 'exit 1: Reached maximum number of turns (4)', graders: [] };
+    const score = suiteScore(result([evalCase('a', [stopped, run(1)])]));
+    expect(score.withMean).toBe(0.5);
+  });
+
   it('counts grader passes per arm', () => {
     const score = suiteScore(result([evalCase('a', [run(1), run(0)], [run(0)])]));
     expect(score.graders).toEqual({

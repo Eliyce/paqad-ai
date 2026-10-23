@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5KZP0MMEHZE7TZ764PQKDYT",
+  "category": "spec.change",
+  "title": "Score script: a max-turns stop keeps its graded score",
+  "context": "FR-13/AC-8 say any with-arm run with error set counts as 0. The first full run showed routing cases that routed correctly, then hit max_turns while the agent kept working: the eval tool scored them 1.0, our script zeroed them (routing 0.55 vs 0.65). A turn limit reached after the graded outcome is not a failure. Change: a run whose only error is the max-turns stop keeps its grader score; crashes, timeouts and cost-cap cuts still count as 0. Also raise the CI cost caps to routing 20, firewall 25, receipt 30 (measured 12.85 / 15.63 / 17.69).",
+  "options": [
+    {
+      "option_key": "keep-graded",
+      "label": "Max-turns stops keep their graded score; caps raised",
+      "one_line_preview": "Max-turns stops keep their graded score; caps raised",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "keep-zero",
+      "label": "Keep zeroing every errored run",
+      "one_line_preview": "Keep zeroing every errored run",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "keep-graded",
+  "created_at": "2026-10-23T08:57:45.876Z",
+  "status": "resolved",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "keep-graded",
+  "rationale": "Owner said 'Fix it' to: make the score script keep max-turns stops scored by their graders and raise the caps to routing 20, firewall 25, receipt 30, in this PR",
+  "resolved_at": "2026-10-23T08:57:53.068Z",
+  "decision_id": "D-01M5KZP0MMEHZE7TZ764PQKDYT",
+  "fingerprint": "sha256:0a4b306d0c5e8355538eee0d01c25bb6a0e721df38be7d852f324b98f5d17aa5",
+  "question": "Score script: a max-turns stop keeps its graded score",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-22T08:57:45.876Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "keep-graded",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T08:57:53.068Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said 'Fix it' to: make the score script keep max-turns stops scored by their graders and raise the caps to routing 20, firewall 25, receipt 30, in this PR"
+  }
+}
