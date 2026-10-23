@@ -67,7 +67,7 @@ describe('the HUD mod source', () => {
       expect(text).not.toMatch(/\$\.model\b/);
       expect(text).not.toMatch(/\$\.http\b/);
       expect(text).not.toMatch(/\$\.audio\.speak\b/);
-      if (name !== 'paqad-cli.ts') expect(text).not.toMatch(/\$\.process\b/);
+      if (name !== 'register.tsx') expect(text).not.toMatch(/\$\.process\b/);
       expect(text).not.toMatch(/\bimport\s*\(/);
       expect(text).not.toMatch(/\brequire\s*\(/);
       expect(text).not.toMatch(/from 'node:/);
@@ -80,12 +80,22 @@ describe('the HUD mod source', () => {
   });
 
   it('runs processes only through the one paqad-ai helper, by argument vector', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
     const helper = sources.find((s) => s.name === 'paqad-cli.ts')!.text;
-    expect(helper.match(/\$\.process\./g)).toEqual(['$.process.']);
-    expect(helper).toContain('$.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS })');
+    expect(register.match(/\$\.process\./g)).toEqual(['$.process.']);
+    expect(register).toContain('const argv = paqadArgv(verb, args);');
+    expect(register).toContain('$.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS })');
+    expect(register).not.toMatch(/\$\.process\.spawn/);
     expect(helper).toContain("export const PAQAD_BIN = 'paqad-ai';");
     expect(helper).toContain("return [PAQAD_BIN, ...verb.split(' '), ...args];");
     expect(helper).not.toMatch(/spawn|shell|exec/);
+  });
+
+  it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {
+    for (const { name, text } of sources) {
+      if (name === 'register.tsx' || name.endsWith('.test.ts')) continue;
+      expect(text, name).not.toMatch(/\$\.(process|fs|ui|clock|env|store|audio)\./);
+    }
   });
 
   it.each(sources.map((s) => [s.name, s.text]))('%s uses no em dash', (_name, text) => {

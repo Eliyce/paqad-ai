@@ -80,8 +80,6 @@ export const RULE_STOP_REASON_HEADER = 'Reason';
 
 export const OWN_QUESTION_HEADERS: readonly string[] = [RULE_STOP_HEADER, RULE_STOP_REASON_HEADER];
 
-export const EDIT_TOOLS: readonly string[] = ['Edit', 'Write', 'NotebookEdit'];
-
 export interface RuleStop {
   rule: string;
   title: string | null;

@@ -2135,6 +2135,10 @@ describe('the rule stop answer on tool.check', () => {
     session: SESSION_ID,
   };
   const DENY = { decision: 'deny' as const, reason: 'RL-13 blocked the edit' };
+  const ASK = {
+    decision: 'ask',
+    reason: 'Allowed once by a person, recorded as an override of RL-13. Approve to run it.',
+  };
   const OVERRIDE_ARGV = [
     'paqad-ai',
     'rules',
@@ -2177,10 +2181,10 @@ describe('the rule stop answer on tool.check', () => {
   const check = ($: Parameters<Parameters<typeof test>[1]>[0], toolUseId = 'tu_1', tool = 'Edit') =>
     $.tool.check({ tool, input: { file_path: '/work/src/x.ts' }, tool_use_id: toolUseId });
 
-  test('Allow once runs the one override verb with the token, then allows the call', async ($, on) => {
+  test("Allow once runs the one override verb with the token, then hands the call to Claude Code's permission step", async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect((await check($)).decision).toBe('allow');
+    expect(await check($)).toEqual(ASK);
     expect(world.asked[0]!.options).toEqual([
       'Let Claude fix it',
       'Allow once, recorded',
@@ -2193,14 +2197,14 @@ describe('the rule stop answer on tool.check', () => {
   test('a typed reason is passed to the override as one argument', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'needed for the hotfix');
-    expect((await check($)).decision).toBe('allow');
+    expect(await check($)).toEqual(ASK);
     expect(world.runs[0]!.argv).toEqual([...OVERRIDE_ARGV, '--reason=needed for the hotfix']);
   });
 
-  test('a dismissed reason still records the override without one and allows the call', async ($, on) => {
+  test("a dismissed reason still records the override without one and hands the call to Claude Code's permission step", async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded');
-    expect((await check($)).decision).toBe('allow');
+    expect(await check($)).toEqual(ASK);
     expect(world.runs[0]!.argv).toEqual(OVERRIDE_ARGV);
   });
 
@@ -2299,7 +2303,7 @@ describe('the rule stop answer on tool.check', () => {
   test('a subagent edit the gate marked sole, because that subagent loaded the framework, is offered Allow once', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect((await subagentCheck($)).decision).toBe('allow');
+    expect(await subagentCheck($)).toEqual(ASK);
     expect(world.asked[0]!.options).toContain('Allow once, recorded');
     expect(world.runs).toEqual([{ argv: OVERRIDE_ARGV, cwd: '/work', timeoutMs: 15_000 }]);
   });
@@ -2324,10 +2328,10 @@ describe('the rule stop answer on tool.check', () => {
     expect(world.toasts).toHaveLength(2);
   });
 
-  test('Allow once allows one call and the next identical call is denied again', async ($, on) => {
+  test('Allow once covers one call and the next identical call is denied again', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect((await check($)).decision).toBe('allow');
+    expect(await check($)).toEqual(ASK);
     expect(await check($, 'tu_2')).toEqual(DENY);
     expect(world.runs).toHaveLength(1);
   });
@@ -2335,10 +2339,10 @@ describe('the rule stop answer on tool.check', () => {
   test('a second edit to the same file under the same rule asks again and records a second override', async ($, on) => {
     const world = await stopped($, on);
     world.answers.push('Allow once, recorded', 'No reason');
-    expect((await check($)).decision).toBe('allow');
+    expect(await check($)).toEqual(ASK);
     world.put(LAST_BLOCK, JSON.stringify({ ...STOP, tool_use_id: 'tu_2', token: 'tok2' }));
     world.answers.push('Allow once, recorded', 'No reason');
-    expect((await check($, 'tu_2')).decision).toBe('allow');
+    expect(await check($, 'tu_2')).toEqual(ASK);
     expect(world.asked.filter((ask) => ask.options.includes('Allow once, recorded'))).toHaveLength(
       2,
     );
@@ -2368,7 +2372,26 @@ describe('the rule stop answer on tool.check', () => {
     expect(await check($)).toEqual({ decision: 'allow' });
     world.verdict = DENY;
     expect(await check($, 'tu_1', 'Read')).toEqual(DENY);
+    expect(await check($, 'tu_1', 'Bash')).toEqual(DENY);
     expect(world.asked).toEqual([]);
+    expect(world.runs).toEqual([]);
+  });
+
+  test('the rule stop never answers allow, whatever the person picks', async ($, on) => {
+    const world = await stopped($, on);
+    const verdicts = [];
+    for (const answers of [
+      ['Allow once, recorded', 'No reason'],
+      ['Let Claude fix it'],
+      ['Show the rule', 'Allow once, recorded', 'needed'],
+      [null],
+    ]) {
+      world.put(LAST_BLOCK, JSON.stringify(STOP));
+      world.answers.push(...answers);
+      verdicts.push(await check($));
+    }
+    expect(verdicts.map((verdict) => verdict.decision)).toEqual(['ask', 'deny', 'ask', 'deny']);
+    expect(verdicts.some((verdict) => verdict.decision === 'allow')).toBe(false);
   });
 });
 

@@ -123,7 +123,12 @@ describe('scripts/assemble-plugin.mjs', () => {
 
   it('AC-2 keeps every file of the build under the directory limit of 5 MiB with no OS junk', () => {
     let repoRoot = resolve('.');
-    if (!existsSync(join(repoRoot, 'dist/cli/index.js'))) {
+    const versionOf = (rel: string) =>
+      (JSON.parse(readFileSync(join(repoRoot, rel), 'utf8')) as { version: string }).version;
+    const built =
+      existsSync(join(repoRoot, 'dist/cli/index.js')) &&
+      versionOf('package.json') === versionOf('.claude-plugin/plugin.json');
+    if (!built) {
       repoRoot = builtRepo();
       write(repoRoot, 'dist/cli/index.js.map', 'x'.repeat(6 * 1024 * 1024));
       write(repoRoot, 'runtime/templates/.DS_Store');
