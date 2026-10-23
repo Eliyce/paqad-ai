@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5KR7VM51BM5SPDQ4JC3JDAK](TD-01M5KR7VM51BM5SPDQ4JC3JDAK.md) (gap, low): Firewall eval rule cases grade only src/api/users.ts, so a db import in a new src/api file scores as a pass
+- [TD-01M5KR7T2DSW4BZHHEGBD2D0NV](TD-01M5KR7T2DSW4BZHHEGBD2D0NV.md) (bug, medium): Turn-end completion gate grades a change while a plugin-namespaced paqad stage agent still runs in the background
 - [TD-01M5JNJHZWFAWGY74TA5JGV1C7](TD-01M5JNJHZWFAWGY74TA5JGV1C7.md) (bug, medium): Plugin session start writes an unquoted PATH into CLAUDE_ENV_FILE, breaking Bash when the plugin root has a space
 - [TD-01M5JNJGFMSQP1XH0N3D5X9TJ3](TD-01M5JNJGFMSQP1XH0N3D5X9TJ3.md) (bug, medium): Pre-mutation rule gate crashes with EISDIR when git status lists paths outside the project root
 - [TD-01M5JE09CZQAYQZ9ZMFVAG046T](TD-01M5JE09CZQAYQZ9ZMFVAG046T.md) (bug, high): Every coding prompt is guessed onto the fast lane because the prompt seam classifies without the project profile
