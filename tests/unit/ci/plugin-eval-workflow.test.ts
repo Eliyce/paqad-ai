@@ -77,6 +77,13 @@ describe('plugin-eval workflow', () => {
     expect([...at].sort((a, b) => a - b)).toEqual(at);
     expect(step(/install dependencies/i).run).toBe('pnpm install --frozen-lockfile');
     expect(step(/stage the plugin/i).run).toContain('node scripts/stage-plugin-eval.mjs "$STAGE"');
+    expect(step(/stage the plugin/i).run).toContain('echo "STAGE=$STAGE" >> "$GITHUB_ENV"');
+  });
+
+  it('uses no runner context in job-level env, where GitHub does not allow it', () => {
+    for (const value of Object.values(job.env ?? {})) {
+      expect(value).not.toMatch(/\$\{\{\s*runner\./);
+    }
   });
 
   it('runs three suites in order, then the score check, then the upload', () => {
