@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7J",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on evals/fixture/scaffold.sh",
+  "context": "Chief architect: this is the probed, settled shape; the other claim (120 s limit, minimal env, own git identity, BASH_SOURCE so a path with a space works) is a set of constraints on the same script and is carried by accepted EX-devops-engineer-11 and the next conflict\n\nTarget: evals/fixture/scaffold.sh\n- integration-architect: the shared scaffold stays well inside the 120 second limit, works with the minimal scaffold env (PATH, temp HOME, TMPDIR) and no network, sets its own git identity for the one commit, and resolves the plugin root from BASH_SOURCE so it works from a path with a space\n- application-architect: one shared scaffold script takes the suite name, copies the fixture, runs git init plus one commit, writes .paqad/framework-path.txt to the absolute <plugin root>/runtime, and sets stages_mode=off only for the firewall suite; each case's scaffold.sh is a one-line exec into it because scaffold_script cannot point outside the case directory\n\n[expert-conflict-fork:697c88b092b17b51]",
+  "options": [
+    {
+      "option_key": "the-shared-scaffold-stays-well-inside-th",
+      "label": "the shared scaffold stays well inside the 120 second limit, works with the minimal scaffold env (PATH, temp HOME, TMPDIR) and no network, sets its own git identity for the one commit, and resolves the plugin root from BASH_SOURCE so it works from a path with a space — integration-architect",
+      "one_line_preview": "the shared scaffold stays well inside the 120 second limit, works with the minimal scaffold env (PATH, temp HOME, TMPDIR) and no network, sets its own git identity for the one commit, and resolves the plugin root from BASH_SOURCE so it works from a path with a space — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "one-shared-scaffold-script-takes-the-sui",
+      "label": "one shared scaffold script takes the suite name, copies the fixture, runs git init plus one commit, writes .paqad/framework-path.txt to the absolute <plugin root>/runtime, and sets stages_mode=off only for the firewall suite; each case's scaffold.sh is a one-line exec into it because scaffold_script cannot point outside the case directory — application-architect",
+      "one_line_preview": "one shared scaffold script takes the suite name, copies the fixture, runs git init plus one commit, writes .paqad/framework-path.txt to the absolute <plugin root>/runtime, and sets stages_mode=off only for the firewall suite; each case's scaffold.sh is a one-line exec into it because scaffold_script cannot point outside the case directory — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "one-shared-scaffold-script-takes-the-sui",
+  "created_at": "2026-10-22T21:11:26.507Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "one-shared-scaffold-script-takes-the-sui",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:09.305Z",
+  "decision_id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7J",
+  "fingerprint": "sha256:02043f8eedfadefc05aa991359a81a96a4f24190746ecf5c563e602f6e5c3f8a",
+  "question": "Experts disagree on evals/fixture/scaffold.sh",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.507Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "one-shared-scaffold-script-takes-the-sui",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:09.305Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}

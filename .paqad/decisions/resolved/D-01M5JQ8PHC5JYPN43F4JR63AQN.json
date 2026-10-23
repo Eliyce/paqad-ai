@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5JQ8PHC5JYPN43F4JR63AQN",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new evals/fixture/scaffold.sh",
+  "context": "Chief architect: both claims want a half-built fixture to fail the case; the security wording also bounds what an outside-sandbox script may touch, and set -euo pipefail is what delivers the qa error path\n\nTarget: new evals/fixture/scaffold.sh\n- security-auditor: The shared scaffold runs outside the sandbox, so it only writes inside the current workspace, makes no network call, quotes every path built from BASH_SOURCE (the local checkout path has a space), and runs with set -euo pipefail so a half-built fixture fails the case instead of running loose.\n- qa-engineer: Error path: when git init, the commit, or the framework-path.txt write fails, the scaffold exits non-zero so the case errors instead of running in a half-built workspace and grading a false firewall block.\n\n[expert-conflict-fork:540fa2a5c15a81ee]",
+  "options": [
+    {
+      "option_key": "the-shared-scaffold-runs-outside-the-san",
+      "label": "The shared scaffold runs outside the sandbox, so it only writes inside the current workspace, makes no network call, quotes every path built from BASH_SOURCE (the local checkout path has a space), and runs with set -euo pipefail so a half-built fixture fails the case instead of running loose. — security-auditor",
+      "one_line_preview": "The shared scaffold runs outside the sandbox, so it only writes inside the current workspace, makes no network call, quotes every path built from BASH_SOURCE (the local checkout path has a space), and runs with set -euo pipefail so a half-built fixture fails the case instead of running loose. — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "error-path-when-git-init-the-commit-or-t",
+      "label": "Error path: when git init, the commit, or the framework-path.txt write fails, the scaffold exits non-zero so the case errors instead of running in a half-built workspace and grading a false firewall block. — qa-engineer",
+      "one_line_preview": "Error path: when git init, the commit, or the framework-path.txt write fails, the scaffold exits non-zero so the case errors instead of running in a half-built workspace and grading a false firewall block. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-shared-scaffold-runs-outside-the-san",
+  "created_at": "2026-10-22T21:11:26.508Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "the-shared-scaffold-runs-outside-the-san",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:09.730Z",
+  "decision_id": "D-01M5JQ8PHC5JYPN43F4JR63AQN",
+  "fingerprint": "sha256:00173144b1d1701e2b729284ca4d601236bce7670a4385a4eae219a6a022d8d4",
+  "question": "Experts disagree on new evals/fixture/scaffold.sh",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.508Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-shared-scaffold-runs-outside-the-san",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:09.730Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}

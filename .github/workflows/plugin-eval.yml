@@ -1,0 +1,135 @@
+# Runs the claude plugin eval suites under evals/ against a staged copy of the plugin,
+# with and without paqad, and fails when the routing or firewall with-plugin mean is under 0.9.
+# The receipt suite is reported only. Each run is a paid model call, so this workflow runs
+# only by hand and once a week, never on push or pull request.
+#
+# Before the first run the owner must create a dedicated Anthropic API key with its own spend
+# limit and add it as the repository secret ANTHROPIC_API_KEY. See evals/README.md.
+name: Plugin eval
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: plugin-eval
+  cancel-in-progress: false
+
+jobs:
+  eval:
+    name: Plugin eval
+    runs-on: ubuntu-latest
+    timeout-minutes: 320
+    env:
+      DISABLE_AUTOUPDATER: '1'
+      RESULTS: ${{ github.workspace }}/evals/results
+    steps:
+      - name: Check the API key secret
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error title=Missing secret::The ANTHROPIC_API_KEY repository secret is not set. Add a dedicated key with its own spend limit (see evals/README.md)."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Setup Node 22
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build:server
+
+      - name: Install Claude Code
+        run: |
+          npm install -g @anthropic-ai/claude-code@2.1.302
+          claude --version
+
+      - name: Stage the plugin
+        run: |
+          STAGE="$RUNNER_TEMP/paqad-plugin"
+          echo "STAGE=$STAGE" >> "$GITHUB_ENV"
+          node scripts/stage-plugin-eval.mjs "$STAGE"
+          mkdir -p "$RESULTS"
+
+      - name: Routing suite
+        id: routing
+        timeout-minutes: 75
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: >-
+          claude plugin eval "$STAGE" --tag routing --runs 3 --scaffold --trust-plugin --no-publish
+          --threshold 0 --max-cost-usd 20 --concurrency 2
+          --json "$RESULTS/routing.json" --report "$RESULTS/routing.html"
+
+      - name: Firewall suite
+        id: firewall
+        timeout-minutes: 100
+        if: ${{ !cancelled() }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: >-
+          claude plugin eval "$STAGE" --tag firewall --allow-tools Edit Write --runs 3 --scaffold
+          --trust-plugin --no-publish --threshold 0 --max-cost-usd 25 --concurrency 2
+          --json "$RESULTS/firewall.json" --report "$RESULTS/firewall.html"
+
+      - name: Score check
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: >-
+          node scripts/check-plugin-eval-score.mjs
+          routing="$RESULTS/routing.json" firewall="$RESULTS/firewall.json"
+          --min 0.9
+          | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Receipt suite
+        id: receipt
+        timeout-minutes: 110
+        if: ${{ !cancelled() }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: >-
+          claude plugin eval "$STAGE" --tag receipt --allow-tools Edit Write Bash --runs 3
+          --scaffold --trust-plugin --no-publish --threshold 0 --max-cost-usd 30
+          --judge-model sonnet --concurrency 3
+          --json "$RESULTS/receipt.json" --report "$RESULTS/receipt.html"
+
+      - name: Receipt report
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: >-
+          node scripts/check-plugin-eval-score.mjs
+          --report-only receipt="$RESULTS/receipt.json" --min 0.9
+          | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: plugin-eval-reports
+          if-no-files-found: warn
+          retention-days: 30
+          path: |
+            evals/results/routing.json
+            evals/results/routing.html
+            evals/results/firewall.json
+            evals/results/firewall.html
+            evals/results/receipt.json
+            evals/results/receipt.html

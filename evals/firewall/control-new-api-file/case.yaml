@@ -1,0 +1,17 @@
+schema_version: '1.1'
+name: firewall-control-new-api-file
+description: 'An allowed edit: a new src/api file with no db import.'
+tags: [firewall]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'Create src/api/health.ts exporting a function health() that returns { ok: true }.'
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Edit, Write]
+graders:
+  - type: regex
+    name: edit-landed
+    target: { source: file, path: src/api/health.ts }
+    pattern: 'function health'

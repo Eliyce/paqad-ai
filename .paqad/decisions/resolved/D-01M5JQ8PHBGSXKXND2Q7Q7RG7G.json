@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7G",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on package.json files",
+  "context": "Chief architect: both claims say the same thing; this one adds the proof (a pack check), which EX-security-auditor-11 and EX-qa-engineer-8 also ask for\n\nTarget: package.json files\n- devops-engineer: evals/ does not ship in the npm package; a pack check or the existing files list proves it, which keeps the no-changeset decision true\n- application-architect: evals/ must stay out of the npm package: the files list (dist, runtime, .claude-plugin/plugin.json, README.md, ...) must not gain evals/, so no changeset is needed\n\n[expert-conflict-fork:9a1e5ad87f753044]",
+  "options": [
+    {
+      "option_key": "evals-does-not-ship-in-the-npm-package-a",
+      "label": "evals/ does not ship in the npm package; a pack check or the existing files list proves it, which keeps the no-changeset decision true — devops-engineer",
+      "one_line_preview": "evals/ does not ship in the npm package; a pack check or the existing files list proves it, which keeps the no-changeset decision true — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "evals-must-stay-out-of-the-npm-package-t",
+      "label": "evals/ must stay out of the npm package: the files list (dist, runtime, .claude-plugin/plugin.json, README.md, ...) must not gain evals/, so no changeset is needed — application-architect",
+      "one_line_preview": "evals/ must stay out of the npm package: the files list (dist, runtime, .claude-plugin/plugin.json, README.md, ...) must not gain evals/, so no changeset is needed — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "evals-does-not-ship-in-the-npm-package-a",
+  "created_at": "2026-10-22T21:11:26.507Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "evals-does-not-ship-in-the-npm-package-a",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:08.454Z",
+  "decision_id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7G",
+  "fingerprint": "sha256:04d51ff5cda31c9085c542bac1ec8b097958f11f7ffa0ade27e9b3ff672c314f",
+  "question": "Experts disagree on package.json files",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.507Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "evals-does-not-ship-in-the-npm-package-a",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:08.454Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}

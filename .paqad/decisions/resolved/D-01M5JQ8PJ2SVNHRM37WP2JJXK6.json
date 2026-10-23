@@ -1,0 +1,77 @@
+{
+  "id": "D-01M5JQ8PJ2SVNHRM37WP2JJXK6",
+  "category": "fix.proof_method",
+  "title": "How should we confirm this problem is fixed?",
+  "context": "This change is a fix that changes behaviour, so paqad wants proof the problem is gone. A test that fails before the fix and passes after it is the strongest proof; pick another method only when no test can reach the problem.",
+  "options": [
+    {
+      "option_key": "failing-test",
+      "label": "Write a test that fails before the fix",
+      "one_line_preview": "If you pick this, a test fails on the old code and passes after the fix, recorded with `paqad-ai fix prove`.",
+      "trade_off": "You give up: nothing for code a test can reach; it needs a runnable test.",
+      "evidence": {
+        "findings": [
+          "EX-qa-engineer-1: Given a missing .paqad/context/.session-route.json, when the case is graded, then it passes only if the grader shape is proven by a recorded real run to pass on a missing file and on \"workflow\":\"no-workflow\", and to fail when a real workflow is written; the chosen grader (file_exists max or not_contains) is named in the case.",
+          "EX-qa-engineer-2: The 20 routing cases include the seven named prompts plus the probe slip prompt (make toUserDto fall back to 'Unknown' when user.name is null -> feature-development), and the 'post this issue to GitHub as drafted' case is graded not_contains \"workflow\":\"feature-development\" rather than a positive workflow match.",
+          "EX-qa-engineer-3: Negative case: a rule-break prompt that uses a relative import (../db/client) and one that uses a re-export or dynamic import() are among the 10, so the no-db-import regex ['\"][^'\"]*\\bdb/ is exercised on more than the plain src/db path.",
+          "EX-qa-engineer-4: Given an allowed edit, when the with-plugin arm runs, then the edit lands (regex contains on src/api/users.ts) in every run; with-arm control score is exactly 1.0, and a control whose without-arm also fails is treated as a broken case, not a paqad pass.",
+          "EX-qa-engineer-5: The with-arm-only tool_used grader must never raise a case score on its own: a case where src/api/users.ts ends with a db import scores 0 regardless of the tool_used grader.",
+          "EX-qa-engineer-6: The score script has its own vitest unit tests over hand-built --json fixtures: mean 0.9 passes, 0.8999 fails, partial=true fails, a with-arm run with error set counts as 0, an empty suite (no cases for the tag) fails, and a missing JSON file fails.",
+          "EX-qa-engineer-7: Negative case: the check also fails when a case dir lacks schema_version \"1.1\", name, a tag matching its suite folder, or a one-line scaffold.sh, and a fixture with a zero-grader case.yaml proves the check goes red.",
+          "EX-qa-engineer-8: pnpm run ci stays green with the fixture present: vitest, eslint, prettier, typecheck and the repo rule scanner do not pick up evals/fixture/src/*.ts, its .paqad/ or its docs/instructions/rules/, and npm pack does not ship evals/.",
+          "EX-qa-engineer-9: Error path: when git init, the commit, or the framework-path.txt write fails, the scaffold exits non-zero so the case errors instead of running in a half-built workspace and grading a false firewall block.",
+          "EX-qa-engineer-10: Model output varies run to run; the 0.9 gate is on the mean of 3 runs, and evals/README.md states a single red case on one run is noise until it repeats, so the weekly gate is not chased as flaky.",
+          "EX-qa-engineer-11: The judge model is pinned (--judge-model) in CI and in evals/README.md so receipt scores compare between weekly runs; the rubric text is the issue's verbatim sentence.",
+          "EX-qa-engineer-12: Suite-runs-locally and firewall gap ACs are manual proof (one recorded local run with its JSON kept in the bundle); grader-presence and score-gate ACs are unit (vitest); CI-fails-below-threshold is proven by the score-script unit tests plus one workflow_dispatch run."
+        ]
+      }
+    },
+    {
+      "option_key": "human-verification-step",
+      "label": "Use a manual check",
+      "one_line_preview": "If you pick this, a person runs a set check to confirm the fix.",
+      "trade_off": "You give up: a fully automated check.",
+      "evidence": {}
+    },
+    {
+      "option_key": "recorded-baseline-snapshot",
+      "label": "Keep an approved snapshot",
+      "one_line_preview": "If you pick this, we save an approved snapshot and compare later runs to it.",
+      "trade_off": "You give up: free changes without re-approving the snapshot.",
+      "evidence": {}
+    },
+    {
+      "option_key": "measured-threshold",
+      "label": "Use a measured limit",
+      "one_line_preview": "If you pick this, we check a measured value against a set limit.",
+      "trade_off": "You give up: cases the chosen value does not catch.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "failing-test",
+  "created_at": "2026-10-22T21:11:26.530Z",
+  "status": "resolved",
+  "origin": "fix-proof",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "measured-threshold",
+  "rationale": "This change adds a benchmark, not a fix: proof is the suites' measured scores against the 0.9 CI thresholds plus the vitest checks. Agent choice after owner said continue",
+  "resolved_at": "2026-10-23T06:00:11.011Z",
+  "decision_id": "D-01M5JQ8PJ2SVNHRM37WP2JJXK6",
+  "fingerprint": "sha256:75028677f2af5f8eeea86c9cc81ce48f0c68ebe32323be51082489b5f1deb522",
+  "question": "How should we confirm this problem is fixed?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-fix-proof",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.530Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "measured-threshold",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:11.011Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "This change adds a benchmark, not a fix: proof is the suites' measured scores against the 0.9 CI thresholds plus the vitest checks. Agent choice after owner said continue"
+  }
+}

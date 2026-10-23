@@ -1,0 +1,62 @@
+{
+  "id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7F",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new evals score script",
+  "context": "Chief architect: the four claims are complementary, not opposed; this one fixes the number the gate is on, which the settled design notes require; the fail-on-partial, fail-on-missing-JSON, fail-loudly-on-renamed-field and plain-node-script-under-evals parts are all carried by accepted findings EX-qa-engineer-6 and EX-security-auditor-5 and should be kept in the spec\n\nTarget: new evals score script\n- devops-engineer: the gate fails the job when the routing or firewall with-arm mean is under 0.9, when any suite JSON is missing, or when partial is true (exit code 2 from a cost ceiling), and it prints each suite's with and without score to the job summary\n- integration-architect: the score script reads the --json result by the probed shape (cases[].name, cases[].arms.with[].score, partial, partialReason) and fails loudly with a named error when a field is missing or renamed, instead of scoring zero or passing silently\n- integration-architect: the with-plugin suite score is the mean of cases[].arms.with[].score over that suite's cases computed by the script, never aggregates.overallScore; a run with an errored with-arm counts that run as 0, not dropped from the mean\n- application-architect: the gate is a small node script under evals/ reading the documented --json shape (cases[].arms.with[].score, partial); it is plain repo tooling, not a paqad-ai CLI verb, and it is covered by the vitest check beside the every-case-has-a-grader test\n\n[expert-conflict-fork:d5d486d19e7fc0d0]",
+  "options": [
+    {
+      "option_key": "the-gate-fails-the-job-when-the-routing-",
+      "label": "the gate fails the job when the routing or firewall with-arm mean is under 0.9, when any suite JSON is missing, or when partial is true (exit code 2 from a cost ceiling), and it prints each suite's with and without score to the job summary — devops-engineer",
+      "one_line_preview": "the gate fails the job when the routing or firewall with-arm mean is under 0.9, when any suite JSON is missing, or when partial is true (exit code 2 from a cost ceiling), and it prints each suite's with and without score to the job summary — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-score-script-reads-the-json-result-b",
+      "label": "the score script reads the --json result by the probed shape (cases[].name, cases[].arms.with[].score, partial, partialReason) and fails loudly with a named error when a field is missing or renamed, instead of scoring zero or passing silently — integration-architect",
+      "one_line_preview": "the score script reads the --json result by the probed shape (cases[].name, cases[].arms.with[].score, partial, partialReason) and fails loudly with a named error when a field is missing or renamed, instead of scoring zero or passing silently — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-with-plugin-suite-score-is-the-mean-",
+      "label": "the with-plugin suite score is the mean of cases[].arms.with[].score over that suite's cases computed by the script, never aggregates.overallScore; a run with an errored with-arm counts that run as 0, not dropped from the mean — integration-architect",
+      "one_line_preview": "the with-plugin suite score is the mean of cases[].arms.with[].score over that suite's cases computed by the script, never aggregates.overallScore; a run with an errored with-arm counts that run as 0, not dropped from the mean — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-gate-is-a-small-node-script-under-ev",
+      "label": "the gate is a small node script under evals/ reading the documented --json shape (cases[].arms.with[].score, partial); it is plain repo tooling, not a paqad-ai CLI verb, and it is covered by the vitest check beside the every-case-has-a-grader test — application-architect",
+      "one_line_preview": "the gate is a small node script under evals/ reading the documented --json shape (cases[].arms.with[].score, partial); it is plain repo tooling, not a paqad-ai CLI verb, and it is covered by the vitest check beside the every-case-has-a-grader test — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-with-plugin-suite-score-is-the-mean-",
+  "created_at": "2026-10-22T21:11:26.507Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "the-with-plugin-suite-score-is-the-mean-",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:08.029Z",
+  "decision_id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7F",
+  "fingerprint": "sha256:0deb2df83b016e532ee0efeb801b8007b3613b1079f9751b56b6c77c5a022ab2",
+  "question": "Experts disagree on new evals score script",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.507Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-with-plugin-suite-score-is-the-mean-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:08.029Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}

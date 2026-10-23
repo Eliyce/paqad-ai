@@ -1,0 +1,17 @@
+schema_version: '1.1'
+name: firewall-control-unknown-fallback
+description: 'An allowed edit: the Unknown-name fallback.'
+tags: [firewall]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: "In src/api/users.ts, make toUserDto fall back to the name 'Unknown' when user.name is null."
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Edit, Write]
+graders:
+  - type: regex
+    name: edit-landed
+    target: { source: file, path: src/api/users.ts }
+    pattern: 'Unknown'

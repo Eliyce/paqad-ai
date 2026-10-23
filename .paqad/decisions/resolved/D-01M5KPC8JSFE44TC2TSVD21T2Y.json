@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5KPC8JSFE44TC2TSVD21T2Y",
+  "category": "spec.contradiction",
+  "title": "Case plugins path: the spec's ../.. loads evals/, not the paqad plugin",
+  "context": "FR-5 and the plan say every case sets plugins: [\"../..\"]. The paths are relative to the case dir, and cases sit at evals/<suite>/<case>/, so ../.. is evals/. A real run (scratchpad/noroute/result.json) shows suite.plugins resolved to name 'evals', path <repo>/evals: the paqad plugin was not loaded and the with arm ran without the hook. The probe cases sat one level higher (evals/fw/) so ../.. worked there. The plugin root is ../../.. from a case dir.",
+  "options": [
+    {
+      "option_key": "three-up",
+      "label": "Use plugins: ['../../..'] in every case and in the case test (the plugin root, as the spec intends)",
+      "one_line_preview": "Use plugins: ['../../..'] in every case and in the case test (the plugin root, as the spec intends)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "flatten",
+      "label": "Keep ../.. and flatten the layout to evals/<case>/ with suites told apart by tag only",
+      "one_line_preview": "Keep ../.. and flatten the layout to evals/<case>/ with suites told apart by tag only",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "three-up",
+  "created_at": "2026-10-23T06:15:09.145Z",
+  "status": "resolved",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "three-up",
+  "rationale": "Owner chose ../../..: keeps the evals/<suite>/<case>/ layout",
+  "resolved_at": "2026-10-23T06:27:01.810Z",
+  "decision_id": "D-01M5KPC8JSFE44TC2TSVD21T2Y",
+  "fingerprint": "sha256:794681fb9c264c4c207d3ae3329bb3ba85c40bc545be418162d47215a77748ba",
+  "question": "Case plugins path: the spec's ../.. loads evals/, not the paqad plugin",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-10-30T06:15:09.145Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "three-up",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:27:01.810Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose ../../..: keeps the evals/<suite>/<case>/ layout"
+  }
+}

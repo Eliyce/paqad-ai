@@ -53,6 +53,24 @@ missing artifact falls back to loading the full rule tree.
 
 - Disabled by default (a framework-internal gate). Enable explicitly per-run when measuring regressions.
 
+## Plugin Eval Gates
+
+The `claude plugin eval` suites under `evals/` run paqad inside real Claude Code sessions,
+with and without the plugin, from the weekly and on-demand `Plugin eval` workflow. The gate is
+on the with-plugin mean of 3 runs per case, read by `scripts/check-plugin-eval-score.mjs`. How
+to run the suites and how each is graded is in [`evals/README.md`](../../../evals/README.md).
+
+| Suite    | What it measures                              | Gate                          |
+| -------- | --------------------------------------------- | ----------------------------- |
+| routing  | the workflow the prompt hook picked           | with-plugin mean ≥ 0.9        |
+| firewall | a rule-breaking edit is gone at the end       | with-plugin mean ≥ 0.9        |
+| receipt  | the final message carries an honest verdict   | reported only, never gates    |
+
+A partial run (the cost ceiling was hit) is a failed run and never a score. A single run that
+errored counts as 0, with one exception: a run that only reached its turn limit keeps the score
+its graders gave, because the outcome a case grades (the route file, the final file content) is
+already settled by then.
+
 ## Test / Build Gates
 
 - `pnpm ci` must pass: `typecheck → lint → format:check → test:coverage → build`.

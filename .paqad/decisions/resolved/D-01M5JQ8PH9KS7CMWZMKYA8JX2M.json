@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5JQ8PH9KS7CMWZMKYA8JX2M",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new .github/workflows/plugin-eval.yml triggers",
+  "context": "Chief architect: both claims agree on dispatch plus weekly schedule; the security wording is stricter (it also rules out pull_request_target and other fork-reachable events) and names the reason, so it subsumes the cost-only wording\n\nTarget: new .github/workflows/plugin-eval.yml triggers\n- devops-engineer: the workflow triggers only on workflow_dispatch and one weekly schedule, never on push or pull_request, so model cost stays bounded\n- security-auditor: The workflow runs only on workflow_dispatch and schedule; it never runs on pull_request, pull_request_target or any fork-reachable event, because it runs the checked-out plugin with --trust-plugin and an outside-sandbox scaffold script while holding the ANTHROPIC_API_KEY secret.\n\n[expert-conflict-fork:4f4434f14b66dc7a]",
+  "options": [
+    {
+      "option_key": "the-workflow-triggers-only-on-workflow-d",
+      "label": "the workflow triggers only on workflow_dispatch and one weekly schedule, never on push or pull_request, so model cost stays bounded — devops-engineer",
+      "one_line_preview": "the workflow triggers only on workflow_dispatch and one weekly schedule, never on push or pull_request, so model cost stays bounded — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-workflow-runs-only-on-workflow-dispa",
+      "label": "The workflow runs only on workflow_dispatch and schedule; it never runs on pull_request, pull_request_target or any fork-reachable event, because it runs the checked-out plugin with --trust-plugin and an outside-sandbox scaffold script while holding the ANTHROPIC_API_KEY secret. — security-auditor",
+      "one_line_preview": "The workflow runs only on workflow_dispatch and schedule; it never runs on pull_request, pull_request_target or any fork-reachable event, because it runs the checked-out plugin with --trust-plugin and an outside-sandbox scaffold script while holding the ANTHROPIC_API_KEY secret. — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-workflow-runs-only-on-workflow-dispa",
+  "created_at": "2026-10-22T21:11:26.505Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "the-workflow-runs-only-on-workflow-dispa",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:07.597Z",
+  "decision_id": "D-01M5JQ8PH9KS7CMWZMKYA8JX2M",
+  "fingerprint": "sha256:5809c655eebf74375b14acd7f9635428361ddc2c659dadb6ea5bf612238cfcb2",
+  "question": "Experts disagree on new .github/workflows/plugin-eval.yml triggers",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.505Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-workflow-runs-only-on-workflow-dispa",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:07.597Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}

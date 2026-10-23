@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5KQAFX27MTMENM5RTQFAPY0",
+  "category": "spec.contradiction",
+  "title": "claude plugin eval cannot run against the repo root; CI and the README need a staged plugin dir",
+  "context": "FR-16 and the README steps say run 'claude plugin eval .' from the checkout. A real run from the repo root failed every case with: 'a plugin directory holds more than 20000 entries to check for eval directories, point the case at a smaller plugin directory'. The checkout has about 97k entries outside node_modules (.git, graph-ui, coverage) plus node_modules, and CI's fresh checkout plus pnpm install is also far over 20000. The probe passed because it used a slim copy (.claude-plugin, assets, dist, runtime, package.json, evals, and node_modules as a symlink, which the walker does not follow). A run from such a staged copy (scratchpad/posroute/result.json) loaded plugin 'paqad' and graded correctly. The scaffold already computes the plugin root from BASH_SOURCE, so it works unchanged from a staged copy.",
+  "options": [
+    {
+      "option_key": "stage-script",
+      "label": "Add scripts/stage-plugin-eval.mjs <dir> that copies .claude-plugin, assets, dist, runtime, package.json and evals into <dir> and symlinks node_modules; CI and the README run claude plugin eval <dir>, writing --json and --report into the checkout's evals/results/",
+      "one_line_preview": "Add scripts/stage-plugin-eval.mjs <dir> that copies .claude-plugin, assets, dist, runtime, package.json and evals into <dir> and symlinks node_modules; CI and the README run claude plugin eval <dir>, writing --json and --report into the checkout's evals/results/",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "npm-pack",
+      "label": "Stage from an npm pack tarball, copy evals in and install production deps inside it, so the eval runs the exact shipped package (slower, a real install per run)",
+      "one_line_preview": "Stage from an npm pack tarball, copy evals in and install production deps inside it, so the eval runs the exact shipped package (slower, a real install per run)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "stage-script",
+  "created_at": "2026-10-23T06:31:39.682Z",
+  "status": "resolved",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "stage-script",
+  "rationale": "Owner chose the copy script: fast, and already passed a live run",
+  "resolved_at": "2026-10-23T06:32:40.487Z",
+  "decision_id": "D-01M5KQAFX27MTMENM5RTQFAPY0",
+  "fingerprint": "sha256:4e92475065fab128c27fd5113b5104f9993461bce54da5b320279366d7187924",
+  "question": "claude plugin eval cannot run against the repo root; CI and the README need a staged plugin dir",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-10-30T06:31:39.682Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "stage-script",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:32:40.487Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose the copy script: fast, and already passed a live run"
+  }
+}

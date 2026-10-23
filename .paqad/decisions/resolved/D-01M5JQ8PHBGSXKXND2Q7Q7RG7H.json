@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7H",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on .github/workflows/plugin-eval.yml",
+  "context": "Chief architect: the three claims come from one seat and do not oppose each other; this is the invocation shape the settled design notes fix and the only one that names --scaffold, without which no fixture exists; the pinned-version claim is carried by accepted EX-devops-engineer-2 and EX-security-auditor-8, and the exit-code handling by EX-security-auditor-5\n\nTarget: .github/workflows/plugin-eval.yml\n- integration-architect: the job treats eval exit code 2 (partial, cost ceiling) and 130/143 (interrupted) as a failed run, and exit 1 under --threshold 0 as a load failure, so no partial result is ever reported as a pass\n- integration-architect: CI installs a pinned Claude Code version and prints it in the log, because case.yaml, grader targets, scaffold rules and the --json shape were probed on one version (2.1.302 locally, 2.1.269 in the issue) and an unpinned upgrade can change the contract between weekly runs\n- integration-architect: each suite runs as its own invocation with --tag and its own --allow-tools (routing none, firewall Edit Write, receipt Edit Write Bash), plus --trust-plugin, --no-publish, --scaffold and an explicit --max-cost-usd, writing one JSON and one HTML report per suite, all uploaded as artifacts even when the gate fails\n\n[expert-conflict-fork:a328b423a2583372]",
+  "options": [
+    {
+      "option_key": "the-job-treats-eval-exit-code-2-partial-",
+      "label": "the job treats eval exit code 2 (partial, cost ceiling) and 130/143 (interrupted) as a failed run, and exit 1 under --threshold 0 as a load failure, so no partial result is ever reported as a pass — integration-architect",
+      "one_line_preview": "the job treats eval exit code 2 (partial, cost ceiling) and 130/143 (interrupted) as a failed run, and exit 1 under --threshold 0 as a load failure, so no partial result is ever reported as a pass — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "ci-installs-a-pinned-claude-code-version",
+      "label": "CI installs a pinned Claude Code version and prints it in the log, because case.yaml, grader targets, scaffold rules and the --json shape were probed on one version (2.1.302 locally, 2.1.269 in the issue) and an unpinned upgrade can change the contract between weekly runs — integration-architect",
+      "one_line_preview": "CI installs a pinned Claude Code version and prints it in the log, because case.yaml, grader targets, scaffold rules and the --json shape were probed on one version (2.1.302 locally, 2.1.269 in the issue) and an unpinned upgrade can change the contract between weekly runs — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "each-suite-runs-as-its-own-invocation-wi",
+      "label": "each suite runs as its own invocation with --tag and its own --allow-tools (routing none, firewall Edit Write, receipt Edit Write Bash), plus --trust-plugin, --no-publish, --scaffold and an explicit --max-cost-usd, writing one JSON and one HTML report per suite, all uploaded as artifacts even when the gate fails — integration-architect",
+      "one_line_preview": "each suite runs as its own invocation with --tag and its own --allow-tools (routing none, firewall Edit Write, receipt Edit Write Bash), plus --trust-plugin, --no-publish, --scaffold and an explicit --max-cost-usd, writing one JSON and one HTML report per suite, all uploaded as artifacts even when the gate fails — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "each-suite-runs-as-its-own-invocation-wi",
+  "created_at": "2026-10-22T21:11:26.507Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "each-suite-runs-as-its-own-invocation-wi",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:08.878Z",
+  "decision_id": "D-01M5JQ8PHBGSXKXND2Q7Q7RG7H",
+  "fingerprint": "sha256:4f878661350a50050095deae9cd9b8835352ef5331e8d3e548035c8ba9b36d38",
+  "question": "Experts disagree on .github/workflows/plugin-eval.yml",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.507Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "each-suite-runs-as-its-own-invocation-wi",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:08.878Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}

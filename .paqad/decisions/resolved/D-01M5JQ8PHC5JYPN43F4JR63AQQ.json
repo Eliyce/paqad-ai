@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5JQ8PHC5JYPN43F4JR63AQQ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new evals/routing/",
+  "context": "Chief architect: the two claims cover different things and do not oppose; this one carries an acceptance criterion (the five #615 prompts) and the probe slip; the README explanation of RL-569d and the route file is carried by accepted EX-application-architect-12\n\nTarget: new evals/routing/\n- product-owner: the routing suite carries the five #615 regression prompts plus the null-fallback edit prompt the probe saw routed to no-workflow; a case that is red today is the point of the suite and should be reported, not removed to make the score pass\n- product-owner: the issue text names the rule RL-eval1 and a transcript 'Routed to' check; the settled versions (RL-569d, grading .paqad/context/.session-route.json) must be explained in evals/README.md so a reader of issue #619 is not confused by the difference\n\n[expert-conflict-fork:f160d71da88c3b3c]",
+  "options": [
+    {
+      "option_key": "the-routing-suite-carries-the-five-615-r",
+      "label": "the routing suite carries the five #615 regression prompts plus the null-fallback edit prompt the probe saw routed to no-workflow; a case that is red today is the point of the suite and should be reported, not removed to make the score pass — product-owner",
+      "one_line_preview": "the routing suite carries the five #615 regression prompts plus the null-fallback edit prompt the probe saw routed to no-workflow; a case that is red today is the point of the suite and should be reported, not removed to make the score pass — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-issue-text-names-the-rule-rl-eval1-a",
+      "label": "the issue text names the rule RL-eval1 and a transcript 'Routed to' check; the settled versions (RL-569d, grading .paqad/context/.session-route.json) must be explained in evals/README.md so a reader of issue #619 is not confused by the difference — product-owner",
+      "one_line_preview": "the issue text names the rule RL-eval1 and a transcript 'Routed to' check; the settled versions (RL-569d, grading .paqad/context/.session-route.json) must be explained in evals/README.md so a reader of issue #619 is not confused by the difference — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-routing-suite-carries-the-five-615-r",
+  "created_at": "2026-10-22T21:11:26.508Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "the-routing-suite-carries-the-five-615-r",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:10.579Z",
+  "decision_id": "D-01M5JQ8PHC5JYPN43F4JR63AQQ",
+  "fingerprint": "sha256:f2d4dc578db5ba29f5a69e5aa1195d0520bbabdd4db6bd41afab180beacac534",
+  "question": "Experts disagree on new evals/routing/",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.508Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-routing-suite-carries-the-five-615-r",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:10.579Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}

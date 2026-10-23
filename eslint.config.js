@@ -12,6 +12,7 @@ export default tseslint.config(
       '.codex-tracker/**',
       '.paqad/**',
       'docs/slides/**',
+      'evals/fixture/**',
       'graph-ui/**',
       'runtime/graph-ui/**',
     ],

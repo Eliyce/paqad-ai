@@ -1,0 +1,16 @@
+schema_version: '1.1'
+name: routing-code-health
+description: 'A health check routes to codebase-health.'
+tags: [routing]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'is our code healthy? find dead code'
+  max_turns: 4
+  timeout_seconds: 180
+graders:
+  - type: regex
+    name: routed-codebase-health
+    target: { source: file, path: .paqad/context/.session-route.json }
+    pattern: '"workflow":"codebase-health"'

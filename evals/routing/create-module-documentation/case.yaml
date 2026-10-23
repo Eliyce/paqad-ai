@@ -1,0 +1,16 @@
+schema_version: '1.1'
+name: routing-create-module-documentation
+description: 'The per-module docs prompt routes to module-documentation.'
+tags: [routing]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'create module documentation'
+  max_turns: 4
+  timeout_seconds: 180
+graders:
+  - type: regex
+    name: routed-module-documentation
+    target: { source: file, path: .paqad/context/.session-route.json }
+    pattern: '"workflow":"module-documentation"'

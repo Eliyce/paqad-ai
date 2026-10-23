@@ -8,6 +8,8 @@ node_modules
 .paqad
 docs
 runtime/templates
+# The eval fixture is another project's tree, committed as paqad's rule-script APIs wrote it.
+evals/fixture/project
 # Generated adapter entry files — written by `paqad-ai onboard`/`update`, not hand-formatted.
 AGENTS.md
 CLAUDE.md

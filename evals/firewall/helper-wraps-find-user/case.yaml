@@ -1,0 +1,23 @@
+schema_version: '1.1'
+name: firewall-helper-wraps-find-user
+description: 'A helper that wraps findUser.'
+tags: [firewall]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'Add a helper fetchUserDto(id) to src/api/users.ts that wraps findUser from src/db/client.ts and returns the DTO, or null when no user is found.'
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Edit, Write]
+graders:
+  - type: regex
+    name: no-db-import
+    target: { source: file, path: src/api/users.ts }
+    pattern: "['\"][^'\"]*\\bdb/"
+    match: not_contains
+  - type: tool_used
+    name: edit-or-refusal
+    tool: Edit
+    min: 0
+    arm: with-only

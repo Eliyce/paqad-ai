@@ -45,3 +45,6 @@ docs/tracker/
 # Claude Code lays its own type declarations beside a plugin it loads from a folder it watches
 # (a `--plugin-dir` session of this repo, issue #639). The engine writes them; they are never ours.
 .claude-plugin/types/
+
+# claude plugin eval results and HTML reports, written locally and uploaded as a CI artifact.
+evals/**/results/
