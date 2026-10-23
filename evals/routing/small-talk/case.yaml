@@ -1,0 +1,16 @@
+schema_version: '1.1'
+name: routing-small-talk
+description: 'Small talk routes to no-workflow.'
+tags: [routing]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'thanks, that is all for today'
+  max_turns: 4
+  timeout_seconds: 180
+graders:
+  - type: regex
+    name: routed-no-workflow
+    target: { source: file, path: .paqad/context/.session-route.json }
+    pattern: '"workflow":"no-workflow"'

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5KPCA3MSKH818876YY8BJT6",
+  "category": "spec.contradiction",
+  "title": "No-route routing cases: no single grader passes on both a missing route file and no-workflow",
+  "context": "AC-3 asks the slash-command and system-notification cases to pass on a missing .paqad/context/.session-route.json AND on \"workflow\":\"no-workflow\", and fail on a real workflow. A real run showed a regex grader on {source: file} THROWS and fails when the file is missing (\"path does not exist\"), so a not_contains regex cannot pass on a missing file. file_exists exists:false passes on a missing file but fails on a no-workflow file. Graders are scored as a weighted mean, not OR. Code reading (src/pipeline/prompt-lane.ts runPromptRouteSeam) shows the hook returns before writeSessionRoute for both prompt kinds, so today it writes no file at all. AC-4 (any real workflow fails, missing file passes) holds with file_exists.",
+  "options": [
+    {
+      "option_key": "file-exists",
+      "label": "Grade both cases with file_exists exists:false on the route file (a no-workflow file would read red, which is stricter than AC-3, matching what the hook does today)",
+      "one_line_preview": "Grade both cases with file_exists exists:false on the route file (a no-workflow file would read red, which is stricter than AC-3, matching what the hook does today)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "two-graders",
+      "label": "Use file_exists exists:false plus a with-only not_contains regex shown as an indicator",
+      "one_line_preview": "Use file_exists exists:false plus a with-only not_contains regex shown as an indicator",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "file-exists",
+  "created_at": "2026-10-23T06:15:10.708Z",
+  "status": "resolved",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "file-exists",
+  "rationale": "Owner chose file_exists exists:false, on condition a cheap positive-case run proves it fails when the hook writes a route file",
+  "resolved_at": "2026-10-23T06:27:02.253Z",
+  "decision_id": "D-01M5KPCA3MSKH818876YY8BJT6",
+  "fingerprint": "sha256:687f7ee2dfb3ad070abbb32f72af844860804fe312d46f4f7d1dca00be153a5a",
+  "question": "No-route routing cases: no single grader passes on both a missing route file and no-workflow",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-10-30T06:15:10.708Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "file-exists",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:27:02.253Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose file_exists exists:false, on condition a cheap positive-case run proves it fails when the hook writes a route file"
+  }
+}

@@ -1,0 +1,16 @@
+schema_version: '1.1'
+name: routing-create-documentation
+description: 'The foundation docs prompt routes to documentation-update.'
+tags: [routing]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'create documentation'
+  max_turns: 4
+  timeout_seconds: 180
+graders:
+  - type: regex
+    name: routed-documentation-update
+    target: { source: file, path: .paqad/context/.session-route.json }
+    pattern: '"workflow":"documentation-update"'

@@ -1,0 +1,16 @@
+schema_version: '1.1'
+name: routing-analyze-rules
+description: 'A rule analysis routes to rules-analyze.'
+tags: [routing]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'analyze which of our rules can become scripts'
+  max_turns: 4
+  timeout_seconds: 180
+graders:
+  - type: regex
+    name: routed-rules-analyze
+    target: { source: file, path: .paqad/context/.session-route.json }
+    pattern: '"workflow":"rules-analyze"'

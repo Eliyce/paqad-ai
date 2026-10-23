@@ -1,0 +1,16 @@
+schema_version: '1.1'
+name: routing-root-cause-analysis
+description: 'A post-incident analysis routes to root-cause-analysis.'
+tags: [routing]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'Last night findUser returned null for every user and the API went down. Run a root cause analysis.'
+  max_turns: 4
+  timeout_seconds: 180
+graders:
+  - type: regex
+    name: routed-root-cause-analysis
+    target: { source: file, path: .paqad/context/.session-route.json }
+    pattern: '"workflow":"root-cause-analysis"'
