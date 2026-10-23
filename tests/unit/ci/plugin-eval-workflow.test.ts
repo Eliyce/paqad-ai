@@ -114,9 +114,9 @@ describe('plugin-eval workflow', () => {
   });
 
   it.each([
-    ['routing', null, '10'],
-    ['firewall', '--allow-tools Edit Write --', '20'],
-    ['receipt', '--allow-tools Edit Write Bash --', '20'],
+    ['routing', null, '20'],
+    ['firewall', '--allow-tools Edit Write --', '25'],
+    ['receipt', '--allow-tools Edit Write Bash --', '30'],
   ])('runs the %s suite alone with its own grant and ceiling', (suite, grant, ceiling) => {
     const run = suiteRun(suite);
     expect(run).toContain(`claude plugin eval "$STAGE" --tag ${suite} `);

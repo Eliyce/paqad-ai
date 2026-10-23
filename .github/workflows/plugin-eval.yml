@@ -76,7 +76,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: >-
           claude plugin eval "$STAGE" --tag routing --runs 3 --scaffold --trust-plugin --no-publish
-          --threshold 0 --max-cost-usd 10 --concurrency 2
+          --threshold 0 --max-cost-usd 20 --concurrency 2
           --json "$RESULTS/routing.json" --report "$RESULTS/routing.html"
 
       - name: Firewall suite
@@ -87,7 +87,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: >-
           claude plugin eval "$STAGE" --tag firewall --allow-tools Edit Write --runs 3 --scaffold
-          --trust-plugin --no-publish --threshold 0 --max-cost-usd 20 --concurrency 2
+          --trust-plugin --no-publish --threshold 0 --max-cost-usd 25 --concurrency 2
           --json "$RESULTS/firewall.json" --report "$RESULTS/firewall.html"
 
       - name: Score check
@@ -107,7 +107,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: >-
           claude plugin eval "$STAGE" --tag receipt --allow-tools Edit Write Bash --runs 3
-          --scaffold --trust-plugin --no-publish --threshold 0 --max-cost-usd 20
+          --scaffold --trust-plugin --no-publish --threshold 0 --max-cost-usd 30
           --judge-model sonnet --concurrency 3
           --json "$RESULTS/receipt.json" --report "$RESULTS/receipt.html"
 

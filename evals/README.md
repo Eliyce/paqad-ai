@@ -89,10 +89,9 @@ Without `--json` and `--report`, the tool writes its results under the staged co
 
 ## What it costs
 
-From the first probe runs, one routing run cost about $0.06 and one firewall run about $0.17.
-A receipt run is a full feature-development change and costs much more. A full weekly run is
-3 runs per case in both arms, about $7 for routing and $15 for firewall, and CI caps the three
-suites at $10, $20 and $20.
+The first full local run, 3 runs per case in both arms, cost $12.85 for routing, $15.63 for
+firewall and $17.69 for receipt, about $46 in all. CI caps the three suites at $20, $25 and
+$30, so a normal week has room to spare and a full run stays under about $75.
 
 A run that hits `--max-cost-usd` stops, exits 2 and marks the result `partial`. That is not a
 score and is never quoted. Rerun with a higher ceiling or fewer runs.
