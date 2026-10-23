@@ -1,5 +1,13 @@
 # paqad-ai
 
+## 1.105.1
+
+### Patch Changes
+
+- 7bab5bf: The HUD's rule stop no longer approves an edit itself. When you choose "Allow once, recorded", paqad still records your override with `paqad-ai rules override`, and then hands the edit to Claude Code's own permission step, which shows its dialog or follows your permission mode. The HUD now keeps every use of the mod API inside its one hooks file, which clears the two blocking findings from Anthropic's plugin directory. The README says what the HUD reads, writes, runs and sends.
+- 65df660: Add a repeatable benchmark for the paqad plugin, built on `claude plugin eval`. Three suites run inside real Claude Code sessions, each case once with paqad and once without, against a small fixture project: routing (did the request reach the right workflow), firewall (was a rule-breaking edit stopped, while allowed edits still land) and receipt (did the final message carry an honest verdict). A weekly and on-demand GitHub workflow runs them and fails when the routing or firewall score with paqad drops below 0.9. Nothing in the installed package changes; the suites live in `evals/` and are not published.
+- d0847ee: The prompt router now sends more everyday phrasings to the right workflow. "run a security review" goes to pentest, "audit the UI against the design system" to design-test, "map the app's surfaces, navigation and journeys" to site-map, "analyze which of our rules can become scripts" to rules-analyze, and a rough idea you want help shaping goes to discovery instead of being read as a question. A request that names a source file and says what to change in it, such as a refactor or "make X fall back to Y", is now treated as a code change.
+
 ## 1.105.0
 
 ### Minor Changes
