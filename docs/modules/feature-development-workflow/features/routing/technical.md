@@ -79,6 +79,20 @@ The reasons below are not obvious from the code.
   or a request to write an issue is a project question, unless the same prompt asks to implement
   something. "migration" is deliberately not a code surface noun, and the word after "label" is
   skipped so "label bug" is not read as a bug.
+- **Specialist phrasings and the uncertain idea.** design-test and rules-analyze (with their
+  design-retest and rules-generate companions) are classification workflows of their own, so the
+  pre-classifier can name them; before that they could only be reached by `paqad-ai route set`.
+  Their phrasings ("audit the UI", "against the design system", "rules can become scripts") sit
+  with the other named workflows above the question check. So do the discovery phrasings ("rough
+  idea", "help me shape", "not sure what it should look like"), because a prompt that is still
+  shaping an idea usually contains a "what" and would otherwise read as a project question. They
+  rank below documentation, so "help me shape the docs" stays a docs request.
+- **A source path plus an edit verb is a code change.** Refactor joins fix, add and build as a
+  whole-word code keyword. After those, a prompt that names a source path (`src/`, a `.ts` file)
+  and uses an edit verb anywhere ("make", "replace", "move", "rename" and the code verbs) is
+  feature-development. The verb need not lead, because "In src/api/users.ts, make ..." puts the
+  path first. A path with no edit verb ("check src/cart.ts") is still left to the later tiers,
+  and a question about a file still reads as a question.
 - **`prompt-lane.ts`.** Host-injected events (a monitor firing, a background task finishing, a
   subagent hand-back) arrive on `UserPromptSubmit` like typed prompts, so they are filtered first:
   they are not classified, write no state and leave the last human route alone. Recording
