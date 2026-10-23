@@ -62,7 +62,7 @@ describe('suiteScore', () => {
     expect(score.cases.map((item: { name: string }) => item.name)).toEqual(['a', 'b']);
   });
 
-  it('counts a with-arm run whose error is set as 0', () => {
+  it('AC-8 counts a with-arm run whose error is set as 0', () => {
     const score = suiteScore(result([evalCase('a', [run(1), run(1, 'timed out')])]));
     expect(score.withMean).toBe(0.5);
   });
@@ -91,7 +91,7 @@ describe('suiteScore', () => {
 });
 
 describe('judgeSuite', () => {
-  it('passes a with-arm mean of exactly 0.9 and fails 0.8999', () => {
+  it('AC-8 passes a with-arm mean of exactly 0.9 and fails 0.8999', () => {
     expect(judgeSuite(suiteScore(meanOf(0.9)), 0.9).ok).toBe(true);
     expect(judgeSuite(suiteScore(meanOf(0.8999)), 0.9).ok).toBe(false);
   });
@@ -103,7 +103,7 @@ describe('judgeSuite', () => {
     expect(judgeSuite(suiteScore(result(cases)), 0.9).ok).toBe(true);
   });
 
-  it('fails a partial result and an empty suite', () => {
+  it('AC-8 fails a partial result and an empty suite', () => {
     expect(judgeSuite(suiteScore(result([evalCase('a', [run(1)])], true)), 0.9)).toMatchObject({
       ok: false,
       reason: 'partial result',
@@ -116,7 +116,7 @@ describe('judgeSuite', () => {
 });
 
 describe('formatSuite', () => {
-  it('prints both means and names every case under 1.0', () => {
+  it('AC-15 prints both means and names every case under 1.0', () => {
     const score = suiteScore(result([evalCase('a', [run(1)]), evalCase('b', [run(0.5)])]));
     const lines = formatSuite('routing', score, judgeSuite(score, 0.9), true);
     expect(lines[0]).toBe(
@@ -128,7 +128,7 @@ describe('formatSuite', () => {
 });
 
 describe('check-plugin-eval-score CLI', () => {
-  it('exits 0 when both gated suites are at or above the bar', () => {
+  it('AC-16 exits 0 when both gated suites are at or above the bar', () => {
     const dir = writeResults({ 'r.json': meanOf(1), 'f.json': meanOf(0.9) });
     const out = cli(
       `routing=${join(dir, 'r.json')}`,
@@ -141,7 +141,7 @@ describe('check-plugin-eval-score CLI', () => {
     expect(out.stdout).toContain('firewall: with 0.90');
   });
 
-  it('exits 1 when either gated suite is under the bar', () => {
+  it('AC-16 exits 1 when either gated suite is under the bar', () => {
     const dir = writeResults({ 'r.json': meanOf(1), 'f.json': meanOf(0.85) });
     const out = cli(
       `routing=${join(dir, 'r.json')}`,
@@ -153,7 +153,7 @@ describe('check-plugin-eval-score CLI', () => {
     expect(out.stdout).toContain('firewall: with 0.85, without 0.00 over 1 cases, FAIL');
   });
 
-  it('exits 1 on a partial result, a missing file and a malformed file', () => {
+  it('AC-8 exits 1 on a partial result, a missing file and a malformed file', () => {
     const dir = writeResults({ 'p.json': result([evalCase('a', [run(1)])], true), 'm.json': '{' });
     expect(cli(`routing=${join(dir, 'p.json')}`, '--min', '0.9').status).toBe(1);
     const missing = cli(`routing=${join(dir, 'none.json')}`, '--min', '0.9');
@@ -162,7 +162,7 @@ describe('check-plugin-eval-score CLI', () => {
     expect(cli(`routing=${join(dir, 'm.json')}`, '--min', '0.9').status).toBe(1);
   });
 
-  it('prints a report-only suite and never fails on it', () => {
+  it('AC-15 prints a report-only suite and never fails on it', () => {
     const dir = writeResults({ 'r.json': meanOf(1), 'x.json': meanOf(0.1) });
     const out = cli(
       `routing=${join(dir, 'r.json')}`,

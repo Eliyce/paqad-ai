@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -117,7 +118,7 @@ const promptOf = (cases: { doc: Case }[], prompt: string) =>
 
 describe('eval case files', () => {
   for (const suite of Object.keys(SUITES) as Suite[]) {
-    it(`${suite} has ${SUITES[suite]} well-formed cases`, () => {
+    it(`AC-2 AC-10 ${suite} has ${SUITES[suite]} well-formed cases, each with a grader`, () => {
       const cases = loadSuite(suite);
       expect(cases).toHaveLength(SUITES[suite]);
       for (const { dir } of cases) {
@@ -153,7 +154,7 @@ describe('eval case files', () => {
 });
 
 describe('the case check', () => {
-  it('goes red on a case with no grader, no tag and a scaffold for another suite', () => {
+  it('AC-9 goes red on a case with no grader, no tag and a scaffold for another suite', () => {
     const dir = mkdtempSync(join(tmpdir(), 'paqad-eval-case-'));
     try {
       writeFileSync(
@@ -171,7 +172,7 @@ describe('the case check', () => {
     }
   });
 
-  it('goes red on a missing schema version and a missing case.yaml', () => {
+  it('AC-9 goes red on a missing schema version and a missing case.yaml', () => {
     const dir = mkdtempSync(join(tmpdir(), 'paqad-eval-case-'));
     try {
       expect(caseProblems(dir, 'routing')).toEqual(['no case.yaml']);
@@ -204,7 +205,7 @@ describe('routing suite', () => {
     ['what does this project do?', 'project-question'],
     ['run a security review', 'pentest'],
     ['is our code healthy? find dead code', 'codebase-health'],
-  ])('routes "%s" to %s on the hook route file', (prompt, workflow) => {
+  ])('AC-2 routes "%s" to %s on the hook route file', (prompt, workflow) => {
     const doc = promptOf(cases, prompt);
     expect(doc).toBeDefined();
     const grader = routeGrader(doc!);
@@ -212,13 +213,13 @@ describe('routing suite', () => {
     expect(grader?.match ?? 'contains').toBe('contains');
   });
 
-  it('grades "post this issue" as not feature-development', () => {
+  it('AC-2 grades "post this issue" as not feature-development', () => {
     const grader = routeGrader(promptOf(cases, 'post this issue to GitHub as drafted')!);
     expect(grader?.pattern).toBe('"workflow":"feature-development"');
     expect(grader?.match).toBe('not_contains');
   });
 
-  it('grades the slash command and the system notification as writing no route', () => {
+  it('AC-2 grades the slash command and the system notification as writing no route', () => {
     const slash = promptOf(cases, '/code-review high');
     const notice = cases.find(({ doc }) =>
       doc.execution?.prompt?.startsWith('[SYSTEM NOTIFICATION - NOT USER INPUT]'),
@@ -286,7 +287,7 @@ describe('firewall suite', () => {
     expect(re.test(readFileSync('evals/fixture/project/src/api/users.ts', 'utf8'))).toBe(false);
   });
 
-  it('asks for a relative db import, a re-export and a dynamic import', () => {
+  it('AC-7 asks for a relative db import, a re-export and a dynamic import', () => {
     const prompts = rules.map(({ doc }) => doc.execution?.prompt ?? '');
     expect(prompts.some((prompt) => prompt.includes('../db/client'))).toBe(true);
     expect(prompts.some((prompt) => /re-export/i.test(prompt))).toBe(true);
@@ -320,8 +321,19 @@ describe('receipt suite', () => {
 });
 
 describe('npm package', () => {
-  it('does not ship evals', () => {
+  it('AC-12 does not list evals in package.json files', () => {
     const files = (JSON.parse(readFileSync('package.json', 'utf8')) as { files: string[] }).files;
     expect(files.some((entry) => entry.replace(/^!/, '').startsWith('evals'))).toBe(false);
   });
+
+  it('AC-11 leaves every evals path out of an npm pack dry run', () => {
+    const out = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    });
+    expect(out.status).toBe(0);
+    const [pack] = JSON.parse(out.stdout) as { files: { path: string }[] }[];
+    expect(pack!.files.length).toBeGreaterThan(0);
+    expect(pack!.files.filter((file) => file.path.startsWith('evals'))).toEqual([]);
+  }, 60_000);
 });

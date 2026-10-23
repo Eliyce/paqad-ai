@@ -51,7 +51,7 @@ const git = (dir: string, ...args: string[]) =>
   spawnSync('git', args, { cwd: dir, encoding: 'utf8' }).stdout.trim();
 const policy = (dir: string) => readFileSync(join(dir, '.paqad/configs/.config.policy'), 'utf8');
 
-describe('eval fixture rule', () => {
+describe('AC-19 eval fixture rule', () => {
   it('reports nothing on the clean tree', () => {
     const root = copyFixture();
     const report = runRule(root, ['src/api/users.ts', 'src/db/client.ts']);
@@ -82,7 +82,7 @@ describe('eval fixture rule', () => {
   });
 });
 
-describe('eval fixture scaffold', () => {
+describe('AC-19 eval fixture scaffold', () => {
   it('makes a git repo with one commit that points at the plugin runtime', () => {
     const { dir, result } = scaffold('routing');
     expect(result.status).toBe(0);

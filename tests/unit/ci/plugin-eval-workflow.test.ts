@@ -38,7 +38,7 @@ const step = (pattern: RegExp) => job.steps[index(pattern)]!;
 const suiteRun = (suite: string) => step(new RegExp(`^${suite} suite$`, 'i')).run ?? '';
 
 describe('plugin-eval workflow', () => {
-  it('runs only on dispatch and the weekly schedule', () => {
+  it('AC-17 runs only on dispatch and the weekly schedule', () => {
     expect(Object.keys(workflow.on).sort()).toEqual(['schedule', 'workflow_dispatch']);
     expect(workflow.on.workflow_dispatch).toBeNull();
     expect(workflow.on.schedule).toEqual([{ cron: expect.stringMatching(/^\S+ \S+ \* \* \d$/) }]);
@@ -53,7 +53,7 @@ describe('plugin-eval workflow', () => {
     expect(step(/^checkout$/i).with).toMatchObject({ 'persist-credentials': false });
   });
 
-  it('fails first, naming the secret, when the API key is missing', () => {
+  it('AC-14 fails first, naming the secret, when the API key is missing', () => {
     expect(index(/api key secret/i)).toBe(0);
     const check = job.steps[0]!;
     expect(check.env).toEqual({ ANTHROPIC_API_KEY: '${{ secrets.ANTHROPIC_API_KEY }}' });
@@ -87,7 +87,7 @@ describe('plugin-eval workflow', () => {
     }
   });
 
-  it('runs the gated suites, scores them, then the receipt suite, its report and the upload', () => {
+  it('AC-13 runs the gated suites, scores them, then the receipt suite, its report and the upload', () => {
     const at = [
       /routing suite/i,
       /firewall suite/i,
@@ -146,7 +146,7 @@ describe('plugin-eval workflow', () => {
     expect(suiteRun('receipt')).toContain('--judge-model sonnet');
   });
 
-  it('gates routing and firewall at 0.9 and only reports the receipt suite', () => {
+  it('AC-15 AC-17 gates routing and firewall at 0.9 and only reports the receipt suite', () => {
     const score = step(/score check/i);
     expect(score.shell).toBe('bash');
     expect(score.run).toContain('node scripts/check-plugin-eval-score.mjs');
@@ -162,7 +162,7 @@ describe('plugin-eval workflow', () => {
     expect(receipt.run).toContain('tee -a "$GITHUB_STEP_SUMMARY"');
   });
 
-  it('uploads each report and result by explicit path', () => {
+  it('AC-13 uploads each report and result by explicit path', () => {
     const paths = String(step(/upload/i).with?.path)
       .trim()
       .split('\n');
