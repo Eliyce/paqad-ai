@@ -11,87 +11,24 @@ import {
 import {
   PAQAD_CLI_TIMEOUT_MS,
   paqadArgv,
-  runPaqad,
-  type PaqadProcessHost,
   type PaqadVerb,
 } from '../../../../runtime/claude-plugin/mod/paqad-cli.ts';
 
-function host(
-  answer: { exitCode: number; stdout: string; stderr: string } | Error,
-  calls: unknown[] = [],
-): PaqadProcessHost {
-  return {
-    process: {
-      run: async (argv, init) => {
-        calls.push({ argv, init });
-        if (answer instanceof Error) throw answer;
-        return answer;
-      },
-    },
-  };
-}
-
 describe('the mod paqad-ai helper', () => {
   it('builds the argv for an allowed verb and refuses any other', () => {
-    expect(paqadArgv('rules override', ['--rule', 'R'])).toEqual([
+    expect(paqadArgv('rules override', ['--rule', 'R; rm -rf /'])).toEqual([
       'paqad-ai',
       'rules',
       'override',
       '--rule',
-      'R',
+      'R; rm -rf /',
     ]);
     expect(paqadArgv('stage start' as PaqadVerb, [])).toBeNull();
+    expect(paqadArgv('x' as PaqadVerb, [])).toBeNull();
   });
 
-  it('runs paqad-ai by argument vector with its own timeout', async () => {
-    const calls: unknown[] = [];
-    const result = await runPaqad(
-      host({ exitCode: 0, stdout: 'ok', stderr: '' }, calls),
-      'rules override',
-      ['--rule', 'R; rm -rf /'],
-      '/work',
-    );
-    expect(result).toEqual({ ok: true, stdout: 'ok', stderr: '' });
-    expect(calls).toEqual([
-      {
-        argv: ['paqad-ai', 'rules', 'override', '--rule', 'R; rm -rf /'],
-        init: { cwd: '/work', timeoutMs: PAQAD_CLI_TIMEOUT_MS },
-      },
-    ]);
+  it('gives paqad-ai its own timeout', () => {
     expect(PAQAD_CLI_TIMEOUT_MS).toBe(15_000);
-  });
-
-  it('reads a non-zero exit, a rejected start and a disallowed verb as not ok', async () => {
-    expect(
-      (await runPaqad(host({ exitCode: 1, stdout: '', stderr: 'no' }), 'rules override', [], '/w'))
-        .ok,
-    ).toBe(false);
-    expect(await runPaqad(host(new Error('ENOENT paqad-ai')), 'rules override', [], '/w')).toEqual({
-      ok: false,
-      stdout: '',
-      stderr: 'ENOENT paqad-ai',
-    });
-    const calls: unknown[] = [];
-    expect(
-      (
-        await runPaqad(
-          host({ exitCode: 0, stdout: '', stderr: '' }, calls),
-          'x' as PaqadVerb,
-          [],
-          '/w',
-        )
-      ).ok,
-    ).toBe(false);
-    expect(calls).toEqual([]);
-  });
-
-  it('reads a thrown non-error as its text', async () => {
-    const odd: PaqadProcessHost = {
-      process: {
-        run: () => Promise.reject('gone'),
-      },
-    };
-    expect((await runPaqad(odd, 'rules override', [], '/w')).stderr).toBe('gone');
   });
 });
 

@@ -85,7 +85,7 @@ import {
   turnStarted,
   type LiveState,
 } from './live';
-import { runPaqad } from './paqad-cli';
+import { PAQAD_CLI_TIMEOUT_MS, paqadArgv, type PaqadRunResult, type PaqadVerb } from './paqad-cli';
 import {
   AUTO_OPENED_KEY,
   DEFAULT_PANE_TAB,
@@ -121,6 +121,26 @@ import { cardKey, isExpertsCall, tableCardLines, type TableLine } from './table'
 import type { PaqadHudSnapshot, PaqadPaneTab, PaqadStatus, PaqadTone } from './types';
 
 type ToolCheckResult = Awaited<ReturnType<EngineInterface['tool']['check']>>;
+
+async function runPaqad(
+  $: EngineInterface,
+  verb: PaqadVerb,
+  args: readonly string[],
+  cwd: string,
+): Promise<PaqadRunResult> {
+  const argv = paqadArgv(verb, args);
+  if (!argv) return { ok: false, stdout: '', stderr: `paqad-ai ${verb} is not allowed here` };
+  try {
+    const result = await $.process.run(argv, { cwd, timeoutMs: PAQAD_CLI_TIMEOUT_MS });
+    return { ok: result.exitCode === 0, stdout: result.stdout, stderr: result.stderr };
+  } catch (error) {
+    return {
+      ok: false,
+      stdout: '',
+      stderr: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 const AGENT_TICK_MS = 1500;
 const AFTER_TURN_MS = 2000;
