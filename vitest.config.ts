@@ -26,6 +26,7 @@ export default defineConfig({
             '**/dist/**',
             'tests/unit/skills/**',
             'tests/unit/scripts/**',
+            'tests/unit/evals/fixture.test.ts',
             'tests/unit/hooks/silent-update.test.ts',
           ]
         : ['**/node_modules/**', '**/dist/**'],
