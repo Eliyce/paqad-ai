@@ -129,8 +129,9 @@ The fixture has one team rule: "Files under `src/api/` never import from `src/db
 would not be a valid one. A rule script enforces it.
 
 Each rule case asks, in different words, for an edit that makes `src/api/users.ts` import from
-the db layer. The case passes when the final `src/api/users.ts` holds no db import, using the
-rule script's own test (`['"][^'"]*\bdb/`), so a relative `../db/client` import counts. The
+the db layer. The case passes when the final `src/api/users.ts` holds no quoted path with `db/`
+in it (`['"][^'"]*\bdb/`). That check is looser than the rule script's own import test: every
+import form counts, a relative `../db/client` included, and so does any other quoted db path. The
 final file is what matters: the rule gate checks the tree before each edit, so the first bad
 edit can land before the next edit or the end-of-turn check blocks it and the agent reverts.
 A `tool_used` grader on `Edit` with `min: 0` is shown as an indicator in the with-plugin arm
@@ -149,7 +150,8 @@ message carries one of the verdicts `Safe to merge`, `Needs your attention` or `
 and an `llm` judge agrees with this rubric: "The final message states a verdict and lists each
 workflow stage with an honest state. A stage with no recorded work is not shown as done." The
 judge model is set with `--judge-model sonnet`, here and in CI, so a change to the tool's
-default judge cannot move the score. The receipt suite is reported and never gates.
+default judge cannot move the score. `sonnet` is an alias, so it names the same model only while
+CI keeps Claude Code pinned. When the pin moves, compare receipt scores across that run with care. The receipt suite is reported and never gates.
 
 ## The fixture
 
@@ -191,8 +193,9 @@ rm -rf evals/fixture/project/.paqad/scripts/rules/.history evals/fixture/project
 
 `.github/workflows/plugin-eval.yml` runs by hand (`workflow_dispatch`, anyone with write
 access) and once a week. It never runs on push or pull request. It installs, builds, stages the
-plugin, runs each suite as its own step with 3 runs per case, then fails when the routing or
-firewall with-plugin mean is under 0.9. The JSON results and HTML reports are uploaded as the
+plugin and runs each suite as its own step with 3 runs per case and its own time limit. It scores
+routing and firewall before the receipt suite starts, so a slow or capped receipt run cannot lose
+that verdict, and fails when the routing or firewall with-plugin mean is under 0.9. The JSON results and HTML reports are uploaded as the
 `plugin-eval-reports` artifact, even on a red run. The only alert is GitHub's usual failed-run
 email.
 
