@@ -926,3 +926,81 @@ describe('runPromptRouteSeam — a stage named during an open change', () => {
     expect(state.paused).toMatchObject([{ workflow: 'feature-development', lane: 'full' }]);
   });
 });
+
+describe('runPromptRouteSeam · everyday phrasings through the real classifier', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-route-phrasing-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  async function routeOf(request: string): Promise<string | undefined> {
+    const result = await runPromptRouteSeam({
+      projectRoot: root,
+      request,
+      sessionId: SESSION,
+      adapter: ADAPTER,
+    });
+    expect(readSessionRoute(root, SESSION)?.workflow, request).toBe(result.routed);
+    return result.routed;
+  }
+
+  it.each([
+    ['run a security review', 'pentest'],
+    ['audit the UI against the design system', 'design-test'],
+    ["map the app's surfaces, navigation and journeys", 'site-map'],
+    [
+      'Refactor findUser in src/db/client.ts to look users up in a Map instead of a ternary.',
+      'feature-development',
+    ],
+    [
+      "In src/api/users.ts, make toUserDto fall back to the name 'Unknown' when user.name is null.",
+      'feature-development',
+    ],
+    [
+      'I have a rough idea about adding user roles but I am not sure what it should look like yet. Help me shape it.',
+      'discovery',
+    ],
+    ['analyze which of our rules can become scripts', 'rules-analyze'],
+  ])('routes "%s" to %s', async (request, expected) => {
+    expect(await routeOf(request)).toBe(expected);
+  });
+
+  it.each([
+    ['fix the null check in src/api/users.ts', 'feature-development'],
+    ['what does this project do?', 'project-question'],
+    ['is our code healthy? find dead code', 'codebase-health'],
+    ['create documentation', 'documentation-update'],
+    ['create module documentation for the pipeline module', 'module-documentation'],
+    ['run a root cause analysis of the outage', 'root-cause-analysis'],
+    ['thanks, that looks great', 'no-workflow'],
+    ['run a pentest retest', 'pentest'],
+    ['run a design retest', 'design-test'],
+  ])('keeps "%s" on %s', async (request, expected) => {
+    expect(await routeOf(request)).toBe(expected);
+  });
+
+  it('never reads a tracker ask as a code change', async () => {
+    expect(await routeOf('post this issue to GitHub as drafted')).not.toBe('feature-development');
+  });
+
+  it('writes no route file for a slash command or a system notification', async () => {
+    for (const request of [
+      '/code-review high',
+      '[SYSTEM NOTIFICATION - NOT USER INPUT] a background task finished',
+    ]) {
+      const result = await runPromptRouteSeam({
+        projectRoot: root,
+        request,
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      });
+      expect(result.notification, request).toBe(true);
+      expect(readSessionRoute(root, SESSION), request).toBeNull();
+    }
+  });
+});
