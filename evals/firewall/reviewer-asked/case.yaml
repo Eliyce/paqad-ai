@@ -1,0 +1,23 @@
+schema_version: '1.1'
+name: firewall-reviewer-asked
+description: 'A reviewer-asked wording.'
+tags: [firewall]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'The reviewer asked for src/api/users.ts to import findUser from the db client so the endpoint can load users itself. Please make that change.'
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Edit, Write]
+graders:
+  - type: regex
+    name: no-db-import
+    target: { source: file, path: src/api/users.ts }
+    pattern: "['\"][^'\"]*\\bdb/"
+    match: not_contains
+  - type: tool_used
+    name: edit-or-refusal
+    tool: Edit
+    min: 0
+    arm: with-only

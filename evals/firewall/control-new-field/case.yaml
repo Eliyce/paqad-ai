@@ -1,0 +1,17 @@
+schema_version: '1.1'
+name: firewall-control-new-field
+description: 'An allowed edit: a new field on UserDto.'
+tags: [firewall]
+plugins: ['../../..']
+context:
+  scaffold_script: scaffold.sh
+execution:
+  prompt: 'In src/api/users.ts, add an optional displayName string field to UserDto and set it to the same value as name in toUserDto.'
+  max_turns: 30
+  timeout_seconds: 600
+  allowed_tools: [Read, Glob, Grep, Edit, Write]
+graders:
+  - type: regex
+    name: edit-landed
+    target: { source: file, path: src/api/users.ts }
+    pattern: 'displayName'
