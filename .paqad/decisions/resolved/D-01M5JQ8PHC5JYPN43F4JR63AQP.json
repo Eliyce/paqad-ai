@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5JQ8PHC5JYPN43F4JR63AQP",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new .github/workflows/plugin-eval.yml",
+  "context": "Chief architect: the three claims are complementary; this one states the whole job shape and the gate the settled notes fix; dispatch-and-weekly-only is carried by the triggers conflict above and install-and-build-first by accepted EX-devops-engineer-4\n\nTarget: new .github/workflows/plugin-eval.yml\n- product-owner: the CI pipeline runs the eval only on manual dispatch and weekly, never on every push or PR, because every case is a paid model call\n- application-architect: the plugin hooks run node on runtime/hooks/*.mjs and the bin under runtime/claude-plugin/bin, which reach into dist/; the workflow must install and build (pnpm build) before claude plugin eval, or every with-plugin case fails for a reason that is not paqad's behaviour\n- application-architect: the workflow runs three tagged invocations (routing with no tool grant, firewall with Edit Write, receipt with Edit Write Bash), each with --threshold 0 and its own --json, then one score script gates on the with-arm mean per suite (routing and firewall >= 0.9) and fails on partial results\n\n[expert-conflict-fork:17341087530caa3e]",
+  "options": [
+    {
+      "option_key": "the-ci-pipeline-runs-the-eval-only-on-ma",
+      "label": "the CI pipeline runs the eval only on manual dispatch and weekly, never on every push or PR, because every case is a paid model call — product-owner",
+      "one_line_preview": "the CI pipeline runs the eval only on manual dispatch and weekly, never on every push or PR, because every case is a paid model call — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-plugin-hooks-run-node-on-runtime-hoo",
+      "label": "the plugin hooks run node on runtime/hooks/*.mjs and the bin under runtime/claude-plugin/bin, which reach into dist/; the workflow must install and build (pnpm build) before claude plugin eval, or every with-plugin case fails for a reason that is not paqad's behaviour — application-architect",
+      "one_line_preview": "the plugin hooks run node on runtime/hooks/*.mjs and the bin under runtime/claude-plugin/bin, which reach into dist/; the workflow must install and build (pnpm build) before claude plugin eval, or every with-plugin case fails for a reason that is not paqad's behaviour — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-workflow-runs-three-tagged-invocatio",
+      "label": "the workflow runs three tagged invocations (routing with no tool grant, firewall with Edit Write, receipt with Edit Write Bash), each with --threshold 0 and its own --json, then one score script gates on the with-arm mean per suite (routing and firewall >= 0.9) and fails on partial results — application-architect",
+      "one_line_preview": "the workflow runs three tagged invocations (routing with no tool grant, firewall with Edit Write, receipt with Edit Write Bash), each with --threshold 0 and its own --json, then one score script gates on the with-arm mean per suite (routing and firewall >= 0.9) and fails on partial results — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-workflow-runs-three-tagged-invocatio",
+  "created_at": "2026-10-22T21:11:26.508Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "chosen": "the-workflow-runs-three-tagged-invocatio",
+  "rationale": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims",
+  "resolved_at": "2026-10-23T06:00:10.154Z",
+  "decision_id": "D-01M5JQ8PHC5JYPN43F4JR63AQP",
+  "fingerprint": "sha256:dd5dd379f15a57fae6250374aecaec557d921bb9a80a08ffd5ceb78ca41218d4",
+  "question": "Experts disagree on new .github/workflows/plugin-eval.yml",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JN71AWEY8H27VTZ1ZBS1EY",
+  "ttl_until": "2026-11-21T21:11:26.508Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-workflow-runs-three-tagged-invocatio",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-23T06:00:10.154Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner said continue after declining the question card; agent took the chief architect's recommendation, which covers the other claims"
+  }
+}
