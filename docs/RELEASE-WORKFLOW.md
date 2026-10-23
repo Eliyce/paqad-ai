@@ -229,6 +229,13 @@ the `test` matrix and the `merge` job's `total`). A single file over budget need
 the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.test.ts` to
 `matrix.g5.test.ts`.
 
+### Plugin eval benchmark
+
+- Workflow: [`.github/workflows/plugin-eval.yml`](../.github/workflows/plugin-eval.yml)
+- It scores the packed plugin on routing, firewall and receipt cases under `evals/`.
+- Needs the `ANTHROPIC_API_KEY` repo secret. How to run it and read the scores is in
+  [`evals/README.md`](../evals/README.md).
+
 ### Release
 
 - Workflow: [`.github/workflows/release.yml`](../.github/workflows/release.yml)
