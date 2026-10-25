@@ -8,6 +8,7 @@ export const IDLE_LIVE: LiveState = {
   editing: null,
   waitingOn: null,
   waitingToolUseId: null,
+  waitingAgent: null,
 };
 
 export const QUESTION_TOOL = 'AskUserQuestion';
@@ -18,6 +19,7 @@ export interface LiveToolCall {
   tool: string;
   toolUseId: string | null;
   file: string | null;
+  agent?: string | null;
 }
 
 export function liveToolCall(event: {
@@ -25,13 +27,22 @@ export function liveToolCall(event: {
   tool_use_id?: unknown;
   file_path?: unknown;
   notebook_path?: unknown;
+  agentId?: unknown;
 }): LiveToolCall {
   const text = (value: unknown) => (typeof value === 'string' && value !== '' ? value : null);
+  const agent = text(event.agentId);
   return {
     tool: String(event.tool),
     toolUseId: text(event.tool_use_id),
     file: text(event.file_path) ?? text(event.notebook_path),
+    ...(agent ? { agent } : {}),
   };
+}
+
+const NOT_WAITING = { waitingOn: null, waitingToolUseId: null, waitingAgent: null } as const;
+
+function waitsOnPermissionFrom(state: LiveState, agent: string | null): boolean {
+  return state.waitingOn === 'permission' && state.waitingAgent === agent;
 }
 
 export function promptSubmitted(state: LiveState, now: number): LiveState {
@@ -52,15 +63,14 @@ export function turnEnded(): LiveState {
 }
 
 export function toolStarted(state: LiveState, call: LiveToolCall): LiveState {
-  let next =
-    state.waitingOn === 'permission'
-      ? { ...state, waitingOn: null, waitingToolUseId: null }
-      : state;
+  let next: LiveState = waitsOnPermissionFrom(state, call.agent ?? null)
+    ? { ...state, ...NOT_WAITING }
+    : state;
   if (EDIT_TOOLS.has(call.tool)) {
     next = { ...next, editing: { toolUseId: call.toolUseId, file: call.file } };
   }
   if (call.tool === QUESTION_TOOL) {
-    next = { ...next, waitingOn: 'question', waitingToolUseId: call.toolUseId };
+    next = { ...next, waitingOn: 'question', waitingToolUseId: call.toolUseId, waitingAgent: null };
   }
   return next;
 }
@@ -80,14 +90,27 @@ export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
 
 export function permissionAsked(
   state: LiveState,
-  check: { decision: string; approver?: unknown; toolUseId: string | null },
+  check: { decision: string; approver?: unknown; toolUseId: string | null; agent?: string | null },
 ): LiveState {
-  if (check.decision !== 'ask' || check.approver !== 'person') return state;
-  return { ...state, waitingOn: 'permission', waitingToolUseId: check.toolUseId };
+  const agent = check.agent ?? null;
+  const settled =
+    agent !== null && waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
+  if (check.decision !== 'ask' || check.approver !== 'person') return settled;
+  if (agent !== null && settled.waitingOn !== null && settled.waitingAgent === null) return settled;
+  return {
+    ...settled,
+    waitingOn: 'permission',
+    waitingToolUseId: check.toolUseId,
+    waitingAgent: agent,
+  };
+}
+
+export function agentTurnEnded(state: LiveState, agent: string): LiveState {
+  return waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
 }
 
 export function questionShown(state: LiveState): LiveState {
-  return { ...state, waitingOn: 'question', waitingToolUseId: null };
+  return { ...state, waitingOn: 'question', waitingToolUseId: null, waitingAgent: null };
 }
 
 export function questionClosed(state: LiveState): LiveState {

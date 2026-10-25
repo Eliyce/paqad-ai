@@ -4,6 +4,7 @@ export type LiveState = {
   editing: { toolUseId: string | null; file: string | null } | null;
   waitingOn: 'question' | 'permission' | null;
   waitingToolUseId: string | null;
+  waitingAgent: string | null;
 };
 
 export type PaqadTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';

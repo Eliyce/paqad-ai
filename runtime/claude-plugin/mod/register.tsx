@@ -75,6 +75,7 @@ import {
   answeredRuleStopText,
   liveToolCall,
   permissionAsked,
+  agentTurnEnded,
   promptSubmitted,
   questionClosed,
   questionShown,
@@ -1030,8 +1031,15 @@ export const register: Register = (on) => {
     const verdict = await next(e);
     if (live) {
       const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
+      const agentId = (e as { agentId?: unknown }).agentId;
+      const agent = typeof agentId === 'string' && agentId !== '' ? agentId : null;
       await moveLive($, (state) =>
-        permissionAsked(state, { decision: verdict.decision, approver: e.approver, toolUseId }),
+        permissionAsked(state, {
+          decision: verdict.decision,
+          approver: e.approver,
+          toolUseId,
+          agent,
+        }),
       );
     }
     return verdict;
@@ -1039,6 +1047,10 @@ export const register: Register = (on) => {
 
   on('turn.complete', async ($, e, next) => {
     if (!e.agentId) await moveLive($, turnEnded);
+    else if (live) {
+      const agent = e.agentId;
+      await moveLive($, (state) => agentTurnEnded(state, agent));
+    }
     const result = await next(e);
     if (live) {
       await refresh($);

@@ -778,6 +778,85 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your');
   });
 
+  test("a background agent ask clears at that agent's next check, and never holds the band", async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_a1',
+      approver: 'person',
+      agentId: 'agent-a1',
+    } as never);
+    world.verdict = { decision: 'allow' };
+    await $.tool.check({
+      tool: 'Read',
+      input: {},
+      tool_use_id: 'tu_a2',
+      approver: 'person',
+      agentId: 'agent-a1',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('a background agent ask clears when that agent starts a tool or its turn completes', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const askFrom = async (agentId: string, id: string) => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: id,
+        approver: 'person',
+        agentId,
+      } as never);
+    };
+    await askFrom('agent-a1', 'tu_a1');
+    await $.tool.call({
+      tool: 'Bash',
+      command: 'ls',
+      tool_use_id: 'tu_a1',
+      agentId: 'agent-a1',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    await askFrom('agent-b2', 'tu_b1');
+    await $.turn.complete({ text: '', agentId: 'agent-b2' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    await askFrom('agent-c3', 'tu_c1');
+    await $.turn.start({ text: 'next', turnId: 'turn-9' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('a main-thread ask still waits while a background agent works on', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_m1',
+      approver: 'person',
+    } as never);
+    world.verdict = { decision: 'allow' };
+    await $.tool.check({
+      tool: 'Read',
+      input: {},
+      tool_use_id: 'tu_a1',
+      approver: 'person',
+      agentId: 'agent-a1',
+    } as never);
+    await $.tool.call({ tool: 'Read', tool_use_id: 'tu_a1', agentId: 'agent-a1' } as never);
+    await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_m1' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
   test('the end of the main turn clears a wait, a subagent turn does not', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });
