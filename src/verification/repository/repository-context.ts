@@ -150,6 +150,7 @@ export async function buildRepositoryVerificationContext(
     ac_test_mapping_detail: acMapping.detail,
     ac_test_mapping_outcome: acMapping.outcome,
     spec_review_passed: specReviewSignal.passed,
+    ...(specReview ? { spec_review_on_record: true } : {}),
     ...(specReviewSignal.inconclusive
       ? { spec_review_inconclusive: true, spec_review_detail: specReviewSignal.detail }
       : {}),

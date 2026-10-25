@@ -115,6 +115,20 @@ describe('AC-6: spec-review with no spec is could not prove, never pass', () => 
     expect(gateStateOf(result)).toBe('not-required');
   });
 
+  it('AC-6: an on-record spec review with an open critical defect still fails on the fast lane', async () => {
+    const result = await new SpecReviewGate().check(
+      context({ lane: 'fast', spec_review_passed: false, spec_review_on_record: true }),
+    );
+    expect(gateStateOf(result)).toBe('fail');
+  });
+
+  it('AC-6: an on-record clean spec review passes on the fast lane', async () => {
+    const result = await new SpecReviewGate().check(
+      context({ lane: 'fast', spec_review_passed: true, spec_review_on_record: true }),
+    );
+    expect(gateStateOf(result)).toBe('pass');
+  });
+
   it('AC-6: a proven review still passes', async () => {
     const result = await new SpecReviewGate().check(
       context({ lane: 'full', spec_review_passed: true }),

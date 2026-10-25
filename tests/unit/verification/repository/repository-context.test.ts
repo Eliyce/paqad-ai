@@ -136,6 +136,7 @@ describe('buildRepositoryVerificationContext', () => {
     });
 
     expect(context.spec_review_passed).toBe(false);
+    expect(context.spec_review_on_record).toBe(true);
   });
 
   it('derives a spec boundary and flags an out-of-boundary change as drift', async () => {
@@ -188,6 +189,7 @@ describe('buildRepositoryVerificationContext', () => {
     expect(context.spec_review_passed).toBe(true);
     expect(context.spec_review_inconclusive).toBe(true);
     expect(context.spec_review_detail).toContain('cannot be proven');
+    expect(context.spec_review_on_record).toBeUndefined();
     expect(escalations.join('\n')).not.toContain('spec-review');
   });
 

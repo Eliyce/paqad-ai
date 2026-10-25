@@ -271,6 +271,7 @@ export interface VerificationContext {
   ac_test_mapping_outcome?: 'pass' | 'fail' | 'not-required' | 'did-not-run';
   spec_review_passed: boolean;
   spec_review_inconclusive?: boolean;
+  spec_review_on_record?: boolean;
   spec_review_detail?: string;
   architecture_compliant?: boolean;
   code_tests_lint_passed?: boolean;

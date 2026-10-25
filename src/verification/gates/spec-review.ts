@@ -6,7 +6,7 @@ export class SpecReviewGate implements Gate {
   readonly gate = 'spec-review' as const;
 
   async check(context: Parameters<Gate['check']>[0]) {
-    if (context.lane === 'fast') {
+    if (context.lane === 'fast' && !context.spec_review_on_record && context.spec_review_passed) {
       return createNotRequired(this.gate, 'This lane has no specification stage to review.');
     }
     if (context.spec_review_passed && context.spec_review_inconclusive) {
