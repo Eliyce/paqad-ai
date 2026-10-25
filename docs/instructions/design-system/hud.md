@@ -142,12 +142,6 @@ on Trust; the brand text and the strip image are not pressable.
 - **Row**: a `Box` column: a row with a left `Box flexGrow` (label in body, an optional dim footnote
   under it) and a right verdict word (footnote, weight medium: green `Pass`, red `Fail`, amber
   `Open`, pink `writing…`, dim for the rest), then a hairline Svg (2000 × 1, `height={1}`).
-- **Light**: one `Text` of `●` (heading, signal colour) + title (heading, semibold), then a dim
-  footnote reason.
-- **Gate ring**: 92 × 92, one arc per gate. Required gates are 5 px round-capped arcs (green pass,
-  red fail, amber inconclusive or did not run, `faintStroke` not judged); not required gates are
-  2 px dashed faint arcs. The centre reads `passed/required` (19 px semibold ink) over `REQUIRED`
-  (8.5 px muted).
 - **Table ring**: 150 × 150, r 52, one 7 px round-capped arc per seat (ink done, pink pulsing
   writing, faint seated, amber late), a 1 px spoke from each started seat to r 30 (dashed pink
   while writing), initials at r 67, a findings badge (ink disc r 6.5, count in `onSignal`) on each
@@ -201,7 +195,7 @@ row: Claude handles it, and the Trust tab keeps it as history.
 | 5   | the chief ruled and has open expert-conflict decisions                           | attention       | no   | `The chief architect has N questions for you`                                                             |
 | 6   | other decisions pending                                                          | attention       | no   | `N decision(s) are waiting for you`                                                                       |
 | 7   | the PR is merged                                                                 | pass            | no   | `PR #N is merged`                                                                                         |
-| 8   | everything is green                                                              | pass            | no   | `PR #N is ready for your merge`                                                                           |
+| 8   | everything is green, CI included                                                 | pass            | no   | `Safe to merge: PR #N is ready for your merge`                                                            |
 | 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
 | 10  | CI failed                                                                        | fail            | no   | `CI failed on PR #N`                                                                                      |
 | 11  | the push failed                                                                  | fail            | no   | `The push failed`                                                                                         |
@@ -209,14 +203,34 @@ row: Claude handles it, and the Trust tab keeps it as history.
 | 13  | the verdict is inconclusive                                                      | caution         | no   | `Inconclusive: <first reason>`                                                                            |
 | 14  | CI is running on the change's PR                                                 | accent          | yes  | `Watching CI on PR #N`                                                                                    |
 | 15  | a stage is running                                                               | accent          | yes  | the stage's running words (`Planning the change`, `N of M plan steps built`, `Reviewing the change`, ...) |
-| 16  | the verdict is pass and the commit was declined                                  | pass            | no   | `Done: the edit is in your working tree`                                                                  |
-| 17  | the verdict is pass                                                              | pass            | no   | `Safe to merge`                                                                                           |
+| 16  | the verdict is pass and no PR is open                                            | pass            | no   | `Done` (with a dim `not committed`) or `Committed`                                                        |
+| 17  | the verdict is pass and a PR is open                                             | pass            | no   | `PR open`                                                                                                 |
 | 18  | a stage is done and one is not yet                                               | idle            | no   | `<last done stage> done. Next: <next mandatory stage>`                                                    |
 | 19  | nothing is done                                                                  | idle            | no   | `Next: Plan`                                                                                              |
 | 20  | every stage is recorded                                                          | idle            | no   | `Every stage is recorded. Waiting for the verdict.`                                                       |
+| 21  | paqad itself could not record part of the change                                 | dim             | no   | `paqad could not record ...` (paqad's gap, not the work's)                                                |
+
+One headline engine, `computeHudHeadline`, picks the row; the mod only renders it.
+
+The done ladder climbs one step at a time: `Done` (dim `not committed`), `Committed`, `PR open`,
+`Safe to merge` only on real CI green, then `Merged`. When CI is unknown the ladder stops at
+`PR open`; a red CI steps back down.
 
 With paqad off nothing is drawn. The terminal keeps its own headline, except that its idle header
 says `Getting ready`.
+
+### Trust tab
+
+The Trust tab shows the proof of the work, stage by stage.
+
+- **Stage heading row**: the stage name as a caption, semibold, dim, capitals, with a right
+  footnote state word.
+- **Step lines**: a footnote mark then the step: `✓` in default ink, `✕` in red, `○` dim, with a
+  dim detail `  ·  N ...`.
+- **Gate rows** use Row.
+- Then, only when present: the neutral `paqad could not record ...` line, the dim
+  `paqad repaired its own record: ...` line, CLAIMS and FLAGS.
+- Empty state: `Nothing to prove yet`.
 
 ### Strip states
 
@@ -257,7 +271,7 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 ## Accessibility
 
 - Every Svg carries an `alt` that states its facts in words: the strip says the headline, the stage
-  value and each section's value; the gate ring says `N of M required gates pass`.
+  value and each section's value.
 - Every state is said in words as well as by colour (WCAG 2.1 SC 1.4.1).
 - Motion is slow breathing, pulsing, sweeping or spinning at 1.6 s or slower; nothing flashes
   (SC 2.3.1).
