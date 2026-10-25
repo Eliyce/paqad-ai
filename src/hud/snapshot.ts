@@ -1053,6 +1053,25 @@ export function workKindOf(verdict: HudVerdictRecord | null): HudVerdictRecord['
   return verdict.work_kind ?? verdict.kind;
 }
 
+function lowerFirst(text: string): string {
+  return text.length > 0 ? `${text[0]!.toLowerCase()}${text.slice(1)}` : text;
+}
+
+function unprovenLines(gates: readonly HudGate[], verdict: HudVerdictRecord | null): string[] {
+  const named = new Set(
+    (verdict?.work_reasons ?? []).map((reason) => reason.slice(0, reason.indexOf(':'))),
+  );
+  return gates
+    .filter(
+      (gate) =>
+        gate.verdict === 'inconclusive' && gate.owner !== 'paqad-record' && !named.has(gate.name),
+    )
+    .map(
+      (gate) =>
+        `paqad could not prove ${lowerFirst(gateCatalogEntry(gate.name)?.label ?? gate.name)}`,
+    );
+}
+
 function verdictFromEarlierTurn(
   verdict: HudVerdictRecord | null,
   workflow: WorkflowState,
@@ -1147,6 +1166,7 @@ export interface HudHeadlineInput {
   gatesExpected?: readonly string[];
   plan?: HudPlanProgress | null;
   recordGaps?: readonly string[];
+  unproven?: readonly string[];
   verdictEarlier?: boolean;
 }
 
@@ -1175,11 +1195,6 @@ export function computeHudFlags(input: {
   );
   if (touchedCode && !input.rulesRecorded) {
     flags.push({ id: 'rules-not-loaded', text: 'The rules for this change were never loaded.' });
-  }
-  for (const gate of input.gates) {
-    if (gate.verdict === 'inconclusive') {
-      flags.push({ id: `gate:${gate.name}`, text: `${gate.name} could not reach a result.` });
-    }
   }
   if (input.tableSkipped) {
     flags.push({
@@ -1383,7 +1398,7 @@ export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
   const ship = input.ship ?? null;
   const ladder = input.ladder ?? null;
   const pr = prName(ship);
-  const gap = gapLine(input.recordGaps ?? []);
+  const gap = gapLine([...(input.recordGaps ?? []), ...(input.unproven ?? [])]);
   if (ladder?.rung === 'merged') {
     return headlineRow(7, 'good', `${pr} is merged`, 'Merged', { rung: 'merged', ...gap });
   }
@@ -1601,6 +1616,7 @@ export function buildHudSnapshot(
       gatesExpected,
       plan,
       recordGaps: gaps,
+      unproven: unprovenLines(gates, verdict),
       verdictEarlier: verdictFromEarlierTurn(verdict, workflow, options.turnRunning === true),
     }),
     change: {

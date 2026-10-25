@@ -191,6 +191,20 @@ describe('buildRepositoryVerificationContext', () => {
     expect(escalations.join('\n')).not.toContain('spec-review');
   });
 
+  it('names the documentation inputs the backstop never checks, so the docs gate cannot pass on them', async () => {
+    const root = makeProject();
+    seedGitChangedFiles(root, ['src/feature.ts']);
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'ci-backstop',
+    });
+    expect(context.unchecked_documentation_inputs).toEqual([
+      'the registries',
+      'the glossary',
+      'the expected module docs',
+    ]);
+  });
+
   it('escalates test-evidence when code changed (backstop cannot collect structured results)', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);

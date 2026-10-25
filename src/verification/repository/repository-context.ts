@@ -166,10 +166,17 @@ export async function buildRepositoryVerificationContext(
     expected_error_catalog_modules: [],
     registry_refreshed_at: new Date().toISOString(),
     glossary_updated: true,
+    unchecked_documentation_inputs: UNCHECKED_DOCUMENTATION_INPUTS,
   };
 
   return { context, escalations };
 }
+
+const UNCHECKED_DOCUMENTATION_INPUTS: readonly string[] = [
+  'the registries',
+  'the glossary',
+  'the expected module docs',
+];
 
 function resolveActiveSessionId(projectRoot: string): string {
   return resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);

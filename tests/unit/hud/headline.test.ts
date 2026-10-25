@@ -245,6 +245,27 @@ describe('computeHudHeadline', () => {
     expect(JSON.stringify(head)).not.toContain('Fix it');
   });
 
+  it('puts a gate that could not prove in the neutral line beside the rung, never a flag', () => {
+    const head = headline({
+      verdict: verdict('pass', { work_kind: 'pass' }),
+      ladder: ladder({}),
+      recordGaps: ['paqad could not record the lane for this change'],
+      unproven: ['paqad could not prove the spec was reviewed'],
+    });
+    expect(head).toMatchObject({
+      row: 16,
+      text: 'Done',
+      gap: 'paqad could not record the lane for this change and 1 more',
+    });
+    expect(
+      headline({
+        verdict: verdict('pass', { work_kind: 'pass' }),
+        ladder: ladder({}),
+        unproven: ['paqad could not prove the spec was reviewed'],
+      }).gap,
+    ).toBe('paqad could not prove the spec was reviewed');
+  });
+
   it('a red checks run after the verdict reads red, never Done or stale', () => {
     expect(headline({ verdict: verdict('pass'), checks: 'red' })).toMatchObject({
       row: 12,
@@ -290,6 +311,26 @@ describe('computeHudHeadline', () => {
 });
 
 describe('computeHudFlags', () => {
+  it('raises no flag for a gate that could not prove, of either owner', () => {
+    const unproven = (name: string, owner: 'work' | 'paqad-record') => ({
+      name,
+      required: true,
+      strength: 'deterministic' as const,
+      verdict: 'inconclusive' as const,
+      owner,
+    });
+    expect(
+      computeHudFlags({
+        stages: [],
+        gates: [unproven('spec-review', 'work'), unproven('stage-evidence', 'paqad-record')],
+        rulesRecorded: true,
+        tableSkipped: false,
+        isolationStatus: 'not-required',
+        isolatedStages: 0,
+      }),
+    ).toEqual([]);
+  });
+
   const flagsFor = (rules: { total: number; blocking: boolean }) =>
     computeHudFlags({
       stages: [stage('development', 'missing')],

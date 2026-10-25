@@ -368,12 +368,16 @@ describe('buildHudSnapshot', () => {
         owner: 'work',
       },
     ]);
-    expect(snapshot.flags.map((flag) => flag.id)).toEqual(
-      expect.arrayContaining(['gate:mutation-testing']),
-    );
+    expect(snapshot.flags.some((flag) => flag.id.startsWith('gate:'))).toBe(false);
     expect(snapshot.verdict).toMatchObject({ word: 'Safe to merge', kind: 'pass' });
     expect(snapshot.receipt?.path).toContain(`${S}.receipt.md`);
-    expect(snapshot.headline).toMatchObject({ row: 16, text: 'Done', tone: 'good', rung: 'done' });
+    expect(snapshot.headline).toMatchObject({
+      row: 16,
+      text: 'Done',
+      tone: 'good',
+      rung: 'done',
+      gap: 'paqad could not prove tests catch real mutations',
+    });
   });
 
   it('a hand-written spec under the pipeline shows the High Table as skipped (Q11)', () => {

@@ -291,4 +291,5 @@ export interface VerificationContext {
   expected_error_catalog_modules: string[];
   registry_refreshed_at: string | null;
   glossary_updated: boolean;
+  unchecked_documentation_inputs?: readonly string[];
 }
