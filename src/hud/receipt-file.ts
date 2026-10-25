@@ -28,7 +28,7 @@ export function writeHudReceipt(
   hostSessionId: string | null,
   verdict: Pick<
     RepositoryVerificationVerdict,
-    'gates' | 'summary' | 'receipt' | 'kind' | 'applicable'
+    'gates' | 'summary' | 'receipt' | 'kind' | 'applicable' | 'change'
   >,
   now: () => Date = () => new Date(),
 ): WrittenHudReceipt | null {
@@ -40,7 +40,7 @@ export function writeHudReceipt(
   const record: HudVerdictRecord = {
     schema: 'paqad.hud-verdict/1',
     session_id: sessionId,
-    change: activeChange(projectRoot, sessionId),
+    change: verdict.change !== undefined ? verdict.change : activeChange(projectRoot, sessionId),
     word: PAQAD_VERDICT[kind],
     kind,
     passed: kind === 'pass',

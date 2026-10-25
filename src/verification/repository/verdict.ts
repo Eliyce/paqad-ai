@@ -23,6 +23,7 @@ export interface RepositoryVerificationVerdict {
   kind?: VerdictKind;
   applicable?: false;
   narrationAdvisory?: string;
+  change?: string | null;
   gates: RepositoryVerificationGateVerdict[];
   escalations: string[];
   evidence_path: string | null;

@@ -82,6 +82,16 @@ describe('writeHudReceipt', () => {
     expect(written!.verdict).toMatchObject({ word: 'Inconclusive', passed: false, reasons: [] });
   });
 
+  it('AC-1: writes the change the verification judged, not the pointer read after the close', () => {
+    const written = writeHudReceipt(root, 'ses-judged', {
+      summary: 's',
+      gates: [],
+      kind: 'pass',
+      change: 'judged-change',
+    });
+    expect(written!.verdict.change).toBe('judged-change');
+  });
+
   describe('a skipped check', () => {
     const graded = {
       summary: '**▸ paqad** · Needs your attention',

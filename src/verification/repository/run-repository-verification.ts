@@ -646,6 +646,7 @@ export async function runRepositoryVerification(
     context.project_root,
     resolveSessionId(context.project_root, options.hostSessionId ?? null),
   );
+  verdict.change = receiptFeature;
 
   verdict.receipt = composeChangeReceipt({
     verdictSummary: verdict.summary,
