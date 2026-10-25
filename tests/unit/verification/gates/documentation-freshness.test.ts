@@ -153,3 +153,39 @@ function writeBrokenDoc(projectRoot: string, relativePath: string, content: stri
   mkdirSync(dirname(absolutePath), { recursive: true });
   writeFileSync(absolutePath, content);
 }
+
+describe('DocumentationFreshnessGate with unchecked inputs', () => {
+  const gate = new DocumentationFreshnessGate();
+
+  it('reads could not prove, never a vacuous pass, when the registries, glossary and module docs were not checked', async () => {
+    const result = await gate.check(
+      createVerificationContext({
+        unchecked_documentation_inputs: ['the registries', 'the glossary'],
+      }),
+    );
+    expect(result).toMatchObject({ passed: true, inconclusive: true });
+    expect(result.detail).toContain('the registries');
+    expect(result.detail).toContain('the glossary');
+    expect(result.detail).not.toContain('Canonical documentation is current');
+  });
+
+  it('still fails a stale canonical doc, whatever was left unchecked', async () => {
+    const context = createVerificationContext({
+      changed_files: ['src/pipeline/router.ts'],
+      changed_files_source: 'git',
+      code_changed: true,
+      unchecked_documentation_inputs: ['the registries'],
+      stale_doc_targets: [
+        {
+          target_path: 'docs/maintainers/architecture-map.md',
+          ownership_kind: 'implementation-drift',
+          owners: ['src/pipeline/router.ts'],
+          reason: 'Routing changes can stale architecture ownership mappings.',
+        },
+      ],
+    });
+    mkdirSync(join(context.project_root, 'docs/maintainers'), { recursive: true });
+    writeFileSync(join(context.project_root, 'docs/maintainers/architecture-map.md'), '# Map\n');
+    expect((await gate.check(context)).passed).toBe(false);
+  });
+});

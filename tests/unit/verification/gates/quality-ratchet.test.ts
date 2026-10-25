@@ -149,7 +149,7 @@ describe('QualityRatchetGate', () => {
     expect(r.detail).not.toContain('blocked:');
   });
 
-  it('passes and explains when the baseline was just captured', async () => {
+  it('reads did not run when the baseline was just captured, since nothing was compared', async () => {
     const r = await gate.check(
       createVerificationContext({
         quality_ratchet_result: result({
@@ -159,7 +159,7 @@ describe('QualityRatchetGate', () => {
         }),
       }),
     );
-    expect(r.passed).toBe(true);
+    expect(r.outcome).toBe('did-not-run');
     expect(r.detail).toContain('captured');
   });
 
@@ -175,6 +175,7 @@ describe('QualityRatchetGate', () => {
     );
     expect(r.passed).toBe(true);
     expect(r.detail).toContain('tightened');
+    expect(r.detail).toContain('1 measure compared');
   });
 
   it('fails when a measure worsened with no approved exception', async () => {

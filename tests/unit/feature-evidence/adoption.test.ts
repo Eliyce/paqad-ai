@@ -13,6 +13,7 @@ import {
   listInFlightFeatures,
   reconcileSessionControl,
   sessionClosedAnyFeature,
+  sessionReattachableFeature,
 } from '@/feature-evidence/adoption.js';
 import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
@@ -21,7 +22,7 @@ import {
   setActiveFeature,
   writeSessionControl,
 } from '@/feature-evidence/session-control.js';
-import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { readFeatureRecord, updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import {
   appendFeatureStageRow,
   closeActiveFeature,
@@ -419,6 +420,63 @@ describe('branch scoping', () => {
 
     expect(listAdoptableFeatures(root, null)).toEqual([BUNDLE_A]);
     expect(reconcileSessionControl(root, 'ses_new', clock)).toBe(BUNDLE_A);
+  });
+});
+
+describe('sessionReattachableFeature', () => {
+  const later = () => new Date('2026-07-20T00:00:00.000Z');
+
+  it('AC-4: finds the session’s own closed change on the branch', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a', 'fix/x');
+    close(root, BUNDLE_A, 'ses_a');
+    expect(sessionReattachableFeature(root, 'ses_a', 'fix/x')).toBe(BUNDLE_A);
+  });
+
+  it('AC-24: never picks a change on another branch', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a', 'fix/other');
+    close(root, BUNDLE_A, 'ses_a');
+    expect(sessionReattachableFeature(root, 'ses_a', 'fix/x')).toBeNull();
+  });
+
+  it('AC-24: never picks another session’s change', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_b', 'fix/x');
+    close(root, BUNDLE_A, 'ses_b');
+    expect(sessionReattachableFeature(root, 'ses_a', 'fix/x')).toBeNull();
+  });
+
+  it('AC-24: finds nothing when no change exists or no branch can be read', () => {
+    const root = tempRoot();
+    expect(sessionReattachableFeature(root, 'ses_a', 'fix/x')).toBeNull();
+    materialize(root, BUNDLE_A, 'ses_a', 'fix/x');
+    close(root, BUNDLE_A, 'ses_a');
+    expect(sessionReattachableFeature(root, 'ses_a', null)).toBeNull();
+  });
+
+  it('skips a change that is still in flight or was abandoned', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a', 'fix/x');
+    expect(sessionReattachableFeature(root, 'ses_a', 'fix/x')).toBeNull();
+    close(root, BUNDLE_A, 'ses_a');
+    updateFeatureRecord(root, BUNDLE_A, { status: 'abandoned' }, clock);
+    expect(sessionReattachableFeature(root, 'ses_a', 'fix/x')).toBeNull();
+  });
+
+  it('picks the most recently closed of the session’s changes', () => {
+    const root = tempRoot();
+    materialize(root, BUNDLE_A, 'ses_a', 'fix/x');
+    close(root, BUNDLE_A, 'ses_a');
+    materialize(root, BUNDLE_B, 'ses_a', 'fix/x');
+    appendFeatureStageRow(
+      root,
+      'ses_a',
+      BUNDLE_B,
+      { kind: 'close', event_status: 'completed' },
+      later,
+    );
+    expect(sessionReattachableFeature(root, 'ses_a', 'fix/x')).toBe(BUNDLE_B);
   });
 });
 

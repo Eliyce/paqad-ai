@@ -1,7 +1,7 @@
 import type { Gate } from './gate.interface.js';
 import { assessTestEvidence } from '@/verification/test-evidence.js';
 
-import { checkBooleanGate, createFail, createInconclusive, createPass } from './shared.js';
+import { checkJudgedGate, createFail, createInconclusive, createPass } from './shared.js';
 
 export class CodeTestsLintGate implements Gate {
   readonly gate = 'code-tests-lint' as const;
@@ -67,12 +67,13 @@ export class CodeTestsLintGate implements Gate {
       );
     }
 
-    return checkBooleanGate(
+    return checkJudgedGate(
       this.gate,
       context.code_tests_lint_passed,
       'Code, tests, and lint checks passed',
       'Code, tests, or lint checks failed',
       'Fix the failing build, test, or lint signal.',
+      'No checks report is on record, so this gate did not run.',
     );
   }
 }

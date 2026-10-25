@@ -71,12 +71,21 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S).reason).toBe('closed');
   });
 
-  it('reads no-active-change once the change is closed and released', () => {
+  it('reads finished, keeping the change, once this session closes its change on this branch', () => {
     const root = repoRoot();
-    openChangeHere(root, S);
+    const dir = openChangeHere(root, S);
     runStage(root, S, 'planning');
     closeActiveFeature(root, S);
-    expect(qualifyHudChange(root, S).dir).toBeNull();
+    expect(qualifyHudChange(root, S)).toEqual({ dir, reason: 'finished' });
+  });
+
+  it('reads no-active-change for a closed change another session owns', () => {
+    const root = repoRoot();
+    openChangeHere(root, 'ses-other');
+    runStage(root, 'ses-other', 'planning');
+    closeActiveFeature(root, 'ses-other');
+    setRoute(root, S, 'feature-development');
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-active-change' });
   });
 
   it('reads other-branch for a change recorded on another branch', () => {
@@ -225,7 +234,7 @@ describe('verdict freshness', () => {
     expect(stale.headline.text).not.toContain('Safe to merge');
   });
 
-  it('hides a verdict of another change and a legacy verdict without a change', () => {
+  it('hides a verdict of another change and reads a legacy verdict without a change as could not prove', () => {
     const { root } = qualifiedWithEdit();
     writeVerdict(root, S, 'pass', later());
     const path = hudVerdictPath(root, S);
@@ -237,7 +246,11 @@ describe('verdict freshness', () => {
     const legacy = { ...record };
     delete legacy.change;
     write(legacy);
-    expect(buildHudSnapshot(root, S).verdict).toBeNull();
+    expect(buildHudSnapshot(root, S).verdict).toMatchObject({
+      kind: 'inconclusive',
+      passed: false,
+      record_gaps: ['paqad could not record which change this verdict judged'],
+    });
     write({ ...record, written_at: 'never' });
     expect(buildHudSnapshot(root, S).verdict).toBeNull();
   });
@@ -304,7 +317,8 @@ describe('gates are judged only after their stage ended', () => {
     expect(GATE_JUDGED_AFTER['implementation-review']).toBe('review');
     expect(GATE_JUDGED_AFTER['ac-test-mapping']).toBe('checks');
     expect(GATE_JUDGED_AFTER['site-map-freshness']).toBe('documentation_sync');
-    expect(Object.keys(GATE_JUDGED_AFTER)).toHaveLength(19);
+    expect(GATE_JUDGED_AFTER['stage-evidence']).toBe('checks');
+    expect(Object.keys(GATE_JUDGED_AFTER)).toHaveLength(25);
     expect(gateIsJudged('spec-review', 'not a time', new Map([['specification', 0]]))).toBe(false);
   });
 });

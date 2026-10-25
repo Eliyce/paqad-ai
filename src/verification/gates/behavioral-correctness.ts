@@ -1,7 +1,7 @@
 import type { Gate } from './gate.interface.js';
 import { assessTestEvidence } from '@/verification/test-evidence.js';
 
-import { checkBooleanGate, createFail, createInconclusive, createPass } from './shared.js';
+import { checkJudgedGate, createFail, createInconclusive, createPass } from './shared.js';
 
 export class BehavioralCorrectnessGate implements Gate {
   readonly gate = 'behavioral-correctness' as const;
@@ -48,12 +48,13 @@ export class BehavioralCorrectnessGate implements Gate {
       return createPass(this.gate, 'Structured behavioral test results report no failures');
     }
 
-    return checkBooleanGate(
+    return checkJudgedGate(
       this.gate,
       context.behavioral_correctness_passed,
       'Behavioral correctness checks passed',
       'Behavioral correctness checks failed',
       'Validate the implementation against the specified behavior.',
+      'No behaviour check was recorded, so this gate did not run.',
     );
   }
 }

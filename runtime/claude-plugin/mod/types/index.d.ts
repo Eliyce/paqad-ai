@@ -4,6 +4,7 @@ export type LiveState = {
   editing: { toolUseId: string | null; file: string | null } | null;
   waitingOn: 'question' | 'permission' | null;
   waitingToolUseId: string | null;
+  waitingAgent: string | null;
 };
 
 export type PaqadTone = 'neutral' | 'working' | 'needs-you' | 'good' | 'warn' | 'bad';
@@ -136,11 +137,46 @@ export type PaqadCommitGroup = {
 
 export type PaqadGateStrength = 'deterministic' | 'llm-judged' | null;
 
+export type PaqadGateOwner = 'work' | 'paqad-record';
+
 export type PaqadGate = {
   name: string;
   verdict: string;
   required: boolean;
   strength: PaqadGateStrength;
+  owner?: PaqadGateOwner;
+};
+
+export type PaqadRepair = { what: string; at: string | null };
+
+export type PaqadProofStep = {
+  id: string;
+  words: string;
+  detail: string | null;
+  state: 'done' | 'failed' | 'not-yet';
+};
+
+export type PaqadProofGate = { code: string; words: string; state: string };
+
+export type PaqadStageProof = {
+  stage: string;
+  words: string;
+  state: string;
+  steps: PaqadProofStep[];
+  gates: PaqadProofGate[];
+};
+
+export type PaqadRung = 'done' | 'committed' | 'pr-open' | 'safe-to-merge' | 'merged';
+
+export type PaqadHeadline = {
+  text: string;
+  tone: PaqadTone;
+  row?: number;
+  word?: string;
+  rung?: PaqadRung;
+  note?: string;
+  gap?: string;
+  clock_from?: string;
 };
 
 export type PaqadClaim = {
@@ -215,7 +251,7 @@ export type PaqadHudSnapshot = {
   lane: string | null;
   lane_stages?: string[];
   lane_reason: string | null;
-  headline: { text: string; tone: PaqadTone };
+  headline: PaqadHeadline;
   change: {
     dir: string | null;
     id: string | null;
@@ -272,9 +308,17 @@ export type PaqadHudSnapshot = {
     kind: 'pass' | 'fail' | 'inconclusive';
     reasons: string[];
     at?: string;
+    work_kind?: 'pass' | 'fail' | 'inconclusive';
+    work_reasons?: string[];
+    record_gaps?: string[];
   } | null;
   receipt: { path: string } | null;
   cost: PaqadCost | null;
+  record_gaps?: string[];
+  repairs?: PaqadRepair[];
+  rung?: PaqadRung;
+  verdict_stale?: true;
+  proof?: PaqadStageProof[];
 };
 
 export type PaqadStandDown = 'view-off' | 'not-onboarded' | 'remote' | 'disabled' | 'old-engine';

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   IDLE_LIVE,
+  agentTurnEnded,
   answeredRuleStopText,
   liveToolCall,
   permissionAsked,
@@ -102,5 +103,64 @@ describe('answeredRuleStopText', () => {
     expect(answeredRuleStopText('{not json')).toBeNull();
     expect(answeredRuleStopText('[1]')).toBeNull();
     expect(answeredRuleStopText('null')).toBeNull();
+  });
+});
+
+describe('which agent asked for permission', () => {
+  const askFrom = (agent: string | null, toolUseId = 'tu_1') => ({
+    decision: 'ask',
+    approver: 'person',
+    toolUseId,
+    agent,
+  });
+
+  it('records the agent that asked, and main as no agent', () => {
+    expect(permissionAsked(IDLE_LIVE, askFrom('agent-a1'))).toMatchObject({
+      waitingOn: 'permission',
+      waitingAgent: 'agent-a1',
+    });
+    expect(permissionAsked(IDLE_LIVE, askFrom(null))).toMatchObject({
+      waitingOn: 'permission',
+      waitingAgent: null,
+    });
+  });
+
+  it("clears a background agent's ask at its next settled check, tool start or turn end", () => {
+    const asked = permissionAsked(IDLE_LIVE, askFrom('agent-a1'));
+    expect(
+      permissionAsked(asked, {
+        decision: 'allow',
+        approver: 'person',
+        toolUseId: 'x',
+        agent: 'agent-a1',
+      }),
+    ).toEqual(IDLE_LIVE);
+    expect(
+      toolStarted(asked, liveToolCall({ tool: 'Bash', tool_use_id: 'tu_1', agentId: 'agent-a1' })),
+    ).toEqual(IDLE_LIVE);
+    expect(agentTurnEnded(asked, 'agent-a1')).toEqual(IDLE_LIVE);
+    expect(agentTurnEnded(asked, 'agent-b2')).toBe(asked);
+    expect(toolStarted(asked, liveToolCall({ tool: 'Bash' })).waitingOn).toBe('permission');
+  });
+
+  it('keeps a main-thread wait while background agents ask or work', () => {
+    const main = permissionAsked(IDLE_LIVE, askFrom(null, 'tu_m'));
+    expect(permissionAsked(main, askFrom('agent-a1', 'tu_a'))).toBe(main);
+    expect(
+      toolStarted(main, liveToolCall({ tool: 'Read', tool_use_id: 'tu_a', agentId: 'agent-a1' })),
+    ).toEqual(main);
+    expect(toolStarted(main, liveToolCall({ tool: 'Bash', tool_use_id: 'tu_m' }))).toEqual(
+      IDLE_LIVE,
+    );
+    const question = questionShown(IDLE_LIVE);
+    expect(permissionAsked(question, askFrom('agent-a1')).waitingOn).toBe('question');
+  });
+
+  it('a main ask takes over from a background wait', () => {
+    const background = permissionAsked(IDLE_LIVE, askFrom('agent-a1'));
+    expect(permissionAsked(background, askFrom(null, 'tu_m'))).toMatchObject({
+      waitingAgent: null,
+      waitingToolUseId: 'tu_m',
+    });
   });
 });

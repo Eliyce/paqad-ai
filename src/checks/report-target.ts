@@ -5,7 +5,9 @@ import {
   writeChecksReport,
   writeFeatureChecks,
 } from '@/checks/report-store.js';
-import { currentFeature } from '@/feature-evidence/stage-ledger.js';
+import { isBundleMaterialized } from '@/feature-evidence/adoption.js';
+import { readSessionControl } from '@/feature-evidence/session-control.js';
+import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 export function activeFeatureDirOrNull(projectRoot: string): string | null {
@@ -26,6 +28,24 @@ function explicitSessionHint(): string | null {
     if (cleaned) return cleaned;
   }
   return null;
+}
+
+export function sessionChecksTarget(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string | null,
+): string | null {
+  if (!dirName) return null;
+  try {
+    if (!isBundleMaterialized(projectRoot, dirName)) {
+      return readSessionControl(projectRoot, sessionId).active === dirName ? dirName : null;
+    }
+    return readFeatureStageUnit(projectRoot, dirName).some((row) => row.session_id === sessionId)
+      ? dirName
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 export function readChecksReportForFeature(

@@ -9,19 +9,16 @@ import {
 } from '../../../../runtime/claude-plugin/mod/pane.ts';
 import type { TableLine } from '../../../../runtime/claude-plugin/mod/table.ts';
 import {
-  NO_GATES,
   NO_PLAN,
   NOTHING_PUSHED,
-  NOT_JUDGED,
-  NOT_JUDGED_WHY,
-  gateRing,
   linesText,
   recordLines,
-  requiredGates,
   trustLines,
 } from '../../../../runtime/claude-plugin/mod/tabs.ts';
+import { NOTHING_TO_PROVE, OLD_RECORD_NOTE } from '../../../../runtime/claude-plugin/mod/trust.ts';
 import {
   FAST_ORD_490,
+  FAST_ORD_490_PROOF,
   FULL_ORD_501,
   NOW,
   PAUSED,
@@ -44,36 +41,89 @@ const PRESENT = (files: string[]) =>
   files.map((file) => ({ file, expectation: 'always', present: true }));
 
 describe('the Trust tab', () => {
-  it('groups the gates by strength, each with its verdict in words', () => {
-    const lines = text(trustLines(parse({ ...FULL_ORD_501, gates: GATES })));
-    expect(lines[0]).toBe('Verdict Safe to merge');
-    expect(lines).toContain('Deterministic');
-    expect(lines).toContain('  ● code-tests-lint  pass');
-    expect(lines).toContain('  ✗ duplication  fail');
-    expect(lines).toContain('  – mutation-testing  not required');
-    expect(lines).toContain('Judged by a model');
-    expect(lines).toContain('  ~ review-quality  inconclusive');
-    expect(lines).toContain('Strength not recorded');
-    expect(lines).toContain('  ○ late-gate  did not run');
-    expect(lines.indexOf('Deterministic')).toBeLessThan(lines.indexOf('Judged by a model'));
+  it('AC-34 and AC-36: groups the proof by the fast-lane stages in order, steps then gates', () => {
+    expect(text(trustLines(parse(FAST_ORD_490)))).toEqual([
+      'Plan  Recorded',
+      '  ✓ Plan compiled  2 steps',
+      '  ✓ Reuse checked  3 sources consulted',
+      'Build  Running',
+      '  ✓ Rules loaded  4 rules apply',
+      '  ✓ Edits made  1 file changed',
+      '  ○ Plan steps built  1 of 2',
+      '    Nothing left half done  Not judged yet',
+      '    Public surface stays stable  Not judged yet',
+      '    No near-copies added  Not judged yet',
+      'Checks  Not yet',
+      '  ○ Checks run',
+      '    Every criterion has a test  Not judged yet',
+      '    Tests, types and lint pass  Not judged yet',
+      '    Tests catch real mutations  Not judged yet',
+      '    Quality did not drop  Not judged yet',
+    ]);
   });
 
-  it('counts only required gates in the ring', () => {
-    const gates = parse({ ...FULL_ORD_501, gates: GATES }).gates;
-    expect(requiredGates(gates).map((gate) => gate.name)).toEqual([
-      'code-tests-lint',
-      'duplication',
-      'review-quality',
-      'late-gate',
+  it('AC-35: shows only the full-lane stages and their gates, with no ring, light or verdict', () => {
+    const lines = text(trustLines(parse(FULL_ORD_501)));
+    expect(lines.filter((entry) => !entry.startsWith(' ') && entry.includes('  '))).toEqual([
+      'Plan  Recorded',
+      'Spec  Recorded',
+      'Build  Recorded',
+      'Review  Recorded',
+      'Checks  Recorded',
+      'Docs  Recorded',
     ]);
-    const ring = gateRing(gates);
-    expect(ring.map((segment) => segment.text).join('')).toBe('Gates ●✗~○  1/4 required');
-    expect(ring.filter((segment) => segment.tone).map((segment) => segment.tone)).toEqual([
-      'good',
-      'bad',
-      'warn',
-      'warn',
+    expect(lines).toContain('    The spec was reviewed  Pass');
+    expect(lines).toContain('    Tests catch real mutations  Not required');
+    expect(lines.join('\n')).not.toMatch(/required\b.*\d+\/\d+|Verdict|Safe to merge|Gates /);
+    for (const code of ['stage-evidence', 'requirement-completeness', 'architecture-compliance']) {
+      expect(lines.join('\n')).not.toContain(code);
+    }
+  });
+
+  it('AC-35: never repeats the band headline', () => {
+    for (const raw of [FAST_ORD_490, FULL_ORD_501]) {
+      const snap = parse(raw);
+      const lines = text(trustLines(snap));
+      expect(lines.some((entry) => entry.includes(snap.headline.text))).toBe(false);
+    }
+  });
+
+  it('AC-33: says paqad record gaps once in neutral words, and repairs as one dim line', () => {
+    const snap = parse({
+      ...FULL_ORD_501,
+      flags: [],
+      record_gaps: ['paqad could not record every stage of this change'],
+      repairs: [
+        { what: 'inferred the Build stage from the edits', at: null },
+        { what: 'inferred the Build stage from the edits', at: null },
+      ],
+    });
+    const lines = trustLines(snap);
+    const gap = lines.filter((entry) => linesText([entry]).startsWith('paqad could not record'));
+    expect(gap).toHaveLength(1);
+    expect(gap[0]!.every((segment) => !segment.tone && !segment.dim)).toBe(true);
+    const repair = lines.filter((entry) => linesText([entry]).startsWith('paqad repaired'));
+    expect(repair).toEqual([
+      [
+        {
+          text: 'paqad repaired its own record: inferred the Build stage from the edits',
+          dim: true,
+        },
+      ],
     ]);
+  });
+
+  it('AC-31: an old snapshot with no proof shows only the gates it recorded, in plain words', () => {
+    const old = { ...FULL_ORD_501, gates: GATES };
+    delete (old as Record<string, unknown>).proof;
+    const lines = text(trustLines(parse(old)));
+    expect(lines.slice(0, 4)).toEqual([
+      OLD_RECORD_NOTE,
+      '    Tests, types and lint pass  Pass',
+      '    No near-copies added  Fail',
+      '    Tests catch real mutations  Not required',
+    ]);
+    expect(lines.join('\n')).not.toMatch(/review-quality|late-gate|Recorded/);
   });
 
   it('shows each claim with its proving test, and the flags', () => {
@@ -143,23 +193,24 @@ describe('the Trust tab', () => {
       );
       expect(lines, proof).toContain(`  Fix proof: ${label}  ${word}  no proving test recorded`);
       if (proof === 'none' || proof === 'not-reproduced') {
-        expect(lines.join('\n'), proof).not.toContain('passed  ');
+        const claim = lines.filter((entry) => entry.includes('Fix proof')).join('\n');
+        expect(claim, proof).not.toContain('passed  ');
       }
     }
   });
 
-  it('names its empty state when no gate was judged', () => {
-    expect(text(trustLines(parse({ ...FAST_ORD_490 })))).toEqual([
-      NOT_JUDGED,
-      NOT_JUDGED_WHY,
-      NO_GATES,
-      'Claims and the tests that prove them',
-      '  No claim recorded for this change.',
-      'Flags',
-      '  No flag is open.',
-    ]);
-    expect(text(trustLines(null))).toEqual([NO_GATES]);
-    expect(text(trustLines(parse(PAUSED)))).toEqual(['No change is in progress.']);
+  it('AC-37: says there is nothing to prove yet with no change or no evidence', () => {
+    expect(text(trustLines(null))).toEqual([NOTHING_TO_PROVE]);
+    expect(text(trustLines(parse(PAUSED)))).toEqual([NOTHING_TO_PROVE]);
+    const bare = FAST_ORD_490_PROOF.map((stage) => ({
+      ...stage,
+      state: 'missing',
+      steps: (stage.steps as Array<Record<string, unknown>>).map((step) => ({
+        ...step,
+        state: 'not-yet',
+      })),
+    }));
+    expect(text(trustLines(parse({ ...FAST_ORD_490, proof: bare })))).toEqual([NOTHING_TO_PROVE]);
   });
 });
 
@@ -242,8 +293,8 @@ describe('/paqad trust, ships and record', () => {
     }).text;
 
   it('print the same lines as the tabs', () => {
-    expect(run('trust', FAST_ORD_490)).toContain(NO_GATES);
-    expect(run('trust', FAST_ORD_490).split('\n')[0]).toBe(NOT_JUDGED);
+    expect(run('trust', FAST_ORD_490)).toBe(linesText(trustLines(parse(FAST_ORD_490))));
+    expect(run('trust', FAST_ORD_490).split('\n')[0]).toBe('Plan  Recorded');
     expect(run('ships', snapshot({ active: true, ship: null }))).toBe(NOTHING_PUSHED);
     expect(run('record', { ...FULL_ORD_501, evidence_expected: PRESENT(['plan.json']) })).toContain(
       'Plan         recorded in plan.json',

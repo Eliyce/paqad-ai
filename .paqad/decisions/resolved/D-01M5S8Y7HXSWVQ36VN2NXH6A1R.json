@@ -1,0 +1,79 @@
+{
+  "id": "D-01M5S8Y7HXSWVQ36VN2NXH6A1R",
+  "category": "fix.proof_method",
+  "title": "How should we confirm this problem is fixed?",
+  "context": "This change is a fix that changes behaviour, so paqad wants proof the problem is gone. A test that fails before the fix and passes after it is the strongest proof; pick another method only when no test can reach the problem.",
+  "options": [
+    {
+      "option_key": "failing-test",
+      "label": "Write a test that fails before the fix",
+      "one_line_preview": "If you pick this, a test fails on the old code and passes after the fix, recorded with `paqad-ai fix prove`.",
+      "trade_off": "You give up: nothing for code a test can reach; it needs a runnable test.",
+      "evidence": {
+        "findings": [
+          "EX-qa-engineer-1: acceptance: given this change applied, when the stage enforcement contract suite runs on the npm route and the plugin route, then it passes with the test file byte-identical to main (proven by a git diff check in CI, proof_type e2e)",
+          "EX-qa-engineer-2: given a change whose checks pass, when the turn-end check closes it, then the verdict file carries that change id (never change null) and the HUD still shows Safe to merge for that closed change until a new change starts; proof_type integration over run-repository-verification plus the HUD snapshot",
+          "EX-qa-engineer-3: negative case: given an inconclusive result, when the change closes, then the HUD shows the inconclusive state for that change and never a pass or an empty idle view",
+          "EX-qa-engineer-4: one acceptance per rung, each as an integration test fed recorded delivery events: checks green with uncommitted edit shows Done; commit shows Committed; PR open shows PR open; CI green shows Safe to merge; merge shows Merged; plus negative cases CI red after PR open drops back and a later edit after Done marks the verdict stale rather than keeping Done",
+          "EX-qa-engineer-5: given a checks stage is open or paqad-ai checks run holds its running marker, when the Stop hook fires, then no completed end is written and the change stays open; boundary: a stale running marker from a dead process must not defer forever, so the test needs a stale-marker case with an injected clock",
+          "EX-qa-engineer-6: race: checks start on change A, A closes, change B opens, checks finish; then the report lands on A, never B and never only .paqad/checks/last-run.json. Test must drive the ordering deterministically with injected events, not real timers or a background pnpm run ci",
+          "EX-qa-engineer-7: given the session's own change on the same branch is closed, when a stage mark is recorded via the CLI path, then that change is reattached and no untitled change is minted; negative cases: different branch, different session, and no prior change each refuse or mint with the inherited lane, never lane null",
+          "EX-qa-engineer-8: given only paqad bookkeeping is missing (stage records, bundle files, rules-loaded marker), when the verdict is judged, then the work verdict is unaffected and the screen says paqad could not record X, with no Fix it and run the checks again copy; test asserts the rendered desktop-view text, not only the model",
+          "EX-qa-engineer-9: one table-driven test across the single status mapper, the receipt and the HUD: did not run, not required, could not prove and pass map to the same label on every reader; a gate skipped after an earlier failure in gate-runner shows did not run, never Not required; spec-review with no spec shows could not prove, never pass",
+          "EX-qa-engineer-10: for each input currently forced true (requirements_complete, story_quality_passed, architecture_compliant, database_quality_passed, behavioral_correctness_passed, code_tests_lint_passed with no checks report), a negative test proves the gate is not a pass when the real evidence is absent",
+          "EX-qa-engineer-11: given a fast-lane change, when Trust renders, then only that lane's stages and gates appear and gates outside the lane are neither shown as Not judged yet nor counted as required; snapshot test per lane (fast and full) plus a no-duplicate assertion that the Trust light text differs from the band headline",
+          "EX-qa-engineer-12: many current tests likely assert the old behaviour (Not required for missing rows, pass on spec-review inconclusive, auto-ended checks counted complete); each changed expectation must be listed in the plan with its reason so honesty changes are not mistaken for regressions, and no assertion may move from fail to pass",
+          "EX-qa-engineer-13: tests need a fixture builder that stands up a temp .paqad with a change ledger, stage rows, a checks report and verdict file per scenario, isolated per test temp dir to avoid the known macOS temp-dir race",
+          "EX-qa-engineer-14: folding strays back into their parent needs a fixture copied from a real ledger shape (placeholder title change, lane null) and an idempotence test: running the fold twice yields the same result and never deletes a titled change"
+        ]
+      }
+    },
+    {
+      "option_key": "human-verification-step",
+      "label": "Use a manual check",
+      "one_line_preview": "If you pick this, a person runs a set check to confirm the fix.",
+      "trade_off": "You give up: a fully automated check.",
+      "evidence": {}
+    },
+    {
+      "option_key": "recorded-baseline-snapshot",
+      "label": "Keep an approved snapshot",
+      "one_line_preview": "If you pick this, we save an approved snapshot and compare later runs to it.",
+      "trade_off": "You give up: free changes without re-approving the snapshot.",
+      "evidence": {}
+    },
+    {
+      "option_key": "measured-threshold",
+      "label": "Use a measured limit",
+      "one_line_preview": "If you pick this, we check a measured value against a set limit.",
+      "trade_off": "You give up: cases the chosen value does not catch.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "failing-test",
+  "created_at": "2026-10-25T10:15:44.445Z",
+  "status": "resolved",
+  "origin": "fix-proof",
+  "change": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "chosen": "failing-test",
+  "rationale": "Owner (Haider) accepted the recommendation in chat on 2026-10-25",
+  "resolved_at": "2026-10-25T10:26:07.072Z",
+  "decision_id": "D-01M5S8Y7HXSWVQ36VN2NXH6A1R",
+  "fingerprint": "sha256:75028677f2af5f8eeea86c9cc81ce48f0c68ebe32323be51082489b5f1deb522",
+  "question": "How should we confirm this problem is fixed?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-fix-proof",
+  "task_session_id": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "ttl_until": "2026-11-24T10:15:44.445Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "failing-test",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-25T10:26:07.072Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) accepted the recommendation in chat on 2026-10-25"
+  }
+}

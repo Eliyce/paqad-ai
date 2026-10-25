@@ -9,26 +9,34 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import type { Gate } from './gate.interface.js';
 
-import { checkBooleanGate, createFail, createPass } from './shared.js';
+import {
+  checkBooleanGate,
+  createDidNotRun,
+  createFail,
+  createNotRequired,
+  createPass,
+} from './shared.js';
 
-function activeReviewText(projectRoot: string): string {
+function activeReview(projectRoot: string): ReturnType<typeof readFeatureReview> {
   try {
     const sessionId = resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
     const dirName = currentFeature(projectRoot, sessionId);
-    if (!dirName) return '';
-    const review = readFeatureReview(projectRoot, dirName);
-    if (!review) return '';
-    return [
-      review.summary,
-      review.rollback,
-      ...(review.checked ?? []),
-      ...(review.findings ?? []).flatMap((finding) => [finding.description, finding.file ?? '']),
-    ].join('\n');
+    return dirName ? readFeatureReview(projectRoot, dirName) : null;
     /* v8 ignore start -- defensive: an unreadable ledger must never crash a gate */
   } catch {
-    return '';
+    return null;
   }
   /* v8 ignore stop */
+}
+
+function reviewText(review: ReturnType<typeof readFeatureReview>): string {
+  if (!review) return '';
+  return [
+    review.summary,
+    review.rollback,
+    ...(review.checked ?? []),
+    ...(review.findings ?? []).flatMap((finding) => [finding.description, finding.file ?? '']),
+  ].join('\n');
 }
 
 export class ImplementationReviewGate implements Gate {
@@ -47,9 +55,10 @@ export class ImplementationReviewGate implements Gate {
       );
     }
 
+    const review = activeReview(context.project_root);
     const unaddressed = unanchoredMachineFindings(
       collectMachineFindings(context.project_root),
-      activeReviewText(context.project_root),
+      reviewText(review),
     );
     if (unaddressed.length > 0) {
       return createFail(
@@ -69,6 +78,15 @@ export class ImplementationReviewGate implements Gate {
           .map((finding) => finding.detail)
           .join('; ')}`,
       );
+    }
+
+    if (context.implementation_review_passed && !review) {
+      return context.lane === 'fast'
+        ? createNotRequired(this.gate, 'This lane has no review stage.')
+        : createDidNotRun(
+            this.gate,
+            'No review is on record for this change, so nothing was reviewed.',
+          );
     }
 
     return checkBooleanGate(

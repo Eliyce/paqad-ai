@@ -445,6 +445,123 @@ export function ord482Table(phase: Ord482Phase): Raw {
   };
 }
 
+type ProofStep = [string, string, string | null, 'done' | 'failed' | 'not-yet'];
+type ProofGate = [string, string, string];
+
+export function proofStage(
+  stage: string,
+  words: string,
+  state: string,
+  steps: readonly ProofStep[],
+  gates: readonly ProofGate[] = [],
+): Raw {
+  return {
+    stage,
+    words,
+    state,
+    steps: steps.map(([id, text, detail, done]) => ({ id, words: text, detail, state: done })),
+    gates: gates.map(([code, text, verdict]) => ({ code, words: text, state: verdict })),
+  };
+}
+
+export const FAST_ORD_490_PROOF: Raw[] = [
+  proofStage('planning', 'Plan', 'complete', [
+    ['plan', 'Plan compiled', '2 steps', 'done'],
+    ['reuse', 'Reuse checked', '3 sources consulted', 'done'],
+  ]),
+  proofStage(
+    'development',
+    'Build',
+    'running',
+    [
+      ['rules', 'Rules loaded', '4 rules apply', 'done'],
+      ['edits', 'Edits made', '1 file changed', 'done'],
+      ['built', 'Plan steps built', '1 of 2', 'not-yet'],
+    ],
+    [
+      ['change-completeness', 'Nothing left half done', 'not-judged'],
+      ['extension-surface', 'Public surface stays stable', 'not-judged'],
+      ['duplication', 'No near-copies added', 'not-judged'],
+    ],
+  ),
+  proofStage(
+    'checks',
+    'Checks',
+    'missing',
+    [['checks', 'Checks run', null, 'not-yet']],
+    [
+      ['ac-test-mapping', 'Every criterion has a test', 'not-judged'],
+      ['code-tests-lint', 'Tests, types and lint pass', 'not-judged'],
+      ['mutation-testing', 'Tests catch real mutations', 'not-judged'],
+      ['quality-ratchet', 'Quality did not drop', 'not-judged'],
+    ],
+  ),
+];
+
+export const FULL_ORD_501_PROOF: Raw[] = [
+  proofStage('planning', 'Plan', 'complete', [
+    ['plan', 'Plan compiled', '6 steps', 'done'],
+    ['reuse', 'Reuse checked', '5 sources consulted', 'done'],
+  ]),
+  proofStage(
+    'specification',
+    'Spec',
+    'complete',
+    [
+      ['grounded', 'Grounded in the code', '8 references', 'done'],
+      ['experts', 'Experts seated', '7 experts', 'done'],
+      ['questions', 'Questions answered', '4 of 4', 'done'],
+      ['frozen', 'Spec frozen', '6 criteria', 'done'],
+    ],
+    [['spec-review', 'The spec was reviewed', 'pass']],
+  ),
+  proofStage(
+    'development',
+    'Build',
+    'complete',
+    [
+      ['rules', 'Rules loaded', '12 rules apply', 'done'],
+      ['edits', 'Edits made', '9 files changed', 'done'],
+      ['built', 'Plan steps built', '6 of 6', 'done'],
+    ],
+    [
+      ['change-completeness', 'Nothing left half done', 'pass'],
+      ['extension-surface', 'Public surface stays stable', 'pass'],
+      ['duplication', 'No near-copies added', 'pass'],
+    ],
+  ),
+  proofStage(
+    'review',
+    'Review',
+    'complete',
+    [['review', 'Review recorded', '2 findings', 'done']],
+    [['implementation-review', 'The code was reviewed', 'pass']],
+  ),
+  proofStage(
+    'checks',
+    'Checks',
+    'complete',
+    [['checks', 'Checks passed', '4 of 4 commands', 'done']],
+    [
+      ['ac-test-mapping', 'Every criterion has a test', 'pass'],
+      ['code-tests-lint', 'Tests, types and lint pass', 'pass'],
+      ['mutation-testing', 'Tests catch real mutations', 'not-required'],
+      ['quality-ratchet', 'Quality did not drop', 'pass'],
+    ],
+  ),
+  proofStage(
+    'documentation_sync',
+    'Docs',
+    'complete',
+    [['docs', 'Docs updated', '2 files changed', 'done']],
+    [
+      ['module-docs-structure', 'Module docs keep their shape', 'pass'],
+      ['instructions-docs-structure', 'Instruction docs keep their shape', 'not-required'],
+      ['documentation-freshness', 'Docs match the code', 'pass'],
+    ],
+  ),
+];
+
 export const FAST_ORD_490 = snapshot({
   scope: { qualified: true, reason: 'qualified' },
   active: true,
@@ -452,7 +569,13 @@ export const FAST_ORD_490 = snapshot({
   lane: 'fast',
   lane_stages: ['planning', 'development', 'checks'],
   lane_reason: 'a one-line copy fix',
-  headline: { text: 'Build in progress. Next: Review.', tone: 'working' },
+  headline: {
+    text: 'Building',
+    tone: 'working',
+    row: 15,
+    word: 'Working',
+    clock_from: '2026-10-18T08:58:00.000Z',
+  },
   change: change('ORD-490', 'The order email says recieved', 'fix/ORD-490-received'),
   stages: stages(
     { planning: 'complete', development: 'running' },
@@ -461,6 +584,7 @@ export const FAST_ORD_490 = snapshot({
   rules: { recorded: true, applicable: 4, loaded_at: '2026-10-18T08:57:00.000Z' },
   ship: ship(0),
   isolation: { status: 'not-applicable', stages: 0, tokens_not_recarried: 0 },
+  proof: FAST_ORD_490_PROOF,
 });
 
 export const GRADUATED_ORD_482 = snapshot({
@@ -470,7 +594,7 @@ export const GRADUATED_ORD_482 = snapshot({
   lane: 'graduated',
   lane_stages: ALL_LANE_STAGES,
   lane_reason: 'a bug fix that touches contact matching',
-  headline: { text: 'Needs you: 1 decision waiting.', tone: 'needs-you' },
+  headline: { text: '1 decision is waiting for you', tone: 'needs-you', row: 6, word: 'Needs you' },
   change: change(
     'ORD-482',
     'Keep the copied phone after a re-sync',
@@ -513,6 +637,7 @@ export const FULL_ORD_501 = snapshot({
   ship: ship(3),
   verdict: verdict('pass', 'Safe to merge'),
   receipt: { path: '/repo/.paqad/session/hud/ses-fixture.receipt.md' },
+  proof: FULL_ORD_501_PROOF,
 });
 
 export const SAFE_CLEAN = snapshot({
@@ -677,8 +802,19 @@ export function ord501At(phase: Ord501Phase): Raw {
   return snapshot({
     ...FULL_ORD_501,
     headline: ruled
-      ? { text: 'Needs you: 1 decision waiting.', tone: 'needs-you' }
-      : { text: 'Spec in progress. Next: Build.', tone: 'working' },
+      ? {
+          text: 'The chief architect has 1 question for you',
+          tone: 'needs-you',
+          row: 5,
+          word: 'Needs you',
+        }
+      : {
+          text: 'The High Table is writing its notes',
+          tone: 'working',
+          row: 15,
+          word: 'Working',
+          clock_from: '2026-10-18T08:09:00.000Z',
+        },
     stages: stages(
       { planning: 'complete', specification: 'running' },
       { specification: '2026-10-18T08:09:00.000Z' },
@@ -814,7 +950,13 @@ export const SCENE_FIXTURES = {
   'High Table writing': ord501At('writing'),
   Building: snapshot({
     ...FULL_ORD_501,
-    headline: { text: 'Build in progress. Next: Review.', tone: 'working' },
+    headline: {
+      text: 'Building',
+      tone: 'working',
+      row: 15,
+      word: 'Working',
+      clock_from: '2026-10-18T08:55:00.000Z',
+    },
     stages: stages(
       { planning: 'complete', specification: 'complete', development: 'running' },
       { development: '2026-10-18T08:55:00.000Z' },
@@ -835,7 +977,13 @@ export const SCENE_FIXTURES = {
   'Needs you': ord501At('ruled'),
   'Shipping with CI live': snapshot({
     ...FULL_ORD_501,
-    headline: { text: 'Delivering. Watching CI.', tone: 'working' },
+    headline: {
+      text: `Watching CI on PR ${'#'}12`,
+      tone: 'working',
+      row: 14,
+      word: 'Working',
+      clock_from: '2026-10-18T08:57:00.000Z',
+    },
     stages: DELIVERING_STAGES,
     flags: [],
     delivery_plan: FULL_DELIVERY,
@@ -860,7 +1008,12 @@ export const SCENE_FIXTURES = {
   }),
   Failed: snapshot({
     ...FULL_ORD_501,
-    headline: { text: 'Needs your attention.', tone: 'bad' },
+    headline: {
+      text: 'Tests, types or lint failed',
+      tone: 'bad',
+      row: 12,
+      word: 'Needs your attention',
+    },
     stages: stages({ ...ALL_DONE, checks: 'failed' }),
     gates: [
       { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'fail' },
@@ -871,6 +1024,14 @@ export const SCENE_FIXTURES = {
   }),
   'All green': snapshot({
     ...FULL_ORD_501,
+    headline: {
+      text: `Safe to merge: PR ${'#'}12 is ready for your merge`,
+      tone: 'good',
+      row: 8,
+      word: 'Safe to merge',
+      rung: 'safe-to-merge',
+    },
+    rung: 'safe-to-merge',
     flags: [],
     stages: DELIVERING_STAGES,
     delivery_plan: FULL_DELIVERY,
@@ -893,7 +1054,15 @@ export const SCENE_FIXTURES = {
   'Fast lane': FAST_ORD_490,
   'Edit only': snapshot({
     ...FAST_ORD_490,
-    headline: { text: 'Checks passed.', tone: 'good' },
+    headline: {
+      text: 'Done',
+      tone: 'good',
+      row: 16,
+      word: 'Done',
+      rung: 'done',
+      note: 'left uncommitted, as you asked',
+    },
+    rung: 'done',
     stages: stages({ planning: 'complete', development: 'complete', checks: 'complete' }),
     gates: [
       { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
@@ -919,6 +1088,13 @@ export const SCENE_FIXTURES = {
   }),
   'No CI': snapshot({
     ...FULL_ORD_501,
+    headline: {
+      text: 'Delivering',
+      tone: 'working',
+      row: 15,
+      word: 'Working',
+      clock_from: '2026-10-18T08:57:00.000Z',
+    },
     flags: [],
     stages: DELIVERING_STAGES,
     delivery_plan: { ...FULL_DELIVERY, ci: false },

@@ -1,16 +1,17 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readContractDecisions, type StoredContractDecision } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
-import { GATE_STRENGTH_TIER, LATE_GATE_STRENGTH_TIER } from '@/evidence/grading.js';
 import {
   FIX_PROOF_STATE_LABEL,
   foldFixProofState,
   readFixProofRows,
   type FixProofState,
 } from '@/fix-protocol/fix-proof-record.js';
+import { readFeatureChecks } from '@/checks/report-store.js';
 import {
   readDuplication,
   readFeatureEvidence,
@@ -62,15 +63,20 @@ import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isLaneStage, laneStages } from '@/stage-evidence/stages.js';
-import type { FoldedChange } from '@/stage-evidence/types.js';
+import { RECORD_REPAIR_KIND, type FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { stageForAgentName, stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 import {
   buildBundleCompletenessConfig,
   stageIsolationStatus,
 } from '@/verification/repository/bundle-completeness-config.js';
-import type { VerificationGate } from '@/core/types/verification.js';
-import { DEFAULT_GATE_CODES } from '@/verification/gate-runner.js';
+import {
+  VERIFICATION_GATES,
+  gateCatalogEntry,
+  gateExpectedOnLane,
+  type GateOwner,
+} from '@/core/types/verification.js';
+import { LANE_RECORD_GAP } from '@/verification/verdict-kind.js';
 
 import {
   gateIsJudged,
@@ -79,12 +85,19 @@ import {
   stageEndTimes,
   type HudScopeReason,
 } from './change-scope.js';
-import { readChangeGit } from './changed-files.js';
+import { readChangeGit, readWorkingTreeDirty } from './changed-files.js';
+import {
+  computeDoneLadder,
+  type DoneLadder,
+  type HudRung,
+  type LadderChecks,
+} from './done-ladder.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
+import { buildStageProof, readStageProofEvidence, type HudStageProof } from './stage-proof.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/3';
 
@@ -110,6 +123,7 @@ export interface HudGate {
   required: boolean;
   strength: 'deterministic' | 'llm-judged' | null;
   verdict: HudGateVerdict;
+  owner?: GateOwner;
 }
 
 export interface HudFlag {
@@ -120,6 +134,8 @@ export interface HudFlag {
 export type { HudChief, HudHighTable, HudSeat, HudTrackRecord } from './high-table-view.js';
 export type { HudCost } from './cost-view.js';
 export type { HudScopeReason } from './change-scope.js';
+export type { HudRung } from './done-ladder.js';
+export type { HudProofGate, HudProofStep, HudStageProof } from './stage-proof.js';
 
 export type HudFindingsStatus = 'open' | 'clean' | 'did not run';
 
@@ -519,7 +535,7 @@ export interface HudSnapshot {
   lane: string | null;
   lane_stages?: string[];
   lane_reason: string | null;
-  headline: { text: string; tone: HudTone };
+  headline: HudHeadline;
   change: {
     dir: string;
     id: string | null;
@@ -558,6 +574,11 @@ export interface HudSnapshot {
   cost: HudCost | null;
   tech_debt: { raised: TechDebtIndexEntry[] } | null;
   rule_overrides: Array<{ rule: string; file: string; by: string; at: string }> | null;
+  record_gaps?: string[];
+  repairs?: Array<{ what: string; at: string | null }>;
+  rung?: HudRung;
+  verdict_stale?: true;
+  proof?: HudStageProof[];
 }
 
 function readJsonFile(path: string): unknown {
@@ -752,14 +773,32 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
     const verdict: HudGateVerdict = gateIsJudged(code, rowRecordedAt(row), stageEnds)
       ? readGateVerdict(row)
       : 'not-judged';
-    const tier = GATE_STRENGTH_TIER[code as VerificationGate] ?? LATE_GATE_STRENGTH_TIER[code];
-    const strength =
-      tier ??
-      (row.strength_class === 'deterministic' || row.strength_class === 'llm-judged'
-        ? row.strength_class
-        : null);
-    return { name: code, required: verdict !== 'not-required', strength, verdict };
+    const owner = gateCatalogEntry(code)?.owner;
+    return {
+      name: code,
+      required: verdict !== 'not-required',
+      strength: gateStrengthFromRun(code, row, verdict),
+      verdict,
+      ...(owner ? { owner } : {}),
+    };
   });
+}
+
+function gateStrengthFromRun(
+  code: string,
+  row: Record<string, unknown>,
+  verdict: HudGateVerdict,
+): HudGate['strength'] {
+  if (verdict === 'did-not-run' || verdict === 'not-required') return null;
+  const tier = gateCatalogEntry(code)?.strength;
+  if (tier) return tier;
+  return row.strength_class === 'deterministic' || row.strength_class === 'llm-judged'
+    ? row.strength_class
+    : null;
+}
+
+export function expectedGateCodes(lane: string | null): string[] {
+  return VERIFICATION_GATES.filter((code) => gateExpectedOnLane(code, lane));
 }
 
 function ownPr(
@@ -954,22 +993,117 @@ function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRe
   return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
 }
 
-function freshVerdict(
-  projectRoot: string,
-  sessionId: string,
-  dirName: string,
-): HudVerdictRecord | null {
+const UNJUDGED_CHANGE_GAP = 'paqad could not record which change this verdict judged';
+
+const VERDICT_KINDS: ReadonlySet<unknown> = new Set(['pass', 'fail', 'inconclusive']);
+
+function couldNotProve(verdict: HudVerdictRecord, gap: string | null): HudVerdictRecord {
+  const gaps = Array.isArray(verdict.record_gaps) ? verdict.record_gaps : [];
+  return {
+    ...verdict,
+    kind: 'inconclusive',
+    passed: false,
+    word: PAQAD_VERDICT.inconclusive,
+    reasons: Array.isArray(verdict.reasons) ? verdict.reasons : [],
+    ...(gap ? { record_gaps: [...gaps, gap] } : {}),
+  };
+}
+
+interface VerdictReading {
+  verdict: HudVerdictRecord | null;
+  stale: boolean;
+}
+
+function freshVerdict(projectRoot: string, sessionId: string, dirName: string): VerdictReading {
+  const none: VerdictReading = { verdict: null, stale: false };
   const verdict = readVerdictRecord(projectRoot, sessionId);
-  if (!verdict || typeof verdict.change !== 'string' || verdict.change !== dirName) return null;
+  if (!verdict) return none;
+  const unjudged = verdict.change === null || verdict.change === undefined;
+  if (!unjudged && verdict.change !== dirName) return none;
   const writtenAt = Date.parse(verdict.written_at);
-  if (Number.isNaN(writtenAt)) return null;
+  if (Number.isNaN(writtenAt)) return none;
   const editedAt = latestEditAt(projectRoot, dirName);
-  return editedAt === null || writtenAt >= editedAt ? verdict : null;
+  if (editedAt !== null && writtenAt < editedAt) return { verdict: null, stale: true };
+  if (unjudged) return { verdict: couldNotProve(verdict, UNJUDGED_CHANGE_GAP), stale: false };
+  return {
+    verdict: VERDICT_KINDS.has(verdict.kind) ? verdict : couldNotProve(verdict, null),
+    stale: false,
+  };
+}
+
+function ladderChecks(
+  projectRoot: string,
+  dirName: string,
+  verdict: HudVerdictRecord | null,
+): LadderChecks {
+  const report = readFeatureChecks(projectRoot, dirName);
+  const reportAt = Date.parse(report?.generated_at ?? report?.recorded_at ?? '');
+  const verdictAt = Date.parse(verdict?.written_at ?? '');
+  if (report && Number.isFinite(reportAt) && Number.isFinite(verdictAt) && reportAt > verdictAt) {
+    return report.ran && report.passed ? 'green' : 'red';
+  }
+  const row = readFeatureEvidence(projectRoot, dirName)
+    .filter((entry) => entry.engine === 'verification-gate' && entry.code === 'code-tests-lint')
+    .at(-1) as Record<string, unknown> | undefined;
+  const gate = row ? readGateVerdict(row) : null;
+  if (gate === 'pass') return 'green';
+  if (gate === 'fail') return 'red';
+  return 'unknown';
+}
+
+export function workKindOf(verdict: HudVerdictRecord | null): HudVerdictRecord['kind'] | null {
+  if (!verdict) return null;
+  return verdict.work_kind ?? verdict.kind;
+}
+
+function lowerFirst(text: string): string {
+  return text.length > 0 ? `${text[0]!.toLowerCase()}${text.slice(1)}` : text;
+}
+
+function unprovenLines(gates: readonly HudGate[], verdict: HudVerdictRecord | null): string[] {
+  const named = new Set(
+    (verdict?.work_reasons ?? []).map((reason) => reason.slice(0, reason.indexOf(':'))),
+  );
+  return gates
+    .filter(
+      (gate) =>
+        gate.verdict === 'inconclusive' && gate.owner !== 'paqad-record' && !named.has(gate.name),
+    )
+    .map(
+      (gate) =>
+        `paqad could not prove ${lowerFirst(gateCatalogEntry(gate.name)?.label ?? gate.name)}`,
+    );
+}
+
+function verdictFromEarlierTurn(
+  verdict: HudVerdictRecord | null,
+  workflow: WorkflowState,
+  turnRunning: boolean,
+): boolean {
+  if (!verdict || !turnRunning) return false;
+  const turnAt = Date.parse(workflow.turn_started_at ?? '');
+  const writtenAt = Date.parse(verdict.written_at);
+  return Number.isFinite(turnAt) && Number.isFinite(writtenAt) && writtenAt < turnAt;
+}
+
+function recordGaps(verdict: HudVerdictRecord | null, laneRecorded: boolean): string[] {
+  const gaps = new Set(Array.isArray(verdict?.record_gaps) ? verdict.record_gaps : []);
+  if (!laneRecorded) gaps.add(LANE_RECORD_GAP.text);
+  return [...gaps];
+}
+
+function buildRepairs(
+  projectRoot: string,
+  dirName: string,
+): Array<{ what: string; at: string | null }> {
+  return readFeatureStageUnit(projectRoot, dirName)
+    .filter((row) => row.kind === RECORD_REPAIR_KIND && typeof row.reason === 'string')
+    .map((row) => ({ what: String(row.reason), at: rowRecordedAt(row) }));
 }
 
 const STAGE_WORDS: Record<string, string> = {
   ticket_intake: 'Intake',
-  planning: 'Planning',
+  planning: 'Plan',
   specification: 'Spec',
   development: 'Build',
   review: 'Review',
@@ -982,6 +1116,42 @@ function stageWord(stage: string): string {
   return STAGE_WORDS[stage] ?? stage;
 }
 
+export const FAILURE_PHRASES: Readonly<Record<string, string>> = {
+  'code-tests-lint': 'Tests, types or lint failed',
+  'spec-review': 'The spec review found a blocking defect',
+  'implementation-review': 'The code review found a blocking issue',
+  'quality-ratchet': 'Quality dropped below the baseline',
+  duplication: 'A near-copy of existing code was added',
+  'documentation-freshness': 'The docs no longer match the code',
+  'ac-test-mapping': 'A criterion has no test',
+  'change-completeness': 'Something is left half done',
+  'mutation-testing': 'The tests missed real mutations',
+  'module-docs-structure': 'A module doc lost its shape',
+  'instructions-docs-structure': 'An instruction doc lost its shape',
+  'extension-surface': 'The public surface changed',
+  'architecture-compliance': 'An architecture rule is broken',
+  'database-quality': 'A database change is unsafe',
+  'behavioral-correctness': 'The behaviour does not match the spec',
+  'requirement-completeness': 'A requirement is incomplete',
+  'story-quality': 'A story is not well formed',
+  'site-map-freshness': 'The site map no longer matches the app',
+};
+
+export function failurePhrase(code: string): string {
+  return FAILURE_PHRASES[code] ?? `${code} failed`;
+}
+
+export interface HudHeadline {
+  text: string;
+  tone: HudTone;
+  row?: number;
+  word?: string;
+  rung?: HudRung;
+  note?: string;
+  gap?: string;
+  clock_from?: string;
+}
+
 export interface HudHeadlineInput {
   route: string | null;
   active: boolean;
@@ -990,7 +1160,26 @@ export interface HudHeadlineInput {
   verdict: HudVerdictRecord | null;
   flags: HudFlag[];
   paused: number;
+  ladder?: DoneLadder | null;
+  checks?: LadderChecks;
+  decisions?: ReadonlyArray<{ category: string }>;
+  table?: HudHighTable | null;
+  ship?: HudShip | null;
+  gates?: readonly HudGate[];
+  gatesExpected?: readonly string[];
+  plan?: HudPlanProgress | null;
+  recordGaps?: readonly string[];
+  unproven?: readonly string[];
+  verdictEarlier?: boolean;
 }
+
+export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
+  done: 'Done',
+  committed: 'Committed',
+  'pr-open': 'PR open',
+  'safe-to-merge': 'Safe to merge',
+  merged: 'Merged',
+};
 
 export function computeHudFlags(input: {
   stages: HudStage[];
@@ -1009,11 +1198,6 @@ export function computeHudFlags(input: {
   );
   if (touchedCode && !input.rulesRecorded) {
     flags.push({ id: 'rules-not-loaded', text: 'The rules for this change were never loaded.' });
-  }
-  for (const gate of input.gates) {
-    if (gate.verdict === 'inconclusive') {
-      flags.push({ id: `gate:${gate.name}`, text: `${gate.name} could not reach a result.` });
-    }
   }
   if (input.tableSkipped) {
     flags.push({
@@ -1063,53 +1247,220 @@ export function computeHudFlags(input: {
   return flags;
 }
 
-export function computeHudHeadline(input: HudHeadlineInput): { text: string; tone: HudTone } {
-  if (input.pendingDecisions > 0) {
-    const n = input.pendingDecisions;
-    return { text: `Needs you: ${n} decision${n === 1 ? '' : 's'} waiting.`, tone: 'needs-you' };
-  }
-  if (!input.active) {
-    if (input.paused > 0) {
-      return { text: 'A change is paused. Say "continue" to pick it up.', tone: 'neutral' };
+const CONFLICT_CATEGORY = 'spec.expert_conflict';
+
+function plural(count: number, one: string, many: string): string {
+  return `${count} ${count === 1 ? one : many}`;
+}
+
+function prName(ship: HudShip | null): string {
+  const number = ship?.pr?.number;
+  return typeof number === 'number' ? `PR #${number}` : 'The PR';
+}
+
+function tableRuled(table: HudHighTable | null | undefined): boolean {
+  return table?.chief?.state === 'done' && table.chief.verdict !== null;
+}
+
+function runningWords(input: HudHeadlineInput, stage: string): string {
+  switch (stage) {
+    case 'ticket_intake':
+      return 'Reading the ticket';
+    case 'planning':
+      return 'Planning the change';
+    case 'specification': {
+      const table = input.table;
+      if (table?.seats.some((seat) => seat.state === 'writing')) {
+        return 'The High Table is writing its notes';
+      }
+      if (table?.chief?.state === 'writing') return 'The chief architect is ruling';
+      return 'Writing the spec';
     }
-    if (input.route && input.route !== 'no-workflow') {
-      return { text: `Working on ${input.route.replace(/-/g, ' ')}.`, tone: 'working' };
-    }
-    return { text: 'Ready. No change in progress.', tone: 'neutral' };
+    case 'development':
+      return input.plan ? `${input.plan.done} of ${input.plan.steps} plan steps built` : 'Building';
+    case 'review':
+      return 'Reviewing the change';
+    case 'checks':
+      return 'Running the checks';
+    case 'documentation_sync':
+      return 'Syncing the docs';
+    case 'delivery':
+      return 'Delivering';
+    default:
+      return `${stageWord(stage)} is running`;
   }
-  const running = input.stages.find((stage) => stage.state === 'running');
-  if (running) {
-    const next = input.stages.find(
-      (stage) =>
-        stage.mandatory &&
-        stage.state === 'missing' &&
-        input.stages.indexOf(stage) > input.stages.indexOf(running),
+}
+
+function workFailure(input: HudHeadlineInput): string {
+  const expected = input.gatesExpected ?? [];
+  const rank = (name: string) => {
+    const index = expected.indexOf(name);
+    return index === -1 ? expected.length : index;
+  };
+  const [first, ...rest] = (input.gates ?? [])
+    .filter((gate) => gate.required && gate.verdict === 'fail' && gate.owner !== 'paqad-record')
+    .map((gate) => gate.name)
+    .sort((a, b) => rank(a) - rank(b));
+  if (!first) return 'Needs your attention';
+  return rest.length > 0 ? `${failurePhrase(first)} and ${rest.length} more` : failurePhrase(first);
+}
+
+function gapLine(gaps: readonly string[]): Pick<HudHeadline, 'gap'> {
+  const [first] = gaps;
+  if (!first) return {};
+  return { gap: gaps.length > 1 ? `${first} and ${gaps.length - 1} more` : first };
+}
+
+function headlineRow(
+  row: number,
+  tone: HudTone,
+  text: string,
+  word: string,
+  extra: Partial<HudHeadline> = {},
+): HudHeadline {
+  return { text, tone, row, word, ...extra };
+}
+
+function settledHeadline(stages: readonly HudStage[]): HudHeadline {
+  const next = stages.find((stage) => stage.mandatory && stage.state === 'missing');
+  const done = [...stages]
+    .reverse()
+    .find((stage) => stage.state === 'complete' || stage.state === 'redone');
+  if (done && next) {
+    return headlineRow(
+      18,
+      'neutral',
+      `${stageWord(done.stage)} done. Next: ${stageWord(next.stage)}`,
+      'Working',
     );
-    return {
-      text: `${stageWord(running.stage)} in progress.${next ? ` Next: ${stageWord(next.stage)}.` : ''}`,
-      tone: 'working',
-    };
   }
-  if (input.verdict) {
-    const flagged = input.flags.length;
-    const tone: HudTone =
-      input.verdict.kind === 'fail'
-        ? 'bad'
-        : input.verdict.kind === 'inconclusive' || flagged > 0
-          ? 'warn'
-          : 'good';
-    const suffix = flagged > 0 ? ` ${flagged} flag${flagged === 1 ? '' : 's'} open.` : '';
-    return { text: `${input.verdict.word}.${suffix}`, tone };
+  if (!done) {
+    return headlineRow(19, 'neutral', `Next: ${next ? stageWord(next.stage) : 'Plan'}`, 'Working');
   }
-  const next = input.stages.find((stage) => stage.mandatory && stage.state === 'missing');
-  const done = [...input.stages].reverse().find((stage) => stage.state === 'complete');
-  if (next) {
-    return {
-      text: `${done ? `${stageWord(done.stage)} done. ` : ''}Next: ${stageWord(next.stage)}.`,
-      tone: 'working',
-    };
+  return headlineRow(20, 'neutral', 'Every stage is recorded. Waiting for the verdict.', 'Working');
+}
+
+function idleHeadline(input: HudHeadlineInput): HudHeadline {
+  if (input.paused > 0) {
+    return { text: 'A change is paused. Say "continue" to pick it up.', tone: 'neutral' };
   }
-  return { text: 'Every stage is recorded. Waiting for the verdict.', tone: 'working' };
+  if (input.route && input.route !== 'no-workflow') {
+    return { text: `Working on ${input.route.replace(/-/g, ' ')}.`, tone: 'working' };
+  }
+  return { text: 'Ready. No change in progress.', tone: 'neutral' };
+}
+
+function rungHeadline(
+  input: HudHeadlineInput,
+  ladder: DoneLadder,
+  gap: Pick<HudHeadline, 'gap'>,
+): HudHeadline | null {
+  const pr = prName(input.ship ?? null);
+  const rung = ladder.rung;
+  if (rung === 'pr-open') {
+    const text = ladder.ci === 'unknown' ? `${pr} is open. CI result unknown` : `${pr} is open`;
+    return headlineRow(17, 'good', text, RUNG_WORDS[rung], { rung, ...gap });
+  }
+  if (rung !== 'done' && rung !== 'committed') return null;
+  const declined = input.ship?.commit_decision === 'decline';
+  const note =
+    rung === 'done' && ladder.uncommitted
+      ? declined
+        ? 'left uncommitted, as you asked'
+        : 'not committed'
+      : null;
+  return headlineRow(16, 'good', RUNG_WORDS[rung], RUNG_WORDS[rung], {
+    rung,
+    ...(note ? { note } : {}),
+    ...gap,
+  });
+}
+
+export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
+  if (input.pendingDecisions > 0) {
+    const conflicts = (input.decisions ?? []).filter(
+      (decision) => decision.category === CONFLICT_CATEGORY,
+    ).length;
+    if (conflicts > 0 && tableRuled(input.table)) {
+      return headlineRow(
+        5,
+        'needs-you',
+        `The chief architect has ${plural(conflicts, 'question', 'questions')} for you`,
+        'Needs you',
+      );
+    }
+    const n = input.pendingDecisions;
+    return headlineRow(
+      6,
+      'needs-you',
+      n === 1 ? '1 decision is waiting for you' : `${n} decisions are waiting for you`,
+      'Needs you',
+    );
+  }
+  if (!input.active) return idleHeadline(input);
+  const ship = input.ship ?? null;
+  const ladder = input.ladder ?? null;
+  const pr = prName(ship);
+  const gap = gapLine([...(input.recordGaps ?? []), ...(input.unproven ?? [])]);
+  if (ladder?.rung === 'merged') {
+    return headlineRow(7, 'good', `${pr} is merged`, 'Merged', { rung: 'merged', ...gap });
+  }
+  if (ladder?.rung === 'safe-to-merge') {
+    return headlineRow(8, 'good', `Safe to merge: ${pr} is ready for your merge`, 'Safe to merge', {
+      rung: 'safe-to-merge',
+      ...gap,
+    });
+  }
+  if (ship?.pr_state === 'closed') return headlineRow(9, 'warn', `${pr} was closed`, 'PR closed');
+  if (ship?.pr_state === 'open' && ship.ci?.state === 'fail') {
+    return headlineRow(10, 'bad', `CI failed on ${pr}`, 'CI failed', {
+      ...(ladder?.rung ? { rung: ladder.rung } : {}),
+    });
+  }
+  if (ship?.push?.state === 'failed')
+    return headlineRow(11, 'bad', 'The push failed', 'Push failed');
+  const running = input.stages.find((stage) => stage.state === 'running');
+  const verdict = input.verdictEarlier && running ? null : input.verdict;
+  const work = workKindOf(verdict);
+  if (work === 'fail') {
+    return headlineRow(12, 'bad', workFailure(input), 'Needs your attention', gap);
+  }
+  if (work === 'pass' && input.checks === 'red') {
+    return headlineRow(12, 'bad', failurePhrase('code-tests-lint'), 'Needs your attention', gap);
+  }
+  if (verdict && work === 'inconclusive') {
+    const reason = (verdict.work_reasons ?? verdict.reasons ?? [])[0];
+    return headlineRow(
+      13,
+      'warn',
+      reason ? `Inconclusive: ${reason}` : 'Inconclusive',
+      'Inconclusive',
+      gap,
+    );
+  }
+  if (ship?.pr_state === 'open' && ship.ci?.state === 'pending') {
+    const delivery = input.stages.find((stage) => stage.stage === 'delivery');
+    return headlineRow(14, 'working', `Watching CI on ${pr}`, 'Working', {
+      ...(delivery?.started_at ? { clock_from: delivery.started_at } : {}),
+    });
+  }
+  if (running) {
+    return headlineRow(15, 'working', runningWords(input, running.stage), 'Working', {
+      ...(running.started_at ? { clock_from: running.started_at } : {}),
+    });
+  }
+  const rung = verdict && ladder ? rungHeadline(input, ladder, gap) : null;
+  if (rung) return rung;
+  if (work === 'pass') {
+    return headlineRow(
+      13,
+      'warn',
+      'Inconclusive: no checks result for this change',
+      'Inconclusive',
+      gap,
+    );
+  }
+  return settledHeadline(input.stages);
 }
 
 export interface BuildHudSnapshotOptions {
@@ -1161,6 +1512,7 @@ export function buildHudSnapshot(
         verdict: null,
         flags: [],
         paused: paused.length,
+        decisions: decisions.pending,
       }),
       change: null,
       paused,
@@ -1169,7 +1521,7 @@ export function buildHudSnapshot(
       table: null,
       claims: [],
       gates: [],
-      gates_expected: [...DEFAULT_GATE_CODES],
+      gates_expected: expectedGateCodes(workflow.active?.lane ?? null),
       flags: [],
       rules: { recorded: false, applicable: null, loaded_at: null },
       findings: null,
@@ -1189,7 +1541,8 @@ export function buildHudSnapshot(
     };
   }
 
-  const verdict = freshVerdict(projectRoot, sessionId, dirName);
+  const reading = freshVerdict(projectRoot, sessionId, dirName);
+  const verdict = reading.verdict;
   const receiptPath = hudReceiptPath(projectRoot, sessionId);
   const receipt = verdict && existsSync(receiptPath) ? { path: receiptPath } : null;
   const record = readFeatureRecord(projectRoot, dirName);
@@ -1214,6 +1567,30 @@ export function buildHudSnapshot(
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
   const isolationSummary = summarizeStageIsolation(projectRoot, dirName);
   const findings = buildFindings(projectRoot, dirName);
+  const checks = ladderChecks(projectRoot, dirName, verdict);
+  const ladder = computeDoneLadder({
+    workKind: workKindOf(verdict),
+    checks,
+    uncommitted: readWorkingTreeDirty(projectRoot),
+    commits: Math.max(ship.commits, changeGit?.commitTimes.size ?? 0),
+    prState: ship.pr_state,
+    ci: ship.ci?.state ?? null,
+  });
+  const plan = buildPlanProgress(projectRoot, dirName, changedFiles);
+  const gatesExpected = expectedGateCodes(lane);
+  const gaps = recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null);
+  const questions = buildQuestions(projectRoot, dirName);
+  const proof = buildStageProof({
+    ...readStageProofEvidence(projectRoot, dirName),
+    lane,
+    stages,
+    gates,
+    judged: verdict !== null,
+    planProgress: plan,
+    questions,
+    rules: rulesLoaded ? rulesLoaded.applicable_rules.length : null,
+    changedFiles,
+  });
   const flags = computeHudFlags({
     stages,
     gates,
@@ -1245,6 +1622,17 @@ export function buildHudSnapshot(
       verdict,
       flags,
       paused: paused.length,
+      ladder,
+      checks,
+      decisions: decisions.pending,
+      table,
+      ship,
+      gates,
+      gatesExpected,
+      plan,
+      recordGaps: gaps,
+      unproven: unprovenLines(gates, verdict),
+      verdictEarlier: verdictFromEarlierTurn(verdict, workflow, options.turnRunning === true),
     }),
     change: {
       dir: dirName,
@@ -1278,7 +1666,7 @@ export function buildHudSnapshot(
       ...buildAcceptanceClaims(projectRoot, dirName, lane, changedFiles, specJson),
     ],
     gates,
-    gates_expected: [...DEFAULT_GATE_CODES],
+    gates_expected: gatesExpected,
     flags,
     rules: {
       recorded: rulesLoaded !== null,
@@ -1287,10 +1675,10 @@ export function buildHudSnapshot(
     },
     findings,
     decisions,
-    questions: buildQuestions(projectRoot, dirName),
+    questions,
     last_block: lastBlock,
     delivery_plan: buildDeliveryPlan(projectRoot, policy, delivery),
-    plan: buildPlanProgress(projectRoot, dirName, changedFiles),
+    plan,
     ship,
     verdict,
     receipt,
@@ -1312,7 +1700,16 @@ export function buildHudSnapshot(
       by,
       at,
     })),
+    ...optionalList('record_gaps', gaps),
+    ...optionalList('repairs', buildRepairs(projectRoot, dirName)),
+    ...(ladder.rung ? { rung: ladder.rung } : {}),
+    ...(reading.stale ? { verdict_stale: true as const } : {}),
+    proof,
   };
+}
+
+function optionalList<K extends string, T>(key: K, list: T[]): Partial<Record<K, T[]>> {
+  return list.length > 0 ? ({ [key]: list } as Record<K, T[]>) : {};
 }
 
 export function writeHudSnapshot(

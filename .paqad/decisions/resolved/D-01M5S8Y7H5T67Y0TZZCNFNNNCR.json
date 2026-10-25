@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5S8Y7H5T67Y0TZZCNFNNNCR",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on existing stray changes",
+  "context": "Chief architect: Genuine owner call: folding old untitled lane-null changes rewrites evidence the owner may already have seen. Recommend stopping new strays and labelling the old ones plainly as paqad gaps, never as the user red; this meets the owner rule (repair or state as paqad gap) with no history rewrite. If the owner prefers folding, the idempotence fixture in the other claim becomes required.\n\nTarget: existing stray changes\n- data-modeler: the 16 stray untitled lane-null changes and the change-null pass verdicts already on disk stay unmigrated and show as paqad's gap rather than being rewritten\n- qa-engineer: folding strays back into their parent needs a fixture copied from a real ledger shape (placeholder title change, lane null) and an idempotence test: running the fold twice yields the same result and never deletes a titled change\n\n[expert-conflict-fork:a4e139854a8876dd]",
+  "options": [
+    {
+      "option_key": "the-16-stray-untitled-lane-null-changes-",
+      "label": "the 16 stray untitled lane-null changes and the change-null pass verdicts already on disk stay unmigrated and show as paqad's gap rather than being rewritten — data-modeler",
+      "one_line_preview": "the 16 stray untitled lane-null changes and the change-null pass verdicts already on disk stay unmigrated and show as paqad's gap rather than being rewritten — data-modeler",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "folding-strays-back-into-their-parent-ne",
+      "label": "folding strays back into their parent needs a fixture copied from a real ledger shape (placeholder title change, lane null) and an idempotence test: running the fold twice yields the same result and never deletes a titled change — qa-engineer",
+      "one_line_preview": "folding strays back into their parent needs a fixture copied from a real ledger shape (placeholder title change, lane null) and an idempotence test: running the fold twice yields the same result and never deletes a titled change — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-16-stray-untitled-lane-null-changes-",
+  "created_at": "2026-10-25T10:15:44.421Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "chosen": "the-16-stray-untitled-lane-null-changes-",
+  "rationale": "Owner (Haider) accepted the recommendation in chat on 2026-10-25",
+  "resolved_at": "2026-10-25T10:26:05.572Z",
+  "decision_id": "D-01M5S8Y7H5T67Y0TZZCNFNNNCR",
+  "fingerprint": "sha256:6b8f709354ec51e5453dae4f5b2b8dc32c90d643283f3eaceaf6a5b628bf5d08",
+  "question": "Experts disagree on existing stray changes",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "ttl_until": "2026-11-24T10:15:44.421Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-16-stray-untitled-lane-null-changes-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-25T10:26:05.572Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) accepted the recommendation in chat on 2026-10-25"
+  }
+}

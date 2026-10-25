@@ -120,11 +120,9 @@ describe('change map side effects on the other map readers', () => {
 
     expect(before.context.spec_review_passed).toBe(true);
     expect(after.context.spec_review_passed).toBe(true);
-    expect(before.escalations.some((e) => e.startsWith('spec-review:'))).toBe(true);
-    expect(after.escalations.some((e) => e.startsWith('spec-review:'))).toBe(false);
-    expect(after.escalations.filter((e) => !e.startsWith('spec-review:'))).toEqual(
-      before.escalations.filter((e) => !e.startsWith('spec-review:')),
-    );
+    expect(before.context.spec_review_inconclusive).toBe(true);
+    expect(after.context.spec_review_inconclusive).toBeUndefined();
+    expect(after.escalations).toEqual(before.escalations);
   });
 
   it('AC-34: a frozen spec whose map could not be built reads did not run at Stop, never the canned line', async () => {
@@ -136,6 +134,6 @@ describe('change map side effects on the other map readers', () => {
     expect(acGate?.detail).toContain('map is missing (could not read the spec)');
     expect(run.verdict.summary).not.toContain('Acceptance criteria map to tests');
     expect(JSON.stringify(run.verdict.gates)).not.toContain('Acceptance criteria map to tests');
-    expect(run.escalations.some((e) => e.startsWith('spec-review:'))).toBe(true);
+    expect(run.context.spec_review_inconclusive).toBe(true);
   });
 });

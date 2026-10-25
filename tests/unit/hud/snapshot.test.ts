@@ -46,7 +46,7 @@ import {
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import { raiseTechDebt } from '@/tech-debt/index.js';
-import { DEFAULT_GATE_CODES } from '@/verification/gate-runner.js';
+import { VERIFICATION_GATES } from '@/core/types/verification.js';
 import {
   readFeatureDelivery,
   reconcileDeliveryFromGit,
@@ -176,10 +176,7 @@ describe('buildHudSnapshot', () => {
       verdict: null,
     });
     expect(snapshot.change).toMatchObject({ issue: 'ORD-490' });
-    expect(snapshot.headline).toEqual({
-      text: 'Build in progress. Next: Checks.',
-      tone: 'working',
-    });
+    expect(snapshot.headline).toMatchObject({ row: 15, text: 'Building', tone: 'working' });
     const planning = snapshot.stages.find((stage) => stage.stage === 'planning');
     expect(planning).toMatchObject({
       state: 'complete',
@@ -263,8 +260,9 @@ describe('buildHudSnapshot', () => {
         question: 'How do we prove the copied phone survives a re-sync?',
       },
     ]);
-    expect(snapshot.headline).toEqual({
-      text: 'Needs you: 1 decision waiting.',
+    expect(snapshot.headline).toMatchObject({
+      row: 6,
+      text: '1 decision is waiting for you',
       tone: 'needs-you',
     });
     expect(snapshot.isolation?.status).toBe('expected');
@@ -292,7 +290,7 @@ describe('buildHudSnapshot', () => {
     expect(expected['experts.json']).toBe('off here');
   });
 
-  it('ORD-501 full lane: Safe to merge with an open flag reads amber, never green (Q19)', () => {
+  it('ORD-501 full lane: a passing change reads Done in the success colour, with its flags kept apart', () => {
     const root = onboardedRoot();
     const S = 'ses-501';
     const dir = openChange(root, S, 'full', 'ORD-501 csv export');
@@ -341,28 +339,45 @@ describe('buildHudSnapshot', () => {
     expect(snapshot.table?.seats).toHaveLength(7);
     expect(snapshot.table?.skipped).toBe(false);
     expect(snapshot.gates).toEqual([
-      { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
+      {
+        name: 'code-tests-lint',
+        required: true,
+        strength: 'deterministic',
+        verdict: 'pass',
+        owner: 'work',
+      },
       {
         name: 'mutation-testing',
         required: true,
         strength: 'deterministic',
         verdict: 'inconclusive',
+        owner: 'work',
       },
-      { name: 'spec-review', required: true, strength: 'llm-judged', verdict: 'pass' },
+      {
+        name: 'spec-review',
+        required: true,
+        strength: 'llm-judged',
+        verdict: 'pass',
+        owner: 'work',
+      },
       {
         name: 'visual-evidence',
         required: false,
-        strength: 'deterministic',
+        strength: null,
         verdict: 'not-required',
+        owner: 'work',
       },
     ]);
-    expect(snapshot.flags.map((flag) => flag.id)).toEqual(
-      expect.arrayContaining(['gate:mutation-testing']),
-    );
+    expect(snapshot.flags.some((flag) => flag.id.startsWith('gate:'))).toBe(false);
     expect(snapshot.verdict).toMatchObject({ word: 'Safe to merge', kind: 'pass' });
     expect(snapshot.receipt?.path).toContain(`${S}.receipt.md`);
-    expect(snapshot.headline.tone).toBe('warn');
-    expect(snapshot.headline.text).toMatch(/^Safe to merge\. \d+ flags? open\.$/);
+    expect(snapshot.headline).toMatchObject({
+      row: 16,
+      text: 'Done',
+      tone: 'good',
+      rung: 'done',
+      gap: 'paqad could not prove tests catch real mutations',
+    });
   });
 
   it('a hand-written spec under the pipeline shows the High Table as skipped (Q11)', () => {
@@ -1041,16 +1056,16 @@ describe('computeHudHeadline', () => {
         stages: [stage('planning', 'complete'), stage('specification', 'missing')],
         verdict: null,
       }),
-    ).toEqual({ text: 'Planning done. Next: Spec.', tone: 'working' });
+    ).toMatchObject({ row: 18, text: 'Plan done. Next: Spec', tone: 'neutral' });
     expect(
       computeHudHeadline({ ...base, stages: [stage('specification', 'missing')], verdict: null }),
-    ).toEqual({ text: 'Next: Spec.', tone: 'working' });
+    ).toMatchObject({ row: 19, text: 'Next: Spec', tone: 'neutral' });
     expect(
       computeHudHeadline({ ...base, stages: [stage('planning', 'complete')], verdict: null }),
-    ).toEqual({ text: 'Every stage is recorded. Waiting for the verdict.', tone: 'working' });
+    ).toMatchObject({ row: 20, text: 'Every stage is recorded. Waiting for the verdict.' });
   });
 
-  it('colours the verdict: red on a fail, amber on Inconclusive, green only when clean', () => {
+  it('colours the verdict: red on a fail, amber on Inconclusive, green only on a rung', () => {
     const verdict = (kind: 'pass' | 'fail' | 'inconclusive', word: string) => ({
       schema: 'paqad.hud-verdict/1' as const,
       session_id: 's',
@@ -1070,11 +1085,13 @@ describe('computeHudHeadline', () => {
         .tone,
     ).toBe('warn');
     expect(
-      computeHudHeadline({ ...base, stages, verdict: verdict('pass', 'Safe to merge') }),
-    ).toEqual({
-      text: 'Safe to merge.',
-      tone: 'good',
-    });
+      computeHudHeadline({
+        ...base,
+        stages,
+        verdict: verdict('pass', 'Safe to merge'),
+        ladder: { rung: 'done', ci: null, ci_failed: false, uncommitted: false },
+      }),
+    ).toMatchObject({ text: 'Done', tone: 'good' });
   });
 
   it('reads Ready with no route, and Working on a non-feature route', () => {
@@ -1481,16 +1498,28 @@ describe('the live High Table on the snapshot', () => {
 });
 
 describe('AC-27: the gate list before Checks', () => {
-  it('names every default gate in run order, before a change opens and while one is open', () => {
+  it('names every catalog gate in run order, before a change opens and while one is open', () => {
     const root = onboardedRoot();
     const S = 'ses-gates-expected';
     persistLedgerSessionId(root, S);
     const idle = buildHudSnapshot(root, S, { now: NOW });
-    expect(idle.gates_expected).toEqual([...DEFAULT_GATE_CODES]);
+    expect(idle.gates_expected).toEqual([...VERIFICATION_GATES]);
     openChange(root, S, 'full', 'ORD-501 csv export');
     const open = buildHudSnapshot(root, S, { now: NOW });
-    expect(open.gates_expected).toEqual([...DEFAULT_GATE_CODES]);
+    expect(open.gates_expected).toEqual([...VERIFICATION_GATES]);
     expect(open.gates_expected[0]).toBe('change-completeness');
-    expect(open.gates_expected.at(-1)).toBe('extension-surface');
+    expect(open.gates_expected.at(-1)).toBe('duplication');
+  });
+
+  it('expects only the gates whose stage is on a fast lane', () => {
+    const root = onboardedRoot();
+    const S = 'ses-gates-fast';
+    persistLedgerSessionId(root, S);
+    openChange(root, S, 'fast', 'ORD-490 typo');
+    const expected = buildHudSnapshot(root, S, { now: NOW }).gates_expected;
+    expect(expected).toContain('code-tests-lint');
+    expect(expected).not.toContain('spec-review');
+    expect(expected).not.toContain('implementation-review');
+    expect(expected).not.toContain('documentation-freshness');
   });
 });

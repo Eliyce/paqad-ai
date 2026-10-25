@@ -25,6 +25,16 @@ export class DocumentationFreshnessGate implements Gate {
       );
     }
 
+    const unchecked = context.unchecked_documentation_inputs ?? [];
+    if (unchecked.length > 0) {
+      return {
+        gate: this.gate,
+        passed: true,
+        inconclusive: true,
+        detail: `No changed code left its canonical docs stale, but paqad did not check ${unchecked.join(', ')}.`,
+      };
+    }
+
     const missingDocs = await collectCanonicalDocumentationFailures(
       context.project_root,
       context.expected_ui_modules,

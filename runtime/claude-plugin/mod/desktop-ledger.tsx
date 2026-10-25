@@ -2,8 +2,8 @@ import type { Elements, RenderNode } from 'claude-code';
 
 import {
   COST_LATER,
-  NO_FLAGS,
-  trustLight,
+  NOTHING_TO_PROVE,
+  STEP_MARKS,
   type CostMeter,
   type CostView,
   type DeliveryBlock,
@@ -13,12 +13,13 @@ import {
   type LightView,
   type RecordView,
   type TableView,
+  type TrustStage,
   type TrustView,
   type WordTone,
   type WorkflowLedger,
 } from './desktop-view';
 import { SIGNAL, STATUS_B, signalColor } from './palette';
-import { gateRing, hairline, meter, nodeIcon, tabRule, tableRing } from './strip';
+import { hairline, meter, nodeIcon, tabRule, tableRing } from './strip';
 import type { PaqadPaneTab } from './types';
 
 type D = Elements['desktop'];
@@ -174,37 +175,80 @@ function tabsRow(ui: D, tabs: readonly LedgerTab[], actions: LedgerActions) {
   );
 }
 
+function stageHeading(ui: D, stage: TrustStage) {
+  const { Box, Text } = ui;
+  return (
+    <Box
+      key={`paqad-stage-${stage.key}`}
+      flexDirection="row"
+      alignItems="center"
+      columnGap="sm"
+      marginTop={1}
+    >
+      <Box flexGrow={1}>
+        <Text size="caption" weight="semibold" dimColor>
+          {stage.words.toUpperCase()}
+        </Text>
+      </Box>
+      {word(ui, stage.word, stage.tone)}
+    </Box>
+  );
+}
+
+function stepLine(ui: D, step: TrustStage['steps'][number]) {
+  const { Text } = ui;
+  const mark = STEP_MARKS[step.mark];
+  return (
+    <Text key={`paqad-step-${step.key}`} size="footnote" wrap="truncate-end">
+      {step.mark === 'failed' ? (
+        <Text color={STATUS_B.failed}>{`${mark}  `}</Text>
+      ) : step.mark === 'done' ? (
+        <Text>{`${mark}  `}</Text>
+      ) : (
+        <Text dimColor>{`${mark}  `}</Text>
+      )}
+      {step.mark === 'not-yet' ? <Text dimColor>{step.words}</Text> : step.words}
+      {step.detail ? <Text dimColor>{`  ·  ${step.detail}`}</Text> : null}
+    </Text>
+  );
+}
+
+function stagePart(ui: D, stage: TrustStage) {
+  const { Box } = ui;
+  return (
+    <Box key={`paqad-proof-${stage.key}`} flexDirection="column" rowGap="xs">
+      {stageHeading(ui, stage)}
+      {stage.steps.map((step) => stepLine(ui, step))}
+      {stage.gates.map((gate) =>
+        row(ui, `paqad-gate-${gate.key}`, gate.words, word(ui, gate.word, gate.tone)),
+      )}
+    </Box>
+  );
+}
+
 function trustTab(ui: D, view: TrustView) {
-  const { Box, Text, Svg } = ui;
+  const { Box, Text } = ui;
+  if (view.empty) {
+    return <Box flexDirection="column">{note(ui, view.empty, 'paqad-trust-empty')}</Box>;
+  }
   return (
     <Box flexDirection="column" rowGap="xs">
-      {light(ui, view.light)}
-      <Box key="paqad-ring" flexDirection="row" alignItems="center" columnGap="md" marginTop={1}>
-        <Svg
-          source={gateRing(view.ring.marks, view.ring.passed, view.ring.required)}
-          alt={view.ring.alt}
-          width={92}
-          height={92}
-        />
-        <Box flexDirection="column">
-          <Text size="footnote">
-            <Text color={STATUS_B.done}>● </Text>
-            <Text dimColor>pass</Text>
-          </Text>
-          <Text size="footnote">
-            <Text color={STATUS_B.failed}>● </Text>
-            <Text dimColor>fail</Text>
-          </Text>
-          {note(ui, '●  not judged yet')}
-          {note(ui, '┈  not required, not counted')}
-        </Box>
-      </Box>
-      {heading(ui, 'GATES')}
+      {view.stages.map((stage) => stagePart(ui, stage))}
+      {view.note ? note(ui, view.note, 'paqad-trust-old') : null}
       {view.gates.map((gate) =>
-        row(ui, `paqad-gate-${gate.name}`, gate.words, word(ui, gate.word, gate.tone), gate.how),
+        row(ui, `paqad-gate-${gate.key}`, gate.words, word(ui, gate.word, gate.tone)),
       )}
-      {heading(ui, 'CLAIMS AND THE TESTS THAT PROVE THEM')}
-      {view.claims.empty ? note(ui, view.claims.empty, 'paqad-claims-empty') : null}
+      {view.gaps.length > 0 || view.repairs ? (
+        <Box key="paqad-record" flexDirection="column" marginTop={1}>
+          {view.gaps.map((gap) => (
+            <Text key={`paqad-gap-${gap}`} size="footnote">
+              {gap}
+            </Text>
+          ))}
+          {view.repairs ? note(ui, view.repairs, 'paqad-repairs') : null}
+        </Box>
+      ) : null}
+      {view.claims.rows.length > 0 ? heading(ui, 'CLAIMS AND THE TESTS THAT PROVE THEM') : null}
       {view.claims.rows.map((claim) =>
         row(
           ui,
@@ -214,9 +258,10 @@ function trustTab(ui: D, view: TrustView) {
           claim.sub,
         ),
       )}
-      {view.claims.more ? note(ui, view.claims.more, 'paqad-claims-more') : null}
-      {heading(ui, 'FLAGS')}
-      {view.flags.length === 0 ? note(ui, NO_FLAGS, 'paqad-flags-none') : null}
+      {view.claims.rows.length > 0 && view.claims.more
+        ? note(ui, view.claims.more, 'paqad-claims-more')
+        : null}
+      {view.flags.length > 0 ? heading(ui, 'FLAGS') : null}
       {view.flags.map((flag) =>
         row(
           ui,
@@ -527,7 +572,7 @@ export function drawDesktopLedger(
 ) {
   const { Box } = ui;
   if (ledger.kind === 'none') {
-    return <Box flexDirection="column">{light(ui, trustLight(null, null, 0))}</Box>;
+    return <Box flexDirection="column">{note(ui, NOTHING_TO_PROVE, 'paqad-trust-empty')}</Box>;
   }
   if (ledger.kind === 'unreadable') {
     return <Box flexDirection="column">{light(ui, ledger.light)}</Box>;

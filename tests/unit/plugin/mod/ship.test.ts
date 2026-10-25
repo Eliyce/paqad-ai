@@ -154,15 +154,17 @@ describe('the ship rail (FR-15, FR-35)', () => {
   });
 
   it('AC-45: all green says so in words, stays all green until merged, and keys the toast by head', () => {
-    const raw = shipping({ ci: ci('pass', 6, 6), all_green: true });
+    const safe = `Safe to merge: PR ${ticketRef(12)} is ready for your merge`;
+    const raw = {
+      ...shipping({ ci: ci('pass', 6, 6), all_green: true }),
+      headline: { text: safe, tone: 'good', row: 8, word: 'Safe to merge', rung: 'safe-to-merge' },
+    };
     const snap = parse(raw);
     const rail = shipRail(snap);
     expect(rail.allGreen).toBe(true);
     expect(rail.status).toBe('All green · merge is yours');
     expect(rail.steps.at(-1)!.state).toBe('ready');
-    expect(bandHeadline(snap, buildBandView(snap, NOW))).toBe(
-      `All green: PR ${ticketRef(12)} is ready for your merge`,
-    );
+    expect(bandHeadline(snap, buildBandView(snap, NOW))).toBe(safe);
     expect(allGreenKey(snap)).toMatch(/:aaa$/);
     const band = bandOf(raw);
     expect(band.kind === 'card' && band.tone).toBe('good');
@@ -172,11 +174,12 @@ describe('the ship rail (FR-15, FR-35)', () => {
       decisions: { pending: [{ id: 'D-1', category: 'x', question: 'q' }], resolved: 0 },
     });
     expect(allGreenKey(asking)).toBeNull();
-    const noNumber = parse(
-      shipping({ ci: ci('pass', 6, 6), all_green: true, pr: { ...OWN_PR, number: null } }),
-    );
+    const noNumber = parse({
+      ...shipping({ ci: ci('pass', 6, 6), all_green: true, pr: { ...OWN_PR, number: null } }),
+      headline: { text: 'Safe to merge: The PR is ready for your merge', tone: 'good', row: 8 },
+    });
     expect(bandHeadline(noNumber, buildBandView(noNumber, NOW))).toBe(
-      'All green: the PR is ready for your merge',
+      'Safe to merge: The PR is ready for your merge',
     );
   });
 

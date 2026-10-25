@@ -56,3 +56,15 @@ export function readChangeGit(
     return null;
   }
 }
+
+export function readWorkingTreeDirty(projectRoot: string): boolean | null {
+  try {
+    const paths = [
+      ...gitRead(projectRoot, ['diff', '--name-only', '--relative', '-z', 'HEAD']),
+      ...gitRead(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']),
+    ];
+    return paths.some((path) => !isPaqadArtifactPath(path));
+  } catch {
+    return null;
+  }
+}

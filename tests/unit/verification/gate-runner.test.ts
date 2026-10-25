@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
+import type { GateResult } from '@/core/types/verification.js';
 import { DEFAULT_GATE_CODES, VerificationGateRunner } from '@/verification/gate-runner.js';
 
 import { createVerificationContext } from './shared.fixture.js';
+
+function ran(results: readonly GateResult[]): string[] {
+  return results.filter((result) => result.outcome === undefined).map((result) => result.gate);
+}
 
 describe('VerificationGateRunner', () => {
   const strongStructuredResult = {
@@ -81,7 +86,7 @@ describe('VerificationGateRunner', () => {
     expect(results.map((result) => result.gate)).toEqual([...DEFAULT_GATE_CODES]);
   });
 
-  it('stops on first failure', async () => {
+  it('stops on first failure and records every later gate as did not run', async () => {
     const results = await new VerificationGateRunner().run(
       createVerificationContext({
         code_changed: true,
@@ -91,8 +96,15 @@ describe('VerificationGateRunner', () => {
         story_quality_passed: false,
       }),
     );
-    expect(results.map((result) => result.gate)).toEqual(['change-completeness']);
-    expect(results.at(-1)?.passed).toBe(false);
+    expect(ran(results)).toEqual(['change-completeness']);
+    expect(results[0]?.passed).toBe(false);
+    expect(results.slice(1).map((result) => result.gate)).toEqual(DEFAULT_GATE_CODES.slice(1));
+    for (const skipped of results.slice(1)) {
+      expect(skipped).toMatchObject({
+        outcome: 'did-not-run',
+        skip_reason: 'change-completeness failed first',
+      });
+    }
   });
 
   it('still runs instruction docs structure after an earlier failure when instruction docs changed', async () => {
@@ -107,11 +119,8 @@ describe('VerificationGateRunner', () => {
       }),
     );
 
-    expect(results.map((result) => result.gate)).toEqual([
-      'change-completeness',
-      'instructions-docs-structure',
-    ]);
-    expect(results.at(-1)).toEqual({
+    expect(ran(results)).toEqual(['change-completeness', 'instructions-docs-structure']);
+    expect(results.find((result) => result.gate === 'instructions-docs-structure')).toEqual({
       gate: 'instructions-docs-structure',
       passed: false,
       detail: 'Invalid instruction documentation path docs/instructions/random/foo.md',
@@ -146,7 +155,7 @@ describe('VerificationGateRunner', () => {
       }),
     );
 
-    expect(results.at(-1)).toEqual({
+    expect(results.find((result) => result.gate === 'module-docs-structure')).toEqual({
       gate: 'module-docs-structure',
       passed: false,
       detail: 'Missing docs/modules/billing/features/invoices/business.md',
@@ -202,7 +211,7 @@ describe('VerificationGateRunner', () => {
       baseline,
     );
 
-    expect(withDelta.results.map((result) => result.gate)).toEqual(['change-completeness']);
+    expect(ran(withDelta.results)).toEqual(['change-completeness']);
     expect(withDelta.delta_payload.delta.changed_gate_outcomes).toEqual([
       {
         gate: 'change-completeness',

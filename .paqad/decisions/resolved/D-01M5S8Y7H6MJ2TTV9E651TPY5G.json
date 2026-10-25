@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5S8Y7H6MJ2TTV9E651TPY5G",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on tests/e2e/stage-enforcement-contract.e2e.test.ts",
+  "context": "Chief architect: Ruling settled by the owner guardrail: the contract file passes unchanged, so it must stay byte-identical. The forged-marker, dead-process and never-ending-task cases from the security seat still belong in this change, in a new test file beside it, on both routes. Accept as recommended.\n\nTarget: tests/e2e/stage-enforcement-contract.e2e.test.ts\n- security-auditor: Add contract cases proving the gate still blocks with a forged checks marker, a dead-process marker, and a background task that never finishes, on both the npm route and the plugin route.\n- qa-engineer: acceptance: given this change applied, when the stage enforcement contract suite runs on the npm route and the plugin route, then it passes with the test file byte-identical to main (proven by a git diff check in CI, proof_type e2e)\n\n[expert-conflict-fork:42e28e6cdb2375cd]",
+  "options": [
+    {
+      "option_key": "add-contract-cases-proving-the-gate-stil",
+      "label": "Add contract cases proving the gate still blocks with a forged checks marker, a dead-process marker, and a background task that never finishes, on both the npm route and the plugin route. — security-auditor",
+      "one_line_preview": "Add contract cases proving the gate still blocks with a forged checks marker, a dead-process marker, and a background task that never finishes, on both the npm route and the plugin route. — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "acceptance-given-this-change-applied-whe",
+      "label": "acceptance: given this change applied, when the stage enforcement contract suite runs on the npm route and the plugin route, then it passes with the test file byte-identical to main (proven by a git diff check in CI, proof_type e2e) — qa-engineer",
+      "one_line_preview": "acceptance: given this change applied, when the stage enforcement contract suite runs on the npm route and the plugin route, then it passes with the test file byte-identical to main (proven by a git diff check in CI, proof_type e2e) — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "acceptance-given-this-change-applied-whe",
+  "created_at": "2026-10-25T10:15:44.422Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "chosen": "acceptance-given-this-change-applied-whe",
+  "rationale": "Owner (Haider) accepted the recommendation in chat on 2026-10-25",
+  "resolved_at": "2026-10-25T10:26:06.078Z",
+  "decision_id": "D-01M5S8Y7H6MJ2TTV9E651TPY5G",
+  "fingerprint": "sha256:928af5b1609c89c43c0b66b64bee50592c91a2240abce16215187ba513a4f0eb",
+  "question": "Experts disagree on tests/e2e/stage-enforcement-contract.e2e.test.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "ttl_until": "2026-11-24T10:15:44.422Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "acceptance-given-this-change-applied-whe",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-25T10:26:06.078Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) accepted the recommendation in chat on 2026-10-25"
+  }
+}

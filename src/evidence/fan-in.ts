@@ -1,8 +1,5 @@
 import type { GateResult } from '@/core/types/verification.js';
-import type {
-  EvidenceGateStatus,
-  VerificationEvidenceGate,
-} from '@/core/types/verification-evidence.js';
+import type { VerificationEvidenceGate } from '@/core/types/verification-evidence.js';
 import type { QualityRatchetResult, RatchetMeasureVerdict } from '@/core/types/quality-ratchet.js';
 import type {
   EvidenceEngine,
@@ -38,15 +35,18 @@ export function gateResultsToRows(
   });
 }
 
-const EVIDENCE_GATE_GRADES: Record<
-  EvidenceGateStatus,
-  { verdict: EvidenceVerdict; strength_class: EvidenceStrengthClass }
-> = {
-  pass: { verdict: 'pass', strength_class: 'deterministic' },
-  fail: { verdict: 'fail', strength_class: 'deterministic' },
-  inconclusive: { verdict: 'inconclusive', strength_class: 'blocked' },
-  skipped: { verdict: 'skipped', strength_class: 'deterministic' },
-};
+function gradeEvidenceGate(gate: VerificationEvidenceGate): {
+  verdict: EvidenceVerdict;
+  strength_class: EvidenceStrengthClass;
+} {
+  const { verdict, strength_class } = gradeGateResult({
+    gate: gate.name,
+    passed: gate.status === 'pass',
+    inconclusive: gate.status === 'inconclusive',
+    ...(gate.status === 'skipped' ? { outcome: gate.skip_kind ?? 'not-required' } : {}),
+  });
+  return { verdict, strength_class };
+}
 
 export function evidenceGatesToRows(
   gates: readonly VerificationEvidenceGate[],
@@ -58,7 +58,7 @@ export function evidenceGatesToRows(
       engine: 'verification-gate',
       code: gate.name,
       subject_digest: ctx.subjectDigest,
-      ...EVIDENCE_GATE_GRADES[gate.status],
+      ...gradeEvidenceGate(gate),
       detail: gate.detail,
       ...(gate.status === 'skipped' && gate.skip_kind ? { skip_kind: gate.skip_kind } : {}),
     }),

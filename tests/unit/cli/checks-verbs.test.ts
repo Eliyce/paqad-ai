@@ -84,7 +84,8 @@ function baseResult(over: Partial<ChecksRunResult>): ChecksRunResult {
 describe('renderReceipt', () => {
   it('green parallel run shows tests + parallel ×N + critical path', () => {
     const lines = renderReceipt(baseResult({}), 'warn').join('\n');
-    expect(lines).toContain('checks green: Safe to merge');
+    expect(lines).toContain('checks green (');
+    expect(lines).not.toContain('Safe to merge');
     expect(lines).toContain('parallel ×11');
     expect(lines).toContain('Critical path: test');
     expect(lines).toContain('2 m 15 s');

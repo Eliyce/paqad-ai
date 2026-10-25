@@ -68,6 +68,8 @@ export interface ShellHeader {
   tone: PaqadTone;
   chip: string | null;
   headline: string;
+  note?: string | null;
+  gap?: string | null;
   verdict: { word: string; tone: PaqadTone } | null;
   flags: number;
   lane: string | null;
@@ -127,6 +129,8 @@ export function headerRow(header: ShellHeader, idle: boolean): BandSplitRow {
   const left: BandRow = [brandSegment(header.tone)];
   if (header.chip) left.push({ text: ` ${header.chip}`, dim: true });
   left.push({ text: `  ${header.headline}`, tone: header.tone });
+  if (header.note) left.push({ text: `  ${header.note}`, dim: true });
+  if (header.gap) left.push({ text: `  ${header.gap}`, dim: true });
   if (header.unavailable) left.push({ text: `  ${UNAVAILABLE}`, dim: true });
   const right: BandRow = [];
   if (!idle) {

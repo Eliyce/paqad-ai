@@ -8,6 +8,7 @@ import {
   FAST_ORD_490_COST,
   FULL_ORD_501,
   FULL_ORD_501_COST,
+  FULL_ORD_501_PROOF,
   GRADUATED_ORD_482,
   LATE_TABLE,
   NOW,
@@ -165,7 +166,7 @@ describe('the band on each fixture change', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
-      expect(text).toContain('Needs you: 1 decision waiting.');
+      expect(text).toContain('1 decision is waiting for you');
       expect(text).toContain('HIGH TABLE');
       expect(text).toContain('spec approved');
     });
@@ -238,8 +239,18 @@ describe('the band on each fixture change', () => {
   }
 });
 
+const SAFE_WORDS = `Safe to merge: PR ${'#'}12 is ready for your merge`;
+
 const ALL_GREEN = {
   ...FULL_ORD_501,
+  headline: {
+    text: SAFE_WORDS,
+    tone: 'good',
+    row: 8,
+    word: 'Safe to merge',
+    rung: 'safe-to-merge',
+  },
+  rung: 'safe-to-merge',
   flags: [],
   ship: {
     commits: 2,
@@ -294,9 +305,9 @@ describe('the ship rail on each surface', () => {
       await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
       await $.ui.render(band('terminal'));
     }
-    const green = world.toasts.filter((text) => text.startsWith('All green'));
+    const green = world.toasts.filter((text) => text.startsWith('Safe to merge'));
     expect(green).toHaveLength(1);
-    expect(green[0]).toBe(`All green: PR ${'#'}12 is ready for your merge`);
+    expect(green[0]).toBe(SAFE_WORDS);
     const card = cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe('success');
   });
@@ -768,6 +779,85 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your');
   });
 
+  test("a background agent ask clears at that agent's next check, and never holds the band", async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_a1',
+      approver: 'person',
+      agentId: 'agent-a1',
+    } as never);
+    world.verdict = { decision: 'allow' };
+    await $.tool.check({
+      tool: 'Read',
+      input: {},
+      tool_use_id: 'tu_a2',
+      approver: 'person',
+      agentId: 'agent-a1',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('a background agent ask clears when that agent starts a tool or its turn completes', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const askFrom = async (agentId: string, id: string) => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: id,
+        approver: 'person',
+        agentId,
+      } as never);
+    };
+    await askFrom('agent-a1', 'tu_a1');
+    await $.tool.call({
+      tool: 'Bash',
+      command: 'ls',
+      tool_use_id: 'tu_a1',
+      agentId: 'agent-a1',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    await askFrom('agent-b2', 'tu_b1');
+    await $.turn.complete({ text: '', agentId: 'agent-b2' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+    await askFrom('agent-c3', 'tu_c1');
+    await $.turn.start({ text: 'next', turnId: 'turn-9' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('a main-thread ask still waits while a background agent works on', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_m1',
+      approver: 'person',
+    } as never);
+    world.verdict = { decision: 'allow' };
+    await $.tool.check({
+      tool: 'Read',
+      input: {},
+      tool_use_id: 'tu_a1',
+      approver: 'person',
+      agentId: 'agent-a1',
+    } as never);
+    await $.tool.call({ tool: 'Read', tool_use_id: 'tu_a1', agentId: 'agent-a1' } as never);
+    await $.turn.complete({ text: '', agentId: 'agent-a1' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    await $.tool.call({ tool: 'Bash', command: 'rm -rf build', tool_use_id: 'tu_m1' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
   test('the end of the main turn clears a wait, a subagent turn does not', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });
@@ -785,9 +875,15 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
   });
 
-  test('a failure from an earlier turn yields to the running stage once a new turn starts', async ($, on) => {
+  test('AC-32: the band draws the row the snapshot decided, and follows the snapshot into a new turn', async ($, on) => {
     const failed = {
       ...FAST_ORD_490,
+      headline: {
+        text: 'Tests, types or lint failed',
+        tone: 'bad',
+        row: 12,
+        word: 'Needs your attention',
+      },
       verdict: {
         kind: 'fail',
         word: 'Needs your attention',
@@ -798,12 +894,70 @@ describe('the Desktop band', () => {
         { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'fail' },
       ],
     };
-    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(failed) } });
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(failed) } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Build');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Tests, types or lint failed');
     await $.turn.start({ text: 'go on', turnId: 'turn-2' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Building');
+    world.put(SNAPSHOT, fileText(FAST_ORD_490));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    const drawn = textOf(await $.ui.render(band('desktop')));
+    expect(drawn).toContain('Building');
+    expect(drawn).not.toContain('Tests, types or lint failed');
+  });
+
+  test('AC-10: Done reads in the success colour with a dim not committed note and no warning colour', async ($, on) => {
+    const done = {
+      ...FULL_ORD_501,
+      scope: { qualified: true, reason: 'finished' },
+      flags: [],
+      rung: 'done',
+      headline: {
+        text: 'Done',
+        tone: 'good',
+        row: 16,
+        word: 'Done',
+        rung: 'done',
+        note: 'not committed',
+      },
+    };
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(done) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    expect(textOf(drawn)).toContain('● Done    not committed');
+    expect(lightOf(drawn)).toBe('#2F8F6B');
+    expect(textOf(drawn)).not.toContain('Ready');
+    const note = textElement(drawn, '    not committed') as { props?: { dimColor?: unknown } };
+    expect(note?.props?.dimColor).toBe(true);
+  });
+
+  test('AC-29, AC-33: a paqad record gap shows Done and one neutral line, never a fix instruction', async ($, on) => {
+    const gap = 'paqad could not record every stage of this change';
+    const done = {
+      ...FULL_ORD_501,
+      flags: [],
+      rung: 'done',
+      headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done', gap },
+    };
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(done) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    expect(textOf(drawn)).toContain(gap);
+    expect(textOf(drawn)).not.toContain('Fix it and run the checks again');
+    expect(lightOf(drawn)).toBe('#2F8F6B');
+    const line = textElement(drawn, gap) as { props?: { dimColor?: unknown; color?: unknown } };
+    expect(line?.props?.dimColor).toBe(true);
+    expect(line?.props?.color).toBeUndefined();
+  });
+
+  test('AC-31: a snapshot from before the headline row renders its own words without crashing', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = textOf(await $.ui.render(band('desktop')));
+    expect(drawn).toContain('Safe to merge. 1 flag open.');
   });
 
   test('AC-13: the close menu opens inline; Cancel, Close for now, Show and Hide always do what they say', async ($, on) => {
@@ -972,6 +1126,7 @@ function expectDesktopSafe(tree: RenderNode): void {
 
 const CLAIMED = {
   ...QUIET_501,
+  headline: { text: 'Safe to merge', tone: 'good', row: 8, word: 'Safe to merge' },
   claims: Array.from({ length: 6 }, (_, index) => ({
     kind: 'acceptance',
     id: `AC-${index + 1}`,
@@ -986,7 +1141,7 @@ const CLAIMED = {
 };
 
 describe('the Desktop Ledger', () => {
-  test('AC-19, AC-20: opens on Trust with the subtitle, equal tabs, the tab rule, the light, the gates, the claims and the flags', async ($, on) => {
+  test('AC-19, AC-34: opens on Trust with the subtitle, equal tabs, the tab rule, the stages with their steps and gates, the claims and the flags', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CLAIMED) }, store: QUIET_STORE() });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1012,10 +1167,14 @@ describe('the Desktop Ledger', () => {
       (element) => propsOf(element).alt === 'Trust tab is shown',
     );
     expect(propsOf(rule!).height).toBe(2);
-    expect(lines).toContain('● Safe to merge');
-    expect(lines).toContain('2 of 2 required gates pass.');
-    for (const line of ['GATES', 'Tests, types and lint pass', 'Checked by a script', 'Pass'])
+    expect(lines).not.toContain('● Safe to merge');
+    expect(lines.some((line) => line.includes('required gates pass'))).toBe(false);
+    for (const line of ['PLAN', 'SPEC', 'BUILD', 'REVIEW', 'CHECKS', 'DOCS', 'Recorded'])
       expect(lines).toContain(line);
+    expect(lines).toContain('✓  Plan compiled  ·  6 steps');
+    for (const line of ['Tests, types and lint pass', 'Pass', 'Not required'])
+      expect(lines).toContain(line);
+    expect(lines.indexOf('PLAN')).toBeLessThan(lines.indexOf('DOCS'));
     expect(lines).toContain('CLAIMS AND THE TESTS THAT PROVE THEM');
     expect(lines).toContain('AC-1  Claim 1');
     expect(lines).toContain('tests/claim-1.test.ts');
@@ -1023,10 +1182,10 @@ describe('the Desktop Ledger', () => {
     expect(lines).toContain('+2 more, all proven');
     expect(lines).toContain('⚑ 1 near-copy of existing code is open.');
     expect(lines).toContain('Open');
-    const ring = everyElement(tree).find(
-      (element) => propsOf(element).alt === '2 of 2 required gates pass',
+    const ring = everyElement(tree).find((element) =>
+      String(propsOf(element).alt ?? '').includes('required gates'),
     );
-    expect(propsOf(ring!)).toMatchObject({ width: 92, height: 92 });
+    expect(ring).toBeUndefined();
   });
 
   test('AC-21: the High Table tab draws the ring, the chief, Answer in chat and See each side, and the seat details', async ($, on) => {
@@ -1188,7 +1347,7 @@ const SCENE_WORDS: Record<keyof typeof SCENE_FIXTURES, string> = {
   Failed: 'Tests, types or lint failed',
   'All green': `PR ${'#'}12 is ready for your merge`,
   'Fast lane': 'Building',
-  'Edit only': 'Done: the edit is in your working tree',
+  'Edit only': 'Done    left uncommitted, as you asked',
   'No CI': 'Delivering',
   Closed: 'Safe to merge',
   Question: 'Question   ● idle',
@@ -2399,8 +2558,18 @@ const TRUSTED = {
   ...FULL_ORD_501,
   gates: [
     { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
-    { name: 'review-quality', required: true, strength: 'llm-judged', verdict: 'inconclusive' },
+    { name: 'quality-ratchet', required: true, strength: 'deterministic', verdict: 'inconclusive' },
   ],
+  proof: FULL_ORD_501_PROOF.map((stage) =>
+    stage.stage === 'checks'
+      ? {
+          ...stage,
+          gates: (stage.gates as Array<Record<string, unknown>>).map((gate) =>
+            gate.code === 'quality-ratchet' ? { ...gate, state: 'inconclusive' } : gate,
+          ),
+        }
+      : stage,
+  ),
 };
 
 const DELIVERING = {
@@ -2442,18 +2611,19 @@ async function mountPane(
 
 describe('the Trust, Ships and Record tabs', () => {
   for (const surface of TERMINAL) {
-    test(`a landed verdict opens on Trust, gates in words, on ${surface}`, async ($, on) => {
+    test(`a landed verdict opens on Trust, stages and gates in words, on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(TRUSTED) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(pane(surface));
       const lines = drawnLines(drawn);
       expect(lines).toContain('Trust (shown)');
-      expect(lines).toContain('Gates ●~  1/2 required');
-      expect(lines).toContain('  ● code-tests-lint  pass');
-      expect(lines).toContain('  ~ review-quality  inconclusive');
-      expect(colorOf(textElement(drawn, 'pass'))).toBe('success');
-      expect(colorOf(textElement(drawn, 'inconclusive'))).toBe('warning');
+      expect(lines).toContain('Checks  Recorded');
+      expect(lines).toContain('    Tests, types and lint pass  Pass');
+      expect(lines).toContain('    Quality did not drop  Could not prove');
+      expect(lines.some((line) => /\d+\/\d+ required|^Verdict /.test(line))).toBe(false);
+      expect(colorOf(textElement(drawn, 'Pass'))).toBe('success');
+      expect(colorOf(textElement(drawn, 'Could not prove'))).toBe('warning');
     });
 
     test(`a delivery in progress shows CI partly done on Ships on ${surface}`, async ($, on) => {
@@ -2488,7 +2658,7 @@ describe('the Trust, Ships and Record tabs', () => {
       await $.session.start(START);
       const mounted = await mountPane($, surface);
       await mounted.press({ key: 'paqad-tab-trust' });
-      expect(await mounted.find({ text: 'No gates judged yet.' })).toBeDefined();
+      expect(await mounted.find({ text: 'Nothing to prove yet' })).toBeDefined();
       await mounted.press({ key: 'paqad-tab-ships' });
       expect(await mounted.find({ text: 'Nothing pushed yet.' })).toBeDefined();
       await mounted.press({ key: 'paqad-tab-record' });

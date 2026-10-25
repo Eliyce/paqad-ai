@@ -58,7 +58,8 @@ describe('paqad-ai checks command', () => {
     const out = await run();
 
     expect(process.exitCode).toBeUndefined();
-    expect(out.join('\n')).toContain('Safe to merge');
+    expect(out.join('\n')).toContain('checks green');
+    expect(out.join('\n')).not.toContain('Safe to merge');
     const report = readChecksReport(root);
     expect(report?.passed).toBe(true);
     expect(report?.ran).toBe(true);

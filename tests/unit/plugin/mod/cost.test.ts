@@ -306,14 +306,13 @@ describe('the paqad Ledger (FR-54, AC-39)', () => {
       { id: 'cost', key: tabKey('cost'), label: 'Cost', selected: true },
     ]);
     expect(view.table).toBeNull();
-    expect(view.svg).toBeNull();
+    expect('svg' in view).toBe(false);
   });
 
-  it('opens on Trust for a tab it does not have, with the gate ring as an Svg source', () => {
+  it('opens on Trust for a tab it does not have, with no gate ring', () => {
     const view = buildPaneView(parse({ ...FULL_ORD_501_COST, verdict: null }), 'nope' as never);
     expect(view.tabs[0]!.selected).toBe(true);
-    expect(view.svg?.alt).toMatch(/^Gates: \d+ of \d+ required pass/);
-    expect(view.svg?.source).toContain('<svg');
+    expect(JSON.stringify(view)).not.toContain('<svg');
     const fast = buildPaneView(parse(FAST_ORD_490_COST), 'cost');
     expect(fast.lines[0]).toContain('Cost of this change');
   });

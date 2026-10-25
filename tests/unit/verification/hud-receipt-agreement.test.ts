@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -10,14 +10,16 @@ import type { StructuredTestResult } from '@/core/types/test-output.js';
 import type { VerificationContext } from '@/core/types/verification.js';
 import { decodeReceiptStatement } from '@/evidence/receipt/project.js';
 import { readFeatureEvidence } from '@/feature-evidence/bundle-ledgers.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { readFeatureReceipt } from '@/feature-evidence/receipt.js';
-import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import { currentFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { hudReceiptPath, hudVerdictPath } from '@/hud/files.js';
 import { writeHudReceipt } from '@/hud/receipt-file.js';
 import { buildHudSnapshot, computeHudHeadline } from '@/hud/snapshot.js';
 import type { HudVerdictRecord } from '@/hud/receipt-file.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { endStage, isArtifactBearingStage, startStage } from '@/stage-evidence/index.js';
 import { runRepositoryVerification } from '@/verification/repository/run-repository-verification.js';
 
 import { createVerificationContext, ownInFlightChange } from './shared.fixture.js';
@@ -262,23 +264,25 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     expect(blockedRow?.detail).toContain('dead_code');
   });
 
-  function expectHeadlineAgreement(): string {
+  function expectHeadlineAgreement(lead: string): string {
     const word = expectAgreement();
     const snapshot = buildHudSnapshot(context.project_root, SES, { now: () => NOW });
-    expect(snapshot.headline.text.startsWith(`${word}.`)).toBe(true);
+    expect(snapshot.headline.word).toBe(lead);
+    expect(snapshot.headline.gap).toMatch(/^paqad could not record /);
+    expect(snapshot.headline.text).not.toContain('Fix it');
     expect(Object.values(PAQAD_VERDICT)).toContain(word);
     return word;
   }
 
-  it('AC-15: a failing change reads Needs your attention on the receipt, HUD headline and receipt card', async () => {
+  it('AC-15: a change failing only on paqad records reads Needs your attention on the receipts, and the HUD keys on the work with the gap in a neutral line', async () => {
     featureDevTurn();
 
     await stop();
 
-    expect(expectHeadlineAgreement()).toBe(PAQAD_VERDICT.fail);
+    expect(expectHeadlineAgreement('Inconclusive')).toBe(PAQAD_VERDICT.fail);
   });
 
-  it('AC-15: an unrecorded-stage change reads Inconclusive on the receipt, HUD headline and receipt card', async () => {
+  it('AC-15: an unrecorded-stage change reads Inconclusive on the receipts and Done on the HUD headline', async () => {
     relaxStageAndBundleGates(context.project_root);
     context.structured_test_results = [PASSING_CHECKS];
     context.code_tests_lint_passed = true;
@@ -287,7 +291,7 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
 
     await stop();
 
-    expect(expectHeadlineAgreement()).toBe(PAQAD_VERDICT.inconclusive);
+    expect(expectHeadlineAgreement('Done')).toBe(PAQAD_VERDICT.inconclusive);
   });
 
   it('AC-15: a change whose ratchet did not run still reads one word everywhere, never a new pass', async () => {
@@ -312,12 +316,70 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
       flags: [],
       paused: 0,
     });
-    expect(headline.text).toBe(`${word}.`);
+    expect(headline.word).toBe('Inconclusive');
+    expect(headline.text).not.toContain(PAQAD_VERDICT.pass);
     const ratchetRow = readFeatureEvidence(context.project_root, dir).find(
       (row) => row.code === 'quality-ratchet',
     );
     expect(ratchetRow?.verdict).toBe('skipped');
     expect(ratchetRow?.skip_kind).toBe('did-not-run');
+  });
+
+  function recordEveryStage(): void {
+    const root = context.project_root;
+    for (const stage of [
+      'planning',
+      'specification',
+      'development',
+      'review',
+      'checks',
+      'documentation_sync',
+    ]) {
+      const owner = { sessionId, dirName: dir, adapter: 'claude-code' };
+      startStage(root, stage, owner);
+      if (!isArtifactBearingStage(stage)) {
+        endStage(root, stage, {}, owner);
+        continue;
+      }
+      const file =
+        stage === 'planning' ? 'plan' : stage === 'specification' ? 'specification' : null;
+      const rel = file ? featureFilePath(dir, file) : `.paqad/artifacts/${stage}.md`;
+      mkdirSync(join(root, dirname(rel)), { recursive: true });
+      writeFileSync(join(root, rel), file ? '{"real":true}\n' : `# ${stage} artifact\n`);
+      endStage(root, stage, { artifactPaths: [rel] }, owner);
+    }
+  }
+
+  function hudVerdictRecord(): HudVerdictRecord {
+    return JSON.parse(
+      readFileSync(hudVerdictPath(context.project_root, sessionId), 'utf8'),
+    ) as HudVerdictRecord;
+  }
+
+  it('AC-1: a passing change that the check closes keeps its own change on the HUD verdict', async () => {
+    relaxStageAndBundleGates(context.project_root);
+    context.structured_test_results = [PASSING_CHECKS];
+    context.code_tests_lint_passed = true;
+    context.code_changed = true;
+    featureDevTurn();
+    recordEveryStage();
+
+    expect(await stop()).toBe(0);
+
+    expect(currentFeature(context.project_root, sessionId)).toBeNull();
+    expect(hudVerdictRecord()).toMatchObject({ change: dir, kind: 'pass' });
+  });
+
+  it('AC-20: an inconclusive change that the check closes keeps its own change on the HUD verdict', async () => {
+    relaxStageAndBundleGates(context.project_root);
+    context.code_changed = true;
+    featureDevTurn();
+    recordEveryStage();
+
+    expect(await stop()).toBe(0);
+
+    expect(currentFeature(context.project_root, sessionId)).toBeNull();
+    expect(hudVerdictRecord()).toMatchObject({ change: dir, kind: 'inconclusive' });
   });
 
   it('AC-9: a later skipped detour turn leaves all three still agreeing', async () => {

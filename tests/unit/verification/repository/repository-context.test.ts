@@ -136,6 +136,7 @@ describe('buildRepositoryVerificationContext', () => {
     });
 
     expect(context.spec_review_passed).toBe(false);
+    expect(context.spec_review_on_record).toBe(true);
   });
 
   it('derives a spec boundary and flags an out-of-boundary change as drift', async () => {
@@ -176,7 +177,7 @@ describe('buildRepositoryVerificationContext', () => {
     expect(context.spec_boundary).toBeUndefined();
   });
 
-  it('escalates (without blocking) when code changed but no spec is on record', async () => {
+  it('marks spec-review could not prove (without blocking) when code changed but no spec is on record', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);
 
@@ -186,7 +187,24 @@ describe('buildRepositoryVerificationContext', () => {
     });
 
     expect(context.spec_review_passed).toBe(true);
-    expect(escalations.join('\n')).toContain('spec-review');
+    expect(context.spec_review_inconclusive).toBe(true);
+    expect(context.spec_review_detail).toContain('cannot be proven');
+    expect(context.spec_review_on_record).toBeUndefined();
+    expect(escalations.join('\n')).not.toContain('spec-review');
+  });
+
+  it('names the documentation inputs the backstop never checks, so the docs gate cannot pass on them', async () => {
+    const root = makeProject();
+    seedGitChangedFiles(root, ['src/feature.ts']);
+    const { context } = await buildRepositoryVerificationContext({
+      projectRoot: root,
+      origin: 'ci-backstop',
+    });
+    expect(context.unchecked_documentation_inputs).toEqual([
+      'the registries',
+      'the glossary',
+      'the expected module docs',
+    ]);
   });
 
   it('escalates test-evidence when code changed (backstop cannot collect structured results)', async () => {

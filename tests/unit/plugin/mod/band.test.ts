@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  IDLE_HEADLINE,
   changeChip,
   laneMode,
   layoutBand,
@@ -10,6 +11,8 @@ import {
   truncateRow,
   type BandRow,
 } from '../../../../runtime/claude-plugin/mod/band.ts';
+import { runPaqadCommand } from '../../../../runtime/claude-plugin/mod/commands.ts';
+import { buildDesktopBand } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import {
   BAND_BODIES,
@@ -26,6 +29,7 @@ import {
   FULL_ORD_501,
   FULL_ORD_501_COST,
   GRADUATED_ORD_482,
+  NOW,
   PAUSED,
   STATE_FIXTURES,
   fileText,
@@ -42,7 +46,7 @@ describe('the band shell', () => {
     const band = bandOf(FULL_ORD_501);
     expect(band.kind).toBe('card');
     expect(bandLines(FULL_ORD_501)[0]).toBe(
-      'paqad ORD-501  2 of 2 required gates pass | Safe to merge  1 flag  full lane  Proof  – Minimise  × Close',
+      'paqad ORD-501  Safe to merge. 1 flag open. | Safe to merge  1 flag  full lane  Proof  – Minimise  × Close',
     );
     if (band.kind !== 'card') return;
     expect(band.tone).toBe('warn');
@@ -287,5 +291,72 @@ describe('the spinner word and the lane mode', () => {
     expect(laneMode(at(GRADUATED_ORD_482))).toBe('paqad graduated lane');
     expect(laneMode(at(PAUSED))).toBeNull();
     expect(laneMode(at({ ...FAST_ORD_490, lane: null }))).toBeNull();
+  });
+});
+
+describe('AC-19, AC-32: one headline on every surface', () => {
+  const finished = {
+    ...FULL_ORD_501,
+    scope: { qualified: true, reason: 'finished' },
+    rung: 'done',
+    flags: [],
+    headline: {
+      text: 'Done',
+      tone: 'good',
+      row: 16,
+      word: 'Done',
+      rung: 'done',
+      note: 'not committed',
+      gap: 'paqad could not record the lane for this change',
+    },
+  };
+
+  it('the desktop band, the terminal shell and /paqad status show the same headline and tone', () => {
+    const snap = parseSnapshot(fileText(finished))!;
+    const desktop = buildDesktopBand({
+      snapshot: snap,
+      unbound: false,
+      unavailable: false,
+      now: NOW,
+      turnStartedAt: null,
+      visibility: { minimised: false, closed: false, hidden: false },
+      menuOpen: false,
+      columns: 93,
+      maxRows: 12,
+    });
+    expect(desktop).toMatchObject({
+      kind: 'feature',
+      mode: 'card',
+      headline: { text: 'Done', signal: 'pass', tone: 'good', note: 'not committed' },
+    });
+    const terminal = bandOf(finished);
+    if (terminal.kind !== 'card') throw new Error('expected a card');
+    expect(terminal.tone).toBe('good');
+    expect(rowText(terminal.header.left)).toBe(
+      'paqad ORD-501  Done  not committed  paqad could not record the lane for this change',
+    );
+    expect(terminal.header.left.find((s) => s.text === '  Done')).toMatchObject({ tone: 'good' });
+    expect(terminal.header.left.find((s) => s.text === '  not committed')).toMatchObject({
+      dim: true,
+    });
+    expect(rowText(terminal.header.right)).not.toContain('Safe to merge');
+    const status = runPaqadCommand({
+      args: 'status',
+      standDown: null,
+      snapshot: snap,
+      receipt: null,
+      now: NOW,
+    }).text;
+    expect(status.split('\n').slice(0, 3)).toEqual([
+      'Done.',
+      'Note: not committed.',
+      'paqad could not record the lane for this change.',
+    ]);
+    expect(`${rowText(terminal.header.left)} ${status}`).not.toContain('Fix it');
+  });
+
+  it('a finished change keeps its band and says Done instead of the idle view', () => {
+    expect(bandLines(finished)[0]).toContain('Done');
+    expect(bandLines(finished)[0]).not.toContain(IDLE_HEADLINE);
   });
 });

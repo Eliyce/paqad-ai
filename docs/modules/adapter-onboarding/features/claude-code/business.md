@@ -76,7 +76,8 @@ The paqad plugin draws a band above the prompt that shows the change this sessio
 - **The paqad Ledger.** It opens beside the chat on Trust, with Trust, High Table, Delivery,
   Record and Cost. On the terminal, pressing paqad, Proof or any instrument opens it. On Desktop,
   the Ledger button and the flags open it. It opens on its own once per change. `/paqad ships`
-  and `/paqad delivery` both print the Delivery view.
+  and `/paqad delivery` both print the Delivery view. On Desktop, Trust shows the proof of the
+  work stage by stage, and keeps paqad's own record gaps apart from problems in your work.
 - **Desktop has its own band.** In the Claude Code Desktop app the band is a card: who is working
   and what it costs, one line that says what is happening, and a strip that draws the stages, the
   High Table and the delivery steps that apply to this change. A live state has a light that

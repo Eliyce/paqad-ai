@@ -67,6 +67,9 @@ describe('writeHudReceipt', () => {
       kind: 'fail',
       passed: false,
       reasons: ['stage-evidence: y', 'code-tests-lint: x'],
+      work_kind: 'inconclusive',
+      work_reasons: ['code-tests-lint: x'],
+      record_gaps: ['paqad could not record every stage of this change'],
       written_at: '2026-10-18T00:00:00.000Z',
     });
     expect(existsSync(written!.verdictPath)).toBe(true);
@@ -80,6 +83,16 @@ describe('writeHudReceipt', () => {
       kind: 'inconclusive',
     });
     expect(written!.verdict).toMatchObject({ word: 'Inconclusive', passed: false, reasons: [] });
+  });
+
+  it('AC-1: writes the change the verification judged, not the pointer read after the close', () => {
+    const written = writeHudReceipt(root, 'ses-judged', {
+      summary: 's',
+      gates: [],
+      kind: 'pass',
+      change: 'judged-change',
+    });
+    expect(written!.verdict.change).toBe('judged-change');
   });
 
   describe('a skipped check', () => {

@@ -5,6 +5,8 @@ import { delimiter, join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { npmAttempts } from '../../../scripts/release-sync.mjs';
+
 const SCRIPT = resolve('scripts/release-sync.mjs');
 const PLUGIN_REMOTE = 'https://github.com/Eliyce/paqad-claude-plugin.git';
 const dirs: string[] = [];
@@ -153,6 +155,7 @@ function run(f: Fixture, command: string, env: Record<string, string> = {}) {
       PATH: `${f.bin}${delimiter}${process.env.PATH}`,
       GITHUB_OUTPUT: outputFile,
       RELEASE_SYNC_NPM_WAIT_SECONDS: '0',
+      RELEASE_SYNC_NPM_ATTEMPTS: '12',
       FAKE_GH_RELEASES: f.releases,
       GIT_CONFIG_COUNT: '1',
       GIT_CONFIG_KEY_0: `url.file://${f.plugin}.insteadOf`,
@@ -221,6 +224,27 @@ describe.skipIf(process.platform === 'win32')('release-sync state', () => {
     expect(result.stdout).toContain('Waiting for npm to list paqad-ai@1.0.0 (up to ');
     expect(result.stdout).toContain('npm lists paqad-ai@1.0.0 after ');
   });
+
+  it('asks npm as many times as RELEASE_SYNC_NPM_ATTEMPTS says', () => {
+    const f = fixture(['1.0.0']);
+    const calls = join(f.repo, '..', 'npm-calls');
+
+    const result = run(f, 'state', {
+      FAKE_NPM_CALLS: calls,
+      RELEASE_SYNC_NPM_ATTEMPTS: '4',
+    });
+
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.outputs.plugin_needed).toBe('false');
+    expect(readFileSync(calls, 'utf8')).toBe('4');
+  });
+
+  it.each([undefined, '', 'many', '0', '-3', '2.5'])(
+    'asks npm 90 times when RELEASE_SYNC_NPM_ATTEMPTS is %j',
+    (value) => {
+      expect(npmAttempts(value)).toBe(90);
+    },
+  );
 
   it('reads the version at GITHUB_SHA, not a release branch the changesets step left checked out', () => {
     const f = fixture(['1.0.0', '1.1.0']);

@@ -109,9 +109,6 @@ export async function buildRepositoryVerificationContext(
   const specBoundary = deriveSpecBoundary(traceabilityMap);
 
   const escalations: string[] = [];
-  if (specReviewSignal.inconclusive) {
-    escalations.push(`spec-review: ${specReviewSignal.detail}`);
-  }
   if (codeChanged && !structuredTestResults) {
     escalations.push(
       'test-evidence: no check report on record (`paqad-ai checks run` was not run this ' +
@@ -153,15 +150,14 @@ export async function buildRepositoryVerificationContext(
     ac_test_mapping_detail: acMapping.detail,
     ac_test_mapping_outcome: acMapping.outcome,
     spec_review_passed: specReviewSignal.passed,
+    ...(specReview ? { spec_review_on_record: true } : {}),
+    ...(specReviewSignal.inconclusive
+      ? { spec_review_inconclusive: true, spec_review_detail: specReviewSignal.detail }
+      : {}),
     implementation_review_passed: implementationReview.passed,
     implementation_review_findings: implementationReview.findings,
     waiting_decisions: implementationReview.waiting,
-    requirements_complete: true,
-    story_quality_passed: true,
-    architecture_compliant: true,
-    code_tests_lint_passed: checksReport ? checksReport.passed : true,
-    behavioral_correctness_passed: true,
-    database_quality_passed: true,
+    ...(checksReport ? { code_tests_lint_passed: checksReport.passed } : {}),
     quality_ratchet_result: qualityRatchetResult,
     ...mutation,
     lane: recordedLane,
@@ -171,10 +167,17 @@ export async function buildRepositoryVerificationContext(
     expected_error_catalog_modules: [],
     registry_refreshed_at: new Date().toISOString(),
     glossary_updated: true,
+    unchecked_documentation_inputs: UNCHECKED_DOCUMENTATION_INPUTS,
   };
 
   return { context, escalations };
 }
+
+const UNCHECKED_DOCUMENTATION_INPUTS: readonly string[] = [
+  'the registries',
+  'the glossary',
+  'the expected module docs',
+];
 
 function resolveActiveSessionId(projectRoot: string): string {
   return resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);

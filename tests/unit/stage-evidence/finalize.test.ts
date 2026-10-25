@@ -15,7 +15,11 @@ import {
   startStage,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
+import { CHECKS_REPORT_SCHEMA_VERSION, writeFeatureChecks } from '@/checks/report-store.js';
+import { writeChecksRunningMarker } from '@/checks/running-marker.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { setLane } from '@/feature-evidence/session-control.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 const ADAPTER = 'backstop';
@@ -96,6 +100,17 @@ describe('finalizeStageEvidence', () => {
     expect(inferred?.subject_digest).toBe('deadbeef');
   });
 
+  it('AC-24: a backstop mint carries the session lane, never a null lane', () => {
+    const sessionId = 'ses_backstop_lane';
+    setLane(root, sessionId, 'fast');
+
+    finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+    const minted = currentFeature(root, sessionId);
+    expect(minted).not.toBeNull();
+    expect(readFeatureRecord(root, minted!)?.lane).toBe('fast');
+  });
+
   it('swallows errors and returns null (best-effort, never breaks verification)', () => {
     const filePath = join(root, 'not-a-dir');
     writeFileSync(filePath, 'x');
@@ -174,6 +189,108 @@ describe('finalizeStageEvidence', () => {
     const reviewEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'review');
     expect(reviewEnd, 'finalize should still anchor the open review at completion').toBeDefined();
     expect(reviewEnd?.evidence_source).toBe('live-mark');
+  });
+
+  describe('AC-3: an open checks stage at turn end', () => {
+    const STARTED = new Date('2026-10-25T10:00:00.000Z');
+
+    function changeWithOpenChecks(sessionId: string): string {
+      const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+      for (const stage of ['planning', 'specification', 'development', 'review']) {
+        startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+        endStage(root, stage, provenEndArgs(root, dirName, stage), {
+          sessionId,
+          dirName,
+          adapter: 'claude-code',
+        });
+      }
+      startStage(root, 'checks', {
+        sessionId,
+        dirName,
+        adapter: 'claude-code',
+        now: () => STARTED,
+      });
+      return dirName;
+    }
+
+    function report(dirName: string, at: Date): void {
+      writeFeatureChecks(root, dirName, {
+        schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+        generated_at: at.toISOString(),
+        passed: true,
+        ran: true,
+        results: [],
+      });
+    }
+
+    function checksKinds(dirName: string): string[] {
+      return readFeatureStageUnit(root, dirName)
+        .filter((row) => row.stage === 'checks')
+        .map((row) => String(row.kind));
+    }
+
+    it('with no checks report stays running, keeps the change open and is named as left open', () => {
+      const sessionId = 'ses_open_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+
+      const result = finalizeStageEvidence(root, {
+        adapter: ADAPTER,
+        sessionId,
+        changedFilesCount: 1,
+      });
+
+      expect(result?.ok).toBe(false);
+      expect(result?.open_stages).toEqual(['checks']);
+      expect(currentFeature(root, sessionId)).toBe(dirName);
+      expect(checksKinds(dirName)).toEqual(['stage_start']);
+    });
+
+    it('with only a report older than its start stays running', () => {
+      const sessionId = 'ses_stale_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+      report(dirName, new Date(STARTED.getTime() - 60_000));
+
+      finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+      expect(checksKinds(dirName)).toEqual(['stage_start']);
+    });
+
+    it('while checks run holds a live marker for this session stays running', () => {
+      const sessionId = 'ses_running_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+      const now = new Date(STARTED.getTime() + 120_000);
+      report(dirName, new Date(STARTED.getTime() + 60_000));
+      writeChecksRunningMarker(root, {
+        pid: 4242,
+        session_id: sessionId,
+        change: dirName,
+        started_at: new Date(STARTED.getTime() + 90_000).toISOString(),
+      });
+
+      finalizeStageEvidence(root, {
+        adapter: ADAPTER,
+        sessionId,
+        changedFilesCount: 1,
+        now: () => now,
+        probe: { isAlive: () => true, commandOf: () => 'node paqad-ai checks run' },
+      });
+
+      expect(checksKinds(dirName)).toEqual(['stage_start']);
+    });
+
+    it('with a report newer than its start is ended against that report', () => {
+      const sessionId = 'ses_reported_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+      report(dirName, new Date(STARTED.getTime() + 60_000));
+
+      finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+      const end = readFeatureStageUnit(root, dirName).find(
+        (row) => row.kind === 'stage_end' && row.stage === 'checks',
+      );
+      expect(end?.evidence_source).toBe('live-mark');
+      expect(end?.artifact_paths).toEqual([featureFilePath(dirName, 'checks')]);
+    });
   });
 
   it('a documentation-only change is a no-op (isFeatureDevChange=false) — code stages do not apply', () => {

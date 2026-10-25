@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5SA84GY4V7S0QTGMP7K75D5",
+  "category": "spec.change",
+  "title": "Add: band shows Waiting for your permission while only background agents run",
+  "context": "Owner screenshot 2026-10-25: the band and Trust light read 'Waiting for your permission' while the session was only running background agents. Root cause: runtime/claude-plugin/mod/register.tsx tool.check handler sets live waitingOn=permission for every tool check with decision ask and approver person, including checks from subagents (no agentId filter, unlike turn.start and turn.complete), and the flag clears only when a tool starts in the main thread or the main turn ends. Add to this change: track the asking agent, clear the flag when that agent moves on or finishes or the main turn starts, and never let a background agent's settled check hold the band on Waiting for your permission.",
+  "options": [
+    {
+      "option_key": "add",
+      "label": "Add the fix to this change (owner asked in chat)",
+      "one_line_preview": "Add the fix to this change (owner asked in chat)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "defer",
+      "label": "Leave it for a separate change",
+      "one_line_preview": "Leave it for a separate change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "add",
+  "created_at": "2026-10-25T10:38:37.598Z",
+  "status": "resolved",
+  "change": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "chosen": "add",
+  "rationale": "Owner (Haider) in chat 2026-10-25: 'this is not correct, now it says waiting for permission, but this is not the case at all ... reality is it is running the background jobs'",
+  "resolved_at": "2026-10-25T10:38:37.860Z",
+  "decision_id": "D-01M5SA84GY4V7S0QTGMP7K75D5",
+  "fingerprint": "sha256:e23783711a7830e48cce4d735aa2e0e5bb41dee6363a4f0877c50405c2898d88",
+  "question": "Add: band shows Waiting for your permission while only background agents run",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "ttl_until": "2026-11-24T10:38:37.598Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "add",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-25T10:38:37.860Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) in chat 2026-10-25: 'this is not correct, now it says waiting for permission, but this is not the case at all ... reality is it is running the background jobs'"
+  }
+}

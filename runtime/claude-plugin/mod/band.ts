@@ -1,6 +1,7 @@
 import { formatTokens } from './cost';
 import './instruments';
-import { buildBandView, headlineAfterState, type BandView } from './model';
+import { judgedHeadline } from './headline';
+import { buildBandView, type BandView } from './model';
 import {
   BAND_BODIES,
   layoutShell,
@@ -84,27 +85,19 @@ export function allGreenKey(snapshot: PaqadHudSnapshot | null): string | null {
   return `${change}:${snapshot?.ship?.pr_head ?? 'head'}`;
 }
 
-export function bandHeadline(snapshot: PaqadHudSnapshot, view: BandView): string {
-  if (allGreenNow(snapshot)) {
-    const number = snapshot.ship?.pr_number ?? null;
-    return `All green: ${number === null ? 'the PR' : `PR #${number}`} is ready for your merge`;
-  }
-  if (snapshot.decisions.pending.length > 0 || !snapshot.verdict) return view.headline;
-  const required = snapshot.gates.filter(
-    (gate) => gate.required && gate.verdict !== 'not-required',
-  );
-  if (required.length === 0) return headlineAfterState(view) || view.headline;
-  const passed = required.filter((gate) => gate.verdict === 'pass').length;
-  return `${passed} of ${required.length} required gates pass`;
+export function bandHeadline(_snapshot: PaqadHudSnapshot, view: BandView): string {
+  return view.headline;
 }
 
 export function shellHeader(snapshot: PaqadHudSnapshot | null, view: BandView): ShellHeader {
   const active = snapshot?.active === true;
-  const verdict = active ? (snapshot?.verdict ?? null) : null;
+  const verdict = active && !judgedHeadline(snapshot) ? (snapshot?.verdict ?? null) : null;
   return {
-    tone: active ? (allGreenNow(snapshot) ? 'good' : view.tone) : 'neutral',
+    tone: active ? view.tone : 'neutral',
     chip: changeChip(snapshot),
-    headline: snapshot && active ? bandHeadline(snapshot, view) : IDLE_HEADLINE,
+    headline: snapshot && active ? view.headline : IDLE_HEADLINE,
+    note: active ? view.note : null,
+    gap: active ? view.gap : null,
     verdict: verdict ? { word: verdict.word, tone: VERDICT_TONE[verdict.kind] } : null,
     flags: active ? view.flags : 0,
     lane: active ? (snapshot?.lane ?? null) : null,

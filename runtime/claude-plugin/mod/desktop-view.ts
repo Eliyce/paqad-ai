@@ -1,4 +1,4 @@
-import { allGreenNow, changeChip } from './band';
+import { changeChip } from './band';
 import {
   CHANGE_SCOPE_SENTENCE,
   WHOLE_SESSION_SENTENCE,
@@ -15,7 +15,6 @@ import { shipRail, type ShipStepState } from './ship';
 import { statusEntryRoute, workflowCost, workflowWords } from './status-entry';
 import type {
   ChiefState,
-  GateMark,
   Mark,
   SeatState,
   ShipState,
@@ -25,8 +24,26 @@ import type {
 } from './strip';
 import { hasRuled, showsTable, trackRecordWords } from './table';
 import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
-import { verdictFromEarlierTurn, waitingOnHuman } from './attention';
+import { waitingOnHuman } from './attention';
+import {
+  WAITING_FOR_ANSWER,
+  WAITING_FOR_PERMISSION,
+  snapshotHeadline,
+  type DesktopHeadline,
+} from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
+import {
+  NOTHING_TO_PROVE,
+  OLD_RECORD_NOTE,
+  oldRecordGates,
+  recordGapLines,
+  repairLine,
+  stageHasEvidence,
+  trustStage,
+  type TrustGateRow,
+  type TrustStage,
+  type WordTone,
+} from './trust';
 import type {
   PaqadCiJob,
   PaqadCost,
@@ -45,46 +62,17 @@ export const UNREADABLE_WHY = {
   snapshot: 'The snapshot file is not valid.',
 } as const;
 export const GETTING_READY = IDLE_WORDS;
-export const WAITING_FOR_ANSWER = 'Waiting for your answer';
-export const WAITING_FOR_PERMISSION = 'Waiting for your permission';
 export const FEATURE_WORDS = 'Feature development';
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
 export const NEEDS_YOU_WORDS = 'Needs you';
 export const CLOSE_MENU_QUESTION = 'Close the paqad band?';
 
-export const CARD_ROWS = { identity: 1, message: 1, strip: 3, menu: 1 } as const;
+export const CARD_ROWS = { identity: 1, message: 1, gap: 1, strip: 3, menu: 1 } as const;
 
 export type Unreadable = keyof typeof UNREADABLE_WHY;
 
 const CONFLICT_CATEGORY = 'spec.expert_conflict';
-
-export const FAILURE_PHRASES: Readonly<Record<string, string>> = {
-  'code-tests-lint': 'Tests, types or lint failed',
-  'spec-review': 'The spec review found a blocking defect',
-  'implementation-review': 'The code review found a blocking issue',
-  'quality-ratchet': 'Quality dropped below the baseline',
-  duplication: 'A near-copy of existing code was added',
-  'documentation-freshness': 'The docs no longer match the code',
-  'ac-test-mapping': 'A criterion has no test',
-  'change-completeness': 'Something is left half done',
-  'mutation-testing': 'The tests missed real mutations',
-  'module-docs-structure': 'A module doc lost its shape',
-  'instructions-docs-structure': 'An instruction doc lost its shape',
-  'extension-surface': 'The public surface changed',
-  'architecture-compliance': 'An architecture rule is broken',
-  'database-quality': 'A database change is unsafe',
-  'fix-proof': 'The fix has no proving test',
-  'behavioral-correctness': 'The behaviour does not match the spec',
-  'requirement-completeness': 'A requirement is incomplete',
-  'story-quality': 'A story is not well formed',
-  'site-map-freshness': 'The site map no longer matches the app',
-  'bundle-completeness': 'The evidence bundle is incomplete',
-};
-
-export function failurePhrase(code: string): string {
-  return FAILURE_PHRASES[code] ?? `${code} failed`;
-}
 
 export const LANE_WORDS: Readonly<Record<string, string>> = {
   fast: 'Fast lane',
@@ -137,165 +125,9 @@ function prName(snapshot: PaqadHudSnapshot): string {
   return number === null ? 'The PR' : `PR #${number}`;
 }
 
-function clockSince(startedAt: string | null | undefined, now: number): string | null {
-  const started = startedAt ? Date.parse(startedAt) : Number.NaN;
-  return Number.isFinite(started) ? formatStopwatch(now - started) : null;
-}
+export { WAITING_FOR_ANSWER, WAITING_FOR_PERMISSION, type DesktopHeadline };
 
-function gateOrder(snapshot: PaqadHudSnapshot): (name: string) => number {
-  return (name) => {
-    const index = snapshot.gates_expected.indexOf(name);
-    return index === -1 ? snapshot.gates_expected.length : index;
-  };
-}
-
-function failingGates(snapshot: PaqadHudSnapshot): string[] {
-  const rank = gateOrder(snapshot);
-  return snapshot.gates
-    .filter((gate) => gate.required && gate.verdict === 'fail')
-    .map((gate) => gate.name)
-    .sort((a, b) => rank(a) - rank(b));
-}
-
-export function failureHeadline(snapshot: PaqadHudSnapshot): string {
-  const [first, ...rest] = failingGates(snapshot);
-  if (!first) return snapshot.verdict?.word ?? 'Needs your attention';
-  return rest.length > 0 ? `${failurePhrase(first)} and ${rest.length} more` : failurePhrase(first);
-}
-
-function runningWords(snapshot: PaqadHudSnapshot, stage: string): string {
-  switch (stage) {
-    case 'ticket_intake':
-      return 'Reading the ticket';
-    case 'planning':
-      return 'Planning the change';
-    case 'specification': {
-      const table = snapshot.table;
-      if (table?.seats.some((seat) => seat.state === 'writing')) {
-        return 'The High Table is writing its notes';
-      }
-      if (table?.chief?.state === 'writing') return 'The chief architect is ruling';
-      return 'Writing the spec';
-    }
-    case 'development':
-      return snapshot.plan
-        ? `${snapshot.plan.done} of ${snapshot.plan.steps} plan steps built`
-        : 'Building';
-    case 'review':
-      return 'Reviewing the change';
-    case 'checks':
-      return 'Running the checks';
-    case 'documentation_sync':
-      return 'Syncing the docs';
-    case 'delivery':
-      return 'Delivering';
-    default:
-      return `${stageWord(stage)} is running`;
-  }
-}
-
-export interface DesktopHeadline {
-  row: number;
-  signal: Signal;
-  live: boolean;
-  text: string;
-  clock: string | null;
-}
-
-function headline(
-  row: number,
-  signal: Signal,
-  text: string,
-  clock: string | null = null,
-): DesktopHeadline {
-  return { row, signal, live: signal === 'accent', text, clock };
-}
-
-function settledHeadline(snapshot: PaqadHudSnapshot): DesktopHeadline {
-  const segments = stageSegments(snapshot);
-  const lane = new Set(laneStages(snapshot).map(([stage]) => stage));
-  const drawn = segments.filter((segment) => lane.has(segment.stage));
-  const done = [...drawn].reverse().find((segment) => segment.state === 'done');
-  const next = drawn.find(
-    (segment) =>
-      segment.state === 'not yet' &&
-      snapshot.stages.find((stage) => stage.stage === segment.stage)?.mandatory === true,
-  );
-  if (done && next) {
-    return headline(18, 'idle', `${stageWord(done.stage)} done. Next: ${stageWord(next.stage)}`);
-  }
-  if (!done) return headline(19, 'idle', 'Next: Plan');
-  return headline(20, 'idle', 'Every stage is recorded. Waiting for the verdict.');
-}
-
-export function desktopHeadline(
-  snapshot: PaqadHudSnapshot,
-  now: number,
-  live: LiveState = IDLE_LIVE,
-): DesktopHeadline {
-  if (live.waitingOn === 'question') return headline(3, 'attention', WAITING_FOR_ANSWER);
-  if (live.waitingOn === 'permission') return headline(4, 'attention', WAITING_FOR_PERMISSION);
-  const pending = snapshot.decisions.pending;
-  const table = snapshot.table;
-  const conflicts = pending.filter((decision) => decision.category === CONFLICT_CATEGORY).length;
-  if (pending.length > 0 && table && hasRuled(table) && conflicts > 0) {
-    return headline(
-      5,
-      'attention',
-      `The chief architect has ${plural(conflicts, 'question', 'questions')} for you`,
-    );
-  }
-  if (pending.length > 0) {
-    return headline(
-      6,
-      'attention',
-      pending.length === 1
-        ? '1 decision is waiting for you'
-        : `${pending.length} decisions are waiting for you`,
-    );
-  }
-  const rail = shipRail(snapshot, live);
-  const step = (label: string) => rail.steps.find((entry) => entry.label === label)?.state;
-  if (snapshot.ship?.merged) return headline(7, 'pass', `${prName(snapshot)} is merged`);
-  if (allGreenNow(snapshot)) {
-    return headline(8, 'pass', `${prName(snapshot)} is ready for your merge`);
-  }
-  if (snapshot.ship?.pr_state === 'closed') {
-    return headline(9, 'caution', `${prName(snapshot)} was closed`);
-  }
-  if (step('CI') === 'failed') return headline(10, 'fail', `CI failed on ${prName(snapshot)}`);
-  if (snapshot.ship?.push === 'failed') return headline(11, 'fail', 'The push failed');
-  const verdict = verdictFromEarlierTurn(snapshot, live) ? null : snapshot.verdict;
-  if (verdict?.kind === 'fail') return headline(12, 'fail', failureHeadline(snapshot));
-  if (verdict?.kind === 'inconclusive') {
-    const reason = verdict.reasons[0];
-    return headline(13, 'caution', reason ? `Inconclusive: ${reason}` : 'Inconclusive');
-  }
-  if (step('CI') === 'current') {
-    const delivery = snapshot.stages.find((stage) => stage.stage === 'delivery');
-    return headline(
-      14,
-      'accent',
-      `Watching CI on ${prName(snapshot)}`,
-      clockSince(delivery?.started_at, now),
-    );
-  }
-  const running = snapshot.stages.find((stage) => stage.state === 'running');
-  if (running) {
-    return headline(
-      15,
-      'accent',
-      runningWords(snapshot, running.stage),
-      clockSince(running.started_at, now),
-    );
-  }
-  if (verdict?.kind === 'pass') {
-    return snapshot.ship?.commit_decision === 'decline'
-      ? headline(16, 'pass', 'Done: the edit is in your working tree')
-      : headline(17, 'pass', 'Safe to merge');
-  }
-  return settledHeadline(snapshot);
-}
+export const desktopHeadline = snapshotHeadline;
 
 export function costWords(cost: PaqadHudSnapshot['cost']): string | null {
   if (!cost) return null;
@@ -524,8 +356,14 @@ export function stripAltText(text: string, strip: StripInput): string {
   return parts.join(' ');
 }
 
-export function cardRows(menuOpen: boolean): number {
-  return CARD_ROWS.identity + CARD_ROWS.message + CARD_ROWS.strip + (menuOpen ? CARD_ROWS.menu : 0);
+export function cardRows(menuOpen: boolean, gap = false): number {
+  return (
+    CARD_ROWS.identity +
+    CARD_ROWS.message +
+    CARD_ROWS.strip +
+    (gap ? CARD_ROWS.gap : 0) +
+    (menuOpen ? CARD_ROWS.menu : 0)
+  );
 }
 
 export interface MinimisedView {
@@ -629,7 +467,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   }
   const head = desktopHeadline(snapshot, input.now, live);
   const strip = stripOf(snapshot, input.columns, live);
-  const fits = input.maxRows >= cardRows(input.menuOpen);
+  const fits = input.maxRows >= cardRows(input.menuOpen, head.gap !== null);
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
@@ -647,7 +485,7 @@ export function bandIsLive(band: DesktopBand): boolean {
   return band.kind === 'feature' && band.headline.live;
 }
 
-export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'cau' | 'dim';
+export type { WordTone };
 
 export interface LightView {
   signal: Signal;
@@ -688,211 +526,8 @@ export function ledgerSubtitle(snapshot: PaqadHudSnapshot | null): string {
   return chip ? `What happened, with proof  ·  ${chip}` : 'What happened, with proof';
 }
 
-const NOT_JUDGED_LIGHT: LightView = {
-  signal: 'idle',
-  title: 'Not judged yet',
-  why: 'Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.',
-};
-
-export const GATE_WORDS: Readonly<Record<string, string>> = {
-  'spec-review': 'The spec was reviewed',
-  'requirement-completeness': 'Every requirement is complete',
-  'story-quality': 'The stories are well formed',
-  'implementation-review': 'The code was reviewed',
-  'code-tests-lint': 'Tests, types and lint pass',
-  'behavioral-correctness': 'The behaviour matches the spec',
-  'quality-ratchet': 'Quality did not drop',
-  duplication: 'No near-copies added',
-  'documentation-freshness': 'Docs match the code',
-  'ac-test-mapping': 'Every criterion has a test',
-  'change-completeness': 'Nothing left half done',
-  'mutation-testing': 'Tests catch real mutations',
-  'module-docs-structure': 'Module docs keep their shape',
-  'instructions-docs-structure': 'Instruction docs keep their shape',
-  'extension-surface': 'Public surface stays stable',
-  'architecture-compliance': 'The architecture rules hold',
-  'database-quality': 'Database changes are safe',
-  'fix-proof': 'The fix is proven by a test',
-  'site-map-freshness': 'The site map matches the app',
-  'bundle-completeness': 'The evidence bundle is complete',
-};
-
-export interface TrustGate {
-  name: string;
-  words: string;
-  how: string;
-  required: boolean;
-  verdict: string;
-  word: string;
-  tone: WordTone;
-  arc: GateMark;
-}
-
-const HOW_JUDGED: Readonly<Record<string, string>> = {
-  deterministic: 'Checked by a script',
-  'llm-judged': 'Judged by a reviewer agent',
-};
-
-const VERDICT_WORDS_DESKTOP: Readonly<Record<string, { word: string; tone: WordTone }>> = {
-  pass: { word: 'Pass', tone: 'pass' },
-  fail: { word: 'Fail', tone: 'fail' },
-  inconclusive: { word: 'Inconclusive', tone: 'cau' },
-  'did-not-run': { word: 'Did not run', tone: 'cau' },
-  'not-required': { word: 'Not required', tone: 'dim' },
-};
-
-const ARC_TONE: Readonly<Record<string, GateMark['verdict']>> = {
-  pass: 'pass',
-  fail: 'fail',
-  inconclusive: 'caution',
-  'did-not-run': 'caution',
-};
-
-export function trustGates(snapshot: PaqadHudSnapshot): TrustGate[] {
-  const rows = new Map(snapshot.gates.map((gate) => [gate.name, gate]));
-  const names = [
-    ...snapshot.gates_expected,
-    ...snapshot.gates
-      .map((gate) => gate.name)
-      .filter((name) => !snapshot.gates_expected.includes(name)),
-  ];
-  const judged = snapshot.verdict !== null;
-  const gates = [...new Set(names)].map((name, order) => {
-    const row = rows.get(name);
-    const verdict = row ? row.verdict : judged ? 'not-required' : 'not-judged';
-    const required = row ? row.required && row.verdict !== 'not-required' : !judged;
-    const look = VERDICT_WORDS_DESKTOP[verdict] ?? { word: 'Not judged yet', tone: 'dim' as const };
-    return {
-      order,
-      gate: {
-        name,
-        words: GATE_WORDS[name] ?? name,
-        how: (row?.strength && HOW_JUDGED[row.strength]) || 'How it is judged is not recorded',
-        required,
-        verdict,
-        word: look.word,
-        tone: look.tone,
-        arc: { required, verdict: ARC_TONE[verdict] ?? 'wait' },
-      },
-    };
-  });
-  return gates
-    .sort((a, b) => Number(b.gate.required) - Number(a.gate.required) || a.order - b.order)
-    .map(({ gate }) => gate);
-}
-
-export interface GateRingView {
-  marks: GateMark[];
-  passed: number;
-  required: number;
-  alt: string;
-}
-
-export function gateRingView(gates: readonly TrustGate[]): GateRingView {
-  const required = gates.filter((gate) => gate.required).length;
-  const passed = gates.filter((gate) => gate.required && gate.verdict === 'pass').length;
-  return {
-    marks: gates.map((gate) => gate.arc),
-    passed,
-    required,
-    alt: `${passed} of ${required} required gates pass`,
-  };
-}
-
-export function trustLight(
-  snapshot: PaqadHudSnapshot | null,
-  unreadable: Unreadable | null,
-  now: number,
-  live: LiveState = IDLE_LIVE,
-): LightView {
-  if (unreadable)
-    return { signal: 'attention', title: UNREADABLE, why: UNREADABLE_WHY[unreadable] };
-  if (!snapshot || !snapshot.active) {
-    return {
-      signal: 'idle',
-      title: GETTING_READY,
-      why: 'The change opens when planning starts. Nothing is judged before that.',
-    };
-  }
-  const head = desktopHeadline(snapshot, now, live);
-  const pending = snapshot.decisions.pending.length;
-  const pr = prName(snapshot);
-  switch (head.row) {
-    case 3:
-      return {
-        signal: 'attention',
-        title: WAITING_FOR_ANSWER,
-        why: 'Claude asked you a question. Work goes on once you answer it.',
-      };
-    case 4:
-      return {
-        signal: 'attention',
-        title: WAITING_FOR_PERMISSION,
-        why: 'Claude is waiting for you to allow or refuse a tool call.',
-      };
-    case 5: {
-      const questions = snapshot.decisions.pending.filter(
-        (decision) => decision.category === CONFLICT_CATEGORY,
-      ).length;
-      return {
-        signal: 'attention',
-        title: 'Waiting for your answers',
-        why: `The chief ruled "needs answers". The spec freezes once you answer the ${plural(questions, 'question', 'questions')}.`,
-      };
-    }
-    case 6:
-      return {
-        signal: 'attention',
-        title: 'Waiting for your answers',
-        why: `${pending === 1 ? '1 decision needs' : `${pending} decisions need`} your answer before work goes on.`,
-      };
-    case 7:
-      return { signal: 'pass', title: 'Merged', why: `${pr} is merged.` };
-    case 8:
-    case 17:
-      return { signal: 'pass', title: 'Safe to merge', why: safeToMergeWhy(snapshot) };
-    case 9:
-      return { signal: 'caution', title: 'PR closed', why: `${pr} was closed without a merge.` };
-    case 10:
-      return {
-        signal: 'fail',
-        title: 'CI failed',
-        why: `CI failed on ${pr}. Fix it and push again.`,
-      };
-    case 11:
-      return { signal: 'fail', title: 'The push failed', why: null };
-    case 12:
-      return {
-        signal: 'fail',
-        title: 'Needs your attention',
-        why: `${failureHeadline(snapshot)}. Fix it and run the checks again.`,
-      };
-    case 13:
-      return {
-        signal: 'caution',
-        title: 'Inconclusive',
-        why: snapshot.verdict?.reasons.join('; ') || null,
-      };
-    case 16:
-      return {
-        signal: 'pass',
-        title: 'Checks passed',
-        why: 'Nothing to merge: the edit is in your working tree, uncommitted, as you asked.',
-      };
-    default:
-      return NOT_JUDGED_LIGHT;
-  }
-}
-
-function safeToMergeWhy(snapshot: PaqadHudSnapshot): string {
-  const gates = trustGates(snapshot);
-  const required = gates.filter((gate) => gate.required).length;
-  const passed = gates.filter((gate) => gate.required && gate.verdict === 'pass').length;
-  const skipped = gates.length - required;
-  const head = `${passed} of ${required} required gates pass.`;
-  return skipped > 0
-    ? `${head} ${plural(skipped, 'gate was', 'gates were')} not required for this change and ${skipped === 1 ? 'is' : 'are'} not counted.`
-    : head;
+export function unreadableLight(reason: Unreadable): LightView {
+  return { signal: 'attention', title: UNREADABLE, why: UNREADABLE_WHY[reason] };
 }
 
 export interface ClaimRow {
@@ -954,10 +589,23 @@ export interface FlagRow {
   text: string;
 }
 
+export {
+  GATE_STATE_WORDS,
+  NOTHING_TO_PROVE,
+  STEP_MARKS,
+  type StepMark,
+  type TrustGateRow,
+  type TrustStage,
+  type TrustStep,
+} from './trust';
+
 export interface TrustView {
-  light: LightView;
-  ring: GateRingView;
-  gates: TrustGate[];
+  empty: string | null;
+  note: string | null;
+  stages: TrustStage[];
+  gates: TrustGateRow[];
+  repairs: string | null;
+  gaps: string[];
   claims: ClaimsView;
   flags: FlagRow[];
 }
@@ -972,25 +620,36 @@ export function ruleStopHistory(snapshot: PaqadHudSnapshot): FlagRow | null {
   };
 }
 
-export function trustView(
-  snapshot: PaqadHudSnapshot,
-  now: number,
-  live: LiveState = IDLE_LIVE,
-): TrustView {
-  const gates = trustGates(snapshot);
-  const history = snapshot.active ? ruleStopHistory(snapshot) : null;
-  return {
-    light: trustLight(snapshot, null, now, live),
-    ring: gateRingView(gates),
+export function trustView(snapshot: PaqadHudSnapshot): TrustView {
+  const active = snapshot.active;
+  const history = active ? ruleStopHistory(snapshot) : null;
+  const proof = active ? (snapshot.proof ?? null) : [];
+  const stages = proof && proof.some(stageHasEvidence) ? proof.map(trustStage) : [];
+  const gates = active && proof === null ? oldRecordGates(snapshot) : [];
+  const claims = claimsView(snapshot);
+  const view: TrustView = {
+    empty: null,
+    note: gates.length > 0 ? OLD_RECORD_NOTE : null,
+    stages,
     gates,
-    claims: claimsView(snapshot),
-    flags: snapshot.active
+    repairs: active ? repairLine(snapshot) : null,
+    gaps: active ? recordGapLines(snapshot) : [],
+    claims,
+    flags: active
       ? [
           ...snapshot.flags.map((flag) => ({ id: flag.id, text: flag.text })),
           ...(history ? [history] : []),
         ]
       : [],
   };
+  const nothing =
+    stages.length === 0 &&
+    gates.length === 0 &&
+    view.repairs === null &&
+    view.gaps.length === 0 &&
+    claims.rows.length === 0 &&
+    view.flags.length === 0;
+  return nothing ? { ...view, empty: NOTHING_TO_PROVE } : view;
 }
 
 export interface SeatRow {
@@ -1445,7 +1104,6 @@ export const NOT_COUNTED_WORDS =
   'Not counted: your own typing time, other sessions, and the HUD itself (0 tokens).';
 export const COUNTING_WORDS = 'Counting: this turn is still running.';
 export const COST_LATER = 'Nothing counted yet. The cost starts when the change opens.';
-export const NO_FLAGS = 'No open flags.';
 
 function lineRight(line: PaqadCostLine): string {
   const tokens = formatTokens(line.tokens.total);
@@ -1559,7 +1217,7 @@ export interface DesktopLedgerInput {
 
 export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
   const unreadable = unreadableReason(input);
-  if (unreadable) return { kind: 'unreadable', light: trustLight(null, unreadable, input.now) };
+  if (unreadable) return { kind: 'unreadable', light: unreadableLight(unreadable) };
   const snapshot = input.snapshot;
   if (!snapshot) return { kind: 'none' };
   const route = statusEntryRoute(snapshot);
@@ -1570,7 +1228,7 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
     subtitle: ledgerSubtitle(snapshot),
     tabs,
     shown: tabs.find((tab) => tab.shown)!.id,
-    trust: trustView(snapshot, input.now, input.live),
+    trust: trustView(snapshot),
     table: tableView(snapshot, input.specText),
     delivery: deliveryView(snapshot, input.live),
     record: recordView(snapshot),

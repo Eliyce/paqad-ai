@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5SHWHCZ1Y9XJFC6RG1F5QFW",
+  "category": "spec.contradiction",
+  "title": "Stop deferral: typed background tasks and a ceiling that resets every turn",
+  "context": "Review found that the frozen spec contradicts itself. FR-7 says turn end defers while any background task runs with a stage open. INV-1 says Stop and agent-blocking decisions stay as on main. INV-12 says a background task left open forever never ends a turn unjudged. The build removed main's typed-task guard (src/stage-evidence/completion-deferred.ts:91), so a non-paqad background agent or a background dev server with a stage open now defers the Stop check, where main judged it. The 30 minute ceiling ignores deferred rows from before the current turn (line 125), and a deferred Stop runs no finalize, so the open stage stays open. A task that never ends therefore defers the first Stop of every turn, and the change is never judged across turns. AC-39 only tests one turn. The checks-run marker deferral itself is sound.",
+  "options": [
+    {
+      "option_key": "restore",
+      "label": "Restore main's guard (defer only for paqad- stage agents, untyped tasks with an open stage, or a live checks marker) and count the 30 minute ceiling from the first deferral since the last judged Stop, across turns",
+      "one_line_preview": "Restore main's guard (defer only for paqad- stage agents, untyped tasks with an open stage, or a live checks marker) and count the 30 minute ceiling from the first deferral since the last judged Stop, across turns",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "span",
+      "label": "Keep FR-7 (any background task defers) but count the ceiling across turns from the first deferral since the last judged Stop",
+      "one_line_preview": "Keep FR-7 (any background task defers) but count the ceiling across turns from the first deferral since the last judged Stop",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "accept",
+      "label": "Ship as built: FR-7 wins and INV-12 holds only within one turn",
+      "one_line_preview": "Ship as built: FR-7 wins and INV-12 holds only within one turn",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "restore",
+  "created_at": "2026-10-25T12:52:06.175Z",
+  "status": "resolved",
+  "change": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "chosen": "restore",
+  "rationale": "Owner (Haider) chose 'Restore main's rule' in chat on 2026-10-25",
+  "resolved_at": "2026-10-25T13:52:02.176Z",
+  "decision_id": "D-01M5SHWHCZ1Y9XJFC6RG1F5QFW",
+  "fingerprint": "sha256:6f4089082f0bb94a601a6affd3b5f7ebc76a49af40ee755f2f98bb0ced5721a8",
+  "question": "Stop deferral: typed background tasks and a ceiling that resets every turn",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "ttl_until": "2026-11-01T12:52:06.175Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "restore",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-25T13:52:02.176Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) chose 'Restore main's rule' in chat on 2026-10-25"
+  }
+}

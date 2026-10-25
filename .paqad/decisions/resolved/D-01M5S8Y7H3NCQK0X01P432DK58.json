@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5S8Y7H3NCQK0X01P432DK58",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/claude-plugin/mod",
+  "context": "Chief architect: Ruling, not a real disagreement: both seats want the mod to render one headline computed in src/hud. Recommending the snapshot-data wording because it also pins the package boundary (no new import from src into the plugin bundle). Accept as recommended.\n\nTarget: runtime/claude-plugin/mod\n- solution-architect: the plugin mod imports nothing from src today, so sharing the gate catalog and headline must happen through snapshot data, not a new import across the package boundary that would change the plugin bundle\n- application-architect: the mod only renders fields the snapshot already carries; desktopHeadline and buildBandView in model.ts stop deriving their own headline and read the one computed by computeHudHeadline in src/hud/snapshot.ts\n\n[expert-conflict-fork:4f1cecda3e0a749f]",
+  "options": [
+    {
+      "option_key": "the-plugin-mod-imports-nothing-from-src-",
+      "label": "the plugin mod imports nothing from src today, so sharing the gate catalog and headline must happen through snapshot data, not a new import across the package boundary that would change the plugin bundle — solution-architect",
+      "one_line_preview": "the plugin mod imports nothing from src today, so sharing the gate catalog and headline must happen through snapshot data, not a new import across the package boundary that would change the plugin bundle — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-mod-only-renders-fields-the-snapshot",
+      "label": "the mod only renders fields the snapshot already carries; desktopHeadline and buildBandView in model.ts stop deriving their own headline and read the one computed by computeHudHeadline in src/hud/snapshot.ts — application-architect",
+      "one_line_preview": "the mod only renders fields the snapshot already carries; desktopHeadline and buildBandView in model.ts stop deriving their own headline and read the one computed by computeHudHeadline in src/hud/snapshot.ts — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-plugin-mod-imports-nothing-from-src-",
+  "created_at": "2026-10-25T10:15:44.420Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "chosen": "the-plugin-mod-imports-nothing-from-src-",
+  "rationale": "Owner (Haider) accepted the recommendation in chat on 2026-10-25",
+  "resolved_at": "2026-10-25T10:26:04.550Z",
+  "decision_id": "D-01M5S8Y7H3NCQK0X01P432DK58",
+  "fingerprint": "sha256:1dad81be7d3edb0d391f6a8fb5ac0d80a93bf70590da1144c33ab130519080d8",
+  "question": "Experts disagree on runtime/claude-plugin/mod",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "ttl_until": "2026-11-24T10:15:44.420Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-plugin-mod-imports-nothing-from-src-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-25T10:26:04.550Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) accepted the recommendation in chat on 2026-10-25"
+  }
+}

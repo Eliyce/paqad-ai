@@ -22,6 +22,7 @@ import type {
   TestIssueCategory,
 } from '@/core/types/test-output.js';
 import type { MutationResult } from '@/core/types/mutation.js';
+import { gradeGateResult } from '@/evidence/grading.js';
 import { extractAcIdFromIssue } from '@/verification/gates/ac-test-mapping.js';
 
 export const VERIFICATION_EVIDENCE_RELATIVE_PATH = '.paqad/session/verification-evidence.json';
@@ -61,6 +62,7 @@ export function buildVerificationEvidence(
     }
 
     const status = mapGateStatus(result);
+    const unproven = status === 'pass' && gradeGateResult(result).verdict === 'inconclusive';
     const failures =
       gate === 'code-tests-lint'
         ? testFailures
@@ -75,6 +77,8 @@ export function buildVerificationEvidence(
       remediation: result.remediation ?? null,
       failures,
       ...(result.outcome ? { skip_kind: result.outcome } : {}),
+      ...(unproven ? { could_not_prove: true as const } : {}),
+      ...(result.outcome && result.skip_reason ? { skip_reason: result.skip_reason } : {}),
       ...(gate === 'mutation-testing' && mutationResult
         ? { confidence: mutationResult.confidence }
         : {}),
@@ -117,16 +121,11 @@ export async function writeVerificationEvidence(
 }
 
 function mapGateStatus(result: GateResult): EvidenceGateStatus {
-  if (result.outcome) {
-    return 'skipped';
+  const { verdict } = gradeGateResult(result);
+  if (verdict === 'skipped' || verdict === 'fail') {
+    return verdict;
   }
-  if (result.passed) {
-    return 'pass';
-  }
-  if (result.inconclusive) {
-    return 'inconclusive';
-  }
-  return 'fail';
+  return verdict === 'inconclusive' && !result.passed ? 'inconclusive' : 'pass';
 }
 
 function collectTestFailures(

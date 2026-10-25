@@ -3,52 +3,42 @@ import { formatStopwatch } from './cost';
 import { STAGE_TIMELINE_KINDS, fixProofClaims } from './model';
 import { shipRail } from './ship';
 import type { TableLine, TableSegment } from './table';
+import {
+  NOTHING_TO_PROVE,
+  OLD_RECORD_NOTE,
+  STEP_MARKS,
+  oldRecordGates,
+  recordGapLines,
+  repairLine,
+  stageHasEvidence,
+  trustStage,
+  type TrustGateRow,
+  type TrustStage,
+  type WordTone,
+} from './trust';
 import type {
   PaqadCiJob,
   PaqadClaim,
-  PaqadGate,
-  PaqadGateStrength,
   PaqadHudSnapshot,
   PaqadTimelineEntry,
   PaqadTone,
 } from './types';
 
-export const NO_GATES = 'No gates judged yet.';
 export const NOTHING_PUSHED = 'Nothing pushed yet.';
-export const NO_PLAN = 'No plan recorded yet.';
 
 const NO_CHANGE = 'No change is in progress.';
+export const NO_PLAN = 'No plan recorded yet.';
 
-const GATE_WORDS: Record<string, { word: string; tone?: PaqadTone; mark: string }> = {
-  pass: { word: 'pass', tone: 'good', mark: '●' },
-  fail: { word: 'fail', tone: 'bad', mark: '✗' },
-  inconclusive: { word: 'inconclusive', tone: 'warn', mark: '~' },
-  'did-not-run': { word: 'did not run', tone: 'warn', mark: '○' },
-  'not-required': { word: 'not required', mark: '–' },
-  'not-judged': { word: 'not judged yet', mark: '○' },
-  pending: { word: 'pending', mark: '·' },
-};
-
-export const NOT_JUDGED = 'Not judged yet';
-export const NOT_JUDGED_WHY =
-  'Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.';
 export const CLAIMS_HEADING = 'Claims and the tests that prove them';
 export const FLAGS_HEADING = 'Flags';
 
-function gateWord(verdict: string): { word: string; tone?: PaqadTone; mark: string } {
-  return GATE_WORDS[verdict] ?? GATE_WORDS.pending!;
-}
-
-const STRENGTH_GROUPS: ReadonlyArray<{ strength: PaqadGateStrength; label: string }> = [
-  { strength: 'deterministic', label: 'Deterministic' },
-  { strength: 'llm-judged', label: 'Judged by a model' },
-  { strength: null, label: 'Strength not recorded' },
-];
-
-const VERDICT_TONE: Record<string, PaqadTone> = {
+const TERMINAL_TONE: Readonly<Record<WordTone, PaqadTone | null>> = {
   pass: 'good',
   fail: 'bad',
-  inconclusive: 'warn',
+  cau: 'warn',
+  acc: 'working',
+  att: 'warn',
+  dim: null,
 };
 
 function line(...segments: Array<TableSegment | string>): TableLine {
@@ -59,71 +49,29 @@ function heading(text: string): TableLine {
   return [{ text, dim: true }];
 }
 
-export function requiredGates(gates: readonly PaqadGate[]): PaqadGate[] {
-  return gates.filter((gate) => gate.required && gate.verdict !== 'not-required');
+function worded(text: string, tone: WordTone): TableSegment {
+  const terminal = TERMINAL_TONE[tone];
+  return terminal ? { text, tone: terminal } : { text, dim: true };
 }
 
-export function gateRing(gates: readonly PaqadGate[]): TableLine {
-  const required = requiredGates(gates);
-  const passed = required.filter((gate) => gate.verdict === 'pass').length;
-  const marks: TableSegment[] = required.map((gate) => {
-    const { mark, tone } = gateWord(gate.verdict);
-    return { text: mark, ...(tone ? { tone } : {}) };
-  });
+function stepLine(step: TrustStage['steps'][number]): TableLine {
+  const mark = STEP_MARKS[step.mark];
   return [
-    { text: 'Gates ', dim: true },
-    ...marks,
-    { text: `  ${passed}/${required.length} required` },
+    step.mark === 'failed' ? { text: `  ${mark} `, tone: 'bad' } : { text: `  ${mark} ` },
+    step.mark === 'not-yet' ? { text: step.words, dim: true } : { text: step.words },
+    ...(step.detail ? [{ text: `  ${step.detail}`, dim: true }] : []),
   ];
 }
 
-const RING_COLOR: Record<string, string> = {
-  pass: '#2e9d5b',
-  fail: '#d0573f',
-  inconclusive: '#d08b1e',
-  'did-not-run': '#d08b1e',
-};
-
-export function gateRingAlt(gates: readonly PaqadGate[]): string {
-  const required = requiredGates(gates);
-  const passed = required.filter((gate) => gate.verdict === 'pass').length;
-  const waiting = required.filter((gate) => gate.verdict === 'not-judged').length;
-  return `Gates: ${passed} of ${required.length} required pass${waiting > 0 ? `, ${waiting} not judged yet` : ''}.`;
+function gateRowLine(gate: TrustGateRow): TableLine {
+  return [{ text: `    ${gate.words}  ` }, worded(gate.word, gate.tone)];
 }
 
-export function gateRingSvg(gates: readonly PaqadGate[]): { source: string; alt: string } {
-  const required = requiredGates(gates);
-  const size = 96;
-  const centre = size / 2;
-  const radius = 38;
-  const n = Math.max(1, required.length);
-  const arcs = required.map((gate, index) => {
-    const from = ((index * 360) / n + 3 - 90) * (Math.PI / 180);
-    const to = (((index + 1) * 360) / n - 3 - 90) * (Math.PI / 180);
-    const point = (angle: number) =>
-      `${(centre + radius * Math.cos(angle)).toFixed(2)} ${(centre + radius * Math.sin(angle)).toFixed(2)}`;
-    const large = 360 / n - 6 > 180 ? 1 : 0;
-    const color = RING_COLOR[gate.verdict] ?? 'silver';
-    return `<path d="M ${point(from)} A ${radius} ${radius} 0 ${large} 1 ${point(to)}" stroke="${color}" stroke-width="10" fill="none"/>`;
-  });
-  const passed = required.filter((gate) => gate.verdict === 'pass').length;
-  return {
-    source: [
-      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">`,
-      ...arcs,
-      `<text x="${centre}" y="${centre + 5}" text-anchor="middle" font-size="14" fill="gray">${passed}/${required.length}</text>`,
-      '</svg>',
-    ].join(''),
-    alt: gateRingAlt(gates),
-  };
-}
-
-function gateLine(gate: PaqadGate): TableLine {
-  const { word, tone, mark } = gateWord(gate.verdict);
-  const settled = gate.verdict === 'not-required' || gate.verdict === 'not-judged';
+function stageLines(stage: TrustStage): TableLine[] {
   return [
-    { text: `  ${mark} ${gate.name}  ` },
-    { text: word, ...(tone ? { tone } : {}), ...(settled ? { dim: true } : {}) },
+    [{ text: `${stage.words}  ` }, worded(stage.word, stage.tone)],
+    ...stage.steps.map(stepLine),
+    ...stage.gates.map(gateRowLine),
   ];
 }
 
@@ -141,41 +89,27 @@ function claimLine(claim: PaqadClaim): TableLine {
 }
 
 export function trustLines(snapshot: PaqadHudSnapshot | null): TableLine[] {
-  if (!snapshot?.active) return [line(snapshot ? NO_CHANGE : NO_GATES)];
-  const lines: TableLine[] = [];
-  if (snapshot.verdict) {
-    const tone = VERDICT_TONE[snapshot.verdict.kind];
-    lines.push(
-      line(
-        { text: 'Verdict ', dim: true },
-        { text: snapshot.verdict.word, ...(tone ? { tone } : {}) },
-      ),
-    );
-  } else {
-    lines.push(line({ text: NOT_JUDGED }), line({ text: NOT_JUDGED_WHY, dim: true }));
-  }
-  if (snapshot.gates.length === 0) {
-    lines.push(line(NO_GATES));
-  } else {
-    lines.push(gateRing(snapshot.gates));
-    for (const group of STRENGTH_GROUPS) {
-      const gates = snapshot.gates.filter((gate) => gate.strength === group.strength);
-      if (gates.length === 0) continue;
-      lines.push(heading(group.label), ...gates.map(gateLine));
-    }
-  }
+  if (!snapshot?.active) return [line(NOTHING_TO_PROVE)];
+  const proof = snapshot.proof ?? null;
+  const stages = proof && proof.some(stageHasEvidence) ? proof.map(trustStage) : [];
+  const gates = proof === null ? oldRecordGates(snapshot) : [];
+  const repairs = repairLine(snapshot);
   const claims = fixProofClaims(snapshot);
-  lines.push(
-    heading(CLAIMS_HEADING),
-    ...(claims.length > 0
-      ? claims.map(claimLine)
-      : [line({ text: '  No claim recorded for this change.', dim: true })]),
-    heading(FLAGS_HEADING),
+  const lines: TableLine[] = [
+    ...stages.flatMap(stageLines),
+    ...(gates.length > 0 ? [line({ text: OLD_RECORD_NOTE, dim: true })] : []),
+    ...gates.map(gateRowLine),
+    ...recordGapLines(snapshot).map((gap) => line(gap)),
+    ...(repairs ? [line({ text: repairs, dim: true })] : []),
+    ...(claims.length > 0 ? [heading(CLAIMS_HEADING), ...claims.map(claimLine)] : []),
     ...(snapshot.flags.length > 0
-      ? snapshot.flags.map((flag) => line({ text: '  flag ', tone: 'warn' }, flag.text))
-      : [line({ text: '  No flag is open.', dim: true })]),
-  );
-  return lines;
+      ? [
+          heading(FLAGS_HEADING),
+          ...snapshot.flags.map((flag) => line({ text: '  flag ', tone: 'warn' }, flag.text)),
+        ]
+      : []),
+  ];
+  return lines.length > 0 ? lines : [line(NOTHING_TO_PROVE)];
 }
 
 function row(label: string, value: string, tone?: PaqadTone, dim = false): TableLine {

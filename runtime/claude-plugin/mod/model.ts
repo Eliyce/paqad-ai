@@ -1,5 +1,6 @@
 import { verdictFromEarlierTurn, waitingOnHuman } from './attention';
 import { costPill, formatClock } from './cost';
+import { NO_RECORD, judgedHeadline, snapshotHeadline } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
 import { tableInstrument, type TableInstrument } from './table';
 import type {
@@ -14,6 +15,11 @@ import type {
   PaqadFindingsScan,
   PaqadGate,
   PaqadGateStrength,
+  PaqadProofStep,
+  PaqadRepair,
+  PaqadStageProof,
+  PaqadRung,
+  PaqadHeadline,
   PaqadHighTable,
   PaqadHudSnapshot,
   PaqadHudStage,
@@ -447,7 +453,76 @@ function readGate(value: unknown): PaqadGate | null {
     verdict,
     required: typeof gate.required === 'boolean' ? gate.required : verdict !== 'not-required',
     strength: GATE_STRENGTHS.find((strength) => strength === gate.strength) ?? null,
+    ...(gate.owner === 'work' || gate.owner === 'paqad-record' ? { owner: gate.owner } : {}),
   };
+}
+
+const VERDICT_KINDS = ['pass', 'fail', 'inconclusive'] as const;
+
+const RUNGS: readonly PaqadRung[] = ['done', 'committed', 'pr-open', 'safe-to-merge', 'merged'];
+
+function readRung(value: unknown): { rung?: PaqadRung } {
+  const rung = RUNGS.find((known) => known === value);
+  return rung ? { rung } : {};
+}
+
+function readHeadline(headline: Rec | null, tone: PaqadTone): PaqadHeadline {
+  const row = num(headline?.row);
+  const word = str(headline?.word);
+  const note = str(headline?.note);
+  const gap = str(headline?.gap);
+  const clockFrom = str(headline?.clock_from);
+  return {
+    text: str(headline?.text) ?? '',
+    tone,
+    ...(row !== null ? { row } : {}),
+    ...(word ? { word } : {}),
+    ...readRung(headline?.rung),
+    ...(note ? { note } : {}),
+    ...(gap ? { gap } : {}),
+    ...(clockFrom ? { clock_from: clockFrom } : {}),
+  };
+}
+
+function readVerdictParts(verdict: Record<string, unknown>): {
+  work_kind?: (typeof VERDICT_KINDS)[number];
+  work_reasons?: string[];
+  record_gaps?: string[];
+} {
+  const workKind = VERDICT_KINDS.find((kind) => kind === verdict.work_kind);
+  return {
+    ...(workKind ? { work_kind: workKind } : {}),
+    ...(Array.isArray(verdict.work_reasons) ? { work_reasons: strings(verdict.work_reasons) } : {}),
+    ...(Array.isArray(verdict.record_gaps) ? { record_gaps: strings(verdict.record_gaps) } : {}),
+  };
+}
+
+const STEP_STATES: ReadonlyArray<PaqadProofStep['state']> = ['done', 'failed', 'not-yet'];
+
+function readProof(value: unknown): PaqadStageProof[] {
+  return each(value, (entry) => ({
+    stage: str(entry.stage) ?? '',
+    words: str(entry.words) ?? str(entry.stage) ?? '',
+    state: str(entry.state) ?? 'missing',
+    steps: each(entry.steps, (row) => ({
+      id: str(row.id) ?? '',
+      words: str(row.words) ?? '',
+      detail: str(row.detail),
+      state: STEP_STATES.find((state) => state === row.state) ?? 'not-yet',
+    })).filter((row) => row.words !== ''),
+    gates: each(entry.gates, (row) => ({
+      code: str(row.code) ?? '',
+      words: str(row.words) ?? '',
+      state: str(row.state) ?? 'not-judged',
+    })).filter((row) => row.words !== ''),
+  })).filter((entry) => entry.stage !== '');
+}
+
+function readRepairs(value: unknown): PaqadRepair[] {
+  return list(value).flatMap((entry) => {
+    const what = str(rec(entry)?.what);
+    return what ? [{ what, at: str(rec(entry)?.at) }] : [];
+  });
 }
 
 function readClaim(value: unknown): PaqadClaim | null {
@@ -591,7 +666,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
       ? { lane_stages: list(snap.lane_stages).filter((s): s is string => typeof s === 'string') }
       : {}),
     lane_reason: str(snap.lane_reason),
-    headline: { text: str(headline?.text) ?? '', tone },
+    headline: readHeadline(headline, tone),
     change: change
       ? {
           dir: str(change.dir),
@@ -690,10 +765,16 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
             kind,
             reasons: list(verdict.reasons).filter((r): r is string => typeof r === 'string'),
             ...(writtenAt ? { at: writtenAt } : {}),
+            ...readVerdictParts(verdict),
           }
         : null,
     receipt: receiptFile ? { path: receiptFile } : null,
     cost: readCost(snap.cost),
+    ...(Array.isArray(snap.record_gaps) ? { record_gaps: strings(snap.record_gaps) } : {}),
+    ...(Array.isArray(snap.repairs) ? { repairs: readRepairs(snap.repairs) } : {}),
+    ...readRung(snap.rung),
+    ...(snap.verdict_stale === true ? { verdict_stale: true as const } : {}),
+    ...(Array.isArray(snap.proof) ? { proof: readProof(snap.proof) } : {}),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
 }
@@ -717,6 +798,11 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     verdict: null,
     receipt: null,
     cost: null,
+    record_gaps: undefined,
+    repairs: undefined,
+    rung: undefined,
+    verdict_stale: undefined,
+    proof: undefined,
   };
 }
 
@@ -737,9 +823,9 @@ export const BAND_STATES = [
   'Paused',
 ] as const;
 
-export type BandState = (typeof BAND_STATES)[number];
+export type BandState = string;
 
-const STATE_TONE: Record<BandState, PaqadTone> = {
+const STATE_TONE: Record<(typeof BAND_STATES)[number], PaqadTone> = {
   Ready: 'neutral',
   Working: 'working',
   'Branch warning': 'warn',
@@ -765,6 +851,7 @@ export function bandState(
     if (snapshot.route && snapshot.route !== 'no-workflow') return 'Working';
     return 'Ready';
   }
+  if (judgedHeadline(snapshot)) return snapshot.headline.word ?? 'Working';
   if (snapshot.flags.some(isBranchFlag)) return 'Branch warning';
   if (snapshot.stages.some((stage) => stage.state === 'running')) return 'Working';
   if (snapshot.verdict && !verdictFromEarlierTurn(snapshot, live)) {
@@ -774,7 +861,7 @@ export function bandState(
 }
 
 export function bandTone(state: BandState, flags: number): PaqadTone {
-  const tone = STATE_TONE[state];
+  const tone = STATE_TONE[state as (typeof BAND_STATES)[number]] ?? 'neutral';
   if (flags > 0 && (tone === 'good' || tone === 'working' || tone === 'neutral')) return 'warn';
   return tone;
 }
@@ -870,6 +957,8 @@ export interface BandView {
   state: BandState;
   tone: PaqadTone;
   headline: string;
+  note: string | null;
+  gap: string | null;
   flags: number;
   stages: StageSegment[];
   clock: string | null;
@@ -897,10 +986,14 @@ export function buildBandView(
   const state = bandState(snapshot, live);
   const flags = snapshot?.flags.length ?? 0;
   const stages = stageSegments(snapshot);
+  const head = snapshot ? snapshotHeadline(snapshot, now, live) : null;
+  const judged = judgedHeadline(snapshot) || live.waitingOn !== null;
   return {
     state,
-    tone: bandTone(state, flags),
-    headline: snapshot?.headline.text || 'Not yet. paqad has no record for this session.',
+    tone: judged && head ? head.tone : bandTone(state, flags),
+    headline: head ? head.text : NO_RECORD,
+    note: head?.note ?? null,
+    gap: head?.gap ?? null,
     flags,
     stages,
     clock: liveClock(stages, now),
