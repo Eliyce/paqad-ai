@@ -1,3 +1,4 @@
+import { GATE_CATALOG } from '@/core/types/verification.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import {
   featureBranch,
@@ -25,27 +26,9 @@ export interface HudChangeScope {
   reason: HudScopeReason;
 }
 
-export const GATE_JUDGED_AFTER: Readonly<Record<string, string>> = {
-  'spec-review': 'specification',
-  'requirement-completeness': 'specification',
-  'story-quality': 'specification',
-  'change-completeness': 'development',
-  'architecture-compliance': 'development',
-  'database-quality': 'development',
-  duplication: 'development',
-  'extension-surface': 'development',
-  'fix-proof': 'development',
-  'implementation-review': 'review',
-  'code-tests-lint': 'checks',
-  'behavioral-correctness': 'checks',
-  'mutation-testing': 'checks',
-  'quality-ratchet': 'checks',
-  'ac-test-mapping': 'checks',
-  'documentation-freshness': 'documentation_sync',
-  'module-docs-structure': 'documentation_sync',
-  'instructions-docs-structure': 'documentation_sync',
-  'site-map-freshness': 'documentation_sync',
-};
+export const GATE_JUDGED_AFTER: Readonly<Record<string, string>> = Object.fromEntries(
+  Object.entries(GATE_CATALOG).map(([code, entry]) => [code, entry.stage]),
+);
 
 const UNKNOWN_GATE_STAGE = 'checks';
 

@@ -46,7 +46,7 @@ import {
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 import { raiseTechDebt } from '@/tech-debt/index.js';
-import { DEFAULT_GATE_CODES } from '@/verification/gate-runner.js';
+import { VERIFICATION_GATES } from '@/core/types/verification.js';
 import {
   readFeatureDelivery,
   reconcileDeliveryFromGit,
@@ -352,7 +352,7 @@ describe('buildHudSnapshot', () => {
       {
         name: 'visual-evidence',
         required: false,
-        strength: 'deterministic',
+        strength: null,
         verdict: 'not-required',
       },
     ]);
@@ -1481,16 +1481,28 @@ describe('the live High Table on the snapshot', () => {
 });
 
 describe('AC-27: the gate list before Checks', () => {
-  it('names every default gate in run order, before a change opens and while one is open', () => {
+  it('names every catalog gate in run order, before a change opens and while one is open', () => {
     const root = onboardedRoot();
     const S = 'ses-gates-expected';
     persistLedgerSessionId(root, S);
     const idle = buildHudSnapshot(root, S, { now: NOW });
-    expect(idle.gates_expected).toEqual([...DEFAULT_GATE_CODES]);
+    expect(idle.gates_expected).toEqual([...VERIFICATION_GATES]);
     openChange(root, S, 'full', 'ORD-501 csv export');
     const open = buildHudSnapshot(root, S, { now: NOW });
-    expect(open.gates_expected).toEqual([...DEFAULT_GATE_CODES]);
+    expect(open.gates_expected).toEqual([...VERIFICATION_GATES]);
     expect(open.gates_expected[0]).toBe('change-completeness');
-    expect(open.gates_expected.at(-1)).toBe('extension-surface');
+    expect(open.gates_expected.at(-1)).toBe('duplication');
+  });
+
+  it('expects only the gates whose stage is on a fast lane', () => {
+    const root = onboardedRoot();
+    const S = 'ses-gates-fast';
+    persistLedgerSessionId(root, S);
+    openChange(root, S, 'fast', 'ORD-490 typo');
+    const expected = buildHudSnapshot(root, S, { now: NOW }).gates_expected;
+    expect(expected).toContain('code-tests-lint');
+    expect(expected).not.toContain('spec-review');
+    expect(expected).not.toContain('implementation-review');
+    expect(expected).not.toContain('documentation-freshness');
   });
 });

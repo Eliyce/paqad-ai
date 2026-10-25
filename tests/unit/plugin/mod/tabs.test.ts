@@ -52,7 +52,7 @@ describe('the Trust tab', () => {
     expect(lines).toContain('  ✗ duplication  fail');
     expect(lines).toContain('  – mutation-testing  not required');
     expect(lines).toContain('Judged by a model');
-    expect(lines).toContain('  ~ review-quality  inconclusive');
+    expect(lines).toContain('  ~ review-quality  could not prove');
     expect(lines).toContain('Strength not recorded');
     expect(lines).toContain('  ○ late-gate  did not run');
     expect(lines.indexOf('Deterministic')).toBeLessThan(lines.indexOf('Judged by a model'));

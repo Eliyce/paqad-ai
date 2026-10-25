@@ -4,7 +4,6 @@ import { join } from 'node:path';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readContractDecisions, type StoredContractDecision } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
-import { GATE_STRENGTH_TIER, LATE_GATE_STRENGTH_TIER } from '@/evidence/grading.js';
 import {
   FIX_PROOF_STATE_LABEL,
   foldFixProofState,
@@ -69,8 +68,11 @@ import {
   buildBundleCompletenessConfig,
   stageIsolationStatus,
 } from '@/verification/repository/bundle-completeness-config.js';
-import type { VerificationGate } from '@/core/types/verification.js';
-import { DEFAULT_GATE_CODES } from '@/verification/gate-runner.js';
+import {
+  VERIFICATION_GATES,
+  gateCatalogEntry,
+  gateExpectedOnLane,
+} from '@/core/types/verification.js';
 
 import {
   gateIsJudged,
@@ -752,14 +754,30 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
     const verdict: HudGateVerdict = gateIsJudged(code, rowRecordedAt(row), stageEnds)
       ? readGateVerdict(row)
       : 'not-judged';
-    const tier = GATE_STRENGTH_TIER[code as VerificationGate] ?? LATE_GATE_STRENGTH_TIER[code];
-    const strength =
-      tier ??
-      (row.strength_class === 'deterministic' || row.strength_class === 'llm-judged'
-        ? row.strength_class
-        : null);
-    return { name: code, required: verdict !== 'not-required', strength, verdict };
+    return {
+      name: code,
+      required: verdict !== 'not-required',
+      strength: gateStrengthFromRun(code, row, verdict),
+      verdict,
+    };
   });
+}
+
+function gateStrengthFromRun(
+  code: string,
+  row: Record<string, unknown>,
+  verdict: HudGateVerdict,
+): HudGate['strength'] {
+  if (verdict === 'did-not-run' || verdict === 'not-required') return null;
+  const tier = gateCatalogEntry(code)?.strength;
+  if (tier) return tier;
+  return row.strength_class === 'deterministic' || row.strength_class === 'llm-judged'
+    ? row.strength_class
+    : null;
+}
+
+export function expectedGateCodes(lane: string | null): string[] {
+  return VERIFICATION_GATES.filter((code) => gateExpectedOnLane(code, lane));
 }
 
 function ownPr(
@@ -1169,7 +1187,7 @@ export function buildHudSnapshot(
       table: null,
       claims: [],
       gates: [],
-      gates_expected: [...DEFAULT_GATE_CODES],
+      gates_expected: expectedGateCodes(workflow.active?.lane ?? null),
       flags: [],
       rules: { recorded: false, applicable: null, loaded_at: null },
       findings: null,
@@ -1278,7 +1296,7 @@ export function buildHudSnapshot(
       ...buildAcceptanceClaims(projectRoot, dirName, lane, changedFiles, specJson),
     ],
     gates,
-    gates_expected: [...DEFAULT_GATE_CODES],
+    gates_expected: expectedGateCodes(lane),
     flags,
     rules: {
       recorded: rulesLoaded !== null,

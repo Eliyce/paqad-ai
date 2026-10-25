@@ -304,7 +304,8 @@ describe('gates are judged only after their stage ended', () => {
     expect(GATE_JUDGED_AFTER['implementation-review']).toBe('review');
     expect(GATE_JUDGED_AFTER['ac-test-mapping']).toBe('checks');
     expect(GATE_JUDGED_AFTER['site-map-freshness']).toBe('documentation_sync');
-    expect(Object.keys(GATE_JUDGED_AFTER)).toHaveLength(19);
+    expect(GATE_JUDGED_AFTER['stage-evidence']).toBe('checks');
+    expect(Object.keys(GATE_JUDGED_AFTER)).toHaveLength(25);
     expect(gateIsJudged('spec-review', 'not a time', new Map([['specification', 0]]))).toBe(false);
   });
 });

@@ -1,5 +1,6 @@
 import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT, paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import type { GateSkipKind, VerificationGate, WaitingDecision } from '@/core/types/verification.js';
+import { GATE_STATE_LABEL, type GateState } from '@/evidence/grading.js';
 import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
 import type {
   EvidenceGateStatus,
@@ -100,16 +101,13 @@ export function formatVerdictSummary(input: {
     );
   } else if (kind === 'fail') {
     lines.push(paqadFrameLead(PAQAD_VERDICT.fail));
-    for (const gate of [...failing, ...inconclusive]) {
-      const glyph =
-        gate.status === 'fail' ? PAQAD_STATUS_GLYPH.failed : PAQAD_STATUS_GLYPH.needsLook;
-      lines.push(`> ${glyph} ${gate.gate}: ${gate.detail}`);
+    for (const gate of failing) {
+      lines.push(`> ${PAQAD_STATUS_GLYPH.failed} ${gate.gate}: ${gate.detail}`);
     }
+    lines.push(...inconclusive.map(inconclusiveLine));
   } else {
     lines.push(paqadFrameLead(PAQAD_VERDICT.inconclusive));
-    for (const gate of inconclusive) {
-      lines.push(`> ${PAQAD_STATUS_GLYPH.needsLook} ${gate.gate}: ${gate.detail}`);
-    }
+    lines.push(...inconclusive.map(inconclusiveLine));
   }
 
   lines.push(...skipLines(input.gates, new Set(input.flagOnGates ?? [])));
@@ -120,6 +118,27 @@ export function formatVerdictSummary(input: {
   }
 
   return lines.join('\n');
+}
+
+export function receiptGateState(gate: RepositoryVerificationGateVerdict): GateState {
+  return gate.status === 'skipped' ? (gate.skip_kind ?? 'not-required') : gate.status;
+}
+
+export function receiptGateWord(gate: RepositoryVerificationGateVerdict): string {
+  return GATE_STATE_LABEL[receiptGateState(gate)];
+}
+
+function lowerWord(gate: RepositoryVerificationGateVerdict): string {
+  return receiptGateWord(gate).toLowerCase();
+}
+
+function labelled(gate: RepositoryVerificationGateVerdict): string {
+  const word = lowerWord(gate);
+  return gate.detail.toLowerCase().includes(word) ? gate.detail : `${word}. ${gate.detail}`;
+}
+
+function inconclusiveLine(gate: RepositoryVerificationGateVerdict): string {
+  return `> ${PAQAD_STATUS_GLYPH.needsLook} ${gate.gate}: ${labelled(gate)}`;
 }
 
 function gateWords(gate: string): string {
@@ -145,10 +164,10 @@ function skipLines(
     const words = gateWords(gate.gate);
     if (gate.skip_kind === 'did-not-run') {
       const reason = gate.skip_reason;
-      if (reason === undefined) lines.push(`> ${glyph} ${words}: ${gate.detail}`);
+      if (reason === undefined) lines.push(`> ${glyph} ${words}: ${labelled(gate)}`);
       else grouped.set(reason, [...(grouped.get(reason) ?? []), words]);
     } else if (flagOn.has(gate.gate)) {
-      lines.push(`> ${glyph} ${words}: not required (${gate.skip_reason ?? gate.detail})`);
+      lines.push(`> ${glyph} ${words}: ${lowerWord(gate)} (${gate.skip_reason ?? gate.detail})`);
     }
   }
   for (const [reason, names] of grouped) {

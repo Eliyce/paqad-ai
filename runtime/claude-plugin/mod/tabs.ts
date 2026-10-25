@@ -22,7 +22,7 @@ const NO_CHANGE = 'No change is in progress.';
 const GATE_WORDS: Record<string, { word: string; tone?: PaqadTone; mark: string }> = {
   pass: { word: 'pass', tone: 'good', mark: '●' },
   fail: { word: 'fail', tone: 'bad', mark: '✗' },
-  inconclusive: { word: 'inconclusive', tone: 'warn', mark: '~' },
+  inconclusive: { word: 'could not prove', tone: 'warn', mark: '~' },
   'did-not-run': { word: 'did not run', tone: 'warn', mark: '○' },
   'not-required': { word: 'not required', mark: '–' },
   'not-judged': { word: 'not judged yet', mark: '○' },

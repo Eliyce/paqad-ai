@@ -2451,9 +2451,9 @@ describe('the Trust, Ships and Record tabs', () => {
       expect(lines).toContain('Trust (shown)');
       expect(lines).toContain('Gates ●~  1/2 required');
       expect(lines).toContain('  ● code-tests-lint  pass');
-      expect(lines).toContain('  ~ review-quality  inconclusive');
+      expect(lines).toContain('  ~ review-quality  could not prove');
       expect(colorOf(textElement(drawn, 'pass'))).toBe('success');
-      expect(colorOf(textElement(drawn, 'inconclusive'))).toBe('warning');
+      expect(colorOf(textElement(drawn, 'could not prove'))).toBe('warning');
     });
 
     test(`a delivery in progress shows CI partly done on Ships on ${surface}`, async ($, on) => {

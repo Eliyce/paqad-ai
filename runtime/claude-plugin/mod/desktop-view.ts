@@ -736,7 +736,7 @@ const HOW_JUDGED: Readonly<Record<string, string>> = {
 const VERDICT_WORDS_DESKTOP: Readonly<Record<string, { word: string; tone: WordTone }>> = {
   pass: { word: 'Pass', tone: 'pass' },
   fail: { word: 'Fail', tone: 'fail' },
-  inconclusive: { word: 'Inconclusive', tone: 'cau' },
+  inconclusive: { word: 'Could not prove', tone: 'cau' },
   'did-not-run': { word: 'Did not run', tone: 'cau' },
   'not-required': { word: 'Not required', tone: 'dim' },
 };
@@ -747,6 +747,11 @@ const ARC_TONE: Readonly<Record<string, GateMark['verdict']>> = {
   inconclusive: 'caution',
   'did-not-run': 'caution',
 };
+
+function howJudged(verdict: string, strength: string | null): string {
+  if (verdict === 'did-not-run' || verdict === 'not-required') return '';
+  return (strength && HOW_JUDGED[strength]) || 'How it is judged is not recorded';
+}
 
 export function trustGates(snapshot: PaqadHudSnapshot): TrustGate[] {
   const rows = new Map(snapshot.gates.map((gate) => [gate.name, gate]));
@@ -759,15 +764,15 @@ export function trustGates(snapshot: PaqadHudSnapshot): TrustGate[] {
   const judged = snapshot.verdict !== null;
   const gates = [...new Set(names)].map((name, order) => {
     const row = rows.get(name);
-    const verdict = row ? row.verdict : judged ? 'not-required' : 'not-judged';
-    const required = row ? row.required && row.verdict !== 'not-required' : !judged;
+    const verdict = row ? row.verdict : judged ? 'did-not-run' : 'not-judged';
+    const required = row ? row.required && row.verdict !== 'not-required' : true;
     const look = VERDICT_WORDS_DESKTOP[verdict] ?? { word: 'Not judged yet', tone: 'dim' as const };
     return {
       order,
       gate: {
         name,
         words: GATE_WORDS[name] ?? name,
-        how: (row?.strength && HOW_JUDGED[row.strength]) || 'How it is judged is not recorded',
+        how: howJudged(verdict, row?.strength ?? null),
         required,
         verdict,
         word: look.word,

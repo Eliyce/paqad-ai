@@ -25,6 +25,142 @@ export const VERIFICATION_GATES = [
 ] as const;
 export type VerificationGate = (typeof VERIFICATION_GATES)[number];
 
+export const LATE_GATES = [
+  'stage-evidence',
+  'bundle-completeness',
+  'evidence-existence',
+  'visual-evidence',
+  'rules-loaded',
+  'fix-proof',
+  'unrecorded-mandatory-stages',
+] as const;
+export type LateGate = (typeof LATE_GATES)[number];
+
+export type GateCode = VerificationGate | LateGate;
+
+export type GateStrength = 'deterministic' | 'llm-judged';
+
+export type GateBackstopSource = 'runner' | 'checks-report' | 'late' | 'none';
+
+export interface GateCatalogEntry {
+  stage: string;
+  lanes: readonly Lane[];
+  strength: GateStrength;
+  backstop: GateBackstopSource;
+  default_runner: boolean;
+  label: string;
+}
+
+const EVERY_LANE: readonly Lane[] = ['fast', 'graduated', 'full'];
+const STAGED_LANES: readonly Lane[] = ['graduated', 'full'];
+
+function entry(
+  stage: string,
+  strength: GateStrength,
+  backstop: GateBackstopSource,
+  label: string,
+  defaultRunner = backstop !== 'late',
+): GateCatalogEntry {
+  const lanes =
+    stage === 'specification' || stage === 'review' || stage === 'documentation_sync'
+      ? STAGED_LANES
+      : EVERY_LANE;
+  return { stage, lanes, strength, backstop, default_runner: defaultRunner, label };
+}
+
+export const GATE_CATALOG: Readonly<Record<GateCode, GateCatalogEntry>> = {
+  'change-completeness': entry('development', 'deterministic', 'runner', 'Nothing left half done'),
+  'requirement-completeness': entry(
+    'specification',
+    'llm-judged',
+    'none',
+    'Every requirement is complete',
+  ),
+  'story-quality': entry('specification', 'llm-judged', 'none', 'The stories are well formed'),
+  'ac-test-mapping': entry('checks', 'deterministic', 'runner', 'Every criterion has a test'),
+  'spec-review': entry('specification', 'llm-judged', 'runner', 'The spec was reviewed'),
+  'architecture-compliance': entry(
+    'development',
+    'deterministic',
+    'none',
+    'The architecture rules hold',
+  ),
+  'code-tests-lint': entry(
+    'checks',
+    'deterministic',
+    'checks-report',
+    'Tests, types and lint pass',
+  ),
+  'implementation-review': entry('review', 'llm-judged', 'runner', 'The code was reviewed'),
+  'behavioral-correctness': entry(
+    'checks',
+    'deterministic',
+    'none',
+    'The behaviour matches the spec',
+  ),
+  'mutation-testing': entry('checks', 'deterministic', 'runner', 'Tests catch real mutations'),
+  'quality-ratchet': entry('checks', 'deterministic', 'runner', 'Quality did not drop'),
+  'database-quality': entry('development', 'deterministic', 'none', 'Database changes are safe'),
+  'module-docs-structure': entry(
+    'documentation_sync',
+    'deterministic',
+    'runner',
+    'Module docs keep their shape',
+  ),
+  'instructions-docs-structure': entry(
+    'documentation_sync',
+    'deterministic',
+    'runner',
+    'Instruction docs keep their shape',
+  ),
+  'documentation-freshness': entry(
+    'documentation_sync',
+    'deterministic',
+    'runner',
+    'Docs match the code',
+  ),
+  'site-map-freshness': entry(
+    'documentation_sync',
+    'deterministic',
+    'none',
+    'The site map matches the app',
+  ),
+  'extension-surface': entry(
+    'development',
+    'deterministic',
+    'runner',
+    'Public surface stays stable',
+  ),
+  duplication: entry('development', 'deterministic', 'runner', 'No near-copies added', false),
+  'stage-evidence': entry('checks', 'deterministic', 'late', 'Every stage was recorded'),
+  'bundle-completeness': entry(
+    'checks',
+    'deterministic',
+    'late',
+    'The evidence bundle is complete',
+  ),
+  'evidence-existence': entry('checks', 'deterministic', 'late', 'The evidence files exist'),
+  'visual-evidence': entry('checks', 'deterministic', 'late', 'The screens were captured'),
+  'rules-loaded': entry('checks', 'deterministic', 'late', 'The rules were loaded'),
+  'fix-proof': entry('development', 'deterministic', 'late', 'The fix is proven by a test'),
+  'unrecorded-mandatory-stages': entry(
+    'checks',
+    'deterministic',
+    'late',
+    'Every mandatory stage has evidence',
+  ),
+};
+
+export function gateCatalogEntry(code: string): GateCatalogEntry | null {
+  return Object.hasOwn(GATE_CATALOG, code) ? GATE_CATALOG[code as GateCode] : null;
+}
+
+export function gateExpectedOnLane(code: string, lane: string | null | undefined): boolean {
+  const found = gateCatalogEntry(code);
+  if (!found || !lane || !(EVERY_LANE as readonly string[]).includes(lane)) return true;
+  return found.lanes.includes(lane as Lane);
+}
+
 export type GateSkipKind = 'not-required' | 'did-not-run';
 
 export interface GateResult {
@@ -32,6 +168,7 @@ export interface GateResult {
   passed: boolean;
   inconclusive?: boolean;
   outcome?: GateSkipKind;
+  skip_reason?: string;
   detail: string;
   remediation?: string;
 }

@@ -1,8 +1,10 @@
 import type { EvaluateEscalationInput } from '@/core/types/token-efficiency.js';
-import type {
-  GateResult,
-  VerificationContext,
-  VerificationGate,
+import {
+  GATE_CATALOG,
+  VERIFICATION_GATES,
+  type GateResult,
+  type VerificationContext,
+  type VerificationGate,
 } from '@/core/types/verification.js';
 import type { DeltaReasoningPayload, VerificationDelta } from '@/core/types/token-efficiency.js';
 import { buildVerificationGateDeltaPayload } from './delta.js';
@@ -23,28 +25,13 @@ import { MutationTestingGate } from './gates/mutation-testing.js';
 import { QualityRatchetGate } from './gates/quality-ratchet.js';
 import { RequirementCompletenessGate } from './gates/requirement-completeness.js';
 import { SiteMapFreshnessGate } from './gates/site-map-freshness.js';
+import { createDidNotRun } from './gates/shared.js';
 import { SpecReviewGate } from './gates/spec-review.js';
 import { StoryQualityGate } from './gates/story-quality.js';
 
-export const DEFAULT_GATE_CODES: readonly VerificationGate[] = [
-  'change-completeness',
-  'requirement-completeness',
-  'story-quality',
-  'ac-test-mapping',
-  'spec-review',
-  'architecture-compliance',
-  'code-tests-lint',
-  'implementation-review',
-  'behavioral-correctness',
-  'mutation-testing',
-  'quality-ratchet',
-  'database-quality',
-  'module-docs-structure',
-  'instructions-docs-structure',
-  'documentation-freshness',
-  'site-map-freshness',
-  'extension-surface',
-];
+export const DEFAULT_GATE_CODES: readonly VerificationGate[] = VERIFICATION_GATES.filter(
+  (gate) => GATE_CATALOG[gate].default_runner,
+);
 
 export class VerificationGateRunner {
   constructor(private readonly gates: Gate[] = defaultGates()) {}
@@ -55,6 +42,10 @@ export class VerificationGateRunner {
 
     for (const gate of this.gates) {
       if (firstFailure && !shouldRunAfterFailure(gate, context)) {
+        results.push({
+          ...createDidNotRun(gate.gate, skippedAfter(firstFailure)),
+          skip_reason: `${firstFailure.gate} ${failedWord(firstFailure)} first`,
+        });
         continue;
       }
 
@@ -77,7 +68,11 @@ export class VerificationGateRunner {
     const results = await this.run(context);
     return {
       results,
-      delta_payload: buildVerificationGateDeltaPayload(baselineResults, results, escalationInput),
+      delta_payload: buildVerificationGateDeltaPayload(
+        baselineResults.filter(ranInRun),
+        results.filter(ranInRun),
+        escalationInput,
+      ),
     };
   }
 }
@@ -109,6 +104,18 @@ function shouldRunAfterFailure(gate: Gate, context: VerificationContext): boolea
   }
 
   return false;
+}
+
+function ranInRun(result: GateResult): boolean {
+  return !(result.outcome === 'did-not-run' && result.skip_reason !== undefined);
+}
+
+function failedWord(failure: GateResult): string {
+  return failure.inconclusive ? 'could not reach a result' : 'failed';
+}
+
+function skippedAfter(failure: GateResult): string {
+  return `Did not run because ${failure.gate} ${failedWord(failure)} first.`;
 }
 
 function normalizePath(filePath: string): string {
