@@ -149,15 +149,27 @@ describe('ImplementationReviewGate · unaddressed machine findings', () => {
   });
 
   it('behaves exactly as before when no machine findings are on record (AC-3)', async () => {
-    await expect(
-      new ImplementationReviewGate().check(createVerificationContext()),
-    ).resolves.toMatchObject({ passed: true, detail: 'Implementation review passed' });
+    const reviewed = createVerificationContext();
+    recordReview(reviewed.project_root, 'Looks good to me.');
+    await expect(new ImplementationReviewGate().check(reviewed)).resolves.toMatchObject({
+      passed: true,
+      detail: 'Implementation review passed',
+    });
 
     await expect(
       new ImplementationReviewGate().check(
         createVerificationContext({ implementation_review_passed: false }),
       ),
     ).resolves.toMatchObject({ passed: false });
+  });
+
+  it('did not run when no review is on record, and is not required on a lane with no review stage', async () => {
+    await expect(
+      new ImplementationReviewGate().check(createVerificationContext()),
+    ).resolves.toMatchObject({ outcome: 'did-not-run' });
+    await expect(
+      new ImplementationReviewGate().check(createVerificationContext({ lane: 'fast' })),
+    ).resolves.toMatchObject({ outcome: 'not-required' });
   });
 
   it('keeps the decision-violation failure ahead of the anchoring check', async () => {

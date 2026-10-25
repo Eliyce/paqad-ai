@@ -62,6 +62,7 @@ export function buildVerificationEvidence(
     }
 
     const status = mapGateStatus(result);
+    const unproven = status === 'pass' && gradeGateResult(result).verdict === 'inconclusive';
     const failures =
       gate === 'code-tests-lint'
         ? testFailures
@@ -76,6 +77,7 @@ export function buildVerificationEvidence(
       remediation: result.remediation ?? null,
       failures,
       ...(result.outcome ? { skip_kind: result.outcome } : {}),
+      ...(unproven ? { could_not_prove: true as const } : {}),
       ...(result.outcome && result.skip_reason ? { skip_reason: result.skip_reason } : {}),
       ...(gate === 'mutation-testing' && mutationResult
         ? { confidence: mutationResult.confidence }

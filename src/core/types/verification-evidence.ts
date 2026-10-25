@@ -36,6 +36,7 @@ export interface VerificationEvidenceGate {
   failures: VerificationEvidenceFailure[];
   skip_reason?: string;
   skip_kind?: GateSkipKind;
+  could_not_prove?: true;
   confidence?: MutationConfidence;
 }
 

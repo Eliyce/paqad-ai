@@ -78,10 +78,10 @@ async function collectIncompleteReasons(context: Parameters<Gate['check']>[0]): 
 async function collectBlockerReasons(context: Parameters<Gate['check']>[0]): Promise<string[]> {
   const reasons: string[] = [];
 
-  if (!context.requirements_complete) {
+  if (context.requirements_complete === false) {
     reasons.push('Requirements are incomplete');
   }
-  if (!context.story_quality_passed) {
+  if (context.story_quality_passed === false) {
     reasons.push('Story quality checks failed');
   }
   if (!context.ac_test_mapping_passed) {
@@ -90,7 +90,7 @@ async function collectBlockerReasons(context: Parameters<Gate['check']>[0]): Pro
   if (!context.spec_review_passed) {
     reasons.push('Spec review failed');
   }
-  if (!context.architecture_compliant) {
+  if (context.architecture_compliant === false) {
     reasons.push('Architecture compliance failed');
   }
 
@@ -104,17 +104,17 @@ async function collectBlockerReasons(context: Parameters<Gate['check']>[0]): Pro
   const structuredTestIssue = getStructuredTestIssue(context.structured_test_results);
   if (structuredTestIssue) {
     reasons.push(structuredTestIssue);
-  } else if (!context.code_tests_lint_passed) {
+  } else if (context.code_tests_lint_passed === false) {
     reasons.push('Code, tests, or lint checks failed');
   }
 
   if (!context.implementation_review_passed) {
     reasons.push('Implementation review failed');
   }
-  if (!structuredTestIssue && !context.behavioral_correctness_passed) {
+  if (!structuredTestIssue && context.behavioral_correctness_passed === false) {
     reasons.push('Behavioral correctness checks failed');
   }
-  if (!context.database_quality_passed) {
+  if (context.database_quality_passed === false) {
     reasons.push('Database quality checks failed');
   }
 

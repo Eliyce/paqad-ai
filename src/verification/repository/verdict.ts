@@ -14,6 +14,7 @@ export interface RepositoryVerificationGateVerdict {
   remediation: string | null;
   skip_reason?: string;
   skip_kind?: GateSkipKind;
+  could_not_prove?: true;
 }
 
 export interface RepositoryVerificationVerdict {
@@ -48,6 +49,7 @@ export function buildRepositoryVerificationVerdict(input: {
     remediation: gate.remediation,
     ...(gate.skip_reason !== undefined ? { skip_reason: gate.skip_reason } : {}),
     ...(gate.skip_kind !== undefined ? { skip_kind: gate.skip_kind } : {}),
+    ...(gate.could_not_prove ? { could_not_prove: true as const } : {}),
   }));
 
   const failing = gates.filter((gate) => gate.status === 'fail');
@@ -81,7 +83,7 @@ export function formatVerdictSummary(input: {
   waitingDecisions?: readonly WaitingDecision[];
 }): string {
   const ran = input.gates.filter((gate) => gate.status !== 'skipped');
-  const passed = ran.filter((gate) => gate.status === 'pass').length;
+  const passed = ran.filter((gate) => gate.status === 'pass' && !gate.could_not_prove).length;
   const failing = ran.filter((gate) => gate.status === 'fail');
   const inconclusive = ran.filter((gate) => gate.status === 'inconclusive');
   const stageGaps = input.unrecordedMandatoryStages ?? [];
@@ -110,6 +112,7 @@ export function formatVerdictSummary(input: {
     lines.push(...inconclusive.map(inconclusiveLine));
   }
 
+  lines.push(...ran.filter((gate) => gate.could_not_prove).map(inconclusiveLine));
   lines.push(...skipLines(input.gates, new Set(input.flagOnGates ?? [])));
   lines.push(...waitingDecisionLines(input.waitingDecisions ?? []));
 
@@ -121,6 +124,7 @@ export function formatVerdictSummary(input: {
 }
 
 export function receiptGateState(gate: RepositoryVerificationGateVerdict): GateState {
+  if (gate.could_not_prove) return 'inconclusive';
   return gate.status === 'skipped' ? (gate.skip_kind ?? 'not-required') : gate.status;
 }
 

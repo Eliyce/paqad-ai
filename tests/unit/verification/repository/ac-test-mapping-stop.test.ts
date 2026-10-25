@@ -278,13 +278,13 @@ describe('ac-test-mapping at Stop verification', () => {
       }),
     );
 
-    const { context, escalations } = await buildRepositoryVerificationContext({
+    const { context } = await buildRepositoryVerificationContext({
       projectRoot: root,
       origin: 'hook-completion',
     });
 
     expect(context.ac_test_mapping_outcome).toBe('not-required');
-    expect(escalations.join('\n')).toContain('spec-review');
+    expect(context.spec_review_inconclusive).toBe(true);
     expect(context.spec_boundary).toBeUndefined();
   });
 });

@@ -39,6 +39,13 @@ function scopeNote(result: QualityRatchetResult, scope: { taken: string[]; block
   return ` (measured: ${scope.taken.join(', ')}${blocked})`;
 }
 
+function comparedCount(result: QualityRatchetResult): string {
+  const compared = result.verdicts.filter(
+    (verdict) => verdict.outcome !== 'blocked' && verdict.current_value !== null,
+  ).length;
+  return `${compared} ${compared === 1 ? 'measure' : 'measures'} compared`;
+}
+
 export class QualityRatchetGate implements Gate {
   readonly gate = 'quality-ratchet' as const;
 
@@ -82,7 +89,7 @@ export class QualityRatchetGate implements Gate {
     }
 
     if (result.status === 'captured') {
-      return createPass(
+      return createDidNotRun(
         this.gate,
         `Quality baseline captured at today's level${scopeNote(result, scope)}; nothing to compare yet.`,
       );
@@ -96,7 +103,7 @@ export class QualityRatchetGate implements Gate {
         : '';
     return createPass(
       this.gate,
-      `Every quality measure held equal or better${scopeNote(result, scope)}${tightened}${excepted}.`,
+      `Every quality measure held equal or better${scopeNote(result, scope)}, ${comparedCount(result)}${tightened}${excepted}.`,
     );
   }
 }

@@ -176,7 +176,7 @@ describe('buildRepositoryVerificationContext', () => {
     expect(context.spec_boundary).toBeUndefined();
   });
 
-  it('escalates (without blocking) when code changed but no spec is on record', async () => {
+  it('marks spec-review could not prove (without blocking) when code changed but no spec is on record', async () => {
     const root = makeProject();
     seedGitChangedFiles(root, ['src/feature.ts']);
 
@@ -186,7 +186,9 @@ describe('buildRepositoryVerificationContext', () => {
     });
 
     expect(context.spec_review_passed).toBe(true);
-    expect(escalations.join('\n')).toContain('spec-review');
+    expect(context.spec_review_inconclusive).toBe(true);
+    expect(context.spec_review_detail).toContain('cannot be proven');
+    expect(escalations.join('\n')).not.toContain('spec-review');
   });
 
   it('escalates test-evidence when code changed (backstop cannot collect structured results)', async () => {

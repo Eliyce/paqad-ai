@@ -19,6 +19,19 @@ export function checkBooleanGate(
   };
 }
 
+export function checkJudgedGate(
+  gate: VerificationGate,
+  value: boolean | undefined,
+  passDetail: string,
+  failDetail: string,
+  remediation: string,
+  absentDetail: string,
+): GateResult {
+  return value === undefined
+    ? createDidNotRun(gate, absentDetail)
+    : checkBooleanGate(gate, value, passDetail, failDetail, remediation);
+}
+
 export function createPass(gate: VerificationGate, detail: string): GateResult {
   return { gate, passed: true, detail };
 }

@@ -1,17 +1,18 @@
 import type { Gate } from './gate.interface.js';
 
-import { checkBooleanGate } from './shared.js';
+import { checkJudgedGate } from './shared.js';
 
 export class StoryQualityGate implements Gate {
   readonly gate = 'story-quality' as const;
 
   async check(context: Parameters<Gate['check']>[0]) {
-    return checkBooleanGate(
+    return checkJudgedGate(
       this.gate,
       context.story_quality_passed,
       'Stories meet quality requirements',
       'Story quality checks failed',
       'Refine the story breakdown and acceptance criteria.',
+      'No story check was recorded, so this gate did not run.',
     );
   }
 }
