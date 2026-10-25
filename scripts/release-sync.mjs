@@ -116,6 +116,11 @@ function writeOutputs(outputs) {
   for (const line of lines) console.log(line);
 }
 
+export function npmAttempts(value) {
+  const attempts = Number(value);
+  return Number.isInteger(attempts) && attempts > 0 ? attempts : 90;
+}
+
 export function releaseState({ waitSeconds = 10, attempts = 90 } = {}) {
   const version = packageVersion();
   const sha = versionCommits().get(version);
@@ -205,6 +210,7 @@ function main(command) {
   if (command === 'state') {
     const state = releaseState({
       waitSeconds: Number(process.env.RELEASE_SYNC_NPM_WAIT_SECONDS ?? 10),
+      attempts: npmAttempts(process.env.RELEASE_SYNC_NPM_ATTEMPTS),
     });
     console.log(
       `${PACKAGE_NAME}@${state.version} (release commit ${state.sha}): ` +
