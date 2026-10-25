@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5S8Y7H6MJ2TTV9E651TPY5H",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new done ladder",
+  "context": "Chief architect: Ruling: both claims describe the same ladder the owner already named. The QA claim adds one test per rung plus the step-back cases (CI red after PR open, an edit after Done marks it stale), matching EX-data-modeler-2. Accept as recommended.\n\nTarget: new done ladder\n- product-owner: one ladder Done, Committed, PR open, Safe to merge, Merged replaces the four separate headline rows; each delivery event (commit, push, PR, CI result, merge) moves the change up a rung without waiting for the next turn end\n- qa-engineer: one acceptance per rung, each as an integration test fed recorded delivery events: checks green with uncommitted edit shows Done; commit shows Committed; PR open shows PR open; CI green shows Safe to merge; merge shows Merged; plus negative cases CI red after PR open drops back and a later edit after Done marks the verdict stale rather than keeping Done\n\n[expert-conflict-fork:5a43d8bbfb41368c]",
+  "options": [
+    {
+      "option_key": "one-ladder-done-committed-pr-open-safe-t",
+      "label": "one ladder Done, Committed, PR open, Safe to merge, Merged replaces the four separate headline rows; each delivery event (commit, push, PR, CI result, merge) moves the change up a rung without waiting for the next turn end — product-owner",
+      "one_line_preview": "one ladder Done, Committed, PR open, Safe to merge, Merged replaces the four separate headline rows; each delivery event (commit, push, PR, CI result, merge) moves the change up a rung without waiting for the next turn end — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "one-acceptance-per-rung-each-as-an-integ",
+      "label": "one acceptance per rung, each as an integration test fed recorded delivery events: checks green with uncommitted edit shows Done; commit shows Committed; PR open shows PR open; CI green shows Safe to merge; merge shows Merged; plus negative cases CI red after PR open drops back and a later edit after Done marks the verdict stale rather than keeping Done — qa-engineer",
+      "one_line_preview": "one acceptance per rung, each as an integration test fed recorded delivery events: checks green with uncommitted edit shows Done; commit shows Committed; PR open shows PR open; CI green shows Safe to merge; merge shows Merged; plus negative cases CI red after PR open drops back and a later edit after Done marks the verdict stale rather than keeping Done — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "one-acceptance-per-rung-each-as-an-integ",
+  "created_at": "2026-10-25T10:15:44.422Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "chosen": "one-acceptance-per-rung-each-as-an-integ",
+  "rationale": "Owner (Haider) accepted the recommendation in chat on 2026-10-25",
+  "resolved_at": "2026-10-25T10:26:06.581Z",
+  "decision_id": "D-01M5S8Y7H6MJ2TTV9E651TPY5H",
+  "fingerprint": "sha256:3e11b122f4e276de289cb21b23d598e6c9f40127b76d597bcc0eb56618aa9c0c",
+  "question": "Experts disagree on new done ladder",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5S7SJN1JPHCMVJC8CCJX8WM",
+  "ttl_until": "2026-11-24T10:15:44.422Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "one-acceptance-per-rung-each-as-an-integ",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-25T10:26:06.581Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner (Haider) accepted the recommendation in chat on 2026-10-25"
+  }
+}
