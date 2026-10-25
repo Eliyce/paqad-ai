@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { readGitState } from '@/rag/git-state.js';
 import { readUnitFile } from '@/session-ledger/ledger.js';
 
+import { rowRecordedAt } from './envelope.js';
 import { listFeatureDirs } from './enumerate.js';
-import { readChangeConstants } from './feature-record.js';
+import { readChangeConstants, readFeatureRecord } from './feature-record.js';
 import { featureFilePath } from './paths.js';
 import { readSessionControl, writeSessionControl } from './session-control.js';
 
@@ -71,6 +72,34 @@ export function sessionClosedAnyFeature(projectRoot: string, sessionId: string):
       (row) => row.kind === 'close' && row.session_id === sessionId,
     ),
   );
+}
+
+export function sessionReattachableFeature(
+  projectRoot: string,
+  sessionId: string,
+  branch: string | null,
+): string | null {
+  if (branch === null) {
+    return null;
+  }
+  let picked: string | null = null;
+  let pickedAt = '';
+  for (const dirName of listFeatureDirs(projectRoot)) {
+    const rows = stageRows(projectRoot, dirName);
+    if (!rows.some((row) => row.kind === 'open' && row.session_id === sessionId)) continue;
+    if (!isBundleClosed(projectRoot, dirName)) continue;
+    if (featureBranch(projectRoot, dirName, rows) !== branch) continue;
+    if (readFeatureRecord(projectRoot, dirName)?.status === 'abandoned') continue;
+    const lastAt = rows.reduce((newest, row) => {
+      const at = rowRecordedAt(row) ?? '';
+      return at > newest ? at : newest;
+    }, '');
+    if (picked === null || lastAt > pickedAt) {
+      picked = dirName;
+      pickedAt = lastAt;
+    }
+  }
+  return picked;
 }
 
 export function reconcileSessionControl(

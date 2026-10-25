@@ -2,12 +2,16 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { sessionReattachableFeature } from '@/feature-evidence/adoption.js';
+import { readSessionControl } from '@/feature-evidence/session-control.js';
 import {
   appendFeatureStageRow,
   currentFeature,
   openFeatureChange,
   recordChangeConstants,
+  resumeFeatureByRef,
 } from '@/feature-evidence/stage-ledger.js';
+import { readGitState } from '@/rag/git-state.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -33,7 +37,7 @@ export function openStageEvidence(
   ctx: StageEvidenceContext,
 ): { sessionId: string; dirName: string; changeKey: string } {
   const sessionId = resolveSessionId(projectRoot, ctx.sessionId);
-  const lane = ctx.lane !== undefined ? ctx.lane : readPendingLane(projectRoot, sessionId);
+  const lane = ctx.lane !== undefined ? ctx.lane : sessionLane(projectRoot, sessionId);
   const kind = readPendingKind(projectRoot, sessionId);
   const dirName = openFeatureChange(projectRoot, sessionId, {
     adapter: ctx.adapter,
@@ -46,6 +50,20 @@ export function openStageEvidence(
   return { sessionId, dirName, changeKey: dirName };
 }
 
+function sessionLane(projectRoot: string, sessionId: string): StageEvidenceContext['lane'] {
+  return readPendingLane(projectRoot, sessionId) ?? readSessionControl(projectRoot, sessionId).lane;
+}
+
+function reattachSessionFeature(
+  projectRoot: string,
+  sessionId: string,
+  ctx: StageEvidenceContext,
+): string | null {
+  const branch = readGitState(projectRoot).branch ?? null;
+  const own = sessionReattachableFeature(projectRoot, sessionId, branch);
+  return own ? resumeFeatureByRef(projectRoot, sessionId, own, ctx.now) : null;
+}
+
 function resolveDirName(projectRoot: string, sessionId: string, ctx: StageEvidenceContext): string {
   if (ctx.dirName) {
     return ctx.dirName;
@@ -54,7 +72,10 @@ function resolveDirName(projectRoot: string, sessionId: string, ctx: StageEviden
   if (active) {
     return active;
   }
-  return openStageEvidence(projectRoot, ctx).dirName;
+  return (
+    reattachSessionFeature(projectRoot, sessionId, ctx) ??
+    openStageEvidence(projectRoot, ctx).dirName
+  );
 }
 
 export function startStage(

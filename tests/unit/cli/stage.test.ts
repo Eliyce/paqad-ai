@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -6,16 +7,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createStageCommand } from '@/cli/commands/stage.js';
 import { createProgram } from '@/cli/program.js';
+import { listFeatureDirs } from '@/feature-evidence/enumerate.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
-import { readSessionControl } from '@/feature-evidence/session-control.js';
+import { readSessionControl, setLane } from '@/feature-evidence/session-control.js';
 import {
+  closeActiveFeature,
   currentFeature,
+  openFeatureChange,
   readFeatureStageUnit,
   resolveFeatureRef,
 } from '@/feature-evidence/stage-ledger.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { writePendingLane } from '@/stage-evidence/pending-lane.js';
 
 describe('paqad-ai stage command', () => {
   let root: string;
@@ -385,6 +391,97 @@ describe('paqad-ai stage command', () => {
       await run('start');
       expect(process.exitCode).toBe(1);
       expect(errors.join('\n')).toContain('name the stage to start');
+    });
+  });
+  describe('a stage mark with no open change', () => {
+    function git(...args: string[]): void {
+      execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+    }
+
+    function onBranch(branch: string): void {
+      git('init', '-q', '-b', branch);
+      git('config', 'user.email', 't@t.dev');
+      git('config', 'user.name', 'Test');
+      writeFileSync(join(root, 'a.txt'), 'a');
+      git('add', '-A');
+      git('commit', '-q', '-m', 'chore: base');
+    }
+
+    function closedChange(sessionId: string, lane: 'fast' | 'full'): string {
+      const sid = resolveSessionId(root, sessionId);
+      const dir = openFeatureChange(root, sid, {
+        adapter: 'claude-code',
+        title: 'earlier work',
+        lane,
+      });
+      closeActiveFeature(root, sid);
+      return dir;
+    }
+
+    it('AC-4: reattaches this session’s closed change on the branch with its lane', async () => {
+      onBranch('fix/x');
+      const dir = closedChange(SES, 'fast');
+
+      await run('start', 'review');
+
+      expect(listFeatureDirs(root)).toEqual([dir]);
+      expect(currentFeature(root, resolveSessionId(root, SES))).toBe(dir);
+      expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
+      const unit = readFeatureStageUnit(root, dir);
+      expect(unit.filter((row) => row.kind === 'open')).toHaveLength(2);
+      expect(unit.at(-1)).toMatchObject({ kind: 'stage_start', stage: 'review' });
+    });
+
+    it('AC-25: marking again after the close never shows a second untitled change', async () => {
+      onBranch('fix/x');
+      const dir = closedChange(SES, 'fast');
+
+      await run('start', 'checks');
+      await run('end', 'checks');
+      closeActiveFeature(root, resolveSessionId(root, SES));
+      await run('start', 'checks');
+
+      expect(listFeatureDirs(root)).toEqual([dir]);
+      expect(readFeatureRecord(root, dir)?.lane).toBe('fast');
+    });
+
+    it('AC-24: does not adopt a change from another branch and mints with the session lane', async () => {
+      onBranch('fix/other');
+      const earlier = closedChange(SES, 'fast');
+      git('checkout', '-q', '-b', 'fix/x');
+      setLane(root, resolveSessionId(root, SES), 'graduated');
+
+      await run('start', 'development');
+
+      const minted = currentFeature(root, resolveSessionId(root, SES));
+      expect(minted).not.toBeNull();
+      expect(minted).not.toBe(earlier);
+      expect(readFeatureRecord(root, minted!)?.lane).toBe('graduated');
+    });
+
+    it('AC-24: does not adopt another session’s change and mints with the pending lane', async () => {
+      onBranch('fix/x');
+      const foreign = closedChange('ses_someone_else', 'fast');
+      writePendingLane(root, resolveSessionId(root, SES), 'full');
+
+      await run('start', 'development');
+
+      const minted = currentFeature(root, resolveSessionId(root, SES));
+      expect(minted).not.toBe(foreign);
+      expect(readFeatureRecord(root, minted!)?.lane).toBe('full');
+      expect(readFeatureStageUnit(root, foreign).filter((row) => row.kind === 'open')).toHaveLength(
+        1,
+      );
+    });
+
+    it('AC-24: a session with no change of its own mints with the session control lane', async () => {
+      onBranch('fix/x');
+      setLane(root, resolveSessionId(root, SES), 'fast');
+
+      await run('start', 'planning');
+
+      const minted = currentFeature(root, resolveSessionId(root, SES));
+      expect(readFeatureRecord(root, minted!)?.lane).toBe('fast');
     });
   });
 });

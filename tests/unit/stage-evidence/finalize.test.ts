@@ -16,6 +16,8 @@ import {
   type EndStageInput,
 } from '@/stage-evidence/index.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
+import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
+import { setLane } from '@/feature-evidence/session-control.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 
 const ADAPTER = 'backstop';
@@ -94,6 +96,17 @@ describe('finalizeStageEvidence', () => {
     const inferred = rows.find((row) => row.evidence_source === 'inferred-git');
     expect(inferred).toBeDefined();
     expect(inferred?.subject_digest).toBe('deadbeef');
+  });
+
+  it('AC-24: a backstop mint carries the session lane, never a null lane', () => {
+    const sessionId = 'ses_backstop_lane';
+    setLane(root, sessionId, 'fast');
+
+    finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+    const minted = currentFeature(root, sessionId);
+    expect(minted).not.toBeNull();
+    expect(readFeatureRecord(root, minted!)?.lane).toBe('fast');
   });
 
   it('swallows errors and returns null (best-effort, never breaks verification)', () => {
