@@ -220,6 +220,30 @@ The Stop hook imports the depth-one `dist/index.js`, while the CLI runs the dept
 `verify-backstop.mjs` on a fixture, so a wrong root fails loudly instead of reading as "no
 packs, nothing to check".
 
+## Gate states and record ownership
+
+Each gate reads one of five states, set by one status mapper: pass, fail, could not prove, did
+not run, or not required. A gate skipped after an earlier failure is recorded as did not run. A
+gate that no paqad path runs is not listed at all.
+
+The verdict keeps two kinds of trouble apart. Problems in the work fail or stop the change.
+Problems in paqad's own record are paqad's gap, not the work's. The verdict record carries
+`work_kind`, `record_gaps` and `repairs` for this; its `kind` and the Stop block are unchanged.
+The verdict is written with its change before the close, and a finished change stays on the HUD
+until a new change has its own result. Old stray changes are left as they are and labelled as
+paqad's gap. `checks run` pins its report to the change it started on.
+
+### Session and turn rules
+
+- A stage mark after a close reattaches to the session's own change on the same branch; a new
+  change copies the session's lane.
+- At turn end, edit stages end on their own; only a checks stage that has not reported stays open.
+- The Stop check waits (defers) only for paqad stage agents, untyped background tasks while a stage
+  is open, or a live checks marker tied to the session, the change and the process. The wait has a
+  30-minute ceiling, counted across turns from the first deferred Stop after the last judged Stop.
+  This restores the owner's earlier rule and replaces the spec's "any background task" wording.
+- Background stage agents get the permissions they need to write their records.
+
 ## Why the code works the way it does
 
 The reasons below are not obvious from the code, grouped by file in `src/verification/`.
