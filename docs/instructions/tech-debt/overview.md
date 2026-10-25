@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5SHTYS3TRMRNHHJT3YKVDJY](TD-01M5SHTYS3TRMRNHHJT3YKVDJY.md) (bug, low): Concurrent background-agent permission asks: settling the later one clears the band while the earlier one still waits
+- [TD-01M5SHTX96QGWZECDMF2926BA4](TD-01M5SHTX96QGWZECDMF2926BA4.md) (gap, low): Stop hooks skip the deferral check when background_tasks is empty, so a checks-run marker alone never defers
 - [TD-01M5KR7VM51BM5SPDQ4JC3JDAK](TD-01M5KR7VM51BM5SPDQ4JC3JDAK.md) (gap, low): Firewall eval rule cases grade only src/api/users.ts, so a db import in a new src/api file scores as a pass
 - [TD-01M5KR7T2DSW4BZHHEGBD2D0NV](TD-01M5KR7T2DSW4BZHHEGBD2D0NV.md) (bug, medium): Turn-end completion gate grades a change while a plugin-namespaced paqad stage agent still runs in the background
 - [TD-01M5JNJHZWFAWGY74TA5JGV1C7](TD-01M5JNJHZWFAWGY74TA5JGV1C7.md) (bug, medium): Plugin session start writes an unquoted PATH into CLAUDE_ENV_FILE, breaking Bash when the plugin root has a space
