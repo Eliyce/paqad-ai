@@ -41,6 +41,10 @@ export function stageAgentTaskCount(tasks: readonly unknown[]): number {
   return tasks.filter((task) => agentTypeOf(task)?.startsWith('paqad-')).length;
 }
 
+export function tasksCarryAgentType(tasks: readonly unknown[]): boolean {
+  return tasks.some((task) => agentTypeOf(task) !== undefined);
+}
+
 export function hasOpenUnendedStage(rows: readonly SessionLedgerRow[]): boolean {
   for (const stage of stagesWithKind(rows, 'stage_start')) {
     if (stageIsOpen(rows, stage)) {
@@ -88,7 +92,7 @@ export function deferCompletionForBackgroundStage(
   } else if (stageAgents > 0) {
     reason = 'stage agent running in background';
     count = stageAgents;
-  } else if (dirName !== null && hasOpenUnendedStage(rows)) {
+  } else if (!tasksCarryAgentType(tasks) && dirName !== null && hasOpenUnendedStage(rows)) {
     reason = 'background task running while a stage is open';
     count = tasks.length;
   } else {

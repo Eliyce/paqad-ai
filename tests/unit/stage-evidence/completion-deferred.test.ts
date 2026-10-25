@@ -15,6 +15,7 @@ import {
   deferCompletionForBackgroundStage,
   hasOpenUnendedStage,
   stageAgentTaskCount,
+  tasksCarryAgentType,
 } from '@/stage-evidence/completion-deferred.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
@@ -69,6 +70,16 @@ describe('stageAgentTaskCount', () => {
   it('is 0 for an empty list or entries with no agent type', () => {
     expect(stageAgentTaskCount([])).toBe(0);
     expect(stageAgentTaskCount([{ id: 'x' }, null, 'str'])).toBe(0);
+  });
+});
+
+describe('tasksCarryAgentType', () => {
+  it('is true when any entry carries a recognised agent-type field', () => {
+    expect(tasksCarryAgentType([{ type: 'general-purpose' }])).toBe(true);
+  });
+  it('is false when no entry carries one', () => {
+    expect(tasksCarryAgentType([{ id: 'x' }, {}])).toBe(false);
+    expect(tasksCarryAgentType([])).toBe(false);
   });
 });
 
@@ -139,7 +150,7 @@ describe('deferCompletionForBackgroundStage', () => {
     expect(rows[0]).toMatchObject({ reason: 'stage agent running in background', tasks: 1 });
   });
 
-  it('AC-21: defers for any background task while a stage is open, typed or not', () => {
+  it('does not defer for a non-paqad background task even while a stage is open', () => {
     const root = tempRoot();
     const dirName = openWithStartedStage(root);
     const result = deferCompletionForBackgroundStage({
@@ -149,12 +160,8 @@ describe('deferCompletionForBackgroundStage', () => {
       adapter: 'claude-code',
       now: NOW,
     });
-    expect(result).toEqual({
-      deferred: true,
-      reason: 'background task running while a stage is open',
-      tasks: 1,
-    });
-    expect(deferredRows(root, dirName)).toHaveLength(1);
+    expect(result).toEqual({ deferred: false });
+    expect(deferredRows(root, dirName)).toHaveLength(0);
   });
 
   it('falls back to deferring when a task carries no agent type and a stage is open', () => {
@@ -264,6 +271,23 @@ describe('deferCompletionForBackgroundStage with a checks run and a ceiling', ()
 
     expect(result).toEqual({ deferred: true, reason: 'checks run still running', tasks: 0 });
     expect(deferredRows(root, dirName)).toHaveLength(1);
+  });
+
+  it('AC-21: a live checks run marker defers even beside a typed non-paqad background task', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    markChecksRunning(root, dirName);
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ type: 'general-purpose' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(5),
+      probe: liveProbe,
+    });
+
+    expect(result).toEqual({ deferred: true, reason: 'checks run still running', tasks: 1 });
   });
 
   it('AC-21: a marker whose process is dead does not defer', () => {
