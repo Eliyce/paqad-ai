@@ -1169,9 +1169,6 @@ export const register: Register = (on) => {
         {view.lines.map((text) => (
           <Text wrap="wrap">{text}</Text>
         ))}
-        {view.svg && Svg ? (
-          <Svg source={view.svg.source} alt={view.svg.alt} width={96} height={96} />
-        ) : null}
         {view.rows.map(draw)}
         {table ? (
           <Box flexDirection="column">

@@ -15,6 +15,7 @@ import {
   gradeGateResult,
 } from '@/evidence/grading.js';
 import { GATE_JUDGED_AFTER } from '@/hud/change-scope.js';
+import { buildStageProof } from '@/hud/stage-proof.js';
 import { buildVerificationEvidence } from '@/verification/evidence.js';
 import { DEFAULT_GATE_CODES, VerificationGateRunner } from '@/verification/gate-runner.js';
 import type { Gate } from '@/verification/gates/gate.interface.js';
@@ -30,10 +31,9 @@ import {
   receiptGateWord,
 } from '@/verification/repository/verdict.js';
 
-import { trustGates } from '../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { trustView } from '../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { parseSnapshot } from '../../../runtime/claude-plugin/mod/model.ts';
 import { FULL_ORD_501, fileText } from '../../../runtime/claude-plugin/mod/test/fixtures.ts';
-import type { PaqadHudSnapshot } from '../../../runtime/claude-plugin/mod/types/index.d.ts';
 
 import { createVerificationContext } from './shared.fixture.js';
 
@@ -49,15 +49,27 @@ function evidenceFor(results: GateResult[]) {
   });
 }
 
-function hudWith(gates: Record<string, unknown>[], expected: string[]): PaqadHudSnapshot {
-  return parseSnapshot(
-    fileText({
-      ...FULL_ORD_501,
-      gates,
-      gates_expected: expected,
-      verdict: { schema: 'paqad.hud-verdict/1', kind: 'fail', word: 'x', reasons: [] },
-    }),
-  )!;
+function hudWord(rows: Record<string, unknown>[], code: string): string | undefined {
+  const proof = buildStageProof({
+    lane: 'full',
+    stages: [],
+    gates: rows.map((row) => ({ name: String(row.name), verdict: String(row.verdict) })),
+    judged: true,
+    plan: null,
+    planProgress: null,
+    spec: null,
+    experts: null,
+    questions: null,
+    rules: null,
+    changedFiles: null,
+    review: null,
+    checks: null,
+    siteMap: false,
+  });
+  const snapshot = parseSnapshot(fileText({ ...FULL_ORD_501, proof }))!;
+  return trustView(snapshot)
+    .stages.flatMap((stage) => stage.gates)
+    .find((gate) => gate.key === code)?.word;
 }
 
 function hudRowFor(result: GateResult): Record<string, unknown> {
@@ -104,8 +116,7 @@ describe('AC-27: one label per gate state across the status mapper, the receipt 
       expect(verdict.summary).toMatch(new RegExp(`spec[- ]review: ${label.toLowerCase()}`));
     }
 
-    const hud = trustGates(hudWith([hudRowFor(result)], ['spec-review']));
-    expect(hud.find((gate) => gate.name === 'spec-review')?.word).toBe(label);
+    expect(hudWord([hudRowFor(result)], 'spec-review')).toBe(label);
   });
 
   it('AC-27: a gate with no row reads Did not run in the receipt and in the HUD once judged', () => {
@@ -117,8 +128,7 @@ describe('AC-27: one label per gate state across the status mapper, the receipt 
     });
     const receiptGate = verdict.gates.find((gate) => gate.gate === 'mutation-testing')!;
     expect(receiptGateWord(receiptGate)).toBe('Did not run');
-    const hud = trustGates(hudWith([], ['mutation-testing']));
-    expect(hud[0]).toMatchObject({ name: 'mutation-testing', word: 'Did not run', required: true });
+    expect(hudWord([], 'mutation-testing')).toBe('Did not run');
   });
 });
 
@@ -153,8 +163,7 @@ describe('AC-7: gates skipped after a failure are recorded as did not run', () =
     expect(verdict.summary).toContain('ac-test-mapping');
     expect(verdict.summary).not.toMatch(/spec review: not required/);
 
-    const hud = trustGates(hudWith([hudRowFor(results[2]!)], ['spec-review']));
-    expect(hud[0]?.word).toBe('Did not run');
+    expect(hudWord([hudRowFor(results[2]!)], 'spec-review')).toBe('Did not run');
   });
 });
 

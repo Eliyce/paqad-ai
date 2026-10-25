@@ -1,4 +1,3 @@
-import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -19,14 +18,15 @@ import {
   localTime,
   recordView,
   tableView,
-  trustGates,
-  trustLight,
+  NOTHING_TO_PROVE,
   trustView,
   workflowLedger,
   type DesktopLedgerInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
+import { OLD_RECORD_NOTE } from '../../../../runtime/claude-plugin/mod/trust.ts';
 import {
+  FAST_ORD_490,
   FULL_ORD_501,
   NOW,
   OTHER_WORKFLOW,
@@ -78,6 +78,7 @@ const OPEN: Raw = {
   ship: SHIP0,
   verdict: null,
   gates_expected: ['change-completeness', 'code-tests-lint', 'mutation-testing'],
+  proof: undefined,
   delivery_plan: { commit: true, push: true, pr: true, ci: true, merge: true, reason: null },
 };
 
@@ -137,221 +138,96 @@ describe('AC-19: the Ledger tabs', () => {
 });
 
 describe('AC-20: the Trust tab', () => {
-  it('lights by the Part B row, with its title and reason', () => {
-    const light = (over: Raw) => trustLight(open(over), null, NOW);
-    const at = (row: number, text: string, tone: string, over: Raw = {}) => ({
-      headline: { text, tone, row, ...over },
-    });
-    expect(trustLight(null, 'session-id', NOW)).toEqual({
-      signal: 'attention',
-      title: UNREADABLE,
-      why: 'The session id could not be read.',
-    });
-    expect(trustLight(null, 'snapshot', NOW).why).toBe('The snapshot file is not valid.');
-    expect(trustLight(parse(snapshot({ route: 'feature-development' })), null, NOW)).toEqual({
-      signal: 'idle',
-      title: 'Getting ready',
-      why: 'The change opens when planning starts. Nothing is judged before that.',
-    });
-    expect(
-      light({
-        ...at(5, 'The chief architect has 2 questions for you', 'needs-you'),
-        table: ord501Table('ruled'),
-        decisions: { pending: [conflict, conflict], resolved: 0 },
-      }),
-    ).toEqual({
-      signal: 'attention',
-      title: 'Waiting for your answers',
-      why: 'The chief ruled "needs answers". The spec freezes once you answer the 2 questions.',
-    });
-    const six = at(6, 'x', 'needs-you');
-    expect(light({ ...six, decisions: { pending: [conflict], resolved: 0 } }).why).toBe(
-      '1 decision needs your answer before work goes on.',
+  it('AC-34: groups the proof by the lane stages with steps inside, and no light, ring or reason', () => {
+    const view = trustView(parse(FULL_ORD_501));
+    expect(Object.keys(view).sort()).toEqual(
+      ['claims', 'empty', 'flags', 'gaps', 'gates', 'note', 'repairs', 'stages'].sort(),
     );
-    expect(light({ ...six, decisions: { pending: [conflict, conflict], resolved: 0 } }).why).toBe(
-      '2 decisions need your answer before work goes on.',
-    );
-    expect(light({ last_block: { text: 'x', title: 'No React.FC' } }).signal).toBe('idle');
-    const waiting = (waitingOn: 'question' | 'permission') =>
-      trustLight(open({}), null, NOW, { ...IDLE_LIVE, turnId: 't', waitingOn });
-    expect(waiting('question')).toEqual({
-      signal: 'attention',
-      title: 'Waiting for your answer',
-      why: 'Claude asked you a question. Work goes on once you answer it.',
-    });
-    expect(waiting('permission').title).toBe('Waiting for your permission');
-    expect(
-      light({ ...at(7, 'x', 'good'), ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } }),
-    ).toEqual({
-      signal: 'pass',
-      title: 'Merged',
-      why: `${PR} is merged.`,
-    });
-    expect(light({ ...at(9, 'x', 'warn'), ship: { ...PR_OPEN, pr_state: 'closed' } }).why).toBe(
-      `${PR} was closed without a merge.`,
-    );
-    expect(
-      light({
-        ...at(10, 'x', 'bad'),
-        ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } },
-      }),
-    ).toEqual({
-      signal: 'fail',
-      title: 'CI failed',
-      why: `CI failed on ${PR}. Fix it and push again.`,
-    });
-    expect(light({ ...at(11, 'x', 'bad'), ship: { ...SHIP0, push: { state: 'failed' } } })).toEqual(
-      {
-        signal: 'fail',
-        title: 'The push failed',
-        why: null,
-      },
-    );
-    expect(
-      light({
-        ...at(12, 'Tests, types or lint failed', 'bad'),
-        verdict: verdict('fail', 'Needs your attention'),
-        gates: [gate('code-tests-lint', 'fail')],
-      }),
-    ).toEqual({
-      signal: 'fail',
-      title: 'Needs your attention',
-      why: 'Tests, types or lint failed. Fix it and run the checks again.',
-    });
-    const thirteen = at(13, 'Inconclusive: a', 'warn');
-    expect(
-      light({ ...thirteen, verdict: verdict('inconclusive', 'Inconclusive', ['a', 'b']) }),
-    ).toEqual({
-      signal: 'caution',
-      title: 'Inconclusive',
-      why: 'a; b',
-    });
-    expect(light({ ...thirteen, verdict: verdict('inconclusive', 'Inconclusive') }).why).toBeNull();
-    expect(
-      light({
-        ...at(16, 'Done', 'good', {
-          word: 'Done',
-          note: 'not committed',
-          gap: 'paqad could not record the lane for this change',
-        }),
-        verdict: verdict('pass', 'Safe to merge'),
-      }),
-    ).toEqual({
-      signal: 'pass',
-      title: 'Done',
-      why: 'not committed. paqad could not record the lane for this change',
-    });
-    expect(light({ ...at(17, `${PR} is open. CI result unknown`, 'good') })).toEqual({
-      signal: 'pass',
-      title: 'PR open',
-      why: `${PR} is open. CI result unknown.`,
-    });
-    expect(light({ stages: stages({ development: 'running' }) })).toEqual({
-      signal: 'idle',
-      title: 'Not judged yet',
-      why: 'Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.',
-    });
-  });
-
-  it('counts the gates that passed against the required ones when safe to merge', () => {
-    const eight = { headline: { text: 'Safe to merge', tone: 'good', row: 8 } };
-    const safe = open({
-      ...eight,
-      verdict: verdict('pass', 'Safe to merge'),
-      gates: [gate('change-completeness', 'pass'), gate('code-tests-lint', 'pass')],
-    });
-    expect(trustLight(safe, null, NOW)).toEqual({
-      signal: 'pass',
-      title: 'Safe to merge',
-      why: '2 of 3 required gates pass.',
-    });
-    const all = open({
-      ...eight,
-      verdict: verdict('pass', 'Safe to merge'),
-      gates: [
-        gate('change-completeness', 'pass'),
-        gate('code-tests-lint', 'pass'),
-        gate('mutation-testing', 'not-required'),
-        gate('duplication', 'not-required'),
-      ],
-    });
-    expect(trustLight(all, null, NOW).why).toBe(
-      '2 of 2 required gates pass. 2 gates were not required for this change and are not counted.',
-    );
-    const clean = open({
-      ...eight,
-      verdict: verdict('pass', 'Safe to merge'),
-      gates_expected: ['code-tests-lint'],
-      gates: [gate('code-tests-lint', 'pass')],
-    });
-    expect(trustLight(clean, null, NOW).why).toBe('1 of 1 required gates pass.');
-  });
-
-  it('R-7: lists every expected gate, overlays the judged ones, and sorts required first', () => {
-    const before = trustGates(open());
-    expect(before.map((entry) => [entry.name, entry.required, entry.word])).toEqual([
-      ['change-completeness', true, 'Not judged yet'],
-      ['code-tests-lint', true, 'Not judged yet'],
-      ['mutation-testing', true, 'Not judged yet'],
+    expect(view.stages.map((stage) => [stage.words, stage.word, stage.tone])).toEqual([
+      ['Plan', 'Recorded', 'dim'],
+      ['Spec', 'Recorded', 'dim'],
+      ['Build', 'Recorded', 'dim'],
+      ['Review', 'Recorded', 'dim'],
+      ['Checks', 'Recorded', 'dim'],
+      ['Docs', 'Recorded', 'dim'],
     ]);
-    expect(before[0]).toMatchObject({
-      words: 'Nothing left half done',
-      how: 'How it is judged is not recorded',
-      tone: 'dim',
-      arc: { required: true, verdict: 'wait' },
-    });
-    const after = trustGates(
+    expect(view.stages[1]!.steps.map((step) => [step.mark, step.words, step.detail])).toEqual([
+      ['done', 'Grounded in the code', '8 references'],
+      ['done', 'Experts seated', '7 experts'],
+      ['done', 'Questions answered', '4 of 4'],
+      ['done', 'Spec frozen', '6 criteria'],
+    ]);
+    expect(view.stages[4]!.gates.map((row) => [row.words, row.word, row.tone])).toEqual([
+      ['Every criterion has a test', 'Pass', 'pass'],
+      ['Tests, types and lint pass', 'Pass', 'pass'],
+      ['Tests catch real mutations', 'Not required', 'dim'],
+      ['Quality did not drop', 'Pass', 'pass'],
+    ]);
+    expect(JSON.stringify(view)).not.toMatch(/Safe to merge|required gates pass|REQUIRED/);
+  });
+
+  it('AC-35 and AC-36: a fast-lane change shows Plan, Build and Checks in order, and no other stage', () => {
+    const view = trustView(parse(FAST_ORD_490));
+    expect(view.stages.map((stage) => [stage.words, stage.word, stage.tone])).toEqual([
+      ['Plan', 'Recorded', 'dim'],
+      ['Build', 'Running', 'acc'],
+      ['Checks', 'Not yet', 'dim'],
+    ]);
+    expect(view.stages[1]!.steps.map((step) => step.mark)).toEqual(['done', 'done', 'not-yet']);
+    expect(view.stages[2]!.gates.every((row) => row.word === 'Not judged yet')).toBe(true);
+  });
+
+  it('AC-35: no Trust line repeats the band headline', () => {
+    for (const raw of [FAST_ORD_490, FULL_ORD_501]) {
+      const snap = parse(raw);
+      const words = JSON.stringify(trustView(snap));
+      expect(words).not.toContain(snap.headline.text);
+    }
+  });
+
+  it('AC-37: says there is nothing to prove yet with no change', () => {
+    expect(trustView(parse(snapshot({ route: 'feature-development' }))).empty).toBe(
+      NOTHING_TO_PROVE,
+    );
+    expect(trustView(open({ proof: [] })).empty).toBe(NOTHING_TO_PROVE);
+    expect(trustView(parse(FULL_ORD_501)).empty).toBeNull();
+  });
+
+  it('AC-33: one neutral line per paqad record gap and one dim repair line, never a flag', () => {
+    const view = trustView(
       open({
-        verdict: verdict('fail', 'Needs your attention'),
-        gates: [
-          gate('code-tests-lint', 'fail'),
-          gate('spec-review', 'pass', 'llm-judged'),
-          gate('custom-gate', 'inconclusive', null),
-          gate('ac-test-mapping', 'did-not-run'),
+        record_gaps: ['paqad could not record every stage of this change'],
+        repairs: [
+          { what: 'inferred the Build stage from the edits', at: null },
+          { what: 'closed the stale Review stage', at: null },
         ],
       }),
     );
-    expect(after.map((entry) => [entry.name, entry.required, entry.word, entry.tone])).toEqual([
-      ['change-completeness', true, 'Did not run', 'cau'],
-      ['code-tests-lint', true, 'Fail', 'fail'],
-      ['mutation-testing', true, 'Did not run', 'cau'],
-      ['spec-review', true, 'Pass', 'pass'],
-      ['custom-gate', true, 'Could not prove', 'cau'],
-      ['ac-test-mapping', true, 'Did not run', 'cau'],
-    ]);
-    expect(after.map((entry) => entry.words)).toEqual([
-      'Nothing left half done',
-      'Tests, types and lint pass',
-      'Tests catch real mutations',
-      'The spec was reviewed',
-      'custom-gate',
-      'Every criterion has a test',
-    ]);
-    expect(after.map((entry) => entry.how)).toEqual([
-      '',
-      'Checked by a script',
-      '',
-      'Judged by a reviewer agent',
-      'How it is judged is not recorded',
-      '',
-    ]);
-    const ring = trustView(
+    expect(view.gaps).toEqual(['paqad could not record every stage of this change']);
+    expect(view.repairs).toBe(
+      'paqad repaired its own record: inferred the Build stage from the edits; closed the stale Review stage',
+    );
+    expect(view.flags).toEqual([]);
+  });
+
+  it('AC-31: an old snapshot with no proof shows only its recorded gates, inventing no pass', () => {
+    const view = trustView(
       open({
         verdict: verdict('fail', 'x'),
-        gates: [gate('code-tests-lint', 'fail'), gate('change-completeness', 'pass')],
+        gates: [
+          gate('code-tests-lint', 'fail'),
+          gate('custom-gate', 'pass'),
+          gate('stage-evidence', 'pass'),
+          gate('mutation-testing', 'pending'),
+        ],
       }),
-      NOW,
-    ).ring;
-    expect(ring).toEqual({
-      marks: [
-        { required: true, verdict: 'pass' },
-        { required: true, verdict: 'fail' },
-        { required: true, verdict: 'caution' },
-      ],
-      passed: 1,
-      required: 3,
-      alt: '1 of 3 required gates pass',
-    });
+    );
+    expect(view.stages).toEqual([]);
+    expect(view.note).toBe(OLD_RECORD_NOTE);
+    expect(view.gates).toEqual([
+      { key: 'code-tests-lint', words: 'Tests, types and lint pass', word: 'Fail', tone: 'fail' },
+    ]);
+    expect(trustView(open()).empty).toBe(NOTHING_TO_PROVE);
   });
 
   it('R-8: lists at most four claims with their proving tests, then how many more', () => {
@@ -411,21 +287,21 @@ describe('AC-20: the Trust tab', () => {
   });
 
   it('lists the open flags', () => {
-    expect(trustView(open({ flags: [{ id: 'f', text: 'one flag' }] }), NOW).flags).toEqual([
+    expect(trustView(open({ flags: [{ id: 'f', text: 'one flag' }] })).flags).toEqual([
       { id: 'f', text: 'one flag' },
     ]);
-    expect(trustView(parse(snapshot({ route: 'feature-development' })), NOW).flags).toEqual([]);
+    expect(trustView(parse(snapshot({ route: 'feature-development' }))).flags).toEqual([]);
   });
 
   it('keeps a rule stop as history, not as a question for you', () => {
     const block = { text: 'x', rule: 'RL-13', file: 'src/x.ts' };
-    expect(trustView(open({ last_block: block }), NOW).flags).toEqual([
+    expect(trustView(open({ last_block: block })).flags).toEqual([
       { id: 'rule-stop', text: 'A rule stopped an edit to src/x.ts.' },
     ]);
-    expect(trustView(open({ last_block: { ...block, used: true } }), NOW).flags).toEqual([
+    expect(trustView(open({ last_block: { ...block, used: true } })).flags).toEqual([
       { id: 'rule-stop', text: 'A rule stopped an edit to src/x.ts. It was answered.' },
     ]);
-    expect(trustView(open({ last_block: { text: 'x' } }), NOW).flags).toEqual([
+    expect(trustView(open({ last_block: { text: 'x' } })).flags).toEqual([
       { id: 'rule-stop', text: 'A rule stopped an edit.' },
     ]);
   });

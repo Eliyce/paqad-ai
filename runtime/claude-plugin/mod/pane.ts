@@ -3,7 +3,7 @@ import { stageLabel } from './model';
 import { noTableText, showsTable, SKIPPED_TEXT, tablePaneView } from './table';
 import type { TableLine, TablePaneView } from './table';
 import { statusEntryRoute, workflowCostLines } from './status-entry';
-import { gateRingSvg, recordLines, shipsLines, trustLines } from './tabs';
+import { recordLines, shipsLines, trustLines } from './tabs';
 import type { PaqadHudSnapshot, PaqadPaneTab } from './types';
 
 export const PANE_ID = 'paqad';
@@ -47,7 +47,6 @@ export interface PaneView {
   lines: string[];
   rows: TableLine[];
   table: TablePaneView | null;
-  svg: { source: string; alt: string } | null;
 }
 
 const NO_RECORD = 'Not yet. paqad has no record for this session.';
@@ -101,7 +100,6 @@ export function buildPaneView(
       lines: workflowCostLines(snapshot, entryRoute),
       rows: [],
       table: null,
-      svg: null,
     };
   }
   const selected = shownTab(picked);
@@ -110,10 +108,8 @@ export function buildPaneView(
       ? tablePaneView(snapshot, options.seat ?? null, options.now ?? 0)
       : null;
   const short = (options.columns ?? SHORT_TAB_COLUMNS) < SHORT_TAB_COLUMNS;
-  const gated = selected === 'trust' && snapshot?.active === true && snapshot.gates.length > 0;
   return {
     subtitle: PANE_SUBTITLE,
-    svg: gated ? gateRingSvg(snapshot.gates) : null,
     tabs: PANE_TABS.map((entry) => ({
       id: entry.id,
       key: tabKey(entry.id),

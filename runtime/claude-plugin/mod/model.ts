@@ -15,7 +15,9 @@ import type {
   PaqadFindingsScan,
   PaqadGate,
   PaqadGateStrength,
+  PaqadProofStep,
   PaqadRepair,
+  PaqadStageProof,
   PaqadRung,
   PaqadHeadline,
   PaqadHighTable,
@@ -495,6 +497,27 @@ function readVerdictParts(verdict: Record<string, unknown>): {
   };
 }
 
+const STEP_STATES: ReadonlyArray<PaqadProofStep['state']> = ['done', 'failed', 'not-yet'];
+
+function readProof(value: unknown): PaqadStageProof[] {
+  return each(value, (entry) => ({
+    stage: str(entry.stage) ?? '',
+    words: str(entry.words) ?? str(entry.stage) ?? '',
+    state: str(entry.state) ?? 'missing',
+    steps: each(entry.steps, (row) => ({
+      id: str(row.id) ?? '',
+      words: str(row.words) ?? '',
+      detail: str(row.detail),
+      state: STEP_STATES.find((state) => state === row.state) ?? 'not-yet',
+    })).filter((row) => row.words !== ''),
+    gates: each(entry.gates, (row) => ({
+      code: str(row.code) ?? '',
+      words: str(row.words) ?? '',
+      state: str(row.state) ?? 'not-judged',
+    })).filter((row) => row.words !== ''),
+  })).filter((entry) => entry.stage !== '');
+}
+
 function readRepairs(value: unknown): PaqadRepair[] {
   return list(value).flatMap((entry) => {
     const what = str(rec(entry)?.what);
@@ -751,6 +774,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     ...(Array.isArray(snap.repairs) ? { repairs: readRepairs(snap.repairs) } : {}),
     ...readRung(snap.rung),
     ...(snap.verdict_stale === true ? { verdict_stale: true as const } : {}),
+    ...(Array.isArray(snap.proof) ? { proof: readProof(snap.proof) } : {}),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
 }
@@ -778,6 +802,7 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     repairs: undefined,
     rung: undefined,
     verdict_stale: undefined,
+    proof: undefined,
   };
 }
 

@@ -54,6 +54,7 @@ describe('the HUD mod source', () => {
         'strip.ts',
         'table.ts',
         'tabs.ts',
+        'trust.ts',
         'visibility.ts',
         'test/fixtures.ts',
         'test/world.ts',

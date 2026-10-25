@@ -445,6 +445,123 @@ export function ord482Table(phase: Ord482Phase): Raw {
   };
 }
 
+type ProofStep = [string, string, string | null, 'done' | 'failed' | 'not-yet'];
+type ProofGate = [string, string, string];
+
+export function proofStage(
+  stage: string,
+  words: string,
+  state: string,
+  steps: readonly ProofStep[],
+  gates: readonly ProofGate[] = [],
+): Raw {
+  return {
+    stage,
+    words,
+    state,
+    steps: steps.map(([id, text, detail, done]) => ({ id, words: text, detail, state: done })),
+    gates: gates.map(([code, text, verdict]) => ({ code, words: text, state: verdict })),
+  };
+}
+
+export const FAST_ORD_490_PROOF: Raw[] = [
+  proofStage('planning', 'Plan', 'complete', [
+    ['plan', 'Plan compiled', '2 steps', 'done'],
+    ['reuse', 'Reuse checked', '3 sources consulted', 'done'],
+  ]),
+  proofStage(
+    'development',
+    'Build',
+    'running',
+    [
+      ['rules', 'Rules loaded', '4 rules apply', 'done'],
+      ['edits', 'Edits made', '1 file changed', 'done'],
+      ['built', 'Plan steps built', '1 of 2', 'not-yet'],
+    ],
+    [
+      ['change-completeness', 'Nothing left half done', 'not-judged'],
+      ['extension-surface', 'Public surface stays stable', 'not-judged'],
+      ['duplication', 'No near-copies added', 'not-judged'],
+    ],
+  ),
+  proofStage(
+    'checks',
+    'Checks',
+    'missing',
+    [['checks', 'Checks run', null, 'not-yet']],
+    [
+      ['ac-test-mapping', 'Every criterion has a test', 'not-judged'],
+      ['code-tests-lint', 'Tests, types and lint pass', 'not-judged'],
+      ['mutation-testing', 'Tests catch real mutations', 'not-judged'],
+      ['quality-ratchet', 'Quality did not drop', 'not-judged'],
+    ],
+  ),
+];
+
+export const FULL_ORD_501_PROOF: Raw[] = [
+  proofStage('planning', 'Plan', 'complete', [
+    ['plan', 'Plan compiled', '6 steps', 'done'],
+    ['reuse', 'Reuse checked', '5 sources consulted', 'done'],
+  ]),
+  proofStage(
+    'specification',
+    'Spec',
+    'complete',
+    [
+      ['grounded', 'Grounded in the code', '8 references', 'done'],
+      ['experts', 'Experts seated', '7 experts', 'done'],
+      ['questions', 'Questions answered', '4 of 4', 'done'],
+      ['frozen', 'Spec frozen', '6 criteria', 'done'],
+    ],
+    [['spec-review', 'The spec was reviewed', 'pass']],
+  ),
+  proofStage(
+    'development',
+    'Build',
+    'complete',
+    [
+      ['rules', 'Rules loaded', '12 rules apply', 'done'],
+      ['edits', 'Edits made', '9 files changed', 'done'],
+      ['built', 'Plan steps built', '6 of 6', 'done'],
+    ],
+    [
+      ['change-completeness', 'Nothing left half done', 'pass'],
+      ['extension-surface', 'Public surface stays stable', 'pass'],
+      ['duplication', 'No near-copies added', 'pass'],
+    ],
+  ),
+  proofStage(
+    'review',
+    'Review',
+    'complete',
+    [['review', 'Review recorded', '2 findings', 'done']],
+    [['implementation-review', 'The code was reviewed', 'pass']],
+  ),
+  proofStage(
+    'checks',
+    'Checks',
+    'complete',
+    [['checks', 'Checks passed', '4 of 4 commands', 'done']],
+    [
+      ['ac-test-mapping', 'Every criterion has a test', 'pass'],
+      ['code-tests-lint', 'Tests, types and lint pass', 'pass'],
+      ['mutation-testing', 'Tests catch real mutations', 'not-required'],
+      ['quality-ratchet', 'Quality did not drop', 'pass'],
+    ],
+  ),
+  proofStage(
+    'documentation_sync',
+    'Docs',
+    'complete',
+    [['docs', 'Docs updated', '2 files changed', 'done']],
+    [
+      ['module-docs-structure', 'Module docs keep their shape', 'pass'],
+      ['instructions-docs-structure', 'Instruction docs keep their shape', 'not-required'],
+      ['documentation-freshness', 'Docs match the code', 'pass'],
+    ],
+  ),
+];
+
 export const FAST_ORD_490 = snapshot({
   scope: { qualified: true, reason: 'qualified' },
   active: true,
@@ -467,6 +584,7 @@ export const FAST_ORD_490 = snapshot({
   rules: { recorded: true, applicable: 4, loaded_at: '2026-10-18T08:57:00.000Z' },
   ship: ship(0),
   isolation: { status: 'not-applicable', stages: 0, tokens_not_recarried: 0 },
+  proof: FAST_ORD_490_PROOF,
 });
 
 export const GRADUATED_ORD_482 = snapshot({
@@ -519,6 +637,7 @@ export const FULL_ORD_501 = snapshot({
   ship: ship(3),
   verdict: verdict('pass', 'Safe to merge'),
   receipt: { path: '/repo/.paqad/session/hud/ses-fixture.receipt.md' },
+  proof: FULL_ORD_501_PROOF,
 });
 
 export const SAFE_CLEAN = snapshot({

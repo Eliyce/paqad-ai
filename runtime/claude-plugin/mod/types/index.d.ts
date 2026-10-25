@@ -149,6 +149,23 @@ export type PaqadGate = {
 
 export type PaqadRepair = { what: string; at: string | null };
 
+export type PaqadProofStep = {
+  id: string;
+  words: string;
+  detail: string | null;
+  state: 'done' | 'failed' | 'not-yet';
+};
+
+export type PaqadProofGate = { code: string; words: string; state: string };
+
+export type PaqadStageProof = {
+  stage: string;
+  words: string;
+  state: string;
+  steps: PaqadProofStep[];
+  gates: PaqadProofGate[];
+};
+
 export type PaqadRung = 'done' | 'committed' | 'pr-open' | 'safe-to-merge' | 'merged';
 
 export type PaqadHeadline = {
@@ -301,6 +318,7 @@ export type PaqadHudSnapshot = {
   repairs?: PaqadRepair[];
   rung?: PaqadRung;
   verdict_stale?: true;
+  proof?: PaqadStageProof[];
 };
 
 export type PaqadStandDown = 'view-off' | 'not-onboarded' | 'remote' | 'disabled' | 'old-engine';

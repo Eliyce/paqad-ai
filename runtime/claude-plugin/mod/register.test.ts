@@ -8,6 +8,7 @@ import {
   FAST_ORD_490_COST,
   FULL_ORD_501,
   FULL_ORD_501_COST,
+  FULL_ORD_501_PROOF,
   GRADUATED_ORD_482,
   LATE_TABLE,
   NOW,
@@ -1140,7 +1141,7 @@ const CLAIMED = {
 };
 
 describe('the Desktop Ledger', () => {
-  test('AC-19, AC-20: opens on Trust with the subtitle, equal tabs, the tab rule, the light, the gates, the claims and the flags', async ($, on) => {
+  test('AC-19, AC-34: opens on Trust with the subtitle, equal tabs, the tab rule, the stages with their steps and gates, the claims and the flags', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(CLAIMED) }, store: QUIET_STORE() });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
@@ -1166,10 +1167,14 @@ describe('the Desktop Ledger', () => {
       (element) => propsOf(element).alt === 'Trust tab is shown',
     );
     expect(propsOf(rule!).height).toBe(2);
-    expect(lines).toContain('● Safe to merge');
-    expect(lines).toContain('2 of 2 required gates pass.');
-    for (const line of ['GATES', 'Tests, types and lint pass', 'Checked by a script', 'Pass'])
+    expect(lines).not.toContain('● Safe to merge');
+    expect(lines.some((line) => line.includes('required gates pass'))).toBe(false);
+    for (const line of ['PLAN', 'SPEC', 'BUILD', 'REVIEW', 'CHECKS', 'DOCS', 'Recorded'])
       expect(lines).toContain(line);
+    expect(lines).toContain('✓  Plan compiled  ·  6 steps');
+    for (const line of ['Tests, types and lint pass', 'Pass', 'Not required'])
+      expect(lines).toContain(line);
+    expect(lines.indexOf('PLAN')).toBeLessThan(lines.indexOf('DOCS'));
     expect(lines).toContain('CLAIMS AND THE TESTS THAT PROVE THEM');
     expect(lines).toContain('AC-1  Claim 1');
     expect(lines).toContain('tests/claim-1.test.ts');
@@ -1177,10 +1182,10 @@ describe('the Desktop Ledger', () => {
     expect(lines).toContain('+2 more, all proven');
     expect(lines).toContain('⚑ 1 near-copy of existing code is open.');
     expect(lines).toContain('Open');
-    const ring = everyElement(tree).find(
-      (element) => propsOf(element).alt === '2 of 2 required gates pass',
+    const ring = everyElement(tree).find((element) =>
+      String(propsOf(element).alt ?? '').includes('required gates'),
     );
-    expect(propsOf(ring!)).toMatchObject({ width: 92, height: 92 });
+    expect(ring).toBeUndefined();
   });
 
   test('AC-21: the High Table tab draws the ring, the chief, Answer in chat and See each side, and the seat details', async ($, on) => {
@@ -2553,8 +2558,18 @@ const TRUSTED = {
   ...FULL_ORD_501,
   gates: [
     { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
-    { name: 'review-quality', required: true, strength: 'llm-judged', verdict: 'inconclusive' },
+    { name: 'quality-ratchet', required: true, strength: 'deterministic', verdict: 'inconclusive' },
   ],
+  proof: FULL_ORD_501_PROOF.map((stage) =>
+    stage.stage === 'checks'
+      ? {
+          ...stage,
+          gates: (stage.gates as Array<Record<string, unknown>>).map((gate) =>
+            gate.code === 'quality-ratchet' ? { ...gate, state: 'inconclusive' } : gate,
+          ),
+        }
+      : stage,
+  ),
 };
 
 const DELIVERING = {
@@ -2596,18 +2611,19 @@ async function mountPane(
 
 describe('the Trust, Ships and Record tabs', () => {
   for (const surface of TERMINAL) {
-    test(`a landed verdict opens on Trust, gates in words, on ${surface}`, async ($, on) => {
+    test(`a landed verdict opens on Trust, stages and gates in words, on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(TRUSTED) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const drawn = await $.ui.render(pane(surface));
       const lines = drawnLines(drawn);
       expect(lines).toContain('Trust (shown)');
-      expect(lines).toContain('Gates ●~  1/2 required');
-      expect(lines).toContain('  ● code-tests-lint  pass');
-      expect(lines).toContain('  ~ review-quality  could not prove');
-      expect(colorOf(textElement(drawn, 'pass'))).toBe('success');
-      expect(colorOf(textElement(drawn, 'could not prove'))).toBe('warning');
+      expect(lines).toContain('Checks  Recorded');
+      expect(lines).toContain('    Tests, types and lint pass  Pass');
+      expect(lines).toContain('    Quality did not drop  Could not prove');
+      expect(lines.some((line) => /\d+\/\d+ required|^Verdict /.test(line))).toBe(false);
+      expect(colorOf(textElement(drawn, 'Pass'))).toBe('success');
+      expect(colorOf(textElement(drawn, 'Could not prove'))).toBe('warning');
     });
 
     test(`a delivery in progress shows CI partly done on Ships on ${surface}`, async ($, on) => {
@@ -2642,7 +2658,7 @@ describe('the Trust, Ships and Record tabs', () => {
       await $.session.start(START);
       const mounted = await mountPane($, surface);
       await mounted.press({ key: 'paqad-tab-trust' });
-      expect(await mounted.find({ text: 'No gates judged yet.' })).toBeDefined();
+      expect(await mounted.find({ text: 'Nothing to prove yet' })).toBeDefined();
       await mounted.press({ key: 'paqad-tab-ships' });
       expect(await mounted.find({ text: 'Nothing pushed yet.' })).toBeDefined();
       await mounted.press({ key: 'paqad-tab-record' });

@@ -15,7 +15,6 @@ import {
 import {
   STRIP_HEIGHT,
   escapeXml,
-  gateRing,
   hairline,
   meter,
   miniStages,
@@ -293,30 +292,6 @@ describe('the Ledger drawings', () => {
     expect(source).toMatch(/<rect class="acc pulse"/);
   });
 
-  it('draws one gate arc per gate: required 5 px by verdict, not required 2 px dashed', () => {
-    const source = gateRing(
-      [
-        { required: true, verdict: 'pass' },
-        { required: true, verdict: 'fail' },
-        { required: true, verdict: 'caution' },
-        { required: true, verdict: 'wait' },
-        { required: false, verdict: 'pass' },
-      ],
-      1,
-      4,
-    );
-    expect(source).toContain('viewBox="0 0 92 92" width="92" height="92"');
-    expect(source.match(/<path /g)).toHaveLength(5);
-    for (const tone of ['passs', 'fails', 'caus', 'faints']) {
-      expect(source).toContain(`<path class="${tone}" stroke-width="5"`);
-    }
-    expect(source).toContain('<path class="faints" stroke-width="2" stroke-dasharray="1.5 2.5"');
-    expect(source).toContain('>1/4</text>');
-    expect(source).toContain('>REQUIRED</text>');
-    expect(gateRing([], 0, 0)).toContain('>0/0</text>');
-    expect(gateRing([{ required: true, verdict: 'pass' }], 1, 1)).toMatch(/A 36 36 0 1 1 /);
-  });
-
   it('draws the table ring with a findings badge on each landed seat and the chief word', () => {
     const source = tableRing(
       [
@@ -399,7 +374,6 @@ describe('AC-26: every colour comes from the palette', () => {
         ci: 0.3,
       }),
       miniStages(['done', 'run', 'fail']),
-      gateRing([{ required: true, verdict: 'attention' }], 0, 1),
       tableRing([{ label: 'SA', state: 'done', findings: 3 }], 'done'),
       nodeIcon('Merge', 'ready'),
       meter(null),
@@ -428,11 +402,7 @@ describe('AC-26: every colour comes from the palette', () => {
       'fill',
     ]);
     expect(white(nodeIcon('Merge', 'ready'))).toEqual(['stroke']);
-    for (const source of [
-      gateRing([{ required: true, verdict: 'pass' }], 1, 1),
-      meter(null),
-      meter(1),
-    ]) {
+    for (const source of [meter(null), meter(1)]) {
       expect(white(source)).toEqual([]);
     }
   });

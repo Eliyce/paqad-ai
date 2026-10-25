@@ -4,17 +4,11 @@ export type StageState = 'done' | 'run' | 'paused' | 'marked' | 'fail' | 'skip' 
 export type SeatState = 'done' | 'writing' | 'seated' | 'late';
 export type ChiefState = 'waiting' | 'ruling' | 'needs' | 'done';
 export type ShipState = 'done' | 'run' | 'todo' | 'ready' | 'fail';
-export type GateTone = 'pass' | 'fail' | 'caution' | 'wait';
 export type MeterTone = 'ink' | 'acc' | 'pass';
 
 export interface Mark<S> {
   label: string;
   state: S;
-}
-
-export interface GateMark {
-  required: boolean;
-  verdict: GateTone;
 }
 
 export interface TableSeat extends Mark<SeatState> {
@@ -428,33 +422,6 @@ export function hairline(): string {
     `<rect x="0" y="0" width="2000" height="1" fill="${INK.muted}" fill-opacity="${INK.hairOpacity}"/>`,
     ' preserveAspectRatio="none"',
   );
-}
-
-const GATE_STROKE: Readonly<Record<GateTone, string>> = {
-  pass: 'passs',
-  fail: 'fails',
-  caution: 'caus',
-  wait: 'faints',
-};
-
-export function gateRing(gates: readonly GateMark[], passed: number, required: number): string {
-  const size = 92;
-  const c = size / 2;
-  const r = 36;
-  const n = Math.max(1, gates.length);
-  const arcs = gates.map((gate, i) => {
-    const from = (i / n) * Math.PI * 2 - Math.PI / 2 + 0.06;
-    const to = ((i + 1) / n) * Math.PI * 2 - Math.PI / 2 - 0.06;
-    const look = gate.required
-      ? `class="${GATE_STROKE[gate.verdict]}" stroke-width="5"`
-      : 'class="faints" stroke-width="2" stroke-dasharray="1.5 2.5"';
-    return `<path ${look} d="${arc(c, r, from, to)}" fill="none" stroke-linecap="round"/>`;
-  });
-  const centre = [
-    `<text class="ink" x="${c}" y="${c + 2}" text-anchor="middle" style="font-size:19px;font-weight:600">${passed}/${required}</text>`,
-    `<text class="mut" x="${c}" y="${c + 16}" text-anchor="middle" style="font-size:8.5px;letter-spacing:.6px">REQUIRED</text>`,
-  ];
-  return svg(size, size, css() + arcs.join('') + centre.join(''));
 }
 
 const SEAT_ARC: Readonly<Record<SeatState, string>> = {

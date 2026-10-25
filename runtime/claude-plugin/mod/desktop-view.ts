@@ -15,7 +15,6 @@ import { shipRail, type ShipStepState } from './ship';
 import { statusEntryRoute, workflowCost, workflowWords } from './status-entry';
 import type {
   ChiefState,
-  GateMark,
   Mark,
   SeatState,
   ShipState,
@@ -33,6 +32,18 @@ import {
   type DesktopHeadline,
 } from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
+import {
+  NOTHING_TO_PROVE,
+  OLD_RECORD_NOTE,
+  oldRecordGates,
+  recordGapLines,
+  repairLine,
+  stageHasEvidence,
+  trustStage,
+  type TrustGateRow,
+  type TrustStage,
+  type WordTone,
+} from './trust';
 import type {
   PaqadCiJob,
   PaqadCost,
@@ -474,7 +485,7 @@ export function bandIsLive(band: DesktopBand): boolean {
   return band.kind === 'feature' && band.headline.live;
 }
 
-export type WordTone = 'pass' | 'fail' | 'acc' | 'att' | 'cau' | 'dim';
+export type { WordTone };
 
 export interface LightView {
   signal: Signal;
@@ -515,217 +526,8 @@ export function ledgerSubtitle(snapshot: PaqadHudSnapshot | null): string {
   return chip ? `What happened, with proof  ·  ${chip}` : 'What happened, with proof';
 }
 
-const NOT_JUDGED_LIGHT: LightView = {
-  signal: 'idle',
-  title: 'Not judged yet',
-  why: 'Gates are judged after Build, Review and Checks. Nothing reads as a pass before that.',
-};
-
-export const GATE_WORDS: Readonly<Record<string, string>> = {
-  'spec-review': 'The spec was reviewed',
-  'requirement-completeness': 'Every requirement is complete',
-  'story-quality': 'The stories are well formed',
-  'implementation-review': 'The code was reviewed',
-  'code-tests-lint': 'Tests, types and lint pass',
-  'behavioral-correctness': 'The behaviour matches the spec',
-  'quality-ratchet': 'Quality did not drop',
-  duplication: 'No near-copies added',
-  'documentation-freshness': 'Docs match the code',
-  'ac-test-mapping': 'Every criterion has a test',
-  'change-completeness': 'Nothing left half done',
-  'mutation-testing': 'Tests catch real mutations',
-  'module-docs-structure': 'Module docs keep their shape',
-  'instructions-docs-structure': 'Instruction docs keep their shape',
-  'extension-surface': 'Public surface stays stable',
-  'architecture-compliance': 'The architecture rules hold',
-  'database-quality': 'Database changes are safe',
-  'fix-proof': 'The fix is proven by a test',
-  'site-map-freshness': 'The site map matches the app',
-  'bundle-completeness': 'The evidence bundle is complete',
-};
-
-export interface TrustGate {
-  name: string;
-  words: string;
-  how: string;
-  required: boolean;
-  verdict: string;
-  word: string;
-  tone: WordTone;
-  arc: GateMark;
-}
-
-const HOW_JUDGED: Readonly<Record<string, string>> = {
-  deterministic: 'Checked by a script',
-  'llm-judged': 'Judged by a reviewer agent',
-};
-
-const VERDICT_WORDS_DESKTOP: Readonly<Record<string, { word: string; tone: WordTone }>> = {
-  pass: { word: 'Pass', tone: 'pass' },
-  fail: { word: 'Fail', tone: 'fail' },
-  inconclusive: { word: 'Could not prove', tone: 'cau' },
-  'did-not-run': { word: 'Did not run', tone: 'cau' },
-  'not-required': { word: 'Not required', tone: 'dim' },
-};
-
-const ARC_TONE: Readonly<Record<string, GateMark['verdict']>> = {
-  pass: 'pass',
-  fail: 'fail',
-  inconclusive: 'caution',
-  'did-not-run': 'caution',
-};
-
-function howJudged(verdict: string, strength: string | null): string {
-  if (verdict === 'did-not-run' || verdict === 'not-required') return '';
-  return (strength && HOW_JUDGED[strength]) || 'How it is judged is not recorded';
-}
-
-export function trustGates(snapshot: PaqadHudSnapshot): TrustGate[] {
-  const rows = new Map(snapshot.gates.map((gate) => [gate.name, gate]));
-  const names = [
-    ...snapshot.gates_expected,
-    ...snapshot.gates
-      .map((gate) => gate.name)
-      .filter((name) => !snapshot.gates_expected.includes(name)),
-  ];
-  const judged = snapshot.verdict !== null;
-  const gates = [...new Set(names)].map((name, order) => {
-    const row = rows.get(name);
-    const verdict = row ? row.verdict : judged ? 'did-not-run' : 'not-judged';
-    const required = row ? row.required && row.verdict !== 'not-required' : true;
-    const look = VERDICT_WORDS_DESKTOP[verdict] ?? { word: 'Not judged yet', tone: 'dim' as const };
-    return {
-      order,
-      gate: {
-        name,
-        words: GATE_WORDS[name] ?? name,
-        how: howJudged(verdict, row?.strength ?? null),
-        required,
-        verdict,
-        word: look.word,
-        tone: look.tone,
-        arc: { required, verdict: ARC_TONE[verdict] ?? 'wait' },
-      },
-    };
-  });
-  return gates
-    .sort((a, b) => Number(b.gate.required) - Number(a.gate.required) || a.order - b.order)
-    .map(({ gate }) => gate);
-}
-
-export interface GateRingView {
-  marks: GateMark[];
-  passed: number;
-  required: number;
-  alt: string;
-}
-
-export function gateRingView(gates: readonly TrustGate[]): GateRingView {
-  const required = gates.filter((gate) => gate.required).length;
-  const passed = gates.filter((gate) => gate.required && gate.verdict === 'pass').length;
-  return {
-    marks: gates.map((gate) => gate.arc),
-    passed,
-    required,
-    alt: `${passed} of ${required} required gates pass`,
-  };
-}
-
-export function trustLight(
-  snapshot: PaqadHudSnapshot | null,
-  unreadable: Unreadable | null,
-  now: number,
-  live: LiveState = IDLE_LIVE,
-): LightView {
-  if (unreadable)
-    return { signal: 'attention', title: UNREADABLE, why: UNREADABLE_WHY[unreadable] };
-  if (!snapshot || !snapshot.active) {
-    return {
-      signal: 'idle',
-      title: GETTING_READY,
-      why: 'The change opens when planning starts. Nothing is judged before that.',
-    };
-  }
-  const head = desktopHeadline(snapshot, now, live);
-  const pending = snapshot.decisions.pending.length;
-  const pr = prName(snapshot);
-  switch (head.row) {
-    case 3:
-      return {
-        signal: 'attention',
-        title: WAITING_FOR_ANSWER,
-        why: 'Claude asked you a question. Work goes on once you answer it.',
-      };
-    case 4:
-      return {
-        signal: 'attention',
-        title: WAITING_FOR_PERMISSION,
-        why: 'Claude is waiting for you to allow or refuse a tool call.',
-      };
-    case 5: {
-      const questions = snapshot.decisions.pending.filter(
-        (decision) => decision.category === CONFLICT_CATEGORY,
-      ).length;
-      return {
-        signal: 'attention',
-        title: 'Waiting for your answers',
-        why: `The chief ruled "needs answers". The spec freezes once you answer the ${plural(questions, 'question', 'questions')}.`,
-      };
-    }
-    case 6:
-      return {
-        signal: 'attention',
-        title: 'Waiting for your answers',
-        why: `${pending === 1 ? '1 decision needs' : `${pending} decisions need`} your answer before work goes on.`,
-      };
-    case 7:
-      return { signal: 'pass', title: 'Merged', why: `${pr} is merged.` };
-    case 8:
-      return { signal: 'pass', title: 'Safe to merge', why: safeToMergeWhy(snapshot) };
-    case 17:
-      return { signal: 'pass', title: 'PR open', why: `${head.text}.` };
-    case 9:
-      return { signal: 'caution', title: 'PR closed', why: `${pr} was closed without a merge.` };
-    case 10:
-      return {
-        signal: 'fail',
-        title: 'CI failed',
-        why: `CI failed on ${pr}. Fix it and push again.`,
-      };
-    case 11:
-      return { signal: 'fail', title: 'The push failed', why: null };
-    case 12:
-      return {
-        signal: 'fail',
-        title: 'Needs your attention',
-        why: `${head.text}. Fix it and run the checks again.`,
-      };
-    case 13:
-      return {
-        signal: 'caution',
-        title: 'Inconclusive',
-        why: (snapshot.verdict?.work_reasons ?? snapshot.verdict?.reasons ?? []).join('; ') || null,
-      };
-    case 16:
-      return {
-        signal: 'pass',
-        title: head.word ?? head.text,
-        why: [head.note, head.gap].filter((part) => part !== null).join('. ') || null,
-      };
-    default:
-      return NOT_JUDGED_LIGHT;
-  }
-}
-
-function safeToMergeWhy(snapshot: PaqadHudSnapshot): string {
-  const gates = trustGates(snapshot);
-  const required = gates.filter((gate) => gate.required).length;
-  const passed = gates.filter((gate) => gate.required && gate.verdict === 'pass').length;
-  const skipped = gates.length - required;
-  const head = `${passed} of ${required} required gates pass.`;
-  return skipped > 0
-    ? `${head} ${plural(skipped, 'gate was', 'gates were')} not required for this change and ${skipped === 1 ? 'is' : 'are'} not counted.`
-    : head;
+export function unreadableLight(reason: Unreadable): LightView {
+  return { signal: 'attention', title: UNREADABLE, why: UNREADABLE_WHY[reason] };
 }
 
 export interface ClaimRow {
@@ -787,10 +589,23 @@ export interface FlagRow {
   text: string;
 }
 
+export {
+  GATE_STATE_WORDS,
+  NOTHING_TO_PROVE,
+  STEP_MARKS,
+  type StepMark,
+  type TrustGateRow,
+  type TrustStage,
+  type TrustStep,
+} from './trust';
+
 export interface TrustView {
-  light: LightView;
-  ring: GateRingView;
-  gates: TrustGate[];
+  empty: string | null;
+  note: string | null;
+  stages: TrustStage[];
+  gates: TrustGateRow[];
+  repairs: string | null;
+  gaps: string[];
   claims: ClaimsView;
   flags: FlagRow[];
 }
@@ -805,25 +620,36 @@ export function ruleStopHistory(snapshot: PaqadHudSnapshot): FlagRow | null {
   };
 }
 
-export function trustView(
-  snapshot: PaqadHudSnapshot,
-  now: number,
-  live: LiveState = IDLE_LIVE,
-): TrustView {
-  const gates = trustGates(snapshot);
-  const history = snapshot.active ? ruleStopHistory(snapshot) : null;
-  return {
-    light: trustLight(snapshot, null, now, live),
-    ring: gateRingView(gates),
+export function trustView(snapshot: PaqadHudSnapshot): TrustView {
+  const active = snapshot.active;
+  const history = active ? ruleStopHistory(snapshot) : null;
+  const proof = active ? (snapshot.proof ?? null) : [];
+  const stages = proof && proof.some(stageHasEvidence) ? proof.map(trustStage) : [];
+  const gates = active && proof === null ? oldRecordGates(snapshot) : [];
+  const claims = claimsView(snapshot);
+  const view: TrustView = {
+    empty: null,
+    note: gates.length > 0 ? OLD_RECORD_NOTE : null,
+    stages,
     gates,
-    claims: claimsView(snapshot),
-    flags: snapshot.active
+    repairs: active ? repairLine(snapshot) : null,
+    gaps: active ? recordGapLines(snapshot) : [],
+    claims,
+    flags: active
       ? [
           ...snapshot.flags.map((flag) => ({ id: flag.id, text: flag.text })),
           ...(history ? [history] : []),
         ]
       : [],
   };
+  const nothing =
+    stages.length === 0 &&
+    gates.length === 0 &&
+    view.repairs === null &&
+    view.gaps.length === 0 &&
+    claims.rows.length === 0 &&
+    view.flags.length === 0;
+  return nothing ? { ...view, empty: NOTHING_TO_PROVE } : view;
 }
 
 export interface SeatRow {
@@ -1278,7 +1104,6 @@ export const NOT_COUNTED_WORDS =
   'Not counted: your own typing time, other sessions, and the HUD itself (0 tokens).';
 export const COUNTING_WORDS = 'Counting: this turn is still running.';
 export const COST_LATER = 'Nothing counted yet. The cost starts when the change opens.';
-export const NO_FLAGS = 'No open flags.';
 
 function lineRight(line: PaqadCostLine): string {
   const tokens = formatTokens(line.tokens.total);
@@ -1392,7 +1217,7 @@ export interface DesktopLedgerInput {
 
 export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
   const unreadable = unreadableReason(input);
-  if (unreadable) return { kind: 'unreadable', light: trustLight(null, unreadable, input.now) };
+  if (unreadable) return { kind: 'unreadable', light: unreadableLight(unreadable) };
   const snapshot = input.snapshot;
   if (!snapshot) return { kind: 'none' };
   const route = statusEntryRoute(snapshot);
@@ -1403,7 +1228,7 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
     subtitle: ledgerSubtitle(snapshot),
     tabs,
     shown: tabs.find((tab) => tab.shown)!.id,
-    trust: trustView(snapshot, input.now, input.live),
+    trust: trustView(snapshot),
     table: tableView(snapshot, input.specText),
     delivery: deliveryView(snapshot, input.live),
     record: recordView(snapshot),
