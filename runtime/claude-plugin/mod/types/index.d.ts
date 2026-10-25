@@ -136,12 +136,17 @@ export type PaqadCommitGroup = {
 
 export type PaqadGateStrength = 'deterministic' | 'llm-judged' | null;
 
+export type PaqadGateOwner = 'work' | 'paqad-record';
+
 export type PaqadGate = {
   name: string;
   verdict: string;
   required: boolean;
   strength: PaqadGateStrength;
+  owner?: PaqadGateOwner;
 };
+
+export type PaqadRepair = { what: string; at: string | null };
 
 export type PaqadClaim = {
   kind: string;
@@ -272,9 +277,14 @@ export type PaqadHudSnapshot = {
     kind: 'pass' | 'fail' | 'inconclusive';
     reasons: string[];
     at?: string;
+    work_kind?: 'pass' | 'fail' | 'inconclusive';
+    work_reasons?: string[];
+    record_gaps?: string[];
   } | null;
   receipt: { path: string } | null;
   cost: PaqadCost | null;
+  record_gaps?: string[];
+  repairs?: PaqadRepair[];
 };
 
 export type PaqadStandDown = 'view-off' | 'not-onboarded' | 'remote' | 'disabled' | 'old-engine';

@@ -341,19 +341,33 @@ describe('buildHudSnapshot', () => {
     expect(snapshot.table?.seats).toHaveLength(7);
     expect(snapshot.table?.skipped).toBe(false);
     expect(snapshot.gates).toEqual([
-      { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
+      {
+        name: 'code-tests-lint',
+        required: true,
+        strength: 'deterministic',
+        verdict: 'pass',
+        owner: 'work',
+      },
       {
         name: 'mutation-testing',
         required: true,
         strength: 'deterministic',
         verdict: 'inconclusive',
+        owner: 'work',
       },
-      { name: 'spec-review', required: true, strength: 'llm-judged', verdict: 'pass' },
+      {
+        name: 'spec-review',
+        required: true,
+        strength: 'llm-judged',
+        verdict: 'pass',
+        owner: 'work',
+      },
       {
         name: 'visual-evidence',
         required: false,
         strength: null,
         verdict: 'not-required',
+        owner: 'work',
       },
     ]);
     expect(snapshot.flags.map((flag) => flag.id)).toEqual(

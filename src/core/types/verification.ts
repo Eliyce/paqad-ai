@@ -42,13 +42,20 @@ export type GateStrength = 'deterministic' | 'llm-judged';
 
 export type GateBackstopSource = 'runner' | 'checks-report' | 'late' | 'none';
 
-export interface GateCatalogEntry {
+export type GateOwner = 'work' | 'paqad-record';
+
+interface GateBaseEntry {
   stage: string;
   lanes: readonly Lane[];
   strength: GateStrength;
   backstop: GateBackstopSource;
   default_runner: boolean;
   label: string;
+}
+
+export interface GateCatalogEntry extends GateBaseEntry {
+  owner: GateOwner;
+  records?: string;
 }
 
 const EVERY_LANE: readonly Lane[] = ['fast', 'graduated', 'full'];
@@ -60,7 +67,7 @@ function entry(
   backstop: GateBackstopSource,
   label: string,
   defaultRunner = backstop !== 'late',
-): GateCatalogEntry {
+): GateBaseEntry {
   const lanes =
     stage === 'specification' || stage === 'review' || stage === 'documentation_sync'
       ? STAGED_LANES
@@ -68,7 +75,7 @@ function entry(
   return { stage, lanes, strength, backstop, default_runner: defaultRunner, label };
 }
 
-export const GATE_CATALOG: Readonly<Record<GateCode, GateCatalogEntry>> = {
+const GATE_ENTRIES: Readonly<Record<GateCode, GateBaseEntry>> = {
   'change-completeness': entry('development', 'deterministic', 'runner', 'Nothing left half done'),
   'requirement-completeness': entry(
     'specification',
@@ -150,6 +157,33 @@ export const GATE_CATALOG: Readonly<Record<GateCode, GateCatalogEntry>> = {
     'Every mandatory stage has evidence',
   ),
 };
+
+const PAQAD_RECORDS: Readonly<Partial<Record<GateCode, string>>> = {
+  'stage-evidence': 'every stage of this change',
+  'bundle-completeness': 'the full evidence bundle',
+  'unrecorded-mandatory-stages': 'evidence for every mandatory stage',
+  'rules-loaded': 'that the rules were loaded',
+  'evidence-existence': 'every evidence file',
+  'fix-proof': 'the proof for this fix',
+};
+
+export const GATE_CATALOG: Readonly<Record<GateCode, GateCatalogEntry>> = Object.fromEntries(
+  Object.entries(GATE_ENTRIES).map(([code, base]) => {
+    const records = PAQAD_RECORDS[code as GateCode];
+    const owned: GateCatalogEntry = records
+      ? { ...base, owner: 'paqad-record', records }
+      : { ...base, owner: 'work' };
+    return [code, owned];
+  }),
+) as Record<GateCode, GateCatalogEntry>;
+
+export function gateOwner(code: string): GateOwner {
+  return gateCatalogEntry(code)?.owner ?? 'work';
+}
+
+export function recordGapText(code: string): string {
+  return `paqad could not record ${gateCatalogEntry(code)?.records ?? code}`;
+}
 
 export function gateCatalogEntry(code: string): GateCatalogEntry | null {
   return Object.hasOwn(GATE_CATALOG, code) ? GATE_CATALOG[code as GateCode] : null;

@@ -5,6 +5,7 @@ import { ENVELOPE_HEADER_PROPERTIES } from '@/feature-evidence/schema.js';
 
 import {
   COMPLETION_DEFERRED_KIND,
+  RECORD_REPAIR_KIND,
   SPEC_CORRECTION_KIND,
   SPEC_STEP_KIND,
   SPEC_STEP_OUTCOMES,
@@ -59,6 +60,7 @@ export const STAGE_EVIDENCE_SCHEMA = {
         SPEC_STEP_KIND,
         SPEC_CORRECTION_KIND,
         COMPLETION_DEFERRED_KIND,
+        RECORD_REPAIR_KIND,
       ],
     },
     ...ROW_PROPERTIES,
@@ -92,6 +94,10 @@ export const STAGE_EVIDENCE_SCHEMA = {
     {
       if: { properties: { kind: { const: COMPLETION_DEFERRED_KIND } }, required: ['kind'] },
       then: { required: ['reason', 'tasks'] },
+    },
+    {
+      if: { properties: { kind: { const: RECORD_REPAIR_KIND } }, required: ['kind'] },
+      then: { required: ['reason'] },
     },
   ],
 } as const;

@@ -11,7 +11,8 @@ export type StageEvidenceKind =
   | 'stage-agent'
   | 'spec-step'
   | 'spec-correction'
-  | 'completion-deferred';
+  | 'completion-deferred'
+  | 'record-repair';
 
 export const STAGE_AGENT_KIND = 'stage-agent';
 
@@ -20,6 +21,8 @@ export const SPEC_STEP_KIND = 'spec-step';
 export const SPEC_CORRECTION_KIND = 'spec-correction';
 
 export const COMPLETION_DEFERRED_KIND = 'completion-deferred';
+
+export const RECORD_REPAIR_KIND = 'record-repair';
 
 export const SPEC_STEP_OUTCOMES = ['complete', 'skipped', 'redone'] as const;
 export type SpecStepOutcome = (typeof SPEC_STEP_OUTCOMES)[number];

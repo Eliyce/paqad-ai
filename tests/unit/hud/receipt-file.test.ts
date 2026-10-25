@@ -67,6 +67,9 @@ describe('writeHudReceipt', () => {
       kind: 'fail',
       passed: false,
       reasons: ['stage-evidence: y', 'code-tests-lint: x'],
+      work_kind: 'inconclusive',
+      work_reasons: ['code-tests-lint: x'],
+      record_gaps: ['paqad could not record every stage of this change'],
       written_at: '2026-10-18T00:00:00.000Z',
     });
     expect(existsSync(written!.verdictPath)).toBe(true);

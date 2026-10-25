@@ -121,7 +121,12 @@ export {
   type SpecPipelineFlags,
   type StageIsolationStatus,
 } from './bundle-completeness-config.js';
-import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
+import {
+  LANE_RECORD_GAP,
+  verdictKindFor,
+  verdictParts,
+  type VerdictKind,
+} from '@/verification/verdict-kind.js';
 
 export function backstopGates(): Gate[] {
   return [
@@ -647,6 +652,12 @@ export async function runRepositoryVerification(
     resolveSessionId(context.project_root, options.hostSessionId ?? null),
   );
   verdict.change = receiptFeature;
+  const parts = verdictParts(verdict.gates, verdictStageGaps);
+  if (fold && fold.lane === null) {
+    parts.record_gaps.push(LANE_RECORD_GAP);
+    verdict.summary += `\n> ${PAQAD_STATUS_GLYPH.skipped} ${LANE_RECORD_GAP.text}.`;
+  }
+  Object.assign(verdict, parts);
 
   verdict.receipt = composeChangeReceipt({
     verdictSummary: verdict.summary,

@@ -1,7 +1,18 @@
 import { PAQAD_STATUS_GLYPH, PAQAD_VERDICT, paqadFrameLead } from '@/core/constants/paqad-voice.js';
-import type { GateSkipKind, VerificationGate, WaitingDecision } from '@/core/types/verification.js';
+import {
+  gateOwner,
+  recordGapText,
+  type GateSkipKind,
+  type VerificationGate,
+  type WaitingDecision,
+} from '@/core/types/verification.js';
 import { GATE_STATE_LABEL, type GateState } from '@/evidence/grading.js';
-import { verdictKindFor, type VerdictKind } from '@/verification/verdict-kind.js';
+import {
+  unrecordedStagesGap,
+  verdictKindFor,
+  type RecordGap,
+  type VerdictKind,
+} from '@/verification/verdict-kind.js';
 import type {
   EvidenceGateStatus,
   VerificationEvidence,
@@ -26,6 +37,9 @@ export interface RepositoryVerificationVerdict {
   applicable?: false;
   narrationAdvisory?: string;
   change?: string | null;
+  work_kind?: VerdictKind;
+  work_reasons?: string[];
+  record_gaps?: RecordGap[];
   gates: RepositoryVerificationGateVerdict[];
   escalations: string[];
   evidence_path: string | null;
@@ -97,14 +111,15 @@ export function formatVerdictSummary(input: {
   } else if (kind === 'inconclusive' && inconclusive.length === 0) {
     lines.push(paqadFrameLead(PAQAD_VERDICT.inconclusive));
     lines.push(`> ${PAQAD_STATUS_GLYPH.good} ${passed}/${ran.length} checks held for you.`);
-    lines.push(
-      `> ${PAQAD_STATUS_GLYPH.needsLook} needs a look — mandatory stage(s) not recorded: ` +
-        `${stageGaps.join(', ')}. Mark them so the change is provably complete.`,
-    );
+    lines.push(`> ${PAQAD_STATUS_GLYPH.skipped} ${unrecordedStagesGap(stageGaps).text}.`);
   } else if (kind === 'fail') {
     lines.push(paqadFrameLead(PAQAD_VERDICT.fail));
     for (const gate of failing) {
-      lines.push(`> ${PAQAD_STATUS_GLYPH.failed} ${gate.gate}: ${gate.detail}`);
+      lines.push(
+        isRecordGap(gate)
+          ? recordGapLine(gate)
+          : `> ${PAQAD_STATUS_GLYPH.failed} ${gate.gate}: ${gate.detail}`,
+      );
     }
     lines.push(...inconclusive.map(inconclusiveLine));
   } else {
@@ -141,7 +156,16 @@ function labelled(gate: RepositoryVerificationGateVerdict): string {
   return gate.detail.toLowerCase().includes(word) ? gate.detail : `${word}. ${gate.detail}`;
 }
 
+function isRecordGap(gate: RepositoryVerificationGateVerdict): boolean {
+  return gateOwner(gate.gate) === 'paqad-record';
+}
+
+function recordGapLine(gate: RepositoryVerificationGateVerdict): string {
+  return `> ${PAQAD_STATUS_GLYPH.skipped} ${gate.gate}: ${recordGapText(gate.gate)}. ${gate.detail}`;
+}
+
 function inconclusiveLine(gate: RepositoryVerificationGateVerdict): string {
+  if (isRecordGap(gate)) return recordGapLine(gate);
   return `> ${PAQAD_STATUS_GLYPH.needsLook} ${gate.gate}: ${labelled(gate)}`;
 }
 

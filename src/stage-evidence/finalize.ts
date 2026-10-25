@@ -15,6 +15,7 @@ import { agentForWriter } from './agent-identity.js';
 import { startedAfterLastEnd } from './fold.js';
 import { endStage, openStageEvidence } from './recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { RECORD_REPAIR_KIND } from './types.js';
 import { verifyChange, type VerifyResult } from './verify.js';
 
 export interface FinalizeStageEvidenceInput {
@@ -126,20 +127,19 @@ function endDanglingLiveStages(
     const stageRows = rows.filter((row) => row.stage === stage);
     if (!startedAfterLastEnd(stageRows)) continue;
     const artifactPaths =
-      stage === 'checks' ? checksEndArtifact(projectRoot, sessionId, dirName, stageRows, input) : [];
+      stage === 'checks'
+        ? checksEndArtifact(projectRoot, sessionId, dirName, stageRows, input)
+        : [];
     if (artifactPaths === null) continue;
     try {
-      endStage(
-        projectRoot,
-        stage,
-        artifactPaths.length > 0 ? { artifactPaths } : {},
-        {
-          sessionId,
-          dirName,
-          adapter: input.adapter,
-          now: input.now,
-        },
-      );
+      endStage(projectRoot, stage, artifactPaths.length > 0 ? { artifactPaths } : {}, {
+        sessionId,
+        dirName,
+        adapter: input.adapter,
+        now: input.now,
+      });
+      const from = artifactPaths.length > 0 ? 'the checks report' : 'the work recorded this turn';
+      recordRepair(projectRoot, sessionId, dirName, input, `the ${stage} stage end, from ${from}`);
     } catch {}
   }
 }
@@ -185,6 +185,22 @@ function backfillMissingDevelopment(
   appendInferredDevelopment(projectRoot, sessionId, dirName, input);
 }
 
+function recordRepair(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string,
+  input: FinalizeStageEvidenceInput,
+  reason: string,
+): void {
+  appendFeatureStageRow(
+    projectRoot,
+    sessionId,
+    dirName,
+    { kind: RECORD_REPAIR_KIND, agent: agentForWriter(input.adapter), reason },
+    input.now,
+  );
+}
+
 function appendInferredDevelopment(
   projectRoot: string,
   sessionId: string,
@@ -204,5 +220,12 @@ function appendInferredDevelopment(
       subject_digest: input.subjectDigest ?? null,
     },
     input.now,
+  );
+  recordRepair(
+    projectRoot,
+    sessionId,
+    dirName,
+    input,
+    'the development stage end, from the changed files',
   );
 }

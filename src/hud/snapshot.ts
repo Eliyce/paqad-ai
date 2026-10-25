@@ -1,6 +1,7 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { PAQAD_VERDICT } from '@/core/constants/paqad-voice.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readContractDecisions, type StoredContractDecision } from '@/decisions/authoring.js';
 import { readAnyDecisionPacket } from '@/decisions/packet-shape.js';
@@ -61,7 +62,7 @@ import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isLaneStage, laneStages } from '@/stage-evidence/stages.js';
-import type { FoldedChange } from '@/stage-evidence/types.js';
+import { RECORD_REPAIR_KIND, type FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { stageForAgentName, stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 import {
@@ -72,7 +73,9 @@ import {
   VERIFICATION_GATES,
   gateCatalogEntry,
   gateExpectedOnLane,
+  type GateOwner,
 } from '@/core/types/verification.js';
+import { LANE_RECORD_GAP } from '@/verification/verdict-kind.js';
 
 import {
   gateIsJudged,
@@ -112,6 +115,7 @@ export interface HudGate {
   required: boolean;
   strength: 'deterministic' | 'llm-judged' | null;
   verdict: HudGateVerdict;
+  owner?: GateOwner;
 }
 
 export interface HudFlag {
@@ -560,6 +564,8 @@ export interface HudSnapshot {
   cost: HudCost | null;
   tech_debt: { raised: TechDebtIndexEntry[] } | null;
   rule_overrides: Array<{ rule: string; file: string; by: string; at: string }> | null;
+  record_gaps?: string[];
+  repairs?: Array<{ what: string; at: string | null }>;
 }
 
 function readJsonFile(path: string): unknown {
@@ -754,11 +760,13 @@ function buildGates(projectRoot: string, dirName: string): HudGate[] {
     const verdict: HudGateVerdict = gateIsJudged(code, rowRecordedAt(row), stageEnds)
       ? readGateVerdict(row)
       : 'not-judged';
+    const owner = gateCatalogEntry(code)?.owner;
     return {
       name: code,
       required: verdict !== 'not-required',
       strength: gateStrengthFromRun(code, row, verdict),
       verdict,
+      ...(owner ? { owner } : {}),
     };
   });
 }
@@ -972,17 +980,52 @@ function readVerdictRecord(projectRoot: string, sessionId: string): HudVerdictRe
   return record?.schema === 'paqad.hud-verdict/1' ? (record as unknown as HudVerdictRecord) : null;
 }
 
+const UNJUDGED_CHANGE_GAP = 'paqad could not record which change this verdict judged';
+
+const VERDICT_KINDS: ReadonlySet<unknown> = new Set(['pass', 'fail', 'inconclusive']);
+
+function couldNotProve(verdict: HudVerdictRecord, gap: string | null): HudVerdictRecord {
+  const gaps = Array.isArray(verdict.record_gaps) ? verdict.record_gaps : [];
+  return {
+    ...verdict,
+    kind: 'inconclusive',
+    passed: false,
+    word: PAQAD_VERDICT.inconclusive,
+    reasons: Array.isArray(verdict.reasons) ? verdict.reasons : [],
+    ...(gap ? { record_gaps: [...gaps, gap] } : {}),
+  };
+}
+
 function freshVerdict(
   projectRoot: string,
   sessionId: string,
   dirName: string,
 ): HudVerdictRecord | null {
   const verdict = readVerdictRecord(projectRoot, sessionId);
-  if (!verdict || typeof verdict.change !== 'string' || verdict.change !== dirName) return null;
+  if (!verdict) return null;
+  const unjudged = verdict.change === null || verdict.change === undefined;
+  if (!unjudged && verdict.change !== dirName) return null;
   const writtenAt = Date.parse(verdict.written_at);
   if (Number.isNaN(writtenAt)) return null;
   const editedAt = latestEditAt(projectRoot, dirName);
-  return editedAt === null || writtenAt >= editedAt ? verdict : null;
+  if (editedAt !== null && writtenAt < editedAt) return null;
+  if (unjudged) return couldNotProve(verdict, UNJUDGED_CHANGE_GAP);
+  return VERDICT_KINDS.has(verdict.kind) ? verdict : couldNotProve(verdict, null);
+}
+
+function recordGaps(verdict: HudVerdictRecord | null, laneRecorded: boolean): string[] {
+  const gaps = new Set(Array.isArray(verdict?.record_gaps) ? verdict.record_gaps : []);
+  if (!laneRecorded) gaps.add(LANE_RECORD_GAP.text);
+  return [...gaps];
+}
+
+function buildRepairs(
+  projectRoot: string,
+  dirName: string,
+): Array<{ what: string; at: string | null }> {
+  return readFeatureStageUnit(projectRoot, dirName)
+    .filter((row) => row.kind === RECORD_REPAIR_KIND && typeof row.reason === 'string')
+    .map((row) => ({ what: String(row.reason), at: rowRecordedAt(row) }));
 }
 
 const STAGE_WORDS: Record<string, string> = {
@@ -1330,7 +1373,16 @@ export function buildHudSnapshot(
       by,
       at,
     })),
+    ...optionalList(
+      'record_gaps',
+      recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null),
+    ),
+    ...optionalList('repairs', buildRepairs(projectRoot, dirName)),
   };
+}
+
+function optionalList<K extends string, T>(key: K, list: T[]): Partial<Record<K, T[]>> {
+  return list.length > 0 ? ({ [key]: list } as Record<K, T[]>) : {};
 }
 
 export function writeHudSnapshot(

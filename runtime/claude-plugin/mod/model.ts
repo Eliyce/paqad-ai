@@ -14,6 +14,7 @@ import type {
   PaqadFindingsScan,
   PaqadGate,
   PaqadGateStrength,
+  PaqadRepair,
   PaqadHighTable,
   PaqadHudSnapshot,
   PaqadHudStage,
@@ -447,7 +448,30 @@ function readGate(value: unknown): PaqadGate | null {
     verdict,
     required: typeof gate.required === 'boolean' ? gate.required : verdict !== 'not-required',
     strength: GATE_STRENGTHS.find((strength) => strength === gate.strength) ?? null,
+    ...(gate.owner === 'work' || gate.owner === 'paqad-record' ? { owner: gate.owner } : {}),
   };
+}
+
+const VERDICT_KINDS = ['pass', 'fail', 'inconclusive'] as const;
+
+function readVerdictParts(verdict: Record<string, unknown>): {
+  work_kind?: (typeof VERDICT_KINDS)[number];
+  work_reasons?: string[];
+  record_gaps?: string[];
+} {
+  const workKind = VERDICT_KINDS.find((kind) => kind === verdict.work_kind);
+  return {
+    ...(workKind ? { work_kind: workKind } : {}),
+    ...(Array.isArray(verdict.work_reasons) ? { work_reasons: strings(verdict.work_reasons) } : {}),
+    ...(Array.isArray(verdict.record_gaps) ? { record_gaps: strings(verdict.record_gaps) } : {}),
+  };
+}
+
+function readRepairs(value: unknown): PaqadRepair[] {
+  return list(value).flatMap((entry) => {
+    const what = str(rec(entry)?.what);
+    return what ? [{ what, at: str(rec(entry)?.at) }] : [];
+  });
 }
 
 function readClaim(value: unknown): PaqadClaim | null {
@@ -690,10 +714,13 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
             kind,
             reasons: list(verdict.reasons).filter((r): r is string => typeof r === 'string'),
             ...(writtenAt ? { at: writtenAt } : {}),
+            ...readVerdictParts(verdict),
           }
         : null,
     receipt: receiptFile ? { path: receiptFile } : null,
     cost: readCost(snap.cost),
+    ...(Array.isArray(snap.record_gaps) ? { record_gaps: strings(snap.record_gaps) } : {}),
+    ...(Array.isArray(snap.repairs) ? { repairs: readRepairs(snap.repairs) } : {}),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
 }
@@ -717,6 +744,8 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     verdict: null,
     receipt: null,
     cost: null,
+    record_gaps: undefined,
+    repairs: undefined,
   };
 }
 

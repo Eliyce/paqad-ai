@@ -225,7 +225,7 @@ describe('verdict freshness', () => {
     expect(stale.headline.text).not.toContain('Safe to merge');
   });
 
-  it('hides a verdict of another change and a legacy verdict without a change', () => {
+  it('hides a verdict of another change and reads a legacy verdict without a change as could not prove', () => {
     const { root } = qualifiedWithEdit();
     writeVerdict(root, S, 'pass', later());
     const path = hudVerdictPath(root, S);
@@ -237,7 +237,11 @@ describe('verdict freshness', () => {
     const legacy = { ...record };
     delete legacy.change;
     write(legacy);
-    expect(buildHudSnapshot(root, S).verdict).toBeNull();
+    expect(buildHudSnapshot(root, S).verdict).toMatchObject({
+      kind: 'inconclusive',
+      passed: false,
+      record_gaps: ['paqad could not record which change this verdict judged'],
+    });
     write({ ...record, written_at: 'never' });
     expect(buildHudSnapshot(root, S).verdict).toBeNull();
   });
