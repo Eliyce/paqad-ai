@@ -122,7 +122,7 @@ function deferralCeilingReached(rows: readonly SessionLedgerRow[], now: () => Da
       continue;
     }
     if (row.kind !== COMPLETION_DEFERRED_KIND) continue;
-    const at = Date.parse(rowRecordedAt(row) ?? '');
+    const at = Date.parse(rowRecordedAt(row)!);
     if (Number.isNaN(at)) continue;
     firstDeferredAt = Math.min(firstDeferredAt, at);
   }

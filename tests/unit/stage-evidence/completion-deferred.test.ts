@@ -1,10 +1,11 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { writeChecksRunningMarker } from '@/checks/running-marker.js';
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   openFeatureChange,
@@ -445,5 +446,32 @@ describe('deferCompletionForBackgroundStage with a checks run and a ceiling', ()
     });
 
     expect(result.deferred).toBe(true);
+  });
+
+  it('INV-12: a deferred stop with an unreadable time does not hide the first readable one', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    appendFileSync(
+      join(root, featureFilePath(dirName, 'stageEvidence')),
+      `${JSON.stringify({
+        doc_type: 'stage-evidence',
+        session_id: SESSION,
+        recorded_at: 'not-a-time',
+        content_hash: 'unreadable',
+        kind: 'completion-deferred',
+      })}\n`,
+    );
+    deferredStopAt(root, dirName, 1);
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ id: 'bg-1' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(61),
+    });
+
+    expect(result).toEqual({ deferred: false });
+    expect(deferredRows(root, dirName)).toHaveLength(2);
   });
 });

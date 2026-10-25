@@ -155,8 +155,8 @@ function checksEndArtifact(
   if (liveChecksRunningMarker(projectRoot, sessionId, probe) !== null) {
     return null;
   }
-  const lastStart = stageRows.filter((row) => row.kind === 'stage_start').at(-1);
-  const startedAt = Date.parse((lastStart && rowRecordedAt(lastStart)) ?? '');
+  const lastStart = stageRows.filter((row) => row.kind === 'stage_start').at(-1)!;
+  const startedAt = Date.parse(rowRecordedAt(lastStart)!);
   const report = readFeatureChecks(projectRoot, dirName);
   const reportAt = Date.parse(report?.generated_at ?? report?.recorded_at ?? '');
   if (Number.isNaN(startedAt) || Number.isNaN(reportAt) || reportAt < startedAt) {
