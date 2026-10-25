@@ -15,6 +15,7 @@ import type {
   PaqadGate,
   PaqadGateStrength,
   PaqadRepair,
+  PaqadRung,
   PaqadHighTable,
   PaqadHudSnapshot,
   PaqadHudStage,
@@ -454,6 +455,13 @@ function readGate(value: unknown): PaqadGate | null {
 
 const VERDICT_KINDS = ['pass', 'fail', 'inconclusive'] as const;
 
+const RUNGS: readonly PaqadRung[] = ['done', 'committed', 'pr-open', 'safe-to-merge', 'merged'];
+
+function readRung(value: unknown): { rung?: PaqadRung } {
+  const rung = RUNGS.find((known) => known === value);
+  return rung ? { rung } : {};
+}
+
 function readVerdictParts(verdict: Record<string, unknown>): {
   work_kind?: (typeof VERDICT_KINDS)[number];
   work_reasons?: string[];
@@ -721,6 +729,8 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     cost: readCost(snap.cost),
     ...(Array.isArray(snap.record_gaps) ? { record_gaps: strings(snap.record_gaps) } : {}),
     ...(Array.isArray(snap.repairs) ? { repairs: readRepairs(snap.repairs) } : {}),
+    ...readRung(snap.rung),
+    ...(snap.verdict_stale === true ? { verdict_stale: true as const } : {}),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
 }
@@ -746,6 +756,8 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     cost: null,
     record_gaps: undefined,
     repairs: undefined,
+    rung: undefined,
+    verdict_stale: undefined,
   };
 }
 

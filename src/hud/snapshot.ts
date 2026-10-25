@@ -11,6 +11,7 @@ import {
   readFixProofRows,
   type FixProofState,
 } from '@/fix-protocol/fix-proof-record.js';
+import { readFeatureChecks } from '@/checks/report-store.js';
 import {
   readDuplication,
   readFeatureEvidence,
@@ -84,7 +85,13 @@ import {
   stageEndTimes,
   type HudScopeReason,
 } from './change-scope.js';
-import { readChangeGit } from './changed-files.js';
+import { readChangeGit, readWorkingTreeDirty } from './changed-files.js';
+import {
+  computeDoneLadder,
+  type DoneLadder,
+  type HudRung,
+  type LadderChecks,
+} from './done-ladder.js';
 import { buildHudCost, type HudCost } from './cost-view.js';
 import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from './files.js';
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
@@ -126,6 +133,7 @@ export interface HudFlag {
 export type { HudChief, HudHighTable, HudSeat, HudTrackRecord } from './high-table-view.js';
 export type { HudCost } from './cost-view.js';
 export type { HudScopeReason } from './change-scope.js';
+export type { HudRung } from './done-ladder.js';
 
 export type HudFindingsStatus = 'open' | 'clean' | 'did not run';
 
@@ -566,6 +574,8 @@ export interface HudSnapshot {
   rule_overrides: Array<{ rule: string; file: string; by: string; at: string }> | null;
   record_gaps?: string[];
   repairs?: Array<{ what: string; at: string | null }>;
+  rung?: HudRung;
+  verdict_stale?: true;
 }
 
 function readJsonFile(path: string): unknown {
@@ -996,21 +1006,51 @@ function couldNotProve(verdict: HudVerdictRecord, gap: string | null): HudVerdic
   };
 }
 
-function freshVerdict(
-  projectRoot: string,
-  sessionId: string,
-  dirName: string,
-): HudVerdictRecord | null {
+interface VerdictReading {
+  verdict: HudVerdictRecord | null;
+  stale: boolean;
+}
+
+function freshVerdict(projectRoot: string, sessionId: string, dirName: string): VerdictReading {
+  const none: VerdictReading = { verdict: null, stale: false };
   const verdict = readVerdictRecord(projectRoot, sessionId);
-  if (!verdict) return null;
+  if (!verdict) return none;
   const unjudged = verdict.change === null || verdict.change === undefined;
-  if (!unjudged && verdict.change !== dirName) return null;
+  if (!unjudged && verdict.change !== dirName) return none;
   const writtenAt = Date.parse(verdict.written_at);
-  if (Number.isNaN(writtenAt)) return null;
+  if (Number.isNaN(writtenAt)) return none;
   const editedAt = latestEditAt(projectRoot, dirName);
-  if (editedAt !== null && writtenAt < editedAt) return null;
-  if (unjudged) return couldNotProve(verdict, UNJUDGED_CHANGE_GAP);
-  return VERDICT_KINDS.has(verdict.kind) ? verdict : couldNotProve(verdict, null);
+  if (editedAt !== null && writtenAt < editedAt) return { verdict: null, stale: true };
+  if (unjudged) return { verdict: couldNotProve(verdict, UNJUDGED_CHANGE_GAP), stale: false };
+  return {
+    verdict: VERDICT_KINDS.has(verdict.kind) ? verdict : couldNotProve(verdict, null),
+    stale: false,
+  };
+}
+
+function ladderChecks(
+  projectRoot: string,
+  dirName: string,
+  verdict: HudVerdictRecord | null,
+): LadderChecks {
+  const report = readFeatureChecks(projectRoot, dirName);
+  const reportAt = Date.parse(report?.generated_at ?? report?.recorded_at ?? '');
+  const verdictAt = Date.parse(verdict?.written_at ?? '');
+  if (report && Number.isFinite(reportAt) && Number.isFinite(verdictAt) && reportAt > verdictAt) {
+    return report.ran && report.passed ? 'green' : 'red';
+  }
+  const row = readFeatureEvidence(projectRoot, dirName)
+    .filter((entry) => entry.engine === 'verification-gate' && entry.code === 'code-tests-lint')
+    .at(-1) as Record<string, unknown> | undefined;
+  const gate = row ? readGateVerdict(row) : null;
+  if (gate === 'pass') return 'green';
+  if (gate === 'fail') return 'red';
+  return 'unknown';
+}
+
+export function workKindOf(verdict: HudVerdictRecord | null): HudVerdictRecord['kind'] | null {
+  if (!verdict) return null;
+  return verdict.work_kind ?? verdict.kind;
 }
 
 function recordGaps(verdict: HudVerdictRecord | null, laneRecorded: boolean): string[] {
@@ -1051,7 +1091,16 @@ export interface HudHeadlineInput {
   verdict: HudVerdictRecord | null;
   flags: HudFlag[];
   paused: number;
+  ladder?: DoneLadder | null;
 }
+
+export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
+  done: 'Done',
+  committed: 'Committed',
+  'pr-open': 'PR open',
+  'safe-to-merge': 'Safe to merge',
+  merged: 'Merged',
+};
 
 export function computeHudFlags(input: {
   stages: HudStage[];
@@ -1160,7 +1209,9 @@ export function computeHudHeadline(input: HudHeadlineInput): { text: string; ton
           ? 'warn'
           : 'good';
     const suffix = flagged > 0 ? ` ${flagged} flag${flagged === 1 ? '' : 's'} open.` : '';
-    return { text: `${input.verdict.word}.${suffix}`, tone };
+    const rung = input.ladder?.rung;
+    const word = rung ? RUNG_WORDS[rung] : input.verdict.word;
+    return { text: `${word}.${suffix}`, tone };
   }
   const next = input.stages.find((stage) => stage.mandatory && stage.state === 'missing');
   const done = [...input.stages].reverse().find((stage) => stage.state === 'complete');
@@ -1250,7 +1301,8 @@ export function buildHudSnapshot(
     };
   }
 
-  const verdict = freshVerdict(projectRoot, sessionId, dirName);
+  const reading = freshVerdict(projectRoot, sessionId, dirName);
+  const verdict = reading.verdict;
   const receiptPath = hudReceiptPath(projectRoot, sessionId);
   const receipt = verdict && existsSync(receiptPath) ? { path: receiptPath } : null;
   const record = readFeatureRecord(projectRoot, dirName);
@@ -1275,6 +1327,14 @@ export function buildHudSnapshot(
   const isolationStatus = stageIsolationStatus(projectRoot, sessionId, dirName);
   const isolationSummary = summarizeStageIsolation(projectRoot, dirName);
   const findings = buildFindings(projectRoot, dirName);
+  const ladder = computeDoneLadder({
+    workKind: workKindOf(verdict),
+    checks: ladderChecks(projectRoot, dirName, verdict),
+    uncommitted: readWorkingTreeDirty(projectRoot),
+    commits: Math.max(ship.commits, changeGit?.commitTimes.size ?? 0),
+    prState: ship.pr_state,
+    ci: ship.ci?.state ?? null,
+  });
   const flags = computeHudFlags({
     stages,
     gates,
@@ -1306,6 +1366,7 @@ export function buildHudSnapshot(
       verdict,
       flags,
       paused: paused.length,
+      ladder,
     }),
     change: {
       dir: dirName,
@@ -1378,6 +1439,8 @@ export function buildHudSnapshot(
       recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null),
     ),
     ...optionalList('repairs', buildRepairs(projectRoot, dirName)),
+    ...(ladder.rung ? { rung: ladder.rung } : {}),
+    ...(reading.stale ? { verdict_stale: true as const } : {}),
   };
 }
 

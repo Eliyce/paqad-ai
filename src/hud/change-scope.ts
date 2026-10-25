@@ -4,6 +4,7 @@ import {
   featureBranch,
   isBundleClosed,
   isBundleMaterialized,
+  sessionReattachableFeature,
 } from '@/feature-evidence/adoption.js';
 import { isFeatureFinished, readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
@@ -15,6 +16,7 @@ import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 export type HudScopeReason =
   | 'qualified'
+  | 'finished'
   | 'no-active-change'
   | 'closed'
   | 'other-branch'
@@ -32,7 +34,7 @@ export const GATE_JUDGED_AFTER: Readonly<Record<string, string>> = Object.fromEn
 
 const UNKNOWN_GATE_STAGE = 'checks';
 
-const EDIT_STAGES: ReadonlySet<string> = new Set(['development', 'checks', 'documentation_sync']);
+const EDIT_STAGES: ReadonlySet<string> = new Set(['development', 'documentation_sync']);
 
 const STAGE_ROW_KINDS: ReadonlySet<string> = new Set(['stage_start', 'stage_end']);
 
@@ -49,7 +51,7 @@ export function qualifyHudChange(
   }
   const dir = currentFeature(projectRoot, sessionId, now);
   if (!dir || !isBundleMaterialized(projectRoot, dir)) {
-    return { dir: null, reason: 'no-active-change' };
+    return finishedChange(projectRoot, sessionId, workflow.turn_started_at ?? null);
   }
   const status = readFeatureRecord(projectRoot, dir)?.status;
   if (isBundleClosed(projectRoot, dir) || isFeatureFinished(status)) {
@@ -68,6 +70,22 @@ export function qualifyHudChange(
     return { dir: null, reason: 'no-row-this-episode' };
   }
   return { dir, reason: 'qualified' };
+}
+
+function finishedChange(
+  projectRoot: string,
+  sessionId: string,
+  turnStartedAt: string | null,
+): HudChangeScope {
+  const none: HudChangeScope = { dir: null, reason: 'no-active-change' };
+  const head = readHeadRef(projectRoot);
+  if (head.detached) return none;
+  const dir = sessionReattachableFeature(projectRoot, sessionId, head.branch);
+  if (!dir) return none;
+  const start =
+    episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
+  if (!sessionWroteInEpisode(projectRoot, sessionId, dir, start)) return none;
+  return { dir, reason: 'finished' };
 }
 
 function rowTime(row: SessionLedgerRow): number {

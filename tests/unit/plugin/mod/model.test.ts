@@ -79,6 +79,29 @@ describe('parseSnapshot', () => {
     expect(full.stages).toHaveLength(8);
   });
 
+  it('AC-1, AC-19: keeps a finished change on screen with its verdict and rung, never idle', () => {
+    const finished = parse({
+      ...FULL_ORD_501,
+      scope: { qualified: true, reason: 'finished' },
+      rung: 'done',
+    });
+    expect(finished).toMatchObject({
+      scope: { qualified: true, reason: 'finished' },
+      active: true,
+      change: { issue: 'ORD-501' },
+      verdict: { kind: 'pass' },
+      rung: 'done',
+    });
+    const closed = parse({ ...FULL_ORD_501, scope: { qualified: false, reason: 'closed' } });
+    expect(closed).toMatchObject({ active: false, change: null, verdict: null });
+    expect(closed.rung).toBeUndefined();
+  });
+
+  it('reads an unknown rung as absent, never as a rung', () => {
+    expect(parse({ ...FULL_ORD_501, rung: 'shipped' }).rung).toBeUndefined();
+    expect(parse({ ...FULL_ORD_501, verdict_stale: 'yes' }).verdict_stale).toBeUndefined();
+  });
+
   it('reads a paqad.hud/2 snapshot, which has no scope, as idle', () => {
     const legacy = parseSnapshot(
       JSON.stringify({ ...FULL_ORD_501, schema: 'paqad.hud/2', scope: undefined }),

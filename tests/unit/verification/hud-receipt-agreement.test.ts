@@ -264,10 +264,10 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     expect(blockedRow?.detail).toContain('dead_code');
   });
 
-  function expectHeadlineAgreement(): string {
+  function expectHeadlineAgreement(lead?: string): string {
     const word = expectAgreement();
     const snapshot = buildHudSnapshot(context.project_root, SES, { now: () => NOW });
-    expect(snapshot.headline.text.startsWith(`${word}.`)).toBe(true);
+    expect(snapshot.headline.text.startsWith(`${lead ?? word}.`)).toBe(true);
     expect(Object.values(PAQAD_VERDICT)).toContain(word);
     return word;
   }
@@ -280,7 +280,7 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     expect(expectHeadlineAgreement()).toBe(PAQAD_VERDICT.fail);
   });
 
-  it('AC-15: an unrecorded-stage change reads Inconclusive on the receipt, HUD headline and receipt card', async () => {
+  it('AC-15: an unrecorded-stage change reads Inconclusive on the receipts and Done on the HUD headline', async () => {
     relaxStageAndBundleGates(context.project_root);
     context.structured_test_results = [PASSING_CHECKS];
     context.code_tests_lint_passed = true;
@@ -289,7 +289,7 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
 
     await stop();
 
-    expect(expectHeadlineAgreement()).toBe(PAQAD_VERDICT.inconclusive);
+    expect(expectHeadlineAgreement('Done')).toBe(PAQAD_VERDICT.inconclusive);
   });
 
   it('AC-15: a change whose ratchet did not run still reads one word everywhere, never a new pass', async () => {

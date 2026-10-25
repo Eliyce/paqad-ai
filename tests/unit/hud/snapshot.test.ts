@@ -376,7 +376,7 @@ describe('buildHudSnapshot', () => {
     expect(snapshot.verdict).toMatchObject({ word: 'Safe to merge', kind: 'pass' });
     expect(snapshot.receipt?.path).toContain(`${S}.receipt.md`);
     expect(snapshot.headline.tone).toBe('warn');
-    expect(snapshot.headline.text).toMatch(/^Safe to merge\. \d+ flags? open\.$/);
+    expect(snapshot.headline.text).toMatch(/^Done\. \d+ flags? open\.$/);
   });
 
   it('a hand-written spec under the pipeline shows the High Table as skipped (Q11)', () => {

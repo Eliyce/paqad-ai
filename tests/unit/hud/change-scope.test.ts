@@ -71,12 +71,21 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S).reason).toBe('closed');
   });
 
-  it('reads no-active-change once the change is closed and released', () => {
+  it('reads finished, keeping the change, once this session closes its change on this branch', () => {
     const root = repoRoot();
-    openChangeHere(root, S);
+    const dir = openChangeHere(root, S);
     runStage(root, S, 'planning');
     closeActiveFeature(root, S);
-    expect(qualifyHudChange(root, S).dir).toBeNull();
+    expect(qualifyHudChange(root, S)).toEqual({ dir, reason: 'finished' });
+  });
+
+  it('reads no-active-change for a closed change another session owns', () => {
+    const root = repoRoot();
+    openChangeHere(root, 'ses-other');
+    runStage(root, 'ses-other', 'planning');
+    closeActiveFeature(root, 'ses-other');
+    setRoute(root, S, 'feature-development');
+    expect(qualifyHudChange(root, S)).toEqual({ dir: null, reason: 'no-active-change' });
   });
 
   it('reads other-branch for a change recorded on another branch', () => {

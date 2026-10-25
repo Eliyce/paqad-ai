@@ -148,6 +148,8 @@ export type PaqadGate = {
 
 export type PaqadRepair = { what: string; at: string | null };
 
+export type PaqadRung = 'done' | 'committed' | 'pr-open' | 'safe-to-merge' | 'merged';
+
 export type PaqadClaim = {
   kind: string;
   id: string | null;
@@ -285,6 +287,8 @@ export type PaqadHudSnapshot = {
   cost: PaqadCost | null;
   record_gaps?: string[];
   repairs?: PaqadRepair[];
+  rung?: PaqadRung;
+  verdict_stale?: true;
 };
 
 export type PaqadStandDown = 'view-off' | 'not-onboarded' | 'remote' | 'disabled' | 'old-engine';
