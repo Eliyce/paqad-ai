@@ -15,6 +15,8 @@ import {
   startStage,
   type EndStageInput,
 } from '@/stage-evidence/index.js';
+import { CHECKS_REPORT_SCHEMA_VERSION, writeFeatureChecks } from '@/checks/report-store.js';
+import { writeChecksRunningMarker } from '@/checks/running-marker.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { setLane } from '@/feature-evidence/session-control.js';
@@ -120,7 +122,7 @@ describe('finalizeStageEvidence', () => {
     expect(result).toBeNull();
   });
 
-  it('AC-3: leaves a live-mark stage the writer left open running and writes no inferred row', () => {
+  it('AC-5: ends a live-mark stage the writer left open (turn-boundary end) and writes no inferred row', () => {
     const sessionId = 'ses_dangling';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     startStage(root, 'development', { sessionId, dirName, adapter: 'claude-code' });
@@ -129,11 +131,12 @@ describe('finalizeStageEvidence', () => {
 
     const rows = activeRows(root, sessionId);
     const devEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'development');
-    expect(devEnd, 'an open stage is never ended on the agent’s behalf').toBeUndefined();
+    expect(devEnd, 'the dangling stage should be closed at the turn boundary').toBeDefined();
+    expect(devEnd?.evidence_source).toBe('live-mark');
     expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
   });
 
-  it('AC-3: leaves a live-mark stage that was started again after an earlier end running', () => {
+  it('ends a live-mark stage that was started again after an earlier end', () => {
     const sessionId = 'ses_reopened';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     const ctx = { sessionId, dirName, adapter: 'claude-code' };
@@ -146,10 +149,15 @@ describe('finalizeStageEvidence', () => {
     const development = readFeatureStageUnit(root, dirName).filter(
       (row) => row.stage === 'development',
     );
-    expect(development.map((row) => row.kind)).toEqual(['stage_start', 'stage_end', 'stage_start']);
+    expect(development.map((row) => row.kind)).toEqual([
+      'stage_start',
+      'stage_end',
+      'stage_start',
+      'stage_end',
+    ]);
   });
 
-  it('AC-3: a review the agent left open stays open and is named as left open', () => {
+  it('anchors a review the agent left open, but an artifact-less review is inconclusive', () => {
     const sessionId = 'ses_late_review';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     for (const stage of [
@@ -177,36 +185,112 @@ describe('finalizeStageEvidence', () => {
     expect(result?.verdict).toBe('incomplete');
     expect(result?.ok).toBe(false);
     expect(result?.missing_stages).toContain('review');
-    expect(result?.open_stages).toEqual(['review']);
     const rows = readFeatureStageUnit(root, dirName);
     const reviewEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'review');
-    expect(reviewEnd, 'an open review is never ended on the agent’s behalf').toBeUndefined();
+    expect(reviewEnd, 'finalize should still anchor the open review at completion').toBeDefined();
+    expect(reviewEnd?.evidence_source).toBe('live-mark');
   });
 
-  it('AC-3: an open checks stage at turn end stays running and the change stays open', () => {
-    const sessionId = 'ses_open_checks';
-    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
-    for (const stage of ['planning', 'specification', 'development', 'review']) {
-      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
-      endStage(root, stage, provenEndArgs(root, dirName, stage), {
+  describe('AC-3: an open checks stage at turn end', () => {
+    const STARTED = new Date('2026-10-25T10:00:00.000Z');
+
+    function changeWithOpenChecks(sessionId: string): string {
+      const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+      for (const stage of ['planning', 'specification', 'development', 'review']) {
+        startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+        endStage(root, stage, provenEndArgs(root, dirName, stage), {
+          sessionId,
+          dirName,
+          adapter: 'claude-code',
+        });
+      }
+      startStage(root, 'checks', {
         sessionId,
         dirName,
         adapter: 'claude-code',
+        now: () => STARTED,
+      });
+      return dirName;
+    }
+
+    function report(dirName: string, at: Date): void {
+      writeFeatureChecks(root, dirName, {
+        schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+        generated_at: at.toISOString(),
+        passed: true,
+        ran: true,
+        results: [],
       });
     }
-    startStage(root, 'checks', { sessionId, dirName, adapter: 'claude-code' });
 
-    const result = finalizeStageEvidence(root, {
-      adapter: ADAPTER,
-      sessionId,
-      changedFilesCount: 1,
+    function checksKinds(dirName: string): string[] {
+      return readFeatureStageUnit(root, dirName)
+        .filter((row) => row.stage === 'checks')
+        .map((row) => String(row.kind));
+    }
+
+    it('with no checks report stays running, keeps the change open and is named as left open', () => {
+      const sessionId = 'ses_open_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+
+      const result = finalizeStageEvidence(root, {
+        adapter: ADAPTER,
+        sessionId,
+        changedFilesCount: 1,
+      });
+
+      expect(result?.ok).toBe(false);
+      expect(result?.open_stages).toEqual(['checks']);
+      expect(currentFeature(root, sessionId)).toBe(dirName);
+      expect(checksKinds(dirName)).toEqual(['stage_start']);
     });
 
-    expect(result?.ok).toBe(false);
-    expect(result?.open_stages).toEqual(['checks']);
-    expect(currentFeature(root, sessionId)).toBe(dirName);
-    const checksRows = readFeatureStageUnit(root, dirName).filter((row) => row.stage === 'checks');
-    expect(checksRows.map((row) => row.kind)).toEqual(['stage_start']);
+    it('with only a report older than its start stays running', () => {
+      const sessionId = 'ses_stale_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+      report(dirName, new Date(STARTED.getTime() - 60_000));
+
+      finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+      expect(checksKinds(dirName)).toEqual(['stage_start']);
+    });
+
+    it('while checks run holds a live marker for this session stays running', () => {
+      const sessionId = 'ses_running_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+      const now = new Date(STARTED.getTime() + 120_000);
+      report(dirName, new Date(STARTED.getTime() + 60_000));
+      writeChecksRunningMarker(root, {
+        pid: 4242,
+        session_id: sessionId,
+        change: dirName,
+        started_at: new Date(STARTED.getTime() + 90_000).toISOString(),
+      });
+
+      finalizeStageEvidence(root, {
+        adapter: ADAPTER,
+        sessionId,
+        changedFilesCount: 1,
+        now: () => now,
+        probe: { isAlive: () => true, commandOf: () => 'node paqad-ai checks run' },
+      });
+
+      expect(checksKinds(dirName)).toEqual(['stage_start']);
+    });
+
+    it('with a report newer than its start is ended against that report', () => {
+      const sessionId = 'ses_reported_checks';
+      const dirName = changeWithOpenChecks(sessionId);
+      report(dirName, new Date(STARTED.getTime() + 60_000));
+
+      finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 1 });
+
+      const end = readFeatureStageUnit(root, dirName).find(
+        (row) => row.kind === 'stage_end' && row.stage === 'checks',
+      );
+      expect(end?.evidence_source).toBe('live-mark');
+      expect(end?.artifact_paths).toEqual([featureFilePath(dirName, 'checks')]);
+    });
   });
 
   it('a documentation-only change is a no-op (isFeatureDevChange=false) — code stages do not apply', () => {

@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { CHECKS_REPORT_SCHEMA_VERSION, writeFeatureChecks } from '@/checks/report-store.js';
 import { PATHS } from '@/core/constants/paths.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { foldFeature, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
@@ -81,7 +82,7 @@ function editAndDraw(root: string, path: string, editing: boolean) {
 }
 
 describe('a fast-lane change that edits src, a root policy file, src again and tests', () => {
-  it('shows Build then Checks, never Docs, keeps Edit current, and ends complete once each open stage is ended', () => {
+  it('shows Build then Checks, never Docs, keeps Edit current, and ends complete once checks report', () => {
     const { root, dirName } = fastChange();
     const drawn = SEQUENCE.map((path) => ({ path, ...editAndDraw(root, path, false) }));
 
@@ -106,12 +107,15 @@ describe('a fast-lane change that edits src, a root policy file, src again and t
       changedFilesCount: SEQUENCE.length,
       deferClose: true,
     };
-    const leftOpen = finalizeStageEvidence(root, turnEnd);
-    expect(leftOpen?.open_stages).toEqual(['development', 'checks']);
-    expect(leftOpen?.ok).toBe(false);
-    for (const stage of ['development', 'checks']) {
-      endStage(root, stage, {}, { sessionId: SESSION, adapter: 'claude-code' });
-    }
+    const unreported = finalizeStageEvidence(root, turnEnd);
+    expect(unreported?.open_stages).toEqual(['checks']);
+    writeFeatureChecks(root, dirName, {
+      schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+      generated_at: new Date(Date.now() + 1000).toISOString(),
+      passed: true,
+      ran: true,
+      results: [],
+    });
 
     const finished = finalizeStageEvidence(root, turnEnd);
     expect(finished?.missing_stages).toEqual([]);
