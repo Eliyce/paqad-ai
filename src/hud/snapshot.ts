@@ -97,6 +97,7 @@ import { hudReceiptPath, hudSnapshotPath, hudVerdictPath, writeFileAtomic } from
 import { buildHighTableView, type HudHighTable, type HudTrackRecord } from './high-table-view.js';
 import { readRuleStopRecord, type RuleStopRecord } from './last-block.js';
 import type { HudVerdictRecord } from './receipt-file.js';
+import { buildStageProof, readStageProofEvidence, type HudStageProof } from './stage-proof.js';
 
 export const HUD_SNAPSHOT_SCHEMA = 'paqad.hud/3';
 
@@ -134,6 +135,7 @@ export type { HudChief, HudHighTable, HudSeat, HudTrackRecord } from './high-tab
 export type { HudCost } from './cost-view.js';
 export type { HudScopeReason } from './change-scope.js';
 export type { HudRung } from './done-ladder.js';
+export type { HudProofGate, HudProofStep, HudStageProof } from './stage-proof.js';
 
 export type HudFindingsStatus = 'open' | 'clean' | 'did not run';
 
@@ -576,6 +578,7 @@ export interface HudSnapshot {
   repairs?: Array<{ what: string; at: string | null }>;
   rung?: HudRung;
   verdict_stale?: true;
+  proof?: HudStageProof[];
 }
 
 function readJsonFile(path: string): unknown {
@@ -1576,6 +1579,18 @@ export function buildHudSnapshot(
   const plan = buildPlanProgress(projectRoot, dirName, changedFiles);
   const gatesExpected = expectedGateCodes(lane);
   const gaps = recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null);
+  const questions = buildQuestions(projectRoot, dirName);
+  const proof = buildStageProof({
+    ...readStageProofEvidence(projectRoot, dirName),
+    lane,
+    stages,
+    gates,
+    judged: verdict !== null,
+    planProgress: plan,
+    questions,
+    rules: rulesLoaded ? rulesLoaded.applicable_rules.length : null,
+    changedFiles,
+  });
   const flags = computeHudFlags({
     stages,
     gates,
@@ -1660,7 +1675,7 @@ export function buildHudSnapshot(
     },
     findings,
     decisions,
-    questions: buildQuestions(projectRoot, dirName),
+    questions,
     last_block: lastBlock,
     delivery_plan: buildDeliveryPlan(projectRoot, policy, delivery),
     plan,
@@ -1689,6 +1704,7 @@ export function buildHudSnapshot(
     ...optionalList('repairs', buildRepairs(projectRoot, dirName)),
     ...(ladder.rung ? { rung: ladder.rung } : {}),
     ...(reading.stale ? { verdict_stale: true as const } : {}),
+    proof,
   };
 }
 

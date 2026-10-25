@@ -782,3 +782,36 @@ describe('AC-27: the Record events', () => {
     );
   });
 });
+
+describe('AC-8: the snapshot carries Trust proof by the lane stages', () => {
+  it('holds one entry per fast-lane stage, with no gate from outside the lane', () => {
+    const root = onboardedRoot();
+    const S = 'ses-proof-fast';
+    const dir = openChange(root, S, 'fast');
+    writeFileSync(
+      join(root, featureFilePath(dir, 'plan')),
+      JSON.stringify({ steps: [{ id: 'S1', description: 'a', files: ['src/a.ts'] }] }),
+    );
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+    expect(snapshot.proof?.map((entry) => entry.words)).toEqual(['Plan', 'Build', 'Checks']);
+    expect(snapshot.proof?.[0]?.steps[0]).toEqual({
+      id: 'plan',
+      words: 'Plan compiled',
+      detail: '1 step',
+      state: 'done',
+    });
+    const codes = snapshot.proof?.flatMap((entry) => entry.gates.map((gate) => gate.code)) ?? [];
+    for (const code of ['spec-review', 'implementation-review', 'documentation-freshness']) {
+      expect(codes).not.toContain(code);
+    }
+  });
+
+  it('holds the six full-lane stages, and is left out before a change opens', () => {
+    const root = onboardedRoot();
+    openChange(root, 'ses-proof-full', 'full');
+    expect(buildHudSnapshot(root, 'ses-proof-full', { now: NOW }).proof?.length).toBe(6);
+    const idle = onboardedRoot();
+    persistLedgerSessionId(idle, 'ses-proof-idle');
+    expect(buildHudSnapshot(idle, 'ses-proof-idle', { now: NOW }).proof).toBeUndefined();
+  });
+});
