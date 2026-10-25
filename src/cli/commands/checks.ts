@@ -10,8 +10,10 @@ import { CHECKS_REPORT_SCHEMA_VERSION } from '@/checks/report-store.js';
 import {
   activeFeatureDirOrNull,
   checksSessionId,
+  sessionChecksTarget,
   writeChecksReportForFeature,
 } from '@/checks/report-target.js';
+import { clearChecksRunningMarker, writeChecksRunningMarker } from '@/checks/running-marker.js';
 import { recordedLaneOrFull } from '@/feature-evidence/stage-ledger.js';
 import { buildAndWriteChangeTraceabilityMap } from '@/traceability/index.js';
 import { readProjectProfile, writeProjectProfile } from '@/core/project-profile.js';
@@ -44,65 +46,20 @@ export function createChecksCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--silent', 'Suppress the machine-readable summary line', false)
     .action(async (options: { projectRoot: string; silent: boolean }) => {
-      const changedFiles = (await loadChangeEvidence(options.projectRoot)).files;
-      const result = await runChecks({ projectRoot: options.projectRoot, changedFiles });
-
-      const dirName = activeFeatureDirOrNull(options.projectRoot);
-      writeChecksReportForFeature(options.projectRoot, dirName, {
-        schema_version: CHECKS_REPORT_SCHEMA_VERSION,
-        generated_at: new Date().toISOString(),
-        passed: result.passed,
-        ran: result.ran,
-        results: result.results,
-        mode: result.mode,
-        commands: result.commands,
-        isolation_reruns: result.isolation_reruns,
-        flaky_under_parallel: result.flaky_under_parallel,
-        meaningful_green: result.meaningful_green,
-        critical_path: result.critical_path,
-      });
-
-      await buildAndWriteChangeTraceabilityMap(
-        {
-          projectRoot: options.projectRoot,
-          dirName,
-          changedFiles,
-          testResults: result.results,
-          lane: recordedLaneOrFull(
-            options.projectRoot,
-            checksSessionId(options.projectRoot),
-            dirName,
-          ),
-        },
-        (message) => console.error(`⚠️  ${message}`),
-      );
-
-      for (const warning of result.warnings) console.error(`⚠️  ${warning}`);
-      if (result.testing_recorded) console.error(TESTING_RECORDED_NOTE);
-
-      if (!result.ran) {
-        console.log('**▸ paqad** · no checks mapped: Inconclusive');
-        console.log('> ⚪ No format/test/build command is mapped in the project profile.');
-        if (!options.silent) console.log(JSON.stringify({ ran: false, passed: null }));
-        return;
-      }
-
-      const flakyMode = resolveChecksFlakyMode(options.projectRoot);
-      for (const line of renderReceipt(result, flakyMode)) console.log(line);
-
-      if (!result.passed) process.exitCode = 1;
-
-      if (!options.silent) {
-        console.log(
-          JSON.stringify({
-            ran: true,
-            passed: result.passed,
-            test_mode: result.mode.test_mode,
-            processes: result.mode.processes,
-            recovered: result.recovered,
-            duration_ms: result.duration_ms,
-          }),
-        );
+      const sessionId = checksSessionId(options.projectRoot);
+      const startedOn = activeFeatureDirOrNull(options.projectRoot);
+      try {
+        writeChecksRunningMarker(options.projectRoot, {
+          pid: process.pid,
+          session_id: sessionId,
+          change: startedOn,
+          started_at: new Date().toISOString(),
+        });
+      } catch {}
+      try {
+        await runAndRecordChecks(options, sessionId, startedOn);
+      } finally {
+        clearChecksRunningMarker(options.projectRoot, sessionId, process.pid);
       }
     });
 
@@ -226,6 +183,69 @@ export function createChecksCommand(): Command {
     });
 
   return command;
+}
+
+async function runAndRecordChecks(
+  options: { projectRoot: string; silent: boolean },
+  sessionId: string,
+  startedOn: string | null,
+): Promise<void> {
+  const changedFiles = (await loadChangeEvidence(options.projectRoot)).files;
+  const result = await runChecks({ projectRoot: options.projectRoot, changedFiles });
+
+  const dirName = sessionChecksTarget(options.projectRoot, sessionId, startedOn);
+  writeChecksReportForFeature(options.projectRoot, dirName, {
+    schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+    generated_at: new Date().toISOString(),
+    passed: result.passed,
+    ran: result.ran,
+    results: result.results,
+    mode: result.mode,
+    commands: result.commands,
+    isolation_reruns: result.isolation_reruns,
+    flaky_under_parallel: result.flaky_under_parallel,
+    meaningful_green: result.meaningful_green,
+    critical_path: result.critical_path,
+  });
+
+  await buildAndWriteChangeTraceabilityMap(
+    {
+      projectRoot: options.projectRoot,
+      dirName,
+      changedFiles,
+      testResults: result.results,
+      lane: recordedLaneOrFull(options.projectRoot, sessionId, dirName),
+    },
+    (message) => console.error(`⚠️  ${message}`),
+  );
+
+  for (const warning of result.warnings) console.error(`⚠️  ${warning}`);
+  if (result.testing_recorded) console.error(TESTING_RECORDED_NOTE);
+
+  if (!result.ran) {
+    console.log('**▸ paqad** · no checks mapped: Inconclusive');
+    console.log('> ⚪ No format/test/build command is mapped in the project profile.');
+    if (!options.silent) console.log(JSON.stringify({ ran: false, passed: null }));
+    return;
+  }
+
+  const flakyMode = resolveChecksFlakyMode(options.projectRoot);
+  for (const line of renderReceipt(result, flakyMode)) console.log(line);
+
+  if (!result.passed) process.exitCode = 1;
+
+  if (!options.silent) {
+    console.log(
+      JSON.stringify({
+        ran: true,
+        passed: result.passed,
+        test_mode: result.mode.test_mode,
+        processes: result.mode.processes,
+        recovered: result.recovered,
+        duration_ms: result.duration_ms,
+      }),
+    );
+  }
 }
 
 function describeTestMode(

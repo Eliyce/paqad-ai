@@ -4,12 +4,17 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { openFeatureChange, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { writeChecksRunningMarker } from '@/checks/running-marker.js';
+import {
+  appendFeatureStageRow,
+  openFeatureChange,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import {
   deferCompletionForBackgroundStage,
   hasOpenUnendedStage,
   stageAgentTaskCount,
-  tasksCarryAgentType,
 } from '@/stage-evidence/completion-deferred.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
 
@@ -64,16 +69,6 @@ describe('stageAgentTaskCount', () => {
   it('is 0 for an empty list or entries with no agent type', () => {
     expect(stageAgentTaskCount([])).toBe(0);
     expect(stageAgentTaskCount([{ id: 'x' }, null, 'str'])).toBe(0);
-  });
-});
-
-describe('tasksCarryAgentType', () => {
-  it('is true when any entry carries a recognised agent-type field', () => {
-    expect(tasksCarryAgentType([{ type: 'general-purpose' }])).toBe(true);
-  });
-  it('is false when no entry carries one', () => {
-    expect(tasksCarryAgentType([{ id: 'x' }, {}])).toBe(false);
-    expect(tasksCarryAgentType([])).toBe(false);
   });
 });
 
@@ -144,7 +139,7 @@ describe('deferCompletionForBackgroundStage', () => {
     expect(rows[0]).toMatchObject({ reason: 'stage agent running in background', tasks: 1 });
   });
 
-  it('does not defer for a non-paqad background task even while a stage is open', () => {
+  it('AC-21: defers for any background task while a stage is open, typed or not', () => {
     const root = tempRoot();
     const dirName = openWithStartedStage(root);
     const result = deferCompletionForBackgroundStage({
@@ -154,8 +149,12 @@ describe('deferCompletionForBackgroundStage', () => {
       adapter: 'claude-code',
       now: NOW,
     });
-    expect(result).toEqual({ deferred: false });
-    expect(deferredRows(root, dirName)).toHaveLength(0);
+    expect(result).toEqual({
+      deferred: true,
+      reason: 'background task running while a stage is open',
+      tasks: 1,
+    });
+    expect(deferredRows(root, dirName)).toHaveLength(1);
   });
 
   it('falls back to deferring when a task carries no agent type and a stage is open', () => {
@@ -232,6 +231,169 @@ describe('deferCompletionForBackgroundStage', () => {
       adapter: 'claude-code',
       now: NOW,
     });
+    expect(result.deferred).toBe(true);
+  });
+});
+describe('deferCompletionForBackgroundStage with a checks run and a ceiling', () => {
+  const MINUTE = 60_000;
+  const minutesAfter = (minutes: number) => () => new Date(NOW().getTime() + minutes * MINUTE);
+  const liveProbe = { isAlive: () => true, commandOf: () => 'node paqad-ai checks run' };
+
+  function markChecksRunning(root: string, dirName: string | null, sessionId = SESSION): void {
+    writeChecksRunningMarker(root, {
+      pid: 4242,
+      session_id: sessionId,
+      change: dirName,
+      started_at: NOW().toISOString(),
+    });
+  }
+
+  it('AC-21: defers while this session holds a live checks run marker, with no background task', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    markChecksRunning(root, dirName);
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(5),
+      probe: liveProbe,
+    });
+
+    expect(result).toEqual({ deferred: true, reason: 'checks run still running', tasks: 0 });
+    expect(deferredRows(root, dirName)).toHaveLength(1);
+  });
+
+  it('AC-21: a marker whose process is dead does not defer', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    markChecksRunning(root, dirName);
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(5),
+      probe: { ...liveProbe, isAlive: () => false },
+    });
+
+    expect(result).toEqual({ deferred: false });
+    expect(deferredRows(root, dirName)).toHaveLength(0);
+  });
+
+  it('AC-22: a live marker older than 30 minutes no longer defers', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    markChecksRunning(root, dirName);
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(31),
+      probe: liveProbe,
+    });
+
+    expect(result).toEqual({ deferred: false });
+  });
+
+  it('another session’s marker does not defer this session', () => {
+    const root = tempRoot();
+    openWithStartedStage(root);
+    markChecksRunning(root, null, 'ses_other');
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(5),
+      probe: liveProbe,
+    });
+
+    expect(result).toEqual({ deferred: false });
+  });
+
+  function deferredStopAt(root: string, dirName: string, minutes: number): void {
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dirName,
+      {
+        kind: 'completion-deferred',
+        reason: 'background task running while a stage is open',
+        tasks: 1,
+      },
+      minutesAfter(minutes),
+    );
+  }
+
+  it('INV-12: keeps deferring a background task within 30 minutes of the first deferred stop', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    writeWorkflowState(root, SESSION, {
+      active: { workflow: 'feature-development', lane: 'full' },
+      paused: [],
+      turn_started_at: NOW().toISOString(),
+    });
+    deferredStopAt(root, dirName, 1);
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ id: 'bg-1' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(30),
+    });
+
+    expect(result.deferred).toBe(true);
+  });
+
+  it('AC-39: a background task that never finishes stops deferring 30 minutes after the first deferred stop', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    writeWorkflowState(root, SESSION, {
+      active: { workflow: 'feature-development', lane: 'full' },
+      paused: [],
+      turn_started_at: NOW().toISOString(),
+    });
+    deferredStopAt(root, dirName, 1);
+    deferredStopAt(root, dirName, 20);
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ type: 'paqad-development' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(32),
+    });
+
+    expect(result).toEqual({ deferred: false });
+    expect(deferredRows(root, dirName)).toHaveLength(2);
+  });
+
+  it('INV-12: a deferred stop from an earlier turn does not count against this turn', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    deferredStopAt(root, dirName, 1);
+    writeWorkflowState(root, SESSION, {
+      active: { workflow: 'feature-development', lane: 'full' },
+      paused: [],
+      turn_started_at: minutesAfter(60)().toISOString(),
+    });
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ id: 'bg-1' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(61),
+    });
+
     expect(result.deferred).toBe(true);
   });
 });

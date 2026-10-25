@@ -8,6 +8,7 @@ import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { agentForWriter } from './agent-identity.js';
+import { stageIsOpen, stagesWithKind } from './live-writer.js';
 import { type OrderingViolation, type StageCompletenessVerdict } from './types.js';
 
 export const REDO_CAP = 2;
@@ -18,6 +19,7 @@ export interface VerifyResult {
   blocked: boolean;
   live_marked: boolean;
   missing_stages: string[];
+  open_stages?: string[];
   ordering_violations: OrderingViolation[];
   redo_attempts: number;
   change_key: string;
@@ -68,6 +70,9 @@ export function verifyChange(projectRoot: string, ctx: VerifyContext): VerifyRes
     blocked,
     live_marked: liveMarked,
     missing_stages: fold.completeness.missing_stages,
+    open_stages: [...stagesWithKind(unit, 'stage_start')].filter((stage) =>
+      stageIsOpen(unit, stage),
+    ),
     ordering_violations: fold.completeness.ordering_violations,
     redo_attempts: priorFailures,
     change_key: fold.change_key,

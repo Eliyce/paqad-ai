@@ -272,7 +272,21 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     return word;
   }
 
+  function endPlanning(): void {
+    endStage(
+      context.project_root,
+      'planning',
+      {},
+      {
+        sessionId,
+        dirName: dir,
+        adapter: 'claude-code',
+      },
+    );
+  }
+
   it('AC-15: a failing change reads Needs your attention on the receipt, HUD headline and receipt card', async () => {
+    endPlanning();
     featureDevTurn();
 
     await stop();
@@ -285,6 +299,7 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     context.structured_test_results = [PASSING_CHECKS];
     context.code_tests_lint_passed = true;
     context.code_changed = true;
+    endPlanning();
     featureDevTurn();
 
     await stop();

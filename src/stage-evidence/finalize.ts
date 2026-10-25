@@ -5,11 +5,9 @@ import {
   currentFeature,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
-import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { agentForWriter } from './agent-identity.js';
-import { startedAfterLastEnd } from './fold.js';
-import { endStage, openStageEvidence } from './recorder.js';
+import { openStageEvidence } from './recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { verifyChange, type VerifyResult } from './verify.js';
 
@@ -36,8 +34,6 @@ export function finalizeStageEvidence(
     let dirName = currentFeature(projectRoot, sessionId);
 
     if (dirName) {
-      const existing = readFeatureStageUnit(projectRoot, dirName);
-      endDanglingLiveStages(projectRoot, sessionId, dirName, existing, input);
       backfillMissingDevelopment(projectRoot, sessionId, dirName, input);
     } else {
       if (!input.changedFilesCount || input.changedFilesCount <= 0) {
@@ -103,36 +99,6 @@ export function closeVerifiedChange(projectRoot: string, input: CloseVerifiedCha
     );
     closeActiveFeature(projectRoot, sessionId, input.now);
   } catch {}
-}
-
-function endDanglingLiveStages(
-  projectRoot: string,
-  sessionId: string,
-  dirName: string,
-  rows: readonly SessionLedgerRow[],
-  input: FinalizeStageEvidenceInput,
-): void {
-  const started = new Set<string>();
-  for (const row of rows) {
-    if (typeof row.stage !== 'string') continue;
-    if (row.kind === 'stage_start' && row.evidence_source === 'live-mark') started.add(row.stage);
-  }
-  for (const stage of started) {
-    if (!startedAfterLastEnd(rows.filter((row) => row.stage === stage))) continue;
-    try {
-      endStage(
-        projectRoot,
-        stage,
-        {},
-        {
-          sessionId,
-          dirName,
-          adapter: input.adapter,
-          now: input.now,
-        },
-      );
-    } catch {}
-  }
 }
 
 function backfillMissingDevelopment(

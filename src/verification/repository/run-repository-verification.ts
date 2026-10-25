@@ -789,18 +789,26 @@ export function stageEvidenceGate(
       : 'Feature-development stages were not recorded for this change';
     const orderingOnly =
       result.missing_stages.length === 0 && result.ordering_violations.length > 0;
+    const open = result.open_stages ?? [];
+    const leftOpen = open.length > 0 ? ` Stage(s) left open: [${open.join(', ')}].` : '';
+    const endOpen =
+      open.length > 0
+        ? `End each open stage (${open.map((stage) => `paqad-ai stage end ${stage}`).join(', ')}). `
+        : '';
     return {
       name,
       status: 'fail',
       detail: orderingOnly
-        ? `${lead} — stages ran out of order: ${describeOrderingViolations(result.ordering_violations)}.`
-        : `${lead} — missing stage(s): [${missing}].`,
-      remediation: orderingOnly
-        ? 'Re-mark the stages so each one ends before the next begins, or resolve the redo via ' +
-          'the Decision Pause Contract.'
-        : 'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
-          '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
-          'via the Decision Pause Contract.',
+        ? `${lead} — stages ran out of order: ${describeOrderingViolations(result.ordering_violations)}.${leftOpen}`
+        : `${lead} — missing stage(s): [${missing}].${leftOpen}`,
+      remediation:
+        endOpen +
+        (orderingOnly
+          ? 'Re-mark the stages so each one ends before the next begins, or resolve the redo via ' +
+            'the Decision Pause Contract.'
+          : 'Record each missing stage (open → start → end per stage), or set stages_mode=warn/off in ' +
+            '.paqad/configs/.config.policy to adopt the workflow before enforcing, or resolve the redo ' +
+            'via the Decision Pause Contract.'),
       failures: [],
     };
   }

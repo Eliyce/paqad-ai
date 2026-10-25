@@ -24,6 +24,18 @@ describe('stageEvidenceGate — mode-gated stage enforcement (buildout F4, RCA c
     expect(gate?.detail).toContain('review');
   });
 
+  it('AC-3: names a stage left open at turn end and how to end it', () => {
+    const gate = stageEvidenceGate(
+      result({ live_marked: true, missing_stages: ['checks'], open_stages: ['checks'] }),
+      'hook-completion',
+      1,
+      'strict',
+    );
+    expect(gate?.status).toBe('fail');
+    expect(gate?.detail).toContain('left open: [checks]');
+    expect(gate?.remediation).toContain('paqad-ai stage end checks');
+  });
+
   it('returns null when there is no stage result (genuine no-op / read-only turn)', () => {
     expect(stageEvidenceGate(null, 'hook-completion', 5, 'strict')).toBeNull();
   });

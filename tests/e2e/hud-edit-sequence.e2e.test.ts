@@ -81,7 +81,7 @@ function editAndDraw(root: string, path: string, editing: boolean) {
 }
 
 describe('a fast-lane change that edits src, a root policy file, src again and tests', () => {
-  it('shows Build then Checks, never Docs, keeps Edit current, and ends complete', () => {
+  it('shows Build then Checks, never Docs, keeps Edit current, and ends complete once each open stage is ended', () => {
     const { root, dirName } = fastChange();
     const drawn = SEQUENCE.map((path) => ({ path, ...editAndDraw(root, path, false) }));
 
@@ -100,12 +100,20 @@ describe('a fast-lane change that edits src, a root policy file, src again and t
       expect(band.strip.delivery[0]).toEqual({ label: 'Edit', state: 'run' });
     }
 
-    const finished = finalizeStageEvidence(root, {
+    const turnEnd = {
       adapter: 'claude-code',
       sessionId: SESSION,
       changedFilesCount: SEQUENCE.length,
       deferClose: true,
-    });
+    };
+    const leftOpen = finalizeStageEvidence(root, turnEnd);
+    expect(leftOpen?.open_stages).toEqual(['development', 'checks']);
+    expect(leftOpen?.ok).toBe(false);
+    for (const stage of ['development', 'checks']) {
+      endStage(root, stage, {}, { sessionId: SESSION, adapter: 'claude-code' });
+    }
+
+    const finished = finalizeStageEvidence(root, turnEnd);
     expect(finished?.missing_stages).toEqual([]);
     const fold = foldFeature(root, SESSION, dirName);
     expect(fold.completeness.verdict).toBe('complete');

@@ -120,7 +120,7 @@ describe('finalizeStageEvidence', () => {
     expect(result).toBeNull();
   });
 
-  it('AC-5: ends a live-mark stage the writer left open (turn-boundary end) and writes no inferred row', () => {
+  it('AC-3: leaves a live-mark stage the writer left open running and writes no inferred row', () => {
     const sessionId = 'ses_dangling';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     startStage(root, 'development', { sessionId, dirName, adapter: 'claude-code' });
@@ -129,12 +129,11 @@ describe('finalizeStageEvidence', () => {
 
     const rows = activeRows(root, sessionId);
     const devEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'development');
-    expect(devEnd, 'the dangling stage should be closed at the turn boundary').toBeDefined();
-    expect(devEnd?.evidence_source).toBe('live-mark');
+    expect(devEnd, 'an open stage is never ended on the agent’s behalf').toBeUndefined();
     expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
   });
 
-  it('ends a live-mark stage that was started again after an earlier end', () => {
+  it('AC-3: leaves a live-mark stage that was started again after an earlier end running', () => {
     const sessionId = 'ses_reopened';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     const ctx = { sessionId, dirName, adapter: 'claude-code' };
@@ -147,15 +146,10 @@ describe('finalizeStageEvidence', () => {
     const development = readFeatureStageUnit(root, dirName).filter(
       (row) => row.stage === 'development',
     );
-    expect(development.map((row) => row.kind)).toEqual([
-      'stage_start',
-      'stage_end',
-      'stage_start',
-      'stage_end',
-    ]);
+    expect(development.map((row) => row.kind)).toEqual(['stage_start', 'stage_end', 'stage_start']);
   });
 
-  it('anchors a review the agent left open, but an artifact-less review is inconclusive', () => {
+  it('AC-3: a review the agent left open stays open and is named as left open', () => {
     const sessionId = 'ses_late_review';
     const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
     for (const stage of [
@@ -183,10 +177,36 @@ describe('finalizeStageEvidence', () => {
     expect(result?.verdict).toBe('incomplete');
     expect(result?.ok).toBe(false);
     expect(result?.missing_stages).toContain('review');
+    expect(result?.open_stages).toEqual(['review']);
     const rows = readFeatureStageUnit(root, dirName);
     const reviewEnd = rows.find((row) => row.kind === 'stage_end' && row.stage === 'review');
-    expect(reviewEnd, 'finalize should still anchor the open review at completion').toBeDefined();
-    expect(reviewEnd?.evidence_source).toBe('live-mark');
+    expect(reviewEnd, 'an open review is never ended on the agent’s behalf').toBeUndefined();
+  });
+
+  it('AC-3: an open checks stage at turn end stays running and the change stays open', () => {
+    const sessionId = 'ses_open_checks';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    for (const stage of ['planning', 'specification', 'development', 'review']) {
+      startStage(root, stage, { sessionId, dirName, adapter: 'claude-code' });
+      endStage(root, stage, provenEndArgs(root, dirName, stage), {
+        sessionId,
+        dirName,
+        adapter: 'claude-code',
+      });
+    }
+    startStage(root, 'checks', { sessionId, dirName, adapter: 'claude-code' });
+
+    const result = finalizeStageEvidence(root, {
+      adapter: ADAPTER,
+      sessionId,
+      changedFilesCount: 1,
+    });
+
+    expect(result?.ok).toBe(false);
+    expect(result?.open_stages).toEqual(['checks']);
+    expect(currentFeature(root, sessionId)).toBe(dirName);
+    const checksRows = readFeatureStageUnit(root, dirName).filter((row) => row.stage === 'checks');
+    expect(checksRows.map((row) => row.kind)).toEqual(['stage_start']);
   });
 
   it('a documentation-only change is a no-op (isFeatureDevChange=false) — code stages do not apply', () => {
