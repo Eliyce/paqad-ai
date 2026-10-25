@@ -132,7 +132,7 @@ describe('closed, hidden and needs you', () => {
     expect(needsYouLine()[0]).toMatchObject({ tone: 'needs-you', action: 'show' });
     expect(
       layout(GRADUATED_ORD_482, { minimised: false, closed: false, hidden: false })[0],
-    ).toContain('Needs you: 1 decision waiting.');
+    ).toContain('1 decision is waiting for you');
   });
 
   it('answers /paqad show', () => {

@@ -1,4 +1,4 @@
-import { allGreenNow, changeChip } from './band';
+import { changeChip } from './band';
 import {
   CHANGE_SCOPE_SENTENCE,
   WHOLE_SESSION_SENTENCE,
@@ -25,7 +25,13 @@ import type {
 } from './strip';
 import { hasRuled, showsTable, trackRecordWords } from './table';
 import { IDLE_WORDS, visibilityMode, type BandVisibility } from './visibility';
-import { verdictFromEarlierTurn, waitingOnHuman } from './attention';
+import { waitingOnHuman } from './attention';
+import {
+  WAITING_FOR_ANSWER,
+  WAITING_FOR_PERMISSION,
+  snapshotHeadline,
+  type DesktopHeadline,
+} from './headline';
 import { IDLE_LIVE, type LiveState } from './live';
 import type {
   PaqadCiJob,
@@ -45,46 +51,17 @@ export const UNREADABLE_WHY = {
   snapshot: 'The snapshot file is not valid.',
 } as const;
 export const GETTING_READY = IDLE_WORDS;
-export const WAITING_FOR_ANSWER = 'Waiting for your answer';
-export const WAITING_FOR_PERMISSION = 'Waiting for your permission';
 export const FEATURE_WORDS = 'Feature development';
 export const CLOSED_WORDS = 'Closed for this session';
 export const HIDDEN_WORDS = 'Hidden';
 export const NEEDS_YOU_WORDS = 'Needs you';
 export const CLOSE_MENU_QUESTION = 'Close the paqad band?';
 
-export const CARD_ROWS = { identity: 1, message: 1, strip: 3, menu: 1 } as const;
+export const CARD_ROWS = { identity: 1, message: 1, gap: 1, strip: 3, menu: 1 } as const;
 
 export type Unreadable = keyof typeof UNREADABLE_WHY;
 
 const CONFLICT_CATEGORY = 'spec.expert_conflict';
-
-export const FAILURE_PHRASES: Readonly<Record<string, string>> = {
-  'code-tests-lint': 'Tests, types or lint failed',
-  'spec-review': 'The spec review found a blocking defect',
-  'implementation-review': 'The code review found a blocking issue',
-  'quality-ratchet': 'Quality dropped below the baseline',
-  duplication: 'A near-copy of existing code was added',
-  'documentation-freshness': 'The docs no longer match the code',
-  'ac-test-mapping': 'A criterion has no test',
-  'change-completeness': 'Something is left half done',
-  'mutation-testing': 'The tests missed real mutations',
-  'module-docs-structure': 'A module doc lost its shape',
-  'instructions-docs-structure': 'An instruction doc lost its shape',
-  'extension-surface': 'The public surface changed',
-  'architecture-compliance': 'An architecture rule is broken',
-  'database-quality': 'A database change is unsafe',
-  'fix-proof': 'The fix has no proving test',
-  'behavioral-correctness': 'The behaviour does not match the spec',
-  'requirement-completeness': 'A requirement is incomplete',
-  'story-quality': 'A story is not well formed',
-  'site-map-freshness': 'The site map no longer matches the app',
-  'bundle-completeness': 'The evidence bundle is incomplete',
-};
-
-export function failurePhrase(code: string): string {
-  return FAILURE_PHRASES[code] ?? `${code} failed`;
-}
 
 export const LANE_WORDS: Readonly<Record<string, string>> = {
   fast: 'Fast lane',
@@ -137,165 +114,9 @@ function prName(snapshot: PaqadHudSnapshot): string {
   return number === null ? 'The PR' : `PR #${number}`;
 }
 
-function clockSince(startedAt: string | null | undefined, now: number): string | null {
-  const started = startedAt ? Date.parse(startedAt) : Number.NaN;
-  return Number.isFinite(started) ? formatStopwatch(now - started) : null;
-}
+export { WAITING_FOR_ANSWER, WAITING_FOR_PERMISSION, type DesktopHeadline };
 
-function gateOrder(snapshot: PaqadHudSnapshot): (name: string) => number {
-  return (name) => {
-    const index = snapshot.gates_expected.indexOf(name);
-    return index === -1 ? snapshot.gates_expected.length : index;
-  };
-}
-
-function failingGates(snapshot: PaqadHudSnapshot): string[] {
-  const rank = gateOrder(snapshot);
-  return snapshot.gates
-    .filter((gate) => gate.required && gate.verdict === 'fail')
-    .map((gate) => gate.name)
-    .sort((a, b) => rank(a) - rank(b));
-}
-
-export function failureHeadline(snapshot: PaqadHudSnapshot): string {
-  const [first, ...rest] = failingGates(snapshot);
-  if (!first) return snapshot.verdict?.word ?? 'Needs your attention';
-  return rest.length > 0 ? `${failurePhrase(first)} and ${rest.length} more` : failurePhrase(first);
-}
-
-function runningWords(snapshot: PaqadHudSnapshot, stage: string): string {
-  switch (stage) {
-    case 'ticket_intake':
-      return 'Reading the ticket';
-    case 'planning':
-      return 'Planning the change';
-    case 'specification': {
-      const table = snapshot.table;
-      if (table?.seats.some((seat) => seat.state === 'writing')) {
-        return 'The High Table is writing its notes';
-      }
-      if (table?.chief?.state === 'writing') return 'The chief architect is ruling';
-      return 'Writing the spec';
-    }
-    case 'development':
-      return snapshot.plan
-        ? `${snapshot.plan.done} of ${snapshot.plan.steps} plan steps built`
-        : 'Building';
-    case 'review':
-      return 'Reviewing the change';
-    case 'checks':
-      return 'Running the checks';
-    case 'documentation_sync':
-      return 'Syncing the docs';
-    case 'delivery':
-      return 'Delivering';
-    default:
-      return `${stageWord(stage)} is running`;
-  }
-}
-
-export interface DesktopHeadline {
-  row: number;
-  signal: Signal;
-  live: boolean;
-  text: string;
-  clock: string | null;
-}
-
-function headline(
-  row: number,
-  signal: Signal,
-  text: string,
-  clock: string | null = null,
-): DesktopHeadline {
-  return { row, signal, live: signal === 'accent', text, clock };
-}
-
-function settledHeadline(snapshot: PaqadHudSnapshot): DesktopHeadline {
-  const segments = stageSegments(snapshot);
-  const lane = new Set(laneStages(snapshot).map(([stage]) => stage));
-  const drawn = segments.filter((segment) => lane.has(segment.stage));
-  const done = [...drawn].reverse().find((segment) => segment.state === 'done');
-  const next = drawn.find(
-    (segment) =>
-      segment.state === 'not yet' &&
-      snapshot.stages.find((stage) => stage.stage === segment.stage)?.mandatory === true,
-  );
-  if (done && next) {
-    return headline(18, 'idle', `${stageWord(done.stage)} done. Next: ${stageWord(next.stage)}`);
-  }
-  if (!done) return headline(19, 'idle', 'Next: Plan');
-  return headline(20, 'idle', 'Every stage is recorded. Waiting for the verdict.');
-}
-
-export function desktopHeadline(
-  snapshot: PaqadHudSnapshot,
-  now: number,
-  live: LiveState = IDLE_LIVE,
-): DesktopHeadline {
-  if (live.waitingOn === 'question') return headline(3, 'attention', WAITING_FOR_ANSWER);
-  if (live.waitingOn === 'permission') return headline(4, 'attention', WAITING_FOR_PERMISSION);
-  const pending = snapshot.decisions.pending;
-  const table = snapshot.table;
-  const conflicts = pending.filter((decision) => decision.category === CONFLICT_CATEGORY).length;
-  if (pending.length > 0 && table && hasRuled(table) && conflicts > 0) {
-    return headline(
-      5,
-      'attention',
-      `The chief architect has ${plural(conflicts, 'question', 'questions')} for you`,
-    );
-  }
-  if (pending.length > 0) {
-    return headline(
-      6,
-      'attention',
-      pending.length === 1
-        ? '1 decision is waiting for you'
-        : `${pending.length} decisions are waiting for you`,
-    );
-  }
-  const rail = shipRail(snapshot, live);
-  const step = (label: string) => rail.steps.find((entry) => entry.label === label)?.state;
-  if (snapshot.ship?.merged) return headline(7, 'pass', `${prName(snapshot)} is merged`);
-  if (allGreenNow(snapshot)) {
-    return headline(8, 'pass', `${prName(snapshot)} is ready for your merge`);
-  }
-  if (snapshot.ship?.pr_state === 'closed') {
-    return headline(9, 'caution', `${prName(snapshot)} was closed`);
-  }
-  if (step('CI') === 'failed') return headline(10, 'fail', `CI failed on ${prName(snapshot)}`);
-  if (snapshot.ship?.push === 'failed') return headline(11, 'fail', 'The push failed');
-  const verdict = verdictFromEarlierTurn(snapshot, live) ? null : snapshot.verdict;
-  if (verdict?.kind === 'fail') return headline(12, 'fail', failureHeadline(snapshot));
-  if (verdict?.kind === 'inconclusive') {
-    const reason = verdict.reasons[0];
-    return headline(13, 'caution', reason ? `Inconclusive: ${reason}` : 'Inconclusive');
-  }
-  if (step('CI') === 'current') {
-    const delivery = snapshot.stages.find((stage) => stage.stage === 'delivery');
-    return headline(
-      14,
-      'accent',
-      `Watching CI on ${prName(snapshot)}`,
-      clockSince(delivery?.started_at, now),
-    );
-  }
-  const running = snapshot.stages.find((stage) => stage.state === 'running');
-  if (running) {
-    return headline(
-      15,
-      'accent',
-      runningWords(snapshot, running.stage),
-      clockSince(running.started_at, now),
-    );
-  }
-  if (verdict?.kind === 'pass') {
-    return snapshot.ship?.commit_decision === 'decline'
-      ? headline(16, 'pass', 'Done: the edit is in your working tree')
-      : headline(17, 'pass', 'Safe to merge');
-  }
-  return settledHeadline(snapshot);
-}
+export const desktopHeadline = snapshotHeadline;
 
 export function costWords(cost: PaqadHudSnapshot['cost']): string | null {
   if (!cost) return null;
@@ -524,8 +345,14 @@ export function stripAltText(text: string, strip: StripInput): string {
   return parts.join(' ');
 }
 
-export function cardRows(menuOpen: boolean): number {
-  return CARD_ROWS.identity + CARD_ROWS.message + CARD_ROWS.strip + (menuOpen ? CARD_ROWS.menu : 0);
+export function cardRows(menuOpen: boolean, gap = false): number {
+  return (
+    CARD_ROWS.identity +
+    CARD_ROWS.message +
+    CARD_ROWS.strip +
+    (gap ? CARD_ROWS.gap : 0) +
+    (menuOpen ? CARD_ROWS.menu : 0)
+  );
 }
 
 export interface MinimisedView {
@@ -629,7 +456,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   }
   const head = desktopHeadline(snapshot, input.now, live);
   const strip = stripOf(snapshot, input.columns, live);
-  const fits = input.maxRows >= cardRows(input.menuOpen);
+  const fits = input.maxRows >= cardRows(input.menuOpen, head.gap !== null);
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
@@ -854,8 +681,9 @@ export function trustLight(
     case 7:
       return { signal: 'pass', title: 'Merged', why: `${pr} is merged.` };
     case 8:
-    case 17:
       return { signal: 'pass', title: 'Safe to merge', why: safeToMergeWhy(snapshot) };
+    case 17:
+      return { signal: 'pass', title: 'PR open', why: `${head.text}.` };
     case 9:
       return { signal: 'caution', title: 'PR closed', why: `${pr} was closed without a merge.` };
     case 10:
@@ -870,19 +698,19 @@ export function trustLight(
       return {
         signal: 'fail',
         title: 'Needs your attention',
-        why: `${failureHeadline(snapshot)}. Fix it and run the checks again.`,
+        why: `${head.text}. Fix it and run the checks again.`,
       };
     case 13:
       return {
         signal: 'caution',
         title: 'Inconclusive',
-        why: snapshot.verdict?.reasons.join('; ') || null,
+        why: (snapshot.verdict?.work_reasons ?? snapshot.verdict?.reasons ?? []).join('; ') || null,
       };
     case 16:
       return {
         signal: 'pass',
-        title: 'Checks passed',
-        why: 'Nothing to merge: the edit is in your working tree, uncommitted, as you asked.',
+        title: head.word ?? head.text,
+        why: [head.note, head.gap].filter((part) => part !== null).join('. ') || null,
       };
     default:
       return NOT_JUDGED_LIGHT;

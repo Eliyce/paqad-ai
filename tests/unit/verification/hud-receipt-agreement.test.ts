@@ -264,20 +264,22 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     expect(blockedRow?.detail).toContain('dead_code');
   });
 
-  function expectHeadlineAgreement(lead?: string): string {
+  function expectHeadlineAgreement(lead: string): string {
     const word = expectAgreement();
     const snapshot = buildHudSnapshot(context.project_root, SES, { now: () => NOW });
-    expect(snapshot.headline.text.startsWith(`${lead ?? word}.`)).toBe(true);
+    expect(snapshot.headline.word).toBe(lead);
+    expect(snapshot.headline.gap).toMatch(/^paqad could not record /);
+    expect(snapshot.headline.text).not.toContain('Fix it');
     expect(Object.values(PAQAD_VERDICT)).toContain(word);
     return word;
   }
 
-  it('AC-15: a failing change reads Needs your attention on the receipt, HUD headline and receipt card', async () => {
+  it('AC-15: a change failing only on paqad records reads Needs your attention on the receipts, and the HUD keys on the work with the gap in a neutral line', async () => {
     featureDevTurn();
 
     await stop();
 
-    expect(expectHeadlineAgreement()).toBe(PAQAD_VERDICT.fail);
+    expect(expectHeadlineAgreement('Inconclusive')).toBe(PAQAD_VERDICT.fail);
   });
 
   it('AC-15: an unrecorded-stage change reads Inconclusive on the receipts and Done on the HUD headline', async () => {
@@ -314,7 +316,8 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
       flags: [],
       paused: 0,
     });
-    expect(headline.text).toBe(`${word}.`);
+    expect(headline.word).toBe('Inconclusive');
+    expect(headline.text).not.toContain(PAQAD_VERDICT.pass);
     const ratchetRow = readFeatureEvidence(context.project_root, dir).find(
       (row) => row.code === 'quality-ratchet',
     );

@@ -150,6 +150,17 @@ export type PaqadRepair = { what: string; at: string | null };
 
 export type PaqadRung = 'done' | 'committed' | 'pr-open' | 'safe-to-merge' | 'merged';
 
+export type PaqadHeadline = {
+  text: string;
+  tone: PaqadTone;
+  row?: number;
+  word?: string;
+  rung?: PaqadRung;
+  note?: string;
+  gap?: string;
+  clock_from?: string;
+};
+
 export type PaqadClaim = {
   kind: string;
   id: string | null;
@@ -222,7 +233,7 @@ export type PaqadHudSnapshot = {
   lane: string | null;
   lane_stages?: string[];
   lane_reason: string | null;
-  headline: { text: string; tone: PaqadTone };
+  headline: PaqadHeadline;
   change: {
     dir: string | null;
     id: string | null;

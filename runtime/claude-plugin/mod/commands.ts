@@ -96,6 +96,8 @@ function overview(snapshot: PaqadHudSnapshot, now: number): string {
 function status(snapshot: PaqadHudSnapshot, now: number): string {
   const view = buildBandView(snapshot, now);
   const lines = [stateLine(view)];
+  if (snapshot.active && view.note) lines.push(`Note: ${view.note}.`);
+  if (snapshot.active && view.gap) lines.push(`${view.gap}.`);
   const change = snapshot.change;
   if (snapshot.active && change) {
     const name = [change.issue ? `#${change.issue}` : null, change.title].filter(Boolean).join(' ');

@@ -114,9 +114,20 @@ function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
       <Text size="heading" weight="semibold">
         {headline.text}
       </Text>
+      {headline.note ? <Text size="footnote" dimColor>{`    ${headline.note}`}</Text> : null}
       {headline.live && headline.clock ? (
         <Text size="footnote" dimColor>{`    ${headline.clock}`}</Text>
       ) : null}
+    </Text>
+  );
+}
+
+function gapRow(ui: D, headline: DesktopHeadline) {
+  const { Text } = ui;
+  if (!headline.gap) return null;
+  return (
+    <Text key="paqad-gap" size="footnote" dimColor wrap="truncate-end">
+      {headline.gap}
     </Text>
   );
 }
@@ -169,6 +180,7 @@ function featureBand(
       {identityRow(ui, band.identity, actions)}
       {band.menu ? closeMenu(ui, actions) : null}
       {messageRow(ui, band.headline, tick)}
+      {gapRow(ui, band.headline)}
       <Box key="paqad-strip">
         <Svg source={strip(band.strip).source} alt={band.alt} />
       </Box>

@@ -139,6 +139,9 @@ describe('AC-19: the Ledger tabs', () => {
 describe('AC-20: the Trust tab', () => {
   it('lights by the Part B row, with its title and reason', () => {
     const light = (over: Raw) => trustLight(open(over), null, NOW);
+    const at = (row: number, text: string, tone: string, over: Raw = {}) => ({
+      headline: { text, tone, row, ...over },
+    });
     expect(trustLight(null, 'session-id', NOW)).toEqual({
       signal: 'attention',
       title: UNREADABLE,
@@ -152,6 +155,7 @@ describe('AC-20: the Trust tab', () => {
     });
     expect(
       light({
+        ...at(5, 'The chief architect has 2 questions for you', 'needs-you'),
         table: ord501Table('ruled'),
         decisions: { pending: [conflict, conflict], resolved: 0 },
       }),
@@ -160,10 +164,11 @@ describe('AC-20: the Trust tab', () => {
       title: 'Waiting for your answers',
       why: 'The chief ruled "needs answers". The spec freezes once you answer the 2 questions.',
     });
-    expect(light({ decisions: { pending: [conflict], resolved: 0 } }).why).toBe(
+    const six = at(6, 'x', 'needs-you');
+    expect(light({ ...six, decisions: { pending: [conflict], resolved: 0 } }).why).toBe(
       '1 decision needs your answer before work goes on.',
     );
-    expect(light({ decisions: { pending: [conflict, conflict], resolved: 0 } }).why).toBe(
+    expect(light({ ...six, decisions: { pending: [conflict, conflict], resolved: 0 } }).why).toBe(
       '2 decisions need your answer before work goes on.',
     );
     expect(light({ last_block: { text: 'x', title: 'No React.FC' } }).signal).toBe('idle');
@@ -175,26 +180,36 @@ describe('AC-20: the Trust tab', () => {
       why: 'Claude asked you a question. Work goes on once you answer it.',
     });
     expect(waiting('permission').title).toBe('Waiting for your permission');
-    expect(light({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toEqual({
+    expect(
+      light({ ...at(7, 'x', 'good'), ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } }),
+    ).toEqual({
       signal: 'pass',
       title: 'Merged',
       why: `${PR} is merged.`,
     });
-    expect(light({ ship: { ...PR_OPEN, pr_state: 'closed' } }).why).toBe(
+    expect(light({ ...at(9, 'x', 'warn'), ship: { ...PR_OPEN, pr_state: 'closed' } }).why).toBe(
       `${PR} was closed without a merge.`,
     );
-    expect(light({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toEqual({
+    expect(
+      light({
+        ...at(10, 'x', 'bad'),
+        ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } },
+      }),
+    ).toEqual({
       signal: 'fail',
       title: 'CI failed',
       why: `CI failed on ${PR}. Fix it and push again.`,
     });
-    expect(light({ ship: { ...SHIP0, push: { state: 'failed' } } })).toEqual({
-      signal: 'fail',
-      title: 'The push failed',
-      why: null,
-    });
+    expect(light({ ...at(11, 'x', 'bad'), ship: { ...SHIP0, push: { state: 'failed' } } })).toEqual(
+      {
+        signal: 'fail',
+        title: 'The push failed',
+        why: null,
+      },
+    );
     expect(
       light({
+        ...at(12, 'Tests, types or lint failed', 'bad'),
         verdict: verdict('fail', 'Needs your attention'),
         gates: [gate('code-tests-lint', 'fail')],
       }),
@@ -203,18 +218,34 @@ describe('AC-20: the Trust tab', () => {
       title: 'Needs your attention',
       why: 'Tests, types or lint failed. Fix it and run the checks again.',
     });
-    expect(light({ verdict: verdict('inconclusive', 'Inconclusive', ['a', 'b']) })).toEqual({
+    const thirteen = at(13, 'Inconclusive: a', 'warn');
+    expect(
+      light({ ...thirteen, verdict: verdict('inconclusive', 'Inconclusive', ['a', 'b']) }),
+    ).toEqual({
       signal: 'caution',
       title: 'Inconclusive',
       why: 'a; b',
     });
-    expect(light({ verdict: verdict('inconclusive', 'Inconclusive') }).why).toBeNull();
+    expect(light({ ...thirteen, verdict: verdict('inconclusive', 'Inconclusive') }).why).toBeNull();
     expect(
       light({
+        ...at(16, 'Done', 'good', {
+          word: 'Done',
+          note: 'not committed',
+          gap: 'paqad could not record the lane for this change',
+        }),
         verdict: verdict('pass', 'Safe to merge'),
-        ship: { ...SHIP0, commit_decision: 'decline' },
       }),
-    ).toMatchObject({ signal: 'pass', title: 'Checks passed' });
+    ).toEqual({
+      signal: 'pass',
+      title: 'Done',
+      why: 'not committed. paqad could not record the lane for this change',
+    });
+    expect(light({ ...at(17, `${PR} is open. CI result unknown`, 'good') })).toEqual({
+      signal: 'pass',
+      title: 'PR open',
+      why: `${PR} is open. CI result unknown.`,
+    });
     expect(light({ stages: stages({ development: 'running' }) })).toEqual({
       signal: 'idle',
       title: 'Not judged yet',
@@ -223,7 +254,9 @@ describe('AC-20: the Trust tab', () => {
   });
 
   it('counts the gates that passed against the required ones when safe to merge', () => {
+    const eight = { headline: { text: 'Safe to merge', tone: 'good', row: 8 } };
     const safe = open({
+      ...eight,
       verdict: verdict('pass', 'Safe to merge'),
       gates: [gate('change-completeness', 'pass'), gate('code-tests-lint', 'pass')],
     });
@@ -233,6 +266,7 @@ describe('AC-20: the Trust tab', () => {
       why: '2 of 3 required gates pass.',
     });
     const all = open({
+      ...eight,
       verdict: verdict('pass', 'Safe to merge'),
       gates: [
         gate('change-completeness', 'pass'),
@@ -245,6 +279,7 @@ describe('AC-20: the Trust tab', () => {
       '2 of 2 required gates pass. 2 gates were not required for this change and are not counted.',
     );
     const clean = open({
+      ...eight,
       verdict: verdict('pass', 'Safe to merge'),
       gates_expected: ['code-tests-lint'],
       gates: [gate('code-tests-lint', 'pass')],

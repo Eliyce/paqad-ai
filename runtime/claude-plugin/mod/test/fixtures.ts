@@ -452,7 +452,13 @@ export const FAST_ORD_490 = snapshot({
   lane: 'fast',
   lane_stages: ['planning', 'development', 'checks'],
   lane_reason: 'a one-line copy fix',
-  headline: { text: 'Build in progress. Next: Review.', tone: 'working' },
+  headline: {
+    text: 'Building',
+    tone: 'working',
+    row: 15,
+    word: 'Working',
+    clock_from: '2026-10-18T08:58:00.000Z',
+  },
   change: change('ORD-490', 'The order email says recieved', 'fix/ORD-490-received'),
   stages: stages(
     { planning: 'complete', development: 'running' },
@@ -470,7 +476,7 @@ export const GRADUATED_ORD_482 = snapshot({
   lane: 'graduated',
   lane_stages: ALL_LANE_STAGES,
   lane_reason: 'a bug fix that touches contact matching',
-  headline: { text: 'Needs you: 1 decision waiting.', tone: 'needs-you' },
+  headline: { text: '1 decision is waiting for you', tone: 'needs-you', row: 6, word: 'Needs you' },
   change: change(
     'ORD-482',
     'Keep the copied phone after a re-sync',
@@ -677,8 +683,19 @@ export function ord501At(phase: Ord501Phase): Raw {
   return snapshot({
     ...FULL_ORD_501,
     headline: ruled
-      ? { text: 'Needs you: 1 decision waiting.', tone: 'needs-you' }
-      : { text: 'Spec in progress. Next: Build.', tone: 'working' },
+      ? {
+          text: 'The chief architect has 1 question for you',
+          tone: 'needs-you',
+          row: 5,
+          word: 'Needs you',
+        }
+      : {
+          text: 'The High Table is writing its notes',
+          tone: 'working',
+          row: 15,
+          word: 'Working',
+          clock_from: '2026-10-18T08:09:00.000Z',
+        },
     stages: stages(
       { planning: 'complete', specification: 'running' },
       { specification: '2026-10-18T08:09:00.000Z' },
@@ -814,7 +831,13 @@ export const SCENE_FIXTURES = {
   'High Table writing': ord501At('writing'),
   Building: snapshot({
     ...FULL_ORD_501,
-    headline: { text: 'Build in progress. Next: Review.', tone: 'working' },
+    headline: {
+      text: 'Building',
+      tone: 'working',
+      row: 15,
+      word: 'Working',
+      clock_from: '2026-10-18T08:55:00.000Z',
+    },
     stages: stages(
       { planning: 'complete', specification: 'complete', development: 'running' },
       { development: '2026-10-18T08:55:00.000Z' },
@@ -835,7 +858,13 @@ export const SCENE_FIXTURES = {
   'Needs you': ord501At('ruled'),
   'Shipping with CI live': snapshot({
     ...FULL_ORD_501,
-    headline: { text: 'Delivering. Watching CI.', tone: 'working' },
+    headline: {
+      text: `Watching CI on PR ${'#'}12`,
+      tone: 'working',
+      row: 14,
+      word: 'Working',
+      clock_from: '2026-10-18T08:57:00.000Z',
+    },
     stages: DELIVERING_STAGES,
     flags: [],
     delivery_plan: FULL_DELIVERY,
@@ -860,7 +889,12 @@ export const SCENE_FIXTURES = {
   }),
   Failed: snapshot({
     ...FULL_ORD_501,
-    headline: { text: 'Needs your attention.', tone: 'bad' },
+    headline: {
+      text: 'Tests, types or lint failed',
+      tone: 'bad',
+      row: 12,
+      word: 'Needs your attention',
+    },
     stages: stages({ ...ALL_DONE, checks: 'failed' }),
     gates: [
       { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'fail' },
@@ -871,6 +905,14 @@ export const SCENE_FIXTURES = {
   }),
   'All green': snapshot({
     ...FULL_ORD_501,
+    headline: {
+      text: `Safe to merge: PR ${'#'}12 is ready for your merge`,
+      tone: 'good',
+      row: 8,
+      word: 'Safe to merge',
+      rung: 'safe-to-merge',
+    },
+    rung: 'safe-to-merge',
     flags: [],
     stages: DELIVERING_STAGES,
     delivery_plan: FULL_DELIVERY,
@@ -893,7 +935,15 @@ export const SCENE_FIXTURES = {
   'Fast lane': FAST_ORD_490,
   'Edit only': snapshot({
     ...FAST_ORD_490,
-    headline: { text: 'Checks passed.', tone: 'good' },
+    headline: {
+      text: 'Done',
+      tone: 'good',
+      row: 16,
+      word: 'Done',
+      rung: 'done',
+      note: 'left uncommitted, as you asked',
+    },
+    rung: 'done',
     stages: stages({ planning: 'complete', development: 'complete', checks: 'complete' }),
     gates: [
       { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'pass' },
@@ -919,6 +969,13 @@ export const SCENE_FIXTURES = {
   }),
   'No CI': snapshot({
     ...FULL_ORD_501,
+    headline: {
+      text: 'Delivering',
+      tone: 'working',
+      row: 15,
+      word: 'Working',
+      clock_from: '2026-10-18T08:57:00.000Z',
+    },
     flags: [],
     stages: DELIVERING_STAGES,
     delivery_plan: { ...FULL_DELIVERY, ci: false },

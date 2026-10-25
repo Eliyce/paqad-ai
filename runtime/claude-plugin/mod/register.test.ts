@@ -165,7 +165,7 @@ describe('the band on each fixture change', () => {
       mock.clock(on, { now: NOW });
       await $.session.start(START);
       const text = textOf(await $.ui.render(band(surface, { bodyColumns: 120 })));
-      expect(text).toContain('Needs you: 1 decision waiting.');
+      expect(text).toContain('1 decision is waiting for you');
       expect(text).toContain('HIGH TABLE');
       expect(text).toContain('spec approved');
     });
@@ -238,8 +238,18 @@ describe('the band on each fixture change', () => {
   }
 });
 
+const SAFE_WORDS = `Safe to merge: PR ${'#'}12 is ready for your merge`;
+
 const ALL_GREEN = {
   ...FULL_ORD_501,
+  headline: {
+    text: SAFE_WORDS,
+    tone: 'good',
+    row: 8,
+    word: 'Safe to merge',
+    rung: 'safe-to-merge',
+  },
+  rung: 'safe-to-merge',
   flags: [],
   ship: {
     commits: 2,
@@ -294,9 +304,9 @@ describe('the ship rail on each surface', () => {
       await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
       await $.ui.render(band('terminal'));
     }
-    const green = world.toasts.filter((text) => text.startsWith('All green'));
+    const green = world.toasts.filter((text) => text.startsWith('Safe to merge'));
     expect(green).toHaveLength(1);
-    expect(green[0]).toBe(`All green: PR ${'#'}12 is ready for your merge`);
+    expect(green[0]).toBe(SAFE_WORDS);
     const card = cardOf(await $.ui.render(band('terminal', { bodyColumns: 120 })));
     expect((card as { props: { borderColor?: unknown } }).props.borderColor).toBe('success');
   });
@@ -785,9 +795,15 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
   });
 
-  test('a failure from an earlier turn yields to the running stage once a new turn starts', async ($, on) => {
+  test('AC-32: the band draws the row the snapshot decided, and follows the snapshot into a new turn', async ($, on) => {
     const failed = {
       ...FAST_ORD_490,
+      headline: {
+        text: 'Tests, types or lint failed',
+        tone: 'bad',
+        row: 12,
+        word: 'Needs your attention',
+      },
       verdict: {
         kind: 'fail',
         word: 'Needs your attention',
@@ -798,12 +814,70 @@ describe('the Desktop band', () => {
         { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'fail' },
       ],
     };
-    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(failed) } });
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(failed) } });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
-    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Build');
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Tests, types or lint failed');
     await $.turn.start({ text: 'go on', turnId: 'turn-2' } as never);
-    expect(textOf(await $.ui.render(band('desktop')))).toContain('Building');
+    world.put(SNAPSHOT, fileText(FAST_ORD_490));
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    const drawn = textOf(await $.ui.render(band('desktop')));
+    expect(drawn).toContain('Building');
+    expect(drawn).not.toContain('Tests, types or lint failed');
+  });
+
+  test('AC-10: Done reads in the success colour with a dim not committed note and no warning colour', async ($, on) => {
+    const done = {
+      ...FULL_ORD_501,
+      scope: { qualified: true, reason: 'finished' },
+      flags: [],
+      rung: 'done',
+      headline: {
+        text: 'Done',
+        tone: 'good',
+        row: 16,
+        word: 'Done',
+        rung: 'done',
+        note: 'not committed',
+      },
+    };
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(done) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    expect(textOf(drawn)).toContain('● Done    not committed');
+    expect(lightOf(drawn)).toBe('#2F8F6B');
+    expect(textOf(drawn)).not.toContain('Ready');
+    const note = textElement(drawn, '    not committed') as { props?: { dimColor?: unknown } };
+    expect(note?.props?.dimColor).toBe(true);
+  });
+
+  test('AC-29, AC-33: a paqad record gap shows Done and one neutral line, never a fix instruction', async ($, on) => {
+    const gap = 'paqad could not record every stage of this change';
+    const done = {
+      ...FULL_ORD_501,
+      flags: [],
+      rung: 'done',
+      headline: { text: 'Done', tone: 'good', row: 16, word: 'Done', rung: 'done', gap },
+    };
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(done) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    expect(textOf(drawn)).toContain(gap);
+    expect(textOf(drawn)).not.toContain('Fix it and run the checks again');
+    expect(lightOf(drawn)).toBe('#2F8F6B');
+    const line = textElement(drawn, gap) as { props?: { dimColor?: unknown; color?: unknown } };
+    expect(line?.props?.dimColor).toBe(true);
+    expect(line?.props?.color).toBeUndefined();
+  });
+
+  test('AC-31: a snapshot from before the headline row renders its own words without crashing', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FULL_ORD_501) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = textOf(await $.ui.render(band('desktop')));
+    expect(drawn).toContain('Safe to merge. 1 flag open.');
   });
 
   test('AC-13: the close menu opens inline; Cancel, Close for now, Show and Hide always do what they say', async ($, on) => {
@@ -972,6 +1046,7 @@ function expectDesktopSafe(tree: RenderNode): void {
 
 const CLAIMED = {
   ...QUIET_501,
+  headline: { text: 'Safe to merge', tone: 'good', row: 8, word: 'Safe to merge' },
   claims: Array.from({ length: 6 }, (_, index) => ({
     kind: 'acceptance',
     id: `AC-${index + 1}`,
@@ -1188,7 +1263,7 @@ const SCENE_WORDS: Record<keyof typeof SCENE_FIXTURES, string> = {
   Failed: 'Tests, types or lint failed',
   'All green': `PR ${'#'}12 is ready for your merge`,
   'Fast lane': 'Building',
-  'Edit only': 'Done: the edit is in your working tree',
+  'Edit only': 'Done    left uncommitted, as you asked',
   'No CI': 'Delivering',
   Closed: 'Safe to merge',
   Question: 'Question   ● idle',

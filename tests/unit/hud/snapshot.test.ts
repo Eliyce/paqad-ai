@@ -176,10 +176,7 @@ describe('buildHudSnapshot', () => {
       verdict: null,
     });
     expect(snapshot.change).toMatchObject({ issue: 'ORD-490' });
-    expect(snapshot.headline).toEqual({
-      text: 'Build in progress. Next: Checks.',
-      tone: 'working',
-    });
+    expect(snapshot.headline).toMatchObject({ row: 15, text: 'Building', tone: 'working' });
     const planning = snapshot.stages.find((stage) => stage.stage === 'planning');
     expect(planning).toMatchObject({
       state: 'complete',
@@ -263,8 +260,9 @@ describe('buildHudSnapshot', () => {
         question: 'How do we prove the copied phone survives a re-sync?',
       },
     ]);
-    expect(snapshot.headline).toEqual({
-      text: 'Needs you: 1 decision waiting.',
+    expect(snapshot.headline).toMatchObject({
+      row: 6,
+      text: '1 decision is waiting for you',
       tone: 'needs-you',
     });
     expect(snapshot.isolation?.status).toBe('expected');
@@ -292,7 +290,7 @@ describe('buildHudSnapshot', () => {
     expect(expected['experts.json']).toBe('off here');
   });
 
-  it('ORD-501 full lane: Safe to merge with an open flag reads amber, never green (Q19)', () => {
+  it('ORD-501 full lane: a passing change reads Done in the success colour, with its flags kept apart', () => {
     const root = onboardedRoot();
     const S = 'ses-501';
     const dir = openChange(root, S, 'full', 'ORD-501 csv export');
@@ -375,8 +373,7 @@ describe('buildHudSnapshot', () => {
     );
     expect(snapshot.verdict).toMatchObject({ word: 'Safe to merge', kind: 'pass' });
     expect(snapshot.receipt?.path).toContain(`${S}.receipt.md`);
-    expect(snapshot.headline.tone).toBe('warn');
-    expect(snapshot.headline.text).toMatch(/^Done\. \d+ flags? open\.$/);
+    expect(snapshot.headline).toMatchObject({ row: 16, text: 'Done', tone: 'good', rung: 'done' });
   });
 
   it('a hand-written spec under the pipeline shows the High Table as skipped (Q11)', () => {
@@ -1055,16 +1052,16 @@ describe('computeHudHeadline', () => {
         stages: [stage('planning', 'complete'), stage('specification', 'missing')],
         verdict: null,
       }),
-    ).toEqual({ text: 'Planning done. Next: Spec.', tone: 'working' });
+    ).toMatchObject({ row: 18, text: 'Plan done. Next: Spec', tone: 'neutral' });
     expect(
       computeHudHeadline({ ...base, stages: [stage('specification', 'missing')], verdict: null }),
-    ).toEqual({ text: 'Next: Spec.', tone: 'working' });
+    ).toMatchObject({ row: 19, text: 'Next: Spec', tone: 'neutral' });
     expect(
       computeHudHeadline({ ...base, stages: [stage('planning', 'complete')], verdict: null }),
-    ).toEqual({ text: 'Every stage is recorded. Waiting for the verdict.', tone: 'working' });
+    ).toMatchObject({ row: 20, text: 'Every stage is recorded. Waiting for the verdict.' });
   });
 
-  it('colours the verdict: red on a fail, amber on Inconclusive, green only when clean', () => {
+  it('colours the verdict: red on a fail, amber on Inconclusive, green only on a rung', () => {
     const verdict = (kind: 'pass' | 'fail' | 'inconclusive', word: string) => ({
       schema: 'paqad.hud-verdict/1' as const,
       session_id: 's',
@@ -1084,11 +1081,13 @@ describe('computeHudHeadline', () => {
         .tone,
     ).toBe('warn');
     expect(
-      computeHudHeadline({ ...base, stages, verdict: verdict('pass', 'Safe to merge') }),
-    ).toEqual({
-      text: 'Safe to merge.',
-      tone: 'good',
-    });
+      computeHudHeadline({
+        ...base,
+        stages,
+        verdict: verdict('pass', 'Safe to merge'),
+        ladder: { rung: 'done', ci: null, ci_failed: false, uncommitted: false },
+      }),
+    ).toMatchObject({ text: 'Done', tone: 'good' });
   });
 
   it('reads Ready with no route, and Working on a non-feature route', () => {

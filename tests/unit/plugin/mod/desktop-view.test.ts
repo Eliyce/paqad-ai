@@ -10,7 +10,6 @@ import {
   costWords,
   deliveryStrip,
   desktopHeadline,
-  failurePhrase,
   identityText,
   identityView,
   refusesTaskList,
@@ -149,236 +148,127 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ snapshot: { ...open(), active: false } })).toEqual({ kind: 'none' });
   });
 
-  it('rows 3 and 4: a question or a permission waiting for you leads', () => {
+  it('rows 3 and 4: a question or a permission waiting for you leads the snapshot row', () => {
     const waiting = (waitingOn: 'question' | 'permission') =>
-      desktopHeadline(open({ decisions: { pending: [other], resolved: 0 } }), NOW, {
-        ...IDLE_LIVE,
-        turnId: 't',
-        waitingOn,
-      });
+      desktopHeadline(
+        open({
+          decisions: { pending: [other], resolved: 0 },
+          headline: { text: '1 decision is waiting for you', tone: 'needs-you', row: 6 },
+        }),
+        NOW,
+        { ...IDLE_LIVE, turnId: 't', waitingOn },
+      );
     expect(waiting('question')).toEqual({
       row: 3,
       signal: 'attention',
+      tone: 'needs-you',
       live: false,
       text: WAITING_FOR_ANSWER,
+      word: 'Needs you',
+      note: null,
+      gap: null,
       clock: null,
     });
     expect(waiting('permission')).toMatchObject({ row: 4, text: WAITING_FOR_PERMISSION });
   });
 
-  it('rows 5 and 6: the chief questions, then any other decision', () => {
-    const ruled = ord501Table('ruled');
+  it('AC-32: draws the row, words and tone the snapshot decided, computing none of its own', () => {
+    const failing = {
+      verdict: { kind: 'fail', word: 'Needs your attention', reasons: [] },
+      gates: [
+        { name: 'code-tests-lint', required: true, strength: 'deterministic', verdict: 'fail' },
+      ],
+      ship: { ...PR_OPEN, merged: true, pr_state: 'merged' },
+    };
     expect(
-      head({ table: ruled, decisions: { pending: [conflict, conflict], resolved: 0 } }),
-    ).toMatchObject({
-      row: 5,
-      signal: 'attention',
-      text: 'The chief architect has 2 questions for you',
+      head({ ...failing, headline: { text: 'Done', tone: 'good', row: 16, word: 'Done' } }),
+    ).toEqual({
+      row: 16,
+      signal: 'pass',
+      tone: 'good',
+      live: false,
+      text: 'Done',
+      word: 'Done',
+      note: null,
+      gap: null,
+      clock: null,
     });
-    expect(head({ table: ruled, decisions: { pending: [conflict], resolved: 0 } }).text).toBe(
-      'The chief architect has 1 question for you',
-    );
-    expect(head({ table: ruled, decisions: { pending: [other], resolved: 0 } })).toMatchObject({
-      row: 6,
-      text: '1 decision is waiting for you',
+    const tones: Array<[string, string]> = [
+      ['needs-you', 'attention'],
+      ['good', 'pass'],
+      ['bad', 'fail'],
+      ['warn', 'caution'],
+      ['working', 'accent'],
+      ['neutral', 'idle'],
+    ];
+    for (const [tone, signal] of tones) {
+      expect(head({ headline: { text: 'x', tone, row: 18 } }).signal).toBe(signal);
+    }
+  });
+
+  it('AC-10, AC-33: carries the dim note and the neutral paqad line the snapshot wrote', () => {
+    const done = head({
+      headline: {
+        text: 'Done',
+        tone: 'good',
+        row: 16,
+        word: 'Done',
+        rung: 'done',
+        note: 'not committed',
+        gap: 'paqad could not record the lane for this change',
+      },
     });
+    expect(done).toMatchObject({
+      signal: 'pass',
+      text: 'Done',
+      note: 'not committed',
+      gap: 'paqad could not record the lane for this change',
+    });
+    expect(JSON.stringify(done)).not.toContain('Fix it');
+  });
+
+  it('times a live row from the snapshot clock start, and only a live row', () => {
+    const running = (over: Raw) =>
+      head({ headline: { text: 'Building', tone: 'working', row: 15, ...over } });
+    expect(running({ clock_from: '2026-10-18T08:58:00.000Z' })).toMatchObject({
+      live: true,
+      signal: 'accent',
+      clock: '2:00',
+    });
+    expect(running({}).clock).toBeNull();
     expect(
       head({
-        table: ord501Table('writing'),
-        decisions: { pending: [conflict, other], resolved: 0 },
-      }),
-    ).toMatchObject({ row: 6, text: '2 decisions are waiting for you' });
+        headline: { text: 'Done', tone: 'good', row: 16, clock_from: '2026-10-18T08:58:00.000Z' },
+      }).clock,
+    ).toBeNull();
+  });
+
+  it('AC-31: an older snapshot with no row shows its own words, never a pass it did not prove', () => {
+    const old = head({
+      verdict: { kind: 'pass', word: 'Safe to merge', reasons: [] },
+      ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } },
+      headline: { text: 'Build in progress. Next: Review.', tone: 'working' },
+    });
+    expect(old).toMatchObject({ row: 0, text: 'Build in progress. Next: Review.' });
+    expect(old.signal).not.toBe('pass');
+    expect(head({ headline: { text: '', tone: 'good' } }).text).toBe(
+      'Not yet. paqad has no record for this session.',
+    );
   });
 
   it('a rule stop, used or not, never asks for you', () => {
-    expect(head({ last_block: { text: 'x', title: 'No React.FC', rule: 'RL-693b' } }).row).toBe(19);
-    expect(head({ last_block: { text: 'x', used: true } }).row).toBe(19);
+    const settled = { text: 'Next: Plan', tone: 'neutral', row: 19 };
+    expect(
+      head({ headline: settled, last_block: { text: 'x', title: 'No React.FC', rule: 'RL-693b' } })
+        .row,
+    ).toBe(19);
+    expect(head({ headline: settled, last_block: { text: 'x', used: true } }).row).toBe(19);
     expect(
       band({
         snapshot: open({ last_block: { text: 'x' } }),
         visibility: { ...SHOWN, closed: true },
       }),
     ).toEqual({ kind: 'closed', needsYou: false });
-  });
-
-  it('a verdict from before the current turn yields to the running stage', () => {
-    const written = '2026-10-18T08:50:00.000Z';
-    const judged = {
-      stages: stages({ development: 'running' }, { development: '2026-10-18T08:58:00.000Z' }),
-      verdict: { kind: 'fail', word: 'Needs your attention', reasons: [], written_at: written },
-    };
-    const turn = (turnStartedAt: number) => ({ ...IDLE_LIVE, turnId: 't', turnStartedAt });
-    expect(head(judged).row).toBe(12);
-    expect(desktopHeadline(open(judged), NOW, turn(Date.parse(written) + 1000)).row).toBe(15);
-    expect(desktopHeadline(open(judged), NOW, turn(Date.parse(written) - 1000)).row).toBe(12);
-  });
-
-  it('rows 7 to 11: merged, all green, closed, CI failed, push failed', () => {
-    expect(head({ ship: { ...PR_OPEN, merged: true, pr_state: 'merged' } })).toMatchObject({
-      row: 7,
-      signal: 'pass',
-      text: `${PR} is merged`,
-    });
-    expect(
-      head({ ship: { ...PR_OPEN, all_green: true, ci: { state: 'pass', done: 6, total: 6 } } }),
-    ).toMatchObject({ row: 8, signal: 'pass', text: `${PR} is ready for your merge` });
-    expect(head({ ship: { ...PR_OPEN, pr_state: 'closed' } })).toMatchObject({
-      row: 9,
-      signal: 'caution',
-      text: `${PR} was closed`,
-    });
-    expect(head({ ship: { ...PR_OPEN, ci: { state: 'fail', done: 6, total: 6 } } })).toMatchObject({
-      row: 10,
-      signal: 'fail',
-      text: `CI failed on ${PR}`,
-    });
-    expect(head({ ship: { ...SHIP0, push: { state: 'failed' } } })).toMatchObject({
-      row: 11,
-      signal: 'fail',
-      text: 'The push failed',
-    });
-    expect(head({ ship: { ...SHIP0, merged: true } }).text).toBe('The PR is merged');
-  });
-
-  it('row 12: the failure phrase of the first failing required gate, and how many more', () => {
-    const verdict = {
-      schema: 'paqad.hud-verdict/1',
-      kind: 'fail',
-      word: 'Needs your attention',
-      reasons: [],
-    };
-    const gate = (name: string, verdictWord = 'fail', required = true) => ({
-      name,
-      required,
-      strength: 'deterministic',
-      verdict: verdictWord,
-    });
-    const order = ['change-completeness', 'ac-test-mapping', 'code-tests-lint'];
-    expect(
-      head({
-        verdict,
-        gates_expected: order,
-        gates: [
-          gate('code-tests-lint'),
-          gate('ac-test-mapping'),
-          gate('duplication', 'fail', false),
-        ],
-      }),
-    ).toMatchObject({ row: 12, signal: 'fail', text: 'A criterion has no test and 1 more' });
-    expect(head({ verdict, gates: [gate('code-tests-lint')] }).text).toBe(
-      'Tests, types or lint failed',
-    );
-    expect(head({ verdict, gates: [gate('custom-gate')] }).text).toBe('custom-gate failed');
-    expect(head({ verdict, gates: [] }).text).toBe('Needs your attention');
-    expect(failurePhrase('bundle-completeness')).toBe('The evidence bundle is incomplete');
-  });
-
-  it('row 13: inconclusive, with the first reason', () => {
-    const verdict = (reasons: string[]) => ({
-      schema: 'paqad.hud-verdict/1',
-      kind: 'inconclusive',
-      word: 'Inconclusive',
-      reasons,
-    });
-    expect(head({ verdict: verdict(['mutation-testing: did not run', 'b']) })).toMatchObject({
-      row: 13,
-      signal: 'caution',
-      text: 'Inconclusive: mutation-testing: did not run',
-    });
-    expect(head({ verdict: verdict([]) }).text).toBe('Inconclusive');
-  });
-
-  it('row 14: watching CI on the PR, live, timed from the delivery stage', () => {
-    const watching = head({
-      stages: stages({ delivery: 'running' }, { delivery: '2026-10-18T08:57:00.000Z' }),
-      ship: { ...PR_OPEN, ci: { state: 'pending', done: 3, total: 6 } },
-    });
-    expect(watching).toEqual({
-      row: 14,
-      signal: 'accent',
-      live: true,
-      text: `Watching CI on ${PR}`,
-      clock: '3:00',
-    });
-    expect(head({ ship: { ...PR_OPEN, ci: { state: 'pending' } } }).clock).toBeNull();
-  });
-
-  it('row 15: each running stage in its own words, live with the stage clock', () => {
-    const running = (stage: string, over: Raw = {}) =>
-      head({
-        stages: stages({ [stage]: 'running' }, { [stage]: '2026-10-18T08:58:00.000Z' }),
-        ...over,
-      });
-    expect(running('ticket_intake')).toMatchObject({
-      row: 15,
-      text: 'Reading the ticket',
-      live: true,
-      clock: '2:00',
-    });
-    expect(running('planning').text).toBe('Planning the change');
-    expect(running('specification').text).toBe('Writing the spec');
-    expect(running('specification', { table: ord501Table('writing') }).text).toBe(
-      'The High Table is writing its notes',
-    );
-    expect(running('specification', { table: ord501Table('chief') }).text).toBe(
-      'The chief architect is ruling',
-    );
-    expect(running('development').text).toBe('Building');
-    expect(running('development', { plan: { steps: 5, done: 3 } }).text).toBe(
-      '3 of 5 plan steps built',
-    );
-    expect(running('review').text).toBe('Reviewing the change');
-    expect(running('checks').text).toBe('Running the checks');
-    expect(running('documentation_sync').text).toBe('Syncing the docs');
-    expect(running('delivery').text).toBe('Delivering');
-    expect(desktopHeadline(parse(FAST_ORD_490), NOW)).toMatchObject({
-      text: 'Building',
-      clock: '2:00',
-    });
-    expect(
-      head({ stages: [{ stage: 'development', state: 'running', mandatory: true }] }).clock,
-    ).toBeNull();
-  });
-
-  it('rows 16 and 17: a pass verdict, with the edit-only words when the commit was declined', () => {
-    const pass = {
-      schema: 'paqad.hud-verdict/1',
-      kind: 'pass',
-      word: 'Safe to merge',
-      reasons: [],
-    };
-    expect(head({ verdict: pass, ship: { ...SHIP0, commit_decision: 'decline' } })).toMatchObject({
-      row: 16,
-      signal: 'pass',
-      text: 'Done: the edit is in your working tree',
-    });
-    expect(head({ verdict: pass })).toMatchObject({
-      row: 17,
-      signal: 'pass',
-      text: 'Safe to merge',
-    });
-  });
-
-  it('rows 18 to 20: the last done stage and the next, nothing done, every stage recorded', () => {
-    expect(head({ stages: stages({ planning: 'complete' }) })).toMatchObject({
-      row: 18,
-      signal: 'idle',
-      live: false,
-      text: 'Plan done. Next: Spec',
-    });
-    expect(head()).toMatchObject({ row: 19, text: 'Next: Plan' });
-    expect(
-      head({
-        stages: stages({
-          planning: 'complete',
-          specification: 'complete',
-          development: 'complete',
-          review: 'complete',
-          checks: 'complete',
-          documentation_sync: 'complete',
-        }),
-      }),
-    ).toMatchObject({ row: 20, text: 'Every stage is recorded. Waiting for the verdict.' });
   });
 
   it('only live rows breathe', () => {
@@ -650,9 +540,10 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
 
 describe('AC-16: the card falls back to the minimised row when it does not fit', () => {
   it('costs identity 1, message 1 and strip 3, and the menu 1 more while it is open', () => {
-    expect(CARD_ROWS).toEqual({ identity: 1, message: 1, strip: 3, menu: 1 });
+    expect(CARD_ROWS).toEqual({ identity: 1, message: 1, gap: 1, strip: 3, menu: 1 });
     expect(cardRows(false)).toBe(5);
     expect(cardRows(true)).toBe(6);
+    expect(cardRows(false, true)).toBe(6);
   });
 
   it('draws the minimised row at 4 rows, the card at 5, and the minimised row with the menu at 5', () => {
@@ -677,7 +568,10 @@ describe('AC-14: minimised, closed and hidden', () => {
         cost: null,
       },
     });
-    const settled = band({ visibility: { ...SHOWN, minimised: true } });
+    const settled = band({
+      snapshot: open({ headline: { text: 'Next: Plan', tone: 'neutral', row: 19 } }),
+      visibility: { ...SHOWN, minimised: true },
+    });
     expect(settled).toMatchObject({
       minimised: { light: 'idle', live: false, text: 'Next: Plan' },
     });

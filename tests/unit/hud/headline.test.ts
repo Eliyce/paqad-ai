@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import type { DoneLadder } from '@/hud/done-ladder.js';
 import {
   buildTrackRecords,
   computeHudFlags,
@@ -39,46 +40,242 @@ function headline(input: Partial<HudHeadlineInput>): ReturnType<typeof computeHu
   });
 }
 
+const PR = `PR #${702}`;
+
 describe('computeHudHeadline', () => {
-  it('counts several waiting decisions in the plural', () => {
-    expect(headline({ pendingDecisions: 2 })).toEqual({
-      text: 'Needs you: 2 decisions waiting.',
+  const verdict = (
+    kind: 'pass' | 'fail' | 'inconclusive',
+    over: Record<string, unknown> = {},
+  ): HudHeadlineInput['verdict'] =>
+    ({
+      schema: 'paqad.hud-verdict/1',
+      session_id: 's',
+      change: 'c',
+      word: kind,
+      kind,
+      passed: kind === 'pass',
+      reasons: [],
+      written_at: '2026-10-18T09:00:00.000Z',
+      ...over,
+    }) as never;
+  const ladder = (over: Partial<DoneLadder>): DoneLadder => ({
+    rung: 'done',
+    ci: null,
+    ci_failed: false,
+    uncommitted: false,
+    ...over,
+  });
+  const pr = (over: Record<string, unknown> = {}) =>
+    ({
+      pr: { number: 702 },
+      pr_state: 'open',
+      ci: null,
+      push: null,
+      commit_decision: null,
+      ...over,
+    }) as never;
+  const workGate = (name: string, owner: 'work' | 'paqad-record' = 'work') => ({
+    name,
+    required: true,
+    strength: 'deterministic' as const,
+    verdict: 'fail' as const,
+    owner,
+  });
+
+  it('row 6: counts several waiting decisions in the plural', () => {
+    expect(headline({ pendingDecisions: 2 })).toMatchObject({
+      row: 6,
+      text: '2 decisions are waiting for you',
       tone: 'needs-you',
     });
+    expect(headline({ pendingDecisions: 1 }).text).toBe('1 decision is waiting for you');
   });
 
-  it('names an unknown running stage as written and leaves out a missing next stage', () => {
-    expect(headline({ stages: [stage('custom-step', 'running')] })).toEqual({
-      text: 'custom-step in progress.',
-      tone: 'working',
+  it('row 5: names the chief architect once the table has ruled with open conflicts', () => {
+    expect(
+      headline({
+        pendingDecisions: 2,
+        decisions: [{ category: 'spec.expert_conflict' }, { category: 'spec.expert_conflict' }],
+        table: { chief: { state: 'done', verdict: 'needs answers' }, seats: [] } as never,
+      }),
+    ).toMatchObject({ row: 5, text: 'The chief architect has 2 questions for you' });
+  });
+
+  it('row 15: names a running stage with its clock start, and an unknown one as written', () => {
+    expect(
+      headline({
+        stages: [{ ...stage('development', 'running'), started_at: 'T' }],
+        plan: { steps: 4, done: 1 },
+      }),
+    ).toMatchObject({ row: 15, text: '1 of 4 plan steps built', tone: 'working', clock_from: 'T' });
+    expect(headline({ stages: [stage('custom-step', 'running')] }).text).toBe(
+      'custom-step is running',
+    );
+  });
+
+  it('rows 18 to 20: names the next stage, then waits once every stage is recorded', () => {
+    expect(headline({ stages: [stage('planning', 'missing')] })).toMatchObject({
+      row: 19,
+      text: 'Next: Plan',
+      tone: 'neutral',
+    });
+    expect(
+      headline({ stages: [stage('planning', 'complete'), stage('specification', 'missing')] }),
+    ).toMatchObject({ row: 18, text: 'Plan done. Next: Spec' });
+    expect(headline({ stages: [stage('planning', 'complete')] })).toMatchObject({
+      row: 20,
+      text: 'Every stage is recorded. Waiting for the verdict.',
     });
   });
 
-  it('marks an inconclusive verdict as a warning with plural flags', () => {
+  it('row 16: Done in the success colour with a dim not committed note, never amber', () => {
+    expect(headline({ verdict: verdict('pass'), ladder: ladder({ uncommitted: true }) })).toEqual({
+      row: 16,
+      text: 'Done',
+      word: 'Done',
+      tone: 'good',
+      rung: 'done',
+      note: 'not committed',
+    });
     expect(
       headline({
-        verdict: { kind: 'inconclusive', word: 'Inconclusive' } as never,
-        flags: [
-          { id: 'a', text: 'a' },
-          { id: 'b', text: 'b' },
-        ],
+        verdict: verdict('pass'),
+        ladder: ladder({ uncommitted: true }),
+        ship: pr({ pr: null, pr_state: null, commit_decision: 'decline' }),
+      }).note,
+    ).toBe('left uncommitted, as you asked');
+  });
+
+  it('row 16: Committed once the edit is committed', () => {
+    expect(
+      headline({ verdict: verdict('pass'), ladder: ladder({ rung: 'committed' }) }),
+    ).toMatchObject({ row: 16, text: 'Committed', tone: 'good', rung: 'committed' });
+  });
+
+  it('row 17: PR open, saying CI result unknown when CI cannot be read', () => {
+    const open = { verdict: verdict('pass'), ship: pr() };
+    expect(headline({ ...open, ladder: ladder({ rung: 'pr-open', ci: 'unknown' }) })).toMatchObject(
+      {
+        row: 17,
+        text: `${PR} is open. CI result unknown`,
+        tone: 'good',
+        rung: 'pr-open',
+      },
+    );
+  });
+
+  it('row 8: Safe to merge only on a green CI result', () => {
+    expect(
+      headline({
+        verdict: verdict('pass'),
+        ship: pr({ ci: { state: 'pass' } }),
+        ladder: ladder({ rung: 'safe-to-merge', ci: 'pass' }),
       }),
-    ).toEqual({ text: 'Inconclusive. 2 flags open.', tone: 'warn' });
-    expect(headline({ verdict: { kind: 'pass', word: 'Safe to merge' } as never })).toEqual({
-      text: 'Safe to merge.',
+    ).toMatchObject({
+      row: 8,
+      text: `Safe to merge: ${PR} is ready for your merge`,
       tone: 'good',
     });
   });
 
-  it('names the next stage without a finished one, and waits once every stage is recorded', () => {
-    expect(headline({ stages: [stage('planning', 'missing')] })).toEqual({
-      text: 'Next: Planning.',
-      tone: 'working',
+  it('row 7: Merged, even with no fresh verdict', () => {
+    expect(
+      headline({ ship: pr({ pr_state: 'merged' }), ladder: ladder({ rung: 'merged' }) }),
+    ).toMatchObject({ row: 7, text: `${PR} is merged`, tone: 'good', rung: 'merged' });
+  });
+
+  it('row 14: watches CI while it runs on the open PR', () => {
+    expect(
+      headline({
+        verdict: verdict('pass'),
+        ship: pr({ ci: { state: 'pending' } }),
+        ladder: ladder({ rung: 'pr-open', ci: 'pending' }),
+      }),
+    ).toMatchObject({ row: 14, text: `Watching CI on ${PR}`, tone: 'working' });
+  });
+
+  it('AC-15 row 10: CI turning red reports the failure, never Safe to merge', () => {
+    expect(
+      headline({
+        verdict: verdict('pass'),
+        ship: pr({ ci: { state: 'fail' } }),
+        ladder: ladder({ rung: 'committed', ci: 'fail', ci_failed: true }),
+      }),
+    ).toMatchObject({ row: 10, text: `CI failed on ${PR}`, tone: 'bad' });
+  });
+
+  it('rows 9 and 11: a closed PR and a failed push', () => {
+    expect(headline({ ship: pr({ pr_state: 'closed' }) })).toMatchObject({ row: 9, tone: 'warn' });
+    expect(headline({ ship: pr({ pr_state: null, push: { state: 'failed' } }) })).toMatchObject({
+      row: 11,
+      text: 'The push failed',
     });
-    expect(headline({ stages: [stage('planning', 'complete')] })).toEqual({
-      text: 'Every stage is recorded. Waiting for the verdict.',
-      tone: 'working',
+  });
+
+  it('row 12: names only failing work gates, keyed on work_kind', () => {
+    expect(
+      headline({
+        verdict: verdict('fail', { work_kind: 'fail' }),
+        gates: [
+          workGate('code-tests-lint'),
+          workGate('stage-evidence', 'paqad-record'),
+          workGate('duplication'),
+        ],
+        gatesExpected: ['code-tests-lint', 'duplication'],
+      }),
+    ).toMatchObject({ row: 12, text: 'Tests, types or lint failed and 1 more', tone: 'bad' });
+  });
+
+  it('AC-5, AC-33: a paqad-only gap shows Done plus one neutral line, never a fix instruction', () => {
+    const head = headline({
+      verdict: verdict('fail', { work_kind: 'pass' }),
+      gates: [workGate('stage-evidence', 'paqad-record')],
+      ladder: ladder({ uncommitted: true }),
+      recordGaps: [
+        'paqad could not record every stage of this change',
+        'paqad could not record the lane for this change',
+      ],
     });
+    expect(head).toMatchObject({
+      row: 16,
+      text: 'Done',
+      tone: 'good',
+      gap: 'paqad could not record every stage of this change and 1 more',
+    });
+    expect(JSON.stringify(head)).not.toContain('Fix it');
+  });
+
+  it('a red checks run after the verdict reads red, never Done or stale', () => {
+    expect(headline({ verdict: verdict('pass'), checks: 'red' })).toMatchObject({
+      row: 12,
+      text: 'Tests, types or lint failed',
+    });
+  });
+
+  it('AC-20 row 13: an inconclusive work verdict leads with its first work reason', () => {
+    expect(
+      headline({
+        verdict: verdict('inconclusive', {
+          work_kind: 'inconclusive',
+          reasons: ['rules-loaded: missing', 'spec-review: no spec'],
+          work_reasons: ['spec-review: no spec'],
+        }),
+      }),
+    ).toMatchObject({ row: 13, text: 'Inconclusive: spec-review: no spec', tone: 'warn' });
+  });
+
+  it('falls back to the overall kind only when work_kind is absent', () => {
+    expect(headline({ verdict: verdict('fail') })).toMatchObject({ row: 12 });
+    expect(headline({ verdict: verdict('pass') })).toMatchObject({
+      row: 13,
+      text: 'Inconclusive: no checks result for this change',
+    });
+  });
+
+  it('skips a verdict from an earlier turn only while a newer turn runs a stage', () => {
+    const failed = { verdict: verdict('fail', { work_kind: 'fail' }), verdictEarlier: true };
+    expect(headline({ ...failed, stages: [stage('development', 'running')] }).row).toBe(15);
+    expect(headline({ ...failed, stages: [stage('development', 'complete')] }).row).toBe(12);
   });
 
   it('reports an idle session as ready, and a routed one as working', () => {
