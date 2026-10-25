@@ -10,7 +10,6 @@ import {
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
-import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
@@ -99,7 +98,7 @@ export function deferCompletionForBackgroundStage(
     return { deferred: false };
   }
 
-  if (deferralCeilingReached(input.projectRoot, sessionId, rows, now)) {
+  if (deferralCeilingReached(rows, now)) {
     return { deferred: false };
   }
 
@@ -115,18 +114,16 @@ export function deferCompletionForBackgroundStage(
   return { deferred: true, reason, tasks: count };
 }
 
-function deferralCeilingReached(
-  projectRoot: string,
-  sessionId: string,
-  rows: readonly SessionLedgerRow[],
-  now: () => Date,
-): boolean {
-  const turnStartedAt = Date.parse(readWorkflowState(projectRoot, sessionId).turn_started_at ?? '');
+function deferralCeilingReached(rows: readonly SessionLedgerRow[], now: () => Date): boolean {
   let firstDeferredAt = Number.POSITIVE_INFINITY;
   for (const row of rows) {
+    if (row.kind === 'verify') {
+      firstDeferredAt = Number.POSITIVE_INFINITY;
+      continue;
+    }
     if (row.kind !== COMPLETION_DEFERRED_KIND) continue;
     const at = Date.parse(rowRecordedAt(row) ?? '');
-    if (Number.isNaN(at) || (!Number.isNaN(turnStartedAt) && at < turnStartedAt)) continue;
+    if (Number.isNaN(at)) continue;
     firstDeferredAt = Math.min(firstDeferredAt, at);
   }
   return now().getTime() - firstDeferredAt >= CHECKS_RUNNING_CEILING_MS;

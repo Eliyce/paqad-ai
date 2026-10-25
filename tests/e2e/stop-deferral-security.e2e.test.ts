@@ -182,5 +182,38 @@ describe('Stop deferral cannot be used to end a turn unjudged', { timeout: 90_00
 
       judgedAndBlocked(await stop(root, session, [{ id: 'bg-1' }], route));
     });
+
+    it(`[${route.name}] INV-12: the 30 minute ceiling counts across turns, then the change is judged`, async () => {
+      const session = `ses-turns-${route.name}`;
+      const { root, dir } = await changeWithEdit(session);
+      const sessionId = resolveSessionId(root, session);
+      await cli(root, session, ['stage', 'start', 'development']);
+      const deferredAt = (minutesAgo: number) =>
+        appendFeatureStageRow(
+          root,
+          sessionId,
+          dir,
+          {
+            kind: 'completion-deferred',
+            reason: 'background task running while a stage is open',
+            tasks: 1,
+          },
+          () => new Date(Date.now() - minutesAgo * MINUTE),
+        );
+      const newTurn = (minutesAgo: number) =>
+        writeWorkflowState(root, sessionId, {
+          active: { workflow: 'feature-development', lane: 'full' },
+          paused: [],
+          turn_started_at: new Date(Date.now() - minutesAgo * MINUTE).toISOString(),
+        });
+
+      newTurn(50);
+      deferredAt(45);
+      newTurn(25);
+      deferredAt(20);
+      newTurn(1);
+
+      judgedAndBlocked(await stop(root, session, [{ id: 'bg-1' }], route));
+    });
   }
 });

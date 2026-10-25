@@ -400,15 +400,41 @@ describe('deferCompletionForBackgroundStage with a checks run and a ceiling', ()
     expect(deferredRows(root, dirName)).toHaveLength(2);
   });
 
-  it('INV-12: a deferred stop from an earlier turn does not count against this turn', () => {
+  it('INV-12: the 30 minute ceiling counts across turns from the first deferred stop', () => {
     const root = tempRoot();
     const dirName = openWithStartedStage(root);
     deferredStopAt(root, dirName, 1);
+    deferredStopAt(root, dirName, 20);
     writeWorkflowState(root, SESSION, {
       active: { workflow: 'feature-development', lane: 'full' },
       paused: [],
       turn_started_at: minutesAfter(60)().toISOString(),
     });
+
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ id: 'bg-1' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: minutesAfter(61),
+    });
+
+    expect(result).toEqual({ deferred: false });
+    expect(deferredRows(root, dirName)).toHaveLength(2);
+  });
+
+  it('INV-12: a judged stop starts a fresh 30 minute window', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    deferredStopAt(root, dirName, 1);
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dirName,
+      { kind: 'verify', agent: 'backstop', event_status: 'failed', note: 'verdict=incomplete' },
+      minutesAfter(40),
+    );
+    deferredStopAt(root, dirName, 50);
 
     const result = deferCompletionForBackgroundStage({
       projectRoot: root,
