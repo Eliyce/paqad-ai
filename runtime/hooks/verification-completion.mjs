@@ -34,7 +34,17 @@ async function main() {
     return;
   }
 
-  if (!isPaqadDisabled(projectRoot) && (await deferredForBackgroundStage(projectRoot))) {
+  const deferral = isPaqadDisabled(projectRoot)
+    ? null
+    : await deferredForBackgroundStage(projectRoot);
+  if (deferral?.deferred) {
+    // Between stages nothing is judged and nothing turns red, but the next stage is still owed:
+    // the turn is held once with a plain nudge, never on a stop the hook already held.
+    if (deferral.nextStage && !stopHookActiveFromStdin(input)) {
+      process.stdout.write(
+        `${JSON.stringify({ decision: 'block', reason: nextStageNudge(deferral.nextStage) })}\n`,
+      );
+    }
     process.exit(0);
     return;
   }
@@ -53,6 +63,10 @@ async function main() {
   process.exit(code);
 }
 
+function nextStageNudge(stage) {
+  return `paqad: the last stage of this change ended and ${stage.replace(/_/g, ' ')} has not started. Start it, or open a decision if the change waits on the person.`;
+}
+
 async function deferredForBackgroundStage(projectRoot) {
   const payload = parseHookPayload(input);
   // An empty or missing list never means no stage agent runs: the deferral also reads the
@@ -66,8 +80,8 @@ async function deferredForBackgroundStage(projectRoot) {
       backgroundTasks: tasks,
       sessionId: sessionIdFromStdin(input),
       adapter: ADAPTER ?? 'claude-code',
-    }).deferred;
+    });
   } catch {
-    return false;
+    return null;
   }
 }

@@ -52,7 +52,7 @@ export function qualifyHudChange(
   }
   const dir = currentFeature(projectRoot, sessionId, now);
   if (!dir || !isBundleMaterialized(projectRoot, dir)) {
-    return finishedChange(projectRoot, sessionId, workflow.turn_started_at ?? null, now);
+    return finishedChange(projectRoot, sessionId, workflow.turn_started_at ?? null);
   }
   const status = readFeatureRecord(projectRoot, dir)?.status;
   if (isBundleClosed(projectRoot, dir) || isFeatureFinished(status)) {
@@ -69,7 +69,7 @@ export function qualifyHudChange(
     null;
   if (
     !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
-    !stageStillRunning(projectRoot, dir, now)
+    !stageStillRunning(projectRoot, dir)
   ) {
     return { dir: null, reason: 'no-row-this-episode' };
   }
@@ -79,16 +79,15 @@ export function qualifyHudChange(
 // A new prompt starts a new episode, but a stage that is still open or a stage agent still
 // working in the background is this change's live work: the episode rule may only hide a change
 // with neither.
-function stageStillRunning(projectRoot: string, dirName: string, now: () => Date): boolean {
+function stageStillRunning(projectRoot: string, dirName: string): boolean {
   const rows = readFeatureStageUnit(projectRoot, dirName);
-  return hasOpenUnendedStage(rows) || liveStageAgents(rows, now).length > 0;
+  return hasOpenUnendedStage(rows) || liveStageAgents(rows).length > 0;
 }
 
 function finishedChange(
   projectRoot: string,
   sessionId: string,
   turnStartedAt: string | null,
-  now: () => Date,
 ): HudChangeScope {
   const none: HudChangeScope = { dir: null, reason: 'no-active-change' };
   const head = readHeadRef(projectRoot);
@@ -99,7 +98,7 @@ function finishedChange(
     episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
   if (
     !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
-    !stageStillRunning(projectRoot, dir, now)
+    !stageStillRunning(projectRoot, dir)
   ) {
     return none;
   }

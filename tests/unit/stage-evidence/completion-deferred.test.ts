@@ -1,4 +1,4 @@
-import { appendFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -547,26 +547,55 @@ describe('liveStageAgents and the ledger branch (hud-live-run-truth)', () => {
     );
   }
 
-  it('lists a started agent with no stop, drops it once stopped, and ignores starts past the ceiling', () => {
+  it('lists a started agent with no stop and drops it once stopped; no clock decides', () => {
     const root = tempRoot();
     const dirName = openWithStartedStage(root);
     agentRow(root, dirName, 'started', 1);
     const rows = () => readFeatureStageUnit(root, dirName);
-    expect(liveStageAgents(rows(), at(2))).toEqual([
+    expect(liveStageAgents(rows())).toEqual([
       expect.objectContaining({ stage: 'planning', agentId: 'agent-plan-1' }),
     ]);
-    expect(liveStageAgents(rows(), at(31))).toEqual([]);
+    expect(
+      deferCompletionForBackgroundStage({
+        projectRoot: root,
+        backgroundTasks: [],
+        sessionId: SESSION,
+        adapter: 'claude-code',
+        now: at(90),
+      }).deferred,
+    ).toBe(true);
     agentRow(root, dirName, 'completed', 3);
-    expect(liveStageAgents(rows(), at(4))).toEqual([]);
+    expect(liveStageAgents(rows())).toEqual([]);
+  });
+
+  it('FR-4: a payload that names its running agents and leaves ours out releases the deferral', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    endStage(
+      root,
+      'development',
+      {},
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW },
+    );
+    agentRow(root, dirName, 'started', 1);
+    expect(
+      deferCompletionForBackgroundStage({
+        projectRoot: root,
+        backgroundTasks: [{ agent_type: 'general-purpose', status: 'running' }],
+        sessionId: SESSION,
+        adapter: 'claude-code',
+        now: at(2),
+      }),
+    ).toEqual({ deferred: false });
   });
 
   it('matches by stage when the start carried no agent id', () => {
     const root = tempRoot();
     const dirName = openWithStartedStage(root);
     agentRow(root, dirName, 'started', 1, null);
-    expect(liveStageAgents(readFeatureStageUnit(root, dirName), at(2))).toHaveLength(1);
+    expect(liveStageAgents(readFeatureStageUnit(root, dirName))).toHaveLength(1);
     agentRow(root, dirName, 'completed', 3, null);
-    expect(liveStageAgents(readFeatureStageUnit(root, dirName), at(4))).toHaveLength(0);
+    expect(liveStageAgents(readFeatureStageUnit(root, dirName))).toHaveLength(0);
   });
 
   it.each([[[]], [undefined], ['not-a-list']])(
@@ -605,5 +634,76 @@ describe('liveStageAgents and the ledger branch (hud-live-run-truth)', () => {
         now: at(4),
       }),
     ).toEqual({ deferred: false });
+  });
+});
+
+describe('AC-3 / AC-4: a turn end between two stages (hud-live-run-truth)', () => {
+  function openFull(root: string): string {
+    return openFeatureChange(root, SESSION, {
+      adapter: 'claude-code',
+      title: 'between stages',
+      issue: null,
+      lane: 'full',
+      now: NOW,
+    });
+  }
+
+  function provenPlanning(root: string, dirName: string): void {
+    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW });
+    const plan = featureFilePath(dirName, 'plan');
+    writeFileSync(join(root, plan), '{"steps":[{"id":"S1"}]}\n');
+    endStage(
+      root,
+      'planning',
+      { artifactPaths: [plan] },
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW },
+    );
+  }
+
+  const stop = (root: string) =>
+    deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+
+  it('AC-3: the last stage ended with its artifact and the next has not started: nothing is judged', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    provenPlanning(root, dirName);
+    expect(stop(root)).toMatchObject({
+      deferred: true,
+      reason: 'between stages',
+      nextStage: 'specification',
+    });
+    expect(deferredRows(root, dirName)).toHaveLength(1);
+  });
+
+  it('AC-4: a stage that ended without its artifact is still judged', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW });
+    endStage(
+      root,
+      'planning',
+      {},
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW },
+    );
+    expect(stop(root)).toEqual({ deferred: false });
+  });
+
+  it('AC-4: a stage left open with no stage agent running is still judged', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    provenPlanning(root, dirName);
+    startStage(root, 'specification', {
+      sessionId: SESSION,
+      dirName,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+    expect(stop(root)).toEqual({ deferred: false });
   });
 });

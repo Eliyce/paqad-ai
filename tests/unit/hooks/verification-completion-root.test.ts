@@ -13,7 +13,9 @@ import { join } from 'node:path';
 import { execa } from 'execa';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { featureFilePath } from '@/feature-evidence/paths.js';
 import { appendFeatureStageRow } from '@/feature-evidence/stage-ledger.js';
+import { endStage } from '@/stage-evidence/recorder.js';
 
 const HOOK = join(process.cwd(), 'runtime/hooks/verification-completion.mjs');
 
@@ -136,6 +138,37 @@ describe('runtime/hooks/verification-completion.mjs — a live stage agent defer
     expect(existsSync(join(root, '.paqad/ledger/feature-evidence', dir, 'receipt.json'))).toBe(
       false,
     );
+    expect(verdictFiles(root)).toEqual([]);
+  }, 60_000);
+
+  it('AC-3: a turn end between stages writes no verify, no verdict, and nudges the next stage once', async () => {
+    const session = 'ses-between';
+    const { root, dir } = await openPlanning(session);
+    await execa('node', [CLI, 'lane', 'set', 'full'], {
+      cwd: root,
+      env: { ...process.env, SE_SESSION: session },
+      reject: false,
+    });
+    const plan = featureFilePath(dir, 'plan');
+    writeFileSync(join(root, plan), '{"steps":[{"id":"S1"}]}\n');
+    endStage(
+      root,
+      'planning',
+      { artifactPaths: [plan] },
+      {
+        sessionId: session,
+        dirName: dir,
+        adapter: 'claude-code',
+      },
+    );
+
+    const first = await stop(root, session, { background_tasks: [] });
+    expect(first.stdout).toContain('"decision":"block"');
+    expect(first.stdout).toContain('specification has not started');
+    const again = await stop(root, session, { background_tasks: [], stop_hook_active: true });
+    expect(again.stdout).toBe('');
+
+    expect(rows(root, dir).some((row) => row.kind === 'verify')).toBe(false);
     expect(verdictFiles(root)).toEqual([]);
   }, 60_000);
 

@@ -46,7 +46,7 @@ export function finalizeStageEvidence(
       const existing = readFeatureStageUnit(projectRoot, dirName);
       // A stage agent of this change is still running: its stage is not dangling and no
       // development stage happened behind its back, so nothing is ended or inferred.
-      if (liveStageAgents(existing, input.now).length === 0) {
+      if (liveStageAgents(existing).length === 0) {
         endDanglingLiveStages(projectRoot, sessionId, dirName, existing, input);
         backfillMissingDevelopment(projectRoot, sessionId, dirName, input);
       }
