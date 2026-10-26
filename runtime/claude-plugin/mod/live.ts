@@ -17,6 +17,42 @@ const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
 
 export const AGENT_TOOLS: ReadonlySet<string> = new Set(['Agent', 'Task']);
 
+export interface ForegroundCall {
+  agent: string | null;
+}
+
+export class ForegroundAgents {
+  private readonly calls: ForegroundCall[] = [];
+  private readonly seen = new Set<string>();
+
+  callStarted(): ForegroundCall {
+    const call: ForegroundCall = { agent: null };
+    this.calls.push(call);
+    return call;
+  }
+
+  callEnded(call: ForegroundCall): void {
+    const index = this.calls.indexOf(call);
+    if (index >= 0) this.calls.splice(index, 1);
+  }
+
+  agentSeen(agent: string): void {
+    if (this.seen.has(agent)) return;
+    this.seen.add(agent);
+    const unbound = this.calls.filter((call) => call.agent === null);
+    if (unbound.length === 1) unbound[0]!.agent = agent;
+  }
+
+  isForeground(agent: string): boolean {
+    return this.calls.some((call) => call.agent === agent);
+  }
+
+  clear(): void {
+    this.calls.length = 0;
+    this.seen.clear();
+  }
+}
+
 export interface LiveToolCall {
   tool: string;
   toolUseId: string | null;

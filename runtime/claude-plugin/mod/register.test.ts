@@ -888,6 +888,38 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
   });
 
+  test('AC-13: a background agent ask during a foreground Agent call does not wait', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await $.tool.call({
+      tool: 'Agent',
+      subagent_type: 'paqad:paqad-planning',
+      run_in_background: true,
+    } as never);
+    await $.tool.call({ tool: 'Read', tool_use_id: 'tu_bg0', agentId: 'agent-bg' } as never);
+    const ask = (agentId: string, id: string) =>
+      $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: id,
+        approver: 'person',
+        agentId,
+      } as never);
+    const seen: string[] = [];
+    world.during.set('Agent', async () => {
+      await $.tool.call({ tool: 'Read', tool_use_id: 'tu_dev0', agentId: 'agent-dev' } as never);
+      world.verdict = { decision: 'ask' };
+      await ask('agent-bg', 'tu_bg1');
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+      await ask('agent-dev', 'tu_dev1');
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+    });
+    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
+    expect(seen[0]).not.toContain('Waiting for your permission');
+    expect(seen[1]).toContain('Waiting for your permission');
+  });
+
   test('AC-13: an ask from an agent dispatched in the background never waits', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });

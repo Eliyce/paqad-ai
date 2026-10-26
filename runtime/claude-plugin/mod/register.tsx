@@ -74,6 +74,7 @@ import {
 } from './model';
 import {
   AGENT_TOOLS,
+  ForegroundAgents,
   IDLE_LIVE,
   answeredRuleStopText,
   liveToolCall,
@@ -211,8 +212,7 @@ interface Live {
 let live: Live | null = null;
 let ticker: Timer | null = null;
 let agentCalls = 0;
-let mainToolCalls = 0;
-let foregroundAgentCalls = 0;
+const foregroundAgents = new ForegroundAgents();
 let reading = false;
 let readAgain = false;
 let lastText: string | null | undefined;
@@ -961,6 +961,7 @@ export const register: Register = (on) => {
     verdictSeen = undefined;
     chimeOn = false;
     rawCalls.clear();
+    foregroundAgents.clear();
     ticker?.cancel();
     ticker = null;
     heartbeat?.cancel();
@@ -1015,7 +1016,9 @@ export const register: Register = (on) => {
     const tool = String(e.tool);
     const input = e as unknown as { command?: unknown; run_in_background?: unknown };
     const isAgent = AGENT_TOOLS.has(tool);
-    const onMainThread = !(e as { agentId?: unknown }).agentId;
+    const agentId = (e as { agentId?: unknown }).agentId;
+    const onMainThread = !agentId;
+    if (typeof agentId === 'string' && agentId !== '') foregroundAgents.agentSeen(agentId);
     const foregroundAgent = isAgent && onMainThread && input.run_in_background !== true;
     if (isExpertsCall(tool, input)) {
       await claimCard($, (e as { tool_use_id?: string }).tool_use_id);
@@ -1024,8 +1027,7 @@ export const register: Register = (on) => {
       agentCalls += 1;
       startTicker($);
     }
-    if (onMainThread) mainToolCalls += 1;
-    if (foregroundAgent) foregroundAgentCalls += 1;
+    const foregroundCall = foregroundAgent ? foregroundAgents.callStarted() : null;
     const call = liveToolCall(e as never);
     await moveLive($, (state) => toolStarted(state, call));
     try {
@@ -1034,8 +1036,7 @@ export const register: Register = (on) => {
       return result;
     } finally {
       if (isAgent) agentCalls = Math.max(0, agentCalls - 1);
-      if (onMainThread) mainToolCalls = Math.max(0, mainToolCalls - 1);
-      if (foregroundAgent) foregroundAgentCalls = Math.max(0, foregroundAgentCalls - 1);
+      if (foregroundCall) foregroundAgents.callEnded(foregroundCall);
       await moveLive($, (state) => toolEnded(state, call));
     }
   }).catch(($, e, next) => next(e));
@@ -1057,6 +1058,7 @@ export const register: Register = (on) => {
   }).catch(() => ({ decision: 'deny' }));
 
   on('turn.start', async ($, e, next) => {
+    if (e.agentId) foregroundAgents.agentSeen(e.agentId);
     if (live && !e.agentId) {
       const now = await $.clock.now();
       await moveLive($, (state) => turnStarted(state, e.turnId, now));
@@ -1070,7 +1072,8 @@ export const register: Register = (on) => {
       const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
       const agentId = (e as { agentId?: unknown }).agentId;
       const agent = typeof agentId === 'string' && agentId !== '' ? agentId : null;
-      const foreground = foregroundAgentCalls > 0 && mainToolCalls === foregroundAgentCalls;
+      if (agent !== null) foregroundAgents.agentSeen(agent);
+      const foreground = agent !== null && foregroundAgents.isForeground(agent);
       await moveLive($, (state) =>
         permissionAsked(state, {
           decision: verdict.decision,

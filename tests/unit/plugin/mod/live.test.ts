@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ForegroundAgents,
   IDLE_LIVE,
   agentTurnEnded,
   answeredRuleStopText,
@@ -205,5 +206,35 @@ describe('which agent asked for permission', () => {
       waitingAgent: null,
       waitingToolUseId: 'tu_2',
     });
+  });
+});
+
+describe('which agent a foreground Agent call is waiting on', () => {
+  it('binds the first new agent seen during one open foreground call, and no other', () => {
+    const agents = new ForegroundAgents();
+    agents.agentSeen('agent-bg');
+    const call = agents.callStarted();
+    agents.agentSeen('agent-bg');
+    expect(agents.isForeground('agent-bg')).toBe(false);
+    agents.agentSeen('agent-dev');
+    agents.agentSeen('agent-late');
+    expect(agents.isForeground('agent-dev')).toBe(true);
+    expect(agents.isForeground('agent-late')).toBe(false);
+    agents.callEnded(call);
+    expect(agents.isForeground('agent-dev')).toBe(false);
+  });
+
+  it('binds nothing while two foreground calls are both unbound, and forgets all on clear', () => {
+    const agents = new ForegroundAgents();
+    agents.callStarted();
+    const second = agents.callStarted();
+    agents.agentSeen('agent-a');
+    expect(agents.isForeground('agent-a')).toBe(false);
+    agents.callEnded(second);
+    agents.callEnded(second);
+    agents.agentSeen('agent-b');
+    expect(agents.isForeground('agent-b')).toBe(true);
+    agents.clear();
+    expect(agents.isForeground('agent-b')).toBe(false);
   });
 });
