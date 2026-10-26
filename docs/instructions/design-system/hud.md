@@ -63,17 +63,24 @@ Each rule was a visible bug on Desktop before it became a rule.
 
 ### Band card
 
-Three rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
+Four rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
 
 - **Identity row** (`Box` row, `alignItems="center"`, `columnGap="sm"`): one `Text` with `paqad`
   (semibold) and a dim footnote run of the parts that apply, joined by `  ·  `: the workflow, the
   lane (`Fast lane`, `Graduated lane`, `Full lane`), the change chip, and the cost
   (`<tokens> tokens · ~$<usd>`, `<tokens> tokens · whole session`, or
-  `<tokens> tokens so far · ~$<usd>` while the turn is still being counted). Then `Box flexGrow`,
+  `<tokens> tokens so far · ~$<usd>` while the turn is still being counted). Before any token
+  figure is known an open window reads `counting`, never a final 0. Then `Box flexGrow`,
   then, only with open flags, an amber `⚑` `Text` and a plain dim `N flag(s)` Button, then the
   bordered dim `Ledger` Button and the plain dim `−` and `×` Buttons.
 - **Message row**: one `Text wrap="truncate-end"`: `●` (heading size, the signal colour) + the
   headline (heading, semibold) + on live states a dim footnote clock `m:ss`.
+- **Gap line**: one dim footnote `Text` under the headline, always drawn. It is blank when there is
+  nothing to say, so the card keeps one height in every state and never gains or loses a row as
+  the headline moves between running, waiting and the verdict. It blames nobody: a stage with no
+  record yet reads `No record yet for: Spec, Build`, and nothing shows here while a stage runs,
+  because nothing has truly gone unrecorded yet. `paqad could not record ...` is kept for real
+  record faults.
 - **Strip**: one plain-image `Svg`, no width or height props, markup width
   `round(bodyColumns × 8.5)` with a minimum of 480, height 52. Caps baseline 9, marks centre 25,
   labels baseline 47.
@@ -94,7 +101,10 @@ Three rows in `Box flexDirection="column" rowGap="xs"`, nothing around them.
   - DELIVERY: one round node (r 8.5, the git icon at scale .625, stroke 1.9) per step of the
     delivery plan (Edit, Commit, Push, PR, CI, Merge as they apply), spacing capped at 96 px, inset
     12 px from both section edges. Edit is current while a file is being edited or any edit stage
-    (Build, Checks, Docs) runs, and done once one of them has finished. Connectors run between circles only, 4 px clear of each, 1.2 px
+    (Build, Checks, Docs) runs, or while a file is really being edited once Build has been
+    reached (a review fix or a docs edit), and done once one of them has finished. An Edit or
+    Write during Plan or Spec (a plan template, the spec text) is not this change's code being
+    edited, so Edit is not current there. Connectors run between circles only, 4 px clear of each, 1.2 px
     wide, ink when the next node is reached and faint otherwise.
 - **Close menu**: pressing `×` adds an inline row under the identity row: footnote
   `Close the paqad band?`, bordered `Close for now` (this session), bordered `Hide always` (this
@@ -137,7 +147,19 @@ on Trust; the brand text and the strip image are not pressable.
   the full label, dim unless shown, over one tab rule Svg (2000 × 2, `preserveAspectRatio="none"`,
   `height={2}`): a 1 px hair line and a 2 px pink segment 60% of the tab's width centred under the
   shown tab. Order Trust · High Table · Delivery · Record · Cost; High Table is left out when the
-  table did not sit.
+  table did not sit. When a seat writes, the chief rules or the chief has questions, the High
+  Table tab comes forward once per sitting. A tab the person picked during that sitting stays
+  where they put it, and only the shown tab changes: focus is never moved.
+- **Record tab**: only this change's decisions, one row per decision, each with its local date and
+  time so rows from other days read as such, newest first.
+- **Delivery tab**: commits already on the branch when the change opened are earlier work. They
+  get one quiet dim line (or, with none, where the files are measured from), never a flag, never
+  amber, and never count as this change's commits. A pull request number (`(#123)` or `#123`)
+  names a pull request, not a ticket.
+- **Cost tab**: one token figure per High Table seat, the same one the seat drill-down shows: the
+  exact run Claude Code reported for the seat, else the figure read from its transcript, else the
+  note's own estimate. Each line says whether it is exact. A seat whose host figure differs drops
+  its money figure rather than show two numbers.
 - **Heading**: `Text size="caption" weight="semibold" dimColor`, capitals, `marginTop={1}`.
 - **Row**: a `Box` column: a row with a left `Box flexGrow` (label in body, an optional dim footnote
   under it) and a right verdict word (footnote, weight medium: green `Pass`, red `Fail`, amber
@@ -174,6 +196,11 @@ One `tick` state atom is advanced every 400 ms by a `$.clock.every` timer that a
 atom from `$.clock.now()`. It runs only while a live state is drawn and stops when none is. The
 1.5 s snapshot ticker is separate and unchanged.
 
+Strip motion keeps its place. Every animation reads one shared clock, and a redraw starts it at
+its current phase (a negative delay), so a refresh continues the motion instead of restarting it.
+Running, paused and marked stages share one skeleton (glow, bar, sheen); a state flip only
+changes classes, and the glow and sheen show only while running.
+
 ## Patterns
 
 ### Band state and headline
@@ -186,12 +213,18 @@ verdict written before that turn started is skipped (rows 12, 13, 16 and 17), so
 leads; the verdict words stay as they are in the receipt and the Ledger. A rule stop is never a
 row: Claude handles it, and the Trust tab keeps it as history.
 
+A feature change that is running keeps its band and its recorded lane, even when a new prompt
+reads like another workflow or a lower lane; a route written before the prompt just sent belongs
+to the previous turn, so the band waits for the fresh snapshot instead of flashing that
+workflow's band. An open change with a live stage stays qualified: its card is kept while the
+stage agent runs. Flags appear only after their stage has ended, never while it still runs.
+
 | #   | When                                                                             | Signal          | Live | Headline                                                                                                  |
 | --- | -------------------------------------------------------------------------------- | --------------- | ---- | --------------------------------------------------------------------------------------------------------- |
 | 1   | paqad is on but the session id could not be read, or the snapshot does not parse | attention       | no   | `paqad cannot read this session's record`                                                                 |
 | 2   | the route is another workflow                                                    | (workflow band) |      |                                                                                                           |
 | 3   | a question is on screen                                                          | attention       | no   | `Waiting for your answer`                                                                                 |
-| 4   | a permission prompt waits for a person                                           | attention       | no   | `Waiting for your permission`                                                                             |
+| 4   | a permission prompt waits for a person (see below)                               | attention       | no   | `Waiting for your permission`                                                                             |
 | 5   | the chief ruled and has open expert-conflict decisions                           | attention       | no   | `The chief architect has N questions for you`                                                             |
 | 6   | other decisions pending                                                          | attention       | no   | `N decision(s) are waiting for you`                                                                       |
 | 7   | the PR is merged                                                                 | pass            | no   | `PR #N is merged`                                                                                         |
@@ -212,6 +245,14 @@ row: Claude handles it, and the Trust tab keeps it as history.
 
 One headline engine, `computeHudHeadline`, picks the row; the mod only renders it.
 
+Row 4 is set only by a prompt in the main session, or by a foreground stage agent's prompt that
+really blocks the turn. A background agent's ask is shown and settled by Claude Code itself and the
+mod never sees its answer, so it never sets the wait. A main wait is kept per request and clears on
+the next event of the main session: a later check (the deny, or auto mode's decision), a tool start
+or end, or a turn event. No clock decides, so a real prompt the person has not seen is never hidden
+by a timer. A running stage reads paused only while the person owes it an answer (a pending
+decision of this change or a question on screen); a permission prompt pauses no stage.
+
 The done ladder climbs one step at a time: `Done` (dim `not committed`), `Committed`, `PR open`,
 `Safe to merge` only on real CI green, then `Merged`. When CI is unknown the ladder stops at
 `PR open`; a red CI steps back down.
@@ -225,6 +266,9 @@ The Trust tab shows the proof of the work, stage by stage.
 
 - **Stage heading row**: the stage name as a caption, semibold, dim, capitals, with a right
   footnote state word.
+- **Done stage**: a finished stage shows a green `✓` beside the word `Done`. The check carries the
+  green and the word stays in the text colour so it reads at full contrast, and done is never told
+  by colour alone.
 - **Step lines**: a footnote mark then the step: `✓` in default ink, `✕` in red, `○` dim, with a
   dim detail `  ·  N ...`.
 - **Gate rows** use Row.
@@ -262,7 +306,8 @@ spinning; needs answers a coral 25% disc and ring, pulsing; done an ink disc.
 
 - The band's `bodyColumns` runs from 57 to 93 on Desktop; the strip's markup width is
   `round(bodyColumns × 8.5)` with a minimum of 480, and the image scales down to fit the slot.
-- Row cost: identity 1, message 1, strip 3, so 5 rows, plus 1 while the close menu is open. Below
+- Row cost: identity 1, message 1, gap line 1, strip 3, so 6 rows, plus 1 while the close menu is
+  open. The gap line is counted in every state. Below
   that `maxRows` the minimised row is drawn instead; with the menu open and no room, the minimised
   row is drawn with the menu row under it.
 - The docked Ledger is about 48 columns wide. Tabs keep their full labels in whole-number widths.
