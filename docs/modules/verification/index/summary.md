@@ -239,8 +239,11 @@ paqad's gap. `checks run` pins its report to the change it started on.
   change copies the session's lane.
 - At turn end, edit stages end on their own; only a checks stage that has not reported stays open.
 - The Stop check waits (defers) only for paqad stage agents, untyped background tasks while a stage
-  is open, or a live checks marker tied to the session, the change and the process. The wait has a
-  30-minute ceiling, counted across turns from the first deferred Stop after the last judged Stop.
+  is open, or a live checks marker tied to the session, the change and the process. A wait seen
+  only in the payload or the checks marker has a 30-minute ceiling, counted across turns from the
+  first deferred Stop after the last judged Stop. A stage agent the change's ledger shows as
+  started and not released, and a turn end between stages, have no clock (see the feature-evidence
+  module).
   This restores the owner's earlier rule and replaces the spec's "any background task" wording.
 - Background stage agents get the permissions they need to write their records.
 
