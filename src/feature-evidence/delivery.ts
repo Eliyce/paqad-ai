@@ -10,7 +10,7 @@ import {
   gitPathList,
   isPaqadArtifactPath,
   type ChangeStartLike,
-} from '@/pipeline/change-evidence.js';
+} from '@/pipeline/git-paths.js';
 import { forkBranchOf, readGitState } from '@/rag/git-state.js';
 
 import { stampFeatureDocument } from './bundle-document.js';

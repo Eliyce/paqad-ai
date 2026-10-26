@@ -521,11 +521,10 @@ describe('change scoping over a real git branch (AC-30)', () => {
     writeRepoFile(root, 'tests/old.test.ts', "it('AC-2 already on main', () => {});\n");
     commitAll(root, 'base');
     git(root, ['switch', '-q', '-c', 'feat/ord-501']);
+    const dir = openChange(root, 'ses-git');
     writeRepoFile(root, 'tests/new.test.ts', "it('AC-1 exports the CSV', () => {});\n");
     commitAll(root, 'the change');
     writeRepoFile(root, 'tests/wip.test.ts', "describe('AC-3 in progress', () => {});\n");
-
-    const dir = openChange(root, 'ses-git');
     writeSpec(root, dir, [
       { id: 'AC-1', proof: 'automated' },
       { id: 'AC-2', proof: 'automated' },

@@ -1,67 +1,28 @@
-import { execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { execa } from 'execa';
 
 import type { CanonicalDocOwnershipKind, CanonicalDocTarget } from '@/core/types/verification.js';
+import { listInFlightFeatures } from '@/feature-evidence/adoption.js';
+import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { readGitState } from '@/rag/git-state.js';
+import { readLedgerSessionId } from '@/rag-ledger/session.js';
+
+import { changedFilesSince, isPaqadArtifactPath, type ChangeStartLike } from './git-paths.js';
+
+export {
+  changedFilesSince,
+  DELETED_AT_START,
+  digestWorkingFile,
+  gitPathList,
+  isPaqadArtifactPath,
+  type ChangeStartLike,
+} from './git-paths.js';
 
 export interface ChangeEvidence {
   files: string[];
   source: 'git' | 'none';
-}
-
-export interface ChangeStartLike {
-  commit: string;
-  worktree: Record<string, string> | null;
-}
-
-export const DELETED_AT_START = 'deleted';
-
-export function gitPathList(projectRoot: string, args: string[]): string[] | null {
-  try {
-    return execFileSync('git', args, {
-      cwd: projectRoot,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-      timeout: 5_000,
-      maxBuffer: 16 * 1024 * 1024,
-    })
-      .split('\0')
-      .filter((entry) => entry.length > 0);
-  } catch {
-    return null;
-  }
-}
-
-export function digestWorkingFile(projectRoot: string, relativePath: string): string | null {
-  try {
-    return createHash('sha256')
-      .update(readFileSync(join(projectRoot, relativePath)))
-      .digest('hex');
-  } catch {
-    return null;
-  }
-}
-
-export function changedFilesSince(projectRoot: string, start: ChangeStartLike): string[] | null {
-  const diff = gitPathList(projectRoot, ['diff', '--name-only', '--relative', '-z', start.commit]);
-  const untracked = gitPathList(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
-  if (diff === null || untracked === null) return null;
-  const worktree = start.worktree ?? {};
-  return [...new Set([...diff, ...untracked])]
-    .map((path) => path.replace(/\\/g, '/'))
-    .filter((path) => !isPaqadArtifactPath(path))
-    .filter((path) => {
-      const atStart = worktree[path];
-      return (
-        atStart === undefined ||
-        (digestWorkingFile(projectRoot, path) ?? DELETED_AT_START) !== atStart
-      );
-    })
-    .sort();
 }
 
 export interface LoadChangeEvidenceOptions {
@@ -76,12 +37,25 @@ export async function loadChangeEvidence(
   return files.length > 0 ? { files, source: 'git' } : { files: [], source: 'none' };
 }
 
+function activeChangeStart(projectRoot: string): ChangeStartLike | null {
+  try {
+    const sessionId =
+      process.env.SE_SESSION || process.env.CLAUDE_SESSION_ID || readLedgerSessionId(projectRoot);
+    if (!sessionId || listInFlightFeatures(projectRoot).length === 0) return null;
+    const dirName = currentFeature(projectRoot, sessionId);
+    return dirName ? readChangeStartPoint(projectRoot, dirName) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function readGitChangedFiles(
   projectRoot: string,
   options: LoadChangeEvidenceOptions = {},
 ): Promise<string[]> {
-  if (options.since) {
-    const since = changedFilesSince(projectRoot, options.since);
+  const start = options.since === undefined ? activeChangeStart(projectRoot) : options.since;
+  if (start) {
+    const since = changedFilesSince(projectRoot, start);
     if (since !== null) return since;
   }
   const gitState = readGitState(projectRoot);
@@ -129,13 +103,6 @@ export function isTestFile(filePath: string): boolean {
     filePath.includes('/__tests__/') ||
     /\.test\.[cm]?[jt]sx?$/.test(filePath) ||
     /\.spec\.[cm]?[jt]sx?$/.test(filePath)
-  );
-}
-
-export function isPaqadArtifactPath(filePath: string): boolean {
-  const normalized = filePath.replace(/\\/g, '/');
-  return (
-    normalized === '.paqad' || normalized.startsWith('.paqad/') || normalized.includes('/.paqad/')
   );
 }
 
