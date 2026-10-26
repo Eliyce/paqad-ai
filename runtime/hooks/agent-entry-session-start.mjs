@@ -12,6 +12,11 @@ import {
 } from './lib/paqad-disabled.mjs';
 import { sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 
+function sourceFromStdin(input) {
+  const parsed = parseHookPayload(input);
+  return parsed && typeof parsed.source === 'string' ? parsed.source : undefined;
+}
+
 async function main(input) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
@@ -41,6 +46,18 @@ async function main(input) {
       const adoptUrl = new URL('../../dist/feature-evidence/adoption.js', import.meta.url);
       const { reconcileSessionControl } = await import(adoptUrl.href);
       reconcileSessionControl(projectRoot, hostSessionId);
+
+      try {
+        const releaseUrl = new URL(
+          '../../dist/stage-evidence/completion-deferred.js',
+          import.meta.url,
+        );
+        const { releaseStageAgentsAtSessionStart } = await import(releaseUrl.href);
+        releaseStageAgentsAtSessionStart(projectRoot, hostSessionId, sourceFromStdin(input));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        appendHooksLog(projectRoot, `session-start: stage agent release skipped: ${message}`);
+      }
 
       const baselineUrl = new URL('../../dist/pipeline/dirty-baseline.js', import.meta.url);
       const { captureSessionDirtyBaseline } = await import(baselineUrl.href);

@@ -18,7 +18,7 @@ import { resolveSessionId } from '@/rag-ledger/session.js';
 import { stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
-import { COMPLETION_DEFERRED_KIND, STAGE_AGENT_KIND } from './types.js';
+import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND, STAGE_AGENT_KIND } from './types.js';
 
 const AGENT_TYPE_FIELDS = ['agent_type', 'agentType', 'subagent_type', 'subagentType'] as const;
 
@@ -94,6 +94,27 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
+export const STAGE_AGENT_SESSION_RELEASE =
+  'a new session began, so stage agents left from the last session no longer hold the turn-end judgement';
+
+function releasesStartedAgent(
+  later: SessionLedgerRow,
+  stage: string,
+  agentId: string | null,
+): boolean {
+  const laterStage = stringOrNull(later.stage);
+  const laterId = stringOrNull(later.agent_id);
+  if (later.kind === STAGE_AGENT_KIND && later.event_status === 'started') {
+    return laterStage === stage && (agentId === null || laterId !== agentId);
+  }
+  if (later.kind === STAGE_AGENT_KIND) {
+    return agentId !== null && laterId !== null ? laterId === agentId : laterStage === stage;
+  }
+  if (later.kind === 'stage_end') return laterStage === stage;
+  if (later.kind === 'stage_start') return laterStage !== null && laterStage !== stage;
+  return later.kind === RECORD_REPAIR_KIND && later.reason === STAGE_AGENT_SESSION_RELEASE;
+}
+
 export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAgent[] {
   const live: LiveStageAgent[] = [];
   rows.forEach((row, index) => {
@@ -102,14 +123,34 @@ export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAge
     if (stage === null) return;
     const agentId = stringOrNull(row.agent_id);
     if (Number.isNaN(rowTime(row))) return;
-    const stopped = rows.slice(index + 1).some((later) => {
-      if (later.kind !== STAGE_AGENT_KIND || later.event_status === 'started') return false;
-      const laterId = stringOrNull(later.agent_id);
-      return agentId !== null && laterId !== null ? laterId === agentId : later.stage === stage;
-    });
-    if (!stopped) live.push({ stage, agentId, startedAt: rowRecordedAt(row)! });
+    const released = rows
+      .slice(index + 1)
+      .some((later) => releasesStartedAgent(later, stage, agentId));
+    if (!released) live.push({ stage, agentId, startedAt: rowRecordedAt(row)! });
   });
   return live;
+}
+
+const NEW_HOST_SESSION_SOURCES: ReadonlySet<string> = new Set(['startup', 'resume']);
+
+export function releaseStageAgentsAtSessionStart(
+  projectRoot: string,
+  sessionId: string,
+  source: unknown,
+  now?: () => Date,
+): boolean {
+  if (typeof source !== 'string' || !NEW_HOST_SESSION_SOURCES.has(source)) return false;
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (dirName === null) return false;
+  if (liveStageAgents(readFeatureStageUnit(projectRoot, dirName)).length === 0) return false;
+  appendFeatureStageRow(
+    projectRoot,
+    sessionId,
+    dirName,
+    { kind: RECORD_REPAIR_KIND, reason: STAGE_AGENT_SESSION_RELEASE },
+    now,
+  );
+  return true;
 }
 
 export function hasOpenUnendedStage(rows: readonly SessionLedgerRow[]): boolean {

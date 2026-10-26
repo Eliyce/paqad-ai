@@ -16,6 +16,7 @@ import {
   deferCompletionForBackgroundStage,
   hasOpenUnendedStage,
   liveStageAgents,
+  releaseStageAgentsAtSessionStart,
   stageAgentTaskCount,
   tasksCarryAgentType,
 } from '@/stage-evidence/completion-deferred.js';
@@ -705,5 +706,121 @@ describe('AC-3 / AC-4: a turn end between two stages (hud-live-run-truth)', () =
       now: NOW,
     });
     expect(stop(root)).toEqual({ deferred: false });
+  });
+});
+
+describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH9NA2EMC1)', () => {
+  const MINUTE = 60_000;
+  const at = (minutes: number) => () => new Date(NOW().getTime() + minutes * MINUTE);
+
+  function openFull(root: string): string {
+    return openFeatureChange(root, SESSION, {
+      adapter: 'claude-code',
+      title: 'crashed stage agent',
+      issue: null,
+      lane: 'full',
+      now: NOW,
+    });
+  }
+
+  function started(root: string, dirName: string, stage: string, id: string, minutes: number) {
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dirName,
+      {
+        kind: 'stage-agent',
+        stage,
+        agent: `paqad-${stage}`,
+        agent_id: id,
+        event_status: 'started',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      },
+      at(minutes),
+    );
+  }
+
+  const live = (root: string, dirName: string) =>
+    liveStageAgents(readFeatureStageUnit(root, dirName)).map((agent) => agent.agentId);
+
+  const stop = (root: string, minutes: number) =>
+    deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: at(minutes),
+    });
+
+  it('a stage_end of its stage releases a started agent with no stop', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW });
+    started(root, dirName, 'planning', 'a1', 1);
+    expect(live(root, dirName)).toEqual(['a1']);
+    endStage(root, 'planning', {}, { sessionId: SESSION, dirName, adapter: 'claude-code', now: at(2) });
+    expect(live(root, dirName)).toEqual([]);
+  });
+
+  it('a newer agent of the same stage releases the older one and stays live itself', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'planning', 'a1', 1);
+    started(root, dirName, 'planning', 'a2', 2);
+    expect(live(root, dirName)).toEqual(['a2']);
+  });
+
+  it('a stage_start of a different stage releases it; one of the same stage does not', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'planning', 'a1', 1);
+    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: at(2) });
+    expect(live(root, dirName)).toEqual(['a1']);
+    startStage(root, 'specification', {
+      sessionId: SESSION,
+      dirName,
+      adapter: 'claude-code',
+      now: at(3),
+    });
+    expect(live(root, dirName)).toEqual([]);
+  });
+
+  it('a new host session releases every started agent of the open change with one row', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'planning', 'a1', 1);
+    expect(releaseStageAgentsAtSessionStart(root, SESSION, 'compact', at(2))).toBe(false);
+    expect(live(root, dirName)).toEqual(['a1']);
+    expect(releaseStageAgentsAtSessionStart(root, SESSION, 'startup', at(3))).toBe(true);
+    expect(live(root, dirName)).toEqual([]);
+    expect(releaseStageAgentsAtSessionStart(root, SESSION, 'resume', at(4))).toBe(false);
+    const repairs = readFeatureStageUnit(root, dirName).filter(
+      (row) => row.kind === 'record-repair',
+    );
+    expect(repairs).toHaveLength(1);
+    started(root, dirName, 'specification', 'a2', 5);
+    expect(live(root, dirName)).toEqual(['a2']);
+  });
+
+  it('AC-4: a stage open with a started agent that never stopped is judged after the release', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW });
+    started(root, dirName, 'planning', 'a1', 1);
+    expect(stop(root, 60 * 24 * 30).deferred).toBe(true);
+    releaseStageAgentsAtSessionStart(root, SESSION, 'resume', at(60 * 24 * 30));
+    expect(stop(root, 60 * 24 * 30 + 1)).toEqual({ deferred: false });
+  });
+
+  it('an empty background_tasks list alone does not release it', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW });
+    started(root, dirName, 'planning', 'a1', 1);
+    expect(stop(root, 2).deferred).toBe(true);
+    expect(stop(root, 3).deferred).toBe(true);
+    expect(live(root, dirName)).toEqual(['a1']);
   });
 });
