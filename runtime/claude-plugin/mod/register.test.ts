@@ -847,6 +847,71 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
   });
 
+  test('FR-18 / AC-14: a foreground stage agent ask waits until that agent moves on', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const seen: string[] = [];
+    world.during.set('Agent', async () => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: 'tu_dev',
+        approver: 'person',
+        agentId: 'agent-dev',
+      } as never);
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+      await $.tool.call({ tool: 'Bash', tool_use_id: 'tu_dev', agentId: 'agent-dev' } as never);
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+    });
+    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
+    expect(seen[0]).toContain('Waiting for your permission');
+    expect(seen[1]).not.toContain('Waiting for your permission');
+  });
+
+  test('FR-18: a foreground stage agent ask clears when the Agent call ends', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.during.set('Agent', async () => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: 'tu_dev',
+        approver: 'person',
+        agentId: 'agent-dev',
+      } as never);
+    });
+    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('AC-13: an ask from an agent dispatched in the background never waits', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const seen: string[] = [];
+    world.during.set('Agent', async () => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: 'tu_bg',
+        approver: 'person',
+        agentId: 'agent-bg',
+      } as never);
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+    });
+    await $.tool.call({
+      tool: 'Agent',
+      subagent_type: 'paqad:paqad-planning',
+      run_in_background: true,
+    } as never);
+    expect(seen[0]).not.toContain('Waiting for your permission');
+  });
+
   test('AC-13: a main ask denied with Esc clears at the next main event', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });

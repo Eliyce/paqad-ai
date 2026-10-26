@@ -176,6 +176,29 @@ describe('which agent asked for permission', () => {
     expect(permissionAsked(question, askFrom('agent-a1')).waitingOn).toBe('question');
   });
 
+  it('FR-18 / AC-14: an ask from a foreground subagent the main thread waits on does wait', () => {
+    const asked = permissionAsked(IDLE_LIVE, { ...askFrom('agent-a1', 'tu_a'), foreground: true });
+    expect(asked).toMatchObject({
+      waitingOn: 'permission',
+      waitingAgent: 'agent-a1',
+      waitingToolUseId: 'tu_a',
+    });
+    expect(
+      toolStarted(asked, liveToolCall({ tool: 'Bash', tool_use_id: 'tu_a', agentId: 'agent-a1' })),
+    ).toEqual(IDLE_LIVE);
+    expect(agentTurnEnded(asked, 'agent-a1')).toEqual(IDLE_LIVE);
+    expect(toolEnded(asked, liveToolCall({ tool: 'Agent', tool_use_id: 'tu_agent' }))).toEqual(
+      IDLE_LIVE,
+    );
+    expect(toolEnded(asked, liveToolCall({ tool: 'Read', tool_use_id: 'tu_r' }))).toBe(asked);
+  });
+
+  it('AC-13: a background subagent ask still never waits', () => {
+    expect(permissionAsked(IDLE_LIVE, { ...askFrom('agent-a1'), foreground: false })).toEqual(
+      IDLE_LIVE,
+    );
+  });
+
   it('a second main ask replaces the first', () => {
     const first = permissionAsked(IDLE_LIVE, askFrom(null, 'tu_1'));
     expect(permissionAsked(first, askFrom(null, 'tu_2'))).toMatchObject({

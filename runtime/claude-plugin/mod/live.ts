@@ -15,6 +15,8 @@ export const QUESTION_TOOL = 'AskUserQuestion';
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
 
+export const AGENT_TOOLS: ReadonlySet<string> = new Set(['Agent', 'Task']);
+
 export interface LiveToolCall {
   tool: string;
   toolUseId: string | null;
@@ -75,10 +77,20 @@ export function toolStarted(state: LiveState, call: LiveToolCall): LiveState {
   return next;
 }
 
+function endsSubagentWait(state: LiveState, call: LiveToolCall): boolean {
+  return (
+    (call.agent ?? null) === null &&
+    AGENT_TOOLS.has(call.tool) &&
+    state.waitingOn === 'permission' &&
+    state.waitingAgent !== null
+  );
+}
+
 export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
-  let next: LiveState = waitsOnPermissionFrom(state, call.agent ?? null)
-    ? { ...state, ...NOT_WAITING }
-    : state;
+  let next: LiveState =
+    waitsOnPermissionFrom(state, call.agent ?? null) || endsSubagentWait(state, call)
+      ? { ...state, ...NOT_WAITING }
+      : state;
   if (EDIT_TOOLS.has(call.tool) && state.editing?.toolUseId === call.toolUseId) {
     next = { ...next, editing: null };
   }
@@ -92,16 +104,23 @@ export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
 
 export function permissionAsked(
   state: LiveState,
-  check: { decision: string; approver?: unknown; toolUseId: string | null; agent?: string | null },
+  check: {
+    decision: string;
+    approver?: unknown;
+    toolUseId: string | null;
+    agent?: string | null;
+    foreground?: boolean;
+  },
 ): LiveState {
-  if ((check.agent ?? null) !== null) return state;
-  const settled = waitsOnPermissionFrom(state, null) ? { ...state, ...NOT_WAITING } : state;
+  const agent = check.agent ?? null;
+  if (agent !== null && check.foreground !== true) return state;
+  const settled = waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
   if (check.decision !== 'ask' || check.approver !== 'person') return settled;
   return {
     ...settled,
     waitingOn: 'permission',
     waitingToolUseId: check.toolUseId,
-    waitingAgent: null,
+    waitingAgent: agent,
   };
 }
 

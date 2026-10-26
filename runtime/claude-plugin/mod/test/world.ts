@@ -27,6 +27,7 @@ export interface World {
   played: unknown[];
   spoken: string[];
   verdict: { decision: 'allow' | 'ask' | 'deny'; reason?: string; rule?: string } | 'throw';
+  during: Map<string, () => Promise<void>>;
   put: (path: string, text: string) => void;
   remove: (path: string) => void;
 }
@@ -70,6 +71,7 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
     played: [],
     spoken: [],
     verdict: { decision: 'allow' },
+    during: new Map(),
     put: (path, text) => void world.files.set(path, text),
     remove: (path) => void world.files.delete(path),
   };
@@ -143,7 +145,9 @@ export function worldOf(on: On, options: WorldOptions = {}): World {
   on('prompt.submit', ($, e) => ({ text: e.text }));
   on('turn.start', ($, e) => ({ turnId: e.turnId }));
   on('turn.complete', () => ({ text: '' }));
-  on('tool.call', ($, e) => {
+  on('tool.call', async ($, e) => {
+    const inFlight = world.during.get(String(e.tool));
+    if (inFlight) await inFlight();
     if (e.tool !== 'AskUserQuestion') return { result: 'ok' } as never;
     const asked = (
       e as unknown as { questions: Array<{ question: string; options: Array<{ label: string }> }> }
