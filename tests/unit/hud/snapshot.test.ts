@@ -151,7 +151,7 @@ function evidenceRow(
 }
 
 describe('buildHudSnapshot', () => {
-  it('ORD-490 fast lane: no High Table, a running build, the rules flag', () => {
+  it('ORD-490 fast lane: no High Table, a running build, no rules flag before Build ends', () => {
     const root = onboardedRoot();
     const S = 'ses-490';
     openChange(root, S, 'fast', 'ORD-490 copy fix');
@@ -187,7 +187,7 @@ describe('buildHudSnapshot', () => {
     expect(snapshot.stages.find((stage) => stage.stage === 'ticket_intake')?.mandatory).toBe(false);
     expect(snapshot.lane_stages).toEqual(['planning', 'development', 'checks']);
     expect(snapshot.stages.find((stage) => stage.stage === 'review')?.mandatory).toBe(false);
-    expect(snapshot.flags.map((flag) => flag.id)).toEqual(['rules-not-loaded']);
+    expect(snapshot.flags.map((flag) => flag.id)).toEqual([]);
     expect(snapshot.rules).toEqual({ recorded: false, applicable: null, loaded_at: null });
     expect(snapshot.ship).toMatchObject({ commits: 0, push: null, pr: null, ci: null });
     const expected = Object.fromEntries(

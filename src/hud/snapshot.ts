@@ -1234,6 +1234,15 @@ export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
   merged: 'Merged',
 };
 
+const BUILD_ENDED_STATES: ReadonlySet<string> = new Set(['complete', 'redone']);
+
+const LANE_STAGE_ENDED_STATES: ReadonlySet<string> = new Set([
+  'complete',
+  'redone',
+  'inconclusive',
+  'failed',
+]);
+
 export function computeHudFlags(input: {
   stages: HudStage[];
   gates: HudGate[];
@@ -1246,10 +1255,15 @@ export function computeHudFlags(input: {
   commitSplit?: CommitSplit | null;
 }): HudFlag[] {
   const flags: HudFlag[] = [];
-  const touchedCode = input.stages.some(
-    (stage) => stage.stage === 'development' && stage.state !== 'missing',
+  // Rules are due by the end of Build: a running Build, or a Build end paqad only inferred from
+  // the files, does not show the rules were skipped.
+  const buildEnded = input.stages.some(
+    (stage) =>
+      stage.stage === 'development' &&
+      BUILD_ENDED_STATES.has(stage.state) &&
+      stage.started_at !== null,
   );
-  if (touchedCode && !input.rulesRecorded) {
+  if (buildEnded && !input.rulesRecorded) {
     flags.push({ id: 'rules-not-loaded', text: 'The rules for this change were never loaded.' });
   }
   if (input.tableSkipped) {
@@ -1264,7 +1278,12 @@ export function computeHudFlags(input: {
       text: 'The High Table met after the spec was frozen, so it shaped no spec line.',
     });
   }
-  if (input.isolationStatus === 'expected' && input.isolatedStages === 0) {
+  // A stage-agent record lands when the agent stops, so isolation is only missing once a lane
+  // stage has ended without one, never while the first stage agent still runs.
+  const laneStageEnded = input.stages.some(
+    (stage) => stage.mandatory && LANE_STAGE_ENDED_STATES.has(stage.state),
+  );
+  if (input.isolationStatus === 'expected' && input.isolatedStages === 0 && laneStageEnded) {
     flags.push({ id: 'isolation-missing', text: 'No stage ran in its own agent on this lane.' });
   }
   if (input.isolationStatus === 'unresolved') {
