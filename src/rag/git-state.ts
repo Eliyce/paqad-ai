@@ -61,6 +61,8 @@ function reflogSubjects(projectRoot: string, ref: string): string[] {
     .filter(Boolean);
 }
 
+const COMMIT_ID = /^[0-9a-f]{40}([0-9a-f]{24})?$/i;
+
 export function forkBranchOf(
   projectRoot: string,
   branch: string | null | undefined,
@@ -76,7 +78,7 @@ export function forkBranchOf(
     from = moved?.[1]?.trim() ?? '';
   }
   from = from.replace(/^refs\/heads\//, '');
-  if (from === '' || from === branch || from === 'HEAD') return null;
+  if (from === '' || from === branch || from === 'HEAD' || COMMIT_ID.test(from)) return null;
   return refExists(projectRoot, from) ? from : null;
 }
 

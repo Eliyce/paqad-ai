@@ -337,4 +337,12 @@ describe('the change start point (hud-live-run-truth)', () => {
     expect(forkBranchOf(root, 'feat/direct')).toBe('main');
     expect(forkBranchOf(root, 'main')).toBeNull();
   });
+
+  it('forkBranchOf names no branch for a branch cut from a detached HEAD', () => {
+    const root = tempRepo();
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    g(root, 'checkout', '-q', '--detach', sha);
+    g(root, 'checkout', '-q', '-b', 'feat/from-sha');
+    expect(forkBranchOf(root, 'feat/from-sha')).toBeNull();
+  });
 });
