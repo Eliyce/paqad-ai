@@ -613,7 +613,7 @@ describe('AC-9 / AC-10: earlier work and the start point in the Delivery tab', (
           inherited_count: 2,
           commit_list: [
             { sha: 'a1c9e2f0aa', subject: 'Seed stage helpers', own: true },
-            { sha: '64e4c85bbb', subject: 'Earlier work (#1234)', own: false },
+            { sha: '64e4c85bbb', subject: 'Earlier work', own: false },
             { sha: '75f5d96ccc', subject: 'More earlier work', own: false },
           ],
         },

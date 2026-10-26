@@ -127,7 +127,7 @@ describe('AC-8 / AC-9 / AC-26: files and commits are measured from where the cha
       writeFileSync(join(root, `earlier-${index}.ts`), `${index}\n`);
     }
     git(root, 'add', '-A');
-    git(root, 'commit', '-q', '-m', 'feat: earlier work (#1234)');
+    git(root, 'commit', '-q', '-m', 'feat: earlier work');
     for (let index = 6; index < 11; index += 1) {
       writeFileSync(join(root, `earlier-${index}.ts`), `${index}\n`);
     }

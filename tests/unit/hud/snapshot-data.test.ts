@@ -856,7 +856,7 @@ describe('AC-8 / AC-26: a branch with earlier work and local files shows none of
     checkout(root, 'release', true);
     mkdirSync(join(root, 'docs'), { recursive: true });
     mkdirSync(join(root, 'tests'), { recursive: true });
-    commit(root, 'docs/earlier.md', 'docs: earlier work (#1234)');
+    commit(root, 'docs/earlier.md', 'docs: earlier work');
     writeFileSync(join(root, 'tests', 'earlier.test.ts'), "it('AC-1: binds first', () => {});\n");
     commit(root, 'src-earlier.ts', 'feat: earlier work');
     checkout(root, 'feat/next', true);

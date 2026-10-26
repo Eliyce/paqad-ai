@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -19,6 +19,10 @@ import { computeHudFlags } from '@/hud/snapshot.js';
 import { parseBranchTickets } from '@/planning/ticket-ref-detect.js';
 
 import { ticketRef } from '../../shared/ticket-ref.js';
+
+const PULL_REQUEST_SUBJECTS: string[] = JSON.parse(
+  readFileSync(join(process.cwd(), 'tests/fixtures/delivery/pull-request-subjects.json'), 'utf8'),
+).subjects;
 
 const roots: string[] = [];
 afterEach(() => {
@@ -265,8 +269,7 @@ describe('ticket helpers', () => {
   it('AC-10: a pull request number in a subject is not a ticket', () => {
     const { root, g } = repo();
     g('checkout', '-q', '-b', 'feat/next');
-    commit(root, g, 'fix: thing (#123)');
-    commit(root, g, 'chore: see #1244 for context');
+    for (const subject of PULL_REQUEST_SUBJECTS) commit(root, g, subject);
     const start = g('rev-parse', 'HEAD');
     const split = computeCommitSplit(root, { startCommit: start });
     expect(split.inherited).toEqual({ count: 2, tickets: [], merges: 0, untagged: 2 });
