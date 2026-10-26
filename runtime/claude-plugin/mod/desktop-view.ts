@@ -288,9 +288,9 @@ export interface DeliveryStrip {
   value: string;
 }
 
-function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
+function deliveryValue(snapshot: PaqadHudSnapshot): string {
   if (!snapshot.active) return '';
-  const rail = shipRail(snapshot, live);
+  const rail = shipRail(snapshot);
   const plan = snapshot.delivery_plan;
   const ship = snapshot.ship;
   const state = (label: string) => rail.steps.find((step) => step.label === label)?.state;
@@ -313,11 +313,8 @@ function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
   return '';
 }
 
-export function deliveryStrip(
-  snapshot: PaqadHudSnapshot,
-  live: LiveState = IDLE_LIVE,
-): DeliveryStrip {
-  const rail = shipRail(snapshot, live);
+export function deliveryStrip(snapshot: PaqadHudSnapshot): DeliveryStrip {
+  const rail = shipRail(snapshot);
   const steps = deliverySteps(snapshot).map((label) => ({
     label,
     state: SHIP_STATE[rail.steps.find((step) => step.label === label)?.state ?? 'todo'],
@@ -326,7 +323,7 @@ export function deliveryStrip(
   return {
     steps,
     ci: ciRunning && rail.ci ? rail.ci.done / rail.ci.total : null,
-    value: deliveryValue(snapshot, live),
+    value: deliveryValue(snapshot),
   };
 }
 
@@ -334,10 +331,11 @@ export function stripOf(
   snapshot: PaqadHudSnapshot,
   columns: number,
   live: LiveState = IDLE_LIVE,
+  clockMs?: number,
 ): StripInput {
   const stage = stageStrip(snapshot, live);
   const table = tableStrip(snapshot);
-  const delivery = deliveryStrip(snapshot, live);
+  const delivery = deliveryStrip(snapshot);
   return {
     columns,
     stages: stage.stages,
@@ -348,6 +346,7 @@ export function stripOf(
     delivery: delivery.steps,
     ci: delivery.ci,
     deliveryValue: delivery.value,
+    ...(clockMs === undefined ? {} : { clockMs }),
   };
 }
 
@@ -470,7 +469,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
   }
   const head = desktopHeadline(snapshot, input.now, live);
-  const strip = stripOf(snapshot, input.columns, live);
+  const strip = stripOf(snapshot, input.columns, live, input.now);
   const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',
@@ -1003,12 +1002,9 @@ export interface DeliveryView {
   empty: string | null;
 }
 
-export function deliveryView(
-  snapshot: PaqadHudSnapshot,
-  live: LiveState = IDLE_LIVE,
-): DeliveryView {
+export function deliveryView(snapshot: PaqadHudSnapshot): DeliveryView {
   if (!snapshot.active) return { blocks: [], empty: 'Nothing to deliver yet.' };
-  const strip = deliveryStrip(snapshot, live);
+  const strip = deliveryStrip(snapshot);
   const ship = snapshot.ship;
   return {
     empty: null,
@@ -1301,7 +1297,7 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
     shown: tabs.find((tab) => tab.shown)!.id,
     trust: trustView(snapshot),
     table: tableView(snapshot, input.specText),
-    delivery: deliveryView(snapshot, input.live),
+    delivery: deliveryView(snapshot),
     record: recordView(snapshot),
     cost: costView(snapshot),
   };

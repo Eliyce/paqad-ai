@@ -1,4 +1,3 @@
-import { IDLE_LIVE, type LiveState } from './live';
 import type { PaqadHudSnapshot } from './types';
 
 export type ShipLabel = 'Edit' | 'Commit' | 'Push' | 'PR' | 'CI' | 'Merge';
@@ -22,10 +21,12 @@ export interface ShipRail {
 
 const EDIT_STAGE_IDS = ['development', 'checks', 'documentation_sync'];
 
-function editState(snapshot: PaqadHudSnapshot | null, live: LiveState): ShipStepState {
+// The Edit node is current only while an edit stage runs: an Edit or Write during Plan or Spec
+// (a plan template, the spec text) is not this change's code being edited.
+function editState(snapshot: PaqadHudSnapshot | null): ShipStepState {
   const stateOf = (id: string) => snapshot?.stages.find((stage) => stage.stage === id)?.state;
   const open = EDIT_STAGE_IDS.some((id) => stateOf(id) === 'running');
-  if (live.editing !== null || open) return 'current';
+  if (open) return 'current';
   if (EDIT_STAGE_IDS.some((id) => stateOf(id) === 'complete' || stateOf(id) === 'redone')) {
     return 'done';
   }
@@ -43,7 +44,7 @@ function ciState(hasPr: boolean, closed: boolean, state: string | null): ShipSte
   return state === 'pending' ? 'current' : 'unknown';
 }
 
-export function shipRail(snapshot: PaqadHudSnapshot | null, live: LiveState = IDLE_LIVE): ShipRail {
+export function shipRail(snapshot: PaqadHudSnapshot | null): ShipRail {
   const active = snapshot?.active === true;
   const ship = active ? (snapshot?.ship ?? null) : null;
   const commits = ship?.commits ?? 0;
@@ -55,7 +56,7 @@ export function shipRail(snapshot: PaqadHudSnapshot | null, live: LiveState = ID
   const merged = ship?.merged === true;
   const allGreen = ship?.all_green === true && !merged;
   const steps: ShipRailStep[] = [
-    { label: 'Edit', state: active ? editState(snapshot, live) : 'todo' },
+    { label: 'Edit', state: active ? editState(snapshot) : 'todo' },
     { label: 'Commit', state: commits > 0 ? 'done' : 'todo' },
     {
       label: 'Push',
