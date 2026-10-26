@@ -298,7 +298,13 @@ export function readChangeStartPoint(
       fork,
       state.base_branch,
     ]);
-    return { commit: merged ?? start, source: 'start_commit', base: null, worktree };
+    return {
+      commit: merged.after ?? start,
+      source: 'start_commit',
+      base: null,
+      worktree,
+      mergedBase: merged.after ? null : merged.beside,
+    };
   }
   const forkPoint = fork ? git(projectRoot, ['merge-base', 'HEAD', fork]) : undefined;
   if (fork && forkPoint) {
@@ -320,14 +326,16 @@ function latestMergedBase(
   start: string,
   head: string | undefined,
   bases: (string | null | undefined)[],
-): string | null {
+): { after: string | null; beside: string | null } {
   const descends = (older: string, newer: string) =>
     git(projectRoot, ['merge-base', '--is-ancestor', older, newer]) !== undefined;
-  let latest: string | null = null;
+  const latest = { after: null as string | null, beside: null as string | null };
   for (const base of new Set(bases.filter((name): name is string => Boolean(name)))) {
     const point = git(projectRoot, ['merge-base', 'HEAD', base]);
-    if (!point || point === start || point === head || !descends(start, point)) continue;
-    if (latest === null || descends(latest, point)) latest = point;
+    if (!point || point === start || point === head || descends(point, start)) continue;
+    const slot = descends(start, point) ? 'after' : 'beside';
+    const current = latest[slot];
+    if (current === null || descends(current, point)) latest[slot] = point;
   }
   return latest;
 }

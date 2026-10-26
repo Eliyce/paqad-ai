@@ -36,7 +36,10 @@ commit_decision: { asked: boolean, answer: "commit" | "decline" | "ignored" | "u
   1. the recorded `start_commit`, when it is still an ancestor of HEAD. If a base branch (the fork
      branch or the configured base) was merged in after the change opened, the latest such
      merge-base that descends from the start is used instead, so files that came in with the merge
-     are not counted as the change's edits;
+     are not counted as the change's edits. When the branch already carried earlier work at open,
+     that merge-base does not descend from the start. The start commit is kept, and a committed
+     path counts only if it differs from both the start commit and that merge-base
+     (`mergedBase`), so the merged files drop out and the earlier work stays out;
   2. else the fork point: the merge-base of HEAD and the branch this branch was cut from, read from
      the branch reflog. A branch cut from a detached HEAD (a bare commit id) names no fork branch;
   3. else the fallback base commit of the configured base branch, named as a fallback;

@@ -188,6 +188,21 @@ describe('AC-8 / AC-9 / AC-26: files and commits are measured from where the cha
     expect(readChangeGit(root, 'main', noError, start)!.files).toEqual(['edited.ts', 'mine.ts']);
   });
 
+  it('leaves out a later base merge on a branch that already had earlier work', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/earlier', true);
+    commit(root, 'earlier.ts', 'feat: earlier work');
+    const dir = open(root);
+    commit(root, 'mine.ts', 'feat: mine');
+    checkout(root, 'main');
+    commit(root, 'theirs.ts', 'feat: theirs');
+    checkout(root, 'feat/earlier');
+    git(root, 'merge', '-q', '--no-edit', 'main');
+
+    const start = readChangeStartPoint(root, dir, 'main')!;
+    expect(readChangeGit(root, 'main', noError, start)!.files).toEqual(['mine.ts']);
+  });
+
   it('keeps the start commit when the base branch moved on without being merged', () => {
     const root = repoRoot();
     checkout(root, 'feat/apart', true);

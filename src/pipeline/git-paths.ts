@@ -6,6 +6,7 @@ import { join } from 'node:path';
 export interface ChangeStartLike {
   commit: string;
   worktree: Record<string, string> | null;
+  mergedBase?: string | null;
 }
 
 export const DELETED_AT_START = 'deleted';
@@ -40,8 +41,18 @@ export function changedFilesSince(projectRoot: string, start: ChangeStartLike): 
   const diff = gitPathList(projectRoot, ['diff', '--name-only', '--relative', '-z', start.commit]);
   const untracked = gitPathList(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
   if (diff === null || untracked === null) return null;
+  const merged = start.mergedBase
+    ? gitPathList(projectRoot, ['diff', '--name-only', '--relative', '-z', start.mergedBase])
+    : null;
+  if (start.mergedBase && merged === null) return null;
+  const differsFromBase = merged ? new Set(merged) : null;
   const worktree = start.worktree ?? {};
-  return [...new Set([...diff, ...untracked])]
+  return [
+    ...new Set([
+      ...diff.filter((path) => !differsFromBase || differsFromBase.has(path)),
+      ...untracked,
+    ]),
+  ]
     .map((path) => path.replace(/\\/g, '/'))
     .filter((path) => !isPaqadArtifactPath(path))
     .filter((path) => {
