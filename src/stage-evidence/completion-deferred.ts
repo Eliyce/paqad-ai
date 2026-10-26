@@ -180,6 +180,7 @@ export interface DeferCompletionInput {
   adapter: string;
   now?: () => Date;
   probe?: ChecksMarkerProbe;
+  record?: boolean;
 }
 
 export interface DeferCompletionResult {
@@ -244,7 +245,7 @@ export function deferCompletionForBackgroundStage(
     return { deferred: false };
   }
 
-  if (dirName !== null) {
+  if (dirName !== null && input.record !== false) {
     appendFeatureStageRow(
       input.projectRoot,
       sessionId,

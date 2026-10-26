@@ -824,3 +824,20 @@ describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH
     expect(live(root, dirName)).toEqual(['a1']);
   });
 });
+
+describe('a deferral asked without recording (capability gate)', () => {
+  it('answers the same and writes no completion-deferred row', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ type: 'paqad-development' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: NOW,
+      record: false,
+    });
+    expect(result).toMatchObject({ deferred: true, reason: 'stage agent running in background' });
+    expect(deferredRows(root, dirName)).toHaveLength(0);
+  });
+});

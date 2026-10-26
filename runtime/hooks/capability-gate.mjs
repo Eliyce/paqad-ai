@@ -97,15 +97,20 @@ export function entryLoadedProbe(projectRoot, input) {
 async function deferredForBackgroundStage(projectRoot, input) {
   const payload = parseHookPayload(input);
   const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
+  if (tasks.length === 0) {
+    return false;
+  }
   try {
     const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
     const { deferCompletionForBackgroundStage } = await import(distUrl.href);
-    return deferCompletionForBackgroundStage({
+    const result = deferCompletionForBackgroundStage({
       projectRoot,
       backgroundTasks: tasks,
       sessionId: payload?.session_id,
       adapter: ADAPTER ?? 'claude-code',
-    }).deferred;
+      record: false,
+    });
+    return result.deferred && result.reason !== 'between stages';
   } catch {
     return false;
   }
