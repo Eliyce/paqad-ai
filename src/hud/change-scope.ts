@@ -108,6 +108,27 @@ export function latestEditAt(projectRoot: string, dirName: string): number | nul
   return latest;
 }
 
+// Rows that show the run moved on past a verdict: a pre-code stage started or ended again, or a
+// turn end was deferred because a stage agent still ran. A verdict written before one of them
+// judged an unfinished run. Edits are covered by latestEditAt; a later checks or review run
+// re-judges the same work and does not supersede it.
+const PRE_CODE_STAGES: ReadonlySet<string> = new Set(['planning', 'specification']);
+
+function movesRunOn(row: SessionLedgerRow): boolean {
+  if (row.kind === 'completion-deferred') return true;
+  return STAGE_ROW_KINDS.has(String(row.kind)) && PRE_CODE_STAGES.has(String(row.stage));
+}
+
+export function latestStageMoveAt(projectRoot: string, dirName: string): number | null {
+  let latest: number | null = null;
+  for (const row of readFeatureStageUnit(projectRoot, dirName)) {
+    if (!movesRunOn(row)) continue;
+    const at = rowTime(row);
+    if (!Number.isNaN(at) && (latest === null || at > latest)) latest = at;
+  }
+  return latest;
+}
+
 export function stageEndTimes(projectRoot: string, dirName: string): Map<string, number> {
   const ends = new Map<string, number>();
   for (const row of readFeatureStageUnit(projectRoot, dirName)) {

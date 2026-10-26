@@ -12,6 +12,7 @@ import {
 import { type SessionLedgerRow } from '@/session-ledger/ledger.js';
 
 import { agentForWriter } from './agent-identity.js';
+import { liveStageAgents } from './completion-deferred.js';
 import { startedAfterLastEnd } from './fold.js';
 import { endStage, openStageEvidence } from './recorder.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
@@ -43,8 +44,12 @@ export function finalizeStageEvidence(
 
     if (dirName) {
       const existing = readFeatureStageUnit(projectRoot, dirName);
-      endDanglingLiveStages(projectRoot, sessionId, dirName, existing, input);
-      backfillMissingDevelopment(projectRoot, sessionId, dirName, input);
+      // A stage agent of this change is still running: its stage is not dangling and no
+      // development stage happened behind its back, so nothing is ended or inferred.
+      if (liveStageAgents(existing, input.now).length === 0) {
+        endDanglingLiveStages(projectRoot, sessionId, dirName, existing, input);
+        backfillMissingDevelopment(projectRoot, sessionId, dirName, input);
+      }
     } else {
       if (!input.changedFilesCount || input.changedFilesCount <= 0) {
         return null;

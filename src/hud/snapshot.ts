@@ -81,6 +81,7 @@ import { LANE_RECORD_GAP } from '@/verification/verdict-kind.js';
 import {
   gateIsJudged,
   latestEditAt,
+  latestStageMoveAt,
   qualifyHudChange,
   stageEndTimes,
   type HudScopeReason,
@@ -1014,7 +1015,12 @@ interface VerdictReading {
   stale: boolean;
 }
 
-function freshVerdict(projectRoot: string, sessionId: string, dirName: string): VerdictReading {
+function freshVerdict(
+  projectRoot: string,
+  sessionId: string,
+  dirName: string,
+  open: boolean,
+): VerdictReading {
   const none: VerdictReading = { verdict: null, stale: false };
   const verdict = readVerdictRecord(projectRoot, sessionId);
   if (!verdict) return none;
@@ -1024,6 +1030,10 @@ function freshVerdict(projectRoot: string, sessionId: string, dirName: string): 
   if (Number.isNaN(writtenAt)) return none;
   const editedAt = latestEditAt(projectRoot, dirName);
   if (editedAt !== null && writtenAt < editedAt) return { verdict: null, stale: true };
+  // While the change is open, a verdict taken before it moved on (a later stage start, end or
+  // deferral) judged an earlier state; a closed change keeps its verdict.
+  const movedAt = open ? latestStageMoveAt(projectRoot, dirName) : null;
+  if (movedAt !== null && writtenAt < movedAt) return { verdict: null, stale: true };
   if (unjudged) return { verdict: couldNotProve(verdict, UNJUDGED_CHANGE_GAP), stale: false };
   return {
     verdict: VERDICT_KINDS.has(verdict.kind) ? verdict : couldNotProve(verdict, null),
@@ -1541,7 +1551,7 @@ export function buildHudSnapshot(
     };
   }
 
-  const reading = freshVerdict(projectRoot, sessionId, dirName);
+  const reading = freshVerdict(projectRoot, sessionId, dirName, scope.reason === 'qualified');
   const verdict = reading.verdict;
   const receiptPath = hudReceiptPath(projectRoot, sessionId);
   const receipt = verdict && existsSync(receiptPath) ? { path: receiptPath } : null;

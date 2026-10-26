@@ -15,6 +15,7 @@ import { writeWorkflowState } from '@/pipeline/workflow-state.js';
 import {
   deferCompletionForBackgroundStage,
   hasOpenUnendedStage,
+  liveStageAgents,
   stageAgentTaskCount,
   tasksCarryAgentType,
 } from '@/stage-evidence/completion-deferred.js';
@@ -473,5 +474,136 @@ describe('deferCompletionForBackgroundStage with a checks run and a ceiling', ()
 
     expect(result).toEqual({ deferred: false });
     expect(deferredRows(root, dirName)).toHaveLength(2);
+  });
+});
+
+describe('reading a Claude Code Stop payload (hud-live-run-truth)', () => {
+  it('a running subagent task with no agent type still defers while a stage is open', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ id: 'task-1', type: 'subagent', status: 'running' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+    expect(result.deferred).toBe(true);
+    expect(deferredRows(root, dirName)).toHaveLength(1);
+  });
+
+  it('a plugin-namespaced stage agent counts as a stage agent', () => {
+    expect(stageAgentTaskCount([{ agent_type: 'paqad:paqad-planning', status: 'running' }])).toBe(
+      1,
+    );
+  });
+
+  it('a finished stage agent task alone does not defer', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    endStage(
+      root,
+      'development',
+      {},
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW },
+    );
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ agent_type: 'paqad-planning', status: 'completed' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+    expect(result).toEqual({ deferred: false });
+  });
+});
+
+describe('liveStageAgents and the ledger branch (hud-live-run-truth)', () => {
+  const MINUTE = 60_000;
+  const at = (minutes: number) => () => new Date(NOW().getTime() + minutes * MINUTE);
+
+  function agentRow(
+    root: string,
+    dirName: string,
+    status: 'started' | 'completed',
+    minutes: number,
+    agentId: string | null = 'agent-plan-1',
+  ): void {
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dirName,
+      {
+        kind: 'stage-agent',
+        stage: 'planning',
+        agent: 'paqad-planning',
+        ...(agentId === null ? {} : { agent_id: agentId }),
+        event_status: status,
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      },
+      at(minutes),
+    );
+  }
+
+  it('lists a started agent with no stop, drops it once stopped, and ignores starts past the ceiling', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    agentRow(root, dirName, 'started', 1);
+    const rows = () => readFeatureStageUnit(root, dirName);
+    expect(liveStageAgents(rows(), at(2))).toEqual([
+      expect.objectContaining({ stage: 'planning', agentId: 'agent-plan-1' }),
+    ]);
+    expect(liveStageAgents(rows(), at(31))).toEqual([]);
+    agentRow(root, dirName, 'completed', 3);
+    expect(liveStageAgents(rows(), at(4))).toEqual([]);
+  });
+
+  it('matches by stage when the start carried no agent id', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    agentRow(root, dirName, 'started', 1, null);
+    expect(liveStageAgents(readFeatureStageUnit(root, dirName), at(2))).toHaveLength(1);
+    agentRow(root, dirName, 'completed', 3, null);
+    expect(liveStageAgents(readFeatureStageUnit(root, dirName), at(4))).toHaveLength(0);
+  });
+
+  it.each([[[]], [undefined], ['not-a-list']])(
+    'AC-2 / AC-28: background_tasks %j plus a live stage agent in the ledger defers with one row',
+    (tasks) => {
+      const root = tempRoot();
+      const dirName = openWithStartedStage(root);
+      agentRow(root, dirName, 'started', 1);
+      const result = deferCompletionForBackgroundStage({
+        projectRoot: root,
+        backgroundTasks: tasks,
+        sessionId: SESSION,
+        adapter: 'claude-code',
+        now: at(2),
+      });
+      expect(result).toEqual({
+        deferred: true,
+        reason: 'stage agent running in background',
+        tasks: 1,
+      });
+      expect(deferredRows(root, dirName)).toHaveLength(1);
+    },
+  );
+
+  it('AC-5: once the agent stops, the next turn end is judged again', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    agentRow(root, dirName, 'started', 1);
+    agentRow(root, dirName, 'completed', 3);
+    expect(
+      deferCompletionForBackgroundStage({
+        projectRoot: root,
+        backgroundTasks: [],
+        sessionId: SESSION,
+        adapter: 'claude-code',
+        now: at(4),
+      }),
+    ).toEqual({ deferred: false });
   });
 });

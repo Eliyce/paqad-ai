@@ -124,6 +124,58 @@ function requestedSetting(
   return setting ? { requested_effort: setting.effort, requested_model: setting.model } : {};
 }
 
+function agentIdField(payload: SubagentStopPayload): { agent_id?: string } {
+  return typeof payload.agent_id === 'string' && payload.agent_id.trim() !== ''
+    ? { agent_id: payload.agent_id.trim() }
+    : {};
+}
+
+export interface RecordStageAgentStartInput {
+  projectRoot: string;
+  payload: SubagentStopPayload;
+  now?: () => Date;
+}
+
+/**
+ * SubagentStart: a paqad stage agent of the open change is now running. The `started` row lets
+ * the turn-end backstop and the HUD see a live stage agent on any host, whether or not the Stop
+ * payload lists background tasks. Isolation counts ignore it.
+ */
+export function recordStageAgentStart(input: RecordStageAgentStartInput): boolean {
+  try {
+    const agentType =
+      typeof input.payload.agent_type === 'string' ? input.payload.agent_type : null;
+    const stage = stageFromAgentType(agentType);
+    if (!stage || agentType === null) {
+      return false;
+    }
+    const sessionId = resolveHookSession(input.projectRoot, input.payload);
+    const dirName = currentFeature(input.projectRoot, sessionId);
+    if (!dirName) {
+      return false;
+    }
+    appendFeatureStageRow(
+      input.projectRoot,
+      sessionId,
+      dirName,
+      {
+        kind: STAGE_AGENT_KIND,
+        stage,
+        agent: agentType,
+        ...agentIdField(input.payload),
+        event_status: 'started',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      },
+      input.now,
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function recordStageAgentCompletion(input: RecordStageAgentCompletionInput): boolean {
   try {
     const stage = stageFromAgentType(
@@ -146,6 +198,8 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
         kind: STAGE_AGENT_KIND,
         stage,
         agent: input.payload.agent_type,
+        ...agentIdField(input.payload),
+        event_status: 'completed',
         tokens_used: tokens.tokens_used,
         tokens_not_recarried: tokens.tokens_not_recarried,
         estimate: !tokens.exact,

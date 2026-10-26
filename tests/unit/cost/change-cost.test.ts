@@ -317,6 +317,40 @@ describe('the window (AC-49)', () => {
     },
   );
 
+  it('AC-6: a receipt followed by a later stage row does not seal; the window keeps counting', () => {
+    const root = tempRoot();
+    const dir = writeStageRows(root, [
+      ['open', '10:00'],
+      ['stage_start', '10:01', 'planning'],
+      ['stage_start', '10:30', 'specification'],
+    ]);
+    const payload = Buffer.from(
+      JSON.stringify({ predicate: { time_verified: at('10:02') } }),
+    ).toString('base64');
+    writeFileSync(join(dir, 'receipt.json'), JSON.stringify({ payload }), 'utf8');
+    const main = writeTranscript(root, 'main', [
+      assistant('inside', '10:01', A),
+      assistant('after-receipt', '10:20', B),
+    ]);
+    const cost = run(root, [{ transcript_path: main }]);
+    expect(cost.window).toMatchObject({ to: at('11:00'), sealed: false, sealed_by: null });
+    expect(cost.tokens.total).toBe(total(A) + total(B));
+  });
+
+  it('a receipt after the last stage row still seals', () => {
+    const root = tempRoot();
+    const dir = writeStageRows(root, [
+      ['open', '10:00'],
+      ['stage_start', '10:01', 'planning'],
+      ['stage_end', '10:10', 'planning'],
+    ]);
+    const payload = Buffer.from(
+      JSON.stringify({ predicate: { time_verified: at('10:40') } }),
+    ).toString('base64');
+    writeFileSync(join(dir, 'receipt.json'), JSON.stringify({ payload }), 'utf8');
+    expect(changeCostWindow(root, DIR, NOW)).toMatchObject({ to: at('10:40'), sealed: true });
+  });
+
   it('a reopened change runs to now again', () => {
     const root = tempRoot();
     writeStageRows(root, [

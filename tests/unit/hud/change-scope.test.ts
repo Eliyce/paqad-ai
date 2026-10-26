@@ -16,6 +16,7 @@ import {
 } from '@/hud/change-scope.js';
 import { hudVerdictPath } from '@/hud/files.js';
 import { buildHudSnapshot } from '@/hud/snapshot.js';
+import { startStage } from '@/stage-evidence/recorder.js';
 
 import {
   checkout,
@@ -255,11 +256,32 @@ describe('verdict freshness', () => {
     expect(buildHudSnapshot(root, S).verdict).toBeNull();
   });
 
+  it('AC-3 / AC-6: a fail written before a later stage started no longer describes the change', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writeVerdict(root, S, 'fail', new Date());
+    expect(buildHudSnapshot(root, S).verdict).toMatchObject({ kind: 'fail' });
+    startStage(root, 'specification', { sessionId: S, adapter: 'claude-code', now: () => later() });
+    const snapshot = buildHudSnapshot(root, S);
+    expect(snapshot.verdict).toBeNull();
+    expect(snapshot.headline.tone).not.toBe('fail');
+    expect(snapshot.headline.text).not.toContain('half done');
+  });
+
+  it('a verdict written after the last stage row still shows', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writeVerdict(root, S, 'fail', later());
+    expect(buildHudSnapshot(root, S).verdict).toMatchObject({ kind: 'fail' });
+  });
+
   it('shows a verdict when the change has no edit row yet', () => {
     const root = repoRoot();
     openChangeHere(root, S);
     runStage(root, S, 'planning');
-    writeVerdict(root, S, 'inconclusive', new Date(PAST));
+    writeVerdict(root, S, 'inconclusive', later());
     expect(buildHudSnapshot(root, S).verdict).toMatchObject({ kind: 'inconclusive' });
   });
 });

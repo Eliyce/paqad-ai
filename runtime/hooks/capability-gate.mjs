@@ -96,10 +96,9 @@ export function entryLoadedProbe(projectRoot, input) {
 
 async function deferredForBackgroundStage(projectRoot, input) {
   const payload = parseHookPayload(input);
+  // An empty or missing list never means no stage agent runs: the deferral also reads the
+  // change's ledger (a started stage agent with no stop) and the checks running marker.
   const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
-  if (tasks.length === 0) {
-    return false;
-  }
   try {
     const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
     const { deferCompletionForBackgroundStage } = await import(distUrl.href);

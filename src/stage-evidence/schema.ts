@@ -66,6 +66,7 @@ export const STAGE_EVIDENCE_SCHEMA = {
     ...ROW_PROPERTIES,
     reason: { type: 'string', minLength: 1 },
     tasks: { type: 'integer', minimum: 0 },
+    agent_id: { type: 'string', minLength: 1 },
     tokens_used: { type: 'integer', minimum: 0 },
     tokens_not_recarried: { type: 'integer', minimum: 0 },
     estimate: { type: 'boolean' },

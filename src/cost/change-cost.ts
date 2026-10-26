@@ -351,6 +351,18 @@ function closeTime(rows: readonly SessionLedgerRow[]): string | null {
   return closed;
 }
 
+// A receipt seals the window only when the change did not move on after it: a stage row recorded
+// later means the receipt judged an earlier state, and the work since then still costs.
+function stageRowAfter(rows: readonly SessionLedgerRow[], at: string): boolean {
+  const sealedAt = Date.parse(at);
+  if (Number.isNaN(sealedAt)) return false;
+  return rows.some((row) => {
+    if (row.kind !== 'stage_start' && row.kind !== 'stage_end') return false;
+    const rowAt = Date.parse(rowRecordedAt(row) ?? '');
+    return !Number.isNaN(rowAt) && rowAt > sealedAt;
+  });
+}
+
 export function changeCostWindow(
   projectRoot: string,
   dirName: string,
@@ -361,7 +373,9 @@ export function changeCostWindow(
   const from = open ? rowRecordedAt(open) : null;
   if (from === null) return null;
   const receipt = receiptTime(projectRoot, dirName);
-  if (receipt) return { from, to: receipt, sealed: true, sealed_by: 'receipt' };
+  if (receipt && !stageRowAfter(rows, receipt)) {
+    return { from, to: receipt, sealed: true, sealed_by: 'receipt' };
+  }
   const close = closeTime(rows);
   if (close) return { from, to: close, sealed: true, sealed_by: 'close' };
   return { from, to: now().toISOString(), sealed: false, sealed_by: null };

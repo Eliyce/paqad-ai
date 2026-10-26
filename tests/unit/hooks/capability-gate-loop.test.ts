@@ -65,3 +65,54 @@ describe('runtime/hooks/capability-gate.mjs — Stop-seam loop guard', () => {
     expect(stderr).not.toContain('not blocking again');
   });
 });
+
+describe('runtime/hooks/capability-gate.mjs — completion seam asks the ledger even with no background_tasks', () => {
+  const DEFER = resolve(process.cwd(), 'dist/stage-evidence/completion-deferred.js');
+  let projectRoot: string;
+  let restoreEnv: string | undefined;
+  let writeSpy: ReturnType<typeof vi.spyOn>;
+  const calls: unknown[] = [];
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-capgate-defer-'));
+    restoreEnv = process.env.CLAUDE_PROJECT_DIR;
+    process.env.CLAUDE_PROJECT_DIR = projectRoot;
+    calls.length = 0;
+    writeSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    vi.resetModules();
+    vi.doMock(GATE, () => ({
+      runCapabilityGate: async () => ({ block: true, summary: '✗ blocked by kernel.' }),
+    }));
+    vi.doMock(DEFER, () => ({
+      deferCompletionForBackgroundStage: (input: unknown) => {
+        calls.push(input);
+        return { deferred: true, reason: 'stage agent running in background', tasks: 1 };
+      },
+    }));
+  });
+
+  afterEach(() => {
+    writeSpy.mockRestore();
+    if (restoreEnv === undefined) delete process.env.CLAUDE_PROJECT_DIR;
+    else process.env.CLAUDE_PROJECT_DIR = restoreEnv;
+    rmSync(projectRoot, { recursive: true, force: true });
+    vi.doUnmock(GATE);
+    vi.doUnmock(DEFER);
+  });
+
+  it('AC-28: a Stop with no background_tasks is deferred when the ledger shows a live stage agent', async () => {
+    const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
+    const code = await main(payload(false), 'completion');
+
+    expect(calls).toHaveLength(1);
+    expect(code).toBe(0);
+  });
+
+  it('INV-2: the pre-mutation seam never consults the deferral and keeps blocking', async () => {
+    const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
+    const code = await main(payload(false), 'pre-mutation');
+
+    expect(calls).toHaveLength(0);
+    expect(code).toBe(2);
+  });
+});
