@@ -154,8 +154,8 @@ on Trust; the brand text and the strip image are not pressable.
   time so rows from other days read as such, newest first.
 - **Delivery tab**: commits already on the branch when the change opened are earlier work. They
   get one quiet dim line (or, with none, where the files are measured from), never a flag, never
-  amber, and never count as this change's commits. A pull request number (`(#123)` or `#123`)
-  names a pull request, not a ticket.
+  amber, and never count as this change's commits. A pull request number (a `#` and digits, in
+  brackets or not) names a pull request, not a ticket.
 - **Cost tab**: one token figure per High Table seat, the same one the seat drill-down shows: the
   exact run Claude Code reported for the seat, else the figure read from its transcript, else the
   note's own estimate. Each line says whether it is exact. A seat whose host figure differs drops
