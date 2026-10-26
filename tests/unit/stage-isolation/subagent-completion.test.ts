@@ -270,6 +270,7 @@ describe('stage agent liveness rows (hud-live-run-truth)', () => {
       stage: 'planning',
       agent_id: 'agent_plan_1',
       event_status: 'started',
+      host_pid: process.ppid,
     });
     expect(validateStageEvidenceRow(unit[0])).toEqual([]);
     expect(readStageAgentRows(root, dir)).toHaveLength(0);

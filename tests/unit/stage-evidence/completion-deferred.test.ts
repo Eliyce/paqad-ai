@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -812,6 +813,39 @@ describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH
     expect(repairs).toHaveLength(1);
     started(root, dirName, 'specification', 'a2', 5);
     expect(live(root, dirName)).toEqual(['a2']);
+  });
+
+  it('a second terminal keeps another live session agent; its own session or a gone host releases it', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    const gonePid = spawnSync(process.execPath, ['-e', '']).pid!;
+    const startedBy = (session: string, id: string, hostPid: number, minutes: number) =>
+      appendFeatureStageRow(
+        root,
+        session,
+        dirName,
+        {
+          kind: 'stage-agent',
+          stage: 'planning',
+          agent: 'paqad-planning',
+          agent_id: id,
+          event_status: 'started',
+          host_pid: hostPid,
+          tokens_used: 0,
+          tokens_not_recarried: 0,
+          estimate: true,
+        },
+        at(minutes),
+      );
+    startedBy(SESSION, 'a1', process.pid, 1);
+    expect(releaseStageAgentsAtSessionStart(root, 'ses_other', 'startup', at(2))).toBe(false);
+    expect(live(root, dirName)).toEqual(['a1']);
+    expect(releaseStageAgentsAtSessionStart(root, SESSION, 'resume', at(3))).toBe(true);
+    expect(live(root, dirName)).toEqual([]);
+
+    startedBy(SESSION, 'a2', gonePid, 4);
+    expect(releaseStageAgentsAtSessionStart(root, 'ses_other', 'startup', at(5))).toBe(true);
+    expect(live(root, dirName)).toEqual([]);
   });
 
   it('AC-4: a stage open with a started agent that never stopped is judged after the release', () => {

@@ -159,6 +159,7 @@ export function recordStageAgentStart(input: RecordStageAgentStartInput): boolea
         agent: agentType,
         ...agentIdField(input.payload),
         event_status: 'started',
+        host_pid: process.ppid,
         tokens_used: 0,
         tokens_not_recarried: 0,
         estimate: true,

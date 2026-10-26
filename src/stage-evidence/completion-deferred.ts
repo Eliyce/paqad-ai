@@ -84,6 +84,9 @@ export interface LiveStageAgent {
   stage: string;
   agentId: string | null;
   startedAt: string;
+  sessionId: string;
+  hostPid: number | null;
+  rowHash: string;
 }
 
 function rowTime(row: SessionLedgerRow): number {
@@ -101,6 +104,7 @@ function releasesStartedAgent(
   later: SessionLedgerRow,
   stage: string,
   agentId: string | null,
+  startedHash: string,
 ): boolean {
   const laterStage = stringOrNull(later.stage);
   const laterId = stringOrNull(later.agent_id);
@@ -112,7 +116,10 @@ function releasesStartedAgent(
   }
   if (later.kind === 'stage_end') return laterStage === stage;
   if (later.kind === 'stage_start') return laterStage !== null && laterStage !== stage;
-  return later.kind === RECORD_REPAIR_KIND && later.reason === STAGE_AGENT_SESSION_RELEASE;
+  if (later.kind !== RECORD_REPAIR_KIND || later.reason !== STAGE_AGENT_SESSION_RELEASE) {
+    return false;
+  }
+  return !Array.isArray(later.releases) || later.releases.includes(startedHash);
 }
 
 export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAgent[] {
@@ -125,29 +132,52 @@ export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAge
     if (Number.isNaN(rowTime(row))) return;
     const released = rows
       .slice(index + 1)
-      .some((later) => releasesStartedAgent(later, stage, agentId));
-    if (!released) live.push({ stage, agentId, startedAt: rowRecordedAt(row)! });
+      .some((later) => releasesStartedAgent(later, stage, agentId, row.content_hash));
+    if (released) return;
+    live.push({
+      stage,
+      agentId,
+      startedAt: rowRecordedAt(row)!,
+      sessionId: row.session_id,
+      hostPid: typeof row.host_pid === 'number' ? row.host_pid : null,
+      rowHash: row.content_hash,
+    });
   });
   return live;
 }
 
 const NEW_HOST_SESSION_SOURCES: ReadonlySet<string> = new Set(['startup', 'resume']);
 
+export function hostProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
 export function releaseStageAgentsAtSessionStart(
   projectRoot: string,
   sessionId: string,
   source: unknown,
   now?: () => Date,
+  isAlive: (pid: number) => boolean = hostProcessAlive,
 ): boolean {
   if (typeof source !== 'string' || !NEW_HOST_SESSION_SOURCES.has(source)) return false;
   const dirName = currentFeature(projectRoot, sessionId);
   if (dirName === null) return false;
-  if (liveStageAgents(readFeatureStageUnit(projectRoot, dirName)).length === 0) return false;
+  const releases = liveStageAgents(readFeatureStageUnit(projectRoot, dirName))
+    .filter(
+      (agent) => agent.sessionId === sessionId || agent.hostPid === null || !isAlive(agent.hostPid),
+    )
+    .map((agent) => agent.rowHash);
+  if (releases.length === 0) return false;
   appendFeatureStageRow(
     projectRoot,
     sessionId,
     dirName,
-    { kind: RECORD_REPAIR_KIND, reason: STAGE_AGENT_SESSION_RELEASE },
+    { kind: RECORD_REPAIR_KIND, reason: STAGE_AGENT_SESSION_RELEASE, releases },
     now,
   );
   return true;
