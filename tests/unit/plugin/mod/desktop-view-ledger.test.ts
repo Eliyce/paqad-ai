@@ -139,6 +139,16 @@ describe('AC-19: the Ledger tabs', () => {
   });
 });
 
+describe('AC-21: a finished stage reads as done', () => {
+  it('a complete or redone stage is "Done" with a green check, never "Recorded"', () => {
+    const view = trustView(parse(FULL_ORD_501));
+    expect(view.stages.every((stage) => stage.mark === '✓')).toBe(true);
+    expect(JSON.stringify(view.stages)).not.toContain('Recorded');
+    const fast = trustView(parse(FAST_ORD_490));
+    expect(fast.stages.map((stage) => stage.mark)).toEqual(['✓', null, null]);
+  });
+});
+
 describe('AC-20: the Trust tab', () => {
   it('AC-34: groups the proof by the lane stages with steps inside, and no light, ring or reason', () => {
     const view = trustView(parse(FULL_ORD_501));
@@ -146,12 +156,12 @@ describe('AC-20: the Trust tab', () => {
       ['claims', 'empty', 'flags', 'gaps', 'gates', 'note', 'repairs', 'stages'].sort(),
     );
     expect(view.stages.map((stage) => [stage.words, stage.word, stage.tone])).toEqual([
-      ['Plan', 'Recorded', 'dim'],
-      ['Spec', 'Recorded', 'dim'],
-      ['Build', 'Recorded', 'dim'],
-      ['Review', 'Recorded', 'dim'],
-      ['Checks', 'Recorded', 'dim'],
-      ['Docs', 'Recorded', 'dim'],
+      ['Plan', 'Done', 'pass'],
+      ['Spec', 'Done', 'pass'],
+      ['Build', 'Done', 'pass'],
+      ['Review', 'Done', 'pass'],
+      ['Checks', 'Done', 'pass'],
+      ['Docs', 'Done', 'pass'],
     ]);
     expect(view.stages[1]!.steps.map((step) => [step.mark, step.words, step.detail])).toEqual([
       ['done', 'Grounded in the code', '8 references'],
@@ -171,7 +181,7 @@ describe('AC-20: the Trust tab', () => {
   it('AC-35 and AC-36: a fast-lane change shows Plan, Build and Checks in order, and no other stage', () => {
     const view = trustView(parse(FAST_ORD_490));
     expect(view.stages.map((stage) => [stage.words, stage.word, stage.tone])).toEqual([
-      ['Plan', 'Recorded', 'dim'],
+      ['Plan', 'Done', 'pass'],
       ['Build', 'Running', 'acc'],
       ['Checks', 'Not yet', 'dim'],
     ]);

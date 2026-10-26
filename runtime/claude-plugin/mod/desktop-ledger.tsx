@@ -190,8 +190,19 @@ function stageHeading(ui: D, stage: TrustStage) {
           {stage.words.toUpperCase()}
         </Text>
       </Box>
-      {word(ui, stage.word, stage.tone)}
+      {stage.mark ? doneWord(ui, stage) : word(ui, stage.word, stage.tone)}
     </Box>
+  );
+}
+
+// The check carries the green; the word stays in the text colour so it reads at full contrast.
+function doneWord(ui: D, stage: TrustStage) {
+  const { Text } = ui;
+  return (
+    <Text size="footnote" weight="medium">
+      <Text color={toneColor(stage.tone) ?? undefined}>{stage.mark}</Text>
+      {` ${stage.word}`}
+    </Text>
   );
 }
 

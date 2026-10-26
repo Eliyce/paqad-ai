@@ -1210,8 +1210,9 @@ describe('the Desktop Ledger', () => {
     expect(propsOf(rule!).height).toBe(2);
     expect(lines).not.toContain('● Safe to merge');
     expect(lines.some((line) => line.includes('required gates pass'))).toBe(false);
-    for (const line of ['PLAN', 'SPEC', 'BUILD', 'REVIEW', 'CHECKS', 'DOCS', 'Recorded'])
+    for (const line of ['PLAN', 'SPEC', 'BUILD', 'REVIEW', 'CHECKS', 'DOCS', '✓ Done'])
       expect(lines).toContain(line);
+    expect(lines).not.toContain('Recorded');
     expect(lines).toContain('✓  Plan compiled  ·  6 steps');
     for (const line of ['Tests, types and lint pass', 'Pass', 'Not required'])
       expect(lines).toContain(line);
@@ -2659,7 +2660,7 @@ describe('the Trust, Ships and Record tabs', () => {
       const drawn = await $.ui.render(pane(surface));
       const lines = drawnLines(drawn);
       expect(lines).toContain('Trust (shown)');
-      expect(lines).toContain('Checks  Recorded');
+      expect(lines).toContain('Checks  ✓ Done');
       expect(lines).toContain('    Tests, types and lint pass  Pass');
       expect(lines).toContain('    Quality did not drop  Could not prove');
       expect(lines.some((line) => /\d+\/\d+ required|^Verdict /.test(line))).toBe(false);
