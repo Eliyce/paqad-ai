@@ -1,5 +1,5 @@
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -11,6 +11,7 @@ import {
 } from '@/cost/change-cost.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { hudVerdictPath } from '@/hud/files.js';
 import { buildHudSnapshot, type HudSnapshot } from '@/hud/snapshot.js';
 import { deferCompletionForBackgroundStage } from '@/stage-evidence/completion-deferred.js';
 import { endStage, startStage } from '@/stage-evidence/recorder.js';
@@ -175,5 +176,65 @@ describe('AC-7 / NFR-4: the scrubbed replay of a healthy full-lane run', () => {
     for (let index = 1; index < tokensSeen.length; index += 1) {
       expect(tokensSeen[index]).toBeGreaterThan(tokensSeen[index - 1]!);
     }
+  });
+});
+
+describe('a verdict judged while a background stage agent runs', () => {
+  const failedEarly = (root: string, dir: string, seconds: number) =>
+    writeFileSync(
+      hudVerdictPath(root, S),
+      JSON.stringify({
+        schema: 'paqad.hud-verdict/1',
+        session_id: S,
+        change: dir,
+        word: 'Needs your attention',
+        kind: 'fail',
+        work_kind: 'fail',
+        passed: false,
+        reasons: [],
+        written_at: clock(seconds)().toISOString(),
+      }),
+    );
+
+  const startBuild = (root: string, dir: string, withAgent: boolean) => {
+    const now = clock(10);
+    startStage(root, 'development', { sessionId: S, dirName: dir, adapter: 'claude-code', now });
+    if (withAgent) {
+      recordStageAgentStart({
+        projectRoot: root,
+        payload: agentPayload({
+          at: 11,
+          event: 'agent_start',
+          stage: 'development',
+          agent_id: 'a',
+        }),
+        now: clock(11),
+      });
+    }
+  };
+
+  it('keeps the running Build as the headline, never Needs your attention', () => {
+    const root = repoRoot();
+    const dir = openChangeHere(root, S, 'X-2 replayed change', 'full', clock(0)());
+    startBuild(root, dir, true);
+    mkdirSync(dirname(hudVerdictPath(root, S)), { recursive: true });
+    failedEarly(root, dir, 20);
+
+    const snapshot = buildHudSnapshot(root, S, { now: clock(30) });
+    expect(snapshot.verdict?.kind).toBe('fail');
+    expect(snapshot.headline).toMatchObject({ row: 15, tone: 'working' });
+    const head = desktopHeadline(parseSnapshot(JSON.stringify(snapshot))!, clock(30)().getTime());
+    expect(head.text).not.toContain('Needs your attention');
+  });
+
+  it('shows the verdict once no stage agent holds the stage, without the bare verdict words', () => {
+    const root = repoRoot();
+    const dir = openChangeHere(root, S, 'X-3 replayed change', 'full', clock(0)());
+    startBuild(root, dir, false);
+    mkdirSync(dirname(hudVerdictPath(root, S)), { recursive: true });
+    failedEarly(root, dir, 20);
+
+    const snapshot = buildHudSnapshot(root, S, { now: clock(30) });
+    expect(snapshot.headline).toMatchObject({ row: 13, text: 'Inconclusive', tone: 'warn' });
   });
 });

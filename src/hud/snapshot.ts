@@ -59,6 +59,7 @@ import type { RoutedWorkflow } from '@/pipeline/routed-workflow.js';
 import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state.js';
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
+import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { isLaneStage, laneStages } from '@/stage-evidence/stages.js';
 import { RECORD_REPAIR_KIND, STAGE_AGENT_KIND, type FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
@@ -1213,6 +1214,7 @@ export interface HudHeadlineInput {
   recordGaps?: readonly string[];
   unproven?: readonly string[];
   verdictEarlier?: boolean;
+  stageAgentLive?: boolean;
 }
 
 export const RUNG_WORDS: Readonly<Record<HudRung, string>> = {
@@ -1348,7 +1350,7 @@ function runningWords(input: HudHeadlineInput, stage: string): string {
   }
 }
 
-function workFailure(input: HudHeadlineInput): string {
+function workFailure(input: HudHeadlineInput): string | null {
   const expected = input.gatesExpected ?? [];
   const rank = (name: string) => {
     const index = expected.indexOf(name);
@@ -1358,8 +1360,22 @@ function workFailure(input: HudHeadlineInput): string {
     .filter((gate) => gate.required && gate.verdict === 'fail' && gate.owner !== 'paqad-record')
     .map((gate) => gate.name)
     .sort((a, b) => rank(a) - rank(b));
-  if (!first) return 'Needs your attention';
+  if (!first) return null;
   return rest.length > 0 ? `${failurePhrase(first)} and ${rest.length} more` : failurePhrase(first);
+}
+
+function inconclusiveHeadline(
+  verdict: HudVerdictRecord,
+  gap: Pick<HudHeadline, 'gap'>,
+): HudHeadline {
+  const reason = (verdict.work_reasons ?? verdict.reasons ?? [])[0];
+  return headlineRow(
+    13,
+    'warn',
+    reason ? `Inconclusive: ${reason}` : 'Inconclusive',
+    'Inconclusive',
+    gap,
+  );
 }
 
 function gapLine(gaps: readonly string[]): Pick<HudHeadline, 'gap'> {
@@ -1477,24 +1493,18 @@ export function computeHudHeadline(input: HudHeadlineInput): HudHeadline {
   if (ship?.push?.state === 'failed')
     return headlineRow(11, 'bad', 'The push failed', 'Push failed');
   const running = input.stages.find((stage) => stage.state === 'running');
-  const verdict = input.verdictEarlier && running ? null : input.verdict;
+  const held = running && (input.verdictEarlier || input.stageAgentLive);
+  const verdict = held ? null : input.verdict;
   const work = workKindOf(verdict);
-  if (work === 'fail') {
-    return headlineRow(12, 'bad', workFailure(input), 'Needs your attention', gap);
+  if (verdict && work === 'fail') {
+    const failure = workFailure(input);
+    if (!failure) return inconclusiveHeadline(verdict, gap);
+    return headlineRow(12, 'bad', failure, 'Needs your attention', gap);
   }
   if (work === 'pass' && input.checks === 'red') {
     return headlineRow(12, 'bad', failurePhrase('code-tests-lint'), 'Needs your attention', gap);
   }
-  if (verdict && work === 'inconclusive') {
-    const reason = (verdict.work_reasons ?? verdict.reasons ?? [])[0];
-    return headlineRow(
-      13,
-      'warn',
-      reason ? `Inconclusive: ${reason}` : 'Inconclusive',
-      'Inconclusive',
-      gap,
-    );
-  }
+  if (verdict && work === 'inconclusive') return inconclusiveHeadline(verdict, gap);
   if (ship?.pr_state === 'open' && ship.ci?.state === 'pending') {
     const delivery = input.stages.find((stage) => stage.stage === 'delivery');
     return headlineRow(14, 'working', `Watching CI on ${pr}`, 'Working', {
@@ -1703,6 +1713,7 @@ export function buildHudSnapshot(
       recordGaps: stages.some((stage) => stage.state === 'running') ? [] : gaps,
       unproven: unprovenLines(gates, verdict),
       verdictEarlier: verdictFromEarlierTurn(verdict, workflow, options.turnRunning === true),
+      stageAgentLive: liveStageAgents(readFeatureStageUnit(projectRoot, dirName)).length > 0,
     }),
     change: {
       dir: dirName,
