@@ -108,6 +108,15 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ unavailable: true })).toMatchObject({ kind: 'feature' });
   });
 
+  it('AC-25: a workflow band is never drawn from a snapshot older than the prompt just sent', () => {
+    const question = parse(
+      snapshot({ ...OTHER_WORKFLOW, generated_at: new Date(NOW - 5_000).toISOString() }),
+    );
+    expect(band({ snapshot: question, turnStartedAt: NOW - 1_000 }).kind).not.toBe('workflow');
+    expect(band({ snapshot: question, turnStartedAt: NOW - 9_000 }).kind).toBe('workflow');
+    expect(band({ snapshot: question, turnStartedAt: null }).kind).toBe('workflow');
+  });
+
   it('row 2: another workflow gets the workflow band, and no workflow draws nothing', () => {
     expect(band({ snapshot: parse(OTHER_WORKFLOW) })).toEqual({
       kind: 'workflow',
@@ -401,6 +410,12 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
         waitingOn: 'question',
       }).value,
     ).toBe('Build · paused');
+    const waitingOnPermission = stageStrip(open({ stages: stages({ planning: 'running' }) }), {
+      ...IDLE_LIVE,
+      waitingOn: 'permission',
+    });
+    expect(waitingOnPermission.value).toBe('Plan');
+    expect(waitingOnPermission.stages.find((mark) => mark.label === 'Plan')?.state).toBe('run');
     expect(value({ stages: stages({ review: 'failed' }) })).toBe('Review failed');
     const unreliable = stages({ planning: 'complete' }).map((stage) =>
       stage.stage === 'planning' ? { ...stage, duration_unreliable: true } : stage,
@@ -539,18 +554,29 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
 });
 
 describe('AC-16: the card falls back to the minimised row when it does not fit', () => {
-  it('costs identity 1, message 1 and strip 3, and the menu 1 more while it is open', () => {
+  it('AC-16: always reserves the line under the headline: identity, message, gap and strip', () => {
     expect(CARD_ROWS).toEqual({ identity: 1, message: 1, gap: 1, strip: 3, menu: 1 });
-    expect(cardRows(false)).toBe(5);
-    expect(cardRows(true)).toBe(6);
-    expect(cardRows(false, true)).toBe(6);
+    expect(cardRows(false)).toBe(6);
+    expect(cardRows(true)).toBe(7);
   });
 
-  it('draws the minimised row at 4 rows, the card at 5, and the minimised row with the menu at 5', () => {
-    expect(band({ maxRows: 4 })).toMatchObject({ kind: 'feature', mode: 'minimised', menu: false });
-    expect(band({ maxRows: 5 })).toMatchObject({ kind: 'feature', mode: 'card', menu: false });
-    expect(band({ maxRows: 5, menuOpen: true })).toMatchObject({ mode: 'minimised', menu: true });
-    expect(band({ maxRows: 6, menuOpen: true })).toMatchObject({ mode: 'card', menu: true });
+  it('draws the minimised row at 5 rows, the card at 6, and the minimised row with the menu at 6', () => {
+    expect(band({ maxRows: 5 })).toMatchObject({ kind: 'feature', mode: 'minimised', menu: false });
+    expect(band({ maxRows: 6 })).toMatchObject({ kind: 'feature', mode: 'card', menu: false });
+    expect(band({ maxRows: 6, menuOpen: true })).toMatchObject({ mode: 'minimised', menu: true });
+    expect(band({ maxRows: 7, menuOpen: true })).toMatchObject({ mode: 'card', menu: true });
+  });
+
+  it('AC-16: a headline with a gap line and one without fit the same rows', () => {
+    const withGap = open({
+      headline: { text: 'Done', tone: 'good', row: 16, gap: 'No record yet for: Docs' },
+    });
+    const withoutGap = open({ headline: { text: 'Next: Plan', tone: 'neutral', row: 19 } });
+    for (const maxRows of [5, 6]) {
+      expect(band({ snapshot: withGap, maxRows })).toMatchObject({
+        mode: band({ snapshot: withoutGap, maxRows }).mode,
+      });
+    }
   });
 });
 

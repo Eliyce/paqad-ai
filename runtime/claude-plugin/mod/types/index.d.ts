@@ -116,6 +116,12 @@ export type PaqadHighTable = {
 
 export type PaqadPaneTab = 'table' | 'cost' | 'trust' | 'ships' | 'record';
 
+export type TableSitting = {
+  key: string;
+  forwarded: boolean;
+  picked: boolean;
+};
+
 export type PaqadLastBlock = {
   text: string;
   rule?: string;
@@ -221,6 +227,7 @@ export type PaqadTimelineEntry = {
   lane?: string;
   sha?: string;
   subject?: string;
+  decision?: string;
   number?: number;
   requirements?: number;
   criteria?: number;
@@ -318,7 +325,14 @@ export type PaqadHudSnapshot = {
   repairs?: PaqadRepair[];
   rung?: PaqadRung;
   verdict_stale?: true;
+  start_point?: PaqadStartPoint | null;
   proof?: PaqadStageProof[];
+};
+
+export type PaqadStartPoint = {
+  source: 'start_commit' | 'fork-point' | 'fallback-base';
+  base: string | null;
+  files_known: boolean;
 };
 
 export type PaqadStandDown = 'view-off' | 'not-onboarded' | 'remote' | 'disabled' | 'old-engine';
@@ -345,6 +359,7 @@ declare module 'claude-code' {
       closing: boolean;
       tableSides: boolean;
       live: LiveState;
+      tableSitting: TableSitting | null;
     };
   }
 }

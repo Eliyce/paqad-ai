@@ -20,7 +20,11 @@ import { writeChecksRunningMarker } from '@/checks/running-marker.js';
 import { featureDir, featureFilePath } from '@/feature-evidence/paths.js';
 import { readFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { setLane } from '@/feature-evidence/session-control.js';
-import { currentFeature, readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  currentFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
 
 const ADAPTER = 'backstop';
 
@@ -134,6 +138,29 @@ describe('finalizeStageEvidence', () => {
     expect(devEnd, 'the dangling stage should be closed at the turn boundary').toBeDefined();
     expect(devEnd?.evidence_source).toBe('live-mark');
     expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
+  });
+
+  it('INV-1: leaves an open stage and the development stage alone while its stage agent runs', () => {
+    const sessionId = 'ses_live_agent';
+    const { dirName } = openStageEvidence(root, { sessionId, adapter: 'claude-code' });
+    startStage(root, 'planning', { sessionId, dirName, adapter: 'claude-code' });
+    appendFeatureStageRow(root, sessionId, dirName, {
+      kind: 'stage-agent',
+      stage: 'planning',
+      agent: 'paqad-planning',
+      agent_id: 'agent_plan_1',
+      event_status: 'started',
+      tokens_used: 0,
+      tokens_not_recarried: 0,
+      estimate: true,
+    });
+
+    finalizeStageEvidence(root, { adapter: ADAPTER, sessionId, changedFilesCount: 14 });
+
+    const rows = activeRows(root, sessionId);
+    expect(rows.some((row) => row.kind === 'stage_end')).toBe(false);
+    expect(rows.some((row) => row.evidence_source === 'inferred-git')).toBe(false);
+    expect(rows.some((row) => row.kind === 'record-repair')).toBe(false);
   });
 
   it('ends a live-mark stage that was started again after an earlier end', () => {

@@ -102,6 +102,33 @@ describe('stage-agent rows', () => {
   });
 });
 
+describe('a started stage-agent row (hud-live-run-truth)', () => {
+  it('adds no isolated stage and no evidence while the agent is still running', () => {
+    const root = tempRoot();
+    appendFeatureStageRow(
+      root,
+      'ses_orch',
+      DIR,
+      {
+        kind: 'stage-agent',
+        stage: 'planning',
+        agent: 'paqad-planning',
+        agent_id: 'agent_plan_1',
+        event_status: 'started',
+        tokens_used: 0,
+        tokens_not_recarried: 0,
+        estimate: true,
+      },
+      clock,
+    );
+    expect(readStageAgentRows(root, DIR)).toEqual([]);
+    expect(hasStageAgentEvidence(root, DIR)).toBe(false);
+    expect(summarizeStageIsolation(root, DIR)).toBeNull();
+    stageAgent(root, 'development', 300);
+    expect(summarizeStageIsolation(root, DIR)?.stages).toBe(1);
+  });
+});
+
 describe('the stage-agent row schema', () => {
   it('requires the stage-agent fields on a stage-agent row', () => {
     const root = tempRoot();

@@ -21,6 +21,7 @@ import {
 import { readFeatureRecord, updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
+import { forkBranchOf } from '@/rag/git-state.js';
 import { mkdirSync } from 'node:fs';
 
 const roots: string[] = [];
@@ -295,5 +296,53 @@ describe('what ships', () => {
     recordShip(root, dir, { ci: ci('pass') }, AT);
     recordShip(root, dir, { ci: ci('pending') }, AT);
     expect(readFeatureDelivery(root, dir).ci?.state).toBe('pass');
+  });
+});
+
+describe('the change start point (hud-live-run-truth)', () => {
+  const g = (root: string, ...args: string[]) =>
+    execFileSync('git', args, { cwd: root, stdio: ['ignore', 'ignore', 'ignore'] });
+
+  it('records the working tree as it stood at open, once', () => {
+    const root = tempRepo();
+    writeFileSync(join(root, 'local.txt'), 'untracked before open');
+    rmSync(join(root, 'a.txt'));
+    const dir = openFeatureChange(root, 'ses-wt', {
+      adapter: 'claude-code',
+      title: 'wt',
+      issue: null,
+    });
+    const delivery = readFeatureDelivery(root, dir);
+    expect(delivery.start_worktree).toEqual({
+      'a.txt': 'deleted',
+      'local.txt': expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
+    writeFileSync(join(root, 'later.txt'), 'after open');
+    writeFeatureDelivery(root, dir, readFeatureDelivery(root, dir));
+    expect(Object.keys(readFeatureDelivery(root, dir).start_worktree ?? {})).toEqual([
+      'a.txt',
+      'local.txt',
+    ]);
+  });
+
+  it('forkBranchOf names the branch a branch was cut from, through Created from HEAD', () => {
+    const root = tempRepo();
+    g(root, 'checkout', '-q', '-b', 'release');
+    writeFileSync(join(root, 'r.txt'), 'r');
+    g(root, 'add', '-A');
+    g(root, 'commit', '-q', '-m', 'feat: release work');
+    g(root, 'checkout', '-q', '-b', 'feat/next');
+    expect(forkBranchOf(root, 'feat/next')).toBe('release');
+    g(root, 'branch', 'feat/direct', 'main');
+    expect(forkBranchOf(root, 'feat/direct')).toBe('main');
+    expect(forkBranchOf(root, 'main')).toBeNull();
+  });
+
+  it('forkBranchOf names no branch for a branch cut from a detached HEAD', () => {
+    const root = tempRepo();
+    const sha = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    g(root, 'checkout', '-q', '--detach', sha);
+    g(root, 'checkout', '-q', '-b', 'feat/from-sha');
+    expect(forkBranchOf(root, 'feat/from-sha')).toBeNull();
   });
 });

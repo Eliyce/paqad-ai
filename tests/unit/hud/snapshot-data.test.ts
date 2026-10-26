@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { CHECKS_REPORT_SCHEMA_VERSION, writeFeatureChecks } from '@/checks/report-store.js';
 import { PATHS } from '@/core/constants/paths.js';
 import {
   readFeatureDelivery,
@@ -303,6 +304,8 @@ describe('AC-27: files changed and plan steps built', () => {
     commit(root, 'src/a.ts', 'feat: a');
     writeFileSync(join(root, 'notes.txt'), 'untracked\n');
 
+    expect(buildHudSnapshot(root, S).plan).toBeNull();
+    startStage(root, 'development', { sessionId: S, adapter: 'claude-code' });
     const snapshot = buildHudSnapshot(root, S);
     expect(snapshot.ship?.files_changed).toBe(2);
     expect(snapshot.plan).toEqual({ steps: 3, done: 1 });
@@ -397,6 +400,15 @@ describe('AC-27: acceptance claims and the tests that prove them', () => {
     const S = 'ses-claims-frozen';
     const { root, dir } = changeWithTests(S);
     writeSpec(root, dir, true);
+    expect(buildHudSnapshot(root, S).claims[0]).toMatchObject({ id: 'AC-1', verdict: 'mapped' });
+    startStage(root, 'development', { sessionId: S, adapter: 'claude-code' });
+    writeFeatureChecks(root, dir, {
+      schema_version: CHECKS_REPORT_SCHEMA_VERSION,
+      generated_at: new Date(Date.now() + 60_000).toISOString(),
+      passed: true,
+      ran: true,
+      results: [],
+    });
     expect(buildHudSnapshot(root, S).claims).toEqual([
       {
         kind: 'acceptance',
@@ -575,11 +587,16 @@ describe('AC-27: the Record events', () => {
       } as unknown as HudHighTable,
       decisions: [
         {
-          packet: { created_at: at('08:12:01'), resolved_at: at('08:20:00') },
+          packet: {
+            id: 'D-1',
+            title: 'Which export format?',
+            created_at: at('08:12:01'),
+            resolved_at: at('08:20:00'),
+          },
           status: 'resolved',
         },
-        { packet: { created_at: at('08:12:30') }, status: 'pending' },
-        { packet: { created_at: at('08:15:00') }, status: 'pending' },
+        { packet: { id: 'D-2', title: 'Email?', created_at: at('08:12:30') }, status: 'pending' },
+        { packet: { id: 'D-3', created_at: at('08:15:00') }, status: 'pending' },
       ] as unknown as RecordEventSources['decisions'],
       specJson: {
         frozen: { frozen_at: at('08:13:00') },
@@ -638,9 +655,24 @@ describe('AC-27: the Record events', () => {
         duration_ms: 95_000,
         verdict: 'needs answers',
       },
-      { at: at('08:12:01'), kind: 'decisions_opened', stage: null, note: null, count: 2 },
-      { at: at('08:15:00'), kind: 'decisions_opened', stage: null, note: null, count: 1 },
-      { at: at('08:20:00'), kind: 'decisions_answered', stage: null, note: null, count: 1 },
+      {
+        at: at('08:12:01'),
+        kind: 'decision_opened',
+        stage: null,
+        note: null,
+        decision: 'D-1',
+        subject: 'Which export format?',
+      },
+      { at: at('08:20:00'), kind: 'decision_answered', stage: null, note: null, decision: 'D-1' },
+      {
+        at: at('08:12:30'),
+        kind: 'decision_opened',
+        stage: null,
+        note: null,
+        decision: 'D-2',
+        subject: 'Email?',
+      },
+      { at: at('08:15:00'), kind: 'decision_opened', stage: null, note: null, decision: 'D-3' },
       {
         at: at('08:13:00'),
         kind: 'spec_frozen',
@@ -813,5 +845,45 @@ describe('AC-8: the snapshot carries Trust proof by the lane stages', () => {
     const idle = onboardedRoot();
     persistLedgerSessionId(idle, 'ses-proof-idle');
     expect(buildHudSnapshot(idle, 'ses-proof-idle', { now: NOW }).proof).toBeUndefined();
+  });
+});
+
+describe('AC-8 / AC-26: a branch with earlier work and local files shows none of it as this change', () => {
+  afterEach(() => cleanupScopeFixtures());
+
+  it('no Edits made, no Docs updated, 0 plan steps built and no claim pass right after open', () => {
+    const root = repoRoot();
+    checkout(root, 'release', true);
+    mkdirSync(join(root, 'docs'), { recursive: true });
+    mkdirSync(join(root, 'tests'), { recursive: true });
+    commit(root, 'docs/earlier.md', 'docs: earlier work');
+    writeFileSync(join(root, 'tests', 'earlier.test.ts'), "it('AC-1: binds first', () => {});\n");
+    commit(root, 'src-earlier.ts', 'feat: earlier work');
+    checkout(root, 'feat/next', true);
+    writeFileSync(join(root, 'local.txt'), 'untracked before open\n');
+    writeFileSync(join(root, 'README.md'), 'modified before open\n');
+    const S = 'ses-earlier-work';
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writeFileSync(
+      join(root, featureFilePath(dir, 'plan')),
+      JSON.stringify({
+        steps: [
+          { id: 'S1', description: 'docs', files: ['docs/earlier.md'] },
+          { id: 'S2', description: 'code', files: ['src-earlier.ts'] },
+        ],
+      }),
+    );
+    startStage(root, 'development', { sessionId: S, adapter: 'claude-code' });
+
+    const snapshot = buildHudSnapshot(root, S);
+    expect(snapshot.ship?.files_changed).toBe(0);
+    expect(snapshot.plan).toEqual({ steps: 2, done: 0 });
+    expect(snapshot.claims.some((claim) => claim.verdict === 'pass')).toBe(false);
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('branch:shared');
+    expect(snapshot.start_point).toMatchObject({ source: 'start_commit', files_known: true });
+    const steps = (snapshot.proof ?? []).flatMap((entry) => entry.steps);
+    expect(steps.find((entry) => entry.id === 'edits')?.state).toBe('not-yet');
+    expect(steps.find((entry) => entry.id === 'docs')?.state ?? 'not-yet').toBe('not-yet');
   });
 });

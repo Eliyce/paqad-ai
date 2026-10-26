@@ -3,7 +3,15 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { changeOwnTickets, computeCommitSplit, type CommitSplit } from '@/delivery/commit-split.js';
-import { readGitState } from '@/rag/git-state.js';
+import {
+  changedFilesSince,
+  DELETED_AT_START,
+  digestWorkingFile,
+  gitPathList,
+  isPaqadArtifactPath,
+  type ChangeStartLike,
+} from '@/pipeline/git-paths.js';
+import { forkBranchOf, readGitState } from '@/rag/git-state.js';
 
 import { stampFeatureDocument } from './bundle-document.js';
 import type { EnvelopeHeader } from './envelope.js';
@@ -98,6 +106,8 @@ export interface DeliveryRecord extends Partial<
   commit_decision?: CommitDecision;
   last_link_attempt?: string | null;
   start_commit?: string | null;
+  start_worktree?: Record<string, string> | null;
+  start_worktree_truncated?: boolean;
   commit_split?: CommitSplit | null;
   push?: DeliveryPush | null;
   pr?: DeliveryPr | null;
@@ -173,6 +183,8 @@ export function writeFeatureDelivery(
       commit_decision: record.commit_decision ?? emptyCommitDecision(),
       last_link_attempt: record.last_link_attempt ?? null,
       start_commit: record.start_commit ?? null,
+      ...(record.start_worktree ? { start_worktree: record.start_worktree } : {}),
+      ...(record.start_worktree_truncated ? { start_worktree_truncated: true } : {}),
       commit_split: record.commit_split ?? null,
       push: record.push ?? null,
       pr: record.pr ?? null,
@@ -212,8 +224,9 @@ export function refreshCommitSplit(
 ): DeliveryRecord {
   try {
     const feature = readFeatureRecord(projectRoot, dirName);
+    const fork = forkBranchOf(projectRoot, readGitState(projectRoot).branch);
     record.commit_split = computeCommitSplit(projectRoot, {
-      baseBranch: feature?.base_branch ?? undefined,
+      baseBranch: fork ?? feature?.base_branch ?? undefined,
       startCommit: record.start_commit ?? null,
       ownTickets: changeOwnTickets(feature?.issue, feature?.branch ?? null),
     });
@@ -229,9 +242,102 @@ export function seedFeatureDelivery(
 ): DeliveryRecord {
   const record = readFeatureDelivery(projectRoot, dirName);
   record.commit_decision = record.commit_decision ?? emptyCommitDecision();
-  if (!record.start_commit && input.startCommit) record.start_commit = input.startCommit;
+  if (!record.start_commit && input.startCommit) {
+    record.start_commit = input.startCommit;
+    const worktree = captureStartWorktree(projectRoot);
+    if (worktree) {
+      record.start_worktree = worktree.files;
+      if (worktree.truncated) record.start_worktree_truncated = true;
+    }
+  }
   refreshCommitSplit(projectRoot, dirName, record);
   return writeFeatureDelivery(projectRoot, dirName, record, input.recordedAt, input.sessionId);
+}
+
+export const START_WORKTREE_CAP = 2000;
+
+export function captureStartWorktree(
+  projectRoot: string,
+): { files: Record<string, string>; truncated: boolean } | null {
+  const changed = gitPathList(projectRoot, ['diff', '--name-only', '--relative', '-z', 'HEAD']);
+  const untracked = gitPathList(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
+  if (changed === null || untracked === null) return null;
+  const paths = [...new Set([...changed, ...untracked])]
+    .filter((path) => !isPaqadArtifactPath(path))
+    .sort();
+  const files: Record<string, string> = {};
+  for (const path of paths.slice(0, START_WORKTREE_CAP)) {
+    files[path] = digestWorkingFile(projectRoot, path) ?? DELETED_AT_START;
+  }
+  return { files, truncated: paths.length > START_WORKTREE_CAP };
+}
+
+export type ChangeStartSource = 'start_commit' | 'fork-point' | 'fallback-base';
+
+export { changedFilesSince, DELETED_AT_START };
+
+export interface ChangeStartPoint extends ChangeStartLike {
+  commit: string;
+  source: ChangeStartSource;
+  base: string | null;
+  worktree: Record<string, string> | null;
+}
+
+export function readChangeStartPoint(
+  projectRoot: string,
+  dirName: string,
+  fallbackBase?: string | null,
+): ChangeStartPoint | null {
+  const delivery = readFeatureDelivery(projectRoot, dirName);
+  const worktree = delivery.start_worktree ?? null;
+  const start = delivery.start_commit ?? null;
+  const state = readGitState(projectRoot, fallbackBase ? { baseBranch: fallbackBase } : {});
+  const fork = forkBranchOf(projectRoot, state.branch);
+  if (start && git(projectRoot, ['merge-base', '--is-ancestor', start, 'HEAD']) !== undefined) {
+    const merged = latestMergedBase(projectRoot, start, state.head_commit, [
+      fork,
+      state.base_branch,
+    ]);
+    return {
+      commit: merged.after ?? start,
+      source: 'start_commit',
+      base: null,
+      worktree,
+      mergedBase: merged.after ? null : merged.beside,
+    };
+  }
+  const forkPoint = fork ? git(projectRoot, ['merge-base', 'HEAD', fork]) : undefined;
+  if (fork && forkPoint) {
+    return { commit: forkPoint, source: 'fork-point', base: fork, worktree };
+  }
+  if (state.base_commit) {
+    return {
+      commit: state.base_commit,
+      source: 'fallback-base',
+      base: state.base_branch ?? null,
+      worktree,
+    };
+  }
+  return null;
+}
+
+function latestMergedBase(
+  projectRoot: string,
+  start: string,
+  head: string | undefined,
+  bases: (string | null | undefined)[],
+): { after: string | null; beside: string | null } {
+  const descends = (older: string, newer: string) =>
+    git(projectRoot, ['merge-base', '--is-ancestor', older, newer]) !== undefined;
+  const latest = { after: null as string | null, beside: null as string | null };
+  for (const base of new Set(bases.filter((name): name is string => Boolean(name)))) {
+    const point = git(projectRoot, ['merge-base', 'HEAD', base]);
+    if (!point || point === start || point === head || descends(point, start)) continue;
+    const slot = descends(start, point) ? 'after' : 'beside';
+    const current = latest[slot];
+    if (current === null || descends(current, point)) latest[slot] = point;
+  }
+  return latest;
 }
 
 export function setCommitDecision(

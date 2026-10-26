@@ -26,6 +26,11 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5VRJ2E7XV7F5VZKB3FXKQRK](TD-01M5VRJ2E7XV7F5VZKB3FXKQRK.md) (gap, low): HUD binds a foreground Agent call to the first new agent id; parallel or same-message dispatches are not told apart
+- [TD-01M5VRHVTQ24C395EA30WZ41TD](TD-01M5VRHVTQ24C395EA30WZ41TD.md) (gap, low): SessionStart release trusts the hook's parent pid, which can be a short-lived shell or a reused pid
+- [TD-01M5VRH711MWY0XT02FZSQ3KQS](TD-01M5VRH711MWY0XT02FZSQ3KQS.md) (gap, low): Codex writes no started stage-agent row, so the ledger cannot defer there
+- [TD-01M5VQ75JG902H89W2FCE5P6QG](TD-01M5VQ75JG902H89W2FCE5P6QG.md) (gap, low): The cost total leaves out High Table seat tokens that only the host reported
+- [TD-01M5VMXRMKTVPN1735B09YYQPZ](TD-01M5VMXRMKTVPN1735B09YYQPZ.md) (gap, medium): A stage agent killed mid-session without SubagentStop holds the turn-end judgement until the next stage row or session
 - [TD-01M5SHTYS3TRMRNHHJT3YKVDJY](TD-01M5SHTYS3TRMRNHHJT3YKVDJY.md) (bug, low): Concurrent background-agent permission asks: settling the later one clears the band while the earlier one still waits
 - [TD-01M5SHTX96QGWZECDMF2926BA4](TD-01M5SHTX96QGWZECDMF2926BA4.md) (gap, low): Stop hooks skip the deferral check when background_tasks is empty, so a checks-run marker alone never defers
 - [TD-01M5KR7VM51BM5SPDQ4JC3JDAK](TD-01M5KR7VM51BM5SPDQ4JC3JDAK.md) (gap, low): Firewall eval rule cases grade only src/api/users.ts, so a db import in a new src/api file scores as a pass

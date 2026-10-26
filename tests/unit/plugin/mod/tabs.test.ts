@@ -43,7 +43,7 @@ const PRESENT = (files: string[]) =>
 describe('the Trust tab', () => {
   it('AC-34 and AC-36: groups the proof by the fast-lane stages in order, steps then gates', () => {
     expect(text(trustLines(parse(FAST_ORD_490)))).toEqual([
-      'Plan  Recorded',
+      'Plan  ✓ Done',
       '  ✓ Plan compiled  2 steps',
       '  ✓ Reuse checked  3 sources consulted',
       'Build  Running',
@@ -65,12 +65,12 @@ describe('the Trust tab', () => {
   it('AC-35: shows only the full-lane stages and their gates, with no ring, light or verdict', () => {
     const lines = text(trustLines(parse(FULL_ORD_501)));
     expect(lines.filter((entry) => !entry.startsWith(' ') && entry.includes('  '))).toEqual([
-      'Plan  Recorded',
-      'Spec  Recorded',
-      'Build  Recorded',
-      'Review  Recorded',
-      'Checks  Recorded',
-      'Docs  Recorded',
+      'Plan  ✓ Done',
+      'Spec  ✓ Done',
+      'Build  ✓ Done',
+      'Review  ✓ Done',
+      'Checks  ✓ Done',
+      'Docs  ✓ Done',
     ]);
     expect(lines).toContain('    The spec was reviewed  Pass');
     expect(lines).toContain('    Tests catch real mutations  Not required');
@@ -294,7 +294,7 @@ describe('/paqad trust, ships and record', () => {
 
   it('print the same lines as the tabs', () => {
     expect(run('trust', FAST_ORD_490)).toBe(linesText(trustLines(parse(FAST_ORD_490))));
-    expect(run('trust', FAST_ORD_490).split('\n')[0]).toBe('Plan  Recorded');
+    expect(run('trust', FAST_ORD_490).split('\n')[0]).toBe('Plan  ✓ Done');
     expect(run('ships', snapshot({ active: true, ship: null }))).toBe(NOTHING_PUSHED);
     expect(run('record', { ...FULL_ORD_501, evidence_expected: PRESENT(['plan.json']) })).toContain(
       'Plan         recorded in plan.json',

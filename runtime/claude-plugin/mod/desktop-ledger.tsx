@@ -190,8 +190,18 @@ function stageHeading(ui: D, stage: TrustStage) {
           {stage.words.toUpperCase()}
         </Text>
       </Box>
-      {word(ui, stage.word, stage.tone)}
+      {stage.mark ? doneWord(ui, stage) : word(ui, stage.word, stage.tone)}
     </Box>
+  );
+}
+
+function doneWord(ui: D, stage: TrustStage) {
+  const { Text } = ui;
+  return (
+    <Text size="footnote" weight="medium">
+      <Text color={toneColor(stage.tone) ?? undefined}>{stage.mark}</Text>
+      {` ${stage.word}`}
+    </Text>
   );
 }
 
@@ -398,6 +408,7 @@ function deliveryBlock(ui: D, block: DeliveryBlock) {
             </Text>
           )}
           {block.sub ? note(ui, block.sub) : null}
+          {block.note ? note(ui, block.note) : null}
         </Box>
         {block.right ? word(ui, block.right, 'dim') : null}
       </Box>

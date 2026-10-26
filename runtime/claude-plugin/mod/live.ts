@@ -15,6 +15,44 @@ export const QUESTION_TOOL = 'AskUserQuestion';
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit']);
 
+export const AGENT_TOOLS: ReadonlySet<string> = new Set(['Agent', 'Task']);
+
+export interface ForegroundCall {
+  agent: string | null;
+}
+
+export class ForegroundAgents {
+  private readonly calls: ForegroundCall[] = [];
+  private readonly seen = new Set<string>();
+
+  callStarted(): ForegroundCall {
+    const call: ForegroundCall = { agent: null };
+    this.calls.push(call);
+    return call;
+  }
+
+  callEnded(call: ForegroundCall): void {
+    const index = this.calls.indexOf(call);
+    if (index >= 0) this.calls.splice(index, 1);
+  }
+
+  agentSeen(agent: string): void {
+    if (this.seen.has(agent)) return;
+    this.seen.add(agent);
+    const unbound = this.calls.filter((call) => call.agent === null);
+    if (unbound.length === 1) unbound[0]!.agent = agent;
+  }
+
+  isForeground(agent: string): boolean {
+    return this.calls.some((call) => call.agent === agent);
+  }
+
+  clear(): void {
+    this.calls.length = 0;
+    this.seen.clear();
+  }
+}
+
 export interface LiveToolCall {
   tool: string;
   toolUseId: string | null;
@@ -75,8 +113,20 @@ export function toolStarted(state: LiveState, call: LiveToolCall): LiveState {
   return next;
 }
 
+function endsSubagentWait(state: LiveState, call: LiveToolCall): boolean {
+  return (
+    (call.agent ?? null) === null &&
+    AGENT_TOOLS.has(call.tool) &&
+    state.waitingOn === 'permission' &&
+    state.waitingAgent !== null
+  );
+}
+
 export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
-  let next = state;
+  let next: LiveState =
+    waitsOnPermissionFrom(state, call.agent ?? null) || endsSubagentWait(state, call)
+      ? { ...state, ...NOT_WAITING }
+      : state;
   if (EDIT_TOOLS.has(call.tool) && state.editing?.toolUseId === call.toolUseId) {
     next = { ...next, editing: null };
   }
@@ -90,13 +140,18 @@ export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
 
 export function permissionAsked(
   state: LiveState,
-  check: { decision: string; approver?: unknown; toolUseId: string | null; agent?: string | null },
+  check: {
+    decision: string;
+    approver?: unknown;
+    toolUseId: string | null;
+    agent?: string | null;
+    foreground?: boolean;
+  },
 ): LiveState {
   const agent = check.agent ?? null;
-  const settled =
-    agent !== null && waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
+  if (agent !== null && check.foreground !== true) return state;
+  const settled = waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
   if (check.decision !== 'ask' || check.approver !== 'person') return settled;
-  if (agent !== null && settled.waitingOn !== null && settled.waitingAgent === null) return settled;
   return {
     ...settled,
     waitingOn: 'permission',

@@ -105,6 +105,25 @@ describe('stage-agent-start.mjs', () => {
     expect(hookLog(root)[0]).toContain('seeded agent=agent_dev_1 stage=development');
   });
 
+  it('records the running stage agent as one started stage-agent row in the open change', async () => {
+    const root = onboard(tempRoot());
+    await openFeature(root, 'ses_live');
+    await runHook(root, stagePayload({ agent_type: 'paqad:paqad-planning' }));
+    const base = join(root, '.paqad/ledger/feature-evidence');
+    const bundle = readdirSync(base).find((name) => name !== '_session')!;
+    const rows = readFileSync(join(base, bundle, 'stage-evidence.jsonl'), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+    const started = rows.filter((row) => row.kind === 'stage-agent');
+    expect(started).toHaveLength(1);
+    expect(started[0]).toMatchObject({
+      stage: 'planning',
+      agent_id: 'agent_dev_1',
+      event_status: 'started',
+    });
+  });
+
   it('gives the brief the same session the completion hook records its row under', async () => {
     const root = onboard(tempRoot());
     await openFeature(root, 'ses_orch');
@@ -126,10 +145,17 @@ describe('stage-agent-start.mjs', () => {
       .trim()
       .split('\n')
       .map((line) => JSON.parse(line));
-    const agentRows = rows.filter((row) => row.kind === 'stage-agent');
+    const agentRows = rows.filter(
+      (row) => row.kind === 'stage-agent' && row.event_status !== 'started',
+    );
     expect(agentRows).toHaveLength(1);
     expect(session).toBe(agentRows[0].session_id);
-    expect(rows.filter((row) => row.agent === 'paqad-development')).toHaveLength(1);
+    const started = rows.filter(
+      (row) => row.kind === 'stage-agent' && row.event_status === 'started',
+    );
+    expect(started).toHaveLength(1);
+    expect(started[0]).toMatchObject({ session_id: session, agent_id: 'agent_dev_1' });
+    expect(agentRows[0]).toMatchObject({ agent_id: 'agent_dev_1', event_status: 'completed' });
   });
 
   it.each(['paqad-expert', 'paqad:paqad-chief-architect', 'paqad-foo', 'Explore', undefined])(

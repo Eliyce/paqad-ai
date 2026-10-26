@@ -206,3 +206,32 @@ describe('gate states are worded as the receipt words them', () => {
     }
   });
 });
+
+describe('AC-8 / AC-26: Build and Docs ticks count only once their stage started', () => {
+  const ticks = (stages: HudStage[], changedFiles: string[]) => {
+    const proof = buildStageProof({ ...EMPTY, lane: 'full', stages, changedFiles });
+    const steps = proof.flatMap((entry) => entry.steps);
+    return {
+      edits: steps.find((entry) => entry.id === 'edits'),
+      docs: steps.find((entry) => entry.id === 'docs'),
+    };
+  };
+
+  it('no Edits made or Docs updated tick before development and doc sync started', () => {
+    const { edits, docs } = ticks(
+      [
+        stage('planning', 'running'),
+        stage('development', 'missing'),
+        stage('documentation_sync', 'missing'),
+      ],
+      ['a.ts', 'docs/guide.md'],
+    );
+    expect(edits).toMatchObject({ state: 'not-yet', detail: null });
+    expect(docs).toMatchObject({ state: 'not-yet', detail: null });
+  });
+
+  it('ticks Edits made once development runs', () => {
+    const { edits } = ticks([stage('development', 'running')], ['a.ts']);
+    expect(edits).toMatchObject({ state: 'done', detail: '1 file changed' });
+  });
+});

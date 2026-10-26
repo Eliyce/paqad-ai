@@ -15,7 +15,7 @@ import {
 import { runDelivery, type DeliveryRunResult, type DeliveryShell } from '@/delivery/runner.js';
 import { createDeliveryShell } from '@/delivery/shell.js';
 import { renderDelivery, type DeliveryRenderInputs } from '@/delivery/templates.js';
-import { describeInherited } from '@/delivery/commit-split.js';
+import { describeEarlierWork } from '@/delivery/commit-split.js';
 import {
   readFeatureDelivery,
   recordShip,
@@ -237,13 +237,10 @@ function shipsWith(projectRoot: string, dirName: string | null | undefined): Shi
     ).commit_split;
     if (split?.state !== 'known' || !split.own || !split.inherited) return none;
     const own = `${split.own.count} own commit${split.own.count === 1 ? '' : 's'}`;
-    const riding =
-      split.inherited.count > 0
-        ? `${describeInherited(split.inherited)} riding along`
-        : 'nothing riding along';
+    const riding = describeEarlierWork(split.inherited);
     const note =
       split.inherited.count > 0
-        ? ' The riding-along commits ship in this PR too unless you split the branch yourself; ' +
+        ? ' The commits from earlier work ship in this PR too unless you split the branch yourself; ' +
           'paqad never moves, cherry-picks or rebases commits.'
         : '';
     return {

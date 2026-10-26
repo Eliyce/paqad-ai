@@ -27,7 +27,7 @@ import {
 import { hudCostCachePath } from '@/hud/files.js';
 import { hudCostOf } from '@/hud/cost-view.js';
 import { appendRouteTurn } from '@/pipeline/route-turns.js';
-import { recordDoneRow } from '@/spec-pipeline/high-table.js';
+import { appendHighTableRow, recordDoneRow } from '@/spec-pipeline/high-table.js';
 
 import { DIR, SES, assistant, at, total, writeStageRows, writeTranscript } from './cost.fixture.js';
 
@@ -275,6 +275,83 @@ describe('computeChangeCost (AC-47)', () => {
     });
   });
 
+  it('AC-21: a seat with an exact run from Claude Code shows that one figure, labelled exact', () => {
+    const root = tempRoot();
+    writeStageRows(root, [['open', '10:00']]);
+    recordDoneRow(
+      root,
+      DIR,
+      { role: 'security-auditor', findings: 2, tokens_estimate: 4600 },
+      { sessionId: SES },
+    );
+    appendHighTableRow(
+      root,
+      DIR,
+      {
+        event: 'usage',
+        role: 'security-auditor',
+        agent_id: 'a-sec',
+        agent_type: 'paqad-expert',
+        tokens: { input: 10, output: 9990, cache_read: 150000, cache_write: 10000, total: 170000 },
+        by_model: {},
+        messages: 3,
+        tokens_label: 'exact',
+      },
+      { sessionId: SES },
+    );
+    const main = writeTranscript(root, 'main', [assistant('m1', '10:01', A)]);
+    const cost = run(root, [{ transcript_path: main }]);
+    expect(cost.by_expert).toEqual([
+      {
+        role: 'security-auditor',
+        tokens: { input: 10, output: 9990, cache_read: 150000, cache_write: 10000, total: 170000 },
+        usd: null,
+        exact: true,
+      },
+    ]);
+  });
+
+  it('NFR-7: a seat whose host figure differs from its transcript shows no money worked out from other tokens', () => {
+    const root = tempRoot();
+    const { payloads } = fullChange(root);
+    const hostUsage = (role: string, tokens: Record<string, number>) =>
+      appendHighTableRow(
+        root,
+        DIR,
+        {
+          event: 'usage',
+          role,
+          agent_id: `host-${role}`,
+          agent_type: 'paqad-expert',
+          tokens,
+          by_model: {},
+          messages: 1,
+          tokens_label: 'exact',
+        },
+        { sessionId: SES },
+      );
+    hostUsage('security-auditor', {
+      input: 10,
+      output: 9990,
+      cache_read: 150000,
+      cache_write: 10000,
+      total: 170000,
+    });
+    hostUsage('db-expert', {
+      input: X1.input,
+      output: X1.output,
+      cache_read: X1.cacheRead,
+      cache_write: X1.cacheWrite,
+      total: total(X1),
+    });
+    const cost = run(root, payloads);
+    const seat = (role: string) => cost.by_expert.find((line) => line.role === role)!;
+    expect(seat('security-auditor')).toMatchObject({ exact: true, usd: null });
+    expect(seat('security-auditor').tokens.total).toBe(170000);
+    expect(seat('db-expert').tokens.total).toBe(total(X1));
+    expect(seat('db-expert').usd).not.toBeNull();
+  });
+
   it('has no record for a change with no open row', () => {
     const root = tempRoot();
     writeStageRows(root, [['stage_start', '10:00', 'planning']]);
@@ -316,6 +393,40 @@ describe('the window (AC-49)', () => {
       });
     },
   );
+
+  it('AC-6: a receipt followed by a later stage row does not seal; the window keeps counting', () => {
+    const root = tempRoot();
+    const dir = writeStageRows(root, [
+      ['open', '10:00'],
+      ['stage_start', '10:01', 'planning'],
+      ['stage_start', '10:30', 'specification'],
+    ]);
+    const payload = Buffer.from(
+      JSON.stringify({ predicate: { time_verified: at('10:02') } }),
+    ).toString('base64');
+    writeFileSync(join(dir, 'receipt.json'), JSON.stringify({ payload }), 'utf8');
+    const main = writeTranscript(root, 'main', [
+      assistant('inside', '10:01', A),
+      assistant('after-receipt', '10:20', B),
+    ]);
+    const cost = run(root, [{ transcript_path: main }]);
+    expect(cost.window).toMatchObject({ to: at('11:00'), sealed: false, sealed_by: null });
+    expect(cost.tokens.total).toBe(total(A) + total(B));
+  });
+
+  it('a receipt after the last stage row still seals', () => {
+    const root = tempRoot();
+    const dir = writeStageRows(root, [
+      ['open', '10:00'],
+      ['stage_start', '10:01', 'planning'],
+      ['stage_end', '10:10', 'planning'],
+    ]);
+    const payload = Buffer.from(
+      JSON.stringify({ predicate: { time_verified: at('10:40') } }),
+    ).toString('base64');
+    writeFileSync(join(dir, 'receipt.json'), JSON.stringify({ payload }), 'utf8');
+    expect(changeCostWindow(root, DIR, NOW)).toMatchObject({ to: at('10:40'), sealed: true });
+  });
 
   it('a reopened change runs to now again', () => {
     const root = tempRoot();

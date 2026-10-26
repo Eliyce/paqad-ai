@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5TM8F7NWXXDHSTEK2XZ55NX",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on changeDecisions in src/hud/snapshot.ts",
+  "context": "Chief architect: Ruled by the chief, no question needed: three seats agree. A decision packet with no change tag belongs to no change, matching how an untagged verdict is already treated as unjudged; Record rows carry a full date-time and sort by it. The tester's claim is the proof of this same rule.\n\nTarget: changeDecisions in src/hud/snapshot.ts\n- solution-architect: Drop the rule that keeps decision packets with no change tag; untagged packets belong to no change, matching how the verdict already treats an untagged verdict as unjudged.\n- application-architect: a decision packet with no change tag is not this change's; the filter keeps only packets tagged with the open change, and Record rows carry a full date-time and are sorted by it\n- qa-engineer: Given decision packets tagged with this change, another change, and no change tag, when the Record tab is built, then only this change's packets appear, each row names its decision, carries a date, and rows are in time order.\n\n[expert-conflict-fork:cb85e46e1807ae07]",
+  "options": [
+    {
+      "option_key": "drop-the-rule-that-keeps-decision-packet",
+      "label": "Drop the rule that keeps decision packets with no change tag; untagged packets belong to no change, matching how the verdict already treats an untagged verdict as unjudged. — solution-architect",
+      "one_line_preview": "Drop the rule that keeps decision packets with no change tag; untagged packets belong to no change, matching how the verdict already treats an untagged verdict as unjudged. — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "a-decision-packet-with-no-change-tag-is-",
+      "label": "a decision packet with no change tag is not this change's; the filter keeps only packets tagged with the open change, and Record rows carry a full date-time and are sorted by it — application-architect",
+      "one_line_preview": "a decision packet with no change tag is not this change's; the filter keeps only packets tagged with the open change, and Record rows carry a full date-time and are sorted by it — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-decision-packets-tagged-with-this-",
+      "label": "Given decision packets tagged with this change, another change, and no change tag, when the Record tab is built, then only this change's packets appear, each row names its decision, carries a date, and rows are in time order. — qa-engineer",
+      "one_line_preview": "Given decision packets tagged with this change, another change, and no change tag, when the Record tab is built, then only this change's packets appear, each row names its decision, carries a date, and rows are in time order. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "a-decision-packet-with-no-change-tag-is-",
+  "created_at": "2026-10-25T22:52:48.757Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "a-decision-packet-with-no-change-tag-is-",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:04.985Z",
+  "decision_id": "D-01M5TM8F7NWXXDHSTEK2XZ55NX",
+  "fingerprint": "sha256:4085d5dafbbc5970ae882f46b2d98d58d61923d2e0f6fd2935bf3cfa07af8e1e",
+  "question": "Experts disagree on changeDecisions in src/hud/snapshot.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.757Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "a-decision-packet-with-no-change-tag-is-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:04.985Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

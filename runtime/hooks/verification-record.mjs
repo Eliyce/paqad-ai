@@ -36,10 +36,30 @@ async function recordMarkers(projectRoot, rawInput) {
   } catch {}
 }
 
+async function deferredForRunningStage(projectRoot, rawInput) {
+  const payload = parseHookPayload(rawInput);
+  try {
+    const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
+    const { deferCompletionForBackgroundStage } = await import(distUrl.href);
+    return deferCompletionForBackgroundStage({
+      projectRoot,
+      backgroundTasks: payload?.background_tasks,
+      sessionId: sessionIdFromStdin(rawInput),
+      adapter: ADAPTER_TYPE ?? 'gemini-cli',
+    }).deferred;
+  } catch {
+    return false;
+  }
+}
+
 async function main(rawInput) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(rawInput));
   if (!isPaqadDisabled(projectRoot)) {
     await recordMarkers(projectRoot, rawInput);
+    if (await deferredForRunningStage(projectRoot, rawInput)) {
+      process.exit(0);
+      return;
+    }
   }
   try {
     await runVerificationBackstop({

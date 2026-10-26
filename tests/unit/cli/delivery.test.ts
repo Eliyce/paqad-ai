@@ -424,13 +424,13 @@ describe('resolveOpenPrDecision', () => {
     const packet = pendingOpenPr();
     expect(packet.change).toBe(featureChangeKey(dir));
     expect(packet.context).toContain(
-      'This PR carries 1 own commit and 2 commits from 2 other tickets riding along.',
+      'This PR carries 1 own commit and 2 commits from earlier work on tickets ORD-470, ORD-471.',
     );
     expect(packet.context).toContain('paqad never moves, cherry-picks or rebases commits');
     const evidence = Object.fromEntries(packet.options.map((o) => [o.option_key, o.evidence]));
     expect(evidence.yes?.findings).toEqual([
       '1 own commit',
-      '2 commits from 2 other tickets riding along',
+      '2 commits from earlier work on tickets ORD-470, ORD-471',
     ]);
     expect(evidence.draft?.findings).toEqual(evidence.yes?.findings);
     expect(evidence.no?.findings).toBeUndefined();
@@ -455,7 +455,7 @@ describe('resolveOpenPrDecision', () => {
       issue: 'ORD-482',
     });
     resolveOpenPrDecision(root, 'yes', dir);
-    expect(pendingOpenPr().context).toContain('0 own commits and nothing riding along.');
+    expect(pendingOpenPr().context).toContain('0 own commits and no commits from earlier work.');
     rmSync(join(root, PATHS.DECISIONS_PENDING_DIR), { recursive: true, force: true });
     g('checkout', '-q', '--detach', 'HEAD');
     resolveOpenPrDecision(root, 'yes', dir);

@@ -124,10 +124,9 @@ function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
 
 function gapRow(ui: D, headline: DesktopHeadline) {
   const { Text } = ui;
-  if (!headline.gap) return null;
   return (
     <Text key="paqad-gap" size="footnote" dimColor wrap="truncate-end">
-      {headline.gap}
+      {headline.gap ?? ' '}
     </Text>
   );
 }

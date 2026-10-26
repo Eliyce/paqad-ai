@@ -4,44 +4,183 @@ import {
   type ChecksMarkerProbe,
 } from '@/checks/running-marker.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
+import { readContractDecisions } from '@/decisions/authoring.js';
+import { isBundleClosed } from '@/feature-evidence/adoption.js';
+import { featureChangeKey } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   currentFeature,
+  foldFeature,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
+import { stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 
 import { stageIsOpen, stagesWithKind } from './live-writer.js';
-import { COMPLETION_DEFERRED_KIND } from './types.js';
+import { COMPLETION_DEFERRED_KIND, RECORD_REPAIR_KIND, STAGE_AGENT_KIND } from './types.js';
 
-const AGENT_TYPE_FIELDS = [
-  'agent_type',
-  'agentType',
-  'subagent_type',
-  'subagentType',
-  'type',
-] as const;
+const AGENT_TYPE_FIELDS = ['agent_type', 'agentType', 'subagent_type', 'subagentType'] as const;
+
+const TASK_KINDS: ReadonlySet<string> = new Set([
+  'subagent',
+  'agent',
+  'task',
+  'local_agent',
+  'remote_agent',
+  'bash',
+  'local_bash',
+  'shell',
+]);
+
+const FINISHED_TASK_STATUSES: ReadonlySet<string> = new Set([
+  'completed',
+  'failed',
+  'killed',
+  'stopped',
+  'cancelled',
+  'canceled',
+]);
 
 function agentTypeOf(task: unknown): string | undefined {
   if (!task || typeof task !== 'object') {
     return undefined;
   }
+  const record = task as Record<string, unknown>;
   for (const field of AGENT_TYPE_FIELDS) {
-    const value = (task as Record<string, unknown>)[field];
+    const value = record[field];
     if (typeof value === 'string' && value.trim() !== '') {
-      return value.trim();
+      return stripPluginAgentNamespace(value.trim());
     }
+  }
+  const kind = record.type;
+  if (typeof kind === 'string' && kind.trim() !== '' && !TASK_KINDS.has(kind.trim())) {
+    return stripPluginAgentNamespace(kind.trim());
   }
   return undefined;
 }
 
+function taskIsFinished(task: unknown): boolean {
+  if (!task || typeof task !== 'object') {
+    return false;
+  }
+  const status = (task as Record<string, unknown>).status;
+  return typeof status === 'string' && FINISHED_TASK_STATUSES.has(status.trim().toLowerCase());
+}
+
+function runningTasks(tasks: readonly unknown[]): unknown[] {
+  return tasks.filter((task) => !taskIsFinished(task));
+}
+
 export function stageAgentTaskCount(tasks: readonly unknown[]): number {
-  return tasks.filter((task) => agentTypeOf(task)?.startsWith('paqad-')).length;
+  return runningTasks(tasks).filter((task) => agentTypeOf(task)?.startsWith('paqad-')).length;
 }
 
 export function tasksCarryAgentType(tasks: readonly unknown[]): boolean {
-  return tasks.some((task) => agentTypeOf(task) !== undefined);
+  return runningTasks(tasks).some((task) => agentTypeOf(task) !== undefined);
+}
+
+export interface LiveStageAgent {
+  stage: string;
+  agentId: string | null;
+  startedAt: string;
+  sessionId: string;
+  hostPid: number | null;
+  rowHash: string;
+}
+
+function rowTime(row: SessionLedgerRow): number {
+  return Date.parse(rowRecordedAt(row) ?? '');
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+export const STAGE_AGENT_SESSION_RELEASE =
+  'a new session began, so stage agents left from the last session no longer hold the turn-end judgement';
+
+function releasesStartedAgent(
+  later: SessionLedgerRow,
+  stage: string,
+  agentId: string | null,
+  startedHash: string,
+): boolean {
+  const laterStage = stringOrNull(later.stage);
+  const laterId = stringOrNull(later.agent_id);
+  if (later.kind === STAGE_AGENT_KIND && later.event_status === 'started') {
+    return laterStage === stage && (agentId === null || laterId !== agentId);
+  }
+  if (later.kind === STAGE_AGENT_KIND) {
+    return agentId !== null && laterId !== null ? laterId === agentId : laterStage === stage;
+  }
+  if (later.kind === 'stage_end') return laterStage === stage;
+  if (later.kind === 'stage_start') return laterStage !== null && laterStage !== stage;
+  if (later.kind !== RECORD_REPAIR_KIND || later.reason !== STAGE_AGENT_SESSION_RELEASE) {
+    return false;
+  }
+  return !Array.isArray(later.releases) || later.releases.includes(startedHash);
+}
+
+export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAgent[] {
+  const live: LiveStageAgent[] = [];
+  rows.forEach((row, index) => {
+    if (row.kind !== STAGE_AGENT_KIND || row.event_status !== 'started') return;
+    const stage = stringOrNull(row.stage);
+    if (stage === null) return;
+    const agentId = stringOrNull(row.agent_id);
+    if (Number.isNaN(rowTime(row))) return;
+    const released = rows
+      .slice(index + 1)
+      .some((later) => releasesStartedAgent(later, stage, agentId, row.content_hash));
+    if (released) return;
+    live.push({
+      stage,
+      agentId,
+      startedAt: rowRecordedAt(row)!,
+      sessionId: row.session_id,
+      hostPid: typeof row.host_pid === 'number' ? row.host_pid : null,
+      rowHash: row.content_hash,
+    });
+  });
+  return live;
+}
+
+const NEW_HOST_SESSION_SOURCES: ReadonlySet<string> = new Set(['startup', 'resume']);
+
+export function hostProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'EPERM';
+  }
+}
+
+export function releaseStageAgentsAtSessionStart(
+  projectRoot: string,
+  sessionId: string,
+  source: unknown,
+  now?: () => Date,
+  isAlive: (pid: number) => boolean = hostProcessAlive,
+): boolean {
+  if (typeof source !== 'string' || !NEW_HOST_SESSION_SOURCES.has(source)) return false;
+  const dirName = currentFeature(projectRoot, sessionId);
+  if (dirName === null) return false;
+  const releases = liveStageAgents(readFeatureStageUnit(projectRoot, dirName))
+    .filter(
+      (agent) => agent.sessionId === sessionId || agent.hostPid === null || !isAlive(agent.hostPid),
+    )
+    .map((agent) => agent.rowHash);
+  if (releases.length === 0) return false;
+  appendFeatureStageRow(
+    projectRoot,
+    sessionId,
+    dirName,
+    { kind: RECORD_REPAIR_KIND, reason: STAGE_AGENT_SESSION_RELEASE, releases },
+    now,
+  );
+  return true;
 }
 
 export function hasOpenUnendedStage(rows: readonly SessionLedgerRow[]): boolean {
@@ -53,6 +192,17 @@ export function hasOpenUnendedStage(rows: readonly SessionLedgerRow[]): boolean 
   return false;
 }
 
+const CLEANLY_ENDED: ReadonlySet<string> = new Set(['complete', 'redone']);
+const NOT_REACHED: ReadonlySet<string> = new Set(['missing', 'not-applicable', 'skipped']);
+
+export function isBetweenStages(projectRoot: string, sessionId: string, dirName: string): boolean {
+  if (isBundleClosed(projectRoot, dirName)) return false;
+  const fold = foldFeature(projectRoot, sessionId, dirName);
+  if (fold.lane === null || fold.completeness.missing_stages.length === 0) return false;
+  const reached = fold.stages.filter((stage) => !NOT_REACHED.has(stage.state));
+  return reached.length > 0 && reached.every((stage) => CLEANLY_ENDED.has(stage.state));
+}
+
 export interface DeferCompletionInput {
   projectRoot: string;
   backgroundTasks: unknown;
@@ -60,27 +210,43 @@ export interface DeferCompletionInput {
   adapter: string;
   now?: () => Date;
   probe?: ChecksMarkerProbe;
+  record?: boolean;
 }
 
 export interface DeferCompletionResult {
   deferred: boolean;
   reason?: string;
   tasks?: number;
+  nextStage?: string;
+}
+
+function pendingDecisionOf(projectRoot: string, dirName: string): boolean {
+  const key = featureChangeKey(dirName);
+  return readContractDecisions(projectRoot).some(
+    ({ packet, status }) =>
+      status !== 'resolved' && (packet as unknown as Record<string, unknown>).change === key,
+  );
 }
 
 export function deferCompletionForBackgroundStage(
   input: DeferCompletionInput,
 ): DeferCompletionResult {
-  const tasks = Array.isArray(input.backgroundTasks) ? input.backgroundTasks : [];
+  const tasks = runningTasks(Array.isArray(input.backgroundTasks) ? input.backgroundTasks : []);
   const now = input.now ?? (() => new Date());
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId ?? null);
   const checksRunning =
     liveChecksRunningMarker(input.projectRoot, sessionId, { ...input.probe, now }) !== null;
-  if (tasks.length === 0 && !checksRunning) {
-    return { deferred: false };
-  }
   const dirName = currentFeature(input.projectRoot, sessionId);
   const rows = dirName !== null ? readFeatureStageUnit(input.projectRoot, dirName) : [];
+  const payloadNamesAgents = tasks.length > 0 && tasksCarryAgentType(tasks);
+  const ledgerAgents = payloadNamesAgents ? 0 : liveStageAgents(rows).length;
+  const betweenStages =
+    dirName !== null &&
+    !hasOpenUnendedStage(rows) &&
+    isBetweenStages(input.projectRoot, sessionId, dirName);
+  if (tasks.length === 0 && !checksRunning && ledgerAgents === 0 && !betweenStages) {
+    return { deferred: false };
+  }
 
   let reason: string;
   let count: number;
@@ -91,6 +257,12 @@ export function deferCompletionForBackgroundStage(
   } else if (stageAgents > 0) {
     reason = 'stage agent running in background';
     count = stageAgents;
+  } else if (ledgerAgents > 0) {
+    reason = 'stage agent running in background';
+    count = ledgerAgents;
+  } else if (betweenStages) {
+    reason = 'between stages';
+    count = tasks.length;
   } else if (!tasksCarryAgentType(tasks) && dirName !== null && hasOpenUnendedStage(rows)) {
     reason = 'background task running while a stage is open';
     count = tasks.length;
@@ -98,11 +270,12 @@ export function deferCompletionForBackgroundStage(
     return { deferred: false };
   }
 
-  if (deferralCeilingReached(rows, now)) {
+  const clockFree = reason === 'between stages' || (stageAgents === 0 && ledgerAgents > 0);
+  if (!clockFree && deferralCeilingReached(rows, now)) {
     return { deferred: false };
   }
 
-  if (dirName !== null) {
+  if (dirName !== null && input.record !== false) {
     appendFeatureStageRow(
       input.projectRoot,
       sessionId,
@@ -111,7 +284,13 @@ export function deferCompletionForBackgroundStage(
       input.now,
     );
   }
-  return { deferred: true, reason, tasks: count };
+  const next =
+    reason === 'between stages' &&
+    dirName !== null &&
+    !pendingDecisionOf(input.projectRoot, dirName)
+      ? foldFeature(input.projectRoot, sessionId, dirName).completeness.missing_stages[0]
+      : undefined;
+  return { deferred: true, reason, tasks: count, ...(next ? { nextStage: next } : {}) };
 }
 
 function deferralCeilingReached(rows: readonly SessionLedgerRow[], now: () => Date): boolean {

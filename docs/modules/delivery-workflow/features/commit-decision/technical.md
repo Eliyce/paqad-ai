@@ -29,6 +29,25 @@ commit_decision: { asked: boolean, answer: "commit" | "decline" | "ignored" | "u
 
 - **Start commit.** The first seed of a change's `delivery.json` keeps the HEAD it started from;
   later seeds never overwrite it.
+- **Where a change starts.** `readChangeStartPoint` is the one answer every reader of "this
+  change's work" uses: changed files, plan progress, acceptance claims, the receipt's files, the
+  Build and Docs ticks, rule-script enforcement, traceability, checks and the review digest. It
+  takes, in order:
+  1. the recorded `start_commit`, when it is still an ancestor of HEAD. If a base branch (the fork
+     branch or the configured base) was merged in after the change opened, the latest such
+     merge-base that descends from the start is used instead, so files that came in with the merge
+     are not counted as the change's edits. When the branch already carried earlier work at open,
+     that merge-base does not descend from the start. The start commit is kept, and a committed
+     path counts only if it differs from both the start commit and that merge-base
+     (`mergedBase`), so the merged files drop out and the earlier work stays out;
+  2. else the fork point: the merge-base of HEAD and the branch this branch was cut from, read from
+     the branch reflog. A branch cut from a detached HEAD (a bare commit id) names no fork branch;
+  3. else the fallback base commit of the configured base branch, named as a fallback;
+  4. else nothing.
+- **Working tree at open.** `captureStartWorktree` records `start_worktree` when the change
+  opens: every modified, deleted or untracked (not ignored) path with a digest of its content, or
+  `deleted`. Those files are not the change's edits unless the change touches them again. A
+  bundle opened before this was recorded has `null` and is measured from the commit alone.
 - **Own tickets.** Ticket references in the change's issue, else in its branch name.
 - **Split.** Each commit in `base..HEAD` is read with its parents and the ticket refs in its
   subject. A commit is the change's own when it names one of the own tickets, or when it names no

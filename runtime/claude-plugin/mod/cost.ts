@@ -48,6 +48,7 @@ export function moneyShort(usd: number, priceDate: string): string {
 
 export function costPill(cost: PaqadCost | null): string {
   if (!cost) return 'cost: not yet';
+  if (cost.tokens.total === 0 && !cost.sealed) return 'cost: counting';
   const tokens = `${formatTokens(cost.tokens.total)} tokens`;
   if (cost.usd === null) return tokens;
   const partial = cost.unpriced_models.length > 0 ? ', part unpriced' : '';

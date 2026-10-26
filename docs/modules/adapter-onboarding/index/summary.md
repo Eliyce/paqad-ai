@@ -207,7 +207,8 @@ state on its own.
   `PATHS.RULE_SCRIPT_MAP`. The payload parser yields `targetPaths` for every edited path, so a
   multi-file patch is gated when any path is feature development. On the completion seam the gate
   defers (with a `completion-deferred` breadcrumb, exit 0) while a `paqad-<stage>` agent still runs
-  in the background, so a half-finished change is not graded. Only the completion seam honours the
+  in the background, so a half-finished change is not graded. The capability completion seam still
+  runs between stages, and the Gemini record-only hook makes the same deferral before it writes. Only the completion seam honours the
   host's `stop_hook_active` loop guard; pre-mutation is a deny, not a loop, so it keeps its teeth.
   Narration rides ahead of a block reason so work already recorded stays visible.
 - **`decision-pause-gate.mjs`.** Blocks edits while a packet sits in `.paqad/decisions/pending/`,

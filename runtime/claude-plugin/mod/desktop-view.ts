@@ -53,6 +53,7 @@ import type {
   PaqadPaneTab,
   PaqadSeat,
   PaqadTimelineEntry,
+  TableSitting,
 } from './types';
 
 export const READY_WORDS = 'Ready';
@@ -129,8 +130,16 @@ export { WAITING_FOR_ANSWER, WAITING_FOR_PERMISSION, type DesktopHeadline };
 
 export const desktopHeadline = snapshotHeadline;
 
+export const COST_COUNTING = 'Counting tokens';
+export const COST_COUNTING_MONEY = 'The money figure follows the first counted tokens.';
+
+function stillCounting(cost: NonNullable<PaqadHudSnapshot['cost']>): boolean {
+  return cost.tokens.total === 0 && !cost.sealed;
+}
+
 export function costWords(cost: PaqadHudSnapshot['cost']): string | null {
   if (!cost) return null;
+  if (stillCounting(cost)) return COST_COUNTING;
   const tokens = `${formatTokens(cost.tokens.total)} tokens${cost.live ? ' so far' : ''}`;
   if (cost.scope === 'whole-session') return `${tokens} · whole session`;
   return cost.usd === null ? tokens : `${tokens} · ~${formatUsd(cost.usd)}`;
@@ -165,7 +174,7 @@ export function flagWords(flags: number): string {
 }
 
 function paused(snapshot: PaqadHudSnapshot, live: LiveState): boolean {
-  return waitingOnHuman(snapshot, live);
+  return live.waitingOn === 'question' || snapshot.decisions.pending.length > 0;
 }
 
 const STAGE_STATE: Readonly<Record<SegmentState, StageState>> = {
@@ -332,6 +341,7 @@ export function stripOf(
   snapshot: PaqadHudSnapshot,
   columns: number,
   live: LiveState = IDLE_LIVE,
+  clockMs?: number,
 ): StripInput {
   const stage = stageStrip(snapshot, live);
   const table = tableStrip(snapshot);
@@ -346,6 +356,7 @@ export function stripOf(
     delivery: delivery.steps,
     ci: delivery.ci,
     deliveryValue: delivery.value,
+    ...(clockMs === undefined ? {} : { clockMs }),
   };
 }
 
@@ -356,12 +367,12 @@ export function stripAltText(text: string, strip: StripInput): string {
   return parts.join(' ');
 }
 
-export function cardRows(menuOpen: boolean, gap = false): number {
+export function cardRows(menuOpen: boolean): number {
   return (
     CARD_ROWS.identity +
     CARD_ROWS.message +
+    CARD_ROWS.gap +
     CARD_ROWS.strip +
-    (gap ? CARD_ROWS.gap : 0) +
     (menuOpen ? CARD_ROWS.menu : 0)
   );
 }
@@ -452,13 +463,21 @@ function workflowBand(
   };
 }
 
+function routeFromEarlierTurn(snapshot: PaqadHudSnapshot, turnStartedAt: number | null): boolean {
+  const generatedAt = Date.parse(snapshot.generated_at);
+  return turnStartedAt !== null && Number.isFinite(generatedAt) && generatedAt < turnStartedAt;
+}
+
 export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const unreadable = unreadableReason(input);
   if (unreadable) return { kind: 'unreadable', reason: unreadable, headline: UNREADABLE };
   const snapshot = input.snapshot;
   if (!snapshot) return { kind: 'ready' };
   const route = statusEntryRoute(snapshot);
-  if (route) return workflowBand(snapshot, route, input.now, input.turnStartedAt);
+  if (route) {
+    if (routeFromEarlierTurn(snapshot, input.turnStartedAt)) return { kind: 'none' };
+    return workflowBand(snapshot, route, input.now, input.turnStartedAt);
+  }
   if (!snapshot.active) return { kind: 'none' };
   const live = input.live ?? IDLE_LIVE;
   const mode = visibilityMode(input.visibility);
@@ -466,8 +485,8 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
     return { kind: mode, needsYou: waitingOnHuman(snapshot, live) };
   }
   const head = desktopHeadline(snapshot, input.now, live);
-  const strip = stripOf(snapshot, input.columns, live);
-  const fits = input.maxRows >= cardRows(input.menuOpen, head.gap !== null);
+  const strip = stripOf(snapshot, input.columns, live, input.now);
+  const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',
@@ -521,6 +540,36 @@ export function ledgerTabs(snapshot: PaqadHudSnapshot | null, shown: PaqadPaneTa
   return tabs.map((tab) => ({ ...tab, width, shown: tab.id === picked }));
 }
 
+export type { TableSitting };
+
+function tableIsLive(snapshot: PaqadHudSnapshot | null): boolean {
+  if (!snapshot || !tableSat(snapshot)) return false;
+  const chief = chiefState(snapshot);
+  return (
+    chief === 'ruling' ||
+    chief === 'needs' ||
+    (snapshot.table?.seats ?? []).some((seat) => seat.state === 'writing')
+  );
+}
+
+export function ledgerAutoTab(
+  snapshot: PaqadHudSnapshot | null,
+  shown: PaqadPaneTab,
+  sitting: TableSitting | null,
+): { tab: PaqadPaneTab | null; sitting: TableSitting | null } {
+  if (!tableIsLive(snapshot)) return { tab: null, sitting: null };
+  const key = snapshot?.change?.dir ?? 'change';
+  const current =
+    sitting && sitting.key === key ? sitting : { key, forwarded: false, picked: false };
+  if (current.forwarded || current.picked || shown === 'table') {
+    return {
+      tab: null,
+      sitting: { ...current, forwarded: current.forwarded || shown === 'table' },
+    };
+  }
+  return { tab: 'table', sitting: { ...current, forwarded: true } };
+}
+
 export function ledgerSubtitle(snapshot: PaqadHudSnapshot | null): string {
   const chip = changeChip(snapshot);
   return chip ? `What happened, with proof  ·  ${chip}` : 'What happened, with proof';
@@ -554,6 +603,8 @@ function specFrozen(snapshot: PaqadHudSnapshot): boolean {
   return spec?.state === 'complete' || spec?.state === 'redone';
 }
 
+export const MAPPED_WORDS = 'Has a test, not run yet';
+
 export function claimsView(snapshot: PaqadHudSnapshot): ClaimsView {
   const rows: ClaimRow[] = snapshot.claims.map((claim, index) => {
     const proven = claim.verdict === 'pass';
@@ -563,7 +614,7 @@ export function claimsView(snapshot: PaqadHudSnapshot): ClaimsView {
       id: claim.id,
       label: claim.label,
       sub: claim.test_id ?? 'No proving test recorded',
-      word: proven ? 'Proven' : 'Not proven',
+      word: proven ? 'Proven' : claim.verdict === 'mapped' ? MAPPED_WORDS : 'Not proven',
       tone: proven ? 'pass' : fix ? 'cau' : 'dim',
     };
   });
@@ -850,6 +901,7 @@ export interface DeliveryBlock {
   title: string;
   sub: string | null;
   right: string | null;
+  note: string | null;
   reached: boolean;
   commits: Array<{ sha: string; subject: string; own: boolean }>;
   jobs: DeliveryJob[];
@@ -960,6 +1012,34 @@ function blockText(
   }
 }
 
+const NOT_RECORDED_START = 'where this change started was not recorded.';
+
+function startNote(snapshot: PaqadHudSnapshot): string | null {
+  const start = snapshot.start_point;
+  if (!start) return null;
+  if (start.source === 'fallback-base') {
+    return `Measured from ${start.base ?? 'the base branch'}: ${NOT_RECORDED_START}`;
+  }
+  if (start.source === 'fork-point') {
+    return `Measured from where the branch left ${start.base ?? 'its base'}: ${NOT_RECORDED_START}`;
+  }
+  return start.files_known
+    ? null
+    : 'The files already in the tree when this change opened are unknown.';
+}
+
+function earlierWorkNote(snapshot: PaqadHudSnapshot): string | null {
+  const earlier = snapshot.ship?.inherited_count ?? 0;
+  if (earlier <= 0) return null;
+  return `Branch already had ${plural(earlier, 'commit', 'commits')} from earlier work.`;
+}
+
+function blockNote(snapshot: PaqadHudSnapshot, label: DeliveryLabel): string | null {
+  if (label === 'Edit') return startNote(snapshot);
+  if (label === 'Commit') return earlierWorkNote(snapshot);
+  return null;
+}
+
 export interface DeliveryView {
   blocks: DeliveryBlock[];
   empty: string | null;
@@ -981,14 +1061,17 @@ export function deliveryView(
         label: label as DeliveryLabel,
         state,
         ...text,
+        note: blockNote(snapshot, label as DeliveryLabel),
         reached,
         commits:
           label === 'Commit' && ship
-            ? ship.commit_list.map((commit) => ({
-                sha: commit.sha.slice(0, 7),
-                subject: commit.subject,
-                own: commit.own !== false,
-              }))
+            ? ship.commit_list
+                .filter((commit) => commit.own !== false)
+                .map((commit) => ({
+                  sha: commit.sha.slice(0, 7),
+                  subject: commit.subject,
+                  own: true,
+                }))
             : [],
         jobs:
           label === 'CI' && reached && ship?.ci_detail ? ship.ci_detail.jobs.map(deliveryJob) : [],
@@ -1005,6 +1088,14 @@ export function deliveryView(
 export function localTime(at: string): string {
   const date = new Date(Date.parse(at));
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+export function recordTime(at: string): string {
+  const date = new Date(Date.parse(at));
+  if (Number.isNaN(date.getTime())) return '';
+  return `${MONTHS[date.getMonth()]} ${date.getDate()} ${localTime(at)}`;
 }
 
 function recordWords(snapshot: PaqadHudSnapshot, entry: PaqadTimelineEntry): string | null {
@@ -1041,6 +1132,12 @@ function recordWords(snapshot: PaqadHudSnapshot, entry: PaqadTimelineEntry): str
       const took = entry.duration_ms !== undefined ? ` in ${formatClock(entry.duration_ms)}` : '';
       return `Chief ruled${took}${entry.verdict ? `: ${entry.verdict}` : ''}`;
     }
+    case 'decision_opened': {
+      const name = entry.decision ?? 'A decision';
+      return entry.subject ? `${name} opened: ${entry.subject}` : `${name} opened for you`;
+    }
+    case 'decision_answered':
+      return entry.decision ? `You answered ${entry.decision}` : 'You answered a decision';
     case 'decisions_opened':
       return `${plural(count, 'decision', 'decisions')} opened for you`;
     case 'decisions_answered':
@@ -1072,15 +1169,30 @@ export interface RecordView {
 }
 
 export const RECORD_LATER = 'The record starts when the change opens.';
+export const RECORD_NOTHING_YET = 'No decisions or stage events for this change yet.';
+
+const RECORDED_WORK = /^(stage_|decision)/;
+
+function newestFirst(timeline: readonly PaqadTimelineEntry[]) {
+  const timeOf = (entry: PaqadTimelineEntry) => {
+    const at = Date.parse(entry.at);
+    return Number.isNaN(at) ? Number.NEGATIVE_INFINITY : at;
+  };
+  return timeline
+    .map((entry, index) => ({ entry, index, at: timeOf(entry) }))
+    .sort((a, b) => (a.at === b.at ? b.index - a.index : b.at - a.at));
+}
 
 export function recordView(snapshot: PaqadHudSnapshot): RecordView {
-  const rows = snapshot.active
-    ? snapshot.timeline.flatMap((entry, index) => {
-        const text = recordWords(snapshot, entry);
-        return text ? [{ key: `${entry.at}-${index}`, time: localTime(entry.at), text }] : [];
-      })
-    : [];
-  return { rows, empty: rows.length === 0 ? RECORD_LATER : null };
+  if (!snapshot.active) return { rows: [], empty: RECORD_LATER };
+  if (!snapshot.timeline.some((entry) => RECORDED_WORK.test(entry.kind))) {
+    return { rows: [], empty: RECORD_NOTHING_YET };
+  }
+  const rows = newestFirst(snapshot.timeline).flatMap(({ entry, index }) => {
+    const text = recordWords(snapshot, entry);
+    return text ? [{ key: `${entry.at}-${index}`, time: recordTime(entry.at), text }] : [];
+  });
+  return { rows, empty: rows.length === 0 ? RECORD_NOTHING_YET : null };
 }
 
 export interface CostMeter {
@@ -1139,9 +1251,10 @@ export function costView(snapshot: PaqadHudSnapshot): CostView | null {
   if (!cost) return null;
   const sat = tableSat(snapshot);
   const scope = cost.scope === 'whole-session' ? WHOLE_SESSION_SENTENCE : CHANGE_SCOPE_SENTENCE;
+  const counting = stillCounting(cost);
   return {
-    total: `${formatTokens(cost.tokens.total)} tokens`,
-    money: costMoney(cost),
+    total: counting ? COST_COUNTING : `${formatTokens(cost.tokens.total)} tokens`,
+    money: counting ? COST_COUNTING_MONEY : costMoney(cost),
     note: [cost.plan_note, scope].filter((part) => part.length > 0).join(' '),
     live: cost.live ? COUNTING_WORDS : null,
     stages: meters(

@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7K15G14TBT7FMVAS67",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on HUD stage strip animations",
+  "context": "Chief architect: Ruled by the chief, no question needed: the two claims do not compete. Keep the same markup and change only colour or class so animations never restart (EX-qa-engineer-12 makes that the testable part), and also honour reduced motion so state stays readable from colour plus word. Both ship; neither is a redesign.\n\nTarget: HUD stage strip animations\n- ux-ui-analyst: a state change (running, paused, marked) changes colour or class on the same markup instead of replacing the node, so running animations do not restart; the Edit node spin completes full turns\n- ux-ui-analyst: with reduced motion set by the person (prefers-reduced-motion), the strip pulses and spins stop and state is still readable from colour plus word (WCAG 2.2 2.3.3)\n\n[expert-conflict-fork:1d1985cdf6c41a73]",
+  "options": [
+    {
+      "option_key": "a-state-change-running-paused-marked-cha",
+      "label": "a state change (running, paused, marked) changes colour or class on the same markup instead of replacing the node, so running animations do not restart; the Edit node spin completes full turns — ux-ui-analyst",
+      "one_line_preview": "a state change (running, paused, marked) changes colour or class on the same markup instead of replacing the node, so running animations do not restart; the Edit node spin completes full turns — ux-ui-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "with-reduced-motion-set-by-the-person-pr",
+      "label": "with reduced motion set by the person (prefers-reduced-motion), the strip pulses and spins stop and state is still readable from colour plus word (WCAG 2.2 2.3.3) — ux-ui-analyst",
+      "one_line_preview": "with reduced motion set by the person (prefers-reduced-motion), the strip pulses and spins stop and state is still readable from colour plus word (WCAG 2.2 2.3.3) — ux-ui-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "a-state-change-running-paused-marked-cha",
+  "created_at": "2026-10-25T22:52:48.755Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "a-state-change-running-paused-marked-cha",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:50:36.510Z",
+  "decision_id": "D-01M5TM8F7K15G14TBT7FMVAS67",
+  "fingerprint": "sha256:b8391f07b286d355cade55582e1ee050c9dcb885a8a0123f1f98c7c9b0a56aaf",
+  "question": "Experts disagree on HUD stage strip animations",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.755Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "a-state-change-running-paused-marked-cha",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:50:36.510Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

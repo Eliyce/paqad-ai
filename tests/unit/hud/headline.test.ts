@@ -367,3 +367,62 @@ describe('buildTrackRecords', () => {
     }
   });
 });
+
+describe('AC-15: flags fire only once their stage has ended', () => {
+  const base = {
+    gates: [],
+    rulesRecorded: false,
+    tableSkipped: false,
+    isolationStatus: 'expected',
+    isolatedStages: 0,
+  };
+  const ids = (stages: HudStage[], over: Record<string, unknown> = {}) =>
+    computeHudFlags({ ...base, stages, ...over }).map((flag) => flag.id);
+  const ran = (name: string, state: HudStage['state']): HudStage => ({
+    ...stage(name, state),
+    started_at: '2026-10-18T08:00:00.000Z',
+    ended_at: state === 'running' ? null : '2026-10-18T08:10:00.000Z',
+  });
+
+  it('no isolation flag while the first stage agent runs; it fires once a stage ended without one', () => {
+    expect(ids([ran('planning', 'running')])).not.toContain('isolation-missing');
+    expect(ids([ran('planning', 'complete'), stage('development', 'missing')])).toContain(
+      'isolation-missing',
+    );
+    expect(ids([ran('planning', 'complete')], { isolatedStages: 1 })).not.toContain(
+      'isolation-missing',
+    );
+  });
+
+  it('the rules flag waits for Build to end, and an inferred Build end never raises it', () => {
+    expect(ids([ran('development', 'running')])).not.toContain('rules-not-loaded');
+    expect(ids([stage('development', 'complete')])).not.toContain('rules-not-loaded');
+    expect(ids([ran('development', 'complete')])).toContain('rules-not-loaded');
+    expect(ids([ran('development', 'redone')])).toContain('rules-not-loaded');
+    expect(ids([ran('development', 'complete')], { rulesRecorded: true })).not.toContain(
+      'rules-not-loaded',
+    );
+  });
+});
+
+describe('FR-20: a started stage-agent record counts as the stage running in its own agent', () => {
+  it('no isolation flag between a stage end and its agent stop', () => {
+    const ended: HudStage = {
+      ...stage('planning', 'complete'),
+      started_at: '2026-10-18T08:00:00.000Z',
+      ended_at: '2026-10-18T08:10:00.000Z',
+    };
+    const flags = (stageAgentsSeen: number) =>
+      computeHudFlags({
+        stages: [ended],
+        gates: [],
+        rulesRecorded: true,
+        tableSkipped: false,
+        isolationStatus: 'expected',
+        isolatedStages: 0,
+        stageAgentsSeen,
+      }).map((flag) => flag.id);
+    expect(flags(1)).not.toContain('isolation-missing');
+    expect(flags(0)).toContain('isolation-missing');
+  });
+});

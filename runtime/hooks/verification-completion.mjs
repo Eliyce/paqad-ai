@@ -34,7 +34,15 @@ async function main() {
     return;
   }
 
-  if (!isPaqadDisabled(projectRoot) && (await deferredForBackgroundStage(projectRoot))) {
+  const deferral = isPaqadDisabled(projectRoot)
+    ? null
+    : await deferredForBackgroundStage(projectRoot);
+  if (deferral?.deferred) {
+    if (deferral.nextStage && !stopHookActiveFromStdin(input)) {
+      process.stdout.write(
+        `${JSON.stringify({ decision: 'block', reason: nextStageNudge(deferral.nextStage) })}\n`,
+      );
+    }
     process.exit(0);
     return;
   }
@@ -53,12 +61,13 @@ async function main() {
   process.exit(code);
 }
 
+function nextStageNudge(stage) {
+  return `paqad: the last stage of this change ended and ${stage.replace(/_/g, ' ')} has not started. Start it, or open a decision if the change waits on the person.`;
+}
+
 async function deferredForBackgroundStage(projectRoot) {
   const payload = parseHookPayload(input);
   const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
-  if (tasks.length === 0) {
-    return false;
-  }
   try {
     const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
     const { deferCompletionForBackgroundStage } = await import(distUrl.href);
@@ -67,8 +76,8 @@ async function deferredForBackgroundStage(projectRoot) {
       backgroundTasks: tasks,
       sessionId: sessionIdFromStdin(input),
       adapter: ADAPTER ?? 'claude-code',
-    }).deferred;
+    });
   } catch {
-    return false;
+    return null;
   }
 }

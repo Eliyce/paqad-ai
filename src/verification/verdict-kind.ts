@@ -41,10 +41,21 @@ export const LANE_RECORD_GAP: RecordGap = {
 
 const UNPROVEN_STATUSES: ReadonlySet<string> = new Set(['fail', 'inconclusive']);
 
+const STAGE_WORDS: Readonly<Record<string, string>> = {
+  ticket_intake: 'Intake',
+  planning: 'Plan',
+  specification: 'Spec',
+  development: 'Build',
+  review: 'Review',
+  checks: 'Checks',
+  documentation_sync: 'Docs',
+  delivery: 'Deliver',
+};
+
 export function unrecordedStagesGap(stages: readonly string[]): RecordGap {
   return {
     code: 'unrecorded-mandatory-stages',
-    text: `paqad could not record evidence for these stages: ${stages.join(', ')}`,
+    text: `No record yet for: ${stages.map((stage) => STAGE_WORDS[stage] ?? stage).join(', ')}`,
     detail: null,
   };
 }

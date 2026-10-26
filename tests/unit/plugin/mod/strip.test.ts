@@ -183,6 +183,39 @@ describe('the strip geometry', () => {
   });
 });
 
+describe('AC-18 / AC-19: strip motion keeps its place across re-renders', () => {
+  const withStage = (state: StageState, clockMs?: number) =>
+    draw({
+      stages: stages('skip', 'done', state, 'todo', 'todo', 'todo', 'todo', 'todo'),
+      ...(clockMs === undefined ? {} : { clockMs }),
+    });
+  const withoutClasses = (source: string) => source.replace(/ class="[^"]*"/g, '');
+
+  it('running, paused and marked share one skeleton: only classes change', () => {
+    const run = withoutClasses(withStage('run', 0));
+    expect(withoutClasses(withStage('paused', 0))).toBe(run);
+    expect(withoutClasses(withStage('marked', 0))).toBe(run);
+    expect(withStage('paused', 0)).not.toBe(withStage('run', 0));
+  });
+
+  it('every animation starts at a phase taken from the shared clock', () => {
+    const at0 = withStage('run', 0);
+    const at1 = withStage('run', 1000);
+    expect(at0).toContain('.pulse{animation-delay:-0.000s}');
+    expect(at1).toContain('.pulse{animation-delay:-1.000s}');
+    expect(at1).toContain('.spin{animation-delay:-1.000s}');
+    expect(at0).toContain('begin="-0.000s"');
+    expect(at1).toContain('begin="-1.000s"');
+    expect(withStage('run', 4600)).toContain('.spin{animation-delay:-0.600s}');
+  });
+
+  it('honours reduced motion and keeps the state readable from colour', () => {
+    const source = withStage('run', 0);
+    expect(source).toContain('@media (prefers-reduced-motion: reduce){');
+    expect(source).toMatch(/<rect class="acc pulse"/);
+  });
+});
+
 describe('the strip marks', () => {
   it('draws a running stage pink with a glow, a pulse and a sweeping sheen', () => {
     const source = draw({
@@ -206,8 +239,8 @@ describe('the strip marks', () => {
     expect(source.match(/<rect class="att"/g)).toHaveLength(1);
     expect(source.match(/<rect class="cau"/g)).toHaveLength(1);
     expect(source).toMatch(/<rect class="fail"/);
-    expect(source).not.toContain('<animate');
     expect(source).not.toMatch(/class="[^"]*pulse/);
+    expect(source).not.toMatch(/class="[^"]*(?<!off )motion"/);
   });
 
   it('draws not required as a dashed faint line and not yet as a faint bar', () => {
@@ -244,7 +277,7 @@ describe('the strip marks', () => {
     expect(source).toMatch(/<circle class="ink" [^>]*r="8.5" fill-opacity=".1"/);
     expect(source).toMatch(/<g class="spin"><circle class="accs"/);
     expect(source).toMatch(/<circle class="fails" [^>]*r="8.5"/);
-    expect(source).toMatch(/<circle class="pass" [^>]*r="12.5" filter="url\(#glow\)"/);
+    expect(source).toMatch(/<circle class="pass motion" [^>]*r="12.5" filter="url\(#glow\)"/);
     expect(source).toContain('values=".5;.15;.5" dur="2.4s"');
     expect(source).toMatch(/<text class="lbl pass cur"[^>]*>Merge<\/text>/);
     expect(source).toMatch(/<text class="lbl mut"[^>]*>PR<\/text>/);

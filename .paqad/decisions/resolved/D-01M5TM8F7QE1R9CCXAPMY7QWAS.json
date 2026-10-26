@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7QE1R9CCXAPMY7QWAS",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on changed files and commits for a change",
+  "context": "Chief architect: Ruled by the chief, no question needed: both criteria stand. The happy path proves zero edits, zero plan progress and zero passed claims before the first edit. The error path proves that a lost or rebased start point falls back to a stated base and the HUD says so.\n\nTarget: changed files and commits for a change\n- qa-engineer: Given a branch cut from a non-main base with prior commits and pre-existing untracked or dirty files, when the change opens and no edit is made, then Trust shows no Edits made / Docs updated tick, plan progress is 0 built, no acceptance claim is marked pass, and the receipt subjects list none of those files (proof: integration test with a temp git repo).\n- qa-engineer: Error path: when start_commit is missing or unreachable (rebased away), the measurement falls back to a stated base and the HUD says so, rather than silently diffing against main.\n\n[expert-conflict-fork:9eae2c0b5b1b3e47]",
+  "options": [
+    {
+      "option_key": "given-a-branch-cut-from-a-non-main-base-",
+      "label": "Given a branch cut from a non-main base with prior commits and pre-existing untracked or dirty files, when the change opens and no edit is made, then Trust shows no Edits made / Docs updated tick, plan progress is 0 built, no acceptance claim is marked pass, and the receipt subjects list none of those files (proof: integration test with a temp git repo). — qa-engineer",
+      "one_line_preview": "Given a branch cut from a non-main base with prior commits and pre-existing untracked or dirty files, when the change opens and no edit is made, then Trust shows no Edits made / Docs updated tick, plan progress is 0 built, no acceptance claim is marked pass, and the receipt subjects list none of those files (proof: integration test with a temp git repo). — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "error-path-when-start-commit-is-missing-",
+      "label": "Error path: when start_commit is missing or unreachable (rebased away), the measurement falls back to a stated base and the HUD says so, rather than silently diffing against main. — qa-engineer",
+      "one_line_preview": "Error path: when start_commit is missing or unreachable (rebased away), the measurement falls back to a stated base and the HUD says so, rather than silently diffing against main. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "given-a-branch-cut-from-a-non-main-base-",
+  "created_at": "2026-10-25T22:52:48.759Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "given-a-branch-cut-from-a-non-main-base-",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:33.790Z",
+  "decision_id": "D-01M5TM8F7QE1R9CCXAPMY7QWAS",
+  "fingerprint": "sha256:e02d4b7df794d2805df255d6f8872f4e2279ea7ab3accf9a6d9d666791833720",
+  "question": "Experts disagree on changed files and commits for a change",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.759Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-a-branch-cut-from-a-non-main-base-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:33.790Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

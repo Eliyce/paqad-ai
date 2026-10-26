@@ -21,8 +21,8 @@ export function gateStateWord(state: string): { word: string; tone: WordTone } {
 }
 
 const STAGE_STATE_WORDS: Readonly<Record<string, { word: string; tone: WordTone }>> = {
-  complete: { word: 'Recorded', tone: 'dim' },
-  redone: { word: 'Recorded', tone: 'dim' },
+  complete: { word: 'Done', tone: 'pass' },
+  redone: { word: 'Done', tone: 'pass' },
   running: { word: 'Running', tone: 'acc' },
   failed: { word: 'Failed', tone: 'fail' },
   inconclusive: { word: 'Could not prove', tone: 'cau' },
@@ -31,6 +31,9 @@ const STAGE_STATE_WORDS: Readonly<Record<string, { word: string; tone: WordTone 
 };
 
 const NOT_YET_WORD = { word: 'Not yet', tone: 'dim' as const };
+
+const DONE_STATES: ReadonlySet<string> = new Set(['complete', 'redone']);
+export const DONE_MARK = '✓';
 
 export type StepMark = 'done' | 'failed' | 'not-yet';
 
@@ -59,6 +62,7 @@ export interface TrustStage {
   words: string;
   word: string;
   tone: WordTone;
+  mark: string | null;
   steps: TrustStep[];
   gates: TrustGateRow[];
 }
@@ -78,6 +82,7 @@ export function trustStage(stage: PaqadStageProof): TrustStage {
     words: stage.words,
     word: look.word,
     tone: look.tone,
+    mark: DONE_STATES.has(stage.state) ? DONE_MARK : null,
     steps: stage.steps.map((step) => ({
       key: `${stage.stage}-${step.id}`,
       mark: step.state,

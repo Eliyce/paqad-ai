@@ -169,7 +169,7 @@ describe('runRepositoryVerification mandatory-stage reconcile', () => {
     expect(verdict.ok).toBe(true);
     expect(verdict.summary).toContain('Inconclusive');
     expect(verdict.summary).not.toContain('Safe to merge');
-    expect(verdict.summary).toContain('paqad could not record evidence for these stages');
+    expect(verdict.summary).toContain('No record yet for');
     expect(verdict.summary).toContain('review');
     expect(verdict.summary).toContain('checks');
     expect(verdict.receipt).toContain(verdict.summary);
@@ -199,7 +199,7 @@ describe('runRepositoryVerification mandatory-stage reconcile', () => {
 
     expect(verdict.ok).toBe(true);
     expect(verdict.summary).toContain('Safe to merge');
-    expect(verdict.summary).not.toContain('paqad could not record evidence for these stages');
+    expect(verdict.summary).not.toContain('No record yet for');
   });
 });
 

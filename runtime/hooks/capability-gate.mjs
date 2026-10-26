@@ -103,12 +103,14 @@ async function deferredForBackgroundStage(projectRoot, input) {
   try {
     const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);
     const { deferCompletionForBackgroundStage } = await import(distUrl.href);
-    return deferCompletionForBackgroundStage({
+    const result = deferCompletionForBackgroundStage({
       projectRoot,
       backgroundTasks: tasks,
       sessionId: payload?.session_id,
       adapter: ADAPTER ?? 'claude-code',
-    }).deferred;
+      record: false,
+    });
+    return result.deferred && result.reason !== 'between stages';
   } catch {
     return false;
   }

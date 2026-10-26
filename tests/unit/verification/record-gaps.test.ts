@@ -20,7 +20,7 @@ import {
   formatVerdictSummary,
   type RepositoryVerificationGateVerdict,
 } from '@/verification/repository/verdict.js';
-import { verdictKindFor, verdictParts } from '@/verification/verdict-kind.js';
+import { unrecordedStagesGap, verdictKindFor, verdictParts } from '@/verification/verdict-kind.js';
 
 import { verdictHasHardFailure } from '../../../runtime/scripts/verify-backstop.mjs';
 
@@ -146,7 +146,7 @@ describe('AC-29: only paqad bookkeeping is missing', () => {
       escalations: [],
       unrecordedMandatoryStages: ['review'],
     });
-    expect(summary).toContain('paqad could not record evidence for these stages: review');
+    expect(summary).toContain('No record yet for: Review');
     expect(summary).not.toContain('Mark them');
     expect(summary).not.toContain(FIX_IT);
   });
@@ -204,6 +204,7 @@ describe('AC-30 and AC-26: legacy records on disk', () => {
 
     expect(snapshot.record_gaps).toContain('paqad could not record the lane for this change');
     expect(snapshot.verdict?.kind ?? null).not.toBe('pass');
+    expect(snapshot.headline.gap ?? '').not.toContain('paqad could not record');
     expect(readFileSync(recordPath, 'utf8')).toBe(before);
   });
 });
@@ -234,5 +235,13 @@ describe('AC-33: a repaired paqad gap writes an audit row', () => {
     expect(snapshot.repairs?.map((repair) => repair.what)).toEqual(
       expect.arrayContaining([expect.stringContaining('development')]),
     );
+  });
+});
+
+describe('AC-17: the stages gap names the stages and blames nobody', () => {
+  it('reads "No record yet for" with the stage words, never "paqad could not record"', () => {
+    const gap = unrecordedStagesGap(['specification', 'development', 'documentation_sync']);
+    expect(gap.text).toBe('No record yet for: Spec, Build, Docs');
+    expect(gap.text).not.toContain('paqad could not record');
   });
 });

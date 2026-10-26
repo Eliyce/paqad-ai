@@ -25,7 +25,7 @@ const EDIT_STAGE_IDS = ['development', 'checks', 'documentation_sync'];
 function editState(snapshot: PaqadHudSnapshot | null, live: LiveState): ShipStepState {
   const stateOf = (id: string) => snapshot?.stages.find((stage) => stage.stage === id)?.state;
   const open = EDIT_STAGE_IDS.some((id) => stateOf(id) === 'running');
-  if (live.editing !== null || open) return 'current';
+  if (open || live.editing !== null) return 'current';
   if (EDIT_STAGE_IDS.some((id) => stateOf(id) === 'complete' || stateOf(id) === 'redone')) {
     return 'done';
   }

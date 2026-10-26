@@ -13,6 +13,13 @@ import { join, resolve } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import {
+  appendFeatureStageRow,
+  openFeatureChange,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
+
 import { TASK_LIST_SENTENCES } from '../../../runtime/claude-plugin/mod/desktop-view.ts';
 import { NO_CONTEXT_REFRESH_ENV, removeTempProject } from './temp-project.js';
 
@@ -632,6 +639,54 @@ describe('runtime/hooks/agent-entry-session-start.mjs', () => {
       removeTempProject(projectRoot);
     }
   });
+
+  it.each([
+    ['startup', 1],
+    ['resume', 1],
+    ['compact', 0],
+  ])(
+    'a %s session releases stage agents that never reported back with %i repair row',
+    (source, expected) => {
+      const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-release-hook-'));
+      try {
+        const git = (...args: string[]) =>
+          execFileSync('git', args, { cwd: projectRoot, stdio: 'ignore' });
+        git('init', '--quiet', '-b', 'main');
+        git('config', 'user.email', 'r@example.test');
+        git('config', 'user.name', 'Release');
+        writeFileSync(join(projectRoot, '.gitignore'), '.paqad/\n');
+        git('add', '.');
+        git('commit', '--quiet', '-m', 'init');
+        const session = `release-${source}`;
+        const dirName = openFeatureChange(projectRoot, session, {
+          adapter: 'claude-code',
+          title: 'crashed stage agent',
+          issue: null,
+          lane: 'full',
+        });
+        appendFeatureStageRow(projectRoot, session, dirName, {
+          kind: 'stage-agent',
+          stage: 'planning',
+          agent: 'paqad-planning',
+          agent_id: 'a1',
+          event_status: 'started',
+          tokens_used: 0,
+          tokens_not_recarried: 0,
+          estimate: true,
+        });
+        const stdout = execFileSync('node', [RESET_SCRIPT], {
+          env: { ...process.env, ...NO_CONTEXT_REFRESH_ENV, CLAUDE_PROJECT_DIR: projectRoot },
+          input: JSON.stringify({ session_id: session, source }),
+        });
+        expect(stdout.toString('utf8')).toBe('');
+        const rows = readFeatureStageUnit(projectRoot, dirName);
+        expect(rows.filter((row) => row.kind === 'record-repair')).toHaveLength(expected);
+        expect(liveStageAgents(rows)).toHaveLength(1 - expected);
+      } finally {
+        removeTempProject(projectRoot);
+      }
+    },
+  );
 
   it('deletes the sentinel and the per-agent markers so every session starts ungated', () => {
     const projectRoot = mkdtempSync(join(tmpdir(), 'paqad-gate-'));

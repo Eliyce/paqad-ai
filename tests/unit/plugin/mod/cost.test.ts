@@ -97,6 +97,13 @@ describe('the cost pill (AC-50)', () => {
     expect(buildBandView(parse(FULL_ORD_501), NOW).cost).toBe('cost: not yet');
   });
 
+  it('AC-27: reads counting, never 0 tokens, while an open window has no figure yet', () => {
+    const cost = costOf(FULL_ORD_501_COST);
+    const zero = { ...cost, tokens: { ...cost.tokens, total: 0 }, usd: null, sealed: false };
+    expect(costPill(zero)).toBe('cost: counting');
+    expect(costPill({ ...zero, sealed: true })).toBe('0 tokens');
+  });
+
   it('shows tokens and money labelled estimate with the price date', () => {
     const pill = costPill(costOf(FULL_ORD_501_COST));
     expect(pill).toBe('1.3M tokens, ~$4.60 estimate, 2026-10-19 prices');

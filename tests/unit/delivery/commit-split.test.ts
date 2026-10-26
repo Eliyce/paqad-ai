@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -9,6 +9,7 @@ import {
   branchCarriesOtherWork,
   changeOwnTickets,
   computeCommitSplit,
+  describeEarlierWork,
   describeInherited,
   intakeBranchLine,
   sharedBranchLine,
@@ -19,6 +20,10 @@ import { computeHudFlags } from '@/hud/snapshot.js';
 import { parseBranchTickets } from '@/planning/ticket-ref-detect.js';
 
 import { ticketRef } from '../../shared/ticket-ref.js';
+
+const PULL_REQUEST_SUBJECTS: string[] = JSON.parse(
+  readFileSync(join(process.cwd(), 'tests/fixtures/delivery/pull-request-subjects.json'), 'utf8'),
+).subjects;
 
 const roots: string[] = [];
 afterEach(() => {
@@ -80,7 +85,7 @@ describe('computeCommitSplit', () => {
     expect(new Set([...split.own_shas!, ...split.inherited_shas!]).size).toBe(7);
     expect(branchCarriesOtherWork(split)).toBe(true);
     expect(sharedBranchLine(split, 'feat/ORD-470-contact-matching')).toContain(
-      'Branch `feat/ORD-470-contact-matching` already carries 3 commits from 3 other tickets and 2 untagged made before this change started',
+      'Branch `feat/ORD-470-contact-matching` already carries 5 commits from tickets ORD-470, ORD-471, ORD-472 made before this change started',
     );
   });
 
@@ -161,7 +166,7 @@ describe('computeCommitSplit', () => {
     expect(branchCarriesOtherWork(computeCommitSplit(bare))).toBe(false);
   });
 
-  it('AC-32: delivery.json carries the split, the shared flag follows it, and the commit graph stays', () => {
+  it('AC-32: delivery.json carries the split, earlier work raises no flag, and the commit graph stays', () => {
     const quiet = {
       stages: [],
       gates: [],
@@ -199,7 +204,7 @@ describe('computeCommitSplit', () => {
     expect(split?.inherited?.merges).toBe(1);
     expect(split?.inherited?.untagged).toBe(2);
     expect([...(split?.inherited?.tickets ?? [])].sort()).toEqual(['ORD-470', 'ORD-472']);
-    expect(shared(split)).toBe(true);
+    expect(shared(split)).toBe(false);
 
     g('checkout', '-q', '-b', 'feat/ORD-482-clean', 'main');
     commit(root, g, 'feat(ORD-482): new matcher');
@@ -225,7 +230,7 @@ describe('intakeBranchLine', () => {
   it('names the commits from other tickets on the current branch, and nothing on a clean one', () => {
     const { root, g } = sharedBranch();
     expect(intakeBranchLine(root, ['ORD-482'])).toContain(
-      'Branch `feat/ORD-470-contact-matching` already carries 3 commits from 3 other tickets and 3 untagged made before this change started',
+      'Branch `feat/ORD-470-contact-matching` already carries 6 commits from tickets ORD-470, ORD-471, ORD-472 made before this change started',
     );
     g('checkout', '-q', '-b', 'feat/ORD-490-clean', 'main');
     expect(intakeBranchLine(root, ['ORD-490'])).toBeNull();
@@ -247,15 +252,42 @@ describe('ticket helpers', () => {
     expect(changeOwnTickets('no ticket here', null)).toEqual([]);
   });
 
-  it('describes inherited commits with and without tickets', () => {
+  it('describes inherited commits in one sentence with one count', () => {
     expect(describeInherited({ count: 1, tickets: ['A-1'], merges: 0, untagged: 0 })).toBe(
-      '1 commit from 1 other ticket',
+      '1 commit from ticket A-1 made before this change started',
     );
     expect(describeInherited({ count: 2, tickets: [], merges: 0, untagged: 2 })).toBe(
       '2 commits made before this change started',
     );
-    expect(describeInherited({ count: 3, tickets: ['A-1'], merges: 0, untagged: 2 })).toBe(
-      '1 commit from 1 other ticket and 2 untagged made before this change started',
+    expect(describeInherited({ count: 2, tickets: ['X-1'], merges: 0, untagged: 1 })).toBe(
+      '2 commits from ticket X-1 made before this change started',
     );
+    expect(describeInherited({ count: 3, tickets: ['A-1', 'B-2'], merges: 0, untagged: 1 })).toBe(
+      '3 commits from tickets A-1, B-2 made before this change started',
+    );
+  });
+
+  it('names earlier work for the pull request with one count', () => {
+    expect(describeEarlierWork({ count: 0, tickets: [], merges: 0, untagged: 0 })).toBe(
+      'no commits from earlier work',
+    );
+    expect(describeEarlierWork({ count: 1, tickets: [], merges: 0, untagged: 1 })).toBe(
+      '1 commit from earlier work',
+    );
+    expect(describeEarlierWork({ count: 1, tickets: ['A-1'], merges: 0, untagged: 0 })).toBe(
+      '1 commit from earlier work on ticket A-1',
+    );
+    expect(describeEarlierWork({ count: 3, tickets: ['A-1', 'B-2'], merges: 0, untagged: 1 })).toBe(
+      '3 commits from earlier work on tickets A-1, B-2',
+    );
+  });
+
+  it('AC-10: a pull request number in a subject is not a ticket', () => {
+    const { root, g } = repo();
+    g('checkout', '-q', '-b', 'feat/next');
+    for (const subject of PULL_REQUEST_SUBJECTS) commit(root, g, subject);
+    const start = g('rev-parse', 'HEAD');
+    const split = computeCommitSplit(root, { startCommit: start });
+    expect(split.inherited).toEqual({ count: 2, tickets: [], merges: 0, untagged: 2 });
   });
 });

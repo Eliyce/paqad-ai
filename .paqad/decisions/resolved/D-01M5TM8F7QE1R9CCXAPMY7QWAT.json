@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7QE1R9CCXAPMY7QWAT",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on HUD band",
+  "context": "Chief architect: Ruled by the chief, no question needed: these are two separate tests on the same band, not a disagreement. One proves a mid-run message keeps Feature development and the recorded lane; the other proves the row count stays the same across permission, running and verdict states.\n\nTarget: HUD band\n- qa-engineer: Given an open full-lane change with a running stage, when a non-code message is routed to project-question, then the band stays Feature development and the route line never names a lane lower than the recorded lane.\n- qa-engineer: Given the headline moves between permission, running and verdict states, then the band keeps the same row count; proof is a render test asserting row count across the three states, not a visual check.\n\n[expert-conflict-fork:b9cb48e8874fb829]",
+  "options": [
+    {
+      "option_key": "given-an-open-full-lane-change-with-a-ru",
+      "label": "Given an open full-lane change with a running stage, when a non-code message is routed to project-question, then the band stays Feature development and the route line never names a lane lower than the recorded lane. — qa-engineer",
+      "one_line_preview": "Given an open full-lane change with a running stage, when a non-code message is routed to project-question, then the band stays Feature development and the route line never names a lane lower than the recorded lane. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-the-headline-moves-between-permiss",
+      "label": "Given the headline moves between permission, running and verdict states, then the band keeps the same row count; proof is a render test asserting row count across the three states, not a visual check. — qa-engineer",
+      "one_line_preview": "Given the headline moves between permission, running and verdict states, then the band keeps the same row count; proof is a render test asserting row count across the three states, not a visual check. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "given-an-open-full-lane-change-with-a-ru",
+  "created_at": "2026-10-25T22:52:48.759Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "given-an-open-full-lane-change-with-a-ru",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:37.522Z",
+  "decision_id": "D-01M5TM8F7QE1R9CCXAPMY7QWAT",
+  "fingerprint": "sha256:1a231c8f240dcb49068b426f6209a5fa2fe998e0e72083d4bf3d6a8cd7367742",
+  "question": "Experts disagree on HUD band",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.759Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-an-open-full-lane-change-with-a-ru",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:37.522Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

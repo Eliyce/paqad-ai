@@ -38,10 +38,12 @@ import {
   bandIsLive,
   buildDesktopBand,
   buildDesktopLedger,
+  ledgerAutoTab,
   ledgerIsLive,
   refusesTaskList,
   taskListSentence,
   type DesktopBand,
+  type TableSitting,
 } from './desktop-view';
 import {
   ORG_ENFORCED,
@@ -71,6 +73,8 @@ import {
   type RuleStop,
 } from './model';
 import {
+  AGENT_TOOLS,
+  ForegroundAgents,
   IDLE_LIVE,
   answeredRuleStopText,
   liveToolCall,
@@ -164,6 +168,10 @@ const liveAtom = atom({ plugin: 'paqad', key: 'live' } as const, IDLE_LIVE as Li
 const closingAtom = atom({ plugin: 'paqad', key: 'closing' } as const, false as boolean);
 const sidesAtom = atom({ plugin: 'paqad', key: 'tableSides' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
+const tableSittingAtom = atom(
+  { plugin: 'paqad', key: 'tableSitting' } as const,
+  null as TableSitting | null,
+);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
@@ -204,6 +212,7 @@ interface Live {
 let live: Live | null = null;
 let ticker: Timer | null = null;
 let agentCalls = 0;
+const foregroundAgents = new ForegroundAgents();
 let reading = false;
 let readAgain = false;
 let lastText: string | null | undefined;
@@ -273,6 +282,7 @@ async function refresh($: EngineInterface): Promise<void> {
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed) await landAllGreen($, snapshot);
       if (changed) await autoOpenLedger($, snapshot);
+      if (changed) await bringTableForward($, snapshot);
       if (changed || isLive(snapshot) || (await liveState($)).turnStartedAt !== null) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
@@ -381,6 +391,7 @@ async function readStatus(
 
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
   try {
+    await personPicked($);
     const open = (await read($, paneOpenAtom)) === true;
     const shown = shownTab(await read($, paneTabAtom));
     if (open && shown === tab) {
@@ -395,8 +406,28 @@ async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
 }
 
 async function pickTab($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
+  await personPicked($);
   await update($, paneTabAtom, () => tab);
   await update($, paneOpenAtom, () => true);
+}
+
+async function personPicked($: EngineInterface): Promise<void> {
+  await update($, tableSittingAtom, (sitting) =>
+    sitting ? { ...sitting, picked: true } : sitting,
+  );
+}
+
+async function bringTableForward(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<void> {
+  try {
+    const shown = shownTab(await read($, paneTabAtom));
+    const next = ledgerAutoTab(snapshot, shown, await read($, tableSittingAtom));
+    await update($, tableSittingAtom, () => next.sitting);
+    const tab = next.tab;
+    if (tab) await update($, paneTabAtom, () => tab);
+  } catch {}
 }
 
 async function autoOpenLedger(
@@ -930,6 +961,7 @@ export const register: Register = (on) => {
     verdictSeen = undefined;
     chimeOn = false;
     rawCalls.clear();
+    foregroundAgents.clear();
     ticker?.cancel();
     ticker = null;
     heartbeat?.cancel();
@@ -982,8 +1014,12 @@ export const register: Register = (on) => {
   on('tool.call', async ($, e, next) => {
     if (!live) return next(e);
     const tool = String(e.tool);
-    const input = e as unknown as { command?: unknown };
-    const isAgent = tool === 'Agent' || tool === 'Task';
+    const input = e as unknown as { command?: unknown; run_in_background?: unknown };
+    const isAgent = AGENT_TOOLS.has(tool);
+    const agentId = (e as { agentId?: unknown }).agentId;
+    const onMainThread = !agentId;
+    if (typeof agentId === 'string' && agentId !== '') foregroundAgents.agentSeen(agentId);
+    const foregroundAgent = isAgent && onMainThread && input.run_in_background !== true;
     if (isExpertsCall(tool, input)) {
       await claimCard($, (e as { tool_use_id?: string }).tool_use_id);
     }
@@ -991,6 +1027,7 @@ export const register: Register = (on) => {
       agentCalls += 1;
       startTicker($);
     }
+    const foregroundCall = foregroundAgent ? foregroundAgents.callStarted() : null;
     const call = liveToolCall(e as never);
     await moveLive($, (state) => toolStarted(state, call));
     try {
@@ -999,6 +1036,7 @@ export const register: Register = (on) => {
       return result;
     } finally {
       if (isAgent) agentCalls = Math.max(0, agentCalls - 1);
+      if (foregroundCall) foregroundAgents.callEnded(foregroundCall);
       await moveLive($, (state) => toolEnded(state, call));
     }
   }).catch(($, e, next) => next(e));
@@ -1020,6 +1058,7 @@ export const register: Register = (on) => {
   }).catch(() => ({ decision: 'deny' }));
 
   on('turn.start', async ($, e, next) => {
+    if (e.agentId) foregroundAgents.agentSeen(e.agentId);
     if (live && !e.agentId) {
       const now = await $.clock.now();
       await moveLive($, (state) => turnStarted(state, e.turnId, now));
@@ -1033,12 +1072,15 @@ export const register: Register = (on) => {
       const toolUseId = typeof e.tool_use_id === 'string' ? e.tool_use_id : null;
       const agentId = (e as { agentId?: unknown }).agentId;
       const agent = typeof agentId === 'string' && agentId !== '' ? agentId : null;
+      if (agent !== null) foregroundAgents.agentSeen(agent);
+      const foreground = agent !== null && foregroundAgents.isForeground(agent);
       await moveLive($, (state) =>
         permissionAsked(state, {
           decision: verdict.decision,
           approver: e.approver,
           toolUseId,
           agent,
+          foreground,
         }),
       );
     }

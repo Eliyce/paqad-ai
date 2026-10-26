@@ -3,19 +3,61 @@ import { join } from 'node:path';
 import { execa } from 'execa';
 
 import type { CanonicalDocOwnershipKind, CanonicalDocTarget } from '@/core/types/verification.js';
+import { listInFlightFeatures } from '@/feature-evidence/adoption.js';
+import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
+import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import { readGitState } from '@/rag/git-state.js';
+import { readLedgerSessionId } from '@/rag-ledger/session.js';
+
+import { changedFilesSince, isPaqadArtifactPath, type ChangeStartLike } from './git-paths.js';
+
+export {
+  changedFilesSince,
+  DELETED_AT_START,
+  digestWorkingFile,
+  gitPathList,
+  isPaqadArtifactPath,
+  type ChangeStartLike,
+} from './git-paths.js';
 
 export interface ChangeEvidence {
   files: string[];
   source: 'git' | 'none';
 }
 
-export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvidence> {
-  const files = await readGitChangedFiles(projectRoot);
+export interface LoadChangeEvidenceOptions {
+  since?: ChangeStartLike | null;
+}
+
+export async function loadChangeEvidence(
+  projectRoot: string,
+  options: LoadChangeEvidenceOptions = {},
+): Promise<ChangeEvidence> {
+  const files = await readGitChangedFiles(projectRoot, options);
   return files.length > 0 ? { files, source: 'git' } : { files: [], source: 'none' };
 }
 
-export async function readGitChangedFiles(projectRoot: string): Promise<string[]> {
+function activeChangeStart(projectRoot: string): ChangeStartLike | null {
+  try {
+    const sessionId =
+      process.env.SE_SESSION || process.env.CLAUDE_SESSION_ID || readLedgerSessionId(projectRoot);
+    if (!sessionId || listInFlightFeatures(projectRoot).length === 0) return null;
+    const dirName = currentFeature(projectRoot, sessionId);
+    return dirName ? readChangeStartPoint(projectRoot, dirName) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function readGitChangedFiles(
+  projectRoot: string,
+  options: LoadChangeEvidenceOptions = {},
+): Promise<string[]> {
+  const start = options.since === undefined ? activeChangeStart(projectRoot) : options.since;
+  if (start) {
+    const since = changedFilesSince(projectRoot, start);
+    if (since !== null) return since;
+  }
   const gitState = readGitState(projectRoot);
   if (!gitState.head_commit || !gitState.base_commit) {
     return readGitStatusFiles(projectRoot);
@@ -61,13 +103,6 @@ export function isTestFile(filePath: string): boolean {
     filePath.includes('/__tests__/') ||
     /\.test\.[cm]?[jt]sx?$/.test(filePath) ||
     /\.spec\.[cm]?[jt]sx?$/.test(filePath)
-  );
-}
-
-export function isPaqadArtifactPath(filePath: string): boolean {
-  const normalized = filePath.replace(/\\/g, '/');
-  return (
-    normalized === '.paqad' || normalized.startsWith('.paqad/') || normalized.includes('/.paqad/')
   );
 }
 

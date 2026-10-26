@@ -3,13 +3,19 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { featureStagePath, openFeatureChange } from '@/feature-evidence/stage-ledger.js';
+import {
+  featureStagePath,
+  openFeatureChange,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
+import { liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { readStageAgentRows } from '@/stage-isolation/isolation-summary.js';
 import { validateStageEvidenceRow } from '@/stage-evidence/schema.js';
 import { persistLedgerSessionId } from '@/rag-ledger/session.js';
 import {
   estimateTokens,
   recordStageAgentCompletion,
+  recordStageAgentStart,
   resolveTokenCounts,
   stageFromAgentType,
 } from '@/stage-isolation/subagent-completion.js';
@@ -249,5 +255,54 @@ describe('recordStageAgentCompletion', () => {
         adapter: 'claude-code',
       }),
     ).not.toThrow();
+  });
+});
+
+describe('stage agent liveness rows (hud-live-run-truth)', () => {
+  it('SubagentStart writes one started row and SubagentStop stamps the same agent id, completed', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    const payload = { agent_id: 'agent_plan_1', agent_type: 'paqad:paqad-planning' };
+    expect(recordStageAgentStart({ projectRoot: root, payload })).toBe(true);
+    const unit = readFeatureStageUnit(root, dir).filter((row) => row.kind === 'stage-agent');
+    expect(unit).toHaveLength(1);
+    expect(unit[0]).toMatchObject({
+      stage: 'planning',
+      agent_id: 'agent_plan_1',
+      event_status: 'started',
+      host_pid: process.ppid,
+    });
+    expect(validateStageEvidenceRow(unit[0])).toEqual([]);
+    expect(readStageAgentRows(root, dir)).toHaveLength(0);
+    expect(liveStageAgents(readFeatureStageUnit(root, dir))).toHaveLength(1);
+
+    recordStageAgentCompletion({
+      projectRoot: root,
+      payload,
+      transcriptText: 'x',
+      adapter: 'claude-code',
+    });
+    const done = readStageAgentRows(root, dir);
+    expect(done).toHaveLength(1);
+    expect(done[0]).toMatchObject({ agent_id: 'agent_plan_1', event_status: 'completed' });
+    expect(liveStageAgents(readFeatureStageUnit(root, dir))).toHaveLength(0);
+  });
+
+  it('writes no started row for a High Table seat or a non-paqad agent', () => {
+    const root = tempRoot();
+    const dir = activeFeature(root);
+    expect(
+      recordStageAgentStart({
+        projectRoot: root,
+        payload: { agent_id: 'a', agent_type: 'paqad-expert' },
+      }),
+    ).toBe(false);
+    expect(
+      recordStageAgentStart({
+        projectRoot: root,
+        payload: { agent_id: 'b', agent_type: 'Explore' },
+      }),
+    ).toBe(false);
+    expect(readFeatureStageUnit(root, dir).filter((row) => row.kind === 'stage-agent')).toEqual([]);
   });
 });

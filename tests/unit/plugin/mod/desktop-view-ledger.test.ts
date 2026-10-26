@@ -3,9 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   ANSWER_TOAST,
   CLAIMS_LATER,
+  COST_COUNTING,
+  COST_COUNTING_MONEY,
   COUNTING_WORDS,
+  costWords,
   NOT_COUNTED_WORDS,
   RECORD_LATER,
+  RECORD_NOTHING_YET,
+  recordTime,
   SHAPED_LATER,
   UNREADABLE,
   buildDesktopLedger,
@@ -14,6 +19,7 @@ import {
   deliveryView,
   ledgerIsLive,
   ledgerSubtitle,
+  ledgerAutoTab,
   ledgerTabs,
   localTime,
   recordView,
@@ -23,6 +29,7 @@ import {
   workflowLedger,
   type DesktopLedgerInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import { OLD_RECORD_NOTE } from '../../../../runtime/claude-plugin/mod/trust.ts';
 import {
@@ -137,6 +144,47 @@ describe('AC-19: the Ledger tabs', () => {
   });
 });
 
+describe('AC-21: a finished stage reads as done', () => {
+  it('a complete or redone stage is "Done" with a green check, never "Recorded"', () => {
+    const view = trustView(parse(FULL_ORD_501));
+    expect(view.stages.every((stage) => stage.mark === '✓')).toBe(true);
+    expect(JSON.stringify(view.stages)).not.toContain('Recorded');
+    const fast = trustView(parse(FAST_ORD_490));
+    expect(fast.stages.map((stage) => stage.mark)).toEqual(['✓', null, null]);
+  });
+});
+
+describe('AC-23 (spec): the High Table tab comes forward when the table is the live thing', () => {
+  const sitting = (phase: 'writing' | 'chief' | 'frozen') =>
+    open({ table: ord501Table(phase), stages: stages({ specification: 'running' }) });
+
+  it('brings High Table forward once when a seat writes, then leaves the tab alone', () => {
+    const first = ledgerAutoTab(sitting('writing'), 'trust', null);
+    expect(first.tab).toBe('table');
+    expect(first.sitting).toMatchObject({ forwarded: true, picked: false });
+    const again = ledgerAutoTab(sitting('chief'), 'trust', first.sitting);
+    expect(again.tab).toBeNull();
+  });
+
+  it('never switches once the person picked a tab during the sitting', () => {
+    const start = ledgerAutoTab(sitting('writing'), 'cost', {
+      key: ledgerAutoTab(sitting('writing'), 'cost', null).sitting!.key,
+      forwarded: false,
+      picked: true,
+    });
+    expect(start.tab).toBeNull();
+  });
+
+  it('a quiet table ends the sitting, so the next sitting may come forward again', () => {
+    const done = ledgerAutoTab(sitting('frozen'), 'trust', {
+      key: 'x',
+      forwarded: true,
+      picked: true,
+    });
+    expect(done).toEqual({ tab: null, sitting: null });
+  });
+});
+
 describe('AC-20: the Trust tab', () => {
   it('AC-34: groups the proof by the lane stages with steps inside, and no light, ring or reason', () => {
     const view = trustView(parse(FULL_ORD_501));
@@ -144,12 +192,12 @@ describe('AC-20: the Trust tab', () => {
       ['claims', 'empty', 'flags', 'gaps', 'gates', 'note', 'repairs', 'stages'].sort(),
     );
     expect(view.stages.map((stage) => [stage.words, stage.word, stage.tone])).toEqual([
-      ['Plan', 'Recorded', 'dim'],
-      ['Spec', 'Recorded', 'dim'],
-      ['Build', 'Recorded', 'dim'],
-      ['Review', 'Recorded', 'dim'],
-      ['Checks', 'Recorded', 'dim'],
-      ['Docs', 'Recorded', 'dim'],
+      ['Plan', 'Done', 'pass'],
+      ['Spec', 'Done', 'pass'],
+      ['Build', 'Done', 'pass'],
+      ['Review', 'Done', 'pass'],
+      ['Checks', 'Done', 'pass'],
+      ['Docs', 'Done', 'pass'],
     ]);
     expect(view.stages[1]!.steps.map((step) => [step.mark, step.words, step.detail])).toEqual([
       ['done', 'Grounded in the code', '8 references'],
@@ -169,7 +217,7 @@ describe('AC-20: the Trust tab', () => {
   it('AC-35 and AC-36: a fast-lane change shows Plan, Build and Checks in order, and no other stage', () => {
     const view = trustView(parse(FAST_ORD_490));
     expect(view.stages.map((stage) => [stage.words, stage.word, stage.tone])).toEqual([
-      ['Plan', 'Recorded', 'dim'],
+      ['Plan', 'Done', 'pass'],
       ['Build', 'Running', 'acc'],
       ['Checks', 'Not yet', 'dim'],
     ]);
@@ -469,7 +517,6 @@ describe('AC-22: the Delivery tab', () => {
     ]);
     expect(view.blocks[1]!.commits).toEqual([
       { sha: 'a1c9e2f', subject: 'Seed stage helpers', own: true },
-      { sha: '64e4c85', subject: 'Upgrade changes from main', own: false },
     ]);
     expect(view.blocks[4]!.jobs).toEqual([
       { name: 'lint', time: '38s', tone: 'dim', share: 1 },
@@ -554,6 +601,167 @@ describe('AC-22: the Delivery tab', () => {
       ).blocks.map((block) => block.label),
     ).toEqual(['Edit']);
   });
+
+  it('keeps Edit reached and running while a real edit is in progress after Build', () => {
+    const live = { ...IDLE_LIVE, editing: { toolUseId: 'tu', file: '/repo/a.ts' } };
+    const built = open({ stages: stages({ development: 'complete' }) });
+    const edit = (view: ReturnType<typeof deliveryView>) =>
+      view.blocks.find((block) => block.label === 'Edit')!;
+    expect(edit(deliveryView(built, live))).toMatchObject({ state: 'run', reached: true });
+    expect(edit(deliveryView(built)).state).toBe('done');
+    const shown = ledger({ snapshot: built, live });
+    if (shown.kind !== 'feature') throw new Error('expected the feature ledger');
+    expect(edit(shown.delivery)).toMatchObject({ state: 'run', reached: true });
+  });
+});
+
+describe('AC-9 / AC-10: earlier work and the start point in the Delivery tab', () => {
+  it('shows commits already on the branch as one quiet line, never in the list', () => {
+    const view = deliveryView(
+      open({
+        stages: stages({ development: 'running' }),
+        ship: {
+          ...SHIP0,
+          commits: 1,
+          inherited_count: 2,
+          commit_list: [
+            { sha: 'a1c9e2f0aa', subject: 'Seed stage helpers', own: true },
+            { sha: '64e4c85bbb', subject: 'Earlier work', own: false },
+            { sha: '75f5d96ccc', subject: 'More earlier work', own: false },
+          ],
+        },
+      }),
+    );
+    const commits = view.blocks.find((block) => block.label === 'Commit')!;
+    expect(commits.commits.map((commit) => commit.sha)).toEqual(['a1c9e2f']);
+    expect(commits.note).toBe('Branch already had 2 commits from earlier work.');
+    expect(deliveryView(open()).blocks.find((block) => block.label === 'Commit')!.note).toBeNull();
+  });
+
+  it('names the fallback base and says when the starting files are unknown', () => {
+    const edit = (start: Raw | null) =>
+      deliveryView(open({ stages: stages({ development: 'running' }), start_point: start }))
+        .blocks[0]!.note;
+    expect(edit({ source: 'start_commit', base: null, files_known: true })).toBeNull();
+    expect(edit(null)).toBeNull();
+    expect(edit({ source: 'fallback-base', base: 'main', files_known: true })).toBe(
+      'Measured from main: where this change started was not recorded.',
+    );
+    expect(edit({ source: 'fork-point', base: 'release', files_known: true })).toBe(
+      'Measured from where the branch left release: where this change started was not recorded.',
+    );
+    expect(edit({ source: 'start_commit', base: null, files_known: false })).toBe(
+      'The files already in the tree when this change opened are unknown.',
+    );
+  });
+});
+
+describe('a claim with a test that has not run yet', () => {
+  it('reads "Has a test, not run yet" in dim, never green', () => {
+    const view = claimsView(
+      open({
+        claims: [
+          {
+            kind: 'acceptance',
+            id: 'AC-1',
+            label: 'binds',
+            test_id: 'tests/a.test.ts',
+            verdict: 'mapped',
+          },
+        ],
+      }),
+    );
+    expect(view.rows[0]).toMatchObject({ word: 'Has a test, not run yet', tone: 'dim' });
+  });
+});
+
+describe('AC-11 / AC-12: the Record names each decision, dated, newest first', () => {
+  const at = (time: string, day = '18') => `2026-10-${day}T${time}:00.000Z`;
+  const entry = (when: string, kind: string, fields: Raw = {}) => ({
+    at: when,
+    kind,
+    stage: null,
+    note: null,
+    ...fields,
+  });
+
+  it('one row per decision, with its id, a full date and time, newest first', () => {
+    const view = recordView(
+      open({
+        timeline: [
+          entry(at('11:30', '16'), 'decision_opened', {
+            decision: 'D-7',
+            subject: 'Which format?',
+          }),
+          entry(at('08:00'), 'stage_start', { stage: 'planning' }),
+          entry(at('09:10'), 'decision_answered', { decision: 'D-7' }),
+        ],
+      }),
+    );
+    expect(view.rows.map((row) => row.text)).toEqual([
+      'You answered D-7',
+      'Plan started',
+      'D-7 opened: Which format?',
+    ]);
+    expect(view.rows.map((row) => row.time)).toEqual([
+      recordTime(at('09:10')),
+      recordTime(at('08:00')),
+      recordTime(at('11:30', '16')),
+    ]);
+    expect(recordTime(at('11:30', '16'))).not.toBe(recordTime(at('11:30')));
+  });
+
+  it('an open change with no decisions and no stage events says so in one plain line', () => {
+    expect(recordView(open({ timeline: [entry(at('08:00'), 'open')] }))).toEqual({
+      rows: [],
+      empty: RECORD_NOTHING_YET,
+    });
+  });
+});
+
+describe('AC-27 / NFR-7: the Cost tab before any token is counted', () => {
+  const zero = { input: 0, output: 0, cache_read: 0, cache_write: 0, total: 0 };
+  const open0 = (window: Raw) =>
+    open({
+      cost: costRecord({ tokens: zero, usd: null, unpriced_models: [], by_stage: [], window }),
+    });
+
+  it('shows a counting state, never "0 tokens" or "No money figure", while the window is open', () => {
+    const view = costView(
+      open0({ from: '2026-10-18T08:00:00.000Z', to: '2026-10-18T08:01:00.000Z', sealed: false }),
+    )!;
+    expect(view.total).toBe(COST_COUNTING);
+    expect(view.money).toBe(COST_COUNTING_MONEY);
+    expect(`${view.total} ${view.money}`).not.toMatch(/0 tokens|No money figure/);
+    expect(costWords(open0({ sealed: false }).cost)).toBe(COST_COUNTING);
+  });
+
+  it('a sealed window with nothing in it reads as final', () => {
+    const view = costView(open0({ from: 'a', to: 'b', sealed: true, sealed_by: 'close' }))!;
+    expect(view.total).toBe('0 tokens');
+  });
+
+  it('the seat drill-down and the Cost tab read the same figure for a seat', () => {
+    const table = ord501Table('frozen') as { seats: Array<Record<string, unknown>> };
+    const seat = table.seats[0]!;
+    const exact = {
+      input: 10,
+      output: 9990,
+      cache_read: 150000,
+      cache_write: 10000,
+      total: 170000,
+    };
+    const snap = open({
+      table: { ...table, seats: [{ ...seat, tokens: exact, tokens_exact: true }] },
+      cost: costRecord({
+        by_expert: [{ role: seat.role, tokens: exact, usd: null, exact: true }],
+      }),
+    });
+    const row = costView(snap)!.table.find((meter) => meter.key === seat.role)!;
+    expect(row.right.split(' ')[0]).toBe('170K');
+    const seatRow = tableView(snap).seats.find((entry) => entry.role === seat.role)!;
+    expect(seatRow.details.join(' ')).toContain('Run: 170K tokens (exact, from Claude Code)');
+  });
 });
 
 describe('AC-23: the Record and Cost tabs', () => {
@@ -595,7 +803,7 @@ describe('AC-23: the Record and Cost tabs', () => {
       }),
     );
     expect(view.empty).toBeNull();
-    expect(view.rows.map((row) => row.text)).toEqual([
+    expect([...view.rows].reverse().map((row) => row.text)).toEqual([
       `Change opened: #${ISSUE} seed stage helpers, full lane`,
       'Plan started in its own agent',
       'Plan done in 1m 41s',
@@ -617,7 +825,8 @@ describe('AC-23: the Record and Cost tabs', () => {
       'Reopened: reopened via resume',
       'Closed: abandoned',
     ]);
-    expect(view.rows[0]!.time).toBe(localTime(at('08:00')));
+    expect(view.rows.at(-1)!.time).toBe(recordTime(at('08:00')));
+    expect(recordTime(at('08:00'))).toMatch(/^[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}$/);
     const local = new Date(Date.parse(at('08:00')));
     expect(localTime(at('08:00'))).toBe(
       `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`,
@@ -625,24 +834,28 @@ describe('AC-23: the Record and Cost tabs', () => {
   });
 
   it('says a bare change opened, and waits for the change before it records anything', () => {
+    const started = entry('07:59', 'stage_start', { stage: 'planning' });
     expect(
       recordView(
         open({
           timeline: [
+            started,
             entry('08:00', 'open'),
             entry('08:01', 'close'),
             entry('08:02', 'chief_ruled'),
           ],
         }),
       ).rows.map((row) => row.text),
-    ).toEqual(['Change opened', 'Closed', 'Chief ruled']);
+    ).toEqual(['Chief ruled', 'Closed', 'Change opened', 'Plan started']);
     expect(
-      recordView(open({ timeline: [entry('08:00', 'open', { issue: 'ORD-501' })] })).rows[0]!.text,
+      recordView(open({ timeline: [started, entry('08:00', 'open', { issue: 'ORD-501' })] }))
+        .rows[0]!.text,
     ).toBe('Change opened: ORD-501');
     expect(
-      recordView(open({ timeline: [entry('08:00', 'pr_opened')], ship: PR_OPEN })).rows[0]!.text,
+      recordView(open({ timeline: [started, entry('08:00', 'pr_opened')], ship: PR_OPEN })).rows[0]!
+        .text,
     ).toBe(`${PR} opened`);
-    expect(recordView(open())).toEqual({ rows: [], empty: RECORD_LATER });
+    expect(recordView(open())).toEqual({ rows: [], empty: RECORD_NOTHING_YET });
     expect(
       recordView(
         parse(snapshot({ route: 'feature-development', timeline: [entry('08:00', 'open')] })),

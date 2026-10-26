@@ -831,9 +831,23 @@ obvious from its code, grouped by file.
 - **`completion-deferred.ts`.** Desktop and VS Code run subagents in the background, so the
   orchestrator's turn can end while a stage agent still works. When a `paqad-` agent is among the
   Stop payload's `background_tasks`, the Stop seam records one `completion-deferred` row and
-  computes no verdict and runs no rule scripts. When no entry names an agent type at all (an older
-  payload shape) and the session's bundle has a started but unended stage, it defers too. An
-  empty or missing list behaves as before.
+  computes no verdict and runs no rule scripts. The deferral is decided first, before any stage
+  end, verify row, receipt, cost seal or HUD verdict is written. When no entry names an agent type
+  at all (an older payload shape) and the session's bundle has a started but unended stage, it
+  defers too. An empty or missing list never means no agent runs: the check also reads the
+  change's ledger. The SubagentStart seed hook writes one `started` stage-agent row, and that row
+  holds the judgement on every host until something releases it: the stage's `stage_end`, the
+  agent's own stop row, a newer agent of the same stage, a `stage_start` of another stage, or a
+  `record-repair` row written at SessionStart (startup or resume) for agents of the same session
+  or of a host process that is gone. No clock releases a ledger hold. Holds seen only in
+  `background_tasks` or a live checks marker keep the 30-minute ceiling. A turn end between
+  stages (the last stage ended with its artifact, the next has not started) judges nothing and
+  turns nothing red; the turn is held once with a plain nudge naming the next stage, unless a
+  decision of the change waits on the person. A stage that ended without its artifact, or one
+  left open with no agent, is still judged. Codex has no SubagentStart hook, so it writes no
+  `started` row and FR-5's ledger check cannot see a stage agent there; this is safe only while
+  Codex runs stage agents in the foreground. An agent killed inside a live session with no stop
+  keeps the hold until one of the releases above (TD-01M5VMXRMKTVPN1735B09YYQPZ).
 - **`effective-lane.ts`.** The pre-mutation gate and the live writer derive the lane from this one
   leaf, so they agree; it is a leaf because capability to narration to live-writer back to
   capability would be a cycle. A `sensitivity: high` module floors the lane to `full`, and a null

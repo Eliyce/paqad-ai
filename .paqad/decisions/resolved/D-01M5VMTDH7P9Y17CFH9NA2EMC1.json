@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5VMTDH7P9Y17CFH9NA2EMC1",
+  "category": "finding.triage",
+  "title": "Review blocker: a crashed stage agent holds the turn-end judgement forever",
+  "context": "Review of hud-live-run-truth found a blocker (src/stage-evidence/completion-deferred.ts:93). If a stage agent writes its started row and then dies without a SubagentStop, the turn-end judgement is deferred forever: no clock, and no later prompt, stage_end, re-dispatch or later stage row releases it (reproduced at +30 days). The change is then never judged, receipted or shown red, which breaks INV-2 and AC-4. Three deterministic releases fit the spec: a stage_end of that stage, a newer agent or stage_start after it, or a new host session (SessionStart). One case is left: an agent killed inside a live session with no SubagentStop. The spec does not cover it: FR-1 forbids reading an empty background_tasks list as release, and NFR-6 forbids a clock. Choose how far the fix goes.",
+  "options": [
+    {
+      "option_key": "in-spec",
+      "label": "Fix with the in-spec releases (stage_end, newer agent or stage, SessionStart). Record the in-session kill as tech debt; it is released by the next stage row or session.",
+      "one_line_preview": "Fix with the in-spec releases (stage_end, newer agent or stage, SessionStart). Record the in-session kill as tech debt; it is released by the next stage row or session.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "add-ceiling",
+      "label": "In-spec releases plus a 30-minute ceiling for the ledger-held deferral only, measured from the last stage or agent row. Amends NFR-6 for this one case.",
+      "one_line_preview": "In-spec releases plus a 30-minute ceiling for the ledger-held deferral only, measured from the last stage or agent row. Amends NFR-6 for this one case.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "manual-release",
+      "label": "In-spec releases plus a paqad-ai command (for example stage agent-release) that the orchestrator runs when a stage agent is known dead. No clock; the spec gains one FR.",
+      "one_line_preview": "In-spec releases plus a paqad-ai command (for example stage agent-release) that the orchestrator runs when a stage agent is known dead. No clock; the spec gains one FR.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "in-spec",
+  "created_at": "2026-10-26T08:21:51.271Z",
+  "status": "resolved",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "in-spec",
+  "rationale": "Owner: in-spec releases only; in-session kill becomes tech debt, no clock.",
+  "resolved_at": "2026-10-26T08:23:32.840Z",
+  "decision_id": "D-01M5VMTDH7P9Y17CFH9NA2EMC1",
+  "fingerprint": "sha256:31ff20b78b956ac63af13a17c8b0e0bf0bb7b9b3438b48ced013fc35d4452a77",
+  "question": "Review blocker: a crashed stage agent holds the turn-end judgement forever",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-25T08:21:51.271Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "in-spec",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T08:23:32.840Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: in-spec releases only; in-session kill becomes tech debt, no clock."
+  }
+}

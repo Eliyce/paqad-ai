@@ -13,6 +13,7 @@ import { sessionWroteInEpisode } from '@/pipeline/session-ownership.js';
 import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { readHeadRef } from '@/rag/git-state.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { hasOpenUnendedStage, liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 
 export type HudScopeReason =
   | 'qualified'
@@ -66,10 +67,18 @@ export function qualifyHudChange(
     episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ??
     workflow.turn_started_at ??
     null;
-  if (!sessionWroteInEpisode(projectRoot, sessionId, dir, start)) {
+  if (
+    !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
+    !stageStillRunning(projectRoot, dir)
+  ) {
     return { dir: null, reason: 'no-row-this-episode' };
   }
   return { dir, reason: 'qualified' };
+}
+
+function stageStillRunning(projectRoot: string, dirName: string): boolean {
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  return hasOpenUnendedStage(rows) || liveStageAgents(rows).length > 0;
 }
 
 function finishedChange(
@@ -84,7 +93,12 @@ function finishedChange(
   if (!dir) return none;
   const start =
     episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
-  if (!sessionWroteInEpisode(projectRoot, sessionId, dir, start)) return none;
+  if (
+    !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
+    !stageStillRunning(projectRoot, dir)
+  ) {
+    return none;
+  }
   return { dir, reason: 'finished' };
 }
 
@@ -102,6 +116,23 @@ export function latestEditAt(projectRoot: string, dirName: string): number | nul
   let latest: number | null = null;
   for (const row of readFeatureStageUnit(projectRoot, dirName)) {
     if (!carriesEdit(row)) continue;
+    const at = rowTime(row);
+    if (!Number.isNaN(at) && (latest === null || at > latest)) latest = at;
+  }
+  return latest;
+}
+
+const RECHECK_STAGES: ReadonlySet<string> = new Set(['checks']);
+
+function movesRunOn(row: SessionLedgerRow): boolean {
+  if (row.kind === 'completion-deferred') return true;
+  return STAGE_ROW_KINDS.has(String(row.kind)) && !RECHECK_STAGES.has(String(row.stage));
+}
+
+export function latestStageMoveAt(projectRoot: string, dirName: string): number | null {
+  let latest: number | null = null;
+  for (const row of readFeatureStageUnit(projectRoot, dirName)) {
+    if (!movesRunOn(row)) continue;
     const at = rowTime(row);
     if (!Number.isNaN(at) && (latest === null || at > latest)) latest = at;
   }

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPendingDecision } from '@/decisions/authoring.js';
 import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
-import { closeActiveFeature } from '@/feature-evidence/stage-ledger.js';
+import { appendFeatureStageRow, closeActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import {
   gateIsJudged,
   GATE_JUDGED_AFTER,
@@ -16,6 +16,7 @@ import {
 } from '@/hud/change-scope.js';
 import { hudVerdictPath } from '@/hud/files.js';
 import { buildHudSnapshot } from '@/hud/snapshot.js';
+import { startStage } from '@/stage-evidence/recorder.js';
 
 import {
   checkout,
@@ -147,6 +148,45 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S).reason).toBe('qualified');
   });
 
+  it('a live stage agent keeps the open change qualified when the last row predates the episode', () => {
+    const root = repoRoot();
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    appendFeatureStageRow(root, S, dir, {
+      kind: 'stage-agent',
+      stage: 'specification',
+      agent: 'paqad-specification',
+      agent_id: 'agent-spec-1',
+      event_status: 'started',
+      tokens_used: 0,
+      tokens_not_recarried: 0,
+      estimate: true,
+    });
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S, () => later(2000))).toEqual({ dir, reason: 'qualified' });
+  });
+
+  it('an open stage written by a stage agent keeps the change qualified across a new episode', () => {
+    const root = repoRoot();
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    startStage(root, 'specification', {
+      sessionId: 'ses-agent',
+      dirName: dir,
+      adapter: 'claude-code',
+    });
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S)).toEqual({ dir, reason: 'qualified' });
+  });
+
+  it('with no open stage and no live stage agent the episode rule still hides the change', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S).reason).toBe('no-row-this-episode');
+  });
+
   it('a stage this session started and never ended qualifies across a continue', () => {
     const root = repoRoot();
     const dir = openChangeHere(root, S);
@@ -255,11 +295,42 @@ describe('verdict freshness', () => {
     expect(buildHudSnapshot(root, S).verdict).toBeNull();
   });
 
+  it('AC-3 / AC-6: a fail written before a later stage started no longer describes the change', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writeVerdict(root, S, 'fail', new Date());
+    expect(buildHudSnapshot(root, S).verdict).toMatchObject({ kind: 'fail' });
+    startStage(root, 'specification', { sessionId: S, adapter: 'claude-code', now: () => later() });
+    const snapshot = buildHudSnapshot(root, S);
+    expect(snapshot.verdict).toBeNull();
+    expect(snapshot.headline.tone).not.toBe('fail');
+    expect(snapshot.headline.text).not.toContain('half done');
+    expect(snapshot.headline.gap ?? '').not.toContain('paqad could not record');
+  });
+
+  it('FR-7: a fail written before a later review stage row no longer describes the change', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writeVerdict(root, S, 'fail', new Date());
+    startStage(root, 'review', { sessionId: S, adapter: 'claude-code', now: () => later() });
+    expect(buildHudSnapshot(root, S).verdict).toBeNull();
+  });
+
+  it('a verdict written after the last stage row still shows', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writeVerdict(root, S, 'fail', later());
+    expect(buildHudSnapshot(root, S).verdict).toMatchObject({ kind: 'fail' });
+  });
+
   it('shows a verdict when the change has no edit row yet', () => {
     const root = repoRoot();
     openChangeHere(root, S);
     runStage(root, S, 'planning');
-    writeVerdict(root, S, 'inconclusive', new Date(PAST));
+    writeVerdict(root, S, 'inconclusive', later());
     expect(buildHudSnapshot(root, S).verdict).toMatchObject({ kind: 'inconclusive' });
   });
 });
@@ -324,7 +395,7 @@ describe('gates are judged only after their stage ended', () => {
 });
 
 describe('decisions belong to this change only', () => {
-  it('keeps packets stamped with this change and unstamped ones, never another change', () => {
+  it('INV-4: keeps only packets stamped with this change, never another change or an unstamped one', () => {
     const root = repoRoot();
     const dir = openChangeHere(root, S);
     runStage(root, S, 'planning');
@@ -346,7 +417,7 @@ describe('decisions belong to this change only', () => {
       options,
       change: '01OTHERCHANGE000000000000',
     });
-    const unstamped = createPendingDecision(root, {
+    createPendingDecision(root, {
       category: 'ux-pattern',
       title: 'Unstamped',
       context: 'c',
@@ -356,7 +427,7 @@ describe('decisions belong to this change only', () => {
       buildHudSnapshot(root, S)
         .decisions.pending.map((packet) => packet.id)
         .sort(),
-    ).toEqual([mine.id, unstamped.id].sort());
+    ).toEqual([mine.id]);
   });
 });
 

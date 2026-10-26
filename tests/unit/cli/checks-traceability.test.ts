@@ -47,12 +47,12 @@ describe('paqad-ai checks run writes the acceptance-criteria map', () => {
   }
 
   it('AC-29: a changed test naming the criterion in its title proves it in the written map', async () => {
-    write('src/export.ts', 'export const rows = 1;\n');
-    write('tests/export.test.ts', "it('AC-1: exports the rows as CSV', () => {});\n");
-    seedGitChangedFiles(root, ['src/export.ts', 'tests/export.test.ts']);
+    seedGitChangedFiles(root, []);
     write('.paqad/project-profile.yaml', 'commands:\n  format: node -e process.exitCode=0\n');
     process.env.SE_SESSION = 'ses-cli-29';
     const dir = openChange(root, 'ses-cli-29', 'graduated');
+    write('src/export.ts', 'export const rows = 1;\n');
+    write('tests/export.test.ts', "it('AC-1: exports the rows as CSV', () => {});\n");
     writeSpec(root, dir, [
       { id: 'AC-1', proof: 'automated' },
       { id: 'AC-2', proof: 'automated' },

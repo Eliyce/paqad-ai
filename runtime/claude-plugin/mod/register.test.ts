@@ -1,7 +1,7 @@
 import type { RenderElement, RenderNode } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 
-import { ANSWER_TOAST, TASK_LIST_SENTENCES, UPDATE_PLAN_TOOL, localTime } from './desktop-view';
+import { ANSWER_TOAST, TASK_LIST_SENTENCES, UPDATE_PLAN_TOOL, recordTime } from './desktop-view';
 import {
   EXPERTS_OFF,
   FAST_ORD_490,
@@ -832,6 +832,135 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
   });
 
+  test('AC-13: a background subagent ask with no follow-up never shows Waiting for your permission', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_bg',
+      approver: 'person',
+      agentId: 'agent-plan',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('FR-18 / AC-14: a foreground stage agent ask waits until that agent moves on', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const seen: string[] = [];
+    world.during.set('Agent', async () => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: 'tu_dev',
+        approver: 'person',
+        agentId: 'agent-dev',
+      } as never);
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+      await $.tool.call({ tool: 'Bash', tool_use_id: 'tu_dev', agentId: 'agent-dev' } as never);
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+    });
+    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
+    expect(seen[0]).toContain('Waiting for your permission');
+    expect(seen[1]).not.toContain('Waiting for your permission');
+  });
+
+  test('FR-18: a foreground stage agent ask clears when the Agent call ends', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.during.set('Agent', async () => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: 'tu_dev',
+        approver: 'person',
+        agentId: 'agent-dev',
+      } as never);
+    });
+    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('AC-13: a background agent ask during a foreground Agent call does not wait', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    await $.tool.call({
+      tool: 'Agent',
+      subagent_type: 'paqad:paqad-planning',
+      run_in_background: true,
+    } as never);
+    await $.tool.call({ tool: 'Read', tool_use_id: 'tu_bg0', agentId: 'agent-bg' } as never);
+    const ask = (agentId: string, id: string) =>
+      $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: id,
+        approver: 'person',
+        agentId,
+      } as never);
+    const seen: string[] = [];
+    world.during.set('Agent', async () => {
+      await $.tool.call({ tool: 'Read', tool_use_id: 'tu_dev0', agentId: 'agent-dev' } as never);
+      world.verdict = { decision: 'ask' };
+      await ask('agent-bg', 'tu_bg1');
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+      await ask('agent-dev', 'tu_dev1');
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+    });
+    await $.tool.call({ tool: 'Agent', subagent_type: 'paqad:paqad-development' } as never);
+    expect(seen[0]).not.toContain('Waiting for your permission');
+    expect(seen[1]).toContain('Waiting for your permission');
+  });
+
+  test('AC-13: an ask from an agent dispatched in the background never waits', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const seen: string[] = [];
+    world.during.set('Agent', async () => {
+      world.verdict = { decision: 'ask' };
+      await $.tool.check({
+        tool: 'Bash',
+        input: {},
+        tool_use_id: 'tu_bg',
+        approver: 'person',
+        agentId: 'agent-bg',
+      } as never);
+      seen.push(textOf(await $.ui.render(band('desktop'))));
+    });
+    await $.tool.call({
+      tool: 'Agent',
+      subagent_type: 'paqad:paqad-planning',
+      run_in_background: true,
+    } as never);
+    expect(seen[0]).not.toContain('Waiting for your permission');
+  });
+
+  test('AC-13: a main ask denied with Esc clears at the next main event', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_m',
+      approver: 'person',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    world.verdict = { decision: 'allow' };
+    await $.tool.check({ tool: 'Read', input: {}, tool_use_id: 'tu_r', approver: 'host' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
   test('a main-thread ask still waits while a background agent works on', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });
@@ -932,6 +1061,15 @@ describe('the Desktop band', () => {
     expect(note?.props?.dimColor).toBe(true);
   });
 
+  test('AC-16: the line under the headline is always drawn, blank when there is nothing to say', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    const blank = textElement(drawn, ' ') as { props?: { dimColor?: unknown } } | undefined;
+    expect(blank?.props?.dimColor).toBe(true);
+  });
+
   test('AC-29, AC-33: a paqad record gap shows Done and one neutral line, never a fix instruction', async ($, on) => {
     const gap = 'paqad could not record every stage of this change';
     const done = {
@@ -1015,21 +1153,42 @@ describe('the Desktop band', () => {
     expect(colorOf(textElement(drawn, '   ● Needs you'))).toBe('#F37748');
   });
 
-  test('AC-16: the card needs 5 rows, 6 with the menu, and falls back to the minimised row', async ($, on) => {
+  test('AC-16: the card needs 6 rows, 7 with the menu, and falls back to the minimised row', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     const keys = async (maxRows: number) =>
       buttonKeys(await $.ui.render(band('desktop', { maxRows })));
-    expect(await keys(4)).toContain('paqad-expand');
-    expect(await keys(5)).toContain('paqad-minimise');
+    expect(await keys(5)).toContain('paqad-expand');
+    expect(await keys(6)).toContain('paqad-minimise');
     const mounted = await mountDesktop($);
     await mounted.press({ key: 'paqad-close' });
     await mounted.unmount();
-    const menu = await keys(5);
+    const menu = await keys(6);
     expect(menu).toContain('paqad-expand');
     expect(menu).toContain('paqad-close-now');
-    expect(await keys(6)).toContain('paqad-minimise');
+    expect(await keys(7)).toContain('paqad-minimise');
+  });
+
+  test('AC-23: the High Table tab comes forward once when the table sits, unless the person picked a tab', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const shownAlt = async () =>
+      everyElement(await $.ui.render(pane('desktop')))
+        .map((element) => propsOf(element).alt)
+        .find((alt) => typeof alt === 'string' && alt.endsWith('tab is shown'));
+    expect(await shownAlt()).toBe('Trust tab is shown');
+    const writing = ord501At('writing');
+    world.put(
+      SNAPSHOT,
+      fileText({ ...writing, change: { ...(writing.change as object), dir: 'dir-ord-501' } }),
+    );
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    expect(await shownAlt()).toBe('High Table tab is shown');
   });
 
   test('the Ledger Button toggles the Ledger and the flags open it on Trust', async ($, on) => {
@@ -1169,8 +1328,9 @@ describe('the Desktop Ledger', () => {
     expect(propsOf(rule!).height).toBe(2);
     expect(lines).not.toContain('● Safe to merge');
     expect(lines.some((line) => line.includes('required gates pass'))).toBe(false);
-    for (const line of ['PLAN', 'SPEC', 'BUILD', 'REVIEW', 'CHECKS', 'DOCS', 'Recorded'])
+    for (const line of ['PLAN', 'SPEC', 'BUILD', 'REVIEW', 'CHECKS', 'DOCS', '✓ Done'])
       expect(lines).toContain(line);
+    expect(lines).not.toContain('Recorded');
     expect(lines).toContain('✓  Plan compiled  ·  6 steps');
     for (const line of ['Tests, types and lint pass', 'Pass', 'Not required'])
       expect(lines).toContain(line);
@@ -1288,8 +1448,8 @@ describe('the Desktop Ledger', () => {
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     const record = drawnLines(await desktopPane($, ['paqad-tab-record']));
-    expect(record).toContain(`${localTime('2026-10-18T08:41:00.000Z')}   Plan done in 1m 41s`);
-    expect(record).toContain(`${localTime('2026-10-18T08:42:00.000Z')}   Rules loaded: 12 apply`);
+    expect(record).toContain(`${recordTime('2026-10-18T08:41:00.000Z')}   Plan done in 1m 41s`);
+    expect(record).toContain(`${recordTime('2026-10-18T08:42:00.000Z')}   Rules loaded: 12 apply`);
     const cost = await desktopPane($, ['paqad-tab-cost']);
     expectDesktopSafe(cost);
     const lines = drawnLines(cost);
@@ -1360,15 +1520,15 @@ async function cardControls(
 ): Promise<void> {
   const rows = async (maxRows: number) =>
     buttonKeys(await $.ui.render(band('desktop', { maxRows })));
-  expect(await rows(4)).toContain('paqad-expand');
-  expect(await rows(5)).toContain('paqad-minimise');
+  expect(await rows(5)).toContain('paqad-expand');
+  expect(await rows(6)).toContain('paqad-minimise');
   await mounted.press({ key: 'paqad-ledger' });
   await mounted.press({ key: 'paqad-ledger' });
   if (await mounted.find({ key: 'paqad-flags' })) await mounted.press({ key: 'paqad-flags' });
   await mounted.press({ key: 'paqad-close' });
   expect(await mounted.find({ key: 'paqad-close-now' })).toBeDefined();
-  expect(await rows(5)).toEqual(expect.arrayContaining(['paqad-expand', 'paqad-close-now']));
-  expect(await rows(6)).toContain('paqad-minimise');
+  expect(await rows(6)).toEqual(expect.arrayContaining(['paqad-expand', 'paqad-close-now']));
+  expect(await rows(7)).toContain('paqad-minimise');
   expectDesktopSafe(await $.ui.render(band('desktop')));
   await mounted.press({ key: 'paqad-close-cancel' });
   expect(await mounted.find({ key: 'paqad-close-now' })).toBeUndefined();
@@ -2088,7 +2248,7 @@ describe("the pane's High Table tab", () => {
       expect(colorOf(textElement(drawn, credit))).toBe('warning');
     });
 
-    test(`the Ledger opens on Trust with no pick, and a picked tab holds, on ${surface}`, async ($, on) => {
+    test(`the Ledger brings High Table forward while seats write, and a picked tab holds, on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('writing')) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
@@ -2099,7 +2259,7 @@ describe("the pane's High Table tab", () => {
         requestId: 'paqad',
         props: pane(surface).props,
       });
-      expect((await mounted.find({ key: 'paqad-tab-trust' }))?.text).toBe('Trust (shown)');
+      expect((await mounted.find({ key: 'paqad-tab-table' }))?.text).toBe('High Table (shown)');
       await mounted.press({ key: 'paqad-tab-cost' });
       expect((await mounted.find({ key: 'paqad-tab-cost' }))?.text).toBe('Cost (shown)');
       await mounted.unmount();
@@ -2618,7 +2778,7 @@ describe('the Trust, Ships and Record tabs', () => {
       const drawn = await $.ui.render(pane(surface));
       const lines = drawnLines(drawn);
       expect(lines).toContain('Trust (shown)');
-      expect(lines).toContain('Checks  Recorded');
+      expect(lines).toContain('Checks  ✓ Done');
       expect(lines).toContain('    Tests, types and lint pass  Pass');
       expect(lines).toContain('    Quality did not drop  Could not prove');
       expect(lines.some((line) => /\d+\/\d+ required|^Verdict /.test(line))).toBe(false);

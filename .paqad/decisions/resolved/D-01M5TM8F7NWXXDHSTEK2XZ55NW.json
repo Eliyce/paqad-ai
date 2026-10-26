@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7NWXXDHSTEK2XZ55NW",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on deferCompletionForBackgroundStage",
+  "context": "Chief architect: Ruled by the chief, settled by the run evidence: one predicate answers \"is a stage of this change still running\" for the verify backstop, receipt, cost seal and HUD verdict, and that predicate must say yes on EITHER signal: the turn-end payload lists a paqad stage agent of the open change, OR the stage ledger has an open stage_start with a dispatched stage agent and no stage_end and no agent stop. The verdict landed 27 s before the first payload naming the planning agent, so the payload alone is not enough. Only stage helpers count; a non-stage background helper does not hold the verdict back. Deferral ends when the agent stops, and the next turn end judges as before.\n\nTarget: deferCompletionForBackgroundStage\n- solution-architect: Reuse this one predicate as the single answer to 'is a stage of this change still running' for every turn-end path (the verify backstop, receipt sealing, cost window sealing and the HUD verdict) instead of adding a second check; today the Stop hooks return early when the payload's background_tasks is empty, so a stage that the stage ledger shows started and not ended with a dispatched stage agent is still judged.\n- solution-architect: The running-stage decision must also hold from the stage ledger alone (an open stage_start with no stage_end and no SubagentStop for its stage agent), not only from the Stop payload, because the run shows the verdict landing 27 s before the first payload that named the background planning agent.\n\n[expert-conflict-fork:cef3cab9d9bfce4b]",
+  "options": [
+    {
+      "option_key": "reuse-this-one-predicate-as-the-single-a",
+      "label": "Reuse this one predicate as the single answer to 'is a stage of this change still running' for every turn-end path (the verify backstop, receipt sealing, cost window sealing and the HUD verdict) instead of adding a second check; today the Stop hooks return early when the payload's background_tasks is empty, so a stage that the stage ledger shows started and not ended with a dispatched stage agent is still judged. — solution-architect",
+      "one_line_preview": "Reuse this one predicate as the single answer to 'is a stage of this change still running' for every turn-end path (the verify backstop, receipt sealing, cost window sealing and the HUD verdict) instead of adding a second check; today the Stop hooks return early when the payload's background_tasks is empty, so a stage that the stage ledger shows started and not ended with a dispatched stage agent is still judged. — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-running-stage-decision-must-also-hol",
+      "label": "The running-stage decision must also hold from the stage ledger alone (an open stage_start with no stage_end and no SubagentStop for its stage agent), not only from the Stop payload, because the run shows the verdict landing 27 s before the first payload that named the background planning agent. — solution-architect",
+      "one_line_preview": "The running-stage decision must also hold from the stage ledger alone (an open stage_start with no stage_end and no SubagentStop for its stage agent), not only from the Stop payload, because the run shows the verdict landing 27 s before the first payload that named the background planning agent. — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "reuse-this-one-predicate-as-the-single-a",
+  "created_at": "2026-10-25T22:52:48.757Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "reuse-this-one-predicate-as-the-single-a",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:50:57.073Z",
+  "decision_id": "D-01M5TM8F7NWXXDHSTEK2XZ55NW",
+  "fingerprint": "sha256:06313aedfe704567c79871f17e72598b91117817c45c91ab12b1cd430300fc1a",
+  "question": "Experts disagree on deferCompletionForBackgroundStage",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.757Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "reuse-this-one-predicate-as-the-single-a",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:50:57.073Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

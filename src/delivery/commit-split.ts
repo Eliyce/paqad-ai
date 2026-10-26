@@ -53,6 +53,10 @@ function unknownSplit(reason: string): CommitSplit {
   return { state: 'unknown', reason, base_commit: null, own: null, inherited: null };
 }
 
+function isPullRequestRef(ref: string): boolean {
+  return /^#\d+$/.test(ref.trim());
+}
+
 function readBranchCommits(projectRoot: string, baseCommit: string): BranchCommit[] {
   const out = git(projectRoot, ['log', `${baseCommit}..HEAD`, '--format=%H%x1f%P%x1f%s']) ?? '';
   return out
@@ -63,7 +67,9 @@ function readBranchCommits(projectRoot: string, baseCommit: string): BranchCommi
       return {
         sha,
         parents: parents.split(' ').filter(Boolean).length,
-        tickets: detectTicketRefs(subject.join('\x1f'), 'generic'),
+        tickets: detectTicketRefs(subject.join('\x1f'), 'generic').filter(
+          (ref) => !isPullRequestRef(ref),
+        ),
       };
     });
 }
@@ -123,6 +129,7 @@ export function computeCommitSplit(projectRoot: string, input: CommitSplitInput 
       );
     }
   }
+  for (const group of [split.own, split.inherited]) group.tickets.sort(byTicket);
   return {
     state: 'known',
     reason: null,
@@ -142,12 +149,23 @@ function commitCount(count: number): string {
   return `${count} commit${count === 1 ? '' : 's'}`;
 }
 
+function byTicket(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { numeric: true });
+}
+
+export function describeEarlierWork(group: CommitGroup): string {
+  if (group.count === 0) return 'no commits from earlier work';
+  const tickets = group.tickets.length;
+  const named =
+    tickets === 0 ? '' : ` on ticket${tickets === 1 ? '' : 's'} ${group.tickets.join(', ')}`;
+  return `${commitCount(group.count)} from earlier work${named}`;
+}
+
 export function describeInherited(group: CommitGroup): string {
   const tickets = group.tickets.length;
   if (tickets === 0) return `${commitCount(group.count)} made before this change started`;
-  const fromTickets = `${commitCount(group.count - group.untagged)} from ${tickets} other ticket${tickets === 1 ? '' : 's'}`;
-  if (group.untagged === 0) return fromTickets;
-  return `${fromTickets} and ${group.untagged} untagged made before this change started`;
+  const named = `ticket${tickets === 1 ? '' : 's'} ${group.tickets.join(', ')}`;
+  return `${commitCount(group.count)} from ${named} made before this change started`;
 }
 
 export function sharedBranchLine(split: CommitSplit, branch: string | null): string | null {

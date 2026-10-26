@@ -144,7 +144,7 @@ describe('runtime/hooks/ticket-intake-prompt.mjs (branch carrying other work)', 
     expect(result.status).toBe(0);
     const lines = result.stdout.split('\n').filter((line) => line.includes('🟡 Branch'));
     expect(lines).toEqual([
-      '🟡 Branch `feat/ORD-470-contact-matching` already carries 2 commits from 2 other tickets. ' +
+      '🟡 Branch `feat/ORD-470-contact-matching` already carries 2 commits from tickets ORD-470, ORD-471 made before this change started. ' +
         'They ride along in this PR unless you split the branch yourself; paqad never moves commits.',
     ]);
     expect(result.stdout).toContain('intake fetch ORD-482');

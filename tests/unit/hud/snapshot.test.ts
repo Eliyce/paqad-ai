@@ -151,7 +151,7 @@ function evidenceRow(
 }
 
 describe('buildHudSnapshot', () => {
-  it('ORD-490 fast lane: no High Table, a running build, the rules flag', () => {
+  it('ORD-490 fast lane: no High Table, a running build, no rules flag before Build ends', () => {
     const root = onboardedRoot();
     const S = 'ses-490';
     openChange(root, S, 'fast', 'ORD-490 copy fix');
@@ -187,7 +187,7 @@ describe('buildHudSnapshot', () => {
     expect(snapshot.stages.find((stage) => stage.stage === 'ticket_intake')?.mandatory).toBe(false);
     expect(snapshot.lane_stages).toEqual(['planning', 'development', 'checks']);
     expect(snapshot.stages.find((stage) => stage.stage === 'review')?.mandatory).toBe(false);
-    expect(snapshot.flags.map((flag) => flag.id)).toEqual(['rules-not-loaded']);
+    expect(snapshot.flags.map((flag) => flag.id)).toEqual([]);
     expect(snapshot.rules).toEqual({ recorded: false, applicable: null, loaded_at: null });
     expect(snapshot.ship).toMatchObject({ commits: 0, push: null, pr: null, ci: null });
     const expected = Object.fromEntries(
@@ -746,7 +746,7 @@ describe('what ships on the HUD', () => {
     untagged: count - tickets.length,
   });
 
-  it('raises branch:shared only while the branch carries other work', () => {
+  it('AC-10: earlier work on the branch raises no flag at all', () => {
     const shared = computeHudFlags({
       ...quiet,
       commitSplit: {
@@ -757,12 +757,7 @@ describe('what ships on the HUD', () => {
         inherited: group(73, ['ORD-470', 'ORD-471']),
       },
     });
-    expect(shared).toEqual([
-      {
-        id: 'branch:shared',
-        text: 'This branch also carries 2 commits from 2 other tickets and 71 untagged made before this change started.',
-      },
-    ]);
+    expect(shared).toEqual([]);
     const untaggedOnly = computeHudFlags({
       ...quiet,
       commitSplit: {
@@ -842,7 +837,7 @@ describe('what ships on the HUD', () => {
       all_green: false,
       merged: false,
     });
-    expect(snapshot.flags.map((flag) => flag.id)).toContain('branch:shared');
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('branch:shared');
   });
 });
 
@@ -1521,5 +1516,54 @@ describe('AC-27: the gate list before Checks', () => {
     expect(expected).not.toContain('spec-review');
     expect(expected).not.toContain('implementation-review');
     expect(expected).not.toContain('documentation-freshness');
+  });
+});
+
+describe('AC-11: decisions belong to a change only when the packet names it', () => {
+  it('keeps the 6 tagged packets and drops the 35 untagged ones', () => {
+    const root = onboardedRoot();
+    const S = 'ses-decisions-scope';
+    const dir = openChange(root, S, 'full', 'ORD-511 scoped decisions');
+    const decide = (title: string, change?: string) =>
+      createPendingDecision(root, {
+        category: 'spec.question',
+        title,
+        context: 'context',
+        options: [
+          { option_key: 'a', label: 'A' },
+          { option_key: 'b', label: 'B' },
+        ],
+        ...(change ? { change } : {}),
+      });
+    for (let index = 0; index < 35; index += 1) decide(`old work ${index}`);
+    for (let index = 0; index < 6; index += 1)
+      decide(`this change ${index}`, featureChangeKey(dir));
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+    expect(snapshot.decisions.pending.length + snapshot.decisions.resolved).toBe(6);
+    expect(snapshot.decisions.pending.every((entry) => !entry.question.startsWith('old'))).toBe(
+      true,
+    );
+    const opened = snapshot.timeline.filter((entry) => entry.kind === 'decision_opened');
+    expect(opened).toHaveLength(6);
+    expect(opened.every((entry) => typeof entry.decision === 'string')).toBe(true);
+  });
+
+  it('an untagged pending packet never raises the waiting-decisions headline', () => {
+    const root = onboardedRoot();
+    const S = 'ses-decisions-untagged';
+    openChange(root, S, 'full', 'ORD-512 no decisions');
+    createPendingDecision(root, {
+      category: 'spec.question',
+      title: 'Old question',
+      context: 'context',
+      options: [
+        { option_key: 'a', label: 'A' },
+        { option_key: 'b', label: 'B' },
+      ],
+    });
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+    expect(snapshot.decisions.pending).toEqual([]);
+    expect(snapshot.headline.text).not.toMatch(/waiting for you/i);
   });
 });

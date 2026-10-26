@@ -637,6 +637,7 @@ export const FULL_ORD_501 = snapshot({
   ship: ship(3),
   verdict: verdict('pass', 'Safe to merge'),
   receipt: { path: '/repo/.paqad/session/hud/ses-fixture.receipt.md' },
+  start_point: { source: 'start_commit', base: null, files_known: true },
   proof: FULL_ORD_501_PROOF,
 });
 

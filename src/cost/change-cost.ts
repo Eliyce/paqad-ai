@@ -351,6 +351,16 @@ function closeTime(rows: readonly SessionLedgerRow[]): string | null {
   return closed;
 }
 
+function stageRowAfter(rows: readonly SessionLedgerRow[], at: string): boolean {
+  const sealedAt = Date.parse(at);
+  if (Number.isNaN(sealedAt)) return false;
+  return rows.some((row) => {
+    if (row.kind !== 'stage_start' && row.kind !== 'stage_end') return false;
+    const rowAt = Date.parse(rowRecordedAt(row) ?? '');
+    return !Number.isNaN(rowAt) && rowAt > sealedAt;
+  });
+}
+
 export function changeCostWindow(
   projectRoot: string,
   dirName: string,
@@ -361,7 +371,9 @@ export function changeCostWindow(
   const from = open ? rowRecordedAt(open) : null;
   if (from === null) return null;
   const receipt = receiptTime(projectRoot, dirName);
-  if (receipt) return { from, to: receipt, sealed: true, sealed_by: 'receipt' };
+  if (receipt && !stageRowAfter(rows, receipt)) {
+    return { from, to: receipt, sealed: true, sealed_by: 'receipt' };
+  }
   const close = closeTime(rows);
   if (close) return { from, to: close, sealed: true, sealed_by: 'close' };
   return { from, to: now().toISOString(), sealed: false, sealed_by: null };
@@ -540,15 +552,26 @@ function orderStages(buckets: Map<string, Bucket>): CostStageLine[] {
     .map(([stage, bucket]) => ({ stage, ...lineOf(bucket) }));
 }
 
-function estimateLines(
+function seatLines(
   projectRoot: string,
   dirName: string,
-  exactRoles: ReadonlySet<string>,
+  transcriptLines: ReadonlyMap<string, CostExpertLine>,
 ): CostExpertLine[] {
-  const lines: CostExpertLine[] = [];
+  const lines = new Map(transcriptLines);
   for (const seat of foldHighTable(readHighTable(projectRoot, dirName)).values()) {
-    if (exactRoles.has(seat.role) || seat.tokens_estimate === null) continue;
-    lines.push({
+    if (seat.tokens !== null) {
+      const tokens = tokensOf(seat.tokens);
+      const fromTranscript = lines.get(seat.role);
+      lines.set(seat.role, {
+        role: seat.role,
+        tokens,
+        usd: fromTranscript?.tokens.total === tokens.total ? fromTranscript.usd : null,
+        exact: true,
+      });
+      continue;
+    }
+    if (lines.has(seat.role) || seat.tokens_estimate === null) continue;
+    lines.set(seat.role, {
       role: seat.role,
       tokens: {
         input: 0,
@@ -561,7 +584,7 @@ function estimateLines(
       exact: false,
     });
   }
-  return lines;
+  return [...lines.values()];
 }
 
 export interface ComputeChangeCostOptions {
@@ -647,12 +670,11 @@ export function computeChangeCost(
     }
   }
 
-  const chiefBucket = byRole.get(CHIEF_ROLE);
-  const exactExperts: CostExpertLine[] = [...byRole.entries()]
-    .filter(([role]) => role !== CHIEF_ROLE)
-    .map(([role, bucket]) => ({ role, ...lineOf(bucket), exact: true }));
-  const estimated = estimateLines(projectRoot, dirName, new Set(byRole.keys()));
-  const chiefEstimate = estimated.find((line) => line.role === CHIEF_ROLE);
+  const fromTranscripts = new Map<string, CostExpertLine>(
+    [...byRole.entries()].map(([role, bucket]) => [role, { role, ...lineOf(bucket), exact: true }]),
+  );
+  const seats = seatLines(projectRoot, dirName, fromTranscripts);
+  const chiefLine = seats.find((line) => line.role === CHIEF_ROLE);
 
   return {
     schema: COST_SCHEMA,
@@ -671,12 +693,10 @@ export function computeChangeCost(
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([model, bucket]) => ({ model, ...lineOf(bucket) })),
     by_stage: orderStages(byStage),
-    by_expert: [...exactExperts, ...estimated.filter((line) => line.role !== CHIEF_ROLE)],
-    chief: chiefBucket
-      ? { ...lineOf(chiefBucket), exact: true }
-      : chiefEstimate
-        ? { tokens: chiefEstimate.tokens, usd: null, exact: false }
-        : null,
+    by_expert: seats.filter((line) => line.role !== CHIEF_ROLE),
+    chief: chiefLine
+      ? { tokens: chiefLine.tokens, usd: chiefLine.usd, exact: chiefLine.exact }
+      : null,
     not_counted: [...NOT_COUNTED],
     sources,
   };

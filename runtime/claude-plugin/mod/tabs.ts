@@ -69,7 +69,10 @@ function gateRowLine(gate: TrustGateRow): TableLine {
 
 function stageLines(stage: TrustStage): TableLine[] {
   return [
-    [{ text: `${stage.words}  ` }, worded(stage.word, stage.tone)],
+    [
+      { text: `${stage.words}  ` },
+      worded(stage.mark ? `${stage.mark} ${stage.word}` : stage.word, stage.tone),
+    ],
     ...stage.steps.map(stepLine),
     ...stage.gates.map(gateRowLine),
   ];

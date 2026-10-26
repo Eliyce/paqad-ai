@@ -25,9 +25,26 @@ export interface StripInput {
   delivery: ReadonlyArray<Mark<ShipState>>;
   ci: number | null;
   deliveryValue: string;
+  clockMs?: number;
 }
 
 export const STRIP_HEIGHT = 52;
+
+const PULSE_MS = 1600;
+const SPIN_MS = 4000;
+const SHEEN_MS = 2200;
+const READY_MS = 2400;
+
+function phase(clockMs: number | undefined, periodMs: number): string | null {
+  if (clockMs === undefined || !Number.isFinite(clockMs)) return null;
+  const into = ((clockMs % periodMs) + periodMs) % periodMs;
+  return `-${(into / 1000).toFixed(3)}s`;
+}
+
+function begin(clockMs: number | undefined, periodMs: number): string {
+  const at = phase(clockMs, periodMs);
+  return at === null ? '' : ` begin="${at}"`;
+}
 
 const STRIP_MIN_WIDTH = 480;
 const SECTION_PAD = 18;
@@ -62,7 +79,15 @@ function svg(width: number, height: number, body: string, extra = ''): string {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}"${extra}>${body}</svg>`;
 }
 
-function css(): string {
+function phaseRules(clockMs: number | undefined): string {
+  const pulse = phase(clockMs, PULSE_MS);
+  const spin = phase(clockMs, SPIN_MS);
+  return pulse === null || spin === null
+    ? ''
+    : `.pulse{animation-delay:${pulse}}.spin{animation-delay:${spin}}`;
+}
+
+function css(clockMs?: number): string {
   return [
     '<style>',
     `text{font-family:${SVG_FONT};font-variant-numeric:tabular-nums}`,
@@ -88,6 +113,9 @@ function css(): string {
     '@keyframes spin{to{transform:rotate(360deg)}}',
     '.pulse{animation:pulse 1.6s ease-in-out infinite}',
     '.spin{transform-box:fill-box;transform-origin:center;animation:spin 4s linear infinite}',
+    phaseRules(clockMs),
+    '.off{display:none}',
+    '@media (prefers-reduced-motion: reduce){.pulse,.spin{animation:none}.motion{display:none}}',
     '</style>',
   ].join('');
 }
@@ -173,17 +201,34 @@ const STAGE_LABEL: Readonly<Record<StageState, string>> = {
   todo: 'mut',
 };
 
-function runningBar(x: number, w: number, y: number, index: number): string {
+const LIVE_BAR_STATES: ReadonlySet<StageState> = new Set(['run', 'paused', 'marked']);
+
+function liveBar(
+  x: number,
+  w: number,
+  y: number,
+  index: number,
+  state: StageState,
+  clockMs: number | undefined,
+): string {
   const at = `x="${fixed(x)}" y="${y}" width="${fixed(w)}"`;
+  const running = state === 'run';
+  const glow = running ? 'acc motion' : `${STAGE_BAR[state]} off`;
+  const sheen = running ? 'motion' : 'off';
   return [
-    `<rect class="acc" x="${fixed(x)}" y="${y - 1}" width="${fixed(w)}" height="5" rx="2.5" filter="url(#glow)" opacity=".55"><animate attributeName="opacity" values=".55;.15;.55" dur="1.6s" repeatCount="indefinite"/></rect>`,
+    `<rect class="${glow}" x="${fixed(x)}" y="${y - 1}" width="${fixed(w)}" height="5" rx="2.5" filter="url(#glow)" opacity=".55"><animate attributeName="opacity" values=".55;.15;.55" dur="1.6s" repeatCount="indefinite"${begin(clockMs, PULSE_MS)}/></rect>`,
     `<clipPath id="run${index}"><rect ${at} height="3" rx="1.5"/></clipPath>`,
-    `<rect class="acc pulse" ${at} height="3" rx="1.5"/>`,
-    `<g clip-path="url(#run${index})"><rect x="${fixed(x - 28)}" y="${y}" width="28" height="3" fill="url(#sheen)"><animate attributeName="x" values="${fixed(x - 28)};${fixed(x + w)}" dur="2.2s" calcMode="spline" keyTimes="0;1" keySplines=".4 0 .2 1" repeatCount="indefinite"/></rect></g>`,
+    `<rect class="${STAGE_BAR[state]}" ${at} height="3" rx="1.5"/>`,
+    `<g class="${sheen}" clip-path="url(#run${index})"><rect x="${fixed(x - 28)}" y="${y}" width="28" height="3" fill="url(#sheen)"><animate attributeName="x" values="${fixed(x - 28)};${fixed(x + w)}" dur="2.2s" calcMode="spline" keyTimes="0;1" keySplines=".4 0 .2 1" repeatCount="indefinite"${begin(clockMs, SHEEN_MS)}/></rect></g>`,
   ].join('');
 }
 
-function stageMarks(x0: number, x1: number, stages: ReadonlyArray<Mark<StageState>>): string {
+function stageMarks(
+  x0: number,
+  x1: number,
+  stages: ReadonlyArray<Mark<StageState>>,
+  clockMs?: number,
+): string {
   const gap = 4;
   const n = Math.max(1, stages.length);
   const w = (x1 - x0 - gap * (n - 1)) / n;
@@ -194,8 +239,8 @@ function stageMarks(x0: number, x1: number, stages: ReadonlyArray<Mark<StageStat
       const bar =
         state === 'skip'
           ? `<line class="faints" x1="${fixed(x + 1)}" y1="${Y_MARK}" x2="${fixed(x + w - 1)}" y2="${Y_MARK}" stroke-width="1" stroke-dasharray="2 3"/>`
-          : state === 'run'
-            ? runningBar(x, w, y, i)
+          : LIVE_BAR_STATES.has(state)
+            ? liveBar(x, w, y, i, state, clockMs)
             : `<rect class="${STAGE_BAR[state]}" x="${fixed(x)}" y="${y}" width="${fixed(w)}" height="3" rx="1.5"/>`;
       return `${bar}<text class="lbl ${STAGE_LABEL[state]}" x="${fixed(x + w / 2)}" y="${Y_LBL}" text-anchor="middle">${escapeXml(label)}</text>`;
     })
@@ -311,6 +356,7 @@ function deliveryMarks(
   x1: number,
   steps: ReadonlyArray<Mark<ShipState>>,
   ci: number | null,
+  clockMs?: number,
 ): string {
   const r = NODE_RADIUS;
   const n = steps.length;
@@ -325,7 +371,7 @@ function deliveryMarks(
   steps.forEach(({ label, state }, i) => {
     const x = fixed(cx(i));
     if (state === 'ready') {
-      out += `<circle class="pass" cx="${x}" cy="${Y_MARK}" r="${r + 4}" filter="url(#glow)" opacity=".5"><animate attributeName="opacity" values=".5;.15;.5" dur="2.4s" repeatCount="indefinite"/></circle>`;
+      out += `<circle class="pass motion" cx="${x}" cy="${Y_MARK}" r="${r + 4}" filter="url(#glow)" opacity=".5"><animate attributeName="opacity" values=".5;.15;.5" dur="2.4s" repeatCount="indefinite"${begin(clockMs, READY_MS)}/></circle>`;
     }
     const art = nodeArt(state, x, String(Y_MARK), r, shareOf(label, ci), 3);
     out += art.ring + icon(label, cx(i), Y_MARK, art.stroke);
@@ -356,7 +402,7 @@ export function strip(input: StripInput): { source: string; width: number; heigh
   const stage = sections[0]!;
   const delivery = sections.at(-1)!;
   let body = section(stage, 'STAGE', input.stageValue);
-  body += stageMarks(stage.x0, stage.inner, input.stages);
+  body += stageMarks(stage.x0, stage.inner, input.stages, input.clockMs);
   if (input.seats) {
     const table = sections[1]!;
     body += section(table, 'HIGH TABLE', input.tableValue);
@@ -368,11 +414,12 @@ export function strip(input: StripInput): { source: string; width: number; heigh
     delivery.inner - DELIVERY_INSET,
     input.delivery,
     input.ci,
+    input.clockMs,
   );
-  const running = input.stages.some((mark) => mark.state === 'run');
+  const live = input.stages.some((mark) => LIVE_BAR_STATES.has(mark.state));
   const ready = input.delivery.some((mark) => mark.state === 'ready');
   return {
-    source: svg(width, STRIP_HEIGHT, css() + defs(running || ready, running) + body),
+    source: svg(width, STRIP_HEIGHT, css(input.clockMs) + defs(live || ready, live) + body),
     width,
     height: STRIP_HEIGHT,
   };

@@ -268,7 +268,7 @@ describe('HUD verdict, HUD receipt and bundle receipt agree at the end of a chan
     const word = expectAgreement();
     const snapshot = buildHudSnapshot(context.project_root, SES, { now: () => NOW });
     expect(snapshot.headline.word).toBe(lead);
-    expect(snapshot.headline.gap).toMatch(/^paqad could not record /);
+    expect(snapshot.headline.gap).toMatch(/^(paqad could not record |No record yet for: )/);
     expect(snapshot.headline.text).not.toContain('Fix it');
     expect(Object.values(PAQAD_VERDICT)).toContain(word);
     return word;

@@ -33,6 +33,13 @@ async function importDist(relative) {
   return import(new URL(`../../dist/${relative}`, import.meta.url).href);
 }
 
+async function recordStart(projectRoot, payload) {
+  try {
+    const { recordStageAgentStart } = await importDist('stage-isolation/subagent-completion.js');
+    recordStageAgentStart({ projectRoot, payload });
+  } catch {}
+}
+
 async function seed(projectRoot, payload) {
   const agent = logKey(payload.agent_id);
   let stage = 'unknown';
@@ -46,6 +53,7 @@ async function seed(projectRoot, payload) {
     stage = resolved;
     process.stdout.write(seedStageAgent(stage, projectRoot, payload));
     stampAgentEntryMarker(projectRoot, payload.agent_id);
+    await recordStart(projectRoot, payload);
     appendHooksLog(projectRoot, `${LOG_PREFIX}: seeded agent=${agent} stage=${stage}`);
   } catch (error) {
     appendHooksLog(

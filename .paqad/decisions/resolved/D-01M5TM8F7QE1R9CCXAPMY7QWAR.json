@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5TM8F7QE1R9CCXAPMY7QWAR",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on turn-end backstop",
+  "context": "Chief architect: Ruled by the chief: all three criteria stand. The boundary the tester asks for is settled deterministically, with no clock: if either the payload or the stage ledger says a stage agent is running, defer; the ledger wins when the payload is empty. A clean hand-off between stages (the last stage ended with its artifact, the next not yet started, the change still open) writes no failed verify and no red verdict. A change that is really half done (a stage ended without its artifact, or a stage open with no agent running) is still judged, receipted and shown red.\n\nTarget: turn-end backstop\n- qa-engineer: Given a stage_start row and a Stop payload whose background_tasks lists a running stage agent, when the turn ends, then no stage_end, verify, receipt.json, cost.json seal or HUD verdict file is written for the change (proof: integration test replaying the recorded timeline).\n- qa-engineer: Negative case: given stage N has ended and stage N+1 has not started (an orchestrator turn end between stages), when the turn ends, then no failed verify is written and the HUD verdict stays non-red.\n- qa-engineer: Boundary: the race where the stage agent is running but the Stop payload carries an empty or missing background_tasks array must have its own criterion stating which signal wins (ledger running stage vs payload), so the test is deterministic and not clock-timed.\n\n[expert-conflict-fork:3398f57d3a7a5529]",
+  "options": [
+    {
+      "option_key": "given-a-stage-start-row-and-a-stop-paylo",
+      "label": "Given a stage_start row and a Stop payload whose background_tasks lists a running stage agent, when the turn ends, then no stage_end, verify, receipt.json, cost.json seal or HUD verdict file is written for the change (proof: integration test replaying the recorded timeline). — qa-engineer",
+      "one_line_preview": "Given a stage_start row and a Stop payload whose background_tasks lists a running stage agent, when the turn ends, then no stage_end, verify, receipt.json, cost.json seal or HUD verdict file is written for the change (proof: integration test replaying the recorded timeline). — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "negative-case-given-stage-n-has-ended-an",
+      "label": "Negative case: given stage N has ended and stage N+1 has not started (an orchestrator turn end between stages), when the turn ends, then no failed verify is written and the HUD verdict stays non-red. — qa-engineer",
+      "one_line_preview": "Negative case: given stage N has ended and stage N+1 has not started (an orchestrator turn end between stages), when the turn ends, then no failed verify is written and the HUD verdict stays non-red. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "boundary-the-race-where-the-stage-agent-",
+      "label": "Boundary: the race where the stage agent is running but the Stop payload carries an empty or missing background_tasks array must have its own criterion stating which signal wins (ledger running stage vs payload), so the test is deterministic and not clock-timed. — qa-engineer",
+      "one_line_preview": "Boundary: the race where the stage agent is running but the Stop payload carries an empty or missing background_tasks array must have its own criterion stating which signal wins (ledger running stage vs payload), so the test is deterministic and not clock-timed. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "given-a-stage-start-row-and-a-stop-paylo",
+  "created_at": "2026-10-25T22:52:48.759Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "given-a-stage-start-row-and-a-stop-paylo",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:29.123Z",
+  "decision_id": "D-01M5TM8F7QE1R9CCXAPMY7QWAR",
+  "fingerprint": "sha256:c6392a8e213cc0b6986be15a2aabc7adbede18351a3b0dab10dc150e59514a24",
+  "question": "Experts disagree on turn-end backstop",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.759Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-a-stage-start-row-and-a-stop-paylo",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:29.123Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

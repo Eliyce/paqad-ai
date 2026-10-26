@@ -19,7 +19,8 @@ function isIsolatedStageRow(row: SessionLedgerRow): boolean {
 
 export function readStageAgentRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readFeatureStageUnit(projectRoot, dirName).filter(
-    (row) => row.kind === STAGE_AGENT_KIND && isIsolatedStageRow(row),
+    (row) =>
+      row.kind === STAGE_AGENT_KIND && row.event_status !== 'started' && isIsolatedStageRow(row),
   );
 }
 

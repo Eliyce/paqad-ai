@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 
+import { changedFilesSince, type ChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { isPaqadArtifactPath } from '@/pipeline/change-evidence.js';
 import { readGitState } from '@/rag/git-state.js';
 
@@ -28,16 +29,26 @@ export function readChangeGit(
   projectRoot: string,
   baseBranch: string | null,
   onError: (error: unknown) => void,
+  start?: ChangeStartPoint | null,
 ): ChangeGitReading | null {
-  const base = readGitState(projectRoot, baseBranch ? { baseBranch } : {}).base_commit;
+  const base =
+    start === undefined
+      ? readGitState(projectRoot, baseBranch ? { baseBranch } : {}).base_commit
+      : (start?.commit ?? undefined);
   if (!base) return null;
   try {
     const files = new Set<string>();
-    for (const path of [
-      ...gitRead(projectRoot, ['diff', '--name-only', '--relative', '-z', base]),
-      ...gitRead(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']),
-    ]) {
-      if (!isPaqadArtifactPath(path)) files.add(path);
+    if (start) {
+      const since = changedFilesSince(projectRoot, start);
+      if (since === null) throw new Error('git could not list the changed files');
+      for (const path of since) files.add(path);
+    } else {
+      for (const path of [
+        ...gitRead(projectRoot, ['diff', '--name-only', '--relative', '-z', base]),
+        ...gitRead(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']),
+      ]) {
+        if (!isPaqadArtifactPath(path)) files.add(path);
+      }
     }
     const commitTimes = new Map<string, string>();
     for (const entry of gitRead(projectRoot, [
