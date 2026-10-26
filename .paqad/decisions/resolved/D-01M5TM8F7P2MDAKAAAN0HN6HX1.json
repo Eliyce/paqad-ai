@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7P2MDAKAAAN0HN6HX1",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new change baseline resolver",
+  "context": "Chief architect: Ruled by the chief, no question needed: one function owns where the change started, and it also remembers the files that were untracked or dirty when the change opened, because git cannot recover that later. Order: the recorded start point, else the real fork point, else a stated fallback that the HUD names. It never silently diffs against main, since guessing from main is what produced the false counts.\n\nTarget: new change baseline resolver\n- application-architect: one function owns 'where this change started' (start_commit, else the real fork point, else merge-base with base_branch) and src/hud/changed-files.ts, src/hud/change-scope.ts, src/feature-evidence/delivery.ts commit_split, plan progress, claims and receipt subjects all read it; no caller computes merge-base with main on its own\n- application-architect: the baseline must also remember files that were untracked or dirty when the change opened, so pre-existing working-tree dirt is never counted as this change's edits\n\n[expert-conflict-fork:9891d6c8b1d9478d]",
+  "options": [
+    {
+      "option_key": "one-function-owns-where-this-change-star",
+      "label": "one function owns 'where this change started' (start_commit, else the real fork point, else merge-base with base_branch) and src/hud/changed-files.ts, src/hud/change-scope.ts, src/feature-evidence/delivery.ts commit_split, plan progress, claims and receipt subjects all read it; no caller computes merge-base with main on its own — application-architect",
+      "one_line_preview": "one function owns 'where this change started' (start_commit, else the real fork point, else merge-base with base_branch) and src/hud/changed-files.ts, src/hud/change-scope.ts, src/feature-evidence/delivery.ts commit_split, plan progress, claims and receipt subjects all read it; no caller computes merge-base with main on its own — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-baseline-must-also-remember-files-th",
+      "label": "the baseline must also remember files that were untracked or dirty when the change opened, so pre-existing working-tree dirt is never counted as this change's edits — application-architect",
+      "one_line_preview": "the baseline must also remember files that were untracked or dirty when the change opened, so pre-existing working-tree dirt is never counted as this change's edits — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "one-function-owns-where-this-change-star",
+  "created_at": "2026-10-25T22:52:48.758Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "one-function-owns-where-this-change-star",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:24.306Z",
+  "decision_id": "D-01M5TM8F7P2MDAKAAAN0HN6HX1",
+  "fingerprint": "sha256:0565af03b5b89bd229e166a866c27f70c75ae2002e525fa56dfb56134c38cfc3",
+  "question": "Experts disagree on new change baseline resolver",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.758Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "one-function-owns-where-this-change-star",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:24.306Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

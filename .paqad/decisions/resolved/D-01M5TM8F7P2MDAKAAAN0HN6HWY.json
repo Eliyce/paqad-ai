@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7P2MDAKAAAN0HN6HWY",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on feature.json base_branch",
+  "context": "Chief architect: Ruled by the chief, no question needed: the claims fit together. Recording the real fork branch as the pull request target stays out of scope, and old bundles that recorded main with no fork point read correctly by falling back to the recorded start_commit, with no migration of old bundles.\n\nTarget: feature.json base_branch\n- solution-architect: Recording the real fork branch (for example a release branch) in base_branch for the pull request target is out of scope; this change only stops measuring the change's own work against it.\n- application-architect: existing bundles that recorded base_branch main and no fork point must still read correctly by falling back to delivery.json start_commit; no migration of old bundles\n\n[expert-conflict-fork:a3ad6319fa8d4ac9]",
+  "options": [
+    {
+      "option_key": "recording-the-real-fork-branch-for-examp",
+      "label": "Recording the real fork branch (for example a release branch) in base_branch for the pull request target is out of scope; this change only stops measuring the change's own work against it. — solution-architect",
+      "one_line_preview": "Recording the real fork branch (for example a release branch) in base_branch for the pull request target is out of scope; this change only stops measuring the change's own work against it. — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "existing-bundles-that-recorded-base-bran",
+      "label": "existing bundles that recorded base_branch main and no fork point must still read correctly by falling back to delivery.json start_commit; no migration of old bundles — application-architect",
+      "one_line_preview": "existing bundles that recorded base_branch main and no fork point must still read correctly by falling back to delivery.json start_commit; no migration of old bundles — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "recording-the-real-fork-branch-for-examp",
+  "created_at": "2026-10-25T22:52:48.758Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "recording-the-real-fork-branch-for-examp",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:09.999Z",
+  "decision_id": "D-01M5TM8F7P2MDAKAAAN0HN6HWY",
+  "fingerprint": "sha256:8f4fbfae70ae86af0360126b8c5ffb875fb4e49aebdf568c70c377b36a537f77",
+  "question": "Experts disagree on feature.json base_branch",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.758Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "recording-the-real-fork-branch-for-examp",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:09.999Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

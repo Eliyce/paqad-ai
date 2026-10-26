@@ -1,0 +1,78 @@
+{
+  "id": "D-01M5TM8F9A85Q82BPZSABCF4G4",
+  "category": "fix.proof_method",
+  "title": "How should we confirm this problem is fixed?",
+  "context": "This change is a fix that changes behaviour, so paqad wants proof the problem is gone. A test that fails before the fix and passes after it is the strongest proof; pick another method only when no test can reach the problem.",
+  "options": [
+    {
+      "option_key": "failing-test",
+      "label": "Write a test that fails before the fix",
+      "one_line_preview": "If you pick this, a test fails on the old code and passes after the fix, recorded with `paqad-ai fix prove`.",
+      "trade_off": "You give up: nothing for code a test can reach; it needs a runnable test.",
+      "evidence": {
+        "findings": [
+          "EX-qa-engineer-1: Given a stage_start row and a Stop payload whose background_tasks lists a running stage agent, when the turn ends, then no stage_end, verify, receipt.json, cost.json seal or HUD verdict file is written for the change (proof: integration test replaying the recorded timeline).",
+          "EX-qa-engineer-2: Negative case: given stage N has ended and stage N+1 has not started (an orchestrator turn end between stages), when the turn ends, then no failed verify is written and the HUD verdict stays non-red.",
+          "EX-qa-engineer-3: Boundary: the race where the stage agent is running but the Stop payload carries an empty or missing background_tasks array must have its own criterion stating which signal wins (ledger running stage vs payload), so the test is deterministic and not clock-timed.",
+          "EX-qa-engineer-4: Given a branch cut from a non-main base with prior commits and pre-existing untracked or dirty files, when the change opens and no edit is made, then Trust shows no Edits made / Docs updated tick, plan progress is 0 built, no acceptance claim is marked pass, and the receipt subjects list none of those files (proof: integration test with a temp git repo).",
+          "EX-qa-engineer-5: Error path: when start_commit is missing or unreachable (rebased away), the measurement falls back to a stated base and the HUD says so, rather than silently diffing against main.",
+          "EX-qa-engineer-6: Given decision packets tagged with this change, another change, and no change tag, when the Record tab is built, then only this change's packets appear, each row names its decision, carries a date, and rows are in time order.",
+          "EX-qa-engineer-7: Given a tool.check with decision ask from a background subagent, or one denied with Esc, or one decided by auto mode, when no tool starts afterwards, then the headline never shows Waiting for your permission beyond that event; each of these three paths needs its own unit test.",
+          "EX-qa-engineer-8: Given the first stage agent is running and no stage has ended, then neither No stage ran in its own agent nor The rules for this change were never loaded fires; given a stage ends without a stage-agent row, then the first flag does fire (positive and negative test per flag).",
+          "EX-qa-engineer-9: Given an open full-lane change with a running stage, when a non-code message is routed to project-question, then the band stays Feature development and the route line never names a lane lower than the recorded lane.",
+          "EX-qa-engineer-10: Given the headline moves between permission, running and verdict states, then the band keeps the same row count; proof is a render test asserting row count across the three states, not a visual check.",
+          "EX-qa-engineer-11: Given a finished stage and a High Table seat with an exact run token count, then Trust shows the stage as Done with a green check, and the seat cost, Cost tab row and total show the same token figure.",
+          "EX-qa-engineer-12: Animation restart and smoothness are manual-proof only; the testable part is that the strip markup keeps stable node identity when the state flips, which a unit render test can assert.",
+          "EX-qa-engineer-13: Every fix needs a test that fails on the old code; the recorded run (stage-evidence.jsonl, cost.json, receipt.json, delivery.json, HUD snapshot) should be scrubbed of client detail and kept as one replay fixture that the backstop, snapshot and HUD tests share."
+        ]
+      }
+    },
+    {
+      "option_key": "human-verification-step",
+      "label": "Use a manual check",
+      "one_line_preview": "If you pick this, a person runs a set check to confirm the fix.",
+      "trade_off": "You give up: a fully automated check.",
+      "evidence": {}
+    },
+    {
+      "option_key": "recorded-baseline-snapshot",
+      "label": "Keep an approved snapshot",
+      "one_line_preview": "If you pick this, we save an approved snapshot and compare later runs to it.",
+      "trade_off": "You give up: free changes without re-approving the snapshot.",
+      "evidence": {}
+    },
+    {
+      "option_key": "measured-threshold",
+      "label": "Use a measured limit",
+      "one_line_preview": "If you pick this, we check a measured value against a set limit.",
+      "trade_off": "You give up: cases the chosen value does not catch.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "failing-test",
+  "created_at": "2026-10-25T22:52:48.810Z",
+  "status": "resolved",
+  "origin": "fix-proof",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "failing-test",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:41.841Z",
+  "decision_id": "D-01M5TM8F9A85Q82BPZSABCF4G4",
+  "fingerprint": "sha256:75028677f2af5f8eeea86c9cc81ce48f0c68ebe32323be51082489b5f1deb522",
+  "question": "How should we confirm this problem is fixed?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-fix-proof",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.810Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "failing-test",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:41.841Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

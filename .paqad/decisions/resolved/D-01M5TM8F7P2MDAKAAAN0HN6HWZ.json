@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5TM8F7P2MDAKAAAN0HN6HWZ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on this request",
+  "context": "Chief architect: Settled by the owner: everything ships in ONE pull request with small commits, one per root-cause group, each with its own failing-first test. No new dependency, tab, stage or visual redesign, which is also the product owner's scope line. The product owner's option to ship trust fixes first and polish later is overruled by the owner's decision.\n\nTarget: this request\n- solution-architect: The 13 HUD defects plus three root causes span the Stop seams, receipt, cost, delivery and HUD; ship them in small commits grouped by root cause so each has its own failing-first test and can be reverted alone.\n- product-owner: no new HUD tabs, no new stages, no change to lane rules or stage order, and no visual redesign; this change makes the existing HUD tell the truth\n- product-owner: three root causes plus thirteen HUD defects in one change risks a long build; the smallest version worth shipping is the false verdict, the wrong start point, untagged decisions and the false permission headline, while animation smoothness, the High Table tab coming forward and the band flicker could follow\n\n[expert-conflict-fork:51f35af973ed1882]",
+  "options": [
+    {
+      "option_key": "the-13-hud-defects-plus-three-root-cause",
+      "label": "The 13 HUD defects plus three root causes span the Stop seams, receipt, cost, delivery and HUD; ship them in small commits grouped by root cause so each has its own failing-first test and can be reverted alone. — solution-architect",
+      "one_line_preview": "The 13 HUD defects plus three root causes span the Stop seams, receipt, cost, delivery and HUD; ship them in small commits grouped by root cause so each has its own failing-first test and can be reverted alone. — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-new-hud-tabs-no-new-stages-no-change-",
+      "label": "no new HUD tabs, no new stages, no change to lane rules or stage order, and no visual redesign; this change makes the existing HUD tell the truth — product-owner",
+      "one_line_preview": "no new HUD tabs, no new stages, no change to lane rules or stage order, and no visual redesign; this change makes the existing HUD tell the truth — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "three-root-causes-plus-thirteen-hud-defe",
+      "label": "three root causes plus thirteen HUD defects in one change risks a long build; the smallest version worth shipping is the false verdict, the wrong start point, untagged decisions and the false permission headline, while animation smoothness, the High Table tab coming forward and the band flicker could follow — product-owner",
+      "one_line_preview": "three root causes plus thirteen HUD defects in one change risks a long build; the smallest version worth shipping is the false verdict, the wrong start point, untagged decisions and the false permission headline, while animation smoothness, the High Table tab coming forward and the band flicker could follow — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-13-hud-defects-plus-three-root-cause",
+  "created_at": "2026-10-25T22:52:48.758Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "the-13-hud-defects-plus-three-root-cause",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:15.096Z",
+  "decision_id": "D-01M5TM8F7P2MDAKAAAN0HN6HWZ",
+  "fingerprint": "sha256:56bf1f0f0ffeaa87366f939f0e1c4374781f7c981de5d936d778ec812d4194db",
+  "question": "Experts disagree on this request",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.758Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-13-hud-defects-plus-three-root-cause",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:15.096Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

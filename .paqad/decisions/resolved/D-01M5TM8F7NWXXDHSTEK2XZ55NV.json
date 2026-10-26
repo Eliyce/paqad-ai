@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7NWXXDHSTEK2XZ55NV",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on Ledger High Table tab",
+  "context": "Chief architect: Ruled by the chief, no question needed: both claims hold and three seats agree (EX-user-flow-writer-4 says the same). The tab comes forward when the table sits or the chief has questions, never moves keyboard focus, never overrides a tab the person picked during that sitting, and switches at most once per sitting. This also answers the tester's question about a tab the person already picked: do not switch.\n\nTarget: Ledger High Table tab\n- ux-ui-analyst: the tab comes forward when the table sits or the chief has questions, only if the person has not picked a tab since; it moves the visible tab but never moves keyboard focus (WCAG 2.2 3.2.1 on focus)\n- ux-ui-analyst: the automatic switch happens once per sitting; after the person switches away, the tab does not pull them back for the same sitting\n\n[expert-conflict-fork:09a1eb3c24c53d2c]",
+  "options": [
+    {
+      "option_key": "the-tab-comes-forward-when-the-table-sit",
+      "label": "the tab comes forward when the table sits or the chief has questions, only if the person has not picked a tab since; it moves the visible tab but never moves keyboard focus (WCAG 2.2 3.2.1 on focus) — ux-ui-analyst",
+      "one_line_preview": "the tab comes forward when the table sits or the chief has questions, only if the person has not picked a tab since; it moves the visible tab but never moves keyboard focus (WCAG 2.2 3.2.1 on focus) — ux-ui-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-automatic-switch-happens-once-per-si",
+      "label": "the automatic switch happens once per sitting; after the person switches away, the tab does not pull them back for the same sitting — ux-ui-analyst",
+      "one_line_preview": "the automatic switch happens once per sitting; after the person switches away, the tab does not pull them back for the same sitting — ux-ui-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-tab-comes-forward-when-the-table-sit",
+  "created_at": "2026-10-25T22:52:48.757Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "the-tab-comes-forward-when-the-table-sit",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:50:47.372Z",
+  "decision_id": "D-01M5TM8F7NWXXDHSTEK2XZ55NV",
+  "fingerprint": "sha256:f6e1d5f459f7eac85ab7f49a21618724cd1b6e177b2842c3296f5f7004ecf246",
+  "question": "Experts disagree on Ledger High Table tab",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.757Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-tab-comes-forward-when-the-table-sit",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:50:47.372Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}

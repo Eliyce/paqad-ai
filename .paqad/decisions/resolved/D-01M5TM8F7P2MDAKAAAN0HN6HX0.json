@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5TM8F7P2MDAKAAAN0HN6HX0",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on Stop hook payload background_tasks field",
+  "context": "Chief architect: Ruled by the chief, settled by the run evidence and by the cross-provider rule: read the payload field when it is there, and when it is missing, empty or not a list, fall back to the stage ledger. A missing field never means no agent is running. This is the same single predicate ruled on deferCompletionForBackgroundStage.\n\nTarget: Stop hook payload background_tasks field\n- integration-architect: the turn-end backstop must read background_tasks from the Stop payload and defer judging, sealing cost.json and signing receipt.json while any task belongs to a paqad stage agent of the open change\n- integration-architect: when background_tasks is missing or not an array (older Claude Code or another adapter), the backstop must fall back to the stage ledger saying a stage is running, and must never treat a missing field as no agent running\n\n[expert-conflict-fork:0695e07225504637]",
+  "options": [
+    {
+      "option_key": "the-turn-end-backstop-must-read-backgrou",
+      "label": "the turn-end backstop must read background_tasks from the Stop payload and defer judging, sealing cost.json and signing receipt.json while any task belongs to a paqad stage agent of the open change — integration-architect",
+      "one_line_preview": "the turn-end backstop must read background_tasks from the Stop payload and defer judging, sealing cost.json and signing receipt.json while any task belongs to a paqad stage agent of the open change — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "when-background-tasks-is-missing-or-not-",
+      "label": "when background_tasks is missing or not an array (older Claude Code or another adapter), the backstop must fall back to the stage ledger saying a stage is running, and must never treat a missing field as no agent running — integration-architect",
+      "one_line_preview": "when background_tasks is missing or not an array (older Claude Code or another adapter), the backstop must fall back to the stage ledger saying a stage is running, and must never treat a missing field as no agent running — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "when-background-tasks-is-missing-or-not-",
+  "created_at": "2026-10-25T22:52:48.758Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "chosen": "when-background-tasks-is-missing-or-not-",
+  "rationale": "Owner accepted the chief architect's ruling (fix proven by a failing test).",
+  "resolved_at": "2026-10-26T06:51:19.279Z",
+  "decision_id": "D-01M5TM8F7P2MDAKAAAN0HN6HX0",
+  "fingerprint": "sha256:7aac3665b6de9dabb21e3a77c3b697fe9d7dae9bfa3c4a8bbe600dc34bc5a8f2",
+  "question": "Experts disagree on Stop hook payload background_tasks field",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5TJYB18G4MFYZNWKKGCFJW9",
+  "ttl_until": "2026-11-24T22:52:48.758Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "when-background-tasks-is-missing-or-not-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T06:51:19.279Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief architect's ruling (fix proven by a failing test)."
+  }
+}
