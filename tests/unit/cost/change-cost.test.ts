@@ -311,6 +311,47 @@ describe('computeChangeCost (AC-47)', () => {
     ]);
   });
 
+  it('NFR-7: a seat whose host figure differs from its transcript shows no money worked out from other tokens', () => {
+    const root = tempRoot();
+    const { payloads } = fullChange(root);
+    const hostUsage = (role: string, tokens: Record<string, number>) =>
+      appendHighTableRow(
+        root,
+        DIR,
+        {
+          event: 'usage',
+          role,
+          agent_id: `host-${role}`,
+          agent_type: 'paqad-expert',
+          tokens,
+          by_model: {},
+          messages: 1,
+          tokens_label: 'exact',
+        },
+        { sessionId: SES },
+      );
+    hostUsage('security-auditor', {
+      input: 10,
+      output: 9990,
+      cache_read: 150000,
+      cache_write: 10000,
+      total: 170000,
+    });
+    hostUsage('db-expert', {
+      input: X1.input,
+      output: X1.output,
+      cache_read: X1.cacheRead,
+      cache_write: X1.cacheWrite,
+      total: total(X1),
+    });
+    const cost = run(root, payloads);
+    const seat = (role: string) => cost.by_expert.find((line) => line.role === role)!;
+    expect(seat('security-auditor')).toMatchObject({ exact: true, usd: null });
+    expect(seat('security-auditor').tokens.total).toBe(170000);
+    expect(seat('db-expert').tokens.total).toBe(total(X1));
+    expect(seat('db-expert').usd).not.toBeNull();
+  });
+
   it('has no record for a change with no open row', () => {
     const root = tempRoot();
     writeStageRows(root, [['stage_start', '10:00', 'planning']]);

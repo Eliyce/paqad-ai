@@ -560,10 +560,12 @@ function seatLines(
   const lines = new Map(transcriptLines);
   for (const seat of foldHighTable(readHighTable(projectRoot, dirName)).values()) {
     if (seat.tokens !== null) {
+      const tokens = tokensOf(seat.tokens);
+      const fromTranscript = lines.get(seat.role);
       lines.set(seat.role, {
         role: seat.role,
-        tokens: tokensOf(seat.tokens),
-        usd: lines.get(seat.role)?.usd ?? null,
+        tokens,
+        usd: fromTranscript?.tokens.total === tokens.total ? fromTranscript.usd : null,
         exact: true,
       });
       continue;
