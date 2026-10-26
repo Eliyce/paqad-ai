@@ -554,15 +554,29 @@ function orderStages(buckets: Map<string, Bucket>): CostStageLine[] {
     .map(([stage, bucket]) => ({ stage, ...lineOf(bucket) }));
 }
 
-function estimateLines(
+/**
+ * One token figure per High Table seat, the same one the seat drill-down shows: the exact run
+ * Claude Code reported for the seat when present, else the figure read from its transcript, else
+ * the note's own estimate. Each line says whether it is exact.
+ */
+function seatLines(
   projectRoot: string,
   dirName: string,
-  exactRoles: ReadonlySet<string>,
+  transcriptLines: ReadonlyMap<string, CostExpertLine>,
 ): CostExpertLine[] {
-  const lines: CostExpertLine[] = [];
+  const lines = new Map(transcriptLines);
   for (const seat of foldHighTable(readHighTable(projectRoot, dirName)).values()) {
-    if (exactRoles.has(seat.role) || seat.tokens_estimate === null) continue;
-    lines.push({
+    if (seat.tokens !== null) {
+      lines.set(seat.role, {
+        role: seat.role,
+        tokens: tokensOf(seat.tokens),
+        usd: lines.get(seat.role)?.usd ?? null,
+        exact: true,
+      });
+      continue;
+    }
+    if (lines.has(seat.role) || seat.tokens_estimate === null) continue;
+    lines.set(seat.role, {
       role: seat.role,
       tokens: {
         input: 0,
@@ -575,7 +589,7 @@ function estimateLines(
       exact: false,
     });
   }
-  return lines;
+  return [...lines.values()];
 }
 
 export interface ComputeChangeCostOptions {
@@ -661,12 +675,11 @@ export function computeChangeCost(
     }
   }
 
-  const chiefBucket = byRole.get(CHIEF_ROLE);
-  const exactExperts: CostExpertLine[] = [...byRole.entries()]
-    .filter(([role]) => role !== CHIEF_ROLE)
-    .map(([role, bucket]) => ({ role, ...lineOf(bucket), exact: true }));
-  const estimated = estimateLines(projectRoot, dirName, new Set(byRole.keys()));
-  const chiefEstimate = estimated.find((line) => line.role === CHIEF_ROLE);
+  const fromTranscripts = new Map<string, CostExpertLine>(
+    [...byRole.entries()].map(([role, bucket]) => [role, { role, ...lineOf(bucket), exact: true }]),
+  );
+  const seats = seatLines(projectRoot, dirName, fromTranscripts);
+  const chiefLine = seats.find((line) => line.role === CHIEF_ROLE);
 
   return {
     schema: COST_SCHEMA,
@@ -685,12 +698,10 @@ export function computeChangeCost(
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([model, bucket]) => ({ model, ...lineOf(bucket) })),
     by_stage: orderStages(byStage),
-    by_expert: [...exactExperts, ...estimated.filter((line) => line.role !== CHIEF_ROLE)],
-    chief: chiefBucket
-      ? { ...lineOf(chiefBucket), exact: true }
-      : chiefEstimate
-        ? { tokens: chiefEstimate.tokens, usd: null, exact: false }
-        : null,
+    by_expert: seats.filter((line) => line.role !== CHIEF_ROLE),
+    chief: chiefLine
+      ? { tokens: chiefLine.tokens, usd: chiefLine.usd, exact: chiefLine.exact }
+      : null,
     not_counted: [...NOT_COUNTED],
     sources,
   };

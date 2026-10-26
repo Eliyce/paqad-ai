@@ -3,7 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   ANSWER_TOAST,
   CLAIMS_LATER,
+  COST_COUNTING,
+  COST_COUNTING_MONEY,
   COUNTING_WORDS,
+  costWords,
   NOT_COUNTED_WORDS,
   RECORD_LATER,
   RECORD_NOTHING_YET,
@@ -700,6 +703,51 @@ describe('AC-11 / AC-12: the Record names each decision, dated, newest first', (
       rows: [],
       empty: RECORD_NOTHING_YET,
     });
+  });
+});
+
+describe('AC-27 / NFR-7: the Cost tab before any token is counted', () => {
+  const zero = { input: 0, output: 0, cache_read: 0, cache_write: 0, total: 0 };
+  const open0 = (window: Raw) =>
+    open({
+      cost: costRecord({ tokens: zero, usd: null, unpriced_models: [], by_stage: [], window }),
+    });
+
+  it('shows a counting state, never "0 tokens" or "No money figure", while the window is open', () => {
+    const view = costView(
+      open0({ from: '2026-10-18T08:00:00.000Z', to: '2026-10-18T08:01:00.000Z', sealed: false }),
+    )!;
+    expect(view.total).toBe(COST_COUNTING);
+    expect(view.money).toBe(COST_COUNTING_MONEY);
+    expect(`${view.total} ${view.money}`).not.toMatch(/0 tokens|No money figure/);
+    expect(costWords(open0({ sealed: false }).cost)).toBe(COST_COUNTING);
+  });
+
+  it('a sealed window with nothing in it reads as final', () => {
+    const view = costView(open0({ from: 'a', to: 'b', sealed: true, sealed_by: 'close' }))!;
+    expect(view.total).toBe('0 tokens');
+  });
+
+  it('the seat drill-down and the Cost tab read the same figure for a seat', () => {
+    const table = ord501Table('frozen') as { seats: Array<Record<string, unknown>> };
+    const seat = table.seats[0]!;
+    const exact = {
+      input: 10,
+      output: 9990,
+      cache_read: 150000,
+      cache_write: 10000,
+      total: 170000,
+    };
+    const snap = open({
+      table: { ...table, seats: [{ ...seat, tokens: exact, tokens_exact: true }] },
+      cost: costRecord({
+        by_expert: [{ role: seat.role, tokens: exact, usd: null, exact: true }],
+      }),
+    });
+    const row = costView(snap)!.table.find((meter) => meter.key === seat.role)!;
+    expect(row.right.split(' ')[0]).toBe('170K');
+    const seatRow = tableView(snap).seats.find((entry) => entry.role === seat.role)!;
+    expect(seatRow.details.join(' ')).toContain('Run: 170K tokens (exact, from Claude Code)');
   });
 });
 

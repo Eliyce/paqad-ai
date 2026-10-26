@@ -129,8 +129,17 @@ export { WAITING_FOR_ANSWER, WAITING_FOR_PERMISSION, type DesktopHeadline };
 
 export const desktopHeadline = snapshotHeadline;
 
+export const COST_COUNTING = 'Counting tokens';
+export const COST_COUNTING_MONEY = 'The money figure follows the first counted tokens.';
+
+// Before any token figure is known, an open window is still counting: never a final 0.
+function stillCounting(cost: NonNullable<PaqadHudSnapshot['cost']>): boolean {
+  return cost.tokens.total === 0 && !cost.sealed;
+}
+
 export function costWords(cost: PaqadHudSnapshot['cost']): string | null {
   if (!cost) return null;
+  if (stillCounting(cost)) return COST_COUNTING;
   const tokens = `${formatTokens(cost.tokens.total)} tokens${cost.live ? ' so far' : ''}`;
   if (cost.scope === 'whole-session') return `${tokens} · whole session`;
   return cost.usd === null ? tokens : `${tokens} · ~${formatUsd(cost.usd)}`;
@@ -1246,9 +1255,10 @@ export function costView(snapshot: PaqadHudSnapshot): CostView | null {
   if (!cost) return null;
   const sat = tableSat(snapshot);
   const scope = cost.scope === 'whole-session' ? WHOLE_SESSION_SENTENCE : CHANGE_SCOPE_SENTENCE;
+  const counting = stillCounting(cost);
   return {
-    total: `${formatTokens(cost.tokens.total)} tokens`,
-    money: costMoney(cost),
+    total: counting ? COST_COUNTING : `${formatTokens(cost.tokens.total)} tokens`,
+    money: counting ? COST_COUNTING_MONEY : costMoney(cost),
     note: [cost.plan_note, scope].filter((part) => part.length > 0).join(' '),
     live: cost.live ? COUNTING_WORDS : null,
     stages: meters(
