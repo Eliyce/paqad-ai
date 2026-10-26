@@ -306,6 +306,7 @@ describe('verdict freshness', () => {
     expect(snapshot.verdict).toBeNull();
     expect(snapshot.headline.tone).not.toBe('fail');
     expect(snapshot.headline.text).not.toContain('half done');
+    expect(snapshot.headline.gap ?? '').not.toContain('paqad could not record');
   });
 
   it('a verdict written after the last stage row still shows', () => {

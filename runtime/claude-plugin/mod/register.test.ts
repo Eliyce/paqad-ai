@@ -964,6 +964,15 @@ describe('the Desktop band', () => {
     expect(note?.props?.dimColor).toBe(true);
   });
 
+  test('AC-16: the line under the headline is always drawn, blank when there is nothing to say', async ($, on) => {
+    worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const drawn = await $.ui.render(band('desktop'));
+    const blank = textElement(drawn, ' ') as { props?: { dimColor?: unknown } } | undefined;
+    expect(blank?.props?.dimColor).toBe(true);
+  });
+
   test('AC-29, AC-33: a paqad record gap shows Done and one neutral line, never a fix instruction', async ($, on) => {
     const gap = 'paqad could not record every stage of this change';
     const done = {
@@ -1047,21 +1056,21 @@ describe('the Desktop band', () => {
     expect(colorOf(textElement(drawn, '   ● Needs you'))).toBe('#F37748');
   });
 
-  test('AC-16: the card needs 5 rows, 6 with the menu, and falls back to the minimised row', async ($, on) => {
+  test('AC-16: the card needs 6 rows, 7 with the menu, and falls back to the minimised row', async ($, on) => {
     worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) }, store: QUIET_STORE() });
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     const keys = async (maxRows: number) =>
       buttonKeys(await $.ui.render(band('desktop', { maxRows })));
-    expect(await keys(4)).toContain('paqad-expand');
-    expect(await keys(5)).toContain('paqad-minimise');
+    expect(await keys(5)).toContain('paqad-expand');
+    expect(await keys(6)).toContain('paqad-minimise');
     const mounted = await mountDesktop($);
     await mounted.press({ key: 'paqad-close' });
     await mounted.unmount();
-    const menu = await keys(5);
+    const menu = await keys(6);
     expect(menu).toContain('paqad-expand');
     expect(menu).toContain('paqad-close-now');
-    expect(await keys(6)).toContain('paqad-minimise');
+    expect(await keys(7)).toContain('paqad-minimise');
   });
 
   test('the Ledger Button toggles the Ledger and the flags open it on Trust', async ($, on) => {
@@ -1392,15 +1401,15 @@ async function cardControls(
 ): Promise<void> {
   const rows = async (maxRows: number) =>
     buttonKeys(await $.ui.render(band('desktop', { maxRows })));
-  expect(await rows(4)).toContain('paqad-expand');
-  expect(await rows(5)).toContain('paqad-minimise');
+  expect(await rows(5)).toContain('paqad-expand');
+  expect(await rows(6)).toContain('paqad-minimise');
   await mounted.press({ key: 'paqad-ledger' });
   await mounted.press({ key: 'paqad-ledger' });
   if (await mounted.find({ key: 'paqad-flags' })) await mounted.press({ key: 'paqad-flags' });
   await mounted.press({ key: 'paqad-close' });
   expect(await mounted.find({ key: 'paqad-close-now' })).toBeDefined();
-  expect(await rows(5)).toEqual(expect.arrayContaining(['paqad-expand', 'paqad-close-now']));
-  expect(await rows(6)).toContain('paqad-minimise');
+  expect(await rows(6)).toEqual(expect.arrayContaining(['paqad-expand', 'paqad-close-now']));
+  expect(await rows(7)).toContain('paqad-minimise');
   expectDesktopSafe(await $.ui.render(band('desktop')));
   await mounted.press({ key: 'paqad-close-cancel' });
   expect(await mounted.find({ key: 'paqad-close-now' })).toBeUndefined();

@@ -375,6 +375,6 @@ describe('unrecordedMandatoryStages', () => {
     expect(receipt).not.toContain(PAQAD_VERDICT.pass);
     expect(receipt).toContain(`${PAQAD_STATUS_GLYPH.needsLook} review — not recorded`);
     expect(receipt).toContain(`${PAQAD_STATUS_GLYPH.needsLook} checks — not recorded`);
-    expect(receipt).toContain('paqad could not record evidence for these stages: review, checks');
+    expect(receipt).toContain('No record yet for: Review, Checks');
   });
 });

@@ -1706,7 +1706,8 @@ export function buildHudSnapshot(
       gates,
       gatesExpected,
       plan,
-      recordGaps: gaps,
+      // While a stage still runs nothing has truly gone unrecorded yet: no gap line.
+      recordGaps: stages.some((stage) => stage.state === 'running') ? [] : gaps,
       unproven: unprovenLines(gates, verdict),
       verdictEarlier: verdictFromEarlierTurn(verdict, workflow, options.turnRunning === true),
     }),

@@ -358,12 +358,14 @@ export function stripAltText(text: string, strip: StripInput): string {
   return parts.join(' ');
 }
 
-export function cardRows(menuOpen: boolean, gap = false): number {
+// The line under the headline is always reserved, blank when there is nothing to say, so the
+// card keeps one height in every state and never gains or loses a row mid-run.
+export function cardRows(menuOpen: boolean): number {
   return (
     CARD_ROWS.identity +
     CARD_ROWS.message +
+    CARD_ROWS.gap +
     CARD_ROWS.strip +
-    (gap ? CARD_ROWS.gap : 0) +
     (menuOpen ? CARD_ROWS.menu : 0)
   );
 }
@@ -469,7 +471,7 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   }
   const head = desktopHeadline(snapshot, input.now, live);
   const strip = stripOf(snapshot, input.columns, live);
-  const fits = input.maxRows >= cardRows(input.menuOpen, head.gap !== null);
+  const fits = input.maxRows >= cardRows(input.menuOpen);
   return {
     kind: 'feature',
     mode: mode === 'minimised' || !fits ? 'minimised' : 'card',

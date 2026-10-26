@@ -307,7 +307,7 @@ describe('formatVerdictSummary', () => {
       expect(summary).toContain(PAQAD_VERDICT.inconclusive);
       expect(summary).not.toContain(PAQAD_VERDICT.pass);
       expect(summary).toContain('1/1 checks held');
-      expect(summary).toContain('paqad could not record evidence for these stages: review, checks');
+      expect(summary).toContain('No record yet for: Review, Checks');
     });
 
     it('is byte-for-byte unchanged when the gap list is empty or absent', () => {
@@ -334,7 +334,7 @@ describe('formatVerdictSummary', () => {
         unrecordedMandatoryStages: ['review', 'checks'],
       });
       expect(summary).toContain(PAQAD_VERDICT.fail);
-      expect(summary).not.toContain('paqad could not record evidence for these stages');
+      expect(summary).not.toContain('No record yet for');
     });
   });
 });
