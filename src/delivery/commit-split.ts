@@ -53,7 +53,6 @@ function unknownSplit(reason: string): CommitSplit {
   return { state: 'unknown', reason, base_commit: null, own: null, inherited: null };
 }
 
-// A pull request number ("(#123)" or a bare "#123") names a pull request, not a ticket.
 function isPullRequestRef(ref: string): boolean {
   return /^#\d+$/.test(ref.trim());
 }

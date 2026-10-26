@@ -17,7 +17,6 @@ function isIsolatedStageRow(row: SessionLedgerRow): boolean {
   return STAGE_AGENT_STAGES.includes(String(row.stage));
 }
 
-// A `started` row only says a stage agent is running; isolation counts finished agents.
 export function readStageAgentRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
   return readFeatureStageUnit(projectRoot, dirName).filter(
     (row) =>

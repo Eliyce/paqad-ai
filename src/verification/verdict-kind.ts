@@ -52,8 +52,6 @@ const STAGE_WORDS: Readonly<Record<string, string>> = {
   delivery: 'Deliver',
 };
 
-// States the fact and names the stages: a stage with no record yet may simply not have been
-// reached, so the words blame nobody. "paqad could not record" stays for real record faults.
 export function unrecordedStagesGap(stages: readonly string[]): RecordGap {
   return {
     code: 'unrecorded-mandatory-stages',

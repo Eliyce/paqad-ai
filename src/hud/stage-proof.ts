@@ -98,8 +98,6 @@ function stageFinished(input: StageProofInput, stage: string): boolean {
   return found !== undefined && FINISHED_STAGES.has(found.state);
 }
 
-// A stage has started once the ledger holds any record of it. Before that, files in the tree are
-// not its work, so no Edits made or Docs updated tick is drawn from them.
 function stageStarted(input: StageProofInput, stage: string): boolean {
   const found = input.stages.find((entry) => entry.stage === stage);
   return found !== undefined && found.state !== 'missing';

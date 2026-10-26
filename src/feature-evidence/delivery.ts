@@ -256,11 +256,6 @@ export function seedFeatureDelivery(
 
 export const START_WORKTREE_CAP = 2000;
 
-/**
- * The working tree as it stood when the change opened: every modified, deleted or untracked
- * (not ignored) path with a digest of its content, or `deleted`. Those files are not this
- * change's edits unless the change touches them again.
- */
 export function captureStartWorktree(
   projectRoot: string,
 ): { files: Record<string, string>; truncated: boolean } | null {
@@ -284,17 +279,10 @@ export { changedFilesSince, DELETED_AT_START };
 export interface ChangeStartPoint extends ChangeStartLike {
   commit: string;
   source: ChangeStartSource;
-  /** The branch a fork point or fallback was measured from; null for the recorded start. */
   base: string | null;
-  /** The working tree at open; null for a bundle opened before it was recorded. */
   worktree: Record<string, string> | null;
 }
 
-/**
- * Where a change started, the one answer every reader of "this change's work" uses: the
- * recorded `start_commit` while it is still in HEAD's history, else the fork point with the
- * branch it was cut from, else the stated fallback base. Never a silent diff against main.
- */
 export function readChangeStartPoint(
   projectRoot: string,
   dirName: string,

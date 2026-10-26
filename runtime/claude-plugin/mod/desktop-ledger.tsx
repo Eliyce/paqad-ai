@@ -195,7 +195,6 @@ function stageHeading(ui: D, stage: TrustStage) {
   );
 }
 
-// The check carries the green; the word stays in the text colour so it reads at full contrast.
 function doneWord(ui: D, stage: TrustStage) {
   const { Text } = ui;
   return (

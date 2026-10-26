@@ -122,7 +122,6 @@ function messageRow(ui: D, headline: DesktopHeadline, tick: number) {
   );
 }
 
-// Always drawn so the card keeps one height; a blank line when there is no gap to name.
 function gapRow(ui: D, headline: DesktopHeadline) {
   const { Text } = ui;
   return (

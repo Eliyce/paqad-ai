@@ -304,8 +304,6 @@ function shortQuestion(packet: Record<string, unknown>): string | null {
     : flat;
 }
 
-// One Record row per decision, naming it: when it was opened (with its question) and when the
-// person answered it.
 function decisionEvents(decisions: readonly StoredContractDecision[]): HudTimelineEntry[] {
   const events: HudTimelineEntry[] = [];
   for (const { packet, status } of decisions) {
@@ -400,8 +398,6 @@ function recordEventsSafe(projectRoot: string, sources: RecordEventSources): Hud
   }
 }
 
-// One rule orders the Record: event time, with unreadable times last and arrival order as the
-// tie-break, so out-of-order arrivals still read in the order they happened.
 function mergeTimeline(
   stages: readonly HudTimelineEntry[],
   events: readonly HudTimelineEntry[],
@@ -607,7 +603,6 @@ export interface HudSnapshot {
   repairs?: Array<{ what: string; at: string | null }>;
   rung?: HudRung;
   verdict_stale?: true;
-  /** Where this change's files and commits are measured from, and whether that is a fallback. */
   start_point?: HudStartPoint | null;
   proof?: HudStageProof[];
 }
@@ -720,7 +715,6 @@ export interface HudAcceptanceClaim {
   id: string;
   label: string;
   test_id: string | null;
-  /** pass: a checks run after Build started passed; mapped: has a test, not run yet. */
   verdict: 'pass' | 'mapped' | 'missing';
 }
 
@@ -738,8 +732,6 @@ function criterionThens(specJson: unknown): Map<string, string> {
   return thens;
 }
 
-// A claim passes only on a green checks run recorded after Build started; before that a claim
-// with a mapped test reads "has a test, not run yet", never a pass.
 function checksPassedSince(projectRoot: string, dirName: string, since: string | null): boolean {
   const startedAt = Date.parse(since ?? '');
   if (Number.isNaN(startedAt)) return false;
@@ -947,7 +939,6 @@ function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['ques
 function changeDecisions(projectRoot: string, dirName: string | null): StoredContractDecision[] {
   if (dirName === null) return [];
   const changeKey = featureChangeKey(dirName);
-  // A packet with no change tag belongs to no change, exactly like an untagged verdict.
   return readContractDecisions(projectRoot).filter(
     ({ packet }) => (packet as unknown as Record<string, unknown>).change === changeKey,
   );
@@ -1073,8 +1064,6 @@ function freshVerdict(
   if (Number.isNaN(writtenAt)) return none;
   const editedAt = latestEditAt(projectRoot, dirName);
   if (editedAt !== null && writtenAt < editedAt) return { verdict: null, stale: true };
-  // While the change is open, a verdict taken before it moved on (a later stage start, end or
-  // deferral) judged an earlier state; a closed change keeps its verdict.
   const movedAt = open ? latestStageMoveAt(projectRoot, dirName) : null;
   if (movedAt !== null && writtenAt < movedAt) return { verdict: null, stale: true };
   if (unjudged) return { verdict: couldNotProve(verdict, UNJUDGED_CHANGE_GAP), stale: false };
@@ -1255,8 +1244,6 @@ export function computeHudFlags(input: {
   commitSplit?: CommitSplit | null;
 }): HudFlag[] {
   const flags: HudFlag[] = [];
-  // Rules are due by the end of Build: a running Build, or a Build end paqad only inferred from
-  // the files, does not show the rules were skipped.
   const buildEnded = input.stages.some(
     (stage) =>
       stage.stage === 'development' &&
@@ -1278,8 +1265,6 @@ export function computeHudFlags(input: {
       text: 'The High Table met after the spec was frozen, so it shaped no spec line.',
     });
   }
-  // A stage-agent record lands when the agent stops, so isolation is only missing once a lane
-  // stage has ended without one, never while the first stage agent still runs.
   const laneStageEnded = input.stages.some(
     (stage) => stage.mandatory && LANE_STAGE_ENDED_STATES.has(stage.state),
   );
@@ -1706,7 +1691,6 @@ export function buildHudSnapshot(
       gates,
       gatesExpected,
       plan,
-      // While a stage still runs nothing has truly gone unrecorded yet: no gap line.
       recordGaps: stages.some((stage) => stage.state === 'running') ? [] : gaps,
       unproven: unprovenLines(gates, verdict),
       verdictEarlier: verdictFromEarlierTurn(verdict, workflow, options.turnRunning === true),

@@ -241,8 +241,6 @@ export async function resolvePromptRoute(
 
   const classification = await classify({ request });
   const routed = resolveRoutedWorkflow(classification.workflow);
-  // A bare ticket link is a change to make: route it to feature development whatever the
-  // classifier guessed, so the first band drawn is the feature band.
   if (isBareTicketPrompt(request)) {
     return {
       routed: 'feature-development',
@@ -334,7 +332,6 @@ function openChangeOf(projectRoot: string, sessionId: string): string | null {
   return open !== null && !isBundleClosed(projectRoot, open) ? open : null;
 }
 
-// A change of this session with a stage open or a stage agent still at work.
 function changeIsRunning(projectRoot: string, dirName: string | null): boolean {
   if (dirName === null) return false;
   const rows = readFeatureStageUnit(projectRoot, dirName);
@@ -405,8 +402,6 @@ export async function runPromptRouteSeam(
     kind = undefined;
     reason = RUNNING_CHANGE_REASON;
   }
-  // The lane is monotonic: once the open change records one, the route line names it and no
-  // fresh guess is written as the pending lane.
   const recordedLane =
     isFeatureDevelopmentRoute(routed) && openChange !== null
       ? readChangeConstants(input.projectRoot, openChange).lane

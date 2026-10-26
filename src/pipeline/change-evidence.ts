@@ -13,7 +13,6 @@ export interface ChangeEvidence {
   source: 'git' | 'none';
 }
 
-/** Where a change started: the commit its work is measured from and the tree at open. */
 export interface ChangeStartLike {
   commit: string;
   worktree: Record<string, string> | null;
@@ -47,11 +46,6 @@ export function digestWorkingFile(projectRoot: string, relativePath: string): st
   }
 }
 
-/**
- * The files a change touched since its start point: committed, staged, edited and untracked,
- * leaving out paqad's own artifacts and every path whose content is unchanged since the change
- * opened (files that were already dirty or untracked then).
- */
 export function changedFilesSince(projectRoot: string, start: ChangeStartLike): string[] | null {
   const diff = gitPathList(projectRoot, ['diff', '--name-only', '--relative', '-z', start.commit]);
   const untracked = gitPathList(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
@@ -71,7 +65,6 @@ export function changedFilesSince(projectRoot: string, start: ChangeStartLike): 
 }
 
 export interface LoadChangeEvidenceOptions {
-  /** Measure from where the active change started instead of the merge-base with main. */
   since?: ChangeStartLike | null;
 }
 

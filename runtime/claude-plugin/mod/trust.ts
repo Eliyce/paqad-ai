@@ -32,7 +32,6 @@ const STAGE_STATE_WORDS: Readonly<Record<string, { word: string; tone: WordTone 
 
 const NOT_YET_WORD = { word: 'Not yet', tone: 'dim' as const };
 
-// A finished stage carries a check beside the word, so done is never told by colour alone.
 const DONE_STATES: ReadonlySet<string> = new Set(['complete', 'redone']);
 export const DONE_MARK = '✓';
 

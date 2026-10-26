@@ -90,12 +90,6 @@ export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
   return next;
 }
 
-/**
- * Only a prompt in the main session waits on the person. A subagent's ask is shown and settled
- * by Claude Code itself, and the mod never sees its answer, so it never sets the wait. A main
- * wait is kept per request and clears on the next event of the main session: a later check
- * (the deny, or auto mode's decision), a tool start or end, or a turn event. No clock decides.
- */
 export function permissionAsked(
   state: LiveState,
   check: { decision: string; approver?: unknown; toolUseId: string | null; agent?: string | null },

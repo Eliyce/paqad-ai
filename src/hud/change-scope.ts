@@ -76,9 +76,6 @@ export function qualifyHudChange(
   return { dir, reason: 'qualified' };
 }
 
-// A new prompt starts a new episode, but a stage that is still open or a stage agent still
-// working in the background is this change's live work: the episode rule may only hide a change
-// with neither.
 function stageStillRunning(projectRoot: string, dirName: string): boolean {
   const rows = readFeatureStageUnit(projectRoot, dirName);
   return hasOpenUnendedStage(rows) || liveStageAgents(rows).length > 0;
@@ -125,10 +122,6 @@ export function latestEditAt(projectRoot: string, dirName: string): number | nul
   return latest;
 }
 
-// Rows that show the run moved on past a verdict: a pre-code stage started or ended again, or a
-// turn end was deferred because a stage agent still ran. A verdict written before one of them
-// judged an unfinished run. Edits are covered by latestEditAt; a later checks or review run
-// re-judges the same work and does not supersede it.
 const PRE_CODE_STAGES: ReadonlySet<string> = new Set(['planning', 'specification']);
 
 function movesRunOn(row: SessionLedgerRow): boolean {

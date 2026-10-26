@@ -132,7 +132,6 @@ export const desktopHeadline = snapshotHeadline;
 export const COST_COUNTING = 'Counting tokens';
 export const COST_COUNTING_MONEY = 'The money figure follows the first counted tokens.';
 
-// Before any token figure is known, an open window is still counting: never a final 0.
 function stillCounting(cost: NonNullable<PaqadHudSnapshot['cost']>): boolean {
   return cost.tokens.total === 0 && !cost.sealed;
 }
@@ -173,8 +172,6 @@ export function flagWords(flags: number): string {
   return plural(flags, 'flag', 'flags');
 }
 
-// A running stage reads paused only while the person owes it an answer: a pending decision of
-// this change or a question on screen. A permission prompt pauses no stage.
 function paused(snapshot: PaqadHudSnapshot, live: LiveState): boolean {
   return live.waitingOn === 'question' || snapshot.decisions.pending.length > 0;
 }
@@ -366,8 +363,6 @@ export function stripAltText(text: string, strip: StripInput): string {
   return parts.join(' ');
 }
 
-// The line under the headline is always reserved, blank when there is nothing to say, so the
-// card keeps one height in every state and never gains or loses a row mid-run.
 export function cardRows(menuOpen: boolean): number {
   return (
     CARD_ROWS.identity +
@@ -476,8 +471,6 @@ export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   if (!snapshot) return { kind: 'ready' };
   const route = statusEntryRoute(snapshot);
   if (route) {
-    // A route written before the prompt just sent belongs to the previous turn: wait for the
-    // fresh snapshot instead of flashing that workflow's band.
     if (routeFromEarlierTurn(snapshot, input.turnStartedAt)) return { kind: 'none' };
     return workflowBand(snapshot, route, input.now, input.turnStartedAt);
   }
@@ -543,7 +536,6 @@ export function ledgerTabs(snapshot: PaqadHudSnapshot | null, shown: PaqadPaneTa
   return tabs.map((tab) => ({ ...tab, width, shown: tab.id === picked }));
 }
 
-/** One sitting of the High Table: whether the Ledger already brought it forward, or the person picked a tab. */
 export interface TableSitting {
   key: string;
   forwarded: boolean;
@@ -560,11 +552,6 @@ function tableIsLive(snapshot: PaqadHudSnapshot | null): boolean {
   );
 }
 
-/**
- * Whether the Ledger should bring the High Table tab forward: when a seat writes, the chief
- * rules or the chief has questions, once per sitting, and never after the person picked a tab
- * during that sitting. Only the shown tab changes; focus is never moved.
- */
 export function ledgerAutoTab(
   snapshot: PaqadHudSnapshot | null,
   shown: PaqadPaneTab,
@@ -914,7 +901,6 @@ export interface DeliveryBlock {
   title: string;
   sub: string | null;
   right: string | null;
-  /** One quiet line: earlier commits on the branch, or where the files are measured from. */
   note: string | null;
   reached: boolean;
   commits: Array<{ sha: string; subject: string; own: boolean }>;
@@ -1042,8 +1028,6 @@ function startNote(snapshot: PaqadHudSnapshot): string | null {
     : 'The files already in the tree when this change opened are unknown.';
 }
 
-// Commits already on the branch when the change opened are earlier work: one quiet line, no
-// flag, no amber, and never this change's commits.
 function earlierWorkNote(snapshot: PaqadHudSnapshot): string | null {
   const earlier = snapshot.ship?.inherited_count ?? 0;
   if (earlier <= 0) return null;
@@ -1105,7 +1089,6 @@ export function localTime(at: string): string {
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-/** A Record time: the local date and time, so rows from other days read as such. */
 export function recordTime(at: string): string {
   const date = new Date(Date.parse(at));
   if (Number.isNaN(date.getTime())) return '';

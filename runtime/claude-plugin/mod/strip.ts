@@ -25,7 +25,6 @@ export interface StripInput {
   delivery: ReadonlyArray<Mark<ShipState>>;
   ci: number | null;
   deliveryValue: string;
-  /** The shared clock, so every animation resumes at its phase when the strip is redrawn. */
   clockMs?: number;
 }
 
@@ -36,8 +35,6 @@ const SPIN_MS = 4000;
 const SHEEN_MS = 2200;
 const READY_MS = 2400;
 
-// How far into its cycle an animation of this length is at the shared clock: a redraw starts
-// it there (a negative delay), so the motion continues instead of restarting.
 function phase(clockMs: number | undefined, periodMs: number): string | null {
   if (clockMs === undefined || !Number.isFinite(clockMs)) return null;
   const into = ((clockMs % periodMs) + periodMs) % periodMs;
@@ -204,8 +201,6 @@ const STAGE_LABEL: Readonly<Record<StageState, string>> = {
   todo: 'mut',
 };
 
-// Running, paused and marked stages share one skeleton (glow, bar, sheen). A state flip only
-// changes classes: the glow and sheen show while running and are hidden otherwise.
 const LIVE_BAR_STATES: ReadonlySet<StageState> = new Set(['run', 'paused', 'marked']);
 
 function liveBar(

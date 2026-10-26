@@ -61,12 +61,6 @@ function reflogSubjects(projectRoot: string, ref: string): string[] {
     .filter(Boolean);
 }
 
-/**
- * The branch the given branch was cut from, read from the reflog: `branch: Created from <ref>`
- * names it, and `Created from HEAD` is resolved through the HEAD reflog's
- * `checkout: moving from <ref> to <branch>`. Null when the reflog is gone (fresh clone, gc,
- * worktree) or names nothing that still resolves.
- */
 export function forkBranchOf(
   projectRoot: string,
   branch: string | null | undefined,

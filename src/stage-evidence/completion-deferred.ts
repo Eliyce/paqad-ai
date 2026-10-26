@@ -22,8 +22,6 @@ import { COMPLETION_DEFERRED_KIND, STAGE_AGENT_KIND } from './types.js';
 
 const AGENT_TYPE_FIELDS = ['agent_type', 'agentType', 'subagent_type', 'subagentType'] as const;
 
-// Claude Code writes the task kind (a subagent, a shell) in `type`, not the agent's name, so
-// `type` only names an agent when it is not one of those kinds.
 const TASK_KINDS: ReadonlySet<string> = new Set([
   'subagent',
   'agent',
@@ -96,11 +94,6 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
 }
 
-/**
- * The stage agents of a change that have started (SubagentStart wrote a `started` stage-agent
- * row) and not stopped (no later stage-agent row for the same agent id, or for the same stage
- * when the id is unknown). No clock decides it: the stop event releases a live agent.
- */
 export function liveStageAgents(rows: readonly SessionLedgerRow[]): LiveStageAgent[] {
   const live: LiveStageAgent[] = [];
   rows.forEach((row, index) => {
@@ -131,12 +124,6 @@ export function hasOpenUnendedStage(rows: readonly SessionLedgerRow[]): boolean 
 const CLEANLY_ENDED: ReadonlySet<string> = new Set(['complete', 'redone']);
 const NOT_REACHED: ReadonlySet<string> = new Set(['missing', 'not-applicable', 'skipped']);
 
-/**
- * A turn end between two stages of an open change: at least one stage ended with its artifact,
- * every stage that started has ended cleanly, none is open, and lane stages are still to come.
- * That is a change in progress, not one left half done: a stage that ended without its artifact
- * or a stage left open with no agent still reads as half done and is judged.
- */
 export function isBetweenStages(projectRoot: string, sessionId: string, dirName: string): boolean {
   if (isBundleClosed(projectRoot, dirName)) return false;
   const fold = foldFeature(projectRoot, sessionId, dirName);
@@ -158,7 +145,6 @@ export interface DeferCompletionResult {
   deferred: boolean;
   reason?: string;
   tasks?: number;
-  /** Between stages with nothing waiting on the person: the stage the orchestrator owes next. */
   nextStage?: string;
 }
 
@@ -173,8 +159,6 @@ function pendingDecisionOf(projectRoot: string, dirName: string): boolean {
 export function deferCompletionForBackgroundStage(
   input: DeferCompletionInput,
 ): DeferCompletionResult {
-  // A missing, empty or malformed `background_tasks` never means no agent runs: the ledger
-  // still answers from the stage agents that started and have not stopped.
   const tasks = runningTasks(Array.isArray(input.backgroundTasks) ? input.backgroundTasks : []);
   const now = input.now ?? (() => new Date());
   const sessionId = resolveSessionId(input.projectRoot, input.sessionId ?? null);
@@ -182,7 +166,6 @@ export function deferCompletionForBackgroundStage(
     liveChecksRunningMarker(input.projectRoot, sessionId, { ...input.probe, now }) !== null;
   const dirName = currentFeature(input.projectRoot, sessionId);
   const rows = dirName !== null ? readFeatureStageUnit(input.projectRoot, dirName) : [];
-  // A payload that names its running agents and leaves out ours means ours has stopped.
   const payloadNamesAgents = tasks.length > 0 && tasksCarryAgentType(tasks);
   const ledgerAgents = payloadNamesAgents ? 0 : liveStageAgents(rows).length;
   const betweenStages =
@@ -215,8 +198,6 @@ export function deferCompletionForBackgroundStage(
     return { deferred: false };
   }
 
-  // The ledger and between-stages answers are released by the stop event or the next stage, never
-  // by a clock; the older payload and checks answers keep their 30 minute ceiling.
   const clockFree = reason === 'between stages' || (stageAgents === 0 && ledgerAgents > 0);
   if (!clockFree && deferralCeilingReached(rows, now)) {
     return { deferred: false };

@@ -351,8 +351,6 @@ function closeTime(rows: readonly SessionLedgerRow[]): string | null {
   return closed;
 }
 
-// A receipt seals the window only when the change did not move on after it: a stage row recorded
-// later means the receipt judged an earlier state, and the work since then still costs.
 function stageRowAfter(rows: readonly SessionLedgerRow[], at: string): boolean {
   const sealedAt = Date.parse(at);
   if (Number.isNaN(sealedAt)) return false;
@@ -554,11 +552,6 @@ function orderStages(buckets: Map<string, Bucket>): CostStageLine[] {
     .map(([stage, bucket]) => ({ stage, ...lineOf(bucket) }));
 }
 
-/**
- * One token figure per High Table seat, the same one the seat drill-down shows: the exact run
- * Claude Code reported for the seat when present, else the figure read from its transcript, else
- * the note's own estimate. Each line says whether it is exact.
- */
 function seatLines(
   projectRoot: string,
   dirName: string,

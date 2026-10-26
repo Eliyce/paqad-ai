@@ -38,8 +38,6 @@ async function main() {
     ? null
     : await deferredForBackgroundStage(projectRoot);
   if (deferral?.deferred) {
-    // Between stages nothing is judged and nothing turns red, but the next stage is still owed:
-    // the turn is held once with a plain nudge, never on a stop the hook already held.
     if (deferral.nextStage && !stopHookActiveFromStdin(input)) {
       process.stdout.write(
         `${JSON.stringify({ decision: 'block', reason: nextStageNudge(deferral.nextStage) })}\n`,
@@ -69,8 +67,6 @@ function nextStageNudge(stage) {
 
 async function deferredForBackgroundStage(projectRoot) {
   const payload = parseHookPayload(input);
-  // An empty or missing list never means no stage agent runs: the deferral also reads the
-  // change's ledger (a started stage agent with no stop) and the checks running marker.
   const tasks = payload && Array.isArray(payload.background_tasks) ? payload.background_tasks : [];
   try {
     const distUrl = new URL('../../dist/stage-evidence/completion-deferred.js', import.meta.url);

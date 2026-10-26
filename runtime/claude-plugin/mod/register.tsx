@@ -408,7 +408,6 @@ async function pickTab($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
   await update($, paneOpenAtom, () => true);
 }
 
-// A tab the person chose during a High Table sitting stays where they put it.
 async function personPicked($: EngineInterface): Promise<void> {
   await update($, tableSittingAtom, (sitting) =>
     sitting ? { ...sitting, picked: true } : sitting,

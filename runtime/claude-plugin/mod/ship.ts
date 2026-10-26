@@ -21,8 +21,6 @@ export interface ShipRail {
 
 const EDIT_STAGE_IDS = ['development', 'checks', 'documentation_sync'];
 
-// The Edit node is current only while an edit stage runs: an Edit or Write during Plan or Spec
-// (a plan template, the spec text) is not this change's code being edited.
 function editState(snapshot: PaqadHudSnapshot | null): ShipStepState {
   const stateOf = (id: string) => snapshot?.stages.find((stage) => stage.stage === id)?.state;
   const open = EDIT_STAGE_IDS.some((id) => stateOf(id) === 'running');

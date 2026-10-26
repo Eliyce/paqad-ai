@@ -136,11 +136,6 @@ export interface RecordStageAgentStartInput {
   now?: () => Date;
 }
 
-/**
- * SubagentStart: a paqad stage agent of the open change is now running. The `started` row lets
- * the turn-end backstop and the HUD see a live stage agent on any host, whether or not the Stop
- * payload lists background tasks. Isolation counts ignore it.
- */
 export function recordStageAgentStart(input: RecordStageAgentStartInput): boolean {
   try {
     const agentType =
