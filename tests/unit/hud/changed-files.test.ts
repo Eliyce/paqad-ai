@@ -172,6 +172,35 @@ describe('AC-8 / AC-9 / AC-26: files and commits are measured from where the cha
     ]);
   });
 
+  it('leaves out what a later merge of the base branch brought in', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/merged', true);
+    const dir = open(root);
+    commit(root, 'mine.ts', 'feat: mine');
+    checkout(root, 'main');
+    commit(root, 'theirs.ts', 'feat: theirs');
+    checkout(root, 'feat/merged');
+    git(root, 'merge', '-q', '--no-edit', 'main');
+    writeFileSync(join(root, 'edited.ts'), 'after the merge\n');
+
+    const start = readChangeStartPoint(root, dir, 'main')!;
+    expect(start.commit).toBe(git(root, 'rev-parse', 'main'));
+    expect(readChangeGit(root, 'main', noError, start)!.files).toEqual(['edited.ts', 'mine.ts']);
+  });
+
+  it('keeps the start commit when the base branch moved on without being merged', () => {
+    const root = repoRoot();
+    checkout(root, 'feat/apart', true);
+    const dir = open(root);
+    const opened = git(root, 'rev-parse', 'HEAD');
+    commit(root, 'mine.ts', 'feat: mine');
+    checkout(root, 'main');
+    commit(root, 'theirs.ts', 'feat: theirs');
+    checkout(root, 'feat/apart');
+
+    expect(readChangeStartPoint(root, dir, 'main')).toMatchObject({ commit: opened });
+  });
+
   it('falls back to the fork point, then the named base, when the start commit is lost', () => {
     const root = branchWithEarlierWork();
     const dir = open(root);

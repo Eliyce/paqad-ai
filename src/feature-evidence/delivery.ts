@@ -291,11 +291,15 @@ export function readChangeStartPoint(
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const worktree = delivery.start_worktree ?? null;
   const start = delivery.start_commit ?? null;
-  if (start && git(projectRoot, ['merge-base', '--is-ancestor', start, 'HEAD']) !== undefined) {
-    return { commit: start, source: 'start_commit', base: null, worktree };
-  }
   const state = readGitState(projectRoot, fallbackBase ? { baseBranch: fallbackBase } : {});
   const fork = forkBranchOf(projectRoot, state.branch);
+  if (start && git(projectRoot, ['merge-base', '--is-ancestor', start, 'HEAD']) !== undefined) {
+    const merged = latestMergedBase(projectRoot, start, state.head_commit, [
+      fork,
+      state.base_branch,
+    ]);
+    return { commit: merged ?? start, source: 'start_commit', base: null, worktree };
+  }
   const forkPoint = fork ? git(projectRoot, ['merge-base', 'HEAD', fork]) : undefined;
   if (fork && forkPoint) {
     return { commit: forkPoint, source: 'fork-point', base: fork, worktree };
@@ -309,6 +313,23 @@ export function readChangeStartPoint(
     };
   }
   return null;
+}
+
+function latestMergedBase(
+  projectRoot: string,
+  start: string,
+  head: string | undefined,
+  bases: (string | null | undefined)[],
+): string | null {
+  const descends = (older: string, newer: string) =>
+    git(projectRoot, ['merge-base', '--is-ancestor', older, newer]) !== undefined;
+  let latest: string | null = null;
+  for (const base of new Set(bases.filter((name): name is string => Boolean(name)))) {
+    const point = git(projectRoot, ['merge-base', 'HEAD', base]);
+    if (!point || point === start || point === head || !descends(start, point)) continue;
+    if (latest === null || descends(latest, point)) latest = point;
+  }
+  return latest;
 }
 
 export function setCommitDecision(
