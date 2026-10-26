@@ -1,21 +1,23 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { writeChecksRunningMarker } from '@/checks/running-marker.js';
-import { featureFilePath } from '@/feature-evidence/paths.js';
+import { featureChangeKey, featureFilePath } from '@/feature-evidence/paths.js';
 import {
   appendFeatureStageRow,
   openFeatureChange,
   readFeatureStageUnit,
 } from '@/feature-evidence/stage-ledger.js';
 import { writeWorkflowState } from '@/pipeline/workflow-state.js';
+import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
 import {
   deferCompletionForBackgroundStage,
   hasOpenUnendedStage,
+  isBetweenStages,
   liveStageAgents,
   releaseStageAgentsAtSessionStart,
   stageAgentTaskCount,
@@ -883,5 +885,100 @@ describe('a deferral asked without recording (capability gate)', () => {
     });
     expect(result).toMatchObject({ deferred: true, reason: 'stage agent running in background' });
     expect(deferredRows(root, dirName)).toHaveLength(0);
+  });
+});
+
+describe('every deferral release path', () => {
+  function openFull(root: string): string {
+    return openFeatureChange(root, SESSION, {
+      adapter: 'claude-code',
+      title: 'release paths',
+      issue: null,
+      lane: 'full',
+      now: NOW,
+    });
+  }
+
+  function provenPlanning(root: string, dirName: string): void {
+    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW });
+    const plan = featureFilePath(dirName, 'plan');
+    writeFileSync(join(root, plan), '{"steps":[{"id":"S1"}]}\n');
+    endStage(
+      root,
+      'planning',
+      { artifactPaths: [plan] },
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW },
+    );
+  }
+
+  function writeDecision(root: string, folder: 'pending' | 'resolved', id: string, change: string) {
+    const dir = join(root, '.paqad', 'decisions', folder);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, `${id}.json`), JSON.stringify({ id, change }));
+  }
+
+  const stop = (root: string) =>
+    deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+      now: NOW,
+    });
+
+  it('a started agent row with no stage or no readable time is not live', () => {
+    const base = {
+      kind: 'stage-agent',
+      event_status: 'started',
+      session_id: SESSION,
+      content_hash: 'h',
+    };
+    const rows = [
+      { ...base, stage: '  ', recorded_at: NOW().toISOString() },
+      { ...base, stage: 'planning' },
+      { ...base, stage: 'planning', recorded_at: 'not a time' },
+    ] as unknown as SessionLedgerRow[];
+    expect(liveStageAgents(rows)).toEqual([]);
+  });
+
+  it('a new host session with no open change releases nothing', () => {
+    const root = tempRoot();
+    expect(releaseStageAgentsAtSessionStart(root, SESSION, 'startup', NOW)).toBe(false);
+  });
+
+  it('a closed change is never between stages', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    provenPlanning(root, dirName);
+    expect(isBetweenStages(root, SESSION, dirName)).toBe(true);
+    appendFeatureStageRow(root, SESSION, dirName, { kind: 'close' }, NOW);
+    expect(isBetweenStages(root, SESSION, dirName)).toBe(false);
+  });
+
+  it('a pending decision of this change withholds the next stage; others do not', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    provenPlanning(root, dirName);
+    const key = featureChangeKey(dirName);
+    writeDecision(root, 'resolved', 'D-1', key);
+    writeDecision(root, 'pending', 'D-2', 'another-change');
+    expect(stop(root)).toMatchObject({ reason: 'between stages', nextStage: 'specification' });
+    writeDecision(root, 'pending', 'D-3', key);
+    const paused = stop(root);
+    expect(paused).toMatchObject({ deferred: true, reason: 'between stages' });
+    expect(paused.nextStage).toBeUndefined();
+  });
+
+  it('reads the wall clock when no clock is given', () => {
+    const root = tempRoot();
+    const dirName = openWithStartedStage(root);
+    const result = deferCompletionForBackgroundStage({
+      projectRoot: root,
+      backgroundTasks: [{ type: 'paqad-development' }],
+      sessionId: SESSION,
+      adapter: 'claude-code',
+    });
+    expect(result).toMatchObject({ deferred: true, reason: 'stage agent running in background' });
+    expect(deferredRows(root, dirName)).toHaveLength(1);
   });
 });
