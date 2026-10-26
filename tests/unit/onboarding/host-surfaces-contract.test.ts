@@ -50,6 +50,12 @@ describe('host surfaces and decision preview in the router', () => {
     expect(HOST_SURFACES_PARAGRAPH).toContain(
       'Start the end-of-turn summary with the verdict word (Safe to merge, Needs your attention, or Inconclusive).',
     );
+    expect(HOST_SURFACES_PARAGRAPH).toContain(
+      'While a stage still runs in the background, the summary names the running stage and says nothing is needed from the developer',
+    );
+    expect(router).toContain(
+      'The turn that ends right after a dispatch speaks no verdict word: say which stage is running and that nothing is needed from the developer.',
+    );
   });
 
   it('decision pause step 2 carries the preview sentence (AC-2)', () => {
