@@ -404,3 +404,25 @@ describe('AC-15: flags fire only once their stage has ended', () => {
     );
   });
 });
+
+describe('FR-20: a started stage-agent record counts as the stage running in its own agent', () => {
+  it('no isolation flag between a stage end and its agent stop', () => {
+    const ended: HudStage = {
+      ...stage('planning', 'complete'),
+      started_at: '2026-10-18T08:00:00.000Z',
+      ended_at: '2026-10-18T08:10:00.000Z',
+    };
+    const flags = (stageAgentsSeen: number) =>
+      computeHudFlags({
+        stages: [ended],
+        gates: [],
+        rulesRecorded: true,
+        tableSkipped: false,
+        isolationStatus: 'expected',
+        isolatedStages: 0,
+        stageAgentsSeen,
+      }).map((flag) => flag.id);
+    expect(flags(1)).not.toContain('isolation-missing');
+    expect(flags(0)).toContain('isolation-missing');
+  });
+});

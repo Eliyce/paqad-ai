@@ -1,0 +1,35 @@
+{
+  "about": "Scrubbed replay of a healthy full-lane run, from the pasted ticket until Build starts. Stage agents run in the background as on Claude Code Desktop. Times are seconds after the change opened; tokens are what the run's transcripts had spent by then. No names, paths or tickets from the original run are kept.",
+  "lane": "full",
+  "steps": [
+    { "at": 5, "event": "stage_start", "stage": "planning" },
+    { "at": 6, "event": "agent_start", "stage": "planning", "agent_id": "agent-plan" },
+    { "at": 20, "event": "usage", "tokens": 30000 },
+    {
+      "at": 25,
+      "event": "turn_end",
+      "background_tasks": [{ "id": "task-1", "type": "subagent", "status": "running" }]
+    },
+    { "at": 30, "event": "permission_ask", "agent_id": "agent-plan", "tool_use_id": "tu-1" },
+    { "at": 52, "event": "turn_end", "background_tasks": [] },
+    { "at": 400, "event": "usage", "tokens": 120000 },
+    { "at": 420, "event": "stage_end", "stage": "planning", "artifact": "plan" },
+    { "at": 421, "event": "agent_stop", "stage": "planning", "agent_id": "agent-plan" },
+    { "at": 425, "event": "turn_end", "background_tasks": [] },
+    { "at": 430, "event": "stage_start", "stage": "specification" },
+    { "at": 431, "event": "agent_start", "stage": "specification", "agent_id": "agent-spec" },
+    {
+      "at": 440,
+      "event": "turn_end",
+      "background_tasks": [{ "id": "task-2", "type": "subagent", "status": "running" }]
+    },
+    { "at": 900, "event": "usage", "tokens": 260000 },
+    { "at": 1300, "event": "stage_end", "stage": "specification", "artifact": "specification" },
+    { "at": 1301, "event": "agent_stop", "stage": "specification", "agent_id": "agent-spec" },
+    { "at": 1305, "event": "turn_end", "background_tasks": [] },
+    { "at": 1310, "event": "stage_start", "stage": "development" },
+    { "at": 1311, "event": "agent_start", "stage": "development", "agent_id": "agent-build" },
+    { "at": 1320, "event": "turn_end", "background_tasks": [] },
+    { "at": 1500, "event": "usage", "tokens": 300000 }
+  ]
+}

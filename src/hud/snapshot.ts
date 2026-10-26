@@ -60,7 +60,7 @@ import { readWorkflowState, type WorkflowState } from '@/pipeline/workflow-state
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { aggregateSpecPipelineMetrics } from '@/spec-pipeline/metrics.js';
 import { isLaneStage, laneStages } from '@/stage-evidence/stages.js';
-import { RECORD_REPAIR_KIND, type FoldedChange } from '@/stage-evidence/types.js';
+import { RECORD_REPAIR_KIND, STAGE_AGENT_KIND, type FoldedChange } from '@/stage-evidence/types.js';
 import { summarizeStageIsolation } from '@/stage-isolation/isolation-summary.js';
 import { stageForAgentName, stripPluginAgentNamespace } from '@/stage-isolation/stage-agents.js';
 import {
@@ -1240,6 +1240,7 @@ export function computeHudFlags(input: {
   tableLate?: boolean;
   isolationStatus: string;
   isolatedStages: number;
+  stageAgentsSeen?: number;
   findings?: HudFindings | null;
   commitSplit?: CommitSplit | null;
 }): HudFlag[] {
@@ -1268,7 +1269,12 @@ export function computeHudFlags(input: {
   const laneStageEnded = input.stages.some(
     (stage) => stage.mandatory && LANE_STAGE_ENDED_STATES.has(stage.state),
   );
-  if (input.isolationStatus === 'expected' && input.isolatedStages === 0 && laneStageEnded) {
+  if (
+    input.isolationStatus === 'expected' &&
+    input.isolatedStages === 0 &&
+    (input.stageAgentsSeen ?? 0) === 0 &&
+    laneStageEnded
+  ) {
     flags.push({ id: 'isolation-missing', text: 'No stage ran in its own agent on this lane.' });
   }
   if (input.isolationStatus === 'unresolved') {
@@ -1660,6 +1666,9 @@ export function buildHudSnapshot(
     tableLate: table?.met_after_freeze ?? false,
     isolationStatus,
     isolatedStages: isolationSummary?.stages ?? 0,
+    stageAgentsSeen: readFeatureStageUnit(projectRoot, dirName).filter(
+      (row) => row.kind === STAGE_AGENT_KIND,
+    ).length,
     findings,
     commitSplit: delivery.commit_split ?? null,
   });
