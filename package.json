@@ -102,7 +102,7 @@
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.1",
-    "@inquirer/prompts": "^8.7.3",
+    "@inquirer/prompts": "^8.7.4",
     "ajv": "^8.20.0",
     "chalk": "^6.0.1",
     "commander": "^15.0.0",
@@ -110,7 +110,7 @@
     "fast-glob": "^3.3.3",
     "gifenc": "1.0.3",
     "handlebars": "^4.7.10",
-    "openai": "^7.34.0",
+    "openai": "^7.43.0",
     "ora": "^9.4.1",
     "pathe": "^2.0.3",
     "yaml": "^2.9.1"
@@ -136,7 +136,7 @@
     "prettier": "^3.9.10",
     "tsup": "^9.0.0",
     "typescript": "^6.0.3",
-    "typescript-eslint": "^8.71.2",
+    "typescript-eslint": "^8.72.0",
     "vitest": "^5.0.5"
   },
   "packageManager": "pnpm@10.17.1",
