@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { createPendingDecision } from '@/decisions/authoring.js';
 import { updateFeatureRecord } from '@/feature-evidence/feature-record.js';
 import { featureChangeKey } from '@/feature-evidence/paths.js';
-import { closeActiveFeature } from '@/feature-evidence/stage-ledger.js';
+import { appendFeatureStageRow, closeActiveFeature } from '@/feature-evidence/stage-ledger.js';
 import {
   gateIsJudged,
   GATE_JUDGED_AFTER,
@@ -146,6 +146,45 @@ describe('qualifyHudChange', () => {
     expect(qualifyHudChange(root, S).reason).toBe('no-row-this-episode');
     setRoute(root, S, 'feature-development', PAST);
     expect(qualifyHudChange(root, S).reason).toBe('qualified');
+  });
+
+  it('a live stage agent keeps the open change qualified when the last row predates the episode', () => {
+    const root = repoRoot();
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    appendFeatureStageRow(root, S, dir, {
+      kind: 'stage-agent',
+      stage: 'specification',
+      agent: 'paqad-specification',
+      agent_id: 'agent-spec-1',
+      event_status: 'started',
+      tokens_used: 0,
+      tokens_not_recarried: 0,
+      estimate: true,
+    });
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S, () => later(2000))).toEqual({ dir, reason: 'qualified' });
+  });
+
+  it('an open stage written by a stage agent keeps the change qualified across a new episode', () => {
+    const root = repoRoot();
+    const dir = openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    startStage(root, 'specification', {
+      sessionId: 'ses-agent',
+      dirName: dir,
+      adapter: 'claude-code',
+    });
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S)).toEqual({ dir, reason: 'qualified' });
+  });
+
+  it('with no open stage and no live stage agent the episode rule still hides the change', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    logTurns(root, S, [{ at: later().toISOString(), workflow: 'feature-development' }]);
+    expect(qualifyHudChange(root, S).reason).toBe('no-row-this-episode');
   });
 
   it('a stage this session started and never ended qualifies across a continue', () => {

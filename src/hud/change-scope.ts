@@ -13,6 +13,7 @@ import { sessionWroteInEpisode } from '@/pipeline/session-ownership.js';
 import { readWorkflowState } from '@/pipeline/workflow-state.js';
 import { readHeadRef } from '@/rag/git-state.js';
 import type { SessionLedgerRow } from '@/session-ledger/ledger.js';
+import { hasOpenUnendedStage, liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 
 export type HudScopeReason =
   | 'qualified'
@@ -51,7 +52,7 @@ export function qualifyHudChange(
   }
   const dir = currentFeature(projectRoot, sessionId, now);
   if (!dir || !isBundleMaterialized(projectRoot, dir)) {
-    return finishedChange(projectRoot, sessionId, workflow.turn_started_at ?? null);
+    return finishedChange(projectRoot, sessionId, workflow.turn_started_at ?? null, now);
   }
   const status = readFeatureRecord(projectRoot, dir)?.status;
   if (isBundleClosed(projectRoot, dir) || isFeatureFinished(status)) {
@@ -66,16 +67,28 @@ export function qualifyHudChange(
     episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ??
     workflow.turn_started_at ??
     null;
-  if (!sessionWroteInEpisode(projectRoot, sessionId, dir, start)) {
+  if (
+    !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
+    !stageStillRunning(projectRoot, dir, now)
+  ) {
     return { dir: null, reason: 'no-row-this-episode' };
   }
   return { dir, reason: 'qualified' };
+}
+
+// A new prompt starts a new episode, but a stage that is still open or a stage agent still
+// working in the background is this change's live work: the episode rule may only hide a change
+// with neither.
+function stageStillRunning(projectRoot: string, dirName: string, now: () => Date): boolean {
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  return hasOpenUnendedStage(rows) || liveStageAgents(rows, now).length > 0;
 }
 
 function finishedChange(
   projectRoot: string,
   sessionId: string,
   turnStartedAt: string | null,
+  now: () => Date,
 ): HudChangeScope {
   const none: HudChangeScope = { dir: null, reason: 'no-active-change' };
   const head = readHeadRef(projectRoot);
@@ -84,7 +97,12 @@ function finishedChange(
   if (!dir) return none;
   const start =
     episodeStart(readRouteTurns(projectRoot, sessionId), 'feature-development') ?? turnStartedAt;
-  if (!sessionWroteInEpisode(projectRoot, sessionId, dir, start)) return none;
+  if (
+    !sessionWroteInEpisode(projectRoot, sessionId, dir, start) &&
+    !stageStillRunning(projectRoot, dir, now)
+  ) {
+    return none;
+  }
   return { dir, reason: 'finished' };
 }
 
