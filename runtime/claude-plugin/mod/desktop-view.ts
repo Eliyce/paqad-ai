@@ -164,8 +164,10 @@ export function flagWords(flags: number): string {
   return plural(flags, 'flag', 'flags');
 }
 
+// A running stage reads paused only while the person owes it an answer: a pending decision of
+// this change or a question on screen. A permission prompt pauses no stage.
 function paused(snapshot: PaqadHudSnapshot, live: LiveState): boolean {
-  return waitingOnHuman(snapshot, live);
+  return live.waitingOn === 'question' || snapshot.decisions.pending.length > 0;
 }
 
 const STAGE_STATE: Readonly<Record<SegmentState, StageState>> = {

@@ -401,6 +401,12 @@ describe('AC-10, AC-29: the strip draws only what applies', () => {
         waitingOn: 'question',
       }).value,
     ).toBe('Build · paused');
+    const waitingOnPermission = stageStrip(open({ stages: stages({ planning: 'running' }) }), {
+      ...IDLE_LIVE,
+      waitingOn: 'permission',
+    });
+    expect(waitingOnPermission.value).toBe('Plan');
+    expect(waitingOnPermission.stages.find((mark) => mark.label === 'Plan')?.state).toBe('run');
     expect(value({ stages: stages({ review: 'failed' }) })).toBe('Review failed');
     const unreliable = stages({ planning: 'complete' }).map((stage) =>
       stage.stage === 'planning' ? { ...stage, duration_unreliable: true } : stage,

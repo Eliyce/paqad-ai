@@ -76,7 +76,9 @@ export function toolStarted(state: LiveState, call: LiveToolCall): LiveState {
 }
 
 export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
-  let next = state;
+  let next: LiveState = waitsOnPermissionFrom(state, call.agent ?? null)
+    ? { ...state, ...NOT_WAITING }
+    : state;
   if (EDIT_TOOLS.has(call.tool) && state.editing?.toolUseId === call.toolUseId) {
     next = { ...next, editing: null };
   }
@@ -88,20 +90,24 @@ export function toolEnded(state: LiveState, call: LiveToolCall): LiveState {
   return next;
 }
 
+/**
+ * Only a prompt in the main session waits on the person. A subagent's ask is shown and settled
+ * by Claude Code itself, and the mod never sees its answer, so it never sets the wait. A main
+ * wait is kept per request and clears on the next event of the main session: a later check
+ * (the deny, or auto mode's decision), a tool start or end, or a turn event. No clock decides.
+ */
 export function permissionAsked(
   state: LiveState,
   check: { decision: string; approver?: unknown; toolUseId: string | null; agent?: string | null },
 ): LiveState {
-  const agent = check.agent ?? null;
-  const settled =
-    agent !== null && waitsOnPermissionFrom(state, agent) ? { ...state, ...NOT_WAITING } : state;
+  if ((check.agent ?? null) !== null) return state;
+  const settled = waitsOnPermissionFrom(state, null) ? { ...state, ...NOT_WAITING } : state;
   if (check.decision !== 'ask' || check.approver !== 'person') return settled;
-  if (agent !== null && settled.waitingOn !== null && settled.waitingAgent === null) return settled;
   return {
     ...settled,
     waitingOn: 'permission',
     waitingToolUseId: check.toolUseId,
-    waitingAgent: agent,
+    waitingAgent: null,
   };
 }
 

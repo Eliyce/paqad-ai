@@ -832,6 +832,38 @@ describe('the Desktop band', () => {
     expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
   });
 
+  test('AC-13: a background subagent ask with no follow-up never shows Waiting for your permission', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_bg',
+      approver: 'person',
+      agentId: 'agent-plan',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
+  test('AC-13: a main ask denied with Esc clears at the next main event', async ($, on) => {
+    const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    world.verdict = { decision: 'ask' };
+    await $.tool.check({
+      tool: 'Bash',
+      input: {},
+      tool_use_id: 'tu_m',
+      approver: 'person',
+    } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).toContain('Waiting for your permission');
+    world.verdict = { decision: 'allow' };
+    await $.tool.check({ tool: 'Read', input: {}, tool_use_id: 'tu_r', approver: 'host' } as never);
+    expect(textOf(await $.ui.render(band('desktop')))).not.toContain('Waiting for your permission');
+  });
+
   test('a main-thread ask still waits while a background agent works on', async ($, on) => {
     const world = worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(FAST_ORD_490) } });
     mock.clock(on, { now: NOW });

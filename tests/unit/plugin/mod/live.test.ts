@@ -114,38 +114,58 @@ describe('which agent asked for permission', () => {
     agent,
   });
 
-  it('records the agent that asked, and main as no agent', () => {
-    expect(permissionAsked(IDLE_LIVE, askFrom('agent-a1'))).toMatchObject({
-      waitingOn: 'permission',
-      waitingAgent: 'agent-a1',
-    });
+  it('AC-14: a main-session ask waits, keyed by its request, with no clock', () => {
     expect(permissionAsked(IDLE_LIVE, askFrom(null))).toMatchObject({
       waitingOn: 'permission',
       waitingAgent: null,
+      waitingToolUseId: 'tu_1',
     });
   });
 
-  it("clears a background agent's ask at its next settled check, tool start or turn end", () => {
-    const asked = permissionAsked(IDLE_LIVE, askFrom('agent-a1'));
+  it('AC-13: an ask from a subagent never sets the wait (Claude Code shows that prompt itself)', () => {
+    expect(permissionAsked(IDLE_LIVE, askFrom('agent-a1'))).toEqual(IDLE_LIVE);
+  });
+
+  it('AC-13: a main ask denied with Esc clears on the next event of the main session', () => {
+    const asked = permissionAsked(IDLE_LIVE, askFrom(null, 'tu_m'));
+    expect(
+      permissionAsked(asked, {
+        decision: 'deny',
+        approver: 'person',
+        toolUseId: 'tu_m',
+        agent: null,
+      }).waitingOn,
+    ).toBeNull();
+    expect(
+      toolEnded(asked, liveToolCall({ tool: 'Bash', tool_use_id: 'tu_m' })).waitingOn,
+    ).toBeNull();
+    expect(turnEnded().waitingOn).toBeNull();
+  });
+
+  it('AC-13: an ask auto mode decides clears on its own decision or the next main event', () => {
+    const asked = permissionAsked(IDLE_LIVE, askFrom(null, 'tu_m'));
     expect(
       permissionAsked(asked, {
         decision: 'allow',
-        approver: 'person',
-        toolUseId: 'x',
-        agent: 'agent-a1',
-      }),
-    ).toEqual(IDLE_LIVE);
+        approver: 'host',
+        toolUseId: 'tu_m',
+        agent: null,
+      }).waitingOn,
+    ).toBeNull();
     expect(
-      toolStarted(asked, liveToolCall({ tool: 'Bash', tool_use_id: 'tu_1', agentId: 'agent-a1' })),
-    ).toEqual(IDLE_LIVE);
-    expect(agentTurnEnded(asked, 'agent-a1')).toEqual(IDLE_LIVE);
-    expect(agentTurnEnded(asked, 'agent-b2')).toBe(asked);
-    expect(toolStarted(asked, liveToolCall({ tool: 'Bash' })).waitingOn).toBe('permission');
+      permissionAsked(asked, {
+        decision: 'allow',
+        approver: 'host',
+        toolUseId: 'tu_x',
+        agent: null,
+      }).waitingOn,
+    ).toBeNull();
   });
 
   it('keeps a main-thread wait while background agents ask or work', () => {
     const main = permissionAsked(IDLE_LIVE, askFrom(null, 'tu_m'));
     expect(permissionAsked(main, askFrom('agent-a1', 'tu_a'))).toBe(main);
+    expect(agentTurnEnded(main, 'agent-a1')).toBe(main);
     expect(
       toolStarted(main, liveToolCall({ tool: 'Read', tool_use_id: 'tu_a', agentId: 'agent-a1' })),
     ).toEqual(main);
@@ -156,11 +176,11 @@ describe('which agent asked for permission', () => {
     expect(permissionAsked(question, askFrom('agent-a1')).waitingOn).toBe('question');
   });
 
-  it('a main ask takes over from a background wait', () => {
-    const background = permissionAsked(IDLE_LIVE, askFrom('agent-a1'));
-    expect(permissionAsked(background, askFrom(null, 'tu_m'))).toMatchObject({
+  it('a second main ask replaces the first', () => {
+    const first = permissionAsked(IDLE_LIVE, askFrom(null, 'tu_1'));
+    expect(permissionAsked(first, askFrom(null, 'tu_2'))).toMatchObject({
       waitingAgent: null,
-      waitingToolUseId: 'tu_m',
+      waitingToolUseId: 'tu_2',
     });
   });
 });
