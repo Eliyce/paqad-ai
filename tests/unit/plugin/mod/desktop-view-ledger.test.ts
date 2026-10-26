@@ -29,6 +29,7 @@ import {
   workflowLedger,
   type DesktopLedgerInput,
 } from '../../../../runtime/claude-plugin/mod/desktop-view.ts';
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import { OLD_RECORD_NOTE } from '../../../../runtime/claude-plugin/mod/trust.ts';
 import {
@@ -599,6 +600,18 @@ describe('AC-22: the Delivery tab', () => {
         }),
       ).blocks.map((block) => block.label),
     ).toEqual(['Edit']);
+  });
+
+  it('keeps Edit reached and running while a real edit is in progress after Build', () => {
+    const live = { ...IDLE_LIVE, editing: { toolUseId: 'tu', file: '/repo/a.ts' } };
+    const built = open({ stages: stages({ development: 'complete' }) });
+    const edit = (view: ReturnType<typeof deliveryView>) =>
+      view.blocks.find((block) => block.label === 'Edit')!;
+    expect(edit(deliveryView(built, live))).toMatchObject({ state: 'run', reached: true });
+    expect(edit(deliveryView(built)).state).toBe('done');
+    const shown = ledger({ snapshot: built, live });
+    if (shown.kind !== 'feature') throw new Error('expected the feature ledger');
+    expect(edit(shown.delivery)).toMatchObject({ state: 'run', reached: true });
   });
 });
 

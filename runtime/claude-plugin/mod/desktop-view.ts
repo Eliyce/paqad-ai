@@ -1048,9 +1048,12 @@ export interface DeliveryView {
   empty: string | null;
 }
 
-export function deliveryView(snapshot: PaqadHudSnapshot): DeliveryView {
+export function deliveryView(
+  snapshot: PaqadHudSnapshot,
+  live: LiveState = IDLE_LIVE,
+): DeliveryView {
   if (!snapshot.active) return { blocks: [], empty: 'Nothing to deliver yet.' };
-  const strip = deliveryStrip(snapshot);
+  const strip = deliveryStrip(snapshot, live);
   const ship = snapshot.ship;
   return {
     empty: null,
@@ -1343,7 +1346,7 @@ export function buildDesktopLedger(input: DesktopLedgerInput): DesktopLedger {
     shown: tabs.find((tab) => tab.shown)!.id,
     trust: trustView(snapshot),
     table: tableView(snapshot, input.specText),
-    delivery: deliveryView(snapshot),
+    delivery: deliveryView(snapshot, input.live),
     record: recordView(snapshot),
     cost: costView(snapshot),
   };
