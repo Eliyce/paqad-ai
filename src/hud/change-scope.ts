@@ -122,11 +122,11 @@ export function latestEditAt(projectRoot: string, dirName: string): number | nul
   return latest;
 }
 
-const PRE_CODE_STAGES: ReadonlySet<string> = new Set(['planning', 'specification']);
+const RECHECK_STAGES: ReadonlySet<string> = new Set(['checks']);
 
 function movesRunOn(row: SessionLedgerRow): boolean {
   if (row.kind === 'completion-deferred') return true;
-  return STAGE_ROW_KINDS.has(String(row.kind)) && PRE_CODE_STAGES.has(String(row.stage));
+  return STAGE_ROW_KINDS.has(String(row.kind)) && !RECHECK_STAGES.has(String(row.stage));
 }
 
 export function latestStageMoveAt(projectRoot: string, dirName: string): number | null {

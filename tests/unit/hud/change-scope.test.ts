@@ -309,6 +309,15 @@ describe('verdict freshness', () => {
     expect(snapshot.headline.gap ?? '').not.toContain('paqad could not record');
   });
 
+  it('FR-7: a fail written before a later review stage row no longer describes the change', () => {
+    const root = repoRoot();
+    openChangeHere(root, S);
+    runStage(root, S, 'planning');
+    writeVerdict(root, S, 'fail', new Date());
+    startStage(root, 'review', { sessionId: S, adapter: 'claude-code', now: () => later() });
+    expect(buildHudSnapshot(root, S).verdict).toBeNull();
+  });
+
   it('a verdict written after the last stage row still shows', () => {
     const root = repoRoot();
     openChangeHere(root, S);
