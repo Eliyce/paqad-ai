@@ -760,7 +760,12 @@ describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH
     startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: NOW });
     started(root, dirName, 'planning', 'a1', 1);
     expect(live(root, dirName)).toEqual(['a1']);
-    endStage(root, 'planning', {}, { sessionId: SESSION, dirName, adapter: 'claude-code', now: at(2) });
+    endStage(
+      root,
+      'planning',
+      {},
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: at(2) },
+    );
     expect(live(root, dirName)).toEqual([]);
   });
 
@@ -776,7 +781,12 @@ describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH
     const root = tempRoot();
     const dirName = openFull(root);
     started(root, dirName, 'planning', 'a1', 1);
-    startStage(root, 'planning', { sessionId: SESSION, dirName, adapter: 'claude-code', now: at(2) });
+    startStage(root, 'planning', {
+      sessionId: SESSION,
+      dirName,
+      adapter: 'claude-code',
+      now: at(2),
+    });
     expect(live(root, dirName)).toEqual(['a1']);
     startStage(root, 'specification', {
       sessionId: SESSION,
