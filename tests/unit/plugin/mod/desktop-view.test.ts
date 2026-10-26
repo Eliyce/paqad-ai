@@ -108,6 +108,15 @@ describe('AC-9, AC-29: the Desktop headline follows Part B, first match wins', (
     expect(band({ unavailable: true })).toMatchObject({ kind: 'feature' });
   });
 
+  it('AC-25: a workflow band is never drawn from a snapshot older than the prompt just sent', () => {
+    const question = parse(
+      snapshot({ ...OTHER_WORKFLOW, generated_at: new Date(NOW - 5_000).toISOString() }),
+    );
+    expect(band({ snapshot: question, turnStartedAt: NOW - 1_000 }).kind).not.toBe('workflow');
+    expect(band({ snapshot: question, turnStartedAt: NOW - 9_000 }).kind).toBe('workflow');
+    expect(band({ snapshot: question, turnStartedAt: null }).kind).toBe('workflow');
+  });
+
   it('row 2: another workflow gets the workflow band, and no workflow draws nothing', () => {
     expect(band({ snapshot: parse(OTHER_WORKFLOW) })).toEqual({
       kind: 'workflow',

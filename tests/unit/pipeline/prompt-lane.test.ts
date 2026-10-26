@@ -1004,3 +1004,70 @@ describe('runPromptRouteSeam · everyday phrasings through the real classifier',
     }
   });
 });
+
+describe('route truth during a running feature change (hud-live-run-truth)', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-route-truth-'));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  function runningFullChange(): string {
+    const sessionId = resolveSessionId(root, SESSION);
+    const dirName = openFeatureChange(root, sessionId, {
+      adapter: ADAPTER,
+      title: 'running change',
+      issue: '700',
+      lane: 'full',
+    });
+    startStage(root, 'planning', { sessionId, dirName, adapter: ADAPTER });
+    writeWorkflowState(root, sessionId, {
+      active: { workflow: 'feature-development', lane: 'full' },
+      paused: [],
+    });
+    return sessionId;
+  }
+
+  it('AC-25: a bare ticket link routes to feature development even when the classifier says question', async () => {
+    const result = await resolvePromptRoute(root, 'https://tracker.example.test/browse/ABC-12', {
+      classify: async () => classificationWith('project-question'),
+    });
+    expect(result.routed).toBe('feature-development');
+    expect(result.lane).toBeNull();
+  });
+
+  it('AC-24: a non-code message while a stage runs stays on the change, naming the recorded lane', async () => {
+    const sessionId = runningFullChange();
+    const result = await runPromptRouteSeam(
+      { projectRoot: root, request: 'how is it going', sessionId: SESSION, adapter: ADAPTER },
+      { classify: async () => classificationWith('project-question') },
+    );
+    expect(result.routed).toBe('feature-development');
+    expect(result.narration).toContain('full lane');
+    expect(readWorkflowState(root, sessionId).active?.workflow).toBe('feature-development');
+  });
+
+  it('FR-30: the route line never names a lower lane than the one recorded on the change', async () => {
+    const sessionId = runningFullChange();
+    const result = await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'fix a typo in the plan',
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      },
+      {
+        classify: async () => classificationWith('feature-development'),
+        route: () => ({ lane: 'fast' }),
+      },
+    );
+    expect(result.lane).toBe('full');
+    expect(result.narration).toContain('full lane (the lane recorded on this change)');
+    expect(result.narration).not.toContain('fast lane');
+    expect(readPendingLane(root, sessionId)).toBeNull();
+  });
+});

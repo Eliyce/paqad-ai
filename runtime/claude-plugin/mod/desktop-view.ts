@@ -464,13 +464,23 @@ function workflowBand(
   };
 }
 
+function routeFromEarlierTurn(snapshot: PaqadHudSnapshot, turnStartedAt: number | null): boolean {
+  const generatedAt = Date.parse(snapshot.generated_at);
+  return turnStartedAt !== null && Number.isFinite(generatedAt) && generatedAt < turnStartedAt;
+}
+
 export function buildDesktopBand(input: DesktopBandInput): DesktopBand {
   const unreadable = unreadableReason(input);
   if (unreadable) return { kind: 'unreadable', reason: unreadable, headline: UNREADABLE };
   const snapshot = input.snapshot;
   if (!snapshot) return { kind: 'ready' };
   const route = statusEntryRoute(snapshot);
-  if (route) return workflowBand(snapshot, route, input.now, input.turnStartedAt);
+  if (route) {
+    // A route written before the prompt just sent belongs to the previous turn: wait for the
+    // fresh snapshot instead of flashing that workflow's band.
+    if (routeFromEarlierTurn(snapshot, input.turnStartedAt)) return { kind: 'none' };
+    return workflowBand(snapshot, route, input.now, input.turnStartedAt);
+  }
   if (!snapshot.active) return { kind: 'none' };
   const live = input.live ?? IDLE_LIVE;
   const mode = visibilityMode(input.visibility);

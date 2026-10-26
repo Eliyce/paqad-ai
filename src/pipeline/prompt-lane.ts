@@ -1,7 +1,10 @@
 import type { ClassificationResult } from '@/core/types/classification.js';
 import type { Lane } from '@/core/types/routing.js';
 import { isBundleClosed } from '@/feature-evidence/adoption.js';
+import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
+import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
+import { hasOpenUnendedStage, liveStageAgents } from '@/stage-evidence/completion-deferred.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { paqadFrameLead } from '@/core/constants/paqad-voice.js';
 import { appendHooksLog } from '@/core/logging/hooks-log.js';
@@ -238,18 +241,22 @@ export async function resolvePromptRoute(
 
   const classification = await classify({ request });
   const routed = resolveRoutedWorkflow(classification.workflow);
-  if (!isFeatureDevelopmentRoute(routed)) {
-    return { routed, lane: null, reason: ROUTE_REASON[routed] };
-  }
-  const kind = changeKindForWorkflow(classification.workflow);
+  // A bare ticket link is a change to make: route it to feature development whatever the
+  // classifier guessed, so the first band drawn is the feature band.
   if (isBareTicketPrompt(request)) {
     return {
-      routed,
-      kind,
+      routed: 'feature-development',
+      ...(isFeatureDevelopmentRoute(routed)
+        ? { kind: changeKindForWorkflow(classification.workflow) }
+        : {}),
       lane: null,
       reason: 'reading the ticket before I set the depth — no lane guessed from a bare link',
     };
   }
+  if (!isFeatureDevelopmentRoute(routed)) {
+    return { routed, lane: null, reason: ROUTE_REASON[routed] };
+  }
+  const kind = changeKindForWorkflow(classification.workflow);
   const { lane } = route(classification);
   return {
     routed,
@@ -319,6 +326,21 @@ function namesStageOfOpenChange(
   return open !== null && !isBundleClosed(projectRoot, open);
 }
 
+const RUNNING_CHANGE_REASON = 'the change open in this session is still running';
+const RECORDED_LANE_REASON = 'the lane recorded on this change';
+
+function openChangeOf(projectRoot: string, sessionId: string): string | null {
+  const open = readSessionControl(projectRoot, sessionId).active;
+  return open !== null && !isBundleClosed(projectRoot, open) ? open : null;
+}
+
+// A change of this session with a stage open or a stage agent still at work.
+function changeIsRunning(projectRoot: string, dirName: string | null): boolean {
+  if (dirName === null) return false;
+  const rows = readFeatureStageUnit(projectRoot, dirName);
+  return hasOpenUnendedStage(rows) || liveStageAgents(rows).length > 0;
+}
+
 export async function runPromptRouteSeam(
   input: PromptRouteSeamInput,
   deps: PromptRouteDeps = {},
@@ -372,6 +394,27 @@ export async function runPromptRouteSeam(
     kind = undefined;
     reason = OPEN_CHANGE_STAGE_REASON;
   }
+  const openChange = openChangeOf(input.projectRoot, sessionId);
+  if (
+    slashName === null &&
+    STAGE_NAME_OVERRIDABLE_ROUTES.has(routed) &&
+    changeIsRunning(input.projectRoot, openChange)
+  ) {
+    routed = 'feature-development';
+    lane = null;
+    kind = undefined;
+    reason = RUNNING_CHANGE_REASON;
+  }
+  // The lane is monotonic: once the open change records one, the route line names it and no
+  // fresh guess is written as the pending lane.
+  const recordedLane =
+    isFeatureDevelopmentRoute(routed) && openChange !== null
+      ? readChangeConstants(input.projectRoot, openChange).lane
+      : null;
+  if (recordedLane !== null) {
+    lane = recordedLane;
+    reason = RECORDED_LANE_REASON;
+  }
   const anchors = lane === null ? { reason } : { lane, reason };
   const transition = routeWorkflow(prior, routed, anchors);
   const turnStartedAt = (deps.now ?? (() => new Date()))().toISOString();
@@ -388,7 +431,7 @@ export async function runPromptRouteSeam(
     );
   }
 
-  if (isFeatureDevelopmentRoute(routed) && lane !== null) {
+  if (isFeatureDevelopmentRoute(routed) && lane !== null && recordedLane === null) {
     writePendingLane(input.projectRoot, sessionId, lane);
   }
   if (isFeatureDevelopmentRoute(routed) && kind !== undefined) {
