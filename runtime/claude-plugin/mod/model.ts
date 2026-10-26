@@ -7,6 +7,7 @@ import type {
   PaqadChief,
   PaqadCi,
   PaqadClaim,
+  PaqadStartPoint,
   PaqadCommitGroup,
   PaqadCost,
   PaqadCostLine,
@@ -525,6 +526,17 @@ function readRepairs(value: unknown): PaqadRepair[] {
   });
 }
 
+const START_SOURCES = ['start_commit', 'fork-point', 'fallback-base'] as const;
+
+function readStartPoint(value: unknown): { start_point?: PaqadStartPoint } {
+  const start = rec(value);
+  const source = START_SOURCES.find((known) => known === start?.source);
+  if (!start || !source) return {};
+  return {
+    start_point: { source, base: str(start.base), files_known: start.files_known !== false },
+  };
+}
+
 function readClaim(value: unknown): PaqadClaim | null {
   const claim = rec(value);
   const kind = str(claim?.kind);
@@ -774,6 +786,7 @@ export function parseSnapshot(text: string | null | undefined): PaqadHudSnapshot
     ...(Array.isArray(snap.repairs) ? { repairs: readRepairs(snap.repairs) } : {}),
     ...readRung(snap.rung),
     ...(snap.verdict_stale === true ? { verdict_stale: true as const } : {}),
+    ...readStartPoint(snap.start_point),
     ...(Array.isArray(snap.proof) ? { proof: readProof(snap.proof) } : {}),
   };
   return scope.qualified ? parsed : idleSnapshot(parsed);
@@ -802,6 +815,7 @@ function idleSnapshot(snapshot: PaqadHudSnapshot): PaqadHudSnapshot {
     repairs: undefined,
     rung: undefined,
     verdict_stale: undefined,
+    start_point: undefined,
     proof: undefined,
   };
 }

@@ -746,7 +746,7 @@ describe('what ships on the HUD', () => {
     untagged: count - tickets.length,
   });
 
-  it('raises branch:shared only while the branch carries other work', () => {
+  it('AC-10: earlier work on the branch raises no flag at all', () => {
     const shared = computeHudFlags({
       ...quiet,
       commitSplit: {
@@ -757,12 +757,7 @@ describe('what ships on the HUD', () => {
         inherited: group(73, ['ORD-470', 'ORD-471']),
       },
     });
-    expect(shared).toEqual([
-      {
-        id: 'branch:shared',
-        text: 'This branch also carries 2 commits from 2 other tickets and 71 untagged made before this change started.',
-      },
-    ]);
+    expect(shared).toEqual([]);
     const untaggedOnly = computeHudFlags({
       ...quiet,
       commitSplit: {
@@ -842,7 +837,7 @@ describe('what ships on the HUD', () => {
       all_green: false,
       merged: false,
     });
-    expect(snapshot.flags.map((flag) => flag.id)).toContain('branch:shared');
+    expect(snapshot.flags.map((flag) => flag.id)).not.toContain('branch:shared');
   });
 });
 

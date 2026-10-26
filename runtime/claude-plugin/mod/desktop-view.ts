@@ -554,6 +554,8 @@ function specFrozen(snapshot: PaqadHudSnapshot): boolean {
   return spec?.state === 'complete' || spec?.state === 'redone';
 }
 
+export const MAPPED_WORDS = 'Has a test, not run yet';
+
 export function claimsView(snapshot: PaqadHudSnapshot): ClaimsView {
   const rows: ClaimRow[] = snapshot.claims.map((claim, index) => {
     const proven = claim.verdict === 'pass';
@@ -563,7 +565,7 @@ export function claimsView(snapshot: PaqadHudSnapshot): ClaimsView {
       id: claim.id,
       label: claim.label,
       sub: claim.test_id ?? 'No proving test recorded',
-      word: proven ? 'Proven' : 'Not proven',
+      word: proven ? 'Proven' : claim.verdict === 'mapped' ? MAPPED_WORDS : 'Not proven',
       tone: proven ? 'pass' : fix ? 'cau' : 'dim',
     };
   });
@@ -850,6 +852,8 @@ export interface DeliveryBlock {
   title: string;
   sub: string | null;
   right: string | null;
+  /** One quiet line: earlier commits on the branch, or where the files are measured from. */
+  note: string | null;
   reached: boolean;
   commits: Array<{ sha: string; subject: string; own: boolean }>;
   jobs: DeliveryJob[];
@@ -960,6 +964,36 @@ function blockText(
   }
 }
 
+const NOT_RECORDED_START = 'where this change started was not recorded.';
+
+function startNote(snapshot: PaqadHudSnapshot): string | null {
+  const start = snapshot.start_point;
+  if (!start) return null;
+  if (start.source === 'fallback-base') {
+    return `Measured from ${start.base ?? 'the base branch'}: ${NOT_RECORDED_START}`;
+  }
+  if (start.source === 'fork-point') {
+    return `Measured from where the branch left ${start.base ?? 'its base'}: ${NOT_RECORDED_START}`;
+  }
+  return start.files_known
+    ? null
+    : 'The files already in the tree when this change opened are unknown.';
+}
+
+// Commits already on the branch when the change opened are earlier work: one quiet line, no
+// flag, no amber, and never this change's commits.
+function earlierWorkNote(snapshot: PaqadHudSnapshot): string | null {
+  const earlier = snapshot.ship?.inherited_count ?? 0;
+  if (earlier <= 0) return null;
+  return `Branch already had ${plural(earlier, 'commit', 'commits')} from earlier work.`;
+}
+
+function blockNote(snapshot: PaqadHudSnapshot, label: DeliveryLabel): string | null {
+  if (label === 'Edit') return startNote(snapshot);
+  if (label === 'Commit') return earlierWorkNote(snapshot);
+  return null;
+}
+
 export interface DeliveryView {
   blocks: DeliveryBlock[];
   empty: string | null;
@@ -981,14 +1015,17 @@ export function deliveryView(
         label: label as DeliveryLabel,
         state,
         ...text,
+        note: blockNote(snapshot, label as DeliveryLabel),
         reached,
         commits:
           label === 'Commit' && ship
-            ? ship.commit_list.map((commit) => ({
-                sha: commit.sha.slice(0, 7),
-                subject: commit.subject,
-                own: commit.own !== false,
-              }))
+            ? ship.commit_list
+                .filter((commit) => commit.own !== false)
+                .map((commit) => ({
+                  sha: commit.sha.slice(0, 7),
+                  subject: commit.subject,
+                  own: true,
+                }))
             : [],
         jobs:
           label === 'CI' && reached && ship?.ci_detail ? ship.ci_detail.jobs.map(deliveryJob) : [],

@@ -1,9 +1,15 @@
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import {
+  readChangeStartPoint,
+  readFeatureDelivery,
+  writeFeatureDelivery,
+} from '@/feature-evidence/delivery.js';
+import { openFeatureChange } from '@/feature-evidence/stage-ledger.js';
 import { GIT_READ_TIMEOUT_MS, readChangeGit } from '@/hud/changed-files.js';
 
 import {
@@ -107,5 +113,86 @@ describe('AC-27: the files this change touched', () => {
     const errors: unknown[] = [];
     expect(readChangeGit(root, 'main', (error) => errors.push(error))).toBeNull();
     expect(errors.map((error) => (error as Error).message)).toEqual(['git timed out']);
+  });
+});
+
+describe('AC-8 / AC-9 / AC-26: files and commits are measured from where the change started', () => {
+  function branchWithEarlierWork(): string {
+    const root = repoRoot();
+    writeFileSync(join(root, 'gone.ts'), 'tracked\n');
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'chore: gone');
+    checkout(root, 'release', true);
+    for (let index = 0; index < 6; index += 1) {
+      writeFileSync(join(root, `earlier-${index}.ts`), `${index}\n`);
+    }
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'feat: earlier work (#1234)');
+    for (let index = 6; index < 11; index += 1) {
+      writeFileSync(join(root, `earlier-${index}.ts`), `${index}\n`);
+    }
+    git(root, 'add', '-A');
+    git(root, 'commit', '-q', '-m', 'fix: more earlier work');
+    checkout(root, 'feat/next', true);
+    writeFileSync(join(root, '.worktreeinclude'), 'local\n');
+    rmSync(join(root, 'gone.ts'));
+    return root;
+  }
+
+  function open(root: string): string {
+    return openFeatureChange(root, 'ses-start', {
+      adapter: 'claude-code',
+      title: 'next change',
+      issue: null,
+      lane: 'full',
+    });
+  }
+
+  it('reads nothing right after the change opens, then only what the change edits', () => {
+    const root = branchWithEarlierWork();
+    const dir = open(root);
+    const start = readChangeStartPoint(root, dir, 'main')!;
+    expect(start).toMatchObject({ source: 'start_commit', base: null });
+    expect(start.worktree).toMatchObject({
+      '.worktreeinclude': expect.any(String),
+      'gone.ts': 'deleted',
+    });
+
+    expect(readChangeGit(root, 'main', noError)?.files).toHaveLength(13);
+    const atOpen = readChangeGit(root, 'main', noError, start)!;
+    expect(atOpen.files).toEqual([]);
+    expect(atOpen.commitTimes.size).toBe(0);
+
+    writeFileSync(join(root, 'mine.ts'), 'this change\n');
+    expect(readChangeGit(root, 'main', noError, start)!.files).toEqual(['mine.ts']);
+    writeFileSync(join(root, '.worktreeinclude'), 'touched again\n');
+    expect(readChangeGit(root, 'main', noError, start)!.files).toEqual([
+      '.worktreeinclude',
+      'mine.ts',
+    ]);
+  });
+
+  it('falls back to the fork point, then the named base, when the start commit is lost', () => {
+    const root = branchWithEarlierWork();
+    const dir = open(root);
+    const delivery = readFeatureDelivery(root, dir);
+    writeFeatureDelivery(root, dir, { ...delivery, start_commit: '0'.repeat(40) });
+    expect(readChangeStartPoint(root, dir, 'main')).toMatchObject({
+      source: 'fork-point',
+      base: 'release',
+    });
+    git(root, 'reflog', 'expire', '--expire=all', '--all');
+    expect(readChangeStartPoint(root, dir, 'main')).toMatchObject({
+      source: 'fallback-base',
+      base: 'main',
+    });
+  });
+
+  it('bundles opened before the start tree was recorded say the starting files are unknown', () => {
+    const root = branchWithEarlierWork();
+    const dir = open(root);
+    const delivery = readFeatureDelivery(root, dir);
+    writeFeatureDelivery(root, dir, { ...delivery, start_worktree: null });
+    expect(readChangeStartPoint(root, dir, 'main')?.worktree).toBeNull();
   });
 });

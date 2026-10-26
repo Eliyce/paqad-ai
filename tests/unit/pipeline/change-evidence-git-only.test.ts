@@ -1,10 +1,15 @@
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { loadChangeEvidence, readGitChangedFiles } from '@/pipeline/change-evidence.js';
+import {
+  digestWorkingFile,
+  loadChangeEvidence,
+  readGitChangedFiles,
+} from '@/pipeline/change-evidence.js';
 
 import {
   DELIVERED_FILES,
@@ -95,5 +100,30 @@ describe('loadChangeEvidence is git-only', () => {
     const result = await loadChangeEvidence(root);
 
     expect(result).toEqual({ files: ['.gitignore', 'src/first.ts'], source: 'git' });
+  });
+});
+
+describe('loadChangeEvidence measured from the change start point (hud-live-run-truth)', () => {
+  const roots: string[] = [];
+  afterEach(() => {
+    for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  });
+
+  it('AC-8: leaves out earlier commits and files already dirty when the change opened', async () => {
+    const root = makeRepoWithStaleCache();
+    roots.push(root);
+    writeRepoFile(root, 'src/earlier.ts', 'export const earlier = 1;\n');
+    commitAll(root, 'earlier work');
+    writeRepoFile(root, 'local-dirt.txt', 'untracked before open\n');
+    const start = {
+      commit: execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim(),
+      worktree: { 'local-dirt.txt': digestWorkingFile(root, 'local-dirt.txt')! },
+    };
+
+    expect((await loadChangeEvidence(root)).files).toContain('src/earlier.ts');
+    expect(await loadChangeEvidence(root, { since: start })).toEqual({ files: [], source: 'none' });
+
+    writeRepoFile(root, 'src/mine.ts', 'export const mine = 1;\n');
+    expect((await loadChangeEvidence(root, { since: start })).files).toEqual(['src/mine.ts']);
   });
 });

@@ -8,6 +8,7 @@ import {
   writeFeaturePlan,
   type PlanCompileInput,
 } from '@/feature-evidence/artifacts.js';
+import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
 import {
@@ -64,7 +65,12 @@ export function createPlanCommand(): Command {
         root,
         options.session ?? process.env.SE_SESSION ?? process.env.CLAUDE_SESSION_ID ?? null,
       );
-      const changedFiles = (await loadChangeEvidence(root)).files;
+      const activeDir = currentFeature(root, sessionId);
+      const changedFiles = (
+        await loadChangeEvidence(root, {
+          since: activeDir ? readChangeStartPoint(root, activeDir) : null,
+        })
+      ).files;
       let result;
       try {
         result = writeFeaturePlan(root, sessionId, template, { changedFiles });

@@ -469,7 +469,6 @@ describe('AC-22: the Delivery tab', () => {
     ]);
     expect(view.blocks[1]!.commits).toEqual([
       { sha: 'a1c9e2f', subject: 'Seed stage helpers', own: true },
-      { sha: '64e4c85', subject: 'Upgrade changes from main', own: false },
     ]);
     expect(view.blocks[4]!.jobs).toEqual([
       { name: 'lint', time: '38s', tone: 'dim', share: 1 },
@@ -553,6 +552,66 @@ describe('AC-22: the Delivery tab', () => {
         }),
       ).blocks.map((block) => block.label),
     ).toEqual(['Edit']);
+  });
+});
+
+describe('AC-9 / AC-10: earlier work and the start point in the Delivery tab', () => {
+  it('shows commits already on the branch as one quiet line, never in the list', () => {
+    const view = deliveryView(
+      open({
+        stages: stages({ development: 'running' }),
+        ship: {
+          ...SHIP0,
+          commits: 1,
+          inherited_count: 2,
+          commit_list: [
+            { sha: 'a1c9e2f0aa', subject: 'Seed stage helpers', own: true },
+            { sha: '64e4c85bbb', subject: 'Earlier work (#1234)', own: false },
+            { sha: '75f5d96ccc', subject: 'More earlier work', own: false },
+          ],
+        },
+      }),
+    );
+    const commits = view.blocks.find((block) => block.label === 'Commit')!;
+    expect(commits.commits.map((commit) => commit.sha)).toEqual(['a1c9e2f']);
+    expect(commits.note).toBe('Branch already had 2 commits from earlier work.');
+    expect(deliveryView(open()).blocks.find((block) => block.label === 'Commit')!.note).toBeNull();
+  });
+
+  it('names the fallback base and says when the starting files are unknown', () => {
+    const edit = (start: Raw | null) =>
+      deliveryView(open({ stages: stages({ development: 'running' }), start_point: start }))
+        .blocks[0]!.note;
+    expect(edit({ source: 'start_commit', base: null, files_known: true })).toBeNull();
+    expect(edit(null)).toBeNull();
+    expect(edit({ source: 'fallback-base', base: 'main', files_known: true })).toBe(
+      'Measured from main: where this change started was not recorded.',
+    );
+    expect(edit({ source: 'fork-point', base: 'release', files_known: true })).toBe(
+      'Measured from where the branch left release: where this change started was not recorded.',
+    );
+    expect(edit({ source: 'start_commit', base: null, files_known: false })).toBe(
+      'The files already in the tree when this change opened are unknown.',
+    );
+  });
+});
+
+describe('a claim with a test that has not run yet', () => {
+  it('reads "Has a test, not run yet" in dim, never green', () => {
+    const view = claimsView(
+      open({
+        claims: [
+          {
+            kind: 'acceptance',
+            id: 'AC-1',
+            label: 'binds',
+            test_id: 'tests/a.test.ts',
+            verdict: 'mapped',
+          },
+        ],
+      }),
+    );
+    expect(view.rows[0]).toMatchObject({ word: 'Has a test, not run yet', tone: 'dim' });
   });
 });
 

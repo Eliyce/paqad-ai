@@ -398,6 +398,7 @@ function deliveryBlock(ui: D, block: DeliveryBlock) {
             </Text>
           )}
           {block.sub ? note(ui, block.sub) : null}
+          {block.note ? note(ui, block.note) : null}
         </Box>
         {block.right ? word(ui, block.right, 'dim') : null}
       </Box>

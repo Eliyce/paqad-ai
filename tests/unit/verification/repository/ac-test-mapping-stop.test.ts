@@ -43,12 +43,12 @@ function change(setup: ChangeSetup): { root: string; dir: string } {
   const root = mkdtempSync(join(tmpdir(), 'paqad-ac-stop-'));
   roots.push(root);
   mkdirSync(join(root, '.paqad/session'), { recursive: true });
+  seedGitChangedFiles(root, []);
+  const dir = openChange(root, setup.session, setup.lane ?? 'full', setup.title);
   for (const [rel, body] of Object.entries(setup.files)) {
     mkdirSync(dirname(join(root, rel)), { recursive: true });
     writeFileSync(join(root, rel), body);
   }
-  seedGitChangedFiles(root, Object.keys(setup.files));
-  const dir = openChange(root, setup.session, setup.lane ?? 'full', setup.title);
   if (setup.criteria) writeSpec(root, dir, setup.criteria);
   process.env.CLAUDE_SESSION_ID = setup.session;
   return { root, dir };

@@ -318,7 +318,14 @@ export type PaqadHudSnapshot = {
   repairs?: PaqadRepair[];
   rung?: PaqadRung;
   verdict_stale?: true;
+  start_point?: PaqadStartPoint | null;
   proof?: PaqadStageProof[];
+};
+
+export type PaqadStartPoint = {
+  source: 'start_commit' | 'fork-point' | 'fallback-base';
+  base: string | null;
+  files_known: boolean;
 };
 
 export type PaqadStandDown = 'view-off' | 'not-onboarded' | 'remote' | 'disabled' | 'old-engine';

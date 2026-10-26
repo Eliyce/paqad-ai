@@ -54,6 +54,38 @@ export function readGitState(projectRoot: string, options: GitStateOptions = {})
   return { branch, head_commit, base_branch, base_commit };
 }
 
+function reflogSubjects(projectRoot: string, ref: string): string[] {
+  return (git(projectRoot, ['reflog', 'show', '--format=%gs', ref]) ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/**
+ * The branch the given branch was cut from, read from the reflog: `branch: Created from <ref>`
+ * names it, and `Created from HEAD` is resolved through the HEAD reflog's
+ * `checkout: moving from <ref> to <branch>`. Null when the reflog is gone (fresh clone, gc,
+ * worktree) or names nothing that still resolves.
+ */
+export function forkBranchOf(
+  projectRoot: string,
+  branch: string | null | undefined,
+): string | null {
+  if (!branch) return null;
+  const created = reflogSubjects(projectRoot, `refs/heads/${branch}`).at(-1) ?? '';
+  let from = /^branch: Created from (.+)$/.exec(created)?.[1]?.trim() ?? '';
+  if (from === 'HEAD') {
+    const moved = reflogSubjects(projectRoot, 'HEAD')
+      .map((subject) => /^checkout: moving from (.+) to (.+)$/.exec(subject))
+      .filter((match): match is RegExpExecArray => match !== null && match[2] === branch)
+      .at(-1);
+    from = moved?.[1]?.trim() ?? '';
+  }
+  from = from.replace(/^refs\/heads\//, '');
+  if (from === '' || from === branch || from === 'HEAD') return null;
+  return refExists(projectRoot, from) ? from : null;
+}
+
 export interface HeadRef {
   repo: boolean;
   branch: string | null;

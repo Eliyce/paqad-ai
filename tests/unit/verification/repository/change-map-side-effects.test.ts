@@ -50,12 +50,12 @@ function cleanChange(session: string): string {
     'tests/export/csv.test.ts':
       "describe('CSV export', () => {\n  it('AC-1 joins rows', () => {});\n  it('AC-2 keeps order', () => {});\n});\n",
   };
+  seedGitChangedFiles(root, []);
+  const dir = openChange(root, session);
   for (const [rel, body] of Object.entries(files)) {
     mkdirSync(dirname(join(root, rel)), { recursive: true });
     writeFileSync(join(root, rel), body);
   }
-  seedGitChangedFiles(root, Object.keys(files));
-  const dir = openChange(root, session);
   writeSpec(root, dir, [
     { id: 'AC-1', proof: 'automated' },
     { id: 'AC-2', proof: 'automated' },

@@ -7,6 +7,7 @@ import { DecisionStore } from '@/planning/decision-store.js';
 import type { DecisionPacket } from '@/planning/decision-packet.js';
 import { readChecksReportForFeature } from '@/checks/report-target.js';
 import type { Lane } from '@/core/types/routing.js';
+import { readChangeStartPoint } from '@/feature-evidence/delivery.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
 import {
   currentFeature,
@@ -59,7 +60,9 @@ export async function buildRepositoryVerificationContext(
   const sessionId = resolveActiveSessionId(projectRoot);
   const dirName = resolveActiveFeatureDir(projectRoot, sessionId);
 
-  const changeEvidence = await loadChangeEvidence(projectRoot);
+  const changeEvidence = await loadChangeEvidence(projectRoot, {
+    since: dirName ? readChangeStartPointSafe(projectRoot, dirName) : null,
+  });
   const sessionScopedFiles =
     origin === 'hook-completion'
       ? subtractUnchangedBaselineFiles(projectRoot, sessionId, changeEvidence.files)
@@ -181,6 +184,14 @@ const UNCHECKED_DOCUMENTATION_INPUTS: readonly string[] = [
 
 function resolveActiveSessionId(projectRoot: string): string {
   return resolveSessionId(projectRoot, process.env.CLAUDE_SESSION_ID ?? null);
+}
+
+function readChangeStartPointSafe(projectRoot: string, dirName: string) {
+  try {
+    return readChangeStartPoint(projectRoot, dirName);
+  } catch {
+    return null;
+  }
 }
 
 function resolveActiveFeatureDir(projectRoot: string, sessionId: string): string | null {

@@ -153,7 +153,7 @@ describe('parseSnapshot', () => {
       expect(reading.ship.every((step) => !step.word.startsWith('<'))).toBe(true);
     }
     const today = Object.keys(JSON.parse(JSON.stringify(FULL_ORD_501)) as object).filter(
-      (key) => key !== 'proof',
+      (key) => key !== 'proof' && key !== 'start_point',
     );
     expect(Object.keys(captured.inputs.FULL_ORD_501!)).toEqual(expect.arrayContaining(today));
   });

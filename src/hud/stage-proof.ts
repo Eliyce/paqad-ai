@@ -98,6 +98,13 @@ function stageFinished(input: StageProofInput, stage: string): boolean {
   return found !== undefined && FINISHED_STAGES.has(found.state);
 }
 
+// A stage has started once the ledger holds any record of it. Before that, files in the tree are
+// not its work, so no Edits made or Docs updated tick is drawn from them.
+function stageStarted(input: StageProofInput, stage: string): boolean {
+  const found = input.stages.find((entry) => entry.stage === stage);
+  return found !== undefined && found.state !== 'missing';
+}
+
 function planSteps(input: StageProofInput): HudProofStep[] {
   const plan = input.plan;
   const reuse = plan?.reuse ?? null;
@@ -151,7 +158,7 @@ function specSteps(input: StageProofInput): HudProofStep[] {
 }
 
 function buildSteps(input: StageProofInput): HudProofStep[] {
-  const files = input.changedFiles ?? [];
+  const files = stageStarted(input, 'development') ? (input.changedFiles ?? []) : [];
   const progress = input.planProgress;
   return [
     input.rules !== null
@@ -201,7 +208,8 @@ function checksSteps(input: StageProofInput): HudProofStep[] {
 }
 
 function docsSteps(input: StageProofInput): HudProofStep[] {
-  const docs = (input.changedFiles ?? []).filter((file) =>
+  const files = stageStarted(input, 'documentation_sync') ? (input.changedFiles ?? []) : [];
+  const docs = files.filter((file) =>
     toPosixPath(file).replace(/^\.\//, '').startsWith('docs/'),
   ).length;
   if (docs > 0) {

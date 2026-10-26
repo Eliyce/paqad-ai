@@ -53,6 +53,11 @@ function unknownSplit(reason: string): CommitSplit {
   return { state: 'unknown', reason, base_commit: null, own: null, inherited: null };
 }
 
+// A pull request number ("(#123)" or a bare "#123") names a pull request, not a ticket.
+function isPullRequestRef(ref: string): boolean {
+  return /^#\d+$/.test(ref.trim());
+}
+
 function readBranchCommits(projectRoot: string, baseCommit: string): BranchCommit[] {
   const out = git(projectRoot, ['log', `${baseCommit}..HEAD`, '--format=%H%x1f%P%x1f%s']) ?? '';
   return out
@@ -63,7 +68,9 @@ function readBranchCommits(projectRoot: string, baseCommit: string): BranchCommi
       return {
         sha,
         parents: parents.split(' ').filter(Boolean).length,
-        tickets: detectTicketRefs(subject.join('\x1f'), 'generic'),
+        tickets: detectTicketRefs(subject.join('\x1f'), 'generic').filter(
+          (ref) => !isPullRequestRef(ref),
+        ),
       };
     });
 }
@@ -145,9 +152,8 @@ function commitCount(count: number): string {
 export function describeInherited(group: CommitGroup): string {
   const tickets = group.tickets.length;
   if (tickets === 0) return `${commitCount(group.count)} made before this change started`;
-  const fromTickets = `${commitCount(group.count - group.untagged)} from ${tickets} other ticket${tickets === 1 ? '' : 's'}`;
-  if (group.untagged === 0) return fromTickets;
-  return `${fromTickets} and ${group.untagged} untagged made before this change started`;
+  const named = `ticket${tickets === 1 ? '' : 's'} ${group.tickets.join(', ')}`;
+  return `${commitCount(group.count)} from ${named} made before this change started`;
 }
 
 export function sharedBranchLine(split: CommitSplit, branch: string | null): string | null {

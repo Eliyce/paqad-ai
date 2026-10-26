@@ -20,14 +20,11 @@ import {
   type RuleRunFinding,
 } from '@/feature-evidence/bundle-ledgers.js';
 import { rowRecordedAt } from '@/feature-evidence/envelope.js';
+import { type CommitGroup, type CommitSplit } from '@/delivery/commit-split.js';
 import {
-  branchCarriesOtherWork,
-  describeInherited,
-  type CommitGroup,
-  type CommitSplit,
-} from '@/delivery/commit-split.js';
-import {
+  readChangeStartPoint,
   readFeatureDelivery,
+  type ChangeStartSource,
   type DeliveryCi,
   type DeliveryPr,
   type DeliveryPrState,
@@ -509,12 +506,19 @@ function planFile(path: string): string {
   return toPosixPath(path).replace(/^\.\//, '');
 }
 
+function stageHasStarted(stages: readonly HudStage[], stage: string): boolean {
+  const found = stages.find((entry) => entry.stage === stage);
+  return found !== undefined && found.state !== 'missing';
+}
+
 function buildPlanProgress(
   projectRoot: string,
   dirName: string,
   changedFiles: readonly string[] | null,
+  buildStarted: boolean,
 ): HudPlanProgress | null {
   const steps = readFeaturePlan(projectRoot, dirName)?.steps;
+  if (!buildStarted) return null;
   if (!Array.isArray(steps) || steps.length === 0 || changedFiles === null) return null;
   const changed = new Set(changedFiles.map(planFile));
   const done = steps.filter(
@@ -523,6 +527,12 @@ function buildPlanProgress(
       step.files.some((file) => typeof file === 'string' && changed.has(planFile(file))),
   ).length;
   return { steps: steps.length, done };
+}
+
+export interface HudStartPoint {
+  source: ChangeStartSource;
+  base: string | null;
+  files_known: boolean;
 }
 
 export interface HudSnapshot {
@@ -579,6 +589,8 @@ export interface HudSnapshot {
   repairs?: Array<{ what: string; at: string | null }>;
   rung?: HudRung;
   verdict_stale?: true;
+  /** Where this change's files and commits are measured from, and whether that is a fallback. */
+  start_point?: HudStartPoint | null;
   proof?: HudStageProof[];
 }
 
@@ -690,7 +702,8 @@ export interface HudAcceptanceClaim {
   id: string;
   label: string;
   test_id: string | null;
-  verdict: 'pass' | 'missing';
+  /** pass: a checks run after Build started passed; mapped: has a test, not run yet. */
+  verdict: 'pass' | 'mapped' | 'missing';
 }
 
 export type HudClaim = HudFixProofClaim | HudAcceptanceClaim;
@@ -707,14 +720,26 @@ function criterionThens(specJson: unknown): Map<string, string> {
   return thens;
 }
 
+// A claim passes only on a green checks run recorded after Build started; before that a claim
+// with a mapped test reads "has a test, not run yet", never a pass.
+function checksPassedSince(projectRoot: string, dirName: string, since: string | null): boolean {
+  const startedAt = Date.parse(since ?? '');
+  if (Number.isNaN(startedAt)) return false;
+  const report = readFeatureChecks(projectRoot, dirName);
+  const reportAt = Date.parse(report?.generated_at ?? report?.recorded_at ?? '');
+  return report !== null && report.ran && report.passed && reportAt >= startedAt;
+}
+
 function buildAcceptanceClaims(
   projectRoot: string,
   dirName: string,
   lane: string | null,
   changedFiles: readonly string[] | null,
   specJson: unknown,
+  buildStartedAt: string | null,
 ): HudAcceptanceClaim[] {
   if (changedFiles === null) return [];
+  const checked = checksPassedSince(projectRoot, dirName, buildStartedAt);
   try {
     const result = buildChangeTraceabilityMap({
       projectRoot,
@@ -732,7 +757,7 @@ function buildAcceptanceClaims(
         id,
         label: thens.get(id) ?? id,
         test_id: testId,
-        verdict: testId ? 'pass' : 'missing',
+        verdict: testId ? (checked ? 'pass' : 'mapped') : 'missing',
       };
     });
   } catch (error) {
@@ -1248,12 +1273,6 @@ export function computeHudFlags(input: {
           : `${nearCopies} near-copies of existing code are open.`,
     });
   }
-  if (branchCarriesOtherWork(input.commitSplit) && input.commitSplit?.inherited) {
-    flags.push({
-      id: 'branch:shared',
-      text: `This branch also carries ${describeInherited(input.commitSplit.inherited)}.`,
-    });
-  }
   return flags;
 }
 
@@ -1569,8 +1588,12 @@ export function buildHudSnapshot(
   const rulesLoaded = readRulesLoaded(projectRoot, dirName);
   const delivery = readFeatureDelivery(projectRoot, dirName);
   const policy = readPolicy(projectRoot);
-  const changeGit = readChangeGit(projectRoot, policy?.process.pr.base ?? null, (error) =>
-    logHudWriteError(projectRoot, 'changed files', error),
+  const startPoint = readChangeStartPoint(projectRoot, dirName, policy?.process.pr.base ?? null);
+  const changeGit = readChangeGit(
+    projectRoot,
+    policy?.process.pr.base ?? null,
+    (error) => logHudWriteError(projectRoot, 'changed files', error),
+    startPoint,
   );
   const changedFiles = changeGit?.files ?? null;
   const ship = buildShip(delivery, changedFiles ? changedFiles.length : null);
@@ -1586,7 +1609,13 @@ export function buildHudSnapshot(
     prState: ship.pr_state,
     ci: ship.ci?.state ?? null,
   });
-  const plan = buildPlanProgress(projectRoot, dirName, changedFiles);
+  const buildStage = stages.find((entry) => entry.stage === 'development');
+  const plan = buildPlanProgress(
+    projectRoot,
+    dirName,
+    changedFiles,
+    stageHasStarted(stages, 'development'),
+  );
   const gatesExpected = expectedGateCodes(lane);
   const gaps = recordGaps(verdict, (fold.lane ?? record?.lane ?? null) !== null);
   const questions = buildQuestions(projectRoot, dirName);
@@ -1673,7 +1702,14 @@ export function buildHudSnapshot(
     table,
     claims: [
       ...buildClaims(record?.kind, projectRoot, dirName),
-      ...buildAcceptanceClaims(projectRoot, dirName, lane, changedFiles, specJson),
+      ...buildAcceptanceClaims(
+        projectRoot,
+        dirName,
+        lane,
+        changedFiles,
+        specJson,
+        buildStage?.started_at ?? null,
+      ),
     ],
     gates,
     gates_expected: gatesExpected,
@@ -1714,6 +1750,13 @@ export function buildHudSnapshot(
     ...optionalList('repairs', buildRepairs(projectRoot, dirName)),
     ...(ladder.rung ? { rung: ladder.rung } : {}),
     ...(reading.stale ? { verdict_stale: true as const } : {}),
+    start_point: startPoint
+      ? {
+          source: startPoint.source,
+          base: startPoint.base,
+          files_known: startPoint.worktree !== null,
+        }
+      : null,
     proof,
   };
 }

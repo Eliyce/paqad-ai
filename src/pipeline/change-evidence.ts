@@ -1,3 +1,6 @@
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { execa } from 'execa';
@@ -10,12 +13,84 @@ export interface ChangeEvidence {
   source: 'git' | 'none';
 }
 
-export async function loadChangeEvidence(projectRoot: string): Promise<ChangeEvidence> {
-  const files = await readGitChangedFiles(projectRoot);
+/** Where a change started: the commit its work is measured from and the tree at open. */
+export interface ChangeStartLike {
+  commit: string;
+  worktree: Record<string, string> | null;
+}
+
+export const DELETED_AT_START = 'deleted';
+
+export function gitPathList(projectRoot: string, args: string[]): string[] | null {
+  try {
+    return execFileSync('git', args, {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+      timeout: 5_000,
+      maxBuffer: 16 * 1024 * 1024,
+    })
+      .split('\0')
+      .filter((entry) => entry.length > 0);
+  } catch {
+    return null;
+  }
+}
+
+export function digestWorkingFile(projectRoot: string, relativePath: string): string | null {
+  try {
+    return createHash('sha256')
+      .update(readFileSync(join(projectRoot, relativePath)))
+      .digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The files a change touched since its start point: committed, staged, edited and untracked,
+ * leaving out paqad's own artifacts and every path whose content is unchanged since the change
+ * opened (files that were already dirty or untracked then).
+ */
+export function changedFilesSince(projectRoot: string, start: ChangeStartLike): string[] | null {
+  const diff = gitPathList(projectRoot, ['diff', '--name-only', '--relative', '-z', start.commit]);
+  const untracked = gitPathList(projectRoot, ['ls-files', '--others', '--exclude-standard', '-z']);
+  if (diff === null || untracked === null) return null;
+  const worktree = start.worktree ?? {};
+  return [...new Set([...diff, ...untracked])]
+    .map((path) => path.replace(/\\/g, '/'))
+    .filter((path) => !isPaqadArtifactPath(path))
+    .filter((path) => {
+      const atStart = worktree[path];
+      return (
+        atStart === undefined ||
+        (digestWorkingFile(projectRoot, path) ?? DELETED_AT_START) !== atStart
+      );
+    })
+    .sort();
+}
+
+export interface LoadChangeEvidenceOptions {
+  /** Measure from where the active change started instead of the merge-base with main. */
+  since?: ChangeStartLike | null;
+}
+
+export async function loadChangeEvidence(
+  projectRoot: string,
+  options: LoadChangeEvidenceOptions = {},
+): Promise<ChangeEvidence> {
+  const files = await readGitChangedFiles(projectRoot, options);
   return files.length > 0 ? { files, source: 'git' } : { files: [], source: 'none' };
 }
 
-export async function readGitChangedFiles(projectRoot: string): Promise<string[]> {
+export async function readGitChangedFiles(
+  projectRoot: string,
+  options: LoadChangeEvidenceOptions = {},
+): Promise<string[]> {
+  if (options.since) {
+    const since = changedFilesSince(projectRoot, options.since);
+    if (since !== null) return since;
+  }
   const gitState = readGitState(projectRoot);
   if (!gitState.head_commit || !gitState.base_commit) {
     return readGitStatusFiles(projectRoot);
