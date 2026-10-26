@@ -587,11 +587,16 @@ describe('AC-27: the Record events', () => {
       } as unknown as HudHighTable,
       decisions: [
         {
-          packet: { created_at: at('08:12:01'), resolved_at: at('08:20:00') },
+          packet: {
+            id: 'D-1',
+            title: 'Which export format?',
+            created_at: at('08:12:01'),
+            resolved_at: at('08:20:00'),
+          },
           status: 'resolved',
         },
-        { packet: { created_at: at('08:12:30') }, status: 'pending' },
-        { packet: { created_at: at('08:15:00') }, status: 'pending' },
+        { packet: { id: 'D-2', title: 'Email?', created_at: at('08:12:30') }, status: 'pending' },
+        { packet: { id: 'D-3', created_at: at('08:15:00') }, status: 'pending' },
       ] as unknown as RecordEventSources['decisions'],
       specJson: {
         frozen: { frozen_at: at('08:13:00') },
@@ -650,9 +655,24 @@ describe('AC-27: the Record events', () => {
         duration_ms: 95_000,
         verdict: 'needs answers',
       },
-      { at: at('08:12:01'), kind: 'decisions_opened', stage: null, note: null, count: 2 },
-      { at: at('08:15:00'), kind: 'decisions_opened', stage: null, note: null, count: 1 },
-      { at: at('08:20:00'), kind: 'decisions_answered', stage: null, note: null, count: 1 },
+      {
+        at: at('08:12:01'),
+        kind: 'decision_opened',
+        stage: null,
+        note: null,
+        decision: 'D-1',
+        subject: 'Which export format?',
+      },
+      { at: at('08:20:00'), kind: 'decision_answered', stage: null, note: null, decision: 'D-1' },
+      {
+        at: at('08:12:30'),
+        kind: 'decision_opened',
+        stage: null,
+        note: null,
+        decision: 'D-2',
+        subject: 'Email?',
+      },
+      { at: at('08:15:00'), kind: 'decision_opened', stage: null, note: null, decision: 'D-3' },
       {
         at: at('08:13:00'),
         kind: 'spec_frozen',

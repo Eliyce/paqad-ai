@@ -221,6 +221,7 @@ export type PaqadTimelineEntry = {
   lane?: string;
   sha?: string;
   subject?: string;
+  decision?: string;
   number?: number;
   requirements?: number;
   criteria?: number;

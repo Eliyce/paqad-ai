@@ -168,6 +168,7 @@ export interface HudTimelineEntry {
   verdict?: string | null;
   title?: string | null;
   issue?: string | null;
+  decision?: string;
   lane?: string | null;
   sha?: string;
   subject?: string;
@@ -292,30 +293,38 @@ function tableEvents(table: HudHighTable | null): HudTimelineEntry[] {
   return events;
 }
 
-function minuteGroups(times: readonly string[]): Array<{ at: string; count: number }> {
-  const groups = new Map<string, { at: string; count: number }>();
-  for (const at of inOrder(times)) {
-    const key = new Date(at).toISOString().slice(0, 16);
-    const group = groups.get(key);
-    if (group) group.count += 1;
-    else groups.set(key, { at, count: 1 });
-  }
-  return [...groups.values()];
+const DECISION_QUESTION_CHARS = 80;
+
+function shortQuestion(packet: Record<string, unknown>): string | null {
+  const text = str(packet.question) ?? str(packet.title);
+  if (!text) return null;
+  const flat = text.replace(/\s+/g, ' ').trim();
+  return flat.length > DECISION_QUESTION_CHARS
+    ? `${flat.slice(0, DECISION_QUESTION_CHARS - 1).trimEnd()}…`
+    : flat;
 }
 
+// One Record row per decision, naming it: when it was opened (with its question) and when the
+// person answered it.
 function decisionEvents(decisions: readonly StoredContractDecision[]): HudTimelineEntry[] {
-  const raw = decisions.map(
-    ({ packet, status }) => [packet as unknown as Record<string, unknown>, status] as const,
-  );
-  const opened = raw.map(([packet]) => str(packet.created_at)).filter(isTime);
-  const answered = raw
-    .filter(([, status]) => status === 'resolved')
-    .map(([packet]) => str(packet.resolved_at))
-    .filter(isTime);
-  return [
-    ...minuteGroups(opened).map(({ at, count }) => event(at, 'decisions_opened', { count })),
-    ...minuteGroups(answered).map(({ at, count }) => event(at, 'decisions_answered', { count })),
-  ];
+  const events: HudTimelineEntry[] = [];
+  for (const { packet, status } of decisions) {
+    const raw = packet as unknown as Record<string, unknown>;
+    const decision = str(raw.decision_id) ?? str(raw.id);
+    const named = decision ? { decision } : {};
+    const createdAt = str(raw.created_at);
+    if (isTime(createdAt)) {
+      const subject = shortQuestion(raw);
+      events.push(
+        event(createdAt, 'decision_opened', { ...named, ...(subject ? { subject } : {}) }),
+      );
+    }
+    const resolvedAt = str(raw.resolved_at);
+    if (status === 'resolved' && isTime(resolvedAt)) {
+      events.push(event(resolvedAt, 'decision_answered', named));
+    }
+  }
+  return events;
 }
 
 function specEvents(specJson: unknown): HudTimelineEntry[] {
@@ -391,11 +400,20 @@ function recordEventsSafe(projectRoot: string, sources: RecordEventSources): Hud
   }
 }
 
+// One rule orders the Record: event time, with unreadable times last and arrival order as the
+// tie-break, so out-of-order arrivals still read in the order they happened.
 function mergeTimeline(
   stages: readonly HudTimelineEntry[],
   events: readonly HudTimelineEntry[],
 ): HudTimelineEntry[] {
-  return [...stages, ...events].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const timeOf = (entry: HudTimelineEntry) => {
+    const at = Date.parse(entry.at);
+    return Number.isNaN(at) ? Number.POSITIVE_INFINITY : at;
+  };
+  return [...stages, ...events]
+    .map((entry, index) => ({ entry, index, at: timeOf(entry) }))
+    .sort((a, b) => (a.at === b.at ? a.index - b.index : a.at < b.at ? -1 : 1))
+    .map(({ entry }) => entry);
 }
 
 export interface HudShipCommit {
@@ -929,10 +947,10 @@ function buildQuestions(projectRoot: string, dirName: string): HudSnapshot['ques
 function changeDecisions(projectRoot: string, dirName: string | null): StoredContractDecision[] {
   if (dirName === null) return [];
   const changeKey = featureChangeKey(dirName);
-  return readContractDecisions(projectRoot).filter(({ packet }) => {
-    const change = (packet as unknown as Record<string, unknown>).change;
-    return change === changeKey || change === undefined || change === null;
-  });
+  // A packet with no change tag belongs to no change, exactly like an untagged verdict.
+  return readContractDecisions(projectRoot).filter(
+    ({ packet }) => (packet as unknown as Record<string, unknown>).change === changeKey,
+  );
 }
 
 function buildDecisions(rows: readonly StoredContractDecision[]): HudSnapshot['decisions'] {

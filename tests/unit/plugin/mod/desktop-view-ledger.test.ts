@@ -6,6 +6,8 @@ import {
   COUNTING_WORDS,
   NOT_COUNTED_WORDS,
   RECORD_LATER,
+  RECORD_NOTHING_YET,
+  recordTime,
   SHAPED_LATER,
   UNREADABLE,
   buildDesktopLedger,
@@ -615,6 +617,50 @@ describe('a claim with a test that has not run yet', () => {
   });
 });
 
+describe('AC-11 / AC-12: the Record names each decision, dated, newest first', () => {
+  const at = (time: string, day = '18') => `2026-10-${day}T${time}:00.000Z`;
+  const entry = (when: string, kind: string, fields: Raw = {}) => ({
+    at: when,
+    kind,
+    stage: null,
+    note: null,
+    ...fields,
+  });
+
+  it('one row per decision, with its id, a full date and time, newest first', () => {
+    const view = recordView(
+      open({
+        timeline: [
+          entry(at('11:30', '16'), 'decision_opened', {
+            decision: 'D-7',
+            subject: 'Which format?',
+          }),
+          entry(at('08:00'), 'stage_start', { stage: 'planning' }),
+          entry(at('09:10'), 'decision_answered', { decision: 'D-7' }),
+        ],
+      }),
+    );
+    expect(view.rows.map((row) => row.text)).toEqual([
+      'You answered D-7',
+      'Plan started',
+      'D-7 opened: Which format?',
+    ]);
+    expect(view.rows.map((row) => row.time)).toEqual([
+      recordTime(at('09:10')),
+      recordTime(at('08:00')),
+      recordTime(at('11:30', '16')),
+    ]);
+    expect(recordTime(at('11:30', '16'))).not.toBe(recordTime(at('11:30')));
+  });
+
+  it('an open change with no decisions and no stage events says so in one plain line', () => {
+    expect(recordView(open({ timeline: [entry(at('08:00'), 'open')] }))).toEqual({
+      rows: [],
+      empty: RECORD_NOTHING_YET,
+    });
+  });
+});
+
 describe('AC-23: the Record and Cost tabs', () => {
   const at = (time: string) => `2026-10-18T${time}:00.000Z`;
   const entry = (time: string, kind: string, fields: Raw = {}) => ({
@@ -654,7 +700,7 @@ describe('AC-23: the Record and Cost tabs', () => {
       }),
     );
     expect(view.empty).toBeNull();
-    expect(view.rows.map((row) => row.text)).toEqual([
+    expect([...view.rows].reverse().map((row) => row.text)).toEqual([
       `Change opened: #${ISSUE} seed stage helpers, full lane`,
       'Plan started in its own agent',
       'Plan done in 1m 41s',
@@ -676,7 +722,8 @@ describe('AC-23: the Record and Cost tabs', () => {
       'Reopened: reopened via resume',
       'Closed: abandoned',
     ]);
-    expect(view.rows[0]!.time).toBe(localTime(at('08:00')));
+    expect(view.rows.at(-1)!.time).toBe(recordTime(at('08:00')));
+    expect(recordTime(at('08:00'))).toMatch(/^[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}$/);
     const local = new Date(Date.parse(at('08:00')));
     expect(localTime(at('08:00'))).toBe(
       `${String(local.getHours()).padStart(2, '0')}:${String(local.getMinutes()).padStart(2, '0')}`,
@@ -684,24 +731,28 @@ describe('AC-23: the Record and Cost tabs', () => {
   });
 
   it('says a bare change opened, and waits for the change before it records anything', () => {
+    const started = entry('07:59', 'stage_start', { stage: 'planning' });
     expect(
       recordView(
         open({
           timeline: [
+            started,
             entry('08:00', 'open'),
             entry('08:01', 'close'),
             entry('08:02', 'chief_ruled'),
           ],
         }),
       ).rows.map((row) => row.text),
-    ).toEqual(['Change opened', 'Closed', 'Chief ruled']);
+    ).toEqual(['Chief ruled', 'Closed', 'Change opened', 'Plan started']);
     expect(
-      recordView(open({ timeline: [entry('08:00', 'open', { issue: 'ORD-501' })] })).rows[0]!.text,
+      recordView(open({ timeline: [started, entry('08:00', 'open', { issue: 'ORD-501' })] }))
+        .rows[0]!.text,
     ).toBe('Change opened: ORD-501');
     expect(
-      recordView(open({ timeline: [entry('08:00', 'pr_opened')], ship: PR_OPEN })).rows[0]!.text,
+      recordView(open({ timeline: [started, entry('08:00', 'pr_opened')], ship: PR_OPEN })).rows[0]!
+        .text,
     ).toBe(`${PR} opened`);
-    expect(recordView(open())).toEqual({ rows: [], empty: RECORD_LATER });
+    expect(recordView(open())).toEqual({ rows: [], empty: RECORD_NOTHING_YET });
     expect(
       recordView(
         parse(snapshot({ route: 'feature-development', timeline: [entry('08:00', 'open')] })),

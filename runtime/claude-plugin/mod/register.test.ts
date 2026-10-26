@@ -1,7 +1,7 @@
 import type { RenderElement, RenderNode } from 'claude-code';
 import { describe, expect, mock, test } from 'claude-code/testing';
 
-import { ANSWER_TOAST, TASK_LIST_SENTENCES, UPDATE_PLAN_TOOL, localTime } from './desktop-view';
+import { ANSWER_TOAST, TASK_LIST_SENTENCES, UPDATE_PLAN_TOOL, recordTime } from './desktop-view';
 import {
   EXPERTS_OFF,
   FAST_ORD_490,
@@ -1288,8 +1288,8 @@ describe('the Desktop Ledger', () => {
     mock.clock(on, { now: NOW });
     await $.session.start(DESKTOP_START);
     const record = drawnLines(await desktopPane($, ['paqad-tab-record']));
-    expect(record).toContain(`${localTime('2026-10-18T08:41:00.000Z')}   Plan done in 1m 41s`);
-    expect(record).toContain(`${localTime('2026-10-18T08:42:00.000Z')}   Rules loaded: 12 apply`);
+    expect(record).toContain(`${recordTime('2026-10-18T08:41:00.000Z')}   Plan done in 1m 41s`);
+    expect(record).toContain(`${recordTime('2026-10-18T08:42:00.000Z')}   Rules loaded: 12 apply`);
     const cost = await desktopPane($, ['paqad-tab-cost']);
     expectDesktopSafe(cost);
     const lines = drawnLines(cost);

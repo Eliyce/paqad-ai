@@ -385,7 +385,7 @@ describe('gates are judged only after their stage ended', () => {
 });
 
 describe('decisions belong to this change only', () => {
-  it('keeps packets stamped with this change and unstamped ones, never another change', () => {
+  it('INV-4: keeps only packets stamped with this change, never another change or an unstamped one', () => {
     const root = repoRoot();
     const dir = openChangeHere(root, S);
     runStage(root, S, 'planning');
@@ -407,7 +407,7 @@ describe('decisions belong to this change only', () => {
       options,
       change: '01OTHERCHANGE000000000000',
     });
-    const unstamped = createPendingDecision(root, {
+    createPendingDecision(root, {
       category: 'ux-pattern',
       title: 'Unstamped',
       context: 'c',
@@ -417,7 +417,7 @@ describe('decisions belong to this change only', () => {
       buildHudSnapshot(root, S)
         .decisions.pending.map((packet) => packet.id)
         .sort(),
-    ).toEqual([mine.id, unstamped.id].sort());
+    ).toEqual([mine.id]);
   });
 });
 

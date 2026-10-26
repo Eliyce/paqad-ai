@@ -1044,6 +1044,15 @@ export function localTime(at: string): string {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 }
 
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** A Record time: the local date and time, so rows from other days read as such. */
+export function recordTime(at: string): string {
+  const date = new Date(Date.parse(at));
+  if (Number.isNaN(date.getTime())) return '';
+  return `${MONTHS[date.getMonth()]} ${date.getDate()} ${localTime(at)}`;
+}
+
 function recordWords(snapshot: PaqadHudSnapshot, entry: PaqadTimelineEntry): string | null {
   const stage = entry.stage ? stageWord(entry.stage) : 'A stage';
   const count = entry.count ?? 0;
@@ -1078,6 +1087,12 @@ function recordWords(snapshot: PaqadHudSnapshot, entry: PaqadTimelineEntry): str
       const took = entry.duration_ms !== undefined ? ` in ${formatClock(entry.duration_ms)}` : '';
       return `Chief ruled${took}${entry.verdict ? `: ${entry.verdict}` : ''}`;
     }
+    case 'decision_opened': {
+      const name = entry.decision ?? 'A decision';
+      return entry.subject ? `${name} opened: ${entry.subject}` : `${name} opened for you`;
+    }
+    case 'decision_answered':
+      return entry.decision ? `You answered ${entry.decision}` : 'You answered a decision';
     case 'decisions_opened':
       return `${plural(count, 'decision', 'decisions')} opened for you`;
     case 'decisions_answered':
@@ -1109,15 +1124,30 @@ export interface RecordView {
 }
 
 export const RECORD_LATER = 'The record starts when the change opens.';
+export const RECORD_NOTHING_YET = 'No decisions or stage events for this change yet.';
+
+const RECORDED_WORK = /^(stage_|decision)/;
+
+function newestFirst(timeline: readonly PaqadTimelineEntry[]) {
+  const timeOf = (entry: PaqadTimelineEntry) => {
+    const at = Date.parse(entry.at);
+    return Number.isNaN(at) ? Number.NEGATIVE_INFINITY : at;
+  };
+  return timeline
+    .map((entry, index) => ({ entry, index, at: timeOf(entry) }))
+    .sort((a, b) => (a.at === b.at ? b.index - a.index : b.at - a.at));
+}
 
 export function recordView(snapshot: PaqadHudSnapshot): RecordView {
-  const rows = snapshot.active
-    ? snapshot.timeline.flatMap((entry, index) => {
-        const text = recordWords(snapshot, entry);
-        return text ? [{ key: `${entry.at}-${index}`, time: localTime(entry.at), text }] : [];
-      })
-    : [];
-  return { rows, empty: rows.length === 0 ? RECORD_LATER : null };
+  if (!snapshot.active) return { rows: [], empty: RECORD_LATER };
+  if (!snapshot.timeline.some((entry) => RECORDED_WORK.test(entry.kind))) {
+    return { rows: [], empty: RECORD_NOTHING_YET };
+  }
+  const rows = newestFirst(snapshot.timeline).flatMap(({ entry, index }) => {
+    const text = recordWords(snapshot, entry);
+    return text ? [{ key: `${entry.at}-${index}`, time: recordTime(entry.at), text }] : [];
+  });
+  return { rows, empty: rows.length === 0 ? RECORD_NOTHING_YET : null };
 }
 
 export interface CostMeter {

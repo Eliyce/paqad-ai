@@ -559,6 +559,7 @@ const TIMELINE_TEXT = [
   'sha',
   'subject',
   'state',
+  'decision',
 ] as const;
 
 const TIMELINE_COUNTS = [

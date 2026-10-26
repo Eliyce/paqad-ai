@@ -1518,3 +1518,52 @@ describe('AC-27: the gate list before Checks', () => {
     expect(expected).not.toContain('documentation-freshness');
   });
 });
+
+describe('AC-11: decisions belong to a change only when the packet names it', () => {
+  it('keeps the 6 tagged packets and drops the 35 untagged ones', () => {
+    const root = onboardedRoot();
+    const S = 'ses-decisions-scope';
+    const dir = openChange(root, S, 'full', 'ORD-511 scoped decisions');
+    const decide = (title: string, change?: string) =>
+      createPendingDecision(root, {
+        category: 'spec.question',
+        title,
+        context: 'context',
+        options: [
+          { option_key: 'a', label: 'A' },
+          { option_key: 'b', label: 'B' },
+        ],
+        ...(change ? { change } : {}),
+      });
+    for (let index = 0; index < 35; index += 1) decide(`old work ${index}`);
+    for (let index = 0; index < 6; index += 1)
+      decide(`this change ${index}`, featureChangeKey(dir));
+
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+    expect(snapshot.decisions.pending.length + snapshot.decisions.resolved).toBe(6);
+    expect(snapshot.decisions.pending.every((entry) => !entry.question.startsWith('old'))).toBe(
+      true,
+    );
+    const opened = snapshot.timeline.filter((entry) => entry.kind === 'decision_opened');
+    expect(opened).toHaveLength(6);
+    expect(opened.every((entry) => typeof entry.decision === 'string')).toBe(true);
+  });
+
+  it('an untagged pending packet never raises the waiting-decisions headline', () => {
+    const root = onboardedRoot();
+    const S = 'ses-decisions-untagged';
+    openChange(root, S, 'full', 'ORD-512 no decisions');
+    createPendingDecision(root, {
+      category: 'spec.question',
+      title: 'Old question',
+      context: 'context',
+      options: [
+        { option_key: 'a', label: 'A' },
+        { option_key: 'b', label: 'B' },
+      ],
+    });
+    const snapshot = buildHudSnapshot(root, S, { now: NOW });
+    expect(snapshot.decisions.pending).toEqual([]);
+    expect(snapshot.headline.text).not.toMatch(/waiting for you/i);
+  });
+});
