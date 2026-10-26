@@ -9,6 +9,7 @@ import {
   branchCarriesOtherWork,
   changeOwnTickets,
   computeCommitSplit,
+  describeEarlierWork,
   describeInherited,
   intakeBranchLine,
   sharedBranchLine,
@@ -84,7 +85,7 @@ describe('computeCommitSplit', () => {
     expect(new Set([...split.own_shas!, ...split.inherited_shas!]).size).toBe(7);
     expect(branchCarriesOtherWork(split)).toBe(true);
     expect(sharedBranchLine(split, 'feat/ORD-470-contact-matching')).toContain(
-      'Branch `feat/ORD-470-contact-matching` already carries 5 commits from tickets ORD-471, ORD-472, ORD-470 made before this change started',
+      'Branch `feat/ORD-470-contact-matching` already carries 5 commits from tickets ORD-470, ORD-471, ORD-472 made before this change started',
     );
   });
 
@@ -229,7 +230,7 @@ describe('intakeBranchLine', () => {
   it('names the commits from other tickets on the current branch, and nothing on a clean one', () => {
     const { root, g } = sharedBranch();
     expect(intakeBranchLine(root, ['ORD-482'])).toContain(
-      'Branch `feat/ORD-470-contact-matching` already carries 6 commits from tickets ORD-471, ORD-472, ORD-470 made before this change started',
+      'Branch `feat/ORD-470-contact-matching` already carries 6 commits from tickets ORD-470, ORD-471, ORD-472 made before this change started',
     );
     g('checkout', '-q', '-b', 'feat/ORD-490-clean', 'main');
     expect(intakeBranchLine(root, ['ORD-490'])).toBeNull();
@@ -263,6 +264,21 @@ describe('ticket helpers', () => {
     );
     expect(describeInherited({ count: 3, tickets: ['A-1', 'B-2'], merges: 0, untagged: 1 })).toBe(
       '3 commits from tickets A-1, B-2 made before this change started',
+    );
+  });
+
+  it('names earlier work for the pull request with one count', () => {
+    expect(describeEarlierWork({ count: 0, tickets: [], merges: 0, untagged: 0 })).toBe(
+      'no commits from earlier work',
+    );
+    expect(describeEarlierWork({ count: 1, tickets: [], merges: 0, untagged: 1 })).toBe(
+      '1 commit from earlier work',
+    );
+    expect(describeEarlierWork({ count: 1, tickets: ['A-1'], merges: 0, untagged: 0 })).toBe(
+      '1 commit from earlier work on ticket A-1',
+    );
+    expect(describeEarlierWork({ count: 3, tickets: ['A-1', 'B-2'], merges: 0, untagged: 1 })).toBe(
+      '3 commits from earlier work on tickets A-1, B-2',
     );
   });
 

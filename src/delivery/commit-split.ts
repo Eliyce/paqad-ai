@@ -129,6 +129,7 @@ export function computeCommitSplit(projectRoot: string, input: CommitSplitInput 
       );
     }
   }
+  for (const group of [split.own, split.inherited]) group.tickets.sort(byTicket);
   return {
     state: 'known',
     reason: null,
@@ -146,6 +147,18 @@ export function branchCarriesOtherWork(split: CommitSplit | null | undefined): b
 
 function commitCount(count: number): string {
   return `${count} commit${count === 1 ? '' : 's'}`;
+}
+
+function byTicket(a: string, b: string): number {
+  return a.localeCompare(b, 'en', { numeric: true });
+}
+
+export function describeEarlierWork(group: CommitGroup): string {
+  if (group.count === 0) return 'no commits from earlier work';
+  const tickets = group.tickets.length;
+  const named =
+    tickets === 0 ? '' : ` on ticket${tickets === 1 ? '' : 's'} ${group.tickets.join(', ')}`;
+  return `${commitCount(group.count)} from earlier work${named}`;
 }
 
 export function describeInherited(group: CommitGroup): string {
