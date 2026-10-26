@@ -524,6 +524,46 @@ export function ledgerTabs(snapshot: PaqadHudSnapshot | null, shown: PaqadPaneTa
   return tabs.map((tab) => ({ ...tab, width, shown: tab.id === picked }));
 }
 
+/** One sitting of the High Table: whether the Ledger already brought it forward, or the person picked a tab. */
+export interface TableSitting {
+  key: string;
+  forwarded: boolean;
+  picked: boolean;
+}
+
+function tableIsLive(snapshot: PaqadHudSnapshot | null): boolean {
+  if (!snapshot || !tableSat(snapshot)) return false;
+  const chief = chiefState(snapshot);
+  return (
+    chief === 'ruling' ||
+    chief === 'needs' ||
+    (snapshot.table?.seats ?? []).some((seat) => seat.state === 'writing')
+  );
+}
+
+/**
+ * Whether the Ledger should bring the High Table tab forward: when a seat writes, the chief
+ * rules or the chief has questions, once per sitting, and never after the person picked a tab
+ * during that sitting. Only the shown tab changes; focus is never moved.
+ */
+export function ledgerAutoTab(
+  snapshot: PaqadHudSnapshot | null,
+  shown: PaqadPaneTab,
+  sitting: TableSitting | null,
+): { tab: PaqadPaneTab | null; sitting: TableSitting | null } {
+  if (!tableIsLive(snapshot)) return { tab: null, sitting: null };
+  const key = snapshot?.change?.dir ?? 'change';
+  const current =
+    sitting && sitting.key === key ? sitting : { key, forwarded: false, picked: false };
+  if (current.forwarded || current.picked || shown === 'table') {
+    return {
+      tab: null,
+      sitting: { ...current, forwarded: current.forwarded || shown === 'table' },
+    };
+  }
+  return { tab: 'table', sitting: { ...current, forwarded: true } };
+}
+
 export function ledgerSubtitle(snapshot: PaqadHudSnapshot | null): string {
   const chip = changeChip(snapshot);
   return chip ? `What happened, with proof  ·  ${chip}` : 'What happened, with proof';

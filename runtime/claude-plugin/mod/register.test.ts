@@ -1073,6 +1073,27 @@ describe('the Desktop band', () => {
     expect(await keys(7)).toContain('paqad-minimise');
   });
 
+  test('AC-23: the High Table tab comes forward once when the table sits, unless the person picked a tab', async ($, on) => {
+    const world = worldOf(on, {
+      files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) },
+      store: QUIET_STORE(),
+    });
+    mock.clock(on, { now: NOW });
+    await $.session.start(DESKTOP_START);
+    const shownAlt = async () =>
+      everyElement(await $.ui.render(pane('desktop')))
+        .map((element) => propsOf(element).alt)
+        .find((alt) => typeof alt === 'string' && alt.endsWith('tab is shown'));
+    expect(await shownAlt()).toBe('Trust tab is shown');
+    const writing = ord501At('writing');
+    world.put(
+      SNAPSHOT,
+      fileText({ ...writing, change: { ...(writing.change as object), dir: 'dir-ord-501' } }),
+    );
+    await $.tool.call({ tool: 'Edit', file_path: '/work/a.ts' } as never);
+    expect(await shownAlt()).toBe('High Table tab is shown');
+  });
+
   test('the Ledger Button toggles the Ledger and the flags open it on Trust', async ($, on) => {
     const world = worldOf(on, {
       files: { ...ONBOARDED, [SNAPSHOT]: fileText(QUIET_501) },
@@ -2130,7 +2151,7 @@ describe("the pane's High Table tab", () => {
       expect(colorOf(textElement(drawn, credit))).toBe('warning');
     });
 
-    test(`the Ledger opens on Trust with no pick, and a picked tab holds, on ${surface}`, async ($, on) => {
+    test(`the Ledger brings High Table forward while seats write, and a picked tab holds, on ${surface}`, async ($, on) => {
       worldOf(on, { files: { ...ONBOARDED, [SNAPSHOT]: fileText(ord501At('writing')) } });
       mock.clock(on, { now: NOW });
       await $.session.start(START);
@@ -2141,7 +2162,7 @@ describe("the pane's High Table tab", () => {
         requestId: 'paqad',
         props: pane(surface).props,
       });
-      expect((await mounted.find({ key: 'paqad-tab-trust' }))?.text).toBe('Trust (shown)');
+      expect((await mounted.find({ key: 'paqad-tab-table' }))?.text).toBe('High Table (shown)');
       await mounted.press({ key: 'paqad-tab-cost' });
       expect((await mounted.find({ key: 'paqad-tab-cost' }))?.text).toBe('Cost (shown)');
       await mounted.unmount();

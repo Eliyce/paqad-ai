@@ -16,6 +16,7 @@ import {
   deliveryView,
   ledgerIsLive,
   ledgerSubtitle,
+  ledgerAutoTab,
   ledgerTabs,
   localTime,
   recordView,
@@ -146,6 +147,37 @@ describe('AC-21: a finished stage reads as done', () => {
     expect(JSON.stringify(view.stages)).not.toContain('Recorded');
     const fast = trustView(parse(FAST_ORD_490));
     expect(fast.stages.map((stage) => stage.mark)).toEqual(['✓', null, null]);
+  });
+});
+
+describe('AC-23 (spec): the High Table tab comes forward when the table is the live thing', () => {
+  const sitting = (phase: 'writing' | 'chief' | 'frozen') =>
+    open({ table: ord501Table(phase), stages: stages({ specification: 'running' }) });
+
+  it('brings High Table forward once when a seat writes, then leaves the tab alone', () => {
+    const first = ledgerAutoTab(sitting('writing'), 'trust', null);
+    expect(first.tab).toBe('table');
+    expect(first.sitting).toMatchObject({ forwarded: true, picked: false });
+    const again = ledgerAutoTab(sitting('chief'), 'trust', first.sitting);
+    expect(again.tab).toBeNull();
+  });
+
+  it('never switches once the person picked a tab during the sitting', () => {
+    const start = ledgerAutoTab(sitting('writing'), 'cost', {
+      key: ledgerAutoTab(sitting('writing'), 'cost', null).sitting!.key,
+      forwarded: false,
+      picked: true,
+    });
+    expect(start.tab).toBeNull();
+  });
+
+  it('a quiet table ends the sitting, so the next sitting may come forward again', () => {
+    const done = ledgerAutoTab(sitting('frozen'), 'trust', {
+      key: 'x',
+      forwarded: true,
+      picked: true,
+    });
+    expect(done).toEqual({ tab: null, sitting: null });
   });
 });
 

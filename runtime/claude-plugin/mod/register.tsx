@@ -38,10 +38,12 @@ import {
   bandIsLive,
   buildDesktopBand,
   buildDesktopLedger,
+  ledgerAutoTab,
   ledgerIsLive,
   refusesTaskList,
   taskListSentence,
   type DesktopBand,
+  type TableSitting,
 } from './desktop-view';
 import {
   ORG_ENFORCED,
@@ -164,6 +166,10 @@ const liveAtom = atom({ plugin: 'paqad', key: 'live' } as const, IDLE_LIVE as Li
 const closingAtom = atom({ plugin: 'paqad', key: 'closing' } as const, false as boolean);
 const sidesAtom = atom({ plugin: 'paqad', key: 'tableSides' } as const, false as boolean);
 const paneOpenAtom = atom({ plugin: 'paqad', key: 'paneOpen' } as const, false as boolean);
+const tableSittingAtom = atom(
+  { plugin: 'paqad', key: 'tableSitting' } as const,
+  null as TableSitting | null,
+);
 const greenSeenAtom = atom({ plugin: 'paqad', key: 'greenSeen' } as const, [] as string[]);
 const tableCardsAtom = atom(
   { plugin: 'paqad', key: 'tableCards' } as const,
@@ -273,6 +279,7 @@ async function refresh($: EngineInterface): Promise<void> {
       if (watch.fire && snapshot?.verdict) landVerdict($, snapshot.verdict);
       if (changed) await landAllGreen($, snapshot);
       if (changed) await autoOpenLedger($, snapshot);
+      if (changed) await bringTableForward($, snapshot);
       if (changed || isLive(snapshot) || (await liveState($)).turnStartedAt !== null) {
         const at = await $.clock.now();
         await update($, nowAtom, () => at);
@@ -381,6 +388,7 @@ async function readStatus(
 
 async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
   try {
+    await personPicked($);
     const open = (await read($, paneOpenAtom)) === true;
     const shown = shownTab(await read($, paneTabAtom));
     if (open && shown === tab) {
@@ -395,8 +403,29 @@ async function openPane($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
 }
 
 async function pickTab($: EngineInterface, tab: PaqadPaneTab): Promise<void> {
+  await personPicked($);
   await update($, paneTabAtom, () => tab);
   await update($, paneOpenAtom, () => true);
+}
+
+// A tab the person chose during a High Table sitting stays where they put it.
+async function personPicked($: EngineInterface): Promise<void> {
+  await update($, tableSittingAtom, (sitting) =>
+    sitting ? { ...sitting, picked: true } : sitting,
+  );
+}
+
+async function bringTableForward(
+  $: EngineInterface,
+  snapshot: PaqadHudSnapshot | null,
+): Promise<void> {
+  try {
+    const shown = shownTab(await read($, paneTabAtom));
+    const next = ledgerAutoTab(snapshot, shown, await read($, tableSittingAtom));
+    await update($, tableSittingAtom, () => next.sitting);
+    const tab = next.tab;
+    if (tab) await update($, paneTabAtom, () => tab);
+  } catch {}
 }
 
 async function autoOpenLedger(
