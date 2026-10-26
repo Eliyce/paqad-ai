@@ -116,6 +116,12 @@ export type PaqadHighTable = {
 
 export type PaqadPaneTab = 'table' | 'cost' | 'trust' | 'ships' | 'record';
 
+export type TableSitting = {
+  key: string;
+  forwarded: boolean;
+  picked: boolean;
+};
+
 export type PaqadLastBlock = {
   text: string;
   rule?: string;
@@ -353,6 +359,7 @@ declare module 'claude-code' {
       closing: boolean;
       tableSides: boolean;
       live: LiveState;
+      tableSitting: TableSitting | null;
     };
   }
 }

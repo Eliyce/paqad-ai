@@ -53,6 +53,7 @@ import type {
   PaqadPaneTab,
   PaqadSeat,
   PaqadTimelineEntry,
+  TableSitting,
 } from './types';
 
 export const READY_WORDS = 'Ready';
@@ -539,11 +540,7 @@ export function ledgerTabs(snapshot: PaqadHudSnapshot | null, shown: PaqadPaneTa
   return tabs.map((tab) => ({ ...tab, width, shown: tab.id === picked }));
 }
 
-export interface TableSitting {
-  key: string;
-  forwarded: boolean;
-  picked: boolean;
-}
+export type { TableSitting };
 
 function tableIsLive(snapshot: PaqadHudSnapshot | null): boolean {
   if (!snapshot || !tableSat(snapshot)) return false;
