@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { allGreenKey, bandHeadline } from '../../../../runtime/claude-plugin/mod/band.ts';
+import { IDLE_LIVE } from '../../../../runtime/claude-plugin/mod/live.ts';
 import { buildBandView, parseSnapshot } from '../../../../runtime/claude-plugin/mod/model.ts';
 import { railAlt, shipRail, shipRailSvg } from '../../../../runtime/claude-plugin/mod/ship.ts';
 import {
@@ -101,6 +102,17 @@ describe('the ship rail (FR-15, FR-35)', () => {
     expect(editStep({ stages: stages(buildDone) })).toBe('done');
     expect(editStep({ stages: stages({ checks: 'complete' }) })).toBe('done');
     expect(editStep({ stages: stages({}) })).toBe('todo');
+  });
+
+  it('keeps Edit current while a real edit is in progress, whatever stage it lands in', () => {
+    const editing = { ...IDLE_LIVE, editing: { toolUseId: 'tu', file: '/repo/a.ts' } };
+    const editStep = (over: Raw, live = editing) =>
+      shipRail(parse({ ...FAST_ORD_490, ...over }), live).steps[0]!.state;
+    expect(editStep({ stages: stages({ development: 'complete' }) })).toBe('current');
+    expect(editStep({ stages: stages({ planning: 'running' }) })).toBe('current');
+    expect(editStep({ stages: stages({ specification: 'running' }) })).toBe('current');
+    expect(editStep({ stages: stages({ planning: 'running' }) }, IDLE_LIVE)).toBe('todo');
+    expect(editStep({ stages: stages({ development: 'complete' }) }, IDLE_LIVE)).toBe('done');
   });
 
   it('counts only your commits, then names push, PR and CI as they land', () => {

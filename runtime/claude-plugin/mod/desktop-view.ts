@@ -294,9 +294,9 @@ export interface DeliveryStrip {
   value: string;
 }
 
-function deliveryValue(snapshot: PaqadHudSnapshot): string {
+function deliveryValue(snapshot: PaqadHudSnapshot, live: LiveState): string {
   if (!snapshot.active) return '';
-  const rail = shipRail(snapshot);
+  const rail = shipRail(snapshot, live);
   const plan = snapshot.delivery_plan;
   const ship = snapshot.ship;
   const state = (label: string) => rail.steps.find((step) => step.label === label)?.state;
@@ -319,8 +319,11 @@ function deliveryValue(snapshot: PaqadHudSnapshot): string {
   return '';
 }
 
-export function deliveryStrip(snapshot: PaqadHudSnapshot): DeliveryStrip {
-  const rail = shipRail(snapshot);
+export function deliveryStrip(
+  snapshot: PaqadHudSnapshot,
+  live: LiveState = IDLE_LIVE,
+): DeliveryStrip {
+  const rail = shipRail(snapshot, live);
   const steps = deliverySteps(snapshot).map((label) => ({
     label,
     state: SHIP_STATE[rail.steps.find((step) => step.label === label)?.state ?? 'todo'],
@@ -329,7 +332,7 @@ export function deliveryStrip(snapshot: PaqadHudSnapshot): DeliveryStrip {
   return {
     steps,
     ci: ciRunning && rail.ci ? rail.ci.done / rail.ci.total : null,
-    value: deliveryValue(snapshot),
+    value: deliveryValue(snapshot, live),
   };
 }
 
@@ -341,7 +344,7 @@ export function stripOf(
 ): StripInput {
   const stage = stageStrip(snapshot, live);
   const table = tableStrip(snapshot);
-  const delivery = deliveryStrip(snapshot);
+  const delivery = deliveryStrip(snapshot, live);
   return {
     columns,
     stages: stage.stages,
