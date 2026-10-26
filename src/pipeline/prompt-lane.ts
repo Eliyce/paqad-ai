@@ -2,6 +2,7 @@ import type { ClassificationResult } from '@/core/types/classification.js';
 import type { Lane } from '@/core/types/routing.js';
 import { isBundleClosed } from '@/feature-evidence/adoption.js';
 import { readChangeConstants } from '@/feature-evidence/feature-record.js';
+import { laneRank } from '@/feature-evidence/lane-rank.js';
 import { readSessionControl } from '@/feature-evidence/session-control.js';
 import { readFeatureStageUnit } from '@/feature-evidence/stage-ledger.js';
 import { hasOpenUnendedStage, liveStageAgents } from '@/stage-evidence/completion-deferred.js';
@@ -406,7 +407,7 @@ export async function runPromptRouteSeam(
     isFeatureDevelopmentRoute(routed) && openChange !== null
       ? readChangeConstants(input.projectRoot, openChange).lane
       : null;
-  if (recordedLane !== null) {
+  if (recordedLane !== null && laneRank(recordedLane) >= laneRank(lane)) {
     lane = recordedLane;
     reason = RECORDED_LANE_REASON;
   }

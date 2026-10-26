@@ -1016,17 +1016,17 @@ describe('route truth during a running feature change (hud-live-run-truth)', () 
     rmSync(root, { recursive: true, force: true });
   });
 
-  function runningFullChange(): string {
+  function runningFullChange(lane: 'graduated' | 'full' = 'full'): string {
     const sessionId = resolveSessionId(root, SESSION);
     const dirName = openFeatureChange(root, sessionId, {
       adapter: ADAPTER,
       title: 'running change',
       issue: '700',
-      lane: 'full',
+      lane,
     });
     startStage(root, 'planning', { sessionId, dirName, adapter: ADAPTER });
     writeWorkflowState(root, sessionId, {
-      active: { workflow: 'feature-development', lane: 'full' },
+      active: { workflow: 'feature-development', lane },
       paused: [],
     });
     return sessionId;
@@ -1069,5 +1069,24 @@ describe('route truth during a running feature change (hud-live-run-truth)', () 
     expect(result.narration).toContain('full lane (the lane recorded on this change)');
     expect(result.narration).not.toContain('fast lane');
     expect(readPendingLane(root, sessionId)).toBeNull();
+  });
+
+  it('FR-30: a request that reads higher than the recorded lane keeps the higher lane', async () => {
+    runningFullChange('graduated');
+    const result = await runPromptRouteSeam(
+      {
+        projectRoot: root,
+        request: 'rework the auth flow',
+        sessionId: SESSION,
+        adapter: ADAPTER,
+      },
+      {
+        classify: async () => classificationWith('feature-development'),
+        route: () => ({ lane: 'full' }),
+      },
+    );
+    expect(result.lane).toBe('full');
+    expect(result.narration).toContain('full lane');
+    expect(result.narration).not.toContain('graduated lane');
   });
 });
