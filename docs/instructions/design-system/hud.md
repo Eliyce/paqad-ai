@@ -210,7 +210,10 @@ first match wins. `signal` picks the light's colour; live states breathe and sho
 still draws the identity row with its `Ledger`, `−` and `×` controls, so the Ledger's Trust tab can
 give the reason. A feature route with no change open draws nothing. While a newer turn runs, a
 verdict written before that turn started is skipped (rows 12, 13, 16 and 17), so the running stage
-leads; the verdict words stay as they are in the receipt and the Ledger. A rule stop is never a
+leads. The same holds while a stage runs in a live stage agent of the change: nothing is asked of
+the person, so a verdict written meanwhile never leads over the running stage. A stage left running
+with no live agent still shows its verdict. The verdict words stay as they are in the receipt and
+the Ledger. A rule stop is never a
 row: Claude handles it, and the Trust tab keeps it as history.
 
 A feature change that is running keeps its band and its recorded lane, even when a new prompt
@@ -232,8 +235,8 @@ stage agent runs. Flags appear only after their stage has ended, never while it 
 | 9   | the PR was closed                                                                | caution         | no   | `PR #N was closed`                                                                                        |
 | 10  | CI failed                                                                        | fail            | no   | `CI failed on PR #N`                                                                                      |
 | 11  | the push failed                                                                  | fail            | no   | `The push failed`                                                                                         |
-| 12  | the verdict is fail                                                              | fail            | no   | the failure phrase of the first failing required gate, plus ` and N more`                                 |
-| 13  | the verdict is inconclusive                                                      | caution         | no   | `Inconclusive: <first reason>`                                                                            |
+| 12  | the verdict is fail and a judged required gate of the work failed                | fail            | no   | the failure phrase of the first failing required gate, plus ` and N more`                                 |
+| 13  | the verdict is inconclusive, or fail with no failing gate the Ledger can name    | caution         | no   | `Inconclusive: <first reason>`                                                                            |
 | 14  | CI is running on the change's PR                                                 | accent          | yes  | `Watching CI on PR #N`                                                                                    |
 | 15  | a stage is running                                                               | accent          | yes  | the stage's running words (`Planning the change`, `N of M plan steps built`, `Reviewing the change`, ...) |
 | 16  | the verdict is pass and no PR is open                                            | pass            | no   | `Done` (with a dim `not committed`) or `Committed`                                                        |

@@ -286,7 +286,9 @@ describe('computeHudHeadline', () => {
   });
 
   it('falls back to the overall kind only when work_kind is absent', () => {
-    expect(headline({ verdict: verdict('fail') })).toMatchObject({ row: 12 });
+    expect(
+      headline({ verdict: verdict('fail'), gates: [workGate('code-tests-lint')] }),
+    ).toMatchObject({ row: 12 });
     expect(headline({ verdict: verdict('pass') })).toMatchObject({
       row: 13,
       text: 'Inconclusive: no checks result for this change',
@@ -294,9 +296,62 @@ describe('computeHudHeadline', () => {
   });
 
   it('skips a verdict from an earlier turn only while a newer turn runs a stage', () => {
-    const failed = { verdict: verdict('fail', { work_kind: 'fail' }), verdictEarlier: true };
+    const failed = {
+      verdict: verdict('fail', { work_kind: 'fail' }),
+      gates: [workGate('code-tests-lint')],
+      verdictEarlier: true,
+    };
     expect(headline({ ...failed, stages: [stage('development', 'running')] }).row).toBe(15);
     expect(headline({ ...failed, stages: [stage('development', 'complete')] }).row).toBe(12);
+  });
+
+  it('a running stage leads over any verdict while its stage agent is alive', () => {
+    const failed = { verdict: verdict('fail', { work_kind: 'fail' }), stageAgentLive: true };
+    const building = [stage('planning', 'complete'), stage('development', 'running')];
+    expect(
+      headline({ ...failed, stages: building, plan: { steps: 15, done: 12 } as never }),
+    ).toMatchObject({ row: 15, text: '12 of 15 plan steps built', tone: 'working' });
+    expect(headline({ ...failed, stages: building, verdict: verdict('inconclusive') }).row).toBe(
+      15,
+    );
+    expect(
+      headline({ ...failed, stages: building, verdict: verdict('pass'), checks: 'red' }).row,
+    ).toBe(15);
+    expect(headline({ ...failed, stages: [stage('development', 'complete')] }).row).not.toBe(15);
+  });
+
+  it('a stage left running with no live agent still shows its verdict', () => {
+    const head = headline({
+      verdict: verdict('fail', { work_kind: 'fail' }),
+      gates: [workGate('code-tests-lint')],
+      stages: [stage('development', 'running')],
+      stageAgentLive: false,
+    });
+    expect(head).toMatchObject({ row: 12, text: 'Tests, types or lint failed', tone: 'bad' });
+  });
+
+  it('a fail with no failing gate to name reads Inconclusive, never the bare verdict words', () => {
+    const notJudged = { ...workGate('traceability'), verdict: 'not-judged' as const };
+    const cases = [
+      headline({ verdict: verdict('fail', { work_kind: 'fail' }) }),
+      headline({ verdict: verdict('fail', { work_kind: 'fail' }), gates: [notJudged] }),
+      headline({
+        verdict: verdict('fail', { work_kind: 'fail' }),
+        gates: [workGate('stage-evidence', 'paqad-record')],
+      }),
+    ];
+    for (const head of cases) {
+      expect(head).toMatchObject({ row: 13, text: 'Inconclusive', tone: 'warn' });
+      expect(head.text).not.toContain('Needs your attention');
+    }
+    expect(
+      headline({
+        verdict: verdict('fail', {
+          work_kind: 'fail',
+          work_reasons: ['traceability: AC-3 has no proving test'],
+        }),
+      }),
+    ).toMatchObject({ row: 13, text: 'Inconclusive: traceability: AC-3 has no proving test' });
   });
 
   it('reports an idle session as ready, and a routed one as working', () => {

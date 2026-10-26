@@ -581,7 +581,9 @@ network, and starts no process.
 - **The eight states** (`BAND_STATES`, first match wins): Needs you (`waitingOnHuman`),
   Paused, Ready or Working when no change is in progress, Branch warning, Working (a stage runs),
   then the verdict: Safe to merge, Needs your attention or Inconclusive. A verdict written before
-  the current turn started does not lead while that turn runs. Any open flag turns a good or neutral state amber, and all green turns the band
+  the current turn started does not lead while that turn runs, and no verdict leads while a stage
+  runs in a live stage agent. Needs your attention always names the failing gate; a fail verdict
+  with no failing gate the Ledger can name reads Inconclusive. Any open flag turns a good or neutral state amber, and all green turns the band
   green. The words always say what the colour says.
 - **When it refreshes.** On session start, prompt submit, a finished edit, an Agent call or a
   Bash call that runs `paqad-ai`, once more shortly after a turn ends, and on a short tick

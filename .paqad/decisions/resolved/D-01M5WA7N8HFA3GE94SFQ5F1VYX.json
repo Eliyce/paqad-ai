@@ -1,0 +1,62 @@
+{
+  "id": "D-01M5WA7N8HFA3GE94SFQ5F1VYX",
+  "category": "fix.proof_method",
+  "title": "How should we confirm this problem is fixed?",
+  "context": "This change is a fix that changes behaviour, so paqad wants proof the problem is gone. A test that fails before the fix and passes after it is the strongest proof; pick another method only when no test can reach the problem.",
+  "options": [
+    {
+      "option_key": "failing-test",
+      "label": "Write a test that fails before the fix",
+      "one_line_preview": "If you pick this, a test fails on the old code and passes after the fix, recorded with `paqad-ai fix prove`.",
+      "trade_off": "You give up: nothing for code a test can reach; it needs a runnable test.",
+      "evidence": {}
+    },
+    {
+      "option_key": "human-verification-step",
+      "label": "Use a manual check",
+      "one_line_preview": "If you pick this, a person runs a set check to confirm the fix.",
+      "trade_off": "You give up: a fully automated check.",
+      "evidence": {}
+    },
+    {
+      "option_key": "recorded-baseline-snapshot",
+      "label": "Keep an approved snapshot",
+      "one_line_preview": "If you pick this, we save an approved snapshot and compare later runs to it.",
+      "trade_off": "You give up: free changes without re-approving the snapshot.",
+      "evidence": {}
+    },
+    {
+      "option_key": "measured-threshold",
+      "label": "Use a measured limit",
+      "one_line_preview": "If you pick this, we check a measured value against a set limit.",
+      "trade_off": "You give up: cases the chosen value does not catch.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "failing-test",
+  "created_at": "2026-10-26T14:36:05.266Z",
+  "status": "resolved",
+  "origin": "fix-proof",
+  "change": "01M5WA4JRG225AF033RWE70V1F",
+  "chosen": "failing-test",
+  "rationale": "A headline test fails on the old code and passes after the fix",
+  "resolved_at": "2026-10-26T14:36:23.938Z",
+  "decision_id": "D-01M5WA7N8HFA3GE94SFQ5F1VYX",
+  "fingerprint": "sha256:75028677f2af5f8eeea86c9cc81ce48f0c68ebe32323be51082489b5f1deb522",
+  "question": "How should we confirm this problem is fixed?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-fix-proof",
+  "task_session_id": "01M5WA4JRG225AF033RWE70V1F",
+  "ttl_until": "2026-11-25T14:36:05.266Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "failing-test",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-26T14:36:23.938Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "A headline test fails on the old code and passes after the fix"
+  }
+}

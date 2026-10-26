@@ -1072,8 +1072,20 @@ describe('computeHudHeadline', () => {
     });
     const stages = [stage('planning', 'complete')];
     expect(
-      computeHudHeadline({ ...base, stages, verdict: verdict('fail', 'Needs your attention') })
-        .tone,
+      computeHudHeadline({
+        ...base,
+        stages,
+        verdict: verdict('fail', 'Needs your attention'),
+        gates: [
+          {
+            name: 'code-tests-lint',
+            required: true,
+            strength: 'deterministic',
+            verdict: 'fail',
+            owner: 'work',
+          },
+        ],
+      }).tone,
     ).toBe('bad');
     expect(
       computeHudHeadline({ ...base, stages, verdict: verdict('inconclusive', 'Inconclusive') })
