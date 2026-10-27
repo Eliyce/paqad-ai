@@ -8,15 +8,17 @@ import { ENABLEMENT_VERIFIED_LINE, loadSteps } from './lib/agent-entry-directive
 import { editTargets } from './lib/edit-targets.mjs';
 import {
   agentEntryMarkerRelative,
+  changedFilesLines,
   entryFile,
+  sentinelDetail,
   sentinelRelative,
-  sentinelState,
   stampAgentEntryMarker,
   stampSessionSentinel,
 } from './lib/agent-entry-sentinel.mjs';
 import { agentIdFromStdin, sessionIdFromStdin } from './lib/context-seam-emit.mjs';
 import { gateFailureMessage } from './lib/gate-failure.mjs';
 import {
+  appendHooksLog,
   hookStandsDown,
   isPaqadDisabled,
   parseHookPayload,
@@ -39,6 +41,22 @@ export function isSentinelWrite(input) {
   }
 }
 
+function logId(id) {
+  return typeof id === 'string' && id.trim().length > 0
+    ? id.trim().replace(/[^A-Za-z0-9_-]/g, '_')
+    : 'none';
+}
+
+function changedFilesBlock(files, writeRel) {
+  const noun = files.length === 1 ? 'file' : 'files';
+  return [
+    `[paqad] Blocked: ${files.length} instruction ${noun} changed since you loaded them.`,
+    `[paqad] Read them, then write ${writeRel} and retry:`,
+    ...changedFilesLines(files),
+    '',
+  ].join('\n');
+}
+
 function evaluateEntryGate(input) {
   const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
 
@@ -49,7 +67,8 @@ function evaluateEntryGate(input) {
   const agentId = agentIdFromStdin(input);
   const sessionId = sessionIdFromStdin(input);
 
-  if (sentinelState(projectRoot, process.env, agentId, sessionId) === 'fresh') {
+  const { state, files } = sentinelDetail(projectRoot, process.env, agentId, sessionId);
+  if (state === 'fresh') {
     return 0;
   }
 
@@ -62,9 +81,17 @@ function evaluateEntryGate(input) {
     return 0;
   }
 
+  appendHooksLog(
+    projectRoot,
+    `agent-entry-gate block reason=${state} agent=${logId(agentId || sessionId)} files=${files.length}`,
+  );
   const ef = entryFile();
   const markerRel = agentId ? agentEntryMarkerRelative(agentId) : null;
   const sentinelRel = agentId ? sentinelRelative(undefined) : sentinelRelative(sessionId);
+  if (state === 'stale:docs-instructions') {
+    process.stderr.write(changedFilesBlock(files, markerRel ?? sentinelRel));
+    return 2;
+  }
   const subagentLine = markerRel
     ? [
         `[paqad] You are a paqad stage subagent. After loading, record THIS agent's own load by ` +
