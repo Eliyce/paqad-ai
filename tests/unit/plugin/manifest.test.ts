@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +17,26 @@ import { PLUGIN_MARKETPLACE_REPO } from '@/install/plugin-migration.js';
 import { PLUGIN_MARKETPLACE, PLUGIN_REPO } from '../../../scripts/assemble-plugin.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
+
+const PLUGIN_SKILLS = [
+  'onboard',
+  'join',
+  'dashboard',
+  'start',
+  'discover',
+  'ask',
+  'get-connected',
+  'understand-idea',
+  'ground-in-project',
+  'shape-idea',
+  'decide-together',
+  'write-tickets',
+  'check-tickets',
+  'post-tickets',
+  'refine-ticket',
+  'size-work',
+  'plan-sprint',
+];
 
 function read(rel: string): string {
   return readFileSync(join(repoRoot, rel), 'utf8');
@@ -101,14 +122,34 @@ describe('plugin manifest and marketplace', () => {
     }
   });
 
-  it('ships the onboard, join, and dashboard skills under the declared skills dir', () => {
+  it('AC-3: ships exactly the 17 plugin skills under the declared skills dir', () => {
     const manifest = JSON.parse(read('.claude-plugin/plugin.json')) as { skills: string };
     expect(manifest.skills).toBe('./runtime/claude-plugin/skills');
-    for (const name of ['onboard', 'join', 'dashboard']) {
+    const folders = readdirSync(join(repoRoot, 'runtime', 'claude-plugin', 'skills')).sort();
+    expect(folders).toEqual([...PLUGIN_SKILLS].sort());
+    for (const name of folders) {
+      expect(name.startsWith('paqad')).toBe(false);
       const skill = read(`runtime/claude-plugin/skills/${name}/SKILL.md`);
-      expect(skill).toContain(`name: ${name}`);
+      expect(skill.match(/^name: (.+)$/m)?.[1]).toBe(name);
     }
   });
+
+  it('AC-16: the npm package carries onboard, join and dashboard but no discovery skill', () => {
+    const out = spawnSync('npm', ['pack', '--dry-run', '--json', '--ignore-scripts'], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+      shell: process.platform === 'win32',
+    });
+    expect(out.status).toBe(0);
+    const [pack] = JSON.parse(out.stdout) as { files: { path: string }[] }[];
+    const shipped = new Set(
+      pack!.files
+        .map((file) => file.path.replace(/\\/g, '/'))
+        .filter((path) => path.startsWith('runtime/claude-plugin/skills/'))
+        .map((path) => path.split('/')[3]),
+    );
+    expect([...shipped].sort()).toEqual(['dashboard', 'join', 'onboard']);
+  }, 60_000);
 
   it('keeps no marketplace in this repository and names the plugin repo for the eliyce marketplace', () => {
     expect(existsSync(join(repoRoot, '.claude-plugin', 'marketplace.json'))).toBe(false);

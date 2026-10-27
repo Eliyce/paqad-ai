@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Y65W1PSDN179MV9HYFZBT4",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/claude-plugin/skills",
+  "context": "Chief architect: The three claims are one decision plus two proofs of it. The layout (generated folders committed beside onboard, join and dashboard, served by the existing skills path) is the lead; the drift proof with a deliberate edit and the exact 14-plus-3 count check (no paqad-* folder, no name clash with start) both stay as acceptance tests.\n\nTarget: runtime/claude-plugin/skills\n- application-architect: the 14 generated discovery skill folders are committed here beside onboard, join and dashboard, so the existing skills path in .claude-plugin/plugin.json (./runtime/claude-plugin/skills) serves them with no new plugin layout and no dist-plugin/ tree\n- qa-engineer: Given the committed tree, when node scripts/build-discovery.mjs runs, then git diff --exit-code and the untracked-files check are clean; a hand edit to a generated discovery skill must make the drift check fail (prove once with a deliberate edit).\n- qa-engineer: Count check: exactly 14 discovery skill folders under the new unprefixed names plus onboard, join and dashboard; no folder still named paqad-* and no skill name collision with start.\n\n[expert-conflict-fork:a7cbb13d9eac3373]",
+  "options": [
+    {
+      "option_key": "the-14-generated-discovery-skill-folders",
+      "label": "the 14 generated discovery skill folders are committed here beside onboard, join and dashboard, so the existing skills path in .claude-plugin/plugin.json (./runtime/claude-plugin/skills) serves them with no new plugin layout and no dist-plugin/ tree — application-architect",
+      "one_line_preview": "the 14 generated discovery skill folders are committed here beside onboard, join and dashboard, so the existing skills path in .claude-plugin/plugin.json (./runtime/claude-plugin/skills) serves them with no new plugin layout and no dist-plugin/ tree — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-the-committed-tree-when-node-scrip",
+      "label": "Given the committed tree, when node scripts/build-discovery.mjs runs, then git diff --exit-code and the untracked-files check are clean; a hand edit to a generated discovery skill must make the drift check fail (prove once with a deliberate edit). — qa-engineer",
+      "one_line_preview": "Given the committed tree, when node scripts/build-discovery.mjs runs, then git diff --exit-code and the untracked-files check are clean; a hand edit to a generated discovery skill must make the drift check fail (prove once with a deliberate edit). — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "count-check-exactly-14-discovery-skill-f",
+      "label": "Count check: exactly 14 discovery skill folders under the new unprefixed names plus onboard, join and dashboard; no folder still named paqad-* and no skill name collision with start. — qa-engineer",
+      "one_line_preview": "Count check: exactly 14 discovery skill folders under the new unprefixed names plus onboard, join and dashboard; no folder still named paqad-* and no skill name collision with start. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-14-generated-discovery-skill-folders",
+  "created_at": "2026-10-27T08:03:41.238Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "the-14-generated-discovery-skill-folders",
+  "rationale": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands.",
+  "resolved_at": "2026-10-27T08:37:52.216Z",
+  "decision_id": "D-01M5Y65W1PSDN179MV9HYFZBT4",
+  "fingerprint": "sha256:7ba3923d942d7023dac72ef85f17b12aeadab67159ff84e2aa417bd4f5b653df",
+  "question": "Experts disagree on runtime/claude-plugin/skills",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-26T08:03:41.238Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-14-generated-discovery-skill-folders",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T08:37:52.216Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands."
+  }
+}

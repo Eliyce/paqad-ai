@@ -7,6 +7,7 @@ type Step = {
   uses?: string;
   run?: string;
   if?: string;
+  'working-directory'?: string;
   with?: Record<string, unknown>;
   env?: Record<string, string>;
 };
@@ -14,6 +15,7 @@ type Job = {
   name: string;
   'runs-on': string;
   needs?: string | string[];
+  defaults?: { run?: { 'working-directory'?: string } };
   if?: string;
   env?: Record<string, string>;
   strategy?: { 'fail-fast'?: boolean; matrix: { include: Record<string, string | number>[] } };
@@ -54,8 +56,14 @@ describe('.github/workflows/ci.yml', () => {
     expect(workflow.env.NODE_OPTIONS).toBe('--max-old-space-size=4096');
   });
 
-  it('defines exactly the static, test, merge and gate jobs', () => {
-    expect(Object.keys(jobs).sort()).toEqual(['gate', 'merge', 'static', 'test']);
+  it('AC-19: defines exactly the static, test, merge, discovery-plugin and gate jobs', () => {
+    expect(Object.keys(jobs).sort()).toEqual([
+      'discovery-plugin',
+      'gate',
+      'merge',
+      'static',
+      'test',
+    ]);
   });
 
   describe('static', () => {
@@ -210,6 +218,74 @@ describe('.github/workflows/ci.yml', () => {
     });
   });
 
+  describe('discovery-plugin', () => {
+    const job = jobs['discovery-plugin'];
+    const stepRuns = job.steps.map((step) => step.run ?? '');
+    const indexOf = (text: string) => stepRuns.findIndex((run) => run.includes(text));
+
+    it('AC-19: runs on ubuntu 24.04 (the newest image with a Python 3.9 build) with Python 3.9 and Node 22, inside plugins/discovery, with no pnpm install', () => {
+      expect(job.name).toBe('Discovery plugin');
+      expect(job['runs-on']).toBe('ubuntu-24.04');
+      expect(job.strategy).toBeUndefined();
+      expect(job.defaults?.run?.['working-directory']).toBe('plugins/discovery');
+      const python = job.steps.find((step) => step.uses?.startsWith('actions/setup-python@'));
+      expect(python?.with?.['python-version']).toBe('3.9');
+      expect(stepNamed(job, /^Setup Node/)?.with?.['node-version']).toBe(22);
+      expect(runs(job)).not.toMatch(/pnpm install|npm (ci|install)|corepack/);
+    });
+
+    it('AC-19: runs the unit tests, the five checks, every host build, parity, two builds, the zip, coverage, then the plugin build and the drift check, in that order', () => {
+      const order = [
+        'python build/build.py --dist dist',
+        'python -m unittest discover -s tests/scripts',
+        'python tests/ci/check_forbidden.py --dist dist',
+        'python tests/ci/check_secrets.py',
+        'python tests/ci/check_budget.py --dist dist',
+        'python tests/ci/check_host_verdicts.py',
+        'python tests/ci/check_scenarios.py',
+        'python tests/evals/run_parity.py --dist dist',
+        'diff -r "$RUNNER_TEMP/dist-a" "$RUNNER_TEMP/dist-b"',
+        'cmp "$RUNNER_TEMP/chatgpt-a.zip" "$RUNNER_TEMP/chatgpt-b.zip"',
+        'python -m coverage report --fail-under=90',
+        'node scripts/build-discovery.mjs',
+        'git status --porcelain --untracked-files=all -- runtime/claude-plugin/skills',
+      ];
+      const positions = order.map(indexOf);
+      expect(
+        positions.every((position) => position >= 0),
+        JSON.stringify(positions),
+      ).toBe(true);
+      expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    });
+
+    it('AC-20 AC-21: packs the ChatGPT zip twice, compares the bytes, then runs the submission check', () => {
+      const zip = stepRuns[indexOf('package_chatgpt.py')]!;
+      expect(zip.match(/package_chatgpt\.py/g)).toHaveLength(2);
+      expect(zip.indexOf('cmp ')).toBeLessThan(zip.indexOf('check_chatgpt_submission.py --zip'));
+      const twoBuilds = stepRuns[indexOf('diff -r')]!;
+      expect(twoBuilds.match(/build\/build\.py --dist/g)).toHaveLength(2);
+    });
+
+    it('AC-20: measures branch coverage of the scripts with a pinned coverage', () => {
+      const coverage = stepRuns[indexOf('coverage run')]!;
+      expect(coverage).toContain('pip install "coverage==7.6.1"');
+      expect(coverage).toContain('--branch');
+      expect(coverage).toContain('--source=build,shared/scripts,skills,tests/ci');
+    });
+
+    it('AC-13 AC-19: runs the plugin build and the drift check from the repository root and prints the fix', () => {
+      const build = job.steps[indexOf('node scripts/build-discovery.mjs')]!;
+      const drift = job.steps[indexOf('git status --porcelain')]!;
+      expect(build['working-directory']).toBe('.');
+      expect(drift['working-directory']).toBe('.');
+      expect(drift.run).toContain('echo "$drift"');
+      expect(drift.run).toContain(
+        'Fix: run pnpm build:discovery, then commit runtime/claude-plugin/skills.',
+      );
+      expect(drift.run).toContain('exit 1');
+    });
+  });
+
   describe('gate', () => {
     const job = jobs.gate;
 
@@ -219,9 +295,9 @@ describe('.github/workflows/ci.yml', () => {
       expect(names.sort()).toEqual([...REQUIRED_CHECKS].sort());
     });
 
-    it('always runs, needs static, test and merge, and fails unless all succeeded', () => {
+    it('AC-19: always runs, needs static, test, merge and discovery-plugin, and fails unless all succeeded', () => {
       expect(job.if).toBe('always()');
-      expect(job.needs).toEqual(['static', 'test', 'merge']);
+      expect(job.needs).toEqual(['static', 'test', 'merge', 'discovery-plugin']);
       expect(job['runs-on']).toBe('ubuntu-latest');
       const step = job.steps[0];
       expect(step.env?.NEEDS).toBe('${{ toJSON(needs) }}');

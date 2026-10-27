@@ -1,0 +1,24 @@
+{
+  "_note": "Invented sprint board for testing only. See README.md in this folder. Shaped as fit_sprint.py consumes it: a history block and a candidates_doc block.",
+  "history": {
+    "sprints": [
+      {"id": "Sprint 21", "delivered": 18},
+      {"id": "Sprint 22", "delivered": 24},
+      {"id": "Sprint 23", "delivered": 20}
+    ]
+  },
+  "candidates_doc": {
+    "sprints": [
+      {"id": "Sprint 23", "state": "closed", "settable": true},
+      {"id": "Sprint 24", "state": "future", "settable": true}
+    ],
+    "candidates": [
+      {"ref": "SUB-70", "priority": 1, "size": 5, "checks_pass": true, "dependencies": []},
+      {"ref": "SUB-71", "priority": 2, "size": 8, "checks_pass": true, "dependencies": []},
+      {"ref": "ORD-40", "priority": 3, "size": 3, "checks_pass": true, "dependencies": []},
+      {"ref": "DEX-30", "priority": 4, "size": null, "checks_pass": true, "dependencies": []},
+      {"ref": "DEX-31", "priority": 5, "size": 5, "checks_pass": true,
+       "dependencies": [{"ref": "DEX-50", "done": false, "in_sprint": false}]}
+    ]
+  }
+}

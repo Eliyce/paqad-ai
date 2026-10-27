@@ -26,8 +26,11 @@ env:
 #   test    each OS runs its share of the vitest files (tests/shared/duration-sequencer.ts
 #           balances them by tests/shard-timings.json) and uploads a blob report
 #   merge   each OS merges its own blobs, on that same OS, and enforces the coverage floors
+#   discovery-plugin  the product-owner discovery skills under plugins/discovery: their Python
+#           tests and checks on Python 3.9, every host build, and a check that the skills
+#           committed under runtime/claude-plugin/skills match a fresh build
 #   gate    one job per required check, under the exact names branch protection expects,
-#           red unless static, every test shard and every merge succeeded
+#           red unless static, every test shard, every merge and discovery-plugin succeeded
 #
 # Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
 jobs:
@@ -216,10 +219,96 @@ jobs:
         if: ${{ !cancelled() }}
         run: node scripts/check-shard-budget.mjs --os "Node ${{ matrix.node }} / ${{ matrix.os }}"
 
+  discovery-plugin:
+    name: Discovery plugin
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: plugins/discovery
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # 3.9 is the oldest Python the discovery build and its scripts support.
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+
+      # Only scripts/build-discovery.mjs needs Node here; it uses no dependencies.
+      - name: Setup Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      # Some unit tests read the built dist, so build it before they run.
+      - name: Build every host
+        run: python build/build.py --dist dist
+
+      - name: Unit tests
+        run: python -m unittest discover -s tests/scripts -p "test_*.py"
+
+      - name: Forbidden content in the built dist
+        run: python tests/ci/check_forbidden.py --dist dist
+
+      - name: Secret scan over the discovery source
+        run: python tests/ci/check_secrets.py
+
+      - name: Size budget of the built dist
+        run: python tests/ci/check_budget.py --dist dist
+
+      - name: Host verdicts
+        run: python tests/ci/check_host_verdicts.py
+
+      - name: Scenario coverage
+        run: python tests/ci/check_scenarios.py
+
+      # Structural parity across the host builds. Offline: no network and no model call.
+      - name: Host parity
+        run: python tests/evals/run_parity.py --dist dist
+
+      - name: Two builds are identical
+        run: |
+          python build/build.py --dist "$RUNNER_TEMP/dist-a"
+          python build/build.py --dist "$RUNNER_TEMP/dist-b"
+          diff -r "$RUNNER_TEMP/dist-a" "$RUNNER_TEMP/dist-b"
+
+      - name: ChatGPT zip packs the same twice and passes the submission check
+        run: |
+          python build/package_chatgpt.py --dist dist --out "$RUNNER_TEMP/chatgpt-a.zip"
+          python build/package_chatgpt.py --dist dist --out "$RUNNER_TEMP/chatgpt-b.zip"
+          cmp "$RUNNER_TEMP/chatgpt-a.zip" "$RUNNER_TEMP/chatgpt-b.zip"
+          python build/check_chatgpt_submission.py --zip "$RUNNER_TEMP/chatgpt-a.zip"
+
+      # coverage is a CI-only tool, pinned, and never copied into a build.
+      - name: Branch coverage of the scripts, 90 percent
+        run: |
+          python -m pip install "coverage==7.6.1"
+          python -m coverage run --branch \
+            --source=build,shared/scripts,skills,tests/ci \
+            -m unittest discover -s tests/scripts -p "test_*.py"
+          python -m coverage report --fail-under=90
+
+      - name: Build the plugin skills
+        working-directory: .
+        run: node scripts/build-discovery.mjs
+
+      - name: Committed plugin skills match the discovery source
+        working-directory: .
+        run: |
+          drift="$(git status --porcelain --untracked-files=all -- runtime/claude-plugin/skills)"
+          if [ -n "$drift" ]; then
+            echo "::error::runtime/claude-plugin/skills differs from a fresh build of plugins/discovery."
+            echo "$drift"
+            echo "Fix: run pnpm build:discovery, then commit runtime/claude-plugin/skills."
+            exit 1
+          fi
+          echo "runtime/claude-plugin/skills matches a fresh build of plugins/discovery."
+
   gate:
     # These four names are the required status checks in branch protection. Keep them exact.
     name: Node ${{ matrix.node }} / ${{ matrix.os }}
-    needs: [static, test, merge]
+    needs: [static, test, merge, discovery-plugin]
     # Always runs: a job skipped because a dependency failed would count as passing, so the
     # gate runs anyway and fails unless every job it needs succeeded. GitHub reports a matrix
     # job's result as one value for all its legs, so a failing shard on any OS turns all four
@@ -235,7 +324,7 @@ jobs:
           - { os: macos-latest, node: 22 }
           - { os: windows-latest, node: 22 }
     steps:
-      - name: Require static checks, every test shard and every merge to pass
+      - name: Require static checks, every test shard, every merge and the discovery plugin to pass
         env:
           NEEDS: ${{ toJSON(needs) }}
         run: |

@@ -1,0 +1,48 @@
+{
+  "id": "D-01M5Y65W1N03CHMDBJ8X3BNNRJ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on runtime/claude-plugin/skills generated folders",
+  "context": "Chief architect: Both hold; keep both. The drift guard is the lead because it is the only thing that stops the committed copy and the source drifting, and it only guards if the gate job requires it. Self-contained skill folders (application-architect 8) remain a must and are proven by the PLG-10 check in build.py.\n\nTarget: runtime/claude-plugin/skills generated folders\n- integration-architect: the committed generated skills drift from plugins/discovery source when someone edits one side only; the discovery-plugin CI job's rebuild plus git diff --exit-code (including untracked files) is the only guard and the gate job must require it\n- application-architect: each generated skill folder is self-contained (its shared references and scripts copied in by build.py, PLG-10) and never reads from plugins/discovery/ at run time, since plugins/ is not in the published plugin or npm package\n\n[expert-conflict-fork:3a723d416015f782]",
+  "options": [
+    {
+      "option_key": "the-committed-generated-skills-drift-fro",
+      "label": "the committed generated skills drift from plugins/discovery source when someone edits one side only; the discovery-plugin CI job's rebuild plus git diff --exit-code (including untracked files) is the only guard and the gate job must require it — integration-architect",
+      "one_line_preview": "the committed generated skills drift from plugins/discovery source when someone edits one side only; the discovery-plugin CI job's rebuild plus git diff --exit-code (including untracked files) is the only guard and the gate job must require it — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "each-generated-skill-folder-is-self-cont",
+      "label": "each generated skill folder is self-contained (its shared references and scripts copied in by build.py, PLG-10) and never reads from plugins/discovery/ at run time, since plugins/ is not in the published plugin or npm package — application-architect",
+      "one_line_preview": "each generated skill folder is self-contained (its shared references and scripts copied in by build.py, PLG-10) and never reads from plugins/discovery/ at run time, since plugins/ is not in the published plugin or npm package — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-committed-generated-skills-drift-fro",
+  "created_at": "2026-10-27T08:03:41.237Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "the-committed-generated-skills-drift-fro",
+  "rationale": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands.",
+  "resolved_at": "2026-10-27T08:37:51.479Z",
+  "decision_id": "D-01M5Y65W1N03CHMDBJ8X3BNNRJ",
+  "fingerprint": "sha256:3039cdd659789afbfb3a5ef70239063dbced10b77797a74a18b3f1c7a8e3d7af",
+  "question": "Experts disagree on runtime/claude-plugin/skills generated folders",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-26T08:03:41.237Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "the-committed-generated-skills-drift-fro",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T08:37:51.479Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands."
+  }
+}

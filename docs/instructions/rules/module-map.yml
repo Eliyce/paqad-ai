@@ -3247,6 +3247,43 @@ modules:
         - prefixRepositoryPath
         - resolveCapabilityDirectories
 
+  - slug: claude-plugin
+    name: Claude Plugin (paqad plugin for Claude Code, Cowork and claude.ai chat)
+    layer: agent-workflows
+    confidence: medium
+    summary: |
+      The one `paqad` Claude plugin: its generated manifest, hooks file and
+      stage agents, the HUD mod, the bundled launcher, the developer skills
+      (onboard, join, dashboard) and the product-owner discovery skills built
+      from plugins/discovery, plus the scripts that assemble, validate and
+      test the plugin tree that release pushes to Eliyce/paqad-claude-plugin.
+    sources:
+      - src/plugin
+      - runtime/claude-plugin
+      - plugins/discovery
+      - scripts/assemble-plugin.mjs
+      - scripts/build-plugin-manifest.mjs
+      - scripts/validate-plugin.mjs
+      - scripts/test-plugin.mjs
+      - scripts/build-discovery.mjs
+      - scripts/check-plugin-skills.mjs
+    features:
+      - slug: plugin-manifest
+        name: Generated plugin manifest, hooks file and stage agents
+        sources: [src/plugin/manifest-build.ts, scripts/build-plugin-manifest.mjs]
+      - slug: plugin-assembly
+        name: Plugin assembly, validation and tests
+        sources: [scripts/assemble-plugin.mjs, scripts/validate-plugin.mjs, scripts/test-plugin.mjs]
+      - slug: plugin-runtime
+        name: Plugin runtime (hooks.json, agents, bin launcher, HUD mod)
+        sources: [runtime/claude-plugin/hooks.json, runtime/claude-plugin/agents, runtime/claude-plugin/bin, runtime/claude-plugin/mod]
+      - slug: plugin-skills
+        name: Plugin skills (developer skills and generated discovery skills)
+        sources: [runtime/claude-plugin/skills, scripts/check-plugin-skills.mjs]
+      - slug: discovery-skills
+        name: Product-owner discovery skills source and Python build
+        sources: [plugins/discovery, scripts/build-discovery.mjs]
+
 lowConfidenceModules:
   - root-cause-analysis-workflow
   - agent-routing

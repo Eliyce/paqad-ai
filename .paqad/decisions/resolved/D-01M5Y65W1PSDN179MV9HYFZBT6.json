@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Y65W1PSDN179MV9HYFZBT6",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on scripts/check-plugin-skills.mjs",
+  "context": "Chief architect: No disagreement: these are three test cases for one checker. The full negative list is the lead because it covers every way a label or key can be wrong; the argument-hint fixture (named in the issue's acceptance criteria) and the all-six-keys positive case stay alongside it.\n\nTarget: scripts/check-plugin-skills.mjs\n- qa-engineer: Given a fixture SKILL.md with an argument-hint key, when pnpm run plugin:validate runs, then it exits non-zero and the message names the file and the key; proof: unit test with a temp fixture dir.\n- qa-engineer: Negative cases each need their own fixture and failing assertion: description with no prefix, prefix in wrong case or missing trailing space, 'Claude Code: ' paired with the chat compatibility value (and the reverse), compatibility text off by one character, unparseable or missing front matter, and a bin/ folder at the plugin root.\n- qa-engineer: Positive boundary: a skill using all six allowed keys (name, description, license, compatibility, metadata, allowed-tools) passes, so the checker is proven not to over-block.\n\n[expert-conflict-fork:6a24db6c428e9f6e]",
+  "options": [
+    {
+      "option_key": "given-a-fixture-skill-md-with-an-argumen",
+      "label": "Given a fixture SKILL.md with an argument-hint key, when pnpm run plugin:validate runs, then it exits non-zero and the message names the file and the key; proof: unit test with a temp fixture dir. — qa-engineer",
+      "one_line_preview": "Given a fixture SKILL.md with an argument-hint key, when pnpm run plugin:validate runs, then it exits non-zero and the message names the file and the key; proof: unit test with a temp fixture dir. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "negative-cases-each-need-their-own-fixtu",
+      "label": "Negative cases each need their own fixture and failing assertion: description with no prefix, prefix in wrong case or missing trailing space, 'Claude Code: ' paired with the chat compatibility value (and the reverse), compatibility text off by one character, unparseable or missing front matter, and a bin/ folder at the plugin root. — qa-engineer",
+      "one_line_preview": "Negative cases each need their own fixture and failing assertion: description with no prefix, prefix in wrong case or missing trailing space, 'Claude Code: ' paired with the chat compatibility value (and the reverse), compatibility text off by one character, unparseable or missing front matter, and a bin/ folder at the plugin root. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "positive-boundary-a-skill-using-all-six-",
+      "label": "Positive boundary: a skill using all six allowed keys (name, description, license, compatibility, metadata, allowed-tools) passes, so the checker is proven not to over-block. — qa-engineer",
+      "one_line_preview": "Positive boundary: a skill using all six allowed keys (name, description, license, compatibility, metadata, allowed-tools) passes, so the checker is proven not to over-block. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "negative-cases-each-need-their-own-fixtu",
+  "created_at": "2026-10-27T08:03:41.238Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "negative-cases-each-need-their-own-fixtu",
+  "rationale": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands.",
+  "resolved_at": "2026-10-27T08:37:53.513Z",
+  "decision_id": "D-01M5Y65W1PSDN179MV9HYFZBT6",
+  "fingerprint": "sha256:050d07e70e1253f7d6751a885d05c8e906bb082143d0c042d12471abf0bfbb08",
+  "question": "Experts disagree on scripts/check-plugin-skills.mjs",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-26T08:03:41.238Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "negative-cases-each-need-their-own-fixtu",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T08:37:53.513Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands."
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Y65W1N03CHMDBJ8X3BNNRH",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on ChatGPT, ChatGPT directory and Codex packages",
+  "context": "Chief architect: This is the one real disagreement. The integration-architect wording lets the non-Claude packages change skill names; the issue (Phase 2.4) and the settled scope say they keep today's names and content apart from the version. So the non-Claude hosts build with --publish-prefix paqad and --host-labels strip, and the double build diff plus check_chatgpt_submission prove only the version moved.\n\nTarget: ChatGPT, ChatGPT directory and Codex packages\n- integration-architect: with --host-labels strip as default and only the version changing, the three non-Claude packages stay byte-identical to today apart from the version and the skill names; the CI-8 double build diff and check_chatgpt_submission prove it\n- product-owner: these packages keep today's names and vendor-neutral content apart from the version number; the Claude-only labels must not leak into them (host labels stripped by default)\n\n[expert-conflict-fork:4ef439853249a4ff]",
+  "options": [
+    {
+      "option_key": "with-host-labels-strip-as-default-and-on",
+      "label": "with --host-labels strip as default and only the version changing, the three non-Claude packages stay byte-identical to today apart from the version and the skill names; the CI-8 double build diff and check_chatgpt_submission prove it — integration-architect",
+      "one_line_preview": "with --host-labels strip as default and only the version changing, the three non-Claude packages stay byte-identical to today apart from the version and the skill names; the CI-8 double build diff and check_chatgpt_submission prove it — integration-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "these-packages-keep-today-s-names-and-ve",
+      "label": "these packages keep today's names and vendor-neutral content apart from the version number; the Claude-only labels must not leak into them (host labels stripped by default) — product-owner",
+      "one_line_preview": "these packages keep today's names and vendor-neutral content apart from the version number; the Claude-only labels must not leak into them (host labels stripped by default) — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Short names everywhere: nothing is published yet, so the ChatGPT, ChatGPT directory and Codex packages also drop the paqad- prefix (front door becomes start) for good; Claude-only labels are still stripped from them",
+      "one_line_preview": "Short names everywhere: nothing is published yet, so the ChatGPT, ChatGPT directory and Codex packages also drop the paqad- prefix (front door becomes start) for good; Claude-only labels are still stripped from them",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "these-packages-keep-today-s-names-and-ve",
+  "created_at": "2026-10-27T08:03:41.237Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "other",
+  "rationale": "Haider: nothing is published yet, so change for good, short names.",
+  "resolved_at": "2026-10-27T08:37:38.878Z",
+  "decision_id": "D-01M5Y65W1N03CHMDBJ8X3BNNRH",
+  "fingerprint": "sha256:a1f83a579ec0c46334400d3a9013e33d9f385172718a37b28f173e3365e930c8",
+  "question": "Experts disagree on ChatGPT, ChatGPT directory and Codex packages",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-26T08:03:41.237Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T08:37:38.878Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider: nothing is published yet, so change for good, short names."
+  }
+}

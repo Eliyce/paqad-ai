@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Y65W1KZB4K0J3CRB18KPM5",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new discovery-plugin job in .github/workflows/ci.yml",
+  "context": "Chief architect: The three claims do not contradict; keep all three. Pinning 3.9 is the lead because 3.9 is the floor the chat sandbox scripts promise and the job must test that floor, with no model use. The gate job also adds discovery-plugin to its needs (devops 1), and the 3.9 end-of-life risk is recorded as debt rather than solved here (devops 3).\n\nTarget: new discovery-plugin job in .github/workflows/ci.yml\n- devops-engineer: The gate job's needs list must add discovery-plugin so a red or skipped Python job turns all four required Node checks red; the job itself is not a new required status check name.\n- devops-engineer: Pin Python with actions/setup-python to 3.9 and run no model-calling step there; run_parity.py stays offline and structural, the weekly eval workflow owns anything that spends usage.\n- devops-engineer: Python 3.9 is past end of life; setup-python on ubuntu-latest may drop prebuilt 3.9, so pin the runner image or accept a scheduled failure and record the 3.9 floor as debt.\n\n[expert-conflict-fork:37f8814b5b19e143]",
+  "options": [
+    {
+      "option_key": "the-gate-job-s-needs-list-must-add-disco",
+      "label": "The gate job's needs list must add discovery-plugin so a red or skipped Python job turns all four required Node checks red; the job itself is not a new required status check name. — devops-engineer",
+      "one_line_preview": "The gate job's needs list must add discovery-plugin so a red or skipped Python job turns all four required Node checks red; the job itself is not a new required status check name. — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "pin-python-with-actions-setup-python-to-",
+      "label": "Pin Python with actions/setup-python to 3.9 and run no model-calling step there; run_parity.py stays offline and structural, the weekly eval workflow owns anything that spends usage. — devops-engineer",
+      "one_line_preview": "Pin Python with actions/setup-python to 3.9 and run no model-calling step there; run_parity.py stays offline and structural, the weekly eval workflow owns anything that spends usage. — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "python-3-9-is-past-end-of-life-setup-pyt",
+      "label": "Python 3.9 is past end of life; setup-python on ubuntu-latest may drop prebuilt 3.9, so pin the runner image or accept a scheduled failure and record the 3.9 floor as debt. — devops-engineer",
+      "one_line_preview": "Python 3.9 is past end of life; setup-python on ubuntu-latest may drop prebuilt 3.9, so pin the runner image or accept a scheduled failure and record the 3.9 floor as debt. — devops-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "pin-python-with-actions-setup-python-to-",
+  "created_at": "2026-10-27T08:03:41.235Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "pin-python-with-actions-setup-python-to-",
+  "rationale": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands.",
+  "resolved_at": "2026-10-27T08:37:50.235Z",
+  "decision_id": "D-01M5Y65W1KZB4K0J3CRB18KPM5",
+  "fingerprint": "sha256:8a18551ffbf989b7957d4e20599cc44b5c242aa5e9b62843af41b3d4bf8a7b76",
+  "question": "Experts disagree on new discovery-plugin job in .github/workflows/ci.yml",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-26T08:03:41.235Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "pin-python-with-actions-setup-python-to-",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T08:37:50.235Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands."
+  }
+}

@@ -14,6 +14,7 @@ export default tseslint.config(
       'docs/slides/**',
       'evals/fixture/**',
       'graph-ui/**',
+      'plugins/**',
       'runtime/graph-ui/**',
     ],
   },

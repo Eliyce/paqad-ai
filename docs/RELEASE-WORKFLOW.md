@@ -205,8 +205,9 @@ CI splits the test run so no OS has to run the whole suite in one job. Four kind
 - **Merge** runs once per OS, on that same OS. It checks every shard sent a report, merges
   them, and enforces the coverage floors on the whole result. It then runs
   `scripts/check-shard-budget.mjs`.
+- **Discovery plugin** runs once on ubuntu. See below.
 - **Gate** jobs carry the four required check names (`Node 22 / ubuntu-latest` and so on).
-  Each is red unless static, every shard and every merge succeeded, so a failing shard on any
+  Each is red unless static, every shard, every merge and the discovery plugin job succeeded, so a failing shard on any
   OS turns all four gates red. Look for the red `Shard i/n` job to find the failure.
 
 Local `pnpm run ci` is unchanged: one unsharded run with the coverage floors.
@@ -228,6 +229,18 @@ If refreshing is not enough, add one shard for that OS in `.github/workflows/ci.
 the `test` matrix and the `merge` job's `total`). A single file over budget needs splitting,
 the way the onboarding matrix was split into `tests/unit/onboarding/matrix.g1.test.ts` to
 `matrix.g5.test.ts`.
+
+### Discovery plugin job
+
+The `discovery-plugin` job in `ci.yml` tests the product-owner skills under `plugins/discovery`
+on Python 3.9: it builds every host, runs the unit tests, the content, secret, size and parity
+checks, and checks two builds are identical. Last, it runs `node scripts/build-discovery.mjs`
+and fails if `runtime/claude-plugin/skills` then differs from what is committed.
+
+Run `pnpm build:discovery` and commit `runtime/claude-plugin/skills` whenever you change a
+discovery skill or anything it imports. The skills take their version from the root
+`package.json`, and a version bump alone causes no drift, so a release needs no rebuild. More
+in [the claude-plugin module doc](modules/claude-plugin/index/summary.md).
 
 ### Plugin eval benchmark
 

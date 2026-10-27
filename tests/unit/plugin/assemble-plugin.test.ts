@@ -1,5 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -146,6 +147,70 @@ describe('scripts/assemble-plugin.mjs', () => {
     };
     walk(outDir);
     expect(offenders).toEqual([]);
+  });
+
+  it('AC-17 AC-18: ships all 17 skills with their references and scripts, under 5,000 files and 200 MB', () => {
+    let repoRoot = resolve('.');
+    const versionOf = (rel: string) =>
+      (JSON.parse(readFileSync(join(repoRoot, rel), 'utf8')) as { version: string }).version;
+    const built =
+      existsSync(join(repoRoot, 'dist/cli/index.js')) &&
+      versionOf('package.json') === versionOf('.claude-plugin/plugin.json');
+    if (!built) {
+      repoRoot = builtRepo();
+      rmSync(join(repoRoot, 'runtime'), { recursive: true });
+      cpSync(resolve('runtime'), join(repoRoot, 'runtime'), { recursive: true });
+    }
+    const outDir = join(tempDir('paqad-assemble-skills-'), 'plugin');
+    assemblePlugin({ repoRoot, outDir });
+    const skills = join(outDir, 'runtime/claude-plugin/skills');
+    expect(readdirSync(skills).sort()).toEqual(
+      [
+        'ask',
+        'check-tickets',
+        'dashboard',
+        'decide-together',
+        'discover',
+        'get-connected',
+        'ground-in-project',
+        'join',
+        'onboard',
+        'plan-sprint',
+        'post-tickets',
+        'refine-ticket',
+        'shape-idea',
+        'size-work',
+        'start',
+        'understand-idea',
+        'write-tickets',
+      ].sort(),
+    );
+    for (const rel of [
+      'ask/references/voice.md',
+      'ask/scripts/check_onboarded.py',
+      'discover/references/journey.md',
+      'discover/assets/record-template.md',
+      'write-tickets/assets/ticket-set.schema.json',
+      'refine-ticket/scripts/check_readback.py',
+      'start/SKILL.md',
+    ]) {
+      expect(existsSync(join(skills, rel)), rel).toBe(true);
+    }
+    let files = 0;
+    let bytes = 0;
+    const walk = (dir: string): void => {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const full = join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else {
+          files += 1;
+          bytes += statSync(full).size;
+        }
+      }
+    };
+    walk(outDir);
+    expect(files).toBeLessThan(5000);
+    expect(bytes).toBeLessThan(200 * 1024 * 1024);
   });
 
   it('keeps the clone history and removes everything an older publish left', () => {

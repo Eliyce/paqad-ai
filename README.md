@@ -64,6 +64,21 @@ Then use it:
 - `/paqad:onboard` if you are setting the project up for your team (the lead).
 - `/paqad:join` if the project is already onboarded and you are setting up your own machine.
 
+<details>
+<summary>All the skills in the plugin</summary>
+
+- For developers: `/paqad:onboard`, `/paqad:join`, `/paqad:dashboard`.
+- For product owners (these also work in claude.ai chat and Cowork): `/paqad:start` is the one
+  place to begin. It routes to `/paqad:ask`, `/paqad:discover`, `/paqad:refine-ticket`,
+  `/paqad:size-work` and `/paqad:plan-sprint`. The idea journey uses the step skills
+  `/paqad:get-connected`, `/paqad:understand-idea`, `/paqad:ground-in-project`,
+  `/paqad:shape-idea`, `/paqad:decide-together`, `/paqad:write-tickets`, `/paqad:check-tickets`
+  and `/paqad:post-tickets` on its own.
+
+The product owner skills ship only in the plugin, not in the npm package.
+
+</details>
+
 A few things worth knowing:
 
 - This is Claude Code only. If you also use Codex, Gemini, Cursor, or another tool on the same project, keep the npm package (`npm install -g paqad-ai`) so those tools stay wired. Removing npm is fine when Claude Code is the only tool you use here. When both are installed, only one of them runs its hooks in a session, so nothing runs twice.

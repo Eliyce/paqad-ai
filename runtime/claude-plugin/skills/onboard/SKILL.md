@@ -1,9 +1,12 @@
 ---
 name: onboard
-description: Set up paqad in this project so it enforces your team's rules at edit time and records evidence for every change. Use when the project has not been onboarded yet, or when the lead wants to (re)configure the stack, capabilities, providers, or RAG.
+description: "Claude Code: Set up paqad in this project so it enforces your team's rules at edit time and records evidence for every change. Use when the project has not been onboarded yet, or when the lead wants to (re)configure the stack, capabilities, providers, or RAG."
+compatibility: 'Claude Code with a project folder open (needs a shell)'
 ---
 
 # Onboard this project with paqad
+
+First check where you are running. If there is no shell and no project folder open, reply in one sentence that this works in Claude Code with a project folder open, and stop. Otherwise carry on with the steps below and do not mention this check.
 
 You are the project lead setting paqad up for the whole team.
 
