@@ -223,9 +223,9 @@ describe('.github/workflows/ci.yml', () => {
     const stepRuns = job.steps.map((step) => step.run ?? '');
     const indexOf = (text: string) => stepRuns.findIndex((run) => run.includes(text));
 
-    it('AC-19: runs on ubuntu with Python 3.9 and Node 22, inside plugins/discovery, with no pnpm install', () => {
+    it('AC-19: runs on ubuntu 24.04 (the newest image with a Python 3.9 build) with Python 3.9 and Node 22, inside plugins/discovery, with no pnpm install', () => {
       expect(job.name).toBe('Discovery plugin');
-      expect(job['runs-on']).toBe('ubuntu-latest');
+      expect(job['runs-on']).toBe('ubuntu-24.04');
       expect(job.strategy).toBeUndefined();
       expect(job.defaults?.run?.['working-directory']).toBe('plugins/discovery');
       const python = job.steps.find((step) => step.uses?.startsWith('actions/setup-python@'));

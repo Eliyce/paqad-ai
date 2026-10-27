@@ -21,6 +21,6 @@ closed_reason: null
 
 ## What
 
-The discovery-plugin CI job pins Python 3.9 because 3.9 is the oldest Python the discovery build and its scripts support. Python 3.9 reached end of life in October 2025, so actions/setup-python may stop offering it on a future ubuntu runner, and the job would then fail for reasons unrelated to the change under test.
+The discovery-plugin CI job pins Python 3.9 because 3.9 is the oldest Python the discovery build and its scripts support. Python 3.9 reached end of life in October 2025, and actions/setup-python already has no 3.9 build for ubuntu-latest (Ubuntu 26.04), so the job is pinned to ubuntu-24.04, the newest image that still has one. When 24.04 is retired the job fails for reasons unrelated to the change under test.
 
 When that happens, or earlier by choice, raise the floor: pick the oldest supported Python, change the setup-python version in the discovery-plugin job, the minimum in scripts/build-discovery.mjs (MIN_PYTHON) and its one-line message, and the "Python 3.9+" notes in plugins/discovery.
