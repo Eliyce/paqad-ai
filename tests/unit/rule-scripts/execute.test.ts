@@ -1,10 +1,16 @@
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { executeRuleScript, isOnPath, missingBinaries } from '@/rule-scripts/execute.js';
+import {
+  executeRuleScript,
+  executeRuleScriptAsync,
+  isOnPath,
+  missingBinaries,
+  SCRIPT_ABORTED_ERROR,
+} from '@/rule-scripts/execute.js';
 
 const VALID = JSON.stringify({ rule_id: 'RL-00a1', kind: 'deterministic', findings: [] });
 
@@ -112,6 +118,86 @@ describe('executeRuleScript', () => {
       ok: false,
       error: 'script killed by signal SIGKILL',
     });
+  });
+});
+
+describe('executeRuleScriptAsync', () => {
+  let dir: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), 'paqad-rule-exec-async-'));
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  function script(name: string, body: string): string {
+    const path = join(dir, `${name}.cjs`);
+    writeFileSync(path, body);
+    return path;
+  }
+
+  const payload = { projectRoot: '/repo', files: ['src/a.ts'] };
+
+  it('passes the payload on stdin and returns the same report as the sync executor', async () => {
+    const path = script(
+      'echo',
+      `let input='';process.stdin.on('data',(c)=>input+=c);process.stdin.on('end',()=>{const p=JSON.parse(input);process.stdout.write(JSON.stringify({rule_id:'RL-00a1',kind:'heuristic',findings:[{file:p.files[0],message:'m',severity:'low'}]}));process.stderr.write('note');});`,
+    );
+    const result = await executeRuleScriptAsync(path, payload);
+    expect(result).toEqual(executeRuleScript(path, payload));
+    expect(result).toMatchObject({ ok: true, warning: 'note' });
+  });
+
+  it('AC-22: a crash, a timeout and over 16 MB of output give the sync ExecuteResult', async () => {
+    const crash = script('crash', "throw new Error('kaboom');");
+    const spin = script('spin', 'for(;;){}');
+    const flood = script('flood', "process.stdout.write('x'.repeat(17 * 1024 * 1024));");
+    const cases: Array<[string, number]> = [
+      [crash, 30_000],
+      [spin, 200],
+      [flood, 30_000],
+    ];
+    for (const [path, timeoutMs] of cases) {
+      const sync = executeRuleScript(path, payload, timeoutMs);
+      expect(sync.ok).toBe(false);
+      expect(await executeRuleScriptAsync(path, payload, { timeoutMs })).toEqual(sync);
+    }
+    expect(executeRuleScript(spin, payload, 200).error).toBe('script timed out after 200ms');
+  });
+
+  it('gives the same verdict for bad schema, bad JSON and a non-zero exit', async () => {
+    const bodies = [
+      `process.stdout.write('{"rule_id":1}');`,
+      `process.stdout.write('{"rule_id":1}');process.stderr.write('boom');process.exitCode=2;`,
+      `process.stdout.write('hello');`,
+      `process.stdout.write('hello');process.exitCode=4;`,
+    ];
+    for (const [index, body] of bodies.entries()) {
+      const path = script(`verdict-${index}`, body);
+      expect(await executeRuleScriptAsync(path, payload)).toEqual(executeRuleScript(path, payload));
+    }
+  });
+
+  it('kills a running script when its signal aborts and reports the stop', async () => {
+    const spin = script('spin-abort', 'for(;;){}');
+    const controller = new AbortController();
+    const pending = executeRuleScriptAsync(spin, payload, { signal: controller.signal });
+    setTimeout(() => controller.abort(), 50);
+    expect(await pending).toEqual({ ok: false, error: SCRIPT_ABORTED_ERROR });
+  });
+
+  it('does not start a script when the signal has already aborted', async () => {
+    const marker = join(dir, 'ran.txt');
+    const path = script('never', `require('fs').writeFileSync(${JSON.stringify(marker)}, 'x');`);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await executeRuleScriptAsync(path, payload, { signal: controller.signal })).toEqual({
+      ok: false,
+      error: SCRIPT_ABORTED_ERROR,
+    });
+    expect(existsSync(marker)).toBe(false);
   });
 });
 

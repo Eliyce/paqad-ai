@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { accessSync, constants, statSync } from 'node:fs';
 import { delimiter, join } from 'node:path';
 
@@ -30,6 +30,17 @@ export interface ExecuteResult {
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
+const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
+
+export const SCRIPT_ABORTED_ERROR = 'script stopped: the rule gate ran out of time';
+
+interface ProcessOutcome {
+  error?: { code?: string; message: string };
+  signal: NodeJS.Signals | null;
+  status: number | null;
+  stdout: string;
+  stderr: string;
+}
 
 export function executeRuleScript(
   scriptPath: string,
@@ -40,12 +51,107 @@ export function executeRuleScript(
     input: JSON.stringify(payload),
     encoding: 'utf8',
     timeout: timeoutMs,
-    maxBuffer: 16 * 1024 * 1024,
+    maxBuffer: MAX_OUTPUT_BYTES,
   });
+  const error = proc.error as NodeJS.ErrnoException | undefined;
+  return interpretOutcome(
+    {
+      ...(error ? { error: { code: error.code, message: error.message } } : {}),
+      signal: proc.signal,
+      status: proc.status,
+      stdout: proc.stdout,
+      stderr: proc.stderr,
+    },
+    timeoutMs,
+  );
+}
 
+export interface ExecuteAsyncOptions {
+  timeoutMs?: number;
+  signal?: AbortSignal;
+}
+
+export function executeRuleScriptAsync(
+  scriptPath: string,
+  payload: ExecutePayload,
+  options: ExecuteAsyncOptions = {},
+): Promise<ExecuteResult> {
+  const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  if (options.signal?.aborted) {
+    return Promise.resolve({ ok: false, error: SCRIPT_ABORTED_ERROR });
+  }
+  return new Promise((resolve) => {
+    const child = spawn('node', [scriptPath], { stdio: ['pipe', 'pipe', 'pipe'] });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    const sizes = { stdout: 0, stderr: 0 };
+    let forced: ProcessOutcome['error'];
+    let aborted = false;
+    let settled = false;
+
+    const stop = (error: ProcessOutcome['error']): void => {
+      if (forced || aborted) return;
+      forced = error;
+      child.kill('SIGTERM');
+    };
+    const timer = setTimeout(
+      () => stop({ code: 'ETIMEDOUT', message: 'spawn node ETIMEDOUT' }),
+      timeoutMs,
+    );
+    const onAbort = (): void => {
+      aborted = true;
+      child.kill('SIGKILL');
+    };
+    options.signal?.addEventListener('abort', onAbort, { once: true });
+
+    const collect = (stream: 'stdout' | 'stderr', sink: Buffer[]) => (chunk: Buffer) => {
+      sizes[stream] += chunk.length;
+      sink.push(chunk);
+      if (sizes[stream] > MAX_OUTPUT_BYTES) {
+        stop({ code: 'ENOBUFS', message: 'spawn node ENOBUFS' });
+      }
+    };
+    child.stdout.on('data', collect('stdout', stdout));
+    child.stderr.on('data', collect('stderr', stderr));
+
+    const finish = (outcome: ProcessOutcome): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      options.signal?.removeEventListener('abort', onAbort);
+      resolve(
+        aborted ? { ok: false, error: SCRIPT_ABORTED_ERROR } : interpretOutcome(outcome, timeoutMs),
+      );
+    };
+
+    child.on('error', (error: NodeJS.ErrnoException) => {
+      finish({
+        error: { code: error.code, message: error.message },
+        signal: null,
+        status: null,
+        stdout: '',
+        stderr: '',
+      });
+    });
+    child.on('close', (status, signal) => {
+      finish({
+        ...(forced ? { error: forced } : {}),
+        signal: forced ? 'SIGTERM' : signal,
+        status: forced ? null : status,
+        stdout: Buffer.concat(stdout).toString('utf8'),
+        stderr: Buffer.concat(stderr).toString('utf8'),
+      });
+    });
+    child.stdin.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code !== 'EPIPE') stop({ code: error.code, message: error.message });
+    });
+    child.stdin.end(JSON.stringify(payload));
+  });
+}
+
+function interpretOutcome(proc: ProcessOutcome, timeoutMs: number): ExecuteResult {
   if (proc.error) {
-    const err = proc.error as NodeJS.ErrnoException;
-    if (proc.signal === 'SIGTERM' || err.code === 'ETIMEDOUT') {
+    if (proc.signal === 'SIGTERM' || proc.error.code === 'ETIMEDOUT') {
       return { ok: false, error: `script timed out after ${timeoutMs}ms` };
     }
     return { ok: false, error: `script failed to start: ${proc.error.message}` };
