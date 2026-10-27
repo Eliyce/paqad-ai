@@ -424,7 +424,7 @@ export class RagService {
   }
 
   private async retrieveWithSyncPolicy(
-    syncResult: ChunkIndexSyncResult,
+    syncResult: ChunkIndexSyncResult | null,
     input: {
       taskDescription?: string;
       keywords: string[];
@@ -491,7 +491,7 @@ export class RagService {
     }
 
     try {
-      if (!skipSync) {
+      if (!skipSync && syncResult !== null) {
         await this.syncVectorIndex(syncResult, intelligence);
       }
       const limit = topN ?? intelligence.rag_top_n;
@@ -547,8 +547,9 @@ export class RagService {
       symbolReferences?: string[];
     },
     topN?: number,
+    options: { skipSync?: boolean } = {},
   ): Promise<RagRetrievalResult> {
-    const syncResult = await this.refreshContext();
+    const syncResult = options.skipSync === true ? null : await this.refreshContext();
     return this.retrieveWithSyncPolicy(syncResult, input, topN, true);
   }
 

@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { refreshRuleContext } from '@/context/rule-context.js';
 import {
@@ -19,7 +19,8 @@ import {
 } from '@/context/retrieval-context.js';
 import { PATHS } from '@/core/constants/paths.js';
 import type { CompiledRule, CompiledRulesStore } from '@/core/types/planning.js';
-import type { RagRetrievalResult } from '@/rag/types.js';
+import { RagService } from '@/rag/service.js';
+import type { ChunkIndexSyncResult, RagRetrievalResult } from '@/rag/types.js';
 
 function slice(partial: Partial<RetrievalSlice> & { source_file: string }): RetrievalSlice {
   return { content: 'chunk body', ...partial };
@@ -358,6 +359,53 @@ describe('gatherWorkingSetSlices', () => {
     };
     await gatherWorkingSetSlices('/proj', { service, changedPaths: ['src/a.ts'], topN: 3 });
     expect(seenTopN).toBe(3);
+  });
+
+  it('AC-59: forwards skipSync to the retrieval source, false unless asked', async () => {
+    const seen: Array<{ skipSync?: boolean } | undefined> = [];
+    const service: RetrievalSource = {
+      retrieveForEval: async (_input, _topN, options) => {
+        seen.push(options);
+        return emptyResult();
+      },
+    };
+    await gatherWorkingSetSlices('/proj', { service, changedPaths: ['src/a.ts'], topN: 3 });
+    await gatherWorkingSetSlices('/proj', {
+      service,
+      changedPaths: ['src/a.ts'],
+      topN: 3,
+      skipSync: true,
+    });
+    expect(seen).toEqual([{ skipSync: false }, { skipSync: true }]);
+  });
+
+  describe('with the real RagService', () => {
+    let root: string;
+
+    beforeEach(() => {
+      root = mkdtempSync(join(tmpdir(), 'paqad-gather-skip-sync-'));
+    });
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    it('AC-59: with skipSync: true refreshContext is not called', async () => {
+      const refresh = vi
+        .spyOn(RagService.prototype, 'refreshContext')
+        .mockResolvedValue({} as ChunkIndexSyncResult);
+      await gatherWorkingSetSlices(root, { changedPaths: ['src/a.ts'], topN: 3, skipSync: true });
+      expect(refresh).not.toHaveBeenCalled();
+    });
+
+    it('AC-59: without skipSync retrieveForEval still syncs through refreshContext', async () => {
+      const refresh = vi
+        .spyOn(RagService.prototype, 'refreshContext')
+        .mockResolvedValue({} as ChunkIndexSyncResult);
+      await gatherWorkingSetSlices(root, { changedPaths: ['src/a.ts'], topN: 3 });
+      expect(refresh).toHaveBeenCalledTimes(1);
+    });
   });
 });
 

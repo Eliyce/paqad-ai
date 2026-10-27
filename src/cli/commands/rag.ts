@@ -303,6 +303,7 @@ async function runRefreshContext(options: RefreshContextOptions): Promise<void> 
     ? await gatherWorkingSetSlices(options.projectRoot, {
         recordEvidence: { adapter: 'engine' },
         query: route?.query,
+        skipSync: true,
       })
     : { slices: [], bestScore: null };
   const usesContextPack = slices.length > MAX_RETRIEVAL_SLICES;

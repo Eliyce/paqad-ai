@@ -31,6 +31,7 @@ export interface GatherOptions {
   routing?: DepthRoutingInput;
   recordEvidence?: { sessionId?: string; adapter?: string };
   query?: string;
+  skipSync?: boolean;
 }
 
 export function gatherWorkingSetSlices(
@@ -51,6 +52,8 @@ export function filterToScope(slices: RetrievalSlice[], scope: 'docs' | 'code' |
 export function dedupeSlices(slices: readonly RetrievalSlice[]): RetrievalSlice[];
 export function deriveScopeFromWorkingSet(paths: readonly string[]): ClassificationScope;
 ```
+
+`skipSync: true` tells the retrieval source the caller already synced the index: `RagService.retrieveForEval(input, topN, { skipSync: true })` then skips `refreshContext()` and queries the index as it is. `rag refresh-context` passes it after its own `backgroundIndexSync`. Without it the gather syncs first, as before.
 
 With no changed files and no query, `gatherWorkingSetSlices` returns no slices and `bestScore: null` without touching the index. `changedPaths` defaults to the change evidence.
 
