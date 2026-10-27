@@ -91,6 +91,28 @@ function fireContextRefresh(sessionId) {
   } catch {}
 }
 
+async function isHumanPrompt(stdin, projectRoot) {
+  try {
+    const parsed = JSON.parse(stdin);
+    const prompt = typeof parsed?.prompt === 'string' ? parsed.prompt : '';
+    if (!prompt.trim()) {
+      return false;
+    }
+    const laneUrl = new URL('../../dist/pipeline/prompt-lane.js', import.meta.url);
+    const { isSystemNotificationPrompt } = await import(laneUrl.href);
+    return !isSystemNotificationPrompt(prompt);
+  } catch (error) {
+    logHookFailure(projectRoot, 'agent-entry-prompt-gate', error, 'checking the prompt is human');
+    return false;
+  }
+}
+
+async function refreshForHumanPrompt(stdin, projectRoot, sessionId) {
+  if (await isHumanPrompt(stdin, projectRoot)) {
+    fireContextRefresh(sessionId);
+  }
+}
+
 async function emitRoute(stdin, projectRoot, sink) {
   try {
     const parsed = JSON.parse(stdin);
@@ -137,7 +159,7 @@ async function main(stdin) {
   const state = sentinelState(projectRoot, process.env, undefined, sessionId);
   if (state !== 'fresh') {
     await emitRoute(stdin, projectRoot, () => {});
-    fireContextRefresh(sessionId);
+    await refreshForHumanPrompt(stdin, projectRoot, sessionId);
     const message = directive(state, entryFile(), sentinelRelative(sessionId));
     if ((process.env.PAQAD_AGENT_ENTRY_MODE || 'soft') === 'hard') {
       process.stderr.write(message);
@@ -149,7 +171,7 @@ async function main(stdin) {
 
   let routeBuf = '';
   const route = await emitRoute(stdin, projectRoot, (text) => (routeBuf += text));
-  fireContextRefresh(sessionId);
+  await refreshForHumanPrompt(stdin, projectRoot, sessionId);
   const routed = route?.routed ?? null;
   const stripRules = typeof routed === 'string' && routed !== 'feature-development';
   let contextBuf = '';
