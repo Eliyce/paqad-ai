@@ -26,6 +26,7 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5ZDK7DASYFN5W0GHEKWPGPV](TD-01M5ZDK7DASYFN5W0GHEKWPGPV.md) (follow-up, high): RAG file discovery recompiles a minimatch per file and pattern, ~300 s CPU per refresh
 - [TD-01M5YAWM5ZRVGHFP34DKA0W3JB](TD-01M5YAWM5ZRVGHFP34DKA0W3JB.md) (gap, medium): Skill Authoring rule RL-70a6 flags the claude.ai compatibility key on every Claude plugin skill
 - [TD-01M5YAWJ4XG3MM5K4S3HWR1X9D](TD-01M5YAWJ4XG3MM5K4S3HWR1X9D.md) (debt, low): Generated module summary footer is duplicated across 37 docs/modules pages and trips the duplication detector
 - [TD-01M5YA4ANCER1JN9YTS2JCDE0S](TD-01M5YA4ANCER1JN9YTS2JCDE0S.md) (follow-up, low): The ChatGPT directory zip is not attached to the GitHub Release
