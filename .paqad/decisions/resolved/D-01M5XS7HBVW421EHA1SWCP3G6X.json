@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5XS7HBVW421EHA1SWCP3G6X",
+  "category": "workflow-or-tool",
+  "title": "Keep the 32 discovery commits: this repo allows squash merges only",
+  "context": "#627 Phase 1 runs git subtree add so plugins/discovery keeps its 32 commits, and an acceptance criterion says git log -- plugins/discovery shows them. Eliyce/paqad-ai allows squash merges only (allow_merge_commit=false, allow_rebase_merge=false). A squash merge of this PR flattens the subtree merge into one commit, so that history would not reach main. The archived source repo Eliyce/paqad-product-discovery keeps the history either way (main at 249b9f4d).",
+  "options": [
+    {
+      "option_key": "merge-commit",
+      "label": "Haider turns on Allow merge commits for this one PR, merges it with a merge commit, then turns it off again; the 32 commits land on main",
+      "one_line_preview": "Haider turns on Allow merge commits for this one PR, merges it with a merge commit, then turns it off again; the 32 commits land on main",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "squash-and-record",
+      "label": "Merge by squash as usual; drop that acceptance criterion and record the source repo and commit 249b9f4d in the cleanup commit and plugins/discovery/README.md; the history stays in the archived repo",
+      "one_line_preview": "Merge by squash as usual; drop that acceptance criterion and record the source repo and commit 249b9f4d in the cleanup commit and plugins/discovery/README.md; the history stays in the archived repo",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "merge-commit",
+  "created_at": "2026-10-27T04:17:24.347Z",
+  "status": "resolved",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "squash-and-record",
+  "rationale": "Haider: squash as usual and record source sha 249b9f4d.",
+  "resolved_at": "2026-10-27T07:49:41.152Z",
+  "decision_id": "D-01M5XS7HBVW421EHA1SWCP3G6X",
+  "fingerprint": "sha256:af34e9ba8e53a407648155745a2f57365287c4a3b861e09c4cfcde4d9807bef4",
+  "question": "Keep the 32 discovery commits: this repo allows squash merges only",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-03T04:17:24.347Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "squash-and-record",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T07:49:41.152Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider: squash as usual and record source sha 249b9f4d."
+  }
+}

@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5XS79NQ199M93C38M2ZQMHW",
+  "category": "architecture-path",
+  "title": "Module attribution for moving the discovery skills into the paqad plugin",
+  "context": "Attribution gate: the extractor found no module named in #627, and the inferencer is not confident (best match hybrid-rag at 0.06, on unrelated shared words). No module in module-map.yml owns any path this change touches: plugins/discovery/ (new), runtime/claude-plugin/skills/, scripts/*.mjs, .github/workflows/ci.yml, eslint/prettier config, README and docs. The issue itself says module docs for plugins/discovery are regenerated later with the module-documentation workflow. Precedent: the plugin eval benchmark change chose no attribution. The plan is drafted and ready to compile once this is answered: /private/tmp/claude-501/-Users-haider-lasani-Desktop-projects-paqad-ai-paqad-ai-npm/fc6c87cb-2eca-4348-a38c-19dc8d58585c/scratchpad/plan/plan-template.json",
+  "options": [
+    {
+      "option_key": "no-attribution",
+      "label": "Skip attribution: keep discovery-plugin, claude-plugin, ci and docs as plan labels only, no module-map change",
+      "one_line_preview": "Skip attribution: keep discovery-plugin, claude-plugin, ci and docs as plan labels only, no module-map change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "new-module",
+      "label": "Add a new claude-plugin module (src/plugin, runtime/claude-plugin, plugins/discovery, scripts/*plugin*) to module-map.yml through the module-decisions apply path",
+      "one_line_preview": "Add a new claude-plugin module (src/plugin, runtime/claude-plugin, plugins/discovery, scripts/*plugin*) to module-map.yml through the module-decisions apply path",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "extend-adapter-onboarding",
+      "label": "Attribute to the existing adapter-onboarding module, whose claude-code feature doc describes the plugin",
+      "one_line_preview": "Attribute to the existing adapter-onboarding module, whose claude-code feature doc describes the plugin",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "no-attribution",
+  "created_at": "2026-10-27T04:17:16.471Z",
+  "status": "resolved",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "new-module",
+  "rationale": "Haider: add a new module for the plugin code that exists today; reuse what we have and create only what is really missing.",
+  "resolved_at": "2026-10-27T07:49:40.485Z",
+  "decision_id": "D-01M5XS79NQ199M93C38M2ZQMHW",
+  "fingerprint": "sha256:99eb5be0d2fce9ee99384209fca36e5783a05bfcebfd6442c0cd975c66ce1fc8",
+  "question": "Module attribution for moving the discovery skills into the paqad plugin",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2027-01-25T04:17:16.471Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "new-module",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T07:49:40.485Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider: add a new module for the plugin code that exists today; reuse what we have and create only what is really missing."
+  }
+}

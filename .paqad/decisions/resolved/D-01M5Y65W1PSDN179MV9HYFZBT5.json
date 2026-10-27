@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Y65W1PSDN179MV9HYFZBT5",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on plugins/discovery/build/build.py",
+  "context": "Chief architect: All three agree. Extending build.py in place is the lead and matches the settled scope; the Python unit tests for each new flag and the golden comparison of the non-Claude outputs against a pre-change build both stay as the proof.\n\nTarget: plugins/discovery/build/build.py\n- application-architect: is extended in place (--publish-prefix, --host-labels, --version, reusing rewrite_skill_md) rather than ported or re-implemented in TypeScript; the default flags keep the ChatGPT, ChatGPT directory and Codex outputs byte-identical apart from the version\n- qa-engineer: New flags need Python unit tests: --publish-prefix none maps paqad-X to X and the front door paqad to start; --publish-prefix paqad keeps today's names; --host-labels strip removes the Decision 9 prefixes and compatibility for chatgpt, chatgpt-directory and codex; --version defaults to package.json.\n- qa-engineer: Regression: the chatgpt, chatgpt-directory and codex outputs must match today's content apart from the version; a golden comparison against a pre-change build is the cheapest proof that strip really restores vendor-neutral text.\n\n[expert-conflict-fork:e37399318da2b379]",
+  "options": [
+    {
+      "option_key": "is-extended-in-place-publish-prefix-host",
+      "label": "is extended in place (--publish-prefix, --host-labels, --version, reusing rewrite_skill_md) rather than ported or re-implemented in TypeScript; the default flags keep the ChatGPT, ChatGPT directory and Codex outputs byte-identical apart from the version — application-architect",
+      "one_line_preview": "is extended in place (--publish-prefix, --host-labels, --version, reusing rewrite_skill_md) rather than ported or re-implemented in TypeScript; the default flags keep the ChatGPT, ChatGPT directory and Codex outputs byte-identical apart from the version — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "new-flags-need-python-unit-tests-publish",
+      "label": "New flags need Python unit tests: --publish-prefix none maps paqad-X to X and the front door paqad to start; --publish-prefix paqad keeps today's names; --host-labels strip removes the Decision 9 prefixes and compatibility for chatgpt, chatgpt-directory and codex; --version defaults to package.json. — qa-engineer",
+      "one_line_preview": "New flags need Python unit tests: --publish-prefix none maps paqad-X to X and the front door paqad to start; --publish-prefix paqad keeps today's names; --host-labels strip removes the Decision 9 prefixes and compatibility for chatgpt, chatgpt-directory and codex; --version defaults to package.json. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "regression-the-chatgpt-chatgpt-directory",
+      "label": "Regression: the chatgpt, chatgpt-directory and codex outputs must match today's content apart from the version; a golden comparison against a pre-change build is the cheapest proof that strip really restores vendor-neutral text. — qa-engineer",
+      "one_line_preview": "Regression: the chatgpt, chatgpt-directory and codex outputs must match today's content apart from the version; a golden comparison against a pre-change build is the cheapest proof that strip really restores vendor-neutral text. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "is-extended-in-place-publish-prefix-host",
+  "created_at": "2026-10-27T08:03:41.238Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "is-extended-in-place-publish-prefix-host",
+  "rationale": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands.",
+  "resolved_at": "2026-10-27T08:37:52.887Z",
+  "decision_id": "D-01M5Y65W1PSDN179MV9HYFZBT5",
+  "fingerprint": "sha256:b32ff3a8881b5350fb792a20907d84b5d590430651914357bc82c9f4914550db",
+  "question": "Experts disagree on plugins/discovery/build/build.py",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-26T08:03:41.238Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "is-extended-in-place-publish-prefix-host",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T08:37:52.887Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider confirmed all 7 agreeing overlaps as recommended; every agreeing finding stands."
+  }
+}
