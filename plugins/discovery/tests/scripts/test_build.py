@@ -28,6 +28,7 @@ if BUILD_DIR not in sys.path:
 import build  # noqa: E402
 
 PLUGIN_NAME = "paqad-product-discovery"
+PACKAGE_JSON = os.path.join(os.path.dirname(os.path.dirname(REPO_ROOT)), "package.json")
 PUBLIC_REPO = "https://github.com/Eliyce/paqad-product-discovery-plugin"
 EM_DASH, EN_DASH = chr(0x2014), chr(0x2013)
 LISTING_PLUGIN_KEYS = (
@@ -145,13 +146,13 @@ class BuildOutputTest(unittest.TestCase):
         self.assertIn("display_name", ext)
 
     def test_openai_skills_list_equals_published_names(self):
-        # AC-5: the OpenAI manifest skills list equals the published names and contains "paqad".
+        # AC-5: the OpenAI manifest skills list equals the published names and contains "start".
         openai = read_json(self._manifest_paths()["openai"])
         skills = openai["extensions"]["com.openai"]["skills"]
         config = build.load_config(os.path.join(REPO_ROOT, "build", "skills.yml"))
         expected = [build.published_name(skill) for skill in config["skills"]]
         self.assertEqual(skills, expected)
-        self.assertIn("paqad", skills)
+        self.assertIn("start", skills)
 
     def test_voice_copied_into_each_skill(self):
         skills_root = os.path.join(self.plugin_dir, "skills")
@@ -164,7 +165,7 @@ class BuildOutputTest(unittest.TestCase):
 
     def test_github_profile_copied_into_declaring_skills(self):
         skills_root = os.path.join(self.plugin_dir, "skills")
-        for skill_name in ("paqad-get-connected", "paqad-post-tickets"):
+        for skill_name in ("get-connected", "post-tickets"):
             profile = os.path.join(
                 skills_root, skill_name, "references", "tracker-profiles-github.md"
             )
@@ -381,7 +382,8 @@ class HostBranchTest(unittest.TestCase):
 
 class ListingManifestTest(unittest.TestCase):
     """Spec AC-2 to AC-5 (PLG-11, PLG-12): only the Claude branch manifests carry the directory
-    listing fields, every value comes from skills.yml, and every manifest reads version 3.2.0."""
+    listing fields, every value comes from skills.yml, and every manifest reads the package.json
+    version."""
 
     @classmethod
     def setUpClass(cls):
@@ -443,14 +445,15 @@ class ListingManifestTest(unittest.TestCase):
             self.assertNotIn("email", built.get("owner", {}), "/".join(parts))
 
     def test_every_manifest_reads_the_version_and_owner(self):
-        self.assertEqual(self.config["version"], "3.2.0")
+        version = read_json(PACKAGE_JSON)["version"]
+        self.assertEqual(self.config["version"], version)
         for rel in list_relpaths(self.dist):
             if not rel.endswith(".json") or "/skills/" in rel:
                 continue
             manifest = self.manifest(*rel.split("/"))
             # A marketplace carries the version on its plugin entries, a plugin manifest on itself.
             for entry in manifest.get("plugins", [manifest]):
-                self.assertEqual(entry.get("version"), "3.2.0", rel)
+                self.assertEqual(entry.get("version"), version, rel)
             if "owner" in manifest:
                 self.assertEqual(manifest["owner"]["name"], "Eliyce", rel)
 
@@ -523,11 +526,11 @@ class PublishFilesTest(unittest.TestCase):
         examples = examples[:examples.index("\n## ", 1)]
         prompts = re.findall(r"^- `([^`]+)`$", examples, re.MULTILINE)
         self.assertGreaterEqual(len(prompts), 3)
-        self.assertTrue(any(prompt.startswith("/paqad ") for prompt in prompts))
+        self.assertTrue(any(prompt.startswith("/start ") for prompt in prompts))
         positions = [self.readme.index("`{0}`".format(skill)) for skill in (
-            "/paqad", "paqad-ask", "paqad-discover", "paqad-refine-ticket", "paqad-size-work",
-            "paqad-plan-sprint")]
-        self.assertEqual(positions[0], min(positions), "/paqad must come first")
+            "/start", "ask", "discover", "refine-ticket", "size-work",
+            "plan-sprint")]
+        self.assertEqual(positions[0], min(positions), "/start must come first")
         for phrase in ("code execution", "repository", "Jira connector", "## Install",
                        self.config["support_url"], self.config["privacy_policy_url"],
                        self.config["author_email"], "src=discovery-plugin"):
@@ -584,7 +587,7 @@ class BranchHygieneTest(unittest.TestCase):
             with open(os.path.join(source, *folder + (".DS_Store",)), "wb") as handle:
                 handle.write(b"\x00\x01cruft")
         dist = os.path.join(tmp, "dist")
-        build.build(source, dist)
+        build.build(source, dist, version="0.0.0")
         branch = os.path.join(dist, "hosts", "claude")
         rels = list_relpaths(branch)
         self.assertLess(len(rels), 512)
@@ -617,7 +620,7 @@ class ListingFailureTest(unittest.TestCase):
 
     def assert_build_fails(self, *names):
         with self.assertRaises(build.BuildError) as ctx:
-            build.build(self.source, os.path.join(self.tmp, "dist"))
+            build.build(self.source, os.path.join(self.tmp, "dist"), version="0.0.0")
         for name in names:
             self.assertIn(name, str(ctx.exception))
 
@@ -721,7 +724,7 @@ class UndeclaredImportTest(unittest.TestCase):
 
         dist = os.path.join(tmp, "dist")
         with self.assertRaises(build.BuildError) as ctx:
-            build.build(source, dist)
+            build.build(source, dist, version="0.0.0")
         self.assertIn("references/consulting.md", str(ctx.exception))
 
 
@@ -732,9 +735,9 @@ class SharedRepositoryFilesTest(unittest.TestCase):
 
     CONNECT = ("references", "connect-repository.md")
     CHECK = ("scripts", "check_onboarded.py")
-    CONNECT_SKILLS = ("paqad-ask", "paqad-get-connected", "paqad-ground-in-project",
-                      "paqad-refine-ticket", "paqad-size-work")
-    CHECK_SKILLS = ("paqad-ask", "paqad-get-connected", "paqad-ground-in-project")
+    CONNECT_SKILLS = ("ask", "get-connected", "ground-in-project",
+                      "refine-ticket", "size-work")
+    CHECK_SKILLS = ("ask", "get-connected", "ground-in-project")
 
     @classmethod
     def setUpClass(cls):
@@ -766,7 +769,7 @@ class SharedRepositoryFilesTest(unittest.TestCase):
     def test_check_onboarded_in_the_three_declaring_skills(self):
         self.assert_shipped_to(self.CHECK, self.CHECK_SKILLS)
         self.assertFalse(
-            os.path.exists(os.path.join(self.skills_root, "paqad-plan-sprint", *self.CHECK))
+            os.path.exists(os.path.join(self.skills_root, "plan-sprint", *self.CHECK))
         )
 
     def test_undeclared_connect_repository_fails_the_build(self):
@@ -778,7 +781,7 @@ class SharedRepositoryFilesTest(unittest.TestCase):
         with open(skill_md, "a", encoding="utf-8") as handle:
             handle.write("\nGet documents as in references/connect-repository.md.\n")
         with self.assertRaises(build.BuildError) as ctx:
-            build.build(source, os.path.join(tmp, "dist"))
+            build.build(source, os.path.join(tmp, "dist"), version="0.0.0")
         self.assertIn("references/connect-repository.md", str(ctx.exception))
 
 

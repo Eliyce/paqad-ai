@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Assemble dist/ for the paqad-product-discovery plugin from a single source of truth.
 
-Standard library only (Python 3.9+). No network. Reads name, version, description, license and
-display text, plus the directory listing scalars, from build/skills.yml and from nowhere else,
-copies each skill plus its declared shared imports into dist/, and generates all four manifests
+Standard library only (Python 3.9+). No network. Reads name, description, license and display
+text, plus the directory listing scalars, from build/skills.yml and from nowhere else. The version
+comes from --version, or else from the repository package.json two levels above the source root.
+The build copies each skill plus its declared shared imports into dist/, and generates all four manifests
 from those values so no two manifests can disagree (PLG-11). The Claude branch alone also gets
 listing manifests (author, homepage, repository, keywords, display name and the documentation,
 support and privacy links) plus the publish files README.md, LICENSE and PRIVACY.md (PLG-12).
@@ -18,6 +19,13 @@ Guarantees:
   - Deterministic: two consecutive runs on a clean tree produce byte-identical dist/ output
     (sorted JSON keys, fixed separators, no timestamps).
   - Cleans the dist plugin output at the start of a run so removed inputs do not linger.
+  - Fails naming both skills when two skills share a published name.
+
+Host labels: each source SKILL.md description starts with a host prefix (for example
+"Chat and Claude Code: ") and the front matter carries a compatibility line. With
+--host-labels strip (the default) the build removes exactly that prefix and that line from every
+built SKILL.md, so the ChatGPT, ChatGPT directory and Codex packages carry no Claude-only label.
+With --host-labels keep they stay, which is what the paqad Claude plugin ships.
 
 The dist/ tree is skills-only. This build never emits agents/, hooks/, commands/, bin/,
 .mcp.json, mcp.json or .app.json.
@@ -34,7 +42,12 @@ import sys
 # The literal lives here in the build generator, never in shipped skill or shared text.
 OPENAI_EXTENSION_KEY = "com.openai"
 
-REQUIRED_SCALARS = ("name", "version", "description", "license", "display_name")
+REQUIRED_SCALARS = ("name", "description", "license", "display_name")
+
+# The host labels a source SKILL.md carries. The prefix opens the description value and the
+# compatibility key sits on its own front-matter line.
+HOST_LABEL_PREFIXES = ("Chat and Claude Code: ", "Claude Code: ")
+HOST_LABEL_MODES = ("strip", "keep")
 
 # The ChatGPT directory branch key under dist/hosts/ (PLG-12), named once so the build, the zip
 # packer and the pre-submission check all point at the same folder.
@@ -328,15 +341,15 @@ def published_name(skill):
 
 
 def rewrite_skill_md(text, name_map):
-    """Rewrite source skill names to their published names across a SKILL.md's whole text.
+    """Rewrite source skill names to their published names across a markdown file's whole text.
 
     One left-to-right re.sub over the text. The alternation lists every source name ordered
     longest-first so a shorter name can never match inside a longer one, and each occurrence is
     guarded by a non-word-and-non-hyphen lookbehind and lookahead so an embedded name is left
-    alone. Because the inserted published name is preceded by its own 'paqad-' the single pass
-    cannot re-process its output, so the plugin name 'paqad-product-discovery' can never be
-    corrupted into 'paqad-paqad-discover'. This one pass fixes the front-matter 'name:' line and
-    every sibling reference in the body together.
+    alone: the plugin name 'paqad-product-discovery' never matches 'product-discovery'. re.sub
+    never scans its own replacements, so a published name that equals another source name is
+    not rewritten twice. This one pass fixes the front-matter 'name:' line and every sibling
+    reference in the body together.
     """
     if not name_map:
         return text
@@ -345,6 +358,82 @@ def rewrite_skill_md(text, name_map):
         r"(?<![\w-])(?:" + "|".join(re.escape(s) for s in sources) + r")(?![\w-])"
     )
     return pattern.sub(lambda m: name_map[m.group(0)], text)
+
+
+def strip_host_labels(text):
+    """Remove the host label prefix from the description and the compatibility line.
+
+    Only the front matter (between the first two '---' lines) is touched. The description keeps
+    its quoting; only the prefix right after the opening quote, or at the start of a plain value,
+    is removed. Everything else in the file stays byte for byte.
+    """
+    lines = text.splitlines(True)
+    if not lines or lines[0].rstrip("\r\n") != "---":
+        return text
+    out = [lines[0]]
+    in_front = True
+    for line in lines[1:]:
+        if in_front and line.rstrip("\r\n") == "---":
+            in_front = False
+            out.append(line)
+            continue
+        if in_front and line.startswith("compatibility:"):
+            continue
+        if in_front and line.startswith("description:"):
+            line = _strip_description_prefix(line)
+        out.append(line)
+    return "".join(out)
+
+
+def _strip_description_prefix(line):
+    head = "description:"
+    rest = line[len(head):]
+    value = rest.lstrip(" ")
+    spaces = rest[: len(rest) - len(value)]
+    quote = value[:1] if value[:1] in ("'", '"') else ""
+    body = value[len(quote):]
+    for prefix in HOST_LABEL_PREFIXES:
+        if body.startswith(prefix):
+            return head + spaces + quote + body[len(prefix):]
+    return line
+
+
+def check_unique_published_names(skills):
+    """Fail naming both skills when two skills publish under the same name."""
+    seen = {}
+    for skill in skills:
+        published = published_name(skill)
+        if published in seen:
+            raise BuildError(
+                "skills '{0}' and '{1}' share the published name '{2}' in build/skills.yml; "
+                "give each a unique publish name".format(seen[published], skill["name"], published)
+            )
+        seen[published] = skill["name"]
+
+
+def package_json_path(source_root):
+    """The repository package.json two levels above the discovery source root."""
+    repo_root = os.path.dirname(os.path.dirname(os.path.abspath(source_root)))
+    return os.path.join(repo_root, "package.json")
+
+
+def read_package_version(source_root):
+    """Read the version from the repository package.json; fail naming the file when absent."""
+    path = package_json_path(source_root)
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except FileNotFoundError:
+        raise BuildError(
+            "no version given and {0} was not found; pass --version or build from the "
+            "repository checkout".format(path)
+        )
+    except ValueError as exc:
+        raise BuildError("{0} is not valid JSON: {1}".format(path, exc))
+    version = data.get("version") if isinstance(data, dict) else None
+    if not isinstance(version, str) or not version.strip():
+        raise BuildError("{0} has no version; pass --version or add one".format(path))
+    return version.strip()
 
 
 def parse_keywords(text):
@@ -436,9 +525,15 @@ def check_listing_scalars(config):
             )
 
 
-def load_config(skills_yml_path):
+def load_config(skills_yml_path, version=None):
+    """Read skills.yml and attach the version (the argument, else the repository package.json)."""
     with open(skills_yml_path, "r", encoding="utf-8") as handle:
         config = parse_skills_yml(handle.read())
+    if "version" in config:
+        raise BuildError(
+            "build/skills.yml must not set a version; it comes from --version or the repository "
+            "package.json"
+        )
     for field in REQUIRED_SCALARS:
         if not config.get(field):
             raise BuildError("skills.yml is missing a non-empty '{0}'".format(field))
@@ -447,6 +542,14 @@ def load_config(skills_yml_path):
     check_chatgpt_directory_scalars(config)
     if not config.get("skills"):
         raise BuildError("skills.yml declares no skills")
+    check_unique_published_names(config["skills"])
+    if version is not None:
+        if not str(version).strip():
+            raise BuildError("--version is empty")
+        config["version"] = str(version).strip()
+    else:
+        source_root = os.path.dirname(os.path.dirname(os.path.abspath(skills_yml_path)))
+        config["version"] = read_package_version(source_root)
     return config
 
 
@@ -661,12 +764,34 @@ def emit_host_branches(source_root, dist_root, config, combined_plugin_dir):
         copy_publish_files(source_root, branch_root, host, name)
 
 
+def rewrite_markdown_names(skill_dir, name_map):
+    """Apply rewrite_skill_md to every markdown file in a built skill except SKILL.md."""
+    for dirpath, dirnames, filenames in os.walk(skill_dir):
+        dirnames.sort()
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            if not name.endswith(".md") or path == os.path.join(skill_dir, "SKILL.md"):
+                continue
+            with open(path, "r", encoding="utf-8") as handle:
+                text = handle.read()
+            rewritten = rewrite_skill_md(text, name_map)
+            if rewritten != text:
+                with open(path, "w", encoding="utf-8") as handle:
+                    handle.write(rewritten)
+
+
 # --------------------------------------------------------------------------- build
 
 
-def build(source_root, dist_root):
+def build(source_root, dist_root, version=None, host_labels="strip"):
+    if host_labels not in HOST_LABEL_MODES:
+        raise BuildError(
+            "--host-labels must be one of {0}, got {1!r}".format(
+                ", ".join(HOST_LABEL_MODES), host_labels
+            )
+        )
     skills_yml = os.path.join(source_root, "build", "skills.yml")
-    config = load_config(skills_yml)
+    config = load_config(skills_yml, version)
     name = config["name"]
     shared_root = os.path.join(source_root, "shared")
     shared_files = list_shared_files(shared_root)
@@ -713,6 +838,8 @@ def build(source_root, dist_root):
         with open(dst_skill_md, "r", encoding="utf-8") as handle:
             dst_skill_md_text = handle.read()
         rewritten = rewrite_skill_md(dst_skill_md_text, name_map)
+        if host_labels == "strip":
+            rewritten = strip_host_labels(rewritten)
         with open(dst_skill_md, "w", encoding="utf-8") as handle:
             handle.write(rewritten)
 
@@ -726,6 +853,11 @@ def build(source_root, dist_root):
             dst = os.path.join(dst_skill, shared_rel.replace("/", os.sep))
             os.makedirs(os.path.dirname(dst), exist_ok=True)
             shutil.copyfile(src, dst)
+
+        # Sibling references in the skill's other markdown (its references, assets and the
+        # copied shared references) read the published names too, so every hand-off points at a
+        # skill that ships.
+        rewrite_markdown_names(dst_skill, name_map)
 
     marketplace, plugin_manifest, openai_manifest = build_manifests(config)
     write_json(os.path.join(dist_root, ".claude-plugin", "marketplace.json"), marketplace)
@@ -745,10 +877,22 @@ def main(argv=None):
     default_source = os.path.dirname(here)
     parser.add_argument("--source", default=default_source, help="repository source root")
     parser.add_argument("--dist", default=None, help="output dist root (default <source>/dist)")
+    parser.add_argument(
+        "--version",
+        default=None,
+        help="version for the manifests (default: the repository package.json version)",
+    )
+    parser.add_argument(
+        "--host-labels",
+        choices=HOST_LABEL_MODES,
+        default="strip",
+        help="strip (default) removes the host label prefix and compatibility line from each "
+        "built SKILL.md; keep leaves them for the paqad Claude plugin",
+    )
     args = parser.parse_args(argv)
     dist_root = args.dist or os.path.join(args.source, "dist")
     try:
-        build(args.source, dist_root)
+        build(args.source, dist_root, version=args.version, host_labels=args.host_labels)
     except BuildError as exc:
         sys.stderr.write("build failed: {0}\n".format(exc))
         return 1

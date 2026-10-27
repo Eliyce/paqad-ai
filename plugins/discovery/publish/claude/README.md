@@ -21,21 +21,21 @@ you connect, in plain business words.
 
 ## How to start
 
-Start with `/paqad` and say what you want. It sends you to the right skill. You can also call a skill
+Start with `/start` and say what you want. It sends you to the right skill. You can also call a skill
 directly:
 
 | Skill | What it does |
 |---|---|
-| `/paqad` | The front door. Tell it what you want and it picks the right skill for you. |
-| `paqad-ask` | Answers a question about what the product does today, with its sources. |
-| `paqad-discover` | Walks an idea from a rough thought to ready tickets, one step at a time. |
-| `paqad-refine-ticket` | Improves an existing ticket and changes it only when you approve. |
-| `paqad-size-work` | Suggests a size for a piece of work, based on similar past work. |
-| `paqad-plan-sprint` | Proposes a sprint plan and assigns the work when you approve. |
+| `/start` | The front door. Tell it what you want and it picks the right skill for you. |
+| `ask` | Answers a question about what the product does today, with its sources. |
+| `discover` | Walks an idea from a rough thought to ready tickets, one step at a time. |
+| `refine-ticket` | Improves an existing ticket and changes it only when you approve. |
+| `size-work` | Suggests a size for a piece of work, based on similar past work. |
+| `plan-sprint` | Proposes a sprint plan and assigns the work when you approve. |
 
 ## Example prompts
 
-- `/paqad what does the checkout do today?`
+- `/start what does the checkout do today?`
 - `Turn this idea into tickets: let shoppers save a basket for later`
 - `Refine PROJ-123`
 - `Size this work: add a gift message at checkout`

@@ -264,7 +264,7 @@ class DocsMapBuildTest(unittest.TestCase):
                   encoding="utf-8") as handle:
             handle.write("\nRead area notes as in " + DOCS_MAP + ".\n")
         with self.assertRaises(build.BuildError) as ctx:
-            build.build(source, os.path.join(tmp, "dist"))
+            build.build(source, os.path.join(tmp, "dist"), version="0.0.0")
         self.assertIn(DOCS_MAP, str(ctx.exception))
 
 

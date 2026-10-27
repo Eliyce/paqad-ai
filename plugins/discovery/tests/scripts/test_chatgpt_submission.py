@@ -214,8 +214,8 @@ class PackageLayoutTest(TempCase):
 
     def test_readme_is_an_end_user_guide_with_no_version_or_dash(self):
         text = read_bytes(os.path.join(REPO_ROOT, "publish", "chatgpt", "README.md")).decode()
-        for phrase in ("`/paqad`", "`paqad-ask`", "`paqad-discover`", "`paqad-refine-ticket`",
-                       "`paqad-size-work`", "`paqad-plan-sprint`", "## Example prompts",
+        for phrase in ("`/start`", "`ask`", "`discover`", "`refine-ticket`",
+                       "`size-work`", "`plan-sprint`", "## Example prompts",
                        "code execution", "connector", "## Install", "ChatGPT plugin directory",
                        STATE["config"]["support_url"], STATE["config"]["privacy_policy_url"]):
             self.assertIn(phrase, text)
@@ -302,7 +302,7 @@ class PackageErrorTest(TempCase):
     def test_symlinked_file_and_folder_exit_1(self):
         for target in ("README.md", "skills"):
             dist, package = self.dist_copy()
-            link = os.path.join(package, "skills", "paqad", "link")
+            link = os.path.join(package, "skills", "start", "link")
             os.symlink(os.path.join(package, target), link)
             code, _, err = self.run_packer(dist)
             self.assertEqual(code, 1)
@@ -321,8 +321,8 @@ class PackageErrorTest(TempCase):
     def test_cruft_is_skipped(self):
         dist, package = self.dist_copy()
         write_bytes(os.path.join(package, ".DS_Store"), b"cruft")
-        write_bytes(os.path.join(package, "skills", "paqad", "__pycache__", "x.cpython.pyc"), b"x")
-        write_bytes(os.path.join(package, "skills", "paqad", "x.pyc"), b"x")
+        write_bytes(os.path.join(package, "skills", "start", "__pycache__", "x.cpython.pyc"), b"x")
+        write_bytes(os.path.join(package, "skills", "start", "x.pyc"), b"x")
         code, _, _ = self.run_packer(dist)
         self.assertEqual(code, 0)
         with zipfile.ZipFile(os.path.join(self.tmp, "out.zip")) as archive:
@@ -356,7 +356,7 @@ class ArchiveRuleTest(TempCase):
         self.assertEqual({item["rule"] for item in result["errors"]}, {"archive.uncompressed_size"})
 
     def test_symlink_and_odd_entries_in_a_zip(self):
-        link = zipfile.ZipInfo(PLUGIN_NAME + "/skills/paqad/link")
+        link = zipfile.ZipInfo(PLUGIN_NAME + "/skills/start/link")
         link.external_attr = 0o120777 << 16
         fifo = zipfile.ZipInfo(PLUGIN_NAME + "/pipe")
         fifo.external_attr = 0o010644 << 16
@@ -370,10 +370,10 @@ class ArchiveRuleTest(TempCase):
         root = self.copy_package()
         outside = os.path.join(self.tmp, "outside")
         os.makedirs(outside)
-        os.symlink(outside, os.path.join(root, "skills", "paqad", "dirlink"))
+        os.symlink(outside, os.path.join(root, "skills", "start", "dirlink"))
         os.symlink(os.path.join(root, "LICENSE"), os.path.join(root, "filelink"))
         result = self.check_folder(root)
-        self.assert_rule(result, "archive.entry_type", PLUGIN_NAME + "/skills/paqad/dirlink")
+        self.assert_rule(result, "archive.entry_type", PLUGIN_NAME + "/skills/start/dirlink")
         self.assert_rule(result, "archive.entry_type", PLUGIN_NAME + "/filelink")
 
     def test_unsafe_paths_are_reported_and_nothing_is_written(self):
@@ -405,7 +405,7 @@ class ArchiveRuleTest(TempCase):
 
     def test_duplicate_entry_names_are_reported(self):
         extra = [(zipfile.ZipInfo(PLUGIN_NAME + "/plugin.json"), b"{}"),
-                 (zipfile.ZipInfo(PLUGIN_NAME + "/skills/paqad/SKILL.md"), b"---\n---\n")]
+                 (zipfile.ZipInfo(PLUGIN_NAME + "/skills/start/SKILL.md"), b"---\n---\n")]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", UserWarning)
             path = self.zip_with(extra)
@@ -417,7 +417,7 @@ class ArchiveRuleTest(TempCase):
                               if e["rule"] == "archive.duplicate_entry"]), 2)
 
     def test_a_folder_and_file_with_one_name_are_duplicates(self):
-        name = PLUGIN_NAME + "/skills/paqad/SKILL.md"
+        name = PLUGIN_NAME + "/skills/start/SKILL.md"
         path = self.zip_with([(zipfile.ZipInfo(name + "/"), b"")])
         self.assert_rule(self.check_zip(path), "archive.duplicate_entry", name + "/")
 
@@ -450,22 +450,22 @@ class ExcludedContentTest(TempCase):
 
     CASES = (
         ("apps/app.txt", "excluded.app", "apps"),
-        ("skills/paqad/.app.json", "excluded.app", None),
-        ("skills/paqad/.mcp.json", "excluded.mcp", None),
+        ("skills/start/.app.json", "excluded.app", None),
+        ("skills/start/.mcp.json", "excluded.mcp", None),
         ("mcp.json", "excluded.mcp", None),
         ("hooks/run.sh", "excluded.hooks", "hooks"),
-        ("skills/paqad/hooks.json", "excluded.hooks", None),
+        ("skills/start/hooks.json", "excluded.hooks", None),
         ("commands/go.md", "excluded.commands", "commands"),
         ("agents/helper.md", "excluded.agents", "agents"),
         ("bin/tool", "excluded.bin", "bin"),
-        ("skills/paqad/CLAUDE.md", "excluded.claude_files", None),
+        ("skills/start/CLAUDE.md", "excluded.claude_files", None),
         (".claude/settings.local.json", "excluded.claude_files", None),
         ("test_credentials.txt", "excluded.reviewer_files", None),
-        ("skills/paqad/reviewer_instructions.md", "excluded.reviewer_files", None),
+        ("skills/start/reviewer_instructions.md", "excluded.reviewer_files", None),
         (".env", "excluded.secret", None),
-        ("skills/paqad/.env.local", "excluded.secret", None),
+        ("skills/start/.env.local", "excluded.secret", None),
         ("server.pem", "excluded.secret", None),
-        ("skills/paqad/signing.key", "excluded.secret", None),
+        ("skills/start/signing.key", "excluded.secret", None),
         ("cert.p12", "excluded.secret", None),
         ("cert.pfx", "excluded.secret", None),
         ("id_rsa", "excluded.secret", None),
@@ -482,8 +482,8 @@ class ExcludedContentTest(TempCase):
 
     def test_per_skill_agents_file_and_helper_scripts_stay_allowed(self):
         root = self.copy_package()
-        write_bytes(os.path.join(root, "skills", "paqad", "agents", "openai.yaml"), b"x: y\n")
-        write_bytes(os.path.join(root, "skills", "paqad", "scripts", "helper.py"), b"print(1)\n")
+        write_bytes(os.path.join(root, "skills", "start", "agents", "openai.yaml"), b"x: y\n")
+        write_bytes(os.path.join(root, "skills", "start", "scripts", "helper.py"), b"print(1)\n")
         self.assertEqual(self.check_folder(root)["errors"], [])
 
 
@@ -704,13 +704,13 @@ class AssetRuleTest(TempCase):
 class SkillRuleTest(TempCase):
     """AC-9 and AC-10: the skills/ and SKILL.md rules and the metadata warning."""
 
-    def skill_md(self, root, skill="paqad"):
+    def skill_md(self, root, skill="start"):
         return os.path.join(root, "skills", skill, "SKILL.md")
 
-    def set_skill_md(self, data, skill="paqad"):
+    def set_skill_md(self, data, skill="start"):
         return lambda root: write_bytes(self.skill_md(root, skill), data)
 
-    def skill_rule(self, data, rule, skill="paqad"):
+    def skill_rule(self, data, rule, skill="start"):
         return self.assert_folder_rule(self.set_skill_md(data, skill), rule,
                                        "{0}/skills/{1}/SKILL.md".format(PLUGIN_NAME, skill))
 
@@ -730,7 +730,7 @@ class SkillRuleTest(TempCase):
             lambda root: write_bytes(os.path.join(root, "skills", ".hidden", "SKILL.md"), b"x"),
             "skills.hidden_dir", skills + "/.hidden")
         self.assert_folder_rule(lambda root: os.remove(self.skill_md(root)),
-                                "skill.missing_skill_md", skills + "/paqad/SKILL.md")
+                                "skill.missing_skill_md", skills + "/start/SKILL.md")
 
     def test_utf8_and_frontmatter(self):
         self.skill_rule(b"---\nname: \xff\n---\nbody\n", "skill.utf8")
@@ -753,11 +753,11 @@ class SkillRuleTest(TempCase):
 
     def test_duplicate_skill_name(self):
         def duplicate(root):
-            text = read_bytes(self.skill_md(root, "paqad-ask")).decode("utf-8")
-            write_bytes(self.skill_md(root, "paqad-ask"),
-                        text.replace("name: paqad-ask", "name: paqad", 1).encode("utf-8"))
+            text = read_bytes(self.skill_md(root, "ask")).decode("utf-8")
+            write_bytes(self.skill_md(root, "ask"),
+                        text.replace("name: ask", "name: start", 1).encode("utf-8"))
         matches = self.assert_folder_rule(duplicate, "skill.name",
-                                          PLUGIN_NAME + "/skills/paqad-ask/SKILL.md")
+                                          PLUGIN_NAME + "/skills/start/SKILL.md")
         self.assertIn("also used by", matches[0]["message"])
 
     def test_empty_body(self):
@@ -774,7 +774,7 @@ class SkillRuleTest(TempCase):
         result = json.loads(out)
         self.assertEqual((code, result["ok"], result["errors"]), (0, True, []))
         self.assertEqual([(w["rule"], w["path"]) for w in result["warnings"]],
-                         [("skill.metadata", PLUGIN_NAME + "/skills/paqad/SKILL.md")])
+                         [("skill.metadata", PLUGIN_NAME + "/skills/start/SKILL.md")])
 
     def test_unquoted_values_a_strict_yaml_parser_rejects(self):
         cases = (
@@ -859,8 +859,11 @@ class ModeTest(TempCase):
     def test_package_mode_and_default_mode_pass(self):
         code, out, _ = run_main(check, ["--package", STATE["package"]])
         self.assertEqual((code, json.loads(out)["source"]), (0, STATE["package"]))
-        repo = os.path.join(self.tmp, "repo")
+        checkout = os.path.join(self.tmp, "checkout")
+        repo = os.path.join(checkout, "plugins", "discovery")
         shutil.copytree(os.path.join(REPO_ROOT, "build"), os.path.join(repo, "build"))
+        write_bytes(os.path.join(checkout, "package.json"),
+                    json.dumps({"version": STATE["config"]["version"]}).encode("utf-8"))
         shutil.copytree(STATE["dist"], os.path.join(repo, "dist"))
         with mock.patch.object(check, "REPO_ROOT", repo):
             code, out, _ = run_main(check, [])

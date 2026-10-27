@@ -10,7 +10,8 @@ plugin source and build; it is not itself a product repo the plugin answers ques
 Provenance: moved here from `Eliyce/paqad-product-discovery` at commit 249b9f4d. That repository
 keeps the earlier history.
 
-Current version: 3.2.0 (set in `build/skills.yml`).
+The version is the paqad-ai version in the repository `package.json`. `build/build.py` reads it
+from there, or from `--version` when given.
 
 ## What the plugin reads, says and links to
 
@@ -97,7 +98,7 @@ Published name shown first, source folder in parentheses.
   at build time, held once (PLG-9).
 - `skills/<skill-name>/` - each skill source (`SKILL.md` plus any `references/`, `assets/`,
   `scripts/`).
-- `build/skills.yml` - the single source of truth for name, version, description, license,
+- `build/skills.yml` - the single source of truth for name, description, license,
   display text, the directory listing values (author, links, keywords, and the ChatGPT directory
   short and long description, category, default prompts and capabilities), and each skill's
   declared shared imports.

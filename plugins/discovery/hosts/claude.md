@@ -20,9 +20,9 @@ below starts as the token `pending` and a person fills it in after installing.
 6. For grounding, add the target repository to the chat, or pick the `docs/` files into a
    private project.
 7. Updates reach users automatically after org sync, which runs on push to the default branch.
-8. Exercise it: ask a question with `paqad-ask`, and start from the `/paqad` front door or start
-   an idea with `paqad-discover`, to confirm the real skills load and run on this host before
-   recording verdicts below. (These are the published `paqad-` names; the source folders are
+8. Exercise it: ask a question with `ask`, and start from the `/start` front door or start
+   an idea with `discover`, to confirm the real skills load and run on this host before
+   recording verdicts below. (These are the published names; the source folders are
    `ask-project`, `front-door` and `product-discovery`.)
 
 ## Directory submission

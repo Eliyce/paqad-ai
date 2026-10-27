@@ -1,9 +1,14 @@
 # Single source of truth for the plugin build.
 #
-# build/build.py reads name, version, description, license and display text from here and from
-# nowhere else, and generates every manifest from these values so no two manifests can disagree
-# (PLG-11). Each skill also declares the shared files it imports; the build copies exactly those
-# declared files into the skill and fails if a SKILL.md references a shared file it did not
+# build/build.py reads name, description, license and display text from here and from nowhere
+# else, and generates every manifest from these values so no two manifests can disagree (PLG-11).
+# The version is not held here: it comes from --version or the repository package.json.
+#
+# Each skill publishes under the short name in its publish field, on every host. The build
+# rewrites the source names to these names in every built markdown file.
+#
+# Each skill also declares the shared files it imports; the build copies exactly those declared
+# files into the skill and fails if a SKILL.md references a shared file it did not
 # declare here (PLG-10).
 #
 # This file uses a deliberately small, flat YAML shape (scalars, one list of skills, and a short
@@ -29,7 +34,6 @@
 # capabilities holds 1 to 20 entries of at most 120 characters. build.py checks every limit.
 
 name: paqad-product-discovery
-version: 3.2.0
 description: "Ask what a product does, shape ideas into user-story tickets, refine tickets, size work and plan sprints, grounded in the repository's docs and code."
 license: MIT
 display_name: "Paqad Product Discovery"
@@ -50,7 +54,7 @@ capabilities: "Answers questions about what the product does today, with sources
 
 skills:
   - name: product-discovery
-    publish: paqad-discover
+    publish: discover
     imports:
       - references/voice.md
       - references/consulting.md
@@ -58,7 +62,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
   - name: ask-project
-    publish: paqad-ask
+    publish: ask
     imports:
       - references/voice.md
       - references/consulting.md
@@ -70,7 +74,7 @@ skills:
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: get-connected
-    publish: paqad-get-connected
+    publish: get-connected
     imports:
       - references/voice.md
       - references/connect-repository.md
@@ -79,11 +83,11 @@ skills:
       - references/tracker-profiles-github.md
       - scripts/check_onboarded.py
   - name: understand-idea
-    publish: paqad-understand-idea
+    publish: understand-idea
     imports:
       - references/voice.md
   - name: ground-in-project
-    publish: paqad-ground-in-project
+    publish: ground-in-project
     imports:
       - references/voice.md
       - references/paqad-docs-map.md
@@ -94,24 +98,24 @@ skills:
       - scripts/find_related.py
       - scripts/detect_placeholder.py
   - name: shape-idea
-    publish: paqad-shape-idea
+    publish: shape-idea
     imports:
       - references/voice.md
       - references/paqad-docs-map.md
       - references/evidence-levels.md
   - name: decide-together
-    publish: paqad-decide-together
+    publish: decide-together
     imports:
       - references/voice.md
   - name: write-tickets
-    publish: paqad-write-tickets
+    publish: write-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
       - references/writing-rules.md
       - references/user-stories.md
   - name: check-tickets
-    publish: paqad-check-tickets
+    publish: check-tickets
     imports:
       - references/voice.md
       - references/plain-language.md
@@ -119,7 +123,7 @@ skills:
       - scripts/canonical.py
       - scripts/check_prose.py
   - name: post-tickets
-    publish: paqad-post-tickets
+    publish: post-tickets
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -127,7 +131,7 @@ skills:
       - scripts/canonical.py
       - scripts/check_readback.py
   - name: refine-ticket
-    publish: paqad-refine-ticket
+    publish: refine-ticket
     imports:
       - references/voice.md
       - references/writing-rules.md
@@ -142,7 +146,7 @@ skills:
       - scripts/check_prose.py
       - scripts/check_readback.py
   - name: size-work
-    publish: paqad-size-work
+    publish: size-work
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -153,7 +157,7 @@ skills:
       - scripts/record.py
       - scripts/check_record.py
   - name: plan-sprint
-    publish: paqad-plan-sprint
+    publish: plan-sprint
     imports:
       - references/voice.md
       - references/tracker-profiles-jira.md
@@ -162,6 +166,6 @@ skills:
       - scripts/check_record.py
       - scripts/check_readback.py
   - name: front-door
-    publish: paqad
+    publish: start
     imports:
       - references/voice.md

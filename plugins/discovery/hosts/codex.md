@@ -17,9 +17,9 @@ below starts as the token `pending` and a person fills it in after installing.
    the repository; it never edits it.
 5. For posting, the user adds an Atlassian connection to Codex.
 6. Updates reach users per install source; local marketplaces update when re-synced.
-7. Exercise it: ask a question with `paqad-ask`, and start from the `/paqad` front door or start
-   an idea with `paqad-discover`, to confirm the real skills load and run on this host before
-   recording verdicts below. (These are the published `paqad-` names; the source folders are
+7. Exercise it: ask a question with `ask`, and start from the `/start` front door or start
+   an idea with `discover`, to confirm the real skills load and run on this host before
+   recording verdicts below. (These are the published names; the source folders are
    `ask-project`, `front-door` and `product-discovery`.)
 
 ## Unknowns that apply to Codex

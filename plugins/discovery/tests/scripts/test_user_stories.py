@@ -196,13 +196,13 @@ class BuiltSkillsTest(unittest.TestCase):
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def test_ticket_skills_carry_the_reference(self):
-        for skill in ("paqad-write-tickets", "paqad-check-tickets"):
+        for skill in ("write-tickets", "check-tickets"):
             path = os.path.join(self.skills_root, skill, USER_STORIES)
             self.assertTrue(os.path.isfile(path), "{0} lacks {1}".format(skill, USER_STORIES))
             self.assertIn("Given", read_text(path))
 
     def test_built_voice_carries_the_choice_prompt_rule(self):
-        voice = os.path.join(self.skills_root, "paqad-discover", "references", "voice.md")
+        voice = os.path.join(self.skills_root, "discover", "references", "voice.md")
         self.assertIn("the host's choice prompt", " ".join(read_text(voice).split()))
 
 

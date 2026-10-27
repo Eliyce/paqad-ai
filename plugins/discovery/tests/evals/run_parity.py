@@ -246,15 +246,15 @@ def collect_branch_profile(skills_root):
     return {
         "skills": frozenset(skills),
         "entry_skills": frozenset(entry_skills),
-        "step_graph": _step_graph(read_skill_file("paqad-discover", "SKILL.md")),
+        "step_graph": _step_graph(read_skill_file("discover", "SKILL.md")),
         "answer_shape": _answer_shape(
-            read_skill_file("paqad-ask", "references", "answer-template.md")
+            read_skill_file("ask", "references", "answer-template.md")
         ),
         "record_blocks": _record_blocks(
-            read_skill_file("paqad-discover", "assets", "record-template.md")
+            read_skill_file("discover", "assets", "record-template.md")
         ),
         "ticket_schema": read_skill_file(
-            "paqad-write-tickets", "assets", "ticket-set.schema.json"
+            "write-tickets", "assets", "ticket-set.schema.json"
         ),
     }
 

@@ -9,7 +9,7 @@ Proves each gate has teeth (pass-on-clean, fail-on-planted), mirroring test_pari
   - check_secrets passes on the real source and fails on a planted private-key header;
   - check_scenarios passes on the committed scenarios and fails when a required scenario is removed.
 
-Also proves INV-2: a freshly built dist contains none of the CI tooling (tests/ci or bump_version.py).
+Also proves INV-2: a freshly built dist contains none of the CI tooling (tests/ci).
 """
 
 import contextlib
@@ -175,7 +175,6 @@ class CiToolingNotShippedTest(unittest.TestCase):
             "check_secrets.py",
             "check_budget.py",
             "check_scenarios.py",
-            "bump_version.py",
         }
         for rel in _iter_relpaths(self.dist):
             parts = rel.split("/")

@@ -148,7 +148,7 @@ class DeclarersAndBuildTest(unittest.TestCase):
                   encoding="utf-8") as handle:
             handle.write("\nSee " + EVIDENCE_LEVELS + ".\n")
         with self.assertRaises(build.BuildError) as ctx:
-            build.build(source, os.path.join(tmp, "dist"))
+            build.build(source, os.path.join(tmp, "dist"), version="0.0.0")
         self.assertIn(EVIDENCE_LEVELS, str(ctx.exception))
 
 
