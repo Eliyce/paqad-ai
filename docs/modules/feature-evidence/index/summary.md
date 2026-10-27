@@ -1038,12 +1038,14 @@ obvious from their code, grouped by file.
 - `src/cli/commands/debt.ts`
 - `src/fix-protocol/fix-prove.ts`, `src/fix-protocol/fix-proof-record.ts`, `src/fix-protocol/fix-change.ts`, `src/cli/commands/fix.ts`
 - `src/rule-scripts/override.ts`
+- `src/speed-report`, `src/cli/commands/report.ts`
 
 ## Features
 
 - [Tech debt (paqad-ai debt)](../features/tech-debt/business.md)
 - [Fix proof (paqad-ai fix prove)](../features/fix-proof/business.md)
 - [Rule stop and Allow once (paqad-ai rules override)](../features/rule-override/business.md)
+- [Speed report (paqad-ai report speed)](../features/speed-report/business.md)
 
 ## Authority
 
