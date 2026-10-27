@@ -76,10 +76,12 @@ One pass per transcript file, in file order, on each `user` and `assistant` reco
 
 - Every interval is clipped to the change window. Size, test runs and edit-gate samples count
   calls that start inside the window.
-- **Busy** is the length of the union of all busy intervals across the main agent and every
-  subagent.
-- **Owners.** The window is walked in 10-second buckets on the clock. A bucket's busy seconds go
-  to the first agent active in it, in the order development, checks, review, documentation_sync,
+- **Busy** is real wall time: the length of the union of all busy intervals across the main
+  agent and every subagent. Two agents working in the same second count that second once, and a
+  1-second tool call counts 1 second.
+- **Owners.** The window is walked in 10-second buckets on the clock. Only a bucket's real busy
+  seconds are shared out, so Development, Ceremony, Orchestrator and other agents always add up
+  to Busy. Those seconds go to the first agent active in the bucket, in the order development, checks, review, documentation_sync,
   specification, expert, chief-architect, planning, Explore, other subagents, main. The subagent
   type maps to its stage through `resolveAgentIdentity` and `stageForAgentName`. Development is
   the development stage, Ceremony is checks to planning, Orchestrator is main, and Explore or any
@@ -110,4 +112,10 @@ their windows (with one record of margin on each side). Home folder names read `
 tool results and written text are `x` lines of the same count; Bash commands keep their prefix
 and plain words; refusal markers (`hook error`, `timed out`, `agent-entry`) and the first 400
 characters of injected messages are kept; paths outside the repo become stable placeholders.
-The report gives the same JSON on the real transcripts and on the fixture.
+The report gives the same JSON on the real transcripts and on the fixture, and the acceptance
+test pins its busy, development, ceremony, orchestrator and owner-wait numbers as literals.
+
+An earlier hand-run analysis of these three changes counted one full 10-second bucket for every
+10-second step from each interval's own start, so short calls and overlapping agents were
+counted several times. Its busy figures were about 2.8 times the real wall time and are not the
+reference for this report.

@@ -39,7 +39,7 @@ The table has one row per change bundle:
 | --- | --- |
 | Lane | The lane the change ran on: fast, graduated or full. |
 | Size | The files and lines the change wrote with Edit and Write inside its window, outside `.paqad/`. |
-| Busy | The time at least one agent (the main agent or any subagent) was working: thinking or running a tool. |
+| Busy | Real wall time during which at least one agent (the main agent or any subagent) was working: thinking or running a tool. Two agents working at once count that time once. |
 | Development | The part of Busy owned by the development stage agent. |
 | Ceremony | The part of Busy owned by planning, specification, the experts, the chief architect, review, checks and documentation sync. |
 | Orchestrator | The part of Busy owned by the main agent alone, with no stage agent working. |
@@ -64,7 +64,8 @@ totals. Nothing is guessed.
 - **Who owns a second.** Busy time is walked in 10-second buckets. Each bucket belongs to the
   first agent working in it, in this order: development, checks, review, documentation sync,
   specification, expert, chief architect, planning, Explore, main. So when development runs, its
-  time is development time even while the main agent also works.
+  time is development time even while the main agent also works. Only the real busy seconds in
+  a bucket are shared out, so Development, Ceremony and Orchestrator add up to Busy.
 - **The speed window is not the cost window.** The speed report measures a change from its first
   to its last stage-ledger row, padded 5 minutes on each side. The change cost
   (`cost.json`) measures from the change's open to its receipt or close. Each report keeps its own
