@@ -26,6 +26,8 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5YA4ANCER1JN9YTS2JCDE0S](TD-01M5YA4ANCER1JN9YTS2JCDE0S.md) (follow-up, low): The ChatGPT directory zip is not attached to the GitHub Release
+- [TD-01M5YA48T7EM2P3KHFM12T8XFD](TD-01M5YA48T7EM2P3KHFM12T8XFD.md) (debt, low): Python 3.9 is past end of life but still pinned in the discovery-plugin CI job
 - [TD-01M5VRJ2E7XV7F5VZKB3FXKQRK](TD-01M5VRJ2E7XV7F5VZKB3FXKQRK.md) (gap, low): HUD binds a foreground Agent call to the first new agent id; parallel or same-message dispatches are not told apart
 - [TD-01M5VRHVTQ24C395EA30WZ41TD](TD-01M5VRHVTQ24C395EA30WZ41TD.md) (gap, low): SessionStart release trusts the hook's parent pid, which can be a short-lived shell or a reused pid
 - [TD-01M5VRH711MWY0XT02FZSQ3KQS](TD-01M5VRH711MWY0XT02FZSQ3KQS.md) (gap, low): Codex writes no started stage-agent row, so the ledger cannot defer there
