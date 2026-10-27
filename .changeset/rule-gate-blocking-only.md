@@ -1,5 +1,0 @@
----
-'paqad-ai': minor
----
-
-Edits no longer wait for every rule script or get refused when the check times out. Before an Edit or Write, paqad now runs only the rule scripts that can block (deterministic, changed-files), several at a time, and a script marked `// per_file: true` re-checks only the files that changed since its last run. Every other script still runs at the end of the turn, and every blocking rule still blocks. The pre-edit check has its own time budget, `rule_gate_budget_ms` (default 6000, counted from the start of the hook, 500 to 9000): when it runs out, the scripts still running are stopped, the edit goes ahead with a note to the model, and the same checks run at the end of the turn and block there if anything fails. Two more knobs sit next to it in `.paqad/configs/.config.policy`: `rule_gate_pre_edit` (`blocking-only` by default, or `all` to run every script before an edit as before) and `rule_gate_concurrency` (`auto` by default, or a number up to 8; `1` runs them one after another). The hook timeout is unchanged.
