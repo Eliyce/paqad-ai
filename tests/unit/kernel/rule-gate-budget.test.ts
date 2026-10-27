@@ -142,7 +142,7 @@ function ownFeatureChange(root: string): void {
 }
 
 function nearlySpent(): number {
-  return Date.now() - (BUDGET_MS - 300);
+  return Date.now() - (BUDGET_MS - 2000);
 }
 
 function isAlive(pid: number): boolean {

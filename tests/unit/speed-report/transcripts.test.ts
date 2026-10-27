@@ -49,10 +49,11 @@ describe('transcripts root and paths', () => {
   });
 
   it('derives the project folder name the host uses', () => {
+    const drive = process.platform === 'win32' ? resolve('/').slice(0, 2).replace(':', '-') : '';
     expect(projectTranscriptSlug('/Users/x/my_proj/paqad-ai npm')).toBe(
-      '-Users-x-my-proj-paqad-ai-npm',
+      `${drive}-Users-x-my-proj-paqad-ai-npm`,
     );
-    expect(projectTranscriptSlug('/Users/x.y/a')).toBe('-Users-x-y-a');
+    expect(projectTranscriptSlug('/Users/x.y/a')).toBe(`${drive}-Users-x-y-a`);
   });
 
   it('accepts only plain ids', () => {
