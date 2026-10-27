@@ -1,0 +1,5 @@
+---
+'paqad-ai': patch
+---
+
+Stage agents are no longer sent back to reload the whole framework when paqad writes a rule, the rule-script map, a registry or a tech-debt item. The entry gate now goes stale only when the entry file, `.paqad/framework-path.txt` or a file under `docs/instructions/stack`, `design-system` or `workflows` changes. When one of those instruction files changed, the block names the changed files (up to 10, then "and N more") and asks the agent to read only those, write its marker and retry; a missing marker or a changed entry file still asks for the full load. Every entry-gate block now adds one line to `.paqad/logs/hooks.log` with the reason, the agent or session id and the number of changed files.

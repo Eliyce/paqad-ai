@@ -100,7 +100,9 @@ The reasons below are not obvious from the code, grouped by file in `src/dashboa
   compares a content hash for concurrent edits, writes through a temp file and rename, and audits.
   The root is canonicalized (macOS tmpdir sits behind `/var` to `/private` symlinks) and a
   symlinked target or parent that escapes the root is rejected. No agent sync code is needed: a
-  write under `docs/instructions/` already invalidates the agent-entry sentinel.
+  write under `docs/instructions/{stack,design-system,workflows}` already invalidates the
+  agent-entry sentinel. Rule files are not part of the entry load; the rule contract is tracked
+  by `rules-loaded.json`.
 - **`config-profile.ts` and `config-rag.ts`.** The canonical form is validated, so a legacy shaped
   payload cannot bypass the schema. Framework knobs are synced to `.paqad/.config`, and the RAG
   write is scoped to the intelligence section so other `.config` keys are never touched. The RAG

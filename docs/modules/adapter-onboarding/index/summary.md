@@ -150,8 +150,19 @@ state on its own.
 ### Entry gates and sentinel
 
 - **`lib/agent-entry-sentinel.mjs`.** Both entry gates share this module so they agree on what a
-  fresh sentinel means. Staleness compares mtimes with a strict "newer than" (equal is not newer),
-  stopping at the first newer file, and a stale sentinel is deleted so the next run re-blocks. On
+  fresh sentinel means. Staleness compares mtimes with a strict "newer than" (equal is not newer)
+  against the entry file, `.paqad/framework-path.txt` and, recursively, only the instruction
+  folders the entry load reads: `docs/instructions/{stack,design-system,workflows}`, the exported
+  `LOADED_INSTRUCTION_DIRS`. paqad's own stages write rules, the rule-script map, registries and
+  tech-debt items under `docs/instructions/` during normal work, and those files are not part of
+  the entry load (the rule contract has its own record, `rules-loaded.json`), so a change there
+  never stales the sentinel. The router writer in `src/onboarding/agent-bootstrap-writer.ts`
+  renders its always-load list from a TypeScript copy of the same list, and a unit test fails when
+  the two differ, because a hook cannot import TypeScript source. A sentinel stale on the entry
+  file or the framework path is deleted so the next run re-blocks with the full load. A sentinel
+  stale on a loaded instruction file is kept and stays stale by mtime until it is restamped: the
+  entry gate and the capability gate's entry probe run side by side, and deleting it made the
+  second one ask for a full reload instead of naming the changed files. On
   the main thread the sentinel lives at `.paqad/.agent-entry-loaded.d/<session id>`, so a
   SessionStart in another session of the same checkout cannot delete it; the single legacy file is
   used only when the payload has no session id. Inside a subagent the payload carries the parent's
@@ -167,6 +178,14 @@ state on its own.
   marker, and on the main thread a write of the legacy file still clears this session's own gate.
   The directive names the exact file this session is checked against; the subagent line is only
   appended when an agent id is present so the shared step text still matches the prompt gate.
+  When only loaded instruction files changed, the block skips the full load and names them
+  instead: `[paqad] Blocked: <n> instruction file(s) changed since you loaded them.`, then
+  `[paqad] Read them, then write <marker> and retry:` and one line per file, project-relative with
+  forward slashes, at most 10 plus `and N more`. A missing marker, a changed entry file and a
+  changed `framework-path.txt` keep the full-load text. Every block appends one line to
+  `.paqad/logs/hooks.log`, `agent-entry-gate block reason=<missing|stale:entry-file|stale:framework-path|stale:docs-instructions> agent=<agent or session id> files=<n>`,
+  so refusals can be counted by cause. The line holds only the reason, the id and the count, never
+  a path or prompt text.
 - **`agent-entry-prompt-gate.mjs` (UserPromptSubmit).** When the framework is not loaded it emits
   only the load directive and suppresses the `[paqad-context]` block, so the one instruction that
   must come first owns the top of context. It still routes the prompt first, writing the
@@ -183,7 +202,8 @@ state on its own.
   rides the `additionalContext` envelope; Claude keeps plain stdout.
 - **`lib/agent-entry-directive.mjs`.** The two gates used to hand-copy the load steps and the copy
   drifted, so the steps live in this one dist-less module (hooks cannot import the TypeScript
-  writers). Both gates only fire when paqad is on, so the directive states that as fact. It tells
+  writers). The instruction folders in step 4 come from `LOADED_INSTRUCTION_DIRS` in the sentinel
+  module, the same list staleness checks. Both gates only fire when paqad is on, so the directive states that as fact. It tells
   the agent to read files with its file-read tool, because a shell line such as
   `echo ======` fails in zsh (a word starting with `=` is looked up as a command). The
   spec-pipeline defaults are copied from `src/core/framework-config.ts`, and a unit test fails if

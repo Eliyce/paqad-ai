@@ -122,8 +122,10 @@ done this and written its sentinel; read-only tools stay open so it can load
 first. The sentinel is per session, at `.paqad/.agent-entry-loaded.d/<session id>`
 (the single `.paqad/.agent-entry-loaded` file is used only when the host gives no
 session id), and each SessionStart removes only its own, so two sessions in one
-checkout never ungate each other. Editing `CLAUDE.md` or anything under
-`docs/instructions/` mid-session invalidates the sentinel and forces a reload.
+checkout never ungate each other. Editing `CLAUDE.md` or `.paqad/framework-path.txt`
+mid-session invalidates the sentinel and forces a full reload; editing a file under
+`docs/instructions/{stack,design-system,workflows}` re-blocks with the list of changed files to
+re-read. Other folders under `docs/instructions/` are not part of the entry load.
 This gate is what makes "code with the project's context" non-optional rather than
 a hope pinned to a prompt. See [`CLAUDE.md`](../../CLAUDE.md) and
 [`adapter-onboarding`](adapter-onboarding/index/summary.md).
