@@ -29,9 +29,10 @@ findings.
   (`ran: false`, summary `⚪ scripted rules: skipped (no files changed this turn)`)
   rather than falling through to a whole-tree scan that would block on pre-existing
   debt. The capability kernel passes `changed-files` at the **completion** seam and
-  `whole-tree` at the **pre-mutation** seam; an explicit full scan
-  (`checks run` / `health run`) uses `whole-tree`, where an empty set still scans the
-  whole tree.
+  `whole-tree` at the **pre-mutation** seam, where an empty set still scans the
+  whole tree. These two seams are the only callers: `paqad-ai checks run` and
+  `health run` do not run rule scripts, so a failing whole-tree script blocks at
+  the turn end (the completion seam) and nowhere else.
 
 ## `formatEnforcementSummary(result)`
 
