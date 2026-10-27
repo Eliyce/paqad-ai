@@ -197,9 +197,8 @@ export const STAGE_BRIEF_FALLBACK_LINE =
 
 export const AGENT_ENTRY_MARKER_FALLBACK: readonly string[] = [
   'You run in your own subagent context, so the entry gate tracks your load separately from',
-  'the orchestrator. If it blocks your first edit, it names a per-agent marker under',
-  '`.paqad/session/agent-entry/`. Create exactly that file (or write `.paqad/.agent-entry-loaded`',
-  'with the Write tool) and retry.',
+  'the orchestrator. If the entry gate blocks an edit, it names the files that changed. Read only',
+  'those, write the marker it names, and retry.',
 ];
 
 const STAGE_BRIEF_SECTION: readonly string[] = [

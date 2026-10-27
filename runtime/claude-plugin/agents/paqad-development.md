@@ -14,9 +14,8 @@ feature-development change in your own isolated context and then return. Your jo
 Your stage brief was added to your context when you started. If it is missing, resolve `.paqad/framework-path.txt` and load `AGENT-BOOTSTRAP.md` and `AGENT-ROUTER.md` as before.
 
 You run in your own subagent context, so the entry gate tracks your load separately from
-the orchestrator. If it blocks your first edit, it names a per-agent marker under
-`.paqad/session/agent-entry/`. Create exactly that file (or write `.paqad/.agent-entry-loaded`
-with the Write tool) and retry.
+the orchestrator. If the entry gate blocks an edit, it names the files that changed. Read only
+those, write the marker it names, and retry.
 
 ## What you were dispatched with
 
