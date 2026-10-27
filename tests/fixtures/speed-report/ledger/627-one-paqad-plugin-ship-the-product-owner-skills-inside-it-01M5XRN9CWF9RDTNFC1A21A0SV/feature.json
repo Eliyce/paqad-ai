@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "doc_type": "paqad.feature",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "session_id": "fc6c87cb-2eca-4348-a38c-19dc8d58585c",
+  "recorded_at": "2026-10-27T04:07:26.416Z",
+  "content_hash": "11674ad4ef1eba53816a06b344a2966d0bb271414185071532086cb8b1623051",
+  "issue": "627",
+  "title": "One paqad plugin: ship the product-owner skills inside it (#627)",
+  "slug": "one-paqad-plugin-ship-the-product-owner-skills-inside-it",
+  "lane": "full",
+  "status": "active",
+  "spec_id": "spec",
+  "adapter": "claude-code",
+  "branch": "feat/one-paqad-plugin-discovery-skills",
+  "base_branch": "main",
+  "updated_at": "2026-10-27T09:29:44.268Z"
+}

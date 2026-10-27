@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "doc_type": "paqad.feature",
+  "change": "01M5DC6C8R1KBH145FZ8HS1VTC",
+  "session_id": "36416bc0-b415-43e8-943d-22b4b74f241f",
+  "recorded_at": "2026-10-20T19:21:44.017Z",
+  "content_hash": "5c9c65397d70f89c1c24984bce7a2ca2b46e0c642d20f860af83d1421739ab37",
+  "issue": "625",
+  "title": "Seed paqad stage helpers through SubagentStart and give each stage its own effort and model",
+  "slug": "seed-stage-helpers-through-subagentstart",
+  "lane": "full",
+  "status": "active",
+  "spec_id": "spec",
+  "adapter": "claude-code",
+  "branch": "feat/625-seed-stage-helpers",
+  "base_branch": "main",
+  "updated_at": "2026-10-20T19:46:19.513Z"
+}

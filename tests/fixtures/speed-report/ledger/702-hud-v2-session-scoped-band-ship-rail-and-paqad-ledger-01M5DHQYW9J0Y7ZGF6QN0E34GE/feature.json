@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "doc_type": "paqad.feature",
+  "change": "01M5DHQYW9J0Y7ZGF6QN0E34GE",
+  "session_id": "36416bc0-b415-43e8-943d-22b4b74f241f",
+  "recorded_at": "2026-10-20T20:58:43.007Z",
+  "content_hash": "4c8a2394d96e91a4feffadf5a3cc551729a8b958207adac847893a617c2b285a",
+  "issue": "702",
+  "title": "hud-v2-session-scoped-band-ship-rail-and-paqad-ledger",
+  "slug": "hud-v2-session-scoped-band-ship-rail-and-paqad-ledger",
+  "lane": "full",
+  "status": "active",
+  "spec_id": "spec",
+  "adapter": "claude-code",
+  "branch": "feat/625-seed-stage-helpers",
+  "base_branch": "main",
+  "updated_at": "2026-10-20T21:53:47.649Z"
+}
