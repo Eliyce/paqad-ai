@@ -1,9 +1,12 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createReportCommand } from '@/cli/commands/report.js';
 import { INJECTED_MARKERS, INJECTED_SCAN_CHARS, isInjectedText } from '@/speed-report/classify.js';
+import { projectTranscriptSlug } from '@/speed-report/transcripts.js';
 
 const FIXTURE = join(process.cwd(), 'tests/fixtures/speed-report');
 const CHANGES = [
@@ -135,6 +138,96 @@ describe('speed report fixture', () => {
     expect(metas.length).toBeGreaterThan(0);
     for (const path of metas) {
       expect(Object.keys(JSON.parse(readFileSync(path, 'utf8')) as object)).toEqual(['agentType']);
+    }
+  });
+});
+
+interface PinnedRow {
+  change: string;
+  busy_ms: number;
+  development_ms: number;
+  ceremony_ms: number;
+  orchestrator_ms: number;
+  other_agents_ms: number;
+  owner_wait_ms: number;
+}
+
+const PINNED: PinnedRow[] = [
+  {
+    change: '01M5DC6C8R1KBH145FZ8HS1VTC',
+    busy_ms: 3_848_185,
+    development_ms: 1_836_521,
+    ceremony_ms: 1_754_320,
+    orchestrator_ms: 257_344,
+    other_agents_ms: 0,
+    owner_wait_ms: 1_172_983,
+  },
+  {
+    change: '01M5XRN9CWF9RDTNFC1A21A0SV',
+    busy_ms: 4_468_203,
+    development_ms: 1_376_777,
+    ceremony_ms: 2_640_000,
+    orchestrator_ms: 451_426,
+    other_agents_ms: 0,
+    owner_wait_ms: 14_712_202,
+  },
+  {
+    change: '01M5DHQYW9J0Y7ZGF6QN0E34GE',
+    busy_ms: 7_737_487,
+    development_ms: 4_415_380,
+    ceremony_ms: 3_121_760,
+    orchestrator_ms: 200_347,
+    other_agents_ms: 0,
+    owner_wait_ms: 12_457_530,
+  },
+];
+
+function fixtureProject(): { projectRoot: string; transcriptsRoot: string } {
+  const root = mkdtempSync(join(tmpdir(), 'paqad-speed-fixture-'));
+  const projectRoot = join(root, 'project');
+  const transcriptsRoot = join(root, 'projects');
+  mkdirSync(join(projectRoot, '.paqad/ledger'), { recursive: true });
+  cpSync(join(FIXTURE, 'ledger'), join(projectRoot, '.paqad/ledger/feature-evidence'), {
+    recursive: true,
+  });
+  cpSync(join(FIXTURE, 'transcripts'), join(transcriptsRoot, projectTranscriptSlug(projectRoot)), {
+    recursive: true,
+  });
+  return { projectRoot, transcriptsRoot };
+}
+
+describe('speed report on the fixture', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('AC-1: report speed --json gives the pinned true-union numbers for all three changes', async () => {
+    const { projectRoot, transcriptsRoot } = fixtureProject();
+    const out: string[] = [];
+    vi.spyOn(console, 'log').mockImplementation((line?: unknown) => out.push(String(line)));
+    await createReportCommand().parseAsync(
+      ['speed', '--json', '--project-root', projectRoot, '--transcripts-root', transcriptsRoot],
+      { from: 'user' },
+    );
+    const report = JSON.parse(out.join('\n')) as { changes: Array<PinnedRow & { status: string }> };
+    const rows = [...report.changes].sort((a, b) => a.change.localeCompare(b.change));
+    expect(rows.map((row) => row.status)).toEqual(['measured', 'measured', 'measured']);
+    const pinned = [...PINNED].sort((a, b) => a.change.localeCompare(b.change));
+    expect(
+      rows.map((row) => ({
+        change: row.change,
+        busy_ms: row.busy_ms,
+        development_ms: row.development_ms,
+        ceremony_ms: row.ceremony_ms,
+        orchestrator_ms: row.orchestrator_ms,
+        other_agents_ms: row.other_agents_ms,
+        owner_wait_ms: row.owner_wait_ms,
+      })),
+    ).toEqual(pinned);
+    for (const row of rows) {
+      expect(row.development_ms + row.ceremony_ms + row.orchestrator_ms + row.other_agents_ms).toBe(
+        row.busy_ms,
+      );
     }
   });
 });
