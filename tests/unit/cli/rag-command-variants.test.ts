@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -99,6 +99,44 @@ describe('rag command variants', () => {
     expect(used.injected).toBe(true);
     expect(used.injected_sections).toEqual(['rules', 'memory', 'drift']);
     expect(stdout.join('')).toContain('index sync: no-index');
+  });
+
+  it('AC-57: refresh-context skips while another refresh holds the lock', async () => {
+    config('rag_enabled=false\n');
+    mkdirSync(join(root, '.paqad/locks/refresh-context.lock'), { recursive: true });
+    const ruleContext = await import('@/context/rule-context.js');
+
+    await run(['refresh-context', '--project-root', root]);
+
+    expect(ruleContext.refreshRuleContext).not.toHaveBeenCalled();
+    expect(stdout.join('')).toBe('another refresh-context is running; skipped\n');
+    expect(existsSync(join(root, '.paqad/locks/refresh-context.lock'))).toBe(true);
+  });
+
+  it('FR-40: refresh-context holds the lock for the run and releases it', async () => {
+    config('rag_enabled=false\n');
+    const lock = join(root, '.paqad/locks/refresh-context.lock');
+    const ruleContext = await import('@/context/rule-context.js');
+    let heldDuringRun = false;
+    vi.mocked(ruleContext.refreshRuleContext).mockImplementation(async () => {
+      heldDuringRun = existsSync(lock);
+      return '/ctx/session-context.md';
+    });
+
+    await run(['refresh-context', '--project-root', root]);
+
+    expect(heldDuringRun).toBe(true);
+    expect(existsSync(lock)).toBe(false);
+  });
+
+  it('FR-40: refresh-context releases the lock when the run throws', async () => {
+    config('rag_enabled=false\n');
+    const ruleContext = await import('@/context/rule-context.js');
+    vi.mocked(ruleContext.refreshRuleContext).mockRejectedValue(new Error('boom'));
+
+    await expect(run(['refresh-context', '--project-root', root])).rejects.toThrow('boom');
+
+    expect(existsSync(join(root, '.paqad/locks/refresh-context.lock'))).toBe(false);
   });
 
   it('probes with the default count when the given one is not a positive number', async () => {

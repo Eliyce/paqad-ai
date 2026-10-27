@@ -12,6 +12,7 @@ import {
 } from '@/core/project-intelligence.js';
 import type { EmbeddingProviderName } from '@/core/types/project-profile.js';
 import { createRagProgressReporter } from '@/cli/ui/rag-progress.js';
+import { holdRefreshContextLock } from '@/background/refresh-context-lock.js';
 import { refreshCodeKnowledgeIndex } from '@/code-knowledge/refresh.js';
 import { resolveFrameworkConfig } from '@/core/framework-config.js';
 import { gatherCodebaseMemory } from '@/context/codebase-memory.js';
@@ -240,6 +241,135 @@ export async function initializeRagIndex(
   });
 }
 
+interface RefreshContextOptions {
+  projectRoot: string;
+  quiet?: boolean;
+  session?: string;
+}
+
+async function runRefreshContext(options: RefreshContextOptions): Promise<void> {
+  try {
+    await refreshCodeKnowledgeIndex(options.projectRoot);
+  } catch {}
+
+  const route = readSessionRoute(options.projectRoot, options.session);
+  const { loadRules, retrieves } = compositionForRoute(route);
+
+  const intelligence = resolveFrameworkConfig(options.projectRoot).intelligence;
+
+  const existingSurfaceSection = loadRules
+    ? await gatherExistingSurface(options.projectRoot, {
+        changedPaths: (await loadChangeEvidence(options.projectRoot)).files,
+        query: route?.query,
+        tokenBudget: intelligence.existing_surface_tokens,
+      })
+    : '';
+
+  const ragEnabled = intelligence.rag_enabled;
+  if (!ragEnabled) {
+    const target = await refreshRuleContext(options.projectRoot, {
+      existingSurfaceSection,
+      loadRules,
+    });
+    if (!options.quiet) {
+      process.stdout.write(
+        `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (rag off)\n`,
+      );
+    }
+    return;
+  }
+
+  const removedProvider = resolveRemovedEmbeddingProvider(options.projectRoot);
+  if (removedProvider) {
+    appendRagAudit(options.projectRoot, 'WARN', 'rag-provider-removed', {
+      provider: removedProvider,
+    });
+    const target = await refreshRuleContext(options.projectRoot, {
+      existingSurfaceSection,
+      retrievalSection: `## Retrieved context — none\n> Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`,
+      loadRules,
+    });
+    process.stderr.write(`Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`);
+    if (!options.quiet) {
+      process.stdout.write(
+        `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (embedding provider removed)\n`,
+      );
+    }
+    return;
+  }
+
+  const sync = await backgroundIndexSync(options.projectRoot);
+  const { slices, bestScore } = retrieves
+    ? await gatherWorkingSetSlices(options.projectRoot, {
+        recordEvidence: { adapter: 'engine' },
+        query: route?.query,
+      })
+    : { slices: [], bestScore: null };
+  const usesContextPack = slices.length > MAX_RETRIEVAL_SLICES;
+  const packEntries = usesContextPack
+    ? distillSlices(slices, {
+        readFile: (path) => {
+          try {
+            return readFileSync(isAbsolute(path) ? path : join(options.projectRoot, path), 'utf8');
+          } catch {
+            return undefined;
+          }
+        },
+      })
+    : [];
+  const retrievalSection = usesContextPack
+    ? composeContextPack(packEntries)
+    : composeRetrievalSection(slices, { bestScore });
+  const memorySection = retrieves ? gatherCodebaseMemory(options.projectRoot) : '';
+  let driftSection = '';
+  if (retrieves) {
+    await refreshBaseDrift(options.projectRoot);
+    driftSection = composeBaseDriftSection(loadBaseDrift(options.projectRoot));
+  }
+  const target = await refreshRuleContext(options.projectRoot, {
+    existingSurfaceSection,
+    memorySection,
+    retrievalSection,
+    driftSection,
+    loadRules,
+  });
+
+  if (retrieves) {
+    const sliceCount = usesContextPack ? 0 : slices.length;
+    const pointerCount = usesContextPack ? packEntries.length : 0;
+    const injectedSections: RagInjectedSection[] = [];
+    if (loadRules) injectedSections.push('rules');
+    if (sliceCount > 0 || pointerCount > 0) injectedSections.push('retrieval');
+    if (memorySection) injectedSections.push('memory');
+    if (driftSection) injectedSections.push('drift');
+    recordRagEvidence(
+      options.projectRoot,
+      'used',
+      {
+        injected:
+          sliceCount > 0 || pointerCount > 0 || Boolean(memorySection) || Boolean(driftSection),
+        injected_sections: injectedSections,
+        slice_count: sliceCount,
+        pointer_count: pointerCount,
+        score_top: bestScore,
+        bytes_injected: Buffer.byteLength(
+          `${retrievalSection}${memorySection}${driftSection}`,
+          'utf8',
+        ),
+      },
+      { ragEnabled: true, adapter: 'engine' },
+    );
+  }
+
+  if (!options.quiet) {
+    process.stdout.write(
+      `${target ? `wrote ${target}` : 'nothing to compose'}; index sync: ${
+        sync.synced ? 'done' : sync.reason
+      }; slices: ${slices.length}\n`,
+    );
+  }
+}
+
 export function createRagCommand(): Command {
   const command = new Command('rag').description('Manage optional hybrid RAG context retrieval');
 
@@ -380,129 +510,18 @@ export function createRagCommand(): Command {
     .option('--project-root <path>', 'Project root', process.cwd())
     .option('--quiet', 'Suppress output (used by the background trigger)')
     .option('--session <id>', 'Host session the refresh was started for (reads its route)')
-    .action(async (options: { projectRoot: string; quiet?: boolean; session?: string }) => {
+    .action(async (options: RefreshContextOptions) => {
+      const hold = holdRefreshContextLock(options.projectRoot);
+      if (!hold) {
+        if (!options.quiet) {
+          process.stdout.write('another refresh-context is running; skipped\n');
+        }
+        return;
+      }
       try {
-        await refreshCodeKnowledgeIndex(options.projectRoot);
-      } catch {}
-
-      const route = readSessionRoute(options.projectRoot, options.session);
-      const { loadRules, retrieves } = compositionForRoute(route);
-
-      const intelligence = resolveFrameworkConfig(options.projectRoot).intelligence;
-
-      const existingSurfaceSection = loadRules
-        ? await gatherExistingSurface(options.projectRoot, {
-            changedPaths: (await loadChangeEvidence(options.projectRoot)).files,
-            query: route?.query,
-            tokenBudget: intelligence.existing_surface_tokens,
-          })
-        : '';
-
-      const ragEnabled = intelligence.rag_enabled;
-      if (!ragEnabled) {
-        const target = await refreshRuleContext(options.projectRoot, {
-          existingSurfaceSection,
-          loadRules,
-        });
-        if (!options.quiet) {
-          process.stdout.write(
-            `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (rag off)\n`,
-          );
-        }
-        return;
-      }
-
-      const removedProvider = resolveRemovedEmbeddingProvider(options.projectRoot);
-      if (removedProvider) {
-        appendRagAudit(options.projectRoot, 'WARN', 'rag-provider-removed', {
-          provider: removedProvider,
-        });
-        const target = await refreshRuleContext(options.projectRoot, {
-          existingSurfaceSection,
-          retrievalSection: `## Retrieved context — none\n> Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`,
-          loadRules,
-        });
-        process.stderr.write(`Warning: ${REMOVED_EMBEDDING_PROVIDER_MESSAGE}\n`);
-        if (!options.quiet) {
-          process.stdout.write(
-            `${target ? `wrote ${target}` : 'nothing to compose'}; rule-only (embedding provider removed)\n`,
-          );
-        }
-        return;
-      }
-
-      const sync = await backgroundIndexSync(options.projectRoot);
-      const { slices, bestScore } = retrieves
-        ? await gatherWorkingSetSlices(options.projectRoot, {
-            recordEvidence: { adapter: 'engine' },
-            query: route?.query,
-          })
-        : { slices: [], bestScore: null };
-      const usesContextPack = slices.length > MAX_RETRIEVAL_SLICES;
-      const packEntries = usesContextPack
-        ? distillSlices(slices, {
-            readFile: (path) => {
-              try {
-                return readFileSync(
-                  isAbsolute(path) ? path : join(options.projectRoot, path),
-                  'utf8',
-                );
-              } catch {
-                return undefined;
-              }
-            },
-          })
-        : [];
-      const retrievalSection = usesContextPack
-        ? composeContextPack(packEntries)
-        : composeRetrievalSection(slices, { bestScore });
-      const memorySection = retrieves ? gatherCodebaseMemory(options.projectRoot) : '';
-      let driftSection = '';
-      if (retrieves) {
-        await refreshBaseDrift(options.projectRoot);
-        driftSection = composeBaseDriftSection(loadBaseDrift(options.projectRoot));
-      }
-      const target = await refreshRuleContext(options.projectRoot, {
-        existingSurfaceSection,
-        memorySection,
-        retrievalSection,
-        driftSection,
-        loadRules,
-      });
-
-      if (retrieves) {
-        const sliceCount = usesContextPack ? 0 : slices.length;
-        const pointerCount = usesContextPack ? packEntries.length : 0;
-        const injectedSections: RagInjectedSection[] = [];
-        if (loadRules) injectedSections.push('rules');
-        if (sliceCount > 0 || pointerCount > 0) injectedSections.push('retrieval');
-        if (memorySection) injectedSections.push('memory');
-        if (driftSection) injectedSections.push('drift');
-        recordRagEvidence(
-          options.projectRoot,
-          'used',
-          {
-            injected:
-              sliceCount > 0 || pointerCount > 0 || Boolean(memorySection) || Boolean(driftSection),
-            injected_sections: injectedSections,
-            slice_count: sliceCount,
-            pointer_count: pointerCount,
-            score_top: bestScore,
-            bytes_injected: Buffer.byteLength(
-              `${retrievalSection}${memorySection}${driftSection}`,
-              'utf8',
-            ),
-          },
-          { ragEnabled: true, adapter: 'engine' },
-        );
-      }
-
-      if (!options.quiet) {
-        process.stdout.write(
-          `${target ? `wrote ${target}` : 'nothing to compose'}; index sync: ${
-            sync.synced ? 'done' : sync.reason
-          }; slices: ${slices.length}\n`,
-        );
+        await runRefreshContext(options);
+      } finally {
+        hold.release();
       }
     });
 
