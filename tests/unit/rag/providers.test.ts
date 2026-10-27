@@ -8,8 +8,10 @@ import type { IntelligenceConfig } from '@/core/types/project-profile.js';
 import { EmbeddingProviderError } from '@/rag/types.js';
 import {
   createEmbeddingProvider,
+  enableEmbeddingProviderCache,
   LocalEmbeddingProvider,
   OpenAiEmbeddingProvider,
+  resetEmbeddingProviderCache,
 } from '@/rag/providers.js';
 import {
   REMOVED_EMBEDDING_PROVIDER_MESSAGE,
@@ -68,6 +70,7 @@ describe('RAG embedding providers', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    resetEmbeddingProviderCache();
     rmSync(projectRoot, { recursive: true, force: true });
   });
 
@@ -278,5 +281,73 @@ describe('RAG embedding providers', () => {
         }),
       ),
     ).resolves.toBeInstanceOf(OpenAiEmbeddingProvider);
+  });
+
+  describe('per-process provider cache', () => {
+    function workingPipeline(): void {
+      transformerPipeline.mockImplementation(async () => async (batch: string[]) => ({
+        tolist: () => batch.map((text) => [text.length]),
+      }));
+    }
+
+    it('AC-60: two calls with the same model return the same instance and load it once', async () => {
+      workingPipeline();
+      enableEmbeddingProviderCache();
+      const first = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      const second = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      await first.embed('a');
+      await second.embed('b');
+      expect(second).toBe(first);
+      expect(transformerPipeline).toHaveBeenCalledOnce();
+    });
+
+    it('AC-60: a different model id gets a different instance', async () => {
+      enableEmbeddingProviderCache();
+      const first = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      const other = await createEmbeddingProvider(
+        projectRoot,
+        makeIntelligence({ embedding_model: 'other-model' }),
+      );
+      expect(other).not.toBe(first);
+    });
+
+    it('AC-60: a different models directory gets a different instance', async () => {
+      enableEmbeddingProviderCache();
+      const first = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      vi.stubEnv('HOME', join(projectRoot, 'other-home'));
+      vi.stubEnv('USERPROFILE', join(projectRoot, 'other-home'));
+      const other = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      expect(other).not.toBe(first);
+    });
+
+    it('AC-60: a provider whose model failed to load is not kept', async () => {
+      transformerPipeline.mockRejectedValueOnce(new Error('model load failed'));
+      enableEmbeddingProviderCache();
+      const failed = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      await expect(failed.embed('a')).rejects.toThrow('model load failed');
+
+      workingPipeline();
+      const retried = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      expect(retried).not.toBe(failed);
+      await expect(retried.embed('a')).resolves.toEqual([[1]]);
+      expect(await createEmbeddingProvider(projectRoot, makeIntelligence())).toBe(retried);
+    });
+
+    it('AC-60: a provider built with a progress callback is never cached', async () => {
+      enableEmbeddingProviderCache();
+      const first = await createEmbeddingProvider(projectRoot, makeIntelligence(), () => {});
+      const second = await createEmbeddingProvider(projectRoot, makeIntelligence(), () => {});
+      expect(second).not.toBe(first);
+    });
+
+    it('FR-44: the cache is off until a CLI process enables it, and reset turns it off', async () => {
+      const first = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      expect(await createEmbeddingProvider(projectRoot, makeIntelligence())).not.toBe(first);
+
+      enableEmbeddingProviderCache();
+      const cached = await createEmbeddingProvider(projectRoot, makeIntelligence());
+      resetEmbeddingProviderCache();
+      expect(await createEmbeddingProvider(projectRoot, makeIntelligence())).not.toBe(cached);
+    });
   });
 });

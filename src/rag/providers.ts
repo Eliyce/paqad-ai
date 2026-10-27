@@ -23,6 +23,8 @@ import { EmbeddingProviderError } from './types.js';
 
 const REMOTE_RETRY_DELAYS_MS = [250, 500, 1000] as const;
 
+const LOCAL_EMBEDDING_DTYPE = 'q8';
+
 export function localModelsRoot(): string {
   return join(homedir(), '.paqad', 'models');
 }
@@ -107,6 +109,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
   constructor(
     intelligence: IntelligenceConfig,
     private readonly onProgress?: (update: ProviderProgressUpdate) => void,
+    private readonly onLoadFailed?: () => void,
   ) {
     this.model = intelligence.embedding_model ?? getDefaultEmbeddingModel('local');
   }
@@ -131,7 +134,12 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
 
   private async getExtractor(): Promise<LocalEmbeddingExtractor> {
     if (!this.extractorPromise) {
-      this.extractorPromise = this.loadExtractor();
+      const loading = this.loadExtractor();
+      this.extractorPromise = loading;
+      loading.catch(() => {
+        if (this.extractorPromise === loading) this.extractorPromise = undefined;
+        this.onLoadFailed?.();
+      });
     }
     return this.extractorPromise;
   }
@@ -151,7 +159,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
           task: 'feature-extraction',
           model: string,
           options: {
-            dtype?: 'q8';
+            dtype?: typeof LOCAL_EMBEDDING_DTYPE;
             progress_callback?: (progress: LocalEmbeddingProgress) => void;
           },
         ) => Promise<LocalEmbeddingExtractor>;
@@ -163,7 +171,7 @@ export class LocalEmbeddingProvider implements EmbeddingProvider {
       env.allowLocalModels = true;
       env.allowRemoteModels = !cached;
       return pipeline('feature-extraction', this.model, {
-        dtype: 'q8',
+        dtype: LOCAL_EMBEDDING_DTYPE,
         progress_callback: (progress: LocalEmbeddingProgress) => {
           const loaded = progress.loaded ?? 0;
           const total = progress.total ?? 0;
@@ -241,6 +249,40 @@ export class OpenAiEmbeddingProvider implements EmbeddingProvider {
   }
 }
 
+const localProviderCache = new Map<string, LocalEmbeddingProvider>();
+let providerCacheEnabled = false;
+
+export function enableEmbeddingProviderCache(): void {
+  providerCacheEnabled = true;
+}
+
+export function resetEmbeddingProviderCache(): void {
+  localProviderCache.clear();
+  providerCacheEnabled = false;
+}
+
+function localProviderKey(intelligence: IntelligenceConfig): string {
+  const model = intelligence.embedding_model ?? getDefaultEmbeddingModel('local');
+  return ['local', model, LOCAL_EMBEDDING_DTYPE, localModelsRoot()].join('|');
+}
+
+function cachedLocalProvider(intelligence: IntelligenceConfig): LocalEmbeddingProvider {
+  const key = localProviderKey(intelligence);
+  const cached = localProviderCache.get(key);
+  if (cached) {
+    return cached;
+  }
+  const provider: LocalEmbeddingProvider = new LocalEmbeddingProvider(
+    intelligence,
+    undefined,
+    () => {
+      if (localProviderCache.get(key) === provider) localProviderCache.delete(key);
+    },
+  );
+  localProviderCache.set(key, provider);
+  return provider;
+}
+
 export async function createEmbeddingProvider(
   projectRoot: string,
   intelligence: IntelligenceConfig,
@@ -252,6 +294,9 @@ export async function createEmbeddingProvider(
       return new OpenAiEmbeddingProvider(projectRoot, intelligence, onProgress);
     case 'local':
     default:
+      if (providerCacheEnabled && onProgress === undefined) {
+        return cachedLocalProvider(intelligence);
+      }
       return new LocalEmbeddingProvider(intelligence, onProgress);
   }
 }
