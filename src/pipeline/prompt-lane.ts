@@ -61,6 +61,8 @@ export const SYSTEM_NOTIFICATION_ELEMENTS: readonly string[] = [
 
 export const SYSTEM_NOTIFICATION_BANNER = '[system notification - not user input]';
 
+export const STOP_HOOK_FEEDBACK_PREFIX = 'stop hook feedback:';
+
 export const SUBAGENT_HANDBACK_MARKERS = {
   element: 'agent-message',
   label: '[subagent hand-back]',
@@ -173,7 +175,7 @@ export function isBareTicketPrompt(prompt: string): boolean {
 
 export function isSystemNotificationPrompt(prompt: string): boolean {
   const head = prompt.trimStart().toLowerCase();
-  if (head.startsWith(SYSTEM_NOTIFICATION_BANNER)) {
+  if (head.startsWith(SYSTEM_NOTIFICATION_BANNER) || head.startsWith(STOP_HOOK_FEEDBACK_PREFIX)) {
     return true;
   }
   if (startsWithNotificationElement(head)) {
