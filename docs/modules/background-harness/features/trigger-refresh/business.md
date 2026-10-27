@@ -26,6 +26,19 @@ The technical contract lives at [`technical.md`](./technical.md).
   - A worker already running (lock held) → no-op (`{spawned:false, reason:'in-flight'}`).
   - Otherwise → stamps the debounce marker, spawns the detached worker, returns `{spawned:true}`.
 
+- **Trigger on prompt (context refresh):** the `UserPromptSubmit` gate
+  (`agent-entry-prompt-gate.mjs`) starts `context-refresh-trigger.mjs` only for a real
+  human prompt. Task notifications, stage-agent hand-backs and a prompt that starts with
+  `Stop hook feedback:` never trigger a refresh. The trigger then runs Check, Stamp,
+  Acquire, Release:
+  - **Check:** a refresh started in the last 2 minutes → skip (debounce).
+  - **Stamp:** stamp the debounce marker.
+  - **Acquire:** take the refresh lock. A refresh already running (lock held) → skip, so
+    only one runs at a time.
+  - **Release:** the refresh holds the lock for its whole run and releases it when it ends,
+    including on error. A failed spawn or a crashed refresh releases it at once.
+  - The refresh runs at low priority so it does not compete with the developer's tools.
+
 ## Business Rules
 
 - The call must stay well under the hook time budget (~10ms); it does only fast
@@ -33,6 +46,11 @@ The technical contract lives at [`technical.md`](./technical.md).
 - At most one worker per job runs at a time (single-flight).
 - A burst of triggers produces at most one spawn per debounce window.
 - A failed spawn releases the lock so the job is never wedged.
+- The context refresh never starts on a machine prompt, at most once per 2 minutes, never
+  while another one runs, and always below normal priority. Each start adds one line to
+  `.paqad/logs/hooks.log` with only a reason, the session id and a count.
+- Skipping a refresh never blocks the prompt and never loosens a gate: the machine-prompt
+  check only decides whether the refresh (and ticket intake) runs.
 
 ## Triggers & Side Effects
 

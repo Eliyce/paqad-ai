@@ -1,20 +1,35 @@
 import { readFileSync } from 'node:fs';
 
 import { resolveFlooredMode } from '@/core/floored-mode.js';
-import { readConfigsDir, readDotConfig } from '@/core/framework-config.js';
+import {
+  readConfigsDir,
+  readDotConfig,
+  resolveRuleGateConfig,
+  type RuleGateConfig,
+} from '@/core/framework-config.js';
+import { appendHooksLog } from '@/core/logging/hooks-log.js';
 import { readProjectRuleComplianceModeOverride } from '@/pipeline/feature-development-policy.js';
 import { classifyCompletionEnforcement } from '@/pipeline/session-ownership.js';
 import { execaCommandRunner, runDeliveryCapability } from '@/delivery/delivery-check.js';
 import { runDecisionSelfArm } from '@/planning/decision-selfarm.js';
 import { runSpecChangeGuard } from '@/spec/spec-change-guard.js';
-import { enforceRuleScripts, type RuleViolation } from '@/rule-scripts/enforce.js';
+import {
+  enforceRuleScripts,
+  type EnforcementResult,
+  type RuleViolation,
+} from '@/rule-scripts/enforce.js';
+import {
+  clearPendingPreMutation,
+  hasPendingPreMutation,
+  writePendingPreMutation,
+} from '@/rule-scripts/pending-marker.js';
 import { computeRuleScriptsDigest } from '@/rule-scripts/integrity.js';
 import type { RuleComplianceMode } from '@/rule-scripts/runner.js';
 import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
 import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
 import { SCREENSHOTS_DIR } from '@/feature-evidence/paths.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
-import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
+import { changedLoadedRuleSources, readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { readCompiledRules } from '@/planning/rule-compiler.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
@@ -43,6 +58,8 @@ export interface CapabilityContext {
   seam: CapabilitySeam;
   env: NodeJS.ProcessEnv;
   payload?: CapabilityPayload;
+  startedAt?: number;
+  now?: () => number;
 }
 
 export interface CapabilityOutcome {
@@ -51,6 +68,7 @@ export interface CapabilityOutcome {
   summary: string;
   narration?: string;
   violations?: RuleViolation[];
+  context?: string;
 }
 
 const NO_OP: CapabilityOutcome = { ran: false, blocking: false, summary: '' };
@@ -145,6 +163,88 @@ function formatCompatRefusalSummary(): string {
   );
 }
 
+export const RULE_GATE_BUDGET_CONTEXT =
+  'paqad: the blocking rule checks did not finish in time for this edit. They will run again ' +
+  'at the end of this turn and block there if anything fails.';
+
+const PRE_EDIT_FILTER = {
+  kinds: ['deterministic' as const],
+  scopes: ['changed-files' as const],
+};
+
+function formatPendingUnwritableSummary(): string {
+  return (
+    `**▸ paqad** · blocking rule checks could not be deferred\n` +
+    `> 🔴 Needs your attention — the blocking rule checks did not finish in time for this edit, ` +
+    `and I could not record that they still have to run at the end of this turn, so I stopped ` +
+    `the edit. Check that \`.paqad/scripts/rules/.cache/\` is writable, then re-try the edit.`
+  );
+}
+
+function payloadSessionId(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv,
+  payload: CapabilityPayload | undefined,
+): string {
+  return resolveSessionId(projectRoot, payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null);
+}
+
+function payloadTargets(payload: CapabilityPayload | undefined): string[] {
+  return payload?.targetPaths ?? (payload?.targetPath ? [payload.targetPath] : []);
+}
+
+async function enforceBeforeEdit(
+  context: CapabilityContext,
+  mode: RuleComplianceMode,
+  gate: RuleGateConfig,
+): Promise<EnforcementResult> {
+  const now = context.now ?? Date.now;
+  const remaining = (context.startedAt ?? now()) + gate.budgetMs - now();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), Math.max(0, remaining));
+  if (remaining <= 0) controller.abort();
+  try {
+    return await enforceRuleScripts({
+      projectRoot: context.projectRoot,
+      mode,
+      scope: 'whole-tree',
+      ...(gate.preEdit === 'blocking-only'
+        ? { ...PRE_EDIT_FILTER, useFileCache: true, editTargets: payloadTargets(context.payload) }
+        : {}),
+      concurrency: gate.concurrency,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function deferToTurnEnd(context: CapabilityContext): CapabilityOutcome {
+  const { projectRoot, env, payload } = context;
+  const sessionId = payloadSessionId(projectRoot, env, payload);
+  const files = payload?.targetPaths?.length ?? (payload?.targetPath ? 1 : 0);
+  try {
+    writePendingPreMutation(projectRoot, {
+      session_id: sessionId,
+      change: currentFeature(projectRoot, sessionId) ?? null,
+      written_at: new Date((context.now ?? Date.now)()).toISOString(),
+      files,
+    });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException | null)?.code ?? 'unknown';
+    appendHooksLog(
+      projectRoot,
+      `capability-gate rule-scripts pending-unwritable ${code} session=${sessionId} files=${files}`,
+    );
+    return { ran: true, blocking: true, summary: formatPendingUnwritableSummary() };
+  }
+  appendHooksLog(
+    projectRoot,
+    `capability-gate rule-scripts budget-exhausted session=${sessionId} files=${files}`,
+  );
+  return { ran: true, blocking: false, summary: '', context: RULE_GATE_BUDGET_CONTEXT };
+}
+
 function payloadFeatureDev(
   payload: { targetPath?: string; targetPaths?: string[] } | undefined,
   projectRoot: string,
@@ -157,12 +257,17 @@ function payloadFeatureDev(
 
 const ruleScriptsCapability: Capability = {
   id: 'rule-scripts',
-  async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
+  async evaluate(context): Promise<CapabilityOutcome> {
+    const { projectRoot, seam, env, payload } = context;
     if (seam === 'pre-mutation' && !payloadFeatureDev(payload, projectRoot)) {
       return NO_OP;
     }
+    const pendingSession =
+      seam === 'completion' ? payloadSessionId(projectRoot, env, payload) : null;
+    const pending = pendingSession !== null && hasPendingPreMutation(projectRoot, pendingSession);
     if (
       seam === 'completion' &&
+      !pending &&
       !classifyCompletionEnforcement(
         projectRoot,
         payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null,
@@ -181,11 +286,16 @@ const ruleScriptsCapability: Capability = {
     if (integrity === 'tampered') {
       return { ran: true, blocking: mode === 'strict', summary: formatTamperSummary(mode) };
     }
-    const result = await enforceRuleScripts({
-      projectRoot,
-      mode,
-      scope: seam === 'completion' ? 'changed-files' : 'whole-tree',
-    });
+    const result =
+      seam === 'pre-mutation'
+        ? await enforceBeforeEdit(context, mode, resolveRuleGateConfig(projectRoot, env))
+        : await enforceRuleScripts({ projectRoot, mode, scope: 'changed-files' });
+    if (result.aborted) {
+      return deferToTurnEnd(context);
+    }
+    if (pending && pendingSession !== null) {
+      clearPendingPreMutation(projectRoot, pendingSession);
+    }
     if (!result.ran) {
       if (seam === 'completion' && result.armed === 0) {
         return { ran: true, blocking: false, summary: formatNoneArmedSummary() };
@@ -359,6 +469,15 @@ function formatRulesNotLoadedSummary(): string {
   );
 }
 
+function formatRulesChangedSummary(changed: readonly string[]): string {
+  return (
+    `**▸ paqad** · rules changed since you loaded them\n` +
+    `> 🔴 Needs your attention — the text of ${changed.length} rule${changed.length === 1 ? '' : 's'} ` +
+    `you loaded for this change has changed since: ${changed.join(', ')}. Read the new text: ` +
+    `run \`paqad-ai rules load\`, then re-try the edit.`
+  );
+}
+
 const rulesLoadedCapability: Capability = {
   id: 'rules-loaded',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
@@ -372,10 +491,13 @@ const rulesLoadedCapability: Capability = {
     );
     const dirName = currentFeature(projectRoot, sessionId);
     if (!dirName) return NO_OP;
-    if (readRulesLoaded(projectRoot, dirName)) {
-      return NO_OP;
+    const record = readRulesLoaded(projectRoot, dirName);
+    if (!record) {
+      return { ran: true, blocking: true, summary: formatRulesNotLoadedSummary() };
     }
-    return { ran: true, blocking: true, summary: formatRulesNotLoadedSummary() };
+    const changed = changedLoadedRuleSources(projectRoot, record);
+    if (changed.length === 0) return NO_OP;
+    return { ran: true, blocking: true, summary: formatRulesChangedSummary(changed) };
   },
 };
 

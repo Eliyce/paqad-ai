@@ -2,13 +2,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import type { FileHandle } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { isAbsolute, join, matchesGlob, relative } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
 
 import { engineLog } from '@/core/logger-registry.js';
 import { toPosixPath } from '@/core/path-utils.js';
 
 import Ajv from 'ajv';
 import fg from 'fast-glob';
+import { Minimatch } from 'minimatch';
+import type { MinimatchOptions } from 'minimatch';
 import YAML from 'yaml';
 
 import { PATHS } from '@/core/constants/paths.js';
@@ -195,6 +197,14 @@ export interface RagFileFilterOptions {
 interface IgnoreRule {
   glob: string;
   source: string;
+  matches: ProjectGlobMatcher;
+}
+
+export type ProjectGlobMatcher = (relativePath: string) => boolean;
+
+interface CompiledConfigGlob {
+  pattern: string;
+  matches: ProjectGlobMatcher;
 }
 
 export class RagFileFilter {
@@ -205,10 +215,14 @@ export class RagFileFilter {
   private readonly hardNamedFileExclusionSet: Set<string>;
   private readonly adapterFileExclusionSet: Set<string>;
   private readonly diagnosticsSnapshot: FilterDiagnostics;
+  private readonly includeGlobs: CompiledConfigGlob[];
+  private readonly excludeGlobs: CompiledConfigGlob[];
   private _layer3RulesCache: Promise<IgnoreRule[]> | null = null;
 
   constructor(private readonly options: RagFileFilterOptions) {
     this.ragConfig = readRagIgnoreConfig(options.projectRoot);
+    this.includeGlobs = compileConfigGlobs(this.ragConfig.include);
+    this.excludeGlobs = compileConfigGlobs(this.ragConfig.exclude);
     this.extensionAllowlist = sortExtensionsDescending(
       new Set([
         ...BASE_EXTENSIONS,
@@ -396,11 +410,9 @@ export class RagFileFilter {
   }
 
   private evaluateLayer3(relativePath: string, basename: string, ignoreRules: IgnoreRule[]) {
-    const includedByConfig = this.ragConfig.include.some((pattern) =>
-      matchesProjectGlob(relativePath, pattern),
-    );
+    const includedByConfig = this.includeGlobs.some((glob) => glob.matches(relativePath));
 
-    const ignoreMatch = ignoreRules.find((rule) => matchesProjectGlob(relativePath, rule.glob));
+    const ignoreMatch = ignoreRules.find((rule) => rule.matches(relativePath));
     if (ignoreMatch && !includedByConfig) {
       return `project-ignore:${ignoreMatch.source}`;
     }
@@ -418,11 +430,9 @@ export class RagFileFilter {
       return `pack-directory:${packDir}`;
     }
 
-    const configExclude = this.ragConfig.exclude.find((pattern) =>
-      matchesProjectGlob(relativePath, pattern),
-    );
+    const configExclude = this.excludeGlobs.find((glob) => glob.matches(relativePath));
     if (configExclude && !includedByConfig) {
-      return `config-exclude:${configExclude}`;
+      return `config-exclude:${configExclude.pattern}`;
     }
 
     if (isSoftEnvExcluded(basename) && !includedByConfig) {
@@ -594,6 +604,7 @@ async function readIgnoreRules(
         ...resolveIgnorePattern(baseDir, line).map((glob) => ({
           glob,
           source: sourceName,
+          matches: compileProjectGlob(glob),
         })),
       );
     }
@@ -700,13 +711,26 @@ function resolveIgnorePattern(baseDir: string, pattern: string): string[] {
   return [`${basePrefix}${candidate}`];
 }
 
-function matchesProjectGlob(relativePath: string, pattern: string): boolean {
-  const normalizedPath = toPosixPath(relativePath);
+const PATH_MATCHES_GLOB_OPTIONS: MinimatchOptions = {
+  nocase: process.platform === 'darwin' || process.platform === 'win32',
+  windowsPathsNoEscape: true,
+  nonegate: true,
+  nocomment: true,
+  optimizationLevel: 2,
+  platform: process.platform,
+  nocaseMagicOnly: true,
+};
+
+function compileConfigGlobs(patterns: string[]): CompiledConfigGlob[] {
+  return patterns.map((pattern) => ({ pattern, matches: compileProjectGlob(pattern) }));
+}
+
+export function compileProjectGlob(pattern: string): ProjectGlobMatcher {
   const rawPattern = toPosixPath(pattern);
   const directoryPattern = rawPattern.endsWith('/');
   const normalizedPattern = trimSlashes(rawPattern);
   if (!normalizedPattern) {
-    return false;
+    return () => false;
   }
 
   const candidates = new Set<string>([normalizedPattern]);
@@ -718,7 +742,13 @@ function matchesProjectGlob(relativePath: string, pattern: string): boolean {
     candidates.add(`**/${normalizedPattern}/**`);
   }
 
-  return [...candidates].some((candidate) => matchesGlob(normalizedPath, candidate));
+  const matchers = [...candidates].map(
+    (candidate) => new Minimatch(candidate, PATH_MATCHES_GLOB_OPTIONS),
+  );
+  return (relativePath) => {
+    const normalizedPath = toPosixPath(relativePath);
+    return matchers.some((matcher) => matcher.match(normalizedPath));
+  };
 }
 
 function basenameOf(path: string): string {
@@ -745,7 +775,11 @@ function normalizeAbsolutePath(path: string): string {
 }
 
 function trimSlashes(value: string): string {
-  return value.replace(/^\/+|\/+$/g, '');
+  let start = 0;
+  let end = value.length;
+  while (start < end && value[start] === '/') start += 1;
+  while (end > start && value[end - 1] === '/') end -= 1;
+  return value.slice(start, end);
 }
 
 function sortExtensionsDescending(extensions: Set<string>): string[] {

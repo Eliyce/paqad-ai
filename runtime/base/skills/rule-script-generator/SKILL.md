@@ -43,7 +43,7 @@ No `.sh` scripts are ever produced. See `references/script-authoring.md` for the
 ## Procedure
 
 1. Load the map. Select target rules: `kind ∈ {deterministic, heuristic}` and `enforced_by == []`. If `only_rule_id` is set, restrict to it.
-2. For each target rule, author `NNN-name.mjs` with the header + stdin/stdout contract (`references/script-authoring.md`), plus 2–4 synthetic 5–15 line fixtures under `__fixtures__/pass/` and `__fixtures__/fail/`. Fixtures are synthetic — never copied from the user's real code.
+2. For each target rule, author `NNN-name.mjs` with the header + stdin/stdout contract (`references/script-authoring.md`), plus 2–4 synthetic 5–15 line fixtures under `__fixtures__/pass/` and `__fixtures__/fail/`. Fixtures are synthetic — never copied from the user's real code. When the script loops `for (const file of files)` and each file's findings depend only on that file's own content (no other file read, no state shared across files), add `// per_file: true` to the header so the pre-edit check can reuse its earlier results for files that did not change; leave it out otherwise.
 3. Validate the script against its fixtures:
    ```
    node scripts/validate-script.mjs <abs-script-path>

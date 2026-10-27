@@ -24,6 +24,14 @@ Source directories owned by this feature:
   (`src/context/reranker.ts`), keep the `dtype: 'q8'` pin, so the default MiniLM embeddings
   stay the same and existing indexes under `.paqad/vectors/` stay valid.
 - The OpenAI provider reads `OPENAI_API_KEY` from the environment or `.paqad/secrets.env`.
+- Provider cache. Once `enableEmbeddingProviderCache()` has run, `createEmbeddingProvider`
+  returns one local provider per process for each key of provider, model id, dtype (`q8`) and
+  models directory, so a command loads the model once. Only the real CLI process
+  (`src/cli/index.ts`, when run from the command line) turns it on; hook processes and
+  imported library code never do. A provider asked for with a progress callback is built fresh
+  and not cached. A provider whose model failed to load is dropped from the cache, and its own
+  next `embed` tries the load again. `resetEmbeddingProviderCache()` clears the cache and turns
+  it off, for tests.
 - A saved `voyageai` value is refused with the removal message from
   `src/rag/removed-provider.ts`. The value can come from `rag_embedding_provider` in the config
   file, from `PAQAD_RAG_EMBEDDING_PROVIDER`, or from `intelligence.embedding_provider` in the

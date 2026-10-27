@@ -521,6 +521,7 @@ Each stack is a plain `pack.yaml` that drives detection, docs, MCP recommendatio
 | `paqad-ai patterns`                      | Query, prune, and export the reusable pattern library                                          |
 | `paqad-ai debt`                          | Record a problem the change will not fix as a tracked item, then list, promote, or close it    |
 | `paqad-ai fix prove`                     | Record that a fix's test fails before the fix (`red`) and passes after it (`green`)            |
+| `paqad-ai report speed`                  | Show where each change's time went: busy time, waiting for you, and the edit gate              |
 | `paqad-ai rules override`                | Record a person allowing one edit past a rule stop, once, with the reason                      |
 | `paqad-ai delivery-link commit-decision` | Record how the "commit this change?" question was answered                                     |
 | `paqad-ai managed-settings`              | Print or write the managed settings file that puts paqad on every machine in your organization |

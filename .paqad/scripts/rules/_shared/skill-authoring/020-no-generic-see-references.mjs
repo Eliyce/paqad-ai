@@ -4,6 +4,7 @@
 // kind: deterministic
 // scope: changed-files
 // runtime: node
+// per_file: true
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 const { projectRoot, files } = JSON.parse(readFileSync(0, 'utf8'));

@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5ZKNGFZWY91K8DTRWF2HWQY",
+  "category": "finding.triage",
+  "title": "Pre-edit rule gate blocks the development fix: issue numbers in two tech-debt docs",
+  "context": "Every source edit of the edit-target fix is refused by RL-132e (issue number in code or docs) on two tech-debt files already in this change, not written by the development stage: docs/instructions/tech-debt/TD-01M5ZDK7DASYFN5W0GHEKWPGPV.md:18 ('pre-#755 baseline', committed in e4dbc95a) and docs/instructions/tech-debt/TD-01M5ZK3K9JH4EP3F0NJQAN3RK2.md:34 ('the #755 provider cache', untracked). Rewording them is outside this stage's scope (scope_expansion: ask).",
+  "options": [
+    {
+      "option_key": "reword-docs",
+      "label": "Development rewords both lines to drop the issue numbers (commits them as a docs fix), then continues the edit-target fix",
+      "one_line_preview": "Development rewords both lines to drop the issue numbers (commits them as a docs fix), then continues the edit-target fix",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "orchestrator-fixes",
+      "label": "Orchestrator or the owner fixes the two docs first, then re-dispatches development",
+      "one_line_preview": "Orchestrator or the owner fixes the two docs first, then re-dispatches development",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "reword-docs",
+  "created_at": "2026-10-27T21:18:39.615Z",
+  "status": "resolved",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "reword-docs",
+  "rationale": "Both options end the same way (the repo's RULE-16 forbids issue numbers in docs); development rewords the two TD files and continues.",
+  "resolved_at": "2026-10-27T21:19:00.229Z",
+  "decision_id": "D-01M5ZKNGFZWY91K8DTRWF2HWQY",
+  "fingerprint": "sha256:eb245587300d2be5ddd2099737a266e1ea41d0948e35f6b979bd37d3e27f9841",
+  "question": "Pre-edit rule gate blocks the development fix: issue numbers in two tech-debt docs",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T21:18:39.615Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "reword-docs",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T21:19:00.229Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Both options end the same way (the repo's RULE-16 forbids issue numbers in docs); development rewords the two TD files and continues."
+  }
+}

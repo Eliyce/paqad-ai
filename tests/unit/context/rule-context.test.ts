@@ -414,6 +414,11 @@ describe('computeRuleApplicability', () => {
     const b = computeRuleApplicability(rules, ['src/foo.ts']);
     expect(a.ruleTextHash).not.toBe(b.ruleTextHash);
   });
+
+  it('AC-51: lists the source path of every applicable rule and no other', () => {
+    const { ruleSourcePaths } = computeRuleApplicability(rules, ['src/foo.ts']);
+    expect(ruleSourcePaths).toEqual([rules[0].source_path, rules[1].source_path]);
+  });
 });
 
 describe('resolveRuleApplicabilityForChange', () => {

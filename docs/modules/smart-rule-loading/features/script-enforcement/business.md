@@ -20,11 +20,17 @@ The technical contract lives at [`technical.md`](./technical.md).
 
 ## User Flows
 
-- **At edit (PreToolUse):** before an Edit/Write, the working-tree state from prior
-  in-turn edits is checked; a violation already on disk fails loud before more is
-  piled on.
-- **At turn end (Stop):** the full change is checked; a blocking violation is
-  surfaced to the model.
+- **At edit (PreToolUse):** before an Edit/Write, the rules that can block (deterministic,
+  checking the changed files) are checked against the change so far, several scripts at a time;
+  a violation already on disk fails loud before more is piled on. A script marked per-file
+  re-checks only the files that changed since its last run.
+- **When the edit check runs long:** the check has a time budget (`rule_gate_budget_ms`, 6 s by
+  default). When it runs out, the edit goes ahead, the model is told the checks did not finish,
+  and the same checks run at the end of the turn and block there if anything fails. A timeout
+  never refuses an edit.
+- **At turn end (Stop):** the full change is checked against every rule script, including the
+  hints and the rules that look at the whole tree; a blocking violation is surfaced to the
+  model.
 
 ## Business Rules
 
@@ -35,6 +41,9 @@ The technical contract lives at [`technical.md`](./technical.md).
 - Strict mode blocks on a deterministic violation; warn mode surfaces it without
   blocking; off does nothing.
 - The common case — no rule-script map — is a fast no-op (no cost on normal edits).
+- Moving a check from the edit to the turn end never loosens it: every rule that blocks still
+  blocks on the same change. `rule_gate_pre_edit=all` with `rule_gate_concurrency=1` brings back
+  the old edit check (every script, one after another).
 - An infra error never wedges the agent; the git/CI backstop remains the
   non-bypassable layer.
 

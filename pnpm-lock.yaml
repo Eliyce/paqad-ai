@@ -45,6 +45,9 @@ importers:
       handlebars:
         specifier: ^4.7.10
         version: 4.7.10
+      minimatch:
+        specifier: ^10.2.6
+        version: 10.2.6
       openai:
         specifier: ^7.43.0
         version: 7.43.0

@@ -19,6 +19,7 @@ describe('createProgram', () => {
       'checks',
       'duplication',
       'metrics',
+      'report',
       'index',
       'health',
       'sitemap',

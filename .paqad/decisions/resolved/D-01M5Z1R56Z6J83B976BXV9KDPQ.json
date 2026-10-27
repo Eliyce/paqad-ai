@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Z1R56Z6J83B976BXV9KDPQ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on rule_gate_budget_ms",
+  "context": "Chief architect: Not a real disagreement: both claims are compatible and both are adopted. Measuring the 6000 ms budget from the start of the pre-edit hook is what makes the issue's promise ('the host timeout then never fires') hold, since about 1 s of fixed gate work sits before the scripts; the tiny-budget, injected-clock test from the qa seat is how it is proven. Pick this option to accept the pair.\n\nTarget: rule_gate_budget_ms\n- performance-analyst: the 6000 ms budget is measured from the start of the capability-gate-pre-mutation hook, not from the start of the rule scripts, so the fixed gate work (about 1.0 s measured) plus the scripts stays under the 10 s host timeout\n- qa-engineer: Given strict mode and a deterministic changed-files script slower than a tiny budget (e.g. 50 ms), when an Edit hits the pre-mutation seam, then the edit is allowed with the exact additionalContext text and a pending-pre-mutation marker is written; when the turn ends and that script fails, the completion seam blocks; when it passes, the marker is cleared. Tests use an injected clock or tiny budget, never real 6 s waits.\n\n[expert-conflict-fork:cc218d3489bbcc11]",
+  "options": [
+    {
+      "option_key": "the-6000-ms-budget-is-measured-from-the-",
+      "label": "the 6000 ms budget is measured from the start of the capability-gate-pre-mutation hook, not from the start of the rule scripts, so the fixed gate work (about 1.0 s measured) plus the scripts stays under the 10 s host timeout — performance-analyst",
+      "one_line_preview": "the 6000 ms budget is measured from the start of the capability-gate-pre-mutation hook, not from the start of the rule scripts, so the fixed gate work (about 1.0 s measured) plus the scripts stays under the 10 s host timeout — performance-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-strict-mode-and-a-deterministic-ch",
+      "label": "Given strict mode and a deterministic changed-files script slower than a tiny budget (e.g. 50 ms), when an Edit hits the pre-mutation seam, then the edit is allowed with the exact additionalContext text and a pending-pre-mutation marker is written; when the turn ends and that script fails, the completion seam blocks; when it passes, the marker is cleared. Tests use an injected clock or tiny budget, never real 6 s waits. — qa-engineer",
+      "one_line_preview": "Given strict mode and a deterministic changed-files script slower than a tiny budget (e.g. 50 ms), when an Edit hits the pre-mutation seam, then the edit is allowed with the exact additionalContext text and a pending-pre-mutation marker is written; when the turn ends and that script fails, the completion seam blocks; when it passes, the marker is cleared. Tests use an injected clock or tiny budget, never real 6 s waits. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-6000-ms-budget-is-measured-from-the-",
+  "created_at": "2026-10-27T16:05:31.999Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:02.490Z",
+  "decision_id": "D-01M5Z1R56Z6J83B976BXV9KDPQ",
+  "fingerprint": "sha256:1c7741f98041c96deb16692d088a1a9bdbf2bd670c551bdb1db0bf07f4d91326",
+  "question": "Experts disagree on rule_gate_budget_ms",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:31.999Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:02.490Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

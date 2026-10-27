@@ -178,9 +178,11 @@ any turn the session-ownership check skips (see below).
   that a feature-development change actually LOADED its applicable rules, not just that the
   ceremony ran. `paqad-ai rules load` computes the applicable rules deterministically
   (reusing `computeRuleApplicability`), prints their full text, and writes `rules-loaded.json`
-  (the applicable rule ids, per-rule matched paths, and a content hash of the loaded text).
+  (the applicable rule ids, per-rule matched paths, a content hash of the loaded text, and
+  `rule_source_hashes`, a sha256 of each loaded rule file).
   The edit-time `rules-loaded` kernel capability blocks the first feature-dev source edit
-  until that record exists; this gate **fails** a feature-dev code change with no record
+  until that record exists, and blocks again when a recorded rule file's text changed since
+  the load; this gate **fails** a feature-dev code change with no record
   (blocks like a missing plan/spec), reads **inconclusive** when the load is stale (a rule
   became applicable after it ran), and is **skipped** with no compiled rules / no applicable
   rule / a non-feature change, and skipped as not required at the `ci-backstop` origin when
@@ -1038,12 +1040,14 @@ obvious from their code, grouped by file.
 - `src/cli/commands/debt.ts`
 - `src/fix-protocol/fix-prove.ts`, `src/fix-protocol/fix-proof-record.ts`, `src/fix-protocol/fix-change.ts`, `src/cli/commands/fix.ts`
 - `src/rule-scripts/override.ts`
+- `src/speed-report`, `src/cli/commands/report.ts`
 
 ## Features
 
 - [Tech debt (paqad-ai debt)](../features/tech-debt/business.md)
 - [Fix proof (paqad-ai fix prove)](../features/fix-proof/business.md)
 - [Rule stop and Allow once (paqad-ai rules override)](../features/rule-override/business.md)
+- [Speed report (paqad-ai report speed)](../features/speed-report/business.md)
 
 ## Authority
 

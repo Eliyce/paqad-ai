@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -8,6 +8,7 @@ import { executeRuleScript, missingBinaries } from '@/rule-scripts/execute.js';
 import { fixturesRoot, runFixtures } from '@/rule-scripts/fixture-runner.js';
 import { checkOverFlag } from '@/rule-scripts/guard.js';
 import { parseScriptHeader } from '@/rule-scripts/header.js';
+import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 
 const roots: string[] = [];
 
@@ -265,5 +266,30 @@ describe('missingBinaries', () => {
       'definitely-not-a-real-binary-xyz',
     ]);
     expect(missingBinaries(undefined)).toEqual([]);
+  });
+});
+
+describe('per_file scripts shipped in this repo', () => {
+  const repoRoot = process.cwd();
+  const map = loadRuleScriptMap(repoRoot);
+  const tagged = (map?.rules ?? []).flatMap((rule) =>
+    rule.scripts.filter((script) => {
+      const header = parseScriptHeader(readFileSync(join(repoRoot, script.path), 'utf8'));
+      return header.header?.per_file === true;
+    }),
+  );
+
+  it('tags only changed-files scripts and every tagged header validates', () => {
+    expect(tagged.length).toBeGreaterThanOrEqual(15);
+    for (const script of tagged) {
+      expect(script.scope).toBe('changed-files');
+      expect(parseScriptHeader(readFileSync(join(repoRoot, script.path), 'utf8')).ok).toBe(true);
+    }
+  });
+
+  it('leaves out the script that checks other files exist', () => {
+    expect(tagged.map((script) => script.path)).not.toContain(
+      '.paqad/scripts/rules/_shared/skill-authoring/005-resources-paths-exist.mjs',
+    );
   });
 });

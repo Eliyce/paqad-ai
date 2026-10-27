@@ -1,7 +1,15 @@
+import { isAbsolute, normalize, relative } from 'pathe';
+
 import type { Finding } from '@/rule-scripts/execute.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
-import { runRuleScripts, type RuleComplianceMode } from '@/rule-scripts/runner.js';
-import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import {
+  runRuleScriptsAsync,
+  type RuleComplianceMode,
+  type RuleScriptKind,
+  type RuleScriptScope,
+} from '@/rule-scripts/runner.js';
+import { resolveRuleGateConfig } from '@/core/framework-config.js';
+import { isPaqadArtifactPath, loadChangeEvidence } from '@/pipeline/change-evidence.js';
 
 export interface RuleViolation {
   rule_id: string;
@@ -20,6 +28,7 @@ export interface EnforcementResult {
   violations: RuleViolation[];
   armed: number;
   summary: string;
+  aborted?: boolean;
 }
 
 export type EnforceScope = 'changed-files' | 'whole-tree';
@@ -29,6 +38,28 @@ export interface EnforceOptions {
   mode: RuleComplianceMode;
   changedFiles?: string[];
   scope?: EnforceScope;
+  kinds?: RuleScriptKind[];
+  scopes?: RuleScriptScope[];
+  concurrency?: number;
+  signal?: AbortSignal;
+  useFileCache?: boolean;
+  editTargets?: string[];
+}
+
+function projectRelativeTargets(projectRoot: string, targets: string[] | undefined): string[] {
+  return (targets ?? [])
+    .map((target) =>
+      (isAbsolute(target) ? relative(projectRoot, target) : normalize(target)).replace(/^\.\//, ''),
+    )
+    .filter(
+      (rel) =>
+        rel !== '' &&
+        rel !== '.' &&
+        rel !== '..' &&
+        !rel.startsWith('../') &&
+        !isAbsolute(rel) &&
+        !isPaqadArtifactPath(rel),
+    );
 }
 
 export async function enforceRuleScripts(options: EnforceOptions): Promise<EnforcementResult> {
@@ -40,9 +71,17 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
   }
 
   const scope = options.scope ?? 'changed-files';
-  const changedFiles = options.changedFiles ?? (await loadChangeEvidence(projectRoot)).files;
+  const changedFiles = Array.from(
+    new Set([
+      ...(options.changedFiles ?? (await loadChangeEvidence(projectRoot)).files),
+      ...projectRelativeTargets(projectRoot, options.editTargets),
+    ]),
+  );
 
-  if (scope === 'changed-files' && changedFiles.length === 0) {
+  const changedFilesOnly =
+    options.scopes !== undefined && options.scopes.every((entry) => entry === 'changed-files');
+
+  if ((scope === 'changed-files' || changedFilesOnly) && changedFiles.length === 0) {
     return {
       ran: false,
       mode,
@@ -53,11 +92,19 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
     };
   }
 
-  const report = runRuleScripts({
+  const report = await runRuleScriptsAsync({
     projectRoot,
     mode,
     changedFiles: changedFiles.length > 0 ? changedFiles : undefined,
+    ...(options.kinds ? { kinds: options.kinds } : {}),
+    ...(options.scopes ? { scopes: options.scopes } : {}),
+    concurrency: options.concurrency ?? resolveRuleGateConfig(projectRoot).concurrency,
+    signal: options.signal,
+    useFileCache: options.useFileCache,
   });
+  if (report.aborted) {
+    return { ran: false, mode, blocking: false, violations: [], armed, summary: '', aborted: true };
+  }
 
   const titles = new Map((map?.rules ?? []).map((rule) => [rule.id, rule.text]));
   const violations: RuleViolation[] = report.results

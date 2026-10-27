@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5Z8ZV7GQMBJZ343FWPBKY3W",
+  "category": "spec.contradiction",
+  "title": "AC-24 says paqad-ai checks run blocks on a whole-tree rule script, but checks run never runs rule scripts",
+  "context": "The frozen spec's AC-24 (and FR-21 / INV-10) say a failing whole-tree deterministic rule script (shaped like RL-95f2) blocks both at the completion seam and when 'paqad-ai checks run' runs. The plan's binding decision says the opposite: 'checks run has never run rule scripts (no rule-scripts import in src/checks) ... This change does not add rule scripts to checks run.' The code confirms the plan: src/checks and src/cli/commands/checks.ts never call the rule-script runner, so checks run cannot block on any rule script today. Everything else in issue 747 is built and committed; the completion-seam half of AC-24 is proven by tests (tests/unit/kernel/rule-gate-budget.test.ts and enforce.test.ts), and old vs new gate give the same blocking findings on this repo's diff. Only the checks-run half of AC-24 is open.",
+  "options": [
+    {
+      "option_key": "completion-only",
+      "label": "Keep the plan's ruling: the whole-tree rule blocks at the turn-end (completion) seam, checks run stays as it is, and the AC-24 checks-run clause is corrected through a spec change",
+      "one_line_preview": "Keep the plan's ruling: the whole-tree rule blocks at the turn-end (completion) seam, checks run stays as it is, and the AC-24 checks-run clause is corrected through a spec change",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "add-to-checks-run",
+      "label": "Make paqad-ai checks run also run every rule script (unfiltered, never the per-file cache) and fail under strict on a deterministic finding, so AC-24 holds as written",
+      "one_line_preview": "Make paqad-ai checks run also run every rule script (unfiltered, never the per-file cache) and fail under strict on a deterministic finding, so AC-24 holds as written",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "completion-only",
+  "created_at": "2026-10-27T18:12:03.952Z",
+  "status": "resolved",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "completion-only",
+  "rationale": "Owner chose turn end only: checks run never ran rule scripts; correct AC-24 through a spec change.",
+  "resolved_at": "2026-10-27T18:17:11.032Z",
+  "decision_id": "D-01M5Z8ZV7GQMBJZ343FWPBKY3W",
+  "fingerprint": "sha256:3ba2d48e62227c72b00c7c07f0fdc69d94edc97eb117c289a9e0720e15e90931",
+  "question": "AC-24 says paqad-ai checks run blocks on a whole-tree rule script, but checks run never runs rule scripts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-03T18:12:03.952Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "completion-only",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T18:17:11.032Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose turn end only: checks run never ran rule scripts; correct AC-24 through a spec change."
+  }
+}

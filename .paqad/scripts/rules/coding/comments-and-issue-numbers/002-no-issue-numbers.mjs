@@ -4,6 +4,7 @@
 // kind: deterministic
 // scope: changed-files
 // runtime: node
+// per_file: true
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';

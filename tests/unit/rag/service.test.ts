@@ -640,6 +640,37 @@ describe('RagService', () => {
     expect(retrieval.chunks_retrieved).toBeGreaterThan(0);
   });
 
+  it('AC-59: retrieveForEval with skipSync retrieves without syncing the index again', async () => {
+    const service = new RagService(projectRoot, fakeProviderFactory());
+    await service.configureAndBuild({
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    persistIntelligence(projectRoot, {
+      rag_enabled: true,
+      embedding_provider: 'local',
+      embedding_model: 'fake-local',
+    });
+    const refreshSpy = vi.spyOn(service, 'refreshContext');
+    const syncSpy = vi.spyOn(
+      service as unknown as {
+        syncVectorIndex: (syncResult: unknown, intelligence?: unknown) => Promise<void>;
+      },
+      'syncVectorIndex',
+    );
+
+    const retrieval = await service.retrieveForEval(
+      { taskDescription: 'debug auth policy', keywords: ['auth'], symbolReferences: [] },
+      undefined,
+      { skipSync: true },
+    );
+
+    expect(refreshSpy).not.toHaveBeenCalled();
+    expect(syncSpy).not.toHaveBeenCalled();
+    expect(retrieval.chunks_retrieved).toBeGreaterThan(0);
+  });
+
   it('reports stale_metadata when RAG is disabled but the stored index was built with a different provider', async () => {
     const service = new RagService(projectRoot, fakeProviderFactory());
     await service.configureAndBuild({

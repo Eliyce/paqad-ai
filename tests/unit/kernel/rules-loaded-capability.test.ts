@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
-import { writeRulesLoaded } from '@/feature-evidence/rules-loaded.js';
+import { hashRuleSources, writeRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { setActiveFeature } from '@/feature-evidence/session-control.js';
 import { runCapabilityGate } from '@/kernel/gate.js';
 import { endStage, openStageEvidence, startStage } from '@/stage-evidence/index.js';
@@ -89,6 +89,119 @@ describe('rules-loaded capability — block-forward at pre-mutation', () => {
     });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
+  });
+
+  describe('a loaded rule whose text changed', () => {
+    const RULE_PATH = 'docs/instructions/rules/coding/a.md';
+
+    function writeRuleFile(rel: string, text: string): void {
+      mkdirSync(join(root, rel.slice(0, rel.lastIndexOf('/'))), { recursive: true });
+      writeFileSync(join(root, rel), text);
+    }
+
+    function loadRules(sourcePaths: string[] | null): void {
+      writeRulesLoaded(root, SES, {
+        applicable: [
+          { rule_id: 'RULE-2', title: 'Constitution', always_load: true, matched_paths: [] },
+        ],
+        ruleTextHash: 'abc',
+        ...(sourcePaths ? { ruleSourceHashes: hashRuleSources(root, sourcePaths) } : {}),
+        changedPaths: ['src/app.ts'],
+      });
+    }
+
+    function editSource(): ReturnType<typeof runCapabilityGate> {
+      return runCapabilityGate({
+        projectRoot: root,
+        seam: 'pre-mutation',
+        payload: { targetPath: join(root, 'src/app.ts'), sessionId: SES },
+      });
+    }
+
+    beforeEach(() => writeRuleFile(RULE_PATH, '# body\n- Keep it small.\n'));
+
+    it('AC-51: allows the edit while the loaded rule text is unchanged', async () => {
+      loadRules([RULE_PATH]);
+      const result = await editSource();
+      expect(result.block).toBe(false);
+    });
+
+    it('AC-51: blocks an edit after the loaded rule text changed and asks for rules load', async () => {
+      loadRules([RULE_PATH]);
+      writeRuleFile(RULE_PATH, '# body\n- Keep it small.\n- A new must.\n');
+      const result = await editSource();
+      expect(result.block).toBe(true);
+      expect(result.summary).toContain('rules changed since you loaded them');
+      expect(result.summary).toContain(RULE_PATH);
+      expect(result.summary).toContain('paqad-ai rules load');
+    });
+
+    it('AC-51: blocks an edit after a loaded rule file was deleted', async () => {
+      loadRules([RULE_PATH]);
+      rmSync(join(root, RULE_PATH));
+      const result = await editSource();
+      expect(result.block).toBe(true);
+      expect(result.summary).toContain(RULE_PATH);
+    });
+
+    it('AC-51: a fresh rules load after the change lets the edit through', async () => {
+      loadRules([RULE_PATH]);
+      writeRuleFile(RULE_PATH, '# body\n- Changed.\n');
+      expect((await editSource()).block).toBe(true);
+      loadRules([RULE_PATH]);
+      expect((await editSource()).block).toBe(false);
+    });
+
+    it('AC-51: writes to the script map, module map or a registry never block', async () => {
+      loadRules([RULE_PATH]);
+      writeRuleFile('docs/instructions/rules/rule-script-map.yml', 'rules: []\n');
+      writeRuleFile('docs/instructions/rules/module-map.yml', 'modules: []\n');
+      writeRuleFile('docs/instructions/registries/agents.yml', 'agents: []\n');
+      const result = await editSource();
+      expect(result.block).toBe(false);
+    });
+
+    it('AC-51: a rule that became applicable after the load does not block before the edit', async () => {
+      loadRules([RULE_PATH]);
+      writeRuleFile('docs/instructions/rules/coding/b.md', '# new rule\n');
+      writeFileSync(
+        join(root, PATHS.COMPILED_RULES),
+        JSON.stringify({
+          schema_version: 1,
+          generated_at: 'now',
+          source_hash: 'sha256:y',
+          rules: [
+            {
+              rule_id: 'RULE-2',
+              title: 'Constitution',
+              source_path: RULE_PATH,
+              trigger_patterns: ['**'],
+              severity: 'must',
+              summary: 'Always applies.',
+              raw_text: '# body',
+            },
+            {
+              rule_id: 'RULE-3',
+              title: 'New',
+              source_path: 'docs/instructions/rules/coding/b.md',
+              trigger_patterns: ['src/**'],
+              severity: 'must',
+              summary: 'New.',
+              raw_text: '# new rule',
+            },
+          ],
+        }),
+      );
+      const result = await editSource();
+      expect(result.block).toBe(false);
+    });
+
+    it('AC-51: a record written before the hash field existed falls back to the existence check', async () => {
+      loadRules(null);
+      writeRuleFile(RULE_PATH, '# body\n- Changed after an old-format load.\n');
+      const result = await editSource();
+      expect(result.block).toBe(false);
+    });
   });
 
   it('NEVER blocks a documentation-only edit, even with no rules-loaded.json', async () => {

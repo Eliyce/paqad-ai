@@ -1,7 +1,9 @@
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 
 import { resolveProjectRoot } from './paqad-disabled.mjs';
+
+export const LOADED_INSTRUCTION_DIRS = Object.freeze(['stack', 'design-system', 'workflows']);
 
 export function entryFile(env = process.env) {
   return env.PAQAD_ENTRY_FILE || 'CLAUDE.md';
@@ -68,7 +70,7 @@ export function stampSessionSentinel(projectRoot, sessionId, entry) {
   } catch {}
 }
 
-export function sentinelState(
+export function sentinelDetail(
   projectRoot = resolveProjectRoot(),
   env = process.env,
   agentId,
@@ -80,12 +82,12 @@ export function sentinelState(
   try {
     sentinelMtime = statSync(sentinel).mtimeMs;
   } catch {
-    return 'missing';
+    return { state: 'missing', files: [] };
   }
 
-  const newer = (relative) => {
+  const newer = (relativePath) => {
     try {
-      return statSync(join(projectRoot, relative)).mtimeMs > sentinelMtime;
+      return statSync(join(projectRoot, relativePath)).mtimeMs > sentinelMtime;
     } catch {
       return false;
     }
@@ -93,18 +95,32 @@ export function sentinelState(
 
   if (newer(entryFile(env))) {
     rmSync(sentinel, { force: true });
-    return 'stale:entry-file';
+    return { state: 'stale:entry-file', files: [] };
   }
   if (newer('.paqad/framework-path.txt')) {
     rmSync(sentinel, { force: true });
-    return 'stale:framework-path';
+    return { state: 'stale:framework-path', files: [] };
   }
-  const instructionsDir = join(projectRoot, 'docs', 'instructions');
-  if (anyFileNewer(instructionsDir, sentinelMtime, join(instructionsDir, 'tech-debt'))) {
-    rmSync(sentinel, { force: true });
-    return 'stale:docs-instructions';
+  const loadedDirs = LOADED_INSTRUCTION_DIRS.map((dir) =>
+    join(projectRoot, 'docs', 'instructions', dir),
+  );
+  if (loadedDirs.some((dir) => anyFileNewer(dir, sentinelMtime))) {
+    const files = loadedDirs
+      .flatMap((dir) => filesNewer(dir, sentinelMtime))
+      .map((full) => relative(projectRoot, full).split(sep).join('/'))
+      .sort();
+    return { state: 'stale:docs-instructions', files };
   }
-  return 'fresh';
+  return { state: 'fresh', files: [] };
+}
+
+export function sentinelState(
+  projectRoot = resolveProjectRoot(),
+  env = process.env,
+  agentId,
+  sessionId,
+) {
+  return sentinelDetail(projectRoot, env, agentId, sessionId).state;
 }
 
 function anyFileNewer(dir, mtime, skipDir) {
@@ -129,4 +145,37 @@ function anyFileNewer(dir, mtime, skipDir) {
     }
   }
   return false;
+}
+
+export function filesNewer(dir, mtime, skipDir) {
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return [];
+  }
+  const found = [];
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (full !== skipDir) {
+        found.push(...filesNewer(full, mtime, skipDir));
+      }
+      continue;
+    }
+    try {
+      if (statSync(full).mtimeMs > mtime) {
+        found.push(full);
+      }
+    } catch {}
+  }
+  return found;
+}
+
+export const CHANGED_FILES_SHOWN = 10;
+
+export function changedFilesLines(files, cap = CHANGED_FILES_SHOWN) {
+  const shown = files.slice(0, cap).map((file) => `[paqad]   ${file}`);
+  const hidden = files.length - shown.length;
+  return hidden > 0 ? [...shown, `[paqad]   and ${hidden} more`] : shown;
 }

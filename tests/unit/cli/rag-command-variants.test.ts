@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -99,6 +99,68 @@ describe('rag command variants', () => {
     expect(used.injected).toBe(true);
     expect(used.injected_sections).toEqual(['rules', 'memory', 'drift']);
     expect(stdout.join('')).toContain('index sync: no-index');
+  });
+
+  it('AC-59: refresh-context syncs once and asks the slice gather to skip its own sync', async () => {
+    config('rag_enabled=true\nrag_embedding_provider=local\n');
+    const sync = await import('@/rag/background-sync.js');
+    const backgroundSync = vi
+      .spyOn(sync, 'backgroundIndexSync')
+      .mockResolvedValue({ synced: true });
+    const retrieval = await import('@/context/retrieval-context.js');
+    const gather = vi
+      .spyOn(retrieval, 'gatherWorkingSetSlices')
+      .mockResolvedValue({ slices: [], bestScore: null });
+    const memory = await import('@/context/codebase-memory.js');
+    vi.spyOn(memory, 'gatherCodebaseMemory').mockReturnValue('');
+    const drift = await import('@/rag/base-drift.js');
+    vi.spyOn(drift, 'refreshBaseDrift').mockResolvedValue(undefined);
+    vi.spyOn(drift, 'loadBaseDrift').mockReturnValue(null);
+    const recorder = await import('@/rag-ledger/recorder.js');
+    vi.spyOn(recorder, 'recordRagEvidence').mockReturnValue(null);
+
+    await run(['refresh-context', '--project-root', root]);
+
+    expect(backgroundSync).toHaveBeenCalledTimes(1);
+    expect(gather).toHaveBeenCalledWith(root, expect.objectContaining({ skipSync: true }));
+  });
+
+  it('AC-57: refresh-context skips while another refresh holds the lock', async () => {
+    config('rag_enabled=false\n');
+    mkdirSync(join(root, '.paqad/locks/refresh-context.lock'), { recursive: true });
+    const ruleContext = await import('@/context/rule-context.js');
+
+    await run(['refresh-context', '--project-root', root]);
+
+    expect(ruleContext.refreshRuleContext).not.toHaveBeenCalled();
+    expect(stdout.join('')).toBe('another refresh-context is running; skipped\n');
+    expect(existsSync(join(root, '.paqad/locks/refresh-context.lock'))).toBe(true);
+  });
+
+  it('FR-40: refresh-context holds the lock for the run and releases it', async () => {
+    config('rag_enabled=false\n');
+    const lock = join(root, '.paqad/locks/refresh-context.lock');
+    const ruleContext = await import('@/context/rule-context.js');
+    let heldDuringRun = false;
+    vi.mocked(ruleContext.refreshRuleContext).mockImplementation(async () => {
+      heldDuringRun = existsSync(lock);
+      return '/ctx/session-context.md';
+    });
+
+    await run(['refresh-context', '--project-root', root]);
+
+    expect(heldDuringRun).toBe(true);
+    expect(existsSync(lock)).toBe(false);
+  });
+
+  it('FR-40: refresh-context releases the lock when the run throws', async () => {
+    config('rag_enabled=false\n');
+    const ruleContext = await import('@/context/rule-context.js');
+    vi.mocked(ruleContext.refreshRuleContext).mockRejectedValue(new Error('boom'));
+
+    await expect(run(['refresh-context', '--project-root', root])).rejects.toThrow('boom');
+
+    expect(existsSync(join(root, '.paqad/locks/refresh-context.lock'))).toBe(false);
   });
 
   it('probes with the default count when the given one is not a positive number', async () => {

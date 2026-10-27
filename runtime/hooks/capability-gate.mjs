@@ -117,6 +117,7 @@ async function deferredForBackgroundStage(projectRoot, input) {
 }
 
 export async function main(input, seam = SEAM) {
+  const startedAt = Date.now();
   try {
     const projectRoot = resolveProjectRoot(process.env, parseHookPayload(input));
     const managed = isManagedRoute(process.env);
@@ -138,6 +139,7 @@ export async function main(input, seam = SEAM) {
       seam,
       payload: parsePayload(input),
       entryLoaded: entryLoadedProbe(projectRoot, input),
+      startedAt,
     });
     if (result.block) {
       const message = result.narration ? `${result.narration}\n${result.summary}` : result.summary;

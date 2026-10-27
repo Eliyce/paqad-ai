@@ -28,8 +28,9 @@
   false → `no-index` (an initial build is never triggered on a prompt).
 - Never throws — any error resolves to `{ synced: false, reason: 'error' }`.
 - Wiring: the F5 prompt trigger spawns `paqad-ai rag refresh-context --quiet`
-  detached; that command runs `refreshRuleContext` (F5) then `backgroundIndexSync`
-  (F9), so one debounced trigger refreshes both.
+  detached; that command runs `backgroundIndexSync` (F9), then gathers slices with
+  `skipSync: true` and finally `refreshRuleContext` (F5), so one debounced trigger
+  refreshes both and syncs the index once.
 
 ## State Management
 

@@ -466,6 +466,18 @@ describe('isSystemNotificationPrompt', () => {
     expect(isSystemNotificationPrompt('\n  [system notification - not user input]\nx')).toBe(true);
   });
 
+  it('AC-56: recognises a prompt that starts with Stop hook feedback:', () => {
+    expect(isSystemNotificationPrompt('Stop hook feedback:\nCompletion check failed.')).toBe(true);
+    expect(isSystemNotificationPrompt('  stop hook feedback: x')).toBe(true);
+  });
+
+  it('AC-55: leaves a human prompt that quotes Stop hook feedback: mid-text routable', () => {
+    expect(
+      isSystemNotificationPrompt('why did I get "Stop hook feedback:" after the last turn?'),
+    ).toBe(false);
+    expect(isSystemNotificationPrompt('fix this\nStop hook feedback: the gate failed')).toBe(false);
+  });
+
   it('leaves a human prompt that only MENTIONS the banner routable', () => {
     expect(
       isSystemNotificationPrompt('what is the [SYSTEM NOTIFICATION - NOT USER INPUT] banner?'),

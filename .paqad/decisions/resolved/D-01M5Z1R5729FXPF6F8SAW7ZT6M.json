@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Z1R5729FXPF6F8SAW7ZT6M",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on src/rule-scripts/runner.ts pool",
+  "context": "Chief architect: Not a real disagreement: both are adopted. The issue requires stable map order and that concurrency 1 matches today; the golden report captured from the current serial runner before the change proves both, and the crash, timeout and 16 MB cases keep the exact ExecuteResult contract the issue pins. Pick this option to accept the pair.\n\nTarget: src/rule-scripts/runner.ts pool\n- qa-engineer: Map-order stability is proven with scripts that finish in reverse order (controlled by a fake spawn or deterministic delays), and byte-identical concurrency-1 output is compared against a golden report captured from the current serial runner before the change lands.\n- qa-engineer: One script that crashes, exits non-zero, times out or exceeds the 16 MB cap inside the pool yields the same ExecuteResult as the sync path today and does not stop or reorder the other scripts.\n\n[expert-conflict-fork:b98d76ecf1c06387]",
+  "options": [
+    {
+      "option_key": "map-order-stability-is-proven-with-scrip",
+      "label": "Map-order stability is proven with scripts that finish in reverse order (controlled by a fake spawn or deterministic delays), and byte-identical concurrency-1 output is compared against a golden report captured from the current serial runner before the change lands. — qa-engineer",
+      "one_line_preview": "Map-order stability is proven with scripts that finish in reverse order (controlled by a fake spawn or deterministic delays), and byte-identical concurrency-1 output is compared against a golden report captured from the current serial runner before the change lands. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "one-script-that-crashes-exits-non-zero-t",
+      "label": "One script that crashes, exits non-zero, times out or exceeds the 16 MB cap inside the pool yields the same ExecuteResult as the sync path today and does not stop or reorder the other scripts. — qa-engineer",
+      "one_line_preview": "One script that crashes, exits non-zero, times out or exceeds the 16 MB cap inside the pool yields the same ExecuteResult as the sync path today and does not stop or reorder the other scripts. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "map-order-stability-is-proven-with-scrip",
+  "created_at": "2026-10-27T16:05:32.002Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:06.382Z",
+  "decision_id": "D-01M5Z1R5729FXPF6F8SAW7ZT6M",
+  "fingerprint": "sha256:04fce84260facc5bec61de61e59f41e0da152b4d20ff30eff1d047666db347a0",
+  "question": "Experts disagree on src/rule-scripts/runner.ts pool",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:32.002Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:06.382Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

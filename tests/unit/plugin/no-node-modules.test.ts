@@ -23,6 +23,7 @@ const BUNDLED_DEPS = [
   'commander',
   'ora',
   'gifenc',
+  'minimatch',
 ];
 
 const EXTERNAL_DEPS = ['@huggingface/transformers', 'openai'];

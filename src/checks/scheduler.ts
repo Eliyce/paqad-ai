@@ -1,4 +1,5 @@
 import { parseCommandChain, runCommandChain } from '@/checks/command-chain.js';
+import { runPool } from '@/core/run-pool.js';
 import type { DeliveryShell } from '@/delivery/runner.js';
 
 export type CommandStage = 1 | 2 | 3;
@@ -90,23 +91,5 @@ export async function runStages(
     ...(await runPool(stage2, Math.min(stage2.length, opts.availableParallelism), runOne)),
   );
   for (const cmd of stage3) results.push(await runOne(cmd));
-  return results;
-}
-
-async function runPool<T, R>(
-  cmds: readonly T[],
-  limit: number,
-  runOne: (cmd: T) => Promise<R>,
-): Promise<R[]> {
-  const results = new Array<R>(cmds.length);
-  let next = 0;
-  const worker = async (): Promise<void> => {
-    while (next < cmds.length) {
-      const index = next++;
-      results[index] = await runOne(cmds[index]!);
-    }
-  };
-  const workerCount = Math.max(1, Math.min(limit, cmds.length));
-  await Promise.all(Array.from({ length: workerCount }, () => worker()));
   return results;
 }

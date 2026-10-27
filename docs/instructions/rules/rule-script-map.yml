@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-10-20T11:37:25.240Z
-rule_files_hash: sha256-7c3332ef35f7d345ade9088ce79ea08e4275bc08d6988f34ad326aa13e8b84c1
+generated_at: 2026-10-27T17:49:10.393Z
+rule_files_hash: sha256-6f3a931c41f786c6e05aa9aeb4fddcdffedb5b4b49f323f7498a1723bcbe3d42
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md

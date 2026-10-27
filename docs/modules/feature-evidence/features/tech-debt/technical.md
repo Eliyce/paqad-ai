@@ -52,8 +52,9 @@ The bundle's `tech-debt.json` holds `items: [{ id, title, kind, severity }]` for
   adds the section from `renderTechDebtPrSection` only when the change raised items.
 - **Review triage.** A review finding may carry `deferred_to: TD-<ULID>`; the triage classifier
   routes a confirmed out-of-scope finding to `debt add`.
-- **Entry sentinel.** The agent-entry staleness walk skips `docs/instructions/tech-debt/`, so
-  recording debt never forces the agent to reload the framework.
+- **Entry sentinel.** The agent-entry staleness walk only reads
+  `docs/instructions/{stack,design-system,workflows}`, so recording debt never forces the agent to
+  reload the framework.
 
 ## Error Handling
 

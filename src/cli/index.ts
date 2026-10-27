@@ -3,6 +3,8 @@
 import { realpathSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
+import { enableEmbeddingProviderCache } from '@/rag/providers.js';
+
 import { createProgram, normalizeCliArgv } from './program.js';
 
 export { getRuntimeRoot } from '@/core/runtime-paths.js';
@@ -33,6 +35,7 @@ export function shouldRunFromCommandLine(
 
 /* v8 ignore start - covered via packaged CLI/e2e entrypoint tests rather than module import */
 if (shouldRunFromCommandLine(import.meta.url, process.argv[1])) {
+  enableEmbeddingProviderCache();
   await runCli();
 }
 /* v8 ignore stop */

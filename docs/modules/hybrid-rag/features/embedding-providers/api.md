@@ -18,7 +18,12 @@ export class OpenAiEmbeddingProvider implements EmbeddingProvider {}
 
 export function localModelsRoot(): string;
 export function localModelDir(model: string): string;
+
+export function enableEmbeddingProviderCache(): void;
+export function resetEmbeddingProviderCache(): void;
 ```
+
+With the cache enabled (the CLI process only), two `createEmbeddingProvider` calls for the same local model, dtype and models directory return the same instance. A call with an `onProgress` callback, an `openai` provider and a provider whose model failed to load are never cached.
 
 `intelligence.embedding_provider` picks the class: `openai`, or `local` (also used when the value is unset). A saved `voyageai` value is refused before any class is built: `createEmbeddingProvider` throws `RemovedEmbeddingProviderError` (`src/rag/removed-provider.ts`), whose message says the Voyage embedding provider was removed and names `local` and `openai` as the choices. Every provider has the same shape (`src/rag/types.ts`):
 

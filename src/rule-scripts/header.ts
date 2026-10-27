@@ -9,9 +9,15 @@ export interface ScriptHeader {
   scope: 'changed-files' | 'whole-tree' | 'git-diff' | 'git-history';
   runtime: 'node';
   requires?: { node?: string; binaries?: string[] };
+  per_file?: boolean;
   last_validated_at?: string;
   false_positive_surface?: string;
 }
+
+const BOOLEAN_WORDS = new Map([
+  ['true', true],
+  ['false', false],
+]);
 
 const HEADER_LINE_RE = /^\s*\/\/\s*([a-z_]+)\s*:(.*)$/;
 
@@ -57,6 +63,8 @@ function coerce(fields: Record<string, string>): Record<string, unknown> {
       out[key] = value.replace(/^RL-([0-9a-fA-F]+)$/, (_, h) => `RL-${h.toLowerCase()}`);
     } else if (key === 'kind' || key === 'scope' || key === 'runtime') {
       out[key] = value.toLowerCase();
+    } else if (key === 'per_file') {
+      out[key] = BOOLEAN_WORDS.get(value.toLowerCase()) ?? value;
     } else {
       out[key] = value;
     }

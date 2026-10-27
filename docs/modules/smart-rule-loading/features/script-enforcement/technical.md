@@ -5,6 +5,12 @@
 ## Module Boundaries
 
 - `src/rule-scripts/enforce.ts` — `enforceRuleScripts`, `formatEnforcementSummary`.
+- `src/rule-scripts/runner.ts` — `runRuleScripts` (sync, the public `paqad-ai/rule-scripts`
+  export and the rule-script-runner skill) and `runRuleScriptsAsync` (the pool the gate uses).
+  Both share one preparation, cache check and report writer. `src/core/run-pool.ts` is the
+  shared pool (also used by the checks scheduler).
+- `src/rule-scripts/file-cache.ts` — the per-file results cache for `per_file: true` scripts.
+- `src/rule-scripts/pending-marker.ts` — the session-owned pending-pre-mutation marker.
 - `src/kernel/capability.ts` — the `rule-scripts` capability wrapping
   `enforceRuleScripts`; the first contract folded into the capability-kernel seam
   (buildout F3). `src/kernel/gate.ts` — `runCapabilityGate`, the executor.
@@ -27,16 +33,41 @@
 
 ## Entry Points
 
-- `enforceRuleScripts({ projectRoot, mode, changedFiles?, scope? })` → `EnforcementResult`
-  `{ ran, mode, blocking, violations, armed, summary }`. Wraps `runRuleScripts`; resolves
-  the working set via `loadChangeEvidence` when `changedFiles` is omitted. `scope`
-  (default `changed-files`) decides how an EMPTY working set is treated: a
-  `changed-files` scope skips (`ran: false`, `⚪ skipped (no files changed this turn)`) so a
-  clean tree never triggers a whole-tree block, while `whole-tree` scans the whole tree. The
-  capability kernel passes `changed-files` at completion and `whole-tree` at pre-mutation.
+- `enforceRuleScripts({ projectRoot, mode, changedFiles?, scope?, kinds?, scopes?, concurrency?,
+  signal?, useFileCache? })` → `EnforcementResult` `{ ran, mode, blocking, violations, armed,
+  summary, aborted? }`. Wraps `runRuleScriptsAsync`; resolves the working set via
+  `loadChangeEvidence` when `changedFiles` is omitted. `scope` (default `changed-files`)
+  decides how an EMPTY working set is treated: a `changed-files` scope skips (`ran: false`,
+  `⚪ skipped (no files changed this turn)`) so a clean tree never triggers a whole-tree block,
+  while `whole-tree` scans the whole tree. A `scopes` filter of only `changed-files` also skips
+  on an empty working set, so nothing scans the tree before an edit. `kinds` and `scopes` pick
+  which scripts run; scripts outside them are not run at all. `concurrency` defaults to the
+  `rule_gate_concurrency` setting. An aborted `signal` returns `aborted: true` with no
+  verdict, and nothing is written to the report.
+- The capability kernel passes `{ kinds: ['deterministic'], scopes: ['changed-files'] }`, the
+  file cache and an abort signal at pre-mutation (scope `whole-tree`), and no filter at
+  completion (scope `changed-files`). Under `rule_gate_pre_edit=all` pre-mutation passes no
+  filter and no file cache, which is the old behaviour.
 - `formatEnforcementSummary(result)` → paqad-voice markdown.
 
 ## Data Model / Schema
+
+- `report.json` holds the unfiltered (turn-end) run; `report.pre-mutation.json` holds the
+  filtered pre-edit run and records its `filter`. Both sit in `.paqad/scripts/rules/.cache/`
+  and are written with write-then-rename, so the two runs never evict each other and a reader
+  never sees a torn file. A cached report is reused only when the mode, the hashes and the filter
+  all match.
+- `file-results.json` (same folder) holds one entry per script and file: script path, script
+  sha256, file path, file sha256 and that file's findings. Only scripts whose header says
+  `// per_file: true` use it, and only the pre-edit run under `blocking-only` reads or writes
+  it. A run splits a script's targets into cached and dirty files, spawns the script on the dirty
+  files only (not at all when none are dirty) and merges the cached findings back in target
+  order. An errored run, or one that reports a finding for a file it was not given, is not
+  cached. Entries whose script or file content no longer matches, or whose file is gone, are
+  dropped on every write. A corrupt or unreadable file reads as empty.
+- `pending-pre-mutation/<session>.json` (same folder), plus a copy beside the session's
+  `.workflow-state.json` in the stage-evidence ledger, records `{ session_id, change,
+  written_at, files }` when the pre-edit budget ran out.
 
 - `RuleViolation { rule_id, script, file, line?, message, severity }` — the
   flattened deterministic findings.
@@ -74,9 +105,25 @@
 - At the `completion` seam, rule-scripts run only when
   `classifyCompletionEnforcement` (`src/pipeline/session-ownership.ts`)
   says this session's turn is due its checks, the same decision the Stop backstop
-  uses. A session that owns no change, or an owner on a non-feature turn that edited
-  nothing, runs no rule-scripts. The session id comes from the hook payload, else
+  uses, or when this session has a pending-pre-mutation marker. A session that owns no
+  change, or an owner on a non-feature turn that edited nothing, runs no rule-scripts
+  unless it has a marker. The session id comes from the hook payload, else
   `CLAUDE_SESSION_ID`.
+- Pre-edit budget: the hook passes the time it started (`startedAt`) through
+  `runCapabilityGate` to the capability, which aborts the run at `startedAt +
+  rule_gate_budget_ms` (an injected `now` clock is used in tests). An abort kills every rule
+  script still running. Only then is the edit allowed: the capability writes the marker, logs
+  `capability-gate rule-scripts budget-exhausted session=<id> files=<n>` to hooks.log and
+  returns the context line `paqad: the blocking rule checks did not finish in time for this
+  edit. They will run again at the end of this turn and block there if anything fails.`, which
+  the hook prints as PreToolUse `additionalContext` (`CapabilityOutcome.context`, appended
+  before the visual-evidence reminder). If the marker cannot be written the edit is refused
+  (`pending-unwritable <code>` in hooks.log). A crash, a script's own 30 s timeout, malformed
+  output and a tampered script keep their old outcome; they never take the budget path.
+- The turn end clears the marker after a run that finished; a failure there blocks the turn and
+  the agent fixes forward (no automatic undo). Deleting the marker in the cache folder does not
+  skip the check, because the copy in the session's ledger folder still counts. Another session's
+  marker is never read.
 - Exit codes: a blocking outcome → 2 (stderr); advisory (warn) findings → 0
   (stdout); otherwise 0. Any thrown error soft-fails to 0.
 - Registered by the Claude adapter on `PreToolUse` (Edit|Write|NotebookEdit,
@@ -100,9 +147,25 @@
   fast-skipped on the missing map and the gate passed by default — the engine was
   built but disarmed.
 
+## Configuration
+
+All three keys are policy-group knobs read through `resolveRuleGateConfig` (the layered config
+reader; local beats team, `PAQAD_*` env beats both). A bad value never loosens the gate.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `rule_gate_pre_edit` | `blocking-only` | `blocking-only` runs only deterministic changed-files scripts before an edit; `all` runs every script, as before. An unknown value reads as `blocking-only`. |
+| `rule_gate_concurrency` | `auto` | Scripts run at once. `auto` is CPU cores minus one, between 1 and 8. A number is capped at 8; zero, negative or non-numeric reads as `auto`. |
+| `rule_gate_budget_ms` | `6000` | Time the pre-edit check may take, counted from the hook start. Zero, negative or non-numeric reads as 6000; other values are clamped to 500-9000 ms so the check ends before the 10 s hook timeout. The budget also applies under `all`. |
+
+The rollback is `rule_gate_pre_edit=all` plus `rule_gate_concurrency=1`: every script before
+an edit, one after another in map order, with the budget still applied. The hook registration
+(`capability-gate-pre-mutation`, `failClosed: true`, `timeoutSec: 10`) is unchanged.
+
 ## State Management
 
-- Stateless wrapper; the runner owns its hash-cached report under `.paqad/`.
+- Stateless wrapper; the runner owns its hash-cached reports, the per-file cache and the
+  pending markers under `.paqad/scripts/rules/.cache/`.
 
 ## Failure Modes
 
@@ -144,7 +207,12 @@ The reasons below are not obvious from the code in `src/rule-scripts/`.
   skipped when the map is present and its rule-file hash still matches, so re-onboarding an
   unchanged tree writes nothing (no new timestamp, snapshot or event).
 - **Running scripts (`execute.ts`, `runner.ts`, `enforce.ts`).** A script reads `{ projectRoot,
-  files }` on stdin and writes a findings report to stdout, under a timeout. Stdout is parsed
+  files }` on stdin and writes a findings report to stdout, under a timeout. `executeRuleScript`
+  (sync, used by the fixture runner) and `executeRuleScriptAsync` (the pool) read the process
+  outcome through one interpreter, so a crash, a 30 s timeout or more than 16 MB of output give the
+  same `ExecuteResult`; output over 16 MB reads as a timeout in both, as `spawnSync` reports it.
+  The pool keeps results in map order whatever order scripts finish in, so with no filter and a
+  pool of one the report is byte-identical to the old serial run. Stdout is parsed
   before the exit code is judged, because many linters exit non-zero when they find something;
   valid findings are kept and the exit code or stderr is kept as a diagnostic. Binaries are
   resolved against `PATH` in Node, because `command -v` is a shell builtin and cannot be spawned
@@ -253,7 +321,12 @@ The reasons below are not obvious from the code in `src/kernel/`.
 
 - `tests/unit/rule-scripts/enforce.test.ts` — blocks under strict with the rule
   text not loaded; warn surfaces without blocking; clean passes; fast-skip with no
-  map and with mode off; summary capping.
+  map and with mode off; summary capping; the pre-edit filter.
+- `tests/unit/rule-scripts/runner-golden.test.ts` — the report matches a golden captured from
+  the serial runner. `runner-filter.test.ts` — filters, no tree scan, separate reports, pool
+  order. `file-cache.test.ts` — the per-file cache. `execute.test.ts` — sync and async parity.
+- `tests/unit/kernel/rule-gate-budget.test.ts` — seam filters, the budget, the marker and the
+  rollback; `rule-compliance-mode.test.ts` — the options each seam passes.
 - `tests/unit/runtime/capability-gate.test.ts` — the hook's gating fast-paths
   (no map, paqad disabled, mode off) all exit 0 silently, on both seams.
 - `tests/unit/kernel/gate.test.ts` — `runCapabilityGate` runs the rule-scripts

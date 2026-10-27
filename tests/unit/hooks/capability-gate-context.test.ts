@@ -16,8 +16,15 @@ describe('runtime/hooks/capability-gate.mjs — model-facing context', () => {
   let outSpy: ReturnType<typeof vi.spyOn>;
   let errSpy: ReturnType<typeof vi.spyOn>;
 
+  let gateInput: Record<string, unknown> | undefined;
+
   function mockGate(result: Record<string, unknown>): void {
-    vi.doMock(GATE, () => ({ runCapabilityGate: async () => result }));
+    vi.doMock(GATE, () => ({
+      runCapabilityGate: async (input: Record<string, unknown>) => {
+        gateInput = input;
+        return result;
+      },
+    }));
   }
 
   beforeEach(() => {
@@ -70,6 +77,28 @@ describe('runtime/hooks/capability-gate.mjs — model-facing context', () => {
     const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
     expect(await main('{}', 'completion')).toBe(0);
     expect(stdout).toBe('');
+  });
+
+  it('AC-30: a budget allow hands the exact rule-gate text to the model as additionalContext', async () => {
+    const budget =
+      'paqad: the blocking rule checks did not finish in time for this edit. They will run again at the end of this turn and block there if anything fails.';
+    mockGate({ block: false, summary: '', narration: '', context: budget });
+    const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
+    expect(await main('{}', 'pre-mutation')).toBe(0);
+    expect(JSON.parse(stdout)).toEqual({
+      hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: budget },
+    });
+    expect(stderr).toBe('');
+  });
+
+  it('AC-31: passes the time the hook started to the gate', async () => {
+    mockGate({ block: false, summary: '', narration: '', context: '' });
+    const before = Date.now();
+    const { main } = await import('../../../runtime/hooks/capability-gate.mjs');
+    await main('{}', 'pre-mutation');
+    const startedAt = gateInput?.startedAt as number;
+    expect(startedAt).toBeGreaterThanOrEqual(before);
+    expect(startedAt).toBeLessThanOrEqual(Date.now());
   });
 
   it('AC-18: block path appends the reminder to the reason', async () => {

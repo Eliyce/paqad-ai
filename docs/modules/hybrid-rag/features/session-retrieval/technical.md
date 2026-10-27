@@ -8,10 +8,11 @@
 - `src/context/retrieval-depth-router.ts` — `gateRetrieval` (stage → depth/topN/skip).
 - `src/context/rule-context.ts` — `writeRuleContext` / `refreshRuleContext` append
   the retrieval section to the single session-context artifact.
-- `src/rag/service.ts` — `RagService.retrieveForEval` (the actual query),
+- `src/rag/service.ts` — `RagService.retrieveForEval` (the actual query; it runs
+  `refreshContext()` first unless called with `{ skipSync: true }`),
   `RagService.probe` (pre-floor diagnostic), `scoreCandidates` (the one scoring path).
-- `src/cli/commands/rag.ts` — `rag refresh-context` runs sync → gather → compose →
-  record the `used` evidence; `rag probe "<query>"` prints pre-floor scores.
+- `src/cli/commands/rag.ts` — `rag refresh-context` runs sync → gather (with
+  `skipSync: true`, so the index is synced once) → compose → record the `used` evidence; `rag probe "<query>"` prints pre-floor scores.
 
 ## Entry Points
 

@@ -114,13 +114,14 @@ describe('runtime/hooks/agent-entry-gate.mjs', () => {
     expect(result.status).toBe(2);
   });
 
-  it('blocks when a file under docs/instructions is newer than the sentinel', () => {
+  it('blocks when a loaded workflow file is newer than the sentinel', () => {
     writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{}');
     const past = new Date(Date.now() - 60_000);
     utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), past, past);
     utimesSync(join(projectRoot, 'CLAUDE.md'), past, past);
     utimesSync(join(projectRoot, '.paqad/framework-path.txt'), past, past);
-    writeFileSync(join(projectRoot, 'docs/instructions/rules.md'), '# rules');
+    mkdirSync(join(projectRoot, 'docs/instructions/workflows'), { recursive: true });
+    writeFileSync(join(projectRoot, 'docs/instructions/workflows/x.yaml'), 'x: 1');
     const result = runGate(projectRoot);
     expect(result.status).toBe(2);
   });
@@ -342,13 +343,14 @@ describe('runtime/hooks/agent-entry-prompt-gate.mjs', () => {
     }).toThrow();
   });
 
-  it('invalidates the sentinel when a docs/instructions file is newer', () => {
+  it('re-gates the turn when a loaded docs/instructions file is newer', () => {
     writeFileSync(join(projectRoot, '.paqad/.agent-entry-loaded'), '{}');
     const past = new Date(Date.now() - 60_000);
     utimesSync(join(projectRoot, '.paqad/.agent-entry-loaded'), past, past);
     utimesSync(join(projectRoot, 'CLAUDE.md'), past, past);
     utimesSync(join(projectRoot, '.paqad/framework-path.txt'), past, past);
-    writeFileSync(join(projectRoot, 'docs/instructions/rules.md'), '# rules');
+    mkdirSync(join(projectRoot, 'docs/instructions/workflows'), { recursive: true });
+    writeFileSync(join(projectRoot, 'docs/instructions/workflows/x.yaml'), 'x: 1');
 
     const result = runPromptGate(projectRoot, 'hard');
     expect(result.status).toBe(2);
@@ -844,5 +846,170 @@ describe('per-session entry sentinel', () => {
     expect(runGate(projectRoot, editPayload('session-B')).status).toBe(2);
     expect(existsSync(sessionFile('session-B'))).toBe(false);
     expect(existsSync(sessionFile('session-A'))).toBe(true);
+  });
+});
+
+describe('entry gate staleness on the loaded instruction folders', () => {
+  const AGENT = 'agent_dev1';
+  const MARKER_REL = `.paqad/session/agent-entry/${AGENT}`;
+  const OLDER = new Date(1_699_999_980_000);
+  const LOADED = new Date(1_699_999_990_000);
+  const NEWER = new Date(1_700_000_000_000);
+  let projectRoot: string;
+
+  function write(relative: string, mtime: Date = NEWER): void {
+    const full = join(projectRoot, relative);
+    mkdirSync(join(full, '..'), { recursive: true });
+    writeFileSync(full, '# x\n');
+    utimesSync(full, mtime, mtime);
+  }
+
+  function edit(payload: Record<string, unknown> = { agent_id: AGENT }): RunResult {
+    return runGate(
+      projectRoot,
+      JSON.stringify({
+        ...payload,
+        tool_name: 'Edit',
+        tool_input: { file_path: join(projectRoot, 'src/index.ts') },
+      }),
+    );
+  }
+
+  function hooksLog(): string[] {
+    const path = join(projectRoot, '.paqad/logs/hooks.log');
+    if (!existsSync(path)) return [];
+    return readFileSync(path, 'utf8')
+      .split('\n')
+      .filter((line) => line.includes('agent-entry-gate block'));
+  }
+
+  beforeEach(() => {
+    projectRoot = mkdtempSync(join(tmpdir(), 'paqad-gate-loaded-'));
+    write('CLAUDE.md', OLDER);
+    write('.paqad/framework-path.txt', OLDER);
+    write('docs/instructions/workflows/feature-development.yaml', OLDER);
+    write(MARKER_REL, LOADED);
+  });
+
+  afterEach(() => {
+    removeTempProject(projectRoot);
+  });
+
+  it('AC-44: a change under docs/instructions/rules does not block the agent', () => {
+    write('docs/instructions/rules/x.md');
+    expect(edit().status).toBe(0);
+    expect(hooksLog()).toEqual([]);
+  });
+
+  it('AC-45: a workflow change blocks and lists only that file and the marker path', () => {
+    write('docs/instructions/workflows/feature-development.yaml');
+    const result = edit();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toBe(
+      [
+        '[paqad] Blocked: 1 instruction file changed since you loaded them.',
+        `[paqad] Read them, then write ${MARKER_REL} and retry:`,
+        '[paqad]   docs/instructions/workflows/feature-development.yaml',
+        '',
+      ].join('\n'),
+    );
+  });
+
+  it('AC-46: a changed CLAUDE.md still asks for the full framework load', () => {
+    write('CLAUDE.md');
+    const result = edit();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('[paqad] Blocked: load the paqad framework before editing.');
+    expect(result.stderr).toContain('AGENT-ROUTER.md');
+  });
+
+  it('AC-47: a missing marker and a changed framework-path.txt block with the full-load text', () => {
+    write('.paqad/framework-path.txt');
+    const stale = edit();
+    expect(stale.status).toBe(2);
+    expect(stale.stderr).toContain('load the paqad framework before editing');
+    const missing = edit({ agent_id: 'agent_never_loaded' });
+    expect(missing.status).toBe(2);
+    expect(missing.stderr).toContain('load the paqad framework before editing');
+  });
+
+  it('AC-47: a change under stack or design-system blocks', () => {
+    write('docs/instructions/stack/overview.md');
+    write('docs/instructions/design-system/tokens.md');
+    const result = edit();
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('2 instruction files changed');
+  });
+
+  it('AC-48: each block writes one hooks.log line with the reason, id and file count', () => {
+    write('docs/instructions/workflows/feature-development.yaml');
+    write('docs/instructions/stack/overview.md');
+    edit();
+    edit({ agent_id: 'agent_never_loaded' });
+    edit({ session_id: 'ses-1' });
+    const lines = hooksLog();
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toMatch(
+      new RegExp(`agent-entry-gate block reason=stale:docs-instructions agent=${AGENT} files=2$`),
+    );
+    expect(lines[1]).toMatch(
+      /agent-entry-gate block reason=missing agent=agent_never_loaded files=0$/,
+    );
+    expect(lines[2]).toMatch(/agent-entry-gate block reason=missing agent=ses-1 files=0$/);
+    expect(lines.join('\n')).not.toContain('docs/instructions');
+  });
+
+  it('AC-48: a changed entry file logs reason=stale:entry-file', () => {
+    write('CLAUDE.md');
+    edit();
+    expect(hooksLog()).toHaveLength(1);
+    expect(hooksLog()[0]).toMatch(/reason=stale:entry-file agent=agent_dev1 files=0$/);
+  });
+
+  it('AC-49: eleven changed files list ten plus "and 1 more" with forward slashes', () => {
+    for (let index = 0; index < 11; index += 1) {
+      write(`docs/instructions/workflows/nested/w${String(index).padStart(2, '0')}.yaml`);
+    }
+    const result = edit();
+    const listed = result.stderr.split('\n').filter((line) => line.startsWith('[paqad]   '));
+    expect(listed).toHaveLength(11);
+    expect(listed[0]).toBe('[paqad]   docs/instructions/workflows/nested/w00.yaml');
+    expect(listed[10]).toBe('[paqad]   and 1 more');
+    expect(result.stderr).toContain('11 instruction files changed');
+    expect(hooksLog()[0]).toMatch(/files=11$/);
+  });
+
+  it('AC-49: ten changed files list all ten with no "and N more"', () => {
+    for (let index = 0; index < 10; index += 1) {
+      write(`docs/instructions/workflows/w${index}.yaml`);
+    }
+    const result = edit();
+    const listed = result.stderr.split('\n').filter((line) => line.startsWith('[paqad]   '));
+    expect(listed).toHaveLength(10);
+    expect(result.stderr).not.toContain('more');
+  });
+
+  it('AC-50: a retry without writing the marker gets the same file list', () => {
+    write('docs/instructions/workflows/feature-development.yaml');
+    const first = edit();
+    const second = edit();
+    expect(second.status).toBe(2);
+    expect(second.stderr).toBe(first.stderr);
+    expect(second.stderr).not.toContain('load the paqad framework');
+  });
+
+  it('AC-45: writing the named marker clears the block', () => {
+    write('docs/instructions/workflows/feature-development.yaml');
+    expect(edit().status).toBe(2);
+    const stamp = runGate(
+      projectRoot,
+      JSON.stringify({
+        agent_id: AGENT,
+        tool_name: 'Write',
+        tool_input: { file_path: join(projectRoot, MARKER_REL) },
+      }),
+    );
+    expect(stamp.status).toBe(0);
+    expect(edit().status).toBe(0);
   });
 });

@@ -2,7 +2,7 @@ import { Command } from 'commander';
 
 import { resolveRuleApplicabilityForChange } from '@/context/rule-context.js';
 import { currentFeature } from '@/feature-evidence/stage-ledger.js';
-import { writeRulesLoaded } from '@/feature-evidence/rules-loaded.js';
+import { hashRuleSources, writeRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { readLedgerSessionId, resolveSessionId } from '@/rag-ledger/session.js';
 import { compileRuleScripts } from '@/rule-scripts/compile.js';
 import { applyRuleOverride } from '@/rule-scripts/override.js';
@@ -71,6 +71,7 @@ export function createRulesCommand(): Command {
       const record = writeRulesLoaded(options.projectRoot, sessionId, {
         applicable: applicability.applicable,
         ruleTextHash: applicability.ruleTextHash,
+        ruleSourceHashes: hashRuleSources(options.projectRoot, applicability.ruleSourcePaths),
         changedPaths: applicability.changedPaths,
       });
 

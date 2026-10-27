@@ -13,6 +13,8 @@ export interface CapabilityGateInput {
   env?: NodeJS.ProcessEnv;
   payload?: CapabilityPayload;
   entryLoaded?: () => boolean;
+  startedAt?: number;
+  now?: () => number;
 }
 
 export interface CapabilityGateResult {
@@ -94,24 +96,38 @@ function syncRuleStopRecord(
 }
 
 export async function runCapabilityGate(input: CapabilityGateInput): Promise<CapabilityGateResult> {
-  const { projectRoot, seam, env = process.env, payload, entryLoaded } = input;
+  const { projectRoot, seam, env = process.env, payload, entryLoaded, startedAt, now } = input;
   const outcomes: CapabilityOutcome[] = [];
   const narrations: string[] = [];
+  const contexts: string[] = [];
   for (const descriptor of capabilitiesForSeam(seam)) {
     const capability = CAPABILITY_IMPLS.get(descriptor.id);
     if (!capability) {
       continue;
     }
-    const outcome = await capability.evaluate({ projectRoot, seam, env, payload });
+    const outcome = await capability.evaluate({
+      projectRoot,
+      seam,
+      env,
+      payload,
+      ...(startedAt === undefined ? {} : { startedAt }),
+      ...(now ? { now } : {}),
+    });
     if (outcome.narration) {
       narrations.push(outcome.narration);
+    }
+    if (outcome.context) {
+      contexts.push(outcome.context);
     }
     if (outcome.ran && outcome.summary) {
       outcomes.push(outcome);
     }
   }
   const narration = narrations.join('\n');
-  const context = seam === 'pre-mutation' ? reminderContext(projectRoot, env, payload) : '';
+  const context =
+    seam === 'pre-mutation'
+      ? [...contexts, reminderContext(projectRoot, env, payload)].filter(Boolean).join('\n')
+      : '';
   const blocking = outcomes.filter((outcome) => outcome.blocking);
   if (seam === 'pre-mutation') {
     syncRuleStopRecord(projectRoot, env, payload, blocking, entryLoaded);

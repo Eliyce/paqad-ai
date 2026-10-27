@@ -1026,7 +1026,7 @@ export function readInstalledPluginVersion(
   return readRuntimeCopyVersion(join(data, 'runtime'));
 }
 
-function claudeConfigDir(home: string, env: NodeJS.ProcessEnv): string {
+export function claudeConfigDir(home: string, env: NodeJS.ProcessEnv): string {
   const configDir = env.CLAUDE_CONFIG_DIR?.trim();
   return configDir ? configDir : join(home, '.claude');
 }
