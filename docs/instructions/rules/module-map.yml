@@ -3265,6 +3265,7 @@ modules:
       - scripts/build-plugin-manifest.mjs
       - scripts/validate-plugin.mjs
       - scripts/test-plugin.mjs
+      - scripts/build-discovery.mjs
     features:
       - slug: plugin-manifest
         name: Generated plugin manifest, hooks file and stage agents
@@ -3280,7 +3281,7 @@ modules:
         sources: [runtime/claude-plugin/skills]
       - slug: discovery-skills
         name: Product-owner discovery skills source and Python build
-        sources: [plugins/discovery]
+        sources: [plugins/discovery, scripts/build-discovery.mjs]
 
 lowConfidenceModules:
   - root-cause-analysis-workflow

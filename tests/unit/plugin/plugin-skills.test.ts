@@ -9,8 +9,7 @@ const skillsDir = join(repoRoot, 'runtime', 'claude-plugin', 'skills');
 
 const CLAUDE_CODE_SKILLS = ['onboard', 'join', 'dashboard'] as const;
 
-// The first developer step each hand-written skill had before the Claude Code check was added.
-const FIRST_DEVELOPER_STEP: Record<(typeof CLAUDE_CODE_SKILLS)[number], string> = {
+const FIRST_DEVELOPER_STEP_BEFORE_THE_CHECK: Record<(typeof CLAUDE_CODE_SKILLS)[number], string> = {
   onboard: 'You are the project lead setting paqad up for the whole team.',
   join: 'The project is already onboarded (it has a committed `.paqad/`). This sets up only your machine.',
   dashboard: 'The dashboard is a local web app for this project. It never leaves the machine.',
@@ -36,7 +35,7 @@ describe('hand-written plugin skills', () => {
       expect(check).toContain('reply in one sentence that this works in Claude Code');
       expect(check).toContain('and stop');
       expect(check).toContain('do not mention this check');
-      expect(paragraphs[2]).toBe(FIRST_DEVELOPER_STEP[name]);
+      expect(paragraphs[2]).toBe(FIRST_DEVELOPER_STEP_BEFORE_THE_CHECK[name]);
     },
   );
 });

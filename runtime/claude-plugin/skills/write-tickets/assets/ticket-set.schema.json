@@ -1,0 +1,87 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://paqad.ai/schemas/ticket-set.schema.json",
+  "title": "Canonical ticket set",
+  "description": "The single source for what gets posted (REQUIREMENTS section 8.3). The stdlib has no JSON-Schema validator, so check_ticket_set.py hand-validates these rules; this document fixes the shape and is the reference for authors and reviewers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["run_id", "revision", "digest", "tracker", "epics"],
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "The run ID, for example DR-20261005-7K2Q.",
+      "pattern": "^DR-[0-9]{8}-[A-Z0-9]{4}$"
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "digest": {
+      "type": "string",
+      "description": "sha256 of the canonical JSON of the whole object with the digest field removed. Canonical JSON is json.dumps with sort_keys true, ensure_ascii false, separators (\",\",\":\") and allow_nan false.",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "tracker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "project_key", "epic_type", "story_type"],
+      "properties": {
+        "kind": { "type": "string" },
+        "project_key": { "type": "string" },
+        "epic_type": { "type": "string" },
+        "story_type": { "type": "string" }
+      }
+    },
+    "epics": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/epic" }
+    }
+  },
+  "definitions": {
+    "epic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "title", "body_markdown", "labels", "tickets"],
+      "properties": {
+        "ref": { "type": "string", "pattern": "^E[0-9]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "body_markdown": { "type": "string" },
+        "labels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tickets": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/ticket" }
+        }
+      }
+    },
+    "ticket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "title", "body_markdown", "done_when", "depends_on", "assignee_hint"],
+      "properties": {
+        "ref": { "type": "string", "pattern": "^E[0-9]+-T[0-9]+$" },
+        "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "body_markdown": { "type": "string" },
+        "done_when": {
+          "description": "The acceptance criteria: 2 to 8 Given/When/Then statements, one string each, lines joined by two trailing spaces and a newline.",
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 8,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "depends_on": {
+          "description": "The refs (E1-T1) or tracker keys this ticket depends on; empty when it depends on none.",
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "assignee_hint": {
+          "type": ["string", "null"]
+        }
+      }
+    }
+  }
+}
