@@ -281,8 +281,10 @@ state on its own.
 ### Prompt-time context and intake
 
 - **`context-refresh-trigger.mjs`.** Fires a detached `rag refresh-context` at most once per
-  debounce window. The worker is single-flight and swaps the artifact atomically, so the seam never
-  sees a half-written file; the refresh lands on the next prompt. It runs this copy's CLI with the
+  2-minute debounce window, only for a human prompt (the prompt gate skips notifications,
+  hand-backs and `Stop hook feedback:`), never while another refresh holds
+  `.paqad/locks/refresh-context.lock`, and at low priority. The worker swaps the artifact
+  atomically, so the seam never sees a half-written file; the refresh lands on the next prompt. It runs this copy's CLI with the
   current node, because a hook's PATH may not hold `paqad-ai` (the plugin only adds it to the shell
   PATH) or may hold another copy. It is inert only when `lean_rules` and RAG are both off.
 - **`lib/context-seam-emit.mjs` and `context-seam-inject.mjs`.** The emit logic is a side-effect

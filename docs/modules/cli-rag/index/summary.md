@@ -26,7 +26,12 @@ The reasons below are not obvious from `src/cli/commands/rag.ts`.
 - `rag refresh-context` is the detached worker the prompt trigger spawns. It syncs the index first
   so retrieval reads the fresh one, keeps the code-knowledge index current whatever `rag_enabled`
   says (that index is deterministic), and is single-flight and quiet so a detached run prints
-  nothing.
+  nothing. It holds `.paqad/locks/refresh-context.lock` for its whole run (renewed every minute,
+  released on exit), so two refreshes never overlap; a hand run prints that it skipped when
+  another holds the lock. It passes `skipSync: true` to the slice gather, so the index is synced
+  once per refresh, not a second time inside `retrieveForEval`.
+- The real CLI process turns on the embedding-provider cache at start-up, so one command loads
+  the local model once however many retrievals it runs. Hook processes never turn it on.
 - The routed workflow decides what the session-context artifact carries: rules only for feature
   development, nothing for no workflow, and with no route yet the old behaviour (rules plus
   retrieval). It reads the route of the session the refresh was started for, not whichever session
