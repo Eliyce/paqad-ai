@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5ZME53WD2TBTZQVF4JMKEMS",
+  "category": "spec.change",
+  "title": "AC-66 is proven by the green pnpm run ci, not a named test: re-type it manual",
+  "context": "The ac-test-mapping gate wants a titled test for AC-66 (full local CI passes). Its real proof is the checks run itself.",
+  "options": [
+    {
+      "option_key": "manual",
+      "label": "Re-type AC-66 to manual, citing the checks report",
+      "one_line_preview": "Re-type AC-66 to manual, citing the checks report",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "named-test",
+      "label": "Add a titled AC-66 test",
+      "one_line_preview": "Add a titled AC-66 test",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "manual",
+  "created_at": "2026-10-27T21:32:07.164Z",
+  "status": "resolved",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "manual",
+  "rationale": "Owner chose manual: the green checks run is the proof; no vacuous test.",
+  "resolved_at": "2026-10-27T21:32:08.588Z",
+  "decision_id": "D-01M5ZME53WD2TBTZQVF4JMKEMS",
+  "fingerprint": "sha256:7b131953d438e1d1720871eb31b4a37969ce566ebe92bcb7c102adf955dbd2b7",
+  "question": "AC-66 is proven by the green pnpm run ci, not a named test: re-type it manual",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T21:32:07.164Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "manual",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T21:32:08.588Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose manual: the green checks run is the proof; no vacuous test."
+  }
+}
