@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5Z4VATJ9A6C6KG1S2VP50NY",
+  "category": "spec.contradiction",
+  "title": "report speed: Busy as a true union (FR-3) cannot match the RCA numbers AC-1 requires",
+  "context": "Everything for report speed is built and committed except the AC-1 acceptance test, which pins the fixture numbers. FR-3 says Busy is the union of all intervals and FR-9 gives each 10-second bucket of busy time to the first active agent. Built exactly that way, the sanitized fixture gives: #625 busy 64m (development 31m, ceremony 29m, orchestrator 4m); #627 busy 74m (development 23m, ceremony 44m, orchestrator 8m, owner wait 4.1h); #702 busy 129m (development 74m, ceremony 52m, orchestrator 3m). AC-1 requires #625 and #627 within 5% of the RCA tables: 3.1h / 84m / 83m / 22m and 3.5h / 65m / 114m / 30m / 4.1h. The cause is the RCA script (crit.py): it adds a 10-second bucket for every 10-second step from each interval's own start second, so every tool call shorter than 10 s counts as 10 s and overlapping intervals that start on different seconds count twice. Applying that counting to the very same intervals reproduces the RCA exactly (#625 188/84/83/22 min, #627 209/65/114/30 min, #702 355/201/136/18 min). The #627 development agent ran only 32 minutes inside its window, so 65 minutes of development cannot come out of a true union. Owner wait already matches (4.09h vs 4.1h) because AskUserQuestion waits are not cut by the 1-hour tool cap. The report gives identical JSON on the real transcripts and on the fixture.",
+  "options": [
+    {
+      "option_key": "honest-union",
+      "label": "Keep Busy as the true union and clock-aligned buckets (FR-3, FR-9); amend AC-1 to pin all three changes to the computed numbers and note the RCA tables overcounted about 2.8x",
+      "one_line_preview": "Keep Busy as the true union and clock-aligned buckets (FR-3, FR-9); amend AC-1 to pin all three changes to the computed numbers and note the RCA tables overcounted about 2.8x",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "match-rca",
+      "label": "Count busy the RCA way (one 10 s bucket per step from each interval start, busy = buckets x 10 s) so AC-1 passes as written; Busy stops being the union and reads about 2.8x real working time",
+      "one_line_preview": "Count busy the RCA way (one 10 s bucket per step from each interval start, busy = buckets x 10 s) so AC-1 passes as written; Busy stops being the union and reads about 2.8x real working time",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "both",
+      "label": "Keep the true union in the table and add an RCA-method agent-time figure in --json only; check AC-1 against that figure",
+      "one_line_preview": "Keep the true union in the table and add an RCA-method agent-time figure in --json only; check AC-1 against that figure",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "honest-union",
+  "created_at": "2026-10-27T16:59:41.779Z",
+  "status": "resolved",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "honest-union",
+  "rationale": "Owner chose the true union: report real wall time; pin AC-1 to the computed numbers and note on #756/#758 that the RCA tables overcounted about 2.8x.",
+  "resolved_at": "2026-10-27T17:27:50.923Z",
+  "decision_id": "D-01M5Z4VATJ9A6C6KG1S2VP50NY",
+  "fingerprint": "sha256:a5cab67ef89097a640cca10a3be54eed08f8cc97020e7eca3a3de063886b3b4a",
+  "question": "report speed: Busy as a true union (FR-3) cannot match the RCA numbers AC-1 requires",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-03T16:59:41.779Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "honest-union",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T17:27:50.923Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose the true union: report real wall time; pin AC-1 to the computed numbers and note on #756/#758 that the RCA tables overcounted about 2.8x."
+  }
+}

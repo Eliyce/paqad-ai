@@ -1,0 +1,62 @@
+{
+  "id": "D-01M5Z1R5717R9ZGRJEDX6M3RGH",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new paqad-ai report speed",
+  "context": "Chief architect: Not a real disagreement: all three restate #756 'It only reads. It never writes into .paqad/ and never sends anything anywhere' plus its Done when. The security claim is the one that is directly testable (tree byte-identical before and after), so it carries the set. Pick this option to accept all three.\n\nTarget: new paqad-ai report speed\n- security-auditor: the command only reads: it writes nothing under .paqad/, opens no network connection and spawns no process; a test asserts the .paqad tree is byte-identical before and after a run\n- product-owner: done from the Developer / Operator's seat: one command on their own project prints lane, busy, development, ceremony, orchestrator and owner-wait per change, and a project with no transcripts prints 'no transcript' rows and exits 0\n- product-owner: the report only reads and only prints numbers, categories and change titles; it never prints prompt or tool text, never writes into .paqad/ and never sends anything anywhere\n\n[expert-conflict-fork:62574596388476ca]",
+  "options": [
+    {
+      "option_key": "the-command-only-reads-it-writes-nothing",
+      "label": "the command only reads: it writes nothing under .paqad/, opens no network connection and spawns no process; a test asserts the .paqad tree is byte-identical before and after a run — security-auditor",
+      "one_line_preview": "the command only reads: it writes nothing under .paqad/, opens no network connection and spawns no process; a test asserts the .paqad tree is byte-identical before and after a run — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "done-from-the-developer-operator-s-seat-",
+      "label": "done from the Developer / Operator's seat: one command on their own project prints lane, busy, development, ceremony, orchestrator and owner-wait per change, and a project with no transcripts prints 'no transcript' rows and exits 0 — product-owner",
+      "one_line_preview": "done from the Developer / Operator's seat: one command on their own project prints lane, busy, development, ceremony, orchestrator and owner-wait per change, and a project with no transcripts prints 'no transcript' rows and exits 0 — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-report-only-reads-and-only-prints-nu",
+      "label": "the report only reads and only prints numbers, categories and change titles; it never prints prompt or tool text, never writes into .paqad/ and never sends anything anywhere — product-owner",
+      "one_line_preview": "the report only reads and only prints numbers, categories and change titles; it never prints prompt or tool text, never writes into .paqad/ and never sends anything anywhere — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-command-only-reads-it-writes-nothing",
+  "created_at": "2026-10-27T16:05:32.001Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:04.464Z",
+  "decision_id": "D-01M5Z1R5717R9ZGRJEDX6M3RGH",
+  "fingerprint": "sha256:4eb70d8648c6db1c153bb9b6f6b94905254d2aaf21a1748ae181ed70589d7ace",
+  "question": "Experts disagree on new paqad-ai report speed",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:32.001Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:04.464Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

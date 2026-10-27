@@ -1,0 +1,62 @@
+{
+  "id": "D-01M5Z1R5717R9ZGRJEDX6M3RGG",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new src/speed-report/transcripts.ts",
+  "context": "Chief architect: Not a real disagreement: all three are adopted. An injectable transcripts root is the precondition for the #756 fixture test (tests/fixtures/speed-report/) and keeps CI off the developer's home folder; streaming line by line reuses the existing chunked scanner scanTranscriptLines in src/cost/transcript-usage.ts; the error-path cases come straight from 'a project with no transcripts prints no transcript rows and exits 0'. Pick this option to accept the set.\n\nTarget: new src/speed-report/transcripts.ts\n- performance-analyst: transcripts are read line by line as a stream, one file at a time, never whole into memory, because a single session transcript can be hundreds of megabytes\n- qa-engineer: The transcripts root (today ~/.claude/projects) must be injectable (option or env) so unit and fixture tests never read the real home directory; a test that reads the developer's own transcripts passes locally and fails in CI.\n- qa-engineer: Error paths each get a case and none throws: a tool_use with no matching tool_result (interrupted) is dropped, a malformed JSONL line is skipped, a subagent file with no agent-*.meta.json counts as unknown type, a ledger with only rows lacking recorded_at gives an empty window, and an empty feature-evidence folder prints a header and exits 0.\n\n[expert-conflict-fork:78ce5ab95a5f8aa2]",
+  "options": [
+    {
+      "option_key": "transcripts-are-read-line-by-line-as-a-s",
+      "label": "transcripts are read line by line as a stream, one file at a time, never whole into memory, because a single session transcript can be hundreds of megabytes — performance-analyst",
+      "one_line_preview": "transcripts are read line by line as a stream, one file at a time, never whole into memory, because a single session transcript can be hundreds of megabytes — performance-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-transcripts-root-today-claude-projec",
+      "label": "The transcripts root (today ~/.claude/projects) must be injectable (option or env) so unit and fixture tests never read the real home directory; a test that reads the developer's own transcripts passes locally and fails in CI. — qa-engineer",
+      "one_line_preview": "The transcripts root (today ~/.claude/projects) must be injectable (option or env) so unit and fixture tests never read the real home directory; a test that reads the developer's own transcripts passes locally and fails in CI. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "error-paths-each-get-a-case-and-none-thr",
+      "label": "Error paths each get a case and none throws: a tool_use with no matching tool_result (interrupted) is dropped, a malformed JSONL line is skipped, a subagent file with no agent-*.meta.json counts as unknown type, a ledger with only rows lacking recorded_at gives an empty window, and an empty feature-evidence folder prints a header and exits 0. — qa-engineer",
+      "one_line_preview": "Error paths each get a case and none throws: a tool_use with no matching tool_result (interrupted) is dropped, a malformed JSONL line is skipped, a subagent file with no agent-*.meta.json counts as unknown type, a ledger with only rows lacking recorded_at gives an empty window, and an empty feature-evidence folder prints a header and exits 0. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-transcripts-root-today-claude-projec",
+  "created_at": "2026-10-27T16:05:32.001Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:03.819Z",
+  "decision_id": "D-01M5Z1R5717R9ZGRJEDX6M3RGG",
+  "fingerprint": "sha256:a788c68db3a4052fcf896cea77d82ab60500de12be50bb9495dd2e6b3b376ca0",
+  "question": "Experts disagree on new src/speed-report/transcripts.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:32.001Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:03.819Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

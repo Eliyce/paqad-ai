@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Z1R5729FXPF6F8SAW7ZT6K",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new paqad-ai report command group",
+  "context": "Chief architect: Not a real disagreement: the two claims say the same thing. The issue names the command 'paqad-ai report speed [--change <id>] [--json] [--since <date>]', so it is a new top-level report group that leaves feature, metrics, compliance and discovery report untouched; the seats' owner question on where it lives is settled by that text. Pick this option to accept both.\n\nTarget: new paqad-ai report command group\n- solution-architect: there is no top-level report verb today; existing report verbs are subcommands (feature report, metrics report, compliance report), so report speed adds a new top-level group and must not shadow or rename those\n- application-architect: no top-level `report` command exists today (report lives as a subcommand of feature, discovery, compliance and metrics in src/cli/commands), so `paqad-ai report speed` needs a new top-level group registered in the CLI entry, kept thin: parse flags, call src/speed-report/report.ts, print\n\n[expert-conflict-fork:df56734afc24ec42]",
+  "options": [
+    {
+      "option_key": "there-is-no-top-level-report-verb-today-",
+      "label": "there is no top-level report verb today; existing report verbs are subcommands (feature report, metrics report, compliance report), so report speed adds a new top-level group and must not shadow or rename those — solution-architect",
+      "one_line_preview": "there is no top-level report verb today; existing report verbs are subcommands (feature report, metrics report, compliance report), so report speed adds a new top-level group and must not shadow or rename those — solution-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-top-level-report-command-exists-today",
+      "label": "no top-level `report` command exists today (report lives as a subcommand of feature, discovery, compliance and metrics in src/cli/commands), so `paqad-ai report speed` needs a new top-level group registered in the CLI entry, kept thin: parse flags, call src/speed-report/report.ts, print — application-architect",
+      "one_line_preview": "no top-level `report` command exists today (report lives as a subcommand of feature, discovery, compliance and metrics in src/cli/commands), so `paqad-ai report speed` needs a new top-level group registered in the CLI entry, kept thin: parse flags, call src/speed-report/report.ts, print — application-architect",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "no-top-level-report-command-exists-today",
+  "created_at": "2026-10-27T16:05:32.002Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:05.744Z",
+  "decision_id": "D-01M5Z1R5729FXPF6F8SAW7ZT6K",
+  "fingerprint": "sha256:968e068efd3664b2bef96f35987f11bddcff2abd872fb298200aed3e54622d37",
+  "question": "Experts disagree on new paqad-ai report command group",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:32.002Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:05.744Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

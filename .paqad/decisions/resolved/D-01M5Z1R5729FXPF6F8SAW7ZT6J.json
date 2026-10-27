@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Z1R5729FXPF6F8SAW7ZT6J",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on rule_gate_budget_ms (Part D)",
+  "context": "Chief architect: Not a real disagreement: both are adopted. Part D lets an edit through only when the budget runs out, and only because the turn-end check will run; so the marker must force that check and a marker that cannot be written must fail closed, and crashes, bad output, per-script timeouts and tampered scripts keep today's blocking outcome. Pick this option to accept the pair.\n\nTarget: rule_gate_budget_ms (Part D)\n- security-auditor: an edit allowed on budget expiry is still checked before the turn can end: the completion seam runs every deterministic script whenever a pending-pre-mutation marker exists, even when classifyCompletionEnforcement would otherwise skip that session, and a marker that cannot be written makes the edit fail closed instead of allowed\n- security-auditor: only running out of the budget allows the edit; a deterministic script that crashes, exits non-zero, prints unparseable output or hits its own 30 s timeout keeps today's outcome under strict, and tampered rule scripts (verifyRuleScriptsIntegrity) still block before the budget logic runs\n\n[expert-conflict-fork:d71005b42b863d98]",
+  "options": [
+    {
+      "option_key": "an-edit-allowed-on-budget-expiry-is-stil",
+      "label": "an edit allowed on budget expiry is still checked before the turn can end: the completion seam runs every deterministic script whenever a pending-pre-mutation marker exists, even when classifyCompletionEnforcement would otherwise skip that session, and a marker that cannot be written makes the edit fail closed instead of allowed — security-auditor",
+      "one_line_preview": "an edit allowed on budget expiry is still checked before the turn can end: the completion seam runs every deterministic script whenever a pending-pre-mutation marker exists, even when classifyCompletionEnforcement would otherwise skip that session, and a marker that cannot be written makes the edit fail closed instead of allowed — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "only-running-out-of-the-budget-allows-th",
+      "label": "only running out of the budget allows the edit; a deterministic script that crashes, exits non-zero, prints unparseable output or hits its own 30 s timeout keeps today's outcome under strict, and tampered rule scripts (verifyRuleScriptsIntegrity) still block before the budget logic runs — security-auditor",
+      "one_line_preview": "only running out of the budget allows the edit; a deterministic script that crashes, exits non-zero, prints unparseable output or hits its own 30 s timeout keeps today's outcome under strict, and tampered rule scripts (verifyRuleScriptsIntegrity) still block before the budget logic runs — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "an-edit-allowed-on-budget-expiry-is-stil",
+  "created_at": "2026-10-27T16:05:32.002Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:05.101Z",
+  "decision_id": "D-01M5Z1R5729FXPF6F8SAW7ZT6J",
+  "fingerprint": "sha256:00b382625ff9bed6ff417459bcf46197e8e3e806b1b28a9d20701365614f5d01",
+  "question": "Experts disagree on rule_gate_budget_ms (Part D)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:32.002Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:05.101Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

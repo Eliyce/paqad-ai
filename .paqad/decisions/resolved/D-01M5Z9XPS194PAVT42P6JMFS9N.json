@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5Z9XPS194PAVT42P6JMFS9N",
+  "category": "spec.contradiction",
+  "title": "AC-51 says the rules-loaded gate still blocks an edit after a rules change, but that gate only checks that rules-loaded.json exists",
+  "context": "Issue 748 (Parts A-D) is built and committed (cdcf1f3d, 31add5c5, 25ff9e60, 445eb00f): the entry marker now goes stale only on docs/instructions/{stack,design-system,workflows}, so a change under docs/instructions/rules/ no longer re-blocks an agent. The issue and AC-51 assume the rule contract is still enforced separately: 'given rules-loaded.json recorded before a change under docs/instructions/rules/, when an edit is attempted after that change, then the rules-loaded gate still blocks it'. The code says otherwise: the pre-mutation rules-loaded capability (src/kernel/capability.ts, rulesLoadedCapability) returns no-op as soon as readRulesLoaded() finds the file; it never compares the record to the current rules. The completion gate (src/verification/repository rules-loaded gate) only goes INCONCLUSIVE when a newly applicable rule id is missing from the record (coverageGaps); an edited rule text it already covers passes. Before this change the entry gate's whole-docs/instructions staleness was what forced a re-read after a rule edit. So AC-51 cannot be proven without new code, and without it a mid-change rule edit is no longer re-forced before the next edit. Recorded data that makes a cheap check possible: rules-loaded.json stores rule_text_hash and the changed paths it was computed for, and computeRuleApplicability (src/context/rule-context.ts) can recompute the hash from the compiled store already read by the capability.",
+  "options": [
+    {
+      "option_key": "hash-check",
+      "label": "Make the pre-mutation rules-loaded gate also block when recomputing the applicable rule text hash for the recorded changed paths no longer matches rule_text_hash (the agent re-runs paqad-ai rules load); rule-script-map.yml and registry writes do not change rule text, so they do not re-block. AC-51 holds as written; adds one capability change, its test and a doc line",
+      "one_line_preview": "Make the pre-mutation rules-loaded gate also block when recomputing the applicable rule text hash for the recorded changed paths no longer matches rule_text_hash (the agent re-runs paqad-ai rules load); rule-script-map.yml and registry writes do not change rule text, so they do not re-block. AC-51 holds as written; adds one capability change, its test and a doc line",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "reword-ac51",
+      "label": "Keep the rules-loaded gate as it is and correct AC-51 through a spec change: an edited rule is not re-forced before the next edit; the completion gate goes inconclusive only when a newly applicable rule is uncovered, and the always-on rule scripts still enforce script-enforced rules",
+      "one_line_preview": "Keep the rules-loaded gate as it is and correct AC-51 through a spec change: an edited rule is not re-forced before the next edit; the completion gate goes inconclusive only when a newly applicable rule is uncovered, and the always-on rule scripts still enforce script-enforced rules",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "hash-check",
+  "created_at": "2026-10-27T18:28:22.433Z",
+  "status": "resolved",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "hash-check",
+  "rationale": "Owner chose the hash check: the pre-edit rules-loaded gate compares a hash of the loaded rule text and asks for a reload only when a loaded rule's text changed; map/registry writes never re-block; applicability growth stays a turn-end check.",
+  "resolved_at": "2026-10-27T18:29:05.172Z",
+  "decision_id": "D-01M5Z9XPS194PAVT42P6JMFS9N",
+  "fingerprint": "sha256:d6523a8f49704b44c9eca1c1d13246967c4a4ff9001898c6001f787fe1bf4cfc",
+  "question": "AC-51 says the rules-loaded gate still blocks an edit after a rules change, but that gate only checks that rules-loaded.json exists",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-03T18:28:22.433Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "hash-check",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T18:29:05.172Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose the hash check: the pre-edit rules-loaded gate compares a hash of the loaded rule text and asks for a reload only when a loaded rule's text changed; map/registry writes never re-block; applicability growth stays a turn-end check."
+  }
+}

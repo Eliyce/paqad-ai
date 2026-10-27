@@ -1,0 +1,69 @@
+{
+  "id": "D-01M5Z1R5703922BMA4YCX59MHJ",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on new .paqad/scripts/rules/.cache/file-results.json",
+  "context": "Chief architect: The one real choice in this group. Pruning, atomic write-then-rename and the corrupt-file and concurrency cases (perf 5, perf 6, qa 12) are all adopted regardless. The open point is whether the turn-end check and 'checks run' may trust cached per-file findings. Recommend they do not: the issue promises every blocking rule still blocks at turn end, the cache is a file any agent can write, and the turn-end run has no 10 s timeout and costs about 1.6 s for all 128 scripts with the pool, so skipping the cache there buys little and protects the guarantee. This narrows Part C to the pre-edit run, so it is the owner's call.\n\nTarget: new .paqad/scripts/rules/.cache/file-results.json\n- performance-analyst: entries for script or file hashes that no longer match are pruned on each write, so the per-file cache stays bounded instead of growing with every edit of every file\n- performance-analyst: the per-file cache and report.pre-mutation.json are written atomically (write then rename), because parallel stage agents can run the pre-edit gate at the same moment and a torn cache file must read as a miss, never as cached findings\n- security-auditor: the per-file cache is a file any agent can write, so a forged empty-findings entry could hide a blocking finding; paqad-ai checks run and the completion seam under strict should not trust it (or should cover it with the same integrity hash as the rule scripts), and only the pre-edit run reads it\n- qa-engineer: Beyond the three listed cases, the per-file cache needs: a corrupt or partly written cache file falls back to a full run; a file dropped from the changed set contributes no cached findings; a cached finding on a file whose content changed is never merged; two concurrent hook runs writing the cache do not leave invalid JSON.\n\n[expert-conflict-fork:425c28328dcb9696]",
+  "options": [
+    {
+      "option_key": "entries-for-script-or-file-hashes-that-n",
+      "label": "entries for script or file hashes that no longer match are pruned on each write, so the per-file cache stays bounded instead of growing with every edit of every file — performance-analyst",
+      "one_line_preview": "entries for script or file hashes that no longer match are pruned on each write, so the per-file cache stays bounded instead of growing with every edit of every file — performance-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-per-file-cache-and-report-pre-mutati",
+      "label": "the per-file cache and report.pre-mutation.json are written atomically (write then rename), because parallel stage agents can run the pre-edit gate at the same moment and a torn cache file must read as a miss, never as cached findings — performance-analyst",
+      "one_line_preview": "the per-file cache and report.pre-mutation.json are written atomically (write then rename), because parallel stage agents can run the pre-edit gate at the same moment and a torn cache file must read as a miss, never as cached findings — performance-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "the-per-file-cache-is-a-file-any-agent-c",
+      "label": "the per-file cache is a file any agent can write, so a forged empty-findings entry could hide a blocking finding; paqad-ai checks run and the completion seam under strict should not trust it (or should cover it with the same integrity hash as the rule scripts), and only the pre-edit run reads it — security-auditor",
+      "one_line_preview": "the per-file cache is a file any agent can write, so a forged empty-findings entry could hide a blocking finding; paqad-ai checks run and the completion seam under strict should not trust it (or should cover it with the same integrity hash as the rule scripts), and only the pre-edit run reads it — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "beyond-the-three-listed-cases-the-per-fi",
+      "label": "Beyond the three listed cases, the per-file cache needs: a corrupt or partly written cache file falls back to a full run; a file dropped from the changed set contributes no cached findings; a cached finding on a file whose content changed is never merged; two concurrent hook runs writing the cache do not leave invalid JSON. — qa-engineer",
+      "one_line_preview": "Beyond the three listed cases, the per-file cache needs: a corrupt or partly written cache file falls back to a full run; a file dropped from the changed set contributes no cached findings; a cached finding on a file whose content changed is never merged; two concurrent hook runs writing the cache do not leave invalid JSON. — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-per-file-cache-is-a-file-any-agent-c",
+  "created_at": "2026-10-27T16:05:32.000Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:01.773Z",
+  "decision_id": "D-01M5Z1R5703922BMA4YCX59MHJ",
+  "fingerprint": "sha256:85c9239287f4141ca584258e341330d2c6e1986112f9c59a94490347224c14bd",
+  "question": "Experts disagree on new .paqad/scripts/rules/.cache/file-results.json",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:32.000Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:01.773Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

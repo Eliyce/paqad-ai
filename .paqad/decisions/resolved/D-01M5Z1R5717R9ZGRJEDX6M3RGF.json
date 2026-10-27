@@ -1,0 +1,55 @@
+{
+  "id": "D-01M5Z1R5717R9ZGRJEDX6M3RGF",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on .paqad/locks/refresh-context.lock",
+  "context": "Chief architect: Not a real disagreement: both are adopted. The issue says 'if a refresh is already running, skip', which only works if the refresh process itself holds the lock for its whole run and releases it on exit. Because a refresh was measured running over 5 minutes, the lock must also be refreshed while it runs (or the run capped below the 10 minute stale window) so a second refresh cannot reclaim it. Pick this option to accept the pair.\n\nTarget: .paqad/locks/refresh-context.lock\n- performance-analyst: the lock is held by the rag refresh-context process for its whole run and released when it exits, not only by context-refresh-trigger.mjs around the spawn, otherwise two refreshes still overlap\n- performance-analyst: a refresh that runs longer than the 10 minute stale window lets a second refresh reclaim the lock; the refresh needs its own time limit below 10 minutes or a lock refresh while it runs\n\n[expert-conflict-fork:89604d57e8705a14]",
+  "options": [
+    {
+      "option_key": "the-lock-is-held-by-the-rag-refresh-cont",
+      "label": "the lock is held by the rag refresh-context process for its whole run and released when it exits, not only by context-refresh-trigger.mjs around the spawn, otherwise two refreshes still overlap — performance-analyst",
+      "one_line_preview": "the lock is held by the rag refresh-context process for its whole run and released when it exits, not only by context-refresh-trigger.mjs around the spawn, otherwise two refreshes still overlap — performance-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "a-refresh-that-runs-longer-than-the-10-m",
+      "label": "a refresh that runs longer than the 10 minute stale window lets a second refresh reclaim the lock; the refresh needs its own time limit below 10 minutes or a lock refresh while it runs — performance-analyst",
+      "one_line_preview": "a refresh that runs longer than the 10 minute stale window lets a second refresh reclaim the lock; the refresh needs its own time limit below 10 minutes or a lock refresh while it runs — performance-analyst",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "other",
+      "label": "Adopt every seat's claim (compatible, not competing)",
+      "one_line_preview": "Adopt every seat's claim (compatible, not competing)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "the-lock-is-held-by-the-rag-refresh-cont",
+  "created_at": "2026-10-27T16:05:32.001Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "other",
+  "rationale": "Owner chose adopt-all: the claims fit together.",
+  "resolved_at": "2026-10-27T16:07:03.160Z",
+  "decision_id": "D-01M5Z1R5717R9ZGRJEDX6M3RGF",
+  "fingerprint": "sha256:c0fa5a6c5a0d7cc2c190c7866626e8efd8570cfe8d576b4aeac00d7368ed9dd4",
+  "question": "Experts disagree on .paqad/locks/refresh-context.lock",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2026-11-26T16:05:32.001Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "other",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T16:07:03.160Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose adopt-all: the claims fit together."
+  }
+}

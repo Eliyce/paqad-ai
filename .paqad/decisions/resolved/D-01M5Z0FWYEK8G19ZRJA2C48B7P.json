@@ -1,0 +1,61 @@
+{
+  "id": "D-01M5Z0FWYEK8G19ZRJA2C48B7P",
+  "category": "architecture-path",
+  "title": "Module attribution for the new paqad-ai report speed code (src/speed-report)",
+  "context": "Attribution gate: the extractor found no module named in the speed request (#756, #747, #748, #755), and the inferencer is not confident (best match hybrid-rag at 0.07, then cli-dashboard 0.04 and feature-evidence 0.03, on shared words). #747, #748 and #755 only edit existing files (src/rule-scripts, src/kernel, runtime/hooks, src/rag, src/context, src/pipeline), so they need no module-map change. The one open question is where the new #756 code belongs: src/speed-report/{transcripts,classify,report}.ts plus the new src/cli/commands/report.ts verb. It reads the feature-evidence bundles and the Claude Code transcripts, the same inputs feature-evidence already uses for per-change cost (src/cost/transcript-usage.ts, src/hud). The plan is drafted at .paqad/tmp/plan-speed.json and only waits on this answer.",
+  "options": [
+    {
+      "option_key": "extend-feature-evidence",
+      "label": "Extend feature-evidence: add src/speed-report and src/cli/commands/report.ts to its sources (it already owns src/cost and src/hud, which read the same bundles and transcripts)",
+      "one_line_preview": "Extend feature-evidence: add src/speed-report and src/cli/commands/report.ts to its sources (it already owns src/cost and src/hud, which read the same bundles and transcripts)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "no-attribution",
+      "label": "Skip attribution: keep speed-report as a plan label only, no module-map change (like src/rule-scripts and src/kernel today)",
+      "one_line_preview": "Skip attribution: keep speed-report as a plan label only, no module-map change (like src/rule-scripts and src/kernel today)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "new-module",
+      "label": "Add a new speed-report module to module-map.yml through the module-decisions apply path",
+      "one_line_preview": "Add a new speed-report module to module-map.yml through the module-decisions apply path",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "extend-cli-dashboard",
+      "label": "Extend cli-dashboard (dashboard and status commands): treat report speed as another one-shot report command",
+      "one_line_preview": "Extend cli-dashboard (dashboard and status commands): treat report speed as another one-shot report command",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "extend-feature-evidence",
+  "created_at": "2026-10-27T15:43:32.814Z",
+  "status": "resolved",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "extend-feature-evidence",
+  "rationale": "Owner chose feature-evidence: it already owns src/cost and src/hud, which read the same bundles and transcripts.",
+  "resolved_at": "2026-10-27T15:57:51.158Z",
+  "decision_id": "D-01M5Z0FWYEK8G19ZRJA2C48B7P",
+  "fingerprint": "sha256:f0e7961a477cc57ce1881350f6bc4abdff2ad55ba2f0c567e644ccd911ffd8dd",
+  "question": "Module attribution for the new paqad-ai report speed code (src/speed-report)",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2027-01-25T15:43:32.814Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "extend-feature-evidence",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T15:57:51.158Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose feature-evidence: it already owns src/cost and src/hud, which read the same bundles and transcripts."
+  }
+}
