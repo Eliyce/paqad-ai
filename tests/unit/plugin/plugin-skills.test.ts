@@ -1,8 +1,12 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { getFileInfo } from 'prettier';
 import { describe, expect, it } from 'vitest';
+import { parse } from 'yaml';
+
+import { serializePluginHooksJson } from '@/plugin/manifest-build.js';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 const skillsDir = join(repoRoot, 'runtime', 'claude-plugin', 'skills');
@@ -38,4 +42,82 @@ describe('hand-written plugin skills', () => {
       expect(paragraphs[2]).toBe(FIRST_DEVELOPER_STEP_BEFORE_THE_CHECK[name]);
     },
   );
+});
+
+describe('tooling around the generated skills', () => {
+  it('AC-22: format:check skips plugins/ and the generated skills but still checks onboard, join and dashboard', async () => {
+    const ignorePath = [join(repoRoot, '.prettierignore')];
+    const ignored = async (rel: string) =>
+      (await getFileInfo(join(repoRoot, rel), { ignorePath })).ignored;
+    expect(await ignored('plugins/discovery/README.md')).toBe(true);
+    expect(await ignored('plugins/discovery/skills/ask-project/SKILL.md')).toBe(true);
+    const generated = readdirSync(skillsDir).filter(
+      (name) => !(CLAUDE_CODE_SKILLS as readonly string[]).includes(name),
+    );
+    expect(generated).toHaveLength(14);
+    for (const name of generated) {
+      expect(await ignored(`runtime/claude-plugin/skills/${name}/SKILL.md`), name).toBe(true);
+    }
+    for (const name of CLAUDE_CODE_SKILLS) {
+      expect(await ignored(`runtime/claude-plugin/skills/${name}/SKILL.md`), name).toBe(false);
+    }
+    const eslintConfig = readFileSync(join(repoRoot, 'eslint.config.js'), 'utf8');
+    expect(eslintConfig).toContain(`'plugins/**'`);
+  });
+
+  it('AC-23: the plugin skills bring no hook, agent or command, and hooks.json is still its generator output', () => {
+    const walk = (dir: string): string[] =>
+      readdirSync(dir).flatMap((name) => {
+        const full = join(dir, name);
+        return statSync(full).isDirectory() ? [name, ...walk(full)] : [name];
+      });
+    const names = walk(skillsDir);
+    for (const forbidden of ['hooks', 'hooks.json', 'agents', 'commands', '.mcp.json']) {
+      expect(names, forbidden).not.toContain(forbidden);
+    }
+    expect(readFileSync(join(repoRoot, 'runtime', 'claude-plugin', 'hooks.json'), 'utf8')).toBe(
+      serializePluginHooksJson(),
+    );
+  });
+
+  it('AC-25: the claude-plugin module owns the plugin code, the generated skills and the discovery source', () => {
+    const map = parse(
+      readFileSync(join(repoRoot, 'docs', 'instructions', 'rules', 'module-map.yml'), 'utf8'),
+    ) as { modules: { slug: string; sources: string[] }[] };
+    const plugin = map.modules.find((module) => module.slug === 'claude-plugin');
+    expect(plugin?.sources).toEqual(
+      expect.arrayContaining([
+        'src/plugin',
+        'runtime/claude-plugin',
+        'plugins/discovery',
+        'scripts/assemble-plugin.mjs',
+        'scripts/build-plugin-manifest.mjs',
+        'scripts/validate-plugin.mjs',
+        'scripts/test-plugin.mjs',
+        'scripts/build-discovery.mjs',
+        'scripts/check-plugin-skills.mjs',
+      ]),
+    );
+    for (const source of plugin!.sources) {
+      expect(existsSync(join(repoRoot, source)), source).toBe(true);
+    }
+  });
+
+  it('AC-26: the release notes name the new skills in a minor bump', () => {
+    const changeset = join(repoRoot, '.changeset', 'one-paqad-plugin-discovery-skills.md');
+    const text = existsSync(changeset)
+      ? readFileSync(changeset, 'utf8')
+      : readFileSync(join(repoRoot, 'CHANGELOG.md'), 'utf8');
+    if (existsSync(changeset)) expect(text).toMatch(/^---\n'paqad-ai': minor\n---\n/);
+    for (const skill of [
+      '/paqad:start',
+      '/paqad:discover',
+      '/paqad:ask',
+      '/paqad:refine-ticket',
+      '/paqad:size-work',
+      '/paqad:plan-sprint',
+    ]) {
+      expect(text).toContain(skill);
+    }
+  });
 });
