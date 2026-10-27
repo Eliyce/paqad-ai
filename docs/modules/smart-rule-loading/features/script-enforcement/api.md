@@ -72,3 +72,17 @@ The engine underneath `enforceRuleScripts`. Hash-caches its `RunReport` under
   pure-mjs fast-paths (paqad-disabled, mode `off`, missing rule-script map).
 - Exit codes: blocking → `2` (stderr); advisory (warn) findings → `0` (stdout);
   otherwise `0`. Any thrown error soft-fails to `0`.
+
+## Config keys
+
+Set in `.paqad/.config` or `.paqad/configs/.config.*`, or with the matching environment variable.
+They sit with `rule_compliance`, so a team value is a floor.
+
+- `rule_gate_pre_edit` (`PAQAD_RULE_GATE_PRE_EDIT`): `blocking-only` (default) runs only the
+  deterministic changed-files scripts before an edit and the rest at turn end; `all` runs every
+  script before an edit.
+- `rule_gate_concurrency` (`PAQAD_RULE_GATE_CONCURRENCY`): `auto` (default, CPU cores minus one,
+  at most 8) or `1` to `8` scripts at once. `1` runs them one after another.
+- `rule_gate_budget_ms` (`PAQAD_RULE_GATE_BUDGET_MS`): 500 to 9000 ms (default 6000) the pre-edit check may take
+  from the hook start, under both `rule_gate_pre_edit` values. Past it the edit goes ahead and
+  the checks block at turn end.
