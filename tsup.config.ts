@@ -27,6 +27,7 @@ export default defineConfig({
     'stage-isolation/stage-brief': 'src/stage-isolation/stage-brief.ts',
     'stage-evidence/completion-deferred': 'src/stage-evidence/completion-deferred.ts',
     'hud/refresh': 'src/hud/refresh.ts',
+    'background/refresh-context-lock': 'src/background/refresh-context-lock.ts',
     'cost/hook-cost': 'src/cost/hook-cost.ts',
     'plugin/manifest-build': 'src/plugin/manifest-build.ts',
   },
