@@ -35,7 +35,7 @@ above, which stays for workspace import only. Every listing value comes from `bu
 The interface carries `websiteURL`, `supportURL`, `privacyPolicyURL` and `termsOfServiceURL`. The
 portal requires a terms-of-service URL even for a skills-only package, so `terms_of_service_url` is
 a required listing scalar in `skills.yml` and the terms document ships as `TERMS.md` (from
-`docs/terms-of-service.md`), the same way `PRIVACY.md` does. The public repo must carry the file the
+`publish/claude/TERMS.md`), the same way `PRIVACY.md` does. The public repo must carry the file the
 URL points at, so publishing the Claude branch (which also ships `TERMS.md`) populates it.
 
 Before the first upload, the owner needs an OpenAI organization with Apps Management write access

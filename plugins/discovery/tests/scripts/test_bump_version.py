@@ -54,7 +54,7 @@ class BumpVersionTest(unittest.TestCase):
         self.tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
         self.source = os.path.join(self.tmp, "source")
-        for sub in ("skills", "shared", "build", "publish", "docs"):
+        for sub in ("skills", "shared", "build", "publish"):
             shutil.copytree(os.path.join(REPO_ROOT, sub), os.path.join(self.source, sub))
         self.changeset_dir = os.path.join(self.source, ".changeset")
         os.makedirs(self.changeset_dir)

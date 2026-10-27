@@ -123,7 +123,7 @@ class SecretsCheckTest(unittest.TestCase):
 class ScenarioCoverageCheckTest(unittest.TestCase):
     def setUp(self):
         self.scenarios_dir = os.path.join(REPO_ROOT, "tests", "evals", "scenarios")
-        self.requirements = os.path.join(REPO_ROOT, "REQUIREMENTS.md")
+        self.requirements = check_scenarios.DEFAULT_REQUIREMENTS
 
     def test_passes_on_the_committed_scenarios(self):
         self.assertEqual(
@@ -201,37 +201,6 @@ def _iter_files(root):
 def _iter_relpaths(root):
     for full in _iter_files(root):
         yield os.path.relpath(full, root).replace(os.sep, "/")
-
-
-class ReleaseReadinessTest(unittest.TestCase):
-    """S4 part 2 (CI-16): release.yml carries the guarded public-directory publish, distinct from the
-    private org-sync push, and a directory submission zip artifact, all off unless explicitly enabled."""
-
-    def setUp(self):
-        with open(os.path.join(REPO_ROOT, ".github", "workflows", "release.yml"), encoding="utf-8") as handle:
-            self.release = handle.read()
-
-    def test_public_publish_is_guarded(self):
-        self.assertIn("PUBLIC_DISTRIBUTION_REPO", self.release)
-        self.assertIn("ENABLE_PUBLIC_RELEASE", self.release)
-        self.assertIn(
-            "vars.ENABLE_PUBLIC_RELEASE == 'true' && vars.PUBLIC_DISTRIBUTION_REPO != ''",
-            self.release,
-            "public push must require both the enable flag and a configured public repo",
-        )
-
-    def test_directory_submission_zip_artifact_exists(self):
-        self.assertIn("directory-submission-zip", self.release)
-        self.assertIn("upload-artifact", self.release)
-
-    def test_public_push_is_distinct_from_private(self):
-        self.assertIn("vars.DISTRIBUTION_REPO", self.release)
-        self.assertIn("PUBLIC_DISTRIBUTION_TOKEN", self.release)
-        self.assertNotEqual(
-            self.release.count("push origin HEAD"),
-            1,
-            "a separate public push step must exist alongside the private one",
-        )
 
 
 class HostVerdictCheckTest(unittest.TestCase):

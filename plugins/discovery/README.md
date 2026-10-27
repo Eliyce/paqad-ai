@@ -7,6 +7,9 @@ repository at the best evidence level it can reach (from project docs, from docs
 from code only); it never refuses a repository that has readable code. This repository is the
 plugin source and build; it is not itself a product repo the plugin answers questions about.
 
+Provenance: moved here from `Eliyce/paqad-product-discovery` at commit 249b9f4d. That repository
+keeps the earlier history.
+
 Current version: 3.2.0 (set in `build/skills.yml`).
 
 ## What the plugin reads, says and links to
@@ -20,7 +23,7 @@ So the behaviour is disclosed and never a surprise under directory policy:
   nudge, at most once per conversation or when you ask why an answer is thin. It links to an
   information page only, never to a purchase page. The link carries only a static campaign tag
   (`src=discovery-plugin`) with no user, repository or question data. The link is exactly
-  `https://paqad.ai/?src=discovery-plugin`. See [docs/privacy-policy.md](docs/privacy-policy.md).
+  `https://paqad.ai/?src=discovery-plugin`. See [publish/claude/PRIVACY.md](publish/claude/PRIVACY.md).
 - The plugin only reads: it reads the project documents and the code by names, honours a never-read
   list (secrets, environment files, `.paqad/` contents, `docs/instructions/rules/`, `.git/`,
   `vendor/`, `node_modules/`), and never edits, runs or installs anything.
@@ -48,7 +51,7 @@ a closing question comes last after the sources, the journey never pauses to ask
 on, the record is kept silently with a resume file only on request, and tickets are user stories
 with Given/When/Then acceptance criteria.
 
-The product spec is `REQUIREMENTS.md`.
+The product spec is [docs/plugin-discovery/REQUIREMENTS.md](../../docs/plugin-discovery/REQUIREMENTS.md).
 
 ## The skills
 
@@ -98,8 +101,8 @@ Published name shown first, source folder in parentheses.
   display text, the directory listing values (author, links, keywords, and the ChatGPT directory
   short and long description, category, default prompts and capabilities), and each skill's
   declared shared imports.
-- `publish/claude/` - the end-user `README.md` and the `LICENSE` that the build copies into the
-  Claude branch only. `docs/privacy-policy.md` is copied there too, as `PRIVACY.md`.
+- `publish/claude/` - the end-user `README.md`, the `LICENSE`, `PRIVACY.md` and `TERMS.md` that
+  the build copies into the Claude branch.
 - `publish/chatgpt/README.md` - the end-user README the build copies into the ChatGPT directory
   package only. That package reuses the Claude `LICENSE`, the privacy policy and `icon.png` (as
   `assets/logo.png`).
@@ -114,7 +117,6 @@ Published name shown first, source folder in parentheses.
   the combined root it holds one branch per host under `dist/hosts/`: `claude`, `chatgpt`
   (workspace import), `codex`, and `chatgpt-directory`, the native package for the ChatGPT plugin
   directory.
-- `.changeset/`, `.github/workflows/{ci,release,verify}.yml` - release tracking and CI.
 
 ## Requirements
 

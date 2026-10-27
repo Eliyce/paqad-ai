@@ -43,8 +43,8 @@ LISTING_PLUGIN_KEYS = (
 )
 # Every per-host branch under dist/hosts/ (PLG-12).
 HOSTS = ("claude", "chatgpt", "codex", "chatgpt-directory")
-# Every source tree a temp-source build needs (the build reads publish/ and docs/ too).
-SOURCE_DIRS = ("skills", "shared", "build", "publish", "docs")
+# Every source tree a temp-source build needs (the build reads publish/ too).
+SOURCE_DIRS = ("skills", "shared", "build", "publish")
 FORBIDDEN = (
     "agents",
     "hooks",
@@ -497,8 +497,8 @@ class PublishFilesTest(unittest.TestCase):
             ("publish/claude/README.md", self.plugin_rel + "/README.md"),
             ("publish/claude/LICENSE", "LICENSE"),
             ("publish/claude/LICENSE", self.plugin_rel + "/LICENSE"),
-            ("docs/privacy-policy.md", "PRIVACY.md"),
-            ("docs/terms-of-service.md", "TERMS.md"),
+            ("publish/claude/PRIVACY.md", "PRIVACY.md"),
+            ("publish/claude/TERMS.md", "TERMS.md"),
         ]
 
     def test_targets_are_byte_identical_to_their_sources(self):

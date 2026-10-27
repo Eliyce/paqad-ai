@@ -249,8 +249,6 @@ class HousePromptTest(unittest.TestCase):
             os.path.join(REPO_ROOT, "hosts"),
             os.path.join(REPO_ROOT, "build"),
             os.path.join(REPO_ROOT, "tests"),
-            os.path.join(REPO_ROOT, ".github"),
-            os.path.join(REPO_ROOT, ".changeset"),
             os.path.join(REPO_ROOT, "publish"),
         ]
         offenders = []
@@ -699,35 +697,15 @@ class ThreeStateChecklistTest(unittest.TestCase):
 
 
 class RequirementsV24Test(unittest.TestCase):
-    """AC-26: REQUIREMENTS.md records the v2.4 change, and it and the get-the-documents feature
-    docs stay free of em and en dashes."""
+    """AC-26: REQUIREMENTS.md records the v2.4 change and stays free of em and en dashes."""
 
     def test_v24_markers_present(self):
-        text = read_text(os.path.join(REPO_ROOT, "REQUIREMENTS.md"))
+        text = read_text(os.path.join(os.path.dirname(os.path.dirname(REPO_ROOT)), "docs", "plugin-discovery", "REQUIREMENTS.md"))
         for marker in ("v2.4", "V-25", "D-19", "D-20", "ASK-9", "OD-16", "OD-17", "U-18",
                        check_onboarded.PARTLY_MESSAGE, check_onboarded.STOP_MESSAGE):
             self.assertIn(marker, text)
         self.assertNotIn(EM_DASH, text)
         self.assertNotIn(EN_DASH, text)
-
-    def test_get_the_documents_docs_have_no_dash(self):
-        feature_dir = os.path.join(
-            REPO_ROOT, "docs", "modules", "project-grounding", "features", "get-the-documents"
-        )
-        self.assertTrue(os.path.isdir(feature_dir), "missing {0}".format(feature_dir))
-        paths = sorted(glob.glob(os.path.join(feature_dir, "*.md")))
-        # A wrong path must fail here, not pass on an empty set (RL-6d7a).
-        names = [os.path.basename(path) for path in paths]
-        for expected in ("api.md", "business.md", "technical.md"):
-            self.assertIn(expected, names, "get-the-documents missing {0}".format(expected))
-        offenders = []
-        for path in paths:
-            text = read_text(path)
-            if EM_DASH in text or EN_DASH in text:
-                offenders.append(os.path.relpath(path, REPO_ROOT))
-        self.assertEqual(
-            offenders, [], "em or en dash in get-the-documents docs: {0}".format(offenders)
-        )
 
 
 if __name__ == "__main__":

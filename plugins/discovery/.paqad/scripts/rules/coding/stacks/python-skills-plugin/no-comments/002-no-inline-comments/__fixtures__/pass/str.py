@@ -1,2 +1,0 @@
-def color():
-    return "#ffffff"

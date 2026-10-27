@@ -178,8 +178,8 @@ class PackageLayoutTest(TempCase):
                              read_bytes(os.path.join(combined, rel)), rel)
         for source, target in (("publish/chatgpt/README.md", "README.md"),
                                ("publish/claude/LICENSE", "LICENSE"),
-                               ("docs/privacy-policy.md", "PRIVACY.md"),
-                               ("docs/terms-of-service.md", "TERMS.md"),
+                               ("publish/claude/PRIVACY.md", "PRIVACY.md"),
+                               ("publish/claude/TERMS.md", "TERMS.md"),
                                ("publish/claude/icon.png", "assets/logo.png")):
             self.assertEqual(read_bytes(os.path.join(STATE["package"], *target.split("/"))),
                              read_bytes(os.path.join(REPO_ROOT, *source.split("/"))), target)

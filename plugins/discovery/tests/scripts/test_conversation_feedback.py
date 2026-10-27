@@ -24,7 +24,7 @@ DISCOVERY_SKILL = os.path.join(SKILLS_ROOT, "product-discovery", "SKILL.md")
 JOURNEY = os.path.join(SKILLS_ROOT, "product-discovery", "references", "journey.md")
 CHALLENGE_GUIDE = os.path.join(SKILLS_ROOT, "shape-idea", "references", "challenge-guide.md")
 PLAYBACK_TEMPLATE = os.path.join(SKILLS_ROOT, "shape-idea", "references", "playback-template.md")
-REQUIREMENTS = os.path.join(REPO_ROOT, "REQUIREMENTS.md")
+REQUIREMENTS = os.path.join(os.path.dirname(os.path.dirname(REPO_ROOT)), "docs", "plugin-discovery", "REQUIREMENTS.md")
 
 CHOICE_PROMPT = "choice prompt"
 KEEP_MOVING = "straight into the next step"

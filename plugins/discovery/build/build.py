@@ -209,15 +209,15 @@ HOST_PUBLISH_FILES = {
     "claude": [
         ("publish/claude/README.md", ("README.md", "{plugins}/{name}/README.md")),
         ("publish/claude/LICENSE", ("LICENSE", "{plugins}/{name}/LICENSE")),
-        ("docs/privacy-policy.md", ("PRIVACY.md",)),
-        ("docs/terms-of-service.md", ("TERMS.md",)),
+        ("publish/claude/PRIVACY.md", ("PRIVACY.md",)),
+        ("publish/claude/TERMS.md", ("TERMS.md",)),
         ("publish/claude/icon.png", ("{plugins}/{name}/.claude-plugin/icon.png",)),
     ],
     CHATGPT_DIRECTORY_HOST: [
         ("publish/chatgpt/README.md", ("{plugins}/{name}/README.md",)),
         ("publish/claude/LICENSE", ("{plugins}/{name}/LICENSE",)),
-        ("docs/privacy-policy.md", ("{plugins}/{name}/PRIVACY.md",)),
-        ("docs/terms-of-service.md", ("{plugins}/{name}/TERMS.md",)),
+        ("publish/claude/PRIVACY.md", ("{plugins}/{name}/PRIVACY.md",)),
+        ("publish/claude/TERMS.md", ("{plugins}/{name}/TERMS.md",)),
         ("publish/claude/icon.png", ("{plugins}/{name}/" + CHATGPT_LOGO_PATH[2:],)),
     ],
 }

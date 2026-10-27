@@ -39,7 +39,7 @@ if EVALS_DIR not in sys.path:
 import run_parity
 
 DEFAULT_SCENARIOS_DIR = os.path.join(EVALS_DIR, "scenarios")
-DEFAULT_REQUIREMENTS = os.path.join(REPO_ROOT, "REQUIREMENTS.md")
+DEFAULT_REQUIREMENTS = os.path.join(os.path.dirname(os.path.dirname(REPO_ROOT)), "docs", "plugin-discovery", "REQUIREMENTS.md")
 
 AC_TOKEN = re.compile(r"AC-(\d+)(?:\s+to\s+AC-(\d+))?")
 TABLE_AC = re.compile(r"^\|\s*AC-(\d+)\s*\|")

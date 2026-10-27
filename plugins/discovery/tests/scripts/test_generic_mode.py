@@ -142,7 +142,7 @@ class DeclarersAndBuildTest(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
         source = os.path.join(tmp, "source")
-        for sub in ("skills", "shared", "build", "publish", "docs"):
+        for sub in ("skills", "shared", "build", "publish"):
             shutil.copytree(os.path.join(REPO_ROOT, sub), os.path.join(source, sub))
         with open(os.path.join(source, "skills", "plan-sprint", "SKILL.md"), "a",
                   encoding="utf-8") as handle:
@@ -222,7 +222,7 @@ class RequirementsV3Test(unittest.TestCase):
     the new acceptance rows and no em or en dash."""
 
     def setUp(self):
-        self.text = read_text(REPO_ROOT, "REQUIREMENTS.md")
+        self.text = read_text(os.path.dirname(os.path.dirname(REPO_ROOT)), "docs", "plugin-discovery", "REQUIREMENTS.md")
 
     def test_markers_present_and_no_dash(self):
         markers = (["v3.0", "V-27", "OD-19", "U-19"]
