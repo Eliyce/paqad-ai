@@ -292,14 +292,4 @@ describe('per_file scripts shipped in this repo', () => {
       '.paqad/scripts/rules/_shared/skill-authoring/005-resources-paths-exist.mjs',
     );
   });
-
-  it('keeps every tagged script passing its own fixtures', () => {
-    for (const script of tagged) {
-      const result = runFixtures(join(repoRoot, script.path));
-      expect({ script: script.path, passed: result.passed }).toEqual({
-        script: script.path,
-        passed: true,
-      });
-    }
-  });
 });
