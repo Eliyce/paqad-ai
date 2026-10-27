@@ -271,7 +271,7 @@ function pendingTool(start: number, name: string, input: Record<string, unknown>
 class TimelineBuilder {
   readonly timeline: TranscriptTimeline;
   private readonly pending = new Map<string, PendingTool>();
-  private lastAt: number | null = null;
+  private turnEnd: number | null = null;
   private anchor: number | null = null;
 
   constructor(role: AgentRole) {
@@ -286,7 +286,7 @@ class TimelineBuilder {
     const content = asRecord(record.message)?.content;
     if (record.type === 'assistant') this.assistant(at, content);
     else this.user(at, content);
-    this.lastAt = at;
+    this.turnEnd = record.type === 'assistant' ? at : null;
   }
 
   private assistant(at: number, content: unknown): void {
@@ -309,11 +309,11 @@ class TimelineBuilder {
     const kind = classifyUserRecord(results.length > 0, textOf(content));
     if (kind === 'tool-result') {
       for (const block of results) this.close(at, block);
-    } else if (kind === 'human' && this.lastAt !== null && at > this.lastAt) {
+    } else if (kind === 'human' && this.turnEnd !== null && at > this.turnEnd) {
       this.timeline.owner.push({
-        start: this.lastAt,
+        start: this.turnEnd,
         end: at,
-        category: ownerGapCategory(at - this.lastAt),
+        category: ownerGapCategory(at - this.turnEnd),
       });
     }
     this.anchor = at;
@@ -324,11 +324,12 @@ class TimelineBuilder {
     const tool = this.pending.get(block.tool_use_id);
     if (!tool) return;
     this.pending.delete(block.tool_use_id);
-    if (tool.name === AGENT_TOOL || !keepsToolInterval(at - tool.start)) return;
+    if (tool.name === AGENT_TOOL || at < tool.start) return;
     if (tool.name === ASK_USER_TOOL) {
       this.timeline.owner.push({ start: tool.start, end: at, category: OWNER_CATEGORY.answering });
       return;
     }
+    if (!keepsToolInterval(at - tool.start)) return;
     if (!isEditTool(tool.name)) {
       this.timeline.busy.push({ start: tool.start, end: at, category: tool.category });
       return;

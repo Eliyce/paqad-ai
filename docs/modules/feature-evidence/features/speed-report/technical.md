@@ -49,9 +49,11 @@ One pass per transcript file, in file order, on each `user` and `assistant` reco
   `Another Claude session sent`, `Stop hook feedback`, `<ci-monitor-event`, `<system-reminder`,
   `<side-sessions` or `Request interrupted` is an injected message. The gap before it is waiting
   for a background agent and is neither busy nor owner time.
-- Any other non-tool-result `user` record is a human prompt. The gap before it is owner time:
-  `away` when over 30 minutes, else `reading and replying`. `AskUserQuestion` intervals are owner
-  time, `answering questions`.
+- Any other non-tool-result `user` record is a human prompt. When the record before it is an
+  `assistant` record (a turn end), the gap is owner time: `away` when over 30 minutes, else
+  `reading and replying`. `AskUserQuestion` intervals are owner time, `answering questions`,
+  whatever their length: the 1-hour drop is for busy tool intervals, and an owner who answers
+  after three hours waited three hours.
 - A line that is not JSON is skipped and counted in `bad_lines`.
 
 ## Categories

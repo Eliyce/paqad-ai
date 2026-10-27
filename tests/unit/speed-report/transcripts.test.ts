@@ -231,13 +231,28 @@ describe('transcript intervals', () => {
     ]);
   });
 
+  it('counts owner time only from an assistant turn end to the next human prompt', () => {
+    const built = timeline([
+      assistant(0, [{ id: 't', name: 'Bash', input: { command: 'ls' } }]),
+      result(5, 't'),
+      human(300, 'interrupting'),
+      human(400, 'again'),
+    ]);
+    expect(built.owner).toEqual([]);
+  });
+
   it('AC-3: counts AskUserQuestion as owner time answering questions', () => {
     const built = timeline([
-      assistant(0, [{ id: 'q', name: 'AskUserQuestion' }]),
+      assistant(0, [
+        { id: 'q', name: 'AskUserQuestion' },
+        { id: 'long', name: 'AskUserQuestion' },
+      ]),
       result(120, 'q'),
+      result(4 * 3600, 'long'),
     ]);
     expect(built.owner).toEqual([
       { start: T0, end: T0 + 120_000, category: OWNER_CATEGORY.answering },
+      { start: T0, end: T0 + 4 * 3_600_000, category: OWNER_CATEGORY.answering },
     ]);
     expect(built.busy).toEqual([]);
   });
