@@ -38,6 +38,7 @@ import { createPatternsCommand } from './commands/patterns.js';
 import { createPacksCommand } from './commands/packs.js';
 import { createPlanCommand } from './commands/plan.js';
 import { createPreflightCommand } from './commands/preflight.js';
+import { createReportCommand } from './commands/report.js';
 import { createReviewCommand } from './commands/review.js';
 import { createConfigCommand } from './commands/config.js';
 import { createDebtCommand } from './commands/debt.js';
@@ -71,6 +72,7 @@ export function createProgram(): Command {
   program.addCommand(createChecksCommand());
   program.addCommand(createDuplicationCommand());
   program.addCommand(createMetricsCommand());
+  program.addCommand(createReportCommand());
   program.addCommand(createIndexCommand());
   program.addCommand(createHealthCommand());
   program.addCommand(createSitemapCommand());
