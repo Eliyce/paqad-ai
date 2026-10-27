@@ -1,0 +1,82 @@
+{
+  "generated_at": "2026-10-27T00:00:00.000Z",
+  "mode": "strict",
+  "rule_files_hash": "sha256-3c1e7c96c822a7d0864ea930d440ff94f09681a5813dfedc545ad5596b1a28ce",
+  "script_files_hash": "sha256-76cd4f1d3bf0a2292081b9e438e9cd92cba4f0ab9e11a50259c7a7b1fcbdd64f",
+  "target_files_hash": "sha256-4ae0314ed21b03d9238834bbc6ea30e98208e7dd4a5ac784d40ac7d32eac8142",
+  "results": [
+    {
+      "rule_id": "RL-cf15",
+      "script": ".paqad/scripts/rules/coding/golden/001-no-debugger.mjs",
+      "kind": "deterministic",
+      "findings": [
+        {
+          "file": "src/app.ts",
+          "line": 2,
+          "message": "debugger statement",
+          "severity": "blocker"
+        },
+        {
+          "file": "src/other.ts",
+          "line": 2,
+          "message": "debugger statement",
+          "severity": "blocker"
+        }
+      ]
+    },
+    {
+      "rule_id": "RL-6673",
+      "script": ".paqad/scripts/rules/coding/golden/002-todo-marker.mjs",
+      "kind": "heuristic",
+      "findings": [
+        {
+          "file": "src/app.ts",
+          "line": 3,
+          "message": "todo marker",
+          "severity": "low"
+        }
+      ],
+      "warning": "note from heuristic"
+    },
+    {
+      "rule_id": "RL-6aa2",
+      "script": ".paqad/scripts/rules/coding/golden/003-no-fixme-anywhere.mjs",
+      "kind": "deterministic",
+      "findings": [
+        {
+          "file": "src/other.ts",
+          "line": 1,
+          "message": "fixme marker",
+          "severity": "high"
+        }
+      ]
+    },
+    {
+      "rule_id": "RL-83ff",
+      "script": ".paqad/scripts/rules/coding/golden/004-always-fails.mjs",
+      "kind": "deterministic",
+      "findings": [],
+      "skipped": "error: script exited 1: boom"
+    },
+    {
+      "rule_id": "RL-8b98",
+      "script": ".paqad/scripts/rules/coding/golden/005-needs-binary.mjs",
+      "kind": "deterministic",
+      "findings": [],
+      "skipped": "missing dependency: paqad-golden-missing-binary"
+    },
+    {
+      "rule_id": "RL-625c",
+      "script": ".paqad/scripts/rules/coding/golden/006-file-missing.mjs",
+      "kind": "heuristic",
+      "findings": [],
+      "skipped": "script-file-missing"
+    }
+  ],
+  "counts": {
+    "deterministic": 3,
+    "heuristic": 1,
+    "skipped": 3
+  },
+  "blocking": true
+}

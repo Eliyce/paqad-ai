@@ -165,6 +165,7 @@ export const PATHS = {
   RULE_SCRIPTS_DIR: '.paqad/scripts/rules',
   RULE_SCRIPTS_CACHE_DIR: '.paqad/scripts/rules/.cache',
   RULE_SCRIPTS_REPORT: '.paqad/scripts/rules/.cache/report.json',
+  RULE_SCRIPTS_PRE_MUTATION_REPORT: '.paqad/scripts/rules/.cache/report.pre-mutation.json',
   RULE_SCRIPTS_DRIFT: '.paqad/scripts/rules/.cache/drift.json',
   DUPLICATION_REPORT: '.paqad/scripts/rules/.cache/duplication.json',
   RULE_SCRIPT_MAP_HISTORY_DIR: '.paqad/scripts/rules/.history',

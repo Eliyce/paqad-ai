@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -8,6 +8,9 @@ import { scanAndEmbedIds, assembleMap } from '@/rule-scripts/analyzer.js';
 import { applyRuleScriptMap } from '@/rule-scripts/apply.js';
 import { enforceRuleScripts, formatEnforcementSummary } from '@/rule-scripts/enforce.js';
 import { upsertScriptEntry } from '@/rule-scripts/mutate.js';
+import { PATHS } from '@/core/constants/paths.js';
+
+import { GOLDEN_CHANGED_FILES, buildGoldenProject } from '../../shared/rule-script-golden.js';
 
 const roots: string[] = [];
 
@@ -205,5 +208,77 @@ describe('enforceRuleScripts · empty change set', () => {
     expect(result.blocking).toBe(true);
     expect(result.violations).toHaveLength(1);
     expect(result.violations[0]).toMatchObject({ rule_id: ruleId, file: 'src/app.ts' });
+  });
+});
+
+describe('enforceRuleScripts · pre-edit filter', () => {
+  const PRE_EDIT = { kinds: ['deterministic' as const], scopes: ['changed-files' as const] };
+
+  function goldenRoot(): string {
+    const root = buildGoldenProject('paqad-enforce-filter-');
+    roots.push(root);
+    return root;
+  }
+
+  it('AC-23: a deterministic changed-files finding still blocks under strict with the filter', async () => {
+    const root = goldenRoot();
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [...GOLDEN_CHANGED_FILES],
+      ...PRE_EDIT,
+      concurrency: 4,
+    });
+    expect(result.ran).toBe(true);
+    expect(result.blocking).toBe(true);
+    expect(result.violations.map((violation) => violation.message)).toEqual(['debugger statement']);
+  });
+
+  it('AC-24: a failing whole-tree deterministic script blocks the unfiltered run, not the pre-edit one', async () => {
+    const root = goldenRoot();
+    const preEdit = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: ['src/clean.ts'],
+      ...PRE_EDIT,
+    });
+    expect(preEdit.blocking).toBe(false);
+    const completion = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: ['src/clean.ts'],
+    });
+    expect(completion.blocking).toBe(true);
+    expect(completion.violations).toEqual([
+      expect.objectContaining({ file: 'src/other.ts', message: 'fixme marker' }),
+    ]);
+  });
+
+  it('skips instead of scanning the whole tree when the changed-files filter has no changed files', async () => {
+    const root = goldenRoot();
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [],
+      scope: 'whole-tree',
+      ...PRE_EDIT,
+    });
+    expect(result.ran).toBe(false);
+    expect(result.blocking).toBe(false);
+  });
+
+  it('reports an aborted run without a verdict and writes no report', async () => {
+    const root = goldenRoot();
+    const controller = new AbortController();
+    controller.abort();
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [...GOLDEN_CHANGED_FILES],
+      ...PRE_EDIT,
+      signal: controller.signal,
+    });
+    expect(result).toMatchObject({ ran: false, blocking: false, aborted: true });
+    expect(existsSync(join(root, PATHS.RULE_SCRIPTS_PRE_MUTATION_REPORT))).toBe(false);
   });
 });
