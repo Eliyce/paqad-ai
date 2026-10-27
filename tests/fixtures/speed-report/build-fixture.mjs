@@ -257,6 +257,19 @@ function keptRecords(records, ranges) {
     return ranges.some((range) => at >= range.start - MARGIN_MS && at <= range.end + MARGIN_MS);
   });
   const keep = inside.map((value, i) => value || inside[i - 1] === true || inside[i + 1] === true);
+  const answered = new Set();
+  timed.forEach(({ record }, i) => {
+    if (!keep[i] || !Array.isArray(record.message?.content)) return;
+    for (const block of record.message.content) {
+      if (block?.type === 'tool_result') answered.add(block.tool_use_id);
+    }
+  });
+  timed.forEach(({ record }, i) => {
+    if (keep[i] || record.type !== 'assistant' || !Array.isArray(record.message?.content)) return;
+    keep[i] = record.message.content.some(
+      (block) => block?.type === 'tool_use' && answered.has(block.id),
+    );
+  });
   return timed.filter((_, i) => keep[i]).map(({ record }) => record);
 }
 
