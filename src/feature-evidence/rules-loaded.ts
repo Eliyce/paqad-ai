@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 
 import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
-import type { RuleApplicability } from '@/context/rule-context.js';
+import { hashRuleText, type RuleApplicability } from '@/context/rule-context.js';
 
 import { buildDocumentEnvelope, type EnvelopeHeader } from './envelope.js';
 import { featureChangeKey, featureFilePath } from './paths.js';
@@ -17,6 +17,7 @@ export interface RulesLoadedRecord extends EnvelopeHeader {
   changed_files: string[];
   applicable_rules: RuleApplicability[];
   rule_text_hash: string;
+  rule_source_hashes?: Record<string, string>;
   artifact: string;
 }
 
@@ -30,6 +31,7 @@ function atomicWriteJson(absPath: string, value: unknown): void {
 export interface RulesLoadedInput {
   applicable: RuleApplicability[];
   ruleTextHash: string;
+  ruleSourceHashes?: Record<string, string>;
   changedPaths: string[];
   now?: () => Date;
 }
@@ -49,6 +51,7 @@ export function buildRulesLoadedRecord(
       changed_files: [...input.changedPaths],
       applicable_rules: input.applicable,
       rule_text_hash: input.ruleTextHash,
+      ...(input.ruleSourceHashes ? { rule_source_hashes: { ...input.ruleSourceHashes } } : {}),
       artifact: PATHS.CONTEXT_SESSION_ARTIFACT,
     },
   }) as RulesLoadedRecord;
@@ -84,4 +87,37 @@ export function coverageGaps(
 ): string[] {
   const recorded = new Set((record?.applicable_rules ?? []).map((rule) => rule.rule_id));
   return currentApplicableIds.filter((id) => !recorded.has(id));
+}
+
+function currentSourceHash(projectRoot: string, sourcePath: string): string | null {
+  try {
+    return hashRuleText(readFileSync(join(projectRoot, sourcePath), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+export function hashRuleSources(
+  projectRoot: string,
+  sourcePaths: readonly string[],
+): Record<string, string> {
+  const hashes: Record<string, string> = {};
+  for (const sourcePath of sourcePaths) {
+    const hash = currentSourceHash(projectRoot, sourcePath);
+    if (hash !== null) {
+      hashes[sourcePath] = hash;
+    }
+  }
+  return hashes;
+}
+
+export function changedLoadedRuleSources(projectRoot: string, record: RulesLoadedRecord): string[] {
+  const recorded = record.rule_source_hashes;
+  if (!recorded || typeof recorded !== 'object') {
+    return [];
+  }
+  return Object.entries(recorded)
+    .filter(([sourcePath, hash]) => currentSourceHash(projectRoot, sourcePath) !== hash)
+    .map(([sourcePath]) => sourcePath)
+    .sort();
 }

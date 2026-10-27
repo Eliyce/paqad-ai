@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createRulesCommand } from '@/cli/commands/rules.js';
 import { createProgram } from '@/cli/program.js';
 import { PATHS } from '@/core/constants/paths.js';
+import { hashRuleText } from '@/context/rule-context.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import { setActiveFeature } from '@/feature-evidence/session-control.js';
 import { ruleScriptMapPath } from '@/rule-scripts/map.js';
@@ -96,6 +97,22 @@ describe('paqad-ai rules command', () => {
     });
     expect(existsSync(join(root, featureFilePath(dir, 'rulesLoaded')))).toBe(true);
     expect(out.some((line) => line.includes('"recorded":true'))).toBe(true);
+  });
+
+  it('AC-51: load records a sha256 of each loaded rule file it can read', async () => {
+    writeCompiledRules();
+    const dir = 'x-01JABCDEFGHJKMNPQRSTVWXYZ0';
+    setActiveFeature(root, 'ses_x', dir);
+    vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await createRulesCommand().parseAsync(['load', '--project-root', root, '--session', 'ses_x'], {
+      from: 'user',
+    });
+    const record = JSON.parse(
+      readFileSync(join(root, featureFilePath(dir, 'rulesLoaded')), 'utf8'),
+    ) as { rule_source_hashes: Record<string, string> };
+    expect(record.rule_source_hashes).toEqual({
+      'docs/instructions/rules/coding/code-quality.md': hashRuleText('- Keep functions small.\n'),
+    });
   });
 
   it('load narrates the plural when more than one rule applies', async () => {

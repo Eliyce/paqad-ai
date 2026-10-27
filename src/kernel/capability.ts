@@ -29,7 +29,7 @@ import { classifyBundlePath } from '@/feature-evidence/bundle-integrity.js';
 import { BUNDLE_MANIFEST } from '@/feature-evidence/manifest.js';
 import { SCREENSHOTS_DIR } from '@/feature-evidence/paths.js';
 import { currentFeature, foldFeature } from '@/feature-evidence/stage-ledger.js';
-import { readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
+import { changedLoadedRuleSources, readRulesLoaded } from '@/feature-evidence/rules-loaded.js';
 import { readCompiledRules } from '@/planning/rule-compiler.js';
 import { resolveSessionId } from '@/rag-ledger/session.js';
 import { normalizeArtifactPath } from '@/stage-evidence/artifact-path.js';
@@ -463,6 +463,15 @@ function formatRulesNotLoadedSummary(): string {
   );
 }
 
+function formatRulesChangedSummary(changed: readonly string[]): string {
+  return (
+    `**▸ paqad** · rules changed since you loaded them\n` +
+    `> 🔴 Needs your attention — the text of ${changed.length} rule${changed.length === 1 ? '' : 's'} ` +
+    `you loaded for this change has changed since: ${changed.join(', ')}. Read the new text: ` +
+    `run \`paqad-ai rules load\`, then re-try the edit.`
+  );
+}
+
 const rulesLoadedCapability: Capability = {
   id: 'rules-loaded',
   async evaluate({ projectRoot, seam, env, payload }): Promise<CapabilityOutcome> {
@@ -476,10 +485,13 @@ const rulesLoadedCapability: Capability = {
     );
     const dirName = currentFeature(projectRoot, sessionId);
     if (!dirName) return NO_OP;
-    if (readRulesLoaded(projectRoot, dirName)) {
-      return NO_OP;
+    const record = readRulesLoaded(projectRoot, dirName);
+    if (!record) {
+      return { ran: true, blocking: true, summary: formatRulesNotLoadedSummary() };
     }
-    return { ran: true, blocking: true, summary: formatRulesNotLoadedSummary() };
+    const changed = changedLoadedRuleSources(projectRoot, record);
+    if (changed.length === 0) return NO_OP;
+    return { ran: true, blocking: true, summary: formatRulesChangedSummary(changed) };
   },
 };
 

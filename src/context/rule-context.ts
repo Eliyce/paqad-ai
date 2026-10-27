@@ -72,6 +72,7 @@ export interface ChangeRuleApplicability {
   applicable: RuleApplicability[];
   loadedRuleText: string;
   ruleTextHash: string;
+  ruleSourcePaths: string[];
   changedPaths: string[];
   hasStore: boolean;
 }
@@ -83,7 +84,12 @@ export function hashRuleText(text: string): string {
 export function computeRuleApplicability(
   rules: readonly CompiledRule[],
   changedPaths: readonly string[],
-): { applicable: RuleApplicability[]; loadedRuleText: string; ruleTextHash: string } {
+): {
+  applicable: RuleApplicability[];
+  loadedRuleText: string;
+  ruleTextHash: string;
+  ruleSourcePaths: string[];
+} {
   const { alwaysLoad, triggered } = selectTriggeredRules(rules, changedPaths);
   const applicable: RuleApplicability[] = [
     ...alwaysLoad.map((rule) => ({
@@ -100,7 +106,12 @@ export function computeRuleApplicability(
     })),
   ];
   const loadedRuleText = composeLoadedRuleText([...alwaysLoad, ...triggered]);
-  return { applicable, loadedRuleText, ruleTextHash: hashRuleText(loadedRuleText) };
+  return {
+    applicable,
+    loadedRuleText,
+    ruleTextHash: hashRuleText(loadedRuleText),
+    ruleSourcePaths: [...alwaysLoad, ...triggered].map((rule) => rule.source_path),
+  };
 }
 
 async function changeOwnPaths(projectRoot: string, sessionId: string | null): Promise<string[]> {
@@ -122,15 +133,12 @@ export async function resolveRuleApplicabilityForChange(
       applicable: [],
       loadedRuleText: '',
       ruleTextHash: hashRuleText(''),
+      ruleSourcePaths: [],
       changedPaths,
       hasStore: false,
     };
   }
-  const { applicable, loadedRuleText, ruleTextHash } = computeRuleApplicability(
-    rules,
-    changedPaths,
-  );
-  return { applicable, loadedRuleText, ruleTextHash, changedPaths, hasStore: true };
+  return { ...computeRuleApplicability(rules, changedPaths), changedPaths, hasStore: true };
 }
 
 export interface ComposeRuleContextOptions {

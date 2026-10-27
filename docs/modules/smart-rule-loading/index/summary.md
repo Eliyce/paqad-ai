@@ -22,9 +22,20 @@ every rule unread. `computeRuleApplicability` (in `rule-context.ts`) is the one
 deterministic source of the applicable set and the loaded-rule-text hash, reused by
 `paqad-ai rules load` (which prints the applicable text and writes
 `rules-loaded.json`), the edit-time `rules-loaded` kernel capability (blocks the
-first source edit until that record exists), and the completion-seam
+first source edit until that record exists, and blocks again when the text of a rule it
+recorded has changed since), and the completion-seam
 `rules-loaded-gate` (fails a change that never loaded its rules). The record attests
 loading and acknowledgment, never comprehension.
+
+**A changed rule needs a fresh load.** `rules load` also records
+`rule_source_hashes`: a sha256 of each loaded rule file under `docs/instructions/rules/`,
+keyed by its path. Before each feature-dev source edit the `rules-loaded` capability hashes
+those same files again. When one changed or was deleted it refuses the edit, names the
+changed files and asks for `paqad-ai rules load`. Only the recorded rule files count, so a
+write to `rule-script-map.yml`, `module-map.yml` or a registry never triggers it. A rule
+that became applicable after the load (a new file in play) is still a turn-end matter for the
+completion gate, not a pre-edit block. A record written before the field existed has no
+hashes and is checked for existence only.
 
 ## Source Footprint
 

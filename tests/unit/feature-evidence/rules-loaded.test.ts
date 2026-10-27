@@ -1,14 +1,16 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { RuleApplicability } from '@/context/rule-context.js';
+import { hashRuleText, type RuleApplicability } from '@/context/rule-context.js';
 import { featureFilePath } from '@/feature-evidence/paths.js';
 import {
   buildRulesLoadedRecord,
+  changedLoadedRuleSources,
   coverageGaps,
+  hashRuleSources,
   readRulesLoaded,
   writeRulesLoaded,
   type RulesLoadedRecord,
@@ -122,5 +124,37 @@ describe('coverageGaps', () => {
 
   it('treats an absent record as covering nothing', () => {
     expect(coverageGaps(null, ['RULE-2'])).toEqual(['RULE-2']);
+  });
+});
+
+describe('hashRuleSources / changedLoadedRuleSources', () => {
+  function withRule(root: string, rel: string, text: string): void {
+    mkdirSync(join(root, rel.slice(0, rel.lastIndexOf('/'))), { recursive: true });
+    writeFileSync(join(root, rel), text);
+  }
+
+  it('AC-51: hashes each readable rule file and skips one it cannot read', () => {
+    const root = tempRoot();
+    withRule(root, 'docs/instructions/rules/a.md', '# A\n');
+    expect(hashRuleSources(root, ['docs/instructions/rules/a.md', 'missing.md'])).toEqual({
+      'docs/instructions/rules/a.md': hashRuleText('# A\n'),
+    });
+  });
+
+  it('AC-51: names only the recorded rule files whose text changed or vanished, sorted', () => {
+    const root = tempRoot();
+    withRule(root, 'r/b.md', 'b');
+    withRule(root, 'r/a.md', 'a');
+    withRule(root, 'r/c.md', 'c');
+    const record = {
+      rule_source_hashes: hashRuleSources(root, ['r/a.md', 'r/b.md', 'r/c.md']),
+    } as RulesLoadedRecord;
+    withRule(root, 'r/b.md', 'b changed');
+    rmSync(join(root, 'r/a.md'));
+    expect(changedLoadedRuleSources(root, record)).toEqual(['r/a.md', 'r/b.md']);
+  });
+
+  it('AC-51: a record with no hash field reports nothing changed', () => {
+    expect(changedLoadedRuleSources(tempRoot(), {} as RulesLoadedRecord)).toEqual([]);
   });
 });
