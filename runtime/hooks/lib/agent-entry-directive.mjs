@@ -1,3 +1,5 @@
+import { LOADED_INSTRUCTION_DIRS } from './agent-entry-sentinel.mjs';
+
 export const ENABLEMENT_VERIFIED_LINE =
   '[paqad] Enablement: ON — verified by this gate. The bootstrap enablement step is already done; do not re-check it.';
 
@@ -6,7 +8,8 @@ export function loadSteps(entryFile, sentinelRel = '.paqad/.agent-entry-loaded')
     '[paqad]   1. Enablement — ON, already resolved by this gate; do not re-probe it.',
     `[paqad]   2. Read ${entryFile} with your file-read tool (not a shell command)`,
     '[paqad]   3. Resolve .paqad/framework-path.txt and read the framework gate (AGENT-BOOTSTRAP.md in the install) with your file-read tool; its enablement step is already satisfied (step 1)',
-    '[paqad]   4. Since paqad is ON, read AGENT-ROUTER.md (same install directory) with your file-read tool and route the message to one paqad workflow, then read docs/instructions/{stack,design-system,workflows}; read the rule contract (.paqad/context/session-context.md, else docs/instructions/rules) ONLY for feature-development',
+    '[paqad]   4. Since paqad is ON, read AGENT-ROUTER.md (same install directory) with your file-read tool and route the message to one paqad workflow, ' +
+      `then read docs/instructions/{${LOADED_INSTRUCTION_DIRS.join(',')}}; read the rule contract (.paqad/context/session-context.md, else docs/instructions/rules) ONLY for feature-development`,
     `[paqad]   5. Write ${sentinelRel} with timestamp + entry-file path`,
   ];
 }

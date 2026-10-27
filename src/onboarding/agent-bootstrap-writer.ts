@@ -1,6 +1,20 @@
 import { buildDecisionPauseContractBody } from './decision-pause-contract-writer.js';
 import { buildNarrationContractBody } from './narration-contract-writer.js';
 
+export const LOADED_INSTRUCTION_DIRS: readonly string[] = ['stack', 'design-system', 'workflows'];
+
+const LOADED_DIR_NOTES: Readonly<Record<string, string>> = {
+  workflows:
+    'the feature-development and delivery-policy workflows that govern how a change is built and shipped',
+};
+
+function alwaysLoadList(): string {
+  return LOADED_INSTRUCTION_DIRS.map((dir) => {
+    const note = LOADED_DIR_NOTES[dir];
+    return `- \`docs/instructions/${dir}\`${note ? ` (${note})` : ''}`;
+  }).join('\n');
+}
+
 const BOOTSTRAP_HEADER =
   '<!-- managed by paqad-ai — generated from src/onboarding/agent-bootstrap-writer.ts; regenerate with `pnpm vitest run agent-bootstrap-writer -u`. Do not edit by hand. -->';
 
@@ -74,9 +88,7 @@ Routing runs on **every** message, and it is stateful — it does not reset:
 
 Always load these and treat them as the canonical contract for documentation and implementation behavior:
 
-- \`docs/instructions/stack\`
-- \`docs/instructions/design-system\`
-- \`docs/instructions/workflows\` (the feature-development and delivery-policy workflows that govern how a change is built and shipped)
+${alwaysLoadList()}
 
 **Rules load only for \`feature-development\`.** When (and only when) you routed to feature-development, load the rules — artifact-first: when \`.paqad/context/session-context.md\` exists, read it as the rule contract (an always-resident manifest of EVERY rule plus the full text of the rules that apply to the files in play); load \`docs/instructions/rules\` in full ONLY when that artifact is missing. The other 11 outcomes load **no** rules and run **no** rule-scripts. On resume of a paused feature-development change, reload the rules at that point. Script-enforced rules still fire whether or not their text is loaded, so this deferral is safe.
 
