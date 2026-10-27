@@ -1,0 +1,54 @@
+{
+  "id": "D-01M5YA9PDQ3ES6KVYXRWHSWPHG",
+  "category": "spec.contradiction",
+  "title": "AC-25 names a ci module that module-map.yml does not have",
+  "context": "AC-25 says every file this change touches maps to the claude-plugin or ci module. module-map.yml has no ci module (the plan listed one in modules_touched, but none was ever declared). The new claude-plugin module owns src/plugin, runtime/claude-plugin, plugins/discovery and the five plugin scripts, including build-discovery.mjs and check-plugin-skills.mjs, and a test pins that. The remaining changed files belong to no module today, exactly like every other change in this repo: .github/workflows/ci.yml, eslint.config.js, .prettierignore, package.json, tests/unit/ci and tests/unit/plugin, .changeset, docs/plugin-discovery/REQUIREMENTS.md, docs/instructions/tech-debt and the .paqad records. Development is otherwise complete (all other steps committed); only this AC's wording is open.",
+  "options": [
+    {
+      "option_key": "narrow",
+      "label": "Read AC-25 as: every changed source file maps to claude-plugin; root tooling, tests, docs, changesets and .paqad records stay unattributed as today. No module-map change; the existing AC-25 test stays.",
+      "one_line_preview": "Read AC-25 as: every changed source file maps to claude-plugin; root tooling, tests, docs, changesets and .paqad records stay unattributed as today. No module-map change; the existing AC-25 test stays.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "add-ci",
+      "label": "Declare a new ci module in module-map.yml owning .github/workflows, eslint.config.js, .prettierignore and the CI tests, and map those files to it.",
+      "one_line_preview": "Declare a new ci module in module-map.yml owning .github/workflows, eslint.config.js, .prettierignore and the CI tests, and map those files to it.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "fold",
+      "label": "Add the CI and tooling paths this change touched to the claude-plugin module sources.",
+      "one_line_preview": "Add the CI and tooling paths this change touched to the claude-plugin module sources.",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "narrow",
+  "created_at": "2026-10-27T09:15:40.856Z",
+  "status": "resolved",
+  "change": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "chosen": "narrow",
+  "rationale": "Haider: narrow it; only source files must map to claude-plugin.",
+  "resolved_at": "2026-10-27T09:16:58.536Z",
+  "decision_id": "D-01M5YA9PDQ3ES6KVYXRWHSWPHG",
+  "fingerprint": "sha256:e51d2ee89025a348056dea69e58979e0edb8f11193301c6f27077ebf09e8a229",
+  "question": "AC-25 names a ci module that module-map.yml does not have",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5XRN9CWF9RDTNFC1A21A0SV",
+  "ttl_until": "2026-11-03T09:15:40.856Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "narrow",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T09:16:58.536Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Haider: narrow it; only source files must map to claude-plugin."
+  }
+}
