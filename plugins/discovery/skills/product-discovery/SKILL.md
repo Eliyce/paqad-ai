@@ -1,6 +1,7 @@
 ---
 name: product-discovery
-description: "Shape an idea or a problem into clear epics and tickets, or into another sensible outcome, as a product consultant. Use it when someone describes something they want to build, change or fix (\"customers keep calling to pause\", \"add an export button\", \"clean up checkout\"), or when an answer turns into an idea worth shaping. It moves through six steps in order, grounded in the project's own documents: get connected, your idea, what exists today, shape it, decide, draft and check, then post to the tracker on an explicit go-ahead. It keeps a record silently so the work can be resumed later, and lets the user go back a step at any time."
+description: "Chat and Claude Code: Shape an idea or a problem into clear epics and tickets, or into another sensible outcome, as a product consultant. Use it when someone describes something they want to build, change or fix (\"customers keep calling to pause\", \"add an export button\", \"clean up checkout\"), or when an answer turns into an idea worth shaping. It moves through six steps in order, grounded in the project's own documents: get connected, your idea, what exists today, shape it, decide, draft and check, then post to the tracker on an explicit go-ahead. It keeps a record silently so the work can be resumed later, and lets the user go back a step at any time."
+compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
 # product-discovery

@@ -1,9 +1,12 @@
 ---
 name: join
-description: Set up an already-onboarded paqad project on your own machine. Builds your local RAG index if the team uses one, and changes no tracked files. Use when you cloned a repo that already has a committed .paqad/ and you are not the lead.
+description: 'Claude Code: Set up an already-onboarded paqad project on your own machine. Builds your local RAG index if the team uses one, and changes no tracked files. Use when you cloned a repo that already has a committed .paqad/ and you are not the lead.'
+compatibility: 'Claude Code with a project folder open (needs a shell)'
 ---
 
 # Join an onboarded paqad project
+
+First check where you are running. If there is no shell and no project folder open, reply in one sentence that this works in Claude Code with a project folder open, and stop. Otherwise carry on with the steps below and do not mention this check.
 
 The project is already onboarded (it has a committed `.paqad/`). This sets up only your machine.
 

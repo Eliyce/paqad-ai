@@ -841,7 +841,6 @@ class SkillRuleTest(TempCase):
                 if raw.startswith('"'):
                     quoted += 1
                     self.assertEqual(description, json.loads(raw))
-                    self.assertIn(": ", description)
                 else:
                     self.assertEqual(description, raw)
         self.assertGreaterEqual(quoted, 3)

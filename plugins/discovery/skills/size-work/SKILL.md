@@ -1,6 +1,7 @@
 ---
 name: size-work
-description: Suggest a size for a ticket from comparable finished work, as a labelled suggestion the team still owns. Use it when someone asks "how big is this?", "roughly how much work is ABC-12?", or wants a backlog item sized. It finds the team's sizing scale at first use, picks two to five of the closest finished tickets with links, and gives a size or range with the drivers behind it and a confidence of low, medium or high, lowered and explained when the area's documents are template text. Every result is labelled a suggested size, never a date or a commitment. It writes nothing into the size field unless the user says "set it", and it refuses to overwrite an existing size unless the user asks to replace it. Produces the sizing block of the record.
+description: "Chat and Claude Code: Suggest a size for a ticket from comparable finished work, as a labelled suggestion the team still owns. Use it when someone asks \"how big is this?\", \"roughly how much work is ABC-12?\", or wants a backlog item sized. It finds the team's sizing scale at first use, picks two to five of the closest finished tickets with links, and gives a size or range with the drivers behind it and a confidence of low, medium or high, lowered and explained when the area's documents are template text. Every result is labelled a suggested size, never a date or a commitment. It writes nothing into the size field unless the user says \"set it\", and it refuses to overwrite an existing size unless the user asks to replace it. Produces the sizing block of the record."
+compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
 # size-work

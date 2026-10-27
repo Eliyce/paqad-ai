@@ -69,6 +69,14 @@ SCRIPT_BEARING_SKILLS = {
 }
 
 VENDOR_PATTERN = re.compile(r"claude|chatgpt|codex|anthropic|openai", re.IGNORECASE)
+# The two host labels every source SKILL.md carries for the paqad Claude plugin. The build strips
+# exactly these from the other hosts' packages, so the neutral-wording checks below read the source
+# with exactly these two strings removed and nothing else.
+HOST_LABEL_PREFIX = "Chat and Claude Code: "
+HOST_LABEL_COMPATIBILITY = (
+    'compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a '
+    'connector, uploaded files or the open folder"\n'
+)
 # Built with chr() so this source file itself stays ASCII and does not trip its own CI-5 check.
 EM_DASH = chr(0x2014)
 EN_DASH = chr(0x2013)
@@ -117,6 +125,17 @@ def skill_dirs():
         if os.path.isdir(os.path.join(SKILLS_ROOT, name))
         and os.path.isfile(os.path.join(SKILLS_ROOT, name, "SKILL.md"))
     )
+
+
+def without_host_labels(text):
+    """Return text with exactly the two host label strings removed."""
+    return text.replace(HOST_LABEL_COMPATIBILITY, "", 1).replace(
+        'description: "' + HOST_LABEL_PREFIX, 'description: "', 1
+    )
+
+
+def read_unlabelled(path):
+    return without_host_labels(read_text(path))
 
 
 def unquote_scalar(value):
@@ -231,12 +250,36 @@ class NeutralWordingTest(unittest.TestCase):
         offenders = []
         for root in (SKILLS_ROOT, SHARED_ROOT):
             for path in iter_source_files(root):
-                match = VENDOR_PATTERN.search(read_text(path))
+                match = VENDOR_PATTERN.search(read_unlabelled(path))
                 if match:
                     offenders.append(
                         "{0}: {1}".format(os.path.relpath(path, REPO_ROOT), match.group(0))
                     )
         self.assertEqual(offenders, [], "vendor name in shipped content: {0}".format(offenders))
+
+
+class HostLabelTest(unittest.TestCase):
+    """AC-32: every source SKILL.md carries exactly the two host labels, and removing exactly
+    those two strings is all the neutral-wording checks above allow."""
+
+    def test_ac32_each_source_skill_carries_exactly_the_two_labels(self):
+        for skill in skill_dirs():
+            text = read_text(os.path.join(SKILLS_ROOT, skill, "SKILL.md"))
+            fm, _ = split_frontmatter(text)
+            self.assertTrue(fm["description"].startswith(HOST_LABEL_PREFIX), skill)
+            self.assertEqual(text.count(HOST_LABEL_PREFIX), 1, skill)
+            self.assertEqual(text.count(HOST_LABEL_COMPATIBILITY), 1, skill)
+            self.assertIn('\ndescription: "' + HOST_LABEL_PREFIX, text, skill)
+            unlabelled = without_host_labels(text)
+            self.assertIsNone(VENDOR_PATTERN.search(unlabelled), skill)
+            self.assertEqual(len(text) - len(unlabelled),
+                             len(HOST_LABEL_PREFIX) + len(HOST_LABEL_COMPATIBILITY), skill)
+
+    def test_ac32_the_helper_removes_only_the_two_labels(self):
+        text = ('---\nname: x\ndescription: "' + HOST_LABEL_PREFIX + 'Does x."\n'
+                + HOST_LABEL_COMPATIBILITY + "---\nClaude stays in the body.\n")
+        self.assertEqual(without_host_labels(text),
+                         '---\nname: x\ndescription: "Does x."\n---\nClaude stays in the body.\n')
 
 
 class HousePromptTest(unittest.TestCase):
@@ -391,7 +434,7 @@ class CapabilityFallbackTest(unittest.TestCase):
     def test_no_host_or_vendor_branching_under_skills(self):
         offenders = []
         for path in iter_source_files(SKILLS_ROOT):
-            match = VENDOR_PATTERN.search(read_text(path))
+            match = VENDOR_PATTERN.search(read_unlabelled(path))
             if match:
                 offenders.append(
                     "{0}: {1}".format(os.path.relpath(path, REPO_ROOT), match.group(0))
@@ -440,7 +483,7 @@ class PostLinkFallbackTest(unittest.TestCase):
     in both the SKILL.md and the posting procedure, with no host branching."""
 
     def test_post_tickets_carries_link_fallback(self):
-        skill = read_text(os.path.join(SKILLS_ROOT, "post-tickets", "SKILL.md"))
+        skill = read_unlabelled(os.path.join(SKILLS_ROOT, "post-tickets", "SKILL.md"))
         procedure = read_text(
             os.path.join(SKILLS_ROOT, "post-tickets", "references", "post-procedure.md")
         )
@@ -513,7 +556,7 @@ class VendorScanScopeTest(unittest.TestCase):
         for root in (SKILLS_ROOT, SHARED_ROOT):
             for path in iter_source_files(root):
                 self.assertIsNone(
-                    VENDOR_PATTERN.search(read_text(path)),
+                    VENDOR_PATTERN.search(read_unlabelled(path)),
                     "vendor name under {0}".format(os.path.relpath(path, REPO_ROOT)),
                 )
 
@@ -654,7 +697,9 @@ class AskProjectTriggerTest(unittest.TestCase):
     """AC-21 (PLG-8): the widened ask-project description, and the helper that guards it."""
 
     def test_description_is_the_frozen_text(self):
-        fm, _ = split_frontmatter(read_text(os.path.join(SKILLS_ROOT, "ask-project", "SKILL.md")))
+        fm, _ = split_frontmatter(
+            read_unlabelled(os.path.join(SKILLS_ROOT, "ask-project", "SKILL.md"))
+        )
         description = fm["description"]
         self.assertEqual(description, ASK_PROJECT_DESCRIPTION)
         self.assertTrue(description.startswith("Answers"))

@@ -1,6 +1,7 @@
 ---
 name: shape-idea
-description: Step 3 of the product-discovery idea journey, Shape it. Plays the idea back starting with the goal, looks at it through the expert lenses, offers options with trade-offs and a smaller first step where useful, and gives a recommendation. Raises any real risk in business terms, and if the idea already exists it says so with the source and recommends the already-exists outcome. Produces the playback block of the discovery record. Runs when the product-discovery journey directs it; not started directly.
+description: "Chat and Claude Code: Step 3 of the product-discovery idea journey, Shape it. Plays the idea back starting with the goal, looks at it through the expert lenses, offers options with trade-offs and a smaller first step where useful, and gives a recommendation. Raises any real risk in business terms, and if the idea already exists it says so with the source and recommends the already-exists outcome. Produces the playback block of the discovery record. Runs when the product-discovery journey directs it; not started directly."
+compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"
 ---
 
 # shape-idea
