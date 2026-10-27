@@ -2798,6 +2798,8 @@ modules:
       - src/fix-protocol/fix-change.ts
       - src/cli/commands/fix.ts
       - src/rule-scripts/override.ts
+      - src/speed-report
+      - src/cli/commands/report.ts
     features:
       - slug: tech-debt
         name: Tech-Debt Items (paqad-ai debt)
@@ -2808,6 +2810,9 @@ modules:
       - slug: rule-override
         name: Rule Stop and Allow Once (paqad-ai rules override)
         sources: [src/rule-scripts/override.ts, src/feature-evidence/rule-overrides.ts, src/hud/last-block.ts, src/cli/commands/rules.ts]
+      - slug: speed-report
+        name: Speed Report (paqad-ai report speed)
+        sources: [src/speed-report, src/cli/commands/report.ts]
     evidence:
       symbols:
         - ALLOWED_BUNDLE_FILENAMES
