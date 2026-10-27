@@ -15,7 +15,7 @@ session: "924099c9-ba6b-48aa-8fc2-867026e90f4d"
 created_at: "2026-10-27T19:32:33.308Z"
 reopened_at: null
 issue: null
-closed_reason: "Fixed in 69a2bd66: each file-filter glob is compiled once per discovery pass. rag refresh-context CPU (user+sys, warm index): pre-#755 baseline 461.0 s, now 23.6 s (5.1%)."
+closed_reason: "Fixed in 69a2bd66: each file-filter glob is compiled once per discovery pass. rag refresh-context CPU (user+sys, warm index): the baseline before the refresh fix 461.0 s, now 23.6 s (5.1%)."
 ---
 
 ## What

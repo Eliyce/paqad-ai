@@ -26,6 +26,11 @@ Open items captured during the foundation documentation pass. Promote to issues 
 Each open `TD-<ULID>` item recorded with `paqad-ai debt add` is listed here, newest first. paqad rewrites the lines between the markers; edit the item files, not this list.
 
 <!-- paqad:tech-debt:start -->
+- [TD-01M5ZK3MN3MMFR0AC9VM588ANQ](TD-01M5ZK3MN3MMFR0AC9VM588ANQ.md) (gap, low): The pre-edit rule-gate budget does not cover the synchronous tree scan and hashing, so rule_gate_pre_edit=all can still hit the host timeout on a large tree
+- [TD-01M5ZK3KZMCE6DE4X34PFAW698](TD-01M5ZK3KZMCE6DE4X34PFAW698.md) (gap, medium): Turn end clears the rule-gate pending marker even when it blocks, so under the Stop loop guard a budget-deferred edit can go unchecked
+- [TD-01M5ZK3K9JH4EP3F0NJQAN3RK2](TD-01M5ZK3K9JH4EP3F0NJQAN3RK2.md) (bug, low): A failed local embedding model load surfaces as a raw Error, not EmbeddingProviderError, and skips the partial-model cleanup
+- [TD-01M5ZK3JKYQXJ6FG914FGRDVCH](TD-01M5ZK3JKYQXJ6FG914FGRDVCH.md) (gap, medium): Spec pipeline experts synthesis opens a decision packet for every merge conflict, even compatible claims, with no way for the chief to drop one
+- [TD-01M5ZK3HVQPTH7MHCKZE4H2EZX](TD-01M5ZK3HVQPTH7MHCKZE4H2EZX.md) (bug, medium): Turn-end backstop judges a change and closes its stages while a paqad-development agent just dispatched or resumed with SendMessage is still running
 - [TD-01M5YAWM5ZRVGHFP34DKA0W3JB](TD-01M5YAWM5ZRVGHFP34DKA0W3JB.md) (gap, medium): Skill Authoring rule RL-70a6 flags the claude.ai compatibility key on every Claude plugin skill
 - [TD-01M5YAWJ4XG3MM5K4S3HWR1X9D](TD-01M5YAWJ4XG3MM5K4S3HWR1X9D.md) (debt, low): Generated module summary footer is duplicated across 37 docs/modules pages and trips the duplication detector
 - [TD-01M5YA4ANCER1JN9YTS2JCDE0S](TD-01M5YA4ANCER1JN9YTS2JCDE0S.md) (follow-up, low): The ChatGPT directory zip is not attached to the GitHub Release
