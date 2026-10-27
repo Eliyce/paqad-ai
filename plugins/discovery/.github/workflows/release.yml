@@ -1,0 +1,135 @@
+# Release (REQUIREMENTS.md section 12.3).
+#
+# CI-14 is deterministic and runs here in full: bump_version.py reads the pending changesets, bumps
+# only the version scalar in build/skills.yml (PLG-11) and rebuilds dist so every manifest is
+# regenerated from the one source (RULE-21, no dist manifest is ever hand-edited). The changeset
+# tool itself (which also writes CHANGELOG.md from the accumulated .changeset entries) is installed
+# in CI; its install is a clearly named placeholder here because it is a CI-only dev tool.
+#
+# CI-15 is wired as real steps. Tagging, attaching the dist zip to the GitHub release and pushing
+# dist/ to the private distribution repo need a write token and a configured remote, so those steps
+# run only in CI when the release is enabled (the ENABLE_RELEASE repository variable is set) and the
+# distribution secret is present. They cannot run in a local or unconfigured dispatch.
+name: release
+
+on:
+  workflow_dispatch:
+  # In a real setup CI-15 also triggers on merge of the release PR to the default branch; add a
+  # push trigger guarded by the release label or path when the distribution remote is configured.
+
+jobs:
+  release:
+    name: Build, version and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      # CI-14: the changeset tool generates CHANGELOG.md from the .changeset entries and is a
+      # CI-only dev tool. Its exact install is pinned in CI; the step below is a named placeholder.
+      - name: CI-14 install changesets (placeholder install, pin in CI)
+        run: echo "TODO pin and install the changeset tool here (CI-only dev tool, writes CHANGELOG.md)"
+
+      # CI-14 (deterministic half): bump the single version scalar and rebuild every manifest.
+      - name: CI-14 bump version from changesets and rebuild dist
+        run: python build/bump_version.py --dist dist
+
+      - name: Read the bumped version
+        id: version
+        run: |
+          VALUE=$(python -c "import sys; sys.path.insert(0, 'build'); import build; print(build.load_config('build/skills.yml')['version'])")
+          echo "value=$VALUE" >> "$GITHUB_OUTPUT"
+
+      # CI-15: tag vX.Y.Z. Needs a write token, so it runs only when the release is enabled in CI.
+      - name: CI-15 tag the version
+        if: ${{ vars.ENABLE_RELEASE == 'true' }}
+        run: |
+          git tag "v${{ steps.version.outputs.value }}"
+          git push origin "v${{ steps.version.outputs.value }}"
+
+      # CI-15: attach a zip of dist/ to the GitHub release. Uses the workflow token.
+      - name: CI-15 attach a dist zip to the GitHub release
+        if: ${{ vars.ENABLE_RELEASE == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="v${{ steps.version.outputs.value }}"
+          (cd dist && zip -r "../paqad-product-discovery-$VERSION.zip" .)
+          gh release create "$VERSION" "paqad-product-discovery-$VERSION.zip" --title "$VERSION" --generate-notes
+
+      # CI-15: push dist/ to the default branch of the private distribution repo. Needs a configured
+      # remote and a deploy secret, so it runs only in CI when both are present.
+      - name: CI-15 push dist to the distribution repo
+        if: ${{ vars.ENABLE_RELEASE == 'true' && vars.DISTRIBUTION_REPO != '' }}
+        env:
+          DISTRIBUTION_TOKEN: ${{ secrets.DISTRIBUTION_TOKEN }}
+        run: |
+          VERSION="v${{ steps.version.outputs.value }}"
+          git clone "https://x-access-token:$DISTRIBUTION_TOKEN@github.com/${{ vars.DISTRIBUTION_REPO }}.git" distribution
+          rm -rf distribution/dist
+          cp -r dist distribution/dist
+          cd distribution
+          git add dist
+          git -c user.name="paqad release" -c user.email="release@paqad.invalid" commit -m "release $VERSION"
+          git push origin HEAD
+
+      # S4 (reach), public-directory readiness (REQUIREMENTS.md section 12.4, CI-16).
+      #
+      # The public directories need a SEPARATE public repo, distinct from the private org-sync repo
+      # above, and are published only once public listing starts (CI-16, OD-1). These steps stay off
+      # until an owner sets ENABLE_PUBLIC_RELEASE and a PUBLIC_DISTRIBUTION_REPO, so the plumbing can
+      # land before S3 is green on all hosts without activating a listing.
+      #
+      # Neither directory has a publish API: the ChatGPT directory needs a person to upload the zip
+      # (O11, O23) and the Claude directory is published by a reviewer from the public repo (C10). So
+      # these steps produce an artifact and push the public repo; the final submission stays manual
+      # (hosts/chatgpt.md and hosts/claude.md, Directory submission). The ChatGPT upload is the
+      # dedicated native zip: build/package_chatgpt.py packs only the plugin root of
+      # dist/hosts/chatgpt-directory under one top-level folder. A zip of the whole dist folder is
+      # the wrong shape for the portal (several plugin roots, rejected as plugin_root_ambiguous).
+
+      # Build the ChatGPT directory submission zip and run the pre-submission check, which fails
+      # the release on any error (necessary, not sufficient: the portal may enforce more).
+      - name: CI-16 build and check the ChatGPT directory submission zip
+        if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
+        run: |
+          ZIP="paqad-product-discovery-chatgpt-v${{ steps.version.outputs.value }}.zip"
+          python build/package_chatgpt.py --dist dist --out "$ZIP"
+          python build/check_chatgpt_submission.py --zip "$ZIP"
+
+      - name: CI-16 upload the ChatGPT directory submission zip artifact
+        if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: chatgpt-directory-submission-zip
+          path: paqad-product-discovery-chatgpt-v${{ steps.version.outputs.value }}.zip
+
+      # Push the Claude branch to the PUBLIC distribution repo the Claude directory reads
+      # (Eliyce/paqad-product-discovery-plugin). Its root is the content of dist/hosts/claude: the
+      # marketplace, README.md, LICENSE, PRIVACY.md and plugins/paqad-product-discovery. Only that
+      # built branch is pushed; source, tests, docs and the other branches stay private. Separate
+      # repo and separate token from the private push above, and off unless explicitly enabled.
+      # Every top-level entry except .git is cleared first, so removed files never linger.
+      - name: CI-16 push dist/hosts/claude to the public distribution repo
+        if: ${{ vars.ENABLE_PUBLIC_RELEASE == 'true' && vars.PUBLIC_DISTRIBUTION_REPO != '' }}
+        env:
+          PUBLIC_DISTRIBUTION_TOKEN: ${{ secrets.PUBLIC_DISTRIBUTION_TOKEN }}
+        run: |
+          VERSION="v${{ steps.version.outputs.value }}"
+          git clone "https://x-access-token:$PUBLIC_DISTRIBUTION_TOKEN@github.com/${{ vars.PUBLIC_DISTRIBUTION_REPO }}.git" public-distribution
+          find public-distribution -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R dist/hosts/claude/. public-distribution/
+          cd public-distribution
+          # Always publish to main (privacyPolicyUrl points at blob/main), also on a brand-new
+          # empty repo. Re-runs of the same version are safe: commit only when something changed,
+          # and tag only when the tag does not exist yet.
+          git checkout -B main
+          git add -A
+          git diff --cached --quiet || git -c user.name="paqad release" -c user.email="release@paqad.invalid" commit -m "public release $VERSION"
+          git rev-parse -q --verify "refs/tags/$VERSION" >/dev/null || git tag "$VERSION"
+          git push origin HEAD:main
+          git push origin "refs/tags/$VERSION"

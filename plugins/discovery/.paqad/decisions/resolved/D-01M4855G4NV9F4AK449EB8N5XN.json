@@ -1,0 +1,23 @@
+{
+  "id": "D-01M4855G4NV9F4AK449EB8N5XN",
+  "category": "workflow-or-tool",
+  "title": "AC-20 parity: author manual scenario now or wire an automated runner",
+  "context": "CI-12 states ChatGPT/Codex parity runs are MANUAL and recorded unless S0 finds a scriptable Codex runner; an automated cross-host runner is S3 scope. S2 can author tests/evals/scenarios/s2.yml as a recorded manual parity scenario, or attempt to wire an automated runner now.",
+  "options": [
+    {
+      "option_key": "scenario",
+      "label": "Author s2.yml manual parity scenario only; defer runner to S3 (recommended)"
+    },
+    {
+      "option_key": "runner",
+      "label": "Attempt to wire an automated ChatGPT/Codex runner now"
+    }
+  ],
+  "recommendation": "scenario",
+  "created_at": "2026-10-06T08:27:01.141Z",
+  "status": "resolved",
+  "change": "01M483TS31DP5DEKM751K7FY2X",
+  "chosen": "runner",
+  "rationale": "Owner chose to wire an automated cross-host parity runner now rather than defer to S3",
+  "resolved_at": "2026-10-06T08:52:32.931Z"
+}

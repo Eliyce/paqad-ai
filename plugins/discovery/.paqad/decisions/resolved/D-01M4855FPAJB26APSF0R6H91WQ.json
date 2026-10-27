@@ -1,0 +1,23 @@
+{
+  "id": "D-01M4855FPAJB26APSF0R6H91WQ",
+  "category": "architecture-path",
+  "title": "PLG-12 per-host distribution branches: build now or defer",
+  "context": "build.py already emits BOTH .claude-plugin/marketplace.json and .agents/plugins/marketplace.json from one source (the documented U-2 primary fallback). The PLG-12 per-host-branch escalation only triggers if a workspace import misreads that dual-file layout, and U-2 is still 'pending' in hosts/chatgpt.md. Building per-host branches now is speculative.",
+  "options": [
+    {
+      "option_key": "defer",
+      "label": "Defer to S0 proving a real misread (recommended; keep current dual-file emission)"
+    },
+    {
+      "option_key": "build",
+      "label": "Build per-host distribution branches now in build/"
+    }
+  ],
+  "recommendation": "defer",
+  "created_at": "2026-10-06T08:27:00.682Z",
+  "status": "resolved",
+  "change": "01M483TS31DP5DEKM751K7FY2X",
+  "chosen": "build",
+  "rationale": "Owner chose to build PLG-12 per-host distribution branches now rather than defer",
+  "resolved_at": "2026-10-06T08:52:32.466Z"
+}

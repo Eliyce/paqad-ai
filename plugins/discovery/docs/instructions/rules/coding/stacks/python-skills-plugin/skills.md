@@ -1,0 +1,23 @@
+# Python Skills Plugin Skills
+
+- Set `name` to match `^[a-z0-9]+(-[a-z0-9]+)*$`, at most 64 characters, equal to the skill folder name. <!-- @rule RL-ce6a -->
+- Never put `anthropic` or `claude` in a skill `name`. <!-- @rule RL-41e9 -->
+- Keep `description` between 1 and 1024 characters with no `<` or `>`. <!-- @rule RL-68d4 -->
+- Use only `name`, `description`, `license`, `compatibility` and `metadata` as frontmatter keys. <!-- @rule RL-c740 -->
+- Write `description` in the third person, starting with a verb such as "Suggests" or "Answers". <!-- @rule RL-f543 -->
+- Include "Use it when" in an entry skill description and "journey directs it" in a step skill description. <!-- @rule RL-74e9 -->
+- Let only the six entry skills invite direct use: published `paqad-discover`, `paqad-ask`, `paqad-refine-ticket`, `paqad-size-work`, `paqad-plan-sprint` and the `paqad` front door (source folders `product-discovery`, `ask-project`, `refine-ticket`, `size-work`, `plan-sprint` and `front-door`; the `paqad-` name is applied at build time, approach B). <!-- @rule RL-04db -->
+- Keep the `SKILL.md` body at 150 lines or fewer. <!-- @rule RL-e019 -->
+- Open every `SKILL.md` body with the "How to talk" block that points to `references/voice.md`. <!-- @rule RL-f924 -->
+- Put only `SKILL.md`, `references/`, `scripts/` and `assets/` in a skill folder. <!-- @rule RL-48e7 -->
+- Keep `references/` flat, with no subfolders. <!-- @rule RL-f546 -->
+- Name every file in `references/`, `scripts/` and `assets/` in that skill's `SKILL.md`. <!-- @rule RL-ebee -->
+- Point every path in `SKILL.md` at a file that exists in the built skill. <!-- @rule RL-725b -->
+- Start any reference file longer than 100 lines with a `## Contents` section. <!-- @rule RL-7bb9 -->
+- Write paths in skill text with forward slashes only. <!-- @rule RL-a875 -->
+- Write no year or calendar date in skill text. <!-- @rule RL-000b -->
+- Write no host or vendor name under `skills/` or `shared/`. <!-- @rule RL-8982 -->
+- Write no em dash or en dash in authored content. <!-- @rule RL-6949 -->
+- Give every skill with scripts an "If the checks cannot run" checklist section. <!-- @rule RL-0095 -->
+- Write at least 3 eval scenarios for every skill under `tests/evals/scenarios/`. <!-- @rule RL-72fd -->
+- Use the words from `shared/references/plain-language.md` and none of its denied terms. <!-- @rule RL-9d96 -->

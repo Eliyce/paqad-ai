@@ -1,0 +1,160 @@
+# Repository selection, three-state onboarded check and wider question trigger scenarios.
+#
+# These are declarative, like s1.yml. They are NOT run in CI; the host eval runner executes them
+# against the built plugin and the fixture repository under tests/evals/fixture-repo (CI-12).
+# AC-49 to AC-55 are conversation-shape acceptance scenarios, each exercised by a scenario below.
+# The onboarded-check script is unchanged (GM-8) and tests/scripts/test_onboarded.py still proves its
+# states; generic mode reinterprets not-set-up as the code-only level, so AC-56 is now a
+# conversation-shape scenario covered in generic-mode.yml, not a stop.
+#
+# Schema: identical to s1.yml (id, title, acceptance, entry_skill, fixture, user, expect), plus:
+#   repositories  the repositories the user can reach, as a list of plain scalars of the form
+#                 "<name>, <state>, <activity>" where state is ready, partly ready, not set up or
+#                 unreadable; or the single scalar "no listing tool". Omitted when the repository is
+#                 attached. Scalars hold no colon followed by a space, so run_parity's reader parses
+#                 them.
+#
+# Property vocabulary added here (all provider-neutral, all checkable; the s1.yml and generic-mode.yml
+# vocabulary also applies; generic mode replaces the not-set-up stop with the code-only level, so
+# ac-53 and ac-53b answer from code only rather than stopping):
+#   overview-table-of-areas        an overview question is answered as a table of areas, one line each.
+#   no-repository-question         nothing is asked about which repository to use.
+#   repository-used-without-asking the only reachable repository is used without a question.
+#   one-choice-list                one short choice list of every reachable repository.
+#   most-recent-first              the list is ordered by most recent activity, newest first.
+#   each-repository-marked         each row carries one mark: in generic mode from the evidence
+#                                  levels (from project docs, from docs and code, from code only) or
+#                                  not checked; the older ready, partly ready and not set up marks map
+#                                  onto those levels.
+#   one-recommended-with-reason    exactly one row is recommended, with a one-clause reason.
+#   attach-or-upload-asked         asks to attach the repository or the docs folder, or upload docs.
+#   onboarding-sentence-exact      the exact onboarding sentence from GRD-1.
+#   offers-set-up-repositories     one short line offering the repositories marked ready or partly ready.
+#   no-choice-list                 no choice list is shown.
+#   nothing-drafted                nothing is drafted or answered from the repository.
+#   switch-checked-and-used        on request the other repository is checked and then used.
+#   redo-said-in-one-line          a run says in one line what is redone after a switch.
+#   partly-ready-said-once         the partly ready sentence is said once, in plain words, with no path.
+#   unknown-areas-named            areas without a summary are named as unknown in plain words.
+
+scenarios:
+  - id: ac-49
+    title: Overview question with a repository attached
+    acceptance: AC-49
+    entry_skill: ask-project
+    fixture: fixture-repo
+    user: "What is this project?"
+    expect:
+      - answer-first
+      - overview-table-of-areas
+      - single-sources-line
+      - no-repository-question
+      - nothing-invented
+
+  - id: ac-50
+    title: Nothing attached and exactly one reachable repository
+    acceptance: AC-50
+    entry_skill: ask-project
+    fixture: fixture-repo
+    repositories:
+      - "shop-platform, ready, pushed today"
+    user: "Can customers pause a subscription today?"
+    expect:
+      - repository-used-without-asking
+      - answer-first
+      - single-sources-line
+
+  - id: ac-51
+    title: Nothing attached and four reachable repositories in four states
+    acceptance: AC-51
+    entry_skill: ask-project
+    fixture: fixture-repo
+    repositories:
+      - "shop-platform, ready, pushed yesterday"
+      - "shop-archive, unreadable, pushed today"
+      - "shop-mobile, partly ready, pushed last week"
+      - "shop-tools, not set up, pushed last month"
+    user: "Who uses the export screen?"
+    expect:
+      - one-choice-list
+      - most-recent-first
+      - each-repository-marked
+      - one-recommended-with-reason
+      - one-question-at-a-time
+
+  - id: ac-52
+    title: No listing tool and nothing attached
+    acceptance: AC-52
+    entry_skill: ask-project
+    fixture: none
+    repositories:
+      - "no listing tool"
+    user: "Which orders go to the finance system?"
+    expect:
+      - attach-or-upload-asked
+      - nothing-invented
+      - one-question-at-a-time
+
+  - id: ac-53
+    title: The user picks a code-only repository
+    acceptance: AC-53
+    entry_skill: ask-project
+    fixture: fixture-repo-code-only
+    repositories:
+      - "shop-platform, from project docs, pushed yesterday"
+      - "shop-tools, from code only, pushed today"
+    user:
+      - "Who uses the export screen?"
+      - "shop-tools"
+    expect:
+      - answers-at-best-level
+      - level-from-code-only
+      - source-line-present
+      - no-not-built-claim-code-only
+
+  - id: ac-53b
+    title: Every reachable repository is code-only
+    acceptance: AC-53
+    entry_skill: ask-project
+    fixture: fixture-repo-code-only
+    repositories:
+      - "shop-tools, from code only, pushed today"
+      - "shop-scripts, from code only, pushed last week"
+    user: "Who uses the export screen?"
+    expect:
+      - one-recommended-with-reason
+      - level-from-code-only
+      - source-line-present
+      - no-not-built-claim-code-only
+
+  - id: ac-54
+    title: Later question, resumed run, then a switch request
+    acceptance: AC-54
+    entry_skill: product-discovery
+    fixture: fixture-repo
+    repositories:
+      - "shop-platform, ready, pushed yesterday"
+      - "shop-mobile, partly ready, pushed last week"
+    user:
+      - "Customers keep calling to pause their plan."
+      - "Does checkout support refunds?"
+      - "[attached record.json at step 3]"
+      - "Switch to the other repository."
+    expect:
+      - no-repository-question
+      - resumes-at-recorded-step
+      - switch-checked-and-used
+      - redo-said-in-one-line
+
+  - id: ac-55
+    title: Area summaries but no modules list
+    acceptance: AC-55
+    entry_skill: ask-project
+    fixture: fixture-repo without docs/instructions/registries/modules.md
+    user: "What areas does it have?"
+    expect:
+      - answer-first
+      - partly-ready-said-once
+      - unknown-areas-named
+      - nothing-invented
+      - single-sources-line

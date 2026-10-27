@@ -1,0 +1,24 @@
+{
+  "id": "D-01M4Z75RREHTK5ZXH6GC66HDN3",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on shared/references/evidence-levels.md",
+  "context": "Chief architect: The two notes are complementary, not opposed: the architect fixes the structure (one new shared reference) and the security auditor fixes a rule that lives inside it (the install signal tests the dot-paqad directory existence only and never reads it). Both hold; the existence-only install-signal rule is written into evidence-levels.md. No owner decision is needed.\n\nTarget: shared/references/evidence-levels.md\n- security-auditor: The install signal must test for the EXISTENCE of a .paqad/ directory only and never read its contents, honouring the never-read list; reading .paqad/ would expose runtime state and secrets.\n- application-architect: The three levels, their detection, the source line, the nudge and the code-only finder belong in ONE new shared reference (RL-04a1, PLG-9), consumed by six skills, not restated in each skill; it must stay provider-neutral (PLG-4), capability-worded (PLG-7), under 100 lines and free of em/en dashes.\n\n[expert-conflict-fork:3a6f342b7ff348ff]",
+  "options": [
+    {
+      "option_key": "the-install-signal-must-test-for-the-exi",
+      "label": "The install signal must test for the EXISTENCE of a .paqad/ directory only and never read its contents, honouring the never-read list; reading .paqad/ would expose runtime state and secrets. — security-auditor"
+    },
+    {
+      "option_key": "the-three-levels-their-detection-the-sou",
+      "label": "The three levels, their detection, the source line, the nudge and the code-only finder belong in ONE new shared reference (RL-04a1, PLG-9), consumed by six skills, not restated in each skill; it must stay provider-neutral (PLG-4), capability-worded (PLG-7), under 100 lines and free of em/en dashes. — application-architect"
+    }
+  ],
+  "recommendation": "the-three-levels-their-detection-the-sou",
+  "created_at": "2026-10-15T07:24:39.054Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M4Z60VP9R7Q2B9M2R80XKDSC",
+  "chosen": "the-three-levels-their-detection-the-sou",
+  "rationale": "Owner: both hold; the existence-only install-signal rule is written into the single new evidence-levels.md (GM-1)",
+  "resolved_at": "2026-10-15T07:27:39.614Z"
+}

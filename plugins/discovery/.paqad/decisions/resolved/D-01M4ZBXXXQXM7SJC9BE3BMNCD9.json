@@ -1,0 +1,23 @@
+{
+  "id": "D-01M4ZBXXXQXM7SJC9BE3BMNCD9",
+  "category": "architecture-path",
+  "title": "How to apply the paqad- skill names",
+  "context": "Users must see and trigger skills as paqad-ask, paqad-discover, /paqad, etc. The source folders are unprefixed and build.py generates the published manifests from build/skills.yml. The plugin itself is named paqad-product-discovery, which textually contains the skill name product-discovery, so a naive rename is collision-prone. Option A renames all 13 source folders (~120 files incl. 19 tests, 73 docs, REQUIREMENTS). Option B keeps source folders and maps published names in build.py (~15-20 files). Both give users the exact same paqad- names.",
+  "options": [
+    {
+      "option_key": "rename-source",
+      "label": "A: rename all 13 source folders with paqad- prefix (literal, source==published, ~120 files)"
+    },
+    {
+      "option_key": "build-time-prefix",
+      "label": "B: keep source folders, publish paqad- names via build.py mapping (~15-20 files, safer, reversible)"
+    }
+  ],
+  "recommendation": "build-time-prefix",
+  "created_at": "2026-10-15T08:47:45.079Z",
+  "status": "resolved",
+  "change": "01M4ZBXM71P7KKW25D66HEEG5Z",
+  "chosen": "build-time-prefix",
+  "rationale": "Owner chose build-time prefix: same user-facing paqad- names with far less source churn and collision risk; source folders stay clean and the change is reversible.",
+  "resolved_at": "2026-10-15T08:49:11.448Z"
+}

@@ -1,0 +1,26 @@
+{
+  "id": "D-01M47TVZ6HHQBFBRJASTVR5MC9",
+  "category": "quality.ratchet_exception",
+  "title": "Enforce RL-de26 (Python file <= 300 lines)",
+  "context": "6 existing files exceed 300 lines (build.py 315, record.py 373, plan_posting.py 354, ...). Dry-run flag rate 0.214.",
+  "options": [
+    {
+      "option_key": "heuristic",
+      "label": "Register as heuristic (flags candidates in review, never blocks)"
+    },
+    {
+      "option_key": "deterministic",
+      "label": "Register as deterministic (blocks a change touching a violation)"
+    },
+    {
+      "option_key": "skip",
+      "label": "Leave unscripted for now"
+    }
+  ],
+  "recommendation": "heuristic",
+  "created_at": "2026-10-06T05:27:03.121Z",
+  "status": "resolved",
+  "chosen": "deterministic",
+  "rationale": "clear line-count metric, only 6 files; block to drive splitting",
+  "resolved_at": "2026-10-06T05:50:33.630Z"
+}

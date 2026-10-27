@@ -1,0 +1,50 @@
+name: python-skills-plugin
+display_name: Python Skills Plugin
+ecosystem: python
+version: 1.0.0
+tier: archetype
+description: Agent Skills plugin built from Markdown skills and Python standard library scripts, assembled by build/build.py
+maintainer: paqad-product-discovery
+detection:
+  manifests:
+    - file: build/skills.yml
+  heuristics:
+    - directory: skills
+    - directory: shared/scripts
+toolchains:
+  - ecosystem: python
+    package_managers: [pip]
+    lockfiles: []
+ast:
+  language: python
+  tree_sitter_grammar: tree-sitter-python
+  file_extensions: ['.py']
+testing:
+  frameworks:
+    - name: unittest
+      detect_file: tests/scripts
+      run_command: python3 -m unittest discover -s tests/scripts
+test_runners:
+  - runner_id: unittest
+    structured_format: none
+    default_command: python3 -m unittest discover -s tests/scripts
+    single_test_selector: file
+    parallel:
+      mode: unavailable
+      reason: unittest has no built-in parallel runner
+docs:
+  conventions_template: rules/conventions.md
+module_health:
+  source_roots:
+    - build
+    - shared/scripts
+    - skills
+  source_globs:
+    - build/*.py
+    - shared/scripts/*.py
+    - skills/*/scripts/*.py
+  public_api_extractor: null
+  test_command: python3 -m coverage run --branch -m unittest discover -s tests/scripts
+  coverage_format: coverage-py-xml
+  coverage_path: coverage.xml
+  git_window_days: 14

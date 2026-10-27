@@ -1,0 +1,26 @@
+{
+  "id": "D-01M47TVXRFYMCTZKG1006HBJ6T",
+  "category": "quality.ratchet_exception",
+  "title": "Enforce RL-9edb (json.dumps only in canonical.py)",
+  "context": "16 real json.dumps calls exist today, many are legit print(json.dumps(...)) CLI output. Dry-run flag rate 1.179 over the 0.05 deterministic threshold.",
+  "options": [
+    {
+      "option_key": "heuristic",
+      "label": "Register as heuristic (flags candidates in review, never blocks)"
+    },
+    {
+      "option_key": "deterministic",
+      "label": "Register as deterministic (blocks a change touching a violation)"
+    },
+    {
+      "option_key": "skip",
+      "label": "Leave unscripted for now"
+    }
+  ],
+  "recommendation": "heuristic",
+  "created_at": "2026-10-06T05:27:01.647Z",
+  "status": "resolved",
+  "chosen": "heuristic",
+  "rationale": "legit CLI json.dumps output; flag in review, do not block",
+  "resolved_at": "2026-10-06T05:50:32.149Z"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "D-01M51ZRY0QAVA8YEXEWHS1QP6D",
+  "category": "finding.triage",
+  "title": "Review findings: strict-YAML frontmatter gap and CI-7 coverage below 90",
+  "context": "Review of the ChatGPT directory change found two major issues. (1) Three published SKILL.md descriptions (sources: skills/product-discovery, skills/ground-in-project, skills/front-door, line 3) contain ': ' in an unquoted value. PyYAML safe_load rejects all three. The check's minimal reader (build/check_chatgpt_submission.py:673) accepts them, so the check passes a zip the portal may reject. (2) CI-7 coverage is 86 percent against the 90 percent gate (AC-17). HEAD is 82 percent, so this is not a regression.",
+  "options": [
+    {
+      "option_key": "fix-both",
+      "label": "Quote the three descriptions, make the check reject ': ' and ' #' in plain values, and add tests to reach 90 percent coverage"
+    },
+    {
+      "option_key": "fix-frontmatter",
+      "label": "Quote the three descriptions and tighten the check now; accept CI-7 coverage as a pre-existing gap (ratchet exception)"
+    },
+    {
+      "option_key": "defer",
+      "label": "Ship as is and record both as known risks"
+    }
+  ],
+  "recommendation": "fix-frontmatter",
+  "created_at": "2026-10-16T09:13:01.719Z",
+  "status": "resolved",
+  "change": "01M51XCEBGVZ0WJGRX02X3V8EH",
+  "chosen": "fix-both",
+  "rationale": "Owner chose fix-both: quote the 3 descriptions, tighten the check (': ', ' #', trailing ':', '.' segments, duplicate entries), and add tests to older scripts to reach the 90% CI-7 bar.",
+  "resolved_at": "2026-10-16T13:57:07.643Z"
+}

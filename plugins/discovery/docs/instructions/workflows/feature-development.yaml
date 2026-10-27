@@ -1,0 +1,181 @@
+# Feature Development Stage Policy
+# This file customizes how the built-in feature-development workflow behaves in this project.
+# The framework still owns routing, phase order, and mandatory safety stages.
+#
+# Enforcement tiers (issue #368) — an escalation is honoured on one of two tiers, and
+# this contract never claims script enforcement it does not have:
+#   - SCRIPT-ENFORCED (deterministic): checks.block_on_failure and the mandatory-stage
+#     completeness gate. `paqad-ai checks run` exits non-zero on any red command and the
+#     completion backstop reads its report; a feature-dev change with no report reads
+#     Inconclusive, never a vacuous pass.
+#   - AGENT-RAISED -> DECISION-PAUSE-ENFORCED: review.escalation.review_findings and
+#     documentation_sync.escalation.stale_docs need model judgment to raise, so no script
+#     detects them; once raised as a `stop`, the Decision-Pause gate holds edits until the
+#     packet resolves. Not a false "a script proves this" promise.
+schema_version: "1"
+merge_mode: append
+
+# Issue #108 — bounded build-check-fix loop round caps, per lane. Each value is
+# the most build-check-fix rounds the loop runs before stopping with one honest
+# "I couldn't get this fully clean" report. Omit a lane to use the framework
+# default (fast 2, graduated 3, full 5). Raise for the heaviest work.
+# rounds:
+#   fast: 2
+#   graduated: 3
+#   full: 5
+
+stages:
+  ticket_intake:
+    read:
+      - docs/instructions/**
+      - .paqad/decisions/resolved/**
+    instructions:
+      - When a ticket provider MCP is configured and the request references a ticket, fetch it and ground the refinement in repo rules, stack, design-system, and prior resolved decisions.
+      - Detect implicit choices the ticket leaves open and resolve them priors-first (matching index.json fingerprints), then rules-second (rules/stack/design-system), then ask the user.
+      - Auto-resolved decisions must be surfaced for confirmation per process.intake_decisions.confirm_auto_resolutions; never bypass the user silently.
+    required_inputs:
+      - ticket ref or natural-language request
+    escalation:
+      missing_ticket: warn
+      unresolved_decisions: stop
+    artifacts:
+      - refined ticket
+      - resolved decision packets
+
+  planning:
+    # Extra context to load before planning starts.
+    read:
+      - docs/modules/**
+      - docs/instructions/**
+    instructions:
+      - Review the canonical module and instruction docs before planning the change.
+      - Keep planning scoped to the requested feature and the current repository state.
+      - "Rules-as-scripts (issue #89): invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
+      - "Reuse before you build: consult the Existing surface section (and `npx paqad-ai index query <name>`) for existing helpers; follow the solution-architect procedure — Reuse / Extend / Build-new, and record a rejection rationale for every Build-new."
+      - "On graduated and full lanes: run the diff-minimizer skill over the implementation sequence before compiling the plan; drop steps it classifies over-build or record why they stay. Run existing-doc-checker before creating any new doc or registry artifact."
+      - "On graduated and full lanes touching more than one module: run cross-module-impact-scanner; surface breaking / silent-shift rows as Decision Packets (existing categories)."
+    required_inputs:
+      - active request
+      - canonical docs
+    strictness:
+      require_docs_context: true
+      require_rule_scripts_synced: true
+    escalation:
+      missing_docs_context: warn
+      rule_scripts_stale: ask
+      rule_scripts_missing: warn
+    artifacts:
+      - implementation sequence
+
+  specification:
+    instructions:
+      - Write or refine the feature specification before implementation when the lane includes specification.
+      - "Spec sign-off (issue #102): on graduated/full lanes the spec must carry behaviour, acceptance criteria (AC-n, given/when/then, proof_type), and human-confirmed invariants (INV-n), and must be frozen before development. Freeze requires no open questions, no critical spec-review defects, and a confirmed invariant set. A mid-build goal change or a work-vs-spec contradiction surfaces via the Decision Pause Contract (spec.change / spec.contradiction) and is never resolved silently."
+      - "Spec-review enforcement (issue #401): SCRIPT-ENFORCED. `paqad-ai spec freeze` runs the spec-quality review itself and refuses to freeze while a critical defect is open, so never run `compliance review` by hand to satisfy the clause above. Major and minor findings never block. The defect summary is folded into the bundle's specification.json and no .paqad/compliance/<slug>/spec-review.json is written by this workflow. Author the spec markdown inside the project: a path resolving outside the project root is rejected."
+      - "Spec pipeline (issue #512): when `spec_pipeline_enabled` is on, produce the spec through `paqad-ai spec pipeline` (start, experts when enabled, questions, task, craft, finish) and freeze it with `paqad-ai spec freeze <spec.md> --from-pipeline`. The pipeline grounds the request in the project's own docs, brings in the domain experts the request needs, asks the owner one batch of plain-language questions only when something is genuinely undecided, and writes the spec in the format the freeze accepts. Under spec_pipeline_adoption=strict a hand-written spec is refused at freeze (exit: `--manual --reason`); under warn it freezes and the record says pipeline.produced=false."
+      - "Freeze the spec before writing code on graduated/full lanes: run `npx paqad-ai spec freeze <spec-file> --signed-off-by <name> --confirm-invariants` and resolve every printed blocker (missing ACs/invariants, open questions) before development. It writes the frozen spec into the active feature bundle (`specification.json`) that development builds against and the spec-change guard checks for drift."
+    required_inputs:
+      - approved spec boundary
+    strictness:
+      require_spec: true
+      require_spec_signoff: true
+    escalation:
+      missing_spec: stop
+      missing_spec_signoff: stop
+    artifacts:
+      - specification
+      - frozen feature-spec
+
+  development:
+    instructions:
+      - Implement only the requested feature behavior and avoid unrelated refactors.
+    required_inputs:
+      - approved spec
+      - implementation sequence
+    strictness:
+      avoid_unrelated_refactors: true
+    escalation:
+      scope_expansion: ask
+    artifacts:
+      - code changes
+
+  review:
+    instructions:
+      - Review the change against correctness, regressions, and rollback risk before treating it as complete.
+      - "Review digest (issue #360): before writing review findings, run `npx paqad-ai review digest` and read `.paqad/session/review-digest.md`. Each finding must either reference a digest row or be explicitly marked judgment-only. Confirm or contest every deterministic finding — an unaddressed deterministic finding is itself a review finding, and the review gate fails when a deterministic high-severity row is never cited by file:line."
+    required_inputs:
+      - code diff
+      - verification summary
+    strictness:
+      require_review: true
+    escalation:
+      review_findings: stop
+    artifacts:
+      - review summary
+
+  checks:
+    instructions:
+      - Run the project command checks after implementation and before finalizing the feature.
+      - "Run them deterministically with `npx paqad-ai checks run`: it executes the mapped format/test/build commands, blocks (exits non-zero) on any red, and persists a structured report the completion gate reads so success is proven, not assumed. A red result is `Needs your attention` — fix it before finalizing."
+      - "Before `npx paqad-ai checks run`, run `npx paqad-ai checks plan`. If it prints `test: sequential (unknown)`, run the test-runner-discovery skill and record its result with `npx paqad-ai checks record-runner <file>` before running the checks. Never ask the developer to add a parallel flag or install a package; a missing prerequisite is reported and the sequential command is used."
+    required_inputs:
+      - working tree diff
+    strictness:
+      block_on_failure: true
+    escalation:
+      missing_command_mapping: stop
+    artifacts:
+      - verification summary
+    checks:
+      use_project_profile_commands: true
+      commands:
+        - format
+        - test
+        - build
+      shell_commands: []
+      block_on_failure: true
+      # Add project-specific commands here when needed.
+      # shell_commands:
+      #   - pnpm typecheck
+    # Rules-as-scripts gate (issue #89). Runs registered rule scripts diff-scoped
+    # after the command checks. deterministic findings block under mode:strict;
+    # heuristic findings route to review and never block.
+    rule_compliance:
+      enabled: true
+      mode: strict
+      scope: changed-files
+      diff_scope: true
+      cache_path: .paqad/scripts/rules/.cache/report.json
+      escalation: stop
+
+  documentation_sync:
+    instructions:
+      - Sync canonical docs affected by the feature diff after verification passes.
+    required_inputs:
+      - changed files
+    strictness:
+      require_canonical_sync: true
+    escalation:
+      stale_docs: stop
+    artifacts:
+      - stale doc targets
+
+  delivery:
+    instructions:
+      - After documentation_sync, ask the user whether to open a PR (yes / draft / no) via a delivery.open_pr Decision Packet — unless process.pr already pins it.
+      - Render branch / commit / PR text from the delivery-policy process block (docs/instructions/workflows/delivery-policy.yaml), resolve the host/ticket provider from config, and link back to the ticket if one is present.
+      - "Run the CI gate per process.ci: wait_for_green polls checks until green (timeout_minutes), applies on_red on failure, and transitions the ticket on green. A red build surfaces via a delivery.ci_red Decision Packet when on_red needs a human call."
+      - "Run the whole chain deterministically with `npx paqad-ai deliver`: it renders branch/commit/PR text, opens the PR after the delivery.open_pr pause, waits for CI (wait_for_green / on_red), and on green posts paqad's rendered verification evidence to the PR. If you deliver by hand instead, post the evidence yourself so the proof still lands: `npx paqad-ai evidence --output /tmp/paqad-evidence.md && gh pr comment --body-file /tmp/paqad-evidence.md`."
+      - "Graceful degradation: if a required provider (host/tracker MCP) is not connected, do what is possible (branch/commit always run), skip the provider-bound steps, and re-surface the connect nudge — do not hard stop."
+      - MCP / git / remote failures (auth, conflicts, branch protection) stop with actionable remediation — never silently fall back to a local-only commit.
+    required_inputs:
+      - merged change
+      - delivery-policy process block
+    escalation:
+      remote_failure: stop
+      ci_red: ask
+    artifacts:
+      - branch
+      - commit
+      - pull request
+      - CI gate result

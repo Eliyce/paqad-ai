@@ -1,0 +1,27 @@
+{
+  "id": "D-01M4XXAR4X3329W40XXH2AFNQF",
+  "category": "ux-pattern",
+  "title": "Answering about an area the docs do not cover",
+  "context": "A partly ready repo answer called built features unbuilt because their area had no docs. Decide what happens when a needed area is undocumented and code is reachable.",
+  "options": [
+    {
+      "option_key": "auto",
+      "label": "Check the code automatically, label it as what the code suggests"
+    },
+    {
+      "option_key": "offer",
+      "label": "Offer to check the code in one line"
+    },
+    {
+      "option_key": "never",
+      "label": "Never check code, only say it is not documented"
+    }
+  ],
+  "recommendation": "auto",
+  "created_at": "2026-10-14T19:13:22.078Z",
+  "status": "resolved",
+  "change": "01M4XXAPPM09268RQH8B2ZBRPK",
+  "chosen": "auto",
+  "rationale": "Owner chose automatic code check after a wrong confident answer on ddhh-bv/webapp",
+  "resolved_at": "2026-10-14T19:13:22.540Z"
+}
