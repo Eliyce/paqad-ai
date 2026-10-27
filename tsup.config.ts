@@ -54,6 +54,7 @@ export default defineConfig({
     'commander',
     'ora',
     'gifenc',
+    'minimatch',
   ],
   outDir: 'dist',
   define: {

@@ -74,7 +74,11 @@ The reasons below are not obvious from the code, grouped by file in `src/rag/`.
 - **`embedding-cache.ts`.** The cache is keyed by the embedded text and scoped to one model, so a
   model change starts empty and a previously seen branch re-embeds nothing.
 - **`file-filter.ts`.** fast-glob can return native separators on Windows, so results are made
-  posix.
+  posix. Each ignore-file, include and exclude glob is compiled into a minimatch matcher once per
+  discovery pass, not once per file: compiling a fresh matcher for every file and pattern was
+  nearly all of a refresh's CPU. The matcher uses the options `path.matchesGlob` passes to its
+  bundled minimatch (case-insensitive on macOS and Windows, no negation, no comments), so the same
+  files are kept and dropped as before.
 - **`git-state.ts`.** Every field is best-effort, so the index build never fails because of git.
 - **`providers.ts`.** The local model is pinned to `q8` so the quantized files load as before;
   newer transformers versions default to fp32, which changes the download size and the vectors.
