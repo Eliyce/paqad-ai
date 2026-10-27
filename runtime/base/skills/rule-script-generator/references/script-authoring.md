@@ -25,11 +25,14 @@ Every generated rule script is a Node ESM (`.mjs`) file. No `.sh` (cross-machine
 // scope: changed-files           // changed-files | whole-tree | git-diff | git-history
 // runtime: node
 // requires: {"node":">=22","binaries":["git"]}   // optional; JSON
+// per_file: true                                 // optional; default false
 // last_validated_at: 2026-05-29T00:00:00Z         // optional
 // false_positive_surface: "Hook files that legitimately call services."  // optional
 ```
 
 `requires` must be valid JSON. Declared binaries are checked at run time; a missing one yields a clean "missing dependency" finding and skips just that script — it never crashes the stage.
+
+`per_file: true` says each file's findings depend only on that file's own content: the script loops `for (const file of files)`, reads no other file and keeps no state across files (the skeleton below is per-file). Before an edit, paqad then keeps each file's findings in `.paqad/scripts/rules/.cache/file-results.json`, keyed by the script path, the script's sha256, the file path and the file's sha256, and runs the script only on files that changed since. Leave it out when the script compares files with each other or checks that another file exists; such a script always gets the full file list. The turn-end check never reads this cache.
 
 ## I/O contract
 
@@ -59,6 +62,7 @@ Every generated rule script is a Node ESM (`.mjs`) file. No `.sh` (cross-machine
 // kind: deterministic
 // scope: changed-files
 // runtime: node
+// per_file: true
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 

@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -14,6 +13,7 @@ import {
   type ExecuteResult,
   type Finding,
 } from './execute.js';
+import { openFileResultsCache, sha256Text, type FileResultsCache } from './file-cache.js';
 import { parseScriptHeader } from './header.js';
 import { loadRuleScriptMap } from './map.js';
 import { appendRuleRun, type RuleRunFinding } from '@/feature-evidence/bundle-ledgers.js';
@@ -65,10 +65,7 @@ export interface RunOptions {
 export interface RunAsyncOptions extends RunOptions {
   concurrency?: number;
   signal?: AbortSignal;
-}
-
-function sha256(input: string): string {
-  return createHash('sha256').update(input).digest('hex');
+  useFileCache?: boolean;
 }
 
 function hashFiles(projectRoot: string, files: string[]): string {
@@ -79,7 +76,7 @@ function hashFiles(projectRoot: string, files: string[]): string {
       const abs = join(projectRoot, rel);
       return existsSync(abs) ? `${rel}\n${readFileSync(abs, 'utf8')}` : `${rel}\n<absent>`;
     });
-  return `sha256-${sha256(parts.join('\n'))}`;
+  return `sha256-${sha256Text(parts.join('\n'))}`;
 }
 
 export function scriptFilesHash(projectRoot: string, map: RuleScriptMap): string {
@@ -95,6 +92,8 @@ interface SelectedScript {
 interface ScriptJob extends SelectedScript {
   index: number;
   scriptAbs: string;
+  scriptSha: string;
+  perFile: boolean;
   targets: string[];
 }
 
@@ -214,7 +213,8 @@ function prepareRun(opts: RunOptions): Preparation {
     if (!existsSync(scriptAbs)) {
       return skippedResult(entry, 'script-file-missing');
     }
-    const header = parseScriptHeader(readFileSync(scriptAbs, 'utf8'));
+    const source = readFileSync(scriptAbs, 'utf8');
+    const header = parseScriptHeader(source);
     const missing = missingBinaries(header.header?.requires?.binaries);
     if (missing.length > 0) {
       return skippedResult(entry, `missing dependency: ${missing.join(', ')}`);
@@ -223,7 +223,14 @@ function prepareRun(opts: RunOptions): Preparation {
       entry.script.scope === 'changed-files' && opts.changedFiles
         ? opts.changedFiles
         : wholeTreeFiles;
-    return { ...entry, index, scriptAbs, targets };
+    return {
+      ...entry,
+      index,
+      scriptAbs,
+      scriptSha: sha256Text(source),
+      perFile: header.header?.per_file === true,
+      targets,
+    };
   });
 
   return {
@@ -301,23 +308,87 @@ export function runRuleScripts(opts: RunOptions): RunReport {
   return finishRun(opts, prepared.run, results);
 }
 
+function mergeFileFindings(
+  job: ScriptJob,
+  cached: Map<string, Finding[]>,
+  fresh: Finding[],
+): Finding[] {
+  const targets = new Set(job.targets);
+  return [
+    ...job.targets.flatMap(
+      (file) => cached.get(file) ?? fresh.filter((finding) => finding.file === file),
+    ),
+    ...fresh.filter((finding) => !targets.has(finding.file)),
+  ];
+}
+
+async function runPerFileJob(
+  job: ScriptJob,
+  cache: FileResultsCache,
+  opts: RunAsyncOptions,
+): Promise<ScriptRunResult> {
+  const cached = new Map<string, Finding[]>();
+  const dirty: string[] = [];
+  for (const file of job.targets) {
+    const hit = cache.lookup(job.script.path, job.scriptSha, file);
+    if (hit) cached.set(file, hit);
+    else dirty.push(file);
+  }
+  if (dirty.length === 0) {
+    return resultFor(job, {
+      ok: true,
+      report: {
+        rule_id: job.rule.id,
+        kind: job.script.kind,
+        findings: mergeFileFindings(job, cached, []),
+      },
+    });
+  }
+  const run = await executeRuleScriptAsync(
+    job.scriptAbs,
+    { projectRoot: opts.projectRoot, files: dirty },
+    { signal: opts.signal },
+  );
+  if (!run.ok || !run.report) {
+    return resultFor(job, run);
+  }
+  const fresh = run.report.findings;
+  const dirtySet = new Set(dirty);
+  if (fresh.every((finding) => dirtySet.has(finding.file))) {
+    for (const file of dirty) {
+      cache.store(
+        job.script.path,
+        job.scriptSha,
+        file,
+        fresh.filter((finding) => finding.file === file),
+      );
+    }
+  }
+  return resultFor(job, {
+    ...run,
+    report: { ...run.report, findings: mergeFileFindings(job, cached, fresh) },
+  });
+}
+
 export async function runRuleScriptsAsync(opts: RunAsyncOptions): Promise<RunReport> {
   const prepared = prepareRun(opts);
   if ('done' in prepared) {
     return prepared.done;
   }
-  const results = await runPool(prepared.run.slots, opts.concurrency ?? 1, async (slot) =>
-    isJob(slot)
-      ? resultFor(
-          slot,
-          await executeRuleScriptAsync(
-            slot.scriptAbs,
-            { projectRoot: opts.projectRoot, files: slot.targets },
-            { signal: opts.signal },
-          ),
-        )
-      : slot,
-  );
+  const cache = opts.useFileCache ? openFileResultsCache(opts.projectRoot) : null;
+  const results = await runPool(prepared.run.slots, opts.concurrency ?? 1, async (slot) => {
+    if (!isJob(slot)) return slot;
+    if (cache && slot.perFile) return runPerFileJob(slot, cache, opts);
+    return resultFor(
+      slot,
+      await executeRuleScriptAsync(
+        slot.scriptAbs,
+        { projectRoot: opts.projectRoot, files: slot.targets },
+        { signal: opts.signal },
+      ),
+    );
+  });
+  cache?.save();
   if (opts.signal?.aborted) {
     return { ...emptyReport(opts, prepared.run.now), results, aborted: true };
   }
