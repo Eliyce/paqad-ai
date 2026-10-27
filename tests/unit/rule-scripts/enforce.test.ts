@@ -267,6 +267,60 @@ describe('enforceRuleScripts · pre-edit filter', () => {
     expect(result.blocking).toBe(false);
   });
 
+  it('AC-23: with no changed files yet, a deterministic finding in the edit target blocks before the edit', async () => {
+    const root = goldenRoot();
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [],
+      scope: 'whole-tree',
+      ...PRE_EDIT,
+      editTargets: [join(root, 'src/app.ts')],
+    });
+    expect(result.ran).toBe(true);
+    expect(result.blocking).toBe(true);
+    expect(result.violations).toEqual([
+      expect.objectContaining({ file: 'src/app.ts', message: 'debugger statement' }),
+    ]);
+  });
+
+  it('AC-23: with no changed files yet, an unrelated file with a violation is not scanned', async () => {
+    const root = goldenRoot();
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [],
+      scope: 'whole-tree',
+      ...PRE_EDIT,
+      editTargets: ['src/clean.ts'],
+    });
+    expect(result.ran).toBe(true);
+    expect(result.blocking).toBe(false);
+    expect(result.violations).toEqual([]);
+  });
+
+  it('AC-23: an edit target outside the project root or inside .paqad/ is not added', async () => {
+    const root = goldenRoot();
+    const outside = buildGoldenProject('paqad-enforce-outside-');
+    roots.push(outside);
+    const result = await enforceRuleScripts({
+      projectRoot: root,
+      mode: 'strict',
+      changedFiles: [],
+      scope: 'whole-tree',
+      ...PRE_EDIT,
+      editTargets: [
+        join(outside, 'src/app.ts'),
+        '../outside/src/app.ts',
+        join(root, '.paqad/scripts/rules/notes.ts'),
+        '.paqad/notes.ts',
+      ],
+    });
+    expect(result.ran).toBe(false);
+    expect(result.blocking).toBe(false);
+    expect(result.summary).toContain('skipped (no files changed this turn)');
+  });
+
   it('reports an aborted run without a verdict and writes no report', async () => {
     const root = goldenRoot();
     const controller = new AbortController();

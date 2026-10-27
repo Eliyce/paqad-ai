@@ -189,6 +189,10 @@ function payloadSessionId(
   return resolveSessionId(projectRoot, payload?.sessionId ?? env.CLAUDE_SESSION_ID ?? null);
 }
 
+function payloadTargets(payload: CapabilityPayload | undefined): string[] {
+  return payload?.targetPaths ?? (payload?.targetPath ? [payload.targetPath] : []);
+}
+
 async function enforceBeforeEdit(
   context: CapabilityContext,
   mode: RuleComplianceMode,
@@ -204,7 +208,9 @@ async function enforceBeforeEdit(
       projectRoot: context.projectRoot,
       mode,
       scope: 'whole-tree',
-      ...(gate.preEdit === 'blocking-only' ? { ...PRE_EDIT_FILTER, useFileCache: true } : {}),
+      ...(gate.preEdit === 'blocking-only'
+        ? { ...PRE_EDIT_FILTER, useFileCache: true, editTargets: payloadTargets(context.payload) }
+        : {}),
       concurrency: gate.concurrency,
       signal: controller.signal,
     });

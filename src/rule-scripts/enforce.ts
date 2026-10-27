@@ -1,3 +1,5 @@
+import { isAbsolute, normalize, relative } from 'pathe';
+
 import type { Finding } from '@/rule-scripts/execute.js';
 import { loadRuleScriptMap } from '@/rule-scripts/map.js';
 import {
@@ -7,7 +9,7 @@ import {
   type RuleScriptScope,
 } from '@/rule-scripts/runner.js';
 import { resolveRuleGateConfig } from '@/core/framework-config.js';
-import { loadChangeEvidence } from '@/pipeline/change-evidence.js';
+import { isPaqadArtifactPath, loadChangeEvidence } from '@/pipeline/change-evidence.js';
 
 export interface RuleViolation {
   rule_id: string;
@@ -41,6 +43,23 @@ export interface EnforceOptions {
   concurrency?: number;
   signal?: AbortSignal;
   useFileCache?: boolean;
+  editTargets?: string[];
+}
+
+function projectRelativeTargets(projectRoot: string, targets: string[] | undefined): string[] {
+  return (targets ?? [])
+    .map((target) =>
+      (isAbsolute(target) ? relative(projectRoot, target) : normalize(target)).replace(/^\.\//, ''),
+    )
+    .filter(
+      (rel) =>
+        rel !== '' &&
+        rel !== '.' &&
+        rel !== '..' &&
+        !rel.startsWith('../') &&
+        !isAbsolute(rel) &&
+        !isPaqadArtifactPath(rel),
+    );
 }
 
 export async function enforceRuleScripts(options: EnforceOptions): Promise<EnforcementResult> {
@@ -52,7 +71,12 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
   }
 
   const scope = options.scope ?? 'changed-files';
-  const changedFiles = options.changedFiles ?? (await loadChangeEvidence(projectRoot)).files;
+  const changedFiles = Array.from(
+    new Set([
+      ...(options.changedFiles ?? (await loadChangeEvidence(projectRoot)).files),
+      ...projectRelativeTargets(projectRoot, options.editTargets),
+    ]),
+  );
 
   const changedFilesOnly =
     options.scopes !== undefined && options.scopes.every((entry) => entry === 'changed-files');

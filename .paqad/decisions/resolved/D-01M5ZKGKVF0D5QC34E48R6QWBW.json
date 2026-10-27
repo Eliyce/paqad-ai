@@ -1,0 +1,47 @@
+{
+  "id": "D-01M5ZKGKVF0D5QC34E48R6QWBW",
+  "category": "architecture-path",
+  "title": "Pre-edit rule gate: which files does it check when the change has no changed files yet?",
+  "context": "The managed-route e2e (AC-12 rule-script deny) fails: with an empty change set the old gate fell back to a whole-tree scan; #747 skips it, so a violation already in the file about to be edited is not caught before the first edit (turn end still catches it).",
+  "options": [
+    {
+      "option_key": "edit-target",
+      "label": "Check changed files plus the edit target (no whole-tree scan)",
+      "one_line_preview": "Check changed files plus the edit target (no whole-tree scan)",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "changed-only",
+      "label": "Changed files only; reseed the e2e fixture",
+      "one_line_preview": "Changed files only; reseed the e2e fixture",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "edit-target",
+  "created_at": "2026-10-27T21:15:59.215Z",
+  "status": "resolved",
+  "change": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "chosen": "edit-target",
+  "rationale": "Owner chose: pre-edit gate checks changed files plus the edit target; no whole-tree fallback.",
+  "resolved_at": "2026-10-27T21:16:03.821Z",
+  "decision_id": "D-01M5ZKGKVF0D5QC34E48R6QWBW",
+  "fingerprint": "sha256:41d911dadc95857e4be8c97129acd8f2149084aa902c1650df70fd9fdc162a3b",
+  "question": "Pre-edit rule gate: which files does it check when the change has no changed files yet?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-decision-cli",
+  "task_session_id": "01M5YZPHCJ89TVAMWFJYS19CJ0",
+  "ttl_until": "2027-01-25T21:15:59.215Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "edit-target",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-27T21:16:03.821Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner chose: pre-edit gate checks changed files plus the edit target; no whole-tree fallback."
+  }
+}
