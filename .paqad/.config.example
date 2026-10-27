@@ -157,6 +157,12 @@
 # stages_mode=strict
 # off | warn | strict — scripted-rule enforcement from the working tree. (env: PAQAD_RULE_COMPLIANCE)
 # rule_compliance=warn
+# blocking-only | all — rule scripts run before an edit. blocking-only runs only the deterministic changed-files scripts and the rest at turn end; all runs every script. (env: PAQAD_RULE_GATE_PRE_EDIT)
+# rule_gate_pre_edit=blocking-only
+# auto | 1-8 — rule scripts run at once. auto = CPU cores minus one, at most 8; 1 runs them one after another. (env: PAQAD_RULE_GATE_CONCURRENCY)
+# rule_gate_concurrency=auto
+# Time in ms (500-9000) the pre-edit rule check may take from the hook start, under both rule_gate_pre_edit values. Past it the edit goes ahead and the checks block at turn end. (env: PAQAD_RULE_GATE_BUDGET_MS)
+# rule_gate_budget_ms=6000
 # off | warn | strict — analytics instrumentation completeness. warn (default) flags a missing event doc; strict blocks on Done; opt-in, never auto-escalated. (env: PAQAD_ANALYTICS_STRICTNESS)
 # analytics_strictness=warn
 # off | warn | strict — new-code duplication gate. warn (default) flags a near-copy of existing code; strict blocks it. Ships warn for a two-cycle bake-in. (env: PAQAD_DUPLICATION_MODE)

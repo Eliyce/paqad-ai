@@ -28,7 +28,9 @@ import {
   removeConfigValue,
   resolveFrameworkConfig,
   resolveFrameworkConfigFromMap,
+  resolveRuleGateConfig,
   resolveStageAgentSettings,
+  autoRuleGateConcurrency,
   setConfigValue,
   setGroupConfigValue,
   STAGE_EFFORT_LEVELS,
@@ -1175,6 +1177,79 @@ describe('stage agent effort and model settings', () => {
       expect(text).toContain('stage_effort_review=medium');
       expect(text).toContain('# stage_model_checks=inherit');
       expect(resolveStageAgentSettings(root, {} as NodeJS.ProcessEnv).review.effort).toBe('medium');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('rule gate settings', () => {
+  function gate(env: Record<string, string>, cores = 12) {
+    const root = tmpRoot();
+    try {
+      return resolveRuleGateConfig(root, env as NodeJS.ProcessEnv, cores);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+
+  it('lists the three keys in the policy group next to rule_compliance', () => {
+    const keys = FRAMEWORK_CONFIG_SPECS.map((spec) => spec.key);
+    const at = keys.indexOf('rule_compliance');
+    expect(keys.slice(at + 1, at + 4)).toEqual([
+      'rule_gate_pre_edit',
+      'rule_gate_concurrency',
+      'rule_gate_budget_ms',
+    ]);
+    for (const key of keys.slice(at + 1, at + 4)) {
+      expect(FRAMEWORK_CONFIG_SPECS.find((spec) => spec.key === key)?.group).toBe('policy');
+    }
+  });
+
+  it('defaults to blocking-only, auto concurrency and a 6000 ms budget', () => {
+    expect(gate({})).toEqual({ preEdit: 'blocking-only', concurrency: 8, budgetMs: 6000 });
+    expect(gate({}, 4).concurrency).toBe(3);
+  });
+
+  it('sizes auto as cores minus one, between 1 and 8', () => {
+    expect(autoRuleGateConcurrency(1)).toBe(1);
+    expect(autoRuleGateConcurrency(2)).toBe(1);
+    expect(autoRuleGateConcurrency(6)).toBe(5);
+    expect(autoRuleGateConcurrency(64)).toBe(8);
+  });
+
+  it('AC-38: falls back to the defaults on bad values and never throws', () => {
+    for (const budget of ['0', '-1', 'abc']) {
+      expect(gate({ PAQAD_RULE_GATE_BUDGET_MS: budget }).budgetMs).toBe(6000);
+    }
+    for (const concurrency of ['0', 'x', '-3', '0.5']) {
+      expect(gate({ PAQAD_RULE_GATE_CONCURRENCY: concurrency }, 6).concurrency).toBe(5);
+    }
+    expect(gate({ PAQAD_RULE_GATE_PRE_EDIT: 'some' }).preEdit).toBe('blocking-only');
+  });
+
+  it('AC-38: clamps the budget to 500-9000 ms and the pool to 8', () => {
+    expect(gate({ PAQAD_RULE_GATE_BUDGET_MS: '20' }).budgetMs).toBe(500);
+    expect(gate({ PAQAD_RULE_GATE_BUDGET_MS: '60000' }).budgetMs).toBe(9000);
+    expect(gate({ PAQAD_RULE_GATE_BUDGET_MS: '2500' }).budgetMs).toBe(2500);
+    expect(gate({ PAQAD_RULE_GATE_CONCURRENCY: '32' }).concurrency).toBe(8);
+    expect(gate({ PAQAD_RULE_GATE_CONCURRENCY: '1' }).concurrency).toBe(1);
+  });
+
+  it('reads the layered surfaces, local over team', () => {
+    const root = tmpRoot();
+    try {
+      writeConfigsFile(
+        root,
+        '.config.policy',
+        'rule_gate_pre_edit=all\nrule_gate_budget_ms=3000\n',
+      );
+      writeConfig(root, 'rule_gate_budget_ms=4000\nrule_gate_concurrency=1\n');
+      expect(resolveRuleGateConfig(root, {} as NodeJS.ProcessEnv, 12)).toEqual({
+        preEdit: 'all',
+        concurrency: 1,
+        budgetMs: 4000,
+      });
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

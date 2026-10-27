@@ -1,4 +1,5 @@
 import { mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { availableParallelism } from 'node:os';
 import { dirname, join } from 'node:path';
 
 import YAML from 'yaml';
@@ -28,6 +29,15 @@ const ASK_THRESHOLDS = ['strict', 'balanced', 'permissive'] as const;
 const STAGE_RULE_MODES = ['off', 'warn', 'strict'] as const;
 const CHECKS_FLAKY_MODES = ['pass', 'warn', 'fail'] as const;
 const SPEC_PIPELINE_ADOPTION_MODES = ['warn', 'strict'] as const;
+export const RULE_GATE_PRE_EDIT_MODES = ['blocking-only', 'all'] as const;
+export type RuleGatePreEditMode = (typeof RULE_GATE_PRE_EDIT_MODES)[number];
+export const RULE_GATE_DEFAULTS = {
+  pre_edit: 'blocking-only' as RuleGatePreEditMode,
+  budget_ms: 6000,
+  min_budget_ms: 500,
+  max_budget_ms: 9000,
+  max_concurrency: 8,
+};
 export type SpecPipelineAdoptionMode = (typeof SPEC_PIPELINE_ADOPTION_MODES)[number];
 
 export const SPEC_PIPELINE_DEFAULTS: Readonly<{
@@ -619,6 +629,40 @@ export const FRAMEWORK_CONFIG_SPECS: readonly FrameworkConfigSpec[] = [
     comment: 'off | warn | strict — scripted-rule enforcement from the working tree.',
   },
   {
+    key: 'rule_gate_pre_edit',
+    env: 'PAQAD_RULE_GATE_PRE_EDIT',
+    type: 'enum',
+    enumValues: RULE_GATE_PRE_EDIT_MODES,
+    default: RULE_GATE_DEFAULTS.pre_edit,
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'blocking-only | all — rule scripts run before an edit. blocking-only runs only the ' +
+      'deterministic changed-files scripts and the rest at turn end; all runs every script.',
+  },
+  {
+    key: 'rule_gate_concurrency',
+    env: 'PAQAD_RULE_GATE_CONCURRENCY',
+    type: 'string',
+    default: 'auto',
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'auto | 1-8 — rule scripts run at once. auto = CPU cores minus one, at most 8; 1 runs ' +
+      'them one after another.',
+  },
+  {
+    key: 'rule_gate_budget_ms',
+    env: 'PAQAD_RULE_GATE_BUDGET_MS',
+    type: 'number',
+    default: RULE_GATE_DEFAULTS.budget_ms,
+    group: 'policy',
+    section: 'Enforcement (capability modes — team value is a floor)',
+    comment:
+      'Time in ms (500-9000) the pre-edit rule check may take from the hook start, under both ' +
+      'rule_gate_pre_edit values. Past it the edit goes ahead and the checks block at turn end.',
+  },
+  {
     key: 'analytics_strictness',
     env: 'PAQAD_ANALYTICS_STRICTNESS',
     type: 'enum',
@@ -1049,6 +1093,50 @@ export function resolveNumericConfig(
   }
   const parsed = Number(raw.trim());
   return Number.isFinite(parsed) && valid(parsed) ? parsed : fallback;
+}
+
+export interface RuleGateConfig {
+  preEdit: RuleGatePreEditMode;
+  concurrency: number;
+  budgetMs: number;
+}
+
+export function autoRuleGateConcurrency(cores: number = availableParallelism()): number {
+  return Math.max(1, Math.min(RULE_GATE_DEFAULTS.max_concurrency, cores - 1));
+}
+
+function positiveNumber(raw: string | undefined): number | undefined {
+  const parsed = raw === undefined || raw.trim() === '' ? NaN : Number(raw.trim());
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
+
+export function resolveRuleGateConfig(
+  projectRoot: string,
+  env: NodeJS.ProcessEnv = process.env,
+  cores: number = availableParallelism(),
+): RuleGateConfig {
+  const raw = layeredConfigMap(projectRoot, env);
+  const budget = positiveNumber(raw.get('rule_gate_budget_ms'));
+  const concurrency = positiveNumber(raw.get('rule_gate_concurrency'));
+  const wholeConcurrency = concurrency === undefined ? 0 : Math.floor(concurrency);
+  return {
+    preEdit: asEnum(
+      raw.get('rule_gate_pre_edit')?.toLowerCase(),
+      RULE_GATE_PRE_EDIT_MODES,
+      RULE_GATE_DEFAULTS.pre_edit,
+    ),
+    concurrency:
+      wholeConcurrency >= 1
+        ? Math.min(RULE_GATE_DEFAULTS.max_concurrency, wholeConcurrency)
+        : autoRuleGateConcurrency(cores),
+    budgetMs:
+      budget === undefined
+        ? RULE_GATE_DEFAULTS.budget_ms
+        : Math.min(
+            RULE_GATE_DEFAULTS.max_budget_ms,
+            Math.max(RULE_GATE_DEFAULTS.min_budget_ms, budget),
+          ),
+  };
 }
 
 export function configSaysPaqadDisabled(
@@ -1942,6 +2030,9 @@ export const CONFIG_KEY_SECTIONS: ReadonlyArray<{
     keys: [
       'stages_mode',
       'rule_compliance',
+      'rule_gate_pre_edit',
+      'rule_gate_concurrency',
+      'rule_gate_budget_ms',
       'analytics_strictness',
       'duplication_mode',
       'mutation_mode',
