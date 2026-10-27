@@ -40,6 +40,7 @@ export interface EnforceOptions {
   scopes?: RuleScriptScope[];
   concurrency?: number;
   signal?: AbortSignal;
+  useFileCache?: boolean;
 }
 
 export async function enforceRuleScripts(options: EnforceOptions): Promise<EnforcementResult> {
@@ -75,6 +76,7 @@ export async function enforceRuleScripts(options: EnforceOptions): Promise<Enfor
     ...(options.scopes ? { scopes: options.scopes } : {}),
     concurrency: options.concurrency ?? resolveRuleGateConfig(projectRoot).concurrency,
     signal: options.signal,
+    useFileCache: options.useFileCache,
   });
   if (report.aborted) {
     return { ran: false, mode, blocking: false, violations: [], armed, summary: '', aborted: true };

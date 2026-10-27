@@ -66,6 +66,7 @@ export interface RunAsyncOptions extends RunOptions {
   concurrency?: number;
   signal?: AbortSignal;
   useFileCache?: boolean;
+  scriptTimeoutMs?: number;
 }
 
 function hashFiles(projectRoot: string, files: string[]): string {
@@ -347,7 +348,7 @@ async function runPerFileJob(
   const run = await executeRuleScriptAsync(
     job.scriptAbs,
     { projectRoot: opts.projectRoot, files: dirty },
-    { signal: opts.signal },
+    { signal: opts.signal, timeoutMs: opts.scriptTimeoutMs },
   );
   if (!run.ok || !run.report) {
     return resultFor(job, run);
@@ -384,7 +385,7 @@ export async function runRuleScriptsAsync(opts: RunAsyncOptions): Promise<RunRep
       await executeRuleScriptAsync(
         slot.scriptAbs,
         { projectRoot: opts.projectRoot, files: slot.targets },
-        { signal: opts.signal },
+        { signal: opts.signal, timeoutMs: opts.scriptTimeoutMs },
       ),
     );
   });

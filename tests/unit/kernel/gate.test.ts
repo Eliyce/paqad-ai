@@ -92,6 +92,12 @@ function setup(mode: 'off' | 'warn' | 'strict', targetBody: string): string {
   return root;
 }
 
+function setupChanged(mode: 'off' | 'warn' | 'strict', targetBody: string): string {
+  const root = setup(mode, targetBody);
+  seedGitChangedFiles(root, ['src/app.ts']);
+  return root;
+}
+
 afterEach(() => {
   while (roots.length > 0) {
     rmSync(roots.pop()!, { recursive: true, force: true });
@@ -100,7 +106,7 @@ afterEach(() => {
 
 describe('runCapabilityGate', () => {
   it('blocks a scripted-rule violation under strict at the pre-mutation seam', async () => {
-    const root = setup('strict', 'function f() {\n  debugger;\n}\n');
+    const root = setupChanged('strict', 'function f() {\n  debugger;\n}\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
     expect(result.summary).toContain('Needs your attention');
@@ -181,7 +187,7 @@ describe('runCapabilityGate', () => {
   });
 
   it('skips rule-scripts at the pre-mutation seam for a docs-only edit', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',
@@ -192,14 +198,14 @@ describe('runCapabilityGate', () => {
   });
 
   it('surfaces a warn finding without blocking', async () => {
-    const root = setup('warn', 'debugger;\n');
+    const root = setupChanged('warn', 'debugger;\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toContain('Heads up');
   });
 
   it('is a clean no-op when a strict scan finds no violation (map present, ran but empty)', async () => {
-    const root = setup('strict', 'export const x = 1;\n');
+    const root = setupChanged('strict', 'export const x = 1;\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
@@ -268,14 +274,14 @@ describe('runCapabilityGate', () => {
   });
 
   it('clamps a local rule_compliance=off below the strict team floor (cannot weaken)', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     write(join(root, '.paqad/.config'), 'rule_compliance=off\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
   });
 
   it('does not block when the team floors rule_compliance to off', async () => {
-    const root = setup('off', 'debugger;\n');
+    const root = setupChanged('off', 'debugger;\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
     expect(result.summary).toBe('');
@@ -300,7 +306,7 @@ describe('runCapabilityGate', () => {
   });
 
   it('blocks under strict when a script is hand-edited outside the engine (tamper)', async () => {
-    const root = setup('strict', 'export const x = 1.0;\n');
+    const root = setupChanged('strict', 'export const x = 1.0;\n');
     appendFileSync(join(root, SCRIPT_REL), '\n// hand-edit that the engine never blessed\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
@@ -308,7 +314,7 @@ describe('runCapabilityGate', () => {
   });
 
   it('surfaces tamper without blocking under warn (map hand-edited)', async () => {
-    const root = setup('warn', 'export const x = 1;\n');
+    const root = setupChanged('warn', 'export const x = 1;\n');
     const mapPath = join(root, MAP_REL);
     writeFileSync(
       mapPath,
@@ -321,7 +327,7 @@ describe('runCapabilityGate', () => {
   });
 
   it('surfaces an advisory (never blocks) when the bindings have no lock yet', async () => {
-    const root = setup('strict', 'export const x = 1;\n');
+    const root = setupChanged('strict', 'export const x = 1;\n');
     rmSync(join(root, LOCK_REL), { force: true });
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(false);
@@ -329,7 +335,7 @@ describe('runCapabilityGate', () => {
   });
 
   it('a real violation still blocks when the lock is intact (no false tamper)', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     const result = await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation' });
     expect(result.block).toBe(true);
     expect(result.summary).toContain('Needs your attention');
@@ -337,7 +343,7 @@ describe('runCapabilityGate', () => {
   });
 
   it('refuses cleanly (no block) when the project was blessed by a newer paqad', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     const lockPath = join(root, LOCK_REL);
     const lock = JSON.parse(readFileSync(lockPath, 'utf8')) as {
       capabilities: Record<string, { policy_version: number }>;
@@ -359,7 +365,7 @@ describe('runCapabilityGate rule-stop record', () => {
   };
 
   it('writes the rule, title, file and tool use id on a rule-script deny', async () => {
-    const root = setup('strict', 'function f() {\n  debugger;\n}\n');
+    const root = setupChanged('strict', 'function f() {\n  debugger;\n}\n');
     const result = await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',
@@ -382,7 +388,7 @@ describe('runCapabilityGate rule-stop record', () => {
   });
 
   it('marks the record not sole when another capability also blocks the same call', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     write(join(root, '.paqad/configs/.config.policy'), 'rule_compliance=strict\n');
     const result = await runCapabilityGate({
       projectRoot: root,
@@ -415,7 +421,7 @@ describe('runCapabilityGate rule-stop record', () => {
   }
 
   it('marks a subagent stop sole when that subagent loaded the framework itself', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     write(join(root, '.paqad/.agent-entry-loaded.d/sess-stop'), '{}\n');
     write(join(root, '.paqad/session/agent-entry/agent-a1'), '{}\n');
     const { result, record } = await stopFor(root, hookInput('agent-a1'));
@@ -424,7 +430,7 @@ describe('runCapabilityGate rule-stop record', () => {
   });
 
   it('keeps a subagent stop not sole when only the main session loaded the framework', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     write(join(root, '.paqad/.agent-entry-loaded.d/sess-stop'), '{}\n');
     const { result, record } = await stopFor(root, hookInput('agent-a1'));
     expect(result.block).toBe(true);
@@ -432,7 +438,7 @@ describe('runCapabilityGate rule-stop record', () => {
   });
 
   it('marks a main-session stop sole only while its session sentinel is in place', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     const missing = await stopFor(root, hookInput());
     expect(missing.result.block).toBe(true);
     expect(missing.record?.sole).toBe(false);
@@ -442,7 +448,7 @@ describe('runCapabilityGate rule-stop record', () => {
   });
 
   it('keeps the deny and marks the stop not sole when the entry check throws', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     const plain = await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',
@@ -464,13 +470,13 @@ describe('runCapabilityGate rule-stop record', () => {
   });
 
   it('marks the stop not sole when the caller gives no entry check', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {}, payload: PAYLOAD });
     expect(readRuleStopRecord(root, 'sess-stop')?.sole).toBe(false);
   });
 
   it('marks the record managed on the managed route', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     await runCapabilityGate({
       projectRoot: root,
       seam: 'pre-mutation',
@@ -481,7 +487,7 @@ describe('runCapabilityGate rule-stop record', () => {
   });
 
   it('clears the record once an edit is allowed again', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {}, payload: PAYLOAD });
     expect(readRuleStopRecord(root, 'sess-stop')).not.toBeNull();
     write(join(root, 'src/app.ts'), 'export const x = 1;\n');
@@ -496,20 +502,20 @@ describe('runCapabilityGate rule-stop record', () => {
   });
 
   it('writes nothing without a session id', async () => {
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     await runCapabilityGate({ projectRoot: root, seam: 'pre-mutation', env: {} });
     expect(existsSync(join(root, '.paqad/session/hud'))).toBe(false);
   });
 
   it('keeps the gate result identical and logs one line when the record cannot be written', async () => {
-    const healthy = setup('strict', 'debugger;\n');
+    const healthy = setupChanged('strict', 'debugger;\n');
     const expected = await runCapabilityGate({
       projectRoot: healthy,
       seam: 'pre-mutation',
       env: {},
       payload: PAYLOAD,
     });
-    const root = setup('strict', 'debugger;\n');
+    const root = setupChanged('strict', 'debugger;\n');
     write(join(root, '.paqad/session/hud'), 'not a directory');
     const result = await runCapabilityGate({
       projectRoot: root,

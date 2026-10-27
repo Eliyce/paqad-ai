@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { PATHS } from '@/core/constants/paths.js';
 import { renameWithRetrySync } from '@/core/fs/atomic-rename.js';
 
-function safeSessionId(sessionId: string): string {
+export function safeSessionId(sessionId: string): string {
   return sessionId.replace(/[^A-Za-z0-9._-]/g, '_').replace(/^\.+/, '_') || 'unknown';
 }
 

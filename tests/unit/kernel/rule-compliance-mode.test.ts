@@ -2,9 +2,21 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { resolveRuleComplianceMode } from '@/kernel/capability.js';
+import { CAPABILITY_IMPLS, resolveRuleComplianceMode } from '@/kernel/capability.js';
+import type { EnforceOptions } from '@/rule-scripts/enforce.js';
+import { writePendingPreMutation } from '@/rule-scripts/pending-marker.js';
+
+const enforced = vi.hoisted(() => ({ calls: [] as unknown[] }));
+
+vi.mock('@/rule-scripts/enforce.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/rule-scripts/enforce.js')>()),
+  enforceRuleScripts: async (options: unknown) => {
+    enforced.calls.push(options);
+    return { ran: false, mode: 'strict', blocking: false, violations: [], armed: 1, summary: '' };
+  },
+}));
 
 describe('resolveRuleComplianceMode — workflow yaml as a real floor', () => {
   let root: string;
@@ -63,5 +75,65 @@ describe('resolveRuleComplianceMode — workflow yaml as a real floor', () => {
   it('does not let a local/env value lower below the tracked yaml floor', () => {
     writeWorkflow('strict');
     expect(resolveRuleComplianceMode(root, { PAQAD_RULE_COMPLIANCE: 'warn' })).toBe('strict');
+  });
+});
+
+describe('rule-scripts capability: the options each seam passes', () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'paqad-rc-seams-'));
+    mkdirSync(join(root, '.paqad'), { recursive: true });
+    enforced.calls = [];
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  async function evaluate(
+    seam: 'pre-mutation' | 'completion',
+    env: Record<string, string> = {},
+  ): Promise<EnforceOptions> {
+    const capability = CAPABILITY_IMPLS.get('rule-scripts')!;
+    await capability.evaluate({
+      projectRoot: root,
+      seam,
+      env: { PAQAD_RULE_COMPLIANCE: 'strict', ...env },
+      payload: { sessionId: 'sess-seams', targetPath: join(root, 'src/app.ts') },
+    });
+    return enforced.calls.at(-1) as EnforceOptions;
+  }
+
+  it('AC-25: the pre-mutation seam passes kinds deterministic and scopes changed-files', async () => {
+    expect(await evaluate('pre-mutation')).toMatchObject({
+      kinds: ['deterministic'],
+      scopes: ['changed-files'],
+      useFileCache: true,
+    });
+  });
+
+  it('AC-25: the completion seam passes no filter and never the file cache', async () => {
+    writePendingPreMutation(root, {
+      session_id: 'sess-seams',
+      change: null,
+      written_at: '2026-10-27T00:00:00.000Z',
+      files: 1,
+    });
+    const options = await evaluate('completion');
+    expect(options).toMatchObject({ scope: 'changed-files' });
+    expect(options.kinds).toBeUndefined();
+    expect(options.scopes).toBeUndefined();
+    expect(options.useFileCache).toBeUndefined();
+  });
+
+  it('passes no filter and no file cache before an edit under rule_gate_pre_edit=all', async () => {
+    const options = await evaluate('pre-mutation', {
+      PAQAD_RULE_GATE_PRE_EDIT: 'all',
+      PAQAD_RULE_GATE_CONCURRENCY: '1',
+    });
+    expect(options).toMatchObject({ scope: 'whole-tree', concurrency: 1 });
+    expect(options.kinds).toBeUndefined();
+    expect(options.useFileCache).toBeUndefined();
   });
 });
