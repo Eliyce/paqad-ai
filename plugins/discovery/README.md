@@ -62,6 +62,12 @@ unprefixed name and the user-visible name is the `paqad-` published name applied
 (approach B); start from the `/paqad` front door and it routes you to the right entry skill.
 Published name shown first, source folder in parentheses.
 
+Inside the one `paqad` Claude plugin the same skills ship under short names, invoked as
+`/paqad:<short name>`: `start` (front door), `discover`, `ask`, `refine-ticket`, `size-work`,
+`plan-sprint`, `get-connected`, `understand-idea`, `ground-in-project`, `shape-idea`,
+`decide-together`, `write-tickets`, `check-tickets`, `post-tickets`. Run `pnpm build:discovery`
+from the repo root to rebuild them into `runtime/claude-plugin/skills`.
+
 - `/paqad` (entry; source `front-door`) - the front door: routes an ask, discover, refine-ticket,
   size-work or plan-sprint intent to the matching entry skill behind the scenes.
 - `paqad-discover` (entry; source `product-discovery`) - coordinates the idea journey: step order,
