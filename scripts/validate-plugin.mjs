@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { PLUGIN_MARKETPLACE, PLUGIN_REPO } from './assemble-plugin.mjs';
+import { reportPluginSkills } from './check-plugin-skills.mjs';
 
 const repoRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -25,6 +26,11 @@ function validate(target) {
     console.error(`[paqad] claude plugin validate failed for ${target} (exit ${result.status}).`);
     process.exit(result.status ?? 1);
   }
+}
+
+if (!reportPluginSkills({ pluginRoot: repoRoot })) {
+  console.error('[paqad] plugin skill check failed; fix the findings above.');
+  process.exit(1);
 }
 
 if (!claudeAvailable()) {

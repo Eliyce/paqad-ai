@@ -3266,6 +3266,7 @@ modules:
       - scripts/validate-plugin.mjs
       - scripts/test-plugin.mjs
       - scripts/build-discovery.mjs
+      - scripts/check-plugin-skills.mjs
     features:
       - slug: plugin-manifest
         name: Generated plugin manifest, hooks file and stage agents
@@ -3278,7 +3279,7 @@ modules:
         sources: [runtime/claude-plugin/hooks.json, runtime/claude-plugin/agents, runtime/claude-plugin/bin, runtime/claude-plugin/mod]
       - slug: plugin-skills
         name: Plugin skills (developer skills and generated discovery skills)
-        sources: [runtime/claude-plugin/skills]
+        sources: [runtime/claude-plugin/skills, scripts/check-plugin-skills.mjs]
       - slug: discovery-skills
         name: Product-owner discovery skills source and Python build
         sources: [plugins/discovery, scripts/build-discovery.mjs]
