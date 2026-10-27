@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -210,6 +211,66 @@ describe('committed generated discovery skills', () => {
       for (const [rel, text] of Object.entries(files)) {
         expect(text.includes('plugins/discovery/'), `${name}/${rel}`).toBe(false);
       }
+    }
+  });
+});
+
+describe('discovery build configuration', () => {
+  const discoveryRoot = join(repoRoot, 'plugins', 'discovery');
+  const chatPrefix = 'Chat and Claude Code: ';
+  const chatCompatibility =
+    'compatibility: "claude.ai chat, Cowork or Claude Code; reads project docs and code through a connector, uploaded files or the open folder"\n';
+  const withoutLabels = (text: string) =>
+    text.replace(chatCompatibility, '').replace(`description: "${chatPrefix}`, 'description: "');
+
+  it('AC-4: every host publishes the 14 short names from skills.yml, with the front door as start', () => {
+    const skillsYml = readFileSync(join(discoveryRoot, 'build', 'skills.yml'), 'utf8');
+    const published = [...skillsYml.matchAll(/^ {4}publish: (\S+)$/gm)].map((match) => match[1]);
+    expect(published.sort()).toEqual([...generatedSkills()].sort());
+    expect(published).toContain('start');
+    expect(published.filter((name) => name!.startsWith('paqad'))).toEqual([]);
+    expect(skillsYml).toMatch(/- name: front-door\n {4}publish: start\n/);
+    for (const name of generatedSkills()) {
+      expect(readFileSync(join(SKILLS_DIR, name, 'SKILL.md'), 'utf8')).toMatch(
+        new RegExp(`^name: ${name}$`, 'm'),
+      );
+    }
+  });
+
+  it('AC-5: build.py takes --host-labels strip or keep and --version, and the version lives only in package.json', () => {
+    const buildPy = readFileSync(join(discoveryRoot, 'build', 'build.py'), 'utf8');
+    expect(buildPy).toContain('HOST_LABEL_MODES = ("strip", "keep")');
+    expect(buildPy).toMatch(/"--host-labels",\s+choices=HOST_LABEL_MODES,\s+default="strip"/);
+    expect(buildPy).toContain('"--version"');
+    expect(buildPy).toContain('def read_package_version(source_root):');
+    const skillsYml = readFileSync(join(discoveryRoot, 'build', 'skills.yml'), 'utf8');
+    expect(skillsYml).not.toMatch(/^version:/m);
+    expect(existsSync(join(discoveryRoot, 'build', 'bump_version.py'))).toBe(false);
+    expect(existsSync(join(discoveryRoot, 'tests', 'scripts', 'test_bump_version.py'))).toBe(false);
+  });
+
+  it('AC-8: the generated Claude skills carry no version, so a version bump leaves them unchanged', () => {
+    const version = (
+      JSON.parse(readFileSync(join(repoRoot, 'package.json'), 'utf8')) as { version: string }
+    ).version;
+    for (const name of generatedSkills()) {
+      for (const [rel, text] of Object.entries(snapshot(join(SKILLS_DIR, name)))) {
+        expect(text.includes(version), `${name}/${rel}`).toBe(false);
+      }
+    }
+  });
+
+  it('AC-32: removing exactly the two labels leaves no vendor name in any discovery SKILL.md', () => {
+    const vendor = /claude|chatgpt|codex|anthropic|openai/i;
+    for (const name of generatedSkills()) {
+      const text = readFileSync(join(SKILLS_DIR, name, 'SKILL.md'), 'utf8');
+      expect(text, name).toContain(chatCompatibility);
+      expect(text, name).toContain(`description: "${chatPrefix}`);
+      const stripped = withoutLabels(text);
+      expect(text.length - stripped.length, name).toBe(
+        chatPrefix.length + chatCompatibility.length,
+      );
+      expect(vendor.test(stripped), name).toBe(false);
     }
   });
 });
