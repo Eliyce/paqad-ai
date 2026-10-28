@@ -145,7 +145,7 @@ describe('review and documentation sync running side by side', () => {
     return [...upToDevelopment(), reviewStart!, docsStart!, docsEnd!, reviewEnd!];
   }
 
-  it('folds a change complete with no ordering violation when checks starts after both end', () => {
+  it('AC-7: folds a change complete with no ordering violation when checks starts after both end', () => {
     const rows = [
       ...interleaved('2026-01-01T10:09:00.000Z'),
       ...stagePair('checks', '2026-01-01T10:11:00.000Z', '2026-01-01T10:12:00.000Z'),
@@ -158,7 +158,7 @@ describe('review and documentation sync running side by side', () => {
     expect(folded.completeness.verdict).toBe('complete');
   });
 
-  it('pins today’s fold when checks starts before documentation sync ends: edit stages are unordered', () => {
+  it('AC-7: pins today’s fold when checks starts before documentation sync ends: edit stages are unordered', () => {
     const [docsStart, docsEnd] = stagePair(
       'documentation_sync',
       '2026-01-01T10:07:10.000Z',
