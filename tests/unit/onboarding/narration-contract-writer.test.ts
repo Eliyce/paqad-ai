@@ -134,6 +134,28 @@ describe('narration-contract-writer', () => {
     expect(router).toContain(protocol);
   });
 
+  it('runs development as one agent per change, resumed for each next task', () => {
+    const body = buildNarrationContractBody();
+    const paragraph =
+      '**One development agent per change.** Development runs as ONE `paqad-development` agent per change. Dispatch it once with the whole plan. For anything development does after that (the next plan step, a fix after a paused decision, review fixes, acceptance-criteria test mapping, a fix after red checks), resume that same agent, naming what to do next. Follow the resume protocol below; its fresh-dispatch exit applies here the same way.';
+    expect(body).toContain(paragraph);
+    expect(body.indexOf(paragraph)).toBeLessThan(body.indexOf('**The resume protocol.**'));
+    const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
+    expect(router).toContain(paragraph);
+  });
+
+  it('resumes the paused agent after decision resolve, never re-dispatching the same stage', () => {
+    const body = buildNarrationContractBody();
+    const paused = body.split('\n').find((line) => line.startsWith('3. On `paused: D-<id>`'))!;
+    expect(paused).toContain(
+      'resolve it with `paqad-ai decision resolve`, then resume the paused agent with the answer (the resume protocol below).',
+    );
+    expect(body).not.toContain('re-dispatch the SAME stage');
+    const router = readFileSync(join(process.cwd(), 'runtime/AGENT-ROUTER.md'), 'utf8');
+    expect(router).not.toContain('re-dispatch the SAME stage');
+    expect(router).toContain(paused);
+  });
+
   it('never tells a host without resume to call SendMessage or send_input', () => {
     const body = buildNarrationContractBody();
     const noResume = body.slice(body.indexOf('Hosts with no resume'));
