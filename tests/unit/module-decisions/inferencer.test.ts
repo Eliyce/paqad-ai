@@ -62,7 +62,8 @@ describe('module-decisions/inferencer', () => {
     });
     expect(result.choices[0]?.kind).toBe('extend-existing');
     expect(result.choices[0]?.slug).toBe('payments');
-    expect(result.confident).toBe(true);
+    expect(result.choices[0]?.score).toBe(0.2);
+    expect(result.confident).toBe(false);
     expect(result.choices[0]?.matched_tokens).toContain('stripe');
   });
 
@@ -126,5 +127,46 @@ describe('module-decisions/inferencer', () => {
     ]);
     const result = inferAttribution({ prompt: 'fix the logging output', moduleMap: m });
     expect(result.choices[0]?.slug).toBe('logging');
+  });
+
+  describe('the 0.5 confidence floor', () => {
+    const vocab = Array.from({ length: 100 }, (_, i) => `tok${String(i).padStart(3, '0')}x`);
+
+    function scored(matches: number) {
+      const m = map([
+        mod({
+          slug: 'zeta',
+          name: 'Zeta',
+          source_paths: vocab.slice(0, matches).map((token) => `src/${token}.ts`),
+        }),
+      ]);
+      return inferAttribution({ prompt: vocab.join(' '), moduleMap: m });
+    }
+
+    it('AC-9: a top score of exactly 0.5 is confident and its choice leads', () => {
+      const result = scored(50);
+      expect(result.choices[0]?.score).toBe(0.5);
+      expect(result.choices[0]?.kind).toBe('extend-existing');
+      expect(result.choices[0]?.slug).toBe('zeta');
+      expect(result.confident).toBe(true);
+    });
+
+    it('AC-9: top scores of 0.49 and 0.2 are not confident', () => {
+      const justUnder = scored(49);
+      expect(justUnder.choices[0]?.score).toBe(0.49);
+      expect(justUnder.confident).toBe(false);
+      const old = scored(20);
+      expect(old.choices[0]?.score).toBe(0.2);
+      expect(old.confident).toBe(false);
+    });
+
+    it('AC-9: no candidate at all falls back to no-attribution', () => {
+      const result = inferAttribution({ prompt: vocab.join(' '), moduleMap: map([]) });
+      expect(result.confident).toBe(false);
+      expect(result.choices.map((choice) => choice.kind)).toEqual([
+        'new-module-fallback',
+        'no-attribution',
+      ]);
+    });
   });
 });

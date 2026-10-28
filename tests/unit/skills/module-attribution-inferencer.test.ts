@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -80,6 +81,21 @@ describe('module-attribution-inferencer scripts', () => {
         expect(r.stderr).toContain('Inferencer requires module-map.yml');
         expect(r.stderr).toContain('create documentation');
       });
+    });
+  });
+
+  describe('SKILL.md contract', () => {
+    const body = readFileSync(join(SKILL, 'SKILL.md'), 'utf8');
+
+    it('AC-10: a confident top choice is auto-applied with no packet and recorded with its score', () => {
+      expect(body).toContain('scored 0.5 or more) → auto-apply the top choice, raise no packet');
+      expect(body).toContain('record it as auto-applied with its score in `reuse.consulted`');
+      expect(body).not.toContain('≥ 0.2');
+    });
+
+    it('AC-10: a not-confident result raises the packet for the spec round and never stops planning', () => {
+      expect(body).toContain('carry on planning with `no-attribution` as a provisional label');
+      expect(body).toContain('planning never stops for it');
     });
   });
 });

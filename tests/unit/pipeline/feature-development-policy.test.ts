@@ -6,6 +6,7 @@ import YAML from 'yaml';
 import { describe, expect, it } from 'vitest';
 
 import { PATHS } from '@/core/constants/paths.js';
+import { FEATURE_DEVELOPMENT_ESCALATION_ACTIONS } from '@/core/types/feature-development-policy.js';
 import {
   defaultFeatureDevelopmentPolicy,
   loadFeatureDevelopmentPolicy,
@@ -471,6 +472,56 @@ describe('feature development policy', () => {
       expect(repo('runtime/claude-plugin/agents/paqad-development.md')).not.toContain(
         OUT_OF_SCOPE_FINDINGS_INSTRUCTION,
       );
+    });
+  });
+
+  describe('attribution_pending defer', () => {
+    it('AC-11: the default policy defers attribution to the spec question round', () => {
+      expect(defaultFeatureDevelopmentPolicy().stages.planning.escalation.attribution_pending).toBe(
+        'defer',
+      );
+      expect(FEATURE_DEVELOPMENT_ESCALATION_ACTIONS).toContain('defer');
+    });
+
+    it('AC-11: the schema accepts defer and a project that sets stop keeps stop', () => {
+      const root = mkdtempSync(join(tmpdir(), 'paqad-feature-policy-'));
+      mkdirSync(join(root, PATHS.WORKFLOWS_DIR), { recursive: true });
+      const write = (value: string) =>
+        writeFileSync(
+          join(root, PATHS.WORKFLOWS_DIR, 'feature-development.yaml'),
+          YAML.stringify({
+            schema_version: '1',
+            stages: { planning: { escalation: { attribution_pending: value } } },
+          }),
+        );
+
+      write('defer');
+      const deferred = loadFeatureDevelopmentPolicy(root);
+      expect(deferred.warnings).toEqual([]);
+      expect(deferred.policy.stages.planning.escalation.attribution_pending).toBe('defer');
+
+      write('stop');
+      const stopped = loadFeatureDevelopmentPolicy(root);
+      expect(stopped.warnings).toEqual([]);
+      expect(stopped.policy.stages.planning.escalation.attribution_pending).toBe('stop');
+    });
+
+    it('AC-11: the shipped workflow yaml defers attribution and the inferencer step', () => {
+      const raw = YAML.parse(
+        readFileSync(resolve('docs/instructions/workflows/feature-development.yaml'), 'utf8'),
+      ) as {
+        stages: {
+          planning: {
+            escalation: Record<string, string>;
+            attribution_gate: { pipeline: Array<Record<string, string>> };
+          };
+        };
+      };
+      expect(raw.stages.planning.escalation.attribution_pending).toBe('defer');
+      const inferencer = raw.stages.planning.attribution_gate.pipeline.find(
+        (step) => step.skill === 'module-attribution-inferencer',
+      );
+      expect(inferencer?.on_not_confident).toBe('defer');
     });
   });
 });

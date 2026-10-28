@@ -1,6 +1,6 @@
 schema_version: 1
-generated_at: 2026-10-27T17:49:10.393Z
-rule_files_hash: sha256-6f3a931c41f786c6e05aa9aeb4fddcdffedb5b4b49f323f7498a1723bcbe3d42
+generated_at: 2026-10-28T11:28:47.701Z
+rule_files_hash: sha256-6cf0d685003d0e1c1d9cdfcad298c46aaa7cd671435376f55220e3c7d4cd45d0
 rules:
   - id: RL-6740
     source: docs/instructions/rules/_shared/canonical-docs.md
@@ -2169,6 +2169,14 @@ rules:
       reason: Escalation-verb definition, not an enforceable code rule.
     enforced_by: []
     scripts: []
+  - id: RL-c992
+    source: docs/instructions/rules/coding/feature-development.md
+    text: "`defer` → raise the Decision Packet with its change set, keep working, and ask it in the change's one spec question round."
+    text_hash: 44b3409e34a6aee3461ba774be5b9ee6c283f645be1a766c79a08a568970f0f2
+    verifiability:
+      kind: heuristic
+    enforced_by: []
+    scripts: []
   - id: RL-65d6
     source: docs/instructions/rules/coding/feature-development.md
     text: planning → `▸ paqad · planning this out, checking which module it touches`
@@ -2288,8 +2296,8 @@ rules:
     scripts: []
   - id: RL-7919
     source: docs/instructions/rules/coding/feature-development.md
-    text: "Run the **attribution gate**: identify which module(s) the change belongs to (the `module-attribution-extractor` then `module-attribution-inferencer` skills). If attribution is unresolved, escalate `attribution_pending: stop` via a Decision Packet — never guess silently."
-    text_hash: c1f120903ecb1552e141b9f35234ea2ef3a73a6c2a21adc2872af62ddfb0bab7
+    text: "Run the **attribution gate**: identify which module(s) the change belongs to (the `module-attribution-extractor` then `module-attribution-inferencer` skills). When the inferencer is confident (top score 0.5 or more), apply its top choice with no packet and record it as auto-applied, with its score, in the plan's `reuse.consulted`. When it is not confident, never guess silently: keep planning with no-attribution as a provisional label and raise the attribution packet (change set) for the spec question round (`attribution_pending: defer`)."
+    text_hash: 2624537f7302bf1a37a561d13fa1c6348aca9d4bb5ccb73607c3c5658a6924f9
     verifiability:
       kind: unverifiable
       reason: The attribution gate is a workflow procedure enforced by its own skills.
@@ -2338,8 +2346,8 @@ rules:
     scripts: []
   - id: RL-4da7
     source: docs/instructions/rules/coding/feature-development.md
-    text: "Escalations: `attribution_pending: stop`, `rule_scripts_stale: ask`, missing docs/design-system: `warn`."
-    text_hash: 904f19f1d78adb4efb66d8f25b3e6d330c8b5736328254fbd60e302a60cb39e9
+    text: "Escalations: `attribution_pending: defer`, `rule_scripts_stale: ask`, missing docs/design-system: `warn`."
+    text_hash: 11d67c40e0a7bb7c83654b0fccf0ca77455a4f7fb9aa5fd1748f31aee4165794
     verifiability:
       kind: unverifiable
       reason: Escalation configuration, not an enforceable code rule.

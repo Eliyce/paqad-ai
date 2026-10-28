@@ -161,6 +161,7 @@ export function defaultFeatureDevelopmentPolicy(): FeatureDevelopmentPolicy {
         },
         escalation: {
           missing_docs_context: 'warn',
+          attribution_pending: 'defer',
           rule_scripts_stale: 'ask',
           rule_scripts_missing: 'warn',
         },

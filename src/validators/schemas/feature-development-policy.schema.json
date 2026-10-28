@@ -56,7 +56,7 @@
           "type": "object",
           "additionalProperties": {
             "type": "string",
-            "enum": ["warn", "ask", "stop"]
+            "enum": ["warn", "ask", "stop", "defer"]
           }
         },
         "artifacts": {
@@ -112,7 +112,7 @@
             "command": { "type": "string" },
             "escalation": {
               "type": "string",
-              "enum": ["warn", "ask", "stop"]
+              "enum": ["warn", "ask", "stop", "defer"]
             }
           }
         },
@@ -128,7 +128,7 @@
             "cache_path": { "type": "string" },
             "escalation": {
               "type": "string",
-              "enum": ["warn", "ask", "stop"]
+              "enum": ["warn", "ask", "stop", "defer"]
             }
           }
         }

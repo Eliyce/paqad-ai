@@ -26,7 +26,7 @@ stages:
     instructions:
       - Review the canonical module and instruction docs before planning the change.
       - Keep planning scoped to the requested feature and the current repository state.
-      - "Attribution Gate: before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. Surface every needs-decision packet via the Decision Pause Contract and await an explicit user response — no silent acceptance. Accepted decisions are applied to module-map.yml via src/module-decisions/apply.ts (the only writer of the map). Only after the gate resolves may planning continue."
+      - "Attribution Gate: before producing an implementation sequence, run module-attribution-extractor against the active request. If it returns zero candidates, fall through to module-attribution-inferencer. When the inferencer is confident (top score 0.5 or more), apply the top choice through src/module-decisions/apply.ts (the only writer of module-map.yml) with no packet, and record it in the plan's reuse.consulted as auto-applied with its score, so the owner can see and change it in the spec question round. When it is not confident, keep planning with no-attribution as a provisional label and do not stop: the attribution packet (with its change set) is raised in the spec question round instead (attribution_pending: defer). A project whose policy sets attribution_pending: stop still stops and asks here."
       - "Design-system: if the change touches UI, plan against the design system. Identify tokens, components, and states involved. Flag additions that require extending docs/instructions/design-system/* before extending the code. Missing design-system contract degrades planning to bare-minimum mode (warn, not stop)."
       - "Rules-as-scripts: invoke rule-script-reconciler at planning entry. RS-* drift (rules edited without script regen, manual map edits, failing fixtures) surfaces via the Decision Pause Contract. Resolve per escalation.rule_scripts_stale before planning continues."
       - "Reuse before you build: consult the Existing surface section (and `npx paqad-ai index query <name>`) for existing helpers; follow the solution-architect procedure — Reuse / Extend / Build-new, and record a rejection rationale for every Build-new."
@@ -42,7 +42,7 @@ stages:
       require_rule_scripts_synced: true
     escalation:
       missing_docs_context: warn
-      attribution_pending: stop
+      attribution_pending: defer
       missing_design_system: warn
       rule_scripts_stale: ask
       rule_scripts_missing: warn
@@ -58,7 +58,7 @@ stages:
         - skill: module-attribution-inferencer
           when: extractor_returned_empty
           on_confident: continue
-          on_not_confident: ask
+          on_not_confident: defer
         - apply: src/module-decisions/apply.ts
           when: decision_accepted
 
