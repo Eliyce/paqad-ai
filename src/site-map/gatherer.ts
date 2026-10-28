@@ -605,7 +605,7 @@ export function gatherSiteMapTransitions(
   const seen = new Set<string>();
   for (const surface of surfaces) {
     for (const evidence of surface.evidence) {
-      const key = `${surface.raw_id} ${evidence.file}`;
+      const key = `${surface.raw_id}\x00${evidence.file}`;
       if (seen.has(key)) continue;
       seen.add(key);
       const content = readSource(evidence.file);

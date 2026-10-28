@@ -217,7 +217,7 @@ function clamp(n: number, lo: number, hi: number): number {
 }
 
 function pairKeyOf(a: string, b: string): string {
-  return a < b ? `${a}${b}` : `${b}${a}`;
+  return a < b ? `${a}\x01${b}` : `${b}\x01${a}`;
 }
 
 function makeEdge(a: string, b: string, score: number): GraphEdge {
