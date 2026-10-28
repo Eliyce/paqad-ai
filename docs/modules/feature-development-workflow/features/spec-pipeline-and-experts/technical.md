@@ -60,7 +60,7 @@ The `chief-architect` is never picked; it runs once any expert fired. The model 
 ## Gates
 
 - **Craft trace gate.** The `craft` step refuses an untraced requirement line, and refuses an accepted expert finding that reached neither the spec nor the declined list. Nothing an expert accepted can quietly disappear.
-- **Conflict packets.** Each merge conflict becomes exactly one `spec.expert_conflict` decision packet, minted through the sanctioned writer, reusing an identical resolved fork rather than re-asking a settled question.
+- **Conflict packets.** Findings from one role on one target collapse first, so an expert never conflicts with itself. The chief rules each remaining conflict `pick` or `compatible`. A `pick` becomes exactly one `spec.expert_conflict` decision packet, minted through the sanctioned writer, skipping a fork already pending and reusing an identical resolved fork. A `compatible` ruling mints no packet and becomes one merged finding. See [ask-owner-once](../../../decision-pause-contract/features/ask-owner-once/technical.md).
 - **Question lock.** The `questions` step is locked while a conflict packet is pending, so you never answer questions built on an unsettled disagreement.
 
 ## Freeze
