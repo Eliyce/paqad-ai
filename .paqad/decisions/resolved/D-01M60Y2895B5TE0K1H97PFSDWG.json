@@ -1,0 +1,80 @@
+{
+  "id": "D-01M60Y2895B5TE0K1H97PFSDWG",
+  "category": "fix.proof_method",
+  "title": "How should we confirm this problem is fixed?",
+  "context": "This change is a fix that changes behaviour, so paqad wants proof the problem is gone. A test that fails before the fix and passes after it is the strongest proof; pick another method only when no test can reach the problem.",
+  "options": [
+    {
+      "option_key": "failing-test",
+      "label": "Write a test that fails before the fix",
+      "one_line_preview": "If you pick this, a test fails on the old code and passes after the fix, recorded with `paqad-ai fix prove`.",
+      "trade_off": "You give up: nothing for code a test can reach; it needs a runnable test.",
+      "evidence": {
+        "findings": [
+          "EX-qa-engineer-1: Given two findings from the same role on one target with different claims, when the notes merge, then no conflict is produced and one finding remains with both ids in merged_from; the negative case (two different roles, same target, different claims) must still produce a conflict, proven by unit test",
+          "EX-qa-engineer-2: When two same-role claims have equal length the kept claim must be chosen deterministically (for example first by note order), and three or more same-role findings on one target must collapse to one, so the merge test is not order-dependent",
+          "EX-qa-engineer-3: Unit tests must cover the error paths: a compatible ruling with an empty or missing merged_claim is refused, an unknown ruling value is refused, a pick whose recommendation is not a verbatim claim is refused, and a missing ruling for any conflict is still refused",
+          "EX-qa-engineer-4: A synthesis written before this change (conflict entries with recommendation but no ruling) must keep validating as a pick, otherwise in-flight changes break on upgrade; needs its own regression test",
+          "EX-qa-engineer-5: Given a pending spec.expert_conflict decision with the same fork token, when experts synthesis runs again, then the count of files in .paqad/decisions/pending/ is unchanged; also prove that a compatible ruling mints nothing and that a pick still mints exactly one",
+          "EX-qa-engineer-6: Boundary tests at exactly 0.5 (confident, auto-applied), 0.49 (not confident, deferred to the spec round) and 0.2 (previously confident, now deferred), plus the no-candidate case falling back to no-attribution",
+          "EX-qa-engineer-7: Hook tests must cover four cases: pending decision for change B does not block an edit in change A; pending decision for change A blocks change A; a pending decision with no change still blocks everyone; a malformed or unreadable pending decision file still blocks (fail closed)",
+          "EX-qa-engineer-8: The error path where the session's active change cannot be resolved (no stage ledger, unknown SE_SESSION, cross-provider host) needs its own criterion; silently allowing the edit would turn the gate off",
+          "EX-qa-engineer-9: Given a pending expert conflict for another change, when record questions runs for this change, then it is allowed; given one for this change, it is still refused (integration test through assertCanRunStep)",
+          "EX-qa-engineer-10: A project whose local .paqad/configs/.config.policy still says attribution_pending: stop must keep stopping after config reconcile (local wins); test both the new defer default and the explicit stop override",
+          "EX-qa-engineer-11: Given an attribution question, a proof method question, a visual-evidence readiness pause and two expert conflicts pending for one change, when the questions step runs, then all five are offered in one round and none are asked earlier at plan compile or experts synthesis; spec.change raised during development is still asked immediately",
+          "EX-qa-engineer-12: When the chief rules N conflicts compatible, the owner sees 'The experts agreed on N points after merging overlaps' with a details list of each merged claim; when N is 0 the line is omitted rather than saying 0",
+          "EX-qa-engineer-13: This is proven manually over 3 real full-lane changes using paqad-ai report speed, not by unit tests; the spec must define what counts as one round (back-to-back question calls with no other tool call between them) so the count is not ambiguous",
+          "EX-qa-engineer-14: The router snapshot update must be paired with a check that the generated AGENT-ROUTER.md no longer contains 'one at a time in creation order', so a stale generated file cannot pass",
+          "EX-qa-engineer-15: Flaky area: the per-change gate depends on per-session active-change state on disk; tests must use isolated temp dirs and explicit SE_SESSION values, never the real session, and not rely on file mtime ordering"
+        ]
+      }
+    },
+    {
+      "option_key": "human-verification-step",
+      "label": "Use a manual check",
+      "one_line_preview": "If you pick this, a person runs a set check to confirm the fix.",
+      "trade_off": "You give up: a fully automated check.",
+      "evidence": {}
+    },
+    {
+      "option_key": "recorded-baseline-snapshot",
+      "label": "Keep an approved snapshot",
+      "one_line_preview": "If you pick this, we save an approved snapshot and compare later runs to it.",
+      "trade_off": "You give up: free changes without re-approving the snapshot.",
+      "evidence": {}
+    },
+    {
+      "option_key": "measured-threshold",
+      "label": "Use a measured limit",
+      "one_line_preview": "If you pick this, we check a measured value against a set limit.",
+      "trade_off": "You give up: cases the chosen value does not catch.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "failing-test",
+  "created_at": "2026-10-28T09:39:37.381Z",
+  "status": "resolved",
+  "origin": "fix-proof",
+  "change": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "chosen": "failing-test",
+  "rationale": "Owner: a test that fails before the fix and passes after",
+  "resolved_at": "2026-10-28T10:55:29.652Z",
+  "decision_id": "D-01M60Y2895B5TE0K1H97PFSDWG",
+  "fingerprint": "sha256:75028677f2af5f8eeea86c9cc81ce48f0c68ebe32323be51082489b5f1deb522",
+  "question": "How should we confirm this problem is fixed?",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-fix-proof",
+  "task_session_id": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "ttl_until": "2026-11-27T09:39:37.381Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "failing-test",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T10:55:29.652Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner: a test that fails before the fix and passes after"
+  }
+}

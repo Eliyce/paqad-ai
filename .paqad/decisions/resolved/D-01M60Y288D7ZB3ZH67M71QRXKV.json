@@ -1,0 +1,48 @@
+{
+  "id": "D-01M60Y288D7ZB3ZH67M71QRXKV",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on questions step of the spec pipeline",
+  "context": "Chief architect: These two claims fit together. The product-owner states the outcome (every pending question for this change in one round, back to back) and the qa-engineer states the test that proves it, including that mid-build spec.change still stops at once. The qa-engineer claim is picked as the testable form; the product-owner claim stays true. Quick confirm.\n\nTarget: questions step of the spec pipeline\n- product-owner: every pending question for this change (expert disagreements, enrichment, expert and chief questions, module attribution, proof method, visual evidence readiness) is asked together in this one round, back to back, with no other work between them\n- qa-engineer: Given an attribution question, a proof method question, a visual-evidence readiness pause and two expert conflicts pending for one change, when the questions step runs, then all five are offered in one round and none are asked earlier at plan compile or experts synthesis; spec.change raised during development is still asked immediately\n\n[expert-conflict-fork:70e7dd7a5cd9f46a]",
+  "options": [
+    {
+      "option_key": "every-pending-question-for-this-change-e",
+      "label": "every pending question for this change (expert disagreements, enrichment, expert and chief questions, module attribution, proof method, visual evidence readiness) is asked together in this one round, back to back, with no other work between them — product-owner",
+      "one_line_preview": "every pending question for this change (expert disagreements, enrichment, expert and chief questions, module attribution, proof method, visual evidence readiness) is asked together in this one round, back to back, with no other work between them — product-owner",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-an-attribution-question-a-proof-me",
+      "label": "Given an attribution question, a proof method question, a visual-evidence readiness pause and two expert conflicts pending for one change, when the questions step runs, then all five are offered in one round and none are asked earlier at plan compile or experts synthesis; spec.change raised during development is still asked immediately — qa-engineer",
+      "one_line_preview": "Given an attribution question, a proof method question, a visual-evidence readiness pause and two expert conflicts pending for one change, when the questions step runs, then all five are offered in one round and none are asked earlier at plan compile or experts synthesis; spec.change raised during development is still asked immediately — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "given-an-attribution-question-a-proof-me",
+  "created_at": "2026-10-28T09:39:37.357Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "chosen": "given-an-attribution-question-a-proof-me",
+  "rationale": "Owner accepted the chief's pick: the claims fit together",
+  "resolved_at": "2026-10-28T10:55:29.006Z",
+  "decision_id": "D-01M60Y288D7ZB3ZH67M71QRXKV",
+  "fingerprint": "sha256:38eede275d127a9160e8af886057f5ea1edba6fd1052a5d3e37917b57613edf5",
+  "question": "Experts disagree on questions step of the spec pipeline",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "ttl_until": "2026-11-27T09:39:37.357Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-an-attribution-question-a-proof-me",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T10:55:29.006Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief's pick: the claims fit together"
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "id": "D-01M60Y288D7ZB3ZH67M71QRXKT",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on validateConflicts compatible ruling in src/spec-pipeline/experts/synthesis.ts",
+  "context": "Chief architect: Both claims come from the same seat (security-auditor) and say the same thing at two strengths: a merged 'they agree' wording must not quietly drop a must-level rule. One expert cannot disagree with itself; this pair exists only because the installed merge still splits same-seat notes, which this change fixes. The stricter wording is picked because it can be checked. Whether security rules may be merged by the chief at all is owner question 2 in the round.\n\nTarget: validateConflicts compatible ruling in src/spec-pipeline/experts/synthesis.ts\n- security-auditor: a compatible ruling lets the chief close a disagreement with no owner answer, so a security-auditor must or invariant finding merged as compatible could be weakened in the merged_claim without anyone choosing that\n- security-auditor: a compatible merged_claim must keep every must-level constraint from each merged claim; the guard should refuse a compatible ruling whose merged_claim drops a merged finding's must or invariant\n\n[expert-conflict-fork:afe2c5f7f900b54e]",
+  "options": [
+    {
+      "option_key": "a-compatible-ruling-lets-the-chief-close",
+      "label": "a compatible ruling lets the chief close a disagreement with no owner answer, so a security-auditor must or invariant finding merged as compatible could be weakened in the merged_claim without anyone choosing that — security-auditor",
+      "one_line_preview": "a compatible ruling lets the chief close a disagreement with no owner answer, so a security-auditor must or invariant finding merged as compatible could be weakened in the merged_claim without anyone choosing that — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "a-compatible-merged-claim-must-keep-ever",
+      "label": "a compatible merged_claim must keep every must-level constraint from each merged claim; the guard should refuse a compatible ruling whose merged_claim drops a merged finding's must or invariant — security-auditor",
+      "one_line_preview": "a compatible merged_claim must keep every must-level constraint from each merged claim; the guard should refuse a compatible ruling whose merged_claim drops a merged finding's must or invariant — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "a-compatible-merged-claim-must-keep-ever",
+  "created_at": "2026-10-28T09:39:37.357Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "chosen": "a-compatible-merged-claim-must-keep-ever",
+  "rationale": "Owner accepted the chief's pick: the claims fit together",
+  "resolved_at": "2026-10-28T10:55:28.292Z",
+  "decision_id": "D-01M60Y288D7ZB3ZH67M71QRXKT",
+  "fingerprint": "sha256:a4abf24a1fd5ac65a7e0e275484f9aa6f995755906826914277c635e4117a444",
+  "question": "Experts disagree on validateConflicts compatible ruling in src/spec-pipeline/experts/synthesis.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "ttl_until": "2026-11-27T09:39:37.357Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "a-compatible-merged-claim-must-keep-ever",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T10:55:28.292Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief's pick: the claims fit together"
+  }
+}

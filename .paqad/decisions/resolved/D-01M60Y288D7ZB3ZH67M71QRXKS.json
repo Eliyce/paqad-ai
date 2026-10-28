@@ -1,0 +1,48 @@
+{
+  "id": "D-01M60Y288D7ZB3ZH67M71QRXKS",
+  "category": "spec.expert_conflict",
+  "title": "Experts disagree on hasPendingExpertConflict in src/cli/commands/spec-pipeline.ts",
+  "context": "Chief architect: These two claims fit together. The security-auditor states the rule (a legacy expert-disagreement question with no change named still holds the questions step for every change) and the qa-engineer states the test (another change's question lets this change through, this change's question still holds it). Both are true at once and the build should do both; the qa-engineer claim is picked only because it is the testable form. It matches product-owner-5 and user-flow-writer-8. Quick confirm.\n\nTarget: hasPendingExpertConflict in src/cli/commands/spec-pipeline.ts\n- security-auditor: the per-change filter must treat a pending spec.expert_conflict packet with no change as belonging to every change, so legacy packets still hold record questions\n- qa-engineer: Given a pending expert conflict for another change, when record questions runs for this change, then it is allowed; given one for this change, it is still refused (integration test through assertCanRunStep)\n\n[expert-conflict-fork:e19df30f3c570b6f]",
+  "options": [
+    {
+      "option_key": "the-per-change-filter-must-treat-a-pendi",
+      "label": "the per-change filter must treat a pending spec.expert_conflict packet with no change as belonging to every change, so legacy packets still hold record questions — security-auditor",
+      "one_line_preview": "the per-change filter must treat a pending spec.expert_conflict packet with no change as belonging to every change, so legacy packets still hold record questions — security-auditor",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    },
+    {
+      "option_key": "given-a-pending-expert-conflict-for-anot",
+      "label": "Given a pending expert conflict for another change, when record questions runs for this change, then it is allowed; given one for this change, it is still refused (integration test through assertCanRunStep) — qa-engineer",
+      "one_line_preview": "Given a pending expert conflict for another change, when record questions runs for this change, then it is allowed; given one for this change, it is still refused (integration test through assertCanRunStep) — qa-engineer",
+      "trade_off": "Not stated when the decision was opened.",
+      "evidence": {}
+    }
+  ],
+  "recommendation": "given-a-pending-expert-conflict-for-anot",
+  "created_at": "2026-10-28T09:39:37.357Z",
+  "status": "resolved",
+  "origin": "expert-conflict",
+  "change": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "chosen": "given-a-pending-expert-conflict-for-anot",
+  "rationale": "Owner accepted the chief's pick: the claims fit together",
+  "resolved_at": "2026-10-28T10:55:27.574Z",
+  "decision_id": "D-01M60Y288D7ZB3ZH67M71QRXKS",
+  "fingerprint": "sha256:77571f6e94d44740482ca2e92722d7906c0a7e8b52d0cd7f521c9fef610cb769",
+  "question": "Experts disagree on hasPendingExpertConflict in src/cli/commands/spec-pipeline.ts",
+  "recommendation_reason": "Recommended by the agent that opened this decision.",
+  "confidence": 1,
+  "requested_by": "paqad-expert-conflict",
+  "task_session_id": "01M5JM36RM43G0JX8GD2PA7YTW",
+  "ttl_until": "2026-11-27T09:39:37.357Z",
+  "invalidation_watch": [],
+  "human_response": {
+    "chosen_option_key": "given-a-pending-expert-conflict-for-anot",
+    "intent": "explicit",
+    "explanation_rounds_used": 0,
+    "responded_at": "2026-10-28T10:55:27.574Z",
+    "responded_by": "human",
+    "carry_over_scope": "task",
+    "note": "Owner accepted the chief's pick: the claims fit together"
+  }
+}
