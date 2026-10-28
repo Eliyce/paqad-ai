@@ -67,6 +67,7 @@ export const STAGE_EVIDENCE_SCHEMA = {
     reason: { type: 'string', minLength: 1 },
     tasks: { type: 'integer', minimum: 0 },
     agent_id: { type: 'string', minLength: 1 },
+    stages: { type: 'array', items: { type: 'string', minLength: 1 } },
     host_pid: { type: 'integer', minimum: 1 },
     releases: { type: 'array', items: { type: 'string', minLength: 1 } },
     tokens_used: { type: 'integer', minimum: 0 },

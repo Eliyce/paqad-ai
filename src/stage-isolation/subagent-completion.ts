@@ -1,12 +1,21 @@
 import { readFileSync } from 'node:fs';
 
 import { readTranscriptUsage } from '@/cost/transcript-usage.js';
-import { appendFeatureStageRow, currentFeature } from '@/feature-evidence/stage-ledger.js';
+import {
+  appendFeatureStageRow,
+  currentFeature,
+  readFeatureStageUnit,
+} from '@/feature-evidence/stage-ledger.js';
 import { resolveHookSession } from '@/rag-ledger/session.js';
 import { recordHighTableUsage } from '@/spec-pipeline/high-table.js';
+import { extractAssistantText, extractMarkers } from '@/stage-evidence/marker-parse.js';
 import { STAGE_AGENT_KIND } from '@/stage-evidence/types.js';
 
-import { stageForAgentName, stripPluginAgentNamespace } from './stage-agents.js';
+import {
+  STAGE_AGENT_STAGES,
+  stageForAgentName,
+  stripPluginAgentNamespace,
+} from './stage-agents.js';
 import { readStageSetting } from './stage-settings.js';
 
 export { recordHighTableUsage };
@@ -130,6 +139,37 @@ function agentIdField(payload: SubagentStopPayload): { agent_id?: string } {
     : {};
 }
 
+function transcriptStartedStages(payload: SubagentStopPayload): string[] {
+  const path = payload.agent_transcript_path;
+  if (typeof path !== 'string' || path.trim() === '') return [];
+  const text = readAgentTranscriptText(path);
+  if (text === null) return [];
+  return extractMarkers(extractAssistantText(text))
+    .filter((marker) => marker.phase === 'start')
+    .map((marker) => marker.stage);
+}
+
+function ledgerStartedStages(projectRoot: string, dirName: string, agentId: string): string[] {
+  return readFeatureStageUnit(projectRoot, dirName)
+    .filter((row) => row.kind === 'stage_start' && row.agent_id === agentId)
+    .map((row) => String(row.stage));
+}
+
+export function stagesRunByAgent(
+  projectRoot: string,
+  dirName: string,
+  stage: string,
+  payload: SubagentStopPayload,
+): string[] {
+  const agentId = agentIdField(payload).agent_id;
+  const ran = new Set([
+    stage,
+    ...transcriptStartedStages(payload),
+    ...(agentId ? ledgerStartedStages(projectRoot, dirName, agentId) : []),
+  ]);
+  return STAGE_AGENT_STAGES.filter((candidate) => ran.has(candidate));
+}
+
 export interface RecordStageAgentStartInput {
   projectRoot: string;
   payload: SubagentStopPayload;
@@ -186,6 +226,7 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
       return false;
     }
     const tokens = resolveStageAgentTokens(input.payload, input.transcriptText);
+    const stages = stagesRunByAgent(input.projectRoot, dirName, stage, input.payload);
     appendFeatureStageRow(
       input.projectRoot,
       sessionId,
@@ -193,6 +234,7 @@ export function recordStageAgentCompletion(input: RecordStageAgentCompletionInpu
       {
         kind: STAGE_AGENT_KIND,
         stage,
+        ...(stages.length > 1 ? { stages } : {}),
         agent: input.payload.agent_type,
         ...agentIdField(input.payload),
         event_status: 'completed',

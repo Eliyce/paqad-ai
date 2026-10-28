@@ -13,8 +13,13 @@ export interface StageIsolationSummary {
   estimate: boolean;
 }
 
+export function stagesOfRow(row: SessionLedgerRow): string[] {
+  const listed = Array.isArray(row.stages) ? row.stages.map(String) : [];
+  return [String(row.stage), ...listed].filter((stage) => STAGE_AGENT_STAGES.includes(stage));
+}
+
 function isIsolatedStageRow(row: SessionLedgerRow): boolean {
-  return STAGE_AGENT_STAGES.includes(String(row.stage));
+  return stagesOfRow(row).length > 0;
 }
 
 export function readStageAgentRows(projectRoot: string, dirName: string): SessionLedgerRow[] {
@@ -52,7 +57,7 @@ export function summarizeStageIsolation(
     return null;
   }
   return {
-    stages: new Set([...rows, ...legacy].map((row) => String(row.stage))).size,
+    stages: new Set([...rows, ...legacy].flatMap(stagesOfRow)).size,
     tokensNotRecarried:
       rows.reduce((sum, row) => sum + count(row.tokens_not_recarried), 0) +
       legacy.reduce((sum, row) => sum + count(row.carried_history_avoided_estimate), 0),

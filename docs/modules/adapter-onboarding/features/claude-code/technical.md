@@ -84,6 +84,12 @@ suggestions go to `.paqad/mcp-recommendations.json`.
   default it says to pass nothing. The SubagentStop recorder copies that stage's values onto its one `stage-agent`
   row as `requested_effort` and `requested_model`: what the project asked for, not what the
   helper ran at.
+- **One agent, more than one stage.** When a stage agent is resumed for the next stage, its
+  SubagentStop row keeps `stage` from the agent name and adds a `stages` list of every stage it
+  started: its own, the `stage_start` rows stamped with its `agent_id`, and the `paqad:stage
+  <stage> start` markers in its transcript (read with `extractMarkers` from `marker-parse.ts`).
+  The list is written only when it holds more than the agent's own stage. The isolation summary
+  and the bundle-completeness gate count every stage on that list.
 - **The brief for a resumed agent.** A stage agent resumed with `SendMessage` gets no new
   SubagentStart brief, so `paqad-ai stage brief <stage>` (beside `stage settings` in
   `src/cli/commands/stage.ts`) prints the same `buildStageBrief` text for the given stage and the
