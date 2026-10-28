@@ -800,6 +800,155 @@ describe('releasing a stage agent that never reported back (D-01M5VMTDH7P9Y17CFH
     expect(live(root, dirName)).toEqual([]);
   });
 
+  const startBy = (
+    root: string,
+    dirName: string,
+    stage: string,
+    minutes: number,
+    agentId?: string,
+  ) =>
+    startStage(root, stage, {
+      sessionId: SESSION,
+      dirName,
+      adapter: 'claude-code',
+      now: at(minutes),
+      ...(agentId === undefined ? {} : { agentId }),
+    });
+
+  const completed = (root: string, dirName: string, stage: string, id: string, minutes: number) =>
+    appendFeatureStageRow(
+      root,
+      SESSION,
+      dirName,
+      {
+        kind: 'stage-agent',
+        stage,
+        agent: `paqad-${stage}`,
+        agent_id: id,
+        event_status: 'completed',
+        tokens_used: 10,
+        tokens_not_recarried: 10,
+        estimate: false,
+      },
+      at(minutes),
+    );
+
+  it('a stage_start of another stage stamped with the running agent id keeps its hold', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'planning', 'a1', 1);
+    startBy(root, dirName, 'specification', 2, 'a1');
+    expect(live(root, dirName)).toEqual(['a1']);
+    expect(
+      readFeatureStageUnit(root, dirName).find(
+        (row) => row.kind === 'stage_start' && row.stage === 'specification',
+      )?.agent_id,
+    ).toBe('a1');
+  });
+
+  it('a stage_start of another stage stamped with a different agent id still releases it', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'planning', 'a1', 1);
+    startBy(root, dirName, 'specification', 2, 'b2');
+    expect(live(root, dirName)).toEqual([]);
+  });
+
+  it('a stage_start with no or an empty agent id releases the hold as before', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'planning', 'a1', 1);
+    startBy(root, dirName, 'specification', 2, '');
+    expect(
+      readFeatureStageUnit(root, dirName).find((row) => row.kind === 'stage_start'),
+    ).not.toHaveProperty('agent_id');
+    expect(live(root, dirName)).toEqual([]);
+    const base = { session_id: SESSION, recorded_at: NOW().toISOString() };
+    const rows = [
+      {
+        ...base,
+        kind: 'stage-agent',
+        event_status: 'started',
+        stage: 'planning',
+        agent_id: 'a1',
+        content_hash: 'h1',
+      },
+      { ...base, kind: 'stage_start', stage: 'specification', agent_id: '  ', content_hash: 'h2' },
+    ] as unknown as SessionLedgerRow[];
+    expect(liveStageAgents(rows)).toEqual([]);
+  });
+
+  it('a started row with no agent id is never the same agent, so it releases as before', () => {
+    const base = { session_id: SESSION, recorded_at: NOW().toISOString() };
+    const rows = [
+      {
+        ...base,
+        kind: 'stage-agent',
+        event_status: 'started',
+        stage: 'planning',
+        agent_id: 'a1',
+        content_hash: 'h1',
+      },
+      {
+        ...base,
+        kind: 'stage-agent',
+        event_status: 'started',
+        stage: 'planning',
+        agent_id: '',
+        content_hash: 'h2',
+      },
+    ] as unknown as SessionLedgerRow[];
+    expect(liveStageAgents(rows).map((agent) => agent.agentId)).toEqual([null]);
+  });
+
+  it('a second started row with the same agent id holds until its completed row', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'development', 'd1', 1);
+    completed(root, dirName, 'development', 'd1', 2);
+    expect(live(root, dirName)).toEqual([]);
+    started(root, dirName, 'development', 'd1', 3);
+    expect(live(root, dirName)).toEqual(['d1']);
+    expect(stop(root, 4).deferred).toBe(true);
+    completed(root, dirName, 'development', 'd1', 5);
+    expect(live(root, dirName)).toEqual([]);
+  });
+
+  it('a second started row with the same agent id holds until stage_end development', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    startBy(root, dirName, 'development', 1);
+    started(root, dirName, 'development', 'd1', 2);
+    started(root, dirName, 'development', 'd1', 3);
+    expect(new Set(live(root, dirName))).toEqual(new Set(['d1']));
+    expect(stop(root, 4).deferred).toBe(true);
+    endStage(
+      root,
+      'development',
+      {},
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: at(5) },
+    );
+    expect(live(root, dirName)).toEqual([]);
+  });
+
+  it('a resume that fires no SubagentStart keeps the hold through the open stage_start', () => {
+    const root = tempRoot();
+    const dirName = openFull(root);
+    started(root, dirName, 'planning', 'p1', 1);
+    startBy(root, dirName, 'planning', 2, 'p1');
+    endStage(
+      root,
+      'planning',
+      {},
+      { sessionId: SESSION, dirName, adapter: 'claude-code', now: at(3) },
+    );
+    completed(root, dirName, 'planning', 'p1', 4);
+    startBy(root, dirName, 'specification', 5, 'p1');
+    const rows = readFeatureStageUnit(root, dirName);
+    expect(liveStageAgents(rows)).toEqual([]);
+    expect(hasOpenUnendedStage(rows)).toBe(true);
+  });
+
   it('a new host session releases every started agent of the open change with one row', () => {
     const root = tempRoot();
     const dirName = openFull(root);

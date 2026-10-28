@@ -25,6 +25,7 @@ export interface StageEvidenceContext {
   dirName?: string;
   adapter: string;
   agent?: string;
+  agentId?: string;
   lane?: 'fast' | 'graduated' | 'full' | null;
   sessionSource?: StageSessionSource;
   title?: string;
@@ -93,6 +94,7 @@ export function startStage(
     stage,
     event_status: 'started',
     evidence_source: 'live-mark',
+    ...(ctx.agentId ? { agent_id: ctx.agentId } : {}),
   });
 }
 

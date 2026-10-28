@@ -176,6 +176,7 @@ export function createStageCommand(): Command {
         title: phase === 'start' ? options.title : undefined,
         issue: options.issue,
         agent: options.agent ?? process.env.PAQAD_STAGE_AGENT ?? undefined,
+        agentId: phase === 'start' ? process.env.SE_AGENT_ID : undefined,
       });
       if (!recorded) {
         console.error(

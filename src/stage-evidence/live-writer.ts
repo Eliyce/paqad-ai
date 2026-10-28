@@ -181,6 +181,7 @@ export interface MarkedStageInput {
   sessionId?: string | null;
   sessionSource?: StageSessionSource;
   agent?: string;
+  agentId?: string;
   stage: string;
   phase: MarkedStagePhase;
   artifactPaths?: string[];
@@ -244,7 +245,10 @@ export function recordMarkedStage(projectRoot: string, input: MarkedStageInput):
     }
     if (input.phase === 'start') {
       closeOpenStagesForMarkedStart(projectRoot, input.stage, ctx);
-      startStage(projectRoot, input.stage, ctx);
+      startStage(projectRoot, input.stage, {
+        ...ctx,
+        ...(input.agentId?.trim() ? { agentId: input.agentId.trim() } : {}),
+      });
     } else {
       endStage(projectRoot, input.stage, { artifactPaths: input.artifactPaths ?? [] }, ctx);
     }

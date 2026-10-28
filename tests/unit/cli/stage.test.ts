@@ -141,6 +141,19 @@ describe('paqad-ai stage command', () => {
     expect(rows()).toHaveLength(0);
   });
 
+  it('stamps agent_id from SE_AGENT_ID on a stage_start, and none without it', async () => {
+    vi.stubEnv('SE_AGENT_ID', 'agent-p1');
+    await run('start', 'planning');
+    await run('end', 'planning');
+    vi.stubEnv('SE_AGENT_ID', '  ');
+    await run('start', 'specification');
+    vi.unstubAllEnvs();
+    const starts = rows().filter((r) => r.kind === 'stage_start');
+    expect(starts.find((r) => r.stage === 'planning')?.agent_id).toBe('agent-p1');
+    expect(starts.find((r) => r.stage === 'specification')).not.toHaveProperty('agent_id');
+    expect(rows().find((r) => r.kind === 'stage_end')).not.toHaveProperty('agent_id');
+  });
+
   it('rejects an unknown phase with exit code 1', async () => {
     const errors: string[] = [];
     vi.spyOn(console, 'error').mockImplementation((line: string) => {

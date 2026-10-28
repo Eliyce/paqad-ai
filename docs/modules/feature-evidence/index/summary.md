@@ -841,8 +841,9 @@ obvious from its code, grouped by file.
   defers too. An empty or missing list never means no agent runs: the check also reads the
   change's ledger. The SubagentStart seed hook writes one `started` stage-agent row, and that row
   holds the judgement on every host until something releases it: the stage's `stage_end`, the
-  agent's own stop row, a newer agent of the same stage, a `stage_start` of another stage, or a
-  `record-repair` row written at SessionStart (startup or resume) for agents of the same session
+  agent's own stop row, a newer agent of the same stage, a `stage_start` of another stage that
+  carries no `agent_id` or a different one (`stage start` stamps `agent_id` from `SE_AGENT_ID`, so
+  an agent resumed for the next stage keeps its own hold), or a `record-repair` row written at SessionStart (startup or resume) for agents of the same session
   or of a host process that is gone. No clock releases a ledger hold. Holds seen only in
   `background_tasks` or a live checks marker keep the 30-minute ceiling. A turn end between
   stages (the last stage ended with its artifact, the next has not started) judges nothing and
