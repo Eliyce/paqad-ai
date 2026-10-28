@@ -107,6 +107,15 @@ describe('the HUD mod source', () => {
     expect(hook).not.toContain('let ');
   });
 
+  it('every $.audio.play call writes its clip as an object literal with base64 and mime', () => {
+    const register = sources.find((s) => s.name === 'register.tsx')!.text;
+    const calls = register.match(/\$\.audio\.play\(.*$/gm) ?? [];
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) {
+      expect(call).toMatch(/^\$\.audio\.play\(\{ base64: [^,]+, mime: 'audio\/wav' \}\)/);
+    }
+  });
+
   it('keeps every use of $ inside register.tsx, as the plugin directory reads a mod', () => {
     for (const { name, text } of sources) {
       if (name === 'register.tsx' || name.endsWith('.test.ts')) continue;

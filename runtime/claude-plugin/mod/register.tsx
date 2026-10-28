@@ -18,7 +18,7 @@ import {
   questionTexts,
 } from './ask-evidence';
 import { allGreenKey, bandHeadline, laneMode, layoutBand, spinnerWord } from './band';
-import { chimeClip } from './chime';
+import { chimeBase64 } from './chime';
 import { chipFor, chipLine, paqadCall, type Chip } from './chips';
 import { COMMAND_NAMES, refusalReason, setCommandName, takenLine } from './command-name';
 import {
@@ -298,9 +298,13 @@ function landVerdict($: EngineInterface, verdict: NonNullable<PaqadHudSnapshot['
   try {
     $.ui.toast(verdictToast(verdict));
   } catch {}
+  playChime($);
+}
+
+function playChime($: EngineInterface): void {
   if (!chimeOn) return;
   try {
-    void $.audio.play(chimeClip()).catch(() => {});
+    void $.audio.play({ base64: chimeBase64(), mime: 'audio/wav' }).catch(() => {});
   } catch {}
 }
 
@@ -313,10 +317,7 @@ async function landAllGreen($: EngineInterface, snapshot: PaqadHudSnapshot | nul
   try {
     $.ui.toast(bandHeadline(snapshot, buildBandView(snapshot, await read($, nowAtom))));
   } catch {}
-  if (!chimeOn) return;
-  try {
-    void $.audio.play(chimeClip()).catch(() => {});
-  } catch {}
+  playChime($);
 }
 
 async function beat($: EngineInterface): Promise<void> {

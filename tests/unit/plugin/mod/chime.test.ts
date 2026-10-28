@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  CHIME_MIME,
-  chimeClip,
-  chimeWav,
-  toBase64,
-} from '../../../../runtime/claude-plugin/mod/chime.ts';
+import { chimeBase64, chimeWav, toBase64 } from '../../../../runtime/claude-plugin/mod/chime.ts';
 
 describe('the verdict chime', () => {
   it('is a short mono WAV clip', () => {
@@ -26,8 +21,14 @@ describe('the verdict chime', () => {
       const data = Uint8Array.from(bytes);
       expect(toBase64(data)).toBe(Buffer.from(data).toString('base64'));
     }
-    const clip = chimeClip();
-    expect(clip.mime).toBe(CHIME_MIME);
-    expect(Buffer.from(clip.base64, 'base64').equals(Buffer.from(chimeWav()))).toBe(true);
+  });
+
+  it('is written as base64 bytes of the WAV clip', () => {
+    const base64 = chimeBase64();
+    expect(base64).toBe(toBase64(chimeWav()));
+    const bytes = Buffer.from(base64, 'base64');
+    expect(bytes.subarray(0, 4).toString('latin1')).toBe('RIFF');
+    expect(bytes.subarray(8, 12).toString('latin1')).toBe('WAVE');
+    expect(bytes.equals(Buffer.from(chimeWav()))).toBe(true);
   });
 });

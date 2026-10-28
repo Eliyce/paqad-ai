@@ -3239,7 +3239,12 @@ describe('the heartbeat and the chime', () => {
       await $.session.start(START);
       await landVerdictTwice($, world);
       expect(world.played).toHaveLength(1);
-      expect((world.played[0] as { mime: string }).mime).toBe('audio/wav');
+      const clip = world.played[0] as Record<string, unknown>;
+      expect(Object.keys(clip).sort()).toEqual(['base64', 'mime']);
+      expect(typeof clip.base64).toBe('string');
+      expect(clip.mime).toBe('audio/wav');
+      expect(clip).not.toHaveProperty('url');
+      expect(clip).not.toHaveProperty('asset');
       expect(world.spoken).toEqual([]);
     });
   }
